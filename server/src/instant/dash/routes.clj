@@ -1058,6 +1058,13 @@
         _ (permissioned-tx/transact! tx-ctx (:steps r))]
     (response/ok r)))
 
+(defn schema-pull [req]
+  (let [{{app-id :id app-title :title} :app} (req->app-and-user! req)
+        current-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
+        current-schema (attrs->schema current-attrs)
+        r {:schema current-schema :app-title app-title}]
+    (response/ok r)))
+
 (comment
   (def counters-app-id  #uuid "137ace7a-efdd-490f-b0dc-a3c73a14f892")
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
@@ -1175,6 +1182,7 @@
 
   (POST "/dash/apps/:app_id/schema/push/plan" [] schema-push-plan-post)
   (POST "/dash/apps/:app_id/schema/push/apply" [] schema-push-apply-post)
+  (GET "/dash/apps/:app_id/schema/pull" [] schema-pull)
 
   (GET "/dash/ws_playground" [] ws-playground-get)
 

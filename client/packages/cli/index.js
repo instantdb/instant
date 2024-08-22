@@ -62,6 +62,14 @@ program
   .description("Pushes local instant.perms rules to production.")
   .action(pushPerms);
 
+program
+  .command("pull-schema")
+  .argument("<name>")
+  .description(
+    "Generates an initial instant.schema defintion from production state.",
+  )
+  .action(pullSchema);
+
 const options = program.opts();
 program.parse(process.argv);
 
@@ -90,10 +98,7 @@ async function init() {
     return;
   }
 
-  const pkgJson = await readJson(join(pkgDir, "package.json"));
-  const instantModuleName = pkgJson?.dependencies?.["@instantdb/react"]
-    ? "@instantdb/react"
-    : "@instantdb/core";
+  const instantModuleName = await getInstantModuleName(pkgDir);
 
   const schema = await readLocalSchema();
   const { perms } = await readLocalPerms();
@@ -163,6 +168,92 @@ async function init() {
       "utf-8",
     );
   }
+}
+
+async function getInstantModuleName(pkgDir) {
+  const pkgJson = await readJson(join(pkgDir, "package.json"));
+  const instantModuleName = pkgJson?.dependencies?.["@instantdb/react"]
+    ? "@instantdb/react"
+    : "@instantdb/core";
+  return instantModuleName;
+}
+
+async function pullSchema(appId) {
+  const pkgDir = await packageDirectory();
+  if (!pkgDir) {
+    console.error("Failed to locate app root dir.");
+    return;
+  }
+
+  const instantModuleName = await getInstantModuleName(pkgDir);
+
+  const authToken = await readConfigAuthToken();
+  if (!authToken) {
+    console.error("Unauthenticated.  Please log in with `login`!");
+    return;
+  }
+
+  if (!appId) {
+    console.error("Missing app ID");
+    return;
+  }
+
+  const pullRes = await fetch(
+    `${instantBackendOrigin}/dash/apps/${appId}/schema/pull`,
+    {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (verbose) {
+    console.log("Pull response:", pullRes.status, pullRes.statusText);
+  }
+
+  if (!pullRes.ok) {
+    console.error("Failed to pull schema");
+    return;
+  }
+
+  const pullResData = await pullRes.json();
+
+  if (verbose) {
+    console.log(pullResData);
+  }
+
+  console.log();
+
+  if (
+    !countEntities(pullResData.schema.refs) &&
+    !countEntities(pullResData.schema.blobs)
+  ) {
+    console.log("Schema is empty.  Exiting.");
+    return;
+  }
+
+  if (await exists(join(pkgDir, "instant.schema.ts"))) {
+    const ok = await promptOk(
+      "This will ovwerwrite your local instant.schema file, OK to proceed?",
+    );
+
+    if (!ok) {
+      return;
+    }
+  }
+
+  const schemaPath = join(pkgDir, "instant.schema.ts");
+  await writeFile(
+    schemaPath,
+    generateSchemaTypescriptFile(
+      appId,
+      pullResData.schema,
+      pullResData["app-title"],
+      instantModuleName,
+    ),
+    "utf-8",
+  );
 }
 
 async function pushSchema() {
@@ -499,6 +590,32 @@ function readReqBody(incomingMessage) {
   });
 }
 
+function countEntities(o) {
+  return Object.keys(o).length;
+}
+
+function sortedEntries(o) {
+  return Object.entries(o).sort(([a], [b]) => a.localeCompare(b));
+}
+
+function capitalizeFirstLetter(string) {
+  return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+function indentLines(s, n) {
+  return s
+    .split("\n")
+    .map((c) => `${"  ".repeat(n)}${c}`)
+    .join("\n");
+}
+
+export const rels = {
+  "many-false": ["many", "many"],
+  "one-true": ["one", "one"],
+  "many-true": ["many", "one"],
+  "one-false": ["one", "many"],
+};
+
 // templates
 
 function appDashUrl(id) {
@@ -592,3 +709,76 @@ const examplePermsTmpl = /* ts */ `export default {
   },
 };
 `;
+
+function generateSchemaTypescriptFile(id, schema, title, instantModuleName) {
+  const entitiesEntriesCode = sortedEntries(schema.blobs)
+    .map(([name, attrs]) => {
+      // a block of code for each entity
+      return [
+        `  `,
+        `"${name}"`,
+        `: `,
+        `i.entity`,
+        `({`,
+        `\n`,
+        // a line of code for each attribute in the entity
+        sortedEntries(attrs)
+          .map(([name, config]) => {
+            return [
+              `    `,
+              `"${name}"`,
+              `: `,
+              `i.any()`,
+              config["unique?"] ? ".unique()" : "",
+              config["index?"] ? ".indexed()" : "",
+              `,`,
+            ].join("");
+          })
+          .join("\n"),
+        `\n`,
+        `  `,
+        `})`,
+        `,`,
+      ].join("");
+    })
+    .join("\n");
+
+  const entitiesObjCode = `{\n${entitiesEntriesCode}\n}`;
+
+  const linksEntriesCode = Object.fromEntries(
+    sortedEntries(schema.refs).map(([name, config]) => {
+      const [, fe, flabel] = config["forward-identity"];
+      const [, re, rlabel] = config["reverse-identity"];
+      const [fhas, rhas] = rels[`${config.cardinality}-${config["unique?"]}`];
+      return [
+        `${fe}${capitalizeFirstLetter(flabel)}`,
+        {
+          forward: {
+            on: fe,
+            has: fhas,
+            label: flabel,
+          },
+          reverse: {
+            on: re,
+            has: rhas,
+            label: rlabel,
+          },
+        },
+      ];
+    }),
+  );
+
+  return `// ${title}
+// ${appDashUrl(id)}
+
+import { i } from "${instantModuleName ?? "@instantdb/core"}";
+
+const INSTANT_APP_ID = "${id}";
+
+export const graph = i.graph(
+  INSTANT_APP_ID,
+${indentLines(entitiesObjCode, 1)},
+${indentLines(JSON.stringify(linksEntriesCode, null, "  "), 1)}
+);
+`;
+}
