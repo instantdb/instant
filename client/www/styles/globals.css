@@ -1,0 +1,169 @@
+@font-face {
+  font-family: 'Berk Mono';
+  font-weight: normal;
+  font-style: normal;
+  font-stretch: normal;
+  src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Regular.woff2')
+    format('woff2');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Berk Mono';
+  font-weight: normal;
+  font-style: italic;
+  font-stretch: normal;
+  src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Italic.woff2')
+    format('woff2');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Berk Mono';
+  font-weight: bold;
+  font-style: normal;
+  font-stretch: normal;
+  src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-Bold.woff2')
+    format('woff2');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Berk Mono';
+  font-weight: normal;
+  font-style: italic;
+  font-stretch: normal;
+  src: url('https://stopaio.s3.amazonaws.com/public/BerkeleyMono-BoldItalic.woff2')
+    format('woff2');
+  font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+  }
+}
+
+html {
+  height: 100%;
+}
+
+body,
+#__next {
+  height: 100%;
+}
+
+.animate-slow-pulse {
+  animation: slow-pulse 8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes slow-pulse {
+  0%,
+  100% {
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+.bg-blue-1000 {
+  background-color: #070b1b;
+}
+
+@supports (-webkit-touch-callout: none) {
+  .h-screen {
+    height: -webkit-fill-available;
+  }
+}
+
+.hiddenscrollbar {
+  -ms-overflow-style: none;
+  /* Internet Explorer 10+ */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+.hiddenscrollbar::-webkit-scrollbar {
+  display: none;
+  /* Safari and Chrome */
+}
+
+@keyframes partyTime {
+  0% {
+    transform: scale(0) translateY(0px);
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1) translateY(30vh);
+    opacity: 0;
+  }
+}
+
+.dots {
+  background-image: radial-gradient(rgb(220, 220, 220) 16%, transparent 16%);
+  background-position: 0px 0px;
+  background-size: 11px 11px;
+  background-color: rgb(255, 255, 255);
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0%);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+
+  50% {
+    transform: translateY(-25%);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+@keyframes wiggle {
+  10% {
+    transform: rotate(0deg);
+  }
+
+  13% {
+    transform: rotate(3deg);
+  }
+
+  16% {
+    transform: rotate(-3deg);
+  }
+
+  19% {
+    transform: rotate(0deg);
+  }
+}
+
+/* Docsearch overrides */
+/* ----------- */
+input#docsearch-input {
+  box-shadow: none !important;
+}
+
+/* Default is row-reverse, but we want to start from the left */
+.DocSearch-Footer {
+  flex-direction: row !important;
+}

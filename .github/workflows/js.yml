@@ -1,0 +1,114 @@
+# From https://turbo.build/repo/docs/ci/github-actions
+name: JS CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  build:
+    name: Build & Test packages
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Cache turbo build setup
+        uses: actions/cache@v4
+        with:
+          path: client/.turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      - name: Enable corepack
+        working-directory: client
+        run: corepack enable
+
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: client
+
+      - name: Install dependencies
+        working-directory: client
+        run: pnpm i
+
+      - name: Build packages
+        working-directory: client
+        run: pnpm run build-packages
+
+      - name: Run tests
+        working-directory: client
+        run: pnpm run test
+
+  detect_docs:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      did_change: ${{ steps.detect-change.outputs.did_change }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 0 }}
+    - name: Get changed files
+      id: changed-files
+      run: |
+        if ${{ github.event_name == 'pull_request' }}; then
+            echo "changed_files=$(git diff --name-only -r HEAD^1 HEAD | xargs)" >> $GITHUB_OUTPUT
+        else
+            echo "changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | xargs)" >> $GITHUB_OUTPUT
+        fi
+    - name: Detect docs changes
+      id: detect-change
+      run: |
+        changeArr=($(echo ${{ steps.changed-files.outputs.changed_files }}))
+        echo "did_change=False" >> $GITHUB_OUTPUT
+        for file in ${changeArr[*]}
+        do
+          if echo $file | grep -E 'docs'; then
+            echo "did_change=True" >> $GITHUB_OUTPUT
+            break
+          fi
+        done
+
+  publish:
+    name: Publish algolia changes
+    runs-on: ubuntu-latest
+    needs: [ build, detect_docs ]
+    if: needs.detect_docs.outputs.did_change == 'True'
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Cache turbo build setup
+      uses: actions/cache@v4
+      with:
+        path: client/.turbo
+        key: ${{ runner.os }}-turbo-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-turbo-
+    - name: Enable corepack
+      working-directory: client
+      run: corepack enable
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: 'pnpm'
+        cache-dependency-path: client
+    - name: Install dependencies
+      working-directory: 'client'
+      run: pnpm i
+    - name: Reindex Algolia
+      env:
+        ALGOLIA_API_KEY: ${{ secrets.ALGOLIA_API_KEY }}
+      working-directory: 'client'
+      run: node ./www/scripts/index-docs.mjs

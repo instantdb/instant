@@ -1,0 +1,2 @@
+{:aead-keyset {:encrypted? false
+               :json "{\"primaryKeyId\":1165732053,\"key\":[{\"keyData\":{\"typeUrl\":\"type.googleapis.com/google.crypto.tink.AesGcmKey\",\"value\":\"GhBhFBF+w6HyDFJxNF0R50Pt\",\"keyMaterialType\":\"SYMMETRIC\"},\"status\":\"ENABLED\",\"keyId\":1165732053,\"outputPrefixType\":\"TINK\"}]}"}}

@@ -1,0 +1,13 @@
+DROP TABLE instant_user_outreaches;
+DROP TABLE instant_user_refresh_tokens;
+DROP TABLE instant_user_magic_codes;
+DROP TABLE app_user_refresh_tokens;
+DROP TABLE app_user_magic_codes;
+DROP TABLE app_users;
+DROP TABLE triples;
+DROP TABLE attrs;
+DROP TABLE idents;
+DROP TABLE deprecated_triples;
+DROP TABLE deprecated_transaction_counters;
+DROP TABLE apps;
+DROP TABLE instant_users;

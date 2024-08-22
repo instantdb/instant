@@ -1,0 +1,30 @@
+name: elasticbeanstalk
+description: Publish artifacts to elasticbeanstalk
+author: dwwoelfel
+
+# Define your inputs here.
+inputs:
+  working-directory:
+    description: The working directory
+    required: true
+  files:
+    description: JSON-encoded list of files that should be included in the bundle
+    required: true
+  aws-region:
+    required: true
+  bucket:
+    description: The bucket that the elastic beanstalk zip files get uploaded to
+    required: true
+  application-name:
+    description: The name of the elasticbeanstalk application
+    required: true
+  
+
+# Define your outputs here.
+outputs:
+  version:
+    description: The application version that was created
+
+runs:
+  using: node20
+  main: bin/index.js

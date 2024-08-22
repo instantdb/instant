@@ -1,0 +1,28 @@
+{:aead-keyset
+ {:encrypted? true
+  :kms-key-url "aws-kms://arn:aws:kms:us-east-1:597134865416:key/mrk-e64dfe83b1464bbdbc20f23e652ad2a5"
+  :json "{\"encryptedKeyset\":\"AQICAHhpp/gyLqbSj/AUco4gftFgpQ99AbOx+UEx1DTG6st//AEo4vglNKoc4LuBNjBynmbfAAAAvjCBuwYJKoZIhvcNAQcGoIGtMIGqAgEAMIGkBgkqhkiG9w0BBwEwHgYJYIZIAWUDBAEuMBEEDHn+jxbiryyyZllSMAIBEIB35TfcJBGvjcRX981bPqitGbtvr3tzwspxaToCIODROchuq9l13OWjDk9o2p1bPG+96tLUqZiTjnOCLHuLTd1AUkysLZNHN/3l0iOzCgt0mERceOjEYbmf1oxg3+WoiuT/QrR9RjUntNGPo9zptebTRofUsijOEQo=\",\"keysetInfo\":{\"primaryKeyId\":1976565746,\"keyInfo\":[{\"typeUrl\":\"type.googleapis.com/google.crypto.tink.AesGcmKey\",\"status\":\"ENABLED\",\"keyId\":1976565746,\"outputPrefixType\":\"TINK\"}]}}"}
+
+ :hybrid-keyset
+ {:kms-key-url "aws-kms://arn:aws:kms:us-east-1:597134865416:key/mrk-e64dfe83b1464bbdbc20f23e652ad2a5"
+  :json "{\"encryptedKeyset\":\"AQICAHhpp/gyLqbSj/AUco4gftFgpQ99AbOx+UEx1DTG6st//AFoN+9a7FNl1rjvox4RwL97AAABAjCB/wYJKoZIhvcNAQcGoIHxMIHuAgEAMIHoBgkqhkiG9w0BBwEwHgYJYIZIAWUDBAEuMBEEDN1Uv+fy9Ru9r+3mTQIBEICBur72urR4FwbzDJ9IVe3q8Uv/uqpoBRTj3CsQnlHk4U97MjLf1W3oYVE2jdM0WOpLdvWhZfdWTcPhpgonP6CyyoHspFZ8MC8LrSheC8AVX6CRBEQSbNLiJ11Mbcjq6MHgH9pwxZAgmWdY7MJgmOqJw6+VA9otMG2LA4ssnIypuqewdLHWHdhp1EQNmfF5dKxcLe+OL/ee9GLfokI+AP/a91DeBHFo+32Co1ECjEd9CHIK/f3AhCVPtPvF2A==\",\"keysetInfo\":{\"primaryKeyId\":1349240052,\"keyInfo\":[{\"typeUrl\":\"type.googleapis.com/google.crypto.tink.HpkePrivateKey\",\"status\":\"ENABLED\",\"keyId\":1349240052,\"outputPrefixType\":\"TINK\"}]}}"
+  :public-key-json "{\"primaryKeyId\":1349240052,\"key\":[{\"keyData\":{\"typeUrl\":\"type.googleapis.com/google.crypto.tink.HpkePublicKey\",\"value\":\"EgYIARABGAIaIML+zPIaSSQvRzuOODD1ZKz/9QWHXj3Y/+A5btFCwxpz\",\"keyMaterialType\":\"ASYMMETRIC_PUBLIC\"},\"status\":\"ENABLED\",\"keyId\":1349240052,\"outputPrefixType\":\"TINK\"}]}"}
+
+ :postmark-token {:enc "01506bc4f4f166d70857fd4d420ef1405c0b2d5a30cabaf073b1aa608d3618f4faca8bc168b7495f9175509e06dfa7d52f48ba76408cd346e562cab0afb1cf1b040caf358a3025fa37a450c6a6a387ddc463049d0f2b41031d"}
+
+ :postmark-account-token {:enc "01506bc4f4c67e78161ce519cf3bf14272614d38a7931e5606406e59a488084f42449f2401c89976d49d0d9d8c72745ac1991bb9d9c30f302067514a92491639fedc74aa34fb92508359255853d114a7b5f3f8fb3a3e6355de"}
+
+ :secret-discord-token {:enc "01506bc4f4c04ec83377473cfa47cfa0aaf986ad1d1876dfa88f7f2d7738110167ac828d6be46aeca240f2d6c023ea7fe993a58e7eb9cac3afb9e75c65d3c936e388fd0c29fb7f0f6fc8413d12e8cc4ef5b7a2d464a6ae1658119bd3574288e0e872d3bbf7c6c4eb198abbdadd1cfb3b0e6dac00fe681041bacb0d985d"}
+
+ :stripe-secret {:enc "01506bc4f4a2f601a07bb7b25850aec249e78cd545b2d642d8755a1a38f4cb2e130a1f7537d06d09ddfbccbcbee38f87aa24f46db7753b52da1b85a470cf92d3aff13e86a516f1434763854ba34034dc5ff08f7d0a30fd6aac2ee1a1e404cd398e14b291a2356a79d0da0e5b2c2c1a7192b2dd326724584fdeb01b95f6b6e9ce75c7f1dd4f2a7deb4a829f7518fcf879711f0b982509372ef724021ea60e3e56"}
+
+ :stripe-webhook-secret {:enc "01506bc4f49abc614d44f3cd5cfd0a5fdd1964efd65bae3313cafec8f5e8e0a6d24b659a19cbff60242e5c5fa8f85bd27038359afc9c876857874573abbf8218dfa6a0487e8f6e637c84c12fc580314939d5cf8cc2f08c4919cab7"}
+
+ :honeycomb-api-key {:enc "01506bc4f49cf20cb7db20de58dffb6bbf6bd227dcf85625929771783a2dcd3b5912a34538f8bea17b204b6ec7dab2a5cd0503299c85bbb58f42bb6eff8bca642926915d5ff825e0279f99"}
+
+ :google-oauth-client {:client-id "785415128641-a5pmq866egf7ti8chk7n7d6d2p4jlugh.apps.googleusercontent.com"
+                       :client-secret {:enc "01506bc4f4f8f5f114114ba43d0c359bb6ec7b605bdd393ec5b3c2d0aabbce3766f2bc0b6ebdddac6d6de0cca580bd1384addbe6b2d800a0646c2939a94840f7a072473c4d592ad29b26a316655180f9423c4f7d386223df"}}
+
+ :database-url {:enc "01506bc4f4b38095998d845e6a1a2b261db1d23fc439a296f556336afd4066126dd608e77666efcbd018e8d63064e80ce82d53e2826e1efab8388dd8467f7808f7d27183934e49744a2f2740e6fe00fd73af7d834263dba4df41be603afead875c639da200378a5d2bf7c695f803475eb41b1036052335a75f58629d49f6f68505ea8fb5880538349f13cf608c8619b7d59116e7bfaefc14cabe412aa71507ebe8dc22c1f81abd5a5e17e35a36f0bb079e8efee546e99540eb3f8c15882c335843"}
+
+ :instant-config-app-id #uuid "24a4d71b-7bb2-4630-9aee-01146af26239"}
