@@ -150,8 +150,8 @@ jobs:
 
   publish:
     runs-on: ubuntu-latest
-    # needs: [ clj-check ]
-    # if: github.ref == 'refs/heads/main'
+    needs: [ clj-check ]
+    if: github.ref == 'refs/heads/main'
     permissions:
       id-token: write
       contents: read
