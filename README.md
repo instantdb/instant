@@ -63,7 +63,7 @@ To make things worse, whenever you add a new feature, you go through the same so
 
 Could it be better?
 
-In 2021, **we realized that most of the schleps we face as UI engineers are actually database problems problems in disguise.** (We got into greater detail [in this essay](https://instantdb.com/essays/next_firebase))
+In 2021, **we realized that most of the schleps we face as UI engineers are actually database problems in disguise.** (We got into greater detail [in this essay](https://instantdb.com/essays/next_firebase))
 
 <p align="center">
   <a href="#">
