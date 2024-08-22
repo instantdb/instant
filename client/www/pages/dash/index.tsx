@@ -767,7 +767,7 @@ function Nav({
             }))}
         />
       </div>
-      <div className="p-2 border-t bg-gray-50 hidden">
+      <div className="p-2 border-t bg-gray-50">
         <Button
           className="w-full"
           size="mini"
