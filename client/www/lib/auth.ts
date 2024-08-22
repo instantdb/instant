@@ -177,7 +177,22 @@ export async function verifyMagicCode({
   return res;
 }
 
-export function signOut() {
+export async function signOut() {
+  try {
+    const token = _AUTH_INFO.token;
+    if (token) {
+      await jsonFetch(`${config.apiURI}/dash/signout`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({}),
+      });
+    }
+  } catch (e) {
+    console.error('Error signing out', e);
+  }
   change(undefined);
 }
 

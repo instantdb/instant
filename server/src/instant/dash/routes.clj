@@ -1109,6 +1109,12 @@
       :on-error (fn [_]
                   (tracer/record-info! {:name  "ws-play/on-error" :attributes {:id id}}))}}))
 
+(defn signout [req]
+  (let [_user (req->auth-user! req) ;; just calling this for the error handling
+        token (http-util/req->bearer-token! req)]
+    (instant-user-refresh-token-model/delete-by-id! {:id token})
+    (response/ok {})))
+
 (defroutes routes
   (POST "/dash/auth/send_magic_code" [] send-magic-code-post)
   (POST "/dash/auth/verify_magic_code" [] verify-magic-code-post)
@@ -1170,4 +1176,6 @@
   (POST "/dash/apps/:app_id/schema/push/plan" [] schema-push-plan-post)
   (POST "/dash/apps/:app_id/schema/push/apply" [] schema-push-apply-post)
 
-  (GET "/dash/ws_playground" [] ws-playground-get))
+  (GET "/dash/ws_playground" [] ws-playground-get)
+
+  (POST "/dash/signout" [] signout))
