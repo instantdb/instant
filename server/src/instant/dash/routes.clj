@@ -1110,7 +1110,7 @@
                   (tracer/record-info! {:name  "ws-play/on-error" :attributes {:id id}}))}}))
 
 (defn signout [req]
-  (let [user (req->auth-user! req)
+  (let [_user (req->auth-user! req) ;; just calling this for the error handling
         token (http-util/req->bearer-token! req)]
     (instant-user-refresh-token-model/delete-by-id! {:id token})
     (response/ok {})))
