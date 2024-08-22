@@ -12,7 +12,9 @@
     href="https://discord.com/invite/VU53p7uQcE" >
     <img height=20 src="https://img.shields.io/discord/1031957483243188235" />
   </a>
-  <img src="https://img.shields.io/github/stars/instantdb/instant" alt="stars">
+  <a href="#">
+    <img src="https://img.shields.io/github/stars/instantdb/instant" alt="stars">
+  </a>
 </p>
 
 <p align="center">
