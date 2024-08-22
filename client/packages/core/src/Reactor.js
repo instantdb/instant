@@ -1050,7 +1050,19 @@ export default class Reactor {
     this.changeCurrentUser(res.user);
   }
 
-  signOut() {
+  async signOut() {
+    const currentUser = await this.getCurrentUser();
+    const refreshToken = currentUser?.user?.refresh_token;
+    if (refreshToken) {
+      try {
+        await authAPI.signOut({
+          apiURI: this.config.apiURI,
+          appId: this.config.appId,
+          refreshToken,
+        });
+      } catch (e) {}
+    }
+
     this.changeCurrentUser(null);
   }
 

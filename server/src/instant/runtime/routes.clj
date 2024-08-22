@@ -34,8 +34,10 @@
 ;; ws
 
 (defn session-get [_req]
-  (session/undertow-config
-   rs/store-conn eph/ephemeral-store-atom session/receive-q {:id (UUID/randomUUID)}))
+  (session/undertow-config rs/store-conn
+                           eph/ephemeral-store-atom
+                           session/receive-q
+                           {:id (UUID/randomUUID)}))
 
 ;; -----------
 ;; Magic codes
@@ -187,6 +189,11 @@
         user (app-user-model/get-by-refresh-token!
               {:app-id app-id :refresh-token refresh-token})]
     (response/ok {:user (assoc user :refresh_token refresh-token)})))
+
+(defn signout-post [req]
+  (let [refresh-token (ex/get-param! req [:body :refresh_token] uuid-util/coerce)]
+    (app-user-refresh-token-model/delete-by-id! {:id refresh-token})
+    (response/ok {})))
 
 ;; -----
 ;; OAuth
@@ -472,4 +479,5 @@
   (POST "/runtime/:app_id/oauth/token" [] oauth-token-callback)
   (POST "/runtime/oauth/id_token" [] oauth-id-token-callback)
   (GET "/runtime/session" [] session-get)
+  (POST "/runtime/signout" [] signout-post)
   (GET "/runtime/:app_id/.well-known/openid-configuration" [] openid-configuration-get))
