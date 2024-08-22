@@ -81,3 +81,23 @@ export async function signInWithIdToken({
   });
   return res;
 }
+
+/**
+ * @param {Object} params
+ * @param {string} params.apiURI
+ * @param {string} params.appId
+ * @param {string} params.refreshToken
+ */
+export async function signOut({ apiURI, appId, refreshToken }) {
+  const res = await jsonFetch(`${apiURI}/runtime/signout`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      app_id: appId,
+      refresh_token: refreshToken,
+    }),
+  });
+  return res;
+}
