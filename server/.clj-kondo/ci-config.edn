@@ -1,0 +1,1 @@
+{:output {:pattern "::{{level}} file=server/{{filename}},line={{row}},col={{col}}::{{message}}\n{{filename}}:{{row}}:{{col}}: {{level}}: {{message}}"}}

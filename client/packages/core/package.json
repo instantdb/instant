@@ -1,0 +1,38 @@
+{
+  "name": "@instantdb/core",
+  "version": "0.12.6",
+  "description": "Instant's core local abstraction",
+  "main": "dist/index.js",
+  "module": "dist/module/index.js",
+  "types": "dist/module/index.d.ts",
+  "unpkg": "dist/index.js",
+  "scripts": {
+    "test": "vitest",
+    "test:ci": "vitest run",
+    "build": "rm -rf dist; npm run build:main && npm run build:module",
+    "dev:main": "tsc -p tsconfig.json -w --skipLibCheck",
+    "dev:module": "tsc -p tsconfig.module.json -w --skipLibCheck",
+    "dev": "run-p dev:main dev:module",
+    "build:main": "tsc -p tsconfig.json",
+    "build:module": "tsc -p tsconfig.module.json",
+    "publish-package": "npm publish --access public"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.17.9",
+    "@babel/preset-env": "^7.16.11",
+    "@types/lodash": "^4.14.182",
+    "@types/node": "^18.11.18",
+    "@types/object-hash": "^3.0.3",
+    "@types/uuid": "^8.3.4",
+    "@types/websocket": "^1.0.5",
+    "fake-indexeddb": "^6.0.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.5.4",
+    "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "immer": "9.0.14",
+    "object-hash": "^3.0.0",
+    "uuid": "^9.0.0"
+  }
+}

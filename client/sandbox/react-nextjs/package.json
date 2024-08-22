@@ -1,0 +1,31 @@
+{
+  "name": "sandbox-nextjs",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 4000",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@instantdb/admin": "workspace:*",
+    "@instantdb/react": "workspace:*",
+    "@react-oauth/google": "^0.12.1",
+    "date-fns": "^2.29.3",
+    "fast-check": "^3.1.1",
+    "graphviz-react": "^1.2.1",
+    "next": "latest",
+    "react": "18.2.0",
+    "react-beautiful-dnd": "^13.1.1",
+    "react-dom": "18.2.0",
+    "react-transition-group": "^4.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "17.0.35",
+    "@types/react": ">=16",
+    "@types/react-dom": ">=16",
+    "autoprefixer": "^10.4.7",
+    "postcss": "^8.4.14",
+    "tailwindcss": "^3.1.2",
+    "typescript": "5.5.4"
+  }
+}

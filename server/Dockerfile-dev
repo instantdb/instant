@@ -1,0 +1,34 @@
+FROM amazoncorretto:22
+
+WORKDIR /app
+
+RUN yum -y install tar gzip git make
+
+RUN curl -L -O https://github.com/clojure/brew-install/releases/download/1.11.3.1463/linux-install.sh
+
+RUN chmod +x linux-install.sh
+RUN ./linux-install.sh
+
+RUN mkdir gomigrate && cd gomigrate && \
+
+      ARCH=$(uname -m) && \
+      if [ "$ARCH" = "x86_64" ]; then \
+        ARCH="amd64"; \
+      elif [ "$ARCH" = "aarch64" ]; then \
+        ARCH="arm64"; \
+      else \
+        echo "Unsupported architecture: $ARCH"; exit 1; \
+      fi && \
+      curl -vvv -L "https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-$ARCH.tar.gz" | tar xvz && \
+      mv migrate /usr/local/bin && \
+      cd .. && rm -r gomigrate
+
+COPY deps.edn .
+
+RUN clojure -P -M:dev
+RUN clojure -P -M:oss-bootstrap
+
+EXPOSE 8888
+EXPOSE 6005
+
+CMD ["make", "dev-oss"]

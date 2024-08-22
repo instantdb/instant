@@ -1,0 +1,12 @@
+@import 'tailwindcss/base';
+@import './prism.css';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+.bg-prism {
+  background-color: #fff;
+}
+
+.bg-prism-dark {
+  background-color: #eee8e0;
+}

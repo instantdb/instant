@@ -1,0 +1,26 @@
+{:aead-keyset
+ {:encrypted? true
+  :kms-key-url "aws-kms://arn:aws:kms:us-east-1:597134865416:key/mrk-e64dfe83b1464bbdbc20f23e652ad2a5"
+  :json "{\"encryptedKeyset\":\"AQICAHhpp/gyLqbSj/AUco4gftFgpQ99AbOx+UEx1DTG6st//AEo4vglNKoc4LuBNjBynmbfAAAAvjCBuwYJKoZIhvcNAQcGoIGtMIGqAgEAMIGkBgkqhkiG9w0BBwEwHgYJYIZIAWUDBAEuMBEEDHn+jxbiryyyZllSMAIBEIB35TfcJBGvjcRX981bPqitGbtvr3tzwspxaToCIODROchuq9l13OWjDk9o2p1bPG+96tLUqZiTjnOCLHuLTd1AUkysLZNHN/3l0iOzCgt0mERceOjEYbmf1oxg3+WoiuT/QrR9RjUntNGPo9zptebTRofUsijOEQo=\",\"keysetInfo\":{\"primaryKeyId\":1976565746,\"keyInfo\":[{\"typeUrl\":\"type.googleapis.com/google.crypto.tink.AesGcmKey\",\"status\":\"ENABLED\",\"keyId\":1976565746,\"outputPrefixType\":\"TINK\"}]}}"}
+
+ :hybrid-keyset
+ {:kms-key-url "aws-kms://arn:aws:kms:us-east-1:597134865416:key/mrk-e64dfe83b1464bbdbc20f23e652ad2a5"
+  :json "{\"encryptedKeyset\":\"AQICAHhpp/gyLqbSj/AUco4gftFgpQ99AbOx+UEx1DTG6st//AGkXTx5+GQplpY1CB0Ofh/zAAABAjCB/wYJKoZIhvcNAQcGoIHxMIHuAgEAMIHoBgkqhkiG9w0BBwEwHgYJYIZIAWUDBAEuMBEEDEazOfwcJQYLMycv8gIBEICBuj/ddFoWosiu5V/usv/tHg+tsG1DHE5QZSAbihIGtzptpb9lHV1H+H5sLJ3dajeWBDfSkSm7WR7LGbZQbYQEyV7UamkjtWZ1X91inEzbceEph0lvVUyfP4vDTqJ1TwKrTea5vAP/rdZQBCIfk1i+oli9lsCkqsXuFXcTP8ZIUE3lopCKMeezT7KsqRRyMaFkgXg+duTZvOLzMTbwWZh6Xsg/u2Hv4RY15fLhyKRRnraOeaaEsxm58lTfBQ==\",\"keysetInfo\":{\"primaryKeyId\":1980914119,\"keyInfo\":[{\"typeUrl\":\"type.googleapis.com/google.crypto.tink.HpkePrivateKey\",\"status\":\"ENABLED\",\"keyId\":1980914119,\"outputPrefixType\":\"TINK\"}]}}"
+  :public-key-json "{\"primaryKeyId\":1980914119,\"key\":[{\"keyData\":{\"typeUrl\":\"type.googleapis.com/google.crypto.tink.HpkePublicKey\",\"value\":\"EgYIARABGAIaIBRh06KLJyUSH0NhTIfOdcRStRQUNqq2n69jUR5P3CU0\",\"keyMaterialType\":\"ASYMMETRIC_PUBLIC\"},\"status\":\"ENABLED\",\"keyId\":1980914119,\"outputPrefixType\":\"TINK\"}]}"}
+
+ :postmark-token {:enc "01761259c7a2c9e6fe9aaafaaa9ef753dac678962ea02a05c6415a87a3d868934132e06a281d351b1b23f5894b5dbfebc4ef9c02844051de78cc6464d903ee93300d906e62ca815d02062789a846eff55c866b3ff2dfda7079"}
+
+ :postmark-account-token {:enc "01761259c72b84fed42432ed258cd9b6db8dc12a0ede11e85350e54511fc54ca865a4f9c5aa7dc9956af5fad4f0ef07c5cc1f71df646cbf664ec2ad14601d92431153375106c5c038d2235f1743b02ffb695777be5648bbc12"}
+
+ :secret-discord-token {:enc "01761259c79137f51cd90097b9c9dd506f9886bbcbc75bd9c2a791457b18ade6b6fe406e056990b8f139c42310dde37f4a462e62bcfef9ec3c5b067e652caa8349a444de90aa2d661dcacd8ea990fd2322c19f268e1cf4cff51983a23e461ada3e47a9e89ed51c23f4010db4dc2d41ae4fb486897eaa1d41e9ae430be3"}
+
+ :stripe-secret {:enc "01761259c737b550bb4b02e5331b1222ec3a5d8e72ca426e40e80a96a86524956769c5b5416aeaea6ea8f0b1fc8df1b96c244662ba875d03e051b4b75a4f6a83f6eab750f08ae06607f06255b8b465a5ca93e920277106365d8f7ec3b497528b58beb13d118483ee7343a268156b60f39946bb24c6f32c211f6fef1764a663790fdb813ac29356038efdd568e214af22315c9434730ebc965073ea3689e976e5"}
+
+ :stripe-webhook-secret {:enc "01761259c78ed8201b56b4b898143e01b0f3cbb29efb88413d1ba31b8718a01a46d04e2d39b17975b8d5dca5dbd0c4f2f237677d04eb3a76c29661acd202edc4adc39a8906cc080e8cfa2635ced44a885f71f98597352bdb361f6dab134dcd68bedb2a1bb9a7e34c7ece23368c8b6733a96233d278d2419c3c3553"}
+
+ :honeycomb-api-key {:enc "01761259c7c830955312c014ae12a45f3cfde2992cb0aad3535e6c2fedabeb6a4b8b873d5728395a13f280ba3aedcdda33bfeeee3892918a8efe61a2bd09679d0998ffa374c4937d9c7884"}
+
+ :google-oauth-client {:client-id "785415128641-ccl4op4i0h9hfgietklpaqe2jqc4v90r.apps.googleusercontent.com"
+                       :client-secret {:enc "01761259c78cbc49b5e5c07711ab5cc955b8099127b611c2e3bfeeebfa535d3ba22b6a88442972989189cf8d56088f7df454f1fa367a759fbdebab6b43c4ec4288c8e0ba55318841c63c824d155af79d60653d05d9f73ada"}}
+
+ :database-url "jdbc:postgresql://localhost:5432/instant"}

@@ -1,0 +1,112 @@
+import { test } from "vitest";
+
+import { i } from "../../src";
+
+test("runs without exception", () => {
+  const graph = i.graph(
+    "123",
+    {
+      users: i.entity({
+        name: i.string(),
+        email: i.string().indexed().unique(),
+        bio: i.string().optional(),
+        // this is a convenient way to typecheck custom JSON fields
+        // though we should probably have a backend solution for this
+        stuff: i.json<{ custom: string }>(),
+        junk: i.any(),
+      }),
+      posts: i.entity({
+        title: i.string(),
+        body: i.string(),
+      }),
+      comments: i.entity({
+        body: i.string(),
+      }),
+    },
+    {
+      usersPosts: {
+        forward: {
+          on: "users",
+          has: "many",
+          label: "posts",
+        },
+        reverse: {
+          on: "posts",
+          has: "one",
+          label: "author",
+        },
+      },
+      postsComments: {
+        forward: {
+          on: "posts",
+          has: "many",
+          label: "comments",
+        },
+        reverse: {
+          on: "comments",
+          has: "one",
+          label: "post",
+        },
+      },
+      friendships: {
+        forward: {
+          on: "users",
+          has: "many",
+          label: "friends",
+        },
+        reverse: {
+          on: "users",
+          has: "many",
+          label: "_friends",
+        },
+      },
+      referrals: {
+        forward: {
+          on: "users",
+          has: "many",
+          label: "referred",
+        },
+        reverse: {
+          on: "users",
+          has: "one",
+          label: "referrer",
+        },
+      },
+    },
+  );
+
+  const demoQuery = {
+    users: {
+      friends: {
+        _friends: {},
+      },
+      posts: {
+        author: {},
+        comments: {},
+        $first: true,
+      },
+    },
+  };
+
+  type Graph = typeof graph;
+
+  // Explore derived types
+  type Test1 = Graph["entities"]["users"]["links"]["_friends"]["entityName"];
+  type Test2 = Graph["entities"]["users"]["links"]["_friends"]["cardinality"];
+
+  // Demo time!!!  Notice:
+  // - everything is typed
+  // - links are resolved by label, deeply
+  // - only the links that were requested are present in the result
+  // - friends is an array
+  // - bio is optional (because `.optional()`)
+  // - referrer is NOT an array (because cardinality is 'one')
+  // - posts is not an array (because `$first`)
+  const queryResult: DemoQueryResult = null as any;
+  type DemoQueryResult = i.InstaQLQueryResult<
+    Graph["entities"],
+    typeof demoQuery
+  >;
+  queryResult?.users[0].friends[0]._friends[0].bio;
+  queryResult?.users[0].posts.junk;
+});

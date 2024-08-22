@@ -1,0 +1,215 @@
+[
+  {
+    "id": "fb032e43-46c7-48dc-85d8-6ab517c9f1d4",
+    "value-type": "ref",
+    "cardinality": "many",
+    "forward-identity": [
+      "7e408400-5f7d-4682-86f3-07536e1803df",
+      "bookshelves",
+      "books"
+    ],
+    "unique?": false,
+    "index?": false,
+    "reverse-identity": [
+      "af245099-e97b-4e49-a827-fa2e8fdcfbb6",
+      "books",
+      "bookshelves"
+    ]
+  },
+  {
+    "id": "1fcc2b72-02be-405b-918c-8e441f75dcab",
+    "value-type": "ref",
+    "cardinality": "one",
+    "forward-identity": [
+      "a09d83c4-c587-41fd-b660-bd02a2269dfa",
+      "bookshelves",
+      "id"
+    ],
+    "unique?": true,
+    "index?": true,
+    "reverse-identity": [
+      "fa2c2332-106d-4e76-b8a2-c4ce9b45b2e9",
+      "bookshelves",
+      "_id"
+    ]
+  },
+  {
+    "id": "6eebf15a-ed3c-4442-8869-a44a7c85a1be",
+    "value-type": "ref",
+    "cardinality": "one",
+    "forward-identity": ["4ceb593d-8953-4441-81c4-21cc521ef6dd", "books", "id"],
+    "unique?": true,
+    "index?": true,
+    "reverse-identity": ["c6a7e114-6d74-4d25-bbcd-9fe00b16f1a5", "books", "_id"]
+  },
+  {
+    "id": "5a4f5a6d-ba83-4bf0-ae78-27a863300224",
+    "value-type": "ref",
+    "cardinality": "one",
+    "forward-identity": ["ce6155ef-e683-4084-bb5e-18757d30b79f", "users", "id"],
+    "unique?": true,
+    "index?": true,
+    "reverse-identity": ["8ec152fd-48de-471e-be4a-0853bd4143da", "users", "_id"]
+  },
+  {
+    "id": "24749f9e-9308-4457-b298-c4827975d563",
+    "value-type": "ref",
+    "cardinality": "many",
+    "forward-identity": [
+      "f7c11599-b402-4b9e-844c-649be5a1bd40",
+      "users",
+      "bookshelves"
+    ],
+    "unique?": false,
+    "index?": false,
+    "reverse-identity": [
+      "8e9d568f-8d26-4aa6-99f5-05740231760a",
+      "bookshelves",
+      "users"
+    ]
+  },
+  {
+    "id": "f6e940f7-75fd-4aaf-9790-e183174c2abd",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": [
+      "deae96e9-7b44-4fbd-9f35-cffd3893c2b3",
+      "bookshelves",
+      "desc"
+    ],
+    "unique?": false,
+    "index?": false
+  },
+  {
+    "id": "6aa0c9c1-24f3-469d-9f73-e7c2d058f16b",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": [
+      "74a38fb9-ff24-4c0e-9320-c271a04d8289",
+      "users",
+      "fullName"
+    ],
+    "unique?": false,
+    "index?": false
+  },
+  {
+    "id": "ed11294d-cd7d-4f3d-8918-4806c80b8a43",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": [
+      "c1177d1f-d2af-469b-ade3-7132c9d6b06e",
+      "books",
+      "title"
+    ],
+    "unique?": false,
+    "index?": false
+  },
+  {
+    "id": "6a089759-2a2f-4898-9bb8-a7bc9f6f791a",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": [
+      "5075336b-f433-4899-bea4-7180cacfd756",
+      "users",
+      "handle"
+    ],
+    "unique?": true,
+    "index?": true
+  },
+  {
+    "id": "c030a0a6-82cf-455f-9ecd-88c43cd11a4a",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": [
+      "57aa2446-33be-4494-8b76-e75629cdb1ad",
+      "bookshelves",
+      "order"
+    ],
+    "unique?": false,
+    "index?": false
+  },
+  {
+    "id": "820a827c-5ddf-4452-8263-dac7e6a53e56",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": [
+      "213381a7-b960-4e6e-99a5-58bf486ee006",
+      "bookshelves",
+      "name"
+    ],
+    "unique?": false,
+    "index?": false
+  },
+  {
+    "id": "d8b6b232-d081-412b-8a5e-1a43c0b2f7fc",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": [
+      "d6a60c9d-ec87-4951-a05b-6ae27d230a55",
+      "books",
+      "pageCount"
+    ],
+    "unique?": false,
+    "index?": false
+  },
+  {
+    "id": "4edfae63-c83c-418b-9026-dacd13cdd6ac",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": [
+      "e8790a4d-48ef-4f0f-9986-622403591a2e",
+      "books",
+      "thumbnail"
+    ],
+    "unique?": false,
+    "index?": false
+  },
+  {
+    "id": "8f7805e4-6006-4450-b790-600bb382c765",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": [
+      "4e7fb690-0281-4019-ae65-ddeb4d954507",
+      "books",
+      "isbn13"
+    ],
+    "unique?": false,
+    "index?": false
+  },
+  {
+    "id": "20b65ea3-faad-4e80-863e-87468ff7792f",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": [
+      "ee2c25e2-426c-4497-a8ef-f0cdae69f0ef",
+      "users",
+      "email"
+    ],
+    "unique?": true,
+    "index?": true
+  },
+  {
+    "id": "2ffdf0fc-1561-4fc5-96db-2210a41adfa6",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": [
+      "c3ad6196-f879-4d40-b2fd-40308ee9f857",
+      "users",
+      "createdAt"
+    ],
+    "unique?": false,
+    "index?": false
+  },
+  {
+    "id": "275e5c3c-d565-4f5a-b832-4290cc6de915",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": [
+      "227d4bd6-aa9b-4004-ab7d-1b8033191c93",
+      "books",
+      "description"
+    ],
+    "unique?": false,
+    "index?": false
+  }
+]

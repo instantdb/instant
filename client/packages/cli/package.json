@@ -1,0 +1,22 @@
+{
+  "name": "instant-cli",
+  "type": "module",
+  "version": "0.12.6",
+  "description": "Instant's CLI",
+  "scripts": {
+    "publish-package": "npm publish --access public"
+  },
+  "bin": {
+    "instant-cli": "bin/index.js"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^5.3.8",
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "env-paths": "^3.0.0",
+    "inquirer": "^10.1.6",
+    "open": "^10.1.0",
+    "pkg-dir": "^8.0.0",
+    "unconfig": "^0.5.5"
+  }
+}

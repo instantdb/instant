@@ -1,0 +1,145 @@
+{
+  "beaae952-8666-4a69-9f47-6de3a30e243a": {
+    "id": "beaae952-8666-4a69-9f47-6de3a30e243a",
+    "value-type": "ref",
+    "cardinality": "many",
+    "forward-identity": [
+      "a0133dcf-a2a1-4c5c-9362-ec180fa6fa97",
+      "movie",
+      "director"
+    ],
+    "unique?": false,
+    "index?": false,
+    "reverse-identity": [
+      "54072b78-2a08-44fa-a998-51143e37458e",
+      "director",
+      "movie"
+    ]
+  },
+  "3a4914a8-75c1-4a4f-ac6b-6fc4550bb965": {
+    "id": "3a4914a8-75c1-4a4f-ac6b-6fc4550bb965",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": [
+      "9cf13b91-45f7-4d93-8be8-cd53c3623e31",
+      "person",
+      "death"
+    ],
+    "unique?": false,
+    "index?": false
+  },
+  "a5f15acb-93d2-4610-8658-ea997bf9cea5": {
+    "id": "a5f15acb-93d2-4610-8658-ea997bf9cea5",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": [
+      "306d4230-3684-45b8-8abd-b0d8dac0f17a",
+      "person",
+      "born"
+    ],
+    "unique?": false,
+    "index?": false
+  },
+  "7b172c13-80c8-4c7a-9a08-b97308e338dd": {
+    "id": "7b172c13-80c8-4c7a-9a08-b97308e338dd",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": [
+      "cdf8d2ba-d861-4fb0-b9a9-c453106e0c01",
+      "movie",
+      "title"
+    ],
+    "unique?": false,
+    "index?": false
+  },
+  "b8329f39-1027-4b10-bd3c-f28c693cea34": {
+    "id": "b8329f39-1027-4b10-bd3c-f28c693cea34",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": [
+      "063c78a6-0d1e-431d-a22d-f82a58039058",
+      "movie",
+      "year"
+    ],
+    "unique?": false,
+    "index?": false
+  },
+  "82f78206-a8f0-47ed-b055-12a7aeeeb0d8": {
+    "id": "82f78206-a8f0-47ed-b055-12a7aeeeb0d8",
+    "value-type": "ref",
+    "cardinality": "many",
+    "forward-identity": [
+      "6a75794d-e260-4f3e-9f54-c5373915ae34",
+      "movie",
+      "sequel"
+    ],
+    "unique?": false,
+    "index?": false,
+    "reverse-identity": [
+      "f8063a33-54a9-4e78-a6e7-218c3d6787ca",
+      "sequel",
+      "movie"
+    ]
+  },
+  "4a1fc20b-5651-41c2-a8d6-59e86c5acfd4": {
+    "id": "4a1fc20b-5651-41c2-a8d6-59e86c5acfd4",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": [
+      "b0ff0aad-b8dc-4f2f-9bd4-30e859b20c65",
+      "person",
+      "name"
+    ],
+    "unique?": false,
+    "index?": false
+  },
+  "6e46b927-b574-4866-885d-3cb628a93121": {
+    "id": "6e46b927-b574-4866-885d-3cb628a93121",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": ["47611e63-bb55-40c6-811b-e384caba9725", "movie", "id"],
+    "unique?": false,
+    "index?": false
+  },
+  "4c97bb85-c15a-4339-a5e6-85dead431a94": {
+    "id": "4c97bb85-c15a-4339-a5e6-85dead431a94",
+    "value-type": "ref",
+    "cardinality": "many",
+    "forward-identity": [
+      "c5513467-506e-44a1-934f-1d29a73648c1",
+      "movie",
+      "cast"
+    ],
+    "unique?": false,
+    "index?": false,
+    "reverse-identity": [
+      "f75bdd83-0fd5-4a15-853c-e11a8c72f978",
+      "cast",
+      "movie"
+    ]
+  },
+  "5838bcbc-cd26-405e-a07e-af9b235d1bce": {
+    "id": "5838bcbc-cd26-405e-a07e-af9b235d1bce",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": [
+      "323603e0-85d7-4a0d-ab08-c86841292a04",
+      "person",
+      "id"
+    ],
+    "unique?": false,
+    "index?": false
+  },
+  "196d469c-ef26-410c-9d8e-c287e3ad616c": {
+    "id": "196d469c-ef26-410c-9d8e-c287e3ad616c",
+    "value-type": "blob",
+    "cardinality": "one",
+    "forward-identity": [
+      "c8986516-1677-4180-8f06-f01e41b5a7a9",
+      "movie",
+      "trivia"
+    ],
+    "unique?": false,
+    "index?": false
+  }
+}

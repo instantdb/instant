@@ -1,0 +1,91 @@
+{:paths ["src" "resources" "data"]
+ :deps {cheshire/cheshire {:mvn/version "5.10.0"}
+        clj-http/clj-http {:mvn/version "3.12.3"}
+        com.github.seancorfield/next.jdbc {:mvn/version "1.2.796"}
+        compojure/compojure {:mvn/version "1.6.2"}
+        luminus/ring-undertow-adapter {:mvn/version "1.2.8"}
+        metosin/ring-http-response {:mvn/version "0.9.2"}
+        org.clojure/clojure {:mvn/version "1.12.0-alpha5"}
+        org.clojure/core.async {:mvn/version "1.6.673"}
+        org.clojure/tools.logging {:mvn/version "1.3.0"}
+        org.postgresql/postgresql {:mvn/version "42.7.3"}
+        ring-cors/ring-cors {:mvn/version "0.1.13"}
+        ring/ring {:mvn/version "1.8.0"}
+        ring/ring-codec {:mvn/version "1.2.0"}
+        ring/ring-json {:mvn/version "0.5.0"}
+        com.zaxxer/HikariCP {:mvn/version "5.1.0"}
+        ch.qos.logback/logback-classic {:mvn/version "1.5.6"}
+        org.slf4j/slf4j-api {:mvn/version "2.0.13"}
+        cider/cider-nrepl {:mvn/version "0.45.0"}
+        amazonica/amazonica {:mvn/version "0.3.167"}
+
+        org.bouncycastle/bcprov-jdk15on {:mvn/version "1.70"}
+        incanter/incanter {:mvn/version "1.9.3"
+                           :exclusions [bouncycastle/bctsp-jdk14
+                                        postgresql/postgresql]}
+
+        nrepl/nrepl {:mvn/version "0.9.0"}
+        jarohen/chime {:mvn/version "0.3.3"}
+        com.github.seancorfield/honeysql {:mvn/version "2.4.969"}
+        org.clojure/spec.alpha {:mvn/version "0.3.218"}
+        circleci/circleci.test {:mvn/version "0.5.0"}
+        org.clojure/test.check {:mvn/version "1.1.1"}
+        com.github.vertical-blank/sql-formatter {:mvn/version "2.0.3"}
+        pjstadig/humane-test-output {:mvn/version "0.11.0"}
+        com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.3"}
+        org.clj-commons/claypoole {:mvn/version "1.2.2"}
+        io.honeycomb/honeycomb-opentelemetry-sdk {:mvn/version "1.5.2"}
+        dev.cel/cel {:mvn/version "0.5.2"}
+        com.github.steffan-westcott/clj-otel-api {:mvn/version "0.2.4-SNAPSHOT"}
+        com.fasterxml.jackson.core/jackson-core {:mvn/version "2.12.6"}
+        com.google.crypto.tink/tink {:mvn/version "1.12.0"}
+        com.google.crypto.tink/tink-awskms {:mvn/version "1.9.1"}
+        ;; Version required by aws kms library pulled in by tink
+        com.fasterxml.jackson.core/jackson-databind {:mvn/version "2.12.7.2"}
+
+        lambdaisland/uri {:mvn/version "1.19.155"}
+        com.auth0/java-jwt {:mvn/version "4.4.0"}
+        com.auth0/jwks-rsa {:mvn/version "0.22.1"}
+        com.stripe/stripe-java {:mvn/version "25.1.0"}
+        inflections/inflections {:mvn/version "0.14.1"}
+
+        datascript/datascript {:git/url "https://github.com/tonsky/datascript.git"
+                               :sha "d270292ddaee0a9052e73502247798baae31a77f"
+                               ;; Need https://github.com/tonsky/datascript/issues/470
+                               ;; :mvn/version "1.6.5"
+                               }
+
+        djblue/portal {:mvn/version "0.55.1"}
+        dev.weavejester/medley {:mvn/version "1.8.1"}}
+ :aliases {:dev {:extra-deps {refactor-nrepl/refactor-nrepl {:mvn/version "3.10.0"}
+                              criterium/criterium {:mvn/version "0.4.6"}
+                              spec-provider/spec-provider {:mvn/version "0.4.14"}}
+                 :extra-paths ["test" "dev-resources"]
+                 :jvm-opts ["-Djdk.tracePinnedThreads=full"
+                            ;; print stack traces instead of "Full report at ..."
+                            "-Dclojure.main.report=stderr"]}
+           :storm {:extra-deps {com.github.flow-storm/clojure {:mvn/version "1.11.2-4"}
+                                com.github.flow-storm/flow-storm-dbg {:mvn/version "3.14.0"}}
+                   :override-deps {org.clojure/clojure nil}
+                   :jvm-opts ["-Dclojure.storm.instrumentEnable=true"
+                              "-Dclojure.storm.instrumentOnlyPrefixes=instant."]}
+           :build {:deps {io.github.clojure/tools.build {:git/tag "v0.10.3" :git/sha "15ead66"}}
+                   :ns-default build}
+           :run {:main-opts ["-m" "instant.core"]}
+           :test {:extra-paths ["test" "dev-resources"]
+                  :main-opts ["-m" "instant.test-core"]
+                  :jvm-opts ["-Djdk.tracePinnedThreads=full"
+                             ;; print stack traces instead of "Full report at ..."
+                             "-Dclojure.main.report=stderr"]}
+           :retest {:extra-paths ["test" "dev-resources"]
+                    :main-opts ["-m" "circleci.test.retest"]}
+           :repl-connect {:main-opts ["-m" "nrepl.cmdline" "--connect" "--host" "localhost" "--port" "6005"]}
+           :encrypt-secret {:extra-deps {org.clojure/tools.cli {:mvn/version "1.1.230"}}
+                            :exec-fn tasks/encrypt-config-secret}
+           :oss-bootstrap {:extra-deps {org.clojure/tools.cli {:mvn/version "1.1.230"}}
+                           :exec-fn tasks/bootstrap-for-oss
+                           :jvm-opts ["-Dclojure.main.report=stderr"]}
+           :lint {:extra-deps {clj-kondo/clj-kondo {:git/url "https://github.com/clj-kondo/clj-kondo.git"
+                                                    :sha "c0ccff5e9c87c46f85fe705450fce9a49b0ce5e0"}}
+                  :main-opts ["-m" "clj-kondo.main" "--lint" "src"]}}
+ :main-opts ["-m" "instant.core"]}

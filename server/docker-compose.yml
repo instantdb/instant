@@ -1,0 +1,24 @@
+version: '3'
+services:
+  web:
+    image: IMAGE_REPLACE_ME
+    environment:
+      - BEANSTALK_PORT=5000
+      - PRODUCTION=true
+    env_file:
+      - .env
+    ports:
+      - "80:5000"
+      - "6005:6005"
+    command: sh -c 'java $${JAVA_OPTS} -server -jar target/instant-standalone.jar'
+  logdna:
+    image: logdna/logdna-agent:3.8
+    environment:
+      - MZ_INGESTION_KEY=89611186ea52cb24e48a5e44d98d666c
+      - MZ_LOG_DIRS=/var/log
+      - MZ_INCLUSION_RULES=*.log,/var/log/messages
+    env_file: "logdna.env"
+    volumes:
+      - /var/log/eb-engine.log:/var/log/eb-engine.log:ro
+      - /var/log/messages:/var/log/messages:ro
+      - /var/log/eb-docker:/var/log/eb-docker:ro
