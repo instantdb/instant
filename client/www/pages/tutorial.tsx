@@ -317,8 +317,8 @@ function addMessage(text) {
           />
 
           {interactionState.appId !== null &&
-          interactionState.hasAddedTab &&
-          interactionState.hasReloaded ? (
+            interactionState.hasAddedTab &&
+            interactionState.hasReloaded ? (
             <>
               <SimpleContent>
                 <Prose>
@@ -333,6 +333,13 @@ function addMessage(text) {
               </SimpleContent>
               <FullBleedContent>
                 <DiffEditor
+                  language="typescript"
+                  options={{
+                    minimap: { enabled: false },
+                    readOnly: true,
+                    scrollBeyondLastLine: false,
+                    renderSideBySide: width > 840,
+                  }}
                   onMount={(editor, monaco) => {
                     monaco.languages.typescript.typescriptDefaults.setCompilerOptions(
                       {
@@ -401,10 +408,10 @@ function deleteMessage(messageId) {
   db.transact(tx.messages[messageId].delete());
 }
 `}
-                    />
-                    <CodeBlock
-                      language="tsx"
-                      code={`
+                />
+                <CodeBlock
+                  language="tsx"
+                  code={`
 function updateMessage(messageId, newText) {
   db.transact(tx.messages[messageId].update({ text: newText }));
 }
@@ -430,6 +437,13 @@ function updateMessage(messageId, newText) {
               </SimpleContent>
               <FullBleedContent>
                 <DiffEditor
+                  language="typescript"
+                  options={{
+                    minimap: { enabled: false },
+                    readOnly: true,
+                    scrollBeyondLastLine: false,
+                    renderSideBySide: width > 840,
+                  }}
                   onMount={(editor, monaco) => {
                     monaco.languages.typescript.typescriptDefaults.setCompilerOptions(
                       {
@@ -481,15 +495,15 @@ function updateMessage(messageId, newText) {
   );
 }
 `
-                      }
-                    />
-                    <p>
-                      And render this new property in our UI without touching
-                      the backend.
-                    </p>
-                    <CodeBlock
-                      language="tsx"
-                      code={
+                  }
+                />
+                <p>
+                  And render this new property in our UI without touching
+                  the backend.
+                </p>
+                <CodeBlock
+                  language="tsx"
+                  code={
                         /* tsx */ `
 {messages.map((message) => (
   <div key={message.id} className="flex items-center space-x-2">
@@ -509,17 +523,14 @@ function updateMessage(messageId, newText) {
               />
               <SimpleContent>
                 <Prose>
-                  <h1 className="text-center">Offline Mode</h1>
+                  <h1 className='text-center'>Offline Mode</h1>
                   <p>
                     Another benefit of using Instant’s sync engine is the
-                    offline mode capabilities you get for free.{' '}
-                    <strong>
-                      Apps built with Instant continue to work offline.
-                    </strong>{' '}
-                    You can turn off the internet, make some changes, turn the
-                    internet back on, and see all your changes get synced. Try
-                    making changes in different tabs with different network
-                    settings.
+                    offline mode capabilities you get for free. <strong>Apps built with
+                    Instant continue to work offline.</strong> You can turn off the
+                    internet, make some changes, turn the internet back on, and
+                    see all your changes get synced. Try making changes in
+                    different tabs with different network settings.
                   </p>
                 </Prose>
               </SimpleContent>
@@ -633,8 +644,9 @@ function updateMessage(messageId, newText) {
             </>
           ) : null}
         </>
-      ) : null}
-    </div>
+      ) : null
+      }
+    </div >
   );
 }
 
