@@ -7,6 +7,7 @@ import { InstantApp } from '@/lib/types';
 import { jsonFetch } from '@/lib/fetch';
 import { Button, Checkbox, cn, SectionHeading } from '@/components/ui';
 import { TokenContext } from '@/lib/contexts';
+import { successToast } from '@/lib/toast';
 
 type StorageObject = {
   key: string;
@@ -30,6 +31,7 @@ type StorageDirectory = {
   name: string;
   size: number;
   lastModified: number;
+  files: StorageFile[];
 };
 
 async function fetchStorageFiles(
@@ -65,6 +67,26 @@ async function deleteStorageFile(
         'content-type': 'application/json',
         authorization: `Bearer ${token}`,
       },
+    }
+  );
+
+  return data;
+}
+
+async function bulkDeleteFiles(
+  token: string,
+  appId: string,
+  filenames: string[]
+): Promise<any> {
+  const { data } = await jsonFetch(
+    `${config.apiURI}/dash/apps/${appId}/storage/files/delete`,
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ filenames }),
     }
   );
 
@@ -122,6 +144,22 @@ async function upload(
 const formatObjectKey = (file: StorageFile) =>
   [file.path, file.name].filter((str) => !!str).join('/');
 
+function formatFileSize(size: number) {
+  const kb = 1000;
+  const mb = kb * 1000;
+  const gb = mb * 1000;
+
+  if (size < kb) {
+    return `${size}B`;
+  } else if (size < mb) {
+    return `${(size / kb).toFixed(2)}KB`;
+  } else if (size < gb) {
+    return `${(size / mb).toFixed(2)}MB`;
+  } else {
+    return `${(size / gb).toFixed(2)}GB`;
+  }
+}
+
 function useStorageFiles(
   token: string,
   appId: string,
@@ -166,8 +204,8 @@ function useStorageFiles(
 
   useEffect(() => {
     refresh();
-    // Poll for new files every 2s
-    const i = setInterval(() => refresh(), 2000);
+    // Poll for new files every 5s
+    const i = setInterval(() => refresh(), 5000);
 
     return () => clearInterval(i);
   }, [token, appId, subdirectory]);
@@ -195,6 +233,7 @@ function useStorageFiles(
       .map(([name, files]) => {
         return {
           name,
+          files: files,
           size: files.reduce((total, f) => total + f.size, 0),
           lastModified: Math.max(...files.map((f) => f.lastModified)),
         };
@@ -208,6 +247,13 @@ function useStorageFiles(
   return [currentFiles, directories, isLoading, error, refresh];
 }
 
+type SelectedRow =
+  | {
+      type: 'all';
+    }
+  | { type: 'directory'; value: StorageDirectory }
+  | { type: 'file'; value: StorageFile };
+
 export function StorageTab({
   className,
   app,
@@ -217,6 +263,9 @@ export function StorageTab({
 }) {
   const token = useContext(TokenContext);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedRows, setSelectedRows] = useState<Record<string, SelectedRow>>(
+    {}
+  );
   const [subdirectoryPrefix, setSubdirectoryPrefix] = useState<string>('');
   const [
     files = [],
@@ -229,6 +278,7 @@ export function StorageTab({
     '/[root]',
     ...subdirectoryPrefix.split('/').filter((str) => !!str),
   ];
+  const hasSelectedRows = Object.keys(selectedRows).length > 0;
 
   const handleUploadFile = async () => {
     if (selectedFiles.length === 0) {
@@ -243,6 +293,7 @@ export function StorageTab({
     }
 
     await refreshFiles();
+    successToast('Successfully uploaded!');
   };
 
   const handleViewFile = async (file: StorageFile) => {
@@ -261,6 +312,59 @@ export function StorageTab({
 
     await deleteStorageFile(token, app.id, key);
     await refreshFiles();
+  };
+
+  const handleDeleteDirectory = async (directory: StorageDirectory) => {
+    const keys = directory.files.map((f) => formatObjectKey(f));
+
+    if (
+      !confirm(
+        `Are you sure you want to permanently delete ${keys.length} files from ${directory.name}?`
+      )
+    ) {
+      return;
+    }
+
+    await bulkDeleteFiles(token, app.id, keys);
+    await refreshFiles();
+  };
+
+  const getObjectKeysToDelete = () => {
+    if (selectedRows.all) {
+      return directories
+        .flatMap((dir) => dir.files)
+        .concat(files)
+        .map((f) => formatObjectKey(f));
+    } else {
+      const selectedFiles = files.filter((file) => !!selectedRows[file.key]);
+      const selectedDirectories = directories.filter(
+        (dir) => !!selectedRows[dir.name]
+      );
+
+      return selectedDirectories
+        .flatMap((dir) => dir.files)
+        .concat(selectedFiles)
+        .map((f) => formatObjectKey(f));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const keys = getObjectKeysToDelete();
+
+    if (
+      !confirm(
+        `Are you sure you want to permanently delete ${keys.length} ${
+          keys.length === 1 ? 'file' : 'files'
+        }?`
+      )
+    ) {
+      return;
+    }
+
+    await bulkDeleteFiles(token, app.id, keys);
+    await refreshFiles();
+
+    setSelectedRows({});
   };
 
   return (
@@ -316,29 +420,56 @@ export function StorageTab({
         <thead className="sticky top-0 z-20 bg-white text-gray-700 shadow">
           <tr>
             <th className="px-2 py-2" style={{ width: '48px' }}>
-              <Checkbox checked={false} onChange={(checked) => {}} />
+              <Checkbox
+                checked={!!selectedRows.all}
+                onChange={(checked) =>
+                  setSelectedRows((current) => {
+                    if (checked) {
+                      return { ...current, all: { type: 'all' } };
+                    } else {
+                      const { all, ...updated } = current;
+
+                      return { ...updated };
+                    }
+                  })
+                }
+              />
             </th>
-            <th
-              className={cn(
-                'w-full z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1'
-              )}
-            >
-              Name
-            </th>
-            <th
-              className={cn(
-                'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1'
-              )}
-            >
-              Size
-            </th>
-            <th
-              className={cn(
-                'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1'
-              )}
-            >
-              Last modified
-            </th>
+            {hasSelectedRows ? (
+              <th className="px-2 py-1" colSpan={3}>
+                <Button
+                  variant="destructive"
+                  size="nano"
+                  onClick={() => handleBulkDelete()}
+                >
+                  Delete file(s)
+                </Button>
+              </th>
+            ) : (
+              <>
+                <th
+                  className={cn(
+                    'w-full z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1'
+                  )}
+                >
+                  Name
+                </th>
+                <th
+                  className={cn(
+                    'z-10 cursor-pointer select-none text-right whitespace-nowrap px-4 py-1'
+                  )}
+                >
+                  Size
+                </th>
+                <th
+                  className={cn(
+                    'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1'
+                  )}
+                >
+                  Last modified
+                </th>
+              </>
+            )}
             <th
               className={cn(
                 'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1'
@@ -354,7 +485,28 @@ export function StorageTab({
                   className="px-2 py-2 flex gap-2 items-center"
                   style={{ width: '48px' }}
                 >
-                  <Checkbox checked={false} onChange={(checked) => {}} />
+                  <Checkbox
+                    checked={
+                      !!selectedRows[directory.name] || !!selectedRows.all
+                    }
+                    onChange={(checked) => {
+                      setSelectedRows((current) => {
+                        if (checked) {
+                          return {
+                            ...current,
+                            [directory.name]: {
+                              type: 'directory',
+                              value: directory,
+                            },
+                          };
+                        } else {
+                          delete current[directory.name];
+
+                          return { ...current };
+                        }
+                      });
+                    }}
+                  />
                 </td>
                 <td className="w-full relative px-4 py-1">
                   <button
@@ -370,13 +522,36 @@ export function StorageTab({
                     {directory.name.concat('/')}
                   </button>
                 </td>
-                <td className="relative px-4 py-1">
-                  {directory.size / 1000}KB
+                <td className="relative px-4 py-1 text-right">
+                  {formatFileSize(directory.size)}
                 </td>
                 <td className="relative px-4 py-1">
                   {format(new Date(directory.lastModified), 'MMM dd, h:mma')}
                 </td>
-                <td className="relative px-4 py-1"></td>
+                <td className="relative px-4 py-1">
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="secondary"
+                      size="mini"
+                      onClick={() =>
+                        setSubdirectoryPrefix((current) =>
+                          [current, directory.name]
+                            .filter((str) => !!str)
+                            .join('/')
+                        )
+                      }
+                    >
+                      View
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="mini"
+                      onClick={() => handleDeleteDirectory(directory)}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </td>
               </tr>
             );
           })}
@@ -386,10 +561,28 @@ export function StorageTab({
                 className="px-2 py-2 flex gap-2 items-center"
                 style={{ width: '48px' }}
               >
-                <Checkbox checked={false} onChange={(checked) => {}} />
+                <Checkbox
+                  checked={!!selectedRows[file.key] || !!selectedRows.all}
+                  onChange={(checked) => {
+                    setSelectedRows((current) => {
+                      if (checked) {
+                        return {
+                          ...current,
+                          [file.key]: { type: 'file', value: file },
+                        };
+                      } else {
+                        delete current[file.key];
+
+                        return { ...current };
+                      }
+                    });
+                  }}
+                />
               </td>
               <td className="w-full relative px-4 py-1">{file.name}</td>
-              <td className="relative px-4 py-1">{file.size / 1000}KB</td>
+              <td className="relative px-4 py-1 text-right">
+                {formatFileSize(file.size)}
+              </td>
               <td className="relative whitespace-nowrap px-4 py-1">
                 {format(new Date(file.lastModified), 'MMM dd, h:mma')}
               </td>

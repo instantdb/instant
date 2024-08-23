@@ -612,6 +612,16 @@
 
 (def default-subscription "Free")
 
+(defn calculate-storage-usage [app-id]
+  (let [objects-resp (s3-util/list-app-objects app-id)
+        objects (:object-summaries objects-resp)
+        usage (reduce (fn [acc obj] (+ acc (:size obj))) 0 objects)]
+    usage))
+
+(comment
+  (def app-id  #uuid "524bc106-1f0d-44a0-b222-923505264c47")
+  (calculate-storage-usage app-id))
+
 (defn checkout-session-post [req]
   (let [{{app-id :id app-title :title} :app
          {user-id :id user-email :email :as user} :user} (req->app-and-user! req)
@@ -652,10 +662,12 @@
   (let [{{app-id :id} :app {user-id :id} :user} (req->app-and-user! req)
         {subscription-name :name stripe-subscription-id :stripe_subscription_id}
         (instant-subscription-model/get-by-user-app {:user-id user-id :app-id app-id})
-        {total-app-bytes :num_bytes} (app-model/app-usage {:app-id app-id})]
+        {total-app-bytes :num_bytes} (app-model/app-usage {:app-id app-id})
+        total-storage-bytes (calculate-storage-usage app-id)]
     (response/ok {:subscription-name (or subscription-name default-subscription)
                   :stripe-subscription-id stripe-subscription-id
-                  :total-app-bytes total-app-bytes})))
+                  :total-app-bytes total-app-bytes
+                  :total-storage-bytes total-storage-bytes})))
 
 (defn session-counts-get [_req]
   (session-counter/undertow-config))
@@ -849,14 +861,14 @@
 ;; Storage
 
 (defn signed-download-url-get [req]
-  (let [{{app-id :id} :app} (req->app-and-user! req)
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
         expiration (+ (System/currentTimeMillis) (* 1000 60 60 24 7)) ;; 7 days
         object-key (s3-util/->object-key app-id filename)]
     (response/ok {:data (str (s3-util/signed-download-url object-key expiration))})))
 
 (defn signed-upload-url-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user! req)
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         filename (ex/get-param! req [:body :filename] string-util/coerce-non-blank-str)
         object-key (s3-util/->object-key app-id filename)]
     (response/ok {:data (str (s3-util/signed-upload-url object-key))})))
@@ -870,7 +882,7 @@
 
 ;; Retrieves all files that have been uploaded via Storage APIs
 (defn files-get [req]
-  (let [{{app-id :id} :app} (req->app-and-user! req)
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         subdirectory (-> req :params :subdirectory)
         objects-resp (if (string/blank? subdirectory)
                        (s3-util/list-app-objects app-id)
@@ -880,10 +892,18 @@
 
 ;; Deletes a single file by name/path (e.g. "demo.png", "profiles/me.jpg")
 (defn file-delete [req]
-  (let [{{app-id :id} :app} (req->app-and-user! req)
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         filename (-> req :params :filename)
         key (s3-util/->object-key app-id filename)
         resp (s3-util/delete-object key)]
+    (response/ok {:data resp})))
+
+;; Deletes a multiple files by name/path (e.g. "demo.png", "profiles/me.jpg")
+(defn files-delete [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        filenames (-> req :body :filenames)
+        keys (mapv (fn [filename] (s3-util/->object-key app-id filename)) filenames)
+        resp (s3-util/delete-objects keys)]
     (response/ok {:data resp})))
 
 (comment
@@ -1192,7 +1212,8 @@
   (POST "/dash/apps/:app_id/storage/signed-upload-url" [] signed-upload-url-post)
   (GET "/dash/apps/:app_id/storage/signed-download-url", [] signed-download-url-get)
   (GET "/dash/apps/:app_id/storage/files" [] files-get)
-  (DELETE "/dash/apps/:app_id/storage/files" [] file-delete)
+  (DELETE "/dash/apps/:app_id/storage/files" [] file-delete) ;; single delete
+  (POST "/dash/apps/:app_id/storage/files/delete" [] files-delete) ;; bulk delete
 
   (POST "/dash/apps/:app_id/schema/push/plan" [] schema-push-plan-post)
   (POST "/dash/apps/:app_id/schema/push/apply" [] schema-push-apply-post)

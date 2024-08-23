@@ -88,6 +88,7 @@ export type SubscriptionName = 'Free' | 'Pro';
 export type AppsSubscriptionResponse = {
   'subscription-name': SubscriptionName;
   'total-app-bytes': number;
+  'total-storage-bytes': number;
 };
 
 export type DBIdent =
