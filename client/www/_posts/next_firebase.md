@@ -553,7 +553,7 @@ And get back objects:
   teams: [{
     id: 1,
     name: 'Awesome Team',
-    tasks: [{id: 3, title: 'Code', owner: [{id: 1, name: 'Joe'}] }]
+    tasks: [{id: 3, title: 'Code', owner: [{id: 1, name: 'Joe'}]}]
   }]
 }
 ```
