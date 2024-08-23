@@ -1,9 +1,11 @@
 (ns instant.dash.admin
   (:require
+   [honey.sql :as hsql]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [clojure.core :as c]
-   [instant.data.emails :refer [get-emails]]))
+   [instant.data.emails :refer [get-emails]]
+   [instant.stripe :as stripe]))
 
 ;; Fetch our last 50 sign-ups. We want to
 ;; see whether people are finishing sign-up and
@@ -96,5 +98,45 @@
                    ORDER BY week_end DESC"
                 (with-meta (excluded-emails) {:pgtype "text[]"})])))
 
+(defn get-paid
+  ([] (get-paid aurora/conn-pool))
+  ([conn]
+   (let [subscriptions (stripe/subscriptions)]
+     (sql/select conn
+                 (hsql/format
+                  {:with [[[:stripe-subs
+                            {:columns [:subscription-id
+                                       :monthly-revenue
+                                       :start-timestamp]}]
+                           {:values (keep (fn [s]
+                                            (when (pos? (:monthly-revenue s))
+                                              [(:subscription-id s)
+                                               (:monthly-revenue s)
+                                               (:start-timestamp s)]))
+                                          subscriptions)}]]
+                   :select [[:apps.title :app_title]
+                            [:i_users.email :user_email]
+                            :monthly-revenue
+                            :start-timestamp
+                            [{:select [[[:coalesce
+                                         [:*
+                                          [:sum [:pg_column_size :t]]
+                                          [:case
+                                           [:= [:pg_relation_size "triples"] 0] 1
+                                           :else [:/
+                                                  [:pg_total_relation_size "triples"]
+                                                  [:pg_relation_size "triples"]]]]
+                                         0]]]
+                              :from [[:triples :t]]
+                              :where [:= :t.app_id :apps.id]}
+                             :usage]]
+                   :from :stripe-subs
+                   :join [[:instant_subscriptions :i_subs] [:=
+                                                            :stripe-subs.subscription-id
+                                                            :i_subs.stripe-subscription-id]
+                          :apps [:= :i_subs.app_id :apps.id]
+                          [:instant_users :i_users] [:= :i_subs.user_id :i_users.id]]})))))
+
 (comment
-  (get-top-users))
+  (get-top-users)
+  (get-paid))

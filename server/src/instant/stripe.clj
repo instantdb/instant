@@ -10,9 +10,10 @@
    [instant.model.instant-user :as instant-user-model]
    [instant.util.tracer :as tracer]
    [instant.util.exception :as ex])
-  (:import (com.stripe Stripe)
+  (:import (com.stripe Stripe StripeClient)
            (com.stripe.model Event)
-           (com.stripe.net Webhook)))
+           (com.stripe.net RequestOptions Webhook)
+           (com.stripe.param SubscriptionListParams)))
 
 (def FREE_SUBSCRIPTION_TYPE 1)
 (def PRO_SUBSCRIPTION_TYPE 2)
@@ -116,6 +117,60 @@
     (let [clj-event (<-json body-str true)]
       (handle-stripe-webhook-event clj-event)
       (response/ok {:received true}))))
+
+;; Admin Helpers
+
+(defn item-monthly-revenue [item]
+  (let [recurring (-> item
+                      (.getPrice)
+                      (.getRecurring))
+        multiple (* (.getIntervalCount recurring)
+                    (case (.getInterval recurring)
+                      "month" 1
+                      "day" 30
+                      "week" 4.3
+                      "year" (/ 1 12)))
+        price (-> item
+                  (.getPrice)
+                  (.getUnitAmount))]
+    (* multiple price)))
+
+(defn discount-amount [items-revenue discount]
+  (let [amount-off (-> discount
+                       (.getCoupon)
+                       (.getAmountOff)
+                       (or 0))
+        percent-off (-> discount
+                        (.getCoupon)
+                        (.getPercentOff)
+                        (or 0))]
+    (+ amount-off
+       (* percent-off (max 0
+                           (- items-revenue amount-off))))))
+
+(defn format-subscription [subscription]
+  (let [items (.getData (.getItems subscription))
+        items-revenue (reduce + (map item-monthly-revenue items))
+        discount (reduce + (map (partial discount-amount items-revenue)
+                                (.getDiscountObjects subscription)))]
+    {:subscription-id (.getId subscription)
+     :customer-id (.getCustomer subscription)
+     :monthly-revenue (max 0 (- items-revenue discount))
+     :start-timestamp (.getStartDate subscription)}))
+
+(defn subscriptions []
+  (let [params (-> (SubscriptionListParams/builder)
+                   (.addExpand "data.discounts")
+                   (.build))]
+    (-> (StripeClient. (config/stripe-secret))
+        (.subscriptions)
+        (.list params (RequestOptions/getDefault))
+        (.autoPagingIterable)
+        (.iterator)
+        (iterator-seq)
+        (#(map format-subscription %)))))
+
+;; Init
 
 (defn init []
   (if-let [stripe-secret (config/stripe-secret)]
