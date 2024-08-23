@@ -51,13 +51,69 @@ npx instant-cli push-schema
 
 Note, to avoid accidental data loss, `push-schema` does not delete entities or fields you've removed from your schema. You can manually delete them in the [Explorer](https://www.instantdb.com/dash?s=main&t=explorer).
 
+Here's an example `instant.schema.ts` file.
+
+```ts
+import { i } from '@instantdb/core';
+
+const INSTANT_APP_ID = 'YOUR_APP_ID_HERE';
+
+const graph = i.graph(
+  INSTANT_APP_ID,
+  {
+    authors: i.entity({
+      userId: i.string(),
+      name: i.string(),
+    }),
+    posts: i.entity({
+      name: i.string(),
+      content: i.string(),
+    }),
+  },
+  {
+    authorPosts: {
+      forward: {
+        on: 'authors',
+        has: 'many',
+        label: 'posts',
+      },
+      reverse: {
+        on: 'posts',
+        has: 'one',
+        label: 'author',
+      },
+    },
+  }
+);
+
+export default graph;
+```
+
 ### Push perms
 
 ```sh
 npx instant-cli push-schema
 ```
 
-`push-schema` evals your `instant.perms.ts` file and applies it your app's production database. [Read more about permissions](/docs/permissions).
+`push-schema` evals your `instant.perms.ts` file and applies it your app's production database. `instant.perms.ts` should export an object implementing Instant's standard permissions CEL+JSON format. [Read more about permissions in Instant](/docs/permissions).
+
+Here's an example `instant.perms.ts` file.
+
+```ts
+export default {
+  allow: {
+    posts: {
+      bind: ['isAuthor', "auth.id in data.ref('authors.userId')"],
+      allow: {
+        view: 'true',
+        create: 'isAuthor',
+        update: 'isAuthor',
+        delete: 'isAuthor',
+      },
+    },
+  },
+};
+```
 
 ## Migrating from the dashboard
 
