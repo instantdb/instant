@@ -249,8 +249,6 @@ async function pullSchema(appId) {
     console.log(pullResData);
   }
 
-  console.log();
-
   if (
     !countEntities(pullResData.schema.refs) &&
     !countEntities(pullResData.schema.blobs)
@@ -328,8 +326,6 @@ async function pullPerms(_appId) {
   if (verbose) {
     console.log(pullResData);
   }
-
-  console.log();
 
   if (!pullResData.perms || !countEntities(pullResData.perms)) {
     console.log("No perms.  Exiting.");
@@ -423,8 +419,6 @@ async function pushSchema() {
     return;
   }
 
-  console.log();
-
   console.log(
     "The following changes will be applied to your production schema:",
   );
@@ -447,8 +441,6 @@ async function pushSchema() {
       );
     }
   }
-
-  console.log();
 
   const okPush = await promptOk("OK to proceed?");
 
