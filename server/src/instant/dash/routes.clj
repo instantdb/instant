@@ -265,6 +265,11 @@
     (assert-admin-email! email)
     (response/ok {:users (dash-admin/get-top-users)})))
 
+(defn paid-get [req]
+  (let [{:keys [email]} (req->auth-user! req)]
+    (assert-admin-email! email)
+    (response/ok {:subscriptions (dash-admin/get-paid)})))
+
 ;; ---
 ;; Dash
 
@@ -1120,6 +1125,7 @@
   (POST "/dash/auth/verify_magic_code" [] verify-magic-code-post)
   (GET "/dash/admin" [] admin-get)
   (GET "/dash/top" [] top-get)
+  (GET "/dash/paid" [] paid-get)
   (GET "/dash" [] dash-get)
   (POST "/dash/apps" [] apps-post)
   (POST "/dash/profiles" [] profiles-post)
