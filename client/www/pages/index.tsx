@@ -907,24 +907,25 @@ const testimonials = [
 ];
 
 const queryExampleComponentCode = /*js*/ `
-// ༼ つ ◕_◕ ༽つ Real-time Chat
-// ----------------------------------
-// * Updates instantly
-// * Multiplayer
-// * Works offline
+import { init, tx, id } from "@instantdb/react";
+
+const db = init({ 
+  appId: process.env.NEXT_PUBLIC_APP_ID,
+});
+
 function Chat() {
   // 1. Read
-  const { isLoading, error, data } = useQuery({
+  const { isLoading, error, data } = db.useQuery({
     messages: {},
   });
 
   // 2. Write
   const addMessage = (message) => {
-    transact(tx.messages[id()].update(message));
-  }
+    db.transact(tx.messages[id()].update(message));
+  };
 
   // 3. Render!
-  return <UI data={data} onAdd={addMessage} />
+  return <UI data={data} onAdd={addMessage} />;
 }`.trim();
 
 const mutationExampleCode = /*js*/ `async function deleteTodo(id) {
