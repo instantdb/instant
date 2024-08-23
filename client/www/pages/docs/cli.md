@@ -128,6 +128,6 @@ npx instant-cli pull <APP_ID> # pulls both schema and perms
 
 {% callout type="warning" %}
 
-Note: Strongly typed attributes are under active development, so for now, `pull-schema` will default all attribute types to `i.any()`.
+Note: Strongly typed attributes are under active development. For now, `pull-schema` will default all attribute types to `i.any()`.
 
 {% /callout %}
