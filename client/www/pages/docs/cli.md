@@ -115,18 +115,19 @@ export default {
 };
 ```
 
-## Migrating from the dashboard
+### Pull: migrating from the dashboard
 
 If you already created an app in the dashboard and created some schema and
-permissions you can migrate to using the CLI by manually creating `instant.schema.ts` and `instant.perms.ts` files.
-Follow these steps to ensure a smooth transition.
+permissions, you can run `npx instant-cli pull <APP_ID>` to generate an `instant.schema.ts` and `instant.perms.ts` files based on your production configuration.
 
-1. Create a new app from the root of your project with `instant-cli init`. This will create a new app in the dashboard and generate default `instant.schema.ts` and `instant.perms.ts` files.
-2. Replace permissions from the dashboard to your `instant.perms.ts`.
-3. Transcribe your schema from the dashboard to [instant's schema format](/docs/schema). Run `npx instant-cli push-schema` to apply the schema to your new app. Iterate on this until the schema of your new app matches your existing app.
-4. With your schema and permissions in place, you can update the `APP_ID` in `instant.schema.ts` to your existing app.
+```bash
+npx instant-cli pull-schema <APP_ID>
+npx instant-cli pull-perms [APP_ID] # ID optional if there's already an instant.schema.ts
+npx instant-cli pull <APP_ID> # pulls both schema and perms
+```
 
-You can now manage your app via `push-schema` and `push-perms` commands. In the future we will add a more automated migration process.
-We also recommend you stick to the CLI for managing your app going forward to
-keep your configuration in sync with your database (we'll also make this easier
-in the future).
+{% callout type="warning" %}
+
+Note: Strongly typed attributes are under active development, so for now, `pull-schema` will default all attribute types to `i.any()`.
+
+{% /callout %}
