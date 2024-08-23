@@ -145,9 +145,18 @@ function Tutorial({ files }: { files: FilesRecord }) {
               </div>
               <p>
                 With that one-click you’ve claimed an id that you can use for
-                storing your data. Now we'll show you to wire up your db to an
-                app and start adding data. Check out the walkthrough below on
-                your left with the full code and preview on the right
+                storing your data. Now we'll show you how to wire up your db to
+                an app and start adding data.
+                <span className="md:hidden">
+                  {' '}
+                  Check out the walkthrough below, and the full code example
+                  right after.
+                </span>
+                <span className="hidden md:inline">
+                  {' '}
+                  Check out the walkthrough below on your left with the full
+                  code and preview on the right.
+                </span>
               </p>
             </>
           ) : null}
