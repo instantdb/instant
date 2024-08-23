@@ -64,11 +64,27 @@ program
 
 program
   .command("pull-schema")
-  .argument("<name>")
+  .argument("<ID>")
   .description(
     "Generates an initial instant.schema defintion from production state.",
   )
   .action(pullSchema);
+
+program
+  .command("pull-perms")
+  .argument("[ID]")
+  .description(
+    "Generates an initial instant.perms defintion from production rules.",
+  )
+  .action(pullPerms);
+
+program
+  .command("pull")
+  .argument("<ID>")
+  .description(
+    "Generates initial instant.schema and instant.perms defintion from production state.",
+  )
+  .action(pullAll);
 
 const options = program.opts();
 program.parse(process.argv);
@@ -174,11 +190,15 @@ async function getInstantModuleName(pkgDir) {
   const pkgJson = await readJson(join(pkgDir, "package.json"));
   const instantModuleName = pkgJson?.dependencies?.["@instantdb/react"]
     ? "@instantdb/react"
-    : "@instantdb/core";
+    : pkgJson?.dependencies?.["@instantdb/core"]
+      ? "@instantdb/core"
+      : null;
   return instantModuleName;
 }
 
 async function pullSchema(appId) {
+  console.log("Pulling schema...");
+
   const pkgDir = await packageDirectory();
   if (!pkgDir) {
     console.error("Failed to locate app root dir.");
@@ -186,6 +206,12 @@ async function pullSchema(appId) {
   }
 
   const instantModuleName = await getInstantModuleName(pkgDir);
+
+  if (!instantModuleName) {
+    console.warn(
+      "Missing Instant dependency in package.json.  Please install `@instantdb/react` or `@instantdb/core`.",
+    );
+  }
 
   const authToken = await readConfigAuthToken();
   if (!authToken) {
@@ -209,7 +235,7 @@ async function pullSchema(appId) {
   );
 
   if (verbose) {
-    console.log("Pull response:", pullRes.status, pullRes.statusText);
+    console.log("Schema pull response:", pullRes.status, pullRes.statusText);
   }
 
   if (!pullRes.ok) {
@@ -243,6 +269,7 @@ async function pullSchema(appId) {
     }
   }
 
+  console.log("Writing schema to instant.schema.ts");
   const schemaPath = join(pkgDir, "instant.schema.ts");
   await writeFile(
     schemaPath,
@@ -254,6 +281,83 @@ async function pullSchema(appId) {
     ),
     "utf-8",
   );
+}
+
+async function pullPerms(_appId) {
+  console.log("Pulling perms...");
+
+  const appId = _appId ?? (await readLocalSchema())?.appId;
+  const pkgDir = await packageDirectory();
+  if (!pkgDir) {
+    console.error("Failed to locate app root dir.");
+    return;
+  }
+
+  const authToken = await readConfigAuthToken();
+  if (!authToken) {
+    console.error("Unauthenticated.  Please log in with `login`!");
+    return;
+  }
+
+  if (!appId) {
+    console.error("Missing app ID");
+    return;
+  }
+
+  const pullRes = await fetch(
+    `${instantBackendOrigin}/dash/apps/${appId}/perms/pull`,
+    {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (verbose) {
+    console.log("Perms pull response:", pullRes.status, pullRes.statusText);
+  }
+
+  if (!pullRes.ok) {
+    console.error("Failed to pull schema");
+    return;
+  }
+
+  const pullResData = await pullRes.json();
+
+  if (verbose) {
+    console.log(pullResData);
+  }
+
+  console.log();
+
+  if (!pullResData.perms || !countEntities(pullResData.perms)) {
+    console.log("No perms.  Exiting.");
+    return;
+  }
+
+  if (await exists(join(pkgDir, "instant.perms.ts"))) {
+    const ok = await promptOk(
+      "This will ovwerwrite your local instant.perms file, OK to proceed?",
+    );
+
+    if (!ok) {
+      return;
+    }
+  }
+
+  console.log("Writing perms to instant.perms.ts");
+  const permsPath = join(pkgDir, "instant.perms.ts");
+  await writeFile(
+    permsPath,
+    `export default ${JSON.stringify(pullResData.perms, null, "  ")};`,
+    "utf-8",
+  );
+}
+
+async function pullAll(appId) {
+  await pullSchema(appId);
+  await pullPerms(appId);
 }
 
 async function pushSchema() {
