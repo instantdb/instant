@@ -1044,7 +1044,7 @@
      :steps steps}))
 
 (defn schema-push-plan-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user! req)
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         client-defs (-> req :body :schema)
         r (schema-push-steps app-id client-defs)]
     (response/ok r)))
@@ -1071,7 +1071,7 @@
     (response/ok r)))
 
 (defn perms-pull-get [req]
-  (let [{{app-id :id} :app} (req->app-and-user! req)
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         perms (rule-model/get-by-app-id
                aurora/conn-pool
                {:app-id app-id})
