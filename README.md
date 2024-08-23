@@ -118,7 +118,7 @@ All data goes through a permission system powered by Google's [CEL library](http
 
 ## Getting Started
 
-The easiest way to get started with Instant is by signing up on instantdb.com. [You can create a functional app in 5 minute or less.](https://instantdb.com/docs).
+The easiest way to get started with Instant is by signing up on [instantdb.com](https://instantdb.com). [You can create a functional app in 5 minutes or less](https://instantdb.com/docs).
 
 If you have any questions, you can jump in on our [discord](https://discord.com/invite/VU53p7uQcE).
 
