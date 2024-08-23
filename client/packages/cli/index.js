@@ -253,7 +253,7 @@ async function pullSchema(appId) {
     !countEntities(pullResData.schema.refs) &&
     !countEntities(pullResData.schema.blobs)
   ) {
-    console.log("Schema is empty.  Exiting.");
+    console.log("Schema is empty. Exiting.");
     return;
   }
 
