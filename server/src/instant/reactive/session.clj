@@ -231,6 +231,10 @@
           (.get "origin")
           first))
 
+(defn socket-ip [{:keys [http-req]}]
+  (some-> http-req
+          (.getRequestHeader "cf-connecting-ip")))
+
 (defn- handle-join-room! [store-conn eph-store-atom sess-id {:keys [client-event-id room-id] :as _event}]
   (let [auth (get-auth! store-conn sess-id)
         app-id (-> auth :app :id)
@@ -381,7 +385,8 @@
                         :sample-rate (event-sample-rate event)
                         :attributes (assoc event-attrs
                                            :worker-n worker-n
-                                           :socket-origin (socket-origin socket))}
+                                           :socket-origin (socket-origin socket)
+                                           :socket-ip (socket-ip socket))}
 
       (try
         (let [event-fut (ua/vfuture (handle-event store-conn eph-store-atom session event))
