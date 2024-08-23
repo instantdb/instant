@@ -240,6 +240,10 @@ async function pullSchema(appId) {
 
   if (!pullRes.ok) {
     console.error("Failed to pull schema");
+    await pullRes.json().then(
+      (m) => console.error(m),
+      () => {},
+    );
     return;
   }
 
@@ -317,7 +321,11 @@ async function pullPerms(_appId) {
   }
 
   if (!pullRes.ok) {
-    console.error("Failed to pull schema");
+    console.error("Failed to pull perms");
+    await pullRes.json().then(
+      (m) => console.error(m),
+      () => {},
+    );
     return;
   }
 
