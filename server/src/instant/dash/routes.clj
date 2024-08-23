@@ -1050,7 +1050,7 @@
     (response/ok r)))
 
 (defn schema-push-apply-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user! req)
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         client-defs (-> req :body :schema)
         r (schema-push-steps app-id client-defs)
         tx-ctx {:admin? true
@@ -1064,7 +1064,7 @@
     (response/ok r)))
 
 (defn schema-pull-get [req]
-  (let [{{app-id :id app-title :title} :app} (req->app-and-user! req)
+  (let [{{app-id :id app-title :title} :app} (req->app-and-user! :collaborator req)
         current-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
         current-schema (attrs->schema current-attrs)
         r {:schema current-schema :app-title app-title}]
