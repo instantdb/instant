@@ -871,10 +871,12 @@ import { i } from "${instantModuleName ?? "@instantdb/core"}";
 
 const INSTANT_APP_ID = "${id}";
 
-export const graph = i.graph(
+const graph = i.graph(
   INSTANT_APP_ID,
 ${indentLines(entitiesObjCode, 1)},
 ${indentLines(JSON.stringify(linksEntriesCode, null, "  "), 1)}
 );
+
+export default graph;
 `;
 }
