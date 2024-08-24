@@ -163,8 +163,8 @@
              (update :pats conj {:or (merge ors
                                             {:patterns (:pats res)})})
              (update :seen into (:seen res))))
-       (if-let [and (:and attr-pat)]
-         (let [res (attr-pats->patterns-impl ctx seen and)]
+       (if-let [ands (:and attr-pat)]
+         (let [res (attr-pats->patterns-impl ctx seen ands)]
            (-> acc
                (update :pats conj {:and (:pats res)})
                (update :seen into (:seen res))))
