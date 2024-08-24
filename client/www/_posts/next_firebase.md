@@ -447,7 +447,7 @@ Even with the 100 LOC version, you can express a query like “Give me all the o
 
 ## 80/20 for Multiplayer
 
-Turns out triple stores are a great answer for muliplayer too. Once we make our Local DB collaborative, we’ll need to support conflicts. What should happen when two people change something at the same time?
+Turns out triple stores are a great answer for multiplayer too. Once we make our Local DB collaborative, we’ll need to support conflicts. What should happen when two people change something at the same time?
 
 Notion, Figma, and Linear all use last-write-wins. This means that whichever change reaches the server last wins.
 

@@ -100,7 +100,7 @@ deleteFriend(user, id).catch(e => {
 
 This is even more annoying. Now we need to manually update the success operation, *and* the failure operation.
 
-Why is that? On the backend, a database is able to do optimistic updates [^1] — why can’t we do that in in the browser?
+Why is that? On the backend, a database is able to do optimistic updates [^1] — why can’t we do that in the browser?
 
 ```SQL
 DELETE friendship WHERE friend_one_id = ? AND friend_two_id = ?
@@ -148,7 +148,7 @@ It only gets harder on the server.
 
 ## E. Endpoints
 
-Much of backend development ends up being a sort of glue between the database and and the frontend.
+Much of backend development ends up being a sort of glue between the database and the frontend.
 
 ```javascript
 // db.js
@@ -329,7 +329,7 @@ Supabase is trying to do what Firebase did for Mongo, but for Postgres. If they 
 
 Supabase has some great wins so far. Their auth abstraction is great, which makes it one of the few platforms that are as easy to get started with as firebase was.
 
-Their realtime option allows you to subscribe to row-level updates. For example, if we wanted to to know whenever a friendship gets created, updated, or changed, we could write this:
+Their realtime option allows you to subscribe to row-level updates. For example, if we wanted to know whenever a friendship gets created, updated, or changed, we could write this:
 
 ```javascript
 const friendsChange = supabase
@@ -516,7 +516,7 @@ I’m toying with some ideas in this direction. The big problem to solve here, i
 
 [^1]: You may not notice this as Postgres gives a consistency guarantee. However, for them to support multiple concurrent transactions, they in effect need to be able to keep "temporary alterations"
 
-[^2]: Figma mentions this problem in [their mutiplayer essay](https://www.figma.com/blog/how-figmas-multiplayer-technology-works/)
+[^2]: Figma mentions this problem in [their multiplayer essay](https://www.figma.com/blog/how-figmas-multiplayer-technology-works/)
 
 [^3]: Plain SQL and boolean logic is hard to reuse, and can slow down the query planner. Many folks who have medium-sized apps experience this quickly.
 

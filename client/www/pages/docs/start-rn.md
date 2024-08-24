@@ -16,7 +16,7 @@ npm i @instantdb/react-native
 npm i @react-native-async-storage/async-storage @react-native-community/netinfo react-native-get-random-values
 ```
 
-Now open up `src/App.js` in your favorite editor and replace the entirity of the file with the following code.
+Now open up `src/App.js` in your favorite editor and replace the entirety of the file with the following code.
 
 ```javascript {% showCopy=true %}
 import { init, tx } from '@instantdb/react-native';
