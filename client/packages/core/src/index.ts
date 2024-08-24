@@ -106,7 +106,7 @@ const globalInstantCoreStore = initGlobalInstantCoreStore();
  * @example
  *  const db = init({ appId: "my-app-id" })
  *
- * // You can also provide a a schema for type safety and editor autocomplete!
+ * // You can also provide a schema for type safety and editor autocomplete!
  *
  *  type Schema = {
  *    goals: {

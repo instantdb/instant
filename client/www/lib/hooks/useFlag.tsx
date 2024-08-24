@@ -9,7 +9,7 @@ import { flags } from '../flags';
  * If the value of the new key is true, the feature will be displayed.  If it's false, the feature will not be displayed.
  *
  * For dev and demos, can bucket yourself into a feature by adding `&x_{FLAGNAME}` to the query string.
- * It'll persist to to localStorage, so you'll still see the feature even if the query string changes.
+ * It'll persist to localStorage, so you'll still see the feature even if the query string changes.
  *
  * @param name - The name of the flag.
  * @returns - Whether the flag is active.

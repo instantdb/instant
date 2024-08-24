@@ -46,7 +46,7 @@ Right now all backend requests will go to api.instantdb.com. If you want to deve
 localStorage.setItem("devBackend", true);
 ```
 
-Now all requests will go to your your local backend at [localhost:8888](http://localhost:8888). If you haven't set up a local backend, follow the [server README](../server/README.md)
+Now all requests will go to your local backend at [localhost:8888](http://localhost:8888). If you haven't set up a local backend, follow the [server README](../server/README.md)
 
 ### Running a local app
 You can create local apps by following these steps
