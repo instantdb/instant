@@ -1023,7 +1023,7 @@
          ["eid-nonfiction" :bookshelves/name "Nonfiction"]
          ["eid-nonfiction" :bookshelves/order 1])})))
 
-  (testing "inner where clause with ands"
+  (testing "inner where clause with and"
     (is-pretty-eq?
      (query-pretty
       {:users

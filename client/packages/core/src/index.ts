@@ -145,7 +145,7 @@ function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
 
   if (typeof window !== "undefined" && typeof window.location !== "undefined") {
     const showDevtool =
-      // show widget by deafult?
+      // show widget by default?
       ("devtool" in config ? Boolean(config.devtool) : defaultOpenDevtool) &&
       // only run on localhost (dev env)
       window.location.hostname === "localhost" &&

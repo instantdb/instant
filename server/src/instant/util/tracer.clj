@@ -218,7 +218,7 @@
         (+ 1 1)))))
 
 (defn record-info!
-  "Analagous to log/info.
+  "Analogous to log/info.
   
   Sometimes you want to just log some information, but there is no parent span. 
   

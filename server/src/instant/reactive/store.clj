@@ -419,7 +419,7 @@
 (defn contains-matching-topic? [ts t]
   (some (partial match-topic? t) ts))
 
-(defn matching-topic-interesection? [ts1 ts2]
+(defn matching-topic-intersection? [ts1 ts2]
   (some (partial contains-matching-topic? ts2)
         ts1))
 
@@ -457,7 +457,7 @@
   (->> (d/datoms db :avet :datalog-query/app-id app-id)
        (keep (fn [datom]
                (when-let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
-                 (when (matching-topic-interesection? topics dq-topics)
+                 (when (matching-topic-intersection? topics dq-topics)
                    (:e datom)))))))
 
 (defn mark-stale-topics!

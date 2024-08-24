@@ -324,7 +324,7 @@
   (with-empty-app
     (fn [{app-id :id}]
       (let [email-attr-id #uuid "4f3b1902-0025-4f5a-9624-12c5ee27a191"
-            emal-fwd-ident #uuid "8fb42d0d-40f6-4baa-b7d6-982b9ba55ac9"
+            email-fwd-ident #uuid "8fb42d0d-40f6-4baa-b7d6-982b9ba55ac9"
             stopa-eid #uuid "23c6400b-72a5-4147-8a06-79cdcda0b0d1"
             joe-eid #uuid "9f64613b-286a-44f8-a228-3c3e6a4fa4ce"]
         (tx/transact!
@@ -332,7 +332,7 @@
          app-id
          [[:add-attr
            {:id email-attr-id
-            :forward-identity [emal-fwd-ident "users" "email"]
+            :forward-identity [email-fwd-ident "users" "email"]
             :value-type :blob
             :cardinality :one
             :unique? true
@@ -343,7 +343,7 @@
                   :value-type :blob,
                   :cardinality :one,
                   :forward-identity
-                  [emal-fwd-ident "users" "email"],
+                  [email-fwd-ident "users" "email"],
                   :unique? true,
                   :index? true
                   :inferred-types #{:string}}
@@ -604,7 +604,7 @@
             stopa-eid (resolvers/->uuid r "eid-stepan-parunashvili")
             eid-nonfiction (resolvers/->uuid r "eid-nonfiction")
             isbn-attr-eid (resolvers/->uuid r :books/isbn13)]
-        (testing "updates existing entitites"
+        (testing "updates existing entities"
           (is (= #{[alex-eid
                     email-attr-id
                     "alex@instantdb.com"]}

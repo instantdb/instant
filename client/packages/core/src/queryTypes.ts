@@ -16,14 +16,14 @@ type BaseWhereClause = {
   [key: string]: WhereClauseValue;
 };
 
-type WhereClauseWithCombinaton = {
+type WhereClauseWithCombination = {
   or?: WhereClause[] | WhereClauseValue;
   and?: WhereClause[] | WhereClauseValue;
 };
 
 type WhereClause =
-  | WhereClauseWithCombinaton
-  | (WhereClauseWithCombinaton & BaseWhereClause);
+  | WhereClauseWithCombination
+  | (WhereClauseWithCombination & BaseWhereClause);
 
 /**
  * A tuple representing a cursor.

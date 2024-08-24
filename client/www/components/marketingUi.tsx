@@ -201,7 +201,7 @@ export function LandingFooter() {
                 Discord
               </NavLink>
               <NavLink href="https://github.com/instantdb/instant">
-                Github
+                GitHub
               </NavLink>
               <NavLink href="/privacy">Privacy Policy</NavLink>
               <NavLink href="/dash">Login</NavLink>

@@ -354,7 +354,7 @@
 
 (defn start
   "Entry point for invalidator. Starts a WAL listener and pipes WAL records to
-  our parition router. Partion router dispatches records to app workers who run `go-work`"
+  our partition router. Partition router dispatches records to app workers who run `go-work`"
   []
   (let [{:keys [wal-chan worker-chan byop-chan close-signal-chan]}
         (create-wal-chans)

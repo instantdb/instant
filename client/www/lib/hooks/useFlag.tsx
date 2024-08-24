@@ -3,7 +3,7 @@ import { localStorageFlagPrefix } from '../config';
 import { flags } from '../flags';
 
 /**
- * Custom hook to determine whether to display a feautre.
+ * Custom hook to determine whether to display a feature.
  *
  * Depends on `lib/flags`.  If you want to create a new flag, add a new key to `flags`.
  * If the value of the new key is true, the feature will be displayed.  If it's false, the feature will not be displayed.
