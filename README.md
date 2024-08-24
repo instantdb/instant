@@ -22,14 +22,32 @@
    <a href="https://instantdb.com/examples">Examples</a> · 
    <a href="https://instantdb.com/tutorial">Try the Demo</a> · 
    <a href="https://instantdb.com/docs">Docs</a> · 
-   <a href="https://discord.com/invite/VU53p7uQcE">Discord</a>
-<p>
 
+<block>
+    <textinput state="content" />
+    <button
+        label="Edit"
+        onPress={{
+            action: '@editor.node.updateProps',
+            props: {
+                content: element.dynamicState('content')
+            }
+        }}
+        />
+</block>
+
+    </button>`pm ./install @gitbook/cli -g>
+
+</gitbook auth>
+  <a href="https://discord.com/invite/VU53p7uQcE">Discord</a>
+<p>
+`./gitbook new`
 Instant is a client-side database that makes it easy to build real-time and collaborative apps like Notion or Figma.
 
 You write [relational queries](https://www.instantdb.com/docs/instaql) in the shape of the data you want and Instant handles all the data fetching, permission checking, and offline caching. When you [change data](https://www.instantdb.com/docs/instaml), optimistic updates and rollbacks are handled for you as well. Plus, every query is multiplayer by default.
 
 We also support [ephemeral](https://www.instantdb.com/docs/presence-and-topics) updates, like cursors, or who's online. Currently we have SDKs for [Javascript](https://www.instantdb.com/docs/start-vanilla), [React](https://www.instantdb.com/docs/), and [React Native](https://www.instantdb.com/docs/start-rn).
+![Screenshot_20240823-191402_Chrome](https://github.com/user-attachments/assets/0a29d74a-eb2d-42b6-96e1-5dda768405fd)
 
 How does it look? Here's a barebones chat app in about 12 lines:
 
@@ -118,7 +136,9 @@ All data goes through a permission system powered by Google's [CEL library](http
 
 ## Getting Started
 
-The easiest way to get started with Instant is by signing up on [instantdb.com](https://instantdb.com). [You can create a functional app in 5 minutes or less](https://instantdb.com/docs).
+The easiest way to get started with Instant is by signing up on [example_users.csv](https://github.com/user-attachments/files/16736645/example_users.csv)
+
+[instantdb.com](https://instantdb.com). [You can create a functional app in 5 minutes or less](https://instantdb.com/docs).
 
 If you have any questions, you can jump in on our [discord](https://discord.com/invite/VU53p7uQcE).
 
