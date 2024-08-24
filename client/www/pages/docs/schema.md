@@ -108,7 +108,7 @@ Below we demonstrate a data model for a blog. First we define our core entities:
 
 Then we define links. Note how each direction specifies it's own label (`posts.author` instead of `posts.authors`) and cardinality (`has: 'one'` and `has: 'many'`).
 
-Make sure to set the graph object asd your file's default export to that it can be picked up by the CLI.
+Make sure to set the graph object as your file's default export to that it can be picked up by the CLI.
 
 ```typescript
 import { i } from '@instantdb/core';
