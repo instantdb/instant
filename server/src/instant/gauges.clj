@@ -7,6 +7,17 @@
   (:import
    (java.lang.management ManagementFactory GarbageCollectorMXBean)))
 
+(defonce gauge-metric-fns (atom {}))
+
+(defn add-gauge-metrics-fn
+  "Takes a function of no args that should return a list of maps with
+  `path` and `value`. Will run every second and be appended to gauges."
+  [f]
+  (let [id (random-uuid)]
+    (swap! gauge-metric-fns assoc id f)
+    (fn []
+      (swap! gauge-metric-fns dissoc id))))
+
 (defn gauges []
   (let [memory (ManagementFactory/getMemoryMXBean)
         gcs (ManagementFactory/getGarbageCollectorMXBeans)
@@ -77,7 +88,9 @@
                      {:path (str "jvm." description ".largest-size")
                       :value (.getLargestPoolSize executor)}
                      {:path (str "jvm." description ".maximum-size")
-                      :value (.getMaximumPoolSize executor)}])])]
+                      :value (.getMaximumPoolSize executor)}])
+                  (for [[_k metric-fn] @gauge-metric-fns]
+                    (metric-fn))])]
     (into {} (map (juxt :path :value) metrics))))
 
 (comment
