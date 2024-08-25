@@ -56,13 +56,15 @@
 
 (defn exclude? [[k]]
   (or (exclude-ks k)
-      ;; `detailed_` columns in our logs are just 
-      ;; too noisy. It's still nice to have in honeycomb, 
-      ;; but it distracts in stdout. 
+      ;; `detailed_` columns in our logs are just
+      ;; too noisy. It's still nice to have in honeycomb,
+      ;; but it distracts in stdout.
       (string/starts-with? k "detailed_")
-      ;; `jvm.` columns are used to associate metrics to 
-      ;; every span. This is too noisy for stdout 
-      (string/starts-with? k "jvm.")))
+      ;; `jvm.` columns are used to associate metrics to
+      ;; every span. This is too noisy for stdout
+      (string/starts-with? k "jvm.")
+      ;; gauge metrics for a namespace
+      (string/starts-with? k "instant.")))
 
 (defn attr-str [attrs]
   (->>  attrs
