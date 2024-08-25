@@ -5,23 +5,23 @@
    [instant.util.tracer :as tracer]
    [instant.util.async :as ua]
    [clojure.core.async :as a]
-   [instant.util.coll :as ucoll]
    [clojure.set :as set]
-   [instant.util.exception :as ex]))
+   [instant.util.exception :as ex]
+   [medley.core :refer [dissoc-in]]))
 
 ;; ------
-;; Setup 
+;; Setup
 
 (declare room-refresh-ch)
 
 (def refresh-timeout-ms 500)
 
 ;; ------
-;; State 
+;; State
 
 (defn- join-room
   "Sessions can join rooms to receive non-persisted updates. When a session joins a room
-  it initially sets it's data to an empty map."
+  it initially sets its data to an empty map."
   [store-v app-id sess-id {:keys [id] :as current-user} room-id]
   (-> store-v
       (update-in [:rooms app-id room-id :session-ids] (fnil conj #{}) sess-id)
@@ -32,13 +32,22 @@
       ;; Tracking room-ids for a session is useful for cleanup when a session disconnects
       (update-in [:sessions sess-id :room-ids] (fnil conj #{}) room-id)))
 
+(defn disj-in
+  "Calls dissoc-in to clean up the map when the item at path is empty after
+   calling disj. Useful for cleaning up the room and session maps."
+  [m path item]
+  (let [new-m (update-in m path disj item)]
+    (if (empty? (get-in new-m path))
+      (dissoc-in new-m path)
+      new-m)))
+
 (defn- leave-room
-  "Removes a session and it's data from a room."
+  "Removes a session and its data from a room."
   [store-v app-id sess-id room-id]
   (-> store-v
-      (update-in [:rooms app-id room-id :session-ids] disj sess-id)
-      (update-in [:sessions sess-id :room-ids] disj room-id)
-      (ucoll/dissoc-in [:rooms app-id room-id :data sess-id])))
+      (disj-in [:rooms app-id room-id :session-ids] sess-id)
+      (disj-in [:sessions sess-id :room-ids] room-id)
+      (dissoc-in [:rooms app-id room-id :data sess-id])))
 
 (defn- leave-by-session-id [store-v app-id sess-id]
   (let [rooms (get-in store-v [:sessions sess-id :room-ids] #{})
@@ -49,7 +58,7 @@
                                 store-v
                                 rooms))]
     (-> without-rooms
-        (update :sessions dissoc sess-id))))
+        (dissoc-in [:sessions sess-id]))))
 
 (defn- set-presence
   "Sets a session's presence data for a specific room."
@@ -57,7 +66,7 @@
   (assoc-in store-v [:rooms app-id room-id :data sess-id :data] data))
 
 ;; ----------
-;; Public API 
+;; Public API
 
 (defn get-changed-rooms
   "Collects new/updated rooms."
