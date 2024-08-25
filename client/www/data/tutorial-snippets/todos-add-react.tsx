@@ -1,3 +1,5 @@
+'use client'; 
+
 import { useState } from 'react';
 
 function addMessage(setMessages: any, text: string) {

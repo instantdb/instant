@@ -1,3 +1,5 @@
+'use client';
+
 import config from '@/lib/config'; // hide-line
 import { init, tx, id } from '@instantdb/react';
 
