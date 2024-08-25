@@ -364,7 +364,30 @@
                                 :from :remaining-triples}]
                  :on-conflict [:app-id :entity-id :attr-id :value-md5]
                  :do-nothing true
-                 :returning :entity-id}]])
+                 :returning :entity-id}]
+               [:attr-inferred-types {:update :attrs
+                                      :set {:inferred-type [:|
+                                                            [:coalesce
+                                                             :attrs.inferred_type
+                                                             [:cast :0 [:bit :32]]]
+                                                            :updates.typ]}
+                                      :from [[{:values (->> (reduce (fn [acc [_e a v]]
+                                                                      (if-not v
+                                                                        acc
+                                                                        (update acc
+                                                                                a
+                                                                                (fnil bit-or 0)
+                                                                                (-> v
+                                                                                    attr-model/inferred-value-type
+                                                                                    attr-model/type->binary))))
+                                                                    {}
+                                                                    triples)
+                                                            (map (fn [[id typ]]
+                                                                   [id [:cast typ [:bit :32]]])))}
+                                              [:updates {:columns [:id :typ]}]]]
+                                      :where [:and
+                                              [:= :attrs.id :updates.id]
+                                              [:= :attrs.app_id app-id]]}]])
        :union-all [{:select :entity-id :from :ea-index-inserts}
                    {:select :entity-id :from :remaining-inserts}]}))))
 

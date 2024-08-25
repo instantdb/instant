@@ -1,5 +1,6 @@
 (ns instant.db.model.attr
   (:require
+   [clojure.set :refer [map-invert]]
    [clojure.spec.alpha :as s]
    [instant.util.spec :as uspec]
    [clojure.spec.gen.alpha :as gen]
@@ -8,6 +9,36 @@
    [honey.sql :as hsql]
    [instant.util.coll :as ucoll]
    [instant.data.constants :refer [empty-app-id]]))
+
+;; Don't change the order or remove types, only add to the end of the list
+;; QQ: What types do we want to support? Just the json types or more complex types
+;;     - date
+;;     - uuid
+;;     - list(string)
+(def types
+  [:number
+   :string
+   :boolean
+   :json])
+
+(def type->binary (into {}
+                        (map-indexed (fn [i type]
+                                       [type (bit-shift-left 1 i)])
+                                     types)))
+
+(def binary->type (map-invert type->binary))
+
+(defn inferred-value-type [v]
+  (cond (string? v) :string
+        (number? v) :number
+        (boolean? v) :boolean
+        :else :json))
+
+(defn friendly-inferred-types [b]
+  (keep (fn [[type bin]]
+          (when (= 1 (bit-and b bin))
+            type))
+        type->binary))
 
 ;; ----
 ;; Spec
@@ -301,14 +332,25 @@
            fwd_etype
            reverse_ident
            rev_label
-           rev_etype]}]
+           rev_etype
+           ;; XXX: Rename to inferred_types in the database
+           inferred_type]}]
   (cond-> {:id id
            :value-type (keyword value_type)
            :cardinality (keyword cardinality)
            :forward-identity [forward_ident fwd_etype fwd_label]
            :unique? is_unique
-           :index? is_indexed}
+           :index? is_indexed
+           :inferred-types (when inferred_type
+                             (friendly-inferred-types inferred_type))}
     reverse_ident (assoc :reverse-identity [reverse_ident rev_etype rev_label])))
+
+(defn by-id [id]
+  (sql/select-string-keys
+   aurora/conn-pool
+   (hsql/format {:select :*
+                 :from :attrs
+                 :where [:= :id id]})))
 
 (defn get-by-app-id
   "Returns clj representation of all attrs for an app"
