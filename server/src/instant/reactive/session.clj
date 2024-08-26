@@ -401,9 +401,10 @@
       (let [pending-handlers (:pending-handlers (:session/socket session))
             event-fut (ua/vfuture (handle-event store-conn eph-store-atom session event))
             pending-handler {:future event-fut
+                             :op (:op event)
                              :silence-exceptions silence-exceptions}]
         (swap! pending-handlers conj pending-handler)
-        (tracer/add-data! {:attributes {:concurrent-handler-count (count pending-handlers)}})
+        (tracer/add-data! {:attributes {:concurrent-handler-count (count @pending-handlers)}})
         (try
           (let [ret (deref event-fut handle-receive-timeout-ms :timeout)]
             (when (= :timeout ret)
@@ -525,9 +526,11 @@
         (tracer/record-info! {:name "socket/on-close-no-ping-job"
                               :attributes {:session-id id}}))
 
-      (doseq [{:keys [future silence-exceptions]} @pending-handlers]
-        (silence-exceptions true)
-        (future-cancel future))
+      (doseq [{:keys [future silence-exceptions op]} @pending-handlers]
+        (tracer/with-span! {:name "cancel-pending-handler"
+                            :attributes {:op op}}
+          (silence-exceptions true)
+          (future-cancel future)))
 
       (let [app-id (-> (rs/get-auth @store-conn id)
                        :app

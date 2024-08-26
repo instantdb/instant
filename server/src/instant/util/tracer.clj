@@ -122,12 +122,14 @@
    (when *span*
      (add-exception! *span* exception opts)))
   ([^Span span exception {:keys [escaping?]}]
-   (when-not (and *silence-exceptions?*
-                  @*silence-exceptions?*)
-     (let [triage      (main/ex-triage (Throwable->map exception))
-           attrs       (into triage (ex-data exception))
-           status      {:code        :error
-                        :description (main/ex-str triage)}]
+   (let [triage      (main/ex-triage (Throwable->map exception))
+         attrs       (into triage (ex-data exception))
+         status      {:code        :error
+                      :description (main/ex-str triage)}]
+     (if (and *silence-exceptions?*
+              @*silence-exceptions?*)
+       (add-data! span {:attributes
+                        {:silenced-exception (main/ex-str triage)}})
        (add-data! span {:status status
                         :exception-data {:exception  exception
                                          :escaping?  escaping?
