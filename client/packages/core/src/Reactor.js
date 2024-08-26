@@ -1313,9 +1313,9 @@ export default class Reactor {
       fileName: fileName,
       refreshToken: refreshToken,
     });
-    const success = await StorageApi.upload(url, file);
+    const isSuccess = await StorageApi.upload(url, file);
 
-    return this.getDownloadUrl(fileName);
+    return isSuccess;
   }
 
   async getDownloadUrl(path) {

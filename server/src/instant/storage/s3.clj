@@ -20,6 +20,18 @@
    (s3/delete-object {:bucket-name bucket-name
                       :key object-key})))
 
+(defn delete-objects
+  ([object-keys] (delete-objects default-bucket object-keys))
+  ([bucket-name object-keys]
+   (s3/delete-objects {:bucket-name bucket-name
+                       :quiet false ;; returns deleted objects with response
+                       :keys object-keys})))
+
+(comment
+  (def object-keys ["524bc106-1f0d-44a0-b222-923505264c47/pika.webp"
+                    "524bc106-1f0d-44a0-b222-923505264c47/boop-1.png"])
+  (delete-objects object-keys))
+
 (defn list-app-objects
   ([prefix] (list-app-objects default-bucket prefix))
   ([bucket-name prefix]

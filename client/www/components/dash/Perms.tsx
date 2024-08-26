@@ -142,7 +142,7 @@ function updateRules(token: string, appId: string, newRulesObj: object) {
 export const rulesSchema = {
   type: 'object',
   patternProperties: {
-    '^[a-zA-Z0-9_\\-]+$': {
+    '^[$a-zA-Z0-9_\\-]+$': {
       type: 'object',
       properties: {
         allow: {
