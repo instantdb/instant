@@ -31,9 +31,11 @@
    [instant.reactive.ephemeral :as eph]
    [instant.util.exception :as ex]
    [instant.util.uuid :as uuid-util]
-   [instant.reactive.session :as session])
+   [instant.reactive.session :as session]
+   [instant.gauges :as gauges])
   (:import
-   (java.util.concurrent LinkedBlockingQueue)))
+   (java.util.concurrent LinkedBlockingQueue)
+   (java.time Duration Instant)))
 
 ;; ------
 ;; Setup 
@@ -216,13 +218,15 @@
 (defn event-attributes
   [store-conn
    session-id
-   {:keys [op client-event-id] :as _event}]
+   {:keys [op client-event-id receive-q-delay-ms worker-delay-ms] :as _event}]
   (let [auth (rs/get-auth @store-conn session-id)
         creator (rs/get-creator @store-conn session-id)]
     (merge
      {:op op
       :client-event-id client-event-id
-      :session-id session-id}
+      :session-id session-id
+      :worker-delay-ms worker-delay-ms
+      :receive-q-delay-ms receive-q-delay-ms}
      (auth-and-creator-attrs auth creator))))
 
 (defn socket-origin [{:keys [http-req]}]
@@ -319,7 +323,7 @@
         :client-broadcast (handle-client-broadcast! store-conn eph-store-atom id event)))))
 
 ;; --------------
-;; Receive Workers 
+;; Receive Workers
 
 (defn- handle-instant-exception [store-conn sess-id original-event instant-ex]
   (let [{:keys [client-event-id]} original-event
@@ -386,7 +390,8 @@
                         :attributes (assoc event-attrs
                                            :worker-n worker-n
                                            :socket-origin (socket-origin socket)
-                                           :socket-ip (socket-ip socket))}
+                                           :socket-ip (socket-ip socket)
+                                           :session-id sess-id)}
 
       (try
         (let [event-fut (ua/vfuture (handle-event store-conn eph-store-atom session event))
@@ -417,7 +422,9 @@
                         :attributes {:worker-n worker-n}})
 
   (loop []
-    (let [{:keys [session-id] :as event} (a/<!! worker-ch)
+    (let [{:keys [put-at worker-queued-at item]} (a/<!! worker-ch)
+          {:keys [session-id] :as event} item
+          now (Instant/now)
           session (rs/get-session @store-conn session-id)]
       (cond
         (not event)
@@ -432,11 +439,18 @@
             (recur))
 
         :else
-        (do (straight-jacket-handle-receive store-conn
-                                            eph-store-atom
-                                            (assoc (into {} session)
-                                                   :worker-n worker-n)
-                                            event)
+        (do (straight-jacket-handle-receive
+             store-conn
+             eph-store-atom
+             (assoc (into {} session)
+                    :worker-n worker-n)
+             (assoc event
+                    :receive-q-delay-ms
+                    (.toMillis (Duration/between put-at worker-queued-at))
+                    :worker-delay-ms
+                    (.toMillis (Duration/between worker-queued-at now))
+                    :total-delay-ms
+                    (.toMillis (Duration/between put-at now))))
             (recur))))))
 
 (defn start-receive-orchestrator [store-conn eph-store-atom receive-q worker-ch]
@@ -444,12 +458,16 @@
   (doseq [n (range num-receive-workers)]
     (ua/fut-bg (start-receive-worker store-conn eph-store-atom worker-ch n)))
   (loop []
-    (let [item (.take receive-q)]
+    (let [{:keys [item] :as msg} (.take receive-q)]
       (if (= :stop item)
         (do (a/close! worker-ch)
             (tracer/record-info! {:name "receive-orchestrator/stop"}))
-        (do (a/>!! worker-ch item)
+        (do (a/>!! worker-ch (assoc msg :worker-queued-at (Instant/now)))
             (recur))))))
+
+(defn enqueue->receive-q [receive-q item]
+  (.put receive-q {:item item
+                   :put-at (Instant/now)}))
 
 ;; -----------------
 ;; Websocket Interop
@@ -469,9 +487,9 @@
     (rs/add-socket! store-conn id socket)))
 
 (defn on-message [{:keys [id receive-q data]}]
-  (.put receive-q (-> (<-json data true)
-                      (update :op keyword)
-                      (assoc :session-id id))))
+  (enqueue->receive-q receive-q (-> (<-json data true)
+                                    (update :op keyword)
+                                    (assoc :session-id id))))
 
 (defn on-error [{:keys [id error]}]
   (condp instance? error
@@ -517,14 +535,24 @@
 ;; ------
 ;; System
 
+(defn receive-q-metrics [receive-q]
+  [{:path "instant.reactive.session.receive-q.size"
+    :value (.size receive-q)}
+   {:path "instant.reactive.session.receive-q.longest-waiting-ms"
+    :value (if-let [{:keys [put-at]} (.peek receive-q)]
+             (.toMillis (Duration/between put-at (Instant/now)))
+             0)}])
+
 (defn start []
   (def receive-q (LinkedBlockingQueue.))
   (def receive-worker-ch (a/chan))
+  (def cleanup-gauge (gauges/add-gauge-metrics-fn
+                      (fn [] (receive-q-metrics receive-q))))
   (ua/fut-bg (start-receive-orchestrator rs/store-conn eph/ephemeral-store-atom receive-q receive-worker-ch)))
 
 (defn stop []
-  (.put receive-q :stop)
-
+  (enqueue->receive-q receive-q :stop)
+  (cleanup-gauge)
   (a/close! receive-worker-ch))
 
 (defn restart []

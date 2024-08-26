@@ -62,6 +62,30 @@ program
   .description("Pushes local instant.perms rules to production.")
   .action(pushPerms);
 
+program
+  .command("pull-schema")
+  .argument("<ID>")
+  .description(
+    "Generates an initial instant.schema defintion from production state.",
+  )
+  .action(pullSchema);
+
+program
+  .command("pull-perms")
+  .argument("[ID]")
+  .description(
+    "Generates an initial instant.perms defintion from production rules.",
+  )
+  .action(pullPerms);
+
+program
+  .command("pull")
+  .argument("<ID>")
+  .description(
+    "Generates initial instant.schema and instant.perms defintion from production state.",
+  )
+  .action(pullAll);
+
 const options = program.opts();
 program.parse(process.argv);
 
@@ -90,10 +114,7 @@ async function init() {
     return;
   }
 
-  const pkgJson = await readJson(join(pkgDir, "package.json"));
-  const instantModuleName = pkgJson?.dependencies?.["@instantdb/react"]
-    ? "@instantdb/react"
-    : "@instantdb/core";
+  const instantModuleName = await getInstantModuleName(pkgDir);
 
   const schema = await readLocalSchema();
   const { perms } = await readLocalPerms();
@@ -165,6 +186,176 @@ async function init() {
   }
 }
 
+async function getInstantModuleName(pkgDir) {
+  const pkgJson = await readJson(join(pkgDir, "package.json"));
+  const instantModuleName = pkgJson?.dependencies?.["@instantdb/react"]
+    ? "@instantdb/react"
+    : pkgJson?.dependencies?.["@instantdb/core"]
+      ? "@instantdb/core"
+      : null;
+  return instantModuleName;
+}
+
+async function pullSchema(appId) {
+  console.log("Pulling schema...");
+
+  const pkgDir = await packageDirectory();
+  if (!pkgDir) {
+    console.error("Failed to locate app root dir.");
+    return;
+  }
+
+  const instantModuleName = await getInstantModuleName(pkgDir);
+
+  if (!instantModuleName) {
+    console.warn(
+      "Missing Instant dependency in package.json.  Please install `@instantdb/react` or `@instantdb/core`.",
+    );
+  }
+
+  const authToken = await readConfigAuthToken();
+  if (!authToken) {
+    console.error("Unauthenticated.  Please log in with `login`!");
+    return;
+  }
+
+  if (!appId) {
+    console.error("Missing app ID");
+    return;
+  }
+
+  const pullRes = await fetch(
+    `${instantBackendOrigin}/dash/apps/${appId}/schema/pull`,
+    {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (verbose) {
+    console.log("Schema pull response:", pullRes.status, pullRes.statusText);
+  }
+
+  if (!pullRes.ok) {
+    console.error("Failed to pull schema");
+    return;
+  }
+
+  const pullResData = await pullRes.json();
+
+  if (verbose) {
+    console.log(pullResData);
+  }
+
+  if (
+    !countEntities(pullResData.schema.refs) &&
+    !countEntities(pullResData.schema.blobs)
+  ) {
+    console.log("Schema is empty. Exiting.");
+    return;
+  }
+
+  if (await exists(join(pkgDir, "instant.schema.ts"))) {
+    const ok = await promptOk(
+      "This will ovwerwrite your local instant.schema file, OK to proceed?",
+    );
+
+    if (!ok) {
+      return;
+    }
+  }
+
+  console.log("Writing schema to instant.schema.ts");
+  const schemaPath = join(pkgDir, "instant.schema.ts");
+  await writeFile(
+    schemaPath,
+    generateSchemaTypescriptFile(
+      appId,
+      pullResData.schema,
+      pullResData["app-title"],
+      instantModuleName,
+    ),
+    "utf-8",
+  );
+}
+
+async function pullPerms(_appId) {
+  console.log("Pulling perms...");
+
+  const appId = _appId ?? (await readLocalSchema())?.appId;
+  const pkgDir = await packageDirectory();
+  if (!pkgDir) {
+    console.error("Failed to locate app root dir.");
+    return;
+  }
+
+  const authToken = await readConfigAuthToken();
+  if (!authToken) {
+    console.error("Unauthenticated.  Please log in with `login`!");
+    return;
+  }
+
+  if (!appId) {
+    console.error("Missing app ID");
+    return;
+  }
+
+  const pullRes = await fetch(
+    `${instantBackendOrigin}/dash/apps/${appId}/perms/pull`,
+    {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (verbose) {
+    console.log("Perms pull response:", pullRes.status, pullRes.statusText);
+  }
+
+  if (!pullRes.ok) {
+    console.error("Failed to pull schema");
+    return;
+  }
+
+  const pullResData = await pullRes.json();
+
+  if (verbose) {
+    console.log(pullResData);
+  }
+
+  if (!pullResData.perms || !countEntities(pullResData.perms)) {
+    console.log("No perms.  Exiting.");
+    return;
+  }
+
+  if (await exists(join(pkgDir, "instant.perms.ts"))) {
+    const ok = await promptOk(
+      "This will ovwerwrite your local instant.perms file, OK to proceed?",
+    );
+
+    if (!ok) {
+      return;
+    }
+  }
+
+  console.log("Writing perms to instant.perms.ts");
+  const permsPath = join(pkgDir, "instant.perms.ts");
+  await writeFile(
+    permsPath,
+    `export default ${JSON.stringify(pullResData.perms, null, "  ")};`,
+    "utf-8",
+  );
+}
+
+async function pullAll(appId) {
+  await pullSchema(appId);
+  await pullPerms(appId);
+}
+
 async function pushSchema() {
   const authToken = await readConfigAuthToken();
   const schema = await readLocalSchema();
@@ -228,8 +419,6 @@ async function pushSchema() {
     return;
   }
 
-  console.log();
-
   console.log(
     "The following changes will be applied to your production schema:",
   );
@@ -252,8 +441,6 @@ async function pushSchema() {
       );
     }
   }
-
-  console.log();
 
   const okPush = await promptOk("OK to proceed?");
 
@@ -499,6 +686,32 @@ function readReqBody(incomingMessage) {
   });
 }
 
+function countEntities(o) {
+  return Object.keys(o).length;
+}
+
+function sortedEntries(o) {
+  return Object.entries(o).sort(([a], [b]) => a.localeCompare(b));
+}
+
+function capitalizeFirstLetter(string) {
+  return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+function indentLines(s, n) {
+  return s
+    .split("\n")
+    .map((c) => `${"  ".repeat(n)}${c}`)
+    .join("\n");
+}
+
+export const rels = {
+  "many-false": ["many", "many"],
+  "one-true": ["one", "one"],
+  "many-true": ["many", "one"],
+  "one-false": ["one", "many"],
+};
+
 // templates
 
 function appDashUrl(id) {
@@ -592,3 +805,78 @@ const examplePermsTmpl = /* ts */ `export default {
   },
 };
 `;
+
+function generateSchemaTypescriptFile(id, schema, title, instantModuleName) {
+  const entitiesEntriesCode = sortedEntries(schema.blobs)
+    .map(([name, attrs]) => {
+      // a block of code for each entity
+      return [
+        `  `,
+        `"${name}"`,
+        `: `,
+        `i.entity`,
+        `({`,
+        `\n`,
+        // a line of code for each attribute in the entity
+        sortedEntries(attrs)
+          .map(([name, config]) => {
+            return [
+              `    `,
+              `"${name}"`,
+              `: `,
+              `i.any()`,
+              config["unique?"] ? ".unique()" : "",
+              config["index?"] ? ".indexed()" : "",
+              `,`,
+            ].join("");
+          })
+          .join("\n"),
+        `\n`,
+        `  `,
+        `})`,
+        `,`,
+      ].join("");
+    })
+    .join("\n");
+
+  const entitiesObjCode = `{\n${entitiesEntriesCode}\n}`;
+
+  const linksEntriesCode = Object.fromEntries(
+    sortedEntries(schema.refs).map(([name, config]) => {
+      const [, fe, flabel] = config["forward-identity"];
+      const [, re, rlabel] = config["reverse-identity"];
+      const [fhas, rhas] = rels[`${config.cardinality}-${config["unique?"]}`];
+      return [
+        `${fe}${capitalizeFirstLetter(flabel)}`,
+        {
+          forward: {
+            on: fe,
+            has: fhas,
+            label: flabel,
+          },
+          reverse: {
+            on: re,
+            has: rhas,
+            label: rlabel,
+          },
+        },
+      ];
+    }),
+  );
+
+  return `// ${title}
+// ${appDashUrl(id)}
+
+import { i } from "${instantModuleName ?? "@instantdb/core"}";
+
+const INSTANT_APP_ID = "${id}";
+
+const graph = i.graph(
+  INSTANT_APP_ID,
+${indentLines(entitiesObjCode, 1)},
+${indentLines(JSON.stringify(linksEntriesCode, null, "  "), 1)}
+);
+
+export default graph;
+`;
+}

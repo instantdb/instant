@@ -447,13 +447,13 @@ Even with the 100 LOC version, you can express a query like “Give me all the o
 
 ## 80/20 for Multiplayer
 
-Turns out triple stores are a great answer for muliplayer too. Once we make our Local DB collaborative, we’ll need to support conflicts. What should happen when two people change something at the same time?
+Turns out triple stores are a great answer for multiplayer too. Once we make our Local DB collaborative, we’ll need to support conflicts. What should happen when two people change something at the same time?
 
 Notion, Figma, and Linear all use last-write-wins. This means that whichever change reaches the server last wins.
 
 This can work well, but we need to be creative about it. Imagine if two of us changed the same Figma Layer. One of us changed the font size, and the other changed the background color. If we’re creative about how we save things, there shouldn’t be a conflict in the first place.
 
-How does Figma this? They store their properties in a special way. They store them as...triples! [^27]
+How does Figma do this? They store their properties in a special way. They store them as...triples! [^27]
 
 ```javascript
 [1, 'fontSize', 20]
@@ -553,7 +553,7 @@ And get back objects:
   teams: [{
     id: 1,
     name: 'Awesome Team',
-    tasks: [{id: 3, title: 'Code', owner: [{id: 1, name: 'Joe'}]
+    tasks: [{id: 3, title: 'Code', owner: [{id: 1, name: 'Joe'}]}]
   }]
 }
 ```

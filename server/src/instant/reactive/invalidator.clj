@@ -279,8 +279,8 @@
                 (doseq [{:keys [id]} sockets]
                   (tracer/with-span! {:name "invalidator/send-refresh"
                                       :session-id id}
-                    (.put session/receive-q
-                          {:op :refresh :session-id id}))))
+                    (session/enqueue->receive-q session/receive-q
+                                                {:op :refresh :session-id id}))))
               (catch Throwable t
                 (def -wal-record wal-record)
                 (def -store-value @store-conn)
@@ -295,8 +295,8 @@
         (doseq [{:keys [id]} sockets]
           (tracer/with-span! {:name "invalidator/send-refresh"
                               :session-id id}
-            (.put session/receive-q {:op :refresh
-                                     :session-id id}))))
+            (session/enqueue->receive-q session/receive-q {:op :refresh
+                                                           :session-id id}))))
       (catch Throwable t
         (def -wal-record wal-record)
         (def -store-value @store-conn)

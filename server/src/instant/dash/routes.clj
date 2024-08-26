@@ -1044,13 +1044,13 @@
      :steps steps}))
 
 (defn schema-push-plan-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user! req)
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         client-defs (-> req :body :schema)
         r (schema-push-steps app-id client-defs)]
     (response/ok r)))
 
 (defn schema-push-apply-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user! req)
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         client-defs (-> req :body :schema)
         r (schema-push-steps app-id client-defs)
         tx-ctx {:admin? true
@@ -1061,6 +1061,21 @@
                 :rules (rule-model/get-by-app-id aurora/conn-pool
                                                  {:app-id app-id})}
         _ (permissioned-tx/transact! tx-ctx (:steps r))]
+    (response/ok r)))
+
+(defn schema-pull-get [req]
+  (let [{{app-id :id app-title :title} :app} (req->app-and-user! :collaborator req)
+        current-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
+        current-schema (attrs->schema current-attrs)
+        r {:schema current-schema :app-title app-title}]
+    (response/ok r)))
+
+(defn perms-pull-get [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        perms (rule-model/get-by-app-id
+               aurora/conn-pool
+               {:app-id app-id})
+        r {:perms (:code perms)}]
     (response/ok r)))
 
 (comment
@@ -1181,6 +1196,8 @@
 
   (POST "/dash/apps/:app_id/schema/push/plan" [] schema-push-plan-post)
   (POST "/dash/apps/:app_id/schema/push/apply" [] schema-push-apply-post)
+  (GET "/dash/apps/:app_id/schema/pull" [] schema-pull-get)
+  (GET "/dash/apps/:app_id/perms/pull" [] perms-pull-get)
 
   (GET "/dash/ws_playground" [] ws-playground-get)
 
