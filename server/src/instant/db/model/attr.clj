@@ -333,16 +333,15 @@
            reverse_ident
            rev_label
            rev_etype
-           ;; XXX: Rename to inferred_types in the database
-           inferred_type]}]
+           inferred_types]}]
   (cond-> {:id id
            :value-type (keyword value_type)
            :cardinality (keyword cardinality)
            :forward-identity [forward_ident fwd_etype fwd_label]
            :unique? is_unique
            :index? is_indexed
-           :inferred-types (when inferred_type
-                             (friendly-inferred-types inferred_type))}
+           :inferred-types (when inferred_types
+                             (friendly-inferred-types inferred_types))}
     reverse_ident (assoc :reverse-identity [reverse_ident rev_etype rev_label])))
 
 (defn by-id [id]

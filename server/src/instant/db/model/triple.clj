@@ -366,11 +366,11 @@
                  :do-nothing true
                  :returning :entity-id}]
                [:attr-inferred-types {:update :attrs
-                                      :set {:inferred-type [:|
-                                                            [:coalesce
-                                                             :attrs.inferred_type
-                                                             [:cast :0 [:bit :32]]]
-                                                            :updates.typ]}
+                                      :set {:inferred-types [:|
+                                                             [:coalesce
+                                                              :attrs.inferred_types
+                                                              [:cast :0 [:bit :32]]]
+                                                             :updates.typ]}
                                       :from [[{:values (->> (reduce (fn [acc [_e a v]]
                                                                       (if-not v
                                                                         acc
