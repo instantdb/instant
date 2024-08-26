@@ -143,7 +143,7 @@
   "Binds `silencer-param` to a function that accepts true or false. If last
    called with `true`, any calls to `add-exception!` in the current thread
    will be ignored."
-  [silencer-param & body]
+  [[silencer-param] & body]
   `(let [silencer# (atom false)
          ~silencer-param (fn [value#]
                            (reset! silencer# value#))]

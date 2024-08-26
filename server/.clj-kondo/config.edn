@@ -3,4 +3,5 @@
            :unresolved-var {:exclude [ring.util.http-response/set-cookie
                                       amazonica.aws.s3]}}
  :ignore [:inline-def]
- :lint-as {instant.jdbc.sql/with-connection clojure.core/let}}
+ :lint-as {instant.jdbc.sql/with-connection clojure.core/let
+           instant.util.tracer/with-exceptions-silencer clojure.core/fn}}

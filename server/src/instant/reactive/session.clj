@@ -394,7 +394,7 @@
            :session-id sess-id)))
 
 (defn handle-receive [store-conn eph-store-atom session event]
-  (tracer/with-exceptions-silencer silence-exceptions
+  (tracer/with-exceptions-silencer [silence-exceptions]
     (tracer/with-span! {:name "receive-worker/handle-receive"
                         :sample-rate (event-sample-rate event)
                         :attributes (handle-receive-attrs store-conn session event)}
