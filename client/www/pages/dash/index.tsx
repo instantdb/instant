@@ -127,11 +127,6 @@ export default function DashV2() {
 }
 
 function isTabAvailable(tab: Tab, role?: Role) {
-  // TODO: remove after testing
-  if (tab.id === 'storage') {
-    return false;
-  }
-
   return tab.minRole ? role && isMinRole(tab.minRole, role) : true;
 }
 

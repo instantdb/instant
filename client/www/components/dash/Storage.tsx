@@ -681,7 +681,7 @@ function StorageDisabledTab({
         </p>
         {/* TODO: link to Google Form instead */}
         <a
-          href="mailto:hello@instantdb.com"
+          href="https://docs.google.com/forms/d/e/1FAIpQLSdzInffrNrsYaamtH_BUe917EOpcOq2k8RWcGM19XepJR6ivQ/viewform?usp=sf_link"
           target="_blank"
           rel="noopener noreferer"
         >
