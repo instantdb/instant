@@ -34,11 +34,11 @@
    [instant.reactive.session :as session]
    [instant.gauges :as gauges])
   (:import
-   (java.util.concurrent LinkedBlockingQueue)
+   (java.util.concurrent LinkedBlockingQueue CancellationException)
    (java.time Duration Instant)))
 
 ;; ------
-;; Setup 
+;; Setup
 
 (declare receive-q)
 (declare receive-worker-ch)
@@ -315,7 +315,7 @@
         :remove-query (handle-remove-query! store-conn id event)
         :refresh (handle-refresh! store-conn id event)
         :transact (handle-transact! store-conn id event)
-        ;; ----- 
+        ;; -----
         ;; EPH events
         :join-room (handle-join-room! store-conn eph-store-atom id event)
         :leave-room (handle-leave-room! store-conn eph-store-atom id event)
@@ -325,8 +325,9 @@
 ;; --------------
 ;; Receive Workers
 
-(defn- handle-instant-exception [store-conn sess-id original-event instant-ex]
-  (let [{:keys [client-event-id]} original-event
+(defn- handle-instant-exception [store-conn session original-event instant-ex]
+  (let [sess-id (:session/id session)
+        {:keys [client-event-id]} original-event
         {:keys [::ex/type ::ex/message ::ex/hint] :as err-data} (ex-data instant-ex)]
     (tracer/add-data! {:attributes {:err-data (pr-str err-data)}})
     (condp contains? type
@@ -370,8 +371,9 @@
                              :message message
                              :hint hint})))))
 
-(defn- handle-uncaught-err [store-conn sess-id original-event root-err]
-  (let [{:keys [client-event-id]} original-event]
+(defn- handle-uncaught-err [store-conn session original-event root-err]
+  (let [sess-id (:session/id session)
+        {:keys [client-event-id]} original-event]
     (tracer/add-exception! root-err {:escaping? false})
     (rs/try-send-event! store-conn sess-id
                         {:op :error
@@ -381,33 +383,50 @@
                          :message (str "Yikes, something broke on our end! Sorry about that."
                                        " Please ping us (Joe and Stopa) on Discord and let us know!")})))
 
-(defn handle-receive [store-conn eph-store-atom session event]
+(defn handle-receive-attrs [store-conn session event]
   (let [{:keys [session/socket worker-n]} session
-        {sess-id :id} socket
+        sess-id (:session/id session)
         event-attrs (event-attributes store-conn sess-id event)]
+    (assoc event-attrs
+           :worker-n worker-n
+           :socket-origin (socket-origin socket)
+           :socket-ip (socket-ip socket)
+           :session-id sess-id)))
+
+(defn handle-receive [store-conn eph-store-atom session event]
+  (tracer/with-exceptions-silencer [silence-exceptions]
     (tracer/with-span! {:name "receive-worker/handle-receive"
                         :sample-rate (event-sample-rate event)
-                        :attributes (assoc event-attrs
-                                           :worker-n worker-n
-                                           :socket-origin (socket-origin socket)
-                                           :socket-ip (socket-ip socket)
-                                           :session-id sess-id)}
+                        :attributes (handle-receive-attrs store-conn session event)}
+      (let [pending-handlers (:pending-handlers (:session/socket session))
+            event-fut (ua/vfuture (handle-event store-conn eph-store-atom session event))
+            pending-handler {:future event-fut
+                             :op (:op event)
+                             :silence-exceptions silence-exceptions}]
+        (swap! pending-handlers conj pending-handler)
+        (tracer/add-data! {:attributes {:concurrent-handler-count (count @pending-handlers)}})
+        (try
+          (let [ret (deref event-fut handle-receive-timeout-ms :timeout)]
+            (when (= :timeout ret)
+              (future-cancel event-fut)
+              (ex/throw-operation-timeout! :handle-receive handle-receive-timeout-ms)))
 
-      (try
-        (let [event-fut (ua/vfuture (handle-event store-conn eph-store-atom session event))
-              ret (deref event-fut handle-receive-timeout-ms :timeout)]
-          (when (= :timeout ret)
-            (future-cancel event-fut)
-            (ex/throw-operation-timeout! :handle-receive handle-receive-timeout-ms)))
-        (catch Throwable e
-          (let [original-event event
-                instant-ex (ex/find-instant-exception e)
-                root-err (root-cause e)]
-            (cond
-              instant-ex (handle-instant-exception
-                          store-conn sess-id original-event instant-ex)
-              :else (handle-uncaught-err
-                     store-conn sess-id original-event root-err))))))))
+          (catch CancellationException _e
+            ;; We must have cancelled this in the on-close, so don't try to do any
+            ;; error handling
+            (tracer/record-info! {:name "handle-receive-cancelled"}))
+          (catch Throwable e
+            (tracer/record-info! {:name "caught-throwable"})
+            (let [original-event event
+                  instant-ex (ex/find-instant-exception e)
+                  root-err (root-cause e)]
+              (cond
+                instant-ex (handle-instant-exception
+                            store-conn session original-event instant-ex)
+                :else (handle-uncaught-err
+                       store-conn session original-event root-err))))
+          (finally
+            (swap! pending-handlers disj pending-handler)))))))
 
 (defn straight-jacket-handle-receive [store-conn eph-store-atom session event]
   (try
@@ -498,7 +517,7 @@
                                           :attributes {:session-id id}
                                           :escaping? false})))
 
-(defn on-close [store-conn eph-store-atom {:keys [id]}]
+(defn on-close [store-conn eph-store-atom {:keys [id pending-handlers]}]
   (tracer/with-span! {:name "socket/on-close"
                       :attributes {:session-id id}}
     (let [{:keys [ping-job]} (rs/get-socket @store-conn id)]
@@ -506,6 +525,13 @@
         (.cancel ping-job false)
         (tracer/record-info! {:name "socket/on-close-no-ping-job"
                               :attributes {:session-id id}}))
+
+      (doseq [{:keys [future silence-exceptions op]} @pending-handlers]
+        (tracer/with-span! {:name "cancel-pending-handler"
+                            :attributes {:op op}}
+          (silence-exceptions true)
+          (future-cancel future)))
+
       (let [app-id (-> (rs/get-auth @store-conn id)
                        :app
                        :id)]
@@ -514,23 +540,28 @@
 
 (defn undertow-config
   [store-conn eph-store-atom receive-q {:keys [id]}]
-  {:undertow/websocket
-   {:on-open (fn [{ws-conn :channel http-req :exchange :as _req}]
-               (let [socket {:id id
-                             :http-req http-req
-                             :ws-conn ws-conn
-                             :receive-q receive-q
-                             :ping-job (start-ping-job store-conn id)}]
-                 (on-open store-conn socket)))
-    :on-message (fn [{:keys [data]}]
-                  (on-message {:id id
-                               :data data
-                               :receive-q receive-q}))
-    :on-error (fn [{:keys [error]}]
-                (on-error {:id id
-                           :error error}))
-    :on-close (fn [_]
-                (on-close store-conn eph-store-atom {:id id}))}})
+  (let [pending-handlers (atom #{})]
+    {:undertow/websocket
+     {:on-open (fn [{ws-conn :channel http-req :exchange :as _req}]
+                 (let [socket {:id id
+                               :http-req http-req
+                               :ws-conn ws-conn
+                               :receive-q receive-q
+                               :ping-job (start-ping-job store-conn id)
+                               :pending-handlers pending-handlers}]
+                   (on-open store-conn socket)))
+      :on-message (fn [{:keys [data]}]
+                    (on-message {:id id
+                                 :data data
+                                 :receive-q receive-q}))
+      :on-error (fn [{:keys [error]}]
+                  (on-error {:id id
+                             :error error}))
+      :on-close (fn [_]
+                  (on-close store-conn
+                            eph-store-atom
+                            {:id id
+                             :pending-handlers pending-handlers}))}}))
 
 ;; ------
 ;; System
