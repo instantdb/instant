@@ -1,4 +1,10 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { ChevronRightIcon } from '@heroicons/react/outline';
 import format from 'date-fns/format';
 
@@ -7,7 +13,7 @@ import { InstantApp } from '@/lib/types';
 import { jsonFetch } from '@/lib/fetch';
 import { Button, Checkbox, cn, SectionHeading } from '@/components/ui';
 import { TokenContext } from '@/lib/contexts';
-import { successToast } from '@/lib/toast';
+import { errorToast, successToast } from '@/lib/toast';
 
 type StorageObject = {
   key: string;
@@ -33,6 +39,24 @@ type StorageDirectory = {
   lastModified: number;
   files: StorageFile[];
 };
+
+async function fetchStorageEnabled(
+  token: string,
+  appId: string
+): Promise<boolean> {
+  const { data } = await jsonFetch(
+    `${config.apiURI}/dash/apps/${appId}/storage/enabled`,
+    {
+      method: 'GET',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return data;
+}
 
 async function fetchStorageFiles(
   token: string,
@@ -254,7 +278,7 @@ type SelectedRow =
   | { type: 'directory'; value: StorageDirectory }
   | { type: 'file'; value: StorageFile };
 
-export function StorageTab({
+export function StorageEnabledTab({
   className,
   app,
 }: {
@@ -281,26 +305,36 @@ export function StorageTab({
   const hasSelectedRows = Object.keys(selectedRows).length > 0;
 
   const handleUploadFile = async () => {
-    if (selectedFiles.length === 0) {
-      return;
+    try {
+      if (selectedFiles.length === 0) {
+        return;
+      }
+
+      const [file] = selectedFiles;
+      const success = await upload(token, app.id, file);
+
+      if (success) {
+        setSelectedFiles([]);
+      }
+
+      await refreshFiles();
+      successToast('Successfully uploaded!');
+    } catch (err: any) {
+      console.error('Failed to upload:', err);
+      errorToast(`('Failed to upload: ${err.body.message}`);
     }
-
-    const [file] = selectedFiles;
-    const success = await upload(token, app.id, file);
-
-    if (success) {
-      setSelectedFiles([]);
-    }
-
-    await refreshFiles();
-    successToast('Successfully uploaded!');
   };
 
   const handleViewFile = async (file: StorageFile) => {
-    const key = formatObjectKey(file);
-    const url = await fetchDownloadUrl(token, app.id, key);
-    console.debug(url);
-    window.open(url, '_blank');
+    try {
+      const key = formatObjectKey(file);
+      const url = await fetchDownloadUrl(token, app.id, key);
+      console.debug(url);
+      window.open(url, '_blank');
+    } catch (err: any) {
+      console.error('Failed to download file:', err);
+      errorToast(`Failed to download file: ${err.body.message}`);
+    }
   };
 
   const handleDeleteFile = async (file: StorageFile) => {
@@ -310,8 +344,13 @@ export function StorageTab({
       return;
     }
 
-    await deleteStorageFile(token, app.id, key);
-    await refreshFiles();
+    try {
+      await deleteStorageFile(token, app.id, key);
+      await refreshFiles();
+    } catch (err: any) {
+      console.error('Failed to delete file:', err);
+      errorToast(`Failed to delete file: ${err.body.message}`);
+    }
   };
 
   const handleDeleteDirectory = async (directory: StorageDirectory) => {
@@ -325,8 +364,13 @@ export function StorageTab({
       return;
     }
 
-    await bulkDeleteFiles(token, app.id, keys);
-    await refreshFiles();
+    try {
+      await bulkDeleteFiles(token, app.id, keys);
+      await refreshFiles();
+    } catch (err: any) {
+      console.error('Failed to delete directory:', err);
+      errorToast(`Failed to delete directory: ${err.body.message}`);
+    }
   };
 
   const getObjectKeysToDelete = () => {
@@ -361,10 +405,15 @@ export function StorageTab({
       return;
     }
 
-    await bulkDeleteFiles(token, app.id, keys);
-    await refreshFiles();
+    try {
+      await bulkDeleteFiles(token, app.id, keys);
+      await refreshFiles();
 
-    setSelectedRows({});
+      setSelectedRows({});
+    } catch (err: any) {
+      console.error('Failed to bulk delete:', err);
+      errorToast(`Failed to bulk files: ${err.body.message}`);
+    }
   };
 
   return (
@@ -611,4 +660,66 @@ export function StorageTab({
       </table>
     </div>
   );
+}
+
+function StorageDisabledTab({
+  className,
+  app,
+}: {
+  className?: string;
+  app: InstantApp;
+}) {
+  return (
+    <div className={cn('flex-1 flex flex-col', className)}>
+      <div className="flex-1 flex flex-col items-center justify-center">
+        <div className="text-center text-lg font-medium text-gray-900">
+          Storage is not enabled for this app yet!
+        </div>
+        <div className="text-center text-base text-gray-500">
+          If you'd like to try it out, please request beta access and we'll get
+          back to you ASAP.
+        </div>
+        {/* TODO: link to Google Form instead */}
+        <a
+          href="mailto:hello@instantdb.com"
+          target="_blank"
+          rel="noopener noreferer"
+        >
+          <Button className="mt-4" size="large">
+            Request beta access
+          </Button>
+        </a>
+      </div>
+    </div>
+  );
+}
+
+export function StorageTab({
+  className,
+  app,
+}: {
+  className?: string;
+  app: InstantApp;
+}) {
+  const token = useContext(TokenContext);
+  const [status, setStatus] = useState<'pending' | 'enabled' | 'disabled'>(
+    'pending'
+  );
+
+  useEffect(() => {
+    fetchStorageEnabled(token, app.id)
+      .then((isEnabled) => setStatus(isEnabled ? 'enabled' : 'disabled'))
+      .catch((err) => {
+        console.error('Failed to check storage whitelist:', err);
+        setStatus('disabled');
+      });
+  }, [app.id]);
+
+  if (status === 'pending') {
+    return null;
+  } else if (status === 'disabled') {
+    return <StorageDisabledTab className={className} app={app} />;
+  } else {
+    return <StorageEnabledTab className={className} app={app} />;
+  }
 }

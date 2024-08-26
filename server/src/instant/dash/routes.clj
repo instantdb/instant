@@ -52,7 +52,8 @@
             [instant.lib.ring.websocket :as ws]
             [instant.jdbc.aurora :as aurora]
             [instant.stripe :as stripe]
-            [instant.storage.s3 :as s3-util])
+            [instant.storage.s3 :as s3-util]
+            [instant.storage.beta :as storage-beta])
 
   (:import
    (java.util UUID)
@@ -860,17 +861,23 @@
 ;; ---
 ;; Storage
 
+(defn storage-enabled-get [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)]
+    (response/ok {:data (storage-beta/storage-enabled? app-id)})))
+
 (defn signed-download-url-get [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
         expiration (+ (System/currentTimeMillis) (* 1000 60 60 24 7)) ;; 7 days
         object-key (s3-util/->object-key app-id filename)]
+    (storage-beta/assert-storage-enabled! app-id)
     (response/ok {:data (str (s3-util/signed-download-url object-key expiration))})))
 
 (defn signed-upload-url-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         filename (ex/get-param! req [:body :filename] string-util/coerce-non-blank-str)
         object-key (s3-util/->object-key app-id filename)]
+    (storage-beta/assert-storage-enabled! app-id)
     (response/ok {:data (str (s3-util/signed-upload-url object-key))})))
 
 (defn format-object [{:keys [key size owner etag last-modified]}]
@@ -883,6 +890,7 @@
 ;; Retrieves all files that have been uploaded via Storage APIs
 (defn files-get [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        _ (storage-beta/assert-storage-enabled! app-id)
         subdirectory (-> req :params :subdirectory)
         objects-resp (if (string/blank? subdirectory)
                        (s3-util/list-app-objects app-id)
@@ -893,6 +901,7 @@
 ;; Deletes a single file by name/path (e.g. "demo.png", "profiles/me.jpg")
 (defn file-delete [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        _ (storage-beta/assert-storage-enabled! app-id)
         filename (-> req :params :filename)
         key (s3-util/->object-key app-id filename)
         resp (s3-util/delete-object key)]
@@ -901,6 +910,7 @@
 ;; Deletes a multiple files by name/path (e.g. "demo.png", "profiles/me.jpg")
 (defn files-delete [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        _ (storage-beta/assert-storage-enabled! app-id)
         filenames (-> req :body :filenames)
         keys (mapv (fn [filename] (s3-util/->object-key app-id filename)) filenames)
         resp (s3-util/delete-objects keys)]
@@ -1209,6 +1219,7 @@
 
   (POST "/dash/apps/:app_id/rename" [] app-rename-post)
 
+  (GET "/dash/apps/:app_id/storage/enabled" [] storage-enabled-get)
   (POST "/dash/apps/:app_id/storage/signed-upload-url" [] signed-upload-url-post)
   (GET "/dash/apps/:app_id/storage/signed-download-url", [] signed-download-url-get)
   (GET "/dash/apps/:app_id/storage/files" [] files-get)
