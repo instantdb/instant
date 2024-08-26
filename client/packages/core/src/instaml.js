@@ -166,7 +166,7 @@ function extractIdents([_action, etype, eid, obj]) {
   const idents = [...ks].map((label) => [etype, label]);
   const lookupPair = lookupPairOfEid(eid);
   if (lookupPair) {
-    idents.push([etype, lookupPair[0], { "unique?": true }]);
+    idents.push([etype, lookupPair[0], { "unique?": true, "index?": true }]);
   }
   return idents;
 }
