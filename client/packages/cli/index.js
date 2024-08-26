@@ -128,6 +128,7 @@ async function login() {
 
   open(authUrl);
 
+  console.log("Waiting for authentication...");
   const { token, email } = await waitForAuthToken({ secret });
 
   await saveConfigAuthToken(token);
@@ -670,7 +671,7 @@ function sleep(ms) {
 }
 
 async function waitForAuthToken({ secret }) {
-  for (let i = 0; i < 24; i++) {
+  for (let i = 1; i <= 24; i++) {
     await sleep(i * 5000);
 
     try {
@@ -687,6 +688,8 @@ async function waitForAuthToken({ secret }) {
 
       if (authCheckRes.ok) {
         return await authCheckRes.json();
+      } else if (verbose) {
+        console.log("Auth check response:", await authCheckRes.json());
       }
     } catch (error) {}
   }

@@ -1120,7 +1120,7 @@
         user-id (:user_id cli-auth)
         _ (ex/assert-valid! :cli-auth
                             (:id cli-auth)
-                            (when-not user-id [{:message "Unclaimed CLI auth ticket"}]))
+                            (when-not user-id [{:message "Invalid CLI auth ticket"}]))
         refresh-token (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id user-id})
         token (:id refresh-token)
         {email :email} (instant-user-model/get-by-id! {:id user-id})
