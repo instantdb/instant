@@ -11,10 +11,6 @@
    [instant.data.constants :refer [empty-app-id]]))
 
 ;; Don't change the order or remove types, only add to the end of the list
-;; QQ: What types do we want to support? Just the json types or more complex types
-;;     - date
-;;     - uuid
-;;     - list(string)
 (def types
   [:number
    :string
@@ -344,13 +340,6 @@
            :inferred-types (when inferred_types
                              (friendly-inferred-types inferred_types))}
     reverse_ident (assoc :reverse-identity [reverse_ident rev_etype rev_label])))
-
-(defn by-id [id]
-  (sql/select-string-keys
-   aurora/conn-pool
-   (hsql/format {:select :*
-                 :from :attrs
-                 :where [:= :id id]})))
 
 (defn get-by-app-id
   "Returns clj representation of all attrs for an app"
