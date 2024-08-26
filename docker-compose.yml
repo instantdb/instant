@@ -1,0 +1,60 @@
+services:
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      API_URI: http://localhost:8888
+      WEBSOCKET_URI: ws://localhost:8888/runtime/session
+      DEV_MODE: true
+
+  postgres:
+    image: public.ecr.aws/z9j8u5b3/instant-public:postgres-13
+    ports:
+      - '8890:5432'
+    environment:
+      POSTGRES_PASSWORD: pass
+      POSTGRES_USER: instant
+      POSTGRES_DB: instant
+    volumes:
+      - 'backend-db:/var/lib/postgresql/data'
+    networks:
+      - application
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "instant"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+      - "-c"
+      - "max_replication_slots=4"
+      - "-c"
+      - "max_wal_senders=4"
+
+  server:
+    depends_on:
+      - postgres
+    build:
+      context: ./server
+      dockerfile: Dockerfile-dev
+    environment:
+      DATABASE_URL: "postgresql://instant:pass@postgres:5432/instant"
+      NREPL_BIND_ADDRESS: "0.0.0.0"
+    volumes:
+      - './server:/app'
+    ports:
+      - '8888:8888'
+      - '6005:6005'
+    networks:
+      - application
+
+networks:
+  application:
+    driver: bridge
+volumes:
+  backend-db:

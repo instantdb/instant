@@ -1,5 +1,5 @@
 import { useAuthToken } from '@/lib/auth';
-import { getLocal } from '@/lib/config';
+import config, { getLocal } from '@/lib/config';
 import { flags } from '@/lib/flags';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { useEffect, useState } from 'react';
@@ -22,7 +22,7 @@ export function Dev() {
   }
 
   useEffect(() => {
-    setIsDevBackend(Boolean(localStorage.getItem('devBackend')));
+    setIsDevBackend(Boolean(config.isDev));
     setAuthTokens(getLocal('__instant__authTokens') ?? []);
     setFlagStates(
       Object.fromEntries(
@@ -179,7 +179,7 @@ export function Dev() {
               if (!token) return;
 
               const name = fd.get('name') as string;
-              const prod = Boolean(localStorage.getItem('devBackend'));
+              const prod = Boolean(config.isDev);
 
               const nextTokens = [
                 ...authTokens,

@@ -49,9 +49,6 @@ dist
 # Logs
 logs
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 lerna-debug.log*
 .pnpm-debug.log*
 
@@ -94,7 +91,6 @@ jspm_packages/
 web_modules/
 
 # TypeScript cache
-*.tsbuildinfo
 
 # Optional npm cache directory
 .npm
@@ -190,3 +186,5 @@ dump.sql
 
 # metrics
 server/resources/metrics/*-usage.png
+
+.idea/
