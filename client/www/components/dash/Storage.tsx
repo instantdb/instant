@@ -40,24 +40,6 @@ type StorageDirectory = {
   files: StorageFile[];
 };
 
-async function fetchStorageEnabled(
-  token: string,
-  appId: string
-): Promise<boolean> {
-  const { data } = await jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/storage/enabled`,
-    {
-      method: 'GET',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${token}`,
-      },
-    }
-  );
-
-  return data;
-}
-
 async function fetchStorageFiles(
   token: string,
   appId: string,
