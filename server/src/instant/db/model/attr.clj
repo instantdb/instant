@@ -29,14 +29,15 @@
 (def binary->type (map-invert type->binary))
 
 (defn inferred-value-type [v]
-  (cond (string? v) :string
+  (cond (uuid? v) :string
+        (string? v) :string
         (number? v) :number
         (boolean? v) :boolean
         :else :json))
 
 (defn friendly-inferred-types [b]
   (keep (fn [[type bin]]
-          (when (= 1 (bit-and b bin))
+          (when (not= 0 (bit-and b bin))
             type))
         type->binary))
 
