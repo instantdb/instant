@@ -150,6 +150,14 @@ export default function DashV2() {
             <Content>
               You can close this window and return to the terminal.
             </Content>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                window.close();
+              }}
+            >
+              Close
+            </Button>
           </div>
         </Dialog>
       </TokenContext.Provider>
