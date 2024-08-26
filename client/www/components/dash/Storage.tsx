@@ -672,20 +672,20 @@ function StorageDisabledTab({
   return (
     <div className={cn('flex-1 flex flex-col', className)}>
       <div className="flex-1 flex flex-col items-center justify-center">
-        <div className="text-center text-lg font-medium text-gray-900">
+        <h2 className="text-center text-xl font-medium text-gray-900">
           Storage is not enabled for this app yet!
-        </div>
-        <div className="text-center text-base text-gray-500">
-          If you'd like to try it out, please request beta access and we'll get
-          back to you ASAP.
-        </div>
+        </h2>
+        <p className="mt-2 text-center text-base text-gray-500 max-w-lg">
+          We're working on making storage just right, and can't wait to share it
+          with you. Are you interested in trying it out early?
+        </p>
         {/* TODO: link to Google Form instead */}
         <a
           href="mailto:hello@instantdb.com"
           target="_blank"
           rel="noopener noreferer"
         >
-          <Button className="mt-4" size="large">
+          <Button className="mt-6" size="large">
             Request beta access
           </Button>
         </a>
@@ -697,29 +697,15 @@ function StorageDisabledTab({
 export function StorageTab({
   className,
   app,
+  isEnabled,
 }: {
   className?: string;
   app: InstantApp;
+  isEnabled?: boolean;
 }) {
-  const token = useContext(TokenContext);
-  const [status, setStatus] = useState<'pending' | 'enabled' | 'disabled'>(
-    'pending'
-  );
-
-  useEffect(() => {
-    fetchStorageEnabled(token, app.id)
-      .then((isEnabled) => setStatus(isEnabled ? 'enabled' : 'disabled'))
-      .catch((err) => {
-        console.error('Failed to check storage whitelist:', err);
-        setStatus('disabled');
-      });
-  }, [app.id]);
-
-  if (status === 'pending') {
-    return null;
-  } else if (status === 'disabled') {
-    return <StorageDisabledTab className={className} app={app} />;
-  } else {
+  if (isEnabled) {
     return <StorageEnabledTab className={className} app={app} />;
+  } else {
+    return <StorageDisabledTab className={className} app={app} />;
   }
 }

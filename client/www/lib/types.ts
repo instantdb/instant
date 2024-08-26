@@ -47,6 +47,9 @@ export type DashResponse = {
     email: string;
     id: string;
   };
+  flags: {
+    storage_enabled_apps?: string[];
+  };
 };
 
 export type AppError = { body: { message: string } | undefined };

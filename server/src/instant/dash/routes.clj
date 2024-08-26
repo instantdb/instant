@@ -278,12 +278,16 @@
   (let [{:keys [id email]} (req->auth-user! req)
         apps (app-model/get-all-for-user {:user-id id})
         profile (instant-profile-model/get-by-user-id {:user-id id})
-        invites (instant-app-member-invites-model/get-pending-for-invitee {:email email})]
+        invites (instant-app-member-invites-model/get-pending-for-invitee {:email email})
+        whitelist (storage-beta/whitelist)
+        storage-enabled-app-ids (->> apps
+                                     (map :id)
+                                     (filter #(contains? whitelist (str %))))]
     (response/ok {:apps apps
                   :profile profile
                   :invites invites
-                  :user {:id id
-                         :email email}})))
+                  :user {:id id :email email}
+                  :flags {:storage_enabled_apps storage-enabled-app-ids}})))
 
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
@@ -861,10 +865,6 @@
 ;; ---
 ;; Storage
 
-(defn storage-enabled-get [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)]
-    (response/ok {:data (storage-beta/storage-enabled? app-id)})))
-
 (defn signed-download-url-get [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
@@ -1219,7 +1219,6 @@
 
   (POST "/dash/apps/:app_id/rename" [] app-rename-post)
 
-  (GET "/dash/apps/:app_id/storage/enabled" [] storage-enabled-get)
   (POST "/dash/apps/:app_id/storage/signed-upload-url" [] signed-upload-url-post)
   (GET "/dash/apps/:app_id/storage/signed-download-url", [] signed-download-url-get)
   (GET "/dash/apps/:app_id/storage/files" [] files-get)

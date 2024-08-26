@@ -181,6 +181,12 @@ function Dashboard() {
     return apps;
   }, [dashResponse.data?.apps]);
   const app = apps?.find((a) => a.id === appId);
+  const isStorageEnabled = useMemo(() => {
+    const storageEnabledAppIds =
+      dashResponse.data?.flags?.storage_enabled_apps ?? [];
+
+    return storageEnabledAppIds.includes(appId);
+  }, [appId, dashResponse.data?.flags?.storage_enabled_apps]);
 
   // ui
   const availableTabs = tabs
@@ -361,7 +367,11 @@ function Dashboard() {
                     nav={nav}
                   />
                 ) : tab === 'storage' ? (
-                  <StorageTab key={app.id} app={app} />
+                  <StorageTab
+                    key={app.id}
+                    app={app}
+                    isEnabled={isStorageEnabled}
+                  />
                 ) : tab == 'admin' && isMinRole('admin', app.user_app_role) ? (
                   <Admin
                     dashResponse={dashResponse}

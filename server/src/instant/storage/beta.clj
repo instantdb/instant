@@ -7,20 +7,23 @@
 
 (def whitelist-ns "storage-whitelist")
 
-(defn storage-enabled? [app-id]
+(defn whitelist []
   (if-let [config-app-id (config/instant-config-app-id)]
     (let [attrs (attr-model/get-by-app-id aurora/conn-pool config-app-id)
           get-attr-id (fn [prop]
                         (:id (attr-model/seek-by-fwd-ident-name [whitelist-ns prop]
                                                                 attrs)))
-          patterns [[:ea '?e (get-attr-id "appId") app-id]
-                    [:ea '?e (get-attr-id "isEnabled") true]]
+          patterns [[:ea '?e (get-attr-id "isEnabled") true]
+                    [:ea '?e (get-attr-id "appId") '?appId]]
           query-result (d/query {:app-id config-app-id
                                  :db {:conn-pool aurora/conn-pool}}
                                 patterns)
-          value (get-in query-result [:symbol-values '?e])]
-      (not (empty? value)))
-    false))
+          value (get-in query-result [:symbol-values '?appId])]
+      value)
+    #{}))
+
+(defn storage-enabled? [app-id]
+  (contains? (whitelist) (str app-id)))
 
 (defn assert-storage-enabled! [app-id]
   (ex/assert-permitted! :storage-enabled? app-id (storage-enabled? app-id)))
