@@ -1,5 +1,6 @@
 MAKEFLAGS = --no-print-directory --always-make --silent
 MAKE = make $(MAKEFLAGS)
+DC = $(shell command -v docker-compose >/dev/null 2>&1 && echo "docker-compose" || echo "docker compose")
 
 dev:
 	@echo "Booting up backend w/ local db..."
@@ -15,7 +16,7 @@ dev-oss:
 	clojure -M:dev:run
 
 docker-compose:
-	docker-compose -f ./docker-compose-dev.yml build && docker-compose -f ./docker-compose-dev.yml up
+	$(DC) -f ./docker-compose-dev.yml build && $(DC) -f ./docker-compose-dev.yml up
 
 dev-up:
 	@echo "Migrating dev db up to latest"

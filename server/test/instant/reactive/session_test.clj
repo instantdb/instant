@@ -39,11 +39,13 @@
         socket {:id sess-id
                 :ws-conn fake-ws-conn
                 :receive-q receive-q
-                :ping-job (future)}
+                :ping-job (future)
+                :pending-handlers (atom #{})}
         second-socket {:id (random-uuid)
                        :ws-conn (a/chan 1)
                        :receive-q receive-q
-                       :ping-job (future)}
+                       :ping-job (future)
+                       :pending-handlers (atom #{})}
         query-reactive rq/instaql-query-reactive!]
     (session/on-open store-conn socket)
     (session/on-open store-conn second-socket)

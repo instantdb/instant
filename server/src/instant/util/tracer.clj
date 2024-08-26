@@ -18,6 +18,10 @@
 (def ^:dynamic *span* nil)
 (def ^:dynamic *skipped* false)
 
+;; Expects an atom with a boolean value if not nil
+;; Used to mute `add-exception!` from the outside when the caller expects errors
+(def ^:dynamic *silence-exceptions?* nil)
+
 (defonce tracer (atom nil))
 (defn get-tracer []
   (if-let [t @tracer]
@@ -122,14 +126,29 @@
          attrs       (into triage (ex-data exception))
          status      {:code        :error
                       :description (main/ex-str triage)}]
-     (add-data! span {:status status
-                      :exception-data {:exception  exception
-                                       :escaping?  escaping?
-                                       :attributes attrs}}))))
+     (if (and *silence-exceptions?*
+              @*silence-exceptions?*)
+       (add-data! span {:attributes
+                        {:silenced-exception (main/ex-str triage)}})
+       (add-data! span {:status status
+                        :exception-data {:exception  exception
+                                         :escaping?  escaping?
+                                         :attributes attrs}})))))
 
 (defn end-span!
   [^Span span]
   (.end span))
+
+(defmacro with-exceptions-silencer
+  "Binds `silencer-param` to a function that accepts true or false. If last
+   called with `true`, any calls to `add-exception!` in the current thread
+   will be ignored."
+  [[silencer-param] & body]
+  `(let [silencer# (atom false)
+         ~silencer-param (fn [value#]
+                           (reset! silencer# value#))]
+     (binding [*silence-exceptions?* silencer#]
+       ~@body)))
 
 (defmacro with-span!*
   [span-opts & body]
