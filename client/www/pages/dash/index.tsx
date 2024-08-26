@@ -11,7 +11,13 @@ import { PlusIcon, TrashIcon } from '@heroicons/react/solid';
 import { StyledToastContainer, errorToast, successToast } from '@/lib/toast';
 import config, { getLocal } from '@/lib/config';
 import { jsonFetch, jsonMutate } from '@/lib/fetch';
-import { APIResponse, signOut, useAuthToken, useAuthedFetch } from '@/lib/auth';
+import {
+  APIResponse,
+  signOut,
+  useAuthToken,
+  useAuthedFetch,
+  claimTicket,
+} from '@/lib/auth';
 import { TokenContext } from '@/lib/contexts';
 import { DashResponse, InstantApp, InstantMember } from '@/lib/types';
 
@@ -99,13 +105,27 @@ function isMinRole(minRole: Role, role: Role) {
 export default function DashV2() {
   const authToken = useAuthToken();
   const isHydrated = useIsHydrated();
+  const router = useRouter();
+  const cliAuthCompleteDialog = useDialog();
+  const ticket = router.query.ticket as string | undefined;
+  const cliAuth = router.query['_cli_oauth'] as string | undefined;
+
+  useEffect(() => {
+    if (cliAuth) cliAuthCompleteDialog.onOpen();
+  }, [cliAuth]);
 
   if (!isHydrated) {
     return null;
   }
 
   if (!authToken) {
-    return <Auth key="anonymous" />;
+    return (
+      <Auth
+        key="anonymous"
+        ticket={ticket}
+        onClaimTicket={cliAuthCompleteDialog.onOpen}
+      />
+    );
   }
 
   return (
@@ -120,7 +140,18 @@ export default function DashV2() {
         }</style>
       </Head>
       <TokenContext.Provider value={authToken}>
-        <Dashboard key="root" />
+        <Dashboard key="root" onClaimTicket={cliAuthCompleteDialog.onOpen} />
+        <Dialog
+          open={cliAuthCompleteDialog.open}
+          onClose={cliAuthCompleteDialog.onClose}
+        >
+          <div className="flex flex-col p-4 gap-2">
+            <SectionHeading>Instant CLI verification complete!</SectionHeading>
+            <Content>
+              You can close this window and return to the terminal.
+            </Content>
+          </div>
+        </Dialog>
       </TokenContext.Provider>
     </>
   );
@@ -135,13 +166,14 @@ function isTabAvailable(tab: Tab, role?: Role) {
   return tab.minRole ? role && isMinRole(tab.minRole, role) : true;
 }
 
-function Dashboard() {
+function Dashboard({ onClaimTicket }: { onClaimTicket: () => void }) {
   const token = useContext(TokenContext);
   const router = useRouter();
   const appId = router.query.app as string;
   const screen = (router.query.s as string) || 'main';
   const _tab = router.query.t as TabId;
   const tab = tabIndex.has(_tab) ? _tab : defaultTab;
+  const ticket = router.query.ticket as string | undefined;
 
   const [connection, setConnection] = useState<{
     db: InstantReactClient;
@@ -149,6 +181,16 @@ function Dashboard() {
 
   const dashResponse = useAuthedFetch<DashResponse>(`${config.apiURI}/dash`);
 
+  // new CLI login flow
+  useEffect(() => {
+    if (!token) return;
+    if (!ticket) return;
+    claimTicket({ ticket, token }).then(() => {
+      onClaimTicket();
+    });
+  }, [token, ticket]);
+
+  // old CLI login flow
   useEffect(() => {
     if (!token) return;
     const email = dashResponse.data?.user?.email;
@@ -1298,6 +1340,9 @@ function errMessage(e: Error) {
   return e.message || 'An error occurred.';
 }
 
+/**
+ * @deprecated Use `claimTicket`
+ */
 async function tryCliLogin({ token, email }: { token: string; email: string }) {
   try {
     const res = await fetch('http://localhost:65432', {

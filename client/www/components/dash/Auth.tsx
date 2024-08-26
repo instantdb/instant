@@ -1,5 +1,5 @@
 import { ReactNode, useState } from 'react';
-import { sendMagicCode, verifyMagicCode } from '../../lib/auth';
+import { sendMagicCode, claimTicket, verifyMagicCode } from '../../lib/auth';
 import {
   Button,
   Content,
@@ -76,6 +76,7 @@ function EmailStep(props: {
   onSendCode: () => void;
   disabled: boolean | undefined;
   error?: string;
+  ticket?: string;
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -115,9 +116,10 @@ function EmailStep(props: {
           <Button
             variant="secondary"
             type="link"
-            href={`${config.apiURI}/dash/oauth/start${
-              isDev ? '?redirect_to_dev=true' : ''
-            }`}
+            href={url(config.apiURI, `/dash/oauth/start`, {
+              ticket: props.ticket,
+              redirect_to_dev: isDev ? 'true' : undefined,
+            })}
           >
             <span className="flex items-center space-x-2">
               <Image src={googleIconSvg} width={16} />
@@ -130,7 +132,12 @@ function EmailStep(props: {
   );
 }
 
-export default function Auth(props: { emailOnly?: boolean; info?: ReactNode }) {
+export default function Auth(props: {
+  emailOnly?: boolean;
+  info?: ReactNode;
+  ticket?: string;
+  onClaimTicket?: () => void;
+}) {
   const [{ sentEmail, email, code, error, isLoading }, setState] =
     useState<State>({
       sentEmail: '',
@@ -164,13 +171,23 @@ export default function Auth(props: { emailOnly?: boolean; info?: ReactNode }) {
       isLoading: true,
     }));
 
-    verifyMagicCode({ email, code }).catch((err) => {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: errorFromVerifyMagicCode(err),
-      }));
-    });
+    verifyMagicCode({ email, code }).then(
+      ({ token }) => {
+        const ticket = props.ticket;
+        if (!ticket) return;
+
+        claimTicket({ ticket, token }).then(() => {
+          props.onClaimTicket?.();
+        });
+      },
+      (err) => {
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: errorFromVerifyMagicCode(err),
+        }));
+      }
+    );
   };
 
   const onEmailChange = (email: string) =>
@@ -218,6 +235,7 @@ export default function Auth(props: { emailOnly?: boolean; info?: ReactNode }) {
               onEmailChange={onEmailChange}
               onSendCode={sendCode}
               error={error}
+              ticket={props.ticket}
             />
           )}
           {props.info ?? null}
@@ -258,4 +276,12 @@ function errorFromSendMagicCode(res: InstantError): string {
     default:
       return defaultMsg;
   }
+}
+
+function url(base: string, path: string, querty: Record<string, any>) {
+  const url = new URL(path, base);
+  Object.entries(querty).forEach(([key, value]) => {
+    url.searchParams.set(key, value);
+  });
+  return url.toString();
 }

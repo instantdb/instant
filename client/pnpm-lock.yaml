@@ -258,6 +258,18 @@ importers:
         specifier: ^4.17.21
         version: 4.17.21
 
+  sandbox/cli:
+    dependencies:
+      '@instantdb/admin':
+        specifier: workspace:*
+        version: link:../../packages/admin
+      '@instantdb/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      instant-cli:
+        specifier: workspace:*
+        version: link:../../packages/cli
+
   sandbox/react-native-expo:
     dependencies:
       '@babel/runtime':

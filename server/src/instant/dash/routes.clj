@@ -27,6 +27,7 @@
             [instant.model.instant-subscription :as instant-subscription-model]
             [instant.model.app-email-template :as app-email-template-model]
             [instant.model.app-email-sender :as app-email-sender-model]
+            [instant.model.instant-cli-auth :as instant-cli-auth-model]
             [instant.postmark :as postmark]
             [instant.util.async :refer [fut-bg]]
             [instant.util.coll :as coll]
@@ -444,7 +445,7 @@
     (.startsWith path "/") path
     :else (str "/" path)))
 
-(defn oauth-start [{{:keys [redirect_path redirect_to_dev]} :params}]
+(defn oauth-start [{{:keys [redirect_path redirect_to_dev ticket]} :params}]
   (let [cookie (UUID/randomUUID)
         cookie-expires (java.util.Date. (+ (.getTime (java.util.Date.))
                                            ;; 1 hour
@@ -465,7 +466,8 @@
                                            :cookie cookie
                                            :service "google"
                                            :redirect-path (coerce-redirect-path redirect_path)
-                                           :redirect-to-dev (= redirect_to_dev "true")})
+                                           :redirect-to-dev (= redirect_to_dev "true")
+                                           :ticket ticket})
     (-> (response/found redirect-url)
         (response/set-cookie oauth-cookie-name cookie {:http-only true
                                                        ;; Don't require https in dev
@@ -520,14 +522,15 @@
               (fut-bg (ping-for-outreach user-id))
               user))))
 
-(defn oauth-callback-response [{:keys [error code redirect-to-dev]}]
+(defn oauth-callback-response [{:keys [error code redirect-to-dev ticket]}]
   (let [dash (if redirect-to-dev
                (config/dashboard-origin {:env :dev})
                (config/dashboard-origin))
         base-url (str dash "/dash/oauth/callback")
         redirect-url (str base-url "?" (if error
                                          (str "error=" (java.net.URLEncoder/encode error))
-                                         (str "code=" code)))]
+                                         (str "code=" code))
+                          (if ticket (str "&ticket=" ticket) ""))]
     (response/found redirect-url)))
 
 (defn oauth-callback [req]
@@ -595,7 +598,9 @@
           (instant-oauth-code-model/create! {:code code
                                              :user-id (:id user)
                                              :redirect-path (:redirect_path oauth-redirect)})
-          (oauth-callback-response {:code code :redirect-to-dev (:redirect_to_dev oauth-redirect)}))
+          (oauth-callback-response {:code code
+                                    :redirect-to-dev (:redirect_to_dev oauth-redirect)
+                                    :ticket (:ticket oauth-redirect)}))
         (oauth-callback-response {:error "Could not create or update user."})))))
 
 (defn oauth-token-callback [req]
@@ -1091,6 +1096,38 @@
                           :headers {"authorization" (str "Bearer " (:id r))}}))
 
 ;; --- 
+;; CLI auth
+
+(defn cli-auth-register-post [_]
+  (let [secret (UUID/randomUUID)
+        ticket (UUID/randomUUID)]
+    (instant-cli-auth-model/create!
+     aurora/conn-pool
+     {:secret secret
+      :ticket ticket})
+    (response/ok {:secret secret :ticket ticket})))
+
+(defn cli-auth-claim-post [req]
+  (let [{user-id :id} (req->auth-user! req)
+        ticket (ex/get-param! req [:body :ticket] uuid-util/coerce)]
+    (println "claiming ticket" ticket)
+    (instant-cli-auth-model/claim! aurora/conn-pool {:user-id user-id :ticket ticket})
+    (response/ok {:ticket ticket})))
+
+(defn cli-auth-check-post [req]
+  (let [secret (ex/get-param! req [:body :secret] uuid-util/coerce)
+        cli-auth (instant-cli-auth-model/check! aurora/conn-pool {:secret secret})
+        user-id (:user_id cli-auth)
+        _ (ex/assert-valid! :cli-auth
+                            (:id cli-auth)
+                            (when-not user-id [{:message "Unclaimed CLI auth ticket"}]))
+        refresh-token (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id user-id})
+        token (:id refresh-token)
+        {email :email} (instant-user-model/get-by-id! {:id user-id})
+        res {:token token :email email}]
+    (response/ok res)))
+
+;; --- 
 ;; WS playground 
 
 (def id-atom (atom 0))
@@ -1168,6 +1205,10 @@
    (GET "/dash/oauth/callback" [] oauth-callback))
 
   (POST "/dash/oauth/token" [] oauth-token-callback)
+
+  (POST "/dash/cli/auth/register" [] cli-auth-register-post)
+  (POST "/dash/cli/auth/check" [] cli-auth-check-post)
+  (POST "/dash/cli/auth/claim" [] cli-auth-claim-post)
 
   (GET "/dash/session_counts" [] session-counts-get)
 

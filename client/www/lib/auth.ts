@@ -2,7 +2,7 @@ import Cookies from 'js-cookie';
 import { useContext, useEffect, useState } from 'react';
 import useSwr, { SWRResponse } from 'swr';
 import config from './config';
-import { jsonFetch } from './fetch';
+import { jsonFetch, jsonMutate } from './fetch';
 import { TokenContext } from '@/lib/contexts';
 import { InstantError } from './types';
 import { capitalize } from 'lodash';
@@ -210,6 +210,19 @@ export async function exchangeOAuthCodeForToken({ code }: { code: string }) {
   );
   change(res.token);
   return res;
+}
+
+export async function claimTicket({
+  ticket,
+  token,
+}: {
+  ticket: string;
+  token: string;
+}) {
+  return jsonMutate(`${config.apiURI}/dash/cli/auth/claim`, {
+    token,
+    body: { ticket },
+  });
 }
 
 /**

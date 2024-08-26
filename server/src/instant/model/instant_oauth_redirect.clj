@@ -8,12 +8,12 @@
 
 (defn create!
   ([params] (create! aurora/conn-pool params))
-  ([conn {:keys [state cookie service redirect-path redirect-to-dev]}]
+  ([conn {:keys [state cookie service redirect-path redirect-to-dev ticket]}]
    (sql/execute-one!
     conn
-    ["INSERT INTO instant_oauth_redirects (lookup_key, state, cookie, service, redirect_path, redirect_to_dev)
-                         VALUES (?::bytea, ?::uuid, ?::uuid, ?, ?, ?)"
-     (crypt-util/uuid->sha256 state), state, cookie, service, redirect-path redirect-to-dev])))
+    ["INSERT INTO instant_oauth_redirects (lookup_key, state, cookie, service, redirect_path, redirect_to_dev, ticket)
+                         VALUES (?::bytea, ?::uuid, ?::uuid, ?, ?, ?, ?::uuid)"
+     (crypt-util/uuid->sha256 state), state, cookie, service, redirect-path redirect-to-dev ticket])))
 
 (defn consume!
   "Gets and deletes the oauth-redirect so that it can be used only once."
