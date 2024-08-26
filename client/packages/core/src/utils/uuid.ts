@@ -21,4 +21,8 @@ export function uuidCompare(uuid_a: string, uuid_b: string) {
   return compareByteArrays(uuidToByteArray(uuid_a), uuidToByteArray(uuid_b));
 }
 
-export default v4;
+function id(): string {
+  return v4();
+}
+
+export default id;
