@@ -1143,6 +1143,12 @@
     (instant-cli-login-model/claim! aurora/conn-pool {:user-id user-id :ticket ticket})
     (response/ok {:ticket ticket})))
 
+(defn cli-auth-void-post [req]
+  (let [_ (req->auth-user! req)
+        ticket (ex/get-param! req [:body :ticket] uuid-util/coerce)]
+    (instant-cli-login-model/void! aurora/conn-pool {:ticket ticket})
+    (response/ok {})))
+
 (defn cli-auth-check-post [req]
   (let [secret (ex/get-param! req [:body :secret] uuid-util/coerce)
         cli-auth (instant-cli-login-model/check! aurora/conn-pool {:secret secret})
@@ -1238,6 +1244,7 @@
   (POST "/dash/cli/auth/register" [] cli-auth-register-post)
   (POST "/dash/cli/auth/check" [] cli-auth-check-post)
   (POST "/dash/cli/auth/claim" [] cli-auth-claim-post)
+  (POST "/dash/cli/auth/void" [] cli-auth-void-post)
 
   (GET "/dash/session_counts" [] session-counts-get)
 

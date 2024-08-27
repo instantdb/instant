@@ -225,6 +225,19 @@ export async function claimTicket({
   });
 }
 
+export async function voidTicket({
+  ticket,
+  token,
+}: {
+  ticket: string;
+  token: string;
+}) {
+  return jsonMutate(`${config.apiURI}/dash/cli/auth/void`, {
+    token,
+    body: { ticket },
+  });
+}
+
 /**
  * Abstracts over the common pattern of optimistically updating an SWR response during a mutation call
  * Takes an SWR response, a mutation action, and an Immer producer that generates optimistic data

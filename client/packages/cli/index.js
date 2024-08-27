@@ -121,7 +121,7 @@ async function login() {
   const authUrl = `${instantDashOrigin}/dash?ticket=${ticket}`;
 
   const ok = await promptOk(
-    `This will open Instant in your brower (${authUrl}), OK to proceed?`,
+    `This will open instantdb.com in your brower, OK to proceed?`,
   );
 
   if (!ok) return;
