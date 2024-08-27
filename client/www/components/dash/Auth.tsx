@@ -1,10 +1,9 @@
 import { ReactNode, useState } from 'react';
-import { sendMagicCode, claimTicket, verifyMagicCode } from '../../lib/auth';
+import { sendMagicCode, verifyMagicCode } from '../../lib/auth';
 import {
   Button,
   Content,
   Divider,
-  Label,
   LogoIcon,
   ScreenHeading,
   TextInput,
@@ -13,6 +12,7 @@ import config, { isDev } from '@/lib/config';
 import googleIconSvg from '../../public/google_g.svg';
 import Image from 'next/image';
 import { InstantError } from '@/lib/types';
+import { url } from '@/lib/url';
 
 type State = {
   sentEmail: string | undefined;
@@ -271,12 +271,4 @@ function errorFromSendMagicCode(res: InstantError): string {
     default:
       return defaultMsg;
   }
-}
-
-function url(base: string, path: string, querty: Record<string, any>) {
-  const url = new URL(path, base);
-  Object.entries(querty).forEach(([key, value]) => {
-    url.searchParams.set(key, value);
-  });
-  return url.toString();
 }
