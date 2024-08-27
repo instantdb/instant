@@ -91,6 +91,20 @@ body,
   }
 }
 
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(150, 150, 150, 0.5);
+  border: transparent;
+}
+
 .hiddenscrollbar {
   -ms-overflow-style: none;
   /* Internet Explorer 10+ */
