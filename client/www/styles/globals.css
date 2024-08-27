@@ -92,8 +92,8 @@ body,
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -101,7 +101,7 @@ body,
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: rgba(150, 150, 150, 0.5);
+  background-color: rgba(160, 160, 160, 0.5);
   border: transparent;
 }
 

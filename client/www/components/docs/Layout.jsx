@@ -242,7 +242,7 @@ export function Layout({ children, title, tableOfContents }) {
               )}
             </dl>
           </div>
-          <div className="hidden xl:block px-4 py-8 overflow-y-auto xl:basis-52">
+          <div className="hidden xl:block px-4 py-4 overflow-y-auto xl:basis-52">
             <nav aria-labelledby="on-this-page-title">
               {tableOfContents.length > 0 && (
                 <>
@@ -252,7 +252,7 @@ export function Layout({ children, title, tableOfContents }) {
                   >
                     On this page
                   </h2>
-                  <ol role="list" className="mt-4 space-y-2 text-sm">
+                  <ol role="list" className="mt-2 space-y-2 text-sm">
                     {tableOfContents.map((section) => (
                       <li key={section.id}>
                         <h3>
