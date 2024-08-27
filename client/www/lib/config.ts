@@ -6,13 +6,8 @@ export const isTouchDevice =
   typeof window !== 'undefined' && 'ontouchstart' in window;
 
 const config = {
-  apiURI: process.env.API_URI ?? getLocal('devBackend')
-    ? 'http://localhost:8888'
-    : 'https://api.instantdb.com',
-  websocketURI: process.env.WEBSOCKET_URI ?? getLocal('devBackend')
-    ? 'ws://localhost:8888/runtime/session'
-    : 'wss://api.instantdb.com/runtime/session',
-  isDev: process.env.DEV_MODE == 'true'
+  apiURI: process.env.NEXT_PUBLIC_API_URI,
+  websocketURI: process.env.NEXT_PUBLIC_WEBSOCKET_URI
 };
 
 export default config;

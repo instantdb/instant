@@ -5,10 +5,6 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
-    environment:
-      API_URI: http://localhost:8888
-      WEBSOCKET_URI: ws://localhost:8888/runtime/session
-      DEV_MODE: true
 
   postgres:
     image: public.ecr.aws/z9j8u5b3/instant-public:postgres-13

@@ -1,5 +1,5 @@
 import { useAuthToken } from '@/lib/auth';
-import config, { getLocal } from '@/lib/config';
+import config, {getLocal, isDev} from '@/lib/config';
 import { flags } from '@/lib/flags';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { useEffect, useState } from 'react';
@@ -16,13 +16,13 @@ export function Dev() {
   const [open, setOpen] = useState(false);
 
   function toggleOpen(e: KeyboardEvent) {
-    if (e.key === '9' && e.shiftKey && e.metaKey) {
+    if (e.key === 'D' && e.shiftKey && e.metaKey) {
       setOpen((_) => !_);
     }
   }
 
   useEffect(() => {
-    setIsDevBackend(Boolean(config.isDev));
+    setIsDevBackend(Boolean(isDev));
     setAuthTokens(getLocal('__instant__authTokens') ?? []);
     setFlagStates(
       Object.fromEntries(
@@ -36,6 +36,8 @@ export function Dev() {
     document.addEventListener('keydown', toggleOpen);
     return () => document.removeEventListener('keydown', toggleOpen);
   }, []);
+
+  console.log(open);
 
   if (!isHydrated || !open) return null;
 
@@ -179,7 +181,7 @@ export function Dev() {
               if (!token) return;
 
               const name = fd.get('name') as string;
-              const prod = Boolean(config.isDev);
+              const prod = Boolean(!isDev);
 
               const nextTokens = [
                 ...authTokens,

@@ -4,7 +4,6 @@ COPY . .
 
 RUN corepack enable pnpm && pnpm i
 
-ENV NODE_ENV=production
 RUN pnpm run build
 
 WORKDIR /app/www

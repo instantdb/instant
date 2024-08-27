@@ -114,6 +114,7 @@ function LandingHero() {
         <TwoColResponsive>
           <div className="flex flex-1 flex-col gap-8">
             <h2>{JSON.stringify(config)}</h2>
+            <h2>{process.env.NODE_ENV}</h2>
             <H2>The realtime client-side database</H2>
             <p>
               Instant is for building real-time and offline-enabled
