@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { init, tx, id } from "@instantdb/react";
 import config from "../../config";
 import Login from "../../components/Login";
+import { User } from "@instantdb/core";
 
 const { auth, useAuth, transact, useQuery } = init(config);
 
@@ -20,18 +21,20 @@ function App() {
   return <Login auth={auth} />;
 }
 
-function Main({ user }: { user: { id: string; email: string } }) {
-  const { isLoading, error, data } = useQuery({ users: {} });
+function Main({ user }: { user: User }) {
+  // Try to find this this user in the database
+  const { isLoading, error, data } = useQuery({ profiles: { $: { where: { userId: user.id } } } });
+
   useEffect(() => {
     if (isLoading) return;
 
     // Don't add the user if it already exists
-    if (data?.users.find((u: any) => u.email === user.email)) return;
+    if (data?.profiles.length) return;
 
     // This is a new user so let's add them to the database!
     // and give them a random color between red, blue , and yellow
     const randomColor = ["red", "blue", "yellow"][Math.floor(Math.random() * 3)];
-    transact(tx.users[id()].update({ email: user.email, randomColor }));
+    transact(tx.profiles[id()].update({ userId: user.id, email: user.email, randomColor }));
   }, [isLoading]);
 
   if (isLoading) return <div>Loading Query...</div>;
@@ -48,7 +51,7 @@ function Main({ user }: { user: { id: string; email: string } }) {
       >
         Sign Out
       </button>
-      {/* Render all the users */}
+      {/* Render current user profile */}
       <pre>{JSON.stringify(data, null, 2)}</pre>
     </div>
   );
