@@ -1,49 +1,51 @@
-import "dotenv/config";
+// moo
+// http://localhost:3000/dash?s=main&t=home&app=fd6db6f5-aad8-44df-aad9-e49ed8668967
 
 import { i } from "@instantdb/core";
 
-// Example entities and links (you can delete these!)
+const INSTANT_APP_ID = "fd6db6f5-aad8-44df-aad9-e49ed8668967";
+
 const graph = i.graph(
-  process.env.INSTANT_APP_ID!,
+  INSTANT_APP_ID,
   {
-    posts: i.entity({
-      name: i.string(),
-      content: i.string(),
+    "authors": i.entity({
+      "name": i.any(),
+      "userId": i.any(),
     }),
-    authors: i.entity({
-      userId: i.string(),
-      name: i.string(),
+    "posts": i.entity({
+      "content": i.any(),
+      "name": i.any(),
     }),
-    tags: i.entity({
-      label: i.string(),
+    "tags": i.entity({
+      "label": i.any(),
     }),
   },
   {
-    authorPosts: {
-      forward: {
-        on: "authors",
-        has: "many",
-        label: "posts",
+    "authorsPosts": {
+      "forward": {
+        "on": "authors",
+        "has": "many",
+        "label": "posts"
       },
-      reverse: {
-        on: "posts",
-        has: "one",
-        label: "author",
-      },
+      "reverse": {
+        "on": "posts",
+        "has": "one",
+        "label": "author"
+      }
     },
-    postsTags: {
-      forward: {
-        on: "posts",
-        has: "many",
-        label: "tags",
+    "postsTags": {
+      "forward": {
+        "on": "posts",
+        "has": "many",
+        "label": "tags"
       },
-      reverse: {
-        on: "tags",
-        has: "many",
-        label: "posts",
-      },
-    },
-  },
+      "reverse": {
+        "on": "tags",
+        "has": "many",
+        "label": "posts"
+      }
+    }
+  }
 );
 
 export default graph;
