@@ -258,18 +258,6 @@ importers:
         specifier: ^4.17.21
         version: 4.17.21
 
-  sandbox/cli:
-    dependencies:
-      '@instantdb/admin':
-        specifier: workspace:*
-        version: link:../../packages/admin
-      '@instantdb/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      instant-cli:
-        specifier: workspace:*
-        version: link:../../packages/cli
-
   sandbox/cli-nodejs:
     dependencies:
       '@instantdb/admin':
@@ -282,6 +270,9 @@ importers:
         specifier: workspace:*
         version: link:../../packages/cli
     devDependencies:
+      '@types/node':
+        specifier: ^22.5.0
+        version: 22.5.0
       dotenv:
         specifier: ^16.3.1
         version: 16.4.5
@@ -296,7 +287,7 @@ importers:
         version: 13.0.0
       '@instantdb/react-native':
         specifier: '*'
-        version: 0.12.11(@react-native-async-storage/async-storage@1.18.2)(@react-native-community/netinfo@9.3.10)(react-native-get-random-values@1.11.0)(react-native@0.73.6)(react@18.2.0)
+        version: link:../../packages/react-native
       '@react-native-async-storage/async-storage':
         specifier: 1.18.2
         version: 1.18.2(react-native@0.73.6)
@@ -415,7 +406,7 @@ importers:
     dependencies:
       '@instantdb/core':
         specifier: '*'
-        version: 0.12.11
+        version: link:../../packages/core
     devDependencies:
       '@types/google.accounts':
         specifier: ^0.0.14
@@ -3725,7 +3716,7 @@ packages:
       '@inquirer/figures': 1.0.5
       '@inquirer/type': 1.5.2
       '@types/mute-stream': 0.0.4
-      '@types/node': 22.3.0
+      '@types/node': 22.5.0
       '@types/wrap-ansi': 3.0.0
       ansi-escapes: 4.3.2
       cli-spinners: 2.9.2
@@ -3836,41 +3827,6 @@ packages:
     engines: {node: '>=18'}
     dependencies:
       mute-stream: 1.0.0
-    dev: false
-
-  /@instantdb/core@0.12.11:
-    resolution: {integrity: sha512-mNQ7cglwK6xEXZVGIcpKX3CSRjZH58APXtl3LlE0TLetDl9U7fR1PPz8L+ZyQ3ZfCQr4BC/sLdL5BV5OJqQ+3w==}
-    dependencies:
-      immer: 9.0.14
-      object-hash: 3.0.0
-      uuid: 9.0.1
-    dev: false
-
-  /@instantdb/react-native@0.12.11(@react-native-async-storage/async-storage@1.18.2)(@react-native-community/netinfo@9.3.10)(react-native-get-random-values@1.11.0)(react-native@0.73.6)(react@18.2.0):
-    resolution: {integrity: sha512-pD8Ze9DBBRDHr2seikAzXSj1580i5HxxXosnwVm5n2Rk2d/z/gr3JGDZHmNjhD3e43/s6KMYKe8GNAB67Aw1/w==}
-    peerDependencies:
-      '@react-native-async-storage/async-storage': '>=1.15'
-      '@react-native-community/netinfo': '>=7.1'
-      react: '>=16'
-      react-native: '>=0.56'
-      react-native-get-random-values: '>=1.5'
-    dependencies:
-      '@instantdb/core': 0.12.11
-      '@instantdb/react': 0.12.11(react@18.2.0)
-      '@react-native-async-storage/async-storage': 1.18.2(react-native@0.73.6)
-      '@react-native-community/netinfo': 9.3.10(react-native@0.73.6)
-      react: 18.2.0
-      react-native: 0.73.6(@babel/core@7.24.4)(@babel/preset-env@7.24.4)(react@18.2.0)
-      react-native-get-random-values: 1.11.0(react-native@0.73.6)
-    dev: false
-
-  /@instantdb/react@0.12.11(react@18.2.0):
-    resolution: {integrity: sha512-BPj0jDKOUhOd81XSeOlpmnCYKoy8qjmNq5I+0bbELvU+a5YWH/1MpCi98sLcSS0mTCr8fkwD/uXYZJNzo0Qs+w==}
-    peerDependencies:
-      react: '>=16'
-    dependencies:
-      '@instantdb/core': 0.12.11
-      react: 18.2.0
     dev: false
 
   /@isaacs/cliui@8.0.2:
@@ -6213,11 +6169,10 @@ packages:
       undici-types: 5.26.5
     dev: true
 
-  /@types/node@22.3.0:
-    resolution: {integrity: sha512-nrWpWVaDZuaVc5X84xJ0vNrLvomM205oQyLsRt7OHNZbSHslcWsvgFR7O7hire2ZonjLrWBbedmotmIlJDVd6g==}
+  /@types/node@22.5.0:
+    resolution: {integrity: sha512-DkFrJOe+rfdHTqqMg0bSNlGlQ85hSoh2TPzZyhHsXnMtligRWpxUySiyw8FY14ITt24HVCiQPWxS3KO/QlGmWg==}
     dependencies:
-      undici-types: 6.18.2
-    dev: false
+      undici-types: 6.19.8
 
   /@types/normalize-package-data@2.4.4:
     resolution: {integrity: sha512-37i+OaWTh9qeK4LSHPsyRC7NahnGotNuZvjLSgcPzblpHB3rrCJxAOgI5gCdKm7coonsaX1Of0ILiTcnZjbfxA==}
@@ -15552,9 +15507,8 @@ packages:
   /undici-types@5.26.5:
     resolution: {integrity: sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA==}
 
-  /undici-types@6.18.2:
-    resolution: {integrity: sha512-5ruQbENj95yDYJNS3TvcaxPMshV7aizdv/hWYjGIKoANWKjhWNBsr2YEuYZKodQulB1b8l7ILOuDQep3afowQQ==}
-    dev: false
+  /undici-types@6.19.8:
+    resolution: {integrity: sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw==}
 
   /unicode-canonical-property-names-ecmascript@2.0.0:
     resolution: {integrity: sha512-yY5PpDlfVIU5+y/BSCxAJRBIS1Zc2dDG3Ujq+sR0U+JjUevW2JhocOF+soROYDSaAezOzOKuyyixhD6mBknSmQ==}
@@ -15816,7 +15770,7 @@ packages:
       - terser
     dev: true
 
-  /vite@3.2.10(@types/node@20.12.6):
+  /vite@3.2.10(@types/node@18.19.31):
     resolution: {integrity: sha512-Dx3olBo/ODNiMVk/cA5Yft9Ws+snLOXrhLtrI3F4XLt4syz2Yg8fayZMWScPKoz12v5BUv7VEmQHnsfpY80fYw==}
     engines: {node: ^14.18.0 || >=16.0.0}
     hasBin: true
@@ -15841,7 +15795,7 @@ packages:
       terser:
         optional: true
     dependencies:
-      '@types/node': 20.12.6
+      '@types/node': 18.19.31
       esbuild: 0.15.18
       postcss: 8.4.38
       resolve: 1.22.8
@@ -15955,13 +15909,13 @@ packages:
     dependencies:
       '@types/chai': 4.3.14
       '@types/chai-subset': 1.3.5
-      '@types/node': 20.12.6
+      '@types/node': 18.19.31
       chai: 4.4.1
       debug: 4.3.4
       local-pkg: 0.4.3
       tinypool: 0.2.4
       tinyspy: 1.1.1
-      vite: 3.2.10(@types/node@20.12.6)
+      vite: 3.2.10(@types/node@18.19.31)
     transitivePeerDependencies:
       - less
       - sass
