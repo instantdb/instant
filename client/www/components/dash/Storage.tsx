@@ -661,9 +661,8 @@ function StorageDisabledTab({
           We're working on making storage just right, and can't wait to share it
           with you. Are you interested in trying it out early?
         </p>
-        {/* TODO: link to Google Form instead */}
         <a
-          href="https://docs.google.com/forms/d/e/1FAIpQLSdzInffrNrsYaamtH_BUe917EOpcOq2k8RWcGM19XepJR6ivQ/viewform?usp=sf_link"
+          href={`https://docs.google.com/forms/d/e/1FAIpQLSdzInffrNrsYaamtH_BUe917EOpcOq2k8RWcGM19XepJR6ivQ/viewform?usp=pp_url&entry.317753524=${app.id}`}
           target="_blank"
           rel="noopener noreferer"
         >
