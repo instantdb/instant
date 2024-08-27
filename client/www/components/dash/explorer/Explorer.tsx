@@ -41,6 +41,7 @@ import { isTouchDevice } from '@/lib/config';
 import { useSchemaQuery, useNamespacesQuery } from '@/lib/hooks/explorer';
 import { EditNamespaceDialog } from '@/components/dash/explorer/EditNamespaceDialog';
 import { EditRowDialog } from '@/components/dash/explorer/EditRowDialog';
+import { useRouter } from 'next/router';
 
 export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
   // DEV
@@ -57,6 +58,8 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
   const nsRef = useRef<HTMLDivElement>(null);
 
   // nav
+  const router = useRouter();
+  const selectedNamespaceId = router.query.ns as string;
   const [
     navStack,
     // don't call this directly, instead call `nav`
@@ -69,6 +72,19 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
   function nav(s: ExplorerNav[]) {
     _setNavStack(s);
     setCheckedIds({});
+
+    const current = s[s.length - 1];
+    const ns = current.namespace;
+
+    router.replace(
+      {
+        query: { ...router.query, ns },
+      },
+      undefined,
+      {
+        shallow: true,
+      }
+    );
   }
   function replaceNavStackTop(_nav: Partial<ExplorerNav>) {
     const top = navStack[navStack.length - 1];
@@ -152,7 +168,7 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
     const isFirstLoad = namespaces?.length && !navStack.length;
 
     if (isFirstLoad) {
-      nav([{ namespace: namespaces[0].id }]);
+      nav([{ namespace: selectedNamespaceId || namespaces[0].id }]);
     }
   }, [namespaces === null]);
 
