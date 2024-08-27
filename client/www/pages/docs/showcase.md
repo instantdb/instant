@@ -1,3 +1,7 @@
+---
+title: Showcase
+---
+
 ## Sample Apps
 Here are some sample apps showing how to use Instant to build a real app.
 
