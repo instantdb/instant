@@ -18,6 +18,7 @@ import {
   useAuthedFetch,
   claimTicket,
   tryCliLogin,
+  voidTicket,
 } from '@/lib/auth';
 import { TokenContext } from '@/lib/contexts';
 import { DashResponse, InstantApp, InstantMember } from '@/lib/types';
@@ -108,18 +109,22 @@ export default function DashV2() {
   const isHydrated = useIsHydrated();
   const router = useRouter();
   const cliAuthCompleteDialog = useDialog();
+  const [loginTicket, setLoginTicket] = useState<string | undefined>();
 
   const cliNormalTicket = router.query.ticket as string | undefined;
   const cliOauthTicket = router.query[cliOauthParamName] as string | undefined;
   const cliTicket = cliNormalTicket || cliOauthTicket;
+  useEffect(() => {
+    if (cliTicket) setLoginTicket(cliTicket);
+  }, [cliTicket]);
 
   async function completeTicketFlow({
     ticket,
     token,
-  }: { ticket?: string; token?: string } = {}) {
-    if (!token) return;
-    if (!ticket) return;
-
+  }: {
+    ticket: string;
+    token: string;
+  }) {
     try {
       await claimTicket({ ticket, token });
       cliAuthCompleteDialog.onOpen();
@@ -127,11 +132,6 @@ export default function DashV2() {
       errorToast('Error completing CLI login.');
     }
   }
-
-  // new CLI login flow
-  useEffect(() => {
-    completeTicketFlow({ ticket: cliTicket, token });
-  }, [token, cliTicket]);
 
   if (!isHydrated) {
     return null;
@@ -142,8 +142,8 @@ export default function DashV2() {
       <Auth
         key="anonymous"
         ticket={cliNormalTicket}
-        onVerified={({ ticket, token }) => {
-          completeTicketFlow({ ticket, token });
+        onVerified={({ ticket }) => {
+          setLoginTicket(ticket);
         }}
       />
     );
@@ -166,7 +166,7 @@ export default function DashV2() {
           open={cliAuthCompleteDialog.open}
           onClose={cliAuthCompleteDialog.onClose}
         >
-          <div className="flex flex-col p-4 gap-2">
+          <div className="flex flex-col p-4 gap-4">
             <SectionHeading>Instant CLI verification complete!</SectionHeading>
             <Content>
               You can close this window and return to the terminal.
@@ -181,6 +181,44 @@ export default function DashV2() {
               }}
             >
               Close
+            </Button>
+          </div>
+        </Dialog>
+        <Dialog
+          open={Boolean(loginTicket && token)}
+          onClose={() => {
+            if (loginTicket) {
+              voidTicket({ ticket: loginTicket, token });
+            }
+            setLoginTicket(undefined);
+          }}
+        >
+          <div className="flex flex-col p-4 gap-4">
+            <SectionHeading>Instant CLI login</SectionHeading>
+            <Content>
+              Do you want to grant Instant CLI access to your account?
+            </Content>
+            <Button
+              variant="primary"
+              onClick={() => {
+                if (loginTicket) {
+                  completeTicketFlow({ ticket: loginTicket, token });
+                }
+                setLoginTicket(undefined);
+              }}
+            >
+              Log in
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (loginTicket) {
+                  voidTicket({ ticket: loginTicket, token });
+                }
+                setLoginTicket(undefined);
+              }}
+            >
+              Deny
             </Button>
           </div>
         </Dialog>
