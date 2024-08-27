@@ -5,6 +5,12 @@ title: Storage
 Instant Storage makes it simple to upload and serve files for your app.
 You can use Storage to store images, videos, documents, and any other file type.
 
+{% callout %}
+
+Storage is still in **beta**, but you can request access [here](https://docs.google.com/forms/d/e/1FAIpQLSdzInffrNrsYaamtH_BUe917EOpcOq2k8RWcGM19XepJR6ivQ/viewform?usp=sf_link)!
+
+{% /callout %}
+
 ## Uploading files
 
 We use the `db.storage.put(pathname: string, file: File)` function to upload a file.
