@@ -1110,7 +1110,6 @@
 (defn cli-auth-claim-post [req]
   (let [{user-id :id} (req->auth-user! req)
         ticket (ex/get-param! req [:body :ticket] uuid-util/coerce)]
-    (println "claiming ticket" ticket)
     (instant-cli-auth-model/claim! aurora/conn-pool {:user-id user-id :ticket ticket})
     (response/ok {:ticket ticket})))
 
