@@ -865,6 +865,7 @@ function generateSchemaTypescriptFile(id, schema, title, instantModuleName) {
         `\n`,
         // a line of code for each attribute in the entity
         sortedEntries(attrs)
+          .filter(([name]) => name !== "id")
           .map(([name, config]) => {
             return [
               `    `,
