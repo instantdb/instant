@@ -9,7 +9,7 @@ import { capitalize } from 'lodash';
 import { PlusIcon, TrashIcon } from '@heroicons/react/solid';
 
 import { StyledToastContainer, errorToast, successToast } from '@/lib/toast';
-import config, { getLocal } from '@/lib/config';
+import config, { cliOauthParamName, getLocal } from '@/lib/config';
 import { jsonFetch, jsonMutate } from '@/lib/fetch';
 import {
   APIResponse,
@@ -17,6 +17,7 @@ import {
   useAuthToken,
   useAuthedFetch,
   claimTicket,
+  tryCliLogin,
 } from '@/lib/auth';
 import { TokenContext } from '@/lib/contexts';
 import { DashResponse, InstantApp, InstantMember } from '@/lib/types';
@@ -103,27 +104,47 @@ function isMinRole(minRole: Role, role: Role) {
 // COMPONENTS
 
 export default function DashV2() {
-  const authToken = useAuthToken();
+  const token = useAuthToken();
   const isHydrated = useIsHydrated();
   const router = useRouter();
   const cliAuthCompleteDialog = useDialog();
-  const ticket = router.query.ticket as string | undefined;
-  const cliAuth = router.query['_cli_oauth'] as string | undefined;
 
+  const cliNormalTicket = router.query.ticket as string | undefined;
+  const cliOauthTicket = router.query[cliOauthParamName] as string | undefined;
+  const cliTicket = cliNormalTicket || cliOauthTicket;
+
+  async function completeTicketFlow({
+    ticket,
+    token,
+  }: { ticket?: string; token?: string } = {}) {
+    if (!token) return;
+    if (!ticket) return;
+
+    try {
+      await claimTicket({ ticket, token });
+      cliAuthCompleteDialog.onOpen();
+    } catch (error) {
+      errorToast('Error completing CLI login.');
+    }
+  }
+
+  // new CLI login flow
   useEffect(() => {
-    if (cliAuth) cliAuthCompleteDialog.onOpen();
-  }, [cliAuth]);
+    completeTicketFlow({ ticket: cliTicket, token });
+  }, [token, cliTicket]);
 
   if (!isHydrated) {
     return null;
   }
 
-  if (!authToken) {
+  if (!token) {
     return (
       <Auth
         key="anonymous"
-        ticket={ticket}
-        onClaimTicket={cliAuthCompleteDialog.onOpen}
+        ticket={cliNormalTicket}
+        onVerified={({ ticket, token }) => {
+          completeTicketFlow({ ticket, token });
+        }}
       />
     );
   }
@@ -139,8 +160,8 @@ export default function DashV2() {
           `
         }</style>
       </Head>
-      <TokenContext.Provider value={authToken}>
-        <Dashboard key="root" onClaimTicket={cliAuthCompleteDialog.onOpen} />
+      <TokenContext.Provider value={token}>
+        <Dashboard key="root" />
         <Dialog
           open={cliAuthCompleteDialog.open}
           onClose={cliAuthCompleteDialog.onClose}
@@ -174,14 +195,13 @@ function isTabAvailable(tab: Tab, role?: Role) {
   return tab.minRole ? role && isMinRole(tab.minRole, role) : true;
 }
 
-function Dashboard({ onClaimTicket }: { onClaimTicket: () => void }) {
+function Dashboard() {
   const token = useContext(TokenContext);
   const router = useRouter();
   const appId = router.query.app as string;
   const screen = (router.query.s as string) || 'main';
   const _tab = router.query.t as TabId;
   const tab = tabIndex.has(_tab) ? _tab : defaultTab;
-  const ticket = router.query.ticket as string | undefined;
 
   const [connection, setConnection] = useState<{
     db: InstantReactClient;
@@ -189,16 +209,8 @@ function Dashboard({ onClaimTicket }: { onClaimTicket: () => void }) {
 
   const dashResponse = useAuthedFetch<DashResponse>(`${config.apiURI}/dash`);
 
-  // new CLI login flow
-  useEffect(() => {
-    if (!token) return;
-    if (!ticket) return;
-    claimTicket({ ticket, token }).then(() => {
-      onClaimTicket();
-    });
-  }, [token, ticket]);
-
-  // old CLI login flow
+  // The old CLI login flow
+  // TODO: remove after users have updated their CLI
   useEffect(() => {
     if (!token) return;
     const email = dashResponse.data?.user?.email;
@@ -1346,26 +1358,4 @@ function caComp(a: { created_at: string }, b: { created_at: string }) {
  */
 function errMessage(e: Error) {
   return e.message || 'An error occurred.';
-}
-
-/**
- * @deprecated Use `claimTicket`
- */
-async function tryCliLogin({ token, email }: { token: string; email: string }) {
-  try {
-    const res = await fetch('http://localhost:65432', {
-      method: 'POST',
-      body: JSON.stringify({ token, email }),
-    });
-
-    if (res.ok) {
-      const q = new URLSearchParams(window.location.search);
-
-      if (q.has('_cli')) {
-        setTimeout(() => {
-          close();
-        }, 500);
-      }
-    }
-  } catch (error) {}
 }

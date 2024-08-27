@@ -136,7 +136,7 @@ export default function Auth(props: {
   emailOnly?: boolean;
   info?: ReactNode;
   ticket?: string;
-  onClaimTicket?: () => void;
+  onVerified?: ({ token, ticket }: { token: string; ticket?: string }) => void;
 }) {
   const [{ sentEmail, email, code, error, isLoading }, setState] =
     useState<State>({
@@ -173,12 +173,7 @@ export default function Auth(props: {
 
     verifyMagicCode({ email, code }).then(
       ({ token }) => {
-        const ticket = props.ticket;
-        if (!ticket) return;
-
-        claimTicket({ ticket, token }).then(() => {
-          props.onClaimTicket?.();
-        });
+        props.onVerified?.({ token, ticket: props.ticket });
       },
       (err) => {
         setState((prev) => ({

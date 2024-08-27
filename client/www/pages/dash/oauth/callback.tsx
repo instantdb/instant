@@ -3,12 +3,8 @@ import { NextRouter, useRouter } from 'next/router';
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { Button, Content, ScreenHeading } from '@/components/ui';
-import {
-  claimTicket,
-  exchangeOAuthCodeForToken,
-  messageFromInstantError,
-} from '@/lib/auth';
-import config from '@/lib/config';
+import { exchangeOAuthCodeForToken, messageFromInstantError } from '@/lib/auth';
+import config, { cliOauthParamName } from '@/lib/config';
 import { InstantError } from '@/lib/types';
 
 type CallbackState =
@@ -124,23 +120,10 @@ export default function OAuthCallback() {
               return;
             }
 
-            let isCliLogin = await claimTicket({
-              token: res.token,
-              ticket,
-            }).then(
-              () => true,
-              () => false
-            );
-
-            if (!isCliLogin) {
-              router.push(path);
-              return;
-            }
-
             const url = new URL(path, window.location.origin);
-            url.searchParams.set('_cli_oauth', 'true');
-            const modifiedPath = url.href.replace(window.location.origin, '');
-            router.push(modifiedPath);
+            url.searchParams.set(cliOauthParamName, ticket);
+            const finalPath = url.href.replace(window.location.origin, '');
+            router.push(finalPath);
           })
           .catch((res) => {
             const error = messageFromInstantError(res as InstantError);
