@@ -75,6 +75,33 @@
                                        [:= :attr-id a]
                                        [:= :label "id"]]}]]]}])
 
+(defn insert-attr-inferred-types-cte [app-id triples]
+  (let [values (->> (reduce (fn [acc [_e a v]]
+                              (if (nil? v)
+                                acc
+                                (update acc
+                                        a
+                                        (fnil bit-or 0)
+                                        (-> v
+                                            attr-model/inferred-value-type
+                                            attr-model/type->binary))))
+                            {}
+                            triples)
+                    (map (fn [[id typ]]
+                           [id [:cast typ [:bit :32]]])))]
+    (when (seq values)
+      [:attr-inferred-types {:update :attrs
+                             :set {:inferred-types [:|
+                                                    [:coalesce
+                                                     :attrs.inferred_types
+                                                     [:cast :0 [:bit :32]]]
+                                                    :updates.typ]}
+                             :from [[{:values values}
+                                     [:updates {:columns [:id :typ]}]]]
+                             :where [:and
+                                     [:= :attrs.id :updates.id]
+                                     [:= :attrs.app_id app-id]]}])))
+
 (defn deep-merge-multi!
   [conn app-id triples]
   (let [input-triples-values
@@ -191,7 +218,9 @@
                      :on-conflict [:app-id :entity-id :attr-id {:where [:= :ea true]}]
                      :do-update-set {:value :excluded.value
                                      :value-md5 :excluded.value-md5}
-                     :returning :entity-id}]])
+                     :returning :entity-id}]]
+                  (when-let [attr-inferred-types (insert-attr-inferred-types-cte app-id triples)]
+                    [attr-inferred-types]))
            :select :entity-id :from :ea-index-inserts}]
     (sql/do-execute! conn (hsql/format q))))
 
@@ -364,30 +393,9 @@
                                 :from :remaining-triples}]
                  :on-conflict [:app-id :entity-id :attr-id :value-md5]
                  :do-nothing true
-                 :returning :entity-id}]
-               [:attr-inferred-types {:update :attrs
-                                      :set {:inferred-types [:|
-                                                             [:coalesce
-                                                              :attrs.inferred_types
-                                                              [:cast :0 [:bit :32]]]
-                                                             :updates.typ]}
-                                      :from [[{:values (->> (reduce (fn [acc [_e a v]]
-                                                                      (if-not v
-                                                                        acc
-                                                                        (update acc
-                                                                                a
-                                                                                (fnil bit-or 0)
-                                                                                (-> v
-                                                                                    attr-model/inferred-value-type
-                                                                                    attr-model/type->binary))))
-                                                                    {}
-                                                                    triples)
-                                                            (map (fn [[id typ]]
-                                                                   [id [:cast typ [:bit :32]]])))}
-                                              [:updates {:columns [:id :typ]}]]]
-                                      :where [:and
-                                              [:= :attrs.id :updates.id]
-                                              [:= :attrs.app_id app-id]]}]])
+                 :returning :entity-id}]]
+              (when-let [attr-inferred-types (insert-attr-inferred-types-cte app-id triples)]
+                [attr-inferred-types]))
        :union-all [{:select :entity-id :from :ea-index-inserts}
                    {:select :entity-id :from :remaining-inserts}]}))))
 

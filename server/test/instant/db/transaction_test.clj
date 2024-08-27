@@ -1,5 +1,5 @@
 (ns instant.db.transaction-test
-  (:require [clojure.test :as test :refer [deftest is testing]]
+  (:require [clojure.test :as test :refer [deftest is are testing]]
             [instant.db.model.attr :as attr-model]
             [instant.db.transaction :as tx]
             [instant.jdbc.aurora :as aurora]
@@ -1574,6 +1574,96 @@
                   aurora/conn-pool
                   app-id
                   [[:= :attr-id info-attr-id]]))))))))
+
+(deftest inferred-types []
+  (testing "inferred types update on triple save"
+    (are [value inferred-types]
+        (with-empty-app
+          (fn [{app-id :id}]
+            (let [attr-id (random-uuid)
+                  target-eid (random-uuid)]
+              (try (tx/transact!
+                    aurora/conn-pool
+                    app-id
+                    [[:add-attr
+                      {:id attr-id
+                       :forward-identity [(random-uuid) "namespace" "field"]
+                       :value-type :blob
+                       :cardinality :one
+                       :unique? false
+                       :index? false}]
+                     [:add-triple target-eid attr-id value]])
+                   (catch Exception e
+                     (is (not e))))
+              (testing "deep-merge accepts top-level scalar values"
+                (is (= inferred-types
+                       (->> (attr-model/get-by-app-id aurora/conn-pool app-id)
+                            (attr-model/seek-by-id attr-id)
+                            :inferred-types)))))))
+        1 #{:number}
+        2.0 #{:number}
+        "2" #{:string}
+        "s" #{:string}
+        true #{:boolean}
+        false #{:boolean}
+        (random-uuid) #{:string}
+        {:hello "world"} #{:json}
+        ["array of stuff", 2] #{:json}))
+
+  (testing "inferred types accumulate"
+    (with-empty-app
+      (fn [{app-id :id}]
+        (let [attr-id (random-uuid)]
+          (tx/transact! aurora/conn-pool
+                        app-id
+                        [[:add-attr
+                          {:id attr-id
+                           :forward-identity [(random-uuid) "namespace" "field"]
+                           :value-type :blob
+                           :cardinality :one
+                           :unique? false
+                           :index? false}]
+                         [:add-triple (random-uuid) attr-id "string"]
+                         [:add-triple (random-uuid) attr-id 1]])
+          (is (= #{:string :number}
+                 (->> (attr-model/get-by-app-id aurora/conn-pool app-id)
+                      (attr-model/seek-by-id attr-id)
+                      :inferred-types)))
+          (tx/transact! aurora/conn-pool
+                        app-id
+                        [[:add-triple (random-uuid) attr-id false]])
+          (is (= #{:string :number :boolean}
+                 (->> (attr-model/get-by-app-id aurora/conn-pool app-id)
+                      (attr-model/seek-by-id attr-id)
+                      :inferred-types)))))))
+
+  (testing "inferred types work with deep-merge"
+    (with-empty-app
+      (fn [{app-id :id}]
+        (let [attr-id (random-uuid)
+              eid (random-uuid)]
+          (tx/transact! aurora/conn-pool
+                        app-id
+                        [[:add-attr
+                          {:id attr-id
+                           :forward-identity [(random-uuid) "namespace" "field"]
+                           :value-type :blob
+                           :cardinality :one
+                           :unique? false
+                           :index? false}]
+                         [:add-triple eid attr-id "string"]
+                         [:deep-merge-triple eid attr-id "another-string"]])
+          (is (= #{:string}
+                 (->> (attr-model/get-by-app-id aurora/conn-pool app-id)
+                      (attr-model/seek-by-id attr-id)
+                      :inferred-types)))
+          (tx/transact! aurora/conn-pool
+                        app-id
+                        [[:deep-merge-triple eid attr-id {:patch :values}]])
+          (is (= #{:string :json}
+                 (->> (attr-model/get-by-app-id aurora/conn-pool app-id)
+                      (attr-model/seek-by-id attr-id)
+                      :inferred-types))))))))
 
 (comment
   (test/run-tests *ns*))
