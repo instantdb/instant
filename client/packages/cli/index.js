@@ -129,7 +129,14 @@ async function login() {
   open(authUrl);
 
   console.log("Waiting for authentication...");
-  const { token, email } = await waitForAuthToken({ secret });
+  const res = await waitForAuthToken({ secret });
+
+  if (!res) {
+    console.error("Login timed out.");
+    return;
+  }
+
+  const { token, email } = res;
 
   await saveConfigAuthToken(token);
 
