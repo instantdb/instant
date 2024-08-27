@@ -15,7 +15,7 @@ import { LandingFooter, MainNav, Section } from '@/components/marketingUi';
 import Head from 'next/head';
 import { ToastContainer } from 'react-toastify';
 import confetti from 'canvas-confetti';
-import { DiffEditor } from '@monaco-editor/react';
+import { DiffEditor, Monaco } from '@monaco-editor/react';
 import MuxPlayer from '@mux/mux-player-react';
 import * as muxVideos from '@/lib/muxVideos';
 
@@ -86,6 +86,29 @@ function Tutorial({ files }: { files: FilesRecord }) {
     const state = getLocal('__tutorial-interaction-state');
     if (state) mergeInteractionState(state);
   }, []);
+
+  const diffEditorOptions = {
+    language: 'typescript',
+    className: 'h-[600px] border text-xl',
+    options: {
+      minimap: { enabled: false },
+      readOnly: true,
+      scrollBeyondLastLine: false,
+      renderSideBySide: width > 840,
+      fontSize: 14,
+    },
+    onMount: (_: any, monaco: Monaco) => {
+      monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+        module: monaco.languages.typescript.ModuleKind.ESNext,
+        target: monaco.languages.typescript.ScriptTarget.ESNext,
+        jsx: monaco.languages.typescript.JsxEmit.React,
+      });
+
+      monaco.editor.defineTheme('tut', tutorialMonacoTheme as any);
+
+      monaco.editor.setTheme('tut');
+    },
+  };
 
   return (
     <div className="flex flex-col py-20 px-8">
@@ -342,30 +365,11 @@ function addMessage(text) {
               </SimpleContent>
               <FullBleedContent>
                 <DiffEditor
-                  onMount={(editor, monaco) => {
-                    monaco.languages.typescript.typescriptDefaults.setCompilerOptions(
-                      {
-                        jsx: monaco.languages.typescript.JsxEmit.React,
-                      }
-                    );
-                    // set theme
-                    monaco.editor.defineTheme(
-                      'tut',
-                      tutorialMonacoTheme as any
-                    );
-                    monaco.editor.setTheme('tut');
-                  }}
-                  options={{
-                    minimap: { enabled: false },
-                    readOnly: true,
-                    scrollBeyondLastLine: false,
-                    renderSideBySide: width > 840,
-                    fontSize: 14,
-                  }}
-                  language="typescript"
-                  className="h-[600px] border text-xl"
+                  {...diffEditorOptions}
                   original={files['todos-add-react'].code}
                   modified={files['1-todos-add'].code}
+                  modifiedModelPath="inmemory://model/todos-add.modifies.tsx"
+                  originalModelPath="inmemory://model/todos-add.original.tsx"
                 />
               </FullBleedContent>
               <SimpleContent>
@@ -439,29 +443,11 @@ function updateMessage(messageId, newText) {
               </SimpleContent>
               <FullBleedContent>
                 <DiffEditor
-                  onMount={(editor, monaco) => {
-                    monaco.languages.typescript.typescriptDefaults.setCompilerOptions(
-                      {
-                        jsx: monaco.languages.typescript.JsxEmit.React,
-                      }
-                    );
-                    // set theme
-                    monaco.editor.defineTheme(
-                      'tut',
-                      tutorialMonacoTheme as any
-                    );
-                    monaco.editor.setTheme('tut');
-                  }}
-                  options={{
-                    minimap: { enabled: false },
-                    readOnly: true,
-                    scrollBeyondLastLine: false,
-                    fontSize: 14,
-                  }}
-                  language="typescript"
-                  className="h-[300px] border"
+                  {...diffEditorOptions}
                   original={files['todos-update-delete-react'].code}
                   modified={files['todos-update-delete-instant'].code}
+                  modifiedModelPath="inmemory://model/todos-update-delete.modifies.tsx"
+                  originalModelPath="inmemory://model/todos-update-delete.original.tsx"
                 />
               </FullBleedContent>
               <SplitStickyContent
@@ -806,8 +792,6 @@ function useScreenWidth() {
 
 const Token = twel('code', 'bg-gray-200 px-1 rounded font-mono text-sm');
 const A = twel<{ href: string }>('a', 'underline');
-
-const diffEditorOptions = {};
 
 async function provisionEphemeralApp() {
   const r = await fetch(`${config.apiURI}/dash/apps/ephemeral`, {
