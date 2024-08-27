@@ -174,7 +174,10 @@ export default function DashV2() {
             <Button
               variant="secondary"
               onClick={() => {
-                window.close();
+                try {
+                  window.close();
+                } catch (error) {}
+                cliAuthCompleteDialog.onClose();
               }}
             >
               Close
