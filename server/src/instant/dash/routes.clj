@@ -956,11 +956,13 @@
                     (map (fn [[attr-name new-attr]]
                            (let
                             [current-attr (get-in current-schema [:blobs ns-name attr-name])
+                             name-id? (= "id" (name attr-name))
                              new-attr? (not current-attr)
                              unchanged-attr? (and
                                               (= (get new-attr :unique?) (get current-attr :unique?))
                                               (= (get new-attr :index?) (get current-attr :index?)))]
                              (cond
+                               name-id? nil
                                unchanged-attr? nil
                                new-attr?  [:add-attr
                                            {:value-type :blob
