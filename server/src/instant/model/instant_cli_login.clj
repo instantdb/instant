@@ -1,4 +1,4 @@
-(ns instant.model.instant-cli-auth
+(ns instant.model.instant-cli-login
   (:require [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
             [instant.util.crypt :as crypt-util]))
@@ -9,7 +9,7 @@
    (sql/execute-one!
     conn
     ["INSERT INTO
-        instant_cli_auth
+        instant_cli_logins
         (id, secret)
       VALUES
         (?, ?)"
@@ -21,7 +21,7 @@
    (sql/execute-one!
     conn
     ["UPDATE
-        instant_cli_auth
+        instant_cli_logins
       SET
         user_id = ?::uuid
       WHERE
@@ -34,7 +34,7 @@
    (sql/execute-one!
     conn
     ["UPDATE
-        instant_cli_auth
+        instant_cli_logins
       SET
         used = true
       WHERE

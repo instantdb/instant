@@ -1,4 +1,4 @@
-CREATE TABLE instant_cli_auth (
+CREATE TABLE instant_cli_logins (
   id uuid PRIMARY KEY,
   secret bytea NOT NULL,
   used boolean NOT NULL DEFAULT false,
@@ -8,4 +8,4 @@ CREATE TABLE instant_cli_auth (
 
 ALTER TABLE instant_oauth_redirects
 ADD COLUMN ticket uuid
-REFERENCES instant_cli_auth(id) ON DELETE SET NULL;
+REFERENCES instant_cli_logins(id) ON DELETE SET NULL;

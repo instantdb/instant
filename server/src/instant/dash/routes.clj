@@ -27,7 +27,7 @@
             [instant.model.instant-subscription :as instant-subscription-model]
             [instant.model.app-email-template :as app-email-template-model]
             [instant.model.app-email-sender :as app-email-sender-model]
-            [instant.model.instant-cli-auth :as instant-cli-auth-model]
+            [instant.model.instant-cli-login :as instant-cli-login-model]
             [instant.postmark :as postmark]
             [instant.util.async :refer [fut-bg]]
             [instant.util.coll :as coll]
@@ -1101,7 +1101,7 @@
 (defn cli-auth-register-post [_]
   (let [secret (UUID/randomUUID)
         ticket (UUID/randomUUID)]
-    (instant-cli-auth-model/create!
+    (instant-cli-login-model/create!
      aurora/conn-pool
      {:secret secret
       :ticket ticket})
@@ -1110,12 +1110,12 @@
 (defn cli-auth-claim-post [req]
   (let [{user-id :id} (req->auth-user! req)
         ticket (ex/get-param! req [:body :ticket] uuid-util/coerce)]
-    (instant-cli-auth-model/claim! aurora/conn-pool {:user-id user-id :ticket ticket})
+    (instant-cli-login-model/claim! aurora/conn-pool {:user-id user-id :ticket ticket})
     (response/ok {:ticket ticket})))
 
 (defn cli-auth-check-post [req]
   (let [secret (ex/get-param! req [:body :secret] uuid-util/coerce)
-        cli-auth (instant-cli-auth-model/check! aurora/conn-pool {:secret secret})
+        cli-auth (instant-cli-login-model/check! aurora/conn-pool {:secret secret})
         user-id (:user_id cli-auth)
         _ (ex/assert-valid! :cli-auth
                             (:id cli-auth)
