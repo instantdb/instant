@@ -47,6 +47,9 @@ export type DashResponse = {
     email: string;
     id: string;
   };
+  flags: {
+    storage_enabled_apps?: string[];
+  };
 };
 
 export type AppError = { body: { message: string } | undefined };
@@ -88,6 +91,7 @@ export type SubscriptionName = 'Free' | 'Pro';
 export type AppsSubscriptionResponse = {
   'subscription-name': SubscriptionName;
   'total-app-bytes': number;
+  'total-storage-bytes': number;
 };
 
 export type DBIdent =

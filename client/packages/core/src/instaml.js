@@ -31,14 +31,25 @@ function explodeLookupRef(eid) {
   return entries[0];
 }
 
-function extractLookup(attrs, etype, eid) {
+// Returns [attr, value] for the eid if the eid is a lookup.
+// If it's a regular eid, returns null
+function lookupPairOfEid(eid) {
   if (typeof eid === "string" && !isLookup(eid)) {
+    return null;
+  }
+  return typeof eid === "string" && isLookup(eid)
+    ? parseLookup(eid)
+    : explodeLookupRef(eid);
+}
+
+function extractLookup(attrs, etype, eid) {
+  const lookupPair = lookupPairOfEid(eid);
+
+  if (lookupPair === null) {
     return eid;
   }
-  const [identName, value] =
-    typeof eid === "string" && isLookup(eid)
-      ? parseLookup(eid)
-      : explodeLookupRef(eid);
+
+  const [identName, value] = lookupPair;
   const attr = getAttrByFwdIdentName(attrs, etype, identName);
   if (!attr || !attr["unique?"]) {
     throw new Error(`${identName} is not a unique attribute.`);
@@ -150,13 +161,17 @@ function toTxSteps(attrs, [action, ...args]) {
 // ---------
 // transform
 
-function extractIdents([_action, etype, _eid, obj]) {
+function extractIdents([_action, etype, eid, obj]) {
   const ks = new Set(Object.keys(obj).concat("id"));
   const idents = [...ks].map((label) => [etype, label]);
+  const lookupPair = lookupPairOfEid(eid);
+  if (lookupPair) {
+    idents.push([etype, lookupPair[0], { "unique?": true, "index?": true }]);
+  }
   return idents;
 }
 
-function createObjectAttr([etype, label]) {
+function createObjectAttr([etype, label, props]) {
   const attrId = uuid();
   const fwdIdentId = uuid();
   const fwdIdent = [fwdIdentId, etype, label];
@@ -168,6 +183,7 @@ function createObjectAttr([etype, label]) {
     "unique?": false,
     "index?": false,
     isUnsynced: true,
+    ...(props || {}),
   };
 }
 

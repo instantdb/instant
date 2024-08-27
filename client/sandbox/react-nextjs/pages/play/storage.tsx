@@ -44,7 +44,8 @@ const App = ({ appId }: { appId: string }) => {
     const { name: fileName, type: fileType } = file;
 
     try {
-      const url = await db.storage.put(fileName, file);
+      await db.storage.put(fileName, file);
+      const url = await db.storage.getDownloadUrl(fileName);
       console.log("Download URL:", url);
       if (fileType.startsWith("image/")) {
         setImageUrl(url);

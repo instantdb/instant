@@ -147,9 +147,11 @@ export default function Billing({ appId }: { appId: string }) {
 
   const subscriptionName = data['subscription-name'];
   const isFreeTier = subscriptionName === 'Free';
-  const totalAppBytes = data['total-app-bytes'];
+  const totalAppBytes = data['total-app-bytes'] || 0;
+  const totalStorageBytes = data['total-storage-bytes'] || 0;
+  const totalUsageBytes = totalAppBytes + totalStorageBytes;
   const progressDen = isFreeTier ? GB_1 : GB_10;
-  const progress = Math.round((totalAppBytes / progressDen) * 100);
+  const progress = Math.round((totalUsageBytes / progressDen) * 100);
 
   return (
     <div className="flex flex-col p-4 gap-4 max-w-md">
@@ -190,7 +192,7 @@ export default function Billing({ appId }: { appId: string }) {
         <h2 className="flex gap-2 p-2 justify-between">
           <span className="font-bold">Usage</span>{' '}
           <span className="font-mono text-sm">
-            {friendlyUsage(totalAppBytes)} / {friendlyUsage(progressDen)}
+            {friendlyUsage(totalUsageBytes)} / {friendlyUsage(progressDen)}
           </span>
         </h2>
         <ProgressBar width={progress} />

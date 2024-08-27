@@ -453,7 +453,7 @@ class Storage {
    * @see https://instantdb.com/docs/storage
    * @example
    *   const [file] = e.target.files; // result of file input
-   *   const url = await db.storage.put('photos/demo.png', file);
+   *   const isSuccess = await db.storage.put('photos/demo.png', file);
    */
   put = (pathname: string, file: File) => {
     return this.db.upload(pathname, file);
