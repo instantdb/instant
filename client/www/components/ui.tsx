@@ -40,8 +40,8 @@ export const Label = twel('div', 'text-sm font-bold text-gray-700');
 
 export const LogoIcon = ({ size = 'mini' }: { size?: 'mini' | 'normal' }) => {
   const sizeToClass = {
-    mini: 'h-4',
-    normal: 'h-6',
+    mini: 'h-4 w-4',
+    normal: 'h-6 w-6',
   };
   return <img src="/img/icon/logo-512.svg" className={sizeToClass[size]} />;
 };
