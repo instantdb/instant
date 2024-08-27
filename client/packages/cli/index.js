@@ -671,8 +671,8 @@ function sleep(ms) {
 }
 
 async function waitForAuthToken({ secret }) {
-  for (let i = 1; i <= 24; i++) {
-    await sleep(i * 5000);
+  for (let i = 1; i <= 120; i++) {
+    await sleep(i * 1000);
 
     try {
       const authCheckRes = await fetch(

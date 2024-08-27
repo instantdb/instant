@@ -1,6 +1,6 @@
 CREATE TABLE instant_cli_auth (
   id uuid PRIMARY KEY,
-  secret uuid NOT NULL,
+  secret bytea NOT NULL,
   used boolean NOT NULL DEFAULT false,
   created_at timestamp NOT NULL DEFAULT now(),
   user_id uuid REFERENCES instant_users(id) ON DELETE CASCADE

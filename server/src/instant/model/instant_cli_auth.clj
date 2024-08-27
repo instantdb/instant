@@ -1,6 +1,7 @@
 (ns instant.model.instant-cli-auth
   (:require [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]))
+            [instant.jdbc.sql :as sql]
+            [instant.util.crypt :as crypt-util]))
 
 (defn create!
   ([params] (create! aurora/conn-pool params))
@@ -12,7 +13,7 @@
         (id, secret)
       VALUES
         (?, ?)"
-     ticket secret])))
+     ticket (crypt-util/uuid->sha256 secret)])))
 
 (defn claim!
   ([params] (claim! aurora/conn-pool params))
@@ -43,4 +44,4 @@
         AND used = false
       RETURNING
         user_id"
-     secret])))
+     (crypt-util/uuid->sha256 secret)])))
