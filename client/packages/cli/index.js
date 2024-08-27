@@ -92,15 +92,51 @@ program.parse(process.argv);
 // command actions
 
 async function login() {
+  const ticketRegisterRes = await fetch(
+    `${instantBackendOrigin}/dash/cli/auth/register`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+      },
+    },
+  );
+
+  if (verbose) {
+    console.log(
+      "Create response:",
+      ticketRegisterRes.status,
+      ticketRegisterRes.statusText,
+    );
+  }
+
+  if (!ticketRegisterRes.ok) {
+    console.error("Failed to register login.");
+    logApiErrors(await ticketRegisterRes.json());
+    return;
+  }
+
+  const { ticket, secret } = await ticketRegisterRes.json();
+
+  const authUrl = `${instantDashOrigin}/dash?ticket=${ticket}`;
+
   const ok = await promptOk(
-    "This will open Instant in your brower, OK to proceed?",
+    `This will open Instant in your brower (${authUrl}), OK to proceed?`,
   );
 
   if (!ok) return;
 
   open(authUrl);
 
-  const { token, email } = await execMagicLocalhostCallback(magicLocalhostPort);
+  console.log("Waiting for authentication...");
+  const res = await waitForAuthToken({ secret });
+
+  if (!res) {
+    console.error("Login timed out.");
+    return;
+  }
+
+  const { token, email } = res;
 
   await saveConfigAuthToken(token);
 
@@ -637,25 +673,35 @@ async function saveConfigAuthToken(authToken) {
   return writeFile(authPaths.authConfigFilePath, authToken, "utf-8");
 }
 
-function execMagicLocalhostCallback(port) {
-  return new Promise((resolve) => {
-    const server = createServer(async (req, res) => {
-      res.setHeader("Access-Control-Allow-Origin", instantDashOrigin);
-      res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-      const data = await readReqBody(req).catch(() => {});
+async function waitForAuthToken({ secret }) {
+  for (let i = 1; i <= 120; i++) {
+    await sleep(1000);
 
-      if (!data?.token) {
-        res.statusCode = 400;
-        res.end();
-      } else {
-        resolve(data);
-        res.statusCode = 200;
-        res.end();
-        server.close();
+    try {
+      const authCheckRes = await fetch(
+        `${instantBackendOrigin}/dash/cli/auth/check`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ secret }),
+        },
+      );
+
+      if (authCheckRes.ok) {
+        return await authCheckRes.json();
+      } else if (verbose) {
+        console.log("Auth check response:", await authCheckRes.json());
       }
-    }).listen(port);
-  });
+    } catch (error) {}
+  }
+
+  return null;
 }
 
 /**
