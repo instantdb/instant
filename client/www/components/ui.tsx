@@ -677,7 +677,12 @@ export function JSONEditor(props: {
           language="json"
           value={props.value}
           onChange={(draft) => setDraft(draft)}
-          onMount={function handleEditorDidMount(_editor, monaco) {
+          onMount={function handleEditorDidMount(editor, monaco) {
+            // cmd+S binding to save
+            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () =>
+              props.onSave(editor.getValue())
+            );
+
             if (!props.schema) return;
             monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
               validate: true,
