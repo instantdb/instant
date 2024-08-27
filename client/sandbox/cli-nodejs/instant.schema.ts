@@ -1,13 +1,10 @@
-// foo
-// http://localhost:3000/dash?s=main&t=home&app=b3b4bbd7-0bb9-4f83-95d4-e4d488921c75
+import "dotenv/config";
 
 import { i } from "@instantdb/core";
 
-const INSTANT_APP_ID = "b3b4bbd7-0bb9-4f83-95d4-e4d488921c75";
-
 // Example entities and links (you can delete these!)
 const graph = i.graph(
-  INSTANT_APP_ID,
+  process.env.INSTANT_APP_ID!,
   {
     posts: i.entity({
       name: i.string(),
@@ -48,6 +45,5 @@ const graph = i.graph(
     },
   },
 );
-
 
 export default graph;
