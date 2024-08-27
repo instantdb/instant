@@ -156,10 +156,10 @@
    (hsql/format
     {:with [[[:attr-values
               {:columns attr-table-cols}]
-             {:values (attr-table-values app-id attrs)}]
+             {:values (distinct (attr-table-values app-id attrs))}]
             [[:ident-values
               {:columns ident-table-cols}]
-             {:values (ident-table-values app-id attrs)}]
+             {:values (distinct (ident-table-values app-id attrs))}]
             [:ident-inserts
              {:insert-into
               [[:idents ident-table-cols]
