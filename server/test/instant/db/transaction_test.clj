@@ -166,7 +166,8 @@
                   :value-type :ref
                   :cardinality :one
                   :unique? false
-                  :index? false}
+                  :index? false
+                  :inferred-types #{:string}}
                  (attr-model/seek-by-id
                   tag-attr-id
                   (attr-model/get-by-app-id aurora/conn-pool app-id))))
@@ -191,7 +192,8 @@
                   :value-type :blob
                   :cardinality :one
                   :unique? true
-                  :index? false}
+                  :index? false
+                  :inferred-types #{:string}}
                  (attr-model/seek-by-id
                   name-attr-id
                   (attr-model/get-by-app-id aurora/conn-pool app-id))))
@@ -228,7 +230,8 @@
                   :forward-identity
                   [name-fwd-ident "users" "name"],
                   :unique? false,
-                  :index? false}
+                  :index? false,
+                  :inferred-types #{:string}}
                  (attr-model/seek-by-id
                   name-attr-id
                   (attr-model/get-by-app-id aurora/conn-pool app-id)))))
@@ -285,7 +288,8 @@
                   :forward-identity
                   [zip-fwd-ident "users" "zip"],
                   :unique? false,
-                  :index? true}
+                  :index? true,
+                  :inferred-types #{:string}}
                  (attr-model/seek-by-id
                   zip-attr-id
                   (attr-model/get-by-app-id aurora/conn-pool app-id)))))
@@ -341,7 +345,8 @@
                   :forward-identity
                   [emal-fwd-ident "users" "email"],
                   :unique? true,
-                  :index? true}
+                  :index? true
+                  :inferred-types #{:string}}
                  (attr-model/seek-by-id
                   email-attr-id
                   (attr-model/get-by-app-id aurora/conn-pool app-id)))))
@@ -409,7 +414,8 @@
                   :reverse-identity
                   [tag-rev-ident "tags" "taggers"],
                   :unique? false,
-                  :index? false}
+                  :index? false,
+                  :inferred-types #{:string}}
                  (attr-model/seek-by-id
                   tag-attr-id
                   (attr-model/get-by-app-id aurora/conn-pool app-id)))))
@@ -490,7 +496,8 @@
                   :reverse-identity
                   [owner-rev-ident "users" "posts"],
                   :unique? false,
-                  :index? false}
+                  :index? false,
+                  :inferred-types #{:string}}
                  (attr-model/seek-by-id
                   owner-attr-id
                   (attr-model/get-by-app-id aurora/conn-pool app-id)))))
@@ -546,7 +553,8 @@
                   :reverse-identity
                   [config-rev-ident "configObjects" "user"],
                   :unique? true,
-                  :index? false}
+                  :index? false
+                  :inferred-types #{:string}}
                  (attr-model/seek-by-id
                   config-attr-id
                   (attr-model/get-by-app-id aurora/conn-pool app-id)))))

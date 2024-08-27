@@ -32,10 +32,10 @@
         :else :json))
 
 (defn friendly-inferred-types [b]
-  (keep (fn [[type bin]]
-          (when (not= 0 (bit-and b bin))
-            type))
-        type->binary))
+  (set (keep (fn [[type bin]]
+               (when (not= 0 (bit-and b bin))
+                 type))
+             type->binary)))
 
 ;; ----
 ;; Spec
