@@ -1039,22 +1039,16 @@
 
 (defn defs->schema [defs]
   (let [{entities :entities links :links} defs
-        refs-indexed (into {} (map (fn [[_
-                                         {from-ns :from
-                                          from-attr :fromAttr
-                                          from-has :fromHas
-                                          to-ns :to
-                                          to-attr :toAttr
-                                          to-has :toHas}]]
-                                     [[from-ns from-attr to-ns to-attr]
+        refs-indexed (into {} (map (fn [[_ {forward :forward reverse :reverse}]]
+                                     [[(:on forward) (:label forward) (:on reverse) (:label reverse)]
                                       (merge
                                        {:id nil
                                         :value-type :ref
                                         :index? false
-                                        :forward-identity [nil from-ns from-attr]
-                                        :reverse-identity [nil to-ns to-attr]}
+                                        :forward-identity [nil (:on forward) (:label forward)]
+                                        :reverse-identity [nil (:on reverse) (:label reverse)]}
                                        (get relationships->schema-params
-                                            [(keyword from-has) (keyword to-has)]))])
+                                            [(keyword (:has forward)) (keyword (:has reverse))]))])
                                    links))
         blobs-indexed (map-map (fn [[ns-name def]]
                                  (map-map (fn [[attr-name attr-def]]
@@ -1118,9 +1112,9 @@
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (def r (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id (:id u)}))
   (schemas->ops
-   {:refs {["posts" "comments" "comments" "post"] {:unique? true}}
-    :blobs {:ns {:a {:cardinality "one"} :b {:cardinality "many"} :c {:cardinality "one"}}}}
-   {:refs {["posts" "comments" "comments" "post"] {:unique? false}}
+   {:refs {}
+    :blobs {}}
+   {:refs {["posts" "comments" "comments" "post"] {:unique? false :cardinality "many"}}
     :blobs {:ns {:a {:cardinality "many"} :b {:cardinality  "many"}}}})
   (schema-push-plan-post {:params {:app_id counters-app-id}
                           :headers {"authorization" (str "Bearer " (:id r))}}))
