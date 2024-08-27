@@ -133,7 +133,7 @@ function LandingHero() {
               </Button>
             </div>
             <div className="flex items-center justify-start space-x-2">
-              <img src="/img/yc_logo.png" className="inline h-4" />
+              <img src="/img/yc_logo.png" className="inline h-4 w-4" />
               <span className="text-sm">Backed by Y Combinator</span>
             </div>
           </div>

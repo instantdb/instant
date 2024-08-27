@@ -389,6 +389,15 @@ export default class Reactor {
 
     const isInitError = msg["original-event"]?.op === "init";
     if (isInitError) {
+      if (
+        msg.type === "record-not-found" &&
+        msg.hint?.["record-type"] === "app-user"
+      ) {
+        // User has been logged out
+        this.changeCurrentUser(null);
+        return;
+      }
+
       // We failed to init
       const errorMessage = {
         message:
@@ -1304,9 +1313,9 @@ export default class Reactor {
       fileName: fileName,
       refreshToken: refreshToken,
     });
-    const success = await StorageApi.upload(url, file);
+    const isSuccess = await StorageApi.upload(url, file);
 
-    return this.getDownloadUrl(fileName);
+    return isSuccess;
   }
 
   async getDownloadUrl(path) {

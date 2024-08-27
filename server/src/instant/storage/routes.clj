@@ -9,6 +9,7 @@
             [instant.model.app-user :as app-user-model]
             [instant.model.rule :as rule-model]
             [instant.storage.s3 :as s3-util]
+            [instant.storage.beta :as beta]
             [instant.db.cel :as cel]
             [instant.util.json :refer [->json <-json]]))
 
@@ -57,6 +58,7 @@
 (defn signed-download-url-get [req]
   (let [app-id-param (ex/get-param! req [:params :app_id] uuid-util/coerce)
         {app-id :id} (app-model/get-by-id! {:id app-id-param})
+        _ (beta/assert-storage-enabled! app-id)
         filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
         refresh-token (http-util/req->bearer-token req)
         expiration (+ (System/currentTimeMillis) (* 1000 60 60 24 7)) ;; 7 days
@@ -69,6 +71,7 @@
 (defn signed-upload-url-post [req]
   (let [app-id-param (ex/get-param! req [:body :app_id] uuid-util/coerce)
         {app-id :id} (app-model/get-by-id! {:id app-id-param})
+        _ (beta/assert-storage-enabled! app-id)
         filename (ex/get-param! req [:body :filename] string-util/coerce-non-blank-str)
         refresh-token (http-util/req->bearer-token req)
         object-key (s3-util/->object-key app-id filename)]

@@ -36,6 +36,7 @@ module.exports = [
       { title: 'Custom emails', href: '/docs/emails' },
       { title: 'App teams', href: '/docs/teams' },
       { title: 'Instant CLI', href: '/docs/cli' },
+      { title: 'Storage (beta)', href: '/docs/storage' },
       { title: 'Schema-as-code', href: '/docs/schema' },
     ],
   },
