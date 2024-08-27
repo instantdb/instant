@@ -682,9 +682,12 @@
   [ctx etype level label]
   (try
     (attr-pat/->ref-attr-pat ctx attr-pat/default-level-sym etype level label)
-    (catch clojure.lang.ExceptionInfo _e
-      (list (attr-pat/default-level-sym label level)
-            [(attr-pat/default-level-sym label level) '_ '_]))))
+    (catch clojure.lang.ExceptionInfo e
+      (if (contains? #{::ex/validation-failed}
+                     (::ex/type (ex-data e)))
+        (throw e)
+        (list (attr-pat/default-level-sym label level)
+              [(attr-pat/default-level-sym label level) '_ '_])))))
 
 (defn- form->child-forms
   "Given a form and eid, return a seq of all the possible child queries.
