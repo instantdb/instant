@@ -124,8 +124,8 @@ export function isLookup(k: string): boolean {
 }
 
 export function parseLookup(k: string): LookupRef {
-  const [_, eid, ...vJSON] = k.split("__");
-  return [eid, JSON.parse(vJSON.join("__"))];
+  const [_, attribute, ...vJSON] = k.split("__");
+  return [attribute, JSON.parse(vJSON.join("__"))];
 }
 
 function etypeChunk(etype: EType): ETypeChunk {
