@@ -4,12 +4,12 @@ import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { Button, Content, ScreenHeading } from '@/components/ui';
 import { exchangeOAuthCodeForToken, messageFromInstantError } from '@/lib/auth';
-import config from '@/lib/config';
+import config, { cliOauthParamName } from '@/lib/config';
 import { InstantError } from '@/lib/types';
 
 type CallbackState =
   | { type: 'router-loading' }
-  | { type: 'exchange-code'; code: string }
+  | { type: 'exchange-code'; code: string; ticket?: string }
   | { type: 'login' }
   | { type: 'error'; error: string };
 
@@ -62,7 +62,11 @@ function stateFromRouter(router: NextRouter): CallbackState {
     return { type: 'router-loading' };
   }
   if (typeof router.query.code === 'string') {
-    return { type: 'exchange-code', code: router.query.code };
+    return {
+      type: 'exchange-code',
+      code: router.query.code,
+      ticket: router.query.ticket as string | undefined,
+    };
   }
   if (typeof router.query.error === 'string') {
     return { type: 'error', error: router.query.error };
@@ -107,8 +111,19 @@ export default function OAuthCallback() {
         exchangeOAuthCodeForToken({
           code: state.code,
         })
-          .then((res) => {
-            router.push(res.redirect_path || '/dash');
+          .then(async (res) => {
+            const ticket = state.ticket;
+            const path = res.redirect_path || '/dash';
+
+            if (!ticket) {
+              router.push(path);
+              return;
+            }
+
+            const url = new URL(path, window.location.origin);
+            url.searchParams.set(cliOauthParamName, ticket);
+            const finalPath = url.href.replace(window.location.origin, '');
+            router.push(finalPath);
           })
           .catch((res) => {
             const error = messageFromInstantError(res as InstantError);

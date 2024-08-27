@@ -4,7 +4,6 @@ import {
   Button,
   Content,
   Divider,
-  Label,
   LogoIcon,
   ScreenHeading,
   TextInput,
@@ -13,6 +12,7 @@ import config, { isDev } from '@/lib/config';
 import googleIconSvg from '../../public/google_g.svg';
 import Image from 'next/image';
 import { InstantError } from '@/lib/types';
+import { url } from '@/lib/url';
 
 type State = {
   sentEmail: string | undefined;
@@ -76,6 +76,7 @@ function EmailStep(props: {
   onSendCode: () => void;
   disabled: boolean | undefined;
   error?: string;
+  ticket?: string;
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -115,9 +116,10 @@ function EmailStep(props: {
           <Button
             variant="secondary"
             type="link"
-            href={`${config.apiURI}/dash/oauth/start${
-              isDev ? '?redirect_to_dev=true' : ''
-            }`}
+            href={url(config.apiURI, `/dash/oauth/start`, {
+              ticket: props.ticket,
+              redirect_to_dev: isDev ? 'true' : undefined,
+            })}
           >
             <span className="flex items-center space-x-2">
               <Image src={googleIconSvg} width={16} />
@@ -130,7 +132,12 @@ function EmailStep(props: {
   );
 }
 
-export default function Auth(props: { emailOnly?: boolean; info?: ReactNode }) {
+export default function Auth(props: {
+  emailOnly?: boolean;
+  info?: ReactNode;
+  ticket?: string;
+  onVerified?: ({ token, ticket }: { token: string; ticket?: string }) => void;
+}) {
   const [{ sentEmail, email, code, error, isLoading }, setState] =
     useState<State>({
       sentEmail: '',
@@ -164,13 +171,18 @@ export default function Auth(props: { emailOnly?: boolean; info?: ReactNode }) {
       isLoading: true,
     }));
 
-    verifyMagicCode({ email, code }).catch((err) => {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: errorFromVerifyMagicCode(err),
-      }));
-    });
+    verifyMagicCode({ email, code }).then(
+      ({ token }) => {
+        props.onVerified?.({ token, ticket: props.ticket });
+      },
+      (err) => {
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: errorFromVerifyMagicCode(err),
+        }));
+      }
+    );
   };
 
   const onEmailChange = (email: string) =>
@@ -218,6 +230,7 @@ export default function Auth(props: { emailOnly?: boolean; info?: ReactNode }) {
               onEmailChange={onEmailChange}
               onSendCode={sendCode}
               error={error}
+              ticket={props.ticket}
             />
           )}
           {props.info ?? null}

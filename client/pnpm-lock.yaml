@@ -258,6 +258,34 @@ importers:
         specifier: ^4.17.21
         version: 4.17.21
 
+  sandbox/cli:
+    dependencies:
+      '@instantdb/admin':
+        specifier: workspace:*
+        version: link:../../packages/admin
+      '@instantdb/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      instant-cli:
+        specifier: workspace:*
+        version: link:../../packages/cli
+
+  sandbox/cli-nodejs:
+    dependencies:
+      '@instantdb/admin':
+        specifier: workspace:*
+        version: link:../../packages/admin
+      '@instantdb/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      instant-cli:
+        specifier: workspace:*
+        version: link:../../packages/cli
+    devDependencies:
+      dotenv:
+        specifier: ^16.3.1
+        version: 16.4.5
+
   sandbox/react-native-expo:
     dependencies:
       '@babel/runtime':
@@ -268,7 +296,7 @@ importers:
         version: 13.0.0
       '@instantdb/react-native':
         specifier: '*'
-        version: link:../../packages/react-native
+        version: 0.12.11(@react-native-async-storage/async-storage@1.18.2)(@react-native-community/netinfo@9.3.10)(react-native-get-random-values@1.11.0)(react-native@0.73.6)(react@18.2.0)
       '@react-native-async-storage/async-storage':
         specifier: 1.18.2
         version: 1.18.2(react-native@0.73.6)
@@ -387,7 +415,7 @@ importers:
     dependencies:
       '@instantdb/core':
         specifier: '*'
-        version: link:../../packages/core
+        version: 0.12.11
     devDependencies:
       '@types/google.accounts':
         specifier: ^0.0.14
@@ -3808,6 +3836,41 @@ packages:
     engines: {node: '>=18'}
     dependencies:
       mute-stream: 1.0.0
+    dev: false
+
+  /@instantdb/core@0.12.11:
+    resolution: {integrity: sha512-mNQ7cglwK6xEXZVGIcpKX3CSRjZH58APXtl3LlE0TLetDl9U7fR1PPz8L+ZyQ3ZfCQr4BC/sLdL5BV5OJqQ+3w==}
+    dependencies:
+      immer: 9.0.14
+      object-hash: 3.0.0
+      uuid: 9.0.1
+    dev: false
+
+  /@instantdb/react-native@0.12.11(@react-native-async-storage/async-storage@1.18.2)(@react-native-community/netinfo@9.3.10)(react-native-get-random-values@1.11.0)(react-native@0.73.6)(react@18.2.0):
+    resolution: {integrity: sha512-pD8Ze9DBBRDHr2seikAzXSj1580i5HxxXosnwVm5n2Rk2d/z/gr3JGDZHmNjhD3e43/s6KMYKe8GNAB67Aw1/w==}
+    peerDependencies:
+      '@react-native-async-storage/async-storage': '>=1.15'
+      '@react-native-community/netinfo': '>=7.1'
+      react: '>=16'
+      react-native: '>=0.56'
+      react-native-get-random-values: '>=1.5'
+    dependencies:
+      '@instantdb/core': 0.12.11
+      '@instantdb/react': 0.12.11(react@18.2.0)
+      '@react-native-async-storage/async-storage': 1.18.2(react-native@0.73.6)
+      '@react-native-community/netinfo': 9.3.10(react-native@0.73.6)
+      react: 18.2.0
+      react-native: 0.73.6(@babel/core@7.24.4)(@babel/preset-env@7.24.4)(react@18.2.0)
+      react-native-get-random-values: 1.11.0(react-native@0.73.6)
+    dev: false
+
+  /@instantdb/react@0.12.11(react@18.2.0):
+    resolution: {integrity: sha512-BPj0jDKOUhOd81XSeOlpmnCYKoy8qjmNq5I+0bbELvU+a5YWH/1MpCi98sLcSS0mTCr8fkwD/uXYZJNzo0Qs+w==}
+    peerDependencies:
+      react: '>=16'
+    dependencies:
+      '@instantdb/core': 0.12.11
+      react: 18.2.0
     dev: false
 
   /@isaacs/cliui@8.0.2:
@@ -8312,7 +8375,6 @@ packages:
   /dotenv@16.4.5:
     resolution: {integrity: sha512-ZmdL2rui+eB2YwhsWzjInR8LldtZHGDoQ1ugH85ppHKwpUHL7j7rN0Ti9NCnGiQbhaZ11FpR+7ao1dNsmduNUg==}
     engines: {node: '>=12'}
-    dev: false
 
   /eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}

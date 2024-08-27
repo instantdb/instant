@@ -57,3 +57,5 @@ export function setLocal(k: string, v: any) {
 }
 
 export const localStorageFlagPrefix = `__instant__flag__`;
+
+export const cliOauthParamName = '_cli_oauth_ticket';
