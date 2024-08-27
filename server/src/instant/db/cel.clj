@@ -171,7 +171,18 @@
   (proxy [java.util.AbstractMap] []
     ;; If a value is not found, we must return a null value that CEL understands
     (get [k]
-      (or (get m k) NullValue/NULL_VALUE))
+      (let [res (get m k NullValue/NULL_VALUE)]
+        (cond (nil? res)
+              NullValue/NULL_VALUE
+
+              ;; For some reason, cel-java only supports longs when determining
+              ;; type. We convert ints to longs to prevent type(data.param) from
+              ;; throwing a NPE
+              ;; https://github.com/google/cel-java/blob/dae82c6d10114bb1da643203569f90a757c6c5e6/runtime/src/main/java/dev/cel/runtime/StandardTypeResolver.java#L73
+              (int? res)
+              (long res)
+
+              :else res)))
     ;; CEL throws if a key doesn't exist. We don't want this behavior -- we'd 
     ;; rather just return null when a key is accessed. 
     ;; To get this behavior, we override `containsKey`, so we always return true 
