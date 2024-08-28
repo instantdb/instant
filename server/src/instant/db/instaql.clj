@@ -29,6 +29,7 @@
   (or (string? x) (uuid? x) (number? x) (boolean? x)))
 
 (s/def ::in (s/coll-of where-value-valid?
+                       :kind vector?
                        :min-count 0
                        :into #{}))
 
