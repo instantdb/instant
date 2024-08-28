@@ -53,9 +53,11 @@
   [^PGobject v]
   (let [type (.getType v)
         value (.getValue v)]
-    (if (#{"jsonb" "json"} type)
-      (when value (<-json value))
-      value)))
+    (when-not (nil? value)
+      (case type
+        ("json" "jsonb") (<-json value)
+        "bit" (Long/parseLong value 2)
+        value))))
 
 (extend-protocol rs/ReadableColumn
   Array
