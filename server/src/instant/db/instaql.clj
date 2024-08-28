@@ -29,7 +29,7 @@
   (or (string? x) (uuid? x) (number? x) (boolean? x)))
 
 (s/def ::in (s/coll-of where-value-valid?
-                       :min-count 1
+                       :min-count 0
                        :into #{}))
 
 (defn where-value-valid-keys? [m]
