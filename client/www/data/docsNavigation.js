@@ -15,6 +15,8 @@ module.exports = [
       { title: 'Reading data', href: '/docs/instaql' },
       { title: 'Modeling data', href: '/docs/modeling-data' },
       { title: 'Instant on the backend', href: '/docs/backend' },
+      { title: 'Patterns', href: '/docs/patterns' },
+      { title: 'Showcase', href: '/docs/showcase' },
     ],
   },
   {

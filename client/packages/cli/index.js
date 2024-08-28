@@ -2,16 +2,15 @@
 
 import { mkdir, writeFile, readFile, stat } from "fs/promises";
 import { join } from "path";
-import { createServer } from "http";
+import { randomUUID } from "crypto";
 
-import envPaths from "env-paths";
-import open from "open";
 import chalk from "chalk";
 import { program } from "commander";
 import { input, confirm } from "@inquirer/prompts";
+import envPaths from "env-paths";
 import { loadConfig } from "unconfig";
-import { randomUUID } from "crypto";
 import { packageDirectory } from "pkg-dir";
+import openInBrowser from "open";
 
 // config
 
@@ -21,12 +20,10 @@ const verbose = Boolean(process.env.VERBOSE);
 const instantDashOrigin = dev
   ? "http://localhost:3000"
   : "https://instantdb.com";
+
 const instantBackendOrigin = dev
   ? "http://localhost:8888"
   : "https://api.instantdb.com";
-
-const authUrl = instantDashOrigin + "/dash?_cli=1";
-const magicLocalhostPort = 65432;
 
 // cli
 
@@ -63,8 +60,15 @@ program
   .action(pushPerms);
 
 program
+  .command("push")
+  .description(
+    "Pushes local instant.schema and instant.perms rules to production.",
+  )
+  .action(pushAll);
+
+program
   .command("pull-schema")
-  .argument("<ID>")
+  .argument("[ID]")
   .description(
     "Generates an initial instant.schema defintion from production state.",
   )
@@ -80,28 +84,56 @@ program
 
 program
   .command("pull")
-  .argument("<ID>")
+  .argument("[ID]")
   .description(
     "Generates initial instant.schema and instant.perms defintion from production state.",
   )
   .action(pullAll);
 
 const options = program.opts();
+
 program.parse(process.argv);
 
 // command actions
 
+async function pushAll() {
+  await pushSchema();
+  await pushPerms();
+}
+
+async function pullAll(inputAppId) {
+  await pullSchema(inputAppId);
+  await pullPerms(inputAppId);
+}
+
 async function login() {
+  const registerRes = await fetchJson({
+    method: "POST",
+    path: "/dash/cli/auth/register",
+    debugName: "Login register",
+    errorMessage: "Failed to register login.",
+    noAuth: true,
+  });
+
+  if (!registerRes.ok) return;
+
+  const { secret, ticket } = registerRes.data;
+
   const ok = await promptOk(
-    "This will open Instant in your brower, OK to proceed?",
+    `This will open instantdb.com in your brower, OK to proceed?`,
   );
 
   if (!ok) return;
 
-  open(authUrl);
+  openInBrowser(`${instantDashOrigin}/dash?ticket=${ticket}`);
 
-  const { token, email } = await execMagicLocalhostCallback(magicLocalhostPort);
+  console.log("Waiting for authentication...");
+  const authTokenRes = await waitForAuthToken({ secret });
+  if (!authTokenRes) {
+    return;
+  }
 
+  const { token, email } = authTokenRes;
   await saveConfigAuthToken(token);
 
   console.log(chalk.green(`Successfully logged in as ${email}!`));
@@ -115,10 +147,8 @@ async function init() {
   }
 
   const instantModuleName = await getInstantModuleName(pkgDir);
-
-  const schema = await readLocalSchema();
-  const { perms } = await readLocalPerms();
-
+  const schema = await readLocalSchemaFile();
+  const { perms } = await readLocalPermsFile();
   const authToken = await readConfigAuthToken();
   if (!authToken) {
     console.error("Unauthenticated.  Please log in with `instant-cli login`!");
@@ -138,28 +168,15 @@ async function init() {
     return;
   }
 
-  const createAppRes = await fetch(`${instantBackendOrigin}/dash/apps`, {
+  const appRes = await fetchJson({
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ id, title, admin_token: token }),
+    path: "/dash/apps",
+    debugName: "App create",
+    errorMessage: "Failed to create app.",
+    body: { id, title, admin_token: token },
   });
 
-  if (verbose) {
-    console.log(
-      "Create response:",
-      createAppRes.status,
-      createAppRes.statusText,
-    );
-  }
-
-  if (!createAppRes.ok) {
-    console.error("Failed to create app.");
-    logApiErrors(await createAppRes.json());
-    return;
-  }
+  if (!appRes.ok) return;
 
   console.log(chalk.green(`Successfully created your Instant app "${title}"`));
   console.log(`Your app ID: ${id}`);
@@ -187,7 +204,7 @@ async function init() {
 }
 
 async function getInstantModuleName(pkgDir) {
-  const pkgJson = await readJson(join(pkgDir, "package.json"));
+  const pkgJson = await readJsonFile(join(pkgDir, "package.json"));
   const instantModuleName = pkgJson?.dependencies?.["@instantdb/react"]
     ? "@instantdb/react"
     : pkgJson?.dependencies?.["@instantdb/core"]
@@ -196,9 +213,7 @@ async function getInstantModuleName(pkgDir) {
   return instantModuleName;
 }
 
-async function pullSchema(appId) {
-  console.log("Pulling schema...");
-
+async function pullSchema(inputAppId) {
   const pkgDir = await packageDirectory();
   if (!pkgDir) {
     console.error("Failed to locate app root dir.");
@@ -206,7 +221,6 @@ async function pullSchema(appId) {
   }
 
   const instantModuleName = await getInstantModuleName(pkgDir);
-
   if (!instantModuleName) {
     console.warn(
       "Missing Instant dependency in package.json.  Please install `@instantdb/react` or `@instantdb/core`.",
@@ -219,72 +233,65 @@ async function pullSchema(appId) {
     return;
   }
 
+  const appId = inputAppId ?? (await readLocalSchemaFile())?.appId;
   if (!appId) {
-    console.error("Missing app ID");
+    console.error(
+      "No app ID found. Please provide an app ID: `instant-cli pull-schema <ID>`",
+    );
     return;
   }
 
-  const pullRes = await fetch(
-    `${instantBackendOrigin}/dash/apps/${appId}/schema/pull`,
-    {
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-        "Content-Type": "application/json",
-      },
-    },
-  );
+  console.log("Pulling schema...");
 
-  if (verbose) {
-    console.log("Schema pull response:", pullRes.status, pullRes.statusText);
-  }
+  const pullRes = await fetchJson({
+    path: `/dash/apps/${appId}/schema/pull`,
+    debugName: "Schema pull",
+    errorMessage: "Failed to pull schema.",
+  });
 
-  if (!pullRes.ok) {
-    console.error("Failed to pull schema");
-    return;
-  }
-
-  const pullResData = await pullRes.json();
-
-  if (verbose) {
-    console.log(pullResData);
-  }
+  if (!pullRes.ok) return;
 
   if (
-    !countEntities(pullResData.schema.refs) &&
-    !countEntities(pullResData.schema.blobs)
+    !countEntities(pullRes.data.schema.refs) &&
+    !countEntities(pullRes.data.schema.blobs)
   ) {
-    console.log("Schema is empty. Exiting.");
+    console.log("Schema is empty.  Skipping.");
     return;
   }
 
-  if (await exists(join(pkgDir, "instant.schema.ts"))) {
+  const hasSchemaFile = await pathExists(join(pkgDir, "instant.schema.ts"));
+  if (hasSchemaFile) {
     const ok = await promptOk(
-      "This will ovwerwrite your local instant.schema file, OK to proceed?",
+      "This will overwrite your local instant.schema file, OK to proceed?",
     );
 
-    if (!ok) {
-      return;
-    }
+    if (!ok) return;
   }
 
-  console.log("Writing schema to instant.schema.ts");
   const schemaPath = join(pkgDir, "instant.schema.ts");
   await writeFile(
     schemaPath,
     generateSchemaTypescriptFile(
       appId,
-      pullResData.schema,
-      pullResData["app-title"],
+      pullRes.data.schema,
+      pullRes.data["app-title"],
       instantModuleName,
     ),
     "utf-8",
   );
+
+  console.log("Wrote schema to instant.schema.ts");
 }
 
-async function pullPerms(_appId) {
+async function pullPerms(inputAppId) {
   console.log("Pulling perms...");
 
-  const appId = _appId ?? (await readLocalSchema())?.appId;
+  const appId = inputAppId ?? (await readLocalSchemaFile())?.appId;
+  if (!appId) {
+    console.error("Please provide an app ID: `instant-cli pull-schema <ID>`");
+    return;
+  }
+
   const pkgDir = await packageDirectory();
   if (!pkgDir) {
     console.error("Failed to locate app root dir.");
@@ -297,124 +304,61 @@ async function pullPerms(_appId) {
     return;
   }
 
-  if (!appId) {
-    console.error("Missing app ID");
-    return;
-  }
+  const pullRes = await fetchJson({
+    path: `/dash/apps/${appId}/perms/pull`,
+    debugName: "Perms pull",
+    errorMessage: "Failed to pull perms.",
+  });
 
-  const pullRes = await fetch(
-    `${instantBackendOrigin}/dash/apps/${appId}/perms/pull`,
-    {
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-        "Content-Type": "application/json",
-      },
-    },
-  );
+  if (!pullRes.ok) return;
 
-  if (verbose) {
-    console.log("Perms pull response:", pullRes.status, pullRes.statusText);
-  }
-
-  if (!pullRes.ok) {
-    console.error("Failed to pull schema");
-    return;
-  }
-
-  const pullResData = await pullRes.json();
-
-  if (verbose) {
-    console.log(pullResData);
-  }
-
-  if (!pullResData.perms || !countEntities(pullResData.perms)) {
+  if (!pullRes.data.perms || !countEntities(pullRes.data.perms)) {
     console.log("No perms.  Exiting.");
     return;
   }
 
-  if (await exists(join(pkgDir, "instant.perms.ts"))) {
+  if (await pathExists(join(pkgDir, "instant.perms.ts"))) {
     const ok = await promptOk(
       "This will ovwerwrite your local instant.perms file, OK to proceed?",
     );
 
-    if (!ok) {
-      return;
-    }
+    if (!ok) return;
   }
 
-  console.log("Writing perms to instant.perms.ts");
   const permsPath = join(pkgDir, "instant.perms.ts");
   await writeFile(
     permsPath,
-    `export default ${JSON.stringify(pullResData.perms, null, "  ")};`,
+    `export default ${JSON.stringify(pullRes.data.perms, null, "  ")};`,
     "utf-8",
   );
-}
 
-async function pullAll(appId) {
-  await pullSchema(appId);
-  await pullPerms(appId);
+  console.log("Wrote permissions to instant.perms.ts");
 }
 
 async function pushSchema() {
-  const authToken = await readConfigAuthToken();
-  const schema = await readLocalSchema();
+  const schema = await readLocalSchemaFileWithErrorLogging();
+  if (!schema) return;
 
-  const ok = await promptOk(
-    "This will immediately update your production schema, OK to proceed?",
+  const okStart = await promptOk(
+    "Pushing schema.  This will immediately overwrite your production schema. OK to proceed?",
   );
-
-  if (!ok) {
-    return;
-  }
+  if (!okStart) return;
 
   console.log("Planning...");
 
-  if (!authToken) {
-    console.error("Unauthenticated.  Please log in with `login`!");
-    return;
-  }
-
-  if (!schema) {
-    console.error("Missing instant.schema file!");
-    return;
-  }
-
-  if (!schema.appId) {
-    console.error("Missing app ID in instant.schema!");
-    return;
-  }
-
-  const planRes = await fetch(
-    `${instantBackendOrigin}/dash/apps/${schema.appId}/schema/push/plan`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ schema }),
+  const planRes = await fetchJson({
+    method: "POST",
+    path: `/dash/apps/${schema.appId}/schema/push/plan`,
+    debugName: "Schema plan",
+    errorMessage: "Failed to update schema.",
+    body: {
+      schema,
     },
-  );
+  });
 
-  if (verbose) {
-    console.log("Plan response:", planRes.status, planRes.statusText);
-  }
+  if (!planRes.ok) return;
 
-  if (!planRes.ok) {
-    console.error("Failed to update schema");
-    return;
-  }
-
-  const planResData = await planRes.json();
-
-  if (verbose) {
-    console.log(planResData);
-  }
-
-  const steps = planResData.steps;
-
-  if (!steps.length) {
+  if (!planRes.data.steps.length) {
     console.log("No schema changes detected.  Exiting.");
     return;
   }
@@ -423,7 +367,7 @@ async function pushSchema() {
     "The following changes will be applied to your production schema:",
   );
 
-  for (const [action, attr] of steps) {
+  for (const [action, attr] of planRes.data.steps) {
     const [, fns, fname] = attr["forward-identity"];
     const [, rns, rname] = attr["reverse-identity"] ?? [null, null, null];
 
@@ -443,101 +387,165 @@ async function pushSchema() {
   }
 
   const okPush = await promptOk("OK to proceed?");
-
   if (!okPush) return;
 
-  const applyRes = await fetch(
-    `${instantBackendOrigin}/dash/apps/${schema.appId}/schema/push/apply`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ schema }),
+  const applyRes = await fetchJson({
+    method: "POST",
+    path: `/dash/apps/${schema.appId}/schema/push/apply`,
+    debugName: "Schema apply",
+    errorMessage: "Failed to update schema.",
+    body: {
+      schema,
     },
-  );
+  });
 
-  if (verbose) {
-    console.log("Apply response:", applyRes.status, applyRes.statusText);
-  }
+  if (!applyRes.ok) return;
 
-  if (applyRes.ok) {
-    console.log(chalk.green("Schema updated!"));
-  } else {
-    console.error("Failed to update schema");
-    logApiErrors(await applyRes.json());
-  }
+  console.log(chalk.green("Schema updated!"));
 }
 
 async function pushPerms() {
-  const authToken = await readConfigAuthToken();
-  const schema = await readLocalSchema();
-  const { perms } = await readLocalPerms();
+  const schema = await readLocalSchemaFileWithErrorLogging();
+  if (!schema) return;
 
-  const ok = await promptOk(
-    "This will immediately replace your production perms with your local perms, OK to proceed?",
-  );
-
-  if (!ok) return;
-
-  if (!authToken) {
-    console.error("Please log in with `login`!");
-    return;
-  }
-
-  if (!schema) {
-    console.error("Missing instant.schema file!");
-    return;
-  }
-
-  if (!schema.appId) {
-    console.error("Missing app ID in instant.schema!");
-    return;
-  }
-
+  const { perms } = await readLocalPermsFile();
   if (!perms) {
     console.error("Missing instant.perms file!");
     return;
   }
 
-  const permsRes = await fetch(
-    `${instantBackendOrigin}/dash/apps/${schema.appId}/rules`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ code: perms }),
-    },
+  const ok = await promptOk(
+    "Pushing permissions rules. This will immediately replace your production rules. OK to proceed?",
   );
+  if (!ok) return;
 
-  if (verbose) {
-    console.log("Apply response:", permsRes.status, permsRes.statusText);
-  }
+  const permsRes = await fetchJson({
+    method: "POST",
+    path: `/dash/apps/${schema.appId}/rules`,
+    debugName: "Schema apply",
+    errorMessage: "Failed to update schema.",
+    body: {
+      code: perms,
+    },
+  });
 
-  if (permsRes.ok) {
-    console.log("Permissions updated");
-  } else {
-    console.error("Failed to update permissions");
-    logApiErrors(await permsRes.json());
-  }
+  if (!permsRes.ok) return;
+
+  console.log(chalk.green("Permissions updated!"));
 }
 
-function logApiErrors(data) {
-  if (data.message) {
-    console.error(data.message);
+async function waitForAuthToken({ secret }) {
+  for (let i = 1; i <= 120; i++) {
+    await sleep(1000);
+
+    try {
+      const authCheckRes = await fetchJson({
+        method: "POST",
+        debugName: "Auth check",
+        errorMessage: "Failed to check auth status.",
+        path: "/dash/cli/auth/check",
+        body: { secret },
+        noAuth: true,
+        noLogError: true,
+      });
+
+      if (authCheckRes.ok) {
+        return authCheckRes.data;
+      }
+    } catch (error) {}
   }
 
-  if (Array.isArray(data?.hint?.errors)) {
-    for (const error of data.hint.errors) {
-      console.error(`${error.in.join("->")}: ${error.message}`);
+  console.error("Login timed out.");
+  return null;
+}
+
+// resources
+
+/**
+ * Fetches JSON data from a specified path using the POST method.
+ *
+ * @param {Object} options
+ * @param {string} options.debugName
+ * @param {string} options.errorMessage
+ * @param {string} options.path
+ * @param {'POST' | 'GET'} [options.method]
+ * @param {Object} [options.body=undefined]
+ * @param {boolean} [options.noAuth]
+ * @param {boolean} [options.noLogError]
+ * @returns {Promise<{ ok: boolean; data: any }>}
+ */
+async function fetchJson({
+  debugName,
+  errorMessage,
+  path,
+  body,
+  method,
+  noAuth,
+  noLogError,
+}) {
+  const withAuth = !noAuth;
+  const withErrorLogging = !noLogError;
+  let authToken = null;
+  if (withAuth) {
+    authToken = await readConfigAuthToken();
+
+    if (!authToken) {
+      console.error("Unauthenticated.  Please log in with `instant-cli login`");
+      return { ok: false, data: undefined };
     }
   }
-}
 
-// utils
+  const res = await fetch(`${instantBackendOrigin}${path}`, {
+    method: method ?? "GET",
+    headers: {
+      ...(withAuth ? { Authorization: `Bearer ${authToken}` } : {}),
+      "Content-Type": "application/json",
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (verbose) {
+    console.log(debugName, "response:", res.status, res.statusText);
+  }
+
+  if (!res.ok) {
+    if (withErrorLogging) {
+      console.error(errorMessage);
+    }
+    let errData;
+    try {
+      errData = await res.json();
+      if (withErrorLogging) {
+        if (errData?.message) {
+          console.error(errData.message);
+        }
+
+        if (Array.isArray(errData?.hint?.errors)) {
+          for (const error of errData.hint.errors) {
+            console.error(`${error.in.join("->")}: ${error.message}`);
+          }
+        }
+      }
+    } catch (error) {
+      if (withErrorLogging) {
+        console.error("Failed to parse error response");
+      }
+    }
+
+    return { ok: false, data: errData };
+  }
+
+  const data = await res.json();
+
+  if (verbose) {
+    console.log(debugName, "data:", data);
+  }
+
+  return {
+    ok: true,
+    data,
+  };
+}
 
 async function promptOk(message) {
   if (options.y) return true;
@@ -548,7 +556,7 @@ async function promptOk(message) {
   }).catch(() => false);
 }
 
-async function exists(f) {
+async function pathExists(f) {
   try {
     await stat(f);
     return true;
@@ -557,7 +565,7 @@ async function exists(f) {
   }
 }
 
-async function readLocalPerms() {
+async function readLocalPermsFile() {
   const { config, sources } = await loadConfig({
     sources: [
       // load from `instant.perms.xx`
@@ -577,7 +585,7 @@ async function readLocalPerms() {
   };
 }
 
-async function readLocalSchema() {
+async function readLocalSchemaFile() {
   return (
     await loadConfig({
       sources: [
@@ -594,8 +602,24 @@ async function readLocalSchema() {
   ).config;
 }
 
-async function readJson(path) {
-  if (!exists(path)) {
+async function readLocalSchemaFileWithErrorLogging() {
+  const schema = await readLocalSchemaFile();
+
+  if (!schema) {
+    console.error("Missing instant.schema file!");
+    return;
+  }
+
+  if (!schema.appId) {
+    console.error("Missing app ID in instant.schema!");
+    return;
+  }
+
+  return schema;
+}
+
+async function readJsonFile(path) {
+  if (!pathExists(path)) {
     return null;
   }
 
@@ -605,13 +629,6 @@ async function readJson(path) {
   } catch (error) {}
 
   return null;
-}
-
-function getAuthPaths() {
-  const { config: appConfigDirPath } = envPaths("instantdb");
-  const authConfigFilePath = join(appConfigDirPath, "a");
-
-  return { authConfigFilePath, appConfigDirPath };
 }
 
 async function readConfigAuthToken() {
@@ -637,53 +654,18 @@ async function saveConfigAuthToken(authToken) {
   return writeFile(authPaths.authConfigFilePath, authToken, "utf-8");
 }
 
-function execMagicLocalhostCallback(port) {
-  return new Promise((resolve) => {
-    const server = createServer(async (req, res) => {
-      res.setHeader("Access-Control-Allow-Origin", instantDashOrigin);
-      res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+function getAuthPaths() {
+  const key = `instantdb-${dev ? "dev" : "prod"}`;
+  const { config: appConfigDirPath } = envPaths(key);
+  const authConfigFilePath = join(appConfigDirPath, "a");
 
-      const data = await readReqBody(req).catch(() => {});
-
-      if (!data?.token) {
-        res.statusCode = 400;
-        res.end();
-      } else {
-        resolve(data);
-        res.statusCode = 200;
-        res.end();
-        server.close();
-      }
-    }).listen(port);
-  });
+  return { authConfigFilePath, appConfigDirPath };
 }
 
-/**
- * Parses the body of an incoming HTTP message and returns a JSON object.
- * @param {import('http').IncomingMessage} incomingMessage - The incoming HTTP message.
- * @returns {Promise<Object>} - A promise that resolves to a JSON object.
- */
-function readReqBody(incomingMessage) {
-  return new Promise((resolve, reject) => {
-    let body = "";
+// utils
 
-    incomingMessage.on("data", (chunk) => {
-      body += chunk;
-    });
-
-    incomingMessage.on("end", () => {
-      try {
-        const json = JSON.parse(body);
-        resolve(json);
-      } catch (error) {
-        reject(error);
-      }
-    });
-
-    incomingMessage.on("error", (error) => {
-      reject(error);
-    });
-  });
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function countEntities(o) {
@@ -705,14 +687,14 @@ function indentLines(s, n) {
     .join("\n");
 }
 
+// templates and constants
+
 export const rels = {
   "many-false": ["many", "many"],
   "one-true": ["one", "one"],
   "many-true": ["many", "one"],
   "one-false": ["one", "many"],
 };
-
-// templates
 
 function appDashUrl(id) {
   return `${instantDashOrigin}/dash?s=main&t=home&app=${id}`;
@@ -819,6 +801,7 @@ function generateSchemaTypescriptFile(id, schema, title, instantModuleName) {
         `\n`,
         // a line of code for each attribute in the entity
         sortedEntries(attrs)
+          .filter(([name]) => name !== "id")
           .map(([name, config]) => {
             return [
               `    `,

@@ -9,9 +9,17 @@ import { capitalize } from 'lodash';
 import { PlusIcon, TrashIcon } from '@heroicons/react/solid';
 
 import { StyledToastContainer, errorToast, successToast } from '@/lib/toast';
-import config, { getLocal } from '@/lib/config';
+import config, { cliOauthParamName, getLocal } from '@/lib/config';
 import { jsonFetch, jsonMutate } from '@/lib/fetch';
-import { APIResponse, signOut, useAuthToken, useAuthedFetch } from '@/lib/auth';
+import {
+  APIResponse,
+  signOut,
+  useAuthToken,
+  useAuthedFetch,
+  claimTicket,
+  tryCliLogin,
+  voidTicket,
+} from '@/lib/auth';
 import { TokenContext } from '@/lib/contexts';
 import { DashResponse, InstantApp, InstantMember } from '@/lib/types';
 
@@ -97,15 +105,48 @@ function isMinRole(minRole: Role, role: Role) {
 // COMPONENTS
 
 export default function DashV2() {
-  const authToken = useAuthToken();
+  const token = useAuthToken();
   const isHydrated = useIsHydrated();
+  const router = useRouter();
+  const cliAuthCompleteDialog = useDialog();
+  const [loginTicket, setLoginTicket] = useState<string | undefined>();
+
+  const cliNormalTicket = router.query.ticket as string | undefined;
+  const cliOauthTicket = router.query[cliOauthParamName] as string | undefined;
+  const cliTicket = cliNormalTicket || cliOauthTicket;
+  useEffect(() => {
+    if (cliTicket) setLoginTicket(cliTicket);
+  }, [cliTicket]);
+
+  async function completeTicketFlow({
+    ticket,
+    token,
+  }: {
+    ticket: string;
+    token: string;
+  }) {
+    try {
+      await claimTicket({ ticket, token });
+      cliAuthCompleteDialog.onOpen();
+    } catch (error) {
+      errorToast('Error completing CLI login.');
+    }
+  }
 
   if (!isHydrated) {
     return null;
   }
 
-  if (!authToken) {
-    return <Auth key="anonymous" />;
+  if (!token) {
+    return (
+      <Auth
+        key="anonymous"
+        ticket={cliNormalTicket}
+        onVerified={({ ticket }) => {
+          setLoginTicket(ticket);
+        }}
+      />
+    );
   }
 
   return (
@@ -119,8 +160,68 @@ export default function DashV2() {
           `
         }</style>
       </Head>
-      <TokenContext.Provider value={authToken}>
+      <TokenContext.Provider value={token}>
         <Dashboard key="root" />
+        <Dialog
+          open={cliAuthCompleteDialog.open}
+          onClose={cliAuthCompleteDialog.onClose}
+        >
+          <div className="flex flex-col p-4 gap-4">
+            <SectionHeading>Instant CLI verification complete!</SectionHeading>
+            <Content>
+              You can close this window and return to the terminal.
+            </Content>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                try {
+                  window.close();
+                } catch (error) {}
+                cliAuthCompleteDialog.onClose();
+              }}
+            >
+              Close
+            </Button>
+          </div>
+        </Dialog>
+        <Dialog
+          open={Boolean(loginTicket && token)}
+          onClose={() => {
+            if (loginTicket) {
+              voidTicket({ ticket: loginTicket, token });
+            }
+            setLoginTicket(undefined);
+          }}
+        >
+          <div className="flex flex-col p-4 gap-4">
+            <SectionHeading>Instant CLI login</SectionHeading>
+            <Content>
+              Do you want to grant Instant CLI access to your account?
+            </Content>
+            <Button
+              variant="primary"
+              onClick={() => {
+                if (loginTicket) {
+                  completeTicketFlow({ ticket: loginTicket, token });
+                }
+                setLoginTicket(undefined);
+              }}
+            >
+              Log in
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (loginTicket) {
+                  voidTicket({ ticket: loginTicket, token });
+                }
+                setLoginTicket(undefined);
+              }}
+            >
+              Deny
+            </Button>
+          </div>
+        </Dialog>
       </TokenContext.Provider>
     </>
   );
@@ -144,6 +245,8 @@ function Dashboard() {
 
   const dashResponse = useAuthedFetch<DashResponse>(`${config.apiURI}/dash`);
 
+  // The old CLI login flow
+  // TODO: remove after users have updated their CLI
   useEffect(() => {
     if (!token) return;
     const email = dashResponse.data?.user?.email;
@@ -1301,23 +1404,4 @@ function caComp(a: { created_at: string }, b: { created_at: string }) {
  */
 function errMessage(e: Error) {
   return e.message || 'An error occurred.';
-}
-
-async function tryCliLogin({ token, email }: { token: string; email: string }) {
-  try {
-    const res = await fetch('http://localhost:65432', {
-      method: 'POST',
-      body: JSON.stringify({ token, email }),
-    });
-
-    if (res.ok) {
-      const q = new URLSearchParams(window.location.search);
-
-      if (q.has('_cli')) {
-        setTimeout(() => {
-          close();
-        }, 500);
-      }
-    }
-  } catch (error) {}
 }

@@ -89,8 +89,8 @@
 
         _ (when-not (= value-type :ref)
             (ex/throw-validation-err!
-             attr
              :attr
+             attr
              [{:message (format "%s.%s needs to be a link" etype label)}]))
 
         {:keys [forward-identity reverse-identity]} attr

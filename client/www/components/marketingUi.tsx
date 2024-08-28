@@ -93,13 +93,13 @@ function NavItems() {
       <NavLink href="/essays">Essays</NavLink>
       <NavLink href="/docs">Docs</NavLink>
       <NavLink href="https://discord.com/invite/VU53p7uQcE">
-        <span className='hidden md:inline'>
+        <span className="hidden md:inline">
           <img src="/marketing/discord-icon.svg" className="w-5 h-5" />
         </span>
         <span className="md:hidden">Discord</span>
       </NavLink>
       <NavLink href="https://github.com/instantdb/instant">
-        <span className='hidden md:inline'>
+        <span className="hidden md:inline">
           <img src="/marketing/github-icon.svg" className="w-5 h-5" />
         </span>
         <span className="md:hidden">GitHub</span>

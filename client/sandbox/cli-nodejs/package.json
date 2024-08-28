@@ -1,0 +1,13 @@
+{
+  "name": "sandbox-cli",
+  "private": true,
+  "dependencies": {
+    "@instantdb/admin": "workspace:*",
+    "@instantdb/core": "workspace:*",
+    "instant-cli": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "dotenv": "^16.3.1"
+  }
+}

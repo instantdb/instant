@@ -2,7 +2,7 @@ import Cookies from 'js-cookie';
 import { useContext, useEffect, useState } from 'react';
 import useSwr, { SWRResponse } from 'swr';
 import config from './config';
-import { jsonFetch } from './fetch';
+import { jsonFetch, jsonMutate } from './fetch';
 import { TokenContext } from '@/lib/contexts';
 import { InstantError } from './types';
 import { capitalize } from 'lodash';
@@ -212,6 +212,32 @@ export async function exchangeOAuthCodeForToken({ code }: { code: string }) {
   return res;
 }
 
+export async function claimTicket({
+  ticket,
+  token,
+}: {
+  ticket: string;
+  token: string;
+}) {
+  return jsonMutate(`${config.apiURI}/dash/cli/auth/claim`, {
+    token,
+    body: { ticket },
+  });
+}
+
+export async function voidTicket({
+  ticket,
+  token,
+}: {
+  ticket: string;
+  token: string;
+}) {
+  return jsonMutate(`${config.apiURI}/dash/cli/auth/void`, {
+    token,
+    body: { ticket },
+  });
+}
+
 /**
  * Abstracts over the common pattern of optimistically updating an SWR response during a mutation call
  * Takes an SWR response, a mutation action, and an Immer producer that generates optimistic data
@@ -250,4 +276,32 @@ export function optimisticUpdate<T>(
       },
     }
   );
+}
+
+/**
+ * @deprecated Use `claimTicket`
+ */
+export async function tryCliLogin({
+  token,
+  email,
+}: {
+  token: string;
+  email: string;
+}) {
+  try {
+    const res = await fetch('http://localhost:65432', {
+      method: 'POST',
+      body: JSON.stringify({ token, email }),
+    });
+
+    if (res.ok) {
+      const q = new URLSearchParams(window.location.search);
+
+      if (q.has('_cli')) {
+        setTimeout(() => {
+          close();
+        }, 500);
+      }
+    }
+  } catch (error) {}
 }

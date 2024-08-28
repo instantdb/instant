@@ -1,5 +1,7 @@
 import { useContext, useMemo, useState } from 'react';
 import { SWRResponse } from 'swr';
+import JsonParser from 'json5';
+
 import { errorToast, successToast } from '@/lib/toast';
 import config from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
@@ -96,7 +98,16 @@ async function onEditRules(
   }
   let newRulesObj: any = null;
   try {
-    newRulesObj = JSON.parse(newRules);
+    newRulesObj = JsonParser.parse(newRules, (key, value) => {
+      // rules.json permissions require that "true" and "false" be strings
+      if (value === true) {
+        return 'true';
+      } else if (value === false) {
+        return 'false';
+      } else {
+        return value;
+      }
+    });
   } catch (e) {
     errorToast('Beep boop. Please use valid JSON', { autoClose: 3000 });
     return Promise.reject(null);
