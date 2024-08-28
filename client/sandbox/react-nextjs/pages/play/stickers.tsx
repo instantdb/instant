@@ -85,6 +85,14 @@ function Main({ universeId }: { universeId: string }) {
     }
   }, [data, error, isLoading]);
 
+  const ensureUniverse = async () => {
+    await transact(tx.universes[universeId].update({}));
+  };
+
+  useEffect(() => {
+    ensureUniverse();
+  }, []);
+
   const createStickers = async () => {
     let stickers = [];
     const batches = [];
