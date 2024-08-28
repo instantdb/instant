@@ -106,8 +106,7 @@
              :in [:users :$],
              :message "We only support `where`, `order`, `limit`, `offset`, `before`, and `after` clauses."}
            (validation-err {:users {:$ {:forgot-where ["foo"]}}})))
-    (is (= '{:expected (<= 1 (count %) Integer/MAX_VALUE),
-             :in [0 :option-map :where-conds 0 1 :in]}
+    (is (= '{:expected vector?, :in [0 :option-map :where-conds 0 1 :in]}
            (validation-err {:users {:$ {:where {:handle {:in {}}}}}})))
     (is (= '{:expected instant.db.instaql/where-value-valid-keys?,
              :in [0 :option-map :where-conds 0 1]}
