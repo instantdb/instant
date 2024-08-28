@@ -96,6 +96,9 @@
     (subs trace-id 0 4)
     "unk"))
 
+(defn escape-newlines [s]
+  (string/replace s #"\n" "\\\\n"))
+
 (defn span-str [span]
   (let [attr-str (attr-str (.getAttributes span))
         event-strs (map event-str (.getEvents span))
@@ -106,7 +109,8 @@
             (colorize uniq-color (friendly-trace (.getTraceId span)))
             (duration-ms span)
             (colorize uniq-color (.getName span))
-            data-str)))
+            (cond-> data-str
+              (= :prod (config/get-env)) escape-newlines))))
 
 (defn log-spans [spans]
   (doseq [span spans]
