@@ -116,8 +116,11 @@
                                  ;; Hack to get the invalidator to shut down in
                                  ;; dev. Otherwise the stream takes forever to close.
                                  (when (= :dev (config/get-env))
-                                   (future (Thread/sleep 100)
-                                           (wal/kick-wal aurora/conn-pool)))
+                                   (future
+                                     (loop []
+                                       (wal/kick-wal aurora/conn-pool)
+                                       (Thread/sleep 100)
+                                       (recur))))
                                  (inv/stop))))))
 
 (defn -main [& _args]

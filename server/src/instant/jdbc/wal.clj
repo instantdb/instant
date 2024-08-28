@@ -345,4 +345,4 @@
   "A hacky way to trigger the stream reader so that it will close faster.
    Useful to speed up exit in dev where there isn't much activity on the wal."
   [conn]
-  (sql/execute! conn ["update schema_migrations set version = version"]))
+  (sql/execute! conn ["select pg_notify('random-channel', 'payload')"]))
