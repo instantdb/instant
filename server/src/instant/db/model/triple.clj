@@ -539,6 +539,9 @@
   (fetch aurora/conn-pool empty-app-id)
   (delete-multi! aurora/conn-pool empty-app-id [t]))
 
+;; Migration for inferred types
+;; ----------------------------
+
 (defn update-attr-inferred-types [conn-pool rows]
   (tracer/with-span! {:name "populate-inferrred-types/update-attr-inferred-types"
                       :attributes {:row-count (count rows)}}
