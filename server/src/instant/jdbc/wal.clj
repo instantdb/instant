@@ -309,7 +309,7 @@
          (let [inactive-slots (get-inactive-replication-slots conn-pool)]
            (when (seq inactive-slots)
              (chime-core/chime-at
-              [(.plusSeconds (Instant/now) 20)]
+              [(.plusSeconds (Instant/now) 300)]
               (fn [_time]
                 (tracer/with-span! {:name "wal/cleanup-inactive-slots"}
                   (let [slot-names (map :slot_name inactive-slots)
