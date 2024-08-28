@@ -270,11 +270,12 @@
                               (tracer/with-span! {:name "wal-worker/produce-error"
                                                   :attributes {:exception e}}
                                 e)))]
-        (try (close-nicely stream) (catch Exception _e nil))
         (when-not @shutdown?
           (tracer/record-exception-span! (Exception. "Wal handler closed unexpectedly, trying to restart")
                                          {:name "wal-worker/unexpected-reconnect"
                                           :escpaing? false})
+          (try (close-nicely stream) (catch Exception _e nil))
+          (try (close-nicely replication-conn) (catch Exception _e nil))
           (let [new-conn (get-pg-replication-conn conn-config)
                 slot (get-logical-replication-slot new-conn slot-name)]
             (if-not slot
@@ -282,7 +283,7 @@
               (do
                 (tracer/record-info! {:name "wal-worker/reconnect"
                                       :attributes {:slot-name slot-name
-                                                   :exception produce-error}})
+                                                   :produce-error produce-error}})
                 (let [stream (create-replication-stream new-conn slot-name (:lsn slot))]
                   (reset! (:shutdown-fn wal-opts) nil)
                   (recur new-conn stream))))))))))
