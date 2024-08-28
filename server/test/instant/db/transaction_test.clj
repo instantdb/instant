@@ -1595,7 +1595,7 @@
                      [:add-triple target-eid attr-id value]])
                    (catch Exception e
                      (is (not e))))
-              (testing "deep-merge accepts top-level scalar values"
+              (testing (format "(%s -> %s)" value inferred-types)
                 (is (= inferred-types
                        (->> (attr-model/get-by-app-id aurora/conn-pool app-id)
                             (attr-model/seek-by-id attr-id)
