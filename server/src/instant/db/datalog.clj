@@ -480,7 +480,7 @@
   (case (count v-set)
     0 [:= 0 1]
     1 [:= k (first v-set)]
-    :else [:in k v-set]))
+    [:in k v-set]))
 
 (defn- value->jsonb [x]
   [:cast (->json x) :jsonb])
