@@ -66,6 +66,14 @@
       ;; gauge metrics for a namespace
       (string/starts-with? k "instant.")))
 
+(defn format-attr-value
+  "Formats attr values for logs."
+  [v]
+  (condp identical? (type v)
+    ;; format will print e.g. "clojure.lang.LazySeq@7861"
+    clojure.lang.LazySeq (pr-str v)
+    v))
+
 (defn attr-str [attrs]
   (->>  attrs
         (map (fn [[k v]] [(str k) v]))
@@ -75,7 +83,7 @@
                        (if (= k "exception.message")
                          (colorize error-color k)
                          k)
-                       v)))
+                       (format-attr-value v))))
         (interpose " ")
         string/join))
 
