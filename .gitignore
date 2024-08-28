@@ -30,6 +30,7 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 server/resources/config/override.edn
+server/resources/config/overlay.edn
 
 # vercel
 .vercel

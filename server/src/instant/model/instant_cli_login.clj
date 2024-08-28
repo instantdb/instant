@@ -45,3 +45,16 @@
       RETURNING
         user_id"
      (crypt-util/uuid->sha256 secret)])))
+
+(defn void!
+  ([params] (void! aurora/conn-pool params))
+  ([conn {:keys [ticket]}]
+   (sql/execute-one!
+    conn
+    ["UPDATE
+        instant_cli_logins
+      SET
+        used = true
+      WHERE
+        id = ?::uuid"
+     ticket])))

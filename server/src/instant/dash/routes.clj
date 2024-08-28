@@ -956,11 +956,13 @@
                     (map (fn [[attr-name new-attr]]
                            (let
                             [current-attr (get-in current-schema [:blobs ns-name attr-name])
+                             name-id? (= "id" (name attr-name))
                              new-attr? (not current-attr)
                              unchanged-attr? (and
                                               (= (get new-attr :unique?) (get current-attr :unique?))
                                               (= (get new-attr :index?) (get current-attr :index?)))]
                              (cond
+                               name-id? nil
                                unchanged-attr? nil
                                new-attr?  [:add-attr
                                            {:value-type :blob
@@ -1039,22 +1041,16 @@
 
 (defn defs->schema [defs]
   (let [{entities :entities links :links} defs
-        refs-indexed (into {} (map (fn [[_
-                                         {from-ns :from
-                                          from-attr :fromAttr
-                                          from-has :fromHas
-                                          to-ns :to
-                                          to-attr :toAttr
-                                          to-has :toHas}]]
-                                     [[from-ns from-attr to-ns to-attr]
+        refs-indexed (into {} (map (fn [[_ {forward :forward reverse :reverse}]]
+                                     [[(:on forward) (:label forward) (:on reverse) (:label reverse)]
                                       (merge
                                        {:id nil
                                         :value-type :ref
                                         :index? false
-                                        :forward-identity [nil from-ns from-attr]
-                                        :reverse-identity [nil to-ns to-attr]}
+                                        :forward-identity [nil (:on forward) (:label forward)]
+                                        :reverse-identity [nil (:on reverse) (:label reverse)]}
                                        (get relationships->schema-params
-                                            [(keyword from-has) (keyword to-has)]))])
+                                            [(keyword (:has forward)) (keyword (:has reverse))]))])
                                    links))
         blobs-indexed (map-map (fn [[ns-name def]]
                                  (map-map (fn [[attr-name attr-def]]
@@ -1118,9 +1114,9 @@
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (def r (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id (:id u)}))
   (schemas->ops
-   {:refs {["posts" "comments" "comments" "post"] {:unique? true}}
-    :blobs {:ns {:a {:cardinality "one"} :b {:cardinality "many"} :c {:cardinality "one"}}}}
-   {:refs {["posts" "comments" "comments" "post"] {:unique? false}}
+   {:refs {}
+    :blobs {}}
+   {:refs {["posts" "comments" "comments" "post"] {:unique? false :cardinality "many"}}
     :blobs {:ns {:a {:cardinality "many"} :b {:cardinality  "many"}}}})
   (schema-push-plan-post {:params {:app_id counters-app-id}
                           :headers {"authorization" (str "Bearer " (:id r))}}))
@@ -1142,6 +1138,12 @@
         ticket (ex/get-param! req [:body :ticket] uuid-util/coerce)]
     (instant-cli-login-model/claim! aurora/conn-pool {:user-id user-id :ticket ticket})
     (response/ok {:ticket ticket})))
+
+(defn cli-auth-void-post [req]
+  (let [_ (req->auth-user! req)
+        ticket (ex/get-param! req [:body :ticket] uuid-util/coerce)]
+    (instant-cli-login-model/void! aurora/conn-pool {:ticket ticket})
+    (response/ok {})))
 
 (defn cli-auth-check-post [req]
   (let [secret (ex/get-param! req [:body :secret] uuid-util/coerce)
@@ -1238,6 +1240,7 @@
   (POST "/dash/cli/auth/register" [] cli-auth-register-post)
   (POST "/dash/cli/auth/check" [] cli-auth-check-post)
   (POST "/dash/cli/auth/claim" [] cli-auth-claim-post)
+  (POST "/dash/cli/auth/void" [] cli-auth-void-post)
 
   (GET "/dash/session_counts" [] session-counts-get)
 

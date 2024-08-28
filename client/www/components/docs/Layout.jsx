@@ -168,9 +168,9 @@ export function Layout({ children, title, tableOfContents }) {
     useSelectedApp(apps);
 
   return (
-    <>
+    <div className="bg-[#F8F9FA] flex flex-col overflow-hidden h-full w-full">
       <SelectedAppContext.Provider value={selectedAppData}>
-        <div className="bg-[#F8F9FA]">
+        <div className="bg-[#F8F9FA] border-b">
           <MainNav>
             <div className="flex flex-col md:hidden">
               <Search />
@@ -181,17 +181,17 @@ export function Layout({ children, title, tableOfContents }) {
             </div>
           </MainNav>
         </div>
-        <div className="bg-[#F8F9FA] relative mx-auto flex max-w-8xl justify-center sm:px-2 lg:px-8 xl:px-12">
-          <div className="hidden md:relative md:block md:flex-none">
+        <div className="xl:mx-auto flex flex-1 overflow-hidden h-full max-w-7xl justify-center">
+          <div className="hidden md:block md:flex-none overflow-auto pl-8 pr-2 pb-8">
             <Search />
-            <div className="sticky top-0 px-8 lg:px-0 h-[calc(100vh-4.5rem)] overflow-y-auto py-6">
+            <div>
               <Navigation
                 navigation={navigation}
                 className="w-64 pr-8 xl:w-72 xl:pr-16 ml-1"
               />
             </div>
           </div>
-          <div className="min-w-0 max-w-2xl flex-auto px-4 pb-6 lg:max-w-none lg:pr-0 lg:pl-8 xl:px-16">
+          <div className="overflow-auto px-4 pb-6 pt-4">
             <AppPicker {...{ apps, selectedAppData, updateSelectedAppId }} />
             <article>
               {(title || section) && (
@@ -242,8 +242,8 @@ export function Layout({ children, title, tableOfContents }) {
               )}
             </dl>
           </div>
-          <div className="hidden xl:sticky xl:top-0 xl:block xl:h-full xl:flex-none xl:overflow-y-auto py-8">
-            <nav aria-labelledby="on-this-page-title" className="w-56">
+          <div className="hidden xl:block px-4 py-4 overflow-y-auto xl:basis-96">
+            <nav aria-labelledby="on-this-page-title">
               {tableOfContents.length > 0 && (
                 <>
                   <h2
@@ -252,7 +252,7 @@ export function Layout({ children, title, tableOfContents }) {
                   >
                     On this page
                   </h2>
-                  <ol role="list" className="mt-4 space-y-2 text-sm">
+                  <ol role="list" className="mt-2 space-y-2 text-sm">
                     {tableOfContents.map((section) => (
                       <li key={section.id}>
                         <h3>
@@ -299,6 +299,6 @@ export function Layout({ children, title, tableOfContents }) {
           </div>
         </div>
       </SelectedAppContext.Provider>
-    </>
+    </div>
   );
 }

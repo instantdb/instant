@@ -25,6 +25,7 @@
    [instant.util.tracer :as tracer]
    [instant.reactive.store :as rs]
    [instant.reactive.session :as session]
+   [instant.jdbc.wal :as wal]
    [instant.reactive.invalidator :as inv]
    [instant.reactive.ephemeral :as eph]
    [instant.session-counter :as session-counter]
@@ -105,6 +106,23 @@
   (stop)
   (start))
 
+(defn add-shutdown-hook []
+  (.addShutdownHook (Runtime/getRuntime)
+                    (Thread. (fn []
+                               (tracer/record-info! {:name "shut-down"})
+                               (tracer/with-span! {:name "stop-server"}
+                                 (stop))
+                               (tracer/with-span! {:name "stop-invalidator"}
+                                 ;; Hack to get the invalidator to shut down in
+                                 ;; dev. Otherwise the stream takes forever to close.
+                                 (when (= :dev (config/get-env))
+                                   (future
+                                     (loop []
+                                       (wal/kick-wal aurora/conn-pool)
+                                       (Thread/sleep 100)
+                                       (recur))))
+                                 (inv/stop))))))
+
 (defn -main [& _args]
   (let [{:keys [aead-keyset]} (config/init)]
     (crypt-util/init aead-keyset))
@@ -130,9 +148,11 @@
   (stripe/init)
   (session/start)
   (inv/start)
+  (wal/init-cleanup aurora/conn-pool)
   (ephemeral-app/start)
   (session-counter/start)
   (when (= (config/get-env) :prod)
     (log/info "Starting analytics")
     (analytics/start))
-  (start))
+  (start)
+  (add-shutdown-hook))
