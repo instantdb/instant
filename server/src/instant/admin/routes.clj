@@ -18,7 +18,6 @@
             [instant.admin.model :as admin-model]
             [instant.util.json :refer [<-json ->json]]
             [instant.db.model.entity :as entity-model]
-            [instant.storage.beta :as storage-beta]
             [instant.util.storage :as storage-util])
 
   (:import
@@ -362,7 +361,6 @@
 ;; Retrieves all files that have been uploaded via Storage APIs
 (defn files-get [req]
   (let [{app-id :app_id} (req->admin-token! req)
-        _ (storage-beta/assert-storage-enabled! app-id)
         subdirectory (-> req :params :subdirectory)
         data (storage-util/list-files! app-id subdirectory)]
     (response/ok {:data data})))
