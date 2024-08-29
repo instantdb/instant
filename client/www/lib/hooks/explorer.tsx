@@ -38,7 +38,6 @@ export function useNamespacesQuery(
       ? {
           [selectedNs.name]: {
             $: {
-              // @ts-expect-error: admin-only feature
               aggregate: 'count',
             },
           },
