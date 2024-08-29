@@ -91,7 +91,7 @@
            (raw-pats->join-conds
             '[[:eav _ _ ?a]
               [:av _ _ ?a]]))))
-  (testing "join conditions matches values to coerced entites"
+  (testing "join conditions matches values to coerced entities"
     (is (= '(([:= :value [:to_jsonb :match-0-entity-id]]))
            (raw-pats->join-conds '[[:ea ?a] [:eav _ _ ?a]]))))
   (testing "join conditions matches values to coerced attrs"
@@ -103,7 +103,7 @@
   (testing "join conditions matches attrs to coerced values"
     (is (= '(([:= :attr-id :match-0-value-uuid]))
            (raw-pats->join-conds '[[:eav _ _ ?a] [:av _ ?a]]))))
-  (testing "join conditions matches entites to attrs"
+  (testing "join conditions matches entities to attrs"
     (is (= '(([:= :entity-id :match-0-attr-id]))
            (raw-pats->join-conds '[[:av _ ?a] [:ea ?a]]))))
   (testing "join conditions matches attrs to entities"

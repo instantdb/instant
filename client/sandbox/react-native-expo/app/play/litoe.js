@@ -173,7 +173,7 @@ function findGame(games, roomId) {
 function getOpponentId(players, playerId) {
   if (isObserver(players, playerId)) {
     console.warn(
-      "[getOpponet] should only called be called with a valid player",
+      "[getOpponent] should only called be called with a valid player",
     );
     return;
   }
@@ -197,7 +197,7 @@ function isOutcome(game) {
   return !!outcome;
 }
 
-/** Returns if a rematch has been offerred */
+/** Returns if a rematch has been offered */
 function isRematch(game) {
   const { rematchId } = game;
   return !!rematchId;

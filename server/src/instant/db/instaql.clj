@@ -488,7 +488,7 @@
 ;; optimize-attr-pats
 
 (defn- some-constant
-  "Returns either e or v if they are a contant
+  "Returns either e or v if they are a constant
    [?e attr-id ?v] => nil
    [?e attr-id 5] => 5
    [5 attr-id ?v] => 5"

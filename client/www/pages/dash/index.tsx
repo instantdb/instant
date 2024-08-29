@@ -55,7 +55,7 @@ import { Sandbox } from '@/components/dash/Sandbox';
 import { StorageTab } from '@/components/dash/Storage';
 import { useForm } from '@/lib/hooks/useForm';
 
-// (XXX): we may want to expose this underyling type
+// (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
 
 type Role = 'collaborator' | 'admin' | 'owner';
@@ -793,7 +793,7 @@ function Home() {
           href="https://github.com/jsventures/stroopwafel"
           title="Stroopwafel (React Native)"
         >
-          Mulitplayer iOS game built with Expo + Instant. See how you can use
+          Multiplayer iOS game built with Expo + Instant. See how you can use
           Instant to build real-time games.
         </HomeButton>
       </div>

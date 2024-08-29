@@ -411,7 +411,7 @@ export function Button({
   );
 }
 
-// interations
+// interactions
 
 export function useDialog() {
   const [open, setOpen] = useState(false);
