@@ -8,6 +8,11 @@ how you can do it with react.
 
 ## Full Magic Code Example
 
+{% callout type="info" %}
+The example below shows how to use magic codes in a React app. If you're looking
+for an example with vanilla JS, check out this [sandbox](https://github.com/instantdb/instant/blob/main/client/sandbox/vanilla-js-vite/src/main.ts).
+{% /callout %}
+
 ```javascript {% showCopy=true %}
 'use client';
 
