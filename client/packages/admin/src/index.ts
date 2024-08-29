@@ -9,6 +9,7 @@ import {
   id,
   QueryResponse,
   InstaQLQueryParams,
+  txInit,
 } from "@instantdb/core";
 
 // Query Types
@@ -242,6 +243,13 @@ class InstantAdmin<Schema extends i.InstantGraph<any, any> | {} = {}> {
   config: FilledConfig;
   auth: Auth;
   impersonationOpts?: ImpersonationOpts;
+
+  public tx =
+    txInit<
+      Schema extends i.InstantGraph<any, any>
+        ? Schema
+        : i.InstantGraph<any, any>
+    >();
 
   constructor(_config: Config | ConfigWithSchema<any>) {
     this.config = configWithDefaults(_config);

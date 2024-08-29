@@ -187,6 +187,13 @@ class InstantCore<
   public auth: Auth;
   public storage: Storage;
 
+  public tx =
+    txInit<
+      Schema extends i.InstantGraph<any, any>
+        ? Schema
+        : i.InstantGraph<any, any>
+    >();
+
   constructor(reactor: Reactor<RoomSchema>) {
     this._reactor = reactor;
     this.auth = new Auth(this._reactor);
