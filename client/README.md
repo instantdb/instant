@@ -48,6 +48,8 @@ localStorage.setItem("devBackend", true);
 
 Now all requests will go to your your local backend at [localhost:8888](http://localhost:8888). If you haven't set up a local backend, follow the [server README](../server/README.md)
 
+You can then follow [these steps to create an app id locally.](https://discord.com/channels/1031957483243188235/1031957483826204705/1278654888674328636)
+
 ## Packages and sandbox
 
 All client SDKs live in `packages/`. 
