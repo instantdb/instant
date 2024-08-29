@@ -59,22 +59,24 @@
                                :key object-key
                                :expiration expiration})))
 
-(defn upload-image-to-s3 [image-url bucket-name object-key]
-  (let [response (clj-http/get image-url {:as :byte-array})
-        image-bytes (:body response)]
-    (s3/put-object {:bucket-name bucket-name
-                    :key object-key
-                    :input-stream (io/input-stream image-bytes)
-                    :metadata {:content-length (count image-bytes)
-                               :content-type "image/png"}})))
+(defn upload-image-to-s3
+  ([object-key image-url] (upload-image-to-s3 default-bucket object-key image-url))
+  ([bucket-name object-key image-url]
+   (let [response (clj-http/get image-url {:as :byte-array})
+         image-bytes (:body response)]
+     (s3/put-object {:bucket-name bucket-name
+                     :key object-key
+                     :input-stream (io/input-stream image-bytes)
+                     :metadata {:content-length (count image-bytes)
+                                :content-type "image/png"}}))))
 
 (comment
   (def image-url "https://i.redd.it/bugxrdkjmm1b1.png")
-  (def app-id  #uuid "b26191cf-7391-4118-a7f7-5aba2483a0d3")
+  (def app-id  #uuid "524bc106-1f0d-44a0-b222-923505264c47")
   (def filename "calvin.png")
   (def object-key (str app-id "/" filename))
   (def expiration (+ (System/currentTimeMillis) (* 1000 60 60 24)))
-  (upload-image-to-s3 image-url default-bucket object-key)
+  (upload-image-to-s3 object-key image-url)
   (signed-download-url default-bucket object-key expiration)
   (signed-download-url object-key expiration)
   (signed-download-url object-key)

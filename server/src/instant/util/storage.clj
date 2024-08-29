@@ -35,6 +35,12 @@
                           {"auth" (cel/->cel-map (<-json (->json current-user)))
                            "data" (cel/->cel-map {"path" filepath})})))))
 
+
+(defn upload-image-to-s3 [app-id filename image-url]
+  (let [object-key (s3-util/->object-key app-id filename)]
+    (storage-beta/assert-storage-enabled! app-id)
+    (s3-util/upload-image-to-s3 object-key image-url)))
+
 (defn create-signed-download-url!
   ([app-id filename refresh-token]
    (assert-storage-permission! "read" {:app-id app-id
@@ -58,6 +64,14 @@
      (storage-beta/assert-storage-enabled! app-id)
      (str (s3-util/signed-upload-url object-key)))))
 
+(comment
+  (def app-id  #uuid "524bc106-1f0d-44a0-b222-923505264c47")
+  (def filename "demo.png")
+  (def image-url "https://i.redd.it/bugxrdkjmm1b1.png")
+  (create-signed-upload-url! app-id filename)
+  (upload-image-to-s3 app-id filename image-url)
+  (create-signed-download-url! app-id filename))
+
 (defn format-object [{:keys [key size owner etag last-modified]}]
   {:key key
    :size size
@@ -69,7 +83,7 @@
 (defn list-files! [app-id subdirectory]
   (let [_ (storage-beta/assert-storage-enabled! app-id)
         prefix (if (string/blank? subdirectory)
-                 (app-id)
+                 app-id
                  (str app-id "/" subdirectory))
         objects-resp (s3-util/list-app-objects prefix)
         objects (:object-summaries objects-resp)]
@@ -86,3 +100,13 @@
   (let [_ (storage-beta/assert-storage-enabled! app-id)
         keys (mapv (fn [filename] (s3-util/->object-key app-id filename)) filenames)]
     (s3-util/delete-objects keys)))
+
+(comment
+  (def app-id #uuid "524bc106-1f0d-44a0-b222-923505264c47")
+  (def filename "demo.png")
+  (def image-url "https://i.redd.it/bugxrdkjmm1b1.png")
+  (upload-image-to-s3 app-id filename image-url)
+  (list-files! app-id "")
+  (delete-file! app-id filename)
+  (bulk-delete-files! app-id [filename])
+  (list-files! app-id ""))
