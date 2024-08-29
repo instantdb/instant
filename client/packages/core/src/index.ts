@@ -1,5 +1,12 @@
 import Reactor from "./Reactor";
-import { tx, lookup, TransactionChunk, EmptyChunk, getOps } from "./instatx";
+import {
+  tx,
+  txInit,
+  lookup,
+  TransactionChunk,
+  TxChunk,
+  getOps,
+} from "./instatx";
 import weakHash from "./utils/weakHash";
 import id from "./utils/uuid";
 import IndexedDBStorage from "./IndexedDBStorage";
@@ -10,6 +17,7 @@ import {
   PageInfoResponse,
   Exactly,
   InstantObject,
+  InstaQLQueryParams,
 } from "./queryTypes";
 import { AuthState, User, AuthResult } from "./clientTypes";
 import {
@@ -30,6 +38,10 @@ export type Config = {
   websocketURI?: string;
   apiURI?: string;
   devtool?: boolean;
+};
+
+export type ConfigWithSchema<S extends i.InstantGraph<any, any>> = Config & {
+  schema: S;
 };
 
 export type TransactionResult = {
@@ -118,7 +130,7 @@ const globalInstantCoreStore = initGlobalInstantCoreStore();
  *
  */
 function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
-  config: Config,
+  config: Config | ConfigWithSchema<any>,
   Storage?: any,
   NetworkListener?: any,
 ): InstantCore<Schema, RoomSchema> {
@@ -195,7 +207,7 @@ class InstantCore<Schema = {}, RoomSchema extends RoomSchemaShape = {}> {
    *  ])
    */
   transact(
-    chunks: TransactionChunk | TransactionChunk[],
+    chunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
   ): Promise<TransactionResult> {
     return this._reactor.pushTx(chunks);
   }
@@ -485,6 +497,7 @@ export {
   init,
   id,
   tx,
+  txInit,
   lookup,
 
   // cli
@@ -510,10 +523,11 @@ export {
   AuthState,
   User,
   AuthToken,
-  EmptyChunk,
+  TxChunk,
   SubscriptionState,
   LifecycleSubscriptionState,
   PresenceOpts,
   PresenceSlice,
   PresenceResponse,
+  InstaQLQueryParams,
 };

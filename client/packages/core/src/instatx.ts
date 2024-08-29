@@ -1,3 +1,5 @@
+import { DataAttrDef, EntitiesDef, InstantGraph, LinkAttrDef } from "./schema";
+
 type Action = "update" | "link" | "unlink" | "delete" | "merge";
 type EType = string;
 type Id = string;
@@ -6,7 +8,10 @@ type LookupRef = [string, any];
 type Lookup = string;
 export type Op = [Action, EType, Id | LookupRef, Args];
 
-export interface TransactionChunk {
+export interface TransactionChunk<
+  S extends InstantGraph<any, any>,
+  E extends keyof S["entities"],
+> {
   __ops: Op[];
   /**
    * Create and update objects:
@@ -15,7 +20,18 @@ export interface TransactionChunk {
    *  const goalId = id();
    *  tx.goals[goalId].update({title: "Get fit", difficulty: 5})
    */
-  update: (args: { [attribute: string]: any }) => TransactionChunk;
+  update: (
+    args: {
+      [K in keyof S["entities"][E]["attrs"]]?: S["entities"][E]["attrs"][K] extends DataAttrDef<
+        infer ValueType,
+        any
+      >
+        ? ValueType
+        : never;
+    } & {
+      [attribute: string]: any;
+    },
+  ) => TransactionChunk<S, E>;
   /**
    * Link two objects together
    *
@@ -34,23 +50,47 @@ export interface TransactionChunk {
    *
    * // { goals: [{ title: "Get fit", todos: [{ title: "Go on a run" }]}
    */
-  link: (args: { [attribute: string]: string | string[] }) => TransactionChunk;
+  link: (
+    args: {
+      [K in keyof S["entities"][E]["links"]]?: S["entities"][E]["links"][K] extends LinkAttrDef<
+        infer Cardinality,
+        any
+      >
+        ? Cardinality extends "one"
+          ? string
+          : string | string[]
+        : never;
+    } & {
+      [attribute: string]: string | string[];
+    },
+  ) => TransactionChunk<S, E>;
   /**
    * Unlink two objects
    * @example
    *  // to "unlink" a todo from a goal:
    *  tx.goals[goalId].unlink({todos: todoId})
    */
-  unlink: (args: {
-    [attribute: string]: string | string[];
-  }) => TransactionChunk;
+  unlink: (
+    args: {
+      [K in keyof S["entities"][E]["links"]]?: S["entities"][E]["links"][K] extends LinkAttrDef<
+        infer Cardinality,
+        any
+      >
+        ? Cardinality extends "one"
+          ? string
+          : string | string[]
+        : never;
+    } & {
+      [attribute: string]: string | string[];
+    },
+  ) => TransactionChunk<S, E>;
   /**
    * Delete an object, alongside all of its links.
    *
    * @example
    *   tx.goals[goalId].delete()
    */
-  delete: () => TransactionChunk;
+  delete: () => TransactionChunk<S, E>;
 
   /**
    *
@@ -80,24 +120,27 @@ export interface TransactionChunk {
    *  const goalId = id();
    *  tx.goals[goalId].merge({title: "Get fitter"})
    */
-  merge: (args: { [attribute: string]: any }) => TransactionChunk;
+  merge: (args: { [attribute: string]: any }) => TransactionChunk<S, E>;
 }
 
-export interface ETypeChunk {
-  [id: Id]: TransactionChunk;
+export interface ETypeChunk<
+  S extends InstantGraph<any, any>,
+  E extends keyof S["entities"],
+> {
+  [id: Id]: TransactionChunk<S, E>;
 }
 
-export interface EmptyChunk {
-  [etype: EType]: ETypeChunk;
-}
+export type TxChunk<S extends InstantGraph<any, any>> = {
+  [K in keyof S["entities"]]: ETypeChunk<S, K>;
+};
 
 function transactionChunk(
   etype: EType,
   id: Id | LookupRef,
   prevOps: Op[],
-): TransactionChunk {
-  return new Proxy({} as TransactionChunk, {
-    get: (_target, cmd: keyof TransactionChunk) => {
+): TransactionChunk<any, any> {
+  return new Proxy({} as TransactionChunk<any, any>, {
+    get: (_target, cmd: keyof TransactionChunk<any, any>) => {
       if (cmd === "__ops") return prevOps;
       return (args: Args) => {
         return transactionChunk(etype, id, [
@@ -128,7 +171,7 @@ export function parseLookup(k: string): LookupRef {
   return [attribute, JSON.parse(vJSON.join("__"))];
 }
 
-function etypeChunk(etype: EType): ETypeChunk {
+function etypeChunk(etype: EType): ETypeChunk<any, EType> {
   return new Proxy(
     {},
     {
@@ -142,7 +185,9 @@ function etypeChunk(etype: EType): ETypeChunk {
   );
 }
 
-function emptyChunk(): EmptyChunk {
+export function txInit<
+  Schema extends InstantGraph<any, any>,
+>(): TxChunk<Schema> {
   return new Proxy(
     {},
     {
@@ -150,7 +195,7 @@ function emptyChunk(): EmptyChunk {
         return etypeChunk(ns);
       },
     },
-  );
+  ) as any;
 }
 
 /**
@@ -162,8 +207,8 @@ function emptyChunk(): EmptyChunk {
  *   tx.goals[goalId].update({title: "Get fit"})
  *   // Note: you don't need to create `goals` ahead of time.
  */
-export const tx = emptyChunk();
+export const tx = txInit();
 
-export function getOps(x: TransactionChunk): Op[] {
+export function getOps(x: TransactionChunk<any, any>): Op[] {
   return x.__ops;
 }

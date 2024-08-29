@@ -261,7 +261,7 @@ export default class Reactor {
         const pageInfo = result?.[0]?.data?.["page-info"];
         const aggregate = result?.[0]?.data?.["aggregate"];
         const triples = extractTriples(result);
-        const store = s.createStore(this.attrs, triples);
+        const store = s.createStore(this.attrs, triples, this.config.schema);
         this.querySubs.set((prev) => {
           prev[hash].result = { store, pageInfo, aggregate };
           return prev;
@@ -277,7 +277,7 @@ export default class Reactor {
           const result = x["instaql-result"];
           const hash = weakHash(q);
           const triples = extractTriples(result);
-          const store = s.createStore(this.attrs, triples);
+          const store = s.createStore(this.attrs, triples, this.config.schema);
           const pageInfo = result?.[0]?.data?.["page-info"];
           const aggregate = result?.[0]?.data?.["aggregate"];
           return { hash, store, pageInfo, aggregate };

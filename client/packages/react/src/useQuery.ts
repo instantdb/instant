@@ -5,6 +5,8 @@ import {
   Exactly,
   InstantClient,
   LifecycleSubscriptionState,
+  InstaQLQueryParams,
+  i,
 } from "@instantdb/core";
 import { useCallback, useRef, useSyncExternalStore } from "react";
 
@@ -15,9 +17,14 @@ const defaultState = {
   error: undefined,
 };
 
-export function useQuery<Q extends Query, Schema>(
+export function useQuery<
+  Q extends Schema extends i.InstantGraph<any, any>
+    ? InstaQLQueryParams<Schema>
+    : Exactly<Query, Q>,
+  Schema,
+>(
   _core: InstantClient<Schema>,
-  _query: Exactly<Query, Q> | null,
+  _query: null | Q,
 ): { state: LifecycleSubscriptionState<Q, Schema>; query: any } {
   const query = _query ? coerceQuery(_query) : null;
   const queryHash = weakHash(query);

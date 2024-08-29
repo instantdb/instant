@@ -1,6 +1,8 @@
 import {
   // types
   Config,
+  ConfigWithSchema,
+  i,
   RoomSchemaShape,
 } from "@instantdb/core";
 import { InstantReactWeb } from "./InstantReactWeb";
@@ -25,8 +27,13 @@ import { InstantReactWeb } from "./InstantReactWeb";
  *  const db = init<Schema>({ appId: "my-app-id" })
  *
  */
-export function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
-  config: Config,
-) {
-  return new InstantReactWeb<Schema, RoomSchema>(config);
+export function init<
+  Schema = {},
+  RoomSchema extends RoomSchemaShape = {},
+  Config_ extends Config | ConfigWithSchema<any> = Config,
+>(config: Config_) {
+  return new InstantReactWeb<
+    Config_ extends ConfigWithSchema<infer CS> ? CS : Schema,
+    RoomSchema
+  >(config);
 }

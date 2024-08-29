@@ -1,6 +1,7 @@
 import { test } from "vitest";
 
 import { i } from "../../src";
+import type { InstaQLQueryResult } from "../../src/queryTypes";
 
 test("runs without exception", () => {
   const graph = i.graph(
@@ -103,10 +104,10 @@ test("runs without exception", () => {
   // - referrer is NOT an array (because cardinality is 'one')
   // - posts is not an array (because `$first`)
   const queryResult: DemoQueryResult = null as any;
-  type DemoQueryResult = i.InstaQLQueryResult<
+  type DemoQueryResult = InstaQLQueryResult<
     Graph["entities"],
     typeof demoQuery
   >;
   queryResult?.users[0].friends[0]._friends[0].bio;
-  queryResult?.users[0].posts.junk;
+  queryResult?.users[0].posts[0].author.junk;
 });

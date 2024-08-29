@@ -72,9 +72,10 @@ function createIndexMap(attrs, triples) {
   return { eav, aev, vae };
 }
 
-export function createStore(attrs, triples) {
+export function createStore(attrs, triples, schema) {
   const store = createIndexMap(attrs, triples);
   store.attrs = attrs;
+  store.schema = schema;
   return store;
 }
 

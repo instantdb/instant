@@ -106,7 +106,9 @@ function refAttrPat(makeVar, store, etype, level, label) {
 
   const nextEtype = fwdAttr ? revEtype : fwdEtype;
 
-  return [nextEtype, nextLevel, attrPat];
+  const dir = fwdAttr ? "forward" : "reverse";
+
+  return [nextEtype, nextLevel, attrPat, attr, dir];
 }
 
 function valueAttrPat(makeVar, store, valueEtype, valueLevel, valueLabel, v) {
@@ -239,7 +241,7 @@ function makeFind(makeVar, etype, level) {
 // -----------------
 
 function makeJoin(makeVar, store, etype, level, label, eid) {
-  const [nextEtype, nextLevel, pat] = refAttrPat(
+  const [nextEtype, nextLevel, pat, attr, dir] = refAttrPat(
     makeVar,
     store,
     etype,
@@ -247,7 +249,7 @@ function makeJoin(makeVar, store, etype, level, label, eid) {
     label,
   );
   const actualized = replaceInAttrPat(pat, makeVar(etype, level), eid);
-  return [nextEtype, nextLevel, actualized];
+  return [nextEtype, nextLevel, actualized, attr, dir];
 }
 
 function extendObjects(makeVar, store, { etype, level, form }, objects) {
@@ -258,7 +260,7 @@ function extendObjects(makeVar, store, { etype, level, form }, objects) {
   return Object.entries(objects).map(([eid, parent]) => {
     const childResults = children.map((label) => {
       try {
-        const [nextEtype, nextLevel, join] = makeJoin(
+        const [nextEtype, nextLevel, join, attr, dir] = makeJoin(
           makeVar,
           store,
           etype,
@@ -266,13 +268,25 @@ function extendObjects(makeVar, store, { etype, level, form }, objects) {
           label,
           eid,
         );
-        const child = queryOne(store, {
+        const childrenArray = queryOne(store, {
           etype: nextEtype,
           level: nextLevel,
           form: form[label],
           join,
         });
-        return { [label]: child };
+
+        let children = childrenArray;
+        if (store.schema) {
+          const isForwardCardinalityOne =
+            dir === "forward" && attr.cardinality === "one";
+          const isReverseCardinalityOne = dir === "reverse" && attr["unique?"];
+
+          if (isForwardCardinalityOne || isReverseCardinalityOne) {
+            children = childrenArray[0];
+          }
+        }
+
+        return { [label]: children };
       } catch (e) {
         if (e instanceof AttrNotFoundError) {
           return { [label]: [] };
