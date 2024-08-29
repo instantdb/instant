@@ -26,7 +26,7 @@ import {
   PresenceSlice,
   RoomSchemaShape,
 } from "./presence";
-import type * as i from "./schema";
+import * as i from "./schema";
 import { createDevtool } from "./devtool";
 
 const defaultOpenDevtool = true;
