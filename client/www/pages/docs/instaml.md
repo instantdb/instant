@@ -307,11 +307,11 @@ const createGoals = async (total) => {
 `tx` is a [proxy object](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy) which creates transaction chunks to be commited via `db.transact`. It follows the format
 
 ```
-tx.NAMESPACE_LABEL[GLOBAL_UNIQUE_IDENTIFER].ACTION(ACTION_SPECIFIC_DATA)
+tx.NAMESPACE_LABEL[ENTITY_IDENTIFER].ACTION(ACTION_SPECIFIC_DATA)
 ```
 
 - `NAMESPACE_LABEL` refers to the namespace to commit (e.g. `goals`, `todos`)
-- `GLOBAL_UNIQUE_IDENTIFER` is the id to look up in the namespace. This id must be a uuid and unique across **all namespaces**. You can use the `id()` function to generate a uuid for convenience.
+- `ENTITY_IDENTIFER` is the id to look up in the namespace. This id must be a uuid and unique to the namespace. You can use the `id()` function to generate a uuid for convenience.
 - `ACTION` is one of `update`, `delete`, `link`, `unlink`
 - `ACTION_SPECIFIC_DATA` depends on the action
   - `update` takes in an object of information to commit
