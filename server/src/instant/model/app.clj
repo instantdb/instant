@@ -36,6 +36,38 @@
 (defn get-by-id! [params]
   (ex/assert-record! (get-by-id params) :app {:args [params]}))
 
+(defn list-account-apps
+  ([user-id] (list-account-apps aurora/conn-pool user-id))
+  ([conn user-id]
+   (sql/select conn
+               ["SELECT a.*
+                FROM apps a
+                WHERE a.creator_id = ?::uuid"
+                user-id])))
+
+(comment
+  (def u "6412d553-2749-4f52-898a-0b3ec42ffd28")
+  (list-account-apps u))
+
+(defn get-account-app-by-id
+  ([params] (get-account-app-by-id aurora/conn-pool params))
+  ([conn {:keys [user-id app-id]}]
+   (sql/select-one conn
+                   ["SELECT a.*
+                      FROM apps a
+                      WHERE
+                      a.id = ?::uuid AND
+                      a.creator_id = ?::uuid"
+                    app-id user-id])))
+
+(defn get-account-app-by-id! [params]
+  (ex/assert-record! (get-account-app-by-id params) :app {:args [params]}))
+
+(comment
+  (def u "6412d553-2749-4f52-898a-0b3ec42ffd28")
+  (def app-id "68b75bac-3ff7-4efe-9596-97ac0d03ab65")
+  (get-account-app-by-id {:user-id u :app-id app-id}))
+
 (defn get-app-ids-created-before
   ([params] (get-app-ids-created-before aurora/conn-pool params))
   ([conn {:keys [creator-id created-before]}]
