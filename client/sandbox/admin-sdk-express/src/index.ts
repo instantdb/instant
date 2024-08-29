@@ -11,31 +11,6 @@ const config = {
   apiURI: "http://localhost:8888",
   appId: process.env.INSTANT_APP_ID!,
   adminToken: process.env.INSTANT_ADMIN_TOKEN!,
-  schema: i.graph(
-    "",
-    {
-      goals: i.entity({
-        title: i.string().optional(),
-      }),
-      todos: i.entity({
-        title: i.string().optional(),
-      }),
-    },
-    {
-      goalsTodos: {
-        forward: {
-          on: "goals",
-          has: "many",
-          label: "todos",
-        },
-        reverse: {
-          on: "todos",
-          has: "one",
-          label: "goal",
-        },
-      },
-    },
-  ),
 };
 
 const db = init(config);

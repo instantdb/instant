@@ -26,7 +26,7 @@ import {
   PresenceSlice,
   RoomSchemaShape,
 } from "./presence";
-import * as i from "./schema";
+import type * as i from "./schema";
 import { createDevtool } from "./devtool";
 
 const defaultOpenDevtool = true;
@@ -129,13 +129,20 @@ const globalInstantCoreStore = initGlobalInstantCoreStore();
  *  const db = init<Schema>({ appId: "my-app-id" })
  *
  */
-function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
-  config: Config | ConfigWithSchema<any>,
+function init<
+  Schema = {},
+  RoomSchema extends RoomSchemaShape = {},
+  Config_ extends Config | ConfigWithSchema<any> = Config,
+>(
+  config: Config_,
   Storage?: any,
   NetworkListener?: any,
-): InstantCore<Schema, RoomSchema> {
+): InstantCore<
+  Config_ extends ConfigWithSchema<infer CS> ? CS : Schema,
+  RoomSchema
+> {
   const existingClient = globalInstantCoreStore[config.appId] as InstantCore<
-    Schema,
+    any,
     RoomSchema
   >;
 
@@ -152,7 +159,7 @@ function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
     NetworkListener || WindowNetworkListener,
   );
 
-  const client = new InstantCore<Schema, RoomSchema>(reactor);
+  const client = new InstantCore<any, RoomSchema>(reactor);
   globalInstantCoreStore[config.appId] = client;
 
   if (typeof window !== "undefined" && typeof window.location !== "undefined") {
@@ -172,7 +179,10 @@ function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
   return client;
 }
 
-class InstantCore<Schema = {}, RoomSchema extends RoomSchemaShape = {}> {
+class InstantCore<
+  Schema extends i.InstantGraph<any, any> | {} = {},
+  RoomSchema extends RoomSchemaShape = {},
+> {
   public _reactor: Reactor<RoomSchema>;
   public auth: Auth;
   public storage: Storage;
@@ -240,10 +250,11 @@ class InstantCore<Schema = {}, RoomSchema extends RoomSchemaShape = {}> {
    *    console.log(resp.data.goals)
    *  });
    */
-  subscribeQuery<Q extends Query>(
-    query: Exactly<Query, Q>,
-    cb: (resp: SubscriptionState<Q, Schema>) => void,
-  ) {
+  subscribeQuery<
+    Q extends Schema extends i.InstantGraph<any, any>
+      ? InstaQLQueryParams<Schema>
+      : Exactly<Query, Q>,
+  >(query: Q, cb: (resp: SubscriptionState<Q, Schema>) => void) {
     return this._reactor.subscribeQuery(query, cb);
   }
 

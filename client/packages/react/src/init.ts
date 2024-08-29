@@ -2,7 +2,6 @@ import {
   // types
   Config,
   ConfigWithSchema,
-  i,
   RoomSchemaShape,
 } from "@instantdb/core";
 import { InstantReactWeb } from "./InstantReactWeb";
