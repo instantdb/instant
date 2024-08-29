@@ -1,5 +1,15 @@
-import { tx, lookup, TransactionChunk, getOps } from "@instantdb/core";
-import { User, AuthToken, id } from "@instantdb/core";
+import {
+  tx,
+  lookup,
+  TransactionChunk,
+  getOps,
+  i,
+  User,
+  AuthToken,
+  id,
+  QueryResponse,
+  InstaQLQueryParams,
+} from "@instantdb/core";
 
 // Query Types
 // -----
@@ -61,33 +71,6 @@ type NamespaceVal = $Option | ($Option & Subquery);
 interface Query {
   [namespace: string]: NamespaceVal;
 }
-
-type InstantObject = {
-  id: string;
-  [prop: string]: any;
-};
-
-type ResponseObject<K, Schema> = K extends keyof Schema
-  ? { id: string } & Schema[K]
-  : InstantObject;
-
-type IsEmptyObject<T> = T extends Record<string, never> ? true : false;
-
-type ResponseOf<Q, Schema> = {
-  [K in keyof Q]: IsEmptyObject<Q[K]> extends true
-    ? ResponseObject<K, Schema>[]
-    : (ResponseOf<Q[K], Schema> & ResponseObject<K, Schema>)[];
-};
-
-type Remove$<T> = T extends object
-  ? { [K in keyof T as Exclude<K, "$">]: Remove$<T[K]> }
-  : T;
-
-type QueryResponse<T, Schema> = ResponseOf<
-  { [K in keyof T]: Remove$<T[K]> },
-  Schema
->;
-
 /**
  * `debugQuery` returns the results of evaluating the corresponding permissions rules for each record.
  */
@@ -134,7 +117,13 @@ type Config = {
   apiURI?: string;
 };
 
-type FilledConfig = Config & { apiURI: string };
+type ConfigWithSchema<S extends i.InstantGraph<any, any>> = Config & {
+  schema: S;
+};
+
+type FilledConfig = Config & { apiURI: string } & {
+  schema?: i.InstantGraph<any, any>;
+};
 
 type ImpersonationOpts =
   | { email: string }
@@ -231,8 +220,13 @@ async function jsonFetch(
  *  const db = init<Schema>({ appId: "my-app-id" })
  *
  */
-function init<Schema = {}>(config: Config) {
-  return new InstantAdmin<Schema>(config);
+function init<
+  Schema = {},
+  Config_ extends Config | ConfigWithSchema<any> = Config,
+>(config: Config_) {
+  return new InstantAdmin<
+    Config_ extends ConfigWithSchema<infer CS> ? CS : Schema
+  >(config);
 }
 
 /**
@@ -244,12 +238,12 @@ function init<Schema = {}>(config: Config) {
  * @example
  *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
  */
-class InstantAdmin<Schema = {}> {
+class InstantAdmin<Schema extends i.InstantGraph<any, any> | {} = {}> {
   config: FilledConfig;
   auth: Auth;
   impersonationOpts?: ImpersonationOpts;
 
-  constructor(_config: Config) {
+  constructor(_config: Config | ConfigWithSchema<any>) {
     this.config = configWithDefaults(_config);
     this.auth = new Auth(this.config);
   }
@@ -284,13 +278,20 @@ class InstantAdmin<Schema = {}> {
    *  // all goals, _alongside_ their todos
    *  await db.query({ goals: { todos: {} } })
    */
-  query = <Q extends Query>(
-    query: Exactly<Query, Q>,
+  query = <
+    Q extends Schema extends i.InstantGraph<any, any>
+      ? InstaQLQueryParams<Schema>
+      : Exactly<Query, Q>,
+  >(
+    query: Q,
   ): Promise<QueryResponse<Q, Schema>> => {
     return jsonFetch(`${this.config.apiURI}/admin/query`, {
       method: "POST",
       headers: authorizedHeaders(this.config, this.impersonationOpts),
-      body: JSON.stringify({ query: query }),
+      body: JSON.stringify({
+        query: query,
+        "inference?": Boolean(this.config.schema),
+      }),
     });
   };
 
@@ -563,6 +564,7 @@ export {
   id,
   tx,
   lookup,
+  i,
 
   // types
   Config,

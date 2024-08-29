@@ -18,6 +18,7 @@
   (let [attrs (attr-model/get-by-app-id aurora/conn-pool app-id)]
     (w/keywordize-keys
      (admin-routes/instaql-nodes->object-tree
+      {}
       attrs
       (iq/permissioned-query
        {:db {:conn-pool aurora/conn-pool}

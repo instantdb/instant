@@ -80,12 +80,10 @@
   [{:keys [attrs] :as _ctx} level-sym etype level label]
   (let [attr-fwd (attr-model/seek-by-fwd-ident-name [etype label] attrs)
         attr-rev (attr-model/seek-by-rev-ident-name [etype label] attrs)
-        {:keys [id value-type] :as attr}
-
-        (ex/assert-record!
-         (or attr-fwd attr-rev)
-         :attr
-         {:args [etype label]})
+        {:keys [id value-type] :as attr} (ex/assert-record!
+                                          (or attr-fwd attr-rev)
+                                          :attr
+                                          {:args [etype label]})
 
         _ (when-not (= value-type :ref)
             (ex/throw-validation-err!
@@ -106,7 +104,7 @@
                     id
                     (level-sym rev-etype level)])
         next-etype (if attr-fwd rev-etype fwd-etype)]
-    (list next-etype next-level attr-pat)))
+    (list next-etype next-level attr-pat attr (boolean attr-fwd))))
 
 (defn ->ref-attr-pats
   "Take the where-cond:

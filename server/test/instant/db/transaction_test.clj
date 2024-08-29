@@ -616,6 +616,7 @@
                         [[:add-triple [handle-attr-id "nobody"] email-attr-id "nobody@example.com"]])
           (is (= {"users" [{"handle" "nobody", "email" "nobody@example.com"}]}
                  (admin-routes/instaql-nodes->object-tree
+                  {}
                   attrs
                   (iq/query ctx {:users {:$ {:where {:handle "nobody"}}}})))))
 
@@ -625,6 +626,7 @@
                         [[:add-triple [handle-attr-id "id-test"] email-attr-id "id-test@example.com"]
                          [:add-triple [handle-attr-id "id-test"] id-attr-id [handle-attr-id "id-test"]]])
           (let [res (admin-routes/instaql-nodes->object-tree
+                     {}
                      attrs
                      (iq/query ctx {:users {:$ {:where {:handle "id-test"}}}}))
                 user (-> res (get "users") first)]
@@ -652,16 +654,17 @@
           (let [feynman-isbn "9780393079814"]
             ;; Check the setup
             (is (= feynman-isbn (as-> (admin-routes/instaql-nodes->object-tree
+                                       {}
                                        attrs
                                        (iq/query ctx {:bookshelves {:$ {:where {:name "Nonfiction"}}
                                                                     :books {:$ {:where {:isbn13 feynman-isbn}}}}}))
-                                    %
-                                    (get % "bookshelves")
-                                    (first %)
-                                    (get % "books")
-                                    (filter (fn [b] (= feynman-isbn (get b "isbn13"))) %)
-                                    (first %)
-                                    (get % "isbn13"))))
+                                      %
+                                  (get % "bookshelves")
+                                  (first %)
+                                  (get % "books")
+                                  (filter (fn [b] (= feynman-isbn (get b "isbn13"))) %)
+                                  (first %)
+                                  (get % "isbn13"))))
 
             ;; check retract
             (tx/transact! aurora/conn-pool
@@ -669,13 +672,14 @@
                           [[:retract-triple eid-nonfiction bookshelf-attr-id [isbn-attr-eid feynman-isbn]]])
 
             (is (empty? (as-> (admin-routes/instaql-nodes->object-tree
+                               {}
                                attrs
                                (iq/query ctx {:bookshelves {:$ {:where {:name "Nonfiction"}}
                                                             :books {:$ {:where {:isbn13 feynman-isbn}}}}}))
-                            %
-                            (get % "bookshelves")
-                            (first %)
-                            (get % "books"))))
+                              %
+                          (get % "bookshelves")
+                          (first %)
+                          (get % "books"))))
 
             ;; check adding back
             (tx/transact! aurora/conn-pool
@@ -683,16 +687,17 @@
                           [[:add-triple eid-nonfiction bookshelf-attr-id [isbn-attr-eid feynman-isbn]]])
 
             (is (= feynman-isbn (as-> (admin-routes/instaql-nodes->object-tree
+                                       {}
                                        attrs
                                        (iq/query ctx {:bookshelves {:$ {:where {:name "Nonfiction"}}
                                                                     :books {:$ {:where {:isbn13 feynman-isbn}}}}}))
-                                    %
-                                    (get % "bookshelves")
-                                    (first %)
-                                    (get % "books")
-                                    (filter (fn [b] (= feynman-isbn (get b "isbn13"))) %)
-                                    (first %)
-                                    (get % "isbn13"))))))
+                                      %
+                                  (get % "bookshelves")
+                                  (first %)
+                                  (get % "books")
+                                  (filter (fn [b] (= feynman-isbn (get b "isbn13"))) %)
+                                  (first %)
+                                  (get % "isbn13"))))))
 
 
         (testing "value lookup refs are ignored for regular attributes"
@@ -700,6 +705,7 @@
                         app-id
                         [[:add-triple alex-eid email-attr-id [email-attr-id "test"]]])
           (let [res (admin-routes/instaql-nodes->object-tree
+                     {}
                      attrs
                      (iq/query ctx {:users {:$ {:where {:handle "alex"}}}}))
                 user (-> res (get "users") first)]
@@ -921,9 +927,9 @@
              {:app-id app-id :code {:users {:allow {:update "false"}}}})
             (is
              (perm-err?
-               (permissioned-tx/transact!
-                (make-ctx)
-                [[:add-triple lookup (resolvers/->uuid r :users/handle) "stopa3"]]))))
+              (permissioned-tx/transact!
+               (make-ctx)
+               [[:add-triple lookup (resolvers/->uuid r :users/handle) "stopa3"]]))))
           (testing (str "right value successfully updates" title)
             (rule-model/put!
              aurora/conn-pool
@@ -945,9 +951,9 @@
              {:app-id app-id :code {:users {:allow {:update "newData.handle == 'stopado'"}}}})
             (is
              (perm-err?
-               (permissioned-tx/transact!
-                (make-ctx)
-                [[:add-triple lookup (resolvers/->uuid r :users/handle) "stopa"]]))))
+              (permissioned-tx/transact!
+               (make-ctx)
+               [[:add-triple lookup (resolvers/->uuid r :users/handle) "stopa"]]))))
           (testing (str "bind works" title)
             (rule-model/put!
              aurora/conn-pool
@@ -988,9 +994,9 @@
                                                   :bind ["handle" "'alex'"]}}})
             (is
              (perm-err?
-               (permissioned-tx/transact!
-                (make-ctx)
-                [[:add-triple (resolvers/->uuid r "eid-2022") (resolvers/->uuid r :bookshelves/name) "2022!"]]))))
+              (permissioned-tx/transact!
+               (make-ctx)
+               [[:add-triple (resolvers/->uuid r "eid-2022") (resolvers/->uuid r :bookshelves/name) "2022!"]]))))
 
           (testing (str "correct auth works" title)
             (rule-model/put!
@@ -1017,10 +1023,10 @@
                                                   :bind ["handle" "auth.handle"]}}})
             (is
              (perm-err?
-               (permissioned-tx/transact!
-                (assoc (make-ctx)
-                       :current-user {:handle "joe"})
-                [[:add-triple (resolvers/->uuid r "eid-short-stories") (resolvers/->uuid r :bookshelves/name) "Longer Stories"]]))))
+              (permissioned-tx/transact!
+               (assoc (make-ctx)
+                      :current-user {:handle "joe"})
+               [[:add-triple (resolvers/->uuid r "eid-short-stories") (resolvers/->uuid r :bookshelves/name) "Longer Stories"]]))))
           (testing (str "admin can do anything" title)
             (rule-model/put!
              aurora/conn-pool
@@ -1044,10 +1050,10 @@
             (let [boop-id (UUID/randomUUID)]
               (is
                (perm-err?
-                 (permissioned-tx/transact!
-                  (make-ctx)
-                  [[:add-triple boop-id (resolvers/->uuid r :users/id) boop-id]
-                   [:add-triple boop-id (resolvers/->uuid r :users/handle) "boop"]])))))
+                (permissioned-tx/transact!
+                 (make-ctx)
+                 [[:add-triple boop-id (resolvers/->uuid r :users/id) boop-id]
+                  [:add-triple boop-id (resolvers/->uuid r :users/handle) "boop"]])))))
 
           (testing (str "ref in create allows" title)
             (rule-model/put!
@@ -1079,12 +1085,12 @@
                   scifi-bookshelf-id (UUID/randomUUID)]
               (is
                (perm-err?
-                 (permissioned-tx/transact!
-                  (assoc (make-ctx)
-                         :current-user {:handle "alex"})
-                  [[:add-triple scifi-bookshelf-id (resolvers/->uuid r :bookshelves/id) scifi-bookshelf-id]
-                   [:add-triple scifi-bookshelf-id (resolvers/->uuid r :bookshelves/name) "Scifi"]
-                   [:add-triple joe-id  (resolvers/->uuid r :users/bookshelves) scifi-bookshelf-id]])))))
+                (permissioned-tx/transact!
+                 (assoc (make-ctx)
+                        :current-user {:handle "alex"})
+                 [[:add-triple scifi-bookshelf-id (resolvers/->uuid r :bookshelves/id) scifi-bookshelf-id]
+                  [:add-triple scifi-bookshelf-id (resolvers/->uuid r :bookshelves/name) "Scifi"]
+                  [:add-triple joe-id  (resolvers/->uuid r :users/bookshelves) scifi-bookshelf-id]])))))
 
           (testing (str "delete can block" title)
             (rule-model/put!
@@ -1092,39 +1098,39 @@
              {:app-id app-id :code {:users {:allow {:delete "false"}}}})
             (is
              (perm-err?
-               (permissioned-tx/transact!
-                (make-ctx)
-                [[:delete-entity lookup]]))))
+              (permissioned-tx/transact!
+               (make-ctx)
+               [[:delete-entity lookup]]))))
           (testing (str "attr can block" title)
             (rule-model/put!
              aurora/conn-pool
              {:app-id app-id :code {:attrs {:allow {:create "false"}}}})
             (is
              (perm-err?
-               (permissioned-tx/transact!
-                (make-ctx)
-                [[:add-attr
-                  {:id (UUID/randomUUID)
-                   :forward-identity [(UUID/randomUUID) "users" "favoriteColor"]
-                   :value-type :blob
-                   :cardinality :one
-                   :unique? false
-                   :index? false}]]))))
+              (permissioned-tx/transact!
+               (make-ctx)
+               [[:add-attr
+                 {:id (UUID/randomUUID)
+                  :forward-identity [(UUID/randomUUID) "users" "favoriteColor"]
+                  :value-type :blob
+                  :cardinality :one
+                  :unique? false
+                  :index? false}]]))))
           (testing (str "attr update/delete blocks unless admin" title)
             (is
              (perm-err?
-               (permissioned-tx/transact!
-                (make-ctx)
-                [[:delete-attr
-                  (resolvers/->uuid r :users/handle)]])))
+              (permissioned-tx/transact!
+               (make-ctx)
+               [[:delete-attr
+                 (resolvers/->uuid r :users/handle)]])))
 
             (is
              (perm-err?
-               (permissioned-tx/transact!
-                (make-ctx)
-                [[:update-attr
-                  {:id (resolvers/->uuid r :users/fullName)
-                   :index? true}]]))))
+              (permissioned-tx/transact!
+               (make-ctx)
+               [[:update-attr
+                 {:id (resolvers/->uuid r :users/fullName)
+                  :index? true}]]))))
           (testing (str "attr update/delete succeed when admin" title)
             (let [bloop-attr-id (UUID/randomUUID)
                   bloop-fwd-ident (UUID/randomUUID)
