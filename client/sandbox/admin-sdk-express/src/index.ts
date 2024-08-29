@@ -144,6 +144,11 @@ async function testAdminStorage(
   console.log("Uploaded:", url);
 }
 
+async function testAdminStorageFiles() {
+  const files = await db.storage.listFiles();
+  console.log("Files:", files);
+}
+
 // testCreateToken();
 // testQuery();
 // testTransact();
@@ -152,3 +157,4 @@ async function testAdminStorage(
 // testFetchUser();
 // testDeleteUser();
 // testAdminStorage("src/demo.jpeg", "admin/demo.jpeg", "image/jpeg");
+// testAdminStorageFiles();

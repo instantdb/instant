@@ -559,6 +559,12 @@ class Auth {
 }
 
 type UploadMetadata = { contentType?: string } & Record<string, any>;
+type StorageFile = {
+  key: string;
+  size: number;
+  etag: string;
+  last_modified: number;
+};
 
 /**
  * Functions to manage file storage.
@@ -622,6 +628,68 @@ class Storage {
     );
 
     return data;
+  };
+
+  /**
+   * Retrieves a list of all the files that have been uploaded by this app.
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   const files = await db.storage.listFiles();
+   */
+  listFiles = async (): Promise<StorageFile[]> => {
+    const { data } = await jsonFetch(
+      `${this.config.apiURI}/admin/storage/files`,
+      {
+        method: "GET",
+        headers: authorizedHeaders(this.config),
+      },
+    );
+
+    return data;
+  };
+
+  /**
+   * Deletes a file by its path name (e.g. "photos/demo.png").
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   const ok = await db.storage.deleteFile("photos/demo.png");
+   */
+  deleteFile = async (pathname: string): Promise<boolean> => {
+    const { data } = await jsonFetch(
+      `${this.config.apiURI}/admin/storage/files?filename=${pathname}`,
+      {
+        method: "DELETE",
+        headers: authorizedHeaders(this.config),
+      },
+    );
+
+    // Just return true if the request was successful,
+    // since the s3 response might be confusing
+    return !!data;
+  };
+
+  /**
+   * Deletes multiple files by their path names (e.g. "photos/demo.png", "essays/demo.txt").
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   const ok = await db.storage.deleteFiles(["images/1.png", "images/2.png", "images/3.png"]);
+   */
+  deleteFiles = async (pathnames: string[]): Promise<boolean> => {
+    const { data } = await jsonFetch(
+      `${this.config.apiURI}/admin/storage/files/delete`,
+      {
+        method: "POST",
+        headers: authorizedHeaders(this.config),
+        body: JSON.stringify({ filenames: pathnames }),
+      },
+    );
+
+    // Just return true if the request was successful,
+    // since the s3 response might be confusing
+    return !!data;
   };
 }
 
