@@ -106,9 +106,9 @@ function refAttrPat(makeVar, store, etype, level, label) {
 
   const nextEtype = fwdAttr ? revEtype : fwdEtype;
 
-  const dir = fwdAttr ? "forward" : "reverse";
+  const isForward = Boolean(fwdAttr);
 
-  return [nextEtype, nextLevel, attrPat, attr, dir];
+  return [nextEtype, nextLevel, attrPat, attr, isForward];
 }
 
 function valueAttrPat(makeVar, store, valueEtype, valueLevel, valueLabel, v) {
@@ -241,7 +241,7 @@ function makeFind(makeVar, etype, level) {
 // -----------------
 
 function makeJoin(makeVar, store, etype, level, label, eid) {
-  const [nextEtype, nextLevel, pat, attr, dir] = refAttrPat(
+  const [nextEtype, nextLevel, pat, attr, isForward] = refAttrPat(
     makeVar,
     store,
     etype,
@@ -249,7 +249,7 @@ function makeJoin(makeVar, store, etype, level, label, eid) {
     label,
   );
   const actualized = replaceInAttrPat(pat, makeVar(etype, level), eid);
-  return [nextEtype, nextLevel, actualized, attr, dir];
+  return [nextEtype, nextLevel, actualized, attr, isForward];
 }
 
 function extendObjects(makeVar, store, { etype, level, form }, objects) {
@@ -260,7 +260,7 @@ function extendObjects(makeVar, store, { etype, level, form }, objects) {
   return Object.entries(objects).map(([eid, parent]) => {
     const childResults = children.map((label) => {
       try {
-        const [nextEtype, nextLevel, join, attr, dir] = makeJoin(
+        const [nextEtype, nextLevel, join, attr, isForward] = makeJoin(
           makeVar,
           store,
           etype,
@@ -278,10 +278,11 @@ function extendObjects(makeVar, store, { etype, level, form }, objects) {
         let children = childrenArray;
         if (store.schema) {
           const isForwardCardinalityOne =
-            dir === "forward" && attr.cardinality === "one";
-          const isReverseCardinalityOne = dir === "reverse" && attr["unique?"];
+            isForward && attr.cardinality === "one";
+          const isReverseUnique = !isForward && attr["unique?"];
+          const isSingleChild = isForwardCardinalityOne || isReverseUnique;
 
-          if (isForwardCardinalityOne || isReverseCardinalityOne) {
+          if (isSingleChild) {
             children = childrenArray[0];
           }
         }

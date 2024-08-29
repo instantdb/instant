@@ -1,4 +1,4 @@
-import { DataAttrDef, EntitiesDef, InstantGraph, LinkAttrDef } from "./schema";
+import { DataAttrDef, InstantGraph, LinkAttrDef } from "./schema";
 
 type Action = "update" | "link" | "unlink" | "delete" | "merge";
 type EType = string;
@@ -9,8 +9,8 @@ type Lookup = string;
 export type Op = [Action, EType, Id | LookupRef, Args];
 
 export interface TransactionChunk<
-  S extends InstantGraph<any, any>,
-  E extends keyof S["entities"],
+  Schema extends InstantGraph<any, any>,
+  Entities extends keyof Schema["entities"],
 > {
   __ops: Op[];
   /**
@@ -22,7 +22,7 @@ export interface TransactionChunk<
    */
   update: (
     args: {
-      [K in keyof S["entities"][E]["attrs"]]?: S["entities"][E]["attrs"][K] extends DataAttrDef<
+      [EntityName in keyof Schema["entities"][Entities]["attrs"]]?: Schema["entities"][Entities]["attrs"][EntityName] extends DataAttrDef<
         infer ValueType,
         any
       >
@@ -31,7 +31,7 @@ export interface TransactionChunk<
     } & {
       [attribute: string]: any;
     },
-  ) => TransactionChunk<S, E>;
+  ) => TransactionChunk<Schema, Entities>;
   /**
    * Link two objects together
    *
@@ -52,7 +52,7 @@ export interface TransactionChunk<
    */
   link: (
     args: {
-      [K in keyof S["entities"][E]["links"]]?: S["entities"][E]["links"][K] extends LinkAttrDef<
+      [EntityName in keyof Schema["entities"][Entities]["links"]]?: Schema["entities"][Entities]["links"][EntityName] extends LinkAttrDef<
         infer Cardinality,
         any
       >
@@ -63,7 +63,7 @@ export interface TransactionChunk<
     } & {
       [attribute: string]: string | string[];
     },
-  ) => TransactionChunk<S, E>;
+  ) => TransactionChunk<Schema, Entities>;
   /**
    * Unlink two objects
    * @example
@@ -72,7 +72,7 @@ export interface TransactionChunk<
    */
   unlink: (
     args: {
-      [K in keyof S["entities"][E]["links"]]?: S["entities"][E]["links"][K] extends LinkAttrDef<
+      [EntityName in keyof Schema["entities"][Entities]["links"]]?: Schema["entities"][Entities]["links"][EntityName] extends LinkAttrDef<
         infer Cardinality,
         any
       >
@@ -83,14 +83,14 @@ export interface TransactionChunk<
     } & {
       [attribute: string]: string | string[];
     },
-  ) => TransactionChunk<S, E>;
+  ) => TransactionChunk<Schema, Entities>;
   /**
    * Delete an object, alongside all of its links.
    *
    * @example
    *   tx.goals[goalId].delete()
    */
-  delete: () => TransactionChunk<S, E>;
+  delete: () => TransactionChunk<Schema, Entities>;
 
   /**
    *
@@ -120,18 +120,20 @@ export interface TransactionChunk<
    *  const goalId = id();
    *  tx.goals[goalId].merge({title: "Get fitter"})
    */
-  merge: (args: { [attribute: string]: any }) => TransactionChunk<S, E>;
+  merge: (args: {
+    [attribute: string]: any;
+  }) => TransactionChunk<Schema, Entities>;
 }
 
 export interface ETypeChunk<
-  S extends InstantGraph<any, any>,
-  E extends keyof S["entities"],
+  Schema extends InstantGraph<any, any>,
+  Entities extends keyof Schema["entities"],
 > {
-  [id: Id]: TransactionChunk<S, E>;
+  [id: Id]: TransactionChunk<Schema, Entities>;
 }
 
-export type TxChunk<S extends InstantGraph<any, any>> = {
-  [K in keyof S["entities"]]: ETypeChunk<S, K>;
+export type TxChunk<Schema extends InstantGraph<any, any>> = {
+  [EntityName in keyof Schema["entities"]]: ETypeChunk<Schema, EntityName>;
 };
 
 function transactionChunk(
