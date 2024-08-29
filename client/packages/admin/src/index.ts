@@ -317,7 +317,9 @@ class InstantAdmin<Schema = {}> {
    *    tx.goals[goalId].link({todos: todoId}),
    *  ])
    */
-  transact = (inputChunks: TransactionChunk | TransactionChunk[]) => {
+  transact = (
+    inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
+  ) => {
     const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
     const steps = chunks.flatMap((tx) => getOps(tx));
     return jsonFetch(`${this.config.apiURI}/admin/transact`, {
@@ -389,7 +391,7 @@ class InstantAdmin<Schema = {}> {
    *   )
    */
   debugTransact = (
-    inputChunks: TransactionChunk | TransactionChunk[],
+    inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
     opts?: { rules?: any },
   ) => {
     const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
