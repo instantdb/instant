@@ -4,6 +4,7 @@ import cors from "cors"; // Import cors module
 import { init, tx, id } from "@instantdb/admin";
 import { assert } from "console";
 import dotenv from "dotenv";
+import fs from "fs";
 
 dotenv.config();
 
@@ -130,6 +131,19 @@ async function testDeleteUser() {
   }
 }
 
+async function testAdminStorage(
+  src: string,
+  dest: string,
+  contentType?: string,
+) {
+  const buffer = fs.readFileSync(src);
+  const ok = await db.storage.put(dest, buffer, {
+    contentType: contentType,
+  });
+  const url = await db.storage.getDownloadUrl(dest);
+  console.log("Uploaded:", url);
+}
+
 // testCreateToken();
 // testQuery();
 // testTransact();
@@ -137,3 +151,4 @@ async function testDeleteUser() {
 // testSignOut();
 // testFetchUser();
 // testDeleteUser();
+// testAdminStorage("src/demo.jpeg", "admin/demo.jpeg", "image/jpeg");

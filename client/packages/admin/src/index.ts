@@ -247,11 +247,13 @@ function init<Schema = {}>(config: Config) {
 class InstantAdmin<Schema = {}> {
   config: FilledConfig;
   auth: Auth;
+  storage: Storage;
   impersonationOpts?: ImpersonationOpts;
 
   constructor(_config: Config) {
     this.config = configWithDefaults(_config);
     this.auth = new Auth(this.config);
+    this.storage = new Storage(this.config);
   }
 
   /**
@@ -554,6 +556,73 @@ class Auth {
       body: JSON.stringify({ email }),
     });
   }
+}
+
+type UploadMetadata = { contentType?: string } & Record<string, any>;
+
+/**
+ * Functions to manage file storage.
+ */
+class Storage {
+  config: FilledConfig;
+
+  constructor(config: FilledConfig) {
+    this.config = config;
+  }
+
+  /**
+   * Uploads file at the provided path.
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   const buffer = fs.readFileSync('demo.png');
+   *   const isSuccess = await db.storage.put('photos/demo.png', buffer);
+   */
+  put = async (
+    pathname: string,
+    file: Buffer,
+    metadata: UploadMetadata = {},
+  ): Promise<boolean> => {
+    const { data: presignedUrl } = await jsonFetch(
+      `${this.config.apiURI}/admin/storage/signed-upload-url`,
+      {
+        method: "POST",
+        headers: authorizedHeaders(this.config),
+        body: JSON.stringify({
+          app_id: this.config.appId,
+          filename: pathname,
+        }),
+      },
+    );
+    const { ok } = await fetch(presignedUrl, {
+      method: "PUT",
+      body: file,
+      headers: {
+        "Content-Type": metadata.contentType || "application/octet-stream",
+      },
+    });
+
+    return ok;
+  };
+
+  /**
+   * Retrieves a download URL for the provided path.
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   const url = await db.storage.getDownloadUrl('photos/demo.png');
+   */
+  getDownloadUrl = async (pathname: string): Promise<string> => {
+    const { data } = await jsonFetch(
+      `${this.config.apiURI}/admin/storage/signed-download-url?app_id=${this.config.appId}&filename=${pathname}`,
+      {
+        method: "GET",
+        headers: authorizedHeaders(this.config),
+      },
+    );
+
+    return data;
+  };
 }
 
 export {

@@ -1,5 +1,6 @@
 (ns instant.admin.routes
   (:require [compojure.core :refer [defroutes POST GET DELETE] :as compojure]
+            [clojure.string :as string]
             [ring.util.http-response :as response]
             [instant.model.app-admin-token :as app-admin-token-model]
             [instant.db.model.attr :as attr-model]
@@ -13,10 +14,13 @@
             [instant.db.datalog :as d]
             [instant.model.rule :as rule-model]
             [instant.util.exception :as ex]
+            [instant.util.string :as string-util]
             [instant.util.http :as http-util]
             [instant.admin.model :as admin-model]
             [instant.util.json :refer [<-json ->json]]
-            [instant.db.model.entity :as entity-model])
+            [instant.db.model.entity :as entity-model]
+            [instant.storage.s3 :as s3-util]
+            [instant.storage.beta :as storage-beta])
 
   (:import
    (java.util UUID)))
@@ -79,7 +83,7 @@
 
 (defn obj-node [attrs node]
   (let [datalog-result (-> node :data :datalog-result)
-        m (entity-model/datalog-result->map {:attrs attrs} datalog-result) 
+        m (entity-model/datalog-result->map {:attrs attrs} datalog-result)
         children (some->>  node
                            :child-nodes
                            (instaql-nodes->object-tree attrs))]
@@ -340,6 +344,61 @@
                      :headers {"authorization" (str "Bearer " admin-token)
                                "app-id" (str counters-app-id)}}))
 
+
+;; ---
+;; Storage
+
+(defn signed-download-url-get [req]
+  (let [{app-id :app_id} (req->admin-token! req)
+        filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
+        expiration (+ (System/currentTimeMillis) (* 1000 60 60 24 7)) ;; 7 days
+        object-key (s3-util/->object-key app-id filename)]
+    (storage-beta/assert-storage-enabled! app-id)
+    (response/ok {:data (str (s3-util/signed-download-url object-key expiration))})))
+
+(defn signed-upload-url-post [req]
+  (let [{app-id :app_id} (req->admin-token! req)
+        filename (ex/get-param! req [:body :filename] string-util/coerce-non-blank-str)
+        object-key (s3-util/->object-key app-id filename)]
+    (storage-beta/assert-storage-enabled! app-id)
+    (response/ok {:data (str (s3-util/signed-upload-url object-key))})))
+
+(defn format-object [{:keys [key size owner etag last-modified]}]
+  {:key key
+   :size size
+   :owner owner
+   :etag etag
+   :last_modified (.getMillis last-modified)})
+
+;; Retrieves all files that have been uploaded via Storage APIs
+(defn files-get [req]
+  (let [{app-id :app_id} (req->admin-token! req)
+        _ (storage-beta/assert-storage-enabled! app-id)
+        subdirectory (-> req :params :subdirectory)
+        objects-resp (if (string/blank? subdirectory)
+                       (s3-util/list-app-objects app-id)
+                       (s3-util/list-app-objects (str app-id "/" subdirectory)))
+        objects (:object-summaries objects-resp)]
+    (response/ok {:data (map format-object objects)})))
+
+;; Deletes a single file by name/path (e.g. "demo.png", "profiles/me.jpg")
+(defn file-delete [req]
+  (let [{app-id :app_id} (req->admin-token! req)
+        _ (storage-beta/assert-storage-enabled! app-id)
+        filename (-> req :params :filename)
+        key (s3-util/->object-key app-id filename)
+        resp (s3-util/delete-object key)]
+    (response/ok {:data resp})))
+
+;; Deletes a multiple files by name/path (e.g. "demo.png", "profiles/me.jpg")
+(defn files-delete [req]
+  (let [{app-id :app_id} (req->admin-token! req)
+        _ (storage-beta/assert-storage-enabled! app-id)
+        filenames (-> req :body :filenames)
+        keys (mapv (fn [filename] (s3-util/->object-key app-id filename)) filenames)
+        resp (s3-util/delete-objects keys)]
+    (response/ok {:data resp})))
+
 (comment
   (def counters-app-id  #uuid "137ace7a-efdd-490f-b0dc-a3c73a14f892")
   (def admin-token #uuid "82900c15-faac-495b-b385-9f9e7743b629")
@@ -377,6 +436,14 @@
   (POST "/admin/transact_perms_check" [] transact-perms-check)
   (POST "/admin/sign_out" [] sign-out-post)
   (POST "/admin/refresh_tokens" [] refresh-tokens-post)
+
   (GET "/admin/users", [] app-users-get)
   (DELETE "/admin/users", [] app-users-delete)
+
+  (POST "/admin/storage/signed-upload-url" [] signed-upload-url-post)
+  (GET "/admin/storage/signed-download-url", [] signed-download-url-get)
+  (GET "/admin/storage/files" [] files-get)
+  (DELETE "/admin/storage/files" [] file-delete) ;; single delete
+  (POST "/admin/storage/files/delete" [] files-delete) ;; bulk delete
+
   (GET "/admin/schema_experimental" [] schema-experimental-get))
