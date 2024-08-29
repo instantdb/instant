@@ -89,3 +89,80 @@ test("lookup creates unique attrs for custom lookups", () => {
     ["add-triple", lookup, zenecaAttrToId["users/id"], lookup],
   ]);
 });
+
+test("it doesn't create duplicate ref attrs", () => {
+  const aid = uuid();
+  const bid = uuid();
+  const ops = [
+    instatx.tx.nsA[aid].update({}).link({ nsB: bid }),
+    instatx.tx.nsB[bid].update({}).link({ nsA: aid }),
+  ];
+
+  expect(instaml.transform({}, ops)).toEqual([
+    [
+      "add-attr",
+      {
+        cardinality: "one",
+        "forward-identity": [expect.any(String), "nsA", "id"],
+        id: expect.any(String),
+        "index?": false,
+        isUnsynced: true,
+        "unique?": false,
+        "value-type": "blob",
+      },
+    ],
+    [
+      "add-attr",
+      {
+        cardinality: "one",
+        "forward-identity": [expect.any(String), "nsB", "id"],
+        id: expect.any(String),
+        "index?": false,
+        isUnsynced: true,
+        "unique?": false,
+        "value-type": "blob",
+      },
+    ],
+    [
+      "add-attr",
+      {
+        cardinality: "many",
+        "forward-identity": [expect.any(String), "nsA", "nsB"],
+        id: expect.any(String),
+        "index?": false,
+        isUnsynced: true,
+        "reverse-identity": [expect.any(String), "nsB", "nsA"],
+        "unique?": false,
+        "value-type": "ref",
+      },
+    ],
+    [
+      "add-attr",
+      {
+        cardinality: "one",
+        "forward-identity": [expect.any(String), "nsA", "id"],
+        id: expect.any(String),
+        "index?": false,
+        isUnsynced: true,
+        "unique?": false,
+        "value-type": "blob",
+      },
+    ],
+    [
+      "add-attr",
+      {
+        cardinality: "one",
+        "forward-identity": [expect.any(String), "nsB", "id"],
+        id: expect.any(String),
+        "index?": false,
+        isUnsynced: true,
+        "unique?": false,
+        "value-type": "blob",
+      },
+    ],
+    ["add-triple", aid, expect.any(String), aid],
+    ["add-triple", aid, expect.any(String), bid],
+    ["add-triple", bid, expect.any(String), bid],
+    ["add-triple", aid, expect.any(String), bid],
+  ]);
+});
