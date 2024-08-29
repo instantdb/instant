@@ -17,5 +17,8 @@ Instant comes with support for auth. We currently offer [magic codes](/docs/auth
             title="Custom Auth"
             description="Integrate your own auth flow with the Admin SDK."
             /%}
-
+  {% nav-button href="https://github.com/stopachka/clerk_auth_example"
+            title="Clerk (Alpha)"
+            description="Github repo showing how to integrate with Clerk."
+            /%}
 {% /nav-group %}
