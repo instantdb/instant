@@ -745,7 +745,7 @@ export function Fence({
           }}
         >
           {copyable ? (
-            <div className="absolute top-0 right-0 px-4 flex items-center">
+            <div className="absolute top-0 right-0 px-2 flex items-center">
               <button
                 onClick={(e) => {
                   copy(code);
