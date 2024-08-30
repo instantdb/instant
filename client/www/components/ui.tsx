@@ -232,6 +232,7 @@ export function Select({
   onChange,
   disabled,
   emptyLabel,
+  tabIndex,
 }: {
   value?: string;
   options: { label: string; value: string }[];
@@ -239,9 +240,11 @@ export function Select({
   onChange: (option?: { label: string; value: string }) => void;
   disabled?: boolean;
   emptyLabel?: string;
+  tabIndex?: number;
 }) {
   return (
     <select
+      tabIndex={tabIndex}
       value={value ?? undefined}
       disabled={disabled}
       className={cn(
@@ -319,6 +322,7 @@ export function Button({
   disabled,
   loading,
   autoFocus,
+  tabIndex,
 }: PropsWithChildren<{
   variant?: 'primary' | 'secondary' | 'subtle' | 'destructive' | 'cta';
   size?: 'mini' | 'normal' | 'large' | 'xl' | 'nano';
@@ -329,6 +333,7 @@ export function Button({
   disabled?: boolean;
   loading?: boolean;
   autoFocus?: boolean;
+  tabIndex?: number;
 }>) {
   const buttonRef = useRef<any>(null);
   const isATag = type === 'link' || (type === 'link-new' && href);
@@ -384,6 +389,7 @@ export function Button({
   if (isATag) {
     return (
       <a
+        tabIndex={tabIndex}
         ref={buttonRef}
         className={cls}
         {...(type === 'link-new'
@@ -400,6 +406,7 @@ export function Button({
 
   return (
     <button
+      tabIndex={tabIndex}
       ref={buttonRef}
       disabled={loading || disabled}
       type={type === 'submit' ? 'submit' : 'button'}
@@ -484,6 +491,7 @@ export function ActionButton({
   errorMessage,
   successMessage,
   onClick,
+  tabIndex,
 }: {
   type?: 'button' | 'submit';
   variant?: 'primary' | 'secondary' | 'destructive';
@@ -494,6 +502,7 @@ export function ActionButton({
   errorMessage: string;
   successMessage?: string;
   onClick: () => any;
+  tabIndex?: number;
 }) {
   const [submitting, setSubmitting] = useState(false);
 
@@ -515,6 +524,7 @@ export function ActionButton({
 
   return (
     <Button
+      tabIndex={tabIndex}
       variant={variant ?? 'secondary'}
       type={type}
       disabled={disabled || submitting}
@@ -631,6 +641,7 @@ export function CodeEditor(props: {
   schema?: object;
   onMount?: OnMount;
   path?: string;
+  tabIndex?: number;
 }) {
   return (
     <Editor
@@ -644,6 +655,7 @@ export function CodeEditor(props: {
         hideCursorInOverviewRuler: true,
         minimap: { enabled: false },
         automaticLayout: true,
+        tabIndex: props.tabIndex,
       }}
       onChange={(value) => {
         props.onChange(value || '');

@@ -129,6 +129,7 @@ export interface SchemaAttr {
     forward: { id: string; namespace: string; attr: string };
     reverse: { id: string; namespace: string; attr: string } | undefined;
   };
+  inferredTypes?: Array<'string' | 'number' | 'boolean' | 'json'>;
 }
 
 export type InstantError = {
