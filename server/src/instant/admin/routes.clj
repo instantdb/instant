@@ -75,7 +75,7 @@
 ;; ------
 ;; Query
 
-(declare instaql-nodes->object-tree)
+(declare instaql-ref-nodes->object-tree)
 
 (defn enrich-node [attrs parent-etype node]
   (let [label (-> node :data :k)
@@ -85,36 +85,45 @@
                                      0
                                      label)
         [next-etype _ _ attr forward?] pat
-        enriched-nodes (update node
-                               :data
-                               (fn [d] (assoc d :etype next-etype
-                                              :attr attr
-                                              :forward? forward?)))]
-    enriched-nodes))
+        enriched-node (update node
+                              :data
+                              (fn [d] (assoc d
+                                             :etype next-etype
+                                             :attr attr
+                                             :forward? forward?)))]
+    enriched-node))
 
 (defn obj-node [ctx attrs etype node]
   (let [datalog-result (-> node :data :datalog-result)
-        value-entries (entity-model/datalog-result->map {:attrs attrs} datalog-result)
-        children-entries (some->> node
-                                  :child-nodes
-                                  (map (partial enrich-node attrs etype))
-                                  (instaql-nodes->object-tree ctx attrs))]
-    (merge value-entries children-entries)))
+        blob-entries (entity-model/datalog-result->map {:attrs attrs} datalog-result)
+        ref-entries (some->> node
+                             :child-nodes
+                             (map (partial enrich-node attrs etype))
+                             (instaql-ref-nodes->object-tree ctx attrs))]
+    (merge blob-entries ref-entries)))
 
-(defn singular-entry? [node]
-  (or
-   (and (-> node :data :forward?) (= :many (-> node :data :attr :cardinality)))
-   (and (not (-> node :data :forward?)) (-> node :data :attr :unique?))))
+(defn singular-entry? [data]
+  (if (-> data :forward?)
+    (= :one (-> data :attr :cardinality))
+    (-> data :attr :unique?)))
 
-(defn instaql-nodes->object-tree [ctx attrs nodes]
+(defn instaql-ref-nodes->object-tree [ctx attrs nodes]
   (reduce
    (fn [acc node]
      (let [{:keys [child-nodes data]} node
-           entries (map (partial obj-node ctx attrs (-> node :data :etype)) child-nodes)
-           entry-or-entries (if (and (:inference? ctx) (singular-entry? node)) (first entries) entries)]
+           entries (map (partial obj-node ctx attrs (-> data :etype)) child-nodes)
+           singular? (and (:inference? ctx) (singular-entry? data))
+           entry-or-entries (if singular? (first entries) entries)]
        (assoc acc (:k data) entry-or-entries)))
    {}
    nodes))
+
+(defn instaql-nodes->object-tree [ctx attrs nodes]
+  (let [enriched-nodes
+        (map (fn [n] (update n :data (fn [d] (assoc d :etype (:k d))))) nodes)]
+    (instaql-ref-nodes->object-tree ctx
+                                    attrs
+                                    enriched-nodes)))
 
 (defn query-post [req]
   (let [query (ex/get-param! req [:body :query] #(when (map? %) %))
@@ -128,18 +137,17 @@
                     :datalog-loader (d/make-loader)}
                    perms)
         nodes (iq/permissioned-query ctx query)
-        nodes-with-etype (map (fn [n] (update n :data (fn [d] (assoc d :etype (:k d))))) nodes)
         result (instaql-nodes->object-tree
                 {:inference? inference?}
                 attrs
-                nodes-with-etype)]
+                nodes)]
     (response/ok result)))
 
 (comment
-  (def counters-app-id  #uuid "5f607e08-b271-489a-8430-108f8d0e22e7")
-  (def admin-token #uuid "2483838a-166e-43dc-8a3b-03a224a07aa4")
-  (query-post {:body {:inference? true :query {:x {:y {}}}}
-               :headers {"app-id" (str counters-app-id)
+  (def app-id  #uuid "386af13d-635d-44b8-8030-6a3958537db6")
+  (def admin-token #uuid "87118d2f-0f7a-497f-adee-e38a6af3620a")
+  (query-post {:body {:inference? true :query {:x {:y {}} :y {:x {}}}}
+               :headers {"app-id" (str app-id)
                          "authorization" (str "Bearer " admin-token)}}))
 
 (defn query-perms-check [req]
