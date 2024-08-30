@@ -30,7 +30,7 @@
           :discovery-endpoint
           discovery-endpoint
           [{:message "Could not validate discovery endpoint."}]))
-       (catch Exception e
+       (catch Exception _e
          (ex/throw-validation-err!
           :discovery-endpoint
           discovery-endpoint
