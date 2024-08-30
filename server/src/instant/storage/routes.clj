@@ -63,10 +63,12 @@
   ;; check that it exists in storage
   (s3-util/list-app-objects app-id)
   (s3-util/get-object object-key)
+
   (signed-download-url-get {:params {:app_id app-id :filename filename}
                             :headers {"authorization" (str "Bearer " (:id refresh-token))}})
   (file-delete {:params {:app_id app-id :filename filename}
                 :headers {"authorization" (str "Bearer " (:id refresh-token))}})
+  (s3-util/delete-object object-key)
   (s3-util/list-app-objects app-id))
 
 (defroutes routes
