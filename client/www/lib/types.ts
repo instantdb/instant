@@ -107,6 +107,7 @@ export interface DBAttr {
   'primary?'?: boolean | undefined;
   cardinality: 'one' | 'many';
   'value-type': 'ref' | 'blob';
+  'inferred-types'?: Array<'string' | 'number' | 'boolean' | 'json'>;
 }
 
 export interface SchemaNamespace {
