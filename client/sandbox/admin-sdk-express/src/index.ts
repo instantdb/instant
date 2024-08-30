@@ -149,6 +149,13 @@ async function testAdminStorageFiles() {
   console.log("Files:", files);
 }
 
+async function testAdminStorageDelete(filepath: string) {
+  console.log("Before:", await db.storage.listFiles());
+  const ok = await db.storage.deleteFile(filepath);
+  console.log("Deleted:", ok);
+  console.log("After:", await db.storage.listFiles());
+}
+
 // testCreateToken();
 // testQuery();
 // testTransact();
@@ -158,3 +165,4 @@ async function testAdminStorageFiles() {
 // testDeleteUser();
 // testAdminStorage("src/demo.jpeg", "admin/demo.jpeg", "image/jpeg");
 // testAdminStorageFiles();
+// testAdminStorageDelete("admin/demo.jpeg");
