@@ -7,7 +7,7 @@
             [instant.util.http :as http-util]
             [instant.util.storage :as storage-util]
             [instant.model.app :as app-model]
-            [instant.model.instant-user-refresh-token :as instant-user-refresh-token-model]
+            [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
             [instant.storage.s3 :as s3-util])
   (:import
    (java.util UUID)))
@@ -51,8 +51,8 @@
 
 (comment
   (def app-id #uuid "524bc106-1f0d-44a0-b222-923505264c47")
-  (def user-id #uuid "6412d553-2749-4f52-898a-0b3ec42ffd28")
-  (def refresh-token (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id user-id}))
+  (def user-id #uuid "19020866-1238-4cfc-9a1c-d804fef3fb73")
+  (def refresh-token (app-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id user-id}))
   (def filename "test/images/demo.png")
   (def image-url "https://i.redd.it/bugxrdkjmm1b1.png")
   (def object-key (s3-util/->object-key app-id filename))
@@ -68,6 +68,7 @@
                             :headers {"authorization" (str "Bearer " (:id refresh-token))}})
   (file-delete {:params {:app_id app-id :filename filename}
                 :headers {"authorization" (str "Bearer " (:id refresh-token))}})
+
   (s3-util/delete-object object-key)
   (s3-util/list-app-objects app-id))
 
