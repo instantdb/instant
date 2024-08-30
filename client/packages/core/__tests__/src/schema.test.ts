@@ -109,5 +109,5 @@ test("runs without exception", () => {
     typeof demoQuery
   >;
   queryResult?.users[0].friends[0]._friends[0].bio;
-  queryResult?.users[0].posts[0].author.junk;
+  queryResult?.users[0].posts[0].author?.junk;
 });
