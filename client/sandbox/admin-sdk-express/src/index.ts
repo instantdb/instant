@@ -145,26 +145,26 @@ async function testAdminStorage(
 }
 
 async function testAdminStorageFiles() {
-  const files = await db.storage.listFiles();
+  const files = await db.storage.list();
   console.log("Files:", files);
 }
 
 async function testAdminStorageDelete(filepath: string) {
-  console.log("Before:", await db.storage.listFiles());
+  console.log("Before:", await db.storage.list());
   const ok = await db.storage.delete(filepath);
   console.log("Deleted:", ok);
-  console.log("After:", await db.storage.listFiles());
+  console.log("After:", await db.storage.list());
 }
 
 async function testAdminStorageBulkDelete(keyword: string) {
-  const files = await db.storage.listFiles();
+  const files = await db.storage.list();
   const deletable = files
     .map((f) => f.name)
     .filter((name) => name.includes(keyword));
   console.log({ deletable });
   const ok = await db.storage.bulkDelete(deletable);
   console.log("Deleted:", ok);
-  console.log("After:", await db.storage.listFiles());
+  console.log("After:", await db.storage.list());
 }
 
 // testCreateToken();
@@ -175,6 +175,6 @@ async function testAdminStorageBulkDelete(keyword: string) {
 // testFetchUser();
 // testDeleteUser();
 // testAdminStorage("src/demo.jpeg", "admin/demo.jpeg", "image/jpeg");
-// testAdminStorageFiles();
+testAdminStorageFiles();
 // testAdminStorageDelete("admin/demo.jpeg");
 // testAdminStorageBulkDelete("admin/demo");

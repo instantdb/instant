@@ -636,9 +636,9 @@ class Storage {
    *
    * @see https://instantdb.com/docs/storage
    * @example
-   *   const files = await db.storage.listFiles();
+   *   const files = await db.storage.list();
    */
-  listFiles = async (): Promise<StorageFile[]> => {
+  list = async (): Promise<StorageFile[]> => {
     const { data } = await jsonFetch(
       `${this.config.apiURI}/admin/storage/files`,
       {

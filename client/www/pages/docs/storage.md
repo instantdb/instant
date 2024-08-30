@@ -259,12 +259,12 @@ const url = await db.storage.getDownloadUrl('images/demo.png');
 
 ## Listing all your files
 
-We also offer the `db.storage.listFiles()` function to retrieve a list of all your files in storage.
+We also offer the `db.storage.list()` function to retrieve a list of all your files in storage.
 
 This can be useful for scripting, if you'd like to manage your files programmatically.
 
 ```ts
-const files = await db.storage.listFiles();
+const files = await db.storage.list();
 ```
 
 ## Deleting files
