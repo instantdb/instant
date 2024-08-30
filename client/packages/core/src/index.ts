@@ -1,18 +1,24 @@
 import Reactor from "./Reactor";
-import { tx, lookup, TransactionChunk, EmptyChunk, getOps } from "./instatx";
+import {
+  tx,
+  lookup,
+  getOps,
+  type TransactionChunk,
+  type EmptyChunk,
+} from "./instatx";
 import weakHash from "./utils/weakHash";
 import id from "./utils/uuid";
 import IndexedDBStorage from "./IndexedDBStorage";
 import WindowNetworkListener from "./WindowNetworkListener";
-import {
+import type {
   Query,
   QueryResponse,
   PageInfoResponse,
   Exactly,
   InstantObject,
 } from "./queryTypes";
-import { AuthState, User, AuthResult } from "./clientTypes";
-import {
+import type { AuthState, User, AuthResult } from "./clientTypes";
+import type {
   PresenceOpts,
   PresenceResponse,
   PresenceSlice,
