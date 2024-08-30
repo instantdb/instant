@@ -425,8 +425,8 @@
         client (app-oauth-client-model/get-by-client-name! {:app-id app-id
                                                             :client-name client-name})
         oauth-client (app-oauth-client-model/->OAuthClient client)
-
-        _ (when-let [origin (get-in req [:headers "origin"])]
+        _ (when-let [origin (and (:client_secret client)
+                                 (get-in req [:headers "origin"]))]
             (let [authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
                                       {:app-id app-id})
                   match (app-authorized-redirect-origin-model/find-match
@@ -437,7 +437,10 @@
         user-info (let [user-info-response (oauth/get-user-info-from-id-token
                                             oauth-client
                                             nonce
-                                            id-token)]
+                                            id-token
+                                            (when-not (:client_secret oauth-client)
+                                              {:allow-unverified-email? true
+                                               :ignore-audience? true}))]
                     (when (= :error (:type user-info-response))
                       (ex/throw-validation-err!
                        :id_token

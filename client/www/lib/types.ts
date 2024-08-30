@@ -74,10 +74,12 @@ export type OAuthServiceProvider = {
 export type OAuthClient = {
   id: string;
   client_name: string;
-  client_id: string;
+  client_id?: string;
   provider_id: string;
-  authorization_endpoint: string;
-  token_endpoint: string;
+  authorization_endpoint?: string;
+  token_endpoint?: string;
+  discovery_url?: string;
+  meta?: any;
 };
 
 export type AppsAuthResponse = {

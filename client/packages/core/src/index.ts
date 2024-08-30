@@ -390,7 +390,7 @@ class Auth {
   signInWithIdToken = (params: {
     idToken: string;
     clientName: string;
-    nonce: string | undefined | null;
+    nonce?: string | undefined | null;
   }) => {
     return this.db.signInWithIdToken(params);
   };
@@ -437,7 +437,7 @@ class Auth {
    * Sign out the current user
    */
   signOut = () => {
-    this.db.signOut();
+    return this.db.signOut();
   };
 }
 

@@ -1107,7 +1107,7 @@ export default class Reactor {
    * @param {Object} params
    * @param {string} params.clientName - The name of the client requesting authorization.
    * @param {string} params.idToken - The id_token from the external service
-   * @param {string | null | undefined} params.nonce - The nonce used when requesting the id_token from the external service
+   * @param {string | null | undefined} [params.nonce] - The nonce used when requesting the id_token from the external service
    */
   async signInWithIdToken({ idToken, clientName, nonce }) {
     const res = await authAPI.signInWithIdToken({
