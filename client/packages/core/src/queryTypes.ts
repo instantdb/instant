@@ -82,9 +82,9 @@ type Remove$<T> = T extends object
   ? { [K in keyof T as Exclude<K, "$">]: Remove$<T[K]> }
   : T;
 
-type QueryResponse<T, Schema> =
+type QueryResponse<T, Schema, WithCardinalityInference = false> =
   Schema extends InstantGraph<infer E, any>
-    ? InstaQLQueryResult<E, T>
+    ? InstaQLQueryResult<E, T, WithCardinalityInference>
     : ResponseOf<{ [K in keyof T]: Remove$<T[K]> }, Schema>;
 
 type PageInfoResponse<T> = {
@@ -147,20 +147,27 @@ type InstaQLQueryEntityLinksResult<
   Query extends {
     [LinkAttrName in keyof Entities[EntityName]["links"]]?: any;
   },
+  WithCardinalityInference,
 > = {
   [QueryPropName in keyof Query]: Entities[EntityName]["links"][QueryPropName] extends LinkAttrDef<
     infer Cardinality,
     infer LinkedEntityName
   >
     ? LinkedEntityName extends keyof Entities
-      ? Cardinality extends "one"
-        ?
-            | InstaQLQueryEntityResult<
-                Entities,
-                LinkedEntityName,
-                Query[QueryPropName]
-              >
-            | undefined
+      ? WithCardinalityInference extends true
+        ? Cardinality extends "one"
+          ?
+              | InstaQLQueryEntityResult<
+                  Entities,
+                  LinkedEntityName,
+                  Query[QueryPropName]
+                >
+              | undefined
+          : InstaQLQueryEntityResult<
+              Entities,
+              LinkedEntityName,
+              Query[QueryPropName]
+            >[]
         : InstaQLQueryEntityResult<
             Entities,
             LinkedEntityName,
@@ -176,8 +183,14 @@ type InstaQLQueryEntityResult<
   Query extends {
     [QueryPropName in keyof Entities[EntityName]["links"]]?: any;
   },
+  WithCardinalityInference = false,
 > = { id: string } & InstaQLQueryEntityAttrsResult<Entities, EntityName> &
-  InstaQLQueryEntityLinksResult<Entities, EntityName, Query>;
+  InstaQLQueryEntityLinksResult<
+    Entities,
+    EntityName,
+    Query,
+    WithCardinalityInference
+  >;
 
 type InstaQLQuerySubqueryParams<
   S extends InstantGraph<any, any>,
@@ -192,9 +205,18 @@ type InstaQLQuerySubqueryParams<
         >);
 };
 
-export type InstaQLQueryResult<Entities extends EntitiesDef, Query> = {
+export type InstaQLQueryResult<
+  Entities extends EntitiesDef,
+  Query,
+  WithCardinalityInference = false,
+> = {
   [QueryPropName in keyof Query]: QueryPropName extends keyof Entities
-    ? InstaQLQueryEntityResult<Entities, QueryPropName, Query[QueryPropName]>[]
+    ? InstaQLQueryEntityResult<
+        Entities,
+        QueryPropName,
+        Query[QueryPropName],
+        WithCardinalityInference
+      >[]
     : never;
 };
 

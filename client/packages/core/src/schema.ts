@@ -1,3 +1,5 @@
+import type { RoomSchemaShape } from "./presence";
+
 export {
   // constructs
   graph,
@@ -194,12 +196,21 @@ class DataAttrDef<ValueType, IsRequired extends boolean> {
 class InstantGraph<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
+  Room extends RoomSchemaShape = {},
 > {
   constructor(
     public appId: string,
     public entities: Entities,
     public links: Links,
   ) {}
+
+  withRoomSchema<RoomSchema extends RoomSchemaShape>() {
+    return new InstantGraph<Entities, Links, RoomSchema>(
+      this.appId,
+      this.entities,
+      this.links,
+    );
+  }
 }
 
 // ==========

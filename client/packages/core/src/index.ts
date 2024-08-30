@@ -71,11 +71,11 @@ export type RoomHandle<PresenceShape, TopicsByKey> = {
 
 type AuthToken = string;
 
-type SubscriptionState<Q, Schema> =
+type SubscriptionState<Q, Schema, Inference = false> =
   | { error: { message: string }; data: undefined; pageInfo: undefined }
   | {
       error: undefined;
-      data: QueryResponse<Q, Schema>;
+      data: QueryResponse<Q, Schema, Inference>;
       pageInfo: PageInfoResponse<Q>;
     };
 
@@ -107,6 +107,61 @@ function initGlobalInstantCoreStore(): Record<string, InstantCore<any>> {
 
 const globalInstantCoreStore = initGlobalInstantCoreStore();
 
+function demo() {
+  function demoGenericWeirdness<A, B extends number>(b: B): B {
+    return b;
+  }
+
+  function init_experimental<
+    Schema extends i.InstantGraph<any, any>,
+    WithCardinalityInference extends boolean = false,
+  >(config: {
+    appId;
+    schema: Schema;
+    cardinalityInference?: WithCardinalityInference;
+  }) {
+    return new InstantCore<
+      Schema,
+      Schema extends i.InstantGraph<any, any, infer R> ? R : never,
+      WithCardinalityInference
+    >(null as any);
+  }
+
+  const schema = i
+    .graph(
+      "",
+      { a: i.entity({}), b: i.entity({}) },
+      {
+        ab: {
+          forward: { on: "a", has: "one", label: "b" },
+          reverse: { on: "b", has: "one", label: "a" },
+        },
+      },
+    )
+    .withRoomSchema<{
+      r: {};
+    }>();
+
+  const db = init_experimental({
+    appId: "",
+    schema,
+    cardinalityInference: true,
+  });
+
+  db.joinRoom("r");
+
+  db.subscribeQuery(
+    {
+      a: {
+        b: {},
+      },
+    },
+    (r) => {
+      r.data.a.at(0)?.b.id;
+    },
+  );
+}
+
 // main
 
 /**
@@ -129,18 +184,11 @@ const globalInstantCoreStore = initGlobalInstantCoreStore();
  *  const db = init<Schema>({ appId: "my-app-id" })
  *
  */
-function init<
-  Schema = {},
-  RoomSchema extends RoomSchemaShape = {},
-  Config_ extends Config | ConfigWithSchema<any> = Config,
->(
-  config: Config_,
+function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
+  config: Config,
   Storage?: any,
   NetworkListener?: any,
-): InstantCore<
-  Config_ extends ConfigWithSchema<infer CS> ? CS : Schema,
-  RoomSchema
-> {
+): InstantCore<Schema, RoomSchema> {
   const existingClient = globalInstantCoreStore[config.appId] as InstantCore<
     any,
     RoomSchema
@@ -182,6 +230,7 @@ function init<
 class InstantCore<
   Schema extends i.InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
+  WithCardinalityInference extends boolean = false,
 > {
   public _reactor: Reactor<RoomSchema>;
   public auth: Auth;
@@ -261,7 +310,10 @@ class InstantCore<
     Q extends Schema extends i.InstantGraph<any, any>
       ? InstaQLQueryParams<Schema>
       : Exactly<Query, Q>,
-  >(query: Q, cb: (resp: SubscriptionState<Q, Schema>) => void) {
+  >(
+    query: Q,
+    cb: (resp: SubscriptionState<Q, Schema, WithCardinalityInference>) => void,
+  ) {
     return this._reactor.subscribeQuery(query, cb);
   }
 
