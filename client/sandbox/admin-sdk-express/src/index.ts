@@ -175,6 +175,6 @@ async function testAdminStorageBulkDelete(keyword: string) {
 // testFetchUser();
 // testDeleteUser();
 // testAdminStorage("src/demo.jpeg", "admin/demo.jpeg", "image/jpeg");
-testAdminStorageFiles();
+// testAdminStorageFiles();
 // testAdminStorageDelete("admin/demo.jpeg");
 // testAdminStorageBulkDelete("admin/demo");
