@@ -202,6 +202,7 @@ export function Checkbox({
   onChange,
   className,
   labelClassName,
+  required,
 }: {
   label?: ReactNode;
   error?: ReactNode;
@@ -209,12 +210,14 @@ export function Checkbox({
   className?: string;
   labelClassName?: string;
   onChange: (checked: boolean) => void;
+  required?: boolean;
 }) {
   return (
     <label
       className={cn('flex cursor-pointer items-center gap-2', labelClassName)}
     >
       <input
+        required={required}
         className={cn('align-middle font-medium text-gray-900', className)}
         type="checkbox"
         checked={checked}

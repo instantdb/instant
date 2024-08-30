@@ -110,8 +110,8 @@
   (when (seq errors)
     (throw-validation-err! input-type input errors)))
 
-;; ---------- 
-;; Params 
+;; ----------
+;; Params
 
 (defn get-param! [obj ks coercer]
   (let [param (get-in obj ks)
@@ -127,6 +127,15 @@
                              :original-input param}}))]
     coerced))
 
+(defn get-optional-param! [obj ks coercer]
+  (when-let [param (some-> obj
+                           (get-in ks))]
+    (if-let [coerced (coercer param)]
+      coerced
+      (throw+ {::type ::param-malformed
+               ::message (format "Malformed parameter: %s" (mapv safe-name ks))
+               ::hint {:in ks
+                       :original-input param}}))))
 (defn get-some-param!
   [obj list-of-paths coercer]
   (let [found-path (first (filter #(get-in obj %) list-of-paths))

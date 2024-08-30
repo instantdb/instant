@@ -356,17 +356,17 @@ function AddClientForm({
   const [updatedRedirectURL, setUpdatedRedirectURL] = useState(false);
 
   // We're going to assume Google only for now
-  const [authorizationEndpoint, setAuthorizationEndpoint] = useState<string>(
+  const [authorizationEndpoint, _setAuthorizationEndpoint] = useState<string>(
     'https://accounts.google.com/o/oauth2/v2/auth'
   );
 
   // We're going to assume Google only for now
-  const [tokenEndpoint, setTokenEndpoint] = useState<string>(
+  const [tokenEndpoint, _setTokenEndpoint] = useState<string>(
     'https://oauth2.googleapis.com/token'
   );
 
   // We're going to assume Google only for now
-  const [discoveryEndpoint, setDiscoveryEndpoint] = useState<string>(
+  const [discoveryEndpoint, _setDiscoveryEndpoint] = useState<string>(
     'https://accounts.google.com/.well-known/openid-configuration'
   );
 
@@ -961,9 +961,8 @@ function ClerkLoggedInComponent() {
                 Clerk dashboard
               </a>
               . On the <code>Sessions</code> page, click the <code>Edit</code>{' '}
-              button in the
-              <code>Customize session token</code> section. Ensure your{' '}
-              <code>Claims</code> field has the email claim:
+              button in the <code>Customize session token</code> section. Ensure
+              your <code>Claims</code> field has the email claim:
               <div className="border rounded p-4 text-sm overflow-auto">
                 <Fence
                   code={`{
@@ -1037,6 +1036,8 @@ function AddClerkClientForm({
   const [publishableKey, setPublishableKey] = useState<string>('');
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const [addedEmailClaim, setAddedEmailClaim] = useState(false);
 
   const validationError = () => {
     if (!clientName) {
@@ -1123,6 +1124,36 @@ function AddClerkClientForm({
         }
         placeholder=""
       />
+      <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
+        <Content>
+          Navigate to your{' '}
+          <a
+            className="underline"
+            href={`https://dashboard.clerk.com`}
+            target="_blank"
+            rel="noopener noreferer"
+          >
+            Clerk dashboard
+          </a>
+          . On the <code>Sessions</code> page, click the <code>Edit</code>{' '}
+          button in the <code>Customize session token</code> section. Ensure
+          your <code>Claims</code> field has the email claim:
+          <div className="border rounded p-4 text-sm overflow-auto">
+            <Fence
+              code={`{
+  "email": "{{user.primary_email_address}}"
+}`}
+              language="json"
+            />
+          </div>
+        </Content>
+        <Checkbox
+          required={true}
+          checked={addedEmailClaim}
+          onChange={setAddedEmailClaim}
+          label='The session token has the "email" claim.'
+        />
+      </div>
       <Button loading={isLoading} type="submit">
         Add Clerk app
       </Button>
