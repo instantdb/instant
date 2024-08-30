@@ -821,6 +821,103 @@ function domainFromClerkKey(key: string): string | null {
   }
 }
 
+function clerkExampleCode({
+  appId,
+  clientName,
+  clerkPublishableKey,
+}: {
+  appId: string;
+  clientName: string;
+  clerkPublishableKey: string;
+}) {
+  return /* replace-me-with-js-to-format */ `import {
+  useAuth,
+  ClerkProvider,
+  SignInButton,
+  SignedIn,
+  SignedOut,
+} from "@clerk/nextjs";
+import { init } from "@instantdb/react";
+import { useEffect } from "react";
+
+const db = init({ appId: "${appId}" });
+
+function ClerkSignedInComponent() {
+  const { getToken, signOut } = useAuth();
+
+  const signInToInstantWithClerkToken = async () => {
+    // getToken gets the jwt from Clerk for your signed in user.
+    const idToken = await getToken();
+
+    if (!idToken) {
+      // No jwt, can't sign in to instant
+      return;
+    }
+
+    // Create a long-lived session with Instant for your clerk user
+    // It will look up the user by email or create a new user with
+    // the email address in the session token.
+    db.auth.signInWithIdToken({
+      clientName: "${clientName}",
+      idToken: idToken,
+    });
+  };
+
+  useEffect(() => {
+    signInToInstantWithClerkToken();
+  }, []);
+
+  const { isLoading, user, error } = db.useAuth();
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+  if (error) {
+    return <div>Error signing in to Instant! {error.message}</div>;
+  }
+  if (user) {
+    return (
+      <div>
+        <p>Signed in with Instant through Clerk!</p>{" "}
+        <button
+          onClick={() => {
+            // First sign out of Instant to clear the Instant session.
+            db.auth.signOut().then(() => {
+              // Then sign out of Clerk to clear the Clerk session.
+              signOut();
+            });
+          }}
+        >
+          Sign out
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <button onClick={signInToInstantWithClerkToken}>
+        Sign in to Instant
+      </button>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <ClerkProvider publishableKey="${clerkPublishableKey}">
+      <SignedOut>
+        <SignInButton />
+      </SignedOut>
+      <SignedIn>
+        <ClerkSignedInComponent />
+      </SignedIn>
+    </ClerkProvider>
+  );
+}
+
+export default App;`;
+}
+
 function ClerkClient({
   app,
   client,
@@ -863,56 +960,11 @@ function ClerkClient({
     ? domainFromClerkKey(clerkPublishableKey)
     : null;
 
-  const exampleCode = `import { useAuth } from '@clerk/clerk-react';
-import { init } from '@instantdb/react';
-import { useEffect } from 'react';
-
-const db = init({ appId: '${app.id}' });
-
-function ClerkLoggedInComponent() {
-  const { getToken, signOut } = useAuth();
-  useEffect(() => {
-    // getToken gets the jwt from Clerk for your logged in user.
-    getToken().then((idToken) => {
-      if (!idToken) {
-        // No jwt, can't log in to instant
-        return;
-      }
-      db.auth.loginWithIdToken({
-        clientName: '${client.client_name}',
-        idToken: idToken,
-      });
-    });
-  }, []);
-
-  const { isLoading, user, error } = db.useAuth();
-
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-  if (error) {
-    return <div>Uh oh! {error.message}</div>;
-  }
-  if (user) {
-    return (
-      <div>
-        Logged in with Instant!
-        <button
-          onClick={() => {
-            // First sign out of Instant to clear the Instant session.
-            db.auth.signOut().then(() => {
-              // Then sign out of Clerk to clear the Clerk session.
-              signOut();
-            });
-          }}
-        >
-          Log out
-        </button>
-      </div>
-    );
-  }
-  return;
-}`;
+  const exampleCode = clerkExampleCode({
+    appId: app.id,
+    clientName: client.client_name,
+    clerkPublishableKey: clerkPublishableKey || 'YOUR_CLERK_PUBLISHABLE_KEY',
+  });
 
   return (
     <div className="">
@@ -963,8 +1015,9 @@ function ClerkLoggedInComponent() {
               . On the <code>Sessions</code> page, click the <code>Edit</code>{' '}
               button in the <code>Customize session token</code> section. Ensure
               your <code>Claims</code> field has the email claim:
-              <div className="border rounded p-4 text-sm overflow-auto">
+              <div className="border rounded text-sm overflow-auto">
                 <Fence
+                  copyable
                   code={`{
   "email": "{{user.primary_email_address}}"
 }`}
@@ -977,8 +1030,8 @@ function ClerkLoggedInComponent() {
               link your Clerk user to Instant.
             </Content>
 
-            <div className="border rounded p-4 text-sm overflow-auto">
-              <Fence code={exampleCode} language="typescript" />
+            <div className="border rounded text-sm overflow-auto">
+              <Fence copyable code={exampleCode} language="typescript" />
             </div>
 
             <Divider />
@@ -1138,8 +1191,9 @@ function AddClerkClientForm({
           . On the <code>Sessions</code> page, click the <code>Edit</code>{' '}
           button in the <code>Customize session token</code> section. Ensure
           your <code>Claims</code> field has the email claim:
-          <div className="border rounded p-4 text-sm overflow-auto">
+          <div className="border rounded text-sm overflow-auto">
             <Fence
+              copyable
               code={`{
   "email": "{{user.primary_email_address}}"
 }`}
