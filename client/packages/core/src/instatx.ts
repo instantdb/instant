@@ -8,9 +8,33 @@ type LookupRef = [string, any];
 type Lookup = string;
 export type Op = [Action, EType, Id | LookupRef, Args];
 
+type UpdateParams<Schema extends InstantGraph<any, any>> = {
+  [EntityName in keyof Schema["entities"][EntityName]["attrs"]]?: Schema["entities"][EntityName]["attrs"][EntityName] extends DataAttrDef<
+    infer ValueType,
+    any
+  >
+    ? ValueType
+    : never;
+} & {
+  [attribute: string]: any;
+};
+
+type LinkParams<Schema extends InstantGraph<any, any>> = {
+  [EntityName in keyof Schema["entities"][EntityName]["links"]]?: Schema["entities"][EntityName]["links"][EntityName] extends LinkAttrDef<
+    infer Cardinality,
+    any
+  >
+    ? Cardinality extends "one"
+      ? string
+      : string | string[]
+    : never;
+} & {
+  [attribute: string]: string | string[];
+};
+
 export interface TransactionChunk<
   Schema extends InstantGraph<any, any>,
-  Entities extends keyof Schema["entities"],
+  EntityName extends keyof Schema["entities"],
 > {
   __ops: Op[];
   /**
@@ -20,18 +44,7 @@ export interface TransactionChunk<
    *  const goalId = id();
    *  tx.goals[goalId].update({title: "Get fit", difficulty: 5})
    */
-  update: (
-    args: {
-      [EntityName in keyof Schema["entities"][Entities]["attrs"]]?: Schema["entities"][Entities]["attrs"][EntityName] extends DataAttrDef<
-        infer ValueType,
-        any
-      >
-        ? ValueType
-        : never;
-    } & {
-      [attribute: string]: any;
-    },
-  ) => TransactionChunk<Schema, Entities>;
+  update: (args: UpdateParams<Schema>) => TransactionChunk<Schema, EntityName>;
   /**
    * Link two objects together
    *
@@ -50,47 +63,21 @@ export interface TransactionChunk<
    *
    * // { goals: [{ title: "Get fit", todos: [{ title: "Go on a run" }]}
    */
-  link: (
-    args: {
-      [EntityName in keyof Schema["entities"][Entities]["links"]]?: Schema["entities"][Entities]["links"][EntityName] extends LinkAttrDef<
-        infer Cardinality,
-        any
-      >
-        ? Cardinality extends "one"
-          ? string
-          : string | string[]
-        : never;
-    } & {
-      [attribute: string]: string | string[];
-    },
-  ) => TransactionChunk<Schema, Entities>;
+  link: (args: LinkParams<Schema>) => TransactionChunk<Schema, EntityName>;
   /**
    * Unlink two objects
    * @example
    *  // to "unlink" a todo from a goal:
    *  tx.goals[goalId].unlink({todos: todoId})
    */
-  unlink: (
-    args: {
-      [EntityName in keyof Schema["entities"][Entities]["links"]]?: Schema["entities"][Entities]["links"][EntityName] extends LinkAttrDef<
-        infer Cardinality,
-        any
-      >
-        ? Cardinality extends "one"
-          ? string
-          : string | string[]
-        : never;
-    } & {
-      [attribute: string]: string | string[];
-    },
-  ) => TransactionChunk<Schema, Entities>;
+  unlink: (args: LinkParams<Schema>) => TransactionChunk<Schema, EntityName>;
   /**
    * Delete an object, alongside all of its links.
    *
    * @example
    *   tx.goals[goalId].delete()
    */
-  delete: () => TransactionChunk<Schema, Entities>;
+  delete: () => TransactionChunk<Schema, EntityName>;
 
   /**
    *
@@ -122,14 +109,14 @@ export interface TransactionChunk<
    */
   merge: (args: {
     [attribute: string]: any;
-  }) => TransactionChunk<Schema, Entities>;
+  }) => TransactionChunk<Schema, EntityName>;
 }
 
 export interface ETypeChunk<
   Schema extends InstantGraph<any, any>,
-  Entities extends keyof Schema["entities"],
+  EntityName extends keyof Schema["entities"],
 > {
-  [id: Id]: TransactionChunk<Schema, Entities>;
+  [id: Id]: TransactionChunk<Schema, EntityName>;
 }
 
 export type TxChunk<Schema extends InstantGraph<any, any>> = {
