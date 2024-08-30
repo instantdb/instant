@@ -12,6 +12,15 @@
   (:import
    (java.util UUID)))
 
+
+;; scopes filename to app-id directory
+(defn ->object-key [app-id filename]
+  (str app-id "/" filename))
+
+;; extracts filename from app-id directory scope
+(defn object-key->filename [object-key]
+  (string/join "/" (rest (string/split object-key #"/"))))
+
 (comment
   (def rules {:code
               {"$files" {"bind" ["isLoggedIn" "auth.id != null"]
@@ -44,7 +53,7 @@
 
 
 (defn upload-image-to-s3 [app-id filename image-url]
-  (let [object-key (s3-util/->object-key app-id filename)]
+  (let [object-key (->object-key app-id filename)]
     (storage-beta/assert-storage-enabled! app-id)
     (s3-util/upload-image-to-s3 object-key image-url)))
 
@@ -62,7 +71,7 @@
    (create-signed-download-url! app-id filename))
   ([app-id filename]
    (let [expiration (+ (System/currentTimeMillis) (* 1000 60 60 24 7)) ;; 7 days
-         object-key (s3-util/->object-key app-id filename)]
+         object-key (->object-key app-id filename)]
 
      (storage-beta/assert-storage-enabled! app-id)
      (str (s3-util/signed-download-url object-key expiration)))))
@@ -80,7 +89,7 @@
                                          :filepath filename})
    (create-signed-upload-url! app-id filename))
   ([app-id filename]
-   (let [object-key (s3-util/->object-key app-id filename)]
+   (let [object-key (->object-key app-id filename)]
      (storage-beta/assert-storage-enabled! app-id)
      (str (s3-util/signed-upload-url object-key)))))
 
@@ -94,6 +103,7 @@
 
 (defn format-object [{:keys [key size owner etag last-modified]}]
   {:key key
+   :name (object-key->filename key)
    :size size
    :owner owner
    :etag etag
@@ -123,13 +133,13 @@
                                          :filepath filename})
    (delete-file! app-id filename))
   ([app-id filename]
-   (let [key (s3-util/->object-key app-id filename)]
+   (let [key (->object-key app-id filename)]
      (storage-beta/assert-storage-enabled! app-id)
      (s3-util/delete-object key))))
 
 ;; Deletes a multiple files by name/path (e.g. "demo.png", "profiles/me.jpg")
 (defn bulk-delete-files! [app-id filenames]
-  (let [keys (mapv (fn [filename] (s3-util/->object-key app-id filename)) filenames)]
+  (let [keys (mapv (fn [filename] (->object-key app-id filename)) filenames)]
     (storage-beta/assert-storage-enabled! app-id)
     (s3-util/delete-objects keys)))
 
@@ -148,7 +158,7 @@
 
   (def user-id #uuid "19020866-1238-4cfc-9a1c-d804fef3fb73")
   (def refresh-token (app-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id user-id}))
-  (def object-key (s3-util/->object-key app-id filename))
+  (def object-key (->object-key app-id filename))
 
   (defn storage-rules-mock [action logic] {:code {"$files" {"allow" {action logic}}}})
 

@@ -55,7 +55,7 @@
   (def refresh-token (app-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id user-id}))
   (def filename "test/images/demo.png")
   (def image-url "https://i.redd.it/bugxrdkjmm1b1.png")
-  (def object-key (s3-util/->object-key app-id filename))
+  (def object-key (storage-util/->object-key app-id filename))
   (signed-upload-url-post {:body {:app_id app-id :filename filename}
                            :headers {"authorization" (str "Bearer " (:id refresh-token))}})
   ;; upload image via url for testing

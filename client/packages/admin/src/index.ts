@@ -561,6 +561,7 @@ class Auth {
 type UploadMetadata = { contentType?: string } & Record<string, any>;
 type StorageFile = {
   key: string;
+  name: string;
   size: number;
   etag: string;
   last_modified: number;
@@ -582,9 +583,9 @@ class Storage {
    * @see https://instantdb.com/docs/storage
    * @example
    *   const buffer = fs.readFileSync('demo.png');
-   *   const isSuccess = await db.storage.put('photos/demo.png', buffer);
+   *   const isSuccess = await db.storage.upload('photos/demo.png', buffer);
    */
-  put = async (
+  upload = async (
     pathname: string,
     file: Buffer,
     metadata: UploadMetadata = {},
@@ -654,9 +655,9 @@ class Storage {
    *
    * @see https://instantdb.com/docs/storage
    * @example
-   *   const ok = await db.storage.deleteFile("photos/demo.png");
+   *   const ok = await db.storage.delete("photos/demo.png");
    */
-  deleteFile = async (pathname: string): Promise<boolean> => {
+  delete = async (pathname: string): Promise<boolean> => {
     const { data } = await jsonFetch(
       `${this.config.apiURI}/admin/storage/files?filename=${pathname}`,
       {
@@ -675,9 +676,9 @@ class Storage {
    *
    * @see https://instantdb.com/docs/storage
    * @example
-   *   const ok = await db.storage.deleteFiles(["images/1.png", "images/2.png", "images/3.png"]);
+   *   const ok = await db.storage.bulkDelete(["images/1.png", "images/2.png", "images/3.png"]);
    */
-  deleteFiles = async (pathnames: string[]): Promise<boolean> => {
+  bulkDelete = async (pathnames: string[]): Promise<boolean> => {
     const { data } = await jsonFetch(
       `${this.config.apiURI}/admin/storage/files/delete`,
       {

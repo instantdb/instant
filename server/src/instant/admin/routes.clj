@@ -368,14 +368,14 @@
 ;; Deletes a single file by name/path (e.g. "demo.png", "profiles/me.jpg")
 (defn file-delete [req]
   (let [{app-id :app_id} (req->admin-token! req)
-        filename (-> req :params :filename)
+        filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
         data (storage-util/delete-file! app-id filename)]
     (response/ok {:data data})))
 
 ;; Deletes a multiple files by name/path (e.g. "demo.png", "profiles/me.jpg")
 (defn files-delete [req]
   (let [{app-id :app_id} (req->admin-token! req)
-        filenames (-> req :body :filenames)
+        filenames (ex/get-param! req [:body :filenames] seq)
         data (storage-util/bulk-delete-files! app-id filenames)]
     (response/ok {:data data})))
 

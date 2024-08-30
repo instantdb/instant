@@ -5,9 +5,6 @@
 
 (def default-bucket "instant-storage")
 
-(defn ->object-key [app-id filename]
-  (str app-id "/" filename))
-
 (defn list-buckets []
   (s3/list-buckets))
 

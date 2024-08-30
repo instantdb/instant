@@ -137,7 +137,7 @@ async function testAdminStorage(
   contentType?: string,
 ) {
   const buffer = fs.readFileSync(src);
-  const ok = await db.storage.put(dest, buffer, {
+  const ok = await db.storage.upload(dest, buffer, {
     contentType: contentType,
   });
   const url = await db.storage.getDownloadUrl(dest);
@@ -151,7 +151,18 @@ async function testAdminStorageFiles() {
 
 async function testAdminStorageDelete(filepath: string) {
   console.log("Before:", await db.storage.listFiles());
-  const ok = await db.storage.deleteFile(filepath);
+  const ok = await db.storage.delete(filepath);
+  console.log("Deleted:", ok);
+  console.log("After:", await db.storage.listFiles());
+}
+
+async function testAdminStorageBulkDelete(keyword: string) {
+  const files = await db.storage.listFiles();
+  const deletable = files
+    .map((f) => f.name)
+    .filter((name) => name.includes(keyword));
+  console.log({ deletable });
+  const ok = await db.storage.bulkDelete(deletable);
   console.log("Deleted:", ok);
   console.log("After:", await db.storage.listFiles());
 }
@@ -166,3 +177,4 @@ async function testAdminStorageDelete(filepath: string) {
 // testAdminStorage("src/demo.jpeg", "admin/demo.jpeg", "image/jpeg");
 // testAdminStorageFiles();
 // testAdminStorageDelete("admin/demo.jpeg");
+// testAdminStorageBulkDelete("admin/demo");
