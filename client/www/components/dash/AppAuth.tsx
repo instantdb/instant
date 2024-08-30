@@ -836,7 +836,7 @@ function clerkExampleCode({
   SignInButton,
   SignedIn,
   SignedOut,
-} from "@clerk/nextjs";
+} from "@clerk/clerk-react";
 import { init } from "@instantdb/react";
 import { useEffect } from "react";
 

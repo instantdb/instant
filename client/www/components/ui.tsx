@@ -747,11 +747,14 @@ export function Fence({
           {copyable ? (
             <div className="absolute top-0 right-0 px-4 flex items-center">
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  copy(code);
                   setCopyLabel('Copied!');
                   setTimeout(() => {
                     setCopyLabel('Copy');
                   }, 2500);
+                  e.preventDefault();
+                  e.stopPropagation();
                 }}
                 className="flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 text-xs"
               >
