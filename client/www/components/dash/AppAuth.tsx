@@ -694,6 +694,8 @@ function GoogleClients({
   onAddClient,
   onDeleteClient,
   usedClientNames,
+  lastCreatedClientId,
+  defaultOpen,
 }: {
   app: InstantApp;
   provider: OAuthServiceProvider;
@@ -701,10 +703,11 @@ function GoogleClients({
   onAddClient: (client: OAuthClient) => void;
   onDeleteClient: (client: OAuthClient) => void;
   usedClientNames: Set<string>;
+  lastCreatedClientId: string | null;
+  defaultOpen: boolean;
 }) {
-  const needsFirstClient = clients.length === 0;
   const [showAddClientForm, setShowAddClientForm] =
-    useState<boolean>(needsFirstClient);
+    useState<boolean>(defaultOpen);
 
   const handleAddClient = (client: OAuthClient) => {
     setShowAddClientForm(false);
@@ -731,11 +734,13 @@ function GoogleClients({
       {clients.map((c) => {
         return (
           <Client
-            key={c.id}
+            // Update the key because the mutate somehow takes effect before
+            // lastCreatedClientId is set--this causes it to re-evaluate defaultOpen
+            key={c.id === lastCreatedClientId ? `${c.id}-last` : c.id}
             app={app}
             client={c}
             onDeleteClient={onDeleteClient}
-            defaultOpen={clients.length === 1}
+            defaultOpen={c.id === lastCreatedClientId}
           />
         );
       })}
@@ -1066,7 +1071,6 @@ function AddClerkClientForm({
         appId: app.id,
         providerId: provider.id,
         clientName,
-        // XXX: Are we validating discovery endpoints??
         discoveryEndpoint: `https://${domain}/.well-known/openid-configuration`,
         meta: { clerkPublishableKey: publishableKey },
       });
@@ -1132,6 +1136,8 @@ function ClerkClients({
   onAddClient,
   onDeleteClient,
   usedClientNames,
+  lastCreatedClientId,
+  defaultOpen,
 }: {
   app: InstantApp;
   provider: OAuthServiceProvider;
@@ -1139,10 +1145,11 @@ function ClerkClients({
   onAddClient: (client: OAuthClient) => void;
   onDeleteClient: (client: OAuthClient) => void;
   usedClientNames: Set<string>;
+  lastCreatedClientId: string | null;
+  defaultOpen: boolean;
 }) {
-  const needsFirstClient = clients.length === 0;
   const [showAddClientForm, setShowAddClientForm] =
-    useState<boolean>(needsFirstClient);
+    useState<boolean>(defaultOpen);
 
   const handleAddClient = (client: OAuthClient) => {
     setShowAddClientForm(false);
@@ -1169,11 +1176,13 @@ function ClerkClients({
       {clients.map((c) => {
         return (
           <ClerkClient
-            key={c.id}
+            // Update the key because the mutate somehow takes effect before
+            // lastCreatedClientId is set--this causes it to re-evaluate defaultOpen
+            key={c.id === lastCreatedClientId ? `${c.id}-last` : c.id}
             app={app}
             client={c}
             onDeleteClient={onDeleteClient}
-            defaultOpen={clients.length === 1}
+            defaultOpen={c.id === lastCreatedClientId}
           />
         );
       })}
@@ -1401,6 +1410,16 @@ export function AppAuth({
     `${config.apiURI}/dash/apps/${app.id}/auth`
   );
 
+  // Used to know if we should open the client details by default
+  const [lastCreatedClientId, setLastCreatedClientId] = useState<null | string>(
+    null
+  );
+
+  // Used to know if we should open the provider details by default
+  const [lastCreatedProviderId, setLastCreatedProviderId] = useState<
+    null | string
+  >(null);
+
   if (authResponse.isLoading) {
     return <Loading />;
   }
@@ -1448,6 +1467,7 @@ export function AppAuth({
   };
 
   const handleAddProvider = (provider: OAuthServiceProvider) => {
+    setLastCreatedProviderId(provider.id);
     authResponse.mutate({
       ...data,
       oauth_service_providers: [
@@ -1458,6 +1478,7 @@ export function AppAuth({
   };
 
   const handleAddClient = (client: OAuthClient) => {
+    setLastCreatedClientId(client.id);
     authResponse.mutate({
       ...data,
       oauth_clients: [client, ...(data.oauth_clients || [])],
@@ -1502,6 +1523,12 @@ export function AppAuth({
         </Content>
         {googleProvider ? (
           <GoogleClients
+            // Set key because setLastCreatedProviderId is somehow applied after mutate
+            key={
+              lastCreatedProviderId === googleProvider.id
+                ? `${googleProvider.id}-last`
+                : googleProvider.id
+            }
             app={app}
             provider={googleProvider}
             clients={
@@ -1512,12 +1539,20 @@ export function AppAuth({
             onAddClient={handleAddClient}
             onDeleteClient={handleDeleteClient}
             usedClientNames={usedClientNames}
+            lastCreatedClientId={lastCreatedClientId}
+            defaultOpen={lastCreatedProviderId === googleProvider.id}
           />
         ) : (
           <AddGoogleProviderForm app={app} onAddProvider={handleAddProvider} />
         )}
         {clerkProvider ? (
           <ClerkClients
+            // Set key because setLastCreatedProviderId is somehow applied after mutate
+            key={
+              lastCreatedProviderId === clerkProvider.id
+                ? `${clerkProvider.id}-last`
+                : clerkProvider.id
+            }
             app={app}
             provider={clerkProvider}
             clients={
@@ -1528,6 +1563,8 @@ export function AppAuth({
             onAddClient={handleAddClient}
             onDeleteClient={handleDeleteClient}
             usedClientNames={usedClientNames}
+            lastCreatedClientId={lastCreatedClientId}
+            defaultOpen={lastCreatedProviderId === clerkProvider.id}
           />
         ) : (
           <AddClerkProviderForm app={app} onAddProvider={handleAddProvider} />
