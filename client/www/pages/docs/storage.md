@@ -209,3 +209,83 @@ Allow all authenticated users to view files, but users may only upload `png`/`jp
   }
 }
 ```
+
+---
+
+# Admin SDK
+
+The Admin SDK offers the same API for managing storage on the server, plus a few extra convenience methods for scripting.
+
+## Uploading files
+
+Once again, we use the `db.storage.put(pathname: string, file: Buffer)` function to upload a file on the backend.
+
+Note that unlike our browser SDK, the `file` argument must be a `Buffer`:
+
+```tsx
+import fs from 'fs';
+
+async function upload(filepath: string) {
+  const buffer = fs.readFileSync(filepath);
+  await db.storage.put('images/demo.png', buffer);
+  // you can also optionally specify the Content-Type header in the metadata
+  await db.storage.put('images/demo.png', buffer, {
+    contentType: 'image/png',
+  });
+}
+```
+
+The `pathname` determines where the file will be stored, and can be used with permissions to restrict access to certain files.
+
+The `file` should be a [`Buffer`](https://nodejs.org/api/buffer.html) type.
+
+{% callout type="warning" %}
+
+Note that if the `pathname` already exists in your storage directory, it will be overwritten!
+
+You may want to include some kind of unique identifier or timestamp in your `pathname` to ensure this doesn't happen.
+
+{% /callout %}
+
+## Retrieving a file URL
+
+To retrieve a file URL, we use the `db.storage.getDownloadUrl(pathname: string)` function.
+
+This works exactly the same as our browser SDK.
+
+```ts
+const url = await db.storage.getDownloadUrl('images/demo.png');
+```
+
+## Listing all your files
+
+We also offer the `db.storage.listFiles()` function to retrieve a list of all your files in storage.
+
+This can be useful for scripting, if you'd like to manage your files programmatically.
+
+```ts
+const files = await db.storage.listFiles();
+```
+
+## Deleting files
+
+There are two ways to delete files:
+
+- `db.storage.deleteFile(pathname: string)`
+- `db.storage.deleteFiles(pathnames: string[])`
+
+These allow you to either delete a single file, or bulk delete multiple files at a time.
+
+{% callout type="warning" %}
+
+These functions will **permanently delete** files from storage, so use with extreme caution!
+
+{% /callout %}
+
+```ts
+const filename = 'demo.txt';
+await db.storage.deleteFile(filename);
+
+const images = ['images/1.png', 'images/2.png', 'images/3.png'];
+await db.storage.deleteFiles(images);
+```

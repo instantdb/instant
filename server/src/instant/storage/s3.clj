@@ -14,6 +14,11 @@
 (defn list-objects [bucket-name]
   (s3/list-objects bucket-name))
 
+(defn get-object
+  ([object-key] (get-object default-bucket object-key))
+  ([bucket-name object-key]
+   (s3/get-object {:bucket-name bucket-name :key object-key})))
+
 (defn delete-object
   ([object-key] (delete-object default-bucket object-key))
   ([bucket-name object-key]
@@ -77,6 +82,7 @@
   (def object-key (str app-id "/" filename))
   (def expiration (+ (System/currentTimeMillis) (* 1000 60 60 24)))
   (upload-image-to-s3 object-key image-url)
+  (get-object object-key)
   (signed-download-url default-bucket object-key expiration)
   (signed-download-url object-key expiration)
   (signed-download-url object-key)
