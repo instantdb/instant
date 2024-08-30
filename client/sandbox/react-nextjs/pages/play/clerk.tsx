@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Clerk } from "@clerk/clerk-js";
 import {
   ClerkProvider,
   useAuth,
@@ -7,7 +6,7 @@ import {
   SignedOut,
   SignInButton,
   UserButton,
-} from "@clerk/clerk-react";
+} from "@clerk/nextjs";
 
 import { init, tx, id, InstantReactWeb } from "@instantdb/react";
 import config from "../../config";

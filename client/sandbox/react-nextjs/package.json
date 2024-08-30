@@ -7,8 +7,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "@clerk/clerk-js": "^5.18.0",
-    "@clerk/clerk-react": "^5.5.0",
+    "@clerk/nextjs": "^5.3.7",
     "@instantdb/admin": "workspace:*",
     "@instantdb/react": "workspace:*",
     "@react-oauth/google": "^0.12.1",
