@@ -154,11 +154,13 @@ type InstaQLQueryEntityLinksResult<
   >
     ? LinkedEntityName extends keyof Entities
       ? Cardinality extends "one"
-        ? InstaQLQueryEntityResult<
-            Entities,
-            LinkedEntityName,
-            Query[QueryPropName]
-          >
+        ?
+            | InstaQLQueryEntityResult<
+                Entities,
+                LinkedEntityName,
+                Query[QueryPropName]
+              >
+            | undefined
         : InstaQLQueryEntityResult<
             Entities,
             LinkedEntityName,
