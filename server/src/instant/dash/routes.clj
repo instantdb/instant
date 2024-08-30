@@ -403,7 +403,7 @@
   (let [coerce-optional-param!
         (fn [path]
           (ex/get-optional-param! req
-                                  [:body :client_id]
+                                  path
                                   string-util/coerce-non-blank-str))
 
         {{app-id :id} :app} (req->app-and-user! :collaborator req)
