@@ -20,6 +20,21 @@
                  token-endpoint
                  discovery-endpoint
                  meta]}]
+   (when discovery-endpoint
+     (try
+       (when-not (-> (oauth/fetch-discovery discovery-endpoint)
+                     :data
+                     :issuer
+                     string?)
+         (ex/throw-validation-err!
+          :discovery-endpoint
+          discovery-endpoint
+          [{:message "Could not validate discovery endpoint."}]))
+       (catch Exception e
+         (ex/throw-validation-err!
+          :discovery-endpoint
+          discovery-endpoint
+          [{:message "Could not validate discovery endpoint."}]))))
    (let [id (UUID/randomUUID)]
      (sql/execute-one!
       conn
