@@ -173,7 +173,6 @@ export function EditRowDialog({
     delete params.id;
     try {
       await db.transact(tx[namespace.name][itemId].update(params));
-
       onClose();
       successToast('Successfully updated row!');
     } catch (e: any) {
