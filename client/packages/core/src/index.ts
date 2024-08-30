@@ -469,6 +469,17 @@ class Storage {
   getDownloadUrl = (pathname: string) => {
     return this.db.getDownloadUrl(pathname);
   };
+
+  /**
+   * Deletes a file by path name.
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   await db.storage.delete('photos/demo.png');
+   */
+  delete = (pathname: string) => {
+    return this.db.deleteFile(pathname);
+  };
 }
 
 // util

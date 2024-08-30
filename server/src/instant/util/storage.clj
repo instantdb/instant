@@ -43,7 +43,7 @@
 
 (defn create-signed-download-url!
   ([app-id filename refresh-token]
-   (assert-storage-permission! "read" {:app-id app-id
+   (assert-storage-permission! "view" {:app-id app-id
                                        :refresh-token refresh-token
                                        :filepath filename})
    (create-signed-download-url! app-id filename))
@@ -90,15 +90,21 @@
     (map format-object objects)))
 
 ;; Deletes a single file by name/path (e.g. "demo.png", "profiles/me.jpg")
-(defn delete-file! [app-id filename]
-  (let [_ (storage-beta/assert-storage-enabled! app-id)
-        key (s3-util/->object-key app-id filename)]
-    (s3-util/delete-object key)))
+(defn delete-file!
+  ([app-id filename refresh-token]
+   (assert-storage-permission! "delete" {:app-id app-id
+                                         :refresh-token refresh-token
+                                         :filepath filename})
+   (delete-file! app-id filename))
+  ([app-id filename]
+   (let [key (s3-util/->object-key app-id filename)]
+     (storage-beta/assert-storage-enabled! app-id)
+     (s3-util/delete-object key))))
 
 ;; Deletes a multiple files by name/path (e.g. "demo.png", "profiles/me.jpg")
 (defn bulk-delete-files! [app-id filenames]
-  (let [_ (storage-beta/assert-storage-enabled! app-id)
-        keys (mapv (fn [filename] (s3-util/->object-key app-id filename)) filenames)]
+  (let [keys (mapv (fn [filename] (s3-util/->object-key app-id filename)) filenames)]
+    (storage-beta/assert-storage-enabled! app-id)
     (s3-util/delete-objects keys)))
 
 (comment

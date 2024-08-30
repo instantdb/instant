@@ -1,5 +1,5 @@
 (ns instant.storage.routes
-  (:require [compojure.core :refer [defroutes POST GET] :as compojure]
+  (:require [compojure.core :refer [defroutes POST GET DELETE] :as compojure]
             [ring.util.http-response :as response]
             [instant.util.exception :as ex]
             [instant.util.uuid :as uuid-util]
@@ -7,7 +7,10 @@
             [instant.util.http :as http-util]
             [instant.util.storage :as storage-util]
             [instant.model.app :as app-model]
-            [instant.storage.s3 :as s3-util]))
+            [instant.model.instant-user-refresh-token :as instant-user-refresh-token-model]
+            [instant.storage.s3 :as s3-util])
+  (:import
+   (java.util UUID)))
 
 (defn buckets-get [_req]
   (let [buckets (s3-util/list-buckets)]
@@ -24,22 +27,49 @@
   (buckets-get {})
   (objects-get {:params {:bucket b}}))
 
+(defn req->app-file! [req params]
+  (let [id (ex/get-param! params [:app_id] uuid-util/coerce)
+        {app-id :id} (app-model/get-by-id! {:id id})
+        filename (ex/get-param! params [:filename] string-util/coerce-non-blank-str)
+        refresh-token (http-util/req->bearer-token req)]
+    {:app-id app-id :filename filename :refresh-token refresh-token}))
+
 (defn signed-download-url-get [req]
-  (let [app-id-param (ex/get-param! req [:params :app_id] uuid-util/coerce)
-        {app-id :id} (app-model/get-by-id! {:id app-id-param})
-        filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
-        refresh-token (http-util/req->bearer-token req)
+  (let [{:keys [app-id filename refresh-token]} (req->app-file! req (:params req))
         data (storage-util/create-signed-download-url! app-id filename refresh-token)]
     (response/ok {:data data})))
 
 (defn signed-upload-url-post [req]
-  (let [app-id-param (ex/get-param! req [:body :app_id] uuid-util/coerce)
-        {app-id :id} (app-model/get-by-id! {:id app-id-param})
-        filename (ex/get-param! req [:body :filename] string-util/coerce-non-blank-str)
-        refresh-token (http-util/req->bearer-token req)
+  (let [{:keys [app-id filename refresh-token]} (req->app-file! req (:body req))
         data (storage-util/create-signed-upload-url! app-id filename refresh-token)]
     (response/ok {:data data})))
 
+(defn file-delete [req]
+  (let [{:keys [app-id filename refresh-token]} (req->app-file! req (:params req))
+        data (storage-util/delete-file! app-id filename refresh-token)]
+    (response/ok {:data data})))
+
+(comment
+  (def app-id #uuid "524bc106-1f0d-44a0-b222-923505264c47")
+  (def user-id #uuid "6412d553-2749-4f52-898a-0b3ec42ffd28")
+  (def refresh-token (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id user-id}))
+  (def filename "test/images/demo.png")
+  (def image-url "https://i.redd.it/bugxrdkjmm1b1.png")
+  (def object-key (s3-util/->object-key app-id filename))
+  (signed-upload-url-post {:body {:app_id app-id :filename filename}
+                           :headers {"authorization" (str "Bearer " (:id refresh-token))}})
+  ;; upload image via url for testing
+  (s3-util/upload-image-to-s3 object-key image-url)
+  ;; check that it exists in storage
+  (s3-util/list-app-objects app-id)
+  (s3-util/get-object object-key)
+  (signed-download-url-get {:params {:app_id app-id :filename filename}
+                            :headers {"authorization" (str "Bearer " (:id refresh-token))}})
+  (file-delete {:params {:app_id app-id :filename filename}
+                :headers {"authorization" (str "Bearer " (:id refresh-token))}})
+  (s3-util/list-app-objects app-id))
+
 (defroutes routes
   (POST "/storage/signed-upload-url" [] signed-upload-url-post)
-  (GET "/storage/signed-download-url", [] signed-download-url-get))
+  (GET "/storage/signed-download-url", [] signed-download-url-get)
+  (DELETE "/storage/files" [] file-delete))

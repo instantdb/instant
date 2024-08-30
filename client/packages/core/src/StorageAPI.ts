@@ -64,3 +64,28 @@ export async function getDownloadUrl({
 
   return data;
 }
+
+export async function deleteFile({
+  apiURI,
+  appId,
+  path,
+  refreshToken,
+}: {
+  apiURI: string;
+  appId: string;
+  path: string;
+  refreshToken?: string;
+}) {
+  const { data } = await jsonFetch(
+    `${apiURI}/storage/files?app_id=${appId}&filename=${path}`,
+    {
+      method: "DELETE",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${refreshToken}`,
+      },
+    },
+  );
+
+  return data;
+}
