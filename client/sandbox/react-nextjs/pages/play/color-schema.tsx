@@ -1,4 +1,4 @@
-import { i, init, init_experimental, tx } from "@instantdb/react";
+import { i, init_experimental, tx } from "@instantdb/react";
 import { useEffect } from "react";
 import config from "../../config";
 
@@ -44,11 +44,7 @@ function Main() {
             return (
               <button
                 onClick={() => {
-                  db.transact(
-                    db.tx.colors[selectId].update({
-                      color: c,
-                    }),
-                  );
+                  db.transact(db.tx.colors[selectId].update({ color: c }));
                 }}
                 className={`bg-white p-2`}
                 key={c}
@@ -62,4 +58,5 @@ function Main() {
     </div>
   );
 }
+
 export default App;

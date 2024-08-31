@@ -196,7 +196,7 @@ class DataAttrDef<ValueType, IsRequired extends boolean> {
 class InstantGraph<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
-  Room extends RoomSchemaShape = {},
+  RoomSchema extends RoomSchemaShape = {},
 > {
   constructor(
     public appId: string,

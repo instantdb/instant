@@ -15,7 +15,7 @@ import {
 
 import { InstantReact } from "./InstantReact";
 import { InstantReactWeb } from "./InstantReactWeb";
-import { init } from "./init";
+import { init, init_experimental } from "./init";
 import { Cursors } from "./Cursors";
 
 export {
@@ -23,6 +23,7 @@ export {
   tx,
   lookup,
   init,
+  init_experimental,
   InstantReactWeb,
   Cursors,
 

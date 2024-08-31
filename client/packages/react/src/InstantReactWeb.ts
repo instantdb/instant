@@ -4,4 +4,5 @@ import { InstantReact } from "./InstantReact";
 export class InstantReactWeb<
   Schema extends i.InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
-> extends InstantReact<Schema, RoomSchema> {}
+  WithCardinalityInference extends boolean = false,
+> extends InstantReact<Schema, RoomSchema, WithCardinalityInference> {}

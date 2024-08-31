@@ -71,15 +71,19 @@ export type RoomHandle<PresenceShape, TopicsByKey> = {
 
 type AuthToken = string;
 
-type SubscriptionState<Q, Schema, Inference = false> =
+type SubscriptionState<Q, Schema, WithCardinalityInference = false> =
   | { error: { message: string }; data: undefined; pageInfo: undefined }
   | {
       error: undefined;
-      data: QueryResponse<Q, Schema, Inference>;
+      data: QueryResponse<Q, Schema, WithCardinalityInference>;
       pageInfo: PageInfoResponse<Q>;
     };
 
-type LifecycleSubscriptionState<Q, Schema> = SubscriptionState<Q, Schema> & {
+type LifecycleSubscriptionState<
+  Q,
+  Schema,
+  WithCardinalityInference = false,
+> = SubscriptionState<Q, Schema, WithCardinalityInference> & {
   isLoading: boolean;
 };
 
@@ -107,59 +111,38 @@ function initGlobalInstantCoreStore(): Record<string, InstantCore<any>> {
 
 const globalInstantCoreStore = initGlobalInstantCoreStore();
 
-function demo() {
-  function demoGenericWeirdness<A, B extends number>(b: B): B {
-    return b;
-  }
-
-  function init_experimental<
-    Schema extends i.InstantGraph<any, any>,
-    WithCardinalityInference extends boolean = false,
-  >(config: {
-    appId;
+function init_experimental<
+  Schema extends i.InstantGraph<any, any, any>,
+  WithCardinalityInference extends boolean = true,
+>(
+  config: Config & {
     schema: Schema;
     cardinalityInference?: WithCardinalityInference;
-  }) {
-    return new InstantCore<
-      Schema,
-      Schema extends i.InstantGraph<any, any, infer R> ? R : never,
-      WithCardinalityInference
-    >(null as any);
-  }
+  },
+  Storage?: any,
+  NetworkListener?: any,
+): InstantCore<
+  Schema,
+  Schema extends i.InstantGraph<any, infer RoomSchema, any>
+    ? RoomSchema
+    : never,
+  WithCardinalityInference
+> {
+  return _init_internal<
+    Schema,
+    Schema extends i.InstantGraph<any, infer RoomSchema, any>
+      ? RoomSchema
+      : never,
+    WithCardinalityInference
+  >(config, Storage, NetworkListener);
+}
 
-  const schema = i
-    .graph(
-      "",
-      { a: i.entity({}), b: i.entity({}) },
-      {
-        ab: {
-          forward: { on: "a", has: "one", label: "b" },
-          reverse: { on: "b", has: "one", label: "a" },
-        },
-      },
-    )
-    .withRoomSchema<{
-      r: {};
-    }>();
-
-  const db = init_experimental({
-    appId: "",
-    schema,
-    cardinalityInference: true,
-  });
-
-  db.joinRoom("r");
-
-  db.subscribeQuery(
-    {
-      a: {
-        b: {},
-      },
-    },
-    (r) => {
-      r.data.a.at(0)?.b.id;
-    },
-  );
+function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
+  config: Config,
+  Storage?: any,
+  NetworkListener?: any,
+): InstantCore<Schema, RoomSchema, false> {
+  return _init_internal(config, Storage, NetworkListener);
 }
 
 // main
@@ -184,14 +167,19 @@ function demo() {
  *  const db = init<Schema>({ appId: "my-app-id" })
  *
  */
-function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
+function _init_internal<
+  Schema extends {} | i.InstantGraph<any, any, any>,
+  RoomSchema extends RoomSchemaShape,
+  WithCardinalityInference extends boolean = false,
+>(
   config: Config,
   Storage?: any,
   NetworkListener?: any,
-): InstantCore<Schema, RoomSchema> {
+): InstantCore<Schema, RoomSchema, WithCardinalityInference> {
   const existingClient = globalInstantCoreStore[config.appId] as InstantCore<
     any,
-    RoomSchema
+    RoomSchema,
+    WithCardinalityInference
   >;
 
   if (existingClient) {
@@ -207,7 +195,9 @@ function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
     NetworkListener || WindowNetworkListener,
   );
 
-  const client = new InstantCore<any, RoomSchema>(reactor);
+  const client = new InstantCore<any, RoomSchema, WithCardinalityInference>(
+    reactor,
+  );
   globalInstantCoreStore[config.appId] = client;
 
   if (typeof window !== "undefined" && typeof window.location !== "undefined") {
@@ -565,6 +555,8 @@ function coerceQuery(o: any) {
 export {
   // bada bing bada boom
   init,
+  init_experimental,
+  _init_internal,
   id,
   tx,
   txInit,

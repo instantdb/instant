@@ -8,8 +8,11 @@ type LookupRef = [string, any];
 type Lookup = string;
 export type Op = [Action, EType, Id | LookupRef, Args];
 
-type UpdateParams<Schema extends InstantGraph<any, any>> = {
-  [EntityName in keyof Schema["entities"][EntityName]["attrs"]]?: Schema["entities"][EntityName]["attrs"][EntityName] extends DataAttrDef<
+type UpdateParams<
+  Schema extends InstantGraph<any, any>,
+  EntityName extends keyof Schema["entities"],
+> = {
+  [AttrName in keyof Schema["entities"][EntityName]["attrs"]]?: Schema["entities"][EntityName]["attrs"][AttrName] extends DataAttrDef<
     infer ValueType,
     any
   >
@@ -33,7 +36,7 @@ type LinkParams<Schema extends InstantGraph<any, any>> = {
 };
 
 export interface TransactionChunk<
-  Schema extends InstantGraph<any, any>,
+  Schema extends InstantGraph<any, any, any>,
   EntityName extends keyof Schema["entities"],
 > {
   __ops: Op[];
@@ -44,7 +47,9 @@ export interface TransactionChunk<
    *  const goalId = id();
    *  tx.goals[goalId].update({title: "Get fit", difficulty: 5})
    */
-  update: (args: UpdateParams<Schema>) => TransactionChunk<Schema, EntityName>;
+  update: (
+    args: UpdateParams<Schema, EntityName>,
+  ) => TransactionChunk<Schema, EntityName>;
   /**
    * Link two objects together
    *

@@ -18,6 +18,7 @@ import {
   InstaQLQueryParams,
   ConfigWithSchema,
   i,
+  _init_internal,
 } from "@instantdb/core";
 import {
   KeyboardEvent,
@@ -64,7 +65,7 @@ export class InstantReactRoom<
   id: string;
 
   constructor(
-    _core: InstantClient<Schema, RoomSchema>,
+    _core: InstantClient<Schema, RoomSchema, any>,
     type: RoomType,
     id: string,
   ) {
@@ -286,6 +287,7 @@ export class InstantReactRoom<
 export abstract class InstantReact<
   Schema extends i.InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
+  WithCardinalityInference extends boolean = false,
 > {
   public tx =
     txInit<
@@ -296,13 +298,13 @@ export abstract class InstantReact<
 
   public auth: Auth;
   public storage: Storage;
-  public _core: InstantClient<Schema, RoomSchema>;
+  public _core: InstantClient<Schema, RoomSchema, WithCardinalityInference>;
 
   static Storage?: any;
   static NetworkListener?: any;
 
   constructor(config: Config | ConfigWithSchema<any>) {
-    this._core = initCore<Schema, RoomSchema>(
+    this._core = _init_internal<Schema, RoomSchema, WithCardinalityInference>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.Storage,
@@ -397,7 +399,7 @@ export abstract class InstantReact<
       : Exactly<Query, Q>,
   >(
     query: null | Q,
-  ): LifecycleSubscriptionState<Q, Schema> => {
+  ): LifecycleSubscriptionState<Q, Schema, WithCardinalityInference> => {
     return useQuery(this._core, query).state;
   };
 
