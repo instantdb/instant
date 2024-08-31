@@ -19,14 +19,14 @@ type BaseWhereClause = {
   [key: string]: WhereClauseValue;
 };
 
-type WhereClauseWithCombinaton = {
+type WhereClauseWithCombination = {
   or?: WhereClause[] | WhereClauseValue;
   and?: WhereClause[] | WhereClauseValue;
 };
 
 type WhereClause =
-  | WhereClauseWithCombinaton
-  | (WhereClauseWithCombinaton & BaseWhereClause);
+  | WhereClauseWithCombination
+  | (WhereClauseWithCombination & BaseWhereClause);
 
 /**
  * A tuple representing a cursor.
@@ -220,7 +220,7 @@ async function jsonFetch(
  * @example
  *  const db = init({ appId: "my-app-id" })
  *
- * // You can also provide a a schema for type safety and editor autocomplete!
+ * // You can also provide a schema for type safety and editor autocomplete!
  *
  *  type Schema = {
  *    goals: {
@@ -379,7 +379,7 @@ class InstantAdmin<Schema = {}> {
    * since permissions checks are user-specific.
    *
    * Accepts an optional configuration object with a `rules` key.
-   * The proided rules will override the rules in the database for the duration of the transaction.
+   * The provided rules will override the rules in the database for the duration of the transaction.
    *
    * @example
    *   const goalId = id();

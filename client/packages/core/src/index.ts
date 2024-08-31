@@ -106,7 +106,7 @@ const globalInstantCoreStore = initGlobalInstantCoreStore();
  * @example
  *  const db = init({ appId: "my-app-id" })
  *
- * // You can also provide a a schema for type safety and editor autocomplete!
+ * // You can also provide a schema for type safety and editor autocomplete!
  *
  *  type Schema = {
  *    goals: {
@@ -145,7 +145,7 @@ function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
 
   if (typeof window !== "undefined" && typeof window.location !== "undefined") {
     const showDevtool =
-      // show widget by deafult?
+      // show widget by default?
       ("devtool" in config ? Boolean(config.devtool) : defaultOpenDevtool) &&
       // only run on localhost (dev env)
       window.location.hostname === "localhost" &&

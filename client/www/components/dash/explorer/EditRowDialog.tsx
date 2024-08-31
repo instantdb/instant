@@ -9,8 +9,10 @@ import {
   Label,
   Select,
 } from '@/components/ui';
-import { SchemaNamespace } from '@/lib/types';
-import { successToast } from '@/lib/toast';
+import { SchemaAttr, SchemaNamespace } from '@/lib/types';
+import { errorToast, successToast } from '@/lib/toast';
+import { RefreshIcon } from '@heroicons/react/solid';
+import { validate } from 'uuid';
 
 type FieldType = 'string' | 'number' | 'boolean' | 'json';
 type FieldTypeOption = { value: FieldType; label: string };
@@ -42,7 +44,11 @@ function tryJsonParse(value: any) {
   }
 }
 
-function getAppropriateFieldType(value: any): FieldType {
+function getAppropriateFieldType(attr: SchemaAttr, value: any): FieldType {
+  if (!value && attr.inferredTypes?.length) {
+    return attr.inferredTypes[0];
+  }
+
   // if object or array, label as "json" for now
   const t = isJsonObject(value) ? 'json' : typeof value;
   // defaults to 'string' type (fieldTypeOptions[0])
@@ -70,6 +76,10 @@ function parseFieldValue(value: any, type: FieldType) {
   return value;
 }
 
+function uuidValidate(uuid: string): string | null {
+  return validate(uuid) ? null : 'Invalid UUID.';
+}
+
 export function EditRowDialog({
   db,
   namespace,
@@ -81,21 +91,25 @@ export function EditRowDialog({
   item: Record<string, any>;
   onClose: () => void;
 }) {
-  const editableFieldNames = namespace.attrs
+  const op: 'edit' | 'add' = item.id ? 'edit' : 'add';
+
+  const editableAttrs = namespace.attrs.filter(
     // ignore the primary "id" field and any "ref" attributes
-    .filter((a) => a.name !== 'id' && a.type === 'blob')
-    .map((a) => a.name);
+    (a) => a.name !== 'id' && a.type === 'blob'
+  );
 
-  const current = editableFieldNames.reduce((acc, field) => {
-    const val = item[field];
-    const t = getAppropriateFieldType(val);
+  const current = editableAttrs.reduce((acc, attr) => {
+    const val = item[attr.name];
+    const t = getAppropriateFieldType(attr, val);
 
-    return { ...acc, [field]: { type: t, value: val, error: null } };
+    return { ...acc, [attr.name]: { type: t, value: val, error: null } };
   }, {} as Record<string, { type: FieldType; value: any; error: string | null }>);
 
   const [updates, setUpdatedValues] = useState<Record<string, any>>({
     ...current,
+    ...(op === 'add' ? { id: { type: 'string', value: id() } } : {}),
   });
+
   const [jsonUpdates, setJsonUpdates] = useState<Record<string, any>>({});
   const hasFormErrors = Object.values(updates).some((u) => !!u.error);
   const [shouldDisplayErrors, setShouldDisplayErrors] = useState(false);
@@ -113,13 +127,18 @@ export function EditRowDialog({
     });
   };
 
-  const handleUpdateFieldValue = (field: string, value: any) => {
+  const handleUpdateFieldValue = (
+    field: string,
+    value: any,
+    validate?: (value: any) => string | null
+  ) => {
+    const error = validate ? validate(value) : null;
     setUpdatedValues((prev) => {
       const type = prev[field]?.type || 'string';
 
       return {
         ...prev,
-        [field]: { type, value: parseFieldValue(value, type) },
+        [field]: { type, value: parseFieldValue(value, type), error },
       };
     });
   };
@@ -150,18 +169,29 @@ export function EditRowDialog({
         return [field, value];
       })
     );
-    await db.transact(tx[namespace.name][item.id ?? id()].update(params));
-    onClose();
-    successToast('Successfully updated row!');
+    const itemId = item.id || params.id || id();
+    delete params.id;
+    try {
+      await db.transact(tx[namespace.name][itemId].update(params));
+      onClose();
+      successToast('Successfully updated row!');
+    } catch (e: any) {
+      const message = e.message;
+      if (message) {
+        errorToast(`Failed to save row: ${message}`);
+      } else {
+        throw e;
+      }
+    }
   };
 
   return (
     <ActionForm className="p-4">
       <h5 className="flex text-lg font-bold">
-        {item.id ? 'Edit row' : 'Add row'}
+        {op == 'edit' ? 'Edit row' : 'Add row'}
       </h5>
       <code className="text-sm font-medium font-mono text-gray-500">
-        {item.id ? (
+        {op == 'edit' ? (
           <>
             {namespace.name}['{item.id}']
           </>
@@ -170,23 +200,57 @@ export function EditRowDialog({
         )}
       </code>
       <div className="flex flex-col gap-4 mt-4">
-        {editableFieldNames.map((field) => {
-          const { type, value, error } = updates[field] || {
+        {op === 'add' ? (
+          <div key="id" className="flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <Label className="font-mono">
+                <div className="flex gap-1">
+                  id{' '}
+                  <Button
+                    type="link"
+                    size="mini"
+                    variant="subtle"
+                    onClick={() => handleUpdateFieldValue('id', id())}
+                  >
+                    <RefreshIcon height={14} />
+                  </Button>
+                </div>
+              </Label>
+            </div>
+            <div className="flex gap-1 flex-col">
+              <input
+                className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
+                value={updates.id?.value ?? ''}
+                onChange={(e) =>
+                  handleUpdateFieldValue('id', e.target.value, uuidValidate)
+                }
+              />
+            </div>{' '}
+            {updates.id?.error && shouldDisplayErrors && (
+              <span className="text-sm text-red-500 font-medium">
+                {updates.id.error}
+              </span>
+            )}
+          </div>
+        ) : null}
+        {editableAttrs.map((attr, i) => {
+          const tabIndex = i + 1;
+          const { type, value, error } = updates[attr.name] || {
             type: 'string',
             value: '',
           };
-          const json = jsonUpdates[field] || JSON.stringify(value, null, 2);
+          const json = jsonUpdates[attr.name] || JSON.stringify(value, null, 2);
 
           return (
-            <div key={field} className="flex flex-col gap-1">
+            <div key={attr.name} className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
-                <Label className="font-mono">{field}</Label>
+                <Label className="font-mono">{attr.name}</Label>
                 <Select
                   className="w-24 rounded text-sm py-0.5 px-2"
                   value={type}
                   options={fieldTypeOptions}
                   onChange={(option) =>
-                    handleChangeFieldType(field, option!.value as FieldType)
+                    handleChangeFieldType(attr.name, option!.value as FieldType)
                   }
                 />
               </div>
@@ -194,28 +258,31 @@ export function EditRowDialog({
                 {type === 'json' ? (
                   <div className="h-32 border rounded w-full">
                     <CodeEditor
+                      tabIndex={tabIndex}
                       language="json"
                       value={json}
-                      onChange={(code) => handleUpdateJson(field, code)}
+                      onChange={(code) => handleUpdateJson(attr.name, code)}
                     />
                   </div>
                 ) : type === 'boolean' ? (
                   <Select
+                    tabIndex={tabIndex}
                     value={value}
                     options={[
                       { value: 'true', label: 'true' },
                       { value: 'false', label: 'false' },
                     ]}
                     onChange={(option) =>
-                      handleUpdateFieldValue(field, option!.value)
+                      handleUpdateFieldValue(attr.name, option!.value)
                     }
                   />
                 ) : (
                   <input
+                    tabIndex={tabIndex}
                     className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
                     value={value ?? ''}
                     onChange={(e) =>
-                      handleUpdateFieldValue(field, e.target.value)
+                      handleUpdateFieldValue(attr.name, e.target.value)
                     }
                   />
                 )}
@@ -242,6 +309,7 @@ export function EditRowDialog({
             Reset
           </Button>
           <ActionButton
+            tabIndex={editableAttrs.length + 1}
             type="submit"
             variant="primary"
             label="Save"

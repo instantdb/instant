@@ -677,7 +677,7 @@ export default class Reactor {
         }
 
         // If we are here, this means that we have sent this mutation, we are online
-        // but we have not received a response. If it's this long, something must be worng,
+        // but we have not received a response. If it's this long, something must be wrong,
         // so we error with a timeout.
         const mut = this.pendingMutations.currentValue.get(eventId);
         if (mut && !mut["tx-id"]) {
