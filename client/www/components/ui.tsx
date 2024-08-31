@@ -58,31 +58,49 @@ export function ToggleCollection({
 }: {
   className?: string;
   buttonClassName?: string;
-  items: { id: string; label: ReactNode }[];
+  items: { id: string; label: ReactNode; link?: string }[];
   selectedId?: string;
   disabled?: boolean;
-  onChange: (tab: { id: string; label: ReactNode }) => void;
+  onChange: (tab: { id: string; label: ReactNode; link?: string }) => void;
 }) {
   return (
     <div className={cn('flex w-full flex-col gap-0.5', className)}>
-      {items.map((a) => (
-        <button
-          key={a.id}
-          disabled={disabled}
-          onClick={() => {
-            onChange(a);
-          }}
-          className={clsx(
-            'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400',
-            {
-              'bg-gray-200': selectedId === a.id,
-            },
-            buttonClassName
-          )}
-        >
-          {a.label}
-        </button>
-      ))}
+      {items.map((a) =>
+        a.link ? (
+          <a
+            key={a.id}
+            href={a.link}
+            target="_blank"
+            rel="noopener noreferer"
+            className={clsx(
+              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400',
+              {
+                'bg-gray-200': selectedId === a.id,
+              },
+              buttonClassName
+            )}
+          >
+            {a.label}
+          </a>
+        ) : (
+          <button
+            key={a.id}
+            disabled={disabled}
+            onClick={() => {
+              onChange(a);
+            }}
+            className={clsx(
+              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400',
+              {
+                'bg-gray-200': selectedId === a.id,
+              },
+              buttonClassName
+            )}
+          >
+            {a.label}
+          </button>
+        )
+      )}
     </div>
   );
 }
@@ -269,6 +287,8 @@ export function Select({
   );
 }
 
+export type TabBarTab = { id: string; label: string; link?: string };
+
 export function TabBar({
   className,
   selectedId,
@@ -277,7 +297,7 @@ export function TabBar({
   onSelect,
 }: {
   className?: string;
-  tabs: { id: string; label: string }[];
+  tabs: TabBarTab[];
   selectedId: string;
   disabled?: boolean;
   onSelect: (tab: { id: string; label: string }) => void;
@@ -289,21 +309,38 @@ export function TabBar({
         className
       )}
     >
-      {tabs.map((t) => (
-        <button
-          key={t.id}
-          disabled={disabled}
-          onClick={() => onSelect(t)}
-          className={clsx(
-            'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
-            {
-              'bg-gray-200': selectedId === t.id && !disabled,
-            }
-          )}
-        >
-          {t.label}
-        </button>
-      ))}
+      {tabs.map((t) =>
+        t.link ? (
+          <a
+            key={t.id}
+            href={t.link}
+            target="_blank"
+            rel="noopener noreferer"
+            className={clsx(
+              'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
+              {
+                'bg-gray-200': selectedId === t.id && !disabled,
+              }
+            )}
+          >
+            {t.label}
+          </a>
+        ) : (
+          <button
+            key={t.id}
+            disabled={disabled}
+            onClick={() => onSelect(t)}
+            className={clsx(
+              'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
+              {
+                'bg-gray-200': selectedId === t.id && !disabled,
+              }
+            )}
+          >
+            {t.label}
+          </button>
+        )
+      )}
     </div>
   );
 }
