@@ -60,6 +60,7 @@ export async function exchangeCodeForToken({
  * @param {string} params.appId
  * @param {string} params.clientName
  * @param {string} params.idToken
+ * @param {string | null | undefined} [params.refreshToken]
  * @param {string | null | undefined} [params.nonce]
  */
 export async function signInWithIdToken({
@@ -68,6 +69,7 @@ export async function signInWithIdToken({
   nonce,
   idToken,
   clientName,
+  refreshToken,
 }) {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/id_token`, {
     method: "POST",
@@ -77,6 +79,7 @@ export async function signInWithIdToken({
       nonce,
       id_token: idToken,
       client_name: clientName,
+      refresh_token: refreshToken,
     }),
   });
   return res;

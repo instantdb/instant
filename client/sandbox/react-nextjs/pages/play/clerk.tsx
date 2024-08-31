@@ -64,6 +64,11 @@ function App({ db }: { db: InstantReactWeb<{}, {}> }) {
             Sign out both
           </button>
         </div>
+        <div>
+          <button onClick={signInWithToken}>
+            Sign in to Instant again, just for fun
+          </button>
+        </div>
       </div>
     );
   }

@@ -1006,6 +1006,12 @@ export default class Reactor {
   }
 
   async changeCurrentUser(newUser) {
+    const { user: oldUser } = await this.getCurrentUser();
+    if (areObjectsDeepEqual(oldUser, newUser)) {
+      // We were already logged in as the newUser, don't
+      // bother updating
+      return;
+    }
     await this.setCurrentUser(newUser);
     // We need to remove all `result` from querySubs,
     // as they are no longer valid for the new user
@@ -1110,12 +1116,16 @@ export default class Reactor {
    * @param {string | null | undefined} [params.nonce] - The nonce used when requesting the id_token from the external service
    */
   async signInWithIdToken({ idToken, clientName, nonce }) {
+    const currentUser = await this.getCurrentUser();
+    const refreshToken = currentUser?.user?.refresh_token;
+
     const res = await authAPI.signInWithIdToken({
       apiURI: this.config.apiURI,
       appId: this.config.appId,
       idToken,
       clientName,
       nonce,
+      refreshToken,
     });
     this.changeCurrentUser(res.user);
     return res;
