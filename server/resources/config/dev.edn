@@ -25,4 +25,4 @@
 
  :database-url "jdbc:postgresql://localhost:5432/instant"
 
- :instant-config-app-id #uuid "829c9e86-a59c-4e94-999c-5b16b25adf0d"}
+ :instant-config-app-id #uuid "24a4d71b-7bb2-4630-9aee-01146af26239"}
