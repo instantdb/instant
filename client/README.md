@@ -46,7 +46,28 @@ Right now all backend requests will go to api.instantdb.com. If you want to deve
 localStorage.setItem("devBackend", true);
 ```
 
-Now all requests will go to your your local backend at [localhost:8888](http://localhost:8888). If you haven't set up a local backend, follow the [server README](../server/README.md)
+Now all requests will go to your local backend at [localhost:8888](http://localhost:8888). If you haven't set up a local backend, follow the [server README](../server/README.md)
+
+### Running a local app
+You can create local apps by following these steps
+
+1. On localhost:3000, click "Sign up" in the upper right corner.
+2. Enter your email address (or a fake one; it won't send a real email).
+3. Click "Send Code".
+4. Go back to the terminal window running the backend server. Look for a log entry showing an email. It will not have been sent, but you can read the HTML code of the email to find a 6-digit number.
+5. Use this number to complete the login on the website.
+6. You should now be in the dashboard with a newly created local app id.
+
+You can then connect to this app in a new project with the following snippet
+
+```
+const APP_ID = '<your app id from your own server>'
+const db = init({
+  appId: APP_ID,
+  apiURI: "http://localhost:8888",
+  websocketURI: "ws://localhost:8888/runtime/session",
+});
+```
 
 ## Packages and sandbox
 

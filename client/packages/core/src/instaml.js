@@ -256,19 +256,28 @@ function createMissingRefAttrs(attrs, ops) {
     ([action]) => action === "link" || action === "unlink",
   );
   const objectIdents = uniqueIdents(objectOps.flatMap(extractIdents));
-  const missingIdents = objectIdents.filter(
-    ([etype, label]) =>
-      !getAttrByFwdIdentName(attrs, etype, label) &&
-      !getAttrByReverseIdentName(attrs, etype, label),
-  );
-  const refAttrs = missingIdents.map(createRefAttr);
-  const newAttrs = refAttrs.reduce(
-    (acc, attr) => {
-      acc[attr.id] = attr;
-      return acc;
+
+  const { refAttrs, newAttrs } = objectIdents.reduce(
+    ({ newAttrs, refAttrs }, missingIdent) => {
+      const [etype, label] = missingIdent;
+      if (
+        !getAttrByFwdIdentName(newAttrs, etype, label) &&
+        !getAttrByReverseIdentName(newAttrs, etype, label)
+      ) {
+        const attr = createRefAttr(missingIdent);
+        newAttrs[attr.id] = attr;
+        refAttrs.push(attr);
+      }
+      return { newAttrs, refAttrs };
     },
-    { ...attrs },
+    {
+      newAttrs: {
+        ...attrs,
+      },
+      refAttrs: [],
+    },
   );
+
   const attrTxSteps = refAttrs.map((attr) => ["add-attr", attr]);
 
   const localAttrs = objectIdents.flatMap(([etype, label]) => {

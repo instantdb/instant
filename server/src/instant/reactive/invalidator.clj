@@ -335,6 +335,7 @@
   (if-not config/instant-on-instant-app-id
     (let [chan (a/chan 1 (wal-record-xf))]
       {:wal-chan chan
+       :close-signal-chan (a/chan)
        :worker-chan chan})
     (let [wal-chan (a/chan 1)
           mult (a/mult wal-chan)
@@ -343,33 +344,43 @@
       (a/tap mult worker-chan)
       (a/tap mult byop-chan)
       {:wal-chan wal-chan
+       ;; Nothing will ever be put on this chan,
+       ;; it will be closed when the wal-chan is closed
+       ;; so that the consumer can know to stop waiting for
+       ;; its puts to complete
+       :close-signal-chan (a/chan)
        :worker-chan worker-chan
        :byop-chan byop-chan})))
 
 (defn start
   "Entry point for invalidator. Starts a WAL listener and pipes WAL records to
-  our parition router. Partion router dispatches records to app workers who run `go-work`"
+  our partition router. Partition router dispatches records to app workers who run `go-work`"
   []
-  (let [{:keys [wal-chan worker-chan byop-chan]} (create-wal-chans)
-        wal-opts {:to wal-chan
-                  :ex-handler wal-ex-handler
-                  :conn-config (config/get-aurora-config)
-                  :slot-name @config/process-id
-                  :shutdown? (atom false)}]
+  (let [{:keys [wal-chan worker-chan byop-chan close-signal-chan]}
+        (create-wal-chans)
+
+        wal-opts (wal/make-wal-opts {:wal-chan wal-chan
+                                     :close-signal-chan close-signal-chan
+                                     :ex-handler wal-ex-handler
+                                     :conn-config (config/get-aurora-config)
+                                     :slot-name @config/process-id})]
 
     (def wal-opts wal-opts)
 
     (ua/fut-bg
-     (wal/start-worker wal-opts))
+      (wal/start-worker wal-opts))
     (ua/fut-bg
-     (start-worker rs/store-conn worker-chan))
+      (start-worker rs/store-conn worker-chan))
 
     (when byop-chan
       (ua/fut-bg
-       (start-byop-worker rs/store-conn byop-chan)))))
+        (start-byop-worker rs/store-conn byop-chan)))))
 
 (defn stop []
-  (wal/shutdown! wal-opts))
+  (when wal-opts
+    (wal/shutdown! wal-opts)
+    (a/close! (:to wal-opts))
+    (a/close! (:close-signal-chan wal-opts))))
 
 (defn restart []
   (stop)

@@ -1,5 +1,6 @@
 (ns instant.db.model.attr
   (:require
+   [clojure.set :refer [map-invert]]
    [clojure.spec.alpha :as s]
    [instant.util.spec :as uspec]
    [clojure.spec.gen.alpha :as gen]
@@ -8,6 +9,33 @@
    [honey.sql :as hsql]
    [instant.util.coll :as ucoll]
    [instant.data.constants :refer [empty-app-id]]))
+
+;; Don't change the order or remove types, only add to the end of the list
+(def types
+  [:number
+   :string
+   :boolean
+   :json])
+
+(def type->binary (into {}
+                        (map-indexed (fn [i type]
+                                       [type (bit-shift-left 1 i)])
+                                     types)))
+
+(def binary->type (map-invert type->binary))
+
+(defn inferred-value-type [v]
+  (cond (uuid? v) :string
+        (string? v) :string
+        (number? v) :number
+        (boolean? v) :boolean
+        :else :json))
+
+(defn friendly-inferred-types [b]
+  (set (keep (fn [[type bin]]
+               (when (not= 0 (bit-and b bin))
+                 type))
+             type->binary)))
 
 ;; ----
 ;; Spec
@@ -301,13 +329,16 @@
            fwd_etype
            reverse_ident
            rev_label
-           rev_etype]}]
+           rev_etype
+           inferred_types]}]
   (cond-> {:id id
            :value-type (keyword value_type)
            :cardinality (keyword cardinality)
            :forward-identity [forward_ident fwd_etype fwd_label]
            :unique? is_unique
-           :index? is_indexed}
+           :index? is_indexed
+           :inferred-types (when inferred_types
+                             (friendly-inferred-types inferred_types))}
     reverse_ident (assoc :reverse-identity [reverse_ident rev_etype rev_label])))
 
 (defn get-by-app-id

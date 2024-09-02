@@ -29,7 +29,8 @@
   (or (string? x) (uuid? x) (number? x) (boolean? x)))
 
 (s/def ::in (s/coll-of where-value-valid?
-                       :min-count 1
+                       :kind vector?
+                       :min-count 0
                        :into #{}))
 
 (defn where-value-valid-keys? [m]
@@ -487,7 +488,7 @@
 ;; optimize-attr-pats
 
 (defn- some-constant
-  "Returns either e or v if they are a contant
+  "Returns either e or v if they are a constant
    [?e attr-id ?v] => nil
    [?e attr-id 5] => 5
    [5 attr-id ?v] => 5"

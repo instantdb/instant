@@ -1,5 +1,5 @@
 (ns instant.db.transaction-test
-  (:require [clojure.test :as test :refer [deftest is testing]]
+  (:require [clojure.test :as test :refer [deftest is are testing]]
             [instant.db.model.attr :as attr-model]
             [instant.db.transaction :as tx]
             [instant.jdbc.aurora :as aurora]
@@ -166,7 +166,8 @@
                   :value-type :ref
                   :cardinality :one
                   :unique? false
-                  :index? false}
+                  :index? false
+                  :inferred-types #{:string}}
                  (attr-model/seek-by-id
                   tag-attr-id
                   (attr-model/get-by-app-id aurora/conn-pool app-id))))
@@ -191,7 +192,8 @@
                   :value-type :blob
                   :cardinality :one
                   :unique? true
-                  :index? false}
+                  :index? false
+                  :inferred-types #{:string}}
                  (attr-model/seek-by-id
                   name-attr-id
                   (attr-model/get-by-app-id aurora/conn-pool app-id))))
@@ -228,7 +230,8 @@
                   :forward-identity
                   [name-fwd-ident "users" "name"],
                   :unique? false,
-                  :index? false}
+                  :index? false,
+                  :inferred-types #{:string}}
                  (attr-model/seek-by-id
                   name-attr-id
                   (attr-model/get-by-app-id aurora/conn-pool app-id)))))
@@ -285,7 +288,8 @@
                   :forward-identity
                   [zip-fwd-ident "users" "zip"],
                   :unique? false,
-                  :index? true}
+                  :index? true,
+                  :inferred-types #{:string}}
                  (attr-model/seek-by-id
                   zip-attr-id
                   (attr-model/get-by-app-id aurora/conn-pool app-id)))))
@@ -320,7 +324,7 @@
   (with-empty-app
     (fn [{app-id :id}]
       (let [email-attr-id #uuid "4f3b1902-0025-4f5a-9624-12c5ee27a191"
-            emal-fwd-ident #uuid "8fb42d0d-40f6-4baa-b7d6-982b9ba55ac9"
+            email-fwd-ident #uuid "8fb42d0d-40f6-4baa-b7d6-982b9ba55ac9"
             stopa-eid #uuid "23c6400b-72a5-4147-8a06-79cdcda0b0d1"
             joe-eid #uuid "9f64613b-286a-44f8-a228-3c3e6a4fa4ce"]
         (tx/transact!
@@ -328,7 +332,7 @@
          app-id
          [[:add-attr
            {:id email-attr-id
-            :forward-identity [emal-fwd-ident "users" "email"]
+            :forward-identity [email-fwd-ident "users" "email"]
             :value-type :blob
             :cardinality :one
             :unique? true
@@ -339,9 +343,10 @@
                   :value-type :blob,
                   :cardinality :one,
                   :forward-identity
-                  [emal-fwd-ident "users" "email"],
+                  [email-fwd-ident "users" "email"],
                   :unique? true,
-                  :index? true}
+                  :index? true
+                  :inferred-types #{:string}}
                  (attr-model/seek-by-id
                   email-attr-id
                   (attr-model/get-by-app-id aurora/conn-pool app-id)))))
@@ -409,7 +414,8 @@
                   :reverse-identity
                   [tag-rev-ident "tags" "taggers"],
                   :unique? false,
-                  :index? false}
+                  :index? false,
+                  :inferred-types #{:string}}
                  (attr-model/seek-by-id
                   tag-attr-id
                   (attr-model/get-by-app-id aurora/conn-pool app-id)))))
@@ -490,7 +496,8 @@
                   :reverse-identity
                   [owner-rev-ident "users" "posts"],
                   :unique? false,
-                  :index? false}
+                  :index? false,
+                  :inferred-types #{:string}}
                  (attr-model/seek-by-id
                   owner-attr-id
                   (attr-model/get-by-app-id aurora/conn-pool app-id)))))
@@ -546,7 +553,8 @@
                   :reverse-identity
                   [config-rev-ident "configObjects" "user"],
                   :unique? true,
-                  :index? false}
+                  :index? false
+                  :inferred-types #{:string}}
                  (attr-model/seek-by-id
                   config-attr-id
                   (attr-model/get-by-app-id aurora/conn-pool app-id)))))
@@ -596,7 +604,7 @@
             stopa-eid (resolvers/->uuid r "eid-stepan-parunashvili")
             eid-nonfiction (resolvers/->uuid r "eid-nonfiction")
             isbn-attr-eid (resolvers/->uuid r :books/isbn13)]
-        (testing "updates existing entitites"
+        (testing "updates existing entities"
           (is (= #{[alex-eid
                     email-attr-id
                     "alex@instantdb.com"]}
@@ -1566,6 +1574,96 @@
                   aurora/conn-pool
                   app-id
                   [[:= :attr-id info-attr-id]]))))))))
+
+(deftest inferred-types []
+  (testing "inferred types update on triple save"
+    (are [value inferred-types]
+        (with-empty-app
+          (fn [{app-id :id}]
+            (let [attr-id (random-uuid)
+                  target-eid (random-uuid)]
+              (try (tx/transact!
+                    aurora/conn-pool
+                    app-id
+                    [[:add-attr
+                      {:id attr-id
+                       :forward-identity [(random-uuid) "namespace" "field"]
+                       :value-type :blob
+                       :cardinality :one
+                       :unique? false
+                       :index? false}]
+                     [:add-triple target-eid attr-id value]])
+                   (catch Exception e
+                     (is (not e))))
+              (testing (format "(%s -> %s)" value inferred-types)
+                (is (= inferred-types
+                       (->> (attr-model/get-by-app-id aurora/conn-pool app-id)
+                            (attr-model/seek-by-id attr-id)
+                            :inferred-types)))))))
+        1 #{:number}
+        2.0 #{:number}
+        "2" #{:string}
+        "s" #{:string}
+        true #{:boolean}
+        false #{:boolean}
+        (random-uuid) #{:string}
+        {:hello "world"} #{:json}
+        ["array of stuff", 2] #{:json}))
+
+  (testing "inferred types accumulate"
+    (with-empty-app
+      (fn [{app-id :id}]
+        (let [attr-id (random-uuid)]
+          (tx/transact! aurora/conn-pool
+                        app-id
+                        [[:add-attr
+                          {:id attr-id
+                           :forward-identity [(random-uuid) "namespace" "field"]
+                           :value-type :blob
+                           :cardinality :one
+                           :unique? false
+                           :index? false}]
+                         [:add-triple (random-uuid) attr-id "string"]
+                         [:add-triple (random-uuid) attr-id 1]])
+          (is (= #{:string :number}
+                 (->> (attr-model/get-by-app-id aurora/conn-pool app-id)
+                      (attr-model/seek-by-id attr-id)
+                      :inferred-types)))
+          (tx/transact! aurora/conn-pool
+                        app-id
+                        [[:add-triple (random-uuid) attr-id false]])
+          (is (= #{:string :number :boolean}
+                 (->> (attr-model/get-by-app-id aurora/conn-pool app-id)
+                      (attr-model/seek-by-id attr-id)
+                      :inferred-types)))))))
+
+  (testing "inferred types work with deep-merge"
+    (with-empty-app
+      (fn [{app-id :id}]
+        (let [attr-id (random-uuid)
+              eid (random-uuid)]
+          (tx/transact! aurora/conn-pool
+                        app-id
+                        [[:add-attr
+                          {:id attr-id
+                           :forward-identity [(random-uuid) "namespace" "field"]
+                           :value-type :blob
+                           :cardinality :one
+                           :unique? false
+                           :index? false}]
+                         [:add-triple eid attr-id "string"]
+                         [:deep-merge-triple eid attr-id "another-string"]])
+          (is (= #{:string}
+                 (->> (attr-model/get-by-app-id aurora/conn-pool app-id)
+                      (attr-model/seek-by-id attr-id)
+                      :inferred-types)))
+          (tx/transact! aurora/conn-pool
+                        app-id
+                        [[:deep-merge-triple eid attr-id {:patch :values}]])
+          (is (= #{:string :json}
+                 (->> (attr-model/get-by-app-id aurora/conn-pool app-id)
+                      (attr-model/seek-by-id attr-id)
+                      :inferred-types))))))))
 
 (comment
   (test/run-tests *ns*))

@@ -50,6 +50,7 @@ export function dbAttrsToExplorerSchema(
           isPrimary: attrDesc['primary?'],
           cardinality: attrDesc.cardinality,
           linkConfig,
+          inferredTypes: attrDesc['inferred-types'],
         };
       }
     }

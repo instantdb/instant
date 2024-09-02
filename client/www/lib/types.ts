@@ -107,6 +107,7 @@ export interface DBAttr {
   'primary?'?: boolean | undefined;
   cardinality: 'one' | 'many';
   'value-type': 'ref' | 'blob';
+  'inferred-types'?: Array<'string' | 'number' | 'boolean' | 'json'>;
 }
 
 export interface SchemaNamespace {
@@ -129,6 +130,7 @@ export interface SchemaAttr {
     forward: { id: string; namespace: string; attr: string };
     reverse: { id: string; namespace: string; attr: string } | undefined;
   };
+  inferredTypes?: Array<'string' | 'number' | 'boolean' | 'json'>;
 }
 
 export type InstantError = {

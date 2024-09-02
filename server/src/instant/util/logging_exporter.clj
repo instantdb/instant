@@ -64,7 +64,16 @@
       ;; every span. This is too noisy for stdout
       (string/starts-with? k "jvm.")
       ;; gauge metrics for a namespace
-      (string/starts-with? k "instant.")))
+      (and (not= :prod (config/get-env))
+           (string/starts-with? k "instant."))))
+
+(defn format-attr-value
+  "Formats attr values for logs."
+  [v]
+  (condp identical? (type v)
+    ;; format will print e.g. "clojure.lang.LazySeq@7861"
+    clojure.lang.LazySeq (pr-str v)
+    v))
 
 (defn attr-str [attrs]
   (->>  attrs
@@ -75,7 +84,7 @@
                        (if (= k "exception.message")
                          (colorize error-color k)
                          k)
-                       v)))
+                       (format-attr-value v))))
         (interpose " ")
         string/join))
 
@@ -87,6 +96,9 @@
     (subs trace-id 0 4)
     "unk"))
 
+(defn escape-newlines [s]
+  (string/replace s #"\n" "\\\\n"))
+
 (defn span-str [span]
   (let [attr-str (attr-str (.getAttributes span))
         event-strs (map event-str (.getEvents span))
@@ -97,7 +109,8 @@
             (colorize uniq-color (friendly-trace (.getTraceId span)))
             (duration-ms span)
             (colorize uniq-color (.getName span))
-            data-str)))
+            (cond-> data-str
+              (= :prod (config/get-env)) escape-newlines))))
 
 (defn log-spans [spans]
   (doseq [span spans]

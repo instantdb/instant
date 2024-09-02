@@ -120,7 +120,7 @@ test("Where and", () => {
 
 test.each([
   [
-    "mutliple OR matches",
+    "multiple OR matches",
     {
       or: [{ handle: "stopa" }, { handle: "joe" }],
     },

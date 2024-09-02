@@ -42,6 +42,7 @@ import {
   Select,
   SubsectionHeading,
   TabBar,
+  TabBarTab,
   TextInput,
   ToggleCollection,
   twel,
@@ -55,7 +56,7 @@ import { Sandbox } from '@/components/dash/Sandbox';
 import { StorageTab } from '@/components/dash/Storage';
 import { useForm } from '@/lib/hooks/useForm';
 
-// (XXX): we may want to expose this underyling type
+// (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
 
 type Role = 'collaborator' | 'admin' | 'owner';
@@ -75,7 +76,8 @@ type TabId =
   | 'team'
   | 'admin'
   | 'billing'
-  | 'storage';
+  | 'storage'
+  | 'docs';
 
 interface Tab {
   id: TabId;
@@ -94,6 +96,7 @@ const tabs: Tab[] = [
   { id: 'sandbox', title: 'Sandbox' },
   { id: 'admin', title: 'Admin', minRole: 'admin' },
   { id: 'billing', title: 'Billing', minRole: 'owner' },
+  { id: 'docs', title: 'Docs' },
 ];
 
 const tabIndex = new Map(tabs.map((t) => [t.id, t]));
@@ -287,9 +290,18 @@ function Dashboard() {
   }, [appId, dashResponse.data?.flags?.storage_enabled_apps]);
 
   // ui
-  const availableTabs = tabs
+  const availableTabs: TabBarTab[] = tabs
     .filter((t) => isTabAvailable(t, app?.user_app_role))
-    .map((t) => ({ id: t.id, label: t.title }));
+    .map((t) => {
+      if (t.id === 'docs') {
+        return {
+          id: t.id,
+          label: t.title,
+          link: app ? `/docs?app=${app.id}` : '/docs',
+        };
+      }
+      return { id: t.id, label: t.title };
+    });
   const showAppOnboarding =
     !dashResponse.data?.apps?.length && !dashResponse.data?.invites?.length;
   const showNav = !showAppOnboarding;
@@ -402,6 +414,7 @@ function Dashboard() {
           hasInvites={Boolean(dashResponse.data?.invites?.length)}
           appId={appId}
           tab={tab}
+          availableTabs={availableTabs}
           nav={nav}
         />
       ) : null}
@@ -793,7 +806,7 @@ function Home() {
           href="https://github.com/jsventures/stroopwafel"
           title="Stroopwafel (React Native)"
         >
-          Mulitplayer iOS game built with Expo + Instant. See how you can use
+          Multiplayer iOS game built with Expo + Instant. See how you can use
           Instant to build real-time games.
         </HomeButton>
       </div>
@@ -817,12 +830,14 @@ function Nav({
   nav,
   appId,
   tab,
+  availableTabs,
 }: {
   apps: InstantApp[];
   hasInvites: boolean;
   nav: (p: { s: string; t?: string; app?: string }) => void;
   appId: string;
   tab: TabId;
+  availableTabs: TabBarTab[];
 }) {
   const router = useRouter();
   const currentApp = apps.find((a) => a.id === appId);
@@ -863,16 +878,14 @@ function Nav({
           buttonClassName="rounded-none py-2"
           onChange={(t) => nav({ s: 'main', app: appId, t: t.id })}
           selectedId={tab}
-          items={tabs
-            .filter((t) => isTabAvailable(t, currentApp?.user_app_role))
-            .map((t) => ({
-              id: t.id,
-              label: (
-                <div className="flex gap-2">
-                  <span>{t.title}</span>
-                </div>
-              ),
-            }))}
+          items={availableTabs.map((t) => ({
+            ...t,
+            label: (
+              <div className="flex gap-2">
+                <span>{t.label}</span>
+              </div>
+            ),
+          }))}
         />
       </div>
       <div className="p-2 border-t bg-gray-50">

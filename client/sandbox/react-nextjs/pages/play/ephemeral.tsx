@@ -112,7 +112,7 @@ function Demo() {
   // END TYPE TESTS
 
   return (
-    <div className="flex fle items-center">
+    <div className="flex items-center">
       <Cursors
         room={room}
         className="h-32 w-32 border overflow-hidden inline-block"
