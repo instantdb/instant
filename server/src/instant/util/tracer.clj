@@ -40,7 +40,6 @@
         (.setTracerProvider (.build trace-provider-builder))
         (.build))))
 
-
 (defn make-honeycomb-sdk [honeycomb-api-key]
   (let [builder (OpenTelemetryConfiguration/builder)
         log-processor (SimpleSpanProcessor/create (logging-exporter/create))]
