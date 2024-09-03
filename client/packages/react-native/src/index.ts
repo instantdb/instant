@@ -62,7 +62,8 @@ function init_experimental<
 class InstantReactNative<
   Schema = {},
   RoomSchema extends RoomSchemaShape = {},
-> extends InstantReact<Schema, RoomSchema> {
+  WithCardinalityInference extends boolean = false,
+> extends InstantReact<Schema, RoomSchema, WithCardinalityInference> {
   static Storage = Storage;
   static NetworkListener = NetworkListener;
 }

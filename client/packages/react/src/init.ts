@@ -29,7 +29,7 @@ import { InstantReactWeb } from "./InstantReactWeb";
 export function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
   config: Config,
 ) {
-  return new InstantReactWeb<Schema, RoomSchema, false>(config);
+  return new InstantReactWeb<Schema, RoomSchema>(config);
 }
 
 export function init_experimental<

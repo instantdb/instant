@@ -137,14 +137,6 @@ function init_experimental<
   >(config, Storage, NetworkListener);
 }
 
-function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
-  config: Config,
-  Storage?: any,
-  NetworkListener?: any,
-): InstantCore<Schema, RoomSchema, false> {
-  return _init_internal(config, Storage, NetworkListener);
-}
-
 // main
 
 /**
@@ -167,6 +159,14 @@ function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
  *  const db = init<Schema>({ appId: "my-app-id" })
  *
  */
+function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
+  config: Config,
+  Storage?: any,
+  NetworkListener?: any,
+): InstantCore<Schema, RoomSchema> {
+  return _init_internal(config, Storage, NetworkListener);
+}
+
 function _init_internal<
   Schema extends {} | i.InstantGraph<any, any, any>,
   RoomSchema extends RoomSchemaShape,
