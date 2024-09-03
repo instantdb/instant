@@ -71,7 +71,7 @@ const App = ({ appId }: { appId: string }) => {
     }
 
     try {
-      const ok = await db.storage.delete(fileName);
+      await db.storage.delete(fileName);
       setImageUrl(null);
       setImageStatus("pending");
     } catch (error) {

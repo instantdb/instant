@@ -151,8 +151,7 @@ async function testAdminStorageFiles() {
 
 async function testAdminStorageDelete(filepath: string) {
   console.log("Before:", await db.storage.list());
-  const ok = await db.storage.delete(filepath);
-  console.log("Deleted:", ok);
+  await db.storage.delete(filepath);
   console.log("After:", await db.storage.list());
 }
 
@@ -162,8 +161,7 @@ async function testAdminStorageBulkDelete(keyword: string) {
     .map((f) => f.name)
     .filter((name) => name.includes(keyword));
   console.log({ deletable });
-  const ok = await db.storage.deleteMany(deletable);
-  console.log("Deleted:", ok);
+  await db.storage.deleteMany(deletable);
   console.log("After:", await db.storage.list());
 }
 

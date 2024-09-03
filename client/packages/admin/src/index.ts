@@ -655,20 +655,16 @@ class Storage {
    *
    * @see https://instantdb.com/docs/storage
    * @example
-   *   const ok = await db.storage.delete("photos/demo.png");
+   *   await db.storage.delete("photos/demo.png");
    */
-  delete = async (pathname: string): Promise<boolean> => {
-    const { data } = await jsonFetch(
+  delete = async (pathname: string): Promise<void> => {
+    await jsonFetch(
       `${this.config.apiURI}/admin/storage/files?filename=${encodeURIComponent(pathname)}`,
       {
         method: "DELETE",
         headers: authorizedHeaders(this.config),
       },
     );
-
-    // Just return true if the request was successful,
-    // since the s3 response might be confusing
-    return !!data;
   };
 
   /**
@@ -676,21 +672,14 @@ class Storage {
    *
    * @see https://instantdb.com/docs/storage
    * @example
-   *   const ok = await db.storage.deleteMany(["images/1.png", "images/2.png", "images/3.png"]);
+   *   await db.storage.deleteMany(["images/1.png", "images/2.png", "images/3.png"]);
    */
-  deleteMany = async (pathnames: string[]): Promise<boolean> => {
-    const { data } = await jsonFetch(
-      `${this.config.apiURI}/admin/storage/files/delete`,
-      {
-        method: "POST",
-        headers: authorizedHeaders(this.config),
-        body: JSON.stringify({ filenames: pathnames }),
-      },
-    );
-
-    // Just return true if the request was successful,
-    // since the s3 response might be confusing
-    return !!data;
+  deleteMany = async (pathnames: string[]): Promise<void> => {
+    await jsonFetch(`${this.config.apiURI}/admin/storage/files/delete`, {
+      method: "POST",
+      headers: authorizedHeaders(this.config),
+      body: JSON.stringify({ filenames: pathnames }),
+    });
   };
 }
 
