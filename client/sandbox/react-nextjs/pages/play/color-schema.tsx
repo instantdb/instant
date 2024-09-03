@@ -1,4 +1,4 @@
-import { i, init_experimental, tx } from "@instantdb/react";
+import { i, init_experimental } from "@instantdb/react";
 import { useEffect } from "react";
 import config from "../../config";
 

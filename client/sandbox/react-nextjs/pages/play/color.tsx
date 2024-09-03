@@ -1,19 +1,8 @@
-import { i, init, init_experimental, tx } from "@instantdb/react";
+import { init, tx } from "@instantdb/react";
 import { useEffect } from "react";
 import config from "../../config";
 
-const db = init_experimental({
-  ...config,
-  schema: i.graph(
-    "",
-    {
-      colors: i.entity({
-        color: i.string(),
-      }),
-    },
-    {},
-  ),
-});
+const db = init(config);
 
 function App() {
   return <Main />;
@@ -44,11 +33,7 @@ function Main() {
             return (
               <button
                 onClick={() => {
-                  db.transact(
-                    db.tx.colors[selectId].update({
-                      color: c,
-                    }),
-                  );
+                  db.transact(tx.colors[selectId].update({ color: c }));
                 }}
                 className={`bg-white p-2`}
                 key={c}
@@ -62,4 +47,5 @@ function Main() {
     </div>
   );
 }
+
 export default App;
