@@ -242,7 +242,7 @@ export function Layout({ children, title, tableOfContents }) {
               )}
             </dl>
           </div>
-          <div className="hidden xl:block px-4 py-4 overflow-y-auto xl:basis-52">
+          <div className="hidden xl:block px-4 py-4 overflow-y-auto xl:basis-96">
             <nav aria-labelledby="on-this-page-title">
               {tableOfContents.length > 0 && (
                 <>

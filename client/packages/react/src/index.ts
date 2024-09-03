@@ -2,15 +2,15 @@ import {
   id,
   tx,
   lookup,
+  i,
 
   // types
-  QueryResponse,
-  InstantObject,
-  User,
-  AuthState,
-  Query,
-  Config,
-  i,
+  type QueryResponse,
+  type InstantObject,
+  type User,
+  type AuthState,
+  type Query,
+  type Config,
 } from "@instantdb/core";
 
 import { InstantReact } from "./InstantReact";

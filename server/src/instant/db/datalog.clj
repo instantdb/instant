@@ -47,7 +47,7 @@
 ;; Pattern
 
 (defn pattern-component [v-type]
-  (s/or :constant (s/coll-of v-type :kind set? :min-count 1)
+  (s/or :constant (s/coll-of v-type :kind set? :min-count 0)
         :any #{'_}
         :variable symbol?))
 
@@ -477,8 +477,9 @@
   "If the set has only one element,
    return an = clause. Otherwise, return an :in clause."
   [k v-set]
-  (if (= (count v-set) 1)
-    [:= k (first v-set)]
+  (case (count v-set)
+    0 [:= 0 1]
+    1 [:= k (first v-set)]
     [:in k v-set]))
 
 (defn- value->jsonb [x]

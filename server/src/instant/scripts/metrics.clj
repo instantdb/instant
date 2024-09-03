@@ -141,7 +141,7 @@
     (.setDrawBarOutline renderer true)
     (.setSeriesOutlinePaint renderer 0 (Color. 0 0 0))
 
-    ;; Adjust axises
+    ;; Adjust axes
     (.setTickUnit y-axis (org.jfree.chart.axis.NumberTickUnit. y-tick-unit))
     (.setCategoryLabelPositions x-axis CategoryLabelPositions/DOWN_45)
 

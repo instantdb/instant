@@ -10,9 +10,9 @@
 (defn get-by-id
   ([params] (get-by-id aurora/conn-pool params))
   ([conn {:keys [id]}]
-   (sql/execute-one! conn
-                     ["SELECT FROM app_user_refresh_tokens WHERE id = ?::uuid"
-                      id])))
+   (sql/select-one conn
+                   ["SELECT * FROM app_user_refresh_tokens WHERE id = ?::uuid"
+                    id])))
 
 (defn create!
   ([params] (create! aurora/conn-pool params))

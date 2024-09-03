@@ -15,6 +15,8 @@ module.exports = [
       { title: 'Reading data', href: '/docs/instaql' },
       { title: 'Modeling data', href: '/docs/modeling-data' },
       { title: 'Instant on the backend', href: '/docs/backend' },
+      { title: 'Patterns', href: '/docs/patterns' },
+      { title: 'Showcase', href: '/docs/showcase' },
     ],
   },
   {
@@ -24,6 +26,7 @@ module.exports = [
       { title: 'Magic codes', href: '/docs/auth/magic-codes' },
       { title: 'Google OAuth', href: '/docs/auth/google-oauth' },
       { title: 'Permissions', href: '/docs/permissions' },
+      { title: 'Clerk', href: '/docs/auth/clerk' },
     ],
   },
   {

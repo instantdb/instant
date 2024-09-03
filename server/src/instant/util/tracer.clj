@@ -40,7 +40,6 @@
         (.setTracerProvider (.build trace-provider-builder))
         (.build))))
 
-
 (defn make-honeycomb-sdk [honeycomb-api-key]
   (let [builder (OpenTelemetryConfiguration/builder)
         log-processor (SimpleSpanProcessor/create (logging-exporter/create))]
@@ -218,7 +217,7 @@
         (+ 1 1)))))
 
 (defn record-info!
-  "Analagous to log/info.
+  "Analogous to log/info.
   
   Sometimes you want to just log some information, but there is no parent span. 
   

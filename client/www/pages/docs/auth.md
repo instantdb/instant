@@ -17,5 +17,8 @@ Instant comes with support for auth. We currently offer [magic codes](/docs/auth
             title="Custom Auth"
             description="Integrate your own auth flow with the Admin SDK."
             /%}
-
+  {% nav-button href="/docs/auth/clerk"
+            title="Clerk"
+            description="Integrate Clerk's auth flow with Instant."
+            /%}
 {% /nav-group %}

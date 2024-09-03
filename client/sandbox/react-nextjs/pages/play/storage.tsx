@@ -15,7 +15,9 @@ const App = ({ appId }: { appId: string }) => {
 
   const [files, setFiles] = React.useState<File[]>([]);
   const [imageUrl, setImageUrl] = React.useState<string | null>(null);
-  const [imageError, setImageError] = React.useState<any | null>(null);
+  const [imageStatus, setImageStatus] = React.useState<
+    "pending" | "success" | "error"
+  >("pending");
 
   const handleTryDownloadUrl = async () => {
     if (files.length === 0) return;
@@ -31,7 +33,7 @@ const App = ({ appId }: { appId: string }) => {
       const url = await db.storage.getDownloadUrl(fileName);
       console.log("Download URL:", url);
       setImageUrl(url);
-      setImageError(null);
+      setImageStatus("pending");
     } catch (error) {
       console.error("Error downloading file:", error);
     }
@@ -44,17 +46,36 @@ const App = ({ appId }: { appId: string }) => {
     const { name: fileName, type: fileType } = file;
 
     try {
-      await db.storage.put(fileName, file);
+      await db.storage.upload(fileName, file);
       const url = await db.storage.getDownloadUrl(fileName);
       console.log("Download URL:", url);
       if (fileType.startsWith("image/")) {
         setImageUrl(url);
-        setImageError(null);
+        setImageStatus("pending");
       }
       // Reset input
       setFiles([]);
     } catch (error) {
       console.error("Error uploading file:", error);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (files.length === 0) return;
+
+    const [file] = files;
+    const { name: fileName } = file;
+
+    if (!confirm(`Are you sure you want to delete ${fileName}?`)) {
+      return;
+    }
+
+    try {
+      await db.storage.delete(fileName);
+      setImageUrl(null);
+      setImageStatus("pending");
+    } catch (error) {
+      console.error("Error deleting file:", error);
     }
   };
 
@@ -88,12 +109,25 @@ const App = ({ appId }: { appId: string }) => {
                 </button>
               </div>
 
-              {!!imageUrl && !imageError && (
-                <img
-                  src={imageUrl}
-                  onError={setImageError}
-                  className="mt-4 w-full rounded-md"
-                />
+              {!!imageUrl && (
+                <div className="w-full">
+                  {imageStatus !== "error" && (
+                    <img
+                      src={imageUrl}
+                      onError={() => setImageStatus("error")}
+                      onLoad={() => setImageStatus("success")}
+                      className="mt-4 w-full rounded-md"
+                    />
+                  )}
+                  {imageStatus === "success" && (
+                    <button
+                      className="w-full items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-700 disabled:pointer-events-none disabled:opacity-50 bg-red-600 text-red-50 shadow hover:bg-red-600/90 h-9 px-4 py-2"
+                      onClick={handleDelete}
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>

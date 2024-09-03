@@ -7,6 +7,7 @@
    [clojure.spec.alpha :as s]
    [instant.util.spec :as uspec]
    [instant.util.json :refer [->json]]
+   [instant.util.tracer :as tracer]
    [instant.data.constants :refer [empty-app-id]])
 
   (:import
@@ -74,6 +75,33 @@
                                        [:= :app-id app-id]
                                        [:= :attr-id a]
                                        [:= :label "id"]]}]]]}])
+
+(defn insert-attr-inferred-types-cte [app-id triples]
+  (let [values (->> (reduce (fn [acc [_e a v]]
+                              (if (nil? v)
+                                acc
+                                (update acc
+                                        a
+                                        (fnil bit-or 0)
+                                        (-> v
+                                            attr-model/inferred-value-type
+                                            attr-model/type->binary))))
+                            {}
+                            triples)
+                    (map (fn [[id typ]]
+                           [id [:cast typ [:bit :32]]])))]
+    (when (seq values)
+      [:attr-inferred-types {:update :attrs
+                             :set {:inferred-types [:|
+                                                    [:coalesce
+                                                     :attrs.inferred_types
+                                                     [:cast :0 [:bit :32]]]
+                                                    :updates.typ]}
+                             :from [[{:values values}
+                                     [:updates {:columns [:id :typ]}]]]
+                             :where [:and
+                                     [:= :attrs.id :updates.id]
+                                     [:= :attrs.app_id app-id]]}])))
 
 (defn deep-merge-multi!
   [conn app-id triples]
@@ -191,7 +219,9 @@
                      :on-conflict [:app-id :entity-id :attr-id {:where [:= :ea true]}]
                      :do-update-set {:value :excluded.value
                                      :value-md5 :excluded.value-md5}
-                     :returning :entity-id}]])
+                     :returning :entity-id}]]
+                  (when-let [attr-inferred-types (insert-attr-inferred-types-cte app-id triples)]
+                    [attr-inferred-types]))
            :select :entity-id :from :ea-index-inserts}]
     (sql/do-execute! conn (hsql/format q))))
 
@@ -364,7 +394,9 @@
                                 :from :remaining-triples}]
                  :on-conflict [:app-id :entity-id :attr-id :value-md5]
                  :do-nothing true
-                 :returning :entity-id}]])
+                 :returning :entity-id}]]
+              (when-let [attr-inferred-types (insert-attr-inferred-types-cte app-id triples)]
+                [attr-inferred-types]))
        :union-all [{:select :entity-id :from :ea-index-inserts}
                    {:select :entity-id :from :remaining-inserts}]}))))
 
@@ -506,3 +538,101 @@
   (insert-multi! aurora/conn-pool empty-app-id [t])
   (fetch aurora/conn-pool empty-app-id)
   (delete-multi! aurora/conn-pool empty-app-id [t]))
+
+;; Migration for inferred types
+;; ----------------------------
+
+(defn update-attr-inferred-types [conn-pool rows]
+  (tracer/with-span! {:name "populate-inferrred-types/update-attr-inferred-types"
+                      :attributes {:row-count (count rows)}}
+    (let [values (->> (reduce (fn [acc {:strs [app_id attr_id value]}]
+                                (if (nil? value)
+                                  acc
+                                  (update acc
+                                          [app_id attr_id]
+                                          (fnil bit-or 0)
+                                          (-> value
+                                              attr-model/inferred-value-type
+                                              attr-model/type->binary))))
+                              {}
+                              rows)
+                      (map (fn [[[app_id id] typ]]
+                             [app_id id [:cast typ [:bit :32]]])))]
+      (when (seq values)
+        (let [res (sql/do-execute! conn-pool
+                                   (hsql/format
+                                    {:update :attrs
+                                     :set {:inferred-types [:|
+                                                            [:coalesce
+                                                             :attrs.inferred_types
+                                                             [:cast :0 [:bit :32]]]
+                                                            :updates.typ]}
+                                     :from [[{:values values}
+                                             [:updates {:columns [:app-id :id :typ]}]]]
+                                     :where [:and
+                                             [:= :attrs.id :updates.id]
+                                             [:= :attrs.app_id :updates.app-id]]}))]
+          (tracer/add-data! {:attributes {:update-count (-> res first :next.jdbc/update-count)}}))))))
+
+(defn populate-inferred-types [conn-pool]
+  (tracer/with-span! {:name "populate-inferrred-types/process"}
+    (let [config-key "inferred-types-migration-status"
+          limit 10000
+          {:keys [v]} (sql/select-one conn-pool ["select v from config
+                                                 where k = ?"
+                                                 config-key])
+          row-count (atom 0)]
+      (if (get v "completed")
+        (tracer/record-info! {:name "populated-inferred-types/completed"})
+        (loop [{:strs [app_id entity_id attr_id value_md5]} v
+               i 0]
+          (tracer/record-info! {:name "populate-inferred-types/loop"
+                                :attributes {:count @row-count
+                                             :loops i}})
+          (let [rows (sql/select-string-keys
+                      conn-pool
+                      (hsql/format (merge {:select [:app_id
+                                                    :entity_id
+                                                    :attr_id
+                                                    :value_md5
+                                                    :value]
+                                           :from :triples
+                                           :limit limit
+                                           :order-by [[:app_id :asc]
+                                                      [:entity_id :asc]
+                                                      [:attr_id :asc]
+                                                      [:value_md5 :asc]]}
+                                          (when app_id
+                                            {:where [:or
+                                                     [:and
+                                                      [:= :app_id [:cast app_id :uuid]]
+                                                      [:= :entity_id [:cast entity_id :uuid]]
+                                                      [:= :attr_id [:cast attr_id :uuid]]
+                                                      [:> :value_md5 [:cast value_md5 :text]]]
+                                                     [:and
+                                                      [:= :app_id [:cast app_id :uuid]]
+                                                      [:= :entity_id [:cast entity_id :uuid]]
+                                                      [:> :attr_id [:cast attr_id :uuid]]]
+                                                     [:and
+                                                      [:= :app_id [:cast app_id :uuid]]
+                                                      [:> :entity_id [:cast entity_id :uuid]]]
+                                                     [:> :app_id [:cast app_id :uuid]]]}))))]
+            (swap! row-count + (count rows))
+            (update-attr-inferred-types conn-pool rows)
+            (let [last-row (last rows)
+                  new-config (if last-row
+                               (-> last-row
+                                   (select-keys ["app_id"
+                                                 "entity_id"
+                                                 "attr_id"
+                                                 "value_md5"])
+                                   (assoc "completed" false))
+                               {"completed" true})]
+              (sql/execute! conn-pool
+                            ["insert into config (k, v) values (?, ?) on conflict (k) do update set v = ?"
+                             config-key new-config new-config])
+              (when last-row
+                (recur last-row
+                       (inc i)))))))
+      (tracer/add-data! {:attributes {:total-count @row-count}})
+      {:row-count @row-count})))

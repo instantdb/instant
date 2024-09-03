@@ -298,9 +298,10 @@
 ;; receive hundreds of `set-presence` events per second. 
 ;; Throttling these, so we don't overwhelm Honeycomb.
 (defn event-sample-rate [{:keys [op]}]
-  (if (#{:set-presence :client-broadcast :join-room} op)
-    0.1
-    1.0))
+  (cond
+    (= op :set-presence) 0.01
+    (#{:client-broadcast :join-room} op) 0.1
+    :else 1))
 
 (defn handle-event [store-conn eph-store-atom session event]
   (tracer/with-span! {:name "receive-worker/handle-event"

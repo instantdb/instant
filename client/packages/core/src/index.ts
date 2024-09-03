@@ -2,16 +2,16 @@ import Reactor from "./Reactor";
 import {
   tx,
   txInit,
-  lookup,
-  TransactionChunk,
   TxChunk,
+  lookup,
   getOps,
+  type TransactionChunk,
 } from "./instatx";
 import weakHash from "./utils/weakHash";
 import id from "./utils/uuid";
 import IndexedDBStorage from "./IndexedDBStorage";
 import WindowNetworkListener from "./WindowNetworkListener";
-import {
+import type {
   Query,
   QueryResponse,
   PageInfoResponse,
@@ -19,8 +19,8 @@ import {
   InstantObject,
   InstaQLQueryParams,
 } from "./queryTypes";
-import { AuthState, User, AuthResult } from "./clientTypes";
-import {
+import type { AuthState, User, AuthResult } from "./clientTypes";
+import type {
   PresenceOpts,
   PresenceResponse,
   PresenceSlice,
@@ -156,7 +156,7 @@ function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
  * @example
  *  const db = init({ appId: "my-app-id" })
  *
- * // You can also provide a a schema for type safety and editor autocomplete!
+ * // You can also provide a schema for type safety and editor autocomplete!
  *
  *  type Schema = {
  *    goals: {
@@ -202,7 +202,7 @@ function _init_internal<
 
   if (typeof window !== "undefined" && typeof window.location !== "undefined") {
     const showDevtool =
-      // show widget by deafult?
+      // show widget by default?
       ("devtool" in config ? Boolean(config.devtool) : defaultOpenDevtool) &&
       // only run on localhost (dev env)
       window.location.hostname === "localhost" &&
@@ -462,7 +462,7 @@ class Auth {
   signInWithIdToken = (params: {
     idToken: string;
     clientName: string;
-    nonce: string | undefined | null;
+    nonce?: string | undefined | null;
   }) => {
     return this.db.signInWithIdToken(params);
   };
@@ -509,7 +509,7 @@ class Auth {
    * Sign out the current user
    */
   signOut = () => {
-    this.db.signOut();
+    return this.db.signOut();
   };
 }
 
@@ -525,11 +525,16 @@ class Storage {
    * @see https://instantdb.com/docs/storage
    * @example
    *   const [file] = e.target.files; // result of file input
-   *   const isSuccess = await db.storage.put('photos/demo.png', file);
+   *   const isSuccess = await db.storage.upload('photos/demo.png', file);
    */
-  put = (pathname: string, file: File) => {
+  upload = (pathname: string, file: File) => {
     return this.db.upload(pathname, file);
   };
+
+  /**
+   * @deprecated Use `db.storage.upload` instead
+   */
+  put = this.upload;
 
   /**
    * Retrieves a download URL for the provided path.
@@ -540,6 +545,17 @@ class Storage {
    */
   getDownloadUrl = (pathname: string) => {
     return this.db.getDownloadUrl(pathname);
+  };
+
+  /**
+   * Deletes a file by path name.
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   await db.storage.delete('photos/demo.png');
+   */
+  delete = (pathname: string) => {
+    return this.db.deleteFile(pathname);
   };
 }
 

@@ -30,14 +30,14 @@ type BaseWhereClause = {
   [key: string]: WhereClauseValue;
 };
 
-type WhereClauseWithCombinaton = {
+type WhereClauseWithCombination = {
   or?: WhereClause[] | WhereClauseValue;
   and?: WhereClause[] | WhereClauseValue;
 };
 
 type WhereClause =
-  | WhereClauseWithCombinaton
-  | (WhereClauseWithCombinaton & BaseWhereClause);
+  | WhereClauseWithCombination
+  | (WhereClauseWithCombination & BaseWhereClause);
 
 /**
  * A tuple representing a cursor.
@@ -210,7 +210,7 @@ async function jsonFetch(
  * @example
  *  const db = init({ appId: "my-app-id" })
  *
- * // You can also provide a a schema for type safety and editor autocomplete!
+ * // You can also provide a schema for type safety and editor autocomplete!
  *
  *  type Schema = {
  *    goals: {
@@ -242,6 +242,7 @@ function init<
 class InstantAdmin<Schema extends i.InstantGraph<any, any> | {} = {}> {
   config: FilledConfig;
   auth: Auth;
+  storage: Storage;
   impersonationOpts?: ImpersonationOpts;
 
   public tx =
@@ -254,6 +255,7 @@ class InstantAdmin<Schema extends i.InstantGraph<any, any> | {} = {}> {
   constructor(_config: Config | ConfigWithSchema<any>) {
     this.config = configWithDefaults(_config);
     this.auth = new Auth(this.config);
+    this.storage = new Storage(this.config);
   }
 
   /**
@@ -390,7 +392,7 @@ class InstantAdmin<Schema extends i.InstantGraph<any, any> | {} = {}> {
    * since permissions checks are user-specific.
    *
    * Accepts an optional configuration object with a `rules` key.
-   * The proided rules will override the rules in the database for the duration of the transaction.
+   * The provided rules will override the rules in the database for the duration of the transaction.
    *
    * @example
    *   const goalId = id();
@@ -565,6 +567,131 @@ class Auth {
       body: JSON.stringify({ email }),
     });
   }
+}
+
+type UploadMetadata = { contentType?: string } & Record<string, any>;
+type StorageFile = {
+  key: string;
+  name: string;
+  size: number;
+  etag: string;
+  last_modified: number;
+};
+
+/**
+ * Functions to manage file storage.
+ */
+class Storage {
+  config: FilledConfig;
+
+  constructor(config: FilledConfig) {
+    this.config = config;
+  }
+
+  /**
+   * Uploads file at the provided path.
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   const buffer = fs.readFileSync('demo.png');
+   *   const isSuccess = await db.storage.upload('photos/demo.png', buffer);
+   */
+  upload = async (
+    pathname: string,
+    file: Buffer,
+    metadata: UploadMetadata = {},
+  ): Promise<boolean> => {
+    const { data: presignedUrl } = await jsonFetch(
+      `${this.config.apiURI}/admin/storage/signed-upload-url`,
+      {
+        method: "POST",
+        headers: authorizedHeaders(this.config),
+        body: JSON.stringify({
+          app_id: this.config.appId,
+          filename: pathname,
+        }),
+      },
+    );
+    const { ok } = await fetch(presignedUrl, {
+      method: "PUT",
+      body: file,
+      headers: {
+        "Content-Type": metadata.contentType || "application/octet-stream",
+      },
+    });
+
+    return ok;
+  };
+
+  /**
+   * Retrieves a download URL for the provided path.
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   const url = await db.storage.getDownloadUrl('photos/demo.png');
+   */
+  getDownloadUrl = async (pathname: string): Promise<string> => {
+    const { data } = await jsonFetch(
+      `${this.config.apiURI}/admin/storage/signed-download-url?app_id=${this.config.appId}&filename=${encodeURIComponent(pathname)}`,
+      {
+        method: "GET",
+        headers: authorizedHeaders(this.config),
+      },
+    );
+
+    return data;
+  };
+
+  /**
+   * Retrieves a list of all the files that have been uploaded by this app.
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   const files = await db.storage.list();
+   */
+  list = async (): Promise<StorageFile[]> => {
+    const { data } = await jsonFetch(
+      `${this.config.apiURI}/admin/storage/files`,
+      {
+        method: "GET",
+        headers: authorizedHeaders(this.config),
+      },
+    );
+
+    return data;
+  };
+
+  /**
+   * Deletes a file by its path name (e.g. "photos/demo.png").
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   await db.storage.delete("photos/demo.png");
+   */
+  delete = async (pathname: string): Promise<void> => {
+    await jsonFetch(
+      `${this.config.apiURI}/admin/storage/files?filename=${encodeURIComponent(pathname)}`,
+      {
+        method: "DELETE",
+        headers: authorizedHeaders(this.config),
+      },
+    );
+  };
+
+  /**
+   * Deletes multiple files by their path names (e.g. "photos/demo.png", "essays/demo.txt").
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   await db.storage.deleteMany(["images/1.png", "images/2.png", "images/3.png"]);
+   */
+  deleteMany = async (pathnames: string[]): Promise<void> => {
+    await jsonFetch(`${this.config.apiURI}/admin/storage/files/delete`, {
+      method: "POST",
+      headers: authorizedHeaders(this.config),
+      body: JSON.stringify({ filenames: pathnames }),
+    });
+  };
 }
 
 export {

@@ -23,6 +23,7 @@ import {
 } from '@heroicons/react/solid';
 import { errorToast, successToast } from '@/lib/toast';
 import CopyToClipboard from 'react-copy-to-clipboard';
+import copy from 'copy-to-clipboard';
 
 // content
 
@@ -58,31 +59,49 @@ export function ToggleCollection({
 }: {
   className?: string;
   buttonClassName?: string;
-  items: { id: string; label: ReactNode }[];
+  items: { id: string; label: ReactNode; link?: string }[];
   selectedId?: string;
   disabled?: boolean;
-  onChange: (tab: { id: string; label: ReactNode }) => void;
+  onChange: (tab: { id: string; label: ReactNode; link?: string }) => void;
 }) {
   return (
     <div className={cn('flex w-full flex-col gap-0.5', className)}>
-      {items.map((a) => (
-        <button
-          key={a.id}
-          disabled={disabled}
-          onClick={() => {
-            onChange(a);
-          }}
-          className={clsx(
-            'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400',
-            {
-              'bg-gray-200': selectedId === a.id,
-            },
-            buttonClassName
-          )}
-        >
-          {a.label}
-        </button>
-      ))}
+      {items.map((a) =>
+        a.link ? (
+          <a
+            key={a.id}
+            href={a.link}
+            target="_blank"
+            rel="noopener noreferer"
+            className={clsx(
+              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400',
+              {
+                'bg-gray-200': selectedId === a.id,
+              },
+              buttonClassName
+            )}
+          >
+            {a.label}
+          </a>
+        ) : (
+          <button
+            key={a.id}
+            disabled={disabled}
+            onClick={() => {
+              onChange(a);
+            }}
+            className={clsx(
+              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400',
+              {
+                'bg-gray-200': selectedId === a.id,
+              },
+              buttonClassName
+            )}
+          >
+            {a.label}
+          </button>
+        )
+      )}
     </div>
   );
 }
@@ -202,6 +221,7 @@ export function Checkbox({
   onChange,
   className,
   labelClassName,
+  required,
 }: {
   label?: ReactNode;
   error?: ReactNode;
@@ -209,12 +229,14 @@ export function Checkbox({
   className?: string;
   labelClassName?: string;
   onChange: (checked: boolean) => void;
+  required?: boolean;
 }) {
   return (
     <label
       className={cn('flex cursor-pointer items-center gap-2', labelClassName)}
     >
       <input
+        required={required}
         className={cn('align-middle font-medium text-gray-900', className)}
         type="checkbox"
         checked={checked}
@@ -232,6 +254,7 @@ export function Select({
   onChange,
   disabled,
   emptyLabel,
+  tabIndex,
 }: {
   value?: string;
   options: { label: string; value: string }[];
@@ -239,9 +262,11 @@ export function Select({
   onChange: (option?: { label: string; value: string }) => void;
   disabled?: boolean;
   emptyLabel?: string;
+  tabIndex?: number;
 }) {
   return (
     <select
+      tabIndex={tabIndex}
       value={value ?? undefined}
       disabled={disabled}
       className={cn(
@@ -269,6 +294,8 @@ export function Select({
   );
 }
 
+export type TabBarTab = { id: string; label: string; link?: string };
+
 export function TabBar({
   className,
   selectedId,
@@ -277,7 +304,7 @@ export function TabBar({
   onSelect,
 }: {
   className?: string;
-  tabs: { id: string; label: string }[];
+  tabs: TabBarTab[];
   selectedId: string;
   disabled?: boolean;
   onSelect: (tab: { id: string; label: string }) => void;
@@ -289,21 +316,38 @@ export function TabBar({
         className
       )}
     >
-      {tabs.map((t) => (
-        <button
-          key={t.id}
-          disabled={disabled}
-          onClick={() => onSelect(t)}
-          className={clsx(
-            'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
-            {
-              'bg-gray-200': selectedId === t.id && !disabled,
-            }
-          )}
-        >
-          {t.label}
-        </button>
-      ))}
+      {tabs.map((t) =>
+        t.link ? (
+          <a
+            key={t.id}
+            href={t.link}
+            target="_blank"
+            rel="noopener noreferer"
+            className={clsx(
+              'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
+              {
+                'bg-gray-200': selectedId === t.id && !disabled,
+              }
+            )}
+          >
+            {t.label}
+          </a>
+        ) : (
+          <button
+            key={t.id}
+            disabled={disabled}
+            onClick={() => onSelect(t)}
+            className={clsx(
+              'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
+              {
+                'bg-gray-200': selectedId === t.id && !disabled,
+              }
+            )}
+          >
+            {t.label}
+          </button>
+        )
+      )}
     </div>
   );
 }
@@ -319,6 +363,7 @@ export function Button({
   disabled,
   loading,
   autoFocus,
+  tabIndex,
 }: PropsWithChildren<{
   variant?: 'primary' | 'secondary' | 'subtle' | 'destructive' | 'cta';
   size?: 'mini' | 'normal' | 'large' | 'xl' | 'nano';
@@ -329,6 +374,7 @@ export function Button({
   disabled?: boolean;
   loading?: boolean;
   autoFocus?: boolean;
+  tabIndex?: number;
 }>) {
   const buttonRef = useRef<any>(null);
   const isATag = type === 'link' || (type === 'link-new' && href);
@@ -384,6 +430,7 @@ export function Button({
   if (isATag) {
     return (
       <a
+        tabIndex={tabIndex}
         ref={buttonRef}
         className={cls}
         {...(type === 'link-new'
@@ -400,6 +447,7 @@ export function Button({
 
   return (
     <button
+      tabIndex={tabIndex}
       ref={buttonRef}
       disabled={loading || disabled}
       type={type === 'submit' ? 'submit' : 'button'}
@@ -411,7 +459,7 @@ export function Button({
   );
 }
 
-// interations
+// interactions
 
 export function useDialog() {
   const [open, setOpen] = useState(false);
@@ -484,6 +532,7 @@ export function ActionButton({
   errorMessage,
   successMessage,
   onClick,
+  tabIndex,
 }: {
   type?: 'button' | 'submit';
   variant?: 'primary' | 'secondary' | 'destructive';
@@ -494,6 +543,7 @@ export function ActionButton({
   errorMessage: string;
   successMessage?: string;
   onClick: () => any;
+  tabIndex?: number;
 }) {
   const [submitting, setSubmitting] = useState(false);
 
@@ -515,6 +565,7 @@ export function ActionButton({
 
   return (
     <Button
+      tabIndex={tabIndex}
       variant={variant ?? 'secondary'}
       type={type}
       disabled={disabled || submitting}
@@ -631,6 +682,7 @@ export function CodeEditor(props: {
   schema?: object;
   onMount?: OnMount;
   path?: string;
+  tabIndex?: number;
 }) {
   return (
     <Editor
@@ -644,6 +696,7 @@ export function CodeEditor(props: {
         hideCursorInOverviewRuler: true,
         minimap: { enabled: false },
         automaticLayout: true,
+        tabIndex: props.tabIndex,
       }}
       onChange={(value) => {
         props.onChange(value || '');
@@ -715,12 +768,15 @@ export function Fence({
   language,
   style: _style,
   className: _className,
+  copyable,
 }: {
   code: string;
   language: FenceLanguage;
   className?: string;
   style?: any;
+  copyable?: boolean;
 }) {
+  const [copyLabel, setCopyLabel] = useState('Copy');
   return (
     <Highlight
       {...defaultProps}
@@ -734,8 +790,31 @@ export function Fence({
           style={{
             ...style,
             ..._style,
+            ...(copyable ? { position: 'relative' } : {}),
           }}
         >
+          {copyable ? (
+            <div className="absolute top-0 right-0 px-2 flex items-center">
+              <button
+                onClick={(e) => {
+                  copy(code);
+                  setCopyLabel('Copied!');
+                  setTimeout(() => {
+                    setCopyLabel('Copy');
+                  }, 2500);
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                className="flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 text-xs"
+              >
+                <ClipboardCopyIcon
+                  className="-ml-0.5 h-4 w-4"
+                  aria-hidden="true"
+                />
+                {copyLabel}
+              </button>
+            </div>
+          ) : null}
           <code>
             {tokens.map((line, lineIndex) => (
               <Fragment key={lineIndex}>

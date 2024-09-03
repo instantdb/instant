@@ -28,8 +28,8 @@
   ([params] (get-by-id aurora/conn-pool params))
   ([conn {:keys [id]}]
    (sql/select-one conn
-                   ["SELECT 
-                       a.* 
+                   ["SELECT
+                       a.*
                      FROM apps a
                      WHERE a.id = ?::uuid" id])))
 
@@ -44,8 +44,8 @@
              ["SELECT
                 a.id
                 FROM apps a
-                WHERE 
-                  a.creator_id = ?::uuid AND 
+                WHERE
+                  a.creator_id = ?::uuid AND
                   a.created_at < ?"
               creator-id created-before]))))
 
@@ -67,22 +67,22 @@
                         ) s
                         WHERE row_num = 1
                       )
-                      
+
                       SELECT
                         a.*,
                         at.token AS admin_token,
                         r.code AS rules,
-                      
+
                         (
                           s.subscription_type_id IS NOT NULL
                           AND s.subscription_type_id = 2
                         ) AS pro,
-                      
+
                         CASE
                           WHEN a.creator_id = ?::uuid THEN 'owner'
                           ELSE m.member_role
                         END AS user_app_role,
-  
+
                         (
                           SELECT
                           CASE
@@ -99,7 +99,7 @@
                           LEFT JOIN instant_users mu ON mu.id = m.user_id
                           WHERE m.app_id = a.id
                         ) AS members,
-                          
+
                         (
                           SELECT
                           CASE
@@ -118,7 +118,7 @@
                           FROM app_member_invites i
                           WHERE i.app_id = a.id
                         ) AS invites,
-                        
+
                         (
                           SELECT
                             json_build_object(
@@ -132,7 +132,7 @@
                                 LEFT JOIN app_email_senders es ON et.sender_id = es.id
                             WHERE et.app_id = a.id
                         ) AS magic_code_email_template
-                          
+
                       FROM apps a
                         JOIN app_admin_tokens at ON at.app_id = a.id
                         LEFT JOIN rules r ON r.app_id = a.id
@@ -141,14 +141,14 @@
                           AND m.app_id = a.id
                         )
                         LEFT JOIN s ON a.id = s.app_id
-                      
+
                       WHERE
                         a.creator_id = ?::uuid
                         OR (
                           m.user_id = ?::uuid
                           AND s.subscription_type_id = 2
                         )
-                              
+
                       GROUP BY
                         a.id,
                         admin_token,
@@ -181,7 +181,9 @@
             'client_name', oc.client_name,
             'client_id', oc.client_id,
             'provider_id', oc.provider_id,
-            'created_at', oc.created_at
+            'created_at', oc.created_at,
+            'meta', oc.meta,
+            'discovery_endpoint', oc.discovery_endpoint
           ))
           FROM (SELECT * FROM app_oauth_clients oc
                  WHERE oc.app_id = a.id

@@ -37,6 +37,7 @@
             [instant.util.tracer :as tracer]
             [instant.util.uuid :as uuid-util]
             [instant.util.string :as string-util]
+            [instant.util.storage :as storage-util]
             [instant.session-counter :as session-counter]
             [ring.middleware.cookies :refer [wrap-cookies]]
             [ring.util.http-response :as response]
@@ -400,14 +401,21 @@
     (response/ok {:provider (select-keys provider [:id :provider_name :created_at])})))
 
 (defn oauth-clients-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+  (let [coerce-optional-param!
+        (fn [path]
+          (ex/get-optional-param! req
+                                  path
+                                  string-util/coerce-non-blank-str))
+
+        {{app-id :id} :app} (req->app-and-user! :collaborator req)
         provider-id (ex/get-param! req [:body :provider_id] uuid-util/coerce)
         client-name (ex/get-param! req [:body :client_name] string-util/coerce-non-blank-str)
-        client-id (ex/get-param! req [:body :client_id] string-util/coerce-non-blank-str)
-        client-secret (ex/get-param! req [:body :client_secret] string-util/coerce-non-blank-str)
-        authorization-endpoint (ex/get-param! req [:body :authorization_endpoint] string-util/coerce-non-blank-str)
-        token-endpoint (ex/get-param! req [:body :token_endpoint] string-util/coerce-non-blank-str)
+        client-id (coerce-optional-param! [:body :client_id])
+        client-secret (coerce-optional-param! [:body :client_secret])
+        authorization-endpoint (coerce-optional-param! [:body :authorization_endpoint])
+        token-endpoint (coerce-optional-param! [:body :token_endpoint])
         discovery-endpoint (ex/get-param! req [:body :discovery_endpoint] string-util/coerce-non-blank-str)
+        meta (ex/get-optional-param! req [:body :meta] (fn [x] (when (map? x) x)))
         client (app-oauth-client-model/create! {:app-id app-id
                                                 :provider-id provider-id
                                                 :client-name client-name
@@ -415,9 +423,10 @@
                                                 :client-secret client-secret
                                                 :authorization-endpoint authorization-endpoint
                                                 :token-endpoint token-endpoint
-                                                :discovery-endpoint discovery-endpoint})]
+                                                :discovery-endpoint discovery-endpoint
+                                                :meta meta})]
     (response/ok {:client (select-keys client [:id :provider_id :client_name
-                                               :client_id :created_at])})))
+                                               :client_id :created_at :meta :discovery_endpoint])})))
 
 (defn oauth-clients-delete [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
@@ -871,55 +880,37 @@
 ;; Storage
 
 (defn signed-download-url-get [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
-        expiration (+ (System/currentTimeMillis) (* 1000 60 60 24 7)) ;; 7 days
-        object-key (s3-util/->object-key app-id filename)]
-    (storage-beta/assert-storage-enabled! app-id)
-    (response/ok {:data (str (s3-util/signed-download-url object-key expiration))})))
+  (let [filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
+        {{app-id :id} :app} (req->app-and-user! :collaborator req)
+        data (storage-util/create-signed-download-url! app-id filename)]
+    (response/ok {:data data})))
 
 (defn signed-upload-url-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        filename (ex/get-param! req [:body :filename] string-util/coerce-non-blank-str)
-        object-key (s3-util/->object-key app-id filename)]
-    (storage-beta/assert-storage-enabled! app-id)
-    (response/ok {:data (str (s3-util/signed-upload-url object-key))})))
-
-(defn format-object [{:keys [key size owner etag last-modified]}]
-  {:key key
-   :size size
-   :owner owner
-   :etag etag
-   :last_modified (.getMillis last-modified)})
+  (let [filename (ex/get-param! req [:body :filename] string-util/coerce-non-blank-str)
+        {{app-id :id} :app} (req->app-and-user! :collaborator req)
+        data (storage-util/create-signed-upload-url! app-id filename)]
+    (response/ok {:data data})))
 
 ;; Retrieves all files that have been uploaded via Storage APIs
 (defn files-get [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        _ (storage-beta/assert-storage-enabled! app-id)
         subdirectory (-> req :params :subdirectory)
-        objects-resp (if (string/blank? subdirectory)
-                       (s3-util/list-app-objects app-id)
-                       (s3-util/list-app-objects (str app-id "/" subdirectory)))
-        objects (:object-summaries objects-resp)]
-    (response/ok {:data (map format-object objects)})))
+        data (storage-util/list-files! app-id subdirectory)]
+    (response/ok {:data data})))
 
 ;; Deletes a single file by name/path (e.g. "demo.png", "profiles/me.jpg")
 (defn file-delete [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        _ (storage-beta/assert-storage-enabled! app-id)
-        filename (-> req :params :filename)
-        key (s3-util/->object-key app-id filename)
-        resp (s3-util/delete-object key)]
-    (response/ok {:data resp})))
+  (let [filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
+        {{app-id :id} :app} (req->app-and-user! :collaborator req)
+        data (storage-util/delete-file! app-id filename)]
+    (response/ok {:data data})))
 
 ;; Deletes a multiple files by name/path (e.g. "demo.png", "profiles/me.jpg")
 (defn files-delete [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        _ (storage-beta/assert-storage-enabled! app-id)
-        filenames (-> req :body :filenames)
-        keys (mapv (fn [filename] (s3-util/->object-key app-id filename)) filenames)
-        resp (s3-util/delete-objects keys)]
-    (response/ok {:data resp})))
+  (let [filenames (ex/get-param! req [:body :filenames] seq)
+        {{app-id :id} :app} (req->app-and-user! :collaborator req)
+        data (storage-util/bulk-delete-files! app-id filenames)]
+    (response/ok {:data data})))
 
 (comment
   (def app-id  #uuid "524bc106-1f0d-44a0-b222-923505264c47")

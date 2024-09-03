@@ -74,10 +74,12 @@ export type OAuthServiceProvider = {
 export type OAuthClient = {
   id: string;
   client_name: string;
-  client_id: string;
+  client_id?: string;
   provider_id: string;
-  authorization_endpoint: string;
-  token_endpoint: string;
+  authorization_endpoint?: string;
+  token_endpoint?: string;
+  discovery_url?: string;
+  meta?: any;
 };
 
 export type AppsAuthResponse = {
@@ -107,6 +109,7 @@ export interface DBAttr {
   'primary?'?: boolean | undefined;
   cardinality: 'one' | 'many';
   'value-type': 'ref' | 'blob';
+  'inferred-types'?: Array<'string' | 'number' | 'boolean' | 'json'>;
 }
 
 export interface SchemaNamespace {
@@ -129,6 +132,7 @@ export interface SchemaAttr {
     forward: { id: string; namespace: string; attr: string };
     reverse: { id: string; namespace: string; attr: string } | undefined;
   };
+  inferredTypes?: Array<'string' | 'number' | 'boolean' | 'json'>;
 }
 
 export type InstantError = {

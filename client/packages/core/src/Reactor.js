@@ -677,7 +677,7 @@ export default class Reactor {
         }
 
         // If we are here, this means that we have sent this mutation, we are online
-        // but we have not received a response. If it's this long, something must be worng,
+        // but we have not received a response. If it's this long, something must be wrong,
         // so we error with a timeout.
         const mut = this.pendingMutations.currentValue.get(eventId);
         if (mut && !mut["tx-id"]) {
@@ -1006,6 +1006,12 @@ export default class Reactor {
   }
 
   async changeCurrentUser(newUser) {
+    const { user: oldUser } = await this.getCurrentUser();
+    if (areObjectsDeepEqual(oldUser, newUser)) {
+      // We were already logged in as the newUser, don't
+      // bother updating
+      return;
+    }
     await this.setCurrentUser(newUser);
     // We need to remove all `result` from querySubs,
     // as they are no longer valid for the new user
@@ -1107,15 +1113,19 @@ export default class Reactor {
    * @param {Object} params
    * @param {string} params.clientName - The name of the client requesting authorization.
    * @param {string} params.idToken - The id_token from the external service
-   * @param {string | null | undefined} params.nonce - The nonce used when requesting the id_token from the external service
+   * @param {string | null | undefined} [params.nonce] - The nonce used when requesting the id_token from the external service
    */
   async signInWithIdToken({ idToken, clientName, nonce }) {
+    const currentUser = await this.getCurrentUser();
+    const refreshToken = currentUser?.user?.refresh_token;
+
     const res = await authAPI.signInWithIdToken({
       apiURI: this.config.apiURI,
       appId: this.config.appId,
       idToken,
       clientName,
       nonce,
+      refreshToken,
     });
     this.changeCurrentUser(res.user);
     return res;
@@ -1329,5 +1339,18 @@ export default class Reactor {
     });
 
     return url;
+  }
+
+  async deleteFile(path) {
+    const currentUser = await this.getCurrentUser();
+    const refreshToken = currentUser?.user?.refresh_token;
+    const result = await StorageApi.deleteFile({
+      apiURI: this.config.apiURI,
+      appId: this.config.appId,
+      path: path,
+      refreshToken: refreshToken,
+    });
+
+    return result;
   }
 }

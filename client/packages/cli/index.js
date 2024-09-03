@@ -70,7 +70,7 @@ program
   .command("pull-schema")
   .argument("[ID]")
   .description(
-    "Generates an initial instant.schema defintion from production state.",
+    "Generates an initial instant.schema definition from production state.",
   )
   .action(pullSchema);
 
@@ -78,7 +78,7 @@ program
   .command("pull-perms")
   .argument("[ID]")
   .description(
-    "Generates an initial instant.perms defintion from production rules.",
+    "Generates an initial instant.perms definition from production rules.",
   )
   .action(pullPerms);
 
@@ -86,7 +86,7 @@ program
   .command("pull")
   .argument("[ID]")
   .description(
-    "Generates initial instant.schema and instant.perms defintion from production state.",
+    "Generates initial instant.schema and instant.perms definition from production state.",
   )
   .action(pullAll);
 
@@ -120,7 +120,7 @@ async function login() {
   const { secret, ticket } = registerRes.data;
 
   const ok = await promptOk(
-    `This will open instantdb.com in your brower, OK to proceed?`,
+    `This will open instantdb.com in your browser, OK to proceed?`,
   );
 
   if (!ok) return;

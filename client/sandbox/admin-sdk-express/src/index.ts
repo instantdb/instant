@@ -4,6 +4,7 @@ import cors from "cors"; // Import cors module
 import { init, tx, id, i } from "@instantdb/admin";
 import { assert } from "console";
 import dotenv from "dotenv";
+import fs from "fs";
 
 dotenv.config();
 
@@ -130,6 +131,40 @@ async function testDeleteUser() {
   }
 }
 
+async function testAdminStorage(
+  src: string,
+  dest: string,
+  contentType?: string,
+) {
+  const buffer = fs.readFileSync(src);
+  const ok = await db.storage.upload(dest, buffer, {
+    contentType: contentType,
+  });
+  const url = await db.storage.getDownloadUrl(dest);
+  console.log("Uploaded:", url);
+}
+
+async function testAdminStorageFiles() {
+  const files = await db.storage.list();
+  console.log("Files:", files);
+}
+
+async function testAdminStorageDelete(filepath: string) {
+  console.log("Before:", await db.storage.list());
+  await db.storage.delete(filepath);
+  console.log("After:", await db.storage.list());
+}
+
+async function testAdminStorageBulkDelete(keyword: string) {
+  const files = await db.storage.list();
+  const deletable = files
+    .map((f) => f.name)
+    .filter((name) => name.includes(keyword));
+  console.log({ deletable });
+  await db.storage.deleteMany(deletable);
+  console.log("After:", await db.storage.list());
+}
+
 // testCreateToken();
 // testQuery();
 // testTransact();
@@ -137,3 +172,7 @@ async function testDeleteUser() {
 // testSignOut();
 // testFetchUser();
 // testDeleteUser();
+// testAdminStorage("src/demo.jpeg", "admin/demo.jpeg", "image/jpeg");
+// testAdminStorageFiles();
+// testAdminStorageDelete("admin/demo.jpeg");
+// testAdminStorageBulkDelete("admin/demo");
