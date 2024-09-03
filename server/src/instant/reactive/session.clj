@@ -300,8 +300,7 @@
 (defn event-sample-rate [{:keys [op]}]
   (cond
     (= op :set-presence) 0.01
-    (#{:client-broadcast :join-room} op) 0.1
-    :else 1))
+    :else 0.1))
 
 (defn handle-event [store-conn eph-store-atom session event]
   (tracer/with-span! {:name "receive-worker/handle-event"
