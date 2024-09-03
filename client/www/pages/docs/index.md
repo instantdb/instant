@@ -257,3 +257,5 @@ export default App
 Go to `localhost:3000` and follow the final instruction to load the app!
 
 Huzzah 🎉 You've got your first Instant web app running! Check out the [**Explore**](/docs/init) section to learn more about how to use Instant :)
+
+[Relative](/docs/auth)
