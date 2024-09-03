@@ -37,8 +37,12 @@ const OAUTH_REDIRECT_PARAM = "_instant_oauth_redirect";
 const currentUserKey = `currentUser`;
 
 function isClient() {
+  const hasWindow = typeof window !== "undefined";
+  // this checks if we are running in a chrome extension
   // @ts-expect-error
-  return typeof window !== "undefined" || typeof chrome !== "undefined";
+  const isChrome = typeof chrome !== 'undefined';
+  
+  return hasWindow || isChrome;
 }
 
 /**
