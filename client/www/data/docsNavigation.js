@@ -26,6 +26,7 @@ module.exports = [
       { title: 'Magic codes', href: '/docs/auth/magic-codes' },
       { title: 'Google OAuth', href: '/docs/auth/google-oauth' },
       { title: 'Permissions', href: '/docs/permissions' },
+      { title: 'Clerk', href: '/docs/auth/clerk' },
     ],
   },
   {

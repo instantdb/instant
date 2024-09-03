@@ -4,7 +4,6 @@ import config from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
 import { TokenContext } from '@/lib/contexts';
 import { Loading, ErrorMessage } from '@/components/dash/shared';
-import { useFlag } from '@/lib/hooks/useFlag';
 
 import {
   InstantApp,
@@ -1510,8 +1509,6 @@ export function AppAuth({
     null | string
   >(null);
 
-  const showClerk = useFlag('clerk');
-
   if (authResponse.isLoading) {
     return <Loading />;
   }
@@ -1637,32 +1634,30 @@ export function AppAuth({
         ) : (
           <AddGoogleProviderForm app={app} onAddProvider={handleAddProvider} />
         )}
-        {showClerk ? (
-          clerkProvider ? (
-            <ClerkClients
-              // Set key because setLastCreatedProviderId is somehow applied after mutate
-              key={
-                lastCreatedProviderId === clerkProvider.id
-                  ? `${clerkProvider.id}-last`
-                  : clerkProvider.id
-              }
-              app={app}
-              provider={clerkProvider}
-              clients={
-                data.oauth_clients?.filter(
-                  (c) => c.provider_id === clerkProvider.id
-                ) || []
-              }
-              onAddClient={handleAddClient}
-              onDeleteClient={handleDeleteClient}
-              usedClientNames={usedClientNames}
-              lastCreatedClientId={lastCreatedClientId}
-              defaultOpen={lastCreatedProviderId === clerkProvider.id}
-            />
-          ) : (
-            <AddClerkProviderForm app={app} onAddProvider={handleAddProvider} />
-          )
-        ) : null}
+        {clerkProvider ? (
+          <ClerkClients
+            // Set key because setLastCreatedProviderId is somehow applied after mutate
+            key={
+              lastCreatedProviderId === clerkProvider.id
+                ? `${clerkProvider.id}-last`
+                : clerkProvider.id
+            }
+            app={app}
+            provider={clerkProvider}
+            clients={
+              data.oauth_clients?.filter(
+                (c) => c.provider_id === clerkProvider.id
+              ) || []
+            }
+            onAddClient={handleAddClient}
+            onDeleteClient={handleDeleteClient}
+            usedClientNames={usedClientNames}
+            lastCreatedClientId={lastCreatedClientId}
+            defaultOpen={lastCreatedProviderId === clerkProvider.id}
+          />
+        ) : (
+          <AddClerkProviderForm app={app} onAddProvider={handleAddProvider} />
+        )}
       </div>
 
       {googleProvider && data.oauth_clients?.length ? (
