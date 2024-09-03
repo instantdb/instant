@@ -7,7 +7,7 @@
            (com.google.protobuf.util JsonFormat)))
 
 ;; Encode NullValue as nil
-(add-encoder com.google.protobuf.NullValue encode-nil)
+(add-encoder NullValue encode-nil)
 
 (defn encode-cel-expr-value
   "Encode cel expression values using the protobuf json encoder"
@@ -16,7 +16,7 @@
         json-str (.print json-printer v)]
     (.writeRawValue jg json-str)))
 
-(add-encoder dev.cel.expr.Value encode-cel-expr-value)
+(add-encoder Value encode-cel-expr-value)
 
 (def ->json
   "Converts a Clojure data structure to a JSON string."
