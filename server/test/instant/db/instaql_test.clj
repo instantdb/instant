@@ -1226,7 +1226,7 @@
                 (map :handle)
                 set))))
 
-      (testing "only true should evaluate to true"
+      (testing "null shouldn't evaluate to true"
         (rule-model/put!
          aurora/conn-pool
          {:app-id app-id :code {:users {:allow {:view "auth.isAdmin"}}}})
