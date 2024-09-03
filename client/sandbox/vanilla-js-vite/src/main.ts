@@ -111,7 +111,7 @@ function renderMagicCodePage(email: string) {
     e.preventDefault();
     const code = formEl.code.value;
     try {
-      db.auth.signInWithMagicCode({ email, code });
+      await db.auth.signInWithMagicCode({ email, code });
     } catch (e: any) {
       alert(`Uh oh! ${e.body?.message}`);
     }
