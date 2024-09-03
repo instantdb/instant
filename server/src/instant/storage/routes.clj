@@ -31,8 +31,8 @@
   (let [filename (ex/get-param! params [:filename] string-util/coerce-non-blank-str)
         app-id (ex/get-param! params [:app_id] uuid-util/coerce)
         refresh-token (http-util/req->bearer-token req)
-        current-user (app-user-model/get-by-refresh-token! {:app-id app-id :refresh-token refresh-token})]
-    {:app-id app-id :filename filename :refresh-token refresh-token :current-user current-user}))
+        current-user (app-user-model/get-by-refresh-token {:app-id app-id :refresh-token refresh-token})]
+    {:app-id app-id :filename filename :current-user current-user}))
 
 (defn signed-download-url-get [req]
   (let [{:keys [app-id filename current-user]} (req->app-file! req (:params req))
