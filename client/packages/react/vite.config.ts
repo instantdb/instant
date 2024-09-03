@@ -14,8 +14,9 @@ export default defineConfig({
       fileName: "index",
     },
     rollupOptions: {
-      // make sure to externalize deps that shouldn't be bundled
-      // into your library
+      // don't bundle react libs
+      // the user will have provided them already
+      // via script tags or import maps
       external: ["react", "react-dom"],
       output: {
         // Provide global variables to use in the UMD build
