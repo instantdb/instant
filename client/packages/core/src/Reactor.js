@@ -1,5 +1,4 @@
 // @ts-check
-
 import log from "./utils/log";
 import weakHash from "./utils/weakHash";
 import instaql from "./instaql";
@@ -36,6 +35,15 @@ const defaultConfig = {
 const OAUTH_REDIRECT_PARAM = "_instant_oauth_redirect";
 
 const currentUserKey = `currentUser`;
+
+function isClient() {
+  const hasWindow = typeof window !== "undefined";
+  // this checks if we are running in a chrome extension
+  // @ts-expect-error
+  const isChrome = typeof chrome !== 'undefined';
+  
+  return hasWindow || isChrome;
+}
 
 /**
  * @template {import('./presence').RoomSchemaShape} [RoomSchema = {}]
@@ -76,16 +84,10 @@ export default class Reactor {
     this.config = { ...defaultConfig, ...config };
     // This is to protect us against running
     // server-side.
-    // Incidentally, window is defined in react-native
-    // so this check won't pass, giving us the behavior
-    // we want. It would be nicer if we had a better
-    // check for server-side.
-    if (typeof window === "undefined") {
+    if (!isClient()) {
       return;
     }
-
     if (
-      "BroadcastChannel" in window &&
       typeof BroadcastChannel === "function"
     ) {
       this._broadcastChannel = new BroadcastChannel("@instantdb");
@@ -667,11 +669,11 @@ export default class Reactor {
       // If a transaction is pending for over 3 seconds,
       // we want to unblock the UX, so mark it as pending
       // and keep trying to process the transaction in the background
-      window.setTimeout(() => {
+      setTimeout(() => {
         this._finishTransaction(true, "pending", eventId);
       }, 3_000);
 
-      window.setTimeout(() => {
+      setTimeout(() => {
         if (!this._isOnline) {
           return;
         }

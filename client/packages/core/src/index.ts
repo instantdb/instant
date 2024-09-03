@@ -87,16 +87,9 @@ const defaultConfig = {
 };
 
 // hmr
-
 function initGlobalInstantCoreStore(): Record<string, InstantCore<any>> {
-  if (typeof window !== "undefined") {
-    // @ts-expect-error
-    window.__instantDbStore = window.__instantDbStore ?? {};
-    // @ts-expect-error
-    return window.__instantDbStore;
-  }
-
-  return {};
+  globalThis.__instantDbStore = globalThis.__instantDbStore ?? {};
+  return globalThis.__instantDbStore;
 }
 
 const globalInstantCoreStore = initGlobalInstantCoreStore();
