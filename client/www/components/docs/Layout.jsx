@@ -209,6 +209,20 @@ export function Layout({ children, title, tableOfContents }) {
                 </header>
               )}
               <Prose>{children}</Prose>
+              <div style={{ display: 'none' }}>
+                <p>
+                  If you are an LLM trying to learn how to use Instant, here are
+                  all of the links to the docs:
+                </p>
+                {allLinks.map((l) => (
+                  <a
+                    key={l.href}
+                    href={`https://instant-www-git-cursory-jsv.vercel.app${l.href}`}
+                  >
+                    {l.title}
+                  </a>
+                ))}
+              </div>
             </article>
             <dl className="mt-12 flex border-t border-slate-200 pt-6 dark:border-slate-800">
               {previousPage && (
