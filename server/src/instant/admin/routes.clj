@@ -13,10 +13,12 @@
             [instant.db.datalog :as d]
             [instant.model.rule :as rule-model]
             [instant.util.exception :as ex]
+            [instant.util.string :as string-util]
             [instant.util.http :as http-util]
             [instant.admin.model :as admin-model]
             [instant.util.json :refer [<-json ->json]]
-            [instant.db.model.entity :as entity-model])
+            [instant.db.model.entity :as entity-model]
+            [instant.util.storage :as storage-util])
 
   (:import
    (java.util UUID)))
@@ -79,7 +81,7 @@
 
 (defn obj-node [attrs node]
   (let [datalog-result (-> node :data :datalog-result)
-        m (entity-model/datalog-result->map {:attrs attrs} datalog-result) 
+        m (entity-model/datalog-result->map {:attrs attrs} datalog-result)
         children (some->>  node
                            :child-nodes
                            (instaql-nodes->object-tree attrs))]
@@ -340,6 +342,43 @@
                      :headers {"authorization" (str "Bearer " admin-token)
                                "app-id" (str counters-app-id)}}))
 
+
+;; ---
+;; Storage
+
+(defn signed-download-url-get [req]
+  (let [{app-id :app_id} (req->admin-token! req)
+        filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
+        data (storage-util/create-signed-download-url! app-id filename)]
+    (response/ok {:data data})))
+
+(defn signed-upload-url-post [req]
+  (let [{app-id :app_id} (req->admin-token! req)
+        filename (ex/get-param! req [:body :filename] string-util/coerce-non-blank-str)
+        data (storage-util/create-signed-upload-url! app-id filename)]
+    (response/ok {:data data})))
+
+;; Retrieves all files that have been uploaded via Storage APIs
+(defn files-get [req]
+  (let [{app-id :app_id} (req->admin-token! req)
+        subdirectory (-> req :params :subdirectory)
+        data (storage-util/list-files! app-id subdirectory)]
+    (response/ok {:data data})))
+
+;; Deletes a single file by name/path (e.g. "demo.png", "profiles/me.jpg")
+(defn file-delete [req]
+  (let [{app-id :app_id} (req->admin-token! req)
+        filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
+        data (storage-util/delete-file! app-id filename)]
+    (response/ok {:data data})))
+
+;; Deletes a multiple files by name/path (e.g. "demo.png", "profiles/me.jpg")
+(defn files-delete [req]
+  (let [{app-id :app_id} (req->admin-token! req)
+        filenames (ex/get-param! req [:body :filenames] seq)
+        data (storage-util/bulk-delete-files! app-id filenames)]
+    (response/ok {:data data})))
+
 (comment
   (def counters-app-id  #uuid "137ace7a-efdd-490f-b0dc-a3c73a14f892")
   (def admin-token #uuid "82900c15-faac-495b-b385-9f9e7743b629")
@@ -377,6 +416,14 @@
   (POST "/admin/transact_perms_check" [] transact-perms-check)
   (POST "/admin/sign_out" [] sign-out-post)
   (POST "/admin/refresh_tokens" [] refresh-tokens-post)
+
   (GET "/admin/users", [] app-users-get)
   (DELETE "/admin/users", [] app-users-delete)
+
+  (POST "/admin/storage/signed-upload-url" [] signed-upload-url-post)
+  (GET "/admin/storage/signed-download-url", [] signed-download-url-get)
+  (GET "/admin/storage/files" [] files-get)
+  (DELETE "/admin/storage/files" [] file-delete) ;; single delete
+  (POST "/admin/storage/files/delete" [] files-delete) ;; bulk delete
+
   (GET "/admin/schema_experimental" [] schema-experimental-get))

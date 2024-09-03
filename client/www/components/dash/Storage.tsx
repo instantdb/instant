@@ -66,7 +66,11 @@ async function deleteStorageFile(
   filename: string
 ): Promise<any> {
   const { data } = await jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/storage/files?filename=${filename}`,
+    `${
+      config.apiURI
+    }/dash/apps/${appId}/storage/files?filename=${encodeURIComponent(
+      filename
+    )}`,
     {
       method: 'DELETE',
       headers: {
@@ -105,7 +109,11 @@ async function fetchDownloadUrl(
   filename: string
 ): Promise<string> {
   const { data } = await jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/storage/signed-download-url?filename=${filename}`,
+    `${
+      config.apiURI
+    }/dash/apps/${appId}/storage/signed-download-url?filename=${encodeURIComponent(
+      filename
+    )}`,
     {
       method: 'GET',
       headers: {

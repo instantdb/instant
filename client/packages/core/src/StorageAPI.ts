@@ -52,9 +52,34 @@ export async function getDownloadUrl({
   refreshToken?: string;
 }) {
   const { data } = await jsonFetch(
-    `${apiURI}/storage/signed-download-url?app_id=${appId}&filename=${path}`,
+    `${apiURI}/storage/signed-download-url?app_id=${appId}&filename=${encodeURIComponent(path)}`,
     {
       method: "GET",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${refreshToken}`,
+      },
+    },
+  );
+
+  return data;
+}
+
+export async function deleteFile({
+  apiURI,
+  appId,
+  path,
+  refreshToken,
+}: {
+  apiURI: string;
+  appId: string;
+  path: string;
+  refreshToken?: string;
+}) {
+  const { data } = await jsonFetch(
+    `${apiURI}/storage/files?app_id=${appId}&filename=${encodeURIComponent(path)}`,
+    {
+      method: "DELETE",
       headers: {
         "content-type": "application/json",
         authorization: `Bearer ${refreshToken}`,

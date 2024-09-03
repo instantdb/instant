@@ -247,11 +247,13 @@ function init<Schema = {}>(config: Config) {
 class InstantAdmin<Schema = {}> {
   config: FilledConfig;
   auth: Auth;
+  storage: Storage;
   impersonationOpts?: ImpersonationOpts;
 
   constructor(_config: Config) {
     this.config = configWithDefaults(_config);
     this.auth = new Auth(this.config);
+    this.storage = new Storage(this.config);
   }
 
   /**
@@ -554,6 +556,131 @@ class Auth {
       body: JSON.stringify({ email }),
     });
   }
+}
+
+type UploadMetadata = { contentType?: string } & Record<string, any>;
+type StorageFile = {
+  key: string;
+  name: string;
+  size: number;
+  etag: string;
+  last_modified: number;
+};
+
+/**
+ * Functions to manage file storage.
+ */
+class Storage {
+  config: FilledConfig;
+
+  constructor(config: FilledConfig) {
+    this.config = config;
+  }
+
+  /**
+   * Uploads file at the provided path.
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   const buffer = fs.readFileSync('demo.png');
+   *   const isSuccess = await db.storage.upload('photos/demo.png', buffer);
+   */
+  upload = async (
+    pathname: string,
+    file: Buffer,
+    metadata: UploadMetadata = {},
+  ): Promise<boolean> => {
+    const { data: presignedUrl } = await jsonFetch(
+      `${this.config.apiURI}/admin/storage/signed-upload-url`,
+      {
+        method: "POST",
+        headers: authorizedHeaders(this.config),
+        body: JSON.stringify({
+          app_id: this.config.appId,
+          filename: pathname,
+        }),
+      },
+    );
+    const { ok } = await fetch(presignedUrl, {
+      method: "PUT",
+      body: file,
+      headers: {
+        "Content-Type": metadata.contentType || "application/octet-stream",
+      },
+    });
+
+    return ok;
+  };
+
+  /**
+   * Retrieves a download URL for the provided path.
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   const url = await db.storage.getDownloadUrl('photos/demo.png');
+   */
+  getDownloadUrl = async (pathname: string): Promise<string> => {
+    const { data } = await jsonFetch(
+      `${this.config.apiURI}/admin/storage/signed-download-url?app_id=${this.config.appId}&filename=${encodeURIComponent(pathname)}`,
+      {
+        method: "GET",
+        headers: authorizedHeaders(this.config),
+      },
+    );
+
+    return data;
+  };
+
+  /**
+   * Retrieves a list of all the files that have been uploaded by this app.
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   const files = await db.storage.list();
+   */
+  list = async (): Promise<StorageFile[]> => {
+    const { data } = await jsonFetch(
+      `${this.config.apiURI}/admin/storage/files`,
+      {
+        method: "GET",
+        headers: authorizedHeaders(this.config),
+      },
+    );
+
+    return data;
+  };
+
+  /**
+   * Deletes a file by its path name (e.g. "photos/demo.png").
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   await db.storage.delete("photos/demo.png");
+   */
+  delete = async (pathname: string): Promise<void> => {
+    await jsonFetch(
+      `${this.config.apiURI}/admin/storage/files?filename=${encodeURIComponent(pathname)}`,
+      {
+        method: "DELETE",
+        headers: authorizedHeaders(this.config),
+      },
+    );
+  };
+
+  /**
+   * Deletes multiple files by their path names (e.g. "photos/demo.png", "essays/demo.txt").
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   await db.storage.deleteMany(["images/1.png", "images/2.png", "images/3.png"]);
+   */
+  deleteMany = async (pathnames: string[]): Promise<void> => {
+    await jsonFetch(`${this.config.apiURI}/admin/storage/files/delete`, {
+      method: "POST",
+      headers: authorizedHeaders(this.config),
+      body: JSON.stringify({ filenames: pathnames }),
+    });
+  };
 }
 
 export {

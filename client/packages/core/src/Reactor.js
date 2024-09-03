@@ -1340,4 +1340,17 @@ export default class Reactor {
 
     return url;
   }
+
+  async deleteFile(path) {
+    const currentUser = await this.getCurrentUser();
+    const refreshToken = currentUser?.user?.refresh_token;
+    const result = await StorageApi.deleteFile({
+      apiURI: this.config.apiURI,
+      appId: this.config.appId,
+      path: path,
+      refreshToken: refreshToken,
+    });
+
+    return result;
+  }
 }
