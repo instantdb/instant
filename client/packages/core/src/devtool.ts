@@ -77,6 +77,7 @@ function createIframe(src: string) {
     height: "100%",
     borderRadius: "4px",
     backgroundColor: "white",
+    border: "none",
   } as Partial<CSSStyleDeclaration>);
   return { element };
 }
@@ -101,6 +102,11 @@ function createToggler(onClick) {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    // look
+    padding: "0",
+    margin: "0",
+    border: "none",
+    cursor: "pointer",
   } as Partial<CSSStyleDeclaration>);
   element.addEventListener("click", onClick);
   return { element };
