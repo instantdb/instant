@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Instant Core ESM standalone example/test</title>
+  </head>
+  <body>
+    <!-- make sure to run `build:standalone` first! -->
+    <!-- easiest way to test this is with `python3 -m http.server` in the root directory of this project -->
+    <script type="module">
+      import { init } from "/dist/standalone/index.mjs";
+
+      const query = {};
+
+      const db = init({
+        appId: new URL(location.href).searchParams.get("app_id"),
+      });
+
+      const unsub = db.subscribeQuery(query, console.log);
+    </script>
+  </body>
+</html>
