@@ -73,6 +73,7 @@ export {
   init_experimental,
   id,
   tx,
+  i,
 
   // types
   Config,
