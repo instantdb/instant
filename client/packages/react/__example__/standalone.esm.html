@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Instant Core ESM standalone example/test</title>
+    <title>Instant React ESM standalone example/test</title>
   </head>
   <body>
     <script type="importmap">
@@ -16,6 +16,7 @@
       }
     </script>
     <!-- make sure to run `build:standalone` first! -->
+    <!-- easiest way to test this is with `python3 -m http.server` in the root directory of this project -->
     <script type="module">
       import { init } from "@instant/react";
 
