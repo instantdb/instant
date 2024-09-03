@@ -1,6 +1,4 @@
 import {
-  init as initCore,
-
   // types
   Config,
   Query,

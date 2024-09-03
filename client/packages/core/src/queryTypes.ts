@@ -192,19 +192,6 @@ type InstaQLQueryEntityResult<
     WithCardinalityInference
   >;
 
-type InstaQLQuerySubqueryParams<
-  S extends InstantGraph<any, any>,
-  E extends keyof S["entities"],
-> = {
-  [K in keyof S["entities"][E]["links"]]?:
-    | $Option
-    | ($Option &
-        InstaQLQuerySubqueryParams<
-          S,
-          S["entities"][E]["links"][K]["entityName"]
-        >);
-};
-
 export type InstaQLQueryResult<
   Entities extends EntitiesDef,
   Query,
@@ -218,6 +205,19 @@ export type InstaQLQueryResult<
         WithCardinalityInference
       >[]
     : never;
+};
+
+type InstaQLQuerySubqueryParams<
+  S extends InstantGraph<any, any>,
+  E extends keyof S["entities"],
+> = {
+  [K in keyof S["entities"][E]["links"]]?:
+    | $Option
+    | ($Option &
+        InstaQLQuerySubqueryParams<
+          S,
+          S["entities"][E]["links"][K]["entityName"]
+        >);
 };
 
 export type InstaQLQueryParams<S extends InstantGraph<any, any>> = {

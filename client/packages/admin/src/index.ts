@@ -7,8 +7,6 @@ import {
   User,
   AuthToken,
   id,
-  QueryResponse,
-  InstaQLQueryParams,
   txInit,
 } from "@instantdb/core";
 
@@ -72,6 +70,135 @@ type NamespaceVal = $Option | ($Option & Subquery);
 interface Query {
   [namespace: string]: NamespaceVal;
 }
+
+type Remove$<T> = T extends object
+  ? { [K in keyof T as Exclude<K, "$">]: Remove$<T[K]> }
+  : T;
+
+type InstantObject = {
+  id: string;
+  [prop: string]: any;
+};
+
+type ResponseObject<K, Schema> = K extends keyof Schema
+  ? { id: string } & Schema[K]
+  : InstantObject;
+
+type IsEmptyObject<T> = T extends Record<string, never> ? true : false;
+
+type ResponseOf<Q, Schema> = {
+  [K in keyof Q]: IsEmptyObject<Q[K]> extends true
+    ? ResponseObject<K, Schema>[]
+    : (ResponseOf<Q[K], Schema> & ResponseObject<K, Schema>)[];
+};
+
+// ==========
+// InstaQL helpers
+
+type InstaQLQueryEntityAttrsResult<
+  Entities extends i.EntitiesDef,
+  EntityName extends keyof Entities,
+> = {
+  [AttrName in keyof Entities[EntityName]["attrs"]]: Entities[EntityName]["attrs"][AttrName] extends i.DataAttrDef<
+    infer ValueType,
+    infer IsRequired
+  >
+    ? IsRequired extends true
+      ? ValueType
+      : ValueType | undefined
+    : never;
+};
+
+type InstaQLQueryEntityLinksResult<
+  Entities extends i.EntitiesDef,
+  EntityName extends keyof Entities,
+  Query extends {
+    [LinkAttrName in keyof Entities[EntityName]["links"]]?: any;
+  },
+  WithCardinalityInference,
+> = {
+  [QueryPropName in keyof Query]: Entities[EntityName]["links"][QueryPropName] extends i.LinkAttrDef<
+    infer Cardinality,
+    infer LinkedEntityName
+  >
+    ? LinkedEntityName extends keyof Entities
+      ? WithCardinalityInference extends true
+        ? Cardinality extends "one"
+          ?
+              | InstaQLQueryEntityResult<
+                  Entities,
+                  LinkedEntityName,
+                  Query[QueryPropName]
+                >
+              | undefined
+          : InstaQLQueryEntityResult<
+              Entities,
+              LinkedEntityName,
+              Query[QueryPropName]
+            >[]
+        : InstaQLQueryEntityResult<
+            Entities,
+            LinkedEntityName,
+            Query[QueryPropName]
+          >[]
+      : never
+    : never;
+};
+
+type InstaQLQueryEntityResult<
+  Entities extends i.EntitiesDef,
+  EntityName extends keyof Entities,
+  Query extends {
+    [QueryPropName in keyof Entities[EntityName]["links"]]?: any;
+  },
+  WithCardinalityInference = false,
+> = { id: string } & InstaQLQueryEntityAttrsResult<Entities, EntityName> &
+  InstaQLQueryEntityLinksResult<
+    Entities,
+    EntityName,
+    Query,
+    WithCardinalityInference
+  >;
+
+type InstaQLQueryResult<
+  Entities extends i.EntitiesDef,
+  Query,
+  WithCardinalityInference = false,
+> = {
+  [QueryPropName in keyof Query]: QueryPropName extends keyof Entities
+    ? InstaQLQueryEntityResult<
+        Entities,
+        QueryPropName,
+        Query[QueryPropName],
+        WithCardinalityInference
+      >[]
+    : never;
+};
+
+type QueryResponse<T, Schema, WithCardinalityInference = false> =
+  Schema extends i.InstantGraph<infer E, any>
+    ? InstaQLQueryResult<E, T, WithCardinalityInference>
+    : ResponseOf<{ [K in keyof T]: Remove$<T[K]> }, Schema>;
+
+type InstaQLQuerySubqueryParams<
+  S extends i.InstantGraph<any, any>,
+  E extends keyof S["entities"],
+> = {
+  [K in keyof S["entities"][E]["links"]]?:
+    | $Option
+    | ($Option &
+        InstaQLQuerySubqueryParams<
+          S,
+          S["entities"][E]["links"][K]["entityName"]
+        >);
+};
+
+type InstaQLQueryParams<S extends i.InstantGraph<any, any>> = {
+  [K in keyof S["entities"]]?:
+    | $Option
+    | ($Option & InstaQLQuerySubqueryParams<S, K>);
+};
+
 /**
  * `debugQuery` returns the results of evaluating the corresponding permissions rules for each record.
  */
@@ -116,10 +243,6 @@ type Config = {
   appId: string;
   adminToken: string;
   apiURI?: string;
-};
-
-type ConfigWithSchema<S extends i.InstantGraph<any, any>> = Config & {
-  schema: S;
 };
 
 type FilledConfig = Config & { apiURI: string } & {
@@ -221,12 +344,19 @@ async function jsonFetch(
  *  const db = init<Schema>({ appId: "my-app-id" })
  *
  */
-function init<
-  Schema = {},
-  Config_ extends Config | ConfigWithSchema<any> = Config,
->(config: Config_) {
+function init<Schema = {}>(config: Config) {
+  return new InstantAdmin<Schema>(config);
+}
+
+function init_experimental<
+  Schema extends i.InstantGraph<any, any, any>,
+  WithCardinalityInference extends boolean = true,
+>(config: Config) {
   return new InstantAdmin<
-    Config_ extends ConfigWithSchema<infer CS> ? CS : Schema
+    Schema & {
+      schema: Schema;
+      cardinalityInference?: WithCardinalityInference;
+    }
   >(config);
 }
 
@@ -252,7 +382,7 @@ class InstantAdmin<Schema extends i.InstantGraph<any, any> | {} = {}> {
         : i.InstantGraph<any, any>
     >();
 
-  constructor(_config: Config | ConfigWithSchema<any>) {
+  constructor(_config: Config) {
     this.config = configWithDefaults(_config);
     this.auth = new Auth(this.config);
     this.storage = new Storage(this.config);
@@ -696,6 +826,7 @@ class Storage {
 
 export {
   init,
+  init_experimental,
   id,
   tx,
   lookup,
