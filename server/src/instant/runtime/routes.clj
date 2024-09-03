@@ -421,12 +421,13 @@
 (defn oauth-id-token-callback [{{:keys [nonce]} :body :as req}]
   (let [id-token (ex/get-param! req [:body :id_token] string-util/coerce-non-blank-str)
         app-id (ex/get-param! req [:body :app_id] uuid-util/coerce)
+        current-refresh-token-id (ex/get-optional-param! req [:body :refresh_token] uuid-util/coerce)
         client-name (ex/get-param! req [:body :client_name] string-util/coerce-non-blank-str)
         client (app-oauth-client-model/get-by-client-name! {:app-id app-id
                                                             :client-name client-name})
         oauth-client (app-oauth-client-model/->OAuthClient client)
-
-        _ (when-let [origin (get-in req [:headers "origin"])]
+        _ (when-let [origin (and (:client_secret client)
+                                 (get-in req [:headers "origin"]))]
             (let [authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
                                       {:app-id app-id})
                   match (app-authorized-redirect-origin-model/find-match
@@ -437,7 +438,10 @@
         user-info (let [user-info-response (oauth/get-user-info-from-id-token
                                             oauth-client
                                             nonce
-                                            id-token)]
+                                            id-token
+                                            (when-not (:client_secret oauth-client)
+                                              {:allow-unverified-email? true
+                                               :ignore-audience? true}))]
                     (when (= :error (:type user-info-response))
                       (ex/throw-validation-err!
                        :id_token
@@ -450,8 +454,14 @@
                                           :sub sub
                                           :app-id (:app_id client)
                                           :provider-id (:provider_id client)})
-        {refresh-token-id :id} (app-user-refresh-token-model/create! {:id (UUID/randomUUID)
-                                                                      :user-id (:user_id social-login)})
+        current-refresh-token (when current-refresh-token-id
+                                (app-user-refresh-token-model/get-by-id {:id current-refresh-token-id}))
+        {refresh-token-id :id} (if (and current-refresh-token
+                                        (= (:user_id social-login)
+                                           (:user_id current-refresh-token)))
+                                 current-refresh-token
+                                 (app-user-refresh-token-model/create! {:id (UUID/randomUUID)
+                                                                        :user-id (:user_id social-login)}))
         user (app-user-model/get-by-id {:app-id app-id :id (:user_id social-login)})]
     (assert (= app-id (:app_id user)))
     (response/ok {:user (assoc user :refresh_token refresh-token-id)})))

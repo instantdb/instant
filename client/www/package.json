@@ -27,6 +27,7 @@
     "algoliasearch": "^4.24.0",
     "canvas-confetti": "^1.9.2",
     "clsx": "^2.1.0",
+    "copy-to-clipboard": "^3.3.3",
     "date-fns": "^2.28.0",
     "focus-visible": "^5.2.0",
     "fuse.js": "^7.0.0",

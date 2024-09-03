@@ -18,7 +18,23 @@
                  client-secret
                  authorization-endpoint
                  token-endpoint
-                 discovery-endpoint]}]
+                 discovery-endpoint
+                 meta]}]
+   (when discovery-endpoint
+     (try
+       (when-not (-> (oauth/fetch-discovery discovery-endpoint)
+                     :data
+                     :issuer
+                     string?)
+         (ex/throw-validation-err!
+          :discovery-endpoint
+          discovery-endpoint
+          [{:message "Could not validate discovery endpoint."}]))
+       (catch Exception _e
+         (ex/throw-validation-err!
+          :discovery-endpoint
+          discovery-endpoint
+          [{:message "Could not validate discovery endpoint."}]))))
    (let [id (UUID/randomUUID)]
      (sql/execute-one!
       conn
@@ -31,19 +47,22 @@
         client_secret,
         authorization_endpoint,
         token_endpoint,
-        discovery_endpoint
+        discovery_endpoint,
+        meta
        )
-       VALUES (?::uuid, ?::uuid, ?::uuid, ?, ?, ?, ?, ?, ?)"
+       VALUES (?::uuid, ?::uuid, ?::uuid, ?, ?, ?, ?, ?, ?, ?)"
        id
        app-id
        provider-id
        client-name
        client-id
-       (crypt-util/aead-encrypt {:plaintext (.getBytes client-secret)
-                                 :associated-data (uuid-util/->bytes id)})
+       (when client-secret
+         (crypt-util/aead-encrypt {:plaintext (.getBytes client-secret)
+                                   :associated-data (uuid-util/->bytes id)}))
        authorization-endpoint
        token-endpoint
-       discovery-endpoint]))))
+       discovery-endpoint
+       meta]))))
 
 (defn get-by-id
   ([params] (get-by-id aurora/conn-pool params))
@@ -90,12 +109,14 @@
      {:app-id (:app_id oauth-client)
       :provider-id (:provider_id oauth-client)
       :client-id (:client_id oauth-client)
-      :client-secret (decrypted-client-secret oauth-client)
+      :client-secret (when (:client_secret oauth-client)
+                       (decrypted-client-secret oauth-client))
       :discovery-endpoint discovery-endpoint})
     (oauth/map->GenericOAuthClient
      {:app-id (:app_id oauth-client)
       :provider-id (:provider_id oauth-client)
       :client-id (:client_id oauth-client)
-      :client-secret (decrypted-client-secret oauth-client)
+      :client-secret (when (:client_secret oauth-client)
+                       (decrypted-client-secret oauth-client))
       :authorization-endpoint (:authorization_endpoint oauth-client)
       :token-endpoint (:token_endpoint oauth-client)})))

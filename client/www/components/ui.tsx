@@ -23,6 +23,7 @@ import {
 } from '@heroicons/react/solid';
 import { errorToast, successToast } from '@/lib/toast';
 import CopyToClipboard from 'react-copy-to-clipboard';
+import copy from 'copy-to-clipboard';
 
 // content
 
@@ -220,6 +221,7 @@ export function Checkbox({
   onChange,
   className,
   labelClassName,
+  required,
 }: {
   label?: ReactNode;
   error?: ReactNode;
@@ -227,12 +229,14 @@ export function Checkbox({
   className?: string;
   labelClassName?: string;
   onChange: (checked: boolean) => void;
+  required?: boolean;
 }) {
   return (
     <label
       className={cn('flex cursor-pointer items-center gap-2', labelClassName)}
     >
       <input
+        required={required}
         className={cn('align-middle font-medium text-gray-900', className)}
         type="checkbox"
         checked={checked}
@@ -764,12 +768,15 @@ export function Fence({
   language,
   style: _style,
   className: _className,
+  copyable,
 }: {
   code: string;
   language: FenceLanguage;
   className?: string;
   style?: any;
+  copyable?: boolean;
 }) {
+  const [copyLabel, setCopyLabel] = useState('Copy');
   return (
     <Highlight
       {...defaultProps}
@@ -783,8 +790,31 @@ export function Fence({
           style={{
             ...style,
             ..._style,
+            ...(copyable ? { position: 'relative' } : {}),
           }}
         >
+          {copyable ? (
+            <div className="absolute top-0 right-0 px-2 flex items-center">
+              <button
+                onClick={(e) => {
+                  copy(code);
+                  setCopyLabel('Copied!');
+                  setTimeout(() => {
+                    setCopyLabel('Copy');
+                  }, 2500);
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                className="flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 text-xs"
+              >
+                <ClipboardCopyIcon
+                  className="-ml-0.5 h-4 w-4"
+                  aria-hidden="true"
+                />
+                {copyLabel}
+              </button>
+            </div>
+          ) : null}
           <code>
             {tokens.map((line, lineIndex) => (
               <Fragment key={lineIndex}>

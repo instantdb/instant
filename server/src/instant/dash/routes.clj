@@ -400,14 +400,21 @@
     (response/ok {:provider (select-keys provider [:id :provider_name :created_at])})))
 
 (defn oauth-clients-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+  (let [coerce-optional-param!
+        (fn [path]
+          (ex/get-optional-param! req
+                                  path
+                                  string-util/coerce-non-blank-str))
+
+        {{app-id :id} :app} (req->app-and-user! :collaborator req)
         provider-id (ex/get-param! req [:body :provider_id] uuid-util/coerce)
         client-name (ex/get-param! req [:body :client_name] string-util/coerce-non-blank-str)
-        client-id (ex/get-param! req [:body :client_id] string-util/coerce-non-blank-str)
-        client-secret (ex/get-param! req [:body :client_secret] string-util/coerce-non-blank-str)
-        authorization-endpoint (ex/get-param! req [:body :authorization_endpoint] string-util/coerce-non-blank-str)
-        token-endpoint (ex/get-param! req [:body :token_endpoint] string-util/coerce-non-blank-str)
+        client-id (coerce-optional-param! [:body :client_id])
+        client-secret (coerce-optional-param! [:body :client_secret])
+        authorization-endpoint (coerce-optional-param! [:body :authorization_endpoint])
+        token-endpoint (coerce-optional-param! [:body :token_endpoint])
         discovery-endpoint (ex/get-param! req [:body :discovery_endpoint] string-util/coerce-non-blank-str)
+        meta (ex/get-optional-param! req [:body :meta] (fn [x] (when (map? x) x)))
         client (app-oauth-client-model/create! {:app-id app-id
                                                 :provider-id provider-id
                                                 :client-name client-name
@@ -415,9 +422,10 @@
                                                 :client-secret client-secret
                                                 :authorization-endpoint authorization-endpoint
                                                 :token-endpoint token-endpoint
-                                                :discovery-endpoint discovery-endpoint})]
+                                                :discovery-endpoint discovery-endpoint
+                                                :meta meta})]
     (response/ok {:client (select-keys client [:id :provider_id :client_name
-                                               :client_id :created_at])})))
+                                               :client_id :created_at :meta :discovery_endpoint])})))
 
 (defn oauth-clients-delete [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
