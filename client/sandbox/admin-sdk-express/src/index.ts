@@ -162,7 +162,7 @@ async function testAdminStorageBulkDelete(keyword: string) {
     .map((f) => f.name)
     .filter((name) => name.includes(keyword));
   console.log({ deletable });
-  const ok = await db.storage.bulkDelete(deletable);
+  const ok = await db.storage.deleteMany(deletable);
   console.log("Deleted:", ok);
   console.log("After:", await db.storage.list());
 }

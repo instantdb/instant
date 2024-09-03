@@ -272,7 +272,7 @@ const files = await db.storage.list();
 There are two ways to delete files:
 
 - `db.storage.delete(pathname: string)`
-- `db.storage.bulkDelete(pathnames: string[])`
+- `db.storage.deleteMany(pathnames: string[])`
 
 These allow you to either delete a single file, or bulk delete multiple files at a time.
 
@@ -287,5 +287,5 @@ const filename = 'demo.txt';
 await db.storage.delete(filename);
 
 const images = ['images/1.png', 'images/2.png', 'images/3.png'];
-await db.storage.bulkDelete(images);
+await db.storage.deleteMany(images);
 ```

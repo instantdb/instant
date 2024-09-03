@@ -676,9 +676,9 @@ class Storage {
    *
    * @see https://instantdb.com/docs/storage
    * @example
-   *   const ok = await db.storage.bulkDelete(["images/1.png", "images/2.png", "images/3.png"]);
+   *   const ok = await db.storage.deleteMany(["images/1.png", "images/2.png", "images/3.png"]);
    */
-  bulkDelete = async (pathnames: string[]): Promise<boolean> => {
+  deleteMany = async (pathnames: string[]): Promise<boolean> => {
     const { data } = await jsonFetch(
       `${this.config.apiURI}/admin/storage/files/delete`,
       {
