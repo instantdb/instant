@@ -621,7 +621,7 @@ class Storage {
    */
   getDownloadUrl = async (pathname: string): Promise<string> => {
     const { data } = await jsonFetch(
-      `${this.config.apiURI}/admin/storage/signed-download-url?app_id=${this.config.appId}&filename=${pathname}`,
+      `${this.config.apiURI}/admin/storage/signed-download-url?app_id=${this.config.appId}&filename=${encodeURIComponent(pathname)}`,
       {
         method: "GET",
         headers: authorizedHeaders(this.config),
@@ -659,7 +659,7 @@ class Storage {
    */
   delete = async (pathname: string): Promise<boolean> => {
     const { data } = await jsonFetch(
-      `${this.config.apiURI}/admin/storage/files?filename=${pathname}`,
+      `${this.config.apiURI}/admin/storage/files?filename=${encodeURIComponent(pathname)}`,
       {
         method: "DELETE",
         headers: authorizedHeaders(this.config),
