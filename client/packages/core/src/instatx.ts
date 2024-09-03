@@ -22,8 +22,11 @@ type UpdateParams<
   [attribute: string]: any;
 };
 
-type LinkParams<Schema extends InstantGraph<any, any>> = {
-  [EntityName in keyof Schema["entities"][EntityName]["links"]]?: Schema["entities"][EntityName]["links"][EntityName] extends LinkAttrDef<
+type LinkParams<
+  Schema extends InstantGraph<any, any>,
+  EntityName extends keyof Schema["entities"],
+> = {
+  [LinkName in keyof Schema["entities"][EntityName]["links"]]?: Schema["entities"][EntityName]["links"][LinkName] extends LinkAttrDef<
     infer Cardinality,
     any
   >
@@ -68,14 +71,18 @@ export interface TransactionChunk<
    *
    * // { goals: [{ title: "Get fit", todos: [{ title: "Go on a run" }]}
    */
-  link: (args: LinkParams<Schema>) => TransactionChunk<Schema, EntityName>;
+  link: (
+    args: LinkParams<Schema, EntityName>,
+  ) => TransactionChunk<Schema, EntityName>;
   /**
    * Unlink two objects
    * @example
    *  // to "unlink" a todo from a goal:
    *  tx.goals[goalId].unlink({todos: todoId})
    */
-  unlink: (args: LinkParams<Schema>) => TransactionChunk<Schema, EntityName>;
+  unlink: (
+    args: LinkParams<Schema, EntityName>,
+  ) => TransactionChunk<Schema, EntityName>;
   /**
    * Delete an object, alongside all of its links.
    *
