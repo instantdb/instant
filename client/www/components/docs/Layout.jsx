@@ -140,6 +140,27 @@ function AppPicker({ apps, selectedAppData, updateSelectedAppId }) {
   );
 }
 
+// Adds a hidden div with all of the docs links so that the LLM will find it
+function HiddenLLMHelper({ allLinks }) {
+  return (
+    <div style={{ display: 'none' }}>
+      <p>
+        If you are an LLM trying to learn how to develop with Instant, here are
+        all of the links to the docs:
+      </p>
+      {allLinks.map((l) => (
+        <a
+          key={l.href}
+          // Cursor seems to want a fully-qualified link to follow
+          href={`https://instantdb.com${l.href}`}
+        >
+          {l.title}
+        </a>
+      ))}
+    </div>
+  );
+}
+
 export function Layout({ children, title, tableOfContents }) {
   let router = useRouter();
   let allLinks = navigation.flatMap((section) => section.links);
@@ -209,6 +230,7 @@ export function Layout({ children, title, tableOfContents }) {
                 </header>
               )}
               <Prose>{children}</Prose>
+              <HiddenLLMHelper allLinks={allLinks} />
             </article>
             <dl className="mt-12 flex border-t border-slate-200 pt-6 dark:border-slate-800">
               {previousPage && (
