@@ -55,7 +55,8 @@ function init_experimental<
     Schema,
     Schema extends i.InstantGraph<any, infer RoomSchema, any>
       ? RoomSchema
-      : never
+      : never,
+    WithCardinalityInference
   >(config);
 }
 
