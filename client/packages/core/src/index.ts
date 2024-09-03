@@ -2,9 +2,9 @@ import Reactor from "./Reactor";
 import {
   tx,
   txInit,
-  TxChunk,
   lookup,
   getOps,
+  type TxChunk,
   type TransactionChunk,
 } from "./instatx";
 import weakHash from "./utils/weakHash";
