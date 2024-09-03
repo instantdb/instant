@@ -1,18 +1,24 @@
 import Reactor from "./Reactor";
-import { tx, lookup, TransactionChunk, EmptyChunk, getOps } from "./instatx";
+import {
+  tx,
+  lookup,
+  getOps,
+  type TransactionChunk,
+  type EmptyChunk,
+} from "./instatx";
 import weakHash from "./utils/weakHash";
 import id from "./utils/uuid";
 import IndexedDBStorage from "./IndexedDBStorage";
 import WindowNetworkListener from "./WindowNetworkListener";
-import {
+import type {
   Query,
   QueryResponse,
   PageInfoResponse,
   Exactly,
   InstantObject,
 } from "./queryTypes";
-import { AuthState, User, AuthResult } from "./clientTypes";
-import {
+import type { AuthState, User, AuthResult } from "./clientTypes";
+import type {
   PresenceOpts,
   PresenceResponse,
   PresenceSlice,
@@ -453,11 +459,16 @@ class Storage {
    * @see https://instantdb.com/docs/storage
    * @example
    *   const [file] = e.target.files; // result of file input
-   *   const isSuccess = await db.storage.put('photos/demo.png', file);
+   *   const isSuccess = await db.storage.upload('photos/demo.png', file);
    */
-  put = (pathname: string, file: File) => {
+  upload = (pathname: string, file: File) => {
     return this.db.upload(pathname, file);
   };
+
+  /**
+   * @deprecated Use `db.storage.upload` instead
+   */
+  put = this.upload;
 
   /**
    * Retrieves a download URL for the provided path.
@@ -468,6 +479,17 @@ class Storage {
    */
   getDownloadUrl = (pathname: string) => {
     return this.db.getDownloadUrl(pathname);
+  };
+
+  /**
+   * Deletes a file by path name.
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   await db.storage.delete('photos/demo.png');
+   */
+  delete = (pathname: string) => {
+    return this.db.deleteFile(pathname);
   };
 }
 

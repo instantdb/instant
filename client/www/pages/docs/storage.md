@@ -13,20 +13,20 @@ Storage is still in **beta**, but you can request access [here](https://docs.goo
 
 ## Uploading files
 
-We use the `db.storage.put(pathname: string, file: File)` function to upload a file.
+We use the `db.storage.upload(pathname: string, file: File)` function to upload a file.
 
 ```tsx
 async function upload(files: FileList) {
   const file = files[0];
   // use the file's current name as the path
-  await db.storage.put(file.name, file);
+  await db.storage.upload(file.name, file);
   // or, give the file a custom name
-  await db.storage.put('demo.png', file);
+  await db.storage.upload('demo.png', file);
   // or, put it in the `images` subdirectory
-  await db.storage.put('images/demo.png', file);
+  await db.storage.upload('images/demo.png', file);
   // or, put it in a subdirectory for the current user,
   // and restrict access to this file via Storage permissions
-  await db.storage.put(`${currentUser.id}/demo.png`, file);
+  await db.storage.upload(`${currentUser.id}/demo.png`, file);
 }
 
 return <input type="file" onChange={(e) => upload(e.target.files)} />;
@@ -84,7 +84,7 @@ function App() {
     const file = files[0];
     const pathname = file.name; // or whatever custom file path you'd like
     const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days from now
-    const isSuccess = await db.storage.put(pathname, file);
+    const isSuccess = await db.storage.upload(pathname, file);
     const cachedUrl = await db.storage.getDownloadUrl(pathname);
 
     db.transact(tx.images[id()].update({ cachedUrl, pathname, expiresAt }));
@@ -208,4 +208,84 @@ Allow all authenticated users to view files, but users may only upload `png`/`jp
     ]
   }
 }
+```
+
+---
+
+# Admin SDK
+
+The Admin SDK offers the same API for managing storage on the server, plus a few extra convenience methods for scripting.
+
+## Uploading files
+
+Once again, we use the `db.storage.upload(pathname: string, file: Buffer)` function to upload a file on the backend.
+
+Note that unlike our browser SDK, the `file` argument must be a `Buffer`:
+
+```tsx
+import fs from 'fs';
+
+async function upload(filepath: string) {
+  const buffer = fs.readFileSync(filepath);
+  await db.storage.upload('images/demo.png', buffer);
+  // you can also optionally specify the Content-Type header in the metadata
+  await db.storage.upload('images/demo.png', buffer, {
+    contentType: 'image/png',
+  });
+}
+```
+
+The `pathname` determines where the file will be stored, and can be used with permissions to restrict access to certain files.
+
+The `file` should be a [`Buffer`](https://nodejs.org/api/buffer.html) type.
+
+{% callout type="warning" %}
+
+Note that if the `pathname` already exists in your storage directory, it will be overwritten!
+
+You may want to include some kind of unique identifier or timestamp in your `pathname` to ensure this doesn't happen.
+
+{% /callout %}
+
+## Retrieving a file URL
+
+To retrieve a file URL, we use the `db.storage.getDownloadUrl(pathname: string)` function.
+
+This works exactly the same as our browser SDK.
+
+```ts
+const url = await db.storage.getDownloadUrl('images/demo.png');
+```
+
+## Listing all your files
+
+We also offer the `db.storage.list()` function to retrieve a list of all your files in storage.
+
+This can be useful for scripting, if you'd like to manage your files programmatically.
+
+```ts
+const files = await db.storage.list();
+```
+
+## Deleting files
+
+There are two ways to delete files:
+
+- `db.storage.delete(pathname: string)`
+- `db.storage.deleteMany(pathnames: string[])`
+
+These allow you to either delete a single file, or bulk delete multiple files at a time.
+
+{% callout type="warning" %}
+
+These functions will **permanently delete** files from storage, so use with extreme caution!
+
+{% /callout %}
+
+```ts
+const filename = 'demo.txt';
+await db.storage.delete(filename);
+
+const images = ['images/1.png', 'images/2.png', 'images/3.png'];
+await db.storage.deleteMany(images);
 ```

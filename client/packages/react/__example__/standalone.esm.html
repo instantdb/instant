@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Instant React ESM standalone example/test</title>
+  </head>
+  <body>
+    <script type="importmap">
+      {
+        "imports": {
+          "@instant/react": "/dist/standalone/index.mjs",
+          "react": "https://esm.sh/react",
+          "react-dom": "https://esm.sh/react-dom"
+        }
+      }
+    </script>
+    <!-- make sure to run `build:standalone` first! -->
+    <!-- easiest way to test this is with `python3 -m http.server` in the root directory of this project -->
+    <script type="module">
+      import { init } from "@instant/react";
+
+      const query = {};
+
+      const db = init({
+        appId: new URL(location.href).searchParams.get("app_id"),
+      });
+
+      console.log(await db.getLocalId());
+    </script>
+  </body>
+</html>
