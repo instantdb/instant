@@ -6,7 +6,7 @@
             [instant.util.string :as string-util]
             [instant.util.http :as http-util]
             [instant.util.storage :as storage-util]
-            [instant.model.app :as app-model]
+            [instant.model.app-user :as app-user-model]
             [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
             [instant.storage.s3 :as s3-util])
   (:import
@@ -28,25 +28,25 @@
   (objects-get {:params {:bucket b}}))
 
 (defn req->app-file! [req params]
-  (let [id (ex/get-param! params [:app_id] uuid-util/coerce)
-        {app-id :id} (app-model/get-by-id! {:id id})
-        filename (ex/get-param! params [:filename] string-util/coerce-non-blank-str)
-        refresh-token (http-util/req->bearer-token req)]
-    {:app-id app-id :filename filename :refresh-token refresh-token}))
+  (let [filename (ex/get-param! params [:filename] string-util/coerce-non-blank-str)
+        app-id (ex/get-param! params [:app_id] uuid-util/coerce)
+        refresh-token (http-util/req->bearer-token req)
+        current-user (app-user-model/get-by-refresh-token! {:app-id app-id :refresh-token refresh-token})]
+    {:app-id app-id :filename filename :refresh-token refresh-token :current-user current-user}))
 
 (defn signed-download-url-get [req]
-  (let [{:keys [app-id filename refresh-token]} (req->app-file! req (:params req))
-        data (storage-util/create-signed-download-url! app-id filename refresh-token)]
+  (let [{:keys [app-id filename current-user]} (req->app-file! req (:params req))
+        data (storage-util/create-signed-download-url! app-id filename current-user)]
     (response/ok {:data data})))
 
 (defn signed-upload-url-post [req]
-  (let [{:keys [app-id filename refresh-token]} (req->app-file! req (:body req))
-        data (storage-util/create-signed-upload-url! app-id filename refresh-token)]
+  (let [{:keys [app-id filename current-user]} (req->app-file! req (:body req))
+        data (storage-util/create-signed-upload-url! app-id filename current-user)]
     (response/ok {:data data})))
 
 (defn file-delete [req]
-  (let [{:keys [app-id filename refresh-token]} (req->app-file! req (:params req))
-        data (storage-util/delete-file! app-id filename refresh-token)]
+  (let [{:keys [app-id filename current-user]} (req->app-file! req (:params req))
+        data (storage-util/delete-file! app-id filename current-user)]
     (response/ok {:data data})))
 
 (comment

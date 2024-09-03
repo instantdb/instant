@@ -31,14 +31,10 @@
                               "data" (cel/->cel-map {"path" "demo/image.png"})}))
 
 
-(defn assert-storage-permission! [action {:keys [app-id refresh-token filepath rules-override]}]
+(defn assert-storage-permission! [action {:keys [app-id filepath current-user rules-override]}]
   (let [rules (if rules-override
                 rules-override
                 (rule-model/get-by-app-id {:app-id app-id}))
-        current-user (when refresh-token
-                       (app-user-model/get-by-refresh-token {:app-id app-id
-                                                             :refresh-token refresh-token}))
-
         program (rule-model/get-program! rules "$files" action)]
     (ex/assert-permitted!
      :has-storage-permission?
@@ -58,15 +54,9 @@
     (s3-util/upload-image-to-s3 object-key image-url)))
 
 (defn create-signed-download-url!
-  ([{:keys [app-id filename refresh-token rules-override]}]
+  ([app-id filename current-user]
    (assert-storage-permission! "view" {:app-id app-id
-                                       :refresh-token refresh-token
-                                       :filepath filename
-                                       :rules-override rules-override})
-   (create-signed-download-url! app-id filename))
-  ([app-id filename refresh-token]
-   (assert-storage-permission! "view" {:app-id app-id
-                                       :refresh-token refresh-token
+                                       :current-user current-user
                                        :filepath filename})
    (create-signed-download-url! app-id filename))
   ([app-id filename]
@@ -77,15 +67,9 @@
      (str (s3-util/signed-download-url object-key expiration)))))
 
 (defn create-signed-upload-url!
-  ([{:keys [app-id filename refresh-token rules-override]}]
+  ([app-id filename current-user]
    (assert-storage-permission! "create" {:app-id app-id
-                                         :refresh-token refresh-token
-                                         :filepath filename
-                                         :rules-override rules-override})
-   (create-signed-upload-url! app-id filename))
-  ([app-id filename refresh-token]
-   (assert-storage-permission! "create" {:app-id app-id
-                                         :refresh-token refresh-token
+                                         :current-user current-user
                                          :filepath filename})
    (create-signed-upload-url! app-id filename))
   ([app-id filename]
@@ -121,15 +105,9 @@
 
 ;; Deletes a single file by name/path (e.g. "demo.png", "profiles/me.jpg")
 (defn delete-file!
-  ([{:keys [app-id filename refresh-token rules-override]}]
+  ([app-id filename current-user]
    (assert-storage-permission! "delete" {:app-id app-id
-                                         :refresh-token refresh-token
-                                         :filepath filename
-                                         :rules-override rules-override})
-   (delete-file! app-id filename))
-  ([app-id filename refresh-token]
-   (assert-storage-permission! "delete" {:app-id app-id
-                                         :refresh-token refresh-token
+                                         :current-user current-user
                                          :filepath filename})
    (delete-file! app-id filename))
   ([app-id filename]
@@ -148,6 +126,7 @@
   (def app-id #uuid "524bc106-1f0d-44a0-b222-923505264c47")
   (def filename "demo.png")
   (def image-url "https://i.redd.it/bugxrdkjmm1b1.png")
+
   (create-signed-upload-url! app-id filename)
   (upload-image-to-s3 app-id filename image-url)
   (create-signed-download-url! app-id filename)
@@ -158,50 +137,51 @@
 
   (def user-id #uuid "19020866-1238-4cfc-9a1c-d804fef3fb73")
   (def refresh-token (app-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id user-id}))
+  (def current-user (app-user-model/get-by-refresh-token! {:app-id app-id :refresh-token (:id refresh-token)}))
   (def object-key (->object-key app-id filename))
 
   (defn storage-rules-mock [action logic] {:code {"$files" {"allow" {action logic}}}})
 
   ;; using db permission rules
-  (create-signed-upload-url! app-id filename (:id refresh-token))
-  (create-signed-download-url! app-id filename (:id refresh-token))
+  (create-signed-upload-url! app-id filename current-user)
+  (create-signed-download-url! app-id filename current-user)
 
   ;; custom permission rules
-  (create-signed-upload-url! {:app-id app-id
-                              :filename filename
-                              :refresh-token nil
-                              :rules-override (storage-rules-mock "create" "true")})
-  (create-signed-upload-url! {:app-id app-id
-                              :filename filename
-                              :refresh-token nil
-                              :rules-override (storage-rules-mock "create" "data.path.contains('demo')")})
-  (create-signed-upload-url! {:app-id app-id
-                              :filename filename
-                              :refresh-token (:id refresh-token)
-                              :rules-override (storage-rules-mock "create" "auth.id != null")})
+  (assert-storage-permission! "create"  {:app-id app-id
+                                         :filename filename
+                                         :current-user nil
+                                         :rules-override (storage-rules-mock "create" "true")})
+  (assert-storage-permission! "create"  {:app-id app-id
+                                         :filename filename
+                                         :current-user nil
+                                         :rules-override (storage-rules-mock "create" "data.path.contains('demo')")})
+  (assert-storage-permission! "create"  {:app-id app-id
+                                         :filename filename
+                                         :current-user current-user
+                                         :rules-override (storage-rules-mock "create" "auth.id != null")})
 
-  (create-signed-download-url! {:app-id app-id
-                                :filename filename
-                                :refresh-token nil
-                                :rules-override (storage-rules-mock "view" "true")})
-  (create-signed-download-url! {:app-id app-id
-                                :filename filename
-                                :refresh-token nil
-                                :rules-override (storage-rules-mock "view" "data.path.contains('demo')")})
-  (create-signed-download-url! {:app-id app-id
-                                :filename filename
-                                :refresh-token (:id refresh-token)
-                                :rules-override (storage-rules-mock "view" "auth.id != null")})
+  (assert-storage-permission! "view" {:app-id app-id
+                                      :filename filename
+                                      :current-user nil
+                                      :rules-override (storage-rules-mock "view" "true")})
+  (assert-storage-permission! "view" {:app-id app-id
+                                      :filename filename
+                                      :current-user nil
+                                      :rules-override (storage-rules-mock "view" "data.path.contains('demo')")})
+  (assert-storage-permission! "view" {:app-id app-id
+                                      :filename filename
+                                      :current-user current-user
+                                      :rules-override (storage-rules-mock "view" "auth.id != null")})
 
-  (delete-file! {:app-id app-id
-                 :filename filename
-                 :refresh-token nil
-                 :rules-override (storage-rules-mock "delete" "true")})
-  (delete-file! {:app-id app-id
-                 :filename filename
-                 :refresh-token nil
-                 :rules-override (storage-rules-mock "delete" "data.path.contains('demo')")})
-  (delete-file! {:app-id app-id
-                 :filename filename
-                 :refresh-token (:id refresh-token)
-                 :rules-override (storage-rules-mock "delete" "auth.id != null")}))
+  (assert-storage-permission! "delete" {:app-id app-id
+                                        :filename filename
+                                        :current-user nil
+                                        :rules-override (storage-rules-mock "delete" "true")})
+  (assert-storage-permission! "delete" {:app-id app-id
+                                        :filename filename
+                                        :current-user nil
+                                        :rules-override (storage-rules-mock "delete" "data.path.contains('demo')")})
+  (assert-storage-permission! "delete" {:app-id app-id
+                                        :filename filename
+                                        :current-user current-user
+                                        :rules-override (storage-rules-mock "delete" "auth.id != null")}))

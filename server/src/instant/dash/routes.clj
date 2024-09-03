@@ -880,14 +880,14 @@
 ;; Storage
 
 (defn signed-download-url-get [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
+  (let [filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
+        {{app-id :id} :app} (req->app-and-user! :collaborator req)
         data (storage-util/create-signed-download-url! app-id filename)]
     (response/ok {:data data})))
 
 (defn signed-upload-url-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        filename (ex/get-param! req [:body :filename] string-util/coerce-non-blank-str)
+  (let [filename (ex/get-param! req [:body :filename] string-util/coerce-non-blank-str)
+        {{app-id :id} :app} (req->app-and-user! :collaborator req)
         data (storage-util/create-signed-upload-url! app-id filename)]
     (response/ok {:data data})))
 
@@ -900,15 +900,15 @@
 
 ;; Deletes a single file by name/path (e.g. "demo.png", "profiles/me.jpg")
 (defn file-delete [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
+  (let [filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
+        {{app-id :id} :app} (req->app-and-user! :collaborator req)
         data (storage-util/delete-file! app-id filename)]
     (response/ok {:data data})))
 
 ;; Deletes a multiple files by name/path (e.g. "demo.png", "profiles/me.jpg")
 (defn files-delete [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        filenames (ex/get-param! req [:body :filenames] seq)
+  (let [filenames (ex/get-param! req [:body :filenames] seq)
+        {{app-id :id} :app} (req->app-and-user! :collaborator req)
         data (storage-util/bulk-delete-files! app-id filenames)]
     (response/ok {:data data})))
 
