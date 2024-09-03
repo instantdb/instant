@@ -228,7 +228,11 @@ function CreateFirstAppScreen(props: {
               props.onAppNameChange(t);
             }}
           />
-          <Button type="submit" disabled={props.appName.trim().length === 0}>
+          <Button
+            type="submit"
+            loading={props.isLoading}
+            disabled={props.appName.trim().length === 0}
+          >
             Let's build!
           </Button>
           {props.error ? (
