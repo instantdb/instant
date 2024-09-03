@@ -87,17 +87,24 @@
   pass?)
 
 (defn throw-permission-evaluation-failed! [etype action e]
-  (throw+ {::type ::permission-evaluation-failed
-           ::message
-           (str "Could not evaluate permission rule for "
-                [etype action]
-                ". You may have a typo. "
-                " Go to the permission tab in your dashboard to update your rule.")
-           ::hint {:rule [etype action]}}
-          e))
+  (let [cause-data (-> e (.getCause) ex-data)
+        cause-message (or (::message cause-data)
+                          "You may have a typo")]
+    (throw+ {::type ::permission-evaluation-failed
+             ::message
+             (format "Could not evaluate permission rule for `%s.%s`. %s. Go to the permission tab in your dashboard to update your rule."
+                     etype
+                     action
+                     cause-message)
+             ::hint (merge {:rule [etype action]}
+                           (when cause-data
+                             {:error {:type (keyword (name (::type cause-data)))
+                                      :message (::message cause-data)
+                                      :hint (::hint cause-data)}}))}
+            e)))
 
-;; ---------- 
-;; Validations 
+;; ----------
+;; Validations
 
 (defn throw-validation-err! [input-type input errors]
   (throw+ {::type ::validation-failed
