@@ -351,13 +351,13 @@ function init<Schema = {}>(config: Config) {
 function init_experimental<
   Schema extends i.InstantGraph<any, any, any>,
   WithCardinalityInference extends boolean = true,
->(config: Config) {
-  return new InstantAdmin<
-    Schema & {
-      schema: Schema;
-      cardinalityInference?: WithCardinalityInference;
-    }
-  >(config);
+>(
+  config: Config & {
+    schema: Schema;
+    cardinalityInference?: WithCardinalityInference;
+  },
+) {
+  return new InstantAdmin<Schema>(config);
 }
 
 /**
