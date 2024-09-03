@@ -294,8 +294,11 @@ export function StorageEnabledTab({
   ];
   const hasSelectedRows = Object.keys(selectedRows).length > 0;
 
+  const [uploadingFile, setUploadingFile] = useState(false);
+
   const handleUploadFile = async () => {
     try {
+      setUploadingFile(true);
       if (selectedFiles.length === 0) {
         return;
       }
@@ -312,6 +315,8 @@ export function StorageEnabledTab({
     } catch (err: any) {
       console.error('Failed to upload:', err);
       errorToast(`('Failed to upload: ${err.body.message}`);
+    } finally {
+      setUploadingFile(false);
     }
   };
 
@@ -449,6 +454,7 @@ export function StorageEnabledTab({
             variant="primary"
             disabled={selectedFiles.length === 0}
             size="mini"
+            loading={uploadingFile}
             onClick={handleUploadFile}
           >
             Upload file
