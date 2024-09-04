@@ -950,6 +950,7 @@
                              name-id? (= "id" (name attr-name))
                              new-attr? (not current-attr)
                              unchanged-attr? (and
+                                              (= (get new-attr :declared-type) (get current-attr :declared-type))
                                               (= (get new-attr :unique?) (get current-attr :unique?))
                                               (= (get new-attr :index?) (get current-attr :index?)))]
                              (cond
@@ -960,6 +961,7 @@
                                             :cardinality :one
                                             :id (UUID/randomUUID)
                                             :forward-identity [(UUID/randomUUID) (name ns-name) (name attr-name)]
+                                            :declared-type (:declared-type new-attr)
                                             :unique? (:unique? new-attr)
                                             :index? (:index? new-attr)}]
                                :else [:update-attr
@@ -967,6 +969,7 @@
                                        :cardinality :one
                                        :id (:id current-attr)
                                        :forward-identity (:forward-identity current-attr)
+                                       :declared-type (:declared-type new-attr)
                                        :unique? (:unique? new-attr)
                                        :index? (:index? new-attr)}])))
                          attrs))
