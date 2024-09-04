@@ -12,18 +12,18 @@
   (:import
    (java.util UUID)))
 
-(defn req->auth-user! [req]
+(defn req->superadmin-user! [req]
   (let [personal-access-token (http-util/req->bearer-token! req)]
     (instant-user-model/get-by-personal-access-token!
      {:personal-access-token personal-access-token})))
 
 (defn apps-list-get [req]
-  (let [{user-id :id} (req->auth-user! req)
+  (let [{user-id :id} (req->superadmin-user! req)
         apps (app-model/list-account-apps user-id)]
     (response/ok {:apps apps})))
 
 (defn apps-create-post [req]
-  (let [{user-id :id} (req->auth-user! req)
+  (let [{user-id :id} (req->superadmin-user! req)
         title (ex/get-param! req [:body :title] string/trim)
         app (app-model/create! {:id (UUID/randomUUID)
                                 :title title
@@ -32,13 +32,13 @@
     (response/ok {:app app})))
 
 (defn app-details-get [req]
-  (let [{user-id :id} (req->auth-user! req)
+  (let [{user-id :id} (req->superadmin-user! req)
         app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
         app (app-model/get-account-app-by-id! {:user-id user-id :app-id app-id})]
     (response/ok {:app app})))
 
 (defn app-update-post [req]
-  (let [{user-id :id} (req->auth-user! req)
+  (let [{user-id :id} (req->superadmin-user! req)
         id (ex/get-param! req [:params :app_id] uuid-util/coerce)
         {app-id :id} (app-model/get-account-app-by-id! {:user-id user-id
                                                         :app-id id})
@@ -47,7 +47,7 @@
     (response/ok {:app app})))
 
 (defn app-delete [req]
-  (let [{user-id :id} (req->auth-user! req)
+  (let [{user-id :id} (req->superadmin-user! req)
         id (ex/get-param! req [:params :app_id] uuid-util/coerce)
         {app-id :id} (app-model/get-account-app-by-id! {:user-id user-id
                                                         :app-id id})
