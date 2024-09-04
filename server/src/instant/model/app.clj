@@ -49,8 +49,8 @@
   (def user-id "6412d553-2749-4f52-898a-0b3ec42ffd28")
   (list-by-creator-id user-id))
 
-(defn get-creator-app-by-id
-  ([params] (get-creator-app-by-id aurora/conn-pool params))
+(defn get-by-id-and-creator
+  ([params] (get-by-id-and-creator aurora/conn-pool params))
   ([conn {:keys [user-id app-id]}]
    (sql/select-one conn
                    ["SELECT a.*
@@ -60,13 +60,13 @@
                       a.creator_id = ?::uuid"
                     app-id user-id])))
 
-(defn get-creator-app-by-id! [params]
-  (ex/assert-record! (get-creator-app-by-id params) :app {:args [params]}))
+(defn get-by-id-and-creator! [params]
+  (ex/assert-record! (get-by-id-and-creator params) :app {:args [params]}))
 
 (comment
   (def user-id "6412d553-2749-4f52-898a-0b3ec42ffd28")
   (def app-id "68b75bac-3ff7-4efe-9596-97ac0d03ab65")
-  (get-creator-app-by-id {:user-id user-id :app-id app-id}))
+  (get-by-id-and-creator {:user-id user-id :app-id app-id}))
 
 (defn get-app-ids-created-before
   ([params] (get-app-ids-created-before aurora/conn-pool params))

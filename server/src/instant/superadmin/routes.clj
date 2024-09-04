@@ -34,13 +34,13 @@
 (defn app-details-get [req]
   (let [{user-id :id} (req->superadmin-user! req)
         app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
-        app (app-model/get-creator-app-by-id! {:user-id user-id :app-id app-id})]
+        app (app-model/get-by-id-and-creator! {:user-id user-id :app-id app-id})]
     (response/ok {:app app})))
 
 (defn app-update-post [req]
   (let [{user-id :id} (req->superadmin-user! req)
         id (ex/get-param! req [:params :app_id] uuid-util/coerce)
-        {app-id :id} (app-model/get-creator-app-by-id! {:user-id user-id
+        {app-id :id} (app-model/get-by-id-and-creator! {:user-id user-id
                                                         :app-id id})
         title (ex/get-param! req [:body :title] string/trim)
         app (app-model/rename-by-id! {:id app-id :title title})]
@@ -49,7 +49,7 @@
 (defn app-delete [req]
   (let [{user-id :id} (req->superadmin-user! req)
         id (ex/get-param! req [:params :app_id] uuid-util/coerce)
-        {app-id :id} (app-model/get-creator-app-by-id! {:user-id user-id
+        {app-id :id} (app-model/get-by-id-and-creator! {:user-id user-id
                                                         :app-id id})
         app (app-model/delete-by-id! {:id app-id})]
     (response/ok {:app app})))
