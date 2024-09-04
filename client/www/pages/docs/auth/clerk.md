@@ -8,7 +8,7 @@ Instant supports delegating auth to Clerk.
 
 **Step 1: Configure Clerk**
 
-Go to your [Clerk dashboard](https://console.cloud.google.com/apis/credentials), navigate to `Sessions`, then click the `Edit` button in the `Customize session token` section.
+Go to your Clerk dashboard, navigate to [`Sessions`](https://dashboard.clerk.com/last-active?path=sessions), then click the `Edit` button in the `Customize session token` section.
 
 Add the email claim to your session token:
 
@@ -24,7 +24,7 @@ You can have additional claims as long as the `email` claim is set to `{{user.pr
 
 **Step 2: Get your Clerk Publishable key**
 
-On the [Clerk dashboard](https://console.cloud.google.com/apis/credentials), navigate to `API keys`, then copy the `Publishable key`. It should start with `pk_`.
+On the Clerk dashboard, navigate to [`API keys`](https://dashboard.clerk.com/last-active?path=api-keys), then copy the `Publishable key`. It should start with `pk_`.
 
 **Step 3: Register your Clerk Publishable key with your instant app**
 
