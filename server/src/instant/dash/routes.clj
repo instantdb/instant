@@ -56,7 +56,8 @@
             [instant.jdbc.aurora :as aurora]
             [instant.stripe :as stripe]
             [instant.storage.s3 :as s3-util]
-            [instant.storage.beta :as storage-beta])
+            [instant.storage.beta :as storage-beta]
+            [instant.model.instant-personal-access-token :as instant-personal-access-token-model])
 
   (:import
    (java.util UUID)
@@ -826,6 +827,38 @@
       (team-member-update-post
        (assoc owner-req :body {:role "admin" :id (:id member)})))))
 
+
+;; ---
+;; Personal access tokens
+
+(defn personal-access-tokens-get [req]
+  (let [{user-id :id} (req->auth-user! req)
+        personal-access-tokens (instant-personal-access-token-model/list-by-user-id! {:user-id user-id})]
+    (response/ok {:data personal-access-tokens})))
+
+(defn personal-access-tokens-post [req]
+  (let [{user-id :id} (req->auth-user! req)
+        name (ex/get-param! req [:body :name] string-util/coerce-non-blank-str)
+        personal-access-tokens (instant-personal-access-token-model/create! {:id (UUID/randomUUID)
+                                                                             :user-id user-id
+                                                                             :name name})]
+    (response/ok {:data personal-access-tokens})))
+
+(defn personal-access-tokens-delete [req]
+  (let [{user-id :id} (req->auth-user! req)
+        id (ex/get-param! req [:params :id] uuid-util/coerce)]
+    (instant-personal-access-token-model/delete-by-id! {:id id :user-id user-id})
+    (response/ok {})))
+
+(comment
+  (def user (instant-user-model/get-by-email {:email "alex@instantdb.com"}))
+  (def refresh-token (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id (:id user)}))
+  (def headers {"authorization" (str "Bearer " (:id refresh-token))})
+  (def record (personal-access-tokens-post {:headers headers :body {:name "Test Token"}}))
+
+  (personal-access-tokens-get {:headers headers})
+  (personal-access-tokens-delete {:headers headers :params {:id (-> record :body :data :id)}}))
+
 ;; --- 
 ;; Email templates
 
@@ -1262,6 +1295,10 @@
 
   (POST "/dash/invites/accept" [] team-member-invite-accept-post)
   (POST "/dash/invites/decline" [] team-member-invite-decline-post)
+
+  (GET "/dash/personal_access_tokens" [] personal-access-tokens-get)
+  (POST "/dash/personal_access_tokens" [] personal-access-tokens-post)
+  (DELETE "/dash/personal_access_tokens/:id" [] personal-access-tokens-delete)
 
   (POST "/dash/apps/:app_id/rename" [] app-rename-post)
 

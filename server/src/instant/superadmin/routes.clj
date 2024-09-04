@@ -55,7 +55,7 @@
     (response/ok {:app app})))
 
 (comment
-  (def user (instant-user-model/get-by-email {:email "reichertjalex@gmail.com"}))
+  (def user (instant-user-model/get-by-email {:email "alex@instantdb.com"}))
   (def token (instant-personal-access-token-model/create! {:id (UUID/randomUUID) :user-id (:id user)}))
   (def headers {"authorization" (str "Bearer " (:id token))})
   (def app-response (apps-create-post {:headers headers :body {:title "Demo App"}}))

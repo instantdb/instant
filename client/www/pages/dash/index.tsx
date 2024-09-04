@@ -54,6 +54,7 @@ import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { QueryInspector } from '@/components/dash/explorer/QueryInspector';
 import { Sandbox } from '@/components/dash/Sandbox';
 import { StorageTab } from '@/components/dash/Storage';
+import PersonalAccessTokensTab from '@/components/dash/PersonalAccessTokens';
 import { useForm } from '@/lib/hooks/useForm';
 
 // (XXX): we may want to expose this underlying type
@@ -77,6 +78,7 @@ type TabId =
   | 'admin'
   | 'billing'
   | 'storage'
+  | 'personalAccessTokens'
   | 'docs';
 
 interface Tab {
@@ -94,6 +96,7 @@ const tabs: Tab[] = [
   { id: 'storage', title: 'Storage' },
   { id: 'repl', title: 'Query Inspector' },
   { id: 'sandbox', title: 'Sandbox' },
+  { id: 'personalAccessTokens', title: 'Access Tokens', minRole: 'admin' },
   { id: 'admin', title: 'Admin', minRole: 'admin' },
   { id: 'billing', title: 'Billing', minRole: 'owner' },
   { id: 'docs', title: 'Docs' },
@@ -483,6 +486,9 @@ function Dashboard() {
                     app={app}
                     isEnabled={isStorageEnabled}
                   />
+                ) : tab == 'personalAccessTokens' &&
+                  isMinRole('admin', app.user_app_role) ? (
+                  <PersonalAccessTokensTab className="max-w-4xl py-4 px-4" />
                 ) : tab == 'admin' && isMinRole('admin', app.user_app_role) ? (
                   <Admin
                     dashResponse={dashResponse}
