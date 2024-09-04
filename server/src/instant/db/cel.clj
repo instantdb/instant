@@ -162,7 +162,10 @@
 (defn eval-program!
   [{:keys [cel-program etype action]} bindings]
   (try
-    (.eval ^CelRuntime$Program cel-program ^java.util.Map bindings)
+    (let [result (.eval ^CelRuntime$Program cel-program ^java.util.Map bindings)]
+      (if (= result NullValue/NULL_VALUE)
+        nil
+        result))
     (catch CelEvaluationException e
       (ex/throw-permission-evaluation-failed!
        etype action e))))

@@ -1225,6 +1225,19 @@
                 :users
                 (map :handle)
                 set))))
+
+      (testing "null shouldn't evaluate to true"
+        (rule-model/put!
+         aurora/conn-pool
+         {:app-id app-id :code {:users {:allow {:view "auth.isAdmin"}}}})
+        (is
+         (empty?
+          (->>  (pretty-perm-q
+                 {:app-id app-id :current-user nil}
+                 {:users {}})
+                :users
+                (map :handle)
+                set))))
       (testing "can only view authed user data"
         (rule-model/put!
          aurora/conn-pool
