@@ -3,34 +3,46 @@ import config from "../../config";
 
 const db = init_experimental({
   ...config,
-  schema: i.graph(
-    "",
-    {
-      habits: i.entity({
-        name: i.string(),
-      }),
-      checkins: i.entity({
-        date: i.string(),
-      }),
-    },
-    {
-      habitCheckins: {
-        forward: {
-          on: "habits",
-          has: "many",
-          label: "checkins",
-        },
-        reverse: {
-          on: "checkins",
-          has: "one",
-          label: "habit",
+  schema: i
+    .graph(
+      "",
+      {
+        habits: i.entity({
+          name: i.string(),
+        }),
+        checkins: i.entity({
+          date: i.string(),
+        }),
+      },
+      {
+        habitCheckins: {
+          forward: {
+            on: "habits",
+            has: "many",
+            label: "checkins",
+          },
+          reverse: {
+            on: "checkins",
+            has: "one",
+            label: "habit",
+          },
         },
       },
-    },
-  ),
+    )
+    .withRoomSchema<{
+      demo: {
+        presence: {
+          test: number;
+        };
+      };
+    }>(),
 });
 
 export default function Main() {
+  db.room("demo", "demo").useSyncPresence({
+    test: Date.now(),
+  });
+
   const { isLoading, error, data } = db.useQuery({
     checkins: {
       habit: {},
