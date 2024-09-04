@@ -245,10 +245,11 @@ export default class Reactor {
 
   _handleReceive(msg) {
     // opt-out, enabled by default if schema
-    const enableCardinalityInference =
-      "cardinalityInference" in this.config
+    const enableCardinalityInference = Boolean(this.config.schema)
+      ? "cardinalityInference" in this.config
         ? Boolean(this.config.cardinalityInference)
-        : true;
+        : true
+      : false;
 
     switch (msg.op) {
       case "init-ok":

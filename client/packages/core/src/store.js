@@ -75,7 +75,7 @@ function createIndexMap(attrs, triples) {
 export function createStore(attrs, triples, enableCardinalityInference) {
   const store = createIndexMap(attrs, triples);
   store.attrs = attrs;
-  store.cardinalityInference = true;
+  store.cardinalityInference = enableCardinalityInference;
   return store;
 }
 

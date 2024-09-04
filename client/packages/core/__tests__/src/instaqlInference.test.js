@@ -13,7 +13,7 @@ test("many-to-many with inference", () => {
   };
 
   const { result } = queryData(
-    { inference: true },
+    { cardinalityInference: true },
     [
       {
         id: ids.postsTagsLink,
@@ -77,7 +77,7 @@ test("one-to-one with inference", () => {
   };
 
   const { result } = queryData(
-    { inference: true },
+    { cardinalityInference: true },
     [
       {
         id: ids.usersProfilesLink,
@@ -141,7 +141,7 @@ test("one-to-one without inference", () => {
   };
 
   const { result } = queryData(
-    { inference: false },
+    { cardinalityInference: false },
     [
       {
         id: ids.usersProfilesLink,
@@ -203,7 +203,7 @@ function indexAttrs(attrs) {
 
 function queryData(config, attrs, triples, q) {
   const store = createStore(indexAttrs(attrs), triples);
-  if (config.inference) store.cardinalityInference = true;
+  if (config.cardinalityInference) store.cardinalityInference = true;
   const result = query({ store }, q);
 
   return { result, store };
