@@ -43,7 +43,7 @@ export function init_experimental<
 ) {
   return new InstantReactWeb<
     Schema,
-    Schema extends i.InstantGraph<any, infer RoomSchema, any>
+    Schema extends i.InstantGraph<any, any, infer RoomSchema>
       ? RoomSchema
       : never,
     WithCardinalityInference
