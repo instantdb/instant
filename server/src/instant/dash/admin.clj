@@ -135,7 +135,8 @@
                                                             :stripe-subs.subscription-id
                                                             :i_subs.stripe-subscription-id]
                           :apps [:= :i_subs.app_id :apps.id]
-                          [:instant_users :i_users] [:= :i_subs.user_id :i_users.id]]})))))
+                          [:instant_users :i_users] [:= :i_subs.user_id :i_users.id]]
+                   :order-by [[:start-timestamp :desc]]})))))
 
 (comment
   (get-top-users)
