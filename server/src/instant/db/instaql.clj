@@ -679,17 +679,6 @@
 ;; -----
 ;; query
 
-(defn ->guarded-ref-attr-pat
-  [ctx etype level label]
-  (try
-    (attr-pat/->ref-attr-pat ctx attr-pat/default-level-sym etype level label)
-    (catch clojure.lang.ExceptionInfo e
-      (if (contains? #{::ex/validation-failed}
-                     (::ex/type (ex-data e)))
-        (throw e)
-        (list (attr-pat/default-level-sym label level)
-              [(attr-pat/default-level-sym label level) '_ '_])))))
-
 (defn- form->child-forms
   "Given a form and eid, return a seq of all the possible child queries.
    This determines the etype for the child form, and adds a join condition on
@@ -699,7 +688,7 @@
     (let [{:keys [k]} form
 
           [next-etype next-level attr-pat]
-          (->guarded-ref-attr-pat ctx etype level k)
+          (attr-pat/->guarded-ref-attr-pat ctx etype level k)
 
           join-attr-pat (attr-pat/replace-in-attr-pat
                          attr-pat (attr-pat/default-level-sym etype level) eid)

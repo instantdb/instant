@@ -218,7 +218,6 @@
                                  ("eid-joe-averbukh" :users/email "joe@instantdb.com")
                                  ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")}})))
 
-
   (testing "offset"
     (is-pretty-eq? (query-pretty {:users {:$ {:offset 2
                                               :order {:serverCreatedAt :desc}}}})

@@ -106,6 +106,19 @@
         next-etype (if attr-fwd rev-etype fwd-etype)]
     (list next-etype next-level attr-pat attr (boolean attr-fwd))))
 
+(defn ->guarded-ref-attr-pat
+  [ctx etype level label]
+  (try
+    (->ref-attr-pat ctx default-level-sym etype level label)
+    (catch clojure.lang.ExceptionInfo e
+      (if (contains? #{::ex/validation-failed}
+                     (::ex/type (ex-data e)))
+        (throw e)
+        (list (default-level-sym label level)
+              [(default-level-sym label level) '_ '_]
+              nil
+              nil)))))
+
 (defn ->ref-attr-pats
   "Take the where-cond:
 
