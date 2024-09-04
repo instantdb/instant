@@ -45,6 +45,7 @@
         log-processor (SimpleSpanProcessor/create (logging-exporter/create))]
     (-> builder
         (.setApiKey honeycomb-api-key)
+        (.setEndpoint (config/get-honeycomb-endpoint))
         (.setDataset "metrics")
         (.setServiceName "instant-server")
         (.addSpanProcessor log-processor)

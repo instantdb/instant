@@ -140,6 +140,10 @@
 (defn get-google-oauth-client []
   (-> @config-map :google-oauth-client))
 
+(defn get-honeycomb-endpoint []
+  (or (System/getenv "HONEYCOMB_ENDPOINT")
+      "https://api.honeycomb.io:443"))
+
 (def server-origin (case (get-env)
                      :prod "https://api.instantdb.com"
                      "http://localhost:8888"))

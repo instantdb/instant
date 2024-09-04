@@ -149,7 +149,8 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     needs: [ clj-check ]
-    if: github.ref == 'refs/heads/main'
+    # XXX: refinery BACK TO main
+    if: github.ref == 'refs/heads/refinery'
     permissions:
       id-token: write
       contents: read
@@ -200,7 +201,7 @@ jobs:
       uses: "./.github/actions/elastic-beanstalk"
       with:
         working-directory: "server"
-        files: '["docker-compose.yml", ".platform/hooks/prebuild/logdna.sh"]'
+        files: '["docker-compose.yml", ".platform/hooks/prebuild/logdna.sh", "refinery/config.yaml", "refinery/rules.yaml"]'
         aws-region: "us-east-1"
         bucket: "elasticbeanstalk-us-east-1-597134865416"
         application-name: "instant-docker-prod"
