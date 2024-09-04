@@ -167,21 +167,21 @@
            (end-span! *span*))))))
 
 ;; (XXX)
-;; Given a `sample-rate`, we will randomly skip spans at that rate 
+;; Given a `sample-rate`, we will randomly skip spans at that rate
 ;; All children of a skipped span will also be skipped.
-;; 
+;;
 ;; There are more 'idiomatic' ways to do this:
 ;; 1. We could use honeycomb's 'refinery'
-;;     This is a service that takes a full trace, 
-;;     and lets us make a decision about whether to keep it or not. 
-;;     For example, if a trace has an error, we 100% keep it 
-;;   
+;;     This is a service that takes a full trace,
+;;     and lets us make a decision about whether to keep it or not.
+;;     For example, if a trace has an error, we 100% keep it
+;;
 ;;     The con: This requires us to create a cluster of 'refinery' services.
 ;;             That's ops overhead
-;; 2. Another option is to use a `Sampler` when we set up the SDK. 
-;;     
+;; 2. Another option is to use a `Sampler` when we set up the SDK.
+;;
 ;;     The con: our SDK is a bit out of date, and we didn't want to write more code for this version
-;; 
+;;
 ;; Going with some manual clojure macros for now.
 (defmacro with-span!
   [span-opts & body]
@@ -210,7 +210,7 @@
     (with-span! {:name "foo" :sample-rate 0.5}
       (+ 1 1)))
 
-  ;; this will never print, since the parent span is skipped 
+  ;; this will never print, since the parent span is skipped
   (with-redefs [new-span! (fn [& args] (println "new-span!" args))
                 end-span! (fn [& _] _)]
     (with-span! {:name "foo" :sample-rate 0}
@@ -219,13 +219,13 @@
 
 (defn record-info!
   "Analogous to log/info.
-  
-  Sometimes you want to just log some information, but there is no parent span. 
-  
-  For example, if you have a long-running process, it wouldn't make sense to have a 
-  parent span that encompasses the entire process. 
- 
-  This function creates a one-off span for you, which you can use to send information 
+
+  Sometimes you want to just log some information, but there is no parent span.
+
+  For example, if you have a long-running process, it wouldn't make sense to have a
+  parent span that encompasses the entire process.
+
+  This function creates a one-off span for you, which you can use to send information
   to Honeycomb."
   [opts]
   (with-span! opts))
