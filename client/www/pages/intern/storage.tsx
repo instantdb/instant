@@ -79,10 +79,10 @@ function StorageMetricsTable({ data }: { data: any }) {
           {data.map((row: any, index: number) => (
             <tr key={index}>
               <td className="py-2 px-4 border-b border-gray-200">
-                {`${index + 1}@instant.com` || row.creator_email || '-'}
+                {row.creator_email || '-'}
               </td>
               <td className="py-2 px-4 border-b border-gray-200">
-                {`App v${index + 1}` || row.title || '-'}
+                {row.title || '-'}
               </td>
               <td className="py-2 px-4 border-b border-gray-200 text-right">
                 {row.total_file_count || 0}
