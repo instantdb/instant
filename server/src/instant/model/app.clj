@@ -49,6 +49,22 @@
                   a.created_at < ?"
               creator-id created-before]))))
 
+(defn get-with-creator-by-ids
+  ([params] (get-with-creator-by-ids aurora/conn-pool params))
+  ([conn app-ids]
+   (sql/select conn ["SELECT a.*, u.email AS creator_email
+                      FROM apps a
+                      JOIN instant_users u ON a.creator_id = u.id
+                      WHERE a.id in (select unnest(?::uuid[]))"
+                     (-> app-ids
+                         vec
+                         (with-meta {:pgtype "uuid[]"})
+                         into-array)])))
+
+(comment
+  (get-with-creator-by-ids ["41c12a82-f769-42e8-aad8-53bf33bbaba9"
+                            "59aafa92-a900-4b3d-aaf1-45032ee8d415"]))
+
 (defn get-all-for-user
   ([params] (get-all-for-user aurora/conn-pool params))
   ([conn {:keys [user-id]}]
