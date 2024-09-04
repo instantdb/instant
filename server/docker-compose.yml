@@ -6,6 +6,7 @@ services:
     environment:
       - BEANSTALK_PORT=5000
       - PRODUCTION=true
+      - HONEYCOMB_ENDPOINT=http://localhost:8082
     env_file:
       - .env
     ports:
