@@ -1169,7 +1169,7 @@ function AddClerkClientForm({
               className="underline"
               target="_blank"
               rel="noopener noreferer"
-              href="https://dashboard.clerk.com"
+              href="https://dashboard.clerk.com/last-active?path=api-keys"
             >
               Clerk dashboard
             </a>
@@ -1182,7 +1182,7 @@ function AddClerkClientForm({
           Navigate to your{' '}
           <a
             className="underline"
-            href={`https://dashboard.clerk.com`}
+            href={"https://dashboard.clerk.com/last-active?path=sessions"}
             target="_blank"
             rel="noopener noreferer"
           >
