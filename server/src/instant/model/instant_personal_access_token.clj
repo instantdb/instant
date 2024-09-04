@@ -31,7 +31,7 @@
                       id user-id])))
 
 (comment
-  (def user (instant-user-model/get-by-email {:email "reichertjalex@gmail.com"}))
+  (def user (instant-user-model/get-by-email {:email "alex@instantdb.com"}))
   (def record (create! {:id (UUID/randomUUID) :user-id (:id user) :name "Default Token"}))
   (list-by-user-id! {:user-id (:id user)})
   (delete-by-id! {:id (:id record) :user-id (:id user)}))
