@@ -8,8 +8,15 @@
 (defn list-buckets []
   (s3/list-buckets))
 
-(defn list-objects [bucket-name]
-  (s3/list-objects bucket-name))
+(defn list-objects
+  ([] (list-objects default-bucket))
+  ([bucket-name]
+   (s3/list-objects bucket-name)))
+
+(defn list-objects-v2
+  ([opts] (list-objects-v2 default-bucket opts))
+  ([bucket-name opts]
+   (s3/list-objects-v2 (merge {:bucket-name bucket-name} opts))))
 
 (defn get-object
   ([object-key] (get-object default-bucket object-key))

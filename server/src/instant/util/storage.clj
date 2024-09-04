@@ -17,6 +17,10 @@
 (defn ->object-key [app-id filename]
   (str app-id "/" filename))
 
+;; extracts app-id
+(defn object-key->app-id [object-key]
+  (first (string/split object-key #"/")))
+
 ;; extracts filename from app-id directory scope
 (defn object-key->filename [object-key]
   (string/join "/" (rest (string/split object-key #"/"))))
@@ -185,3 +189,38 @@
                                         :filename filename
                                         :current-user current-user
                                         :rules-override (storage-rules-mock "delete" "auth.id != null")}))
+
+;; Usage metrics
+
+(defn list-all-app-objects []
+  (loop [all-objects []
+         continuation-token nil]
+    (let [opts (if continuation-token
+                 {:continuation-token continuation-token}
+                 {})
+          {:keys [object-summaries next-continuation-token truncated?]}
+          (s3-util/list-objects-v2 opts)]
+      (if truncated?
+        (recur (into all-objects object-summaries) next-continuation-token)
+        (into all-objects object-summaries)))))
+
+(defn list-objects-by-app []
+  (let [objects (list-all-app-objects)]
+    (reduce (fn [acc obj]
+              (let [{k :key size :size} obj
+                    app-id (object-key->app-id k)]
+                (update acc app-id conj {:key k :size size})))
+            {} objects)))
+
+
+(defn calculate-app-metrics []
+  (let [objects-by-app-id (list-objects-by-app)]
+    (reduce (fn [acc [app-id objects]]
+              (assoc acc app-id {:total-byte-size (reduce (fn [acc obj] (+ acc (:size obj))) 0 objects)
+                                 :total-file-count (count objects)}))
+            {} objects-by-app-id)))
+
+(comment
+  (count (list-all-app-objects))
+  (list-objects-by-app)
+  (calculate-app-metrics))

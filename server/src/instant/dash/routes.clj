@@ -263,15 +263,20 @@
     (assert-admin-email! email)
     (response/ok {:users (dash-admin/get-recent)})))
 
-(defn top-get [req]
+(defn admin-top-get [req]
   (let [{:keys [email]} (req->auth-user! req)]
     (assert-admin-email! email)
     (response/ok {:users (dash-admin/get-top-users)})))
 
-(defn paid-get [req]
+(defn admin-paid-get [req]
   (let [{:keys [email]} (req->auth-user! req)]
     (assert-admin-email! email)
     (response/ok {:subscriptions (dash-admin/get-paid)})))
+
+(defn admin-storage-get [req]
+  (let [{:keys [email]} (req->auth-user! req)]
+    (assert-admin-email! email)
+    (response/ok {:apps (dash-admin/get-storage-metrics)})))
 
 ;; ---
 ;; Dash
@@ -1198,8 +1203,12 @@
   (POST "/dash/auth/send_magic_code" [] send-magic-code-post)
   (POST "/dash/auth/verify_magic_code" [] verify-magic-code-post)
   (GET "/dash/admin" [] admin-get)
-  (GET "/dash/top" [] top-get)
-  (GET "/dash/paid" [] paid-get)
+
+  ;; internal admin routes
+  (GET "/dash/top" [] admin-top-get)
+  (GET "/dash/paid" [] admin-paid-get)
+  (GET "/dash/storage" [] admin-storage-get)
+
   (GET "/dash" [] dash-get)
   (POST "/dash/apps" [] apps-post)
   (POST "/dash/profiles" [] profiles-post)

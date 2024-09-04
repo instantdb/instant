@@ -49,6 +49,14 @@
                   a.created_at < ?"
               creator-id created-before]))))
 
+(defn get-with-creator-by-id
+  ([params] (get-with-creator-by-id aurora/conn-pool params))
+  ([conn app-id]
+   (sql/select-one conn ["SELECT a.*, u.email AS creator_email
+                          FROM apps a
+                          JOIN instant_users u ON a.creator_id = u.id
+                          WHERE a.id = ?::uuid" app-id])))
+
 (defn get-all-for-user
   ([params] (get-all-for-user aurora/conn-pool params))
   ([conn {:keys [user-id]}]
