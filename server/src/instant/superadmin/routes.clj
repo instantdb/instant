@@ -5,6 +5,7 @@
             [instant.util.uuid :as uuid-util]
             [instant.model.app :as app-model]
             [instant.model.instant-user :as instant-user-model]
+            [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
             [instant.util.exception :as ex]
             [instant.util.http :as http-util])
 
@@ -12,8 +13,9 @@
    (java.util UUID)))
 
 (defn req->auth-user! [req]
-  (let [refresh-token (http-util/req->bearer-token! req)]
-    (instant-user-model/get-by-refresh-token! {:refresh-token refresh-token})))
+  (let [personal-access-token (http-util/req->bearer-token! req)]
+    (instant-user-model/get-by-personal-access-token!
+     {:personal-access-token personal-access-token})))
 
 (defn apps-list-get [req]
   (let [{user-id :id} (req->auth-user! req)
@@ -51,6 +53,18 @@
                                                         :app-id id})
         app (app-model/delete-by-id! {:id app-id})]
     (response/ok {:app app})))
+
+(comment
+  (def user (instant-user-model/get-by-email {:email "reichertjalex@gmail.com"}))
+  (def token (instant-personal-access-token-model/create! {:id (UUID/randomUUID) :user-id (:id user)}))
+  (def headers {"authorization" (str "Bearer " (:id token))})
+  (def app-response (apps-create-post {:headers headers :body {:title "Demo App"}}))
+  (def app-id (-> app-response :body :app :id))
+
+  (apps-list-get {:headers headers})
+  (app-details-get {:headers headers :params {:app_id app-id}})
+  (app-update-post {:headers headers :params {:app_id app-id} :body {:title "Updated Demo App"}})
+  (app-delete {:headers headers :params {:app_id app-id}}))
 
 (defroutes routes
   (GET "/superadmin/apps" [] apps-list-get)
