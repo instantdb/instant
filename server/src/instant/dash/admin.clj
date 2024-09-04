@@ -140,23 +140,20 @@
                           [:instant_users :i_users] [:= :i_subs.user_id :i_users.id]]})))))
 
 
-(defn format-app-storage-usage [{:keys [app-id metrics]}]
-  {:app_id app-id
-   :total_byte_size (:total-byte-size metrics)
-   :total_file_count (:total-file-count metrics)})
+(defn format-app-storage-usage [{:keys [app-id app metrics]}]
+  (merge app {:app_id app-id
+              :total_byte_size (:total-byte-size metrics)
+              :total_file_count (:total-file-count metrics)}))
 
 (defn get-storage-metrics []
   (let [metrics-by-app-id (storage-util/calculate-app-metrics)
         app-ids (keys metrics-by-app-id)
-        apps-by-id (reduce (fn [acc app-id]
-                             (assoc acc app-id (app-model/get-with-creator-by-id app-id)))
-                           {} app-ids)]
+        apps-by-id (into {} (map (juxt identity app-model/get-with-creator-by-id) app-ids))]
     (->> app-ids
-         (map (fn [app-id]
-                (merge
-                 (get apps-by-id app-id)
-                 (format-app-storage-usage {:app-id app-id
-                                            :metrics (metrics-by-app-id app-id)}))))
+         (map #(format-app-storage-usage
+                {:app-id %
+                 :app (apps-by-id %)
+                 :metrics (metrics-by-app-id %)}))
          (sort-by :total_byte_size >))))
 
 (comment
