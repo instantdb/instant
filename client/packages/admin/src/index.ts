@@ -1,5 +1,14 @@
-import { tx, lookup, TransactionChunk, getOps } from "@instantdb/core";
-import { User, AuthToken, id } from "@instantdb/core";
+import {
+  tx,
+  lookup,
+  TransactionChunk,
+  getOps,
+  i,
+  User,
+  AuthToken,
+  id,
+  txInit,
+} from "@instantdb/core";
 
 // Query Types
 // -----
@@ -62,6 +71,10 @@ interface Query {
   [namespace: string]: NamespaceVal;
 }
 
+type Remove$<T> = T extends object
+  ? { [K in keyof T as Exclude<K, "$">]: Remove$<T[K]> }
+  : T;
+
 type InstantObject = {
   id: string;
   [prop: string]: any;
@@ -79,14 +92,112 @@ type ResponseOf<Q, Schema> = {
     : (ResponseOf<Q[K], Schema> & ResponseObject<K, Schema>)[];
 };
 
-type Remove$<T> = T extends object
-  ? { [K in keyof T as Exclude<K, "$">]: Remove$<T[K]> }
-  : T;
+// ==========
+// InstaQL helpers
 
-type QueryResponse<T, Schema> = ResponseOf<
-  { [K in keyof T]: Remove$<T[K]> },
-  Schema
->;
+type InstaQLQueryEntityAttrsResult<
+  Entities extends i.EntitiesDef,
+  EntityName extends keyof Entities,
+> = {
+  [AttrName in keyof Entities[EntityName]["attrs"]]: Entities[EntityName]["attrs"][AttrName] extends i.DataAttrDef<
+    infer ValueType,
+    infer IsRequired
+  >
+    ? IsRequired extends true
+      ? ValueType
+      : ValueType | undefined
+    : never;
+};
+
+type InstaQLQueryEntityLinksResult<
+  Entities extends i.EntitiesDef,
+  EntityName extends keyof Entities,
+  Query extends {
+    [LinkAttrName in keyof Entities[EntityName]["links"]]?: any;
+  },
+  WithCardinalityInference,
+> = {
+  [QueryPropName in keyof Query]: Entities[EntityName]["links"][QueryPropName] extends i.LinkAttrDef<
+    infer Cardinality,
+    infer LinkedEntityName
+  >
+    ? LinkedEntityName extends keyof Entities
+      ? WithCardinalityInference extends true
+        ? Cardinality extends "one"
+          ?
+              | InstaQLQueryEntityResult<
+                  Entities,
+                  LinkedEntityName,
+                  Query[QueryPropName]
+                >
+              | undefined
+          : InstaQLQueryEntityResult<
+              Entities,
+              LinkedEntityName,
+              Query[QueryPropName]
+            >[]
+        : InstaQLQueryEntityResult<
+            Entities,
+            LinkedEntityName,
+            Query[QueryPropName]
+          >[]
+      : never
+    : never;
+};
+
+type InstaQLQueryEntityResult<
+  Entities extends i.EntitiesDef,
+  EntityName extends keyof Entities,
+  Query extends {
+    [QueryPropName in keyof Entities[EntityName]["links"]]?: any;
+  },
+  WithCardinalityInference = false,
+> = { id: string } & InstaQLQueryEntityAttrsResult<Entities, EntityName> &
+  InstaQLQueryEntityLinksResult<
+    Entities,
+    EntityName,
+    Query,
+    WithCardinalityInference
+  >;
+
+type InstaQLQueryResult<
+  Entities extends i.EntitiesDef,
+  Query,
+  WithCardinalityInference = false,
+> = {
+  [QueryPropName in keyof Query]: QueryPropName extends keyof Entities
+    ? InstaQLQueryEntityResult<
+        Entities,
+        QueryPropName,
+        Query[QueryPropName],
+        WithCardinalityInference
+      >[]
+    : never;
+};
+
+type QueryResponse<T, Schema, WithCardinalityInference = false> =
+  Schema extends i.InstantGraph<infer E, any>
+    ? InstaQLQueryResult<E, T, WithCardinalityInference>
+    : ResponseOf<{ [K in keyof T]: Remove$<T[K]> }, Schema>;
+
+type InstaQLQuerySubqueryParams<
+  S extends i.InstantGraph<any, any>,
+  E extends keyof S["entities"],
+> = {
+  [K in keyof S["entities"][E]["links"]]?:
+    | $Option
+    | ($Option &
+        InstaQLQuerySubqueryParams<
+          S,
+          S["entities"][E]["links"][K]["entityName"]
+        >);
+};
+
+type InstaQLQueryParams<S extends i.InstantGraph<any, any>> = {
+  [K in keyof S["entities"]]?:
+    | $Option
+    | ($Option & InstaQLQuerySubqueryParams<S, K>);
+};
 
 /**
  * `debugQuery` returns the results of evaluating the corresponding permissions rules for each record.
@@ -134,7 +245,9 @@ type Config = {
   apiURI?: string;
 };
 
-type FilledConfig = Config & { apiURI: string };
+type FilledConfig = Config & { apiURI: string } & {
+  schema?: i.InstantGraph<any, any>;
+};
 
 type ImpersonationOpts =
   | { email: string }
@@ -235,6 +348,18 @@ function init<Schema = {}>(config: Config) {
   return new InstantAdmin<Schema>(config);
 }
 
+function init_experimental<
+  Schema extends i.InstantGraph<any, any, any>,
+  WithCardinalityInference extends boolean = true,
+>(
+  config: Config & {
+    schema: Schema;
+    cardinalityInference?: WithCardinalityInference;
+  },
+) {
+  return new InstantAdmin<Schema>(config);
+}
+
 /**
  *
  * The first step: init your application!
@@ -244,11 +369,18 @@ function init<Schema = {}>(config: Config) {
  * @example
  *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
  */
-class InstantAdmin<Schema = {}> {
+class InstantAdmin<Schema extends i.InstantGraph<any, any> | {} = {}> {
   config: FilledConfig;
   auth: Auth;
   storage: Storage;
   impersonationOpts?: ImpersonationOpts;
+
+  public tx =
+    txInit<
+      Schema extends i.InstantGraph<any, any>
+        ? Schema
+        : i.InstantGraph<any, any>
+    >();
 
   constructor(_config: Config) {
     this.config = configWithDefaults(_config);
@@ -286,13 +418,25 @@ class InstantAdmin<Schema = {}> {
    *  // all goals, _alongside_ their todos
    *  await db.query({ goals: { todos: {} } })
    */
-  query = <Q extends Query>(
-    query: Exactly<Query, Q>,
+  query = <
+    Q extends Schema extends i.InstantGraph<any, any>
+      ? InstaQLQueryParams<Schema>
+      : Exactly<Query, Q>,
+  >(
+    query: Q,
   ): Promise<QueryResponse<Q, Schema>> => {
+    const withInference =
+      "cardinalityInference" in this.config
+        ? Boolean(this.config.cardinalityInference)
+        : true;
+
     return jsonFetch(`${this.config.apiURI}/admin/query`, {
       method: "POST",
       headers: authorizedHeaders(this.config, this.impersonationOpts),
-      body: JSON.stringify({ query: query }),
+      body: JSON.stringify({
+        query: query,
+        "inference?": withInference,
+      }),
     });
   };
 
@@ -319,7 +463,9 @@ class InstantAdmin<Schema = {}> {
    *    tx.goals[goalId].link({todos: todoId}),
    *  ])
    */
-  transact = (inputChunks: TransactionChunk | TransactionChunk[]) => {
+  transact = (
+    inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
+  ) => {
     const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
     const steps = chunks.flatMap((tx) => getOps(tx));
     return jsonFetch(`${this.config.apiURI}/admin/transact`, {
@@ -391,7 +537,7 @@ class InstantAdmin<Schema = {}> {
    *   )
    */
   debugTransact = (
-    inputChunks: TransactionChunk | TransactionChunk[],
+    inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
     opts?: { rules?: any },
   ) => {
     const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
@@ -685,9 +831,11 @@ class Storage {
 
 export {
   init,
+  init_experimental,
   id,
   tx,
   lookup,
+  i,
 
   // types
   Config,

@@ -246,6 +246,13 @@ export default class Reactor {
   }
 
   _handleReceive(msg) {
+    // opt-out, enabled by default if schema
+    const enableCardinalityInference =
+      Boolean(this.config.schema) &&
+      ("cardinalityInference" in this.config
+        ? Boolean(this.config.cardinalityInference)
+        : true);
+
     switch (msg.op) {
       case "init-ok":
         this._setStatus(STATUS.AUTHENTICATED);
@@ -263,7 +270,11 @@ export default class Reactor {
         const pageInfo = result?.[0]?.data?.["page-info"];
         const aggregate = result?.[0]?.data?.["aggregate"];
         const triples = extractTriples(result);
-        const store = s.createStore(this.attrs, triples);
+        const store = s.createStore(
+          this.attrs,
+          triples,
+          enableCardinalityInference,
+        );
         this.querySubs.set((prev) => {
           prev[hash].result = { store, pageInfo, aggregate };
           return prev;
@@ -279,7 +290,11 @@ export default class Reactor {
           const result = x["instaql-result"];
           const hash = weakHash(q);
           const triples = extractTriples(result);
-          const store = s.createStore(this.attrs, triples);
+          const store = s.createStore(
+            this.attrs,
+            triples,
+            enableCardinalityInference,
+          );
           const pageInfo = result?.[0]?.data?.["page-info"];
           const aggregate = result?.[0]?.data?.["aggregate"];
           return { hash, store, pageInfo, aggregate };

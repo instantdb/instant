@@ -5,6 +5,8 @@ import {
   Exactly,
   InstantClient,
   LifecycleSubscriptionState,
+  InstaQLQueryParams,
+  i,
 } from "@instantdb/core";
 import { useCallback, useRef, useSyncExternalStore } from "react";
 
@@ -15,10 +17,19 @@ const defaultState = {
   error: undefined,
 };
 
-export function useQuery<Q extends Query, Schema>(
-  _core: InstantClient<Schema>,
-  _query: Exactly<Query, Q> | null,
-): { state: LifecycleSubscriptionState<Q, Schema>; query: any } {
+export function useQuery<
+  Q extends Schema extends i.InstantGraph<any, any>
+    ? InstaQLQueryParams<Schema>
+    : Exactly<Query, Q>,
+  Schema,
+  WithCardinalityInference extends boolean,
+>(
+  _core: InstantClient<Schema, any, WithCardinalityInference>,
+  _query: null | Q,
+): {
+  state: LifecycleSubscriptionState<Q, Schema, WithCardinalityInference>;
+  query: any;
+} {
   const query = _query ? coerceQuery(_query) : null;
   const queryHash = weakHash(query);
 
@@ -27,7 +38,9 @@ export function useQuery<Q extends Query, Schema>(
   // If we don't use a ref, the state will always be considered different, so
   // the component will always re-render.
   const resultCacheRef =
-    useRef<LifecycleSubscriptionState<Q, Schema>>(defaultState);
+    useRef<LifecycleSubscriptionState<Q, Schema, WithCardinalityInference>>(
+      defaultState,
+    );
 
   // (XXX): Similar to `resultCacheRef`, `useSyncExternalStore` will unsubscribe if
   // `subscribe` changes, so we need to use `useCallback` to memoize the function.
@@ -57,7 +70,9 @@ export function useQuery<Q extends Query, Schema>(
     [queryHash],
   );
 
-  const state = useSyncExternalStore<LifecycleSubscriptionState<Q, Schema>>(
+  const state = useSyncExternalStore<
+    LifecycleSubscriptionState<Q, Schema, WithCardinalityInference>
+  >(
     subscribe,
     () => resultCacheRef.current,
     () => defaultState,

@@ -1,3 +1,5 @@
+import type { RoomSchemaShape } from "./presence";
+
 export {
   // constructs
   graph,
@@ -9,7 +11,11 @@ export {
   json,
   any,
   // types
-  InstaQLQueryResult,
+  type InstantGraph,
+  type EntitiesDef,
+  type LinksDef,
+  type LinkAttrDef,
+  type DataAttrDef,
 };
 
 // ==========
@@ -190,12 +196,21 @@ class DataAttrDef<ValueType, IsRequired extends boolean> {
 class InstantGraph<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
+  RoomSchema extends RoomSchemaShape = {},
 > {
   constructor(
     public appId: string,
     public entities: Entities,
     public links: Links,
   ) {}
+
+  withRoomSchema<RoomSchema extends RoomSchemaShape>() {
+    return new InstantGraph<Entities, Links, RoomSchema>(
+      this.appId,
+      this.entities,
+      this.links,
+    );
+  }
 }
 
 // ==========
@@ -295,12 +310,12 @@ type EntityForwardLinksMap<
   ? {
       [LinkName in keyof LinkIndexFwd[EntityName]]: LinkIndexFwd[EntityName][LinkName] extends LinkDef<
         Entities,
-        any,
-        any,
-        infer Cardinality,
         infer RelatedEntityName,
         any,
-        any
+        any,
+        any,
+        any,
+        infer Cardinality
       >
         ? {
             entityName: RelatedEntityName;
@@ -319,12 +334,12 @@ type EntityReverseLinksMap<
   ? {
       [LinkName in keyof RevLinkIndex[EntityName]]: RevLinkIndex[EntityName][LinkName] extends LinkDef<
         Entities,
+        any,
+        any,
+        infer Cardinality,
         infer RelatedEntityName,
         any,
-        any,
-        any,
-        any,
-        infer Cardinality
+        any
       >
         ? {
             entityName: RelatedEntityName;
@@ -362,64 +377,4 @@ type LinksIndexedByEntity<
         >
       : never;
   };
-};
-
-// ==========
-// InstaQL helpers
-
-type InstaQLAttrsResult<
-  Entities extends EntitiesDef,
-  EntityName extends keyof Entities,
-> = {
-  [AttrName in keyof Entities[EntityName]["attrs"]]: Entities[EntityName]["attrs"][AttrName] extends DataAttrDef<
-    infer ValueType,
-    infer IsRequired
-  >
-    ? IsRequired extends true
-      ? ValueType
-      : ValueType | undefined
-    : never;
-};
-
-type InstaQLLinksResult<
-  Entities extends EntitiesDef,
-  EntityName extends keyof Entities,
-  Query extends {
-    [LinkAttrName in keyof Entities[EntityName]["links"]]?: any;
-  },
-> = {
-  [QueryPropName in keyof Query]: Entities[EntityName]["links"][QueryPropName] extends LinkAttrDef<
-    infer Cardinality,
-    infer LinkedEntityName
-  >
-    ? LinkedEntityName extends keyof Entities
-      ? Cardinality extends "one"
-        ? InstaQLEntityResult<Entities, LinkedEntityName, Query[QueryPropName]>
-        : InstaQLEntityResult<
-            Entities,
-            LinkedEntityName,
-            Query[QueryPropName]
-          >[]
-      : never
-    : never;
-};
-
-type InstaQLEntityResult<
-  Entities extends EntitiesDef,
-  EntityName extends keyof Entities,
-  Query extends {
-    [QueryPropName in keyof Entities[EntityName]["links"]]?: any;
-  },
-> = InstaQLAttrsResult<Entities, EntityName> &
-  InstaQLLinksResult<Entities, EntityName, Query>;
-
-type InstaQLQueryResult<Entities extends EntitiesDef, Query> = {
-  [QueryPropName in keyof Query]: QueryPropName extends keyof Entities
-    ? Query[QueryPropName] extends { $first: any }
-      ? Omit<
-          InstaQLEntityResult<Entities, QueryPropName, Query[QueryPropName]>,
-          "$first"
-        >
-      : InstaQLEntityResult<Entities, QueryPropName, Query[QueryPropName]>[]
-    : never;
 };

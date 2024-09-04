@@ -11,6 +11,7 @@
             [instant.model.app-user :as app-user-model]
             [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
             [instant.db.datalog :as d]
+            [instant.db.model.attr-pat :as attr-pat]
             [instant.model.rule :as rule-model]
             [instant.util.exception :as ex]
             [instant.util.string :as string-util]
@@ -19,7 +20,6 @@
             [instant.util.json :refer [<-json ->json]]
             [instant.db.model.entity :as entity-model]
             [instant.util.storage :as storage-util])
-
   (:import
    (java.util UUID)))
 
@@ -77,28 +77,60 @@
 ;; ------
 ;; Query
 
-(declare instaql-nodes->object-tree)
+(declare instaql-ref-nodes->object-tree)
 
-(defn obj-node [attrs node]
+(defn enrich-node [attrs parent-etype node]
+  (let [label (-> node :data :k)
+        pat (attr-pat/->ref-attr-pat {:attrs attrs}
+                                     attr-pat/default-level-sym
+                                     parent-etype
+                                     0
+                                     label)
+        [next-etype _ _ attr forward?] pat
+        enriched-node (update node
+                              :data
+                              (fn [d] (assoc d
+                                             :etype next-etype
+                                             :attr attr
+                                             :forward? forward?)))]
+    enriched-node))
+
+(defn obj-node [ctx attrs etype node]
   (let [datalog-result (-> node :data :datalog-result)
-        m (entity-model/datalog-result->map {:attrs attrs} datalog-result)
-        children (some->>  node
-                           :child-nodes
-                           (instaql-nodes->object-tree attrs))]
-    (merge m children)))
+        blob-entries (entity-model/datalog-result->map {:attrs attrs} datalog-result)
+        ref-entries (some->> node
+                             :child-nodes
+                             (map (partial enrich-node attrs etype))
+                             (instaql-ref-nodes->object-tree ctx attrs))]
+    (merge blob-entries ref-entries)))
 
-(defn instaql-nodes->object-tree [attrs nodes]
+
+(defn singular-entry? [data]
+  (if (-> data :forward?)
+    (= :one (-> data :attr :cardinality))
+    (-> data :attr :unique?)))
+
+(defn instaql-ref-nodes->object-tree [ctx attrs nodes]
   (reduce
    (fn [acc node]
-     (let [{:keys [child-nodes data]} node]
-       (assoc acc (:k data)
-              (map (partial obj-node attrs)  child-nodes))))
-
+     (let [{:keys [child-nodes data]} node
+           entries (map (partial obj-node ctx attrs (-> data :etype)) child-nodes)
+           singular? (and (:inference? ctx) (singular-entry? data))
+           entry-or-entries (if singular? (first entries) entries)]
+       (assoc acc (:k data) entry-or-entries)))
    {}
    nodes))
 
+(defn instaql-nodes->object-tree [ctx attrs nodes]
+  (let [enriched-nodes
+        (map (fn [n] (update n :data (fn [d] (assoc d :etype (:k d))))) nodes)]
+    (instaql-ref-nodes->object-tree ctx
+                                    attrs
+                                    enriched-nodes)))
+
 (defn query-post [req]
   (let [query (ex/get-param! req [:body :query] #(when (map? %) %))
+        inference? (-> req :body :inference? boolean)
         {:keys [app-id] :as perms} (get-perms! req)
         attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
         ctx (merge {:db {:conn-pool aurora/conn-pool}
@@ -107,16 +139,26 @@
                     :datalog-query-fn d/query
                     :datalog-loader (d/make-loader)}
                    perms)
+        nodes (iq/permissioned-query ctx query)
         result (instaql-nodes->object-tree
+                {:inference? inference?}
                 attrs
-                (iq/permissioned-query ctx query))]
+                nodes)]
     (response/ok result)))
+
+(comment
+  (def app-id  #uuid "386af13d-635d-44b8-8030-6a3958537db6")
+  (def admin-token #uuid "87118d2f-0f7a-497f-adee-e38a6af3620a")
+  (query-post {:body {:inference? true :query {:x {:y {}} :y {:x {}}}}
+               :headers {"app-id" (str app-id)
+                         "authorization" (str "Bearer " admin-token)}}))
 
 (defn query-perms-check [req]
   (let [{:keys [app-id] :as perms} (get-perms! req)
         _ (ex/assert-valid! :non-admin "non-admin"
                             (when (:admin? perms)
                               [{:message "Cannot test perms as admin"}]))
+        inference? (-> req :body :inference? boolean)
         rules-override (-> req :body :rules-override ->json <-json)
         query (ex/get-param! req [:body :query] #(when (map? %) %))
         attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
@@ -126,9 +168,8 @@
                     :datalog-query-fn d/query
                     :datalog-loader (d/make-loader)}
                    perms)
-
         {check-results :check-results nodes :nodes} (iq/permissioned-query-check ctx query rules-override)
-        result (instaql-nodes->object-tree attrs nodes)]
+        result (instaql-nodes->object-tree {:inference? inference?} attrs nodes)]
     (response/ok {:check-results check-results :result result})))
 
 (comment
@@ -380,12 +421,11 @@
     (response/ok {:data data})))
 
 (comment
-  (def counters-app-id  #uuid "137ace7a-efdd-490f-b0dc-a3c73a14f892")
-  (def admin-token #uuid "82900c15-faac-495b-b385-9f9e7743b629")
-  (query-post {:body {:query {:goals {:todos {}}}}
+  (def counters-app-id  #uuid "5f607e08-b271-489a-8430-108f8d0e22e7")
+  (def admin-token #uuid "2483838a-166e-43dc-8a3b-03a224a07aa4")
+  (query-post {:body {:query {:x {:y {}}}}
                :headers {"app-id" (str counters-app-id)
-                         "authorization" (str "Bearer " admin-token)
-                         "as-email" "stopa@instantdb.com"}})
+                         "authorization" (str "Bearer " admin-token)}})
   (def steps [["update"
                "goals"
                "8aa64e4c-64f9-472e-8a61-3fa28870e6cb"

@@ -5,7 +5,7 @@
             [instant.data.resolvers :as resolvers]
             [instant.fixtures :refer [with-zeneca-app with-zeneca-byop]]
             [instant.db.instaql :as iq]
-            [instant.db.model.attr :as attr-model] 
+            [instant.db.model.attr :as attr-model]
             [instant.model.rule :as rule-model]
             [instant.db.datalog :as d]
             [instant.admin.routes :as admin-routes]
@@ -323,6 +323,7 @@
                             :start-cursor)
             get-handles (fn [pagination-params]
                           (as-> (admin-routes/instaql-nodes->object-tree
+                                 {}
                                  (:attrs @ctx)
                                  (iq/query @ctx {:users {:$ pagination-params}})) %
                             (get % "users")
@@ -1282,9 +1283,9 @@
         (is
          (= ::ex/permission-evaluation-failed
             (::ex/type (instant-ex-data
-                         (pretty-perm-q
-                          {:app-id app-id :current-user {:handle "stopa"}}
-                          {:users {}})))))))))
+                        (pretty-perm-q
+                         {:app-id app-id :current-user {:handle "stopa"}}
+                         {:users {}})))))))))
 
 (deftest coarse-topics []
   (let [{:keys [patterns]}

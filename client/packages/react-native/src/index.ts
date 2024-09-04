@@ -14,7 +14,7 @@ import {
   AuthState,
   User,
 } from "@instantdb/react";
-import { RoomSchemaShape, id, tx } from "@instantdb/core";
+import { i, RoomSchemaShape, id, tx } from "@instantdb/core";
 
 /**
  *
@@ -42,18 +42,39 @@ function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
   return new InstantReactNative<Schema, RoomSchema>(config);
 }
 
+function init_experimental<
+  Schema extends i.InstantGraph<any, any, any>,
+  WithCardinalityInference extends boolean = true,
+>(
+  config: Config & {
+    schema: Schema;
+    cardinalityInference?: WithCardinalityInference;
+  },
+) {
+  return new InstantReactNative<
+    Schema,
+    Schema extends i.InstantGraph<any, infer RoomSchema, any>
+      ? RoomSchema
+      : never,
+    WithCardinalityInference
+  >(config);
+}
+
 class InstantReactNative<
   Schema = {},
   RoomSchema extends RoomSchemaShape = {},
-> extends InstantReact<Schema, RoomSchema> {
+  WithCardinalityInference extends boolean = false,
+> extends InstantReact<Schema, RoomSchema, WithCardinalityInference> {
   static Storage = Storage;
   static NetworkListener = NetworkListener;
 }
 
 export {
   init,
+  init_experimental,
   id,
   tx,
+  i,
 
   // types
   Config,

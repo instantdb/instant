@@ -1,10 +1,11 @@
 import Reactor from "./Reactor";
 import {
   tx,
+  txInit,
   lookup,
   getOps,
+  type TxChunk,
   type TransactionChunk,
-  type EmptyChunk,
 } from "./instatx";
 import weakHash from "./utils/weakHash";
 import id from "./utils/uuid";
@@ -16,6 +17,7 @@ import type {
   PageInfoResponse,
   Exactly,
   InstantObject,
+  InstaQLQueryParams,
 } from "./queryTypes";
 import type { AuthState, User, AuthResult } from "./clientTypes";
 import type {
@@ -36,6 +38,10 @@ export type Config = {
   websocketURI?: string;
   apiURI?: string;
   devtool?: boolean;
+};
+
+export type ConfigWithSchema<S extends i.InstantGraph<any, any>> = Config & {
+  schema: S;
 };
 
 export type TransactionResult = {
@@ -65,15 +71,19 @@ export type RoomHandle<PresenceShape, TopicsByKey> = {
 
 type AuthToken = string;
 
-type SubscriptionState<Q, Schema> =
+type SubscriptionState<Q, Schema, WithCardinalityInference = false> =
   | { error: { message: string }; data: undefined; pageInfo: undefined }
   | {
       error: undefined;
-      data: QueryResponse<Q, Schema>;
+      data: QueryResponse<Q, Schema, WithCardinalityInference>;
       pageInfo: PageInfoResponse<Q>;
     };
 
-type LifecycleSubscriptionState<Q, Schema> = SubscriptionState<Q, Schema> & {
+type LifecycleSubscriptionState<
+  Q,
+  Schema,
+  WithCardinalityInference = false,
+> = SubscriptionState<Q, Schema, WithCardinalityInference> & {
   isLoading: boolean;
 };
 
@@ -93,6 +103,32 @@ function initGlobalInstantCoreStore(): Record<string, InstantCore<any>> {
 }
 
 const globalInstantCoreStore = initGlobalInstantCoreStore();
+
+function init_experimental<
+  Schema extends i.InstantGraph<any, any, any>,
+  WithCardinalityInference extends boolean = true,
+>(
+  config: Config & {
+    schema: Schema;
+    cardinalityInference?: WithCardinalityInference;
+  },
+  Storage?: any,
+  NetworkListener?: any,
+): InstantCore<
+  Schema,
+  Schema extends i.InstantGraph<any, infer RoomSchema, any>
+    ? RoomSchema
+    : never,
+  WithCardinalityInference
+> {
+  return _init_internal<
+    Schema,
+    Schema extends i.InstantGraph<any, infer RoomSchema, any>
+      ? RoomSchema
+      : never,
+    WithCardinalityInference
+  >(config, Storage, NetworkListener);
+}
 
 // main
 
@@ -121,9 +157,22 @@ function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
   Storage?: any,
   NetworkListener?: any,
 ): InstantCore<Schema, RoomSchema> {
+  return _init_internal(config, Storage, NetworkListener);
+}
+
+function _init_internal<
+  Schema extends {} | i.InstantGraph<any, any, any>,
+  RoomSchema extends RoomSchemaShape,
+  WithCardinalityInference extends boolean = false,
+>(
+  config: Config,
+  Storage?: any,
+  NetworkListener?: any,
+): InstantCore<Schema, RoomSchema, WithCardinalityInference> {
   const existingClient = globalInstantCoreStore[config.appId] as InstantCore<
-    Schema,
-    RoomSchema
+    any,
+    RoomSchema,
+    WithCardinalityInference
   >;
 
   if (existingClient) {
@@ -139,7 +188,9 @@ function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
     NetworkListener || WindowNetworkListener,
   );
 
-  const client = new InstantCore<Schema, RoomSchema>(reactor);
+  const client = new InstantCore<any, RoomSchema, WithCardinalityInference>(
+    reactor,
+  );
   globalInstantCoreStore[config.appId] = client;
 
   if (typeof window !== "undefined" && typeof window.location !== "undefined") {
@@ -159,10 +210,21 @@ function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
   return client;
 }
 
-class InstantCore<Schema = {}, RoomSchema extends RoomSchemaShape = {}> {
+class InstantCore<
+  Schema extends i.InstantGraph<any, any> | {} = {},
+  RoomSchema extends RoomSchemaShape = {},
+  WithCardinalityInference extends boolean = false,
+> {
   public _reactor: Reactor<RoomSchema>;
   public auth: Auth;
   public storage: Storage;
+
+  public tx =
+    txInit<
+      Schema extends i.InstantGraph<any, any>
+        ? Schema
+        : i.InstantGraph<any, any>
+    >();
 
   constructor(reactor: Reactor<RoomSchema>) {
     this._reactor = reactor;
@@ -194,7 +256,7 @@ class InstantCore<Schema = {}, RoomSchema extends RoomSchemaShape = {}> {
    *  ])
    */
   transact(
-    chunks: TransactionChunk | TransactionChunk[],
+    chunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
   ): Promise<TransactionResult> {
     return this._reactor.pushTx(chunks);
   }
@@ -227,9 +289,13 @@ class InstantCore<Schema = {}, RoomSchema extends RoomSchemaShape = {}> {
    *    console.log(resp.data.goals)
    *  });
    */
-  subscribeQuery<Q extends Query>(
-    query: Exactly<Query, Q>,
-    cb: (resp: SubscriptionState<Q, Schema>) => void,
+  subscribeQuery<
+    Q extends Schema extends i.InstantGraph<any, any>
+      ? InstaQLQueryParams<Schema>
+      : Exactly<Query, Q>,
+  >(
+    query: Q,
+    cb: (resp: SubscriptionState<Q, Schema, WithCardinalityInference>) => void,
   ) {
     return this._reactor.subscribeQuery(query, cb);
   }
@@ -498,8 +564,11 @@ function coerceQuery(o: any) {
 export {
   // bada bing bada boom
   init,
+  init_experimental,
+  _init_internal,
   id,
   tx,
+  txInit,
   lookup,
 
   // cli
@@ -525,10 +594,11 @@ export {
   AuthState,
   User,
   AuthToken,
-  EmptyChunk,
+  TxChunk,
   SubscriptionState,
   LifecycleSubscriptionState,
   PresenceOpts,
   PresenceSlice,
   PresenceResponse,
+  InstaQLQueryParams,
 };

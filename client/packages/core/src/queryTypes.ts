@@ -1,6 +1,8 @@
 // Query
 // -----
 
+import { DataAttrDef, EntitiesDef, InstantGraph, LinkAttrDef } from "./schema";
+
 // NonEmpty disallows {}, so that you must provide at least one field
 type NonEmpty<T> = {
   [K in keyof T]-?: Required<Pick<T, K>>;
@@ -80,10 +82,10 @@ type Remove$<T> = T extends object
   ? { [K in keyof T as Exclude<K, "$">]: Remove$<T[K]> }
   : T;
 
-type QueryResponse<T, Schema> = ResponseOf<
-  { [K in keyof T]: Remove$<T[K]> },
-  Schema
->;
+type QueryResponse<T, Schema, WithCardinalityInference = false> =
+  Schema extends InstantGraph<infer E, any>
+    ? InstaQLQueryResult<E, T, WithCardinalityInference>
+    : ResponseOf<{ [K in keyof T]: Remove$<T[K]> }, Schema>;
 
 type PageInfoResponse<T> = {
   [K in keyof T]: {
@@ -121,6 +123,108 @@ type Exactly<Parent, Child extends Parent> = Parent & {
 };
 
 export { Query, QueryResponse, PageInfoResponse, InstantObject, Exactly };
+
+// ==========
+// InstaQL helpers
+
+type InstaQLQueryEntityAttrsResult<
+  Entities extends EntitiesDef,
+  EntityName extends keyof Entities,
+> = {
+  [AttrName in keyof Entities[EntityName]["attrs"]]: Entities[EntityName]["attrs"][AttrName] extends DataAttrDef<
+    infer ValueType,
+    infer IsRequired
+  >
+    ? IsRequired extends true
+      ? ValueType
+      : ValueType | undefined
+    : never;
+};
+
+type InstaQLQueryEntityLinksResult<
+  Entities extends EntitiesDef,
+  EntityName extends keyof Entities,
+  Query extends {
+    [LinkAttrName in keyof Entities[EntityName]["links"]]?: any;
+  },
+  WithCardinalityInference,
+> = {
+  [QueryPropName in keyof Query]: Entities[EntityName]["links"][QueryPropName] extends LinkAttrDef<
+    infer Cardinality,
+    infer LinkedEntityName
+  >
+    ? LinkedEntityName extends keyof Entities
+      ? WithCardinalityInference extends true
+        ? Cardinality extends "one"
+          ?
+              | InstaQLQueryEntityResult<
+                  Entities,
+                  LinkedEntityName,
+                  Query[QueryPropName]
+                >
+              | undefined
+          : InstaQLQueryEntityResult<
+              Entities,
+              LinkedEntityName,
+              Query[QueryPropName]
+            >[]
+        : InstaQLQueryEntityResult<
+            Entities,
+            LinkedEntityName,
+            Query[QueryPropName]
+          >[]
+      : never
+    : never;
+};
+
+type InstaQLQueryEntityResult<
+  Entities extends EntitiesDef,
+  EntityName extends keyof Entities,
+  Query extends {
+    [QueryPropName in keyof Entities[EntityName]["links"]]?: any;
+  },
+  WithCardinalityInference = false,
+> = { id: string } & InstaQLQueryEntityAttrsResult<Entities, EntityName> &
+  InstaQLQueryEntityLinksResult<
+    Entities,
+    EntityName,
+    Query,
+    WithCardinalityInference
+  >;
+
+export type InstaQLQueryResult<
+  Entities extends EntitiesDef,
+  Query,
+  WithCardinalityInference = false,
+> = {
+  [QueryPropName in keyof Query]: QueryPropName extends keyof Entities
+    ? InstaQLQueryEntityResult<
+        Entities,
+        QueryPropName,
+        Query[QueryPropName],
+        WithCardinalityInference
+      >[]
+    : never;
+};
+
+type InstaQLQuerySubqueryParams<
+  S extends InstantGraph<any, any>,
+  E extends keyof S["entities"],
+> = {
+  [K in keyof S["entities"][E]["links"]]?:
+    | $Option
+    | ($Option &
+        InstaQLQuerySubqueryParams<
+          S,
+          S["entities"][E]["links"][K]["entityName"]
+        >);
+};
+
+export type InstaQLQueryParams<S extends InstantGraph<any, any>> = {
+  [K in keyof S["entities"]]?:
+    | $Option
+    | ($Option & InstaQLQuerySubqueryParams<S, K>);
+};
 
 // --------
 // Sanity check tests

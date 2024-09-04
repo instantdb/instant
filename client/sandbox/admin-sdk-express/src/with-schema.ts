@@ -1,22 +1,47 @@
 import express from "express";
 import bodyParser from "body-parser";
 import cors from "cors"; // Import cors module
-import { init, tx, id, i } from "@instantdb/admin";
+import { id, i, init_experimental } from "@instantdb/admin";
 import { assert } from "console";
 import dotenv from "dotenv";
 import fs from "fs";
 
 dotenv.config();
 
-const config = {
+const schema = i.graph(
+  process.env.INSTANT_APP_ID!,
+  {
+    goals: i.entity({
+      title: i.string(),
+      creatorId: i.string(),
+      priorityId: i.string(),
+    }),
+    todos: i.entity({ title: i.string(), creatorId: i.string() }),
+  },
+  {
+    goalsTodos: {
+      forward: {
+        on: "goals",
+        has: "many",
+        label: "todos",
+      },
+      reverse: {
+        on: "todos",
+        has: "one",
+        label: "goal",
+      },
+    },
+  },
+);
+
+const db = init_experimental({
   apiURI: "http://localhost:8888",
   appId: process.env.INSTANT_APP_ID!,
   adminToken: process.env.INSTANT_ADMIN_TOKEN!,
-};
+  schema,
+});
 
-const db = init(config);
-
-const { query, transact, auth } = db;
+const { query, transact, auth, tx } = db;
 
 // ----------------
 // Basic Server

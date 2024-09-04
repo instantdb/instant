@@ -1,6 +1,4 @@
 import {
-  init as initCore,
-
   // types
   Config,
   Query,
@@ -14,6 +12,11 @@ import {
   PresenceResponse,
   RoomSchemaShape,
   Storage,
+  txInit,
+  InstaQLQueryParams,
+  ConfigWithSchema,
+  i,
+  _init_internal,
 } from "@instantdb/core";
 import {
   KeyboardEvent,
@@ -60,7 +63,7 @@ export class InstantReactRoom<
   id: string;
 
   constructor(
-    _core: InstantClient<Schema, RoomSchema>,
+    _core: InstantClient<Schema, RoomSchema, any>,
     type: RoomType,
     id: string,
   ) {
@@ -280,18 +283,26 @@ export class InstantReactRoom<
 }
 
 export abstract class InstantReact<
-  Schema = {},
+  Schema extends i.InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
+  WithCardinalityInference extends boolean = false,
 > {
+  public tx =
+    txInit<
+      Schema extends i.InstantGraph<any, any>
+        ? Schema
+        : i.InstantGraph<any, any>
+    >();
+
   public auth: Auth;
   public storage: Storage;
-  public _core: InstantClient<Schema, RoomSchema>;
+  public _core: InstantClient<Schema, RoomSchema, WithCardinalityInference>;
 
   static Storage?: any;
   static NetworkListener?: any;
 
-  constructor(config: Config) {
-    this._core = initCore<Schema, RoomSchema>(
+  constructor(config: Config | ConfigWithSchema<any>) {
+    this._core = _init_internal<Schema, RoomSchema, WithCardinalityInference>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.Storage,
@@ -356,7 +367,9 @@ export abstract class InstantReact<
    *    tx.goals[goalId].link({todos: todoId}),
    *  ])
    */
-  transact = (chunks: TransactionChunk | TransactionChunk[]) => {
+  transact = (
+    chunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
+  ) => {
     return this._core.transact(chunks);
   };
 
@@ -378,9 +391,13 @@ export abstract class InstantReact<
    *  // skip if `user` is not logged in
    *  db.useQuery(auth.user ? { goals: {} } : null)
    */
-  useQuery = <Q extends Query>(
-    query: Exactly<Query, Q> | null,
-  ): LifecycleSubscriptionState<Q, Schema> => {
+  useQuery = <
+    Q extends Schema extends i.InstantGraph<any, any>
+      ? InstaQLQueryParams<Schema>
+      : Exactly<Query, Q>,
+  >(
+    query: null | Q,
+  ): LifecycleSubscriptionState<Q, Schema, WithCardinalityInference> => {
     return useQuery(this._core, query).state;
   };
 
