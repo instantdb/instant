@@ -204,14 +204,11 @@
         (recur (into all-objects object-summaries) next-continuation-token)
         (into all-objects object-summaries)))))
 
-(defn list-objects-by-app []
-  (let [objects (list-all-app-objects)]
-    (reduce (fn [acc obj]
-              (let [{k :key size :size} obj
-                    app-id (object-key->app-id k)]
-                (update acc app-id conj {:key k :size size})))
-            {} objects)))
+(defn objects-by-app-id [objects]
+  (group-by #(object-key->app-id (:key %)) objects))
 
+(defn list-objects-by-app []
+  (objects-by-app-id (list-all-app-objects)))
 
 (defn calculate-app-metrics []
   (let [objects-by-app-id (list-objects-by-app)]
