@@ -148,7 +148,8 @@
 (defn get-storage-metrics []
   (let [metrics-by-app-id (storage-util/calculate-app-metrics)
         app-ids (keys metrics-by-app-id)
-        apps-by-id (into {} (map (juxt identity app-model/get-with-creator-by-id) app-ids))]
+        apps (app-model/get-with-creator-by-ids app-ids)
+        apps-by-id (into {} (map (fn [app] [(str (:id app)) app]) apps))]
     (->> app-ids
          (map #(format-app-storage-usage
                 {:app-id %
