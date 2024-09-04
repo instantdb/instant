@@ -24,7 +24,7 @@
 
 (defn ping-js-on-new-customer [user-id]
   (let [{email :email} (instant-user-model/get-by-id {:id user-id})
-        message (str "🎉 New customer! " email)]
+        message (str "💖 A user subscribed! Say thank you to " "`" email "`")]
     (discord/send! config/discord-signups-channel-id message)
     (postmark/send!
      {:from "Instant Assistant <hello@pm.instantdb.com>"
