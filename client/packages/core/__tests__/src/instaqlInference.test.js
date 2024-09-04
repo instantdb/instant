@@ -203,7 +203,7 @@ function indexAttrs(attrs) {
 
 function queryData(config, attrs, triples, q) {
   const store = createStore(indexAttrs(attrs), triples);
-  if (config.inference) store.schema = {};
+  if (config.inference) store.cardinalityInference = true;
   const result = query({ store }, q);
 
   return { result, store };

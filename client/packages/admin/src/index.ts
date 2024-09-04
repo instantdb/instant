@@ -426,10 +426,9 @@ class InstantAdmin<Schema extends i.InstantGraph<any, any> | {} = {}> {
     query: Q,
   ): Promise<QueryResponse<Q, Schema>> => {
     const withInference =
-      Boolean(this.config.schema) &&
-      ("cardinalityInference" in this.config
+      "cardinalityInference" in this.config
         ? Boolean(this.config.cardinalityInference)
-        : true);
+        : true;
 
     return jsonFetch(`${this.config.apiURI}/admin/query`, {
       method: "POST",

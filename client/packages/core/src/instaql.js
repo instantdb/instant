@@ -276,7 +276,7 @@ function extendObjects(makeVar, store, { etype, level, form }, objects) {
         });
 
         let children = childrenArray;
-        if (store.schema) {
+        if (store.cardinalityInference) {
           const isForwardCardinalityOne =
             isForward && attr.cardinality === "one";
           const isReverseUnique = !isForward && attr["unique?"];
