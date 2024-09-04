@@ -81,11 +81,11 @@
 
 (defn enrich-node [attrs parent-etype node]
   (let [label (-> node :data :k)
-        pat (attr-pat/->ref-attr-pat {:attrs attrs}
-                                     attr-pat/default-level-sym
-                                     parent-etype
-                                     0
-                                     label)
+        pat (attr-pat/->guarded-ref-attr-pat
+             {:attrs attrs}
+             parent-etype
+             0
+             label)
         [next-etype _ _ attr forward?] pat
         enriched-node (update node
                               :data
@@ -103,7 +103,6 @@
                              (map (partial enrich-node attrs etype))
                              (instaql-ref-nodes->object-tree ctx attrs))]
     (merge blob-entries ref-entries)))
-
 
 (defn singular-entry? [data]
   (if (-> data :forward?)
@@ -378,11 +377,9 @@
                      :headers {"authorization" (str "Bearer " admin-token)
                                "app-id" (str counters-app-id)}})
 
-
   (app-users-delete {:params {:id "moop"}
                      :headers {"authorization" (str "Bearer " admin-token)
                                "app-id" (str counters-app-id)}}))
-
 
 ;; ---
 ;; Storage
