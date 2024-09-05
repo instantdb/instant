@@ -5,17 +5,10 @@ interface Data {
   notes: string;
 }
 
-const discriminatedUnionExample = i
-  .entity({
-    name: i.string(),
-  })
-  .withOverlayType<{ k: "foo"; name: "mark" } | { k: "bar"; name: "cam" }>();
-
 const schema = i
   .graph(
     "",
     {
-      discriminatedUnionExample,
       habits: i.entity({
         name: i.string(),
       }),
@@ -29,18 +22,6 @@ const schema = i
       }),
     },
     {
-      ulink: {
-        forward: {
-          on: "discriminatedUnionExample",
-          has: "many",
-          label: "categories",
-        },
-        reverse: {
-          on: "categories",
-          has: "one",
-          label: "u",
-        },
-      },
       habitCheckins: {
         forward: {
           on: "habits",
@@ -96,11 +77,6 @@ export default function Main() {
 
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
-
-  if (data.discriminatedUnionExample[0].k === "bar") {
-    // should be constrained to "cam"
-    const name = data.discriminatedUnionExample[0].name;
-  }
 
   return (
     <div>

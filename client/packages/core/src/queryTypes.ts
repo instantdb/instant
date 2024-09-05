@@ -1,13 +1,7 @@
 // Query
 // -----
 
-import {
-  DataAttrDef,
-  EntitiesDef,
-  EntityDef,
-  InstantGraph,
-  LinkAttrDef,
-} from "./schema";
+import { EntitiesDef, InstantGraph, LinkAttrDef, ResolveAttrs } from "./schema";
 
 // NonEmpty disallows {}, so that you must provide at least one field
 type NonEmpty<T> = {
@@ -89,13 +83,13 @@ type Remove$<T> = T extends object
   : T;
 
 type QueryResponse<
-  T,
+  Q,
   Schema,
   WithCardinalityInference extends boolean = false,
 > =
   Schema extends InstantGraph<infer E, any>
-    ? InstaQLQueryResult<E, T, WithCardinalityInference>
-    : ResponseOf<{ [K in keyof T]: Remove$<T[K]> }, Schema>;
+    ? InstaQLQueryResult<E, Q, WithCardinalityInference>
+    : ResponseOf<{ [K in keyof Q]: Remove$<Q[K]> }, Schema>;
 
 type PageInfoResponse<T> = {
   [K in keyof T]: {
@@ -136,26 +130,6 @@ export { Query, QueryResponse, PageInfoResponse, InstantObject, Exactly };
 
 // ==========
 // InstaQL helpers
-
-type InstaQLQueryEntityAttrsResult<
-  Entities extends EntitiesDef,
-  EntityName extends keyof Entities,
-  ResolvedAttrs = {
-    [AttrName in keyof Entities[EntityName]["attrs"]]: Entities[EntityName]["attrs"][AttrName] extends DataAttrDef<
-      infer ValueType,
-      infer IsRequired
-    >
-      ? IsRequired extends true
-        ? ValueType
-        : ValueType | undefined
-      : never;
-  },
-> =
-  Entities[EntityName] extends EntityDef<any, any, infer OverrideType>
-    ? OverrideType extends void
-      ? ResolvedAttrs
-      : OverrideType
-    : ResolvedAttrs;
 
 type InstaQLQueryEntityLinksResult<
   Entities extends EntitiesDef,
@@ -203,7 +177,7 @@ type InstaQLQueryEntityResult<
     [QueryPropName in keyof Entities[EntityName]["links"]]?: any;
   },
   WithCardinalityInference extends boolean,
-> = { id: string } & InstaQLQueryEntityAttrsResult<Entities, EntityName> &
+> = { id: string } & ResolveAttrs<Entities, EntityName> &
   InstaQLQueryEntityLinksResult<
     Entities,
     EntityName,

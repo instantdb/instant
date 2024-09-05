@@ -255,9 +255,9 @@ export class EntityDef<
     public links: Links,
   ) {}
 
-  withOverrideType<_OverrideType>() {
-    return new EntityDef<Attrs, Links, _OverrideType>(this.attrs, this.links);
-  }
+  // withOverrideType<_OverrideType>() {
+  //   return new EntityDef<Attrs, Links, _OverrideType>(this.attrs, this.links);
+  // }
 }
 
 type EntitiesDef = Record<string, EntityDef<any, any, any>>;
@@ -392,3 +392,23 @@ type LinksIndexedByEntity<
       : never;
   };
 };
+
+export type ResolveAttrs<
+  Entities extends EntitiesDef,
+  EntityName extends keyof Entities,
+  ResolvedAttrs = {
+    [AttrName in keyof Entities[EntityName]["attrs"]]: Entities[EntityName]["attrs"][AttrName] extends DataAttrDef<
+      infer ValueType,
+      infer IsRequired
+    >
+      ? IsRequired extends true
+        ? ValueType
+        : ValueType | undefined
+      : never;
+  },
+> =
+  Entities[EntityName] extends EntityDef<any, any, infer OverrideType>
+    ? OverrideType extends void
+      ? ResolvedAttrs
+      : OverrideType
+    : ResolvedAttrs;
