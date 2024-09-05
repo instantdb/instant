@@ -217,10 +217,10 @@
   {:attrs (conj attrs attr)
    :add-ops (conj add-ops [:add-attr attr])})
 
-(defn add-attrs-for-obj [{:keys [attrs add-ops] :as acc} op]
-  (let [[action etype eid obj] op
+(defn add-attrs-for-obj [acc op]
+  (let [[action etype _eid obj] op
         labels (conj (keys obj) "id")]
-    (reduce (fn [{:keys [attrs add-ops] :as acc} label]
+    (reduce (fn [{:keys [attrs] :as acc} label]
               (let [fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
                     rev-attr (when (contains? ref-actions action)
                                (attr-model/seek-by-rev-ident-name [etype label] attrs))]
@@ -237,7 +237,7 @@
             acc
             labels)))
 
-(defn add-attrs-for-lookup [{:keys [attrs add-ops] :as acc} lookup etype]
+(defn add-attrs-for-lookup [{:keys [attrs] :as acc} lookup etype]
   (if (ref-lookup? lookup)
     (let [label (extract-ref-lookup-fwd-name lookup)
           fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
@@ -250,8 +250,8 @@
                                         :cardinality :one}))
         acc))
     (let [[label _value] lookup]
-      (if-let [attr (attr-model/seek-by-fwd-ident-name [etype label]
-                                                       attrs)]
+      (if (attr-model/seek-by-fwd-ident-name [etype label]
+                                             attrs)
         acc
         (add-attr acc (create-object-attr etype
                                           label
@@ -259,10 +259,8 @@
                                            :index? true}))))))
 
 (defn create-lookup-attrs [acc ops]
-  (reduce (fn [{:keys [attrs add-ops] :as acc} op]
-            (let [[action etype eid obj] op
-                  lookup (when (contains? supports-lookup-actions action)
-                           (eid->lookup-pair eid))]
+  (reduce (fn [acc op]
+            (let [[action etype eid _obj] op]
               (if-let [lookup (when (contains? supports-lookup-actions action)
                                 (eid->lookup-pair eid))]
                 (add-attrs-for-lookup acc lookup etype)
@@ -271,10 +269,8 @@
           ops))
 
 (defn create-attrs-from-objs [acc ops]
-  (reduce (fn [{:keys [attrs add-ops] :as acc} op]
-            (let [[action etype eid obj] op
-                  lookup (when (contains? supports-lookup-actions action)
-                           (eid->lookup-pair eid))]
+  (reduce (fn [acc op]
+            (let [[action _etype _eid _obj] op]
               (if (contains? obj-actions action)
                 (add-attrs-for-obj acc op)
                 acc)))
