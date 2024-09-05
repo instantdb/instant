@@ -1,7 +1,13 @@
 // Query
 // -----
 
-import { DataAttrDef, EntitiesDef, InstantGraph, LinkAttrDef } from "./schema";
+import {
+  DataAttrDef,
+  EntitiesDef,
+  EntityDef,
+  InstantGraph,
+  LinkAttrDef,
+} from "./schema";
 
 // NonEmpty disallows {}, so that you must provide at least one field
 type NonEmpty<T> = {
@@ -134,16 +140,22 @@ export { Query, QueryResponse, PageInfoResponse, InstantObject, Exactly };
 type InstaQLQueryEntityAttrsResult<
   Entities extends EntitiesDef,
   EntityName extends keyof Entities,
-> = {
-  [AttrName in keyof Entities[EntityName]["attrs"]]: Entities[EntityName]["attrs"][AttrName] extends DataAttrDef<
-    infer ValueType,
-    infer IsRequired
-  >
-    ? IsRequired extends true
-      ? ValueType
-      : ValueType | undefined
-    : never;
-};
+  A = {
+    [AttrName in keyof Entities[EntityName]["attrs"]]: Entities[EntityName]["attrs"][AttrName] extends DataAttrDef<
+      infer ValueType,
+      infer IsRequired
+    >
+      ? IsRequired extends true
+        ? ValueType
+        : ValueType | undefined
+      : never;
+  },
+> =
+  Entities[EntityName] extends EntityDef<any, any, infer U>
+    ? U extends void
+      ? A
+      : U
+    : A;
 
 type InstaQLQueryEntityLinksResult<
   Entities extends EntitiesDef,

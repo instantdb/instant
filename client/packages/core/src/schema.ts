@@ -84,8 +84,10 @@ function graph<
  *     })
  *   }
  */
-function entity<Attrs extends AttrsDefs>(attrs: Attrs): EntityDef<Attrs, {}> {
-  return { attrs, links: {} };
+function entity<Attrs extends AttrsDefs>(
+  attrs: Attrs,
+): EntityDef<Attrs, {}, void> {
+  return new EntityDef(attrs, {});
 }
 
 function string(): DataAttrDef<string, true> {
@@ -136,10 +138,10 @@ function enrichEntitiesWithLinks<
   const enrichedEntities = Object.fromEntries(
     Object.entries(entities).map(([name, def]) => [
       name,
-      {
-        ...def,
-        links: { ...linksIndex.fwd[name], ...linksIndex.rev[name] },
-      },
+      new EntityDef(def.attrs, {
+        ...linksIndex.fwd[name],
+        ...linksIndex.rev[name],
+      }),
     ]),
   );
 
@@ -243,15 +245,22 @@ type JSONValue =
 
 type AttrsDefs = Record<string, DataAttrDef<any, any>>;
 
-type EntityDef<
+export class EntityDef<
   Attrs extends AttrsDefs,
   Links extends Record<string, LinkAttrDef<any, any>>,
-> = {
-  attrs: Attrs;
-  links: Links;
-};
+  OverlayType,
+> {
+  constructor(
+    public attrs: Attrs,
+    public links: Links,
+  ) {}
 
-type EntitiesDef = Record<string, EntityDef<any, any>>;
+  withOverlayType<O>() {
+    return new EntityDef<Attrs, Links, O>(this.attrs, this.links);
+  }
+}
+
+type EntitiesDef = Record<string, EntityDef<any, any, any>>;
 
 type LinksDef<Entities extends EntitiesDef> = Record<
   string,
@@ -294,19 +303,16 @@ type EntitiesWithLinks<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
 > = {
-  [EntityName in keyof Entities]: EntityWithLinks<EntityName, Entities, Links>;
-};
-
-type EntityWithLinks<
-  EntityName extends keyof Entities,
-  Entities extends EntitiesDef,
-  Links extends LinksDef<Entities>,
-> = {
-  attrs: Entities[EntityName]["attrs"] extends AttrsDefs
-    ? Entities[EntityName]["attrs"]
-    : never;
-  links: EntityForwardLinksMap<EntityName, Entities, Links> &
-    EntityReverseLinksMap<EntityName, Entities, Links>;
+  [EntityName in keyof Entities]: EntityDef<
+    Entities[EntityName]["attrs"],
+    EntityForwardLinksMap<EntityName, Entities, Links> &
+      EntityReverseLinksMap<EntityName, Entities, Links>,
+    Entities[EntityName] extends EntityDef<any, any, infer O>
+      ? O extends void
+        ? void
+        : O
+      : void
+  >;
 };
 
 type EntityForwardLinksMap<
