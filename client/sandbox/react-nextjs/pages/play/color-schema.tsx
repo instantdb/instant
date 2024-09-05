@@ -8,7 +8,7 @@ const db = init_experimental({
     "",
     {
       colors: i.entity({
-        color: i.string(),
+        color: i.string().indexed(),
       }),
     },
     {},
