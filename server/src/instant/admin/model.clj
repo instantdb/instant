@@ -284,7 +284,6 @@
       (create-attrs-from-objs ops)))
 
 (defn transform [attrs steps]
-  (tool/def-locals)
   (let [{attrs :attrs add-attr-tx-steps :add-ops} (create-missing-attrs attrs steps)
         tx-steps (mapcat (fn [step] (to-tx-steps attrs step)) steps)]
     (concat add-attr-tx-steps tx-steps)))
