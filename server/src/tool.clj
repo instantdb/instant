@@ -100,13 +100,15 @@
     (sql-pretty
      (clojure.string/replace q
                              #"\?"
-                             (fn [_] (let [i @idx]
+                             (fn [_] (let [i @idx
+                                           v (nth params i)]
                                        (swap! idx inc)
-                                       (format "'%s'%s"
-                                               (nth params i)
-                                               (if (uuid? (nth params i))
-                                                 "::uuid"
-                                                 ""))))))))
+                                       (str (if (int? v)
+                                              (format "%s" v)
+                                              (format "'%s'" v))
+                                            (if (uuid? v)
+                                              "::uuid"
+                                              ""))))))))
 
 (defn unsafe-hsql-format
   "Use with caution: this inlines parameters in the query, so it could

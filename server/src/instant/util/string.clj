@@ -31,3 +31,11 @@
                   (string/trim s))
 
     :else nil))
+
+(defn multiline->single-line
+  "Helper to remove extra spaces from multiline strings. Lets you spread the
+   string across multiple lines to meet line-width requirements in code."
+  [s]
+  (string/replace s #"\s+" (fn [x]
+                             (println "XX" x)
+                             " ")))
