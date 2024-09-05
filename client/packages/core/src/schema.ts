@@ -248,15 +248,15 @@ type AttrsDefs = Record<string, DataAttrDef<any, any>>;
 export class EntityDef<
   Attrs extends AttrsDefs,
   Links extends Record<string, LinkAttrDef<any, any>>,
-  OverlayType,
+  OverrideType,
 > {
   constructor(
     public attrs: Attrs,
     public links: Links,
   ) {}
 
-  withOverlayType<O>() {
-    return new EntityDef<Attrs, Links, O>(this.attrs, this.links);
+  withOverrideType<_OverrideType>() {
+    return new EntityDef<Attrs, Links, _OverrideType>(this.attrs, this.links);
   }
 }
 

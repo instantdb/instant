@@ -140,7 +140,7 @@ export { Query, QueryResponse, PageInfoResponse, InstantObject, Exactly };
 type InstaQLQueryEntityAttrsResult<
   Entities extends EntitiesDef,
   EntityName extends keyof Entities,
-  A = {
+  ResolvedAttrs = {
     [AttrName in keyof Entities[EntityName]["attrs"]]: Entities[EntityName]["attrs"][AttrName] extends DataAttrDef<
       infer ValueType,
       infer IsRequired
@@ -151,11 +151,11 @@ type InstaQLQueryEntityAttrsResult<
       : never;
   },
 > =
-  Entities[EntityName] extends EntityDef<any, any, infer U>
-    ? U extends void
-      ? A
-      : U
-    : A;
+  Entities[EntityName] extends EntityDef<any, any, infer OverrideType>
+    ? OverrideType extends void
+      ? ResolvedAttrs
+      : OverrideType
+    : ResolvedAttrs;
 
 type InstaQLQueryEntityLinksResult<
   Entities extends EntitiesDef,
