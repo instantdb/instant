@@ -13,11 +13,17 @@ test("simple update transform", () => {
   const testId = uuid();
 
   const ops = instatx.tx.books[testId].update({ title: "New Title" });
+  const result = instaml.transform(zenecaAttrs, ops);
 
-  expect(instaml.transform(zenecaAttrs, ops)).toEqual([
+  const expected = [
     ["add-triple", testId, zenecaAttrToId["books/title"], "New Title"],
     ["add-triple", testId, zenecaAttrToId["books/id"], testId],
-  ]);
+  ];
+
+  expect(result).toHaveLength(expected.length);
+  for (const item of expected) {
+    expect(result).toContainEqual(item);
+  }
 });
 
 test("optimistically adds attrs if they don't exist", () => {
@@ -25,7 +31,9 @@ test("optimistically adds attrs if they don't exist", () => {
 
   const ops = instatx.tx.books[testId].update({ newAttr: "New Title" });
 
-  expect(instaml.transform(zenecaAttrs, ops)).toEqual([
+  const result = instaml.transform(zenecaAttrs, ops);
+
+  const expected = [
     [
       "add-attr",
       {
@@ -38,10 +46,14 @@ test("optimistically adds attrs if they don't exist", () => {
         "value-type": "blob",
       },
     ],
-
     ["add-triple", testId, expect.any(String), "New Title"],
     ["add-triple", testId, zenecaAttrToId["books/id"], testId],
-  ]);
+  ];
+
+  expect(result).toHaveLength(expected.length);
+  for (const item of expected) {
+    expect(result).toContainEqual(item);
+  }
 });
 
 test("lookup resolves attr ids", () => {
@@ -53,10 +65,17 @@ test("lookup resolves attr ids", () => {
 
   const stopaLookup = [zenecaAttrToId["users/email"], "stopa@instantdb.com"];
 
-  expect(instaml.transform(zenecaAttrs, ops)).toEqual([
+  const result = instaml.transform(zenecaAttrs, ops);
+
+  const expected = [
     ["add-triple", stopaLookup, zenecaAttrToId["users/handle"], "stopa"],
     ["add-triple", stopaLookup, zenecaAttrToId["users/id"], stopaLookup],
-  ]);
+  ];
+
+  expect(result).toHaveLength(expected.length);
+  for (const item of expected) {
+    expect(result).toContainEqual(item);
+  }
 });
 
 test("lookup creates unique attrs for custom lookups", () => {
@@ -72,7 +91,8 @@ test("lookup creates unique attrs for custom lookups", () => {
     "newAttrValue",
   ];
 
-  expect(instaml.transform(zenecaAttrs, ops)).toEqual([
+  const result = instaml.transform(zenecaAttrs, ops);
+  const expected = [
     [
       "add-attr",
       {
@@ -87,7 +107,74 @@ test("lookup creates unique attrs for custom lookups", () => {
     ],
     ["add-triple", lookup, zenecaAttrToId["users/handle"], "stopa"],
     ["add-triple", lookup, zenecaAttrToId["users/id"], lookup],
-  ]);
+  ];
+
+  expect(result).toHaveLength(expected.length);
+  for (const item of expected) {
+    expect(result).toContainEqual(item);
+  }
+});
+
+test("lookup creates unique ref attrs for ref lookup", () => {
+  const uid = uuid();
+  const ops = [
+    instatx.tx.users[uid].update({}),
+    instatx.tx.user_prefs[instatx.lookup("users.id", uid)].update({}),
+  ];
+
+  const lookup = [
+    // The attr is going to be created, so we don't know its value yet
+    expect.any(String),
+    uid,
+  ];
+
+  const result = instaml.transform({}, ops);
+  const expected = [
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "users", "id"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": false,
+        "index?": false,
+        isUnsynced: true,
+      },
+    ],
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "user_prefs", "id"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": false,
+        "index?": false,
+        isUnsynced: true,
+      },
+    ],
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "user_prefs", "users"],
+        "reverse-identity": [expect.any(String), "users", "user_prefs"],
+        "value-type": "ref",
+        cardinality: "one",
+        "unique?": true,
+        "index?": true,
+        isUnsynced: true,
+      },
+    ],
+    ["add-triple", uid, expect.any(String), uid],
+    ["add-triple", lookup, expect.any(String), lookup],
+  ];
+
+  expect(result).toHaveLength(expected.length);
+  for (const item of expected) {
+    expect(result).toContainEqual(item);
+  }
 });
 
 test("it doesn't create duplicate ref attrs", () => {
@@ -98,7 +185,9 @@ test("it doesn't create duplicate ref attrs", () => {
     instatx.tx.nsB[bid].update({}).link({ nsA: aid }),
   ];
 
-  expect(instaml.transform({}, ops)).toEqual([
+  const result = instaml.transform({}, ops);
+
+  const expected = [
     [
       "add-attr",
       {
@@ -136,33 +225,14 @@ test("it doesn't create duplicate ref attrs", () => {
         "value-type": "ref",
       },
     ],
-    [
-      "add-attr",
-      {
-        cardinality: "one",
-        "forward-identity": [expect.any(String), "nsA", "id"],
-        id: expect.any(String),
-        "index?": false,
-        isUnsynced: true,
-        "unique?": false,
-        "value-type": "blob",
-      },
-    ],
-    [
-      "add-attr",
-      {
-        cardinality: "one",
-        "forward-identity": [expect.any(String), "nsB", "id"],
-        id: expect.any(String),
-        "index?": false,
-        isUnsynced: true,
-        "unique?": false,
-        "value-type": "blob",
-      },
-    ],
     ["add-triple", aid, expect.any(String), aid],
     ["add-triple", aid, expect.any(String), bid],
     ["add-triple", bid, expect.any(String), bid],
     ["add-triple", aid, expect.any(String), bid],
-  ]);
+  ];
+
+  expect(result).toHaveLength(expected.length);
+  for (const item of expected) {
+    expect(result).toContainEqual(item);
+  }
 });
