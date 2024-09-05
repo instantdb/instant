@@ -136,8 +136,9 @@ function expandUnlink(attrs, [etype, eidA, obj]) {
 
 function expandUpdate(attrs, [etype, eid, obj]) {
   const lookup = extractLookup(attrs, etype, eid);
-  const attrTuples = Object.entries(obj)
-    .concat([["id", extractLookup(attrs, etype, eid)]])
+  // id first so that we don't clobber updates on the lookup field
+  const attrTuples = [["id", extractLookup(attrs, etype, eid)]]
+    .concat(Object.entries(obj))
     .map(([identName, value]) => {
       const attr = getAttrByFwdIdentName(attrs, etype, identName);
       return ["add-triple", lookup, attr.id, value];
@@ -165,7 +166,8 @@ function expandDeepMerge(attrs, [etype, eid, obj]) {
     lookup,
   ];
 
-  return attrTuples.concat([idTuple]);
+  // id first so that we don't clobber updates on the lookup field
+  return [idTuple].concat(attrTuples);
 }
 
 function toTxSteps(attrs, [action, ...args]) {
@@ -264,7 +266,7 @@ function createMissingAttrs(existingAttrs, ops) {
         if (isRefLookupIdent(identName)) {
           const label = extractRefLookupFwdName(identName);
           const fwdAttr = getAttrByFwdIdentName(attrs, etype, label);
-          const revAttr = getAttrByReverseIdentName(attrs, etype, label);
+          const revAttr = getAttrByReverseIdentName(attrs, etype, label);          
           if (!fwdAttr && !revAttr) {
             addAttr(createRefAttr(etype, label, refLookupProps));
           }
