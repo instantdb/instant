@@ -227,6 +227,13 @@ function createRefAttr(etype, label, props) {
 const OBJ_ACTIONS = new Set(["update", "merge", "link", "unlink"]);
 const REF_ACTIONS = new Set(["link", "unlink"]);
 const UPDATE_ACTIONS = new Set(["update", "merge"]);
+const SUPPORTS_LOOKUP_ACTIONS = new Set([
+  "link",
+  "unlink",
+  "update",
+  "merge",
+  "delete",
+]);
 
 const lookupProps = { "unique?": true, "index?": true };
 const refLookupProps = { ...lookupProps, cardinality: "one" };
@@ -244,12 +251,42 @@ function createMissingAttrs(existingAttrs, ops) {
       addedIds.add(attr.id);
     }
   }
+
+  // Create attrs for lookups if we need to
+  // Do these first because otherwise we might add a non-unique attr
+  // before we get to it
+  for (const op of ops) {
+    const [action, etype, eid, obj] = op;
+    if (SUPPORTS_LOOKUP_ACTIONS.has(action)) {
+      const lookupPair = lookupPairOfEid(eid);
+      if (lookupPair) {
+        const identName = lookupPair[0];
+        if (isRefLookupIdent(identName)) {
+          const label = extractRefLookupFwdName(identName);
+          const fwdAttr = getAttrByFwdIdentName(attrs, etype, label);
+          const revAttr = getAttrByReverseIdentName(attrs, etype, label);
+          if (!fwdAttr && !revAttr) {
+            addAttr(createRefAttr(etype, label, refLookupProps));
+          }
+          addUnsynced(fwdAttr);
+          addUnsynced(revAttr);
+        } else {
+          const attr = getAttrByFwdIdentName(attrs, etype, identName);
+          if (!attr) {
+            addAttr(createObjectAttr(etype, identName, lookupProps));
+          }
+          addUnsynced(attr);
+        }
+      }
+    }
+  }
+
+  // Create object and ref attrs
   for (const op of ops) {
     const [action, etype, eid, obj] = op;
     if (OBJ_ACTIONS.has(action)) {
       const labels = Object.keys(obj);
       labels.push("id");
-      // Create object and ref attrs
       for (const label of labels) {
         const fwdAttr = getAttrByFwdIdentName(attrs, etype, label);
         addUnsynced(fwdAttr);
@@ -265,28 +302,6 @@ function createMissingAttrs(existingAttrs, ops) {
           }
           addUnsynced(revAttr);
         }
-      }
-    }
-
-    // Create attrs for lookups if we need to
-    const lookupPair = lookupPairOfEid(eid);
-    if (lookupPair) {
-      const identName = lookupPair[0];
-      if (isRefLookupIdent(identName)) {
-        const label = extractRefLookupFwdName(identName);
-        const fwdAttr = getAttrByFwdIdentName(attrs, etype, label);
-        const revAttr = getAttrByReverseIdentName(attrs, etype, label);
-        if (!fwdAttr && !revAttr) {
-          addAttr(createRefAttr(etype, label, refLookupProps));
-        }
-        addUnsynced(fwdAttr);
-        addUnsynced(revAttr);
-      } else {
-        const attr = getAttrByFwdIdentName(attrs, etype, identName);
-        if (!attr) {
-          addAttr(createObjectAttr(etype, identName, lookupProps));
-        }
-        addUnsynced(attr);
       }
     }
   }
