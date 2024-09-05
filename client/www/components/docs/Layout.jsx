@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import clsx from 'clsx';
@@ -13,7 +13,7 @@ import { Select } from '@/components/ui';
 import { MainNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';
 
-function useTableOfContents(tableOfContents) {
+function useTableOfContents(tableOfContents, scrollContainerRef) {
   let [currentSection, setCurrentSection] = useState(tableOfContents[0]?.id);
 
   let getHeadings = useCallback((tableOfContents) => {
@@ -34,8 +34,10 @@ function useTableOfContents(tableOfContents) {
   useEffect(() => {
     if (tableOfContents.length === 0) return;
     let headings = getHeadings(tableOfContents);
+
     function onScroll() {
-      let top = window.scrollY;
+      if (!scrollContainerRef.current) return;
+      let top = scrollContainerRef.current.scrollTop;
       let current = headings[0].id;
       for (let heading of headings) {
         if (top >= heading.top) {
@@ -46,10 +48,10 @@ function useTableOfContents(tableOfContents) {
       }
       setCurrentSection(current);
     }
-    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('scroll', onScroll, true);
     onScroll();
     return () => {
-      window.removeEventListener('scroll', onScroll, { passive: true });
+      window.removeEventListener('scroll', onScroll, true);
     };
   }, [getHeadings, tableOfContents]);
 
@@ -163,6 +165,8 @@ function HiddenLLMHelper({ allLinks }) {
 
 export function Layout({ children, title, tableOfContents }) {
   let router = useRouter();
+  const scrollContainerRef = useRef();
+
   let allLinks = navigation.flatMap((section) => section.links);
   let linkIndex = allLinks.findIndex((link) => link.href === router.pathname);
   let previousPage = allLinks[linkIndex - 1];
@@ -170,7 +174,7 @@ export function Layout({ children, title, tableOfContents }) {
   let section = navigation.find((section) =>
     section.links.find((link) => link.href === router.pathname)
   );
-  let currentSection = useTableOfContents(tableOfContents);
+  let currentSection = useTableOfContents(tableOfContents, scrollContainerRef);
 
   function isActive(section) {
     if (section.id === currentSection) {
@@ -212,7 +216,10 @@ export function Layout({ children, title, tableOfContents }) {
               />
             </div>
           </div>
-          <div className="overflow-auto px-4 pb-6 pt-4">
+          <div
+            className="overflow-auto px-4 pb-6 pt-4"
+            ref={scrollContainerRef}
+          >
             <AppPicker {...{ apps, selectedAppData, updateSelectedAppId }} />
             <article>
               {(title || section) && (
