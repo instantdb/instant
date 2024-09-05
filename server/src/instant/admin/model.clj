@@ -64,7 +64,7 @@
       (ex/throw-validation-err!
        :lookup
        lookup
-       [{:message (str ident-name " is not a valid link lookup.")}]))
+       [{:message (str ident-name " is not a valid lookup attribute.")}]))
     fwdName))
 
 (defn extract-lookup [attrs etype eid]

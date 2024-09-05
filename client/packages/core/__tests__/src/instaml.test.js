@@ -177,6 +177,19 @@ test("lookup creates unique ref attrs for ref lookup", () => {
   }
 });
 
+test("it throws if you use an invalid link attr", () => {
+  expect(() =>
+    instaml.transform(
+      {},
+      instatx.tx.users[
+        instatx.lookup("user_pref.email", "test@example.com")
+      ].update({
+        a: 1,
+      }),
+    ),
+  ).toThrowError('user_pref.email is not a valid lookup attribute.');
+});
+
 test("it doesn't create duplicate ref attrs", () => {
   const aid = uuid();
   const bid = uuid();

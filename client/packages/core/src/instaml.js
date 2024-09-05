@@ -38,7 +38,7 @@ function isRefLookupIdent(identName) {
 function extractRefLookupFwdName(identName) {
   const [fwdName, idIdent, ...rest] = identName.split(".");
   if (rest.length > 0 || idIdent !== "id") {
-    throw new Error(`${identName} is not a valid attribute.`);
+    throw new Error(`${identName} is not a valid lookup attribute.`);
   }
 
   return fwdName;
@@ -266,7 +266,7 @@ function createMissingAttrs(existingAttrs, ops) {
         if (isRefLookupIdent(identName)) {
           const label = extractRefLookupFwdName(identName);
           const fwdAttr = getAttrByFwdIdentName(attrs, etype, label);
-          const revAttr = getAttrByReverseIdentName(attrs, etype, label);          
+          const revAttr = getAttrByReverseIdentName(attrs, etype, label);
           if (!fwdAttr && !revAttr) {
             addAttr(createRefAttr(etype, label, refLookupProps));
           }
