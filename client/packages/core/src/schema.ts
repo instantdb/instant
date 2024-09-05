@@ -172,17 +172,25 @@ class DataAttrDef<ValueType, IsRequired extends boolean> {
   }
 
   unique() {
-    return new DataAttrDef(this.valueType, this.required, {
-      ...this.config,
-      unique: true,
-    });
+    return new DataAttrDef<ValueType, IsRequired>(
+      this.valueType,
+      this.required,
+      {
+        ...this.config,
+        unique: true,
+      },
+    );
   }
 
   indexed() {
-    return new DataAttrDef(this.valueType, this.required, {
-      ...this.config,
-      indexed: true,
-    });
+    return new DataAttrDef<ValueType, IsRequired>(
+      this.valueType,
+      this.required,
+      {
+        ...this.config,
+        indexed: true,
+      },
+    );
   }
 
   // clientValidate(clientValidator: (value: ValueType) => boolean) {
