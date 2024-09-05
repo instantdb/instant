@@ -100,7 +100,7 @@ function boolean(): DataAttrDef<boolean, true> {
   return new DataAttrDef("boolean", true);
 }
 
-function json<T extends JSONValue>(): DataAttrDef<T, true> {
+function json<T = any>(): DataAttrDef<T, true> {
   return new DataAttrDef("json", true);
 }
 

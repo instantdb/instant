@@ -1,41 +1,64 @@
 import { i, id, init_experimental } from "@instantdb/react";
 import config from "../../config";
 
-const db = init_experimental({
-  ...config,
-  schema: i
-    .graph(
-      "",
-      {
-        habits: i.entity({
-          name: i.string(),
-        }),
-        checkins: i.entity({
-          date: i.string(),
-        }),
-      },
-      {
-        habitCheckins: {
-          forward: {
-            on: "habits",
-            has: "many",
-            label: "checkins",
-          },
-          reverse: {
-            on: "checkins",
-            has: "one",
-            label: "habit",
-          },
+interface Data {
+  notes: string;
+}
+
+const schema = i
+  .graph(
+    "",
+    {
+      habits: i.entity({
+        name: i.string(),
+      }),
+      checkins: i.entity({
+        date: i.string(),
+        data: i.json<Data>().optional(),
+        meta: i.any().optional(),
+      }),
+      categories: i.entity({
+        name: i.string(),
+      }),
+    },
+    {
+      habitCheckins: {
+        forward: {
+          on: "habits",
+          has: "many",
+          label: "checkins",
+        },
+        reverse: {
+          on: "checkins",
+          has: "one",
+          label: "habit",
         },
       },
-    )
-    .withRoomSchema<{
-      demo: {
-        presence: {
-          test: number;
-        };
+      habitCategory: {
+        forward: {
+          on: "habits",
+          has: "one",
+          label: "category",
+        },
+        reverse: {
+          on: "categories",
+          has: "many",
+          label: "habits",
+        },
+      },
+    },
+  )
+  .withRoomSchema<{
+    demo: {
+      presence: {
+        test: number;
       };
-    }>(),
+    };
+  }>();
+
+const db = init_experimental({
+  ...config,
+  schema,
 });
 
 export default function Main() {
@@ -45,7 +68,9 @@ export default function Main() {
 
   const { isLoading, error, data } = db.useQuery({
     checkins: {
-      habit: {},
+      habit: {
+        category: {},
+      },
     },
   });
 
@@ -57,7 +82,7 @@ export default function Main() {
       <ul>
         {data.checkins.map((c) => (
           <li key={c.id}>
-            {c.date} - {c.habit?.name}
+            {c.date} - {c.habit?.name} ({c.habit?.category?.name})
           </li>
         ))}
       </ul>
@@ -75,6 +100,8 @@ if (typeof window !== "undefined") {
       }),
       db.tx.checkins[checkinId].update({
         date: Date.now().toString(),
+        data: { notes: "" },
+        meta: null,
       }),
       db.tx.habits[habitId].link({
         checkins: [checkinId],

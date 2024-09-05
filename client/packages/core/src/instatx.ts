@@ -14,13 +14,17 @@ type UpdateParams<
 > = {
   [AttrName in keyof Schema["entities"][EntityName]["attrs"]]?: Schema["entities"][EntityName]["attrs"][AttrName] extends DataAttrDef<
     infer ValueType,
-    any
+    infer IsRequired
   >
-    ? ValueType
+    ? IsRequired extends true
+      ? ValueType
+      : ValueType | null
     : never;
-} & {
-  [attribute: string]: any;
-};
+} & (Schema extends InstantGraph<any, any>
+  ? {}
+  : {
+      [attribute: string]: any;
+    });
 
 type LinkParams<
   Schema extends InstantGraph<any, any>,
@@ -34,9 +38,7 @@ type LinkParams<
       ? string
       : string | string[]
     : never;
-} & {
-  [attribute: string]: string | string[];
-};
+} & (Schema extends InstantGraph<any, any> ? {} : { [attribute: string]: any });
 
 export interface TransactionChunk<
   Schema extends InstantGraph<any, any, any>,

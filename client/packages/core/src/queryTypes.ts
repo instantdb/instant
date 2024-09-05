@@ -82,7 +82,11 @@ type Remove$<T> = T extends object
   ? { [K in keyof T as Exclude<K, "$">]: Remove$<T[K]> }
   : T;
 
-type QueryResponse<T, Schema, WithCardinalityInference = false> =
+type QueryResponse<
+  T,
+  Schema,
+  WithCardinalityInference extends boolean = false,
+> =
   Schema extends InstantGraph<infer E, any>
     ? InstaQLQueryResult<E, T, WithCardinalityInference>
     : ResponseOf<{ [K in keyof T]: Remove$<T[K]> }, Schema>;
@@ -147,7 +151,7 @@ type InstaQLQueryEntityLinksResult<
   Query extends {
     [LinkAttrName in keyof Entities[EntityName]["links"]]?: any;
   },
-  WithCardinalityInference,
+  WithCardinalityInference extends boolean,
 > = {
   [QueryPropName in keyof Query]: Entities[EntityName]["links"][QueryPropName] extends LinkAttrDef<
     infer Cardinality,
@@ -160,18 +164,21 @@ type InstaQLQueryEntityLinksResult<
               | InstaQLQueryEntityResult<
                   Entities,
                   LinkedEntityName,
-                  Query[QueryPropName]
+                  Query[QueryPropName],
+                  WithCardinalityInference
                 >
               | undefined
           : InstaQLQueryEntityResult<
               Entities,
               LinkedEntityName,
-              Query[QueryPropName]
+              Query[QueryPropName],
+              WithCardinalityInference
             >[]
         : InstaQLQueryEntityResult<
             Entities,
             LinkedEntityName,
-            Query[QueryPropName]
+            Query[QueryPropName],
+            WithCardinalityInference
           >[]
       : never
     : never;
@@ -183,7 +190,7 @@ type InstaQLQueryEntityResult<
   Query extends {
     [QueryPropName in keyof Entities[EntityName]["links"]]?: any;
   },
-  WithCardinalityInference = false,
+  WithCardinalityInference extends boolean,
 > = { id: string } & InstaQLQueryEntityAttrsResult<Entities, EntityName> &
   InstaQLQueryEntityLinksResult<
     Entities,
@@ -195,7 +202,7 @@ type InstaQLQueryEntityResult<
 export type InstaQLQueryResult<
   Entities extends EntitiesDef,
   Query,
-  WithCardinalityInference = false,
+  WithCardinalityInference extends boolean,
 > = {
   [QueryPropName in keyof Query]: QueryPropName extends keyof Entities
     ? InstaQLQueryEntityResult<

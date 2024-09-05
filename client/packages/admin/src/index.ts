@@ -115,7 +115,7 @@ type InstaQLQueryEntityLinksResult<
   Query extends {
     [LinkAttrName in keyof Entities[EntityName]["links"]]?: any;
   },
-  WithCardinalityInference,
+  WithCardinalityInference extends boolean,
 > = {
   [QueryPropName in keyof Query]: Entities[EntityName]["links"][QueryPropName] extends i.LinkAttrDef<
     infer Cardinality,
@@ -128,18 +128,21 @@ type InstaQLQueryEntityLinksResult<
               | InstaQLQueryEntityResult<
                   Entities,
                   LinkedEntityName,
-                  Query[QueryPropName]
+                  Query[QueryPropName],
+                  WithCardinalityInference
                 >
               | undefined
           : InstaQLQueryEntityResult<
               Entities,
               LinkedEntityName,
-              Query[QueryPropName]
+              Query[QueryPropName],
+              WithCardinalityInference
             >[]
         : InstaQLQueryEntityResult<
             Entities,
             LinkedEntityName,
-            Query[QueryPropName]
+            Query[QueryPropName],
+            WithCardinalityInference
           >[]
       : never
     : never;
@@ -151,7 +154,7 @@ type InstaQLQueryEntityResult<
   Query extends {
     [QueryPropName in keyof Entities[EntityName]["links"]]?: any;
   },
-  WithCardinalityInference = false,
+  WithCardinalityInference extends boolean,
 > = { id: string } & InstaQLQueryEntityAttrsResult<Entities, EntityName> &
   InstaQLQueryEntityLinksResult<
     Entities,
@@ -163,7 +166,7 @@ type InstaQLQueryEntityResult<
 type InstaQLQueryResult<
   Entities extends i.EntitiesDef,
   Query,
-  WithCardinalityInference = false,
+  WithCardinalityInference extends boolean,
 > = {
   [QueryPropName in keyof Query]: QueryPropName extends keyof Entities
     ? InstaQLQueryEntityResult<
@@ -175,7 +178,7 @@ type InstaQLQueryResult<
     : never;
 };
 
-type QueryResponse<T, Schema, WithCardinalityInference = false> =
+type QueryResponse<T, Schema, WithCardinalityInference extends boolean> =
   Schema extends i.InstantGraph<infer E, any>
     ? InstaQLQueryResult<E, T, WithCardinalityInference>
     : ResponseOf<{ [K in keyof T]: Remove$<T[K]> }, Schema>;
@@ -345,7 +348,7 @@ async function jsonFetch(
  *
  */
 function init<Schema = {}>(config: Config) {
-  return new InstantAdmin<Schema>(config);
+  return new InstantAdmin<Schema, false>(config);
 }
 
 function init_experimental<
@@ -357,7 +360,7 @@ function init_experimental<
     cardinalityInference?: WithCardinalityInference;
   },
 ) {
-  return new InstantAdmin<Schema>(config);
+  return new InstantAdmin<Schema, WithCardinalityInference>(config);
 }
 
 /**
@@ -369,7 +372,10 @@ function init_experimental<
  * @example
  *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
  */
-class InstantAdmin<Schema extends i.InstantGraph<any, any> | {} = {}> {
+class InstantAdmin<
+  Schema extends i.InstantGraph<any, any> | {},
+  WithCardinalityInference extends boolean,
+> {
   config: FilledConfig;
   auth: Auth;
   storage: Storage;
@@ -397,8 +403,12 @@ class InstantAdmin<Schema extends i.InstantGraph<any, any> | {} = {}> {
    * @example
    *  await db.asUser({email: "stopa@instantdb.com"}).query({ goals: {} })
    */
-  asUser = (opts: ImpersonationOpts): InstantAdmin<Schema> => {
-    const newClient = new InstantAdmin<Schema>({ ...this.config });
+  asUser = (
+    opts: ImpersonationOpts,
+  ): InstantAdmin<Schema, WithCardinalityInference> => {
+    const newClient = new InstantAdmin<Schema, WithCardinalityInference>({
+      ...this.config,
+    });
     newClient.impersonationOpts = opts;
     return newClient;
   };
@@ -424,7 +434,7 @@ class InstantAdmin<Schema extends i.InstantGraph<any, any> | {} = {}> {
       : Exactly<Query, Q>,
   >(
     query: Q,
-  ): Promise<QueryResponse<Q, Schema>> => {
+  ): Promise<QueryResponse<Q, Schema, WithCardinalityInference>> => {
     const withInference =
       "cardinalityInference" in this.config
         ? Boolean(this.config.cardinalityInference)
@@ -500,7 +510,7 @@ class InstantAdmin<Schema extends i.InstantGraph<any, any> | {} = {}> {
     query: Exactly<Query, Q>,
     opts?: { rules: any },
   ): Promise<{
-    result: QueryResponse<Q, Schema>;
+    result: QueryResponse<Q, Schema, WithCardinalityInference>;
     checkResults: DebugCheckResult[];
   }> => {
     const response = await jsonFetch(
