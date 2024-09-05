@@ -208,26 +208,6 @@
              :index? false}
             props))))
 
-(defn create-missing-object-attrs [attrs ops]
-  (let [object-ops (filter #(contains? #{"update" "merge"} (first %)) ops)
-        object-idents (set (mapcat extract-ident-names object-ops))
-        missing-idents (remove #(attr-model/seek-by-fwd-ident-name % attrs) object-idents)
-        object-attrs (map create-object-attr missing-idents)
-        new-attrs (concat attrs object-attrs)
-        attr-tx-steps (map (fn [attr] [:add-attr attr]) object-attrs)]
-    [new-attrs attr-tx-steps]))
-
-(defn create-missing-ref-attrs [attrs ops]
-  (let [object-ops (filter #(or (= "link" (first %)) (= "unlink" (first %))) ops)
-        object-idents (set (mapcat extract-ident-names object-ops))
-        missing-idents (remove #(or (attr-model/seek-by-fwd-ident-name % attrs)
-                                    (attr-model/seek-by-rev-ident-name % attrs))
-                               object-idents)
-        ref-attrs (map create-ref-attr missing-idents)
-        new-attrs (concat attrs ref-attrs)
-        attr-tx-steps (map (fn [attr] [:add-attr attr]) ref-attrs)]
-    [new-attrs attr-tx-steps]))
-
 (def obj-actions #{"link" "unlink" "update" "merge"})
 (def update-actions #{"update", "merge"})
 (def ref-actions #{"link" "unlink"})
