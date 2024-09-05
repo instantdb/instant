@@ -18,6 +18,8 @@ import type {
   Exactly,
   InstantObject,
   InstaQLQueryParams,
+  SchemaInstaQLQuery,
+  SchemaInstaQLResult,
 } from "./queryTypes";
 import type { AuthState, User, AuthResult } from "./clientTypes";
 import type {
@@ -601,4 +603,6 @@ export {
   PresenceSlice,
   PresenceResponse,
   InstaQLQueryParams,
+  SchemaInstaQLQuery,
+  SchemaInstaQLResult,
 };

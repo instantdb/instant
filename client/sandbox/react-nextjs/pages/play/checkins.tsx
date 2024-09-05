@@ -1,4 +1,10 @@
-import { i, id, init_experimental } from "@instantdb/react";
+import {
+  i,
+  id,
+  init_experimental,
+  type SchemaInstaQLQuery,
+  type SchemaInstaQLResult,
+} from "@instantdb/react";
 import config from "../../config";
 
 interface Data {
@@ -110,3 +116,44 @@ if (typeof window !== "undefined") {
     ]);
   };
 }
+
+// demo utility types
+
+type Schema = typeof schema;
+
+const checkinsQuery = {
+  checkins: {
+    $: {
+      where: {
+        // ...
+      },
+    },
+    habit: {
+      category: {},
+    },
+  },
+} satisfies SchemaInstaQLQuery<Schema>;
+
+type CheckinsQuery = typeof checkinsQuery;
+type CheckinsQueryResult = SchemaInstaQLResult<Schema, CheckinsQuery>;
+
+const r: CheckinsQueryResult = {
+  checkins: [
+    {
+      id: "",
+      date: "",
+      data: {
+        notes: "",
+      },
+      meta: "",
+      habit: {
+        id: "",
+        name: "",
+        category: {
+          id: "",
+          name: "",
+        },
+      },
+    },
+  ],
+};
