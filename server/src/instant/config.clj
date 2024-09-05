@@ -137,6 +137,10 @@
 (defn get-honeycomb-api-key []
   (some-> @config-map :honeycomb-api-key (.value)))
 
+(defn get-honeycomb-endpoint []
+  (or (System/getenv "HONEYCOMB_ENDPOINT")
+      "https://api.honeycomb.io:443"))
+
 (defn get-google-oauth-client []
   (-> @config-map :google-oauth-client))
 
