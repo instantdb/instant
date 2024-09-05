@@ -71,7 +71,7 @@ export type RoomHandle<PresenceShape, TopicsByKey> = {
 
 type AuthToken = string;
 
-type SubscriptionState<Q, Schema, WithCardinalityInference = false> =
+type SubscriptionState<Q, Schema, WithCardinalityInference extends boolean> =
   | { error: { message: string }; data: undefined; pageInfo: undefined }
   | {
       error: undefined;
@@ -82,7 +82,7 @@ type SubscriptionState<Q, Schema, WithCardinalityInference = false> =
 type LifecycleSubscriptionState<
   Q,
   Schema,
-  WithCardinalityInference = false,
+  WithCardinalityInference extends boolean,
 > = SubscriptionState<Q, Schema, WithCardinalityInference> & {
   isLoading: boolean;
 };
