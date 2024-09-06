@@ -589,7 +589,7 @@ export {
   Storage,
 
   // types
-  IDatabase as DB,
+  IDatabase,
   RoomSchemaShape,
   Query,
   QueryResponse,
