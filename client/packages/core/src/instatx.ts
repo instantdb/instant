@@ -161,7 +161,7 @@ function transactionChunk(
  * @example
  * tx.users[lookup('email', 'lyndon@example.com')].update({name: 'Lyndon'})
  */
-export function lookup(attribute: string, value: string): Lookup {
+export function lookup(attribute: string, value: any): Lookup {
   return `lookup__${attribute}__${JSON.stringify(value)}`;
 }
 

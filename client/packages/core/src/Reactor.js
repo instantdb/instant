@@ -40,8 +40,8 @@ function isClient() {
   const hasWindow = typeof window !== "undefined";
   // this checks if we are running in a chrome extension
   // @ts-expect-error
-  const isChrome = typeof chrome !== 'undefined';
-  
+  const isChrome = typeof chrome !== "undefined";
+
   return hasWindow || isChrome;
 }
 
@@ -87,9 +87,7 @@ export default class Reactor {
     if (!isClient()) {
       return;
     }
-    if (
-      typeof BroadcastChannel === "function"
-    ) {
+    if (typeof BroadcastChannel === "function") {
       this._broadcastChannel = new BroadcastChannel("@instantdb");
       this._broadcastChannel.addEventListener("message", async (e) => {
         if (e.data?.type === "auth") {
@@ -504,8 +502,11 @@ export default class Reactor {
       const existing = instaml.getAttrByFwdIdentName(attrs, etype, label);
       return existing;
     };
-    const rewriteTxSteps = (mapping, txSteps) => {
-      return txSteps.reduce(
+    const rewriteTxSteps = (mapping, txSteps, chunks) => {
+      // TODO: We can remove the txSteps.reduce and rely on only retransforming
+      //       the chunks after people have upgraded and stores no longer have
+      //       mutations without `chunks` in them. Safe to remove on Jan 1 2025.
+      const [newMapping, newTxSteps] = txSteps.reduce(
         ([mapping, retTxSteps], txStep) => {
           // Handles add-attr
           // If existing, we drop it, and track it
@@ -518,23 +519,30 @@ export default class Reactor {
           }
           // Handles add-triple|retract-triple
           // If in mapping, we update the attr-id
-          const [action, eid, attrId, ...rest] = txStep;
-          const newTxStep = mapping[attrId]
-            ? [action, eid, mapping[attrId], ...rest]
-            : txStep;
+          const newTxStep = instaml.rewriteStep(mapping, txStep);
+
           retTxSteps.push(newTxStep);
           return [mapping, retTxSteps];
         },
         [mapping, []],
       );
+      if (chunks) {
+        try {
+          return [newMapping, instaml.transform(attrs, chunks)];
+        } catch (e) {
+          return [newMapping, [], e];
+        }
+      }
+      return [newMapping, newTxSteps];
     };
     const [_, __, rewritten] = [...muts.entries()].reduce(
       ([attrs, mapping, newMuts], [k, mut]) => {
-        const [newMapping, newTxSteps] = rewriteTxSteps(
+        const [newMapping, newTxSteps, error] = rewriteTxSteps(
           mapping,
           mut["tx-steps"],
+          mut["chunks"],
         );
-        newMuts.set(k, { ...mut, "tx-steps": newTxSteps });
+        newMuts.set(k, { ...mut, "tx-steps": newTxSteps, error });
         return [attrs, newMapping, newMuts];
       },
       [attrs, {}, new Map()],
@@ -630,15 +638,21 @@ export default class Reactor {
 
   /** Applies transactions locally and sends transact message to server */
   pushTx = (chunks) => {
-    const txSteps = instaml.transform(this.optimisticAttrs(), chunks);
-    return this.pushOps(txSteps);
+    try {
+      const txSteps = instaml.transform(this.optimisticAttrs(), chunks);
+      return this.pushOps(txSteps, chunks);
+    } catch (e) {
+      return this.pushOps([], null, e);
+    }
   };
 
-  pushOps = (txSteps) => {
+  pushOps = (txSteps, chunks, error) => {
     const eventId = uuid();
     const mutation = {
       op: "transact",
+      chunks,
       "tx-steps": txSteps,
+      error,
     };
     this.pendingMutations.set((prev) => {
       prev.set(eventId, mutation);
@@ -667,6 +681,17 @@ export default class Reactor {
    *
    */
   _sendMutation(eventId, mutation) {
+    if (mutation.error) {
+      this._finishTransaction(false, "error", eventId, {
+        error: mutation.error,
+        message: mutation.error.message,
+      });
+      this.pendingMutations.set((prev) => {
+        prev.delete(eventId);
+        return prev;
+      });
+      return;
+    }
     if (this.status !== STATUS.AUTHENTICATED) {
       this._finishTransaction(true, "enqueued", eventId);
       return;
