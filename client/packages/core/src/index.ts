@@ -30,7 +30,7 @@ import type {
 } from "./presence";
 import * as i from "./schema";
 import { createDevtool } from "./devtool";
-import { DB } from "./types";
+import type { DB } from "./types";
 
 const defaultOpenDevtool = true;
 
