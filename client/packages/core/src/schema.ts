@@ -16,6 +16,8 @@ export {
   type LinksDef,
   type LinkAttrDef,
   type DataAttrDef,
+  type EntityDef,
+  type ResolveAttrs,
 };
 
 // ==========
@@ -245,7 +247,7 @@ type JSONValue =
 
 type AttrsDefs = Record<string, DataAttrDef<any, any>>;
 
-export class EntityDef<
+class EntityDef<
   Attrs extends AttrsDefs,
   Links extends Record<string, LinkAttrDef<any, any>>,
   AsType,
@@ -393,7 +395,7 @@ type LinksIndexedByEntity<
   };
 };
 
-export type ResolveAttrs<
+type ResolveAttrs<
   Entities extends EntitiesDef,
   EntityName extends keyof Entities,
   ResolvedAttrs = {
