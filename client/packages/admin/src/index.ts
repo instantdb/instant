@@ -1,211 +1,20 @@
 import {
   tx,
   lookup,
-  TransactionChunk,
   getOps,
   i,
-  User,
-  AuthToken,
   id,
   txInit,
+  type TransactionChunk,
+  type User,
+  type AuthToken,
+  type Exactly,
+  type InstaQLQueryParams,
+  type Query,
+  type QueryResponse,
 } from "@instantdb/core";
 
-// Query Types
-// -----
-
-// NonEmpty disallows {}, so that you must provide at least one field
-type NonEmpty<T> = {
-  [K in keyof T]-?: Required<Pick<T, K>>;
-}[keyof T];
-
-type WhereArgs = {
-  in?: (string | number | boolean)[];
-};
-
-type WhereClauseValue = string | number | boolean | NonEmpty<WhereArgs>;
-
-type BaseWhereClause = {
-  [key: string]: WhereClauseValue;
-};
-
-type WhereClauseWithCombination = {
-  or?: WhereClause[] | WhereClauseValue;
-  and?: WhereClause[] | WhereClauseValue;
-};
-
-type WhereClause =
-  | WhereClauseWithCombination
-  | (WhereClauseWithCombination & BaseWhereClause);
-
-/**
- * A tuple representing a cursor.
- * These should not be constructed manually. The current format
- * is an implementation detail that may change in the future.
- * Use the `endCursor` or `startCursor` from the PageInfoResponse as the
- * `before` or `after` field in the query options.
- */
-type Cursor = [string, string, any, number];
-
-type Direction = "asc" | "desc";
-
-type Order = { serverCreatedAt: Direction };
-
-type $Option = {
-  $?: {
-    where?: WhereClause;
-    order?: Order;
-    limit?: number;
-    last?: number;
-    first?: number;
-    offset?: number;
-    after?: Cursor;
-    before?: Cursor;
-  };
-};
-
-type Subquery = { [namespace: string]: NamespaceVal };
-
-type NamespaceVal = $Option | ($Option & Subquery);
-
-interface Query {
-  [namespace: string]: NamespaceVal;
-}
-
-type Remove$<T> = T extends object
-  ? { [K in keyof T as Exclude<K, "$">]: Remove$<T[K]> }
-  : T;
-
-type InstantObject = {
-  id: string;
-  [prop: string]: any;
-};
-
-type ResponseObject<K, Schema> = K extends keyof Schema
-  ? { id: string } & Schema[K]
-  : InstantObject;
-
-type IsEmptyObject<T> = T extends Record<string, never> ? true : false;
-
-type ResponseOf<Q, Schema> = {
-  [K in keyof Q]: IsEmptyObject<Q[K]> extends true
-    ? ResponseObject<K, Schema>[]
-    : (ResponseOf<Q[K], Schema> & ResponseObject<K, Schema>)[];
-};
-
-// ==========
-// InstaQL helpers
-
-type InstaQLQueryEntityAttrsResult<
-  Entities extends i.EntitiesDef,
-  EntityName extends keyof Entities,
-> = {
-  [AttrName in keyof Entities[EntityName]["attrs"]]: Entities[EntityName]["attrs"][AttrName] extends i.DataAttrDef<
-    infer ValueType,
-    infer IsRequired
-  >
-    ? IsRequired extends true
-      ? ValueType
-      : ValueType | undefined
-    : never;
-};
-
-type InstaQLQueryEntityLinksResult<
-  Entities extends i.EntitiesDef,
-  EntityName extends keyof Entities,
-  Query extends {
-    [LinkAttrName in keyof Entities[EntityName]["links"]]?: any;
-  },
-  WithCardinalityInference extends boolean,
-> = {
-  [QueryPropName in keyof Query]: Entities[EntityName]["links"][QueryPropName] extends i.LinkAttrDef<
-    infer Cardinality,
-    infer LinkedEntityName
-  >
-    ? LinkedEntityName extends keyof Entities
-      ? WithCardinalityInference extends true
-        ? Cardinality extends "one"
-          ?
-              | InstaQLQueryEntityResult<
-                  Entities,
-                  LinkedEntityName,
-                  Query[QueryPropName],
-                  WithCardinalityInference
-                >
-              | undefined
-          : InstaQLQueryEntityResult<
-              Entities,
-              LinkedEntityName,
-              Query[QueryPropName],
-              WithCardinalityInference
-            >[]
-        : InstaQLQueryEntityResult<
-            Entities,
-            LinkedEntityName,
-            Query[QueryPropName],
-            WithCardinalityInference
-          >[]
-      : never
-    : never;
-};
-
-type InstaQLQueryEntityResult<
-  Entities extends i.EntitiesDef,
-  EntityName extends keyof Entities,
-  Query extends {
-    [QueryPropName in keyof Entities[EntityName]["links"]]?: any;
-  },
-  WithCardinalityInference extends boolean,
-> = { id: string } & InstaQLQueryEntityAttrsResult<Entities, EntityName> &
-  InstaQLQueryEntityLinksResult<
-    Entities,
-    EntityName,
-    Query,
-    WithCardinalityInference
-  >;
-
-type InstaQLQueryResult<
-  Entities extends i.EntitiesDef,
-  Query,
-  WithCardinalityInference extends boolean,
-> = {
-  [QueryPropName in keyof Query]: QueryPropName extends keyof Entities
-    ? InstaQLQueryEntityResult<
-        Entities,
-        QueryPropName,
-        Query[QueryPropName],
-        WithCardinalityInference
-      >[]
-    : never;
-};
-
-type QueryResponse<T, Schema, WithCardinalityInference extends boolean> =
-  Schema extends i.InstantGraph<infer E, any>
-    ? InstaQLQueryResult<E, T, WithCardinalityInference>
-    : ResponseOf<{ [K in keyof T]: Remove$<T[K]> }, Schema>;
-
-type InstaQLQuerySubqueryParams<
-  S extends i.InstantGraph<any, any>,
-  E extends keyof S["entities"],
-> = {
-  [K in keyof S["entities"][E]["links"]]?:
-    | $Option
-    | ($Option &
-        InstaQLQuerySubqueryParams<
-          S,
-          S["entities"][E]["links"][K]["entityName"]
-        >);
-};
-
-type InstaQLQueryParams<S extends i.InstantGraph<any, any>> = {
-  [K in keyof S["entities"]]?:
-    | $Option
-    | ($Option & InstaQLQuerySubqueryParams<S, K>);
-};
-
-/**
- * `debugQuery` returns the results of evaluating the corresponding permissions rules for each record.
- */
-export type DebugCheckResult = {
+type DebugCheckResult = {
   /** The ID of the record. */
   id: string;
   /** The namespace/table of the record. */
@@ -216,41 +25,13 @@ export type DebugCheckResult = {
   check: any;
 };
 
-/**
- * (XXX)
- * https://github.com/microsoft/TypeScript/issues/26051
- *
- * Typescript can permit extra keys when a generic extends a type.
- *
- * For some reason, it makes it possible to write a query like so:
- *
- * dummyQuery({
- *  users: {
- *    $: { where: { "foo": 1 } },
- *    posts: {
- *      $: { "far": {} }
- *    }
- *  }
- *
- *  The problem: $: { "far": {} }
- *
- *  This passes, when it should in reality fail. I don't know why
- *  adding `Exactly` fixes this, but it does.
- *
- * */
-type Exactly<Parent, Child extends Parent> = Parent & {
-  [K in keyof Child]: K extends keyof Parent ? Child[K] : never;
-};
-
 type Config = {
   appId: string;
   adminToken: string;
   apiURI?: string;
 };
 
-type FilledConfig = Config & { apiURI: string } & {
-  schema?: i.InstantGraph<any, any>;
-};
+type FilledConfig = Config & { apiURI: string };
 
 type ImpersonationOpts =
   | { email: string }
@@ -848,7 +629,8 @@ export {
   i,
 
   // types
-  Config,
-  ImpersonationOpts,
-  TransactionChunk,
+  type Config,
+  type ImpersonationOpts,
+  type TransactionChunk,
+  type DebugCheckResult,
 };

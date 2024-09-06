@@ -62,7 +62,7 @@
 (defn -main [& _args]
   (let [tag (first _args)
         version (str/trim (slurp "version.md"))]
-    (when-not tag (set-package-versions! version))
+    (set-package-versions! version)
     (set-dep-versions! version)
     (publish-packages! tag)
     (set-dep-versions! "workspace:*")))

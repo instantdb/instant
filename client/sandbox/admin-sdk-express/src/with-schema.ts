@@ -87,7 +87,7 @@ async function testTransact() {
     tx.goals[id()]
       .update({
         title: "Get six pack abs",
-        priority6: 1,
+        priorityId: "1",
         creatorId: user.id,
       })
       .link({ todos: todoAId })
