@@ -37,7 +37,7 @@
             [instant.util.tracer :as tracer]
             [instant.util.uuid :as uuid-util]
             [instant.util.string :as string-util]
-            [instant.util.int :as int-util]
+            [instant.util.number :as number-util]
             [instant.util.storage :as storage-util]
             [instant.session-counter :as session-counter]
             [ring.middleware.cookies :refer [wrap-cookies]]
@@ -267,7 +267,7 @@
 (defn admin-top-get [req]
   (let [{:keys [email]} (req->auth-user! req)
         n (get-in req [:params :n])
-        n-val (int-util/parse-int n 7)]
+        n-val (number-util/parse-int n 7)]
     (assert-admin-email! email)
     (response/ok {:users (dash-admin/get-top-users n-val)})))
 

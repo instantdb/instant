@@ -1,4 +1,4 @@
-(ns instant.util.int)
+(ns instant.util.number)
 
 (defn parse-int [s default]
   (try
