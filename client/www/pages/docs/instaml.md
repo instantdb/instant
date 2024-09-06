@@ -295,6 +295,11 @@ const createGoals = async (total) => {
     }
   }
 
+  // Add any remaining goals to the last batch
+  if (goals.length) {
+    batches.push(goals);
+  }
+
   // Now that you have your batches, transact them
   for (const batch of batches) {
     await transact(batch);
