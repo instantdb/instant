@@ -1,22 +1,23 @@
 import {
   // types
-  Config,
-  Query,
-  Exactly,
-  AuthState,
   InstantClient,
-  TransactionChunk,
   Auth,
-  LifecycleSubscriptionState,
-  PresenceOpts,
-  PresenceResponse,
-  RoomSchemaShape,
   Storage,
   txInit,
-  InstaQLQueryParams,
-  ConfigWithSchema,
-  i,
   _init_internal,
+  i,
+  type AuthState,
+  type Config,
+  type Query,
+  type Exactly,
+  type TransactionChunk,
+  type LifecycleSubscriptionState,
+  type PresenceOpts,
+  type PresenceResponse,
+  type RoomSchemaShape,
+  type InstaQLQueryParams,
+  type ConfigWithSchema,
+  type IDatabase,
 } from "@instantdb/core";
 import {
   KeyboardEvent,
@@ -286,7 +287,8 @@ export abstract class InstantReact<
   Schema extends i.InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
   WithCardinalityInference extends boolean = false,
-> {
+> implements IDatabase
+{
   public tx =
     txInit<
       Schema extends i.InstantGraph<any, any>

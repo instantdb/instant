@@ -12,6 +12,16 @@ import id from "./utils/uuid";
 import IndexedDBStorage from "./IndexedDBStorage";
 import WindowNetworkListener from "./WindowNetworkListener";
 import type {
+  PresenceOpts,
+  PresenceResponse,
+  PresenceSlice,
+  RoomSchemaShape,
+} from "./presence";
+import * as i from "./schema";
+import { createDevtool } from "./devtool";
+
+import type { IDatabase } from "./coreTypes";
+import type {
   Query,
   QueryResponse,
   PageInfoResponse,
@@ -20,14 +30,7 @@ import type {
   InstaQLQueryParams,
 } from "./queryTypes";
 import type { AuthState, User, AuthResult } from "./clientTypes";
-import type {
-  PresenceOpts,
-  PresenceResponse,
-  PresenceSlice,
-  RoomSchemaShape,
-} from "./presence";
-import * as i from "./schema";
-import { createDevtool } from "./devtool";
+import type { InstantQuery, InstantQueryResult } from "./helperTypes";
 
 const defaultOpenDevtool = true;
 
@@ -214,7 +217,8 @@ class InstantCore<
   Schema extends i.InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
   WithCardinalityInference extends boolean = false,
-> {
+> implements IDatabase
+{
   public _reactor: Reactor<RoomSchema>;
   public auth: Auth;
   public storage: Storage;
@@ -585,6 +589,7 @@ export {
   Storage,
 
   // types
+  IDatabase,
   RoomSchemaShape,
   Query,
   QueryResponse,
@@ -601,4 +606,6 @@ export {
   PresenceSlice,
   PresenceResponse,
   InstaQLQueryParams,
+  InstantQuery,
+  InstantQueryResult,
 };

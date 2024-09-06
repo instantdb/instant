@@ -6,6 +6,8 @@ import {
 
   // types
   type QueryResponse,
+  type InstantQuery,
+  type InstantQueryResult,
   type InstantObject,
   type User,
   type AuthState,
@@ -26,6 +28,7 @@ export {
   init_experimental,
   InstantReactWeb,
   Cursors,
+  i,
 
   // internal
   InstantReact,
@@ -37,5 +40,6 @@ export {
   InstantObject,
   User,
   AuthState,
-  i,
+  InstantQuery,
+  InstantQueryResult,
 };

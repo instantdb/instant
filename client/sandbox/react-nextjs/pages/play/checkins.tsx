@@ -1,4 +1,10 @@
-import { i, id, init_experimental } from "@instantdb/react";
+import {
+  i,
+  id,
+  init_experimental,
+  type InstantQuery,
+  type InstantQueryResult,
+} from "@instantdb/react";
 import config from "../../config";
 
 interface Data {
@@ -9,13 +15,16 @@ const schema = i
   .graph(
     "",
     {
+      discriminatedUnionExample: i
+        .entity({ x: i.string(), y: i.number() })
+        .asType<{ x: "foo"; y: 1 } | { x: "bar"; y: 2 }>(),
       habits: i.entity({
         name: i.string(),
       }),
       checkins: i.entity({
         date: i.string(),
         data: i.json<Data>().optional(),
-        meta: i.any().optional(),
+        meta: i.string().optional(),
       }),
       categories: i.entity({
         name: i.string(),
@@ -67,6 +76,7 @@ export default function Main() {
   });
 
   const { isLoading, error, data } = db.useQuery({
+    discriminatedUnionExample: {},
     checkins: {
       habit: {
         category: {},
@@ -76,6 +86,12 @@ export default function Main() {
 
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
+
+  const du = data.discriminatedUnionExample.at(0);
+  if (du?.x === "foo") {
+    // this should be constrained to 1
+    du.y;
+  }
 
   return (
     <div>
@@ -109,3 +125,41 @@ if (typeof window !== "undefined") {
     ]);
   };
 }
+
+// demo utility types
+
+const checkinsQuery = {
+  checkins: {
+    $: {
+      where: {
+        // ...
+      },
+    },
+    habit: {
+      category: {},
+    },
+  },
+} satisfies InstantQuery<typeof db>;
+
+type CheckinsQueryResult = InstantQueryResult<typeof db, typeof checkinsQuery>;
+
+const result: CheckinsQueryResult = {
+  checkins: [
+    {
+      id: "",
+      date: "",
+      data: {
+        notes: "",
+      },
+      meta: "",
+      habit: {
+        id: "",
+        name: "",
+        category: {
+          id: "",
+          name: "",
+        },
+      },
+    },
+  ],
+};
