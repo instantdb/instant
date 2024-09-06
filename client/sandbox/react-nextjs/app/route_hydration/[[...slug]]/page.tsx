@@ -98,18 +98,19 @@ function Login() {
 }
 
 function colorize(k: string, isLoading: boolean | null | undefined) {
-  return typeof isLoading == "boolean" ? (
-    isLoading ? (
-      <span style={{ color: "red" }}>
-        {k}: {isLoading.toString()}
-      </span>
-    ) : (
-      <span style={{ color: "green" }}>
-        {k}: {isLoading.toString()}
-      </span>
-    )
-  ) : (
-    <span>"..."</span>
+  return (
+    <span
+      style={{
+        color:
+          typeof isLoading === "boolean"
+            ? isLoading
+              ? "red"
+              : "green"
+            : "green",
+      }}
+    >
+      {k}: {typeof isLoading === "boolean" ? isLoading.toString() : "..."}
+    </span>
   );
 }
 

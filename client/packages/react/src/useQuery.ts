@@ -17,6 +17,16 @@ const defaultState = {
   error: undefined,
 };
 
+function stateForResult(result: any) {
+  return {
+    isLoading: !Boolean(result),
+    data: undefined,
+    pageInfo: undefined,
+    error: undefined,
+    ...(result ? result : {}),
+  };
+}
+
 export function useQuery<
   Q extends Schema extends i.InstantGraph<any, any>
     ? InstaQLQueryParams<Schema>
@@ -37,10 +47,9 @@ export function useQuery<
   // uses `Object.is` to compare the previous and next state.
   // If we don't use a ref, the state will always be considered different, so
   // the component will always re-render.
-  const resultCacheRef =
-    useRef<LifecycleSubscriptionState<Q, Schema, WithCardinalityInference>>(
-      defaultState,
-    );
+  const resultCacheRef = useRef<
+    LifecycleSubscriptionState<Q, Schema, WithCardinalityInference>
+  >(stateForResult(_core._reactor.getPreviousResult(query)));
 
   // (XXX): Similar to `resultCacheRef`, `useSyncExternalStore` will unsubscribe if
   // `subscribe` changes, so we need to use `useCallback` to memoize the function.
@@ -52,17 +61,24 @@ export function useQuery<
         return unsubscribe;
       }
 
-      const unsubscribe = _core.subscribeQuery<Q>(query, (result) => {
-        resultCacheRef.current = {
-          isLoading: !Boolean(result),
-          data: undefined,
-          pageInfo: undefined,
-          error: undefined,
-          ...result,
-        };
+      const unsubscribe = _core.subscribeQuery<Q>(
+        query,
+        (result, isImmediate) => {
+          if (isImmediate) {
+            // we already have the result from `_getPreviousResult`
+            return;
+          }
+          resultCacheRef.current = {
+            isLoading: !Boolean(result),
+            data: undefined,
+            pageInfo: undefined,
+            error: undefined,
+            ...result,
+          };
 
-        cb();
-      });
+          cb();
+        },
+      );
 
       return unsubscribe;
     },

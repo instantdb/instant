@@ -79,6 +79,7 @@ export default class Reactor {
 
   _presence = {};
   _broadcastSubs = {};
+  _currentUserCached = { isLoading: true, error: undefined, user: undefined };
 
   constructor(
     config,
@@ -109,6 +110,9 @@ export default class Reactor {
     this._oauthCallbackResponse = this._oauthLoginInit();
 
     this._initStorage(Storage);
+
+    // kick off a request to cache it
+    this.getCurrentUser();
 
     NetworkListener.getIsOnline().then((isOnline) => {
       this._isOnline = isOnline;
@@ -459,6 +463,17 @@ export default class Reactor {
   // ---------------------------
   // Queries
 
+  getPreviousResult = (q) => {
+    const hash = weakHash(q);
+    const errorMessage = this._errorMessage;
+    const prevResult = this.querySubs?.currentValue?.[hash]?.result;
+    if (errorMessage) {
+      return { error: errorMessage };
+    } else if (prevResult) {
+      return this.dataForResult(q, prevResult);
+    }
+  };
+
   /**
    *  When a user subscribes to a query the following side effects occur:
    *
@@ -480,12 +495,9 @@ export default class Reactor {
       return prev;
     });
     this._trySendAuthed(eventId, { op: "add-query", q });
-    const errorMessage = this._errorMessage;
-    const prevResult = this.querySubs.currentValue?.[hash]?.result;
-    if (errorMessage) {
-      cb({ error: errorMessage });
-    } else if (prevResult) {
-      cb(this.dataForResult(q, prevResult));
+    const prevResult = this.getPreviousResult(q);
+    if (prevResult) {
+      cb(prevResult, /* isImmediate */ true);
     }
     return () => {
       this.queryCbs[hash] = this.queryCbs[hash].filter((x) => x !== cb);
@@ -1002,10 +1014,15 @@ export default class Reactor {
 
   subscribeAuth(cb) {
     this.authCbs.push(cb);
+    let alreadySentImmediate = false;
+    if (!this._currentUserCached.isLoading) {
+      cb(this._currentUserCached, /* isImmediate */ true);
+      alreadySentImmediate = true;
+    }
     let unsubbed = false;
     this.getCurrentUser().then((resp) => {
-      if (unsubbed) return;
-      cb(resp);
+      if (unsubbed || alreadySentImmediate) return;
+      cb(resp, /* isImmediate */ alreadySentImmediate);
     });
     return () => {
       unsubbed = true;
@@ -1043,13 +1060,24 @@ export default class Reactor {
     await this._persister.setItem(currentUserKey, JSON.stringify(user));
   }
 
+  getCurrentUserCached() {
+    return this._currentUserCached;
+  }
+
   async getCurrentUser() {
     const oauthResp = await this._waitForOAuthCallbackResponse();
     if (oauthResp?.error) {
-      return { error: oauthResp.error };
+      const errorV = { error: oauthResp.error, user: undefined };
+      this._currentUserCached = { isLoading: false, ...errorV };
+      return errorV;
     }
     const user = await this._persister.getItem(currentUserKey);
-    return { user: JSON.parse(user) };
+    const userV = { user: JSON.parse(user), error: undefined };
+    this._currentUserCached = {
+      isLoading: false,
+      ...userV,
+    };
+    return userV;
   }
 
   async _hasCurrentUser() {
@@ -1077,6 +1105,8 @@ export default class Reactor {
   }
 
   updateUser(newUser) {
+    const newV = { error: undefined, user: newUser };
+    this._currentUserCached = { isLoading: false, ...newV };
     this.querySubs.set((prev) => {
       Object.keys(prev).forEach((k) => {
         delete prev[k].result;
@@ -1086,7 +1116,7 @@ export default class Reactor {
     this._reconnectTimeoutMs = 0;
     this._ws.close();
     this._oauthCallbackResponse = null;
-    this.notifyAuthSubs({ user: newUser });
+    this.notifyAuthSubs(newV);
   }
 
   sendMagicCode({ email }) {
