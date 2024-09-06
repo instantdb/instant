@@ -16,27 +16,13 @@ import navigation from '@/data/docsNavigation';
 function useTableOfContents(tableOfContents, scrollContainerRef) {
   let [currentSection, setCurrentSection] = useState(tableOfContents[0]?.id);
 
-  let getHeadings = useCallback((tableOfContents) => {
-    return tableOfContents
-      .flatMap((node) => [node.id, ...node.children.map((child) => child.id)])
-      .map((id) => {
-        let el = document.getElementById(id);
-        if (!el) return;
-
-        let style = window.getComputedStyle(el);
-        let scrollMt = parseFloat(style.scrollMarginTop);
-
-        let top = window.scrollY + el.getBoundingClientRect().top - scrollMt;
-        return { id, top };
-      });
-  }, []);
-
   useEffect(() => {
     if (tableOfContents.length === 0) return;
     let headings = getHeadings(tableOfContents);
 
     function onScroll() {
       if (!scrollContainerRef.current) return;
+
       let top = scrollContainerRef.current.scrollTop;
       let current = headings[0].id;
       for (let heading of headings) {
@@ -46,14 +32,30 @@ function useTableOfContents(tableOfContents, scrollContainerRef) {
           break;
         }
       }
+
       setCurrentSection(current);
     }
+
+    function getHeadings() {
+      return tableOfContents
+        .flatMap((node) => [node.id, ...node.children.map((child) => child.id)])
+        .map((id) => {
+          let el = document.getElementById(id);
+          if (!el) return;
+
+          let top = el.offsetTop;
+          return { id, top };
+        })
+        .filter((_) => _);
+    }
+
     window.addEventListener('scroll', onScroll, true);
     onScroll();
+
     return () => {
       window.removeEventListener('scroll', onScroll, true);
     };
-  }, [getHeadings, tableOfContents]);
+  }, [tableOfContents, scrollContainerRef]);
 
   return currentSection;
 }
