@@ -1,9 +1,24 @@
 import { test, expect } from "vitest";
 import { createStore } from "../../src/store";
 import query from "../../src/instaql";
-import { id } from "../../src";
+import { i, id } from "../../src";
+import { createLinkIndex } from "../../src/utils/linkIndex";
 
 test("many-to-many with inference", () => {
+  const schema = i.graph(
+    "",
+    {
+      posts: i.entity({}),
+      tags: i.entity({}),
+    },
+    {
+      postsTags: {
+        forward: { on: "posts", has: "many", label: "tags" },
+        reverse: { on: "tags", has: "many", label: "posts" },
+      },
+    },
+  );
+
   const ids = {
     postsTagsLink: id(),
     postsEntity: id(),
@@ -13,7 +28,7 @@ test("many-to-many with inference", () => {
   };
 
   const { result } = queryData(
-    { cardinalityInference: true },
+    { schema, cardinalityInference: true },
     [
       {
         id: ids.postsTagsLink,
@@ -68,6 +83,20 @@ test("many-to-many with inference", () => {
 });
 
 test("one-to-one with inference", () => {
+  const schema = i.graph(
+    "",
+    {
+      users: i.entity({}),
+      profiles: i.entity({}),
+    },
+    {
+      postsTags: {
+        forward: { on: "users", has: "one", label: "profile" },
+        reverse: { on: "profiles", has: "one", label: "user" },
+      },
+    },
+  );
+
   const ids = {
     usersProfilesLink: id(),
     usersEntity: id(),
@@ -77,7 +106,7 @@ test("one-to-one with inference", () => {
   };
 
   const { result } = queryData(
-    { cardinalityInference: true },
+    { cardinalityInference: true, schema },
     [
       {
         id: ids.usersProfilesLink,
@@ -203,7 +232,9 @@ function indexAttrs(attrs) {
 
 function queryData(config, attrs, triples, q) {
   const store = createStore(indexAttrs(attrs), triples);
-  if (config.cardinalityInference) store.cardinalityInference = true;
+  store.cardinalityInference = config.cardinalityInference;
+  store.linkIndex = config.schema ? createLinkIndex(config.schema) : undefined;
+
   const result = query({ store }, q);
 
   return { result, store };
