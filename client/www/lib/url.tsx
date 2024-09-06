@@ -6,3 +6,8 @@ export function url(base: string, path: string, querty: Record<string, any>) {
   });
   return url.toString();
 }
+
+export function getQueryParam(param: string) {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get(param);
+}
