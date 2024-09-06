@@ -18,8 +18,8 @@ import type {
   Exactly,
   InstantObject,
   InstaQLQueryParams,
-  SchemaInstaQLQuery,
-  SchemaInstaQLResult,
+  InstantQuery,
+  InstantQueryResult,
 } from "./queryTypes";
 import type { AuthState, User, AuthResult } from "./clientTypes";
 import type {
@@ -30,6 +30,7 @@ import type {
 } from "./presence";
 import * as i from "./schema";
 import { createDevtool } from "./devtool";
+import { DB } from "./types";
 
 const defaultOpenDevtool = true;
 
@@ -216,7 +217,8 @@ class InstantCore<
   Schema extends i.InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
   WithCardinalityInference extends boolean = false,
-> {
+> implements DB
+{
   public _reactor: Reactor<RoomSchema>;
   public auth: Auth;
   public storage: Storage;
@@ -587,6 +589,7 @@ export {
   Storage,
 
   // types
+  DB,
   RoomSchemaShape,
   Query,
   QueryResponse,
@@ -603,6 +606,6 @@ export {
   PresenceSlice,
   PresenceResponse,
   InstaQLQueryParams,
-  SchemaInstaQLQuery,
-  SchemaInstaQLResult,
+  InstantQuery,
+  InstantQueryResult,
 };

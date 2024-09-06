@@ -248,16 +248,16 @@ type AttrsDefs = Record<string, DataAttrDef<any, any>>;
 export class EntityDef<
   Attrs extends AttrsDefs,
   Links extends Record<string, LinkAttrDef<any, any>>,
-  OverrideType,
+  AsType,
 > {
   constructor(
     public attrs: Attrs,
     public links: Links,
   ) {}
 
-  // withOverrideType<_OverrideType>() {
-  //   return new EntityDef<Attrs, Links, _OverrideType>(this.attrs, this.links);
-  // }
+  asType<_AsType>() {
+    return new EntityDef<Attrs, Links, _AsType>(this.attrs, this.links);
+  }
 }
 
 type EntitiesDef = Record<string, EntityDef<any, any, any>>;
@@ -407,8 +407,8 @@ export type ResolveAttrs<
       : never;
   },
 > =
-  Entities[EntityName] extends EntityDef<any, any, infer OverrideType>
-    ? OverrideType extends void
+  Entities[EntityName] extends EntityDef<any, any, infer AsType>
+    ? AsType extends void
       ? ResolvedAttrs
-      : OverrideType
+      : AsType
     : ResolvedAttrs;

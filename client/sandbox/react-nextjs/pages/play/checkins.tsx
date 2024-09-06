@@ -2,8 +2,8 @@ import {
   i,
   id,
   init_experimental,
-  type SchemaInstaQLQuery,
-  type SchemaInstaQLResult,
+  type InstantQuery,
+  type InstantQueryResult,
 } from "@instantdb/react";
 import config from "../../config";
 
@@ -15,6 +15,9 @@ const schema = i
   .graph(
     "",
     {
+      discriminatedUnionExample: i
+        .entity({ x: i.string(), y: i.number() })
+        .asType<{ x: "foo"; y: 1 } | { x: "bar"; y: 2 }>(),
       habits: i.entity({
         name: i.string(),
       }),
@@ -73,7 +76,7 @@ export default function Main() {
   });
 
   const { isLoading, error, data } = db.useQuery({
-    discriminatedUnionExample: { categories: {} },
+    discriminatedUnionExample: {},
     checkins: {
       habit: {
         category: {},
@@ -83,6 +86,11 @@ export default function Main() {
 
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
+
+  if (data.discriminatedUnionExample[0].x === "foo") {
+    // this should be constrained to 1
+    data.discriminatedUnionExample[0].y;
+  }
 
   return (
     <div>
@@ -119,8 +127,6 @@ if (typeof window !== "undefined") {
 
 // demo utility types
 
-type Schema = typeof schema;
-
 const checkinsQuery = {
   checkins: {
     $: {
@@ -132,12 +138,11 @@ const checkinsQuery = {
       category: {},
     },
   },
-} satisfies SchemaInstaQLQuery<Schema>;
+} satisfies InstantQuery<typeof db>;
 
-type CheckinsQuery = typeof checkinsQuery;
-type CheckinsQueryResult = SchemaInstaQLResult<Schema, CheckinsQuery>;
+type CheckinsQueryResult = InstantQueryResult<typeof db, typeof checkinsQuery>;
 
-const r: CheckinsQueryResult = {
+const result: CheckinsQueryResult = {
   checkins: [
     {
       id: "",

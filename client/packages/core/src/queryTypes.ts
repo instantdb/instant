@@ -2,6 +2,7 @@
 // -----
 
 import { EntitiesDef, InstantGraph, LinkAttrDef, ResolveAttrs } from "./schema";
+import { DB } from "./types";
 
 // NonEmpty disallows {}, so that you must provide at least one field
 type NonEmpty<T> = {
@@ -219,16 +220,18 @@ export type InstaQLQueryParams<S extends InstantGraph<any, any>> = {
     | ($Option & InstaQLQuerySubqueryParams<S, K>);
 };
 
-export type SchemaInstaQLQuery<Schema extends InstantGraph<any, any>> =
-  InstaQLQueryParams<Schema>;
+export type InstantQuery<_DB extends DB<any, any, any>> =
+  _DB extends DB<infer Schema, any, any>
+    ? Schema extends InstantGraph<any, any, any>
+      ? InstaQLQueryParams<Schema>
+      : never
+    : never;
 
-export type SchemaInstaQLResult<
-  Schema extends InstantGraph<any, any>,
-  Q,
-  CardinalityInference extends boolean = true,
-> =
-  Schema extends InstantGraph<infer E, any>
-    ? InstaQLQueryResult<E, Remove$<Q>, CardinalityInference>
+export type InstantQueryResult<_DB extends DB<any, any, any>, Q> =
+  _DB extends DB<infer Schema, any, infer CardinalityInference>
+    ? Schema extends InstantGraph<infer E, any>
+      ? InstaQLQueryResult<E, Remove$<Q>, CardinalityInference>
+      : never
     : never;
 
 // --------

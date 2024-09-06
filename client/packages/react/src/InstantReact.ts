@@ -17,6 +17,7 @@ import {
   ConfigWithSchema,
   i,
   _init_internal,
+  DB,
 } from "@instantdb/core";
 import {
   KeyboardEvent,
@@ -286,7 +287,8 @@ export abstract class InstantReact<
   Schema extends i.InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
   WithCardinalityInference extends boolean = false,
-> {
+> implements DB
+{
   public tx =
     txInit<
       Schema extends i.InstantGraph<any, any>

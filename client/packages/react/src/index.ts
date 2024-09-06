@@ -6,8 +6,8 @@ import {
 
   // types
   type QueryResponse,
-  type SchemaInstaQLQuery,
-  type SchemaInstaQLResult,
+  type InstantQuery,
+  type InstantQueryResult,
   type InstantObject,
   type User,
   type AuthState,
@@ -40,6 +40,6 @@ export {
   InstantObject,
   User,
   AuthState,
-  SchemaInstaQLQuery,
-  SchemaInstaQLResult,
+  InstantQuery,
+  InstantQueryResult,
 };
