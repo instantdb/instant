@@ -3,7 +3,7 @@ Samplers:
     __default__:
         DeterministicSampler:
             SampleRate: 1
-    production:
+    prod:
       RulesBasedSampler:
         Rules:
           - Name: keep errors
