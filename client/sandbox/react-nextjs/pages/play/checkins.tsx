@@ -87,6 +87,8 @@ export default function Main() {
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
 
+  console.log(data);
+
   const du = data.discriminatedUnionExample.at(0);
   if (du?.x === "foo") {
     // this should be constrained to 1

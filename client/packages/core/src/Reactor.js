@@ -15,6 +15,7 @@ import { PersistedObject } from "./utils/PersistedObject";
 import { extractTriples } from "./model/instaqlResult";
 import { areObjectsDeepEqual } from "./utils/object";
 import { fromJSONWithMaps, toJSONWithMaps } from "./utils/json";
+import { createLinkIndex } from "./utils/linkIndex";
 
 const STATUS = {
   CONNECTING: "connecting",
@@ -40,8 +41,8 @@ function isClient() {
   const hasWindow = typeof window !== "undefined";
   // this checks if we are running in a chrome extension
   // @ts-expect-error
-  const isChrome = typeof chrome !== 'undefined';
-  
+  const isChrome = typeof chrome !== "undefined";
+
   return hasWindow || isChrome;
 }
 
@@ -70,6 +71,9 @@ export default class Reactor {
   /** @type {Promise<null | {error: {message: string}}>}**/
   _oauthCallbackResponse = null;
 
+  /** @type {null | import('./utils/linkIndex').LinkIndex}} */
+  _linkIndex = null;
+
   /** @type BroadcastChannel | undefined */
   _broadcastChannel;
 
@@ -82,14 +86,17 @@ export default class Reactor {
     NetworkListener = WindowNetworkListener,
   ) {
     this.config = { ...defaultConfig, ...config };
+
+    if (this.config.schema) {
+      this._linkIndex = createLinkIndex(this.config.schema);
+    }
+
     // This is to protect us against running
     // server-side.
     if (!isClient()) {
       return;
     }
-    if (
-      typeof BroadcastChannel === "function"
-    ) {
+    if (typeof BroadcastChannel === "function") {
       this._broadcastChannel = new BroadcastChannel("@instantdb");
       this._broadcastChannel.addEventListener("message", async (e) => {
         if (e.data?.type === "auth") {
@@ -274,6 +281,7 @@ export default class Reactor {
           this.attrs,
           triples,
           enableCardinalityInference,
+          this._linkIndex,
         );
         this.querySubs.set((prev) => {
           prev[hash].result = { store, pageInfo, aggregate };
@@ -294,6 +302,7 @@ export default class Reactor {
             this.attrs,
             triples,
             enableCardinalityInference,
+            this._linkIndex,
           );
           const pageInfo = result?.[0]?.data?.["page-info"];
           const aggregate = result?.[0]?.data?.["aggregate"];
