@@ -646,6 +646,12 @@ export default class Reactor {
     }
   };
 
+  /**  
+   * @param {*} txSteps
+   * @param {*} [chunks]
+   * @param {*} [error]
+   * @returns
+   */
   pushOps = (txSteps, chunks, error) => {
     const eventId = uuid();
     const mutation = {
