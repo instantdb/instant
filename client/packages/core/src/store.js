@@ -78,7 +78,6 @@ export function createStore(
   enableCardinalityInference,
   linkIndex,
 ) {
-  console.log(linkIndex);
   const store = createIndexMap(attrs, triples);
   store.attrs = attrs;
   store.cardinalityInference = enableCardinalityInference;
