@@ -87,9 +87,10 @@ export default function Main() {
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
 
-  if (data.discriminatedUnionExample[0].x === "foo") {
+  const du = data.discriminatedUnionExample.at(0);
+  if (du?.x === "foo") {
     // this should be constrained to 1
-    data.discriminatedUnionExample[0].y;
+    du.y;
   }
 
   return (
