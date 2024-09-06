@@ -2,7 +2,7 @@
 // -----
 
 import { EntitiesDef, InstantGraph, LinkAttrDef, ResolveAttrs } from "./schema";
-import { DB } from "./types";
+import { IDatabase } from "./coreTypes";
 
 // NonEmpty disallows {}, so that you must provide at least one field
 type NonEmpty<T> = {
@@ -79,7 +79,7 @@ type ResponseOf<Q, Schema> = {
     : (ResponseOf<Q[K], Schema> & ResponseObject<K, Schema>)[];
 };
 
-type Remove$<T> = T extends object
+export type Remove$<T> = T extends object
   ? { [K in keyof T as Exclude<K, "$">]: Remove$<T[K]> }
   : T;
 
@@ -219,20 +219,6 @@ export type InstaQLQueryParams<S extends InstantGraph<any, any>> = {
     | $Option
     | ($Option & InstaQLQuerySubqueryParams<S, K>);
 };
-
-export type InstantQuery<_DB extends DB<any, any, any>> =
-  _DB extends DB<infer Schema, any, any>
-    ? Schema extends InstantGraph<any, any, any>
-      ? InstaQLQueryParams<Schema>
-      : never
-    : never;
-
-export type InstantQueryResult<_DB extends DB<any, any, any>, Q> =
-  _DB extends DB<infer Schema, any, infer CardinalityInference>
-    ? Schema extends InstantGraph<infer E, any>
-      ? InstaQLQueryResult<E, Remove$<Q>, CardinalityInference>
-      : never
-    : never;
 
 // --------
 // Sanity check tests

@@ -2,7 +2,7 @@ import { TxChunk } from "./instatx";
 import { RoomSchemaShape } from "./presence";
 import { InstantGraph } from "./schema";
 
-export interface DB<
+export interface IDatabase<
   Schema extends InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
   WithCardinalityInference extends boolean = false,
