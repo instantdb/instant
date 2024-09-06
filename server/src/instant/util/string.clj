@@ -36,4 +36,4 @@
   "Helper to remove extra spaces from multiline strings. Lets you spread the
    string across multiple lines to meet line-width requirements in code."
   [s]
-  (string/replace s #"\s+" (fn [x] " ")))
+  (string/replace s #"\s+" (fn [_] " ")))
