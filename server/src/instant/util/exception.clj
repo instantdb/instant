@@ -248,35 +248,39 @@
       :foreign-key-violation
       (throw+ {::type ::record-foreign-key-invalid
                ::message (format "Foreign Key Invalid: %s" (name condition))
-               ::hint hint}
+               ::hint hint
+               ::pg-error-data data}
               e)
 
       :check-violation
       (throw+ {::type ::record-check-violation
                ::message (format "Check Violation: %s" (name condition))
-               ::hint hint}
+               ::hint hint
+               ::pg-error-data data}
               e)
 
       :raise-exception
       (throw+ {::type ::sql-raise
                ::message (format "Raised Exception: %s" server-message)
-               ::hint hint}
+               ::hint hint
+               ::pg-error-data data}
               e)
 
       (throw+ {::type ::sql-exception
                ::message (format "SQL Exception: %s" (name condition))
-               ::hint hint}
+               ::hint hint
+               ::pg-error-data data}
               e))))
 
-;; -------- 
-;; Oauth 
+;; --------
+;; Oauth
 
 (defn throw-oauth-err! [message]
   (throw+ {::type ::oauth-error
            ::message message}))
 
-;; ------------- 
-;; Wrappers 
+;; -------------
+;; Wrappers
 
 (defn find-instant-exception [^Exception e]
   (loop [cause e]
