@@ -494,59 +494,53 @@ export default class Reactor {
   // server attr-ids.
   _rewriteMutations(attrs, muts) {
     if (!attrs) return muts;
-    const findExistingAttr = ([action, attr]) => {
-      if (action !== "add-attr") {
-        return;
-      }
+    const findExistingAttr = (attr) => {
       const [_, etype, label] = attr["forward-identity"];
       const existing = instaml.getAttrByFwdIdentName(attrs, etype, label);
       return existing;
     };
-    const rewriteTxSteps = (mapping, txSteps, chunks) => {
-      // TODO: We can remove the txSteps.reduce and rely on only retransforming
-      //       the chunks after people have upgraded and stores no longer have
-      //       mutations without `chunks` in them. Safe to remove on Jan 1 2025.
-      const [newMapping, newTxSteps] = txSteps.reduce(
-        ([mapping, retTxSteps], txStep) => {
-          // Handles add-attr
-          // If existing, we drop it, and track it
-          // to update add/retract triples
-          const existing = findExistingAttr(txStep);
-          if (existing) {
-            const [_action, attr] = txStep;
-            mapping[attr.id] = existing.id;
-            return [mapping, retTxSteps];
-          }
-          // Handles add-triple|retract-triple
-          // If in mapping, we update the attr-id
-          const newTxStep = instaml.rewriteStep(mapping, txStep);
-
-          retTxSteps.push(newTxStep);
-          return [mapping, retTxSteps];
-        },
-        [mapping, []],
-      );
-      if (chunks) {
-        try {
-          return [newMapping, instaml.transform(attrs, chunks)];
-        } catch (e) {
-          return [newMapping, [], e];
-        }
-      }
-      return [newMapping, newTxSteps];
+    const findReverseAttr = (attr) => {
+      const [_, etype, label] = attr["forward-identity"];
+      const revAttr = instaml.getAttrByReverseIdentName(attrs, etype, label);
+      return revAttr;
     };
-    const [_, __, rewritten] = [...muts.entries()].reduce(
-      ([attrs, mapping, newMuts], [k, mut]) => {
-        const [newMapping, newTxSteps, error] = rewriteTxSteps(
-          mapping,
-          mut["tx-steps"],
-          mut["chunks"],
-        );
-        newMuts.set(k, { ...mut, "tx-steps": newTxSteps, error });
-        return [attrs, newMapping, newMuts];
-      },
-      [attrs, {}, new Map()],
-    );
+    const mapping = { attrIdMap: {}, refSwapAttrIds: new Set() };
+    const rewriteTxSteps = (txSteps) => {
+      const retTxSteps = [];
+      for (const txStep of txSteps) {
+        const [action] = txStep;
+
+        // Handles add-attr
+        // If existing, we drop it, and track it
+        // to update add/retract triples
+        if (action === "add-attr") {
+          const [_action, attr] = txStep;
+          const existing = findExistingAttr(attr);
+          if (existing) {
+            mapping.attrIdMap[attr.id] = existing.id;
+            continue;
+          }
+          if (attr["value-type"] === "ref") {
+            const revAttr = findReverseAttr(attr);
+            mapping.attrIdMap[attr.id] = revAttr.id;
+            mapping.refSwapAttrIds.add(attr.id);
+            continue;
+          }
+        }
+
+        // Handles add-triple|retract-triple
+        // If in mapping, we update the attr-id
+        const newTxStep = instaml.rewriteStep(mapping, txStep);
+
+        retTxSteps.push(newTxStep);
+      }
+      return retTxSteps;
+    };
+    // XXX: How are we going to validate lookups now?
+    const rewritten = new Map();
+    for (const [k, mut] of muts.entries()) {
+      rewritten.set(k, { ...mut, "tx-steps": rewriteTxSteps(mut["tx-steps"]) });
+    }
     return rewritten;
   }
 
@@ -640,23 +634,21 @@ export default class Reactor {
   pushTx = (chunks) => {
     try {
       const txSteps = instaml.transform(this.optimisticAttrs(), chunks);
-      return this.pushOps(txSteps, chunks);
+      return this.pushOps(txSteps);
     } catch (e) {
-      return this.pushOps([], null, e);
+      return this.pushOps([], e);
     }
   };
 
-  /**  
+  /**
    * @param {*} txSteps
-   * @param {*} [chunks]
    * @param {*} [error]
    * @returns
    */
-  pushOps = (txSteps, chunks, error) => {
+  pushOps = (txSteps, error) => {
     const eventId = uuid();
     const mutation = {
       op: "transact",
-      chunks,
       "tx-steps": txSteps,
       error,
     };
