@@ -112,12 +112,18 @@ test("rewrite mutations", () => {
   // create transactions without any attributes
   const optimisticSteps = instaml.transform({}, ops);
 
+  const mutations = new Map([["k", { "tx-steps": optimisticSteps }]]);
+
+  const rewrittenWithoutAttrs = reactor
+    ._rewriteMutations({}, mutations)
+    .get("k")["tx-steps"];
+
+  // Check that we didn't clobber anything in our rewrite
+  expect(rewrittenWithoutAttrs).toEqual(optimisticSteps);
+
   // rewrite them with the new server attributes
   const rewrittenSteps = reactor
-    ._rewriteMutations(
-      zenecaIdToAttr,
-      new Map([["k", { "tx-steps": optimisticSteps }]]),
-    )
+    ._rewriteMutations(zenecaIdToAttr, mutations)
     .get("k")["tx-steps"];
 
   const serverSteps = instaml.transform(zenecaIdToAttr, ops);

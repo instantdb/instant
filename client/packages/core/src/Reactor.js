@@ -522,9 +522,11 @@ export default class Reactor {
           }
           if (attr["value-type"] === "ref") {
             const revAttr = findReverseAttr(attr);
-            mapping.attrIdMap[attr.id] = revAttr.id;
-            mapping.refSwapAttrIds.add(attr.id);
-            continue;
+            if (revAttr) {
+              mapping.attrIdMap[attr.id] = revAttr.id;
+              mapping.refSwapAttrIds.add(attr.id);
+              continue;
+            }
           }
         }
 
