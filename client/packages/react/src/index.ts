@@ -35,13 +35,13 @@ export {
   InstantReact,
 
   // types
-  Config,
-  Query,
-  QueryResponse,
-  InstantObject,
-  User,
-  AuthState,
-  InstantQuery,
-  InstantQueryResult,
-  InstantSchema,
+  type Config,
+  type Query,
+  type QueryResponse,
+  type InstantObject,
+  type User,
+  type AuthState,
+  type InstantQuery,
+  type InstantQueryResult,
+  type InstantSchema,
 };
