@@ -41,6 +41,7 @@ module.exports = [
       { title: 'Instant CLI', href: '/docs/cli' },
       { title: 'Storage (beta)', href: '/docs/storage' },
       { title: 'Schema-as-code', href: '/docs/schema' },
+      { title: 'Strong Init (experimental)', href: '/docs/strong-init' },
     ],
   },
 ];
