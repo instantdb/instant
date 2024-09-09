@@ -61,6 +61,21 @@
 (defn get-by-refresh-token! [params]
   (ex/assert-record! (get-by-refresh-token params) :instant-user {:args [params]}))
 
+(defn get-by-personal-access-token
+  ([params] (get-by-personal-access-token aurora/conn-pool params))
+  ([conn {:keys [personal-access-token]}]
+   (sql/select-one
+    conn
+    ["SELECT instant_users.*
+      FROM instant_users
+      JOIN instant_personal_access_tokens
+      ON instant_users.id = instant_personal_access_tokens.user_id
+      WHERE instant_personal_access_tokens.id = ?::uuid"
+     personal-access-token])))
+
+(defn get-by-personal-access-token! [params]
+  (ex/assert-record! (get-by-personal-access-token params) :instant-user {:args [params]}))
+
 (defn get-by-email
   ([params] (get-by-email aurora/conn-pool params))
   ([conn {:keys [email]}]

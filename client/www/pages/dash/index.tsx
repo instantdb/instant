@@ -54,6 +54,7 @@ import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { QueryInspector } from '@/components/dash/explorer/QueryInspector';
 import { Sandbox } from '@/components/dash/Sandbox';
 import { StorageTab } from '@/components/dash/Storage';
+import PersonalAccessTokensScreen from '@/components/dash/PersonalAccessTokensScreen';
 import { useForm } from '@/lib/hooks/useForm';
 
 // (XXX): we may want to expose this underlying type
@@ -400,7 +401,18 @@ function Dashboard() {
     const _appId = _apps[0]?.id;
     nav({ s: 'main', app: _appId, t: 'hello' });
   }
-
+  if (screen === 'personal-access-tokens') {
+    return (
+      <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
+        <Head>
+          <title>Instant - {tabIndex.get(tab)?.title}</title>
+          <meta name="description" content="Welcome to Instant." />
+        </Head>
+        <StyledToastContainer />
+        <PersonalAccessTokensScreen />
+      </div>
+    );
+  }
   return (
     <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
       <Head>

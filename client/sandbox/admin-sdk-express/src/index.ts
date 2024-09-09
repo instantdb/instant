@@ -14,6 +14,8 @@ const config = {
   adminToken: process.env.INSTANT_ADMIN_TOKEN!,
 };
 
+const PERSONAL_ACCESS_TOKEN = process.env.INSTANT_PERSONAL_ACCESS_TOKEN!;
+
 const db = init(config);
 
 const { query, transact, auth } = db;
@@ -176,3 +178,57 @@ async function testAdminStorageBulkDelete(keyword: string) {
 // testAdminStorageFiles();
 // testAdminStorageDelete("admin/demo.jpeg");
 // testAdminStorageBulkDelete("admin/demo");
+
+/**
+ * Superadmin
+ */
+
+async function testSuperadminListApps() {
+  const response = await fetch(`${config.apiURI}/superadmin/apps`, {
+    headers: {
+      Authorization: `Bearer ${PERSONAL_ACCESS_TOKEN}`,
+    },
+  });
+  const data: any = await response.json();
+  console.log(data);
+  return data.apps;
+}
+
+async function testSuperadminCreateApp(title: string) {
+  const response = await fetch(`${config.apiURI}/superadmin/apps`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${PERSONAL_ACCESS_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ title }),
+  });
+  const data: any = await response.json();
+  console.log(data);
+  return data.app;
+}
+
+async function testSuperadminDeleteApp(appId: string) {
+  const response = await fetch(`${config.apiURI}/superadmin/apps/${appId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${PERSONAL_ACCESS_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+  });
+  const data: any = await response.json();
+  console.log(data);
+  return data.app;
+}
+
+async function testSuperadminAppsFlow() {
+  const app = await testSuperadminCreateApp("Test App");
+  await testSuperadminListApps();
+  await testSuperadminDeleteApp(app.id);
+  await testSuperadminListApps();
+}
+
+// testSuperadminListApps();
+// testSuperadminCreateApp("Test App");
+// testSuperadminDeleteApp("a3203638-7869-40cb-b21f-bb093342a461");
+// testSuperadminAppsFlow();

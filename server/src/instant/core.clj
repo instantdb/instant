@@ -8,6 +8,7 @@
    [instant.dash.routes :as dash-routes]
    [instant.runtime.routes :as runtime-routes]
    [instant.admin.routes :as admin-routes]
+   [instant.superadmin.routes :as superadmin-routes]
    [instant.storage.routes :as storage-routes]
    [ring.middleware.cookies :refer [CookieDateTime]]
    [ring.middleware.cors :refer [wrap-cors]]
@@ -77,6 +78,7 @@
                dash-routes/routes
                runtime-routes/routes
                admin-routes/routes
+               superadmin-routes/routes
                storage-routes/routes
                generic-webhook-routes)
        http-util/tracer-record-attrs
