@@ -2,6 +2,37 @@ import { getOps, isLookup, parseLookup } from "./instatx";
 import { immutableDeepReplace } from "./utils/object";
 import uuid from "./utils/uuid";
 
+// Rewrites optimistic attrs with the attrs we get back from the server.
+export function rewriteStep(attrMapping, txStep) {
+  const { attrIdMap, refSwapAttrIds } = attrMapping;
+  const rewritten = [];
+  for (const part of txStep) {
+    const newValue = attrIdMap[part];
+
+    if (newValue) {
+      // Rewrites attr id
+      rewritten.push(newValue);
+    } else if (Array.isArray(part) && part.length == 2 && attrIdMap[part[0]]) {
+      // Rewrites attr id in lookups
+      const [aid, value] = part;
+      rewritten.push([attrIdMap[aid], value]);
+    } else {
+      rewritten.push(part);
+    }
+  }
+  const [action] = txStep;
+  if (
+    (action === "add-triple" || action === "retract-triple") &&
+    refSwapAttrIds.has(txStep[2])
+  ) {
+    // Reverse links if the optimistic link attr is backwards
+    const tmp = rewritten[1];
+    rewritten[1] = rewritten[3];
+    rewritten[3] = tmp;
+  }
+  return rewritten;
+}
+
 export function getAttrByFwdIdentName(attrs, inputEtype, inputIdentName) {
   return Object.values(attrs).find((attr) => {
     const [_id, etype, label] = attr["forward-identity"];

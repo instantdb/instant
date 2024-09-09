@@ -505,49 +505,54 @@ export default class Reactor {
   // server attr-ids.
   _rewriteMutations(attrs, muts) {
     if (!attrs) return muts;
-    const findExistingAttr = ([action, attr]) => {
-      if (action !== "add-attr") {
-        return;
-      }
+    const findExistingAttr = (attr) => {
       const [_, etype, label] = attr["forward-identity"];
       const existing = instaml.getAttrByFwdIdentName(attrs, etype, label);
       return existing;
     };
-    const rewriteTxSteps = (mapping, txSteps) => {
-      return txSteps.reduce(
-        ([mapping, retTxSteps], txStep) => {
-          // Handles add-attr
-          // If existing, we drop it, and track it
-          // to update add/retract triples
-          const existing = findExistingAttr(txStep);
-          if (existing) {
-            const [_action, attr] = txStep;
-            mapping[attr.id] = existing.id;
-            return [mapping, retTxSteps];
-          }
-          // Handles add-triple|retract-triple
-          // If in mapping, we update the attr-id
-          const [action, eid, attrId, ...rest] = txStep;
-          const newTxStep = mapping[attrId]
-            ? [action, eid, mapping[attrId], ...rest]
-            : txStep;
-          retTxSteps.push(newTxStep);
-          return [mapping, retTxSteps];
-        },
-        [mapping, []],
-      );
+    const findReverseAttr = (attr) => {
+      const [_, etype, label] = attr["forward-identity"];
+      const revAttr = instaml.getAttrByReverseIdentName(attrs, etype, label);
+      return revAttr;
     };
-    const [_, __, rewritten] = [...muts.entries()].reduce(
-      ([attrs, mapping, newMuts], [k, mut]) => {
-        const [newMapping, newTxSteps] = rewriteTxSteps(
-          mapping,
-          mut["tx-steps"],
-        );
-        newMuts.set(k, { ...mut, "tx-steps": newTxSteps });
-        return [attrs, newMapping, newMuts];
-      },
-      [attrs, {}, new Map()],
-    );
+    const mapping = { attrIdMap: {}, refSwapAttrIds: new Set() };
+    const rewriteTxSteps = (txSteps) => {
+      const retTxSteps = [];
+      for (const txStep of txSteps) {
+        const [action] = txStep;
+
+        // Handles add-attr
+        // If existing, we drop it, and track it
+        // to update add/retract triples
+        if (action === "add-attr") {
+          const [_action, attr] = txStep;
+          const existing = findExistingAttr(attr);
+          if (existing) {
+            mapping.attrIdMap[attr.id] = existing.id;
+            continue;
+          }
+          if (attr["value-type"] === "ref") {
+            const revAttr = findReverseAttr(attr);
+            if (revAttr) {
+              mapping.attrIdMap[attr.id] = revAttr.id;
+              mapping.refSwapAttrIds.add(attr.id);
+              continue;
+            }
+          }
+        }
+
+        // Handles add-triple|retract-triple
+        // If in mapping, we update the attr-id
+        const newTxStep = instaml.rewriteStep(mapping, txStep);
+
+        retTxSteps.push(newTxStep);
+      }
+      return retTxSteps;
+    };
+    const rewritten = new Map();
+    for (const [k, mut] of muts.entries()) {
+      rewritten.set(k, { ...mut, "tx-steps": rewriteTxSteps(mut["tx-steps"]) });
+    }
     return rewritten;
   }
 
@@ -639,15 +644,25 @@ export default class Reactor {
 
   /** Applies transactions locally and sends transact message to server */
   pushTx = (chunks) => {
-    const txSteps = instaml.transform(this.optimisticAttrs(), chunks);
-    return this.pushOps(txSteps);
+    try {
+      const txSteps = instaml.transform(this.optimisticAttrs(), chunks);
+      return this.pushOps(txSteps);
+    } catch (e) {
+      return this.pushOps([], e);
+    }
   };
 
-  pushOps = (txSteps) => {
+  /**
+   * @param {*} txSteps
+   * @param {*} [error]
+   * @returns
+   */
+  pushOps = (txSteps, error) => {
     const eventId = uuid();
     const mutation = {
       op: "transact",
       "tx-steps": txSteps,
+      error,
     };
     this.pendingMutations.set((prev) => {
       prev.set(eventId, mutation);
@@ -676,6 +691,17 @@ export default class Reactor {
    *
    */
   _sendMutation(eventId, mutation) {
+    if (mutation.error) {
+      this._finishTransaction(false, "error", eventId, {
+        error: mutation.error,
+        message: mutation.error.message,
+      });
+      this.pendingMutations.set((prev) => {
+        prev.delete(eventId);
+        return prev;
+      });
+      return;
+    }
     if (this.status !== STATUS.AUTHENTICATED) {
       this._finishTransaction(true, "enqueued", eventId);
       return;
