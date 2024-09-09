@@ -57,8 +57,8 @@
 (defn ref-lookup? [attrs etype [ident-name _value]]
   ;; attr names can have `.` in them, so check for the attr with a `.` before
   ;; assuming it's a ref
-  (and (not (attr-model/seek-by-fwd-ident-name [etype ident-name] attrs))
-       (not= (.indexOf ident-name ".") -1)))
+  (and (not= (.indexOf ident-name ".") -1)
+       (not (attr-model/seek-by-fwd-ident-name [etype ident-name] attrs))))
 
 (defn extract-ref-lookup-fwd-name [lookup]
   (let [[ident-name _value] lookup

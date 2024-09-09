@@ -33,10 +33,10 @@ function explodeLookupRef(eid) {
 
 function isRefLookupIdent(attrs, etype, identName) {
   return (
+    identName.indexOf(".") !== -1 &&
     // attr names can have `.` in them, so use the attr we find with a `.`
     // before assuming it's a ref lookup.
-    !getAttrByFwdIdentName(attrs, etype, identName) &&
-    identName.indexOf(".") !== -1
+    !getAttrByFwdIdentName(attrs, etype, identName)
   );
 }
 
