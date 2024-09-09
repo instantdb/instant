@@ -289,7 +289,7 @@ export abstract class InstantReact<
   WithCardinalityInference extends boolean = false,
 > implements IDatabase<Schema, RoomSchema, WithCardinalityInference>
 {
-  public withCardinalityInference: WithCardinalityInference;
+  public withCardinalityInference?: WithCardinalityInference;
   public tx =
     txInit<
       Schema extends i.InstantGraph<any, any>
