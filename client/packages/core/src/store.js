@@ -208,7 +208,13 @@ function addTriple(store, rawTriple) {
     // For now, if we receive a command without an attr, we no-op.
     return;
   }
-  const enhancedTriple = [...triple, getCreatedAt(store, attr, triple)];
+
+  const existingTriple = getInMap(store.eav, [eid, aid, v]);
+  // Reuse the created_at for a triple if it's already in the store.
+  // Prevents updates from temporarily pushing an entity to the top
+  // while waiting for the server response.
+  const t = existingTriple?.[3] ?? getCreatedAt(store, attr, triple);
+  const enhancedTriple = [eid, aid, v, t];
 
   if (hasEA(attr)) {
     setInMap(store.eav, [eid, aid], new Map([[v, enhancedTriple]]));
