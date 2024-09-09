@@ -10,7 +10,9 @@ If you want to migrate, simply swap out `init` with `init_experimental` and prov
 
 ```ts
 import { init_experimental } from '@instantdb/react';
-import schema from '~/instant.schema.ts';
+// 1. Import your schema file
+// Don't have a schema? check out https://www.instantdb.com/docs/cli to get started
+import schema from '../instant.schema.ts';
 
 const db = init_experimental({
   appId: '__APP_ID__',
