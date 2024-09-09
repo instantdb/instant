@@ -299,9 +299,7 @@ class InstantCore<
       : Exactly<Query, Q>,
   >(
     query: Q,
-    cb: (
-      resp: SubscriptionState<Q, Schema, WithCardinalityInference>,
-    ) => void,
+    cb: (resp: SubscriptionState<Q, Schema, WithCardinalityInference>) => void,
   ) {
     return this._reactor.subscribeQuery(query, cb);
   }
@@ -320,9 +318,7 @@ class InstantCore<
    *    }
    *  })
    */
-  subscribeAuth(
-    cb: (auth: AuthResult) => void,
-  ): UnsubscribeFn {
+  subscribeAuth(cb: (auth: AuthResult) => void): UnsubscribeFn {
     return this._reactor.subscribeAuth(cb);
   }
 
