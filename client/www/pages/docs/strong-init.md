@@ -2,7 +2,9 @@
 title: Strong Init (experimental)
 ---
 
-We're piloting strictly-typed variants of our client libraries that leverage your `instant.schema.ts` definition. We're calling it "Strong Init". Strong Init enhances InstaQL and InstaML methods with deep typesafety and enhances your editor experience with rich intellisence.
+What if you could use the types you defined in `instant.schema.ts`, inside `init`? We have a new version of `init` out that lets you do this. It's in beta, but if you use it, `useQuery` and `transact` will automatically get typesafety and intellisense.
+
+Here's how it works
 
 If you want to migrate, simply swap out `init` with `init_experimental` and provide it your app's graph schema object.
 
