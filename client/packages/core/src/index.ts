@@ -11,15 +11,15 @@ import weakHash from "./utils/weakHash";
 import id from "./utils/uuid";
 import IndexedDBStorage from "./IndexedDBStorage";
 import WindowNetworkListener from "./WindowNetworkListener";
+import * as i from "./schema";
+import { createDevtool } from "./devtool";
+
 import type {
   PresenceOpts,
   PresenceResponse,
   PresenceSlice,
   RoomSchemaShape,
 } from "./presence";
-import * as i from "./schema";
-import { createDevtool } from "./devtool";
-
 import type { IDatabase } from "./coreTypes";
 import type {
   Query,
@@ -30,7 +30,11 @@ import type {
   InstaQLQueryParams,
 } from "./queryTypes";
 import type { AuthState, User, AuthResult } from "./clientTypes";
-import type { InstantQuery, InstantQueryResult } from "./helperTypes";
+import type {
+  InstantQuery,
+  InstantQueryResult,
+  InstantSchema,
+} from "./helperTypes";
 
 const defaultOpenDevtool = true;
 
@@ -100,7 +104,10 @@ const defaultConfig = {
 };
 
 // hmr
-function initGlobalInstantCoreStore(): Record<string, InstantCore<any>> {
+function initGlobalInstantCoreStore(): Record<
+  string,
+  InstantCore<any, any, any>
+> {
   globalThis.__instantDbStore = globalThis.__instantDbStore ?? {};
   return globalThis.__instantDbStore;
 }
@@ -217,8 +224,9 @@ class InstantCore<
   Schema extends i.InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
   WithCardinalityInference extends boolean = false,
-> implements IDatabase
+> implements IDatabase<Schema, RoomSchema, WithCardinalityInference>
 {
+  public withCardinalityInference?: WithCardinalityInference;
   public _reactor: Reactor<RoomSchema>;
   public auth: Auth;
   public storage: Storage;
@@ -589,23 +597,24 @@ export {
   Storage,
 
   // types
-  IDatabase,
-  RoomSchemaShape,
-  Query,
-  QueryResponse,
-  InstantObject,
-  Exactly,
-  TransactionChunk,
-  AuthState,
-  User,
-  AuthToken,
-  TxChunk,
-  SubscriptionState,
-  LifecycleSubscriptionState,
-  PresenceOpts,
-  PresenceSlice,
-  PresenceResponse,
-  InstaQLQueryParams,
-  InstantQuery,
-  InstantQueryResult,
+  type IDatabase,
+  type RoomSchemaShape,
+  type Query,
+  type QueryResponse,
+  type InstantObject,
+  type Exactly,
+  type TransactionChunk,
+  type AuthState,
+  type User,
+  type AuthToken,
+  type TxChunk,
+  type SubscriptionState,
+  type LifecycleSubscriptionState,
+  type PresenceOpts,
+  type PresenceSlice,
+  type PresenceResponse,
+  type InstaQLQueryParams,
+  type InstantQuery,
+  type InstantQueryResult,
+  type InstantSchema,
 };

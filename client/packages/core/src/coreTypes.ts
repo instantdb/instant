@@ -10,4 +10,6 @@ export interface IDatabase<
   tx: TxChunk<
     Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
   >;
+
+  withCardinalityInference?: WithCardinalityInference;
 }

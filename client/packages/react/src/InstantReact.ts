@@ -295,8 +295,9 @@ export abstract class InstantReact<
   Schema extends i.InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
   WithCardinalityInference extends boolean = false,
-> implements IDatabase
+> implements IDatabase<Schema, RoomSchema, WithCardinalityInference>
 {
+  public withCardinalityInference?: WithCardinalityInference;
   public tx =
     txInit<
       Schema extends i.InstantGraph<any, any>

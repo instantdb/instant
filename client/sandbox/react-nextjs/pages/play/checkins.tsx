@@ -2,6 +2,7 @@ import {
   i,
   id,
   init_experimental,
+  type InstantSchema,
   type InstantQuery,
   type InstantQueryResult,
 } from "@instantdb/react";
@@ -20,6 +21,7 @@ const schema = i
         .asType<{ x: "foo"; y: 1 } | { x: "bar"; y: 2 }>(),
       habits: i.entity({
         name: i.string(),
+        enum: i.string<"a" | "b">(),
       }),
       checkins: i.entity({
         date: i.string(),
@@ -155,6 +157,7 @@ const result: CheckinsQueryResult = {
       habit: {
         id: "",
         name: "",
+        enum: "a",
         category: {
           id: "",
           name: "",
@@ -163,3 +166,10 @@ const result: CheckinsQueryResult = {
     },
   ],
 };
+
+const deepVal = result.checkins[0].habit?.category?.id;
+
+// types
+type DeepVal = typeof deepVal;
+type Graph = i.InstantGraph<any, any, any>;
+type DBGraph = InstantSchema<typeof db>;

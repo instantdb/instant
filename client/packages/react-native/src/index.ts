@@ -7,14 +7,22 @@ import {
   InstantReact,
 
   // types
-  Config,
-  Query,
-  QueryResponse,
-  InstantObject,
-  AuthState,
-  User,
+  type Config,
+  type Query,
+  type QueryResponse,
+  type InstantObject,
+  type AuthState,
+  type User,
 } from "@instantdb/react";
-import { i, RoomSchemaShape, id, tx } from "@instantdb/core";
+import {
+  i,
+  id,
+  tx,
+  type RoomSchemaShape,
+  type InstantQuery,
+  type InstantQueryResult,
+  type InstantSchema,
+} from "@instantdb/core";
 
 /**
  *
@@ -77,11 +85,14 @@ export {
   i,
 
   // types
-  Config,
-  Query,
-  QueryResponse,
-  InstantObject,
-  User,
-  AuthState,
-  InstantReactNative,
+  type Config,
+  type Query,
+  type QueryResponse,
+  type InstantObject,
+  type User,
+  type AuthState,
+  type InstantReactNative,
+  type InstantQuery,
+  type InstantQueryResult,
+  type InstantSchema,
 };
