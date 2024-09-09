@@ -30,7 +30,7 @@ tx.todos[id()].update({ done: true });
 
 // ✅ use bound `db.tx`
 db.tx.todos[id()].update({ done: true });
-^^ --- note the db!
+// ^^ --- note the db!
 ```
 
 ## Breaking changes
