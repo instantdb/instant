@@ -60,19 +60,19 @@ export abstract class InstantSvelte<
 	 * @example
 	 *   // Create a new object in the `goals` namespace
 	 *   const goalId = id();
-	 *   db.transact(tx.goals[goalId].update({title: "Get fit"}))
+	 *   db.transact(db.tx.goals[goalId].update({title: "Get fit"}))
 	 *
 	 *   // Update the title
-	 *   db.transact(tx.goals[goalId].update({title: "Get super fit"}))
+	 *   db.transact(db.tx.goals[goalId].update({title: "Get super fit"}))
 	 *
 	 *   // Delete it
-	 *   db.transact(tx.goals[goalId].delete())
+	 *   db.transact(db.tx.goals[goalId].delete())
 	 *
 	 *   // Or create an association:
 	 *   todoId = id();
 	 *   db.transact([
-	 *    tx.todos[todoId].update({ title: 'Go on a run' }),
-	 *    tx.goals[goalId].link({todos: todoId}),
+	 *    db.tx.todos[todoId].update({ title: 'Go on a run' }),
+	 *    db.tx.goals[goalId].link({todos: todoId}),
 	 *  ])
 	 */
 	transact = (chunks: TransactionChunk<any, any> | TransactionChunk<any, any>[]) => {
@@ -104,7 +104,7 @@ export abstract class InstantSvelte<
 				Exactly<Query, Q>
 	>(
 		_query: null | Q
-	): LifecycleSubscriptionState<Q, Schema, WithCardinalityInference> => {
+	): { state: LifecycleSubscriptionState<Q, Schema, WithCardinalityInference> } => {
 		return useQuery(this._core, _query);
 	};
 
@@ -187,4 +187,26 @@ export abstract class InstantSvelte<
 		});
 		return result;
 	};
+}
+
+export class InstantSvelteWeb<
+	Schema extends i.InstantGraph<any, any> | {} = {},
+	RoomSchema extends RoomSchemaShape = {},
+	WithCardinalityInference extends boolean = false
+> extends InstantSvelte<Schema, RoomSchema, WithCardinalityInference> {}
+
+export function init_experimental<
+	Schema extends i.InstantGraph<any, any, any>,
+	WithCardinalityInference extends boolean = true
+>(
+	config: Config & {
+		schema: Schema;
+		cardinalityInference?: WithCardinalityInference;
+	}
+) {
+	return new InstantSvelteWeb<
+		Schema,
+		Schema extends i.InstantGraph<any, any, infer RoomSchema> ? RoomSchema : never,
+		WithCardinalityInference
+	>(config);
 }

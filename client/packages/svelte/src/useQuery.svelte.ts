@@ -8,6 +8,7 @@ import {
 	type LifecycleSubscriptionState,
 	type Query
 } from '@instantdb/core';
+import { untrack } from 'svelte';
 
 export const useQuery = <
 	Q extends Schema extends i.InstantGraph<any, any>
@@ -20,43 +21,33 @@ export const useQuery = <
 	// @ts-expect-error type taken directly from Instant react source code
 	_core: InstantClient<Schema, any, WithCardinalityInference>,
 	_query: null | Q
-): LifecycleSubscriptionState<Q, Schema, WithCardinalityInference> => {
+): { state: LifecycleSubscriptionState<Q, Schema, WithCardinalityInference> } => {
 	const query = _query ? coerceQuery(_query) : null;
 
-	let isLoading =
-		$state<LifecycleSubscriptionState<Q, Schema, WithCardinalityInference>['isLoading']>(true);
-	let data =
-		$state<LifecycleSubscriptionState<Q, Schema, WithCardinalityInference>['data']>(undefined);
-	let pageInfo =
-		$state<LifecycleSubscriptionState<Q, Schema, WithCardinalityInference>['pageInfo']>(
-			undefined
-		);
-	let error =
-		$state<LifecycleSubscriptionState<Q, Schema, WithCardinalityInference>['error']>(undefined);
+	let state = $state({
+		isLoading: true,
+		data: undefined,
+		pageInfo: undefined,
+		error: undefined
+	}) as unknown as LifecycleSubscriptionState<Q, Schema, WithCardinalityInference>;
 
 	$effect(() => {
 		const unsubscribe = _core.subscribeQuery<Q>(query, (result) => {
-			isLoading = !result;
-			data = result?.data;
-			pageInfo = result?.pageInfo;
-			error = result?.error;
+			untrack(() => {
+				state = {
+					isLoading: !result.data && !result.error,
+					data: result.data,
+					pageInfo: result.pageInfo,
+					error: result.error
+				} as unknown as LifecycleSubscriptionState<Q, Schema, WithCardinalityInference>;
+			});
 		});
-
 		return unsubscribe;
 	});
 
 	return {
-		get isLoading() {
-			return isLoading;
-		},
-		get data() {
-			return data;
-		},
-		get pageInfo() {
-			return pageInfo;
-		},
-		get error() {
-			return error;
+		get state() {
+			return state;
 		}
-	} as unknown as LifecycleSubscriptionState<Q, Schema, WithCardinalityInference>;
+	};
 };
