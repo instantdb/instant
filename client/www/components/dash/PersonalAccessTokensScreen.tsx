@@ -188,7 +188,7 @@ export default function PersonalAccessTokensTab({
   ] = usePersonalAccessTokens(token);
   const [isCreatingNewToken, setIsCreatingNewToken] = useState(false);
   const [newPersonalAccessTokenName, setNewPersonalAccessTokenName] =
-    useState('Default Token');
+    useState('Platform Token');
 
   const handleGenerateNewToken = async () => {
     try {
@@ -216,14 +216,31 @@ export default function PersonalAccessTokensTab({
       errorToast(`Failed to delete: ${err.body.message}`);
     }
   };
-
   return (
-    <div className={cn('flex-1 flex flex-col', className)}>
-      <div className="flex justify-between flex-row items-center border-b">
+    <div
+      className={cn('flex-1 flex flex-col p-4 max-w-2xl mx-auto', className)}
+    >
+      <div className="flex justify-between flex-row items-center">
         <div className="pt-1 pb-4">
-          <SectionHeading>Personal Access Tokens</SectionHeading>
+          <div className="prose">
+            <SectionHeading className="font-bold">
+              Personal Access Tokens <sup className="text-sm">[BETA]</sup>
+            </SectionHeading>
+            <p>
+              Welcome to the Platform Beta! You can create{' '}
+              <code>Personal Access Tokens</code> here. <br />
+              <a
+                href="https://paper.dropbox.com/doc/Guide-Platform-Beta--CWdyjOhRfXmwljLmnSVTLTSBAg-YuqzAKxTHU7CMq5gJyD6S"
+              >
+                Take a look at this guide
+              </a>{' '}
+              to see how to use the platform API, and create apps on demand!
+            </p>
+          </div>
         </div>
-        <div className="flex gap-2 justify-between">
+      </div>
+      <div className="space-y-2">
+        <div className="flex gap-2 justify-end">
           <Button
             variant="primary"
             size="mini"
@@ -233,118 +250,118 @@ export default function PersonalAccessTokensTab({
             New access token
           </Button>
         </div>
-      </div>
-      <table className="z-0 w-full flex-1 text-left font-mono text-xs text-gray-500">
-        <thead className="sticky top-0 z-20 bg-white text-gray-700 shadow">
-          <tr>
-            <th
-              className={cn(
-                'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1'
-              )}
-            >
-              Name
-            </th>
-            <th
-              className={cn(
-                'w-full z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1'
-              )}
-            >
-              Token
-            </th>
-            <th
-              className={cn(
-                'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1 text-right'
-              )}
-            >
-              Created
-            </th>
-            <th
-              className={cn(
-                'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1'
-              )}
-            ></th>
-          </tr>
-        </thead>
-        <tbody className="font-mono">
-          {personalAccessTokens.map(({ id, name, created_at }) => (
-            <tr key={id} className="group border-b bg-white">
-              <td className="whitespace-nowrap px-4 py-1">{name}</td>
-              <td className="w-full whitespace-nowrap px-4 py-1">
-                <CopyText
-                  label={id
-                    .slice(0, 4)
-                    .concat('************************')
-                    .concat(id.slice(-4))}
-                  value={id}
-                />
-              </td>
-              <td className="whitespace-nowrap px-4 py-1 text-right">
-                {format(new Date(created_at), 'MMM dd, h:mma')}
-              </td>
-              <td className="px-4 py-1" style={{}}>
-                <div className="flex items-center gap-1">
-                  <CopyButton value={id} />
-                  <Button
-                    variant="destructive"
-                    size="mini"
-                    onClick={() => handleDeleteToken(id)}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </td>
-            </tr>
-          ))}
-          <tr className="h-full"></tr>
-        </tbody>
-      </table>
-      <Dialog
-        open={isCreatingNewToken}
-        onClose={() => setIsCreatingNewToken(false)}
-      >
-        <ActionForm className="max-w-2xl">
-          <h5 className="flex text-lg font-bold">
-            Create personal access token
-          </h5>
-
-          <div className="flex flex-col gap-4 mt-4">
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-between">
-                <Label className="font-mono">Nickname</Label>
-              </div>
-              <div className="flex gap-1 flex-col">
-                <input
-                  className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
-                  placeholder="My default token"
-                  value={newPersonalAccessTokenName ?? ''}
-                  onChange={(e) =>
-                    setNewPersonalAccessTokenName(e.target.value)
-                  }
-                />
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 flex flex-row items-center justify-end gap-1">
-            <div className="flex flex-row items-center gap-1">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setIsCreatingNewToken(false)}
+        <table className="z-0 w-full flex-1 text-left font-mono text-xs text-gray-500">
+          <thead className="sticky top-0 z-20 bg-white text-gray-700 shadow">
+            <tr>
+              <th
+                className={cn(
+                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1'
+                )}
               >
-                Close
-              </Button>
-              <ActionButton
-                type="submit"
-                variant="primary"
-                label="Create"
-                submitLabel="Creating..."
-                errorMessage="Failed to create token."
-                onClick={handleGenerateNewToken}
-              />
+                Name
+              </th>
+              <th
+                className={cn(
+                  'w-full z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1'
+                )}
+              >
+                Token
+              </th>
+              <th
+                className={cn(
+                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1 text-right'
+                )}
+              >
+                Created
+              </th>
+              <th
+                className={cn(
+                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1'
+                )}
+              ></th>
+            </tr>
+          </thead>
+          <tbody className="font-mono">
+            {personalAccessTokens.map(({ id, name, created_at }) => (
+              <tr key={id} className="group border-b bg-white">
+                <td className="whitespace-nowrap px-4 py-1">{name}</td>
+                <td className="w-full whitespace-nowrap px-4 py-1">
+                  <CopyText
+                    label={id
+                      .slice(0, 4)
+                      .concat('************************')
+                      .concat(id.slice(-4))}
+                    value={id}
+                  />
+                </td>
+                <td className="whitespace-nowrap px-4 py-1 text-right">
+                  {format(new Date(created_at), 'MMM dd, h:mma')}
+                </td>
+                <td className="px-4 py-1" style={{}}>
+                  <div className="flex items-center gap-1">
+                    <CopyButton value={id} />
+                    <Button
+                      variant="destructive"
+                      size="mini"
+                      onClick={() => handleDeleteToken(id)}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            <tr className="h-full"></tr>
+          </tbody>
+        </table>
+        <Dialog
+          open={isCreatingNewToken}
+          onClose={() => setIsCreatingNewToken(false)}
+        >
+          <ActionForm className="max-w-2xl">
+            <h5 className="flex text-lg font-bold">
+              Create personal access token
+            </h5>
+
+            <div className="flex flex-col gap-4 mt-4">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <Label className="font-mono">Nickname</Label>
+                </div>
+                <div className="flex gap-1 flex-col">
+                  <input
+                    className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
+                    placeholder="My default token"
+                    value={newPersonalAccessTokenName ?? ''}
+                    onChange={(e) =>
+                      setNewPersonalAccessTokenName(e.target.value)
+                    }
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-        </ActionForm>
-      </Dialog>
+            <div className="mt-4 flex flex-row items-center justify-end gap-1">
+              <div className="flex flex-row items-center gap-1">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setIsCreatingNewToken(false)}
+                >
+                  Close
+                </Button>
+                <ActionButton
+                  type="submit"
+                  variant="primary"
+                  label="Create"
+                  submitLabel="Creating..."
+                  errorMessage="Failed to create token."
+                  onClick={handleGenerateNewToken}
+                />
+              </div>
+            </div>
+          </ActionForm>
+        </Dialog>
+      </div>
     </div>
   );
 }
