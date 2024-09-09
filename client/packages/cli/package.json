@@ -1,7 +1,7 @@
 {
   "name": "instant-cli",
   "type": "module",
-  "version": "v0.12.26",
+  "version": "v0.12.27",
   "description": "Instant's CLI",
   "scripts": {
     "publish-package": "npm publish --access public"
