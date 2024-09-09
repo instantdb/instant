@@ -229,9 +229,7 @@ export default function PersonalAccessTokensTab({
             <p>
               Welcome to the Platform Beta! You can create{' '}
               <code>Personal Access Tokens</code> here. <br />
-              <a
-                href="https://paper.dropbox.com/doc/Guide-Platform-Beta--CWdyjOhRfXmwljLmnSVTLTSBAg-YuqzAKxTHU7CMq5gJyD6S"
-              >
+              <a href="https://paper.dropbox.com/doc/Guide-Platform-Beta--CWdyjOhRfXmwljLmnSVTLTSBAg-YuqzAKxTHU7CMq5gJyD6S">
                 Take a look at this guide
               </a>{' '}
               to see how to use the platform API, and create apps on demand!
@@ -240,18 +238,16 @@ export default function PersonalAccessTokensTab({
         </div>
       </div>
       <div className="space-y-2">
-        <div className="flex gap-2 justify-end">
-          <Button
-            variant="primary"
-            size="mini"
-            onClick={() => setIsCreatingNewToken(true)}
-          >
-            <PlusIcon className="h-4 w-4 mr-1" />
-            New access token
-          </Button>
-        </div>
+        <Button
+          variant="primary"
+          size="mini"
+          onClick={() => setIsCreatingNewToken(true)}
+        >
+          <PlusIcon className="h-4 w-4 mr-1" />
+          New access token
+        </Button>
         <table className="z-0 w-full flex-1 text-left font-mono text-xs text-gray-500">
-          <thead className="sticky top-0 z-20 bg-white text-gray-700 shadow">
+          <thead className="sticky top-0 z-20 border-b">
             <tr>
               <th
                 className={cn(
