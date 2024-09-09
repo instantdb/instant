@@ -39,13 +39,12 @@ tx.todos[id()].update({ done: true });
 db.tx.todos[id()].update({ done: true }); // note the `db`
 ```
 
-## Breaking changes
+## Changes to useQuery
 
-Switching to Strong Init will automatically turn on a feature we're calling RCI - Runtime Cardinality Inference.
+Once you switch to `init_experimental`, your query results get more powerful too. 
 
-Since the new useQuery is schema-aware, we know when to return a single item instead of an array. 🎉 Bear in mind that you'll need to update your call sites for "has one" relationships.
+Previously, all responses in a `useQuery` returned arrays. Now, we can use your schema to decide. If you have a 'has one' relationship, we can return _just_ one item directly. 
 
-If you want to enable Strong Init without this feature, you can opt out by adding a `cardinalityInference` flag set to `false` in your `init_experimental` call.
 
 ## Rooms support
 
