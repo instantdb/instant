@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 
 // 1. Import Instant
 import { init, tx, id } from "@instantdb/react";
-import config from "../../../config";
+import config from "../../../../config";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -133,8 +133,8 @@ function Main({ appIsLoading }: { appIsLoading: boolean | null }) {
   return (
     <div className="p-4">
       <div>
-        <Link href="/route_hydration/1">page 1</Link>
-        <Link href="/route_hydration/2">page 2</Link>
+        <Link href="/play/route-hydration/1">page 1</Link>
+        <Link href="/play/route-hydration/2">page 2</Link>
       </div>
       <div>
         <p>Mounted State: {pathname}</p>
