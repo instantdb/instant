@@ -29,8 +29,7 @@ In order to leverage your schema in InstaML, just replace all `tx` references wi
 tx.todos[id()].update({ done: true });
 
 // ✅ use bound `db.tx`
-db.tx.todos[id()].update({ done: true });
-// ^^ --- note the db!
+db.tx.todos[id()].update({ done: true }); // note the `db`
 ```
 
 ## Breaking changes
