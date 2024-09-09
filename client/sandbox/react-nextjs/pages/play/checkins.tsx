@@ -2,6 +2,7 @@ import {
   i,
   id,
   init_experimental,
+  InstantSchema,
   type InstantQuery,
   type InstantQueryResult,
 } from "@instantdb/react";
@@ -163,3 +164,10 @@ const result: CheckinsQueryResult = {
     },
   ],
 };
+
+const deepVal = result.checkins[0].habit?.category?.id;
+
+// types
+type DeepVal = typeof deepVal;
+type Graph = i.InstantGraph<any, any, any>;
+type DBGraph = InstantSchema<typeof db>;

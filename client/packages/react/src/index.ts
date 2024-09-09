@@ -8,6 +8,7 @@ import {
   type QueryResponse,
   type InstantQuery,
   type InstantQueryResult,
+  type InstantSchema,
   type InstantObject,
   type User,
   type AuthState,
@@ -42,4 +43,5 @@ export {
   AuthState,
   InstantQuery,
   InstantQueryResult,
+  InstantSchema,
 };

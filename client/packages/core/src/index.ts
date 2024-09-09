@@ -30,7 +30,11 @@ import type {
   InstaQLQueryParams,
 } from "./queryTypes";
 import type { AuthState, User, AuthResult } from "./clientTypes";
-import type { InstantQuery, InstantQueryResult } from "./helperTypes";
+import type {
+  InstantQuery,
+  InstantQueryResult,
+  InstantSchema,
+} from "./helperTypes";
 
 const defaultOpenDevtool = true;
 
@@ -100,7 +104,10 @@ const defaultConfig = {
 };
 
 // hmr
-function initGlobalInstantCoreStore(): Record<string, InstantCore<any>> {
+function initGlobalInstantCoreStore(): Record<
+  string,
+  InstantCore<any, any, any>
+> {
   globalThis.__instantDbStore = globalThis.__instantDbStore ?? {};
   return globalThis.__instantDbStore;
 }
@@ -217,8 +224,9 @@ class InstantCore<
   Schema extends i.InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
   WithCardinalityInference extends boolean = false,
-> implements IDatabase
+> implements IDatabase<Schema, RoomSchema, WithCardinalityInference>
 {
+  public withCardinalityInference?: WithCardinalityInference;
   public _reactor: Reactor<RoomSchema>;
   public auth: Auth;
   public storage: Storage;
@@ -608,4 +616,5 @@ export {
   InstaQLQueryParams,
   InstantQuery,
   InstantQueryResult,
+  InstantSchema,
 };
