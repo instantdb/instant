@@ -21,6 +21,7 @@ const schema = i
         .asType<{ x: "foo"; y: 1 } | { x: "bar"; y: 2 }>(),
       habits: i.entity({
         name: i.string(),
+        enum: i.string<"a" | "b">(),
       }),
       checkins: i.entity({
         date: i.string(),
@@ -156,6 +157,7 @@ const result: CheckinsQueryResult = {
       habit: {
         id: "",
         name: "",
+        enum: "a",
         category: {
           id: "",
           name: "",

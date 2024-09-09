@@ -93,7 +93,7 @@ function entity<Attrs extends AttrsDefs>(
   return new EntityDef(attrs, {});
 }
 
-function string(): DataAttrDef<string, true> {
+function string<T extends string = string>(): DataAttrDef<T, true> {
   return new DataAttrDef("string", true);
 }
 
