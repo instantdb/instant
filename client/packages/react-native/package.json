@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/react-native",
-  "version": "v0.12.26",
+  "version": "v0.12.27",
   "description": "Instant DB for React Native",
   "main": "dist/index.js",
   "module": "dist/module/index.js",
