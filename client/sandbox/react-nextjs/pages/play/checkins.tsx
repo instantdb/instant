@@ -2,7 +2,7 @@ import {
   i,
   id,
   init_experimental,
-  InstantSchema,
+  type InstantSchema,
   type InstantQuery,
   type InstantQueryResult,
 } from "@instantdb/react";
