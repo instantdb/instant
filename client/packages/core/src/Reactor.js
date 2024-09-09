@@ -1014,14 +1014,14 @@ export default class Reactor {
 
   subscribeAuth(cb) {
     this.authCbs.push(cb);
-    let alreadySentImmediate = false;
-    if (!this._currentUserCached.isLoading) {
+    const currUserCached = this._currentUserCached;
+    if (!currUserCached.isLoading) {
       cb(this._currentUserCached);
-      alreadySentImmediate = true;
     }
     let unsubbed = false;
     this.getCurrentUser().then((resp) => {
-      if (unsubbed || alreadySentImmediate) return;
+      if (unsubbed) return;
+      if (areObjectsDeepEqual(resp, currUserCached)) return;
       cb(resp);
     });
     return () => {
