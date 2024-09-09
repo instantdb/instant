@@ -11,15 +11,15 @@ import weakHash from "./utils/weakHash";
 import id from "./utils/uuid";
 import IndexedDBStorage from "./IndexedDBStorage";
 import WindowNetworkListener from "./WindowNetworkListener";
+import * as i from "./schema";
+import { createDevtool } from "./devtool";
+
 import type {
   PresenceOpts,
   PresenceResponse,
   PresenceSlice,
   RoomSchemaShape,
 } from "./presence";
-import * as i from "./schema";
-import { createDevtool } from "./devtool";
-
 import type { IDatabase } from "./coreTypes";
 import type {
   Query,
