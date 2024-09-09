@@ -549,7 +549,6 @@ export default class Reactor {
       }
       return retTxSteps;
     };
-    // XXX: How are we going to validate lookups now?
     const rewritten = new Map();
     for (const [k, mut] of muts.entries()) {
       rewritten.set(k, { ...mut, "tx-steps": rewriteTxSteps(mut["tx-steps"]) });
