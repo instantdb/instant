@@ -54,8 +54,11 @@
       (parse-lookup eid))
     (explode-lookup eid)))
 
-(defn ref-lookup? [[ident-name _value]]
-  (not= (.indexOf ident-name ".") -1))
+(defn ref-lookup? [attrs etype [ident-name _value]]
+  ;; attr names can have `.` in them, so check for the attr with a `.` before
+  ;; assuming it's a ref
+  (and (not= (.indexOf ident-name ".") -1)
+       (not (attr-model/seek-by-fwd-ident-name [etype ident-name] attrs))))
 
 (defn extract-ref-lookup-fwd-name [lookup]
   (let [[ident-name _value] lookup
@@ -69,7 +72,7 @@
 
 (defn extract-lookup [attrs etype eid]
   (if-let [[ident-name value :as lookup] (eid->lookup-pair eid)]
-    (let [label (if (ref-lookup? lookup)
+    (let [label (if (ref-lookup? attrs etype lookup)
                   (extract-ref-lookup-fwd-name lookup)
                   ident-name)
           attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
@@ -238,7 +241,7 @@
             labels)))
 
 (defn add-attrs-for-lookup [{:keys [attrs] :as acc} lookup etype]
-  (if (ref-lookup? lookup)
+  (if (ref-lookup? attrs etype lookup)
     (let [label (extract-ref-lookup-fwd-name lookup)
           fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
           rev-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)]

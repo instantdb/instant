@@ -31,8 +31,13 @@ function explodeLookupRef(eid) {
   return entries[0];
 }
 
-function isRefLookupIdent(identName) {
-  return identName.indexOf(".") !== -1;
+function isRefLookupIdent(attrs, etype, identName) {
+  return (
+    identName.indexOf(".") !== -1 &&
+    // attr names can have `.` in them, so use the attr we find with a `.`
+    // before assuming it's a ref lookup.
+    !getAttrByFwdIdentName(attrs, etype, identName)
+  );
 }
 
 function extractRefLookupFwdName(identName) {
@@ -45,7 +50,7 @@ function extractRefLookupFwdName(identName) {
 }
 
 function lookupIdentToAttr(attrs, etype, identName) {
-  if (!isRefLookupIdent(identName)) {
+  if (!isRefLookupIdent(attrs, etype, identName)) {
     return getAttrByFwdIdentName(attrs, etype, identName);
   }
 
@@ -263,7 +268,7 @@ function createMissingAttrs(existingAttrs, ops) {
       const lookupPair = lookupPairOfEid(eid);
       if (lookupPair) {
         const identName = lookupPair[0];
-        if (isRefLookupIdent(identName)) {
+        if (isRefLookupIdent(attrs, etype, identName)) {
           const label = extractRefLookupFwdName(identName);
           const fwdAttr = getAttrByFwdIdentName(attrs, etype, label);
           const revAttr = getAttrByReverseIdentName(attrs, etype, label);

@@ -616,7 +616,13 @@
             attrs [["update" "books" ["title" "test"] {"title" "test"}]])))
     (is (= {:message "test.isbn is not a valid lookup attribute."}
            (tx-validation-err
-            attrs [["update" "books" ["test.isbn" "asdf"] {"title" "test"}]])))))
+            attrs [["update" "books" ["test.isbn" "asdf"] {"title" "test"}]])))
+    (is (= {:message "test.isbn is not a unique attribute on books"}
+           (tx-validation-err
+            (conj attrs {:id (random-uuid)
+                         :forward-identity [(random-uuid) "books" "test.isbn"]
+                         :unique? false})
+            [["update" "books" ["test.isbn" "asdf"] {"title" "test"}]])))))
 
 (comment
   (test/run-tests *ns*))

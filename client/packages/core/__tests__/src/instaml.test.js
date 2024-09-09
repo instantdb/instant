@@ -187,7 +187,51 @@ test("it throws if you use an invalid link attr", () => {
         a: 1,
       }),
     ),
-  ).toThrowError('user_pref.email is not a valid lookup attribute.');
+  ).toThrowError("user_pref.email is not a valid lookup attribute.");
+});
+
+test("it doesn't throw if you have a period in your attr", () => {
+  const aid = uuid();
+  const iid = uuid();
+  const pid = uuid();
+  const attrs = {
+    [aid]: {
+      id: aid,
+      cardinality: "one",
+      "forward-identity": [uuid(), "users", "attr.with.dot"],
+      "index?": true,
+      "unique?": true,
+      "value-type": "blob",
+    },
+    [iid]: {
+      id: iid,
+      cardinality: "one",
+      "forward-identity": [uuid(), "users", "id"],
+      "index?": false,
+      "unique?": false,
+      "value-type": "blob",
+    },
+    [pid]: {
+      id: pid,
+      cardinality: "one",
+      "forward-identity": [uuid(), "users", "a"],
+      "index?": false,
+      "unique?": false,
+      "value-type": "blob",
+    },
+  };
+
+  expect(
+    instaml.transform(
+      attrs,
+      instatx.tx.users[instatx.lookup("attr.with.dot", "value")].update({
+        a: 1,
+      }),
+    ),
+  ).toEqual([
+    ["add-triple", [aid, "value"], iid, [aid, "value"]],
+    ["add-triple", [aid, "value"], pid, 1],
+  ]);
 });
 
 test("it doesn't create duplicate ref attrs", () => {
