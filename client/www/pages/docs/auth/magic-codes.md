@@ -8,7 +8,7 @@ how you can do it with react.
 
 ## Full Magic Code Example
 
-{% callout type="info" %}
+{% callout %}
 The example below shows how to use magic codes in a React app. If you're looking
 for an example with vanilla JS, check out this [sandbox](https://github.com/instantdb/instant/blob/main/client/sandbox/vanilla-js-vite/src/main.ts).
 {% /callout %}
@@ -185,3 +185,13 @@ db.auth.signInWithMagicCode({ email: sentEmail, code }).catch((err) => {
 ```
 
 You can then use `auth.signInWithMagicCode` to authenticate the user with the magic code they provided.
+
+## Sign out
+
+```javascript
+db.auth.signOut();
+```
+
+Use `auth.signOut` from the client to invalidate the user's refresh token and
+sign them out.You can also use the admin SDK to sign out the user [from the
+server](/docs/backend#sign-out).

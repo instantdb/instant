@@ -259,8 +259,13 @@ function extendObjects(makeVar, store, { etype, level, form }, objects) {
   }
   return Object.entries(objects).map(([eid, parent]) => {
     const childResults = children.map((label) => {
+      const isSingular = Boolean(
+        store.cardinalityInference &&
+          store.linkIndex?.[etype]?.[label]?.isSingular,
+      );
+
       try {
-        const [nextEtype, nextLevel, join, attr, isForward] = makeJoin(
+        const [nextEtype, nextLevel, join] = makeJoin(
           makeVar,
           store,
           etype,
@@ -268,6 +273,7 @@ function extendObjects(makeVar, store, { etype, level, form }, objects) {
           label,
           eid,
         );
+
         const childrenArray = queryOne(store, {
           etype: nextEtype,
           level: nextLevel,
@@ -275,22 +281,12 @@ function extendObjects(makeVar, store, { etype, level, form }, objects) {
           join,
         });
 
-        let children = childrenArray;
-        if (store.cardinalityInference) {
-          const isForwardCardinalityOne =
-            isForward && attr.cardinality === "one";
-          const isReverseUnique = !isForward && attr["unique?"];
-          const isSingleChild = isForwardCardinalityOne || isReverseUnique;
+        const childOrChildren = isSingular ? childrenArray[0] : childrenArray;
 
-          if (isSingleChild) {
-            children = childrenArray[0];
-          }
-        }
-
-        return { [label]: children };
+        return { [label]: childOrChildren };
       } catch (e) {
         if (e instanceof AttrNotFoundError) {
-          return { [label]: [] };
+          return { [label]: isSingular ? undefined : [] };
         }
         throw e;
       }

@@ -13,6 +13,7 @@ export {
   // types
   type InstantGraph,
   type EntitiesDef,
+  type LinkDef,
   type LinksDef,
   type LinkAttrDef,
   type DataAttrDef,

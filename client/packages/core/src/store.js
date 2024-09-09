@@ -72,10 +72,17 @@ function createIndexMap(attrs, triples) {
   return { eav, aev, vae };
 }
 
-export function createStore(attrs, triples, enableCardinalityInference) {
+export function createStore(
+  attrs,
+  triples,
+  enableCardinalityInference,
+  linkIndex,
+) {
   const store = createIndexMap(attrs, triples);
   store.attrs = attrs;
   store.cardinalityInference = enableCardinalityInference;
+  store.linkIndex = linkIndex;
+
   return store;
 }
 
