@@ -16,6 +16,7 @@ import schema from '../instant.schema.ts';
 
 const db = init_experimental({
   appId: '__APP_ID__',
+  // 2. Use it inside `init_experimental`
   schema,
 });
 
