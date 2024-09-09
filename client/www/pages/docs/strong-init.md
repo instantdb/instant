@@ -27,7 +27,9 @@ function App() {
 
 ## Strong InstaML
 
-In order to leverage your schema in InstaML, just replace all `tx` references with `db.tx`.
+To make sure your transactions are typed, here's what you need to do: 
+
+If you used Instant before, you would use the global `tx` object. Instead, use `db.tx`: 
 
 ```ts
 // ❌ instead of global `tx`
