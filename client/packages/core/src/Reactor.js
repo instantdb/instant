@@ -497,7 +497,7 @@ export default class Reactor {
     this._trySendAuthed(eventId, { op: "add-query", q });
     const prevResult = this.getPreviousResult(q);
     if (prevResult) {
-      cb(prevResult, /* isImmediate */ true);
+      cb(prevResult);
     }
     return () => {
       this.queryCbs[hash] = this.queryCbs[hash].filter((x) => x !== cb);
@@ -1016,13 +1016,13 @@ export default class Reactor {
     this.authCbs.push(cb);
     let alreadySentImmediate = false;
     if (!this._currentUserCached.isLoading) {
-      cb(this._currentUserCached, /* isImmediate */ true);
+      cb(this._currentUserCached);
       alreadySentImmediate = true;
     }
     let unsubbed = false;
     this.getCurrentUser().then((resp) => {
       if (unsubbed || alreadySentImmediate) return;
-      cb(resp, /* isImmediate */ alreadySentImmediate);
+      cb(resp);
     });
     return () => {
       unsubbed = true;

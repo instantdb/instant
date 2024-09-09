@@ -301,7 +301,6 @@ class InstantCore<
     query: Q,
     cb: (
       resp: SubscriptionState<Q, Schema, WithCardinalityInference>,
-      isImmediate?: boolean,
     ) => void,
   ) {
     return this._reactor.subscribeQuery(query, cb);
@@ -322,7 +321,7 @@ class InstantCore<
    *  })
    */
   subscribeAuth(
-    cb: (auth: AuthResult, isImmediate?: boolean) => void,
+    cb: (auth: AuthResult) => void,
   ): UnsubscribeFn {
     return this._reactor.subscribeAuth(cb);
   }

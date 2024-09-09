@@ -63,11 +63,7 @@ export function useQuery<
 
       const unsubscribe = _core.subscribeQuery<Q>(
         query,
-        (result, isImmediate) => {
-          if (isImmediate) {
-            // we already have the result from `_getPreviousResult`
-            return;
-          }
+        (result) => {
           resultCacheRef.current = {
             isLoading: !Boolean(result),
             data: undefined,

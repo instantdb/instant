@@ -439,25 +439,20 @@ export abstract class InstantReact<
     // uses `Object.is` to compare the previous and next state.
     // If we don't use a ref, the state will always be considered different, so
     // the component will always re-render.
-    const resultCacheRef = useRef<AuthState>(this._core._reactor._currentUserCached);
+    const resultCacheRef = useRef<AuthState>(
+      this._core._reactor._currentUserCached,
+    );
 
     // Similar to `resultCacheRef`, `useSyncExternalStore` will unsubscribe if
     // `subscribe` changes, so we need to use `useCallback` to memoize the function.
-    const subscribe = useCallback(
-      (cb: Function) => {
-        const unsubscribe = this._core.subscribeAuth((auth, isImmediate) => {
-          if (isImmediate) {
-            // we already have the latest value from _currentUserCached
-            return;
-          }
-          resultCacheRef.current = {isLoading: false, ...auth};
-          cb();
-        });
+    const subscribe = useCallback((cb: Function) => {
+      const unsubscribe = this._core.subscribeAuth((auth) => {
+        resultCacheRef.current = { isLoading: false, ...auth };
+        cb();
+      });
 
-        return unsubscribe;
-      },
-      [],
-    );
+      return unsubscribe;
+    }, []);
 
     const state = useSyncExternalStore<AuthState>(
       subscribe,
