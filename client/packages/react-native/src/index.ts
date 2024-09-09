@@ -16,9 +16,9 @@ import {
 } from "@instantdb/react";
 import {
   i,
-  RoomSchemaShape,
   id,
   tx,
+  type RoomSchemaShape,
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
