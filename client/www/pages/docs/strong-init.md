@@ -48,7 +48,7 @@ Previously, all responses in a `useQuery` returned arrays. Now, we can use your 
 
 ## Rooms support
 
-Rooms are still expressed in pure TypeScript. You can enrich your schema with your rooms shape by calling `schema.withRoomSchema<R>`.
+Rooms are still expressed in pure TypeScript. You can type rooms with `schema.withRoomSchema<R>`. Here's how it looks:
 
 ```ts
 type RoomSchema = {
