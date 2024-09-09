@@ -44,7 +44,7 @@ export function useQuery<
   const queryHash = weakHash(query);
 
   // We use a ref to store the result of the query.
-  // This is becuase `useSyncExternalStore` uses `Object.is` 
+  // This is becuase `useSyncExternalStore` uses `Object.is`
   // to compare the previous and next state.
   // If we don't use a ref, the state will always be considered different, so
   // the component will always re-render.
@@ -52,7 +52,7 @@ export function useQuery<
     LifecycleSubscriptionState<Q, Schema, WithCardinalityInference>
   >(stateForResult(_core._reactor.getPreviousResult(query)));
 
-  // Similar to `resultCacheRef`, `useSyncExternalStore` will unsubscribe 
+  // Similar to `resultCacheRef`, `useSyncExternalStore` will unsubscribe
   // if `subscribe` changes, so we use `useCallback` to memoize the function.
   const subscribe = useCallback(
     (cb) => {
@@ -62,20 +62,17 @@ export function useQuery<
         return unsubscribe;
       }
 
-      const unsubscribe = _core.subscribeQuery<Q>(
-        query,
-        (result) => {
-          resultCacheRef.current = {
-            isLoading: !Boolean(result),
-            data: undefined,
-            pageInfo: undefined,
-            error: undefined,
-            ...result,
-          };
+      const unsubscribe = _core.subscribeQuery<Q>(query, (result) => {
+        resultCacheRef.current = {
+          isLoading: !Boolean(result),
+          data: undefined,
+          pageInfo: undefined,
+          error: undefined,
+          ...result,
+        };
 
-          cb();
-        },
-      );
+        cb();
+      });
 
       return unsubscribe;
     },
@@ -90,6 +87,5 @@ export function useQuery<
     () => resultCacheRef.current,
     () => defaultState,
   );
-
   return { state, query };
 }
