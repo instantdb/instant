@@ -1,19 +1,29 @@
-import { File, getFiles } from "../lib/pages";
+import { File, getAppRouterFiles, getPageRouterFiles } from "../lib/files";
 
 export async function getStaticProps() {
-  const files = getFiles();
-
+  const pageRouterFiles = getPageRouterFiles();
+  const appRouterFiles = getAppRouterFiles();
   return {
     props: {
-      files,
+      pageRouterFiles,
+      appRouterFiles,
     },
   };
 }
 
-const Home = ({ files }: { files: File[] }) => {
+const Home = ({
+  pageRouterFiles,
+  appRouterFiles,
+}: {
+  pageRouterFiles: File[];
+  appRouterFiles: File[];
+}) => {
   return (
     <div className="mx-w-md mx-auto p-4">
-      {files.map(({ pathName, name }) => {
+      <div>
+        <strong>Pages Router</strong>
+      </div>
+      {pageRouterFiles.map(({ pathName, name }) => {
         return (
           <div key={pathName}>
             <a key={pathName} href={pathName}>
@@ -22,6 +32,18 @@ const Home = ({ files }: { files: File[] }) => {
           </div>
         );
       })}
+      <div>
+        <strong>App Router</strong>
+        {appRouterFiles.map(({ pathName, name }) => {
+          return (
+            <div key={pathName}>
+              <a key={pathName} href={pathName}>
+                {name}
+              </a>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

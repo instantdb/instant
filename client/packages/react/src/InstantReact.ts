@@ -24,7 +24,9 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { useQuery } from "./useQuery";
 import { useTimeout } from "./useTimeout";
@@ -283,6 +285,12 @@ export class InstantReactRoom<
   };
 }
 
+const defaultAuthState = {
+  isLoading: true,
+  user: undefined,
+  error: undefined,
+};
+
 export abstract class InstantReact<
   Schema extends i.InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
@@ -427,20 +435,31 @@ export abstract class InstantReact<
    *
    */
   useAuth = (): AuthState => {
-    // (XXX): Don't set `isLoading` true if we already have data, would
-    // be better to immediately show loaded data
-    const [state, setState] = useState({
-      isLoading: true,
-      user: undefined,
-      error: undefined,
-    });
-    useEffect(() => {
-      const unsub = this._core._reactor.subscribeAuth((resp: any) => {
-        setState({ isLoading: false, ...resp });
+    // We use a ref to store the result of the query.
+    // This is becuase `useSyncExternalStore` uses `Object.is` 
+    // to compare the previous and next state.
+    // If we don't use a ref, the state will always be considered different, so
+    // the component will always re-render.
+    const resultCacheRef = useRef<AuthState>(
+      this._core._reactor._currentUserCached,
+    );
+
+    // Similar to `resultCacheRef`, `useSyncExternalStore` will unsubscribe 
+    // if `subscribe` changes, so we use `useCallback` to memoize the function.
+    const subscribe = useCallback((cb: Function) => {
+      const unsubscribe = this._core.subscribeAuth((auth) => {
+        resultCacheRef.current = { isLoading: false, ...auth };
+        cb();
       });
-      return unsub;
+
+      return unsubscribe;
     }, []);
 
+    const state = useSyncExternalStore<AuthState>(
+      subscribe,
+      () => resultCacheRef.current,
+      () => defaultAuthState,
+    );
     return state;
   };
 }
