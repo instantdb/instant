@@ -1,4 +1,4 @@
-export default class IndexedDBStorage {
+export default class InMemoryStorage {
   constructor(dbName) {
     this.dbName = dbName;
     this.store = new Map();
