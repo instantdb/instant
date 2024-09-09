@@ -223,7 +223,6 @@ export {
   PageInfoResponse,
   InstantObject,
   Exactly,
-  ResponseOf,
   Remove$,
   InstaQLQueryResult,
   InstaQLQueryParams,
