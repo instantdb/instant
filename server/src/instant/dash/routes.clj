@@ -105,11 +105,13 @@
 (defn req->app-and-user!
   ([req] (req->app-and-user! :owner req))
   ([least-privilege req]
+   (tool/def-locals!)
    (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
          {app-creator-id :creator_id :as app} (app-model/get-by-id! {:id app-id})
          {user-id :id :as user} (req->auth-user! req)
          subscription (instant-subscription-model/get-by-user-app {:user-id (:creator_id app)
                                                                    :app-id (:id app)})]
+
      (assert-least-privilege!
       least-privilege
       (cond

@@ -45,5 +45,5 @@ const graph = i.graph(
     },
   },
 );
-
+console.log(graph);
 export default graph;
