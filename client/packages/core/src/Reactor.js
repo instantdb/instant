@@ -156,9 +156,16 @@ export default class Reactor {
     );
   }
 
-  _finishTransaction(ok, status, clientId, errDetails) {
+  /**
+   * @param {'enqueued' | 'pending' | 'synced' | 'timeout' |  'error' } status
+   * @param string clientId
+   * @param {{message?: string, hint?: string, error?: Error}} [errDetails]
+   */
+  _finishTransaction(status, clientId, errDetails) {
     const dfd = this.mutationDeferredStore.get(clientId);
     this.mutationDeferredStore.delete(clientId);
+    const ok = status !== "error" && status !== "timeout";
+
     if (!dfd && !ok) {
       // console.erroring here, as there are no listeners to let know
       console.error("Mutation failed", { status, clientId, ...errDetails });
@@ -340,7 +347,7 @@ export default class Reactor {
           return prev;
         });
 
-        this._finishTransaction(true, "synced", eventId);
+        this._finishTransaction("synced", eventId);
 
         const newAttrs = prevMutation["tx-steps"]
           .filter(([action, ..._args]) => action === "add-attr")
@@ -382,23 +389,36 @@ export default class Reactor {
     }
   }
 
-  _handleReceiveError(msg) {
-    const eventId = msg["client-event-id"];
-    const prevMutation = this.pendingMutations.currentValue.get(eventId);
-    if (prevMutation) {
-      // This must be a transaction error
+  /**
+   * @param {'timeout' | 'error'} status
+   * @param {string} eventId
+   * @param {{message?: string, hint?: string, error?: Error}} errDetails
+   */
+  _handleMutationError(status, eventId, errDetails) {
+    const mut = this.pendingMutations.currentValue.get(eventId);
+
+    if (mut && (status !== "timeout" || !mut["tx-id"])) {
       this.pendingMutations.set((prev) => {
         prev.delete(eventId);
         return prev;
       });
       this.notifyAll();
       this.notifyAttrsSubs();
-      this.notifyMutationErrorSubs(msg);
+      this.notifyMutationErrorSubs(errDetails);
+      this._finishTransaction(status, eventId, errDetails);
+    }
+  }
+
+  _handleReceiveError(msg) {
+    const eventId = msg["client-event-id"];
+    const prevMutation = this.pendingMutations.currentValue.get(eventId);
+    if (prevMutation) {
+      // This must be a transaction error
       const errDetails = {
         message: msg.message,
         hint: msg.hint,
       };
-      this._finishTransaction(false, "error", eventId, errDetails);
+      this._handleMutationError("error", eventId, errDetails);
       return;
     }
 
@@ -704,18 +724,14 @@ export default class Reactor {
    */
   _sendMutation(eventId, mutation) {
     if (mutation.error) {
-      this._finishTransaction(false, "error", eventId, {
+      this._handleMutationError("error", eventId, {
         error: mutation.error,
         message: mutation.error.message,
-      });
-      this.pendingMutations.set((prev) => {
-        prev.delete(eventId);
-        return prev;
       });
       return;
     }
     if (this.status !== STATUS.AUTHENTICATED) {
-      this._finishTransaction(true, "enqueued", eventId);
+      this._finishTransaction("enqueued", eventId);
       return;
     }
     const timeoutMs = Math.max(
@@ -724,7 +740,7 @@ export default class Reactor {
     );
 
     if (!this._isOnline) {
-      this._finishTransaction(true, "enqueued", eventId);
+      this._finishTransaction("enqueued", eventId);
     } else {
       this._trySend(eventId, mutation);
 
@@ -732,28 +748,19 @@ export default class Reactor {
       // we want to unblock the UX, so mark it as pending
       // and keep trying to process the transaction in the background
       setTimeout(() => {
-        this._finishTransaction(true, "pending", eventId);
+        this._finishTransaction("pending", eventId);
       }, 3_000);
 
       setTimeout(() => {
         if (!this._isOnline) {
           return;
         }
-
         // If we are here, this means that we have sent this mutation, we are online
         // but we have not received a response. If it's this long, something must be wrong,
         // so we error with a timeout.
-        const mut = this.pendingMutations.currentValue.get(eventId);
-        if (mut && !mut["tx-id"]) {
-          this.pendingMutations.set((prev) => {
-            prev.delete(eventId);
-            return prev;
-          });
-
-          this._finishTransaction(false, "timeout", eventId);
-
-          console.error("mutation timed out", mut);
-        }
+        this._handleMutationError("timeout", eventId, {
+          message: "transaction timed out",
+        });
       }, timeoutMs);
     }
   }
