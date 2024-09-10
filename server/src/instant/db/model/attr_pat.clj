@@ -2,6 +2,7 @@
   (:require [instant.db.datalog :as d]
             [instant.db.model.attr :as attr-model]
             [instant.util.exception :as ex]
+            [instant.util.json :as json]
             [instant.util.uuid :as uuid-util]
             [instant.jdbc.aurora :as aurora]
             [instant.data.constants :refer [zeneca-app-id]]
@@ -173,7 +174,10 @@
                                      (:root state)
                                      [{:expected 'uuid?
                                        :in (conj (:in state) [:$ :where value-label])
-                                       :message (format "Expected %s to match on a uuid, got %s in %s", value-label vv v)}])))
+                                       :message (format "Expected %s to match on a uuid, found %s in %s"
+                                                        value-label
+                                                        (json/->json vv)
+                                                        (json/->json v))}])))
                                 v))
 
                       (if-let [v-uuid (uuid-util/coerce v)]
@@ -183,7 +187,9 @@
                          (:root state)
                          [{:expected 'uuid?
                            :in (conj (:in state) [:$ :where value-label])
-                           :message (format "Expected %s to be a uuid, got %s", value-label v)}]))))]
+                           :message (format "Expected %s to be a uuid, got %s"
+                                            value-label
+                                            (json/->json v))}]))))]
     [(level-sym value-etype value-level) id v-coerced]))
 
 (defn attr-pats->patterns-impl
