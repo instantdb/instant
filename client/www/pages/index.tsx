@@ -909,7 +909,7 @@ const testimonials = [
 const queryExampleComponentCode = /*js*/ `
 import { init, tx, id } from "@instantdb/react";
 
-const db = init({
+const db = init({ 
   appId: process.env.NEXT_PUBLIC_APP_ID,
 });
 
