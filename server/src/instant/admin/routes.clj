@@ -435,17 +435,6 @@
                         :headers {"app-id" (str counters-app-id)
                                   "authorization" (str "Bearer " admin-token)}}))
 
-(defn schema-experimental-get [req]
-  (let [{app-id :app_id} (req->admin-token! req)
-        attrs (attr-model/get-by-app-id aurora/conn-pool app-id)]
-    (response/ok {:attrs attrs})))
-
-(comment
-  (def counters-app-id  #uuid "137ace7a-efdd-490f-b0dc-a3c73a14f892")
-  (def admin-token #uuid "82900c15-faac-495b-b385-9f9e7743b629")
-  (schema-experimental-get {:headers {"app-id" (str counters-app-id)
-                                      "authorization" (str "Bearer " admin-token)}}))
-
 (defroutes routes
   (POST "/admin/query" [] query-post)
   (POST "/admin/transact" [] transact-post)
@@ -462,5 +451,4 @@
   (GET "/admin/storage/files" [] files-get)
   (DELETE "/admin/storage/files" [] file-delete) ;; single delete
   (POST "/admin/storage/files/delete" [] files-delete) ;; bulk delete
-
-  (GET "/admin/schema_experimental" [] schema-experimental-get))
+  )

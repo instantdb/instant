@@ -5,8 +5,6 @@
             [clojure.tools.logging :as log]
             [compojure.core :refer [defroutes GET POST DELETE] :as compojure]
             [instant.dash.admin :as dash-admin]
-            [instant.db.datalog :as d]
-            [instant.db.permissioned-transaction :as permissioned-tx]
             [instant.model.app :as app-model]
             [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
             [instant.model.app-oauth-client :as app-oauth-client-model]
@@ -30,7 +28,6 @@
             [instant.model.instant-cli-login :as instant-cli-login-model]
             [instant.postmark :as postmark]
             [instant.util.async :refer [fut-bg]]
-            [instant.util.coll :as coll]
             [instant.util.crypt :as crypt-util]
             [instant.util.email :as email]
             [instant.util.json :as json]
@@ -57,8 +54,8 @@
             [instant.stripe :as stripe]
             [instant.storage.s3 :as s3-util]
             [instant.storage.beta :as storage-beta]
-            [instant.model.instant-personal-access-token :as instant-personal-access-token-model])
-
+            [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
+            [instant.model.schema :as schema-model])
   (:import
    (java.util UUID)
    (com.stripe.model.checkout Session)))
@@ -110,6 +107,7 @@
          {user-id :id :as user} (req->auth-user! req)
          subscription (instant-subscription-model/get-by-user-app {:user-id (:creator_id app)
                                                                    :app-id (:id app)})]
+
      (assert-least-privilege!
       least-privilege
       (cond
@@ -978,169 +976,23 @@
 ;; --- 
 ;; CLI
 
-(defn map-map [f m]
-  (into {} (map (fn [[k v]] [k (f [k v])]) m)))
-
-(defn schemas->ops [current-schema new-schema]
-  (let [{new-blobs :blobs new-refs :refs} new-schema
-        eid-ops (map (fn [[ns-name _]] (if (get-in current-schema [:blobs ns-name])
-                                         nil
-                                         [:add-attr
-                                          {:value-type :blob
-                                           :cardinality :one
-                                           :id (UUID/randomUUID)
-                                           :forward-identity [(UUID/randomUUID) (name ns-name) "id"]
-                                           :unique? false
-                                           :index? false}])) new-blobs)
-        blob-ops (mapcat
-                  (fn [[ns-name attrs]]
-                    (map (fn [[attr-name new-attr]]
-                           (let
-                            [current-attr (get-in current-schema [:blobs ns-name attr-name])
-                             name-id? (= "id" (name attr-name))
-                             new-attr? (not current-attr)
-                             unchanged-attr? (and
-                                              (= (get new-attr :unique?) (get current-attr :unique?))
-                                              (= (get new-attr :index?) (get current-attr :index?)))]
-                             (cond
-                               name-id? nil
-                               unchanged-attr? nil
-                               new-attr?  [:add-attr
-                                           {:value-type :blob
-                                            :cardinality :one
-                                            :id (UUID/randomUUID)
-                                            :forward-identity [(UUID/randomUUID) (name ns-name) (name attr-name)]
-                                            :unique? (:unique? new-attr)
-                                            :index? (:index? new-attr)}]
-                               :else [:update-attr
-                                      {:value-type :blob
-                                       :cardinality :one
-                                       :id (:id current-attr)
-                                       :forward-identity (:forward-identity current-attr)
-                                       :unique? (:unique? new-attr)
-                                       :index? (:index? new-attr)}])))
-                         attrs))
-                  new-blobs)
-        ref-ops (map
-                 (fn [[link-desc new-attr]]
-                   (let
-                    [[from-ns from-attr to-ns to-attr] link-desc
-                     current-attr (get-in current-schema [:refs link-desc])
-                     new-attr? (not current-attr)
-                     unchanged-attr? (and
-                                      (= (get new-attr :cardinality) (get current-attr :cardinality))
-                                      (= (get new-attr :unique?) (get current-attr :unique?)))]
-                     (cond
-                       unchanged-attr? nil
-                       new-attr? [:add-attr
-                                  {:value-type :ref
-                                   :id (UUID/randomUUID)
-                                   :forward-identity [(UUID/randomUUID) from-ns from-attr]
-                                   :reverse-identity [(UUID/randomUUID) to-ns to-attr]
-                                   :cardinality (:cardinality new-attr)
-                                   :unique? (:unique? new-attr)
-                                   :index? (:index? new-attr)}]
-                       :else [:update-attr
-                              {:value-type :ref
-                               :id (:id current-attr)
-                               :forward-identity (:forward-identity current-attr)
-                               :reverse-identity (:reverse-identity current-attr)
-                               :cardinality (:cardinality new-attr)
-                               :unique? (:unique? new-attr)
-                               :index? (:index? new-attr)}])))
-                 new-refs)]
-    (->> (concat eid-ops blob-ops ref-ops)
-         (filter some?)
-         vec)))
-
-(defn attrs->schema [attrs]
-  (let [{blobs :blob refs :ref} (group-by :value-type attrs)
-        refs-indexed (into {} (map (fn [{:keys [forward-identity reverse-identity] :as attr}]
-                                     [[(second forward-identity)
-                                       (coll/third forward-identity)
-                                       (second reverse-identity)
-                                       (coll/third reverse-identity)] attr])
-                                   refs))
-        blobs-indexed (->> blobs
-                           (group-by #(-> % attr-model/fwd-etype keyword))
-                           (map-map (fn [[_ attrs]]
-                                      (into {}
-                                            (map (fn [a]
-                                                   [(keyword (-> a :forward-identity coll/third))
-                                                    a])
-                                                 attrs)))))]
-    {:refs refs-indexed :blobs blobs-indexed}))
-
-(def relationships->schema-params {[:many :many] {:cardinality :many
-                                                  :unique? false}
-                                   [:one :one] {:cardinality :one
-                                                :unique? true}
-                                   [:many :one] {:cardinality :many
-                                                 :unique? true}
-                                   [:one :many] {:cardinality :one
-                                                 :unique? false}})
-
-(defn defs->schema [defs]
-  (let [{entities :entities links :links} defs
-        refs-indexed (into {} (map (fn [[_ {forward :forward reverse :reverse}]]
-                                     [[(:on forward) (:label forward) (:on reverse) (:label reverse)]
-                                      (merge
-                                       {:id nil
-                                        :value-type :ref
-                                        :index? false
-                                        :forward-identity [nil (:on forward) (:label forward)]
-                                        :reverse-identity [nil (:on reverse) (:label reverse)]}
-                                       (get relationships->schema-params
-                                            [(keyword (:has forward)) (keyword (:has reverse))]))])
-                                   links))
-        blobs-indexed (map-map (fn [[ns-name def]]
-                                 (map-map (fn [[attr-name attr-def]]
-                                            {:id nil
-                                             :value-type :blob
-                                             :cardinality :one
-                                             :forward-identity [nil (name ns-name) (name attr-name)]
-                                             :unique? (or (-> attr-def :config :unique) false)
-                                             :index? (or (-> attr-def :config :indexed) false)})
-                                          (:attrs def)))
-                               entities)]
-    {:refs refs-indexed :blobs blobs-indexed}))
-
-(defn schema-push-steps [app-id client-defs]
-  (let [new-schema (defs->schema client-defs)
-        current-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
-        current-schema (attrs->schema current-attrs)
-        steps (schemas->ops current-schema new-schema)]
-    {:new-schema new-schema
-     :current-schema current-schema
-     :current-attrs current-attrs
-     :steps steps}))
-
 (defn schema-push-plan-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        client-defs (-> req :body :schema)
-        r (schema-push-steps app-id client-defs)]
-    (response/ok r)))
+        client-defs (-> req :body :schema)]
+    (response/ok (schema-model/plan app-id client-defs))))
 
 (defn schema-push-apply-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         client-defs (-> req :body :schema)
-        r (schema-push-steps app-id client-defs)
-        tx-ctx {:admin? true
-                :db {:conn-pool aurora/conn-pool}
-                :app-id app-id
-                :attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
-                :datalog-query-fn d/query
-                :rules (rule-model/get-by-app-id aurora/conn-pool
-                                                 {:app-id app-id})}
-        _ (permissioned-tx/transact! tx-ctx (:steps r))]
+        r (schema-model/plan app-id client-defs)]
+    (schema-model/apply-plan! app-id r)
     (response/ok r)))
 
 (defn schema-pull-get [req]
   (let [{{app-id :id app-title :title} :app} (req->app-and-user! :collaborator req)
         current-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
-        current-schema (attrs->schema current-attrs)
-        r {:schema current-schema :app-title app-title}]
-    (response/ok r)))
+        current-schema (schema-model/attrs->schema current-attrs)]
+    (response/ok {:schema current-schema :app-title app-title})))
 
 (defn perms-pull-get [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
@@ -1154,7 +1006,7 @@
   (def counters-app-id  #uuid "137ace7a-efdd-490f-b0dc-a3c73a14f892")
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (def r (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id (:id u)}))
-  (schemas->ops
+  (schema-model/schemas->ops
    {:refs {}
     :blobs {}}
    {:refs {["posts" "comments" "comments" "post"] {:unique? false :cardinality "many"}}
