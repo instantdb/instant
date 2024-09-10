@@ -62,6 +62,16 @@ export class PersistedObject {
     await loadedPromise;
   }
 
+  async waitForSync() {
+    if (!this._nextSave) {
+      return;
+    }
+    const syncedPromise = new Promise((resolve) => {
+      this._pendingSaveCbs.push(resolve);
+    });
+    await syncedPromise;
+  }
+
   _enqueuePersist(cb) {
     if (this._nextSave) {
       if (cb) {

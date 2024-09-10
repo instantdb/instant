@@ -62,6 +62,8 @@ test("querySubs round-trips", async () => {
     "nicolegf",
   ]);
 
+  await reactor.querySubs.waitForSync();
+
   // Create a new reactor
   const reactor2 = new Reactor({ appId });
   reactor2._initStorage(IndexedDBStorage);
