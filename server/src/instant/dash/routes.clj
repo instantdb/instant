@@ -754,7 +754,6 @@
   (let [{user-email :email user-id :id} (req->auth-user! req)
         invite-id (ex/get-param! req [:body :invite-id] uuid-util/coerce)
         {:keys [invitee_role status app_id invitee_email]} (instant-app-member-invites-model/get-by-id! {:id invite-id})]
-    (tool/def-locals!)
     (ex/assert-permitted! :invitee? invitee_email (= invitee_email user-email))
     (ex/assert-permitted! :acceptable? invite-id (not= status "revoked"))
     (next-jdbc/with-transaction [tx-conn aurora/conn-pool]
