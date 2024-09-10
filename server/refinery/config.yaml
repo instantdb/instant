@@ -13,7 +13,7 @@ OTelMetrics:
 PeerManagement:
   Peers: []
 Logger:
-  Level: info
+  Level: warn
 Debugging:
   # Set to true to see which events would have been filtered
   DryRun: false
