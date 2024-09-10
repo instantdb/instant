@@ -2,6 +2,7 @@
   (:require [instant.db.datalog :as d]
             [instant.db.model.attr :as attr-model]
             [instant.util.exception :as ex]
+            [instant.util.uuid :as uuid-util]
             [instant.jdbc.aurora :as aurora]
             [instant.data.constants :refer [zeneca-app-id]]
             [clojure.spec.alpha :as s]
@@ -155,13 +156,23 @@
    This creates the attr-pat for the `value` portion:
 
    [?books title-attr \"Foo\"]"
-  [{:keys [attrs]} level-sym value-etype value-level value-label v]
-  (let [{:keys [id]}
+  [{:keys [state attrs]} level-sym value-etype value-level value-label v]
+  (let [{:keys [id value-type]}
         (ex/assert-record!
          (attr-model/seek-by-fwd-ident-name [value-etype value-label] attrs)
          :attr
-         {:args [value-etype value-label]})]
-    [(level-sym value-etype value-level) id v]))
+         {:args [value-etype value-label]})
+        v-coerced (if (not= :ref value-type)
+                    v
+                    (if-let [v-uuid (uuid-util/coerce v)]
+                      v-uuid
+                      (ex/throw-validation-err!
+                       :query
+                       (:root state)
+                       [{:expected 'uuid?
+                         :in (conj (:in state) [:$ :where value-label])
+                         :message (format "Expected %s to be a uuid, got %s", value-label v)}])))]
+    [(level-sym value-etype value-level) id v-coerced]))
 
 (defn attr-pats->patterns-impl
   "Helper for attr-pats->patterns that allows recursion"
