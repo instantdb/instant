@@ -37,7 +37,7 @@ import * as muxVideos from '@/lib/muxVideos';
 type EmojiName = keyof typeof emoji;
 
 const emoji = {
-  fire: '🔥',
+  fire: '🔥!',
   wave: '👋',
   confetti: '🎉',
   heart: '❤️',
