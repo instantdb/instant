@@ -1,6 +1,7 @@
 {
   "name": "instant-www",
   "private": true,
+  "packageManager": "pnpm@8.15.6",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
