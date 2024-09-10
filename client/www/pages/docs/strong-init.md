@@ -42,9 +42,6 @@ export default function App() {
 If you used Instant before, you would use the global `tx` object. Instead, use the schema-aware `db.tx`.
 
 ```ts
-// ❌ instead of global `tx`
-tx.todos[id()].update({ done: true });
-
 // ✅ use `db.tx`
 db.tx.todos[id()].update({ done: true }); // note the `db`
 ```
