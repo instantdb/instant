@@ -10,6 +10,37 @@ import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { useState } from 'react';
 import config from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
+import { i } from '@instantdb/core';
+
+const cancelTransferCurl = (
+  token: string,
+  appId: string,
+  email: string
+): string => {
+  return `
+export PLATFORM_TOKEN="${token}"
+export APP_ID="${appId}"
+curl -X POST "${config.apiURI}/superadmin/apps/$APP_ID/transfers/revoke" \\
+  -H "Authorization: Bearer $PLATFORM_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"dest_email": "${email}"}'  
+`.trim();
+};
+
+const transferEmailCurl = (
+  token: string,
+  appId: string,
+  email: string
+): string => {
+  return `
+export PLATFORM_TOKEN="${token}"
+export APP_ID="${appId}"
+curl -X POST "${config.apiURI}/superadmin/apps/$APP_ID/transfers/send" \\
+  -H "Authorization: Bearer $PLATFORM_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"dest_email": "${email}"}'  
+`.trim();
+};
 
 const createAppCurl = (token: string): string => {
   return `
@@ -21,20 +52,221 @@ curl -X POST "${config.apiURI}/superadmin/apps" \\
 `.trim();
 };
 
+const exampleInit = (appId: string): string => {
+  return `
+import { init } from '@instantdb/react'; 
+init({appId: "${appId}"}); // 🎉
+  `.trim();
+};
+
+const exampleSchemaGen = (appId: string) => {
+  return `
+import { i } from '@instantdb/core';
+const g = i.graph(
+  appId,
+  {
+    posts: i.entity({
+      title: i.string(),
+      body: i.string(),
+    }),
+    comments: i.entity({
+      body: i.string(),
+    }),
+  },
+  {
+    commentPosts: {
+      forward: {
+        on: 'comments',
+        has: 'one',
+        label: 'post',
+      },
+      reverse: {
+        on: 'comments',
+        has: 'many',
+        label: 'posts',
+      },
+    },
+  }
+);
+JSON.stringify(g, null, 2) // this is the schema you can push!
+`.trim();
+};
+const exGraph = (appId: string) => {
+  const g = i.graph(
+    appId,
+    {
+      posts: i.entity({
+        title: i.string(),
+        body: i.string(),
+      }),
+      comments: i.entity({
+        body: i.string(),
+      }),
+    },
+    {
+      commentPosts: {
+        forward: {
+          on: 'comments',
+          has: 'one',
+          label: 'post',
+        },
+        reverse: {
+          on: 'comments',
+          has: 'many',
+          label: 'posts',
+        },
+      },
+    }
+  );
+  return g;
+};
+
+const exampleSchemaPushCurl = (token: string, appId: string): string => {
+  return `
+export PLATFORM_TOKEN="${token}"
+export APP_ID="${appId}"
+curl -v -X POST "${config.apiURI}/superadmin/apps/$APP_ID/schema/push/apply" \\
+  -H "Authorization: Bearer $PLATFORM_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '${JSON.stringify(exGraph(appId), null, 2)}'  
+`.trim();
+};
+
 function AppStage({ token, app }: { token: string; app: { id: string } }) {
+  const [transferEmail, setTransferEmail] = useLocalStorage<string>(
+    '__platform_demo_email'
+  );
+  const [transferResult, setTransferResult] = useState<any>();
+  const [cancelTransferResult, setCancelTransferResult] = useState<any>();
   return (
     <div>
       Wohoo! Here's your app:
+      <div className="border">
+        <Fence
+          code={JSON.stringify(app, null, 2)}
+          language="json"
+          className="overflow-auto h-full w-full p-8 m-0 text-sm"
+          style={{ margin: 0 }}
+        />
+      </div>
+      <h2>2. Transfer Apps</h2>
+      <p>
+        To transfer an app, you need to know the user's email. Pop it in here:
+      </p>
+      <TextInput
+        value={transferEmail || 'stopa@instantdb.com'}
+        onChange={(v) => setTransferEmail(v.trim())}
+      />
+      <p>And here's the curl for that:</p>
+      <div className="not-prose">
+        <div className="space-y-2">
+          <div className="border">
+            <Fence
+              code={transferEmailCurl(token, app.id, transferEmail as string)}
+              language="json"
+              className="overflow-auto h-full w-full p-8 m-0 text-sm"
+              style={{ margin: 0 }}
+            />
+          </div>
+          <Button
+            onClick={async () => {
+              const res = await jsonFetch(
+                `${config.apiURI}/superadmin/apps/${app.id}/transfers/send`,
+                {
+                  method: 'POST',
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ dest_email: transferEmail }),
+                }
+              );
+              setTransferResult(res);
+            }}
+          >
+            Try it!
+          </Button>
+          {transferResult ? (
+            <div className="border">
+              <Fence
+                code={JSON.stringify(transferResult, null, 2)}
+                language="json"
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
+      <h2>3. Cancel Transfers</h2>
+      <p>You can cancel transfers too:</p>
+      <div className="not-prose">
+        <div className="space-y-2">
+          <div className="border">
+            <Fence
+              code={cancelTransferCurl(token, app.id, transferEmail as string)}
+              language="json"
+              className="overflow-auto h-full w-full p-8 m-0 text-sm"
+              style={{ margin: 0 }}
+            />
+          </div>
+          <Button
+            onClick={async () => {
+              const res = await jsonFetch(
+                `${config.apiURI}/superadmin/apps/${app.id}/transfers/revoke`,
+                {
+                  method: 'POST',
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ dest_email: transferEmail }),
+                }
+              );
+              setCancelTransferResult(res);
+            }}
+          >
+            Try it!
+          </Button>
+          {cancelTransferResult ? (
+            <div className="border">
+              <Fence
+                code={JSON.stringify(cancelTransferResult, null, 2)}
+                language="json"
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
+      <div>
+        <h2>4. Use it!</h2>
+        <p>
+          This works just like a normal app. You can use it inside instant
+          sdk's:
+        </p>
+        <div className="border">
+          <Fence code={exampleInit(app.id)} language="json" />
+        </div>
+      </div>
+      <div>
+        <h2>5. Push schema!</h2>
+        <p>Users can define schema like using `i.graph`:</p>
+        <div className="border">
+          <Fence code={exampleSchemaGen(app.id)} language="tsx" />
+        </div>
+        <p>Once you have it, here's the CURL to push:</p>
+        <div className="border">
+          <Fence code={exampleSchemaPushCurl(token, app.id)} language="bash" />
+        </div>
+      </div>
     </div>
-  )
+  );
 }
 
 function PlatformTokenStage({ token }: { token: string }) {
-  const [app, setApp] = useLocalStorage<any>('app');
+  const [app, setApp] = useLocalStorage<any>('__platform_demo_app');
   return (
-    <div className="">
-      <h2>1. Create apps</h2>
-      <p>Here's the cURL:</p>
+    <div>
+      <h2>1. Create Apps</h2>
+      <p>Now you can create an app!</p>
       <div className="not-prose">
         <div className="space-y-2">
           <div className="border">
@@ -45,26 +277,29 @@ function PlatformTokenStage({ token }: { token: string }) {
               style={{ margin: 0 }}
             />
           </div>
+          <div className="flex justify-end">
+            <Button
+              onClick={async () => {
+                const res = await jsonFetch(
+                  `${config.apiURI}/superadmin/apps`,
+                  {
+                    method: 'POST',
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ title: 'my cool app' }),
+                  }
+                );
+                setApp(res.app);
+              }}
+            >
+              Try it!
+            </Button>
+          </div>
         </div>
-        <div className="flex justify-end">
-          <Button
-            onClick={async () => {
-              const res = await jsonFetch(`${config.apiURI}/superadmin/apps`, {
-                method: 'POST',
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ title: 'my cool app' }),
-              });
-              setApp(res.app);
-            }}
-          >
-            Try it!
-          </Button>
-        </div>
-        {app ? <AppStage app={app} token={token} /> : null}
       </div>
+      {app ? <AppStage app={app} token={token} /> : null}
     </div>
   );
 }
