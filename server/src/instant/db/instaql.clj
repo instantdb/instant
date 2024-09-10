@@ -600,11 +600,14 @@
 (defn guarded-where-query [ctx {:keys [etype level] :as form}]
   (try
     (where-query ctx form)
-    (catch clojure.lang.ExceptionInfo _e
-      (list true
-            (attr-pat/default-level-sym etype level)
-            [[:ea (attr-pat/default-level-sym etype level)]
-             [:eav]]))))
+    (catch clojure.lang.ExceptionInfo e
+      (if (contains? #{::ex/validation-failed}
+                     (::ex/type (ex-data e)))
+        (throw e)
+        (list true
+              (attr-pat/default-level-sym etype level)
+              [[:ea (attr-pat/default-level-sym etype level)]
+               [:eav]])))))
 
 ;; ----------
 ;; pagination

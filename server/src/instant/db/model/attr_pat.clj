@@ -164,14 +164,26 @@
          {:args [value-etype value-label]})
         v-coerced (if (not= :ref value-type)
                     v
-                    (if-let [v-uuid (uuid-util/coerce v)]
-                      v-uuid
-                      (ex/throw-validation-err!
-                       :query
-                       (:root state)
-                       [{:expected 'uuid?
-                         :in (conj (:in state) [:$ :where value-label])
-                         :message (format "Expected %s to be a uuid, got %s", value-label v)}])))]
+                    (if (set? v)
+                      (set (map (fn [vv]
+                                  (if-let [v-uuid (uuid-util/coerce vv)]
+                                    v-uuid
+                                    (ex/throw-validation-err!
+                                     :query
+                                     (:root state)
+                                     [{:expected 'uuid?
+                                       :in (conj (:in state) [:$ :where value-label])
+                                       :message (format "Expected %s to match on a uuid, got %s in %s", value-label vv v)}])))
+                                v))
+
+                      (if-let [v-uuid (uuid-util/coerce v)]
+                        v-uuid
+                        (ex/throw-validation-err!
+                         :query
+                         (:root state)
+                         [{:expected 'uuid?
+                           :in (conj (:in state) [:$ :where value-label])
+                           :message (format "Expected %s to be a uuid, got %s", value-label v)}]))))]
     [(level-sym value-etype value-level) id v-coerced]))
 
 (defn attr-pats->patterns-impl
