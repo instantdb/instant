@@ -77,7 +77,9 @@ export default class Reactor {
   /** @type BroadcastChannel | undefined */
   _broadcastChannel;
 
+  _rooms = {};
   _presence = {};
+  _broadcastQueue = [];
   _broadcastSubs = {};
   _currentUserCached = { isLoading: true, error: undefined, user: undefined };
 
@@ -360,11 +362,28 @@ export default class Reactor {
         break;
       case "join-room-ok":
         const loadingRoomId = msg["room-id"];
-        const loadingRoom = this._presence[loadingRoomId];
-        if (loadingRoom) {
-          loadingRoom.isLoading = false;
+        const joinedRoom = this._rooms[loadingRoomId];
+        if (!joinedRoom) {
+          break;
+        }
+        joinedRoom.isLoading = true;
+        const presence = this._presence[loadingRoomId];
+        if (!presence) {
+          break;
         }
         this._notifyPresenceSubs(loadingRoomId);
+
+        const enqueuedUserPresence = presence.result?.user;
+
+        if (enqueuedUserPresence) {
+          this._trySetPresence(loadingRoomId, enqueuedUserPresence);
+        }
+
+        for (const e of this._broadcastQueue[loadingRoomId]) {
+          const { topic, roomType, data } = e;
+          this._trySendBroadcast(loadingRoomId, roomType, topic, data);
+        }
+
         break;
       case "join-room-error":
         const errorRoomId = msg["room-id"];
@@ -1217,7 +1236,14 @@ export default class Reactor {
   // Rooms
 
   joinRoom(roomId) {
-    this._trySendAuthed(uuid(), { op: "join-room", "room-id": roomId });
+    this._rooms[roomId] = {
+      isLoading: true,
+    };
+
+    this._trySendAuthed(uuid(), {
+      op: "join-room",
+      "room-id": roomId,
+    });
 
     return () => {
       this._cleanupRoom(roomId);
@@ -1229,6 +1255,7 @@ export default class Reactor {
       !this._presence[roomId]?.handlers?.length &&
       !Object.keys(this._broadcastSubs[roomId] ?? {}).length
     ) {
+      delete this._rooms[roomId];
       delete this._presence[roomId];
       delete this._broadcastSubs[roomId];
       this._trySendAuthed(uuid(), { op: "leave-room", "room-id": roomId });
@@ -1247,13 +1274,14 @@ export default class Reactor {
    * @returns {import('./presence').PresenceResponse<RoomSchema[RoomType]['presence'], Keys>}
    */
   getPresence(roomType, roomId, opts = {}) {
-    const room = this._presence[roomId];
-    if (!room || !room.result) return null;
+    const presence = this._presence[roomId];
+    const room = this._rooms[roomId];
+    if (!room || !presence || !presence.result) return null;
 
     return {
-      ...buildPresenceSlice(room.result, opts),
+      ...buildPresenceSlice(presence.result, opts),
       isLoading: room.isLoading,
-      error: room.error,
+      error: presence.error,
     };
   }
 
@@ -1264,21 +1292,35 @@ export default class Reactor {
    * @param {Partial<RoomSchema[RoomType]['presence']>} partialData
    */
   publishPresence(roomType, roomId, partialData) {
+    const room = this._rooms[roomId];
+    const presence = this._presence[roomId];
+
+    if (!room || !presence) {
+      return;
+    }
+
+    presence.result = presence.result || {};
     const data = {
-      ...this._presence[roomId]?.result?.user,
+      ...presence.result.user,
       ...partialData,
     };
 
+    presence.result.user = data;
+
+    if (room.isLoading) {
+      return;
+    }
+
+    this._trySetPresence(roomId, data);
+    this._notifyPresenceSubs(roomId);
+  }
+
+  _trySetPresence(roomId, data) {
     this._trySendAuthed(uuid(), {
       op: "set-presence",
       "room-id": roomId,
       data,
     });
-
-    this._presence[roomId] = this._presence[roomId] || {};
-    this._presence[roomId].result = this._presence[roomId].result || {};
-    this._presence[roomId].result.user = data;
-    this._notifyPresenceSubs(roomId);
   }
 
   /**
@@ -1295,8 +1337,8 @@ export default class Reactor {
 
     const handler = { ...opts, roomId, cb, prev: null };
 
+    this._rooms[roomId].isLoading = true;
     this._presence[roomId] = this._presence[roomId] || {};
-    this._presence[roomId].isLoading = true;
     this._presence[roomId].handlers = this._presence[roomId].handlers || [];
     this._presence[roomId].handlers.push(handler);
 
@@ -1348,6 +1390,23 @@ export default class Reactor {
   // Broadcast
 
   publishTopic({ roomType, roomId, topic, data }) {
+    const room = this._presence[roomId];
+
+    if (!room) {
+      return;
+    }
+
+    if (room.isLoading) {
+      this._broadcastQueue[roomId] = this._broadcastQueue[roomId] ?? [];
+      this._broadcastQueue[roomId].push({ topic, roomType, data });
+
+      return;
+    }
+
+    this._trySendBroadcast(roomId, roomType, topic, data);
+  }
+
+  _trySendBroadcast(roomId, roomType, topic, data) {
     this._trySendAuthed(uuid(), {
       op: "client-broadcast",
       "room-id": roomId,
