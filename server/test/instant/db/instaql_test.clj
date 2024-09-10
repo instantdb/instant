@@ -111,10 +111,17 @@
     (is (= '{:expected instant.db.instaql/where-value-valid-keys?,
              :in [0 :option-map :where-conds 0 1]}
            (validation-err {:users {:$ {:where {:handle {:is "stopa"}}}}})))
-    (is (= '{:expected instant.db.instaql/where-value-valid-keys?,
-             :in [0 :option-map :where-conds 0 1]}
+    (is (= '{:expected uuid?
+             :in ["users" [:$ :where "bookshelves"]]
+             :message "Expected bookshelves to be a uuid, got \"hello\""}
            (validation-err {:users
-                            {:$ {:where {:bookshelves {:books.title "The Count of Monte Cristo"}}}}}))))
+                            {:$ {:where {:bookshelves "hello"}}}})))
+    (is (= '{:expected uuid?
+             :in ["users" [:$ :where "bookshelves"]]
+             :message "Expected bookshelves to match on a uuid, found \"hello\" in [\"hello\",\"00000000-0000-0000-0000-000000000000\"]"}
+           (validation-err {:users
+                            {:$ {:where {:bookshelves {:in ["00000000-0000-0000-0000-000000000000"
+                                                            "hello"]}}}}}))))
   (testing "pagination"
     (is (= '{:expected supported-options?
              :in [:users :$ :limit],
@@ -568,30 +575,54 @@
          ["eid-stepan-parunashvili" :users/handle "stopa"]
          ["eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"])})))
   (testing "reference ids"
-    (is-pretty-eq?
-     (query-pretty
-      {:users
-       {:$ {:where {:bookshelves.books.id (resolvers/->uuid @r "eid-musashi")}}}})
-     '({:topics
-        ([:av _ #{:books/id} #{"eid-musashi"}]
-         [:vae _ #{:bookshelves/books} #{"eid-musashi"}]
-         [:vae _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]
-         --
-         [:ea #{"eid-stepan-parunashvili"} _ _]),
-        :triples
-        (["eid-musashi" :books/id "eid-musashi"]
-         ["eid-stepan-parunashvili"
-          :users/bookshelves
-          "eid-the-way-of-the-gentleman"]
-         ["eid-the-way-of-the-gentleman" :bookshelves/books "eid-musashi"]
-         --
-         ["eid-stepan-parunashvili"
-          :users/createdAt
-          "2021-01-07 18:50:43.447955"]
-         ["eid-stepan-parunashvili" :users/email "stopa@instantdb.com"]
-         ["eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili"]
-         ["eid-stepan-parunashvili" :users/handle "stopa"]
-         ["eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"])}))))
+    (let [bookshelves-id (str (resolvers/->uuid @r "eid-musashi"))]
+      (is-pretty-eq?
+       (query-pretty
+        {:users
+         {:$ {:where {:bookshelves.books.id bookshelves-id}}}})
+       '({:topics
+          ([:av _ #{:books/id} #{"eid-musashi"}]
+           [:vae _ #{:bookshelves/books} #{"eid-musashi"}]
+           [:vae _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]
+           --
+           [:ea #{"eid-stepan-parunashvili"} _ _]),
+          :triples
+          (["eid-musashi" :books/id "eid-musashi"]
+           ["eid-stepan-parunashvili"
+            :users/bookshelves
+            "eid-the-way-of-the-gentleman"]
+           ["eid-the-way-of-the-gentleman" :bookshelves/books "eid-musashi"]
+           --
+           ["eid-stepan-parunashvili"
+            :users/createdAt
+            "2021-01-07 18:50:43.447955"]
+           ["eid-stepan-parunashvili" :users/email "stopa@instantdb.com"]
+           ["eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili"]
+           ["eid-stepan-parunashvili" :users/handle "stopa"]
+           ["eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"])}))
+      (testing "works with ref id"
+        (is-pretty-eq?
+         (query-pretty
+          {:users
+           {:$ {:where {:bookshelves.books bookshelves-id}}}})
+         '({:topics
+            ([:vae _ #{:bookshelves/books} #{"eid-musashi"}]
+             [:vae _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]
+             --
+             [:ea #{"eid-stepan-parunashvili"} _ _]),
+            :triples
+            (["eid-stepan-parunashvili"
+              :users/bookshelves
+              "eid-the-way-of-the-gentleman"]
+             ["eid-the-way-of-the-gentleman" :bookshelves/books "eid-musashi"]
+             --
+             ["eid-stepan-parunashvili"
+              :users/createdAt
+              "2021-01-07 18:50:43.447955"]
+             ["eid-stepan-parunashvili" :users/email "stopa@instantdb.com"]
+             ["eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili"]
+             ["eid-stepan-parunashvili" :users/handle "stopa"]
+             ["eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"])}))))))
 
 (deftest multiple-where
   (testing "no matches"

@@ -309,41 +309,41 @@
                _]}
            (inv/topics-for-changes {:triple-changes delete-triple-changes}))))
   (testing "create attrs + idents (these happen together)"
-    (is (= '#{[:ave _ #uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3" _]
-              [:eav _ #uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3" _]
-              [:vae _ #uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3" _]
-              [:av _ #uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3" _]
-              [:ea _ #uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3" _]}
+    (is (= '#{[:ave _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]
+              [:eav _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]
+              [:vae _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]
+              [:av _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]
+              [:ea _ #{#uuid "ea72edf9-036a-413b-9c72-2bf92ec137d3"} _]}
            (inv/topics-for-changes {:ident-changes create-ident-changes
                                     :attr-changes create-attr-changes}))))
   (testing "update idents isolated"
-    (is (= '#{[:av _ #uuid "a684c2ba-27af-4d54-8c02-68832b4566f0" _]
-              [:ea _ #uuid "a684c2ba-27af-4d54-8c02-68832b4566f0" _]
-              [:eav _ #uuid "a684c2ba-27af-4d54-8c02-68832b4566f0" _]
-              [:vae _ #uuid "a684c2ba-27af-4d54-8c02-68832b4566f0" _]
-              [:ave _ #uuid "a684c2ba-27af-4d54-8c02-68832b4566f0" _]}
+    (is (= '#{[:av _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
+              [:ea _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
+              [:eav _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
+              [:vae _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
+              [:ave _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]}
            (inv/topics-for-changes {:ident-changes update-ident-changes}))))
   (testing "update attrs isolated"
-    (is (= '#{[:av _ #uuid "a684c2ba-27af-4d54-8c02-68832b4566f0" _]
-              [:ea _ #uuid "a684c2ba-27af-4d54-8c02-68832b4566f0" _]
-              [:eav _ #uuid "a684c2ba-27af-4d54-8c02-68832b4566f0" _]
-              [:vae _ #uuid "a684c2ba-27af-4d54-8c02-68832b4566f0" _]
-              [:ave _ #uuid "a684c2ba-27af-4d54-8c02-68832b4566f0" _]}
+    (is (= '#{[:av _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
+              [:ea _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
+              [:eav _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
+              [:vae _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
+              [:ave _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]}
            (inv/topics-for-changes {:attr-changes update-attr-changes}))))
   (testing "update attr + idents"
-    (is (= '#{[:av _ #uuid "a684c2ba-27af-4d54-8c02-68832b4566f0" _]
-              [:ea _ #uuid "a684c2ba-27af-4d54-8c02-68832b4566f0" _]
-              [:eav _ #uuid "a684c2ba-27af-4d54-8c02-68832b4566f0" _]
-              [:vae _ #uuid "a684c2ba-27af-4d54-8c02-68832b4566f0" _]
-              [:ave _ #uuid "a684c2ba-27af-4d54-8c02-68832b4566f0" _]}
+    (is (= '#{[:av _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
+              [:ea _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
+              [:eav _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
+              [:vae _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]
+              [:ave _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]}
            (inv/topics-for-changes {:ident-changes update-ident-changes
                                     :attr-changes update-attr-changes}))))
   (testing "delete attr + idents (these happen together)"
-    (is (= '#{[:ea _ #uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5" _]
-              [:vae _ #uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5" _]
-              [:ave _ #uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5" _]
-              [:eav _ #uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5" _]
-              [:av _ #uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5" _]}
+    (is (= '#{[:ea _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]
+              [:vae _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]
+              [:ave _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]
+              [:eav _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]
+              [:av _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]}
            (inv/topics-for-changes {:ident-changes delete-ident-changes
                                     :attr-changes delete-attr-changes})))))
 

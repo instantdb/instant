@@ -76,19 +76,19 @@
 (defn- topics-for-ident-upsert [{:keys [columnvalues]}]
   (let [indexes #{:ea :eav :av :ave :vae}
         attr-id (UUID/fromString (nth columnvalues 2))
-        topics (map (fn [k] [k '_ attr-id '_]) indexes)]
+        topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
     (set topics)))
 
 (defn- topics-for-attr-upsert [{:keys [columnvalues]}]
   (let [indexes #{:ea :eav :av :ave :vae}
         attr-id (UUID/fromString (first columnvalues))
-        topics (map (fn [k] [k '_ attr-id '_]) indexes)]
+        topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
     (set topics)))
 
 (defn- topics-for-attr-delete [{:keys [oldkeys]}]
   (let [attr-id (UUID/fromString (first (:keyvalues oldkeys)))
         indexes #{:ea :eav :av :ave :vae}
-        topics (map (fn [k] [k '_ attr-id '_]) indexes)]
+        topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
     (set topics)))
 
 (defn topics-for-ident-change [{:keys [kind] :as change}]

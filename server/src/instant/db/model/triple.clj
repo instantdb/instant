@@ -103,7 +103,10 @@
                                      [:updates {:columns [:id :typ]}]]]
                              :where [:and
                                      [:= :attrs.id :updates.id]
-                                     [:= :attrs.app_id app-id]]}])))
+                                     [:= :attrs.app_id app-id]
+                                     [[:raw "inferred_types is distinct from (
+                                              coalesce(inferred_types, cast(0 AS bit(32))) | updates.typ
+                                            )"]]]}])))
 
 (defn deep-merge-multi!
   [conn app-id triples]
