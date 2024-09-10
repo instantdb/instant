@@ -4,7 +4,7 @@ import { init, Cursors } from "@instantdb/react";
 import config from "../../config";
 
 const db = init<{}, any>(config);
-const room = db.room("main", "123");
+const room = db.room("main", "1234");
 
 function App() {
   return (

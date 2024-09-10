@@ -363,27 +363,14 @@ export default class Reactor {
       case "join-room-ok":
         const loadingRoomId = msg["room-id"];
         const joinedRoom = this._rooms[loadingRoomId];
+
         if (!joinedRoom) {
           break;
         }
-        joinedRoom.isLoading = true;
-        const presence = this._presence[loadingRoomId];
-        if (!presence) {
-          break;
-        }
+
+        joinedRoom.isLoading = false;
         this._notifyPresenceSubs(loadingRoomId);
-
-        const enqueuedUserPresence = presence.result?.user;
-
-        if (enqueuedUserPresence) {
-          this._trySetPresence(loadingRoomId, enqueuedUserPresence);
-        }
-
-        for (const e of this._broadcastQueue[loadingRoomId]) {
-          const { topic, roomType, data } = e;
-          this._trySendBroadcast(loadingRoomId, roomType, topic, data);
-        }
-
+        this._flushEnqueuedRoomData(loadingRoomId);
         break;
       case "join-room-error":
         const errorRoomId = msg["room-id"];
@@ -398,6 +385,24 @@ export default class Reactor {
         break;
       default:
         break;
+    }
+  }
+
+  _flushEnqueuedRoomData(roomId) {
+    const enqueuedUserPresence = this._presence[roomId]?.result?.user;
+    const enqueuedBroadcasts = this._broadcastQueue[roomId];
+
+    this._broadcastQueue[roomId] = [];
+
+    if (enqueuedUserPresence) {
+      this._trySetPresence(roomId, enqueuedUserPresence);
+    }
+
+    if (enqueuedBroadcasts) {
+      for (const item of enqueuedBroadcasts) {
+        const { topic, roomType, data } = item;
+        this._tryBroadcast(roomId, roomType, topic, data);
+      }
     }
   }
 
@@ -803,16 +808,6 @@ export default class Reactor {
     const roomIds = Object.keys(this._presence);
     roomIds.forEach((roomId) => {
       this._trySendAuthed(uuid(), { op: "join-room", "room-id": roomId });
-    });
-    const presence = Object.entries(this._presence);
-    presence.forEach(([roomId, { result }]) => {
-      const user = result?.user;
-      if (!user) return;
-      this._trySendAuthed(uuid(), {
-        op: "set-presence",
-        "room-id": roomId,
-        data: user,
-      });
     });
   }
 
@@ -1403,10 +1398,10 @@ export default class Reactor {
       return;
     }
 
-    this._trySendBroadcast(roomId, roomType, topic, data);
+    this._tryBroadcast(roomId, roomType, topic, data);
   }
 
-  _trySendBroadcast(roomId, roomType, topic, data) {
+  _tryBroadcast(roomId, roomType, topic, data) {
     this._trySendAuthed(uuid(), {
       op: "client-broadcast",
       "room-id": roomId,
