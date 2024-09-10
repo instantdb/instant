@@ -12,6 +12,16 @@ import config from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
 import { i } from '@instantdb/core';
 
+const deleteAppCurl = (token: string, appId: string): string => {
+  return `
+export PLATFORM_TOKEN="${token}"
+export APP_ID="${appId}"
+curl -X DELETE "${config.apiURI}/superadmin/apps/$APP_ID/" \\
+  -H "Authorization: Bearer $PLATFORM_TOKEN" \\
+  -H "Content-Type: application/json"
+`.trim();
+};
+
 const cancelTransferCurl = (
   token: string,
   appId: string,
@@ -139,28 +149,32 @@ export APP_ID="${appId}"
 curl -v -X POST "${config.apiURI}/superadmin/apps/$APP_ID/perms" \\
   -H "Authorization: Bearer $PLATFORM_TOKEN" \\
   -H "Content-Type: application/json" \\
-  -d '${JSON.stringify({ schema: exGraph(appId) }, null, 2)}'  
+  -d '${JSON.stringify(
+    { code: { posts: { allow: { create: 'false' } } } },
+    null,
+    2
+  )}'  
 `.trim();
 };
 
-function AppStage({ token, app }: { token: string; app: { id: string } }) {
+function AppStage({
+  token,
+  app,
+  setApp,
+}: {
+  token: string;
+  app: { id: string };
+  setApp: any;
+}) {
   const [transferEmail, setTransferEmail] = useLocalStorage<string>(
     '__platform_demo_email'
   );
   const [transferResult, setTransferResult] = useState<any>();
   const [cancelTransferResult, setCancelTransferResult] = useState<any>();
   const [schemaPushResult, setSchemaPushResult] = useState<any>();
+  const [permsResult, setPermsResult] = useState<any>();
   return (
     <div>
-      Wohoo! Here's your app:
-      <div className="border">
-        <Fence
-          code={JSON.stringify(app, null, 2)}
-          language="json"
-          className="overflow-auto h-full w-full p-8 m-0 text-sm"
-          style={{ margin: 0 }}
-        />
-      </div>
       <h2>2. Transfer Apps</h2>
       <p>
         To transfer an app, you need to know the user's email. Pop it in here:
@@ -259,13 +273,13 @@ function AppStage({ token, app }: { token: string; app: { id: string } }) {
         </div>
       </div>
       <div>
-        <h2>5. Push schema!</h2>
-        <p>Users can define schema like using `i.graph`:</p>
-        <div className="border">
+        <h2>5. Push schema</h2>
+        <p>To define a schema, use <code>i.graph</code> like so:</p>
+        <div className="border h-96 overflow-scroll">
           <Fence code={exampleSchemaGen(app.id)} language="tsx" />
         </div>
         <p>Once you have it, here's the CURL to push:</p>
-        <div className="border">
+        <div className="border h-96 overflow-scroll">
           <Fence code={exampleSchemaPushCurl(token, app.id)} language="bash" />
         </div>
         <Button
@@ -304,25 +318,59 @@ function AppStage({ token, app }: { token: string; app: { id: string } }) {
         <Button
           onClick={async () => {
             const res = await jsonFetch(
-              `${config.apiURI}/superadmin/apps/${app.id}/schema/push/apply`,
+              `${config.apiURI}/superadmin/apps/${app.id}/perms`,
               {
                 method: 'POST',
                 headers: {
                   Authorization: `Bearer ${token}`,
                   'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ schema: exGraph(app.id) }),
+                body: JSON.stringify({
+                  code: { posts: { allow: { create: 'false' } } },
+                }),
               }
             );
-            setSchemaPushResult(res);
+            setPermsResult(res);
           }}
         >
           Try it!
         </Button>
-        {schemaPushResult ? (
+        {permsResult ? (
           <div className="border">
             <Fence
-              code={JSON.stringify(schemaPushResult, null, 2)}
+              code={JSON.stringify(permsResult, null, 2)}
+              language="json"
+            />
+          </div>
+        ) : null}
+      </div>
+      <div>
+        <h2>7. Delete App</h2>
+        <p>Finally, you can delete the app:</p>
+        <div className="border">
+          <Fence code={deleteAppCurl(token, app.id)} language="bash" />
+        </div>
+        <Button
+          onClick={async () => {
+            const res = await jsonFetch(
+              `${config.apiURI}/superadmin/apps/${app.id}`,
+              {
+                method: 'DELETE',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+            setApp(null);
+          }}
+        >
+          Try it!
+        </Button>
+        {permsResult ? (
+          <div className="border">
+            <Fence
+              code={JSON.stringify(permsResult, null, 2)}
               language="json"
             />
           </div>
@@ -348,29 +396,37 @@ function PlatformTokenStage({ token }: { token: string }) {
               style={{ margin: 0 }}
             />
           </div>
-          <div className="flex justify-end">
-            <Button
-              onClick={async () => {
-                const res = await jsonFetch(
-                  `${config.apiURI}/superadmin/apps`,
-                  {
-                    method: 'POST',
-                    headers: {
-                      Authorization: `Bearer ${token}`,
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ title: 'my cool app' }),
-                  }
-                );
-                setApp(res.app);
-              }}
-            >
-              Try it!
-            </Button>
-          </div>
+          <Button
+            onClick={async () => {
+              const res = await jsonFetch(`${config.apiURI}/superadmin/apps`, {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ title: 'my cool app' }),
+              });
+              setApp(res.app);
+            }}
+          >
+            Try it!
+          </Button>
+          {app && (
+            <div className="space-y-2">
+              <p>Wohoo! Here's your app:</p>
+              <div className="border">
+                <Fence
+                  code={JSON.stringify(app, null, 2)}
+                  language="json"
+                  className="overflow-auto h-full w-full p-8 m-0 text-sm"
+                  style={{ margin: 0 }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
-      {app ? <AppStage app={app} token={token} /> : null}
+      {app ? <AppStage app={app} token={token} setApp={setApp} /> : null}
     </div>
   );
 }
