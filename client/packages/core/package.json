@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/core",
-  "version": "v0.12.30",
+  "version": "v0.12.31",
   "description": "Instant's core local abstraction",
   "main": "dist/index.js",
   "module": "dist/module/index.js",
