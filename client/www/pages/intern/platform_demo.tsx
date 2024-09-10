@@ -81,9 +81,9 @@ const g = i.graph(
         label: 'post',
       },
       reverse: {
-        on: 'comments',
+        on: 'posts',
         has: 'many',
-        label: 'posts',
+        label: 'comments',
       },
     },
   }
@@ -111,9 +111,9 @@ const exGraph = (appId: string) => {
           label: 'post',
         },
         reverse: {
-          on: 'comments',
+          on: 'posts',
           has: 'many',
-          label: 'posts',
+          label: 'comments',
         },
       },
     }
@@ -128,7 +128,18 @@ export APP_ID="${appId}"
 curl -v -X POST "${config.apiURI}/superadmin/apps/$APP_ID/schema/push/apply" \\
   -H "Authorization: Bearer $PLATFORM_TOKEN" \\
   -H "Content-Type: application/json" \\
-  -d '${JSON.stringify(exGraph(appId), null, 2)}'  
+  -d '${JSON.stringify({ schema: exGraph(appId) }, null, 2)}'  
+`.trim();
+};
+
+const examplePermsCurl = (token: string, appId: string): string => {
+  return `
+export PLATFORM_TOKEN="${token}"
+export APP_ID="${appId}"
+curl -v -X POST "${config.apiURI}/superadmin/apps/$APP_ID/perms" \\
+  -H "Authorization: Bearer $PLATFORM_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '${JSON.stringify({ schema: exGraph(appId) }, null, 2)}'  
 `.trim();
 };
 
@@ -138,6 +149,7 @@ function AppStage({ token, app }: { token: string; app: { id: string } }) {
   );
   const [transferResult, setTransferResult] = useState<any>();
   const [cancelTransferResult, setCancelTransferResult] = useState<any>();
+  const [schemaPushResult, setSchemaPushResult] = useState<any>();
   return (
     <div>
       Wohoo! Here's your app:
@@ -256,6 +268,65 @@ function AppStage({ token, app }: { token: string; app: { id: string } }) {
         <div className="border">
           <Fence code={exampleSchemaPushCurl(token, app.id)} language="bash" />
         </div>
+        <Button
+          onClick={async () => {
+            const res = await jsonFetch(
+              `${config.apiURI}/superadmin/apps/${app.id}/schema/push/apply`,
+              {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ schema: exGraph(app.id) }),
+              }
+            );
+            setSchemaPushResult(res);
+          }}
+        >
+          Try it!
+        </Button>
+        {schemaPushResult ? (
+          <div className="border">
+            <Fence
+              code={JSON.stringify(schemaPushResult, null, 2)}
+              language="json"
+            />
+          </div>
+        ) : null}
+      </div>
+      <div>
+        <h2>6. Push Perms</h2>
+        <p>You can update permissions too:</p>
+        <div className="border">
+          <Fence code={examplePermsCurl(token, app.id)} language="bash" />
+        </div>
+        <Button
+          onClick={async () => {
+            const res = await jsonFetch(
+              `${config.apiURI}/superadmin/apps/${app.id}/schema/push/apply`,
+              {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ schema: exGraph(app.id) }),
+              }
+            );
+            setSchemaPushResult(res);
+          }}
+        >
+          Try it!
+        </Button>
+        {schemaPushResult ? (
+          <div className="border">
+            <Fence
+              code={JSON.stringify(schemaPushResult, null, 2)}
+              language="json"
+            />
+          </div>
+        ) : null}
       </div>
     </div>
   );
