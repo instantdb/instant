@@ -349,7 +349,6 @@
   (let [sql-state (.getSQLState e)
         condition (or (sql-state->condition sql-state) :unknown)
         server-err (.getServerErrorMessage e)]
-    (tool/def-locals!)
     (cond->
      {:sql-state sql-state
       :condition condition}

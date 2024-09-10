@@ -615,7 +615,7 @@ function Invites({
               className="flex flex-col justify-between gap-2"
             >
               <div>
-                <strong>{invite.inviter_email}</strong> invited you to on{' '}
+                <strong>{invite.inviter_email}</strong> invited you to {' '}
                 <strong>{invite.app_title}</strong> as{' '}
                 <strong>{invite.invitee_role}</strong>.
               </div>
