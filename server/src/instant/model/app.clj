@@ -267,14 +267,11 @@
 
 (defn change-creator!
   ([params] (change-creator! aurora/conn-pool params))
-  ([conn {:keys [id new-creator-id admin-token]}]
+  ([conn {:keys [id new-creator-id]}]
    (sql/execute-one! conn ["UPDATE apps a
                             SET creator_id = ?::uuid
-                            FROM app_admin_tokens at
-                            WHERE a.id = at.app_id
-                              AND a.id = ?::uuid
-                              AND at.token = ?::uuid"
-                           new-creator-id id admin-token])))
+                            WHERE a.id = ?::uuid"
+                           new-creator-id id])))
 
 (defn delete-by-ids!
   ([params] (delete-by-ids! aurora/conn-pool params))
