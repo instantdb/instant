@@ -28,7 +28,7 @@
     "vitest": "^0.21.0"
   },
   "peerDependencies": {
-    "react": ">=16"
+    "react": ">=18"
   },
   "dependencies": {
     "@instantdb/core": "workspace:*"
