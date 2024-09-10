@@ -62,9 +62,6 @@ const { data } = useQuery({ users: { author: {} });
 
 const firstUser = data.users[0]
 
-// ❌ before
-const author = user.author[0]
-
 // 🎉 after
 const author = user.author // no more array! 🎉
 ```
