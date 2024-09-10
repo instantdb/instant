@@ -3,7 +3,11 @@ import react from "@vitejs/plugin-react";
 import { resolve } from "path";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react({
+      jsxRuntime: "classic",
+    }),
+  ],
   build: {
     outDir: "dist/standalone",
     lib: {
@@ -17,7 +21,7 @@ export default defineConfig({
       // don't bundle react libs
       // the user will have provided them already
       // via script tags or import maps
-      external: ["react", "react-dom", "react/jsx-runtime"],
+      external: ["react", "react-dom"],
       output: {
         // Provide global variables to use in the UMD build
         // for externalized deps
