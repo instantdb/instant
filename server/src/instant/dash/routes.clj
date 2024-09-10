@@ -57,7 +57,8 @@
             [instant.stripe :as stripe]
             [instant.storage.s3 :as s3-util]
             [instant.storage.beta :as storage-beta]
-            [instant.model.instant-personal-access-token :as instant-personal-access-token-model])
+            [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
+            [instant.model.schema :as schema-model])
 
   (:import
    (java.util UUID)
@@ -1119,30 +1120,21 @@
 
 (defn schema-push-plan-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        client-defs (-> req :body :schema)
-        r (schema-push-steps app-id client-defs)]
-    (response/ok r)))
+        client-defs (-> req :body :schema)]
+    (response/ok (schema-model/plan app-id client-defs))))
 
 (defn schema-push-apply-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         client-defs (-> req :body :schema)
-        r (schema-push-steps app-id client-defs)
-        tx-ctx {:admin? true
-                :db {:conn-pool aurora/conn-pool}
-                :app-id app-id
-                :attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
-                :datalog-query-fn d/query
-                :rules (rule-model/get-by-app-id aurora/conn-pool
-                                                 {:app-id app-id})}
-        _ (permissioned-tx/transact! tx-ctx (:steps r))]
+        r (schema-model/plan app-id client-defs)]
+    (schema-model/apply-plan! app-id r)
     (response/ok r)))
 
 (defn schema-pull-get [req]
   (let [{{app-id :id app-title :title} :app} (req->app-and-user! :collaborator req)
         current-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
-        current-schema (attrs->schema current-attrs)
-        r {:schema current-schema :app-title app-title}]
-    (response/ok r)))
+        current-schema (schema-model/attrs->schema current-attrs)]
+    (response/ok {:schema current-schema :app-title app-title})))
 
 (defn perms-pull-get [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
