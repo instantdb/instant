@@ -446,14 +446,17 @@
 
 (defn ephemeral-claim-post [req]
   (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
-        admin-token (ex/get-param! req [:body :token] uuid-util/coerce)
+        token (ex/get-param! req [:body :token] uuid-util/coerce)
         {app-creator-id :creator_id} (app-model/get-by-id! {:id app-id})
         {user-id :id} (req->auth-user! req)]
     (ex/assert-permitted!
      :ephemeral-app?
      app-id
      (= (:id @ephemeral-app/ephemeral-creator) app-creator-id))
-    (app-model/change-creator! {:id app-id :new-creator-id user-id :admin-token admin-token})
+    ;; make sure the request comes with a valid admin token
+    (app-admin-token-model/fetch! {:app-id app-id :token token})
+    (app-model/change-creator! {:id app-id
+                                :new-creator-id user-id})
     (response/ok {})))
 
 ;; --------
@@ -755,9 +758,16 @@
     (ex/assert-permitted! :acceptable? invite-id (not= status "revoked"))
     (next-jdbc/with-transaction [tx-conn aurora/conn-pool]
       (instant-app-member-invites-model/accept-by-id! tx-conn {:id invite-id})
-      (instant-app-members/create! tx-conn {:user-id user-id
-                                            :app-id app_id
-                                            :role invitee_role}))
+      (condp = invitee_role
+        "creator"
+        (app-model/change-creator!
+         tx-conn
+         {:id app_id
+          :new-creator-id user-id})
+        :else
+        (instant-app-members/create! tx-conn {:user-id user-id
+                                              :app-id app_id
+                                              :role invitee_role})))
     (response/ok {})))
 
 (comment
@@ -826,7 +836,6 @@
     (fn [{:keys [owner-req member]}]
       (team-member-update-post
        (assoc owner-req :body {:role "admin" :id (:id member)})))))
-
 
 ;; ---
 ;; Personal access tokens
