@@ -80,15 +80,16 @@
 
 (defn reject-by-email-and-role
   ([params] (reject-by-email-and-role aurora/conn-pool params))
-  ([conn {:keys [inviter-id invitee-email role]}]
+  ([conn {:keys [inviter-id app-id invitee-email role]}]
    (sql/execute! conn
                  ["UPDATE app_member_invites
                   SET status = 'revoked'
                   WHERE inviter_id = ?::uuid 
+                  AND app_id = ?::uuid
                   AND invitee_email = ? 
                   AND invitee_role = ?
                   AND status = 'pending'"
-                  inviter-id invitee-email role])))
+                  inviter-id app-id invitee-email role])))
 
 (defn delete-by-id!
   ([params] (delete-by-id! aurora/conn-pool params))
