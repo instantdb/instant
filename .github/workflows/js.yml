@@ -164,7 +164,8 @@ jobs:
         else
             echo "There was an error"
         fi
-    - uses: actions/github-script@v7
+    - name: Comment on PR with deploy preview url
+      uses: actions/github-script@v7
       if: github.event_name == 'pull_request'
       with:
         script: |
