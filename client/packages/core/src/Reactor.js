@@ -77,6 +77,7 @@ export default class Reactor {
   /** @type BroadcastChannel | undefined */
   _broadcastChannel;
 
+  /** @type {Record<string, {isConnected: boolean; error: any}>} */
   _rooms = {};
   _presence = {};
   _broadcastQueue = [];
@@ -300,6 +301,10 @@ export default class Reactor {
         // (EPH): set session-id, so we know
         // which item is us
         this._sessionId = msg["session-id"];
+
+        for (const roomId of Object.keys(this._rooms)) {
+          this._tryJoinRoom(roomId);
+        }
         break;
       case "add-query-ok":
         const { q, result, "processed-tx-id": addQueryTxId } = msg;
@@ -393,13 +398,13 @@ export default class Reactor {
           break;
         }
 
-        joinedRoom.isLoading = false;
+        joinedRoom.isConnected = true;
         this._notifyPresenceSubs(loadingRoomId);
         this._flushEnqueuedRoomData(loadingRoomId);
         break;
       case "join-room-error":
         const errorRoomId = msg["room-id"];
-        const errorRoom = this._presence[errorRoomId];
+        const errorRoom = this._rooms[errorRoomId];
         if (errorRoom) {
           errorRoom.error = msg["error"];
         }
@@ -812,10 +817,6 @@ export default class Reactor {
         this._sendMutation(eventId, mut);
       }
     });
-    const roomIds = Object.keys(this._presence);
-    roomIds.forEach((roomId) => {
-      this._trySendAuthed(uuid(), { op: "join-room", "room-id": roomId });
-    });
   }
 
   _trySendAuthed(eventId, msg) {
@@ -860,6 +861,10 @@ export default class Reactor {
 
   _wsOnClose = () => {
     this._setStatus(STATUS.CLOSED);
+
+    for (const room of Object.values(this._rooms)) {
+      room.isConnected = false;
+    }
 
     if (this._isShutdown) {
       log.info(
@@ -1238,14 +1243,14 @@ export default class Reactor {
   // Rooms
 
   joinRoom(roomId) {
-    this._rooms[roomId] = {
-      isLoading: true,
-    };
+    if (!this._rooms[roomId]) {
+      this._rooms[roomId] = {
+        isConnected: false,
+        error: undefined,
+      };
+    }
 
-    this._trySendAuthed(uuid(), {
-      op: "join-room",
-      "room-id": roomId,
-    });
+    this._tryJoinRoom(roomId);
 
     return () => {
       this._cleanupRoom(roomId);
@@ -1276,14 +1281,14 @@ export default class Reactor {
    * @returns {import('./presence').PresenceResponse<RoomSchema[RoomType]['presence'], Keys>}
    */
   getPresence(roomType, roomId, opts = {}) {
-    const presence = this._presence[roomId];
     const room = this._rooms[roomId];
+    const presence = this._presence[roomId];
     if (!room || !presence || !presence.result) return null;
 
     return {
       ...buildPresenceSlice(presence.result, opts),
-      isLoading: room.isLoading,
-      error: presence.error,
+      isLoading: !room.isConnected,
+      error: room.error,
     };
   }
 
@@ -1309,7 +1314,7 @@ export default class Reactor {
 
     presence.result.user = data;
 
-    if (room.isLoading) {
+    if (!room.isConnected) {
       return;
     }
 
@@ -1323,6 +1328,10 @@ export default class Reactor {
       "room-id": roomId,
       data,
     });
+  }
+
+  _tryJoinRoom(roomId) {
+    this._trySendAuthed(uuid(), { op: "join-room", "room-id": roomId });
   }
 
   /**
@@ -1339,7 +1348,6 @@ export default class Reactor {
 
     const handler = { ...opts, roomId, cb, prev: null };
 
-    this._rooms[roomId].isLoading = true;
     this._presence[roomId] = this._presence[roomId] || {};
     this._presence[roomId].handlers = this._presence[roomId].handlers || [];
     this._presence[roomId].handlers.push(handler);
@@ -1392,13 +1400,13 @@ export default class Reactor {
   // Broadcast
 
   publishTopic({ roomType, roomId, topic, data }) {
-    const room = this._presence[roomId];
+    const room = this._rooms[roomId];
 
     if (!room) {
       return;
     }
 
-    if (room.isLoading) {
+    if (!room.isConnected) {
       this._broadcastQueue[roomId] = this._broadcastQueue[roomId] ?? [];
       this._broadcastQueue[roomId].push({ topic, roomType, data });
 
