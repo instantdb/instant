@@ -5,11 +5,19 @@ import {
   TextInput,
 } from '@/components/ui';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
-import { useLocalStorage, useLocalStorageWithDefaultValue } from '@/lib/hooks/useLocalStorage';
+import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { useState } from 'react';
 import config from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
 import { i } from '@instantdb/core';
+
+async function jsonFetchCatchingErr(input: RequestInfo, init: RequestInit | undefined) {
+  try {
+    return await jsonFetch(input, init);
+  } catch (e) {
+    return e;
+  }
+}
 
 const deleteAppCurl = (token: string, appId: string): string => {
   return `
@@ -165,7 +173,7 @@ function AppStage({
   app: { id: string };
   setApp: any;
 }) {
-  const [transferEmail, setTransferEmail] = useLocalStorageWithDefaultValue<string>(
+  const [transferEmail, setTransferEmail] = useLocalStorage<string>(
     '__platform_demo_email',
     'stopa@instantdb.com'
   );
@@ -196,7 +204,7 @@ function AppStage({
           </div>
           <Button
             onClick={async () => {
-              const res = await jsonFetch(
+              const res = await jsonFetchCatchingErr(
                 `${config.apiURI}/superadmin/apps/${app.id}/transfers/send`,
                 {
                   method: 'POST',
@@ -236,7 +244,7 @@ function AppStage({
           </div>
           <Button
             onClick={async () => {
-              const res = await jsonFetch(
+              const res = await jsonFetchCatchingErr(
                 `${config.apiURI}/superadmin/apps/${app.id}/transfers/revoke`,
                 {
                   method: 'POST',
@@ -284,7 +292,7 @@ function AppStage({
         </div>
         <Button
           onClick={async () => {
-            const res = await jsonFetch(
+            const res = await jsonFetchCatchingErr(
               `${config.apiURI}/superadmin/apps/${app.id}/schema/push/apply`,
               {
                 method: 'POST',
@@ -317,7 +325,7 @@ function AppStage({
         </div>
         <Button
           onClick={async () => {
-            const res = await jsonFetch(
+            const res = await jsonFetchCatchingErr(
               `${config.apiURI}/superadmin/apps/${app.id}/perms`,
               {
                 method: 'POST',
@@ -352,7 +360,7 @@ function AppStage({
         </div>
         <Button
           onClick={async () => {
-            const res = await jsonFetch(
+            const res = await jsonFetchCatchingErr(
               `${config.apiURI}/superadmin/apps/${app.id}`,
               {
                 method: 'DELETE',
@@ -381,7 +389,7 @@ function AppStage({
 }
 
 function PlatformTokenStage({ token }: { token: string }) {
-  const [app, setApp] = useLocalStorage<any>('__platform_demo_app');
+  const [app, setApp] = useLocalStorage<any>('__platform_demo_app', null);
   return (
     <div>
       <h2>1. Create Apps</h2>
@@ -398,7 +406,7 @@ function PlatformTokenStage({ token }: { token: string }) {
           </div>
           <Button
             onClick={async () => {
-              const res = await jsonFetch(`${config.apiURI}/superadmin/apps`, {
+              const res = await jsonFetchCatchingErr(`${config.apiURI}/superadmin/apps`, {
                 method: 'POST',
                 headers: {
                   Authorization: `Bearer ${token}`,
@@ -433,7 +441,7 @@ function PlatformTokenStage({ token }: { token: string }) {
 export default function Page() {
   const isHydrated = useIsHydrated();
   const [platformToken, setPlatformToken] =
-    useLocalStorage<string>('__platformToken');
+    useLocalStorage<string>('__platformToken', '');
   if (!isHydrated) return;
   return (
     <div className="max-w-xl mx-auto p-4">
@@ -451,7 +459,7 @@ export default function Page() {
         </p>
         <p>Once you have it, paste it into this input:</p>
         <TextInput
-          value={platformToken || ''}
+          value={platformToken}
           onChange={(v) => setPlatformToken(v.trim())}
           placeholder="the-token-you-copied"
         />

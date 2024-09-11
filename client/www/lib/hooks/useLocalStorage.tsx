@@ -25,13 +25,14 @@ function setItem<T>(k: string, v: T | undefined) {
   );
 }
 
-export function useLocalStorage<T = {}>(
-  k: string
-): [T | undefined, (v: T | undefined) => void] {
-  const snapshotRef = useRef<T | undefined>(getSnapshot<T>(k));
+export default function useLocalStorage<T>(
+  k: string, 
+  defaultValue: T,
+): [T, (v: T | undefined) => void] {
+  const snapshotRef = useRef<T>(getSnapshot<T>(k) || defaultValue);
   const subscribe = useCallback((cb: Function) => {
     const listener = () => {
-      snapshotRef.current = getSnapshot<T>(k);
+      snapshotRef.current = getSnapshot<T>(k) || defaultValue;
       cb();
     };
     window.addEventListener('storage', listener);
@@ -39,19 +40,10 @@ export function useLocalStorage<T = {}>(
       window.removeEventListener('storage', listener);
     };
   }, []);
-  const state = useSyncExternalStore<T | undefined>(
+  const state = useSyncExternalStore<T>(
     subscribe,
     () => snapshotRef.current,
-    () => getServerSnapshot(k)
+    () => defaultValue
   );
   return [state, (v: T | undefined) => setItem<T>(k, v)];
-}
-
-export function useLocalStorageWithDefaultValue<T>(
-  k: string,
-  defaultValue: T
-): [T, (v: T) => void] {
-  const [state, setState] = useLocalStorage<T>(k);
-
-  return [state ?? defaultValue, setState]
 }
