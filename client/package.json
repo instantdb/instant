@@ -3,7 +3,6 @@
   "version": "0.0.0",
   "private": true,
   "description": "Instant's local Monorepo",
-  "packageManager": "pnpm@8.15.6",
   "workspaces": {
     "packages": [
       "sandbox/*",
