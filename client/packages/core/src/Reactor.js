@@ -132,8 +132,10 @@ export default class Reactor {
       });
     });
 
-    this._beforeUnload = this._beforeUnload.bind(this);
-    addEventListener("beforeunload", this._beforeUnload);
+    if (typeof addEventListener !== "undefined") {
+      this._beforeUnload = this._beforeUnload.bind(this);
+      addEventListener("beforeunload", this._beforeUnload);
+    }
   }
 
   _initStorage(Storage) {
