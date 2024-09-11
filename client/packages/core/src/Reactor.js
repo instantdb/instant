@@ -80,6 +80,7 @@ export default class Reactor {
   _presence = {};
   _broadcastSubs = {};
   _currentUserCached = { isLoading: true, error: undefined, user: undefined };
+  _beforeUnloadCbs = [];
 
   constructor(
     config,
@@ -130,6 +131,9 @@ export default class Reactor {
         }
       });
     });
+
+    this._beforeUnload = this._beforeUnload.bind(this);
+    addEventListener("beforeunload", this._beforeUnload);
   }
 
   _initStorage(Storage) {
@@ -154,6 +158,16 @@ export default class Reactor {
         return new Map(JSON.parse(x));
       },
     );
+    this._beforeUnloadCbs.push(() => {
+      this.pendingMutations.flush();
+      this.querySubs.flush();
+    });
+  }
+
+  _beforeUnload() {
+    for (const cb of this._beforeUnloadCbs) {
+      cb();
+    }
   }
 
   /**

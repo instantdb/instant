@@ -72,6 +72,22 @@ export class PersistedObject {
     await syncedPromise;
   }
 
+  _writeToStorage() {
+    this._persister.setItem(this._key, this.toJSON(this.currentValue));
+    for (const cb of this._pendingSaveCbs) {
+      cb();
+    }
+    this._pendingSaveCbs.length = 0;
+  }
+
+  async flush() {
+    if (!this._nextSave) {
+      return;
+    }
+    clearTimeout(this._nextSave);
+    this._writeToStorage();
+  }
+
   _enqueuePersist(cb) {
     if (this._nextSave) {
       if (cb) {
@@ -81,22 +97,11 @@ export class PersistedObject {
     }
     this._nextSave = setTimeout(() => {
       this._nextSave = null;
-      this._persister.setItem(this._key, this.toJSON(this.currentValue));
-      for (const cb of this._pendingSaveCbs) {
-        cb();
-      }
-      this._pendingSaveCbs.length = 0;
+      this._writeToStorage();
     }, this._saveThrottleMs);
   }
 
   set(f, cb) {
-    const nextValue = f(this.currentValue);
-    if (nextValue === this.currentValue) {
-      if (cb) {
-        cb();
-      }
-      return;
-    }
     this.currentValue = f(this.currentValue);
     this._enqueuePersist(cb);
   }
