@@ -143,7 +143,7 @@ jobs:
         code=$?
         if [ $code -eq 0 ]; then
           deploymentUrl=`cat deployment-url.txt`
-          vercel alias $deploymentUrl "instant-www-js-$GITHUB_REF-jsv.vercel.app"
+          vercel alias --token=${{ secrets.VERCEL_TOKEN }} $deploymentUrl "instant-www-js-$GITHUB_REF-jsv.vercel.app"
         else
             # Handle the error
             errorMessage=`cat error.txt`
