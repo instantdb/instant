@@ -9,10 +9,6 @@ function getSnapshot<T>(k: string): T | undefined {
   } catch (e) { }
 }
 
-function getServerSnapshot(k: string): undefined {
-  return;
-}
-
 function setItem<T>(k: string, v: T | undefined) {
   if (typeof window == 'undefined') {
     throw new Error('useLocalStorage/setState needs to run on the client');
