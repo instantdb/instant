@@ -10,7 +10,11 @@
             [instant.util.http :as http-util]
             [instant.util.email :as email]
             [instant.postmark :as postmark]
-            [instant.model.app-member-invites :as instant-app-member-invites-model])
+            [instant.model.app-member-invites :as instant-app-member-invites-model]
+            [clojure.walk :as w]
+            [instant.model.rule :as rule-model]
+            [instant.model.schema :as schema-model]
+            [instant.jdbc.aurora :as aurora])
 
   (:import
    (java.util UUID)))
@@ -19,6 +23,16 @@
   (let [personal-access-token (http-util/req->bearer-token! req)]
     (instant-user-model/get-by-personal-access-token!
      {:personal-access-token personal-access-token})))
+
+(defn req->superadmin-user-and-app! [req]
+  (let [{user-id :id :as user} (req->superadmin-user! req)
+        id (ex/get-param! req [:params :app_id] uuid-util/coerce)
+        app (app-model/get-by-id-and-creator! {:user-id user-id
+                                               :app-id id})]
+    {:user user :app app}))
+
+;; -------- 
+;; App crud 
 
 (defn apps-list-get [req]
   (let [{user-id :id} (req->superadmin-user! req)
@@ -35,32 +49,25 @@
     (response/ok {:app app})))
 
 (defn app-details-get [req]
-  (let [{user-id :id} (req->superadmin-user! req)
-        app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
-        app (app-model/get-by-id-and-creator! {:user-id user-id :app-id app-id})]
+  (let [{:keys [app]} (req->superadmin-user-and-app! req)]
     (response/ok {:app app})))
 
 (defn app-update-post [req]
-  (let [{user-id :id} (req->superadmin-user! req)
-        id (ex/get-param! req [:params :app_id] uuid-util/coerce)
-        {app-id :id} (app-model/get-by-id-and-creator! {:user-id user-id
-                                                        :app-id id})
+  (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
         title (ex/get-param! req [:body :title] string/trim)
         app (app-model/rename-by-id! {:id app-id :title title})]
     (response/ok {:app app})))
 
 (defn app-delete [req]
-  (let [{user-id :id} (req->superadmin-user! req)
-        id (ex/get-param! req [:params :app_id] uuid-util/coerce)
-        {app-id :id} (app-model/get-by-id-and-creator! {:user-id user-id
-                                                        :app-id id})
+  (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
         app (app-model/delete-by-id! {:id app-id})]
     (response/ok {:app app})))
 
-(defn transfer-app-invite-email [{:keys [invitee-email inviter-id app-id]}]
-  (let [title "Instant"
-        user (instant-user-model/get-by-id! {:id inviter-id})
-        app (app-model/get-by-id! {:id app-id})]
+;; ---------- 
+;; Transfers 
+
+(defn transfer-app-invite-email [inviter-user app invitee-email]
+  (let [title "Instant"]
     {:from (str title " <teams@pm.instantdb.com>")
      :to invitee-email
      :subject (str "[Instant] You've been asked to take ownership of " (:title app))
@@ -68,7 +75,7 @@
      (postmark/standard-body
       "<p><strong>Hey there!</strong></p>
        <p>
-         " (:email user) " invited you to become the new owner of " (:title app) ".
+         " (:email inviter-user) " invited you to become the new owner of " (:title app) ".
        </p>
        <p>
          Navigate to <a href=\"https://instantdb.com/dash?s=invites\">Instant</a> to accept the invite.
@@ -79,37 +86,59 @@
        </p>")}))
 
 (defn app-transfer-send-invite-post [req]
-  (let [{user-id :id} (req->superadmin-user! req)
-        id (ex/get-param! req [:params :app_id] uuid-util/coerce)
-        {app-id :id} (app-model/get-by-id-and-creator! {:user-id user-id
-                                                        :app-id id})
+  (let [{:keys [app user]} (req->superadmin-user-and-app! req)
         invitee-email (ex/get-param! req [:body :dest_email] email/coerce)
+        {app-id :id} app
+        {user-id :id} user
         {invite-id :id} (instant-app-member-invites-model/create!
                          {:app-id app-id
                           :inviter-id user-id
                           :email invitee-email
                           :role "creator"})]
-    (instant-app-member-invites-model/create!
-     {:app-id app-id
-      :inviter-id user-id
-      :email invitee-email
-      :role "creator"})
     (postmark/send!
-     (transfer-app-invite-email
-      {:inviter-id user-id
-       :invitee-email invitee-email
-       :app-id app-id}))
+     (transfer-app-invite-email user app invitee-email))
     (response/ok {:id invite-id})))
 
 (defn app-transfer-revoke-post [req]
-  (let [{user-id :id} (req->superadmin-user! req)
+  (let [{{user-id :id} :user {app-id :id} :app} (req->superadmin-user-and-app! req)
         dest-email (ex/get-param! req [:body :dest_email] email/coerce)
         rejected-count (count (instant-app-member-invites-model/reject-by-email-and-role
                                {:inviter-id user-id
+                                :app-id app-id
                                 :invitee-email dest-email
                                 :role "creator"}))]
 
     (response/ok {:count rejected-count})))
+
+;; --------- 
+;; Rules 
+
+(defn app-rules-get [req]
+  (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
+        {:keys [code]} (rule-model/get-by-app-id aurora/conn-pool {:app-id app-id})]
+    (response/ok {:perms code})))
+
+(defn app-rules-post [req]
+  (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
+        code (ex/get-param! req [:body :code] w/stringify-keys)]
+    (ex/assert-valid! :rule code (rule-model/validation-errors code))
+    (response/ok {:rules (rule-model/put! {:app-id app-id
+                                           :code code})})))
+
+;; --------- 
+;; Schema 
+
+(defn app-schema-plan-post [req]
+  (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
+        client-defs (-> req :body :schema)]
+    (response/ok (schema-model/plan app-id client-defs))))
+
+(defn app-schema-apply-post [req]
+  (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
+        client-defs (-> req :body :schema)
+        plan (schema-model/plan app-id client-defs)]
+    (schema-model/apply-plan! app-id plan)
+    (response/ok plan)))
 
 (comment
   (def user (instant-user-model/get-by-email {:email "stepan.p@gmail.com"}))
@@ -136,6 +165,14 @@
   (POST "/superadmin/apps" [] apps-create-post)
   (GET "/superadmin/apps/:app_id" [] app-details-get)
   (POST "/superadmin/apps/:app_id" [] app-update-post)
+
   (POST "/superadmin/apps/:app_id/transfers/send" [] app-transfer-send-invite-post)
   (POST "/superadmin/apps/:app_id/transfers/revoke" [] app-transfer-revoke-post)
+
+  (POST "/superadmin/apps/:app_id/schema/push/plan" [] app-schema-plan-post)
+  (POST "/superadmin/apps/:app_id/schema/push/apply" [] app-schema-apply-post)
+
+  (GET "/superadmin/apps/:app_id/perms" [] app-rules-get)
+  (POST "/superadmin/apps/:app_id/perms" [] app-rules-post)
+
   (DELETE "/superadmin/apps/:app_id" [] app-delete))
