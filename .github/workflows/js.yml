@@ -157,8 +157,9 @@ jobs:
         code=$?
         if [ $code -eq 0 ]; then
           deploymentUrl=`cat deployment-url.txt`
-          branch=$BRANCH_NAME
-          aliasUrl="instant-www-js-$branch-jsv.vercel.app"
+          safeBranch=$(echo $BRANCH_NAME | sed 's/[^a-zA-Z0-9-]/-/g')
+          aliasUrl="instant-www-js-$safeBranch-jsv.vercel.app"
+          echo "ALIAS_URL=$aliasUrl" >> $GITHUB_ENV
           echo "aiasing $deploymentUrl to $aliasUrl"
           vercel alias $deploymentUrl $aliasUrl --token=${{ secrets.VERCEL_TOKEN }} --scope jsv
         else
@@ -169,8 +170,7 @@ jobs:
       if: github.event_name == 'pull_request'
       with:
         script: |
-          const branchName = process.env.BRANCH_NAME;
-          const url = `instant-www-js-${branchName}-jsv.vercel.app`;
+          const url = process.env.ALIAS_URL;
           const body = `View Vercel preview at [${url}](https://${url}).`;
           const { data: comments } = await github.rest.issues.listComments({
             issue_number: context.issue.number,
