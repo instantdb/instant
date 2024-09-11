@@ -1346,6 +1346,7 @@ export default class Reactor {
 
   _tryJoinRoom(roomId) {
     this._trySendAuthed(uuid(), { op: "join-room", "room-id": roomId });
+    delete this._roomsPendingLeave[roomId];
   }
 
   _tryLeaveRoom(roomId) {
