@@ -144,4 +144,9 @@ jobs:
         if [ $code -eq 0]; then
           deploymentUrl=`cat deployment-url.txt`
           vercel alias $deploymentUrl "instant-www-js-$GITHUB_REF-jsv.vercel.app"
+        else
+            # Handle the error
+            errorMessage=`cat error.txt`
+            echo "There was an error: $errorMessage"
+        fi
 
