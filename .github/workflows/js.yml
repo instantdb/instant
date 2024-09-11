@@ -144,13 +144,20 @@ jobs:
       run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
     - name: Build Project Artifacts
       run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+    - name: Set branch name
+      run: |
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
+        else
+          echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+        fi
     - name: Deploy Project Artifacts to Vercel
       run: |
         vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} >deployment-url.txt
         code=$?
         if [ $code -eq 0 ]; then
           deploymentUrl=`cat deployment-url.txt`
-          branch=$(git branch --show-current)
+          branch=$BRANCH_NAME
           aliasUrl="instant-www-js-$branch-jsv.vercel.app"
           echo "aiasing $deploymentUrl to $aliasUrl"
           vercel alias $deploymentUrl $aliasUrl --token=${{ secrets.VERCEL_TOKEN }} --scope jsv
@@ -161,7 +168,7 @@ jobs:
       if: github.event_name == 'pull_request'
       with:
         script: |
-          const branchName = process.env.GITHUB_REF.replace("refs/heads/", "");
+          const branchName = process.env.BRANCH_NAME;
           const url = `instant-www-js-${branchName}-jsv.vercel.app`;
           const body = `View Vercel preview at [${url}](https://${url}).`;
           const { data: comments } = await github.rest.issues.listComments({
