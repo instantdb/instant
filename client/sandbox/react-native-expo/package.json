@@ -11,7 +11,7 @@
   "dependencies": {
     "@babel/runtime": "^7.24.4",
     "@expo/vector-icons": "^13.0.0",
-    "@instantdb/react-native": "*",
+    "@instantdb/react-native": "workspace:*",
     "@react-native-async-storage/async-storage": "1.18.2",
     "@react-native-community/netinfo": "9.3.10",
     "expo": "50.0.0",

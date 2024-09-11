@@ -24,6 +24,7 @@ export class PersistedObject {
     fromJSON = (x) => {
       return JSON.parse(x);
     },
+    saveThrottleMs = 100,
   ) {
     this._persister = persister;
     this._key = key;
@@ -35,6 +36,8 @@ export class PersistedObject {
     this.currentValue = defaultValue;
     this.toJSON = toJSON;
     this.fromJSON = fromJSON;
+    this._saveThrottleMs = saveThrottleMs;
+    this._pendingSaveCbs = [];
 
     this._load();
   }
@@ -59,15 +62,51 @@ export class PersistedObject {
     await loadedPromise;
   }
 
+  async waitForSync() {
+    if (!this._nextSave) {
+      return;
+    }
+    const syncedPromise = new Promise((resolve) => {
+      this._pendingSaveCbs.push(resolve);
+    });
+    await syncedPromise;
+  }
+
+  _writeToStorage() {
+    this._persister.setItem(this._key, this.toJSON(this.currentValue));
+    for (const cb of this._pendingSaveCbs) {
+      cb();
+    }
+    this._pendingSaveCbs.length = 0;
+  }
+
+  async flush() {
+    if (!this._nextSave) {
+      return;
+    }
+    clearTimeout(this._nextSave);
+    this._writeToStorage();
+  }
+
+  _enqueuePersist(cb) {
+    if (this._nextSave) {
+      if (cb) {
+        this._pendingSaveCbs.push(cb);
+      }
+      return;
+    }
+    this._nextSave = setTimeout(() => {
+      this._nextSave = null;
+      this._writeToStorage();
+    }, this._saveThrottleMs);
+  }
+
   set(f, cb) {
     this.currentValue = f(this.currentValue);
-    if (!this._isLoading) {
-      setTimeout(() => {
-        this._persister.setItem(this._key, this.toJSON(this.currentValue));
-        if (cb) {
-          cb();
-        }
-      }, 0);
+    if (this._isLoading) {
+      this._loadedCbs.push(() => this._enqueuePersist(cb));
+    } else {
+      this._enqueuePersist(cb);
     }
   }
 }
