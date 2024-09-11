@@ -17,7 +17,7 @@ export default defineConfig({
       // don't bundle react libs
       // the user will have provided them already
       // via script tags or import maps
-      external: ["react", "react-dom"],
+      external: ["react", "react-dom", "react/jsx-runtime"],
       output: {
         // Provide global variables to use in the UMD build
         // for externalized deps
