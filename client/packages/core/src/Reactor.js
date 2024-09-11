@@ -79,6 +79,8 @@ export default class Reactor {
 
   /** @type {Record<string, {isConnected: boolean; error: any}>} */
   _rooms = {};
+  /** @type {Record<string, boolean>} */
+  _roomsPendingLeave = {};
   _presence = {};
   _broadcastQueue = [];
   _broadcastSubs = {};
@@ -395,6 +397,11 @@ export default class Reactor {
         const joinedRoom = this._rooms[loadingRoomId];
 
         if (!joinedRoom) {
+          if (this._roomsPendingLeave[roomId]) {
+            this._tryLeaveRoom(loadingRoomId);
+            delete this._roomsPendingLeave[roomId];
+          }
+
           break;
         }
 
@@ -1262,10 +1269,17 @@ export default class Reactor {
       !this._presence[roomId]?.handlers?.length &&
       !Object.keys(this._broadcastSubs[roomId] ?? {}).length
     ) {
+      const room = this._rooms[roomId];
+
       delete this._rooms[roomId];
       delete this._presence[roomId];
       delete this._broadcastSubs[roomId];
-      this._trySendAuthed(uuid(), { op: "leave-room", "room-id": roomId });
+
+      if (room.isConnected) {
+        this._tryLeaveRoom(roomId);
+      } else {
+        this._roomsPendingLeave[roomId] = true;
+      }
     }
   }
 
@@ -1332,6 +1346,10 @@ export default class Reactor {
 
   _tryJoinRoom(roomId) {
     this._trySendAuthed(uuid(), { op: "join-room", "room-id": roomId });
+  }
+
+  _tryLeaveRoom(roomId) {
+    this._trySendAuthed(uuid(), { op: "leave-room", "room-id": roomId });
   }
 
   /**
