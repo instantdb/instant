@@ -190,3 +190,39 @@ jobs:
           } else {
             console.log("Already commented", comment);
           }
+
+  vercel-prod-deploy:
+    name: Deploy to vercel production
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Cache turbo build setup
+      uses: actions/cache@v4
+      with:
+        path: client/.turbo
+        key: ${{ runner.os }}-turbo-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-turbo-
+    - name: Enable corepack
+      working-directory: client
+      run: corepack enable
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: 'pnpm'
+        cache-dependency-path: client
+    - name: Install Vercel CLI
+      run: npm install --g vercel@canary
+    - name: Pull Vercel Environment Information
+      run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+    - name: Build Project Artifacts
+      run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+    - name: Deploy Project Artifacts to Vercel
+      run: |
+        vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}
