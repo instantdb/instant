@@ -301,7 +301,7 @@ function AppStage({
           Try it!
         </Button>
         {schemaPushResult ? (
-          <div className="border">
+          <div className="border h-96 overflow-scroll">
             <Fence
               code={JSON.stringify(schemaPushResult, null, 2)}
               language="json"
