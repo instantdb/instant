@@ -146,7 +146,7 @@ jobs:
       run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
     - name: Deploy Project Artifacts to Vercel
       run: |
-        vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} >deployment-url.txt 2>error.txt
+        vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} >deployment-url.txt
         code=$?
         if [ $code -eq 0 ]; then
           deploymentUrl=`cat deployment-url.txt`
@@ -155,7 +155,5 @@ jobs:
           echo "aiasing $deploymentUrl to $aliasUrl"
           vercel alias $deploymentUrl $aliasUrl --token=${{ secrets.VERCEL_TOKEN }} --scope jsv
         else
-            # Handle the error
-            errorMessage=`cat error.txt`
-            echo "There was an error: $errorMessage"
+            echo "There was an error"
         fi
