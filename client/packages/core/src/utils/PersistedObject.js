@@ -103,6 +103,10 @@ export class PersistedObject {
 
   set(f, cb) {
     this.currentValue = f(this.currentValue);
-    this._enqueuePersist(cb);
+    if (this._isLoading) {
+      this._loadedCbs.push(() => this._enqueuePersist(cb));
+    } else {
+      this._enqueuePersist(cb);
+    }
   }
 }
