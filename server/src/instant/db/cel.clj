@@ -11,10 +11,14 @@
    [instant.db.dataloader :as dataloader]
    [instant.util.tracer :as tracer])
   (:import
-   (java.util Map)
+   (java.util Map Optional)
    (com.google.protobuf NullValue)
    (dev.cel.common CelFunctionDecl
-                   CelOverloadDecl)
+                   CelOverloadDecl
+                   CelAbstractSyntaxTree)
+   (dev.cel.common.ast CelExpr
+                       CelExpr$CelCall
+                       CelExpr$ExprKind$Kind)
    (dev.cel.extensions CelExtensions)
    (dev.cel.common.types SimpleType MapType ListType CelType)
    (dev.cel.compiler CelCompiler CelCompilerFactory CelCompilerLibrary)
@@ -196,6 +200,81 @@
       (let [m' (or m {})
             ^java.util.Map clean-m (dissoc m' "_ctx" "_etype")]
         (.entrySet clean-m)))))
+
+
+;; Static analysis
+;; ---------------
+
+(declare expr->data-ref-uses)
+
+(defn get-optional-value
+  "Returns value in optional if it's some, or nil if it's none."
+  [^Optional o]
+  (when (.isPresent o)
+    (.get o)))
+
+(defn function-name
+  "Returns the qualified function name, e.g. `data.ref`, `type`, `_+_`"
+  [^CelExpr$CelCall call]
+  (let [f (.function call)]
+    (if-let [target (get-optional-value (.target call))]
+      (if (= CelExpr$ExprKind$Kind/IDENT (.getKind target))
+        (format "%s.%s" (.name (.ident target)) f)
+        (tracer/with-span! {:name "cel/unknown-function-name"
+                            :attributes {:cel-call call}}
+          f))
+      f)))
+
+(defn data-ref-arg [^CelExpr$CelCall call]
+  (if (= 1 (count (.args call)))
+    (if (= CelExpr$ExprKind$Kind/CONSTANT (.getKind (first (.args call))))
+      (.stringValue (.constant (first (.args call))))
+      (tracer/with-span! {:name "cel/unknown-data-ref-arg"
+                          :attributes {:cel-call call}}
+        nil))
+    (tracer/with-span! {:name "cel/data-ref-arg"
+                        :attributes {:cel-call call}}
+      nil)))
+
+(defn call->data-ref-uses [^CelExpr$CelCall call]
+  (if (= "data.ref" (function-name call))
+    (if-let [arg (data-ref-arg call)]
+      #{arg}
+      #{})
+    (reduce (fn [acc expr]
+              (into acc (expr->data-ref-uses expr)))
+            #{}
+            (.args call))))
+
+(defn expr->data-ref-uses [^CelExpr expr]
+  (condp = (.getKind expr)
+    CelExpr$ExprKind$Kind/NOT_SET #{}
+    CelExpr$ExprKind$Kind/CONSTANT #{}
+    ;; An identifier expression. e.g. `request`.
+    CelExpr$ExprKind$Kind/IDENT #{}
+    ;; A field selection expression. e.g. `request.auth`.
+    CelExpr$ExprKind$Kind/SELECT #{}
+    CelExpr$ExprKind$Kind/LIST (reduce (fn [acc item]
+                                         (into acc (expr->data-ref-uses item)))
+                                       #{}
+                                       (.list expr))
+    ;; Not sure how to make one of these, will ignore for now
+    CelExpr$ExprKind$Kind/STRUCT #{}
+    CelExpr$ExprKind$Kind/MAP (reduce (fn [acc entry]
+                                        (-> acc
+                                            (into (expr->data-ref-uses (.key entry)))
+                                            (into (expr->data-ref-uses (.value entry)))))
+                                      #{}
+                                      (.entries (.map expr)))
+    ;; We don't support comprehensions as far I can tell
+    ;; https://github.com/google/cel-java/blob/10bb524bddc7c32a55101f6b4967eb52cd14fb18/common/src/main/java/dev/cel/common/ast/CelExpr.java#L925
+    CelExpr$ExprKind$Kind/COMPREHENSION #{}
+    CelExpr$ExprKind$Kind/CALL (call->data-ref-uses (.call expr))))
+
+;; It would be nice to have a more abstract walker over the ast,
+;; but this will do for now.
+(defn collect-data-ref-uses [^CelAbstractSyntaxTree ast]
+  (expr->data-ref-uses (.getExpr ast)))
 
 (comment
   (def m (->cel-map {"id" #uuid "8164fb78-6fa3-4aab-8b92-80e706bae93a"

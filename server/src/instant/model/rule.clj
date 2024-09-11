@@ -40,19 +40,28 @@
 
 (defn get-program! [rules etype action]
   (when-let [code (some-> rules :code (extract etype action))]
-    {:etype etype
-     :action action
-     :cel-program (try
-                    (-> code
-                        cel/->ast
-                        cel/->program)
-                    (catch CelValidationException e
-                      (ex/throw-validation-err!
-                       :permission
-                       [etype action]
-                       (->> (.getErrors e)
-                            (map (fn [cel-issue]
-                                   {:message (.getMessage cel-issue)}))))))}))
+    (let [ast (try
+                (-> code
+                    cel/->ast)
+                (catch CelValidationException e
+                  (ex/throw-validation-err!
+                   :permission
+                   [etype action]
+                   (->> (.getErrors e)
+                        (map (fn [cel-issue]
+                               {:message (.getMessage cel-issue)}))))))]
+      {:etype etype
+       :action action
+       :cel-ast ast
+       :cel-program (try
+                      (cel/->program ast)
+                      (catch CelValidationException e
+                        (ex/throw-validation-err!
+                         :permission
+                         [etype action]
+                         (->> (.getErrors e)
+                              (map (fn [cel-issue]
+                                     {:message (.getMessage cel-issue)}))))))})))
 
 (defn validation-errors [rules]
   (->> (keys rules)
