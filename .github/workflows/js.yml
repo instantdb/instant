@@ -157,3 +157,15 @@ jobs:
         else
             echo "There was an error"
         fi
+    - uses: actions/github-script@v6
+      if: github.event_name == 'pull_request'
+      with:
+        script: |
+          const branchName = process.env.GITHUB_REF.replace('refs/heads/', '');
+          const url = `instant-www-js-${branchName}-jsv.vercel.app`;
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `View Vercel preview at [${url}](https://${url}).`
+          })
