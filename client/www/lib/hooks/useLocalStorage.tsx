@@ -6,7 +6,7 @@ function getSnapshot<T>(k: string): T | undefined {
   if (!v) return;
   try {
     return JSON.parse(v);
-  } catch (e) {}
+  } catch (e) { }
 }
 
 function getServerSnapshot(k: string): undefined {
@@ -25,7 +25,7 @@ function setItem<T>(k: string, v: T | undefined) {
   );
 }
 
-export default function useLocalStorage<T = {}>(
+export function useLocalStorage<T = {}>(
   k: string
 ): [T | undefined, (v: T | undefined) => void] {
   const snapshotRef = useRef<T | undefined>(getSnapshot<T>(k));
@@ -45,4 +45,13 @@ export default function useLocalStorage<T = {}>(
     () => getServerSnapshot(k)
   );
   return [state, (v: T | undefined) => setItem<T>(k, v)];
+}
+
+export function useLocalStorageWithDefaultValue<T>(
+  k: string,
+  defaultValue: T
+): [T, (v: T) => void] {
+  const [state, setState] = useLocalStorage<T>(k);
+
+  return [state ?? defaultValue, setState]
 }

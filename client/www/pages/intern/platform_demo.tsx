@@ -1,12 +1,11 @@
 import {
   Button,
-  Copyable,
   Fence,
   SectionHeading,
   TextInput,
 } from '@/components/ui';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
-import useLocalStorage from '@/lib/hooks/useLocalStorage';
+import { useLocalStorage, useLocalStorageWithDefaultValue } from '@/lib/hooks/useLocalStorage';
 import { useState } from 'react';
 import config from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
@@ -166,8 +165,9 @@ function AppStage({
   app: { id: string };
   setApp: any;
 }) {
-  const [transferEmail, setTransferEmail] = useLocalStorage<string>(
-    '__platform_demo_email'
+  const [transferEmail, setTransferEmail] = useLocalStorageWithDefaultValue<string>(
+    '__platform_demo_email',
+    'stopa@instantdb.com'
   );
   const [transferResult, setTransferResult] = useState<any>();
   const [cancelTransferResult, setCancelTransferResult] = useState<any>();
@@ -180,7 +180,7 @@ function AppStage({
         To transfer an app, you need to know the user's email. Pop it in here:
       </p>
       <TextInput
-        value={transferEmail || 'stopa@instantdb.com'}
+        value={transferEmail}
         onChange={(v) => setTransferEmail(v.trim())}
       />
       <p>And here's the curl for that:</p>
