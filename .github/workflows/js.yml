@@ -150,7 +150,8 @@ jobs:
         code=$?
         if [ $code -eq 0 ]; then
           deploymentUrl=`cat deployment-url.txt`
-          aliasUrl="instant-www-js-$GITHUB_REF-jsv.vercel.app"
+          branch=$(git branch --show-current)
+          aliasUrl="instant-www-js-$branch-jsv.vercel.app"
           echo "aiasing $deploymentUrl to $aliasUrl"
           vercel alias $deploymentUrl $aliasUrl --token=${{ secrets.VERCEL_TOKEN }} --scope jsv
         else
