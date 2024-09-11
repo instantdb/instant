@@ -151,7 +151,7 @@ jobs:
         if [ $code -eq 0 ]; then
           deploymentUrl=`cat deployment-url.txt`
           aliasUrl="instant-www-js-$GITHUB_REF-jsv.vercel.app"
-          echo "aiasing $deploymentUrl to "aliasUrl"
+          echo "aiasing $deploymentUrl to $aliasUrl"
           vercel alias $deploymentUrl $aliasUrl --token=${{ secrets.VERCEL_TOKEN }} --scope jsv
         else
             # Handle the error
