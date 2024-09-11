@@ -157,8 +157,8 @@ jobs:
         code=$?
         if [ $code -eq 0 ]; then
           deploymentUrl=`cat deployment-url.txt`
-          branch=$BRANCH_NAME
-          aliasUrl=$(echo "instant-www-js-$branch-jsv.vercel.app" | sed 's/[^a-zA-Z0-9_-]/_/g')
+          safeBranch=$(echo $BRANCH_NAME | sed 's/[^a-zA-Z0-9_-]/_/g')
+          aliasUrl="instant-www-js-$safeBranch-jsv.vercel.app"
           echo "ALIAS_URL=$aliasUrl" >> $GITHUB_ENV
           echo "aiasing $deploymentUrl to $aliasUrl"
           vercel alias $deploymentUrl $aliasUrl --token=${{ secrets.VERCEL_TOKEN }} --scope jsv
