@@ -138,4 +138,10 @@ jobs:
     - name: Build Project Artifacts
       run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
     - name: Deploy Project Artifacts to Vercel
-      run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+      run: |
+        vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} >deployment-url.txt 2>error.txt
+        code=$?
+        if [ $code -eq 0]; then
+          deploymentUrl=`cat deployment-url.txt`
+          vercel alias $deploymentUrl "instant-www-js-$GITHUB_REF-jsv.vercel.app"
+
