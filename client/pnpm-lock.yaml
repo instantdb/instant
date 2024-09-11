@@ -417,7 +417,7 @@ importers:
   sandbox/vanilla-js-vite:
     dependencies:
       '@instantdb/core':
-        specifier: '*'
+        specifier: workspace:*
         version: link:../../packages/core
     devDependencies:
       '@types/google.accounts':
