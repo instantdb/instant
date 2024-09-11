@@ -141,7 +141,7 @@ jobs:
       run: |
         vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} >deployment-url.txt 2>error.txt
         code=$?
-        if [ $code -eq 0]; then
+        if [ $code -eq 0 ]; then
           deploymentUrl=`cat deployment-url.txt`
           vercel alias $deploymentUrl "instant-www-js-$GITHUB_REF-jsv.vercel.app"
         else
@@ -149,4 +149,3 @@ jobs:
             errorMessage=`cat error.txt`
             echo "There was an error: $errorMessage"
         fi
-
