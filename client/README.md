@@ -30,7 +30,7 @@ pnpm i
 make dev
 ```
 
-With that, all frontend code should be up and running! 
+With that, all frontend code should be up and running!
 
 ## Dashboard & Docs
 
@@ -49,6 +49,7 @@ localStorage.setItem("devBackend", true);
 Now all requests will go to your local backend at [localhost:8888](http://localhost:8888). If you haven't set up a local backend, follow the [server README](../server/README.md)
 
 ### Running a local app
+
 You can create local apps by following these steps
 
 1. On localhost:3000, click "Sign up" in the upper right corner.
@@ -71,7 +72,7 @@ const db = init({
 
 ## Packages and sandbox
 
-All client SDKs live in `packages/`. 
+All client SDKs live in `packages/`.
 
 To develop against them, we've created a few `sandbox` examples. These examples let you locally test changes to the client SDK. We recommend you create an app in your dev environment and use it in each directories `.env` file
 
@@ -87,3 +88,5 @@ Check out the sandbox READMEs to see how to run them.
 # Questions?
 
 If you have any questions, feel free to drop us a line on our [Discord](https://discord.com/invite/VU53p7uQcE)!
+
+.
