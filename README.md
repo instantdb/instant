@@ -130,6 +130,6 @@ If you want to make changes, start by reading the [`client`](./client/) and [`se
 
 ## YourKit
 
-We're using YourKit to help us monitor Instant. They are kindly supporting Instant and other open source projects with their [full-featured Java Profiler](https://www.yourkit.com/java/profiler/index.jsp).
+We're using YourKit to help us debug Instant. They are kindly supporting Instant and other open source projects with their [full-featured Java Profiler](https://www.yourkit.com/java/profiler/index.jsp).
 
 ![yklogo](https://github.com/user-attachments/assets/64788da3-1dc4-4aa6-84cd-e051fd059fd0)
