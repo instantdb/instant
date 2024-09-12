@@ -145,8 +145,7 @@
                                        (if-let [preloaded-ref (-> _ctx
                                                                   :preloaded-refs
                                                                   (get ref))]
-                                         (tracer/with-span! {:name "using-preloaded"}
-                                           (vec preloaded-ref))
+                                         (vec preloaded-ref)
                                          (vec (get-ref _ctx {:eid (parse-uuid id)
                                                              :etype _etype
                                                              :path-str path-str}))))))]

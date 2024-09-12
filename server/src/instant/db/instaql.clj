@@ -1466,7 +1466,10 @@
 
 (defn get-eid-check-result! [{:keys [current-user] :as ctx} {:keys [eid->etype etype->program query-cache]} attr-map]
   (tracer/with-span! {:name "instaql/get-eid-check-result!"}
-    (let [preloaded-refs (preload-refs ctx eid->etype etype->program)]
+    (let [preloaded-refs (tracer/with-span! {:name "instaql/preload-refs"}
+                           (let [res (preload-refs ctx eid->etype etype->program)]
+                             (tracer/add-data! {:attributes {:ref-count (count res)}})
+                             res))]
       (->> eid->etype
            (ua/vfuture-pmap
             (fn [[eid etype]]
