@@ -30,12 +30,14 @@ const randomDarkColor =
     .join('');
 
 export default function InstantAvatarStack() {
+  const presence = room.usePresence({
+    user: true,
+  });
+
   room.useSyncPresence({
     name: userId,
     color: randomDarkColor,
   });
-
-  const presence = room.usePresence();
 
   return (
     <div className="flex h-screen justify-center items-center">

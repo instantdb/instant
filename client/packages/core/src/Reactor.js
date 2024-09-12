@@ -1269,13 +1269,13 @@ export default class Reactor {
       !this._presence[roomId]?.handlers?.length &&
       !Object.keys(this._broadcastSubs[roomId] ?? {}).length
     ) {
-      const room = this._rooms[roomId];
+      const isConnected = this._rooms[roomId]?.isConnected;
 
       delete this._rooms[roomId];
       delete this._presence[roomId];
       delete this._broadcastSubs[roomId];
 
-      if (room.isConnected) {
+      if (isConnected) {
         this._tryLeaveRoom(roomId);
       } else {
         this._roomsPendingLeave[roomId] = true;

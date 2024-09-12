@@ -206,6 +206,7 @@ export class InstantReactRoom<
     data: Partial<RoomSchema[RoomType]["presence"]>,
     deps?: any[],
   ): void => {
+    useEffect(() => this._core._reactor.joinRoom(this.id), [this.id]);
     useEffect(() => {
       return this._core._reactor.publishPresence(this.type, this.id, data);
     }, [this.type, this.id, deps ?? JSON.stringify(data)]);
@@ -437,7 +438,7 @@ export abstract class InstantReact<
    */
   useAuth = (): AuthState => {
     // We use a ref to store the result of the query.
-    // This is becuase `useSyncExternalStore` uses `Object.is` 
+    // This is becuase `useSyncExternalStore` uses `Object.is`
     // to compare the previous and next state.
     // If we don't use a ref, the state will always be considered different, so
     // the component will always re-render.
@@ -445,7 +446,7 @@ export abstract class InstantReact<
       this._core._reactor._currentUserCached,
     );
 
-    // Similar to `resultCacheRef`, `useSyncExternalStore` will unsubscribe 
+    // Similar to `resultCacheRef`, `useSyncExternalStore` will unsubscribe
     // if `subscribe` changes, so we use `useCallback` to memoize the function.
     const subscribe = useCallback((cb: Function) => {
       const unsubscribe = this._core.subscribeAuth((auth) => {
