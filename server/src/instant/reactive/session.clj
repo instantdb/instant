@@ -492,15 +492,6 @@
 ;; -----------------
 ;; Websocket Interop
 
-(defonce ping-pool (delay/make-pool!))
-
-(defn start-ping-job [store-conn id]
-  (delay/repeat-fn
-   ping-pool
-   5000
-   (fn []
-     (rs/try-send-event! store-conn id {:op :ping}))))
-
 (defn on-open [store-conn {:keys [id] :as socket}]
   (tracer/with-span! {:name "socket/on-open"
                       :attributes {:session-id (:id socket)}}
@@ -518,26 +509,14 @@
                                           :attributes {:session-id id}
                                           :escaping? false})))
 
-(defn on-close [store-conn eph-store-atom {:keys [id pending-handlers]}]
+(defn on-close [{:keys [id pending-handlers]}]
   (tracer/with-span! {:name "socket/on-close"
                       :attributes {:session-id id}}
-    (let [{:keys [ping-job]} (rs/get-socket @store-conn id)]
-      (if ping-job
-        (.cancel ping-job false)
-        (tracer/record-info! {:name "socket/on-close-no-ping-job"
-                              :attributes {:session-id id}}))
-
-      (doseq [{:keys [future silence-exceptions op]} @pending-handlers]
-        (tracer/with-span! {:name "cancel-pending-handler"
-                            :attributes {:op op}}
-          (silence-exceptions true)
-          (future-cancel future)))
-
-      (let [app-id (-> (rs/get-auth @store-conn id)
-                       :app
-                       :id)]
-        (eph/leave-by-session-id! eph-store-atom app-id id)
-        (rs/remove-session! store-conn id)))))
+    (doseq [{:keys [future silence-exceptions op]} @pending-handlers]
+      (tracer/with-span! {:name "cancel-pending-handler"
+                          :attributes {:op op}}
+        (silence-exceptions true)
+        (future-cancel future)))))
 
 (defn undertow-config
   [store-conn eph-store-atom receive-q {:keys [id]}]
@@ -548,7 +527,6 @@
                                :http-req http-req
                                :ws-conn ws-conn
                                :receive-q receive-q
-                               :ping-job (start-ping-job store-conn id)
                                :pending-handlers pending-handlers}]
                    (on-open store-conn socket)))
       :on-message (fn [{:keys [data]}]
