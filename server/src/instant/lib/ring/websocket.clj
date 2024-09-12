@@ -21,7 +21,7 @@
     BufferedBinaryMessage
     BufferedTextMessage
     CloseMessage
-    WebSocketChannel
+    StreamSourceFrameChannel WebSocketChannel
     WebSockets
     WebSocketCallback]
    [io.undertow.websockets.spi WebSocketHttpExchange]
@@ -29,28 +29,35 @@
    [ring.adapter.undertow Util]
    [clojure.lang IPersistentMap]
    [io.undertow.websockets.extensions PerMessageDeflateHandshake]
-   [java.util.concurrent.locks ReentrantLock]))
+   [java.util.concurrent.locks ReentrantLock]
+   [java.util.concurrent.atomic AtomicLong]))
 
 (defn ws-listener
   "Creates an `AbstractReceiveListener`. This relays calls to 
    `on-message`, `on-close-message`, and `on-error` callbacks. 
    
    See `ws-callback` for more details."
-  [{:keys [on-message on-close-message on-error channel-wrapper]}]
+  [{:keys [on-message on-close-message on-error channel-wrapper atomic-last-received-at]}]
   (let [on-message       (or on-message (constantly nil))
         on-error         (or on-error (constantly nil))
         on-close-message (or on-close-message (constantly nil))]
     (proxy [AbstractReceiveListener] []
       (onFullTextMessage [^WebSocketChannel channel ^BufferedTextMessage message]
+
+        (.set atomic-last-received-at (System/currentTimeMillis))
         (on-message {:channel (channel-wrapper channel)
                      :data    (.getData message)}))
       (onFullBinaryMessage [^WebSocketChannel channel ^BufferedBinaryMessage message]
+        (.set atomic-last-received-at (System/currentTimeMillis))
         (let [pooled (.getData message)]
           (try
             (let [payload (.getResource pooled)]
               (on-message {:channel (channel-wrapper channel)
                            :data    (Util/toArray payload)}))
             (finally (.free pooled)))))
+      (onPing [^WebSocketChannel channel ^StreamSourceFrameChannel channel]
+        (println "Received PING!")
+        (.set atomic-last-received-at (System/currentTimeMillis)))
       (onCloseMessage [^CloseMessage message ^WebSocketChannel channel]
         (on-close-message {:channel (channel-wrapper  channel)
                            :message message}))
@@ -90,12 +97,15 @@
     :or   {on-open (constantly nil) on-close (constantly nil)}
     :as   ws-opts}]
   (let [send-lock (ReentrantLock.)
+        atomic-last-received-at (AtomicLong. 0)
         channel-wrapper (fn [ch]
                           {:undertow-websocket ch
                            :send-lock send-lock})
         listener (if (instance? ChannelListener listener)
                    listener
-                   (ws-listener (assoc ws-opts :channel-wrapper channel-wrapper)))
+                   (ws-listener (assoc ws-opts
+                                       :channel-wrapper channel-wrapper
+                                       :atomic-last-received-at atomic-last-received-at)))
         close-task (reify ChannelListener
                      (handleEvent [_this channel]
                        (on-close (channel-wrapper channel))))]
