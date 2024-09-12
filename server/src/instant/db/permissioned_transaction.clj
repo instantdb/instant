@@ -324,14 +324,6 @@
 (defn lock-tx-on! [tx-conn big-int]
   (sql/execute! tx-conn ["SELECT pg_advisory_xact_lock(?)" big-int]))
 
-;; Here's how I see it working
-;;  1. We fetch all dependencies for the check commands
-;;  1a. We fetch deps for update/delete checks?
-;;  2. We run the update/delete check commands with the dependencies
-;;  3. We execute the transaction
-;;  4. We fetch any outstanding data we need for the create checks
-;;  5. We run the create checks
-
 (defn transact!
   "Runs transactions alongside permission checks. The overall flow looks like this:
 
@@ -368,7 +360,7 @@
           (tx/transact-without-tx-conn! tx-conn app-id tx-steps)
           (let [
                 ;; Use the db connection we have so that we don't cause a deadlock
-                ;; Also needed to be able to read our own writes for the create checks
+                ;; Also need to be able to read our own writes for the create checks
                 ctx (assoc ctx :db {:conn-pool tx-conn})
 
                 ;; If we were really smart, we would fetch the triples and the

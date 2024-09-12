@@ -135,16 +135,14 @@
                        (ucoll/array-of CelType [type-obj SimpleType/STRING]))]))
              :runtime (let [impl (reify CelFunctionOverload$Binary
                                    (apply [_ {:strs [_ctx id _etype] :as _self} path-str]
-                                     (let [ref {:eid (parse-uuid id)
-                                                :etype _etype
-                                                :path-str path-str}]
+                                     (let [ref-data {:eid (parse-uuid id)
+                                                     :etype _etype
+                                                     :path-str path-str}]
                                        (if-let [preloaded-ref (-> _ctx
                                                                   :preloaded-refs
-                                                                  (get ref))]
+                                                                  (get ref-data))]
                                          (vec preloaded-ref)
-                                         (vec (get-ref _ctx {:eid (parse-uuid id)
-                                                             :etype _etype
-                                                             :path-str path-str}))))))]
+                                         (vec (get-ref _ctx ref-data))))))]
                         (CelRuntime$CelFunctionBinding/from
                          "data_ref"
                          Map
@@ -306,9 +304,6 @@
                                                  {:patterns patterns})
                                                patterns)}}
         results (:data (datalog-query-fn ctx query))]
-    (def -pp patterns)
-    (def -qq query)
-    (def -rr results)
     (reduce (fn [acc [ref pattern result]]
               (let [group-by-path [0 0]
                     val-path (find-val-path pattern)
