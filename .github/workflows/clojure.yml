@@ -148,7 +148,7 @@ jobs:
 
   publish-image:
     runs-on: ubuntu-latest
-    if: needs.detect_clj.outputs.did_change == 'True' && github.ref == 'refs/heads/main'
+    if: needs.detect_clj.outputs.did_change == 'True' && github.ref == 'refs/heads/yourkit'
     # Start publish image if we have clj changes
     needs: [ detect_clj ]
     permissions:
