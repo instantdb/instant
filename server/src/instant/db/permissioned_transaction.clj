@@ -192,7 +192,7 @@
   (let [eid->tx-steps (group-by second tx-steps)
         eid-actions (mapcat ->eid-actions eid->tx-steps)]
     (->> eid-actions
-         (map (partial object-check ctx)))))
+         (mapv (partial object-check ctx)))))
 
 (defn attr-delete-check [{:keys [admin?] :as _ctx} _aid]
   {:scope :attr
@@ -232,7 +232,7 @@
 
 (defn attr-checks [ctx tx-steps]
   (->> tx-steps
-       (map (partial attr-check ctx))))
+       (mapv (partial attr-check ctx))))
 
 (defn get-new-atrrs [attr-changes]
   (->> attr-changes
@@ -260,16 +260,16 @@
 
 (defn run-check-commands! [ctx checks]
   (->> checks
-       (map (fn [{:keys [etype action check] :as c}]
-              (let [check-result (check ctx)]
-                (if (:admin-check? ctx)
-                  (assoc c
-                         :check-result check-result
-                         :check-pass? (boolean check-result))
-                  (ex/assert-permitted!
-                   :perms-pass?
-                   [etype action]
-                   check-result)))))))
+       (mapv (fn [{:keys [etype action check] :as c}]
+               (let [check-result (check ctx)]
+                 (if (:admin-check? ctx)
+                   (assoc c
+                          :check-result check-result
+                          :check-pass? (boolean check-result))
+                   (ex/assert-permitted!
+                    :perms-pass?
+                    [etype action]
+                    check-result)))))))
 
 ;; ------------
 ;; Data preload
@@ -291,7 +291,7 @@
 (defn extract-refs
   "Extracts a list of refs that can be passed to cel/prefetch-data-refs.
    Returns: [{:etype string path-str string eids #{uuid}}]"
-  [ctx check-commands]
+  [check-commands]
   (vals
    (reduce (fn [acc check]
              (if (and (= :object (:scope check))
@@ -316,7 +316,7 @@
 (defn preload-refs
   "Preloads data for data.ref so that we don't have to make a db call in the cel handler"
   [ctx check-commands]
-  (let [refs (extract-refs ctx check-commands)]
+  (let [refs (extract-refs check-commands)]
     (if (seq refs)
       (cel/prefetch-data-refs ctx refs)
       {})))
@@ -392,7 +392,7 @@
                 tx-data (tx/transact-without-tx-conn! tx-conn app-id tx-steps)
 
                 preloaded-create-refs (preload-refs ctx create-checks)
-                create-checks-results (io/warn-io :create-check-results
+                create-checks-results (io/warn-io :run-create-check-commands!
                                         (run-check-commands!
                                          (assoc ctx :preloaded-refs preloaded-create-refs)
                                          create-checks))

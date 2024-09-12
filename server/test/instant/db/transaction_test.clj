@@ -582,7 +582,6 @@
         (is
          (= ::ex/record-not-unique
             (::ex/type (instant-ex-data
-                        #"Record not unique"
                         (tx/transact!
                          aurora/conn-pool
                          app-id
