@@ -29,7 +29,7 @@ export default function App() {
   function addTodo({ title: string }) {
     db.transact([
       // 4. mutations are typechecked too!
-      db.tx[id()].update({ title }),
+      db.tx.todos[id()].update({ title }),
     ]);
   }
 
