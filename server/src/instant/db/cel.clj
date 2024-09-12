@@ -232,7 +232,11 @@
           f))
       f)))
 
-(defn data-ref-arg [^CelExpr$CelCall call]
+(defn data-ref-arg
+  "Returns the `path-str` if the args match what we expect for data.ref,
+   otherwise nil. Logs if the arg isn't a constant string so that we can
+   investigate."
+  [^CelExpr$CelCall call]
   (if (= 1 (count (.args call)))
     (if (= CelExpr$ExprKind$Kind/CONSTANT (.getKind (first (.args call))))
       (.stringValue (.constant (first (.args call))))
@@ -243,7 +247,10 @@
                         :attributes {:cel-call call}}
       nil)))
 
-(defn call->data-ref-uses [^CelExpr$CelCall call]
+(defn call->data-ref-uses
+  "Walks the cel call, looking for `data.ref` calls, returning a set of
+   `path-str`s."
+  [^CelExpr$CelCall call]
   (if (= "data.ref" (function-name call))
     (if-let [arg (data-ref-arg call)]
       #{arg}
@@ -253,14 +260,20 @@
             #{}
             (.args call))))
 
-(defn compression->data-ref-uses [^CelExpr$CelComprehension c]
+(defn compression->data-ref-uses
+  "Walks the cel comprehension, looking for `data.ref` calls, returning a set of
+   `path-str`s."
+  [^CelExpr$CelComprehension c]
   (clojure-set/union (expr->data-ref-uses (.iterRange c))
                      (expr->data-ref-uses (.accuInit c))
                      (expr->data-ref-uses (.loopCondition c))
                      (expr->data-ref-uses (.loopStep c))
                      (expr->data-ref-uses (.result c))))
 
-(defn expr->data-ref-uses [^CelExpr expr]
+(defn expr->data-ref-uses
+  "Walks the cel expression, looking for `data.ref` calls, returning a set of
+   `path-str`s."
+  [^CelExpr expr]
   (condp = (.getKind expr)
     CelExpr$ExprKind$Kind/NOT_SET #{}
     CelExpr$ExprKind$Kind/CONSTANT #{}
@@ -288,7 +301,9 @@
 
 ;; It would be nice to have a more abstract walker over the ast,
 ;; but this will do for now.
-(defn collect-data-ref-uses [^CelAbstractSyntaxTree ast]
+(defn collect-data-ref-uses
+  "Returns a set of `path-str` used in `data.ref` calls in the given cel ast."
+  [^CelAbstractSyntaxTree ast]
   (expr->data-ref-uses (.getExpr ast)))
 
 (defn prefetch-data-refs
