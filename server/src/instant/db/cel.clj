@@ -87,11 +87,7 @@
                  (fn [eid]
                    (let [rows (grouped-join-rows eid)]
                      (map #(get-in % val-path) rows)))
-                 eids)
-        prefetch-result (prefetch-data-refs ctx [{:etype etype
-                                                  :eids eids
-                                                  :path-str path-str}])]
-    (tool/def-locals)
+                 eids)]
     results))
 
 (defonce loader-state (atom {}))
