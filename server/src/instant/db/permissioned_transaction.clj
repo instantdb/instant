@@ -11,7 +11,6 @@
    [instant.util.tracer :as tracer]
    [next.jdbc :as next-jdbc]
    [instant.jdbc.sql :as sql]
-   [instant.util.async :as ua]
    [instant.util.exception :as ex]
    [instant.util.io :as io]))
 
@@ -240,7 +239,7 @@
        (filter (comp #{:add-attr} first))
        (map second)))
 
-(def create-check? (comp #{:create} :action))
+(def create-check? (comp (partial = :create) :action))
 
 (defn get-check-commands [{:keys [attrs] :as ctx} tx-steps]
   (let [{:keys [attr-changes object-changes]} (group-by tx-change-type tx-steps)
@@ -261,16 +260,16 @@
 
 (defn run-check-commands! [ctx checks]
   (->> checks
-       (ua/vfuture-pmap (fn [{:keys [etype action check] :as c}]
-                          (let [check-result (check ctx)]
-                            (if (:admin-check? ctx)
-                              (assoc c
-                                     :check-result check-result
-                                     :check-pass? (boolean check-result))
-                              (ex/assert-permitted!
-                               :perms-pass?
-                               [etype action]
-                               check-result)))))))
+       (map (fn [{:keys [etype action check] :as c}]
+              (let [check-result (check ctx)]
+                (if (:admin-check? ctx)
+                  (assoc c
+                         :check-result check-result
+                         :check-pass? (boolean check-result))
+                  (ex/assert-permitted!
+                   :perms-pass?
+                   [etype action]
+                   check-result)))))))
 
 ;; ------------
 ;; Data preload
@@ -289,8 +288,49 @@
       (entity-model/get-triples-batch ctx eids)
       {})))
 
+(defn extract-refs
+  "Extracts a list of refs that can be passed to cel/prefetch-data-refs.
+   Returns: [{:etype string path-str string eids #{uuid}}]"
+  [ctx check-commands]
+  (vals
+   (reduce (fn [acc check]
+             (if (and (= :object (:scope check))
+                      (:program check))
+               (let [ref-paths (cel/collect-data-ref-uses (:cel-ast (:program check)))]
+                 (reduce (fn [acc path-str]
+                           ;; group by etype + ref-path so we can collect all eids
+                           ;; for each group
+                           (update acc
+                                   [(:etype check) path-str]
+                                   (fn [ref]
+                                     (-> (or ref {:etype (name (:etype check))
+                                                  :path-str path-str
+                                                  :eids #{}})
+                                         (update :eids conj (:eid check))))))
+                         acc
+                         ref-paths))
+               acc))
+           {}
+           check-commands)))
+
+(defn preload-refs
+  "Preloads data for data.ref so that we don't have to make a db call in the cel handler"
+  [ctx check-commands]
+  (let [refs (extract-refs ctx check-commands)]
+    (if (seq refs)
+      (cel/prefetch-data-refs ctx refs)
+      {})))
+
 (defn lock-tx-on! [tx-conn big-int]
   (sql/execute! tx-conn ["SELECT pg_advisory_xact_lock(?)" big-int]))
+
+;; Here's how I see it working
+;;  1. We fetch all dependencies for the check commands
+;;  1a. We fetch deps for update/delete checks?
+;;  2. We run the update/delete check commands with the dependencies
+;;  3. We execute the transaction
+;;  4. We fetch any outstanding data we need for the create checks
+;;  5. We run the create checks
 
 (defn transact!
   "Runs transactions alongside permission checks. The overall flow looks like this:
@@ -328,24 +368,33 @@
           (tx/transact-without-tx-conn! tx-conn app-id tx-steps)
           (let [
                 ;; Use the db connection we have so that we don't cause a deadlock
+                ;; Also needed to be able to read our own writes for the create checks
                 ctx (assoc ctx :db {:conn-pool tx-conn})
-                preloaded-triples (preload-triples ctx
-                                                   tx-steps)
+
+                ;; If we were really smart, we would fetch the triples and the
+                ;; update-delete data-ref dependencies in one go.
+                preloaded-triples (preload-triples ctx tx-steps)
                 ctx (assoc ctx :preloaded-triples preloaded-triples)
                 check-commands (io/warn-io :check-commands
                                  (get-check-commands ctx tx-steps))
-                create-checks (filter create-check? check-commands)
-                update-delete-checks (remove create-check? check-commands)
 
-                update-delete-checks-results (io/warn-io :run-check-commands!
-                                               (run-check-commands! ctx update-delete-checks))
+                {create-checks true update-delete-checks false}
+                (group-by create-check? check-commands)
+
+                preloaded-update-delete-refs (preload-refs ctx update-delete-checks)
+
+                update-delete-checks-results
+                (io/warn-io :run-check-commands!
+                  (run-check-commands! (assoc ctx
+                                              :preloaded-refs preloaded-update-delete-refs)
+                                       update-delete-checks))
+
                 tx-data (tx/transact-without-tx-conn! tx-conn app-id tx-steps)
 
+                preloaded-create-refs (preload-refs ctx create-checks)
                 create-checks-results (io/warn-io :create-check-results
                                         (run-check-commands!
-                                         ;; We need to be able to read our own writes.
-                                         ;; We can only do this if we query the same connection
-                                         (assoc ctx :db {:conn-pool tx-conn})
+                                         (assoc ctx :preloaded-refs preloaded-create-refs)
                                          create-checks))
                 all-check-results (concat update-delete-checks-results create-checks-results)
                 all-checks-ok? (every? (fn [r] (-> r :check-result)) all-check-results)
