@@ -896,6 +896,7 @@ export default class Reactor {
       return;
     }
     if (this._isManualClose) {
+      this._isManualClose = false;
       log.info("[socket-close] manual close, will not reconnect");
       return;
     }
