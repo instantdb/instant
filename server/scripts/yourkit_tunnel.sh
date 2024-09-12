@@ -2,7 +2,7 @@
 # set -x
 # set -e
 
-port=6005  # Default port
+port=10001  # Default port
 
 while [[ "$#" -gt 0 ]]; do
   case $1 in
@@ -24,14 +24,10 @@ fi
 
 echo "Setting up tunnel to $instance_id on port $port"
 
-echo "6005" > .nrepl-port
-
 aws ssm start-session \
     --document-name "AWS-StartPortForwardingSession" \
     --target "$instance_id" \
     --parameters '{"portNumber":["6005"],"localPortNumber":["6005"]}' \
     --region "us-east-1"
-
-rm .nrepl-port
 
 echo "Tunnel closed"
