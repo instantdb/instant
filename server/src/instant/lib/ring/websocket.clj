@@ -59,8 +59,7 @@
                            :data    (Util/toArray payload)}))
             (finally (.free pooled)))))
       (onPong [^WebSocketChannel channel ^StreamSourceFrameChannel channel]
-        (tracer/with-span! {:name "socket/pong"}
-          (.set atomic-last-received-at (System/currentTimeMillis))))
+        (.set atomic-last-received-at (System/currentTimeMillis)))
       (onCloseMessage [^CloseMessage message ^WebSocketChannel channel]
         (on-close-message {:channel (channel-wrapper  channel)
                            :message message}))
@@ -73,19 +72,18 @@
 (defn straight-jacket-run-ping-job [^WebSocketChannel channel
                                     ^AtomicLong atomic-last-received-at
                                     idle-timeout-ms]
-  (tracer/with-span! {:name "socket/ping"}
-    (try
-      (let [now (System/currentTimeMillis)
-            last-received-at (.get atomic-last-received-at)
-            ms-since-last-message (- now last-received-at)]
-        (if (> ms-since-last-message idle-timeout-ms)
-          (tracer/with-span! {:name "socket/close-inactive"}
-            (IoUtils/safeClose channel))
-          (WebSockets/sendPingBlocking (ByteBuffer/allocate 0)
-                                       channel)))
-      (catch Exception e
-        (tracer/record-exception-span! e {:name "socket/ping-err"
-                                          :escaping? false})))))
+  (try
+    (let [now (System/currentTimeMillis)
+          last-received-at (.get atomic-last-received-at)
+          ms-since-last-message (- now last-received-at)]
+      (if (> ms-since-last-message idle-timeout-ms)
+        (tracer/with-span! {:name "socket/close-inactive"}
+          (IoUtils/safeClose channel))
+        (WebSockets/sendPingBlocking (ByteBuffer/allocate 0)
+                                     channel)))
+    (catch Exception e
+      (tracer/record-exception-span! e {:name "socket/ping-err"
+                                        :escaping? false}))))
 
 (defn ws-callback
   "Creates a `WebsocketConnectionCallback`. This relays data to the 
