@@ -502,6 +502,44 @@
     :a (in-or-eq :attr-id v)
     :v (in-or-eq :value (map value->jsonb v))))
 
+(defn users-triples-ctes
+  "Creates a `users-triples` cte table with the same structure as the
+   `triples` table so that our existing machinery can query the app-users table."
+  [app-id email-attr-id id-attr-id]
+  [[:users-attr-mapping {:select :*
+                         :from [[{:values [[email-attr-id "email"]
+                                           [id-attr-id "id"]]}
+                                 [:mapping {:columns [:attr-id :col]}]]]}]
+   ;; First get all fields up the value-md5, because we need to get the
+   ;; value to calculate the md5
+   [:users-triples-up-to-md5 {:select [:app-id
+                                       [:id :entity-id]
+                                       [:users-attr-mapping.attr-id :attr-id]
+                                       [[:case-expr :users-attr-mapping.col
+                                         ;; Careful if mapping user-defined attrs,
+                                         ;; b/c it could lead a sql injection
+                                         [:inline "email"] [:to_jsonb :email]
+                                         [:inline "id"] [:to_jsonb :id]
+                                         :else nil] :value]
+                                       :created-at]
+                              :from [:app-users :users-attr-mapping]
+                              :where [:= :app_id app-id]}]
+   [:triples
+    ;; XXX: Calling it triples just to see if it works
+    ;;:users-triples
+    {:select [:app-id
+              :entity-id
+              :attr-id
+              :value
+              [[:md5 [:cast :value :text]] :value-md5]
+              [true :ea]
+              [false :eav]
+              [false :av]
+              [false :ave]
+              [false :vae]
+              [[:cast [:* 1000 [:extract [:epoch-from :created-at]]] :bigint] :created-at]]
+     :from :users-triples-up-to-md5}]])
+
 (defn- where-clause
   "
     Given a named pattern, return a where clause with the constants:
@@ -1148,7 +1186,17 @@
                                ;; If count != 2, then someone higher up set a materialized
                                ;; option, let's not override their wisdom.
                                %)
-                            ctes)
+                            (into (users-triples-ctes app-id
+                                                      ;; Hard-coded, need to figure out how to
+                                                      ;; communicate these and how to tell when
+                                                      ;; we need to add the users-triple table
+                                                      ;; Two ideas:
+                                                      ;;  1. everybody gets the same attr ids
+                                                      ;;  2. look up by fwd-name, e.b. ["$users", "email"]
+                                                      ;;     and pass them in
+                                                      #uuid "edf68dc4-83f0-40df-98db-b1b916dc4d6b"
+                                                      #uuid "13486e24-d60d-4e9a-9871-a9f318b41774")
+                                  ctes))
                  :select [[(into [:json_build_array]
                                  (mapv (fn [tables]
                                          (into [:json_build_object]
