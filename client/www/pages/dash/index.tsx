@@ -327,7 +327,6 @@ function Dashboard() {
     if (!firstApp) return;
 
     const lastAppId = getLocal('dash_app_id');
-    console.log({ lastAppId });
 
     const defaultAppId = lastAppId ?? firstApp.id;
     if (!defaultAppId) return;
