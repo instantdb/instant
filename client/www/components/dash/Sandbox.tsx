@@ -105,22 +105,28 @@ export function Sandbox({ app }: { app: InstantApp }) {
 
           return response['tx-id'];
         } catch (error) {
+          out('error', { message: JSON.stringify(error, null, '  ') });
           throw error;
         }
       },
       query: async (q: any) => {
-        const response = await adminDb.debugQuery(q, {
-          rules,
-        });
+        try {
+          const response = await adminDb.debugQuery(q, {
+            rules,
+          });
 
-        out('query', { response, rules });
+          out('query', { response, rules });
 
-        return response.result;
+          return response.result;
+        } catch (error) {
+          out('error', { message: JSON.stringify(error, null, '  ') });
+          throw error;
+        }
       },
     };
 
     try {
-      const body = `return (async () => { ${sandboxCodeValue}\n})()`;
+      const body = `return (async () => {\n${sandboxCodeValue}\n})()`;
 
       let f: Function;
       try {
@@ -392,7 +398,7 @@ export function Sandbox({ app }: { app: InstantApp }) {
                 )}
                 {o.type === 'error' && (
                   <div className="p-3 flex">
-                    <pre className="p-1 bg-white overflow-x-auto">
+                    <pre className="p-1 bg-white w-full overflow-x-auto">
                       {o.data.message}
                     </pre>
                   </div>
