@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { init, tx, id } from "@instantdb/react";
 import config from "../../config";
 import Login from "../../components/Login";
-import { User } from "@instantdb/core";
+import { User } from "@instantdb/react";
 
 const { auth, useAuth, transact, useQuery } = init(config);
 
@@ -23,7 +23,9 @@ function App() {
 
 function Main({ user }: { user: User }) {
   // Try to find this this user in the database
-  const { isLoading, error, data } = useQuery({ profiles: { $: { where: { userId: user.id } } } });
+  const { isLoading, error, data } = useQuery({
+    profiles: { $: { where: { userId: user.id } } },
+  });
 
   useEffect(() => {
     if (isLoading) return;
@@ -33,8 +35,16 @@ function Main({ user }: { user: User }) {
 
     // This is a new user so let's add them to the database!
     // and give them a random color between red, blue , and yellow
-    const randomColor = ["red", "blue", "yellow"][Math.floor(Math.random() * 3)];
-    transact(tx.profiles[id()].update({ userId: user.id, email: user.email, randomColor }));
+    const randomColor = ["red", "blue", "yellow"][
+      Math.floor(Math.random() * 3)
+    ];
+    transact(
+      tx.profiles[id()].update({
+        userId: user.id,
+        email: user.email,
+        randomColor,
+      }),
+    );
   }, [isLoading]);
 
   if (isLoading) return <div>Loading Query...</div>;
