@@ -895,6 +895,11 @@ export default class Reactor {
       );
       return;
     }
+    if (this._isManualClose) {
+      this._isManualClose = false;
+      log.info("[socket-close] manual close, will not reconnect");
+      return;
+    }
 
     log.info("[socket-close] scheduling reconnect", this._reconnectTimeoutMs);
     setTimeout(() => {
@@ -910,7 +915,15 @@ export default class Reactor {
     }, this._reconnectTimeoutMs);
   };
 
+  _ensurePreviousSocketClosed() {
+    if (this._ws && this._ws.readyState === WS_OPEN_STATUS) {
+      this._isManualClose = true;
+      this._ws.close();
+    }
+  }
+
   _startSocket() {
+    this._ensurePreviousSocketClosed();
     this._ws = new WebSocket(
       `${this.config.websocketURI}?app_id=${this.config.appId}`,
     );
@@ -1206,7 +1219,7 @@ export default class Reactor {
           appId: this.config.appId,
           refreshToken,
         });
-      } catch (e) {}
+      } catch (e) { }
     }
 
     this.changeCurrentUser(null);
