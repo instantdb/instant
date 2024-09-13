@@ -130,3 +130,12 @@
   "Returns the third element in a collection."
   [coll]
   (nth coll 2))
+
+(defn map-invert-key-set
+  "Like clojure.set/map-invert, but the resulting values are sets.
+  {:a :b, :c :b, :e :f} => {:b #{:a :c} :f #{:e}}"
+  [m]
+  (reduce (fn [acc [k v]]
+            (update acc v (fnil conj #{}) k))
+          {}
+          m))
