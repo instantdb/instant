@@ -15,7 +15,7 @@ function Example({ appId }: { appId: string }) {
     maxNumber = Math.max(maxNumber, g.number ?? 0);
   }
 
-  function shuffle(array) {
+  function shuffle(array: any[]) {
     let currentIndex = array.length,
       randomIndex;
 
@@ -42,7 +42,7 @@ function Example({ appId }: { appId: string }) {
     for (let i = 0; i < n; i++) {
       const number = startFrom + i;
       shuffle(props);
-      const goal = { number, title: `Goal ${number}` };
+      const goal: Record<any, any> = { number, title: `Goal ${number}` };
       for (const prop of props.slice(0, 4)) {
         goal[prop] = prop;
       }
@@ -224,7 +224,7 @@ function App({ urlAppId }: { urlAppId: string | undefined }) {
 function Page() {
   const router = useRouter();
   if (router.isReady) {
-    return <App urlAppId={router.query.app} />;
+    return <App urlAppId={router.query.app as string} />;
   } else {
     return <div>Loading...</div>;
   }

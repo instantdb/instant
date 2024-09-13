@@ -298,7 +298,7 @@ function App({ urlAppId }: { urlAppId: string | undefined }) {
 function Page() {
   const router = useRouter();
   if (router.isReady) {
-    return <App urlAppId={router.query.app} />;
+    return <App urlAppId={router.query.app as string} />;
   } else {
     return <div>Loading...</div>;
   }
