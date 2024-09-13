@@ -54,14 +54,18 @@ export default class Reactor {
   _isOnline = true;
   _isShutdown = false;
   status = STATUS.CONNECTING;
+
+  /** @type {PersistedObject} */
   querySubs;
+  /** @type {PersistedObject} */
+  pendingMutations;
+
   queryCbs = {};
   authCbs = [];
   attrsCbs = [];
   mutationErrorCbs = [];
   config;
   _persister;
-  pendingMutations;
   mutationDeferredStore = new Map();
   _reconnectTimeoutId = null;
   _reconnectTimeoutMs = 0;
@@ -246,7 +250,7 @@ export default class Reactor {
     // Okay, now we have merged our querySubs
     this.querySubs.set((_) => ret);
 
-    this.notifyAll();
+    this.loadedNotifyAll();
   };
 
   /**
@@ -256,6 +260,7 @@ export default class Reactor {
   _onMergePendingMutations = (storageMuts, inMemoryMuts) => {
     const ret = new Map([...storageMuts.entries(), ...inMemoryMuts.entries()]);
     this.pendingMutations.set((_) => ret);
+    this.loadedNotifyAll();
     const rewrittenStorageMuts = this._rewriteMutations(
       this.attrs,
       storageMuts,
@@ -724,6 +729,12 @@ export default class Reactor {
     Object.keys(this.queryCbs).forEach((hash) => {
       this.notifyOne(hash);
     });
+  }
+
+  loadedNotifyAll() {
+    if (this.pendingMutations.isLoading() || this.querySubs.isLoading()) return;
+
+    this.notifyAll();
   }
 
   /** Applies transactions locally and sends transact message to server */
@@ -1219,7 +1230,7 @@ export default class Reactor {
           appId: this.config.appId,
           refreshToken,
         });
-      } catch (e) { }
+      } catch (e) {}
     }
 
     this.changeCurrentUser(null);
