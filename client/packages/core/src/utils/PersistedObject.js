@@ -62,6 +62,10 @@ export class PersistedObject {
     await loadedPromise;
   }
 
+  isLoading() {
+    return this._isLoading;
+  }
+
   async waitForSync() {
     if (!this._nextSave) {
       return;
