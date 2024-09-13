@@ -24,12 +24,12 @@ fi
 
 echo "Setting up tunnel to $instance_id on port $port"
 
-echo "6005" > .nrepl-port
+echo "$port" > .nrepl-port
 
 aws ssm start-session \
     --document-name "AWS-StartPortForwardingSession" \
     --target "$instance_id" \
-    --parameters '{"portNumber":["6005"],"localPortNumber":["6005"]}' \
+    --parameters "{\"portNumber\":[\"6005\"],\"localPortNumber\":[\"$port\"]}" \
     --region "us-east-1"
 
 rm .nrepl-port

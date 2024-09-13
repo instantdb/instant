@@ -27,7 +27,7 @@ echo "Setting up tunnel to $instance_id on port $port"
 aws ssm start-session \
     --document-name "AWS-StartPortForwardingSession" \
     --target "$instance_id" \
-    --parameters '{"portNumber":["6005"],"localPortNumber":["6005"]}' \
+    --parameters "{\"portNumber\":[\"10001\"],\"localPortNumber\":[\"$port\"]}" \
     --region "us-east-1"
 
 echo "Tunnel closed"
