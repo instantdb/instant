@@ -509,14 +509,20 @@
                                           :attributes {:session-id id}
                                           :escaping? false})))
 
-(defn on-close [{:keys [id pending-handlers]}]
+(defn on-close [store-conn eph-store-atom {:keys [id pending-handlers]}]
   (tracer/with-span! {:name "socket/on-close"
                       :attributes {:session-id id}}
     (doseq [{:keys [future silence-exceptions op]} @pending-handlers]
       (tracer/with-span! {:name "cancel-pending-handler"
                           :attributes {:op op}}
         (silence-exceptions true)
-        (future-cancel future)))))
+        (future-cancel future)))
+
+    (let [app-id (-> (rs/get-auth @store-conn id)
+                     :app
+                     :id)]
+      (eph/leave-by-session-id! eph-store-atom app-id id)
+      (rs/remove-session! store-conn id))))
 
 (defn undertow-config
   [store-conn eph-store-atom receive-q {:keys [id]}]

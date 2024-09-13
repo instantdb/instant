@@ -10,7 +10,8 @@
   (:refer-clojure :exclude [send])
   (:require [ring.adapter.undertow.headers :refer [set-headers]]
             [instant.util.json :refer [->json]]
-            [instant.util.tracer :as tracer])
+            [instant.util.tracer :as tracer]
+            [instant.util.delay :as delay])
   (:import
    [io.undertow.server HttpServerExchange]
    [io.undertow.websockets
@@ -30,7 +31,8 @@
    [clojure.lang IPersistentMap]
    [io.undertow.websockets.extensions PerMessageDeflateHandshake]
    [java.util.concurrent.locks ReentrantLock]
-   [java.util.concurrent.atomic AtomicLong]))
+   [java.util.concurrent.atomic AtomicLong]
+   [java.nio ByteBuffer]))
 
 (defn ws-listener
   "Creates an `AbstractReceiveListener`. This relays calls to 
@@ -55,8 +57,8 @@
               (on-message {:channel (channel-wrapper channel)
                            :data    (Util/toArray payload)}))
             (finally (.free pooled)))))
-      (onPing [^WebSocketChannel channel ^StreamSourceFrameChannel channel]
-        (println "Received PING!")
+      (onPong [^WebSocketChannel channel ^StreamSourceFrameChannel channel]
+        (tracer/record-info! {:name "pong"})
         (.set atomic-last-received-at (System/currentTimeMillis)))
       (onCloseMessage [^CloseMessage message ^WebSocketChannel channel]
         (on-close-message {:channel (channel-wrapper  channel)
@@ -64,6 +66,8 @@
       (onError [^WebSocketChannel channel ^Throwable error]
         (on-error {:channel (channel-wrapper channel)
                    :error   error})))))
+
+(defonce ping-pool (delay/make-pool!))
 
 (defn ws-callback
   "Creates a `WebsocketConnectionCallback`. This relays data to the 
@@ -105,16 +109,29 @@
                    listener
                    (ws-listener (assoc ws-opts
                                        :channel-wrapper channel-wrapper
-                                       :atomic-last-received-at atomic-last-received-at)))
-        close-task (reify ChannelListener
-                     (handleEvent [_this channel]
-                       (on-close (channel-wrapper channel))))]
+                                       :atomic-last-received-at atomic-last-received-at)))]
+
     (reify WebSocketConnectionCallback
       (^void onConnect [_ ^WebSocketHttpExchange exchange ^WebSocketChannel channel]
-        (on-open {:exchange exchange :channel (channel-wrapper channel)})
-        (.addCloseTask channel close-task)
-        (.set (.getReceiveSetter channel) listener)
-        (.resumeReceives channel)))))
+        (let [#_ping-job #_(delay/repeat-fn ping-pool
+                                            1000
+                                            (fn []
+                                              (tracer/record-info!
+                                               {:name "socket/ping"}
+                                               (tool/def-locals!)
+                                               #_(WebSockets/sendPing nil channel nil))))
+
+              _ (tool/def-locals!)
+              _ (WebSockets/sendPingBlocking (ByteBuffer/allocate 0) channel)
+              close-task (reify ChannelListener
+                           (handleEvent [_this channel]
+                             #_(.cancel ping-job false)
+                             (on-close (channel-wrapper channel))))]
+          (on-open {:exchange exchange
+                    :channel (channel-wrapper channel)})
+          (.addCloseTask channel close-task)
+          (.set (.getReceiveSetter channel) listener)
+          (.resumeReceives channel))))))
 
 (defn ws-request [^HttpServerExchange exchange ^IPersistentMap headers ^WebSocketConnectionCallback callback]
   (let [handler (->  (WebSocketProtocolHandshakeHandler. callback)
