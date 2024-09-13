@@ -35,6 +35,9 @@ export default function Patch() {
       <button className="border border-black" onClick={mergeWithNull}>
         merge `nestedData` with `null`
       </button>
+      <button className="border border-black" onClick={mergeWithDeepUndef}>
+        merge `nestedData` with `{`{new_key:undefined}`}`
+      </button>
       <button className="border border-black" onClick={deleteAttr}>
         delete `nestedData` attribute
       </button>
@@ -61,6 +64,14 @@ export default function Patch() {
     db.transact([
       tx.blocks[singletonIdX].merge({
         nestedData: null,
+      }),
+    ]);
+  }
+
+  function mergeWithDeepUndef() {
+    db.transact([
+      tx.blocks[singletonIdX].merge({
+        nestedData: { new_key: undefined },
       }),
     ]);
   }
