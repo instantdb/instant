@@ -121,7 +121,7 @@
    `idle-timeout-ms`, we close the connection.  
    "
   [{:keys [on-open on-close listener ping-interval-ms idle-timeout-ms]
-    :or   {on-open (constantly nil) on-close (constantly nil)}
+    :or   {on-open (constantly nil) on-close (constantly nil) ping-interval-ms 5000 idle-timeout-ms 15000}
     :as   ws-opts}]
   (let [send-lock (ReentrantLock.)
         atomic-last-received-at (AtomicLong. (System/currentTimeMillis))
