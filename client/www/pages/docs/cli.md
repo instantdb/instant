@@ -92,10 +92,10 @@ export default graph;
 ### Push perms
 
 ```sh
-npx instant-cli push-schema
+npx instant-cli push-perms
 ```
 
-`push-schema` evals your `instant.perms.ts` file and applies it your app's production database. `instant.perms.ts` should export an object implementing Instant's standard permissions CEL+JSON format. [Read more about permissions in Instant](/docs/permissions).
+`push-perms` evals your `instant.perms.ts` file and applies it your app's production database. `instant.perms.ts` should export an object implementing Instant's standard permissions CEL+JSON format. [Read more about permissions in Instant](/docs/permissions).
 
 Here's an example `instant.perms.ts` file.
 
