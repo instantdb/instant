@@ -45,7 +45,7 @@ Entity definitions accept a map of attribute definitions, where the key represen
 
 First we specify the expected type of the attribute: `i.string()`, `i.number()`, `i.boolean()`, `i.json()` and `i.any()`.
 
-We cån then chain modifiers: `.optional()`, `.unique()` and `.indexed()`.
+We can then chain modifiers: `.optional()`, `.unique()` and `.indexed()`.
 
 Here are some examples:
 
