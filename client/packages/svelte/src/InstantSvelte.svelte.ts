@@ -9,6 +9,7 @@ import {
 	type ConfigWithSchema,
 	type Exactly,
 	type i,
+	type IDatabase,
 	InstantClient,
 	type InstaQLQueryParams,
 	type LifecycleSubscriptionState,
@@ -21,11 +22,14 @@ import {
 } from '@instantdb/core';
 import { useQuery } from './useQuery.svelte';
 
+
 export abstract class InstantSvelte<
 	Schema extends i.InstantGraph<any, any> | {} = {},
 	RoomSchema extends RoomSchemaShape = {},
 	WithCardinalityInference extends boolean = false
-> {
+> implements IDatabase<Schema, RoomSchema, WithCardinalityInference>
+{
+	public withCardinalityInference?: WithCardinalityInference;
 	public tx =
 		txInit<Schema extends i.InstantGraph<any, any> ? Schema : i.InstantGraph<any, any>>();
 
@@ -187,26 +191,4 @@ export abstract class InstantSvelte<
 		});
 		return result;
 	};
-}
-
-export class InstantSvelteWeb<
-	Schema extends i.InstantGraph<any, any> | {} = {},
-	RoomSchema extends RoomSchemaShape = {},
-	WithCardinalityInference extends boolean = false
-> extends InstantSvelte<Schema, RoomSchema, WithCardinalityInference> {}
-
-export function init_experimental<
-	Schema extends i.InstantGraph<any, any, any>,
-	WithCardinalityInference extends boolean = true
->(
-	config: Config & {
-		schema: Schema;
-		cardinalityInference?: WithCardinalityInference;
-	}
-) {
-	return new InstantSvelteWeb<
-		Schema,
-		Schema extends i.InstantGraph<any, any, infer RoomSchema> ? RoomSchema : never,
-		WithCardinalityInference
-	>(config);
 }
