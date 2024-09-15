@@ -355,11 +355,10 @@
         ;; when we start transact and we don't release it until
         ;; we are done. This ensures that other transactions
         ;; for this app will wait.
-        (lock-tx-on! tx-conn (hash app-id))
+        #_(lock-tx-on! tx-conn (hash app-id))
         (if admin?
           (tx/transact-without-tx-conn! tx-conn app-id tx-steps)
-          (let [
-                ;; Use the db connection we have so that we don't cause a deadlock
+          (let [;; Use the db connection we have so that we don't cause a deadlock
                 ;; Also need to be able to read our own writes for the create checks
                 ctx (assoc ctx :db {:conn-pool tx-conn})
 
@@ -368,7 +367,7 @@
                 preloaded-triples (preload-triples ctx tx-steps)
                 ctx (assoc ctx :preloaded-triples preloaded-triples)
                 check-commands (io/warn-io :check-commands
-                                 (get-check-commands ctx tx-steps))
+                                           (get-check-commands ctx tx-steps))
 
                 {create-checks true update-delete-checks false}
                 (group-by create-check? check-commands)
@@ -377,17 +376,17 @@
 
                 update-delete-checks-results
                 (io/warn-io :run-check-commands!
-                  (run-check-commands! (assoc ctx
-                                              :preloaded-refs preloaded-update-delete-refs)
-                                       update-delete-checks))
+                            (run-check-commands! (assoc ctx
+                                                        :preloaded-refs preloaded-update-delete-refs)
+                                                 update-delete-checks))
 
                 tx-data (tx/transact-without-tx-conn! tx-conn app-id tx-steps)
 
                 preloaded-create-refs (preload-refs ctx create-checks)
                 create-checks-results (io/warn-io :run-create-check-commands!
-                                        (run-check-commands!
-                                         (assoc ctx :preloaded-refs preloaded-create-refs)
-                                         create-checks))
+                                                  (run-check-commands!
+                                                   (assoc ctx :preloaded-refs preloaded-create-refs)
+                                                   create-checks))
                 all-check-results (concat update-delete-checks-results create-checks-results)
                 all-checks-ok? (every? (fn [r] (-> r :check-result)) all-check-results)
                 rollback? (and admin-check?
