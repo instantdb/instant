@@ -62,7 +62,7 @@ const firstUser = data.users[0];
 const author = firstUser.author[0];
 
 // after
-const author = data.users.author; // no more array! 🎉
+const author = firstUser.author; // no more array! 🎉
 ```
 
 If you don't want to migrate your components just yet, you can opt out by adding a `cardinalityInference` flag set to `false` in your `init_experimental` call. This way, you'll get all the typechecking benefits without having to update your logic.
