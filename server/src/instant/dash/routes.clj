@@ -762,7 +762,6 @@
          tx-conn
          {:id app_id
           :new-creator-id user-id})
-        :else
         (instant-app-members/create! tx-conn {:user-id user-id
                                               :app-id app_id
                                               :role invitee_role})))
