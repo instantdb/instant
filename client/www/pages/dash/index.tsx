@@ -17,7 +17,6 @@ import {
   useAuthToken,
   useAuthedFetch,
   claimTicket,
-  tryCliLogin,
   voidTicket,
 } from '@/lib/auth';
 import { TokenContext } from '@/lib/contexts';
@@ -248,16 +247,6 @@ function Dashboard() {
   } | null>(null);
 
   const dashResponse = useAuthedFetch<DashResponse>(`${config.apiURI}/dash`);
-
-  // The old CLI login flow
-  // TODO: remove after users have updated their CLI
-  useEffect(() => {
-    if (!token) return;
-    const email = dashResponse.data?.user?.email;
-    if (!email) return;
-
-    tryCliLogin({ token, email });
-  }, [token, dashResponse.data]);
 
   useEffect(() => {
     if (!token) return;
