@@ -326,7 +326,10 @@ function Dashboard() {
     const firstApp = apps?.[0];
     if (!firstApp) return;
 
-    const lastAppId = getLocal('dash_app_id');
+    const _lastAppId = getLocal('dash_app_id');
+    const lastAppId = Boolean(apps.find((a) => a.id === _lastAppId))
+      ? _lastAppId
+      : null;
 
     const defaultAppId = lastAppId ?? firstApp.id;
     if (!defaultAppId) return;
