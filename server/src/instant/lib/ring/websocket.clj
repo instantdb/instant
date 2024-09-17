@@ -79,8 +79,10 @@
       (if (> ms-since-last-message idle-timeout-ms)
         (tracer/with-span! {:name "socket/close-inactive"}
           (IoUtils/safeClose channel))
-        (WebSockets/sendPingBlocking (ByteBuffer/allocate 0)
-                                     channel)))
+        (try (WebSockets/sendPingBlocking
+              (ByteBuffer/allocate 0)
+              channel)
+             (catch java.io.IOException _))))
     (catch Exception e
       (tracer/record-exception-span! e {:name "socket/ping-err"
                                         :escaping? false}))))
