@@ -78,8 +78,8 @@ program
   .description(
     "Generates an initial instant.schema definition from production state.",
   )
-  .action(() => {
-    pullSchema();
+  .action((appIdOrName) => {
+    pullSchema(appIdOrName);
   });
 
 program
@@ -88,8 +88,8 @@ program
   .description(
     "Generates an initial instant.perms definition from production rules.",
   )
-  .action(() => {
-    pullPerms();
+  .action((appIdOrName) => {
+    pullPerms(appIdOrName);
   });
 
 program
