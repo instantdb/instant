@@ -378,7 +378,7 @@
           attrs))
 
 (defn attrs-for-etype
-  "Returns the non-ref attrs for a given etype"
+  "Returns the attrs for a given etype"
   [etype attrs]
   (filter (fn [a]
             (= etype
