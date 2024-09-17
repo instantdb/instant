@@ -1447,6 +1447,7 @@
   (let [datalog-query [[:ea eid (get etype->attr-ids etype)]]
         datalog-result (or (get query-cache datalog-query)
                            (datalog-query-fn ctx datalog-query))]
+
     (entity-model/datalog-result->map {:attr-map attr-map} datalog-result)))
 
 (defn extract-refs
