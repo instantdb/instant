@@ -722,21 +722,32 @@ function isUUID(uuid) {
 }
 
 async function getAppIdWithErrorLogging(defaultAppIdOrName) {
-  const config = await readInstantConfigFile();
+  if (defaultAppIdOrName) {
+    const config = await readInstantConfigFile();
 
-  const _namedAppId = config?.apps?.[defaultAppIdOrName]?.id;
-  const namedAppId = _namedAppId && isUUID(_namedAppId) ? _namedAppId : null;
-  const uuidAppId =
-    defaultAppIdOrName && isUUID(defaultAppIdOrName)
-      ? defaultAppIdOrName
-      : null;
+    const nameMatch = config?.apps?.[defaultAppIdOrName]?.id;
+    const namedAppId = nameMatch && isUUID(nameMatch) ? nameMatch : null;
+    const uuidAppId =
+      defaultAppIdOrName && isUUID(defaultAppIdOrName)
+        ? defaultAppIdOrName
+        : null;
+
+    if (nameMatch && !namedAppId) {
+      console.error(`App ID for "${defaultAppIdOrName}" is not a valid UUID.`);
+    } else if (!namedAppId && !uuidAppId) {
+      console.error(`The provided app ID is not a valid UUID.`);
+    }
+
+    return (
+      // first, check for a config and whether the provided arg
+      // matched a named ID
+      namedAppId ||
+      // next, check whether there's a provided arg at all
+      uuidAppId
+    );
+  }
 
   const appId =
-    // first, check for a config and whether the provided arg
-    // matched a named ID
-    namedAppId ||
-    // next, check whether there's a provided arg at all
-    uuidAppId ||
     // finally, check .env
     process.env.INSTANT_APP_ID ||
     process.env.NEXT_PUBLIC_INSTANT_APP_ID ||
