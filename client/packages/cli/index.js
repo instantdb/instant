@@ -79,6 +79,8 @@ program
     "Generates an initial instant.schema definition from production state.",
   )
   .action((appIdOrName) => {
+    console.log(appIdOrName);
+
     pullSchema(appIdOrName);
   });
 
@@ -734,7 +736,7 @@ async function getAppIdWithErrorLogging(defaultAppIdOrName) {
         ? defaultAppIdOrName
         : null;
 
-    if (nameMatch && !namedAppId) {
+    if (nameMatch != null && !namedAppId) {
       console.error(`App ID for "${defaultAppIdOrName}" is not a valid UUID.`);
     } else if (!namedAppId && !uuidAppId) {
       console.error(`The provided app ID is not a valid UUID.`);
