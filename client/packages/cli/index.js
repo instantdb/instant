@@ -929,5 +929,6 @@ export default graph;
 const noAppIdErrorMessage = `
 No app ID found.
 Add \`INSTANT_APP_ID=<ID>\` to your .env file.
+(Or \`NEXT_PUBLIC_INSTANT_APP_ID\`, \`VITE_INSTANT_APP_ID\`)
 Or provide an app ID via the CLI \`instant-cli pull-schema <ID>\`.
 `.trim();
