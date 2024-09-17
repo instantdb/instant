@@ -341,22 +341,75 @@
                              (friendly-inferred-types inferred_types))}
     reverse_ident (assoc :reverse-identity [reverse_ident rev_etype rev_label])))
 
+(defprotocol AttrsExtension
+  (doSomething [this]))
+
+(deftype Attrs [elements cache]
+  clojure.lang.ISeq
+  (toString [this]
+    (.toString elements))
+  (count [this]
+    (count elements))
+  (first [this]
+    (first elements))
+  (empty [this]
+    (Attrs. () (atom {})))
+  (equiv [this other]
+    (= elements other))
+  (seq [this]
+    (if (empty? elements)
+      nil
+      this))
+  (next [this]
+    (let [rest-elements (next elements)]
+      (if rest-elements
+        (Attrs. rest-elements (atom {}))
+        nil)))
+
+  AttrsExtension
+  (doSomething [this]
+    (println this)))
+
+(defn wrap-attrs [attrs]
+  (Attrs. attrs (atom {})))
+
+(defn index-attrs [attrs]
+  (reduce (fn [acc attr]
+            (cond-> acc
+              true
+              (update :by-id assoc (:id attr) attr)
+
+              true
+              (update :by-fwd-ident assoc (fwd-ident-name attr) attr)
+
+              (seq (rev-ident-name attr))
+              (update :by-rev-ident assoc (rev-ident-name attr) attr)
+
+              true
+              (update :ids-by-etype update (fwd-etype attr) (fnil conj #{}) (:id attr))))
+          {:by-id {}
+           :by-fwd-ident {}
+           :by-rev-ident {}
+           :ids-by-etype {}}
+          attrs))
+
 (defn get-by-app-id
   "Returns clj representation of all attrs for an app"
   [conn app-id]
-  (map row->attr
-       (sql/select
-        conn
-        (hsql/format
-         {:select [:attrs.*
-                   [:fwd-idents.etype :fwd-etype]
-                   [:fwd-idents.label :fwd-label]
-                   [:rev-idents.etype :rev-etype]
-                   [:rev-idents.label :rev-label]]
-          :from :attrs
-          :join [[:idents :fwd-idents] [:= :attrs.forward-ident :fwd-idents.id]]
-          :left-join [[:idents :rev-idents] [:= :attrs.reverse-ident :rev-idents.id]]
-          :where [:= :attrs.app-id [:cast app-id :uuid]]}))))
+  (wrap-attrs
+   (map row->attr
+        (sql/select
+         conn
+         (hsql/format
+          {:select [:attrs.*
+                    [:fwd-idents.etype :fwd-etype]
+                    [:fwd-idents.label :fwd-label]
+                    [:rev-idents.etype :rev-etype]
+                    [:rev-idents.label :rev-label]]
+           :from :attrs
+           :join [[:idents :fwd-idents] [:= :attrs.forward-ident :fwd-idents.id]]
+           :left-join [[:idents :rev-idents] [:= :attrs.reverse-ident :rev-idents.id]]
+           :where [:= :attrs.app-id [:cast app-id :uuid]]})))))
 
 ;; ------
 ;; seek
