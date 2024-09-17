@@ -75,7 +75,9 @@ program
   .description(
     "Generates an initial instant.schema definition from production state.",
   )
-  .action(pullSchema);
+  .action(() => {
+    pullSchema();
+  });
 
 program
   .command("pull-perms")
@@ -83,7 +85,9 @@ program
   .description(
     "Generates an initial instant.perms definition from production rules.",
   )
-  .action(pullPerms);
+  .action(() => {
+    pullPerms();
+  });
 
 program
   .command("pull")
@@ -105,7 +109,8 @@ async function pushAll() {
 }
 
 async function pullAll(appIdOrName) {
-  await pullSchema(appIdOrName);
+  const ok = await pullSchema(appIdOrName);
+  if (!ok) return;
   await pullPerms(appIdOrName);
 }
 
@@ -223,7 +228,7 @@ async function pullSchema(appIdOrName) {
     return;
   }
 
-  const appId = getAppIdWithErrorLogging(appIdOrName);
+  const appId = await getAppIdWithErrorLogging(appIdOrName);
   if (!appId) return;
 
   const instantModuleName = await getInstantModuleName(pkgDir);
@@ -279,12 +284,14 @@ async function pullSchema(appIdOrName) {
   );
 
   console.log("Wrote schema to instant.schema.ts");
+
+  return true;
 }
 
 async function pullPerms(appIdOrName) {
   console.log("Pulling perms...");
 
-  const appId = getAppIdWithErrorLogging(appIdOrName);
+  const appId = await getAppIdWithErrorLogging(appIdOrName);
   if (!appId) return;
 
   const pkgDir = await packageDirectory();
@@ -328,10 +335,12 @@ async function pullPerms(appIdOrName) {
   );
 
   console.log("Wrote permissions to instant.perms.ts");
+
+  return true;
 }
 
 async function pushSchema() {
-  const appId = getAppIdWithErrorLogging();
+  const appId = await getAppIdWithErrorLogging();
   if (!appId) return;
 
   const schema = await readLocalSchemaFileWithErrorLogging();
@@ -706,16 +715,28 @@ export const rels = {
   "one-false": ["one", "many"],
 };
 
+const uuidRegex =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isUUID(uuid) {
+  return uuidRegex.test(uuid);
+}
+
 async function getAppIdWithErrorLogging(defaultAppIdOrName) {
   const config = await readInstantConfigFile();
-  const namedAppId = config?.apps?.[defaultAppIdOrName];
+
+  const _namedAppId = config?.apps?.[defaultAppIdOrName]?.id;
+  const namedAppId = _namedAppId && isUUID(_namedAppId) ? _namedAppId : null;
+  const uuidAppId =
+    defaultAppIdOrName && isUUID(defaultAppIdOrName)
+      ? defaultAppIdOrName
+      : null;
 
   const appId =
     // first, check for a config and whether the provided arg
     // matched a named ID
     namedAppId ||
     // next, check whether there's a provided arg at all
-    defaultAppIdOrName ||
+    uuidAppId ||
     // finally, check .env
     process.env.INSTANT_APP_ID ||
     process.env.NEXT_PUBLIC_INSTANT_APP_ID ||
@@ -898,6 +919,6 @@ export default graph;
 
 const noAppIdErrorMessage = `
 No app ID found.
-Provide an app ID via the CLI \`instant-cli pull-schema <ID>\`.
-Or add \`INSTANT_APP_ID=<ID>\` to your .env file.
+Add \`INSTANT_APP_ID=<ID>\` to your .env file.
+Or provide an app ID via the CLI \`instant-cli pull-schema <ID>\`.
 `.trim();
