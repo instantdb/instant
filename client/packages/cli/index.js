@@ -4,6 +4,7 @@ import { mkdir, writeFile, readFile, stat } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
 
+import dotenv from "dotenv";
 import chalk from "chalk";
 import { program } from "commander";
 import { input, confirm } from "@inquirer/prompts";
@@ -26,6 +27,8 @@ const instantBackendOrigin = dev
   : "https://api.instantdb.com";
 
 // cli
+
+dotenv.config();
 
 program
   .name("instant-cli")
@@ -101,9 +104,9 @@ async function pushAll() {
   await pushPerms();
 }
 
-async function pullAll(inputAppId) {
-  await pullSchema(inputAppId);
-  await pullPerms(inputAppId);
+async function pullAll(appIdOrName) {
+  await pullSchema(appIdOrName);
+  await pullPerms(appIdOrName);
 }
 
 async function login() {
@@ -213,12 +216,15 @@ async function getInstantModuleName(pkgDir) {
   return instantModuleName;
 }
 
-async function pullSchema(inputAppId) {
+async function pullSchema(appIdOrName) {
   const pkgDir = await packageDirectory();
   if (!pkgDir) {
     console.error("Failed to locate app root dir.");
     return;
   }
+
+  const appId = getAppIdWithErrorLogging(appIdOrName);
+  if (!appId) return;
 
   const instantModuleName = await getInstantModuleName(pkgDir);
   if (!instantModuleName) {
@@ -230,14 +236,6 @@ async function pullSchema(inputAppId) {
   const authToken = await readConfigAuthToken();
   if (!authToken) {
     console.error("Unauthenticated.  Please log in with `login`!");
-    return;
-  }
-
-  const appId = inputAppId ?? (await readLocalSchemaFile())?.appId;
-  if (!appId) {
-    console.error(
-      "No app ID found. Please provide an app ID: `instant-cli pull-schema <ID>`",
-    );
     return;
   }
 
@@ -283,14 +281,11 @@ async function pullSchema(inputAppId) {
   console.log("Wrote schema to instant.schema.ts");
 }
 
-async function pullPerms(inputAppId) {
+async function pullPerms(appIdOrName) {
   console.log("Pulling perms...");
 
-  const appId = inputAppId ?? (await readLocalSchemaFile())?.appId;
-  if (!appId) {
-    console.error("Please provide an app ID: `instant-cli pull-schema <ID>`");
-    return;
-  }
+  const appId = getAppIdWithErrorLogging(appIdOrName);
+  if (!appId) return;
 
   const pkgDir = await packageDirectory();
   if (!pkgDir) {
@@ -336,6 +331,9 @@ async function pullPerms(inputAppId) {
 }
 
 async function pushSchema() {
+  const appId = getAppIdWithErrorLogging();
+  if (!appId) return;
+
   const schema = await readLocalSchemaFileWithErrorLogging();
   if (!schema) return;
 
@@ -348,7 +346,7 @@ async function pushSchema() {
 
   const planRes = await fetchJson({
     method: "POST",
-    path: `/dash/apps/${schema.appId}/schema/push/plan`,
+    path: `/dash/apps/${appId}/schema/push/plan`,
     debugName: "Schema plan",
     errorMessage: "Failed to update schema.",
     body: {
@@ -391,7 +389,7 @@ async function pushSchema() {
 
   const applyRes = await fetchJson({
     method: "POST",
-    path: `/dash/apps/${schema.appId}/schema/push/apply`,
+    path: `/dash/apps/${appId}/schema/push/apply`,
     debugName: "Schema apply",
     errorMessage: "Failed to update schema.",
     body: {
@@ -405,8 +403,8 @@ async function pushSchema() {
 }
 
 async function pushPerms() {
-  const schema = await readLocalSchemaFileWithErrorLogging();
-  if (!schema) return;
+  const appId = await getAppIdWithErrorLogging();
+  if (!appId) return;
 
   const { perms } = await readLocalPermsFile();
   if (!perms) {
@@ -421,7 +419,7 @@ async function pushPerms() {
 
   const permsRes = await fetchJson({
     method: "POST",
-    path: `/dash/apps/${schema.appId}/rules`,
+    path: `/dash/apps/${appId}/rules`,
     debugName: "Schema apply",
     errorMessage: "Failed to update schema.",
     body: {
@@ -602,16 +600,28 @@ async function readLocalSchemaFile() {
   ).config;
 }
 
+async function readInstantConfigFile() {
+  return (
+    await loadConfig({
+      sources: [
+        // load from `instant.config.xx`
+        {
+          files: "instant.config",
+          extensions: ["ts", "mts", "cts", "js", "mjs", "cjs", "json"],
+        },
+      ],
+      // if false, the only the first matched will be loaded
+      // if true, all matched will be loaded and deep merged
+      merge: false,
+    })
+  ).config;
+}
+
 async function readLocalSchemaFileWithErrorLogging() {
   const schema = await readLocalSchemaFile();
 
   if (!schema) {
     console.error("Missing instant.schema file!");
-    return;
-  }
-
-  if (!schema.appId) {
-    console.error("Missing app ID in instant.schema!");
     return;
   }
 
@@ -696,6 +706,30 @@ export const rels = {
   "one-false": ["one", "many"],
 };
 
+async function getAppIdWithErrorLogging(defaultAppIdOrName) {
+  const config = await readInstantConfigFile();
+  const namedAppId = config?.apps?.[defaultAppIdOrName];
+
+  const appId =
+    // first, check for a config and whether the provided arg
+    // matched a named ID
+    namedAppId ||
+    // next, check whether there's a provided arg at all
+    defaultAppIdOrName ||
+    // finally, check .env
+    process.env.INSTANT_APP_ID ||
+    process.env.NEXT_PUBLIC_INSTANT_APP_ID ||
+    process.env.VITE_INSTANT_APP_ID ||
+    null;
+
+  // otherwise, instruct the user to set one of these up
+  if (!appId) {
+    console.error(noAppIdErrorMessage);
+  }
+
+  return appId;
+}
+
 function appDashUrl(id) {
   return `${instantDashOrigin}/dash?s=main&t=home&app=${id}`;
 }
@@ -710,7 +744,6 @@ const INSTANT_APP_ID = "${id}";
 
 // Example entities and links (you can delete these!)
 const graph = i.graph(
-  INSTANT_APP_ID,
   {
     posts: i.entity({
       name: i.string(),
@@ -855,7 +888,6 @@ import { i } from "${instantModuleName ?? "@instantdb/core"}";
 const INSTANT_APP_ID = "${id}";
 
 const graph = i.graph(
-  INSTANT_APP_ID,
 ${indentLines(entitiesObjCode, 1)},
 ${indentLines(JSON.stringify(linksEntriesCode, null, "  "), 1)}
 );
@@ -863,3 +895,9 @@ ${indentLines(JSON.stringify(linksEntriesCode, null, "  "), 1)}
 export default graph;
 `;
 }
+
+const noAppIdErrorMessage = `
+No app ID found.
+Provide an app ID via the CLI \`instant-cli pull-schema <ID>\`.
+Or add \`INSTANT_APP_ID=<ID>\` to your .env file.
+`.trim();

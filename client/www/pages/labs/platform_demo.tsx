@@ -80,7 +80,6 @@ const exampleSchemaGen = (appId: string) => {
   return `
 import { i } from '@instantdb/core';
 const g = i.graph(
-  appId,
   {
     posts: i.entity({
       title: i.string(),
@@ -110,7 +109,6 @@ JSON.stringify(g, null, 2) // this is the schema you can push!
 };
 const exGraph = (appId: string) => {
   const g = i.graph(
-    appId,
     {
       posts: i.entity({
         title: i.string(),

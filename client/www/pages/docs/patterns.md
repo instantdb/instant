@@ -49,10 +49,7 @@ permissions. Here's an example of limiting a user to creating at most 2 todos.
 // Here we define users, todos, and a link between them.
 import { i } from '@instantdb/core';
 
-const INSTANT_APP_ID = 'YOUR_APP_ID_HERE';
-
 const graph = i.graph(
-  INSTANT_APP_ID,
   {
     users: i.entity({
       email: i.string(),

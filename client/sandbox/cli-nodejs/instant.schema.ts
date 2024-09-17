@@ -4,7 +4,6 @@ import { i } from "@instantdb/core";
 
 // Example entities and links (you can delete these!)
 const graph = i.graph(
-  process.env.INSTANT_APP_ID!,
   {
     posts: i.entity({
       name: i.string(),

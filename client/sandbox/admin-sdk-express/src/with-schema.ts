@@ -9,7 +9,6 @@ import fs from "fs";
 dotenv.config();
 
 const schema = i.graph(
-  process.env.INSTANT_APP_ID!,
   {
     goals: i.entity({
       title: i.string(),

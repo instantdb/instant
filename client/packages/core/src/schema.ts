@@ -30,7 +30,6 @@ export {
  * @see https://instantdb.com/docs/schema#defining-entities
  * @example
  *   export default i.graph(
- *     APP_ID,
  *     {
  *       posts: i.entity({
  *         title: i.string(),
@@ -59,9 +58,8 @@ export {
 function graph<
   EntitiesWithoutLinks extends EntitiesDef,
   const Links extends LinksDef<EntitiesWithoutLinks>,
->(appId: string, entities: EntitiesWithoutLinks, links: Links) {
+>(entities: EntitiesWithoutLinks, links: Links) {
   return new InstantGraph(
-    appId,
     enrichEntitiesWithLinks<EntitiesWithoutLinks, Links>(entities, links),
     // (XXX): LinksDef<any> stems from TypeScript’s inability to reconcile the
     // type EntitiesWithLinks<EntitiesWithoutLinks, Links> with
@@ -215,14 +213,12 @@ class InstantGraph<
   RoomSchema extends RoomSchemaShape = {},
 > {
   constructor(
-    public appId: string,
     public entities: Entities,
     public links: Links,
   ) {}
 
   withRoomSchema<_RoomSchema extends RoomSchemaShape>() {
     return new InstantGraph<Entities, Links, _RoomSchema>(
-      this.appId,
       this.entities,
       this.links,
     );
