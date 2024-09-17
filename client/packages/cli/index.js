@@ -729,15 +729,17 @@ async function getAppIdWithErrorLogging(defaultAppIdOrName) {
   if (defaultAppIdOrName) {
     const config = await readInstantConfigFile();
 
-    const nameMatch = config?.apps?.[defaultAppIdOrName]?.id;
-    const namedAppId = nameMatch && isUUID(nameMatch) ? nameMatch : null;
+    const nameMatch = config?.apps?.[defaultAppIdOrName];
+    const namedAppId = nameMatch?.id && isUUID(nameMatch.id) ? nameMatch : null;
     const uuidAppId =
       defaultAppIdOrName && isUUID(defaultAppIdOrName)
         ? defaultAppIdOrName
         : null;
 
-    if (nameMatch != null && !namedAppId) {
-      console.error(`App ID for "${defaultAppIdOrName}" is not a valid UUID.`);
+    if (nameMatch && !namedAppId) {
+      console.error(
+        `App ID for \`${defaultAppIdOrName}\` is not a valid UUID.`,
+      );
     } else if (!namedAppId && !uuidAppId) {
       console.error(`The provided app ID is not a valid UUID.`);
     }
