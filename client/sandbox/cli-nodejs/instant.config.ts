@@ -1,7 +1,13 @@
 export default {
   apps: {
-    coolApp: {
-      id: "",
+    main: {
+      id: "...",
+    },
+    test: {
+      id: "...",
+    },
+    staging: {
+      id: "...",
     },
   },
 };
