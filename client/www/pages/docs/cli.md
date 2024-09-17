@@ -19,6 +19,10 @@ Instant CLI relies on the presence of two core config files: `instant.schema.ts`
 
 You can learn more about [schemas here](/docs/schema) here and [permissions here](/docs/permissions).
 
+## App ID
+
+The CLI looks for `INSTANT_APP_ID` in `process.env`. As a convenience, it will also check for common prefixes like `NEXT_PUBLIC_INSTANT_APP_ID` and `VITE_PUBLIC_INSTANT_APP_ID`
+
 ## Actions
 
 ### Logging in
@@ -56,10 +60,7 @@ Here's an example `instant.schema.ts` file.
 ```ts
 import { i } from '@instantdb/core';
 
-const INSTANT_APP_ID = 'YOUR_APP_ID_HERE';
-
 const graph = i.graph(
-  INSTANT_APP_ID,
   {
     authors: i.entity({
       userId: i.string(),
@@ -121,9 +122,9 @@ If you already created an app in the dashboard and created some schema and
 permissions, you can run `npx instant-cli pull <APP_ID>` to generate an `instant.schema.ts` and `instant.perms.ts` files based on your production configuration.
 
 ```bash
-npx instant-cli pull-schema <APP_ID>
-npx instant-cli pull-perms [APP_ID] # ID optional if there's already an instant.schema.ts
-npx instant-cli pull <APP_ID> # pulls both schema and perms
+npx instant-cli pull-schema
+npx instant-cli pull-perms
+npx instant-cli pull # pulls both schema and perms
 ```
 
 {% callout type="warning" %}

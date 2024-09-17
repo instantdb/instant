@@ -4,7 +4,6 @@ import { View, Text, Button, StyleSheet } from "react-native";
 import config from "../config";
 
 const schema = i.graph(
-  config.appId,
   {
     colors: i.entity({
       color: i.string(),

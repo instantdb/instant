@@ -5,7 +5,6 @@ import type { InstaQLQueryResult } from "../../src/queryTypes";
 
 test("runs without exception", () => {
   const graph = i.graph(
-    "123",
     {
       users: i.entity({
         name: i.string(),
@@ -106,7 +105,8 @@ test("runs without exception", () => {
   const queryResult: DemoQueryResult = null as any;
   type DemoQueryResult = InstaQLQueryResult<
     Graph["entities"],
-    typeof demoQuery
+    typeof demoQuery,
+    true
   >;
   queryResult?.users[0].friends[0]._friends[0].bio;
   queryResult?.users[0].posts[0].author?.junk;

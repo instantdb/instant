@@ -5,7 +5,6 @@ import config from "../../config";
 const db = init_experimental({
   ...config,
   schema: i.graph(
-    "",
     {
       colors: i.entity({
         color: i.string().indexed(),
