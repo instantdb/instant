@@ -79,8 +79,6 @@ program
     "Generates an initial instant.schema definition from production state.",
   )
   .action((appIdOrName) => {
-    console.log(appIdOrName);
-
     pullSchema(appIdOrName);
   });
 
