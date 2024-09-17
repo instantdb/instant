@@ -54,16 +54,19 @@ program
 
 program
   .command("push-schema")
+  .argument("[ID]")
   .description("Pushes local instant.schema definition to production.")
   .action(pushSchema);
 
 program
   .command("push-perms")
+  .argument("[ID]")
   .description("Pushes local instant.perms rules to production.")
   .action(pushPerms);
 
 program
   .command("push")
+  .argument("[ID]")
   .description(
     "Pushes local instant.schema and instant.perms rules to production.",
   )
@@ -103,9 +106,9 @@ program.parse(process.argv);
 
 // command actions
 
-async function pushAll() {
-  await pushSchema();
-  await pushPerms();
+async function pushAll(appIdOrName) {
+  await pushSchema(appIdOrName);
+  await pushPerms(appIdOrName);
 }
 
 async function pullAll(appIdOrName) {
@@ -187,7 +190,8 @@ async function init() {
   if (!appRes.ok) return;
 
   console.log(chalk.green(`Successfully created your Instant app "${title}"`));
-  console.log(`Your app ID: ${id}`);
+  console.log(`Please add your app ID to your .env config:`);
+  console.log(chalk.magenta(`INSTANT_APP_ID=${id}`));
   console.log(chalk.underline(appDashUrl(id)));
 
   if (!schema) {
@@ -198,8 +202,6 @@ async function init() {
       "utf-8",
     );
     console.log("Start building your schema: " + schemaPath);
-  } else {
-    console.warn(`Make sure to update your app ID in instant.schema!`);
   }
 
   if (!perms) {
@@ -339,8 +341,8 @@ async function pullPerms(appIdOrName) {
   return true;
 }
 
-async function pushSchema() {
-  const appId = await getAppIdWithErrorLogging();
+async function pushSchema(appIdOrName) {
+  const appId = await getAppIdWithErrorLogging(appIdOrName);
   if (!appId) return;
 
   const schema = await readLocalSchemaFileWithErrorLogging();
@@ -411,8 +413,8 @@ async function pushSchema() {
   console.log(chalk.green("Schema updated!"));
 }
 
-async function pushPerms() {
-  const appId = await getAppIdWithErrorLogging();
+async function pushPerms(appIdOrName) {
+  const appId = await getAppIdWithErrorLogging(appIdOrName);
   if (!appId) return;
 
   const { perms } = await readLocalPermsFile();
@@ -772,8 +774,6 @@ function instantSchemaTmpl(title, id, instantModuleName) {
 
 import { i } from "${instantModuleName ?? "@instantdb/core"}";
 
-const INSTANT_APP_ID = "${id}";
-
 // Example entities and links (you can delete these!)
 const graph = i.graph(
   {
@@ -916,8 +916,6 @@ function generateSchemaTypescriptFile(id, schema, title, instantModuleName) {
 // ${appDashUrl(id)}
 
 import { i } from "${instantModuleName ?? "@instantdb/core"}";
-
-const INSTANT_APP_ID = "${id}";
 
 const graph = i.graph(
 ${indentLines(entitiesObjCode, 1)},
