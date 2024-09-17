@@ -32,7 +32,9 @@
    [io.undertow.websockets.extensions PerMessageDeflateHandshake]
    [java.util.concurrent.locks ReentrantLock]
    [java.util.concurrent.atomic AtomicLong]
+   [java.io IOException]
    [java.nio ByteBuffer]
+   [java.nio.channels ClosedChannelException]
    [org.xnio IoUtils]))
 
 (defn ws-listener
@@ -69,6 +71,18 @@
 
 (defonce ping-pool (delay/make-pool!))
 
+(defn try-send-ping-blocking
+  "Tries to send a ping-message. Ignores closed channel exceptions."
+  [channel]
+  (try
+    (WebSockets/sendPingBlocking
+     (ByteBuffer/allocate 0)
+     channel)
+    (catch ClosedChannelException _)
+    (catch IOException e
+      (when-not (= (.getMessage e) "UT002002: Channel is closed")
+        (throw e)))))
+
 (defn straight-jacket-run-ping-job [^WebSocketChannel channel
                                     ^AtomicLong atomic-last-received-at
                                     idle-timeout-ms]
@@ -79,8 +93,7 @@
       (if (> ms-since-last-message idle-timeout-ms)
         (tracer/with-span! {:name "socket/close-inactive"}
           (IoUtils/safeClose channel))
-        (WebSockets/sendPingBlocking (ByteBuffer/allocate 0)
-                                     channel)))
+        (try-send-ping-blocking channel)))
     (catch Exception e
       (tracer/record-exception-span! e {:name "socket/ping-err"
                                         :escaping? false}))))
