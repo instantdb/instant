@@ -377,6 +377,27 @@
           {}
           attrs))
 
+(defn attrs-for-etype
+  "Returns the non-ref attrs for a given etype"
+  [etype attrs]
+  (filter (fn [a]
+            (= etype
+               (-> a :forward-identity second)))
+          attrs))
+
+(defn attr-ids-by-etype
+  "Returns a map from etype to a set of non-ref attr-ids for the etype"
+  [attrs]
+  (reduce (fn [acc attr]
+            (update acc
+                    (-> attr
+                        :forward-identity
+                        second)
+                    (fnil conj #{})
+                    (:id attr)))
+          {}
+          attrs))
+
 ;; ------
 ;; play
 
