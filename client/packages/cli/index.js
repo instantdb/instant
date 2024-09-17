@@ -15,16 +15,16 @@ import openInBrowser from "open";
 
 // config
 
-const dev = Boolean(process.env.DEV);
-const verbose = Boolean(process.env.VERBOSE);
+const dev = Boolean(process.env.INSTANT_CLI_DEV);
+const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
 
 const instantDashOrigin = dev
   ? "http://localhost:3000"
   : "https://instantdb.com";
 
-const instantBackendOrigin = dev
-  ? "http://localhost:8888"
-  : "https://api.instantdb.com";
+const instantBackendOrigin =
+  process.env.INSTANT_CLI_API_URI ||
+  (dev ? "http://localhost:8888" : "https://api.instantdb.com");
 
 // cli
 
