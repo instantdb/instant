@@ -6,13 +6,34 @@ import {
   id,
   txInit,
   type TransactionChunk,
-  type User,
   type AuthToken,
   type Exactly,
-  type InstaQLQueryParams,
+
+  // core types
+  type User,
   type Query,
+
+  // query types
   type QueryResponse,
+  type InstaQLQueryParams,
+  type InstantQuery,
+  type InstantQueryResult,
+  type InstantSchema,
+  type InstantObject,
+
+  // schema types
+  type AttrsDefs,
+  type CardinalityKind,
+  type DataAttrDef,
+  type EntitiesDef,
+  type EntitiesWithLinks,
+  type EntityDef,
   type InstantGraph,
+  type LinkAttrDef,
+  type LinkDef,
+  type LinksDef,
+  type ResolveAttrs,
+  type ValueTypes,
 } from "@instantdb/core";
 
 type DebugCheckResult = {
@@ -632,4 +653,30 @@ export {
   type ImpersonationOpts,
   type TransactionChunk,
   type DebugCheckResult,
+
+  // core types
+  type User,
+  type InstaQLQueryParams,
+  type Query,
+
+  // query types
+  type QueryResponse,
+  type InstantQuery,
+  type InstantQueryResult,
+  type InstantSchema,
+  type InstantObject,
+
+  // schema types
+  type AttrsDefs,
+  type CardinalityKind,
+  type DataAttrDef,
+  type EntitiesDef,
+  type EntitiesWithLinks,
+  type EntityDef,
+  type InstantGraph,
+  type LinkAttrDef,
+  type LinkDef,
+  type LinksDef,
+  type ResolveAttrs,
+  type ValueTypes,
 };

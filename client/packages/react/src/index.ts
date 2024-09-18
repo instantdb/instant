@@ -14,6 +14,7 @@ import {
   type AuthState,
   type Query,
   type Config,
+  type InstaQLQueryParams,
 
   // schema types
   type AttrsDefs,
@@ -58,6 +59,7 @@ export {
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
+  type InstaQLQueryParams,
 
   // schema types
   type AttrsDefs,

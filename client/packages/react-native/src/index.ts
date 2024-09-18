@@ -109,6 +109,7 @@ export {
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
+  type RoomSchemaShape,
 
   // schema types
   type AttrsDefs,
