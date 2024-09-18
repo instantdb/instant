@@ -1,5 +1,6 @@
 // @ts-check
 
+import { readFileSync } from "fs";
 import { mkdir, writeFile, readFile, stat } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
@@ -14,9 +15,15 @@ import { packageDirectory } from "pkg-dir";
 import openInBrowser from "open";
 
 // config
+dotenv.config();
 
+const version = JSON.parse(
+  readFileSync(join(import.meta.dirname, "package.json"), "utf8"),
+).version;
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
+
+// consts
 
 const instantDashOrigin = dev
   ? "http://localhost:3000"
@@ -26,21 +33,20 @@ const instantBackendOrigin =
   process.env.INSTANT_CLI_API_URI ||
   (dev ? "http://localhost:8888" : "https://api.instantdb.com");
 
-// cli
-
-dotenv.config();
-
-program
-  .name("instant-cli")
-  .description(
-    `
+const instantCLIDescription = `
 ${chalk.magenta(`Instant CLI`)}
 Docs: ${chalk.underline(`https://www.instantdb.com/docs/cli`)}
 Dash: ${chalk.underline(`https://www.instantdb.com/dash`)}
-Discord: ${chalk.underline(`https://discord.com/invite/VU53p7uQcE`)}`.trim(),
-  )
+Discord: ${chalk.underline(`https://discord.com/invite/VU53p7uQcE`)}`.trim();
+
+// cli
+
+program
+  .name("instant-cli")
+  .description(instantCLIDescription)
   .option("-t --token <TOKEN>", "auth token override")
-  .option("-y", "skip confirmation prompt");
+  .option("-y", "skip confirmation prompt")
+  .version(version);
 
 program
   .command("login")
