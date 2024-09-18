@@ -2,7 +2,7 @@
   (:require [clojure.string :as string]
             [honey.sql :as hsql]
             [instant.jdbc.sql :as sql]
-            [instant.db.model.attr])
+            [instant.db.model.attr :as attr-model])
   (:import [java.util UUID]))
 
 (def att-select
