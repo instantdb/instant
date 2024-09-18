@@ -870,6 +870,9 @@
 (defmacro perm-err? [& body]
   `(is (= ::ex/permission-denied (::ex/type (instant-ex-data ~@body)))))
 
+(defmacro validation-err? [& body]
+  `(is (= ::ex/validation-failed (::ex/type (instant-ex-data ~@body)))))
+
 (deftest write-perms-merged
   (with-zeneca-app
     (fn [{app-id :id :as _app} r]
@@ -1108,21 +1111,27 @@
               (permissioned-tx/transact!
                (make-ctx)
                [[:delete-entity lookup]]))))
+          (testing (str "delete non-existent-entity" title)
+            (is
+             (validation-err?
+              (permissioned-tx/transact!
+               (make-ctx)
+               [[:delete-entity (random-uuid)]]))))
           (testing (str "attr can block" title)
             (rule-model/put!
              aurora/conn-pool
              {:app-id app-id :code {:attrs {:allow {:create "false"}}}})
             (is
              (perm-err?
-              (permissioned-tx/transact!
-               (make-ctx)
-               [[:add-attr
-                 {:id (UUID/randomUUID)
-                  :forward-identity [(UUID/randomUUID) "users" "favoriteColor"]
-                  :value-type :blob
-                  :cardinality :one
-                  :unique? false
-                  :index? false}]]))))
+               (permissioned-tx/transact!
+                (make-ctx)
+                [[:add-attr
+                  {:id (UUID/randomUUID)
+                   :forward-identity [(UUID/randomUUID) "users" "favoriteColor"]
+                   :value-type :blob
+                   :cardinality :one
+                   :unique? false
+                   :index? false}]]))))
           (testing (str "attr update/delete blocks unless admin" title)
             (is
              (perm-err?

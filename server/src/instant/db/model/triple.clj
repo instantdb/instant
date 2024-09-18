@@ -428,37 +428,51 @@
 
    2. Deletes all reference triples where this entity is the value:
       [_ _ id]"
-  [conn app-id ids]
+  [conn app-id id+etypes]
   (let [{ids false
-         lookup-refs true} (group-by eid-lookup-ref? ids)]
-    (sql/do-execute!
-     conn
-     (hsql/format
-      {:with [[:eids {:select :entity-id
-                      :from :triples
-                      :where [:and
-                              [:= :app-id app-id]
-                              (list*
-                               :or
-                               (when (seq ids)
-                                 [:in :entity-id (or ids [])])
-                               (for [[attr-id value] lookup-refs]
-                                 [:and
-                                  [:= :attr-id attr-id]
-                                  [:= :value [:cast (->json value) :jsonb]]]))]}]
-              [:deletes {:delete-from :triples
-                         :where [[:and
-                                  [:= :app-id app-id]
-                                  [:or
-                                   [:in :entity-id {:select :entity-id
-                                                    :from :eids}]
-                                   [:and
-                                    :vae
-                                    [:in :value-md5 {:select [[[:md5 [:cast [:to_jsonb :entity_id] :text]]]]
-                                                     :from :eids}]]]]]
-                         :returning :*}]]
-       :select :*
-       :from :deletes}))))
+         lookup-refs true} (group-by (fn [[id]]
+                                       (eid-lookup-ref? id))
+         id+etypes)
+        conds (mapcat (fn [[id etype]]
+                        (let [etype (or etype "ns_e")
+                              id-lookup (if (eid-lookup-ref? id)
+                                          {:select :entity-id
+                                           :from :triples
+                                           :where [:and
+                                                   [:= :app-id app-id]
+                                                   :av
+                                                   [:= :attr-id (first id)]
+                                                   [:= :value-md5 [:md5 [:cast [:cast (->json (second id)) :jsonb] :text]]]]}
+                                          id)]
+                          (if etype
+                            [[:and
+                              [:= :entity-id id-lookup]
+                              [:in :attr-id {:select :attrs.id
+                                             :from :attrs
+                                             :join [:idents [:= :idents.id :attrs.forward-ident]]
+                                             :where [:and
+                                                     [:= :idents.app-id app-id]
+                                                     [:= :idents.etype etype]]}]]
+                             [:and
+                              [:= :entity-id id-lookup]
+                              :vae
+                              [:= :value-md5 [:md5 [:cast [:to_jsonb id] :text]]]
+                              [:in :attr-id {:select :attrs.id
+                                             :from :attrs
+                                             :join [:idents [:= :idents.id :attrs.reverse-ident]]
+                                             :where [:and
+                                                     [:= :idents.app-id app-id]
+                                                     [:= :idents.etype etype]]}]]]
+                            [[:= :entity-id id-lookup]
+                             [:and
+                              :vae
+                              [:in :value-md5 {:select [[[:md5 [:cast [:to_jsonb :entity_id] :text]]]]}]]])))
+                      id+etypes)
+        query {:delete-from :triples
+               :where [:and [:= :app-id app-id]
+                       (list* :or conds)]
+               :returning :*}]
+    (sql/do-execute! conn (hsql/format query))))
 
 (defn delete-multi!
   "Deletes triples from postgres.

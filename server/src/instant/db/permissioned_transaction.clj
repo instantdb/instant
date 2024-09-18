@@ -322,31 +322,40 @@
    If the etype isn't provided for deletes, we will resolve it after we
    fetch the triples."
   [ctx object-changes]
-  (let [groups (group-object-tx-steps ctx object-changes)]
-    (if (seq groups)
-      (reduce (fn [acc [{:keys [eid etype action] :as k} triples]]
-                (let [steps (get groups k)]
-                  (if etype
-                    (assoc acc k {:triples triples
-                                  :tx-steps steps})
-                    ;; XXX Throw if not delete and it's only one step
-                    (let [etype-groups (group-by (fn [[_e a]]
-                                                   (extract-etype ctx a))
-                                                 triples)]
+  (let [groups (group-object-tx-steps ctx object-changes)
+        triples-by-eid+etype (if (seq groups)
+                               (entity-model/get-triples-batch ctx (keys groups))
+                               {})]
+    (reduce (fn [acc [{:keys [eid etype action] :as k} triples]]
+              (let [steps (get groups k)]
+                (if etype
+                  (assoc acc k {:triples triples
+                                :tx-steps steps})
+                  (let [etype-groups (group-by (fn [[_e a]]
+                                                 (extract-etype ctx a))
+                                               triples)]
+                    (if (empty? etype-groups)
+                      (ex/throw-validation-err!
+                       :tx-steps
+                       steps
+                       [{:message "Could not determine the namespace that the transaction belongs to."}])
                       (reduce (fn [acc [etype triples]]
-                                ;; XXX Throw if not etype
-                                (assoc acc
-                                       {:eid eid
-                                        :etype etype
-                                        :action action}
-                                       {:triples triples
-                                        :tx-steps steps}))
+                                (if (not etype)
+                                  (ex/throw-validation-err!
+                                   :tx-steps
+                                   steps
+                                   [{:message "Could not determine the namespace that the transaction belongs to."}])
+                                  (assoc acc
+                                         {:eid eid
+                                          :etype etype
+                                          :action action}
+                                         {:triples triples
+                                          :tx-steps steps})))
 
                               acc
-                              etype-groups)))))
-              {}
-              (entity-model/get-triples-batch ctx (keys groups)))
-      {})))
+                              etype-groups))))))
+            {}
+            triples-by-eid+etype)))
 
 (defn extract-refs
   "Extracts a list of refs that can be passed to cel/prefetch-data-refs.
@@ -418,15 +427,15 @@
         (lock-tx-on! tx-conn (hash app-id))
         (if admin?
           (tx/transact-without-tx-conn! tx-conn app-id tx-steps)
-          (let [
-                {:keys [attr-changes object-changes]}
+          (let [{:keys [attr-changes object-changes]}
                 (group-by tx-change-type tx-steps)
 
+                optimistic-attrs (into attrs (get-new-attrs attr-changes))
                 ;; Use the db connection we have so that we don't cause a deadlock
                 ;; Also need to be able to read our own writes for the create checks
                 ctx (assoc ctx
                            :db {:conn-pool tx-conn}
-                           :optimistic-attrs (into attrs (get-new-attrs attr-changes)))
+                           :optimistic-attrs optimistic-attrs)
 
                 ;; If we were really smart, we would fetch the triples and the
                 ;; update-delete data-ref dependencies in one go.

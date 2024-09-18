@@ -24,7 +24,9 @@
   (s/cat :op #{:add-attr} :attr ::attr-model/attr))
 
 (s/def ::delete-entity-step
-  (s/cat :op #{:delete-entity} :lookup ::triple-model/lookup))
+  (s/cat :op #{:delete-entity}
+         :lookup ::triple-model/lookup
+         :etype (s/? string?)))
 
 (s/def ::delete-attr-step
   (s/cat :op #{:delete-attr} :attr-id ::attr-model/id))
@@ -108,7 +110,7 @@
                   :update-attr
                   (into [:update-attr] (map second steps))
                   :delete-entity
-                  (into [:delete-entity] (map second steps))
+                  (into [:delete-entity] (map rest steps))
                   :add-triple
                   (into [:add-triple] (map rest steps))
                   :deep-merge-triple
