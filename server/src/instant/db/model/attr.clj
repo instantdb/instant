@@ -7,7 +7,6 @@
    [instant.jdbc.sql :as sql]
    [instant.jdbc.aurora :as aurora]
    [honey.sql :as hsql]
-   [instant.util.coll :as ucoll]
    [instant.data.constants :refer [empty-app-id]]))
 
 ;; Don't change the order or remove types, only add to the end of the list
@@ -369,24 +368,24 @@
 
 (deftype Attrs [elements cache]
   clojure.lang.ISeq
-  (count [this]
+  (count [_this]
     (count elements))
-  (first [this]
+  (first [_this]
     (first elements))
-  (next [this]
+  (next [_this]
     (let [nxt (next elements)]
       (if nxt
         (Attrs. nxt (delay (index-attrs nxt)))
         nil)))
-  (more [this]
+  (more [_this]
     (if-let [nxt (next elements)]
       (Attrs. nxt (delay (index-attrs nxt)))
       clojure.lang.PersistentList/EMPTY))
-  (empty [this]
+  (empty [_this]
     (Attrs. () (delay {})))
-  (equiv [this other]
+  (equiv [_this other]
     (= elements other))
-  (cons [this o]
+  (cons [_this o]
     (let [new-elements (cons o elements)]
       (Attrs. new-elements (delay (index-attrs new-elements)))))
   (seq [this]
@@ -395,19 +394,19 @@
       this))
 
   AttrsExtension
-  (seekById [this id]
+  (seekById [_this id]
     (-> @cache
         :by-id
         (get id)))
-  (seekByFwdIdentName [this fwdIdent]
+  (seekByFwdIdentName [_this fwdIdent]
     (-> @cache
         :by-fwd-ident
         (get fwdIdent)))
-  (seekByRevIdentName [this revIdent]
+  (seekByRevIdentName [_this revIdent]
     (-> @cache
         :by-rev-ident
         (get revIdent)))
-  (attrIdsForEtype [this etype]
+  (attrIdsForEtype [_this etype]
     (-> @cache
         :ids-by-etype
         (get etype #{}))))

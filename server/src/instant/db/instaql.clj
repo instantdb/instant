@@ -1470,7 +1470,7 @@
       (cel/prefetch-data-refs ctx refs)
       {})))
 
-(defn get-eid-check-result! [{:keys [current-user attrs] :as ctx}
+(defn get-eid-check-result! [{:keys [current-user] :as ctx}
                              {:keys [eid->etype etype->program query-cache]}]
   (tracer/with-span! {:name "instaql/get-eid-check-result!"}
     (let [preloaded-refs (tracer/with-span! {:name "instaql/preload-refs"}
