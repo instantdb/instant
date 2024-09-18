@@ -1,15 +1,3 @@
-export {
-  // constructs
-  graph,
-  entity,
-  // value types
-  string,
-  number,
-  boolean,
-  json,
-  any,
-};
-
 import {
   EntityDef,
   DataAttrDef,
@@ -155,3 +143,15 @@ type LinksIndex = Record<
   "fwd" | "rev",
   Record<string, Record<string, { entityName: string; cardinality: string }>>
 >;
+
+export const i = {
+  // constructs
+  graph,
+  entity,
+  // value types
+  string,
+  number,
+  boolean,
+  json,
+  any,
+};
