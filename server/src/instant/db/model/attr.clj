@@ -340,7 +340,9 @@
                              (friendly-inferred-types inferred_types))}
     reverse_ident (assoc :reverse-identity [reverse_ident rev_etype rev_label])))
 
-(defn index-attrs [attrs]
+(defn index-attrs
+  "Groups attrs by common lookup patterns so that we can efficiently look them up."
+  [attrs]
   (reduce (fn [acc attr]
             (cond-> acc
               true
@@ -366,6 +368,9 @@
   (seekByRevIdentName [this revIdent])
   (attrIdsForEtype [this etype]))
 
+;; Creates a wrapper over attrs. Makes them act like a regular list, but
+;; we can also index them on demand so that our access patterns will be
+;; efficient.
 (deftype Attrs [elements cache]
   clojure.lang.ISeq
   (count [_this]

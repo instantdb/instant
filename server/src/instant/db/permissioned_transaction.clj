@@ -31,16 +31,6 @@
     (#{:add-triple :deep-merge-triple :retract-triple} action) :update
     (#{:delete-entity} action) :delete))
 
-(defn action->tx-steps [tx-steps]
-  (group-by tx-object-action-type tx-steps))
-
-(defn ->eid-actions [[eid tx-steps]]
-  (let [ac->tx-steps (action->tx-steps tx-steps)]
-    (map
-     (fn [[action tx-steps]]
-       [eid action tx-steps])
-     ac->tx-steps)))
-
 ;; Applies a `merge()` patch to a record
 ;; Analogous to immutableDeepMerge in JS
 ;; and deep_merge in Postgres
@@ -80,13 +70,6 @@
        (assoc acc label val)))
    original
    tx-steps))
-
-(defn get-triples [ctx etype eid]
-  (or (-> ctx
-          :preloaded-triples
-          (get {:eid eid
-                :etype etype}))
-      (io/tag-io (entity-model/get-triples ctx etype eid))))
 
 ;; Why do we have to decide whether something is an update or a create?
 ;; When a user makes a transaction, the only option they have currently is to do an `update`:
@@ -203,7 +186,7 @@
                                eid
                                [{:message (string-util/multiline->single-line
                                            "Invalid lookup. Could not determine
-                                              namespace from lookup attribute.")
+                                            namespace from lookup attribute.")
                                  :tx-step tx-step}]))
                             (when (and aid-etype (not= aid-etype lookup-etype))
                               (ex/throw-validation-err!
@@ -211,9 +194,9 @@
                                tx-step
                                [{:message (string-util/multiline->single-line
                                            "Invalid transaction. The namespace
-                                              in the lookup attribute is different
-                                              from the namespace of the attribute
-                                              that is being set")}]))
+                                            in the lookup attribute is different
+                                            from the namespace of the attribute
+                                            that is being set")}]))
                             lookup-etype)
                           aid-etype)
                   ;; If we know the etype from the lookup for delete-entity,
@@ -244,17 +227,17 @@
      [:add-triple stopa-eid :users/age 30]
    ]
 
-   And we group them by `eid`, `etype`, and `update`.
+   And we group them by `eid`, `etype`, and `action`.
 
    {
      {:eid joe-eid
       :etype \"users\"
-      :action :update [[:add-triple joe-eid :users/name \"Joe\"]
-                       [:add-triple joe-eid :users/age 32]]
+      :action :update} [[:add-triple joe-eid :users/name \"Joe\"]
+                        [:add-triple joe-eid :users/age 32]]
      {:eid stopa-eid
       :etype \"users\"
-      :action :update [[:add-triple stopa-eid :users/name \"Stopa\"]
-                       [:add-triple stopa-eid :users/age 30]]
+      :action :update} [[:add-triple stopa-eid :users/name \"Stopa\"]
+                        [:add-triple stopa-eid :users/age 30]]
    }
 
    With this, we can generate a grouped `check` command for each `eid+etype`."

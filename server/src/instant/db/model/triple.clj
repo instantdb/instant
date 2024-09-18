@@ -448,6 +448,7 @@
                    (if etype
                      [[:and
                        [:= :entity-id id-lookup]
+                       ;; Delete object triples and eav references
                        [:in
                         :attr-id
                         {:select :attrs.id
@@ -457,6 +458,7 @@
                                  [:= :idents.app-id app-id]
                                  [:= :idents.etype etype]]}]]
                       [:and
+                       ;; Delete ref triples where we're the value
                        [:= :entity-id id-lookup]
                        :vae
                        [:= :value-md5 [:md5 [:cast [:to_jsonb id] :text]]]

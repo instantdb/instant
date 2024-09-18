@@ -276,6 +276,9 @@ function deleteEntity(store, args) {
     for (const a of eMap.keys()) {
       const attr = store.attrs[a];
       if (
+        // Fall back to deleting everything if we've rehydrated tx-steps from
+        // the store that didn't set `etype` in deleteEntity
+        !etype ||
         // If we don't know about the attr, let's just get rid of it
         !attr ||
         // Make sure it matches the etype
@@ -298,7 +301,7 @@ function deleteEntity(store, args) {
     vaeTriples.forEach((triple) => {
       const [e, a, v] = triple;
       const attr = store.attrs[a];
-      if (!attr || attr["reverse-identity"]?.[1] === etype) {
+      if (!etype || !attr || attr["reverse-identity"]?.[1] === etype) {
         deleteInMap(store.eav, [e, a, v]);
         deleteInMap(store.aev, [a, e, v]);
         deleteInMap(store.vae, [v, a, e]);
