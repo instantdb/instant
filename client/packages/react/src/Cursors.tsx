@@ -1,12 +1,11 @@
 import {
-  Fragment,
   createElement,
-  ReactNode,
-  MouseEvent,
-  CSSProperties,
+  type ReactNode,
+  type MouseEvent,
+  type CSSProperties,
 } from "react";
-import { InstantReactRoom } from "./InstantReact";
-import { RoomSchemaShape } from "@instantdb/core";
+import type { InstantReactRoom } from "./InstantReact";
+import type { RoomSchemaShape } from "@instantdb/core";
 
 export function Cursors<
   RoomSchema extends RoomSchemaShape,

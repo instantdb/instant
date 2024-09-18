@@ -18,7 +18,8 @@
     "test": "turbo run test:ci",
     "format": "prettier --write --config ./.prettierrc \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "publish-packages": "turbo run publish-package --filter=\"./packages/*\"",
-    "build-packages": "turbo run build --filter=\"./packages/*\" --cache-dir=.turbo"
+    "build-packages": "turbo run build --filter=\"./packages/*\" --cache-dir=.turbo",
+    "build-sandbox": "turbo run build --filter=\"./sandbox/*\" --cache-dir=.turbo"
   },
   "devDependencies": {
     "@changesets/cli": "^2.24.1",

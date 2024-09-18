@@ -5,6 +5,7 @@ import {
   type InstantSchema,
   type InstantQuery,
   type InstantQueryResult,
+  type InstantGraph,
 } from "@instantdb/react";
 import config from "../../config";
 
@@ -14,7 +15,6 @@ interface Data {
 
 const schema = i
   .graph(
-    "",
     {
       discriminatedUnionExample: i
         .entity({ x: i.string(), y: i.number() })
@@ -171,5 +171,5 @@ const deepVal = result.checkins[0].habit?.category?.id;
 
 // types
 type DeepVal = typeof deepVal;
-type Graph = i.InstantGraph<any, any, any>;
+type Graph = InstantGraph<any, any, any>;
 type DBGraph = InstantSchema<typeof db>;

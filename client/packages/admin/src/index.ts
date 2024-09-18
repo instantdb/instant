@@ -12,6 +12,7 @@ import {
   type InstaQLQueryParams,
   type Query,
   type QueryResponse,
+  type InstantGraph,
 } from "@instantdb/core";
 
 type DebugCheckResult = {
@@ -133,7 +134,7 @@ function init<Schema = {}>(config: Config) {
 }
 
 function init_experimental<
-  Schema extends i.InstantGraph<any, any, any>,
+  Schema extends InstantGraph<any, any, any>,
   WithCardinalityInference extends boolean = true,
 >(
   config: Config & {
@@ -154,7 +155,7 @@ function init_experimental<
  *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
  */
 class InstantAdmin<
-  Schema extends i.InstantGraph<any, any> | {},
+  Schema extends InstantGraph<any, any> | {},
   WithCardinalityInference extends boolean,
 > {
   config: FilledConfig;
@@ -164,9 +165,7 @@ class InstantAdmin<
 
   public tx =
     txInit<
-      Schema extends i.InstantGraph<any, any>
-        ? Schema
-        : i.InstantGraph<any, any>
+      Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
     >();
 
   constructor(_config: Config) {
@@ -210,7 +209,7 @@ class InstantAdmin<
    *  await db.query({ goals: { todos: {} } })
    */
   query = <
-    Q extends Schema extends i.InstantGraph<any, any>
+    Q extends Schema extends InstantGraph<any, any>
       ? InstaQLQueryParams<Schema>
       : Exactly<Query, Q>,
   >(
