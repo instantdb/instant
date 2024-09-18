@@ -23,6 +23,14 @@ You can learn more about [schemas here](/docs/schema) here and [permissions here
 
 The CLI looks for `INSTANT_APP_ID` in `process.env`. As a convenience, it will also check for common prefixes like `NEXT_PUBLIC_INSTANT_APP_ID` and `VITE_PUBLIC_INSTANT_APP_ID`
 
+## Specifying an auth token
+
+In CI or similer environments, you may want to handle authentication without having to go through a web-based validation step each time. In these cases, you can provide a `INSTANT_CLI_AUTH_TOKEN` environment variable.
+
+To obtain a token for later use, run `instant-cli login -p`. Instead of saving the token to your local device, the CLI will print it to your console. You can copy this token and provide it as `INSTANT_CLI_AUTH_TOKEN` later in your CI tool.
+
+**Remember, auth tokens are secret, don't share them!**
+
 ## Actions
 
 ### Logging in

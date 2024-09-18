@@ -45,6 +45,7 @@ Discord: ${chalk.underline(`https://discord.com/invite/VU53p7uQcE`)}`.trim(),
 program
   .command("login")
   .description("Authenticates with Instant")
+  .option("-p --print", "print auth token")
   .action(login);
 
 program
@@ -100,8 +101,6 @@ program
   )
   .action(pullAll);
 
-const options = program.opts();
-
 program.parse(process.argv);
 
 // command actions
@@ -117,7 +116,7 @@ async function pullAll(appIdOrName) {
   await pullPerms(appIdOrName);
 }
 
-async function login() {
+async function login(options) {
   const registerRes = await fetchJson({
     method: "POST",
     path: "/dash/cli/auth/register",
@@ -145,9 +144,13 @@ async function login() {
   }
 
   const { token, email } = authTokenRes;
-  await saveConfigAuthToken(token);
 
-  console.log(chalk.green(`Successfully logged in as ${email}!`));
+  if (options.print) {
+    console.log(chalk.red("[Do not share] Your Instant auth token:", token));
+  } else {
+    await saveConfigAuthToken(token);
+    console.log(chalk.green(`Successfully logged in as ${email}!`));
+  }
 }
 
 async function init() {
@@ -557,6 +560,8 @@ async function fetchJson({
 }
 
 async function promptOk(message) {
+  const options = program.opts();
+
   if (options.y) return true;
 
   return await confirm({
@@ -653,8 +658,13 @@ async function readJsonFile(path) {
 }
 
 async function readConfigAuthToken() {
+  const options = program.opts();
   if (options.token) {
     return options.token;
+  }
+
+  if (process.env.INSTANT_CLI_AUTH_TOKEN) {
+    return process.env.INSTANT_CLI_AUTH_TOKEN;
   }
 
   const authToken = await readFile(
