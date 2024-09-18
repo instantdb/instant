@@ -291,7 +291,7 @@
   [{:keys [attrs]} attr-changes]
   (into attrs (get-new-attrs attr-changes)))
 
-(defn get-check-commands [{:keys [attrs] :as ctx} attr-changes preloaded-triples]
+(defn get-check-commands [ctx attr-changes preloaded-triples]
   (let [attr-checks (attr-checks ctx attr-changes)
         object-checks (object-checks ctx preloaded-triples)]
     (into attr-checks object-checks)))
@@ -419,7 +419,7 @@
         (if admin?
           (tx/transact-without-tx-conn! tx-conn app-id tx-steps)
           (let [
-                {:keys [attr-changes object-changes] :as grouped-steps}
+                {:keys [attr-changes object-changes]}
                 (group-by tx-change-type tx-steps)
 
                 ;; Use the db connection we have so that we don't cause a deadlock
