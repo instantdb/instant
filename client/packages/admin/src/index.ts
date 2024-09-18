@@ -6,19 +6,20 @@ import {
   id,
   txInit,
   type TransactionChunk,
-  type User,
   type AuthToken,
   type Exactly,
 
-  // old query types
-  type InstaQLQueryParams,
+  // core types
+  type User,
   type Query,
-  type QueryResponse,
 
-  // new query types
+  // query types
+  type QueryResponse,
+  type InstaQLQueryParams,
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
+  type InstantObject,
 
   // schema types
   type AttrsDefs,
@@ -653,15 +654,17 @@ export {
   type TransactionChunk,
   type DebugCheckResult,
 
-  // old query types
+  // core types
+  type User,
   type InstaQLQueryParams,
   type Query,
-  type QueryResponse,
 
-  // new query types
+  // query types
+  type QueryResponse,
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
+  type InstantObject,
 
   // schema types
   type AttrsDefs,
