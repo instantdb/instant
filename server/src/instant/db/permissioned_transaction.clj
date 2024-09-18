@@ -293,18 +293,7 @@
 
 (defn get-check-commands [{:keys [attrs] :as ctx} attr-changes preloaded-triples]
   (let [attr-checks (attr-checks ctx attr-changes)
-        ;; Why do we need optimistic attrs?
-        ;; Consider tx-steps like:
-        ;; [
-        ;;    [:add-attr {:id goal-attr-id
-        ;;                :forward-identity [... "goals" "title"]}]
-        ;;    [:add-triple goal-eid goal-attr-id "Hack"]
-        ;; ]
-        ;; If user 'creates' an attr in the same transaction,
-        ;; We need to be able to resolve the attr-id for this `add-triple`
-        optmistic-attrs (into attrs (get-new-atrrs attr-changes))
-        new-ctx (assoc ctx :attrs optmistic-attrs)
-        object-checks (object-checks new-ctx preloaded-triples)]
+        object-checks (object-checks ctx preloaded-triples)]
     (into attr-checks object-checks)))
 
 (defn run-check-commands! [ctx checks]
@@ -413,7 +402,7 @@
    We run `create` checks _after_ the transaction, so we can query off of the
    object. For example, if we created a new `post`, we may want a check that says:
    `auth.id in data.ref('creator.id')`"
-  [{:keys [db app-id admin? admin-check? admin-dry-run?] :as ctx} tx-steps]
+  [{:keys [db app-id admin? admin-check? admin-dry-run? attrs] :as ctx} tx-steps]
   (tracer/with-span! {:name "permissioned-transaction/transact!"
                       :attributes {:app-id app-id}}
     (let [{:keys [conn-pool]} db]
@@ -437,7 +426,7 @@
                 ;; Also need to be able to read our own writes for the create checks
                 ctx (assoc ctx
                            :db {:conn-pool tx-conn}
-                           :optimistic-attrs (into (:attrs ctx) (get-new-atrrs attr-changes)))
+                           :optimistic-attrs (into attrs (get-new-attrs attr-changes)))
 
                 ;; If we were really smart, we would fetch the triples and the
                 ;; update-delete data-ref dependencies in one go.
