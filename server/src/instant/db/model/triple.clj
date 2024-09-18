@@ -429,44 +429,51 @@
    2. Deletes all reference triples where this entity is the value:
       [_ _ id]"
   [conn app-id id+etypes]
-  (let [{ids false
-         lookup-refs true} (group-by (fn [[id]]
-                                       (eid-lookup-ref? id))
-         id+etypes)
-        conds (mapcat (fn [[id etype]]
-                        (let [id-lookup (if (eid-lookup-ref? id)
-                                          {:select :entity-id
-                                           :from :triples
-                                           :where [:and
-                                                   [:= :app-id app-id]
-                                                   :av
-                                                   [:= :attr-id (first id)]
-                                                   [:= :value-md5 [:md5 [:cast [:cast (->json (second id)) :jsonb] :text]]]]}
-                                          id)]
-                          (if etype
-                            [[:and
-                              [:= :entity-id id-lookup]
-                              [:in :attr-id {:select :attrs.id
-                                             :from :attrs
-                                             :join [:idents [:= :idents.id :attrs.forward-ident]]
-                                             :where [:and
-                                                     [:= :idents.app-id app-id]
-                                                     [:= :idents.etype etype]]}]]
-                             [:and
-                              [:= :entity-id id-lookup]
-                              :vae
-                              [:= :value-md5 [:md5 [:cast [:to_jsonb id] :text]]]
-                              [:in :attr-id {:select :attrs.id
-                                             :from :attrs
-                                             :join [:idents [:= :idents.id :attrs.reverse-ident]]
-                                             :where [:and
-                                                     [:= :idents.app-id app-id]
-                                                     [:= :idents.etype etype]]}]]]
-                            [[:= :entity-id id-lookup]
-                             [:and
-                              :vae
-                              [:in :value-md5 {:select [[[:md5 [:cast [:to_jsonb :entity_id] :text]]]]}]]])))
-                      id+etypes)
+  (let [conds (mapcat
+               (fn [[id etype]]
+                 (let [id-lookup
+                       (if (eid-lookup-ref? id)
+                         {:select :entity-id
+                          :from :triples
+                          :where [:and
+                                  [:= :app-id app-id]
+                                  :av
+                                  [:= :attr-id (first id)]
+                                  [:=
+                                   :value-md5
+                                   [:md5 [:cast
+                                          [:cast (->json (second id)) :jsonb]
+                                          :text]]]]}
+                         id)]
+                   (if etype
+                     [[:and
+                       [:= :entity-id id-lookup]
+                       [:in
+                        :attr-id
+                        {:select :attrs.id
+                         :from :attrs
+                         :join [:idents [:= :idents.id :attrs.forward-ident]]
+                         :where [:and
+                                 [:= :idents.app-id app-id]
+                                 [:= :idents.etype etype]]}]]
+                      [:and
+                       [:= :entity-id id-lookup]
+                       :vae
+                       [:= :value-md5 [:md5 [:cast [:to_jsonb id] :text]]]
+                       [:in
+                        :attr-id
+                        {:select :attrs.id
+                         :from :attrs
+                         :join [:idents [:= :idents.id :attrs.reverse-ident]]
+                         :where [:and
+                                 [:= :idents.app-id app-id]
+                                 [:= :idents.etype etype]]}]]]
+
+                     [[:= :entity-id id-lookup]
+                      [:and
+                       :vae
+                       [:= :value-md5 [:md5 [:cast [:to_jsonb [id-lookup]] :text]]]]])))
+               id+etypes)
         query {:delete-from :triples
                :where [:and [:= :app-id app-id]
                        (list* :or conds)]
