@@ -1,20 +1,21 @@
 {
   "name": "@instantdb/core",
-  "version": "v0.12.15-alpha.0",
+  "version": "v0.13.0",
   "description": "Instant's core local abstraction",
   "main": "dist/index.js",
   "module": "dist/module/index.js",
   "types": "dist/module/index.d.ts",
-  "unpkg": "dist/index.js",
+  "unpkg": "standalone/index.umd.js",
   "scripts": {
     "test": "vitest",
     "test:ci": "vitest run",
-    "build": "rm -rf dist; npm run build:main && npm run build:module",
+    "build": "rm -rf dist; npm run build:main && npm run build:module && npm run build:standalone",
     "dev:main": "tsc -p tsconfig.json -w --skipLibCheck",
     "dev:module": "tsc -p tsconfig.module.json -w --skipLibCheck",
     "dev": "run-p dev:main dev:module",
     "build:main": "tsc -p tsconfig.json",
     "build:module": "tsc -p tsconfig.module.json",
+    "build:standalone": "vite build",
     "publish-package": "npm publish --access public"
   },
   "devDependencies": {
@@ -28,6 +29,7 @@
     "fake-indexeddb": "^6.0.0",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.5.4",
+    "vite": "^5.2.0",
     "vitest": "^1.6.0"
   },
   "dependencies": {

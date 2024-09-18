@@ -12,3 +12,7 @@ index-docs:
 publish:
 	@echo "Building + Publishing Packages..."
 	./scripts/publish_packages.clj
+
+publish-experimental:
+	@echo "(Experimental Build) Building + Publishing Packages..."
+	./scripts/publish_packages.clj experimental

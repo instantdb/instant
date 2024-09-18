@@ -13,9 +13,7 @@ export default function Page() {
           In order to use the playground, you need to set up a you `.env` file
         </Text>
         <Text>Take a look at:</Text>
-        <Text className="font-bold">
-          sandbox/react-native-expo/README.md
-        </Text>
+        <Text className="font-bold">sandbox/react-native-expo/README.md</Text>
       </View>
     );
   }
@@ -29,6 +27,9 @@ export default function Page() {
       </Link>
       <Link className="text-lg" href="/play/colors">
         Colors
+      </Link>
+      <Link className="text-lg" href="/play/colors-schema">
+        Colors (with schema)
       </Link>
       <Link className="text-lg" href="/play/litoe">
         Litoe

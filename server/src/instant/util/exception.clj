@@ -87,17 +87,24 @@
   pass?)
 
 (defn throw-permission-evaluation-failed! [etype action e]
-  (throw+ {::type ::permission-evaluation-failed
-           ::message
-           (str "Could not evaluate permission rule for "
-                [etype action]
-                ". You may have a typo. "
-                " Go to the permission tab in your dashboard to update your rule.")
-           ::hint {:rule [etype action]}}
-          e))
+  (let [cause-data (-> e (.getCause) ex-data)
+        cause-message (or (::message cause-data)
+                          "You may have a typo")]
+    (throw+ {::type ::permission-evaluation-failed
+             ::message
+             (format "Could not evaluate permission rule for `%s.%s`. %s. Go to the permission tab in your dashboard to update your rule."
+                     etype
+                     action
+                     cause-message)
+             ::hint (merge {:rule [etype action]}
+                           (when cause-data
+                             {:error {:type (keyword (name (::type cause-data)))
+                                      :message (::message cause-data)
+                                      :hint (::hint cause-data)}}))}
+            e)))
 
-;; ---------- 
-;; Validations 
+;; ----------
+;; Validations
 
 (defn throw-validation-err! [input-type input errors]
   (throw+ {::type ::validation-failed
@@ -110,8 +117,8 @@
   (when (seq errors)
     (throw-validation-err! input-type input errors)))
 
-;; ---------- 
-;; Params 
+;; ----------
+;; Params
 
 (defn get-param! [obj ks coercer]
   (let [param (get-in obj ks)
@@ -127,6 +134,15 @@
                              :original-input param}}))]
     coerced))
 
+(defn get-optional-param! [obj ks coercer]
+  (when-let [param (some-> obj
+                           (get-in ks))]
+    (if-let [coerced (coercer param)]
+      coerced
+      (throw+ {::type ::param-malformed
+               ::message (format "Malformed parameter: %s" (mapv safe-name ks))
+               ::hint {:in ks
+                       :original-input param}}))))
 (defn get-some-param!
   [obj list-of-paths coercer]
   (let [found-path (first (filter #(get-in obj %) list-of-paths))
@@ -232,35 +248,39 @@
       :foreign-key-violation
       (throw+ {::type ::record-foreign-key-invalid
                ::message (format "Foreign Key Invalid: %s" (name condition))
-               ::hint hint}
+               ::hint hint
+               ::pg-error-data data}
               e)
 
       :check-violation
       (throw+ {::type ::record-check-violation
                ::message (format "Check Violation: %s" (name condition))
-               ::hint hint}
+               ::hint hint
+               ::pg-error-data data}
               e)
 
       :raise-exception
       (throw+ {::type ::sql-raise
                ::message (format "Raised Exception: %s" server-message)
-               ::hint hint}
+               ::hint hint
+               ::pg-error-data data}
               e)
 
       (throw+ {::type ::sql-exception
                ::message (format "SQL Exception: %s" (name condition))
-               ::hint hint}
+               ::hint hint
+               ::pg-error-data data}
               e))))
 
-;; -------- 
-;; Oauth 
+;; --------
+;; Oauth
 
 (defn throw-oauth-err! [message]
   (throw+ {::type ::oauth-error
            ::message message}))
 
-;; ------------- 
-;; Wrappers 
+;; -------------
+;; Wrappers
 
 (defn find-instant-exception [^Exception e]
   (loop [cause e]

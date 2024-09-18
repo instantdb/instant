@@ -20,7 +20,7 @@ Now open up `src/App.js` in your favorite editor and replace the entirety of the
 
 ```javascript {% showCopy=true %}
 import { init, tx } from '@instantdb/react-native';
-import { View, Text, Linking, Button, StyleSheet } from 'react-native';
+import { View, Text, Button, StyleSheet } from 'react-native';
 
 // Instant app
 const APP_ID = '__APP_ID__';

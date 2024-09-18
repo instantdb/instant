@@ -1,4 +1,3 @@
-import { QueryResponse, PageInfoResponse } from "./queryTypes";
 export type User = { id: string; email: string; refresh_token: string };
 
 export type AuthResult =

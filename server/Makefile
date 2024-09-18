@@ -54,6 +54,9 @@ dev-with-prod-db:
 	echo "[IMPORTANT] Booting up backend w/ prod db..." && \
 	DATABASE_URL="$${DATABASE_URL}" clj -M:dev:run
 
+prod-ssh:
+	./scripts/prod_ssh.sh
+
 prod-tunnel:
 	./scripts/prod_tunnel.sh
 

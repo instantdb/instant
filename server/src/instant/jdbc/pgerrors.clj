@@ -347,13 +347,13 @@
 
 (defn extract-data [^PSQLException e]
   (let [sql-state (.getSQLState e)
-        condition (sql-state->condition sql-state)
-        server-err (.getServerErrorMessage e)
-        table (.getTable server-err)
-        constraint (.getConstraint server-err)]
-    {:sql-state sql-state
-     :condition condition
-     :table table
-     :constraint constraint
-     :server-message (.getMessage server-err)}))
-
+        condition (or (sql-state->condition sql-state) :unknown)
+        server-err (.getServerErrorMessage e)]
+    (cond->
+     {:sql-state sql-state
+      :condition condition}
+      server-err
+      (assoc
+       :table (.getTable server-err)
+       :constraint (.getConstraint server-err)
+       :server-message (.getMessage server-err)))))

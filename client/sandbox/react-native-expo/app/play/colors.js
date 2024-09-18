@@ -3,7 +3,7 @@ import { View, Text, Button, StyleSheet } from "react-native";
 
 import config from "../config";
 
-const { useQuery, transact } = init({
+const { useQuery, transact} = init({
   appId: config.appId,
   websocketURI: "wss://api.instantdb.com/runtime/session",
 });

@@ -4,6 +4,7 @@ import cors from "cors"; // Import cors module
 import { init, tx, id } from "@instantdb/admin";
 import { assert } from "console";
 import dotenv from "dotenv";
+import fs from "fs";
 
 dotenv.config();
 
@@ -12,6 +13,8 @@ const config = {
   appId: process.env.INSTANT_APP_ID!,
   adminToken: process.env.INSTANT_ADMIN_TOKEN!,
 };
+
+const PERSONAL_ACCESS_TOKEN = process.env.INSTANT_PERSONAL_ACCESS_TOKEN!;
 
 const db = init(config);
 
@@ -130,6 +133,40 @@ async function testDeleteUser() {
   }
 }
 
+async function testAdminStorage(
+  src: string,
+  dest: string,
+  contentType?: string,
+) {
+  const buffer = fs.readFileSync(src);
+  const ok = await db.storage.upload(dest, buffer, {
+    contentType: contentType,
+  });
+  const url = await db.storage.getDownloadUrl(dest);
+  console.log("Uploaded:", url);
+}
+
+async function testAdminStorageFiles() {
+  const files = await db.storage.list();
+  console.log("Files:", files);
+}
+
+async function testAdminStorageDelete(filepath: string) {
+  console.log("Before:", await db.storage.list());
+  await db.storage.delete(filepath);
+  console.log("After:", await db.storage.list());
+}
+
+async function testAdminStorageBulkDelete(keyword: string) {
+  const files = await db.storage.list();
+  const deletable = files
+    .map((f) => f.name)
+    .filter((name) => name.includes(keyword));
+  console.log({ deletable });
+  await db.storage.deleteMany(deletable);
+  console.log("After:", await db.storage.list());
+}
+
 // testCreateToken();
 // testQuery();
 // testTransact();
@@ -137,3 +174,61 @@ async function testDeleteUser() {
 // testSignOut();
 // testFetchUser();
 // testDeleteUser();
+// testAdminStorage("src/demo.jpeg", "admin/demo.jpeg", "image/jpeg");
+// testAdminStorageFiles();
+// testAdminStorageDelete("admin/demo.jpeg");
+// testAdminStorageBulkDelete("admin/demo");
+
+/**
+ * Superadmin
+ */
+
+async function testSuperadminListApps() {
+  const response = await fetch(`${config.apiURI}/superadmin/apps`, {
+    headers: {
+      Authorization: `Bearer ${PERSONAL_ACCESS_TOKEN}`,
+    },
+  });
+  const data: any = await response.json();
+  console.log(data);
+  return data.apps;
+}
+
+async function testSuperadminCreateApp(title: string) {
+  const response = await fetch(`${config.apiURI}/superadmin/apps`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${PERSONAL_ACCESS_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ title }),
+  });
+  const data: any = await response.json();
+  console.log(data);
+  return data.app;
+}
+
+async function testSuperadminDeleteApp(appId: string) {
+  const response = await fetch(`${config.apiURI}/superadmin/apps/${appId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${PERSONAL_ACCESS_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+  });
+  const data: any = await response.json();
+  console.log(data);
+  return data.app;
+}
+
+async function testSuperadminAppsFlow() {
+  const app = await testSuperadminCreateApp("Test App");
+  await testSuperadminListApps();
+  await testSuperadminDeleteApp(app.id);
+  await testSuperadminListApps();
+}
+
+// testSuperadminListApps();
+// testSuperadminCreateApp("Test App");
+// testSuperadminDeleteApp("a3203638-7869-40cb-b21f-bb093342a461");
+// testSuperadminAppsFlow();

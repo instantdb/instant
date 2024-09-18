@@ -42,11 +42,12 @@ export function immutableDeepMerge(target, source) {
   const result = {};
 
   for (const key of Object.keys(target)) {
+    if (source[key] === null) continue;
+
     result[key] = target[key];
   }
 
   for (const key of Object.keys(source)) {
-    // null acts as a "delete key"
     if (source[key] === null) continue;
 
     const areBothObjects = isObject(target[key]) && isObject(source[key]);

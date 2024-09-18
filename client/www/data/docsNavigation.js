@@ -26,6 +26,7 @@ module.exports = [
       { title: 'Magic codes', href: '/docs/auth/magic-codes' },
       { title: 'Google OAuth', href: '/docs/auth/google-oauth' },
       { title: 'Permissions', href: '/docs/permissions' },
+      { title: 'Clerk', href: '/docs/auth/clerk' },
     ],
   },
   {
@@ -38,8 +39,9 @@ module.exports = [
       { title: 'Custom emails', href: '/docs/emails' },
       { title: 'App teams', href: '/docs/teams' },
       { title: 'Instant CLI', href: '/docs/cli' },
-      { title: 'Storage (beta)', href: '/docs/storage' },
       { title: 'Schema-as-code', href: '/docs/schema' },
+      { title: 'Storage (beta)', href: '/docs/storage' },
+      { title: 'Strong Init (experimental)', href: '/docs/strong-init' },
     ],
   },
 ];

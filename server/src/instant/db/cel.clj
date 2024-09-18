@@ -7,14 +7,20 @@
    [instant.db.model.attr-pat :as attr-pat]
    [instant.util.coll :as ucoll]
    [clojure.string :as clojure-string]
+   [clojure.set :as clojure-set]
    [instant.util.exception :as ex]
    [instant.db.dataloader :as dataloader]
    [instant.util.tracer :as tracer])
   (:import
-   (java.util Map)
+   (java.util Map Optional)
    (com.google.protobuf NullValue)
    (dev.cel.common CelFunctionDecl
-                   CelOverloadDecl)
+                   CelOverloadDecl
+                   CelAbstractSyntaxTree)
+   (dev.cel.common.ast CelExpr
+                       CelExpr$CelCall
+                       CelExpr$CelComprehension
+                       CelExpr$ExprKind$Kind)
    (dev.cel.extensions CelExtensions)
    (dev.cel.common.types SimpleType MapType ListType CelType)
    (dev.cel.compiler CelCompiler CelCompilerFactory CelCompilerLibrary)
@@ -50,12 +56,12 @@
                                                   value-sym)
         {id-attr :id} (attr-pat/id-attr-by-etype ctx etype)
         ;; (XXX): By putting level-sym in the :e portion,
-        ;; we scan the entire :ea index. 
-        ;; It _would_ be better if we put eids in the ?v portion. 
-        ;; But this would not work, because `id` is currently saved 
-        ;; as a blob. We may want to save eids as refs in the future.
-        id-attr-pat [(attr-pat/default-level-sym etype level) id-attr eids]
-        ;; Note: if you change the position of `id-attr-pat`, 
+        ;; we scan the entire :ea index.
+        ;; It _would_ be better if we put eids in the ?v portion.
+        ;; But this would not work, because `id` is currently saved
+        ;; as a blob. We may want to save eids as refs in the future
+        id-attr-pat [(attr-pat/default-level-sym etype level) id-attr (set eids)]
+        ;; Note: if you change the position of `id-attr-pat`,
         ;; make sure to update `group-by-path` in `get-ref-many`
         attr-pats (concat [id-attr-pat] ref-attr-pats [value-attr-pat])]
     (attr-pat/attr-pats->patterns ctx attr-pats)))
@@ -129,9 +135,14 @@
                        (ucoll/array-of CelType [type-obj SimpleType/STRING]))]))
              :runtime (let [impl (reify CelFunctionOverload$Binary
                                    (apply [_ {:strs [_ctx id _etype] :as _self} path-str]
-                                     (vec (get-ref _ctx {:eid (parse-uuid id)
-                                                         :etype _etype
-                                                         :path-str path-str}))))]
+                                     (let [ref-data {:eid (parse-uuid id)
+                                                     :etype _etype
+                                                     :path-str path-str}]
+                                       (if-let [preloaded-ref (-> _ctx
+                                                                  :preloaded-refs
+                                                                  (get ref-data))]
+                                         (vec preloaded-ref)
+                                         (vec (get-ref _ctx ref-data))))))]
                         (CelRuntime$CelFunctionBinding/from
                          "data_ref"
                          Map
@@ -162,7 +173,10 @@
 (defn eval-program!
   [{:keys [cel-program etype action]} bindings]
   (try
-    (.eval ^CelRuntime$Program cel-program ^java.util.Map bindings)
+    (let [result (.eval ^CelRuntime$Program cel-program ^java.util.Map bindings)]
+      (if (= result NullValue/NULL_VALUE)
+        nil
+        result))
     (catch CelEvaluationException e
       (ex/throw-permission-evaluation-failed!
        etype action e))))
@@ -193,6 +207,138 @@
       (let [m' (or m {})
             ^java.util.Map clean-m (dissoc m' "_ctx" "_etype")]
         (.entrySet clean-m)))))
+
+
+;; Static analysis
+;; ---------------
+
+(declare expr->data-ref-uses)
+
+(defn get-optional-value
+  "Returns value in optional if it's some, or nil if it's none."
+  [^Optional o]
+  (when (.isPresent o)
+    (.get o)))
+
+(defn function-name
+  "Returns the qualified function name, e.g. `data.ref`, `type`, `_+_`"
+  [^CelExpr$CelCall call]
+  (let [f (.function call)]
+    (if-let [target (get-optional-value (.target call))]
+      (if (= CelExpr$ExprKind$Kind/IDENT (.getKind target))
+        (format "%s.%s" (.name (.ident target)) f)
+        (tracer/with-span! {:name "cel/unknown-function-name"
+                            :attributes {:cel-call call}}
+          f))
+      f)))
+
+(defn data-ref-arg
+  "Returns the `path-str` if the args match what we expect for data.ref,
+   otherwise nil. Logs if the arg isn't a constant string so that we can
+   investigate."
+  [^CelExpr$CelCall call]
+  (if (= 1 (count (.args call)))
+    (if (= CelExpr$ExprKind$Kind/CONSTANT (.getKind (first (.args call))))
+      (.stringValue (.constant (first (.args call))))
+      (tracer/with-span! {:name "cel/unknown-data-ref-arg"
+                          :attributes {:cel-call call}}
+        nil))
+    (tracer/with-span! {:name "cel/data-ref-arg"
+                        :attributes {:cel-call call}}
+      nil)))
+
+(defn call->data-ref-uses
+  "Walks the cel call, looking for `data.ref` calls, returning a set of
+   `path-str`s."
+  [^CelExpr$CelCall call]
+  (if (= "data.ref" (function-name call))
+    (if-let [arg (data-ref-arg call)]
+      #{arg}
+      #{})
+    (reduce (fn [acc expr]
+              (into acc (expr->data-ref-uses expr)))
+            #{}
+            (.args call))))
+
+(defn compression->data-ref-uses
+  "Walks the cel comprehension, looking for `data.ref` calls, returning a set of
+   `path-str`s."
+  [^CelExpr$CelComprehension c]
+  (clojure-set/union (expr->data-ref-uses (.iterRange c))
+                     (expr->data-ref-uses (.accuInit c))
+                     (expr->data-ref-uses (.loopCondition c))
+                     (expr->data-ref-uses (.loopStep c))
+                     (expr->data-ref-uses (.result c))))
+
+(defn expr->data-ref-uses
+  "Walks the cel expression, looking for `data.ref` calls, returning a set of
+   `path-str`s."
+  [^CelExpr expr]
+  (condp = (.getKind expr)
+    CelExpr$ExprKind$Kind/NOT_SET #{}
+    CelExpr$ExprKind$Kind/CONSTANT #{}
+    ;; An identifier expression. e.g. `request`.
+    CelExpr$ExprKind$Kind/IDENT #{}
+    ;; A field selection expression. e.g. `request.auth`.
+    CelExpr$ExprKind$Kind/SELECT #{}
+    CelExpr$ExprKind$Kind/LIST (reduce (fn [acc item]
+                                         (into acc (expr->data-ref-uses item)))
+                                       #{}
+                                       (.elements (.list expr)))
+    ;; Not sure how to make one of these, will ignore for now
+    CelExpr$ExprKind$Kind/STRUCT (tracer/with-span! {:name "cel/unknown-struct"
+                                                     :attributes {:expr expr}}
+                                   #{})
+    CelExpr$ExprKind$Kind/MAP (reduce (fn [acc entry]
+                                        (-> acc
+                                            (into (expr->data-ref-uses (.key entry)))
+                                            (into (expr->data-ref-uses (.value entry)))))
+                                      #{}
+                                      (.entries (.map expr)))
+    ;; https://github.com/google/cel-java/blob/10bb524bddc7c32a55101f6b4967eb52cd14fb18/common/src/main/java/dev/cel/common/ast/CelExpr.java#L925
+    CelExpr$ExprKind$Kind/COMPREHENSION (compression->data-ref-uses (.comprehension expr))
+    CelExpr$ExprKind$Kind/CALL (call->data-ref-uses (.call expr))))
+
+;; It would be nice to have a more abstract walker over the ast,
+;; but this will do for now.
+(defn collect-data-ref-uses
+  "Returns a set of `path-str` used in `data.ref` calls in the given cel ast."
+  [^CelAbstractSyntaxTree ast]
+  (expr->data-ref-uses (.getExpr ast)))
+
+(defn prefetch-data-refs
+  "refs should be a list of:
+     {eids: #{uuid}
+      etype: string
+      path-str: string}
+   Returns a map of:
+     {{eid: uuid, etype: string, path: string}: get-ref-result}"
+  [{:keys [datalog-query-fn] :as ctx} refs]
+  (let [patterns (map (partial build-query ctx) refs)
+        query {:children {:pattern-groups (map (fn [patterns]
+                                                 {:patterns patterns})
+                                               patterns)}}
+        results (:data (datalog-query-fn ctx query))]
+    (reduce (fn [acc [ref pattern result]]
+              (let [group-by-path [0 0]
+                    val-path (find-val-path pattern)
+                    {:keys [join-rows]} result
+                    grouped-join-rows (group-by #(get-in % group-by-path) join-rows)]
+                (reduce (fn [acc eid]
+                          (assoc acc
+                                 {:eid eid
+                                  :etype (:etype ref)
+                                  :path-str (:path-str ref)}
+                                 (let [rows (grouped-join-rows eid)]
+                                   (map #(get-in % val-path) rows))))
+                        acc
+                        (:eids ref))))
+            {}
+            (map (fn [ref pattern result]
+                   [ref pattern (:result result)])
+                 refs
+                 patterns
+                 results))))
 
 (comment
   (def m (->cel-map {"id" #uuid "8164fb78-6fa3-4aab-8b92-80e706bae93a"

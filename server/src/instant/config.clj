@@ -137,6 +137,10 @@
 (defn get-honeycomb-api-key []
   (some-> @config-map :honeycomb-api-key (.value)))
 
+(defn get-honeycomb-endpoint []
+  (or (System/getenv "HONEYCOMB_ENDPOINT")
+      "https://api.honeycomb.io:443"))
+
 (defn get-google-oauth-client []
   (-> @config-map :google-oauth-client))
 
@@ -158,7 +162,7 @@
          (string/replace (UUID/randomUUID) #"-" "_"))))
 
 (defn get-connection-pool-size []
-  (if (= :prod (get-env)) 200 20))
+  (if (= :prod (get-env)) 400 20))
 
 (defn env-integer [var-name]
   (when (System/getenv var-name)

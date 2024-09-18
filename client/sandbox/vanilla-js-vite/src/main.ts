@@ -111,7 +111,7 @@ function renderMagicCodePage(email: string) {
     e.preventDefault();
     const code = formEl.code.value;
     try {
-      db.auth.signInWithMagicCode({ email, code });
+      await db.auth.signInWithMagicCode({ email, code });
     } catch (e: any) {
       alert(`Uh oh! ${e.body?.message}`);
     }
@@ -125,7 +125,7 @@ if (!APP_ID) {
     In order to use the playground, you need to set up a you \`.env\` file
   </p>
   <p>
-    Take a look at the 
+    Take a look at the
     <a
       href="https://github.com/instantdb/instant/tree/main/client/sandbox/vanilla-js-vite"
     >

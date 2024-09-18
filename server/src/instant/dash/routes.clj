@@ -5,8 +5,6 @@
             [clojure.tools.logging :as log]
             [compojure.core :refer [defroutes GET POST DELETE] :as compojure]
             [instant.dash.admin :as dash-admin]
-            [instant.db.datalog :as d]
-            [instant.db.permissioned-transaction :as permissioned-tx]
             [instant.model.app :as app-model]
             [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
             [instant.model.app-oauth-client :as app-oauth-client-model]
@@ -30,13 +28,14 @@
             [instant.model.instant-cli-login :as instant-cli-login-model]
             [instant.postmark :as postmark]
             [instant.util.async :refer [fut-bg]]
-            [instant.util.coll :as coll]
             [instant.util.crypt :as crypt-util]
             [instant.util.email :as email]
             [instant.util.json :as json]
             [instant.util.tracer :as tracer]
             [instant.util.uuid :as uuid-util]
             [instant.util.string :as string-util]
+            [instant.util.number :as number-util]
+            [instant.util.storage :as storage-util]
             [instant.session-counter :as session-counter]
             [ring.middleware.cookies :refer [wrap-cookies]]
             [ring.util.http-response :as response]
@@ -54,8 +53,9 @@
             [instant.jdbc.aurora :as aurora]
             [instant.stripe :as stripe]
             [instant.storage.s3 :as s3-util]
-            [instant.storage.beta :as storage-beta])
-
+            [instant.storage.beta :as storage-beta]
+            [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
+            [instant.model.schema :as schema-model])
   (:import
    (java.util UUID)
    (com.stripe.model.checkout Session)))
@@ -107,6 +107,7 @@
          {user-id :id :as user} (req->auth-user! req)
          subscription (instant-subscription-model/get-by-user-app {:user-id (:creator_id app)
                                                                    :app-id (:id app)})]
+
      (assert-least-privilege!
       least-privilege
       (cond
@@ -262,15 +263,22 @@
     (assert-admin-email! email)
     (response/ok {:users (dash-admin/get-recent)})))
 
-(defn top-get [req]
-  (let [{:keys [email]} (req->auth-user! req)]
+(defn admin-top-get [req]
+  (let [{:keys [email]} (req->auth-user! req)
+        n (get-in req [:params :n])
+        n-val (number-util/parse-int n 7)]
     (assert-admin-email! email)
-    (response/ok {:users (dash-admin/get-top-users)})))
+    (response/ok {:users (dash-admin/get-top-users n-val)})))
 
-(defn paid-get [req]
+(defn admin-paid-get [req]
   (let [{:keys [email]} (req->auth-user! req)]
     (assert-admin-email! email)
     (response/ok {:subscriptions (dash-admin/get-paid)})))
+
+(defn admin-storage-get [req]
+  (let [{:keys [email]} (req->auth-user! req)]
+    (assert-admin-email! email)
+    (response/ok {:apps (dash-admin/get-storage-metrics)})))
 
 ;; ---
 ;; Dash
@@ -400,14 +408,21 @@
     (response/ok {:provider (select-keys provider [:id :provider_name :created_at])})))
 
 (defn oauth-clients-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+  (let [coerce-optional-param!
+        (fn [path]
+          (ex/get-optional-param! req
+                                  path
+                                  string-util/coerce-non-blank-str))
+
+        {{app-id :id} :app} (req->app-and-user! :collaborator req)
         provider-id (ex/get-param! req [:body :provider_id] uuid-util/coerce)
         client-name (ex/get-param! req [:body :client_name] string-util/coerce-non-blank-str)
-        client-id (ex/get-param! req [:body :client_id] string-util/coerce-non-blank-str)
-        client-secret (ex/get-param! req [:body :client_secret] string-util/coerce-non-blank-str)
-        authorization-endpoint (ex/get-param! req [:body :authorization_endpoint] string-util/coerce-non-blank-str)
-        token-endpoint (ex/get-param! req [:body :token_endpoint] string-util/coerce-non-blank-str)
+        client-id (coerce-optional-param! [:body :client_id])
+        client-secret (coerce-optional-param! [:body :client_secret])
+        authorization-endpoint (coerce-optional-param! [:body :authorization_endpoint])
+        token-endpoint (coerce-optional-param! [:body :token_endpoint])
         discovery-endpoint (ex/get-param! req [:body :discovery_endpoint] string-util/coerce-non-blank-str)
+        meta (ex/get-optional-param! req [:body :meta] (fn [x] (when (map? x) x)))
         client (app-oauth-client-model/create! {:app-id app-id
                                                 :provider-id provider-id
                                                 :client-name client-name
@@ -415,9 +430,10 @@
                                                 :client-secret client-secret
                                                 :authorization-endpoint authorization-endpoint
                                                 :token-endpoint token-endpoint
-                                                :discovery-endpoint discovery-endpoint})]
+                                                :discovery-endpoint discovery-endpoint
+                                                :meta meta})]
     (response/ok {:client (select-keys client [:id :provider_id :client_name
-                                               :client_id :created_at])})))
+                                               :client_id :created_at :meta :discovery_endpoint])})))
 
 (defn oauth-clients-delete [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
@@ -428,14 +444,17 @@
 
 (defn ephemeral-claim-post [req]
   (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
-        admin-token (ex/get-param! req [:body :token] uuid-util/coerce)
+        token (ex/get-param! req [:body :token] uuid-util/coerce)
         {app-creator-id :creator_id} (app-model/get-by-id! {:id app-id})
         {user-id :id} (req->auth-user! req)]
     (ex/assert-permitted!
      :ephemeral-app?
      app-id
      (= (:id @ephemeral-app/ephemeral-creator) app-creator-id))
-    (app-model/change-creator! {:id app-id :new-creator-id user-id :admin-token admin-token})
+    ;; make sure the request comes with a valid admin token
+    (app-admin-token-model/fetch! {:app-id app-id :token token})
+    (app-model/change-creator! {:id app-id
+                                :new-creator-id user-id})
     (response/ok {})))
 
 ;; --------
@@ -737,9 +756,15 @@
     (ex/assert-permitted! :acceptable? invite-id (not= status "revoked"))
     (next-jdbc/with-transaction [tx-conn aurora/conn-pool]
       (instant-app-member-invites-model/accept-by-id! tx-conn {:id invite-id})
-      (instant-app-members/create! tx-conn {:user-id user-id
-                                            :app-id app_id
-                                            :role invitee_role}))
+      (condp = invitee_role
+        "creator"
+        (app-model/change-creator!
+         tx-conn
+         {:id app_id
+          :new-creator-id user-id})
+        (instant-app-members/create! tx-conn {:user-id user-id
+                                              :app-id app_id
+                                              :role invitee_role})))
     (response/ok {})))
 
 (comment
@@ -809,6 +834,37 @@
       (team-member-update-post
        (assoc owner-req :body {:role "admin" :id (:id member)})))))
 
+;; ---
+;; Personal access tokens
+
+(defn personal-access-tokens-get [req]
+  (let [{user-id :id} (req->auth-user! req)
+        personal-access-tokens (instant-personal-access-token-model/list-by-user-id! {:user-id user-id})]
+    (response/ok {:data personal-access-tokens})))
+
+(defn personal-access-tokens-post [req]
+  (let [{user-id :id} (req->auth-user! req)
+        name (ex/get-param! req [:body :name] string-util/coerce-non-blank-str)
+        personal-access-tokens (instant-personal-access-token-model/create! {:id (UUID/randomUUID)
+                                                                             :user-id user-id
+                                                                             :name name})]
+    (response/ok {:data personal-access-tokens})))
+
+(defn personal-access-tokens-delete [req]
+  (let [{user-id :id} (req->auth-user! req)
+        id (ex/get-param! req [:params :id] uuid-util/coerce)]
+    (instant-personal-access-token-model/delete-by-id! {:id id :user-id user-id})
+    (response/ok {})))
+
+(comment
+  (def user (instant-user-model/get-by-email {:email "alex@instantdb.com"}))
+  (def refresh-token (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id (:id user)}))
+  (def headers {"authorization" (str "Bearer " (:id refresh-token))})
+  (def record (personal-access-tokens-post {:headers headers :body {:name "Test Token"}}))
+
+  (personal-access-tokens-get {:headers headers})
+  (personal-access-tokens-delete {:headers headers :params {:id (-> record :body :data :id)}}))
+
 ;; --- 
 ;; Email templates
 
@@ -871,55 +927,37 @@
 ;; Storage
 
 (defn signed-download-url-get [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
-        expiration (+ (System/currentTimeMillis) (* 1000 60 60 24 7)) ;; 7 days
-        object-key (s3-util/->object-key app-id filename)]
-    (storage-beta/assert-storage-enabled! app-id)
-    (response/ok {:data (str (s3-util/signed-download-url object-key expiration))})))
+  (let [filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
+        {{app-id :id} :app} (req->app-and-user! :collaborator req)
+        data (storage-util/create-signed-download-url! app-id filename)]
+    (response/ok {:data data})))
 
 (defn signed-upload-url-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        filename (ex/get-param! req [:body :filename] string-util/coerce-non-blank-str)
-        object-key (s3-util/->object-key app-id filename)]
-    (storage-beta/assert-storage-enabled! app-id)
-    (response/ok {:data (str (s3-util/signed-upload-url object-key))})))
-
-(defn format-object [{:keys [key size owner etag last-modified]}]
-  {:key key
-   :size size
-   :owner owner
-   :etag etag
-   :last_modified (.getMillis last-modified)})
+  (let [filename (ex/get-param! req [:body :filename] string-util/coerce-non-blank-str)
+        {{app-id :id} :app} (req->app-and-user! :collaborator req)
+        data (storage-util/create-signed-upload-url! app-id filename)]
+    (response/ok {:data data})))
 
 ;; Retrieves all files that have been uploaded via Storage APIs
 (defn files-get [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        _ (storage-beta/assert-storage-enabled! app-id)
         subdirectory (-> req :params :subdirectory)
-        objects-resp (if (string/blank? subdirectory)
-                       (s3-util/list-app-objects app-id)
-                       (s3-util/list-app-objects (str app-id "/" subdirectory)))
-        objects (:object-summaries objects-resp)]
-    (response/ok {:data (map format-object objects)})))
+        data (storage-util/list-files! app-id subdirectory)]
+    (response/ok {:data data})))
 
 ;; Deletes a single file by name/path (e.g. "demo.png", "profiles/me.jpg")
 (defn file-delete [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        _ (storage-beta/assert-storage-enabled! app-id)
-        filename (-> req :params :filename)
-        key (s3-util/->object-key app-id filename)
-        resp (s3-util/delete-object key)]
-    (response/ok {:data resp})))
+  (let [filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
+        {{app-id :id} :app} (req->app-and-user! :collaborator req)
+        data (storage-util/delete-file! app-id filename)]
+    (response/ok {:data data})))
 
 ;; Deletes a multiple files by name/path (e.g. "demo.png", "profiles/me.jpg")
 (defn files-delete [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        _ (storage-beta/assert-storage-enabled! app-id)
-        filenames (-> req :body :filenames)
-        keys (mapv (fn [filename] (s3-util/->object-key app-id filename)) filenames)
-        resp (s3-util/delete-objects keys)]
-    (response/ok {:data resp})))
+  (let [filenames (ex/get-param! req [:body :filenames] seq)
+        {{app-id :id} :app} (req->app-and-user! :collaborator req)
+        data (storage-util/bulk-delete-files! app-id filenames)]
+    (response/ok {:data data})))
 
 (comment
   (def app-id  #uuid "524bc106-1f0d-44a0-b222-923505264c47")
@@ -937,169 +975,23 @@
 ;; --- 
 ;; CLI
 
-(defn map-map [f m]
-  (into {} (map (fn [[k v]] [k (f [k v])]) m)))
-
-(defn schemas->ops [current-schema new-schema]
-  (let [{new-blobs :blobs new-refs :refs} new-schema
-        eid-ops (map (fn [[ns-name _]] (if (get-in current-schema [:blobs ns-name])
-                                         nil
-                                         [:add-attr
-                                          {:value-type :blob
-                                           :cardinality :one
-                                           :id (UUID/randomUUID)
-                                           :forward-identity [(UUID/randomUUID) (name ns-name) "id"]
-                                           :unique? false
-                                           :index? false}])) new-blobs)
-        blob-ops (mapcat
-                  (fn [[ns-name attrs]]
-                    (map (fn [[attr-name new-attr]]
-                           (let
-                            [current-attr (get-in current-schema [:blobs ns-name attr-name])
-                             name-id? (= "id" (name attr-name))
-                             new-attr? (not current-attr)
-                             unchanged-attr? (and
-                                              (= (get new-attr :unique?) (get current-attr :unique?))
-                                              (= (get new-attr :index?) (get current-attr :index?)))]
-                             (cond
-                               name-id? nil
-                               unchanged-attr? nil
-                               new-attr?  [:add-attr
-                                           {:value-type :blob
-                                            :cardinality :one
-                                            :id (UUID/randomUUID)
-                                            :forward-identity [(UUID/randomUUID) (name ns-name) (name attr-name)]
-                                            :unique? (:unique? new-attr)
-                                            :index? (:index? new-attr)}]
-                               :else [:update-attr
-                                      {:value-type :blob
-                                       :cardinality :one
-                                       :id (:id current-attr)
-                                       :forward-identity (:forward-identity current-attr)
-                                       :unique? (:unique? new-attr)
-                                       :index? (:index? new-attr)}])))
-                         attrs))
-                  new-blobs)
-        ref-ops (map
-                 (fn [[link-desc new-attr]]
-                   (let
-                    [[from-ns from-attr to-ns to-attr] link-desc
-                     current-attr (get-in current-schema [:refs link-desc])
-                     new-attr? (not current-attr)
-                     unchanged-attr? (and
-                                      (= (get new-attr :cardinality) (get current-attr :cardinality))
-                                      (= (get new-attr :unique?) (get current-attr :unique?)))]
-                     (cond
-                       unchanged-attr? nil
-                       new-attr? [:add-attr
-                                  {:value-type :ref
-                                   :id (UUID/randomUUID)
-                                   :forward-identity [(UUID/randomUUID) from-ns from-attr]
-                                   :reverse-identity [(UUID/randomUUID) to-ns to-attr]
-                                   :cardinality (:cardinality new-attr)
-                                   :unique? (:unique? new-attr)
-                                   :index? (:index? new-attr)}]
-                       :else [:update-attr
-                              {:value-type :ref
-                               :id (:id current-attr)
-                               :forward-identity (:forward-identity current-attr)
-                               :reverse-identity (:reverse-identity current-attr)
-                               :cardinality (:cardinality new-attr)
-                               :unique? (:unique? new-attr)
-                               :index? (:index? new-attr)}])))
-                 new-refs)]
-    (->> (concat eid-ops blob-ops ref-ops)
-         (filter some?)
-         vec)))
-
-(defn attrs->schema [attrs]
-  (let [{blobs :blob refs :ref} (group-by :value-type attrs)
-        refs-indexed (into {} (map (fn [{:keys [forward-identity reverse-identity] :as attr}]
-                                     [[(second forward-identity)
-                                       (coll/third forward-identity)
-                                       (second reverse-identity)
-                                       (coll/third reverse-identity)] attr])
-                                   refs))
-        blobs-indexed (->> blobs
-                           (group-by #(-> % attr-model/fwd-etype keyword))
-                           (map-map (fn [[_ attrs]]
-                                      (into {}
-                                            (map (fn [a]
-                                                   [(keyword (-> a :forward-identity coll/third))
-                                                    a])
-                                                 attrs)))))]
-    {:refs refs-indexed :blobs blobs-indexed}))
-
-(def relationships->schema-params {[:many :many] {:cardinality :many
-                                                  :unique? false}
-                                   [:one :one] {:cardinality :one
-                                                :unique? true}
-                                   [:many :one] {:cardinality :many
-                                                 :unique? true}
-                                   [:one :many] {:cardinality :one
-                                                 :unique? false}})
-
-(defn defs->schema [defs]
-  (let [{entities :entities links :links} defs
-        refs-indexed (into {} (map (fn [[_ {forward :forward reverse :reverse}]]
-                                     [[(:on forward) (:label forward) (:on reverse) (:label reverse)]
-                                      (merge
-                                       {:id nil
-                                        :value-type :ref
-                                        :index? false
-                                        :forward-identity [nil (:on forward) (:label forward)]
-                                        :reverse-identity [nil (:on reverse) (:label reverse)]}
-                                       (get relationships->schema-params
-                                            [(keyword (:has forward)) (keyword (:has reverse))]))])
-                                   links))
-        blobs-indexed (map-map (fn [[ns-name def]]
-                                 (map-map (fn [[attr-name attr-def]]
-                                            {:id nil
-                                             :value-type :blob
-                                             :cardinality :one
-                                             :forward-identity [nil (name ns-name) (name attr-name)]
-                                             :unique? (or (-> attr-def :config :unique) false)
-                                             :index? (or (-> attr-def :config :indexed) false)})
-                                          (:attrs def)))
-                               entities)]
-    {:refs refs-indexed :blobs blobs-indexed}))
-
-(defn schema-push-steps [app-id client-defs]
-  (let [new-schema (defs->schema client-defs)
-        current-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
-        current-schema (attrs->schema current-attrs)
-        steps (schemas->ops current-schema new-schema)]
-    {:new-schema new-schema
-     :current-schema current-schema
-     :current-attrs current-attrs
-     :steps steps}))
-
 (defn schema-push-plan-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        client-defs (-> req :body :schema)
-        r (schema-push-steps app-id client-defs)]
-    (response/ok r)))
+        client-defs (-> req :body :schema)]
+    (response/ok (schema-model/plan app-id client-defs))))
 
 (defn schema-push-apply-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         client-defs (-> req :body :schema)
-        r (schema-push-steps app-id client-defs)
-        tx-ctx {:admin? true
-                :db {:conn-pool aurora/conn-pool}
-                :app-id app-id
-                :attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
-                :datalog-query-fn d/query
-                :rules (rule-model/get-by-app-id aurora/conn-pool
-                                                 {:app-id app-id})}
-        _ (permissioned-tx/transact! tx-ctx (:steps r))]
+        r (schema-model/plan app-id client-defs)]
+    (schema-model/apply-plan! app-id r)
     (response/ok r)))
 
 (defn schema-pull-get [req]
   (let [{{app-id :id app-title :title} :app} (req->app-and-user! :collaborator req)
         current-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
-        current-schema (attrs->schema current-attrs)
-        r {:schema current-schema :app-title app-title}]
-    (response/ok r)))
+        current-schema (schema-model/attrs->schema current-attrs)]
+    (response/ok {:schema current-schema :app-title app-title})))
 
 (defn perms-pull-get [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
@@ -1113,7 +1005,7 @@
   (def counters-app-id  #uuid "137ace7a-efdd-490f-b0dc-a3c73a14f892")
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (def r (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id (:id u)}))
-  (schemas->ops
+  (schema-model/schemas->ops
    {:refs {}
     :blobs {}}
    {:refs {["posts" "comments" "comments" "post"] {:unique? false :cardinality "many"}}
@@ -1207,8 +1099,12 @@
   (POST "/dash/auth/send_magic_code" [] send-magic-code-post)
   (POST "/dash/auth/verify_magic_code" [] verify-magic-code-post)
   (GET "/dash/admin" [] admin-get)
-  (GET "/dash/top" [] top-get)
-  (GET "/dash/paid" [] paid-get)
+
+  ;; internal admin routes
+  (GET "/dash/top" [] admin-top-get)
+  (GET "/dash/paid" [] admin-paid-get)
+  (GET "/dash/storage" [] admin-storage-get)
+
   (GET "/dash" [] dash-get)
   (POST "/dash/apps" [] apps-post)
   (POST "/dash/profiles" [] profiles-post)
@@ -1259,6 +1155,10 @@
 
   (POST "/dash/invites/accept" [] team-member-invite-accept-post)
   (POST "/dash/invites/decline" [] team-member-invite-decline-post)
+
+  (GET "/dash/personal_access_tokens" [] personal-access-tokens-get)
+  (POST "/dash/personal_access_tokens" [] personal-access-tokens-post)
+  (DELETE "/dash/personal_access_tokens/:id" [] personal-access-tokens-delete)
 
   (POST "/dash/apps/:app_id/rename" [] app-rename-post)
 

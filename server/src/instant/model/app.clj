@@ -28,13 +28,45 @@
   ([params] (get-by-id aurora/conn-pool params))
   ([conn {:keys [id]}]
    (sql/select-one conn
-                   ["SELECT 
-                       a.* 
+                   ["SELECT
+                       a.*
                      FROM apps a
                      WHERE a.id = ?::uuid" id])))
 
 (defn get-by-id! [params]
   (ex/assert-record! (get-by-id params) :app {:args [params]}))
+
+(defn list-by-creator-id
+  ([user-id] (list-by-creator-id aurora/conn-pool user-id))
+  ([conn user-id]
+   (sql/select conn
+               ["SELECT a.*
+                FROM apps a
+                WHERE a.creator_id = ?::uuid"
+                user-id])))
+
+(comment
+  (def user-id "6412d553-2749-4f52-898a-0b3ec42ffd28")
+  (list-by-creator-id user-id))
+
+(defn get-by-id-and-creator
+  ([params] (get-by-id-and-creator aurora/conn-pool params))
+  ([conn {:keys [user-id app-id]}]
+   (sql/select-one conn
+                   ["SELECT a.*
+                      FROM apps a
+                      WHERE
+                      a.id = ?::uuid AND
+                      a.creator_id = ?::uuid"
+                    app-id user-id])))
+
+(defn get-by-id-and-creator! [params]
+  (ex/assert-record! (get-by-id-and-creator params) :app {:args [params]}))
+
+(comment
+  (def user-id "6412d553-2749-4f52-898a-0b3ec42ffd28")
+  (def app-id "68b75bac-3ff7-4efe-9596-97ac0d03ab65")
+  (get-by-id-and-creator {:user-id user-id :app-id app-id}))
 
 (defn get-app-ids-created-before
   ([params] (get-app-ids-created-before aurora/conn-pool params))
@@ -44,10 +76,26 @@
              ["SELECT
                 a.id
                 FROM apps a
-                WHERE 
-                  a.creator_id = ?::uuid AND 
+                WHERE
+                  a.creator_id = ?::uuid AND
                   a.created_at < ?"
               creator-id created-before]))))
+
+(defn get-with-creator-by-ids
+  ([params] (get-with-creator-by-ids aurora/conn-pool params))
+  ([conn app-ids]
+   (sql/select conn ["SELECT a.*, u.email AS creator_email
+                      FROM apps a
+                      JOIN instant_users u ON a.creator_id = u.id
+                      WHERE a.id in (select unnest(?::uuid[]))"
+                     (-> app-ids
+                         vec
+                         (with-meta {:pgtype "uuid[]"})
+                         into-array)])))
+
+(comment
+  (get-with-creator-by-ids ["41c12a82-f769-42e8-aad8-53bf33bbaba9"
+                            "59aafa92-a900-4b3d-aaf1-45032ee8d415"]))
 
 (defn get-all-for-user
   ([params] (get-all-for-user aurora/conn-pool params))
@@ -67,22 +115,22 @@
                         ) s
                         WHERE row_num = 1
                       )
-                      
+
                       SELECT
                         a.*,
                         at.token AS admin_token,
                         r.code AS rules,
-                      
+
                         (
                           s.subscription_type_id IS NOT NULL
                           AND s.subscription_type_id = 2
                         ) AS pro,
-                      
+
                         CASE
                           WHEN a.creator_id = ?::uuid THEN 'owner'
                           ELSE m.member_role
                         END AS user_app_role,
-  
+
                         (
                           SELECT
                           CASE
@@ -99,7 +147,7 @@
                           LEFT JOIN instant_users mu ON mu.id = m.user_id
                           WHERE m.app_id = a.id
                         ) AS members,
-                          
+
                         (
                           SELECT
                           CASE
@@ -118,7 +166,7 @@
                           FROM app_member_invites i
                           WHERE i.app_id = a.id
                         ) AS invites,
-                        
+
                         (
                           SELECT
                             json_build_object(
@@ -132,7 +180,7 @@
                                 LEFT JOIN app_email_senders es ON et.sender_id = es.id
                             WHERE et.app_id = a.id
                         ) AS magic_code_email_template
-                          
+
                       FROM apps a
                         JOIN app_admin_tokens at ON at.app_id = a.id
                         LEFT JOIN rules r ON r.app_id = a.id
@@ -141,14 +189,14 @@
                           AND m.app_id = a.id
                         )
                         LEFT JOIN s ON a.id = s.app_id
-                      
+
                       WHERE
                         a.creator_id = ?::uuid
                         OR (
                           m.user_id = ?::uuid
                           AND s.subscription_type_id = 2
                         )
-                              
+
                       GROUP BY
                         a.id,
                         admin_token,
@@ -181,7 +229,9 @@
             'client_name', oc.client_name,
             'client_id', oc.client_id,
             'provider_id', oc.provider_id,
-            'created_at', oc.created_at
+            'created_at', oc.created_at,
+            'meta', oc.meta,
+            'discovery_endpoint', oc.discovery_endpoint
           ))
           FROM (SELECT * FROM app_oauth_clients oc
                  WHERE oc.app_id = a.id
@@ -217,14 +267,11 @@
 
 (defn change-creator!
   ([params] (change-creator! aurora/conn-pool params))
-  ([conn {:keys [id new-creator-id admin-token]}]
+  ([conn {:keys [id new-creator-id]}]
    (sql/execute-one! conn ["UPDATE apps a
                             SET creator_id = ?::uuid
-                            FROM app_admin_tokens at
-                            WHERE a.id = at.app_id
-                              AND a.id = ?::uuid
-                              AND at.token = ?::uuid"
-                           new-creator-id id admin-token])))
+                            WHERE a.id = ?::uuid"
+                           new-creator-id id])))
 
 (defn delete-by-ids!
   ([params] (delete-by-ids! aurora/conn-pool params))

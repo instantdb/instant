@@ -1,6 +1,8 @@
 // Query
 // -----
 
+import { EntitiesDef, InstantGraph, LinkAttrDef, ResolveAttrs } from "./schema";
+
 // NonEmpty disallows {}, so that you must provide at least one field
 type NonEmpty<T> = {
   [K in keyof T]-?: Required<Pick<T, K>>;
@@ -80,10 +82,14 @@ type Remove$<T> = T extends object
   ? { [K in keyof T as Exclude<K, "$">]: Remove$<T[K]> }
   : T;
 
-type QueryResponse<T, Schema> = ResponseOf<
-  { [K in keyof T]: Remove$<T[K]> },
-  Schema
->;
+type QueryResponse<
+  Q,
+  Schema,
+  WithCardinalityInference extends boolean = false,
+> =
+  Schema extends InstantGraph<infer E, any>
+    ? InstaQLQueryResult<E, Q, WithCardinalityInference>
+    : ResponseOf<{ [K in keyof Q]: Remove$<Q[K]> }, Schema>;
 
 type PageInfoResponse<T> = {
   [K in keyof T]: {
@@ -120,179 +126,105 @@ type Exactly<Parent, Child extends Parent> = Parent & {
   [K in keyof Child]: K extends keyof Parent ? Child[K] : never;
 };
 
-export { Query, QueryResponse, PageInfoResponse, InstantObject, Exactly };
+// ==========
+// InstaQL helpers
 
-// --------
-// Sanity check tests
-
-/**
- * The purpose of these sanity checks:
- * If we make changes and something breaks, our build will fail.
- *
- * AFAIK we _could_ write this in our `tests` folder.
- * The latest version of `vitest` does support `assertType`, but:
- *  * it's easy to get false positives if configured incorrectly
- *  * the api is more vebose than this
- */
-
-function dummyQuery<Q extends Query>(
-  _query: Exactly<Query, Q>,
-): QueryResponse<Q, unknown> {
-  return 1 as any;
-}
-
-interface ExUser {
-  name: string;
-}
-
-interface ExPost {
-  title: string;
-}
-
-interface ExSchema {
-  users: ExUser;
-  posts: ExPost;
-}
-
-function dummySchemaQuery<Q extends Query>(
-  _query: Exactly<Query, Q>,
-): QueryResponse<Q, ExSchema> {
-  return 1 as any;
-}
-
-const sanityCheckQueries = () => {
-  // -----------
-  // Basic good inputs succeed
-  const r = dummyQuery({ users: {} });
-
-  // -----------
-  // Basic bad inputs fails
-
-  // @ts-expect-error
-  const r2 = dummyQuery({ users: 1 });
-  // @ts-expect-error
-  const r3 = dummyQuery({ users: "" });
-
-  // ----------------------
-  // Good $ clauses succeed
-
-  const r4 = dummyQuery({ users: { $: { where: { foo: 1 } } } });
-  const r5 = dummyQuery({ users: { $: { where: { foo: "str" } } } });
-  const r6 = dummyQuery({ users: { $: { where: { foo: true } } } });
-  const r7 = dummyQuery({ users: { $: { where: { "foo.bar.baz": 1 } } } });
-  const s1 = dummyQuery({
-    users: { $: { where: { foo: { in: [1, 2, 3] } } } },
-  });
-  const t1 = dummyQuery({
-    users: { $: { where: { or: [{ foo: 1 }] } } },
-  });
-  // You can have a field named or
-  const t2 = dummyQuery({
-    users: { $: { where: { or: "fieldNamedOr" } } },
-  });
-  const t3 = dummyQuery({
-    users: { $: { where: { and: [{ foo: 1 }] } } },
-  });
-  // You can have a field named and
-  const t4 = dummyQuery({
-    users: { $: { where: { and: "fieldNamedAnd" } } },
-  });
-  const t5 = dummyQuery({
-    users: { $: { where: { and: [{ or: [{ foo: 1 }] }] } } },
-  });
-  // Pagination
-  const t6 = dummyQuery({
-    users: { $: { limit: 10 } },
-  });
-  const t7 = dummyQuery({
-    users: { $: { limit: 10, offset: 10 } },
-  });
-  const t8 = dummyQuery({
-    users: { $: { where: { foo: 1 }, limit: 10, offset: 10 } },
-  });
-  const cursor: Cursor = [
-    "61935703-bec6-4ade-ad9b-8bf382b92f69",
-    "995f5a9b-9ae1-4e59-97d1-df33afb44aee",
-    "61935703-bec6-4ade-ad9b-8bf382b92f69",
-    10,
-  ];
-  const t9 = dummyQuery({
-    users: {
-      $: { where: { foo: 1 }, after: cursor },
-    },
-  });
-
-  const t10 = dummyQuery({
-    users: { $: { before: cursor } },
-  });
-
-  // ------------------
-  // Bad $ clauses fail
-
-  // @ts-expect-error
-  const r8 = dummyQuery({ users: { $: { where: "foo" } } });
-  // @ts-expect-error
-  const r9 = dummyQuery({ users: { $: { where: { foo: {} } } } });
-  // @ts-expect-error
-  const r10 = dummyQuery({ users: { $: { where2: 1 } } });
-  const s2 = dummyQuery({
-    // @ts-expect-error
-    users: { $: { where: { foo: { ini: [1, 2, 3] } } } },
-  });
-  const s3 = dummyQuery({
-    // @ts-expect-error
-    users: { $: { where: { foo: [] } } },
-  });
-
-  // ----------------
-  // Good Nested queries succeed
-
-  const r11 = dummyQuery({ users: { posts: {} } });
-  const r12 = dummyQuery({ users: {}, posts: {} });
-  const r13 = dummyQuery({
-    users: {
-      $: { where: { foo: 1 } },
-      posts: { $: { where: { foo: 1 } } },
-    },
-  });
-
-  // ----------
-  // Bad nested queries fail
-
-  // @ts-expect-error
-  const r14 = dummyQuery({ users: { foo: 1 } });
+type InstaQLQueryEntityLinksResult<
+  Entities extends EntitiesDef,
+  EntityName extends keyof Entities,
+  Query extends {
+    [LinkAttrName in keyof Entities[EntityName]["links"]]?: any;
+  },
+  WithCardinalityInference extends boolean,
+> = {
+  [QueryPropName in keyof Query]: Entities[EntityName]["links"][QueryPropName] extends LinkAttrDef<
+    infer Cardinality,
+    infer LinkedEntityName
+  >
+    ? LinkedEntityName extends keyof Entities
+      ? WithCardinalityInference extends true
+        ? Cardinality extends "one"
+          ?
+              | InstaQLQueryEntityResult<
+                  Entities,
+                  LinkedEntityName,
+                  Query[QueryPropName],
+                  WithCardinalityInference
+                >
+              | undefined
+          : InstaQLQueryEntityResult<
+              Entities,
+              LinkedEntityName,
+              Query[QueryPropName],
+              WithCardinalityInference
+            >[]
+        : InstaQLQueryEntityResult<
+            Entities,
+            LinkedEntityName,
+            Query[QueryPropName],
+            WithCardinalityInference
+          >[]
+      : never
+    : never;
 };
 
-const sanityCheckSchemalessResponses = () => {
-  // Simple Response
-  const r1: { users: InstantObject[] } = dummyQuery({ users: {} });
-  // Nested Response
-  const r2: { users: ({ posts: InstantObject[] } & InstantObject)[] } =
-    dummyQuery({ users: { posts: {} } });
-  // $ are ignored
-  const r3: { users: ({ posts: InstantObject[] } & InstantObject)[] } =
-    dummyQuery({
-      users: {
-        $: { where: { foo: 1 } },
-        posts: {},
-      },
-    });
-  // @ts-expect-error
-  r3.$;
+type InstaQLQueryEntityResult<
+  Entities extends EntitiesDef,
+  EntityName extends keyof Entities,
+  Query extends {
+    [QueryPropName in keyof Entities[EntityName]["links"]]?: any;
+  },
+  WithCardinalityInference extends boolean,
+> = { id: string } & ResolveAttrs<Entities, EntityName> &
+  InstaQLQueryEntityLinksResult<
+    Entities,
+    EntityName,
+    Query,
+    WithCardinalityInference
+  >;
+
+type InstaQLQueryResult<
+  Entities extends EntitiesDef,
+  Query,
+  WithCardinalityInference extends boolean,
+> = {
+  [QueryPropName in keyof Query]: QueryPropName extends keyof Entities
+    ? InstaQLQueryEntityResult<
+        Entities,
+        QueryPropName,
+        Query[QueryPropName],
+        WithCardinalityInference
+      >[]
+    : never;
 };
 
-function sanityCheckSchemadResponses() {
-  // simple response
-  const r1: { users: ExUser[] } = dummySchemaQuery({ users: {} });
-  // nested response
-  const r2: { users: ({ posts: ExPost[] } & ExUser)[] } = dummySchemaQuery({
-    users: { posts: {} },
-  });
-  // id included, but no other keys are allowed
-  const r3 = dummySchemaQuery({ users: {} });
-  const u = r3.users[0];
-  const id: string = u.id;
-  const name: string = u.name;
-  // @ts-expect-error
-  const title: string = u.title;
-}
+type InstaQLQuerySubqueryParams<
+  S extends InstantGraph<any, any>,
+  E extends keyof S["entities"],
+> = {
+  [K in keyof S["entities"][E]["links"]]?:
+    | $Option
+    | ($Option &
+        InstaQLQuerySubqueryParams<
+          S,
+          S["entities"][E]["links"][K]["entityName"]
+        >);
+};
+
+type InstaQLQueryParams<S extends InstantGraph<any, any>> = {
+  [K in keyof S["entities"]]?:
+    | $Option
+    | ($Option & InstaQLQuerySubqueryParams<S, K>);
+};
+
+export {
+  Query,
+  QueryResponse,
+  PageInfoResponse,
+  InstantObject,
+  Exactly,
+  Remove$,
+  InstaQLQueryResult,
+  InstaQLQueryParams,
+  Cursor,
+};

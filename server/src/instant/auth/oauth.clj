@@ -18,7 +18,7 @@
   (create-authorization-url [this state redirect-url])
   (get-user-info [this code redirect-url])
   ;; Gets user-info from user-provided id_token after verifying the token
-  (get-user-info-from-id-token [this nonce jwt]))
+  (get-user-info-from-id-token [this nonce jwt opts]))
 
 (defrecord GenericOAuthClient [app-id
                                provider-id
@@ -72,7 +72,8 @@
                 (tracer/with-span! {:name "oauth/missing-user-info"
                                     :attributes {:id_token id-token}}
                   {:type :error :message "Missing user info."}))))))))
-  (get-user-info-from-id-token [this nonce jwt]
+  (get-user-info-from-id-token [this nonce jwt {:keys [allow-unverified-email?
+                                                       ignore-audience?]}]
     (if (or (string/blank? (:jwks-uri this))
             (string/blank? (:issuer this))
             (empty? (:id-token-signing-alg-values-supported this)))
@@ -88,8 +89,9 @@
                                   (:issuer this))
             unsupported-alg (not (contains? (:id-token-signing-alg-values-supported this)
                                             (.getAlgorithm verified-jwt)))
-            client-id-mismatch (not (contains? (set (.getAudience verified-jwt))
-                                               (:client-id this)))
+            client-id-mismatch (and (not ignore-audience?)
+                                    (not (contains? (set (.getAudience verified-jwt))
+                                                    (:client-id this))))
             sub (.getSubject verified-jwt)
             email-verified (.asBoolean (.getClaim verified-jwt "email_verified"))
             email (.asString (.getClaim verified-jwt "email"))
@@ -113,7 +115,8 @@
                     issuer-mismatch (str "The id_token wasn't issued by " (:issuer this))
                     unsupported-alg "The id_token used an unsupported algorithm."
                     client-id-mismatch "The id_token was generated for the wrong OAuth client."
-                    (not email-verified) "The email address is not verified."
+                    (and (not allow-unverified-email?)
+                         (not email-verified)) "The email address is not verified."
                     (not email) "The id_token had no email."
                     (not sub) "The id_token had no subject."
                     :else nil)]
@@ -155,7 +158,9 @@
                               :token-endpoint token_endpoint
                               :jwks-uri jwks_uri
                               :issuer issuer
-                              :id-token-signing-alg-values-supported (set id_token_signing_alg_values_supported)})))
+                              :id-token-signing-alg-values-supported (if (empty? id_token_signing_alg_values_supported)
+                                                                       #{"RS256" "HS256"}
+                                                                       (set id_token_signing_alg_values_supported))})))
 
 (def schedule nil)
 
@@ -166,7 +171,7 @@
     (get-discovery "https://accounts.google.com/.well-known/openid-configuration")
     (catch Exception e
       (tracer/record-exception-span! e {:name "oauth/start-error"})))
-  (tracer/record-info! {:name "oauth/start-refresh-worker"}) 
+  (tracer/record-info! {:name "oauth/start-refresh-worker"})
   (def schedule (chime-core/chime-at (-> (chime-core/periodic-seq (Instant/now) (Duration/ofHours 1))
                                          rest)
                                      (fn [_time]

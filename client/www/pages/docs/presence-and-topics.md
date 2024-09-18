@@ -61,7 +61,7 @@ const db = init<Schema, RoomSchema>({ appId: APP_ID });
 // Specifying a room type and room id gives you the power to
 // restrict sharing to a specific room. However you can also just use
 // `db.room()` to share presence and topics to an Instant generated default room
-const room = db.room('chat', 'main');
+const room = db.room('chat', roomId);
 ```
 
 Types for room schemas are defined as follows:

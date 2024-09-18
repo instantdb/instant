@@ -93,7 +93,9 @@
 
 (defn friendly-trace [trace-id]
   (if (seq trace-id)
-    (subs trace-id 0 4)
+    (if (= :prod (config/get-env))
+      trace-id
+      (subs trace-id 0 4))
     "unk"))
 
 (defn escape-newlines [s]

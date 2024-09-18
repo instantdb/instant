@@ -53,15 +53,18 @@
                      (name dep-pkg))
              v)))
 
-(defn publish-packages! []
+(defn publish-packages! [tag]
   (println "[publish] pnpm publish-packages")
-  (proc/shell "pnpm" "publish-packages"))
+  (if tag
+    (proc/shell "pnpm" "publish-packages" "--" "--tag" tag)
+    (proc/shell "pnpm" "publish-packages")))
 
 (defn -main [& _args]
-  (let [version (str/trim (slurp "version.md"))]
+  (let [tag (first _args)
+        version (str/trim (slurp "version.md"))]
     (set-package-versions! version)
     (set-dep-versions! version)
-    (publish-packages!)
+    (publish-packages! tag)
     (set-dep-versions! "workspace:*")))
 
 (when (= *file* (System/getProperty "babashka.file"))

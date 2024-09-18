@@ -7,14 +7,22 @@ import {
   InstantReact,
 
   // types
-  Config,
-  Query,
-  QueryResponse,
-  InstantObject,
-  AuthState,
-  User,
+  type Config,
+  type Query,
+  type QueryResponse,
+  type InstantObject,
+  type AuthState,
+  type User,
 } from "@instantdb/react";
-import { RoomSchemaShape, id, tx } from "@instantdb/core";
+import {
+  i,
+  id,
+  tx,
+  type RoomSchemaShape,
+  type InstantQuery,
+  type InstantQueryResult,
+  type InstantSchema,
+} from "@instantdb/core";
 
 /**
  *
@@ -42,25 +50,49 @@ function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
   return new InstantReactNative<Schema, RoomSchema>(config);
 }
 
+function init_experimental<
+  Schema extends i.InstantGraph<any, any, any>,
+  WithCardinalityInference extends boolean = true,
+>(
+  config: Config & {
+    schema: Schema;
+    cardinalityInference?: WithCardinalityInference;
+  },
+) {
+  return new InstantReactNative<
+    Schema,
+    Schema extends i.InstantGraph<any, infer RoomSchema, any>
+      ? RoomSchema
+      : never,
+    WithCardinalityInference
+  >(config);
+}
+
 class InstantReactNative<
   Schema = {},
   RoomSchema extends RoomSchemaShape = {},
-> extends InstantReact<Schema, RoomSchema> {
+  WithCardinalityInference extends boolean = false,
+> extends InstantReact<Schema, RoomSchema, WithCardinalityInference> {
   static Storage = Storage;
   static NetworkListener = NetworkListener;
 }
 
 export {
   init,
+  init_experimental,
   id,
   tx,
+  i,
 
   // types
-  Config,
-  Query,
-  QueryResponse,
-  InstantObject,
-  User,
-  AuthState,
-  InstantReactNative,
+  type Config,
+  type Query,
+  type QueryResponse,
+  type InstantObject,
+  type User,
+  type AuthState,
+  type InstantReactNative,
+  type InstantQuery,
+  type InstantQueryResult,
+  type InstantSchema,
 };

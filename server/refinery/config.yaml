@@ -1,0 +1,19 @@
+General:
+  ConfigurationVersion: 2
+Network:
+  ListenAddr: "0.0.0.0:8080"
+  PeerListenAddr: "0.0.0.0:8081"
+GRPCServerParameters:
+  Enabled: true
+  ListenAddr: "0.0.0.0:8082"
+RefineryTelemetry:
+  AddRuleReasonToTrace: true
+OTelMetrics:
+  Enabled: true
+PeerManagement:
+  Peers: []
+Logger:
+  Level: warn
+Debugging:
+  # Set to true to see which events would have been filtered
+  DryRun: false

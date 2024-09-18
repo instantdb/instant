@@ -1,16 +1,20 @@
-version: '3'
 services:
   web:
     image: IMAGE_REPLACE_ME
+    depends_on:
+      - refinery
     environment:
       - BEANSTALK_PORT=5000
       - PRODUCTION=true
+      - HONEYCOMB_ENDPOINT=http://refinery:8082
     env_file:
       - .env
     ports:
       - "80:5000"
       - "6005:6005"
-    command: sh -c 'java $${JAVA_OPTS} -server -jar target/instant-standalone.jar'
+      - "10001:10001"
+    command: sh -c 'java $${JAVA_OPTS} -agentpath:/usr/local/YourKit-JavaProfiler-2024.3/bin/linux-x86-64/libyjpagent.so=port=10001,listen=all -server -jar target/instant-standalone.jar'
+
   logdna:
     image: logdna/logdna-agent:3.8
     environment:
@@ -22,3 +26,13 @@ services:
       - /var/log/eb-engine.log:/var/log/eb-engine.log:ro
       - /var/log/messages:/var/log/messages:ro
       - /var/log/eb-docker:/var/log/eb-docker:ro
+
+  refinery:
+    image: honeycombio/refinery:2.7.1
+    volumes:
+      - ./refinery/config.yaml:/etc/refinery/refinery.yaml
+      - ./refinery/rules.yaml:/etc/refinery/rules.yaml
+    environment:
+      - REFINERY_HONEYCOMB_API_KEY=${REFINERY_HONEYCOMB_API_KEY}
+    ports:
+      - 8082:8082

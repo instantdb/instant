@@ -2,6 +2,7 @@ import 'focus-visible';
 import Head from 'next/head';
 import { slugifyWithCounter } from '@sindresorhus/slugify';
 import { Layout } from '@/components/docs/Layout';
+import { useMemo } from 'react';
 
 function getNodeText(node) {
   let text = '';
@@ -40,7 +41,7 @@ function collectHeadings(nodes, slugify = slugifyWithCounter()) {
     }
 
     // Don't render headings for conditional content
-    if (node.name === "Conditional") {
+    if (node.name === 'Conditional') {
       continue;
     }
 
@@ -59,9 +60,11 @@ export function DocsPage({ Component, pageProps }) {
 
   let description = pageProps.markdoc?.frontmatter.description;
 
-  let tableOfContents = pageProps.markdoc?.content
-    ? collectHeadings(pageProps.markdoc.content)
-    : [];
+  let tableOfContents = useMemo(() => {
+    return pageProps.markdoc?.content
+      ? collectHeadings(pageProps.markdoc.content)
+      : [];
+  }, [pageProps.markdoc]);
 
   return (
     <>

@@ -6,6 +6,7 @@
    [next.jdbc.prepare :as p]
    [next.jdbc.connection :as connection]
    [clojure.string :as string]
+   [instant.util.io :as io]
    [instant.util.json :refer [->json <-json]]
    [instant.util.tracer :as tracer]
    ;; load all pg-ops for hsql
@@ -125,8 +126,9 @@
    `select` with the conn-pool directly."
   [[conn-name ^HikariDataSource conn-pool] & body]
   `(binding [*conn-pool-span-stats* (span-attrs-from-conn-pool ~conn-pool)]
-     (with-open [~conn-name (.getConnection ~conn-pool)]
-       ~@body)))
+     (io/tag-io
+       (with-open [~conn-name (.getConnection ~conn-pool)]
+         ~@body))))
 
 (defn- span-attrs [conn query]
   (let [pool-stats (if (instance? HikariDataSource conn)
@@ -139,25 +141,29 @@
   [conn query]
   (tracer/with-span! {:name "sql/select"
                       :attributes (span-attrs conn query)}
-    (sql/query conn query {:builder-fn rs/as-unqualified-maps})))
+    (io/tag-io
+      (sql/query conn query {:builder-fn rs/as-unqualified-maps}))))
 
 (defn select-qualified
   [conn query]
   (tracer/with-span! {:name "sql/select-qualified"
                       :attributes (span-attrs conn query)}
-    (sql/query conn query {:builder-fn rs/as-maps})))
+    (io/tag-io
+      (sql/query conn query {:builder-fn rs/as-maps}))))
 
 (defn select-arrays
   [conn query]
   (tracer/with-span! {:name "sql/select-arrays"
                       :attributes (span-attrs conn query)}
-    (sql/query conn query {:builder-fn rs/as-unqualified-arrays})))
+    (io/tag-io
+      (sql/query conn query {:builder-fn rs/as-unqualified-arrays}))))
 
 (defn select-string-keys
   [conn query]
   (tracer/with-span! {:name "sql/select-string-keys"
                       :attributes (span-attrs conn query)}
-    (sql/query conn query {:builder-fn as-string-maps})))
+    (io/tag-io
+      (sql/query conn query {:builder-fn as-string-maps}))))
 
 (def select-one (comp first select))
 
@@ -173,21 +179,24 @@
   (tracer/with-span! {:name  "sql/execute!"
                       :attributes (span-attrs conn query)}
     (with-translating-psql-exceptions
-      (next-jdbc/execute! conn query {:builder-fn rs/as-unqualified-maps
-                                      :return-keys true}))))
+      (io/tag-io
+        (next-jdbc/execute! conn query {:builder-fn rs/as-unqualified-maps
+                                        :return-keys true})))))
 (defn execute-one!
   [conn query]
   (tracer/with-span! {:name  "sql/execute-one!"
                       :attributes (span-attrs conn query)}
     (with-translating-psql-exceptions
-      (next-jdbc/execute-one! conn query {:builder-fn rs/as-unqualified-maps
-                                          :return-keys true}))))
+      (io/tag-io
+        (next-jdbc/execute-one! conn query {:builder-fn rs/as-unqualified-maps
+                                            :return-keys true})))))
 
 (defn do-execute! [conn query]
   (tracer/with-span! {:name  "sql/do-execute!"
                       :attributes (span-attrs conn query)}
     (with-translating-psql-exceptions
-      (next-jdbc/execute! conn query {:return-keys false}))))
+      (io/tag-io
+        (next-jdbc/execute! conn query {:return-keys false})))))
 
 (defn patch-hikari []
   ;; Hikari will send an extra query to ensure the connection is valid

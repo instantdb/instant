@@ -1,26 +1,32 @@
 import {
-  init as initCore,
-
   // types
-  Config,
-  Query,
-  Exactly,
-  AuthState,
   InstantClient,
-  TransactionChunk,
   Auth,
-  LifecycleSubscriptionState,
-  PresenceOpts,
-  PresenceResponse,
-  RoomSchemaShape,
   Storage,
+  txInit,
+  _init_internal,
+  i,
+  type AuthState,
+  type Config,
+  type Query,
+  type Exactly,
+  type TransactionChunk,
+  type LifecycleSubscriptionState,
+  type PresenceOpts,
+  type PresenceResponse,
+  type RoomSchemaShape,
+  type InstaQLQueryParams,
+  type ConfigWithSchema,
+  type IDatabase,
 } from "@instantdb/core";
 import {
   KeyboardEvent,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { useQuery } from "./useQuery";
 import { useTimeout } from "./useTimeout";
@@ -60,7 +66,7 @@ export class InstantReactRoom<
   id: string;
 
   constructor(
-    _core: InstantClient<Schema, RoomSchema>,
+    _core: InstantClient<Schema, RoomSchema, any>,
     type: RoomType,
     id: string,
   ) {
@@ -200,6 +206,7 @@ export class InstantReactRoom<
     data: Partial<RoomSchema[RoomType]["presence"]>,
     deps?: any[],
   ): void => {
+    useEffect(() => this._core._reactor.joinRoom(this.id), [this.id]);
     useEffect(() => {
       return this._core._reactor.publishPresence(this.type, this.id, data);
     }, [this.type, this.id, deps ?? JSON.stringify(data)]);
@@ -279,19 +286,35 @@ export class InstantReactRoom<
   };
 }
 
+const defaultAuthState = {
+  isLoading: true,
+  user: undefined,
+  error: undefined,
+};
+
 export abstract class InstantReact<
-  Schema = {},
+  Schema extends i.InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
-> {
+  WithCardinalityInference extends boolean = false,
+> implements IDatabase<Schema, RoomSchema, WithCardinalityInference>
+{
+  public withCardinalityInference?: WithCardinalityInference;
+  public tx =
+    txInit<
+      Schema extends i.InstantGraph<any, any>
+        ? Schema
+        : i.InstantGraph<any, any>
+    >();
+
   public auth: Auth;
   public storage: Storage;
-  public _core: InstantClient<Schema, RoomSchema>;
+  public _core: InstantClient<Schema, RoomSchema, WithCardinalityInference>;
 
   static Storage?: any;
   static NetworkListener?: any;
 
-  constructor(config: Config) {
-    this._core = initCore<Schema, RoomSchema>(
+  constructor(config: Config | ConfigWithSchema<any>) {
+    this._core = _init_internal<Schema, RoomSchema, WithCardinalityInference>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.Storage,
@@ -356,7 +379,9 @@ export abstract class InstantReact<
    *    tx.goals[goalId].link({todos: todoId}),
    *  ])
    */
-  transact = (chunks: TransactionChunk | TransactionChunk[]) => {
+  transact = (
+    chunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
+  ) => {
     return this._core.transact(chunks);
   };
 
@@ -378,9 +403,13 @@ export abstract class InstantReact<
    *  // skip if `user` is not logged in
    *  db.useQuery(auth.user ? { goals: {} } : null)
    */
-  useQuery = <Q extends Query>(
-    query: Exactly<Query, Q> | null,
-  ): LifecycleSubscriptionState<Q, Schema> => {
+  useQuery = <
+    Q extends Schema extends i.InstantGraph<any, any>
+      ? InstaQLQueryParams<Schema>
+      : Exactly<Query, Q>,
+  >(
+    query: null | Q,
+  ): LifecycleSubscriptionState<Q, Schema, WithCardinalityInference> => {
     return useQuery(this._core, query).state;
   };
 
@@ -408,20 +437,31 @@ export abstract class InstantReact<
    *
    */
   useAuth = (): AuthState => {
-    // (XXX): Don't set `isLoading` true if we already have data, would
-    // be better to immediately show loaded data
-    const [state, setState] = useState({
-      isLoading: true,
-      user: undefined,
-      error: undefined,
-    });
-    useEffect(() => {
-      const unsub = this._core._reactor.subscribeAuth((resp: any) => {
-        setState({ isLoading: false, ...resp });
+    // We use a ref to store the result of the query.
+    // This is becuase `useSyncExternalStore` uses `Object.is`
+    // to compare the previous and next state.
+    // If we don't use a ref, the state will always be considered different, so
+    // the component will always re-render.
+    const resultCacheRef = useRef<AuthState>(
+      this._core._reactor._currentUserCached,
+    );
+
+    // Similar to `resultCacheRef`, `useSyncExternalStore` will unsubscribe
+    // if `subscribe` changes, so we use `useCallback` to memoize the function.
+    const subscribe = useCallback((cb: Function) => {
+      const unsubscribe = this._core.subscribeAuth((auth) => {
+        resultCacheRef.current = { isLoading: false, ...auth };
+        cb();
       });
-      return unsub;
+
+      return unsubscribe;
     }, []);
 
+    const state = useSyncExternalStore<AuthState>(
+      subscribe,
+      () => resultCacheRef.current,
+      () => defaultAuthState,
+    );
     return state;
   };
 }

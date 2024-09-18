@@ -42,7 +42,10 @@
 
 (defn create-loader [dataloader-opts]
   (fn [& args]
-    (get-one dataloader-opts args)))
+    (let [result (get-one dataloader-opts args)]
+      (if (instance? Exception result)
+        (throw result)
+        result))))
 
 (comment
   (defn get-batched [args]

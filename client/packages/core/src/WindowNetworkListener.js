@@ -1,6 +1,6 @@
 export default class WindowNetworkListener {
   static async getIsOnline() {
-    return window.navigator.onLine;
+    return navigator.onLine;
   }
   static listen(f) {
     const onOnline = () => {
@@ -9,11 +9,11 @@ export default class WindowNetworkListener {
     const onOffline = () => {
       f(false);
     };
-    window.addEventListener("online", onOnline);
-    window.addEventListener("offline", onOffline);
+    addEventListener("online", onOnline);
+    addEventListener("offline", onOffline);
     return () => {
-      window.removeEventListener("online", onOnline);
-      window.removeEventListener("offline", onOffline);
+      removeEventListener("online", onOnline);
+      removeEventListener("offline", onOffline);
     };
   }
 }

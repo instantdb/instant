@@ -2,6 +2,8 @@
   (:require [instant.db.datalog :as d]
             [instant.db.model.attr :as attr-model]
             [instant.util.exception :as ex]
+            [instant.util.json :as json]
+            [instant.util.uuid :as uuid-util]
             [instant.jdbc.aurora :as aurora]
             [instant.data.constants :refer [zeneca-app-id]]
             [clojure.spec.alpha :as s]
@@ -80,12 +82,10 @@
   [{:keys [attrs] :as _ctx} level-sym etype level label]
   (let [attr-fwd (attr-model/seek-by-fwd-ident-name [etype label] attrs)
         attr-rev (attr-model/seek-by-rev-ident-name [etype label] attrs)
-        {:keys [id value-type] :as attr}
-
-        (ex/assert-record!
-         (or attr-fwd attr-rev)
-         :attr
-         {:args [etype label]})
+        {:keys [id value-type] :as attr} (ex/assert-record!
+                                          (or attr-fwd attr-rev)
+                                          :attr
+                                          {:args [etype label]})
 
         _ (when-not (= value-type :ref)
             (ex/throw-validation-err!
@@ -106,7 +106,20 @@
                     id
                     (level-sym rev-etype level)])
         next-etype (if attr-fwd rev-etype fwd-etype)]
-    (list next-etype next-level attr-pat)))
+    (list next-etype next-level attr-pat attr (boolean attr-fwd))))
+
+(defn ->guarded-ref-attr-pat
+  [ctx etype level label]
+  (try
+    (->ref-attr-pat ctx default-level-sym etype level label)
+    (catch clojure.lang.ExceptionInfo e
+      (if (contains? #{::ex/validation-failed}
+                     (::ex/type (ex-data e)))
+        (throw e)
+        (list (default-level-sym label level)
+              [(default-level-sym label level) '_ '_]
+              nil
+              nil)))))
 
 (defn ->ref-attr-pats
   "Take the where-cond:
@@ -144,13 +157,40 @@
    This creates the attr-pat for the `value` portion:
 
    [?books title-attr \"Foo\"]"
-  [{:keys [attrs]} level-sym value-etype value-level value-label v]
-  (let [{:keys [id]}
+  [{:keys [state attrs]} level-sym value-etype value-level value-label v]
+  (let [{:keys [id value-type]}
         (ex/assert-record!
          (attr-model/seek-by-fwd-ident-name [value-etype value-label] attrs)
          :attr
-         {:args [value-etype value-label]})]
-    [(level-sym value-etype value-level) id v]))
+         {:args [value-etype value-label]})
+        v-coerced (if (not= :ref value-type)
+                    v
+                    (if (set? v)
+                      (set (map (fn [vv]
+                                  (if-let [v-uuid (uuid-util/coerce vv)]
+                                    v-uuid
+                                    (ex/throw-validation-err!
+                                     :query
+                                     (:root state)
+                                     [{:expected 'uuid?
+                                       :in (conj (:in state) [:$ :where value-label])
+                                       :message (format "Expected %s to match on a uuid, found %s in %s"
+                                                        value-label
+                                                        (json/->json vv)
+                                                        (json/->json v))}])))
+                                v))
+
+                      (if-let [v-uuid (uuid-util/coerce v)]
+                        v-uuid
+                        (ex/throw-validation-err!
+                         :query
+                         (:root state)
+                         [{:expected 'uuid?
+                           :in (conj (:in state) [:$ :where value-label])
+                           :message (format "Expected %s to be a uuid, got %s"
+                                            value-label
+                                            (json/->json v))}]))))]
+    [(level-sym value-etype value-level) id v-coerced]))
 
 (defn attr-pats->patterns-impl
   "Helper for attr-pats->patterns that allows recursion"

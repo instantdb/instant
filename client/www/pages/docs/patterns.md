@@ -39,3 +39,55 @@ means if you have private data in an entity, or some larger data you want to
 fetch sometimes, you'll want to split the entity into multiple namespaces.
 [Here's an example](https://github.com/instantdb/instant/blob/main/client/sandbox/react-nextjs/pages/patterns/split-attributes.tsx)
 
+## Setting limits via permissions.
+
+If you want to limit the number of entities a user can create, you can do so via
+permissions. Here's an example of limiting a user to creating at most 2 todos.
+
+```typescript
+// instant.schema.ts
+// Here we define users, todos, and a link between them.
+import { i } from '@instantdb/core';
+
+const graph = i.graph(
+  {
+    users: i.entity({
+      email: i.string(),
+    }),
+    todos: i.entity({
+      label: i.string(),
+    }),
+  },
+  {
+    userTodos: {
+      forward: {
+        on: 'users',
+        has: 'many',
+        label: 'todos',
+      },
+      reverse: {
+        on: 'todos',
+        has: 'one',
+        label: 'owner',
+      },
+    },
+  }
+);
+
+export default graph;
+```
+
+```typescript
+// instant.schema.ts
+// And now we reference the `owner` link for todos to check the number
+// of todos a user has created.
+// (Note): Make sure the `owner` link is already defined in the schema.
+// before you can reference it in the permissions.
+export {
+  "todos": {
+    "allow": {
+      "create": "size(data.ref('owner.todos.id')) <= 2",
+    }
+  }
+}
+```

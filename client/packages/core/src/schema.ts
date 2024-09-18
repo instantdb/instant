@@ -1,3 +1,5 @@
+import type { RoomSchemaShape } from "./presence";
+
 export {
   // constructs
   graph,
@@ -9,7 +11,14 @@ export {
   json,
   any,
   // types
-  InstaQLQueryResult,
+  type InstantGraph,
+  type EntitiesDef,
+  type LinkDef,
+  type LinksDef,
+  type LinkAttrDef,
+  type DataAttrDef,
+  type EntityDef,
+  type ResolveAttrs,
 };
 
 // ==========
@@ -21,7 +30,6 @@ export {
  * @see https://instantdb.com/docs/schema#defining-entities
  * @example
  *   export default i.graph(
- *     APP_ID,
  *     {
  *       posts: i.entity({
  *         title: i.string(),
@@ -50,9 +58,8 @@ export {
 function graph<
   EntitiesWithoutLinks extends EntitiesDef,
   const Links extends LinksDef<EntitiesWithoutLinks>,
->(appId: string, entities: EntitiesWithoutLinks, links: Links) {
+>(entities: EntitiesWithoutLinks, links: Links) {
   return new InstantGraph(
-    appId,
     enrichEntitiesWithLinks<EntitiesWithoutLinks, Links>(entities, links),
     // (XXX): LinksDef<any> stems from TypeScript’s inability to reconcile the
     // type EntitiesWithLinks<EntitiesWithoutLinks, Links> with
@@ -78,11 +85,16 @@ function graph<
  *     })
  *   }
  */
-function entity<Attrs extends AttrsDefs>(attrs: Attrs): EntityDef<Attrs, {}> {
-  return { attrs, links: {} };
+function entity<Attrs extends AttrsDefs>(
+  attrs: Attrs,
+): EntityDef<Attrs, {}, void> {
+  return new EntityDef(attrs, {});
 }
 
-function string(): DataAttrDef<string, true> {
+function string<StringEnum extends string = string>(): DataAttrDef<
+  StringEnum,
+  true
+> {
   return new DataAttrDef("string", true);
 }
 
@@ -94,7 +106,7 @@ function boolean(): DataAttrDef<boolean, true> {
   return new DataAttrDef("boolean", true);
 }
 
-function json<T extends JSONValue>(): DataAttrDef<T, true> {
+function json<T = any>(): DataAttrDef<T, true> {
   return new DataAttrDef("json", true);
 }
 
@@ -130,10 +142,10 @@ function enrichEntitiesWithLinks<
   const enrichedEntities = Object.fromEntries(
     Object.entries(entities).map(([name, def]) => [
       name,
-      {
-        ...def,
-        links: { ...linksIndex.fwd[name], ...linksIndex.rev[name] },
-      },
+      new EntityDef(def.attrs, {
+        ...linksIndex.fwd[name],
+        ...linksIndex.rev[name],
+      }),
     ]),
   );
 
@@ -166,17 +178,25 @@ class DataAttrDef<ValueType, IsRequired extends boolean> {
   }
 
   unique() {
-    return new DataAttrDef(this.valueType, this.required, {
-      ...this.config,
-      unique: true,
-    });
+    return new DataAttrDef<ValueType, IsRequired>(
+      this.valueType,
+      this.required,
+      {
+        ...this.config,
+        unique: true,
+      },
+    );
   }
 
   indexed() {
-    return new DataAttrDef(this.valueType, this.required, {
-      ...this.config,
-      indexed: true,
-    });
+    return new DataAttrDef<ValueType, IsRequired>(
+      this.valueType,
+      this.required,
+      {
+        ...this.config,
+        indexed: true,
+      },
+    );
   }
 
   // clientValidate(clientValidator: (value: ValueType) => boolean) {
@@ -190,12 +210,19 @@ class DataAttrDef<ValueType, IsRequired extends boolean> {
 class InstantGraph<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
+  RoomSchema extends RoomSchemaShape = {},
 > {
   constructor(
-    public appId: string,
     public entities: Entities,
     public links: Links,
   ) {}
+
+  withRoomSchema<_RoomSchema extends RoomSchemaShape>() {
+    return new InstantGraph<Entities, Links, _RoomSchema>(
+      this.entities,
+      this.links,
+    );
+  }
 }
 
 // ==========
@@ -220,15 +247,22 @@ type JSONValue =
 
 type AttrsDefs = Record<string, DataAttrDef<any, any>>;
 
-type EntityDef<
+class EntityDef<
   Attrs extends AttrsDefs,
   Links extends Record<string, LinkAttrDef<any, any>>,
-> = {
-  attrs: Attrs;
-  links: Links;
-};
+  AsType,
+> {
+  constructor(
+    public attrs: Attrs,
+    public links: Links,
+  ) {}
 
-type EntitiesDef = Record<string, EntityDef<any, any>>;
+  asType<_AsType>() {
+    return new EntityDef<Attrs, Links, _AsType>(this.attrs, this.links);
+  }
+}
+
+type EntitiesDef = Record<string, EntityDef<any, any, any>>;
 
 type LinksDef<Entities extends EntitiesDef> = Record<
   string,
@@ -271,19 +305,16 @@ type EntitiesWithLinks<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
 > = {
-  [EntityName in keyof Entities]: EntityWithLinks<EntityName, Entities, Links>;
-};
-
-type EntityWithLinks<
-  EntityName extends keyof Entities,
-  Entities extends EntitiesDef,
-  Links extends LinksDef<Entities>,
-> = {
-  attrs: Entities[EntityName]["attrs"] extends AttrsDefs
-    ? Entities[EntityName]["attrs"]
-    : never;
-  links: EntityForwardLinksMap<EntityName, Entities, Links> &
-    EntityReverseLinksMap<EntityName, Entities, Links>;
+  [EntityName in keyof Entities]: EntityDef<
+    Entities[EntityName]["attrs"],
+    EntityForwardLinksMap<EntityName, Entities, Links> &
+      EntityReverseLinksMap<EntityName, Entities, Links>,
+    Entities[EntityName] extends EntityDef<any, any, infer O>
+      ? O extends void
+        ? void
+        : O
+      : void
+  >;
 };
 
 type EntityForwardLinksMap<
@@ -295,12 +326,12 @@ type EntityForwardLinksMap<
   ? {
       [LinkName in keyof LinkIndexFwd[EntityName]]: LinkIndexFwd[EntityName][LinkName] extends LinkDef<
         Entities,
-        any,
-        any,
-        infer Cardinality,
         infer RelatedEntityName,
         any,
-        any
+        any,
+        any,
+        any,
+        infer Cardinality
       >
         ? {
             entityName: RelatedEntityName;
@@ -319,12 +350,12 @@ type EntityReverseLinksMap<
   ? {
       [LinkName in keyof RevLinkIndex[EntityName]]: RevLinkIndex[EntityName][LinkName] extends LinkDef<
         Entities,
+        any,
+        any,
+        infer Cardinality,
         infer RelatedEntityName,
         any,
-        any,
-        any,
-        any,
-        infer Cardinality
+        any
       >
         ? {
             entityName: RelatedEntityName;
@@ -364,62 +395,22 @@ type LinksIndexedByEntity<
   };
 };
 
-// ==========
-// InstaQL helpers
-
-type InstaQLAttrsResult<
+type ResolveAttrs<
   Entities extends EntitiesDef,
   EntityName extends keyof Entities,
-> = {
-  [AttrName in keyof Entities[EntityName]["attrs"]]: Entities[EntityName]["attrs"][AttrName] extends DataAttrDef<
-    infer ValueType,
-    infer IsRequired
-  >
-    ? IsRequired extends true
-      ? ValueType
-      : ValueType | undefined
-    : never;
-};
-
-type InstaQLLinksResult<
-  Entities extends EntitiesDef,
-  EntityName extends keyof Entities,
-  Query extends {
-    [LinkAttrName in keyof Entities[EntityName]["links"]]?: any;
+  ResolvedAttrs = {
+    [AttrName in keyof Entities[EntityName]["attrs"]]: Entities[EntityName]["attrs"][AttrName] extends DataAttrDef<
+      infer ValueType,
+      infer IsRequired
+    >
+      ? IsRequired extends true
+        ? ValueType
+        : ValueType | undefined
+      : never;
   },
-> = {
-  [QueryPropName in keyof Query]: Entities[EntityName]["links"][QueryPropName] extends LinkAttrDef<
-    infer Cardinality,
-    infer LinkedEntityName
-  >
-    ? LinkedEntityName extends keyof Entities
-      ? Cardinality extends "one"
-        ? InstaQLEntityResult<Entities, LinkedEntityName, Query[QueryPropName]>
-        : InstaQLEntityResult<
-            Entities,
-            LinkedEntityName,
-            Query[QueryPropName]
-          >[]
-      : never
-    : never;
-};
-
-type InstaQLEntityResult<
-  Entities extends EntitiesDef,
-  EntityName extends keyof Entities,
-  Query extends {
-    [QueryPropName in keyof Entities[EntityName]["links"]]?: any;
-  },
-> = InstaQLAttrsResult<Entities, EntityName> &
-  InstaQLLinksResult<Entities, EntityName, Query>;
-
-type InstaQLQueryResult<Entities extends EntitiesDef, Query> = {
-  [QueryPropName in keyof Query]: QueryPropName extends keyof Entities
-    ? Query[QueryPropName] extends { $first: any }
-      ? Omit<
-          InstaQLEntityResult<Entities, QueryPropName, Query[QueryPropName]>,
-          "$first"
-        >
-      : InstaQLEntityResult<Entities, QueryPropName, Query[QueryPropName]>[]
-    : never;
-};
+> =
+  Entities[EntityName] extends EntityDef<any, any, infer AsType>
+    ? AsType extends void
+      ? ResolvedAttrs
+      : AsType
+    : ResolvedAttrs;

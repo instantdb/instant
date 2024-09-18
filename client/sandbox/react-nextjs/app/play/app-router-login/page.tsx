@@ -2,7 +2,7 @@
 
 import { init, User } from "@instantdb/react";
 import Link from "next/link";
-import config from "../../config";
+import config from "../../../config";
 
 const APP_ID = "51a157e3-3ec6-4fbf-aca7-4ab9ac6ee350";
 

@@ -1,0 +1,21 @@
+RulesVersion: 2
+Samplers:
+    __default__:
+        DeterministicSampler:
+            SampleRate: 1
+    prod:
+      RulesBasedSampler:
+        Rules:
+          - Name: keep errors
+            SampleRate: 1
+            Conditions:
+              - Field: error
+                Operator: exists
+
+          - Name: default rule
+            Sampler:
+              EMAThroughputSampler:
+                # With one server, that's about 80MM/month
+                GoalThroughputPerSec: 30
+                FieldList:
+                  - name

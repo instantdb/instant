@@ -10,7 +10,8 @@
   (:refer-clojure :exclude [send])
   (:require [ring.adapter.undertow.headers :refer [set-headers]]
             [instant.util.json :refer [->json]]
-            [instant.util.tracer :as tracer])
+            [instant.util.tracer :as tracer]
+            [instant.util.delay :as delay])
   (:import
    [io.undertow.server HttpServerExchange]
    [io.undertow.websockets
@@ -21,7 +22,7 @@
     BufferedBinaryMessage
     BufferedTextMessage
     CloseMessage
-    WebSocketChannel
+    StreamSourceFrameChannel WebSocketChannel
     WebSockets
     WebSocketCallback]
    [io.undertow.websockets.spi WebSocketHttpExchange]
@@ -29,34 +30,73 @@
    [ring.adapter.undertow Util]
    [clojure.lang IPersistentMap]
    [io.undertow.websockets.extensions PerMessageDeflateHandshake]
-   [java.util.concurrent.locks ReentrantLock]))
+   [java.util.concurrent.locks ReentrantLock]
+   [java.util.concurrent.atomic AtomicLong]
+   [java.io IOException]
+   [java.nio ByteBuffer]
+   [java.nio.channels ClosedChannelException]
+   [org.xnio IoUtils]))
 
 (defn ws-listener
   "Creates an `AbstractReceiveListener`. This relays calls to 
    `on-message`, `on-close-message`, and `on-error` callbacks. 
    
    See `ws-callback` for more details."
-  [{:keys [on-message on-close-message on-error channel-wrapper]}]
+  [{:keys [on-message on-close-message on-error channel-wrapper atomic-last-received-at]}]
   (let [on-message       (or on-message (constantly nil))
         on-error         (or on-error (constantly nil))
         on-close-message (or on-close-message (constantly nil))]
     (proxy [AbstractReceiveListener] []
       (onFullTextMessage [^WebSocketChannel channel ^BufferedTextMessage message]
+
+        (.set atomic-last-received-at (System/currentTimeMillis))
         (on-message {:channel (channel-wrapper channel)
                      :data    (.getData message)}))
       (onFullBinaryMessage [^WebSocketChannel channel ^BufferedBinaryMessage message]
+        (.set atomic-last-received-at (System/currentTimeMillis))
         (let [pooled (.getData message)]
           (try
             (let [payload (.getResource pooled)]
               (on-message {:channel (channel-wrapper channel)
                            :data    (Util/toArray payload)}))
             (finally (.free pooled)))))
+      (onPong [^WebSocketChannel channel ^StreamSourceFrameChannel channel]
+        (.set atomic-last-received-at (System/currentTimeMillis)))
       (onCloseMessage [^CloseMessage message ^WebSocketChannel channel]
         (on-close-message {:channel (channel-wrapper  channel)
                            :message message}))
       (onError [^WebSocketChannel channel ^Throwable error]
         (on-error {:channel (channel-wrapper channel)
                    :error   error})))))
+
+(defonce ping-pool (delay/make-pool!))
+
+(defn try-send-ping-blocking
+  "Tries to send a ping-message. Ignores closed channel exceptions."
+  [channel]
+  (try
+    (WebSockets/sendPingBlocking
+     (ByteBuffer/allocate 0)
+     channel)
+    (catch ClosedChannelException _)
+    (catch IOException e
+      (when-not (= (.getMessage e) "UT002002: Channel is closed")
+        (throw e)))))
+
+(defn straight-jacket-run-ping-job [^WebSocketChannel channel
+                                    ^AtomicLong atomic-last-received-at
+                                    idle-timeout-ms]
+  (try
+    (let [now (System/currentTimeMillis)
+          last-received-at (.get atomic-last-received-at)
+          ms-since-last-message (- now last-received-at)]
+      (if (> ms-since-last-message idle-timeout-ms)
+        (tracer/with-span! {:name "socket/close-inactive"}
+          (IoUtils/safeClose channel))
+        (try-send-ping-blocking channel)))
+    (catch Exception e
+      (tracer/record-exception-span! e {:name "socket/ping-err"
+                                        :escaping? false}))))
 
 (defn ws-callback
   "Creates a `WebsocketConnectionCallback`. This relays data to the 
@@ -85,26 +125,49 @@
 
    on-error: Called when the server encounters an error sending a message 
      :channel - The `WebSocketChannel` object 
-     :error - The error Throwable"
-  [{:keys [on-open on-close listener]
-    :or   {on-open (constantly nil) on-close (constantly nil)}
+     :error - The error Throwable
+     
+   We also kick off a ping worker. It sends a `ping` message every 
+   `ping-interval-ms`. If the client doesn't send any message for 
+   `idle-timeout-ms`, we close the connection.  
+   "
+  [{:keys [on-open on-close listener ping-interval-ms idle-timeout-ms]
+    :or   {on-open (constantly nil)
+           on-close (constantly nil)
+           ping-interval-ms 5000
+           idle-timeout-ms 15000}
     :as   ws-opts}]
   (let [send-lock (ReentrantLock.)
+        atomic-last-received-at (AtomicLong. (System/currentTimeMillis))
         channel-wrapper (fn [ch]
                           {:undertow-websocket ch
                            :send-lock send-lock})
         listener (if (instance? ChannelListener listener)
                    listener
-                   (ws-listener (assoc ws-opts :channel-wrapper channel-wrapper)))
-        close-task (reify ChannelListener
-                     (handleEvent [_this channel]
-                       (on-close (channel-wrapper channel))))]
+                   (ws-listener (assoc ws-opts
+                                       :channel-wrapper channel-wrapper
+                                       :atomic-last-received-at atomic-last-received-at)))]
+
     (reify WebSocketConnectionCallback
       (^void onConnect [_ ^WebSocketHttpExchange exchange ^WebSocketChannel channel]
-        (on-open {:exchange exchange :channel (channel-wrapper channel)})
-        (.addCloseTask channel close-task)
-        (.set (.getReceiveSetter channel) listener)
-        (.resumeReceives channel)))))
+        (let [ping-job (delay/repeat-fn
+                        ping-pool
+                        ping-interval-ms
+                        (fn []
+                          (straight-jacket-run-ping-job channel
+                                                        atomic-last-received-at
+                                                        idle-timeout-ms)))
+
+              close-task (reify ChannelListener
+                           (handleEvent [_this channel]
+                             (.cancel ping-job false)
+                             (on-close (channel-wrapper channel))))]
+          (.set atomic-last-received-at (System/currentTimeMillis))
+          (on-open {:exchange exchange
+                    :channel (channel-wrapper channel)})
+          (.addCloseTask channel close-task)
+          (.set (.getReceiveSetter channel) listener)
+          (.resumeReceives channel))))))
 
 (defn ws-request [^HttpServerExchange exchange ^IPersistentMap headers ^WebSocketConnectionCallback callback]
   (let [handler (->  (WebSocketProtocolHandshakeHandler. callback)

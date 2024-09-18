@@ -1,97 +1,20 @@
-import { tx, lookup, TransactionChunk, getOps } from "@instantdb/core";
-import { User, AuthToken, id } from "@instantdb/core";
+import {
+  tx,
+  lookup,
+  getOps,
+  i,
+  id,
+  txInit,
+  type TransactionChunk,
+  type User,
+  type AuthToken,
+  type Exactly,
+  type InstaQLQueryParams,
+  type Query,
+  type QueryResponse,
+} from "@instantdb/core";
 
-// Query Types
-// -----
-
-// NonEmpty disallows {}, so that you must provide at least one field
-type NonEmpty<T> = {
-  [K in keyof T]-?: Required<Pick<T, K>>;
-}[keyof T];
-
-type WhereArgs = {
-  in?: (string | number | boolean)[];
-};
-
-type WhereClauseValue = string | number | boolean | NonEmpty<WhereArgs>;
-
-type BaseWhereClause = {
-  [key: string]: WhereClauseValue;
-};
-
-type WhereClauseWithCombination = {
-  or?: WhereClause[] | WhereClauseValue;
-  and?: WhereClause[] | WhereClauseValue;
-};
-
-type WhereClause =
-  | WhereClauseWithCombination
-  | (WhereClauseWithCombination & BaseWhereClause);
-
-/**
- * A tuple representing a cursor.
- * These should not be constructed manually. The current format
- * is an implementation detail that may change in the future.
- * Use the `endCursor` or `startCursor` from the PageInfoResponse as the
- * `before` or `after` field in the query options.
- */
-type Cursor = [string, string, any, number];
-
-type Direction = "asc" | "desc";
-
-type Order = { serverCreatedAt: Direction };
-
-type $Option = {
-  $?: {
-    where?: WhereClause;
-    order?: Order;
-    limit?: number;
-    last?: number;
-    first?: number;
-    offset?: number;
-    after?: Cursor;
-    before?: Cursor;
-  };
-};
-
-type Subquery = { [namespace: string]: NamespaceVal };
-
-type NamespaceVal = $Option | ($Option & Subquery);
-
-interface Query {
-  [namespace: string]: NamespaceVal;
-}
-
-type InstantObject = {
-  id: string;
-  [prop: string]: any;
-};
-
-type ResponseObject<K, Schema> = K extends keyof Schema
-  ? { id: string } & Schema[K]
-  : InstantObject;
-
-type IsEmptyObject<T> = T extends Record<string, never> ? true : false;
-
-type ResponseOf<Q, Schema> = {
-  [K in keyof Q]: IsEmptyObject<Q[K]> extends true
-    ? ResponseObject<K, Schema>[]
-    : (ResponseOf<Q[K], Schema> & ResponseObject<K, Schema>)[];
-};
-
-type Remove$<T> = T extends object
-  ? { [K in keyof T as Exclude<K, "$">]: Remove$<T[K]> }
-  : T;
-
-type QueryResponse<T, Schema> = ResponseOf<
-  { [K in keyof T]: Remove$<T[K]> },
-  Schema
->;
-
-/**
- * `debugQuery` returns the results of evaluating the corresponding permissions rules for each record.
- */
-export type DebugCheckResult = {
+type DebugCheckResult = {
   /** The ID of the record. */
   id: string;
   /** The namespace/table of the record. */
@@ -100,32 +23,6 @@ export type DebugCheckResult = {
   record: Record<string, any>;
   /** The result of evaluating the corresponding permissions rule for a record. */
   check: any;
-};
-
-/**
- * (XXX)
- * https://github.com/microsoft/TypeScript/issues/26051
- *
- * Typescript can permit extra keys when a generic extends a type.
- *
- * For some reason, it makes it possible to write a query like so:
- *
- * dummyQuery({
- *  users: {
- *    $: { where: { "foo": 1 } },
- *    posts: {
- *      $: { "far": {} }
- *    }
- *  }
- *
- *  The problem: $: { "far": {} }
- *
- *  This passes, when it should in reality fail. I don't know why
- *  adding `Exactly` fixes this, but it does.
- *
- * */
-type Exactly<Parent, Child extends Parent> = Parent & {
-  [K in keyof Child]: K extends keyof Parent ? Child[K] : never;
 };
 
 type Config = {
@@ -232,7 +129,19 @@ async function jsonFetch(
  *
  */
 function init<Schema = {}>(config: Config) {
-  return new InstantAdmin<Schema>(config);
+  return new InstantAdmin<Schema, false>(config);
+}
+
+function init_experimental<
+  Schema extends i.InstantGraph<any, any, any>,
+  WithCardinalityInference extends boolean = true,
+>(
+  config: Config & {
+    schema: Schema;
+    cardinalityInference?: WithCardinalityInference;
+  },
+) {
+  return new InstantAdmin<Schema, WithCardinalityInference>(config);
 }
 
 /**
@@ -244,14 +153,26 @@ function init<Schema = {}>(config: Config) {
  * @example
  *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
  */
-class InstantAdmin<Schema = {}> {
+class InstantAdmin<
+  Schema extends i.InstantGraph<any, any> | {},
+  WithCardinalityInference extends boolean,
+> {
   config: FilledConfig;
   auth: Auth;
+  storage: Storage;
   impersonationOpts?: ImpersonationOpts;
+
+  public tx =
+    txInit<
+      Schema extends i.InstantGraph<any, any>
+        ? Schema
+        : i.InstantGraph<any, any>
+    >();
 
   constructor(_config: Config) {
     this.config = configWithDefaults(_config);
     this.auth = new Auth(this.config);
+    this.storage = new Storage(this.config);
   }
 
   /**
@@ -263,8 +184,12 @@ class InstantAdmin<Schema = {}> {
    * @example
    *  await db.asUser({email: "stopa@instantdb.com"}).query({ goals: {} })
    */
-  asUser = (opts: ImpersonationOpts): InstantAdmin<Schema> => {
-    const newClient = new InstantAdmin<Schema>({ ...this.config });
+  asUser = (
+    opts: ImpersonationOpts,
+  ): InstantAdmin<Schema, WithCardinalityInference> => {
+    const newClient = new InstantAdmin<Schema, WithCardinalityInference>({
+      ...this.config,
+    });
     newClient.impersonationOpts = opts;
     return newClient;
   };
@@ -284,13 +209,25 @@ class InstantAdmin<Schema = {}> {
    *  // all goals, _alongside_ their todos
    *  await db.query({ goals: { todos: {} } })
    */
-  query = <Q extends Query>(
-    query: Exactly<Query, Q>,
-  ): Promise<QueryResponse<Q, Schema>> => {
+  query = <
+    Q extends Schema extends i.InstantGraph<any, any>
+      ? InstaQLQueryParams<Schema>
+      : Exactly<Query, Q>,
+  >(
+    query: Q,
+  ): Promise<QueryResponse<Q, Schema, WithCardinalityInference>> => {
+    const withInference =
+      "cardinalityInference" in this.config
+        ? Boolean(this.config.cardinalityInference)
+        : true;
+
     return jsonFetch(`${this.config.apiURI}/admin/query`, {
       method: "POST",
       headers: authorizedHeaders(this.config, this.impersonationOpts),
-      body: JSON.stringify({ query: query }),
+      body: JSON.stringify({
+        query: query,
+        "inference?": withInference,
+      }),
     });
   };
 
@@ -317,7 +254,9 @@ class InstantAdmin<Schema = {}> {
    *    tx.goals[goalId].link({todos: todoId}),
    *  ])
    */
-  transact = (inputChunks: TransactionChunk | TransactionChunk[]) => {
+  transact = (
+    inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
+  ) => {
     const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
     const steps = chunks.flatMap((tx) => getOps(tx));
     return jsonFetch(`${this.config.apiURI}/admin/transact`, {
@@ -352,7 +291,7 @@ class InstantAdmin<Schema = {}> {
     query: Exactly<Query, Q>,
     opts?: { rules: any },
   ): Promise<{
-    result: QueryResponse<Q, Schema>;
+    result: QueryResponse<Q, Schema, WithCardinalityInference>;
     checkResults: DebugCheckResult[];
   }> => {
     const response = await jsonFetch(
@@ -389,7 +328,7 @@ class InstantAdmin<Schema = {}> {
    *   )
    */
   debugTransact = (
-    inputChunks: TransactionChunk | TransactionChunk[],
+    inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
     opts?: { rules?: any },
   ) => {
     const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
@@ -556,14 +495,142 @@ class Auth {
   }
 }
 
+type UploadMetadata = { contentType?: string } & Record<string, any>;
+type StorageFile = {
+  key: string;
+  name: string;
+  size: number;
+  etag: string;
+  last_modified: number;
+};
+
+/**
+ * Functions to manage file storage.
+ */
+class Storage {
+  config: FilledConfig;
+
+  constructor(config: FilledConfig) {
+    this.config = config;
+  }
+
+  /**
+   * Uploads file at the provided path.
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   const buffer = fs.readFileSync('demo.png');
+   *   const isSuccess = await db.storage.upload('photos/demo.png', buffer);
+   */
+  upload = async (
+    pathname: string,
+    file: Buffer,
+    metadata: UploadMetadata = {},
+  ): Promise<boolean> => {
+    const { data: presignedUrl } = await jsonFetch(
+      `${this.config.apiURI}/admin/storage/signed-upload-url`,
+      {
+        method: "POST",
+        headers: authorizedHeaders(this.config),
+        body: JSON.stringify({
+          app_id: this.config.appId,
+          filename: pathname,
+        }),
+      },
+    );
+    const { ok } = await fetch(presignedUrl, {
+      method: "PUT",
+      body: file,
+      headers: {
+        "Content-Type": metadata.contentType || "application/octet-stream",
+      },
+    });
+
+    return ok;
+  };
+
+  /**
+   * Retrieves a download URL for the provided path.
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   const url = await db.storage.getDownloadUrl('photos/demo.png');
+   */
+  getDownloadUrl = async (pathname: string): Promise<string> => {
+    const { data } = await jsonFetch(
+      `${this.config.apiURI}/admin/storage/signed-download-url?app_id=${this.config.appId}&filename=${encodeURIComponent(pathname)}`,
+      {
+        method: "GET",
+        headers: authorizedHeaders(this.config),
+      },
+    );
+
+    return data;
+  };
+
+  /**
+   * Retrieves a list of all the files that have been uploaded by this app.
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   const files = await db.storage.list();
+   */
+  list = async (): Promise<StorageFile[]> => {
+    const { data } = await jsonFetch(
+      `${this.config.apiURI}/admin/storage/files`,
+      {
+        method: "GET",
+        headers: authorizedHeaders(this.config),
+      },
+    );
+
+    return data;
+  };
+
+  /**
+   * Deletes a file by its path name (e.g. "photos/demo.png").
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   await db.storage.delete("photos/demo.png");
+   */
+  delete = async (pathname: string): Promise<void> => {
+    await jsonFetch(
+      `${this.config.apiURI}/admin/storage/files?filename=${encodeURIComponent(pathname)}`,
+      {
+        method: "DELETE",
+        headers: authorizedHeaders(this.config),
+      },
+    );
+  };
+
+  /**
+   * Deletes multiple files by their path names (e.g. "photos/demo.png", "essays/demo.txt").
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   await db.storage.deleteMany(["images/1.png", "images/2.png", "images/3.png"]);
+   */
+  deleteMany = async (pathnames: string[]): Promise<void> => {
+    await jsonFetch(`${this.config.apiURI}/admin/storage/files/delete`, {
+      method: "POST",
+      headers: authorizedHeaders(this.config),
+      body: JSON.stringify({ filenames: pathnames }),
+    });
+  };
+}
+
 export {
   init,
+  init_experimental,
   id,
   tx,
   lookup,
+  i,
 
   // types
-  Config,
-  ImpersonationOpts,
-  TransactionChunk,
+  type Config,
+  type ImpersonationOpts,
+  type TransactionChunk,
+  type DebugCheckResult,
 };

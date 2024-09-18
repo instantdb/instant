@@ -1,6 +1,7 @@
 import {
   // types
   Config,
+  i,
   RoomSchemaShape,
 } from "@instantdb/core";
 import { InstantReactWeb } from "./InstantReactWeb";
@@ -29,4 +30,22 @@ export function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
   config: Config,
 ) {
   return new InstantReactWeb<Schema, RoomSchema>(config);
+}
+
+export function init_experimental<
+  Schema extends i.InstantGraph<any, any, any>,
+  WithCardinalityInference extends boolean = true,
+>(
+  config: Config & {
+    schema: Schema;
+    cardinalityInference?: WithCardinalityInference;
+  },
+) {
+  return new InstantReactWeb<
+    Schema,
+    Schema extends i.InstantGraph<any, any, infer RoomSchema>
+      ? RoomSchema
+      : never,
+    WithCardinalityInference
+  >(config);
 }

@@ -18,6 +18,7 @@
             [instant.model.rule :as rule-model]
             [instant.db.cel :as cel]
             [instant.util.exception :as ex]
+            [instant.util.io :as io]
             [instant.util.uuid :as uuid-util]
             [instant.db.model.entity :as entity-model])
   (:import [java.util UUID]))
@@ -600,11 +601,14 @@
 (defn guarded-where-query [ctx {:keys [etype level] :as form}]
   (try
     (where-query ctx form)
-    (catch clojure.lang.ExceptionInfo _e
-      (list true
-            (attr-pat/default-level-sym etype level)
-            [[:ea (attr-pat/default-level-sym etype level)]
-             [:eav]]))))
+    (catch clojure.lang.ExceptionInfo e
+      (if (contains? #{::ex/validation-failed}
+                     (::ex/type (ex-data e)))
+        (throw e)
+        (list true
+              (attr-pat/default-level-sym etype level)
+              [[:ea (attr-pat/default-level-sym etype level)]
+               [:eav]])))))
 
 ;; ----------
 ;; pagination
@@ -679,17 +683,6 @@
 ;; -----
 ;; query
 
-(defn ->guarded-ref-attr-pat
-  [ctx etype level label]
-  (try
-    (attr-pat/->ref-attr-pat ctx attr-pat/default-level-sym etype level label)
-    (catch clojure.lang.ExceptionInfo e
-      (if (contains? #{::ex/validation-failed}
-                     (::ex/type (ex-data e)))
-        (throw e)
-        (list (attr-pat/default-level-sym label level)
-              [(attr-pat/default-level-sym label level) '_ '_])))))
-
 (defn- form->child-forms
   "Given a form and eid, return a seq of all the possible child queries.
    This determines the etype for the child form, and adds a join condition on
@@ -699,7 +692,7 @@
     (let [{:keys [k]} form
 
           [next-etype next-level attr-pat]
-          (->guarded-ref-attr-pat ctx etype level k)
+          (attr-pat/->guarded-ref-attr-pat ctx etype level k)
 
           join-attr-pat (attr-pat/replace-in-attr-pat
                          attr-pat (attr-pat/default-level-sym etype level) eid)
@@ -1447,22 +1440,55 @@
                            (datalog-query-fn ctx datalog-query))]
     (entity-model/datalog-result->map {:attr-map attr-map} datalog-result)))
 
+(defn extract-refs
+  "Extracts a list of refs that can be passed to cel/prefetch-data-refs.
+   Returns: [{:etype string path-str string eids #{uuid}}]"
+  [eid->etype etype->program]
+  (let [etype->eid (ucoll/map-invert-key-set eid->etype)]
+    (reduce (fn [acc [etype program]]
+              (if-let [ast (:cel-ast program)]
+                (let [path-strs (seq (cel/collect-data-ref-uses ast))]
+                  (reduce (fn [acc path-str]
+                            (conj acc {:etype etype
+                                       :path-str path-str
+                                       :eids (get etype->eid etype)}))
+                          acc
+                          path-strs))
+                acc))
+            []
+            etype->program)))
+
+(defn preload-refs [ctx eid->etype etype->program]
+  (let [refs (extract-refs eid->etype etype->program)]
+    (if (seq refs)
+      (cel/prefetch-data-refs ctx refs)
+      {})))
+
 (defn get-eid-check-result! [{:keys [current-user] :as ctx} {:keys [eid->etype etype->program query-cache]} attr-map]
   (tracer/with-span! {:name "instaql/get-eid-check-result!"}
-    (->> eid->etype
-         (ua/vfuture-pmap
-          (fn [[eid etype]]
-            (let [p (etype->program etype)]
-              [eid (if-not p
-                     true
-                     (let [em (entity-map ctx query-cache attr-map eid)]
-                       (cel/eval-program! p
-                                          {"auth" (cel/->cel-map (<-json (->json current-user)))
-                                           "data" (cel/->cel-map (assoc (<-json (->json em))
-                                                                        "_ctx" ctx
-                                                                        "_etype" etype))})))])))
+    (let [preloaded-refs (tracer/with-span! {:name "instaql/preload-refs"}
+                           (let [res (preload-refs ctx eid->etype etype->program)]
+                             (tracer/add-data! {:attributes {:ref-count (count res)}})
+                             res))]
+      (->> eid->etype
+           (ua/vfuture-pmap
+            (fn [[eid etype]]
+              (let [p (etype->program etype)]
+                [eid (if-not p
+                       true
+                       (let [em (io/warn-io :instaql/entity-map
+                                  (entity-map ctx query-cache attr-map eid))
+                             ctx (assoc ctx
+                                        :preloaded-refs preloaded-refs)]
+                         (io/warn-io :instaql/eval-program
+                           (cel/eval-program!
+                            p
+                            {"auth" (cel/->cel-map (<-json (->json current-user)))
+                             "data" (cel/->cel-map (assoc (<-json (->json em))
+                                                          "_ctx" ctx
+                                                          "_etype" etype))}))))])))
 
-         (into {}))))
+           (into {})))))
 
 (defn permissioned-query [{:keys [app-id current-user admin?] :as ctx} o]
   (tracer/with-span! {:name "instaql/permissioned-query"
@@ -1536,6 +1562,7 @@
 
   #_{:clj-kondo/ignore [:unresolved-namespace]}
   (instant.admin.routes/instaql-nodes->object-tree
+   {}
    attrs
    (query ctx {:eb {:child {}}})))
 

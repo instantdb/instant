@@ -9,7 +9,7 @@ import { capitalize } from 'lodash';
 import { PlusIcon, TrashIcon } from '@heroicons/react/solid';
 
 import { StyledToastContainer, errorToast, successToast } from '@/lib/toast';
-import config, { cliOauthParamName, getLocal } from '@/lib/config';
+import config, { cliOauthParamName, getLocal, setLocal } from '@/lib/config';
 import { jsonFetch, jsonMutate } from '@/lib/fetch';
 import {
   APIResponse,
@@ -17,7 +17,6 @@ import {
   useAuthToken,
   useAuthedFetch,
   claimTicket,
-  tryCliLogin,
   voidTicket,
 } from '@/lib/auth';
 import { TokenContext } from '@/lib/contexts';
@@ -54,6 +53,7 @@ import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { QueryInspector } from '@/components/dash/explorer/QueryInspector';
 import { Sandbox } from '@/components/dash/Sandbox';
 import { StorageTab } from '@/components/dash/Storage';
+import PersonalAccessTokensScreen from '@/components/dash/PersonalAccessTokensScreen';
 import { useForm } from '@/lib/hooks/useForm';
 
 // (XXX): we may want to expose this underlying type
@@ -248,16 +248,6 @@ function Dashboard() {
 
   const dashResponse = useAuthedFetch<DashResponse>(`${config.apiURI}/dash`);
 
-  // The old CLI login flow
-  // TODO: remove after users have updated their CLI
-  useEffect(() => {
-    if (!token) return;
-    const email = dashResponse.data?.user?.email;
-    if (!email) return;
-
-    tryCliLogin({ token, email });
-  }, [token, dashResponse.data]);
-
   useEffect(() => {
     if (!token) return;
     const state = getLocal('__tutorial-interaction-state');
@@ -319,19 +309,29 @@ function Dashboard() {
       return;
     }
 
+    const isAppIdValid = Boolean(apps.find((a) => a.id === appId));
+    if (appId && isAppIdValid) return;
+
     const firstApp = apps?.[0];
     if (!firstApp) return;
 
-    const isAppIdValid = Boolean(apps.find((a) => a.id === appId));
-    if (appId && isAppIdValid) return;
+    const _lastAppId = getLocal('dash_app_id');
+    const lastAppId = Boolean(apps.find((a) => a.id === _lastAppId))
+      ? _lastAppId
+      : null;
+
+    const defaultAppId = lastAppId ?? firstApp.id;
+    if (!defaultAppId) return;
 
     router.replace({
       query: {
         s: 'main',
-        app: firstApp.id,
+        app: defaultAppId,
         t: tab,
       },
     });
+
+    setLocal('dash_app_id', defaultAppId);
   }, [router.isReady, dashResponse.data]);
 
   useEffect(() => {
@@ -353,6 +353,8 @@ function Dashboard() {
   }, [router.isReady, app]);
 
   function nav(q: { s: string; app?: string; t?: string }) {
+    if (q.app) setLocal('dash_app_id', q.app);
+
     router.push({
       query: q,
     });
@@ -400,7 +402,18 @@ function Dashboard() {
     const _appId = _apps[0]?.id;
     nav({ s: 'main', app: _appId, t: 'hello' });
   }
-
+  if (screen === 'personal-access-tokens') {
+    return (
+      <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
+        <Head>
+          <title>Instant - {tabIndex.get(tab)?.title}</title>
+          <meta name="description" content="Welcome to Instant." />
+        </Head>
+        <StyledToastContainer />
+        <PersonalAccessTokensScreen />
+      </div>
+    );
+  }
   return (
     <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
       <Head>
@@ -603,7 +616,7 @@ function Invites({
               className="flex flex-col justify-between gap-2"
             >
               <div>
-                <strong>{invite.inviter_email}</strong> invited you to on{' '}
+                <strong>{invite.inviter_email}</strong> invited you to{' '}
                 <strong>{invite.app_title}</strong> as{' '}
                 <strong>{invite.invitee_role}</strong>.
               </div>

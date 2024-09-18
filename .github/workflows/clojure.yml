@@ -146,10 +146,11 @@ jobs:
       working-directory: server
       run: clojure -M:lint "--config" ".clj-kondo/ci-config.edn"
 
-  publish:
+  publish-image:
     runs-on: ubuntu-latest
-    needs: [ clj-check ]
-    if: github.ref == 'refs/heads/main'
+    if: needs.detect_clj.outputs.did_change == 'True' && github.ref == 'refs/heads/main'
+    # Start publish image if we have clj changes
+    needs: [ detect_clj ]
     permissions:
       id-token: write
       contents: read
@@ -179,6 +180,26 @@ jobs:
           --cache-to mode=max,image-manifest=true,oci-mediatypes=true,compression=zstd,type=registry,ref=597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:cache \
           --cache-from type=registry,ref=597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:cache \
           -t 597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:$IMAGE_TAG .
+
+  publish-eb:
+    runs-on: ubuntu-latest
+    # Publish to elastic beanstalk only if we pass the tests
+    needs:
+      - clj-check
+      - publish-image
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::597134865416:role/aws-credentials-for-github-actions-Role-x0lUbtwJNb7G
+        aws-region: us-east-1
+
     - name: Update docker-compose.yml
       working-directory: server
       env:
@@ -195,12 +216,11 @@ jobs:
         sed -i "s|SHA_REPLACE_ME|${SHA}|g" .platform/hooks/prebuild/logdna.sh
         cat .platform/hooks/prebuild/logdna.sh
 
-
     - name: Create eb application version
       uses: "./.github/actions/elastic-beanstalk"
       with:
         working-directory: "server"
-        files: '["docker-compose.yml", ".platform/hooks/prebuild/logdna.sh"]'
+        files: '["docker-compose.yml", ".platform/hooks/prebuild/logdna.sh", "refinery/config.yaml", "refinery/rules.yaml"]'
         aws-region: "us-east-1"
         bucket: "elasticbeanstalk-us-east-1-597134865416"
         application-name: "instant-docker-prod"

@@ -30,6 +30,9 @@
 (defn sign-out-post [& args]
   (apply (http-util/wrap-errors admin-routes/sign-out-post) args))
 
+(defn transact-ok? [transact-res]
+  (= 200 (:status transact-res)))
+
 (deftest query-test
   (with-zeneca-app
     (fn [{app-id :id admin-token :admin-token :as _app} _r]
@@ -532,6 +535,65 @@
           (is (= (count bookshelves-before)
                  (count bookshelves-after-relink))))))))
 
+(deftest lookup-creates-attrs
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token}]
+      (testing "good error message for create + update with lookup"
+        ;; We may be able to fix with merge in postgres 16
+        ;; https://www.postgresql.org/docs/current/sql-merge.html
+        (= "Updates with lookups can only update the lookup attribute if an entity with the unique attribute value already exists."
+           (-> (transact-post
+                {:body {:steps [["update" "users" ["handle" "stopa"] {"handle" "stopa2"}]]}
+                 :headers {"app-id" (str app-id)
+                           "authorization" (str "Bearer " admin-token)}})
+               :body
+               :hint
+               :errors
+               first
+               :message)))
+      (testing "update"
+        (is (transact-ok?
+             (transact-post
+              {:body {:steps [["update" "users" ["handle" "stopa"] {"name" "Stepan"}]]}
+               :headers {"app-id" (str app-id)
+                         "authorization" (str "Bearer " admin-token)}})))
+        (is (= "Stepan"
+               (-> (query-post
+                    {:body {:query {:users {:$ {:where {:handle "stopa"}}}}}
+                     :headers {"app-id" (str app-id)
+                               "authorization" (str "Bearer " admin-token)}})
+                   :body
+                   (get "users")
+                   first
+                   (get "name")))))
+      (testing "create link attrs"
+        (let [pref-id (str (random-uuid))
+              stopa-id (-> (query-post
+                            {:body {:query {:users {:$ {:where {:handle "stopa"}}}}}
+                             :headers {"app-id" (str app-id)
+                                       "authorization" (str "Bearer " admin-token)}})
+                           :body
+                           (get "users")
+                           first
+                           (get "id"))]
+          (is (transact-ok?
+               (transact-post
+                {:body {:steps [["update" "user_prefs" ["users.id" stopa-id] {"pref_b" "pref_b_value"}]]}
+                 :headers {"app-id" (str app-id)
+                           "authorization" (str "Bearer " admin-token)}}))))
+        (is (= "pref_b_value"
+               (-> (query-post
+                    {:body {:query {:users {:$ {:where {:handle "stopa"}}
+                                            :user_prefs {}}}}
+                     :headers {"app-id" (str app-id)
+                               "authorization" (str "Bearer " admin-token)}})
+                   :body
+                   (get "users")
+                   first
+                   (get "user_prefs")
+                   first
+                   (get "pref_b"))))))))
+
 (defn tx-validation-err [attrs steps]
   (try
     (admin-model/->tx-steps! attrs steps)
@@ -549,9 +611,18 @@
     (is (= '{:expected map?, :in [0 1]}
            (tx-validation-err
             attrs [["add-attr" "goals" (UUID/randomUUID) 2]])))
-    (is (= {:message "title is not a unique attribute on goals"}
+    (is (= {:message "title is not a unique attribute on books"}
            (tx-validation-err
-            attrs [["update" "goals" ["title" "test"] {"title" "test"}]])))))
+            attrs [["update" "books" ["title" "test"] {"title" "test"}]])))
+    (is (= {:message "test.isbn is not a valid lookup attribute."}
+           (tx-validation-err
+            attrs [["update" "books" ["test.isbn" "asdf"] {"title" "test"}]])))
+    (is (= {:message "test.isbn is not a unique attribute on books"}
+           (tx-validation-err
+            (conj attrs {:id (random-uuid)
+                         :forward-identity [(random-uuid) "books" "test.isbn"]
+                         :unique? false})
+            [["update" "books" ["test.isbn" "asdf"] {"title" "test"}]])))))
 
 (comment
   (test/run-tests *ns*))

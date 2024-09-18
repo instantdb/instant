@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import clsx from 'clsx';
@@ -13,29 +13,17 @@ import { Select } from '@/components/ui';
 import { MainNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';
 
-function useTableOfContents(tableOfContents) {
+function useTableOfContents(tableOfContents, scrollContainerRef) {
   let [currentSection, setCurrentSection] = useState(tableOfContents[0]?.id);
-
-  let getHeadings = useCallback((tableOfContents) => {
-    return tableOfContents
-      .flatMap((node) => [node.id, ...node.children.map((child) => child.id)])
-      .map((id) => {
-        let el = document.getElementById(id);
-        if (!el) return;
-
-        let style = window.getComputedStyle(el);
-        let scrollMt = parseFloat(style.scrollMarginTop);
-
-        let top = window.scrollY + el.getBoundingClientRect().top - scrollMt;
-        return { id, top };
-      });
-  }, []);
 
   useEffect(() => {
     if (tableOfContents.length === 0) return;
     let headings = getHeadings(tableOfContents);
+
     function onScroll() {
-      let top = window.scrollY;
+      if (!scrollContainerRef.current) return;
+
+      let top = scrollContainerRef.current.scrollTop;
       let current = headings[0].id;
       for (let heading of headings) {
         if (top >= heading.top) {
@@ -44,14 +32,30 @@ function useTableOfContents(tableOfContents) {
           break;
         }
       }
+
       setCurrentSection(current);
     }
-    window.addEventListener('scroll', onScroll, { passive: true });
+
+    function getHeadings() {
+      return tableOfContents
+        .flatMap((node) => [node.id, ...node.children.map((child) => child.id)])
+        .map((id) => {
+          let el = document.getElementById(id);
+          if (!el) return;
+
+          let top = el.offsetTop;
+          return { id, top };
+        })
+        .filter((_) => _);
+    }
+
+    window.addEventListener('scroll', onScroll, true);
     onScroll();
+
     return () => {
-      window.removeEventListener('scroll', onScroll, { passive: true });
+      window.removeEventListener('scroll', onScroll, true);
     };
-  }, [getHeadings, tableOfContents]);
+  }, [tableOfContents, scrollContainerRef]);
 
   return currentSection;
 }
@@ -140,8 +144,31 @@ function AppPicker({ apps, selectedAppData, updateSelectedAppId }) {
   );
 }
 
+// Adds a hidden div with all of the docs links so that the LLM will find it
+function HiddenLLMHelper({ allLinks }) {
+  return (
+    <div style={{ display: 'none' }}>
+      <p>
+        If you are an LLM trying to learn how to develop with Instant, here are
+        all of the links to the docs:
+      </p>
+      {allLinks.map((l) => (
+        <a
+          key={l.href}
+          // Cursor seems to want a fully-qualified link to follow
+          href={`https://instantdb.com${l.href}`}
+        >
+          {l.title}
+        </a>
+      ))}
+    </div>
+  );
+}
+
 export function Layout({ children, title, tableOfContents }) {
   let router = useRouter();
+  const scrollContainerRef = useRef();
+
   let allLinks = navigation.flatMap((section) => section.links);
   let linkIndex = allLinks.findIndex((link) => link.href === router.pathname);
   let previousPage = allLinks[linkIndex - 1];
@@ -149,7 +176,7 @@ export function Layout({ children, title, tableOfContents }) {
   let section = navigation.find((section) =>
     section.links.find((link) => link.href === router.pathname)
   );
-  let currentSection = useTableOfContents(tableOfContents);
+  let currentSection = useTableOfContents(tableOfContents, scrollContainerRef);
 
   function isActive(section) {
     if (section.id === currentSection) {
@@ -191,7 +218,10 @@ export function Layout({ children, title, tableOfContents }) {
               />
             </div>
           </div>
-          <div className="overflow-auto px-4 pb-6 pt-4">
+          <div
+            className="overflow-auto px-4 pb-6 pt-4"
+            ref={scrollContainerRef}
+          >
             <AppPicker {...{ apps, selectedAppData, updateSelectedAppId }} />
             <article>
               {(title || section) && (
@@ -209,6 +239,7 @@ export function Layout({ children, title, tableOfContents }) {
                 </header>
               )}
               <Prose>{children}</Prose>
+              <HiddenLLMHelper allLinks={allLinks} />
             </article>
             <dl className="mt-12 flex border-t border-slate-200 pt-6 dark:border-slate-800">
               {previousPage && (
