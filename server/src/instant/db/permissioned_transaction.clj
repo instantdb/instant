@@ -25,12 +25,13 @@
     (#{:add-triple :deep-merge-triple :retract-triple :delete-entity} action) :object-changes
     (#{:add-attr :delete-attr :update-attr} action) :attr-changes))
 
+(defn tx-object-action-type [[action]]
+  (cond
+    (#{:add-triple :deep-merge-triple :retract-triple} action) :update
+    (#{:delete-entity} action) :delete))
+
 (defn action->tx-steps [tx-steps]
-  (group-by (fn [[action]]
-              (cond
-                (#{:add-triple :deep-merge-triple :retract-triple} action) :update
-                (#{:delete-entity} action) :delete))
-            tx-steps))
+  (group-by tx-object-action-type tx-steps))
 
 (defn ->eid-actions [[eid tx-steps]]
   (let [ac->tx-steps (action->tx-steps tx-steps)]
@@ -79,22 +80,20 @@
    original
    tx-steps))
 
-(defn get-triples [ctx eid]
+(defn get-triples [ctx etype eid]
   (or (-> ctx
           :preloaded-triples
-          (get eid))
-      (io/tag-io (entity-model/get-triples ctx eid))))
+          (get {:eid eid
+                :etype etype}))
+      (io/tag-io (entity-model/get-triples ctx etype eid))))
 
 ;; Why do we have to decide whether something is an update or a create?
 ;; When a user makes a transaction, the only option they have currently is to do an `update`:
 ;; tx.users[id].update({name: "Joe"})
 ;; It's up to use to decide whether this object existed before or not.
-(defn object-upsert-check [{:keys [attrs rules current-user] :as ctx} eid tx-steps]
-  (let [triples (map rest tx-steps)
-        etype-attr-id (-> triples first second)
-        etype (extract-etype ctx etype-attr-id)
-        triples (get-triples ctx eid)
-        original (entity-model/triples->map ctx triples)
+(defn object-upsert-check
+  [{:keys [attrs rules current-user] :as ctx} etype eid tx-steps triples]
+  (let [original (entity-model/triples->map ctx triples)
         action (if (seq original) "update" "create")
         program (rule-model/get-program! rules etype action)
         action-kw (keyword action)
@@ -135,11 +134,8 @@
                       "newData"
                       (cel/->cel-map (<-json (->json new-data)))})))}))
 
-(defn object-delete-check [{:keys [rules current-user] :as ctx} eid]
-  (let [triples (get-triples ctx eid)
-        original (entity-model/triples->map ctx triples)
-        etype-attr-id (-> triples first second)
-        etype (extract-etype ctx etype-attr-id)
+(defn object-delete-check [{:keys [rules current-user] :as ctx} etype eid triples]
+  (let [original (entity-model/triples->map ctx triples)
         program (when etype
                   (rule-model/get-program! rules etype "delete"))]
     {:scope :object
@@ -160,12 +156,50 @@
                            "_ctx" ctx
                            "_etype" etype))})))}))
 
-(defn object-check [ctx [eid action tx-steps]]
+(defn object-check [ctx etype eid action tx-steps triples]
   (condp = action
     :update
-    (object-upsert-check ctx eid tx-steps)
+    (object-upsert-check ctx etype eid tx-steps triples)
     :delete
-    (object-delete-check ctx eid)))
+    (object-delete-check ctx etype eid triples)))
+
+(defn group-object-tx-steps
+  "Groups tx-steps by etype, eid, and action.
+
+   We take tx-steps like:
+   [
+     [:add-triple joe-eid :users/name \"Joe\"]
+     [:add-triple joe-eid :users/age 32]
+     [:add-triple stopa-eid :users/name \"Stopa\"]
+     [:add-triple stopa-eid :users/age 30]
+   ]
+
+   And we group them by `eid`, `etype`, and `action`.
+
+   {
+     {:eid joe-eid
+      :etype \"users\"
+      :action :update} [[:add-triple joe-eid :users/name \"Joe\"]
+                        [:add-triple joe-eid :users/age 32]]
+     {:eid stopa-eid
+      :etype \"users\"
+      :action :update} [[:add-triple stopa-eid :users/name \"Stopa\"]
+                        [:add-triple stopa-eid :users/age 30]]
+   }"
+  [ctx tx-steps]
+  (reduce (fn [acc tx-step]
+            (let [[_action eid aid] tx-step]
+              (update acc
+                      {:eid eid
+                       ;; This will be null for deletes until
+                       ;; the frontend is out of rotation
+                       ;; XXX: need to look at etype in the tx-step in frontend
+                       :etype (extract-etype ctx aid)
+                       :action (tx-object-action-type tx-step)}
+                      (fnil conj [])
+                      tx-step)))
+          {}
+          tx-steps))
 
 (defn object-checks
   "Creates check commands for each object in the transaction.
@@ -178,21 +212,24 @@
      [:add-triple stopa-eid :users/age 30]
    ]
 
-   And we group them by `eid`.
+   And we group them by `eid`, `etype`, and `update`.
 
    {
-     joe-eid [[:add-triple joe-eid :users/name \"Joe\"]
-              [:add-triple joe-eid :users/age 32]]
-     stopa-eid [[:add-triple stopa-eid :users/name \"Stopa\"]
-                [:add-triple stopa-eid :users/age 30]]
+     {:eid joe-eid
+      :etype \"users\"
+      :action :update [[:add-triple joe-eid :users/name \"Joe\"]
+                       [:add-triple joe-eid :users/age 32]]
+     {:eid stopa-eid
+      :etype \"users\"
+      :action :update [[:add-triple stopa-eid :users/name \"Stopa\"]
+                       [:add-triple stopa-eid :users/age 30]]
    }
 
-   With this, we can generate a grouped `check` command for each `eid`."
-  [ctx tx-steps]
-  (let [eid->tx-steps (group-by second tx-steps)
-        eid-actions (mapcat ->eid-actions eid->tx-steps)]
-    (->> eid-actions
-         (mapv (partial object-check ctx)))))
+   With this, we can generate a grouped `check` command for each `eid+etype`."
+  [ctx preloaded-triples]
+  (mapv (fn [[{:keys [eid etype action]} {:keys [triples tx-steps]}]]
+          (object-check ctx etype eid action tx-steps triples))
+        preloaded-triples))
 
 (defn attr-delete-check [{:keys [admin?] :as _ctx} _aid]
   {:scope :attr
@@ -234,16 +271,28 @@
   (->> tx-steps
        (mapv (partial attr-check ctx))))
 
-(defn get-new-atrrs [attr-changes]
+(defn get-new-attrs [attr-changes]
   (->> attr-changes
        (filter (comp #{:add-attr} first))
        (map second)))
 
 (def create-check? (comp (partial = :create) :action))
 
-(defn get-check-commands [{:keys [attrs] :as ctx} tx-steps]
-  (let [{:keys [attr-changes object-changes]} (group-by tx-change-type tx-steps)
-        attr-checks (attr-checks ctx attr-changes)
+(defn optimistic-attrs
+  "Why do we need optimistic attrs?
+   Consider tx-steps like:
+   [
+      [:add-attr {:id goal-attr-id
+                  :forward-identity [... \"goals\" \"title\"]}]
+      [:add-triple goal-eid goal-attr-id \"Hack\"]
+   ]
+   If user 'creates' an attr in the same transaction,
+   We need to be able to resolve the attr-id for this `add-triple`"
+  [{:keys [attrs]} attr-changes]
+  (into attrs (get-new-attrs attr-changes)))
+
+(defn get-check-commands [{:keys [attrs] :as ctx} attr-changes preloaded-triples]
+  (let [attr-checks (attr-checks ctx attr-changes)
         ;; Why do we need optimistic attrs?
         ;; Consider tx-steps like:
         ;; [
@@ -255,7 +304,7 @@
         ;; We need to be able to resolve the attr-id for this `add-triple`
         optmistic-attrs (into attrs (get-new-atrrs attr-changes))
         new-ctx (assoc ctx :attrs optmistic-attrs)
-        object-checks (object-checks new-ctx object-changes)]
+        object-checks (object-checks new-ctx preloaded-triples)]
     (into attr-checks object-checks)))
 
 (defn run-check-commands! [ctx checks]
@@ -274,18 +323,40 @@
 ;; ------------
 ;; Data preload
 
-(defn extract-eids [tx-steps]
-  (reduce (fn [acc tx-step]
-            (if (= :object-changes (tx-change-type tx-step))
-              (conj acc (second tx-step))
-              acc))
-          #{}
-          tx-steps))
+(defn preload-triples
+  "Takes the object changes and returns a map with keys:
+     {:eid eid, :etype etype :action action}
+   and values
+     {:triples [[eavt] [eavt]]
+      :tx-steps [step]}
 
-(defn preload-triples [ctx tx-steps]
-  (let [eids (extract-eids tx-steps)]
-    (if (seq eids)
-      (entity-model/get-triples-batch ctx eids)
+   If the etype isn't provided for deletes, we will resolve it after we
+   fetch the triples."
+  [ctx object-changes]
+  (let [groups (group-object-tx-steps ctx object-changes)]
+    (if (seq groups)
+      (reduce (fn [acc [{:keys [eid etype action] :as k} triples]]
+                (let [steps (get groups k)]
+                  (if etype
+                    (assoc acc k {:triples triples
+                                  :tx-steps steps})
+                    ;; XXX Throw if not delete and it's only one step
+                    (let [etype-groups (group-by (fn [[_e a]]
+                                                   (extract-etype ctx a))
+                                                 triples)]
+                      (reduce (fn [acc [etype triples]]
+                                ;; XXX Throw if not etype
+                                (assoc acc
+                                       {:eid eid
+                                        :etype etype
+                                        :action action}
+                                       {:triples triples
+                                        :tx-steps steps}))
+
+                              acc
+                              etype-groups)))))
+              {}
+              (entity-model/get-triples-batch ctx (keys groups)))
       {})))
 
 (defn extract-refs
@@ -359,16 +430,28 @@
         (if admin?
           (tx/transact-without-tx-conn! tx-conn app-id tx-steps)
           (let [
+                {:keys [attr-changes object-changes] :as grouped-steps}
+                (group-by tx-change-type tx-steps)
+
                 ;; Use the db connection we have so that we don't cause a deadlock
                 ;; Also need to be able to read our own writes for the create checks
-                ctx (assoc ctx :db {:conn-pool tx-conn})
+                ctx (assoc ctx
+                           :db {:conn-pool tx-conn}
+                           :optimistic-attrs (into (:attrs ctx) (get-new-atrrs attr-changes)))
 
                 ;; If we were really smart, we would fetch the triples and the
                 ;; update-delete data-ref dependencies in one go.
-                preloaded-triples (preload-triples ctx tx-steps)
-                ctx (assoc ctx :preloaded-triples preloaded-triples)
-                check-commands (io/warn-io :check-commands
-                                 (get-check-commands ctx tx-steps))
+                preloaded-triples (preload-triples ctx object-changes)
+
+                check-commands
+                (io/warn-io :check-commands
+                  (get-check-commands
+                   ctx
+                   attr-changes
+                   ;; Use preloaded-triples instead of object-changes.
+                   ;; It has all the same data, but the preload will also
+                   ;; resolve etypes for older version of delete-entity
+                   preloaded-triples))
 
                 {create-checks true update-delete-checks false}
                 (group-by create-check? check-commands)
