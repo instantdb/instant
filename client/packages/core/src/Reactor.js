@@ -548,7 +548,7 @@ export default class Reactor {
       return { error: errorMessage };
     }
     const prev = this._dataForResultCache[hash];
-    if (prev) return prev;)
+    if (prev) return prev;
   };
 
   /**
