@@ -19,9 +19,9 @@ export type PresenceOpts<PresenceShape, Keys extends keyof PresenceShape> = {
 };
 
 export type PresenceSlice<PresenceShape, Keys extends keyof PresenceShape> = {
-  user?: Pick<PresenceShape, Keys>;
+  user?: Pick<PresenceShape, Keys> & { peerId: string };
   peers: {
-    [peerId: string]: Pick<PresenceShape, Keys>;
+    [peerId: string]: Pick<PresenceShape, Keys> & { peerId: string };
   };
 };
 
@@ -42,6 +42,7 @@ export function buildPresenceSlice<
     peers: Record<string, PresenceShape>;
   },
   opts: PresenceOpts<PresenceShape, Keys>,
+  userPeerId: string,
 ) {
   const slice: PresenceSlice<PresenceShape, Keys> = {
     peers: {},
@@ -51,7 +52,7 @@ export function buildPresenceSlice<
 
   if (includeUser) {
     const user = pick(data.user ?? {}, opts?.keys);
-    slice.user = user;
+    slice.user = { ...user, peerId: userPeerId };
   }
 
   for (const id of Object.keys(data.peers ?? {})) {
@@ -61,7 +62,7 @@ export function buildPresenceSlice<
 
     if (shouldIncludeAllPeers || isPeerIncluded) {
       const peer = pick(data.peers[id], opts?.keys);
-      slice.peers[id] = peer;
+      slice.peers[id] = { ...peer, peerId: id };
     }
   }
 
