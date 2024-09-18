@@ -1,8 +1,8 @@
-import {
+import type {
   // types
   Config,
-  type InstantGraph,
-  type RoomSchemaShape,
+  InstantGraph,
+  RoomSchemaShape,
 } from "@instantdb/core";
 import { InstantReactWeb } from "./InstantReactWeb";
 

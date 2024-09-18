@@ -11,18 +11,13 @@ export {
 };
 
 import {
-  AttrsDefs,
-  CardinalityKind,
-  DataAttrDef,
-  EntitiesDef,
-  EntitiesWithLinks,
   EntityDef,
+  DataAttrDef,
   InstantGraph,
-  LinkAttrDef,
-  LinkDef,
-  LinksDef,
-  ResolveAttrs,
-  ValueTypes,
+  type EntitiesDef,
+  type AttrsDefs,
+  type EntitiesWithLinks,
+  type LinksDef,
 } from "./schemaTypes";
 
 // ==========
