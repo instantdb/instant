@@ -189,47 +189,47 @@
    }"
   [ctx tx-steps]
   (reduce (fn [acc tx-step]
-            (let [[action eid aid] tx-step]
-              (let [aid-etype (if (= action :delete-entity)
-                                aid
-                                (extract-etype ctx aid))
-                    etype (if (sequential? eid)
-                            ;; If it's a lookup ref, use the lookup attr
-                            ;; as the etype
-                            (let [lookup-etype (extract-etype ctx (first eid))]
-                              (when (not lookup-etype)
-                                (ex/throw-validation-err!
-                                 :lookup
-                                 eid
-                                 [{:message (string-util/multiline->single-line
-                                             "Invalid lookup. Could not determine
+            (let [[action eid aid] tx-step
+                  aid-etype (if (= action :delete-entity)
+                              aid
+                              (extract-etype ctx aid))
+                  etype (if (sequential? eid)
+                          ;; If it's a lookup ref, use the lookup attr
+                          ;; as the etype
+                          (let [lookup-etype (extract-etype ctx (first eid))]
+                            (when (not lookup-etype)
+                              (ex/throw-validation-err!
+                               :lookup
+                               eid
+                               [{:message (string-util/multiline->single-line
+                                           "Invalid lookup. Could not determine
                                               namespace from lookup attribute.")
-                                   :tx-step tx-step}]))
-                              (when (and aid-etype (not= aid-etype lookup-etype))
-                                (ex/throw-validation-err!
-                                 :tx-step
-                                 tx-step
-                                 [{:message (string-util/multiline->single-line
-                                             "Invalid transaction. The namespace
+                                 :tx-step tx-step}]))
+                            (when (and aid-etype (not= aid-etype lookup-etype))
+                              (ex/throw-validation-err!
+                               :tx-step
+                               tx-step
+                               [{:message (string-util/multiline->single-line
+                                           "Invalid transaction. The namespace
                                               in the lookup attribute is different
                                               from the namespace of the attribute
                                               that is being set")}]))
-                              lookup-etype)
-                            aid-etype)
-                    ;; If we know the etype from the lookup for delete-entity,
-                    ;; but the client hasn't been updated to provide it, then
-                    ;; we can patch the `delete-entity` step to include it
-                    patched-step (if (and (= action :delete-entity)
-                                          (not aid)
-                                          etype)
-                                   [action eid etype]
-                                   tx-step)]
-                (update acc
-                        {:eid eid
-                         :etype etype
-                         :action (tx-object-action-type tx-step)}
-                        (fnil conj [])
-                        tx-step))))
+                            lookup-etype)
+                          aid-etype)
+                  ;; If we know the etype from the lookup for delete-entity,
+                  ;; but the client hasn't been updated to provide it, then
+                  ;; we can patch the `delete-entity` step to include it
+                  patched-step (if (and (= action :delete-entity)
+                                        (not aid)
+                                        etype)
+                                 [action eid etype]
+                                 tx-step)]
+              (update acc
+                      {:eid eid
+                       :etype etype
+                       :action (tx-object-action-type tx-step)}
+                      (fnil conj [])
+                      patched-step)))
           {}
           tx-steps))
 
