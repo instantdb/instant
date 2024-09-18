@@ -1,5 +1,5 @@
 import { InstaQLQueryParams, InstaQLQueryResult, Remove$ } from "./queryTypes";
-import { InstantGraph } from "./schema";
+import { InstantGraph } from "./schemaTypes";
 import { IDatabase } from "./coreTypes";
 
 export type InstantQuery<DB extends IDatabase<any, any, any>> =

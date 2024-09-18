@@ -1,8 +1,8 @@
-import { i, RoomSchemaShape } from "@instantdb/core";
+import { type InstantGraph, type RoomSchemaShape } from "@instantdb/core";
 import { InstantReact } from "./InstantReact";
 
 export class InstantReactWeb<
-  Schema extends i.InstantGraph<any, any> | {} = {},
+  Schema extends InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
   WithCardinalityInference extends boolean = false,
 > extends InstantReact<Schema, RoomSchema, WithCardinalityInference> {}

@@ -1,4 +1,4 @@
-import { DataAttrDef, InstantGraph, LinkAttrDef } from "./schema";
+import { DataAttrDef, InstantGraph, LinkAttrDef } from "./schemaTypes";
 
 type Action = "update" | "link" | "unlink" | "delete" | "merge";
 type EType = string;

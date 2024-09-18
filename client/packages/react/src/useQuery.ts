@@ -1,12 +1,12 @@
 import {
   weakHash,
   coerceQuery,
-  Query,
-  Exactly,
-  InstantClient,
-  LifecycleSubscriptionState,
-  InstaQLQueryParams,
-  i,
+  type Query,
+  type Exactly,
+  type InstantClient,
+  type LifecycleSubscriptionState,
+  type InstaQLQueryParams,
+  type InstantGraph,
 } from "@instantdb/core";
 import { useCallback, useRef, useSyncExternalStore } from "react";
 
@@ -28,7 +28,7 @@ function stateForResult(result: any) {
 }
 
 export function useQuery<
-  Q extends Schema extends i.InstantGraph<any, any>
+  Q extends Schema extends InstantGraph<any, any>
     ? InstaQLQueryParams<Schema>
     : Exactly<Query, Q>,
   Schema,

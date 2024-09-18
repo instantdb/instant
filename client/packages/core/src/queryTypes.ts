@@ -1,7 +1,12 @@
 // Query
 // -----
 
-import { EntitiesDef, InstantGraph, LinkAttrDef, ResolveAttrs } from "./schema";
+import type {
+  EntitiesDef,
+  InstantGraph,
+  LinkAttrDef,
+  ResolveAttrs,
+} from "./schemaTypes";
 
 // NonEmpty disallows {}, so that you must provide at least one field
 type NonEmpty<T> = {

@@ -22,6 +22,20 @@ import {
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
+
+  // schema types
+  type AttrsDefs,
+  type CardinalityKind,
+  type DataAttrDef,
+  type EntitiesDef,
+  type EntitiesWithLinks,
+  type EntityDef,
+  type InstantGraph,
+  type LinkAttrDef,
+  type LinkDef,
+  type LinksDef,
+  type ResolveAttrs,
+  type ValueTypes,
 } from "@instantdb/core";
 
 /**
@@ -51,7 +65,7 @@ function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
 }
 
 function init_experimental<
-  Schema extends i.InstantGraph<any, any, any>,
+  Schema extends InstantGraph<any, any, any>,
   WithCardinalityInference extends boolean = true,
 >(
   config: Config & {
@@ -61,7 +75,7 @@ function init_experimental<
 ) {
   return new InstantReactNative<
     Schema,
-    Schema extends i.InstantGraph<any, infer RoomSchema, any>
+    Schema extends InstantGraph<any, infer RoomSchema, any>
       ? RoomSchema
       : never,
     WithCardinalityInference
@@ -95,4 +109,18 @@ export {
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
+
+  // schema types
+  type AttrsDefs,
+  type CardinalityKind,
+  type DataAttrDef,
+  type EntitiesDef,
+  type EntitiesWithLinks,
+  type EntityDef,
+  type InstantGraph,
+  type LinkAttrDef,
+  type LinkDef,
+  type LinksDef,
+  type ResolveAttrs,
+  type ValueTypes,
 };
