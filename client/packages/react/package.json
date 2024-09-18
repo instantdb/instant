@@ -6,7 +6,6 @@
   "module": "dist/module/index.js",
   "types": "dist/module/index.d.ts",
   "unpkg": "standalone/index.umd.js",
-  "files": ["dist"],
   "scripts": {
     "test": "vitest",
     "build": "rm -rf dist; npm run build:main && npm run build:module && npm run build:standalone",
