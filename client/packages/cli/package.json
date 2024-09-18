@@ -1,7 +1,7 @@
 {
   "name": "instant-cli",
   "type": "module",
-  "version": "v0.12.37",
+  "version": "v0.13.2",
   "description": "Instant's CLI",
   "scripts": {
     "publish-package": "npm publish --access public"
@@ -13,6 +13,7 @@
     "@inquirer/prompts": "^5.3.8",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
+    "dotenv": "^16.3.1",
     "env-paths": "^3.0.0",
     "inquirer": "^10.1.6",
     "open": "^10.1.0",

@@ -17,7 +17,6 @@ document.body.appendChild(buttonEl);
 const db = init_experimental({
   appId: APP_ID,
   schema: i.graph(
-    APP_ID,
     {
       todos: i.entity({
         title: i.string(),

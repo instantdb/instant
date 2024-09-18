@@ -277,31 +277,3 @@ export function optimisticUpdate<T>(
     }
   );
 }
-
-/**
- * @deprecated Use `claimTicket`
- */
-export async function tryCliLogin({
-  token,
-  email,
-}: {
-  token: string;
-  email: string;
-}) {
-  try {
-    const res = await fetch('http://localhost:65432', {
-      method: 'POST',
-      body: JSON.stringify({ token, email }),
-    });
-
-    if (res.ok) {
-      const q = new URLSearchParams(window.location.search);
-
-      if (q.has('_cli')) {
-        setTimeout(() => {
-          close();
-        }, 500);
-      }
-    }
-  } catch (error) {}
-}

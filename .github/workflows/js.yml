@@ -44,6 +44,10 @@ jobs:
         working-directory: client
         run: pnpm run build-packages
 
+      - name: Build sandbox
+        working-directory: client
+        run: pnpm run build-sandbox
+
       - name: Run tests
         working-directory: client
         run: pnpm run test

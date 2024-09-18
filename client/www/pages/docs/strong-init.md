@@ -55,12 +55,14 @@ Previously, all responses in a `useQuery` returned arrays. Now, we can use your 
 Since the new `useQuery` is schema-aware, we know when to return a single item instead of an array. 🎉 Bear in mind that if you're migrating from `init`, you'll need to update all of your call sites that reference these "has-one" relationships.
 
 ```ts
-const { data } = useQuery({ users: { author: {} });
+const { data } = useQuery({ users: { author: {} }});
+const firstUser = data.users[0];
 
-const firstUser = data.users[0]
+// before
+const author = firstUser.author[0];
 
-// 🎉 after
-const author = user.author // no more array! 🎉
+// after
+const author = firstUser.author; // no more array! 🎉
 ```
 
 If you don't want to migrate your components just yet, you can opt out by adding a `cardinalityInference` flag set to `false` in your `init_experimental` call. This way, you'll get all the typechecking benefits without having to update your logic.

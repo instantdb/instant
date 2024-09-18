@@ -1,4 +1,4 @@
-import { InstantGraph, LinkDef, LinksDef } from "../schema";
+import type { InstantGraph, LinkDef, LinksDef } from "../schemaTypes";
 
 export type LinkIndex = Record<
   string,

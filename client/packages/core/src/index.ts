@@ -11,7 +11,7 @@ import weakHash from "./utils/weakHash";
 import id from "./utils/uuid";
 import IndexedDBStorage from "./IndexedDBStorage";
 import WindowNetworkListener from "./WindowNetworkListener";
-import * as i from "./schema";
+import { i } from "./schema";
 import { createDevtool } from "./devtool";
 
 import type {
@@ -35,6 +35,20 @@ import type {
   InstantQueryResult,
   InstantSchema,
 } from "./helperTypes";
+import type {
+  AttrsDefs,
+  CardinalityKind,
+  DataAttrDef,
+  EntitiesDef,
+  EntitiesWithLinks,
+  EntityDef,
+  InstantGraph,
+  LinkAttrDef,
+  LinkDef,
+  LinksDef,
+  ResolveAttrs,
+  ValueTypes,
+} from "./schemaTypes";
 
 const defaultOpenDevtool = true;
 
@@ -47,7 +61,7 @@ export type Config = {
   devtool?: boolean;
 };
 
-export type ConfigWithSchema<S extends i.InstantGraph<any, any>> = Config & {
+export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {
   schema: S;
 };
 
@@ -115,7 +129,7 @@ function initGlobalInstantCoreStore(): Record<
 const globalInstantCoreStore = initGlobalInstantCoreStore();
 
 function init_experimental<
-  Schema extends i.InstantGraph<any, any, any>,
+  Schema extends InstantGraph<any, any, any>,
   WithCardinalityInference extends boolean = true,
 >(
   config: Config & {
@@ -126,14 +140,12 @@ function init_experimental<
   NetworkListener?: any,
 ): InstantCore<
   Schema,
-  Schema extends i.InstantGraph<any, infer RoomSchema, any>
-    ? RoomSchema
-    : never,
+  Schema extends InstantGraph<any, infer RoomSchema, any> ? RoomSchema : never,
   WithCardinalityInference
 > {
   return _init_internal<
     Schema,
-    Schema extends i.InstantGraph<any, infer RoomSchema, any>
+    Schema extends InstantGraph<any, infer RoomSchema, any>
       ? RoomSchema
       : never,
     WithCardinalityInference
@@ -171,7 +183,7 @@ function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
 }
 
 function _init_internal<
-  Schema extends {} | i.InstantGraph<any, any, any>,
+  Schema extends {} | InstantGraph<any, any, any>,
   RoomSchema extends RoomSchemaShape,
   WithCardinalityInference extends boolean = false,
 >(
@@ -221,7 +233,7 @@ function _init_internal<
 }
 
 class InstantCore<
-  Schema extends i.InstantGraph<any, any> | {} = {},
+  Schema extends InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
   WithCardinalityInference extends boolean = false,
 > implements IDatabase<Schema, RoomSchema, WithCardinalityInference>
@@ -233,9 +245,7 @@ class InstantCore<
 
   public tx =
     txInit<
-      Schema extends i.InstantGraph<any, any>
-        ? Schema
-        : i.InstantGraph<any, any>
+      Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
     >();
 
   constructor(reactor: Reactor<RoomSchema>) {
@@ -302,7 +312,7 @@ class InstantCore<
    *  });
    */
   subscribeQuery<
-    Q extends Schema extends i.InstantGraph<any, any>
+    Q extends Schema extends InstantGraph<any, any>
       ? InstaQLQueryParams<Schema>
       : Exactly<Query, Q>,
   >(
@@ -596,7 +606,7 @@ export {
   Auth,
   Storage,
 
-  // types
+  // og types
   type IDatabase,
   type RoomSchemaShape,
   type Query,
@@ -610,11 +620,29 @@ export {
   type TxChunk,
   type SubscriptionState,
   type LifecycleSubscriptionState,
+
+  // presence types
   type PresenceOpts,
   type PresenceSlice,
   type PresenceResponse,
+
+  // new query types
   type InstaQLQueryParams,
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
+
+  // schema types
+  type AttrsDefs,
+  type CardinalityKind,
+  type DataAttrDef,
+  type EntitiesDef,
+  type EntitiesWithLinks,
+  type EntityDef,
+  type InstantGraph,
+  type LinkAttrDef,
+  type LinkDef,
+  type LinksDef,
+  type ResolveAttrs,
+  type ValueTypes,
 };

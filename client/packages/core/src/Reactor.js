@@ -1340,7 +1340,7 @@ export default class Reactor {
     if (!room || !presence || !presence.result) return null;
 
     return {
-      ...buildPresenceSlice(presence.result, opts),
+      ...buildPresenceSlice(presence.result, opts, this._sessionId),
       isLoading: !room.isConnected,
       error: room.error,
     };

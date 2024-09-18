@@ -17,3 +17,4 @@ node_modules
 .elasticbeanstealk/app_versions
 .idea 
 server.iml
+.babashka-pod-*

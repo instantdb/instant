@@ -19,6 +19,18 @@ Instant CLI relies on the presence of two core config files: `instant.schema.ts`
 
 You can learn more about [schemas here](/docs/schema) here and [permissions here](/docs/permissions).
 
+## App ID
+
+The CLI looks for `INSTANT_APP_ID` in `process.env`. As a convenience, it will also check for common prefixes like `NEXT_PUBLIC_INSTANT_APP_ID` and `VITE_PUBLIC_INSTANT_APP_ID`
+
+## Specifying an auth token
+
+In CI or similer environments, you may want to handle authentication without having to go through a web-based validation step each time. In these cases, you can provide a `INSTANT_CLI_AUTH_TOKEN` environment variable.
+
+To obtain a token for later use, run `instant-cli login -p`. Instead of saving the token to your local device, the CLI will print it to your console. You can copy this token and provide it as `INSTANT_CLI_AUTH_TOKEN` later in your CI tool.
+
+**Remember, auth tokens are secret, don't share them!**
+
 ## Actions
 
 ### Logging in
@@ -56,10 +68,7 @@ Here's an example `instant.schema.ts` file.
 ```ts
 import { i } from '@instantdb/core';
 
-const INSTANT_APP_ID = 'YOUR_APP_ID_HERE';
-
 const graph = i.graph(
-  INSTANT_APP_ID,
   {
     authors: i.entity({
       userId: i.string(),
@@ -92,10 +101,10 @@ export default graph;
 ### Push perms
 
 ```sh
-npx instant-cli push-schema
+npx instant-cli push-perms
 ```
 
-`push-schema` evals your `instant.perms.ts` file and applies it your app's production database. `instant.perms.ts` should export an object implementing Instant's standard permissions CEL+JSON format. [Read more about permissions in Instant](/docs/permissions).
+`push-perms` evals your `instant.perms.ts` file and applies it your app's production database. `instant.perms.ts` should export an object implementing Instant's standard permissions CEL+JSON format. [Read more about permissions in Instant](/docs/permissions).
 
 Here's an example `instant.perms.ts` file.
 
@@ -121,9 +130,9 @@ If you already created an app in the dashboard and created some schema and
 permissions, you can run `npx instant-cli pull <APP_ID>` to generate an `instant.schema.ts` and `instant.perms.ts` files based on your production configuration.
 
 ```bash
-npx instant-cli pull-schema <APP_ID>
-npx instant-cli pull-perms [APP_ID] # ID optional if there's already an instant.schema.ts
-npx instant-cli pull <APP_ID> # pulls both schema and perms
+npx instant-cli pull-schema
+npx instant-cli pull-perms
+npx instant-cli pull # pulls both schema and perms
 ```
 
 {% callout type="warning" %}

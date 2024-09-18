@@ -233,7 +233,7 @@
                         :committed? (:committed? result)
                         :check-results
                         (map (fn [r]
-                               (dissoc r :check))
+                               (dissoc r :check :program))
                              (:check-results result))}]
     (response/ok cleaned-result)))
 

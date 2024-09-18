@@ -47,7 +47,7 @@ import {
   SignInButton,
   SignedIn,
   SignedOut,
-} from '@clerk/next';
+} from '@clerk/nextjs';
 import { init } from '@instantdb/react';
 import { useEffect } from 'react';
 

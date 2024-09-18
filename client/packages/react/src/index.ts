@@ -14,6 +14,21 @@ import {
   type AuthState,
   type Query,
   type Config,
+  type InstaQLQueryParams,
+
+  // schema types
+  type AttrsDefs,
+  type CardinalityKind,
+  type DataAttrDef,
+  type EntitiesDef,
+  type EntitiesWithLinks,
+  type EntityDef,
+  type InstantGraph,
+  type LinkAttrDef,
+  type LinkDef,
+  type LinksDef,
+  type ResolveAttrs,
+  type ValueTypes,
 } from "@instantdb/core";
 
 import { InstantReact } from "./InstantReact";
@@ -44,4 +59,19 @@ export {
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
+  type InstaQLQueryParams,
+
+  // schema types
+  type AttrsDefs,
+  type CardinalityKind,
+  type DataAttrDef,
+  type EntitiesDef,
+  type EntitiesWithLinks,
+  type EntityDef,
+  type InstantGraph,
+  type LinkAttrDef,
+  type LinkDef,
+  type LinksDef,
+  type ResolveAttrs,
+  type ValueTypes,
 };

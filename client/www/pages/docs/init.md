@@ -2,7 +2,7 @@
 title: Initializing Instant
 ---
 
-The first step to using Instant in your app is to call `init` before rending your component tree.
+The first step to using Instant in your app is to call `init` before rendering your component tree.
 
 ```javascript
 import { init } from '@instantdb/react';
