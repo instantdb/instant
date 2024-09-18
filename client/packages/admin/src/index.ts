@@ -9,10 +9,30 @@ import {
   type User,
   type AuthToken,
   type Exactly,
+
+  // old query types
   type InstaQLQueryParams,
   type Query,
   type QueryResponse,
+
+  // new query types
+  type InstantQuery,
+  type InstantQueryResult,
+  type InstantSchema,
+
+  // schema types
+  type AttrsDefs,
+  type CardinalityKind,
+  type DataAttrDef,
+  type EntitiesDef,
+  type EntitiesWithLinks,
+  type EntityDef,
   type InstantGraph,
+  type LinkAttrDef,
+  type LinkDef,
+  type LinksDef,
+  type ResolveAttrs,
+  type ValueTypes,
 } from "@instantdb/core";
 
 type DebugCheckResult = {
@@ -632,4 +652,28 @@ export {
   type ImpersonationOpts,
   type TransactionChunk,
   type DebugCheckResult,
+
+  // old query types
+  type InstaQLQueryParams,
+  type Query,
+  type QueryResponse,
+
+  // new query types
+  type InstantQuery,
+  type InstantQueryResult,
+  type InstantSchema,
+
+  // schema types
+  type AttrsDefs,
+  type CardinalityKind,
+  type DataAttrDef,
+  type EntitiesDef,
+  type EntitiesWithLinks,
+  type EntityDef,
+  type InstantGraph,
+  type LinkAttrDef,
+  type LinkDef,
+  type LinksDef,
+  type ResolveAttrs,
+  type ValueTypes,
 };
