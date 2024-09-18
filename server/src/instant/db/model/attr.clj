@@ -155,7 +155,7 @@
   [id app-id attr-id etype label])
 
 (defn ident-table-values
-  "Extracts ident information from a collection of attrs/updates 
+  "Extracts ident information from a collection of attrs/updates
   and marshals into into sql-compatible ident values"
   [app-id attrs]
   (mapcat (fn [{:keys [:id :forward-identity :reverse-identity]}]
@@ -303,8 +303,8 @@
      :select :%count.* :from :union-ids})))
 
 (defn delete-multi!
-  "Deletes a batch of attrs for an app. We 
-   rely on CASCADE DELETE to remove associated 
+  "Deletes a batch of attrs for an app. We
+   rely on CASCADE DELETE to remove associated
    idents and triples"
   [conn app-id ids]
   (sql/do-execute!
@@ -341,38 +341,6 @@
                              (friendly-inferred-types inferred_types))}
     reverse_ident (assoc :reverse-identity [reverse_ident rev_etype rev_label])))
 
-(defprotocol AttrsExtension
-  (doSomething [this]))
-
-(deftype Attrs [elements cache]
-  clojure.lang.ISeq
-  (toString [this]
-    (.toString elements))
-  (count [this]
-    (count elements))
-  (first [this]
-    (first elements))
-  (empty [this]
-    (Attrs. () (atom {})))
-  (equiv [this other]
-    (= elements other))
-  (seq [this]
-    (if (empty? elements)
-      nil
-      this))
-  (next [this]
-    (let [rest-elements (next elements)]
-      (if rest-elements
-        (Attrs. rest-elements (atom {}))
-        nil)))
-
-  AttrsExtension
-  (doSomething [this]
-    (println this)))
-
-(defn wrap-attrs [attrs]
-  (Attrs. attrs (atom {})))
-
 (defn index-attrs [attrs]
   (reduce (fn [acc attr]
             (cond-> acc
@@ -392,6 +360,55 @@
            :by-rev-ident {}
            :ids-by-etype {}}
           attrs))
+
+(defprotocol AttrsExtension
+  (seekById [this id])
+  (seekByFwdIdentName [this fwd-ident])
+  (seekByRevIdentName [this revIdent]))
+
+(deftype Attrs [elements cache]
+  clojure.lang.ISeq
+  (count [this]
+    (count elements))
+  (first [this]
+    (first elements))
+  (next [this]
+    (let [nxt (next elements)]
+      (if nxt
+        (Attrs. nxt (delay (index-attrs nxt)))
+        nil)))
+  (more [this]
+    (if-let [nxt (next elements)]
+      (Attrs. nxt (delay (index-attrs nxt)))
+      clojure.lang.PersistentList/EMPTY))
+  (empty [this]
+    (Attrs. () (delay {})))
+  (equiv [this other]
+    (= elements other))
+  (cons [this o]
+    (let [new-elements (cons o elements)]
+      (Attrs. new-elements (delay (index-attrs new-elements)))))
+  (seq [this]
+    (if (empty? elements)
+      nil
+      this))
+
+  AttrsExtension
+  (seekById [this id]
+    (-> @cache
+        :by-id
+        (get id)))
+  (seekByFwdIdentName [this fwdIdent]
+    (-> @cache
+        :by-fwd-ident
+        (get fwdIdent)))
+  (seekByRevIdentName [this revIdent]
+    (-> @cache
+        :by-rev-ident
+        (get revIdent))))
+
+(defn wrap-attrs [attrs]
+  (Attrs. attrs (delay (index-attrs attrs))))
 
 (defn get-by-app-id
   "Returns clj representation of all attrs for an app"
@@ -415,14 +432,14 @@
 ;; seek
 
 (defn seek-by-id
-  [id attrs]
-  (ucoll/seek (comp #{id} :id) attrs))
+  [id ^Attrs attrs]
+  (.seekById attrs id))
 
-(defn seek-by-fwd-ident-name [n attrs]
-  (ucoll/seek (comp #{n} fwd-ident-name) attrs))
+(defn seek-by-fwd-ident-name [n ^Attrs attrs]
+  (.seekByFwdIdentName attrs n))
 
-(defn seek-by-rev-ident-name [n attrs]
-  (ucoll/seek (comp #{n} rev-ident-name) attrs))
+(defn seek-by-rev-ident-name [n ^Attrs attrs]
+  (.seekByRevIdentName attrs n))
 
 (defn attrs-by-id [attrs]
   (reduce (fn [acc attr]
