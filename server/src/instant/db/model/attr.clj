@@ -364,7 +364,8 @@
 (defprotocol AttrsExtension
   (seekById [this id])
   (seekByFwdIdentName [this fwd-ident])
-  (seekByRevIdentName [this revIdent]))
+  (seekByRevIdentName [this revIdent])
+  (attrIdsForEtype [this etype]))
 
 (deftype Attrs [elements cache]
   clojure.lang.ISeq
@@ -405,7 +406,11 @@
   (seekByRevIdentName [this revIdent]
     (-> @cache
         :by-rev-ident
-        (get revIdent))))
+        (get revIdent)))
+  (attrIdsForEtype [this etype]
+    (-> @cache
+        :ids-by-etype
+        (get etype #{}))))
 
 (defn wrap-attrs [attrs]
   (Attrs. attrs (delay (index-attrs attrs))))
@@ -441,32 +446,8 @@
 (defn seek-by-rev-ident-name [n ^Attrs attrs]
   (.seekByRevIdentName attrs n))
 
-(defn attrs-by-id [attrs]
-  (reduce (fn [acc attr]
-            (assoc acc (:id attr) attr))
-          {}
-          attrs))
-
-(defn attrs-for-etype
-  "Returns the attrs for a given etype"
-  [etype attrs]
-  (filter (fn [a]
-            (= etype
-               (-> a :forward-identity second)))
-          attrs))
-
-(defn attr-ids-by-etype
-  "Returns a map from etype to a set of non-ref attr-ids for the etype"
-  [attrs]
-  (reduce (fn [acc attr]
-            (update acc
-                    (-> attr
-                        :forward-identity
-                        second)
-                    (fnil conj #{})
-                    (:id attr)))
-          {}
-          attrs))
+(defn attr-ids-for-etype [etype ^Attrs attrs]
+  (.attrIdsForEtype attrs etype))
 
 ;; ------
 ;; play

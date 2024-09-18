@@ -28,12 +28,10 @@
                      (mapcat identity))]
     triples))
 
-(defn triples->map [{:keys [attrs attr-map] :as _ctx} triples]
+(defn triples->map [{:keys [attrs] :as _ctx} triples]
   (let [kvs (->> triples
                  (map (fn [[_e a v]]
-                        [(attr-model/fwd-label (if
-                                                attr-map (attr-map a)
-                                                (attr-model/seek-by-id a attrs)))
+                        [(attr-model/fwd-label (attr-model/seek-by-id a attrs))
                          v])))
         m (into {} kvs)]
     m))
