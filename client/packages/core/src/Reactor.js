@@ -90,6 +90,7 @@ export default class Reactor {
   _broadcastSubs = {};
   _currentUserCached = { isLoading: true, error: undefined, user: undefined };
   _beforeUnloadCbs = [];
+  _dataForResultCache = {};
 
   constructor(
     config,
@@ -543,12 +544,11 @@ export default class Reactor {
   getPreviousResult = (q) => {
     const hash = weakHash(q);
     const errorMessage = this._errorMessage;
-    const prevResult = this.querySubs?.currentValue?.[hash]?.result;
     if (errorMessage) {
       return { error: errorMessage };
-    } else if (prevResult) {
-      return this.dataForResult(q, prevResult);
     }
+    const prev = this._dataForResultCache[hash];
+    if (prev) return prev;)
   };
 
   /**
@@ -695,6 +695,7 @@ export default class Reactor {
     const txSteps = [...muts.values()].flatMap((x) => x["tx-steps"]);
     const newStore = s.transact(store, txSteps);
     const resp = instaql({ store: newStore, pageInfo, aggregate }, q);
+    this._dataForResultCache[weakHash(q)] = resp;
     return resp;
   }
 
@@ -708,14 +709,12 @@ export default class Reactor {
       return;
     }
 
-    const { q, result, iqlResult } = this.querySubs.currentValue[hash] || {};
+    const { q, result } = this.querySubs.currentValue[hash] || {};
     if (!result) return; // No store data, no need to notify
 
     const resp = this.dataForResult(q, result);
-
-    if (areObjectsDeepEqual(resp.data, iqlResult)) return; // No change, no need to notify
-
-    this.querySubs.currentValue[hash].iqlResult = result.data;
+    const prev = this._dataForResultCache[hash];
+    if (areObjectsDeepEqual(resp.data, prev)) return; // No change, no need to notify
     cbs.forEach((cb) => cb(resp));
   };
 
@@ -733,7 +732,6 @@ export default class Reactor {
 
   loadedNotifyAll() {
     if (this.pendingMutations.isLoading() || this.querySubs.isLoading()) return;
-
     this.notifyAll();
   }
 
