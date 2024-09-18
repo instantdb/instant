@@ -18,10 +18,17 @@ export type PresenceOpts<PresenceShape, Keys extends keyof PresenceShape> = {
   keys?: Keys[];
 };
 
+type PresencePeer<PresenceShape, Keys extends keyof PresenceShape> = Pick<
+  PresenceShape,
+  Keys
+> & {
+  peerId: string;
+};
+
 export type PresenceSlice<PresenceShape, Keys extends keyof PresenceShape> = {
-  user?: Pick<PresenceShape, Keys> & { peerId: string };
+  user?: PresencePeer<PresenceShape, Keys>;
   peers: {
-    [peerId: string]: Pick<PresenceShape, Keys> & { peerId: string };
+    [peerId: string]: PresencePeer<PresenceShape, Keys>;
   };
 };
 
@@ -43,7 +50,7 @@ export function buildPresenceSlice<
   },
   opts: PresenceOpts<PresenceShape, Keys>,
   userPeerId: string,
-) {
+): PresenceSlice<PresenceShape, Keys> {
   const slice: PresenceSlice<PresenceShape, Keys> = {
     peers: {},
   };
