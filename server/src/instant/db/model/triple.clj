@@ -434,8 +434,7 @@
                                        (eid-lookup-ref? id))
          id+etypes)
         conds (mapcat (fn [[id etype]]
-                        (let [etype (or etype "ns_e")
-                              id-lookup (if (eid-lookup-ref? id)
+                        (let [id-lookup (if (eid-lookup-ref? id)
                                           {:select :entity-id
                                            :from :triples
                                            :where [:and

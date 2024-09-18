@@ -194,7 +194,11 @@
                        ;; This will be null for deletes until
                        ;; the frontend is out of rotation
                        ;; XXX: need to look at etype in the tx-step in frontend
-                       :etype (extract-etype ctx aid)
+                       :etype (if (sequential? eid)
+                                ;; If it's a lookup ref, use the lookup attr
+                                ;; as the etype
+                                (extract-etype ctx (first eid))
+                                (extract-etype ctx aid))
                        :action (tx-object-action-type tx-step)}
                       (fnil conj [])
                       tx-step)))
