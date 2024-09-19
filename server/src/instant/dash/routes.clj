@@ -1005,7 +1005,7 @@
   (def counters-app-id  #uuid "137ace7a-efdd-490f-b0dc-a3c73a14f892")
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (def r (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id (:id u)}))
-  (schema-model/schemas->ops!
+  (schema-model/schemas->ops
    {:refs {}
     :blobs {}}
    {:refs {["posts" "comments" "comments" "post"] {:unique? false :cardinality "many"}}
