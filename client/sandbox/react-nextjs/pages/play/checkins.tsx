@@ -18,7 +18,7 @@ const schema = i
     {
       discriminatedUnionExample: i
         .entity({ x: i.string(), y: i.number(), z: i.number() })
-        .asType<{ x: "foo"; y: 1 } | { x: "bar"; y: 2 }>(),
+        .asType<{ x: "foo"; y: 1 } | { x: "bar" }>(),
       habits: i.entity({
         name: i.string(),
         enum: i.string<"a" | "b">(),
