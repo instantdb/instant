@@ -11,13 +11,8 @@
 (defn map-map [f m]
   (into {} (map (fn [[k v]] [k (f [k v])]) m)))
 
-(defn link-dir-keys [{ri :reverse-identity
-                      fi :forward-identity}]
-  (concat [[(-> fi second)
-            (-> fi (nth 2))]]
-          (when ri
-            [[(-> ri second)
-              (-> ri (nth 2))]])))
+(defn attr-ident-names [attr]
+  (keep identity [(attr-model/fwd-ident-name attr) (attr-model/rev-ident-name attr)]))
 
 (defn schemas->ops! [current-schema new-schema]
   (let [{new-blobs :blobs new-refs :refs} new-schema
@@ -94,15 +89,15 @@
               steps
               (mapcat (fn [[op data]]
                         (when (= op :add-attr)
-                          (link-dir-keys data))))
+                          (attr-ident-names data))))
               (frequencies)
               (filter (fn [[_ v]] (> v 1))))]
     (when (seq dups)
       (ex/assert-valid! :schema
                         :steps
-                        (map (fn [[[ns attr]]]
+                        (map (fn [[[etype label]]]
                                {:in [:schema]
-                                :message (str "Duplicate entry found for attribute: " ns "->" attr ". Check your schema file for duplicate link definitions.")}) dups)))
+                                :message (str "Duplicate entry found for attribute: " etype "->" label ". Check your schema file for duplicate link definitions.")}) dups)))
     steps))
 
 (defn attrs->schema [attrs]
@@ -173,6 +168,12 @@
      :steps steps}))
 
 (comment
+  (schemas->ops!
+   {:refs {}
+    :blobs {:ns {:a {:unique? "one"}}}}
+   {:refs {["comments" "post" "posts" "x"] {:unique? true :cardinality "one"}
+           ["comments" "post" "posts" "comments"] {:unique? true :cardinality "one"}}
+    :blobs {:ns {:a {:cardinality "many"} :b {:cardinality  "many"}}}})
   (schemas->ops!
    {:refs {}
     :blobs {:ns {:a {:unique? "one"}}}}
