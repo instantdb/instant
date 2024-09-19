@@ -38,6 +38,7 @@ export class PersistedObject {
     this.fromJSON = fromJSON;
     this._saveThrottleMs = saveThrottleMs;
     this._pendingSaveCbs = [];
+    this._version = 0; 
 
     this._load();
   }
@@ -64,6 +65,10 @@ export class PersistedObject {
 
   isLoading() {
     return this._isLoading;
+  }
+  
+  version() { 
+    return this._version;
   }
 
   async waitForSync() {
@@ -106,6 +111,7 @@ export class PersistedObject {
   }
 
   set(f, cb) {
+    this._version++;
     this.currentValue = f(this.currentValue);
     if (this._isLoading) {
       this._loadedCbs.push(() => this._enqueuePersist(cb));
