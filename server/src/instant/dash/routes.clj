@@ -978,12 +978,12 @@
 (defn schema-push-plan-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         client-defs (-> req :body :schema)]
-    (response/ok (schema-model/plan app-id client-defs))))
+    (response/ok (schema-model/plan! app-id client-defs))))
 
 (defn schema-push-apply-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         client-defs (-> req :body :schema)
-        r (schema-model/plan app-id client-defs)]
+        r (schema-model/plan! app-id client-defs)]
     (schema-model/apply-plan! app-id r)
     (response/ok r)))
 
@@ -1005,7 +1005,7 @@
   (def counters-app-id  #uuid "137ace7a-efdd-490f-b0dc-a3c73a14f892")
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (def r (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id (:id u)}))
-  (schema-model/schemas->ops
+  (schema-model/schemas->ops!
    {:refs {}
     :blobs {}}
    {:refs {["posts" "comments" "comments" "post"] {:unique? false :cardinality "many"}}

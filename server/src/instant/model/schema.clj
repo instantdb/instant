@@ -4,13 +4,22 @@
             [instant.jdbc.aurora :as aurora]
             [instant.db.datalog :as d]
             [instant.model.rule :as rule-model]
-            [instant.db.permissioned-transaction :as permissioned-tx])
+            [instant.db.permissioned-transaction :as permissioned-tx]
+            [instant.util.exception :as ex])
   (:import (java.util UUID)))
 
 (defn map-map [f m]
   (into {} (map (fn [[k v]] [k (f [k v])]) m)))
 
-(defn schemas->ops [current-schema new-schema]
+(defn link-dir-keys [{ri :reverse-identity
+                      fi :forward-identity}]
+  (concat [[(-> fi second)
+            (-> fi (nth 2))]]
+          (when ri
+            [[(-> ri second)
+              (-> ri (nth 2))]])))
+
+(defn schemas->ops! [current-schema new-schema]
   (let [{new-blobs :blobs new-refs :refs} new-schema
         eid-ops (map (fn [[ns-name _]] (if (get-in current-schema [:blobs ns-name])
                                          nil
@@ -77,10 +86,24 @@
                                :cardinality (:cardinality new-attr)
                                :unique? (:unique? new-attr)
                                :index? (:index? new-attr)}])))
-                 new-refs)]
-    (->> (concat eid-ops blob-ops ref-ops)
-         (filter some?)
-         vec)))
+                 new-refs)
+        steps  (->> (concat eid-ops blob-ops ref-ops)
+                    (filter some?)
+                    vec)
+        dups (->>
+              steps
+              (mapcat (fn [[op data]]
+                        (when (= op :add-attr)
+                          (link-dir-keys data))))
+              (frequencies)
+              (filter (fn [[_ v]] (> v 1))))]
+    (when (seq dups)
+      (ex/assert-valid! :schema
+                        :steps
+                        (map (fn [[[ns attr]]]
+                               {:in [:schema]
+                                :message (str "Duplicate entry found for attribute: " ns "->" attr ". Check your schema file for diplicate link definitions.")}) dups)))
+    steps))
 
 (defn attrs->schema [attrs]
   (let [{blobs :blob refs :ref} (group-by :value-type attrs)
@@ -138,16 +161,24 @@
 ;; ---- 
 ;; API
 
-(defn plan
+(defn plan!
   [app-id client-defs]
   (let [new-schema (defs->schema client-defs)
         current-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
         current-schema (attrs->schema current-attrs)
-        steps (schemas->ops current-schema new-schema)]
+        steps (schemas->ops! current-schema new-schema)]
     {:new-schema new-schema
      :current-schema current-schema
      :current-attrs current-attrs
      :steps steps}))
+
+(comment
+  (schemas->ops!
+   {:refs {}
+    :blobs {:ns {:a {:unique? "one"}}}}
+   {:refs {["comments" "post" "posts" "comments"] {:unique? true :cardinality "one"}}
+    :blobs {:ns {:a {:cardinality "many"} :b {:cardinality  "many"}}}}))
+
 
 (defn apply-plan! [app-id {:keys [steps] :as _plan}]
   (let [ctx {:admin? true
@@ -158,3 +189,5 @@
              :rules (rule-model/get-by-app-id aurora/conn-pool
                                               {:app-id app-id})}]
     (permissioned-tx/transact! ctx steps)))
+
+*e

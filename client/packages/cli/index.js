@@ -63,13 +63,17 @@ program
   .command("push-schema")
   .argument("[ID]")
   .description("Pushes local instant.schema definition to production.")
-  .action(pushSchema);
+  .action(() => {
+    pushSchema();
+  });
 
 program
   .command("push-perms")
   .argument("[ID]")
   .description("Pushes local instant.perms rules to production.")
-  .action(pushPerms);
+  .action(() => {
+    pushPerms();
+  });
 
 program
   .command("push")
@@ -112,7 +116,9 @@ program.parse(process.argv);
 // command actions
 
 async function pushAll(appIdOrName) {
-  await pushSchema(appIdOrName);
+  const ok = await pushSchema(appIdOrName);
+  if (!ok) return;
+
   await pushPerms(appIdOrName);
 }
 
@@ -374,7 +380,7 @@ async function pushSchema(appIdOrName) {
     },
   });
 
-  if (!planRes.ok) return;
+  if (!planRes.ok) return false;
 
   if (!planRes.data.steps.length) {
     console.log("No schema changes detected.  Exiting.");
@@ -417,7 +423,7 @@ async function pushSchema(appIdOrName) {
     },
   });
 
-  if (!applyRes.ok) return;
+  if (!applyRes.ok) return false;
 
   console.log(chalk.green("Schema updated!"));
 }
@@ -540,7 +546,9 @@ async function fetchJson({
 
         if (Array.isArray(errData?.hint?.errors)) {
           for (const error of errData.hint.errors) {
-            console.error(`${error.in.join("->")}: ${error.message}`);
+            console.error(
+              `${error.in ? error.in.join("->") + ": " : ""}${error.message}`,
+            );
           }
         }
       }
