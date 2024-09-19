@@ -189,5 +189,3 @@
              :rules (rule-model/get-by-app-id aurora/conn-pool
                                               {:app-id app-id})}]
     (permissioned-tx/transact! ctx steps)))
-
-*e
