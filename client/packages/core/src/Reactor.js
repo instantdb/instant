@@ -357,7 +357,6 @@ export default class Reactor {
         }
         break;
       case "add-query-ok":
-        return;
         const { q, result, "processed-tx-id": addQueryTxId } = msg;
         this._cleanPendingMutations(addQueryTxId);
         const hash = weakHash(q);
@@ -377,7 +376,6 @@ export default class Reactor {
         this.notifyOne(hash);
         break;
       case "refresh-ok":
-        return;
         const { computations, attrs, "processed-tx-id": refreshOkTxId } = msg;
         this._cleanPendingMutations(refreshOkTxId);
         this._setAttrs(attrs);
