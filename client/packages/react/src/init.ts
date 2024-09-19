@@ -1,7 +1,7 @@
-import {
+import type {
   // types
   Config,
-  i,
+  InstantGraph,
   RoomSchemaShape,
 } from "@instantdb/core";
 import { InstantReactWeb } from "./InstantReactWeb";
@@ -33,7 +33,7 @@ export function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
 }
 
 export function init_experimental<
-  Schema extends i.InstantGraph<any, any, any>,
+  Schema extends InstantGraph<any, any, any>,
   WithCardinalityInference extends boolean = true,
 >(
   config: Config & {
@@ -43,7 +43,7 @@ export function init_experimental<
 ) {
   return new InstantReactWeb<
     Schema,
-    Schema extends i.InstantGraph<any, any, infer RoomSchema>
+    Schema extends InstantGraph<any, any, infer RoomSchema>
       ? RoomSchema
       : never,
     WithCardinalityInference

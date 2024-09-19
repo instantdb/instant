@@ -1,25 +1,21 @@
-import "dotenv/config";
-
 import { i } from "@instantdb/core";
 
-// Example entities and links (you can delete these!)
 const graph = i.graph(
-  process.env.INSTANT_APP_ID!,
   {
-    posts: i.entity({
-      name: i.string(),
-      content: i.string(),
-    }),
     authors: i.entity({
-      userId: i.string(),
-      name: i.string(),
+      name: i.any(),
+      userId: i.any(),
+    }),
+    posts: i.entity({
+      content: i.any(),
+      name: i.any(),
     }),
     tags: i.entity({
-      label: i.string(),
+      label: i.any(),
     }),
   },
   {
-    authorPosts: {
+    authorsPosts: {
       forward: {
         on: "authors",
         has: "many",

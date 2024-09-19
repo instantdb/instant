@@ -1,6 +1,6 @@
 import { TxChunk } from "./instatx";
 import { RoomSchemaShape } from "./presence";
-import { InstantGraph } from "./schema";
+import type { InstantGraph } from "./schemaTypes";
 
 export interface IDatabase<
   Schema extends InstantGraph<any, any> | {} = {},

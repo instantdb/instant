@@ -7,7 +7,6 @@
    [instant.jdbc.sql :as sql]
    [instant.jdbc.aurora :as aurora]
    [honey.sql :as hsql]
-   [instant.util.coll :as ucoll]
    [instant.data.constants :refer [empty-app-id]]))
 
 ;; Don't change the order or remove types, only add to the end of the list
@@ -155,7 +154,7 @@
   [id app-id attr-id etype label])
 
 (defn ident-table-values
-  "Extracts ident information from a collection of attrs/updates 
+  "Extracts ident information from a collection of attrs/updates
   and marshals into into sql-compatible ident values"
   [app-id attrs]
   (mapcat (fn [{:keys [:id :forward-identity :reverse-identity]}]
@@ -303,8 +302,8 @@
      :select :%count.* :from :union-ids})))
 
 (defn delete-multi!
-  "Deletes a batch of attrs for an app. We 
-   rely on CASCADE DELETE to remove associated 
+  "Deletes a batch of attrs for an app. We
+   rely on CASCADE DELETE to remove associated
    idents and triples"
   [conn app-id ids]
   (sql/do-execute!
@@ -341,41 +340,118 @@
                              (friendly-inferred-types inferred_types))}
     reverse_ident (assoc :reverse-identity [reverse_ident rev_etype rev_label])))
 
+(defn index-attrs
+  "Groups attrs by common lookup patterns so that we can efficiently look them up."
+  [attrs]
+  (reduce (fn [acc attr]
+            (cond-> acc
+              true
+              (update :by-id assoc (:id attr) attr)
+
+              true
+              (update :by-fwd-ident assoc (fwd-ident-name attr) attr)
+
+              (seq (rev-ident-name attr))
+              (update :by-rev-ident assoc (rev-ident-name attr) attr)
+
+              true
+              (update :ids-by-etype update (fwd-etype attr) (fnil conj #{}) (:id attr))))
+          {:by-id {}
+           :by-fwd-ident {}
+           :by-rev-ident {}
+           :ids-by-etype {}}
+          attrs))
+
+(defprotocol AttrsExtension
+  (seekById [this id])
+  (seekByFwdIdentName [this fwd-ident])
+  (seekByRevIdentName [this revIdent])
+  (attrIdsForEtype [this etype]))
+
+;; Creates a wrapper over attrs. Makes them act like a regular list, but
+;; we can also index them on demand so that our access patterns will be
+;; efficient.
+(deftype Attrs [elements cache]
+  clojure.lang.ISeq
+  (count [_this]
+    (count elements))
+  (first [_this]
+    (first elements))
+  (next [_this]
+    (let [nxt (next elements)]
+      (if nxt
+        (Attrs. nxt (delay (index-attrs nxt)))
+        nil)))
+  (more [_this]
+    (if-let [nxt (next elements)]
+      (Attrs. nxt (delay (index-attrs nxt)))
+      clojure.lang.PersistentList/EMPTY))
+  (empty [_this]
+    (Attrs. () (delay {})))
+  (equiv [_this other]
+    (= elements other))
+  (cons [_this o]
+    (let [new-elements (cons o elements)]
+      (Attrs. new-elements (delay (index-attrs new-elements)))))
+  (seq [this]
+    (if (empty? elements)
+      nil
+      this))
+
+  AttrsExtension
+  (seekById [_this id]
+    (-> @cache
+        :by-id
+        (get id)))
+  (seekByFwdIdentName [_this fwdIdent]
+    (-> @cache
+        :by-fwd-ident
+        (get fwdIdent)))
+  (seekByRevIdentName [_this revIdent]
+    (-> @cache
+        :by-rev-ident
+        (get revIdent)))
+  (attrIdsForEtype [_this etype]
+    (-> @cache
+        :ids-by-etype
+        (get etype #{}))))
+
+(defn wrap-attrs [attrs]
+  (Attrs. attrs (delay (index-attrs attrs))))
+
 (defn get-by-app-id
   "Returns clj representation of all attrs for an app"
   [conn app-id]
-  (map row->attr
-       (sql/select
-        conn
-        (hsql/format
-         {:select [:attrs.*
-                   [:fwd-idents.etype :fwd-etype]
-                   [:fwd-idents.label :fwd-label]
-                   [:rev-idents.etype :rev-etype]
-                   [:rev-idents.label :rev-label]]
-          :from :attrs
-          :join [[:idents :fwd-idents] [:= :attrs.forward-ident :fwd-idents.id]]
-          :left-join [[:idents :rev-idents] [:= :attrs.reverse-ident :rev-idents.id]]
-          :where [:= :attrs.app-id [:cast app-id :uuid]]}))))
+  (wrap-attrs
+   (map row->attr
+        (sql/select
+         conn
+         (hsql/format
+          {:select [:attrs.*
+                    [:fwd-idents.etype :fwd-etype]
+                    [:fwd-idents.label :fwd-label]
+                    [:rev-idents.etype :rev-etype]
+                    [:rev-idents.label :rev-label]]
+           :from :attrs
+           :join [[:idents :fwd-idents] [:= :attrs.forward-ident :fwd-idents.id]]
+           :left-join [[:idents :rev-idents] [:= :attrs.reverse-ident :rev-idents.id]]
+           :where [:= :attrs.app-id [:cast app-id :uuid]]})))))
 
 ;; ------
 ;; seek
 
 (defn seek-by-id
-  [id attrs]
-  (ucoll/seek (comp #{id} :id) attrs))
+  [id ^Attrs attrs]
+  (.seekById attrs id))
 
-(defn seek-by-fwd-ident-name [n attrs]
-  (ucoll/seek (comp #{n} fwd-ident-name) attrs))
+(defn seek-by-fwd-ident-name [n ^Attrs attrs]
+  (.seekByFwdIdentName attrs n))
 
-(defn seek-by-rev-ident-name [n attrs]
-  (ucoll/seek (comp #{n} rev-ident-name) attrs))
+(defn seek-by-rev-ident-name [n ^Attrs attrs]
+  (.seekByRevIdentName attrs n))
 
-(defn attrs-by-id [attrs]
-  (reduce (fn [acc attr]
-            (assoc acc (:id attr) attr))
-          {}
-          attrs))
+(defn attr-ids-for-etype [etype ^Attrs attrs]
+  (.attrIdsForEtype attrs etype))
 
 ;; ------
 ;; play

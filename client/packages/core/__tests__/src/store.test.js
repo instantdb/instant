@@ -1,11 +1,7 @@
 import { test, expect } from "vitest";
 import zenecaAttrs from "./data/zeneca/attrs.json";
 import zenecaTriples from "./data/zeneca/triples.json";
-import {
-  createStore,
-  transact,
-  allMapValues,
-} from "../../src/store";
+import { createStore, transact, allMapValues } from "../../src/store";
 import query from "../../src/instaql";
 import uuid from "../../src/utils/uuid";
 import { tx } from "../../src/instatx";

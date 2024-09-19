@@ -6,7 +6,6 @@ import { createLinkIndex } from "../../src/utils/linkIndex";
 
 test("many-to-many with inference", () => {
   const schema = i.graph(
-    "",
     {
       posts: i.entity({}),
       tags: i.entity({}),
@@ -84,7 +83,6 @@ test("many-to-many with inference", () => {
 
 test("one-to-one with inference", () => {
   const schema = i.graph(
-    "",
     {
       users: i.entity({}),
       profiles: i.entity({}),

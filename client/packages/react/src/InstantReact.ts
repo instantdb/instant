@@ -18,6 +18,7 @@ import {
   type InstaQLQueryParams,
   type ConfigWithSchema,
   type IDatabase,
+  type InstantGraph,
 } from "@instantdb/core";
 import {
   KeyboardEvent,
@@ -293,7 +294,7 @@ const defaultAuthState = {
 };
 
 export abstract class InstantReact<
-  Schema extends i.InstantGraph<any, any> | {} = {},
+  Schema extends InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
   WithCardinalityInference extends boolean = false,
 > implements IDatabase<Schema, RoomSchema, WithCardinalityInference>
@@ -301,9 +302,7 @@ export abstract class InstantReact<
   public withCardinalityInference?: WithCardinalityInference;
   public tx =
     txInit<
-      Schema extends i.InstantGraph<any, any>
-        ? Schema
-        : i.InstantGraph<any, any>
+      Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
     >();
 
   public auth: Auth;
@@ -404,7 +403,7 @@ export abstract class InstantReact<
    *  db.useQuery(auth.user ? { goals: {} } : null)
    */
   useQuery = <
-    Q extends Schema extends i.InstantGraph<any, any>
+    Q extends Schema extends InstantGraph<any, any>
       ? InstaQLQueryParams<Schema>
       : Exactly<Query, Q>,
   >(

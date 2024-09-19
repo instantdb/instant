@@ -3,11 +3,13 @@
             [instant.jdbc.aurora :as aurora]
             [instant.data.constants :refer [zeneca-app-id]]
             [instant.data.resolvers :as resolvers]
-            [instant.fixtures :refer [with-zeneca-app with-zeneca-byop]]
+            [instant.db.transaction :as tx]
             [instant.db.instaql :as iq]
             [instant.db.model.attr :as attr-model]
+            [instant.fixtures :refer [with-zeneca-app with-zeneca-byop]]
             [instant.model.rule :as rule-model]
             [instant.db.datalog :as d]
+            [instant.admin.model :as admin-model]
             [instant.admin.routes :as admin-routes]
             [instant.model.app :as app-model]
             [instant.data.bootstrap :as bootstrap]
@@ -65,20 +67,25 @@
    This checks equality strictly based on
    the set of topics and triples in the result"
   [pretty-a pretty-b]
-  (is (= (set (mapcat :topics pretty-a))
-         (set (mapcat :topics pretty-b))))
-  (is (= (set (mapcat :triples pretty-a))
-         (set (mapcat :triples pretty-b))))
-  (is (= (set (remove nil? (mapcat :aggregate pretty-a)))
-         (set (remove nil? (mapcat :aggregate pretty-b))))))
+  (testing "(topics is-pretty-eq?)"
+    (is (= (set (mapcat :topics pretty-a))
+           (set (mapcat :topics pretty-b)))))
+  (testing "(triples is-pretty-eq?)"
+    (is (= (set (mapcat :triples pretty-a))
+           (set (mapcat :triples pretty-b)))))
+  (testing "(aggregate is-pretty-eq?)"
+    (is (= (set (remove nil? (mapcat :aggregate pretty-a)))
+           (set (remove nil? (mapcat :aggregate pretty-b)))))))
 
 (defn- query-pretty
   ([q]
-   (query-pretty @ctx q))
+   (query-pretty @ctx @r q))
   ([ctx q]
+   (query-pretty ctx @r q))
+  ([ctx r q]
    (->> q
         (iq/query ctx)
-        (resolvers/walk-friendly @r)
+        (resolvers/walk-friendly r)
         (map ->pretty-node))))
 
 (defn- validation-err
@@ -187,8 +194,18 @@
                                               :order {:serverCreatedAt :desc}}}})
                    '({:topics #{[:eav _ #{:users/id} _]
                                 --
-                                [:ea #{"eid-alex"} _ _]
-                                [:ea #{"eid-joe-averbukh"} _ _]
+                                [:ea #{"eid-alex"} #{:users/bookshelves
+                                                     :users/createdAt
+                                                     :users/email
+                                                     :users/id
+                                                     :users/fullName
+                                                     :users/handle} _]
+                                [:ea #{"eid-joe-averbukh"} #{:users/bookshelves
+                                                             :users/createdAt
+                                                             :users/email
+                                                             :users/id
+                                                             :users/fullName
+                                                             :users/handle} _]
                                 [:ea #{"eid-joe-averbukh" "eid-alex"} #{:users/id} _]}
                       :triples #{("eid-joe-averbukh" :users/fullName "Joe Averbukh")
                                  ("eid-joe-averbukh" :users/handle "joe")
@@ -207,10 +224,20 @@
                                               :limit 2
                                               :order {:serverCreatedAt :desc}}}})
                    '({:topics #{[:ea #{"eid-joe-averbukh" "eid-stepan-parunashvili"} #{:users/id} _]
-                                [:ea #{"eid-stepan-parunashvili"} _ _]
+                                [:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
+                                                                    :users/createdAt
+                                                                    :users/email
+                                                                    :users/id
+                                                                    :users/fullName
+                                                                    :users/handle}  _]
                                 --
                                 [:av _ #{:users/handle} #{"stopa" "joe" "nicolegf"}]
-                                [:ea #{"eid-joe-averbukh"} _ _]}
+                                [:ea #{"eid-joe-averbukh"} #{:users/bookshelves
+                                                             :users/createdAt
+                                                             :users/email
+                                                             :users/id
+                                                             :users/fullName
+                                                             :users/handle} _]}
                       :triples #{("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
                                  ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
                                  ("eid-joe-averbukh" :users/handle "joe")
@@ -229,8 +256,18 @@
     (is-pretty-eq? (query-pretty {:users {:$ {:offset 2
                                               :order {:serverCreatedAt :desc}}}})
                    '({:topics #{[:eav _ #{:users/id} _]
-                                [:ea #{"eid-stepan-parunashvili"} _ _]
-                                [:ea #{"eid-nicole"} _ _]
+                                [:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
+                                                                    :users/createdAt
+                                                                    :users/email
+                                                                    :users/id
+                                                                    :users/fullName
+                                                                    :users/handle} _]
+                                [:ea #{"eid-nicole"} #{:users/bookshelves
+                                                       :users/createdAt
+                                                       :users/email
+                                                       :users/id
+                                                       :users/fullName
+                                                       :users/handle} _]
                                 --
                                 [:ea
                                  #{"eid-stepan-parunashvili" "eid-nicole"}
@@ -267,7 +304,12 @@
                                                   :order {:serverCreatedAt :desc}}}})
                        '({:topics #{[:eav _ #{:users/id} _]
                                     --
-                                    [:ea #{"eid-alex"} _ _]
+                                    [:ea #{"eid-alex"} #{:users/bookshelves
+                                                         :users/createdAt
+                                                         :users/email
+                                                         :users/id
+                                                         :users/fullName
+                                                         :users/handle} _]
                                     [:ea #{"eid-alex"} #{:users/id} _]}
                           :triples #{("eid-alex" :users/id "eid-alex")
                                      ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689")
@@ -287,7 +329,12 @@
                                                   :before start-cursor
                                                   :order {:serverCreatedAt "asc"}}}})
                        '({:topics #{[:eav _ #{:users/id} _]
-                                    [:ea #{"eid-nicole"} _ _]
+                                    [:ea #{"eid-nicole"} #{:users/bookshelves
+                                                           :users/createdAt
+                                                           :users/email
+                                                           :users/id
+                                                           :users/fullName
+                                                           :users/handle} _]
                                     --
                                     [:ea #{"eid-nicole"} #{:users/id} _]}
                           :triples #{("eid-nicole"
@@ -311,7 +358,12 @@
                                                   :order {:serverCreatedAt "asc"}}}})
                        '({:topics #{[:eav _ #{:users/id} _]
                                     --
-                                    [:ea #{"eid-alex"} _ _]
+                                    [:ea #{"eid-alex"} #{:users/bookshelves
+                                                         :users/createdAt
+                                                         :users/email
+                                                         :users/id
+                                                         :users/fullName
+                                                         :users/handle} _]
                                     [:ea #{"eid-alex"} #{:users/id} _]}
                           :triples #{("eid-alex" :users/id "eid-alex")
                                      ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689")
@@ -473,13 +525,33 @@
      '({:topics
         ([:eav _ #{:users/id} _]
          --
-         [:ea #{"eid-stepan-parunashvili"} _ _]
+         [:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
+                                             :users/createdAt
+                                             :users/email
+                                             :users/id
+                                             :users/fullName
+                                             :users/handle} _]
          --
-         [:ea #{"eid-nicole"} _ _]
+         [:ea #{"eid-nicole"} #{:users/bookshelves
+                                :users/createdAt
+                                :users/email
+                                :users/id
+                                :users/fullName
+                                :users/handle} _]
          --
-         [:ea #{"eid-joe-averbukh"} _ _]
+         [:ea #{"eid-joe-averbukh"} #{:users/bookshelves
+                                      :users/createdAt
+                                      :users/email
+                                      :users/id
+                                      :users/fullName
+                                      :users/handle} _]
          --
-         [:ea #{"eid-alex"} _ _]),
+         [:ea #{"eid-alex"} #{:users/bookshelves
+                              :users/createdAt
+                              :users/email
+                              :users/id
+                              :users/fullName
+                              :users/handle} _]),
         :triples
         (["eid-alex" :users/id "eid-alex"]
          ["eid-joe-averbukh" :users/id "eid-joe-averbukh"]
@@ -522,7 +594,12 @@
      '({:topics
         ([:av _ #{:users/handle} #{"alex"}]
          --
-         [:ea #{"eid-alex"} _ _]),
+         [:ea #{"eid-alex"} #{:users/bookshelves
+                              :users/createdAt
+                              :users/email
+                              :users/id
+                              :users/fullName
+                              :users/handle} _]),
         :triples
         (["eid-alex" :users/handle "alex"]
          --
@@ -539,7 +616,12 @@
      '({:topics
         ([:av _ #{:users/id} #{"eid-alex"}]
          --
-         [:ea #{"eid-alex"} _ _]),
+         [:ea #{"eid-alex"} #{:users/bookshelves
+                              :users/createdAt
+                              :users/email
+                              :users/id
+                              :users/fullName
+                              :users/handle} _]),
         :triples
         (["eid-alex" :users/id "eid-alex"]
          --
@@ -559,7 +641,12 @@
          [:vae _ #{:bookshelves/books} #{"eid-musashi"}]
          [:vae _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]
          --
-         [:ea #{"eid-stepan-parunashvili"} _ _]),
+         [:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
+                                             :users/createdAt
+                                             :users/email
+                                             :users/id
+                                             :users/fullName
+                                             :users/handle} _]),
         :triples
         (["eid-musashi" :books/title "Musashi"]
          ["eid-stepan-parunashvili"
@@ -585,7 +672,12 @@
            [:vae _ #{:bookshelves/books} #{"eid-musashi"}]
            [:vae _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]
            --
-           [:ea #{"eid-stepan-parunashvili"} _ _]),
+           [:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
+                                               :users/createdAt
+                                               :users/email
+                                               :users/id
+                                               :users/fullName
+                                               :users/handle} _]),
           :triples
           (["eid-musashi" :books/id "eid-musashi"]
            ["eid-stepan-parunashvili"
@@ -609,7 +701,12 @@
             ([:vae _ #{:bookshelves/books} #{"eid-musashi"}]
              [:vae _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]
              --
-             [:ea #{"eid-stepan-parunashvili"} _ _]),
+             [:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
+                                                 :users/createdAt
+                                                 :users/email
+                                                 :users/id
+                                                 :users/fullName
+                                                 :users/handle} _]),
             :triples
             (["eid-stepan-parunashvili"
               :users/bookshelves
@@ -648,7 +745,12 @@
          [:vae _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]
          [:av #{"eid-stepan-parunashvili"} #{:users/email} #{"stopa@instantdb.com"}]
          --
-         [:ea #{"eid-stepan-parunashvili"} _ _]),
+         [:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
+                                             :users/createdAt
+                                             :users/email
+                                             :users/id
+                                             :users/fullName
+                                             :users/handle} _]),
         :triples
         (("eid-the-way-of-the-gentleman" :bookshelves/books "eid-musashi")
          ("eid-musashi" :books/title "Musashi")
@@ -671,13 +773,22 @@
      '({:topics
         ([:av _ #{:users/handle} #{"alex"}]
          --
-         [:ea #{"eid-alex"} _ _]
+         [:ea #{"eid-alex"} #{:users/bookshelves
+                              :users/createdAt
+                              :users/email
+                              :users/id
+                              :users/fullName
+                              :users/handle} _]
          --
          [:eav #{"eid-alex"} #{:users/bookshelves} _]
          [:ea _ #{:bookshelves/name} #{"Nonfiction"}]
          [:ea #{"eid-nonfiction"} #{:bookshelves/order} #{1}]
          --
-         [:ea #{"eid-nonfiction"} _ _]),
+         [:ea #{"eid-nonfiction"} #{:bookshelves/desc
+                                    :bookshelves/name
+                                    :bookshelves/order
+                                    :bookshelves/id
+                                    :bookshelves/books} _]),
         :triples
         (["eid-alex" :users/handle "alex"]
          --
@@ -710,9 +821,19 @@
       {:users {:$ {:where {:handle {:in ["joe", "stopa"]}}}}})
      '({:topics ([:av _ #{:users/handle} #{"stopa" "joe"}]
                  --
-                 [:ea #{"eid-stepan-parunashvili"} _ _]
+                 [:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
+                                                     :users/createdAt
+                                                     :users/email
+                                                     :users/id
+                                                     :users/fullName
+                                                     :users/handle} _]
                  --
-                 [:ea #{"eid-joe-averbukh"} _ _]),
+                 [:ea #{"eid-joe-averbukh"} #{:users/bookshelves
+                                              :users/createdAt
+                                              :users/email
+                                              :users/id
+                                              :users/fullName
+                                              :users/handle} _]),
         :triples (("eid-joe-averbukh" :users/handle "joe")
                   ("eid-stepan-parunashvili" :users/handle "stopa")
                   --
@@ -747,9 +868,19 @@
      '({:topics ([:av _ #{:users/handle} #{"stopa"}]
                  [:av _ #{:users/handle} #{"joe"}]
                  --
-                 [:ea #{"eid-stepan-parunashvili"} _ _]
+                 [:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
+                                                     :users/createdAt
+                                                     :users/email
+                                                     :users/id
+                                                     :users/fullName
+                                                     :users/handle} _]
                  --
-                 [:ea #{"eid-joe-averbukh"} _ _]),
+                 [:ea #{"eid-joe-averbukh"} #{:users/bookshelves
+                                              :users/createdAt
+                                              :users/email
+                                              :users/id
+                                              :users/fullName
+                                              :users/handle} _]),
         :triples (("eid-joe-averbukh" :users/handle "joe")
                   ("eid-stepan-parunashvili" :users/handle "stopa")
                   --
@@ -775,7 +906,12 @@
                  [:av _ #{:users/handle} #{"joe"}]
                  [:av _ #{:users/handle} #{"nobody"}]
                  --
-                 [:ea #{"eid-joe-averbukh"} _ _]),
+                 [:ea #{"eid-joe-averbukh"} #{:users/bookshelves
+                                              :users/createdAt
+                                              :users/email
+                                              :users/id
+                                              :users/fullName
+                                              :users/handle} _]),
         :triples (("eid-joe-averbukh" :users/handle "joe")
                   --
                   ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
@@ -806,7 +942,12 @@
                   #{"stopa@instantdb.com"}]
                  [:av #{"eid-stepan-parunashvili"} #{:users/handle} #{"stopa"}]
                  --
-                 [:ea #{"eid-stepan-parunashvili"} _ _]),
+                 [:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
+                                                     :users/createdAt
+                                                     :users/email
+                                                     :users/id
+                                                     :users/fullName
+                                                     :users/handle} _]),
         :triples (("eid-the-count-of-monte-cristo"
                    :books/title
                    "The Count of Monte Cristo")
@@ -853,7 +994,12 @@
         :triples ()})))
 
   (testing "with matches"
-    (let [expected '({:topics ([:ea #{"eid-stepan-parunashvili"} _ _]
+    (let [expected '({:topics ([:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
+                                                                   :users/createdAt
+                                                                   :users/email
+                                                                   :users/id
+                                                                   :users/fullName
+                                                                   :users/handle} _]
                                [:ea _ #{:books/title} #{"Musashi"}]
                                [:vae _ #{:bookshelves/books} #{"eid-the-count-of-monte-cristo"}]
                                --
@@ -903,12 +1049,22 @@
                                        {:handle "nobody"}
                                        {:handle "stopa"}
                                        {:and [{:or [{:handle "stopa"}]}]}]}]}}}})
-     '({:topics ([:ea #{"eid-stepan-parunashvili"} _ _]
+     '({:topics ([:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
+                                                     :users/createdAt
+                                                     :users/email
+                                                     :users/id
+                                                     :users/fullName
+                                                     :users/handle} _]
                  [:av _ #{:users/handle} #{"stopa"}]
                  [:av _ #{:users/handle} #{"somebody"}]
                  --
                  [:av _ #{:users/handle} #{"joe"}]
-                 [:ea #{"eid-joe-averbukh"} _ _]
+                 [:ea #{"eid-joe-averbukh"} #{:users/bookshelves
+                                              :users/createdAt
+                                              :users/email
+                                              :users/id
+                                              :users/fullName
+                                              :users/handle} _]
                  [:av _ #{:users/handle} #{"nobody"}]),
         :triples (("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
                   ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
@@ -933,13 +1089,26 @@
      '({:topics
         ([:av _ #{:users/handle} #{"alex"}]
          --
-         [:ea #{"eid-alex"} _ _]
+         [:ea #{"eid-alex"} #{:users/bookshelves
+                              :users/createdAt
+                              :users/email
+                              :users/id
+                              :users/fullName
+                              :users/handle} _]
          --
          [:eav #{"eid-alex"} #{:users/bookshelves} _]
          --
-         [:ea #{"eid-short-stories"} _ _]
+         [:ea #{"eid-short-stories"} #{:bookshelves/desc
+                                       :bookshelves/name
+                                       :bookshelves/order
+                                       :bookshelves/id
+                                       :bookshelves/books} _]
          --
-         [:ea #{"eid-nonfiction"} _ _]),
+         [:ea #{"eid-nonfiction"} #{:bookshelves/desc
+                                    :bookshelves/name
+                                    :bookshelves/order
+                                    :bookshelves/id
+                                    :bookshelves/books} _]),
         :triples
         (["eid-alex" :users/handle "alex"]
          --
@@ -968,11 +1137,20 @@
      '({:topics
         ([:ea _ #{:bookshelves/name} #{"Nonfiction"}]
          --
-         [:ea #{"eid-nonfiction"} _ _]
+         [:ea #{"eid-nonfiction"} #{:bookshelves/desc
+                                    :bookshelves/name
+                                    :bookshelves/order
+                                    :bookshelves/id
+                                    :bookshelves/books} _]
          --
          [:vae _ #{:users/bookshelves} #{"eid-nonfiction"}]
          --
-         [:ea #{"eid-alex"} _ _]),
+         [:ea #{"eid-alex"} #{:users/bookshelves
+                              :users/createdAt
+                              :users/email
+                              :users/id
+                              :users/fullName
+                              :users/handle} _]),
         :triples
         (["eid-nonfiction" :bookshelves/name "Nonfiction"]
          --
@@ -997,12 +1175,21 @@
      '({:topics
         ([:av _ #{:users/handle} #{"alex"}]
          --
-         [:ea #{"eid-alex"} _ _]
+         [:ea #{"eid-alex"} #{:users/bookshelves
+                              :users/createdAt
+                              :users/email
+                              :users/id
+                              :users/fullName
+                              :users/handle} _]
          --
          [:eav #{"eid-alex"} #{:users/bookshelves} _]
          [:ea _ #{:bookshelves/name} #{"Nonfiction"}]
          --
-         [:ea #{"eid-nonfiction"} _ _]),
+         [:ea #{"eid-nonfiction"} #{:bookshelves/desc
+                                    :bookshelves/name
+                                    :bookshelves/order
+                                    :bookshelves/id
+                                    :bookshelves/books} _]),
         :triples
         (["eid-alex" :users/handle "alex"]
          --
@@ -1030,13 +1217,22 @@
      '({:topics
         ([:av _ #{:users/handle} #{"alex"}]
          --
-         [:ea #{"eid-alex"} _ _]
+         [:ea #{"eid-alex"} #{:users/bookshelves
+                              :users/createdAt
+                              :users/email
+                              :users/id
+                              :users/fullName
+                              :users/handle} _]
          --
          [:eav #{"eid-alex"} #{:users/bookshelves} _]
          [:ea _ #{:bookshelves/name} #{"Nonfiction"}]
          [:ea _ #{:bookshelves/name} #{"Fiction"}]
          --
-         [:ea #{"eid-nonfiction"} _ _]),
+         [:ea #{"eid-nonfiction"} #{:bookshelves/desc
+                                    :bookshelves/name
+                                    :bookshelves/order
+                                    :bookshelves/id
+                                    :bookshelves/books} _]),
         :triples
         (["eid-alex" :users/handle "alex"]
          --
@@ -1062,11 +1258,20 @@
         :bookshelves {:$ {:where {:and [{:name "Nonfiction"}
                                         {:order 1}]}}}}})
      '({:topics
-        ([:ea #{"eid-nonfiction"} _ _]
+        ([:ea #{"eid-nonfiction"} #{:bookshelves/desc
+                                    :bookshelves/name
+                                    :bookshelves/order
+                                    :bookshelves/id
+                                    :bookshelves/books} _]
          [:eav #{"eid-alex"} #{:users/bookshelves} _]
          [:ea _ #{:bookshelves/name} #{"Nonfiction"}]
          --
-         [:ea #{"eid-alex"} _ _]
+         [:ea #{"eid-alex"} #{:users/bookshelves
+                              :users/createdAt
+                              :users/email
+                              :users/id
+                              :users/fullName
+                              :users/handle} _]
          [:av _ #{:users/handle} #{"alex"}]
          [:ea #{"eid-nonfiction"} #{:bookshelves/order} #{1}]),
         :triples
@@ -1104,22 +1309,42 @@
      '({:topics
         ([:eav _ #{:users/id} _]
          --
-         [:ea #{"eid-stepan-parunashvili"} _ _]
+         [:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
+                                             :users/createdAt
+                                             :users/email
+                                             :users/id
+                                             :users/fullName
+                                             :users/handle} _]
          --
          [:ea _ _ _]
          [:eav _ _ _]
          --
-         [:ea #{"eid-nicole"} _ _]
+         [:ea #{"eid-nicole"} #{:users/bookshelves
+                                :users/createdAt
+                                :users/email
+                                :users/id
+                                :users/fullName
+                                :users/handle} _]
          --
          [:ea _ _ _]
          [:eav _ _ _]
          --
-         [:ea #{"eid-joe-averbukh"} _ _]
+         [:ea #{"eid-joe-averbukh"} #{:users/bookshelves
+                                      :users/createdAt
+                                      :users/email
+                                      :users/id
+                                      :users/fullName
+                                      :users/handle} _]
          --
          [:ea _ _ _]
          [:eav _ _ _]
          --
-         [:ea #{"eid-alex"} _ _]
+         [:ea #{"eid-alex"} #{:users/bookshelves
+                              :users/createdAt
+                              :users/email
+                              :users/id
+                              :users/fullName
+                              :users/handle} _]
          --
          [:ea _ _ _]
          [:eav _ _ _]),
@@ -1163,8 +1388,62 @@
          ["eid-alex" :users/id "eid-alex"]
          --)}))))
 
-;; ------ 
-;; Permissions 
+(deftest same-ids
+  (with-zeneca-app
+    (fn [app r]
+      (let [ctx {:db {:conn-pool aurora/conn-pool}
+                 :app-id (:id app)
+                 :attrs (attr-model/get-by-app-id aurora/conn-pool (:id app))}
+            user-id-attr (resolvers/->uuid r :users/id)
+            user-handle-attr (resolvers/->uuid r :users/handle)
+            book-id-attr (resolvers/->uuid r :books/id)
+            book-title-attr (resolvers/->uuid r :books/title)
+            shared-id (random-uuid)]
+        (tx/transact! aurora/conn-pool
+                      (:id app)
+                      [[:add-triple shared-id user-id-attr shared-id]
+                       [:add-triple shared-id user-handle-attr "handle"]
+                       [:add-triple shared-id book-id-attr shared-id]
+                       [:add-triple shared-id book-title-attr "title"]
+                       ])
+        (is-pretty-eq?
+         (query-pretty ctx r {:users {:$ {:where {:id shared-id}}}})
+         [{:topics
+           [[:av '_ #{:users/id} #{shared-id}]
+            '--
+            [:ea
+             #{shared-id}
+             #{:users/bookshelves
+               :users/createdAt
+               :users/email
+               :users/id
+               :users/fullName
+               :users/handle}
+             '_]],
+           :triples
+           [[shared-id :users/id shared-id]
+            '--
+            [shared-id :users/handle "handle"]
+            [shared-id :users/id shared-id]]}])
+        (is-pretty-eq?
+         (query-pretty ctx r {:books {:$ {:where {:id shared-id}}}})
+         [{:topics
+           [[:av '_ #{:books/id} #{shared-id}]
+            '--
+            [:ea #{shared-id} #{:books/pageCount
+                                :books/isbn13
+                                :books/description
+                                :books/id
+                                :books/thumbnail
+                                :books/title} '_]],
+           :triples
+           [[shared-id :books/id shared-id]
+            '--
+            [shared-id :books/title "title"]
+            [shared-id :books/id shared-id]]}])))))
+
+;; ------
+;; Permissions
 
 (comment
   (def app-id #uuid "2f23dfa2-c921-4988-9243-adf602339bab")
@@ -1328,9 +1607,18 @@
              [:ea _ #{:books/title} #{"The Count of Monte Cristo"} _]
              [:vae _ #{:bookshelves/books} _ _]
              [:vae _ #{:users/bookshelves} _ _]
-             [:ea _ _ _ _]
+             [:ea _ #{:users/bookshelves
+                      :users/createdAt
+                      :users/email
+                      :users/id
+                      :users/fullName
+                      :users/handle} _ _]
              [:eav _ #{:users/bookshelves} _ _]
-             [:ea _ _ _ _]]
+             [:ea _  #{:bookshelves/desc
+                       :bookshelves/name
+                       :bookshelves/order
+                       :bookshelves/id
+                       :bookshelves/books} _ _]]
            (resolvers/walk-friendly
             @r
             (d/pats->coarse-topics patterns))))))

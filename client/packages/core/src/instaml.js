@@ -184,7 +184,7 @@ function expandUpdate(attrs, [etype, eid, obj]) {
 
 function expandDelete(attrs, [etype, eid]) {
   const lookup = extractLookup(attrs, etype, eid);
-  return [["delete-entity", lookup]];
+  return [["delete-entity", lookup, etype]];
 }
 
 function expandDeepMerge(attrs, [etype, eid, obj]) {

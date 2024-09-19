@@ -6,12 +6,34 @@ import {
   id,
   txInit,
   type TransactionChunk,
-  type User,
   type AuthToken,
   type Exactly,
-  type InstaQLQueryParams,
+
+  // core types
+  type User,
   type Query,
+
+  // query types
   type QueryResponse,
+  type InstaQLQueryParams,
+  type InstantQuery,
+  type InstantQueryResult,
+  type InstantSchema,
+  type InstantObject,
+
+  // schema types
+  type AttrsDefs,
+  type CardinalityKind,
+  type DataAttrDef,
+  type EntitiesDef,
+  type EntitiesWithLinks,
+  type EntityDef,
+  type InstantGraph,
+  type LinkAttrDef,
+  type LinkDef,
+  type LinksDef,
+  type ResolveAttrs,
+  type ValueTypes,
 } from "@instantdb/core";
 
 type DebugCheckResult = {
@@ -133,7 +155,7 @@ function init<Schema = {}>(config: Config) {
 }
 
 function init_experimental<
-  Schema extends i.InstantGraph<any, any, any>,
+  Schema extends InstantGraph<any, any, any>,
   WithCardinalityInference extends boolean = true,
 >(
   config: Config & {
@@ -154,7 +176,7 @@ function init_experimental<
  *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
  */
 class InstantAdmin<
-  Schema extends i.InstantGraph<any, any> | {},
+  Schema extends InstantGraph<any, any> | {},
   WithCardinalityInference extends boolean,
 > {
   config: FilledConfig;
@@ -164,9 +186,7 @@ class InstantAdmin<
 
   public tx =
     txInit<
-      Schema extends i.InstantGraph<any, any>
-        ? Schema
-        : i.InstantGraph<any, any>
+      Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
     >();
 
   constructor(_config: Config) {
@@ -210,7 +230,7 @@ class InstantAdmin<
    *  await db.query({ goals: { todos: {} } })
    */
   query = <
-    Q extends Schema extends i.InstantGraph<any, any>
+    Q extends Schema extends InstantGraph<any, any>
       ? InstaQLQueryParams<Schema>
       : Exactly<Query, Q>,
   >(
@@ -633,4 +653,30 @@ export {
   type ImpersonationOpts,
   type TransactionChunk,
   type DebugCheckResult,
+
+  // core types
+  type User,
+  type InstaQLQueryParams,
+  type Query,
+
+  // query types
+  type QueryResponse,
+  type InstantQuery,
+  type InstantQueryResult,
+  type InstantSchema,
+  type InstantObject,
+
+  // schema types
+  type AttrsDefs,
+  type CardinalityKind,
+  type DataAttrDef,
+  type EntitiesDef,
+  type EntitiesWithLinks,
+  type EntityDef,
+  type InstantGraph,
+  type LinkAttrDef,
+  type LinkDef,
+  type LinksDef,
+  type ResolveAttrs,
+  type ValueTypes,
 };

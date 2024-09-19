@@ -596,7 +596,7 @@
                         [(->all-ids-attr-pat ctx etype level)])
         optimized (optimize-attr-pats (distinct with-fallback))
         datalog-query (attr-pat/attr-pats->patterns ctx optimized)]
-    (list false (attr-pat/default-level-sym etype level) datalog-query)))
+    (list false (attr-pat/default-level-sym etype level) etype datalog-query)))
 
 (defn guarded-where-query [ctx {:keys [etype level] :as form}]
   (try
@@ -607,6 +607,7 @@
         (throw e)
         (list true
               (attr-pat/default-level-sym etype level)
+              etype
               [[:ea (attr-pat/default-level-sym etype level)]
                [:eav]])))))
 
@@ -748,7 +749,7 @@
    single sql query."
   [ctx {:keys [k] :as form}]
   (let [ctx (update-in ctx [:state :in] conj k)
-        [missing-attr? sym patterns] (guarded-where-query ctx form)
+        [missing-attr? sym etype patterns] (guarded-where-query ctx form)
         page-info (when-not missing-attr?
                     (page-info-of-form ctx form))
 
@@ -758,7 +759,8 @@
                             (random-uuid))
         ctx (assoc-in ctx [:sym-placeholders sym] sym-placeholder)
         child-forms (form->child-forms ctx form sym-placeholder)
-        aggregate (get-in form [:option-map :aggregate])]
+        aggregate (get-in form [:option-map :aggregate])
+        etype-attr-ids (attr-model/attr-ids-for-etype etype (:attrs ctx))]
     (when (and aggregate (not (:admin? ctx)))
       (ex/throw-validation-err!
        :query
@@ -782,7 +784,7 @@
       {:patterns (replace-sym-placeholders (map-invert (:sym-placeholders ctx))
                                            patterns)
        :children {:pattern-groups
-                  [(merge {:patterns [[:ea sym]]}
+                  [(merge {:patterns [[:ea sym etype-attr-ids]]}
                           (when (seq child-forms)
                             {:children {:pattern-groups
                                         (mapv (partial query-one ctx)
@@ -1348,12 +1350,12 @@
 (defn- join-rows->etype-maps
   "Takes a set of join-rows and returns maps from entity id to etype and
    etype to program."
-  [acc {:keys [attr-map rules]} join-rows]
+  [acc {:keys [attrs rules]} join-rows]
   (reduce
    (fn [acc join-rows]
      (reduce
       (fn [acc [e a]]
-        (let [etype (-> (get attr-map a)
+        (let [etype (-> (attr-model/seek-by-id a attrs)
                         :forward-identity
                         second)
               next-acc (assoc-in acc [:eid->etype e] etype)]
@@ -1434,11 +1436,15 @@
                             (seq (-> node :data :datalog-result :join-rows))))
                          vec)))))))
 
-(defn entity-map [{:keys [datalog-query-fn] :as ctx} query-cache attr-map eid]
-  (let [datalog-query [[:ea eid]]
+(defn entity-map [{:keys [datalog-query-fn attrs] :as ctx}
+                  query-cache
+                  etype
+                  eid]
+  (let [datalog-query [[:ea eid (attr-model/attr-ids-for-etype etype attrs)]]
         datalog-result (or (get query-cache datalog-query)
                            (datalog-query-fn ctx datalog-query))]
-    (entity-model/datalog-result->map {:attr-map attr-map} datalog-result)))
+
+    (entity-model/datalog-result->map ctx datalog-result)))
 
 (defn extract-refs
   "Extracts a list of refs that can be passed to cel/prefetch-data-refs.
@@ -1464,7 +1470,8 @@
       (cel/prefetch-data-refs ctx refs)
       {})))
 
-(defn get-eid-check-result! [{:keys [current-user] :as ctx} {:keys [eid->etype etype->program query-cache]} attr-map]
+(defn get-eid-check-result! [{:keys [current-user] :as ctx}
+                             {:keys [eid->etype etype->program query-cache]}]
   (tracer/with-span! {:name "instaql/get-eid-check-result!"}
     (let [preloaded-refs (tracer/with-span! {:name "instaql/preload-refs"}
                            (let [res (preload-refs ctx eid->etype etype->program)]
@@ -1477,7 +1484,10 @@
                 [eid (if-not p
                        true
                        (let [em (io/warn-io :instaql/entity-map
-                                  (entity-map ctx query-cache attr-map eid))
+                                  (entity-map ctx
+                                              query-cache
+                                              etype
+                                              eid))
                              ctx (assoc ctx
                                         :preloaded-refs preloaded-refs)]
                          (io/warn-io :instaql/eval-program
@@ -1501,12 +1511,11 @@
       (if admin?
         res
         (let [rules (rule-model/get-by-app-id aurora/conn-pool {:app-id app-id})
-              attr-map (attr-model/attrs-by-id (:attrs ctx))
               perm-helpers
-              (extract-permission-helpers {:attr-map attr-map
+              (extract-permission-helpers {:attrs (:attrs ctx)
                                            :rules rules}
                                           res)
-              eid->check (get-eid-check-result! ctx perm-helpers attr-map)
+              eid->check (get-eid-check-result! ctx perm-helpers)
               res' (tracer/with-span! {:name "instaql/map-permissioned-node"}
                      (mapv (partial permissioned-node eid->check) res))]
           res')))))
@@ -1516,17 +1525,19 @@
         rules (or (when rules-override {:app_id app-id :code rules-override})
                   (rule-model/get-by-app-id aurora/conn-pool
                                             {:app-id app-id}))
-        attr-map (attr-model/attrs-by-id (:attrs ctx))
         perm-helpers
-        (extract-permission-helpers {:attr-map attr-map
+        (extract-permission-helpers {:attrs (:attrs ctx)
                                      :rules rules}
                                     res)
-        eid->check (get-eid-check-result! ctx perm-helpers attr-map)
+        eid->check (get-eid-check-result! ctx perm-helpers)
         check-results (map
                        (fn [[id check]]
                          {:id id
                           :entity (get (:eid->etype perm-helpers) id)
-                          :record (entity-map ctx (:query-cache perm-helpers) attr-map id)
+                          :record (entity-map ctx
+                                              (:query-cache perm-helpers)
+                                              (get (:eid->etype perm-helpers) id)
+                                              id)
                           :check check})
                        eid->check)
         nodes (mapv (partial permissioned-node eid->check) res)]

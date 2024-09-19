@@ -13,10 +13,7 @@ The default export of `instant.schema.ts` should always be the result of a call 
 
 import { i } from '@instantdb/core';
 
-const INSTANT_APP_ID = '__APP_ID__';
-
 export default i.graph(
-  INSTANT_APP_ID, // your apps UUID
   entitiesMap, // a map of `i.entity` definitions, see "Defining entities" below
   linksMap // a description of links between your app's entities, see "Defining links" below
 );
@@ -26,7 +23,7 @@ export default graph;
 
 ## Defining entities
 
-The second parameter to `i.graph` is a dictionary of entities, where the key represents the entities name, and the value is a call to `i.entity` with a dictionary of attributes.
+The first parameter to `i.graph` is a dictionary of entities, where the key represents the entities name, and the value is a call to `i.entity` with a dictionary of attributes.
 
 ```typescript
 {
@@ -45,7 +42,7 @@ Entity definitions accept a map of attribute definitions, where the key represen
 
 First we specify the expected type of the attribute: `i.string()`, `i.number()`, `i.boolean()`, `i.json()` and `i.any()`.
 
-We cån then chain modifiers: `.optional()`, `.unique()` and `.indexed()`.
+We can then chain modifiers: `.optional()`, `.unique()` and `.indexed()`.
 
 Here are some examples:
 
@@ -113,10 +110,7 @@ Make sure to set the graph object as your file's default export to that it can b
 ```typescript
 import { i } from '@instantdb/core';
 
-const INSTANT_APP_ID = 'YOUR_APP_ID_HERE';
-
 const graph = i.graph(
-  INSTANT_APP_ID,
   {
     authors: i.entity({
       userId: i.string(),

@@ -245,13 +245,23 @@
                    {:pattern-groups
                     [{:patterns [[:ea ?movie-0 :movie/year 1987]],
                       :children
-                      {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                      {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                    :movie/director
+                                                                    :movie/sequel
+                                                                    :movie/cast
+                                                                    :movie/trivia
+                                                                    :movie/title}]]}],
                        :join-sym ?movie-0}}]}}
                   {:children
                    {:pattern-groups
                     [{:patterns [[:ea ?movie-0 :movie/title "RoboCop"]],
                       :children
-                      {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                      {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                    :movie/director
+                                                                    :movie/sequel
+                                                                    :movie/cast
+                                                                    :movie/trivia
+                                                                    :movie/title}]]}],
                        :join-sym ?movie-0}}]}}}
                (->> (#'rs/get-datalog-cache-for-app @store-conn movies-app-id)
                     (resolvers/walk-friendly @r)
@@ -264,14 +274,24 @@
                     {:pattern-groups
                      [{:patterns [[:ea ?movie-0 :movie/year 1987]],
                        :children
-                       {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                       {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                     :movie/director
+                                                                     :movie/sequel
+                                                                     :movie/cast
+                                                                     :movie/trivia
+                                                                     :movie/title}]]}],
                         :join-sym ?movie-0}}]}}},
                  {:movie {:$ {:where {:title "RoboCop"}}}}
                  #{{:children
                     {:pattern-groups
                      [{:patterns [[:ea ?movie-0 :movie/title "RoboCop"]],
                        :children
-                       {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                       {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                     :movie/director
+                                                                     :movie/sequel
+                                                                     :movie/cast
+                                                                     :movie/trivia
+                                                                     :movie/title}]]}],
                         :join-sym ?movie-0}}]}}}}
                (->> (#'rs/get-subscriptions-for-app-id @store-conn movies-app-id)
                     (resolvers/walk-friendly @r)
@@ -330,7 +350,12 @@
                    {:pattern-groups
                     [{:patterns [[:ea ?movie-0 :movie/title "RoboCop"]],
                       :children
-                      {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                      {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                    :movie/director
+                                                                    :movie/sequel
+                                                                    :movie/cast
+                                                                    :movie/trivia
+                                                                    :movie/title}]]}],
                        :join-sym ?movie-0}}]}}}
                (->> (#'rs/get-datalog-cache-for-app @store-conn movies-app-id)
                     (resolvers/walk-friendly @r)
@@ -343,7 +368,12 @@
                     {:pattern-groups
                      [{:patterns [[:ea ?movie-0 :movie/title "RoboCop"]],
                        :children
-                       {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                       {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                     :movie/director
+                                                                     :movie/sequel
+                                                                     :movie/cast
+                                                                     :movie/trivia
+                                                                     :movie/title}]]}],
                         :join-sym ?movie-0}}]}}}}
                (some->> (#'rs/get-subscriptions-for-app-id @store-conn movies-app-id)
                         seq
@@ -427,7 +457,13 @@
                        {:pattern-groups
                         [{:patterns [[:ea ?movie-0 :movie/year 1987]],
                           :children
-                          {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                          {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                        :movie/id
+                                                                        :movie/director
+                                                                        :movie/sequel
+                                                                        :movie/cast
+                                                                        :movie/trivia
+                                                                        :movie/title}]]}],
                            :join-sym ?movie-0}}]}}}
                    (->> (#'rs/get-datalog-cache-for-app @store-conn app-id)
                         (resolvers/walk-friendly r)
@@ -454,7 +490,13 @@
                        {:pattern-groups
                         [{:patterns [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]],
                           :children
-                          {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                          {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                        :movie/id
+                                                                        :movie/director
+                                                                        :movie/sequel
+                                                                        :movie/cast
+                                                                        :movie/trivia
+                                                                        :movie/title}]]}],
                            :join-sym ?movie-0}}]}}}
                    (->> (#'rs/get-datalog-cache-for-app @store-conn app-id)
                         (resolvers/walk-friendly r)
@@ -466,7 +508,13 @@
                          [{:patterns
                            [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]],
                            :children
-                           {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                           {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                         :movie/id
+                                                                         :movie/director
+                                                                         :movie/sequel
+                                                                         :movie/cast
+                                                                         :movie/trivia
+                                                                         :movie/title}]]}],
                             :join-sym ?movie-0}}]}}}}
                    (->> (#'rs/get-subscriptions-for-app-id @store-conn app-id)
                         (resolvers/walk-friendly r)
@@ -500,7 +548,13 @@
                        {:pattern-groups
                         [{:patterns [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]],
                           :children
-                          {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                          {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                        :movie/id
+                                                                        :movie/director
+                                                                        :movie/sequel
+                                                                        :movie/cast
+                                                                        :movie/trivia
+                                                                        :movie/title}]]}],
                            :join-sym ?movie-0}}]}}}
                    (->> (#'rs/get-datalog-cache-for-app @store-conn app-id)
                         (resolvers/walk-friendly r)
@@ -512,7 +566,13 @@
                          [{:patterns
                            [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]],
                            :children
-                           {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                           {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                         :movie/id
+                                                                         :movie/director
+                                                                         :movie/sequel
+                                                                         :movie/cast
+                                                                         :movie/trivia
+                                                                         :movie/title}]]}],
                             :join-sym ?movie-0}}]}}}}
                    (->> (#'rs/get-subscriptions-for-app-id @store-conn app-id)
                         (resolvers/walk-friendly r)
