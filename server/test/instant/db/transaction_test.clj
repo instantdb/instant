@@ -1197,6 +1197,25 @@
                     bloop-attr-id
                     (attr-model/get-by-app-id aurora/conn-pool app-id)))))))))))
 
+(deftest rejects-bad-lookups
+  (with-zeneca-app
+    (fn [{app-id :id :as _app} r]
+      (let [make-ctx (fn [] {:db {:conn-pool aurora/conn-pool}
+                             :app-id app-id
+                             :attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id aurora/conn-pool {:app-id app-id})
+                             :current-user nil})
+            lookup [(resolvers/->uuid r :users/email) "stopa@instantdb.com"]]
+        (rule-model/put!
+         aurora/conn-pool
+         {:app-id app-id :code {}})
+        (testing "Can't use a lookup attr from one namespace with attrs from another"
+          (is (validation-err?
+                (permissioned-tx/transact!
+                 (make-ctx)
+                 [[:add-triple lookup (resolvers/->uuid r :books/title) "Title"]]))))))))
+
 (defn validation-err [input]
   (try
     (tx/validate! (tx/coerce! input))
