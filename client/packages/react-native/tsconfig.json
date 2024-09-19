@@ -8,6 +8,7 @@
     "outDir": "dist",
     "rootDir": "src",
     "sourceMap": true,
+    "inlineSources": true,
     "target": "es2015",
     "esModuleInterop": true,
     "moduleResolution": "node",
