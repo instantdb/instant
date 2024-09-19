@@ -102,7 +102,7 @@
                         :steps
                         (map (fn [[[ns attr]]]
                                {:in [:schema]
-                                :message (str "Duplicate entry found for attribute: " ns "->" attr ". Check your schema file for diplicate link definitions.")}) dups)))
+                                :message (str "Duplicate entry found for attribute: " ns "->" attr ". Check your schema file for duplicate link definitions.")}) dups)))
     steps))
 
 (defn attrs->schema [attrs]
