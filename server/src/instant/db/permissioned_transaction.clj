@@ -450,7 +450,7 @@
                 ;; Also need to be able to read our own writes for the create checks
                 ctx (assoc ctx
                            :db {:conn-pool tx-conn}
-                           :optimistic-attrs optimistic-attrs)
+                           :attrs optimistic-attrs)
 
                 ;; If we were really smart, we would fetch the triples and the
                 ;; update-delete data-ref dependencies in one go.
