@@ -58,6 +58,7 @@ function createIndexMap(attrs, triples) {
       console.warn("no such attr", eid, attrs);
       continue;
     }
+
     if (isRef(attr)) {
       setInMap(vae, [v, aid, eid], triple);
     }
@@ -65,12 +66,27 @@ function createIndexMap(attrs, triples) {
     setInMap(eav, [eid, aid, v], triple);
     setInMap(aev, [aid, eid, v], triple);
   }
-
   return { eav, aev, vae };
 }
 
+export function blobAttrs({ attrs }, etype) {
+  return Object.values(attrs)
+    .filter((attr) => isBlob(attr) && attr['forward-identity'][1] === etype);
+}
 
-export function toJSON(store) { 
+export function getAsObject(store, attrs, e) {
+  const obj = {}; 
+  for (const attr of attrs) { 
+    const aMap = store.eav.get(e)?.get(attr.id);
+    const vs = allMapValues(aMap, 1);
+    for (const v of vs) {  
+      obj[attr['forward-identity'][2]] = v[2];
+    }
+  }
+  return obj;
+}
+
+export function toJSON(store) {
   return {
     __type: store.__type,
     attrs: store.attrs,
@@ -80,7 +96,7 @@ export function toJSON(store) {
   };
 }
 
-export function fromJSON(storeJSON) { 
+export function fromJSON(storeJSON) {
   return createStore(
     storeJSON.attrs,
     storeJSON.triples,
@@ -474,6 +490,10 @@ export function getTriples(store, [e, a, v]) {
         res.push(...triplesByValue(aMap, v));
       }
       return res;
+    }
+    case "a": {
+      const aMap = store.aev.get(a)
+      return allMapValues(aMap, 2);
     }
     case "av": {
       const aMap = store.aev.get(a);

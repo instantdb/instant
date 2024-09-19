@@ -18,7 +18,7 @@
   },
   {
     "id": "1fcc2b72-02be-405b-918c-8e441f75dcab",
-    "value-type": "ref",
+    "value-type": "blob",
     "cardinality": "one",
     "forward-identity": [
       "a09d83c4-c587-41fd-b660-bd02a2269dfa",
@@ -35,7 +35,7 @@
   },
   {
     "id": "6eebf15a-ed3c-4442-8869-a44a7c85a1be",
-    "value-type": "ref",
+    "value-type": "blob",
     "cardinality": "one",
     "forward-identity": ["4ceb593d-8953-4441-81c4-21cc521ef6dd", "books", "id"],
     "unique?": true,
@@ -44,7 +44,7 @@
   },
   {
     "id": "5a4f5a6d-ba83-4bf0-ae78-27a863300224",
-    "value-type": "ref",
+    "value-type": "blob",
     "cardinality": "one",
     "forward-identity": ["ce6155ef-e683-4084-bb5e-18757d30b79f", "users", "id"],
     "unique?": true,
