@@ -1,8 +1,5 @@
-import { produce, enableMapSet } from "immer";
+import { create } from "mutative";
 import { immutableDeepMerge } from "./utils/object";
-
-// Makes immer work with maps and sets
-enableMapSet();
 
 function hasEA(attr) {
   return attr["cardinality"] === "one";
@@ -483,7 +480,7 @@ export function getTriples(store, [e, a, v]) {
 }
 
 export function transact(store, txSteps) {
-  return produce(store, (draft) => {
+  return create(store, (draft) => {
     txSteps.forEach((txStep) => {
       applyTxStep(draft, txStep);
     });

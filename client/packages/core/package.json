@@ -33,7 +33,7 @@
     "vitest": "^1.6.0"
   },
   "dependencies": {
-    "immer": "9.0.14",
+    "mutative": "^1.0.10",
     "object-hash": "^3.0.0",
     "uuid": "^9.0.0"
   }

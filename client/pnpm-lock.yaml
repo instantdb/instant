@@ -112,9 +112,9 @@ importers:
 
   packages/core:
     dependencies:
-      immer:
-        specifier: 9.0.14
-        version: 9.0.14
+      mutative:
+        specifier: ^1.0.10
+        version: 1.0.10
       object-hash:
         specifier: ^3.0.0
         version: 3.0.0
@@ -14476,6 +14476,11 @@ packages:
 
   /ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
+    dev: false
+
+  /mutative@1.0.10:
+    resolution: {integrity: sha512-YD4MEleW9vJyIVEItz6x71fWdJ9qea3+R8hxtNiei8cQ7BGLM1c9Q6zCJ7SuLzorBhd2PBHN+xUEwEahxMI34w==}
+    engines: {node: '>=14.0'}
     dev: false
 
   /mute-stream@1.0.0:
