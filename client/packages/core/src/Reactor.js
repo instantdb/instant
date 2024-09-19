@@ -90,7 +90,7 @@ export default class Reactor {
   _broadcastSubs = {};
   _currentUserCached = { isLoading: true, error: undefined, user: undefined };
   _beforeUnloadCbs = [];
-  _dataForResultCache = {};
+  _dataForQueryCache = {};
 
   constructor(
     config,
@@ -692,10 +692,10 @@ export default class Reactor {
     const pendingMutationsVersion = this.pendingMutations.version();
     const pendingMutations = this.pendingMutations.currentValue;
 
-    const { q, result } = this.querySubs.currentValue[hash] || {};
+    const { q, result } = querySubs[hash] || {};
     if (!result) return;
 
-    const cached = this._dataForResultCache[hash];
+    const cached = this._dataForQueryCache[hash];
     if (
       cached &&
       querySubVersion === cached.querySubVersion &&
@@ -714,7 +714,7 @@ export default class Reactor {
     const newStore = s.transact(store, txSteps);
     const resp = instaql({ store: newStore, pageInfo, aggregate }, q);
 
-    this._dataForResultCache[hash] = {
+    this._dataForQueryCache[hash] = {
       querySubVersion,
       pendingMutationsVersion,
       data: resp,
@@ -727,7 +727,7 @@ export default class Reactor {
   notifyOne = (hash) => {
     const cbs = this.queryCbs[hash] || [];
     if (!cbs) return;
-    const prevData = this._dataForResultCache[hash]?.data;
+    const prevData = this._dataForQueryCache[hash]?.data;
     const data = this.dataForQuery(hash);
     if (!data) return;
     if (areObjectsDeepEqual(data, prevData)) return;
