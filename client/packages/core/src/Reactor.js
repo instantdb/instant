@@ -14,7 +14,6 @@ import { Deferred } from "./utils/Deferred";
 import { PersistedObject } from "./utils/PersistedObject";
 import { extractTriples } from "./model/instaqlResult";
 import { areObjectsDeepEqual } from "./utils/object";
-import { fromJSONWithMaps, toJSONWithMaps } from "./utils/json";
 import { createLinkIndex } from "./utils/linkIndex";
 
 const STATUS = {
@@ -155,8 +154,8 @@ export default class Reactor {
       "querySubs",
       {},
       this._onMergeQuerySubs,
-      toJSONWithMaps,
-      fromJSONWithMaps,
+      s.toJSONWithStores,
+      s.fromJSONWithStores,
     );
     this.pendingMutations = new PersistedObject(
       this._persister,
