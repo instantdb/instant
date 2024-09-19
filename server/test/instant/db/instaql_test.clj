@@ -80,6 +80,8 @@
 (defn- query-pretty
   ([q]
    (query-pretty @ctx @r q))
+  ([ctx q]
+   (query-pretty ctx @r q))
   ([ctx r q]
    (->> q
         (iq/query ctx)
