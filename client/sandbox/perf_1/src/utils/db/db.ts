@@ -47,16 +47,13 @@ export const batchTransact = async (
     let i = 0;
     const transactionId = id();
     for (const batch of batches) {
-      const startMs = Date.now();
       await db.transact(batch);
-      const endMs = Date.now();
       i += 1;
       onProgress?.({
         transactionId,
         remainingBatches: batches.length - i,
         totalBatches: batches.length,
-        batchSize: BATCH_SIZE,
-        batchTime: endMs - startMs,
+        batchSize: BATCH_SIZE
       });
     }
   } else {
