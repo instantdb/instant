@@ -380,7 +380,7 @@ async function pushSchema(appIdOrName) {
     },
   });
 
-  if (!planRes.ok) return false;
+  if (!planRes.ok) return;
 
   if (!planRes.data.steps.length) {
     console.log("No schema changes detected.  Exiting.");
@@ -423,9 +423,11 @@ async function pushSchema(appIdOrName) {
     },
   });
 
-  if (!applyRes.ok) return false;
+  if (!applyRes.ok) return;
 
   console.log(chalk.green("Schema updated!"));
+
+  return true;
 }
 
 async function pushPerms(appIdOrName) {
@@ -456,6 +458,8 @@ async function pushPerms(appIdOrName) {
   if (!permsRes.ok) return;
 
   console.log(chalk.green("Permissions updated!"));
+
+  return true;
 }
 
 async function waitForAuthToken({ secret }) {
