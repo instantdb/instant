@@ -3,11 +3,13 @@
             [instant.jdbc.aurora :as aurora]
             [instant.data.constants :refer [zeneca-app-id]]
             [instant.data.resolvers :as resolvers]
-            [instant.fixtures :refer [with-zeneca-app with-zeneca-byop]]
+            [instant.db.transaction :as tx]
             [instant.db.instaql :as iq]
             [instant.db.model.attr :as attr-model]
+            [instant.fixtures :refer [with-zeneca-app with-zeneca-byop]]
             [instant.model.rule :as rule-model]
             [instant.db.datalog :as d]
+            [instant.admin.model :as admin-model]
             [instant.admin.routes :as admin-routes]
             [instant.model.app :as app-model]
             [instant.data.bootstrap :as bootstrap]
@@ -77,11 +79,11 @@
 
 (defn- query-pretty
   ([q]
-   (query-pretty @ctx q))
-  ([ctx q]
+   (query-pretty @ctx @r q))
+  ([ctx r q]
    (->> q
         (iq/query ctx)
-        (resolvers/walk-friendly @r)
+        (resolvers/walk-friendly r)
         (map ->pretty-node))))
 
 (defn- validation-err
@@ -1384,8 +1386,62 @@
          ["eid-alex" :users/id "eid-alex"]
          --)}))))
 
-;; ------ 
-;; Permissions 
+(deftest same-ids
+  (with-zeneca-app
+    (fn [app r]
+      (let [ctx {:db {:conn-pool aurora/conn-pool}
+                 :app-id (:id app)
+                 :attrs (attr-model/get-by-app-id aurora/conn-pool (:id app))}
+            user-id-attr (resolvers/->uuid r :users/id)
+            user-handle-attr (resolvers/->uuid r :users/handle)
+            book-id-attr (resolvers/->uuid r :books/id)
+            book-title-attr (resolvers/->uuid r :books/title)
+            shared-id (random-uuid)]
+        (tx/transact! aurora/conn-pool
+                      (:id app)
+                      [[:add-triple shared-id user-id-attr shared-id]
+                       [:add-triple shared-id user-handle-attr "handle"]
+                       [:add-triple shared-id book-id-attr shared-id]
+                       [:add-triple shared-id book-title-attr "title"]
+                       ])
+        (is-pretty-eq?
+         (query-pretty ctx r {:users {:$ {:where {:id shared-id}}}})
+         [{:topics
+           [[:av '_ #{:users/id} #{shared-id}]
+            '--
+            [:ea
+             #{shared-id}
+             #{:users/bookshelves
+               :users/createdAt
+               :users/email
+               :users/id
+               :users/fullName
+               :users/handle}
+             '_]],
+           :triples
+           [[shared-id :users/id shared-id]
+            '--
+            [shared-id :users/handle "handle"]
+            [shared-id :users/id shared-id]]}])
+        (is-pretty-eq?
+         (query-pretty ctx r {:books {:$ {:where {:id shared-id}}}})
+         [{:topics
+           [[:av '_ #{:books/id} #{shared-id}]
+            '--
+            [:ea #{shared-id} #{:books/pageCount
+                                :books/isbn13
+                                :books/description
+                                :books/id
+                                :books/thumbnail
+                                :books/title} '_]],
+           :triples
+           [[shared-id :books/id shared-id]
+            '--
+            [shared-id :books/title "title"]
+            [shared-id :books/id shared-id]]}])))))
+
+;; ------
+;; Permissions
 
 (comment
   (def app-id #uuid "2f23dfa2-c921-4988-9243-adf602339bab")
