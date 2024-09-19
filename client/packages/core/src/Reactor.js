@@ -45,6 +45,33 @@ function isClient() {
   return hasWindow || isChrome;
 }
 
+function querySubsFromJSON(str) {
+  const parsed = JSON.parse(str);
+  for (const key in parsed) {
+    const v = parsed[key];
+    if (v?.result?.store) {
+      v.result.store = s.fromJSON(v.result.store);
+    }
+  }
+  return parsed;
+}
+
+function querySubsToJSON(querySubs) {
+  const jsonSubs = {};
+  for (const key in querySubs) {
+    const sub = querySubs[key];
+    const jsonSub = { ...sub };
+    if (sub.result?.store) {
+      jsonSub.result = {
+        ...sub.result,
+        store: s.toJSON(sub.result.store)
+      };
+    }
+    jsonSubs[key] = jsonSub;
+  }
+  return JSON.stringify(jsonSubs);
+}
+
 /**
  * @template {import('./presence').RoomSchemaShape} [RoomSchema = {}]
  */
@@ -154,8 +181,8 @@ export default class Reactor {
       "querySubs",
       {},
       this._onMergeQuerySubs,
-      s.toJSONWithStores,
-      s.fromJSONWithStores,
+      querySubsToJSON,
+      querySubsFromJSON
     );
     this.pendingMutations = new PersistedObject(
       this._persister,
@@ -330,6 +357,7 @@ export default class Reactor {
         }
         break;
       case "add-query-ok":
+        return;
         const { q, result, "processed-tx-id": addQueryTxId } = msg;
         this._cleanPendingMutations(addQueryTxId);
         const hash = weakHash(q);
@@ -349,6 +377,7 @@ export default class Reactor {
         this.notifyOne(hash);
         break;
       case "refresh-ok":
+        return;
         const { computations, attrs, "processed-tx-id": refreshOkTxId } = msg;
         this._cleanPendingMutations(refreshOkTxId);
         this._setAttrs(attrs);

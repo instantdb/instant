@@ -69,48 +69,24 @@ function createIndexMap(attrs, triples) {
   return { eav, aev, vae };
 }
 
-/* 
-  Converts `store` objects to JSON. 
-  Mainly: we don't store the indexes, but only the triples
- */
-function jsonReplacer(_k, value) {
-  if (value && typeof value === "object" && value.__type === "store") {
-    return {
-      __type: "store",
-      attrs: value.attrs,
-      triples: allMapValues(value.eav, 3),
-      cardinalityInference: value.cardinalityInference,
-      linkIndex: value.linkIndex,
-    };
-  }
-  return value;
+
+export function toJSON(store) { 
+  return {
+    __type: store.__type,
+    attrs: store.attrs,
+    triples: allMapValues(store.eav, 3),
+    cardinalityInference: store.cardinalityInference,
+    linkIndex: store.linkIndex,
+  };
 }
 
-function jsonReviver(_k, value) {
-  if (value && typeof value === "object" && value.__type === "store") {
-    return createStore(
-      value.attrs,
-      value.triples,
-      value.cardinalityInference,
-      value.linkIndex,
-    );
-  }
-  return value;
-}
-
-/* 
-  Converts data that might contain Stores to JSON.
-  Data should be converted back from json with fromJSONWithStores
-*/
-export function toJSONWithStores(x) {
-  return JSON.stringify(x, jsonReplacer);
-}
-
-/* 
-  Parses JSON that was formatted with toJSONWithStores
-*/
-export function fromJSONWithStores(s) {
-  return JSON.parse(s, jsonReviver);
+export function fromJSON(storeJSON) { 
+  return createStore(
+    storeJSON.attrs,
+    storeJSON.triples,
+    storeJSON.cardinalityInference,
+    storeJSON.linkIndex,
+  );
 }
 
 export function createStore(
