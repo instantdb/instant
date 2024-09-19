@@ -39,18 +39,6 @@ const graph = i.graph(
         label: "posts",
       },
     },
-    postsTagsDupe: {
-      forward: {
-        on: "tags",
-        has: "many",
-        label: "posts",
-      },
-      reverse: {
-        on: "posts",
-        has: "many",
-        label: "tags",
-      },
-    },
   },
 );
 
