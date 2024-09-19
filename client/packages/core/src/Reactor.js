@@ -549,7 +549,6 @@ export default class Reactor {
     }
     const prev = this._dataForResultCache[hash];
     if (prev) return prev;
-    
   };
 
   /**
