@@ -14,7 +14,6 @@ import { Deferred } from "./utils/Deferred";
 import { PersistedObject } from "./utils/PersistedObject";
 import { extractTriples } from "./model/instaqlResult";
 import { areObjectsDeepEqual } from "./utils/object";
-import { fromJSONWithMaps, toJSONWithMaps } from "./utils/json";
 import { createLinkIndex } from "./utils/linkIndex";
 
 const STATUS = {
@@ -44,6 +43,35 @@ function isClient() {
   const isChrome = typeof chrome !== "undefined";
 
   return hasWindow || isChrome;
+}
+
+function querySubsFromJSON(str) {
+  const start1 = Date.now();
+  const parsed = JSON.parse(str);
+  const end1 = Date.now(); 
+  for (const key in parsed) {
+    const v = parsed[key];
+    if (v?.result?.store) {
+      v.result.store = s.fromJSON(v.result.store);
+    }
+  }
+  return parsed;
+}
+
+function querySubsToJSON(querySubs) {
+  const jsonSubs = {};
+  for (const key in querySubs) {
+    const sub = querySubs[key];
+    const jsonSub = { ...sub };
+    if (sub.result?.store) {
+      jsonSub.result = {
+        ...sub.result,
+        store: s.toJSON(sub.result.store)
+      };
+    }
+    jsonSubs[key] = jsonSub;
+  }
+  return JSON.stringify(jsonSubs);
 }
 
 /**
@@ -149,14 +177,14 @@ export default class Reactor {
   }
 
   _initStorage(Storage) {
-    this._persister = new Storage(`instant_${this.config.appId}_4`);
+    this._persister = new Storage(`instant_${this.config.appId}_5`);
     this.querySubs = new PersistedObject(
       this._persister,
       "querySubs",
       {},
       this._onMergeQuerySubs,
-      toJSONWithMaps,
-      fromJSONWithMaps,
+      querySubsToJSON,
+      querySubsFromJSON
     );
     this.pendingMutations = new PersistedObject(
       this._persister,

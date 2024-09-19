@@ -69,6 +69,26 @@ function createIndexMap(attrs, triples) {
   return { eav, aev, vae };
 }
 
+
+export function toJSON(store) { 
+  return {
+    __type: store.__type,
+    attrs: store.attrs,
+    triples: allMapValues(store.eav, 3),
+    cardinalityInference: store.cardinalityInference,
+    linkIndex: store.linkIndex,
+  };
+}
+
+export function fromJSON(storeJSON) { 
+  return createStore(
+    storeJSON.attrs,
+    storeJSON.triples,
+    storeJSON.cardinalityInference,
+    storeJSON.linkIndex,
+  );
+}
+
 export function createStore(
   attrs,
   triples,
@@ -79,6 +99,7 @@ export function createStore(
   store.attrs = attrs;
   store.cardinalityInference = enableCardinalityInference;
   store.linkIndex = linkIndex;
+  store.__type = "store";
 
   return store;
 }
