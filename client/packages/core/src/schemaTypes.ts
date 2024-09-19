@@ -247,5 +247,5 @@ export type ResolveAttrs<
   Entities[EntityName] extends EntityDef<any, any, infer AsType>
     ? AsType extends void
       ? ResolvedAttrs
-      : AsType
+      : Omit<ResolvedAttrs, keyof AsType> & AsType
     : ResolvedAttrs;
