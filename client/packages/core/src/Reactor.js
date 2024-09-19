@@ -687,6 +687,8 @@ export default class Reactor {
     if (errorMessage) {
       return { error: errorMessage };
     }
+    if (!this.querySubs) return;
+    if (!this.pendingMutations) return;
     const querySubVersion = this.querySubs.version();
     const querySubs = this.querySubs.currentValue;
     const pendingMutationsVersion = this.pendingMutations.version();
