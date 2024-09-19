@@ -46,7 +46,9 @@ function isClient() {
 }
 
 function querySubsFromJSON(str) {
+  const start1 = Date.now();
   const parsed = JSON.parse(str);
+  const end1 = Date.now(); 
   for (const key in parsed) {
     const v = parsed[key];
     if (v?.result?.store) {
