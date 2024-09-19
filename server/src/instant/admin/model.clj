@@ -158,7 +158,7 @@
 
 (defn expand-delete [attrs [etype eid]]
   (let [lookup (extract-lookup attrs etype eid)]
-    [[:delete-entity lookup]]))
+    [[:delete-entity lookup etype]]))
 
 (defn expand-add-attr [_ [attr]]
   [[:add-attr (-> attr

@@ -261,22 +261,38 @@ function mergeTriple(store, rawTriple) {
   setInMap(store.eav, [eid, aid], new Map([[updatedValue, enhancedTriple]]));
 }
 
-function deleteEntity(store, rawTriple) {
-  const triple = resolveLookupRefs(store, rawTriple);
+function deleteEntity(store, args) {
+  const [lookup, etype] = args;
+  const triple = resolveLookupRefs(store, [lookup]);
+
   if (!triple) {
     return;
   }
   const [id] = triple;
 
-  // delete forward links
+  // delete forward links and attributes + cardinality one links
   const eMap = store.eav.get(id);
   if (eMap) {
     for (const a of eMap.keys()) {
-      deleteInMap(store.aev, [a, id]);
+      const attr = store.attrs[a];
+      if (
+        // Fall back to deleting everything if we've rehydrated tx-steps from
+        // the store that didn't set `etype` in deleteEntity
+        !etype ||
+        // If we don't know about the attr, let's just get rid of it
+        !attr ||
+        // Make sure it matches the etype
+        attr["forward-identity"]?.[1] === etype
+      ) {
+        deleteInMap(store.aev, [a, id]);
+        deleteInMap(store.eav, [id, a]);
+      }
+    }
+    // Clear out the eav index for `id` if we deleted all of the attributes
+    if (eMap.size === 0) {
+      deleteInMap(store.eav, [id]);
     }
   }
-  // delete object attributes + cardinality one links
-  deleteInMap(store.eav, [id]);
 
   // delete reverse links
   const vaeTriples = store.vae.get(id) && allMapValues(store.vae.get(id), 2);
@@ -284,11 +300,18 @@ function deleteEntity(store, rawTriple) {
   if (vaeTriples) {
     vaeTriples.forEach((triple) => {
       const [e, a, v] = triple;
-      deleteInMap(store.eav, [e, a, v]);
-      deleteInMap(store.aev, [a, e, v]);
+      const attr = store.attrs[a];
+      if (!etype || !attr || attr["reverse-identity"]?.[1] === etype) {
+        deleteInMap(store.eav, [e, a, v]);
+        deleteInMap(store.aev, [a, e, v]);
+        deleteInMap(store.vae, [v, a, e]);
+      }
     });
   }
-  deleteInMap(store.vae, [id]);
+  // Clear out vae index for `id` if we deleted all the reverse attributes
+  if (store.vae.get(id)?.size === 0) {
+    deleteInMap(store.vae, [id]);
+  }
 }
 
 // (XXX): Whenever we change/delete attrs,

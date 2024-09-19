@@ -1,7 +1,8 @@
 (ns instant.db.pg-introspect
   (:require [clojure.string :as string]
             [honey.sql :as hsql]
-            [instant.jdbc.sql :as sql])
+            [instant.jdbc.sql :as sql]
+            [instant.db.model.attr :as attr-model])
   (:import [java.util UUID]))
 
 (def att-select
@@ -125,11 +126,11 @@
       :json_build_object))
 
 (defn attribute->attr-id [att]
-  (UUID. (Long. (get att "attrelid"))
+  (UUID. (Long. ^String (get att "attrelid"))
          (get att "attnum")))
 
 (defn constraint->attr-id [con]
-  (UUID. (Long. (get con "oid")) 0))
+  (UUID. (Long. ^String (get con "oid")) 0))
 
 (defn attribute->attr [relation attribute]
   {:id (attribute->attr-id attribute)
@@ -329,7 +330,7 @@
                          (= 1 (count (get-in table ["primary_key" "attributes"]))))
                        (get introspection-result "tables"))]
 
-    {:attrs (tables->attrs tables)
+    {:attrs (attr-model/wrap-attrs (tables->attrs tables))
      :table-info (tables->table-info tables)}))
 
 (defn introspect [conn namespace]
