@@ -90,7 +90,7 @@ export default class Reactor {
   _broadcastSubs = {};
   _currentUserCached = { isLoading: true, error: undefined, user: undefined };
   _beforeUnloadCbs = [];
-  _dataForResultCache = {};
+  _dataForQueryCache = {};
 
   constructor(
     config,
@@ -543,12 +543,7 @@ export default class Reactor {
 
   getPreviousResult = (q) => {
     const hash = weakHash(q);
-    const errorMessage = this._errorMessage;
-    if (errorMessage) {
-      return { error: errorMessage };
-    }
-    const prev = this._dataForResultCache[hash];
-    if (prev) return prev;
+    return this.dataForQuery(hash);
   };
 
   /**
@@ -687,15 +682,46 @@ export default class Reactor {
   }
 
   /** Runs instaql on a query and a store */
-  dataForResult(q, { store, pageInfo, aggregate }) {
+  dataForQuery(hash) {
+    const errorMessage = this._errorMessage;
+    if (errorMessage) {
+      return { error: errorMessage };
+    }
+    if (!this.querySubs) return;
+    if (!this.pendingMutations) return;
+    const querySubVersion = this.querySubs.version();
+    const querySubs = this.querySubs.currentValue;
+    const pendingMutationsVersion = this.pendingMutations.version();
+    const pendingMutations = this.pendingMutations.currentValue;
+
+    const { q, result } = querySubs[hash] || {};
+    if (!result) return;
+
+    const cached = this._dataForQueryCache[hash];
+    if (
+      cached &&
+      querySubVersion === cached.querySubVersion &&
+      pendingMutationsVersion === cached.pendingMutationsVersion
+    ) {
+      return cached.data;
+    }
+
+    const { store, pageInfo, aggregate } = result;
     const muts = this._rewriteMutations(
       store.attrs,
-      this.pendingMutations.currentValue,
+      pendingMutations
     );
+
     const txSteps = [...muts.values()].flatMap((x) => x["tx-steps"]);
     const newStore = s.transact(store, txSteps);
     const resp = instaql({ store: newStore, pageInfo, aggregate }, q);
-    this._dataForResultCache[weakHash(q)] = resp;
+
+    this._dataForQueryCache[hash] = {
+      querySubVersion,
+      pendingMutationsVersion,
+      data: resp,
+    };
+
     return resp;
   }
 
@@ -703,19 +729,11 @@ export default class Reactor {
   notifyOne = (hash) => {
     const cbs = this.queryCbs[hash] || [];
     if (!cbs) return;
-    const errorMessage = this._errorMessage;
-    if (errorMessage) {
-      cbs.forEach((cb) => cb({ error: errorMessage }));
-      return;
-    }
-
-    const { q, result } = this.querySubs.currentValue[hash] || {};
-    if (!result) return; // No store data, no need to notify
-
-    const resp = this.dataForResult(q, result);
-    const prev = this._dataForResultCache[hash];
-    if (areObjectsDeepEqual(resp.data, prev)) return; // No change, no need to notify
-    cbs.forEach((cb) => cb(resp));
+    const prevData = this._dataForQueryCache[hash]?.data;
+    const data = this.dataForQuery(hash);
+    if (!data) return;
+    if (areObjectsDeepEqual(data, prevData)) return;
+    cbs.forEach((cb) => cb(data));
   };
 
   notifyQueryError = (hash, msg) => {
@@ -1228,7 +1246,7 @@ export default class Reactor {
           appId: this.config.appId,
           refreshToken,
         });
-      } catch (e) {}
+      } catch (e) { }
     }
 
     this.changeCurrentUser(null);
