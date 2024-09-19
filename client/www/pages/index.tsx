@@ -113,7 +113,7 @@ function LandingHero() {
       <SectionWide>
         <TwoColResponsive>
           <div className="flex flex-1 flex-col gap-8">
-            <H2>The realtime client-side database</H2>
+            <H2>Build modern applications today</H2>
             <p>
               Instant is a modern Firebase. We make you productive by giving your frontend a real-time database.
             </p>
