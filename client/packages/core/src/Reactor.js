@@ -175,7 +175,7 @@ export default class Reactor {
   }
 
   _initStorage(Storage) {
-    this._persister = new Storage(`instant_${this.config.appId}_4`);
+    this._persister = new Storage(`instant_${this.config.appId}_5`);
     this.querySubs = new PersistedObject(
       this._persister,
       "querySubs",
