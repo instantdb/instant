@@ -92,7 +92,18 @@ export class EntityDef<
     public links: Links,
   ) {}
 
-  asType<_AsType>() {
+  asType<
+    _AsType extends Partial<{
+      [AttrName in keyof Attrs]: Attrs[AttrName] extends DataAttrDef<
+        infer ValueType,
+        infer IsRequired
+      >
+        ? IsRequired extends true
+          ? ValueType
+          : ValueType | undefined
+        : never;
+    }>,
+  >() {
     return new EntityDef<Attrs, Links, _AsType>(this.attrs, this.links);
   }
 }
@@ -247,5 +258,5 @@ export type ResolveAttrs<
   Entities[EntityName] extends EntityDef<any, any, infer AsType>
     ? AsType extends void
       ? ResolvedAttrs
-      : AsType
+      : Omit<ResolvedAttrs, keyof AsType> & AsType
     : ResolvedAttrs;

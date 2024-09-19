@@ -17,8 +17,8 @@ const schema = i
   .graph(
     {
       discriminatedUnionExample: i
-        .entity({ x: i.string(), y: i.number() })
-        .asType<{ x: "foo"; y: 1 } | { x: "bar"; y: 2 }>(),
+        .entity({ x: i.string(), y: i.number(), z: i.number() })
+        .asType<{ x: "foo"; y: 1 } | { x: "bar" }>(),
       habits: i.entity({
         name: i.string(),
         enum: i.string<"a" | "b">(),
@@ -90,8 +90,9 @@ export default function Main() {
   if (error) return <div>Error: {error.message}</div>;
 
   const du = data.discriminatedUnionExample.at(0);
+
   if (du?.x === "foo") {
-    // this should be constrained to 1
+    // y should be constrained to 1
     du.y;
   }
 
