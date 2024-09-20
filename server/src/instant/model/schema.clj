@@ -12,7 +12,7 @@
   (into {} (map (fn [[k v]] [k (f [k v])]) m)))
 
 (defn attr-ident-names [attr]
-  (keep identity [(attr-model/fwd-ident-name attr) (attr-model/rev-ident-name attr)]))
+  (keep seq [(attr-model/fwd-ident-name attr) (attr-model/rev-ident-name attr)]))
 
 (defn schemas->ops [current-schema new-schema]
   (let [{new-blobs :blobs new-refs :refs} new-schema
@@ -151,7 +151,6 @@
 
 (defn assert-unique-idents! [current-attrs steps]
   (let [current-ident-names (->> current-attrs
-                                 (filter (comp #{:ref} :value-type))
                                  (mapcat attr-ident-names)
                                  (map vec))
         ident-names (->>
@@ -185,6 +184,13 @@
      :steps steps}))
 
 (comment
+  (attr-ident-names {:id #uuid "",
+                     :value-type :blob,
+                     :cardinality :one,
+                     :forward-identity [#uuid "" "tags" "x"],
+                     :unique? false,
+                     :index? false,
+                     :inferred-types nil})
   (schemas->ops
    {:refs {}
     :blobs {:ns {:a {:unique? "one"}}}}
