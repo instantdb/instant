@@ -125,7 +125,6 @@
 (defn prevent-$users-updates [op attrs]
   (doseq [attr attrs
           :let [ns (-> attr :forward-identity (nth 1))]]
-    (tool/def-locals)
     (when (and ns (string/starts-with? ns "$"))
       (ex/throw-validation-err!
        :tx-steps
