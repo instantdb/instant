@@ -538,7 +538,7 @@ export function ActionButton({
   variant?: 'primary' | 'secondary' | 'destructive';
   disabled?: boolean;
   className?: string;
-  label: string;
+  label: ReactNode;
   submitLabel: string;
   errorMessage: string;
   successMessage?: string;
@@ -557,7 +557,14 @@ export function ActionButton({
         successToast(successMessage);
       }
     } catch (error) {
-      errorToast(errorMessage);
+      if ((error as any)?.hint) {
+        const msg = `${errorMessage}\n${(error as any).message}\n${
+          (error as any).hint?.errors?.[0]?.message
+        }`;
+        errorToast(msg);
+      } else {
+        errorToast(errorMessage);
+      }
     } finally {
       setSubmitting(false);
     }

@@ -473,17 +473,17 @@
 
                 update-delete-checks-results
                 (io/warn-io :run-check-commands!
-                            (run-check-commands! (assoc ctx
-                                                        :preloaded-refs preloaded-update-delete-refs)
-                                                 update-delete-checks))
+                  (run-check-commands! (assoc ctx
+                                              :preloaded-refs preloaded-update-delete-refs)
+                                       update-delete-checks))
 
                 tx-data (tx/transact-without-tx-conn! tx-conn app-id tx-steps)
 
                 preloaded-create-refs (preload-refs ctx create-checks)
                 create-checks-results (io/warn-io :run-create-check-commands!
-                                                  (run-check-commands!
-                                                   (assoc ctx :preloaded-refs preloaded-create-refs)
-                                                   create-checks))
+                                        (run-check-commands!
+                                         (assoc ctx :preloaded-refs preloaded-create-refs)
+                                         create-checks))
                 all-check-results (concat update-delete-checks-results create-checks-results)
                 all-checks-ok? (every? (fn [r] (-> r :check-result)) all-check-results)
                 rollback? (and admin-check?

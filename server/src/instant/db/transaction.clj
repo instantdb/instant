@@ -7,6 +7,7 @@
    [instant.util.tracer :as tracer]
    [clojure.spec.alpha :as s]
    [clojure.spec.gen.alpha :as gen]
+   [clojure.string :as string]
    [clojure.walk :as w]
    [instant.util.coll :as coll]
    [instant.util.exception :as ex]))
@@ -121,12 +122,24 @@
 (comment
   (batch (gen/generate (s/gen ::tx-steps))))
 
+(defn prevent-$users-updates [op attrs]
+  (doseq [attr attrs
+          :let [ns (-> attr :forward-identity (nth 1))]]
+    (tool/def-locals)
+    (when (and ns (string/starts-with? ns "$"))
+      (ex/throw-validation-err!
+       :tx-steps
+       op
+       [{:message (format "You can't create or modify attributes in the %s namespace." ns)}]))))
+
 (defn transact-without-tx-conn! [conn app-id tx-steps]
   (tracer/with-span! {:name "transaction/transact!"
                       :attributes {:app-id app-id
                                    :num-tx-steps (count tx-steps)
                                    :detailed-tx-steps (pr-str tx-steps)}}
     (doseq [[op & args] (batch tx-steps)]
+      (when (#{:add-attr :update-attr} op)
+        (prevent-$users-updates op args))
       (condp = op
         :add-attr
         (attr-model/insert-multi! conn app-id args)

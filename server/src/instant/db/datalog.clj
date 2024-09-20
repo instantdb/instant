@@ -524,9 +524,7 @@
                                        :created-at]
                               :from [:app-users :users-attr-mapping]
                               :where [:= :app_id app-id]}]
-   [:triples
-    ;; XXX: Calling it triples just to see if it works
-    ;;:users-triples
+   [:users-triples
     {:select [:app-id
               :entity-id
               :attr-id
@@ -538,7 +536,13 @@
               [false :ave]
               [false :vae]
               [[:cast [:* 1000 [:extract [:epoch-from :created-at]]] :bigint] :created-at]]
-     :from :users-triples-up-to-md5}]])
+     :from :users-triples-up-to-md5}]
+   [:triples
+    {:union-all [{:select :*
+                  :from :triples}
+                 {:select :*
+                  :from :users-triples}]}
+    :not-materialized]])
 
 (defn- where-clause
   "
@@ -1169,13 +1173,23 @@
          (assoc :children {:pattern-groups (:pattern-groups res)
                            :join-sym (get-in nested-named-patterns [:children :join-sym])})))))
 
+(defn maybe-add-users-shim
+  "Appends the app-users table to triples through a few extra CTEs that coerce
+   the table into the triples format."
+  [ctx app-id ctes]
+  (if-let [{:keys [email-attr-id
+                   id-attr-id]} (:users-shim-info ctx)]
+    (into (users-triples-ctes app-id email-attr-id id-attr-id)
+          ctes)
+    ctes))
+
 (defn nested-match-query
   "Generates the hsql `query` and metadata about the query under `children`.
   `children` matches the structure of nested-named-patterns and has all of the
   info we need to collect the data from the sql result, build fully-qualified
   topics (replacing join-sym with the actual value), and fully-qualified datalog
   queries."
-  [prefix app-id nested-named-patterns]
+  [ctx prefix app-id nested-named-patterns]
   (let [{:keys [ctes result-tables children]}
         (accumulate-nested-match-query prefix app-id nested-named-patterns)
         query (when (seq ctes)
@@ -1186,17 +1200,7 @@
                                ;; If count != 2, then someone higher up set a materialized
                                ;; option, let's not override their wisdom.
                                %)
-                            (into (users-triples-ctes app-id
-                                                      ;; Hard-coded, need to figure out how to
-                                                      ;; communicate these and how to tell when
-                                                      ;; we need to add the users-triple table
-                                                      ;; Two ideas:
-                                                      ;;  1. everybody gets the same attr ids
-                                                      ;;  2. look up by fwd-name, e.b. ["$users", "email"]
-                                                      ;;     and pass them in
-                                                      #uuid "edf68dc4-83f0-40df-98db-b1b916dc4d6b"
-                                                      #uuid "13486e24-d60d-4e9a-9871-a9f318b41774")
-                                  ctes))
+                            (maybe-add-users-shim ctx app-id ctes))
                  :select [[(into [:json_build_array]
                                  (mapv (fn [tables]
                                          (into [:json_build_object]
@@ -1604,10 +1608,12 @@
 
 (defn send-query-single
   "Sends a single query, returns the join rows."
-  [conn app-id named-patterns]
+  [ctx conn app-id named-patterns]
   (tracer/with-span! {:name "datalog/send-query-single"}
     (let [{:keys [query pattern-metas]} (match-query :match-0- app-id named-patterns)
-          sql-query (hsql/format query)
+          sql-query (hsql/format
+                     (update query :with (fn [ctes]
+                                           (maybe-add-users-shim ctx app-id ctes))))
           sql-res (sql/select-string-keys conn sql-query)]
       (sql-result->result sql-res
                           pattern-metas
@@ -1627,9 +1633,10 @@
            nested-result)))
 
 (defn send-query-nested
-  [conn app-id nested-named-patterns]
+  [ctx conn app-id nested-named-patterns]
   (tracer/with-span! {:name "datalog/send-query-nested"}
-    (let [{:keys [query children]} (nested-match-query :match-0-
+    (let [{:keys [query children]} (nested-match-query ctx
+                                                       :match-0-
                                                        app-id
                                                        nested-named-patterns)
           sql-query (hsql/format query)
@@ -1652,7 +1659,7 @@
 (defn send-query-batch
   "Sends a batched query, returns a list of join rows in the same order that
    the args were provided."
-  [conn args-col]
+  [ctx conn args-col]
   (tracer/with-span! {:name "datalog/send-query-batch"
                       :attributes {:batch-size (count args-col)}}
     (let [batch-data (map-indexed
@@ -1660,7 +1667,10 @@
                         (apply match-query (kw "match-" i "-") args))
                       args-col)
           hsql-query (batch-queries (map :query batch-data))
-          sql-query (hsql/format hsql-query)
+          sql-query (hsql/format (update hsql-query
+                                         :with
+                                         (fn [ctes]
+                                           (maybe-add-users-shim ctx (:app-id ctx) ctes))))
           sql-res (-> (sql/select-arrays conn sql-query)
                       second ;; remove header row
                       first ;; all results are in one json blob in first result
@@ -1671,10 +1681,10 @@
                                  true))
            batch-data))))
 
-(defn query-nested [{:keys [app-id db] :as _ctx} nested-patterns]
+(defn query-nested [{:keys [app-id db] :as ctx} nested-patterns]
   (let [nested-named-patterns (nested->named-patterns nested-patterns)]
     (throw-invalid-nested-patterns nested-named-patterns)
-    (send-query-nested (:conn-pool db) app-id nested-named-patterns)))
+    (send-query-nested ctx (:conn-pool db) app-id nested-named-patterns)))
 
 (defn query
   "Executes a Datalog(ish) query over the given aurora `conn`, Instant `app_id`
@@ -1711,7 +1721,13 @@
                    [eid-robocop :movie/title RoboCop]
                    ...]}}
    ```"
-  [{:keys [app-id missing-attr? db datalog-loader] :as ctx} patterns]
+  [{:keys [app-id
+           missing-attr?
+           db
+           datalog-loader
+           ;; info to convert users table into triples
+           users-shim-info] :as ctx}
+   patterns]
   (if (map? patterns)
     (query-nested ctx patterns)
     (let [named-patterns (->named-patterns patterns)]
@@ -1722,7 +1738,7 @@
               result
               (if-not datalog-loader
                 ;; Fall back to regular query if we don't have a loader
-                (apply send-query-single (:conn-pool db) args)
+                (apply send-query-single ctx (:conn-pool db) args)
 
                 (let [;; The promise that returns the result for our args
                       this-result (promise)]
@@ -1741,10 +1757,10 @@
                           (if (= 1 (count items))
                             ;; Optimized path for a single query
                             (let [{:keys [params result-promise]} (first items)
-                                  result (apply send-query-single conn params)]
+                                  result (apply send-query-single ctx conn params)]
                               (deliver result-promise result))
 
-                            (let [results (send-query-batch conn (map :params items))]
+                            (let [results (send-query-batch ctx conn (map :params items))]
                               ;; Deliver results to their awaiting promises
                               (dorun (map (fn [{:keys [result-promise]} result]
                                             (deliver result-promise result))

@@ -455,7 +455,7 @@
             :args-map (:in v-value))
         [refs-path value-label] (ucoll/split-last path)
 
-        [last-etype last-level ref-attr-pats]
+        [last-etype last-level ref-attr-pats referenced-etypes]
         (attr-pat/->ref-attr-pats ctx level-sym etype level refs-path)
 
         value-attr-pat (attr-pat/->value-attr-pat
@@ -465,7 +465,9 @@
                         last-level
                         value-label
                         v)]
-    (concat ref-attr-pats [value-attr-pat])))
+    {:pats (concat ref-attr-pats [value-attr-pat])
+     :referenced-etypes (conj referenced-etypes
+                              etype)}))
 
 ;; ----
 ;; ->all-ids-attr-pat
@@ -531,18 +533,23 @@
 (declare where-cond->patterns)
 
 (defn- where-conds->patterns [ctx form where-conds]
-  (mapcat (fn [where-cond]
-            (where-cond->patterns ctx form where-cond))
+  (reduce (fn [acc where-cond]
+            (let [{:keys [pats referenced-etypes]}
+                  (where-cond->patterns ctx form where-cond)]
+              (-> acc
+                  (update :pats into pats)
+                  (update :referenced-etypes set/union referenced-etypes))))
+          {:pats []
+           :referenced-etypes #{}}
           where-conds))
 
 (defn- where-cond->patterns [ctx form [tag where-cond]]
   (let [level-sym (or (:level-sym ctx)
                       attr-pat/default-level-sym)]
     (case tag
-      :cond (optimize-attr-pats
-             (->where-cond-attr-pats ctx
-                                     form
-                                     where-cond))
+      :cond (update (->where-cond-attr-pats ctx form where-cond)
+                    :pats
+                    optimize-attr-pats)
       :or [{:or {:patterns
                  (map-indexed
                   (fn [i conds]
@@ -585,18 +592,28 @@
        will be (? etype level) "
   [ctx {:keys [option-map join-attr-pat etype level] :as form}]
   (let [{:keys [where-conds]} option-map
+
+        {where-cond-patterns :pats
+         referenced-etypes :referenced-etypes}
+        (if where-conds
+          (where-conds->patterns ctx form where-conds)
+          {:pats nil
+           :referenced-etypes #{}})
+
         with-join (cond-> []
                     join-attr-pat (conj join-attr-pat))
         with-where-cond (cond-> with-join
-                          where-conds
-                          (into
-                           (where-conds->patterns ctx form where-conds)))
+                          where-cond-patterns (into where-cond-patterns))
         with-fallback (if (seq with-where-cond)
                         with-where-cond
                         [(->all-ids-attr-pat ctx etype level)])
         optimized (optimize-attr-pats (distinct with-fallback))
         datalog-query (attr-pat/attr-pats->patterns ctx optimized)]
-    (list false (attr-pat/default-level-sym etype level) etype datalog-query)))
+    (list false
+          (attr-pat/default-level-sym etype level)
+          etype
+          datalog-query
+          (conj referenced-etypes etype))))
 
 (defn guarded-where-query [ctx {:keys [etype level] :as form}]
   (try
@@ -609,7 +626,8 @@
               (attr-pat/default-level-sym etype level)
               etype
               [[:ea (attr-pat/default-level-sym etype level)]
-               [:eav]])))))
+               [:eav]]
+              #{etype})))))
 
 ;; ----------
 ;; pagination
@@ -744,12 +762,24 @@
                       p)))
         patterns))
 
+(defn collect-query-one [query-one-results]
+  (reduce (fn [acc {:keys [pattern-group referenced-etypes]}]
+            (-> acc
+                (update :pattern-groups conj pattern-group)
+                (update :referenced-etypes set/union referenced-etypes)))
+          {:pattern-groups []
+           :referenced-etypes #{}}
+          query-one-results))
+
 (defn- query-one
   "Generates nested datalog query that combines all datalog queries into a
    single sql query."
   [ctx {:keys [k] :as form}]
   (let [ctx (update-in ctx [:state :in] conj k)
-        [missing-attr? sym etype patterns] (guarded-where-query ctx form)
+
+        [missing-attr? sym etype patterns where-etypes]
+        (guarded-where-query ctx form)
+
         page-info (when-not missing-attr?
                     (page-info-of-form ctx form))
 
@@ -760,7 +790,10 @@
         ctx (assoc-in ctx [:sym-placeholders sym] sym-placeholder)
         child-forms (form->child-forms ctx form sym-placeholder)
         aggregate (get-in form [:option-map :aggregate])
-        etype-attr-ids (attr-model/attr-ids-for-etype etype (:attrs ctx))]
+        etype-attr-ids (attr-model/attr-ids-for-etype etype (:attrs ctx))
+        child-patterns (collect-query-one
+                        (mapv (partial query-one ctx)
+                              child-forms))]
     (when (and aggregate (not (:admin? ctx)))
       (ex/throw-validation-err!
        :query
@@ -777,36 +810,40 @@
          :in (apply conj (:in (:state ctx)) [:$ :aggregate])
          :message "You can not combine aggregates with child queries at this time."}]))
 
-    (merge
-     (when missing-attr?
-       {:missing-attr? missing-attr?})
+    {:referenced-etypes (set/union #{etype}
+                                   (:referenced-etypes child-patterns)
+                                   where-etypes)
+     :pattern-group
      (merge
       {:patterns (replace-sym-placeholders (map-invert (:sym-placeholders ctx))
                                            patterns)
        :children {:pattern-groups
                   [(merge {:patterns [[:ea sym etype-attr-ids]]}
                           (when (seq child-forms)
-                            {:children {:pattern-groups
-                                        (mapv (partial query-one ctx)
-                                              child-forms)
+                            {:children {:pattern-groups (:pattern-groups child-patterns)
                                         :join-sym sym}}))]
                   :join-sym sym}}
+      (when missing-attr?
+        {:missing-attr? missing-attr?})
       (when page-info
         {:page-info page-info})
       (when aggregate
         {:aggregate aggregate
-         :children nil})))))
+         :children nil}))}))
 
 (defn instaql-query->patterns [ctx o]
   (let [forms (->> (->forms! o)
                    ;; at the top-level, `k` _must_ be the etype
                    (mapv (fn [{:keys [k] :as form}]
                            (assoc form :etype k :level 0))))
-        pattern-groups (mapv (partial query-one (assoc ctx
-                                                       :state {:root o :in []}))
-                             forms)]
+        {:keys [pattern-groups
+                referenced-etypes]}
+        (collect-query-one
+         (map (partial query-one (assoc ctx :state {:root o :in []}))
+              forms))]
     {:patterns {:children {:pattern-groups pattern-groups}}
-     :forms forms}))
+     :forms forms
+     :referenced-etypes referenced-etypes}))
 
 (defn query-normal
   "Generates and runs a nested datalog query, then collects the results into nodes."
@@ -816,7 +853,10 @@
                                    :forms o}}
     (let [ctx (merge {:datalog-query-fn #'d/query}
                      base-ctx)
-          {:keys [patterns forms]} (instaql-query->patterns ctx o)
+          {:keys [patterns forms referenced-etypes]} (instaql-query->patterns ctx o)
+          ctx (merge ctx
+                     (when (contains? referenced-etypes "$users")
+                       {:users-shim-info (attr-model/users-shim-info (:attrs ctx))}))
           datalog-result ((:datalog-query-fn ctx) ctx patterns)]
       (collect-query-results (:data datalog-result) forms))))
 

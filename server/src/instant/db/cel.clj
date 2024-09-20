@@ -43,11 +43,13 @@
   (let [path (clojure-string/split path-str #"\.")
         [refs-path value-label] (ucoll/split-last path)
         level 0
-        [last-etype last-level ref-attr-pats] (attr-pat/->ref-attr-pats ctx
-                                                                        attr-pat/default-level-sym
-                                                                        etype
-                                                                        level
-                                                                        refs-path)
+
+        [last-etype last-level ref-attr-pats referenced-etypes]
+        (attr-pat/->ref-attr-pats ctx
+                                  attr-pat/default-level-sym
+                                  etype
+                                  level
+                                  refs-path)
         value-attr-pat (attr-pat/->value-attr-pat ctx
                                                   attr-pat/default-level-sym
                                                   last-etype
@@ -64,7 +66,8 @@
         ;; Note: if you change the position of `id-attr-pat`,
         ;; make sure to update `group-by-path` in `get-ref-many`
         attr-pats (concat [id-attr-pat] ref-attr-pats [value-attr-pat])]
-    (attr-pat/attr-pats->patterns ctx attr-pats)))
+    {:pats (attr-pat/attr-pats->patterns ctx attr-pats)
+     :referenced-etypes (conj referenced-etypes etype)}))
 
 (defn- find-val-path [query]
   (first
@@ -76,12 +79,19 @@
 
 (defn- get-ref-many
   [{:keys [datalog-query-fn] :as ctx} {:keys [etype eids path-str]}]
-  (let [query (build-query ctx {:etype etype :eids (set eids) :path-str path-str})
-        ;; We know that the `eid` is always going to be 
+  (let [{:keys [pats referenced-etypes]}
+        (build-query ctx {:etype etype :eids (set eids) :path-str path-str})
+
+        ;; We know that the `eid` is always going to be
         ;; the first element in the join row
         group-by-path [0 0]
-        val-path (find-val-path query)
-        {:keys [join-rows]} (datalog-query-fn ctx query)
+        val-path (find-val-path pats)
+        {:keys [join-rows]}
+        (datalog-query-fn (merge ctx
+                                 (when (contains? referenced-etypes "$users")
+                                   {:users-shim-info
+                                    (attr-model/users-shim-info (:attrs ctx))}))
+                          pats)
         grouped-join-rows (group-by #(get-in % group-by-path) join-rows)
         results (map
                  (fn [eid]
@@ -314,11 +324,26 @@
    Returns a map of:
      {{eid: uuid, etype: string, path: string}: get-ref-result}"
   [{:keys [datalog-query-fn] :as ctx} refs]
-  (let [patterns (map (partial build-query ctx) refs)
+  (let [{:keys [patterns referenced-etypes]}
+        (reduce (fn [acc ref-info]
+                  (let [{:keys [pats referenced-etypes]}
+                        (build-query ctx ref-info)]
+                    (-> acc
+                        (update :patterns into pats)
+                        (update :referenced-etypes into referenced-etypes))))
+                {:patterns []
+                 :referenced-etypes #{}}
+                refs)
+
         query {:children {:pattern-groups (map (fn [patterns]
                                                  {:patterns patterns})
                                                patterns)}}
-        results (:data (datalog-query-fn ctx query))]
+        results (:data (datalog-query-fn
+                        (merge ctx
+                               (when (contains? referenced-etypes "$users")
+                                 {:users-shim-info
+                                  (attr-model/users-shim-info (:attrs ctx))}))
+                        query))]
     (reduce (fn [acc [ref pattern result]]
               (let [group-by-path [0 0]
                     val-path (find-val-path pattern)

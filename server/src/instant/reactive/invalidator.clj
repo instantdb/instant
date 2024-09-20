@@ -218,9 +218,16 @@
 (defn transaction-changes-only [changes]
   (filter (comp #{"transactions"} :table) changes))
 
+(defn app-id-from-columns [names values]
+  (when-let [i (ucoll/index-of "app_id" names)]
+    (nth values i)))
+
 (defn extract-app-id
-  [{:keys [columnvalues] :as _change}]
-  (when-let [app-id (second columnvalues)]
+  [{:keys [columnvalues columnnames]
+    {:keys [keynames keyvalues]} :oldkeys
+    :as _change}]
+  (when-let [app-id (or (app-id-from-columns columnnames columnvalues)
+                        (app-id-from-columns keynames keyvalues))]
     (UUID/fromString app-id)))
 
 (defn extract-tx-id [{:keys [columnvalues] :as _change}]
@@ -234,13 +241,15 @@
                          (seq triple-changes)
                          (seq attr-changes))
         [transactions-change] (transaction-changes-only change)
-        app-id (extract-app-id transactions-change)]
-    (when (and some-changes transactions-change app-id)
+        app-id (or (extract-app-id transactions-change)
+                   (extract-app-id (first attr-changes)))]
+    (when (and some-changes app-id)
       {:attr-changes attr-changes
        :ident-changes ident-changes
        :triple-changes triple-changes
        :app-id app-id
-       :tx-id (extract-tx-id transactions-change)})))
+       :tx-id (or (extract-tx-id transactions-change)
+                  0)})))
 
 (defn wal-record-xf
   "Filters wal records for supported changes. Returns [app-id changes]"

@@ -1,4 +1,4 @@
-import { init } from '@instantdb/react';
+import { init, InstantReactWeb } from '@instantdb/react';
 import { useContext, useEffect, useMemo, useState } from 'react';
 import { v4 } from 'uuid';
 import produce from 'immer';
@@ -20,7 +20,7 @@ import {
   voidTicket,
 } from '@/lib/auth';
 import { TokenContext } from '@/lib/contexts';
-import { DashResponse, InstantApp, InstantMember } from '@/lib/types';
+import { DashResponse, DBAttr, InstantApp, InstantMember } from '@/lib/types';
 
 import { Perms } from '@/components/dash/Perms';
 import Auth from '@/components/dash/Auth';
@@ -55,6 +55,7 @@ import { Sandbox } from '@/components/dash/Sandbox';
 import { StorageTab } from '@/components/dash/Storage';
 import PersonalAccessTokensScreen from '@/components/dash/PersonalAccessTokensScreen';
 import { useForm } from '@/lib/hooks/useForm';
+import { useSchemaQuery } from '@/lib/hooks/explorer';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -502,6 +503,7 @@ function Dashboard() {
                     app={app}
                     onDelete={() => onDeleteApp(app)}
                     nav={nav}
+                    db={connection.db}
                   />
                 ) : tab == 'billing' &&
                   isMinRole('owner', app.user_app_role) ? (
@@ -1015,21 +1017,31 @@ function Admin({
   app,
   onDelete,
   nav,
+  db,
 }: {
   dashResponse: APIResponse<DashResponse>;
   app: InstantApp;
   onDelete: () => void;
   nav: (p: { s: string; t?: string; app?: string }) => void;
+  db: InstantReactWeb<any, any>;
 }) {
   const token = useContext(TokenContext);
   const [deleteAppOk, updateDeleteAppOk] = useState(false);
   const [editMember, setEditMember] = useState<InstantMember | null>();
   const deleteDialog = useDialog();
   const inviteDialog = useDialog();
+  const disableUsersDialog = useDialog();
 
   const displayedInvites = app.invites?.filter(
     (invite) => invite.status !== 'accepted'
   );
+
+  const router = useRouter();
+  const { namespaces } = useSchemaQuery(db);
+
+  const usersAttrs =
+    namespaces && namespaces.find((n) => n.name === '$users')?.attrs;
+  const usersRefs = usersAttrs && usersAttrs.filter((a) => a.type === 'ref');
 
   async function onClickReset() {
     if (!dashResponse.data) return;
@@ -1084,7 +1096,7 @@ function Admin({
   });
 
   return (
-    <TabContent>
+    <TabContent className="h-full">
       <Dialog open={inviteDialog.open} onClose={inviteDialog.onClose}>
         <InviteTeamMemberDialog
           app={app}
@@ -1287,8 +1299,119 @@ function Admin({
         ) : null}
       </Content>
       <Copyable label="Secret" value={app.admin_token} />
+      {isMinRole('collaborator', app.user_app_role) ? (
+        <div>
+          <SectionHeading>Experimental</SectionHeading>
+          <SubsectionHeading>Users namespace</SubsectionHeading>
+          <Content>
+            The users namespace is a psuedo-namespace named <code>$users</code>.
+            It provides a read-only view into your users on Instant. When
+            enabled, you can view your users from the Explorer and link to the{' '}
+            <code>$users</code> namespace from other namespaces.
+          </Content>
+
+          {usersAttrs?.length ? (
+            <>
+              <Content>
+                <Button
+                  variant="secondary"
+                  onClick={() =>
+                    router.push({
+                      query: { ...router.query, ns: '$users', t: 'explorer' },
+                    })
+                  }
+                >
+                  View <code>$users</code> namespace
+                </Button>
+              </Content>
+              <Content>
+                You can disable the users namespace. It won't delete any users,
+                but any links you created into the namespace will be permanently
+                deleted.
+              </Content>
+            </>
+          ) : null}
+
+          <Content>
+            {!namespaces ? (
+              <ActionButton
+                // Loading state, no visible text to prevent a flash
+                label={<span className="invisible">Disable users table</span>}
+                submitLabel="Loading"
+                errorMessage="Loading"
+                disabled={true}
+                onClick={async () => null}
+              />
+            ) : usersAttrs?.length ? (
+              <ActionButton
+                label="Disable users table"
+                submitLabel="Disable users table"
+                errorMessage="Failed to disable users table"
+                onClick={disableUsersDialog.onOpen}
+              />
+            ) : (
+              <ActionButton
+                label="Enable users table"
+                submitLabel="Enable users table"
+                errorMessage="Failed to enable users table"
+                onClick={async () => {
+                  await jsonFetch(
+                    `${config.apiURI}/dash/apps/${app.id}/enable_users_table`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        authorization: `Bearer ${token}`,
+                        'content-type': 'application/json',
+                      },
+                    }
+                  );
+                  await dashResponse.mutate();
+                }}
+              />
+            )}
+          </Content>
+          <Dialog {...disableUsersDialog}>
+            <div className="flex flex-col gap-2">
+              <SubsectionHeading className="text-red-600">
+                Disable users namespace
+              </SubsectionHeading>
+
+              {usersRefs?.length ? (
+                <Content>
+                  Disabling the users namespace will permanently remove any
+                  links you created into the namespace. It will remove{' '}
+                  {usersRefs.map((r) => (
+                    <code key={r.id}>
+                      {r.linkConfig.forward.namespace}.
+                      {r.linkConfig.forward.attr}
+                    </code>
+                  ))}
+                  .
+                </Content>
+              ) : null}
+              <Content>
+                Your users will not be removed. You can re-enable the users
+                table to view them again.
+              </Content>
+              <Button
+                variant="destructive"
+                onClick={async () => {
+                  if (usersAttrs) {
+                    await db._core._reactor.pushOps(
+                      usersAttrs.map((a) => ['delete-attr', a.id])
+                    );
+                  }
+                  disableUsersDialog.onClose();
+                }}
+              >
+                {usersRefs?.length ? 'Delete' : 'Disable'}
+              </Button>
+            </div>
+          </Dialog>
+        </div>
+      ) : null}
       {isMinRole('owner', app.user_app_role) ? (
-        <>
+        <div className="mt-auto">
           <SectionHeading>Danger zone</SectionHeading>
           <div>
             <div className="flex flex-col md:flex-row justify-between gap-2 md:gap-8">
@@ -1335,7 +1458,7 @@ function Admin({
               </Button>
             </div>
           </Dialog>
-        </>
+        </div>
       ) : null}
     </TabContent>
   );

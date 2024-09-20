@@ -3,7 +3,7 @@
             [clojure.string :as string]
             [clojure.set :as set]
             [clojure.tools.logging :as log]
-            [compojure.core :refer [defroutes GET POST DELETE] :as compojure]
+            [compojure.core :refer [defroutes GET POST DELETE PATCH] :as compojure]
             [instant.dash.admin :as dash-admin]
             [instant.model.app :as app-model]
             [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
@@ -350,12 +350,18 @@
 ;; Rules
 
 (defn rules-post [req]
-  (let
-   [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-    code (ex/get-param! req [:body :code] w/stringify-keys)]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        code (ex/get-param! req [:body :code] w/stringify-keys)]
     (ex/assert-valid! :rule code (rule-model/validation-errors code))
     (response/ok {:rules (rule-model/put! {:app-id app-id
                                            :code code})})))
+
+(defn rules-patch [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        code (ex/get-param! req [:body :code] w/stringify-keys)]
+    (ex/assert-valid! :rule code (rule-model/validation-errors code))
+    (response/ok {:rules (rule-model/merge! {:app-id app-id
+                                             :code code})})))
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (def r (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id (:id u)}))
@@ -923,6 +929,19 @@
                               :title title})
     (response/ok {})))
 
+(defn enable-users-table [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        rules (rule-model/merge! {:app-id app-id
+                                  :code {:$users {:allow {:view "auth.id == data.id"
+                                                          :create "false"
+                                                          :update "false"
+                                                          :delete "false"}}}})]
+    (attr-model/insert-multi! aurora/conn-pool
+                              app-id
+                              (attr-model/gen-users-shim-attrs)
+                              {:allow-reserved-names? true})
+    (response/ok {:rules rules})))
+
 ;; ---
 ;; Storage
 
@@ -1110,6 +1129,7 @@
   (POST "/dash/profiles" [] profiles-post)
   (DELETE "/dash/apps/:app_id" [] apps-delete)
   (POST "/dash/apps/:app_id/rules" [] rules-post)
+  (PATCH "/dash/apps/:app_id/rules" [] rules-post)  
   (POST "/dash/apps/:app_id/tokens" [] admin-tokens-regenerate)
 
   (GET "/dash/apps/ephemeral/:app_id" [] ephemeral-app/http-get-handler)
@@ -1161,6 +1181,7 @@
   (DELETE "/dash/personal_access_tokens/:id" [] personal-access-tokens-delete)
 
   (POST "/dash/apps/:app_id/rename" [] app-rename-post)
+  (POST "/dash/apps/:app_id/enable_users_table" [] enable-users-table)
 
   (POST "/dash/apps/:app_id/storage/signed-upload-url" [] signed-upload-url-post)
   (GET "/dash/apps/:app_id/storage/signed-download-url", [] signed-download-url-get)
