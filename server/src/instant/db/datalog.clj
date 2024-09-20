@@ -1721,12 +1721,7 @@
                    [eid-robocop :movie/title RoboCop]
                    ...]}}
    ```"
-  [{:keys [app-id
-           missing-attr?
-           db
-           datalog-loader
-           ;; info to convert users table into triples
-           users-shim-info] :as ctx}
+  [{:keys [app-id missing-attr? db datalog-loader] :as ctx}
    patterns]
   (if (map? patterns)
     (query-nested ctx patterns)
