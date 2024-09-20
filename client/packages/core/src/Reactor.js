@@ -46,9 +46,7 @@ function isClient() {
 }
 
 function querySubsFromJSON(str) {
-  const start1 = Date.now();
   const parsed = JSON.parse(str);
-  const end1 = Date.now(); 
   for (const key in parsed) {
     const v = parsed[key];
     if (v?.result?.store) {
@@ -66,7 +64,7 @@ function querySubsToJSON(querySubs) {
     if (sub.result?.store) {
       jsonSub.result = {
         ...sub.result,
-        store: s.toJSON(sub.result.store)
+        store: s.toJSON(sub.result.store),
       };
     }
     jsonSubs[key] = jsonSub;
@@ -184,7 +182,7 @@ export default class Reactor {
       {},
       this._onMergeQuerySubs,
       querySubsToJSON,
-      querySubsFromJSON
+      querySubsFromJSON,
     );
     this.pendingMutations = new PersistedObject(
       this._persister,
@@ -735,10 +733,7 @@ export default class Reactor {
     }
 
     const { store, pageInfo, aggregate } = result;
-    const muts = this._rewriteMutations(
-      store.attrs,
-      pendingMutations
-    );
+    const muts = this._rewriteMutations(store.attrs, pendingMutations);
 
     const txSteps = [...muts.values()].flatMap((x) => x["tx-steps"]);
     const newStore = s.transact(store, txSteps);
@@ -1274,7 +1269,7 @@ export default class Reactor {
           appId: this.config.appId,
           refreshToken,
         });
-      } catch (e) { }
+      } catch (e) {}
     }
 
     this.changeCurrentUser(null);
