@@ -550,23 +550,36 @@
       :cond (update (->where-cond-attr-pats ctx form where-cond)
                     :pats
                     optimize-attr-pats)
-      :or [{:or {:patterns
-                 (map-indexed
-                  (fn [i conds]
-                    (let [level-sym (level-sym-gen level-sym (:etype form) i)]
-                      {:and (where-conds->patterns (assoc ctx :level-sym level-sym)
-                                                   form
-                                                   conds)}))
-                  (:or where-cond))
+      :or (-> (reduce
+               (fn [acc [i conds]]
+                 (let [level-sym (level-sym-gen level-sym (:etype form) i)]
+                   (as-> (where-conds->patterns (assoc ctx :level-sym level-sym)
+                                                form
+                                                conds) %
+                     (update % :pats (fn [pats] [{:and pats}]))
+                     (merge-with into acc %))))
+               {:pats []
+                :referenced-etypes #{}}
+               (map-indexed vector (:or where-cond)))
+              (update :pats (fn [pats]
+                              [{:or {:patterns pats
+                                     :join-sym (attr-pat/default-level-sym
+                                                (:etype form)
+                                                (:level form))}}])))
 
-                 :join-sym (attr-pat/default-level-sym (:etype form) (:level form))}}]
-      :and [{:and (map-indexed
-                   (fn [i where-conds]
-                     (let [level-sym (level-sym-gen level-sym (:etype form) i)]
-                       {:and (where-conds->patterns (assoc ctx :level-sym level-sym)
-                                                    form
-                                                    where-conds)}))
-                   (:and where-cond))}])))
+      :and (-> (reduce
+                (fn [acc [i conds]]
+                  (let [level-sym (level-sym-gen level-sym (:etype form) i)]
+                    (as-> (where-conds->patterns (assoc ctx :level-sym level-sym)
+                                                 form
+                                                 conds) %
+                      (update % :pats (fn [pats] [{:and pats}]))
+                      (merge-with into acc %))))
+                {:pats []
+                 :referenced-etypes #{}}
+                (map-indexed vector (:and where-cond)))
+               (update :pats (fn [pats]
+                               [{:and pats}]))))))
 
 (defn- where-query
   "Given a form, return the query that could get the relevant ids,
@@ -766,7 +779,7 @@
   (reduce (fn [acc {:keys [pattern-group referenced-etypes]}]
             (-> acc
                 (update :pattern-groups conj pattern-group)
-                (update :referenced-etypes set/union referenced-etypes)))
+                (update :referenced-etypes into referenced-etypes)))
           {:pattern-groups []
            :referenced-etypes #{}}
           query-one-results))

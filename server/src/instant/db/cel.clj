@@ -329,7 +329,7 @@
                   (let [{:keys [pats referenced-etypes]}
                         (build-query ctx ref-info)]
                     (-> acc
-                        (update :patterns into pats)
+                        (update :patterns conj pats)
                         (update :referenced-etypes into referenced-etypes))))
                 {:patterns []
                  :referenced-etypes #{}}
@@ -359,8 +359,8 @@
                         acc
                         (:eids ref))))
             {}
-            (map (fn [ref pattern result]
-                   [ref pattern (:result result)])
+            (map (fn [ref patterns result]
+                   [ref patterns (:result result)])
                  refs
                  patterns
                  results))))
