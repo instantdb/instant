@@ -111,6 +111,8 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
     [namespaces, currentNav?.namespace]
   );
 
+  const readOnlyNs = selectedNamespace && selectedNamespace.name === '$users';
+
   const [limit, setLimit] = useState(50);
   const [offsets, setOffsets] = useState<{ [namespace: string]: number }>({});
 
@@ -198,10 +200,16 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
 
             <ActionButton
               type="submit"
+              disabled={readOnlyNs}
               label={`Delete ${rowText}`}
               submitLabel={`Deleting ${rowText}...`}
               errorMessage={`Failed to delete ${rowText}`}
               className="border-red-500 text-red-500"
+              title={
+                readOnlyNs
+                  ? `The ${selectedNamespace?.name} namespace is read-only.`
+                  : undefined
+              }
               onClick={async () => {
                 try {
                   await db.transact(
@@ -224,6 +232,7 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
       <Dialog open={Boolean(editNs)} onClose={() => setEditNs(null)}>
         {selectedNamespace ? (
           <EditNamespaceDialog
+            readOnly={!!readOnlyNs}
             db={db}
             namespace={selectedNamespace}
             namespaces={namespaces ?? []}
@@ -399,6 +408,12 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
           </div>
           <div className="flex items-center justify-start space-x-2 p-1 text-xs border-b">
             <Button
+              disabled={readOnlyNs}
+              title={
+                readOnlyNs
+                  ? `The ${selectedNamespace?.name} namespace is read-only.`
+                  : undefined
+              }
               size="mini"
               variant="secondary"
               onClick={() => {
@@ -508,6 +523,12 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
               )}
             >
               <Button
+                disabled={readOnlyNs}
+                title={
+                  readOnlyNs
+                    ? `The ${selectedNamespace?.name} namespace is read-only.`
+                    : undefined
+                }
                 variant="destructive"
                 size="mini"
                 className="flex px-2 py-0 text-xs"
@@ -602,12 +623,14 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
                           );
                         }}
                       />
-                      <button
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => setEditableRowId(item.id)}
-                      >
-                        <PencilAltIcon className="h-4 w-4 text-gray-500" />
-                      </button>
+                      {readOnlyNs ? null : (
+                        <button
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => setEditableRowId(item.id)}
+                        >
+                          <PencilAltIcon className="h-4 w-4 text-gray-500" />
+                        </button>
+                      )}
                     </td>
                     {selectedNamespace.attrs.map((attr) => (
                       <td
