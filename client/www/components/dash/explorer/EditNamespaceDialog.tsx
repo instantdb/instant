@@ -26,11 +26,13 @@ export function EditNamespaceDialog({
   namespace,
   namespaces,
   onClose,
+  readOnly,
 }: {
   db: InstantReactWeb;
   namespace: SchemaNamespace;
   namespaces: SchemaNamespace[];
   onClose: (p?: { ok: boolean }) => void;
+  readOnly: boolean;
 }) {
   const [screen, setScreen] = useState<
     | { type: 'main' }
@@ -54,6 +56,12 @@ export function EditNamespaceDialog({
               {namespace.name}
             </h5>
             <Button
+              disabled={readOnly}
+              title={
+                readOnly
+                  ? `The ${namespace.name} namespace is read-only.`
+                  : undefined
+              }
               size="mini"
               variant="secondary"
               onClick={() => setScreen({ type: 'delete' })}
@@ -86,6 +94,12 @@ export function EditNamespaceDialog({
 
           <div>
             <Button
+              disabled={readOnly}
+              title={
+                readOnly
+                  ? `The ${namespace.name} namespace is read-only.`
+                  : undefined
+              }
               size="mini"
               variant="secondary"
               onClick={() => setScreen({ type: 'add' })}
@@ -110,6 +124,7 @@ export function EditNamespaceDialog({
         />
       ) : screen.type === 'edit' ? (
         <EditAttrForm
+          readOnly={readOnly}
           db={db}
           attr={screen.attr}
           onClose={() => setScreen({ type: 'main' })}
@@ -356,10 +371,12 @@ function EditAttrForm({
   db,
   attr,
   onClose,
+  readOnly,
 }: {
   db: InstantReactWeb;
   attr: SchemaAttr;
   onClose: () => void;
+  readOnly: boolean;
 }) {
   const [screen, setScreen] = useState<{ type: 'main' } | { type: 'delete' }>({
     type: 'main',
@@ -477,6 +494,12 @@ function EditAttrForm({
         </div>
 
         <Button
+          disabled={readOnly}
+          title={
+            readOnly
+              ? `The ${attr.namespace} namespace is read-only.`
+              : undefined
+          }
           variant="secondary"
           size="mini"
           onClick={() => setScreen({ type: 'delete' })}
@@ -493,6 +516,12 @@ function EditAttrForm({
               <h6 className="text-md font-bold">Constraints</h6>
               <div className="flex gap-2">
                 <Checkbox
+                  disabled={readOnly}
+                  title={
+                    readOnly
+                      ? `The ${attr.namespace} namespace is read-only.`
+                      : undefined
+                  }
                   checked={attrConfig.isIndex}
                   onChange={(enabled) =>
                     setAttrConfig((c) => ({ ...c, isIndex: enabled }))
@@ -507,6 +536,12 @@ function EditAttrForm({
               </div>
               <div className="flex gap-2">
                 <Checkbox
+                  disabled={readOnly}
+                  title={
+                    readOnly
+                      ? `The ${attr.namespace} namespace is read-only.`
+                      : undefined
+                  }
                   checked={attrConfig.isUniq}
                   onChange={(enabled) =>
                     setAttrConfig((c) => ({ ...c, isUniq: enabled }))
@@ -524,7 +559,12 @@ function EditAttrForm({
                 label={`Update ${attr.name}`}
                 submitLabel="Updating attribute..."
                 errorMessage="Failed to update attribute"
-                disabled={!attrName}
+                disabled={readOnly || !attrName}
+                title={
+                  readOnly
+                    ? `The ${attr.namespace} namespace is read-only.`
+                    : undefined
+                }
                 onClick={updateBlob}
               />
             </div>
@@ -535,14 +575,28 @@ function EditAttrForm({
               This will immediately rename the attribute. You'll need to{' '}
               <strong>update your code</strong> to the new name.
             </Content>
-            <TextInput value={attrName} onChange={(n) => setAttrName(n)} />
+            <TextInput
+              disabled={readOnly}
+              title={
+                readOnly
+                  ? `The ${attr.namespace} namespace is read-only.`
+                  : undefined
+              }
+              value={attrName}
+              onChange={(n) => setAttrName(n)}
+            />
             <div className="flex flex-col gap-2 rounded py-2">
               <ActionButton
                 type="submit"
                 label={`Rename ${attr.name} → ${attrName}`}
                 submitLabel="Renaming attribute..."
                 errorMessage="Failed to rename attribute"
-                disabled={!attrName || attrName === attr.name}
+                disabled={readOnly || !attrName || attrName === attr.name}
+                title={
+                  readOnly
+                    ? `The ${attr.namespace} namespace is read-only.`
+                    : undefined
+                }
                 onClick={renameBlobAttr}
               />
             </div>
