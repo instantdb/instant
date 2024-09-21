@@ -111,10 +111,11 @@
         app (app-model/get-by-id! {:id app-id})
         {user-id :id :as u} (or (app-user-model/get-by-email {:app-id app-id :email email})
                                 (next-jdbc/with-transaction [conn aurora/conn-pool]
-                                  (app-user-model/create! conn {:id (UUID/randomUUID)
-                                                                :app-id app-id
-                                                                :email email})
-                                  (transaction-model/create! conn {:app-id app-id})))
+                                  (let [app (app-user-model/create! conn {:id (UUID/randomUUID)
+                                                                          :app-id app-id
+                                                                          :email email})]
+                                    (transaction-model/create! conn {:app-id app-id})
+                                    app)))
         magic-code (app-user-magic-code-model/create!
                     {:id (UUID/randomUUID)
                      :code (app-user-magic-code-model/rand-code)
