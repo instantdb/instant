@@ -19,6 +19,7 @@
             [instant.model.instant-oauth-code :as instant-oauth-code-model]
             [instant.model.instant-oauth-redirect :as instant-oauth-redirect-model]
             [instant.db.model.attr :as attr-model]
+            [instant.db.model.transaction :as transaction-model]
             [instant.data.emails :refer [admin-email?]]
             [instant.model.rule :as rule-model]
             [instant.model.instant-profile :as instant-profile-model]
@@ -936,10 +937,12 @@
                                                           :create "false"
                                                           :update "false"
                                                           :delete "false"}}}})]
-    (attr-model/insert-multi! aurora/conn-pool
-                              app-id
-                              (attr-model/gen-users-shim-attrs)
-                              {:allow-reserved-names? true})
+    (next-jdbc/with-transaction [tx-conn aurora/conn-pool]
+      (attr-model/insert-multi! tx-conn
+                                app-id
+                                (attr-model/gen-users-shim-attrs)
+                                {:allow-reserved-names? true})
+      (transaction-model/create! tx-conn {:app-id app-id}))
     (response/ok {:rules rules})))
 
 ;; ---

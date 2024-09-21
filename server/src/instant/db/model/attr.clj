@@ -458,6 +458,30 @@
            :left-join [[:idents :rev-idents] [:= :attrs.reverse-ident :rev-idents.id]]
            :where [:= :attrs.app-id [:cast app-id :uuid]]})))))
 
+(defn get-all-users-shims
+  "Fetching the mapping from app-users table to attributes that we use to 
+   create the $users table."
+  [conn]
+  (let [query (hsql/format {:select :*
+                            :from :idents
+                            :where [:and
+                                    [:= :etype "$users"]
+                                    [:or
+                                     [:= :label "id"]
+                                     [:= :label "email"]]]})
+        rows (sql/select conn query)
+        groups (group-by :app_id rows)]
+    (reduce (fn [acc [app-id idents]]
+              (let [{:strs [email id]} (group-by :label idents)
+                    email-attr-id (-> email first :attr_id)
+                    id-attr-id (-> id first :attr_id)]
+                (if (and email-attr-id id-attr-id)
+                  (assoc acc (str app-id) {:email-attr-id (str email-attr-id)
+                                           :id-attr-id (str id-attr-id)})
+                  acc)))
+            {}
+            groups)))
+
 ;; ------
 ;; seek
 

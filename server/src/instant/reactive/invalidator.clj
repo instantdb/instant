@@ -3,6 +3,7 @@
    [clojure.core.async :as a]
    [clojure.set :as clojure-set]
    [instant.config :as config]
+   [instant.db.model.attr :as attr-model]
    [instant.db.pg-introspect :as pg-introspect]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
@@ -10,9 +11,11 @@
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
    [instant.util.coll :as ucoll]
-   [instant.util.json :refer [<-json]]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.json :refer [<-json ->json]]
    [instant.util.tracer :as tracer])
-  (:import (java.util UUID)))
+  (:import (java.util UUID)
+           (java.sql Timestamp)))
 
 (declare wal-opts)
 
@@ -206,14 +209,106 @@
 ;; ------
 ;; wal record xf
 
+(defn update-users-shims!
+  "Updates our view of the mapping from app-users to the attributes we use to
+   generate the $users table.
+   Only looks at inserts. If the table is disabled, we won't remove them until
+   the server restarts, but the worst that will happen is that we create a bit
+   of extra spam in the invalidator when the app gets a new users."
+  [changes users-shims]
+  (doseq [change changes
+          :when (and (= (:table change) "idents")
+                     (= (:kind change) "insert"))
+          :let [{:strs [app_id etype label attr_id]} (zipmap (:columnnames change)
+                                                     (:columnvalues change))]
+          :when (and (= "$users" etype)
+                     (#{"id" "email"} label))]
+    (swap! users-shims
+           assoc-in
+           [app_id (case label
+                     "id" :id-attr-id
+                     "email" :email-attr-id)]
+           attr_id)))
+
+(defn $users-triple-change-for-attr
+  "Coerces the app-user update into the triple format"
+  [app-id app-users-id created-at-ms attr-id attr-value]
+  (let [value (->json attr-value)]
+    {:kind "update"
+     :shmema "public"
+     :table "triples"
+     :columnnames ["app_id"
+                   "entity_id"
+                   "attr_id"
+                   "value"
+                   "value_md5"
+                   "ea"
+                   "eav"
+                   "av"
+                   "ave"
+                   "vae"
+                   "created_at"]
+     :columntypes ["uuid"
+                   "uuid"
+                   "uuid"
+                   "jsonb"
+                   "text"
+                   "boolean"
+                   "boolean"
+                   "boolean"
+                   "boolean"
+                   "boolean"
+                   "bigint"]
+     :columnvalues [app-id
+                    app-users-id
+                    attr-id
+                    value
+                    (-> value crypt-util/str->md5 crypt-util/bytes->hex-string)
+                    true
+                    false
+                    false
+                    false
+                    false
+                    created-at-ms]}))
+
+(defn $users-triples-changes
+  "Converts any changes to the app-users table into triples changes.
+   It's a noop if the app hasn't enabled the users table."
+  [changes users-shims]
+  (mapcat (fn [{:keys [columnnames columnvalues]}]
+            (let [{:strs [app_id id email created_at]}
+                  (zipmap columnnames columnvalues)
+
+                  {:keys [id-attr-id email-attr-id]} (get users-shims app_id)]
+              (when (and app_id id email created_at id-attr-id email-attr-id)
+                (let [created-at-ms (.getTime (Timestamp/valueOf created_at))]
+                  [($users-triple-change-for-attr app_id
+                                                  id
+                                                  created-at-ms
+                                                  id-attr-id
+                                                  id)
+                   ($users-triple-change-for-attr app_id
+                                                  id
+                                                  created-at-ms
+                                                  email-attr-id
+                                                  email)]))))
+          (filter (fn [c]
+                    (and (= (:table c) "app_users")
+                         (#{"insert" "update"} (:kind c))))
+                  changes)))
+
 (defn ident-changes-only [changes]
   (filter (comp #{"idents"} :table) changes))
 
 (defn attr-changes-only [changes]
   (filter (comp #{"attrs"} :table) changes))
 
-(defn triple-changes-only [changes]
+(defn true-triples-changes-only [changes]
   (filter (comp #{"triples"} :table) changes))
+
+(defn triple-changes-only [changes users-shims]
+  (concat (true-triples-changes-only changes)
+          ($users-triples-changes changes users-shims)))
 
 (defn transaction-changes-only [changes]
   (filter (comp #{"transactions"} :table) changes))
@@ -233,28 +328,30 @@
 (defn extract-tx-id [{:keys [columnvalues] :as _change}]
   (first columnvalues))
 
-(defn transform-wal-record [{:keys [change] :as _record}]
+(defn transform-wal-record [{:keys [change] :as _record} users-shims]
   (let [ident-changes (ident-changes-only change)
-        triple-changes (triple-changes-only change)
+        triple-changes (triple-changes-only change @users-shims)
         attr-changes (attr-changes-only change)
         some-changes (or (seq ident-changes)
                          (seq triple-changes)
                          (seq attr-changes))
         [transactions-change] (transaction-changes-only change)
         app-id (or (extract-app-id transactions-change)
-                   (extract-app-id (first attr-changes)))]
-    (when (and some-changes app-id)
+                   (extract-app-id (first attr-changes))
+                   (extract-app-id (first triple-changes)))]
+    (update-users-shims! change users-shims)
+    (when (and some-changes transactions-change app-id)
       {:attr-changes attr-changes
        :ident-changes ident-changes
        :triple-changes triple-changes
        :app-id app-id
-       :tx-id (or (extract-tx-id transactions-change)
-                  0)})))
+       :tx-id (extract-tx-id transactions-change)})))
 
 (defn wal-record-xf
   "Filters wal records for supported changes. Returns [app-id changes]"
-  []
-  (keep #'transform-wal-record))
+  [users-shims]
+  (keep (fn [record]
+          (transform-wal-record record users-shims))))
 
 (defn transform-byop-wal-record [{:keys [change nextlsn]}]
   ;; TODO(byop): if change is empty, then there might be changes to the schema
@@ -341,25 +438,27 @@
   (wal/shutdown! wal-opts))
 
 (defn create-wal-chans []
-  (if-not config/instant-on-instant-app-id
-    (let [chan (a/chan 1 (wal-record-xf))]
-      {:wal-chan chan
-       :close-signal-chan (a/chan)
-       :worker-chan chan})
-    (let [wal-chan (a/chan 1)
-          mult (a/mult wal-chan)
-          worker-chan (a/chan 1 (wal-record-xf))
-          byop-chan (a/chan 1)]
-      (a/tap mult worker-chan)
-      (a/tap mult byop-chan)
-      {:wal-chan wal-chan
-       ;; Nothing will ever be put on this chan,
-       ;; it will be closed when the wal-chan is closed
-       ;; so that the consumer can know to stop waiting for
-       ;; its puts to complete
-       :close-signal-chan (a/chan)
-       :worker-chan worker-chan
-       :byop-chan byop-chan})))
+  (let [users-shims (tracer/with-span! {:name "invalidator/init-users-shims"}
+                      (atom (attr-model/get-all-users-shims aurora/conn-pool)))]
+    (if-not config/instant-on-instant-app-id
+      (let [chan (a/chan 1 (wal-record-xf users-shims))]
+        {:wal-chan chan
+         :close-signal-chan (a/chan)
+         :worker-chan chan})
+      (let [wal-chan (a/chan 1)
+            mult (a/mult wal-chan)
+            worker-chan (a/chan 1 (wal-record-xf users-shims))
+            byop-chan (a/chan 1)]
+        (a/tap mult worker-chan)
+        (a/tap mult byop-chan)
+        {:wal-chan wal-chan
+         ;; Nothing will ever be put on this chan,
+         ;; it will be closed when the wal-chan is closed
+         ;; so that the consumer can know to stop waiting for
+         ;; its puts to complete
+         :close-signal-chan (a/chan)
+         :worker-chan worker-chan
+         :byop-chan byop-chan}))))
 
 (defn start
   "Entry point for invalidator. Starts a WAL listener and pipes WAL records to
