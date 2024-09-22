@@ -269,8 +269,8 @@ export function EditRowDialog({
                     tabIndex={tabIndex}
                     value={value}
                     options={[
-                      { value: 'true', label: 'true' },
                       { value: 'false', label: 'false' },
+                      { value: 'true', label: 'true' },
                     ]}
                     onChange={(option) =>
                       handleUpdateFieldValue(attr.name, option!.value)
