@@ -554,7 +554,9 @@ console.log(data)
 
 **`and` key:**
 
-This query type is useful when querying references, like `todos.title`, where a single entity can have multiple values:
+The `and` key is useful when you want an entity to match multiple conditions.
+In this case we want to find goals that have both `Drink protein` and `Go on a
+run` todos.:
 
 ```javascript
 const query = {
