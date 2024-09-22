@@ -624,7 +624,8 @@ console.log(data);
 
 ### In
 
-The `where` clause supports `in` queries that will filter entities that match any of the items in the provided list:
+The `where` clause supports `in` queries that will filter entities that match any of the items in the provided list.
+You can think of this as a shorthand for `or` on a single key.
 
 ```javascript
 const query = {
