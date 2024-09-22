@@ -62,9 +62,10 @@ function getAppropriateFieldType(attr: SchemaAttr, value: any): FieldType {
 // to parse the field value based on the provided field type
 function parseFieldValue(value: any, type: FieldType) {
   if (type === 'number') {
-    const sanitized = String(value).replace(/\D+/g, '').trim();
-
-    return sanitized.length > 0 ? Number(sanitized) : sanitized;
+    const cleaned = String(value).replace(/[^\d.-]/g, '');
+    if (cleaned === '-' || cleaned === '.' || cleaned === '-.') return cleaned;
+    const match = cleaned.match(/^(-?\d*\.?\d*)\.?$/);
+    return match ? Number(match[0]) : '';
   } else if (type === 'boolean') {
     return value === 'true';
   } else if (type === 'string') {
@@ -274,6 +275,16 @@ export function EditRowDialog({
                     ]}
                     onChange={(option) =>
                       handleUpdateFieldValue(attr.name, option!.value)
+                    }
+                  />
+                ) : type === 'number' ? (
+                  <input
+                    tabIndex={tabIndex}
+                    type="number"
+                    className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
+                    value={value ?? ''}
+                    onChange={(num) =>
+                      handleUpdateFieldValue(attr.name, num.target.value)
                     }
                   />
                 ) : (
