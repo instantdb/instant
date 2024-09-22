@@ -2,9 +2,9 @@
 
 import { readFileSync } from "fs";
 import { mkdir, writeFile, readFile, stat } from "fs/promises";
-import { join } from "path";
+import { dirname, join } from "path";
+import { fileURLToPath } from 'url';
 import { randomUUID } from "crypto";
-
 import dotenv from "dotenv";
 import chalk from "chalk";
 import { program } from "commander";
@@ -17,9 +17,7 @@ import openInBrowser from "open";
 // config
 dotenv.config();
 
-const version = JSON.parse(
-  readFileSync(join(import.meta.dirname, "package.json"), "utf8"),
-).version;
+
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
 
@@ -46,7 +44,14 @@ program
   .description(instantCLIDescription)
   .option("-t --token <TOKEN>", "auth token override")
   .option("-y", "skip confirmation prompt")
-  .version(version);
+  .option("-v --version", "output the version number", () => {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const version = JSON.parse(
+      readFileSync(join(__dirname, 'package.json'), 'utf8')
+    ).version;
+    console.log(version);
+    process.exit(0);
+  })
 
 program
   .command("login")
