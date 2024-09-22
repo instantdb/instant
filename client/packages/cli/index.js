@@ -18,10 +18,6 @@ import openInBrowser from "open";
 dotenv.config();
 
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const version = JSON.parse(
-  readFileSync(join(__dirname, 'package.json'), 'utf8')
-).version;
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
 
@@ -49,6 +45,10 @@ program
   .option("-t --token <TOKEN>", "auth token override")
   .option("-y", "skip confirmation prompt")
   .option("-v --version", "output the version number", () => {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const version = JSON.parse(
+      readFileSync(join(__dirname, 'package.json'), 'utf8')
+    ).version;
     console.log(version);
     process.exit(0);
   })
