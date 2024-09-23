@@ -61,7 +61,7 @@ export default function Devtool() {
     if (typeof window === 'undefined') return;
 
     try {
-      const db = init<unknown>({
+      const db = init({
         appId,
         apiURI: config.apiURI,
         websocketURI: config.websocketURI,
