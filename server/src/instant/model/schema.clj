@@ -184,10 +184,10 @@
      :steps steps}))
 
 (comment
-  (attr-ident-names {:id #uuid "",
+  (attr-ident-names {:id "",
                      :value-type :blob,
                      :cardinality :one,
-                     :forward-identity [#uuid "" "tags" "x"],
+                     :forward-identity ["" "tags" "x"],
                      :unique? false,
                      :index? false,
                      :inferred-types nil})
