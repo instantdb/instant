@@ -58,7 +58,7 @@ import {
  *  const db = init<Schema>({ appId: "my-app-id" })
  *
  */
-function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
+function init<Schema extends {} = {}, RoomSchema extends RoomSchemaShape = {}>(
   config: Config,
 ) {
   return new InstantReactNative<Schema, RoomSchema>(config);
@@ -83,7 +83,7 @@ function init_experimental<
 }
 
 class InstantReactNative<
-  Schema = {},
+  Schema extends InstantGraph<any, any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
   WithCardinalityInference extends boolean = false,
 > extends InstantReact<Schema, RoomSchema, WithCardinalityInference> {
