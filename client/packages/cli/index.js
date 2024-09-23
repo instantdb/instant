@@ -776,6 +776,7 @@ async function getAppIdWithErrorLogging(defaultAppIdOrName) {
     // finally, check .env
     process.env.INSTANT_APP_ID ||
     process.env.NEXT_PUBLIC_INSTANT_APP_ID ||
+    process.env.PUBLIC_INSTANT_APP_ID || // for Svelte
     process.env.VITE_INSTANT_APP_ID ||
     null;
 
