@@ -127,7 +127,7 @@ type PageInfoResponse<T> = {
  *  adding `Exactly` fixes this, but it does.
  *
  * */
-type Exactly<Parent, Child extends Parent> = Parent & {
+type Exactly<Parent, Child> = Parent & {
   [K in keyof Child]: K extends keyof Parent ? Child[K] : never;
 };
 
