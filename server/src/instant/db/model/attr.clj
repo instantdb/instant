@@ -174,9 +174,13 @@
 (defn qualify-cols [ns cols]
   (map (partial qualify-col ns) cols))
 
-;; Rule is: you can't assign a forward-ident to an attribute where the
-;;          etype starts with a `$`
-(defn validate-reserved-names! [attrs]
+(defn validate-reserved-names!
+  "Prevents users from creating namespaces that start with `$`. Only looks
+   at the forward-identity. That way users can still create links into the
+   reserved namespaces.
+   We need this so that users don't clash with special namespaces, like the
+   $users table and $files rules."
+  [attrs]
   (doseq [attr attrs]
     (when-let [fwd-etype (-> attr :forward-identity second)]
       (when (string/starts-with? fwd-etype "$")
@@ -459,8 +463,10 @@
            :where [:= :attrs.app-id [:cast app-id :uuid]]})))))
 
 (defn get-all-users-shims
-  "Fetching the mapping from app-users table to attributes that we use to 
-   create the $users table."
+  "Fetching the mapping from app-users table to attributes that we use to
+   create the $users table.
+   Returns a mapping of app_id to {email-attr-id: ?uuid
+                                   id-attr-id: ?uuid}"
   [conn]
   (let [query (hsql/format {:select :*
                             :from :idents
@@ -469,18 +475,16 @@
                                     [:or
                                      [:= :label "id"]
                                      [:= :label "email"]]]})
-        rows (sql/select conn query)
-        groups (group-by :app_id rows)]
-    (reduce (fn [acc [app-id idents]]
-              (let [{:strs [email id]} (group-by :label idents)
-                    email-attr-id (-> email first :attr_id)
-                    id-attr-id (-> id first :attr_id)]
-                (if (and email-attr-id id-attr-id)
-                  (assoc acc (str app-id) {:email-attr-id (str email-attr-id)
-                                           :id-attr-id (str id-attr-id)})
-                  acc)))
+        rows (sql/select conn query)]
+    (reduce (fn [acc row]
+              (let [app-id (:app_id row)
+                    field (case (:label row)
+                            "id" :id-attr-id
+                            "email" :email-attr-id)
+                    attr-id (:attr_id row)]
+                (assoc-in acc [(str app-id) field] attr-id)))
             {}
-            groups)))
+            rows)))
 
 ;; ------
 ;; seek

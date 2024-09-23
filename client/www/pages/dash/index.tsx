@@ -1365,6 +1365,7 @@ function Admin({
                       },
                     }
                   );
+                  // Trigger an update of the rules
                   await dashResponse.mutate();
                 }}
               />
@@ -1411,6 +1412,7 @@ function Admin({
         </div>
       ) : null}
       {isMinRole('owner', app.user_app_role) ? (
+        // mt-auto pushes the danger zone to the bottom of the page
         <div className="mt-auto">
           <SectionHeading>Danger zone</SectionHeading>
           <div>

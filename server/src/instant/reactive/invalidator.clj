@@ -214,13 +214,13 @@
    generate the $users table.
    Only looks at inserts. If the table is disabled, we won't remove them until
    the server restarts, but the worst that will happen is that we create a bit
-   of extra spam in the invalidator when the app gets a new users."
+   of extra spam in the invalidator when the app gets a new user."
   [changes users-shims]
   (doseq [change changes
           :when (and (= (:table change) "idents")
                      (= (:kind change) "insert"))
           :let [{:strs [app_id etype label attr_id]} (zipmap (:columnnames change)
-                                                     (:columnvalues change))]
+                                                             (:columnvalues change))]
           :when (and (= "$users" etype)
                      (#{"id" "email"} label))]
     (swap! users-shims
@@ -318,12 +318,8 @@
     (nth values i)))
 
 (defn extract-app-id
-  [{:keys [columnvalues columnnames]
-    {:keys [keynames keyvalues]} :oldkeys
-    :as _change}]
-  (when-let [app-id (or (app-id-from-columns columnnames columnvalues)
-                        (app-id-from-columns keynames keyvalues))]
-    (UUID/fromString app-id)))
+  [{:keys [columnvalues columnnames] :as _change}]
+  (app-id-from-columns columnnames columnvalues))
 
 (defn extract-tx-id [{:keys [columnvalues] :as _change}]
   (first columnvalues))
@@ -336,11 +332,9 @@
                          (seq triple-changes)
                          (seq attr-changes))
         [transactions-change] (transaction-changes-only change)
-        app-id (or (extract-app-id transactions-change)
-                   (extract-app-id (first attr-changes))
-                   (extract-app-id (first triple-changes)))]
+        app-id (extract-app-id transactions-change)]
     (update-users-shims! change users-shims)
-    (when (and some-changes transactions-change app-id)
+    (when (and some-changes app-id)
       {:attr-changes attr-changes
        :ident-changes ident-changes
        :triple-changes triple-changes

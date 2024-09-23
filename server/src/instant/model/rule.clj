@@ -66,7 +66,10 @@
               (map (fn [cel-issue]
                      {:message (.getMessage cel-issue)}))))))))
 
-(defn $users-validation-errors [rules action]
+(defn $users-validation-errors
+  "Only allow users to changes the `view` rules for $users, since we don't have
+   a way to create or update them from transactions."
+  [rules action]
   (case action
     ("create" "update" "delete")
     (when (not= (get-in rules ["$users" "allow" action])
