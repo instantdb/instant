@@ -19,6 +19,7 @@
     "publish-package": "npm publish --access public"
   },
   "devDependencies": {
+    "@types/uuid": "^8.3.4",
     "@babel/core": "^7.17.9",
     "@babel/preset-env": "^7.16.11",
     "@types/node": "^18.11.18",
@@ -31,7 +32,6 @@
   },
   "dependencies": {
     "@types/object-hash": "^3.0.3",
-    "@types/uuid": "^8.3.4",
     "mutative": "^1.0.10",
     "object-hash": "^3.0.0",
     "uuid": "^9.0.0"
