@@ -112,6 +112,12 @@ importers:
 
   packages/core:
     dependencies:
+      '@types/object-hash':
+        specifier: ^3.0.3
+        version: 3.0.6
+      '@types/uuid':
+        specifier: ^8.3.4
+        version: 8.3.4
       mutative:
         specifier: ^1.0.10
         version: 1.0.10
@@ -128,18 +134,9 @@ importers:
       '@babel/preset-env':
         specifier: ^7.16.11
         version: 7.24.4(@babel/core@7.24.4)
-      '@types/lodash':
-        specifier: ^4.14.182
-        version: 4.17.0
       '@types/node':
         specifier: ^18.11.18
         version: 18.19.31
-      '@types/object-hash':
-        specifier: ^3.0.3
-        version: 3.0.6
-      '@types/uuid':
-        specifier: ^8.3.4
-        version: 8.3.4
       '@types/websocket':
         specifier: ^1.0.5
         version: 1.0.10
@@ -7888,7 +7885,6 @@ packages:
 
   /@types/object-hash@3.0.6:
     resolution: {integrity: sha512-fOBV8C1FIu2ELinoILQ+ApxcUKz4ngq+IWUYrxSGjXzzjUALijilampwkMgEtJ+h2njAW3pi853QpzNVCHB73w==}
-    dev: true
 
   /@types/parse5@6.0.3:
     resolution: {integrity: sha512-SuT16Q1K51EAVPz1K29DJ/sXjhSQ0zjvsypYJ6tlwVsRV9jwW5Adq2ch8Dq8kDBCkYnELS7N7VNCSB5nC56t/g==}
@@ -7985,7 +7981,6 @@ packages:
 
   /@types/uuid@8.3.4:
     resolution: {integrity: sha512-c/I8ZRb51j+pYGAu5CrFMRxqZ2ke4y2grEBO5AUjgSkSk+qT2Ea+OdWElz/OiMf5MNpn2b17kuVBwZLQJXzihw==}
-    dev: true
 
   /@types/websocket@1.0.10:
     resolution: {integrity: sha512-svjGZvPB7EzuYS94cI7a+qhwgGU1y89wUgjT6E2wVUfmAGIvRfT7obBvRtnhXCSsoMdlG4gBFGE7MfkIXZLoww==}
