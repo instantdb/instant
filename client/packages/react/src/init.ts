@@ -26,9 +26,10 @@ import { InstantReactWeb } from "./InstantReactWeb";
  *  const db = init<Schema>({ appId: "my-app-id" })
  *
  */
-export function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
-  config: Config,
-) {
+export function init<
+  Schema extends {} = {},
+  RoomSchema extends RoomSchemaShape = {},
+>(config: Config) {
   return new InstantReactWeb<Schema, RoomSchema>(config);
 }
 

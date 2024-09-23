@@ -150,7 +150,7 @@ async function jsonFetch(
  *  const db = init<Schema>({ appId: "my-app-id" })
  *
  */
-function init<Schema = {}>(config: Config) {
+function init<Schema extends {} = {}>(config: Config) {
   return new InstantAdmin<Schema, false>(config);
 }
 
