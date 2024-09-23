@@ -978,12 +978,12 @@
 (defn schema-push-plan-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         client-defs (-> req :body :schema)]
-    (response/ok (schema-model/plan app-id client-defs))))
+    (response/ok (schema-model/plan! app-id client-defs))))
 
 (defn schema-push-apply-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         client-defs (-> req :body :schema)
-        r (schema-model/plan app-id client-defs)]
+        r (schema-model/plan! app-id client-defs)]
     (schema-model/apply-plan! app-id r)
     (response/ok r)))
 

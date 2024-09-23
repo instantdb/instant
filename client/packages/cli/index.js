@@ -68,13 +68,17 @@ program
   .command("push-schema")
   .argument("[ID]")
   .description("Pushes local instant.schema definition to production.")
-  .action(pushSchema);
+  .action(() => {
+    pushSchema();
+  });
 
 program
   .command("push-perms")
   .argument("[ID]")
   .description("Pushes local instant.perms rules to production.")
-  .action(pushPerms);
+  .action(() => {
+    pushPerms();
+  });
 
 program
   .command("push")
@@ -117,7 +121,9 @@ program.parse(process.argv);
 // command actions
 
 async function pushAll(appIdOrName) {
-  await pushSchema(appIdOrName);
+  const ok = await pushSchema(appIdOrName);
+  if (!ok) return;
+
   await pushPerms(appIdOrName);
 }
 
@@ -425,6 +431,8 @@ async function pushSchema(appIdOrName) {
   if (!applyRes.ok) return;
 
   console.log(chalk.green("Schema updated!"));
+
+  return true;
 }
 
 async function pushPerms(appIdOrName) {
@@ -455,6 +463,8 @@ async function pushPerms(appIdOrName) {
   if (!permsRes.ok) return;
 
   console.log(chalk.green("Permissions updated!"));
+
+  return true;
 }
 
 async function waitForAuthToken({ secret }) {
@@ -545,7 +555,9 @@ async function fetchJson({
 
         if (Array.isArray(errData?.hint?.errors)) {
           for (const error of errData.hint.errors) {
-            console.error(`${error.in.join("->")}: ${error.message}`);
+            console.error(
+              `${error.in ? error.in.join("->") + ": " : ""}${error.message}`,
+            );
           }
         }
       }

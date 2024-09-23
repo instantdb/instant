@@ -4,11 +4,15 @@
             [instant.jdbc.aurora :as aurora]
             [instant.db.datalog :as d]
             [instant.model.rule :as rule-model]
-            [instant.db.permissioned-transaction :as permissioned-tx])
+            [instant.db.permissioned-transaction :as permissioned-tx]
+            [instant.util.exception :as ex])
   (:import (java.util UUID)))
 
 (defn map-map [f m]
   (into {} (map (fn [[k v]] [k (f [k v])]) m)))
+
+(defn attr-ident-names [attr]
+  (keep seq [(attr-model/fwd-ident-name attr) (attr-model/rev-ident-name attr)]))
 
 (defn schemas->ops [current-schema new-schema]
   (let [{new-blobs :blobs new-refs :refs} new-schema
@@ -77,10 +81,12 @@
                                :cardinality (:cardinality new-attr)
                                :unique? (:unique? new-attr)
                                :index? (:index? new-attr)}])))
-                 new-refs)]
-    (->> (concat eid-ops blob-ops ref-ops)
-         (filter some?)
-         vec)))
+                 new-refs)
+        steps  (->> (concat eid-ops blob-ops ref-ops)
+                    (filter some?)
+                    vec)]
+
+    steps))
 
 (defn attrs->schema [attrs]
   (let [{blobs :blob refs :ref} (group-by :value-type attrs)
@@ -135,19 +141,68 @@
                                entities)]
     {:refs refs-indexed :blobs blobs-indexed}))
 
+(defn dup-message [etype label]
+  (str "Duplicate entry found for attribute: "
+       etype
+       "->"
+       label
+       ". "
+       "Check your schema file for duplicate link definitions."))
+
+(defn assert-unique-idents! [current-attrs steps]
+  (let [current-ident-names (->> current-attrs
+                                 (mapcat attr-ident-names)
+                                 (map vec))
+        ident-names (->>
+                     steps
+                     (mapcat (fn [[op data]]
+                               (when (= op :add-attr)
+                                 (attr-ident-names data)))))
+        dups (->> (concat current-ident-names ident-names)
+                  (frequencies)
+                  (filter (fn [[_ freq]] (> freq 1))))
+        errors (map (fn [[[etype label]]]
+                      {:in [:schema]
+                       :message (dup-message etype label)}) dups)]
+    (ex/assert-valid! :schema
+                      :steps
+                      errors)))
+
 ;; ---- 
 ;; API
 
-(defn plan
+(defn plan!
   [app-id client-defs]
   (let [new-schema (defs->schema client-defs)
         current-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
         current-schema (attrs->schema current-attrs)
         steps (schemas->ops current-schema new-schema)]
+    (assert-unique-idents! current-attrs steps)
     {:new-schema new-schema
      :current-schema current-schema
      :current-attrs current-attrs
      :steps steps}))
+
+(comment
+  (attr-ident-names {:id #uuid "",
+                     :value-type :blob,
+                     :cardinality :one,
+                     :forward-identity [#uuid "" "tags" "x"],
+                     :unique? false,
+                     :index? false,
+                     :inferred-types nil})
+  (schemas->ops
+   {:refs {}
+    :blobs {:ns {:a {:unique? "one"}}}}
+   {:refs {["comments" "post" "posts" "x"] {:unique? true :cardinality "one"}
+           ["comments" "post" "posts" "comments"] {:unique? true :cardinality "one"}}
+    :blobs {:ns {:a {:cardinality "many"} :b {:cardinality  "many"}}}})
+  (schemas->ops
+   {:refs {}
+    :blobs {:ns {:a {:unique? "one"}}}}
+   {:refs {["comments" "post" "posts" "comments"] {:unique? true :cardinality "one"}}
+    :blobs {:ns {:a {:cardinality "many"} :b {:cardinality  "many"}}}}))
+
 
 (defn apply-plan! [app-id {:keys [steps] :as _plan}]
   (let [ctx {:admin? true

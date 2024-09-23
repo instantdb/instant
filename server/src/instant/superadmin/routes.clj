@@ -131,12 +131,12 @@
 (defn app-schema-plan-post [req]
   (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
         client-defs (-> req :body :schema)]
-    (response/ok (schema-model/plan app-id client-defs))))
+    (response/ok (schema-model/plan! app-id client-defs))))
 
 (defn app-schema-apply-post [req]
   (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
         client-defs (-> req :body :schema)
-        plan (schema-model/plan app-id client-defs)]
+        plan (schema-model/plan! app-id client-defs)]
     (schema-model/apply-plan! app-id plan)
     (response/ok plan)))
 
