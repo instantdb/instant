@@ -111,9 +111,11 @@ export default function Devtool() {
     return (
       <div className="h-full w-full flex flex-col justify-center items-center gap-2">
         <div>Error loading app</div>
-        <pre className="p-1 bg-gray-100 max-w-sm w-full overflow-x-auto">
-          {JSON.stringify(dashResponse.error, null, '\t')}{' '}
-        </pre>
+        {!isEmptyObj(dashResponse.error) ? (
+          <pre className="p-1 bg-gray-100 max-w-sm w-full overflow-x-auto">
+            {JSON.stringify(dashResponse.error, null, '\t')}{' '}
+          </pre>
+        ) : null}
       </div>
     );
   }
@@ -248,3 +250,7 @@ function Help() {
 }
 
 const Code = twel('code', 'bg-gray-200 px-1 rounded text-xs font-mono');
+
+function isEmptyObj(obj: object) {
+  return Object.keys(obj).length === 0;
+}
