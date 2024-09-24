@@ -532,9 +532,9 @@
               [[:md5 [:cast :value :text]] :value-md5]
               [true :ea]
               [false :eav]
-              [false :av]
+              [true :av]
               [false :ave]
-              [false :vae]
+              [true :vae]
               [[:cast [:* 1000 [:extract [:epoch-from :created-at]]] :bigint] :created-at]]
      :from :users-triples-up-to-md5}]
    [:triples

@@ -264,11 +264,11 @@
                     attr-id
                     value
                     (-> value crypt-util/str->md5 crypt-util/bytes->hex-string)
-                    true
-                    false
-                    false
-                    false
-                    false
+                    true ; :ea
+                    false ; :eav
+                    true ; :av
+                    false ; :ave
+                    true ; :vae
                     created-at-ms]}))
 
 (defn $users-triples-changes
