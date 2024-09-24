@@ -1,13 +1,15 @@
 (ns instant.db.instaql-test
   (:require [clojure.test :as test :refer [deftest is testing]]
             [instant.jdbc.aurora :as aurora]
+            [instant.dash.routes :refer [insert-users-table!]]
             [instant.data.constants :refer [zeneca-app-id]]
             [instant.data.resolvers :as resolvers]
             [instant.db.transaction :as tx]
             [instant.db.instaql :as iq]
             [instant.db.model.attr :as attr-model]
-            [instant.fixtures :refer [with-zeneca-app with-zeneca-byop]]
+            [instant.fixtures :refer [with-zeneca-app with-zeneca-byop with-empty-app]]
             [instant.model.rule :as rule-model]
+            [instant.model.app-user :as app-user-model]
             [instant.db.datalog :as d]
             [instant.admin.model :as admin-model]
             [instant.admin.routes :as admin-routes]
@@ -1645,6 +1647,231 @@
         :triples #{}
         :aggregate [{:count 4}
                     {:count 392}]}))))
+
+
+;; -----------
+;; Users table
+
+(deftest users-table-queries
+  (with-empty-app
+    (fn [app]
+      (let [query-pretty' (fn [q]
+                            (let [attrs (attr-model/get-by-app-id aurora/conn-pool (:id app))]
+                              (query-pretty {:db {:conn-pool aurora/conn-pool}
+                                             :app-id (:id app)
+                                             :attrs attrs}
+                                            (resolvers/make-movies-resolver (:id app))
+                                            q)))
+            first-id (random-uuid)
+            second-id (random-uuid)
+
+            users [{:id first-id
+                    :email "first@example.com"
+                    :app-id (:id app)}
+                   {:id second-id
+                    :email "second@example.com"
+                    :app-id (:id app)}]]
+        (doseq [user users]
+          (app-user-model/create! user))
+
+        (is-pretty-eq? (query-pretty' {:$users {}})
+                       '({:topics ([:ea _ _ _] [:eav _ _ _]), :triples ()}))
+
+        (insert-users-table! aurora/conn-pool (:id app))
+
+        (is-pretty-eq?
+         (query-pretty' {:$users {}})
+         [{:topics
+           [[:ea '_ #{:$users/id} '_]
+            '--
+            [:ea #{first-id} #{:$users/email :$users/id} '_]
+            '--
+            [:ea #{second-id} #{:$users/email :$users/id} '_]],
+           :triples
+           [[second-id :$users/id (str second-id)]
+            [first-id :$users/id (str first-id)]
+            '--
+            [second-id :$users/email "second@example.com"]
+            [second-id :$users/id (str second-id)]
+            '--
+            [first-id :$users/id (str first-id)]
+            [first-id :$users/email "first@example.com"]]}])
+
+        (is-pretty-eq?
+         (query-pretty' {:$users {:$ {:where {:email "first@example.com"}}}})
+         [{:topics
+           [[:av '_ #{:$users/email} #{"first@example.com"}]
+            '--
+            [:ea #{first-id} #{:$users/email :$users/id} '_]],
+           :triples
+           [[first-id :$users/id (str first-id)]
+            '--
+            [first-id :$users/id (str first-id)]
+            [first-id :$users/email "first@example.com"]]}])))))
+
+(deftest users-table-read-permissions
+  (with-empty-app
+    (fn [app]
+      (let [make-ctx (fn []
+                       (let [attrs (attr-model/get-by-app-id aurora/conn-pool (:id app))]
+                         {:db {:conn-pool aurora/conn-pool}
+                          :app-id (:id app)
+                          :attrs attrs}))
+            first-id (random-uuid)
+            second-id (random-uuid)
+
+            users [{:id first-id
+                    :email "first@example.com"
+                    :app-id (:id app)}
+                   {:id second-id
+                    :email "second@example.com"
+                    :app-id (:id app)}]]
+        (doseq [user users]
+          (app-user-model/create! user))
+
+        (insert-users-table! aurora/conn-pool (:id app))
+
+        (testing "default rules let you see no users without auth"
+          (is (= (pretty-perm-q (make-ctx) {:$users {}})
+                 {:$users []})))
+
+        (testing "default rules let you view yourself"
+          (is (= (pretty-perm-q (assoc (make-ctx)
+                                       :current-user (first users))
+                                {:$users {}})
+                 {:$users [{:email (:email (first users))
+                            :id (str (:id (first users)))}]})))))))
+
+(deftest users-table-references
+  (with-zeneca-app
+    (fn [app r0]
+      (insert-users-table! aurora/conn-pool (:id app))
+      (let [make-ctx (fn []
+                       (let [attrs (attr-model/get-by-app-id aurora/conn-pool (:id app))]
+                         {:db {:conn-pool aurora/conn-pool}
+                          :app-id (:id app)
+                          :attrs attrs}))
+
+            attr-id (random-uuid)
+            _ (tx/transact! aurora/conn-pool
+                            (:id app)
+                            [[:add-attr {:id attr-id
+                                         :forward-identity [(random-uuid) "books" "$user-creator"]
+                                         :reverse-identity [(random-uuid) "$users" "books"]
+                                         :unique? false
+                                         :index? false
+                                         :value-type :ref
+                                         :cardinality :one}]
+                             [:add-triple
+                              (resolvers/->uuid r0 "eid-sum")
+                              attr-id
+                              (str (resolvers/->uuid r0 "eid-alex"))]])
+            r1 (resolvers/make-zeneca-resolver (:id app))]
+
+        (testing "forward reference"
+          (is-pretty-eq?
+           (query-pretty (make-ctx)
+                         r1
+                         {:books {:$ {:where {"$user-creator.email" "alex@instantdb.com"}}}})
+           [{:topics
+             [[:av '_ #{:$users/email} #{"alex@instantdb.com"}]
+              [:vae '_ #{:books/$user-creator} #{"eid-alex"}]
+              '--
+              [:ea
+               #{"eid-sum"}
+               #{:books/pageCount
+                 :books/$user-creator
+                 :books/isbn13
+                 :books/description
+                 :books/id
+                 :books/thumbnail
+                 :books/title}
+               '_]],
+             :triples
+             [["eid-sum" :books/$user-creator "eid-alex"]
+              ["eid-alex" :$users/email "alex@instantdb.com"]
+              '--
+              ["eid-sum" :books/pageCount 107]
+              ["eid-sum"
+               :books/thumbnail
+               "http://books.google.com/books/content?id=-cjWiI8DEywC&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api"]
+              ["eid-sum" :books/$user-creator "eid-alex"]
+              ["eid-sum" :books/title "Sum"]
+              ["eid-sum" :books/id "eid-sum"]
+              ["eid-sum"
+               :books/description
+               "At once funny, wistful and unsettling, Sum is a dazzling exploration of unexpected afterlives—each presented as a vignette that offers a stunning lens through which to see ourselves in the here and now. In one afterlife, you may find that God is the size of a microbe and unaware of your existence. In another version, you work as a background character in other people’s dreams. Or you may find that God is a married couple, or that the universe is running backward, or that you are forced to live out your afterlife with annoying versions of who you could have been. With a probing imagination and deep understanding of the human condition, acclaimed neuroscientist David Eagleman offers wonderfully imagined tales that shine a brilliant light on the here and now. From the Trade Paperback edition."]]}]))
+
+        (testing "reverse reference"
+          (is-pretty-eq?
+           (query-pretty (make-ctx)
+                         r1
+                         {:$users {:$ {:where {"books.title" "Sum"}}}})
+           [{:topics
+             [[:ea '_ #{:books/title} #{"Sum"}]
+              [:eav #{"eid-sum"} #{:books/$user-creator} '_]
+              '--
+              [:ea #{"eid-alex"} #{:$users/email :$users/id} '_]],
+             :triples
+             [["eid-sum" :books/$user-creator "eid-alex"]
+              ["eid-sum" :books/title "Sum"]
+              '--
+              ["eid-alex" :$users/id (str (resolvers/->uuid r0 "eid-alex"))]
+              ["eid-alex" :$users/email "alex@instantdb.com"]]}]))))))
+
+(deftest users-table-perms-with-references
+  (with-zeneca-app
+    (fn [app r0]
+      (insert-users-table! aurora/conn-pool (:id app))
+      (let [make-ctx (fn []
+                       (let [attrs (attr-model/get-by-app-id aurora/conn-pool (:id app))]
+                         {:db {:conn-pool aurora/conn-pool}
+                          :app-id (:id app)
+                          :attrs attrs}))
+
+            attr-id (random-uuid)
+            _ (tx/transact! aurora/conn-pool
+                            (:id app)
+                            [[:add-attr {:id attr-id
+                                         :forward-identity [(random-uuid) "books" "$user-creator"]
+                                         :reverse-identity [(random-uuid) "$users" "books"]
+                                         :unique? false
+                                         :index? false
+                                         :value-type :ref
+                                         :cardinality :one}]
+                             [:add-triple
+                              (resolvers/->uuid r0 "eid-sum")
+                              attr-id
+                              (str (resolvers/->uuid r0 "eid-alex"))]])
+            r1 (resolvers/make-zeneca-resolver (:id app))]
+
+        (testing "forward reference"
+          (is (= (-> (pretty-perm-q (assoc (make-ctx)
+                                           :current-user {:id (resolvers/->uuid r1 "eid-mark")})
+                                    {:books {:$ {:where {"$user-creator.email" "alex@instantdb.com"}}}})
+                     :books)
+                 []))
+
+          (is (= (-> (pretty-perm-q (assoc (make-ctx)
+                                           :current-user {:id (resolvers/->uuid r1 "eid-alex")})
+                                    {:books {:$ {:where {"$user-creator.email" "alex@instantdb.com"}}}})
+                     :books
+                     (#(map :title %)))
+                 ["Sum"])))
+
+        (testing "reverse reference"
+          (is (= (-> (pretty-perm-q (assoc (make-ctx)
+                                           :current-user {:id (resolvers/->uuid r1 "eid-mark")})
+                                    {:$users {:$ {:where {"books.title" "Sum"}}}})
+                     :$users)
+                 []))
+
+          (is (= (-> (pretty-perm-q (assoc (make-ctx)
+                                           :current-user {:id (resolvers/->uuid r1 "eid-alex")})
+                                    {:$users {:$ {:where {"books.title" "Sum"}}}})
+                     :$users
+                     (#(map :email %)))
+                 ["alex@instantdb.com"])))))))
 
 (comment
   (test/run-tests *ns*))
