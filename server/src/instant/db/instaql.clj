@@ -1494,9 +1494,13 @@
                   etype
                   eid]
   (let [datalog-query [[:ea eid (attr-model/attr-ids-for-etype etype attrs)]]
-        datalog-result (or (get query-cache datalog-query)
-                           (datalog-query-fn ctx datalog-query))]
-
+        datalog-result
+        (or (get query-cache datalog-query)
+            (datalog-query-fn (merge ctx
+                                     (when (= etype "$users")
+                                       {:users-shim-info
+                                        (attr-model/users-shim-info (:attrs ctx))}))
+                              datalog-query))]
     (entity-model/datalog-result->map ctx datalog-result)))
 
 (defn extract-refs
