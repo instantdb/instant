@@ -381,6 +381,27 @@
               (is (= 200 (:status delete-user-ret)))
               (is (= email (-> delete-user-ret :body :deleted :email))))))))))
 
+(deftest ignore-id-in-transaction
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token :as _app}]
+      (let [expected-id (UUID/randomUUID)
+            id-to-ignore (UUID/randomUUID)
+            update-step ["update" "items" expected-id {"id" id-to-ignore "name" "book"}]
+            update-tx (transact-post
+                       {:body {:steps [update-step]}
+                        :headers {"app-id" (str app-id)
+                                  "authorization" (str "Bearer " admin-token)}})
+
+            _ (is (= 200 (:status update-tx)))
+
+            items-query (query-post
+                         {:body {:query {:items {}}}
+                          :headers {"app-id" (str app-id)
+                                    "authorization" (str "Bearer " admin-token)}})
+            actual-items (-> (items-query :body) (get "items"))]
+        (is (= 1 (count actual-items)))
+        (is (= expected-id (-> (first actual-items) (get "id") UUID/fromString)))))))
+
 (deftest link-unlink-multi
   (with-empty-app
     (fn [{app-id :id admin-token :admin-token :as _app}]
