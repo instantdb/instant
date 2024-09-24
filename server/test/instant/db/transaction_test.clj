@@ -1,5 +1,6 @@
 (ns instant.db.transaction-test
   (:require [clojure.test :as test :refer [deftest is are testing]]
+            [instant.dash.routes :refer [insert-users-table!]]
             [instant.db.model.attr :as attr-model]
             [instant.db.transaction :as tx]
             [instant.jdbc.aurora :as aurora]
@@ -1711,6 +1712,47 @@
                  (->> (attr-model/get-by-app-id aurora/conn-pool app-id)
                       (attr-model/seek-by-id attr-id)
                       :inferred-types))))))))
+
+(deftest rejects-users-attrs
+  (with-empty-app
+    (fn [{app-id :id}]
+      (validation-err?
+        (tx/transact! aurora/conn-pool
+                      app-id
+                      [[:add-attr {:id (random-uuid)
+                                   :forward-identity [(random-uuid) "$users" "id"]
+                                   :value-type :blob
+                                   :cardinality :one
+                                   :unique? false
+                                   :index? false}]])))))
+
+
+(deftest perms-rejects-writes-to-users-table
+  (with-empty-app
+    (fn [{app-id :id}]
+      (insert-users-table! aurora/conn-pool app-id)
+      (let [r (resolvers/make-movies-resolver app-id)
+            id (random-uuid)
+            make-ctx (fn [] {:db {:conn-pool aurora/conn-pool}
+                             :app-id app-id
+                             :attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id aurora/conn-pool {:app-id app-id})
+                             :current-user nil})]
+        (validation-err?
+          (permissioned-tx/transact! (make-ctx)
+                                     [[:add-triple id (resolvers/->uuid r :$users/id) (str id)]]))
+        (validation-err?
+          (permissioned-tx/transact! (make-ctx)
+                                     [[:retract-triple id (resolvers/->uuid r :$users/id) (str id)]]))
+
+        (validation-err?
+          (permissioned-tx/transact! (make-ctx)
+                                     [[:deep-merge-triple id (resolvers/->uuid r :$users/id) {:hello :world}]]))
+
+        (validation-err?
+          (permissioned-tx/transact! (make-ctx)
+                                     [[:delete-entity id "$users"]]))))))
 
 (comment
   (test/run-tests *ns*))

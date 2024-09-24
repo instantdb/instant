@@ -928,18 +928,19 @@
   "Creates the users table and adds rules.
    Returns the full set of rules."
   [conn-pool app-id]
-  (next-jdbc/with-transaction [tx-conn conn-pool]
-    (let [rules (rule-model/merge! {:app-id app-id
-                                    :code {:$users {:allow {:view "auth.id == data.id"
-                                                            :create "false"
-                                                            :update "false"
-                                                            :delete "false"}}}})]
-      (attr-model/insert-multi! tx-conn
-                                app-id
-                                (attr-model/gen-users-shim-attrs)
-                                {:allow-reserved-names? true})
-      (transaction-model/create! tx-conn {:app-id app-id})
-      rules)))
+  (let [current-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)]
+    (next-jdbc/with-transaction [tx-conn conn-pool]
+      (let [rules (rule-model/merge! {:app-id app-id
+                                      :code {:$users {:allow {:view "auth.id == data.id"
+                                                              :create "false"
+                                                              :update "false"
+                                                              :delete "false"}}}})]
+        (attr-model/insert-multi! tx-conn
+                                  app-id
+                                  (attr-model/gen-users-shim-attrs current-attrs)
+                                  {:allow-reserved-names? true})
+        (transaction-model/create! tx-conn {:app-id app-id})
+        rules))))
 
 (defn enable-users-table
   "Creates the rules for the $users table and the $users attributes that enable the table.

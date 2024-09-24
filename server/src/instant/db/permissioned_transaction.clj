@@ -405,6 +405,27 @@
       (cel/prefetch-data-refs ctx refs)
       {})))
 
+(defn validate-reserved-names!
+  "Throws a validation error if the users tries to add triples to the $users table"
+  [attrs tx-steps]
+  (doseq [tx-step tx-steps
+          :let [etype (case (first tx-step)
+                        (:add-triple :deep-merge-triple :retract-triple)
+                        (let [[_op _eid aid] tx-step]
+                          (-> (attr-model/seek-by-id aid attrs)
+                              attr-model/fwd-etype))
+
+                        :delete-entity
+                        (let [[_op _eid etype] tx-step]
+                          etype)
+
+                        nil)]
+          :when (= "$users" etype)]
+    (ex/throw-validation-err!
+     :tx-step
+     tx-step
+     [{:message "The $users namespace is read-only. It can't be modified."}])))
+
 (defn lock-tx-on! [tx-conn big-int]
   (sql/execute! tx-conn ["SELECT pg_advisory_xact_lock(?)" big-int]))
 
@@ -429,6 +450,7 @@
   [{:keys [db app-id admin? admin-check? admin-dry-run? attrs] :as ctx} tx-steps]
   (tracer/with-span! {:name "permissioned-transaction/transact!"
                       :attributes {:app-id app-id}}
+    (validate-reserved-names! attrs tx-steps)
     (let [{:keys [conn-pool]} db]
       (next-jdbc/with-transaction [tx-conn conn-pool]
         ;; transact does read and then a write.

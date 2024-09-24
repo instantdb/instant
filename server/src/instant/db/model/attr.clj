@@ -514,19 +514,22 @@
       {:email-attr-id (:id email-attr)
        :id-attr-id (:id id-attr)})))
 
-(defn gen-users-shim-attrs []
-  [{:id (random-uuid)
-    :forward-identity [(random-uuid) "$users" "id"]
-    :unique? true
-    :index? false
-    :value-type :blob
-    :cardinality :one}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$users" "email"]
-    :unique? true
-    :index? false
-    :value-type :blob
-    :cardinality :one}])
+(defn gen-users-shim-attrs [attrs]
+  (keep identity
+        [(when-not (seek-by-fwd-ident-name ["$users" "id"] attrs)
+           {:id (random-uuid)
+            :forward-identity [(random-uuid) "$users" "id"]
+            :unique? true
+            :index? false
+            :value-type :blob
+            :cardinality :one})
+         (when-not (seek-by-fwd-ident-name ["$users" "email"] attrs)
+           {:id (random-uuid)
+            :forward-identity [(random-uuid) "$users" "email"]
+            :unique? true
+            :index? false
+            :value-type :blob
+            :cardinality :one})]))
 
 ;; ------
 ;; play
