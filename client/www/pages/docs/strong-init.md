@@ -55,7 +55,7 @@ Previously, all responses in a `useQuery` returned arrays. Now, we can use your 
 Since the new `useQuery` is schema-aware, we know when to return a single item instead of an array. 🎉 Bear in mind that if you're migrating from `init`, you'll need to update all of your call sites that reference these "has-one" relationships.
 
 ```ts
-const { data } = useQuery({ users: { author: {} }});
+const { data } = useQuery({ users: { author: {} } });
 const firstUser = data.users[0];
 
 // before
@@ -84,4 +84,61 @@ const db = init_experimental({
   appId: '__APP_ID__',
   schema: schema.withRoomSchema<RoomSchema>(),
 });
+```
+
+## Reusable types
+
+Sometimes, you'll want to abstract out your query and result types. For example, a query's result might be consumed across multiple React components, each with their own prop types. For such cases, we provide `InstantQuery` and `InstantQueryResult`.
+
+To declare a query and validate it's type against your schema, you can import `InstantQuery` and leverage [TypeScript's `satisfies` operator](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-9.html#the-satisfies-operator) like so: `const myQuery = { myTable: {} } satisfies InstantQuery<DB>;`.
+
+To obtain the resolved result type of your query, import `InstantQueryResult` and provide it your DB and query types `const myQueryResult = InstantQueryResult<DB, typeof myQuery>`.
+
+Here's a full sample demonstranting reusable query types.
+
+```tsx
+import {
+  i,
+  init_experimental,
+  type InstantQuery,
+  type InstantQueryResult,
+} from '@instantdb/react';
+import config from '../../config';
+
+const schema = i.graph(
+  {
+    todos: i.entity({
+      text: i.string(),
+      completed: i.boolean(),
+    }),
+  },
+  {}
+);
+
+const db = init_experimental({
+  ...config,
+  schema,
+});
+
+type DB = typeof db;
+
+const todosQuery = {
+  todos: {},
+} satisfies InstantQuery<DB>;
+
+export type Todos = InstantQueryResult<DB, typeof todosQuery>['todos'];
+
+export function TodoApp() {
+  const result = db.useQuery(todosQuery);
+
+  if (!result.data) return null;
+
+  return <TodoList todos={result.data.todos} />;
+}
+
+// a react component using `Todos`
+function TodoList({ todos }: { todos: Todos }) {
+  // render todos...
+  return 'Number of todos: ' + todos.length;
+}
 ```
