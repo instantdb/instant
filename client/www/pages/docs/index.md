@@ -8,7 +8,7 @@ Instant is the Modern Firebase. With Instant you can easily build realtime and c
 
 Curious about what it's all about? Try a {% blank-link href="https://instantdb.com/tutorial" label="demo" /%}. Have questions? {% blank-link href="https://discord.com/invite/VU53p7uQcE" label="Join us on discord!" /%}
 
-And if you're ready, follow the quick start below, to build a live app in less than 5 minutes! 
+And if you're ready, follow the quick start below, to build a live app in less than 5 minutes!
 
 ---
 
@@ -257,3 +257,11 @@ export default App
 Go to `localhost:3000` and follow the final instruction to load the app!
 
 Huzzah 🎉 You've got your first Instant web app running! Check out the [**Explore**](/docs/init) section to learn more about how to use Instant :)
+
+{% callout type="note" %}
+
+**Level up your app!**
+
+Instant also support a [CLI-based workflow](/docs/cli) and [schema-as-code](/docs/schema), plus we're piloting [strictly-typed queries and mutations](/docs/strong-init).
+
+{% /callout %}
