@@ -145,7 +145,7 @@
                            "_etype" etype))})))}))
 
 (defn object-view-check
-  [{:keys [attrs rules current-user] :as ctx} etype eid triples]
+  [{:keys [rules current-user] :as ctx} etype eid triples]
   (let [original (entity-model/triples->map ctx triples)
         program (rule-model/get-program! rules etype "view")]
     {:scope :object

@@ -3,7 +3,6 @@
   (:require
    [honey.sql :as hsql]
    [instant.db.transaction :as tx]
-   [instant.db.model.attr :as attr-model]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [clojure.java.io :as io]
@@ -102,7 +101,7 @@
   ;; Maybe we clean it up later, but we don't really need to right now.
   ;; One idea for a cleanup, is to create an "exported app" file.
   ;; We can then write a function that works on this kind of file schema.
-  (tool/time-tag :delete (attr-model/delete-by-app-id! aurora/conn-pool app-id))
+  (attr-model/delete-by-app-id! aurora/conn-pool app-id)
   (let [txes (extract-zeneca-txes)
         _ (tx/transact!
            aurora/conn-pool
