@@ -169,8 +169,8 @@
 (defn expand-delete-attr [_ [id]]
   [[:delete-attr id]])
 
-(defn remove-id-from-step [[op ns eid obj]]
-  [op ns eid (dissoc obj "id")])
+(defn remove-id-from-step [[op etype eid obj]]
+  [op etype eid (dissoc obj "id")])
 
 (defn to-tx-steps [attrs step]
   (let [[action & args] (remove-id-from-step step)]
