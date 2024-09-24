@@ -29,7 +29,7 @@ const todosQuery = {
 
 export type Todos = InstantQueryResult<DB, typeof todosQuery>["todos"];
 
-export function TodoApp() {
+export default function TodoApp() {
   const result = db.useQuery(todosQuery);
 
   if (!result.data) return null;
