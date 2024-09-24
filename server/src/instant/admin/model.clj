@@ -169,16 +169,20 @@
 (defn expand-delete-attr [_ [id]]
   [[:delete-attr id]])
 
-(defn to-tx-steps [attrs [action & args]]
-  (case action
-    "update" (expand-update attrs args)
-    "merge" (expand-merge attrs args)
-    "link"   (expand-link attrs args)
-    "unlink" (expand-unlink attrs args)
-    "delete" (expand-delete attrs args)
-    "add-attr" (expand-add-attr attrs args)
-    "delete-attr" (expand-delete-attr attrs args)
-    (throw (ex-info (str "unsupported action " action) {}))))
+(defn remove-id-from-step [[op etype eid obj]]
+  [op etype eid (dissoc obj "id")])
+
+(defn to-tx-steps [attrs step]
+  (let [[action & args] (remove-id-from-step step)]
+    (case action
+      "update" (expand-update attrs args)
+      "merge" (expand-merge attrs args)
+      "link"   (expand-link attrs args)
+      "unlink" (expand-unlink attrs args)
+      "delete" (expand-delete attrs args)
+      "add-attr" (expand-add-attr attrs args)
+      "delete-attr" (expand-delete-attr attrs args)
+      (throw (ex-info (str "unsupported action " action) {})))))
 
 (defn create-object-attr
   ([etype label] (create-object-attr etype label nil))
