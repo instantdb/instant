@@ -13,10 +13,14 @@
    [instant.jdbc.sql :as sql]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
-   [instant.util.string :as string-util]))
+   [instant.util.string :as string-util]
+   [instant.util.uuid :as uuid-util]))
 
 (defn extract-etype [{:keys [attrs]} attr-id]
   (attr-model/fwd-etype (attr-model/seek-by-id attr-id attrs)))
+
+(defn extract-rev-etype [{:keys [attrs]} attr-id]
+  (attr-model/rev-etype (attr-model/seek-by-id attr-id attrs)))
 
 ;; --------------
 ;; Check Commands
@@ -140,12 +144,63 @@
                            "_ctx" ctx
                            "_etype" etype))})))}))
 
+(defn object-view-check
+  [{:keys [attrs rules current-user] :as ctx} etype eid triples]
+  (let [original (entity-model/triples->map ctx triples)
+        program (rule-model/get-program! rules etype "view")]
+    {:scope :object
+     :etype (keyword etype)
+     :action :view
+     :eid eid
+     :program program
+     :check (fn [ctx]
+              (if-not program
+                true
+                (cel/eval-program!
+                 program
+                 {"auth"
+                  (cel/->cel-map (<-json (->json current-user)))
+                  "data"
+                  (cel/->cel-map
+                   (assoc  (<-json (->json original))
+                           "_ctx" ctx
+                           "_etype" etype))})))}))
+
 (defn object-check [ctx etype eid action tx-steps triples]
   (condp = action
     :update
     (object-upsert-check ctx etype eid tx-steps triples)
     :delete
-    (object-delete-check ctx etype eid triples)))
+    (object-delete-check ctx etype eid triples)
+    :view
+    (object-view-check ctx etype eid triples)))
+
+(defn throw-mismatched-lookup-ns! [tx-step]
+  (ex/throw-validation-err!
+   :tx-step
+   tx-step
+   [{:message (string-util/multiline->single-line
+               "Invalid transaction. The namespace in the lookup attribute is
+                different from the namespace of the attribute that is
+                being set")}]))
+
+(defn throw-unknown-lookup! [eid tx-step]
+  (ex/throw-validation-err!
+   :lookup
+   eid
+   [{:message
+     "Invalid lookup. Could not determine namespace from lookup attribute."
+     :tx-step tx-step}]))
+
+(defn extract-lookup-etype! [ctx eid aid-etype tx-step]
+  ;; If it's a lookup ref, use the lookup attr
+  ;; as the etype
+  (let [lookup-etype (extract-etype ctx (first eid))]
+    (when (not lookup-etype)
+      (throw-unknown-lookup! eid tx-step))
+    (when (and aid-etype (not= aid-etype lookup-etype))
+      (throw-mismatched-lookup-ns! tx-step))
+    lookup-etype))
 
 (defn group-object-tx-steps
   "Groups tx-steps by etype, eid, and action.
@@ -172,47 +227,48 @@
    }"
   [ctx tx-steps]
   (reduce (fn [acc tx-step]
-            (let [[action eid aid] tx-step
-                  aid-etype (if (= action :delete-entity)
+            (let [[op eid aid value] tx-step
+                  aid-etype (if (= op :delete-entity)
                               aid
                               (extract-etype ctx aid))
                   etype (if (sequential? eid)
-                          ;; If it's a lookup ref, use the lookup attr
-                          ;; as the etype
-                          (let [lookup-etype (extract-etype ctx (first eid))]
-                            (when (not lookup-etype)
-                              (ex/throw-validation-err!
-                               :lookup
-                               eid
-                               [{:message (string-util/multiline->single-line
-                                           "Invalid lookup. Could not determine
-                                            namespace from lookup attribute.")
-                                 :tx-step tx-step}]))
-                            (when (and aid-etype (not= aid-etype lookup-etype))
-                              (ex/throw-validation-err!
-                               :tx-step
-                               tx-step
-                               [{:message (string-util/multiline->single-line
-                                           "Invalid transaction. The namespace
-                                            in the lookup attribute is different
-                                            from the namespace of the attribute
-                                            that is being set")}]))
-                            lookup-etype)
+                          (extract-lookup-etype! ctx eid aid-etype tx-step)
                           aid-etype)
                   ;; If we know the etype from the lookup for delete-entity,
                   ;; but the client hasn't been updated to provide it, then
                   ;; we can patch the `delete-entity` step to include it
-                  patched-step (if (and (= action :delete-entity)
+                  patched-step (if (and (= op :delete-entity)
                                         (not aid)
                                         etype)
-                                 [action eid etype]
-                                 tx-step)]
-              (update acc
-                      {:eid eid
-                       :etype etype
-                       :action (tx-object-action-type tx-step)}
-                      (fnil conj [])
-                      patched-step)))
+                                 [op eid etype]
+                                 tx-step)
+
+                  [rev-etype rev-eid] (if (= :op "delete-entity")
+                                        nil
+                                        (when-let [rev-etype (extract-rev-etype ctx aid)]
+                                          (when (sequential? value)
+                                            ;; prevent mismatched etype in the lookup
+                                            (extract-lookup-etype! ctx value rev-etype tx-step))
+                                          [rev-etype (if (sequential? value)
+                                                       value
+                                                       (if-let [e (uuid-util/coerce value)]
+                                                         e
+                                                         (ex/throw-validation-err!
+                                                          :eid
+                                                          value
+                                                          [{:message "Expected link value to be a uuid."
+                                                            :hint {:tx-step tx-step}}])))]))]
+              (cond-> acc
+                true (update {:eid eid
+                              :etype etype
+                              :action (tx-object-action-type tx-step)}
+                             (fnil conj [])
+                             patched-step)
+                rev-etype (update {:eid rev-eid
+                                   :etype rev-etype
+                                   :action :view}
+                                  (fnil conj [])
+                                  patched-step))))
           {}
           tx-steps))
 

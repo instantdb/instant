@@ -7,6 +7,7 @@
             [instant.fixtures :refer [with-empty-app with-zeneca-app]]
             [instant.db.model.triple :as triple-model]
             [instant.model.app :as app-model]
+            [instant.model.app-user :as app-user-model]
             [instant.data.bootstrap :as bootstrap]
             [instant.data.constants :refer [test-user-id]]
             [instant.db.permissioned-transaction :as permissioned-tx]
@@ -1753,6 +1754,44 @@
         (validation-err?
           (permissioned-tx/transact! (make-ctx)
                                      [[:delete-entity id "$users"]]))))))
+
+(deftest perms-accepts-writes-to-reverse-links-to-users-table
+  (with-empty-app
+    (fn [{app-id :id}]
+      (insert-users-table! aurora/conn-pool app-id)
+      (let [r (resolvers/make-movies-resolver app-id)
+            book-id-attr-id (random-uuid)
+            book-creator-attr-id (random-uuid)
+            book-id (random-uuid)
+            user-id (random-uuid)
+            make-ctx (fn [] {:db {:conn-pool aurora/conn-pool}
+                             :app-id app-id
+                             :attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id aurora/conn-pool {:app-id app-id})
+                             :current-user nil})
+            tx-steps [[:add-attr {:id book-id-attr-id
+                                  :forward-identity [(random-uuid) "books" "id"]
+                                  :value-type :blob
+                                  :cardinality :one
+                                  :unique? true
+                                  :index? false}]
+                      [:add-attr {:id book-creator-attr-id
+                                  :forward-identity [(random-uuid) "books" "creator"]
+                                  :reverse-identity [(random-uuid) "$users" "books"]
+                                  :value-type :ref
+                                  :cardinality :one
+                                  :unique? true
+                                  :index? false}]
+                      [:add-triple book-id book-id-attr-id book-id]
+                      [:add-triple book-id book-creator-attr-id user-id]]]
+        (app-user-model/create! aurora/conn-pool {:app-id app-id
+                                                  :id user-id
+                                                  :email "test@example.com"})
+        (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps))
+        ;; XXX: Need to get some feedback on whether this is the right thing to do
+        (permissioned-tx/transact! (assoc (make-ctx)
+                                          :current-user {:id user-id}) tx-steps)))))
 
 (comment
   (test/run-tests *ns*))

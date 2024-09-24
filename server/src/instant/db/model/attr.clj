@@ -113,6 +113,10 @@
 (def fwd-label
   "Given an attr, return it's forward label"
   (comp last :forward-identity))
+
+(def rev-etype
+  "Given an attr, return it's reverse etype or nil"
+  (comp second :reverse-identity))
 ;; ---
 ;; delete-by-app-id!
 
