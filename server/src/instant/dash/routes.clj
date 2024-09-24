@@ -924,6 +924,23 @@
                               :title title})
     (response/ok {})))
 
+(defn insert-users-table!
+  "Creates the users table and adds rules.
+   Returns the full set of rules."
+  [conn-pool app-id]
+  (next-jdbc/with-transaction [tx-conn conn-pool]
+    (let [rules (rule-model/merge! {:app-id app-id
+                                    :code {:$users {:allow {:view "auth.id == data.id"
+                                                            :create "false"
+                                                            :update "false"
+                                                            :delete "false"}}}})]
+      (attr-model/insert-multi! tx-conn
+                                app-id
+                                (attr-model/gen-users-shim-attrs)
+                                {:allow-reserved-names? true})
+      (transaction-model/create! tx-conn {:app-id app-id})
+      rules)))
+
 (defn enable-users-table
   "Creates the rules for the $users table and the $users attributes that enable the table.
    We prevent users from creating new attributes in the `$users` namespace, so we need a
@@ -931,17 +948,7 @@
    the admin can still delete the $users attributes."
   [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        rules (rule-model/merge! {:app-id app-id
-                                  :code {:$users {:allow {:view "auth.id == data.id"
-                                                          :create "false"
-                                                          :update "false"
-                                                          :delete "false"}}}})]
-    (next-jdbc/with-transaction [tx-conn aurora/conn-pool]
-      (attr-model/insert-multi! tx-conn
-                                app-id
-                                (attr-model/gen-users-shim-attrs)
-                                {:allow-reserved-names? true})
-      (transaction-model/create! tx-conn {:app-id app-id}))
+        rules (insert-users-table! aurora/conn-pool app-id)]
     (response/ok {:rules rules})))
 
 ;; ---
