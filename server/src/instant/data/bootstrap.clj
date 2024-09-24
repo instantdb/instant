@@ -9,6 +9,8 @@
    [clojure.java.io :as io]
    [clojure.string :as string]
    [instant.util.json :refer [<-json ->json]]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.model.entity :as entity-model]
    [instant.db.model.triple :as triple-model]
    [instant.util.spec :as uspec])
   (:import
@@ -100,17 +102,30 @@
   ;; Maybe we clean it up later, but we don't really need to right now.
   ;; One idea for a cleanup, is to create an "exported app" file.
   ;; We can then write a function that works on this kind of file schema.
-  (attr-model/delete-by-app-id! aurora/conn-pool app-id)
-  (let [txes (extract-zeneca-txes)]
+  (tool/time-tag :delete (attr-model/delete-by-app-id! aurora/conn-pool app-id))
+  (let [txes (extract-zeneca-txes)
+        _ (tx/transact!
+           aurora/conn-pool
+           app-id
+           txes)
+        triples (triple-model/fetch
+                 aurora/conn-pool
+                 app-id)
+        attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
+        users (for [[_ group] (group-by first (map :triple triples))
+                    :when (= (attr-model/fwd-etype
+                              (attr-model/seek-by-id (second (first group))
+                                                     attrs))
+                             "users")
+                    :let [{:strs [email id]}
+                          (entity-model/triples->map {:attrs attrs} group)]]
+                {:email email
+                 :id id
+                 :app-id app-id})]
+    (sql/execute! aurora/conn-pool (hsql/format {:insert-into :app-users
+                                                 :values users}))
 
-    (tx/transact!
-     aurora/conn-pool
-     app-id
-     txes)
-
-    (count (triple-model/fetch
-            aurora/conn-pool
-            app-id))))
+    (count triples)))
 
 (defn add-zeneca-to-byop-app!
   "Bootstraps an app with zeneca data."
