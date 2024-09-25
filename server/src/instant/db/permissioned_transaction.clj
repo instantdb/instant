@@ -519,7 +519,7 @@
         ;; for this app will wait.
         #_(lock-tx-on! tx-conn (hash app-id))
         (if admin?
-          (tx/transact-without-tx-conn! tx-conn app-id tx-steps)
+          (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps)
           (let [{:keys [attr-changes object-changes]}
                 (group-by tx-change-type tx-steps)
 
@@ -555,7 +555,10 @@
                                               :preloaded-refs preloaded-update-delete-refs)
                                        update-delete-checks))
 
-                tx-data (tx/transact-without-tx-conn! tx-conn app-id tx-steps)
+                tx-data (tx/transact-without-tx-conn! tx-conn
+                                                      (:attrs ctx)
+                                                      app-id
+                                                      tx-steps)
 
                 preloaded-create-refs (preload-refs ctx create-checks)
                 create-checks-results (io/warn-io :run-create-check-commands!

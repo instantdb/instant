@@ -131,7 +131,7 @@
        op
        [{:message (format "You can't create or modify attributes in the %s namespace." ns)}]))))
 
-(defn transact-without-tx-conn! [conn app-id tx-steps]
+(defn transact-without-tx-conn! [conn attrs app-id tx-steps]
   (tracer/with-span! {:name "transaction/transact!"
                       :attributes {:app-id app-id
                                    :num-tx-steps (count tx-steps)
@@ -149,13 +149,13 @@
         :delete-entity
         (triple-model/delete-entity-multi! conn app-id args)
         :add-triple
-        (triple-model/insert-multi! conn app-id args)
+        (triple-model/insert-multi! conn attrs app-id args)
         :deep-merge-triple
-        (triple-model/deep-merge-multi! conn app-id args)
+        (triple-model/deep-merge-multi! conn attrs app-id args)
         :retract-triple
         (triple-model/delete-multi! conn app-id args)))
     (transaction-model/create! conn {:app-id app-id})))
 
-(defn transact! [conn app-id tx-steps]
+(defn transact! [conn attrs app-id tx-steps]
   (next-jdbc/with-transaction [tx-conn conn]
-    (transact-without-tx-conn! tx-conn app-id tx-steps)))
+    (transact-without-tx-conn! tx-conn attrs app-id tx-steps)))

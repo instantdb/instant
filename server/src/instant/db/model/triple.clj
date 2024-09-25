@@ -2,6 +2,7 @@
   (:require
    [instant.jdbc.sql :as sql]
    [instant.db.model.attr :as attr-model]
+   [instant.db.datalog :refer [users-triples-ctes]]
    [instant.jdbc.aurora :as aurora]
    [honey.sql :as hsql]
    [clojure.spec.alpha :as s]
@@ -109,7 +110,7 @@
                                             )"]]]}])))
 
 (defn deep-merge-multi!
-  [conn app-id triples]
+  [conn attrs app-id triples]
   (let [input-triples-values
         (->> triples
              (group-by (juxt first second))
@@ -131,7 +132,22 @@
                                       (when (eid-lookup-ref? e)
                                         e))
                                     triples))
+        lookup-ref-values (keep (fn [[_e _a v]]
+                                  (when (value-lookup-ref? v)
+                                    v))
+                                triples)
+        lookup-ref-etypes (reduce (fn [acc [aid _v]]
+                                    (conj acc (attr-model/fwd-etype
+                                               (attr-model/seek-by-id aid attrs))))
+                                  #{}
+                                  (concat lookup-refs
+                                          lookup-ref-values))
         q {:with (concat
+                  (when (contains? lookup-ref-etypes "$users")
+                    (when-let [users-shims (attr-model/users-shim-info attrs)]
+                      (users-triples-ctes app-id
+                                          (:email-attr-id users-shims)
+                                          (:id-attr-id users-shims))))
                   (when (seq lookup-refs)
                     [[[:input-lookup-refs
                        {:columns [:app-id :attr-id :value]}]
@@ -250,12 +266,27 @@
    if the value is the same. In this case we simply do nothing and ignore the
    write. So if [1 user/pet 2] already exists, inserting [1 user/pet 3] will
    not trigger a conflict, but trying to insert [1 user/pet 2] will no-op"
-  [conn app-id triples]
+  [conn attrs app-id triples]
   (let [lookup-refs (distinct (keep (fn [[e]]
                                       (when (eid-lookup-ref? e)
                                         e))
                                     triples))
+        lookup-ref-values (keep (fn [[_e _a v]]
+                                  (when (value-lookup-ref? v)
+                                    v))
+                                triples)
+        lookup-ref-etypes (reduce (fn [acc [aid _v]]
+                                    (conj acc (attr-model/fwd-etype
+                                               (attr-model/seek-by-id aid attrs))))
+                                  #{}
+                                  (concat lookup-refs
+                                          lookup-ref-values))
         query {:with (concat
+                      (when (contains? lookup-ref-etypes "$users")
+                        (when-let [users-shims (attr-model/users-shim-info attrs)]
+                          (users-triples-ctes app-id
+                                              (:email-attr-id users-shims)
+                                              (:id-attr-id users-shims))))
                       (when (seq lookup-refs)
                         [[[:input-lookup-refs
                            {:columns [:app-id :attr-id :value]}]
