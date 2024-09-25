@@ -1,8 +1,5 @@
-import { produce, enableMapSet } from "immer";
+import { create } from "mutative";
 import { immutableDeepMerge } from "./utils/object";
-
-// Makes immer work with maps and sets
-enableMapSet();
 
 function hasEA(attr) {
   return attr["cardinality"] === "one";
@@ -61,6 +58,7 @@ function createIndexMap(attrs, triples) {
       console.warn("no such attr", eid, attrs);
       continue;
     }
+
     if (isRef(attr)) {
       setInMap(vae, [v, aid, eid], triple);
     }
@@ -68,8 +66,43 @@ function createIndexMap(attrs, triples) {
     setInMap(eav, [eid, aid, v], triple);
     setInMap(aev, [aid, eid, v], triple);
   }
-
   return { eav, aev, vae };
+}
+
+export function blobAttrs({ attrs }, etype) {
+  return Object.values(attrs)
+    .filter((attr) => isBlob(attr) && attr['forward-identity'][1] === etype);
+}
+
+export function getAsObject(store, attrs, e) {
+  const obj = {}; 
+  for (const attr of attrs) { 
+    const aMap = store.eav.get(e)?.get(attr.id);
+    const vs = allMapValues(aMap, 1);
+    for (const v of vs) {  
+      obj[attr['forward-identity'][2]] = v[2];
+    }
+  }
+  return obj;
+}
+
+export function toJSON(store) {
+  return {
+    __type: store.__type,
+    attrs: store.attrs,
+    triples: allMapValues(store.eav, 3),
+    cardinalityInference: store.cardinalityInference,
+    linkIndex: store.linkIndex,
+  };
+}
+
+export function fromJSON(storeJSON) {
+  return createStore(
+    storeJSON.attrs,
+    storeJSON.triples,
+    storeJSON.cardinalityInference,
+    storeJSON.linkIndex,
+  );
 }
 
 export function createStore(
@@ -82,6 +115,7 @@ export function createStore(
   store.attrs = attrs;
   store.cardinalityInference = enableCardinalityInference;
   store.linkIndex = linkIndex;
+  store.__type = "store";
 
   return store;
 }
@@ -457,6 +491,10 @@ export function getTriples(store, [e, a, v]) {
       }
       return res;
     }
+    case "a": {
+      const aMap = store.aev.get(a)
+      return allMapValues(aMap, 2);
+    }
     case "av": {
       const aMap = store.aev.get(a);
       if (!aMap) {
@@ -483,7 +521,7 @@ export function getTriples(store, [e, a, v]) {
 }
 
 export function transact(store, txSteps) {
-  return produce(store, (draft) => {
+  return create(store, (draft) => {
     txSteps.forEach((txStep) => {
       applyTxStep(draft, txStep);
     });

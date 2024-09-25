@@ -174,7 +174,7 @@ function init_experimental<
  *  const db = init<Schema>({ appId: "my-app-id" })
  *
  */
-function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
+function init<Schema extends {} = {}, RoomSchema extends RoomSchemaShape = {}>(
   config: Config,
   Storage?: any,
   NetworkListener?: any,

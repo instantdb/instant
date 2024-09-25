@@ -113,11 +113,9 @@ function LandingHero() {
       <SectionWide>
         <TwoColResponsive>
           <div className="flex flex-1 flex-col gap-8">
-            <H2>The realtime client-side database</H2>
+            <H2>Build modern applications today</H2>
             <p>
-              Instant is for building real-time and offline-enabled
-              applications. We make it easy to build collaborative products like
-              Notion or Figma.
+              Instant is a modern Firebase. We make you productive by giving your frontend a real-time database.
             </p>
             <div className="flex flex-row gap-2 md:justify-start">
               <Button type="link" variant="cta" size="large" href="/dash">

@@ -55,7 +55,7 @@ Previously, all responses in a `useQuery` returned arrays. Now, we can use your 
 Since the new `useQuery` is schema-aware, we know when to return a single item instead of an array. 🎉 Bear in mind that if you're migrating from `init`, you'll need to update all of your call sites that reference these "has-one" relationships.
 
 ```ts
-const { data } = useQuery({ users: { author: {} }});
+const { data } = useQuery({ users: { author: {} } });
 const firstUser = data.users[0];
 
 // before
@@ -85,3 +85,13 @@ const db = init_experimental({
   schema: schema.withRoomSchema<RoomSchema>(),
 });
 ```
+
+## Reusable types
+
+Sometimes, you'll want to abstract out your query and result types. For example, a query's result might be consumed across multiple React components, each with their own prop types. For such cases, we provide `InstantQuery` and `InstantQueryResult`.
+
+To declare a query and validate it's type against your schema, you can import `InstantQuery` and leverage [TypeScript's `satisfies` operator](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-9.html#the-satisfies-operator) like so: `const myQuery = { myTable: {} } satisfies InstantQuery<DB>;`.
+
+To obtain the resolved result type of your query, import `InstantQueryResult` and provide it your DB and query types `const myQueryResult = InstantQueryResult<DB, typeof myQuery>`.
+
+[Here's a full example](https://github.com/instantdb/instant/blob/main/client/sandbox/react-nextjs/pages/play/strong-todos.tsx) demonstranting reusable query types in React.

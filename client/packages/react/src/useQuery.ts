@@ -31,7 +31,7 @@ export function useQuery<
   Q extends Schema extends InstantGraph<any, any>
     ? InstaQLQueryParams<Schema>
     : Exactly<Query, Q>,
-  Schema,
+  Schema extends InstantGraph<any, any, any> | {},
   WithCardinalityInference extends boolean,
 >(
   _core: InstantClient<Schema, any, WithCardinalityInference>,

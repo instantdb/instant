@@ -2,9 +2,9 @@
 
 import { readFileSync } from "fs";
 import { mkdir, writeFile, readFile, stat } from "fs/promises";
-import { join } from "path";
+import { dirname, join } from "path";
+import { fileURLToPath } from 'url';
 import { randomUUID } from "crypto";
-
 import dotenv from "dotenv";
 import chalk from "chalk";
 import { program } from "commander";
@@ -17,9 +17,7 @@ import openInBrowser from "open";
 // config
 dotenv.config();
 
-const version = JSON.parse(
-  readFileSync(join(import.meta.dirname, "package.json"), "utf8"),
-).version;
+
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
 
@@ -46,7 +44,14 @@ program
   .description(instantCLIDescription)
   .option("-t --token <TOKEN>", "auth token override")
   .option("-y", "skip confirmation prompt")
-  .version(version);
+  .option("-v --version", "output the version number", () => {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const version = JSON.parse(
+      readFileSync(join(__dirname, 'package.json'), 'utf8')
+    ).version;
+    console.log(version);
+    process.exit(0);
+  })
 
 program
   .command("login")
@@ -63,13 +68,17 @@ program
   .command("push-schema")
   .argument("[ID]")
   .description("Pushes local instant.schema definition to production.")
-  .action(pushSchema);
+  .action(() => {
+    pushSchema();
+  });
 
 program
   .command("push-perms")
   .argument("[ID]")
   .description("Pushes local instant.perms rules to production.")
-  .action(pushPerms);
+  .action(() => {
+    pushPerms();
+  });
 
 program
   .command("push")
@@ -112,7 +121,9 @@ program.parse(process.argv);
 // command actions
 
 async function pushAll(appIdOrName) {
-  await pushSchema(appIdOrName);
+  const ok = await pushSchema(appIdOrName);
+  if (!ok) return;
+
   await pushPerms(appIdOrName);
 }
 
@@ -420,6 +431,8 @@ async function pushSchema(appIdOrName) {
   if (!applyRes.ok) return;
 
   console.log(chalk.green("Schema updated!"));
+
+  return true;
 }
 
 async function pushPerms(appIdOrName) {
@@ -450,6 +463,8 @@ async function pushPerms(appIdOrName) {
   if (!permsRes.ok) return;
 
   console.log(chalk.green("Permissions updated!"));
+
+  return true;
 }
 
 async function waitForAuthToken({ secret }) {
@@ -540,7 +555,9 @@ async function fetchJson({
 
         if (Array.isArray(errData?.hint?.errors)) {
           for (const error of errData.hint.errors) {
-            console.error(`${error.in.join("->")}: ${error.message}`);
+            console.error(
+              `${error.in ? error.in.join("->") + ": " : ""}${error.message}`,
+            );
           }
         }
       }
@@ -771,6 +788,7 @@ async function getAppIdWithErrorLogging(defaultAppIdOrName) {
     // finally, check .env
     process.env.INSTANT_APP_ID ||
     process.env.NEXT_PUBLIC_INSTANT_APP_ID ||
+    process.env.PUBLIC_INSTANT_APP_ID || // for Svelte
     process.env.VITE_INSTANT_APP_ID ||
     null;
 

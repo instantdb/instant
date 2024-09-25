@@ -1,13 +1,12 @@
 import { test, expect } from "vitest";
 import zenecaAttrs from "./data/zeneca/attrs.json";
 import zenecaTriples from "./data/zeneca/triples.json";
-import { createStore, transact, allMapValues } from "../../src/store";
+import { createStore, transact, allMapValues, toJSON, fromJSON } from "../../src/store";
 import query from "../../src/instaql";
 import uuid from "../../src/utils/uuid";
 import { tx } from "../../src/instatx";
 import * as instaml from "../../src/instaml";
 import * as datalog from "../../src/datalog";
-import { fromJSONWithMaps, toJSONWithMaps } from "../../src/utils/json";
 
 const zenecaIdToAttr = zenecaAttrs.reduce((res, x) => {
   res[x.id] = x;
@@ -351,6 +350,6 @@ test("update attr", () => {
 });
 
 test("JSON serialization round-trips", () => {
-  const newStore = fromJSONWithMaps(toJSONWithMaps(store));
+  const newStore = fromJSON(toJSON(store));
   expect(store).toEqual(newStore);
 });

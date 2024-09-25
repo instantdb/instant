@@ -339,7 +339,7 @@ function Dashboard() {
     if (!app) return;
     if (typeof window === 'undefined') return;
 
-    const db = init<unknown>({
+    const db = init({
       appId,
       apiURI: config.apiURI,
       websocketURI: config.websocketURI,

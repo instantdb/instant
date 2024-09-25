@@ -103,7 +103,7 @@ export function Sandbox({ app }: { app: InstantApp }) {
 
           out('transaction', { response, rules });
 
-          return response['tx-id'];
+          return { 'tx-id': response['tx-id'] };
         } catch (error) {
           out('error', { message: JSON.stringify(error, null, '  ') });
           throw error;

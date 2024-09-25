@@ -1235,7 +1235,49 @@
               (is (nil?
                    (attr-model/seek-by-id
                     bloop-attr-id
-                    (attr-model/get-by-app-id aurora/conn-pool app-id)))))))))))
+                    (attr-model/get-by-app-id aurora/conn-pool app-id))))))
+          (testing "you can't smuggle in transactions"
+            (let [common-id (random-uuid)
+                  delete-id (random-uuid)]
+              (rule-model/put!
+               aurora/conn-pool
+               {:app-id app-id :code {:users {:allow {:delete "false"
+                                                      :view "false"
+                                                      :update "false"
+                                                      :create "false"}}}})
+
+              (testing "adding triples"
+                (is
+                 (perm-err?
+                  (permissioned-tx/transact! (make-ctx)
+                                             [[:add-triple common-id (resolvers/->uuid r :users/id) common-id]
+                                              [:add-triple common-id (resolvers/->uuid r :users/handle) "dww"]])))
+                (is
+                 (perm-err?
+                  (permissioned-tx/transact! (make-ctx)
+                                             [[:add-triple common-id (resolvers/->uuid r :books/id) common-id]
+                                              [:add-triple common-id (resolvers/->uuid r :users/id) common-id]
+                                              [:add-triple common-id (resolvers/->uuid r :users/handle) "dww"]]))))
+
+              (testing "deleting entities"
+                ;; setup
+                (permissioned-tx/transact! (assoc (make-ctx) :admin? true)
+                                           [[:add-triple delete-id (resolvers/->uuid r :users/id) delete-id]])
+                (is (= delete-id
+                       (-> (triple-model/fetch
+                            aurora/conn-pool
+                            app-id
+                            [[:= :entity-id delete-id]])
+                           first
+                           :triple
+                           first)))
+
+                (permissioned-tx/transact! (make-ctx)
+                                           [[:add-triple delete-id (resolvers/->uuid r :books/id) delete-id]])
+                (is
+                 (perm-err?
+                  (permissioned-tx/transact! (make-ctx)
+                                             [[:delete-entity delete-id]])))))))))))
 
 (deftest rejects-bad-lookups
   (with-zeneca-app

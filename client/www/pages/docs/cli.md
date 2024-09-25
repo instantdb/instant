@@ -21,7 +21,7 @@ You can learn more about [schemas here](/docs/schema) here and [permissions here
 
 ## App ID
 
-The CLI looks for `INSTANT_APP_ID` in `process.env`. As a convenience, it will also check for common prefixes like `NEXT_PUBLIC_INSTANT_APP_ID` and `VITE_PUBLIC_INSTANT_APP_ID`
+The CLI looks for `INSTANT_APP_ID` in `process.env`. As a convenience, it will also check for `NEXT_PUBLIC_INSTANT_APP_ID`, `PUBLIC_INSTANT_APP_ID`, and `VITE_INSTANT_APP_ID`
 
 ## Specifying an auth token
 

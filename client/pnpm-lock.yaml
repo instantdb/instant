@@ -112,9 +112,12 @@ importers:
 
   packages/core:
     dependencies:
-      immer:
-        specifier: 9.0.14
-        version: 9.0.14
+      '@types/object-hash':
+        specifier: ^3.0.6
+        version: 3.0.6
+      mutative:
+        specifier: ^1.0.10
+        version: 1.0.10
       object-hash:
         specifier: ^3.0.0
         version: 3.0.0
@@ -128,15 +131,9 @@ importers:
       '@babel/preset-env':
         specifier: ^7.16.11
         version: 7.24.4(@babel/core@7.24.4)
-      '@types/lodash':
-        specifier: ^4.14.182
-        version: 4.17.0
       '@types/node':
         specifier: ^18.11.18
         version: 18.19.31
-      '@types/object-hash':
-        specifier: ^3.0.3
-        version: 3.0.6
       '@types/uuid':
         specifier: ^8.3.4
         version: 8.3.4
@@ -258,7 +255,7 @@ importers:
         version: 3.3.2
       ts-node:
         specifier: ^10.9.2
-        version: 10.9.2(@types/node@22.5.5)(typescript@5.5.4)
+        version: 10.9.2(@types/node@22.6.1)(typescript@5.5.4)
     devDependencies:
       '@types/body-parser':
         specifier: ^1.19.5
@@ -7882,13 +7879,18 @@ packages:
     dependencies:
       undici-types: 6.19.8
 
+  /@types/node@22.6.1:
+    resolution: {integrity: sha512-V48tCfcKb/e6cVUigLAaJDAILdMP0fUW6BidkPK4GpGjXcfbnoHasCZDwz3N3yVt5we2RHm4XTQCpv0KJz9zqw==}
+    dependencies:
+      undici-types: 6.19.8
+    dev: false
+
   /@types/normalize-package-data@2.4.4:
     resolution: {integrity: sha512-37i+OaWTh9qeK4LSHPsyRC7NahnGotNuZvjLSgcPzblpHB3rrCJxAOgI5gCdKm7coonsaX1Of0ILiTcnZjbfxA==}
     dev: true
 
   /@types/object-hash@3.0.6:
     resolution: {integrity: sha512-fOBV8C1FIu2ELinoILQ+ApxcUKz4ngq+IWUYrxSGjXzzjUALijilampwkMgEtJ+h2njAW3pi853QpzNVCHB73w==}
-    dev: true
 
   /@types/parse5@6.0.3:
     resolution: {integrity: sha512-SuT16Q1K51EAVPz1K29DJ/sXjhSQ0zjvsypYJ6tlwVsRV9jwW5Adq2ch8Dq8kDBCkYnELS7N7VNCSB5nC56t/g==}
@@ -14478,6 +14480,11 @@ packages:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
     dev: false
 
+  /mutative@1.0.10:
+    resolution: {integrity: sha512-YD4MEleW9vJyIVEItz6x71fWdJ9qea3+R8hxtNiei8cQ7BGLM1c9Q6zCJ7SuLzorBhd2PBHN+xUEwEahxMI34w==}
+    engines: {node: '>=14.0'}
+    dev: false
+
   /mute-stream@1.0.0:
     resolution: {integrity: sha512-avsJQhyd+680gKXyG/sQc0nXaC6rBkPOfyHYcFb9+hdkqQkR9bdnkJ0AMZhke0oesPqIO+mFFJ+IdBc7mst4IA==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
@@ -17455,7 +17462,7 @@ packages:
   /ts-interface-checker@0.1.13:
     resolution: {integrity: sha512-Y/arvbn+rrz3JCKl9C4kVNfTfSm2/mEp5FSz5EsZSANGPSlQrpRI5M4PKF+mJnE52jOO90PnPSc3Ur3bTQw0gA==}
 
-  /ts-node@10.9.2(@types/node@22.5.5)(typescript@5.5.4):
+  /ts-node@10.9.2(@types/node@22.6.1)(typescript@5.5.4):
     resolution: {integrity: sha512-f0FFpIdcHgn8zcPSbf1dRevwt047YMnaiJM3u2w2RewrB+fob/zePZcrOyQoLMMO7aBIddLcQIEK5dYjkLnGrQ==}
     hasBin: true
     peerDependencies:
@@ -17474,7 +17481,7 @@ packages:
       '@tsconfig/node12': 1.0.11
       '@tsconfig/node14': 1.0.3
       '@tsconfig/node16': 1.0.4
-      '@types/node': 22.5.5
+      '@types/node': 22.6.1
       acorn: 8.11.3
       acorn-walk: 8.3.2
       arg: 4.1.0
