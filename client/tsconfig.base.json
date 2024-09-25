@@ -3,8 +3,6 @@
     "declaration": true,
     "declarationMap": true,
     "module": "commonjs",
-    "outDir": "dist",
-    "rootDir": "src",
     "sourceMap": true,
     "inlineSources": true,
     "target": "es2015",
