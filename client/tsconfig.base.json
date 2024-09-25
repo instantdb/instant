@@ -1,6 +1,4 @@
 {
-  "include": ["src"],
-  "exclude": ["node_modules", "dist"],
   "compilerOptions": {
     "declaration": true,
     "declarationMap": true,
@@ -15,6 +13,6 @@
     "forceConsistentCasingInFileNames": true,
     "stripInternal": true,
     "allowSyntheticDefaultImports": true,
-    "allowJs": true,
-  },
+    "allowJs": true
+  }
 }

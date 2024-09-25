@@ -1,6 +1,8 @@
 {
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"],
   "compilerOptions": {
-    "checkJs": false,
+    "checkJs": false
   },
-  "extends": "../../tsconfig.base.json",
+  "extends": "../../tsconfig.base.json"
 }
