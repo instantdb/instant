@@ -1402,6 +1402,7 @@
             book-title-attr (resolvers/->uuid r :books/title)
             shared-id (random-uuid)]
         (tx/transact! aurora/conn-pool
+                      (attr-model/get-by-app-id aurora/conn-pool (:id app))
                       (:id app)
                       [[:add-triple shared-id user-id-attr shared-id]
                        [:add-triple shared-id user-handle-attr "handle"]
@@ -1754,6 +1755,7 @@
 
             attr-id (random-uuid)
             _ (tx/transact! aurora/conn-pool
+                            (attr-model/get-by-app-id aurora/conn-pool (:id app))
                             (:id app)
                             [[:add-attr {:id attr-id
                                          :forward-identity [(random-uuid) "books" "$user-creator"]
@@ -1831,6 +1833,7 @@
 
             attr-id (random-uuid)
             _ (tx/transact! aurora/conn-pool
+                            (attr-model/get-by-app-id aurora/conn-pool (:id app))
                             (:id app)
                             [[:add-attr {:id attr-id
                                          :forward-identity [(random-uuid) "books" "$user-creator"]

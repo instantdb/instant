@@ -9,6 +9,7 @@
    [clojure.core.async :as a]
    [instant.util.async :as ua]
    [instant.data.resolvers :as resolvers]
+   [instant.db.model.attr :as attr-model]
    [instant.db.datalog :as d]
    [instant.jdbc.aurora :as aurora]
    [instant.db.transaction :as tx]
@@ -523,6 +524,7 @@
             ;; do mutation
             (tx/transact! aurora/conn-pool
                           app-id
+                          (attr-model/get-by-app-id aurora/conn-pool app-id)
                           [[:retract-triple
                             (resolvers/->uuid r "eid-predator")
                             (resolvers/->uuid r :movie/director)
