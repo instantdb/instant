@@ -597,4 +597,7 @@
               :datalog-query-fn d/query} tx-steps)
 
   ;; OG transact
-  (tx/transact! aurora/conn-pool colors-app-id tx-steps))
+  (tx/transact! aurora/conn-pool
+                (attr-model/get-by-app-id aurora/conn-pool colors-app-id)
+                colors-app-id
+                tx-steps))
