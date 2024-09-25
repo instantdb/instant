@@ -1309,6 +1309,12 @@ function Admin({
             enabled, you can view your users from the Explorer and link to the{' '}
             <code>$users</code> namespace from other namespaces.
           </Content>
+          <Content>
+            When enabling, we add default rules that only allow the
+            authenticated user to view their row in the users namespace. The{' '}
+            <code>view</code> rule can be modified from the{' '}
+            <code>Permissions</code> page.
+          </Content>
 
           {usersAttrs?.length ? (
             <>
