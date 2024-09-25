@@ -44,8 +44,8 @@ You'll now be able to use `InstaQL` and `InstalML` throughout your app!
 
 {% callout type="note" %}
 
-**Schema-as-code and type safety**
+**Psst: Schema-as-code and type safety!**
 
-Instant also support a [CLI-based workflow](/docs/cli) and [schema-as-code](/docs/schema), plus we're piloting [strictly-typed queries and mutations](/docs/strong-init).
+Instant now supports a [CLI-based workflow](/docs/cli), managing your [schema as code](/docs/schema), and [strictly-typed queries and mutations](/docs/strong-init). Give them a whirl and let us know what you think!
 
 {% /callout %}
