@@ -105,6 +105,7 @@
   (let [txes (extract-zeneca-txes)
         _ (tx/transact!
            aurora/conn-pool
+           (attr-model/get-by-app-id aurora/conn-pool app-id)
            app-id
            txes)
         triples (triple-model/fetch
@@ -282,6 +283,7 @@
     (uspec/conform-throwing ::tx/tx-steps tx-steps)
 
     (tx/transact! aurora/conn-pool
+                  (attr-model/get-by-app-id aurora/conn-pool app-id)
                   app-id
                   tx-steps)
 

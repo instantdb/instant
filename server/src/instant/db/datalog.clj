@@ -502,48 +502,6 @@
     :a (in-or-eq :attr-id v)
     :v (in-or-eq :value (map value->jsonb v))))
 
-(defn users-triples-ctes
-  "Creates a `users-triples` cte table with the same structure as the
-   `triples` table so that our existing machinery can query the app-users table."
-  [app-id email-attr-id id-attr-id]
-  [[:users-attr-mapping {:select :*
-                         :from [[{:values [[email-attr-id "email"]
-                                           [id-attr-id "id"]]}
-                                 [:mapping {:columns [:attr-id :col]}]]]}]
-   ;; First get all fields up the value-md5, because we need to get the
-   ;; value to calculate the md5
-   [:users-triples-up-to-md5 {:select [:app-id
-                                       [:id :entity-id]
-                                       [:users-attr-mapping.attr-id :attr-id]
-                                       [[:case-expr :users-attr-mapping.col
-                                         ;; Careful if mapping user-defined attrs,
-                                         ;; b/c it could lead a sql injection
-                                         [:inline "email"] [:to_jsonb :email]
-                                         [:inline "id"] [:to_jsonb :id]
-                                         :else nil] :value]
-                                       :created-at]
-                              :from [:app-users :users-attr-mapping]
-                              :where [:= :app_id app-id]}]
-   [:users-triples
-    {:select [:app-id
-              :entity-id
-              :attr-id
-              :value
-              [[:md5 [:cast :value :text]] :value-md5]
-              [true :ea]
-              [false :eav]
-              [true :av]
-              [false :ave]
-              [true :vae]
-              [[:cast [:* 1000 [:extract [:epoch-from :created-at]]] :bigint] :created-at]]
-     :from :users-triples-up-to-md5}]
-   [:triples
-    {:union-all [{:select :*
-                  :from :triples}
-                 {:select :*
-                  :from :users-triples}]}
-    :not-materialized]])
-
 (defn- where-clause
   "
     Given a named pattern, return a where clause with the constants:
@@ -1179,7 +1137,7 @@
   [ctx app-id ctes]
   (if-let [{:keys [email-attr-id
                    id-attr-id]} (:users-shim-info ctx)]
-    (into (users-triples-ctes app-id email-attr-id id-attr-id)
+    (into (triple-model/users-triples-ctes app-id email-attr-id id-attr-id)
           ctes)
     ctes))
 
