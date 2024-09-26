@@ -466,6 +466,19 @@ export abstract class InstantReact<
     return state;
   };
 
+  /**
+   * Use this for one-off queries.
+   * Returens local data if available, otherwise fetches from the server.
+   * Because we want to avoid stale data, this method will throw an error
+   * if the user is offline or there is no active connection to the server.
+   *
+   * @see https://instantdb.com/docs/instaql
+   *
+   * @example
+   *
+   *  const resp = await db.queryOnce({ goals: {} });
+   *  console.log(resp.data.goals)
+   */
   queryOnce = <
     Q extends Schema extends InstantGraph<any, any>
       ? InstaQLQueryParams<Schema>
