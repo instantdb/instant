@@ -19,6 +19,8 @@ import {
   type ConfigWithSchema,
   type IDatabase,
   type InstantGraph,
+  type QueryResponse,
+  type PageInfoResponse,
 } from "@instantdb/core";
 import {
   KeyboardEvent,
@@ -462,5 +464,18 @@ export abstract class InstantReact<
       () => defaultAuthState,
     );
     return state;
+  };
+
+  queryOnce = <
+    Q extends Schema extends InstantGraph<any, any>
+      ? InstaQLQueryParams<Schema>
+      : Exactly<Query, Q>,
+  >(
+    query: Q,
+  ): Promise<{
+    data: QueryResponse<Q, Schema, WithCardinalityInference>;
+    pageInfo: PageInfoResponse<Q>;
+  }> => {
+    return this._core.queryOnce(query);
   };
 }

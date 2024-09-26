@@ -24,6 +24,9 @@ const STATUS = {
   ERRORED: "errored",
 };
 
+const INIT_TIMEOUT = 2000;
+const QUERY_ONCE_TIMEOUT = 3000;
+
 const WS_OPEN_STATUS = 1;
 
 const defaultConfig = {
@@ -86,7 +89,10 @@ export default class Reactor {
   /** @type {PersistedObject} */
   pendingMutations;
 
+  /** @type {Record<string, Array<{ q: any, cb: (data: any) => any, once: boolean }>>} */
   queryCbs = {};
+  /** @type {Array<{ cb: (data: any) => any, once: boolean }>} */
+  statusCbs = [];
   authCbs = [];
   attrsCbs = [];
   mutationErrorCbs = [];
@@ -235,6 +241,30 @@ export default class Reactor {
   _setStatus(status, err) {
     this.status = status;
     this._errorMessage = err;
+    this._notifyStatus();
+  }
+
+  _notifyStatus() {
+    this.statusCbs.forEach((r) => {
+      if (r.once) {
+        this._unsubStatus(r.cb);
+      }
+
+      r.cb(this.status);
+    });
+  }
+
+  _subscribeStatus(cb, once) {
+    this.statusCbs.push({ cb, once: Boolean(once) });
+    cb(this.status);
+
+    return () => {
+      this._unsubStatus(cb);
+    };
+  }
+
+  _unsubStatus(cb) {
+    this.statusCbs = this.statusCbs.filter((r) => r.cb !== cb);
   }
 
   /**
@@ -583,23 +613,117 @@ export default class Reactor {
    *  Returns an unsubscribe function
    */
   subscribeQuery(q, cb) {
+    return this._subscribeQuery(q, cb, false);
+  }
+
+  _subscribeQuery(q, cb, once) {
     const eventId = uuid();
     const hash = weakHash(q);
 
+    const prevResult = this.getPreviousResult(q);
+    if (prevResult) {
+      cb(prevResult);
+    }
+
+    // If it's only once and we have a cached value,
+    // we don't need to subscribe at all
+    const isOneAndDone = once && prevResult;
+    if (isOneAndDone) {
+      // no-op!
+      return () => {};
+    }
+
     this.queryCbs[hash] = this.queryCbs[hash] || [];
-    this.queryCbs[hash].push(cb);
+    this.queryCbs[hash].push({ q, cb, once: Boolean(once) });
     this.querySubs.set((prev) => {
       prev[hash] = prev[hash] || { q, result: null, eventId };
       return prev;
     });
     this._trySendAuthed(eventId, { op: "add-query", q });
-    const prevResult = this.getPreviousResult(q);
-    if (prevResult) {
-      cb(prevResult);
-    }
+
     return () => {
-      this.queryCbs[hash] = this.queryCbs[hash].filter((x) => x !== cb);
+      this._unsubQuery(q, hash, cb);
     };
+  }
+
+  _waitForAuthd(timeout) {
+    const timeoutPromise = sleep(timeout, false);
+
+    const statusOncePromise = new Promise((resolve) => {
+      let done = false;
+      const unsub = this._subscribeStatus((status) => {
+        if (done) return;
+        if (status !== STATUS.AUTHENTICATED) return;
+
+        done = true;
+        resolve(true);
+        setTimeout(() => unsub(), 0);
+      }, true);
+    });
+
+    const authdPromise = Promise.race([timeoutPromise, statusOncePromise]);
+
+    return authdPromise;
+  }
+
+  async queryOnce(q) {
+    if (!this._isOnline) {
+      throw new Error(
+        "Offline: Cannot execute query because the device is offline.",
+      );
+    }
+
+    // If `queryOnce` is called on app startup, it's very likely that we haven't received `init-ok` yet.
+    // In this case, we want to wait until we're authenticated (with a timeout) before we proceed.
+    if (this.status !== STATUS.AUTHENTICATED) {
+      const isAuthd = await this._waitForAuthd(INIT_TIMEOUT);
+
+      if (!isAuthd) {
+        throw new Error(
+          "Disconnected: Cannot execute query because the app is not connected to InstantDB.",
+        );
+      }
+    }
+
+    const result = await new Promise((resolve, reject) => {
+      let done = false;
+
+      const unsub = this._subscribeQuery(
+        q,
+        (result) => {
+          if (done) return;
+          done = true;
+
+          if (result.error) {
+            reject(result.error);
+          } else {
+            resolve(result);
+          }
+        },
+        true,
+      );
+
+      setTimeout(() => {
+        if (done) return;
+        done = true;
+        reject(new Error("Query timed out"));
+        unsub();
+      }, QUERY_ONCE_TIMEOUT);
+    });
+
+    return result;
+  }
+
+  _unsubQuery(q, hash, cb) {
+    if (this.queryCbs[hash]) {
+      this.queryCbs[hash] = this.queryCbs[hash].filter((r) => r.cb !== cb);
+    }
+
+    if (this.queryCbs[hash]?.length) return;
+
+    delete this.queryCbs[hash];
+
+    this._trySendAuthed(uuid(), { op: "remove-query", q });
   }
 
   // When we `pushTx`, it's possible that we don't yet have `this.attrs`
@@ -750,18 +874,24 @@ export default class Reactor {
 
   /** Re-run instaql and call all callbacks with new data */
   notifyOne = (hash) => {
-    const cbs = this.queryCbs[hash] || [];
-    if (!cbs) return;
+    const rs = this.queryCbs[hash] || [];
+    if (!rs) return;
     const prevData = this._dataForQueryCache[hash]?.data;
     const data = this.dataForQuery(hash);
     if (!data) return;
     if (areObjectsDeepEqual(data, prevData)) return;
-    cbs.forEach((cb) => cb(data));
+    rs.forEach((r) => {
+      if (r.once) {
+        this._unsubQuery(r.q, hash, r.cb);
+      }
+
+      r.cb(data);
+    });
   };
 
   notifyQueryError = (hash, msg) => {
     const cbs = this.queryCbs[hash] || [];
-    cbs.forEach((cb) => cb({ error: msg }));
+    cbs.forEach((r) => r.cb({ error: msg }));
   };
 
   /** Re-compute all subscriptions */
@@ -1602,4 +1732,8 @@ export default class Reactor {
 
     return result;
   }
+}
+
+function sleep(ms, value) {
+  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }

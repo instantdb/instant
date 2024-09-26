@@ -385,6 +385,19 @@ class InstantCore<
     delete globalInstantCoreStore[this._reactor.config.appId];
     this._reactor.shutdown();
   }
+
+  queryOnce<
+    Q extends Schema extends InstantGraph<any, any>
+      ? InstaQLQueryParams<Schema>
+      : Exactly<Query, Q>,
+  >(
+    query: Q,
+  ): Promise<{
+    data: QueryResponse<Q, Schema, WithCardinalityInference>;
+    pageInfo: PageInfoResponse<Q>;
+  }> {
+    return this._reactor.queryOnce(query);
+  }
 }
 
 /**
@@ -611,6 +624,7 @@ export {
   type RoomSchemaShape,
   type Query,
   type QueryResponse,
+  type PageInfoResponse,
   type InstantObject,
   type Exactly,
   type TransactionChunk,
