@@ -322,7 +322,7 @@
    We don't have a way to close the page when opening an external app, so
    this opens the external app when we load the page and shows an \"Open app\"
    button. In case the redirect was dismissed."
-  [redirect-url]
+  [email redirect-url]
   {:status 200
    :headers {"content-type" "text/html"}
    :body (str (h/html (h/raw "<!DOCTYPE html>")
@@ -377,6 +377,7 @@
                              }
                            }"]]
                  [:body
+                  [:p "Logged in as " email]
                   [:p
                    [:a {:class "button"
                         :href redirect-url}
@@ -453,7 +454,7 @@
       (if (string/starts-with? (str (:scheme (uri/parse redirect-url))) "http")
         (response/found (url/add-query-params (:redirect_url oauth-redirect)
                                               {:code code :_instant_oauth_redirect "true"}))
-        (oauth-callback-landing redirect-url)))
+        (oauth-callback-landing email redirect-url)))
 
     (catch clojure.lang.ExceptionInfo e
       (let [{:keys [type oauth-redirect message]} (ex-data e)]
