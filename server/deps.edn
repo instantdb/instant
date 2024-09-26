@@ -54,6 +54,7 @@
                                ;; Need https://github.com/tonsky/datascript/issues/470
                                ;; :mvn/version "1.6.5"
                                }
+        hiccup/hiccup {:mvn/version "2.0.0-RC3"}
 
         djblue/portal {:mvn/version "0.55.1"}
         dev.weavejester/medley {:mvn/version "1.8.1"}}
