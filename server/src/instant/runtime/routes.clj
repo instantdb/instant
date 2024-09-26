@@ -1,6 +1,7 @@
 (ns instant.runtime.routes
   (:require [clojure.string :as string]
             [compojure.core :refer [defroutes GET POST] :as compojure]
+            [hiccup2.core :as h]
             [instant.auth.oauth :as oauth]
             [instant.config :as config]
             [instant.model.app :as app-model]
@@ -26,6 +27,7 @@
             [instant.util.tracer :as tracer]
             [instant.util.url :as url]
             [instant.util.uuid :as uuid-util]
+            [lambdaisland.uri :as uri]
             [ring.middleware.cookies :refer [wrap-cookies]]
             [ring.util.http-response :as response])
   (:import (java.util UUID)))
@@ -249,12 +251,12 @@
                                        :code-challenge-method code_challenge_method})
     (-> (response/found redirect-url)
         (response/set-cookie oauth-cookie-name cookie {:http-only true
-                                                         ;; Don't require https in dev
+                                                       ;; Don't require https in dev
                                                        :secure (not= :dev (config/get-env))
                                                        :expires cookie-expires
-                                                         ;; matches everything under the subdirectory
+                                                       ;; matches everything under the subdirectory
                                                        :path "/runtime/oauth"
-                                                         ;; access cookie on oauth redirect
+                                                       ;; access cookie on oauth redirect
                                                        :same-site :lax}))))
 
 (defn upsert-oauth-link! [{:keys [email sub app-id provider-id]}]
@@ -314,6 +316,77 @@
                                             :provider-id provider-id
                                             :sub sub
                                             :user-id (:id user)})))))
+
+(defn oauth-callback-landing
+  "Used for external apps to prevent a dangling page on redirect.
+   We don't have a way to close the page when opening an external app, so
+   this opens the external app when we load the page and shows an \"Open app\"
+   button. In case the redirect was dismissed."
+  [email redirect-url]
+  {:status 200
+   :headers {"content-type" "text/html"}
+   :body (str (h/html (h/raw "<!DOCTYPE html>")
+                [:html {:lang "en"}
+                 [:head
+                  [:meta {:charset "UTF-8"}]
+                  [:meta {:name "viewport"
+                          :content "width=device-width, initial-scale=1.0"}]
+                  [:meta {:http-equiv "refresh"
+                          :content (format "0; url=%s" redirect-url)}]
+
+                  [:title "Finish Sign In"]
+                  [:style "
+                           body {
+                             margin: 0;
+                             height: 100vh;
+                             display: flex;
+                             justify-content: center;
+                             align-items: center;
+                             background-color: white;
+                             flex-direction: column;
+                             font-family: sans-serif;
+                           }
+
+                           a.button {
+                             text-decoration: none;
+                             padding: 15px 30px;
+                             font-size: 18px;
+                             border-radius: 5px;
+                             font-family: sans-serif;
+                             text-align: center;
+                           }
+
+                           a {
+                             cursor: pointer;
+                           }
+
+                           @media (prefers-color-scheme: dark) {
+                             body {
+                               background-color: black;
+                             }
+                             a.button {
+                               color: black;
+                               background-color: white;
+                             }
+                           }
+
+                           @media (prefers-color-scheme: light) {
+                             a.button {
+                               color: white;
+                               background-color: black;
+                             }
+                           }"]]
+                 [:body
+                  [:p "Logged in as " email]
+                  [:p
+                   [:a {:class "button"
+                        :href redirect-url}
+                    "Open app"]]
+                  [:p [:a {:onclick "(function() { window.close();})()"} "Close"]]
+                  [:script {:type "text/javascript"
+                            :id "redirect-script"
+                            :data-redirect-uri redirect-url}
+                   (h/raw "window.open(document.getElementById('redirect-script').getAttribute('data-redirect-uri'), '_self')")]]]))})
 
 (defn oauth-callback [{:keys [params] :as req}]
   (try
@@ -375,9 +448,13 @@
                         :user-id (:user_id social-login)
                         :app-id (:app_id social-login)
                         :code-challenge-method (:code_challenge_method oauth-redirect)
-                        :code-challenge (:code_challenge oauth-redirect)})]
-      (response/found (url/add-query-params (:redirect_url oauth-redirect)
-                                            {:code code :_instant_oauth_redirect "true"})))
+                        :code-challenge (:code_challenge oauth-redirect)})
+          redirect-url (url/add-query-params (:redirect_url oauth-redirect)
+                                             {:code code :_instant_oauth_redirect "true"})]
+      (if (string/starts-with? (str (:scheme (uri/parse redirect-url))) "http")
+        (response/found (url/add-query-params (:redirect_url oauth-redirect)
+                                              {:code code :_instant_oauth_redirect "true"}))
+        (oauth-callback-landing email redirect-url)))
 
     (catch clojure.lang.ExceptionInfo e
       (let [{:keys [type oauth-redirect message]} (ex-data e)]
