@@ -10,7 +10,7 @@ marked.use({
   renderer: {
     code(code, language) {
       return ReactDOMServer.renderToString(
-        <Fence code={code} language={language}></Fence>
+        <Fence code={code} language={language}></Fence>,
       );
     },
     ...footnotes,
@@ -25,6 +25,10 @@ const AUTHORS = {
   nezaj: {
     name: 'Joe Averbukh',
     twitterHandle: 'JoeAverbukh',
+  },
+  markyfyi: {
+    name: 'Mark Shlick',
+    twitterHandle: 'markyfyi',
   },
 };
 
@@ -48,7 +52,9 @@ const archivedSlugs = ['stroop'];
 
 export function getAllSlugs() {
   const dir = fs.readdirSync('./_posts');
-  return dir.map((mdName) => removeMdExtension(mdName)).filter((slug) => !archivedSlugs.includes(slug));
+  return dir
+    .map((mdName) => removeMdExtension(mdName))
+    .filter((slug) => !archivedSlugs.includes(slug));
 }
 
 export function getHTMLPostBySlug(slug) {
