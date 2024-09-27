@@ -1028,7 +1028,9 @@ function Admin({
 }) {
   const token = useContext(TokenContext);
   const [deleteAppOk, updateDeleteAppOk] = useState(false);
+  const [clearAppOk, updateClearAppOk] = useState(false);
   const [editMember, setEditMember] = useState<InstantMember | null>();
+  const clearDialog = useDialog();
   const deleteDialog = useDialog();
   const inviteDialog = useDialog();
   const disableUsersDialog = useDialog();
@@ -1422,21 +1424,57 @@ function Admin({
       ) : null}
       {isMinRole('owner', app.user_app_role) ? (
         // mt-auto pushes the danger zone to the bottom of the page
-        <div className="mt-auto">
+        <div className="mt-auto space-y-2">
           <SectionHeading>Danger zone</SectionHeading>
+          <Content>
+            These are destructive actions and will irreversibly delete associated data.
+          </Content>
           <div>
-            <div className="flex flex-col md:flex-row justify-between gap-2 md:gap-8">
-              <div>
-                <SubsectionHeading>Delete app</SubsectionHeading>
-                <Content>Once you delete this app, you can’t undo it.</Content>
-              </div>
-              <div>
-                <Button variant="destructive" onClick={deleteDialog.onOpen}>
-                  <TrashIcon height={'1rem'} /> Delete app
-                </Button>
-              </div>
+            <div className="flex flex-col space-y-6">
+              <Button variant="destructive" onClick={clearDialog.onOpen}>
+                <TrashIcon height={'1rem'} /> Clear app
+              </Button>
+              <Button variant="destructive" onClick={deleteDialog.onOpen}>
+                <TrashIcon height={'1rem'} /> Delete app
+              </Button>
             </div>
           </div>
+          <Dialog {...clearDialog}>
+            <div className="flex flex-col gap-2">
+              <SubsectionHeading className="text-red-600">
+                Clear app
+              </SubsectionHeading>
+              <Content className="space-y-2">
+                <p>Clearing an app will irreversibly delete all namespaces, triples, and permissions.</p>
+                <p>All other data like app id, admin token, users, billing, team members, etc. will remain.</p>
+                <p>This is equivalent to deleting all your namespaces in the explorer and clearing your permissions.</p>
+              </Content>
+              <Checkbox
+                checked={clearAppOk}
+                onChange={(c) => updateClearAppOk(c)}
+                label="I understand and want to clear this app."
+              />
+              <Button
+                disabled={!clearAppOk}
+                variant="destructive"
+                onClick={async () => {
+                  await jsonFetch(`${config.apiURI}/dash/apps/${app.id}/clear`, {
+                    method: 'POST',
+                    headers: {
+                      authorization: `Bearer ${token}`,
+                      'content-type': 'application/json',
+                    },
+                  });
+
+                  clearDialog.onClose();
+                  dashResponse.mutate();
+                  successToast('App cleared!');
+                }}
+              >
+                Clear data
+              </Button>
+            </div>
+          </Dialog>
           <Dialog {...deleteDialog}>
             <div className="flex flex-col gap-2">
               <SubsectionHeading className="text-red-600">

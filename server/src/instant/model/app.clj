@@ -7,7 +7,10 @@
             [instant.model.app-admin-token :as app-admin-token-model]
             [instant.util.crypt :as crypt-util]
             [instant.util.exception :as ex]
-            [instant.util.uuid :as uuid-util])
+            [instant.util.uuid :as uuid-util]
+            [instant.db.model.attr :as attr-model]
+            [instant.model.rule :as rule-model]
+            [instant.db.model.transaction :as transaction-model])
   (:import
    (java.util UUID)))
 
@@ -272,6 +275,18 @@
                             SET creator_id = ?::uuid
                             WHERE a.id = ?::uuid"
                            new-creator-id id])))
+
+(defn clear-by-id!
+  "Deletes attrs, rules, and triples for the specified app_id"
+  ([params] (clear-by-id! aurora/conn-pool params))
+  ([conn {:keys [id]}]
+   (next-jdbc/with-transaction [tx-conn conn]
+     (attr-model/delete-by-app-id! tx-conn id)
+     (rule-model/delete-by-app-id! tx-conn {:app-id id})
+     (transaction-model/create! tx-conn {:app-id id}))))
+
+(comment
+  (clear-by-id! {:id "9a6d8f38-991d-4264-9801-4a05d8b1eab1"}))
 
 (defn delete-by-ids!
   ([params] (delete-by-ids! aurora/conn-pool params))

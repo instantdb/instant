@@ -34,6 +34,13 @@
   ([conn {:keys [app-id]}]
    (sql/select-one conn ["SELECT * FROM rules WHERE app_id = ?::uuid" app-id])))
 
+(defn delete-by-app-id!
+  ([params] (delete-by-app-id! aurora/conn-pool params))
+  ([conn {:keys [app-id]}]
+   (sql/do-execute!
+    conn
+    ["DELETE FROM rules WHERE app_id = ?::uuid" app-id])))
+
 (defn with-binds [rule etype expr]
   (->> (get-in rule [etype "bind"])
        (partition-all 2)

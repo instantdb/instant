@@ -341,6 +341,11 @@
     (app-model/delete-by-id! {:id app-id})
     (response/ok {:ok true})))
 
+(defn apps-clear [req]
+  (let [{{app-id :id} :app} (req->app-and-user! req)]
+    (app-model/clear-by-id! {:id app-id})
+    (response/ok {:ok true})))
+
 (defn admin-tokens-regenerate [req]
   (let [{{app-id :id} :app} (req->app-and-user! req)
         admin-token (ex/get-param! req [:body :admin-token] uuid-util/coerce)]
@@ -1138,6 +1143,7 @@
   (POST "/dash/apps" [] apps-post)
   (POST "/dash/profiles" [] profiles-post)
   (DELETE "/dash/apps/:app_id" [] apps-delete)
+  (POST "/dash/apps/:app_id/clear" [] apps-clear)
   (POST "/dash/apps/:app_id/rules" [] rules-post)
   (POST "/dash/apps/:app_id/tokens" [] admin-tokens-regenerate)
 
