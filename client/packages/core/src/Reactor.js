@@ -620,17 +620,11 @@ export default class Reactor {
     const eventId = uuid();
     const hash = weakHash(q);
 
-    const prevResult = this.getPreviousResult(q);
-    if (prevResult) {
-      cb(prevResult);
-    }
-
-    // If it's only once and we have a cached value,
-    // we don't need to subscribe at all
-    const isOneAndDone = once && prevResult;
-    if (isOneAndDone) {
-      // no-op!
-      return () => {};
+    if (!once) {
+      const prevResult = this.getPreviousResult(q);
+      if (prevResult) {
+        cb(prevResult);
+      }
     }
 
     this.queryCbs[hash] = this.queryCbs[hash] || [];
