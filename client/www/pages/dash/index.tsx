@@ -1333,7 +1333,8 @@ function Admin({
                   });
 
                   clearDialog.onClose();
-                  window.location.reload();
+                  dashResponse.mutate();
+                  successToast('App cleared!');
                 }}
               >
                 Clear and Reload
