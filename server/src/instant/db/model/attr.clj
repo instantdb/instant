@@ -118,7 +118,7 @@
   [conn app-id]
   (sql/do-execute!
    conn
-   ["DELETE FROM attrs WHERE attrs.app_id = ?" app-id]))
+   ["DELETE FROM attrs WHERE attrs.app_id = ?::uuid" app-id]))
 
 ;; ------
 ;; insert-multi!
