@@ -101,7 +101,7 @@ const tabs: Tab[] = [
 
 const tabIndex = new Map(tabs.map((t) => [t.id, t]));
 
-function isMinRole(minRole: Role, role: Role) {
+export function isMinRole(minRole: Role, role: Role) {
   return roleOrder.indexOf(role) >= roleOrder.indexOf(minRole);
 }
 

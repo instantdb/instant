@@ -1,15 +1,19 @@
 import { useRouter } from 'next/router';
 import { TokenContext } from '@/lib/contexts';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
-import { DashResponse } from '@/lib/types';
+import { successToast } from '@/lib/toast';
+import { DashResponse, InstantApp } from '@/lib/types';
 import config from '@/lib/config';
-import { useAuthToken, useTokenFetch } from '@/lib/auth';
+import { jsonFetch } from '@/lib/fetch';
+import { APIResponse, useAuthToken, useTokenFetch } from '@/lib/auth';
 import { Sandbox } from '@/components/dash/Sandbox';
 import { Explorer } from '@/components/dash/explorer/Explorer';
 import { init } from '@instantdb/react';
-import { useEffect, useState } from 'react';
-import { SectionHeading, Stack, TabBar, twel } from '@/components/ui';
+import { useEffect, useState, useContext } from 'react';
+import { Button, Checkbox, Dialog, SectionHeading, SubsectionHeading, Stack, TabBar, Content, twel, useDialog } from '@/components/ui';
 import Auth from '@/components/dash/Auth';
+import { isMinRole } from '@/pages/dash/index'
+import { TrashIcon } from '@heroicons/react/solid';
 
 type InstantReactClient = ReturnType<typeof init>;
 
@@ -188,6 +192,10 @@ export default function Devtool() {
                 label: 'Sandbox',
               },
               {
+                id: 'admin',
+                label: 'Admin',
+              },
+              {
                 id: 'help',
                 label: 'Help',
               },
@@ -203,6 +211,10 @@ export default function Devtool() {
               <div className="min-w-[960px] w-full">
                 <Sandbox app={app} />
               </div>
+            ) : tab === 'admin' ? (
+              <div className="min-w-[960px] w-full p-4">
+                <Admin dashResponse={dashResponse} app={app} />
+              </div>
             ) : tab === 'help' ? (
               <div className="min-w-[960px] w-full p-4">
                 <Help />
@@ -213,6 +225,81 @@ export default function Devtool() {
       </TokenContext.Provider>
     </div>
   );
+}
+
+function Admin({
+  dashResponse,
+  app,
+}: {
+  dashResponse: APIResponse<DashResponse>;
+  app: InstantApp;
+}) {
+  const token = useContext(TokenContext);
+  const [clearAppOk, updateClearAppOk] = useState(false);
+  const clearDialog = useDialog();
+
+  return (
+    <Stack className="gap-2 text-sm max-w-sm">
+      {isMinRole('owner', app.user_app_role) ? (
+        <div className="space-y-2">
+          <SectionHeading>Danger zone</SectionHeading>
+          <Content>
+            These are destructive actions and will irreversibly delete associated data.
+          </Content>
+          <div>
+            <div className="flex flex-col space-y-6">
+              <Button variant="destructive" onClick={clearDialog.onOpen}>
+                <TrashIcon height={'1rem'} /> Clear app
+              </Button>
+            </div>
+          </div>
+          <Dialog {...clearDialog}>
+            <div className="flex flex-col gap-2">
+              <SubsectionHeading className="text-red-600">
+                Clear app
+              </SubsectionHeading>
+              <Content className="space-y-2">
+                <p>Clearing an app will irreversibly delete all namespaces, triples, and permissions.</p>
+                <p>All other data like app id, admin token, users, billing, team members, etc. will remain.</p>
+                <p>This is equivalent to deleting all your namespaces in the explorer and clearing your permissions.</p>
+              </Content>
+              <Checkbox
+                checked={clearAppOk}
+                onChange={(c) => updateClearAppOk(c)}
+                label="I understand and want to clear this app."
+              />
+              <Button
+                disabled={!clearAppOk}
+                variant="destructive"
+                onClick={async () => {
+                  await jsonFetch(`${config.apiURI}/dash/apps/${app.id}/clear`, {
+                    method: 'POST',
+                    headers: {
+                      authorization: `Bearer ${token}`,
+                      'content-type': 'application/json',
+                    },
+                  });
+
+                  clearDialog.onClose();
+                  dashResponse.mutate();
+                  successToast('App cleared!');
+                }}
+              >
+                Clear data
+              </Button>
+            </div>
+          </Dialog>
+        </div>
+      ) :
+        <>
+          <SectionHeading>Insufficent Role</SectionHeading>
+          <Content>
+            Only app owners can use admin features in the devtool.
+          </Content>
+        </>
+      }
+    </Stack>
+  )
 }
 
 function Help() {
