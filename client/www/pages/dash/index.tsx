@@ -1337,7 +1337,7 @@ function Admin({
                   successToast('App cleared!');
                 }}
               >
-                Clear and Reload
+                Clear data
               </Button>
             </div>
           </Dialog>
