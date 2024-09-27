@@ -13,7 +13,7 @@ The default export of `instant.schema.ts` should always be the result of a call 
 
 import { i } from '@instantdb/core';
 
-export default i.graph(
+const graph = i.graph(
   entitiesMap, // a map of `i.entity` definitions, see "Defining entities" below
   linksMap // a description of links between your app's entities, see "Defining links" below
 );
