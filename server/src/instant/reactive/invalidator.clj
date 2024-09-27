@@ -315,7 +315,7 @@
 
 (defn app-id-from-columns [names values]
   (when-let [i (ucoll/index-of "app_id" names)]
-    (nth values i)))
+    (parse-uuid (nth values i))))
 
 (defn extract-app-id
   [{:keys [columnvalues columnnames] :as _change}]
