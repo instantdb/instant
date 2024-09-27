@@ -124,12 +124,12 @@
 
 (defn prevent-$users-updates [op attrs]
   (doseq [attr attrs
-          :let [ns (-> attr :forward-identity (nth 1))]]
-    (when (and ns (string/starts-with? ns "$"))
+          :let [etype (attr-model/fwd-etype attr)]]
+    (when (and etype (string/starts-with? etype "$"))
       (ex/throw-validation-err!
        :tx-steps
        op
-       [{:message (format "You can't create or modify attributes in the %s namespace." ns)}]))))
+       [{:message (format "You can't create or modify attributes in the %s namespace." etype)}]))))
 
 (defn transact-without-tx-conn! [conn attrs app-id tx-steps]
   (tracer/with-span! {:name "transaction/transact!"
