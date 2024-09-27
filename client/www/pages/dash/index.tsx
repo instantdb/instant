@@ -26,6 +26,7 @@ import { Perms } from '@/components/dash/Perms';
 import Auth from '@/components/dash/Auth';
 import { Explorer } from '@/components/dash/explorer/Explorer';
 import { Onboarding } from '@/components/dash/Onboarding';
+import { useFlag } from '@/lib/hooks/useFlag';
 
 import {
   ActionButton,
@@ -1043,6 +1044,8 @@ function Admin({
     namespaces && namespaces.find((n) => n.name === '$users')?.attrs;
   const usersRefs = usersAttrs && usersAttrs.filter((a) => a.type === 'ref');
 
+  const showUsersTable = useFlag('usersTable');
+
   async function onClickReset() {
     if (!dashResponse.data) return;
     const appIndex = dashResponse.data.apps?.findIndex((a) => a.id === app.id);
@@ -1299,7 +1302,7 @@ function Admin({
         ) : null}
       </Content>
       <Copyable label="Secret" value={app.admin_token} />
-      {isMinRole('collaborator', app.user_app_role) ? (
+      {showUsersTable && isMinRole('collaborator', app.user_app_role) ? (
         <div>
           <SectionHeading>Experimental</SectionHeading>
           <SubsectionHeading>Users namespace</SubsectionHeading>
