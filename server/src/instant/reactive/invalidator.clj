@@ -432,13 +432,13 @@
   (wal/shutdown! wal-opts))
 
 (defn create-wal-chans []
-  (let [users-shims (tracer/with-span! {:name "invalidator/init-users-shims"}
-                      (atom (attr-model/get-all-users-shims aurora/conn-pool)))]
+  (let [users-shims (atom {})]
     (if-not config/instant-on-instant-app-id
       (let [chan (a/chan 1 (wal-record-xf users-shims))]
         {:wal-chan chan
          :close-signal-chan (a/chan)
-         :worker-chan chan})
+         :worker-chan chan
+         :users-shims users-shims})
       (let [wal-chan (a/chan 1)
             mult (a/mult wal-chan)
             worker-chan (a/chan 1 (wal-record-xf users-shims))
@@ -452,13 +452,14 @@
          ;; its puts to complete
          :close-signal-chan (a/chan)
          :worker-chan worker-chan
-         :byop-chan byop-chan}))))
+         :byop-chan byop-chan
+         :users-shims users-shims}))))
 
 (defn start
   "Entry point for invalidator. Starts a WAL listener and pipes WAL records to
   our partition router. Partition router dispatches records to app workers who run `go-work`"
   []
-  (let [{:keys [wal-chan worker-chan byop-chan close-signal-chan]}
+  (let [{:keys [wal-chan worker-chan byop-chan close-signal-chan users-shims]}
         (create-wal-chans)
 
         wal-opts (wal/make-wal-opts {:wal-chan wal-chan
@@ -471,6 +472,12 @@
 
     (ua/fut-bg
       (wal/start-worker wal-opts))
+
+    @(:started-promise wal-opts)
+
+    (tracer/with-span! {:name "invalidator/init-users-shims"}
+      (reset! users-shims (attr-model/get-all-users-shims aurora/conn-pool)))
+
     (ua/fut-bg
       (start-worker rs/store-conn worker-chan))
 
