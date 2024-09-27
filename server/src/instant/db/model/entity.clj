@@ -17,7 +17,14 @@
         ;; you might be tempted to simplify the query to [[:ea (set eids)]]
         ;; but the eid might be a lookup ref and you won't know how to get
         ;; the join rows for that lookup
-        datalog-result (datalog-query-fn ctx query)
+
+        datalog-result
+        (datalog-query-fn
+         (merge ctx
+                (when (some #(= "$users" (:etype %)) eid+etypes)
+                  {:users-shim-info
+                   (attr-model/users-shim-info attrs)}))
+         query)
 
         triples (map (fn [result]
                        (->> result
@@ -34,7 +41,15 @@
   (let [query (if etype
                 [[:ea eid (attr-model/attr-ids-for-etype etype attrs)]]
                 [[:ea eid]])
-        datalog-result (datalog-query-fn ctx query)
+
+        datalog-result
+        (datalog-query-fn
+         (merge ctx
+                (when (= etype "$users")
+                  {:users-shim-info
+                   (attr-model/users-shim-info attrs)}))
+         query)
+
         triples (->> datalog-result
                      :join-rows
                      (mapcat identity))]

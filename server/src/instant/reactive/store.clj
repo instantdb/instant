@@ -437,6 +437,15 @@
                       datalog-query-eids)]
     (map (fn [[e]] [:db/add e :instaql-query/stale? true]) iql-eids)))
 
+(defn set-tx-id
+  "Should be used in a db.fn/call. Returns transactions.
+   Sets the processed-tx-id to the max of the given value and current value."
+  [db app-id tx-id]
+  (if-let [current (:tx-meta/processed-tx-id (d/entity db [:tx-meta/app-id app-id]))]
+    [[:db/add [:tx-meta/app-id app-id] :tx-meta/processed-tx-id (max current tx-id)]]
+    [{:tx-meta/app-id app-id
+      :tx-meta/processed-tx-id tx-id}]))
+
 (defn mark-datalog-queries-stale!
   "Stale-ing a datalog query has the following side-effects:
    1. Removes the datalog query from the datalog-cache
@@ -446,8 +455,7 @@
   (transact!
    "store/mark-datalog-queries-stale!"
    conn
-   (list* {:tx-meta/app-id app-id
-           :tx-meta/processed-tx-id tx-id}
+   (list* [:db.fn/call set-tx-id app-id tx-id]
 
           [:db.fn/call mark-instaql-queries-stale-tx-data datalog-query-eids]
 

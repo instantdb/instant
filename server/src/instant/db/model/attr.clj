@@ -2,12 +2,15 @@
   (:require
    [clojure.set :refer [map-invert]]
    [clojure.spec.alpha :as s]
+   [clojure.string :as string]
    [instant.util.spec :as uspec]
+   [instant.util.string :as string-util]
    [clojure.spec.gen.alpha :as gen]
    [instant.jdbc.sql :as sql]
    [instant.jdbc.aurora :as aurora]
    [honey.sql :as hsql]
-   [instant.data.constants :refer [empty-app-id]]))
+   [instant.data.constants :refer [empty-app-id]]
+   [instant.util.exception :as ex]))
 
 ;; Don't change the order or remove types, only add to the end of the list
 (def types
@@ -110,6 +113,10 @@
 (def fwd-label
   "Given an attr, return it's forward label"
   (comp last :forward-identity))
+
+(def rev-etype
+  "Given an attr, return it's reverse etype or nil"
+  (comp second :reverse-identity))
 ;; ---
 ;; delete-by-app-id!
 
@@ -171,66 +178,87 @@
 (defn qualify-cols [ns cols]
   (map (partial qualify-col ns) cols))
 
+(defn validate-reserved-names!
+  "Prevents users from creating namespaces that start with `$`. Only looks
+   at the forward-identity. That way users can still create links into the
+   reserved namespaces.
+   We need this so that users don't clash with special namespaces, like the
+   $users table and $files rules."
+  [attrs]
+  (doseq [attr attrs]
+    (when-let [fwd-etype (-> attr :forward-identity second)]
+      (when (string/starts-with? fwd-etype "$")
+        (ex/throw-validation-err!
+         :attributes
+         attr
+         [{:message (string-util/multiline->single-line
+                     "Namespaces are not allowed to start with a `$`.
+                      Those are reserved for system namespaces.")}])))))
+
 (defn insert-multi!
   "Attr data is expressed as one object in clj but is persisted across two tables
    in sql: `attrs` and `idents`.
 
    We extract relevant data for each table and build a CTE to insert into
    both tables in one statement"
-  [conn app-id attrs]
-  (sql/do-execute!
-   conn
-   (hsql/format
-    {:with [[[:attr-values
-              {:columns attr-table-cols}]
-             {:values (distinct (attr-table-values app-id attrs))}]
-            [[:ident-values
-              {:columns ident-table-cols}]
-             {:values (distinct (ident-table-values app-id attrs))}]
-            [:ident-inserts
-             {:insert-into
-              [[:idents ident-table-cols]
-               {:select (qualify-cols :ident-values ident-table-cols)
-                :from :ident-values
-                ;; Filter out idents we've already saved
-                :where [:not [:exists
-                              {:select :1
-                               :from :idents
-                               :where (list* :and
-                                             (map (fn [col]
-                                                    [:=
-                                                     (qualify-col :ident-values col)
-                                                     (qualify-col :idents col)])
-                                                  ident-table-cols))}]]}]
-              :returning [:id]}]
-            [:ident-ids
-             {:union-all
-              [{:select :id :from :ident-inserts}
-               {:select :id
-                :from :idents
-                :where [:in :id {:select :id
-                                 :from :attr-values}]}]}]
-            [:attr-inserts
-             {:insert-into
-              [[:attrs attr-table-cols]
-               {:select (qualify-cols :attr-values attr-table-cols)
-                :from [:attr-values]
-                ;; Filter out attrs we've already saved
-                :where [:not [:exists
-                              {:select :1
-                               :from :attrs
-                               :where (list* :and
-                                             (map (fn [col]
-                                                    [:=
-                                                     (qualify-col :attr-values col)
-                                                     (qualify-col :attrs col)])
-                                                  attr-table-cols))}]]
-                :join [:ident-ids
-                       [:= :attr-values.forward-ident :ident-ids.id]]}]
-              :returning [:id]}]]
-     :union-all
-     [{:select :id :from :ident-inserts}
-      {:select :id :from :attr-inserts}]})))
+  ([conn app-id attrs]
+   (insert-multi! conn app-id attrs {:allow-reserved-names? false}))
+  ([conn app-id attrs {:keys [allow-reserved-names?]}]
+   (when-not allow-reserved-names?
+     (validate-reserved-names! attrs))
+   (sql/do-execute!
+    conn
+    (hsql/format
+     {:with [[[:attr-values
+               {:columns attr-table-cols}]
+              {:values (distinct (attr-table-values app-id attrs))}]
+             [[:ident-values
+               {:columns ident-table-cols}]
+              {:values (distinct (ident-table-values app-id attrs))}]
+             [:ident-inserts
+              {:insert-into
+               [[:idents ident-table-cols]
+                {:select (qualify-cols :ident-values ident-table-cols)
+                 :from :ident-values
+                 ;; Filter out idents we've already saved
+                 :where [:not [:exists
+                               {:select :1
+                                :from :idents
+                                :where (list* :and
+                                              (map (fn [col]
+                                                     [:=
+                                                      (qualify-col :ident-values col)
+                                                      (qualify-col :idents col)])
+                                                   ident-table-cols))}]]}]
+               :returning [:id]}]
+             [:ident-ids
+              {:union-all
+               [{:select :id :from :ident-inserts}
+                {:select :id
+                 :from :idents
+                 :where [:in :id {:select :id
+                                  :from :attr-values}]}]}]
+             [:attr-inserts
+              {:insert-into
+               [[:attrs attr-table-cols]
+                {:select (qualify-cols :attr-values attr-table-cols)
+                 :from [:attr-values]
+                 ;; Filter out attrs we've already saved
+                 :where [:not [:exists
+                               {:select :1
+                                :from :attrs
+                                :where (list* :and
+                                              (map (fn [col]
+                                                     [:=
+                                                      (qualify-col :attr-values col)
+                                                      (qualify-col :attrs col)])
+                                                   attr-table-cols))}]]
+                 :join [:ident-ids
+                        [:= :attr-values.forward-ident :ident-ids.id]]}]
+               :returning [:id]}]]
+      :union-all
+      [{:select :id :from :ident-inserts}
+       {:select :id :from :attr-inserts}]}))))
 
 (defn- not-null-or [check fallback]
   [:case [:not= check nil] check :else fallback])
@@ -244,6 +272,7 @@
 
 (defn update-multi!
   [conn app-id updates]
+  (validate-reserved-names! updates)
   (sql/do-execute!
    conn
    (hsql/format
@@ -437,6 +466,30 @@
            :left-join [[:idents :rev-idents] [:= :attrs.reverse-ident :rev-idents.id]]
            :where [:= :attrs.app-id [:cast app-id :uuid]]})))))
 
+(defn get-all-users-shims
+  "Fetching the mapping from app-users table to attributes that we use to
+   create the $users table.
+   Returns a mapping of app_id to {email-attr-id: ?uuid
+                                   id-attr-id: ?uuid}"
+  [conn]
+  (let [query (hsql/format {:select :*
+                            :from :idents
+                            :where [:and
+                                    [:= :etype "$users"]
+                                    [:or
+                                     [:= :label "id"]
+                                     [:= :label "email"]]]})
+        rows (sql/select conn query)]
+    (reduce (fn [acc row]
+              (let [app-id (:app_id row)
+                    field (case (:label row)
+                            "id" :id-attr-id
+                            "email" :email-attr-id)
+                    attr-id (:attr_id row)]
+                (assoc-in acc [(str app-id) field] attr-id)))
+            {}
+            rows)))
+
 ;; ------
 ;; seek
 
@@ -452,6 +505,35 @@
 
 (defn attr-ids-for-etype [etype ^Attrs attrs]
   (.attrIdsForEtype attrs etype))
+
+;; -------
+;; Helpers
+
+(defn users-shim-info
+  "Returns the users shim info if the users shim attrs exist"
+  [^Attrs attrs]
+  (let [email-attr (seek-by-fwd-ident-name ["$users" "email"] attrs)
+        id-attr (seek-by-fwd-ident-name ["$users" "id"] attrs)]
+    (when (and email-attr id-attr)
+      {:email-attr-id (:id email-attr)
+       :id-attr-id (:id id-attr)})))
+
+(defn gen-users-shim-attrs [attrs]
+  (keep identity
+        [(when-not (seek-by-fwd-ident-name ["$users" "id"] attrs)
+           {:id (random-uuid)
+            :forward-identity [(random-uuid) "$users" "id"]
+            :unique? true
+            :index? false
+            :value-type :blob
+            :cardinality :one})
+         (when-not (seek-by-fwd-ident-name ["$users" "email"] attrs)
+           {:id (random-uuid)
+            :forward-identity [(random-uuid) "$users" "email"]
+            :unique? true
+            :index? false
+            :value-type :blob
+            :cardinality :one})]))
 
 ;; ------
 ;; play

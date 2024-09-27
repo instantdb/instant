@@ -158,6 +158,8 @@
 
 (deftest batching-queries
   (let [app-id movies-app-id
+        ctx {:db {:conn-pool aurora/conn-pool}
+             :app-id app-id}
         movie-title-aid (resolvers/->uuid @r :movie/title)
         movie-director-aid (resolvers/->uuid @r :movie/director)
         person-name-aid (resolvers/->uuid @r :person/name)
@@ -183,7 +185,7 @@
                  1708623782646]]}
              (resolvers/walk-friendly
               @r
-              (:join-rows (d/send-query-single aurora/conn-pool app-id named-ps-1)))))
+              (:join-rows (d/send-query-single ctx aurora/conn-pool app-id named-ps-1)))))
       (is (= #{[["eid-john-mctiernan" :person/name "John McTiernan" 1708623782646]
                 ["eid-die-hard" :movie/director "eid-john-mctiernan" 1708623782646]
                 ["eid-die-hard" :movie/title "Die Hard" 1708623782646]]
@@ -192,7 +194,7 @@
                 ["eid-predator" :movie/title "Predator" 1708623782646]]}
              (resolvers/walk-friendly
               @r
-              (:join-rows (d/send-query-single aurora/conn-pool app-id named-ps-2))))))
+              (:join-rows (d/send-query-single ctx aurora/conn-pool app-id named-ps-2))))))
     (testing "send-query-batched"
       (is (= [#{[["eid-predator" :movie/title "Predator" 1708623782646]
                  ["eid-predator" :movie/director "eid-john-mctiernan" 1708623782646]
@@ -208,8 +210,8 @@
                  ["eid-predator" :movie/title "Predator" 1708623782646]]}]
              (resolvers/walk-friendly
               @r
-              (map :join-rows (d/send-query-batch aurora/conn-pool [[app-id named-ps-1]
-                                                                    [app-id named-ps-2]]))))))))
+              (map :join-rows (d/send-query-batch ctx aurora/conn-pool [[app-id named-ps-1]
+                                                                        [app-id named-ps-2]]))))))))
 
 (def ^:dynamic *count-atom* nil)
 

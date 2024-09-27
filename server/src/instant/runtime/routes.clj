@@ -4,6 +4,8 @@
             [hiccup2.core :as h]
             [instant.auth.oauth :as oauth]
             [instant.config :as config]
+            [instant.db.model.transaction :as transaction-model]
+            [instant.jdbc.aurora :as aurora]
             [instant.model.app :as app-model]
             [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
             [instant.model.app-email-template :as app-email-template-model]
@@ -27,6 +29,7 @@
             [instant.util.tracer :as tracer]
             [instant.util.url :as url]
             [instant.util.uuid :as uuid-util]
+            [next.jdbc :as next-jdbc]
             [lambdaisland.uri :as uri]
             [ring.middleware.cookies :refer [wrap-cookies]]
             [ring.util.http-response :as response])
@@ -109,9 +112,12 @@
         app-id (ex/get-param! req [:body :app-id] uuid-util/coerce)
         app (app-model/get-by-id! {:id app-id})
         {user-id :id :as u} (or (app-user-model/get-by-email {:app-id app-id :email email})
-                                (app-user-model/create! {:id (UUID/randomUUID)
-                                                         :app-id app-id
-                                                         :email email}))
+                                (next-jdbc/with-transaction [conn aurora/conn-pool]
+                                  (let [app (app-user-model/create! conn {:id (UUID/randomUUID)
+                                                                          :app-id app-id
+                                                                          :email email})]
+                                    (transaction-model/create! conn {:app-id app-id})
+                                    app)))
         magic-code (app-user-magic-code-model/create!
                     {:id (UUID/randomUUID)
                      :code (app-user-magic-code-model/rand-code)

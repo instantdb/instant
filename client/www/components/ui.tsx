@@ -162,6 +162,8 @@ export function TextInput({
   placeholder,
   inputMode,
   tabIndex,
+  disabled,
+  title,
 }: {
   value: string;
   type?: 'text' | 'email' | 'sensitive' | 'password';
@@ -174,6 +176,8 @@ export function TextInput({
   autoFocus?: boolean;
   inputMode?: 'numeric' | 'text';
   tabIndex?: number;
+  disabled?: boolean | undefined;
+  title?: string | undefined;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -187,6 +191,8 @@ export function TextInput({
     <label className="flex flex-col gap-1">
       {label ? <Label>{label}</Label> : null}
       <input
+        disabled={disabled}
+        title={title}
         type={type === 'sensitive' ? 'password' : type ?? 'text'}
         // Try to prevent password managers from trying to save
         // sensitive input
@@ -197,7 +203,7 @@ export function TextInput({
         placeholder={placeholder}
         value={value ?? ''}
         className={cn(
-          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400',
+          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400',
           className,
           {
             'border-red-500': error,
@@ -222,6 +228,8 @@ export function Checkbox({
   className,
   labelClassName,
   required,
+  disabled,
+  title,
 }: {
   label?: ReactNode;
   error?: ReactNode;
@@ -230,14 +238,25 @@ export function Checkbox({
   labelClassName?: string;
   onChange: (checked: boolean) => void;
   required?: boolean;
+  disabled?: boolean | undefined;
+  title?: string | undefined;
 }) {
   return (
     <label
-      className={cn('flex cursor-pointer items-center gap-2', labelClassName)}
+      className={cn(
+        'flex cursor-pointer items-center gap-2 disabled:cursor-default',
+        labelClassName
+      )}
+      title={title}
     >
       <input
+        disabled={disabled}
+        title={title}
         required={required}
-        className={cn('align-middle font-medium text-gray-900', className)}
+        className={cn(
+          'align-middle font-medium text-gray-900 disabled:text-gray-400 disabled:bg-gray-400',
+          className
+        )}
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
@@ -364,6 +383,7 @@ export function Button({
   loading,
   autoFocus,
   tabIndex,
+  title,
 }: PropsWithChildren<{
   variant?: 'primary' | 'secondary' | 'subtle' | 'destructive' | 'cta';
   size?: 'mini' | 'normal' | 'large' | 'xl' | 'nano';
@@ -375,6 +395,7 @@ export function Button({
   loading?: boolean;
   autoFocus?: boolean;
   tabIndex?: number;
+  title?: string | undefined;
 }>) {
   const buttonRef = useRef<any>(null);
   const isATag = type === 'link' || (type === 'link-new' && href);
@@ -430,6 +451,7 @@ export function Button({
   if (isATag) {
     return (
       <a
+        title={title}
         tabIndex={tabIndex}
         ref={buttonRef}
         className={cls}
@@ -447,6 +469,7 @@ export function Button({
 
   return (
     <button
+      title={title}
       tabIndex={tabIndex}
       ref={buttonRef}
       disabled={loading || disabled}
@@ -533,17 +556,19 @@ export function ActionButton({
   successMessage,
   onClick,
   tabIndex,
+  title,
 }: {
   type?: 'button' | 'submit';
   variant?: 'primary' | 'secondary' | 'destructive';
   disabled?: boolean;
   className?: string;
-  label: string;
+  label: ReactNode;
   submitLabel: string;
   errorMessage: string;
   successMessage?: string;
   onClick: () => any;
   tabIndex?: number;
+  title?: string | undefined;
 }) {
   const [submitting, setSubmitting] = useState(false);
 
@@ -557,7 +582,14 @@ export function ActionButton({
         successToast(successMessage);
       }
     } catch (error) {
-      errorToast(errorMessage);
+      if ((error as any)?.hint) {
+        const msg = `${errorMessage}\n${(error as any).message}\n${
+          (error as any).hint?.errors?.[0]?.message
+        }`;
+        errorToast(msg);
+      } else {
+        errorToast(errorMessage);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -571,6 +603,7 @@ export function ActionButton({
       disabled={disabled || submitting}
       className={className}
       onClick={_onClick}
+      title={title}
     >
       {submitting ? submitLabel : label}
     </Button>

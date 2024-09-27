@@ -19,6 +19,7 @@
             [instant.model.instant-oauth-code :as instant-oauth-code-model]
             [instant.model.instant-oauth-redirect :as instant-oauth-redirect-model]
             [instant.db.model.attr :as attr-model]
+            [instant.db.model.transaction :as transaction-model]
             [instant.data.emails :refer [admin-email?]]
             [instant.model.rule :as rule-model]
             [instant.model.instant-profile :as instant-profile-model]
@@ -355,12 +356,12 @@
 ;; Rules
 
 (defn rules-post [req]
-  (let
-   [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-    code (ex/get-param! req [:body :code] w/stringify-keys)]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        code (ex/get-param! req [:body :code] w/stringify-keys)]
     (ex/assert-valid! :rule code (rule-model/validation-errors code))
     (response/ok {:rules (rule-model/put! {:app-id app-id
                                            :code code})})))
+
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (def r (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id (:id u)}))
@@ -928,6 +929,34 @@
                               :title title})
     (response/ok {})))
 
+(defn insert-users-table!
+  "Creates the users table and adds rules.
+   Returns the full set of rules."
+  [conn-pool app-id]
+  (let [current-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)]
+    (next-jdbc/with-transaction [tx-conn conn-pool]
+      (let [rules (rule-model/merge! {:app-id app-id
+                                      :code {:$users {:allow {:view "auth.id == data.id"
+                                                              :create "false"
+                                                              :update "false"
+                                                              :delete "false"}}}})]
+        (attr-model/insert-multi! tx-conn
+                                  app-id
+                                  (attr-model/gen-users-shim-attrs current-attrs)
+                                  {:allow-reserved-names? true})
+        (transaction-model/create! tx-conn {:app-id app-id})
+        rules))))
+
+(defn enable-users-table
+  "Creates the rules for the $users table and the $users attributes that enable the table.
+   We prevent users from creating new attributes in the `$users` namespace, so we need a
+   separate path for creating the attributes. We don't need a disable-users-table because
+   the admin can still delete the $users attributes."
+  [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        rules (insert-users-table! aurora/conn-pool app-id)]
+    (response/ok {:rules rules})))
+
 ;; ---
 ;; Storage
 
@@ -1167,6 +1196,7 @@
   (DELETE "/dash/personal_access_tokens/:id" [] personal-access-tokens-delete)
 
   (POST "/dash/apps/:app_id/rename" [] app-rename-post)
+  (POST "/dash/apps/:app_id/enable_users_table" [] enable-users-table)
 
   (POST "/dash/apps/:app_id/storage/signed-upload-url" [] signed-upload-url-post)
   (GET "/dash/apps/:app_id/storage/signed-download-url", [] signed-download-url-get)

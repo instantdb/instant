@@ -131,14 +131,17 @@
    [[?users bookshelves-attr ?bookshelves]
     [?bookshelves books-attr ?books]]"
   [ctx level-sym etype level refs-path]
-  (let [[last-etype last-level attr-pats]
-        (reduce (fn [[etype level attr-pats] label]
+  (let [[last-etype last-level attr-pats referenced-etypes]
+        (reduce (fn [[etype level attr-pats referenced-etypes] label]
                   (let [[next-etype next-level attr-pat]
                         (->ref-attr-pat ctx level-sym etype level label)]
-                    [next-etype next-level (conj attr-pats attr-pat)]))
-                [etype level []]
+                    [next-etype
+                     next-level
+                     (conj attr-pats attr-pat)
+                     (conj referenced-etypes next-etype)]))
+                [etype level [] #{etype}]
                 refs-path)]
-    (list last-etype last-level attr-pats)))
+    (list last-etype last-level attr-pats referenced-etypes)))
 
 (defn replace-in-attr-pat
   "Handy function to replace a component in an attr-pat with a new value

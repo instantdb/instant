@@ -44,6 +44,48 @@
 ;; ---
 ;; insert-multi!
 
+(defn users-triples-ctes
+  "Creates a `users-triples` cte table with the same structure as the
+   `triples` table so that our existing machinery can query the app-users table."
+  [app-id email-attr-id id-attr-id]
+  [[:users-attr-mapping {:select :*
+                         :from [[{:values [[email-attr-id "email"]
+                                           [id-attr-id "id"]]}
+                                 [:mapping {:columns [:attr-id :col]}]]]}]
+   ;; First get all fields up the value-md5, because we need to get the
+   ;; value to calculate the md5
+   [:users-triples-up-to-md5 {:select [:app-id
+                                       [:id :entity-id]
+                                       [:users-attr-mapping.attr-id :attr-id]
+                                       [[:case-expr :users-attr-mapping.col
+                                         ;; Careful if mapping user-defined attrs,
+                                         ;; b/c it could lead a sql injection
+                                         [:inline "email"] [:to_jsonb :email]
+                                         [:inline "id"] [:to_jsonb :id]
+                                         :else nil] :value]
+                                       :created-at]
+                              :from [:app-users :users-attr-mapping]
+                              :where [:= :app_id app-id]}]
+   [:users-triples
+    {:select [:app-id
+              :entity-id
+              :attr-id
+              :value
+              [[:md5 [:cast :value :text]] :value-md5]
+              [true :ea]
+              [false :eav]
+              [true :av]
+              [false :ave]
+              [true :vae]
+              [[:cast [:* 1000 [:extract [:epoch-from :created-at]]] :bigint] :created-at]]
+     :from :users-triples-up-to-md5}]
+   [:triples
+    {:union-all [{:select :*
+                  :from :triples}
+                 {:select :*
+                  :from :users-triples}]}
+    :not-materialized]])
+
 (def triple-cols
   [:app-id :entity-id :attr-id :value :value-md5 :ea :eav :av :ave :vae])
 
@@ -109,7 +151,7 @@
                                             )"]]]}])))
 
 (defn deep-merge-multi!
-  [conn app-id triples]
+  [conn attrs app-id triples]
   (let [input-triples-values
         (->> triples
              (group-by (juxt first second))
@@ -131,7 +173,22 @@
                                       (when (eid-lookup-ref? e)
                                         e))
                                     triples))
+        lookup-ref-values (keep (fn [[_e _a v]]
+                                  (when (value-lookup-ref? v)
+                                    v))
+                                triples)
+        lookup-ref-etypes (reduce (fn [acc [aid _v]]
+                                    (conj acc (attr-model/fwd-etype
+                                               (attr-model/seek-by-id aid attrs))))
+                                  #{}
+                                  (concat lookup-refs
+                                          lookup-ref-values))
         q {:with (concat
+                  (when (contains? lookup-ref-etypes "$users")
+                    (when-let [users-shims (attr-model/users-shim-info attrs)]
+                      (users-triples-ctes app-id
+                                          (:email-attr-id users-shims)
+                                          (:id-attr-id users-shims))))
                   (when (seq lookup-refs)
                     [[[:input-lookup-refs
                        {:columns [:app-id :attr-id :value]}]
@@ -250,12 +307,27 @@
    if the value is the same. In this case we simply do nothing and ignore the
    write. So if [1 user/pet 2] already exists, inserting [1 user/pet 3] will
    not trigger a conflict, but trying to insert [1 user/pet 2] will no-op"
-  [conn app-id triples]
+  [conn attrs app-id triples]
   (let [lookup-refs (distinct (keep (fn [[e]]
                                       (when (eid-lookup-ref? e)
                                         e))
                                     triples))
+        lookup-ref-values (keep (fn [[_e _a v]]
+                                  (when (value-lookup-ref? v)
+                                    v))
+                                triples)
+        lookup-ref-etypes (reduce (fn [acc [aid _v]]
+                                    (conj acc (attr-model/fwd-etype
+                                               (attr-model/seek-by-id aid attrs))))
+                                  #{}
+                                  (concat lookup-refs
+                                          lookup-ref-values))
         query {:with (concat
+                      (when (contains? lookup-ref-etypes "$users")
+                        (when-let [users-shims (attr-model/users-shim-info attrs)]
+                          (users-triples-ctes app-id
+                                              (:email-attr-id users-shims)
+                                              (:id-attr-id users-shims))))
                       (when (seq lookup-refs)
                         [[[:input-lookup-refs
                            {:columns [:app-id :attr-id :value]}]
@@ -577,7 +649,10 @@
      :index? false
      :unique? false}])
   (def t [#uuid "83ae4cbf-8b19-42f6-bb8f-3eac7bd6da29" name-attr-id "Stopa"])
-  (insert-multi! aurora/conn-pool empty-app-id [t])
+  (insert-multi! aurora/conn-pool
+                 (attr-model/get-by-app-id aurora/conn-pool empty-app-id)
+                 empty-app-id
+                 [t])
   (fetch aurora/conn-pool empty-app-id)
   (delete-multi! aurora/conn-pool empty-app-id [t]))
 

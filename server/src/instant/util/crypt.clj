@@ -23,6 +23,11 @@
   [^String s]
   (.digest (MessageDigest/getInstance "SHA-256") (.getBytes s)))
 
+(defn str->md5
+  "Returns the md5 of a string as a byte array"
+  [^String s]
+  (.digest (MessageDigest/getInstance "MD5") (.getBytes s)))
+
 (defn constant-bytes=
   "Constant time comparison to prevent timing attacks"
   [bytes-a bytes-b]
