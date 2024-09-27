@@ -227,7 +227,8 @@
    :ex-handler ex-handler
    :conn-config conn-config
    :slot-name slot-name
-   :shutdown-fn (atom nil)})
+   :shutdown-fn (atom nil)
+   :started-promise (promise)})
 
 (defn set-shutdown-fn [wal-opts shutdown-fn]
   (swap! (:shutdown-fn wal-opts)
@@ -249,7 +250,8 @@
    Note: Blocks the calling thread. Call with fut-bg.
 
    Use `shutdown!` to stop the stream and clean up."
-  [{:keys [conn-config slot-name to ex-handler close-signal-chan] :as wal-opts}]
+  [{:keys [conn-config slot-name to ex-handler close-signal-chan started-promise]
+    :as wal-opts}]
   (let [replication-conn (get-pg-replication-conn conn-config)
         {:keys [lsn]} (create-logical-replication-slot! replication-conn
                                                         slot-name
@@ -257,6 +259,7 @@
         shutdown? (atom false)]
     (loop [replication-conn replication-conn
            stream (create-replication-stream replication-conn slot-name lsn)]
+      (deliver started-promise true)
       (tracer/record-info! {:name "wal-worker/start"
                             :attributes {:slot-name slot-name}})
       (set-shutdown-fn wal-opts (fn []
