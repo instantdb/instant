@@ -185,13 +185,14 @@
 ;; Going with some manual clojure macros for now.
 (defmacro with-span!
   [span-opts & body]
-  `(cond
-     *skipped* (do ~@body)
-     (> (rand) (:sample-rate ~span-opts 1.0))
-     (binding [*skipped* true]
-       ~@body)
-     :else
-     (with-span!* ~span-opts ~@body)))
+  `(let [span-opts# ~span-opts]
+     (cond
+       *skipped* (do ~@body)
+       (> (rand) (:sample-rate span-opts# 1.0))
+       (binding [*skipped* true]
+         ~@body)
+       :else
+       (with-span!* span-opts# ~@body))))
 
 (comment
   ;; this will always print new-span!
