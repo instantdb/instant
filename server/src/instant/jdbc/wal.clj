@@ -348,4 +348,4 @@
   "A hacky way to trigger the stream reader so that it will close faster.
    Useful to speed up exit in dev where there isn't much activity on the wal."
   [conn]
-  (sql/execute! conn ["select pg_notify('random-channel', 'payload')"]))
+  (sql/execute! conn ["insert into config (k, v) values ('kick-wal', to_jsonb(now())) on conflict (k) do update set v = excluded.v"]))
