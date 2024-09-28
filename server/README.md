@@ -52,7 +52,7 @@ And start the server:
 make dev
 ```
 
-The instant server will run at localhost:8888 and you can connect to nrepl on port 6005.
+The instant server will run at [localhost:8888](http://localhost:8888) and you can connect to nrepl on port 6005.
 
 ### Config
 
