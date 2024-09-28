@@ -41,13 +41,22 @@ jobs:
 
     services:
       postgres:
-        image: postgres:13
+        image: public.ecr.aws/z9j8u5b3/instant-public:postgres-13
         ports:
           - 5432:5432
         env:
           POSTGRES_USER: test_user
           POSTGRES_PASSWORD: test_password
           POSTGRES_DB: test_db
+        command:
+          - "postgres"
+          - "-c"
+          - "wal_level=logical"
+          - "-c"
+          - "max_replication_slots=4"
+          - "-c"
+          - "max_wal_senders=4"
+
 
     steps:
     - name: Checkout
