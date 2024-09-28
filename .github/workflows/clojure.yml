@@ -48,11 +48,7 @@ jobs:
           POSTGRES_USER: test_user
           POSTGRES_PASSWORD: test_password
           POSTGRES_DB: test_db
-        options: >-
-          -c wal_level=logical
-          -c max_replication_slots=4
-          -c max_wal_senders=4
-
+          POSTGRES_INITDB_ARGS: "--wal_level=logical --max_replication_slots=4 --max_wal_senders=4"
 
     steps:
     - name: Checkout
