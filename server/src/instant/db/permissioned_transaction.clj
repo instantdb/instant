@@ -313,7 +313,7 @@
 (defn attr-update-check [{:keys [admin?] :as _ctx} _aid]
   {:scope :attr
    :etype :attrs
-   :type :update
+   :action :update
    :check (fn [_ctx]
             admin?)})
 
