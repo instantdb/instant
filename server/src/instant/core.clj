@@ -1,44 +1,45 @@
 (ns instant.core
+  (:gen-class)
   (:require
-   [instant.config :as config]
    [clojure.tools.logging :as log]
    [compojure.core :refer [defroutes GET POST routes]]
-   [instant.gauges :as gauges]
-   [instant.lib.ring.undertow :as undertow-adapter]
-   [instant.dash.routes :as dash-routes]
-   [instant.runtime.routes :as runtime-routes]
    [instant.admin.routes :as admin-routes]
-   [instant.superadmin.routes :as superadmin-routes]
+   [instant.auth.jwt :as jwt]
+   [instant.auth.oauth :as oauth]
+   [instant.config :as config]
+   [instant.dash.ephemeral-app :as ephemeral-app]
+   [instant.dash.routes :as dash-routes]
+   [instant.flags :as flags]
+   [instant.flags-impl :as flags-impl]
+   [instant.gauges :as gauges]
+   [instant.honeycomb-api :as honeycomb-api]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.wal :as wal]
+   [instant.lib.ring.undertow :as undertow-adapter]
+   [instant.nrepl :as nrepl]
+   [instant.reactive.ephemeral :as eph]
+   [instant.reactive.invalidator :as inv]
+   [instant.reactive.session :as session]
+   [instant.reactive.store :as rs]
+   [instant.runtime.routes :as runtime-routes]
+   [instant.scripts.analytics :as analytics]
+   [instant.session-counter :as session-counter]
    [instant.storage.routes :as storage-routes]
+   [instant.stripe :as stripe]
+   [instant.superadmin.routes :as superadmin-routes]
+   [instant.util.async :as ua]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.http :as http-util]
+   [instant.util.tracer :as tracer]
    [ring.middleware.cookies :refer [CookieDateTime]]
    [ring.middleware.cors :refer [wrap-cors]]
    [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
    [ring.middleware.keyword-params :refer [wrap-keyword-params]]
    [ring.middleware.multipart-params :refer [wrap-multipart-params]]
-   [ring.middleware.params :refer [wrap-params]]
-   [instant.jdbc.aurora :as aurora]
-   [instant.scripts.analytics :as analytics]
-   [instant.nrepl :as nrepl]
-   [tool]
-   [instant.auth.oauth :as oauth]
-   [instant.auth.jwt :as jwt]
-   [instant.util.async :as ua]
-   [instant.util.tracer :as tracer]
-   [instant.reactive.store :as rs]
-   [instant.reactive.session :as session]
-   [instant.jdbc.wal :as wal]
-   [instant.reactive.invalidator :as inv]
-   [instant.reactive.ephemeral :as eph]
-   [instant.session-counter :as session-counter]
-   [instant.util.crypt :as crypt-util]
-   [instant.dash.ephemeral-app :as ephemeral-app]
-   [instant.stripe :as stripe]
-   [instant.honeycomb-api :as honeycomb-api]
-   [instant.util.http :as http-util])
+   [ring.middleware.params :refer [wrap-params]])
   (:import
-   (java.util Locale TimeZone)
-   (java.text SimpleDateFormat))
-  (:gen-class))
+   (java.text SimpleDateFormat)
+   (java.util Locale TimeZone)))
 
 ;; --------
 ;; Wrappers
@@ -151,6 +152,12 @@
   (session/start)
   (inv/start)
   (wal/init-cleanup aurora/conn-pool)
+
+  (when-let [config-app-id (config/instant-config-app-id)]
+    (flags-impl/init config-app-id
+                     flags/queries
+                     flags/query-results))
+
   (ephemeral-app/start)
   (session-counter/start)
   (when (= (config/get-env) :prod)

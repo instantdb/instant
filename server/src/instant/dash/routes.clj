@@ -20,7 +20,7 @@
             [instant.model.instant-oauth-redirect :as instant-oauth-redirect-model]
             [instant.db.model.attr :as attr-model]
             [instant.db.model.transaction :as transaction-model]
-            [instant.data.emails :refer [admin-email?]]
+            [instant.flags :refer [admin-email?]]
             [instant.model.rule :as rule-model]
             [instant.model.instant-profile :as instant-profile-model]
             [instant.model.instant-subscription :as instant-subscription-model]

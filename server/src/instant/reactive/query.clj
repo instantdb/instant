@@ -6,6 +6,7 @@
   queries. See go-datalog-query-reactive! for more details. We also cache datalog
   query results for perf."
   (:require
+   [instant.admin.model :as admin-model]
    [instant.util.tracer :as tracer]
    [instant.jdbc.aurora :as aurora]
    [instant.data.constants :refer [zeneca-app-id]]
@@ -95,13 +96,13 @@
 (defn instaql-query-reactive!
   "Returns the result of an instaql query while producing book-keeping side
   effects in the store. To be used with session"
-  [store-conn {:keys [session-id app-id] :as base-ctx} instaql-query]
+  [store-conn {:keys [session-id app-id attrs] :as base-ctx} instaql-query return-type]
   (tracer/with-span! {:name "instaql-query-reactive!"
                       :attributes {:session-id session-id
                                    :app-id app-id
                                    :instaql-query instaql-query}}
     (try
-      (let [v (rs/bump-instaql-version! store-conn session-id instaql-query)
+      (let [v (rs/bump-instaql-version! store-conn session-id instaql-query return-type)
             ctx (-> base-ctx
                     (assoc :v v
                            :datalog-query-fn (partial datalog-query-reactive! store-conn)
@@ -114,7 +115,11 @@
             instaql-result (iq/permissioned-query ctx instaql-query)
             result-hash (DigestUtils/md5Hex (pr-str instaql-result))
             {:keys [result-changed?]} (rs/add-instaql-query! store-conn ctx result-hash)]
-        {:instaql-result (collect-instaql-results-for-client instaql-result)
+        (tool/def-locals)
+        {:instaql-result (case return-type
+                           :join-rows (collect-instaql-results-for-client instaql-result)
+                           :tree (admin-model/instaql-nodes->object-tree ctx attrs instaql-result)
+                           (collect-instaql-results-for-client instaql-result))
          :result-changed? result-changed?})
       (catch Throwable e
         (rs/remove-query! store-conn session-id app-id instaql-query)

@@ -1,0 +1,85 @@
+;; Namespace that implements flags, kept separate from the flags
+;; ns so that there are no cyclic depdencies
+(ns instant.flags-impl
+  (:require [instant.admin.model :as admin-model]
+            [instant.config :as config]
+            [instant.db.instaql :as instaql]
+            [instant.db.model.attr :as attr-model]
+            [instant.jdbc.aurora :as aurora]
+            [instant.model.app :as app-model]
+            [instant.reactive.ephemeral :as eph]
+            [instant.reactive.session :as session]
+            [instant.reactive.store :as store]
+            [instant.util.tracer :as tracer]
+            [instant.util.json :refer [->json]]))
+
+(defn swap-result!
+  "Updates the results atom, but only if we have a newer tx-id."
+  [query-results-atom query result tx-id]
+  (swap! query-results-atom update query (fn [existing]
+                                           (tool/def-locals)
+                                           (if (and (:tx-id existing)
+                                                    (< tx-id (:tx-id existing)))
+                                             existing
+                                             {:result result :tx-id tx-id}))))
+
+(defn handle-msg [query-results-atom msg]
+  (case (:op msg)
+    :add-query-ok
+    (let [{:keys [q result processed-tx-id]} msg]
+      (tool/def-locals)
+      (swap-result! query-results-atom
+                    q
+                    result
+                    (or processed-tx-id 0)))
+
+    :refresh-ok
+    (doseq [{:keys [instaql-query
+                    instaql-result]}
+            (:computations msg)]
+      (swap-result! query-results-atom
+                    instaql-query
+                    instaql-result
+                    (:processed-tx-id msg)))
+
+    (tracer/record-info! {:name "flags-impl/unexpected-op"
+                          :op (:op msg)
+                          :msg msg})))
+
+(defn init
+  "Creates a subscription to the config app, fetching all of the data."
+  [config-app-id queries query-results-atom]
+  (when-let [app (app-model/get-by-id {:id config-app-id})]
+    (let [socket-id (random-uuid)
+          attrs (attr-model/get-by-app-id aurora/conn-pool config-app-id)
+          ctx {:attrs attrs
+               :db {:conn-pool aurora/conn-pool}}
+          ws-conn {:websocket-stub (fn [msg] (handle-msg query-results-atom msg))}
+          socket {:id socket-id
+                  :http-req nil
+                  :ws-conn ws-conn
+                  :receive-q session/receive-q
+                  :pending-handlers (atom #{})}]
+
+      ;; Get results in foreground so that flags are initialized before we return
+      (doseq [query queries
+              :let [data (instaql/query ctx query)
+                    result (admin-model/instaql-nodes->object-tree {} attrs data)]]
+        (swap-result! query-results-atom query result 0))
+
+      (session/on-open store/store-conn socket)
+      (store/set-auth! store/store-conn
+                       socket-id
+                       {:app app
+                        :admin? true})
+      (doseq [query queries]
+        (session/on-message {:id socket-id
+                             :receive-q session/receive-q
+                             :data (->json {:op :add-query
+                                            :q query
+                                            :return-type "tree"})}))
+      (fn []
+        (session/on-close store/store-conn
+                          eph/ephemeral-store-atom
+                          socket)
+        nil))))

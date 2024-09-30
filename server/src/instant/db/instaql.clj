@@ -1629,7 +1629,7 @@
             :attrs attrs})
 
   #_{:clj-kondo/ignore [:unresolved-namespace]}
-  (instant.admin.routes/instaql-nodes->object-tree
+  (instant.admin.model/instaql-nodes->object-tree
    {}
    attrs
    (query ctx {:eb {:child {}}})))

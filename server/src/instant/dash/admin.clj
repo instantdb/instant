@@ -4,7 +4,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [clojure.core :as c]
-   [instant.data.emails :refer [get-emails]]
+   [instant.flags :refer [get-emails]]
    [instant.stripe :as stripe]
    [instant.model.app :as app-model]
    [instant.util.storage :as storage-util]))

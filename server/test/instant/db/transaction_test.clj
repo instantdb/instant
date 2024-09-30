@@ -13,7 +13,7 @@
             [instant.db.permissioned-transaction :as permissioned-tx]
             [instant.model.rule :as rule-model]
             [instant.data.resolvers :as resolvers]
-            [instant.admin.routes :as admin-routes]
+            [instant.admin.model :as admin-model]
             [instant.util.test :refer [instant-ex-data pretty-perm-q]]
             [instant.db.instaql :as iq]
             [instant.db.datalog :as d]
@@ -662,7 +662,7 @@
                         app-id
                         [[:add-triple [handle-attr-id "nobody"] email-attr-id "nobody@example.com"]])
           (is (= {"users" [{"handle" "nobody", "email" "nobody@example.com"}]}
-                 (admin-routes/instaql-nodes->object-tree
+                 (admin-model/instaql-nodes->object-tree
                   {}
                   attrs
                   (iq/query ctx {:users {:$ {:where {:handle "nobody"}}}})))))
