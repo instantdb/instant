@@ -22,6 +22,7 @@
                        CelExpr$CelComprehension
                        CelExpr$ExprKind$Kind)
    (dev.cel.extensions CelExtensions)
+   (dev.cel.parser CelStandardMacro)
    (dev.cel.common.types SimpleType MapType ListType CelType)
    (dev.cel.compiler CelCompiler CelCompilerFactory CelCompilerLibrary)
    (dev.cel.runtime CelEvaluationException)
@@ -169,6 +170,7 @@
       (.addVar "auth" type-obj)
       (.addVar "newData" type-obj)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-fn-decls))
+      (.setStandardMacros (CelStandardMacro/STANDARD_MACROS))
       (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings)]))
       (.build)))
 
@@ -217,7 +219,6 @@
       (let [m' (or m {})
             ^java.util.Map clean-m (dissoc m' "_ctx" "_etype")]
         (.entrySet clean-m)))))
-
 
 ;; Static analysis
 ;; ---------------
@@ -377,7 +378,7 @@
             :app-id zeneca-app-id
             :datalog-query-fn d/query
             :attrs attrs})
-  (let [ast (->ast "data.ref('users.handle')")
+  (let [ast (->ast "data.ref('users.handle').exists_one(x, x == 'alex')")
         program (->program ast)
         result
         (eval-program! {:cel-program program} {"auth" (->cel-map {"email" "stopa@instantdb.com"})
