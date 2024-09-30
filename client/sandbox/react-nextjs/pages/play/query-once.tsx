@@ -19,15 +19,15 @@ const db = init<{
 async function queryOnceDemo(newItem: string) {
   console.log("newItem", newItem);
   const res = await db.queryOnce({
-    onceTest: { $: { where: { 'text': newItem } } },
+    onceTest: { $: { where: { text: newItem } } },
   });
+  console.log(res);
+
   return res.data.onceTest.length > 0;
 }
 
 function addOnce(text: string) {
-  db.transact(
-    tx.onceTest[id()].update({ text, }),
-  );
+  db.transact(tx.onceTest[id()].update({ text }));
 }
 
 function deleteAll(items: any) {
@@ -40,13 +40,15 @@ interface FormProps {
 const TodoForm: React.FC<FormProps> = ({ addOnce }) => {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const input = e.currentTarget.elements.namedItem('todoInput') as HTMLInputElement;
+    const input = e.currentTarget.elements.namedItem(
+      "todoInput",
+    ) as HTMLInputElement;
     if (input && input.value.trim()) {
       if (await queryOnceDemo(input.value)) {
-        alert('Item already exists');
+        alert("Item already exists");
       } else {
         addOnce(input.value);
-        input.value = '';
+        input.value = "";
       }
     }
   };
@@ -73,14 +75,19 @@ function Main() {
     <div className="p-2">
       <div className="flex space-x-2 py-2">
         <div>Query Once test</div>
-        <button className="border px-4 border-black" onClick={() => deleteAll(data.onceTest)}>Delete All</button>
+        <button
+          className="border px-4 border-black"
+          onClick={() => deleteAll(data.onceTest)}
+        >
+          Delete All
+        </button>
       </div>
       <TodoForm addOnce={addOnce} />
       {data.onceTest.map((todo: any) => (
         <div key={todo.id}>{todo.text}</div>
       ))}
     </div>
-  )
+  );
 }
 
 function Page() {

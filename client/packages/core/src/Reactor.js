@@ -599,7 +599,7 @@ export default class Reactor {
 
   getPreviousResult = (q) => {
     const hash = weakHash(q);
-    return this.dataForQuery(hash);
+    return this.dataForQuery(hash)?.value;
   };
 
   /**
@@ -619,7 +619,6 @@ export default class Reactor {
   _subscribeQuery(q, cb, once) {
     const eventId = uuid();
     const hash = weakHash(q);
-
     if (!once) {
       const prevResult = this.getPreviousResult(q);
       if (prevResult) {
@@ -660,12 +659,14 @@ export default class Reactor {
     return authdPromise;
   }
 
+  _assertOnline() {
+    if (this._isOnline) return;
+
+    throw new Error("Error: device is offline");
+  }
+
   async queryOnce(q) {
-    if (!this._isOnline) {
-      throw new Error(
-        "Offline: Cannot execute query because the device is offline.",
-      );
-    }
+    this._assertOnline();
 
     // If `queryOnce` is called on app startup, it's very likely that we haven't received `init-ok` yet.
     // In this case, we want to wait until we're authenticated (with a timeout) before we proceed.
@@ -679,7 +680,15 @@ export default class Reactor {
       }
     }
 
-    const result = await new Promise((resolve, reject) => {
+    // If we're online and authenticated,
+    // and if we have a ackd value from the server,
+    // we don't need to subscribe at all.
+    const qData = this.dataForQuery(weakHash(q));
+    if (qData?.fresh) {
+      return Promise.resolve(qData.value);
+    }
+
+    return new Promise((resolve, reject) => {
       let done = false;
 
       const unsub = this._subscribeQuery(
@@ -700,12 +709,11 @@ export default class Reactor {
       setTimeout(() => {
         if (done) return;
         done = true;
+
         reject(new Error("Query timed out"));
         unsub();
       }, QUERY_ONCE_TIMEOUT);
     });
-
-    return result;
   }
 
   _unsubQuery(q, hash, cb) {
@@ -829,7 +837,7 @@ export default class Reactor {
   dataForQuery(hash) {
     const errorMessage = this._errorMessage;
     if (errorMessage) {
-      return { error: errorMessage };
+      return { value: { error: errorMessage } };
     }
     if (!this.querySubs) return;
     if (!this.pendingMutations) return;
@@ -847,7 +855,7 @@ export default class Reactor {
       querySubVersion === cached.querySubVersion &&
       pendingMutationsVersion === cached.pendingMutationsVersion
     ) {
-      return cached.data;
+      return { fresh: true, value: cached.data };
     }
 
     const { store, pageInfo, aggregate } = result;
@@ -863,7 +871,7 @@ export default class Reactor {
       data: resp,
     };
 
-    return resp;
+    return { fresh: false, value: resp };
   }
 
   /** Re-run instaql and call all callbacks with new data */
@@ -871,7 +879,7 @@ export default class Reactor {
     const rs = this.queryCbs[hash] || [];
     if (!rs) return;
     const prevData = this._dataForQueryCache[hash]?.data;
-    const data = this.dataForQuery(hash);
+    const data = this.dataForQuery(hash)?.value;
     if (!data) return;
     if (areObjectsDeepEqual(data, prevData)) return;
     rs.forEach((r) => {
