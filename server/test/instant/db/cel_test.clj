@@ -11,8 +11,9 @@
 
 (deftest test-cel-evaluation
   (testing "Evaluation of CEL expressions with standard macros"
-    (let [program (cel/->program (cel/->ast "has({'name': 'Alice'}.bob)"))]
+    (let [program (cel/->program (cel/->ast "has({'name': 'Alice'}.name)"))]
       (is (true? (cel/eval-program! {:cel-program program} {}))))
+
     (let [program (cel/->program (cel/->ast "[1, 2, 3].all(x, x > 0)"))]
       (is (true? (cel/eval-program! {:cel-program program} {}))))
 
