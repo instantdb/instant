@@ -6,6 +6,7 @@ import {
   type InstantQuery,
   type InstantQueryResult,
   type InstantGraph,
+  type InstantEntity,
 } from "@instantdb/react";
 import config from "../../config";
 
@@ -71,6 +72,8 @@ const db = init_experimental({
   ...config,
   schema,
 });
+
+type DB = typeof db;
 
 export default function Main() {
   db.room("demo", "demo").useSyncPresence({
@@ -174,3 +177,13 @@ const deepVal = result.checkins[0].habit?.category?.id;
 type DeepVal = typeof deepVal;
 type Graph = InstantGraph<any, any, any>;
 type DBGraph = InstantSchema<typeof db>;
+
+type Checkin = InstantEntity<
+  DB,
+  "checkins",
+  {
+    habit: {
+      category: {};
+    };
+  }
+>;

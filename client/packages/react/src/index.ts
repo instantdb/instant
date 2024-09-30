@@ -10,6 +10,7 @@ import {
   type InstantQueryResult,
   type InstantSchema,
   type InstantObject,
+  type InstantEntity,
   type User,
   type AuthState,
   type Query,
@@ -59,6 +60,7 @@ export {
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
+  type InstantEntity,
   type InstaQLQueryParams,
 
   // schema types

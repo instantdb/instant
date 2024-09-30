@@ -36,6 +36,7 @@ import {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
+  type InstantEntity,
 } from "@instantdb/core";
 
 /**
@@ -109,6 +110,7 @@ export {
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
+  type InstantEntity,
   type RoomSchemaShape,
 
   // schema types
