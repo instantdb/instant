@@ -184,7 +184,6 @@
                                   (dup-message etype label)
                                   (backwards-link-message etype label))})
                     dups)]
-    (tool/def-locals!)
     (ex/assert-valid! :schema
                       :steps
                       errors)))
