@@ -60,8 +60,8 @@
                                     (a/>!! fake-ws-conn msg))
 
                     rq/instaql-query-reactive!
-                    (fn [store-conn {:keys [session-id] :as base-ctx} instaql-query]
-                      (let [res (query-reactive store-conn base-ctx instaql-query)]
+                    (fn [store-conn {:keys [session-id] :as base-ctx} instaql-query return-type]
+                      (let [res (query-reactive store-conn base-ctx instaql-query return-type)]
                         (swap! *instaql-query-results* assoc-in [session-id instaql-query] res)
                         res))]
         (f store-conn eph-store-atom {:socket socket
@@ -415,7 +415,7 @@
 
             ;; Now we have a stale query
           (is (= [(:kw-q query-1987)]
-                 (rs/get-stale-instaql-queries @store-conn sess-id)))
+                 (map :instaql-query/query (rs/get-stale-instaql-queries @store-conn sess-id))))
 
             ;; We also removed datalog queries from cache
           (is (= '#{}
