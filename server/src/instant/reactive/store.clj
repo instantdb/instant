@@ -487,7 +487,6 @@
                                    [?e :subscription/session-id ?session-id]]}
                          db-before
                          datalog-query-eids)]
-    (tool/def-locals)
     [db-after (map first session-ids)]))
 
 ;; ------------

@@ -115,7 +115,6 @@
             instaql-result (iq/permissioned-query ctx instaql-query)
             result-hash (DigestUtils/md5Hex (pr-str instaql-result))
             {:keys [result-changed?]} (rs/add-instaql-query! store-conn ctx result-hash)]
-        (tool/def-locals)
         {:instaql-result (case return-type
                            :join-rows (collect-instaql-results-for-client instaql-result)
                            :tree (admin-model/instaql-nodes->object-tree ctx attrs instaql-result)

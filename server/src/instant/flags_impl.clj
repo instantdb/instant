@@ -16,7 +16,6 @@
   "Updates the results atom, but only if we have a newer tx-id."
   [query-results-atom query result tx-id]
   (swap! query-results-atom update query (fn [existing]
-                                           (tool/def-locals)
                                            (if (and (:tx-id existing)
                                                     (< tx-id (:tx-id existing)))
                                              existing
@@ -26,7 +25,6 @@
   (case (:op msg)
     :add-query-ok
     (let [{:keys [q result processed-tx-id]} msg]
-      (tool/def-locals)
       (swap-result! query-results-atom
                     q
                     result
