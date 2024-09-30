@@ -1,6 +1,6 @@
-;; XXX: probably need two namespaces, one that
-;;      does the fetching and one that actually does the writing
-
+;; The flags are populated and kept up to date by instant.flag-impl
+;; We separate the namespaces so that this namespace has no dependencies
+;; and can be required from anywhere.
 (ns instant.flags)
 
 ;; Map of query to {:result {result-tree}
@@ -31,7 +31,7 @@
                  (assoc acc email-key (set (map #(get % "email") values)))
                  acc))
              null-emails
-             (get-in query-results [query :result])))
+             (get-in @query-results [query :result])))
 
 (defn admin-email? [email]
   (contains? (:team (get-emails))
