@@ -881,13 +881,15 @@ export default class Reactor {
     const prevData = this._dataForQueryCache[hash]?.data;
     const data = this.dataForQuery(hash)?.value;
     if (!data) return;
-    if (areObjectsDeepEqual(data, prevData)) return;
+    const haveChanged = !areObjectsDeepEqual(data, prevData);
     rs.forEach((r) => {
       if (r.once) {
         this._unsubQuery(r.q, hash, r.cb);
       }
 
-      r.cb(data);
+      if (haveChanged || r.once) {
+        r.cb(data);
+      }
     });
   };
 
