@@ -37,6 +37,12 @@
   (contains? (:team (get-emails))
              email))
 
+(defn storage-enabled-whitelist []
+  (set (keep (fn [o]
+               (when (get o "isEnabled")
+                 (get o "appId")))
+             (get-in @query-results [query :result "storage-whitelist"]))))
+
 (defn storage-enabled? [app-id]
   (let [app-id (str app-id)]
     (boolean (some (fn [o]

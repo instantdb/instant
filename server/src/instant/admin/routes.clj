@@ -11,14 +11,12 @@
             [instant.model.app-user :as app-user-model]
             [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
             [instant.db.datalog :as d]
-            [instant.db.model.attr-pat :as attr-pat]
             [instant.model.rule :as rule-model]
             [instant.util.exception :as ex]
             [instant.util.string :as string-util]
             [instant.util.http :as http-util]
             [instant.admin.model :as admin-model]
             [instant.util.json :refer [<-json ->json]]
-            [instant.db.model.entity :as entity-model]
             [instant.util.storage :as storage-util])
   (:import
    (java.util UUID)))

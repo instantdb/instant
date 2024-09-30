@@ -132,4 +132,4 @@
             :current-user nil
             :session-id "moop"})
   (def instaql-query {"users" {}})
-  (instaql-query-reactive! rs/store-conn ctx instaql-query))
+  (instaql-query-reactive! rs/store-conn ctx instaql-query "join-rows"))
