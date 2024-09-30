@@ -11,6 +11,7 @@ import {
   type InstantSchema,
   type InstantObject,
   type InstantEntity,
+  type InstantSchemaDatabase,
   type User,
   type AuthState,
   type Query,
@@ -61,6 +62,7 @@ export {
   type InstantQueryResult,
   type InstantSchema,
   type InstantEntity,
+  type InstantSchemaDatabase,
   type InstaQLQueryParams,
 
   // schema types
