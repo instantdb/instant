@@ -29,16 +29,28 @@ const graph = i.graph(
     },
     postsTags: {
       forward: {
-        on: "posts",
-        has: "many",
-        label: "tags",
-      },
-      reverse: {
         on: "tags",
         has: "many",
         label: "posts",
       },
+      reverse: {
+        on: "posts",
+        has: "many",
+        label: "tags",
+      },
     },
+    // postsTags2: {
+    //   forward: {
+    //     on: "posts",
+    //     has: "many",
+    //     label: "tags",
+    //   },
+    //   reverse: {
+    //     on: "tags",
+    //     has: "many",
+    //     label: "posts",
+    //   },
+    // },
   },
 );
 
