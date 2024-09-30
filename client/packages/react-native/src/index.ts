@@ -18,6 +18,7 @@ import {
   i,
   id,
   tx,
+  lookup,
   type RoomSchemaShape,
   type InstantQuery,
   type InstantQueryResult,
@@ -96,6 +97,7 @@ export {
   init_experimental,
   id,
   tx,
+  lookup,
   i,
 
   // types
