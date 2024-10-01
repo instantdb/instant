@@ -115,15 +115,7 @@
                                (tracer/with-span! {:name "stop-server"}
                                  (stop))
                                (tracer/with-span! {:name "stop-invalidator"}
-                                 ;; Hack to get the invalidator to shut down in
-                                 ;; dev. Otherwise the stream takes forever to close.
-                                 (when (= :dev (config/get-env))
-                                   (future
-                                     (loop []
-                                       (wal/kick-wal aurora/conn-pool)
-                                       (Thread/sleep 100)
-                                       (recur))))
-                                 (inv/stop))))))
+                                 (inv/stop-global))))))
 
 (defn -main [& _args]
   (let [{:keys [aead-keyset]} (config/init)]
@@ -149,7 +141,7 @@
   (eph/start)
   (stripe/init)
   (session/start)
-  (inv/start)
+  (inv/start-global)
   (wal/init-cleanup aurora/conn-pool)
   (ephemeral-app/start)
   (session-counter/start)

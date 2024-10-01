@@ -458,39 +458,52 @@
 (defn start
   "Entry point for invalidator. Starts a WAL listener and pipes WAL records to
   our partition router. Partition router dispatches records to app workers who run `go-work`"
-  []
-  (let [{:keys [wal-chan worker-chan byop-chan close-signal-chan users-shims]}
-        (create-wal-chans)
+  ([]
+   (start @config/process-id))
+  ([process-id]
+   (let [{:keys [wal-chan worker-chan byop-chan close-signal-chan users-shims]}
+         (create-wal-chans)
 
-        wal-opts (wal/make-wal-opts {:wal-chan wal-chan
-                                     :close-signal-chan close-signal-chan
-                                     :ex-handler wal-ex-handler
-                                     :conn-config (config/get-aurora-config)
-                                     :slot-name @config/process-id})]
+         wal-opts (wal/make-wal-opts {:wal-chan wal-chan
+                                      :close-signal-chan close-signal-chan
+                                      :ex-handler wal-ex-handler
+                                      :conn-config (config/get-aurora-config)
+                                      :slot-name process-id})]
+     (ua/fut-bg
+       (wal/start-worker wal-opts))
 
-    (def wal-opts wal-opts)
 
-    (ua/fut-bg
-      (wal/start-worker wal-opts))
+     @(:started-promise wal-opts)
 
-    @(:started-promise wal-opts)
+     (tracer/with-span! {:name "invalidator/init-users-shims"}
+       (reset! users-shims (attr-model/get-all-users-shims aurora/conn-pool)))
 
-    (tracer/with-span! {:name "invalidator/init-users-shims"}
-      (reset! users-shims (attr-model/get-all-users-shims aurora/conn-pool)))
+     (ua/fut-bg
+       (start-worker rs/store-conn worker-chan))
 
-    (ua/fut-bg
-      (start-worker rs/store-conn worker-chan))
+     (when byop-chan
+       (ua/fut-bg
+         (start-byop-worker rs/store-conn byop-chan)))
 
-    (when byop-chan
-      (ua/fut-bg
-        (start-byop-worker rs/store-conn byop-chan)))))
+     wal-opts)))
 
-(defn stop []
+(defn start-global []
+  (def wal-opts (start)))
+
+(defn stop [wal-opts]
+  (let [shutdown-future (future (wal/shutdown! wal-opts))]
+    (loop []
+      (when-not (realized? shutdown-future)
+        (wal/kick-wal aurora/conn-pool)
+        (Thread/sleep 100)
+        (recur))))
+  (a/close! (:to wal-opts))
+  (a/close! (:close-signal-chan wal-opts)))
+
+(defn stop-global []
   (when wal-opts
-    (wal/shutdown! wal-opts)
-    (a/close! (:to wal-opts))
-    (a/close! (:close-signal-chan wal-opts))))
+    (stop wal-opts)))
 
 (defn restart []
-  (stop)
-  (start))
+  (stop-global)
+  (start-global))

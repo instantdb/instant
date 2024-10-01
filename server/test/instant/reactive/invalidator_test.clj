@@ -1,7 +1,17 @@
 (ns instant.reactive.invalidator-test
   (:require
+   [clojure.core.async :as a]
+   [clojure.string :as string]
    [clojure.test :as test :refer [deftest testing is]]
-   [instant.reactive.invalidator :as inv]))
+   [instant.data.resolvers :as resolvers]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.transaction :as tx]
+   [instant.fixtures :refer [with-zeneca-app]]
+   [instant.jdbc.aurora :as aurora]
+   [instant.reactive.invalidator :as inv]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.json :refer [->json]]
+   [instant.util.test :refer [wait-for]]))
 
 (def create-triple-changes
   '({:kind "insert",
@@ -346,6 +356,77 @@
               [:av _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]}
            (inv/topics-for-changes {:ident-changes delete-ident-changes
                                     :attr-changes delete-attr-changes})))))
+
+;; Use this to distinguish calls to `invalidate!` from our invalidator
+;; in the with-redefs. Without this, we might get changes from the
+;; global invalidator process.
+(def ^:dynamic *inside* nil)
+
+(defn ->md5 [s]
+  (-> s
+      crypt-util/str->md5
+      crypt-util/bytes->hex-string))
+
+(defn xform-change [{:keys [columnnames columnvalues]}]
+  (zipmap columnnames columnvalues))
+
+(deftest smoke-test
+  (with-zeneca-app
+    (fn [app r]
+      (let [invalidate! (var-get #'inv/invalidate!)
+            records (atom [])]
+        (with-redefs [inv/invalidate!
+                      (fn [store-conn {:keys [app-id tx-id] :as wal-record}]
+                        (if (and (= (:id app) app-id)
+                                 *inside*)
+                          (swap! records conj wal-record)
+                          (invalidate! store-conn wal-record))                        )]
+          (binding [*inside* true]
+            (let [machine-id (string/replace (str "test-" (random-uuid))
+                                             #"-"
+                                             "_")
+                  process (inv/start machine-id)
+                  uid (random-uuid)]
+              (try
+                (tx/transact! aurora/conn-pool
+                              (attr-model/get-by-app-id aurora/conn-pool (:id app))
+                              (:id app)
+                              [[:add-triple uid (resolvers/->uuid r :users/id) uid]
+                               [:add-triple uid (resolvers/->uuid r :users/handle) "dww"]])
+                (wait-for (fn []
+                            (< 0 (count @records)))
+                          1000)
+                (is (= 1 (count @records)))
+                (let [rec (first @records)]
+                  (is (pos? (:tx-id rec)))
+                  (is (= (set (map (fn [change]
+                                     (-> change
+                                         xform-change
+                                         (dissoc "created_at")))
+                                   (:triple-changes rec)))
+                         #{{"eav" false,
+                            "av" true,
+                            "ave" true,
+                            "value_md5" "057a88732b390295a8623cfd3cb799d9",
+                            "entity_id" (str uid)
+                            "attr_id" (str (resolvers/->uuid r :users/handle))
+                            "ea" true,
+                            "value" "\"dww\"",
+                            "vae" false,
+                            "app_id" (str (:id app))}
+                           {"eav" true,
+                            "av" true,
+                            "ave" true,
+                            "value_md5" (->md5 (->json (str uid)))
+                            "entity_id" (str uid)
+                            "attr_id" (str (resolvers/->uuid r :users/id))
+                            "ea" true,
+                            "value" (->json (str uid))
+                            "vae" true,
+                            "app_id" (str (:id app))}})))
+
+                (finally
+                  (inv/stop process))))))))))
 
 (comment
   (test/run-tests *ns*))

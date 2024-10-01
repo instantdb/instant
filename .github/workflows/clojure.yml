@@ -41,7 +41,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:13
+        image: public.ecr.aws/z9j8u5b3/instant-public:postgres-13
         ports:
           - 5432:5432
         env:

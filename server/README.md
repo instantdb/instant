@@ -11,7 +11,7 @@ This houses Instant's backend. Let’s get you started!
 
 ## Docker Compose
 
-The easiest way to get started is run `make docker-compose`. That command will use docker compose to set up a new postgres database and start the server. The instant server will be available at http://localhost:8888 and you can connect to nrepl on port `6005`.
+The easiest way to get started is to run `make docker-compose`. That command will use docker compose to set up a new postgres database and start the server. The instant server will be available at http://localhost:8888 and you can connect to nrepl on port `6005`.
 
 ## Without Docker Compose
 
@@ -52,7 +52,8 @@ And start the server:
 make dev
 ```
 
-The instant server will run at localhost:8888 and you can connect to nrepl on port 6005.
+The instant server will run at [localhost:8888](http://localhost:8888) and you can connect to nrepl on port 6005.
+
 
 ### Config
 
