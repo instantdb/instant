@@ -18,14 +18,19 @@ const db = init<{
 
 async function queryOnceDemo(newItem: string) {
   console.log("newItem", newItem);
-  const existingQUeryRes = await db.queryOnce({
+
+  // since we have an existing subscription to this query
+  // this will result in an `add-query-exists`
+  const existingQueryRes = await db.queryOnce({
     onceTest: {},
   });
+
   const res = await db.queryOnce({
     onceTest: { $: { where: { text: newItem } } },
   });
+
   console.log("res", res);
-  console.log("existingQUeryRes", existingQUeryRes);
+  console.log("existingQueryRes", existingQueryRes);
 
   return res.data.onceTest.length > 0;
 }

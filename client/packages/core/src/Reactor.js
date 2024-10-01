@@ -241,30 +241,6 @@ export default class Reactor {
   _setStatus(status, err) {
     this.status = status;
     this._errorMessage = err;
-    this._notifyStatus();
-  }
-
-  _notifyStatus() {
-    this.statusCbs.forEach((r) => {
-      if (r.once) {
-        this._unsubStatus(r.cb);
-      }
-
-      r.cb(this.status);
-    });
-  }
-
-  _subscribeStatus(cb, once) {
-    this.statusCbs.push({ cb, once: Boolean(once) });
-    cb(this.status);
-
-    return () => {
-      this._unsubStatus(cb);
-    };
-  }
-
-  _unsubStatus(cb) {
-    this.statusCbs = this.statusCbs.filter((r) => r.cb !== cb);
   }
 
   /**
@@ -642,26 +618,6 @@ export default class Reactor {
     return () => {
       this._unsubQuery(q, hash, cb);
     };
-  }
-
-  _waitForAuthd(timeout) {
-    const timeoutPromise = sleep(timeout, false);
-
-    const statusOncePromise = new Promise((resolve) => {
-      let done = false;
-      const unsub = this._subscribeStatus((status) => {
-        if (done) return;
-        if (status !== STATUS.AUTHENTICATED) return;
-
-        done = true;
-        resolve(true);
-        setTimeout(() => unsub(), 0);
-      }, true);
-    });
-
-    const authdPromise = Promise.race([timeoutPromise, statusOncePromise]);
-
-    return authdPromise;
   }
 
   async queryOnce(q) {
