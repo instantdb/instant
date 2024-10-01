@@ -30,7 +30,7 @@ async function queryOnceDemo(newItem: string) {
   });
 
   console.log("res", res);
-  console.log("existingQueryRes", existingQueryRes);
+  console.log("existing onceTest", existingQueryRes);
 
   return res.data.onceTest.length > 0;
 }
@@ -47,6 +47,12 @@ interface FormProps {
   addOnce: (value: string) => void;
 }
 const TodoForm: React.FC<FormProps> = ({ addOnce }) => {
+  useEffect(() => {
+    db.queryOnce({
+      onceTest: {},
+    }).then((r) => console.log("initial onceTest", r));
+  });
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const input = e.currentTarget.elements.namedItem(
