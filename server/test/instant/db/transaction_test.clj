@@ -1,25 +1,28 @@
 (ns instant.db.transaction-test
-  (:require [clojure.test :as test :refer [deftest is are testing]]
-            [instant.dash.routes :refer [insert-users-table!]]
-            [instant.db.model.attr :as attr-model]
-            [instant.db.transaction :as tx]
-            [instant.jdbc.aurora :as aurora]
-            [instant.fixtures :refer [with-empty-app with-zeneca-app]]
-            [instant.db.model.triple :as triple-model]
-            [instant.model.app :as app-model]
-            [instant.model.app-user :as app-user-model]
-            [instant.data.bootstrap :as bootstrap]
-            [instant.data.constants :refer [test-user-id]]
-            [instant.db.permissioned-transaction :as permissioned-tx]
-            [instant.model.rule :as rule-model]
-            [instant.data.resolvers :as resolvers]
-            [instant.admin.model :as admin-model]
-            [instant.util.test :refer [instant-ex-data pretty-perm-q]]
-            [instant.db.instaql :as iq]
-            [instant.db.datalog :as d]
-            [instant.util.exception :as ex]
-            [clojure.string :as string])
-  (:import [java.util UUID]))
+  (:require
+   [clojure.string :as string]
+   [clojure.test :as test :refer [are deftest is testing]]
+   [instant.admin.model :as admin-model]
+   [instant.dash.routes :refer [insert-users-table!]]
+   [instant.data.bootstrap :as bootstrap]
+   [instant.data.constants :refer [test-user-id]]
+   [instant.data.resolvers :as resolvers]
+   [instant.db.datalog :as d]
+   [instant.db.instaql :as iq]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.model.triple :as triple-model]
+   [instant.db.permissioned-transaction :as permissioned-tx]
+   [instant.db.transaction :as tx]
+   [instant.flags :as flags]
+   [instant.fixtures :refer [with-empty-app with-zeneca-app]]
+   [instant.jdbc.aurora :as aurora]
+   [instant.model.app :as app-model]
+   [instant.model.app-user :as app-user-model]
+   [instant.model.rule :as rule-model]
+   [instant.util.exception :as ex]
+   [instant.util.test :refer [instant-ex-data pretty-perm-q]])
+  (:import
+   (java.util UUID)))
 
 (defn- fetch-triples
   ([app-id] (fetch-triples app-id []))
@@ -1888,8 +1891,8 @@
         (app-user-model/create! aurora/conn-pool {:app-id app-id
                                                   :id user-id
                                                   :email "test@example.com"})
-        ;; TODO (users-table): uncomment once view check is live
-        ;;(perm-err? (permissioned-tx/transact! (make-ctx) tx-steps))
+        (with-redefs [flags/run-view-checks? (constantly true)]
+          (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps)))
         (is (permissioned-tx/transact! (assoc (make-ctx)
                                               :current-user {:id user-id}) tx-steps))))))
 
@@ -1942,8 +1945,8 @@
                        book-creator-attr-id
                        [(resolvers/->uuid r :$users/email) "test@example.com"]]]]
 
-        ;; TODO (users-table): uncomment after view rule checks out
-        ;; (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps))
+        (with-redefs [flags/run-view-checks? (constantly true)]
+          (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps)))
         (permissioned-tx/transact! (assoc (make-ctx)
                                           :current-user {:id user-id}) tx-steps)
         (is (= (pretty-perm-q
