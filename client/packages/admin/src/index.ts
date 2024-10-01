@@ -19,6 +19,7 @@ import {
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
+  type InstantSchemaDatabase,
   type InstantObject,
   type InstantEntity,
 
@@ -665,6 +666,7 @@ export {
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
+  type InstantSchemaDatabase,
   type InstantObject,
   type InstantEntity,
 
