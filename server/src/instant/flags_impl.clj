@@ -49,7 +49,8 @@
   (when-let [app (app-model/get-by-id {:id config-app-id})]
     (let [socket-id (random-uuid)
           attrs (attr-model/get-by-app-id aurora/conn-pool config-app-id)
-          ctx {:attrs attrs
+          ctx {:app-id (:id app)
+               :attrs attrs
                :db {:conn-pool aurora/conn-pool}}
           ws-conn {:websocket-stub (fn [msg] (handle-msg query-results-atom msg))}
           socket {:id socket-id
