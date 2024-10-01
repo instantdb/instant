@@ -16,23 +16,36 @@ const db = init<{
   };
 }>(config);
 
+function _subsCount() {
+  return Object.values(db._core._reactor.queryCbs).flat().length;
+}
+
 async function queryOnceDemo(newItem: string) {
+  console.log("subs count before:", _subsCount());
   console.log("newItem", newItem);
 
   // since we have an existing subscription to this query
   // this will result in an `add-query-exists`
-  const existingQueryRes = await db.queryOnce({
+  const existingQueryP = db.queryOnce({
     onceTest: {},
   });
 
-  const res = await db.queryOnce({
+  const checkP = db.queryOnce({
     onceTest: { $: { where: { text: newItem } } },
   });
 
-  console.log("res", res);
-  console.log("existing onceTest", existingQueryRes);
+  console.log("subs count whenm pending:", _subsCount());
 
-  return res.data.onceTest.length > 0;
+  const [checkRes, existingQueryRes] = await Promise.all([
+    checkP,
+    existingQueryP,
+  ]);
+
+  console.log("res", checkRes);
+  console.log("existing onceTest", existingQueryRes);
+  console.log("subs count after:", _subsCount());
+
+  return checkRes.data.onceTest.length > 0;
 }
 
 function addOnce(text: string) {
@@ -48,9 +61,13 @@ interface FormProps {
 }
 const TodoForm: React.FC<FormProps> = ({ addOnce }) => {
   useEffect(() => {
-    db.queryOnce({
-      onceTest: {},
-    }).then((r) => console.log("initial onceTest", r));
+    (async () => {
+      const r = await db.queryOnce({
+        onceTest: {},
+      });
+
+      console.log("onceTest on init", r);
+    })();
   });
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {

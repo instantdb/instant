@@ -829,9 +829,11 @@ export default class Reactor {
   notifyOneQueryOnce = (hash) => {
     const rs = this.queryCbs[hash] ?? [];
     const data = this.dataForQuery(hash);
-    if (!data) return;
 
-    rs.filter((r) => r.once).forEach((r) => r.cb(data));
+    rs.filter((r) => r.once).forEach((r) => {
+      this._unsubQuery(r.q, hash, r.cb);
+      r.cb(data);
+    });
   };
 
   notifyQueryError = (hash, msg) => {
