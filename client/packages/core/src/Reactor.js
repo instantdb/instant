@@ -24,7 +24,6 @@ const STATUS = {
   ERRORED: "errored",
 };
 
-const INIT_TIMEOUT = 2000;
 const QUERY_ONCE_TIMEOUT = 3000;
 
 const WS_OPEN_STATUS = 1;
@@ -89,10 +88,10 @@ export default class Reactor {
   /** @type {PersistedObject} */
   pendingMutations;
 
-  /** @type {Record<string, Array<{ q: any, cb: (data: any) => any, once: boolean }>>} */
+  /** @type {Record<string, Array<{ q: any, cb: (data: any) => any }>>} */
   queryCbs = {};
-  /** @type {Array<{ cb: (data: any) => any, once: boolean }>} */
-  statusCbs = [];
+  /** @type {Record<string, Array<{ q: any, dfd: Deferred }>>} */
+  queryOnceDfds = {};
   authCbs = [];
   attrsCbs = [];
   mutationErrorCbs = [];
@@ -582,6 +581,15 @@ export default class Reactor {
     return this.dataForQuery(hash);
   };
 
+  _startQuerySub(q, hash) {
+    const eventId = uuid();
+    this.querySubs.set((prev) => {
+      prev[hash] = prev[hash] || { q, result: null, eventId };
+      return prev;
+    });
+    this._trySendAuthed(eventId, { op: "add-query", q });
+  }
+
   /**
    *  When a user subscribes to a query the following side effects occur:
    *
@@ -593,27 +601,17 @@ export default class Reactor {
    *  Returns an unsubscribe function
    */
   subscribeQuery(q, cb) {
-    return this._subscribeQuery(q, cb, false);
-  }
-
-  _subscribeQuery(q, cb, once) {
-    const eventId = uuid();
     const hash = weakHash(q);
 
-    if (!once) {
-      const prevResult = this.getPreviousResult(q);
-      if (prevResult) {
-        cb(prevResult);
-      }
+    const prevResult = this.getPreviousResult(q);
+    if (prevResult) {
+      cb(prevResult);
     }
 
-    this.queryCbs[hash] = this.queryCbs[hash] || [];
-    this.queryCbs[hash].push({ q, cb, once: Boolean(once) });
-    this.querySubs.set((prev) => {
-      prev[hash] = prev[hash] || { q, result: null, eventId };
-      return prev;
-    });
-    this._trySendAuthed(eventId, { op: "add-query", q });
+    this.queryCbs[hash] = this.queryCbs[hash] ?? [];
+    this.queryCbs[hash].push({ q, cb });
+
+    this._startQuerySub(q, hash);
 
     return () => {
       this._unsubQuery(q, hash, cb);
@@ -627,45 +625,44 @@ export default class Reactor {
       );
     }
 
-    const result = await new Promise((resolve, reject) => {
-      let done = false;
+    const hash = weakHash(q);
 
-      const unsub = this._subscribeQuery(
-        q,
-        (result) => {
-          if (done) return;
-          done = true;
+    const dfd = new Deferred();
+    this.queryOnceDfds[hash] = this.queryOnceDfds[hash] ?? [];
+    this.queryOnceDfds[hash].push({ q, dfd });
 
-          if (result.error) {
-            reject(result.error);
-          } else {
-            resolve(result);
-          }
-        },
-        true,
-      );
+    this._startQuerySub(q, hash);
 
-      setTimeout(() => {
-        if (done) return;
-        done = true;
-        reject(new Error("Query timed out"));
-        unsub();
-      }, QUERY_ONCE_TIMEOUT);
-    });
+    setTimeout(
+      () => dfd.reject(new Error("Query timed out")),
+      QUERY_ONCE_TIMEOUT,
+    );
 
-    return result;
+    return dfd.promise;
+  }
+
+  _completeQueryOnce(q, hash, dfd) {
+    if (!this.queryOnceDfds[hash]) return;
+
+    this.queryOnceDfds[hash] = this.queryOnceDfds[hash].filter(
+      (r) => r.dfd !== dfd,
+    );
+
+    if (!this.queryOnceDfds[hash].length) {
+      delete this.queryOnceDfds[hash];
+      this._trySendAuthed(uuid(), { op: "remove-query", q });
+    }
   }
 
   _unsubQuery(q, hash, cb) {
-    if (this.queryCbs[hash]) {
-      this.queryCbs[hash] = this.queryCbs[hash].filter((r) => r.cb !== cb);
+    if (!this.queryCbs[hash]) return;
+
+    this.queryCbs[hash] = this.queryCbs[hash].filter((r) => r.cb !== cb);
+
+    if (!this.queryCbs[hash].length) {
+      delete this.queryCbs[hash];
+      this._trySendAuthed(uuid(), { op: "remove-query", q });
     }
-
-    if (this.queryCbs[hash]?.length) return;
-
-    delete this.queryCbs[hash];
-
-    this._trySendAuthed(uuid(), { op: "remove-query", q });
   }
 
   // When we `pushTx`, it's possible that we don't yet have `this.attrs`
@@ -823,16 +820,16 @@ export default class Reactor {
     if (!data) return;
     if (areObjectsDeepEqual(data, prevData)) return;
 
-    rs.filter((r) => !r.once).forEach((r) => r.cb(data));
+    rs.forEach((r) => r.cb(data));
   };
 
   notifyOneQueryOnce = (hash) => {
-    const rs = this.queryCbs[hash] ?? [];
+    const rs = this.queryOnceDfds[hash] ?? [];
     const data = this.dataForQuery(hash);
 
-    rs.filter((r) => r.once).forEach((r) => {
-      this._unsubQuery(r.q, hash, r.cb);
-      r.cb(data);
+    rs.forEach((r) => {
+      this._completeQueryOnce(r.q, hash, r.dfd);
+      r.dfd.resolve(data);
     });
   };
 

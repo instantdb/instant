@@ -17,11 +17,11 @@ const db = init<{
 }>(config);
 
 function _subsCount() {
-  return Object.values(db._core._reactor.queryCbs).flat().length;
+  return Object.values(db._core._reactor.queryOnceDfds).flat().length;
 }
 
 async function queryOnceDemo(newItem: string) {
-  console.log("subs count before:", _subsCount());
+  console.log("dfs count before:", _subsCount());
   console.log("newItem", newItem);
 
   // since we have an existing subscription to this query
@@ -34,7 +34,7 @@ async function queryOnceDemo(newItem: string) {
     onceTest: { $: { where: { text: newItem } } },
   });
 
-  console.log("subs count whenm pending:", _subsCount());
+  console.log("dfs count when pending:", _subsCount());
 
   const [checkRes, existingQueryRes] = await Promise.all([
     checkP,
@@ -43,7 +43,7 @@ async function queryOnceDemo(newItem: string) {
 
   console.log("res", checkRes);
   console.log("existing onceTest", existingQueryRes);
-  console.log("subs count after:", _subsCount());
+  console.log("dfs count after:", _subsCount());
 
   return checkRes.data.onceTest.length > 0;
 }
