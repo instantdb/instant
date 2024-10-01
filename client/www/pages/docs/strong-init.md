@@ -94,4 +94,6 @@ To declare a query and validate it's type against your schema, you can import `I
 
 To obtain the resolved result type of your query, import `InstantQueryResult` and provide it your DB and query types `const myQueryResult = InstantQueryResult<DB, typeof myQuery>`.
 
-[Here's a full example](https://github.com/instantdb/instant/blob/main/client/sandbox/react-nextjs/pages/play/strong-todos.tsx) demonstranting reusable query types in React.
+If you only want the type of a single entity, you can leverage `InstantEntity`. `InstantEntity` resolves an entity type from your DB: `type Todo = InstantEntity<DB, 'todos'>`. You can specify links relative to the entity, too: `type Todo = InstantEntity<DB, 'todos', { category: {}, assignee: {} }>`
+
+[Here's a full example](https://github.com/instantdb/instant/blob/main/client/sandbox/react-nextjs/pages/play/strong-todos.tsx) demonstranting reusable query types in a React app.
