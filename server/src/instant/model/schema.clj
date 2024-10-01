@@ -8,8 +8,6 @@
             [instant.util.exception :as ex])
   (:import (java.util UUID)))
 
-
-
 (defn map-map [f m]
   (into {} (map (fn [[k v]] [k (f [k v])]) m)))
 
@@ -169,12 +167,12 @@
         current-all-ident-names (->> current-attrs
                                      (mapcat attr-ident-names)
                                      (map vec))
-        steps-ident-names (->>
-                           steps
-                           (mapcat (fn [[op data]]
-                                     (when (= op :add-attr)
-                                       (attr-ident-names data)))))
-        dups (->> (concat current-all-ident-names steps-ident-names)
+        new-ident-names (->>
+                         steps
+                         (mapcat (fn [[op data]]
+                                   (when (= op :add-attr)
+                                     (attr-ident-names data)))))
+        dups (->> (concat current-all-ident-names new-ident-names)
                   (frequencies)
                   (filter (fn [[_ freq]] (> freq 1))))
         errors (map (fn [[[etype label]]]
