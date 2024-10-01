@@ -148,23 +148,24 @@
   [{:keys [rules current-user] :as ctx} etype eid triples]
   (let [original (entity-model/triples->map ctx triples)
         program (rule-model/get-program! rules etype "view")]
-    {:scope :object
-     :etype (keyword etype)
-     :action :view
-     :eid eid
-     :program program
-     :check (fn [ctx]
-              (if-not program
-                true
-                (cel/eval-program!
-                 program
-                 {"auth"
-                  (cel/->cel-map (<-json (->json current-user)))
-                  "data"
-                  (cel/->cel-map
-                   (assoc  (<-json (->json original))
-                           "_ctx" ctx
-                           "_etype" etype))})))}))
+    (when (seq original)
+      {:scope :object
+       :etype (keyword etype)
+       :action :view
+       :eid eid
+       :program program
+       :check (fn [ctx]
+                (if-not program
+                  true
+                  (cel/eval-program!
+                   program
+                   {"auth"
+                    (cel/->cel-map (<-json (->json current-user)))
+                    "data"
+                    (cel/->cel-map
+                     (assoc  (<-json (->json original))
+                             "_ctx" ctx
+                             "_etype" etype))})))})))
 
 (defn object-check [ctx etype eid action tx-steps triples]
   (condp = action
@@ -298,9 +299,9 @@
 
    With this, we can generate a grouped `check` command for each `eid+etype`."
   [ctx preloaded-triples]
-  (mapv (fn [[{:keys [eid etype action]} {:keys [triples tx-steps]}]]
-          (object-check ctx etype eid action tx-steps triples))
-        preloaded-triples))
+  (vec (keep (fn [[{:keys [eid etype action]} {:keys [triples tx-steps]}]]
+               (object-check ctx etype eid action tx-steps triples))
+             preloaded-triples)))
 
 (defn attr-delete-check [{:keys [admin?] :as _ctx} _aid]
   {:scope :attr
@@ -312,7 +313,7 @@
 (defn attr-update-check [{:keys [admin?] :as _ctx} _aid]
   {:scope :attr
    :etype :attrs
-   :type :update
+   :action :update
    :check (fn [_ctx]
             admin?)})
 
@@ -544,16 +545,46 @@
                    ;; resolve etypes for older version of delete-entity
                    preloaded-triples))
 
-                {create-checks true update-delete-checks false}
-                (group-by create-check? check-commands)
+                {create-checks :create
+                 view-checks :view
+                 update-checks :update
+                 delete-checks :delete}
+                (group-by :action check-commands)
 
-                preloaded-update-delete-refs (preload-refs ctx update-delete-checks)
+                update-delete-checks (concat update-checks delete-checks)
+
+                preloaded-update-delete-refs (preload-refs ctx (concat update-delete-checks
+                                                                       view-checks))
 
                 update-delete-checks-results
                 (io/warn-io :run-check-commands!
                   (run-check-commands! (assoc ctx
                                               :preloaded-refs preloaded-update-delete-refs)
                                        update-delete-checks))
+
+                view-check-results
+                (io/warn-io :run-check-commands!
+                  (run-check-commands!
+                   (assoc ctx
+                          :preloaded-refs preloaded-update-delete-refs
+                          ;; We just want to warn on view checks while
+                          ;; we check on the impact to existing apps
+                          ;; TODO (users-table): remove after validating
+                          ;;                     in production
+                          :admin-check? true)
+                   view-checks))
+
+                _ (tracer/add-data! {:attributes
+                                     {:view-check-results
+                                      (mapv #(select-keys % [:scope
+                                                             :etype
+                                                             :eid
+                                                             :check-result
+                                                             :check-pass?])
+                                            view-check-results)
+                                      :view-check-failed?
+                                      (boolean (some (comp false? :check-pass?)
+                                                     view-check-results))}})
 
                 tx-data (tx/transact-without-tx-conn! tx-conn
                                                       (:attrs ctx)
