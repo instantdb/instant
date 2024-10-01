@@ -11,7 +11,8 @@
             :power-user-emails {}
             :storage-whitelist {}
             :team-emails {}
-            :test-emails {}})
+            :test-emails {}
+            :view-checks {}})
 
 (def queries [query])
 
@@ -49,3 +50,24 @@
                      (and (get o "isEnabled")
                           (= app-id (get o "appId"))))
                    (get-in @query-results [query :result "storage-whitelist"])))))
+
+(defn run-view-checks? [app-id]
+  (if-let [view-check-flag (-> @query-results
+                               (get-in [query :result "view-checks"])
+                               first)]
+    (let [disabled-apps (-> view-check-flag
+                            (get "disabled-apps")
+                            set)
+          enabled-apps (-> view-check-flag
+                           (get "enabled-apps")
+                           set)
+          default-value (get view-check-flag :default-value false)]
+      (cond (contains? disabled-apps (str app-id))
+            false
+
+            (contains? enabled-apps (str app-id))
+            true
+
+            :else default-value))
+    ;; Default false
+    false))

@@ -1,20 +1,21 @@
 (ns instant.db.permissioned-transaction
   (:require
-   [instant.db.model.attr :as attr-model]
-   [instant.jdbc.aurora :as aurora]
-   [instant.db.transaction :as tx]
-   [instant.db.datalog :as d]
-   [instant.util.json :refer [<-json ->json]]
-   [instant.model.rule :as rule-model]
-   [instant.db.model.entity :as entity-model]
    [instant.db.cel :as cel]
-   [instant.util.tracer :as tracer]
-   [next.jdbc :as next-jdbc]
+   [instant.db.datalog :as d]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.model.entity :as entity-model]
+   [instant.db.transaction :as tx]
+   [instant.flags :as flags]
+   [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
+   [instant.model.rule :as rule-model]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
+   [instant.util.json :refer [->json <-json]]
    [instant.util.string :as string-util]
-   [instant.util.uuid :as uuid-util]))
+   [instant.util.tracer :as tracer]
+   [instant.util.uuid :as uuid-util]
+   [next.jdbc :as next-jdbc]))
 
 (defn extract-etype [{:keys [attrs]} attr-id]
   (attr-model/fwd-etype (attr-model/seek-by-id attr-id attrs)))
@@ -562,16 +563,19 @@
                                               :preloaded-refs preloaded-update-delete-refs)
                                        update-delete-checks))
 
+                view-checks-enabled? (flags/run-view-checks? app-id)
+
                 view-check-results
                 (io/warn-io :run-check-commands!
                   (run-check-commands!
-                   (assoc ctx
-                          :preloaded-refs preloaded-update-delete-refs
-                          ;; We just want to warn on view checks while
-                          ;; we check on the impact to existing apps
-                          ;; TODO (users-table): remove after validating
-                          ;;                     in production
-                          :admin-check? true)
+                   (merge ctx
+                          {:preloaded-refs preloaded-update-delete-refs}
+                          (when-not view-checks-enabled?
+                            ;; We just want to warn on view checks while
+                            ;; we check on the impact to existing apps
+                            ;; TODO (users-table): remove after validating
+                            ;;                     in production
+                            {:admin-check? true}))
                    view-checks))
 
                 _ (tracer/add-data! {:attributes
@@ -596,7 +600,10 @@
                                         (run-check-commands!
                                          (assoc ctx :preloaded-refs preloaded-create-refs)
                                          create-checks))
-                all-check-results (concat update-delete-checks-results create-checks-results)
+                all-check-results (concat update-delete-checks-results
+                                          create-checks-results
+                                          (when view-checks-enabled?
+                                            view-check-results))
                 all-checks-ok? (every? (fn [r] (-> r :check-result)) all-check-results)
                 rollback? (and admin-check?
                                (or admin-dry-run? (not all-checks-ok?)))
