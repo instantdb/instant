@@ -23,6 +23,7 @@ import {
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
+  type InstantSchemaDatabase,
 
   // schema types
   type AttrsDefs,
@@ -112,6 +113,7 @@ export {
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
+  type InstantSchemaDatabase,
   type InstantEntity,
   type RoomSchemaShape,
 

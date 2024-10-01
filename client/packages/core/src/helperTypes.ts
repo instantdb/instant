@@ -6,6 +6,7 @@ import type {
 } from "./queryTypes";
 import type { InstantGraph } from "./schemaTypes";
 import type { IDatabase } from "./coreTypes";
+import { RoomSchemaShape } from "./presence";
 
 export type InstantQuery<DB extends IDatabase<any, any, any>> =
   DB extends IDatabase<infer Schema, any, any>
@@ -48,3 +49,9 @@ export type InstantEntity<
         : never
       : never
     : never;
+
+export type InstantSchemaDatabase<
+  Schema extends InstantGraph<any, any>,
+  R extends RoomSchemaShape = {},
+  CI extends boolean = true,
+> = IDatabase<Schema, R, CI>;

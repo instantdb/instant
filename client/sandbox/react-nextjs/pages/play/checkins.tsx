@@ -7,6 +7,7 @@ import {
   type InstantQueryResult,
   type InstantGraph,
   type InstantEntity,
+  InstantSchemaDatabase,
 } from "@instantdb/react";
 import config from "../../config";
 
@@ -177,9 +178,10 @@ const deepVal = result.checkins[0].habit?.category?.id;
 type DeepVal = typeof deepVal;
 type Graph = InstantGraph<any, any, any>;
 type DBGraph = InstantSchema<typeof db>;
+type DB2 = InstantSchemaDatabase<typeof schema>;
 
 type Checkin = InstantEntity<
-  DB,
+  DB2,
   "checkins",
   {
     habit: {
