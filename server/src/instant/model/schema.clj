@@ -149,21 +149,39 @@
        ". "
        "Check your schema file for duplicate link definitions."))
 
+(defn backwards-link-message [etype label]
+  (str "Conflicting link found for attribute: "
+       etype
+       "->"
+       label
+       ". "
+       "It's possible that you already have a link with the same label names, but in the reverse direction. "
+       "We cannot automatically swap the direction of the link, so you will need to do this manually. "
+       "Check your schema in https://www.instantdb.com/dash for a link with the same label names. "
+       "If you find one, you can either delete the existing link in the dashboard, or swap the `forward` and `reverse` parameters for this link in your schema file."))
+
 (defn assert-unique-idents! [current-attrs steps]
-  (let [current-ident-names (->> current-attrs
-                                 (mapcat attr-ident-names)
-                                 (map vec))
-        ident-names (->>
-                     steps
-                     (mapcat (fn [[op data]]
-                               (when (= op :add-attr)
-                                 (attr-ident-names data)))))
-        dups (->> (concat current-ident-names ident-names)
+  (let [current-fwd-ident-names (->> current-attrs
+                                     (map attr-model/fwd-ident-name)
+                                     (map vec))
+        current-all-ident-names (->> current-attrs
+                                     (mapcat attr-ident-names)
+                                     (map vec))
+        new-ident-names (->>
+                         steps
+                         (mapcat (fn [[op data]]
+                                   (when (= op :add-attr)
+                                     (attr-ident-names data)))))
+        dups (->> (concat current-all-ident-names new-ident-names)
                   (frequencies)
                   (filter (fn [[_ freq]] (> freq 1))))
         errors (map (fn [[[etype label]]]
                       {:in [:schema]
-                       :message (dup-message etype label)}) dups)]
+                       :message (if
+                                 (some #(= % [etype label]) current-fwd-ident-names)
+                                  (dup-message etype label)
+                                  (backwards-link-message etype label))})
+                    dups)]
     (ex/assert-valid! :schema
                       :steps
                       errors)))
