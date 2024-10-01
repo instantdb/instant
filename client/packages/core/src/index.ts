@@ -34,6 +34,7 @@ import type {
   InstantQuery,
   InstantQueryResult,
   InstantSchema,
+  InstantEntity,
 } from "./helperTypes";
 import type {
   AttrsDefs,
@@ -631,6 +632,7 @@ export {
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
+  type InstantEntity,
 
   // schema types
   type AttrsDefs,

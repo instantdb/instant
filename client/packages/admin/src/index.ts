@@ -20,6 +20,7 @@ import {
   type InstantQueryResult,
   type InstantSchema,
   type InstantObject,
+  type InstantEntity,
 
   // schema types
   type AttrsDefs,
@@ -665,6 +666,7 @@ export {
   type InstantQueryResult,
   type InstantSchema,
   type InstantObject,
+  type InstantEntity,
 
   // schema types
   type AttrsDefs,

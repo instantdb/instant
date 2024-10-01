@@ -1,6 +1,7 @@
 // Query
 // -----
 
+import { IDatabase } from "./coreTypes";
 import type {
   EntitiesDef,
   InstantGraph,
@@ -231,5 +232,6 @@ export {
   Remove$,
   InstaQLQueryResult,
   InstaQLQueryParams,
+  InstaQLQueryEntityResult,
   Cursor,
 };
