@@ -386,6 +386,9 @@ export default class Reactor {
           this._tryJoinRoom(roomId);
         }
         break;
+      case "add-query-exists":
+        this.notifyOneQueryOnce(weakHash(msg.q));
+        break;
       case "add-query-ok":
         const { q, result, "processed-tx-id": addQueryTxId } = msg;
         this._cleanPendingMutations(addQueryTxId);
@@ -404,6 +407,7 @@ export default class Reactor {
           return prev;
         });
         this.notifyOne(hash);
+        this.notifyOneQueryOnce(hash);
         break;
       case "refresh-ok":
         const { computations, attrs, "processed-tx-id": refreshOkTxId } = msg;
@@ -667,18 +671,6 @@ export default class Reactor {
       );
     }
 
-    // If `queryOnce` is called on app startup, it's very likely that we haven't received `init-ok` yet.
-    // In this case, we want to wait until we're authenticated (with a timeout) before we proceed.
-    if (this.status !== STATUS.AUTHENTICATED) {
-      const isAuthd = await this._waitForAuthd(INIT_TIMEOUT);
-
-      if (!isAuthd) {
-        throw new Error(
-          "Disconnected: Cannot execute query because the app is not connected to InstantDB.",
-        );
-      }
-    }
-
     const result = await new Promise((resolve, reject) => {
       let done = false;
 
@@ -868,21 +860,22 @@ export default class Reactor {
 
   /** Re-run instaql and call all callbacks with new data */
   notifyOne = (hash) => {
-    const rs = this.queryCbs[hash] || [];
-    if (!rs) return;
+    const rs = this.queryCbs[hash] ?? [];
     const prevData = this._dataForQueryCache[hash]?.data;
     const data = this.dataForQuery(hash);
-    if (!data) return;
-    const haveChanged = !areObjectsDeepEqual(data, prevData);
-    rs.forEach((r) => {
-      if (r.once) {
-        this._unsubQuery(r.q, hash, r.cb);
-      }
 
-      if (haveChanged || r.once) {
-        r.cb(data);
-      }
-    });
+    if (!data) return;
+    if (areObjectsDeepEqual(data, prevData)) return;
+
+    rs.filter((r) => !r.once).forEach((r) => r.cb(data));
+  };
+
+  notifyOneQueryOnce = (hash) => {
+    const rs = this.queryCbs[hash] ?? [];
+    const data = this.dataForQuery(hash);
+    if (!data) return;
+
+    rs.filter((r) => r.once).forEach((r) => r.cb(data));
   };
 
   notifyQueryError = (hash, msg) => {
