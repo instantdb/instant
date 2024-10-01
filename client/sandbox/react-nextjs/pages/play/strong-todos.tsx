@@ -1,7 +1,7 @@
 import {
   i,
   init_experimental,
-  InstantEntity,
+  type InstantEntity,
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchemaDatabase,
