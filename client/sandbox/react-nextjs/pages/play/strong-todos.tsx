@@ -1,8 +1,10 @@
 import {
   i,
   init_experimental,
+  InstantEntity,
   type InstantQuery,
   type InstantQueryResult,
+  type InstantSchemaDatabase,
 } from "@instantdb/react";
 import config from "../../config";
 
@@ -22,12 +24,17 @@ const db = init_experimental({
 });
 
 type DB = typeof db;
+// for when your want to get the type of DB before calling `init`
+type DB_alternate = InstantSchemaDatabase<typeof schema>;
 
 const todosQuery = {
   todos: {},
 } satisfies InstantQuery<DB>;
 
-export type Todos = InstantQueryResult<DB, typeof todosQuery>["todos"];
+export type Todo = InstantEntity<DB, "todos">;
+
+// alternatively
+export type TodosResult = InstantQueryResult<DB, typeof todosQuery>["todos"];
 
 export default function TodoApp() {
   const result = db.useQuery(todosQuery);
@@ -38,7 +45,7 @@ export default function TodoApp() {
 }
 
 // a react component using `Todos`
-function TodoList({ todos }: { todos: Todos }) {
+function TodoList({ todos }: { todos: Todo[] }) {
   // render todos...
   return "Number of todos: " + todos.length;
 }
