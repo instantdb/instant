@@ -16,7 +16,7 @@
   (:require
    [instant.jdbc.sql :as sql]
    [instant.jdbc.aurora :as aurora]
-   [instant.data.emails :refer [get-emails]]
+   [instant.flags :refer [get-emails]]
    [incanter.core :as i]
    [incanter.charts :as charts])
   (:import [org.jfree.chart.renderer.category BarRenderer]

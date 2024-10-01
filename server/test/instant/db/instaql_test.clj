@@ -382,7 +382,7 @@
                             :page-info
                             :start-cursor)
             get-handles (fn [pagination-params]
-                          (as-> (admin-routes/instaql-nodes->object-tree
+                          (as-> (admin-model/instaql-nodes->object-tree
                                  {}
                                  (:attrs @ctx)
                                  (iq/query @ctx {:users {:$ pagination-params}})) %

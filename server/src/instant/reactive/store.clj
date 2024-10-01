@@ -42,7 +42,8 @@
    :tx-meta/processed-tx-id {:db/type :db.type/integer}
 
    :instaql-query/query {:db/index true}
-   :instaql-query/session-id {:db/type :db.type/uuid}
+   :instaql-query/session-id {:db/type :db.type/uuid
+                              :db/index true}
    :instaql-query/stale? {:db/type :db.type/boolean}
    :instaql-query/version {:db/type :db.type/integer}
    :instaql-query/hash {:db/type :db.type/string}
@@ -50,6 +51,7 @@
    :instaql-query/session-id+query
    {:db/tupleAttrs [:instaql-query/session-id :instaql-query/query]
     :db/unique :db.unique/identity}
+   :instaql-query/return-type {} ;; :join-rows or :tree
 
    :subscription/app-id {:db/type :db.type/integer}
    :subscription/session-id {:db/index true
@@ -145,20 +147,17 @@
 ;; instaql queries
 
 (defn get-stale-instaql-queries [db sess-id]
-  (->> (d/q '{:find [?q]
-              :in [$ ?session-id]
-              :where [[?e :instaql-query/session-id ?session-id]
-                      [?e :instaql-query/query ?q]
-                      [?e :instaql-query/stale? true]]}
-            db
-            sess-id)
-       (map first)))
+  (->> (d/datoms db :avet :instaql-query/session-id sess-id)
+       (keep (fn [{:keys [e]}]
+               (let [ent (d/entity db e)]
+                 (when (:instaql-query/stale? ent)
+                   ent))))))
 
 (defn bump-instaql-version-tx-data
   "Should be used in a db.fn/call. Returns transactions.
    Bumps the query version and marks query as not stale, creating the query
    if needed."
-  [db lookup-ref session-id instaql-query]
+  [db lookup-ref session-id instaql-query return-type]
   (if-let [existing (d/entity db lookup-ref)]
     [[:db/add
       (:db/id existing)
@@ -170,14 +169,15 @@
     [{:instaql-query/session-id session-id
       :instaql-query/query instaql-query
       :instaql-query/stale? false
-      :instaql-query/version 1}]))
+      :instaql-query/version 1
+      :instaql-query/return-type return-type}]))
 
-(defn bump-instaql-version! [conn sess-id q]
+(defn bump-instaql-version! [conn sess-id q return-type]
   (let [lookup-ref [:instaql-query/session-id+query [sess-id q]]
         {:keys [db-after]}
         (transact! "store/bump-instaql-version!"
                    conn
-                   [[:db.fn/call bump-instaql-version-tx-data lookup-ref sess-id q]])]
+                   [[:db.fn/call bump-instaql-version-tx-data lookup-ref sess-id q return-type]])]
 
     (:instaql-query/version (d/entity db-after lookup-ref))))
 

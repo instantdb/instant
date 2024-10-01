@@ -1,6 +1,6 @@
 (ns instant.util.test
   (:require [clojure.walk :as w]
-            [instant.admin.routes :as admin-routes]
+            [instant.admin.model :as admin-model]
             [instant.db.instaql :as iq]
             [instant.db.model.attr :as attr-model]
             [instant.jdbc.aurora :as aurora]
@@ -18,7 +18,7 @@
 (defn pretty-perm-q [{:keys [app-id current-user]} q]
   (let [attrs (attr-model/get-by-app-id aurora/conn-pool app-id)]
     (w/keywordize-keys
-     (admin-routes/instaql-nodes->object-tree
+     (admin-model/instaql-nodes->object-tree
       {}
       attrs
       (iq/permissioned-query

@@ -13,7 +13,7 @@
             [instant.db.permissioned-transaction :as permissioned-tx]
             [instant.model.rule :as rule-model]
             [instant.data.resolvers :as resolvers]
-            [instant.admin.routes :as admin-routes]
+            [instant.admin.model :as admin-model]
             [instant.util.test :refer [instant-ex-data pretty-perm-q]]
             [instant.db.instaql :as iq]
             [instant.db.datalog :as d]
@@ -662,7 +662,7 @@
                         app-id
                         [[:add-triple [handle-attr-id "nobody"] email-attr-id "nobody@example.com"]])
           (is (= {"users" [{"handle" "nobody", "email" "nobody@example.com"}]}
-                 (admin-routes/instaql-nodes->object-tree
+                 (admin-model/instaql-nodes->object-tree
                   {}
                   attrs
                   (iq/query ctx {:users {:$ {:where {:handle "nobody"}}}})))))
@@ -673,7 +673,7 @@
                         app-id
                         [[:add-triple [handle-attr-id "id-test"] email-attr-id "id-test@example.com"]
                          [:add-triple [handle-attr-id "id-test"] id-attr-id [handle-attr-id "id-test"]]])
-          (let [res (admin-routes/instaql-nodes->object-tree
+          (let [res (admin-model/instaql-nodes->object-tree
                      {}
                      attrs
                      (iq/query ctx {:users {:$ {:where {:handle "id-test"}}}}))
@@ -703,7 +703,7 @@
         (testing "value lookup refs work"
           (let [feynman-isbn "9780393079814"]
             ;; Check the setup
-            (is (= feynman-isbn (as-> (admin-routes/instaql-nodes->object-tree
+            (is (= feynman-isbn (as-> (admin-model/instaql-nodes->object-tree
                                        {}
                                        attrs
                                        (iq/query ctx {:bookshelves {:$ {:where {:name "Nonfiction"}}
@@ -722,7 +722,7 @@
                           app-id
                           [[:retract-triple eid-nonfiction bookshelf-attr-id [isbn-attr-eid feynman-isbn]]])
 
-            (is (empty? (as-> (admin-routes/instaql-nodes->object-tree
+            (is (empty? (as-> (admin-model/instaql-nodes->object-tree
                                {}
                                attrs
                                (iq/query ctx {:bookshelves {:$ {:where {:name "Nonfiction"}}
@@ -738,7 +738,7 @@
                           app-id
                           [[:add-triple eid-nonfiction bookshelf-attr-id [isbn-attr-eid feynman-isbn]]])
 
-            (is (= feynman-isbn (as-> (admin-routes/instaql-nodes->object-tree
+            (is (= feynman-isbn (as-> (admin-model/instaql-nodes->object-tree
                                        {}
                                        attrs
                                        (iq/query ctx {:bookshelves {:$ {:where {:name "Nonfiction"}}
@@ -757,7 +757,7 @@
                         (attr-model/get-by-app-id aurora/conn-pool app-id)
                         app-id
                         [[:add-triple alex-eid email-attr-id [email-attr-id "test"]]])
-          (let [res (admin-routes/instaql-nodes->object-tree
+          (let [res (admin-model/instaql-nodes->object-tree
                      {}
                      attrs
                      (iq/query ctx {:users {:$ {:where {:handle "alex"}}}}))

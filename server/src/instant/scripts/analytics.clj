@@ -4,7 +4,7 @@
    [instant.util.date :as date]
    [instant.jdbc.aurora :as aurora]
    [instant.postmark :as postmark]
-   [instant.data.emails :refer [get-emails]]
+   [instant.flags :refer [get-emails]]
    [chime.core :as chime-core]
    [clojure.tools.logging :as log]
    [instant.grab :as grab])

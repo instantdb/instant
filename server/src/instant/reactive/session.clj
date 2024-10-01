@@ -103,7 +103,7 @@
       (ex/throw-validation-err! :init {:sess-id sess-id} [{:message "`init` has not run for this session."}]))
     auth))
 
-(defn- handle-add-query! [store-conn sess-id {:keys [q client-event-id] :as _event}]
+(defn- handle-add-query! [store-conn sess-id {:keys [q client-event-id return-type] :as _event}]
   (let [instaql-queries (rs/get-session-instaql-queries @store-conn sess-id)
         {:keys [app user admin?]} (get-auth! store-conn sess-id)]
 
@@ -113,7 +113,8 @@
                                           :client-event-id client-event-id})
 
       :else
-      (let [{app-id :id} app
+      (let [return-type (keyword (or return-type "join-rows"))
+            {app-id :id} app
             processed-tx-id (rs/get-processed-tx-id @store-conn app-id)
             {:keys [table-info]} (get-attrs app)
             attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
@@ -125,7 +126,7 @@
                  :table-info table-info
                  :admin? admin?
                  :current-user user}
-            {:keys [instaql-result]} (rq/instaql-query-reactive! store-conn ctx q)]
+            {:keys [instaql-result]} (rq/instaql-query-reactive! store-conn ctx q return-type)]
         (rs/send-event! store-conn sess-id {:op :add-query-ok :q q :result instaql-result
                                             :processed-tx-id processed-tx-id
                                             :client-event-id client-event-id})))))
@@ -137,7 +138,8 @@
                                         :client-event-id client-event-id})))
 
 (defn- recompute-instaql-query!
-  [{:keys [store-conn current-user app-id sess-id attrs table-info admin?]} q]
+  [{:keys [store-conn current-user app-id sess-id attrs table-info admin?]}
+   {:keys [instaql-query/query instaql-query/return-type]}]
   (let [ctx {:db {:conn-pool aurora/conn-pool}
              :session-id sess-id
              :app-id app-id
@@ -147,8 +149,8 @@
              :current-user current-user
              :admin? admin?}
         {:keys [instaql-result result-changed?]}
-        (rq/instaql-query-reactive! store-conn ctx q)]
-    {:instaql-query q
+        (rq/instaql-query-reactive! store-conn ctx query return-type)]
+    {:instaql-query query
      :instaql-result instaql-result
      :result-changed? result-changed?}))
 

@@ -11,14 +11,12 @@
             [instant.model.app-user :as app-user-model]
             [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
             [instant.db.datalog :as d]
-            [instant.db.model.attr-pat :as attr-pat]
             [instant.model.rule :as rule-model]
             [instant.util.exception :as ex]
             [instant.util.string :as string-util]
             [instant.util.http :as http-util]
             [instant.admin.model :as admin-model]
             [instant.util.json :refer [<-json ->json]]
-            [instant.db.model.entity :as entity-model]
             [instant.util.storage :as storage-util])
   (:import
    (java.util UUID)))
@@ -77,56 +75,6 @@
 ;; ------
 ;; Query
 
-(declare instaql-ref-nodes->object-tree)
-
-(defn enrich-node [attrs parent-etype node]
-  (let [label (-> node :data :k)
-        pat (attr-pat/->guarded-ref-attr-pat
-             {:attrs attrs}
-             parent-etype
-             0
-             label)
-        [next-etype _ _ attr forward?] pat
-        enriched-node (update node
-                              :data
-                              (fn [d] (assoc d
-                                             :etype next-etype
-                                             :attr attr
-                                             :forward? forward?)))]
-    enriched-node))
-
-(defn obj-node [ctx attrs etype node]
-  (let [datalog-result (-> node :data :datalog-result)
-        blob-entries (entity-model/datalog-result->map {:attrs attrs} datalog-result)
-        ref-entries (some->> node
-                             :child-nodes
-                             (map (partial enrich-node attrs etype))
-                             (instaql-ref-nodes->object-tree ctx attrs))]
-    (merge blob-entries ref-entries)))
-
-(defn singular-entry? [data]
-  (if (-> data :forward?)
-    (= :one (-> data :attr :cardinality))
-    (-> data :attr :unique?)))
-
-(defn instaql-ref-nodes->object-tree [ctx attrs nodes]
-  (reduce
-   (fn [acc node]
-     (let [{:keys [child-nodes data]} node
-           entries (map (partial obj-node ctx attrs (-> data :etype)) child-nodes)
-           singular? (and (:inference? ctx) (singular-entry? data))
-           entry-or-entries (if singular? (first entries) entries)]
-       (assoc acc (:k data) entry-or-entries)))
-   {}
-   nodes))
-
-(defn instaql-nodes->object-tree [ctx attrs nodes]
-  (let [enriched-nodes
-        (map (fn [n] (update n :data (fn [d] (assoc d :etype (:k d))))) nodes)]
-    (instaql-ref-nodes->object-tree ctx
-                                    attrs
-                                    enriched-nodes)))
-
 (defn query-post [req]
   (let [query (ex/get-param! req [:body :query] #(when (map? %) %))
         inference? (-> req :body :inference? boolean)
@@ -139,7 +87,7 @@
                     :datalog-loader (d/make-loader)}
                    perms)
         nodes (iq/permissioned-query ctx query)
-        result (instaql-nodes->object-tree
+        result (admin-model/instaql-nodes->object-tree
                 {:inference? inference?}
                 attrs
                 nodes)]
@@ -168,7 +116,7 @@
                     :datalog-loader (d/make-loader)}
                    perms)
         {check-results :check-results nodes :nodes} (iq/permissioned-query-check ctx query rules-override)
-        result (instaql-nodes->object-tree {:inference? inference?} attrs nodes)]
+        result (admin-model/instaql-nodes->object-tree {:inference? inference?} attrs nodes)]
     (response/ok {:check-results check-results :result result})))
 
 (comment
