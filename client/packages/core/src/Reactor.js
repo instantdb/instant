@@ -626,8 +626,8 @@ export default class Reactor {
     }
 
     const hash = weakHash(q);
-
     const dfd = new Deferred();
+
     this.queryOnceDfds[hash] = this.queryOnceDfds[hash] ?? [];
     this.queryOnceDfds[hash].push({ q, dfd });
 
