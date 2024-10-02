@@ -648,10 +648,7 @@ export default class Reactor {
       (r) => r.dfd !== dfd,
     );
 
-    if (!this.queryOnceDfds[hash].length) {
-      delete this.queryOnceDfds[hash];
-      this._trySendAuthed(uuid(), { op: "remove-query", q });
-    }
+    this._cleanupQuery(q, hash);
   }
 
   _unsubQuery(q, hash, cb) {
@@ -659,10 +656,19 @@ export default class Reactor {
 
     this.queryCbs[hash] = this.queryCbs[hash].filter((r) => r.cb !== cb);
 
-    if (!this.queryCbs[hash].length) {
-      delete this.queryCbs[hash];
-      this._trySendAuthed(uuid(), { op: "remove-query", q });
-    }
+    this._cleanupQuery(q, hash);
+  }
+
+  _cleanupQuery(q, hash) {
+    const hasListeners =
+      this.queryCbs[hash].length && this.queryOnceDfds[hash].length;
+
+    if (hasListeners) return;
+
+    delete this.queryCbs[hash];
+    delete this.queryOnceDfds[hash];
+
+    this._trySendAuthed(uuid(), { op: "remove-query", q });
   }
 
   // When we `pushTx`, it's possible that we don't yet have `this.attrs`
