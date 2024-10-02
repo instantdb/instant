@@ -9,8 +9,8 @@ Instant uses a declarative syntax for querying. It's like GraphQL without the co
 One of the simplest queries you can write is to simply get all entities of a namespace.
 
 ```javascript
-const query = { goals: {} }
-const { isLoading, error, data } = db.useQuery(query)
+const query = { goals: {} };
+const { isLoading, error, data } = db.useQuery(query);
 ```
 
 Inspecting `data`, we'll see:
@@ -34,7 +34,7 @@ console.log(data)
 For comparison, the SQL equivalent of this would be something like:
 
 ```javascript
-const data = { goals: doSQL('SELECT * FROM goals') }
+const data = { goals: doSQL('SELECT * FROM goals') };
 ```
 
 ## Fetch multiple namespaces
@@ -42,8 +42,8 @@ const data = { goals: doSQL('SELECT * FROM goals') }
 You can fetch multiple namespaces at once:
 
 ```javascript
-const query = { goals: {}, todos: {} }
-const { isLoading, error, data } = db.useQuery(query)
+const query = { goals: {}, todos: {} };
+const { isLoading, error, data } = db.useQuery(query);
 ```
 
 We will now see data for both namespaces.
@@ -72,7 +72,7 @@ The equivalent of this in SQL would be to write two separate queries.
 const data = {
   goals: doSQL('SELECT * from goals'),
   todos: doSQL('SELECT * from todos'),
-}
+};
 ```
 
 ## Fetch a specific entity
@@ -88,8 +88,8 @@ const query = {
       },
     },
   },
-}
-const { isLoading, error, data } = db.useQuery(query)
+};
+const { isLoading, error, data } = db.useQuery(query);
 ```
 
 ```javascript
@@ -107,7 +107,7 @@ console.log(data)
 The SQL equivalent would be:
 
 ```javascript
-const data = { goals: doSQL("SELECT * FROM goals WHERE id = 'healthId'") }
+const data = { goals: doSQL("SELECT * FROM goals WHERE id = 'healthId'") };
 ```
 
 ## Fetch associations
@@ -119,8 +119,8 @@ const query = {
   goals: {
     todos: {},
   },
-}
-const { isLoading, error, data } = db.useQuery(query)
+};
+const { isLoading, error, data } = db.useQuery(query);
 ```
 
 `goals` would now include nested `todos`
@@ -178,8 +178,8 @@ const query = {
   goals: {
     todos: {},
   },
-}
-const { isLoading, error, data } = db.useQuery(query)
+};
+const { isLoading, error, data } = db.useQuery(query);
 ```
 
 Modern applications often need to render nested relations, `InstaQL` really starts to shine for these use cases.
@@ -200,8 +200,8 @@ const query = {
     },
     todos: {},
   },
-}
-const { isLoading, error, data } = db.useQuery(query)
+};
+const { isLoading, error, data } = db.useQuery(query);
 ```
 
 Which returns
@@ -246,8 +246,8 @@ const query = {
     },
     todos: {},
   },
-}
-const { isLoading, error, data } = db.useQuery(query)
+};
+const { isLoading, error, data } = db.useQuery(query);
 ```
 
 Returns
@@ -293,8 +293,8 @@ const query = {
       },
     },
   },
-}
-const { isLoading, error, data } = db.useQuery(query)
+};
+const { isLoading, error, data } = db.useQuery(query);
 ```
 
 This will return goals and filtered todos
@@ -344,8 +344,8 @@ const query = {
   todos: {
     goals: {},
   },
-}
-const { isLoading, error, data } = db.useQuery(query)
+};
+const { isLoading, error, data } = db.useQuery(query);
 ```
 
 ```javascript
@@ -595,10 +595,7 @@ const query = {
   todos: {
     $: {
       where: {
-        or: [
-          { title: 'Code a bunch' },
-          { title: 'Review PRs' }
-        ],
+        or: [{ title: 'Code a bunch' }, { title: 'Review PRs' }],
       },
     },
   },
@@ -654,4 +651,20 @@ console.log(data)
     },
   ]
 }
+```
+
+## Querying once
+
+Sometimes, you only need to fetch data once and don't need to subscribe to changes. For example, you might want to fetch data before rendering a page or when the user clicks a button.
+
+In these cases, you can use `queryOnce` instead of `useQuery`. `queryOnce` returns a promise that resolves with the data once the query is complete.
+
+Unlike `useQuery`, `queryOnce` will throw an error if the user is offline. This is because `queryOnce` is intended for use cases where you need the most up-to-date data.
+
+```javascript
+const query = {
+  todos: {},
+};
+
+const { error, data } = await db.queryOnce(query);
 ```
