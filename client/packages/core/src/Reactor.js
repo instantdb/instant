@@ -503,6 +503,8 @@ export default class Reactor {
   }
 
   _handleReceiveError(msg) {
+    console.log(msg);
+
     const eventId = msg["client-event-id"];
     const prevMutation = this.pendingMutations.currentValue.get(eventId);
     if (prevMutation) {
@@ -661,7 +663,7 @@ export default class Reactor {
 
   _cleanupQuery(q, hash) {
     const hasListeners =
-      this.queryCbs[hash].length && this.queryOnceDfds[hash].length;
+      this.queryCbs[hash]?.length || this.queryOnceDfds[hash]?.length;
 
     if (hasListeners) return;
 
@@ -819,29 +821,35 @@ export default class Reactor {
 
   /** Re-run instaql and call all callbacks with new data */
   notifyOne = (hash) => {
-    const rs = this.queryCbs[hash] ?? [];
+    const cbs = this.queryCbs[hash] ?? [];
     const prevData = this._dataForQueryCache[hash]?.data;
     const data = this.dataForQuery(hash);
 
     if (!data) return;
     if (areObjectsDeepEqual(data, prevData)) return;
 
-    rs.forEach((r) => r.cb(data));
+    cbs.forEach((r) => r.cb(data));
   };
 
   notifyOneQueryOnce = (hash) => {
-    const rs = this.queryOnceDfds[hash] ?? [];
+    const dfds = this.queryOnceDfds[hash] ?? [];
     const data = this.dataForQuery(hash);
 
-    rs.forEach((r) => {
+    dfds.forEach((r) => {
       this._completeQueryOnce(r.q, hash, r.dfd);
       r.dfd.resolve(data);
     });
   };
 
-  notifyQueryError = (hash, msg) => {
+  notifyQueryError = (hash, error) => {
     const cbs = this.queryCbs[hash] || [];
-    cbs.forEach((r) => r.cb({ error: msg }));
+    cbs.forEach((r) => r.cb({ error }));
+
+    const dfds = this.queryOnceDfds[hash] ?? [];
+    dfds.forEach((r) => {
+      this._completeQueryOnce(r.q, hash, r.dfd);
+      r.dfd.reject(error);
+    });
   };
 
   /** Re-compute all subscriptions */

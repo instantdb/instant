@@ -666,5 +666,5 @@ const query = {
   todos: {},
 };
 
-const { error, data } = await db.queryOnce(query);
+const { data } = await db.queryOnce(query);
 ```
