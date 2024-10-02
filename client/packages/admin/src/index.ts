@@ -376,6 +376,28 @@ class Auth {
   }
 
   /**
+   * Generates a magic code for the user with the given email,  used to sign in on the frontend.
+   * This is useful for writing custom auth flows.
+   *
+   * @example
+   *   try {
+   *     const user = await db.auth.generateMagicCode({ email })
+   *     // send an email to user with magic code
+   *   } catch (err) {
+   *     console.error("Failed to generate magic code:", err.message);
+   *   }
+   *
+   * @see https://instantdb.com/docs/backend#generate-magic-code
+   */
+  generateMagicCode = async (email: string): Promise<{ code: string }> => {
+    return jsonFetch(`${this.config.apiURI}/admin/magic_code`, {
+      method: "POST",
+      headers: authorizedHeaders(this.config),
+      body: JSON.stringify({ email }),
+    });
+  };
+
+  /**
    * Creates a login token for the user with the given email.
    * If that user does not exist, we create one.
    *

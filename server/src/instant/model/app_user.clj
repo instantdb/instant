@@ -76,6 +76,10 @@
        where u.app_id = ?::uuid and (u.email = ? or (l.sub = ? and l.provider_id = ?))"
      app-id email sub provider-id])))
 
+(defn get-or-create-by-email! [{:keys [email app-id]}]
+  (or (get-by-email {:email email :app-id app-id})
+      (create! {:id (UUID/randomUUID) :email email :app-id app-id})))
+
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (def a (first (app-model/get-all-for-user {:user-id (:id u)})))
