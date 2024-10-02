@@ -39,6 +39,19 @@ const graph = i.graph(
         label: "tags",
       },
     },
+    posts$users: {
+      forward: {
+        on: "posts",
+        has: "many",
+        label: "owners",
+      },
+      reverse: {
+        // @ts-expect-error
+        on: "$users",
+        has: "many",
+        label: "posts",
+      },
+    },
   },
 );
 
