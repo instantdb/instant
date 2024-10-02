@@ -15,9 +15,9 @@ function HiringContent() {
       <p>Hey there! <a href="https://www.instantdb.com/">InstantDB (YC S22)</a>
         {' '}is looking to hire our founding engineering team! We think we’re a
         rocket-ship that’s going to power applications of the future 🚀</p>
-      <p>We’ve put together a little doc explaining what is Instant, who we are,
+      <p>We’ve put together a page explaining what is Instant, who we are,
         who we’re looking for, and what we can accomplish together 💪</p>
-      <p>By the end of this document we hope you’re motivated to apply or send
+      <p>By the end of this page we hope you’re motivated to apply or send
         over this page to your favorite hackers 🧑‍💻</p>
       <h2 id="what-is-instant-">What is Instant?</h2>
       <p>In two sentences: We’re building the next Firebase. We want to make it
