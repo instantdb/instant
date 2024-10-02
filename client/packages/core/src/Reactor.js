@@ -24,7 +24,7 @@ const STATUS = {
   ERRORED: "errored",
 };
 
-const QUERY_ONCE_TIMEOUT = 3000;
+const QUERY_ONCE_TIMEOUT = 5000;
 
 const WS_OPEN_STATUS = 1;
 
