@@ -31,10 +31,10 @@ export const Stack = twel('div', 'flex flex-col gap-2');
 export const Group = twel('div', 'flex flex-col gap-2 md:flex-row');
 
 export const Content = twel('div', 'prose');
-export const ScreenHeading = twel('div', 'text-2xl font-mono');
-export const SectionHeading = twel('div', 'text-xl font-mono');
-export const SubsectionHeading = twel('div', 'text-lg font-bold font-mono');
-export const BlockHeading = twel('div', 'text-md font-bold font-mono');
+export const ScreenHeading = twel('div', 'text-2xl font-bold');
+export const SectionHeading = twel('div', 'text-xl font-bold');
+export const SubsectionHeading = twel('div', 'text-lg');
+export const BlockHeading = twel('div', 'text-md font-bold');
 
 export const Hint = twel('div', 'text-sm text-gray-400');
 export const Label = twel('div', 'text-sm font-bold text-gray-700');
@@ -188,7 +188,7 @@ export function TextInput({
   }, []);
 
   return (
-    <label className="flex flex-col gap-1">
+    <label className="flex flex-col gap-2">
       {label ? <Label>{label}</Label> : null}
       <input
         disabled={disabled}

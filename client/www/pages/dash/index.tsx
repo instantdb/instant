@@ -1302,7 +1302,7 @@ function Admin({
       </Content>
       <Copyable label="Secret" value={app.admin_token} />
       {isMinRole('collaborator', app.user_app_role) ? (
-        <div>
+        <div className="space-y-2">
           <SectionHeading>Experimental</SectionHeading>
           <SubsectionHeading>Users namespace</SubsectionHeading>
           <Content>
@@ -1421,7 +1421,7 @@ function Admin({
       ) : null}
       {isMinRole('owner', app.user_app_role) ? (
         // mt-auto pushes the danger zone to the bottom of the page
-        <div className="mt-auto space-y-2">
+        <div className="mt-auto space-y-2 pb-4">
           <SectionHeading>Danger zone</SectionHeading>
           <Content>
             These are destructive actions and will irreversibly delete
