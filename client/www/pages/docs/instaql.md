@@ -663,8 +663,12 @@ Unlike `useQuery`, `queryOnce` will throw an error if the user is offline. This 
 
 ```javascript
 const query = {
-  todos: {},
+  todos: {
+    $: {
+      limit: 1,
+    },
+  },
 };
 
-const { data } = await db.queryOnce(query);
+const { data, pageInfo } = await db.queryOnce(query);
 ```
