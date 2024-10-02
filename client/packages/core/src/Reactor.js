@@ -90,7 +90,7 @@ export default class Reactor {
 
   /** @type {Record<string, Array<{ q: any, cb: (data: any) => any }>>} */
   queryCbs = {};
-  /** @type {Record<string, Array<{ q: any, dfd: Deferred }>>} */
+  /** @type {Record<string, Array<{ q: any, eventId: string, dfd: Deferred }>>} */
   queryOnceDfds = {};
   authCbs = [];
   attrsCbs = [];
@@ -517,16 +517,18 @@ export default class Reactor {
 
     const q = msg.q || msg["original-event"]?.q;
     if (q) {
+      const hash = weakHash(q);
+      const error = {
+        message:
+          msg.message || "Uh-oh, something went wrong. Ping Joe & Stopa.",
+      };
       // This must be a query error
       this.querySubs.set((prev) => {
-        const hash = weakHash(q);
         delete prev[hash];
         return prev;
       });
-      this.notifyQueryError(weakHash(q), {
-        message:
-          msg.message || "Uh-oh, something went wrong. Ping Joe & Stopa.",
-      });
+      this.notifyQueryError(weakHash(q), error);
+      this.notifyQueryOnceError(hash, eventId, error);
       return;
     }
 
@@ -564,6 +566,12 @@ export default class Reactor {
     }
   }
 
+  notifyQueryOnceError(hash, eventId, e) {
+    const r = this.queryOnceDfds[hash]?.find((r) => r.eventId === eventId);
+    if (!r) return;
+    r.dfd.reject(e);
+  }
+
   _setAttrs(attrs) {
     this.attrs = attrs.reduce((acc, attr) => {
       acc[attr.id] = attr;
@@ -588,6 +596,8 @@ export default class Reactor {
       return prev;
     });
     this._trySendAuthed(eventId, { op: "add-query", q });
+
+    return eventId;
   }
 
   /**
@@ -628,10 +638,10 @@ export default class Reactor {
     const hash = weakHash(q);
     const dfd = new Deferred();
 
-    this.queryOnceDfds[hash] = this.queryOnceDfds[hash] ?? [];
-    this.queryOnceDfds[hash].push({ q, dfd });
+    const eventId = this._startQuerySub(q, hash);
 
-    this._startQuerySub(q, hash);
+    this.queryOnceDfds[hash] = this.queryOnceDfds[hash] ?? [];
+    this.queryOnceDfds[hash].push({ q, dfd, eventId });
 
     setTimeout(
       () => dfd.reject(new Error("Query timed out")),

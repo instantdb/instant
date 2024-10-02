@@ -60,16 +60,6 @@ interface FormProps {
   addOnce: (value: string) => void;
 }
 const TodoForm: React.FC<FormProps> = ({ addOnce }) => {
-  useEffect(() => {
-    (async () => {
-      const r = await db.queryOnce({
-        onceTest: {},
-      });
-
-      console.log("onceTest on init", r);
-    })();
-  });
-
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const input = e.currentTarget.elements.namedItem(
@@ -98,11 +88,23 @@ const TodoForm: React.FC<FormProps> = ({ addOnce }) => {
 };
 
 function Main() {
+  useEffect(() => {
+    (async () => {
+      const r = await db.queryOnce({
+        onceTest: {},
+      });
+
+      console.log("onceTest on init", r);
+    })();
+  }, []);
+
   const { isLoading, error, data } = db.useQuery({
     onceTest: {},
   });
+
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
+
   return (
     <div className="p-2">
       <div className="flex space-x-2 py-2">
