@@ -24,7 +24,7 @@ const STATUS = {
   ERRORED: "errored",
 };
 
-const QUERY_ONCE_TIMEOUT = 5000;
+const QUERY_ONCE_TIMEOUT = 10_000;
 
 const WS_OPEN_STATUS = 1;
 
@@ -969,6 +969,13 @@ export default class Reactor {
     safeSubs.forEach(({ eventId, q }) => {
       this._trySendAuthed(eventId, { op: "add-query", q });
     });
+
+    Object.values(this.queryOnceDfds)
+      .flat()
+      .forEach(({ eventId, q }) => {
+        this._trySendAuthed(eventId, { op: "add-query", q });
+      });
+
     const muts = this._rewriteMutations(
       this.attrs,
       this.pendingMutations.currentValue,

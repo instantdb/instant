@@ -16,6 +16,10 @@ const db = init<{
   };
 }>(config);
 
+db.queryOnce({
+  onceTest: {},
+}).then((r) => console.log("onceTest on init", r));
+
 function _subsCount() {
   return Object.values(db._core._reactor.queryOnceDfds).flat().length;
 }
@@ -88,16 +92,6 @@ const TodoForm: React.FC<FormProps> = ({ addOnce }) => {
 };
 
 function Main() {
-  useEffect(() => {
-    (async () => {
-      const r = await db.queryOnce({
-        onceTest: {},
-      });
-
-      console.log("onceTest on init", r);
-    })();
-  }, []);
-
   const { isLoading, error, data } = db.useQuery({
     onceTest: {},
   });
