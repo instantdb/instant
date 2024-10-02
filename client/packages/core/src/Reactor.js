@@ -24,6 +24,8 @@ const STATUS = {
   ERRORED: "errored",
 };
 
+const QUERY_ONCE_TIMEOUT = 5000;
+
 const WS_OPEN_STATUS = 1;
 
 const defaultConfig = {
@@ -86,7 +88,10 @@ export default class Reactor {
   /** @type {PersistedObject} */
   pendingMutations;
 
+  /** @type {Record<string, Array<{ q: any, cb: (data: any) => any }>>} */
   queryCbs = {};
+  /** @type {Record<string, Array<{ q: any, eventId: string, dfd: Deferred }>>} */
+  queryOnceDfds = {};
   authCbs = [];
   attrsCbs = [];
   mutationErrorCbs = [];
@@ -356,6 +361,9 @@ export default class Reactor {
           this._tryJoinRoom(roomId);
         }
         break;
+      case "add-query-exists":
+        this.notifyOneQueryOnce(weakHash(msg.q));
+        break;
       case "add-query-ok":
         const { q, result, "processed-tx-id": addQueryTxId } = msg;
         this._cleanPendingMutations(addQueryTxId);
@@ -374,6 +382,7 @@ export default class Reactor {
           return prev;
         });
         this.notifyOne(hash);
+        this.notifyOneQueryOnce(hash);
         break;
       case "refresh-ok":
         const { computations, attrs, "processed-tx-id": refreshOkTxId } = msg;
@@ -496,6 +505,10 @@ export default class Reactor {
   _handleReceiveError(msg) {
     const eventId = msg["client-event-id"];
     const prevMutation = this.pendingMutations.currentValue.get(eventId);
+    const errorMessage = {
+      message: msg.message || "Uh-oh, something went wrong. Ping Joe & Stopa.",
+    };
+
     if (prevMutation) {
       // This must be a transaction error
       const errDetails = {
@@ -508,16 +521,15 @@ export default class Reactor {
 
     const q = msg.q || msg["original-event"]?.q;
     if (q) {
+      const hash = weakHash(q);
+
       // This must be a query error
       this.querySubs.set((prev) => {
-        const hash = weakHash(q);
         delete prev[hash];
         return prev;
       });
-      this.notifyQueryError(weakHash(q), {
-        message:
-          msg.message || "Uh-oh, something went wrong. Ping Joe & Stopa.",
-      });
+      this.notifyQueryError(weakHash(q), errorMessage);
+      this.notifyQueryOnceError(hash, eventId, errorMessage);
       return;
     }
 
@@ -533,10 +545,7 @@ export default class Reactor {
       }
 
       // We failed to init
-      const errorMessage = {
-        message:
-          msg.message || "Uh-oh, something went wrong. Ping Joe & Stopa.",
-      };
+
       this._setStatus(STATUS.ERRORED, errorMessage);
       this.notifyAll();
       return;
@@ -553,6 +562,12 @@ export default class Reactor {
         msg.hint,
       );
     }
+  }
+
+  notifyQueryOnceError(hash, eventId, e) {
+    const r = this.queryOnceDfds[hash]?.find((r) => r.eventId === eventId);
+    if (!r) return;
+    r.dfd.reject(e);
   }
 
   _setAttrs(attrs) {
@@ -572,6 +587,17 @@ export default class Reactor {
     return this.dataForQuery(hash);
   };
 
+  _startQuerySub(q, hash) {
+    const eventId = uuid();
+    this.querySubs.set((prev) => {
+      prev[hash] = prev[hash] || { q, result: null, eventId };
+      return prev;
+    });
+    this._trySendAuthed(eventId, { op: "add-query", q });
+
+    return eventId;
+  }
+
   /**
    *  When a user subscribes to a query the following side effects occur:
    *
@@ -583,23 +609,74 @@ export default class Reactor {
    *  Returns an unsubscribe function
    */
   subscribeQuery(q, cb) {
-    const eventId = uuid();
     const hash = weakHash(q);
 
-    this.queryCbs[hash] = this.queryCbs[hash] || [];
-    this.queryCbs[hash].push(cb);
-    this.querySubs.set((prev) => {
-      prev[hash] = prev[hash] || { q, result: null, eventId };
-      return prev;
-    });
-    this._trySendAuthed(eventId, { op: "add-query", q });
     const prevResult = this.getPreviousResult(q);
     if (prevResult) {
       cb(prevResult);
     }
+
+    this.queryCbs[hash] = this.queryCbs[hash] ?? [];
+    this.queryCbs[hash].push({ q, cb });
+
+    this._startQuerySub(q, hash);
+
     return () => {
-      this.queryCbs[hash] = this.queryCbs[hash].filter((x) => x !== cb);
+      this._unsubQuery(q, hash, cb);
     };
+  }
+
+  async queryOnce(q) {
+    if (!this._isOnline) {
+      throw new Error(
+        "Offline: Cannot execute query because the device is offline.",
+      );
+    }
+
+    const hash = weakHash(q);
+    const dfd = new Deferred();
+
+    const eventId = this._startQuerySub(q, hash);
+
+    this.queryOnceDfds[hash] = this.queryOnceDfds[hash] ?? [];
+    this.queryOnceDfds[hash].push({ q, dfd, eventId });
+
+    setTimeout(
+      () => dfd.reject(new Error("Query timed out")),
+      QUERY_ONCE_TIMEOUT,
+    );
+
+    return dfd.promise;
+  }
+
+  _completeQueryOnce(q, hash, dfd) {
+    if (!this.queryOnceDfds[hash]) return;
+
+    this.queryOnceDfds[hash] = this.queryOnceDfds[hash].filter(
+      (r) => r.dfd !== dfd,
+    );
+
+    this._cleanupQuery(q, hash);
+  }
+
+  _unsubQuery(q, hash, cb) {
+    if (!this.queryCbs[hash]) return;
+
+    this.queryCbs[hash] = this.queryCbs[hash].filter((r) => r.cb !== cb);
+
+    this._cleanupQuery(q, hash);
+  }
+
+  _cleanupQuery(q, hash) {
+    const hasListeners =
+      this.queryCbs[hash]?.length || this.queryOnceDfds[hash]?.length;
+
+    if (hasListeners) return;
+
+    delete this.queryCbs[hash];
+    delete this.queryOnceDfds[hash];
+
+    this._trySendAuthed(uuid(), { op: "remove-query", q });
   }
 
   // When we `pushTx`, it's possible that we don't yet have `this.attrs`
@@ -750,18 +827,29 @@ export default class Reactor {
 
   /** Re-run instaql and call all callbacks with new data */
   notifyOne = (hash) => {
-    const cbs = this.queryCbs[hash] || [];
-    if (!cbs) return;
+    const cbs = this.queryCbs[hash] ?? [];
     const prevData = this._dataForQueryCache[hash]?.data;
     const data = this.dataForQuery(hash);
+
     if (!data) return;
     if (areObjectsDeepEqual(data, prevData)) return;
-    cbs.forEach((cb) => cb(data));
+
+    cbs.forEach((r) => r.cb(data));
   };
 
-  notifyQueryError = (hash, msg) => {
+  notifyOneQueryOnce = (hash) => {
+    const dfds = this.queryOnceDfds[hash] ?? [];
+    const data = this.dataForQuery(hash);
+
+    dfds.forEach((r) => {
+      this._completeQueryOnce(r.q, hash, r.dfd);
+      r.dfd.resolve(data);
+    });
+  };
+
+  notifyQueryError = (hash, error) => {
     const cbs = this.queryCbs[hash] || [];
-    cbs.forEach((cb) => cb({ error: msg }));
+    cbs.forEach((r) => r.cb({ error }));
   };
 
   /** Re-compute all subscriptions */

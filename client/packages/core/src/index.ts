@@ -387,6 +387,32 @@ class InstantCore<
     delete globalInstantCoreStore[this._reactor.config.appId];
     this._reactor.shutdown();
   }
+
+  /**
+   * Use this for one-off queries.
+   * Returns local data if available, otherwise fetches from the server.
+   * Because we want to avoid stale data, this method will throw an error
+   * if the user is offline or there is no active connection to the server.
+   *
+   * @see https://instantdb.com/docs/instaql
+   *
+   * @example
+   *
+   *  const resp = await db.queryOnce({ goals: {} });
+   *  console.log(resp.data.goals)
+   */
+  queryOnce<
+    Q extends Schema extends InstantGraph<any, any>
+      ? InstaQLQueryParams<Schema>
+      : Exactly<Query, Q>,
+  >(
+    query: Q,
+  ): Promise<{
+    data: QueryResponse<Q, Schema, WithCardinalityInference>;
+    pageInfo: PageInfoResponse<Q>;
+  }> {
+    return this._reactor.queryOnce(query);
+  }
 }
 
 /**
@@ -613,6 +639,7 @@ export {
   type RoomSchemaShape,
   type Query,
   type QueryResponse,
+  type PageInfoResponse,
   type InstantObject,
   type Exactly,
   type TransactionChunk,
