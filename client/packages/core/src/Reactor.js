@@ -503,6 +503,8 @@ export default class Reactor {
   }
 
   _handleReceiveError(msg) {
+    console.log(msg);
+
     const eventId = msg["client-event-id"];
     const prevMutation = this.pendingMutations.currentValue.get(eventId);
     if (prevMutation) {
@@ -842,12 +844,6 @@ export default class Reactor {
   notifyQueryError = (hash, error) => {
     const cbs = this.queryCbs[hash] || [];
     cbs.forEach((r) => r.cb({ error }));
-
-    const dfds = this.queryOnceDfds[hash] ?? [];
-    dfds.forEach((r) => {
-      this._completeQueryOnce(r.q, hash, r.dfd);
-      r.dfd.reject(error);
-    });
   };
 
   /** Re-compute all subscriptions */
