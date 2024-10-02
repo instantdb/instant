@@ -505,6 +505,10 @@ export default class Reactor {
   _handleReceiveError(msg) {
     const eventId = msg["client-event-id"];
     const prevMutation = this.pendingMutations.currentValue.get(eventId);
+    const errorMessage = {
+      message: msg.message || "Uh-oh, something went wrong. Ping Joe & Stopa.",
+    };
+
     if (prevMutation) {
       // This must be a transaction error
       const errDetails = {
@@ -518,17 +522,14 @@ export default class Reactor {
     const q = msg.q || msg["original-event"]?.q;
     if (q) {
       const hash = weakHash(q);
-      const error = {
-        message:
-          msg.message || "Uh-oh, something went wrong. Ping Joe & Stopa.",
-      };
+
       // This must be a query error
       this.querySubs.set((prev) => {
         delete prev[hash];
         return prev;
       });
-      this.notifyQueryError(weakHash(q), error);
-      this.notifyQueryOnceError(hash, eventId, error);
+      this.notifyQueryError(weakHash(q), errorMessage);
+      this.notifyQueryOnceError(hash, eventId, errorMessage);
       return;
     }
 
@@ -544,10 +545,7 @@ export default class Reactor {
       }
 
       // We failed to init
-      const errorMessage = {
-        message:
-          msg.message || "Uh-oh, something went wrong. Ping Joe & Stopa.",
-      };
+
       this._setStatus(STATUS.ERRORED, errorMessage);
       this.notifyAll();
       return;
