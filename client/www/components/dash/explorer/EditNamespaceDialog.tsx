@@ -384,7 +384,7 @@ function EditAttrForm({
 
   const [attrName, setAttrName] = useState(attr.linkConfig.forward.attr);
   const [reverseAttrName, setReverseAttrName] = useState(
-    attr.linkConfig.reverse?.attr
+    attr.linkConfig.reverse?.attr,
   );
   const [attrConfig, setAttrConfig] = useState<SchemaAttr>(attr);
   const [relationship, setRelationship] = useState<RelationshipKinds>(() => {
@@ -494,9 +494,9 @@ function EditAttrForm({
         </div>
 
         <Button
-          disabled={readOnly}
+          disabled={readOnly && attr.type !== 'ref'}
           title={
-            readOnly
+            readOnly && attr.type !== 'ref'
               ? `The ${attr.namespace} namespace is read-only.`
               : undefined
           }
