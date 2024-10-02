@@ -92,6 +92,7 @@ function NavItems() {
       <NavLink href="/examples">Examples</NavLink>
       <NavLink href="/essays">Essays</NavLink>
       <NavLink href="/docs">Docs</NavLink>
+      <NavLink href="/hiring">Hiring</NavLink>
       <NavLink href="https://discord.com/invite/VU53p7uQcE">
         <span className="hidden md:inline">
           <img src="/marketing/discord-icon.svg" className="w-5 h-5" />
@@ -197,6 +198,7 @@ export function LandingFooter() {
               <NavLink href="/examples">Examples</NavLink>
               <NavLink href="/essays">Essays</NavLink>
               <NavLink href="/docs">Docs</NavLink>
+              <NavLink href="/hiring">Hiring</NavLink>
               <NavLink href="https://discord.com/invite/VU53p7uQcE">
                 Discord
               </NavLink>

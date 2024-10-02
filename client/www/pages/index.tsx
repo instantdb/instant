@@ -812,6 +812,12 @@ export default function Landing2024() {
         <meta name="description" content="A Graph Database on the Client" />
       </Head>
       <GlowBackground>
+        <div className="w-full bg-gray-50/80 p-1 text-center">
+          <p className="font-mono text-gray-500 text-sm font-semibold">
+            Instant is hiring! Want to build Figma-like tech? <span className='text-orange-600'><TextLink href="/hiring">Come work with us!</TextLink></span>
+          </p>
+        </div>
+
         <MainNav />
         <LandingHero />
       </GlowBackground>
@@ -907,7 +913,7 @@ const testimonials = [
 const queryExampleComponentCode = /*js*/ `
 import { init, tx, id } from "@instantdb/react";
 
-const db = init({ 
+const db = init({
   appId: process.env.NEXT_PUBLIC_APP_ID,
 });
 
