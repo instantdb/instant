@@ -375,6 +375,14 @@ class Auth {
     this.config = config;
   }
 
+  generateMagicCode = async (email: string): Promise<{ code: string }> => {
+    return jsonFetch(`${this.config.apiURI}/admin/magic_code`, {
+      method: "POST",
+      headers: authorizedHeaders(this.config),
+      body: JSON.stringify({ email }),
+    });
+  };
+
   /**
    * Creates a login token for the user with the given email.
    * If that user does not exist, we create one.

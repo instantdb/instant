@@ -8,7 +8,9 @@
             [instant.util.uuid :as uuid-util]
             [instant.db.instaql :as iq]
             [instant.util.email :as email]
+            [instant.model.instant-user :as instant-user-model]
             [instant.model.app-user :as app-user-model]
+            [instant.model.instant-user-magic-code :as  instant-user-magic-code-model]
             [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
             [instant.db.datalog :as d]
             [instant.model.rule :as rule-model]
@@ -263,6 +265,18 @@
   (let [{user-id :id app-id :app_id} (req->app-user! req)]
     (response/ok {:deleted (app-user-model/delete-by-id! {:id user-id :app-id app-id})})))
 
+(defn magic-code-post [req]
+  (let [email (ex/get-param! req [:body :email] email/coerce)
+        {user-id :id} (instant-user-model/get-or-create-by-email! {:email email})
+        {code :code} (instant-user-magic-code-model/create!
+                      {:id (UUID/randomUUID)
+                       :code (instant-user-magic-code-model/rand-code)
+                       :user-id user-id})]
+    (response/ok {:code code})))
+
+(comment
+  (magic-code-post {:body {:email "hi@marky.fyi"}}))
+
 (comment
   ;; Set up test data
   (def counters-app-id  #uuid "137ace7a-efdd-490f-b0dc-a3c73a14f892")
@@ -390,6 +404,7 @@
   (POST "/admin/transact_perms_check" [] transact-perms-check)
   (POST "/admin/sign_out" [] sign-out-post)
   (POST "/admin/refresh_tokens" [] refresh-tokens-post)
+  (POST "/admin/magic_code" [] magic-code-post)
 
   (GET "/admin/users", [] app-users-get)
   (DELETE "/admin/users", [] app-users-delete)
