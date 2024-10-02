@@ -96,10 +96,6 @@
    (sql/execute-one! conn
                      ["DELETE FROM instant_users WHERE email = ?" email])))
 
-(defn get-or-create-by-email! [{:keys [email]}]
-  (or  (get-by-email {:email email})
-       (create! {:id (UUID/randomUUID) :email email})))
-
 (comment
   (get-by-email {:email "stopa@instantdb.com"})
   (create! {:id (UUID/randomUUID) :email "testinguser@gmail.com"})

@@ -8,9 +8,8 @@
             [instant.util.uuid :as uuid-util]
             [instant.db.instaql :as iq]
             [instant.util.email :as email]
-            [instant.model.instant-user :as instant-user-model]
             [instant.model.app-user :as app-user-model]
-            [instant.model.instant-user-magic-code :as  instant-user-magic-code-model]
+            [instant.model.app-user-magic-code :as app-user-magic-code-model]
             [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
             [instant.db.datalog :as d]
             [instant.model.rule :as rule-model]
@@ -266,11 +265,12 @@
     (response/ok {:deleted (app-user-model/delete-by-id! {:id user-id :app-id app-id})})))
 
 (defn magic-code-post [req]
-  (let [email (ex/get-param! req [:body :email] email/coerce)
-        {user-id :id} (instant-user-model/get-or-create-by-email! {:email email})
-        {code :code} (instant-user-magic-code-model/create!
+  (let [{app-id :app_id} (req->admin-token! req)
+        email (ex/get-param! req [:body :email] email/coerce)
+        {user-id :id} (app-user-model/get-or-create-by-email! {:email email :app-id app-id})
+        {code :code} (app-user-magic-code-model/create!
                       {:id (UUID/randomUUID)
-                       :code (instant-user-magic-code-model/rand-code)
+                       :code (app-user-magic-code-model/rand-code)
                        :user-id user-id})]
     (response/ok {:code code})))
 
