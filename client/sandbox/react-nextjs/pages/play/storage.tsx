@@ -5,8 +5,6 @@ import { init } from "@instantdb/react";
 
 import config from "../../config";
 
-const DEFAULT_APP_ID = "524bc106-1f0d-44a0-b222-923505264c47";
-
 const App = ({ appId }: { appId: string }) => {
   const db = init({
     ...config,
@@ -14,6 +12,7 @@ const App = ({ appId }: { appId: string }) => {
   });
 
   const [files, setFiles] = React.useState<File[]>([]);
+  const [fileName, setFileName] = React.useState<string | null>(null);
   const [imageUrl, setImageUrl] = React.useState<string | null>(null);
   const [imageStatus, setImageStatus] = React.useState<
     "pending" | "success" | "error"
@@ -48,6 +47,7 @@ const App = ({ appId }: { appId: string }) => {
     try {
       await db.storage.upload(fileName, file);
       const url = await db.storage.getDownloadUrl(fileName);
+      setFileName(fileName);
       console.log("Download URL:", url);
       if (fileType.startsWith("image/")) {
         setImageUrl(url);
@@ -61,10 +61,9 @@ const App = ({ appId }: { appId: string }) => {
   };
 
   const handleDelete = async () => {
-    if (files.length === 0) return;
+    console.log(files);
 
-    const [file] = files;
-    const { name: fileName } = file;
+    if (!fileName) return;
 
     if (!confirm(`Are you sure you want to delete ${fileName}?`)) {
       return;
@@ -151,7 +150,7 @@ function Page() {
     if (appId) {
       setAppId(appId);
     } else {
-      setAppId(DEFAULT_APP_ID);
+      setAppId(config.appId);
     }
   }, [router.isReady]);
 
