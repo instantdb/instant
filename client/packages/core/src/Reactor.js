@@ -503,8 +503,6 @@ export default class Reactor {
   }
 
   _handleReceiveError(msg) {
-    console.log(msg);
-
     const eventId = msg["client-event-id"];
     const prevMutation = this.pendingMutations.currentValue.get(eventId);
     if (prevMutation) {
