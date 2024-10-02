@@ -468,7 +468,7 @@ export abstract class InstantReact<
 
   /**
    * Use this for one-off queries.
-   * Returens local data if available, otherwise fetches from the server.
+   * Returns local data if available, otherwise fetches from the server.
    * Because we want to avoid stale data, this method will throw an error
    * if the user is offline or there is no active connection to the server.
    *
