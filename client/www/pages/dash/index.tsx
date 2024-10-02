@@ -26,7 +26,6 @@ import { Perms } from '@/components/dash/Perms';
 import Auth from '@/components/dash/Auth';
 import { Explorer } from '@/components/dash/explorer/Explorer';
 import { Onboarding } from '@/components/dash/Onboarding';
-import { useFlag } from '@/lib/hooks/useFlag';
 
 import {
   ActionButton,
@@ -382,7 +381,7 @@ function Dashboard() {
       }),
       {
         revalidate: false,
-      }
+      },
     );
 
     createApp(token, app).catch((e) => {
@@ -399,7 +398,7 @@ function Dashboard() {
         if (d) {
           d.apps = _apps;
         }
-      })
+      }),
     );
     const _appId = _apps[0]?.id;
     nav({ s: 'main', app: _appId, t: 'hello' });
@@ -543,7 +542,7 @@ function formatDashRoute(href: string) {
   const mergedQueryString = Object.entries(mergedQueryParams)
     .map(
       ([key, value]) =>
-        `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
+        `${encodeURIComponent(key)}=${encodeURIComponent(value)}`,
     )
     .join('&');
 
@@ -558,7 +557,7 @@ function formatDocsRoute(href: string) {
   }
 
   const { app: appId } = Object.fromEntries(
-    new URLSearchParams(window.location.search)
+    new URLSearchParams(window.location.search),
   );
 
   if (!appId) {
@@ -968,7 +967,7 @@ function InviteTeamMemberDialog({
             sent_at: new Date().toISOString(),
           });
         }
-      }
+      },
     );
   }
 
@@ -1036,7 +1035,7 @@ function Admin({
   const disableUsersDialog = useDialog();
 
   const displayedInvites = app.invites?.filter(
-    (invite) => invite.status !== 'accepted'
+    (invite) => invite.status !== 'accepted',
   );
 
   const router = useRouter();
@@ -1045,8 +1044,6 @@ function Admin({
   const usersAttrs =
     namespaces && namespaces.find((n) => n.name === '$users')?.attrs;
   const usersRefs = usersAttrs && usersAttrs.filter((a) => a.type === 'ref');
-
-  const showUsersTable = useFlag('usersTable');
 
   async function onClickReset() {
     if (!dashResponse.data) return;
@@ -1061,7 +1058,7 @@ function Admin({
       await regenerateAdminToken(token, app.id, newAdminToken);
     } catch (error) {
       errorToast(
-        "Uh oh! We couldn't generate a new admin token. Please ping Joe & Stopa, or try again."
+        "Uh oh! We couldn't generate a new admin token. Please ping Joe & Stopa, or try again.",
       );
 
       return;
@@ -1070,7 +1067,7 @@ function Admin({
     dashResponse.mutate(
       produce(dashResponse.data, (d) => {
         if (d.apps && appIndex) d.apps[appIndex].admin_token = newAdminToken;
-      })
+      }),
     );
   }
 
@@ -1093,7 +1090,7 @@ function Admin({
           if (!_app) return;
 
           _app.title = values.name;
-        }
+        },
       );
 
       successToast('App name updated!');
@@ -1134,7 +1131,7 @@ function Admin({
                       role:
                         editMember.role === 'admin' ? 'collaborator' : 'admin',
                     },
-                  }
+                  },
                 );
 
                 await dashResponse.mutate();
@@ -1158,7 +1155,7 @@ function Admin({
                     body: {
                       id: editMember.id,
                     },
-                  }
+                  },
                 );
 
                 await dashResponse.mutate();
@@ -1245,8 +1242,8 @@ function Admin({
                                   body: {
                                     'invite-id': invite.id,
                                   },
-                                }
-                              )
+                                },
+                              ),
                             );
                           }}
                         />
@@ -1304,7 +1301,7 @@ function Admin({
         ) : null}
       </Content>
       <Copyable label="Secret" value={app.admin_token} />
-      {showUsersTable && isMinRole('collaborator', app.user_app_role) ? (
+      {isMinRole('collaborator', app.user_app_role) ? (
         <div>
           <SectionHeading>Experimental</SectionHeading>
           <SubsectionHeading>Users namespace</SubsectionHeading>
@@ -1374,7 +1371,7 @@ function Admin({
                         authorization: `Bearer ${token}`,
                         'content-type': 'application/json',
                       },
-                    }
+                    },
                   );
                   // Trigger an update of the rules
                   await dashResponse.mutate();
@@ -1410,7 +1407,7 @@ function Admin({
                 onClick={async () => {
                   if (usersAttrs) {
                     await db._core._reactor.pushOps(
-                      usersAttrs.map((a) => ['delete-attr', a.id])
+                      usersAttrs.map((a) => ['delete-attr', a.id]),
                     );
                   }
                   disableUsersDialog.onClose();
@@ -1427,7 +1424,8 @@ function Admin({
         <div className="mt-auto space-y-2">
           <SectionHeading>Danger zone</SectionHeading>
           <Content>
-            These are destructive actions and will irreversibly delete associated data.
+            These are destructive actions and will irreversibly delete
+            associated data.
           </Content>
           <div>
             <div className="flex flex-col space-y-6">
@@ -1445,9 +1443,18 @@ function Admin({
                 Clear app
               </SubsectionHeading>
               <Content className="space-y-2">
-                <p>Clearing an app will irreversibly delete all namespaces, triples, and permissions.</p>
-                <p>All other data like app id, admin token, users, billing, team members, etc. will remain.</p>
-                <p>This is equivalent to deleting all your namespaces in the explorer and clearing your permissions.</p>
+                <p>
+                  Clearing an app will irreversibly delete all namespaces,
+                  triples, and permissions.
+                </p>
+                <p>
+                  All other data like app id, admin token, users, billing, team
+                  members, etc. will remain.
+                </p>
+                <p>
+                  This is equivalent to deleting all your namespaces in the
+                  explorer and clearing your permissions.
+                </p>
               </Content>
               <Checkbox
                 checked={clearAppOk}
@@ -1458,13 +1465,16 @@ function Admin({
                 disabled={!clearAppOk}
                 variant="destructive"
                 onClick={async () => {
-                  await jsonFetch(`${config.apiURI}/dash/apps/${app.id}/clear`, {
-                    method: 'POST',
-                    headers: {
-                      authorization: `Bearer ${token}`,
-                      'content-type': 'application/json',
+                  await jsonFetch(
+                    `${config.apiURI}/dash/apps/${app.id}/clear`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        authorization: `Bearer ${token}`,
+                        'content-type': 'application/json',
+                      },
                     },
-                  });
+                  );
 
                   clearDialog.onClose();
                   dashResponse.mutate();
@@ -1558,7 +1568,7 @@ function ErrorMessage({ message }: { message: string }) {
 
 function createApp(
   token: string,
-  toCreate: { id: string; title: string; admin_token: string }
+  toCreate: { id: string; title: string; admin_token: string },
 ) {
   return jsonFetch(`${config.apiURI}/dash/apps`, {
     method: 'POST',
@@ -1573,7 +1583,7 @@ function createApp(
 function regenerateAdminToken(
   token: string,
   appId: string,
-  adminToken: string
+  adminToken: string,
 ) {
   return jsonFetch(`${config.apiURI}/dash/apps/${appId}/tokens`, {
     method: 'POST',
