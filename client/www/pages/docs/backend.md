@@ -256,6 +256,10 @@ function Login() {
 }
 ```
 
+## Magic code delivery: db.auth.generateMagicCode
+
+If you'd like to send your own sign-in emails, you can use the `db.auth.generateMagicCode` function to generate a magic code for a given email. You'll be responsible for delivering this code to the user, and they can then use it to sign in on the frontend.
+
 ## Authenticated Endpoints
 
 You can use the admin SDK to authenticate users in your custom endpoints.
