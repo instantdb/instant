@@ -18,6 +18,8 @@ function App() {
   return <Main />;
 }
 
+import "../../lib/debugger";
+
 const selectId = "4d39508b-9ee2-48a3-b70d-8192d9c5a059";
 
 function Main() {

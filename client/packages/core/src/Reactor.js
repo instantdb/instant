@@ -123,6 +123,8 @@ export default class Reactor {
   _beforeUnloadCbs = [];
   _dataForQueryCache = {};
 
+  _traceHandlers = [];
+
   constructor(
     config,
     Storage = IndexedDBStorage,
@@ -177,6 +179,22 @@ export default class Reactor {
       this._beforeUnload = this._beforeUnload.bind(this);
       addEventListener("beforeunload", this._beforeUnload);
     }
+  }
+
+  _registerTraceHandler = (handler) => {
+    this._traceHandlers.push(handler);
+
+    return () => {
+      this._traceHandlers = this._traceHandlers.filter((h) => h !== handler);
+    };
+  };
+
+  _trace(ns, event, data) {
+    this._traceHandlers.forEach(async (handler) => {
+      try {
+        await handler(ns, event, data);
+      } catch (error) {}
+    });
   }
 
   _initStorage(Storage) {
@@ -238,6 +256,8 @@ export default class Reactor {
   }
 
   _setStatus(status, err) {
+    this._trace("status", "set", { status, error: err });
+
     this.status = status;
     this._errorMessage = err;
   }
@@ -977,10 +997,16 @@ export default class Reactor {
     if (this._ws.readyState !== WS_OPEN_STATUS) {
       return;
     }
-    this._ws.send(JSON.stringify({ "client-event-id": eventId, ...msg }));
+
+    const d = { "client-event-id": eventId, ...msg };
+
+    this._trace("ws", "send", d);
+
+    this._ws.send(JSON.stringify(d));
   }
 
   _wsOnOpen = () => {
+    this._trace("ws", "onopen");
     log.info("[socket] connected");
     this._setStatus(STATUS.OPENED);
     this.getCurrentUser().then((resp) => {
@@ -999,14 +1025,18 @@ export default class Reactor {
   };
 
   _wsOnMessage = (e) => {
-    this._handleReceive(JSON.parse(e.data.toString()));
+    const d = JSON.parse(e.data.toString());
+    this._trace("ws", "onmessage", d);
+    this._handleReceive(d);
   };
 
   _wsOnError = (e) => {
+    this._trace("ws", "onerror", e.data);
     log.error("[socket] error: ", e);
   };
 
   _wsOnClose = () => {
+    this._trace("ws", "onclose");
     this._setStatus(STATUS.CLOSED);
 
     for (const room of Object.values(this._rooms)) {
