@@ -158,7 +158,7 @@
        "Check your full schema in the dashboard for a link with the same label names: "
        "https://www.instantdb.com/dash?s=main&t=explorer"))
 
-(defn assert-unique-idents! [current-attrs steps]
+(defn plan-errors [current-attrs steps]
   (let [current-link-attrs
         (filter (comp #{:ref} :value-type) current-attrs)
 
@@ -167,21 +167,17 @@
 
         current-blob-idents
         (->> current-blobs
-             (map #(attr-model/fwd-ident-name %))
+             (map attr-model/fwd-ident-name)
              (into #{}))
 
         current-links-mapping-fwd
         (->> current-link-attrs
-             (map #(vector
-                    (attr-model/fwd-ident-name %)
-                    (attr-model/rev-ident-name %)))
+             (map (juxt attr-model/fwd-ident-name attr-model/rev-ident-name))
              (into {}))
 
         current-links-mapping-rev
         (->> current-link-attrs
-             (map #(vector
-                    (attr-model/rev-ident-name %)
-                    (attr-model/fwd-ident-name %)))
+             (map (juxt attr-model/rev-ident-name attr-model/fwd-ident-name))
              (into {}))
 
         errors
@@ -225,7 +221,7 @@
                    :else nil)))
          (filter some?)
          (map #(hash-map :in [:schema] :message %)))]
-    (ex/assert-valid! :schema :plan errors)))
+    errors))
 
 (comment
   (def current-attrs [{:value-type :blob,
@@ -305,7 +301,7 @@
                 :cardinality :one,
                 :unique? false,
                 :index? false}]])
-  (assert-unique-idents! current-attrs steps))
+  (plan-errors current-attrs steps))
 
 ;; ---- 
 ;; API
@@ -316,7 +312,7 @@
         current-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
         current-schema (attrs->schema current-attrs)
         steps (schemas->ops current-schema new-schema)]
-    (assert-unique-idents! current-attrs steps)
+    (ex/assert-valid! :schema :plan (plan-errors current-attrs steps))
     {:new-schema new-schema
      :current-schema current-schema
      :current-attrs current-attrs
