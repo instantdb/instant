@@ -262,6 +262,7 @@
                 :cardinality :many,
                 :unique? false,
                 :index? false}]
+              ;; backwards link
               [:add-attr
                {:value-type :ref,
                 :id "",
@@ -272,6 +273,7 @@
                 :cardinality :many,
                 :unique? false,
                 :index? false}]
+              ;; dup rev ident 1
               [:add-attr
                {:value-type :ref,
                 :id "",
@@ -282,6 +284,7 @@
                 :cardinality :many,
                 :unique? false,
                 :index? false}]
+              ;; dup rev ident 2
               [:add-attr
                {:value-type :ref,
                 :id "",
@@ -292,6 +295,7 @@
                 :cardinality :many,
                 :unique? false,
                 :index? false}]
+              ;; dup blob
               [:add-attr
                {:value-type :blob,
                 :id "",
@@ -300,6 +304,7 @@
                 :cardinality :one,
                 :unique? false,
                 :index? false}]
+              ;; this one's ok
               [:add-attr
                {:value-type :blob,
                 :id "",
