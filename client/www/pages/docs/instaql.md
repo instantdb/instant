@@ -653,22 +653,32 @@ console.log(data)
 }
 ```
 
-## Querying once
+## Query once
 
-Sometimes, you only need to fetch data once and don't need to subscribe to changes. For example, you might want to fetch data before rendering a page or when the user clicks a button.
+Sometimes, you don't want a subscription, and just want to fetch data once. For example, you might want to fetch data before rendering a page or check whether a user name is available.
 
 In these cases, you can use `queryOnce` instead of `useQuery`. `queryOnce` returns a promise that resolves with the data once the query is complete.
 
 Unlike `useQuery`, `queryOnce` will throw an error if the user is offline. This is because `queryOnce` is intended for use cases where you need the most up-to-date data.
 
 ```javascript
+const query = { todos: {}, };
+const { data } = await db.queryOnce(query);
+// returns the same data as useQuery, but without the isLoading and error fields
+```
+
+You can also do pagination with `queryOnce`:
+
+```javascript
 const query = {
   todos: {
     $: {
-      limit: 1,
+      limit: 10,
+      offset: 10,
     },
   },
 };
 
-const { data, pageInfo } = await db.queryOnce(query);
+const { data, pageInfo } = db.useQuery(query);
+// pageInfo behaves the same as with useQuery
 ```
