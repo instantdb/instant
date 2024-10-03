@@ -14,11 +14,16 @@ const db = init<{
   onceTest: {
     text: string;
   };
-}>(config);
+}>({
+  appId: "16982b82-9572-4906-9034-734cb02316a2",
+});
 
 db.queryOnce({
   onceTest: {},
-}).then((r) => console.log("onceTest on init", r));
+}).then(
+  (r) => console.log("onceTest on init", r),
+  (e) => console.error(e),
+);
 
 function _subsCount() {
   return Object.values(db._core._reactor.queryOnceDfds).flat().length;

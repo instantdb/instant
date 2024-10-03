@@ -122,6 +122,7 @@ export default class Reactor {
   _currentUserCached = { isLoading: true, error: undefined, user: undefined };
   _beforeUnloadCbs = [];
   _dataForQueryCache = {};
+  _debugEventIds = {};
 
   constructor(
     config,
@@ -158,6 +159,7 @@ export default class Reactor {
 
     NetworkListener.getIsOnline().then((isOnline) => {
       this._isOnline = isOnline;
+      log.info(`[connecting] init`);
       this._startSocket();
       NetworkListener.listen((isOnline) => {
         // We do this because react native's NetInfo
@@ -168,6 +170,7 @@ export default class Reactor {
         }
         this._isOnline = isOnline;
         if (this._isOnline) {
+          log.info(`[connecting] network change`);
           this._startSocket();
         }
       });
@@ -999,6 +1002,7 @@ export default class Reactor {
       return;
     }
     this._ws.send(JSON.stringify({ "client-event-id": eventId, ...msg }));
+    this._debugEventIds[eventId] = { sent: true };
   }
 
   _wsOnOpen = () => {
@@ -1027,7 +1031,7 @@ export default class Reactor {
     log.error("[socket] error: ", e);
   };
 
-  _wsOnClose = () => {
+  _wsOnClose = (targetSocket) => {
     this._setStatus(STATUS.CLOSED);
 
     for (const room of Object.values(this._rooms)) {
@@ -1040,9 +1044,9 @@ export default class Reactor {
       );
       return;
     }
-    if (this._isManualClose) {
-      this._isManualClose = false;
-      log.info("[socket-close] manual close, will not reconnect");
+
+    if (this._ws !== targetSocket) {
+      log.info("[socket-close] old socket close, will not reconnect");
       return;
     }
 
@@ -1056,25 +1060,26 @@ export default class Reactor {
         log.info("[socket-close] we are offline, no need to start socket");
         return;
       }
+      log.info(`[connecting] close reconnect`);
       this._startSocket();
     }, this._reconnectTimeoutMs);
   };
 
   _ensurePreviousSocketClosed() {
     if (this._ws && this._ws.readyState === WS_OPEN_STATUS) {
-      this._isManualClose = true;
       this._ws.close();
     }
   }
 
   _startSocket() {
     this._ensurePreviousSocketClosed();
-    this._ws = new WebSocket(
+    const _ws = new WebSocket(
       `${this.config.websocketURI}?app_id=${this.config.appId}`,
     );
-    this._ws.onopen = this._wsOnOpen;
-    this._ws.onmessage = this._wsOnMessage;
-    this._ws.onclose = this._wsOnClose;
+    _ws.onopen = this._wsOnOpen;
+    _ws.onmessage = this._wsOnMessage;
+    _ws.onclose = () => this._wsOnClose(_ws);
+    this._ws = _ws;
   }
 
   /**
