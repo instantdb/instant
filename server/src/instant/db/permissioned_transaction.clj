@@ -11,7 +11,6 @@
    [instant.model.rule :as rule-model]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
-   [instant.util.json :refer [->json <-json]]
    [instant.util.string :as string-util]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]

@@ -2,6 +2,7 @@
   (:require
    [chime.core :as chime-core]
    [instant.config :as config]
+   [instant.db.model.attr :as attr-model]
    [instant.model.app :as app-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
@@ -48,7 +49,9 @@
   (let [title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
         rules-code (get-in req [:body :rules :code])
         _ (when rules-code
-            (ex/assert-valid! :rule rules-code (rule-model/validation-errors rules-code)))
+            (ex/assert-valid! :rule rules-code (rule-model/validation-errors
+                                                (attr-model/wrap-attrs [])
+                                                rules-code)))
         app (create! {:title title})]
     (when rules-code
       (rule-model/put! {:app-id (:id app)

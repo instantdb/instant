@@ -10,7 +10,7 @@
             [clojure.string :as string]
             [instant.jdbc.aurora :as aurora]
             [instant.db.model.attr-pat :as attr-pat]
-            [instant.util.json :refer [->json <-json]]
+            [instant.util.json :refer [->json]]
             [instant.data.resolvers :as resolvers]
             [instant.util.tracer :as tracer]
             [instant.util.coll :as ucoll]

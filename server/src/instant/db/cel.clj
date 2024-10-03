@@ -20,6 +20,7 @@
                        CelExpr$CelComprehension
                        CelExpr$ExprKind$Kind
                        Expression$Map$Entry)
+   (dev.cel.common.navigation CelNavigableExpr)
    (dev.cel.common.types CelType ListType MapType SimpleType)
    (dev.cel.compiler CelCompiler CelCompilerFactory CelCompilerLibrary)
    (dev.cel.extensions CelExtensions)
@@ -157,7 +158,7 @@
   ;; behavior -- we'd rather just return null when a key is
   ;; accessed.  To get this behavior, we override `containsKey`, so
   ;; we always return true when checking for key presence.
-  (containsKey [_ k]
+  (containsKey [_ _k]
     true)
 
   (entrySet [_]
@@ -208,7 +209,7 @@
                String
                impl))})
 
-(def custom-fns [ref-fn auth-ref-fn])
+(def custom-fns [ref-fn])
 (def custom-fn-decls (mapv :decl custom-fns))
 (def custom-fn-bindings (mapv :runtime custom-fns))
 
@@ -391,9 +392,9 @@
                  patterns
                  results))))
 
-(defn ^CelAstValidator make-validator [attrs]
+(defn make-validator ^CelAstValidator [attrs]
   (reify CelAstValidator
-    (validate [_this ast cel issues-factory]
+    (validate [_this ast _cel issues-factory]
       (doseq [^CelNavigableExpr node (-> ast
                                          (.getRoot)
                                          (.allNodes)
