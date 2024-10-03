@@ -203,31 +203,31 @@
                      rev-name
                      (attr-model/rev-ident-name %)
 
-                     is-existing-link-backwards?
+                     link-backwards-conflict?
                      (= rev-name (get current-links-mapping-rev fwd-name))
 
-                     is-existing-blob?
+                     blob-exists?
                      (contains? current-blob-idents fwd-name)
 
-                     is-existing-link-fwd?
+                     link-fwd-exists?
                      (or (contains? current-links-mapping-fwd fwd-name)
                          (contains? current-links-mapping-rev fwd-name))
 
-                     is-existing-link-rev?
+                     link-rev-exists?
                      (or (contains? current-links-mapping-fwd rev-name)
                          (contains? current-links-mapping-rev rev-name))]
 
                  (cond
-                   is-existing-link-backwards?
+                   link-backwards-conflict?
                    (backwards-link-message fwd-name)
 
-                   is-existing-link-fwd?
+                   link-fwd-exists?
                    (dup-message fwd-name)
 
-                   is-existing-link-rev?
+                   link-rev-exists?
                    (dup-message rev-name)
 
-                   is-existing-blob?
+                   blob-exists?
                    (dup-message fwd-name)
 
                    :else nil)))
