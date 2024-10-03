@@ -20,7 +20,7 @@ declare global {
 globalThis.__getAppId = () =>
   typeof window !== 'undefined'
     ? new URL(location.href).searchParams.get('__appId') ??
-      localStorage.getItem('examples-appId')
+    localStorage.getItem('examples-appId')
     : undefined;
 
 function App({ Component, pageProps }: AppProps) {
@@ -148,7 +148,7 @@ function AppHead() {
       />
       <meta
         property="og:description"
-        content="We make you productive by giving your frontend a real-time databse."
+        content="We make you productive by giving your frontend a real-time database."
       />
       <meta
         property="og:image"
