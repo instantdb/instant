@@ -4,6 +4,9 @@ date: '2024-10-01'
 author: nezaj
 ---
 
+![Instant raises $3.4M seed to build a modern
+Firebase](https://paper-attachments.dropboxusercontent.com/s_B8A06116D3803694CDA0C13F9F97E92EA0220D4E377317F0F00D7831E3E41E9E_1727988124731_image.png)
+
 One month ago we open sourced Instant and had one of the [largest Show HN’s](https://news.ycombinator.com/item?id=41322281) for a YC company. Today we’re [announcing our $3.4M seed](https://techcrunch.com/2024/10/02/instant-harkens-back-to-a-pre-google-firebase/). We’re backed by YCombinator, SV Angel, and a number of technical angels, including James Tamplin, the original CEO of Firebase, Paul Graham, Co-founder of YCombinator, Greg Brockman, Co-founder of OpenAI, and Jeff Dean, chief scientist of Google DeepMind.
 
 ## What is Instant?
