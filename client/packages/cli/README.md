@@ -29,7 +29,7 @@ npx instant-cli init
 
 ## Get Started
 
-Start by peaking at the [instant-cli docs](https://www.instantdb.com/docs/cli).
+Start by peeking at the [instant-cli docs](https://www.instantdb.com/docs/cli).
 
 # Questions?
 
