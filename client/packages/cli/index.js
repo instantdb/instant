@@ -3,7 +3,7 @@
 import { readFileSync } from "fs";
 import { mkdir, writeFile, readFile, stat } from "fs/promises";
 import { dirname, join } from "path";
-import { fileURLToPath } from 'url';
+import { fileURLToPath } from "url";
 import { randomUUID } from "crypto";
 import dotenv from "dotenv";
 import chalk from "chalk";
@@ -16,7 +16,6 @@ import openInBrowser from "open";
 
 // config
 dotenv.config();
-
 
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
@@ -47,11 +46,12 @@ program
   .option("-v --version", "output the version number", () => {
     const __dirname = dirname(fileURLToPath(import.meta.url));
     const version = JSON.parse(
-      readFileSync(join(__dirname, 'package.json'), 'utf8')
+      readFileSync(join(__dirname, "package.json"), "utf8"),
     ).version;
     console.log(version);
     process.exit(0);
   })
+  .option("--large", "set a longer timeout for large operations");
 
 program
   .command("login")
@@ -375,6 +375,17 @@ async function pushSchema(appIdOrName) {
 
   console.log("Planning...");
 
+  const options = program.opts();
+
+  // Default timeout is around 30 sec / 120 second, the issue isn't closed so unsure
+  // Issue title: Default fetch timeout too short
+  // Issue link: https://github.com/nodejs/undici/issues/1373#issue-1215885306
+  const timeout = options.large ? 3000000 : 300000; // 3 min  by default, 30 min for large
+  // planning on having timeout to infinity for large schema
+  if (options.large) {
+    console.warn("--large option passed, setting timeout to 30 minutes");
+  }
+
   const planRes = await fetchJson({
     method: "POST",
     path: `/dash/apps/${appId}/schema/push/plan`,
@@ -383,6 +394,7 @@ async function pushSchema(appIdOrName) {
     body: {
       schema,
     },
+    timeout,
   });
 
   if (!planRes.ok) return;
@@ -426,6 +438,7 @@ async function pushSchema(appIdOrName) {
     body: {
       schema,
     },
+    timeout,
   });
 
   if (!applyRes.ok) return;
@@ -505,6 +518,7 @@ async function waitForAuthToken({ secret }) {
  * @param {Object} [options.body=undefined]
  * @param {boolean} [options.noAuth]
  * @param {boolean} [options.noLogError]
+ * @param {number} [options.timeout=300000] - Timeout in milliseconds (default is 3 minutes)
  * @returns {Promise<{ ok: boolean; data: any }>}
  */
 async function fetchJson({
@@ -515,6 +529,7 @@ async function fetchJson({
   method,
   noAuth,
   noLogError,
+  timeout = 300000, // default timeout is 3 minutes
 }) {
   const withAuth = !noAuth;
   const withErrorLogging = !noLogError;
@@ -528,58 +543,73 @@ async function fetchJson({
     }
   }
 
-  const res = await fetch(`${instantBackendOrigin}${path}`, {
-    method: method ?? "GET",
-    headers: {
-      ...(withAuth ? { Authorization: `Bearer ${authToken}` } : {}),
-      "Content-Type": "application/json",
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
 
-  if (verbose) {
-    console.log(debugName, "response:", res.status, res.statusText);
-  }
+  try {
+    const res = await fetch(`${instantBackendOrigin}${path}`, {
+      method: method ?? "GET",
+      headers: {
+        ...(withAuth ? { Authorization: `Bearer ${authToken}` } : {}),
+        "Content-Type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
 
-  if (!res.ok) {
-    if (withErrorLogging) {
-      console.error(errorMessage);
+    clearTimeout(id);
+
+    if (verbose) {
+      console.log(debugName, "response:", res.status, res.statusText);
     }
-    let errData;
-    try {
-      errData = await res.json();
-      if (withErrorLogging) {
-        if (errData?.message) {
-          console.error(errData.message);
-        }
 
-        if (Array.isArray(errData?.hint?.errors)) {
-          for (const error of errData.hint.errors) {
-            console.error(
-              `${error.in ? error.in.join("->") + ": " : ""}${error.message}`,
-            );
+    if (!res.ok) {
+      if (withErrorLogging) {
+        console.error(errorMessage);
+      }
+      let errData;
+      try {
+        errData = await res.json();
+        if (withErrorLogging) {
+          if (errData?.message) {
+            console.error(errData.message);
+          }
+
+          if (Array.isArray(errData?.hint?.errors)) {
+            for (const error of errData.hint.errors) {
+              console.error(
+                `${error.in ? error.in.join("->") + ": " : ""}${error.message}`,
+              );
+            }
           }
         }
+      } catch (error) {
+        if (withErrorLogging) {
+          console.error("Failed to parse error response");
+        }
       }
-    } catch (error) {
-      if (withErrorLogging) {
-        console.error("Failed to parse error response");
-      }
+
+      return { ok: false, data: errData };
     }
 
-    return { ok: false, data: errData };
+    const data = await res.json();
+
+    if (verbose) {
+      console.log(debugName, "data:", data);
+    }
+
+    return {
+      ok: true,
+      data,
+    };
+  } catch (error) {
+    if (error.name === "AbortError") {
+      console.error("Request timed out");
+    } else {
+      console.error(errorMessage);
+    }
+    return { ok: false, data: undefined };
   }
-
-  const data = await res.json();
-
-  if (verbose) {
-    console.log(debugName, "data:", data);
-  }
-
-  return {
-    ok: true,
-    data,
-  };
 }
 
 async function promptOk(message) {
