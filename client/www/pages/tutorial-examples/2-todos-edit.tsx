@@ -22,7 +22,7 @@ function addMessage(text: string) {
 }
 
 function deleteMessage(messageId: string) {
-  db.transact(tx.message[messageId].delete());
+  db.transact(tx.messages[messageId].delete());
 }
 
 function updateMessage(messageId: string, newText: string) {
