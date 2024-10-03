@@ -1,35 +1,37 @@
 (ns instant.db.cel
   (:require
-   [instant.db.model.attr :as attr-model]
-   [instant.data.constants :refer [zeneca-app-id]]
-   [instant.jdbc.aurora :as aurora]
-   [instant.db.datalog :as d]
-   [instant.db.model.attr-pat :as attr-pat]
-   [instant.util.coll :as ucoll]
-   [clojure.string :as clojure-string]
    [clojure.set :as clojure-set]
-   [instant.util.exception :as ex]
+   [clojure.string :as clojure-string]
+   [instant.data.constants :refer [zeneca-app-id]]
    [instant.db.dataloader :as dataloader]
+   [instant.db.datalog :as d]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.model.attr-pat :as attr-pat]
+   [instant.jdbc.aurora :as aurora]
+   [instant.util.coll :as ucoll]
+   [instant.util.exception :as ex]
+   [instant.util.json :refer [->json <-json]]
    [instant.util.tracer :as tracer])
   (:import
-   (java.util Map Optional)
    (com.google.protobuf NullValue)
-   (dev.cel.common CelFunctionDecl
-                   CelOverloadDecl
-                   CelAbstractSyntaxTree)
+   (dev.cel.common CelAbstractSyntaxTree CelFunctionDecl CelOverloadDecl)
    (dev.cel.common.ast CelExpr
                        CelExpr$CelCall
                        CelExpr$CelComprehension
-                       CelExpr$ExprKind$Kind)
+                       CelExpr$ExprKind$Kind
+                       Expression$Map$Entry)
+   (dev.cel.common.types CelType ListType MapType SimpleType)
+   (dev.cel.compiler CelCompiler CelCompilerFactory CelCompilerLibrary)
    (dev.cel.extensions CelExtensions)
    (dev.cel.parser CelStandardMacro)
-   (dev.cel.common.types SimpleType MapType ListType CelType)
-   (dev.cel.compiler CelCompiler CelCompilerFactory CelCompilerLibrary)
-   (dev.cel.runtime CelEvaluationException)
-   (dev.cel.runtime CelRuntime
-                    CelRuntimeFactory
+   (dev.cel.runtime CelEvaluationException
+                    CelFunctionOverload$Binary
+                    CelRuntime
+                    CelRuntime$CelFunctionBinding
                     CelRuntime$Program
-                    CelRuntime$CelFunctionBinding CelFunctionOverload$Binary)))
+                    CelRuntimeFactory)
+   (dev.cel.validator CelAstValidator CelValidatorFactory)
+   (java.util Map Optional)))
 
 ;; ----
 ;; get-ref
@@ -73,9 +75,9 @@
 (defn- find-val-path [query]
   (first
    (for [[i pattern] (map-indexed vector query)
-         :let [pos (.indexOf pattern value-sym)]
-         :when (not= pos -1)]
-        ;; `dec` because these patterns include the `index`, but join-rows don't.
+         :let [pos (ucoll/index-of value-sym pattern)]
+         :when pos]
+     ;; `dec` because these patterns include the `index`, but join-rows don't.
      [i (dec pos)])))
 
 (defn- get-ref-many
@@ -132,35 +134,81 @@
 ;; ----
 ;; Cel
 
+(defprotocol CelMapExtension
+  (getMeta [this]))
+
+(deftype CelMap [metadata m]
+  java.util.Map
+  (get [_ k]
+    (let [res (get m k NullValue/NULL_VALUE)]
+      (cond (nil? res)
+            NullValue/NULL_VALUE
+
+            ;; For some reason, cel-java only supports longs when determining
+            ;; type. We convert ints to longs to prevent type(data.param) from
+            ;; throwing a NPE
+            ;; https://github.com/google/cel-java/blob/dae82c6d10114bb1da643203569f90a757c6c5e6/runtime/src/main/java/dev/cel/runtime/StandardTypeResolver.java#L73
+            (int? res)
+            (long res)
+
+            :else res)))
+
+  ;; CEL throws if a key doesn't exist. We don't want this
+  ;; behavior -- we'd rather just return null when a key is
+  ;; accessed.  To get this behavior, we override `containsKey`, so
+  ;; we always return true when checking for key presence.
+  (containsKey [_ k]
+    true)
+
+  (entrySet [_]
+    (set (seq (or m {}))))
+
+  CelMapExtension
+  (getMeta [_]
+    metadata))
+
+(defn ->cel-map [metadata m]
+  (CelMap. metadata (<-json (->json m))))
+
 (def ^MapType type-obj (MapType/create SimpleType/STRING SimpleType/DYN))
 
 (def ^ListType type-ref-return (ListType/create SimpleType/DYN))
 
-(def ref-fn {:decl (CelFunctionDecl/newFunctionDeclaration
-                    "ref"
-                    (ucoll/array-of
-                     CelOverloadDecl
-                     [(CelOverloadDecl/newMemberOverload
-                       "data_ref"
-                       type-ref-return
-                       (ucoll/array-of CelType [type-obj SimpleType/STRING]))]))
-             :runtime (let [impl (reify CelFunctionOverload$Binary
-                                   (apply [_ {:strs [_ctx id _etype] :as _self} path-str]
-                                     (let [ref-data {:eid (parse-uuid id)
-                                                     :etype _etype
-                                                     :path-str path-str}]
-                                       (if-let [preloaded-ref (-> _ctx
-                                                                  :preloaded-refs
-                                                                  (get ref-data))]
-                                         (vec preloaded-ref)
-                                         (vec (get-ref _ctx ref-data))))))]
-                        (CelRuntime$CelFunctionBinding/from
-                         "data_ref"
-                         Map
-                         String
-                         impl))})
+(def ref-fn
+  {:decl (CelFunctionDecl/newFunctionDeclaration
+          "ref"
+          (ucoll/array-of
+           CelOverloadDecl
+           [(CelOverloadDecl/newMemberOverload
+             "data_ref"
+             type-ref-return
+             (ucoll/array-of CelType [type-obj SimpleType/STRING]))]))
+   :runtime (let [impl (reify CelFunctionOverload$Binary
+                         (apply [_ ^CelMap {:strs [id] :as self} path-str]
+                           (if (= id NullValue/NULL_VALUE)
+                             []
+                             (let [self ^CelMap self
+                                   {:keys [ctx etype type]} (.getMeta self)
+                                   path-str (if (= type :auth)
+                                              (clojure-string/replace path-str
+                                                                      #"^\$user\."
+                                                                      "")
+                                              path-str)
+                                   ref-data {:eid (parse-uuid id)
+                                             :etype etype
+                                             :path-str path-str}]
+                               (if-let [preloaded-ref (-> ctx
+                                                          :preloaded-refs
+                                                          (get ref-data))]
+                                 (vec preloaded-ref)
+                                 (vec (get-ref ctx ref-data)))))))]
+              (CelRuntime$CelFunctionBinding/from
+               "data_ref"
+               Map
+               String
+               impl))})
 
-(def custom-fns [ref-fn])
+(def custom-fns [ref-fn auth-ref-fn])
 (def custom-fn-decls (mapv :decl custom-fns))
 (def custom-fn-bindings (mapv :runtime custom-fns))
 
@@ -193,37 +241,10 @@
       (ex/throw-permission-evaluation-failed!
        etype action e))))
 
-(defn ->cel-map [m]
-  (proxy [java.util.AbstractMap] []
-    ;; If a value is not found, we must return a null value that CEL understands
-    (get [k]
-      (let [res (get m k NullValue/NULL_VALUE)]
-        (cond (nil? res)
-              NullValue/NULL_VALUE
-
-              ;; For some reason, cel-java only supports longs when determining
-              ;; type. We convert ints to longs to prevent type(data.param) from
-              ;; throwing a NPE
-              ;; https://github.com/google/cel-java/blob/dae82c6d10114bb1da643203569f90a757c6c5e6/runtime/src/main/java/dev/cel/runtime/StandardTypeResolver.java#L73
-              (int? res)
-              (long res)
-
-              :else res)))
-    ;; CEL throws if a key doesn't exist. We don't want this behavior -- we'd 
-    ;; rather just return null when a key is accessed. 
-    ;; To get this behavior, we override `containsKey`, so we always return true 
-    ;; when checking for key presence.
-    (containsKey [k]
-      true)
-    (entrySet []
-      (let [m' (or m {})
-            ^java.util.Map clean-m (dissoc m' "_ctx" "_etype")]
-        (.entrySet clean-m)))))
-
 ;; Static analysis
 ;; ---------------
 
-(declare expr->data-ref-uses)
+(declare expr->ref-uses)
 
 (defn get-optional-value
   "Returns value in optional if it's some, or nil if it's none."
@@ -232,90 +253,94 @@
     (.get o)))
 
 (defn function-name
-  "Returns the qualified function name, e.g. `data.ref`, `type`, `_+_`"
+  "Returns the qualified function name as a list,
+   e.g. `[data, ref]`, `[nil, type]`, `[nil, _+_]`"
   [^CelExpr$CelCall call]
   (let [f (.function call)]
-    (if-let [target (get-optional-value (.target call))]
+    (if-let [target ^CelExpr (get-optional-value (.target call))]
       (if (= CelExpr$ExprKind$Kind/IDENT (.getKind target))
-        (format "%s.%s" (.name (.ident target)) f)
+        [(.name (.ident target)) f]
         (tracer/with-span! {:name "cel/unknown-function-name"
                             :attributes {:cel-call call}}
-          f))
-      f)))
+          [nil f]))
+      [nil f])))
 
-(defn data-ref-arg
+(defn ref-arg
   "Returns the `path-str` if the args match what we expect for data.ref,
    otherwise nil. Logs if the arg isn't a constant string so that we can
    investigate."
   [^CelExpr$CelCall call]
   (if (= 1 (count (.args call)))
-    (if (= CelExpr$ExprKind$Kind/CONSTANT (.getKind (first (.args call))))
-      (.stringValue (.constant (first (.args call))))
-      (tracer/with-span! {:name "cel/unknown-data-ref-arg"
-                          :attributes {:cel-call call}}
-        nil))
-    (tracer/with-span! {:name "cel/data-ref-arg"
+    (let [arg ^CelExpr (first (.args call))]
+      (if (= CelExpr$ExprKind$Kind/CONSTANT (.getKind arg))
+        (.stringValue (.constant arg))
+        (tracer/with-span! {:name "cel/unknown-ref-arg"
+                            :attributes {:cel-call call}}
+          nil)))
+    (tracer/with-span! {:name "cel/incorrect-ref-arg-count"
                         :attributes {:cel-call call}}
       nil)))
 
-(defn call->data-ref-uses
+(defn call->ref-uses
   "Walks the cel call, looking for `data.ref` calls, returning a set of
    `path-str`s."
   [^CelExpr$CelCall call]
-  (if (= "data.ref" (function-name call))
-    (if-let [arg (data-ref-arg call)]
-      #{arg}
-      #{})
-    (reduce (fn [acc expr]
-              (into acc (expr->data-ref-uses expr)))
-            #{}
-            (.args call))))
+  (let [[obj f] (function-name call)]
+    (if (= "ref" f)
+      (if-let [arg (ref-arg call)]
+        {obj #{arg}}
+        {})
+      (reduce (fn [acc expr]
+                (merge-with into acc (expr->ref-uses expr)))
+              {}
+              (.args call)))))
 
-(defn compression->data-ref-uses
+(defn compression->ref-uses
   "Walks the cel comprehension, looking for `data.ref` calls, returning a set of
    `path-str`s."
   [^CelExpr$CelComprehension c]
-  (clojure-set/union (expr->data-ref-uses (.iterRange c))
-                     (expr->data-ref-uses (.accuInit c))
-                     (expr->data-ref-uses (.loopCondition c))
-                     (expr->data-ref-uses (.loopStep c))
-                     (expr->data-ref-uses (.result c))))
+  (clojure-set/union (expr->ref-uses (.iterRange c))
+                     (expr->ref-uses (.accuInit c))
+                     (expr->ref-uses (.loopCondition c))
+                     (expr->ref-uses (.loopStep c))
+                     (expr->ref-uses (.result c))))
 
-(defn expr->data-ref-uses
+(defn expr->ref-uses
   "Walks the cel expression, looking for `data.ref` calls, returning a set of
-   `path-str`s."
+   `path-str`s for each object."
   [^CelExpr expr]
   (condp = (.getKind expr)
-    CelExpr$ExprKind$Kind/NOT_SET #{}
-    CelExpr$ExprKind$Kind/CONSTANT #{}
+    CelExpr$ExprKind$Kind/NOT_SET {}
+    CelExpr$ExprKind$Kind/CONSTANT {}
     ;; An identifier expression. e.g. `request`.
-    CelExpr$ExprKind$Kind/IDENT #{}
+    CelExpr$ExprKind$Kind/IDENT {}
     ;; A field selection expression. e.g. `request.auth`.
-    CelExpr$ExprKind$Kind/SELECT #{}
+    CelExpr$ExprKind$Kind/SELECT {}
     CelExpr$ExprKind$Kind/LIST (reduce (fn [acc item]
-                                         (into acc (expr->data-ref-uses item)))
-                                       #{}
+                                         (merge-with into acc (expr->ref-uses item)))
+                                       {}
                                        (.elements (.list expr)))
     ;; Not sure how to make one of these, will ignore for now
     CelExpr$ExprKind$Kind/STRUCT (tracer/with-span! {:name "cel/unknown-struct"
                                                      :attributes {:expr expr}}
-                                   #{})
-    CelExpr$ExprKind$Kind/MAP (reduce (fn [acc entry]
-                                        (-> acc
-                                            (into (expr->data-ref-uses (.key entry)))
-                                            (into (expr->data-ref-uses (.value entry)))))
-                                      #{}
+                                   {})
+    CelExpr$ExprKind$Kind/MAP (reduce (fn [acc ^Expression$Map$Entry entry]
+                                        (as-> acc %
+                                          (merge-with into % (expr->ref-uses (.key entry)))
+                                          (merge-with into % (expr->ref-uses (.value entry)))))
+                                      {}
                                       (.entries (.map expr)))
     ;; https://github.com/google/cel-java/blob/10bb524bddc7c32a55101f6b4967eb52cd14fb18/common/src/main/java/dev/cel/common/ast/CelExpr.java#L925
-    CelExpr$ExprKind$Kind/COMPREHENSION (compression->data-ref-uses (.comprehension expr))
-    CelExpr$ExprKind$Kind/CALL (call->data-ref-uses (.call expr))))
+    CelExpr$ExprKind$Kind/COMPREHENSION (compression->ref-uses (.comprehension expr))
+    CelExpr$ExprKind$Kind/CALL (call->ref-uses (.call expr))))
 
 ;; It would be nice to have a more abstract walker over the ast,
 ;; but this will do for now.
-(defn collect-data-ref-uses
-  "Returns a set of `path-str` used in `data.ref` calls in the given cel ast."
+(defn collect-ref-uses
+  "Returns a set of `path-str` used in `data.ref` calls in the given cel ast,
+   grouped by the object, e.g. {\"data\": #{\"a.b\"}, \"auth\" #{\"c.d\"}}."
   [^CelAbstractSyntaxTree ast]
-  (expr->data-ref-uses (.getExpr ast)))
+  (expr->ref-uses (.getExpr ast)))
 
 (defn prefetch-data-refs
   "refs should be a list of:
@@ -366,11 +391,57 @@
                  patterns
                  results))))
 
+(defn ^CelAstValidator make-validator [attrs]
+  (reify CelAstValidator
+    (validate [_this ast cel issues-factory]
+      (doseq [^CelNavigableExpr node (-> ast
+                                         (.getRoot)
+                                         (.allNodes)
+                                         (.iterator)
+                                         iterator-seq)]
+        (when (= CelExpr$ExprKind$Kind/CALL (.getKind node))
+          ;; Not sure why this is necessary, but can't call
+          ;; .expr on the node without manually making it
+          ;; accessible. It's what they do in the example,
+          ;; so not sure why it's a problem here
+          ;; https://tinyurl.com/46zbw98p
+          (let [clazz (.getClass node)
+                method (.getDeclaredMethod clazz "expr" (into-array Class []))
+                _ (.setAccessible method true)
+                ^CelExpr expr (.invoke method node (object-array 0))
+                call (.call expr)
+                [obj f] (function-name call)]
+            (when (and (= f "ref")
+                       (= obj "auth"))
+              (let [users-shim (attr-model/users-shim-info attrs)
+                    arg ^CelExpr (first (.args call))
+                    arg-val (ref-arg call)]
+                (when-not users-shim
+                  (.addError issues-factory
+                             (.id expr)
+                             "auth.ref is only available when the $users namespace is enabled."))
+                (when (or (not arg-val)
+                          (not (clojure-string/starts-with? arg-val "$user.")))
+                  (.addError issues-factory
+                             (if arg
+                               (.id arg)
+                               (.id expr))
+                             "auth.ref arg must start with `$user.`"))))))))))
+
+(defn validation-errors [attrs ^CelAbstractSyntaxTree ast]
+  (let [validator (make-validator attrs)]
+    (-> (CelValidatorFactory/standardCelValidatorBuilder cel-compiler
+                                                         cel-runtime)
+        (.addAstValidators (ucoll/array-of CelAstValidator [validator]))
+        (.build)
+        (.validate ast)
+        (.getErrors))))
+
 (comment
-  (def m (->cel-map {"id" #uuid "8164fb78-6fa3-4aab-8b92-80e706bae93a"
+  (def m (->cel-map {:etype "bookshelves"}
+                    {"id" #uuid "8164fb78-6fa3-4aab-8b92-80e706bae93a"
                      "name" "Nonfiction"
-                     "creatorEmail" "stopa@instantdb.com"
-                     "_etype" "bookshelves"})))
+                     "creatorEmail" "stopa@instantdb.com"})))
 
 (comment
   (def attrs (attr-model/get-by-app-id aurora/conn-pool zeneca-app-id))
@@ -381,10 +452,10 @@
   (let [ast (->ast "data.ref('users.handle').exists_one(x, x == 'alex')")
         program (->program ast)
         result
-        (eval-program! {:cel-program program} {"auth" (->cel-map {"email" "stopa@instantdb.com"})
-                                               "data" (->cel-map {"id" "8164fb78-6fa3-4aab-8b92-80e706bae93a"
+        (eval-program! {:cel-program program} {"auth" (->cel-map {} {"email" "stopa@instantdb.com"})
+                                               "data" (->cel-map {:ctx ctx
+                                                                  :etype "bookshelves"}
+                                                                 {"id" "8164fb78-6fa3-4aab-8b92-80e706bae93a"
                                                                   "creatorEmail" "stopa@instantdb.com"
-                                                                  "name" "Nonfiction"
-                                                                  "_ctx" ctx
-                                                                  "_etype" "bookshelves"})})]
+                                                                  "name" "Nonfiction"})})]
     result))

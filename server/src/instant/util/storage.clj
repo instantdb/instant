@@ -31,11 +31,15 @@
                          "allow" {"view" "isLoggedIn"
                                   "create" "data.path.contains('demo')"}}}})
   (def program (rule-model/get-program! rules "$files" "create"))
-  (cel/eval-program! program {"auth" (cel/->cel-map {"id" "alex"})
-                              "data" (cel/->cel-map {"path" "demo/image.png"})}))
+  (cel/eval-program! program {"auth" (cel/->cel-map {} {"id" "alex"})
+                              "data" (cel/->cel-map {} {"path" "demo/image.png"})}))
 
 
-(defn assert-storage-permission! [action {:keys [app-id filepath current-user rules-override]}]
+(defn assert-storage-permission! [action {:keys [app-id
+                                                 filepath
+                                                 current-user
+                                                 rules-override]
+                                          :as ctx}]
   (let [rules (if rules-override
                 rules-override
                 (rule-model/get-by-app-id {:app-id app-id}))
@@ -48,8 +52,13 @@
        false
        ;; otherwise, evaluate the permissions code
        (cel/eval-program! program
-                          {"auth" (cel/->cel-map (<-json (->json current-user)))
-                           "data" (cel/->cel-map {"path" filepath})})))))
+                          {"auth" (cel/->cel-map {:type :auth
+                                                  :ctx ctx
+                                                  :etype "$users"}
+                                                 (<-json (->json current-user)))
+                           "data" (cel/->cel-map {:type :data
+                                                  :ctx ctx}
+                                                 {"path" filepath})})))))
 
 
 (defn upload-image-to-s3 [app-id filename image-url]

@@ -357,8 +357,9 @@
 
 (defn rules-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        code (ex/get-param! req [:body :code] w/stringify-keys)]
-    (ex/assert-valid! :rule code (rule-model/validation-errors code))
+        code (ex/get-param! req [:body :code] w/stringify-keys)
+        attrs (attr-model/get-by-app-id aurora/conn-pool app-id)]
+    (ex/assert-valid! :rule code (rule-model/validation-errors attrs code))
     (response/ok {:rules (rule-model/put! {:app-id app-id
                                            :code code})})))
 

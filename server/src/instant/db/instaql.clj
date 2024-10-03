@@ -1506,23 +1506,33 @@
 (defn extract-refs
   "Extracts a list of refs that can be passed to cel/prefetch-data-refs.
    Returns: [{:etype string path-str string eids #{uuid}}]"
-  [eid->etype etype->program]
+  [user-id eid->etype etype->program]
   (let [etype->eid (ucoll/map-invert-key-set eid->etype)]
     (reduce (fn [acc [etype program]]
               (if-let [ast (:cel-ast program)]
-                (let [path-strs (seq (cel/collect-data-ref-uses ast))]
-                  (reduce (fn [acc path-str]
-                            (conj acc {:etype etype
-                                       :path-str path-str
-                                       :eids (get etype->eid etype)}))
-                          acc
-                          path-strs))
+                (let [{:strs [data auth]} (seq (cel/collect-ref-uses ast))]
+                  (concat (reduce (fn [acc path-str]
+                                    (conj acc {:etype etype
+                                               :path-str path-str
+                                               :eids (get etype->eid etype)}))
+                                  acc
+                                  data)
+                          (reduce (fn [acc path-str]
+                                    (conj acc {:etype "$users"
+                                               :path-str path-str
+                                               :eids #{user-id}}))
+                                  acc
+                                  auth)))
                 acc))
             []
             etype->program)))
 
 (defn preload-refs [ctx eid->etype etype->program]
-  (let [refs (extract-refs eid->etype etype->program)]
+  (let [refs (extract-refs (-> ctx
+                               :current-user
+                               :id)
+                           eid->etype
+                           etype->program)]
     (if (seq refs)
       (cel/prefetch-data-refs ctx refs)
       {})))
@@ -1550,10 +1560,14 @@
                          (io/warn-io :instaql/eval-program
                            (cel/eval-program!
                             p
-                            {"auth" (cel/->cel-map (<-json (->json current-user)))
-                             "data" (cel/->cel-map (assoc (<-json (->json em))
-                                                          "_ctx" ctx
-                                                          "_etype" etype))}))))])))
+                            {"auth" (cel/->cel-map {:ctx ctx
+                                                    :type :auth
+                                                    :etype "$users"}
+                                                   current-user)
+                             "data" (cel/->cel-map {:ctx ctx
+                                                    :etype etype
+                                                    :type :data}
+                                                   em)}))))])))
 
            (into {})))))
 
