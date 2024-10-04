@@ -38,6 +38,7 @@
    [ring.middleware.multipart-params :refer [wrap-multipart-params]]
    [ring.middleware.params :refer [wrap-params]])
   (:import
+   (io.undertow Undertow UndertowOptions Undertow$Builder Undertow$ListenerInfo)
    (java.text SimpleDateFormat)
    (java.util Locale TimeZone)))
 
@@ -97,13 +98,36 @@
 
 (defn start []
   (tracer/record-info! {:name "server/start" :attributes {:port (config/get-server-port)}})
-  (def server (undertow-adapter/run-undertow
-               (handler)
-               {:host "0.0.0.0"
-                :port (config/get-server-port)})))
+  (def server ^Undertow (undertow-adapter/run-undertow
+                         (handler)
+                         {:host "0.0.0.0"
+                          :port (config/get-server-port)
+                          :configurator (fn [^Undertow$Builder builder]
+                                          (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true ))}))
+  (def stop-gauge (gauges/add-gauge-metrics-fn
+                   (fn []
+                     (let [^Undertow server server
+                           ^Undertow$ListenerInfo listener (some-> server
+                                                                   (.getListenerInfo)
+                                                                   first)]
+                       (when-let [stats (some-> listener
+                                                (.getConnectorStatistics))]
+                         [{:path "instant.server.active-connections"
+                           :value (.getActiveConnections stats)}
+                          {:path "instant.server.active-requests"
+                           :value (.getActiveRequests stats)}
+                          {:path "instant.server.max-active-connections"
+                           :value (.getMaxActiveConnections stats)}
+                          {:path "instant.server.max-active-requests"
+                           :value (.getMaxActiveRequests stats)}
+                          {:path "instant.server.max-processing-time"
+                           :value (.getMaxProcessingTime stats)}]))))))
 
 (defn stop []
-  (.stop server))
+  (when (bound? (resolve 'server))
+    (.stop ^Undertow server))
+  (when (bound? (resolve 'stop-gauge))
+    (stop-gauge)))
 
 (defn restart []
   (stop)
