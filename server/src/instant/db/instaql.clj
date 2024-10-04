@@ -1509,10 +1509,10 @@
   [user-id eid->etype etype->program]
   (let [etype->eid (ucoll/map-invert-key-set eid->etype)]
     (reduce (fn [acc [etype program]]
-              (if-let [refs (-> program
-                                :cel-ast
-                                cel/collect-ref-uses
-                                seq)]
+              (if-let [refs (some-> program
+                                    :cel-ast
+                                    cel/collect-ref-uses
+                                    seq)]
                 (reduce (fn [acc {:keys [obj path]}]
                           (case obj
                             "data" (conj acc {:etype etype
