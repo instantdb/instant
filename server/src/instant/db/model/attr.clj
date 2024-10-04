@@ -230,6 +230,9 @@
                                                       (qualify-col :ident-values col)
                                                       (qualify-col :idents col)])
                                                    ident-table-cols))}]]}]
+               ;; This can still conflict on (app_id, etype, label),
+               ;; but you can only handle a single constraint.
+               ;; MERGE in postgres > 15 may fix this issue
                :on-conflict {:on-constraint :idents_pkey}
                :do-update-set {:etype [:case
                                        (list* :and
