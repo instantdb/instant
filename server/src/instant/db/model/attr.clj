@@ -292,9 +292,9 @@
                                                    [:raise_exception_message
                                                     [:||
                                                      "The attribute with id "
-                                                     [:cast [:to_json :EXCLUDED] :text]
+                                                     [:cast :EXCLUDED.id :text]
                                                      " conflicts with an existing attribute with id "
-                                                     [:cast [:to_json :attrs] :text] "."]]
+                                                     [:cast :attrs.id :text] "."]]
                                                    :text]]}
                :returning [:id]}]]
       :union-all
