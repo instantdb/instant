@@ -1876,5 +1876,49 @@
                      (#(map :email %)))
                  ["alex@instantdb.com"])))))))
 
+(deftest auth-ref-perms
+  (with-zeneca-app
+    (fn [app r0]
+      (insert-users-table! aurora/conn-pool (:id app))
+      (let [make-ctx (fn []
+                       (let [attrs (attr-model/get-by-app-id aurora/conn-pool (:id app))]
+                         {:db {:conn-pool aurora/conn-pool}
+                          :app-id (:id app)
+                          :attrs attrs}))
+
+            attr-id (random-uuid)
+            _ (tx/transact! aurora/conn-pool
+                            (attr-model/get-by-app-id aurora/conn-pool (:id app))
+                            (:id app)
+                            [[:add-attr {:id attr-id
+                                         :forward-identity [(random-uuid) "books" "$user-creator"]
+                                         :reverse-identity [(random-uuid) "$users" "books"]
+                                         :unique? false
+                                         :index? false
+                                         :value-type :ref
+                                         :cardinality :one}]
+                             [:add-triple
+                              (resolvers/->uuid r0 "eid-sum")
+                              attr-id
+                              (str (resolvers/->uuid r0 "eid-alex"))]])
+            r1 (resolvers/make-zeneca-resolver (:id app))]
+
+        (rule-model/put!
+         aurora/conn-pool
+         {:app-id (:id app) :code {:books {:allow {:view "'Sum' in auth.ref('$user.books.title')"}}}})
+
+        (is (= (-> (pretty-perm-q (assoc (make-ctx)
+                                         :current-user {:id (resolvers/->uuid r1 "eid-alex")})
+                                  {:books {:$ {:where {"$user-creator.email" "alex@instantdb.com"}}}})
+                   :books
+                   (#(map :title %)))
+               ["Sum"]))
+
+        (is (= (-> (pretty-perm-q (assoc (make-ctx)
+                                         :current-user {:id (resolvers/->uuid r1 "eid-mark")})
+                                  {:books {}})
+                   :books)
+               []))))))
+
 (comment
   (test/run-tests *ns*))

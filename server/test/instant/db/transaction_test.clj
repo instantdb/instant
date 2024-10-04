@@ -1903,7 +1903,7 @@
       (let [r (resolvers/make-movies-resolver app-id)
             book-id-attr-id (random-uuid)
             book-creator-attr-id (random-uuid)
-            book-usbn-attr-id (random-uuid)
+            book-isbn-attr-id (random-uuid)
             book-id (random-uuid)
             user-id (random-uuid)
             make-ctx (fn [] {:db {:conn-pool aurora/conn-pool}
@@ -1922,7 +1922,7 @@
                             :cardinality :one
                             :unique? true
                             :index? false}]
-                [:add-attr {:id book-usbn-attr-id
+                [:add-attr {:id book-isbn-attr-id
                             :forward-identity [(random-uuid) "books" "isbn"]
                             :value-type :blob
                             :cardinality :one
@@ -1936,12 +1936,12 @@
                             :unique? true
                             :index? false}]
                 [:add-triple book-id book-id-attr-id book-id]
-                [:add-triple book-id book-usbn-attr-id "1234"]])
+                [:add-triple book-id book-isbn-attr-id "1234"]])
             _ (app-user-model/create! aurora/conn-pool {:app-id app-id
                                                         :id user-id
                                                         :email "test@example.com"})
             tx-steps [[:add-triple
-                       [book-usbn-attr-id "1234"]
+                       [book-isbn-attr-id "1234"]
                        book-creator-attr-id
                        [(resolvers/->uuid r :$users/email) "test@example.com"]]]]
 
@@ -1957,6 +1957,109 @@
                          :isbn "1234"
                          :creator [{:id (str user-id)
                                     :email "test@example.com"}]}]}))))))
+
+(deftest auth-refs-requires-users
+  (with-empty-app
+    (fn [{app-id :id}]
+      (testing "auth.ref requires $users namespace"
+        (is (= [{:message
+                 "auth.ref is only available when the $users namespace is enabled.",
+                 :in ["bookshelves" :allow "update"]}]
+               (rule-model/validation-errors
+                (attr-model/get-by-app-id aurora/conn-pool app-id)
+                {"bookshelves" {"allow" {"update" "auth.ref('$user.a.b')"}}})))
+
+        (insert-users-table! aurora/conn-pool app-id)
+        (is (= []
+               (rule-model/validation-errors
+                (attr-model/get-by-app-id aurora/conn-pool app-id)
+                {"bookshelves" {"allow" {"update" "auth.ref('$user.a.b')"}}})))
+
+        (is (= [{:message "auth.ref arg must start with `$user.`",
+                 :in ["bookshelves" :allow "update"]}]
+               (rule-model/validation-errors
+                (attr-model/get-by-app-id aurora/conn-pool app-id)
+                {"bookshelves" {"allow" {"update" "auth.ref('a.b')"}}})))))))
+
+(deftest users-write-perms
+  (with-empty-app
+    (fn [{app-id :id}]
+      (insert-users-table! aurora/conn-pool app-id)
+      (let [r (resolvers/make-movies-resolver app-id)
+            book-id-attr-id (random-uuid)
+            book-creator-attr-id (random-uuid)
+            book-isbn-attr-id (random-uuid)
+            book-title-attr-id (random-uuid)
+            book-id (random-uuid)
+            user-id (random-uuid)
+            make-ctx (fn [] {:db {:conn-pool aurora/conn-pool}
+                             :app-id app-id
+                             :attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id aurora/conn-pool {:app-id app-id})
+                             :current-user nil})
+            user (app-user-model/create! aurora/conn-pool {:app-id app-id
+                                                           :id user-id
+                                                           :email "test@example.com"})
+            _ (tx/transact!
+               aurora/conn-pool
+               (attr-model/get-by-app-id aurora/conn-pool app-id)
+               app-id
+               [[:add-attr {:id book-id-attr-id
+                            :forward-identity [(random-uuid) "books" "id"]
+                            :value-type :blob
+                            :cardinality :one
+                            :unique? true
+                            :index? false}]
+                [:add-attr {:id book-isbn-attr-id
+                            :forward-identity [(random-uuid) "books" "isbn"]
+                            :value-type :blob
+                            :cardinality :one
+                            :unique? true
+                            :index? false}]
+                [:add-attr {:id book-title-attr-id
+                            :forward-identity [(random-uuid) "books" "Title"]
+                            :value-type :blob
+                            :cardinality :one
+                            :unique? true
+                            :index? false}]
+                [:add-attr {:id book-creator-attr-id
+                            :forward-identity [(random-uuid) "books" "creator"]
+                            :reverse-identity [(random-uuid) "$users" "books"]
+                            :value-type :ref
+                            :cardinality :one
+                            :unique? true
+                            :index? false}]
+                [:add-triple book-id book-id-attr-id book-id]
+                [:add-triple book-id book-isbn-attr-id "1234"]
+                [:add-triple book-id book-creator-attr-id user-id]])]
+        (rule-model/put! aurora/conn-pool
+                         {:app-id app-id
+                          :code {:books {:allow {:update "'1234' in auth.ref('$user.books.isbn')"}}}})
+
+        (let [tx-steps [[:add-triple book-id book-title-attr-id "Free Land"]]]
+          (perm-err?
+            (permissioned-tx/transact! (make-ctx)
+                                       tx-steps))
+          (perm-err?
+            (permissioned-tx/transact! (assoc (make-ctx) :current-user {:id (random-uuid)})
+                                       tx-steps))
+          (permissioned-tx/transact! (assoc (make-ctx) :current-user user)
+                                     tx-steps)
+
+          (is (= [{:triple
+                   [book-id
+                    book-title-attr-id
+                    "Free Land"],
+                   :md5 "a17f4110df08cd978152ff459b1aefde",
+                   :index #{:ea :av}}]
+                 (triple-model/fetch
+                  aurora/conn-pool
+                  app-id
+                  [[:= :entity-id book-id]
+                   [:= :attr-id book-title-attr-id]]))))))))
+
+
 
 (comment
   (test/run-tests *ns*))

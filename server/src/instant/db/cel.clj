@@ -339,9 +339,16 @@
 ;; but this will do for now.
 (defn collect-ref-uses
   "Returns a set of `path-str` used in `data.ref` calls in the given cel ast,
-   grouped by the object, e.g. {\"data\": #{\"a.b\"}, \"auth\" #{\"c.d\"}}."
+   grouped by the object, e.g. {\"data\": #{\"a.b\"}, \"auth\" #{\"c.d\"}}.
+   Automatically strips `$user` from auth path-str"
   [^CelAbstractSyntaxTree ast]
-  (expr->ref-uses (.getExpr ast)))
+  (-> (expr->ref-uses (.getExpr ast))
+      (update "auth" (fn [x]
+                       (set (map (fn [path-str]
+                                   (clojure-string/replace path-str
+                                                           #"^\$user\."
+                                                           ""))
+                                 x))))))
 
 (defn prefetch-data-refs
   "refs should be a list of:
