@@ -5,7 +5,6 @@
             [instant.model.rule :as rule-model]
             [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
             [instant.db.cel :as cel]
-            [instant.util.json :refer [->json <-json]]
             [instant.storage.s3 :as s3-util]
             [instant.storage.beta :as storage-beta])
 
@@ -55,7 +54,7 @@
                           {"auth" (cel/->cel-map {:type :auth
                                                   :ctx ctx
                                                   :etype "$users"}
-                                                 (<-json (->json current-user)))
+                                                 current-user)
                            "data" (cel/->cel-map {:type :data
                                                   :ctx ctx}
                                                  {"path" filepath})})))))

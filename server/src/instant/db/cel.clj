@@ -316,25 +316,25 @@
    `path-str`s for each object."
   [^CelExpr expr]
   (condp = (.getKind expr)
-    CelExpr$ExprKind$Kind/NOT_SET {}
-    CelExpr$ExprKind$Kind/CONSTANT {}
+    CelExpr$ExprKind$Kind/NOT_SET #{}
+    CelExpr$ExprKind$Kind/CONSTANT #{}
     ;; An identifier expression. e.g. `request`.
-    CelExpr$ExprKind$Kind/IDENT {}
+    CelExpr$ExprKind$Kind/IDENT #{}
     ;; A field selection expression. e.g. `request.auth`.
-    CelExpr$ExprKind$Kind/SELECT {}
+    CelExpr$ExprKind$Kind/SELECT #{}
     CelExpr$ExprKind$Kind/LIST (reduce (fn [acc item]
                                          (into acc (expr->ref-uses item)))
-                                       {}
+                                       #{}
                                        (.elements (.list expr)))
     ;; Not sure how to make one of these, will ignore for now
     CelExpr$ExprKind$Kind/STRUCT (tracer/with-span! {:name "cel/unknown-struct"
                                                      :attributes {:expr expr}}
-                                   {})
+                                   #{})
     CelExpr$ExprKind$Kind/MAP (reduce (fn [acc ^Expression$Map$Entry entry]
                                         (-> acc
                                             (into (expr->ref-uses (.key entry)))
                                             (into (expr->ref-uses (.value entry)))))
-                                      {}
+                                      #{}
                                       (.entries (.map expr)))
     ;; https://github.com/google/cel-java/blob/10bb524bddc7c32a55101f6b4967eb52cd14fb18/common/src/main/java/dev/cel/common/ast/CelExpr.java#L925
     CelExpr$ExprKind$Kind/COMPREHENSION (compression->ref-uses (.comprehension expr))
