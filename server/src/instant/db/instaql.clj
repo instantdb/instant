@@ -10,7 +10,7 @@
             [clojure.string :as string]
             [instant.jdbc.aurora :as aurora]
             [instant.db.model.attr-pat :as attr-pat]
-            [instant.util.json :refer [->json <-json]]
+            [instant.util.json :refer [->json]]
             [instant.data.resolvers :as resolvers]
             [instant.util.tracer :as tracer]
             [instant.util.coll :as ucoll]
@@ -1506,23 +1506,37 @@
 (defn extract-refs
   "Extracts a list of refs that can be passed to cel/prefetch-data-refs.
    Returns: [{:etype string path-str string eids #{uuid}}]"
-  [eid->etype etype->program]
+  [user-id eid->etype etype->program]
   (let [etype->eid (ucoll/map-invert-key-set eid->etype)]
     (reduce (fn [acc [etype program]]
-              (if-let [ast (:cel-ast program)]
-                (let [path-strs (seq (cel/collect-data-ref-uses ast))]
-                  (reduce (fn [acc path-str]
-                            (conj acc {:etype etype
-                                       :path-str path-str
-                                       :eids (get etype->eid etype)}))
-                          acc
-                          path-strs))
+              (if-let [refs (some-> program
+                                    :cel-ast
+                                    cel/collect-ref-uses
+                                    seq)]
+                (reduce (fn [acc {:keys [obj path]}]
+                          (case obj
+                            "data" (conj acc {:etype etype
+                                              :path-str path
+                                              :eids (get etype->eid etype)})
+                            "auth" (conj acc {:etype "$users"
+                                              :path-str path
+                                              :eids (if user-id
+                                                      #{user-id}
+                                                      #{})})
+
+                            acc))
+                        acc
+                        refs)
                 acc))
             []
             etype->program)))
 
 (defn preload-refs [ctx eid->etype etype->program]
-  (let [refs (extract-refs eid->etype etype->program)]
+  (let [refs (extract-refs (-> ctx
+                               :current-user
+                               :id)
+                           eid->etype
+                           etype->program)]
     (if (seq refs)
       (cel/prefetch-data-refs ctx refs)
       {})))
@@ -1550,10 +1564,14 @@
                          (io/warn-io :instaql/eval-program
                            (cel/eval-program!
                             p
-                            {"auth" (cel/->cel-map (<-json (->json current-user)))
-                             "data" (cel/->cel-map (assoc (<-json (->json em))
-                                                          "_ctx" ctx
-                                                          "_etype" etype))}))))])))
+                            {"auth" (cel/->cel-map {:ctx ctx
+                                                    :type :auth
+                                                    :etype "$users"}
+                                                   current-user)
+                             "data" (cel/->cel-map {:ctx ctx
+                                                    :etype etype
+                                                    :type :data}
+                                                   em)}))))])))
 
            (into {})))))
 

@@ -7,7 +7,7 @@
    [instant.util.exception :as ex]
    [honey.sql :as hsql])
   (:import
-   (dev.cel.common CelValidationException)))
+   (dev.cel.common CelIssue CelValidationException)))
 
 (defn put!
   ([params] (put! aurora/conn-pool params))
@@ -54,8 +54,11 @@
   (when-let [expr (get-in rule [etype "allow" action])]
     (with-binds rule etype expr)))
 
-(defn get-issues [etype action e]
-  (map (fn [cel-issue] [etype action (.getMessage cel-issue)]) (.getErrors e)))
+(defn format-errors [etype action errors]
+  (map (fn [^CelIssue cel-issue] [etype action (.getMessage cel-issue)]) errors))
+
+(defn get-issues [etype action ^CelValidationException e]
+  (format-errors etype action (.getErrors e)))
 
 (defn get-program! [rules etype action]
   (when-let [code (some-> rules :code (extract etype action))]
@@ -70,7 +73,7 @@
          :permission
          [etype action]
          (->> (.getErrors e)
-              (map (fn [cel-issue]
+              (map (fn [^CelIssue cel-issue]
                      {:message (.getMessage cel-issue)}))))))))
 
 (defn $users-validation-errors
@@ -88,15 +91,20 @@
 
     "view" nil))
 
-(defn validation-errors [rules]
+(defn validation-errors [attrs rules]
   (->> (keys rules)
        (mapcat (fn [etype] (map (fn [action] [etype action]) ["view" "create" "update" "delete"])))
        (mapcat (fn [[etype action]]
                  (or (and (= etype "$users")
                           ($users-validation-errors rules action))
                      (try
-                       (some-> (extract rules etype action) cel/->ast cel/->program)
-                       nil
+                       (when-let [expr (extract rules etype action)]
+                         (let [ast (cel/->ast expr)
+                               ;; create the program to see if it throws
+                               _program (cel/->program ast)
+                               errors (cel/validation-errors attrs ast)]
+                           (when (seq errors)
+                             (format-errors etype action errors))))
                        (catch CelValidationException e
                          (get-issues etype action e))))))
        (keep identity)
@@ -109,4 +117,4 @@
                               "create" "true"
                               "update" "moop"}}})
 
-  (validation-errors code))
+  (validation-errors [] code))

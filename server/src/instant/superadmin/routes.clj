@@ -2,6 +2,7 @@
   (:require [compojure.core :refer [defroutes POST GET DELETE] :as compojure]
             [ring.util.http-response :as response]
             [clojure.string :as string]
+            [instant.db.model.attr :as attr-model]
             [instant.util.uuid :as uuid-util]
             [instant.model.app :as app-model]
             [instant.model.instant-user :as instant-user-model]
@@ -120,8 +121,9 @@
 
 (defn app-rules-post [req]
   (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
-        code (ex/get-param! req [:body :code] w/stringify-keys)]
-    (ex/assert-valid! :rule code (rule-model/validation-errors code))
+        code (ex/get-param! req [:body :code] w/stringify-keys)
+        attrs (attr-model/get-by-app-id aurora/conn-pool app-id)]
+    (ex/assert-valid! :rule code (rule-model/validation-errors attrs code))
     (response/ok {:rules (rule-model/put! {:app-id app-id
                                            :code code})})))
 

@@ -1,13 +1,12 @@
 (ns instant.util.date
   (:import
-   (java.time ZoneId ZonedDateTime LocalDate)
+   (java.time ZoneId ZonedDateTime ZoneRegion LocalDate)
    (java.time.format DateTimeFormatter)
    (java.time.temporal TemporalAdjusters)))
 
-(def est-zone (ZoneId/of "America/New_York"))
+(def ^ZoneRegion est-zone (ZoneId/of "America/New_York"))
 
-(defn est-now
-  []
+(defn est-now ^ZonedDateTime []
   (ZonedDateTime/now est-zone))
 
 (def numeric-date-pattern

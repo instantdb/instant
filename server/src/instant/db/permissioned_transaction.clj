@@ -11,7 +11,6 @@
    [instant.model.rule :as rule-model]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
-   [instant.util.json :refer [->json <-json]]
    [instant.util.string :as string-util]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
@@ -101,27 +100,33 @@
                     (cel/eval-program!
                      program
                      {"auth"
-                      (cel/->cel-map (<-json (->json current-user)))
+                      (cel/->cel-map {:type :auth
+                                      :ctx ctx
+                                      :etype "$users"}
+                                     current-user)
                       "newData"
-                      (cel/->cel-map (<-json (->json new-data)))
+                      (cel/->cel-map {} new-data)
                       "data"
-                      (cel/->cel-map
-                       (assoc  (<-json (->json new-data))
-                               "_ctx" ctx
-                               "_etype" etype))})
+                      (cel/->cel-map {:ctx ctx
+                                      :etype etype
+                                      :type :data}
+                                     new-data)})
 
                     (= :update action-kw)
                     (cel/eval-program!
                      program
                      {"auth"
-                      (cel/->cel-map (<-json (->json current-user)))
+                      (cel/->cel-map {:type :auth
+                                      :ctx ctx
+                                      :etype "$users"}
+                                     current-user)
                       "data"
-                      (cel/->cel-map
-                       (assoc  (<-json (->json original))
-                               "_ctx" ctx
-                               "_etype" etype))
+                      (cel/->cel-map {:ctx ctx
+                                      :etype etype
+                                      :type :data}
+                                     original)
                       "newData"
-                      (cel/->cel-map (<-json (->json new-data)))})))}))
+                      (cel/->cel-map {} new-data)})))}))
 
 (defn object-delete-check [{:keys [rules current-user] :as ctx} etype eid triples]
   (let [original (entity-model/triples->map ctx triples)
@@ -138,12 +143,15 @@
                 (cel/eval-program!
                  program
                  {"auth"
-                  (cel/->cel-map (<-json (->json current-user)))
+                  (cel/->cel-map {:type :auth
+                                  :ctx ctx
+                                  :etype "$users"}
+                                 current-user)
                   "data"
-                  (cel/->cel-map
-                   (assoc  (<-json (->json original))
-                           "_ctx" ctx
-                           "_etype" etype))})))}))
+                  (cel/->cel-map {:type :data
+                                  :ctx ctx
+                                  :etype etype}
+                                 original)})))}))
 
 (defn object-view-check
   [{:keys [rules current-user] :as ctx} etype eid triples]
@@ -161,12 +169,15 @@
                   (cel/eval-program!
                    program
                    {"auth"
-                    (cel/->cel-map (<-json (->json current-user)))
+                    (cel/->cel-map {:type :auth
+                                    :ctx ctx
+                                    :etype "$users"}
+                                   current-user)
                     "data"
-                    (cel/->cel-map
-                     (assoc  (<-json (->json original))
-                             "_ctx" ctx
-                             "_etype" etype))})))})))
+                    (cel/->cel-map {:type :data
+                                    :ctx ctx
+                                    :etype etype}
+                                   original)})))})))
 
 (defn object-check [ctx etype eid action tx-steps triples]
   (condp = action
@@ -318,7 +329,7 @@
    :check (fn [_ctx]
             admin?)})
 
-(defn attr-create-check [{:keys [current-user rules] :as _ctx} attr]
+(defn attr-create-check [{:keys [current-user rules] :as ctx} attr]
   (let [program (rule-model/get-program! rules "attrs" "create")]
     {:scope :attr
      :etype :attrs
@@ -328,8 +339,13 @@
                 true
                 (cel/eval-program!
                  program
-                 {"auth" (cel/->cel-map (<-json (->json current-user)))
-                  "data" (cel/->cel-map (<-json (->json attr)))})))}))
+                 {"auth" (cel/->cel-map {:type :auth
+                                         :ctx ctx
+                                         :etype "$users"}
+                                        current-user)
+                  "data" (cel/->cel-map {:type :data
+                                         :ctx ctx}
+                                        attr)})))}))
 
 (defn attr-check [ctx [action args]]
   (condp = action
@@ -433,24 +449,36 @@
 (defn extract-refs
   "Extracts a list of refs that can be passed to cel/prefetch-data-refs.
    Returns: [{:etype string path-str string eids #{uuid}}]"
-  [check-commands]
+  [user-id check-commands]
   (vals
    (reduce (fn [acc check]
              (if (and (= :object (:scope check))
                       (:program check))
-               (let [ref-paths (cel/collect-data-ref-uses (:cel-ast (:program check)))]
-                 (reduce (fn [acc path-str]
+               (let [refs (cel/collect-ref-uses (:cel-ast (:program check)))]
+                 (reduce (fn [acc {:keys [obj path]}]
                            ;; group by etype + ref-path so we can collect all eids
                            ;; for each group
-                           (update acc
-                                   [(:etype check) path-str]
-                                   (fn [ref]
-                                     (-> (or ref {:etype (name (:etype check))
-                                                  :path-str path-str
-                                                  :eids #{}})
-                                         (update :eids conj (:eid check))))))
+                           (case obj
+                             "data"
+                             (update acc
+                                     [(:etype check) path]
+                                     (fn [ref]
+                                       (-> (or ref {:etype (name (:etype check))
+                                                    :path-str path
+                                                    :eids #{}})
+                                           (update :eids conj (:eid check)))))
+                             "auth"
+                             (update acc
+                                     ["$users" path]
+                                     (fn [ref]
+                                       (cond-> (or ref {:etype "$users"
+                                                        :path-str path
+                                                        :eids #{}})
+                                         user-id (update :eids conj user-id))))
+
+                             acc))
                          acc
-                         ref-paths))
+                         refs))
                acc))
            {}
            check-commands)))
@@ -458,7 +486,10 @@
 (defn preload-refs
   "Preloads data for data.ref so that we don't have to make a db call in the cel handler"
   [ctx check-commands]
-  (let [refs (extract-refs check-commands)]
+  (let [refs (extract-refs (-> ctx
+                               :current-user
+                               :id)
+                           check-commands)]
     (if (seq refs)
       (cel/prefetch-data-refs ctx refs)
       {})))
