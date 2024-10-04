@@ -1509,20 +1509,22 @@
   [user-id eid->etype etype->program]
   (let [etype->eid (ucoll/map-invert-key-set eid->etype)]
     (reduce (fn [acc [etype program]]
-              (if-let [ast (:cel-ast program)]
-                (let [{:strs [data auth]} (seq (cel/collect-ref-uses ast))]
-                  (concat (reduce (fn [acc path-str]
-                                    (conj acc {:etype etype
-                                               :path-str path-str
-                                               :eids (get etype->eid etype)}))
-                                  acc
-                                  data)
-                          (reduce (fn [acc path-str]
-                                    (conj acc {:etype "$users"
-                                               :path-str path-str
-                                               :eids #{user-id}}))
-                                  acc
-                                  auth)))
+              (if-let [refs (-> program
+                                :cel-ast
+                                cel/collect-ref-uses
+                                seq)]
+                (reduce (fn [acc {:keys [obj path]}]
+                          (case obj
+                            "data" (conj acc {:etype etype
+                                              :path-str path
+                                              :eids (get etype->eid etype)})
+                            "auth" (conj acc {:etype "$users"
+                                              :path-str path
+                                              :eids #{user-id}})
+
+                            acc))
+                        acc
+                        refs)
                 acc))
             []
             etype->program)))

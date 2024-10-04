@@ -454,33 +454,31 @@
    (reduce (fn [acc check]
              (if (and (= :object (:scope check))
                       (:program check))
-               (let [{:strs [data auth]} (cel/collect-ref-uses (:cel-ast (:program check)))]
-                 (concat
-                  (reduce (fn [acc path-str]
-                            ;; group by etype + ref-path so we can collect all eids
-                            ;; for each group
-                            (update acc
-                                    [(:etype check) path-str]
-                                    (fn [ref]
-                                      (-> (or ref {:etype (name (:etype check))
-                                                   :path-str path-str
-                                                   :eids #{}})
-                                          (update :eids conj (:eid check))))))
-                          acc
-                          data)
-                  (reduce (fn [acc path-str]
-                            ;; group by etype + ref-path so we can collect all eids
-                            ;; for each group
-                            (update acc
-                                    ;; XXX: Should be :$users or "$users"??
-                                    [:$users path-str]
-                                    (fn [ref]
-                                      (-> (or ref {:etype "$users"
-                                                   :path-str path-str
-                                                   :eids #{}})
-                                          (update :eids conj user-id)))))
-                          acc
-                          auth)))
+               (let [refs (cel/collect-ref-uses (:cel-ast (:program check)))]
+                 (reduce (fn [acc {:keys [obj path]}]
+                           ;; group by etype + ref-path so we can collect all eids
+                           ;; for each group
+                           (case obj
+                             "data"
+                             (update acc
+                                     [(:etype check) path]
+                                     (fn [ref]
+                                       (-> (or ref {:etype (name (:etype check))
+                                                    :path-str path
+                                                    :eids #{}})
+                                           (update :eids conj (:eid check)))))
+                             "auth"
+                             (update acc
+                                     ["$users" path]
+                                     (fn [ref]
+                                       (-> (or ref {:etype "$users"
+                                                    :path-str path
+                                                    :eids #{}})
+                                           (update :eids conj user-id))))
+
+                             acc))
+                         acc
+                         refs))
                acc))
            {}
            check-commands)))

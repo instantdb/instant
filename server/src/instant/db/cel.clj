@@ -289,11 +289,16 @@
   (let [[obj f] (function-name call)]
     (if (= "ref" f)
       (if-let [arg (ref-arg call)]
-        {obj #{arg}}
-        {})
+        #{{:obj obj
+           :path (if (= obj "auth")
+                   (clojure-string/replace arg
+                                           #"^\$user\."
+                                           "")
+                   arg)}}
+        #{})
       (reduce (fn [acc expr]
-                (merge-with into acc (expr->ref-uses expr)))
-              {}
+                (into acc (expr->ref-uses expr)))
+              #{}
               (.args call)))))
 
 (defn compression->ref-uses
@@ -318,7 +323,7 @@
     ;; A field selection expression. e.g. `request.auth`.
     CelExpr$ExprKind$Kind/SELECT {}
     CelExpr$ExprKind$Kind/LIST (reduce (fn [acc item]
-                                         (merge-with into acc (expr->ref-uses item)))
+                                         (into acc (expr->ref-uses item)))
                                        {}
                                        (.elements (.list expr)))
     ;; Not sure how to make one of these, will ignore for now
@@ -326,9 +331,9 @@
                                                      :attributes {:expr expr}}
                                    {})
     CelExpr$ExprKind$Kind/MAP (reduce (fn [acc ^Expression$Map$Entry entry]
-                                        (as-> acc %
-                                          (merge-with into % (expr->ref-uses (.key entry)))
-                                          (merge-with into % (expr->ref-uses (.value entry)))))
+                                        (-> acc
+                                            (into (expr->ref-uses (.key entry)))
+                                            (into (expr->ref-uses (.value entry)))))
                                       {}
                                       (.entries (.map expr)))
     ;; https://github.com/google/cel-java/blob/10bb524bddc7c32a55101f6b4967eb52cd14fb18/common/src/main/java/dev/cel/common/ast/CelExpr.java#L925
@@ -339,16 +344,11 @@
 ;; but this will do for now.
 (defn collect-ref-uses
   "Returns a set of `path-str` used in `data.ref` calls in the given cel ast,
-   grouped by the object, e.g. {\"data\": #{\"a.b\"}, \"auth\" #{\"c.d\"}}.
+   grouped by the object, e.g. #{{obj: \"data\", path: \"a.b\"}
+                                 {obj: \"auth\", path: \"c.d\"}.
    Automatically strips `$user` from auth path-str"
   [^CelAbstractSyntaxTree ast]
-  (-> (expr->ref-uses (.getExpr ast))
-      (update "auth" (fn [x]
-                       (set (map (fn [path-str]
-                                   (clojure-string/replace path-str
-                                                           #"^\$user\."
-                                                           ""))
-                                 x))))))
+  (expr->ref-uses (.getExpr ast)))
 
 (defn prefetch-data-refs
   "refs should be a list of:
