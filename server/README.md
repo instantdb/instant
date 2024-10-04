@@ -61,5 +61,4 @@ If you want to make any changes to your configuration, update the `resources/con
 
 # Questions?
 
-
 If you have any questions, feel free to drop us a line on our [Discord](https://discord.com/invite/VU53p7uQcE).
