@@ -230,6 +230,25 @@
                                                       (qualify-col :ident-values col)
                                                       (qualify-col :idents col)])
                                                    ident-table-cols))}]]}]
+               :on-conflict {:on-constraint :idents_pkey}
+               :do-update-set {:etype [:case
+                                       (list* :and
+                                              (map (fn [col]
+                                                     [:=
+                                                      (qualify-col :idents col)
+                                                      (qualify-col :EXCLUDED col)])
+                                                   ident-table-cols))
+                                       :EXCLUDED.etype
+                                       ;; raise_exception_message is typed to return
+                                       ;; a boolean, so we cast it to text so that it
+                                       ;; can throw its exception
+                                       :else [:cast
+                                              [:raise_exception_message
+                                               [:||
+                                                "Another attribute for "
+                                                :EXCLUDED.etype  "." :EXCLUDED.label
+                                                " exists with different properties."]]
+                                              :text]]}
                :returning [:id]}]
              [:ident-ids
               {:union-all
@@ -255,6 +274,28 @@
                                                    attr-table-cols))}]]
                  :join [:ident-ids
                         [:= :attr-values.forward-ident :ident-ids.id]]}]
+               :on-conflict {:on-constraint :attrs_pkey}
+               :do-update-set {:value_type [:case
+                                            (list* :and
+                                                   (map (fn [col]
+                                                          ;; Some fields can be null, so we need to
+                                                          ;; use "distinct from" instead of "="
+                                                          [:raw [[:inline (qualify-col :attrs col)]
+                                                                 " is not distinct from "
+                                                                 [:inline (qualify-col :EXCLUDED col)]]])
+                                                        attr-table-cols))
+                                            :EXCLUDED.value_type
+                                            ;; raise_exception_message is typed to return
+                                            ;; a boolean, so we cast it to text so that it
+                                            ;; can throw its exception
+                                            :else [:cast
+                                                   [:raise_exception_message
+                                                    [:||
+                                                     "The attribute with id "
+                                                     [:cast [:to_json :EXCLUDED] :text]
+                                                     " conflicts with an existing attribute with id "
+                                                     [:cast [:to_json :attrs] :text] "."]]
+                                                   :text]]}
                :returning [:id]}]]
       :union-all
       [{:select :id :from :ident-inserts}
