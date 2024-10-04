@@ -120,13 +120,13 @@
                                       :ctx ctx
                                       :etype "$users"}
                                      current-user)
-                      "newData"
-                      (cel/->cel-map {} new-data)
                       "data"
                       (cel/->cel-map {:ctx ctx
                                       :etype etype
                                       :type :data}
-                                     new-data)})))}))
+                                     original)
+                      "newData"
+                      (cel/->cel-map {} new-data)})))}))
 
 (defn object-delete-check [{:keys [rules current-user] :as ctx} etype eid triples]
   (let [original (entity-model/triples->map ctx triples)
@@ -471,10 +471,10 @@
                              (update acc
                                      ["$users" path]
                                      (fn [ref]
-                                       (-> (or ref {:etype "$users"
-                                                    :path-str path
-                                                    :eids #{}})
-                                           (update :eids conj user-id))))
+                                       (cond-> (or ref {:etype "$users"
+                                                        :path-str path
+                                                        :eids #{}})
+                                         user-id (update :eids conj user-id))))
 
                              acc))
                          acc

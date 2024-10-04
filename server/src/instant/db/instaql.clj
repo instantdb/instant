@@ -1520,7 +1520,9 @@
                                               :eids (get etype->eid etype)})
                             "auth" (conj acc {:etype "$users"
                                               :path-str path
-                                              :eids #{user-id}})
+                                              :eids (if user-id
+                                                      #{user-id}
+                                                      #{})})
 
                             acc))
                         acc
