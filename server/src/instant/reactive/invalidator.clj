@@ -285,12 +285,12 @@
                   [($users-triple-change-for-attr app_id
                                                   id
                                                   created-at-ms
-                                                  id-attr-id
+                                                  (str id-attr-id)
                                                   id)
                    ($users-triple-change-for-attr app_id
                                                   id
                                                   created-at-ms
-                                                  email-attr-id
+                                                  (str email-attr-id)
                                                   email)]))))
           (filter (fn [c]
                     (and (= (:table c) "app_users")
