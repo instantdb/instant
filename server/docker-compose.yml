@@ -9,6 +9,7 @@ services:
       - HONEYCOMB_ENDPOINT=http://refinery:8082
     env_file:
       - .env
+    network_mode: "host"
     ports:
       - "80:5000"
       - "6005:6005"
