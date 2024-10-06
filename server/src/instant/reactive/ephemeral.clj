@@ -133,7 +133,7 @@
         room-id (-> (.getName m)
                     edn/read-string
                     :room-id)]
-    (tool/def-locals)
+    ;;(tool/def-locals)
     (rs/try-broadcast-event! store-conn session-ids {:op :refresh-presence
                                                      :room-id room-id
                                                      :data snapshot
@@ -149,7 +149,7 @@
           (recur (a/<!! ch))))))
 
 (defn handle-event [m ch event]
-  (tool/def-locals)
+  ;;(tool/def-locals)
   (a/put! ch m))
 
 (defn make-listener [m]
