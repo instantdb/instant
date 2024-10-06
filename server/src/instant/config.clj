@@ -135,7 +135,10 @@
      test-pro-subscription)))
 
 (defn get-honeycomb-api-key []
-  (some-> @config-map :honeycomb-api-key (.value)))
+  ;;(some-> @config-map :honeycomb-api-key (.value))
+  ;; XXX
+  nil
+  )
 
 (defn get-honeycomb-endpoint []
   (or (System/getenv "HONEYCOMB_ENDPOINT")
