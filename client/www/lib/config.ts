@@ -5,13 +5,21 @@ export const isDev = process.env.NODE_ENV === 'development';
 export const isTouchDevice =
   typeof window !== 'undefined' && 'ontouchstart' in window;
 
+let localPort = '8888';
+if (typeof window !== 'undefined') {
+  const portOverride = new URL(location.href).searchParams.get('port');
+  if (portOverride) {
+    localPort = portOverride;
+  }
+}
+
 const config = {
   apiURI: getLocal('devBackend')
-    ? 'http://localhost:8888'
-    : 'https://api.instantdb.com',
+    ? `http://localhost:${localPort}`
+    : 'https://api-staging.instantdb.com',
   websocketURI: getLocal('devBackend')
-    ? 'ws://localhost:8888/runtime/session'
-    : 'wss://api.instantdb.com/runtime/session',
+    ? `ws://localhost:${localPort}/runtime/session`
+    : 'wss://api-staging.instantdb.com/runtime/session',
 };
 
 export default config;

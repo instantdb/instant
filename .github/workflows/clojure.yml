@@ -186,9 +186,9 @@ jobs:
   publish-image:
     runs-on: ubuntu-latest
     # XXX
-    #if: needs.detect_clj.outputs.did_change == 'True' && github.ref == 'refs/heads/main'
+    if: needs.detect_clj.outputs.did_change == 'True' && github.ref == 'refs/heads/hz'
     # Start publish image if we have clj changes
-    #needs: [ detect_clj ]
+    needs: [ detect_clj ]
     permissions:
       id-token: write
       contents: read
