@@ -1,13 +1,22 @@
 (ns instant.reactive.ephemeral
   "Handles our ephemeral data apis for a session (presence, cursors)"
   (:require
-   [instant.reactive.store :as rs]
-   [instant.util.tracer :as tracer]
-   [instant.util.async :as ua]
    [clojure.core.async :as a]
+   [clojure.edn :as edn]
    [clojure.set :as set]
+   [clojure.string :as string]
+   [instant.config :as config]
+   [instant.reactive.store :as rs]
+   [instant.util.async :as ua]
    [instant.util.exception :as ex]
-   [medley.core :refer [dissoc-in]]))
+   [instant.util.tracer :as tracer]
+   [medley.core :refer [dissoc-in]])
+  (:import
+   (com.hazelcast.config Config)
+   (com.hazelcast.core Hazelcast)
+   (com.hazelcast.map.listener EntryAddedListener
+                               EntryRemovedListener
+                               EntryUpdatedListener)))
 
 ;; ------
 ;; Setup
@@ -15,6 +24,25 @@
 (declare room-refresh-ch)
 
 (def refresh-timeout-ms 500)
+
+(defn init-hz []
+  (let [config (Config.)
+        network-config (.getNetworkConfig config)
+        join-config (.getJoin network-config)
+        tcp-ip-config (.getTcpIpConfig join-config)
+        aws-config (.getAwsConfig join-config)]
+    (.setEnabled (.getMulticastConfig join-config) false)
+
+    (if (= :prod (config/get-env))
+      (.setEnabled aws-config true)
+      (do
+        (.setEnabled tcp-ip-config true)
+        (.setMembers tcp-ip-config (list "127.0.0.1"))))
+
+    (.setClusterName config "instant-server")
+    (Hazelcast/newHazelcastInstance config)))
+
+(defonce hz (delay (init-hz)))
 
 ;; ------
 ;; State
@@ -90,22 +118,104 @@
 (defn in-room?
   "Returns whether a session is part of a room."
   [store-v app-id room-id sess-id]
+  ;; XXX
   (contains? (get-room-session-ids store-v app-id room-id) sess-id))
 
+;; XXX: Need something so that we can stop watching a room once all of
+;;      our sessions stop caring about it.
+(defonce room-maps (atom {}))
+(defonce refresh-map-ch (a/chan))
+
+;; XXX: Need some kind of timeout
+(defn handle-refresh-event [store-conn m]
+  (let [snapshot (into {} m)
+        session-ids (keys snapshot)
+        room-id (-> (.getName m)
+                    edn/read-string
+                    :room-id)]
+    (tool/def-locals)
+    (rs/try-broadcast-event! store-conn session-ids {:op :refresh-presence
+                                                     :room-id room-id
+                                                     :data snapshot
+                                                     :__machine-id (config/process-id)})))
+
+(defn start-refresh-map-worker [store-conn ch]
+  (loop [m (a/<!! ch)]
+    (if (nil? m)
+      (tracer/record-info! {:name "room-refresh-map/closed"})
+      (do (try (handle-refresh-event store-conn m)
+               (catch Throwable t
+                 (tracer/record-exception-span! t {:name "rooms-refresh-map/straight-jacket"})))
+          (recur (a/<!! ch))))))
+
+(defn handle-event [m ch event]
+  (tool/def-locals)
+  (a/put! ch m))
+
+(defn make-listener [m]
+  (let [ch (a/chan (a/sliding-buffer 1))]
+    ;; Probably a better way to do this?
+    (ua/vfuture (loop [m (a/<!! ch)]
+                  (when m
+                    (a/>!! refresh-map-ch m)
+                    (recur (a/<!! ch)))))
+    (reify
+      EntryAddedListener
+      (entryAdded [_ event]
+        (handle-event m ch event))
+      EntryRemovedListener
+      (entryRemoved [_ event]
+        (handle-event m ch event))
+      EntryUpdatedListener
+      (entryUpdated [_ event]
+        (handle-event m ch event)))))
+
+;; XXX: check reflection warnings
+;; (set! *warn-on-reflection* false)
+
+(defn register-room-map [m]
+  (let [map-name (.getName m)]
+    (when-not (contains? @room-maps map-name)
+      ;; Use the delay to ensure we only create one listener per map,
+      ;; even if swap has to retry
+      (let [res (swap! room-maps assoc map-name (delay (.addEntryListener m (make-listener m) true)))]
+        @(get res map-name)))))
+
+(defn map-id [app-id room-id]
+  (pr-str {:app-id app-id :room-id room-id}))
+
+;; XXX: Use a flag to determine whether to use hz
 (defn join-room! [store-atom app-id sess-id current-user room-id]
+  (let [hz-map (.getMap @hz (map-id app-id room-id))]
+    (register-room-map hz-map)
+    (.put hz-map sess-id {:peer-id sess-id
+                          :user (when current-user
+                                  {:id (:id current-user)})
+                          :data {}}))
   (when-not (contains? (get-room-session-ids @store-atom app-id room-id) sess-id)
     (swap! store-atom join-room app-id sess-id current-user room-id)
-    (a/>!! room-refresh-ch :refresh)))
+    ;;(a/>!! room-refresh-ch :refresh)
+    ))
 
 (defn leave-room! [store-atom app-id sess-id room-id]
+  (let [hz-map (.getMap @hz (map-id app-id room-id))]
+    ;; XXX: Need something to clear the map if we don't care about it any more
+    ;;      If the map is empty, stop watching it.
+    (.remove hz-map sess-id))
   (swap! store-atom leave-room app-id sess-id room-id)
-  (a/>!! room-refresh-ch :refresh))
+  ;;(a/>!! room-refresh-ch :refresh)
+  )
 
 (defn set-presence! [store-atom app-id sess-id room-id data]
+  (let [hz-map (.getMap @hz (map-id app-id room-id))]
+    (.put hz-map sess-id (merge (.get hz-map sess-id)
+                                {:data data})))
   (swap! store-atom set-presence app-id sess-id room-id data)
-  (a/>!! room-refresh-ch :refresh))
+  ;;(a/>!! room-refresh-ch :refresh)
+  )
 
 (defn leave-by-session-id! [store-atom app-id sess-id]
+  ;; XXX
   (swap! store-atom leave-by-session-id app-id sess-id)
   (a/>!! room-refresh-ch :refresh))
 
@@ -156,7 +266,8 @@
 (defn start []
   (def ephemeral-store-atom (atom {}))
   (def room-refresh-ch (a/chan (a/sliding-buffer 1)))
-  (ua/fut-bg (start-refresh-worker rs/store-conn ephemeral-store-atom room-refresh-ch)))
+  (ua/fut-bg (start-refresh-worker rs/store-conn ephemeral-store-atom room-refresh-ch))
+  (ua/fut-bg (start-refresh-map-worker rs/store-conn refresh-map-ch)))
 
 (defn stop []
   (a/close! room-refresh-ch))

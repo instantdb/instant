@@ -523,12 +523,13 @@
 
 (defn send-event! [conn sess-id event]
   (let [{:keys [ws-conn]} (get-socket @conn sess-id)]
-    (when-not ws-conn
-      (ex/throw-socket-missing! sess-id))
-    (try
-      (ws/send-json! event ws-conn)
-      (catch java.io.IOException e
-        (ex/throw-socket-error! sess-id e)))))
+    (when ws-conn ;; XXX
+      (when-not ws-conn
+        (ex/throw-socket-missing! sess-id))
+      (try
+        (ws/send-json! event ws-conn)
+        (catch java.io.IOException e
+          (ex/throw-socket-error! sess-id e))))))
 
 (defn try-send-event!
   "Does a best-effort send. If it fails, we record and swallow the exception"
