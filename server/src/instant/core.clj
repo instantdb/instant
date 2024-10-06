@@ -166,7 +166,8 @@
   (eph/start)
   (stripe/init)
   (session/start)
-  (inv/start-global)
+  ;; XXX
+  ;;(inv/start-global)
   (wal/init-cleanup aurora/conn-pool)
 
   (when-let [config-app-id (config/instant-config-app-id)]
