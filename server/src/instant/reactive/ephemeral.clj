@@ -136,7 +136,7 @@
     (rs/try-broadcast-event! store-conn session-ids {:op :refresh-presence
                                                      :room-id room-id
                                                      :data snapshot
-                                                     :__machine-id (config/process-id)})))
+                                                     :__machine-id @config/process-id})))
 
 (defn start-refresh-map-worker [store-conn ch]
   (loop [m (a/<!! ch)]
