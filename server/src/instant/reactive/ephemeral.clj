@@ -10,7 +10,9 @@
    [instant.util.async :as ua]
    [instant.util.exception :as ex]
    [instant.util.tracer :as tracer]
-   [medley.core :refer [dissoc-in]])
+   [medley.core :refer [dissoc-in]]
+   [clj-http.client :as clj-http]
+   [amazonica.aws.ec2 :as ec2])
   (:import
    (com.hazelcast.config Config)
    (com.hazelcast.core Hazelcast)
@@ -25,6 +27,40 @@
 
 (def refresh-timeout-ms 500)
 
+(def tag-name "elasticbeanstalk:environment-name")
+(defn get-tag []
+  (let [token (-> (clj-http/put
+                   "http://169.254.169.254/latest/api/token"
+                   {:headers {"X-aws-ec2-metadata-token-ttl-seconds" "21600"}})
+                  :body)
+        instance-id (-> (clj-http.client/get
+                         "http://169.254.169.254/latest/meta-data/instance-id"
+                         {:headers {"X-aws-ec2-metadata-token" token}})
+                        :body)]
+    (->> (ec2/describe-instances {:instance-ids [instance-id]})
+         :reservations
+         first
+         :instances
+         first
+         :tags
+         (filter (fn [t] (= (:key t) tag-name)))
+         first
+         :value)))
+
+(defn get-security-group []
+  (let [token (-> (clj-http/put
+                   "http://169.254.169.254/latest/api/token"
+                   {:headers {"X-aws-ec2-metadata-token-ttl-seconds" "21600"}})
+                  :body)
+        instance-id (-> (clj-http.client/get
+                         "http://169.254.169.254/latest/meta-data/instance-id"
+                         {:headers {"X-aws-ec2-metadata-token" token}})
+                        :body)]
+    (-> (clj-http.client/get
+         "http://169.254.169.254/latest/meta-data/security-groups"
+         {:headers {"X-aws-ec2-metadata-token" token}})
+        :body)))
+
 (defn init-hz []
   (let [config (Config.)
         network-config (.getNetworkConfig config)
@@ -34,7 +70,16 @@
     (.setEnabled (.getMulticastConfig join-config) false)
 
     (if (= :prod (config/get-env))
-      (.setEnabled aws-config true)
+      ;; XXX: Don't forget to allow incoming on 5701 from same security group
+      ;; XXX: Need to put all instances in same az
+      ;; XXX: Need to configure placement group and see if it works
+      (-> aws-config
+          (.setEnabled true)
+          ;; (.setProperty "tag-key" tag-name)
+          ;; (.setProperty "tag-value" (get-tag))
+          (.setProperty "security-group-name" (get-security-group))
+
+          (.setProperty "hz-port" "5701"))
       (do
         (.setEnabled tcp-ip-config true)
         (.setMembers tcp-ip-config (list "127.0.0.1"))))
