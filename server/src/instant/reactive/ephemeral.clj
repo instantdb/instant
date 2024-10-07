@@ -74,18 +74,22 @@
         tcp-ip-config (.getTcpIpConfig join-config)
         aws-config (.getAwsConfig join-config)]
     (.setEnabled (.getMulticastConfig join-config) false)
-
     (if (= :prod (config/get-env))
       ;; XXX: Don't forget to allow incoming on 5701 from same security group
       ;; XXX: Need to put all instances in same az
       ;; XXX: Need to configure placement group and see if it works
-      (-> aws-config
-          (.setEnabled true)
-          ;; (.setProperty "tag-key" tag-name)
-          ;; (.setProperty "tag-value" (get-tag))
-          (.setProperty "security-group-name" (get-security-group))
+      (do
+        (.setPublicAddress network-config (get-ip))
+        (.addInterface (.setEnabled (.getInterfaces (.getNetworkConfig (Config.)))
+                                    true)
+                       (get-ip))
+        (-> aws-config
+            (.setEnabled true)
+            (.setProperty "tag-key" tag-name)
+            (.setProperty "tag-value" (get-tag))
+            (.setProperty "security-group-name" (get-security-group))
 
-          (.setProperty "hz-port" "5701"))
+            (.setProperty "hz-port" "5701")))
       (do
         (.setEnabled tcp-ip-config true)
         (.setMembers tcp-ip-config (list "127.0.0.1"))))
@@ -222,21 +226,31 @@
 ;; XXX: check reflection warnings
 ;; (set! *warn-on-reflection* false)
 
-(defn register-room-map [m]
-  (let [map-name (.getName m)]
-    (when-not (contains? @room-maps map-name)
-      ;; Use the delay to ensure we only create one listener per map,
-      ;; even if swap has to retry
-      (let [res (swap! room-maps assoc map-name (delay (.addEntryListener m (make-listener m) true)))]
-        @(get res map-name)))))
+(defn register-room-map [m sess-id]
+  (let [map-name (.getName m)
+        res
+        (swap! room-maps
+               (fn [maps]
+                 (cond-> maps
+                   true (update-in [:sessions sess-id] (fnil conj #{}) m)
+                   (not (get-in maps [:maps map-name :listener]))
+                   ;; Use the delay to ensure we only create one listener per map,
+                   ;; even if swap has to retry
+                   (assoc-in [map-name :listener]
+                             (delay
+                               (.addEntryListener m
+                                                  (make-listener m)
+                                                  true))))))]
+    @(get-in res [map-name :listener])))
 
 (defn map-id [app-id room-id]
   (pr-str {:app-id app-id :room-id room-id}))
 
 ;; XXX: Use a flag to determine whether to use hz
 (defn join-room! [store-atom app-id sess-id current-user room-id]
+  ;;(tool/def-locals)
   (let [hz-map (.getMap @hz (map-id app-id room-id))]
-    (register-room-map hz-map)
+    (register-room-map hz-map sess-id)
     (.put hz-map sess-id {:peer-id sess-id
                           :user (when current-user
                                   {:id (:id current-user)})
@@ -266,6 +280,8 @@
 (defn leave-by-session-id! [store-atom app-id sess-id]
   ;; XXX
   (swap! store-atom leave-by-session-id app-id sess-id)
+  (doseq [m (get-in @room-maps [:sessions sess-id])]
+    (.remove m sess-id))
   (a/>!! room-refresh-ch :refresh))
 
 ;; ------

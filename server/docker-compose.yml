@@ -4,11 +4,12 @@ services:
     depends_on:
       - refinery
     environment:
-      - BEANSTALK_PORT=5000
+      - BEANSTALK_PORT=80
       - PRODUCTION=true
       - HONEYCOMB_ENDPOINT=http://refinery:8082
     env_file:
       - .env
+    network_mode: "host"
     ports:
       - "80:5000"
       - "6005:6005"
