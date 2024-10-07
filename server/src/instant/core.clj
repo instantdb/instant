@@ -1,6 +1,7 @@
 (ns instant.core
   (:gen-class)
   (:require
+   [tool]
    [clojure.tools.logging :as log]
    [compojure.core :refer [defroutes GET POST routes]]
    [instant.admin.routes :as admin-routes]
