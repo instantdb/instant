@@ -282,6 +282,7 @@
   (swap! store-atom leave-by-session-id app-id sess-id)
   (doseq [m (get-in @room-maps [:sessions sess-id])]
     (.remove m sess-id))
+  (swap! room-maps dissoc-in [:sessions sess-id])
   (a/>!! room-refresh-ch :refresh))
 
 ;; ------
@@ -331,6 +332,7 @@
 (defn start []
   (def ephemeral-store-atom (atom {}))
   (def room-refresh-ch (a/chan (a/sliding-buffer 1)))
+  @hz
   (ua/fut-bg (start-refresh-worker rs/store-conn ephemeral-store-atom room-refresh-ch))
   (ua/fut-bg (start-refresh-map-worker rs/store-conn refresh-map-ch)))
 
