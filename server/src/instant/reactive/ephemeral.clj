@@ -1,6 +1,7 @@
 (ns instant.reactive.ephemeral
   "Handles our ephemeral data apis for a session (presence, cursors)"
   (:require
+   [tool]
    [clojure.core.async :as a]
    [clojure.edn :as edn]
    [clojure.set :as set]
@@ -183,11 +184,13 @@
 
 ;; XXX: Need some kind of timeout
 (defn handle-refresh-event [store-conn m]
-  (let [snapshot (into {} m)
+  (let [snapshot (select-keys m (.keySet m))
         session-ids (keys snapshot)
         room-id (-> (.getName m)
                     edn/read-string
                     :room-id)]
+
+    (tool/def-locals)
     (rs/try-broadcast-event! store-conn session-ids {:op :refresh-presence
                                                      :room-id room-id
                                                      :data snapshot
