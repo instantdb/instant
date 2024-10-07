@@ -244,7 +244,7 @@
                                (.addEntryListener m
                                                   (make-listener m)
                                                   true))))))]
-    @(get-in res [map-name :listener])))
+    @(get-in res [:maps map-name :listener])))
 
 (defn map-id [app-id room-id]
   (pr-str {:app-id app-id :room-id room-id}))
