@@ -78,6 +78,11 @@ function querySubsToJSON(querySubs) {
  * @template {import('./presence').RoomSchemaShape} [RoomSchema = {}]
  */
 export default class Reactor {
+  /** @param state {boolean | null} */
+  __isOnlineSimulated = null;
+  __traceHandlers = [];
+  __eventDebug = {};
+
   attrs;
   _isOnline = true;
   _isShutdown = false;
@@ -100,6 +105,7 @@ export default class Reactor {
   mutationDeferredStore = new Map();
   _reconnectTimeoutId = null;
   _reconnectTimeoutMs = 0;
+  /** @type {WebSocket | undefined} */
   _ws;
   _localIdPromises = {};
   _errorMessage = null;
@@ -158,18 +164,16 @@ export default class Reactor {
 
     NetworkListener.getIsOnline().then((isOnline) => {
       this._isOnline = isOnline;
-      this._startSocket();
-      NetworkListener.listen((isOnline) => {
+      this._onNetworkStateChange();
+
+      NetworkListener.listen(() => {
         // We do this because react native's NetInfo
         // fires multiple online events.
         // We only want to handle one state change
-        if (isOnline === this._isOnline) {
-          return;
-        }
+        if (isOnline === this._getIsOnline()) return;
+
         this._isOnline = isOnline;
-        if (this._isOnline) {
-          this._startSocket();
-        }
+        this._onNetworkStateChange();
       });
     });
 
@@ -177,6 +181,43 @@ export default class Reactor {
       this._beforeUnload = this._beforeUnload.bind(this);
       addEventListener("beforeunload", this._beforeUnload);
     }
+  }
+
+  _onNetworkStateChange = () => {
+    if (!this._getIsOnline()) return;
+    this._startSocket();
+  };
+
+  _getIsOnline() {
+    return this.__isOnlineSimulated === null
+      ? this._isOnline
+      : this.__isOnlineSimulated;
+  }
+
+  /** @param isOnlineTristate {boolean | null} */
+  __simulateOnline(isOnlineTristate) {
+    this.__isOnlineSimulated = isOnlineTristate;
+
+    if (isOnlineTristate === false) {
+      this._ws?.close();
+      return;
+    }
+
+    this._onNetworkStateChange();
+  }
+
+  _registerTraceHandler = (handler) => {
+    this.__traceHandlers.push(handler);
+    return () => {
+      this.__traceHandlers = this.__traceHandlers.filter((h) => h !== handler);
+    };
+  };
+  _trace(ns, event, data) {
+    this.__traceHandlers.forEach(async (handler) => {
+      try {
+        await handler(ns, event, data);
+      } catch (error) {}
+    });
   }
 
   _initStorage(Storage) {
@@ -238,6 +279,8 @@ export default class Reactor {
   }
 
   _setStatus(status, err) {
+    this._trace("status", "set", { status, error: err });
+
     this.status = status;
     this._errorMessage = err;
   }
@@ -340,6 +383,11 @@ export default class Reactor {
   }
 
   _handleReceive(msg) {
+    const clientEventId = msg["client-event-id"];
+    if (clientEventId && this.__eventDebug[clientEventId]) {
+      this.__eventDebug[clientEventId].confirmed = true;
+    }
+
     // opt-out, enabled by default if schema
     const enableCardinalityInference =
       Boolean(this.config.schema) &&
@@ -504,6 +552,9 @@ export default class Reactor {
 
   _handleReceiveError(msg) {
     const eventId = msg["client-event-id"];
+    if (this.__eventDebug[eventId]) {
+      this.__eventDebug[eventId].error = true;
+    }
     const prevMutation = this.pendingMutations.currentValue.get(eventId);
     const errorMessage = {
       message: msg.message || "Uh-oh, something went wrong. Ping Joe & Stopa.",
@@ -589,6 +640,7 @@ export default class Reactor {
 
   _startQuerySub(q, hash) {
     const eventId = uuid();
+    this.__eventDebug[eventId] = { sent: false };
     this.querySubs.set((prev) => {
       prev[hash] = prev[hash] || { q, result: null, eventId };
       return prev;
@@ -627,7 +679,7 @@ export default class Reactor {
   }
 
   async queryOnce(q) {
-    if (!this._isOnline) {
+    if (!this._getIsOnline()) {
       throw new Error(
         "Offline: Cannot execute query because the device is offline.",
       );
@@ -843,7 +895,13 @@ export default class Reactor {
 
     dfds.forEach((r) => {
       this._completeQueryOnce(r.q, hash, r.dfd);
-      r.dfd.resolve(data);
+
+      const dataWithDebug = {
+        ...data,
+        __debug: this.__eventDebug[r.eventId] ?? {},
+      };
+
+      r.dfd.resolve(dataWithDebug);
     });
   };
 
@@ -881,6 +939,7 @@ export default class Reactor {
    */
   pushOps = (txSteps, error) => {
     const eventId = uuid();
+    this.__eventDebug[eventId] = { sent: false };
     const mutation = {
       op: "transact",
       "tx-steps": txSteps,
@@ -929,7 +988,7 @@ export default class Reactor {
       this.pendingMutations.currentValue.size * 5000,
     );
 
-    if (!this._isOnline) {
+    if (!this._getIsOnline()) {
       this._finishTransaction("enqueued", eventId);
     } else {
       this._trySend(eventId, mutation);
@@ -942,7 +1001,7 @@ export default class Reactor {
       }, 3_000);
 
       setTimeout(() => {
-        if (!this._isOnline) {
+        if (!this._getIsOnline()) {
           return;
         }
         // If we are here, this means that we have sent this mutation, we are online
@@ -998,10 +1057,19 @@ export default class Reactor {
     if (this._ws.readyState !== WS_OPEN_STATUS) {
       return;
     }
-    this._ws.send(JSON.stringify({ "client-event-id": eventId, ...msg }));
+
+    const d = { "client-event-id": eventId, ...msg };
+    this._trace("ws", "send", d);
+    this._ws.send(JSON.stringify(d));
+
+    if (this.__eventDebug[eventId]) {
+      this.__eventDebug[eventId].sent = true;
+    }
   }
 
   _wsOnOpen = () => {
+    this._trace("ws", "onopen");
+
     log.info("[socket] connected");
     this._setStatus(STATUS.OPENED);
     this.getCurrentUser().then((resp) => {
@@ -1020,7 +1088,9 @@ export default class Reactor {
   };
 
   _wsOnMessage = (e) => {
-    this._handleReceive(JSON.parse(e.data.toString()));
+    const d = JSON.parse(e.data.toString());
+    this._trace("ws", "onmessage", d);
+    this._handleReceive(d);
   };
 
   _wsOnError = (e) => {
@@ -1028,6 +1098,8 @@ export default class Reactor {
   };
 
   _wsOnClose = () => {
+    this._trace("ws", "onclose");
+
     this._setStatus(STATUS.CLOSED);
 
     for (const room of Object.values(this._rooms)) {
@@ -1046,18 +1118,20 @@ export default class Reactor {
       return;
     }
 
-    log.info("[socket-close] scheduling reconnect", this._reconnectTimeoutMs);
-    setTimeout(() => {
-      this._reconnectTimeoutMs = Math.min(
-        this._reconnectTimeoutMs + 1000,
-        10000,
-      );
-      if (!this._isOnline) {
-        log.info("[socket-close] we are offline, no need to start socket");
-        return;
-      }
-      this._startSocket();
-    }, this._reconnectTimeoutMs);
+    if (this._getIsOnline()) {
+      log.info("[socket-close] scheduling reconnect", this._reconnectTimeoutMs);
+      setTimeout(() => {
+        this._reconnectTimeoutMs = Math.min(
+          this._reconnectTimeoutMs + 1000,
+          10000,
+        );
+        if (!this._getIsOnline()) {
+          log.info("[socket-close] we are offline, no need to start socket");
+          return;
+        }
+        this._startSocket();
+      }, this._reconnectTimeoutMs);
+    }
   };
 
   _ensurePreviousSocketClosed() {
@@ -1068,6 +1142,8 @@ export default class Reactor {
   }
 
   _startSocket() {
+    if (!this._getIsOnline()) return;
+
     this._ensurePreviousSocketClosed();
     this._ws = new WebSocket(
       `${this.config.websocketURI}?app_id=${this.config.appId}`,

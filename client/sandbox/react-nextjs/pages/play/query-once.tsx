@@ -7,14 +7,18 @@
 
 import { init, id, tx } from "@instantdb/react";
 import Head from "next/head";
-import { useEffect, FormEvent } from "react";
+import { FormEvent } from "react";
 import config from "../../config";
+import { instantDebugger } from "../../lib/instantDebugger";
 
 const db = init<{
   onceTest: {
     text: string;
   };
 }>(config);
+
+//
+instantDebugger(db);
 
 db.queryOnce({
   onceTest: {},
