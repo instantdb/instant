@@ -236,7 +236,7 @@
                    (not (get-in maps [:maps map-name :listener]))
                    ;; Use the delay to ensure we only create one listener per map,
                    ;; even if swap has to retry
-                   (assoc-in [map-name :listener]
+                   (assoc-in [:maps map-name :listener]
                              (delay
                                (.addEntryListener m
                                                   (make-listener m)
