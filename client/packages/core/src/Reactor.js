@@ -707,13 +707,14 @@ export default class Reactor {
     this.queryOnceDfds[hash] = this.queryOnceDfds[hash] ?? [];
     this.queryOnceDfds[hash].push({ q, dfd, eventId });
 
-    const error = new Error("Query timed out");
-    if (this.__eventDebug[eventId]) {
-      // @ts-expect-error
-      error.__debug = this.__eventDebug[eventId];
-    }
-
-    setTimeout(() => dfd.reject(error), QUERY_ONCE_TIMEOUT);
+    setTimeout(() => {
+      const error = new Error("Query timed out");
+      if (this.__eventDebug[eventId]) {
+        // @ts-expect-error
+        error.__debug = this.__eventDebug[eventId];
+      }
+      return dfd.reject(error);
+    }, QUERY_ONCE_TIMEOUT);
 
     return dfd.promise;
   }

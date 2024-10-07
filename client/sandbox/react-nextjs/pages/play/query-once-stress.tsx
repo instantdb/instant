@@ -139,6 +139,22 @@ export default function QueryOnceStress() {
         >
           Stop
         </button>
+        <button
+          className="bg-gray-500 p-2 text-white"
+          onClick={() => {
+            db._core._reactor.__simulateOnline(false);
+          }}
+        >
+          Offline
+        </button>
+        <button
+          className="bg-green-500 p-2 text-white"
+          onClick={() => {
+            db._core._reactor.__simulateOnline(true);
+          }}
+        >
+          Online
+        </button>
       </div>
       <div
         className="font-mono gap-2 flex justify-end flex-col-reverse"
