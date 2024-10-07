@@ -1,6 +1,8 @@
 type Debuggable = {
   _core: {
     _reactor: {
+      status: string;
+      _getIsOnline: () => boolean;
       _registerTraceHandler: (
         handler: (ns: string, event: string, data: any) => void,
       ) => void;
@@ -10,7 +12,9 @@ type Debuggable = {
 
 const isBrowser = typeof window !== "undefined";
 
-let debugViewRootContainer: HTMLDivElement;
+let rootContainer: HTMLDivElement;
+let statusContainer: HTMLDivElement;
+let logsContainer: HTMLDivElement;
 
 export function instantDebugger(d: Debuggable) {
   if (!isBrowser) return;
@@ -23,46 +27,62 @@ export function instantDebugger(d: Debuggable) {
   // @ts-expect-error
   globalThis.__instantDebugger = true;
 
-  debugViewRootContainer ??= document.createElement("div");
-  document.body.appendChild(debugViewRootContainer);
+  rootContainer ??= document.createElement("div");
+  statusContainer ??= document.createElement("div");
+  logsContainer ??= document.createElement("div");
 
-  Object.assign(debugViewRootContainer.style, debugViewRootContainerStyle);
+  Object.assign(logsContainer.style, {
+    display: "flex",
+    flex: "1",
+    gap: "4px",
+    flexDirection: "column",
+    overflowY: "auto",
+    border: "1px #eee solid",
+    padding: "4px",
+  });
+
+  document.body.appendChild(rootContainer);
+  rootContainer.appendChild(statusContainer);
+  rootContainer.appendChild(logsContainer);
+
+  Object.assign(rootContainer.style, debugViewRootContainerStyle);
 
   const reg = d._core._reactor._registerTraceHandler;
 
-  return reg(tranceHandler);
-}
+  return reg(function tranceHandler(ns: string, event: string, data: any) {
+    console.log(d._core._reactor._getIsOnline());
+    statusContainer.innerHTML = `${d._core._reactor._getIsOnline() ? "✅ online" : "❌ offline"} • status: ${d._core._reactor.status}`;
 
-function tranceHandler(ns: string, event: string, data: any) {
-  const isScrolledToBottom =
-    debugViewRootContainer.scrollHeight - debugViewRootContainer.clientHeight <=
-    debugViewRootContainer.scrollTop + 100;
+    const isScrolledToBottom =
+      logsContainer.scrollHeight - logsContainer.clientHeight <=
+      logsContainer.scrollTop + 100;
 
-  const log = document.createElement("div");
+    const log = document.createElement("div");
 
-  log.textContent = `${ns} ${event}`;
+    log.textContent = `${ns} ${event}`;
 
-  if (data) {
-    const logData = document.createElement("pre");
-    logData.textContent = JSON.stringify(data);
-    Object.assign(logData.style, {
-      whiteSpace: "pre-wrap",
-      maxHeight: "100px",
-      overflowY: "auto",
-      color: "#333",
-      background: "#f7f7f7",
-      border: "1px #eee solid",
-      padding: "4px",
-    });
-    log.appendChild(logData);
-  }
+    if (data) {
+      const logData = document.createElement("pre");
+      logData.textContent = JSON.stringify(data);
+      Object.assign(logData.style, {
+        whiteSpace: "pre-wrap",
+        maxHeight: "100px",
+        overflowY: "auto",
+        color: "#333",
+        background: "#f7f7f7",
+        border: "1px #eee solid",
+        padding: "4px",
+      });
+      log.appendChild(logData);
+    }
 
-  debugViewRootContainer.appendChild(log);
+    logsContainer.appendChild(log);
 
-  // scroll to bottom if already scrolled to bottom
-  if (isScrolledToBottom) {
-    debugViewRootContainer.scrollTop = debugViewRootContainer.scrollHeight;
-  }
+    // scroll to bottom if already scrolled to bottom
+    if (isScrolledToBottom) {
+      logsContainer.scrollTop = logsContainer.scrollHeight;
+    }
+  });
 }
 
 const debugViewRootContainerStyle = {
@@ -76,10 +96,9 @@ const debugViewRootContainerStyle = {
   maxWidth: "50vw",
   fontSize: "10px",
   fontFamily: "monospace",
-  overflowY: "auto",
   border: "1px solid #ccc",
-  display: "flex",
-  gap: "4px",
-  flexDirection: "column",
   backgroundColor: "#ffffffdd",
+  display: "flex",
+  flexDirection: "column",
+  gap: "8px",
 };

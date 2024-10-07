@@ -17,7 +17,6 @@ const db = init<{
   };
 }>(config);
 
-//
 instantDebugger(db);
 
 db.queryOnce({

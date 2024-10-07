@@ -84,7 +84,7 @@ export default class Reactor {
   __eventDebug = {};
 
   attrs;
-  _isOnline = true;
+  _isOnline;
   _isShutdown = false;
   status = STATUS.CONNECTING;
 
@@ -166,13 +166,22 @@ export default class Reactor {
       this._isOnline = isOnline;
       this._onNetworkStateChange();
 
-      NetworkListener.listen(() => {
+      this._trace("network", "state", {
+        isOnline,
+      });
+
+      NetworkListener.listen((isOnline) => {
         // We do this because react native's NetInfo
         // fires multiple online events.
         // We only want to handle one state change
-        if (isOnline === this._getIsOnline()) return;
+        if (isOnline === this._isOnline) return;
 
         this._isOnline = isOnline;
+
+        this._trace("network", "state", {
+          isOnline,
+        });
+
         this._onNetworkStateChange();
       });
     });
@@ -208,10 +217,12 @@ export default class Reactor {
 
   _registerTraceHandler = (handler) => {
     this.__traceHandlers.push(handler);
+    handler("tracehandler", "register");
     return () => {
       this.__traceHandlers = this.__traceHandlers.filter((h) => h !== handler);
     };
   };
+
   _trace(ns, event, data) {
     this.__traceHandlers.forEach(async (handler) => {
       try {
@@ -552,13 +563,16 @@ export default class Reactor {
 
   _handleReceiveError(msg) {
     const eventId = msg["client-event-id"];
-    if (this.__eventDebug[eventId]) {
-      this.__eventDebug[eventId].error = true;
-    }
+
     const prevMutation = this.pendingMutations.currentValue.get(eventId);
     const errorMessage = {
       message: msg.message || "Uh-oh, something went wrong. Ping Joe & Stopa.",
     };
+
+    if (this.__eventDebug[eventId]) {
+      this.__eventDebug[eventId].error = true;
+      errorMessage.__debug = this.__eventDebug[eventId];
+    }
 
     if (prevMutation) {
       // This must be a transaction error
@@ -640,7 +654,7 @@ export default class Reactor {
 
   _startQuerySub(q, hash) {
     const eventId = uuid();
-    this.__eventDebug[eventId] = { sent: false };
+    this.__eventDebug[eventId] = { eventId };
     this.querySubs.set((prev) => {
       prev[hash] = prev[hash] || { q, result: null, eventId };
       return prev;
@@ -693,10 +707,13 @@ export default class Reactor {
     this.queryOnceDfds[hash] = this.queryOnceDfds[hash] ?? [];
     this.queryOnceDfds[hash].push({ q, dfd, eventId });
 
-    setTimeout(
-      () => dfd.reject(new Error("Query timed out")),
-      QUERY_ONCE_TIMEOUT,
-    );
+    const error = new Error("Query timed out");
+    if (this.__eventDebug[eventId]) {
+      // @ts-expect-error
+      error.__debug = this.__eventDebug[eventId];
+    }
+
+    setTimeout(() => dfd.reject(error), QUERY_ONCE_TIMEOUT);
 
     return dfd.promise;
   }
@@ -939,7 +956,7 @@ export default class Reactor {
    */
   pushOps = (txSteps, error) => {
     const eventId = uuid();
-    this.__eventDebug[eventId] = { sent: false };
+    this.__eventDebug[eventId] = { eventId };
     const mutation = {
       op: "transact",
       "tx-steps": txSteps,
