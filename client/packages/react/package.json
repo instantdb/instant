@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/react",
-  "version": "v0.14.12",
+  "version": "v0.14.13",
   "description": "Instant DB for React",
   "main": "dist/index.js",
   "module": "dist/module/index.js",
