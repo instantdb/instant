@@ -289,7 +289,6 @@
     (contains? (get-room-session-ids store-v app-id room-id) sess-id)))
 
 (defn run-op [app-id hz-op regular-op]
-  (tool/def-locals)
   ;; Always run the regular op in case we disable hazelcast for the app
   (regular-op)
 
