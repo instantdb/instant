@@ -1,7 +1,6 @@
 (ns instant.reactive.ephemeral
   "Handles our ephemeral data apis for a session (presence, cursors)"
   (:require
-   [tool]
    [clojure.core.async :as a]
    [clojure.edn :as edn]
    [clojure.set :as set]
@@ -25,10 +24,11 @@
 ;; Setup
 
 (declare room-refresh-ch)
-;; Channel we use to keep the hazelcast maps in sync for
-;; apps that aren't using hazelcast while we're testing
 (defonce refresh-map-ch (a/chan 1024))
-(defonce hz-map-ops-ch (a/chan))
+;; Channel we use to keep the hazelcast maps in sync for
+;; apps that aren't using hazelcast. This can go away when
+;; we fully migrate to hazelcast
+(defonce hz-ops-ch (a/chan))
 
 (def refresh-timeout-ms 500)
 
@@ -141,8 +141,8 @@
                                                      :room-id room-id
                                                      :data snapshot})))
 
-(defn straight-jacket-refresh-event! [store-conn
-                                      {:keys [hz-map room-id on-sent] :as event}]
+(defn straight-jacket-refresh-event!
+  [store-conn {:keys [hz-map room-id on-sent]}]
   (try
     (let [fut (ua/vfuture (handle-refresh-event store-conn
                                                 hz-map
@@ -221,23 +221,26 @@
                    listener
                    (assoc-in [:maps map-name :listener] listener))))))))
 
-(defn reset-room-listeners! []
+(defn reset-room-listeners!
+  "Debug function if you change the definition of add-map-listener and want to
+   update maps to use the new function. Useful in dev."
+  []
   (doseq [[k {:keys [listener]}] (:maps @room-maps)]
     ;; cleanup old listener
     (listener)
     (let [m (.getMap @hz k)
-          {:keys [app-id room-id]} (edn/read-string (.getName m))
-          res (swap! room-maps
-                     assoc-in
-                     [:maps k :listener]
-                     (add-map-listener m app-id room-id))])))
+          {:keys [app-id room-id]} (edn/read-string (.getName m))]
+      (swap! room-maps
+             assoc-in
+             [:maps k :listener]
+             (add-map-listener m app-id room-id)))))
 
 (defn get-hz-map [app-id room-id]
   (.getMap @hz (pr-str {:app-id app-id :room-id room-id})))
 
 (defn push-hz-sync-op [f]
   (try
-    (a/put! hz-map-ops-ch f)
+    (a/put! hz-ops-ch f)
     (catch Throwable e
       (tracer/record-exception-span! e {:name "ephemeral/push-hz-sync-op-err"}))))
 
@@ -245,7 +248,8 @@
   (swap! room-maps disj-in [:sessions sess-id] hz-map)
   (.remove hz-map sess-id)
   ;; We add the locking to prevent a race condition on registering the map
-  ;; while it's being destroyed.
+  ;; while it's being destroyed. This may still be a race with other machines,
+  ;; but I wasn't able to trigger one locally.
   (locking (.getName hz-map)
     (when (.isEmpty hz-map)
       (.destroy hz-map)
@@ -402,18 +406,18 @@
   (def ephemeral-store-atom (atom {}))
   (def room-refresh-ch (a/chan (a/sliding-buffer 1)))
   (def refresh-map-ch (a/chan 1024))
-  (def hz-map-ops-ch (a/chan))
+  (def hz-ops-ch (a/chan))
 
   (start-hz)
   (ua/fut-bg (start-refresh-worker rs/store-conn ephemeral-store-atom room-refresh-ch))
-  (dotimes [x 32]
+  (dotimes [_ 32]
     (ua/vfut-bg (start-refresh-map-worker rs/store-conn refresh-map-ch)))
-  (ua/fut-bg (start-hz-sync hz-map-ops-ch)))
+  (ua/fut-bg (start-hz-sync hz-ops-ch)))
 
 (defn stop []
   (a/close! room-refresh-ch)
   (a/close! refresh-map-ch)
-  (a/close! hz-map-ops-ch))
+  (a/close! hz-ops-ch))
 
 (defn restart []
   (stop)
