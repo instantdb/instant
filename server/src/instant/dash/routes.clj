@@ -20,7 +20,7 @@
             [instant.model.instant-oauth-redirect :as instant-oauth-redirect-model]
             [instant.db.model.attr :as attr-model]
             [instant.db.model.transaction :as transaction-model]
-            [instant.flags :refer [admin-email?]]
+            [instant.flags :refer [admin-email?] :as flags]
             [instant.model.rule :as rule-model]
             [instant.model.instant-profile :as instant-profile-model]
             [instant.model.instant-subscription :as instant-subscription-model]
@@ -675,7 +675,8 @@
           "cancel_url" (str (config/stripe-cancel-url) "&app=" app-id)
           "customer" customer-id
           "metadata" metadata
-          "allow_promotion_codes" (admin-email? user-email)
+          "allow_promotion_codes" (or (flags/promo-code-email? user-email)
+                                      (admin-email? user-email))
           "subscription_data" {"metadata" metadata
                                "description" description
                                "billing_cycle_anchor"

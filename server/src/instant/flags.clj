@@ -12,7 +12,8 @@
             :storage-whitelist {}
             :team-emails {}
             :test-emails {}
-            :view-checks {}})
+            :view-checks {}
+            :promo-emails {}})
 
 (def queries [query])
 
@@ -43,6 +44,15 @@
                (when (get o "isEnabled")
                  (get o "appId")))
              (get-in @query-results [query :result "storage-whitelist"]))))
+
+(defn promo-code-emails []
+  (set (keep (fn [o]
+               (get o "email"))
+             (get-in @query-results [query :result "promo-emails"]))))
+
+(defn promo-code-email? [email]
+  (contains? (promo-code-emails)
+             email))
 
 (defn storage-enabled? [app-id]
   (let [app-id (str app-id)]
