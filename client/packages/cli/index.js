@@ -276,6 +276,26 @@ async function pullSchema(appIdOrName) {
 
   if (!pullRes.ok) return;
 
+  const hasEnvFile = await pathExists(join(pkgDir, ".env"));
+  if (!hasEnvFile) {
+    const ok = await promptOk(
+      "No .env file detected, would you like to create one so you can push updates to schema and perms?",
+    );
+
+    if (ok) {
+      await writeFile(
+        join(pkgDir, ".env"),
+        `INSTANT_APP_ID=${appId}`,
+        "utf-8",
+      );
+      console.log(
+        `Created .env file with INSTANT_APP_ID=${appId} in ${pkgDir}`,
+      );
+    } else {
+      console.log("No .env file created. If you plan to push updates, please create one.");
+    }
+  }
+
   if (
     !countEntities(pullRes.data.schema.refs) &&
     !countEntities(pullRes.data.schema.blobs)
