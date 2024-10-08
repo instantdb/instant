@@ -10,6 +10,10 @@ function nextId() {
 function Page() {
   const [pages, setPages] = useState([
     { port: 8888, id: nextId() },
+    { port: 8888, id: nextId() },
+    { port: 8888, id: nextId() },
+    { port: 8889, id: nextId() },
+    { port: 8889, id: nextId() },
     { port: 8889, id: nextId() },
   ]);
 

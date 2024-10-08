@@ -5,7 +5,6 @@
    [clojure.core.async :as a]
    [clojure.edn :as edn]
    [clojure.set :as set]
-   [clojure.string :as string]
    [instant.config :as config]
    [instant.flags :as flags]
    [instant.reactive.store :as rs]
@@ -39,6 +38,7 @@
         join-config (.getJoin network-config)
         tcp-ip-config (.getTcpIpConfig join-config)
         aws-config (.getAwsConfig join-config)]
+    (.setInstanceName config "instant-hz")
     (.setEnabled (.getMulticastConfig join-config) false)
     (if (= :prod (config/get-env))
       ;; XXX: Don't forget to allow incoming on 5701 from same security group
@@ -46,24 +46,17 @@
       ;; XXX: Need to configure placement group and see if it works
       (let [ip (aws-util/get-instance-ip)]
         (.setPublicAddress network-config ip)
-        ;; XXX: Do we need both of these or just one?
-        (.addInterface (.setEnabled (.getInterfaces (.getNetworkConfig (Config.)))
-                                    true)
-                       ip)
         (-> aws-config
             (.setEnabled true)
             (.setProperty "hz-port" "5701")
             (.setProperty "tag-key" aws-util/environment-tag-name)
-            (.setProperty "tag-value" (aws-util/get-environment-tag))
-            ;; XXX: Do we need the security-group-name?
-            ;;(.setProperty "security-group-name" (get-security-group))
-            ))
+            (.setProperty "tag-value" (aws-util/get-environment-tag))))
       (do
         (.setEnabled tcp-ip-config true)
         (.setMembers tcp-ip-config (list "127.0.0.1"))))
 
     (.setClusterName config "instant-server")
-    (Hazelcast/newHazelcastInstance config)))
+    (Hazelcast/getOrCreateHazelcastInstance config)))
 
 (defonce hz (delay (init-hz)))
 
@@ -137,30 +130,37 @@
 (defn map-snapshot [hz-map]
   ;; This is significantly faster than (into {} hz-map)
   ;; There may be more optimizations available
-  (select-keys hz-map (.keySet hz-map)))
+  (into {} (.entrySet hz-map)))
 
-;; XXX: Need some kind of timeout
 (defn handle-refresh-event [store-conn hz-map room-id]
-  (tool/def-locals)
   (let [snapshot (map-snapshot hz-map)
         session-ids (filter (fn [sess-id]
                               (rs/get-session @store-conn sess-id))
                             (keys snapshot))]
-    (tool/def-locals)
     (rs/try-broadcast-event! store-conn session-ids {:op :refresh-presence
                                                      :room-id room-id
                                                      :data snapshot})))
 
+(defn straight-jacket-refresh-event! [store-conn
+                                      {:keys [hz-map room-id on-sent] :as event}]
+  (try
+    (let [fut (ua/vfuture (handle-refresh-event store-conn
+                                                hz-map
+                                                room-id))
+          ret (deref fut refresh-timeout-ms :timeout)]
+      (when (= :timeout ret)
+        (future-cancel fut)
+        (ex/throw-operation-timeout! :refresh-rooms refresh-timeout-ms)))
+    (catch Throwable t
+      (tracer/record-exception-span! t {:name "rooms-refresh-map/straight-jacket"}))
+    (finally (on-sent))))
+
 (defn start-refresh-map-worker [store-conn ch]
-  (loop [{:keys [hz-map room-id on-sent] :as v} (a/<!! ch)]
-    (if (nil? v)
+  (loop [event (a/<!! ch)]
+    (if (nil? event)
       (tracer/record-info! {:name "room-refresh-map/closed"})
       (do
-        (try
-          (handle-refresh-event store-conn hz-map room-id)
-          (catch Throwable t
-            (tracer/record-exception-span! t {:name "rooms-refresh-map/straight-jacket"}))
-          (finally (on-sent)))
+        (straight-jacket-refresh-event! store-conn event)
         (recur (a/<!! ch))))))
 
 (defn add-map-listener
@@ -206,30 +206,31 @@
 ;; (set! *warn-on-reflection* false)
 
 (defn register-room-map [m app-id room-id sess-id]
-  (let [map-name (.getName m)
-        res
+  (let [map-name (.getName m)]
+    ;; Use locking to ensure that we only create one listener
+    ;; for the app and that we don't get a race condition when
+    ;; we destroy the map after the last person leaves.
+    (locking map-name
+      (let [listener (when (not (get-in @room-maps [:maps map-name :listener]))
+                       (add-map-listener m app-id room-id))]
         (swap! room-maps
                (fn [maps]
                  (cond-> maps
                    true (update-in [:sessions sess-id] (fnil conj #{}) m)
-                   (not (get-in maps [:maps map-name :listener]))
-                   ;; Use the delay to ensure we only create one listener per map,
-                   ;; even if swap has to retry
-                   (assoc-in [:maps map-name :listener]
-                             (delay (add-map-listener m app-id room-id))))))]
-    @(get-in res [:maps map-name :listener])))
+
+                   listener
+                   (assoc-in [:maps map-name :listener] listener))))))))
 
 (defn reset-room-listeners! []
   (doseq [[k {:keys [listener]}] (:maps @room-maps)]
     ;; cleanup old listener
-    (@listener)
+    (listener)
     (let [m (.getMap @hz k)
           {:keys [app-id room-id]} (edn/read-string (.getName m))
           res (swap! room-maps
                      assoc-in
                      [:maps k :listener]
-                     (delay (add-map-listener m app-id room-id)))]
-      @(get-in res [:maps k :listener]))))
+                     (add-map-listener m app-id room-id))])))
 
 (defn get-hz-map [app-id room-id]
   (.getMap @hz (pr-str {:app-id app-id :room-id room-id})))
@@ -239,6 +240,18 @@
     (a/put! hz-map-ops-ch f)
     (catch Throwable e
       (tracer/record-exception-span! e {:name "ephemeral/push-hz-sync-op-err"}))))
+
+(defn remove-session [hz-map sess-id]
+  (swap! room-maps disj-in [:sessions sess-id] hz-map)
+  (.remove hz-map sess-id)
+  ;; We add the locking to prevent a race condition on registering the map
+  ;; while it's being destroyed.
+  (locking (.getName hz-map)
+    (when (.isEmpty hz-map)
+      (.destroy hz-map)
+      (when-let [cleanup (get-in @room-maps [:maps (.getName hz-map) :listener])]
+        (cleanup)
+        (swap! room-maps dissoc-in [:maps (.getName hz-map)])))))
 
 ;; ----------
 ;; Public API
@@ -306,9 +319,8 @@
 
 (defn leave-room! [store-atom app-id sess-id room-id]
   (let [hz-op (fn []
-                ;; XXX: Need something to clear the map if we don't care about it any more
-                ;;      If the map is empty, stop watching it.
-                (.remove (get-hz-map app-id room-id) sess-id))
+                (let [hz-map (get-hz-map app-id room-id)]
+                  (remove-session hz-map sess-id)))
         regular-op (fn []
                      (swap! store-atom leave-room app-id sess-id room-id))]
     (run-op app-id hz-op regular-op)))
@@ -327,14 +339,13 @@
 
 (defn leave-by-session-id! [store-atom app-id sess-id]
   (let [hz-op (fn []
-                (doseq [m (get-in @room-maps [:sessions sess-id])]
-                  (.remove m sess-id))
-                (swap! room-maps dissoc-in [:sessions sess-id]))
+                (doseq [hz-map (get-in @room-maps [:sessions sess-id])]
+                  (remove-session hz-map sess-id)))
         regular-op (fn []
                      (swap! store-atom leave-by-session-id app-id sess-id))]
     (run-op app-id hz-op regular-op)))
 
-;; ------
+;; --------------
 ;; Refresh Worker
 
 (defn refresh-rooms! [store-conn old-v new-v]
@@ -378,16 +389,25 @@
 
 (declare ephemeral-store-atom)
 
+(defn start-hz []
+  (let [result (deref (future @hz) (* 60 1000) :timeout)]
+    (when (= result :timeout)
+      (alter-var-root #'flags/use-hazelcast? (fn [_] (constantly false)))
+      (alter-var-root #'flags/hazelcast-disabled? (fn [_] (constantly true)))
+      (tracer/record-exception-span!
+       (Exception. "Hazelcast timed out while loading")
+       {:name "ephemeral/hazelcast-load-timeout"}))))
+
 (defn start []
   (def ephemeral-store-atom (atom {}))
   (def room-refresh-ch (a/chan (a/sliding-buffer 1)))
   (def refresh-map-ch (a/chan 1024))
   (def hz-map-ops-ch (a/chan))
 
-  ;; XXX: This needs a timeout
-  @hz
+  (start-hz)
   (ua/fut-bg (start-refresh-worker rs/store-conn ephemeral-store-atom room-refresh-ch))
-  (ua/fut-bg (start-refresh-map-worker rs/store-conn refresh-map-ch))
+  (dotimes [x 32]
+    (ua/vfut-bg (start-refresh-map-worker rs/store-conn refresh-map-ch)))
   (ua/fut-bg (start-hz-sync hz-map-ops-ch)))
 
 (defn stop []
