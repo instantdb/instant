@@ -18,7 +18,6 @@
 (def FREE_SUBSCRIPTION_TYPE 1)
 (def PRO_SUBSCRIPTION_TYPE 2)
 
-
 (defn pro-plan? [{:keys [name]}]
   (= name "Pro"))
 
@@ -37,7 +36,6 @@
              <p>Email: " email "</p>
              <p>Woohoo! Send them a ping as a token of appreciation!</p>
            </div>")})))
-
 
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
