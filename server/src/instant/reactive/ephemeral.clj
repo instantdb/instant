@@ -7,66 +7,31 @@
    [clojure.set :as set]
    [clojure.string :as string]
    [instant.config :as config]
+   [instant.flags :as flags]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
+   [instant.util.aws :as aws-util]
    [instant.util.exception :as ex]
    [instant.util.tracer :as tracer]
-   [medley.core :refer [dissoc-in]]
-   [clj-http.client :as clj-http]
-   [amazonica.aws.ec2 :as ec2])
+   [medley.core :refer [dissoc-in]])
   (:import
    (com.hazelcast.config Config)
    (com.hazelcast.core Hazelcast)
    (com.hazelcast.map.listener EntryAddedListener
                                EntryRemovedListener
-                               EntryUpdatedListener)))
+                               EntryUpdatedListener)
+   (java.util.function BiFunction)))
 
 ;; ------
 ;; Setup
 
 (declare room-refresh-ch)
+;; Channel we use to keep the hazelcast maps in sync for
+;; apps that aren't using hazelcast while we're testing
+(defonce refresh-map-ch (a/chan 1024))
+(defonce hz-map-ops-ch (a/chan))
 
 (def refresh-timeout-ms 500)
-
-(def tag-name "elasticbeanstalk:environment-name")
-(defn get-tag []
-  (let [token (-> (clj-http/put
-                   "http://169.254.169.254/latest/api/token"
-                   {:headers {"X-aws-ec2-metadata-token-ttl-seconds" "21600"}})
-                  :body)
-        instance-id (-> (clj-http.client/get
-                         "http://169.254.169.254/latest/meta-data/instance-id"
-                         {:headers {"X-aws-ec2-metadata-token" token}})
-                        :body)]
-    (->> (ec2/describe-instances {:instance-ids [instance-id]})
-         :reservations
-         first
-         :instances
-         first
-         :tags
-         (filter (fn [t] (= (:key t) tag-name)))
-         first
-         :value)))
-
-(defn get-security-group []
-  (let [token (-> (clj-http/put
-                   "http://169.254.169.254/latest/api/token"
-                   {:headers {"X-aws-ec2-metadata-token-ttl-seconds" "21600"}})
-                  :body)]
-    (-> (clj-http.client/get
-         "http://169.254.169.254/latest/meta-data/security-groups"
-         {:headers {"X-aws-ec2-metadata-token" token}})
-        :body)))
-
-(defn get-ip []
-  (let [token (-> (clj-http/put
-                   "http://169.254.169.254/latest/api/token"
-                   {:headers {"X-aws-ec2-metadata-token-ttl-seconds" "21600"}})
-                  :body)]
-    (-> (clj-http.client/get
-         "http://169.254.169.254/latest/meta-data/local-ipv4"
-         {:headers {"X-aws-ec2-metadata-token" token}})
-        :body)))
 
 (defn init-hz []
   (let [config (Config.)
@@ -79,18 +44,20 @@
       ;; XXX: Don't forget to allow incoming on 5701 from same security group
       ;; XXX: Need to put all instances in same az
       ;; XXX: Need to configure placement group and see if it works
-      (do
-        (.setPublicAddress network-config (get-ip))
+      (let [ip (aws-util/get-instance-ip)]
+        (.setPublicAddress network-config ip)
+        ;; XXX: Do we need both of these or just one?
         (.addInterface (.setEnabled (.getInterfaces (.getNetworkConfig (Config.)))
                                     true)
-                       (get-ip))
+                       ip)
         (-> aws-config
             (.setEnabled true)
-            (.setProperty "tag-key" tag-name)
-            (.setProperty "tag-value" (get-tag))
-            (.setProperty "security-group-name" (get-security-group))
-
-            (.setProperty "hz-port" "5701")))
+            (.setProperty "hz-port" "5701")
+            (.setProperty "tag-key" aws-util/environment-tag-name)
+            (.setProperty "tag-value" (aws-util/get-environment-tag))
+            ;; XXX: Do we need the security-group-name?
+            ;;(.setProperty "security-group-name" (get-security-group))
+            ))
       (do
         (.setEnabled tcp-ip-config true)
         (.setMembers tcp-ip-config (list "127.0.0.1"))))
@@ -99,6 +66,17 @@
     (Hazelcast/newHazelcastInstance config)))
 
 (defonce hz (delay (init-hz)))
+
+(defn start-hz-sync
+  "Temporary function that syncs apps not using hazelcast
+   to hazelcast maps so that they won't lose data if we switch them over."
+  [ch]
+  (loop [f (a/<!! ch)]
+    (when f
+      (try (f)
+           (catch Exception e
+             (tracer/record-exception-span! e {:name "ephemeral/hz-sync"})))
+      (recur (a/<!! ch)))))
 
 ;; ------
 ;; State
@@ -149,87 +127,85 @@
   [store-v app-id sess-id room-id data]
   (assoc-in store-v [:rooms app-id room-id :data sess-id :data] data))
 
-;; ----------
-;; Public API
-
-(defn get-changed-rooms
-  "Collects new/updated rooms."
-  [old-rooms new-rooms]
-  (let [app-ids (set/union (set (keys old-rooms)) (set (keys new-rooms)))]
-    (reduce (fn [acc app-id]
-              (let [old-app-rooms (get old-rooms app-id {})
-                    new-app-rooms (get new-rooms app-id {})]
-                (reduce-kv (fn [acc room-id data]
-                             (if (not= (get old-app-rooms room-id) data)
-                               (conj acc [room-id data])
-                               acc))
-                           acc
-                           new-app-rooms)))
-            []
-            app-ids)))
-
-(defn get-room-session-ids [store-v app-id room-id]
-  (get-in store-v [:rooms app-id room-id :session-ids]))
-
-(defn in-room?
-  "Returns whether a session is part of a room."
-  [store-v app-id room-id sess-id]
-  ;; XXX
-  (contains? (get-room-session-ids store-v app-id room-id) sess-id))
+;; ---------
+;; Hazelcast
 
 ;; XXX: Need something so that we can stop watching a room once all of
 ;;      our sessions stop caring about it.
 (defonce room-maps (atom {}))
-(defonce refresh-map-ch (a/chan))
+
+(defn map-snapshot [hz-map]
+  ;; This is significantly faster than (into {} hz-map)
+  ;; There may be more optimizations available
+  (select-keys hz-map (.keySet hz-map)))
 
 ;; XXX: Need some kind of timeout
-(defn handle-refresh-event [store-conn m]
-  (let [snapshot (select-keys m (.keySet m))
-        session-ids (keys snapshot)
-        room-id (-> (.getName m)
-                    edn/read-string
-                    :room-id)]
-
+(defn handle-refresh-event [store-conn hz-map room-id]
+  (tool/def-locals)
+  (let [snapshot (map-snapshot hz-map)
+        session-ids (filter (fn [sess-id]
+                              (rs/get-session @store-conn sess-id))
+                            (keys snapshot))]
     (tool/def-locals)
     (rs/try-broadcast-event! store-conn session-ids {:op :refresh-presence
                                                      :room-id room-id
-                                                     :data snapshot
-                                                     :__machine-id @config/process-id})))
+                                                     :data snapshot})))
 
 (defn start-refresh-map-worker [store-conn ch]
-  (loop [m (a/<!! ch)]
-    (if (nil? m)
+  (loop [{:keys [hz-map room-id on-sent] :as v} (a/<!! ch)]
+    (if (nil? v)
       (tracer/record-info! {:name "room-refresh-map/closed"})
-      (do (try (handle-refresh-event store-conn m)
-               (catch Throwable t
-                 (tracer/record-exception-span! t {:name "rooms-refresh-map/straight-jacket"})))
-          (recur (a/<!! ch))))))
+      (do
+        (try
+          (handle-refresh-event store-conn hz-map room-id)
+          (catch Throwable t
+            (tracer/record-exception-span! t {:name "rooms-refresh-map/straight-jacket"}))
+          (finally (on-sent)))
+        (recur (a/<!! ch))))))
 
-(defn handle-event [m ch event]
-  (a/put! ch m))
+(defn add-map-listener
+  "Creates a listener on the map that will publish messages to the refresh-map-ch
+   on changes.
+   Returns a cleanup function."
+  [m app-id room-id]
+  (let [ch (a/chan (a/sliding-buffer 1))
+        listener (reify
+                   EntryAddedListener
+                   (entryAdded [_ event]
+                     (a/put! ch event))
+                   EntryRemovedListener
+                   (entryRemoved [_ event]
+                     (a/put! ch event))
+                   EntryUpdatedListener
+                   (entryUpdated [_ event]
+                     (a/put! ch event)))]
 
-(defn make-listener [m]
-  (let [ch (a/chan (a/sliding-buffer 1))]
-    ;; Probably a better way to do this?
-    (ua/vfuture (loop [m (a/<!! ch)]
-                  (when m
-                    (a/>!! refresh-map-ch m)
+    ;; Background process that moves events from the listener
+    ;; to the channel that will broadcast the updates
+    (ua/vfuture (loop [event (a/<!! ch)]
+                  (when event
+                    (when (flags/use-hazelcast? app-id)
+                      (let [complete-ch (a/chan)]
+                        (a/>!! refresh-map-ch
+                               {:hz-map m
+                                :room-id room-id
+                                :on-sent (fn [] (a/close! complete-ch))})
+                        ;; Prevent overwhelming the refresh channel.
+                        ;; We'll wait until this event has been
+                        ;; broadcast before broadcasting the next event,
+                        ;; dropping all but the latest update.
+                        (a/<!! complete-ch)))
                     (recur (a/<!! ch)))))
-    (reify
-      EntryAddedListener
-      (entryAdded [_ event]
-        (handle-event m ch event))
-      EntryRemovedListener
-      (entryRemoved [_ event]
-        (handle-event m ch event))
-      EntryUpdatedListener
-      (entryUpdated [_ event]
-        (handle-event m ch event)))))
+
+    (let [listener-id (.addEntryListener m listener true)]
+      (fn []
+        (.removeEntryListener m listener-id)
+        (a/close! ch)))))
 
 ;; XXX: check reflection warnings
 ;; (set! *warn-on-reflection* false)
 
-(defn register-room-map [m sess-id]
+(defn register-room-map [m app-id room-id sess-id]
   (let [map-name (.getName m)
         res
         (swap! room-maps
@@ -240,53 +216,123 @@
                    ;; Use the delay to ensure we only create one listener per map,
                    ;; even if swap has to retry
                    (assoc-in [:maps map-name :listener]
-                             (delay
-                               (.addEntryListener m
-                                                  (make-listener m)
-                                                  true))))))]
+                             (delay (add-map-listener m app-id room-id))))))]
     @(get-in res [:maps map-name :listener])))
 
-(defn map-id [app-id room-id]
-  (pr-str {:app-id app-id :room-id room-id}))
+(defn reset-room-listeners! []
+  (doseq [[k {:keys [listener]}] (:maps @room-maps)]
+    ;; cleanup old listener
+    (@listener)
+    (let [m (.getMap @hz k)
+          {:keys [app-id room-id]} (edn/read-string (.getName m))
+          res (swap! room-maps
+                     assoc-in
+                     [:maps k :listener]
+                     (delay (add-map-listener m app-id room-id)))]
+      @(get-in res [:maps k :listener]))))
 
-;; XXX: Use a flag to determine whether to use hz
+(defn get-hz-map [app-id room-id]
+  (.getMap @hz (pr-str {:app-id app-id :room-id room-id})))
+
+(defn push-hz-sync-op [f]
+  (try
+    (a/put! hz-map-ops-ch f)
+    (catch Throwable e
+      (tracer/record-exception-span! e {:name "ephemeral/push-hz-sync-op-err"}))))
+
+;; ----------
+;; Public API
+
+(defn get-changed-rooms
+  "Collects new/updated rooms."
+  [old-rooms new-rooms]
+  (let [app-ids (set/union (set (keys old-rooms)) (set (keys new-rooms)))]
+    (reduce (fn [acc app-id]
+              (if (flags/use-hazelcast? app-id)
+                acc
+                (let [old-app-rooms (get old-rooms app-id {})
+                      new-app-rooms (get new-rooms app-id {})]
+                  (reduce-kv (fn [acc room-id data]
+                               (if (not= (get old-app-rooms room-id) data)
+                                 (conj acc [room-id data])
+                                 acc))
+                             acc
+                             new-app-rooms))))
+            []
+            app-ids)))
+
+(defn get-room-session-ids [store-v app-id room-id]
+  (get-in store-v [:rooms app-id room-id :session-ids]))
+
+(defn in-room?
+  "Returns whether a session is part of a room."
+  [store-v app-id room-id sess-id]
+  (if (flags/use-hazelcast? app-id)
+    (.containsKey (get-hz-map app-id room-id) sess-id)
+    (contains? (get-room-session-ids store-v app-id room-id) sess-id)))
+
+(defn run-op [app-id hz-op regular-op]
+  (tool/def-locals)
+  ;; Always run the regular op in case we disable hazelcast for the app
+  (regular-op)
+
+  (when-not (flags/use-hazelcast? app-id)
+    (a/>!! room-refresh-ch :refresh))
+
+  (cond (flags/use-hazelcast? app-id)
+        (hz-op)
+
+        ;; If we're not using hazelcast, put the op in a queue
+        ;; to be applied in case we enable hazelcast for the app
+        (not (flags/hazelcast-disabled?))
+        (push-hz-sync-op hz-op)))
+
+;; XXX: What happens if a user reconnects, do they always call join-room?
 (defn join-room! [store-atom app-id sess-id current-user room-id]
-  ;;(tool/def-locals)
-  (let [hz-map (.getMap @hz (map-id app-id room-id))]
-    (register-room-map hz-map sess-id)
-    (.put hz-map sess-id {:peer-id sess-id
-                          :user (when current-user
-                                  {:id (:id current-user)})
-                          :data {}}))
-  (when-not (contains? (get-room-session-ids @store-atom app-id room-id) sess-id)
-    (swap! store-atom join-room app-id sess-id current-user room-id)
-    ;;(a/>!! room-refresh-ch :refresh)
-    ))
+  (let [hz-op (fn []
+                (let [hz-map (get-hz-map app-id room-id)]
+                  (register-room-map hz-map app-id room-id sess-id)
+                  (.putIfAbsent hz-map sess-id {:peer-id sess-id
+                                                :user (when current-user
+                                                        {:id (:id current-user)})
+                                                :data {}})))
+        regular-op
+        (fn []
+          (when-not (contains? (get-room-session-ids @store-atom app-id room-id)
+                               sess-id)
+            (swap! store-atom join-room app-id sess-id current-user room-id)))]
+
+    (run-op app-id hz-op regular-op)))
 
 (defn leave-room! [store-atom app-id sess-id room-id]
-  (let [hz-map (.getMap @hz (map-id app-id room-id))]
-    ;; XXX: Need something to clear the map if we don't care about it any more
-    ;;      If the map is empty, stop watching it.
-    (.remove hz-map sess-id))
-  (swap! store-atom leave-room app-id sess-id room-id)
-  ;;(a/>!! room-refresh-ch :refresh)
-  )
+  (let [hz-op (fn []
+                ;; XXX: Need something to clear the map if we don't care about it any more
+                ;;      If the map is empty, stop watching it.
+                (.remove (get-hz-map app-id room-id) sess-id))
+        regular-op (fn []
+                     (swap! store-atom leave-room app-id sess-id room-id))]
+    (run-op app-id hz-op regular-op)))
 
 (defn set-presence! [store-atom app-id sess-id room-id data]
-  (let [hz-map (.getMap @hz (map-id app-id room-id))]
-    (.put hz-map sess-id (merge (.get hz-map sess-id)
-                                {:data data})))
-  (swap! store-atom set-presence app-id sess-id room-id data)
-  ;;(a/>!! room-refresh-ch :refresh)
-  )
+  (let [hz-op (fn []
+                (.merge (get-hz-map app-id room-id)
+                        sess-id
+                        {:data data}
+                        (reify BiFunction
+                          (apply [_ x y]
+                            (merge x y)))))
+        regular-op (fn []
+                     (swap! store-atom set-presence app-id sess-id room-id data))]
+    (run-op app-id hz-op regular-op)))
 
 (defn leave-by-session-id! [store-atom app-id sess-id]
-  ;; XXX
-  (swap! store-atom leave-by-session-id app-id sess-id)
-  (doseq [m (get-in @room-maps [:sessions sess-id])]
-    (.remove m sess-id))
-  (swap! room-maps dissoc-in [:sessions sess-id])
-  (a/>!! room-refresh-ch :refresh))
+  (let [hz-op (fn []
+                (doseq [m (get-in @room-maps [:sessions sess-id])]
+                  (.remove m sess-id))
+                (swap! room-maps dissoc-in [:sessions sess-id]))
+        regular-op (fn []
+                     (swap! store-atom leave-by-session-id app-id sess-id))]
+    (run-op app-id hz-op regular-op)))
 
 ;; ------
 ;; Refresh Worker
@@ -335,12 +381,19 @@
 (defn start []
   (def ephemeral-store-atom (atom {}))
   (def room-refresh-ch (a/chan (a/sliding-buffer 1)))
+  (def refresh-map-ch (a/chan 1024))
+  (def hz-map-ops-ch (a/chan))
+
+  ;; XXX: This needs a timeout
   @hz
   (ua/fut-bg (start-refresh-worker rs/store-conn ephemeral-store-atom room-refresh-ch))
-  (ua/fut-bg (start-refresh-map-worker rs/store-conn refresh-map-ch)))
+  (ua/fut-bg (start-refresh-map-worker rs/store-conn refresh-map-ch))
+  (ua/fut-bg (start-hz-sync hz-map-ops-ch)))
 
 (defn stop []
-  (a/close! room-refresh-ch))
+  (a/close! room-refresh-ch)
+  (a/close! refresh-map-ch)
+  (a/close! hz-map-ops-ch))
 
 (defn restart []
   (stop)

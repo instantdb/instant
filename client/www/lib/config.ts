@@ -2,11 +2,11 @@ export const isBrowser = typeof window != 'undefined';
 
 export const isDev = process.env.NODE_ENV === 'development';
 
-export const isTouchDevice =
-  typeof window !== 'undefined' && 'ontouchstart' in window;
+const devBackend = getLocal('devBackend');
 
 let localPort = '8888';
-if (typeof window !== 'undefined') {
+
+if (devBackend && isBrowser) {
   const portOverride = new URL(location.href).searchParams.get('port');
   if (portOverride) {
     localPort = portOverride;
@@ -23,6 +23,9 @@ const config = {
 };
 
 export default config;
+
+export const isTouchDevice =
+  typeof window !== 'undefined' && 'ontouchstart' in window;
 
 const stripeDevKey =
   'pk_test_51P4n0uL5BwOwpxgUk2SqZanKmGf4o8rrxT9Bde4tyHJjGk72L4X2kyiGOX76Jw5KuUFHNgdLPnBwuGgE66SZCMVg00Ib3f21V9';
