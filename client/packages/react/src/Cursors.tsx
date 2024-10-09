@@ -2,6 +2,7 @@ import {
   createElement,
   type ReactNode,
   type MouseEvent,
+  type TouchEvent,
   type CSSProperties,
 } from "react";
 import type { InstantReactRoom } from "./InstantReact";
@@ -45,7 +46,10 @@ export function Cursors<
 
   const fullPresence = room._core._reactor.getPresence(room.type, room.id);
 
-  function publishCursor(rect: DOMRect, touch: MouseEvent | Touch) {
+  function publishCursor(
+    rect: DOMRect,
+    touch: { clientX: number; clientY: number },
+  ) {
     const x = touch.clientX;
     const y = touch.clientY;
     const xPercent = ((x - rect.left) / rect.width) * 100;
