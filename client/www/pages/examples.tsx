@@ -113,7 +113,7 @@ function Main({ files }: { files: File[] }) {
         undefined,
         {
           shallow: true,
-        }
+        },
       );
     }
   }
@@ -219,7 +219,7 @@ function Main({ files }: { files: File[] }) {
             </div>
           </div>
 
-          {files.map((file) => {
+          {files.map((file, i) => {
             return (
               <Example
                 key={file.pathName}
@@ -232,6 +232,7 @@ function Main({ files }: { files: File[] }) {
 
                   setSelectedExample(file.pathName);
                 }}
+                lazy={i > 0}
               />
             );
           })}
@@ -246,10 +247,12 @@ function Example({
   file,
   appId,
   onViewChange,
+  lazy,
 }: {
   file: File;
   appId: string | undefined;
   onViewChange: (inView: boolean) => void;
+  lazy: boolean;
 }) {
   const [numViews, setNumViews] = useState(2);
 
@@ -323,6 +326,7 @@ function Example({
                     <iframe
                       className="flex-1"
                       src={'/examples/' + file.pathName + '?__appId=' + appId}
+                      loading={lazy ? 'lazy' : undefined}
                     />
                   ) : (
                     <div className="flex-1 animate-slow-pulse bg-gray-300"></div>
