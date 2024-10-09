@@ -13,7 +13,8 @@
             :team-emails {}
             :test-emails {}
             :view-checks {}
-            :hazelcast {}})
+            :hazelcast {}
+            :promo-emails {}})
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -69,11 +70,15 @@
                       {:disabled-apps disabled-apps
                        :enabled-apps enabled-apps
                        :default-value default-value
-                       :disabled? disabled?}))]
+                       :disabled? disabled?}))
+        promo-code-emails (set (keep (fn [o]
+                                       (get o "email"))
+                                     (get result "promo-emails")))]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
      :view-check view-check
-     :hazelcast hazelcast}))
+     :hazelcast hazelcast
+     :promo-code-emails promo-code-emails}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -86,6 +91,13 @@
 
 (defn storage-enabled-whitelist []
   (get-in @query-results [query :result :storage-enabled-whitelist]))
+
+(defn promo-code-emails []
+  (get-in @query-results [query :result :promo-code-emails]))
+
+(defn promo-code-email? [email]
+  (contains? (promo-code-emails)
+             email))
 
 (defn storage-enabled? [app-id]
   (let [app-id (str app-id)]
