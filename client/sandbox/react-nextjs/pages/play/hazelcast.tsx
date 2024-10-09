@@ -48,7 +48,6 @@ function Page() {
           {pages.map(({ port, id }) => (
             <div
               key={id}
-              // XXX: min-height
               className="flex w-1/4 flex-grow h-[30vh] bg-white rounded border shadow-sm relative min-h-[250px] min-w-[250px]"
             >
               <iframe
