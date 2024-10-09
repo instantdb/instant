@@ -206,7 +206,7 @@
     ;; Use locking to ensure that we only create one listener
     ;; for the app and that we don't get a race condition when
     ;; we destroy the map after the last person leaves.
-    (locking map-name
+    (locking m
       (let [listener (when (not (get-in @room-maps [:maps map-name :listener]))
                        (add-map-listener m app-id room-id))]
         (swap! room-maps
@@ -246,7 +246,7 @@
   ;; We add the locking to prevent a race condition on registering the map
   ;; while it's being destroyed. This may still be a race with other machines,
   ;; but I wasn't able to trigger one locally.
-  (locking (.getName hz-map)
+  (locking hz-map
     (when (.isEmpty hz-map)
       (.destroy hz-map)
       (when-let [cleanup (get-in @room-maps [:maps (.getName hz-map) :listener])]
