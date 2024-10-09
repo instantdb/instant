@@ -20,5 +20,5 @@ export function getFiles(): File[] {
       .join('\n');
 
     return { fileName, pathName, name, code };
-  }).filter(({fileName})=> fileName === '3-cursors.tsx');
+  });
 }

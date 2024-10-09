@@ -16,10 +16,10 @@ if (devBackend && isBrowser) {
 const config = {
   apiURI: getLocal('devBackend')
     ? `http://localhost:${localPort}`
-    : 'https://api-staging.instantdb.com',
+    : 'https://api.instantdb.com',
   websocketURI: getLocal('devBackend')
     ? `ws://localhost:${localPort}/runtime/session`
-    : 'wss://api-staging.instantdb.com/runtime/session',
+    : 'wss://api.instantdb.com/runtime/session',
 };
 
 export default config;

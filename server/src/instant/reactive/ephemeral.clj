@@ -15,7 +15,7 @@
    [medley.core :refer [dissoc-in]])
   (:import
    (com.hazelcast.config Config)
-   (com.hazelcast.core Hazelcast)
+   (com.hazelcast.core Hazelcast HazelcastInstance)
    (com.hazelcast.map IMap)
    (com.hazelcast.map.listener EntryAddedListener
                                EntryRemovedListener
@@ -61,6 +61,8 @@
     (Hazelcast/getOrCreateHazelcastInstance config)))
 
 (defonce hz (delay (init-hz)))
+(defn get-hz ^HazelcastInstance []
+  @hz)
 
 (defn start-hz-sync
   "Temporary function that syncs apps not using hazelcast
@@ -125,8 +127,6 @@
 ;; ---------
 ;; Hazelcast
 
-;; XXX: Need something so that we can stop watching a room once all of
-;;      our sessions stop caring about it.
 (defonce room-maps (atom {}))
 
 (defn map-snapshot [hz-map]
@@ -204,10 +204,7 @@
         (.removeEntryListener m listener-id)
         (a/close! ch)))))
 
-;; XXX: check reflection warnings
-;; (set! *warn-on-reflection* false)
-
-(defn register-room-map [m app-id room-id sess-id]
+(defn register-room-map [^IMap m app-id room-id sess-id]
   (let [map-name (.getName m)]
     ;; Use locking to ensure that we only create one listener
     ;; for the app and that we don't get a race condition when
@@ -230,15 +227,15 @@
   (doseq [[k {:keys [listener]}] (:maps @room-maps)]
     ;; cleanup old listener
     (listener)
-    (let [m (.getMap @hz k)
+    (let [m (.getMap (get-hz) k)
           {:keys [app-id room-id]} (edn/read-string (.getName m))]
       (swap! room-maps
              assoc-in
              [:maps k :listener]
              (add-map-listener m app-id room-id)))))
 
-(defn get-hz-map [app-id room-id]
-  (.getMap @hz (pr-str {:app-id app-id :room-id room-id})))
+(defn get-hz-map ^IMap [app-id room-id]
+  (.getMap (get-hz) (pr-str {:app-id app-id :room-id room-id})))
 
 (defn push-hz-sync-op [f]
   (try
@@ -246,7 +243,7 @@
     (catch Throwable e
       (tracer/record-exception-span! e {:name "ephemeral/push-hz-sync-op-err"}))))
 
-(defn remove-session [hz-map sess-id]
+(defn remove-session [^IMap hz-map sess-id]
   (swap! room-maps disj-in [:sessions sess-id] hz-map)
   (.remove hz-map sess-id)
   ;; We add the locking to prevent a race condition on registering the map
@@ -263,7 +260,7 @@
   (let [oldest-timestamp (aws-util/oldest-instance-timestamp)]
     (when-not oldest-timestamp
       (throw (Exception. "Could not determine oldest instance timestamp")))
-    (doseq [obj (.getDistributedObjects @hz)
+    (doseq [^IMap obj (.getDistributedObjects ^HazelcastInstance @hz)
             :when (instance? IMap obj)
             :let [{:keys [app-id room-id]} (try (edn/read-string (.getName obj))
                                                 (catch Throwable _t nil))]
@@ -325,7 +322,6 @@
         (not (flags/hazelcast-disabled?))
         (push-hz-sync-op hz-op)))
 
-;; XXX: What happens if a user reconnects, do they always call join-room?
 (defn join-room! [store-atom app-id sess-id current-user room-id]
   (let [hz-op (fn []
                 (let [hz-map (get-hz-map app-id room-id)]
