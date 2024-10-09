@@ -454,9 +454,9 @@ export default class Reactor {
         const joinedRoom = this._rooms[loadingRoomId];
 
         if (!joinedRoom) {
-          if (this._roomsPendingLeave[roomId]) {
+          if (this._roomsPendingLeave[loadingRoomId]) {
             this._tryLeaveRoom(loadingRoomId);
-            delete this._roomsPendingLeave[roomId];
+            delete this._roomsPendingLeave[loadingRoomId];
           }
 
           break;
