@@ -146,7 +146,7 @@ const updateNick = (newNick, currentUser) => {
 }
 ```
 
-If attr creation on the client [is enabled](/docs/permissions#attrs) is enabled,
+If attr creation on the client [is enabled](/docs/permissions#attrs),
 you can also create new links without having to define them in the schema. In
 this case remember that the `$users` namespace is read-only and you can only add
 links to `$users` and not from `$users`.
