@@ -4,6 +4,7 @@
    [clojure.core.async :as a]
    [clojure.edn :as edn]
    [clojure.set :as set]
+   [datascript.core :refer [squuid-time-millis]]
    [instant.config :as config]
    [instant.flags :as flags]
    [instant.reactive.store :as rs]
@@ -15,6 +16,7 @@
   (:import
    (com.hazelcast.config Config)
    (com.hazelcast.core Hazelcast)
+   (com.hazelcast.map IMap)
    (com.hazelcast.map.listener EntryAddedListener
                                EntryRemovedListener
                                EntryUpdatedListener)
@@ -256,6 +258,26 @@
       (when-let [cleanup (get-in @room-maps [:maps (.getName hz-map) :listener])]
         (cleanup)
         (swap! room-maps dissoc-in [:maps (.getName hz-map)])))))
+
+(defn clean-old-sessions []
+  (let [oldest-timestamp (aws-util/oldest-instance-timestamp)]
+    (when-not oldest-timestamp
+      (throw (Exception. "Could not determine oldest instance timestamp")))
+    (doseq [obj (.getDistributedObjects @hz)
+            :when (instance? IMap obj)
+            :let [{:keys [app-id room-id]} (try (edn/read-string (.getName obj))
+                                                (catch Throwable _t nil))]
+            :when (and app-id room-id)
+            sess-id (.keySet obj)
+            :let [squuid-timestamp (squuid-time-millis sess-id)]
+            :when (< squuid-timestamp oldest-timestamp)]
+      (tracer/with-span! {:name "clean-old-session"
+                          :attributes {:session-id sess-id
+                                       :app-id app-id
+                                       :squuid-timestamp squuid-timestamp}}
+        (remove-session obj sess-id)))))
+
+
 
 ;; ----------
 ;; Public API

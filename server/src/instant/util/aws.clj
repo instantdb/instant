@@ -35,3 +35,14 @@
          "http://169.254.169.254/latest/meta-data/local-ipv4"
          {:headers {"X-aws-ec2-metadata-token" token}})
         :body)))
+
+(defn oldest-instance-timestamp []
+  (some->> (ec2/describe-instances
+            {:filters [{:Name (str "tag:" environment-tag-name)
+                        :Values [(get-environment-tag)]}]})
+           :reservations
+           (mapcat :instances)
+           (map :launch-time)
+           sort
+           first
+           (.getMillis)))
