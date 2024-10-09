@@ -297,7 +297,6 @@
   (reduce (fn [acc op]
             (let [[action etype eid _obj] op]
               (reduce (fn [acc {:keys [etype lookup-pair link-label]}]
-                        (tool/def-locals)
                         (if link-label
                           (-> acc
                               (add-attrs-for-ref-lookup link-label etype)
