@@ -4,8 +4,13 @@
 
 (def environment-tag-name "elasticbeanstalk:environment-name")
 
-(defn get-tag [tag-name]
+(defn get-tag
+  "Gets instance id from the metadata API
+   https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
+   Then fetches the instance info from the aws api to get the tags."
+  [tag-name]
   (let [token (-> (clj-http/put
+
                    "http://169.254.169.254/latest/api/token"
                    {:headers {"X-aws-ec2-metadata-token-ttl-seconds" "21600"}})
                   :body)
@@ -26,7 +31,10 @@
 (defn get-environment-tag []
   (get-tag environment-tag-name))
 
-(defn get-instance-ip []
+(defn get-instance-ip
+  "Gets ip from the metadata API:
+   https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html"
+  []
   (let [token (-> (clj-http/put
                    "http://169.254.169.254/latest/api/token"
                    {:headers {"X-aws-ec2-metadata-token-ttl-seconds" "21600"}})
