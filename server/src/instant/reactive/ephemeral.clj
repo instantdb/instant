@@ -43,9 +43,6 @@
     (.setInstanceName config "instant-hz")
     (.setEnabled (.getMulticastConfig join-config) false)
     (if (= :prod (config/get-env))
-      ;; XXX: Don't forget to allow incoming on 5701 from same security group
-      ;; XXX: Need to put all instances in same az
-      ;; XXX: Need to configure placement group and see if it works
       (let [ip (aws-util/get-instance-ip)]
         (.setPublicAddress network-config ip)
         (-> aws-config
