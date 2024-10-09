@@ -615,6 +615,31 @@
                    first
                    (get "pref_b"))))))))
 
+(deftest lookups-in-links-create-attrs
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token}]
+      (testing "update"
+        (is (transact-ok?
+             (transact-post
+              {:body {:steps [["update" "users" ["handle" "stopa"] {"name" "Stepan"}]
+                              ["update" "tasks" ["slug" "task-a"] {}]
+                              ["link" "users" ["handle" "stopa"] {"tasks" {"slug" "task-a"}}]]}
+               :headers {"app-id" (str app-id)
+                         "authorization" (str "Bearer " admin-token)}})))
+        (let [query-result (-> (query-post
+                                {:body {:query {:users {:$ {:where {:handle "stopa"}}
+                                                        :tasks {}}}}
+                                 :headers {"app-id" (str app-id)
+                                           "authorization" (str "Bearer " admin-token)}})
+                               :body)
+              user (-> query-result
+                     (get "users")
+                     first)
+              tasks (-> user
+                        (get "tasks"))]
+          (is (= "Stepan" (get user "name")))
+          (is (= #{"task-a"} (set (map #(get % "slug") tasks)))))))))
+
 (defn tx-validation-err [attrs steps]
   (try
     (admin-model/->tx-steps! attrs steps)

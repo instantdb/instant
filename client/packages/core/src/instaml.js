@@ -307,23 +307,6 @@ function lookupPairsOfOp(attrs, op) {
   return res;
 }
 
-function getLinkEtype(etype, attrCandidates) {
-  for (const attr of attrCandidates) {
-    if (
-      attr["forward-identity"]?.[1] === etype &&
-      attr["reverse-identity"]?.[1]
-    ) {
-      return attr["reverse-identity"][1];
-    }
-    if (
-      attr["reverse-identity"]?.[1] === etype &&
-      attr["forward-identity"]?.[1]
-    ) {
-      return attr["forward-identity"][1];
-    }
-  }
-}
-
 function createMissingAttrs(existingAttrs, ops) {
   const [addedIds, attrs, addOps] = [new Set(), { ...existingAttrs }, []];
   function addAttr(attr) {
@@ -358,7 +341,11 @@ function createMissingAttrs(existingAttrs, ops) {
       // We got a link eid that's a lookup, linkLabel is the label of the ident,
       // e.g. `posts` in `link({posts: postIds})`
       if (linkLabel) {
+        // Add our ref attr, e.g. users.posts
         addForRef(etype, linkLabel);
+
+        // Figure out the link etype so we can make sure we have the attrs
+        // for the link lookup
         const fwdAttr = getAttrByFwdIdentName(attrs, etype, linkLabel);
         const revAttr = getAttrByReverseIdentName(attrs, etype, linkLabel);
         addUnsynced(fwdAttr);
