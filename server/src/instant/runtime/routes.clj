@@ -1,5 +1,6 @@
 (ns instant.runtime.routes
   (:require [clojure.string :as string]
+            [datascript.core :refer [squuid]]
             [compojure.core :refer [defroutes GET POST] :as compojure]
             [hiccup2.core :as h]
             [instant.auth.oauth :as oauth]
@@ -42,7 +43,7 @@
   (session/undertow-config rs/store-conn
                            eph/ephemeral-store-atom
                            session/receive-q
-                           {:id (UUID/randomUUID)}))
+                           {:id (squuid)}))
 
 ;; -----------
 ;; Magic codes
