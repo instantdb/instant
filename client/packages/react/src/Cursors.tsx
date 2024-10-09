@@ -2,6 +2,7 @@ import {
   createElement,
   type ReactNode,
   type MouseEvent,
+  type TouchEvent,
   type CSSProperties,
 } from "react";
 import type { InstantReactRoom } from "./InstantReact";
@@ -45,14 +46,12 @@ export function Cursors<
 
   const fullPresence = room._core._reactor.getPresence(room.type, room.id);
 
-  function onMouseMove(e: MouseEvent) {
-    if (!propagate) {
-      e.stopPropagation();
-    }
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX;
-    const y = e.clientY;
+  function publishCursor(
+    rect: DOMRect,
+    touch: { clientX: number; clientY: number },
+  ) {
+    const x = touch.clientX;
+    const y = touch.clientY;
     const xPercent = ((x - rect.left) / rect.width) * 100;
     const yPercent = ((y - rect.top) / rect.height) * 100;
     cursorsPresence.publishPresence({
@@ -66,7 +65,38 @@ export function Cursors<
     } as RoomSchema[RoomType]["presence"]);
   }
 
+  function onMouseMove(e: MouseEvent) {
+    if (!propagate) {
+      e.stopPropagation();
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    publishCursor(rect, e);
+  }
+
   function onMouseOut(e: MouseEvent) {
+    cursorsPresence.publishPresence({
+      [spaceId]: undefined,
+    } as RoomSchema[RoomType]["presence"]);
+  }
+
+  function onTouchMove(e: TouchEvent) {
+    if (e.touches.length !== 1) {
+      return;
+    }
+
+    const touch = e.touches[0];
+
+    if (touch.target instanceof Element) {
+      if (!propagate) {
+        e.stopPropagation();
+      }
+      const rect = touch.target.getBoundingClientRect();
+      publishCursor(rect, touch);
+    }
+  }
+
+  function onTouchEnd(e: TouchEvent) {
     cursorsPresence.publishPresence({
       [spaceId]: undefined,
     } as RoomSchema[RoomType]["presence"]);
@@ -77,6 +107,8 @@ export function Cursors<
     {
       onMouseMove,
       onMouseOut,
+      onTouchMove,
+      onTouchEnd,
       className,
       style: {
         position: "relative",
