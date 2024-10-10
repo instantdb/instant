@@ -25,12 +25,6 @@ attribute by adding this to your app's [permissions](/dash?t=perms)
 
 This will prevent any new attributes from being created.
 
-## Query all users and add additional attributes.
-
-Right now we don't expose the auth table to the client or the dashboard. This
-will change in the future. For now we recommend you manage you your own user
-namespace. [Here's an example](https://github.com/instantdb/instant/blob/main/client/sandbox/react-nextjs/pages/patterns/manage-users.tsx)
-
 ## Specify attributes you want to query.
 
 When you query a namespace, it will return all the attributes for an entity.
