@@ -541,65 +541,71 @@ async function fetchJson({
   let authToken = null;
   if (withAuth) {
     authToken = await readConfigAuthToken();
-
     if (!authToken) {
-      console.error("Unauthenticated.  Please log in with `instant-cli login`");
+      console.error("Unauthenticated. Please log in with `instant-cli login`");
       return { ok: false, data: undefined };
     }
   }
+  const timeoutMs = 1000 * 60 * 5; // 5 minutes
 
-  const res = await fetch(`${instantBackendOrigin}${path}`, {
-    method: method ?? "GET",
-    headers: {
-      ...(withAuth ? { Authorization: `Bearer ${authToken}` } : {}),
-      "Content-Type": "application/json",
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  try {
+    const res = await fetch(`${instantBackendOrigin}${path}`, {
+      method: method ?? "GET",
+      headers: {
+        ...(withAuth ? { Authorization: `Bearer ${authToken}` } : {}),
+        "Content-Type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
 
-  if (verbose) {
-    console.log(debugName, "response:", res.status, res.statusText);
-  }
-
-  if (!res.ok) {
-    if (withErrorLogging) {
-      console.error(errorMessage);
+    if (verbose) {
+      console.log(debugName, "response:", res.status, res.statusText);
     }
-    let errData;
-    try {
-      errData = await res.json();
-      if (withErrorLogging) {
-        if (errData?.message) {
-          console.error(errData.message);
-        }
 
-        if (Array.isArray(errData?.hint?.errors)) {
-          for (const error of errData.hint.errors) {
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+
+    if (!res.ok) {
+      if (withErrorLogging) {
+        console.error(errorMessage);
+        if (data?.message) {
+          console.error(data.message);
+        }
+        if (Array.isArray(data?.hint?.errors)) {
+          for (const error of data.hint.errors) {
             console.error(
-              `${error.in ? error.in.join("->") + ": " : ""}${error.message}`,
+              `${error.in ? error.in.join("->") + ": " : ""}${error.message}`
             );
           }
         }
+        if (!data) {
+          console.error("Failed to parse error response");
+        }
       }
-    } catch (error) {
-      if (withErrorLogging) {
-        console.error("Failed to parse error response");
-      }
+      return { ok: false, data };
     }
 
-    return { ok: false, data: errData };
+    if (verbose) {
+      console.log(debugName, "data:", data);
+    }
+
+    return { ok: true, data };
+
+  } catch (err) {
+    if (withErrorLogging) {
+      if (err.name === "AbortError") {
+        console.error(`Timeout: It took more than ${timeoutMs / 60000} minutes to get the result!`);
+      } else {
+        console.error(`Error: type: ${err.name}, message: ${err.message}`);
+      }
+    }
+    return { ok: false, data: null };
   }
-
-  const data = await res.json();
-
-  if (verbose) {
-    console.log(debugName, "data:", data);
-  }
-
-  return {
-    ok: true,
-    data,
-  };
 }
 
 async function promptOk(message) {
