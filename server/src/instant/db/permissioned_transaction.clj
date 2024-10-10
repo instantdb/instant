@@ -594,32 +594,12 @@
                                               :preloaded-refs preloaded-update-delete-refs)
                                        update-delete-checks))
 
-                view-checks-enabled? (flags/run-view-checks? app-id)
-
                 view-check-results
                 (io/warn-io :run-check-commands!
                   (run-check-commands!
                    (merge ctx
-                          {:preloaded-refs preloaded-update-delete-refs}
-                          (when-not view-checks-enabled?
-                            ;; We just want to warn on view checks while
-                            ;; we check on the impact to existing apps
-                            ;; TODO (users-table): remove after validating
-                            ;;                     in production
-                            {:admin-check? true}))
+                          {:preloaded-refs preloaded-update-delete-refs})
                    view-checks))
-
-                _ (tracer/add-data! {:attributes
-                                     {:view-check-results
-                                      (mapv #(select-keys % [:scope
-                                                             :etype
-                                                             :eid
-                                                             :check-result
-                                                             :check-pass?])
-                                            view-check-results)
-                                      :view-check-failed?
-                                      (boolean (some (comp false? :check-pass?)
-                                                     view-check-results))}})
 
                 tx-data (tx/transact-without-tx-conn! tx-conn
                                                       (:attrs ctx)
@@ -633,8 +613,7 @@
                                          create-checks))
                 all-check-results (concat update-delete-checks-results
                                           create-checks-results
-                                          (when view-checks-enabled?
-                                            view-check-results))
+                                          view-check-results)
                 all-checks-ok? (every? (fn [r] (-> r :check-result)) all-check-results)
                 rollback? (and admin-check?
                                (or admin-dry-run? (not all-checks-ok?)))

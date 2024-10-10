@@ -42,19 +42,6 @@
                        (get o "appId")))
                    (get result "storage-whitelist")))
 
-        view-check (when-let [view-check-flag (-> (get result "view-checks")
-                                                  first)]
-                     (let [disabled-apps (-> view-check-flag
-                                             (get "disabled-apps")
-                                             set)
-                           enabled-apps (-> view-check-flag
-                                            (get "enabled-apps")
-                                            set)
-                           default-value (get view-check-flag "default-value" false)]
-                       {:disabled-apps disabled-apps
-                        :enabled-apps enabled-apps
-                        :default-value default-value}))
-
         hazelcast (when-let [hz-flag (-> (get result "hazelcast")
                                          first)]
                     (let [disabled-apps (-> hz-flag
@@ -76,7 +63,6 @@
                                      (get result "promo-emails")))]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
-     :view-check view-check
      :hazelcast hazelcast
      :promo-code-emails promo-code-emails}))
 
@@ -102,19 +88,6 @@
 (defn storage-enabled? [app-id]
   (let [app-id (str app-id)]
     (contains? (storage-enabled-whitelist) app-id)))
-
-(defn run-view-checks? [app-id]
-  (if-let [view-check (get-in @query-results [query :result :view-check])]
-    (let [{:keys [disabled-apps enabled-apps default-value]} view-check]
-      (cond (contains? disabled-apps (str app-id))
-            false
-
-            (contains? enabled-apps (str app-id))
-            true
-
-            :else default-value))
-    ;; Default false
-    false))
 
 (defn use-hazelcast? [app-id]
   (if-let [hz-flag (get-in @query-results [query :result :hazelcast])]
