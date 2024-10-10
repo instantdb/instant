@@ -235,7 +235,10 @@
                                (attr-model/seek-by-rev-ident-name [etype label] attrs))]
                 (cond (and (contains? update-actions action)
                            (not fwd-attr))
-                      (add-attr acc (create-object-attr etype label))
+                      (add-attr acc (create-object-attr etype
+                                                        label
+                                                        (when (= label "id")
+                                                          {:unique? true})))
 
                       (and (contains? ref-actions action)
                            (not fwd-attr)
