@@ -5,7 +5,6 @@
    [instant.db.model.attr :as attr-model]
    [instant.db.model.entity :as entity-model]
    [instant.db.transaction :as tx]
-   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.rule :as rule-model]
