@@ -282,7 +282,7 @@
                        link-label)]
     (add-attrs-for-lookup acc lookup link-etype)))
 
-(defn op->lookups [attrs [action etype eid obj]]
+(defn op->lookups [[action etype eid obj]]
   (when (contains? supports-lookup-actions action)
     (concat (when-let [lookup-pair (eid->lookup-pair eid)]
               [{:etype etype :lookup-pair lookup-pair}])
@@ -295,15 +295,14 @@
 
 (defn create-lookup-attrs [acc ops]
   (reduce (fn [acc op]
-            (let [[action etype eid _obj] op]
-              (reduce (fn [acc {:keys [etype lookup-pair link-label]}]
-                        (if link-label
-                          (-> acc
-                              (add-attrs-for-ref-lookup link-label etype)
-                              (add-attrs-for-link-lookup lookup-pair link-label etype))
-                          (add-attrs-for-lookup acc lookup-pair etype)))
-                      acc
-                      (op->lookups (:attrs acc) op))))
+            (reduce (fn [acc {:keys [etype lookup-pair link-label]}]
+                      (if link-label
+                        (-> acc
+                            (add-attrs-for-ref-lookup link-label etype)
+                            (add-attrs-for-link-lookup lookup-pair link-label etype))
+                        (add-attrs-for-lookup acc lookup-pair etype)))
+                    acc
+                    (op->lookups op)))
           acc
           ops))
 

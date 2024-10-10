@@ -278,7 +278,7 @@ const SUPPORTS_LOOKUP_ACTIONS = new Set([
 const lookupProps = { "unique?": true, "index?": true };
 const refLookupProps = { ...lookupProps, cardinality: "one" };
 
-function lookupPairsOfOp(attrs, op) {
+function lookupPairsOfOp(op) {
   const res = [];
   const [action, etype, eid, obj] = op;
   if (!SUPPORTS_LOOKUP_ACTIONS.has(action)) {
@@ -336,7 +336,7 @@ function createMissingAttrs(existingAttrs, ops) {
   // Do these first because otherwise we might add a non-unique attr
   // before we get to it
   for (const op of ops) {
-    for (const { etype, lookupPair, linkLabel } of lookupPairsOfOp(attrs, op)) {
+    for (const { etype, lookupPair, linkLabel } of lookupPairsOfOp(op)) {
       const identName = lookupPair[0];
       // We got a link eid that's a lookup, linkLabel is the label of the ident,
       // e.g. `posts` in `link({posts: postIds})`
