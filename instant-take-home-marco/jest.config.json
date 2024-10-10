@@ -1,0 +1,6 @@
+{
+  "testRegex": "((\\.|/*.)(test))\\.js?$",
+  "moduleNameMapper": {
+    "^@/(.*)$": "<rootDir>/src/$1"
+  }
+}
