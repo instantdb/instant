@@ -25,7 +25,7 @@
   (let [{email :email} (instant-user-model/get-by-id {:id user-id})
         message (str "💖 A user subscribed! Say thank you to " "`" email "`")]
     (discord/send! config/discord-signups-channel-id
-                   (str (:instateam discord/mention-constants)) " " message)
+                   (str (:instateam discord/mention-constants) " " message))
     (postmark/send!
      {:from "Instant Assistant <hello@pm.instantdb.com>"
       :to "founders@instantdb.com"
@@ -46,7 +46,7 @@
   (let [{email :email} (instant-user-model/get-by-id {:id user-id})
         message (str "🪣  Churned customer! " email)]
     (discord/send! config/discord-signups-channel-id
-                   (str (:instateam discord/mention-constants)) " " message)
+                   (str (:instateam discord/mention-constants) " " message))
     (postmark/send!
      {:from "Instant Assistant <hello@pm.instantdb.com>"
       :to "founders@instantdb.com"
