@@ -23,6 +23,7 @@
   (:require
    [chime.core :as chime-core]
    [instant.config :as config]
+   [instant.discord :as discord]
    [instant.jdbc.sql :as sql]
    [instant.jdbc.aurora :as aurora]
    [instant.util.json :refer [<-json]]
@@ -243,6 +244,15 @@
       (when-not (.isClosed closeable)
         (throw (ex-info "Unable to close" {} close-error))))))
 
+(defn alert-discord [slot-name]
+  (discord/send-error-async!
+   (str (:instateam discord/mention-constants)
+        " The wal handler threw an exception. Check if it restart automatically."
+        " If it didn't, redeploy the server.\n\nIf you're quick enough you can "
+        "peek at the transaction that caused the error:\n\n"
+        (format "```\nselect data from pg_logical_slot_peek_changes('%s', null, null);```"
+                slot-name))))
+
 (defn start-worker
   "Starts a logical replication stream and pushes records to
    the given `to` channel.
@@ -274,6 +284,8 @@
                                                   :attributes {:exception e}}
                                 e)))]
         (when-not @shutdown?
+          (when (= :prod (config/get-env))
+            (alert-discord slot-name))
           (tracer/record-exception-span! (Exception. "Wal handler closed unexpectedly, trying to restart")
                                          {:name "wal-worker/unexpected-reconnect"
                                           :escpaing? false})
