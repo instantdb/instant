@@ -125,9 +125,9 @@
                            :value (.getMaxProcessingTime stats)}]))))))
 
 (defn stop []
-  (when (bound? (resolve 'server))
+  (when (bound? #'server)
     (.stop ^Undertow server))
-  (when (bound? (resolve 'stop-gauge))
+  (when (bound? #'stop-gauge)
     (stop-gauge)))
 
 (defn restart []

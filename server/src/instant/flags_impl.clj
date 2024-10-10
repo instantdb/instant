@@ -14,19 +14,20 @@
 
 (defn swap-result!
   "Updates the results atom, but only if we have a newer tx-id."
-  [query-results-atom query result tx-id]
+  [query-results-atom query transform result tx-id]
   (swap! query-results-atom update query (fn [existing]
                                            (if (and (:tx-id existing)
                                                     (< tx-id (:tx-id existing)))
                                              existing
-                                             {:result result :tx-id tx-id}))))
+                                             {:result (transform result) :tx-id tx-id}))))
 
-(defn handle-msg [query-results-atom msg]
+(defn handle-msg [query-results-atom query->transform msg]
   (case (:op msg)
     :add-query-ok
     (let [{:keys [q result processed-tx-id]} msg]
       (swap-result! query-results-atom
                     q
+                    (query->transform q)
                     result
                     (or processed-tx-id 0)))
 
@@ -36,6 +37,7 @@
             (:computations msg)]
       (swap-result! query-results-atom
                     instaql-query
+                    (query->transform instaql-query)
                     instaql-result
                     (:processed-tx-id msg)))
 
@@ -52,7 +54,11 @@
           ctx {:app-id (:id app)
                :attrs attrs
                :db {:conn-pool aurora/conn-pool}}
-          ws-conn {:websocket-stub (fn [msg] (handle-msg query-results-atom msg))}
+          query->transform (zipmap (map :query queries)
+                                   (map :transform queries))
+          ws-conn {:websocket-stub (fn [msg] (handle-msg query-results-atom
+                                                         query->transform
+                                                         msg))}
           socket {:id socket-id
                   :http-req nil
                   :ws-conn ws-conn
@@ -60,17 +66,17 @@
                   :pending-handlers (atom #{})}]
 
       ;; Get results in foreground so that flags are initialized before we return
-      (doseq [query queries
+      (doseq [{:keys [query transform]} queries
               :let [data (instaql/query ctx query)
                     result (admin-model/instaql-nodes->object-tree {} attrs data)]]
-        (swap-result! query-results-atom query result 0))
+        (swap-result! query-results-atom query transform result 0))
 
       (session/on-open store/store-conn socket)
       (store/set-auth! store/store-conn
                        socket-id
                        {:app app
                         :admin? true})
-      (doseq [query queries]
+      (doseq [{:keys [query]} queries]
         (session/on-message {:id socket-id
                              :receive-q session/receive-q
                              :data (->json {:op :add-query

@@ -163,15 +163,15 @@
     coerced))
 
 ;; --------
-;; Timeouts  
+;; Timeouts
 
 (defn throw-operation-timeout! [operation-name timeout-ms]
   (throw+ {::type ::operation-timed-out
            ::message (format "Operation timed out: %s" (name operation-name))
            ::hint {:timeout-ms timeout-ms}}))
 
-;; -------- 
-;; Sockets 
+;; -------
+;; Sockets
 
 (defn throw-session-missing! [sess-id]
   (throw+ {::type ::session-missing

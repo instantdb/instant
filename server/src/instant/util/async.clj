@@ -90,6 +90,20 @@
   (let [futs (mapv #(vfuture (f %)) coll)]
     (mapv deref futs)))
 
+(defmacro vfut-bg
+  "Futures only throw when de-referenced. vfut-bg writes a future with a
+  top-level try-catch, so you can run code asynchronously, without
+  _ever_ de-referencing them"
+  [& forms]
+  `(vfuture
+     (try
+       ~@forms
+       (catch Exception e#
+         (tracer/record-exception-span! e# {:name "vfut-bg"
+                                            :escaping?  true
+                                            :attributes {:forms (pr-str '~forms)}})
+         (throw e#)))))
+
 ;; ----
 ;; core.async
 
@@ -104,5 +118,3 @@
               (a/alt!
                 ch ([v] v)
                 timeout-ch :timeout))))))
-
-
