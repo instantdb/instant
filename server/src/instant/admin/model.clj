@@ -235,7 +235,10 @@
                                (attr-model/seek-by-rev-ident-name [etype label] attrs))]
                 (cond (and (contains? update-actions action)
                            (not fwd-attr))
-                      (add-attr acc (create-object-attr etype label))
+                      (add-attr acc (create-object-attr etype
+                                                        label
+                                                        (when (= label "id")
+                                                          {:unique? true})))
 
                       (and (contains? ref-actions action)
                            (not fwd-attr)
@@ -246,18 +249,21 @@
             acc
             labels)))
 
+(defn add-attrs-for-ref-lookup [{:keys [attrs] :as acc} label etype]
+  (let [fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
+        rev-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
+    (if (and (not fwd-attr) (not rev-attr))
+      (add-attr acc (create-ref-attr etype
+                                     label
+                                     {:unique? true
+                                      :index? true
+                                      :cardinality :one}))
+      acc)))
+
 (defn add-attrs-for-lookup [{:keys [attrs] :as acc} lookup etype]
   (if (ref-lookup? attrs etype lookup)
-    (let [label (extract-ref-lookup-fwd-name lookup)
-          fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
-          rev-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
-      (if (and (not fwd-attr) (not rev-attr))
-        (add-attr acc (create-ref-attr etype
-                                       label
-                                       {:unique? true
-                                        :index? true
-                                        :cardinality :one}))
-        acc))
+    (let [label (extract-ref-lookup-fwd-name lookup)]
+      (add-attrs-for-ref-lookup acc label etype))
     (let [[label _value] lookup]
       (if (attr-model/seek-by-fwd-ident-name [etype label]
                                              attrs)
@@ -267,13 +273,39 @@
                                           {:unique? true
                                            :index? true}))))))
 
+(defn add-attrs-for-link-lookup [{:keys [attrs] :as acc} lookup link-label etype]
+  (let [fwd-attr (attr-model/seek-by-fwd-ident-name [etype link-label] attrs)
+        rev-attr (attr-model/seek-by-fwd-ident-name [etype link-label] attrs)
+        link-etype (or (some-> fwd-attr
+                               :reverse-identity
+                               second)
+                       (some-> rev-attr
+                               :forward-identity
+                               second)
+                       link-label)]
+    (add-attrs-for-lookup acc lookup link-etype)))
+
+(defn op->lookups [[action etype eid obj]]
+  (when (contains? supports-lookup-actions action)
+    (concat (when-let [lookup-pair (eid->lookup-pair eid)]
+              [{:etype etype :lookup-pair lookup-pair}])
+            (when (= "link" action)
+              (for [[label eid-or-eids] obj
+                    eid (if (coll? eid-or-eids) eid-or-eids [eid-or-eids])
+                    :let [lookup-pair (eid->lookup-pair eid)]
+                    :when lookup-pair]
+                {:etype etype :lookup-pair lookup-pair :link-label label})))))
+
 (defn create-lookup-attrs [acc ops]
   (reduce (fn [acc op]
-            (let [[action etype eid _obj] op]
-              (if-let [lookup (when (contains? supports-lookup-actions action)
-                                (eid->lookup-pair eid))]
-                (add-attrs-for-lookup acc lookup etype)
-                acc)))
+            (reduce (fn [acc {:keys [etype lookup-pair link-label]}]
+                      (if link-label
+                        (-> acc
+                            (add-attrs-for-ref-lookup link-label etype)
+                            (add-attrs-for-link-lookup lookup-pair link-label etype))
+                        (add-attrs-for-lookup acc lookup-pair etype)))
+                    acc
+                    (op->lookups op)))
           acc
           ops))
 

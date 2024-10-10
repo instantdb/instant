@@ -87,7 +87,9 @@ function lookupIdentToAttr(attrs, etype, identName) {
 
   const fwdName = extractRefLookupFwdName(identName);
 
-  const refAttr = getAttrByFwdIdentName(attrs, etype, fwdName);
+  const refAttr =
+    getAttrByFwdIdentName(attrs, etype, fwdName) ||
+    getAttrByReverseIdentName(attrs, etype, fwdName);
   if (refAttr && refAttr["value-type"] !== "ref") {
     throw new Error(`${identName} does not reference a valid link attribute.`);
   }
@@ -276,6 +278,35 @@ const SUPPORTS_LOOKUP_ACTIONS = new Set([
 const lookupProps = { "unique?": true, "index?": true };
 const refLookupProps = { ...lookupProps, cardinality: "one" };
 
+function lookupPairsOfOp(op) {
+  const res = [];
+  const [action, etype, eid, obj] = op;
+  if (!SUPPORTS_LOOKUP_ACTIONS.has(action)) {
+    return res;
+  }
+
+  const eidLookupPair = lookupPairOfEid(eid);
+  if (eidLookupPair) {
+    res.push({ etype: etype, lookupPair: eidLookupPair });
+  }
+  if (action === "link") {
+    for (const [label, eidOrEids] of Object.entries(obj)) {
+      const eids = Array.isArray(eidOrEids) ? eidOrEids : [eidOrEids];
+      for (const linkEid of eids) {
+        const linkEidLookupPair = lookupPairOfEid(linkEid);
+        if (linkEidLookupPair) {
+          res.push({
+            etype: etype,
+            lookupPair: linkEidLookupPair,
+            linkLabel: label,
+          });
+        }
+      }
+    }
+  }
+  return res;
+}
+
 function createMissingAttrs(existingAttrs, ops) {
   const [addedIds, attrs, addOps] = [new Set(), { ...existingAttrs }, []];
   function addAttr(attr) {
@@ -290,31 +321,56 @@ function createMissingAttrs(existingAttrs, ops) {
     }
   }
 
+  // Adds attrs needed for a ref lookup
+  function addForRef(etype, label) {
+    const fwdAttr = getAttrByFwdIdentName(attrs, etype, label);
+    const revAttr = getAttrByReverseIdentName(attrs, etype, label);
+    addUnsynced(fwdAttr);
+    addUnsynced(revAttr);
+    if (!fwdAttr && !revAttr) {
+      addAttr(createRefAttr(etype, label, refLookupProps));
+    }
+  }
+
   // Create attrs for lookups if we need to
   // Do these first because otherwise we might add a non-unique attr
   // before we get to it
   for (const op of ops) {
-    const [action, etype, eid, obj] = op;
-    if (SUPPORTS_LOOKUP_ACTIONS.has(action)) {
-      const lookupPair = lookupPairOfEid(eid);
-      if (lookupPair) {
-        const identName = lookupPair[0];
-        if (isRefLookupIdent(attrs, etype, identName)) {
-          const label = extractRefLookupFwdName(identName);
-          const fwdAttr = getAttrByFwdIdentName(attrs, etype, label);
-          const revAttr = getAttrByReverseIdentName(attrs, etype, label);
-          if (!fwdAttr && !revAttr) {
-            addAttr(createRefAttr(etype, label, refLookupProps));
-          }
-          addUnsynced(fwdAttr);
-          addUnsynced(revAttr);
+    for (const { etype, lookupPair, linkLabel } of lookupPairsOfOp(op)) {
+      const identName = lookupPair[0];
+      // We got a link eid that's a lookup, linkLabel is the label of the ident,
+      // e.g. `posts` in `link({posts: postIds})`
+      if (linkLabel) {
+        // Add our ref attr, e.g. users.posts
+        addForRef(etype, linkLabel);
+
+        // Figure out the link etype so we can make sure we have the attrs
+        // for the link lookup
+        const fwdAttr = getAttrByFwdIdentName(attrs, etype, linkLabel);
+        const revAttr = getAttrByReverseIdentName(attrs, etype, linkLabel);
+        addUnsynced(fwdAttr);
+        addUnsynced(revAttr);
+        const linkEtype =
+          fwdAttr?.["reverse-identity"]?.[1] ||
+          revAttr?.["forward-identity"]?.[1] ||
+          linkLabel;
+        if (isRefLookupIdent(attrs, linkEtype, identName)) {
+          addForRef(linkEtype, extractRefLookupFwdName(identName));
         } else {
-          const attr = getAttrByFwdIdentName(attrs, etype, identName);
+          const attr = getAttrByFwdIdentName(attrs, linkEtype, identName);
           if (!attr) {
-            addAttr(createObjectAttr(etype, identName, lookupProps));
+            addAttr(createObjectAttr(linkEtype, identName, lookupProps));
           }
           addUnsynced(attr);
         }
+      } else if (isRefLookupIdent(attrs, etype, identName)) {
+        addForRef(etype, extractRefLookupFwdName(identName));
+      } else {
+        const attr = getAttrByFwdIdentName(attrs, etype, identName);
+        if (!attr) {
+          addAttr(createObjectAttr(etype, identName, lookupProps));
+        }
+        addUnsynced(attr);
       }
     }
   }
@@ -330,7 +386,13 @@ function createMissingAttrs(existingAttrs, ops) {
         addUnsynced(fwdAttr);
         if (UPDATE_ACTIONS.has(action)) {
           if (!fwdAttr) {
-            addAttr(createObjectAttr(etype, label));
+            addAttr(
+              createObjectAttr(
+                etype,
+                label,
+                label === "id" ? { "unique?": true } : null,
+              ),
+            );
           }
         }
         if (REF_ACTIONS.has(action)) {

@@ -115,6 +115,286 @@ test("lookup creates unique attrs for custom lookups", () => {
   }
 });
 
+test("lookup creates unique attrs for lookups in link values", () => {
+  const uid = uuid();
+  const ops = instatx.tx.users[uid]
+    .update({})
+    .link({ posts: instatx.lookup("slug", "life-is-good") });
+
+  const result = instaml.transform({}, ops);
+
+  expect(result).toEqual([
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "users", "posts"],
+        "reverse-identity": [expect.any(String), "posts", "users"],
+        "value-type": "ref",
+        cardinality: "one",
+        "unique?": true,
+        "index?": true,
+        isUnsynced: true,
+      },
+    ],
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "posts", "slug"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": true,
+        "index?": true,
+        isUnsynced: true,
+      },
+    ],
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "users", "id"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": true,
+        "index?": false,
+        isUnsynced: true,
+      },
+    ],
+    ["add-triple", uid, expect.any(String), uid],
+    [
+      "add-triple",
+      uid,
+      expect.any(String),
+      [expect.any(String), "life-is-good"],
+    ],
+  ]);
+});
+
+test("lookup creates unique attrs for lookups in link values with arrays", () => {
+  const uid = uuid();
+  const ops = instatx.tx.users[uid].update({}).link({
+    posts: [
+      instatx.lookup("slug", "life-is-good"),
+      instatx.lookup("slug", "check-this-out"),
+    ],
+  });
+
+  const result = instaml.transform({}, ops);
+
+  const expected = [
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "users", "posts"],
+        "reverse-identity": [expect.any(String), "posts", "users"],
+        "value-type": "ref",
+        cardinality: "one",
+        "unique?": true,
+        "index?": true,
+        isUnsynced: true,
+      },
+    ],
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "posts", "slug"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": true,
+        "index?": true,
+        isUnsynced: true,
+      },
+    ],
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "users", "id"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": true,
+        "index?": false,
+        isUnsynced: true,
+      },
+    ],
+    ["add-triple", uid, expect.any(String), uid],
+    [
+      "add-triple",
+      uid,
+      expect.any(String),
+      [expect.any(String), "life-is-good"],
+    ],
+    [
+      "add-triple",
+      uid,
+      expect.any(String),
+      [expect.any(String), "check-this-out"],
+    ],
+  ];
+
+  expect(result).toHaveLength(expected.length);
+  for (const item of expected) {
+    expect(result).toContainEqual(item);
+  }
+});
+
+test("lookup creates unique attrs for lookups in link values when fwd-ident exists", () => {
+  const uid = uuid();
+  const ops = instatx.tx.users[uid]
+    .update({})
+    .link({ posts: instatx.lookup("slug", "life-is-good") });
+
+  const attrId = uuid();
+  const existingRefAttr = {
+    id: attrId,
+    "forward-identity": [uuid(), "users", "posts"],
+    "reverse-identity": [uuid(), "posts", "users"],
+    "value-type": "ref",
+    cardinality: "one",
+    "unique?": true,
+    "index?": true,
+  };
+
+  const result = instaml.transform({ attrId: existingRefAttr }, ops);
+
+  expect(result).toEqual([
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "posts", "slug"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": true,
+        "index?": true,
+        isUnsynced: true,
+      },
+    ],
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "users", "id"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": true,
+        "index?": false,
+        isUnsynced: true,
+      },
+    ],
+    ["add-triple", uid, expect.any(String), uid],
+    [
+      "add-triple",
+      uid,
+      expect.any(String),
+      [expect.any(String), "life-is-good"],
+    ],
+  ]);
+});
+
+test("lookup creates unique attrs for lookups in link values when rev-ident exists", () => {
+  const uid = uuid();
+  const ops = instatx.tx.users[uid]
+    .update({})
+    .link({ posts: instatx.lookup("slug", "life-is-good") });
+
+  const attrId = uuid();
+  const existingRefAttr = {
+    id: attrId,
+    "forward-identity": [uuid(), "posts", "users"],
+    "reverse-identity": [uuid(), "users", "posts"],
+    "value-type": "ref",
+    cardinality: "one",
+    "unique?": true,
+    "index?": true,
+  };
+
+  const result = instaml.transform({ attrId: existingRefAttr }, ops);
+
+  expect(result).toEqual([
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "posts", "slug"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": true,
+        "index?": true,
+        isUnsynced: true,
+      },
+    ],
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "users", "id"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": true,
+        "index?": false,
+        isUnsynced: true,
+      },
+    ],
+    ["add-triple", uid, expect.any(String), uid],
+    [
+      "add-triple",
+      [expect.any(String), "life-is-good"],
+      expect.any(String),
+      uid,
+    ],
+  ]);
+});
+
+test("lookup doesn't override attrs for lookups in link values", () => {
+  const uid = uuid();
+  const ops = instatx.tx.users[uid]
+    .update({})
+    .link({ posts: instatx.lookup("slug", "life-is-good") });
+
+  const refAttrId = uuid();
+  const userIdAttrId = uuid();
+  const postsSlugAttrId = uuid();
+
+  const attrs = {
+    [refAttrId]: {
+      id: refAttrId,
+      "forward-identity": [uuid(), "users", "posts"],
+      "reverse-identity": [uuid(), "posts", "users"],
+      "value-type": "ref",
+      cardinality: "one",
+      "unique?": true,
+      "index?": true,
+    },
+    [userIdAttrId]: {
+      id: userIdAttrId,
+      "forward-identity": [uuid(), "users", "id"],
+      "value-type": "blob",
+      cardinality: "one",
+      "unique?": true,
+      "index?": false,
+    },
+    [postsSlugAttrId]: {
+      id: postsSlugAttrId,
+      "forward-identity": [uuid(), "posts", "slug"],
+      "value-type": "blob",
+      cardinality: "one",
+      "unique?": true,
+      "index?": true,
+    },
+  };
+
+  const result = instaml.transform(attrs, ops);
+
+  expect(result).toEqual([
+    ["add-triple", uid, userIdAttrId, uid],
+    ["add-triple", uid, refAttrId, [postsSlugAttrId, "life-is-good"]],
+  ]);
+});
+
 test("lookup creates unique ref attrs for ref lookup", () => {
   const uid = uuid();
   const ops = [
@@ -137,7 +417,7 @@ test("lookup creates unique ref attrs for ref lookup", () => {
         "forward-identity": [expect.any(String), "users", "id"],
         "value-type": "blob",
         cardinality: "one",
-        "unique?": false,
+        "unique?": true,
         "index?": false,
         isUnsynced: true,
       },
@@ -149,7 +429,7 @@ test("lookup creates unique ref attrs for ref lookup", () => {
         "forward-identity": [expect.any(String), "user_prefs", "id"],
         "value-type": "blob",
         cardinality: "one",
-        "unique?": false,
+        "unique?": true,
         "index?": false,
         isUnsynced: true,
       },
@@ -169,6 +449,58 @@ test("lookup creates unique ref attrs for ref lookup", () => {
     ],
     ["add-triple", uid, expect.any(String), uid],
     ["add-triple", lookup, expect.any(String), lookup],
+  ];
+
+  expect(result).toHaveLength(expected.length);
+  for (const item of expected) {
+    expect(result).toContainEqual(item);
+  }
+});
+
+test("lookup creates unique ref attrs for ref lookup in link value", () => {
+  const uid = uuid();
+  const ops = [
+    instatx.tx.users[uid]
+      .update({})
+      .link({ user_prefs: instatx.lookup("users.id", uid) }),
+  ];
+
+  const lookup = [
+    // The attr is going to be created, so we don't know its value yet
+    expect.any(String),
+    uid,
+  ];
+
+  const result = instaml.transform({}, ops);
+
+  const expected = [
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "users", "user_prefs"],
+        "reverse-identity": [expect.any(String), "user_prefs", "users"],
+        "value-type": "ref",
+        cardinality: "one",
+        "unique?": true,
+        "index?": true,
+        isUnsynced: true,
+      },
+    ],
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "users", "id"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": true,
+        "index?": false,
+        isUnsynced: true,
+      },
+    ],
+    ["add-triple", uid, expect.any(String), uid],
+    ["add-triple", uid, expect.any(String), lookup],
   ];
 
   expect(result).toHaveLength(expected.length);
@@ -207,7 +539,7 @@ test("it doesn't throw if you have a period in your attr", () => {
       id: iid,
       cardinality: "one",
       "forward-identity": [uuid(), "users", "id"],
-      "index?": false,
+      "index?": true,
       "unique?": false,
       "value-type": "blob",
     },
@@ -253,7 +585,7 @@ test("it doesn't create duplicate ref attrs", () => {
         id: expect.any(String),
         "index?": false,
         isUnsynced: true,
-        "unique?": false,
+        "unique?": true,
         "value-type": "blob",
       },
     ],
@@ -265,7 +597,7 @@ test("it doesn't create duplicate ref attrs", () => {
         id: expect.any(String),
         "index?": false,
         isUnsynced: true,
-        "unique?": false,
+        "unique?": true,
         "value-type": "blob",
       },
     ],
