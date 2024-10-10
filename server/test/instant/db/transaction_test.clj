@@ -13,7 +13,6 @@
    [instant.db.model.triple :as triple-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.db.transaction :as tx]
-   [instant.flags :as flags]
    [instant.fixtures :refer [with-empty-app with-zeneca-app]]
    [instant.jdbc.aurora :as aurora]
    [instant.model.app :as app-model]
@@ -1936,8 +1935,7 @@
         (app-user-model/create! aurora/conn-pool {:app-id app-id
                                                   :id user-id
                                                   :email "test@example.com"})
-        (with-redefs [flags/run-view-checks? (constantly true)]
-          (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps)))
+        (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps))
         (is (permissioned-tx/transact! (assoc (make-ctx)
                                               :current-user {:id user-id}) tx-steps))))))
 
@@ -1990,8 +1988,7 @@
                        book-creator-attr-id
                        [(resolvers/->uuid r :$users/email) "test@example.com"]]]]
 
-        (with-redefs [flags/run-view-checks? (constantly true)]
-          (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps)))
+        (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps))
         (permissioned-tx/transact! (assoc (make-ctx)
                                           :current-user {:id user-id}) tx-steps)
         (is (= (pretty-perm-q
