@@ -6,7 +6,7 @@ services:
     environment:
       - BEANSTALK_PORT=80
       - PRODUCTION=true
-      - HONEYCOMB_ENDPOINT=http://refinery:8082
+      - HONEYCOMB_ENDPOINT=http://localhost:8082
     env_file:
       - .env
     network_mode: "host"
