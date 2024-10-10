@@ -426,7 +426,8 @@
   (ua/fut-bg (start-refresh-worker rs/store-conn ephemeral-store-atom room-refresh-ch))
   (dotimes [_ 32]
     (ua/vfut-bg (start-refresh-map-worker rs/store-conn refresh-map-ch)))
-  (ua/fut-bg (start-hz-sync hz-ops-ch)))
+  (dotimes [_ 8]
+    (ua/vfut-bg (start-hz-sync hz-ops-ch))))
 
 (defn stop []
   (a/close! room-refresh-ch)
