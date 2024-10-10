@@ -913,6 +913,51 @@
                  [stopa-eid likes-attr-id joe-eid]}
                (fetch-triples app-id)))))))
 
+(deftest delete-entity-cleans-references
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [board-id-attr-id (UUID/randomUUID)
+            node-id-attr-id (UUID/randomUUID)
+            board-nodes-attr-id (UUID/randomUUID)
+            ex-board (UUID/randomUUID)
+            ex-node (UUID/randomUUID)]
+        (tx/transact!
+         aurora/conn-pool
+         (attr-model/get-by-app-id aurora/conn-pool app-id)
+         app-id
+         [[:add-attr {:id board-id-attr-id
+                      :forward-identity [(UUID/randomUUID) "boards" "id"]
+                      :value-type :blob
+                      :cardinality :one
+                      :unique? false
+                      :index? false}]
+          [:add-attr {:id node-id-attr-id
+                      :forward-identity [(UUID/randomUUID) "nodes" "id"]
+                      :value-type :blob
+                      :cardinality :one
+                      :unique? false
+                      :index? false}]
+          [:add-attr {:id board-nodes-attr-id
+                      :forward-identity [(UUID/randomUUID) "boards" "nodes"]
+                      :reverse-identity [(UUID/randomUUID) "nodes" "board"]
+                      :value-type :ref
+                      :cardinality :many
+                      :unique? true
+                      :index? false}]
+          [:add-triple ex-board board-id-attr-id ex-board]
+          [:add-triple ex-node node-id-attr-id ex-node]
+          [:add-triple ex-board board-nodes-attr-id ex-node]])
+        (is (= #{[ex-board board-id-attr-id (str ex-board)]
+                 [ex-node node-id-attr-id (str ex-node)]
+                 [ex-board board-nodes-attr-id ex-node]}
+               (fetch-triples app-id)))
+        (tx/transact! aurora/conn-pool
+                      (attr-model/get-by-app-id aurora/conn-pool app-id)
+                      app-id
+                      [[:delete-entity ex-node "nodes"]])
+        (is (= #{[ex-board board-id-attr-id (str ex-board)]}
+               (fetch-triples app-id)))))))
+
 (comment
   (def app-id #uuid "2f23dfa2-c921-4988-9243-adf602339bab")
   (def app

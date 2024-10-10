@@ -38,6 +38,19 @@
        (string/join "-")
        (str "eid-")))
 
+(defn make-attr-resolver
+  [{:keys [conn-pool] :as _db} app-id]
+  (let [attrs (attr-model/get-by-app-id conn-pool app-id)
+        aid->friendly-name (->> attrs
+                                (map (fn [{:keys [id forward-identity]}]
+                                       [id (ident->friendly-name forward-identity)]))
+                                (into {}))]
+
+    {:aid->friendly-name aid->friendly-name
+     :friendly-name->aid (clojure-set/map-invert aid->friendly-name)
+     :eid->friendly-name (constantly nil)
+     :friendly-name->eid (constantly nil)}))
+
 (defn- make-resolver
   [{:keys [conn-pool] :as db} app-id eid-fwd-idents]
   (let [attrs (attr-model/get-by-app-id conn-pool app-id)
@@ -75,7 +88,7 @@
                                 (map (fn [{:keys [id forward-identity]}]
                                        [id (ident->friendly-name forward-identity)]))
                                 (into {}))
-        
+
         eid-fwd-idents-map (into {} eid-fwd-idents)
         eid->friendly-name (reduce (fn [acc [table-name info]]
                                      (let [primary-key (-> info :primary-key :field)
