@@ -15,7 +15,7 @@ Samplers:
           - Name: default rule
             Sampler:
               EMAThroughputSampler:
-                # With one server, that's about 80MM/month
-                GoalThroughputPerSec: 30
+                # With one server, that's about 65MM/month
+                GoalThroughputPerSec: 25
                 FieldList:
                   - name
