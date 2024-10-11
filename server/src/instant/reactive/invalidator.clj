@@ -10,7 +10,6 @@
    [instant.reactive.session :as session]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
-   [instant.util.coll :as ucoll]
    [instant.util.crypt :as crypt-util]
    [instant.util.json :refer [<-json ->json]]
    [instant.util.tracer :as tracer])
@@ -256,7 +255,7 @@
    It's a noop if the app hasn't enabled the users table."
   [app-users-changes users-shims]
 
-  (reduce (fn [acc {:keys [action columns]}]
+  (mapcat (fn [{:keys [columns]}]
             (let [{:strs [app_id id email created_at]} (columns->map columns)
                   {:keys [id-attr-id email-attr-id]} (get users-shims app_id)]
               (when (and app_id id email created_at id-attr-id email-attr-id)
@@ -271,7 +270,6 @@
                                                   created-at-ms
                                                   (str email-attr-id)
                                                   email)]))))
-          []
           app-users-changes))
 
 (defn triple-changes-with-app-users [triple-changes app-user-changes users-shims]
