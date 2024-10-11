@@ -254,7 +254,6 @@
   "Converts any changes to the app-users table into triples changes.
    It's a noop if the app hasn't enabled the users table."
   [app-users-changes users-shims]
-
   (mapcat (fn [{:keys [columns]}]
             (let [{:strs [app_id id email created_at]} (columns->map columns)
                   {:keys [id-attr-id email-attr-id]} (get users-shims app_id)]
