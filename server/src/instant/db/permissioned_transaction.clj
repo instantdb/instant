@@ -333,6 +333,8 @@
     {:scope :attr
      :etype :attrs
      :action :create
+     :program program
+     :data {:updated attr}
      :check (fn [_ctx]
               (if-not program
                 true
