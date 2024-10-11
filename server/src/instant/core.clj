@@ -13,6 +13,7 @@
    [instant.flags :as flags]
    [instant.flags-impl :as flags-impl]
    [instant.gauges :as gauges]
+   [instant.health :as health]
    [instant.honeycomb-api :as honeycomb-api]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
@@ -83,7 +84,8 @@
                admin-routes/routes
                superadmin-routes/routes
                storage-routes/routes
-               generic-webhook-routes)
+               generic-webhook-routes
+               health/routes)
        http-util/tracer-record-attrs
        wrap-keyword-params
        wrap-params

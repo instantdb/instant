@@ -24,6 +24,7 @@
    [chime.core :as chime-core]
    [instant.config :as config]
    [instant.discord :as discord]
+   [instant.health :as health]
    [instant.jdbc.sql :as sql]
    [instant.jdbc.aurora :as aurora]
    [instant.util.json :refer [<-json]]
@@ -325,7 +326,8 @@
                                                         "wal2json")
         shutdown? (atom false)]
     (loop [replication-conn replication-conn
-           stream (create-replication-stream replication-conn slot-name lsn 2)]
+           stream (create-replication-stream replication-conn slot-name lsn 2)
+           restart-count 0]
       (deliver started-promise true)
       (tracer/record-info! {:name "wal-worker/start"
                             :attributes {:slot-name slot-name}})
@@ -341,6 +343,7 @@
                                                   :attributes {:exception e}}
                                 e)))]
         (when-not @shutdown?
+          (health/mark-wal-unhealthy-async)
           (when (= :prod (config/get-env))
             (alert-discord slot-name))
           (tracer/record-exception-span! (Exception. "Wal handler closed unexpectedly, trying to restart")
@@ -358,7 +361,10 @@
                                                    :produce-error produce-error}})
                 (let [stream (create-replication-stream new-conn slot-name (:lsn slot) 2)]
                   (reset! (:shutdown-fn wal-opts) nil)
-                  (recur new-conn stream))))))))))
+                  (when (< restart-count 3)
+                    ;; If we keep restarting, stop marking ourselves as healthy
+                    (health/mark-wal-healthy-async))
+                  (recur new-conn stream (inc restart-count)))))))))))
 
 (defn shutdown! [wal-opts]
   (tracer/with-span! {:name "wal-worker/shutdown!"
