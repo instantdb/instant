@@ -1,9 +1,9 @@
 (ns instant.lib.ring.websocket
   "This is a modified version of luminus/ring-undertow-adapter.
 
-   Main changes: 
-    1. Add per-message-deflate support 
-    2. Include the `exchange` object in the `on-open` callback 
+   Main changes:
+    1. Add per-message-deflate support
+    2. Include the `exchange` object in the `on-open` callback
     3. Supports the `on-close` callback.
     3. Supports a thread-safe `send-json!`
     4. Removed the `send` functions that would swallow errors."
@@ -38,11 +38,12 @@
    [org.xnio IoUtils]))
 
 (defn ws-listener
-  "Creates an `AbstractReceiveListener`. This relays calls to 
-   `on-message`, `on-close-message`, and `on-error` callbacks. 
-   
+  "Creates an `AbstractReceiveListener`. This relays calls to
+   `on-message`, `on-close-message`, and `on-error` callbacks.
+
    See `ws-callback` for more details."
-  [{:keys [on-message on-close-message on-error channel-wrapper atomic-last-received-at]}]
+  [{:keys [on-message on-close-message on-error channel-wrapper
+           atomic-last-received-at atomic-last-ping-at set-ping-latency-nanos]}]
   (let [on-message       (or on-message (constantly nil))
         on-error         (or on-error (constantly nil))
         on-close-message (or on-close-message (constantly nil))]
@@ -61,6 +62,8 @@
                            :data    (Util/toArray payload)}))
             (finally (.free pooled)))))
       (onPong [^WebSocketChannel channel ^StreamSourceFrameChannel channel]
+        (when (and set-ping-latency-nanos atomic-last-ping-at)
+          (set-ping-latency-nanos (- (System/nanoTime) (.get atomic-last-ping-at))))
         (.set atomic-last-received-at (System/currentTimeMillis)))
       (onCloseMessage [^CloseMessage message ^WebSocketChannel channel]
         (on-close-message {:channel (channel-wrapper  channel)
@@ -85,6 +88,7 @@
 
 (defn straight-jacket-run-ping-job [^WebSocketChannel channel
                                     ^AtomicLong atomic-last-received-at
+                                    ^AtomicLong atomic-last-ping-at
                                     idle-timeout-ms]
   (try
     (let [now (System/currentTimeMillis)
@@ -93,43 +97,45 @@
       (if (> ms-since-last-message idle-timeout-ms)
         (tracer/with-span! {:name "socket/close-inactive"}
           (IoUtils/safeClose channel))
-        (try-send-ping-blocking channel)))
+        (do
+          (.set atomic-last-ping-at (System/nanoTime))
+          (try-send-ping-blocking channel))))
     (catch Exception e
       (tracer/record-exception-span! e {:name "socket/ping-err"
                                         :escaping? false}))))
 
 (defn ws-callback
-  "Creates a `WebsocketConnectionCallback`. This relays data to the 
-   following callbacks: 
+  "Creates a `WebsocketConnectionCallback`. This relays data to the
+   following callbacks:
 
-   on-open: Called when the websocket connection is opened. 
-     :exchange - The underlying `WebSocketHttpExchange` object 
-     :channel - The `WebSocketChannel` object 
-  
-   Note: `exchange` is useful when you want to extract information 
-         from the underlying http request. i.e: headers, params, etc 
-   
-   on-message: Called when the client sends us a message 
-     :channel - The `WebSocketChannel` object 
-     :data - The message data             
-   
-   on-close-message: Called when the client closes the connection 
-     :channel - The `WebSocketChannel` object 
-     :message - The `CloseMessage` object 
-   
-     Note: on-close-message isn't _always_ called. If you want a 
-           _guaranteed_ `close` callback, use `on-close` instead 
+   on-open: Called when the websocket connection is opened.
+     :exchange - The underlying `WebSocketHttpExchange` object
+     :channel - The `WebSocketChannel` object
 
-   on-close: Called when the connection is closed. 
-    :channel - The `WebSocketChannel` object  
+   Note: `exchange` is useful when you want to extract information
+         from the underlying http request. i.e: headers, params, etc
 
-   on-error: Called when the server encounters an error sending a message 
-     :channel - The `WebSocketChannel` object 
+   on-message: Called when the client sends us a message
+     :channel - The `WebSocketChannel` object
+     :data - The message data
+
+   on-close-message: Called when the client closes the connection
+     :channel - The `WebSocketChannel` object
+     :message - The `CloseMessage` object
+
+     Note: on-close-message isn't _always_ called. If you want a
+           _guaranteed_ `close` callback, use `on-close` instead
+
+   on-close: Called when the connection is closed.
+    :channel - The `WebSocketChannel` object
+
+   on-error: Called when the server encounters an error sending a message
+     :channel - The `WebSocketChannel` object
      :error - The error Throwable
-     
-   We also kick off a ping worker. It sends a `ping` message every 
-   `ping-interval-ms`. If the client doesn't send any message for 
-   `idle-timeout-ms`, we close the connection.  
+
+   We also kick off a ping worker. It sends a `ping` message every
+   `ping-interval-ms`. If the client doesn't send any message for
+   `idle-timeout-ms`, we close the connection.
    "
   [{:keys [on-open on-close listener ping-interval-ms idle-timeout-ms]
     :or   {on-open (constantly nil)
@@ -139,6 +145,7 @@
     :as   ws-opts}]
   (let [send-lock (ReentrantLock.)
         atomic-last-received-at (AtomicLong. (System/currentTimeMillis))
+        atomic-last-ping-at (AtomicLong. (System/nanoTime))
         channel-wrapper (fn [ch]
                           {:undertow-websocket ch
                            :send-lock send-lock})
@@ -146,7 +153,8 @@
                    listener
                    (ws-listener (assoc ws-opts
                                        :channel-wrapper channel-wrapper
-                                       :atomic-last-received-at atomic-last-received-at)))]
+                                       :atomic-last-received-at atomic-last-received-at
+                                       :atomic-last-ping-at atomic-last-ping-at)))]
 
     (reify WebSocketConnectionCallback
       (^void onConnect [_ ^WebSocketHttpExchange exchange ^WebSocketChannel channel]
@@ -156,6 +164,7 @@
                         (fn []
                           (straight-jacket-run-ping-job channel
                                                         atomic-last-received-at
+                                                        atomic-last-ping-at
                                                         idle-timeout-ms)))
 
               close-task (reify ChannelListener
@@ -179,8 +188,8 @@
 (defn send-json!
   "Serializes `obj` to json, and sends over a websocket."
   [obj {:keys [websocket-stub undertow-websocket send-lock]}]
-  ;; Websockets/sendText _should_ be thread-safe 
-  ;; But, t becomes thread-unsafe when we use per-message-deflate 
+  ;; Websockets/sendText _should_ be thread-safe
+  ;; But, t becomes thread-unsafe when we use per-message-deflate
   ;; Using a `send-lock` to make `send-json!` thread-safe
   (if websocket-stub
     (websocket-stub obj)
