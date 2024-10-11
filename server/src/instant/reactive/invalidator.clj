@@ -19,10 +19,27 @@
 
 (declare wal-opts)
 
+(defn columns->map
+  ([columns]
+   (columns->map columns false))
+  ([columns keywordize]
+   (reduce (fn [acc column]
+             (assoc acc
+                    (if keywordize
+                      (keyword (:name column))
+                      (:name column))
+                    (:value column)))
+           {}
+           columns)))
+
+(defn get-column [columns col-name]
+  (first (keep (fn [col]
+                 (when (= col-name (:name col))
+                   (:value col)))
+               columns)))
+
 (defn- topics-for-triple-insert [change]
-  (let [zipped (ucoll/zip (map keyword (:columnnames change))
-                          (:columnvalues change))
-        m (into {} zipped)
+  (let [m (columns->map (:columns change) true)
         e (UUID/fromString (:entity_id m))
         a (UUID/fromString (:attr_id m))
         v-parsed (<-json (:value m))
@@ -37,9 +54,7 @@
 
 (defn- topics-for-triple-update
   [change]
-  (let [zipped (ucoll/zip (map keyword (:columnnames change))
-                          (:columnvalues change))
-        m (into {} zipped)
+  (let [m (columns->map (:columns change) true)
         e (UUID/fromString (:entity_id m))
         a (UUID/fromString (:attr_id m))
         ks (->> #{:ea :eav :av :ave :vae}
@@ -49,10 +64,7 @@
     (map (fn [k] [k #{e} #{a} '_]) ks)))
 
 (defn- topics-for-triple-delete [change]
-  (let [{:keys [oldkeys]} change
-        zipped (ucoll/zip (map keyword (:keynames oldkeys))
-                          (:keyvalues oldkeys))
-        m (into {} zipped)
+  (let [m (columns->map (:identity change) true)
         e (UUID/fromString (:entity_id m))
         a (UUID/fromString (:attr_id m))
         ;; (XXX): The changeset doesn't include the index cols of the triple
@@ -62,13 +74,11 @@
     ;; later on lets think how we can be more specific
     (map (fn [k] [k #{e} #{a} '_]) ks)))
 
-(defn- topics-for-change [{:keys [kind] :as change}]
-  ;; (XXX): We only handle triples atm, later on we should handle things
-  ;; like add/delete attrs and apps
-  (condp = kind
-    "insert" (topics-for-triple-insert change)
-    "update" (topics-for-triple-update change)
-    "delete" (topics-for-triple-delete change)
+(defn- topics-for-change [{:keys [action] :as change}]
+  (case action
+    :insert (topics-for-triple-insert change)
+    :update (topics-for-triple-update change)
+    :delete (topics-for-triple-delete change)
     #{}))
 
 (defn topics-for-triple-changes [changes]
@@ -76,28 +86,28 @@
        (mapcat topics-for-change)
        set))
 
-(defn- topics-for-ident-upsert [{:keys [columnvalues]}]
+(defn- topics-for-ident-upsert [{:keys [columns]}]
   (let [indexes #{:ea :eav :av :ave :vae}
-        attr-id (UUID/fromString (nth columnvalues 2))
+        attr-id (parse-uuid (get-column columns "attr_id"))
         topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
     (set topics)))
 
-(defn- topics-for-attr-upsert [{:keys [columnvalues]}]
+(defn- topics-for-attr-upsert [{:keys [columns]}]
   (let [indexes #{:ea :eav :av :ave :vae}
-        attr-id (UUID/fromString (first columnvalues))
+        attr-id (parse-uuid (get-column columns "id"))
         topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
     (set topics)))
 
-(defn- topics-for-attr-delete [{:keys [oldkeys]}]
-  (let [attr-id (UUID/fromString (first (:keyvalues oldkeys)))
+(defn- topics-for-attr-delete [{:keys [identity]}]
+  (let [attr-id (parse-uuid (get-column identity "id"))
         indexes #{:ea :eav :av :ave :vae}
         topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
     (set topics)))
 
-(defn topics-for-ident-change [{:keys [kind] :as change}]
-  (condp = kind
-    "update" (topics-for-ident-upsert change)
-    "insert" (topics-for-ident-upsert change)
+(defn topics-for-ident-change [{:keys [action] :as change}]
+  (case action
+    :update (topics-for-ident-upsert change)
+    :insert (topics-for-ident-upsert change)
     #{}))
 
 (defn topics-for-ident-changes [changes]
@@ -105,11 +115,11 @@
        (mapcat topics-for-ident-change)
        set))
 
-(defn topics-for-attr-change [{:keys [kind] :as change}]
-  (condp = kind
-    "update" (topics-for-attr-upsert change)
-    "insert" (topics-for-attr-upsert change)
-    "delete" (topics-for-attr-delete change)
+(defn topics-for-attr-change [{:keys [action] :as change}]
+  (case action
+    :update (topics-for-attr-upsert change)
+    :insert (topics-for-attr-upsert change)
+    :delete (topics-for-attr-delete change)
     #{}))
 
 (defn topics-for-attr-changes [changes]
@@ -136,9 +146,7 @@
     sockets))
 
 (defn- topics-for-byop-triple-insert [table-info change]
-  (let [zipped (ucoll/zip (map keyword (:columnnames change))
-                          (:columnvalues change))
-        m (into {} zipped)
+  (let [m (columns->map (:columns change) true)
         id-field (get-in table-info [(:table change) :primary-key :field])
         e (get m id-field)
         ;; just making everything :ea for now
@@ -150,9 +158,7 @@
 
 (defn- topics-for-byop-triple-update
   [table-info change]
-  (let [zipped (ucoll/zip (map keyword (:columnnames change))
-                          (:columnvalues change))
-        m (into {} zipped)
+  (let [m (columns->map (:columns change) true)
         id-field (get-in table-info [(:table change) :primary-key :field])
         e (get m id-field)
         ;; just making everything :ea for now
@@ -165,10 +171,7 @@
       [k #{e} #{a} '_])))
 
 (defn- topics-for-byop-triple-delete [table-info change]
-  (let [{:keys [oldkeys]} change
-        zipped (ucoll/zip (map keyword (:keynames oldkeys))
-                          (:keyvalues oldkeys))
-        m (into {} zipped)
+  (let [m (columns->map (:identity change) true)
         id-field (get-in table-info [(:table change) :primary-key :field])
         e (get m id-field)
         ;; just making everything :ea for now
@@ -180,13 +183,13 @@
           :let [a (get-in table-info [(:table change) :fields (keyword col) :attr-id])]]
       [k #{e} #{a} '_])))
 
-(defn- topics-for-byop-change [table-info {:keys [kind] :as change}]
+(defn- topics-for-byop-change [table-info {:keys [action] :as change}]
   ;; (XXX): We only handle triples atm, later on we should handle things
   ;; like add/delete attrs and apps
-  (case kind
-    "insert" (topics-for-byop-triple-insert table-info change)
-    "update" (topics-for-byop-triple-update table-info change)
-    "delete" (topics-for-byop-triple-delete table-info change)
+  (case action
+    :insert (topics-for-byop-triple-insert table-info change)
+    :update (topics-for-byop-triple-update table-info change)
+    :delete (topics-for-byop-triple-delete table-info change)
     #{}))
 
 (defn topics-for-byop-triple-changes [table-info changes]
@@ -215,12 +218,10 @@
    Only looks at inserts. If the table is disabled, we won't remove them until
    the server restarts, but the worst that will happen is that we create a bit
    of extra spam in the invalidator when the app gets a new user."
-  [changes users-shims]
-  (doseq [change changes
-          :when (and (= (:table change) "idents")
-                     (= (:kind change) "insert"))
-          :let [{:strs [app_id etype label attr_id]} (zipmap (:columnnames change)
-                                                             (:columnvalues change))]
+  [idents-changes users-shims]
+  (doseq [{:keys [action columns]} idents-changes
+          :when (= action :insert)
+          :let [{:strs [app_id etype label attr_id]} (columns->map columns)]
           :when (and (= "$users" etype)
                      (#{"id" "email"} label))]
     (swap! users-shims
@@ -233,52 +234,30 @@
 (defn $users-triple-change-for-attr
   "Coerces the app-user update into the triple format"
   [app-id app-users-id created-at-ms attr-id attr-value]
-  (let [value (->json attr-value)]
-    {:kind "update"
+  (let [value (->json attr-value)
+        value-md5 (-> value crypt-util/str->md5 crypt-util/bytes->hex-string)]
+    {:action :update
      :shmema "public"
      :table "triples"
-     :columnnames ["app_id"
-                   "entity_id"
-                   "attr_id"
-                   "value"
-                   "value_md5"
-                   "ea"
-                   "eav"
-                   "av"
-                   "ave"
-                   "vae"
-                   "created_at"]
-     :columntypes ["uuid"
-                   "uuid"
-                   "uuid"
-                   "jsonb"
-                   "text"
-                   "boolean"
-                   "boolean"
-                   "boolean"
-                   "boolean"
-                   "boolean"
-                   "bigint"]
-     :columnvalues [app-id
-                    app-users-id
-                    attr-id
-                    value
-                    (-> value crypt-util/str->md5 crypt-util/bytes->hex-string)
-                    true ; :ea
-                    false ; :eav
-                    true ; :av
-                    false ; :ave
-                    true ; :vae
-                    created-at-ms]}))
+     :columns [{:name "app_id" :type "uuid" :value app-id}
+               {:name "entity_id" :type "uuid" :value app-users-id}
+               {:name "attr_id" :type "uuid" :value attr-id}
+               {:name "value", :type "jsonb", :value value}
+               {:name "value_md5" :type "text" :value value-md5}
+               {:name "ea", :type "boolean", :value true}
+               {:name "eav", :type "boolean", :value false}
+               {:name "av", :type "boolean", :value true}
+               {:name "ave", :type "boolean", :value false}
+               {:name "vae", :type "boolean", :value true}
+               {:name "created_at", :type "bigint", :value created-at-ms}]}))
 
 (defn $users-triples-changes
   "Converts any changes to the app-users table into triples changes.
    It's a noop if the app hasn't enabled the users table."
-  [changes users-shims]
-  (mapcat (fn [{:keys [columnnames columnvalues]}]
-            (let [{:strs [app_id id email created_at]}
-                  (zipmap columnnames columnvalues)
+  [app-users-changes users-shims]
 
+  (reduce (fn [acc {:keys [action columns]}]
+            (let [{:strs [app_id id email created_at]} (columns->map columns)
                   {:keys [id-attr-id email-attr-id]} (get users-shims app_id)]
               (when (and app_id id email created_at id-attr-id email-attr-id)
                 (let [created-at-ms (.getTime (Timestamp/valueOf created_at))]
@@ -292,51 +271,42 @@
                                                   created-at-ms
                                                   (str email-attr-id)
                                                   email)]))))
-          (filter (fn [c]
-                    (and (= (:table c) "app_users")
-                         (#{"insert" "update"} (:kind c))))
-                  changes)))
+          []
+          app-users-changes))
 
-(defn ident-changes-only [changes]
-  (filter (comp #{"idents"} :table) changes))
+(defn triple-changes-with-app-users [triple-changes app-user-changes users-shims]
+  (concat triple-changes
+          ($users-triples-changes app-user-changes users-shims)))
 
-(defn attr-changes-only [changes]
-  (filter (comp #{"attrs"} :table) changes))
-
-(defn true-triples-changes-only [changes]
-  (filter (comp #{"triples"} :table) changes))
-
-(defn triple-changes-only [changes users-shims]
-  (concat (true-triples-changes-only changes)
-          ($users-triples-changes changes users-shims)))
-
-(defn transaction-changes-only [changes]
-  (filter (comp #{"transactions"} :table) changes))
-
-(defn app-id-from-columns [names values]
-  (when-let [i (ucoll/index-of "app_id" names)]
-    (parse-uuid (nth values i))))
+(defn app-id-from-columns [columns]
+  (some-> columns
+          (get-column "app_id")
+          (parse-uuid)))
 
 (defn extract-app-id
-  [{:keys [columnvalues columnnames] :as _change}]
-  (app-id-from-columns columnnames columnvalues))
+  [{:keys [columns] :as _change}]
+  (app-id-from-columns columns))
 
-(defn extract-tx-id [{:keys [columnvalues] :as _change}]
-  (first columnvalues))
+(defn extract-tx-id [{:keys [columns] :as _change}]
+  (get-column columns "id"))
 
-(defn transform-wal-record [{:keys [change] :as _record} users-shims]
-  (let [ident-changes (ident-changes-only change)
-        triple-changes (triple-changes-only change @users-shims)
-        attr-changes (attr-changes-only change)
-        some-changes (or (seq ident-changes)
+(defn transform-wal-record [{:keys [changes] :as _record} users-shims]
+  (let [{:strs [idents triples attrs transactions app_users]}
+        (group-by :table changes)
+
+        triple-changes (triple-changes-with-app-users triples
+                                                      app_users
+                                                      @users-shims)
+
+        some-changes (or (seq idents)
                          (seq triple-changes)
-                         (seq attr-changes))
-        [transactions-change] (transaction-changes-only change)
+                         (seq attrs))
+        transactions-change (first transactions)
         app-id (extract-app-id transactions-change)]
-    (update-users-shims! change users-shims)
+    (update-users-shims! idents users-shims)
     (when (and some-changes app-id)
-      {:attr-changes attr-changes
-       :ident-changes ident-changes
+      {:attr-changes attrs
+       :ident-changes idents
        :triple-changes triple-changes
        :app-id app-id
        :tx-id (extract-tx-id transactions-change)})))
@@ -347,11 +317,11 @@
   (keep (fn [record]
           (transform-wal-record record users-shims))))
 
-(defn transform-byop-wal-record [{:keys [change nextlsn]}]
+(defn transform-byop-wal-record [{:keys [changes nextlsn]}]
   ;; TODO(byop): if change is empty, then there might be changes to the schema
   (let [triple-changes (filter (fn [c]
-                                 (#{"update" "insert" "delete"} (:kind c)))
-                               change)]
+                                 (#{:update :insert :delete} (:action c)))
+                               changes)]
     (when triple-changes
       {:triple-changes triple-changes
        :tx-id (.asLong nextlsn)})))
