@@ -34,6 +34,16 @@ jobs:
             break
           fi
         done
+    - name: Comment on commit
+      uses: actions/github-script@v7
+      with:
+        script: |
+          await github.rest.repos.createCommitComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            commit_sha: context.sha,
+            body: 'This is a comment @dwwoelfel',
+          });
   clj-check:
     runs-on: ubuntu-latest
     needs: [ detect_clj ]
