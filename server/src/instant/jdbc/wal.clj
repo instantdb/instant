@@ -171,15 +171,29 @@
    a PGConnection with some specific settings. Use `get-pg-replication-conn`
    to get the right kind of PGConnection."
   ^PGReplicationStream
-  [^PGConnection replication-conn slot-name start-lsn]
+  [^PGConnection replication-conn slot-name start-lsn version]
   (-> replication-conn
       (.getReplicationAPI)
       (.replicationStream)
       (.logical)
       (.withSlotName slot-name)
       (.withSlotOption "include-lsn" true)
+      (.withSlotOption "format-version" version)
       (.withStartPosition (LogSequenceNumber/valueOf start-lsn))
       (.start)))
+
+(defn kw-action [action]
+  (case action
+    "B" :begin
+    "I" :insert
+    "U" :update
+    "D" :delete
+    "T" :truncate
+    "M" :message
+    "C" :close
+    (tracer/with-span! {:name "wal/unknown-action"
+                        :attributes {:action action}}
+      action)))
 
 (defn- wal-buffer->record
   "PGReplicationStream returns a ByteBuffer. This
@@ -190,7 +204,7 @@
         record-len (- (count src) offset)
         json-str (String. src offset record-len)
         record (<-json json-str true)]
-    (update record :nextlsn #(LogSequenceNumber/valueOf %))))
+    (update record :action kw-action)))
 
 (comment
   (wal-buffer->record (ByteBuffer/wrap (.getBytes "{\"x\": 1}"))))
@@ -198,28 +212,71 @@
 ;; ------
 ;; Start
 
+(defn unexpected-state [state record next-state]
+  (tracer/with-span! {:name "wal/unexpected-state"
+                      :attributes {:next-action (:next-action state)
+                                   :record record}}
+    next-state))
+
 (defn- produce
   "Repeatedly read from the stream and >!! records to the `to` channel.
 
    We do some book-keeping for the replication stream, by recording the LSN
    for the last record that was pushed to `to`."
   [stream to close-signal-chan]
-  (loop []
-    (let [buffer (.read stream)]
-      (if-not buffer
-        (when-not (.isClosed stream)
-          (recur))
-        (let [last-receive-lsn ^LogSequenceNumber (.getLastReceiveLSN stream)
-              record (wal-buffer->record buffer)
-              put-result (a/alt!! [[to record]] :put
-                                  ;; The close signal chan keeps us from
-                                  ;; waiting to put on a closed `to` channel
-                                  close-signal-chan :closed)]
-          (when (and (= put-result :put)
-                     (not (.isClosed stream)))
-            (.setAppliedLSN stream last-receive-lsn)
-            (.setFlushedLSN stream last-receive-lsn)
-            (recur)))))))
+  ;; :next-action is either:
+  ;;   :begin, we're waiting for a :begin record
+  ;;   :close, we got :begin and we're collecting records until we get :close
+  ;;   :deliver, we got close and we need to proceed to the invalidator
+  (loop [buffer (.read stream)
+         state {:next-action :begin
+                :records []}]
+    (if-not buffer
+      (when-not (.isClosed stream)
+        (recur (.read stream) state))
+      (let [record (wal-buffer->record buffer)
+            next-state (case (:next-action state)
+                         :begin (case (:action record)
+                                  :begin (-> state
+                                             (assoc :next-action :close))
+                                  (unexpected-state state
+                                                    record
+                                                    ;; Let's just reset
+                                                    {:next-action :close
+                                                     :records []}))
+                         :close (case (:action record)
+                                  (:insert :update :delete) (update state :records conj record)
+
+                                  ;; Don't handle truncate or message
+                                  (:truncate :message) state
+
+                                  :close (assoc state :next-action :deliver)
+
+                                  :begin (unexpected-state state
+                                                           record
+                                                           {:next-action :close
+                                                            :records []})
+                                  (unexpected-state state
+                                                    record
+                                                    ;; Just keep going
+                                                    state))
+                         (unexpected-state state record state))]
+        (if (not= :deliver (:next-action next-state))
+          (recur (.read stream) next-state)
+          (let [last-receive-lsn ^LogSequenceNumber (.getLastReceiveLSN stream)
+                msg {:changes (:records state)
+                     :nextlsn (LogSequenceNumber/valueOf (:nextlsn record))
+                     :lsn (LogSequenceNumber/valueOf (:lsn record))}
+                put-result (a/alt!! [[to msg]] :put
+                                    ;; The close signal chan keeps us from
+                                    ;; waiting to put on a closed `to` channel
+                                    close-signal-chan :closed)]
+            (when (and (= put-result :put)
+                       (not (.isClosed stream)))
+              (.setAppliedLSN stream last-receive-lsn)
+              (.setFlushedLSN stream last-receive-lsn)
+              (recur (.read stream) {:next-action :begin
+                                     :records []}))))))))
 
 (defn make-wal-opts [{:keys [wal-chan close-signal-chan
                              ex-handler conn-config slot-name]}]
@@ -268,7 +325,7 @@
                                                         "wal2json")
         shutdown? (atom false)]
     (loop [replication-conn replication-conn
-           stream (create-replication-stream replication-conn slot-name lsn)]
+           stream (create-replication-stream replication-conn slot-name lsn 2)]
       (deliver started-promise true)
       (tracer/record-info! {:name "wal-worker/start"
                             :attributes {:slot-name slot-name}})
@@ -299,7 +356,7 @@
                 (tracer/record-info! {:name "wal-worker/reconnect"
                                       :attributes {:slot-name slot-name
                                                    :produce-error produce-error}})
-                (let [stream (create-replication-stream new-conn slot-name (:lsn slot))]
+                (let [stream (create-replication-stream new-conn slot-name (:lsn slot) 2)]
                   (reset! (:shutdown-fn wal-opts) nil)
                   (recur new-conn stream))))))))))
 
