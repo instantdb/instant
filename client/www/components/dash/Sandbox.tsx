@@ -489,8 +489,6 @@ export function Sandbox({ app }: { app: InstantApp }) {
 
                     <div className="">Permissions Check</div>
                     {o.data.response['check-results']
-                      // (XXX): todo support attr ops
-                      .filter((cr: any) => cr.scope === 'object')
                       .map((cr: any) => (
                         <div
                           key={cr.entity + '-' + cr.id}
