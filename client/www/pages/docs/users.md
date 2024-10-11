@@ -33,8 +33,6 @@ Right now `$users` is a read-only namespace. You can override the `view`
 permission to whatever you like, but `create`, `delete`, and `update`
 are restricted.
 
-Similarly all `create`, `delete`, and `update` operations are restricted.
-
 ## Linking users
 
 Although you cannot directly add properties to the `$users` namespace, you can
@@ -53,8 +51,8 @@ an error.
 Notice also that the `profiles` namespace has a `nickname` property. You may be
 wondering why we didn't add this directly to the `$users` namespace. This is
 because the `$users` namespace is read-only and we cannot add properties to it.
-So if you want to add additional properties to a user, you'll need to create a
-new namespace and link it to the `$users` namespace.
+If you want to add additional properties to a user, you'll need to create a
+new namespace and link it to `$users`.
 
 ```javascript
 // Use the Instant CLI tool to create an app with this schema!
@@ -148,8 +146,7 @@ const updateNick = (newNick, currentUser) => {
 
 If attr creation on the client [is enabled](/docs/permissions#attrs),
 you can also create new links without having to define them in the schema. In
-this case remember that the `$users` namespace is read-only and you can only add
-links to `$users` and not from `$users`.
+this case you can only link to `$users` and not from `$users`.
 
 ```javascript
 // Comments is a new namespace! We haven't defined it in the schema.
