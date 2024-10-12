@@ -35,6 +35,7 @@
    [instant.gauges :as gauges])
   (:import
    (java.util.concurrent LinkedBlockingQueue CancellationException)
+   (java.util.concurrent.atomic AtomicLong)
    (java.time Duration Instant)))
 
 ;; ------
@@ -220,7 +221,11 @@
 (defn event-attributes
   [store-conn
    session-id
-   {:keys [op client-event-id receive-q-delay-ms worker-delay-ms] :as _event}]
+   {:keys [op
+           client-event-id
+           receive-q-delay-ms
+           worker-delay-ms
+           ws-ping-latency-ms] :as _event}]
   (let [auth (rs/get-auth @store-conn session-id)
         creator (rs/get-creator @store-conn session-id)]
     (merge
@@ -228,7 +233,8 @@
       :client-event-id client-event-id
       :session-id session-id
       :worker-delay-ms worker-delay-ms
-      :receive-q-delay-ms receive-q-delay-ms}
+      :receive-q-delay-ms receive-q-delay-ms
+      :ws-ping-latency-ms ws-ping-latency-ms}
      (auth-and-creator-attrs auth creator))))
 
 (defn socket-origin [{:keys [http-req]}]
@@ -296,8 +302,8 @@
                                               :client-event-id client-event-id))))
 
 ;; It's possible to receive _lots_ of ephemeral events.
-;; For example, any time a user moves their cursor, we could 
-;; receive hundreds of `set-presence` events per second. 
+;; For example, any time a user moves their cursor, we could
+;; receive hundreds of `set-presence` events per second.
 ;; Throttling these, so we don't overwhelm Honeycomb.
 (defn event-sample-rate [{:keys [op]}]
   (cond
@@ -472,7 +478,12 @@
                     :worker-delay-ms
                     (.toMillis (Duration/between worker-queued-at now))
                     :total-delay-ms
-                    (.toMillis (Duration/between put-at now))))
+                    (.toMillis (Duration/between put-at now))
+                    :ws-ping-latency-ms
+                    (some-> session
+                            :session/socket
+                            :get-ping-latency-ms
+                            (#(%)))))
             (recur))))))
 
 (defn start-receive-orchestrator [store-conn eph-store-atom receive-q worker-ch]
@@ -528,14 +539,20 @@
 
 (defn undertow-config
   [store-conn eph-store-atom receive-q {:keys [id]}]
-  (let [pending-handlers (atom #{})]
+  (let [pending-handlers (atom #{})
+        atomic-ping-latency-nanos (AtomicLong. 0)]
     {:undertow/websocket
-     {:on-open (fn [{ws-conn :channel http-req :exchange :as _req}]
+     {:set-ping-latency-nanos (fn [^Long v]
+                                (.set atomic-ping-latency-nanos v))
+      :on-open (fn [{ws-conn :channel http-req :exchange :as _req}]
                  (let [socket {:id id
                                :http-req http-req
                                :ws-conn ws-conn
                                :receive-q receive-q
-                               :pending-handlers pending-handlers}]
+                               :pending-handlers pending-handlers
+                               :get-ping-latency-ms (fn []
+                                                      (double (/ (.get atomic-ping-latency-nanos)
+                                                                 1000000.0)))}]
                    (on-open store-conn socket)))
       :on-message (fn [{:keys [data]}]
                     (on-message {:id id
