@@ -15,7 +15,7 @@
    [instant.util.tracer :as tracer]
    [medley.core :refer [dissoc-in]])
   (:import
-   (com.hazelcast.config Config SerializerConfig)
+   (com.hazelcast.config Config)
    (com.hazelcast.core Hazelcast HazelcastInstance)
    (com.hazelcast.map IMap)
    (com.hazelcast.map.impl DataAwareEntryEvent)

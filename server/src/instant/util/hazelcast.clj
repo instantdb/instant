@@ -4,7 +4,7 @@
             [taoensso.nippy :as nippy])
   (:import (com.hazelcast.config SerializerConfig)
            (com.hazelcast.map IMap)
-           (com.hazelcast.nio.serialization StreamSerializer ByteArraySerializer)
+           (com.hazelcast.nio.serialization ByteArraySerializer)
            (java.nio ByteBuffer)
            (java.util UUID)
            (java.util.function BiFunction)))
@@ -113,13 +113,13 @@
           (.putLong byte-buffer (.getLeastSignificantBits user-id)))
         (.array byte-buffer)))
     (read [_ ^bytes in]
-      (let [buf (ByteBuffer/wrap in)]
-        (let [session-id (UUID. (.getLong buf)
-                                (.getLong buf))
-              user-id (when (.hasRemaining buf)
-                        (UUID. (.getLong buf)
-                               (.getLong buf)))]
-          (->JoinRoomMergeV1 session-id user-id))))
+      (let [buf (ByteBuffer/wrap in)
+            session-id (UUID. (.getLong buf)
+                              (.getLong buf))
+            user-id (when (.hasRemaining buf)
+                      (UUID. (.getLong buf)
+                             (.getLong buf)))]
+        (->JoinRoomMergeV1 session-id user-id)))
     (destroy [_])))
 
 (def join-room-config
