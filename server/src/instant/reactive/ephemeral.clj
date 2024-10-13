@@ -2,7 +2,6 @@
   "Handles our ephemeral data apis for a session (presence, cursors)"
   (:require
    [clojure.core.async :as a]
-   [clojure.edn :as edn]
    [clojure.set :as set]
    [datascript.core :refer [squuid-time-millis]]
    [instant.config :as config]
