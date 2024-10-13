@@ -259,9 +259,9 @@
       ;; The last session left the room, so we should close out the go loop.
       (a/close! chan-before))
 
-    (.merge! (hz-util/->RemoveSessionMergeV1 sess-id)
-             (get-hz-rooms-map)
-             room-key)))
+    (hz-util/merge! (hz-util/->RemoveSessionMergeV1 sess-id)
+                    (get-hz-rooms-map)
+                    room-key)))
 
 (defn clean-old-sessions []
   (let [oldest-timestamp (aws-util/oldest-instance-timestamp)
@@ -330,9 +330,9 @@
 (defn join-room! [store-atom app-id sess-id current-user room-id]
   (let [hz-op (fn []
                 (register-session! app-id room-id sess-id)
-                (.merge! (hz-util/->JoinRoomMergeV1 sess-id (:id current-user))
-                         (get-hz-rooms-map)
-                         {:app-id app-id :room-id room-id}))
+                (hz-util/merge! (hz-util/->JoinRoomMergeV1 sess-id (:id current-user))
+                                (get-hz-rooms-map)
+                                {:app-id app-id :room-id room-id}))
         regular-op
         (fn []
           (when-not (contains? (get-room-session-ids @store-atom app-id room-id)
