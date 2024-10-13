@@ -18,7 +18,7 @@
 ;; 1. Create a new version of the record, e.g. JoinRoomMergeV2
 ;; 2. Create a serializer for the new record (make sure getTypeId is unique!)
 ;; 3. Create a new config and add it to serializer-configs at the bottom of the file
-;; 4. Deploy the change with the , but don't use the new record yet (or put it behind a feature flag)
+;; 4. Deploy the change, but don't use the new record yet (or put it behind a feature flag)
 ;; 5. Wait for all instance to update to the new version
 ;; 6. Start using the new version and stop using the old version
 ;; 7. Now it is safe to remove the old version
