@@ -1082,9 +1082,9 @@ export default class Reactor {
     const targetWs = e.target;
     if (this._ws !== targetWs) {
       log.info(
-        "[socket]",
+        "[socket][close]",
         targetWs.id,
-        "skip close; this is no longer the current ws",
+        "skip; this is no longer the current ws",
       );
       return;
     }
@@ -1097,23 +1097,16 @@ export default class Reactor {
 
     if (this._isShutdown) {
       log.info(
-        "[socket-close] Reactor has been shut down and will not reconnect",
-      );
-      return;
-    }
-    if (this._isManualClose) {
-      this._isManualClose = false;
-      log.info(
-        "[socket-close] manual close, will not reconnect, id =",
+        "[socket][close]",
         targetWs.id,
+        "Reactor has been shut down and will not reconnect",
       );
       return;
     }
-
     log.info(
-      "[socket-close] scheduling reconnect id =",
+      "[socket][close]",
       targetWs.id,
-      "ms = ",
+      "schedule reconnect, ms =",
       this._reconnectTimeoutMs,
     );
     setTimeout(() => {
@@ -1123,8 +1116,9 @@ export default class Reactor {
       );
       if (!this._isOnline) {
         log.info(
-          "[socket-close] we are offline, no need to start socket, id =",
+          "[socket][close]",
           targetWs.id,
+          "we are offline, no need to start socket",
         );
         return;
       }
