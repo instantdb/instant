@@ -275,7 +275,7 @@
 
 (defn add-attrs-for-link-lookup [{:keys [attrs] :as acc} lookup link-label etype]
   (let [fwd-attr (attr-model/seek-by-fwd-ident-name [etype link-label] attrs)
-        rev-attr (attr-model/seek-by-fwd-ident-name [etype link-label] attrs)
+        rev-attr (attr-model/seek-by-rev-ident-name [etype link-label] attrs)
         link-etype (or (some-> fwd-attr
                                :reverse-identity
                                second)
