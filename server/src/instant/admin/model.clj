@@ -251,7 +251,7 @@
 
 (defn add-attrs-for-ref-lookup [{:keys [attrs] :as acc} label etype]
   (let [fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
-        rev-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
+        rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
     (if (and (not fwd-attr) (not rev-attr))
       (add-attr acc (create-ref-attr etype
                                      label

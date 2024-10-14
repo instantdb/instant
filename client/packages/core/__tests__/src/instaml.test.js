@@ -395,6 +395,58 @@ test("lookup doesn't override attrs for lookups in link values", () => {
   ]);
 });
 
+test("lookup doesn't override attrs for lookups in self links", () => {
+  const refAttrId = uuid();
+  const postIdAttrId = uuid();
+  const postsSlugAttrId = uuid();
+
+  const attrs = {
+    [postIdAttrId]: {
+      id: postIdAttrId,
+      "forward-identity": [uuid(), "posts", "id"],
+      "value-type": "blob",
+      cardinality: "one",
+      "unique?": true,
+      "index?": false,
+    },
+    [postsSlugAttrId]: {
+      id: postsSlugAttrId,
+      "forward-identity": [uuid(), "posts", "slug"],
+      "value-type": "blob",
+      cardinality: "one",
+      "unique?": true,
+      "index?": true,
+    },
+    [refAttrId]: {
+      id: refAttrId,
+      "forward-identity": [uuid(), "posts", "parent"],
+      "reverse-identity": [uuid(), "posts", "child"],
+      "value-type": "ref",
+      cardinality: "one",
+      "unique?": true,
+      "index?": true,
+    },
+  };
+
+  const ops1 = instatx.tx.posts[instatx.lookup("slug", "life-is-good")]
+    .update({})
+    .link({ parent: instatx.lookup("slug", "life-is-good") });
+
+
+  const result1 = instaml.transform(attrs, ops1);
+
+  expect(result1.filter((x) => x[0] !== "add-triple")).toEqual([]);
+
+  const ops2 = instatx.tx.posts[instatx.lookup("slug", "life-is-good")]
+    .update({})
+    .link({ child: instatx.lookup("slug", "life-is-good") });
+
+
+  const result2 = instaml.transform(attrs, ops2);
+
+  expect(result2.filter((x) => x[0] !== "add-triple")).toEqual([]);
+});
+
 test("lookup creates unique ref attrs for ref lookup", () => {
   const uid = uuid();
   const ops = [
