@@ -636,15 +636,26 @@ export default class Reactor {
     };
   }
 
-  async queryOnce(q) {
+  queryOnce(q) {
+    const dfd = new Deferred();
+
     if (!this._isOnline) {
-      throw new Error(
-        "Offline: Cannot execute query because the device is offline.",
+      dfd.reject(
+        new Error("We can't run `queryOnce`, because the device is offline."),
       );
+      return dfd.promise;
+    }
+
+    if (!this.querySubs) {
+      dfd.reject(
+        new Error(
+          "We can't run `queryOnce` on the backend. Use adminAPI.query instead: https://www.instantdb.com/docs/backend#query",
+        ),
+      );
+      return dfd.promise;
     }
 
     const hash = weakHash(q);
-    const dfd = new Deferred();
 
     const eventId = this._startQuerySub(q, hash);
 
