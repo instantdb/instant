@@ -669,13 +669,7 @@
             {:body {:steps [["update" "posts" ["slug" "new-post"] {}]
                             ["link" "posts" ["slug" "new-post"] {"child" {"slug" "new-post"}}]]}
              :headers {"app-id" (str app-id)
-                       "authorization" (str "Bearer " admin-token)}})))
-      (let [query-result (-> (query-post
-                              {:body {:query {:posts {}}}
-                               :headers {"app-id" (str app-id)
-                                         "authorization" (str "Bearer " admin-token)}})
-                             :body)]
-        (tool/def-locals)))))
+                       "authorization" (str "Bearer " admin-token)}}))))))
 
 (defn tx-validation-err [attrs steps]
   (try
