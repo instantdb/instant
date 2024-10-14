@@ -640,6 +640,37 @@
           (is (= "Stepan" (get user "name")))
           (is (= #{"task-a"} (set (map #(get % "slug") tasks)))))))))
 
+(deftest lookups-in-links-dont-override-attrs
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token}]
+      (attr-model/insert-multi! aurora/conn-pool
+                                app-id
+                                [{:id (random-uuid)
+                                  :forward-identity [(random-uuid) "posts" "id"]
+                                  :value-type "blob"
+                                  :cardinality "one"
+                                  :unique? true
+                                  :index? false}
+                                 {:id (random-uuid)
+                                  :forward-identity [(random-uuid) "posts" "slug"]
+                                  :value-type "blob"
+                                  :cardinality "one"
+                                  :unique? true
+                                  :index? false}
+                                 {:id (random-uuid)
+                                  :forward-identity [(random-uuid) "posts" "parent"]
+                                  :reverse-identity [(random-uuid) "posts" "child"]
+                                  :value-type "blob"
+                                  :cardinality "one"
+                                  :unique? true
+                                  :index? false}])
+      (is (transact-ok?
+           (transact-post
+            {:body {:steps [["update" "posts" ["slug" "new-post"] {}]
+                            ["link" "posts" ["slug" "new-post"] {"child" {"slug" "new-post"}}]]}
+             :headers {"app-id" (str app-id)
+                       "authorization" (str "Bearer " admin-token)}}))))))
+
 (defn tx-validation-err [attrs steps]
   (try
     (admin-model/->tx-steps! attrs steps)
