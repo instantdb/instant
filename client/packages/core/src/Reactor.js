@@ -1032,7 +1032,7 @@ export default class Reactor {
       );
       return;
     }
-    log.info("[socket][open]", this._ws.id);
+    log.info("[socket][open]", this._ws._id);
     this._setStatus(STATUS.OPENED);
     this.getCurrentUser().then((resp) => {
       this._trySend(uuid(), {
@@ -1145,7 +1145,7 @@ export default class Reactor {
     this._ws.onmessage = this._wsOnMessage;
     this._ws.onclose = this._wsOnClose;
     this._ws.onerror = this._wsOnError;
-    log.info("[socket][start]", this._ws.id);
+    log.info("[socket][start]", this._ws._id);
     if (prevWs?.readyState === WS_OPEN_STATUS) {
       // When the network dies, it doesn't always mean that our
       // socket connection will fire a close event.
@@ -1155,7 +1155,7 @@ export default class Reactor {
       //
       // This means that we have to make sure to kill the previous one ourselves.
       // c.f https://issues.chromium.org/issues/41343684
-      log.info("[socket][start]", this._ws._id, "close previous ws id = ", prevWs.id)
+      log.info("[socket][start]", this._ws._id, "close previous ws id = ", prevWs._id)
       prevWs.close();
     }
   }
