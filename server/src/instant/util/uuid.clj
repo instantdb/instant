@@ -17,3 +17,9 @@
     (.putLong byte-buffer (.getMostSignificantBits uuid))
     (.putLong byte-buffer (.getLeastSignificantBits uuid))
     (.array byte-buffer)))
+
+(defn <-bytes
+  "Converts a byte array into a java.util.UUID"
+  [^bytes bytes]
+  (let [buf (ByteBuffer/wrap bytes)]
+    (UUID. (.getLong buf) (.getLong buf))))

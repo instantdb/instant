@@ -23,6 +23,7 @@
         incanter/incanter {:mvn/version "1.9.3"
                            :exclusions [bouncycastle/bctsp-jdk14
                                         postgresql/postgresql]}
+        com.taoensso/nippy {:mvn/version "3.4.2"}
 
         nrepl/nrepl {:mvn/version "0.9.0"}
         jarohen/chime {:mvn/version "0.3.3"}

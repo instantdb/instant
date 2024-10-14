@@ -308,7 +308,7 @@
         " The wal handler threw an exception. Check if it restart automatically."
         " If it didn't, redeploy the server.\n\nIf you're quick enough you can "
         "peek at the transaction that caused the error:\n\n"
-        (format "```\nselect data from pg_logical_slot_peek_changes('%s', null, null);```"
+        (format "```\nselect data from pg_logical_slot_peek_changes('%s', null, null, 'format-version', '2', 'include-lsn', 'true');```"
                 slot-name))))
 
 (defn start-worker

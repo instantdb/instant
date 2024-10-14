@@ -44,13 +44,16 @@
          {:headers {"X-aws-ec2-metadata-token" token}})
         :body)))
 
-(defn oldest-instance-timestamp []
-  (some->> (ec2/describe-instances
-            {:filters [{:Name (str "tag:" environment-tag-name)
-                        :Values [(get-environment-tag)]}]})
-           :reservations
-           (mapcat :instances)
-           (map :launch-time)
-           sort
-           first
-           (.getMillis)))
+(defn oldest-instance-timestamp
+  ([]
+   (oldest-instance-timestamp (get-environment-tag)))
+  ([env-tag-value]
+   (some->> (ec2/describe-instances
+             {:filters [{:Name (str "tag:" environment-tag-name)
+                         :Values [env-tag-value]}]})
+            :reservations
+            (mapcat :instances)
+            (map :launch-time)
+            sort
+            first
+            (.getMillis))))
