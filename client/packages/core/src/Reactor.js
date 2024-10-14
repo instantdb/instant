@@ -43,7 +43,7 @@ let _wsId = 0;
 function createWebSocket(uri) {
   const ws = new WebSocket(uri);
   // @ts-ignore
-  ws.id = _wsId++;
+  ws._id = _wsId++;
   return ws;
 }
 
@@ -1027,7 +1027,7 @@ export default class Reactor {
     if (this._ws !== targetWs) {
       log.info(
         "[socket][open]",
-        targetWs.id,
+        targetWs._id,
         "skip; this is no longer the current ws",
       );
       return;
@@ -1055,7 +1055,7 @@ export default class Reactor {
     if (this._ws !== targetWs) {
       log.info(
         "[socket][message]",
-        targetWs.id,
+        targetWs._id,
         m,
         "skip; this is no longer the current ws",
       );
@@ -1069,12 +1069,12 @@ export default class Reactor {
     if (this._ws !== targetWs) {
       log.info(
         "[socket][error]",
-        targetWs.id,
+        targetWs._id,
         "skip; this is no longer the current ws",
       );
       return;
     }
-    log.error("[socket][error]", targetWs.id, e);
+    log.error("[socket][error]", targetWs._id, e);
   };
 
   _wsOnClose = (e) => {
@@ -1082,7 +1082,7 @@ export default class Reactor {
     if (this._ws !== targetWs) {
       log.info(
         "[socket][close]",
-        targetWs.id,
+        targetWs._id,
         "skip; this is no longer the current ws",
       );
       return;
@@ -1097,14 +1097,14 @@ export default class Reactor {
     if (this._isShutdown) {
       log.info(
         "[socket][close]",
-        targetWs.id,
+        targetWs._id,
         "Reactor has been shut down and will not reconnect",
       );
       return;
     }
     log.info(
       "[socket][close]",
-      targetWs.id,
+      targetWs._id,
       "schedule reconnect, ms =",
       this._reconnectTimeoutMs,
     );
@@ -1116,7 +1116,7 @@ export default class Reactor {
       if (!this._isOnline) {
         log.info(
           "[socket][close]",
-          targetWs.id,
+          targetWs._id,
           "we are offline, no need to start socket",
         );
         return;
@@ -1132,7 +1132,7 @@ export default class Reactor {
       // effectively fresh.
       log.info(
         "[socket][start]",
-        this._ws.id,
+        this._ws._id,
         "maintained as current ws, we were still in a connecting state",
       );
       return;
@@ -1155,7 +1155,7 @@ export default class Reactor {
       //
       // This means that we have to make sure to kill the previous one ourselves.
       // c.f https://issues.chromium.org/issues/41343684
-      log.info("[socket][start]", this._ws.id, "close previous ws id = ", prevWs.id)
+      log.info("[socket][start]", this._ws._id, "close previous ws id = ", prevWs.id)
       prevWs.close();
     }
   }
