@@ -106,5 +106,5 @@
 
 (defn hazelcast-disabled? []
   (get-in @query-results
-          [query :result :hazelcast :disabled]
+          [query :result :hazelcast :disabled?]
           false))
