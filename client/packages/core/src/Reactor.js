@@ -122,6 +122,11 @@ export default class Reactor {
   _currentUserCached = { isLoading: true, error: undefined, user: undefined };
   _beforeUnloadCbs = [];
   _dataForQueryCache = {};
+  
+  _wsVersion = -1;
+  _wsOpenDfd = new Deferred();
+  _wsCloseDfd = new Deferred();
+  _wsOpenOrClosedDfd = new Deferred();
 
   constructor(
     config,
@@ -166,6 +171,7 @@ export default class Reactor {
         if (isOnline === this._isOnline) {
           return;
         }
+        log.info("[network] online = ", isOnline);
         this._isOnline = isOnline;
         if (this._isOnline) {
           this._startSocket();
@@ -1001,8 +1007,8 @@ export default class Reactor {
     this._ws.send(JSON.stringify({ "client-event-id": eventId, ...msg }));
   }
 
-  _wsOnOpen = () => {
-    log.info("[socket] connected");
+  _wsOnOpen = (v, e) => {
+    log.info("[socket] connected v = ", v);
     this._setStatus(STATUS.OPENED);
     this.getCurrentUser().then((resp) => {
       this._trySend(uuid(), {
@@ -1019,15 +1025,17 @@ export default class Reactor {
     });
   };
 
-  _wsOnMessage = (e) => {
+  _wsOnMessage = (v, e) => {
+    log.info("[socket] message v = ", v);
     this._handleReceive(JSON.parse(e.data.toString()));
   };
 
-  _wsOnError = (e) => {
-    log.error("[socket] error: ", e);
+  _wsOnError = (v, e) => {
+    log.error("[socket] error v = ", v, "e =", e);
   };
 
-  _wsOnClose = () => {
+  _wsOnClose = (v, e) => {
+    log.info("[socket] closed v = ", v);
     this._setStatus(STATUS.CLOSED);
 
     for (const room of Object.values(this._rooms)) {
@@ -1069,12 +1077,14 @@ export default class Reactor {
 
   _startSocket() {
     this._ensurePreviousSocketClosed();
+    
+    const v = ++this._wsVersion;
     this._ws = new WebSocket(
       `${this.config.websocketURI}?app_id=${this.config.appId}`,
     );
-    this._ws.onopen = this._wsOnOpen;
-    this._ws.onmessage = this._wsOnMessage;
-    this._ws.onclose = this._wsOnClose;
+    this._ws.addEventListener("open", (e) => this._wsOnOpen(v, e));
+    this._ws.addEventListener("message", (e) => this._wsOnMessage(v, e));
+    this._ws.addEventListener("close", (e) =>  this._wsOnClose(v, e) );
   }
 
   /**
