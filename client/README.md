@@ -48,6 +48,14 @@ localStorage.setItem("devBackend", true);
 
 Now all requests will go to your local backend at [localhost:8888](http://localhost:8888). If you haven't set up a local backend, follow the [server README](../server/README.md)
 
+### Show client logs
+
+The instant client can show development logs. You can turn this on by writing: 
+
+```
+localStorage.setItem("__instantLogging", true);
+```
+
 ### Running a local app
 You can create local apps by following these steps
 
