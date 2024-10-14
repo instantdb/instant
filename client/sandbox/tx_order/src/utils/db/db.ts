@@ -16,6 +16,15 @@ export type TransactionProgress = {
   batchSize: number;
 };
 
+let _tempId = 0;
+async function loggingTransact(chunks: Chunk[]) { 
+  const _id = _tempId++;
+  const ops = chunks.map((chunk) => chunk.__ops);
+  console.log('[transact]', _id, 'start', ops);
+  await db.transact(chunks);
+  console.log('[transact]', _id, 'end', ops);
+}
+
 /**
  * Batch transact the given Transaction Chunks
  * about batching see: https://discord.com/channels/1031957483243188235/1252314570626695298/1252328034585808936
@@ -45,7 +54,7 @@ export const batchTransact = async (
     let i = 0;
     const transactionId = id();
     for (const batch of batches) {
-      await db.transact(batch);
+      await loggingTransact(batch);
       i += 1;
       onProgress?.({
         transactionId,
@@ -56,7 +65,7 @@ export const batchTransact = async (
     }
   } else {
     if (chunks) {
-      await db.transact(chunks);
+      await loggingTransact([chunks]);
     }
   }
 };

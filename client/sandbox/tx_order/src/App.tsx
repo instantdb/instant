@@ -135,8 +135,6 @@ function App() {
     }
   }, [stickers]);
 
-  console.log({ stickers });
-
   return (
     <>
       <div>
