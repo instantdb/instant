@@ -1026,13 +1026,13 @@ export default class Reactor {
     const targetWs = e.target;
     if (this._ws !== targetWs) {
       log.info(
-        "[socket]",
+        "[socket][open]",
         targetWs.id,
-        "skipping open event; this is no longer the current ws",
+        "skip; this is no longer the current ws",
       );
       return;
     }
-    log.info("[socket]", this._ws.id, "opened");
+    log.info("[socket][open]", this._ws.id);
     this._setStatus(STATUS.OPENED);
     this.getCurrentUser().then((resp) => {
       this._trySend(uuid(), {
@@ -1054,11 +1054,10 @@ export default class Reactor {
     const m = JSON.parse(e.data.toString());
     if (this._ws !== targetWs) {
       log.info(
-        "[socket]",
+        "[socket][message]",
         targetWs.id,
-        "skip message",
         m,
-        "this is no longer the current ws",
+        "skip; this is no longer the current ws",
       );
       return;
     }
@@ -1069,13 +1068,13 @@ export default class Reactor {
     const targetWs = e.target;
     if (this._ws !== targetWs) {
       log.info(
-        "[socket]",
+        "[socket][error]",
         targetWs.id,
-        "skipping error; this is no longer the current ws",
+        "skip; this is no longer the current ws",
       );
       return;
     }
-    log.error("[socket]", targetWs.id, "error event =", e);
+    log.error("[socket][error]", targetWs.id, e);
   };
 
   _wsOnClose = (e) => {
@@ -1132,7 +1131,7 @@ export default class Reactor {
       // There's no need to start another one, as the socket is
       // effectively fresh.
       log.info(
-        "[socket]",
+        "[socket][start]",
         this._ws.id,
         "maintained as current ws, we were still in a connecting state",
       );
@@ -1146,6 +1145,7 @@ export default class Reactor {
     this._ws.onmessage = this._wsOnMessage;
     this._ws.onclose = this._wsOnClose;
     this._ws.onerror = this._wsOnError;
+    log.info("[socket][start]", this._ws.id);
     if (prevWs?.readyState === WS_OPEN_STATUS) {
       // When the network dies, it doesn't always mean that our
       // socket connection will fire a close event.
@@ -1155,6 +1155,7 @@ export default class Reactor {
       //
       // This means that we have to make sure to kill the previous one ourselves.
       // c.f https://issues.chromium.org/issues/41343684
+      log.info("[socket][start]", this._ws.id, "close previous ws id = ", prevWs.id)
       prevWs.close();
     }
   }
