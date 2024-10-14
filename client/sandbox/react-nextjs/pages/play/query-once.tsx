@@ -16,10 +16,6 @@ const db = init<{
   };
 }>(config);
 
-db.queryOnce({
-  onceTest: {},
-}).then((r) => console.log("onceTest on init", r));
-
 function _subsCount() {
   return Object.values(db._core._reactor.queryOnceDfds).flat().length;
 }

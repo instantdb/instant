@@ -24,8 +24,9 @@ const STATUS = {
   ERRORED: "errored",
 };
 
-const QUERY_ONCE_TIMEOUT = 10_000;
+const QUERY_ONCE_TIMEOUT = 30_000;
 
+const WS_CONNECTING_STATUS = 0;
 const WS_OPEN_STATUS = 1;
 
 const defaultConfig = {
@@ -37,6 +38,14 @@ const defaultConfig = {
 const OAUTH_REDIRECT_PARAM = "_instant_oauth_redirect";
 
 const currentUserKey = `currentUser`;
+
+let _wsId = 0;
+function createWebSocket(uri) {
+  const ws = new WebSocket(uri);
+  // @ts-ignore
+  ws._id = _wsId++;
+  return ws;
+}
 
 function isClient() {
   const hasWindow = typeof window !== "undefined";
@@ -166,6 +175,7 @@ export default class Reactor {
         if (isOnline === this._isOnline) {
           return;
         }
+        log.info("[network] online =", isOnline);
         this._isOnline = isOnline;
         if (this._isOnline) {
           this._startSocket();
@@ -626,15 +636,26 @@ export default class Reactor {
     };
   }
 
-  async queryOnce(q) {
+  queryOnce(q) {
+    const dfd = new Deferred();
+
     if (!this._isOnline) {
-      throw new Error(
-        "Offline: Cannot execute query because the device is offline.",
+      dfd.reject(
+        new Error("We can't run `queryOnce`, because the device is offline."),
       );
+      return dfd.promise;
+    }
+
+    if (!this.querySubs) {
+      dfd.reject(
+        new Error(
+          "We can't run `queryOnce` on the backend. Use adminAPI.query instead: https://www.instantdb.com/docs/backend#query",
+        ),
+      );
+      return dfd.promise;
     }
 
     const hash = weakHash(q);
-    const dfd = new Deferred();
 
     const eventId = this._startQuerySub(q, hash);
 
@@ -1001,8 +1022,17 @@ export default class Reactor {
     this._ws.send(JSON.stringify({ "client-event-id": eventId, ...msg }));
   }
 
-  _wsOnOpen = () => {
-    log.info("[socket] connected");
+  _wsOnOpen = (e) => {
+    const targetWs = e.target;
+    if (this._ws !== targetWs) {
+      log.info(
+        "[socket][open]",
+        targetWs._id,
+        "skip; this is no longer the current ws",
+      );
+      return;
+    }
+    log.info("[socket][open]", this._ws._id);
     this._setStatus(STATUS.OPENED);
     this.getCurrentUser().then((resp) => {
       this._trySend(uuid(), {
@@ -1020,14 +1050,44 @@ export default class Reactor {
   };
 
   _wsOnMessage = (e) => {
+    const targetWs = e.target;
+    const m = JSON.parse(e.data.toString());
+    if (this._ws !== targetWs) {
+      log.info(
+        "[socket][message]",
+        targetWs._id,
+        m,
+        "skip; this is no longer the current ws",
+      );
+      return;
+    }
     this._handleReceive(JSON.parse(e.data.toString()));
   };
 
   _wsOnError = (e) => {
-    log.error("[socket] error: ", e);
+    const targetWs = e.target;
+    if (this._ws !== targetWs) {
+      log.info(
+        "[socket][error]",
+        targetWs._id,
+        "skip; this is no longer the current ws",
+      );
+      return;
+    }
+    log.error("[socket][error]", targetWs._id, e);
   };
 
-  _wsOnClose = () => {
+  _wsOnClose = (e) => {
+    const targetWs = e.target;
+    if (this._ws !== targetWs) {
+      log.info(
+        "[socket][close]",
+        targetWs._id,
+        "skip; this is no longer the current ws",
+      );
+      return;
+    }
+
     this._setStatus(STATUS.CLOSED);
 
     for (const room of Object.values(this._rooms)) {
@@ -1036,45 +1096,68 @@ export default class Reactor {
 
     if (this._isShutdown) {
       log.info(
-        "[socket-close] socket has been shut down and will not reconnect",
+        "[socket][close]",
+        targetWs._id,
+        "Reactor has been shut down and will not reconnect",
       );
       return;
     }
-    if (this._isManualClose) {
-      this._isManualClose = false;
-      log.info("[socket-close] manual close, will not reconnect");
-      return;
-    }
-
-    log.info("[socket-close] scheduling reconnect", this._reconnectTimeoutMs);
+    log.info(
+      "[socket][close]",
+      targetWs._id,
+      "schedule reconnect, ms =",
+      this._reconnectTimeoutMs,
+    );
     setTimeout(() => {
       this._reconnectTimeoutMs = Math.min(
         this._reconnectTimeoutMs + 1000,
         10000,
       );
       if (!this._isOnline) {
-        log.info("[socket-close] we are offline, no need to start socket");
+        log.info(
+          "[socket][close]",
+          targetWs._id,
+          "we are offline, no need to start socket",
+        );
         return;
       }
       this._startSocket();
     }, this._reconnectTimeoutMs);
   };
 
-  _ensurePreviousSocketClosed() {
-    if (this._ws && this._ws.readyState === WS_OPEN_STATUS) {
-      this._isManualClose = true;
-      this._ws.close();
-    }
-  }
-
   _startSocket() {
-    this._ensurePreviousSocketClosed();
-    this._ws = new WebSocket(
+    if (this._ws && this._ws.readyState == WS_CONNECTING_STATUS) {
+      // Our current websocket is in a 'connecting' state.
+      // There's no need to start another one, as the socket is
+      // effectively fresh.
+      log.info(
+        "[socket][start]",
+        this._ws._id,
+        "maintained as current ws, we were still in a connecting state",
+      );
+      return;
+    }
+    const prevWs = this._ws;
+    this._ws = createWebSocket(
       `${this.config.websocketURI}?app_id=${this.config.appId}`,
     );
     this._ws.onopen = this._wsOnOpen;
     this._ws.onmessage = this._wsOnMessage;
     this._ws.onclose = this._wsOnClose;
+    this._ws.onerror = this._wsOnError;
+    log.info("[socket][start]", this._ws._id);
+    if (prevWs?.readyState === WS_OPEN_STATUS) {
+      // When the network dies, it doesn't always mean that our
+      // socket connection will fire a close event.
+      //
+      // We _could_ re-use the old socket, if the network drop was a
+      // few seconds. But, to be safe right now we always create a new socket.
+      //
+      // This means that we have to make sure to kill the previous one ourselves.
+      // c.f https://issues.chromium.org/issues/41343684
+      log.info("[socket][start]", this._ws._id, "close previous ws id = ", prevWs._id)
+      prevWs.close();
+    }
   }
 
   /**
