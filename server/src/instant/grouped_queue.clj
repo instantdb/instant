@@ -11,18 +11,18 @@
   {:size (AtomicInteger. 0)
    :group-fn group-fn
    :group-key->subqueue (atom {})
-   :main-queue (LinkedBlockingQueue.)})
+   :dispatch-queue (LinkedBlockingQueue.)})
 
 (defn size [{:keys [size] :as _grouped-q}]
   (.get size))
 
-(defn put! [{:keys [group-fn main-queue group-key->subqueue size]
+(defn put! [{:keys [group-fn dispatch-queue group-key->subqueue size]
              :as _grouped-q} item]
   (let [group-key (group-fn item)]
     (if (nil? group-key)
       ;; This item is not to be grouped.
       (do (.incrementAndGet size)
-          (.put main-queue [:item item]))
+          (.put dispatch-queue [:item item]))
 
       ;; This item will be grouped on `group-key` 
       (let [_ (.incrementAndGet size)
@@ -35,10 +35,10 @@
             prev-subqueue (get prev group-key)
             first-enqueue? (empty? prev-subqueue)]
         (when first-enqueue?
-          (.put main-queue [:group-key group-key]))))))
+          (.put dispatch-queue [:group-key group-key]))))))
 
-(defn peek [{:keys [main-queue group-key->subqueue] :as _grouped-q}]
-  (let [[t arg :as entry] (.peek main-queue)]
+(defn peek [{:keys [dispatch-queue group-key->subqueue] :as _grouped-q}]
+  (let [[t arg :as entry] (.peek dispatch-queue)]
     (cond
       (nil? entry) nil
       (= t :item) arg
@@ -46,10 +46,10 @@
 
 (defn process-polling!
   ([gq process-fn] (process-polling! gq process-fn {:poll-ms 1000}))
-  ([{:keys [main-queue group-key->subqueue size] :as _grouped-q}
+  ([{:keys [dispatch-queue group-key->subqueue size] :as _grouped-q}
     process-fn
     {:keys [poll-ms]}]
-   (let [[t arg :as entry] (.poll main-queue poll-ms TimeUnit/MILLISECONDS)]
+   (let [[t arg :as entry] (.poll dispatch-queue poll-ms TimeUnit/MILLISECONDS)]
      (cond
        (nil? entry) nil
 
@@ -69,7 +69,7 @@
                    curr-subqueue (get curr group-key)]
                (.decrementAndGet size)
                (when (seq curr-subqueue)
-                 (.put main-queue [:group-key group-key])))))
+                 (.put dispatch-queue [:group-key group-key])))))
          true)))))
 
 (comment
