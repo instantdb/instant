@@ -1027,6 +1027,9 @@ export default class Reactor {
     if (this._ws.readyState !== WS_OPEN_STATUS) {
       return;
     }
+    if (!ignoreLogging[msg.op]) {
+      log.info("[send]", this._ws._id, msg.op, msg);
+    }
     this._ws.send(JSON.stringify({ "client-event-id": eventId, ...msg }));
   }
 
