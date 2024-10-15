@@ -556,14 +556,13 @@
 ;; ------
 ;; System
 
-(defn receive-q-metrics [_receive-q]
-  ;; TODO: add metrics
-  #_[{:path "instant.reactive.session.receive-q.size"
-      :value (.size receive-q)}
-     {:path "instant.reactive.session.receive-q.longest-waiting-ms"
-      :value (if-let [{:keys [put-at]} (.peek receive-q)]
-               (.toMillis (Duration/between put-at (Instant/now)))
-               0)}])
+(defn receive-q-metrics [receive-q]
+  [{:path "instant.reactive.session.receive-q.size"
+    :value (grouped-queue/size receive-q)}
+   {:path "instant.reactive.session.receive-q.longest-waiting-ms"
+    :value (if-let [{:keys [put-at]} (grouped-queue/peek receive-q)]
+             (.toMillis (Duration/between put-at (Instant/now)))
+             0)}])
 
 (defn group-fn [{:keys [item] :as _input}]
   (let [{:keys [session-id op]} item]
