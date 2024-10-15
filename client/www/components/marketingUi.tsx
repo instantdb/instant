@@ -206,6 +206,7 @@ export function LandingFooter() {
                 GitHub
               </NavLink>
               <NavLink href="/privacy">Privacy Policy</NavLink>
+              <NavLink href="/terms">Terms</NavLink>
               <NavLink href="/dash">Login</NavLink>
               <div className="text-orange-500">
                 <NavLink href="/dash">Signup</NavLink>
