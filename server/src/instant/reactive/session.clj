@@ -563,7 +563,7 @@
 ;; ------
 ;; System
 
-(defn receive-q-metrics [receive-q]
+(defn receive-q-metrics [_receive-q]
   ;; TODO: add metrics
   #_[{:path "instant.reactive.session.receive-q.size"
       :value (.size receive-q)}
@@ -577,6 +577,7 @@
     (condp = op
       :transact
       [session-id op]
+      ;; TODO: do the same for `set-presence` `join-room` `leave-room` (they should all batch together) 
       :else
       nil)))
 
