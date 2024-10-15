@@ -16,7 +16,7 @@
 (defn size [{:keys [size] :as _grouped-q}]
   (.get size))
 
-(defn add! [{:keys [group-fn main-queue group-key->subqueue size]
+(defn put! [{:keys [group-fn main-queue group-key->subqueue size]
              :as _grouped-q} item]
   (let [group-key (group-fn item)]
     (if (nil? group-key)
@@ -74,9 +74,9 @@
 
 (comment
   (def gq (create {:group-fn :k}))
-  (add! gq {:k :a})
-  (add! gq {:k :a})
-  (add! gq {:k :b})
-  (add! gq {:not-grouped :c})
+  (put! gq {:k :a})
+  (put! gq {:k :a})
+  (put! gq {:k :b})
+  (put! gq {:not-grouped :c})
   (peek gq)
   (process-polling! gq println))
