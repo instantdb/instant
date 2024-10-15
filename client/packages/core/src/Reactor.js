@@ -701,11 +701,15 @@ export default class Reactor {
       this.queryCbs[hash]?.length || this.queryOnceDfds[hash]?.length;
 
     if (hasListeners) return;
+    // (XXX): `add-query` and `remove-query` should happen in a causal order
+    // Right now they don't, and it may be affecting some users
+    // Once we ship: https://github.com/instantdb/instant/pull/361 
+    // we can put this change back. 
+    
+    // delete this.queryCbs[hash];
+    // delete this.queryOnceDfds[hash];
 
-    delete this.queryCbs[hash];
-    delete this.queryOnceDfds[hash];
-
-    this._trySendAuthed(uuid(), { op: "remove-query", q });
+    // this._trySendAuthed(uuid(), { op: "remove-query", q });
   }
 
   // When we `pushTx`, it's possible that we don't yet have `this.attrs`
