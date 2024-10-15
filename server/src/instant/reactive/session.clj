@@ -444,51 +444,44 @@
                                         :attributes {:session-id (:session/id session)
                                                      :event event}}))))
 
-(defn start-receive-worker [store-conn eph-store-atom receive-q stop-signal worker-n]
-  (tracer/record-info! {:name "receive-worker/start"
-                        :attributes {:worker-n worker-n}})
-  (loop []
-    (if @stop-signal
-      (tracer/record-info! {:name "receive-worker/shutdown-complete"
-                            :attributes {:worker-n worker-n}})
-      (do
-        (grouped-queue/process-polling!
-         receive-q
-         (fn [input]
-           (let [{:keys [put-at item]} input
-                 {:keys [session-id] :as event} item
-                 now (Instant/now)
-                 session (rs/get-session @store-conn session-id)]
-             (cond
-               (not session)
-               (tracer/record-info! {:name "receive-worker/session-not-found"
-                                     :attributes {:worker-n worker-n
-                                                  :session-id session-id}})
+(defn process-receive-q-input [store-conn eph-store-atom worker-n input]
+  (let [{:keys [put-at item]} input
+        {:keys [session-id] :as event} item
+        now (Instant/now)
+        session (rs/get-session @store-conn session-id)]
+    (cond
+      (not session)
+      (tracer/record-info! {:name "receive-worker/session-not-found"
+                            :attributes {:worker-n worker-n
+                                         :session-id session-id}})
 
-               :else
-               (straight-jacket-handle-receive
-                store-conn
-                eph-store-atom
-                (assoc (into {} session)
-                       :worker-n worker-n)
-                (assoc event
-                       #_:receive-q-delay-ms
-                       #_(.toMillis (Duration/between put-at worker-queued-at))
-                       #_:worker-delay-ms
-                       #_(.toMillis (Duration/between worker-queued-at now))
-                       :total-delay-ms
-                       (.toMillis (Duration/between put-at now))
-                       :ws-ping-latency-ms
-                       (some-> session
-                               :session/socket
-                               :get-ping-latency-ms
-                               (#(%)))))))))
-        (recur)))))
+      :else
+      (straight-jacket-handle-receive
+       store-conn
+       eph-store-atom
+       (assoc (into {} session)
+              :worker-n worker-n)
+       (assoc event
+              :total-delay-ms
+              (.toMillis (Duration/between put-at now))
+              :ws-ping-latency-ms
+              (some-> session
+                      :session/socket
+                      :get-ping-latency-ms
+                      (#(%))))))))
 
-(defn start-receive-orchestrator [store-conn eph-store-atom receive-q stop-signal]
-  (tracer/record-info! {:name "receive-orchestrator/start"})
+(defn start-receive-workers [store-conn eph-store-atom receive-q stop-signal]
   (doseq [n (range num-receive-workers)]
-    (ua/fut-bg (start-receive-worker store-conn eph-store-atom receive-q stop-signal n))))
+    (ua/fut-bg
+     (loop []
+       (if @stop-signal
+         (tracer/record-info! {:name "receive-worker/shutdown-complete"
+                               :attributes {:worker-n n}})
+         (do (grouped-queue/process-polling!
+              receive-q
+              (fn [item]
+                (process-receive-q-input store-conn eph-store-atom n item)))
+             (recur)))))))
 
 (defn enqueue->receive-q [receive-q item]
   (grouped-queue/enqueue!
@@ -574,12 +567,19 @@
 
 (defn group-fn [{:keys [item] :as _input}]
   (let [{:keys [session-id op]} item]
-    (condp = op
-      :transact
-      [session-id op]
-      ;; TODO: do the same for `set-presence` `join-room` `leave-room` (they should all batch together) 
-      :else
+    (condp contains? op
+      #{:transact}
+      [session-id :transact]
+
+      #{:join-room :leave-room :set-presence :client-broadcast}
+      [session-id :eph]
+
       nil)))
+
+(comment
+  (group-fn {:item {:session-id 1 :op :transact}})
+  (group-fn {:item {:session-id 1 :op :leave-room}})
+  (group-fn {:item {:session-id 1 :op :add-query}}))
 
 (defn start []
   (def receive-q (grouped-queue/create {:group-fn group-fn}))
@@ -588,9 +588,11 @@
                       (fn [] (receive-q-metrics receive-q))))
 
   (ua/fut-bg
-   (start-receive-orchestrator rs/store-conn eph/ephemeral-store-atom
-                               receive-q
-                               receive-q-stop-signal)))
+   (start-receive-workers
+    rs/store-conn
+    eph/ephemeral-store-atom
+    receive-q
+    receive-q-stop-signal)))
 
 (defn stop []
   (reset! receive-q-stop-signal true)
