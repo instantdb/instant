@@ -484,7 +484,7 @@
              (recur)))))))
 
 (defn enqueue->receive-q [receive-q item]
-  (grouped-queue/enqueue!
+  (grouped-queue/add!
    receive-q
    {:item item :put-at (Instant/now)}))
 
@@ -573,6 +573,10 @@
       #{:join-room :leave-room :set-presence :client-broadcast}
       [session-id :eph]
 
+      #{:add-query :remove-query}
+      (let [{:keys [q]} item]
+        [session-id :query q])
+
       nil)))
 
 (comment
@@ -581,7 +585,7 @@
   (group-fn {:item {:session-id 1 :op :add-query}}))
 
 (defn start []
-  (def receive-q (grouped-queue/create {:group-fn group-fn}))
+  (def receive-q (grouped-queue/create {:group-fn #'group-fn}))
   (def receive-q-stop-signal (atom false))
   (def cleanup-gauge (gauges/add-gauge-metrics-fn
                       (fn [] (receive-q-metrics receive-q))))
