@@ -1,6 +1,6 @@
 (ns instant.grouped-queue
   (:import
-   (java.util.concurrent LinkedBlockingQueue)
+   (java.util.concurrent LinkedBlockingQueue TimeUnit)
    (clojure.lang PersistentQueue)))
 
 (def empty-q PersistentQueue/EMPTY)
@@ -28,26 +28,29 @@
         (when first-enqueue?
           (.put main-queue [:group-key group-key]))))))
 
-(defn process! [{:keys [main-queue group-key->subqueue]
-                 :as _grouped-q} process-fn]
-  (let [[t arg] (.take main-queue)]
-    (case t
-      :item
-      (let [item arg]
-        (process-fn item))
-      :group-key
+(defn process-polling! [{:keys [main-queue group-key->subqueue]
+                         :as _grouped-q} process-fn]
+  (let [[t arg :as entry] (.poll main-queue 1000 TimeUnit/MILLISECONDS)]
+    (cond
+      (nil? entry) nil
+
+      (= t :item)
+      (process-fn arg)
+      (= t :group-key)
       (let [group-key arg
-            item (first (get @group-key->subqueue group-key))
-            _ (process-fn item)
-            curr (swap! group-key->subqueue update group-key pop)
-            curr-subqueue (get curr group-key)]
-        (when (seq curr-subqueue)
-          (.put main-queue [:group-key group-key]))))))
+            item (first (get @group-key->subqueue group-key))]
+        (try
+          (process-fn item)
+          (finally
+            (let [curr (swap! group-key->subqueue update group-key pop)
+                  curr-subqueue (get curr group-key)]
+              (when (seq curr-subqueue)
+                (.put main-queue [:group-key group-key])))))))))
 
 (comment
-  (def gq (create identity))
-  (enqueue! gq :a)
+  (def gq (create :k))
+  (enqueue! gq {:k :a})
   (enqueue! gq {:k :a})
   (enqueue! gq {:k :b})
   (enqueue! gq {:not-grouped :c})
-  (process! gq println))
+  (process-polling! gq println))

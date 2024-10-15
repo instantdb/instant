@@ -8,7 +8,6 @@
    commands."
   (:require
    [lambdaisland.uri :as uri]
-   [clojure.core.async :as a]
    [instant.config :as config]
    [instant.util.async :as ua]
    [instant.jdbc.aurora :as aurora]
@@ -32,9 +31,10 @@
    [instant.util.exception :as ex]
    [instant.util.uuid :as uuid-util]
    [instant.reactive.session :as session]
+   [instant.grouped-queue :as grouped-queue]
    [instant.gauges :as gauges])
   (:import
-   (java.util.concurrent LinkedBlockingQueue CancellationException)
+   (java.util.concurrent CancellationException)
    (java.util.concurrent.atomic AtomicLong)
    (java.time Duration Instant)))
 
@@ -42,8 +42,7 @@
 ;; Setup
 
 (declare receive-q)
-(declare receive-worker-ch)
-
+(declare receive-q-stop-signal)
 (def handle-receive-timeout-ms 5000)
 
 (def num-receive-workers (* 3 (delay/cpu-count)))
@@ -445,62 +444,57 @@
                                         :attributes {:session-id (:session/id session)
                                                      :event event}}))))
 
-(defn start-receive-worker [store-conn eph-store-atom worker-ch worker-n]
+(defn start-receive-worker [store-conn eph-store-atom receive-q stop-signal worker-n]
   (tracer/record-info! {:name "receive-worker/start"
                         :attributes {:worker-n worker-n}})
 
   (loop []
-    (let [{:keys [put-at worker-queued-at item]} (a/<!! worker-ch)
-          {:keys [session-id] :as event} item
-          now (Instant/now)
-          session (rs/get-session @store-conn session-id)]
-      (cond
-        (not event)
-        (tracer/record-info! {:name "receive-worker/shutdown-complete"
-                              :attributes {:worker-n worker-n}})
+    (if @stop-signal
+      (tracer/record-info! {:name "receive-worker/shutdown-complete"
+                            :attributes {:worker-n worker-n}})
+      (do
+        (grouped-queue/process-polling!
+         receive-q
+         (fn [input]
+           (let [{:keys [put-at worker-queued-at item]} input
+                 {:keys [session-id] :as event} item
+                 now (Instant/now)
+                 session (rs/get-session @store-conn session-id)]
+             (cond
+               (not session)
+               (tracer/record-info! {:name "receive-worker/session-not-found"
+                                     :attributes {:worker-n worker-n
+                                                  :session-id session-id}})
 
-        (not session)
-        (do (tracer/record-info! {:name "receive-worker/session-not-found"
-                                  :attributes {:worker-n worker-n
-                                               :session-id session-id}})
+               :else
+               (straight-jacket-handle-receive
+                store-conn
+                eph-store-atom
+                (assoc (into {} session)
+                       :worker-n worker-n)
+                (assoc event
+                       :receive-q-delay-ms
+                       (.toMillis (Duration/between put-at worker-queued-at))
+                       :worker-delay-ms
+                       (.toMillis (Duration/between worker-queued-at now))
+                       :total-delay-ms
+                       (.toMillis (Duration/between put-at now))
+                       :ws-ping-latency-ms
+                       (some-> session
+                               :session/socket
+                               :get-ping-latency-ms
+                               (#(%)))))))))
+        (recur)))))
 
-            (recur))
-
-        :else
-        (do (straight-jacket-handle-receive
-             store-conn
-             eph-store-atom
-             (assoc (into {} session)
-                    :worker-n worker-n)
-             (assoc event
-                    :receive-q-delay-ms
-                    (.toMillis (Duration/between put-at worker-queued-at))
-                    :worker-delay-ms
-                    (.toMillis (Duration/between worker-queued-at now))
-                    :total-delay-ms
-                    (.toMillis (Duration/between put-at now))
-                    :ws-ping-latency-ms
-                    (some-> session
-                            :session/socket
-                            :get-ping-latency-ms
-                            (#(%)))))
-            (recur))))))
-
-(defn start-receive-orchestrator [store-conn eph-store-atom receive-q worker-ch]
+(defn start-receive-orchestrator [store-conn eph-store-atom receive-q stop-signal]
   (tracer/record-info! {:name "receive-orchestrator/start"})
   (doseq [n (range num-receive-workers)]
-    (ua/fut-bg (start-receive-worker store-conn eph-store-atom worker-ch n)))
-  (loop []
-    (let [{:keys [item] :as msg} (.take receive-q)]
-      (if (= :stop item)
-        (do (a/close! worker-ch)
-            (tracer/record-info! {:name "receive-orchestrator/stop"}))
-        (do (a/>!! worker-ch (assoc msg :worker-queued-at (Instant/now)))
-            (recur))))))
+    (ua/fut-bg (start-receive-worker store-conn eph-store-atom receive-q stop-signal n))))
 
 (defn enqueue->receive-q [receive-q item]
-  (.put receive-q {:item item
-                   :put-at (Instant/now)}))
+  (grouped-queue/enqueue!
+   receive-q
+   {:item item :put-at (Instant/now)}))
 
 ;; -----------------
 ;; Websocket Interop
@@ -571,24 +565,28 @@
 ;; System
 
 (defn receive-q-metrics [receive-q]
-  [{:path "instant.reactive.session.receive-q.size"
-    :value (.size receive-q)}
-   {:path "instant.reactive.session.receive-q.longest-waiting-ms"
-    :value (if-let [{:keys [put-at]} (.peek receive-q)]
-             (.toMillis (Duration/between put-at (Instant/now)))
-             0)}])
+  ;; TODO: add metrics
+  #_[{:path "instant.reactive.session.receive-q.size"
+      :value (.size receive-q)}
+     {:path "instant.reactive.session.receive-q.longest-waiting-ms"
+      :value (if-let [{:keys [put-at]} (.peek receive-q)]
+               (.toMillis (Duration/between put-at (Instant/now)))
+               0)}])
 
 (defn start []
-  (def receive-q (LinkedBlockingQueue.))
-  (def receive-worker-ch (a/chan))
+  (def receive-q (grouped-queue/create {:group-fn (constantly nil)}))
+  (def receive-q-stop-signal (atom false))
   (def cleanup-gauge (gauges/add-gauge-metrics-fn
                       (fn [] (receive-q-metrics receive-q))))
-  (ua/fut-bg (start-receive-orchestrator rs/store-conn eph/ephemeral-store-atom receive-q receive-worker-ch)))
+
+  (ua/fut-bg
+   (start-receive-orchestrator rs/store-conn eph/ephemeral-store-atom
+                               receive-q
+                               receive-q-stop-signal)))
 
 (defn stop []
-  (enqueue->receive-q receive-q :stop)
-  (cleanup-gauge)
-  (a/close! receive-worker-ch))
+  (reset! receive-q-stop-signal true)
+  (cleanup-gauge))
 
 (defn restart []
   (stop)
