@@ -5,7 +5,7 @@
 
 (def empty-q PersistentQueue/EMPTY)
 
-(defn create [group-fn]
+(defn create [{:keys [group-fn]}]
   {:group-fn group-fn
    :group-key->subqueue (atom {})
    :main-queue (LinkedBlockingQueue.)})
@@ -28,8 +28,8 @@
         (when first-enqueue?
           (.put main-queue [:group-key group-key]))))))
 
-(defn process-polling! [{:keys [main-queue group-key->subqueue]
-                         :as _grouped-q} process-fn]
+(defn process-polling! [{:keys [main-queue group-key->subqueue] :as _grouped-q}
+                        process-fn]
   (let [[t arg :as entry] (.poll main-queue 1000 TimeUnit/MILLISECONDS)]
     (cond
       (nil? entry) nil
@@ -48,7 +48,7 @@
                 (.put main-queue [:group-key group-key])))))))))
 
 (comment
-  (def gq (create :k))
+  (def gq (create {:group-fn :k}))
   (enqueue! gq {:k :a})
   (enqueue! gq {:k :a})
   (enqueue! gq {:k :b})

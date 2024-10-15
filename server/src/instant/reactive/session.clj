@@ -459,7 +459,6 @@
                  {:keys [session-id] :as event} item
                  now (Instant/now)
                  session (rs/get-session @store-conn session-id)]
-             (tool/def-locals!)
              (cond
                (not session)
                (tracer/record-info! {:name "receive-worker/session-not-found"
@@ -573,8 +572,16 @@
                (.toMillis (Duration/between put-at (Instant/now)))
                0)}])
 
+(defn group-fn [{:keys [item] :as _input}]
+  (let [{:keys [session-id op]} item]
+    (condp = op
+      :transact
+      [session-id op]
+      :else
+      nil)))
+
 (defn start []
-  (def receive-q (grouped-queue/create {:group-fn (constantly nil)}))
+  (def receive-q (grouped-queue/create {:group-fn group-fn}))
   (def receive-q-stop-signal (atom false))
   (def cleanup-gauge (gauges/add-gauge-metrics-fn
                       (fn [] (receive-q-metrics receive-q))))
