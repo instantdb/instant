@@ -36,7 +36,7 @@ test("querySubs round-trips", async () => {
   });
 
   // Initialize the store
-  reactor._handleReceive({
+  reactor._handleReceive(0, {
     op: "add-query-ok",
     q,
     "processed-tx-id": 0,
