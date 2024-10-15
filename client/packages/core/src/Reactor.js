@@ -56,6 +56,12 @@ function isClient() {
   return hasWindow || isChrome;
 }
 
+const ignoreLogging = {
+  "set-presence": true,
+  "set-presence-ok": true,
+  "refresh-presence": true,
+};
+
 function querySubsFromJSON(str) {
   const parsed = JSON.parse(str);
   for (const key in parsed) {
@@ -349,14 +355,16 @@ export default class Reactor {
     }
   }
 
-  _handleReceive(msg) {
+  _handleReceive(wsId, msg) {
     // opt-out, enabled by default if schema
     const enableCardinalityInference =
       Boolean(this.config.schema) &&
       ("cardinalityInference" in this.config
         ? Boolean(this.config.cardinalityInference)
         : true);
-
+    if (!ignoreLogging[msg.op]) {
+      log.info("[receive]", wsId, msg.op, msg);
+    }
     switch (msg.op) {
       case "init-ok":
         this._setStatus(STATUS.AUTHENTICATED);
@@ -1008,14 +1016,14 @@ export default class Reactor {
     });
   }
 
-  _trySendAuthed(eventId, msg) {
+  _trySendAuthed(...args) {
     if (this.status !== STATUS.AUTHENTICATED) {
       return;
     }
-    this._trySend(eventId, msg);
+    this._trySend(...args);
   }
 
-  _trySend(eventId, msg) {
+  _trySend(eventId, msg, opts) {
     if (this._ws.readyState !== WS_OPEN_STATUS) {
       return;
     }
@@ -1061,7 +1069,7 @@ export default class Reactor {
       );
       return;
     }
-    this._handleReceive(JSON.parse(e.data.toString()));
+    this._handleReceive(targetWs._id, JSON.parse(e.data.toString()));
   };
 
   _wsOnError = (e) => {
@@ -1155,7 +1163,12 @@ export default class Reactor {
       //
       // This means that we have to make sure to kill the previous one ourselves.
       // c.f https://issues.chromium.org/issues/41343684
-      log.info("[socket][start]", this._ws._id, "close previous ws id = ", prevWs._id)
+      log.info(
+        "[socket][start]",
+        this._ws._id,
+        "close previous ws id = ",
+        prevWs._id,
+      );
       prevWs.close();
     }
   }
