@@ -447,7 +447,6 @@
 (defn start-receive-worker [store-conn eph-store-atom receive-q stop-signal worker-n]
   (tracer/record-info! {:name "receive-worker/start"
                         :attributes {:worker-n worker-n}})
-
   (loop []
     (if @stop-signal
       (tracer/record-info! {:name "receive-worker/shutdown-complete"
@@ -456,10 +455,11 @@
         (grouped-queue/process-polling!
          receive-q
          (fn [input]
-           (let [{:keys [put-at worker-queued-at item]} input
+           (let [{:keys [put-at item]} input
                  {:keys [session-id] :as event} item
                  now (Instant/now)
                  session (rs/get-session @store-conn session-id)]
+             (tool/def-locals!)
              (cond
                (not session)
                (tracer/record-info! {:name "receive-worker/session-not-found"
@@ -473,10 +473,10 @@
                 (assoc (into {} session)
                        :worker-n worker-n)
                 (assoc event
-                       :receive-q-delay-ms
-                       (.toMillis (Duration/between put-at worker-queued-at))
-                       :worker-delay-ms
-                       (.toMillis (Duration/between worker-queued-at now))
+                       #_:receive-q-delay-ms
+                       #_(.toMillis (Duration/between put-at worker-queued-at))
+                       #_:worker-delay-ms
+                       #_(.toMillis (Duration/between worker-queued-at now))
                        :total-delay-ms
                        (.toMillis (Duration/between put-at now))
                        :ws-ping-latency-ms
