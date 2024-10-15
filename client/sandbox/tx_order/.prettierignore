@@ -1,0 +1,9 @@
+node_modules
+.env*
+.gitlab-ci.yml
+package-lock.json
+
+# Storybook
+!.storybook
+
+instantdb
