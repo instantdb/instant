@@ -37,17 +37,16 @@
         (process-fn item))
       :group-key
       (let [group-key arg
-            [prev curr] (swap-vals! group-key->subqueue update group-key pop)
-            prev-subqueue (get prev group-key)
-            item (first prev-subqueue)
+            item (first (get @group-key->subqueue group-key))
+            _ (process-fn item)
+            curr (swap! group-key->subqueue update group-key pop)
             curr-subqueue (get curr group-key)]
-        (process-fn item)
         (when (seq curr-subqueue)
           (.put main-queue [:group-key group-key]))))))
 
 (comment
-  (def gq (create :k))
-  (enqueue! gq {:k :a})
+  (def gq (create identity))
+  (enqueue! gq :a)
   (enqueue! gq {:k :a})
   (enqueue! gq {:k :b})
   (enqueue! gq {:not-grouped :c})
