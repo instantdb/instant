@@ -1,7 +1,7 @@
 (ns instant.runtime.routes
   (:require [clojure.string :as string]
+            [compojure.core :as compojure :refer [defroutes GET POST]]
             [datascript.core :refer [squuid]]
-            [compojure.core :refer [defroutes GET POST] :as compojure]
             [hiccup2.core :as h]
             [instant.auth.oauth :as oauth]
             [instant.config :as config]
@@ -30,11 +30,10 @@
             [instant.util.tracer :as tracer]
             [instant.util.url :as url]
             [instant.util.uuid :as uuid-util]
-            [next.jdbc :as next-jdbc]
             [lambdaisland.uri :as uri]
+            [next.jdbc :as next-jdbc]
             [ring.middleware.cookies :refer [wrap-cookies]]
-            [ring.util.http-response :as response])
-  (:import (java.util UUID)))
+            [ring.util.http-response :as response]))
 
 ;; ----
 ;; ws
@@ -114,13 +113,13 @@
         app (app-model/get-by-id! {:id app-id})
         {user-id :id :as u} (or (app-user-model/get-by-email {:app-id app-id :email email})
                                 (next-jdbc/with-transaction [conn aurora/conn-pool]
-                                  (let [app (app-user-model/create! conn {:id (UUID/randomUUID)
+                                  (let [app (app-user-model/create! conn {:id (random-uuid)
                                                                           :app-id app-id
                                                                           :email email})]
                                     (transaction-model/create! conn {:app-id app-id})
                                     app)))
         magic-code (app-user-magic-code-model/create!
-                    {:id (UUID/randomUUID)
+                    {:id (random-uuid)
                      :code (app-user-magic-code-model/rand-code)
                      :user-id user-id})
         template (app-email-template-model/get-by-app-id-and-email-type
@@ -170,7 +169,7 @@
             :code code
             :email email})
         {user-id :user_id} m
-        {refresh-token-id :id} (app-user-refresh-token-model/create! {:id (UUID/randomUUID)
+        {refresh-token-id :id} (app-user-refresh-token-model/create! {:id (random-uuid)
                                                                       :user-id user-id})
         user (app-user-model/get-by-id {:app-id app-id :id user-id})]
     (response/ok {:user (assoc user :refresh_token refresh-token-id)})))
@@ -183,7 +182,7 @@
                                                   :email "stopa@instantdb.com"}))
 
   (def m (app-user-magic-code-model/create!
-          {:id (UUID/randomUUID) :user-id (:id runtime-user) :code (app-user-magic-code-model/rand-code)}))
+          {:id (random-uuid) :user-id (:id runtime-user) :code (app-user-magic-code-model/rand-code)}))
   (verify-magic-code-post {:body {:email "stopainstantdb.com" :code (:code m)}})
   (verify-magic-code-post {:body {:email "stopa@instantdb.com" :code (:code m)}})
   (verify-magic-code-post {:body {:email "stopa@instantdb.com" :code "0" :app-id (:id app)}})
@@ -208,7 +207,27 @@
 ;; OAuth
 
 (def oauth-redirect-url (str config/server-origin "/runtime/oauth/callback"))
+
+;; -------------
+;; OAuth cookies
+
+;; Other sites might set a __session cookie, you can have multiple
+;; cookies with the same name and we don't want their cookie
+;; overwriting ours, so we give the value a unique prefix and throw
+;; away anything that doesn't have our prefix. Probably only a problem
+;; in dev, where multiple services run on localhost.
 (def oauth-cookie-name "__session")
+(def cookie-value-prefix "instantdb_")
+(defn format-cookie [^UUID cookie-uuid]
+  (str cookie-value-prefix cookie-uuid))
+(defn parse-cookie [v]
+  (cond (string/starts-with? v cookie-value-prefix)
+        (uuid-util/coerce (subs v (count cookie-value-prefix)))
+
+        ;; TODO(dww): remove this legacy code after old cookies expire
+        (= 36 (count v)) (uuid-util/coerce v)
+
+        :else nil))
 
 (defn oauth-start [{{:keys [state code_challenge code_challenge_method]} :params :as req}]
   (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
@@ -243,28 +262,31 @@
           (url/add-query-params redirect-uri {:state state})
           redirect-uri)
 
-        cookie (UUID/randomUUID)
+        cookie-uuid (random-uuid)
         cookie-expires (java.util.Date. (+ (.getTime (java.util.Date.))
-                                             ;; 1 hour
+                                           ;; 1 hour
                                            (* 1000 60 60)))
-        state (UUID/randomUUID)
+        state (random-uuid)
+        state-with-app-id (format "%s%s" app-id state)
 
-        redirect-url (oauth/create-authorization-url oauth-client state oauth-redirect-url)]
+        redirect-url (oauth/create-authorization-url oauth-client state-with-app-id oauth-redirect-url)]
     (app-oauth-redirect-model/create! {:state state
-                                       :cookie cookie
+                                       :cookie cookie-uuid
                                        :oauth-client-id (:id client)
                                        :redirect-url app-redirect-url
                                        :code-challenge code_challenge
                                        :code-challenge-method code_challenge_method})
     (-> (response/found redirect-url)
-        (response/set-cookie oauth-cookie-name cookie {:http-only true
-                                                       ;; Don't require https in dev
-                                                       :secure (not= :dev (config/get-env))
-                                                       :expires cookie-expires
-                                                       ;; matches everything under the subdirectory
-                                                       :path "/runtime/oauth"
-                                                       ;; access cookie on oauth redirect
-                                                       :same-site :lax}))))
+        (response/set-cookie oauth-cookie-name
+                             (format-cookie cookie-uuid)
+                             {:http-only true
+                              ;; Don't require https in dev
+                              :secure (not= :dev (config/get-env))
+                              :expires cookie-expires
+                              ;; matches everything under the subdirectory
+                              :path "/runtime/oauth"
+                              ;; access cookie on oauth redirect
+                              :same-site :lax}))))
 
 (defn upsert-oauth-link! [{:keys [email sub app-id provider-id]}]
   (let [users (app-user-model/get-by-email-or-oauth-link-qualified
@@ -305,7 +327,7 @@
                                   :attributes {:id (:app_users/id user)
                                                :provider_id provider-id
                                                :sub sub}}
-                (app-user-oauth-link-model/create! {:id (UUID/randomUUID)
+                (app-user-oauth-link-model/create! {:id (random-uuid)
                                                     :app-id (:app_users/app_id user)
                                                     :provider-id provider-id
                                                     :sub sub
@@ -315,10 +337,10 @@
 
       (= 0 (count users))
       (let [user (app-user-model/create!
-                  {:id (UUID/randomUUID)
+                  {:id (random-uuid)
                    :app-id app-id
                    :email email})]
-        (app-user-oauth-link-model/create! {:id (UUID/randomUUID)
+        (app-user-oauth-link-model/create! {:id (random-uuid)
                                             :app-id app-id
                                             :provider-id provider-id
                                             :sub sub
@@ -407,9 +429,17 @@
           state-param (if-let [state (:state params)]
                         state
                         (return-error "Missing state param in OAuth redirect."))
-          state (if-let [state (uuid-util/coerce state-param)]
-                  state
-                  (return-error "Invalid state param in OAuth redirect."))
+
+          [app-id state] (let [[app-id state] (case (count state-param)
+                                                ;; TODO(dww): Remove this case once all
+                                                ;;   of the oauth redirects have cycled
+                                                36 [nil (uuid-util/coerce state-param)]
+                                                72 [(uuid-util/coerce (subs state-param 0 36))
+                                                    (uuid-util/coerce (subs state-param 36))]
+                                                [])]
+                           (if state
+                             [app-id state]
+                             (return-error "Invalid state param in OAuth redirect.")))
 
           cookie (if-let [cookie (-> req
                                      (get-in [:cookies oauth-cookie-name :value])
@@ -449,7 +479,7 @@
                                             :app-id (:app_id client)
                                             :provider-id (:provider_id client)})
 
-          code (UUID/randomUUID)
+          code (random-uuid)
           _oauth-code (app-oauth-code-model/create!
                        {:code code
                         :user-id (:user_id social-login)
@@ -494,7 +524,7 @@
                 (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
 
         {user-id :user_id app-id :app_id} oauth-code
-        {refresh-token-id :id} (app-user-refresh-token-model/create! {:id (UUID/randomUUID)
+        {refresh-token-id :id} (app-user-refresh-token-model/create! {:id (random-uuid)
                                                                       :user-id user-id})
         user (app-user-model/get-by-id {:app-id app-id :id user-id})]
     (assert (= app-id (:app_id user)))
@@ -544,7 +574,7 @@
                                         (= (:user_id social-login)
                                            (:user_id current-refresh-token)))
                                  current-refresh-token
-                                 (app-user-refresh-token-model/create! {:id (UUID/randomUUID)
+                                 (app-user-refresh-token-model/create! {:id (random-uuid)
                                                                         :user-id (:user_id social-login)}))
         user (app-user-model/get-by-id {:app-id app-id :id (:user_id social-login)})]
     (assert (= app-id (:app_id user)))
@@ -563,11 +593,14 @@
   (POST "/runtime/auth/verify_magic_code" [] verify-magic-code-post)
   (POST "/runtime/auth/verify_refresh_token" [] verify-refresh-token-post)
   (wrap-cookies
-   (GET "/runtime/oauth/start" [] oauth-start))
+   (GET "/runtime/oauth/start" [] oauth-start)
+   {:decoder parse-cookie})
   (wrap-cookies
-   (GET "/runtime/:app_id/oauth/start" [] oauth-start))
+   (GET "/runtime/:app_id/oauth/start" [] oauth-start)
+   {:decoder parse-cookie})
   (wrap-cookies
-   (GET "/runtime/oauth/callback" [] oauth-callback))
+   (GET "/runtime/oauth/callback" [] oauth-callback)
+   {:decoder parse-cookie})
 
   (POST "/runtime/oauth/token" [] oauth-token-callback)
   (POST "/runtime/:app_id/oauth/token" [] oauth-token-callback)
