@@ -29,9 +29,8 @@
             [prev] (swap-vals! group-key->subqueue
                                update
                                group-key
-                               (fn [subqueue]
-                                 (conj (or subqueue empty-q)
-                                       item)))
+                               (fnil conj empty-q)
+                               item)
             prev-subqueue (get prev group-key)
             first-enqueue? (empty? prev-subqueue)]
         (when first-enqueue?
