@@ -265,7 +265,9 @@
 
 (defn app-users-delete [req]
   (let [{user-id :id app-id :app_id} (req->app-user! req)]
-    (response/ok {:deleted (app-user-model/delete-by-id! {:id user-id :app-id app-id})})))
+    (if user-id
+      (response/ok {:deleted (app-user-model/delete-by-id! {:id user-id :app-id app-id})})
+      (response/ok {:deleted nil}))))
 
 (defn magic-code-post [req]
   (let [{app-id :app_id} (req->admin-token! req)

@@ -20,9 +20,8 @@
 ;; We write out own get-app function so that we don't get
 ;; a cyclic dependency with the instant.model.app ns
 (defn get-app! [conn id]
-  (ex/assert-record!
-   (sql/select-one conn ["select * from apps where id = ?::uuid" id])
-   :app {:args [{:id id}]}))
+  (let [app (sql/select-one conn ["select * from apps where id = ?::uuid" id])]
+    (ex/assert-record! app :app {:args [{:id id}]})))
 
 (defn triples->db-format [app-id attrs etype triples]
   (reduce (fn [acc [_e a v t]]

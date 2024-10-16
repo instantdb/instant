@@ -118,13 +118,13 @@
 
 (defn delete-by-id!
   ([params] (delete-by-id! aurora/conn-pool params))
-  ([conn {:keys [app-id id]}]
+  ([conn {:keys [app-id id] :as params}]
    ($user-update
     conn
     {:app-id app-id
      :etype etype
      :legacy-op
-     (fn []
+     (fn [conn]
        (sql/execute-one! conn
                          ["DELETE FROM app_users WHERE app_id = ?::uuid AND id = ?::uuid" app-id id]))
      :$users-op (fn [{:keys [transact!]}]
