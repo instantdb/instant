@@ -35,6 +35,10 @@
 (defn inflight-queue-peek-pending [{:keys [pending] :as _inflight-queue}]
   (first pending))
 
+(defn inflight-queue-drain [{:keys [pending working]}]
+  {:pending persisted-q-empty
+   :working (into working pending)})
+
 ;; ----------- 
 ;; grouped-queue
 
@@ -75,50 +79,71 @@
       (= t :item) arg
       (= t :group-key) (inflight-queue-peek-pending (get @group-key->subqueue arg)))))
 
+(defn default-reserve-fn [_ inflight-q] (inflight-queue-pop inflight-q))
+
+(defn clear-subqueue [state group-key]
+  (let [subqueue (get state group-key)
+        cleared-subqueue (inflight-queue-workset-clear subqueue)]
+    (if (inflight-queue-empty? cleared-subqueue)
+      (dissoc state group-key)
+      (assoc state group-key cleared-subqueue))))
+
 (defn process-polling!
-  ([gq process-fn] (process-polling! gq process-fn {:poll-ms 1000}))
-  ([{:keys [dispatch-queue group-key->subqueue size] :as _grouped-q}
-    process-fn
-    {:keys [poll-ms]}]
-   (let [[t arg :as entry] (.poll dispatch-queue poll-ms TimeUnit/MILLISECONDS)]
-     (cond
-       (nil? entry) nil
+  [{:keys [dispatch-queue group-key->subqueue size] :as _grouped-q}
+   {:keys [reserve-fn
+           process-fn
+           poll-ms]
+    :or {poll-ms 1000
+         reserve-fn default-reserve-fn}}]
+  (let [[t arg :as entry] (.poll dispatch-queue poll-ms TimeUnit/MILLISECONDS)]
+    (cond
+      (nil? entry) nil
 
-       (= t :item)
-       (do
-         (process-fn arg)
-         (.decrementAndGet size)
-         true)
+      (= t :item)
+      (do
+        (process-fn nil [arg])
+        (.decrementAndGet size)
+        true)
 
-       (= t :group-key)
-       (let [group-key arg
-             marked (locking group-key->subqueue
-                      (swap! group-key->subqueue update group-key inflight-queue-pop))
+      (= t :group-key)
+      (let [group-key arg
 
-             subqueue (get marked group-key)
-             workset (inflight-queue-workset subqueue)
-             item (first workset)]
-         (try
-           (process-fn item)
-           (finally
-             (let [cleared (locking group-key->subqueue
-                             (swap! group-key->subqueue update group-key inflight-queue-workset-clear))
-                   cleared-subqueue (get cleared group-key)]
-               (.decrementAndGet (count workset))
-               (when (inflight-queue-peek-pending cleared-subqueue)
-                 (.put dispatch-queue [:group-key group-key])))))
-         true)))))
+            reserved (locking group-key->subqueue
+                       (swap! group-key->subqueue update group-key (partial reserve-fn group-key)))
+
+            reserved-subqueue (get reserved group-key)
+
+            workset (inflight-queue-workset reserved-subqueue)]
+
+        (try
+          (process-fn group-key workset)
+          true
+          (finally
+            (let [cleared (locking group-key->subqueue
+                            (swap! group-key->subqueue clear-subqueue group-key))
+                  cleared-subqueue (get cleared group-key)]
+              (.addAndGet size (- (count workset)))
+              (when (inflight-queue-peek-pending cleared-subqueue)
+                (.put dispatch-queue [:group-key group-key])))))))))
 
 (comment
   (def gq (create {:group-fn :k}))
-  (put! gq {:k :a})
-  (put! gq {:k :a})
-  (put! gq {:k :b})
-  (put! gq {:not-grouped :c})
+  (put! gq {:k :refresh})
+  (put! gq {:k :refresh})
+  (put! gq {:k :add-query})
+  (put! gq {:k :refresh})
+  (put! gq {:k :remove-query})
   (peek gq)
+  gq
   (future
-    (process-polling! gq (fn [k]
-                           (println "processing..." k)
-                           (Thread/sleep 10000)
-                           (println "done")))))
+    (process-polling! gq
+                      {:reserve-fn (fn [group-key inflight-queue]
+                                     (if (= group-key :refresh)
+                                       (inflight-queue-drain inflight-queue)
+                                       (inflight-queue-pop inflight-queue)))
+
+                       :process-fn (fn [k workset]
+                                     (println "processing..." k workset)
+                                     #_(Thread/sleep 10000)
+                                     (println "done"))})))
 
