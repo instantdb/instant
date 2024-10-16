@@ -33,7 +33,8 @@
             [lambdaisland.uri :as uri]
             [next.jdbc :as next-jdbc]
             [ring.middleware.cookies :refer [wrap-cookies]]
-            [ring.util.http-response :as response]))
+            [ring.util.http-response :as response])
+  (:import (java.util UUID)))
 
 ;; ----
 ;; ws
