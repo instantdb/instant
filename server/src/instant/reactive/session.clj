@@ -470,6 +470,11 @@
                                         :attributes {:session-id (:session-id item)
                                                      :item item}}))))
 
+(defn receive-worker-reserve-fn [[t] inflight-q]
+  (if (= t :refresh)
+    (grouped-queue/inflight-queue-drain inflight-q)
+    (grouped-queue/inflight-queue-pop inflight-q)))
+
 (defn start-receive-workers [store-conn eph-store-atom receive-q stop-signal]
   (doseq [n (range num-receive-workers)]
     (ua/fut-bg
@@ -479,7 +484,13 @@
                                :attributes {:worker-n n}})
          (do (grouped-queue/process-polling!
               receive-q
-              (fn [item] (straight-jacket-process-receive-q-item store-conn eph-store-atom n item)))
+              {:reserve-fn receive-worker-reserve-fn
+               :process-fn (fn [_ [{:keys [op] :as item} :as batch]]
+                             (tracer/with-span! {:name "receive-worker/process-receive-q-item"
+                                                 :attributes {:work-n n
+                                                              :op op
+                                                              :batch-size (count batch)}}
+                               (straight-jacket-process-receive-q-item store-conn eph-store-atom n item)))})
              (recur)))))))
 
 (defn enqueue->receive-q [receive-q item]
@@ -567,21 +578,23 @@
   (let [{:keys [session-id op]} item]
     (condp contains? op
       #{:transact}
-      [session-id :transact]
+      [:transact session-id]
 
       #{:join-room :leave-room :set-presence :client-broadcast}
-      [session-id :eph]
+      [:room session-id]
 
       #{:add-query :remove-query}
       (let [{:keys [q]} item]
-        [session-id :query q])
+        [:query session-id q])
 
+      #{:refresh}
+      [:refresh session-id]
       nil)))
 
 (comment
   (group-fn {:item {:session-id 1 :op :transact}})
   (group-fn {:item {:session-id 1 :op :leave-room}})
-  (group-fn {:item {:session-id 1 :op :add-query}}))
+  (group-fn {:item {:session-id 1 :op :add-query :q {:users {}}}}))
 
 (defn start []
   (def receive-q (grouped-queue/create {:group-fn #'group-fn}))
