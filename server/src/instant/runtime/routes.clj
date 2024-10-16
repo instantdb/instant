@@ -431,16 +431,18 @@
                         state
                         (return-error "Missing state param in OAuth redirect."))
 
-          [app-id state] (let [[app-id state] (case (count state-param)
-                                                ;; TODO(dww): Remove this case once all
-                                                ;;   of the oauth redirects have cycled
-                                                36 [nil (uuid-util/coerce state-param)]
-                                                72 [(uuid-util/coerce (subs state-param 0 36))
-                                                    (uuid-util/coerce (subs state-param 36))]
-                                                [])]
-                           (if state
-                             [app-id state]
-                             (return-error "Invalid state param in OAuth redirect.")))
+          ;; _app-id unused for now, but will be used when we have
+          ;; app_oauth_redirects in triples
+          [_app-id state] (let [[app-id state] (case (count state-param)
+                                                 ;; TODO(dww): Remove this case once all
+                                                 ;;   of the oauth redirects have cycled
+                                                 36 [nil (uuid-util/coerce state-param)]
+                                                 72 [(uuid-util/coerce (subs state-param 0 36))
+                                                     (uuid-util/coerce (subs state-param 36))]
+                                                 [])]
+                            (if state
+                              [app-id state]
+                              (return-error "Invalid state param in OAuth redirect.")))
 
           cookie (if-let [cookie (-> req
                                      (get-in [:cookies oauth-cookie-name :value])
