@@ -1413,6 +1413,7 @@ export default class Reactor {
   updateUser(newUser) {
     const newV = { error: undefined, user: newUser };
     this._currentUserCached = { isLoading: false, ...newV };
+    this._dataForQueryCache = {};
     this.querySubs.set((prev) => {
       Object.keys(prev).forEach((k) => {
         delete prev[k].result;
