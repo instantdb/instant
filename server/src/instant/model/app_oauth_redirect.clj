@@ -64,29 +64,23 @@
   ([conn {:keys [state app-id]}]
    ($user-update
     conn
-    ;; XXX
-    {:app-id app-id ;; app-id
+    {:app-id app-id
      :etype etype
      :legacy-op
      (fn [conn]
        (when-let [row (sql/execute-one! conn
                                         ["DELETE FROM app_oauth_redirects where lookup_key = ?::bytea"
                                          (crypt-util/uuid->sha256 state)])]
-         ;; XXX: TEST
          (assoc row :cookie-hash-bytes (crypt-util/uuid->sha256 (:cookie row)))))
      :$users-op
 
      (fn [{:keys [delete-entity! resolve-id get-entity]}]
-       (tool/def-locals)
        (let [state-hash (-> state
                             (crypt-util/uuid->sha256)
                             (crypt-util/bytes->hex-string))
              lookup [(resolve-id :state-hash) state-hash]
              row (delete-entity! lookup)]
-         (def -ge2 (get-entity lookup))
-         (tool/def-locals)
          (when row
-           ;; XXX: TEST
            (assoc row :cookie-hash-bytes (crypt-util/hex-string->bytes (:cookie-hash row))))))})))
 
 ;; Don't add more get functions. We lookup by state because we can lookup a hashed version

@@ -156,7 +156,6 @@
                             :$user-oauth-links {:$ {:where {:sub+$oauth-provider
                                                             sub+provider}}}}}
                         res (admin-query q)]
-                    (tool/def-locals)
                     (map (fn [user]
                            (merge {:app_users/id (parse-uuid (get user "id"))
                                    :app_users/email (get user "email")

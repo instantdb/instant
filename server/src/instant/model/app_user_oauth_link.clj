@@ -21,7 +21,6 @@
          id app-id, sub, provider-id user-id]))
      :$users-op
      (fn [{:keys [transact! resolve-id get-entity]}]
-       ;; XXX: TEST!
        (transact! [[:add-triple id (resolve-id :id) id]
                    [:add-triple id (resolve-id :sub) sub]
                    [:add-triple id (resolve-id :$user) user-id]

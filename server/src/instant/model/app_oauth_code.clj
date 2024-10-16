@@ -124,7 +124,6 @@
                                 (crypt-util/uuid->sha256 code)
                                 app-id]))
            :$users-op
-           ;; XXX: TEST!
            (fn [{:keys [delete-entity! resolve-id]}]
              (let [code-hash (-> code
                                  crypt-util/uuid->sha256

@@ -88,7 +88,6 @@
                                                      [:inline "hex"]]}
                             "$user" {:col :user_id}
                             "code-challenge-method" {:col :code_challenge_method}
-                            ;; XXX: Need to support a hashed code challenge
                             "code-challenge-hash" {:col :code_challenge
                                                    :transform [:encode
                                                                [:digest :code_challenge
@@ -111,7 +110,6 @@
                                 "redirect-url" {:col :redirect_url}
                                 "$oauth-client" {:col :client_id}
                                 "code-challenge-method" {:col :code_challenge_method}
-                                ;; XXX: Need to support a hashed code challenge
                                 "code-challenge-hash" {:col :code_challenge
                                                        :transform [:encode
                                                                    [:digest :code_challenge
@@ -293,7 +291,6 @@
     :cardinality :one
     :inferred-types #{:string}}
    {:id (random-uuid)
-    ;; XXX: Are we sure sub is a string?
     :forward-identity [(random-uuid) "$user-oauth-links" "sub"]
     :unique? false
     :index? true

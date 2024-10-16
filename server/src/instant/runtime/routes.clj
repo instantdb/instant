@@ -294,7 +294,6 @@
                               :same-site :lax}))))
 
 (defn upsert-oauth-link! [{:keys [email sub app-id provider-id]}]
-  (tool/def-locals)
   (let [users (app-user-model/get-by-email-or-oauth-link-qualified
                {:email email
                 :app-id app-id
@@ -426,7 +425,6 @@
 
 (defn oauth-callback [{:keys [params] :as req}]
   (try
-    (tool/def-locals)
     (let [return-error (fn return-error [msg & params]
                          (throw (ex-info msg (merge {:type :oauth-error :message msg}
                                                     (apply hash-map params)))))
@@ -463,8 +461,6 @@
                                                    (:cookie-hash-bytes oauth-redirect)))
               (return-error "Mismatch in OAuth request cookie."))
 
-          _ (tool/def-locals)
-
           code (if-let [code (:code params)]
                  code
                  (return-error "Missing code param in OAuth redirect."))
@@ -500,7 +496,6 @@
                         :code-challenge-hash (:code_challenge_hash oauth-redirect)})
           redirect-url (url/add-query-params (:redirect_url oauth-redirect)
                                              {:code code :_instant_oauth_redirect "true"})]
-      (tool/def-locals)
       (if (string/starts-with? (str (:scheme (uri/parse redirect-url))) "http")
         (response/found (url/add-query-params (:redirect_url oauth-redirect)
                                               {:code code :_instant_oauth_redirect "true"}))

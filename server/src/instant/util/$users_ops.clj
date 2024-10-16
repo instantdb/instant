@@ -141,7 +141,6 @@
         eids (-> symbol-values
                  (get (attr-pat/default-level-sym etype 0)))
         triple-groups (group-by first triples)]
-    (tool/def-locals)
     (keep (fn [eid]
             (when-let [triples (seq (get triple-groups eid))]
               (triples->db-format app-id attrs etype triples)))
