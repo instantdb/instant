@@ -26,11 +26,12 @@
 
       ;; This item will be grouped on `group-key` 
       (let [_ (.incrementAndGet size)
-            [prev] (swap-vals! group-key->subqueue
-                               update
-                               group-key
-                               (fnil conj empty-q)
-                               item)
+            [prev] (locking group-key->subqueue
+                     (swap-vals! group-key->subqueue
+                                 update
+                                 group-key
+                                 (fnil conj empty-q)
+                                 item))
             prev-subqueue (get prev group-key)
             first-enqueue? (empty? prev-subqueue)]
         (when first-enqueue?
@@ -64,7 +65,8 @@
          (try
            (process-fn item)
            (finally
-             (let [curr (swap! group-key->subqueue update group-key pop)
+             (let [curr (locking group-key->subqueue
+                          (swap! group-key->subqueue update group-key pop))
                    curr-subqueue (get curr group-key)]
                (.decrementAndGet size)
                (when (seq curr-subqueue)
