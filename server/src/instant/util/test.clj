@@ -1,12 +1,15 @@
 (ns instant.util.test
-  (:require [clojure.walk :as w]
-            [instant.admin.model :as admin-model]
-            [instant.db.instaql :as iq]
-            [instant.db.model.attr :as attr-model]
-            [instant.jdbc.aurora :as aurora]
-            [instant.util.exception :as ex]
-            [instant.db.datalog :as d])
-  (:import [java.time Duration Instant]))
+  (:require
+   [clojure.walk :as w]
+   [instant.admin.model :as admin-model]
+   [instant.db.datalog :as d]
+   [instant.db.instaql :as iq]
+   [instant.db.model.attr :as attr-model]
+   [instant.jdbc.aurora :as aurora]
+   [instant.util.exception :as ex]
+   [instant.util.instaql :refer [instaql-nodes->object-tree]])
+  (:import
+   (java.time Duration Instant)))
 
 (defmacro instant-ex-data [& body]
   `(try
@@ -18,9 +21,8 @@
 (defn pretty-perm-q [{:keys [app-id current-user]} q]
   (let [attrs (attr-model/get-by-app-id aurora/conn-pool app-id)]
     (w/keywordize-keys
-     (admin-model/instaql-nodes->object-tree
-      {}
-      attrs
+     (instaql-nodes->object-tree
+      {:attrs attrs}
       (iq/permissioned-query
        {:db {:conn-pool aurora/conn-pool}
         :app-id app-id

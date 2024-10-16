@@ -120,7 +120,8 @@
                                     (transaction-model/create! conn {:app-id app-id})
                                     app)))
         magic-code (app-user-magic-code-model/create!
-                    {:id (UUID/randomUUID)
+                    {:app-id app-id
+                     :id (UUID/randomUUID)
                      :code (app-user-magic-code-model/rand-code)
                      :user-id user-id})
         template (app-email-template-model/get-by-app-id-and-email-type
@@ -170,7 +171,8 @@
             :code code
             :email email})
         {user-id :user_id} m
-        {refresh-token-id :id} (app-user-refresh-token-model/create! {:id (UUID/randomUUID)
+        {refresh-token-id :id} (app-user-refresh-token-model/create! {:app-id app-id
+                                                                      :id (UUID/randomUUID)
                                                                       :user-id user-id})
         user (app-user-model/get-by-id {:app-id app-id :id user-id})]
     (response/ok {:user (assoc user :refresh_token refresh-token-id)})))
@@ -200,8 +202,9 @@
     (response/ok {:user (assoc user :refresh_token refresh-token)})))
 
 (defn signout-post [req]
-  (let [refresh-token (ex/get-param! req [:body :refresh_token] uuid-util/coerce)]
-    (app-user-refresh-token-model/delete-by-id! {:id refresh-token})
+  (let [app-id (ex/get-param! req [:body :app_id] uuid-util/coerce)
+        refresh-token (ex/get-param! req [:body :refresh_token] uuid-util/coerce)]
+    (app-user-refresh-token-model/delete-by-id! {:app-id app-id :id refresh-token})
     (response/ok {})))
 
 ;; -----
@@ -298,6 +301,7 @@
                                                :from-email (:app_users/email user)
                                                :to-email email}}
                 (app-user-model/update-email! {:id (:app_users/id user)
+                                               :app-id app-id
                                                :email email}))
 
               (not (:app_user_oauth_links/id user))
@@ -422,14 +426,16 @@
                            (return-error "Could not find OAuth request."))
           _ (when (app-oauth-redirect-model/expired? oauth-redirect)
               (return-error "The request is expired."))
-          _ (when (not (crypt-util/constant-uuid= cookie (:cookie oauth-redirect)))
+          _ (when (not (crypt-util/constant-bytes= (crypt-util/uuid->sha256 cookie)
+                                                   (:cookie-hash-bytes oauth-redirect)))
               (return-error "Mismatch in OAuth request cookie."))
 
           code (if-let [code (:code params)]
                  code
                  (return-error "Missing code param in OAuth redirect."))
 
-          client (if-let [client (app-oauth-client-model/get-by-id {:id (:client_id oauth-redirect)})]
+          client (if-let [client (app-oauth-client-model/get-by-id {:app-id (:app_id oauth-redirect)
+                                                                    :id (:client_id oauth-redirect)})]
                    client
                    (return-error "Missing OAuth client."))
           oauth-client (app-oauth-client-model/->OAuthClient client)
@@ -455,7 +461,8 @@
                         :user-id (:user_id social-login)
                         :app-id (:app_id social-login)
                         :code-challenge-method (:code_challenge_method oauth-redirect)
-                        :code-challenge (:code_challenge oauth-redirect)})
+                        :code-challenge (:code_challenge oauth-redirect)
+                        :code-challenge-hash (:code_challenge_hash oauth-redirect)})
           redirect-url (url/add-query-params (:redirect_url oauth-redirect)
                                              {:code code :_instant_oauth_redirect "true"})]
       (if (string/starts-with? (str (:scheme (uri/parse redirect-url))) "http")
@@ -494,7 +501,8 @@
                 (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
 
         {user-id :user_id app-id :app_id} oauth-code
-        {refresh-token-id :id} (app-user-refresh-token-model/create! {:id (UUID/randomUUID)
+        {refresh-token-id :id} (app-user-refresh-token-model/create! {:app-id app-id
+                                                                      :id (UUID/randomUUID)
                                                                       :user-id user-id})
         user (app-user-model/get-by-id {:app-id app-id :id user-id})]
     (assert (= app-id (:app_id user)))
@@ -539,12 +547,14 @@
                                           :app-id (:app_id client)
                                           :provider-id (:provider_id client)})
         current-refresh-token (when current-refresh-token-id
-                                (app-user-refresh-token-model/get-by-id {:id current-refresh-token-id}))
+                                (app-user-refresh-token-model/get-by-id {:app-id app-id
+                                                                         :id current-refresh-token-id}))
         {refresh-token-id :id} (if (and current-refresh-token
                                         (= (:user_id social-login)
                                            (:user_id current-refresh-token)))
                                  current-refresh-token
-                                 (app-user-refresh-token-model/create! {:id (UUID/randomUUID)
+                                 (app-user-refresh-token-model/create! {:app-id app-id
+                                                                        :id (UUID/randomUUID)
                                                                         :user-id (:user_id social-login)}))
         user (app-user-model/get-by-id {:app-id app-id :id (:user_id social-login)})]
     (assert (= app-id (:app_id user)))

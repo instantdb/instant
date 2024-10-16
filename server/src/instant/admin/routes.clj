@@ -1,24 +1,26 @@
 (ns instant.admin.routes
-  (:require [compojure.core :refer [defroutes POST GET DELETE] :as compojure]
-            [ring.util.http-response :as response]
-            [instant.model.app-admin-token :as app-admin-token-model]
-            [instant.db.model.attr :as attr-model]
-            [instant.jdbc.aurora :as aurora]
-            [instant.db.permissioned-transaction :as permissioned-tx]
-            [instant.util.uuid :as uuid-util]
-            [instant.db.instaql :as iq]
-            [instant.util.email :as email]
-            [instant.model.app-user :as app-user-model]
-            [instant.model.app-user-magic-code :as app-user-magic-code-model]
-            [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
-            [instant.db.datalog :as d]
-            [instant.model.rule :as rule-model]
-            [instant.util.exception :as ex]
-            [instant.util.string :as string-util]
-            [instant.util.http :as http-util]
-            [instant.admin.model :as admin-model]
-            [instant.util.json :refer [<-json ->json]]
-            [instant.util.storage :as storage-util])
+  (:require
+   [compojure.core :as compojure :refer [defroutes DELETE GET POST]]
+   [instant.admin.model :as admin-model]
+   [instant.db.datalog :as d]
+   [instant.db.instaql :as iq]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.permissioned-transaction :as permissioned-tx]
+   [instant.jdbc.aurora :as aurora]
+   [instant.model.app-admin-token :as app-admin-token-model]
+   [instant.model.app-user :as app-user-model]
+   [instant.model.app-user-magic-code :as app-user-magic-code-model]
+   [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
+   [instant.model.rule :as rule-model]
+   [instant.util.email :as email]
+   [instant.util.exception :as ex]
+   [instant.util.http :as http-util]
+   [instant.util.instaql :refer [instaql-nodes->object-tree]]
+   [instant.util.json :refer [->json <-json]]
+   [instant.util.storage :as storage-util]
+   [instant.util.string :as string-util]
+   [instant.util.uuid :as uuid-util]
+   [ring.util.http-response :as response])
   (:import
    (java.util UUID)))
 
@@ -85,13 +87,11 @@
                     :app-id app-id
                     :attrs attrs
                     :datalog-query-fn d/query
-                    :datalog-loader (d/make-loader)}
+                    :datalog-loader (d/make-loader)
+                    :inference? inference?}
                    perms)
         nodes (iq/permissioned-query ctx query)
-        result (admin-model/instaql-nodes->object-tree
-                {:inference? inference?}
-                attrs
-                nodes)]
+        result (admin-model/instaql-nodes->object-tree ctx nodes)]
     (response/ok result)))
 
 (comment
@@ -114,10 +114,11 @@
                     :app-id app-id
                     :attrs attrs
                     :datalog-query-fn d/query
-                    :datalog-loader (d/make-loader)}
+                    :datalog-loader (d/make-loader)
+                    :inference? inference?}
                    perms)
         {check-results :check-results nodes :nodes} (iq/permissioned-query-check ctx query rules-override)
-        result (admin-model/instaql-nodes->object-tree {:inference? inference?} attrs nodes)]
+        result (instaql-nodes->object-tree ctx nodes)]
     (response/ok {:check-results check-results :result result})))
 
 (comment
@@ -219,7 +220,8 @@
 
         {refresh-token-id :id}
         (app-user-refresh-token-model/create!
-         {:id (UUID/randomUUID)
+         {:app-id app-id
+          :id (UUID/randomUUID)
           :user-id user-id})]
     (response/ok {:user (assoc user :refresh_token refresh-token-id)})))
 
@@ -228,7 +230,8 @@
         email (ex/get-param! req [:body :email] email/coerce)
         {user-id :id} (app-user-model/get-by-email! {:app-id app-id
                                                      :email email})]
-    (app-user-refresh-token-model/delete-by-user-id! {:user-id user-id})
+    (app-user-refresh-token-model/delete-by-user-id! {:app-id app-id
+                                                      :user-id user-id})
     (response/ok {:ok true})))
 
 (defn req->app-user! [{:keys [params] :as req}]
@@ -269,7 +272,8 @@
         email (ex/get-param! req [:body :email] email/coerce)
         {user-id :id} (app-user-model/get-or-create-by-email! {:email email :app-id app-id})
         {code :code} (app-user-magic-code-model/create!
-                      {:id (UUID/randomUUID)
+                      {:app-id app-id
+                       :id (UUID/randomUUID)
                        :code (app-user-magic-code-model/rand-code)
                        :user-id user-id})]
     (response/ok {:code code})))

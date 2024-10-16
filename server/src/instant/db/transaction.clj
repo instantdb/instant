@@ -136,25 +136,32 @@
                       :attributes {:app-id app-id
                                    :num-tx-steps (count tx-steps)
                                    :detailed-tx-steps (pr-str tx-steps)}}
-    (doseq [[op & args] (batch tx-steps)]
-      (when (#{:add-attr :update-attr} op)
-        (prevent-$users-updates op args))
-      (condp = op
-        :add-attr
-        (attr-model/insert-multi! conn app-id args)
-        :delete-attr
-        (attr-model/delete-multi! conn app-id args)
-        :update-attr
-        (attr-model/update-multi! conn app-id args)
-        :delete-entity
-        (triple-model/delete-entity-multi! conn app-id args)
-        :add-triple
-        (triple-model/insert-multi! conn attrs app-id args)
-        :deep-merge-triple
-        (triple-model/deep-merge-multi! conn attrs app-id args)
-        :retract-triple
-        (triple-model/delete-multi! conn app-id args)))
-    (transaction-model/create! conn {:app-id app-id})))
+    (let [results
+          (reduce
+           (fn [acc [op & args]]
+             (when (#{:add-attr :update-attr} op)
+               ;;(prevent-$users-updates op args)
+               )
+             (let [res (case op
+                         :add-attr
+                         (attr-model/insert-multi! conn app-id args)
+                         :delete-attr
+                         (attr-model/delete-multi! conn app-id args)
+                         :update-attr
+                         (attr-model/update-multi! conn app-id args)
+                         :delete-entity
+                         (triple-model/delete-entity-multi! conn app-id args)
+                         :add-triple
+                         (triple-model/insert-multi! conn attrs app-id args)
+                         :deep-merge-triple
+                         (triple-model/deep-merge-multi! conn attrs app-id args)
+                         :retract-triple
+                         (triple-model/delete-multi! conn app-id args))]
+               (assoc acc op res)))
+           {}
+           (batch tx-steps))
+          tx (transaction-model/create! conn {:app-id app-id})]
+      (assoc tx :results results))))
 
 (defn transact! [conn attrs app-id tx-steps]
   (next-jdbc/with-transaction [tx-conn conn]

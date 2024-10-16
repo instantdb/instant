@@ -6,14 +6,14 @@
   queries. See go-datalog-query-reactive! for more details. We also cache datalog
   query results for perf."
   (:require
-   [instant.admin.model :as admin-model]
-   [instant.util.tracer :as tracer]
-   [instant.jdbc.aurora :as aurora]
    [instant.data.constants :refer [zeneca-app-id]]
+   [instant.db.datalog :as d]
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
-   [instant.db.datalog :as d]
-   [instant.reactive.store :as rs])
+   [instant.jdbc.aurora :as aurora]
+   [instant.reactive.store :as rs]
+   [instant.util.instaql :refer [instaql-nodes->object-tree]]
+   [instant.util.tracer :as tracer])
   (:import
    (org.apache.commons.codec.digest DigestUtils)))
 
@@ -117,7 +117,7 @@
             {:keys [result-changed?]} (rs/add-instaql-query! store-conn ctx result-hash)]
         {:instaql-result (case return-type
                            :join-rows (collect-instaql-results-for-client instaql-result)
-                           :tree (admin-model/instaql-nodes->object-tree ctx attrs instaql-result)
+                           :tree (instaql-nodes->object-tree ctx instaql-result)
                            (collect-instaql-results-for-client instaql-result))
          :result-changed? result-changed?})
       (catch Throwable e

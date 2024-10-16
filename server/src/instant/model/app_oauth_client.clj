@@ -1,13 +1,17 @@
 (ns instant.model.app-oauth-client
-  (:require [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
-            [instant.util.crypt :as crypt-util]
-            [instant.util.uuid :as uuid-util]
-            [instant.auth.oauth :as oauth]
-            [instant.util.exception :as ex])
+  (:require
+   [instant.auth.oauth :as oauth]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.util.$users-ops :refer [$user-query $user-update]]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.exception :as ex]
+   [instant.util.uuid :as uuid-util])
   (:import
-   (java.util UUID)
-   (instant.util.crypt Secret)))
+   (instant.util.crypt Secret)
+   (java.util UUID)))
+
+(def etype "$oauth-clients")
 
 (defn create!
   ([params] (create! aurora/conn-pool params))
@@ -35,51 +39,92 @@
           :discovery-endpoint
           discovery-endpoint
           [{:message "Could not validate discovery endpoint."}]))))
-   (let [id (UUID/randomUUID)]
-     (sql/execute-one!
+   (let [id (UUID/randomUUID)
+
+         enc-client-secret
+         (when client-secret
+           (crypt-util/aead-encrypt {:plaintext (.getBytes client-secret)
+                                     :associated-data (uuid-util/->bytes id)}))]
+     ($user-update
       conn
-      ["INSERT INTO app_oauth_clients
-       (id,
-        app_id,
-        provider_id,
-        client_name,
-        client_id,
-        client_secret,
-        authorization_endpoint,
-        token_endpoint,
-        discovery_endpoint,
-        meta
-       )
-       VALUES (?::uuid, ?::uuid, ?::uuid, ?, ?, ?, ?, ?, ?, ?)"
-       id
-       app-id
-       provider-id
-       client-name
-       client-id
-       (when client-secret
-         (crypt-util/aead-encrypt {:plaintext (.getBytes client-secret)
-                                   :associated-data (uuid-util/->bytes id)}))
-       authorization-endpoint
-       token-endpoint
-       discovery-endpoint
-       meta]))))
+      {:app-id app-id
+       :etype etype
+       :legacy-op
+       (fn [conn]
+         (sql/execute-one!
+          conn
+          ["INSERT INTO app_oauth_clients
+             (id,
+              app_id,
+              provider_id,
+              client_name,
+              client_id,
+              client_secret,
+              authorization_endpoint,
+              token_endpoint,
+              discovery_endpoint,
+              meta
+             )
+             VALUES (?::uuid, ?::uuid, ?::uuid, ?, ?, ?, ?, ?, ?, ?)"
+           id
+           app-id
+           provider-id
+           client-name
+           client-id
+           enc-client-secret
+           authorization-endpoint
+           token-endpoint
+           discovery-endpoint
+           meta]))
+       :$users-op (fn [{:keys [transact! resolve-id get-entity]}]
+                    (transact! [[:add-triple id (resolve-id :id) id]
+                                [:add-triple id (resolve-id :$oauth-provider) provider-id]
+                                ;; XXX: translate
+                                [:add-triple id (resolve-id :name) client-name]
+                                [:add-triple id (resolve-id :client-id) client-id]
+                                [:add-triple
+                                 id
+                                 (resolve-id :encrypted-client-secret)
+                                 (when enc-client-secret
+                                   (crypt-util/bytes->hex-string enc-client-secret))]
+                                [:add-triple id (resolve-id :discovery-endpoint) discovery-endpoint]
+                                [:add-triple id (resolve-id :meta) meta]])
+                    (get-entity id))}))))
 
 (defn get-by-id
   ([params] (get-by-id aurora/conn-pool params))
-  ([conn {:keys [id]}]
-   (sql/select-one
+  ([conn {:keys [app-id id]}]
+   ($user-query
     conn
-    ["SELECT * from app_oauth_clients where id = ?::uuid"
-     id])))
+    {:app-id app-id
+     :etype etype
+     :legacy-op
+     (fn []
+       (sql/select-one
+        conn
+        ["SELECT * from app_oauth_clients where id = ?::uuid"
+         id]))
+     :$users-op
+     (fn [{:keys [get-entity]}]
+       (get-entity id))})))
 
 (defn get-by-client-name
   ([params] (get-by-client-name aurora/conn-pool params))
   ([conn {:keys [app-id client-name]}]
-   (sql/select-one
+   ($user-query
     conn
-    ["SELECT * from app_oauth_clients
+    {:app-id app-id
+     :etype etype
+     :legacy-op
+     (fn []
+       (sql/select-one
+        conn
+        ["SELECT * from app_oauth_clients
        where app_id = ?::uuid and client_name = ?"
-     app-id client-name])))
+         app-id client-name]))
+     :$users-op
+     (fn [{:keys [get-entity resolve-id]}]
+       (get-entity [(resolve-id :name) client-name]))})))
 
 (defn get-by-client-name! [params]
   (ex/assert-record! (get-by-client-name params) :app-oauth-client {:args [params]}))
@@ -87,10 +132,27 @@
 (defn delete-by-id!
   ([params] (delete-by-id! aurora/conn-pool params))
   ([conn {:keys [id app-id]}]
-   (sql/execute-one!
+   ($user-update
     conn
-    ["DELETE FROM app_oauth_clients WHERE id = ?::uuid AND app_id = ?::uuid"
-     id app-id])))
+    {:app-id app-id
+     :etype etype
+     :legacy-op
+     (fn []
+       (sql/execute-one!
+        conn
+        ["DELETE FROM app_oauth_clients WHERE id = ?::uuid AND app_id = ?::uuid"
+         id app-id]))
+     :$users-op
+     (fn [{:keys [transact! triples->db-format]}]
+       (let [tx-res (transact! [[:delete-entity id etype]])
+             deleted-triples (->> tx-res
+                                  :results
+                                  :delete-entity
+                                  (map (juxt :triples/entity_id
+                                             :triples/attr_id
+                                             :triples/value
+                                             :triples/created_at)))]
+         (triples->db-format deleted-triples)))})))
 
 (defn delete-by-id-ensure!
   [& args]

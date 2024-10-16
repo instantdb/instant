@@ -9,6 +9,7 @@
             [instant.reactive.ephemeral :as eph]
             [instant.reactive.session :as session]
             [instant.reactive.store :as store]
+            [instant.util.instaql :refer [instaql-nodes->object-tree]]
             [instant.util.tracer :as tracer]
             [instant.util.json :refer [->json]]))
 
@@ -68,7 +69,7 @@
       ;; Get results in foreground so that flags are initialized before we return
       (doseq [{:keys [query transform]} queries
               :let [data (instaql/query ctx query)
-                    result (admin-model/instaql-nodes->object-tree {} attrs data)]]
+                    result (instaql-nodes->object-tree ctx data)]]
         (swap-result! query-results-atom query transform result 0))
 
       (session/on-open store/store-conn socket)

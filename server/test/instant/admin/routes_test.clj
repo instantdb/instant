@@ -207,7 +207,8 @@
             ;; token is created
             (is (= 200 (:status refresh-ret)))
             (is (some? token))
-            (is (some? (app-user-refresh-token-model/get-by-id {:id token})))
+            (is (some? (app-user-refresh-token-model/get-by-id {:id token
+                                                                :app-id app-id})))
 
             ;; sign-out
             (let [sign-out-ret (sign-out-post
@@ -217,7 +218,8 @@
 
               ;; token is deleted
               (is (= 200 (:status sign-out-ret)))
-              (is (nil? (app-user-refresh-token-model/get-by-id {:id token}))))))))))
+              (is (nil? (app-user-refresh-token-model/get-by-id {:id token
+                                                                 :app-id app-id}))))))))))
 
 (deftest app-users-get-test
   (with-empty-app

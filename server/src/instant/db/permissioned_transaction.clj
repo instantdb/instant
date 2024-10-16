@@ -540,7 +540,7 @@
   [{:keys [db app-id admin? admin-check? admin-dry-run? attrs] :as ctx} tx-steps]
   (tracer/with-span! {:name "permissioned-transaction/transact!"
                       :attributes {:app-id app-id}}
-    (validate-reserved-names! attrs tx-steps)
+    ;;(validate-reserved-names! attrs tx-steps)
     (let [{:keys [conn-pool]} db]
       (next-jdbc/with-transaction [tx-conn conn-pool]
         ;; transact does read and then a write.

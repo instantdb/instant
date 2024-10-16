@@ -39,6 +39,12 @@
                  type))
              type->binary)))
 
+(defn binary-inferred-types [friendly-set]
+  (reduce (fn [acc friendly-type]
+            (bit-or acc (type->binary friendly-type)))
+          0
+          friendly-set))
+
 ;; ----
 ;; Spec
 
@@ -134,13 +140,13 @@
   "Manual reflection of postgres attr table columns"
   [:id :app-id :value-type
    :cardinality :is-unique :is-indexed
-   :forward-ident :reverse-ident])
+   :forward-ident :reverse-ident :inferred-types])
 
 (defn attr-table-values
   "Marshals a collection of attrs into insertable sql attr values"
   [app-id attrs]
-  (map (fn [{:keys [:id :value-type :cardinality :unique? :index?
-                    :forward-identity :reverse-identity]}]
+  (map (fn [{:keys [id value-type cardinality unique? index?
+                    forward-identity reverse-identity inferred-types]}]
          [id
           app-id
           [:cast (when value-type (name value-type)) :text]
@@ -148,7 +154,9 @@
           [:cast unique? :boolean]
           [:cast index? :boolean]
           [:cast (first forward-identity) :uuid]
-          [:cast (first reverse-identity) :uuid]])
+          [:cast (first reverse-identity) :uuid]
+          [:cast (when inferred-types
+                   (binary-inferred-types inferred-types)) [:bit :32]]])
        attrs))
 
 (def ident-table-cols
@@ -205,7 +213,8 @@
    (insert-multi! conn app-id attrs {:allow-reserved-names? false}))
   ([conn app-id attrs {:keys [allow-reserved-names?]}]
    (when-not allow-reserved-names?
-     (validate-reserved-names! attrs))
+     ;;(validate-reserved-names! attrs)
+     )
    (sql/do-execute!
     conn
     (hsql/format
@@ -557,8 +566,9 @@
   "Returns the users shim info if the users shim attrs exist"
   [^Attrs attrs]
   (let [email-attr (seek-by-fwd-ident-name ["$users" "email"] attrs)
-        id-attr (seek-by-fwd-ident-name ["$users" "id"] attrs)]
-    (when (and email-attr id-attr)
+        id-attr (seek-by-fwd-ident-name ["$users" "id"] attrs)
+        migrated-field (seek-by-fwd-ident-name ["$magic-codes" "id"] attrs)]
+    (when (and email-attr id-attr (not migrated-field))
       {:email-attr-id (:id email-attr)
        :id-attr-id (:id id-attr)})))
 

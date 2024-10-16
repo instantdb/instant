@@ -18,6 +18,7 @@
    [instant.model.app :as app-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.rule :as rule-model]
+   [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.exception :as ex]
    [instant.util.test :refer [instant-ex-data pretty-perm-q]])
   (:import
@@ -664,9 +665,8 @@
                         app-id
                         [[:add-triple [handle-attr-id "nobody"] email-attr-id "nobody@example.com"]])
           (is (= {"users" [{"handle" "nobody", "email" "nobody@example.com"}]}
-                 (admin-model/instaql-nodes->object-tree
-                  {}
-                  attrs
+                 (instaql-nodes->object-tree
+                  ctx
                   (iq/query ctx {:users {:$ {:where {:handle "nobody"}}}})))))
 
         (testing "setting ids works"
@@ -675,9 +675,8 @@
                         app-id
                         [[:add-triple [handle-attr-id "id-test"] email-attr-id "id-test@example.com"]
                          [:add-triple [handle-attr-id "id-test"] id-attr-id [handle-attr-id "id-test"]]])
-          (let [res (admin-model/instaql-nodes->object-tree
-                     {}
-                     attrs
+          (let [res (instaql-nodes->object-tree
+                     ctx
                      (iq/query ctx {:users {:$ {:where {:handle "id-test"}}}}))
                 user (-> res (get "users") first)]
             (is (= {"handle" "id-test", "email" "id-test@example.com"}
@@ -705,18 +704,17 @@
         (testing "value lookup refs work"
           (let [feynman-isbn "9780393079814"]
             ;; Check the setup
-            (is (= feynman-isbn (as-> (admin-model/instaql-nodes->object-tree
-                                       {}
-                                       attrs
+            (is (= feynman-isbn (as-> (instaql-nodes->object-tree
+                                       ctx
                                        (iq/query ctx {:bookshelves {:$ {:where {:name "Nonfiction"}}
                                                                     :books {:$ {:where {:isbn13 feynman-isbn}}}}}))
-                                      %
-                                  (get % "bookshelves")
-                                  (first %)
-                                  (get % "books")
-                                  (filter (fn [b] (= feynman-isbn (get b "isbn13"))) %)
-                                  (first %)
-                                  (get % "isbn13"))))
+                                    %
+                                    (get % "bookshelves")
+                                    (first %)
+                                    (get % "books")
+                                    (filter (fn [b] (= feynman-isbn (get b "isbn13"))) %)
+                                    (first %)
+                                    (get % "isbn13"))))
 
             ;; check retract
             (tx/transact! aurora/conn-pool
@@ -724,15 +722,14 @@
                           app-id
                           [[:retract-triple eid-nonfiction bookshelf-attr-id [isbn-attr-eid feynman-isbn]]])
 
-            (is (empty? (as-> (admin-model/instaql-nodes->object-tree
-                               {}
-                               attrs
+            (is (empty? (as-> (instaql-nodes->object-tree
+                               ctx
                                (iq/query ctx {:bookshelves {:$ {:where {:name "Nonfiction"}}
                                                             :books {:$ {:where {:isbn13 feynman-isbn}}}}}))
-                              %
-                          (get % "bookshelves")
-                          (first %)
-                          (get % "books"))))
+                            %
+                            (get % "bookshelves")
+                            (first %)
+                            (get % "books"))))
 
             ;; check adding back
             (tx/transact! aurora/conn-pool
@@ -740,18 +737,17 @@
                           app-id
                           [[:add-triple eid-nonfiction bookshelf-attr-id [isbn-attr-eid feynman-isbn]]])
 
-            (is (= feynman-isbn (as-> (admin-model/instaql-nodes->object-tree
-                                       {}
-                                       attrs
+            (is (= feynman-isbn (as-> (instaql-nodes->object-tree
+                                       ctx
                                        (iq/query ctx {:bookshelves {:$ {:where {:name "Nonfiction"}}
                                                                     :books {:$ {:where {:isbn13 feynman-isbn}}}}}))
-                                      %
-                                  (get % "bookshelves")
-                                  (first %)
-                                  (get % "books")
-                                  (filter (fn [b] (= feynman-isbn (get b "isbn13"))) %)
-                                  (first %)
-                                  (get % "isbn13"))))))
+                                    %
+                                    (get % "bookshelves")
+                                    (first %)
+                                    (get % "books")
+                                    (filter (fn [b] (= feynman-isbn (get b "isbn13"))) %)
+                                    (first %)
+                                    (get % "isbn13"))))))
 
 
         (testing "value lookup refs are ignored for regular attributes"
@@ -759,9 +755,8 @@
                         (attr-model/get-by-app-id aurora/conn-pool app-id)
                         app-id
                         [[:add-triple alex-eid email-attr-id [email-attr-id "test"]]])
-          (let [res (admin-model/instaql-nodes->object-tree
-                     {}
-                     attrs
+          (let [res (instaql-nodes->object-tree
+                     ctx
                      (iq/query ctx {:users {:$ {:where {:handle "alex"}}}}))
                 user (-> res (get "users") first)]
             (is (= [(str email-attr-id) "test"] (get user "email")))))))))

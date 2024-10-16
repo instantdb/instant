@@ -1646,10 +1646,8 @@
             :app-id rec-app-id
             :attrs attrs})
 
-  #_{:clj-kondo/ignore [:unresolved-namespace]}
-  (instant.admin.model/instaql-nodes->object-tree
-   {}
-   attrs
+  (instant.util.instaql/instaql-nodes->object-tree
+   ctx
    (query ctx {:eb {:child {}}})))
 
 ;; Inspect query

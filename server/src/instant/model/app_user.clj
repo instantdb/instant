@@ -1,37 +1,68 @@
 (ns instant.model.app-user
-  (:require [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
-            [instant.model.instant-user :as instant-user-model]
-            [instant.model.app :as app-model]
-            [instant.util.exception :as ex])
+  (:require
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.model.app :as app-model]
+   [instant.model.instant-user :as instant-user-model]
+   [instant.model.app-user-refresh-token :refer [hash-token]]
+   [instant.util.$users-ops :refer [$user-update $user-query]]
+   [instant.util.exception :as ex])
   (:import
    (java.util UUID)))
 
+(def etype "$users")
+
 (defn create!
   ([params] (create! aurora/conn-pool params))
-  ([conn {:keys [id app-id email]}]
-   (sql/execute-one! conn
-                     ["INSERT INTO app_users (id, app_id, email) VALUES (?::uuid, ?::uuid, ?)"
-                      id app-id email])))
+  ([conn {:keys [id app-id email users-in-triples]}]
+   ($user-update
+    conn
+    {:app-id app-id
+     :etype etype
+     :legacy-op (fn [conn]
+                  (sql/execute-one! conn
+                                    ;; XXX: How are we going to prevent writes once we've started the migration
+                                    ["INSERT INTO app_users (id, app_id, email) VALUES (?::uuid, ?::uuid, ?)"
+                                     id app-id email]))
+     :$users-op (fn [{:keys [transact! resolve-id get-entity]}]
+                  (transact! [[:add-triple id (resolve-id :id) id]
+                              [:add-triple id (resolve-id :email) email]])
+                  (get-entity id))})))
 
 (defn get-by-id
   ([params] (get-by-id aurora/conn-pool params))
   ([conn {:keys [app-id id]}]
-   (sql/select-one conn
+   ($user-query
+    conn
+    {:app-id app-id
+     :etype etype
+     :legacy-op (fn []
+                  (sql/select-one
+                   conn
                    ["SELECT * FROM app_users
-                    WHERE app_id = ?::uuid AND id = ?::uuid"
-                    app-id id])))
+                      WHERE app_id = ?::uuid AND id = ?::uuid"
+                    app-id id]))
+     :$users-op (fn [{:keys [get-entity]}]
+                  (get-entity id))})))
 
 (defn get-by-refresh-token
   ([params] (get-by-refresh-token aurora/conn-pool params))
   ([conn {:keys [app-id refresh-token]}]
-   (sql/select-one
+   ($user-query
     conn
-    ["SELECT app_users.*
-     FROM app_users
-     JOIN app_user_refresh_tokens ON app_users.id = app_user_refresh_tokens.user_id
-     WHERE app_user_refresh_tokens.id = ?::uuid AND app_users.app_id = ?::uuid"
-     refresh-token app-id])))
+    {:app-id app-id
+     :etype etype
+     :legacy-op
+     (fn []
+       (sql/select-one
+        conn
+        ["SELECT app_users.*
+           FROM app_users
+           JOIN app_user_refresh_tokens ON app_users.id = app_user_refresh_tokens.user_id
+           WHERE app_user_refresh_tokens.id = ?::uuid AND app_users.app_id = ?::uuid"
+         refresh-token app-id]))
+     :$users-op (fn [{:keys [get-entity-where]}]
+                  (get-entity-where {:$user-refresh-tokens.hashed-token (hash-token refresh-token)}))})))
 
 (defn get-by-refresh-token! [params]
   (ex/assert-record! (get-by-refresh-token params) :app-user {:args [params]}))
@@ -39,42 +70,88 @@
 (defn get-by-email
   ([params] (get-by-email aurora/conn-pool params))
   ([conn {:keys [app-id email]}]
-   (sql/select-one conn
-                   ["SELECT * FROM app_users WHERE app_id = ?::uuid AND email = ?"
-                    app-id email])))
+   ($user-query
+    conn
+    {:app-id app-id
+     :etype etype
+     :legacy-op
+     (fn []
+       (sql/select-one conn
+                       ["SELECT * FROM app_users WHERE app_id = ?::uuid AND email = ?"
+                        app-id email]))
+     :$users-op (fn [{:keys [get-entity-where]}]
+                  (get-entity-where {:email email}))})))
 
 (defn get-by-email! [params]
   (ex/assert-record! (get-by-email params) :app-user {:args [params]}))
 
 (defn update-email!
   ([params] (update-email! aurora/conn-pool params))
-  ([conn {:keys [id email]}]
-   (sql/execute-one! conn
-                     ["UPDATE app_users set email = ? where id = ?::uuid"
-                      email id])))
+  ([conn {:keys [id app-id email]}]
+   ($user-update
+    conn
+    {:app-id app-id
+     :etype etype
+     :legacy-op
+     (fn []
+       (sql/execute-one! conn
+                         ["UPDATE app_users set email = ? where id = ?::uuid"
+                          email id]))
+     :$users-op (fn [{:keys [transact! resolve-id get-entity]}]
+                  (transact! [[:add-triple id (resolve-id :email) email]])
+                  (get-entity id))})))
 
 (defn delete-by-email!
   ([params] (delete-by-email! aurora/conn-pool params))
   ([conn {:keys [app-id email]}]
-   (sql/execute-one! conn
-                     ["DELETE FROM app_users WHERE app_id = ?::uuid AND email = ?" app-id email])))
+   ($user-update
+    conn
+    {:app-id app-id
+     :etype etype
+     :legacy-op
+     (fn []
+       (sql/execute-one! conn
+                         ["DELETE FROM app_users WHERE app_id = ?::uuid AND email = ?" app-id email]))
+     :$users-op (fn [{:keys [transact! resolve-id]}]
+                  (transact! [[:delete-entity [(resolve-id :email) email] etype]])
+                  nil)})))
 
 (defn delete-by-id!
   ([params] (delete-by-id! aurora/conn-pool params))
   ([conn {:keys [app-id id]}]
-   (sql/execute-one! conn
-                     ["DELETE FROM app_users WHERE app_id = ?::uuid AND id = ?::uuid" app-id id])))
+   ($user-update
+    conn
+    {:app-id app-id
+     :etype etype
+     :legacy-op
+     (fn []
+       (sql/execute-one! conn
+                         ["DELETE FROM app_users WHERE app_id = ?::uuid AND id = ?::uuid" app-id id]))
+     :$users-op (fn [{:keys [transact!]}]
+                  (transact! [[:delete-entity id etype]])
+                  nil)})))
 
 
 (defn get-by-email-or-oauth-link-qualified
   ([params] (get-by-email-or-oauth-link-qualified aurora/conn-pool params))
   ([conn {:keys [app-id email sub provider-id]}]
-   (sql/select-qualified
+   ($user-query
     conn
-    ["SELECT * FROM app_users as u
-       left join app_user_oauth_links as l on u.id = l.user_id
-       where u.app_id = ?::uuid and (u.email = ? or (l.sub = ? and l.provider_id = ?))"
-     app-id email sub provider-id])))
+    {:app-id app-id
+     :etype etype
+     :legacy-op
+     (fn []
+       (sql/select-qualified
+        conn
+        ["SELECT * FROM app_users as u
+           left join app_user_oauth_links as l on u.id = l.user_id
+           where u.app_id = ?::uuid and (u.email = ? or (l.sub = ? and l.provider_id = ?))"
+         app-id email sub provider-id]))
+     :$users-op (fn [{:keys [get-entities-where]}]
+                  (get-entities-where {:or [{:email email}
+                                            ;; XXX: TEST!
+                                            {:$user-oauth-links.sub sub
+                                             :$user-oauth-links.$oauth-provider provider-id}]}))})))
 
 (defn get-or-create-by-email! [{:keys [email app-id]}]
   (or (get-by-email {:email email :app-id app-id})
