@@ -1,5 +1,6 @@
 (ns instant.db.model.entity
-  (:require [instant.db.model.attr :as attr-model]
+  (:require [clojure.string :as string]
+            [instant.db.model.attr :as attr-model]
             [instant.db.model.attr-pat :as attr-pat]
             [instant.util.coll :as ucoll])
   (:import [java.util Date]))
@@ -65,7 +66,7 @@
     (throw (Exception. "get-triple-where only supports a single where clause for now.")))
   (let [[path-str value] (first where)
 
-        path (clojure.string/split (name path-str) #"\.")
+        path (string/split (name path-str) #"\.")
 
         [refs-path value-label] (ucoll/split-last path)
         level 0

@@ -427,7 +427,7 @@
     :inferred-types #{:string}}
    {:id (random-uuid)
     :forward-identity [(random-uuid) "$oauth-redirects" "state-hash"]
-    :unique? false
+    :unique? true
     :index? true
     :value-type :blob
     :cardinality :one

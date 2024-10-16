@@ -1,5 +1,6 @@
 (ns instant.util.$users-ops
   (:require
+   [clojure.string :as string]
    [instant.db.datalog :as d]
    [instant.db.instaql :as i]
    [instant.db.model.attr :as attr-model]
@@ -7,13 +8,21 @@
    [instant.db.model.entity :as entity-model]
    [instant.db.model.transaction :as transaction-model]
    [instant.db.transaction :as tx]
-   [instant.model.app :as app-model]
+   [instant.jdbc.sql :as sql]
    [instant.util.crypt :as crypt-util]
+   [instant.util.exception :as ex]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.uuid :as uuid-util]
    [next.jdbc :as next-jdbc])
   (:import
    (java.util Date)))
+
+;; We write out own get-app function so that we don't get
+;; a cyclic dependency with the instant.model.app ns
+(defn get-app! [conn id]
+  (ex/assert-record!
+   (sql/select-one conn ["select * from apps where id = ?::uuid" id])
+   :app {:args [{:id id}]}))
 
 (defn triples->db-format [app-id attrs etype triples]
   (reduce (fn [acc [_e a v t]]
@@ -21,6 +30,17 @@
                         (attr-model/seek-by-id attrs)
                         (attr-model/fwd-label)
                         keyword)
+
+                  v (cond
+                      (string/starts-with? (name k) "$")
+                      (uuid-util/coerce v)
+
+                      (= k :id) (uuid-util/coerce v)
+
+                      (= k :encrypted-client-secret)
+                      (when v
+                        (crypt-util/hex-string->bytes v))
+                      :else v)
 
                   ;; Translate keywords
                   k (case k
@@ -39,17 +59,28 @@
                               "$oauth-providers" :provider_name
                               "$oauth-clients" :client_name
                               k)
-                      k)
-                  v (case k
-                      (:id :user_id) (uuid-util/coerce v)
-                      :client_secret (when v
-                                       (crypt-util/hex-string->bytes v))
-                      v)]
+                      k)]
               (cond-> acc
                 true (assoc k v)
                 (= k :id) (assoc :created_at (Date. t)))))
           {:app_id app-id}
           triples))
+
+(defn delete-entity!
+  "Deletes and returns the deleted entity (if it was deleted)."
+  [tx-conn attrs app-id etype lookup]
+  (some->> (tx/transact-without-tx-conn! tx-conn
+                                         attrs
+                                         app-id
+                                         [[:delete-entity lookup etype]])
+           :results
+           :delete-entity
+           seq
+           (map (juxt :triples/entity_id
+                      :triples/attr_id
+                      :triples/value
+                      :triples/created_at))
+           (triples->db-format app-id attrs etype)))
 
 (defn collect-iql-result
   ([iql-res]
@@ -133,41 +164,42 @@
                                       $users-op]}]
   (next-jdbc/with-transaction [tx-conn conn-pool]
     ;; XXX: add a lock to prevent losing changes if we migrate
-    (let [app (app-model/get-by-id! tx-conn {:id app-id})]
+    (let [app (get-app! tx-conn app-id)]
       (if-not (:users_in_triples app)
         (legacy-op tx-conn)
-        (let [attrs (attr-model/get-by-app-id tx-conn app-id)
-              res
-              ($users-op
-               {:resolve-id
-                (fn [label] (resolve-attr-id attrs etype label))
+        (let [attrs (attr-model/get-by-app-id tx-conn app-id)]
+          ($users-op
+           {:resolve-id
+            (fn [label] (resolve-attr-id attrs etype label))
 
-                :transact!
-                (fn [tx-steps]
-                  (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps))
+            :transact!
+            (fn [tx-steps]
+              (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps))
 
-                :get-entity
-                (fn [eid] (get-entity tx-conn app-id attrs etype eid))
+            :delete-entity!
+            (fn [lookup]
+              (delete-entity! tx-conn attrs app-id etype lookup))
 
-                :get-entity-where
-                (fn [where] (get-entity-where tx-conn app-id attrs etype where))
+            :get-entity
+            (fn [eid] (get-entity tx-conn app-id attrs etype eid))
 
-                :get-entities-where
-                (fn [where]
-                  (get-entities-where tx-conn app-id attrs etype where))
+            :get-entity-where
+            (fn [where] (get-entity-where tx-conn app-id attrs etype where))
 
-                :triples->db-format
-                (fn [triples]
-                  (triples->db-format app-id attrs etype triples))})]
-          (transaction-model/create! tx-conn {:app-id app-id})
-          res)))))
+            :get-entities-where
+            (fn [where]
+              (get-entities-where tx-conn app-id attrs etype where))
+
+            :triples->db-format
+            (fn [triples]
+              (triples->db-format app-id attrs etype triples))}))))))
 
 (defn $user-query [conn-pool {:keys [app-id
                                      etype
                                      legacy-op
                                      $users-op]}]
   ;; XXX: add a lock to prevent losing changes if we migrate
-  (let [app (app-model/get-by-id! conn-pool {:id app-id})]
+  (let [app (get-app! conn-pool app-id)]
     (if-not (:users_in_triples app)
       (legacy-op)
       (let [attrs (attr-model/get-by-app-id conn-pool app-id)]

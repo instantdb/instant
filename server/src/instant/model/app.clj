@@ -42,7 +42,7 @@
   ([params]
    (get-by-id! aurora/conn-pool params))
   ([conn params]
-   (ex/assert-record! (get-by-id params) :app {:args [params]})))
+   (ex/assert-record! (get-by-id conn params) :app {:args [params]})))
 
 (defn list-by-creator-id
   ([user-id] (list-by-creator-id aurora/conn-pool user-id))

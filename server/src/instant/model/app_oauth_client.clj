@@ -143,16 +143,8 @@
         ["DELETE FROM app_oauth_clients WHERE id = ?::uuid AND app_id = ?::uuid"
          id app-id]))
      :$users-op
-     (fn [{:keys [transact! triples->db-format]}]
-       (let [tx-res (transact! [[:delete-entity id etype]])
-             deleted-triples (->> tx-res
-                                  :results
-                                  :delete-entity
-                                  (map (juxt :triples/entity_id
-                                             :triples/attr_id
-                                             :triples/value
-                                             :triples/created_at)))]
-         (triples->db-format deleted-triples)))})))
+     (fn [{:keys [delete-entity!]}]
+       (delete-entity! id))})))
 
 (defn delete-by-id-ensure!
   [& args]

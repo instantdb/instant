@@ -1646,6 +1646,7 @@
             :app-id rec-app-id
             :attrs attrs})
 
+  (require 'instant.util.instaql)
   (instant.util.instaql/instaql-nodes->object-tree
    ctx
    (query ctx {:eb {:child {}}})))

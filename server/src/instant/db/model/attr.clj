@@ -213,8 +213,7 @@
    (insert-multi! conn app-id attrs {:allow-reserved-names? false}))
   ([conn app-id attrs {:keys [allow-reserved-names?]}]
    (when-not allow-reserved-names?
-     ;;(validate-reserved-names! attrs)
-     )
+     (validate-reserved-names! attrs))
    (sql/do-execute!
     conn
     (hsql/format

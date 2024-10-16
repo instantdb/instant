@@ -1,7 +1,6 @@
 (ns instant.util.test
   (:require
    [clojure.walk :as w]
-   [instant.admin.model :as admin-model]
    [instant.db.datalog :as d]
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]

@@ -17,8 +17,6 @@
    This namespace transforms the user-facing `steps` to the internal `tx-steps`."
   (:require
    [instant.db.model.attr :as attr-model]
-   [instant.db.model.attr-pat :as attr-pat]
-   [instant.db.model.entity :as entity-model]
    [instant.db.model.triple :as triple-model]
    [clojure.walk :as w]
    [clojure.spec.alpha :as s]

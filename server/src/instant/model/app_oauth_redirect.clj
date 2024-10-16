@@ -1,7 +1,7 @@
 (ns instant.model.app-oauth-redirect
   (:require [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
-            [instant.util.$users :refer [$user-update]]
+            [instant.util.$users-ops :refer [$user-update]]
             [instant.util.crypt :as crypt-util])
   (:import
    (java.time Instant)
@@ -16,14 +16,14 @@
 
 (defn create!
   ([params] (create! aurora/conn-pool params))
-  ([conn {:keys [state cookie redirect-url oauth-client-id
+  ([conn {:keys [app-id state cookie redirect-url oauth-client-id
                  code-challenge-method code-challenge]}]
    ($user-update
     conn
     {:app-id app-id
      :etype etype
      :legacy-op
-     (fn []
+     (fn [conn]
        (sql/execute-one!
         conn
         ["INSERT INTO app_oauth_redirects (
@@ -61,18 +61,33 @@
 (defn consume!
   "Gets and deletes the oauth-redirect so that it can be used only once."
   ([params] (consume! aurora/conn-pool params))
-  ([conn {:keys [state]}]
+  ([conn {:keys [state app-id]}]
    ($user-update
     conn
     ;; XXX
-    {:app-id (random-uuid) ;; app-id
+    {:app-id app-id ;; app-id
      :etype etype
      :legacy-op
      (fn [conn]
-       (sql/execute-one! conn
-                         ["DELETE FROM app_oauth_redirects where lookup_key = ?::bytea"
-                          (crypt-util/uuid->sha256 state)]))
-     :$users-op :TODO})))
+       (when-let [row (sql/execute-one! conn
+                                        ["DELETE FROM app_oauth_redirects where lookup_key = ?::bytea"
+                                         (crypt-util/uuid->sha256 state)])]
+         ;; XXX: TEST
+         (assoc row :cookie-hash-bytes (crypt-util/uuid->sha256 (:cookie row)))))
+     :$users-op
+
+     (fn [{:keys [delete-entity! resolve-id get-entity]}]
+       (tool/def-locals)
+       (let [state-hash (-> state
+                            (crypt-util/uuid->sha256)
+                            (crypt-util/bytes->hex-string))
+             lookup [(resolve-id :state-hash) state-hash]
+             row (delete-entity! lookup)]
+         (def -ge2 (get-entity lookup))
+         (tool/def-locals)
+         (when row
+           ;; XXX: TEST
+           (assoc row :cookie-hash-bytes (crypt-util/hex-string->bytes (:cookie-hash row))))))})))
 
 ;; Don't add more get functions. We lookup by state because we can lookup a hashed version
 ;; of state in the db to prevent timing attacks.

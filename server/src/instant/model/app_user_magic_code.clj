@@ -5,7 +5,7 @@
    [instant.model.app :as app-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.instant-user :as instant-user-model]
-   [instant.util.$users-ops :refer [$user-query $user-update]]
+   [instant.util.$users-ops :refer [$user-update]]
    [instant.util.exception :as ex]
    [instant.util.string :refer [rand-num-str]])
   (:import
@@ -66,20 +66,11 @@
          m))
      :$users-op
      ;; XXX: Should use a hashed code
-     (fn [{:keys [get-entity-where transact! triples->db-format]}]
+     (fn [{:keys [get-entity-where delete-entity! triples->db-format]}]
        (let [{code-id :id} (get-entity-where {:code code
                                               :$user.email email})]
          (ex/assert-record! code-id :app-user-magic-code {:args [params]})
-         (let [tx-res (transact! [[:delete-entity code-id etype]])
-               deleted-triples (->> tx-res
-                                    :results
-                                    :delete-entity
-                                    (map (juxt :triples/entity_id
-                                               :triples/attr_id
-                                               :triples/value
-                                               :triples/created_at)))
-               code (triples->db-format deleted-triples)]
-           (tool/def-locals)
+         (let [code (delete-entity! code-id)]
            (when (expired? code)
              (ex/throw-expiration-err! :app-user-magic-code {:args [params]}))
            code)))})))

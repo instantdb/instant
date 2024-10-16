@@ -2,9 +2,7 @@
   (:require [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
             [instant.util.crypt :as crypt-util]
-            [instant.model.instant-user :as instant-user-model]
             [instant.model.app :as app-model]
-            [instant.model.app-user :as app-user-model]
             [instant.util.$users-ops :refer [$user-query $user-update]]
             [instant.util.uuid :as uuid-util])
   (:import
@@ -74,7 +72,7 @@
                      ["DELETE FROM app_user_refresh_tokens WHERE user_id = ?::uuid"
                       user-id]))
      :$users-op
-     (fn [{:keys [transact! get-entities-where resolve-id]}]
+     (fn [{:keys [transact! get-entities-where]}]
        (let [ents (get-entities-where {:$user user-id})]
          (when (seq ents)
            (transact! (mapv (fn [{:keys [id]}]
@@ -97,6 +95,8 @@
        (transact! [[:delete-entity [(resolve-id :hashed-token) (hash-token id)] etype]]))})))
 
 (comment
+  (require '[instant.model.instant-user :as instant-user-model])
+  (require '[instant.model.app-user :as app-user-model])
   (def instant-user (instant-user-model/get-by-email
                      {:email "stopa@instantdb.com"}))
   (def app (first (app-model/get-all-for-user {:user-id (:id instant-user)})))

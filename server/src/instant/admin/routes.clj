@@ -91,7 +91,7 @@
                     :inference? inference?}
                    perms)
         nodes (iq/permissioned-query ctx query)
-        result (admin-model/instaql-nodes->object-tree ctx nodes)]
+        result (instaql-nodes->object-tree ctx nodes)]
     (response/ok result)))
 
 (comment

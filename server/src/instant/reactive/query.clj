@@ -96,7 +96,7 @@
 (defn instaql-query-reactive!
   "Returns the result of an instaql query while producing book-keeping side
   effects in the store. To be used with session"
-  [store-conn {:keys [session-id app-id attrs] :as base-ctx} instaql-query return-type]
+  [store-conn {:keys [session-id app-id] :as base-ctx} instaql-query return-type]
   (tracer/with-span! {:name "instaql-query-reactive!"
                       :attributes {:session-id session-id
                                    :app-id app-id

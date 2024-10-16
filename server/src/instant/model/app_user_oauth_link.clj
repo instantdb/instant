@@ -1,19 +1,19 @@
 (ns instant.model.app-user-oauth-link
   (:require [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
-            [instant.util.$users-ops :refer [$user-query]]))
+            [instant.util.$users-ops :refer [$user-update]]))
 
 (def etype "$user-oauth-links")
 
 (defn create!
   ([params] (create! aurora/conn-pool params))
   ([conn {:keys [id app-id sub provider-id user-id]}]
-   ($user-query
+   ($user-update
     conn
     {:app-id app-id
      :etype etype
      :legacy-op
-     (fn []
+     (fn [conn]
        (sql/execute-one!
         conn
         ["INSERT INTO app_user_oauth_links (id, app_id, sub, provider_id, user_id)

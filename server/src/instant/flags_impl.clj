@@ -1,8 +1,7 @@
 ;; Namespace that implements flags, kept separate from the flags
 ;; ns so that there are no cyclic depdencies
 (ns instant.flags-impl
-  (:require [instant.admin.model :as admin-model]
-            [instant.db.instaql :as instaql]
+  (:require [instant.db.instaql :as instaql]
             [instant.db.model.attr :as attr-model]
             [instant.jdbc.aurora :as aurora]
             [instant.model.app :as app-model]

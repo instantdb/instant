@@ -125,21 +125,11 @@
                                 app-id]))
            :$users-op
            ;; XXX: TEST!
-           (fn [{:keys [transact! resolve-id triples->db-format]}]
+           (fn [{:keys [delete-entity! resolve-id]}]
              (let [code-hash (-> code
                                  crypt-util/uuid->sha256
-                                 crypt-util/bytes->hex-string)
-                   tx-res (transact! [[:delete-entity
-                                       [(resolve-id :code-hash) code-hash]
-                                       etype]])
-                   deleted-triples (->> tx-res
-                                        :results
-                                        :delete-entity
-                                        (map (juxt :triples/entity_id
-                                                   :triples/attr_id
-                                                   :triples/value
-                                                   :triples/created_at)))]
-               (triples->db-format deleted-triples)))})]
+                                 crypt-util/bytes->hex-string)]
+               (delete-entity! [(resolve-id :code-hash) code-hash])))})]
      (ex/assert-record! oauth-code :app-oauth-code {:args [params]})
      (when (expired? oauth-code)
        (ex/throw-expiration-err! :app-oauth-code {:args [params]}))

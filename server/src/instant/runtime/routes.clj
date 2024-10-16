@@ -274,7 +274,8 @@
         state-with-app-id (format "%s%s" app-id state)
 
         redirect-url (oauth/create-authorization-url oauth-client state-with-app-id oauth-redirect-url)]
-    (app-oauth-redirect-model/create! {:state state
+    (app-oauth-redirect-model/create! {:app-id app-id
+                                       :state state
                                        :cookie cookie-uuid
                                        :oauth-client-id (:id client)
                                        :redirect-url app-redirect-url
@@ -293,6 +294,7 @@
                               :same-site :lax}))))
 
 (defn upsert-oauth-link! [{:keys [email sub app-id provider-id]}]
+  (tool/def-locals)
   (let [users (app-user-model/get-by-email-or-oauth-link-qualified
                {:email email
                 :app-id app-id
@@ -424,6 +426,7 @@
 
 (defn oauth-callback [{:keys [params] :as req}]
   (try
+    (tool/def-locals)
     (let [return-error (fn return-error [msg & params]
                          (throw (ex-info msg (merge {:type :oauth-error :message msg}
                                                     (apply hash-map params)))))
@@ -437,16 +440,12 @@
 
           ;; _app-id unused for now, but will be used when we have
           ;; app_oauth_redirects in triples
-          [_app-id state] (let [[app-id state] (case (count state-param)
-                                                 ;; TODO(dww): Remove this case once all
-                                                 ;;   of the oauth redirects have cycled
-                                                 36 [nil (uuid-util/coerce state-param)]
-                                                 72 [(uuid-util/coerce (subs state-param 0 36))
-                                                     (uuid-util/coerce (subs state-param 36))]
-                                                 [])]
-                            (if state
-                              [app-id state]
-                              (return-error "Invalid state param in OAuth redirect.")))
+          [app-id state] (let [[app-id state] (case (count state-param)
+                                                72 [(uuid-util/coerce (subs state-param 0 36))
+                                                    (uuid-util/coerce (subs state-param 36))])]
+                           (if (and app-id state)
+                             [app-id state]
+                             (return-error "Invalid state param in OAuth redirect.")))
 
           cookie (if-let [cookie (-> req
                                      (get-in [:cookies oauth-cookie-name :value])
@@ -454,7 +453,8 @@
                    cookie
                    (return-error "Missing cookie."))
 
-          oauth-redirect (if-let [oauth-redirect (app-oauth-redirect-model/consume! {:state state})]
+          oauth-redirect (if-let [oauth-redirect (app-oauth-redirect-model/consume! {:app-id app-id
+                                                                                     :state state})]
                            oauth-redirect
                            (return-error "Could not find OAuth request."))
           _ (when (app-oauth-redirect-model/expired? oauth-redirect)
@@ -463,11 +463,13 @@
                                                    (:cookie-hash-bytes oauth-redirect)))
               (return-error "Mismatch in OAuth request cookie."))
 
+          _ (tool/def-locals)
+
           code (if-let [code (:code params)]
                  code
                  (return-error "Missing code param in OAuth redirect."))
 
-          client (if-let [client (app-oauth-client-model/get-by-id {:app-id (:app_id oauth-redirect)
+          client (if-let [client (app-oauth-client-model/get-by-id {:app-id app-id
                                                                     :id (:client_id oauth-redirect)})]
                    client
                    (return-error "Missing OAuth client."))
@@ -498,6 +500,7 @@
                         :code-challenge-hash (:code_challenge_hash oauth-redirect)})
           redirect-url (url/add-query-params (:redirect_url oauth-redirect)
                                              {:code code :_instant_oauth_redirect "true"})]
+      (tool/def-locals)
       (if (string/starts-with? (str (:scheme (uri/parse redirect-url))) "http")
         (response/found (url/add-query-params (:redirect_url oauth-redirect)
                                               {:code code :_instant_oauth_redirect "true"}))

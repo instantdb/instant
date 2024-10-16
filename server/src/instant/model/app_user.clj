@@ -14,7 +14,7 @@
 
 (defn create!
   ([params] (create! aurora/conn-pool params))
-  ([conn {:keys [id app-id email users-in-triples]}]
+  ([conn {:keys [id app-id email]}]
    ($user-update
     conn
     {:app-id app-id
@@ -147,11 +147,32 @@
            left join app_user_oauth_links as l on u.id = l.user_id
            where u.app_id = ?::uuid and (u.email = ? or (l.sub = ? and l.provider_id = ?))"
          app-id email sub provider-id]))
-     :$users-op (fn [{:keys [get-entities-where]}]
-                  (get-entities-where {:or [{:email email}
-                                            ;; XXX: TEST!
-                                            {:$user-oauth-links.sub sub
-                                             :$user-oauth-links.$oauth-provider provider-id}]}))})))
+     :$users-op (fn [{:keys [admin-query]}]
+                  (let [sub+provider (format "%s+%s" sub provider-id)
+                        q {etype
+                           {:$ {:where {:or [;{:email email}
+                                             {:$user-oauth-links.sub+$oauth-provider
+                                              sub+provider}]}}
+                            :$user-oauth-links {:$ {:where {:sub+$oauth-provider
+                                                            sub+provider}}}}}
+                        res (admin-query q)]
+                    (tool/def-locals)
+                    (map (fn [user]
+                           (merge {:app_users/id (parse-uuid (get user "id"))
+                                   :app_users/email (get user "email")
+                                   :app_users/app_id app-id}
+                                  (when-let [links (seq (get user "$user-oauth-links"))]
+                                    ;; Adding this assert just for extra protection,
+                                    ;; but we should never have multiple because the
+                                    ;; link is unique by sub+provider-id
+                                    (assert (= 1 (count links)))
+                                    (let [link (first links)]
+                                      {:app_user_oauth_links/id (parse-uuid (get link "id"))
+                                       :app_user_oauth_links/app_id app-id
+                                       :app_user_oauth_links/sub (get link "sub")
+                                       :app_user_oauth_links/provider_id (get link "$oauth-provider")
+                                       :app_user_oauth_links/user_id (parse-uuid (get user "id"))}))))
+                         (get res etype))))})))
 
 (defn get-or-create-by-email! [{:keys [email app-id]}]
   (or (get-by-email {:email email :app-id app-id})

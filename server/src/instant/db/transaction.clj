@@ -140,8 +140,7 @@
           (reduce
            (fn [acc [op & args]]
              (when (#{:add-attr :update-attr} op)
-               ;;(prevent-$users-updates op args)
-               )
+               (prevent-$users-updates op args))
              (let [res (case op
                          :add-attr
                          (attr-model/insert-multi! conn app-id args)
