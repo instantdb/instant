@@ -436,15 +436,7 @@
           (finally
             (swap! pending-handlers disj pending-handler)))))))
 
-(defn straight-jacket-handle-receive [store-conn eph-store-atom session event]
-  (try
-    (handle-receive store-conn eph-store-atom session event)
-    (catch Throwable e
-      (tracer/record-exception-span! e {:name "receive-worker/handle-receive-straight-jacket"
-                                        :attributes {:session-id (:session/id session)
-                                                     :event event}}))))
-
-(defn process-receive-q-input [store-conn eph-store-atom worker-n input]
+(defn process-receive-q-item [store-conn eph-store-atom worker-n input]
   (let [{:keys [put-at item]} input
         {:keys [session-id] :as event} item
         now (Instant/now)
@@ -456,7 +448,7 @@
                                          :session-id session-id}})
 
       :else
-      (straight-jacket-handle-receive
+      (handle-receive
        store-conn
        eph-store-atom
        (assoc (into {} session)
@@ -470,6 +462,14 @@
                       :get-ping-latency-ms
                       (#(%))))))))
 
+(defn straight-jacket-process-receive-q-item [store-conn eph-store-atom n item]
+  (try
+    (process-receive-q-item store-conn eph-store-atom n item)
+    (catch Throwable e
+      (tracer/record-exception-span! e {:name "receive-worker/handle-receive-straight-jacket"
+                                        :attributes {:session-id (:session-id item)
+                                                     :item item}}))))
+
 (defn start-receive-workers [store-conn eph-store-atom receive-q stop-signal]
   (doseq [n (range num-receive-workers)]
     (ua/fut-bg
@@ -479,8 +479,7 @@
                                :attributes {:worker-n n}})
          (do (grouped-queue/process-polling!
               receive-q
-              (fn [item]
-                (process-receive-q-input store-conn eph-store-atom n item)))
+              (fn [item] (straight-jacket-process-receive-q-item store-conn eph-store-atom n item)))
              (recur)))))))
 
 (defn enqueue->receive-q [receive-q item]
