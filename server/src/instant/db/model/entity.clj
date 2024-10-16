@@ -1,7 +1,5 @@
 (ns instant.db.model.entity
-  (:require [clojure.string :as string]
-            [instant.db.model.attr :as attr-model]
-            [instant.util.coll :as ucoll])
+  (:require [instant.db.model.attr :as attr-model])
   (:import [java.util Date]))
 
 (defn get-triples-batch

@@ -118,7 +118,7 @@
 
 (defn delete-by-id!
   ([params] (delete-by-id! aurora/conn-pool params))
-  ([conn {:keys [app-id id] :as params}]
+  ([conn {:keys [app-id id]}]
    ($user-update
     conn
     {:app-id app-id

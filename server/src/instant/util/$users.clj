@@ -36,7 +36,11 @@
                    :app-id-join {:table :app_users
                                  :col :user_id}
                    :fields {"id" {:col :id}
-                            "code" {:col :code}
+                            "code-hash" {:col :code
+                                         :transform [:encode
+                                                     [:digest :code
+                                                      [:inline "sha256"]]
+                                                     [:inline "hex"]]}
                             "$user" {:col :user_id}}}
    "$user-refresh-tokens" {:table :app_user_refresh_tokens
                            :app-id-join {:table :app_users
@@ -227,12 +231,12 @@
     :cardinality :one
     :inferred-types #{:string}}
    {:id (random-uuid)
-    :forward-identity [(random-uuid) "$magic-codes" "code"]
+    :forward-identity [(random-uuid) "$magic-codes" "code-hash"]
     :unique? false
     :index? true
     :value-type :blob
     :cardinality :one
-    :inferred-types #{:number}}
+    :inferred-types #{:string}}
    {:id (random-uuid)
     :forward-identity [(random-uuid) "$magic-codes" "$user"]
     :reverse-identity [(random-uuid) "$users" "$magic-codes"]
@@ -516,7 +520,9 @@
                                                   :users-in-triples true})
         (transaction-model/create! tx-conn {:app-id app-id})))))
 
-(defn undo-migrate [app-id]
+(defn undo-migrate
+  "Don't use in production, because it deletes everything."
+  [app-id]
   (let [attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
         to-delete (filter (fn [attr]
                             (or (some-> (attr-model/fwd-etype attr)

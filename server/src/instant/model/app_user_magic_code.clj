@@ -6,6 +6,7 @@
    [instant.model.app-user :as app-user-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.util.$users-ops :refer [$user-update]]
+   [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
    [instant.util.string :refer [rand-num-str]])
   (:import
@@ -31,9 +32,12 @@
                                      id code user-id]))
      :$users-op (fn [{:keys [resolve-id transact! get-entity]}]
                   (transact! [[:add-triple id (resolve-id :id) id]
-                              [:add-triple id (resolve-id :code) code]
+                              [:add-triple id (resolve-id :code-hash) (-> code
+                                                                          crypt-util/str->sha256
+                                                                          crypt-util/bytes->hex-string)]
                               [:add-triple id (resolve-id :$user) user-id]])
-                  (get-entity id))})))
+                  (assoc (get-entity id)
+                         :code code))})))
 
 (defn expired?
   ([magic-code] (expired? (Instant/now) magic-code))
@@ -65,9 +69,11 @@
            (ex/throw-expiration-err! :app-user-magic-code {:args [params]}))
          m))
      :$users-op
-     ;; XXX: Should use a hashed code
-     (fn [{:keys [get-entity-where delete-entity! triples->db-format]}]
-       (let [{code-id :id} (get-entity-where {:code code
+     (fn [{:keys [get-entity-where delete-entity!]}]
+       (let [code-hash (-> code
+                           crypt-util/str->sha256
+                           crypt-util/bytes->hex-string)
+             {code-id :id} (get-entity-where {:code-hash code-hash
                                               :$user.email email})]
          (ex/assert-record! code-id :app-user-magic-code {:args [params]})
          (let [code (delete-entity! code-id)]

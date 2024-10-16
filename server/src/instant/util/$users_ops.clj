@@ -6,7 +6,6 @@
    [instant.db.model.attr :as attr-model]
    [instant.db.model.attr-pat :as attr-pat]
    [instant.db.model.entity :as entity-model]
-   [instant.db.model.transaction :as transaction-model]
    [instant.db.transaction :as tx]
    [instant.jdbc.sql :as sql]
    [instant.util.crypt :as crypt-util]

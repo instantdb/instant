@@ -74,7 +74,7 @@
          (assoc row :cookie-hash-bytes (crypt-util/uuid->sha256 (:cookie row)))))
      :$users-op
 
-     (fn [{:keys [delete-entity! resolve-id get-entity]}]
+     (fn [{:keys [delete-entity! resolve-id]}]
        (let [state-hash (-> state
                             (crypt-util/uuid->sha256)
                             (crypt-util/bytes->hex-string))
