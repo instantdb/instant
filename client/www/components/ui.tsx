@@ -20,6 +20,8 @@ import {
   CheckCircleIcon,
   ClipboardCopyIcon,
   XIcon,
+  EyeIcon,
+  EyeOffIcon,
 } from '@heroicons/react/solid';
 import { errorToast, successToast } from '@/lib/toast';
 import CopyToClipboard from 'react-copy-to-clipboard';
@@ -620,6 +622,7 @@ export function Copyable({
   label: string;
   size?: 'normal' | 'large';
 }) {
+  const [showLabel, setShowLabel] = useState<boolean>(false);
   const [copyLabel, setCopyLabel] = useState('Copy');
   const sizeToStyle = {
     normal: { main: 'text-sm', copy: 'text-xs' },
@@ -644,9 +647,28 @@ export function Copyable({
           selection.selectAllChildren(el);
         }}
       >
-        {value}
+        {showLabel ? value : '********-****-****-****-************'}
       </pre>
-      <div className="px-4">
+      <div className="flex gap-1 px-1">
+        <button
+          onClick={() => setShowLabel(!showLabel)}
+          className={cn(
+            'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
+            { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
+          )}
+        >
+          {showLabel ? (
+            <>
+            <EyeOffIcon className="-ml-0.5 h-4 w-4" aria-hidden="true" />
+            Hide
+            </>
+          ) : (
+            <>
+            <EyeIcon className="-ml-0.5 h-4 w-4" aria-hidden="true" />
+            Show
+            </>
+          )}
+        </button>
         <CopyToClipboard text={value}>
           <button
             onClick={() => {
