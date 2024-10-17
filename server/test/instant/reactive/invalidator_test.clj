@@ -416,7 +416,7 @@
                   uid (random-uuid)]
               (try
                 (tx/transact! aurora/conn-pool
-                              (attr-model/get-by-app-id aurora/conn-pool (:id app))
+                              (attr-model/get-by-app-id (:id app))
                               (:id app)
                               [[:add-triple uid (resolvers/->uuid r :users/id) uid]
                                [:add-triple uid (resolvers/->uuid r :users/handle) "dww"]])

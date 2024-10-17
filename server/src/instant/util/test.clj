@@ -16,7 +16,7 @@
          (ex-data instant-ex#)))))
 
 (defn pretty-perm-q [{:keys [app-id current-user]} q]
-  (let [attrs (attr-model/get-by-app-id aurora/conn-pool app-id)]
+  (let [attrs (attr-model/get-by-app-id app-id)]
     (w/keywordize-keys
      (admin-model/instaql-nodes->object-tree
       {}

@@ -239,7 +239,7 @@
   (:pats (attr-pats->patterns-impl ctx #{} attr-pats)))
 
 (comment
-  (def attrs (attr-model/get-by-app-id aurora/conn-pool zeneca-app-id))
+  (def attrs (attr-model/get-by-app-id zeneca-app-id))
   (def ctx {:db {:conn-pool aurora/conn-pool}
             :app-id zeneca-app-id
             :datalog-query-fn #'d/query

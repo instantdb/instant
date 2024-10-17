@@ -69,7 +69,7 @@
                                                         uri/query-map
                                                         :currentSchema)
                                                    "public"))
-    {:attrs (attr-model/get-by-app-id aurora/conn-pool (:id app))}))
+    {:attrs (attr-model/get-by-app-id (:id app))}))
 
 (defn- handle-init! [store-conn sess-id
                      {:keys [refresh-token client-event-id __admin-token] :as event}]
@@ -118,7 +118,7 @@
             {app-id :id} app
             processed-tx-id (rs/get-processed-tx-id @store-conn app-id)
             {:keys [table-info]} (get-attrs app)
-            attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
+            attrs (attr-model/get-by-app-id app-id)
             ctx {:db {:conn-pool aurora/conn-pool}
                  :datalog-loader (rs/upsert-datalog-loader! store-conn sess-id d/make-loader)
                  :session-id sess-id
@@ -208,7 +208,7 @@
           :current-user (:user auth)
           :admin? (:admin? auth)
           :datalog-query-fn d/query
-          :attrs (attr-model/get-by-app-id aurora/conn-pool app-id)}
+          :attrs (attr-model/get-by-app-id app-id)}
          coerced)]
     (rs/send-event! store-conn sess-id
                     {:op :transact-ok

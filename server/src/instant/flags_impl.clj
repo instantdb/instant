@@ -50,7 +50,7 @@
   [config-app-id queries query-results-atom]
   (when-let [app (app-model/get-by-id {:id config-app-id})]
     (let [socket-id (random-uuid)
-          attrs (attr-model/get-by-app-id aurora/conn-pool config-app-id)
+          attrs (attr-model/get-by-app-id config-app-id)
           ctx {:app-id (:id app)
                :attrs attrs
                :db {:conn-pool aurora/conn-pool}}
