@@ -116,7 +116,9 @@
                      [:exists {:select :*
                                :from :idents
                                :where [:and
-                                       [:= :app-id app-id]
+                                       [:or
+                                        [:= :app-id app-id]
+                                        [:= :app-id attr-model/$users-attrs-app-id]]
                                        [:= :attr-id a]
                                        [:= :label "id"]]}]]]}])
 
@@ -145,6 +147,9 @@
                                      [:updates {:columns [:id :typ]}]]]
                              :where [:and
                                      [:= :attrs.id :updates.id]
+                                     ;; We don't modify the inferred type
+                                     ;; for $users-attrs-app-id because
+                                     ;; we don't want people putting garbage in there
                                      [:= :attrs.app_id app-id]
                                      [[:raw "inferred_types is distinct from (
                                               coalesce(inferred_types, cast(0 AS bit(32))) | updates.typ
@@ -215,7 +220,9 @@
                        :from [[:input-lookup-refs :ilr]]
                        :left-join [[:attrs :a] [:and
                                                 :a.is-unique
-                                                [:= :a.app-id [:cast :ilr.app-id :uuid]]
+                                                [:or
+                                                 [:= :a.app-id [:cast :ilr.app-id :uuid]]
+                                                 [:= :a.app-id attr-model/$users-attrs-app-id]]
                                                 [:= :a.id [:cast :ilr.attr-id :uuid]]]]}]
 
                      ;; insert lookup refs
@@ -272,7 +279,9 @@
                        :vae]]
                      :from [[:applied-triples :at]]
                      :left-join [[:attrs :a] [:and
-                                              [:= :a.app-id :at.app-id]
+                                              [:or
+                                               [:= :a.app-id :at.app-id]
+                                               [:= :a.app-id attr-model/$users-attrs-app-id]]
                                               [:= :a.id :at.attr-id]]]}]
                    [:ea-index-inserts
                     {:insert-into [[[:triples :t] triple-cols]
@@ -354,7 +363,9 @@
                            :from [[:input-lookup-refs :ilr]]
                            :left-join [[:attrs :a] [:and
                                                     :a.is-unique
-                                                    [:= :a.app-id [:cast :ilr.app-id :uuid]]
+                                                    [:or
+                                                     [:= :a.app-id [:cast :ilr.app-id :uuid]]
+                                                     [:= :a.app-id attr-model/$users-attrs-app-id]]
                                                     [:= :a.id [:cast :ilr.attr-id :uuid]]]]}]
                          ;; insert lookup refs
                          [:lookup-ref-inserts
@@ -444,7 +455,9 @@
                            :vae]]
                          :from [[:input-triples :it]]
                          :left-join [[:attrs :a] [:and
-                                                  [:= :a.app-id [:cast :it.app-id :uuid]]
+                                                  [:or
+                                                   [:= :a.app-id [:cast :it.app-id :uuid]]
+                                                   [:= :a.app-id attr-model/$users-attrs-app-id]]
                                                   [:= :a.id [:cast :it.attr-id :uuid]]]]}]
                        [:ea-triples-distinct
                         {:select-distinct-on [[:entity-id :attr-id] :*]
@@ -527,7 +540,9 @@
                          :from :attrs
                          :join [:idents [:= :idents.id :attrs.forward-ident]]
                          :where [:and
-                                 [:= :idents.app-id app-id]
+                                 [:or
+                                  [:= :idents.app-id app-id]
+                                  [:= :idents.app-id attr-model/$users-attrs-app-id]]
                                  [:= :idents.etype etype]]}]]
                       [:and
                        ;; Delete ref triples where we're the value
@@ -539,7 +554,9 @@
                          :from :attrs
                          :join [:idents [:= :idents.id :attrs.reverse-ident]]
                          :where [:and
-                                 [:= :idents.app-id app-id]
+                                 [:or
+                                  [:= :idents.app-id app-id]
+                                  [:= :idents.app-id attr-model/$users-attrs-app-id]]
                                  [:= :idents.etype etype]]}]]]
 
                      [[:= :entity-id id-lookup]

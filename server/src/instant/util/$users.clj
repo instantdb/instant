@@ -485,20 +485,32 @@
                   (gen-$oauth-code-attrs)
                   (gen-$oauth-redirects))))
 
+;; XXX: Need a function to generate the $users attrs in the attrs-app
+;;      Should also create a trigger that makes it impossible to delete
+;;      that app or to delete any of the attrs or idents for the app?
+;;        - It's not too costly because it will only run on deletes
+;;          and we're not deleting apps or attrs very often.
+
+;; XXX: Look to see how many queries are depending on $users attrs.
+(defn add-attrs-to-public-schema [app-id]
+  ;; XXX: Set inferred-types here
+  (tracer/with-span! {:name "$users/create-attrs"}
+    (let [existing-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
+          new-attrs (gen-attrs existing-attrs)
+          ids (attr-model/insert-multi! aurora/conn-pool
+                                        app-id
+                                        new-attrs
+                                        {:allow-reserved-names? true})]
+      (tracer/add-data! {:attributes {:created-attr-count (count ids)}}))))
+
 (defn migrate-app [app-id]
-  (let [existing-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
-        new-attrs (gen-attrs existing-attrs)]
-    (tracer/with-span! {:name "$users/migrate-app"
-                        :attributes {:app-id app-id}}
+    (tracer/with-span! {:name "$users/migrate-app" :attributes {:app-id app-id}}
       (next-jdbc/with-transaction [tx-conn aurora/conn-pool]
         ;; XXX: Probably need a lock so that we're not inserting users from elsewhere
-        (tracer/with-span! {:name "$users/create-attrs"}
-          (let [ids (attr-model/insert-multi! tx-conn
-                                              app-id
-                                              new-attrs
-                                              {:allow-reserved-names? true})]
-            (tracer/add-data! {:attributes {:created-attr-count (count ids)}})))
-        (let [attrs (attr-model/get-by-app-id tx-conn app-id)]
+        ;;      also need a lock on get-attrs?
+        (app-model/set-users-in-triples! tx-conn {:app-id app-id
+                                                  :users-in-triples true})
+        (let [attrs (attr-model/get-by-app-id tx-conn attr-model/$users-attrs-app-id)]
           (doseq [etype ["$users"
                          "$magic-codes"
                          "$user-refresh-tokens"
@@ -516,25 +528,38 @@
                 (tracer/add-data!
                  {:attributes {:update-count
                                (:next.jdbc/update-count (first res))}})))))
-        (app-model/set-users-in-triples! tx-conn {:app-id app-id
-                                                  :users-in-triples true})
+
+        ;; XXX: TODO: put the shims somewhere in case this causes problems
+        (tracer/with-span! {:name "$users/delete-$users-shims"}
+          (let [shim-ids
+                (keep (fn [attr]
+                        (when (and (= :user (:catalog attr))
+                                   (string/starts-with?
+                                    (attr-model/fwd-etype attr)
+                                    "$"))
+                          (:id attr)))
+                      (attr-model/get-by-app-id tx-conn app-id))]
+            (when (seq shim-ids)
+              (let [res (attr-model/delete-multi! tx-conn app-id shim-ids)]
+                (tracer/add-data!
+                 {:attributes {:delete-count
+                               (:next.jdbc/update-count (first res))}})))))
+
         (transaction-model/create! tx-conn {:app-id app-id})))))
 
 (defn undo-migrate
   "Don't use in production, because it deletes everything."
   [app-id]
-  (let [attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
-        to-delete (filter (fn [attr]
-                            (or (some-> (attr-model/fwd-etype attr)
-                                        (string/starts-with? "$"))
-                                (some-> (attr-model/rev-etype attr)
-                                        (string/starts-with? "$"))))
-                          attrs)]
-    (when (seq to-delete)
+    (let [system-attr-ids (map :id (attr-model/get-by-app-id
+                                    aurora/conn-pool
+                                    attr-model/$users-attrs-app-id))]
       (next-jdbc/with-transaction [tx-conn aurora/conn-pool]
-        (attr-model/delete-multi! aurora/conn-pool app-id (map :id to-delete))
         (app-model/set-users-in-triples! tx-conn {:app-id app-id
                                                   :users-in-triples false})
+        (sql/execute! tx-conn (hsql/format {:delete-from :triples
+                                            :where [:and
+                                                    [:= :app-id app-id]
+                                                    [:in :attr-id system-attr-ids]]}))
         (transaction-model/create! tx-conn {:app-id app-id})))))
 
 ;; XXX: Need default permissions

@@ -12,6 +12,14 @@
    [instant.data.constants :refer [empty-app-id]]
    [instant.util.exception :as ex]))
 
+
+;; XXX: How are we going to migrate users who turned on the $users table flag?
+;;      Write some sort of attr translation?
+;;        It doesn't have to live for too long because
+;;        the mutations will get rewritten, right?
+;;          -- no they won't
+(def $users-attrs-app-id #uuid "b15df0d8-65d3-44e0-bbf8-339d6bd822db")
+
 ;; Don't change the order or remove types, only add to the end of the list
 (def types
   [:number
@@ -140,13 +148,13 @@
   "Manual reflection of postgres attr table columns"
   [:id :app-id :value-type
    :cardinality :is-unique :is-indexed
-   :forward-ident :reverse-ident :inferred-types])
+   :forward-ident :reverse-ident])
 
 (defn attr-table-values
   "Marshals a collection of attrs into insertable sql attr values"
   [app-id attrs]
   (map (fn [{:keys [id value-type cardinality unique? index?
-                    forward-identity reverse-identity inferred-types]}]
+                    forward-identity reverse-identity]}]
          [id
           app-id
           [:cast (when value-type (name value-type)) :text]
@@ -154,9 +162,7 @@
           [:cast unique? :boolean]
           [:cast index? :boolean]
           [:cast (first forward-identity) :uuid]
-          [:cast (first reverse-identity) :uuid]
-          [:cast (when inferred-types
-                   (binary-inferred-types inferred-types)) [:bit :32]]])
+          [:cast (first reverse-identity) :uuid]])
        attrs))
 
 (def ident-table-cols
@@ -400,6 +406,7 @@
 (defn- row->attr
   "Clj representation of sql attrs"
   [{:keys [id
+           app_id
            value_type
            cardinality
            is_unique
@@ -418,7 +425,11 @@
            :unique? is_unique
            :index? is_indexed
            :inferred-types (when inferred_types
-                             (friendly-inferred-types inferred_types))}
+                             (friendly-inferred-types inferred_types))
+           ;; XXX: We'll call this system instead of $users-attrs, need to update a lot of stuff
+           :catalog (if (= app_id $users-attrs-app-id)
+                      :system
+                      :user)}
     reverse_ident (assoc :reverse-identity [reverse_ident rev_etype rev_label])))
 
 (defn index-attrs
@@ -516,7 +527,12 @@
            :from :attrs
            :join [[:idents :fwd-idents] [:= :attrs.forward-ident :fwd-idents.id]]
            :left-join [[:idents :rev-idents] [:= :attrs.reverse-ident :rev-idents.id]]
-           :where [:= :attrs.app-id [:cast app-id :uuid]]})))))
+           :where [:or
+                   [:= :attrs.app-id [:cast app-id :uuid]]
+                   [:and {:select :users-in-triples
+                          :from :apps
+                          :where [:= :id app-id]}
+                    [:= :attrs.app-id [:cast $users-attrs-app-id :uuid]]]]})))))
 
 (defn get-all-users-shims
   "Fetching the mapping from app-users table to attributes that we use to
