@@ -694,6 +694,13 @@
     (is (= {:message "test.isbn is not a valid lookup attribute."}
            (tx-validation-err
             attrs [["update" "books" ["test.isbn" "asdf"] {"title" "test"}]])))
+    (is (= {:message "lookup value is invalid", :hint {:attribute "linkOn"
+                                                       :value "undefined"}}
+           (tx-validation-err
+            attrs [["link"
+                    "spans"
+                    "6fd7b6eb-6fa2-4943-b5a3-2d73c8bd6904"
+                    {:parentSpan "lookup__linkOn__undefined"}]])))
     (is (= {:message "test.isbn is not a unique attribute on books"}
            (tx-validation-err
             (conj attrs {:id (random-uuid)
