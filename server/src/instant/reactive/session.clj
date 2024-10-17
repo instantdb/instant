@@ -485,11 +485,12 @@
          (do (grouped-queue/process-polling!
               receive-q
               {:reserve-fn receive-worker-reserve-fn
-               :process-fn (fn [_ [{{:keys [op]} :item :as entry} :as batch]]
+               :process-fn (fn [group-key [{{:keys [op]} :item :as entry} :as batch]]
                              (tracer/with-span! {:name "receive-worker/process-receive-q-item"
                                                  :attributes {:work-n n
                                                               :op op
-                                                              :batch-size (count batch)}}
+                                                              :batch-size (count batch)
+                                                              :group-key group-key}}
                                (straight-jacket-process-receive-q-entry store-conn eph-store-atom n entry)))})
              (recur)))))))
 
