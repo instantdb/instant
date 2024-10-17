@@ -1787,6 +1787,7 @@
                    (catch Exception e
                      (is (not e))))
               (testing (format "(%s -> %s)" value inferred-types)
+                (attr-model/evict-app-id-from-cache app-id)
                 (is (= inferred-types
                        (->> (attr-model/get-by-app-id app-id)
                             (attr-model/seek-by-id attr-id)
@@ -1825,6 +1826,7 @@
                         (attr-model/get-by-app-id app-id)
                         app-id
                         [[:add-triple (random-uuid) attr-id false]])
+          (attr-model/evict-app-id-from-cache app-id)
           (is (= #{:string :number :boolean}
                  (->> (attr-model/get-by-app-id app-id)
                       (attr-model/seek-by-id attr-id)
@@ -1855,6 +1857,7 @@
                         (attr-model/get-by-app-id app-id)
                         app-id
                         [[:deep-merge-triple eid attr-id {:patch :values}]])
+          (attr-model/evict-app-id-from-cache app-id)
           (is (= #{:string :json}
                  (->> (attr-model/get-by-app-id app-id)
                       (attr-model/seek-by-id attr-id)

@@ -289,23 +289,23 @@
                                  {:select :1
                                   :from :attrs
                                   :where (list* :and
-                                                (keep (fn [col]
-                                                        [:=
-                                                         (qualify-col :attr-values col)
-                                                         (qualify-col :attrs col)])
-                                                      attr-table-cols))}]]
+                                                (map (fn [col]
+                                                       [:=
+                                                        (qualify-col :attr-values col)
+                                                        (qualify-col :attrs col)])
+                                                     attr-table-cols))}]]
                    :join [:ident-ids
                           [:= :attr-values.forward-ident :ident-ids.id]]}]
                  :on-conflict {:on-constraint :attrs_pkey}
                  :do-update-set {:value_type [:case
                                               (list* :and
-                                                     (keep (fn [col]
-                                                             ;; Some fields can be null, so we need to
-                                                             ;; use "distinct from" instead of "="
-                                                             [:raw [[:inline (qualify-col :attrs col)]
-                                                                    " is not distinct from "
-                                                                    [:inline (qualify-col :EXCLUDED col)]]])
-                                                           attr-table-cols))
+                                                     (map (fn [col]
+                                                            ;; Some fields can be null, so we need to
+                                                            ;; use "distinct from" instead of "="
+                                                            [:raw [[:inline (qualify-col :attrs col)]
+                                                                   " is not distinct from "
+                                                                   [:inline (qualify-col :EXCLUDED col)]]])
+                                                          attr-table-cols))
                                               :EXCLUDED.value_type
                                               ;; raise_exception_message is typed to return
                                               ;; a boolean, so we cast it to text so that it
@@ -314,12 +314,9 @@
                                                      [:raise_exception_message
                                                       [:||
                                                        "The attribute with id "
-                                                       [:row_to_json :EXCLUDED]
-                                                       ;;[:cast :EXCLUDED.id :text]
+                                                       [:cast :EXCLUDED.id :text]
                                                        " conflicts with an existing attribute with id "
-                                                       [:row_to_json :attrs]
-                                                       ;;[:cast :attrs.id :text] "."
-                                                       ]]
+                                                       [:cast :attrs.id :text] "."]]
                                                      :text]]}
                  :returning [:id]}]]
         :union-all
@@ -339,75 +336,77 @@
 (defn update-multi!
   [conn app-id updates]
   (validate-reserved-names! updates)
-  (sql/do-execute!
-   conn
-   (hsql/format
-    {:with (concat
-            (if-let [attr-table-updates
-                     (seq (changes-that-require-attr-model-updates updates))]
-              [[[:attr-values
-                 {:columns attr-table-cols}]
-                {:values (attr-table-values app-id attr-table-updates)}]
-               [:attr-updates
-                {:update :attrs
-                 :set {:value-type (not-null-or :attr-values.value-type :attrs.value-type)
-                       :cardinality (not-null-or :attr-values.cardinality :attrs.cardinality)
-                       :is-unique (not-null-or :attr-values.is-unique :attrs.is-unique)
-                       :is-indexed (not-null-or :attr-values.is-indexed :attrs.is-indexed)}
-                 :from [:attr-values]
-                 :where [:and
-                         [:= :attrs.id :attr-values.id]
-                         [:= :attrs.app-id :attr-values.app-id]]
-                 :returning [:attrs.*]}]
-               [:triple-updates
-                {:update :triples
-                 :set {:ea  [:case [:= :a.cardinality [:inline "one"]] true :else false]
-                       :eav [:case [:= :a.value-type [:inline "ref"]] true :else false]
-                       :av :a.is-unique
-                       :ave :a.is-indexed}
-                 :from [[:attr-updates :a]]
-                 :where [:and
-                         [:= :triples.app-id :a.app-id]
-                         [:= :triples.attr-id :a.id]]
-                 :returning :triples.entity_id}]]
-              [[:attr-updates
-                {:select [[[:cast nil :uuid] :id]]}]
-               [:triple-updates
-                {:select [[[:cast nil :uuid] :entity-id]]}]])
-            (if-let [ident-table-vals (seq (ident-table-values app-id updates))]
-              [[[:ident-values
-                 {:columns ident-table-cols}]
-                {:values ident-table-vals}]
-               [:ident-updates
-                {:update :idents,
-                 :set {:etype :ident-values.etype, :label :ident-values.label},
-                 :from [:ident-values]
-                 :where [:and
-                         [:= :idents.id :ident-values.id]
-                         [:= :idents.app-id :ident-values.app-id]
-                         [:= :idents.attr-id :ident-values.attr-id]]
-                 :returning :idents.id}]]
-              [[:ident-updates
-                {:select [[[:cast nil :uuid] :id]]}]])
-            [[:union-ids
-              {:union-all
-               [{:select :entity_id :from :triple-updates}
-                {:select :id :from :attr-updates}
-                {:select :id :from :ident-updates}]}]])
-     :select :%count.* :from :union-ids})))
+  (with-cache-invalidation app-id
+    (sql/do-execute!
+     conn
+     (hsql/format
+      {:with (concat
+              (if-let [attr-table-updates
+                       (seq (changes-that-require-attr-model-updates updates))]
+                [[[:attr-values
+                   {:columns attr-table-cols}]
+                  {:values (attr-table-values app-id attr-table-updates)}]
+                 [:attr-updates
+                  {:update :attrs
+                   :set {:value-type (not-null-or :attr-values.value-type :attrs.value-type)
+                         :cardinality (not-null-or :attr-values.cardinality :attrs.cardinality)
+                         :is-unique (not-null-or :attr-values.is-unique :attrs.is-unique)
+                         :is-indexed (not-null-or :attr-values.is-indexed :attrs.is-indexed)}
+                   :from [:attr-values]
+                   :where [:and
+                           [:= :attrs.id :attr-values.id]
+                           [:= :attrs.app-id :attr-values.app-id]]
+                   :returning [:attrs.*]}]
+                 [:triple-updates
+                  {:update :triples
+                   :set {:ea  [:case [:= :a.cardinality [:inline "one"]] true :else false]
+                         :eav [:case [:= :a.value-type [:inline "ref"]] true :else false]
+                         :av :a.is-unique
+                         :ave :a.is-indexed}
+                   :from [[:attr-updates :a]]
+                   :where [:and
+                           [:= :triples.app-id :a.app-id]
+                           [:= :triples.attr-id :a.id]]
+                   :returning :triples.entity_id}]]
+                [[:attr-updates
+                  {:select [[[:cast nil :uuid] :id]]}]
+                 [:triple-updates
+                  {:select [[[:cast nil :uuid] :entity-id]]}]])
+              (if-let [ident-table-vals (seq (ident-table-values app-id updates))]
+                [[[:ident-values
+                   {:columns ident-table-cols}]
+                  {:values ident-table-vals}]
+                 [:ident-updates
+                  {:update :idents,
+                   :set {:etype :ident-values.etype, :label :ident-values.label},
+                   :from [:ident-values]
+                   :where [:and
+                           [:= :idents.id :ident-values.id]
+                           [:= :idents.app-id :ident-values.app-id]
+                           [:= :idents.attr-id :ident-values.attr-id]]
+                   :returning :idents.id}]]
+                [[:ident-updates
+                  {:select [[[:cast nil :uuid] :id]]}]])
+              [[:union-ids
+                {:union-all
+                 [{:select :entity_id :from :triple-updates}
+                  {:select :id :from :attr-updates}
+                  {:select :id :from :ident-updates}]}]])
+       :select :%count.* :from :union-ids}))))
 
 (defn delete-multi!
   "Deletes a batch of attrs for an app. We
    rely on CASCADE DELETE to remove associated
    idents and triples"
   [conn app-id ids]
-  (sql/do-execute!
-   conn
-   (hsql/format
-    {:delete-from :attrs
-     :where [[:and
-              [:= :app-id app-id]
-              [:in :id ids]]]})))
+  (with-cache-invalidation app-id
+    (sql/do-execute!
+     conn
+     (hsql/format
+      {:delete-from :attrs
+       :where [[:and
+                [:= :app-id app-id]
+                [:in :id ids]]]}))))
 ;; -------
 ;; app-attrs
 
