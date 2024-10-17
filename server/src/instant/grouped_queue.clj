@@ -20,7 +20,7 @@
 (defn inflight-queue-empty? [{:keys [pending working] :as _inflight-queue}]
   (and (empty? pending) (empty? working)))
 
-(defn inflight-queue-pop [{:keys [pending working]}]
+(defn inflight-queue-reserve [{:keys [pending working]}]
   {:pending (pop pending)
    :working (if-let [item (first pending)]
               (conj working item)
@@ -35,7 +35,7 @@
 (defn inflight-queue-peek-pending [{:keys [pending] :as _inflight-queue}]
   (first pending))
 
-(defn inflight-queue-drain [{:keys [pending working]}]
+(defn inflight-queue-reserve-all [{:keys [pending working]}]
   {:pending persisted-q-empty
    :working (into working pending)})
 
@@ -79,7 +79,7 @@
       (= t :item) arg
       (= t :group-key) (inflight-queue-peek-pending (get @group-key->subqueue arg)))))
 
-(defn default-reserve-fn [_ inflight-q] (inflight-queue-pop inflight-q))
+(defn default-reserve-fn [_ inflight-q] (inflight-queue-reserve inflight-q))
 
 (defn clear-subqueue [state group-key]
   (let [subqueue (get state group-key)
@@ -139,8 +139,8 @@
     (process-polling! gq
                       {:reserve-fn (fn [group-key inflight-queue]
                                      (if (= group-key :refresh)
-                                       (inflight-queue-drain inflight-queue)
-                                       (inflight-queue-pop inflight-queue)))
+                                       (inflight-queue-reserve-all inflight-queue)
+                                       (inflight-queue-reserve inflight-queue)))
 
                        :process-fn (fn [k workset]
                                      (println "processing..." k workset)
