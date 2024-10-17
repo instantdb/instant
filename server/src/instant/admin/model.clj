@@ -25,7 +25,6 @@
    [clojure.string :as string]
    [instant.util.exception :as ex]
    [instant.db.transaction :as tx]
-   [instant.jdbc.aurora :as aurora]
    [instant.util.json :refer [->json <-json]])
   (:import
    (java.util UUID)))
