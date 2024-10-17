@@ -45,7 +45,7 @@
 (declare receive-q-stop-signal)
 (def handle-receive-timeout-ms 5000)
 
-(def num-receive-workers (* 3 (delay/cpu-count)))
+(def num-receive-workers 1)
 
 ;; ------
 ;; handlers
@@ -436,8 +436,8 @@
           (finally
             (swap! pending-handlers disj pending-handler)))))))
 
-(defn process-receive-q-item [store-conn eph-store-atom worker-n input]
-  (let [{:keys [put-at item]} input
+(defn process-receive-q-entry [store-conn eph-store-atom worker-n entry]
+  (let [{:keys [put-at item]} entry
         {:keys [session-id] :as event} item
         now (Instant/now)
         session (rs/get-session @store-conn session-id)]
@@ -462,13 +462,13 @@
                       :get-ping-latency-ms
                       (#(%))))))))
 
-(defn straight-jacket-process-receive-q-item [store-conn eph-store-atom n item]
+(defn straight-jacket-process-receive-q-entry [store-conn eph-store-atom n entry]
   (try
-    (process-receive-q-item store-conn eph-store-atom n item)
+    (process-receive-q-entry store-conn eph-store-atom n entry)
     (catch Throwable e
       (tracer/record-exception-span! e {:name "receive-worker/handle-receive-straight-jacket"
-                                        :attributes {:session-id (:session-id item)
-                                                     :item item}}))))
+                                        :attributes {:session-id (:session-id (:item entry))
+                                                     :entry entry}}))))
 
 (defn receive-worker-reserve-fn [[t] inflight-q]
   (if (= t :refresh)
@@ -485,12 +485,13 @@
          (do (grouped-queue/process-polling!
               receive-q
               {:reserve-fn receive-worker-reserve-fn
-               :process-fn (fn [_ [{:keys [op] :as item} :as batch]]
+               :process-fn (fn [_ [{{:keys [op]} :item :as entry} :as batch]]
+                             (tool/def-locals!)
                              (tracer/with-span! {:name "receive-worker/process-receive-q-item"
                                                  :attributes {:work-n n
                                                               :op op
                                                               :batch-size (count batch)}}
-                               (straight-jacket-process-receive-q-item store-conn eph-store-atom n item)))})
+                               (straight-jacket-process-receive-q-entry store-conn eph-store-atom n entry)))})
              (recur)))))))
 
 (defn enqueue->receive-q [receive-q item]
