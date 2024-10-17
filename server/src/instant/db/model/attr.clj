@@ -562,7 +562,6 @@
    ;; Don't cache if we're using a custom connection
    (get-by-app-id* conn app-id)))
 
-
 (defn get-all-users-shims
   "Fetching the mapping from app-users table to attributes that we use to
    create the $users table.

@@ -504,6 +504,7 @@
       (tracer/add-data! {:attributes {:created-attr-count (count ids)}}))))
 
 (defn migrate-app [app-id]
+  (attr-model/with-cache-invalidation app-id
     (tracer/with-span! {:name "$users/migrate-app" :attributes {:app-id app-id}}
       (next-jdbc/with-transaction [tx-conn aurora/conn-pool]
         ;; XXX: Probably need a lock so that we're not inserting users from elsewhere
@@ -550,6 +551,7 @@
 (defn undo-migrate
   "Don't use in production, because it deletes everything."
   [app-id]
+  (attr-model/with-cache-invalidation app-id
     (let [system-attr-ids (map :id (attr-model/get-by-app-id
                                     aurora/conn-pool
                                     attr-model/$users-attrs-app-id))]
