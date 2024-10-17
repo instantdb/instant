@@ -345,7 +345,7 @@
                 (tracer/add-data! {:attributes {:num-sockets (count sockets)}})
                 (doseq [{:keys [id]} sockets]
                   (tracer/with-span! {:name "invalidator/send-refresh"
-                                      :session-id id}
+                                      :attributes {:session-id id}}
                     (session/enqueue->receive-q session/receive-q
                                                 {:op :refresh :session-id id}))))
               (catch Throwable t
@@ -437,8 +437,7 @@
                                       :conn-config (config/get-aurora-config)
                                       :slot-name process-id})]
      (ua/fut-bg
-       (wal/start-worker wal-opts))
-
+      (wal/start-worker wal-opts))
 
      @(:started-promise wal-opts)
 
@@ -446,11 +445,11 @@
        (reset! users-shims (attr-model/get-all-users-shims aurora/conn-pool)))
 
      (ua/fut-bg
-       (start-worker rs/store-conn worker-chan))
+      (start-worker rs/store-conn worker-chan))
 
      (when byop-chan
        (ua/fut-bg
-         (start-byop-worker rs/store-conn byop-chan)))
+        (start-byop-worker rs/store-conn byop-chan)))
 
      wal-opts)))
 

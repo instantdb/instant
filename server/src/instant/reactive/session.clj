@@ -45,7 +45,7 @@
 (declare receive-q-stop-signal)
 (def handle-receive-timeout-ms 5000)
 
-(def num-receive-workers 1)
+(def num-receive-workers (* 3 (delay/cpu-count)))
 
 ;; ------
 ;; handlers
@@ -467,8 +467,8 @@
     (process-receive-q-entry store-conn eph-store-atom n entry)
     (catch Throwable e
       (tracer/record-exception-span! e {:name "receive-worker/handle-receive-straight-jacket"
-                                        :attributes {:session-id (:session-id (:item entry))
-                                                     :entry entry}}))))
+                                        :attributes {:session-id (:session-id (:item  entry))
+                                                     :item entry}}))))
 
 (defn receive-worker-reserve-fn [[t] inflight-q]
   (if (= t :refresh)
