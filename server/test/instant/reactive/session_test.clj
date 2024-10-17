@@ -70,7 +70,7 @@
         (session/on-close store-conn eph-store-atom second-socket)))))
 
 (defn- blocking-send-msg [{:keys [ws-conn id]} msg]
-  (session/handle-receive *store-conn* *eph-store-atom* (rs/get-session @*store-conn* id) msg)
+  (session/handle-receive *store-conn* *eph-store-atom* (rs/get-session @*store-conn* id) msg {})
   (let [ret (ua/<!!-timeout ws-conn)]
     (assert (not= :timeout ret) "Timed out waiting for a response")
     (dissoc ret :client-event-id)))
