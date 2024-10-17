@@ -552,7 +552,7 @@
 
           (transaction-model/create! tx-conn {:app-id app-id}))))
     (finally
-      (mark-start-migrating-app-users app-id))))
+      (mark-end-migrating-app-users app-id))))
 
 (defn undo-migrate
   "Don't use in production, because it deletes everything."

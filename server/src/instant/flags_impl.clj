@@ -8,13 +8,12 @@
             [instant.db.transaction :as tx]
             [instant.jdbc.aurora :as aurora]
             [instant.model.app :as app-model]
-            [instant.db.model.attr :as attr-model]
             [instant.reactive.ephemeral :as eph]
             [instant.reactive.session :as session]
             [instant.reactive.store :as store]
             [instant.util.instaql :refer [instaql-nodes->object-tree]]
-            [instant.util.tracer :as tracer]
-            [instant.util.json :refer [->json]]))
+            [instant.util.json :refer [->json]]
+            [instant.util.tracer :as tracer]))
 
 (defn swap-result!
   "Updates the results atom, but only if we have a newer tx-id."
@@ -119,8 +118,6 @@
 (defn mark-end-migrating-app-users [migrating-app-id]
   (when-let [config-app-id (config/instant-config-app-id)]
     (let [attrs (attr-model/get-by-app-id config-app-id)
-          id-attr-id (resolve-attr-id attrs
-                                      :app-users-to-triples-migration/id)
           app-id-attr-id (resolve-attr-id attrs
                                           :app-users-to-triples-migration/appId)
           machine-attr-id (resolve-attr-id

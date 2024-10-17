@@ -562,14 +562,6 @@
    ;; Don't cache if we're using a custom connection
    (get-by-app-id* conn app-id)))
 
-(defn get-by-app-id
-  ([app-id]
-   (cache/lookup-or-miss attr-cache app-id (partial get-by-app-id* aurora/conn-pool)))
-  ([conn app-id]
-   ;; Don't cache if we're using a custom connection
-   (get-by-app-id* conn app-id)))
-
-
 (defn get-all-users-shims
   "Fetching the mapping from app-users table to attributes that we use to
    create the $users table.
