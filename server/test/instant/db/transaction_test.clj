@@ -191,7 +191,8 @@
                   :cardinality :one
                   :unique? false
                   :index? false
-                  :inferred-types #{:string}}
+                  :inferred-types #{:string}
+                  :catalog :user}
                  (attr-model/seek-by-id
                   tag-attr-id
                   (attr-model/get-by-app-id app-id))))
@@ -218,7 +219,8 @@
                   :cardinality :one
                   :unique? true
                   :index? false
-                  :inferred-types #{:string}}
+                  :inferred-types #{:string}
+                  :catalog :user}
                  (attr-model/seek-by-id
                   name-attr-id
                   (attr-model/get-by-app-id app-id))))
@@ -257,7 +259,8 @@
                   [name-fwd-ident "users" "name"],
                   :unique? false,
                   :index? false,
-                  :inferred-types #{:string}}
+                  :inferred-types #{:string}
+                  :catalog :user}
                  (attr-model/seek-by-id
                   name-attr-id
                   (attr-model/get-by-app-id app-id)))))
@@ -317,7 +320,8 @@
                   [zip-fwd-ident "users" "zip"],
                   :unique? false,
                   :index? true,
-                  :inferred-types #{:string}}
+                  :inferred-types #{:string}
+                  :catalog :user}
                  (attr-model/seek-by-id
                   zip-attr-id
                   (attr-model/get-by-app-id app-id)))))
@@ -376,7 +380,8 @@
                   [email-fwd-ident "users" "email"],
                   :unique? true,
                   :index? true
-                  :inferred-types #{:string}}
+                  :inferred-types #{:string}
+                  :catalog :user}
                  (attr-model/seek-by-id
                   email-attr-id
                   (attr-model/get-by-app-id app-id)))))
@@ -410,11 +415,11 @@
           (is
            (= ::ex/record-not-unique
               (::ex/type (instant-ex-data
-                          (tx/transact!
-                           aurora/conn-pool
-                           (attr-model/get-by-app-id app-id)
-                           app-id
-                           [[:add-triple joe-eid email-attr-id "test2@instantdb.com"]]))))))))))
+                           (tx/transact!
+                            aurora/conn-pool
+                            (attr-model/get-by-app-id app-id)
+                            app-id
+                            [[:add-triple joe-eid email-attr-id "test2@instantdb.com"]]))))))))))
 
 (deftest tx-ref-many-to-many
   (with-empty-app
@@ -448,7 +453,8 @@
                   [tag-rev-ident "tags" "taggers"],
                   :unique? false,
                   :index? false,
-                  :inferred-types #{:string}}
+                  :inferred-types #{:string}
+                  :catalog :user}
                  (attr-model/seek-by-id
                   tag-attr-id
                   (attr-model/get-by-app-id app-id)))))
@@ -483,21 +489,21 @@
           (is
            (= :invalid-text-representation
               (->  (instant-ex-data
-                    (tx/transact!
-                     aurora/conn-pool
-                     (attr-model/get-by-app-id app-id)
-                     app-id
-                     [[:add-triple stopa-eid tag-attr-id "Foo"]]))
+                     (tx/transact!
+                      aurora/conn-pool
+                      (attr-model/get-by-app-id app-id)
+                      app-id
+                      [[:add-triple stopa-eid tag-attr-id "Foo"]]))
                    ::ex/hint
                    :condition)))
           (is
            (= :check-violation
               (->  (instant-ex-data
-                    (tx/transact!
-                     aurora/conn-pool
-                     (attr-model/get-by-app-id app-id)
-                     app-id
-                     [[:add-triple stopa-eid tag-attr-id {:foo "bar"}]]))
+                     (tx/transact!
+                      aurora/conn-pool
+                      (attr-model/get-by-app-id app-id)
+                      app-id
+                      [[:add-triple stopa-eid tag-attr-id {:foo "bar"}]]))
                    ::ex/hint
                    :condition))))))))
 
@@ -534,7 +540,8 @@
                   [owner-rev-ident "users" "posts"],
                   :unique? false,
                   :index? false,
-                  :inferred-types #{:string}}
+                  :inferred-types #{:string}
+                  :catalog :user}
                  (attr-model/seek-by-id
                   owner-attr-id
                   (attr-model/get-by-app-id app-id)))))
@@ -593,7 +600,8 @@
                   [config-rev-ident "configObjects" "user"],
                   :unique? true,
                   :index? false
-                  :inferred-types #{:string}}
+                  :inferred-types #{:string}
+                  :catalog :user}
                  (attr-model/seek-by-id
                   config-attr-id
                   (attr-model/get-by-app-id app-id)))))
