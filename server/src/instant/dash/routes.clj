@@ -358,7 +358,7 @@
 (defn rules-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         code (ex/get-param! req [:body :code] w/stringify-keys)
-        attrs (attr-model/get-by-app-id aurora/conn-pool app-id)]
+        attrs (attr-model/get-by-app-id app-id)]
     (ex/assert-valid! :rule code (rule-model/validation-errors attrs code))
     (response/ok {:rules (rule-model/put! {:app-id app-id
                                            :code code})})))
@@ -935,7 +935,7 @@
   "Creates the users table and adds rules.
    Returns the full set of rules."
   [conn-pool app-id]
-  (let [current-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)]
+  (let [current-attrs (attr-model/get-by-app-id app-id)]
     (next-jdbc/with-transaction [tx-conn conn-pool]
       (let [rules (rule-model/merge! {:app-id app-id
                                       :code {:$users {:allow {:view "auth.id == data.id"
@@ -1025,7 +1025,7 @@
 
 (defn schema-pull-get [req]
   (let [{{app-id :id app-title :title} :app} (req->app-and-user! :collaborator req)
-        current-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
+        current-attrs (attr-model/get-by-app-id app-id)
         current-schema (schema-model/attrs->schema current-attrs)]
     (response/ok {:schema current-schema :app-title app-title})))
 

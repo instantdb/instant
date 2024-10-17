@@ -523,7 +523,7 @@
 
             ;; do mutation
             (tx/transact! aurora/conn-pool
-                          (attr-model/get-by-app-id aurora/conn-pool app-id)
+                          (attr-model/get-by-app-id app-id)
                           app-id
                           [[:retract-triple
                             (resolvers/->uuid r "eid-predator")

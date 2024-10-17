@@ -157,7 +157,6 @@
             (is (number? (-> ret :body :tx-id)))
             (is (seq (attr-model/seek-by-fwd-ident-name ["floopy" "flip"]
                                                         (attr-model/get-by-app-id
-                                                         aurora/conn-pool
                                                          app-id))))))
         (testing "delete-attr works"
           (let [eid (UUID/randomUUID)
@@ -176,7 +175,6 @@
             (is (number? (-> ret :body :tx-id)))
             (is (nil? (attr-model/seek-by-fwd-ident-name ["floopy" "flop"]
                                                          (attr-model/get-by-app-id
-                                                          aurora/conn-pool
                                                           app-id))))))))))
 
 (deftest refresh-tokens-test
@@ -678,7 +676,7 @@
       (-> e ex-data ::ex/hint :errors first))))
 
 (deftest transact-validations
-  (let [attrs (attr-model/get-by-app-id aurora/conn-pool zeneca-app-id)]
+  (let [attrs (attr-model/get-by-app-id zeneca-app-id)]
     (is (= '{:expected string?, :in [0 1]}
            (tx-validation-err
             attrs [["update" 1 (UUID/randomUUID) {"title" "moop"}]])))

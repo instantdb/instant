@@ -126,7 +126,7 @@
   (def ctx {:db {:conn-pool aurora/conn-pool}
             :app-id zeneca-app-id
             :datalog-query-fn d/query
-            :attrs (attr-model/get-by-app-id aurora/conn-pool zeneca-app-id)})
+            :attrs (attr-model/get-by-app-id zeneca-app-id)})
   (def params {:etype "bookshelves"
                :eid #uuid "8164fb78-6fa3-4aab-8b92-80e706bae93a"
                :path-str "users.handle"})
@@ -452,7 +452,7 @@
                      "creatorEmail" "stopa@instantdb.com"})))
 
 (comment
-  (def attrs (attr-model/get-by-app-id aurora/conn-pool zeneca-app-id))
+  (def attrs (attr-model/get-by-app-id zeneca-app-id))
   (def ctx {:db {:conn-pool aurora/conn-pool}
             :app-id zeneca-app-id
             :datalog-query-fn d/query

@@ -80,7 +80,7 @@
   (let [query (ex/get-param! req [:body :query] #(when (map? %) %))
         inference? (-> req :body :inference? boolean)
         {:keys [app-id] :as perms} (get-perms! req)
-        attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
+        attrs (attr-model/get-by-app-id app-id)
         ctx (merge {:db {:conn-pool aurora/conn-pool}
                     :app-id app-id
                     :attrs attrs
@@ -109,7 +109,7 @@
         inference? (-> req :body :inference? boolean)
         rules-override (-> req :body :rules-override ->json <-json)
         query (ex/get-param! req [:body :query] #(when (map? %) %))
-        attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
+        attrs (attr-model/get-by-app-id app-id)
         ctx (merge {:db {:conn-pool aurora/conn-pool}
                     :app-id app-id
                     :attrs attrs
@@ -138,7 +138,7 @@
 (defn transact-post [req]
   (let [steps (ex/get-param! req [:body :steps] #(when (coll? %) %))
         {:keys [app-id] :as perms} (get-perms! req)
-        attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
+        attrs (attr-model/get-by-app-id app-id)
         ctx (merge {:db {:conn-pool aurora/conn-pool}
                     :app-id app-id
                     :attrs attrs
@@ -161,7 +161,7 @@
         commit-tx (-> req :body :dangerously-commit-tx)
         dry-run (not commit-tx)
         steps (ex/get-param! req [:body :steps] #(when (coll? %) %))
-        attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
+        attrs (attr-model/get-by-app-id app-id)
         rules (if rules-override
                 {:app_id app-id :code rules-override}
                 (rule-model/get-by-app-id

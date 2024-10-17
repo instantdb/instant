@@ -126,7 +126,7 @@
 
 (comment
   (def ctx {:db {:conn-pool aurora/conn-pool}
-            :attrs (attr-model/get-by-app-id aurora/conn-pool zeneca-app-id)
+            :attrs (attr-model/get-by-app-id zeneca-app-id)
             :app-id zeneca-app-id
             :current-user nil
             :session-id "moop"})
