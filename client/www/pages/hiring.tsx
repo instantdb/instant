@@ -88,7 +88,7 @@ function HiringContent() {
         of all time.</p>
       <h2 id="who-are-we-looking-for-">Who are we looking for?</h2>
       <p>First and foremost, we want to work with people who we will be friends
-        with for a life time. We love high-integrity, optimistic, and
+        with for a lifetime. We love high-integrity, optimistic, and
         principle-oriented people. Taking inspiration from Facebook, Airbnb, and
         YCombinator we deeply resonate with these three core values</p>
       <ul>
