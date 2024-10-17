@@ -10,6 +10,14 @@
 
 (def persisted-q-empty PersistentQueue/EMPTY)
 
+(defn pop-times [n coll]
+  (reduce (fn [coll _] (pop coll)) coll (range n)))
+
+(comment
+  (def x (into persisted-q-empty [1 2 3]))
+  (pop-times 2 x)
+  (take 2 x))
+
 (def inflight-queue-empty
   {:pending persisted-q-empty
    :working []})
@@ -20,12 +28,6 @@
 (defn inflight-queue-empty? [{:keys [pending working] :as _inflight-queue}]
   (and (empty? pending) (empty? working)))
 
-(defn inflight-queue-reserve [{:keys [pending working]}]
-  {:pending (pop pending)
-   :working (if-let [item (first pending)]
-              (conj working item)
-              working)})
-
 (defn inflight-queue-workset [{:keys [working]}]
   working)
 
@@ -34,6 +36,10 @@
 
 (defn inflight-queue-peek-pending [{:keys [pending] :as _inflight-queue}]
   (first pending))
+
+(defn inflight-queue-reserve [max-items {:keys [pending working]}]
+  {:pending (pop-times max-items pending)
+   :working (into working (take max-items pending))})
 
 (defn inflight-queue-reserve-all [{:keys [pending working]}]
   {:pending persisted-q-empty
@@ -79,7 +85,7 @@
       (= t :item) arg
       (= t :group-key) (inflight-queue-peek-pending (get @group-key->subqueue arg)))))
 
-(defn default-reserve-fn [_ inflight-q] (inflight-queue-reserve inflight-q))
+(defn default-reserve-fn [_ inflight-q] (inflight-queue-reserve 1 inflight-q))
 
 (defn clear-subqueue [state group-key]
   (let [subqueue (get state group-key)
@@ -140,7 +146,7 @@
                       {:reserve-fn (fn [group-key inflight-queue]
                                      (if (= group-key :refresh)
                                        (inflight-queue-reserve-all inflight-queue)
-                                       (inflight-queue-reserve inflight-queue)))
+                                       (inflight-queue-reserve 1 inflight-queue)))
 
                        :process-fn (fn [k workset]
                                      (println "processing..." k workset)

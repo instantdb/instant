@@ -473,7 +473,7 @@
 (defn receive-worker-reserve-fn [[t] inflight-q]
   (if (= t :refresh)
     (grouped-queue/inflight-queue-reserve-all inflight-q)
-    (grouped-queue/inflight-queue-reserve inflight-q)))
+    (grouped-queue/inflight-queue-reserve 1 inflight-q)))
 
 (defn start-receive-workers [store-conn eph-store-atom receive-q stop-signal]
   (doseq [n (range num-receive-workers)]
