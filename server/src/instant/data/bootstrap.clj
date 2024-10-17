@@ -105,13 +105,13 @@
   (let [txes (extract-zeneca-txes)
         _ (tx/transact!
            aurora/conn-pool
-           (attr-model/get-by-app-id aurora/conn-pool app-id)
+           (attr-model/get-by-app-id app-id)
            app-id
            txes)
         triples (triple-model/fetch
                  aurora/conn-pool
                  app-id)
-        attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
+        attrs (attr-model/get-by-app-id app-id)
         users (for [[_ group] (group-by first (map :triple triples))
                     :when (= (attr-model/fwd-etype
                               (attr-model/seek-by-id (second (first group))
@@ -283,7 +283,7 @@
     (uspec/conform-throwing ::tx/tx-steps tx-steps)
 
     (tx/transact! aurora/conn-pool
-                  (attr-model/get-by-app-id aurora/conn-pool app-id)
+                  (attr-model/get-by-app-id app-id)
                   app-id
                   tx-steps)
 

@@ -666,7 +666,7 @@
      :unique? false}])
   (def t [#uuid "83ae4cbf-8b19-42f6-bb8f-3eac7bd6da29" name-attr-id "Stopa"])
   (insert-multi! aurora/conn-pool
-                 (attr-model/get-by-app-id aurora/conn-pool empty-app-id)
+                 (attr-model/get-by-app-id empty-app-id)
                  empty-app-id
                  [t])
   (fetch aurora/conn-pool empty-app-id)

@@ -23,7 +23,6 @@
    [clojure.string :as string]
    [instant.util.exception :as ex]
    [instant.db.transaction :as tx]
-   [instant.jdbc.aurora :as aurora]
    [instant.util.json :refer [->json <-json]])
   (:import
    (java.util UUID)))
@@ -400,7 +399,7 @@
 
 (comment
   (def counters-app-id  #uuid "b502cabc-11ed-4534-b340-349d46548642")
-  (def attrs (attr-model/get-by-app-id aurora/conn-pool counters-app-id))
+  (def attrs (attr-model/get-by-app-id counters-app-id))
   (->tx-steps! attrs [["merge" "goals" (str-uuid) {"title" "plop"}]])
   (->tx-steps! attrs
                [["update" "goals" (str-uuid) {"title" "moop"}]

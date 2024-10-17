@@ -122,7 +122,7 @@
 (defn app-rules-post [req]
   (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
         code (ex/get-param! req [:body :code] w/stringify-keys)
-        attrs (attr-model/get-by-app-id aurora/conn-pool app-id)]
+        attrs (attr-model/get-by-app-id app-id)]
     (ex/assert-valid! :rule code (rule-model/validation-errors attrs code))
     (response/ok {:rules (rule-model/put! {:app-id app-id
                                            :code code})})))

@@ -27,7 +27,7 @@
 (def ^:private ctx
   (delay {:db {:conn-pool aurora/conn-pool}
           :app-id zeneca-app-id
-          :attrs (attr-model/get-by-app-id aurora/conn-pool zeneca-app-id)}))
+          :attrs (attr-model/get-by-app-id zeneca-app-id)}))
 
 (defn- ->pretty-node
   "Given a query node, flatten it into one ordered map of triples and topics.
@@ -1395,14 +1395,14 @@
     (fn [app r]
       (let [ctx {:db {:conn-pool aurora/conn-pool}
                  :app-id (:id app)
-                 :attrs (attr-model/get-by-app-id aurora/conn-pool (:id app))}
+                 :attrs (attr-model/get-by-app-id (:id app))}
             user-id-attr (resolvers/->uuid r :users/id)
             user-handle-attr (resolvers/->uuid r :users/handle)
             book-id-attr (resolvers/->uuid r :books/id)
             book-title-attr (resolvers/->uuid r :books/title)
             shared-id (random-uuid)]
         (tx/transact! aurora/conn-pool
-                      (attr-model/get-by-app-id aurora/conn-pool (:id app))
+                      (attr-model/get-by-app-id (:id app))
                       (:id app)
                       [[:add-triple shared-id user-id-attr shared-id]
                        [:add-triple shared-id user-handle-attr "handle"]
@@ -1574,7 +1574,7 @@
               (->> (iq/permissioned-query
                     {:db {:conn-pool aurora/conn-pool}
                      :app-id app-id
-                     :attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
+                     :attrs (attr-model/get-by-app-id app-id)
                      :datalog-query-fn d/query
                      :current-user {:handle "stopa"}}
                     {:users {:$ {:limit 10}}})
@@ -1657,7 +1657,7 @@
   (with-empty-app
     (fn [app]
       (let [query-pretty' (fn [q]
-                            (let [attrs (attr-model/get-by-app-id aurora/conn-pool (:id app))]
+                            (let [attrs (attr-model/get-by-app-id (:id app))]
                               (query-pretty {:db {:conn-pool aurora/conn-pool}
                                              :app-id (:id app)
                                              :attrs attrs}
@@ -1714,7 +1714,7 @@
   (with-empty-app
     (fn [app]
       (let [make-ctx (fn []
-                       (let [attrs (attr-model/get-by-app-id aurora/conn-pool (:id app))]
+                       (let [attrs (attr-model/get-by-app-id (:id app))]
                          {:db {:conn-pool aurora/conn-pool}
                           :app-id (:id app)
                           :attrs attrs}))
@@ -1748,14 +1748,14 @@
     (fn [app r0]
       (insert-users-table! aurora/conn-pool (:id app))
       (let [make-ctx (fn []
-                       (let [attrs (attr-model/get-by-app-id aurora/conn-pool (:id app))]
+                       (let [attrs (attr-model/get-by-app-id (:id app))]
                          {:db {:conn-pool aurora/conn-pool}
                           :app-id (:id app)
                           :attrs attrs}))
 
             attr-id (random-uuid)
             _ (tx/transact! aurora/conn-pool
-                            (attr-model/get-by-app-id aurora/conn-pool (:id app))
+                            (attr-model/get-by-app-id (:id app))
                             (:id app)
                             [[:add-attr {:id attr-id
                                          :forward-identity [(random-uuid) "books" "$user-creator"]
@@ -1826,14 +1826,14 @@
     (fn [app r0]
       (insert-users-table! aurora/conn-pool (:id app))
       (let [make-ctx (fn []
-                       (let [attrs (attr-model/get-by-app-id aurora/conn-pool (:id app))]
+                       (let [attrs (attr-model/get-by-app-id (:id app))]
                          {:db {:conn-pool aurora/conn-pool}
                           :app-id (:id app)
                           :attrs attrs}))
 
             attr-id (random-uuid)
             _ (tx/transact! aurora/conn-pool
-                            (attr-model/get-by-app-id aurora/conn-pool (:id app))
+                            (attr-model/get-by-app-id (:id app))
                             (:id app)
                             [[:add-attr {:id attr-id
                                          :forward-identity [(random-uuid) "books" "$user-creator"]
@@ -1881,14 +1881,14 @@
     (fn [app r0]
       (insert-users-table! aurora/conn-pool (:id app))
       (let [make-ctx (fn []
-                       (let [attrs (attr-model/get-by-app-id aurora/conn-pool (:id app))]
+                       (let [attrs (attr-model/get-by-app-id (:id app))]
                          {:db {:conn-pool aurora/conn-pool}
                           :app-id (:id app)
                           :attrs attrs}))
 
             attr-id (random-uuid)
             _ (tx/transact! aurora/conn-pool
-                            (attr-model/get-by-app-id aurora/conn-pool (:id app))
+                            (attr-model/get-by-app-id (:id app))
                             (:id app)
                             [[:add-attr {:id attr-id
                                          :forward-identity [(random-uuid) "books" "$user-creator"]

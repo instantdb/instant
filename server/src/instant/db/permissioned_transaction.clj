@@ -630,7 +630,7 @@
   (do
     (def colors-app-id  #uuid "b502cabc-11ed-4534-b340-349d46548642")
     (def joe-eid #uuid "3c32701d-f4a2-40e8-b83c-077dd4cb5cec")
-    (def app-attrs (attr-model/get-by-app-id aurora/conn-pool colors-app-id))
+    (def app-attrs (attr-model/get-by-app-id colors-app-id))
     (def goal-id-attr (:id (attr-model/seek-by-fwd-ident-name ["goals" "id"] app-attrs)))
     (def goal-creator-id-attr (:id (attr-model/seek-by-fwd-ident-name ["goals" "creatorId"] app-attrs)))
     (def goal-title-attr (:id (attr-model/seek-by-fwd-ident-name ["goals" "title"] app-attrs)))
@@ -647,6 +647,6 @@
 
   ;; OG transact
   (tx/transact! aurora/conn-pool
-                (attr-model/get-by-app-id aurora/conn-pool colors-app-id)
+                (attr-model/get-by-app-id colors-app-id)
                 colors-app-id
                 tx-steps))

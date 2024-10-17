@@ -309,7 +309,7 @@
 (defn plan!
   [app-id client-defs]
   (let [new-schema (defs->schema client-defs)
-        current-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
+        current-attrs (attr-model/get-by-app-id app-id)
         current-schema (attrs->schema current-attrs)
         steps (schemas->ops current-schema new-schema)]
     (ex/assert-valid! :schema :plan (plan-errors current-attrs steps))
@@ -343,7 +343,7 @@
   (let [ctx {:admin? true
              :db {:conn-pool aurora/conn-pool}
              :app-id app-id
-             :attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
+             :attrs (attr-model/get-by-app-id app-id)
              :datalog-query-fn d/query
              :rules (rule-model/get-by-app-id aurora/conn-pool
                                               {:app-id app-id})}]

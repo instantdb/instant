@@ -1623,7 +1623,7 @@
 
 (comment
   (def r (resolvers/make-zeneca-resolver))
-  (def attrs (attr-model/get-by-app-id aurora/conn-pool zeneca-app-id))
+  (def attrs (attr-model/get-by-app-id zeneca-app-id))
   (def ctx {:db {:conn-pool aurora/conn-pool}
             :app-id zeneca-app-id
             :datalog-query-fn #'d/query
@@ -1640,7 +1640,7 @@
 (comment
   (def rec-app-id #uuid "f8cac3ee-b867-4651-b02e-e16d0397eb50")
 
-  (def attrs (attr-model/get-by-app-id aurora/conn-pool rec-app-id))
+  (def attrs (attr-model/get-by-app-id rec-app-id))
 
   (def ctx {:db {:conn-pool aurora/conn-pool}
             :app-id rec-app-id
@@ -1654,7 +1654,7 @@
 ;; Inspect query
 (comment
   (def r (resolvers/make-zeneca-resolver))
-  (def attrs (attr-model/get-by-app-id aurora/conn-pool zeneca-app-id))
+  (def attrs (attr-model/get-by-app-id zeneca-app-id))
   (def ctx {:db {:conn-pool aurora/conn-pool}
             :app-id zeneca-app-id
             :attrs attrs})
@@ -1669,5 +1669,5 @@
   (query
    {:db {:conn-pool aurora/conn-pool}
     :app-id app-id
-    :attrs (attr-model/get-by-app-id aurora/conn-pool app-id)}
+    :attrs (attr-model/get-by-app-id app-id)}
    {:tables {:rows {}, :$ {:where {:id "b2f7658d-c5b5-4486-b298-e811098009b9"}}}}))

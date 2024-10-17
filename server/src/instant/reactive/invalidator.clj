@@ -302,6 +302,8 @@
         app-id (extract-app-id transactions-change)]
     (update-users-shims! idents users-shims)
     (when (and some-changes app-id)
+      (when (seq attrs)
+        (attr-model/evict-app-id-from-cache app-id))
       {:attr-changes attrs
        :ident-changes idents
        :triple-changes triple-changes
