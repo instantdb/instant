@@ -5,7 +5,48 @@
    (java.util.concurrent.atomic AtomicInteger)
    (clojure.lang PersistentQueue)))
 
-(def empty-q PersistentQueue/EMPTY)
+;; ----------- 
+;; inflight-queue
+
+(def persisted-q-empty PersistentQueue/EMPTY)
+
+(defn pop-times [n coll]
+  (reduce (fn [coll _] (pop coll)) coll (range n)))
+
+(comment
+  (def x (into persisted-q-empty [1 2 3]))
+  (pop-times 2 x)
+  (take 2 x))
+
+(def inflight-queue-empty
+  {:pending persisted-q-empty
+   :working []})
+
+(defn inflight-queue-put [inflight-queue item]
+  (update inflight-queue :pending conj item))
+
+(defn inflight-queue-empty? [{:keys [pending working] :as _inflight-queue}]
+  (and (empty? pending) (empty? working)))
+
+(defn inflight-queue-workset [{:keys [working]}]
+  working)
+
+(defn inflight-queue-workset-clear [inflight-queue]
+  (assoc inflight-queue :working []))
+
+(defn inflight-queue-peek-pending [{:keys [pending] :as _inflight-queue}]
+  (first pending))
+
+(defn inflight-queue-reserve [max-items {:keys [pending working]}]
+  {:pending (pop-times max-items pending)
+   :working (into working (take max-items pending))})
+
+(defn inflight-queue-reserve-all [{:keys [pending working]}]
+  {:pending persisted-q-empty
+   :working (into working pending)})
+
+;; ----------- 
+;; grouped-queue
 
 (defn create [{:keys [group-fn]}]
   {:size (AtomicInteger. 0)
@@ -30,10 +71,10 @@
                      (swap-vals! group-key->subqueue
                                  update
                                  group-key
-                                 (fnil conj empty-q)
+                                 (fnil inflight-queue-put inflight-queue-empty)
                                  item))
             prev-subqueue (get prev group-key)
-            first-enqueue? (empty? prev-subqueue)]
+            first-enqueue? (inflight-queue-empty? prev-subqueue)]
         (when first-enqueue?
           (.put dispatch-queue [:group-key group-key]))))))
 
@@ -42,42 +83,73 @@
     (cond
       (nil? entry) nil
       (= t :item) arg
-      (= t :group-key) (first (get @group-key->subqueue arg)))))
+      (= t :group-key) (inflight-queue-peek-pending (get @group-key->subqueue arg)))))
+
+(defn default-reserve-fn [_ inflight-q] (inflight-queue-reserve 1 inflight-q))
+
+(defn clear-subqueue [state group-key]
+  (let [subqueue (get state group-key)
+        cleared-subqueue (inflight-queue-workset-clear subqueue)]
+    (if (inflight-queue-empty? cleared-subqueue)
+      (dissoc state group-key)
+      (assoc state group-key cleared-subqueue))))
 
 (defn process-polling!
-  ([gq process-fn] (process-polling! gq process-fn {:poll-ms 1000}))
-  ([{:keys [dispatch-queue group-key->subqueue size] :as _grouped-q}
-    process-fn
-    {:keys [poll-ms]}]
-   (let [[t arg :as entry] (.poll dispatch-queue poll-ms TimeUnit/MILLISECONDS)]
-     (cond
-       (nil? entry) nil
+  [{:keys [dispatch-queue group-key->subqueue size] :as _grouped-q}
+   {:keys [reserve-fn
+           process-fn
+           poll-ms]
+    :or {poll-ms 1000
+         reserve-fn default-reserve-fn}}]
+  (let [[t arg :as entry] (.poll dispatch-queue poll-ms TimeUnit/MILLISECONDS)]
+    (cond
+      (nil? entry) nil
 
-       (= t :item)
-       (do
-         (process-fn arg)
-         (.decrementAndGet size)
-         true)
+      (= t :item)
+      (do
+        (process-fn nil [arg])
+        (.decrementAndGet size)
+        true)
 
-       (= t :group-key)
-       (let [group-key arg
-             item (first (get @group-key->subqueue group-key))]
-         (try
-           (process-fn item)
-           (finally
-             (let [curr (locking group-key->subqueue
-                          (swap! group-key->subqueue update group-key pop))
-                   curr-subqueue (get curr group-key)]
-               (.decrementAndGet size)
-               (when (seq curr-subqueue)
-                 (.put dispatch-queue [:group-key group-key])))))
-         true)))))
+      (= t :group-key)
+      (let [group-key arg
+
+            reserved (locking group-key->subqueue
+                       (swap! group-key->subqueue update group-key (partial reserve-fn group-key)))
+
+            reserved-subqueue (get reserved group-key)
+
+            workset (inflight-queue-workset reserved-subqueue)]
+
+        (try
+          (process-fn group-key workset)
+          true
+          (finally
+            (let [cleared (locking group-key->subqueue
+                            (swap! group-key->subqueue clear-subqueue group-key))
+                  cleared-subqueue (get cleared group-key)]
+              (.addAndGet size (- (count workset)))
+              (when (inflight-queue-peek-pending cleared-subqueue)
+                (.put dispatch-queue [:group-key group-key])))))))))
 
 (comment
   (def gq (create {:group-fn :k}))
-  (put! gq {:k :a})
-  (put! gq {:k :a})
-  (put! gq {:k :b})
-  (put! gq {:not-grouped :c})
+  (put! gq {:k :refresh})
+  (put! gq {:k :refresh})
+  (put! gq {:k :add-query})
+  (put! gq {:k :refresh})
+  (put! gq {:k :remove-query})
   (peek gq)
-  (process-polling! gq println))
+  gq
+  (future
+    (process-polling! gq
+                      {:reserve-fn (fn [group-key inflight-queue]
+                                     (if (= group-key :refresh)
+                                       (inflight-queue-reserve-all inflight-queue)
+                                       (inflight-queue-reserve 1 inflight-queue)))
+
+                       :process-fn (fn [k workset]
+                                     (println "processing..." k workset)
+                                     #_(Thread/sleep 10000)
+                                     (println "done"))})))
+

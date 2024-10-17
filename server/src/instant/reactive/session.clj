@@ -436,8 +436,8 @@
           (finally
             (swap! pending-handlers disj pending-handler)))))))
 
-(defn process-receive-q-item [store-conn eph-store-atom worker-n input]
-  (let [{:keys [put-at item]} input
+(defn process-receive-q-entry [store-conn eph-store-atom worker-n entry]
+  (let [{:keys [put-at item]} entry
         {:keys [session-id] :as event} item
         now (Instant/now)
         session (rs/get-session @store-conn session-id)]
@@ -462,13 +462,18 @@
                       :get-ping-latency-ms
                       (#(%))))))))
 
-(defn straight-jacket-process-receive-q-item [store-conn eph-store-atom n item]
+(defn straight-jacket-process-receive-q-entry [store-conn eph-store-atom n entry]
   (try
-    (process-receive-q-item store-conn eph-store-atom n item)
+    (process-receive-q-entry store-conn eph-store-atom n entry)
     (catch Throwable e
       (tracer/record-exception-span! e {:name "receive-worker/handle-receive-straight-jacket"
-                                        :attributes {:session-id (:session-id item)
-                                                     :item item}}))))
+                                        :attributes {:session-id (:session-id (:item  entry))
+                                                     :item entry}}))))
+
+(defn receive-worker-reserve-fn [[t] inflight-q]
+  (if (= t :refresh)
+    (grouped-queue/inflight-queue-reserve-all inflight-q)
+    (grouped-queue/inflight-queue-reserve 1 inflight-q)))
 
 (defn start-receive-workers [store-conn eph-store-atom receive-q stop-signal]
   (doseq [n (range num-receive-workers)]
@@ -479,7 +484,14 @@
                                :attributes {:worker-n n}})
          (do (grouped-queue/process-polling!
               receive-q
-              (fn [item] (straight-jacket-process-receive-q-item store-conn eph-store-atom n item)))
+              {:reserve-fn receive-worker-reserve-fn
+               :process-fn (fn [group-key [{{:keys [op]} :item :as entry} :as batch]]
+                             (tracer/with-span! {:name "receive-worker/process-receive-q-item"
+                                                 :attributes {:work-n n
+                                                              :op op
+                                                              :batch-size (count batch)
+                                                              :group-key group-key}}
+                               (straight-jacket-process-receive-q-entry store-conn eph-store-atom n entry)))})
              (recur)))))))
 
 (defn enqueue->receive-q [receive-q item]
@@ -567,21 +579,23 @@
   (let [{:keys [session-id op]} item]
     (condp contains? op
       #{:transact}
-      [session-id :transact]
+      [:transact session-id]
 
       #{:join-room :leave-room :set-presence :client-broadcast}
-      [session-id :eph]
+      [:room session-id]
 
       #{:add-query :remove-query}
       (let [{:keys [q]} item]
-        [session-id :query q])
+        [:query session-id q])
 
+      #{:refresh}
+      [:refresh session-id]
       nil)))
 
 (comment
   (group-fn {:item {:session-id 1 :op :transact}})
   (group-fn {:item {:session-id 1 :op :leave-room}})
-  (group-fn {:item {:session-id 1 :op :add-query}}))
+  (group-fn {:item {:session-id 1 :op :add-query :q {:users {}}}}))
 
 (defn start []
   (def receive-q (grouped-queue/create {:group-fn #'group-fn}))
