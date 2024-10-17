@@ -38,7 +38,7 @@
   (let [[_ eid & json-parts] (.split k "__")]
     (try
       [eid (<-json (string/join "__" json-parts))]
-      (catch JsonParseException e
+      (catch JsonParseException _e
         (ex/throw-validation-err!
          :lookup
          k
