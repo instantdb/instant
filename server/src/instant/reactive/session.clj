@@ -391,21 +391,20 @@
                          :message (str "Yikes, something broke on our end! Sorry about that."
                                        " Please ping us (Joe and Stopa) on Discord and let us know!")})))
 
-(defn handle-receive-attrs [store-conn session event]
-  (let [{:keys [session/socket worker-n]} session
+(defn handle-receive-attrs [store-conn session event metadata]
+  (let [{:keys [session/socket]} session
         sess-id (:session/id session)
         event-attrs (event-attributes store-conn sess-id event)]
-    (assoc event-attrs
-           :worker-n worker-n
+    (assoc (merge metadata event-attrs)
            :socket-origin (socket-origin socket)
            :socket-ip (socket-ip socket)
            :session-id sess-id)))
 
-(defn handle-receive [store-conn eph-store-atom session event]
+(defn handle-receive [store-conn eph-store-atom session event metadata]
   (tracer/with-exceptions-silencer [silence-exceptions]
     (tracer/with-span! {:name "receive-worker/handle-receive"
                         :sample-rate (event-sample-rate event)
-                        :attributes (handle-receive-attrs store-conn session event)}
+                        :attributes (handle-receive-attrs store-conn session event metadata)}
       (let [pending-handlers (:pending-handlers (:session/socket session))
             event-fut (ua/vfuture (handle-event store-conn eph-store-atom session event))
             pending-handler {:future event-fut
@@ -436,7 +435,7 @@
           (finally
             (swap! pending-handlers disj pending-handler)))))))
 
-(defn process-receive-q-entry [store-conn eph-store-atom worker-n entry]
+(defn process-receive-q-entry [store-conn eph-store-atom entry metadata]
   (let [{:keys [put-at item]} entry
         {:keys [session-id] :as event} item
         now (Instant/now)
@@ -444,15 +443,13 @@
     (cond
       (not session)
       (tracer/record-info! {:name "receive-worker/session-not-found"
-                            :attributes {:worker-n worker-n
-                                         :session-id session-id}})
+                            :attributes (assoc metadata :session-id session-id)})
 
       :else
       (handle-receive
        store-conn
        eph-store-atom
-       (assoc (into {} session)
-              :worker-n worker-n)
+       (into {} session)
        (assoc event
               :total-delay-ms
               (.toMillis (Duration/between put-at now))
@@ -460,15 +457,17 @@
               (some-> session
                       :session/socket
                       :get-ping-latency-ms
-                      (#(%))))))))
+                      (#(%))))
+       metadata))))
 
-(defn straight-jacket-process-receive-q-entry [store-conn eph-store-atom n entry]
+(defn straight-jacket-process-receive-q-entry [store-conn eph-store-atom entry metadata]
   (try
-    (process-receive-q-entry store-conn eph-store-atom n entry)
+    (process-receive-q-entry store-conn eph-store-atom entry metadata)
     (catch Throwable e
       (tracer/record-exception-span! e {:name "receive-worker/handle-receive-straight-jacket"
-                                        :attributes {:session-id (:session-id (:item  entry))
-                                                     :item entry}}))))
+                                        :attributes (assoc metadata
+                                                           :session-id (:session-id (:item entry))
+                                                           :item entry)}))))
 
 (defn receive-worker-reserve-fn [[t] inflight-q]
   (if (= t :refresh)
@@ -485,13 +484,13 @@
          (do (grouped-queue/process-polling!
               receive-q
               {:reserve-fn receive-worker-reserve-fn
-               :process-fn (fn [group-key [{{:keys [op]} :item :as entry} :as batch]]
-                             (tracer/with-span! {:name "receive-worker/process-receive-q-item"
-                                                 :attributes {:work-n n
-                                                              :op op
-                                                              :batch-size (count batch)
-                                                              :group-key group-key}}
-                               (straight-jacket-process-receive-q-entry store-conn eph-store-atom n entry)))})
+               :process-fn (fn [group-key [entry :as batch]]
+                             (straight-jacket-process-receive-q-entry store-conn
+                                                                      eph-store-atom
+                                                                      entry
+                                                                      {:worker-n n
+                                                                       :batch-size (count batch)
+                                                                       :group-key group-key}))})
              (recur)))))))
 
 (defn enqueue->receive-q [receive-q item]
