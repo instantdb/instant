@@ -486,7 +486,6 @@
               receive-q
               {:reserve-fn receive-worker-reserve-fn
                :process-fn (fn [_ [{{:keys [op]} :item :as entry} :as batch]]
-                             (tool/def-locals!)
                              (tracer/with-span! {:name "receive-worker/process-receive-q-item"
                                                  :attributes {:work-n n
                                                               :op op
