@@ -27,7 +27,8 @@
    [instant.db.transaction :as tx]
    [instant.util.json :refer [->json <-json]])
   (:import
-   (java.util UUID)))
+   (java.util UUID)
+   (com.fasterxml.jackson.core JsonParseException)))
 
 (defn lookup? [eid]
   (and (string? eid)
@@ -35,7 +36,15 @@
 
 (defn parse-lookup [^String k]
   (let [[_ eid & json-parts] (.split k "__")]
-    [eid (<-json (string/join "__" json-parts))]))
+    (try
+      [eid (<-json (string/join "__" json-parts))]
+      (catch JsonParseException e
+        (ex/throw-validation-err!
+         :lookup
+         k
+         [{:message "lookup value is invalid"
+           :hint {:attribute eid
+                  :value (string/join "__" json-parts)}}])))))
 
 (defn explode-lookup [eid]
   (if (sequential? eid)
