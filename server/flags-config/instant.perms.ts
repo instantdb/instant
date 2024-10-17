@@ -4,31 +4,7 @@ export default {
       "create": "false"
     }
   },
-  "hazelcast": {
-    "allow": {
-      "view": "false",
-      "create": "false",
-      "delete": "false",
-      "update": "false"
-    }
-  },
-  "team-emails": {
-    "allow": {
-      "view": "false",
-      "create": "false",
-      "delete": "false",
-      "update": "false"
-    }
-  },
-  "test-emails": {
-    "allow": {
-      "view": "false",
-      "create": "false",
-      "delete": "false",
-      "update": "false"
-    }
-  },
-  "view-checks": {
+  "storage-whitelist": {
     "allow": {
       "view": "false",
       "create": "false",
@@ -44,6 +20,14 @@ export default {
       "update": "false"
     }
   },
+  "view-checks": {
+    "allow": {
+      "view": "false",
+      "create": "false",
+      "delete": "false",
+      "update": "false"
+    }
+  },
   "power-user-emails": {
     "allow": {
       "view": "false",
@@ -52,7 +36,31 @@ export default {
       "update": "false"
     }
   },
-  "storage-whitelist": {
+  "test-emails": {
+    "allow": {
+      "view": "false",
+      "create": "false",
+      "delete": "false",
+      "update": "false"
+    }
+  },
+  "promo-emails": {
+    "allow": {
+      "view": "false",
+      "create": "false",
+      "delete": "false",
+      "update": "false"
+    }
+  },
+  "hazelcast": {
+    "allow": {
+      "view": "false",
+      "create": "false",
+      "delete": "false",
+      "update": "false"
+    }
+  },
+  "team-emails": {
     "allow": {
       "view": "false",
       "create": "false",
