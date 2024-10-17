@@ -14,7 +14,8 @@
             :test-emails {}
             :view-checks {}
             :hazelcast {}
-            :promo-emails {}})
+            :promo-emails {}
+            :app-users-to-triples-migration {}})
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -60,26 +61,33 @@
                        :disabled? disabled?}))
         promo-code-emails (set (keep (fn [o]
                                        (get o "email"))
-                                     (get result "promo-emails")))]
+                                     (get result "promo-emails")))
+        migrating-app-users-apps (set (map (fn [{:strs [appId]}]
+                                             (parse-uuid appId))
+                                           (get result "app-users-to-triples-migration")))]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
      :hazelcast hazelcast
-     :promo-code-emails promo-code-emails}))
+     :promo-code-emails promo-code-emails
+     :migrating-app-users-apps migrating-app-users-apps}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
+(defn query-result []
+  (get-in @query-results [query :result]))
+
 (defn get-emails []
-  (get-in @query-results [query :result :emails]))
+  (get (query-result) :emails))
 
 (defn admin-email? [email]
   (contains? (:team (get-emails))
              email))
 
 (defn storage-enabled-whitelist []
-  (get-in @query-results [query :result :storage-enabled-whitelist]))
+  (get (query-result) :storage-enabled-whitelist))
 
 (defn promo-code-emails []
-  (get-in @query-results [query :result :promo-code-emails]))
+  (get (query-result) :promo-code-emails))
 
 (defn promo-code-email? [email]
   (contains? (promo-code-emails)
@@ -90,7 +98,7 @@
     (contains? (storage-enabled-whitelist) app-id)))
 
 (defn use-hazelcast? [app-id]
-  (if-let [hz-flag (get-in @query-results [query :result :hazelcast])]
+  (if-let [hz-flag (get (query-result) :hazelcast)]
     (let [{:keys [disabled-apps enabled-apps default-value disabled?]} hz-flag]
       (cond disabled? false
 
@@ -105,6 +113,8 @@
     false))
 
 (defn hazelcast-disabled? []
-  (get-in @query-results
-          [query :result :hazelcast :disabled?]
-          false))
+  (get-in (query-result) [:hazelcast :disabled?] false))
+
+(defn migrating-app-users? [app-id]
+  (contains? (get (query-result) :migrating-app-users-apps)
+             app-id))

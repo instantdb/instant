@@ -3,10 +3,13 @@
             [honey.sql :as hsql]
             [instant.db.model.attr :as attr-model]
             [instant.db.model.transaction :as transaction-model]
+            [instant.flags-impl :refer [mark-start-migrating-app-users
+                                        mark-end-migrating-app-users]]
             [instant.model.app :as app-model]
             [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
             [instant.util.tracer :as tracer]
+            [instant.util.$users-ops :refer [lock-hash]]
             [next.jdbc :as next-jdbc]))
 
 ;; Steps to migrate:
@@ -504,49 +507,52 @@
       (tracer/add-data! {:attributes {:created-attr-count (count ids)}}))))
 
 (defn migrate-app [app-id]
-  (attr-model/with-cache-invalidation app-id
-    (tracer/with-span! {:name "$users/migrate-app" :attributes {:app-id app-id}}
-      (next-jdbc/with-transaction [tx-conn aurora/conn-pool]
-        ;; XXX: Probably need a lock so that we're not inserting users from elsewhere
-        ;;      also need a lock on get-attrs?
-        (app-model/set-users-in-triples! tx-conn {:app-id app-id
-                                                  :users-in-triples true})
-        (let [attrs (attr-model/get-by-app-id tx-conn attr-model/$users-attrs-app-id)]
-          (doseq [etype ["$users"
-                         "$magic-codes"
-                         "$user-refresh-tokens"
-                         "$oauth-providers"
-                         "$user-oauth-links"
-                         "$oauth-clients"
-                         "$oauth-redirects"
-                         "$oauth-codes"]
-                  :let [query (hsql/format (triples-insert-query app-id
-                                                                 etype
-                                                                 attrs))]]
-            (tracer/with-span! {:name "$users/insert-triples"
-                                :attributes {:etype etype}}
-              (let [res (sql/do-execute! tx-conn query)]
-                (tracer/add-data!
-                 {:attributes {:update-count
-                               (:next.jdbc/update-count (first res))}})))))
+  (try
+    (mark-start-migrating-app-users app-id)
+    (attr-model/with-cache-invalidation app-id
+      (tracer/with-span! {:name "$users/migrate-app" :attributes {:app-id app-id}}
+        (next-jdbc/with-transaction [tx-conn aurora/conn-pool]
+          (sql/select tx-conn (hsql/format {:select [[[:pg_advisory_xact_lock (lock-hash app-id)]]]}))
+          (app-model/set-users-in-triples! tx-conn {:app-id app-id
+                                                    :users-in-triples true})
+          (let [attrs (attr-model/get-by-app-id tx-conn attr-model/$users-attrs-app-id)]
+            (doseq [etype ["$users"
+                           "$magic-codes"
+                           "$user-refresh-tokens"
+                           "$oauth-providers"
+                           "$user-oauth-links"
+                           "$oauth-clients"
+                           "$oauth-redirects"
+                           "$oauth-codes"]
+                    :let [query (hsql/format (triples-insert-query app-id
+                                                                   etype
+                                                                   attrs))]]
+              (tracer/with-span! {:name "$users/insert-triples"
+                                  :attributes {:etype etype}}
+                (let [res (sql/do-execute! tx-conn query)]
+                  (tracer/add-data!
+                   {:attributes {:update-count
+                                 (:next.jdbc/update-count (first res))}})))))
 
-        ;; XXX: TODO: put the shims somewhere in case this causes problems
-        (tracer/with-span! {:name "$users/delete-$users-shims"}
-          (let [shim-ids
-                (keep (fn [attr]
-                        (when (and (= :user (:catalog attr))
-                                   (string/starts-with?
-                                    (attr-model/fwd-etype attr)
-                                    "$"))
-                          (:id attr)))
-                      (attr-model/get-by-app-id tx-conn app-id))]
-            (when (seq shim-ids)
-              (let [res (attr-model/delete-multi! tx-conn app-id shim-ids)]
-                (tracer/add-data!
-                 {:attributes {:delete-count
-                               (:next.jdbc/update-count (first res))}})))))
+          ;; XXX: TODO: put the shims somewhere in case this causes problems
+          (tracer/with-span! {:name "$users/delete-$users-shims"}
+            (let [shim-ids
+                  (keep (fn [attr]
+                          (when (and (= :user (:catalog attr))
+                                     (string/starts-with?
+                                      (attr-model/fwd-etype attr)
+                                      "$"))
+                            (:id attr)))
+                        (attr-model/get-by-app-id tx-conn app-id))]
+              (when (seq shim-ids)
+                (let [res (attr-model/delete-multi! tx-conn app-id shim-ids)]
+                  (tracer/add-data!
+                   {:attributes {:delete-count
+                                 (:next.jdbc/update-count (first res))}})))))
 
-        (transaction-model/create! tx-conn {:app-id app-id})))))
+          (transaction-model/create! tx-conn {:app-id app-id}))))
+    (finally
+      (mark-start-migrating-app-users app-id))))
 
 (defn undo-migrate
   "Don't use in production, because it deletes everything."

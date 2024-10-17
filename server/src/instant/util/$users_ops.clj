@@ -1,12 +1,14 @@
 (ns instant.util.$users-ops
   (:require
    [clojure.string :as string]
+   [honey.sql :as hsql]
    [instant.db.datalog :as d]
    [instant.db.instaql :as i]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.attr-pat :as attr-pat]
    [instant.db.model.entity :as entity-model]
    [instant.db.transaction :as tx]
+   [instant.flags :as flags]
    [instant.jdbc.sql :as sql]
    [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
@@ -14,12 +16,20 @@
    [instant.util.uuid :as uuid-util]
    [next.jdbc :as next-jdbc])
   (:import
-   (java.util Date)))
+   (java.util Date UUID)))
+
+(defn lock-hash [^UUID app-id]
+  (.getMostSignificantBits app-id))
 
 ;; We write out own get-app function so that we don't get
 ;; a cyclic dependency with the instant.model.app ns
 (defn get-app! [conn id]
-  (let [app (sql/select-one conn ["select * from apps where id = ?::uuid" id])]
+  (let [app (sql/select-one conn (hsql/format {:select (if (flags/migrating-app-users? id)
+                                                         [:*
+                                                          [[:pg_advisory_xact_lock (lock-hash id)] :_lock]]
+                                                         :*)
+                                               :from :apps
+                                               :where [:= :id id]}))]
     (ex/assert-record! app :app {:args [{:id id}]})))
 
 (defn triples->db-format [app-id attrs etype triples]
