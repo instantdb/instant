@@ -111,9 +111,8 @@
      (fn []
        (sql/execute-one! conn
                          ["DELETE FROM app_users WHERE app_id = ?::uuid AND email = ?" app-id email]))
-     :triples-op (fn [{:keys [transact! resolve-id]}]
-                  (transact! [[:delete-entity [(resolve-id :email) email] etype]])
-                  nil)})))
+     :triples-op (fn [{:keys [delete-entity! resolve-id]}]
+                   (delete-entity! [(resolve-id :email) email]))})))
 
 (defn delete-by-id!
   ([params] (delete-by-id! aurora/conn-pool params))
@@ -126,9 +125,8 @@
      (fn [conn]
        (sql/execute-one! conn
                          ["DELETE FROM app_users WHERE app_id = ?::uuid AND id = ?::uuid" app-id id]))
-     :triples-op (fn [{:keys [transact!]}]
-                  (transact! [[:delete-entity id etype]])
-                  nil)})))
+     :triples-op (fn [{:keys [delete-entity!]}]
+                   (delete-entity! id))})))
 
 
 (defn get-by-email-or-oauth-link-qualified
@@ -149,7 +147,7 @@
      :triples-op (fn [{:keys [admin-query]}]
                   (let [sub+provider (format "%s+%s" sub provider-id)
                         q {etype
-                           {:$ {:where {:or [;{:email email}
+                           {:$ {:where {:or [{:email email}
                                              {:$oauthUserLinks.sub+$oauthProvider
                                               sub+provider}]}}
                             :$oauthUserLinks {:$ {:where {:sub+$oauthProvider
