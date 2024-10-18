@@ -1,35 +1,20 @@
 (ns instant.util.$users
-  (:require [clojure.string :as string]
-            [honey.sql :as hsql]
-            [instant.db.model.attr :as attr-model]
-            [instant.db.model.transaction :as transaction-model]
-            [instant.flags-impl :refer [mark-start-migrating-app-users
-                                        mark-end-migrating-app-users]]
-            [instant.model.app :as app-model]
-            [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
-            [instant.util.tracer :as tracer]
-            [instant.util.$users-ops :refer [lock-hash]]
-            [next.jdbc :as next-jdbc]))
+  (:require
+   [clojure.string :as string]
+   [honey.sql :as hsql]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.model.transaction :as transaction-model]
+   [instant.flags-impl
+    :refer [mark-end-migrating-app-users mark-start-migrating-app-users]]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.model.app :as app-model]
+   [instant.system-catalog :refer [system-catalog-app-id]]
+   [instant.util.$users-ops :refer [lock-hash]]
+   [instant.util.tracer :as tracer]
+   [next.jdbc :as next-jdbc]))
 
-;; Steps to migrate:
-;; 1. create the namespace attrs if they don't already exist
-;;    a. $users
-;;    b. $users-magic-codes
-;;    c. $users-refresh-tokens
-;;    d. $users-oauth-links
-;;    e. $oauth-codes
-;; 2. put all of the tables into triples
-;; 3. make some annotation on the app that users are in triples
-;; 4. Maybe have some `locking` thing so that we don't insert
-;;    users into the app_users table while the migration is ongoing
-;;      a. Alternatively, we could have a second-round migration that handles that
-
-;; XXX: Should we use camelCase for all of the property names?
-
-
-;; XXX: Need to add here any fields I didn't already add
-;;      Probably better to have a single source of truth?
+;; XXX: camelCase
 (def attr-mappings
   {"$users" {:table :app_users
              :app-id-join nil
@@ -209,313 +194,16 @@
                              [[:cast [:* 1000 [:extract [:epoch-from :created-at]]] :bigint] :created-at]]
                     :from :triples-up-to-md5}]}))
 
-(defn gen-$users-attrs []
-  [{:id (random-uuid)
-    :forward-identity [(random-uuid) "$users" "id"]
-    :unique? true
-    :index? false
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$users" "email"]
-    :unique? true
-    :index? false
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}])
-
-(defn gen-$magic-code-attrs []
-  [{:id (random-uuid)
-    :forward-identity [(random-uuid) "$magic-codes" "id"]
-    :unique? true
-    :index? false
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$magic-codes" "code-hash"]
-    :unique? false
-    :index? true
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$magic-codes" "$user"]
-    :reverse-identity [(random-uuid) "$users" "$magic-codes"]
-    :unique? false
-    :index? true
-    :value-type :ref
-    :cardinality :one
-    :inferred-types #{:string}}])
-
-(defn gen-$user-refresh-token-attrs []
-  [{:id (random-uuid)
-    :forward-identity [(random-uuid) "$user-refresh-tokens" "id"]
-    :unique? true
-    :index? false
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$user-refresh-tokens" "hashed-token"]
-    :unique? true
-    :index? true
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$user-refresh-tokens" "$user"]
-    :reverse-identity [(random-uuid) "$users" "$user-refresh-tokens"]
-    :unique? false
-    :index? true
-    :value-type :ref
-    :cardinality :one
-    :inferred-types #{:string}}])
-
-(defn gen-$oauth-provider-attrs []
-  [{:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-providers" "id"]
-    :unique? true
-    :index? false
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-providers" "name"]
-    :unique? true
-    :index? true
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}])
-
-(defn gen-$user-oauth-link-attrs []
-  [{:id (random-uuid)
-    :forward-identity [(random-uuid) "$user-oauth-links" "id"]
-    :unique? true
-    :index? false
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$user-oauth-links" "sub"]
-    :unique? false
-    :index? true
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$user-oauth-links" "$user"]
-    :reverse-identity [(random-uuid) "$users" "$user-oauth-links"]
-    :unique? false
-    :index? true
-    :value-type :ref
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$user-oauth-links" "$oauth-provider"]
-    :reverse-identity [(random-uuid) "$oauth-providers" "$user-oauth-links"]
-    :unique? false
-    :index? true
-    :value-type :ref
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    ;; Trick to get a unique key on multiple attrs
-    ;; We have to manually set it, but it would be nice if instant provided
-    ;; some sort of computed column to do this automatically
-    :forward-identity [(random-uuid) "$user-oauth-links" "sub+$oauth-provider"]
-    :unique? true
-    :index? true
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}])
-
-(defn gen-$oauth-client-attrs []
-  [{:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-clients" "id"]
-    :unique? true
-    :index? false
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-clients" "$oauth-provider"]
-    :reverse-identity [(random-uuid) "$oauth-providers" "$oauth-clients"]
-    :unique? false
-    :index? false
-    :value-type :ref
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-clients" "name"]
-    :unique? true
-    :index? true
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-clients" "client-id"]
-    :unique? false
-    :index? true
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-clients" "encrypted-client-secret"]
-    :unique? false
-    :index? false
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-clients" "discovery-endpoint"]
-    :unique? false
-    :index? false
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-clients" "meta"]
-    :unique? false
-    :index? false
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:json}}])
-
-(defn gen-$oauth-code-attrs []
-  [{:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-codes" "id"]
-    :unique? true
-    :index? false
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-codes" "code-hash"]
-    :unique? true
-    :index? true
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-codes" "$user"]
-    :reverse-identity [(random-uuid) "$users" "$oauth-codes"]
-    :unique? false
-    :index? false
-    :value-type :ref
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-codes" "code-challenge-method"]
-    :unique? false
-    :index? false
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-codes" "code-challenge-hash"]
-    :unique? false
-    :index? false
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}])
-
-(defn gen-$oauth-redirects []
-  [{:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-redirects" "id"]
-    :unique? true
-    :index? false
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-redirects" "state-hash"]
-    :unique? true
-    :index? true
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-redirects" "cookie-hash"]
-    :unique? false
-    :index? false
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-redirects" "redirect-url"]
-    :unique? false
-    :index? false
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-redirects" "$oauth-client"]
-    :reverse-identity [(random-uuid) "$oauth-clients" "$oauth-redirects"]
-    :unique? false
-    :index? false
-    :value-type :ref
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-redirects" "code-challenge-method"]
-    :unique? false
-    :index? false
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}
-   {:id (random-uuid)
-    :forward-identity [(random-uuid) "$oauth-redirects" "code-challenge-hash"]
-    :unique? false
-    :index? false
-    :value-type :blob
-    :cardinality :one
-    :inferred-types #{:string}}])
-
-(defn gen-attrs [existing-attrs]
-  (filter (fn [attr]
-            (let [fwd-ident-name (->> attr
-                                      :forward-identity
-                                      (drop 1))]
-              (not (attr-model/seek-by-fwd-ident-name fwd-ident-name existing-attrs))))
-          (concat (gen-$users-attrs)
-                  (gen-$magic-code-attrs)
-                  (gen-$user-refresh-token-attrs)
-                  (gen-$oauth-provider-attrs)
-                  (gen-$user-oauth-link-attrs)
-                  (gen-$oauth-client-attrs)
-                  (gen-$oauth-code-attrs)
-                  (gen-$oauth-redirects))))
-
-;; XXX: Need a function to generate the $users attrs in the attrs-app
-;;      Should also create a trigger that makes it impossible to delete
-;;      that app or to delete any of the attrs or idents for the app?
-;;        - It's not too costly because it will only run on deletes
-;;          and we're not deleting apps or attrs very often.
-
-;; XXX: Look to see how many queries are depending on $users attrs.
-(defn add-attrs-to-public-schema [app-id]
-  ;; XXX: Set inferred-types here
-  (tracer/with-span! {:name "$users/create-attrs"}
-    (let [existing-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
-          new-attrs (gen-attrs existing-attrs)
-          ids (attr-model/insert-multi! aurora/conn-pool
-                                        app-id
-                                        new-attrs
-                                        {:allow-reserved-names? true})]
-      (tracer/add-data! {:attributes {:created-attr-count (count ids)}}))))
-
 (defn migrate-app [app-id]
   (try
     (mark-start-migrating-app-users app-id)
-    (attr-model/with-cache-invalidation app-id
-      (tracer/with-span! {:name "$users/migrate-app" :attributes {:app-id app-id}}
-        (next-jdbc/with-transaction [tx-conn aurora/conn-pool]
-          (sql/select tx-conn (hsql/format {:select [[[:pg_advisory_xact_lock (lock-hash app-id)]]]}))
-          (app-model/set-users-in-triples! tx-conn {:app-id app-id
-                                                    :users-in-triples true})
-          (let [attrs (attr-model/get-by-app-id tx-conn attr-model/$users-attrs-app-id)]
+    (let [system-attrs (attr-model/get-by-app-id system-catalog-app-id)]
+      (attr-model/with-cache-invalidation app-id
+        (tracer/with-span! {:name "$users/migrate-app" :attributes {:app-id app-id}}
+          (next-jdbc/with-transaction [tx-conn aurora/conn-pool]
+            (sql/select tx-conn (hsql/format {:select [[[:pg_advisory_xact_lock (lock-hash app-id)]]]}))
+            (app-model/set-users-in-triples! tx-conn {:app-id app-id
+                                                      :users-in-triples true})
             (doseq [etype ["$users"
                            "$magic-codes"
                            "$user-refresh-tokens"
@@ -526,31 +214,31 @@
                            "$oauth-codes"]
                     :let [query (hsql/format (triples-insert-query app-id
                                                                    etype
-                                                                   attrs))]]
+                                                                   system-attrs))]]
               (tracer/with-span! {:name "$users/insert-triples"
                                   :attributes {:etype etype}}
                 (let [res (sql/do-execute! tx-conn query)]
                   (tracer/add-data!
                    {:attributes {:update-count
-                                 (:next.jdbc/update-count (first res))}})))))
+                                 (:next.jdbc/update-count (first res))}}))))
 
-          ;; XXX: TODO: put the shims somewhere in case this causes problems
-          (tracer/with-span! {:name "$users/delete-$users-shims"}
-            (let [shim-ids
-                  (keep (fn [attr]
-                          (when (and (= :user (:catalog attr))
-                                     (string/starts-with?
-                                      (attr-model/fwd-etype attr)
-                                      "$"))
-                            (:id attr)))
-                        (attr-model/get-by-app-id tx-conn app-id))]
-              (when (seq shim-ids)
-                (let [res (attr-model/delete-multi! tx-conn app-id shim-ids)]
-                  (tracer/add-data!
-                   {:attributes {:delete-count
-                                 (:next.jdbc/update-count (first res))}})))))
+            ;; XXX: TODO: put the shims somewhere in case this causes problems
+            (tracer/with-span! {:name "$users/delete-$users-shims"}
+              (let [shim-ids
+                    (keep (fn [attr]
+                            (when (and (= :user (:catalog attr))
+                                       (string/starts-with?
+                                        (attr-model/fwd-etype attr)
+                                        "$"))
+                              (:id attr)))
+                          (attr-model/get-by-app-id tx-conn app-id))]
+                (when (seq shim-ids)
+                  (let [res (attr-model/delete-multi! tx-conn app-id shim-ids)]
+                    (tracer/add-data!
+                     {:attributes {:delete-count
+                                   (:next.jdbc/update-count (first res))}})))))
 
-          (transaction-model/create! tx-conn {:app-id app-id}))))
+            (transaction-model/create! tx-conn {:app-id app-id})))))
     (finally
       (mark-end-migrating-app-users app-id))))
 
@@ -558,9 +246,7 @@
   "Don't use in production, because it deletes everything."
   [app-id]
   (attr-model/with-cache-invalidation app-id
-    (let [system-attr-ids (map :id (attr-model/get-by-app-id
-                                    aurora/conn-pool
-                                    attr-model/$users-attrs-app-id))]
+    (let [system-attr-ids (map :id (attr-model/get-by-app-id system-catalog-app-id))]
       (next-jdbc/with-transaction [tx-conn aurora/conn-pool]
         (app-model/set-users-in-triples! tx-conn {:app-id app-id
                                                   :users-in-triples false})
@@ -576,9 +262,5 @@
 
 ;; Open questions:
 
-;; XXX: I probably need something that will delete stuff in the background
+;; XXX: We probably need something that will delete stuff in the background
 ;;      Maybe we should add ttl for objects?
-
-;; [ ] Need to generate the $users tables when you create an app
-;; [ ] Should delete the data in the other tables eventually
-;;      - We could wait for a while and drop the tables later

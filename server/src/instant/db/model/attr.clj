@@ -3,25 +3,17 @@
    [clojure.core.cache.wrapped :as cache]
    [clojure.set :refer [map-invert]]
    [clojure.spec.alpha :as s]
-   [clojure.string :as string]
-   [instant.util.spec :as uspec]
-   [instant.util.string :as string-util]
    [clojure.spec.gen.alpha :as gen]
-   [instant.jdbc.sql :as sql]
-   [instant.jdbc.aurora :as aurora]
+   [clojure.string :as string]
    [honey.sql :as hsql]
    [instant.data.constants :refer [empty-app-id]]
-   [instant.util.exception :as ex]))
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.system-catalog :refer [system-catalog-app-id]]
+   [instant.util.exception :as ex]
+   [instant.util.spec :as uspec]
+   [instant.util.string :as string-util]))
 
-
-;; XXX: How are we going to migrate users who turned on the $users table flag?
-;;      Write some sort of attr translation?
-;;        It doesn't have to live for too long because
-;;        the mutations will get rewritten, right?
-;;          -- no they won't
-(def $users-attrs-app-id #uuid "b15df0d8-65d3-44e0-bbf8-339d6bd822db")
-
-;; Don't change the order or remove types, only add to the end of the list
 (def types
   [:number
    :string
@@ -448,7 +440,7 @@
            :inferred-types (when inferred_types
                              (friendly-inferred-types inferred_types))
            ;; XXX: We'll call this system instead of $users-attrs, need to update a lot of stuff
-           :catalog (if (= app_id $users-attrs-app-id)
+           :catalog (if (= app_id system-catalog-app-id)
                       :system
                       :user)}
     reverse_ident (assoc :reverse-identity [reverse_ident rev_etype rev_label])))
@@ -553,7 +545,7 @@
                    [:and {:select :users-in-triples
                           :from :apps
                           :where [:= :id app-id]}
-                    [:= :attrs.app-id [:cast $users-attrs-app-id :uuid]]]]})))))
+                    [:= :attrs.app-id [:cast system-catalog-app-id :uuid]]]]})))))
 
 (defn get-by-app-id
   ([app-id]
