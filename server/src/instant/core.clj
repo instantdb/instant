@@ -29,7 +29,7 @@
    [instant.storage.routes :as storage-routes]
    [instant.stripe :as stripe]
    [instant.superadmin.routes :as superadmin-routes]
-   [instant.system-catalog :as system-catalog]
+   [instant.system-catalog-migration :refer [ensure-attrs-on-system-catalog-app]]
    [instant.util.async :as ua]
    [instant.util.crypt :as crypt-util]
    [instant.util.http :as http-util]
@@ -167,7 +167,7 @@
   (jwt/start)
   (aurora/start)
   ;; XXX: do this for tests
-  (system-catalog/ensure-attrs-on-system-catalog-app)
+  (ensure-attrs-on-system-catalog-app)
   (rs/start)
   (eph/start)
   (stripe/init)
