@@ -17,6 +17,12 @@ Samplers:
               - Field: op
                 Operator: = 
                 Value: ':set-presence' 
+          - Name: refresh-rooms = 1/100
+            SampleRate: 100
+            Conditions:
+              - Field: name
+                Operator: = 
+                Value: 'refresh-rooms'
           - Name: client-broadcast = 1/10 
             SampleRate: 10
             Conditions:
