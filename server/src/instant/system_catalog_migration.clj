@@ -52,4 +52,4 @@
                                                (attr-model/binary-inferred-types
                                                 #{:string})
                                                [:bit :32]]}})))
-       (tracer/add-data! {:attributes {:created-attr-count (count ids)}})))))
+       (tracer/add-data! {:attributes {:created-count (count ids)}})))))
