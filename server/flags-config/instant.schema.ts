@@ -6,35 +6,39 @@ import { i } from "@instantdb/core";
 const graph = i.graph(
   {
     "friend-emails": i.entity({
-      "email": i.any().unique(),
+      email: i.any().unique(),
     }),
-    "hazelcast": i.entity({
+    hazelcast: i.entity({
       "default-value": i.any(),
-      "disabled": i.any(),
+      disabled: i.any(),
       "disabled-apps": i.any(),
       "enabled-apps": i.any(),
     }),
     "power-user-emails": i.entity({
-      "email": i.any().unique(),
+      email: i.any().unique(),
     }),
     "promo-emails": i.entity({
-      "email": i.any(),
+      email: i.any(),
     }),
     "storage-whitelist": i.entity({
-      "appId": i.any().unique().indexed(),
-      "email": i.any(),
-      "isEnabled": i.any(),
+      appId: i.any().unique().indexed(),
+      email: i.any(),
+      isEnabled: i.any(),
     }),
     "team-emails": i.entity({
-      "email": i.any(),
+      email: i.any(),
     }),
     "test-emails": i.entity({
-      "email": i.any(),
+      email: i.any(),
     }),
     "view-checks": i.entity({
       "default-value": i.any(),
       "disabled-apps": i.any(),
       "enabled-apps": i.any(),
+    }),
+    "app-users-to-triples-migration": i.entity({
+      appId: i.any(),
+      processId: i.any(),
     }),
   },
   {}

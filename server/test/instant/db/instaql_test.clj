@@ -1,23 +1,24 @@
 (ns instant.db.instaql-test
-  (:require [clojure.test :as test :refer [deftest is testing]]
-            [instant.jdbc.aurora :as aurora]
-            [instant.dash.routes :refer [insert-users-table!]]
-            [instant.data.constants :refer [zeneca-app-id]]
-            [instant.data.resolvers :as resolvers]
-            [instant.db.transaction :as tx]
-            [instant.db.instaql :as iq]
-            [instant.db.model.attr :as attr-model]
-            [instant.fixtures :refer [with-zeneca-app with-zeneca-byop with-empty-app]]
-            [instant.model.rule :as rule-model]
-            [instant.model.app-user :as app-user-model]
-            [instant.db.datalog :as d]
-            [instant.admin.model :as admin-model]
-            [instant.admin.routes :as admin-routes]
-            [instant.model.app :as app-model]
-            [instant.data.bootstrap :as bootstrap]
-            [instant.reactive.query :refer [collect-instaql-results-for-client]]
-            [instant.util.exception :as ex]
-            [instant.util.test :refer [instant-ex-data pretty-perm-q]])
+  (:require
+   [clojure.test :as test :refer [deftest is testing]]
+   [instant.dash.routes :refer [insert-users-table!]]
+   [instant.data.bootstrap :as bootstrap]
+   [instant.data.constants :refer [zeneca-app-id]]
+   [instant.data.resolvers :as resolvers]
+   [instant.db.datalog :as d]
+   [instant.db.instaql :as iq]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.transaction :as tx]
+   [instant.fixtures
+    :refer [with-empty-app with-zeneca-app with-zeneca-byop]]
+   [instant.jdbc.aurora :as aurora]
+   [instant.model.app :as app-model]
+   [instant.model.app-user :as app-user-model]
+   [instant.model.rule :as rule-model]
+   [instant.reactive.query :refer [collect-instaql-results-for-client]]
+   [instant.util.exception :as ex]
+   [instant.util.instaql :refer [instaql-nodes->object-tree]]
+   [instant.util.test :refer [instant-ex-data pretty-perm-q]])
   (:import
    (java.util UUID)))
 
@@ -382,9 +383,8 @@
                             :page-info
                             :start-cursor)
             get-handles (fn [pagination-params]
-                          (as-> (admin-model/instaql-nodes->object-tree
-                                 {}
-                                 (:attrs @ctx)
+                          (as-> (instaql-nodes->object-tree
+                                 @ctx
                                  (iq/query @ctx {:users {:$ pagination-params}})) %
                             (get % "users")
                             (map #(get % "handle") %)
