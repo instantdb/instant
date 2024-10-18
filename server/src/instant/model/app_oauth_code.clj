@@ -9,7 +9,7 @@
    (java.time.temporal ChronoUnit)
    (java.util Base64)))
 
-(def etype "$oauth-codes")
+(def etype "$oauthCodes")
 
 (defn create!
   ([params] (create! aurora/conn-pool params))
@@ -42,10 +42,10 @@
                                 (when code-challenge
                                   (crypt-util/str->sha256 code-challenge)))]
          (transact! [[:add-triple eid (resolve-id :id) eid]
-                     [:add-triple eid (resolve-id :code-hash) code-hash]
+                     [:add-triple eid (resolve-id :codeHash) code-hash]
                      [:add-triple eid (resolve-id :$user) user-id]
-                     [:add-triple eid (resolve-id :code-challenge-method) code-challenge-method]
-                     [:add-triple eid (resolve-id :code-challenge-hash) challenge-hash]])
+                     [:add-triple eid (resolve-id :codeChallengeMethod) code-challenge-method]
+                     [:add-triple eid (resolve-id :codeChallengeHash) challenge-hash]])
          (get-entity eid)))})))
 
 ;; XXX: TEST
@@ -128,7 +128,7 @@
              (let [code-hash (-> code
                                  crypt-util/uuid->sha256
                                  crypt-util/bytes->hex-string)]
-               (delete-entity! [(resolve-id :code-hash) code-hash])))})]
+               (delete-entity! [(resolve-id :codeHash) code-hash])))})]
      (ex/assert-record! oauth-code :app-oauth-code {:args [params]})
      (when (expired? oauth-code)
        (ex/throw-expiration-err! :app-oauth-code {:args [params]}))

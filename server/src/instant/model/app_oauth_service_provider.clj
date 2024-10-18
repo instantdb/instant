@@ -8,7 +8,7 @@
   (:import
    (java.util UUID)))
 
-(def etype "$oauth-providers")
+(def etype "$oauthProviders")
 
 (defn create!
   ([params] (create! aurora/conn-pool params))

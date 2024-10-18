@@ -8,7 +8,7 @@
   (:import
    (java.util UUID)))
 
-(def etype "$user-refresh-tokens")
+(def etype "$userRefreshTokens")
 
 (defn hash-token [token]
   (-> token
@@ -29,7 +29,7 @@
                        ["SELECT * FROM app_user_refresh_tokens WHERE id = ?::uuid"
                         id]))
      :triples-op (fn [{:keys [get-entity-where]}]
-                  (let [res (get-entity-where {:hashed-token (hash-token id)})]
+                  (let [res (get-entity-where {:hashedToken (hash-token id)})]
                     (when res
                       ;; We're expecting `id` to be the token in the
                       ;; legacy version, but the triples format only
@@ -52,7 +52,7 @@
      (fn [{:keys [transact! resolve-id get-entity]}]
        (let [entity-id (random-uuid)]
          (transact! [[:add-triple entity-id (resolve-id :id) entity-id]
-                     [:add-triple entity-id (resolve-id :hashed-token) (hash-token id)]
+                     [:add-triple entity-id (resolve-id :hashedToken) (hash-token id)]
                      [:add-triple entity-id (resolve-id :$user) user-id]])
          (assoc (get-entity entity-id)
                 ;; backwards compatibility with legacy version that expects
@@ -92,7 +92,7 @@
                                      id]))
      :triples-op
      (fn [{:keys [transact! resolve-id]}]
-       (transact! [[:delete-entity [(resolve-id :hashed-token) (hash-token id)] etype]]))})))
+       (transact! [[:delete-entity [(resolve-id :hashedToken) (hash-token id)] etype]]))})))
 
 (comment
   (require '[instant.model.instant-user :as instant-user-model])

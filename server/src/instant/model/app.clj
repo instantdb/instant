@@ -291,26 +291,26 @@
                    app-id])
                  (get-in [:data "authorized_redirect_origins"]))
 
-             {:strs [$oauth-providers
-                     $oauth-clients]}
-             (admin-query {:$oauth-providers {}
-                           :$oauth-clients {}})
+             {:strs [$oauthProviders
+                     $oauthClients]}
+             (admin-query {:$oauthProviders {}
+                           :$oauthClients {}})
 
              providers (map (fn [provider]
                               {"id" (get provider "id")
                                "provider_name" (get provider "name")
                                "created_at" (get provider "$serverCreatedAt")})
-                            $oauth-providers)
+                            $oauthProviders)
 
              clients (map (fn [client]
                             {"id" (get client "id")
                              "client_name" (get client "name")
-                             "client_id" (get client "client-id")
-                             "provider_id" (get client "$oauth-provider")
+                             "client_id" (get client "clientId")
+                             "provider_id" (get client "$oauthProvider")
                              "meta" (get client "meta")
                              "discovery_endpoint" (get client "discovery_endpoint")
                              "created_at" (get client "$serverCreatedAt")})
-                          $oauth-clients)]
+                          $oauthClients)]
          {:data {"oauth_service_providers" providers
                  "oauth_clients" clients
                  "authorized_redirect_origins" redirect-origins}}))})))

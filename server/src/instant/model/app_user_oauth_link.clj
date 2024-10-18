@@ -3,7 +3,7 @@
             [instant.jdbc.sql :as sql]
             [instant.system-catalog-ops :refer [update-op]]))
 
-(def etype "$user-oauth-links")
+(def etype "$oauthUserLinks")
 
 (defn create!
   ([params] (create! aurora/conn-pool params))
@@ -24,8 +24,8 @@
        (transact! [[:add-triple id (resolve-id :id) id]
                    [:add-triple id (resolve-id :sub) sub]
                    [:add-triple id (resolve-id :$user) user-id]
-                   [:add-triple id (resolve-id :$oauth-provider) provider-id]
-                   [:add-triple id (resolve-id :sub+$oauth-provider) (format "%s+%s"
+                   [:add-triple id (resolve-id :$oauthProvider) provider-id]
+                   [:add-triple id (resolve-id :sub+$oauthProvider) (format "%s+%s"
                                                                              sub
                                                                              provider-id)]])
        (get-entity id))})))

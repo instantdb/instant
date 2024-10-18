@@ -14,7 +14,7 @@
    (java.time.temporal ChronoUnit)
    (java.util UUID)))
 
-(def etype "$magic-codes")
+(def etype "$magicCodes")
 
 (defn rand-code []
   (rand-num-str 6))
@@ -31,13 +31,13 @@
                                     ["INSERT INTO app_user_magic_codes (id, code, user_id) VALUES (?::uuid, ?, ?::uuid)"
                                      id code user-id]))
      :triples-op (fn [{:keys [resolve-id transact! get-entity]}]
-                  (transact! [[:add-triple id (resolve-id :id) id]
-                              [:add-triple id (resolve-id :code-hash) (-> code
+                   (transact! [[:add-triple id (resolve-id :id) id]
+                               [:add-triple id (resolve-id :codeHash) (-> code
                                                                           crypt-util/str->sha256
                                                                           crypt-util/bytes->hex-string)]
-                              [:add-triple id (resolve-id :$user) user-id]])
-                  (assoc (get-entity id)
-                         :code code))})))
+                               [:add-triple id (resolve-id :$user) user-id]])
+                   (assoc (get-entity id)
+                          :code code))})))
 
 (defn expired?
   ([magic-code] (expired? (Instant/now) magic-code))
@@ -73,7 +73,7 @@
        (let [code-hash (-> code
                            crypt-util/str->sha256
                            crypt-util/bytes->hex-string)
-             {code-id :id} (get-entity-where {:code-hash code-hash
+             {code-id :id} (get-entity-where {:codeHash code-hash
                                               :$user.email email})]
          (ex/assert-record! code-id :app-user-magic-code {:args [params]})
          (let [code (delete-entity! code-id)]

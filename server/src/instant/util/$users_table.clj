@@ -1,4 +1,4 @@
-(ns instant.util.$users
+(ns instant.util.$users-table
   (:require
    [clojure.string :as string]
    [honey.sql :as hsql]
@@ -20,89 +20,89 @@
              :app-id-join nil
              :fields {"id" {:col :id}
                       "email" {:col :email}}}
-   "$magic-codes" {:table :app_user_magic_codes
+   "$magicCodes" {:table :app_user_magic_codes
                    :app-id-join {:table :app_users
                                  :col :user_id}
                    :fields {"id" {:col :id}
-                            "code-hash" {:col :code
+                            "codeHash" {:col :code
                                          :transform [:encode
                                                      [:digest :code
                                                       [:inline "sha256"]]
                                                      [:inline "hex"]]}
                             "$user" {:col :user_id}}}
-   "$user-refresh-tokens" {:table :app_user_refresh_tokens
+   "$userRefreshTokens" {:table :app_user_refresh_tokens
                            :app-id-join {:table :app_users
                                          :col :user_id}
                            :needs-id? true
                            :fields {"id" {:col :entity-id}
-                                    "hashed-token"
+                                    "hashedToken"
                                     {:col :token
                                      :transform [:encode
                                                  [:digest [:uuid_send :id]
                                                   [:inline "sha256"]]
                                                  [:inline "hex"]]}}}
-   "$oauth-providers" {:table :app_oauth_service_providers
+   "$oauthProviders" {:table :app_oauth_service_providers
                        :app-id-join nil
                        :fields {"id" {:col :id}
                                 "name" {:col :provider_name}}}
-   "$user-oauth-links" {:table :app_user_oauth_links
-                        :app-id-join nil
-                        :fields
-                        {"id" {:col :id}
-                         "sub" {:col :sub}
-                         "$user" {:col :user_id}
-                         "$oauth-provider" {:col :provider_id}
-                         "sub+$oauth-provider" {:col :sub
-                                                :transform [:||
-                                                            :sub
-                                                            [:inline "+"]
-                                                            :provider_id]}}}
-   "$oauth-clients" {:table :app_oauth_clients
+   "$oauthUserLinks" {:table :app_user_oauth_links
+                      :app-id-join nil
+                      :fields
+                      {"id" {:col :id}
+                       "sub" {:col :sub}
+                       "$user" {:col :user_id}
+                       "$oauthProvider" {:col :provider_id}
+                       "sub+$oauthProvider" {:col :sub
+                                             :transform [:||
+                                                         :sub
+                                                         [:inline "+"]
+                                                         :provider_id]}}}
+   "$oauthClients" {:table :app_oauth_clients
                      :app-id-join nil
                      :fields
                      {"id" {:col :id}
-                      "$oauth-provider" {:col :provider_id}
+                      "$oauthProvider" {:col :provider_id}
                       "name" {:col :client_name}
-                      "client-id" {:col :client_id}
-                      "encrypted-client-secret" {:col :client_secret
+                      "clientId" {:col :client_id}
+                      "encryptedClientSecret" {:col :client_secret
                                                  :transform [:encode
                                                              :client_secret
                                                              [:inline "hex"]]}
-                      "discovery-endpoint" {:col :discovery_endpoint}
+                      "discoveryEndpoint" {:col :discovery_endpoint}
                       "meta" {:col :meta}}}
-   "$oauth-codes" {:table :app_oauth_codes
+   "$oauthCodes" {:table :app_oauth_codes
                    :app-id-join nil
                    :needs-id? true
                    :fields {"id" {:col :entity-id}
-                            "code-hash" {:col :lookup_key
+                            "codeHash" {:col :lookup_key
                                          :transform [:encode
                                                      :lookup_key
                                                      [:inline "hex"]]}
                             "$user" {:col :user_id}
-                            "code-challenge-method" {:col :code_challenge_method}
-                            "code-challenge-hash" {:col :code_challenge
+                            "codeChallengeMethod" {:col :code_challenge_method}
+                            "codeChallengeHash" {:col :code_challenge
                                                    :transform [:encode
                                                                [:digest :code_challenge
                                                                 [:inline "sha256"]]
                                                                [:inline "hex"]]}}}
-   "$oauth-redirects" {:table :app_oauth_redirects
+   "$oauthRedirects" {:table :app_oauth_redirects
                        :app-id-join {:table :app_oauth_clients
                                      :col :client_id}
                        :needs-id? true
                        :fields {"id" {:col :entity-id}
-                                "state-hash" {:col :lookup_key
+                                "stateHash" {:col :lookup_key
                                               :transform [:encode
                                                           :lookup_key
                                                           [:inline "hex"]]}
-                                "cookie-hash" {:col :cookie
+                                "cookieHash" {:col :cookie
                                                :transform [:encode
                                                            [:digest [:uuid_send :cookie]
                                                             [:inline "sha256"]]
                                                            [:inline "hex"]]}
-                                "redirect-url" {:col :redirect_url}
-                                "$oauth-client" {:col :client_id}
-                                "code-challenge-method" {:col :code_challenge_method}
-                                "code-challenge-hash" {:col :code_challenge
+                                "redirectUrl" {:col :redirect_url}
+                                "$oauthClient" {:col :client_id}
+                                "codeChallengeMethod" {:col :code_challenge_method}
+                                "codeChallengeHash" {:col :code_challenge
                                                        :transform [:encode
                                                                    [:digest :code_challenge
                                                                     [:inline "sha256"]]
@@ -205,13 +205,13 @@
             (app-model/set-users-in-triples! tx-conn {:app-id app-id
                                                       :users-in-triples true})
             (doseq [etype ["$users"
-                           "$magic-codes"
-                           "$user-refresh-tokens"
-                           "$oauth-providers"
-                           "$user-oauth-links"
-                           "$oauth-clients"
-                           "$oauth-redirects"
-                           "$oauth-codes"]
+                           "$magicCodes"
+                           "$userRefreshTokens"
+                           "$oauthProviders"
+                           "$oauthUserLinks"
+                           "$oauthClients"
+                           "$oauthRedirects"
+                           "$oauthCodes"]
                     :let [query (hsql/format (triples-insert-query app-id
                                                                    etype
                                                                    system-attrs))]]

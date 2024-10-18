@@ -46,7 +46,7 @@
 
                       (= k :id) (uuid-util/coerce v)
 
-                      (= k :encrypted-client-secret)
+                      (= k :encryptedClientSecret)
                       (when v
                         (crypt-util/hex-string->bytes v))
                       :else v)
@@ -54,19 +54,19 @@
                   ;; Translate keywords
                   k (case k
                       :$user :user_id
-                      :$oauth-provider :provider_id
-                      :$oauth-client :client_id
-                      :client-id :client_id
-                      :encrypted-client-secret :client_secret
-                      :discovery-endpoint :discovery_endpoint
-                      :code-challenge-method :code_challenge_method
-                      :code-challenge-hash :code_challenge_hash
-                      :state-hash :state_hash
+                      :$oauthProvider :provider_id
+                      :$oauthClient :client_id
+                      :clientId :client_id
+                      :encryptedClientSecret :client_secret
+                      :discoveryEndpoint :discovery_endpoint
+                      :codeChallengeMethod :code_challenge_method
+                      :codeChallengeHash :code_challenge_hash
+                      :stateHash :state_hash
                       :cooke-hash :cookie_hash
-                      :redirect-url :redirect_url
+                      :redirectUrl :redirect_url
                       :name (case etype
-                              "$oauth-providers" :provider_name
-                              "$oauth-clients" :client_name
+                              "$oauthProviders" :provider_name
+                              "$oauthClients" :client_name
                               k)
                       k)]
               (cond-> acc

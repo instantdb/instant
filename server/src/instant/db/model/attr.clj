@@ -602,7 +602,7 @@
   [^Attrs attrs]
   (let [email-attr (seek-by-fwd-ident-name ["$users" "email"] attrs)
         id-attr (seek-by-fwd-ident-name ["$users" "id"] attrs)
-        migrated-field (seek-by-fwd-ident-name ["$magic-codes" "id"] attrs)]
+        migrated-field (seek-by-fwd-ident-name ["$magicCodes" "id"] attrs)]
     (when (and email-attr id-attr (not migrated-field))
       {:email-attr-id (:id email-attr)
        :id-attr-id (:id id-attr)})))

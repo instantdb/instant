@@ -61,7 +61,7 @@
            WHERE app_user_refresh_tokens.id = ?::uuid AND app_users.app_id = ?::uuid"
          refresh-token app-id]))
      :triples-op (fn [{:keys [get-entity-where]}]
-                  (get-entity-where {:$user-refresh-tokens.hashed-token (hash-token refresh-token)}))})))
+                  (get-entity-where {:$userRefreshTokens.hashedToken (hash-token refresh-token)}))})))
 
 (defn get-by-refresh-token! [params]
   (ex/assert-record! (get-by-refresh-token params) :app-user {:args [params]}))
@@ -150,16 +150,16 @@
                   (let [sub+provider (format "%s+%s" sub provider-id)
                         q {etype
                            {:$ {:where {:or [;{:email email}
-                                             {:$user-oauth-links.sub+$oauth-provider
+                                             {:$oauthUserLinks.sub+$oauthProvider
                                               sub+provider}]}}
-                            :$user-oauth-links {:$ {:where {:sub+$oauth-provider
+                            :$oauthUserLinks {:$ {:where {:sub+$oauthProvider
                                                             sub+provider}}}}}
                         res (admin-query q)]
                     (map (fn [user]
                            (merge {:app_users/id (parse-uuid (get user "id"))
                                    :app_users/email (get user "email")
                                    :app_users/app_id app-id}
-                                  (when-let [links (seq (get user "$user-oauth-links"))]
+                                  (when-let [links (seq (get user "$oauthUserLinks"))]
                                     ;; Adding this assert just for extra protection,
                                     ;; but we should never have multiple because the
                                     ;; link is unique by sub+provider-id
@@ -168,7 +168,7 @@
                                       {:app_user_oauth_links/id (parse-uuid (get link "id"))
                                        :app_user_oauth_links/app_id app-id
                                        :app_user_oauth_links/sub (get link "sub")
-                                       :app_user_oauth_links/provider_id (get link "$oauth-provider")
+                                       :app_user_oauth_links/provider_id (get link "$oauthProvider")
                                        :app_user_oauth_links/user_id (parse-uuid (get user "id"))}))))
                          (get res etype))))})))
 

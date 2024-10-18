@@ -11,7 +11,7 @@
    (instant.util.crypt Secret)
    (java.util UUID)))
 
-(def etype "$oauth-clients")
+(def etype "$oauthClients")
 
 (defn create!
   ([params] (create! aurora/conn-pool params))
@@ -78,16 +78,16 @@
            meta]))
        :triples-op (fn [{:keys [transact! resolve-id get-entity]}]
                     (transact! [[:add-triple id (resolve-id :id) id]
-                                [:add-triple id (resolve-id :$oauth-provider) provider-id]
+                                [:add-triple id (resolve-id :$oauthProvider) provider-id]
                                 ;; XXX: translate
                                 [:add-triple id (resolve-id :name) client-name]
-                                [:add-triple id (resolve-id :client-id) client-id]
+                                [:add-triple id (resolve-id :clientId) client-id]
                                 [:add-triple
                                  id
-                                 (resolve-id :encrypted-client-secret)
+                                 (resolve-id :encryptedClientSecret)
                                  (when enc-client-secret
                                    (crypt-util/bytes->hex-string enc-client-secret))]
-                                [:add-triple id (resolve-id :discovery-endpoint) discovery-endpoint]
+                                [:add-triple id (resolve-id :discoveryEndpoint) discovery-endpoint]
                                 [:add-triple id (resolve-id :meta) meta]])
                     (get-entity id))}))))
 

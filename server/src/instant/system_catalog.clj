@@ -29,36 +29,36 @@
 
 (def etype-shortcodes
   {"$users" "us"
-   "$magic-codes" "mc"
-   "$user-refresh-tokens" "ur"
-   "$oauth-providers" "op"
-   "$user-oauth-links" "ol"
-   "$oauth-clients" "oc"
-   "$oauth-codes" "co"
-   "$oauth-redirects" "or"})
+   "$magicCodes" "mc"
+   "$userRefreshTokens" "ur"
+   "$oauthProviders" "op"
+   "$oauthUserLinks" "ol"
+   "$oauthClients" "oc"
+   "$oauthCodes" "co"
+   "$oauthRedirects" "or"})
 
 (def shortcodes-etype (map-invert etype-shortcodes))
 
 (def label-shortcodes
   {"id" "id"
    "email" "email"
-   "code-hash" "codehash"
+   "codeHash" "codehash"
    "$user" "user"
-   "hashed-token" "hashedtok"
+   "hashedToken" "hashedtok"
    "name" "name"
    "sub" "sub"
-   "$oauth-provider" "oprovider"
-   "sub+$oauth-provider" "subprovid"
-   "client-id" "clientid"
-   "encrypted-client-secret" "encclisec"
-   "discovery-endpoint" "discovend"
+   "$oauthProvider" "oprovider"
+   "sub+$oauthProvider" "subprovid"
+   "clientId" "clientid"
+   "encryptedClientSecret" "encclisec"
+   "discoveryEndpoint" "discovend"
    "meta" "meta"
-   "code-challenge-method" "cchalmeth"
-   "code-challenge-hash" "cchalhash"
-   "state-hash" "statehash"
-   "cookie-hash" "cookihash"
-   "redirect-url" "redireurl"
-   "$oauth-client" "oauclient"})
+   "codeChallengeMethod" "cchalmeth"
+   "codeChallengeHash" "cchalhash"
+   "stateHash" "statehash"
+   "cookieHash" "cookihash"
+   "redirectUrl" "redireurl"
+   "$oauthClient" "oauclient"})
 
 (def shortcodes-label (map-invert label-shortcodes))
 
@@ -139,105 +139,105 @@
               :index? true)])
 
 (def $magic-code-attrs
-  [(make-attr "$magic-codes" "id"
+  [(make-attr "$magicCodes" "id"
               :unique? true
               :index? true)
-   (make-attr "$magic-codes" "code-hash"
+   (make-attr "$magicCodes" "codeHash"
               :unique? false
               :index? true)
-   (make-attr "$magic-codes" "$user"
-              :reverse-identity (get-ident-spec "$users" "$magic-codes")
+   (make-attr "$magicCodes" "$user"
+              :reverse-identity (get-ident-spec "$users" "$magicCodes")
               :index? true
               :value-type :ref)])
 
 (def $user-refresh-token-attrs
-  [(make-attr "$user-refresh-tokens" "id"
+  [(make-attr "$userRefreshTokens" "id"
               :unique? true
               :index? true)
-   (make-attr  "$user-refresh-tokens" "hashed-token"
+   (make-attr  "$userRefreshTokens" "hashedToken"
               :unique? true
               :index? true)
-   (make-attr "$user-refresh-tokens" "$user"
-              :reverse-identity (get-ident-spec "$users" "$user-refresh-tokens")
+   (make-attr "$userRefreshTokens" "$user"
+              :reverse-identity (get-ident-spec "$users" "$userRefreshTokens")
               :index? true
               :value-type :ref)])
 
 (def $oauth-provider-attrs
-  [(make-attr "$oauth-providers" "id"
+  [(make-attr "$oauthProviders" "id"
               :unique? true
               :index? true)
-   (make-attr "$oauth-providers" "name"
+   (make-attr "$oauthProviders" "name"
               :unique? true
               :index? true)])
 
 (def $user-oauth-link-attrs
-  [(make-attr "$user-oauth-links" "id"
+  [(make-attr "$oauthUserLinks" "id"
               :unique? true
               :index? true)
-   (make-attr "$user-oauth-links" "sub"
+   (make-attr "$oauthUserLinks" "sub"
               :unique? false
               :index? true)
-   (make-attr "$user-oauth-links" "$user"
-              :reverse-identity (get-ident-spec "$users" "$user-oauth-links")
+   (make-attr "$oauthUserLinks" "$user"
+              :reverse-identity (get-ident-spec "$users" "$oauthUserLinks")
               :index? true
               :value-type :ref)
-   (make-attr "$user-oauth-links" "$oauth-provider"
-              :reverse-identity (get-ident-spec "$oauth-providers" "$user-oauth-links")
+   (make-attr "$oauthUserLinks" "$oauthProvider"
+              :reverse-identity (get-ident-spec "$oauthProviders" "$oauthUserLinks")
               :index? true)
    ;; Trick to get a unique key on multiple attrs We have to manually
    ;; set it, but it would be nice if instant provided some sort of
    ;; computed column to do this automatically
-   (make-attr "$user-oauth-links" "sub+$oauth-provider"
+   (make-attr "$oauthUserLinks" "sub+$oauthProvider"
               :unique? true
               :index? true)])
 
 (def $oauth-client-attrs
-  [(make-attr "$oauth-clients" "id"
+  [(make-attr "$oauthClients" "id"
               :unique? true
               :index? true)
-   (make-attr "$oauth-clients" "$oauth-provider"
-              :reverse-identity (get-ident-spec "$oauth-providers" "$oauth-clients")
+   (make-attr "$oauthClients" "$oauthProvider"
+              :reverse-identity (get-ident-spec "$oauthProviders" "$oauthClients")
               :value-type :ref)
-   (make-attr "$oauth-clients" "name"
+   (make-attr "$oauthClients" "name"
               :unique? true
               :index? true)
-   (make-attr "$oauth-clients" "client-id"
+   (make-attr "$oauthClients" "clientId"
               :index? true)
-   (make-attr "$oauth-clients" "encrypted-client-secret")
-   (make-attr "$oauth-clients" "discovery-endpoint")
-   (make-attr "$oauth-clients" "meta")])
+   (make-attr "$oauthClients" "encryptedClientSecret")
+   (make-attr "$oauthClients" "discoveryEndpoint")
+   (make-attr "$oauthClients" "meta")])
 
 (def $oauth-code-attrs
-  [(make-attr "$oauth-codes" "id"
+  [(make-attr "$oauthCodes" "id"
               :unique? true
               :index? true)
-   (make-attr "$oauth-codes" "code-hash"
+   (make-attr "$oauthCodes" "codeHash"
               :unique? true
               :index? true)
-   (make-attr "$oauth-codes" "$user"
-              :reverse-identity (get-ident-spec "$users" "$oauth-codes")
+   (make-attr "$oauthCodes" "$user"
+              :reverse-identity (get-ident-spec "$users" "$oauthCodes")
               :value-type :ref)
-   (make-attr "$oauth-codes" "code-challenge-method")
-   (make-attr "$oauth-codes" "code-challenge-hash")])
+   (make-attr "$oauthCodes" "codeChallengeMethod")
+   (make-attr "$oauthCodes" "codeChallengeHash")])
 
-(def $oauth-redirects
-  [(make-attr "$oauth-redirects" "id"
+(def $oauth-redirect-attrs
+  [(make-attr "$oauthRedirects" "id"
               :unique? true
               :index? true)
-   (make-attr "$oauth-redirects" "state-hash"
+   (make-attr "$oauthRedirects" "stateHash"
               :unique? true
               :index? true)
-   (make-attr "$oauth-redirects" "cookie-hash"
+   (make-attr "$oauthRedirects" "cookieHash"
               :unique? false
               :index? false)
-   (make-attr "$oauth-redirects" "redirect-url"
+   (make-attr "$oauthRedirects" "redirectUrl"
               :unique? false
               :index? false)
-   (make-attr "$oauth-redirects" "$oauth-client"
-              :reverse-identity (get-ident-spec "$oauth-clients" "$oauth-redirects")
+   (make-attr "$oauthRedirects" "$oauthClient"
+              :reverse-identity (get-ident-spec "$oauthClients" "$oauthRedirects")
               :value-type :ref)
-   (make-attr "$oauth-redirects" "code-challenge-method")
-   (make-attr "$oauth-redirects" "code-challenge-hash")])
+   (make-attr "$oauthRedirects" "codeChallengeMethod")
+   (make-attr "$oauthRedirects" "codeChallengeHash")])
 
 (def all-attrs (concat $users-attrs
                        $magic-code-attrs
@@ -246,4 +246,4 @@
                        $user-oauth-link-attrs
                        $oauth-client-attrs
                        $oauth-code-attrs
-                       $oauth-redirects))
+                       $oauth-redirect-attrs))

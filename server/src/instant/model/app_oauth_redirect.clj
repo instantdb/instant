@@ -7,7 +7,7 @@
    (java.time Instant)
    (java.time.temporal ChronoUnit)))
 
-(def etype "$oauth-redirects")
+(def etype "$oauthRedirects")
 
 (defn hash-uuid [uuid]
   (-> uuid
@@ -50,12 +50,12 @@
                                   (crypt-util/str->sha256)
                                   (crypt-util/bytes->hex-string)))]
          (transact! [[:add-triple eid (resolve-id :id) eid]
-                     [:add-triple eid (resolve-id :state-hash) (hash-uuid state)]
-                     [:add-triple eid (resolve-id :cookie-hash) (hash-uuid cookie)]
-                     [:add-triple eid (resolve-id :redirect-url) redirect-url]
-                     [:add-triple eid (resolve-id :$oauth-client) oauth-client-id]
-                     [:add-triple eid (resolve-id :code-challenge-method) code-challenge-method]
-                     [:add-triple eid (resolve-id :code-challenge-hash) challenge-hash]])
+                     [:add-triple eid (resolve-id :stateHash) (hash-uuid state)]
+                     [:add-triple eid (resolve-id :cookieHash) (hash-uuid cookie)]
+                     [:add-triple eid (resolve-id :redirectUrl) redirect-url]
+                     [:add-triple eid (resolve-id :$oauthClient) oauth-client-id]
+                     [:add-triple eid (resolve-id :codeChallengeMethod) code-challenge-method]
+                     [:add-triple eid (resolve-id :codeChallengeHash) challenge-hash]])
          (get-entity eid)))})))
 
 (defn consume!
@@ -78,10 +78,10 @@
        (let [state-hash (-> state
                             (crypt-util/uuid->sha256)
                             (crypt-util/bytes->hex-string))
-             lookup [(resolve-id :state-hash) state-hash]
+             lookup [(resolve-id :stateHash) state-hash]
              row (delete-entity! lookup)]
          (when row
-           (assoc row :cookie-hash-bytes (crypt-util/hex-string->bytes (:cookie-hash row))))))})))
+           (assoc row :cookie-hash-bytes (crypt-util/hex-string->bytes (:cookieHash row))))))})))
 
 ;; Don't add more get functions. We lookup by state because we can lookup a hashed version
 ;; of state in the db to prevent timing attacks.
