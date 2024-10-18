@@ -18,13 +18,13 @@
 
 (defn create!
   ([params] (create! aurora/conn-pool params))
-  ([conn {:keys [id title creator-id admin-token]}]
+  ([conn {:keys [id title creator-id admin-token users-in-triples?]}]
 
    (next-jdbc/with-transaction [tx-conn conn]
      (let [app (sql/execute-one!
                 tx-conn
-                ["INSERT INTO apps (id, title, creator_id) VALUES (?::uuid, ?, ?::uuid)"
-                 id title creator-id])
+                ["INSERT INTO apps (id, title, creator_id, users_in_triples) VALUES (?::uuid, ?, ?::uuid, ?)"
+                 id title creator-id users-in-triples?])
            {:keys [token]} (app-admin-token-model/create! tx-conn {:app-id id
                                                                    :token admin-token})]
        (assoc app :admin-token token)))))

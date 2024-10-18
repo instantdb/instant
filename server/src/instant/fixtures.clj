@@ -31,7 +31,8 @@
         app (app-model/create! {:title "test app"
                                 :creator-id test-user-id
                                 :id app-id
-                                :admin-token (UUID/randomUUID)})]
+                                :admin-token (UUID/randomUUID)
+                                :users-in-triples? true})]
     (try
       (f app)
       (finally
