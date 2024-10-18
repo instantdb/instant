@@ -390,38 +390,36 @@
            :session-id sess-id)))
 
 (defn handle-receive [store-conn eph-store-atom session event metadata]
-  (tracer/with-exceptions-silencer [silence-exceptions]
-    (tracer/with-span! {:name "receive-worker/handle-receive"
-                        :attributes (handle-receive-attrs store-conn session event metadata)}
-      (let [pending-handlers (:pending-handlers (:session/socket session))
-            event-fut (ua/vfuture (handle-event store-conn eph-store-atom session event))
-            pending-handler {:future event-fut
-                             :op (:op event)
-                             :silence-exceptions silence-exceptions}]
-        (swap! pending-handlers conj pending-handler)
-        (tracer/add-data! {:attributes {:concurrent-handler-count (count @pending-handlers)}})
-        (try
-          (let [ret (deref event-fut handle-receive-timeout-ms :timeout)]
-            (when (= :timeout ret)
-              (future-cancel event-fut)
-              (ex/throw-operation-timeout! :handle-receive handle-receive-timeout-ms)))
+  (tracer/with-span! {:name "receive-worker/handle-receive"
+                      :attributes (handle-receive-attrs store-conn session event metadata)}
+    (let [pending-handlers (:pending-handlers (:session/socket session))
+          event-fut (ua/vfuture (handle-event store-conn eph-store-atom session event))
+          pending-handler {:future event-fut
+                           :op (:op event)}]
+      (swap! pending-handlers conj pending-handler)
+      (tracer/add-data! {:attributes {:concurrent-handler-count (count @pending-handlers)}})
+      (try
+        (let [ret (deref event-fut handle-receive-timeout-ms :timeout)]
+          (when (= :timeout ret)
+            (future-cancel event-fut)
+            (ex/throw-operation-timeout! :handle-receive handle-receive-timeout-ms)))
 
-          (catch CancellationException _e
+        (catch CancellationException _e
             ;; We must have cancelled this in the on-close, so don't try to do any
             ;; error handling
-            (tracer/record-info! {:name "handle-receive-cancelled"}))
-          (catch Throwable e
-            (tracer/record-info! {:name "caught-throwable"})
-            (let [original-event event
-                  instant-ex (ex/find-instant-exception e)
-                  root-err (root-cause e)]
-              (cond
-                instant-ex (handle-instant-exception
-                            store-conn session original-event instant-ex)
-                :else (handle-uncaught-err
-                       store-conn session original-event root-err))))
-          (finally
-            (swap! pending-handlers disj pending-handler)))))))
+          (tracer/record-info! {:name "handle-receive-cancelled"}))
+        (catch Throwable e
+          (tracer/record-info! {:name "caught-throwable"})
+          (let [original-event event
+                instant-ex (ex/find-instant-exception e)
+                root-err (root-cause e)]
+            (cond
+              instant-ex (handle-instant-exception
+                          store-conn session original-event instant-ex)
+              :else (handle-uncaught-err
+                     store-conn session original-event root-err))))
+        (finally
+          (swap! pending-handlers disj pending-handler))))))
 
 (defn process-receive-q-entry [store-conn eph-store-atom entry metadata]
   (let [{:keys [put-at item]} entry
@@ -509,12 +507,10 @@
 (defn on-close [store-conn eph-store-atom {:keys [id pending-handlers]}]
   (tracer/with-span! {:name "socket/on-close"
                       :attributes {:session-id id}}
-    (doseq [{:keys [future silence-exceptions op]} @pending-handlers]
+    (doseq [{:keys [future op]} @pending-handlers]
       (tracer/with-span! {:name "cancel-pending-handler"
                           :attributes {:op op}}
-        (silence-exceptions true)
         (future-cancel future)))
-
     (let [app-id (-> (rs/get-auth @store-conn id)
                      :app
                      :id)]
