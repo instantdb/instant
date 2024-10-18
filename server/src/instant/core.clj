@@ -166,7 +166,6 @@
   (oauth/start)
   (jwt/start)
   (aurora/start)
-  ;; XXX: do this for tests
   (ensure-attrs-on-system-catalog-app)
   (rs/start)
   (eph/start)

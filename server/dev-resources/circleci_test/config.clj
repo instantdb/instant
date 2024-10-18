@@ -1,11 +1,13 @@
-(require '[instant.jdbc.aurora :as aurora]
+(require
          '[circleci.test.report :as report]
          '[circleci.test.report.junit :as junit]
+         '[clojure.java.io :as io]
          '[clojure.test :as test]
          '[instant.config :as config]
-         '[instant.util.tracer :as tracer]
+         '[instant.jdbc.aurora :as aurora]
+         '[instant.system-catalog-migration :as system-catalog-migration]
          '[instant.util.crypt :as crypt-util]
-         '[clojure.java.io :as io])
+         '[instant.util.tracer :as tracer])
 
 (defn list-files-recursively [dir]
   (let [files (file-seq (io/file dir))]
@@ -50,6 +52,7 @@
     (crypt-util/init aead-keyset))
   (tracer/init)
   (aurora/start)
+  (system-catalog-migration/ensure-attrs-on-system-catalog-app)
   (let [results (test-suite-fn)]
     (aurora/stop)
     results))
