@@ -1,12 +1,22 @@
 import { DBAttr, SchemaAttr, SchemaNamespace } from '@/lib/types';
 
 export function dbAttrsToExplorerSchema(
-  oAttrs: Record<string, DBAttr>
+  rawAttrs: Record<string, DBAttr>,
 ): SchemaNamespace[] {
   const nsMap: Record<
     string,
     { id: string; name: string; attrs: Record<string, SchemaAttr> }
   > = {};
+
+  const oAttrs: Record<string, DBAttr> = {};
+  // Filter out the system catalog attrs, except for $user.id and $user.email
+  for (const [id, attrDesc] of Object.entries(rawAttrs)) {
+    const [, namespace, label] = attrDesc['forward-identity'];
+    if (attrDesc.catalog === 'system' && namespace !== '$users') {
+      continue;
+    }
+    oAttrs[id] = attrDesc;
+  }
 
   for (const attrDesc of Object.values(oAttrs)) {
     const [, namespace] = attrDesc['forward-identity'];
@@ -51,6 +61,7 @@ export function dbAttrsToExplorerSchema(
           cardinality: attrDesc.cardinality,
           linkConfig,
           inferredTypes: attrDesc['inferred-types'],
+          catalog: attrDesc.catalog,
         };
       }
     }

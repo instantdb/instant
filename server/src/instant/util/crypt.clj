@@ -23,6 +23,11 @@
   [^String s]
   (.digest (MessageDigest/getInstance "SHA-256") (.getBytes s)))
 
+(defn bytes->sha256
+  "Returns the sha256 of a byte array as a byte array"
+  [^bytes b]
+  (.digest (MessageDigest/getInstance "SHA-256") b))
+
 (defn str->md5
   "Returns the md5 of a string as a byte array"
   [^String s]
