@@ -300,19 +300,8 @@
                                               :op :client-broadcast-ok
                                               :client-event-id client-event-id))))
 
-;; It's possible to receive _lots_ of ephemeral events.
-;; For example, any time a user moves their cursor, we could
-;; receive hundreds of `set-presence` events per second.
-;; Throttling these, so we don't overwhelm Honeycomb.
-(defn event-sample-rate [{:keys [op]}]
-  (cond
-    (= op :set-presence) 0.01
-    (#{:client-broadcast :join-room} op) 0.1
-    :else 1))
-
 (defn handle-event [store-conn eph-store-atom session event]
-  (tracer/with-span! {:name "receive-worker/handle-event"
-                      :sample-rate (event-sample-rate event)}
+  (tracer/with-span! {:name "receive-worker/handle-event"}
     (let [{:keys [op]} event
           {:keys [session/socket]} session
           {:keys [id]} socket]
@@ -403,7 +392,6 @@
 (defn handle-receive [store-conn eph-store-atom session event metadata]
   (tracer/with-exceptions-silencer [silence-exceptions]
     (tracer/with-span! {:name "receive-worker/handle-receive"
-                        :sample-rate (event-sample-rate event)
                         :attributes (handle-receive-attrs store-conn session event metadata)}
       (let [pending-handlers (:pending-handlers (:session/socket session))
             event-fut (ua/vfuture (handle-event store-conn eph-store-atom session event))

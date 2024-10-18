@@ -1,8 +1,8 @@
 RulesVersion: 2
 Samplers:
     __default__:
-        DeterministicSampler:
-            SampleRate: 1
+      DeterministicSampler:
+          SampleRate: 1
     prod:
       RulesBasedSampler:
         Rules:
@@ -11,7 +11,18 @@ Samplers:
             Conditions:
               - Field: error
                 Operator: exists
-
+          - Name: set-presence = 1/100
+            SampleRate: 100 
+            Conditions: 
+              - Field: op
+                Operator: = 
+                Value: ':set-presence' 
+          - Name: client-broadcast = 1/10 
+            SampleRate: 10
+            Conditions:
+              - Field: op 
+                Operator: =
+                Value: ':client-broadcast'
           - Name: default rule
             Sampler:
               EMAThroughputSampler:
