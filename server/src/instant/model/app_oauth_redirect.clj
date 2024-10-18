@@ -1,7 +1,7 @@
 (ns instant.model.app-oauth-redirect
   (:require [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
-            [instant.util.$users-ops :refer [$user-update]]
+            [instant.system-catalog-ops :refer [update-op]]
             [instant.util.crypt :as crypt-util])
   (:import
    (java.time Instant)
@@ -18,7 +18,7 @@
   ([params] (create! aurora/conn-pool params))
   ([conn {:keys [app-id state cookie redirect-url oauth-client-id
                  code-challenge-method code-challenge]}]
-   ($user-update
+   (update-op
     conn
     {:app-id app-id
      :etype etype
@@ -42,7 +42,7 @@
          oauth-client-id
          code-challenge-method
          code-challenge]))
-     :$users-op
+     :triples-op
      (fn [{:keys [transact! resolve-id get-entity]}]
        (let [eid (random-uuid)
              challenge-hash (when code-challenge
@@ -62,7 +62,7 @@
   "Gets and deletes the oauth-redirect so that it can be used only once."
   ([params] (consume! aurora/conn-pool params))
   ([conn {:keys [state app-id]}]
-   ($user-update
+   (update-op
     conn
     {:app-id app-id
      :etype etype
@@ -72,7 +72,7 @@
                                         ["DELETE FROM app_oauth_redirects where lookup_key = ?::bytea"
                                          (crypt-util/uuid->sha256 state)])]
          (assoc row :cookie-hash-bytes (crypt-util/uuid->sha256 (:cookie row)))))
-     :$users-op
+     :triples-op
 
      (fn [{:keys [delete-entity! resolve-id]}]
        (let [state-hash (-> state

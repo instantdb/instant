@@ -1,7 +1,7 @@
 (ns instant.model.app-oauth-code
   (:require [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
-            [instant.util.$users-ops :refer [$user-update]]
+            [instant.system-catalog-ops :refer [update-op]]
             [instant.util.crypt :as crypt-util]
             [instant.util.exception :as ex])
   (:import
@@ -19,7 +19,7 @@
                  code-challenge-method
                  code-challenge
                  code-challenge-hash]}]
-   ($user-update
+   (update-op
     conn
     {:app-id app-id
      :etype etype
@@ -32,7 +32,7 @@
           ) VALUES (?::bytea, ?::uuid, ?::uuid, ?, ?)"
          (crypt-util/uuid->sha256 code) user-id app-id
          code-challenge-method code-challenge]))
-     :$users-op
+     :triples-op
      (fn [{:keys [resolve-id transact! get-entity]}]
        (let [eid (random-uuid)
              code-hash (-> code
@@ -111,7 +111,7 @@
   ([params] (consume! aurora/conn-pool params))
   ([conn {:keys [code app-id verifier] :as params}]
    (let [oauth-code
-         ($user-update
+         (update-op
           conn
           {:app-id app-id
            :etype etype
@@ -123,7 +123,7 @@
                                    and app_id = ?::uuid"
                                 (crypt-util/uuid->sha256 code)
                                 app-id]))
-           :$users-op
+           :triples-op
            (fn [{:keys [delete-entity! resolve-id]}]
              (let [code-hash (-> code
                                  crypt-util/uuid->sha256

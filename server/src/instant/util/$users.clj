@@ -10,7 +10,7 @@
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.system-catalog :refer [system-catalog-app-id]]
-   [instant.util.$users-ops :refer [lock-hash]]
+   [instant.system-catalog-ops :refer [lock-hash]]
    [instant.util.tracer :as tracer]
    [next.jdbc :as next-jdbc]))
 

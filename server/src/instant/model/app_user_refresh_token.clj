@@ -3,7 +3,7 @@
             [instant.jdbc.sql :as sql]
             [instant.util.crypt :as crypt-util]
             [instant.model.app :as app-model]
-            [instant.util.$users-ops :refer [$user-query $user-update]]
+            [instant.system-catalog-ops :refer [query-op update-op]]
             [instant.util.uuid :as uuid-util])
   (:import
    (java.util UUID)))
@@ -19,7 +19,7 @@
 (defn get-by-id
   ([params] (get-by-id aurora/conn-pool params))
   ([conn {:keys [app-id id]}]
-   ($user-query
+   (query-op
     conn
     {:app-id app-id
      :etype etype
@@ -28,7 +28,7 @@
        (sql/select-one conn
                        ["SELECT * FROM app_user_refresh_tokens WHERE id = ?::uuid"
                         id]))
-     :$users-op (fn [{:keys [get-entity-where]}]
+     :triples-op (fn [{:keys [get-entity-where]}]
                   (let [res (get-entity-where {:hashed-token (hash-token id)})]
                     (when res
                       ;; We're expecting `id` to be the token in the
@@ -39,7 +39,7 @@
 (defn create!
   ([params] (create! aurora/conn-pool params))
   ([conn {:keys [id app-id user-id]}]
-   ($user-update
+   (update-op
     conn
     {:app-id app-id
      :etype etype
@@ -48,7 +48,7 @@
        (sql/execute-one! conn
                          ["INSERT INTO app_user_refresh_tokens (id, user_id) VALUES (?::uuid, ?::uuid)"
                           id user-id]))
-     :$users-op
+     :triples-op
      (fn [{:keys [transact! resolve-id get-entity]}]
        (let [entity-id (random-uuid)]
          (transact! [[:add-triple entity-id (resolve-id :id) entity-id]
@@ -62,7 +62,7 @@
 (defn delete-by-user-id!
   ([params] (delete-by-user-id! aurora/conn-pool params))
   ([conn {:keys [app-id user-id]}]
-   ($user-update
+   (update-op
     conn
     {:app-id app-id
      :etype etype
@@ -71,7 +71,7 @@
        (sql/execute! conn
                      ["DELETE FROM app_user_refresh_tokens WHERE user_id = ?::uuid"
                       user-id]))
-     :$users-op
+     :triples-op
      (fn [{:keys [transact! get-entities-where]}]
        (let [ents (get-entities-where {:$user user-id})]
          (when (seq ents)
@@ -82,7 +82,7 @@
 (defn delete-by-id!
   ([params] (delete-by-id! aurora/conn-pool params))
   ([conn {:keys [app-id id]}]
-   ($user-update
+   (update-op
     conn
     {:app-id app-id
      :etype etype
@@ -90,7 +90,7 @@
                   (sql/execute-one! conn
                                     ["DELETE FROM app_user_refresh_tokens WHERE id = ?::uuid"
                                      id]))
-     :$users-op
+     :triples-op
      (fn [{:keys [transact! resolve-id]}]
        (transact! [[:delete-entity [(resolve-id :hashed-token) (hash-token id)] etype]]))})))
 

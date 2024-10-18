@@ -8,7 +8,7 @@
    [instant.model.app-admin-token :as app-admin-token-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
-   [instant.util.$users-ops :refer [$user-query]]
+   [instant.system-catalog-ops :refer [query-op]]
    [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
    [instant.util.uuid :as uuid-util]
@@ -217,7 +217,7 @@
 (defn get-dash-auth-data
   ([params] (get-dash-auth-data aurora/conn-pool params))
   ([conn {:keys [app-id]}]
-   ($user-query
+   (query-op
     conn
     {:app-id app-id
      :legacy-op
@@ -267,7 +267,7 @@
           FROM apps a
           WHERE a.id = ?::uuid"
          app-id]))
-     :$users-op
+     :triples-op
      (fn [{:keys [admin-query]}]
        (let [redirect-origins
              (-> (sql/select-one

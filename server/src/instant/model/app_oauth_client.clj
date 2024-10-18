@@ -3,7 +3,7 @@
    [instant.auth.oauth :as oauth]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.util.$users-ops :refer [$user-query $user-update]]
+   [instant.system-catalog-ops :refer [query-op update-op]]
    [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
    [instant.util.uuid :as uuid-util])
@@ -45,7 +45,7 @@
          (when client-secret
            (crypt-util/aead-encrypt {:plaintext (.getBytes client-secret)
                                      :associated-data (uuid-util/->bytes id)}))]
-     ($user-update
+     (update-op
       conn
       {:app-id app-id
        :etype etype
@@ -76,7 +76,7 @@
            token-endpoint
            discovery-endpoint
            meta]))
-       :$users-op (fn [{:keys [transact! resolve-id get-entity]}]
+       :triples-op (fn [{:keys [transact! resolve-id get-entity]}]
                     (transact! [[:add-triple id (resolve-id :id) id]
                                 [:add-triple id (resolve-id :$oauth-provider) provider-id]
                                 ;; XXX: translate
@@ -94,7 +94,7 @@
 (defn get-by-id
   ([params] (get-by-id aurora/conn-pool params))
   ([conn {:keys [app-id id]}]
-   ($user-query
+   (query-op
     conn
     {:app-id app-id
      :etype etype
@@ -104,14 +104,14 @@
         conn
         ["SELECT * from app_oauth_clients where id = ?::uuid"
          id]))
-     :$users-op
+     :triples-op
      (fn [{:keys [get-entity]}]
        (get-entity id))})))
 
 (defn get-by-client-name
   ([params] (get-by-client-name aurora/conn-pool params))
   ([conn {:keys [app-id client-name]}]
-   ($user-query
+   (query-op
     conn
     {:app-id app-id
      :etype etype
@@ -122,7 +122,7 @@
         ["SELECT * from app_oauth_clients
        where app_id = ?::uuid and client_name = ?"
          app-id client-name]))
-     :$users-op
+     :triples-op
      (fn [{:keys [get-entity resolve-id]}]
        (get-entity [(resolve-id :name) client-name]))})))
 
@@ -132,7 +132,7 @@
 (defn delete-by-id!
   ([params] (delete-by-id! aurora/conn-pool params))
   ([conn {:keys [id app-id]}]
-   ($user-update
+   (update-op
     conn
     {:app-id app-id
      :etype etype
@@ -142,7 +142,7 @@
         conn
         ["DELETE FROM app_oauth_clients WHERE id = ?::uuid AND app_id = ?::uuid"
          id app-id]))
-     :$users-op
+     :triples-op
      (fn [{:keys [delete-entity!]}]
        (delete-entity! id))})))
 

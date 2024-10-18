@@ -5,7 +5,7 @@
    [instant.model.app :as app-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.app-user-refresh-token :refer [hash-token]]
-   [instant.util.$users-ops :refer [$user-update $user-query]]
+   [instant.system-catalog-ops :refer [update-op query-op]]
    [instant.util.exception :as ex])
   (:import
    (java.util UUID)))
@@ -15,16 +15,15 @@
 (defn create!
   ([params] (create! aurora/conn-pool params))
   ([conn {:keys [id app-id email]}]
-   ($user-update
+   (update-op
     conn
     {:app-id app-id
      :etype etype
      :legacy-op (fn [conn]
                   (sql/execute-one! conn
-                                    ;; XXX: How are we going to prevent writes once we've started the migration
                                     ["INSERT INTO app_users (id, app_id, email) VALUES (?::uuid, ?::uuid, ?)"
                                      id app-id email]))
-     :$users-op (fn [{:keys [transact! resolve-id get-entity]}]
+     :triples-op (fn [{:keys [transact! resolve-id get-entity]}]
                   (transact! [[:add-triple id (resolve-id :id) id]
                               [:add-triple id (resolve-id :email) email]])
                   (get-entity id))})))
@@ -32,7 +31,7 @@
 (defn get-by-id
   ([params] (get-by-id aurora/conn-pool params))
   ([conn {:keys [app-id id]}]
-   ($user-query
+   (query-op
     conn
     {:app-id app-id
      :etype etype
@@ -42,13 +41,13 @@
                    ["SELECT * FROM app_users
                       WHERE app_id = ?::uuid AND id = ?::uuid"
                     app-id id]))
-     :$users-op (fn [{:keys [get-entity]}]
+     :triples-op (fn [{:keys [get-entity]}]
                   (get-entity id))})))
 
 (defn get-by-refresh-token
   ([params] (get-by-refresh-token aurora/conn-pool params))
   ([conn {:keys [app-id refresh-token]}]
-   ($user-query
+   (query-op
     conn
     {:app-id app-id
      :etype etype
@@ -61,7 +60,7 @@
            JOIN app_user_refresh_tokens ON app_users.id = app_user_refresh_tokens.user_id
            WHERE app_user_refresh_tokens.id = ?::uuid AND app_users.app_id = ?::uuid"
          refresh-token app-id]))
-     :$users-op (fn [{:keys [get-entity-where]}]
+     :triples-op (fn [{:keys [get-entity-where]}]
                   (get-entity-where {:$user-refresh-tokens.hashed-token (hash-token refresh-token)}))})))
 
 (defn get-by-refresh-token! [params]
@@ -70,7 +69,7 @@
 (defn get-by-email
   ([params] (get-by-email aurora/conn-pool params))
   ([conn {:keys [app-id email]}]
-   ($user-query
+   (query-op
     conn
     {:app-id app-id
      :etype etype
@@ -79,7 +78,7 @@
        (sql/select-one conn
                        ["SELECT * FROM app_users WHERE app_id = ?::uuid AND email = ?"
                         app-id email]))
-     :$users-op (fn [{:keys [get-entity-where]}]
+     :triples-op (fn [{:keys [get-entity-where]}]
                   (get-entity-where {:email email}))})))
 
 (defn get-by-email! [params]
@@ -88,7 +87,7 @@
 (defn update-email!
   ([params] (update-email! aurora/conn-pool params))
   ([conn {:keys [id app-id email]}]
-   ($user-update
+   (update-op
     conn
     {:app-id app-id
      :etype etype
@@ -97,14 +96,14 @@
        (sql/execute-one! conn
                          ["UPDATE app_users set email = ? where id = ?::uuid"
                           email id]))
-     :$users-op (fn [{:keys [transact! resolve-id get-entity]}]
+     :triples-op (fn [{:keys [transact! resolve-id get-entity]}]
                   (transact! [[:add-triple id (resolve-id :email) email]])
                   (get-entity id))})))
 
 (defn delete-by-email!
   ([params] (delete-by-email! aurora/conn-pool params))
   ([conn {:keys [app-id email]}]
-   ($user-update
+   (update-op
     conn
     {:app-id app-id
      :etype etype
@@ -112,14 +111,14 @@
      (fn []
        (sql/execute-one! conn
                          ["DELETE FROM app_users WHERE app_id = ?::uuid AND email = ?" app-id email]))
-     :$users-op (fn [{:keys [transact! resolve-id]}]
+     :triples-op (fn [{:keys [transact! resolve-id]}]
                   (transact! [[:delete-entity [(resolve-id :email) email] etype]])
                   nil)})))
 
 (defn delete-by-id!
   ([params] (delete-by-id! aurora/conn-pool params))
   ([conn {:keys [app-id id]}]
-   ($user-update
+   (update-op
     conn
     {:app-id app-id
      :etype etype
@@ -127,7 +126,7 @@
      (fn [conn]
        (sql/execute-one! conn
                          ["DELETE FROM app_users WHERE app_id = ?::uuid AND id = ?::uuid" app-id id]))
-     :$users-op (fn [{:keys [transact!]}]
+     :triples-op (fn [{:keys [transact!]}]
                   (transact! [[:delete-entity id etype]])
                   nil)})))
 
@@ -135,7 +134,7 @@
 (defn get-by-email-or-oauth-link-qualified
   ([params] (get-by-email-or-oauth-link-qualified aurora/conn-pool params))
   ([conn {:keys [app-id email sub provider-id]}]
-   ($user-query
+   (query-op
     conn
     {:app-id app-id
      :etype etype
@@ -147,7 +146,7 @@
            left join app_user_oauth_links as l on u.id = l.user_id
            where u.app_id = ?::uuid and (u.email = ? or (l.sub = ? and l.provider_id = ?))"
          app-id email sub provider-id]))
-     :$users-op (fn [{:keys [admin-query]}]
+     :triples-op (fn [{:keys [admin-query]}]
                   (let [sub+provider (format "%s+%s" sub provider-id)
                         q {etype
                            {:$ {:where {:or [;{:email email}

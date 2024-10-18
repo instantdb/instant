@@ -5,7 +5,7 @@
    [instant.model.app :as app-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.instant-user :as instant-user-model]
-   [instant.util.$users-ops :refer [$user-update]]
+   [instant.system-catalog-ops :refer [update-op]]
    [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
    [instant.util.string :refer [rand-num-str]])
@@ -22,7 +22,7 @@
 (defn create!
   ([params] (create! aurora/conn-pool params))
   ([conn {:keys [app-id id code user-id]}]
-   ($user-update
+   (update-op
     conn
     {:app-id app-id
      :etype etype
@@ -30,7 +30,7 @@
                   (sql/execute-one! conn
                                     ["INSERT INTO app_user_magic_codes (id, code, user_id) VALUES (?::uuid, ?, ?::uuid)"
                                      id code user-id]))
-     :$users-op (fn [{:keys [resolve-id transact! get-entity]}]
+     :triples-op (fn [{:keys [resolve-id transact! get-entity]}]
                   (transact! [[:add-triple id (resolve-id :id) id]
                               [:add-triple id (resolve-id :code-hash) (-> code
                                                                           crypt-util/str->sha256
@@ -47,7 +47,7 @@
 (defn consume!
   ([params] (consume! aurora/conn-pool params))
   ([conn {:keys [email code app-id] :as params}]
-   ($user-update
+   (update-op
     conn
     {:app-id app-id
      :etype etype
@@ -68,7 +68,7 @@
          (when (expired? m)
            (ex/throw-expiration-err! :app-user-magic-code {:args [params]}))
          m))
-     :$users-op
+     :triples-op
      (fn [{:keys [get-entity-where delete-entity!]}]
        (let [code-hash (-> code
                            crypt-util/str->sha256

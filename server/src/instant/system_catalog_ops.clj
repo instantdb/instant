@@ -1,4 +1,4 @@
-(ns instant.util.$users-ops
+(ns instant.system-catalog-ops
   (:require
    [clojure.string :as string]
    [honey.sql :as hsql]
@@ -24,12 +24,13 @@
 ;; We write out own get-app function so that we don't get
 ;; a cyclic dependency with the instant.model.app ns
 (defn get-app! [conn id]
-  (let [app (sql/select-one conn (hsql/format {:select (if (flags/migrating-app-users? id)
-                                                         [:*
-                                                          [[:pg_advisory_xact_lock (lock-hash id)] :_lock]]
-                                                         :*)
-                                               :from :apps
-                                               :where [:= :id id]}))]
+  (let [query {:select (if (flags/migrating-app-users? id)
+                         [:*
+                          [[:pg_advisory_xact_lock (lock-hash id)] :_lock]]
+                         :*)
+               :from :apps
+               :where [:= :id id]}
+        app (sql/select-one conn (hsql/format query))]
     (ex/assert-record! app :app {:args [{:id id}]})))
 
 (defn triples->db-format [app-id attrs etype triples]
@@ -165,17 +166,16 @@
     (instaql-nodes->object-tree ctx
                                 nodes)))
 
-(defn $user-update [conn-pool {:keys [app-id
-                                      etype
-                                      legacy-op
-                                      $users-op]}]
+(defn update-op [conn-pool {:keys [app-id
+                                etype
+                                legacy-op
+                                triples-op]}]
   (next-jdbc/with-transaction [tx-conn conn-pool]
-    ;; XXX: add a lock to prevent losing changes if we migrate
     (let [app (get-app! tx-conn app-id)]
       (if-not (:users_in_triples app)
         (legacy-op tx-conn)
         (let [attrs (attr-model/get-by-app-id tx-conn app-id)]
-          ($users-op
+          (triples-op
            {:resolve-id
             (fn [label] (resolve-attr-id attrs etype label))
 
@@ -201,27 +201,26 @@
             (fn [triples]
               (triples->db-format app-id attrs etype triples))}))))))
 
-(defn $user-query [conn-pool {:keys [app-id
-                                     etype
-                                     legacy-op
-                                     $users-op]}]
-  ;; XXX: add a lock to prevent losing changes if we migrate
+(defn query-op [conn-pool {:keys [app-id
+                               etype
+                               legacy-op
+                               triples-op]}]
   (let [app (get-app! conn-pool app-id)]
     (if-not (:users_in_triples app)
       (legacy-op)
       (let [attrs (attr-model/get-by-app-id conn-pool app-id)]
-        ($users-op {:resolve-id
-                    (fn [label] (resolve-attr-id attrs etype label))
+        (triples-op {:resolve-id
+                     (fn [label] (resolve-attr-id attrs etype label))
 
-                    :get-entity
-                    (fn [eid] (get-entity conn-pool app-id attrs etype eid))
+                     :get-entity
+                     (fn [eid] (get-entity conn-pool app-id attrs etype eid))
 
-                    :get-entity-where
-                    (fn [where] (get-entity-where conn-pool app-id attrs etype where))
+                     :get-entity-where
+                     (fn [where] (get-entity-where conn-pool app-id attrs etype where))
 
-                    :get-entities-where
-                    (fn [where]
-                      (get-entities-where conn-pool app-id attrs etype where))
+                     :get-entities-where
+                     (fn [where]
+                       (get-entities-where conn-pool app-id attrs etype where))
 
-                    :admin-query
-                    (fn [q] (admin-query conn-pool app-id attrs q))})))))
+                     :admin-query
+                     (fn [q] (admin-query conn-pool app-id attrs q))})))))
