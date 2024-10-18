@@ -19,7 +19,7 @@ end;
 $$
 language plpgsql;
 
-create or replace trigger prevent_delete_system_catalog_user_trigger
+create trigger prevent_delete_system_catalog_user_trigger
   before delete on instant_users
   for each row
   execute function prevent_delete_system_catalog_user();
@@ -35,7 +35,7 @@ end;
 $$
 language plpgsql;
 
-create or replace trigger prevent_delete_system_catalog_app_trigger
+create trigger prevent_delete_system_catalog_app_trigger
   before delete on apps
   for each row
   execute function prevent_delete_system_catalog_app();
@@ -64,7 +64,7 @@ end;
 $$
 language plpgsql;
 
-create or replace trigger prevent_delete_system_catalog_attr_trigger
+create trigger prevent_delete_system_catalog_attr_trigger
   before delete on attrs
   for each row
   execute function prevent_delete_system_catalog_attr();
@@ -93,7 +93,7 @@ end;
 $$
 language plpgsql;
 
-create or replace trigger prevent_delete_system_catalog_ident_trigger
+create trigger prevent_delete_system_catalog_ident_trigger
   before delete on idents
   for each row
   execute function prevent_delete_system_catalog_ident();
