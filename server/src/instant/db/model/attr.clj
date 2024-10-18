@@ -597,6 +597,10 @@
 ;; -------
 ;; Helpers
 
+(defn has-$users? [^Attrs attrs]
+  (and (seek-by-fwd-ident-name ["$users" "email"] attrs)
+       (seek-by-fwd-ident-name ["$users" "id"] attrs)))
+
 (defn users-shim-info
   "Returns the users shim info if the users shim attrs exist"
   [^Attrs attrs]

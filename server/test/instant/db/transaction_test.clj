@@ -78,6 +78,7 @@
             (testing "attrs are created"
               (is (= #{"name" "color"}
                      (->> (attr-model/get-by-app-id app-id)
+                          (filter #(not= :system (:catalog %)))
                           (map :forward-identity)
                           (map last)
                           set))))
@@ -94,6 +95,7 @@
               (testing "attr is deleted"
                 (is (= #{"name"}
                        (->> (attr-model/get-by-app-id app-id)
+                           (filter #(not= :system (:catalog %)))
                             (map :forward-identity)
                             (map last)
                             set))))
@@ -138,6 +140,7 @@
         (testing "attrs are created"
           (is (= #{"tags" "name"}
                  (->> (attr-model/get-by-app-id app-id)
+                      (filter #(not= :system (:catalog %)))
                       (map :forward-identity)
                       (map last)
                       set))))
@@ -151,6 +154,7 @@
               :forward-identity [tag-fwd-ident "users" "tagz"]}]])
           (is (= #{"tagz" "name"}
                  (->> (attr-model/get-by-app-id app-id)
+                      (filter #(not= :system (:catalog %)))
                       (map :forward-identity)
                       (map last)
                       set))))
@@ -164,6 +168,7 @@
               :reverse-identity [tag-rev-ident "tags" "taggerz"]}]])
           (is (= #{"taggerz"}
                  (->> (attr-model/get-by-app-id app-id)
+                      (filter #(not= :system (:catalog %)))
                       (keep :reverse-identity)
                       (map last)
                       set))))
@@ -2008,16 +2013,17 @@
 
 (deftest auth-refs-requires-users
   (with-empty-app
-    (fn [{app-id :id}]
+    (fn [{app-id :id :as app}]
       (testing "auth.ref requires $users namespace"
-        (is (= [{:message
-                 "auth.ref is only available when the $users namespace is enabled.",
-                 :in ["bookshelves" :allow "update"]}]
-               (rule-model/validation-errors
-                (attr-model/get-by-app-id app-id)
-                {"bookshelves" {"allow" {"update" "auth.ref('$user.a.b')"}}})))
+        (when-not (:users_in_triples app)
+          (is (= [{:message
+                   "auth.ref is only available when the $users namespace is enabled.",
+                   :in ["bookshelves" :allow "update"]}]
+                 (rule-model/validation-errors
+                  (attr-model/get-by-app-id app-id)
+                  {"bookshelves" {"allow" {"update" "auth.ref('$user.a.b')"}}})))
 
-        (insert-users-table! aurora/conn-pool app-id)
+          (insert-users-table! aurora/conn-pool app-id))
         (is (= []
                (rule-model/validation-errors
                 (attr-model/get-by-app-id app-id)
