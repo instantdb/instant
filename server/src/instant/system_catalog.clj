@@ -37,6 +37,8 @@
    "$oauthCodes" "co"
    "$oauthRedirects" "or"})
 
+(def all-etypes (set (keys etype-shortcodes)))
+
 (def shortcodes-etype (map-invert etype-shortcodes))
 
 (def label-shortcodes

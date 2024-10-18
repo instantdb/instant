@@ -22,10 +22,11 @@
    (tracer/with-span! {:name "system-catalog/ensure-attrs-on-system-catalog-app"}
      (let [existing-attrs (attr-model/get-by-app-id aurora/conn-pool app-id)
            new-attrs (missing-attrs existing-attrs)
-           ids (attr-model/insert-multi! aurora/conn-pool
-                                         app-id
-                                         new-attrs
-                                         {:allow-reserved-names? true})
+           ids (when (seq new-attrs)
+                 (attr-model/insert-multi! aurora/conn-pool
+                                           app-id
+                                           new-attrs
+                                           {:allow-reserved-names? true}))
            json-ids (keep (fn [a]
                             (when (= "meta" (attr-model/fwd-label a))
                               (:id a)))

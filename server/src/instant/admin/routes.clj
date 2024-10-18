@@ -183,7 +183,11 @@
                         :committed? (:committed? result)
                         :check-results
                         (map (fn [r]
-                               (dissoc r :check :program))
+                               (-> r
+                                   (dissoc :check)
+                                   (update :program
+                                           select-keys
+                                           [:etype :action :code])))
                              (:check-results result))}]
     (response/ok cleaned-result)))
 
