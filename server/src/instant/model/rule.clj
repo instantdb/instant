@@ -64,12 +64,21 @@
 
 (defn default-program [etype action]
   (when (contains? system-catalog/all-etypes etype)
-    (let [ast (cel/->ast "cel.bind(disallow_updates_to_system_tables, false, disallow_updates_to_system_tables)")]
-      {:etype etype
-       :action action
-       :code (format "disallow_%s_on_system_tables" action)
-       :cel-ast ast
-       :cel-program (cel/->program ast)})))
+    (if (and (= "$users" etype)
+             (= "view" action))
+      (let [code "auth.id == data.id"
+            ast (cel/->ast code)]
+        {:etype etype
+         :action action
+         :code code
+         :cel-ast ast
+         :cel-program (cel/->program ast)})
+      (let [ast (cel/->ast "false")]
+        {:etype etype
+         :action action
+         :code (format "disallow_%s_on_system_tables" action)
+         :cel-ast ast
+         :cel-program (cel/->program ast)}))))
 
 (defn get-program! [rules etype action]
   (or
@@ -121,7 +130,7 @@
        (mapcat (fn [[etype action]]
                  (or (and (= etype "$users")
                           ($users-validation-errors rules action))
-                     (system-attribute-validation-errors etype)
+                     (system-attribute-validation-errors etype action)
                      (try
                        (when-let [expr (extract rules etype action)]
                          (let [ast (cel/->ast expr)
