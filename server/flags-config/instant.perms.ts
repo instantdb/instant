@@ -4,14 +4,6 @@ export default {
       "create": "false"
     }
   },
-  "app-users-to-triples-migration": {
-    "allow": {
-      "view": "false",
-      "create": "false",
-      "delete": "false",
-      "update": "false"
-    }
-  },
   "storage-whitelist": {
     "allow": {
       "view": "false",
@@ -29,6 +21,14 @@ export default {
     }
   },
   "view-checks": {
+    "allow": {
+      "view": "false",
+      "create": "false",
+      "delete": "false",
+      "update": "false"
+    }
+  },
+  "app-users-to-triples-migration": {
     "allow": {
       "view": "false",
       "create": "false",

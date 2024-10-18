@@ -89,7 +89,8 @@
     steps))
 
 (defn attrs->schema [attrs]
-  (let [{blobs :blob refs :ref} (group-by :value-type attrs)
+  (let [filtered-attrs (attr-model/remove-hidden attrs)
+        {blobs :blob refs :ref} (group-by :value-type filtered-attrs)
         refs-indexed (into {} (map (fn [{:keys [forward-identity reverse-identity] :as attr}]
                                      [[(second forward-identity)
                                        (coll/third forward-identity)

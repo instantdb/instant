@@ -594,6 +594,12 @@
 (defn attr-ids-for-etype [etype ^Attrs attrs]
   (.attrIdsForEtype attrs etype))
 
+(defn remove-hidden [^Attrs attrs]
+  (remove (fn [a]
+            (and (= :system (:catalog a))
+                 (not= "$users" (fwd-etype a))))
+          attrs))
+
 ;; -------
 ;; Helpers
 
