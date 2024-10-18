@@ -375,8 +375,7 @@
     (when (seq changed-rooms)
       (tracer/with-span!
         {:name "refresh-rooms"
-         :attributes {:room-ids (pr-str (map first changed-rooms))}
-         :sample-rate 0.01}
+         :attributes {:room-ids (pr-str (map first changed-rooms))}}
         (ua/vfuture-pmap
          (fn [[room-id {:keys [data session-ids]}]]
            (rs/try-broadcast-event! store-conn session-ids {:op :refresh-presence
