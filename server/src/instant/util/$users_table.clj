@@ -14,7 +14,6 @@
    [instant.util.tracer :as tracer]
    [next.jdbc :as next-jdbc]))
 
-;; XXX: camelCase
 (def attr-mappings
   {"$users" {:table :app_users
              :app-id-join nil
@@ -199,7 +198,7 @@
     (mark-start-migrating-app-users app-id)
     (let [system-attrs (attr-model/get-by-app-id system-catalog-app-id)]
       (attr-model/with-cache-invalidation app-id
-        (tracer/with-span! {:name "$users/migrate-app" :attributes {:app-id app-id}}
+        (tracer/with-span! {:name "$users-table/migrate-app" :attributes {:app-id app-id}}
           (next-jdbc/with-transaction [tx-conn aurora/conn-pool]
             (sql/select tx-conn (hsql/format {:select [[[:pg_advisory_xact_lock (lock-hash app-id)]]]}))
             (app-model/set-users-in-triples! tx-conn {:app-id app-id
@@ -215,7 +214,7 @@
                     :let [query (hsql/format (triples-insert-query app-id
                                                                    etype
                                                                    system-attrs))]]
-              (tracer/with-span! {:name "$users/insert-triples"
+              (tracer/with-span! {:name "$users-table/insert-triples"
                                   :attributes {:etype etype}}
                 (let [res (sql/do-execute! tx-conn query)]
                   (tracer/add-data!
@@ -223,7 +222,7 @@
                                  (:next.jdbc/update-count (first res))}}))))
 
             ;; XXX: TODO: put the shims somewhere in case this causes problems
-            (tracer/with-span! {:name "$users/delete-$users-shims"}
+            (tracer/with-span! {:name "$users-table/delete-$users-shims"}
               (let [shim-ids
                     (keep (fn [attr]
                             (when (and (= :user (:catalog attr))

@@ -8,6 +8,12 @@ insert into apps (id, creator_id, title)
     'System catalog'
   );
 
+insert into rules (app_id, code)
+  values (
+   'a1111111-1111-1111-1111-111111111ca7',
+   '{"attrs": { "allow": { "create": "false" } }}'
+  );
+
 create or replace function prevent_delete_system_catalog_user()
 returns trigger as $$
 begin

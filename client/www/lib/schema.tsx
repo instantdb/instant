@@ -9,6 +9,7 @@ export function dbAttrsToExplorerSchema(
   > = {};
 
   const oAttrs: Record<string, DBAttr> = {};
+  // Filter out the system catalog attrs, except for $user.id and $user.email
   for (const [id, attrDesc] of Object.entries(rawAttrs)) {
     const [, namespace, label] = attrDesc['forward-identity'];
     if (attrDesc.catalog === 'system' && namespace !== '$users') {
