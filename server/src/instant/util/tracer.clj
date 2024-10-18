@@ -16,7 +16,6 @@
   (:gen-class))
 
 (def ^:dynamic *span* nil)
-(def ^:dynamic *skipped* false)
 
 ;; Expects an atom with a boolean value if not nil
 ;; Used to mute `add-exception!` from the outside when the caller expects errors
@@ -64,13 +63,12 @@
 (defonce last-calculated-metrics (atom {}))
 
 (defn new-span!
-  [{span-name :name :keys [attributes source sample-rate] :as params}]
+  [{span-name :name :keys [attributes source] :as params}]
   (when-not span-name
     (throw (Exception. (format "Expected a map with :name key, got %s." params))))
   (let [thread (Thread/currentThread)
         {:keys [code-ns code-line code-file]} source
         default-attributes (cond-> @last-calculated-metrics
-                             sample-rate (assoc "sample_rate" sample-rate)
                              true (assoc "host.name" (config/get-hostname))
                              thread (assoc SemanticAttributes/THREAD_NAME
                                            (.getName thread)
@@ -150,12 +148,11 @@
      (binding [*silence-exceptions?* silencer#]
        ~@body)))
 
-(defmacro with-span!*
+(defmacro with-span!
   [span-opts & body]
   `(let [source# {:code-line ~(:line (meta &form))
                   :code-file ~*file*
                   :code-ns   ~(str *ns*)}
-         sample-rate# (:sample-rate ~span-opts 1.0)
          span-opts# (assoc ~span-opts :source source#)]
      (binding [*span* (new-span! span-opts#)]
        (try
@@ -165,58 +162,6 @@
            (throw t#))
          (finally
            (end-span! *span*))))))
-
-;; (XXX)
-;; Given a `sample-rate`, we will randomly skip spans at that rate
-;; All children of a skipped span will also be skipped.
-;;
-;; There are more 'idiomatic' ways to do this:
-;; 1. We could use honeycomb's 'refinery'
-;;     This is a service that takes a full trace,
-;;     and lets us make a decision about whether to keep it or not.
-;;     For example, if a trace has an error, we 100% keep it
-;;
-;;     The con: This requires us to create a cluster of 'refinery' services.
-;;             That's ops overhead
-;; 2. Another option is to use a `Sampler` when we set up the SDK.
-;;
-;;     The con: our SDK is a bit out of date, and we didn't want to write more code for this version
-;;
-;; Going with some manual clojure macros for now.
-(defmacro with-span!
-  [span-opts & body]
-  `(let [span-opts# ~span-opts]
-     (cond
-       *skipped* (do ~@body)
-       (> (rand) (:sample-rate span-opts# 1.0))
-       (binding [*skipped* true]
-         ~@body)
-       :else
-       (with-span!* span-opts# ~@body))))
-
-(comment
-  ;; this will always print new-span!
-  (with-redefs [new-span! (fn [& args] (println "new-span!" args))
-                end-span! (fn [& _] _)]
-    (with-span! {:name "foo"}
-      (+ 1 1)))
-  ;; this will never print new-span!
-  (with-redefs [new-span! (fn [& args] (println "new-span!" args))
-                end-span! (fn [& _] _)]
-    (with-span! {:name "foo" :sample-rate 0}
-      (+ 1 1)))
-  ;; this will sometimes print new-span!
-  (with-redefs [new-span! (fn [& args] (println "new-span!" args))
-                end-span! (fn [& _] _)]
-    (with-span! {:name "foo" :sample-rate 0.5}
-      (+ 1 1)))
-
-  ;; this will never print, since the parent span is skipped
-  (with-redefs [new-span! (fn [& args] (println "new-span!" args))
-                end-span! (fn [& _] _)]
-    (with-span! {:name "foo" :sample-rate 0}
-      (with-span! {:name "foo" :sample-rate 1}
-        (+ 1 1)))))
 
 (defn record-info!
   "Analogous to log/info.
