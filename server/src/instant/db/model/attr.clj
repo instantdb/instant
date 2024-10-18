@@ -613,14 +613,14 @@
            {:id (random-uuid)
             :forward-identity [(random-uuid) "$users" "id"]
             :unique? true
-            :index? false
+            :index? true
             :value-type :blob
             :cardinality :one})
          (when-not (seek-by-fwd-ident-name ["$users" "email"] attrs)
            {:id (random-uuid)
             :forward-identity [(random-uuid) "$users" "email"]
             :unique? true
-            :index? false
+            :index? true
             :value-type :blob
             :cardinality :one})]))
 

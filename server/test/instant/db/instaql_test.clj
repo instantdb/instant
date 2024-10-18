@@ -1675,8 +1675,9 @@
         (doseq [user users]
           (app-user-model/create! user))
 
-        (is-pretty-eq? (query-pretty' {:$users {}})
-                       '({:topics ([:ea _ _ _] [:eav _ _ _]), :triples ()}))
+        (when-not (:users_in_triples app)
+          (is-pretty-eq? (query-pretty' {:$users {}})
+                         '({:topics ([:ea _ _ _] [:eav _ _ _]), :triples ()})))
 
         (insert-users-table! aurora/conn-pool (:id app))
 

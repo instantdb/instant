@@ -75,8 +75,8 @@
               [true :ea]
               [false :eav]
               [true :av]
-              [false :ave]
-              [true :vae]
+              [true :ave]
+              [false :vae]
               [[:cast [:* 1000 [:extract [:epoch-from :created-at]]] :bigint] :created-at]]
      :from :users-triples-up-to-md5}]
    [:triples
