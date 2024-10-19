@@ -662,9 +662,9 @@ export function Copyable({
           )}
         >
           {hideValue ? (
-            <EyeIcon className="-ml-0.5 h-4 w-4" aria-hidden="true" />
+            <EyeIcon className="h-4 w-4" aria-hidden="true" />
           ) : (
-            <EyeOffIcon className="-ml-0.5 h-4 w-4" aria-hidden="true" />
+            <EyeOffIcon className="h-4 w-4" aria-hidden="true" />
           )}
         </button>
         }
