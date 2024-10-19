@@ -617,12 +617,15 @@ export function Copyable({
   value,
   label,
   size = 'normal',
+  hideAppId,
+  onChangeHideAppId,
 }: {
   value: string;
   label: string;
   size?: 'normal' | 'large';
+  hideAppId?: boolean;
+  onChangeHideAppId?: () => void;
 }) {
-  const [showLabel, setShowLabel] = useState<boolean>(false);
   const [copyLabel, setCopyLabel] = useState('Copy');
   const sizeToStyle = {
     normal: { main: 'text-sm', copy: 'text-xs' },
@@ -647,26 +650,20 @@ export function Copyable({
           selection.selectAllChildren(el);
         }}
       >
-        {showLabel ? value : '********-****-****-****-************'}
+        {hideAppId ? '********-****-****-****-************' : value}
       </pre>
       <div className="flex gap-1 px-1">
         <button
-          onClick={() => setShowLabel(!showLabel)}
+          onClick={onChangeHideAppId}
           className={cn(
             'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
             { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
           )}
         >
-          {showLabel ? (
-            <>
-            <EyeOffIcon className="-ml-0.5 h-4 w-4" aria-hidden="true" />
-            Hide
-            </>
-          ) : (
-            <>
+          {hideAppId ? (
             <EyeIcon className="-ml-0.5 h-4 w-4" aria-hidden="true" />
-            Show
-            </>
+          ) : (
+            <EyeOffIcon className="-ml-0.5 h-4 w-4" aria-hidden="true" />
           )}
         </button>
         <CopyToClipboard text={value}>
