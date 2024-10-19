@@ -243,6 +243,9 @@ function Dashboard() {
   const _tab = router.query.t as TabId;
   const tab = tabIndex.has(_tab) ? _tab : defaultTab;
 
+  // Local states
+  const [hideAppId, setHideAppId] = useState(getLocal('hide_app_id'));
+
   const [connection, setConnection] = useState<{
     db: InstantReactClient;
   } | null>(null);
@@ -465,7 +468,15 @@ function Dashboard() {
             <div className="border-b">
               <div className="flex max-w-xl flex-col gap-2 p-3">
                 <h2 className="font-mono text-lg font-bold">{app.title}</h2>
-                <Copyable label="App ID" value={app.id} />
+                <Copyable
+                  label={hideAppId ? 'App ID' : 'Public App ID'}
+                  value={app.id}
+                  hideAppId={hideAppId}
+                  onChangeHideAppId={() => {
+                    setLocal('hide_app_id', !hideAppId);
+                    setHideAppId(!hideAppId);
+                  }}
+                />
               </div>
             </div>
             <div className="flex flex-1 flex-col overflow-hidden">
