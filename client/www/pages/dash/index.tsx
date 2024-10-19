@@ -471,8 +471,8 @@ function Dashboard() {
                 <Copyable
                   label={hideAppId ? 'App ID' : 'Public App ID'}
                   value={app.id}
-                  hideAppId={hideAppId}
-                  onChangeHideAppId={() => {
+                  hideValue={hideAppId}
+                  onChangeHideValue={() => {
                     setLocal('hide_app_id', !hideAppId);
                     setHideAppId(!hideAppId);
                   }}
