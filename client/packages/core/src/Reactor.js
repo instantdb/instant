@@ -1452,6 +1452,7 @@ export default class Reactor {
       refreshToken: authToken,
     });
     this.changeCurrentUser(res.user);
+    return res;
   }
 
   async signOut() {
