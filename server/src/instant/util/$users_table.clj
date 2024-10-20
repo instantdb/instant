@@ -9,7 +9,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
-   [instant.system-catalog :refer [system-catalog-app-id]]
+   [instant.system-catalog :as system-catalog]
    [instant.system-catalog-ops :refer [lock-hash]]
    [instant.util.tracer :as tracer]
    [next.jdbc :as next-jdbc]))
@@ -79,11 +79,7 @@
                                                      [:inline "hex"]]}
                             "$user" {:col :user_id}
                             "codeChallengeMethod" {:col :code_challenge_method}
-                            "codeChallengeHash" {:col :code_challenge
-                                                   :transform [:encode
-                                                               [:digest :code_challenge
-                                                                [:inline "sha256"]]
-                                                               [:inline "hex"]]}}}
+                            "codeChallenge" {:col :code_challenge}}}
    "$oauthRedirects" {:table :app_oauth_redirects
                        :app-id-join {:table :app_oauth_clients
                                      :col :client_id}
@@ -101,11 +97,7 @@
                                 "redirectUrl" {:col :redirect_url}
                                 "$oauthClient" {:col :client_id}
                                 "codeChallengeMethod" {:col :code_challenge_method}
-                                "codeChallengeHash" {:col :code_challenge
-                                                       :transform [:encode
-                                                                   [:digest :code_challenge
-                                                                    [:inline "sha256"]]
-                                                                   [:inline "hex"]]}}}})
+                                "codeChallenge" {:col :code_challenge}}}})
 
 (defn qualify [table col]
   {:pre [(keyword? table) (keyword? col)]}
@@ -196,21 +188,18 @@
 (defn migrate-app [app-id]
   (try
     (mark-start-migrating-app-users app-id)
-    (let [system-attrs (attr-model/get-by-app-id system-catalog-app-id)]
+    (let [system-attrs (attr-model/get-by-app-id system-catalog/system-catalog-app-id)]
       (attr-model/with-cache-invalidation app-id
         (tracer/with-span! {:name "$users-table/migrate-app" :attributes {:app-id app-id}}
           (next-jdbc/with-transaction [tx-conn aurora/conn-pool]
+            ;; Take a lock to prevent writes to app_users and friends
             (sql/select tx-conn (hsql/format {:select [[[:pg_advisory_xact_lock (lock-hash app-id)]]]}))
+
             (app-model/set-users-in-triples! tx-conn {:app-id app-id
                                                       :users-in-triples true})
-            (doseq [etype ["$users"
-                           "$magicCodes"
-                           "$userRefreshTokens"
-                           "$oauthProviders"
-                           "$oauthUserLinks"
-                           "$oauthClients"
-                           "$oauthRedirects"
-                           "$oauthCodes"]
+
+            ;; Migrate app_users and friends into the triples table
+            (doseq [etype system-catalog/all-etypes
                     :let [query (hsql/format (triples-insert-query app-id
                                                                    etype
                                                                    system-attrs))]]
@@ -221,18 +210,24 @@
                    {:attributes {:update-count
                                  (:next.jdbc/update-count (first res))}}))))
 
-            ;; XXX: TODO: put the shims somewhere in case this causes problems
-            (tracer/with-span! {:name "$users-table/delete-$users-shims"}
-              (let [shim-ids
-                    (keep (fn [attr]
-                            (when (and (= :user (:catalog attr))
-                                       (string/starts-with?
-                                        (attr-model/fwd-etype attr)
-                                        "$"))
-                              (:id attr)))
+            ;; Delete $users shims if the user had enabled the $users table
+            (let [shims
+                  (filter (fn [attr]
+                            (and (= :user (:catalog attr))
+                                 (string/starts-with?
+                                  (attr-model/fwd-etype attr)
+                                  "$")))
                           (attr-model/get-by-app-id tx-conn app-id))]
-                (when (seq shim-ids)
-                  (let [res (attr-model/delete-multi! tx-conn app-id shim-ids)]
+              (when (seq shims)
+                (tracer/with-span! {:name "$users-table/delete-$users-shims"
+                                    :attributes {:app-id app-id
+                                                 :shims (map (fn [a]
+                                                               {:id (:id a)
+                                                                :attr (format "%s/%s"
+                                                                              (attr-model/fwd-etype a)
+                                                                              (attr-model/fwd-label a))})
+                                                             shims)}}
+                  (let [res (attr-model/delete-multi! tx-conn app-id (map :id shims))]
                     (tracer/add-data!
                      {:attributes {:delete-count
                                    (:next.jdbc/update-count (first res))}})))))
@@ -245,7 +240,8 @@
   "Don't use in production, because it deletes everything."
   [app-id]
   (attr-model/with-cache-invalidation app-id
-    (let [system-attr-ids (map :id (attr-model/get-by-app-id system-catalog-app-id))]
+    (let [system-attr-ids (map :id (attr-model/get-by-app-id
+                                    system-catalog/system-catalog-app-id))]
       (next-jdbc/with-transaction [tx-conn aurora/conn-pool]
         (app-model/set-users-in-triples! tx-conn {:app-id app-id
                                                   :users-in-triples false})

@@ -56,7 +56,7 @@
    "discoveryEndpoint" "discovend"
    "meta" "meta"
    "codeChallengeMethod" "cchalmeth"
-   "codeChallengeHash" "cchalhash"
+   "codeChallenge" "codechall"
    "stateHash" "statehash"
    "cookieHash" "cookihash"
    "redirectUrl" "redireurl"
@@ -220,7 +220,7 @@
               :reverse-identity (get-ident-spec "$users" "$oauthCodes")
               :value-type :ref)
    (make-attr "$oauthCodes" "codeChallengeMethod")
-   (make-attr "$oauthCodes" "codeChallengeHash")])
+   (make-attr "$oauthCodes" "codeChallenge")])
 
 (def $oauth-redirect-attrs
   [(make-attr "$oauthRedirects" "id"
@@ -239,7 +239,7 @@
               :reverse-identity (get-ident-spec "$oauthClients" "$oauthRedirects")
               :value-type :ref)
    (make-attr "$oauthRedirects" "codeChallengeMethod")
-   (make-attr "$oauthRedirects" "codeChallengeHash")])
+   (make-attr "$oauthRedirects" "codeChallenge")])
 
 (def all-attrs (concat $users-attrs
                        $magic-code-attrs

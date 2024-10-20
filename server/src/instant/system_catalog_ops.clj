@@ -60,7 +60,7 @@
                       :encryptedClientSecret :client_secret
                       :discoveryEndpoint :discovery_endpoint
                       :codeChallengeMethod :code_challenge_method
-                      :codeChallengeHash :code_challenge_hash
+                      :codeChallenge :code_challenge
                       :stateHash :state_hash
                       :cooke-hash :cookie_hash
                       :redirectUrl :redirect_url

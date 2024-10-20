@@ -44,18 +44,14 @@
          code-challenge]))
      :triples-op
      (fn [{:keys [transact! resolve-id get-entity]}]
-       (let [eid (random-uuid)
-             challenge-hash (when code-challenge
-                              (-> code-challenge
-                                  (crypt-util/str->sha256)
-                                  (crypt-util/bytes->hex-string)))]
+       (let [eid (random-uuid)]
          (transact! [[:add-triple eid (resolve-id :id) eid]
                      [:add-triple eid (resolve-id :stateHash) (hash-uuid state)]
                      [:add-triple eid (resolve-id :cookieHash) (hash-uuid cookie)]
                      [:add-triple eid (resolve-id :redirectUrl) redirect-url]
                      [:add-triple eid (resolve-id :$oauthClient) oauth-client-id]
                      [:add-triple eid (resolve-id :codeChallengeMethod) code-challenge-method]
-                     [:add-triple eid (resolve-id :codeChallengeHash) challenge-hash]])
+                     [:add-triple eid (resolve-id :codeChallenge) code-challenge]])
          (get-entity eid)))})))
 
 (defn consume!
