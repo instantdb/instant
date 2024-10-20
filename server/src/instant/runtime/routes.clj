@@ -492,8 +492,7 @@
                         :user-id (:user_id social-login)
                         :app-id (:app_id social-login)
                         :code-challenge-method (:code_challenge_method oauth-redirect)
-                        :code-challenge (:code_challenge oauth-redirect)
-                        :code-challenge-hash (:code_challenge_hash oauth-redirect)})
+                        :code-challenge (:code_challenge oauth-redirect)})
           redirect-url (url/add-query-params (:redirect_url oauth-redirect)
                                              {:code code :_instant_oauth_redirect "true"})]
       (if (string/starts-with? (str (:scheme (uri/parse redirect-url))) "http")

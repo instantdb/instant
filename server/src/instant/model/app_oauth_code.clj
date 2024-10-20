@@ -17,8 +17,7 @@
                  user-id
                  app-id
                  code-challenge-method
-                 code-challenge
-                 code-challenge-hash]}]
+                 code-challenge]}]
    (update-op
     conn
     {:app-id app-id
