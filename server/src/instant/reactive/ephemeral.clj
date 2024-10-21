@@ -276,8 +276,9 @@
             :let [squuid-timestamp (squuid-time-millis sess-id)]
             :when (< squuid-timestamp oldest-timestamp)]
       (tracer/with-span! {:name "clean-old-session"
-                          :attributes {:session-id sess-id
-                                       :app-id app-id
+                          :attributes {:app-id app-id
+                                       :room-id room-id
+                                       :session-id sess-id
                                        :squuid-timestamp squuid-timestamp}}
         (remove-session! app-id room-id sess-id)))))
 
