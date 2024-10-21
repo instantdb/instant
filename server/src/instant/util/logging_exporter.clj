@@ -64,8 +64,7 @@
       ;; every span. This is too noisy for stdout
       (string/starts-with? k "jvm.")
       ;; gauge metrics for a namespace
-      (and (not= :prod (config/get-env))
-           (string/starts-with? k "instant."))))
+      (string/starts-with? k "instant.")))
 
 (defn format-attr-value
   "Formats attr values for logs."
