@@ -462,9 +462,8 @@
                              (friendly-inferred-types inferred_types))
            :catalog (if (= app_id system-catalog-app-id)
                       :system
-                      :user)
-           :on-delete (when on_delete
-                        (keyword on_delete))}
+                      :user)}
+    on_delete (assoc :on-delete (keyword on_delete))
     reverse_ident (assoc :reverse-identity [reverse_ident rev_etype rev_label])))
 
 (defn index-attrs
