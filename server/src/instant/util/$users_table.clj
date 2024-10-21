@@ -34,6 +34,7 @@
                                        :col :user_id}
                          :needs-id? true
                          :fields {"id" {:col :entity-id}
+                                  "$user" {:col :user_id}
                                   "hashedToken"
                                   {:col :token
                                    :transform [:encode
