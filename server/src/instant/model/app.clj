@@ -1,28 +1,30 @@
 (ns instant.model.app
-  (:require [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
-            [instant.model.instant-user :as instant-user-model]
-            [next.jdbc :as next-jdbc]
-            [honey.sql :as hsql]
-            [instant.model.app-admin-token :as app-admin-token-model]
-            [instant.util.crypt :as crypt-util]
-            [instant.util.exception :as ex]
-            [instant.util.uuid :as uuid-util]
-            [instant.db.model.attr :as attr-model]
-            [instant.model.rule :as rule-model]
-            [instant.db.model.transaction :as transaction-model])
+  (:require
+   [honey.sql :as hsql]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.model.transaction :as transaction-model]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.model.app-admin-token :as app-admin-token-model]
+   [instant.model.instant-user :as instant-user-model]
+   [instant.model.rule :as rule-model]
+   [instant.system-catalog-ops :refer [query-op]]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.exception :as ex]
+   [instant.util.uuid :as uuid-util]
+   [next.jdbc :as next-jdbc])
   (:import
    (java.util UUID)))
 
 (defn create!
   ([params] (create! aurora/conn-pool params))
-  ([conn {:keys [id title creator-id admin-token]}]
+  ([conn {:keys [id title creator-id admin-token users-in-triples?]}]
 
    (next-jdbc/with-transaction [tx-conn conn]
      (let [app (sql/execute-one!
                 tx-conn
-                ["INSERT INTO apps (id, title, creator_id) VALUES (?::uuid, ?, ?::uuid)"
-                 id title creator-id])
+                ["INSERT INTO apps (id, title, creator_id, users_in_triples) VALUES (?::uuid, ?, ?::uuid, ?)"
+                 id title creator-id users-in-triples?])
            {:keys [token]} (app-admin-token-model/create! tx-conn {:app-id id
                                                                    :token admin-token})]
        (assoc app :admin-token token)))))
@@ -36,8 +38,11 @@
                      FROM apps a
                      WHERE a.id = ?::uuid" id])))
 
-(defn get-by-id! [params]
-  (ex/assert-record! (get-by-id params) :app {:args [params]}))
+(defn get-by-id!
+  ([params]
+   (get-by-id! aurora/conn-pool params))
+  ([conn params]
+   (ex/assert-record! (get-by-id conn params) :app {:args [params]})))
 
 (defn list-by-creator-id
   ([user-id] (list-by-creator-id aurora/conn-pool user-id))
@@ -104,11 +109,11 @@
   ([params] (get-all-for-user aurora/conn-pool params))
   ([conn {:keys [user-id]}]
    (sql/select conn ["WITH s AS (
-                        SELECT 
+                        SELECT
                           app_id,
                           subscription_type_id
                         FROM (
-                          SELECT 
+                          SELECT
                             app_id,
                             subscription_type_id,
                             ROW_NUMBER() OVER (
@@ -212,51 +217,103 @@
 (defn get-dash-auth-data
   ([params] (get-dash-auth-data aurora/conn-pool params))
   ([conn {:keys [app-id]}]
-   (sql/select-one
+   (query-op
     conn
-    ["SELECT json_build_object(
-        'oauth_service_providers', (
-          SELECT json_agg(json_build_object(
-            'id', osp.id,
-            'provider_name', osp.provider_name,
-            'created_at', osp.created_at
-          ))
-          FROM (SELECT * FROM app_oauth_service_providers osp
-                  WHERE osp.app_id = a.id
-                  ORDER BY osp.created_at desc)
-          AS osp
-        ),
-        'oauth_clients', (
-          SELECT json_agg(json_build_object(
-            'id', oc.id,
-            'client_name', oc.client_name,
-            'client_id', oc.client_id,
-            'provider_id', oc.provider_id,
-            'created_at', oc.created_at,
-            'meta', oc.meta,
-            'discovery_endpoint', oc.discovery_endpoint
-          ))
-          FROM (SELECT * FROM app_oauth_clients oc
-                 WHERE oc.app_id = a.id
-                 ORDER BY oc.created_at desc)
-          AS oc
-        ),
-        'authorized_redirect_origins', (
-          SELECT json_agg(json_build_object(
-            'id', ro.id,
-            'service', ro.service,
-            'params', ro.params,
-            'created_at', ro.created_at
-          ))
-          FROM (SELECT * from app_authorized_redirect_origins ro
-                 WHERE ro.app_id = a.id
-                 ORDER BY ro.created_at desc)
-          AS ro
-        )
-      ) AS data
-      FROM apps a
-      WHERE a.id = ?::uuid"
-     app-id])))
+    {:app-id app-id
+     :legacy-op
+     (fn []
+       (sql/select-one
+        conn
+        ["SELECT json_build_object(
+            'oauth_service_providers', (
+              SELECT json_agg(json_build_object(
+                'id', osp.id,
+                'provider_name', osp.provider_name,
+                'created_at', osp.created_at
+              ))
+              FROM (SELECT * FROM app_oauth_service_providers osp
+                      WHERE osp.app_id = a.id
+                      ORDER BY osp.created_at desc)
+              AS osp
+            ),
+            'oauth_clients', (
+              SELECT json_agg(json_build_object(
+                'id', oc.id,
+                'client_name', oc.client_name,
+                'client_id', oc.client_id,
+                'provider_id', oc.provider_id,
+                'created_at', oc.created_at,
+                'meta', oc.meta,
+                'discovery_endpoint', oc.discovery_endpoint
+              ))
+              FROM (SELECT * FROM app_oauth_clients oc
+                     WHERE oc.app_id = a.id
+                     ORDER BY oc.created_at desc)
+              AS oc
+            ),
+            'authorized_redirect_origins', (
+              SELECT json_agg(json_build_object(
+                'id', ro.id,
+                'service', ro.service,
+                'params', ro.params,
+                'created_at', ro.created_at
+              ))
+              FROM (SELECT * from app_authorized_redirect_origins ro
+                     WHERE ro.app_id = a.id
+                     ORDER BY ro.created_at desc)
+              AS ro
+            )
+          ) AS data
+          FROM apps a
+          WHERE a.id = ?::uuid"
+         app-id]))
+     :triples-op
+     (fn [{:keys [admin-query]}]
+       (let [redirect-origins
+             (-> (sql/select-one
+                  conn
+                  ["SELECT json_build_object(
+                      'authorized_redirect_origins', (
+                        SELECT json_agg(json_build_object(
+                          'id', ro.id,
+                          'service', ro.service,
+                          'params', ro.params,
+                          'created_at', ro.created_at
+                        ))
+                        FROM (SELECT * from app_authorized_redirect_origins ro
+                               WHERE ro.app_id = a.id
+                               ORDER BY ro.created_at desc)
+                        AS ro
+                      )
+                    ) AS data
+                    FROM apps a
+                    WHERE a.id = ?::uuid"
+                   app-id])
+                 (get-in [:data "authorized_redirect_origins"]))
+
+             {:strs [$oauthProviders
+                     $oauthClients]}
+             (admin-query {:$oauthProviders {}
+                           :$oauthClients {}})
+
+             providers (map (fn [provider]
+                              {"id" (get provider "id")
+                               "provider_name" (get provider "name")
+                               "created_at" (get provider "$serverCreatedAt")})
+                            $oauthProviders)
+
+             clients (map (fn [client]
+                            {"id" (get client "id")
+                             "client_name" (get client "name")
+                             "client_id" (get client "clientId")
+                             "provider_id" (get client "$oauthProvider")
+                             "meta" (get client "meta")
+                             "discovery_endpoint" (get client "discovery_endpoint")
+                             "created_at" (get client "$serverCreatedAt")})
+                          $oauthClients)]
+         {:data {"oauth_service_providers" providers
+                 "oauth_clients" clients
+                 "authorized_redirect_origins" redirect-origins}}))})))
 
 (defn delete-by-id!
   ([params] (delete-by-id! aurora/conn-pool params))
@@ -311,12 +368,12 @@
   from the transactions table instead.
 
   Usage is comprised of both raw data and overhead data (indexes, toast tables, etc.).
-  
+
   sum(pg_column_size(t)) calculates the total data size for the specified app_id.
   pg_total_relation_size('triples') / pg_relation_size('triples') calculates
   the ratio of the total table size to the actual data size. This ratio
   represents the overhead factor.
-    
+
   Multiplying the app_id data size by the overhead factor gives an estimate of
   real usage"
   ([params] (app-usage aurora/conn-pool params))
@@ -344,6 +401,13 @@
                       (crypt-util/aead-encrypt {:plaintext (.getBytes connection-string)
                                                 :associated-data (uuid-util/->bytes app-id)})
                       app-id])))
+
+(defn set-users-in-triples!
+  ([params] (set-users-in-triples! aurora/conn-pool params))
+  ([conn {:keys [app-id users-in-triples]}]
+   (sql/execute-one! conn ["update apps set users_in_triples = ?::boolean where id = ?::uuid"
+                           users-in-triples
+                           app-id])))
 
 (comment
   (app-usage aurora/conn-pool {:app-id "5cb86bd5-5dfb-4489-a455-78bb86cd3da3"}))

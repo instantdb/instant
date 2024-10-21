@@ -17,8 +17,6 @@
    This namespace transforms the user-facing `steps` to the internal `tx-steps`."
   (:require
    [instant.db.model.attr :as attr-model]
-   [instant.db.model.attr-pat :as attr-pat]
-   [instant.db.model.entity :as entity-model]
    [instant.db.model.triple :as triple-model]
    [clojure.walk :as w]
    [clojure.spec.alpha :as s]
@@ -407,60 +405,6 @@
         coerced (tx/coerce! tx-steps)
         _ (tx/validate! coerced)]
     coerced))
-
-;; -----
-;; Query
-
-(declare instaql-ref-nodes->object-tree)
-
-(defn enrich-node [attrs parent-etype node]
-  (let [label (-> node :data :k)
-        pat (attr-pat/->guarded-ref-attr-pat
-             {:attrs attrs}
-             parent-etype
-             0
-             label)
-        [next-etype _ _ attr forward?] pat
-        enriched-node (update node
-                              :data
-                              (fn [d] (assoc d
-                                             :etype next-etype
-                                             :attr attr
-                                             :forward? forward?)))]
-    enriched-node))
-
-(defn obj-node [ctx attrs etype node]
-  (let [datalog-result (-> node :data :datalog-result)
-        blob-entries (entity-model/datalog-result->map {:attrs attrs} datalog-result)
-        ref-entries (some->> node
-                             :child-nodes
-                             (map (partial enrich-node attrs etype))
-                             (instaql-ref-nodes->object-tree ctx attrs))]
-    (merge blob-entries ref-entries)))
-
-(defn singular-entry? [data]
-  (if (-> data :forward?)
-    (= :one (-> data :attr :cardinality))
-    (-> data :attr :unique?)))
-
-(defn instaql-ref-nodes->object-tree [ctx attrs nodes]
-  (reduce
-   (fn [acc node]
-     (let [{:keys [child-nodes data]} node
-           entries (map (partial obj-node ctx attrs (-> data :etype)) child-nodes)
-           singular? (and (:inference? ctx) (singular-entry? data))
-           entry-or-entries (if singular? (first entries) entries)]
-       (assoc acc (:k data) entry-or-entries)))
-   {}
-   nodes))
-
-(defn instaql-nodes->object-tree [ctx attrs nodes]
-  (let [enriched-nodes
-        (map (fn [n] (update n :data (fn [d] (assoc d :etype (:k d))))) nodes)]
-    (instaql-ref-nodes->object-tree ctx
-                                    attrs
-                                    enriched-nodes)))
-
 
 (comment
   (def counters-app-id  #uuid "b502cabc-11ed-4534-b340-349d46548642")

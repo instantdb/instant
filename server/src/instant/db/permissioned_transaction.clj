@@ -1,5 +1,6 @@
 (ns instant.db.permissioned-transaction
   (:require
+   [clojure.string :as string]
    [instant.db.cel :as cel]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
@@ -510,11 +511,12 @@
                           etype)
 
                         nil)]
-          :when (= "$users" etype)]
+          :when (and etype (string/starts-with? etype "$"))]
     (ex/throw-validation-err!
      :tx-step
      tx-step
-     [{:message "The $users namespace is read-only. It can't be modified."}])))
+     [{:message (format "The %s namespace is read-only. It can't be modified."
+                        etype)}])))
 
 (defn lock-tx-on! [tx-conn big-int]
   (sql/execute! tx-conn ["SELECT pg_advisory_xact_lock(?)" big-int]))

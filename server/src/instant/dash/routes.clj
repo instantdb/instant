@@ -942,10 +942,11 @@
                                                               :create "false"
                                                               :update "false"
                                                               :delete "false"}}}})]
-        (attr-model/insert-multi! tx-conn
-                                  app-id
-                                  (attr-model/gen-users-shim-attrs current-attrs)
-                                  {:allow-reserved-names? true})
+        (when-let [new-attrs (seq (attr-model/gen-users-shim-attrs current-attrs))]
+          (attr-model/insert-multi! tx-conn
+                                    app-id
+                                    new-attrs
+                                    {:allow-reserved-names? true}))
         (transaction-model/create! tx-conn {:app-id app-id})
         rules))))
 

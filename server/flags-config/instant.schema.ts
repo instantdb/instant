@@ -5,6 +5,10 @@ import { i } from "@instantdb/core";
 
 const graph = i.graph(
   {
+    "app-users-to-triples-migration": i.entity({
+      "appId": i.any(),
+      "processId": i.any(),
+    }),
     "friend-emails": i.entity({
       "email": i.any().unique(),
     }),
@@ -30,6 +34,9 @@ const graph = i.graph(
     }),
     "test-emails": i.entity({
       "email": i.any(),
+    }),
+    "users-to-triples-migration": i.entity({
+  
     }),
     "view-checks": i.entity({
       "default-value": i.any(),

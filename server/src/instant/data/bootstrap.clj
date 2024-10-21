@@ -8,6 +8,7 @@
    [clojure.java.io :as io]
    [clojure.string :as string]
    [instant.util.json :refer [<-json ->json]]
+   [instant.model.app-user :as app-user-model]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.entity :as entity-model]
    [instant.db.model.triple :as triple-model]
@@ -122,8 +123,8 @@
                 {:email email
                  :id id
                  :app-id app-id})]
-    (sql/execute! aurora/conn-pool (hsql/format {:insert-into :app-users
-                                                 :values users}))
+    (doseq [user users]
+      (app-user-model/create! user))
 
     (count triples)))
 

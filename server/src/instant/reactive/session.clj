@@ -30,7 +30,6 @@
    [instant.reactive.ephemeral :as eph]
    [instant.util.exception :as ex]
    [instant.util.uuid :as uuid-util]
-   [instant.reactive.session :as session]
    [instant.grouped-queue :as grouped-queue]
    [instant.gauges :as gauges])
   (:import
