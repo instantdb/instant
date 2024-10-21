@@ -128,7 +128,7 @@
 ;; -------
 ;; caching
 
-(defonce attr-cache (cache/lru-cache-factory {} :threshold 256))
+(def attr-cache (cache/lru-cache-factory {} :threshold 256))
 
 (defn evict-app-id-from-cache [app-id]
   (cache/evict attr-cache app-id))
@@ -158,13 +158,13 @@
   "Manual reflection of postgres attr table columns"
   [:id :app-id :value-type
    :cardinality :is-unique :is-indexed
-   :forward-ident :reverse-ident])
+   :forward-ident :reverse-ident :on-delete])
 
 (defn attr-table-values
   "Marshals a collection of attrs into insertable sql attr values"
   [app-id attrs]
   (map (fn [{:keys [id value-type cardinality unique? index?
-                    forward-identity reverse-identity]}]
+                    forward-identity reverse-identity on-delete]}]
          [id
           app-id
           [:cast (when value-type (name value-type)) :text]
@@ -172,7 +172,11 @@
           [:cast unique? :boolean]
           [:cast index? :boolean]
           [:cast (first forward-identity) :uuid]
-          [:cast (first reverse-identity) :uuid]])
+          [:cast (first reverse-identity) :uuid]
+          [:cast
+           (some-> on-delete
+                   name)
+           :attr_on_delete]])
        attrs))
 
 (def ident-table-cols
@@ -219,6 +223,18 @@
                      "Namespaces are not allowed to start with a `$`.
                       Those are reserved for system namespaces.")}])))))
 
+(defn validate-on-deletes!
+  "Prevents users from setting on-delete :cascade on attrs. This would
+   be a nice feature to release, but it needs some thought on what
+   restrictions we put in place. The implementation also needs optimization."
+  [attrs]
+  (doseq [attr attrs]
+    (when (:on-delete attr)
+      (ex/throw-validation-err!
+       :attributes
+       attr
+       [{:message "The :on-delete property can't be set on an attribute."}]))))
+
 (defn insert-multi!
   "Attr data is expressed as one object in clj but is persisted across two tables
    in sql: `attrs` and `idents`.
@@ -226,10 +242,14 @@
    We extract relevant data for each table and build a CTE to insert into
    both tables in one statement"
   ([conn app-id attrs]
-   (insert-multi! conn app-id attrs {:allow-reserved-names? false}))
-  ([conn app-id attrs {:keys [allow-reserved-names?]}]
+   (insert-multi! conn app-id attrs {:allow-reserved-names? false
+                                     :allow-on-deletes? false}))
+  ([conn app-id attrs {:keys [allow-reserved-names?
+                              allow-on-deletes?]}]
    (when-not allow-reserved-names?
      (validate-reserved-names! attrs))
+   (when-not allow-on-deletes?
+     (validate-on-deletes! attrs))
    (with-cache-invalidation app-id
      (sql/do-execute!
       conn
@@ -430,7 +450,8 @@
            reverse_ident
            rev_label
            rev_etype
-           inferred_types]}]
+           inferred_types
+           on_delete]}]
   (cond-> {:id id
            :value-type (keyword value_type)
            :cardinality (keyword cardinality)
@@ -441,7 +462,9 @@
                              (friendly-inferred-types inferred_types))
            :catalog (if (= app_id system-catalog-app-id)
                       :system
-                      :user)}
+                      :user)
+           :on-delete (when on_delete
+                        (keyword on_delete))}
     reverse_ident (assoc :reverse-identity [reverse_ident rev_etype rev_label])))
 
 (defn index-attrs

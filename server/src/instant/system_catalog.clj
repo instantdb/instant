@@ -148,7 +148,8 @@
    (make-attr "$magicCodes" "$user"
               :reverse-identity (get-ident-spec "$users" "$magicCodes")
               :index? true
-              :value-type :ref)])
+              :value-type :ref
+              :on-delete :cascade)])
 
 (def $user-refresh-token-attrs
   [(make-attr "$userRefreshTokens" "id"
@@ -160,7 +161,8 @@
    (make-attr "$userRefreshTokens" "$user"
               :reverse-identity (get-ident-spec "$users" "$userRefreshTokens")
               :index? true
-              :value-type :ref)])
+              :value-type :ref
+              :on-delete :cascade)])
 
 (def $oauth-provider-attrs
   [(make-attr "$oauthProviders" "id"
@@ -180,10 +182,12 @@
    (make-attr "$oauthUserLinks" "$user"
               :reverse-identity (get-ident-spec "$users" "$oauthUserLinks")
               :index? true
-              :value-type :ref)
+              :value-type :ref
+              :on-delete :cascade)
    (make-attr "$oauthUserLinks" "$oauthProvider"
               :reverse-identity (get-ident-spec "$oauthProviders" "$oauthUserLinks")
-              :index? true)
+              :index? true
+              :on-delete :cascade)
    ;; Trick to get a unique key on multiple attrs We have to manually
    ;; set it, but it would be nice if instant provided some sort of
    ;; computed column to do this automatically
@@ -197,7 +201,8 @@
               :index? true)
    (make-attr "$oauthClients" "$oauthProvider"
               :reverse-identity (get-ident-spec "$oauthProviders" "$oauthClients")
-              :value-type :ref)
+              :value-type :ref
+              :on-delete :cascade)
    (make-attr "$oauthClients" "name"
               :unique? true
               :index? true)
@@ -216,7 +221,8 @@
               :index? true)
    (make-attr "$oauthCodes" "$user"
               :reverse-identity (get-ident-spec "$users" "$oauthCodes")
-              :value-type :ref)
+              :value-type :ref
+              :on-delete :cascade)
    (make-attr "$oauthCodes" "codeChallengeMethod")
    (make-attr "$oauthCodes" "codeChallenge")])
 
@@ -235,7 +241,8 @@
               :index? false)
    (make-attr "$oauthRedirects" "$oauthClient"
               :reverse-identity (get-ident-spec "$oauthClients" "$oauthRedirects")
-              :value-type :ref)
+              :value-type :ref
+              :on-delete :cascade)
    (make-attr "$oauthRedirects" "codeChallengeMethod")
    (make-attr "$oauthRedirects" "codeChallenge")])
 
