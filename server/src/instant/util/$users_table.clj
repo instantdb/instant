@@ -144,7 +144,7 @@
                                                        [[:inline (name col)]
                                                         [:coalesce [:to_jsonb (or transform
                                                                                   col)]
-                                                         [:inline "\"null\""]]])
+                                                         [:inline "null"]]])
                                                      (vals fields))
                                              [:else nil]) :value]
                                     [:attr-mapping.ea :ea]
