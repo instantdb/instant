@@ -20,30 +20,30 @@
              :fields {"id" {:col :id}
                       "email" {:col :email}}}
    "$magicCodes" {:table :app_user_magic_codes
-                   :app-id-join {:table :app_users
-                                 :col :user_id}
-                   :fields {"id" {:col :id}
-                            "codeHash" {:col :code
-                                         :transform [:encode
-                                                     [:digest :code
-                                                      [:inline "sha256"]]
-                                                     [:inline "hex"]]}
-                            "$user" {:col :user_id}}}
+                  :app-id-join {:table :app_users
+                                :col :user_id}
+                  :fields {"id" {:col :id}
+                           "codeHash" {:col :code
+                                       :transform [:encode
+                                                   [:digest :code
+                                                    [:inline "sha256"]]
+                                                   [:inline "hex"]]}
+                           "$user" {:col :user_id}}}
    "$userRefreshTokens" {:table :app_user_refresh_tokens
-                           :app-id-join {:table :app_users
-                                         :col :user_id}
-                           :needs-id? true
-                           :fields {"id" {:col :entity-id}
-                                    "hashedToken"
-                                    {:col :token
-                                     :transform [:encode
-                                                 [:digest [:uuid_send :id]
-                                                  [:inline "sha256"]]
-                                                 [:inline "hex"]]}}}
+                         :app-id-join {:table :app_users
+                                       :col :user_id}
+                         :needs-id? true
+                         :fields {"id" {:col :entity-id}
+                                  "hashedToken"
+                                  {:col :token
+                                   :transform [:encode
+                                               [:digest [:uuid_send :id]
+                                                [:inline "sha256"]]
+                                               [:inline "hex"]]}}}
    "$oauthProviders" {:table :app_oauth_service_providers
-                       :app-id-join nil
-                       :fields {"id" {:col :id}
-                                "name" {:col :provider_name}}}
+                      :app-id-join nil
+                      :fields {"id" {:col :id}
+                               "name" {:col :provider_name}}}
    "$oauthUserLinks" {:table :app_user_oauth_links
                       :app-id-join nil
                       :fields
@@ -57,47 +57,47 @@
                                                          [:inline "+"]
                                                          :provider_id]}}}
    "$oauthClients" {:table :app_oauth_clients
-                     :app-id-join nil
-                     :fields
-                     {"id" {:col :id}
-                      "$oauthProvider" {:col :provider_id}
-                      "name" {:col :client_name}
-                      "clientId" {:col :client_id}
-                      "encryptedClientSecret" {:col :client_secret
-                                                 :transform [:encode
-                                                             :client_secret
-                                                             [:inline "hex"]]}
-                      "discoveryEndpoint" {:col :discovery_endpoint}
-                      "meta" {:col :meta}}}
-   "$oauthCodes" {:table :app_oauth_codes
-                   :app-id-join nil
-                   :needs-id? true
-                   :fields {"id" {:col :entity-id}
-                            "codeHash" {:col :lookup_key
-                                         :transform [:encode
-                                                     :lookup_key
-                                                     [:inline "hex"]]}
-                            "$user" {:col :user_id}
-                            "codeChallengeMethod" {:col :code_challenge_method}
-                            "codeChallenge" {:col :code_challenge}}}
-   "$oauthRedirects" {:table :app_oauth_redirects
-                       :app-id-join {:table :app_oauth_clients
-                                     :col :client_id}
-                       :needs-id? true
-                       :fields {"id" {:col :entity-id}
-                                "stateHash" {:col :lookup_key
+                    :app-id-join nil
+                    :fields
+                    {"id" {:col :id}
+                     "$oauthProvider" {:col :provider_id}
+                     "name" {:col :client_name}
+                     "clientId" {:col :client_id}
+                     "encryptedClientSecret" {:col :client_secret
                                               :transform [:encode
-                                                          :lookup_key
+                                                          :client_secret
                                                           [:inline "hex"]]}
-                                "cookieHash" {:col :cookie
-                                               :transform [:encode
-                                                           [:digest [:uuid_send :cookie]
-                                                            [:inline "sha256"]]
-                                                           [:inline "hex"]]}
-                                "redirectUrl" {:col :redirect_url}
-                                "$oauthClient" {:col :client_id}
-                                "codeChallengeMethod" {:col :code_challenge_method}
-                                "codeChallenge" {:col :code_challenge}}}})
+                     "discoveryEndpoint" {:col :discovery_endpoint}
+                     "meta" {:col :meta}}}
+   "$oauthCodes" {:table :app_oauth_codes
+                  :app-id-join nil
+                  :needs-id? true
+                  :fields {"id" {:col :entity-id}
+                           "codeHash" {:col :lookup_key
+                                       :transform [:encode
+                                                   :lookup_key
+                                                   [:inline "hex"]]}
+                           "$user" {:col :user_id}
+                           "codeChallengeMethod" {:col :code_challenge_method}
+                           "codeChallenge" {:col :code_challenge}}}
+   "$oauthRedirects" {:table :app_oauth_redirects
+                      :app-id-join {:table :app_oauth_clients
+                                    :col :client_id}
+                      :needs-id? true
+                      :fields {"id" {:col :entity-id}
+                               "stateHash" {:col :lookup_key
+                                            :transform [:encode
+                                                        :lookup_key
+                                                        [:inline "hex"]]}
+                               "cookieHash" {:col :cookie
+                                             :transform [:encode
+                                                         [:digest [:uuid_send :cookie]
+                                                          [:inline "sha256"]]
+                                                         [:inline "hex"]]}
+                               "redirectUrl" {:col :redirect_url}
+                               "$oauthClient" {:col :client_id}
+                               "codeChallengeMethod" {:col :code_challenge_method}
+                               "codeChallenge" {:col :code_challenge}}}})
 
 (defn qualify [table col]
   {:pre [(keyword? table) (keyword? col)]}
@@ -250,12 +250,3 @@
                                                     [:= :app-id app-id]
                                                     [:in :attr-id system-attr-ids]]}))
         (transaction-model/create! tx-conn {:app-id app-id})))))
-
-;; XXX: Need default permissions
-;;      I think we can just add view, update, etc. false for all of them for now
-;;      and hide them from the dashboard
-
-;; Open questions:
-
-;; XXX: We probably need something that will delete stuff in the background
-;;      Maybe we should add ttl for objects?

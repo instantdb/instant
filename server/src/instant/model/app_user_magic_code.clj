@@ -77,6 +77,7 @@
                                               :$user.email email})]
          (ex/assert-record! code-id :app-user-magic-code {:args [params]})
          (let [code (delete-entity! code-id)]
+           (ex/assert-record! code :app-user-magic-code {:args [params]})
            (when (expired? code)
              (ex/throw-expiration-err! :app-user-magic-code {:args [params]}))
            code)))})))

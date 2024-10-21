@@ -121,8 +121,6 @@
 (defn get-ident-spec [etype label]
   [(encode-system-uuid :ident etype label) etype label])
 
-;; XXX: Need to insert inferred types when we set up the attrs
-;;      Everything is a string except :meta
 (defn make-attr [etype label & props]
   (merge {:id (get-attr-id etype label)
           :forward-identity (get-ident-spec etype label)
@@ -156,7 +154,7 @@
   [(make-attr "$userRefreshTokens" "id"
               :unique? true
               :index? true)
-   (make-attr  "$userRefreshTokens" "hashedToken"
+   (make-attr "$userRefreshTokens" "hashedToken"
               :unique? true
               :index? true)
    (make-attr "$userRefreshTokens" "$user"

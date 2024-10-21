@@ -79,7 +79,6 @@
        :triples-op (fn [{:keys [transact! resolve-id get-entity]}]
                     (transact! [[:add-triple id (resolve-id :id) id]
                                 [:add-triple id (resolve-id :$oauthProvider) provider-id]
-                                ;; XXX: translate
                                 [:add-triple id (resolve-id :name) client-name]
                                 [:add-triple id (resolve-id :clientId) client-id]
                                 [:add-triple

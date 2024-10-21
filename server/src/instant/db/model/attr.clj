@@ -439,7 +439,6 @@
            :index? is_indexed
            :inferred-types (when inferred_types
                              (friendly-inferred-types inferred_types))
-           ;; XXX: We'll call this system instead of $users-attrs, need to update a lot of stuff
            :catalog (if (= app_id system-catalog-app-id)
                       :system
                       :user)}

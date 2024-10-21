@@ -167,9 +167,9 @@
                                 nodes)))
 
 (defn update-op [conn-pool {:keys [app-id
-                                etype
-                                legacy-op
-                                triples-op]}]
+                                   etype
+                                   legacy-op
+                                   triples-op]}]
   (next-jdbc/with-transaction [tx-conn conn-pool]
     (let [app (get-app! tx-conn app-id)]
       (if-not (:users_in_triples app)
@@ -195,16 +195,12 @@
 
             :get-entities-where
             (fn [where]
-              (get-entities-where tx-conn app-id attrs etype where))
-
-            :triples->db-format
-            (fn [triples]
-              (triples->db-format app-id attrs etype triples))}))))))
+              (get-entities-where tx-conn app-id attrs etype where))}))))))
 
 (defn query-op [conn-pool {:keys [app-id
-                               etype
-                               legacy-op
-                               triples-op]}]
+                                  etype
+                                  legacy-op
+                                  triples-op]}]
   (let [app (get-app! conn-pool app-id)]
     (if-not (:users_in_triples app)
       (legacy-op)

@@ -76,6 +76,7 @@
       (let [ast (cel/->ast "false")]
         {:etype etype
          :action action
+         ;; For display purposes
          :code (format "disallow_%s_on_system_tables" action)
          :cel-ast ast
          :cel-program (cel/->program ast)}))))
