@@ -108,12 +108,12 @@
   "Returns a query that will translate the table into triples and insert them into the database."
   [app-id etype attrs]
   (let [{:keys [table fields app-id-join needs-id?]} (get attr-mappings etype)
-        values (mapv (fn [[label {:keys [col]}]]
+        values (mapv (fn [label]
                        (let [attr (attr-model/seek-by-fwd-ident-name
                                    [etype label]
                                    attrs)]
                          (assert attr (format "Expected to find an attr for `%s.%s`" etype label))
-                         [[:inline label]              ; col
+                         [[:inline label]              ; field
                           (:id attr)                   ; attr-id
                           (= :one (:cardinality attr)) ; ea
                           (= :ref (:value-type attr))  ; eav
@@ -121,7 +121,7 @@
                           (:index? attr)               ; ave
                           (= :ref (:value-type attr))  ; vae
                           ]))
-                     fields)]
+                     (keys fields))]
     {:with
      [[:attr-mapping {:select :*
                       :from [[{:values values}
