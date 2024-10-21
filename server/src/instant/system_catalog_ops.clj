@@ -35,43 +35,45 @@
 
 (defn triples->db-format [app-id attrs etype triples]
   (reduce (fn [acc [_e a v t]]
-            (let [k (-> a
-                        (attr-model/seek-by-id attrs)
-                        (attr-model/fwd-label)
-                        keyword)
+            (let [attr (attr-model/seek-by-id a attrs)]
+              (if-not (= etype (attr-model/fwd-etype attr))
+                acc
+                (let [k (-> attr
+                            (attr-model/fwd-label)
+                            keyword)
 
-                  v (cond
-                      (string/starts-with? (name k) "$")
-                      (uuid-util/coerce v)
+                      v (cond
+                          (string/starts-with? (name k) "$")
+                          (uuid-util/coerce v)
 
-                      (= k :id) (uuid-util/coerce v)
+                          (= k :id) (uuid-util/coerce v)
 
-                      (= k :encryptedClientSecret)
-                      (when v
-                        (crypt-util/hex-string->bytes v))
-                      :else v)
+                          (= k :encryptedClientSecret)
+                          (when v
+                            (crypt-util/hex-string->bytes v))
+                          :else v)
 
-                  ;; Translate keywords
-                  k (case k
-                      :$user :user_id
-                      :$oauthProvider :provider_id
-                      :$oauthClient :client_id
-                      :clientId :client_id
-                      :encryptedClientSecret :client_secret
-                      :discoveryEndpoint :discovery_endpoint
-                      :codeChallengeMethod :code_challenge_method
-                      :codeChallenge :code_challenge
-                      :stateHash :state_hash
-                      :cooke-hash :cookie_hash
-                      :redirectUrl :redirect_url
-                      :name (case etype
-                              "$oauthProviders" :provider_name
-                              "$oauthClients" :client_name
-                              k)
-                      k)]
-              (cond-> acc
-                true (assoc k v)
-                (= k :id) (assoc :created_at (Date. t)))))
+                      ;; Translate keywords
+                      k (case k
+                          :$user :user_id
+                          :$oauthProvider :provider_id
+                          :$oauthClient :client_id
+                          :clientId :client_id
+                          :encryptedClientSecret :client_secret
+                          :discoveryEndpoint :discovery_endpoint
+                          :codeChallengeMethod :code_challenge_method
+                          :codeChallenge :code_challenge
+                          :stateHash :state_hash
+                          :cooke-hash :cookie_hash
+                          :redirectUrl :redirect_url
+                          :name (case etype
+                                  "$oauthProviders" :provider_name
+                                  "$oauthClients" :client_name
+                                  k)
+                          k)]
+                  (cond-> acc
+                    true (assoc k v)
+                    (= k :id) (assoc :created_at (Date. t)))))))
           {:app_id app-id}
           triples))
 
