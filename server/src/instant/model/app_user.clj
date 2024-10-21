@@ -145,30 +145,30 @@
            where u.app_id = ?::uuid and (u.email = ? or (l.sub = ? and l.provider_id = ?))"
          app-id email sub provider-id]))
      :triples-op (fn [{:keys [admin-query]}]
-                  (let [sub+provider (format "%s+%s" sub provider-id)
-                        q {etype
-                           {:$ {:where {:or [{:email email}
-                                             {:$oauthUserLinks.sub+$oauthProvider
-                                              sub+provider}]}}
-                            :$oauthUserLinks {:$ {:where {:sub+$oauthProvider
-                                                            sub+provider}}}}}
-                        res (admin-query q)]
-                    (map (fn [user]
-                           (merge {:app_users/id (parse-uuid (get user "id"))
-                                   :app_users/email (get user "email")
-                                   :app_users/app_id app-id}
-                                  (when-let [links (seq (get user "$oauthUserLinks"))]
-                                    ;; Adding this assert just for extra protection,
-                                    ;; but we should never have multiple because the
-                                    ;; link is unique by sub+provider-id
-                                    (assert (= 1 (count links)))
-                                    (let [link (first links)]
-                                      {:app_user_oauth_links/id (parse-uuid (get link "id"))
-                                       :app_user_oauth_links/app_id app-id
-                                       :app_user_oauth_links/sub (get link "sub")
-                                       :app_user_oauth_links/provider_id (get link "$oauthProvider")
-                                       :app_user_oauth_links/user_id (parse-uuid (get user "id"))}))))
-                         (get res etype))))})))
+                   (let [sub+provider (format "%s+%s" sub provider-id)
+                         q {etype
+                            {:$ {:where {:or [{:email email}
+                                              {:$oauthUserLinks.sub+$oauthProvider
+                                               sub+provider}]}}
+                             :$oauthUserLinks {:$ {:where {:sub+$oauthProvider
+                                                           sub+provider}}}}}
+                         res (admin-query q)]
+                     (map (fn [user]
+                            (merge {:app_users/id (parse-uuid (get user "id"))
+                                    :app_users/email (get user "email")
+                                    :app_users/app_id app-id}
+                                   (when-let [links (seq (get user "$oauthUserLinks"))]
+                                     ;; Adding this assert just for extra protection,
+                                     ;; but we should never have multiple because the
+                                     ;; link is unique by sub+provider-id
+                                     (assert (= 1 (count links)))
+                                     (let [link (first links)]
+                                       {:app_user_oauth_links/id (parse-uuid (get link "id"))
+                                        :app_user_oauth_links/app_id app-id
+                                        :app_user_oauth_links/sub (get link "sub")
+                                        :app_user_oauth_links/provider_id (get link "$oauthProvider")
+                                        :app_user_oauth_links/user_id (parse-uuid (get user "id"))}))))
+                          (get res etype))))})))
 
 (defn get-or-create-by-email! [{:keys [email app-id]}]
   (or (get-by-email {:email email :app-id app-id})

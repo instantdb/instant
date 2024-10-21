@@ -320,16 +320,17 @@
         ;; return users for a different app
         (assert (= app-id (:app_users/app_id user)))
         (cond (not= (:app_users/email user) email)
-              (tracer/with-span! {:name "Updating email for app_user"
+              (tracer/with-span! {:name "app-user/update-email"
                                   :attributes {:id (:app_users/id user)
                                                :from-email (:app_users/email user)
                                                :to-email email}}
                 (app-user-model/update-email! {:id (:app_users/id user)
                                                :app-id app-id
-                                               :email email}))
+                                               :email email})
+                (ucoll/select-keys-no-ns user :app_user_oauth_links))
 
               (not (:app_user_oauth_links/id user))
-              (tracer/with-span! {:name "Creating oauth_link for app_user"
+              (tracer/with-span! {:name "oauth-link/create"
                                   :attributes {:id (:app_users/id user)
                                                :provider_id provider-id
                                                :sub sub}}

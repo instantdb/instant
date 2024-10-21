@@ -26,6 +26,6 @@
                    [:add-triple id (resolve-id :$user) user-id]
                    [:add-triple id (resolve-id :$oauthProvider) provider-id]
                    [:add-triple id (resolve-id :sub+$oauthProvider) (format "%s+%s"
-                                                                             sub
-                                                                             provider-id)]])
+                                                                            sub
+                                                                            provider-id)]])
        (get-entity id))})))
