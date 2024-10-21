@@ -35,9 +35,6 @@ const graph = i.graph(
     "test-emails": i.entity({
       "email": i.any(),
     }),
-    "users-to-triples-migration": i.entity({
-  
-    }),
     "view-checks": i.entity({
       "default-value": i.any(),
       "disabled-apps": i.any(),
