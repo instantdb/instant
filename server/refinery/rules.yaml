@@ -1,8 +1,8 @@
 RulesVersion: 2
 Samplers:
     __default__:
-        DeterministicSampler:
-            SampleRate: 1
+      DeterministicSampler:
+          SampleRate: 1
     prod:
       RulesBasedSampler:
         Rules:
@@ -11,7 +11,6 @@ Samplers:
             Conditions:
               - Field: error
                 Operator: exists
-
           - Name: default rule
             Sampler:
               EMAThroughputSampler:

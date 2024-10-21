@@ -276,8 +276,9 @@
             :let [squuid-timestamp (squuid-time-millis sess-id)]
             :when (< squuid-timestamp oldest-timestamp)]
       (tracer/with-span! {:name "clean-old-session"
-                          :attributes {:session-id sess-id
-                                       :app-id app-id
+                          :attributes {:app-id app-id
+                                       :room-id room-id
+                                       :session-id sess-id
                                        :squuid-timestamp squuid-timestamp}}
         (remove-session! app-id room-id sess-id)))))
 
@@ -375,8 +376,7 @@
     (when (seq changed-rooms)
       (tracer/with-span!
         {:name "refresh-rooms"
-         :attributes {:room-ids (pr-str (map first changed-rooms))}
-         :sample-rate 0.01}
+         :attributes {:room-ids (pr-str (map first changed-rooms))}}
         (ua/vfuture-pmap
          (fn [[room-id {:keys [data session-ids]}]]
            (rs/try-broadcast-event! store-conn session-ids {:op :refresh-presence

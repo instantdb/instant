@@ -335,7 +335,8 @@
                                   (reset! shutdown? true)
                                   (close-nicely stream)
                                   (drop-logical-replication-slot replication-conn slot-name)
-                                  (close-nicely replication-conn)))
+                                  (close-nicely replication-conn)
+                                  (health/mark-wal-healthy-async)))
       (let [produce-error (try
                             (produce stream to close-signal-chan)
                             (catch Exception e
