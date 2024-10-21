@@ -220,11 +220,12 @@
       (.addVar "newData" type-obj)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-fn-decls))
       (.setStandardMacros (CelStandardMacro/STANDARD_MACROS))
-      (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings)]))
+      (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings) (CelExtensions/strings)]))
       (.build)))
 
 (def ^:private ^CelRuntime cel-runtime
   (-> (CelRuntimeFactory/standardCelRuntimeBuilder)
+      (.addLibraries [(CelExtensions/strings)])
       (.addFunctionBindings (ucoll/array-of CelRuntime$CelFunctionBinding custom-fn-bindings))
       (.build)))
 
