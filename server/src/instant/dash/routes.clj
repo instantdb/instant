@@ -72,7 +72,8 @@
 
 (defn req->auth-user! [req]
   (let [refresh-token (http-util/req->bearer-token! req)]
-    (instant-user-model/get-by-refresh-token! {:refresh-token refresh-token})))
+    (instant-user-model/get-by-refresh-token! {:refresh-token refresh-token
+                                               :auth? true})))
 
 (defn assert-valid-member-role! [role]
   (ex/assert-valid! :role role (when-not (member-role->idx (keyword role)) ["Invalid role"])))
