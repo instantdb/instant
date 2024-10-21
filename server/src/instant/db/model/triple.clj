@@ -108,7 +108,9 @@
   [:exists {:select :*
             :from :attrs
             :where [:and
-                    [:= :app-id app-id]
+                    [:or
+                     [:= :app-id app-id]
+                     [:= :app-id system-catalog-app-id]]
                     [:or
                      [:and
                       [:= :id a]
