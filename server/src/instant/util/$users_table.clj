@@ -113,7 +113,7 @@
                                    [etype label]
                                    attrs)]
                          (assert attr (format "Expected to find an attr for `%s.%s`" etype label))
-                         [[:inline (name col)]         ; col
+                         [[:inline label]              ; col
                           (:id attr)                   ; attr-id
                           (= :one (:cardinality attr)) ; ea
                           (= :ref (:value-type attr))  ; eav
@@ -125,7 +125,7 @@
     {:with
      [[:attr-mapping {:select :*
                       :from [[{:values values}
-                              [:mapping {:columns [:col
+                              [:mapping {:columns [:field
                                                    :attr-id
                                                    :ea
                                                    :eav
@@ -139,13 +139,13 @@
                                       :entity-id
                                       [:id :entity-id])
                                     [:attr-mapping.attr-id :attr-id]
-                                    [(concat [:case-expr :attr-mapping.col]
-                                             (mapcat (fn [{:keys [col transform]}]
-                                                       [[:inline (name col)]
+                                    [(concat [:case-expr :attr-mapping.field]
+                                             (mapcat (fn [[field {:keys [col transform]}]]
+                                                       [[:inline field]
                                                         [:coalesce [:to_jsonb (or transform
                                                                                   col)]
                                                          [:inline "null"]]])
-                                                     (vals fields))
+                                                     fields)
                                              [:else nil]) :value]
                                     [:attr-mapping.ea :ea]
                                     [:attr-mapping.eav :eav]
