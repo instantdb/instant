@@ -422,7 +422,7 @@
                 [obj f] (function-name call)]
             (when (and (= f "ref")
                        (= obj "auth"))
-              (let [users-shim (attr-model/users-shim-info attrs)
+              (let [users-shim (attr-model/has-$users? attrs)
                     arg ^CelExpr (first (.args call))
                     arg-val (ref-arg call)]
                 (when-not users-shim

@@ -28,6 +28,14 @@ export default {
       "update": "false"
     }
   },
+  "app-users-to-triples-migration": {
+    "allow": {
+      "view": "false",
+      "create": "false",
+      "delete": "false",
+      "update": "false"
+    }
+  },
   "power-user-emails": {
     "allow": {
       "view": "false",

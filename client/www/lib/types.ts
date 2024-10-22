@@ -110,6 +110,7 @@ export interface DBAttr {
   cardinality: 'one' | 'many';
   'value-type': 'ref' | 'blob';
   'inferred-types'?: Array<'string' | 'number' | 'boolean' | 'json'>;
+  catalog?: 'user' | 'system';
 }
 
 export interface SchemaNamespace {
@@ -133,6 +134,7 @@ export interface SchemaAttr {
     reverse: { id: string; namespace: string; attr: string } | undefined;
   };
   inferredTypes?: Array<'string' | 'number' | 'boolean' | 'json'>;
+  catalog?: 'user' | 'system';
 }
 
 export type InstantError = {

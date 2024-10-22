@@ -1,11 +1,13 @@
 (ns instant.model.rule
   (:require
+   [clojure.string :as string]
+   [honey.sql :as hsql]
+   [instant.db.cel :as cel]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.util.json :refer [->json]]
-   [instant.db.cel :as cel]
+   [instant.system-catalog :as system-catalog]
    [instant.util.exception :as ex]
-   [honey.sql :as hsql])
+   [instant.util.json :refer [->json]])
   (:import
    (dev.cel.common CelIssue CelValidationException)))
 
@@ -60,21 +62,43 @@
 (defn get-issues [etype action ^CelValidationException e]
   (format-errors etype action (.getErrors e)))
 
-(defn get-program! [rules etype action]
-  (when-let [code (some-> rules :code (extract etype action))]
-    (try
-      (let [ast (cel/->ast code)]
+(defn default-program [etype action]
+  (when (contains? system-catalog/all-etypes etype)
+    (if (and (= "$users" etype)
+             (= "view" action))
+      (let [code "auth.id == data.id"
+            ast (cel/->ast code)]
         {:etype etype
          :action action
+         :code code
          :cel-ast ast
          :cel-program (cel/->program ast)})
-      (catch CelValidationException e
-        (ex/throw-validation-err!
-         :permission
-         [etype action]
-         (->> (.getErrors e)
-              (map (fn [^CelIssue cel-issue]
-                     {:message (.getMessage cel-issue)}))))))))
+      (let [ast (cel/->ast "false")]
+        {:etype etype
+         :action action
+         ;; For display purposes
+         :code (format "disallow_%s_on_system_tables" action)
+         :cel-ast ast
+         :cel-program (cel/->program ast)}))))
+
+(defn get-program! [rules etype action]
+  (or
+   (when-let [code (some-> rules :code (extract etype action))]
+     (try
+       (let [ast (cel/->ast code)]
+         {:etype etype
+          :action action
+          :code code
+          :cel-ast ast
+          :cel-program (cel/->program ast)})
+       (catch CelValidationException e
+         (ex/throw-validation-err!
+          :permission
+          [etype action]
+          (->> (.getErrors e)
+               (map (fn [^CelIssue cel-issue]
+                      {:message (.getMessage cel-issue)})))))))
+   (default-program etype action)))
 
 (defn $users-validation-errors
   "Only allow users to changes the `view` rules for $users, since we don't have
@@ -91,12 +115,23 @@
 
     "view" nil))
 
+(defn system-attribute-validation-errors
+  "Don't allow users to change rules for system attrs."
+  [etype action]
+  (when (and (not= "$users" etype)
+             (string/starts-with? etype "$"))
+    [[etype
+      action
+      (format "The %s namespace is a reserved internal namespace that does not yet support rules."
+              etype)]]))
+
 (defn validation-errors [attrs rules]
   (->> (keys rules)
        (mapcat (fn [etype] (map (fn [action] [etype action]) ["view" "create" "update" "delete"])))
        (mapcat (fn [[etype action]]
                  (or (and (= etype "$users")
                           ($users-validation-errors rules action))
+                     (system-attribute-validation-errors etype action)
                      (try
                        (when-let [expr (extract rules etype action)]
                          (let [ast (cel/->ast expr)

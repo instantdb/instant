@@ -1332,11 +1332,13 @@ function Admin({
                   View <code>$users</code> namespace
                 </Button>
               </Content>
-              <Content>
-                You can disable the users namespace. It won't delete any users,
-                but any links you created into the namespace will be permanently
-                deleted.
-              </Content>
+              {usersAttrs[0].catalog !== 'system' ? (
+                <Content>
+                  You can disable the users namespace. It won't delete any
+                  users, but any links you created into the namespace will be
+                  permanently deleted.
+                </Content>
+              ) : null}
             </>
           ) : null}
 
@@ -1351,12 +1353,14 @@ function Admin({
                 onClick={async () => null}
               />
             ) : usersAttrs?.length ? (
-              <ActionButton
-                label="Disable users table"
-                submitLabel="Disable users table"
-                errorMessage="Failed to disable users table"
-                onClick={disableUsersDialog.onOpen}
-              />
+              usersAttrs[0].catalog !== 'system' ? (
+                <ActionButton
+                  label="Disable users table"
+                  submitLabel="Disable users table"
+                  errorMessage="Failed to disable users table"
+                  onClick={disableUsersDialog.onOpen}
+                />
+              ) : null
             ) : (
               <ActionButton
                 label="Enable users table"
@@ -1407,7 +1411,9 @@ function Admin({
                 onClick={async () => {
                   if (usersAttrs) {
                     await db._core._reactor.pushOps(
-                      usersAttrs.map((a) => ['delete-attr', a.id]),
+                      usersAttrs
+                        .filter((x) => x.catalog !== 'system')
+                        .map((a) => ['delete-attr', a.id]),
                     );
                   }
                   disableUsersDialog.onClose();

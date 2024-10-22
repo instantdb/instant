@@ -120,7 +120,8 @@
                                     (transaction-model/create! conn {:app-id app-id})
                                     app)))
         magic-code (app-user-magic-code-model/create!
-                    {:id (random-uuid)
+                    {:app-id app-id
+                     :id (random-uuid)
                      :code (app-user-magic-code-model/rand-code)
                      :user-id user-id})
         template (app-email-template-model/get-by-app-id-and-email-type
@@ -170,7 +171,8 @@
             :code code
             :email email})
         {user-id :user_id} m
-        {refresh-token-id :id} (app-user-refresh-token-model/create! {:id (random-uuid)
+        {refresh-token-id :id} (app-user-refresh-token-model/create! {:app-id app-id
+                                                                      :id (random-uuid)
                                                                       :user-id user-id})
         user (app-user-model/get-by-id {:app-id app-id :id user-id})]
     (response/ok {:user (assoc user :refresh_token refresh-token-id)})))
@@ -200,8 +202,9 @@
     (response/ok {:user (assoc user :refresh_token refresh-token)})))
 
 (defn signout-post [req]
-  (let [refresh-token (ex/get-param! req [:body :refresh_token] uuid-util/coerce)]
-    (app-user-refresh-token-model/delete-by-id! {:id refresh-token})
+  (let [app-id (ex/get-param! req [:body :app_id] uuid-util/coerce)
+        refresh-token (ex/get-param! req [:body :refresh_token] uuid-util/coerce)]
+    (app-user-refresh-token-model/delete-by-id! {:app-id app-id :id refresh-token})
     (response/ok {})))
 
 ;; -----
@@ -271,7 +274,8 @@
         state-with-app-id (format "%s%s" app-id state)
 
         redirect-url (oauth/create-authorization-url oauth-client state-with-app-id oauth-redirect-url)]
-    (app-oauth-redirect-model/create! {:state state
+    (app-oauth-redirect-model/create! {:app-id app-id
+                                       :state state
                                        :cookie cookie-uuid
                                        :oauth-client-id (:id client)
                                        :redirect-url app-redirect-url
@@ -316,15 +320,17 @@
         ;; return users for a different app
         (assert (= app-id (:app_users/app_id user)))
         (cond (not= (:app_users/email user) email)
-              (tracer/with-span! {:name "Updating email for app_user"
+              (tracer/with-span! {:name "app-user/update-email"
                                   :attributes {:id (:app_users/id user)
                                                :from-email (:app_users/email user)
                                                :to-email email}}
                 (app-user-model/update-email! {:id (:app_users/id user)
-                                               :email email}))
+                                               :app-id app-id
+                                               :email email})
+                (ucoll/select-keys-no-ns user :app_user_oauth_links))
 
               (not (:app_user_oauth_links/id user))
-              (tracer/with-span! {:name "Creating oauth_link for app_user"
+              (tracer/with-span! {:name "oauth-link/create"
                                   :attributes {:id (:app_users/id user)
                                                :provider_id provider-id
                                                :sub sub}}
@@ -433,16 +439,12 @@
 
           ;; _app-id unused for now, but will be used when we have
           ;; app_oauth_redirects in triples
-          [_app-id state] (let [[app-id state] (case (count state-param)
-                                                 ;; TODO(dww): Remove this case once all
-                                                 ;;   of the oauth redirects have cycled
-                                                 36 [nil (uuid-util/coerce state-param)]
-                                                 72 [(uuid-util/coerce (subs state-param 0 36))
-                                                     (uuid-util/coerce (subs state-param 36))]
-                                                 [])]
-                            (if state
-                              [app-id state]
-                              (return-error "Invalid state param in OAuth redirect.")))
+          [app-id state] (let [[app-id state] (case (count state-param)
+                                                72 [(uuid-util/coerce (subs state-param 0 36))
+                                                    (uuid-util/coerce (subs state-param 36))])]
+                           (if (and app-id state)
+                             [app-id state]
+                             (return-error "Invalid state param in OAuth redirect.")))
 
           cookie (if-let [cookie (-> req
                                      (get-in [:cookies oauth-cookie-name :value])
@@ -450,19 +452,22 @@
                    cookie
                    (return-error "Missing cookie."))
 
-          oauth-redirect (if-let [oauth-redirect (app-oauth-redirect-model/consume! {:state state})]
+          oauth-redirect (if-let [oauth-redirect (app-oauth-redirect-model/consume! {:app-id app-id
+                                                                                     :state state})]
                            oauth-redirect
                            (return-error "Could not find OAuth request."))
           _ (when (app-oauth-redirect-model/expired? oauth-redirect)
               (return-error "The request is expired."))
-          _ (when (not (crypt-util/constant-uuid= cookie (:cookie oauth-redirect)))
+          _ (when (not (crypt-util/constant-bytes= (crypt-util/uuid->sha256 cookie)
+                                                   (:cookie-hash-bytes oauth-redirect)))
               (return-error "Mismatch in OAuth request cookie."))
 
           code (if-let [code (:code params)]
                  code
                  (return-error "Missing code param in OAuth redirect."))
 
-          client (if-let [client (app-oauth-client-model/get-by-id {:id (:client_id oauth-redirect)})]
+          client (if-let [client (app-oauth-client-model/get-by-id {:app-id app-id
+                                                                    :id (:client_id oauth-redirect)})]
                    client
                    (return-error "Missing OAuth client."))
           oauth-client (app-oauth-client-model/->OAuthClient client)
@@ -527,7 +532,8 @@
                 (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
 
         {user-id :user_id app-id :app_id} oauth-code
-        {refresh-token-id :id} (app-user-refresh-token-model/create! {:id (random-uuid)
+        {refresh-token-id :id} (app-user-refresh-token-model/create! {:app-id app-id
+                                                                      :id (random-uuid)
                                                                       :user-id user-id})
         user (app-user-model/get-by-id {:app-id app-id :id user-id})]
     (assert (= app-id (:app_id user)))
@@ -572,12 +578,14 @@
                                           :app-id (:app_id client)
                                           :provider-id (:provider_id client)})
         current-refresh-token (when current-refresh-token-id
-                                (app-user-refresh-token-model/get-by-id {:id current-refresh-token-id}))
+                                (app-user-refresh-token-model/get-by-id {:app-id app-id
+                                                                         :id current-refresh-token-id}))
         {refresh-token-id :id} (if (and current-refresh-token
                                         (= (:user_id social-login)
                                            (:user_id current-refresh-token)))
                                  current-refresh-token
-                                 (app-user-refresh-token-model/create! {:id (random-uuid)
+                                 (app-user-refresh-token-model/create! {:app-id app-id
+                                                                        :id (random-uuid)
                                                                         :user-id (:user_id social-login)}))
         user (app-user-model/get-by-id {:app-id app-id :id (:user_id social-login)})]
     (assert (= app-id (:app_id user)))

@@ -1454,12 +1454,12 @@
                                :datalog-result
                                :join-rows
                                (filter (fn [triples]
-                                         (every? (comp eid->check first) triples)))
+                                         (every? (comp :result eid->check first) triples)))
                                set)
 
         cleaned-page-info
         (when (get-in res [:data :datalog-result :page-info])
-          (when-let [filtered-rows (seq (filter (comp eid->check first)
+          (when-let [filtered-rows (seq (filter (comp :result eid->check first)
                                                 (get-in res [:data
                                                              :datalog-result
                                                              :page-info-rows])))]
@@ -1553,25 +1553,27 @@
             (fn [[eid etype]]
               (let [p (etype->program etype)]
                 [eid (if-not p
-                       true
-                       (let [em (io/warn-io :instaql/entity-map
-                                  (entity-map ctx
-                                              query-cache
-                                              etype
-                                              eid))
-                             ctx (assoc ctx
-                                        :preloaded-refs preloaded-refs)]
-                         (io/warn-io :instaql/eval-program
-                           (cel/eval-program!
-                            p
-                            {"auth" (cel/->cel-map {:ctx ctx
-                                                    :type :auth
-                                                    :etype "$users"}
-                                                   current-user)
-                             "data" (cel/->cel-map {:ctx ctx
-                                                    :etype etype
-                                                    :type :data}
-                                                   em)}))))])))
+                       {:result true}
+                       {:program p
+                        :result
+                        (let [em (io/warn-io :instaql/entity-map
+                                   (entity-map ctx
+                                               query-cache
+                                               etype
+                                               eid))
+                              ctx (assoc ctx
+                                         :preloaded-refs preloaded-refs)]
+                          (io/warn-io :instaql/eval-program
+                            (cel/eval-program!
+                             p
+                             {"auth" (cel/->cel-map {:ctx ctx
+                                                     :type :auth
+                                                     :etype "$users"}
+                                                    current-user)
+                              "data" (cel/->cel-map {:ctx ctx
+                                                     :etype etype
+                                                     :type :data}
+                                                    em)})))})])))
 
            (into {})))))
 
@@ -1606,14 +1608,17 @@
                                     res)
         eid->check (get-eid-check-result! ctx perm-helpers)
         check-results (map
-                       (fn [[id check]]
+                       (fn [[id {:keys [result program]}]]
                          {:id id
                           :entity (get (:eid->etype perm-helpers) id)
                           :record (entity-map ctx
                                               (:query-cache perm-helpers)
                                               (get (:eid->etype perm-helpers) id)
                                               id)
-                          :check check})
+                          :program (select-keys program [:code
+                                                         :etype
+                                                         :action])
+                          :check result})
                        eid->check)
         nodes (mapv (partial permissioned-node eid->check) res)]
     {:nodes nodes :check-results check-results}))
@@ -1646,10 +1651,9 @@
             :app-id rec-app-id
             :attrs attrs})
 
-  #_{:clj-kondo/ignore [:unresolved-namespace]}
-  (instant.admin.model/instaql-nodes->object-tree
-   {}
-   attrs
+  (require 'instant.util.instaql)
+  (instant.util.instaql/instaql-nodes->object-tree
+   ctx
    (query ctx {:eb {:child {}}})))
 
 ;; Inspect query

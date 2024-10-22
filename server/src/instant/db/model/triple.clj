@@ -1,17 +1,17 @@
 (ns instant.db.model.triple
   (:require
-   [instant.jdbc.sql :as sql]
+   [clojure.spec.alpha :as s]
+   [honey.sql :as hsql]
+   [instant.data.constants :refer [empty-app-id]]
    [instant.db.model.attr :as attr-model]
    [instant.jdbc.aurora :as aurora]
-   [honey.sql :as hsql]
-   [clojure.spec.alpha :as s]
-   [instant.util.spec :as uspec]
+   [instant.jdbc.sql :as sql]
+   [instant.system-catalog :refer [system-catalog-app-id]]
+   [instant.util.exception :as ex]
    [instant.util.json :refer [->json]]
+   [instant.util.spec :as uspec]
    [instant.util.string :refer [multiline->single-line]]
-   [instant.util.tracer :as tracer]
-   [instant.data.constants :refer [empty-app-id]]
-   [instant.util.exception :as ex])
-
+   [instant.util.tracer :as tracer])
   (:import
    (java.util UUID)))
 
@@ -75,8 +75,8 @@
               [true :ea]
               [false :eav]
               [true :av]
-              [false :ave]
-              [true :vae]
+              [true :ave]
+              [false :vae]
               [[:cast [:* 1000 [:extract [:epoch-from :created-at]]] :bigint] :created-at]]
      :from :users-triples-up-to-md5}]
    [:triples
@@ -108,7 +108,9 @@
   [:exists {:select :*
             :from :attrs
             :where [:and
-                    [:= :app-id app-id]
+                    [:or
+                     [:= :app-id app-id]
+                     [:= :app-id system-catalog-app-id]]
                     [:or
                      [:and
                       [:= :id a]
@@ -116,7 +118,9 @@
                      [:exists {:select :*
                                :from :idents
                                :where [:and
-                                       [:= :app-id app-id]
+                                       [:or
+                                        [:= :app-id app-id]
+                                        [:= :app-id system-catalog-app-id]]
                                        [:= :attr-id a]
                                        [:= :label "id"]]}]]]}])
 
@@ -145,6 +149,9 @@
                                      [:updates {:columns [:id :typ]}]]]
                              :where [:and
                                      [:= :attrs.id :updates.id]
+                                     ;; We don't modify the inferred type
+                                     ;; for the system-catalog-app-id because
+                                     ;; we don't want people putting garbage in there
                                      [:= :attrs.app_id app-id]
                                      [[:raw "inferred_types is distinct from (
                                               coalesce(inferred_types, cast(0 AS bit(32))) | updates.typ
@@ -215,7 +222,9 @@
                        :from [[:input-lookup-refs :ilr]]
                        :left-join [[:attrs :a] [:and
                                                 :a.is-unique
-                                                [:= :a.app-id [:cast :ilr.app-id :uuid]]
+                                                [:or
+                                                 [:= :a.app-id [:cast :ilr.app-id :uuid]]
+                                                 [:= :a.app-id system-catalog-app-id]]
                                                 [:= :a.id [:cast :ilr.attr-id :uuid]]]]}]
 
                      ;; insert lookup refs
@@ -272,7 +281,9 @@
                        :vae]]
                      :from [[:applied-triples :at]]
                      :left-join [[:attrs :a] [:and
-                                              [:= :a.app-id :at.app-id]
+                                              [:or
+                                               [:= :a.app-id :at.app-id]
+                                               [:= :a.app-id system-catalog-app-id]]
                                               [:= :a.id :at.attr-id]]]}]
                    [:ea-index-inserts
                     {:insert-into [[[:triples :t] triple-cols]
@@ -354,7 +365,9 @@
                            :from [[:input-lookup-refs :ilr]]
                            :left-join [[:attrs :a] [:and
                                                     :a.is-unique
-                                                    [:= :a.app-id [:cast :ilr.app-id :uuid]]
+                                                    [:or
+                                                     [:= :a.app-id [:cast :ilr.app-id :uuid]]
+                                                     [:= :a.app-id system-catalog-app-id]]
                                                     [:= :a.id [:cast :ilr.attr-id :uuid]]]]}]
                          ;; insert lookup refs
                          [:lookup-ref-inserts
@@ -444,7 +457,9 @@
                            :vae]]
                          :from [[:input-triples :it]]
                          :left-join [[:attrs :a] [:and
-                                                  [:= :a.app-id [:cast :it.app-id :uuid]]
+                                                  [:or
+                                                   [:= :a.app-id [:cast :it.app-id :uuid]]
+                                                   [:= :a.app-id system-catalog-app-id]]
                                                   [:= :a.id [:cast :it.attr-id :uuid]]]]}]
                        [:ea-triples-distinct
                         {:select-distinct-on [[:entity-id :attr-id] :*]
@@ -527,7 +542,9 @@
                          :from :attrs
                          :join [:idents [:= :idents.id :attrs.forward-ident]]
                          :where [:and
-                                 [:= :idents.app-id app-id]
+                                 [:or
+                                  [:= :idents.app-id app-id]
+                                  [:= :idents.app-id system-catalog-app-id]]
                                  [:= :idents.etype etype]]}]]
                       [:and
                        ;; Delete ref triples where we're the value
@@ -539,7 +556,9 @@
                          :from :attrs
                          :join [:idents [:= :idents.id :attrs.reverse-ident]]
                          :where [:and
-                                 [:= :idents.app-id app-id]
+                                 [:or
+                                  [:= :idents.app-id app-id]
+                                  [:= :idents.app-id system-catalog-app-id]]
                                  [:= :idents.etype etype]]}]]]
 
                      [[:= :entity-id id-lookup]

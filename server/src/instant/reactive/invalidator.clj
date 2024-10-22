@@ -246,8 +246,8 @@
                {:name "ea", :type "boolean", :value true}
                {:name "eav", :type "boolean", :value false}
                {:name "av", :type "boolean", :value true}
-               {:name "ave", :type "boolean", :value false}
-               {:name "vae", :type "boolean", :value true}
+               {:name "ave", :type "boolean", :value true}
+               {:name "vae", :type "boolean", :value false}
                {:name "created_at", :type "bigint", :value created-at-ms}]}))
 
 (defn $users-triples-changes

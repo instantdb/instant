@@ -18,6 +18,7 @@
    [instant.model.app :as app-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.rule :as rule-model]
+   [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.exception :as ex]
    [instant.util.test :refer [instant-ex-data pretty-perm-q]])
   (:import
@@ -77,6 +78,7 @@
             (testing "attrs are created"
               (is (= #{"name" "color"}
                      (->> (attr-model/get-by-app-id app-id)
+                          (filter #(not= :system (:catalog %)))
                           (map :forward-identity)
                           (map last)
                           set))))
@@ -93,6 +95,7 @@
               (testing "attr is deleted"
                 (is (= #{"name"}
                        (->> (attr-model/get-by-app-id app-id)
+                           (filter #(not= :system (:catalog %)))
                             (map :forward-identity)
                             (map last)
                             set))))
@@ -137,6 +140,7 @@
         (testing "attrs are created"
           (is (= #{"tags" "name"}
                  (->> (attr-model/get-by-app-id app-id)
+                      (filter #(not= :system (:catalog %)))
                       (map :forward-identity)
                       (map last)
                       set))))
@@ -150,6 +154,7 @@
               :forward-identity [tag-fwd-ident "users" "tagz"]}]])
           (is (= #{"tagz" "name"}
                  (->> (attr-model/get-by-app-id app-id)
+                      (filter #(not= :system (:catalog %)))
                       (map :forward-identity)
                       (map last)
                       set))))
@@ -163,6 +168,7 @@
               :reverse-identity [tag-rev-ident "tags" "taggerz"]}]])
           (is (= #{"taggerz"}
                  (->> (attr-model/get-by-app-id app-id)
+                      (filter #(not= :system (:catalog %)))
                       (keep :reverse-identity)
                       (map last)
                       set))))
@@ -190,7 +196,8 @@
                   :cardinality :one
                   :unique? false
                   :index? false
-                  :inferred-types #{:string}}
+                  :inferred-types #{:string}
+                  :catalog :user}
                  (attr-model/seek-by-id
                   tag-attr-id
                   (attr-model/get-by-app-id app-id))))
@@ -217,7 +224,8 @@
                   :cardinality :one
                   :unique? true
                   :index? false
-                  :inferred-types #{:string}}
+                  :inferred-types #{:string}
+                  :catalog :user}
                  (attr-model/seek-by-id
                   name-attr-id
                   (attr-model/get-by-app-id app-id))))
@@ -256,7 +264,8 @@
                   [name-fwd-ident "users" "name"],
                   :unique? false,
                   :index? false,
-                  :inferred-types #{:string}}
+                  :inferred-types #{:string}
+                  :catalog :user}
                  (attr-model/seek-by-id
                   name-attr-id
                   (attr-model/get-by-app-id app-id)))))
@@ -316,7 +325,8 @@
                   [zip-fwd-ident "users" "zip"],
                   :unique? false,
                   :index? true,
-                  :inferred-types #{:string}}
+                  :inferred-types #{:string}
+                  :catalog :user}
                  (attr-model/seek-by-id
                   zip-attr-id
                   (attr-model/get-by-app-id app-id)))))
@@ -375,7 +385,8 @@
                   [email-fwd-ident "users" "email"],
                   :unique? true,
                   :index? true
-                  :inferred-types #{:string}}
+                  :inferred-types #{:string}
+                  :catalog :user}
                  (attr-model/seek-by-id
                   email-attr-id
                   (attr-model/get-by-app-id app-id)))))
@@ -409,11 +420,11 @@
           (is
            (= ::ex/record-not-unique
               (::ex/type (instant-ex-data
-                          (tx/transact!
-                           aurora/conn-pool
-                           (attr-model/get-by-app-id app-id)
-                           app-id
-                           [[:add-triple joe-eid email-attr-id "test2@instantdb.com"]]))))))))))
+                           (tx/transact!
+                            aurora/conn-pool
+                            (attr-model/get-by-app-id app-id)
+                            app-id
+                            [[:add-triple joe-eid email-attr-id "test2@instantdb.com"]]))))))))))
 
 (deftest tx-ref-many-to-many
   (with-empty-app
@@ -447,7 +458,8 @@
                   [tag-rev-ident "tags" "taggers"],
                   :unique? false,
                   :index? false,
-                  :inferred-types #{:string}}
+                  :inferred-types #{:string}
+                  :catalog :user}
                  (attr-model/seek-by-id
                   tag-attr-id
                   (attr-model/get-by-app-id app-id)))))
@@ -482,21 +494,21 @@
           (is
            (= :invalid-text-representation
               (->  (instant-ex-data
-                    (tx/transact!
-                     aurora/conn-pool
-                     (attr-model/get-by-app-id app-id)
-                     app-id
-                     [[:add-triple stopa-eid tag-attr-id "Foo"]]))
+                     (tx/transact!
+                      aurora/conn-pool
+                      (attr-model/get-by-app-id app-id)
+                      app-id
+                      [[:add-triple stopa-eid tag-attr-id "Foo"]]))
                    ::ex/hint
                    :condition)))
           (is
            (= :check-violation
               (->  (instant-ex-data
-                    (tx/transact!
-                     aurora/conn-pool
-                     (attr-model/get-by-app-id app-id)
-                     app-id
-                     [[:add-triple stopa-eid tag-attr-id {:foo "bar"}]]))
+                     (tx/transact!
+                      aurora/conn-pool
+                      (attr-model/get-by-app-id app-id)
+                      app-id
+                      [[:add-triple stopa-eid tag-attr-id {:foo "bar"}]]))
                    ::ex/hint
                    :condition))))))))
 
@@ -533,7 +545,8 @@
                   [owner-rev-ident "users" "posts"],
                   :unique? false,
                   :index? false,
-                  :inferred-types #{:string}}
+                  :inferred-types #{:string}
+                  :catalog :user}
                  (attr-model/seek-by-id
                   owner-attr-id
                   (attr-model/get-by-app-id app-id)))))
@@ -592,7 +605,8 @@
                   [config-rev-ident "configObjects" "user"],
                   :unique? true,
                   :index? false
-                  :inferred-types #{:string}}
+                  :inferred-types #{:string}
+                  :catalog :user}
                  (attr-model/seek-by-id
                   config-attr-id
                   (attr-model/get-by-app-id app-id)))))
@@ -664,9 +678,8 @@
                         app-id
                         [[:add-triple [handle-attr-id "nobody"] email-attr-id "nobody@example.com"]])
           (is (= {"users" [{"handle" "nobody", "email" "nobody@example.com"}]}
-                 (admin-model/instaql-nodes->object-tree
-                  {}
-                  attrs
+                 (instaql-nodes->object-tree
+                  ctx
                   (iq/query ctx {:users {:$ {:where {:handle "nobody"}}}})))))
 
         (testing "setting ids works"
@@ -675,9 +688,8 @@
                         app-id
                         [[:add-triple [handle-attr-id "id-test"] email-attr-id "id-test@example.com"]
                          [:add-triple [handle-attr-id "id-test"] id-attr-id [handle-attr-id "id-test"]]])
-          (let [res (admin-model/instaql-nodes->object-tree
-                     {}
-                     attrs
+          (let [res (instaql-nodes->object-tree
+                     ctx
                      (iq/query ctx {:users {:$ {:where {:handle "id-test"}}}}))
                 user (-> res (get "users") first)]
             (is (= {"handle" "id-test", "email" "id-test@example.com"}
@@ -705,18 +717,17 @@
         (testing "value lookup refs work"
           (let [feynman-isbn "9780393079814"]
             ;; Check the setup
-            (is (= feynman-isbn (as-> (admin-model/instaql-nodes->object-tree
-                                       {}
-                                       attrs
+            (is (= feynman-isbn (as-> (instaql-nodes->object-tree
+                                       ctx
                                        (iq/query ctx {:bookshelves {:$ {:where {:name "Nonfiction"}}
                                                                     :books {:$ {:where {:isbn13 feynman-isbn}}}}}))
-                                      %
-                                  (get % "bookshelves")
-                                  (first %)
-                                  (get % "books")
-                                  (filter (fn [b] (= feynman-isbn (get b "isbn13"))) %)
-                                  (first %)
-                                  (get % "isbn13"))))
+                                    %
+                                    (get % "bookshelves")
+                                    (first %)
+                                    (get % "books")
+                                    (filter (fn [b] (= feynman-isbn (get b "isbn13"))) %)
+                                    (first %)
+                                    (get % "isbn13"))))
 
             ;; check retract
             (tx/transact! aurora/conn-pool
@@ -724,15 +735,14 @@
                           app-id
                           [[:retract-triple eid-nonfiction bookshelf-attr-id [isbn-attr-eid feynman-isbn]]])
 
-            (is (empty? (as-> (admin-model/instaql-nodes->object-tree
-                               {}
-                               attrs
+            (is (empty? (as-> (instaql-nodes->object-tree
+                               ctx
                                (iq/query ctx {:bookshelves {:$ {:where {:name "Nonfiction"}}
                                                             :books {:$ {:where {:isbn13 feynman-isbn}}}}}))
-                              %
-                          (get % "bookshelves")
-                          (first %)
-                          (get % "books"))))
+                            %
+                            (get % "bookshelves")
+                            (first %)
+                            (get % "books"))))
 
             ;; check adding back
             (tx/transact! aurora/conn-pool
@@ -740,18 +750,17 @@
                           app-id
                           [[:add-triple eid-nonfiction bookshelf-attr-id [isbn-attr-eid feynman-isbn]]])
 
-            (is (= feynman-isbn (as-> (admin-model/instaql-nodes->object-tree
-                                       {}
-                                       attrs
+            (is (= feynman-isbn (as-> (instaql-nodes->object-tree
+                                       ctx
                                        (iq/query ctx {:bookshelves {:$ {:where {:name "Nonfiction"}}
                                                                     :books {:$ {:where {:isbn13 feynman-isbn}}}}}))
-                                      %
-                                  (get % "bookshelves")
-                                  (first %)
-                                  (get % "books")
-                                  (filter (fn [b] (= feynman-isbn (get b "isbn13"))) %)
-                                  (first %)
-                                  (get % "isbn13"))))))
+                                    %
+                                    (get % "bookshelves")
+                                    (first %)
+                                    (get % "books")
+                                    (filter (fn [b] (= feynman-isbn (get b "isbn13"))) %)
+                                    (first %)
+                                    (get % "isbn13"))))))
 
 
         (testing "value lookup refs are ignored for regular attributes"
@@ -759,9 +768,8 @@
                         (attr-model/get-by-app-id app-id)
                         app-id
                         [[:add-triple alex-eid email-attr-id [email-attr-id "test"]]])
-          (let [res (admin-model/instaql-nodes->object-tree
-                     {}
-                     attrs
+          (let [res (instaql-nodes->object-tree
+                     ctx
                      (iq/query ctx {:users {:$ {:where {:handle "alex"}}}}))
                 user (-> res (get "users") first)]
             (is (= [(str email-attr-id) "test"] (get user "email")))))))))
@@ -2005,16 +2013,17 @@
 
 (deftest auth-refs-requires-users
   (with-empty-app
-    (fn [{app-id :id}]
+    (fn [{app-id :id :as app}]
       (testing "auth.ref requires $users namespace"
-        (is (= [{:message
-                 "auth.ref is only available when the $users namespace is enabled.",
-                 :in ["bookshelves" :allow "update"]}]
-               (rule-model/validation-errors
-                (attr-model/get-by-app-id app-id)
-                {"bookshelves" {"allow" {"update" "auth.ref('$user.a.b')"}}})))
+        (when-not (:users_in_triples app)
+          (is (= [{:message
+                   "auth.ref is only available when the $users namespace is enabled.",
+                   :in ["bookshelves" :allow "update"]}]
+                 (rule-model/validation-errors
+                  (attr-model/get-by-app-id app-id)
+                  {"bookshelves" {"allow" {"update" "auth.ref('$user.a.b')"}}})))
 
-        (insert-users-table! aurora/conn-pool app-id)
+          (insert-users-table! aurora/conn-pool app-id))
         (is (= []
                (rule-model/validation-errors
                 (attr-model/get-by-app-id app-id)
@@ -2103,6 +2112,129 @@
                   app-id
                   [[:= :entity-id book-id]
                    [:= :attr-id book-title-attr-id]]))))))))
+
+(deftest on-delete-cascade
+  (with-empty-app
+    (fn [{app-id :id}]
+      (insert-users-table! aurora/conn-pool app-id)
+      (let [r (resolvers/make-movies-resolver app-id)
+            user-id-attr-id (random-uuid)
+            book-id-attr-id (random-uuid)
+            book-creator-attr-id (random-uuid)
+            book-id (random-uuid)
+            other-book-id (random-uuid)
+            user-id (random-uuid)
+            make-ctx (fn [] {:db {:conn-pool aurora/conn-pool}
+                             :app-id app-id
+                             :attrs (attr-model/get-by-app-id app-id)
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id aurora/conn-pool {:app-id app-id})
+                             :current-user nil})
+            insert-res (attr-model/insert-multi!
+                        aurora/conn-pool
+                        app-id
+                        [{:id user-id-attr-id
+                          :forward-identity [(random-uuid) "users" "id"]
+                          :value-type :blob
+                          :cardinality :one
+                          :unique? true
+                          :index? true}
+                         {:id book-id-attr-id
+                          :forward-identity [(random-uuid) "books" "id"]
+                          :value-type :blob
+                          :cardinality :one
+                          :unique? true
+                          :index? false}
+                         {:id book-creator-attr-id
+                          :forward-identity [(random-uuid) "books" "creator"]
+                          :reverse-identity [(random-uuid) "users" "books"]
+                          :value-type :ref
+                          :cardinality :one
+                          :unique? true
+                          :index? false
+                          ;; Delete this book if its creator is deleted
+                          :on-delete :cascade}]
+                        {:allow-on-deletes? true})
+
+            tx-res (tx/transact!
+                    aurora/conn-pool
+                    (attr-model/get-by-app-id app-id)
+                    app-id
+                    [[:add-triple book-id book-id-attr-id book-id]
+                     [:add-triple other-book-id book-id-attr-id other-book-id]
+                     [:add-triple user-id user-id-attr-id user-id]
+                     [:add-triple book-id book-creator-attr-id user-id]])]
+
+
+        (testing "setup worked"
+          (is (= #{{:triple
+                    [book-id
+                     book-id-attr-id
+                     (str book-id)],
+                    :index #{:ea :av}}
+                   {:triple
+                    [other-book-id
+                     book-id-attr-id
+                     (str other-book-id)],
+                    :index #{:ea :av}}}
+                 (set (map #(dissoc % :md5)
+                           (triple-model/fetch
+                            aurora/conn-pool
+                            app-id
+                            [[:= :attr-id book-id-attr-id]]))))))
+
+        (testing "deleting the user deletes the book"
+          (tx/transact! aurora/conn-pool
+                        (attr-model/get-by-app-id app-id)
+                        app-id
+                        [[:delete-entity user-id "users"]])
+
+          (is (= [{:triple
+                   [other-book-id
+                    book-id-attr-id
+                    (str other-book-id)],
+                   :index #{:ea :av}}]
+                 (map #(dissoc % :md5)
+                      (triple-model/fetch
+                       aurora/conn-pool
+                       app-id
+                       [[:= :attr-id book-id-attr-id]])))))
+
+        (testing "deleting the book doesn't delete the user"
+          (tx/transact!
+           aurora/conn-pool
+           (attr-model/get-by-app-id app-id)
+           app-id
+           [[:add-triple user-id user-id-attr-id user-id]
+            [:add-triple book-id book-id-attr-id book-id]
+            [:add-triple book-id book-creator-attr-id user-id]])
+
+
+          (is (= [{:triple
+                   [user-id
+                    user-id-attr-id
+                    (str user-id)],
+                   :index #{:ea :av :ave}}]
+                 (map #(dissoc % :md5)
+                      (triple-model/fetch
+                       aurora/conn-pool
+                       app-id
+                       [[:= :attr-id user-id-attr-id]]))))
+
+          (tx/transact! aurora/conn-pool
+                        (attr-model/get-by-app-id app-id)
+                        app-id
+                        [[:delete-entity book-id "books"]])
+          (is (= [{:triple
+                   [user-id
+                    user-id-attr-id
+                    (str user-id)],
+                   :index #{:ea :av :ave}}]
+                 (map #(dissoc % :md5)
+                      (triple-model/fetch
+                       aurora/conn-pool
+                       app-id
+                       [[:= :attr-id user-id-attr-id]])))))))))
 
 
 

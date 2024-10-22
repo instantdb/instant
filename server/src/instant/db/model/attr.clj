@@ -3,17 +3,17 @@
    [clojure.core.cache.wrapped :as cache]
    [clojure.set :refer [map-invert]]
    [clojure.spec.alpha :as s]
-   [clojure.string :as string]
-   [instant.util.spec :as uspec]
-   [instant.util.string :as string-util]
    [clojure.spec.gen.alpha :as gen]
-   [instant.jdbc.sql :as sql]
-   [instant.jdbc.aurora :as aurora]
+   [clojure.string :as string]
    [honey.sql :as hsql]
    [instant.data.constants :refer [empty-app-id]]
-   [instant.util.exception :as ex]))
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.system-catalog :refer [system-catalog-app-id]]
+   [instant.util.exception :as ex]
+   [instant.util.spec :as uspec]
+   [instant.util.string :as string-util]))
 
-;; Don't change the order or remove types, only add to the end of the list
 (def types
   [:number
    :string
@@ -39,6 +39,12 @@
                (when (not= 0 (bit-and b bin))
                  type))
              type->binary)))
+
+(defn binary-inferred-types [friendly-set]
+  (reduce (fn [acc friendly-type]
+            (bit-or acc (type->binary friendly-type)))
+          0
+          friendly-set))
 
 ;; ----
 ;; Spec
@@ -122,7 +128,7 @@
 ;; -------
 ;; caching
 
-(defonce attr-cache (cache/lru-cache-factory {} :threshold 256))
+(def attr-cache (cache/lru-cache-factory {} :threshold 256))
 
 (defn evict-app-id-from-cache [app-id]
   (cache/evict attr-cache app-id))
@@ -152,13 +158,13 @@
   "Manual reflection of postgres attr table columns"
   [:id :app-id :value-type
    :cardinality :is-unique :is-indexed
-   :forward-ident :reverse-ident])
+   :forward-ident :reverse-ident :on-delete])
 
 (defn attr-table-values
   "Marshals a collection of attrs into insertable sql attr values"
   [app-id attrs]
-  (map (fn [{:keys [:id :value-type :cardinality :unique? :index?
-                    :forward-identity :reverse-identity]}]
+  (map (fn [{:keys [id value-type cardinality unique? index?
+                    forward-identity reverse-identity on-delete]}]
          [id
           app-id
           [:cast (when value-type (name value-type)) :text]
@@ -166,7 +172,11 @@
           [:cast unique? :boolean]
           [:cast index? :boolean]
           [:cast (first forward-identity) :uuid]
-          [:cast (first reverse-identity) :uuid]])
+          [:cast (first reverse-identity) :uuid]
+          [:cast
+           (some-> on-delete
+                   name)
+           :attr_on_delete]])
        attrs))
 
 (def ident-table-cols
@@ -213,6 +223,18 @@
                      "Namespaces are not allowed to start with a `$`.
                       Those are reserved for system namespaces.")}])))))
 
+(defn validate-on-deletes!
+  "Prevents users from setting on-delete :cascade on attrs. This would
+   be a nice feature to release, but it needs some thought on what
+   restrictions we put in place. The implementation also needs optimization."
+  [attrs]
+  (doseq [attr attrs]
+    (when (:on-delete attr)
+      (ex/throw-validation-err!
+       :attributes
+       attr
+       [{:message "The :on-delete property can't be set on an attribute."}]))))
+
 (defn insert-multi!
   "Attr data is expressed as one object in clj but is persisted across two tables
    in sql: `attrs` and `idents`.
@@ -220,10 +242,14 @@
    We extract relevant data for each table and build a CTE to insert into
    both tables in one statement"
   ([conn app-id attrs]
-   (insert-multi! conn app-id attrs {:allow-reserved-names? false}))
-  ([conn app-id attrs {:keys [allow-reserved-names?]}]
+   (insert-multi! conn app-id attrs {:allow-reserved-names? false
+                                     :allow-on-deletes? false}))
+  ([conn app-id attrs {:keys [allow-reserved-names?
+                              allow-on-deletes?]}]
    (when-not allow-reserved-names?
      (validate-reserved-names! attrs))
+   (when-not allow-on-deletes?
+     (validate-on-deletes! attrs))
    (with-cache-invalidation app-id
      (sql/do-execute!
       conn
@@ -413,6 +439,7 @@
 (defn- row->attr
   "Clj representation of sql attrs"
   [{:keys [id
+           app_id
            value_type
            cardinality
            is_unique
@@ -423,7 +450,8 @@
            reverse_ident
            rev_label
            rev_etype
-           inferred_types]}]
+           inferred_types
+           on_delete]}]
   (cond-> {:id id
            :value-type (keyword value_type)
            :cardinality (keyword cardinality)
@@ -431,7 +459,11 @@
            :unique? is_unique
            :index? is_indexed
            :inferred-types (when inferred_types
-                             (friendly-inferred-types inferred_types))}
+                             (friendly-inferred-types inferred_types))
+           :catalog (if (= app_id system-catalog-app-id)
+                      :system
+                      :user)}
+    on_delete (assoc :on-delete (keyword on_delete))
     reverse_ident (assoc :reverse-identity [reverse_ident rev_etype rev_label])))
 
 (defn index-attrs
@@ -529,7 +561,12 @@
            :from :attrs
            :join [[:idents :fwd-idents] [:= :attrs.forward-ident :fwd-idents.id]]
            :left-join [[:idents :rev-idents] [:= :attrs.reverse-ident :rev-idents.id]]
-           :where [:= :attrs.app-id [:cast app-id :uuid]]})))))
+           :where [:or
+                   [:= :attrs.app-id [:cast app-id :uuid]]
+                   [:and {:select :users-in-triples
+                          :from :apps
+                          :where [:= :id app-id]}
+                    [:= :attrs.app-id [:cast system-catalog-app-id :uuid]]]]})))))
 
 (defn get-by-app-id
   ([app-id]
@@ -537,7 +574,6 @@
   ([conn app-id]
    ;; Don't cache if we're using a custom connection
    (get-by-app-id* conn app-id)))
-
 
 (defn get-all-users-shims
   "Fetching the mapping from app-users table to attributes that we use to
@@ -579,15 +615,28 @@
 (defn attr-ids-for-etype [etype ^Attrs attrs]
   (.attrIdsForEtype attrs etype))
 
+(defn remove-hidden
+  "Removes the system attrs that might be confusing for the users."
+  [^Attrs attrs]
+  (remove (fn [a]
+            (and (= :system (:catalog a))
+                 (not= "$users" (fwd-etype a))))
+          attrs))
+
 ;; -------
 ;; Helpers
+
+(defn has-$users? [^Attrs attrs]
+  (and (seek-by-fwd-ident-name ["$users" "email"] attrs)
+       (seek-by-fwd-ident-name ["$users" "id"] attrs)))
 
 (defn users-shim-info
   "Returns the users shim info if the users shim attrs exist"
   [^Attrs attrs]
   (let [email-attr (seek-by-fwd-ident-name ["$users" "email"] attrs)
-        id-attr (seek-by-fwd-ident-name ["$users" "id"] attrs)]
-    (when (and email-attr id-attr)
+        id-attr (seek-by-fwd-ident-name ["$users" "id"] attrs)
+        migrated-field (seek-by-fwd-ident-name ["$magicCodes" "id"] attrs)]
+    (when (and email-attr id-attr (not migrated-field))
       {:email-attr-id (:id email-attr)
        :id-attr-id (:id id-attr)})))
 
@@ -597,14 +646,14 @@
            {:id (random-uuid)
             :forward-identity [(random-uuid) "$users" "id"]
             :unique? true
-            :index? false
+            :index? true
             :value-type :blob
             :cardinality :one})
          (when-not (seek-by-fwd-ident-name ["$users" "email"] attrs)
            {:id (random-uuid)
             :forward-identity [(random-uuid) "$users" "email"]
             :unique? true
-            :index? false
+            :index? true
             :value-type :blob
             :cardinality :one})]))
 

@@ -26,12 +26,16 @@
       :params {:app_id (:id a)}
       :body {}})))
 
+;; Used for tests, we can remove once it really is the default.
+(def users-in-triples-by-default? (boolean (System/getenv "USERS_IN_TRIPLES_BY_DEFAULT")))
+
 (defn with-empty-app [f]
   (let [app-id (UUID/randomUUID)
         app (app-model/create! {:title "test app"
                                 :creator-id test-user-id
                                 :id app-id
-                                :admin-token (UUID/randomUUID)})]
+                                :admin-token (UUID/randomUUID)
+                                :users-in-triples? users-in-triples-by-default?})]
     (try
       (f app)
       (finally

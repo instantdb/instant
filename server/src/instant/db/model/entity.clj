@@ -1,5 +1,6 @@
 (ns instant.db.model.entity
-  (:require [instant.db.model.attr :as attr-model]))
+  (:require [instant.db.model.attr :as attr-model])
+  (:import [java.util Date]))
 
 (defn get-triples-batch
   "Takes a list of eid+etype maps and returns a map of eid+etype to triples.
@@ -55,13 +56,17 @@
                      (mapcat identity))]
     triples))
 
-(defn triples->map [{:keys [attrs] :as _ctx} triples]
-  (let [kvs (->> triples
-                 (map (fn [[_e a v]]
-                        [(attr-model/fwd-label (attr-model/seek-by-id a attrs))
-                         v])))
-        m (into {} kvs)]
-    m))
+(defn triples->map [{:keys [attrs include-server-created-at?] :as _ctx} triples]
+  (reduce (fn [acc [_e a v t]]
+            (let [label (attr-model/fwd-label (attr-model/seek-by-id a attrs))]
+              (cond-> acc
+                true (assoc label v)
+
+                (and (= label "id")
+                     include-server-created-at?)
+                (assoc "$serverCreatedAt" (Date. t)))))
+          {}
+          triples))
 
 (defn datalog-result->map [ctx datalog-result]
   (let [triples (->> datalog-result :join-rows (mapcat identity))]

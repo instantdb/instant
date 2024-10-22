@@ -1,16 +1,17 @@
 (ns instant.db.transaction
   (:require
-   [next.jdbc :as next-jdbc]
-   [instant.db.model.attr :as attr-model]
-   [instant.db.model.triple :as triple-model]
-   [instant.db.model.transaction :as transaction-model]
-   [instant.util.tracer :as tracer]
    [clojure.spec.alpha :as s]
    [clojure.spec.gen.alpha :as gen]
    [clojure.string :as string]
    [clojure.walk :as w]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.model.transaction :as transaction-model]
+   [instant.db.model.triple :as triple-model]
+   [instant.system-catalog :refer [system-catalog-app-id]]
    [instant.util.coll :as coll]
-   [instant.util.exception :as ex]))
+   [instant.util.exception :as ex]
+   [instant.util.tracer :as tracer]
+   [next.jdbc :as next-jdbc]))
 
 (s/def ::add-triple-step
   (s/cat :op #{:add-triple} :triple ::triple-model/triple))
@@ -131,31 +132,85 @@
        op
        [{:message (format "You can't create or modify attributes in the %s namespace." etype)}]))))
 
-(defn transact-without-tx-conn! [conn attrs app-id tx-steps]
-  (tracer/with-span! {:name "transaction/transact!"
-                      :attributes {:app-id app-id
-                                   :num-tx-steps (count tx-steps)
-                                   :detailed-tx-steps (pr-str tx-steps)}}
-    (doseq [[op & args] (batch tx-steps)]
-      (when (#{:add-attr :update-attr} op)
-        (prevent-$users-updates op args))
-      (condp = op
-        :add-attr
-        (attr-model/insert-multi! conn app-id args)
-        :delete-attr
-        (attr-model/delete-multi! conn app-id args)
-        :update-attr
-        (attr-model/update-multi! conn app-id args)
-        :delete-entity
-        (triple-model/delete-entity-multi! conn app-id args)
-        :add-triple
-        (triple-model/insert-multi! conn attrs app-id args)
-        :deep-merge-triple
-        (triple-model/deep-merge-multi! conn attrs app-id args)
-        :retract-triple
-        (triple-model/delete-multi! conn app-id args)))
-    (transaction-model/create! conn {:app-id app-id})))
+(defn prevent-system-catalog-updates! [app-id opts]
+  (when (and (= app-id system-catalog-app-id)
+             (not (:allow-system-catalog-updates? opts)))
+    (ex/throw-validation-err!
+     :app
+     app-id
+     [{:message (format "You can't make updates to this app.")}])))
 
-(defn transact! [conn attrs app-id tx-steps]
-  (next-jdbc/with-transaction [tx-conn conn]
-    (transact-without-tx-conn! tx-conn attrs app-id tx-steps)))
+(defn enforce-on-deletes
+  "Unoptimized on-delete helper that will delete entities that have
+   on-delete=:cascade. Only used for system attributes right now.
+   Before releasing as a feature, this should probably happen inside of
+   the `delete-multi`.
+
+   This approach is not ideal because there's no bound on the number of
+   times you recur. We probably want to prevent cycles on the on-delete
+   (e.g. if `a` has on-delete for `b`, then `b` can't have on-delete
+   for `a`), so that the delete query can be statically defined in
+   triple-model/delete-multi!"
+  ([conn attrs app-id results]
+   (enforce-on-deletes conn attrs app-id results (:delete-entity results)))
+  ([conn attrs app-id results last-delete-entities]
+   (if-let [deleted-triples (seq last-delete-entities)]
+     (let [deletes (keep (fn [{:keys [triples/attr_id triples/entity_id]}]
+                           (let [attr (attr-model/seek-by-id attr_id attrs)]
+                             (when (and (= :ref (:value-type attr))
+                                        (= :cascade (:on-delete attr)))
+                               [entity_id (attr-model/fwd-etype attr)])))
+                         deleted-triples)]
+       (if (seq deletes)
+         (let [on-delete-results (triple-model/delete-entity-multi! conn app-id deletes)]
+           (recur conn
+                  attrs
+                  app-id
+                  (update results :delete-entity into on-delete-results)
+                  on-delete-results))
+         results))
+     results)))
+
+(defn transact-without-tx-conn!
+  ([conn attrs app-id tx-steps]
+   (transact-without-tx-conn! conn attrs app-id tx-steps {}))
+  ([conn attrs app-id tx-steps opts]
+   (tracer/with-span! {:name "transaction/transact!"
+                       :attributes {:app-id app-id
+                                    :num-tx-steps (count tx-steps)
+                                    :detailed-tx-steps (pr-str tx-steps)}}
+     (prevent-system-catalog-updates! app-id opts)
+     (let [results
+           (reduce
+            (fn [acc [op & args]]
+              (when (#{:add-attr :update-attr} op)
+                (prevent-$users-updates op args))
+              (let [res (case op
+                          :add-attr
+                          (attr-model/insert-multi! conn app-id args)
+                          :delete-attr
+                          (attr-model/delete-multi! conn app-id args)
+                          :update-attr
+                          (attr-model/update-multi! conn app-id args)
+                          :delete-entity
+                          (triple-model/delete-entity-multi! conn app-id args)
+                          :add-triple
+                          (triple-model/insert-multi! conn attrs app-id args)
+                          :deep-merge-triple
+                          (triple-model/deep-merge-multi! conn attrs app-id args)
+                          :retract-triple
+                          (triple-model/delete-multi! conn app-id args))]
+                (assoc acc op res)))
+            {}
+            (batch tx-steps))
+
+           results-with-on-deletes (enforce-on-deletes conn attrs app-id results)
+           tx (transaction-model/create! conn {:app-id app-id})]
+       (assoc tx :results results-with-on-deletes)))))
+
+(defn transact!
+  ([conn attrs app-id tx-steps]
+   (transact! conn attrs app-id tx-steps {}))
+  ([conn attrs app-id tx-steps opts]
+   (next-jdbc/with-transaction [tx-conn conn]
+     (transact-without-tx-conn! tx-conn attrs app-id tx-steps opts))))
