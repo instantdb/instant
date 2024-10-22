@@ -136,7 +136,7 @@
     {:app-id app-id
      :etype etype
      :legacy-op
-     (fn []
+     (fn [conn]
        (sql/execute-one!
         conn
         ["DELETE FROM app_oauth_clients WHERE id = ?::uuid AND app_id = ?::uuid"
