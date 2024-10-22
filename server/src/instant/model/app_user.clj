@@ -92,7 +92,7 @@
     {:app-id app-id
      :etype etype
      :legacy-op
-     (fn []
+     (fn [conn]
        (sql/execute-one! conn
                          ["UPDATE app_users set email = ? where id = ?::uuid"
                           email id]))
@@ -108,7 +108,7 @@
     {:app-id app-id
      :etype etype
      :legacy-op
-     (fn []
+     (fn [conn]
        (sql/execute-one! conn
                          ["DELETE FROM app_users WHERE app_id = ?::uuid AND email = ?" app-id email]))
      :triples-op (fn [{:keys [delete-entity! resolve-id]}]
