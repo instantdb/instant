@@ -119,6 +119,7 @@
   "Don't allow users to change rules for system attrs."
   [etype action]
   (when (and (not= "$users" etype)
+             (not= "$files" etype)
              (string/starts-with? etype "$"))
     [[etype
       action
