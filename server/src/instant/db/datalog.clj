@@ -44,7 +44,7 @@
   (:import (com.zaxxer.hikari HikariDataSource)
            (java.util UUID)))
 
-(def ^:dynamic *use-new* false)
+(def ^:dynamic *use-new* true)
 
 ;; ---
 ;; Pattern
