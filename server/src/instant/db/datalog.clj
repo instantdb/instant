@@ -1638,7 +1638,7 @@
                                   (conj patterns page-pattern)
                                   patterns)
 
-                       {:keys [query next-idx symbol-map pattern-metas]}
+                       {:keys [query symbol-map pattern-metas]}
                        (match-query {}
                                     prefix
                                     app-id
@@ -1764,14 +1764,15 @@
                               ;; Switch back the order of the results so that
                               ;; they're in the order the user requested.
                               (:last? page-info) (update :join-rows reverse)
-                              page-info ((fn [{:keys [join-rows] :as res}]
-                                           (-> res
-                                               (assoc-in [:page-info :has-previous-page?] (-> rows
-                                                                                              first
-                                                                                              (get-in ["has_prev" "exists"])))
-                                               (assoc-in [:page-info :has-next-page?] (-> rows
-                                                                                          first
-                                                                                          (get-in ["has_next" "exists"])))))))
+
+                              page-info
+                              (assoc-in [:page-info :has-previous-page?] (-> rows
+                                                                             first
+                                                                             (get-in ["has_prev" "exists"])))
+                              page-info
+                              (assoc-in [:page-info :has-next-page?] (-> rows
+                                                                         first
+                                                                         (get-in ["has_next" "exists"]))))
 
                      children (keep (fn [row]
                                       (when-let [children (seq (get row "children"))]
