@@ -299,6 +299,7 @@
          :in (:in state)
          :message "We only support `where`, `order`, `limit`, `offset`, `before`, and `after` clauses."}]))
 
+    ;; TODO(dww): remove limitation when new datalog query is out
     (when (and (< 0 (:level state))
                (or limit offset after before))
       (ex/throw-validation-err!
@@ -745,8 +746,11 @@
                              (add-children
                               (make-node {:datalog-query (:datalog-query (first child))
                                           :datalog-result (:result (first child))})
-                              (collect-query-results (first (:children (first child)))
-                                                     (:child-forms form))))
+                              (if d/*use-new*
+                                (collect-query-results [(second child)]
+                                                       (:child-forms form))
+                                (collect-query-results (first (:children (first child)))
+                                                       (:child-forms form)))))
                            (:children child))]
             (add-children
              (make-node {:k (:k form)
@@ -831,10 +835,17 @@
       {:patterns (replace-sym-placeholders (map-invert (:sym-placeholders ctx))
                                            patterns)
        :children {:pattern-groups
-                  [(merge {:patterns [[:ea sym etype-attr-ids]]}
-                          (when (seq child-forms)
-                            {:children {:pattern-groups (:pattern-groups child-patterns)
-                                        :join-sym sym}}))]
+                  (if d/*use-new*
+                    (concat
+                     [{:patterns [[:ea sym etype-attr-ids]]}]
+                     (when (seq child-forms)
+                       [{:children {:pattern-groups (:pattern-groups child-patterns)
+                                    :join-sym sym}}]))
+                    [(merge {:patterns [[:ea sym etype-attr-ids]]}
+                            (when (seq child-forms)
+                              {:children {:pattern-groups (:pattern-groups child-patterns)
+                                          :join-sym sym}}))])
+
                   :join-sym sym}}
       (when missing-attr?
         {:missing-attr? missing-attr?})

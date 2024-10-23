@@ -25,7 +25,7 @@
         blob-entries (entity-model/datalog-result->map ctx datalog-result)
         ref-entries (some->> node
                              :child-nodes
-                             (map (partial enrich-node ctx etype))
+                             (mapv (partial enrich-node ctx etype))
                              (instaql-ref-nodes->object-tree ctx))]
     (merge blob-entries ref-entries)))
 
@@ -38,7 +38,7 @@
   (reduce
    (fn [acc node]
      (let [{:keys [child-nodes data]} node
-           entries (map (partial obj-node ctx (-> data :etype)) child-nodes)
+           entries (mapv (partial obj-node ctx (-> data :etype)) child-nodes)
            singular? (and (:inference? ctx) (singular-entry? data))
            entry-or-entries (if singular? (first entries) entries)]
        (assoc acc (:k data) entry-or-entries)))
@@ -47,5 +47,5 @@
 
 (defn instaql-nodes->object-tree [ctx nodes]
   (let [enriched-nodes
-        (map (fn [n] (update n :data (fn [d] (assoc d :etype (:k d))))) nodes)]
+        (mapv (fn [n] (update n :data (fn [d] (assoc d :etype (:k d))))) nodes)]
     (instaql-ref-nodes->object-tree ctx enriched-nodes)))
