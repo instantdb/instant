@@ -688,11 +688,11 @@
         all-joins (into joins parent-joins)
         parent-froms (->> named-p
                           variable-components
-                          (mapcat (fn [[_ [_ sym]]]
-                                    (when-let [{:keys [paths table]} (get additional-joins sym)]
-                                      ;; If the table is specified, then don't include in parent froms
-                                      (when-not table
-                                        (kw prefix (ffirst paths)))))))]
+                          (keep (fn [[_ [_ sym]]]
+                                  (when-let [{:keys [paths table]} (get additional-joins sym)]
+                                    ;; If the table is specified, then don't include in parent froms
+                                    (when-not table
+                                      (kw prefix (ffirst paths)))))))]
     [cur-table
      {:select (concat (when prev-table
                         [(kw prev-table :.*)])
@@ -1814,7 +1814,10 @@
 (defn send-query-new
   [ctx conn app-id nested-named-patterns]
   (let [{:keys [queries query-meta]} (new-query ctx app-id nested-named-patterns)
-        sql-query (hsql/format {:select [[(list* :json_build_array queries)]]})
+        shims (maybe-add-users-shim ctx app-id [])
+        sql-query (hsql/format (merge {:select [[(list* :json_build_array queries)]]}
+                                      (when (seq shims)
+                                        {:with shims})))
         sql-res (if (every? :missing-attr? query-meta)
                   [["json_build_array" (repeat (count query-meta)
                                                (constantly {"data" "null"}))]]
