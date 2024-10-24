@@ -133,7 +133,7 @@ async function testSignOut() {
 }
 
 async function testFetchUser() {
-  const email = "stopa@instantdb.com";
+  const email = "stopa+123@instantdb.com";
   const user = await db.auth.getUser({ email });
   console.log("user", user);
 }
