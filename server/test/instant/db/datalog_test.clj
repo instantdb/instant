@@ -67,7 +67,7 @@
   (let [named-ps (map second (d/->named-patterns raw-pats))]
     (-> (reduce (fn [{:keys [i symbol-map] :as acc} pat]
                   (-> acc
-                      (update :join-conds conj (d/join-conds :match- symbol-map pat))
+                      (update :join-conds conj (d/join-conds nil :match- symbol-map pat))
                       (update :symbol-map (partial merge-with into) (d/symbol-map-of-pattern i pat))
                       (update :i inc)))
                 {:join-conds []

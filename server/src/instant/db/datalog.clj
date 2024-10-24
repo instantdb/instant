@@ -1752,52 +1752,64 @@
   ([sql-res query-meta]
    (collect-new-query-result sql-res query-meta {}))
   ([sql-res query-meta _]
-   (reduce (fn [acc [sql-res query-meta]]
-             (if (:missing-attr? query-meta)
-               (conj acc {:result (missing-attr-result (:patterns query-meta))
-                          :datalog-query (:datalog-query query-meta)})
-               (let [rows (map #(get % "row")
-                               (get-in sql-res ["data" "rows"]))
-                     page-info (:page-info query-meta)
-                     result (cond-> (sql-result->result rows (:pattern-metas query-meta) true)
-                              ;; We switched the order so we could get items
-                              ;; at the end of the list.
-                              ;; Switch back the order of the results so that
-                              ;; they're in the order the user requested.
-                              (:last? page-info) (update :join-rows reverse)
+   (reduce
+    (fn [acc [sql-res query-meta]]
+      (cond
+        (:missing-attr? query-meta)
+        (conj acc {:result (missing-attr-result (:patterns query-meta))
+                   :datalog-query (:datalog-query query-meta)})
 
-                              page-info
-                              (assoc-in [:page-info :has-previous-page?] (-> rows
-                                                                             first
-                                                                             (get-in ["has_prev" "exists"])))
-                              page-info
-                              (assoc-in [:page-info :has-next-page?] (-> rows
-                                                                         first
-                                                                         (get-in ["has_next" "exists"]))))
+        (:aggregate query-meta)
+        (let [{:keys [aggregate datalog-query]} query-meta]
+          (conj acc {:result {:topics (pats->coarse-topics datalog-query)
+                              :symbol-values {}
+                              :join-rows #{}
+                              :aggregate {aggregate (get-in sql-res ["data" "aggregate" (name aggregate)])}}
+                     :datalog-query datalog-query}))
 
-                     children (keep (fn [row]
-                                      (when-let [children (seq (get row "children"))]
-                                        (let [join-sym (:join-sym query-meta)
-                                              join-val (parse-uuid (get row "join-val"))
-                                              next-query-meta (map (fn [qm]
-                                                                     (-> qm
-                                                                         (update :pattern-metas
-                                                                                 update-symbol-value
-                                                                                 join-sym
-                                                                                 join-val)
-                                                                         (update :datalog-query
-                                                                                 (partial replace-join-sym-in-datalog-query
-                                                                                          join-sym
-                                                                                          join-val))))
-                                                                   (:children query-meta))]
-                                          (collect-new-query-result children next-query-meta))))
-                                    (get-in sql-res ["data" "rows"]))]
-                 (conj acc (merge {:result result
-                                   :datalog-query (:datalog-query query-meta)}
-                                  (when (seq children)
-                                    {:children children}))))))
-           []
-           (map vector sql-res query-meta))))
+        :else
+        (let [rows (map #(get % "row")
+                        (get-in sql-res ["data" "rows"]))
+              page-info (:page-info query-meta)
+              result (cond-> (sql-result->result rows (:pattern-metas query-meta) true)
+                       ;; We switched the order so we could get items
+                       ;; at the end of the list.
+                       ;; Switch back the order of the results so that
+                       ;; they're in the order the user requested.
+                       (:last? page-info) (update :join-rows reverse)
+
+                       page-info
+                       (assoc-in [:page-info :has-previous-page?] (-> rows
+                                                                      first
+                                                                      (get-in ["has_prev" "exists"])))
+                       page-info
+                       (assoc-in [:page-info :has-next-page?] (-> rows
+                                                                  first
+                                                                  (get-in ["has_next" "exists"]))))
+
+              children (keep (fn [row]
+                               (when-let [children (seq (get row "children"))]
+                                 (let [join-sym (:join-sym query-meta)
+                                       join-val (parse-uuid (get row "join-val"))
+                                       next-query-meta (map (fn [qm]
+                                                              (-> qm
+                                                                  (update :pattern-metas
+                                                                          update-symbol-value
+                                                                          join-sym
+                                                                          join-val)
+                                                                  (update :datalog-query
+                                                                          (partial replace-join-sym-in-datalog-query
+                                                                                   join-sym
+                                                                                   join-val))))
+                                                            (:children query-meta))]
+                                   (collect-new-query-result children next-query-meta))))
+                             (get-in sql-res ["data" "rows"]))]
+          (conj acc (merge {:result result
+                            :datalog-query (:datalog-query query-meta)}
+                           (when (seq children)
+                             {:children children}))))))
+    []
+    (map vector sql-res query-meta))))
 
 (defn send-query-new
   [ctx conn app-id nested-named-patterns]
