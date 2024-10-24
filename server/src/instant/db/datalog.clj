@@ -704,12 +704,20 @@
      ;; TODO: (test if we need this with *use-new*)
      :materialized]))
 
+(defn flatten-paths [paths]
+  (mapcat (fn [path]
+            (if (set? path)
+              (mapcat flatten-paths path)
+              [path]))
+          paths))
+
 (defn join-val-fields [table prefix paths]
   (map (fn [[match-idx component-idx]]
+
          (kw table "." prefix match-idx "-" (case component-idx
                                               0 :entity-id
                                               2 :value-uuid)))
-       (partition 2 (flatten paths))))
+       (flatten-paths paths)))
 
 (defn symbol-fields-of-pattern
   "Keeps track of which idx in the triple maps to which variable.
