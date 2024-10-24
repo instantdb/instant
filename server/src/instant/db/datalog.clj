@@ -1622,135 +1622,144 @@
            acc
            nested-result)))
 
-(defn new-query
+(declare get-pg-nested-query)
+
+(defn get-next-pg-nested-query [ctx
+                                app-id
+                                {:keys [patterns
+                                        children
+                                        aggregate
+                                        page-info
+                                        datalog-query]
+                                 :as next-patterns}
+                                {:keys [additional-joins
+                                        get-query-id]}]
+  (let [query-id (get-query-id)
+        prefix :match-
+        page-pattern (:named-pattern page-info)
+        patterns (if page-pattern
+                   (conj patterns page-pattern)
+                   patterns)
+
+        {:keys [query symbol-map pattern-metas]}
+        (match-query {}
+                     prefix
+                     app-id
+                     additional-joins
+                     patterns)
+
+        pattern-metas (if page-pattern
+                        ;; Annotate the page pattern so that we'll know to
+                        ;; get the start and end cursors when we process the
+                        ;; results.
+                        (update pattern-metas
+                                (dec (count pattern-metas))
+                                assoc :page-info page-info)
+                        pattern-metas)
+        query (if page-info
+                (-> query
+                    (update :with (partial add-page-info page-info))
+                    ;; We do this to put has-next and has-prev on
+                    ;; every row so that we can get access to it.
+                    ;; Ideally we would put it in the json object next to rows
+                    (update query :select (fn [s] [s :has-next :has-prev]))
+
+                    (update :from (fn [f] [f
+                                           [(has-next-tbl f) :has-next]
+                                           [(has-prev-tbl f) :has-prev]])))
+                query)
+        join-sym (:join-sym children)
+        additional-joins (when children
+                           {join-sym {:paths (get symbol-map join-sym)
+                                      :table query-id}})
+        {child-queries :queries
+         child-query-meta :query-meta}
+        (when (seq children)
+          (get-pg-nested-query ctx
+                               app-id
+                               next-patterns
+                               {:additional-joins additional-joins
+                                :get-query-id get-query-id}))
+        join-val (when (seq children)
+                   (when-let [fields (seq (join-val-fields
+                                           query-id
+                                           prefix
+                                           (:paths (get additional-joins join-sym))))]
+                     (if (= 1 (count fields))
+                       (first fields)
+                       (list* :coalesce fields))))]
+    {:queries [:json_build_object
+               "data" {:select (if aggregate
+                                 [[[:json_build_object
+                                    "aggregate"
+                                    [:json_build_object
+                                     (name aggregate) [aggregate query-id]]]]]
+                                 [[[:json_build_object
+                                    "rows" [:json_agg
+                                            (list*
+                                             :json_build_object
+                                             "row" [:row_to_json query-id]
+
+                                             (when children
+                                               ["join-val" join-val
+                                                "children" (list* :json_build_array child-queries)]))]]]])
+                       :from [[query query-id]]}]
+     :query-meta {:pattern-metas pattern-metas
+                  :children child-query-meta
+                  :patterns patterns
+                  :page-info page-info
+                  :datalog-query datalog-query
+                  :aggregate aggregate
+                  :join-sym join-sym}}))
+
+(defn get-pg-nested-query
   ([ctx app-id nested-named-patterns]
-   (let [query-id-atom (atom 0)]
-     (new-query ctx app-id nested-named-patterns {:additional-joins {}
-                                                  :get-query-id (fn []
-                                                                  (kw :r- (swap! query-id-atom inc)))})))
-  ([ctx app-id nested-named-patterns {:keys [additional-joins
-                                             get-query-id]}]
-   (reduce (fn [acc {:keys [patterns
-                            children
-                            aggregate
-                            page-info
-                            datalog-query
-                            missing-attr?]
-                     :as next-patterns}]
-             (if missing-attr?
-               (-> acc
-                   (update :queries
-                           conj
-                           [:json_build_object "data" "null"])
-                   (update :query-meta conj
-                           {:missing-attr? true
-                            :patterns patterns
-                            :datalog-query datalog-query})
-                   )
-               (if (seq patterns)
-                 (let [query-id (get-query-id)
-                       prefix :match-
-                       page-pattern (:named-pattern page-info)
-                       patterns (if page-pattern
-                                  (conj patterns page-pattern)
-                                  patterns)
+   (let [query-id-atom (atom 0)
+         local-ctx {:additional-joins {}
+                    :get-query-id (fn []
+                                    (kw :r- (swap! query-id-atom inc)))}]
+     (get-pg-nested-query ctx app-id nested-named-patterns local-ctx)))
+  ([ctx app-id nested-named-patterns local-ctx]
+   (reduce
+    (fn [acc {:keys [patterns datalog-query missing-attr?] :as next-patterns}]
+      (cond missing-attr?
+            (-> acc
+                (update :queries
+                        conj
+                        [:json_build_object "data" "null"])
+                (update :query-meta conj
+                        {:missing-attr? true
+                         :patterns patterns
+                         :datalog-query datalog-query}))
 
-                       {:keys [query symbol-map pattern-metas]}
-                       (match-query {}
-                                    prefix
-                                    app-id
-                                    additional-joins
-                                    patterns)
+            (seq patterns)
+            (let [{:keys [queries query-meta]}
+                  (get-next-pg-nested-query ctx app-id next-patterns local-ctx)]
+              (-> acc
+                  (update :queries
+                          conj
+                          queries)
+                  (update :query-meta
+                          conj
+                          query-meta)))
 
-                       pattern-metas (if page-pattern
-                                       ;; Annotate the page pattern so that we'll know to
-                                       ;; get the start and end cursors when we process the
-                                       ;; results.
-                                       (update pattern-metas
-                                               (dec (count pattern-metas))
-                                               assoc :page-info page-info)
-                                       pattern-metas)
-                       query (if page-info
-                               (-> query
-                                   (update :with (partial add-page-info page-info))
-                                   ;; We do this to put has-next and has-prev on
-                                   ;; every row so that we can get access to it.
-                                   ;; Ideally we would put it in the json object next to rows
-                                   ((fn [query]
-                                      (update query :select (fn [s] [s
-                                                                     :has-next
-                                                                     :has-prev]))))
+            :else
+            (let [{:keys [queries query-meta]}
+                  (get-pg-nested-query ctx app-id next-patterns local-ctx)]
+              (-> acc
+                  (update :queries
+                          into
+                          queries)
+                  (update :query-meta
+                          into
+                          query-meta)))))
+    {:queries []
+     :query-meta []}
+    (get-in nested-named-patterns [:children :pattern-groups]))))
 
-                                   (update :from (fn [f] [f
-                                                          [(has-next-tbl f) :has-next]
-                                                          [(has-prev-tbl f) :has-prev]])))
-                               query)
-                       join-sym (:join-sym children)
-                       additional-joins (when children
-                                          {join-sym {:paths (get symbol-map join-sym)
-                                                     :table query-id}})
-                       {child-queries :queries
-                        child-query-meta :query-meta}
-                       (when (seq children)
-                         (new-query ctx
-                                    app-id
-                                    next-patterns
-                                    {:additional-joins additional-joins
-                                     :get-query-id get-query-id}))]
-                   (-> acc
-                       (update :queries
-                               conj
-                               [:json_build_object
-                                "data" {:select (if aggregate
-                                                  [[[:json_build_object
-                                                     "aggregate"
-                                                     [:json_build_object
-                                                      (name aggregate) [aggregate query-id]]]]]
-                                                  [[[:json_build_object
-                                                     "rows" [:json_agg
-                                                             (list*
-                                                              :json_build_object
-                                                              "row" [:row_to_json query-id]
-
-                                                              (when children
-                                                                ["join-val" (when-let [fields (seq (join-val-fields query-id
-                                                                                                                    prefix
-                                                                                                                    (:paths (get additional-joins join-sym))))]
-                                                                              (if (= 1 (count fields))
-                                                                                (first fields)
-                                                                                (list* :coalesce fields)))
-                                                                 "children" (list* :json_build_array child-queries)
-                                                                 ]))]]]])
-                                        :from [[query query-id]]}])
-                       (update :query-meta
-                               conj
-                               {:pattern-metas pattern-metas
-                                :children child-query-meta
-                                :patterns patterns
-                                :page-info page-info
-                                :datalog-query datalog-query
-                                :aggregate aggregate
-                                :join-sym join-sym})))
-                 (let [{:keys [queries query-meta]} (new-query ctx
-                                                               app-id
-                                                               next-patterns
-                                                               {:additional-joins additional-joins
-                                                                :get-query-id get-query-id})]
-                   (-> acc
-                       (update :queries
-                               into
-                               queries)
-                       (update :query-meta
-                               into
-                               query-meta))))))
-           {:queries []
-            :query-meta []}
-           (get-in nested-named-patterns [:children
-                                          :pattern-groups]))))
-
-(defn collect-new-query-result
+(defn collect-pg-nested-query-result
   ([sql-res query-meta]
-   (collect-new-query-result sql-res query-meta {}))
+   (collect-pg-nested-query-result sql-res query-meta {}))
   ([sql-res query-meta _]
    (reduce
     (fn [acc [sql-res query-meta]]
@@ -1779,31 +1788,37 @@
                        (:last? page-info) (update :join-rows reverse)
 
                        page-info
-                       (assoc-in [:page-info :has-previous-page?] (-> rows
-                                                                      first
-                                                                      (get-in ["has_prev" "exists"])))
+                       (assoc-in [:page-info :has-previous-page?]
+                                 (-> rows
+                                     first
+                                     (get-in ["has_prev" "exists"])))
                        page-info
-                       (assoc-in [:page-info :has-next-page?] (-> rows
-                                                                  first
-                                                                  (get-in ["has_next" "exists"]))))
+                       (assoc-in [:page-info :has-next-page?]
+                                 (-> rows
+                                     first
+                                     (get-in ["has_next" "exists"]))))
 
-              children (keep (fn [row]
-                               (when-let [children (seq (get row "children"))]
-                                 (let [join-sym (:join-sym query-meta)
-                                       join-val (parse-uuid (get row "join-val"))
-                                       next-query-meta (map (fn [qm]
-                                                              (-> qm
-                                                                  (update :pattern-metas
-                                                                          update-symbol-value
-                                                                          join-sym
-                                                                          join-val)
-                                                                  (update :datalog-query
-                                                                          (partial replace-join-sym-in-datalog-query
-                                                                                   join-sym
-                                                                                   join-val))))
-                                                            (:children query-meta))]
-                                   (collect-new-query-result children next-query-meta))))
-                             (get-in sql-res ["data" "rows"]))]
+              children
+              (keep (fn [row]
+                      (when-let [children (seq (get row "children"))]
+                        (let [join-sym (:join-sym query-meta)
+                              join-val (parse-uuid (get row "join-val"))
+
+                              next-query-meta
+                              (map
+                               (fn [qm]
+                                 (-> qm
+                                     (update :pattern-metas
+                                             update-symbol-value
+                                             join-sym
+                                             join-val)
+                                     (update :datalog-query
+                                             (partial replace-join-sym-in-datalog-query
+                                                      join-sym
+                                                      join-val))))
+                               (:children query-meta))]
+                          (collect-pg-nested-query-result children next-query-meta))))
+                    (get-in sql-res ["data" "rows"]))]
           (conj acc (merge {:result result
                             :datalog-query (:datalog-query query-meta)}
                            (when (seq children)
@@ -1811,9 +1826,9 @@
     []
     (map vector sql-res query-meta))))
 
-(defn send-query-new
+(defn send-pg-nested-query
   [ctx conn app-id nested-named-patterns]
-  (let [{:keys [queries query-meta]} (new-query ctx app-id nested-named-patterns)
+  (let [{:keys [queries query-meta]} (get-pg-nested-query ctx app-id nested-named-patterns)
         shims (maybe-add-users-shim ctx app-id [])
         sql-query (hsql/format (merge {:select [[(list* :json_build_array queries)]]}
                                       (when (seq shims)
@@ -1824,7 +1839,7 @@
                   (-> (sql/select-string-keys conn sql-query)
                       first
                       (get "json_build_array")))
-        result (collect-new-query-result sql-res query-meta)
+        result (collect-pg-nested-query-result sql-res query-meta)
         topics (collect-all-topics result)]
     {:data result
      :topics topics}))
@@ -1882,7 +1897,7 @@
   (let [nested-named-patterns (nested->named-patterns nested-patterns)]
     (throw-invalid-nested-patterns nested-named-patterns)
     (if *use-new*
-      (send-query-new ctx (:conn-pool db) app-id nested-named-patterns)
+      (send-pg-nested-query ctx (:conn-pool db) app-id nested-named-patterns)
       (send-query-nested ctx (:conn-pool db) app-id nested-named-patterns))))
 
 (defn query
