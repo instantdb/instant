@@ -1663,7 +1663,7 @@
                     ;; We do this to put has-next and has-prev on
                     ;; every row so that we can get access to it.
                     ;; Ideally we would put it in the json object next to rows
-                    (update query :select (fn [s] [s :has-next :has-prev]))
+                    (update :select (fn [s] [s :has-next :has-prev]))
 
                     (update :from (fn [f] [f
                                            [(has-next-tbl f) :has-next]
