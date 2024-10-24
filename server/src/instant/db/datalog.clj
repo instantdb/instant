@@ -555,7 +555,7 @@
    [1 [:v :v]] => [:value :match-1-value-blob]
    [1 [:e :v]] => [:entity-id :match-1-value-uuid]
    [1 [:v :a]] => [:value [:to_jsonb :match-1-attr-id]]"
-  [table prefix dest-idx [origin-ctype dest-ctype dest-col-prefix]]
+  [table prefix dest-idx [origin-ctype dest-ctype]]
 
   (let [dest-col #(kw (if table
                         (kw table "." prefix)
