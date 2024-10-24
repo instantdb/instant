@@ -677,6 +677,7 @@ export {
   type ImpersonationOpts,
   type TransactionChunk,
   type DebugCheckResult,
+  type InstantAdmin,
 
   // core types
   type User,
