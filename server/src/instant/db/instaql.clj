@@ -747,7 +747,7 @@
                               (make-node {:datalog-query (:datalog-query (first child))
                                           :datalog-result (:result (first child))})
                               (if d/*use-new*
-                                (collect-query-results [(second child)]
+                                (collect-query-results (drop 1 child)
                                                        (:child-forms form))
                                 (collect-query-results (first (:children (first child)))
                                                        (:child-forms form)))))
