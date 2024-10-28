@@ -91,15 +91,9 @@ importers:
 
   packages/core:
     dependencies:
-      '@types/object-hash':
-        specifier: ^3.0.6
-        version: 3.0.6
       mutative:
         specifier: ^1.0.10
         version: 1.0.10
-      object-hash:
-        specifier: ^3.0.0
-        version: 3.0.0
       uuid:
         specifier: ^9.0.0
         version: 9.0.1
@@ -687,9 +681,6 @@ importers:
       '@types/node':
         specifier: 17.0.4
         version: 17.0.4
-      '@types/object-hash':
-        specifier: ^3.0.6
-        version: 3.0.6
       '@types/prismjs':
         specifier: ^1.26.0
         version: 1.26.3
@@ -9413,9 +9404,6 @@ packages:
     resolution: {integrity: sha512-V48tCfcKb/e6cVUigLAaJDAILdMP0fUW6BidkPK4GpGjXcfbnoHasCZDwz3N3yVt5we2RHm4XTQCpv0KJz9zqw==}
     dependencies:
       undici-types: 6.19.8
-
-  /@types/object-hash@3.0.6:
-    resolution: {integrity: sha512-fOBV8C1FIu2ELinoILQ+ApxcUKz4ngq+IWUYrxSGjXzzjUALijilampwkMgEtJ+h2njAW3pi853QpzNVCHB73w==}
 
   /@types/parse5@6.0.3:
     resolution: {integrity: sha512-SuT16Q1K51EAVPz1K29DJ/sXjhSQ0zjvsypYJ6tlwVsRV9jwW5Adq2ch8Dq8kDBCkYnELS7N7VNCSB5nC56t/g==}
