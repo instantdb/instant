@@ -56,6 +56,7 @@ import { StorageTab } from '@/components/dash/Storage';
 import PersonalAccessTokensScreen from '@/components/dash/PersonalAccessTokensScreen';
 import { useForm } from '@/lib/hooks/useForm';
 import { useSchemaQuery } from '@/lib/hooks/explorer';
+import useLocalStorage from '@/lib/hooks/useLocalStorage';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -244,7 +245,7 @@ function Dashboard() {
   const tab = tabIndex.has(_tab) ? _tab : defaultTab;
 
   // Local states
-  const [hideAppId, setHideAppId] = useState(getLocal('hide_app_id'));
+  const [hideAppId, setHideAppId] = useLocalStorage('hide_app_id', false);
 
   const [connection, setConnection] = useState<{
     db: InstantReactClient;
@@ -469,11 +470,10 @@ function Dashboard() {
               <div className="flex max-w-xl flex-col gap-2 p-3">
                 <h2 className="font-mono text-lg font-bold">{app.title}</h2>
                 <Copyable
-                  label={hideAppId ? 'App ID' : 'Public App ID'}
+                  label="Public App ID"
                   value={app.id}
                   hideValue={hideAppId}
                   onChangeHideValue={() => {
-                    setLocal('hide_app_id', !hideAppId);
                     setHideAppId(!hideAppId);
                   }}
                 />
