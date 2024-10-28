@@ -106,8 +106,9 @@
   [rules action]
   (case action
     ("create" "update" "delete")
-    (when (not= (get-in rules ["$users" "allow" action])
-                "false")
+    (when (and (not (nil? (get-in rules ["$users" "allow" action])))
+               (not= (get-in rules ["$users" "allow" action])
+                     "false"))
       [["$users"
         action
         (format "The $users namespace is read-only. Set `$users.allow.%s` to `\"false\"`."

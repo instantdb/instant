@@ -24,7 +24,9 @@
      (let [app (sql/execute-one!
                 tx-conn
                 ["INSERT INTO apps (id, title, creator_id, users_in_triples) VALUES (?::uuid, ?, ?::uuid, ?)"
-                 id title creator-id users-in-triples?])
+                 id title creator-id (if (nil? users-in-triples?)
+                                       true
+                                       users-in-triples?)])
            {:keys [token]} (app-admin-token-model/create! tx-conn {:app-id id
                                                                    :token admin-token})]
        (assoc app :admin-token token)))))

@@ -471,7 +471,10 @@ class Auth {
   getUser = async (
     params: { email: string } | { id: string } | { refresh_token: string },
   ): Promise<User> => {
-    const qs = Object.entries(params).map(([k, v]) => `${k}=${v}`);
+    const qs = Object.entries(params)
+      .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+      .join('&');
+
     const response: { user: User } = await jsonFetch(
       `${this.config.apiURI}/admin/users?${qs}`,
       {
@@ -677,6 +680,7 @@ export {
   type ImpersonationOpts,
   type TransactionChunk,
   type DebugCheckResult,
+  type InstantAdmin,
 
   // core types
   type User,

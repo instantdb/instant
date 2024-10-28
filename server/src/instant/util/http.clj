@@ -102,8 +102,11 @@
               bad-request (when instant-ex
                             (instant-ex->bad-request instant-ex))]
           (cond
-            bad-request (do (tracer/record-exception-span! e {:name "instant-ex/bad-request"})
-                            (response/bad-request bad-request))
+            bad-request (if (-> bad-request :hint :args first :auth?)
+                          (do (tracer/record-exception-span! e {:name "instant-ex/unauthorized"})
+                              (response/unauthorized bad-request))
+                          (do (tracer/record-exception-span! e {:name "instant-ex/bad-request"})
+                              (response/bad-request bad-request)))
 
             instant-ex (do (tracer/add-exception! instant-ex {:escaping? false})
                            (response/internal-server-error

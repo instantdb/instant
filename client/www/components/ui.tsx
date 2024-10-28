@@ -20,6 +20,8 @@ import {
   CheckCircleIcon,
   ClipboardCopyIcon,
   XIcon,
+  EyeIcon,
+  EyeOffIcon,
 } from '@heroicons/react/solid';
 import { errorToast, successToast } from '@/lib/toast';
 import CopyToClipboard from 'react-copy-to-clipboard';
@@ -78,7 +80,7 @@ export function ToggleCollection({
               {
                 'bg-gray-200': selectedId === a.id,
               },
-              buttonClassName
+              buttonClassName,
             )}
           >
             {a.label}
@@ -95,12 +97,12 @@ export function ToggleCollection({
               {
                 'bg-gray-200': selectedId === a.id,
               },
-              buttonClassName
+              buttonClassName,
             )}
           >
             {a.label}
           </button>
-        )
+        ),
       )}
     </div>
   );
@@ -207,7 +209,7 @@ export function TextInput({
           className,
           {
             'border-red-500': error,
-          }
+          },
         )}
         onChange={(e) => {
           onChange(e.target.value);
@@ -245,7 +247,7 @@ export function Checkbox({
     <label
       className={cn(
         'flex cursor-pointer items-center gap-2 disabled:cursor-default',
-        labelClassName
+        labelClassName,
       )}
       title={title}
     >
@@ -255,7 +257,7 @@ export function Checkbox({
         required={required}
         className={cn(
           'align-middle font-medium text-gray-900 disabled:text-gray-400 disabled:bg-gray-400',
-          className
+          className,
         )}
         type="checkbox"
         checked={checked}
@@ -290,7 +292,7 @@ export function Select({
       disabled={disabled}
       className={cn(
         'rounded-sm border-gray-300 py-1 disabled:text-gray-400',
-        className
+        className,
       )}
       onChange={(e) => {
         const v = e.target.value;
@@ -332,7 +334,7 @@ export function TabBar({
     <div
       className={clsx(
         'flex flex-row gap-0.5 overflow-x-auto border-b px-2 py-1 no-scrollbar',
-        className
+        className,
       )}
     >
       {tabs.map((t) =>
@@ -346,7 +348,7 @@ export function TabBar({
               'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
               {
                 'bg-gray-200': selectedId === t.id && !disabled,
-              }
+              },
             )}
           >
             {t.label}
@@ -360,12 +362,12 @@ export function TabBar({
               'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
               {
                 'bg-gray-200': selectedId === t.id && !disabled,
-              }
+              },
             )}
           >
             {t.label}
           </button>
-        )
+        ),
       )}
     </div>
   );
@@ -445,7 +447,7 @@ export function Button({
       'cursor-not-allowed': disabled,
       'cursor-wait opacity-75': loading, // Apply wait cursor and lower opacity when loading
     },
-    className
+    className,
   );
 
   if (isATag) {
@@ -611,14 +613,26 @@ export function ActionButton({
 }
 // other
 
+function redactedValue(v: string): string {
+  if (v.length === 36 && v.indexOf('-') === 8) {
+    // Probably a uuid, so preserve the dashes
+    return v.replaceAll(/[^-]/g, '*');
+  }
+  return v.replaceAll(/./g, '*');
+}
+
 export function Copyable({
   value,
   label,
   size = 'normal',
+  hideValue,
+  onChangeHideValue,
 }: {
   value: string;
   label: string;
   size?: 'normal' | 'large';
+  hideValue?: boolean;
+  onChangeHideValue?: () => void;
 }) {
   const [copyLabel, setCopyLabel] = useState('Copy');
   const sizeToStyle = {
@@ -644,9 +658,24 @@ export function Copyable({
           selection.selectAllChildren(el);
         }}
       >
-        {value}
+        {hideValue ? redactedValue(value) : value}
       </pre>
-      <div className="px-4">
+      <div className="flex gap-1 px-1">
+        {!!onChangeHideValue && (
+          <button
+            onClick={onChangeHideValue}
+            className={cn(
+              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
+              { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
+            )}
+          >
+            {hideValue ? (
+              <EyeOffIcon className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <EyeIcon className="h-4 w-4" aria-hidden="true" />
+            )}
+          </button>
+        )}
         <CopyToClipboard text={value}>
           <button
             onClick={() => {
@@ -657,7 +686,7 @@ export function Copyable({
             }}
             className={cn(
               'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
-              { 'text-xs': size === 'normal', 'text-sm': size === 'large' }
+              { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
             <ClipboardCopyIcon className="-ml-0.5 h-4 w-4" aria-hidden="true" />
@@ -766,7 +795,7 @@ export function JSONEditor(props: {
           onMount={function handleEditorDidMount(editor, monaco) {
             // cmd+S binding to save
             editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () =>
-              props.onSave(editor.getValue())
+              props.onSave(editor.getValue()),
             );
 
             if (!props.schema) return;
@@ -888,7 +917,7 @@ export const Divider = ({ children }: PropsWithChildren) => (
 
 export function twel<T = {}>(
   el: string,
-  cls: clsx.ClassValue[] | clsx.ClassValue
+  cls: clsx.ClassValue[] | clsx.ClassValue,
 ) {
   return function (props: { className?: string; children: ReactNode } & T) {
     return createElement(el, {
