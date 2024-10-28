@@ -5,9 +5,9 @@ title: Managing users
 ## See users in your app
 
 You can manage users in your app using the `$users` namespace. This namespace is
-automatically created when you enable it from the `Admin` tab.
+automatically created when you create an app.
 
-Once enabled, you'll see the `$users` namespace in the `Explorer` tab with all
+You'll see the `$users` namespace in the `Explorer` tab with all
 the users in your app!
 
 ## Querying users
@@ -18,15 +18,15 @@ data.
 
 ```javascript
 export default {
-  "$users": {
-    "allow": {
-      "view": "auth.id == data.id",
-      "create": "false",
-      "delete": "false",
-      "update": "false"
-    }
+  $users: {
+    allow: {
+      view: 'auth.id == data.id',
+      create: 'false',
+      delete: 'false',
+      update: 'false',
+    },
   },
-}
+};
 ```
 
 Right now `$users` is a read-only namespace. You can override the `view`
@@ -127,9 +127,11 @@ You can then create links between users on the client side like so:
 const addTodo = (newTodo, currentUser) => {
   const newId = id();
   db.transact(
-    tx.todos[newId].update({ text: newTodo, userId: currentUser.id, completed: false })
+    tx.todos[newId]
+      .update({ text: newTodo, userId: currentUser.id, completed: false })
       // Link the todo to the user with the `owner` label we defined in the schema
-      .link({ owner: currentUser.id }));
+      .link({ owner: currentUser.id }),
+  );
 };
 
 // Creates or updates a user profile with a nickname and links it to the
@@ -137,11 +139,12 @@ const addTodo = (newTodo, currentUser) => {
 const updateNick = (newNick, currentUser) => {
   const profileId = lookup('email', currentUser.email);
   db.transact([
-    tx.profiles[profileId].update({ userId: currentUser.id, nickname: newNick })
+    tx.profiles[profileId]
+      .update({ userId: currentUser.id, nickname: newNick })
       // Link the profile to the user with the `user` label we defined in the schema
       .link({ user: currentUser.id }),
   ]);
-}
+};
 ```
 
 If attr creation on the client [is enabled](/docs/permissions#attrs),
@@ -176,12 +179,12 @@ todos like so:
 ```javascript
 export default {
   // users perms...
-  "todos": {
-    "allow": {
+  todos: {
+    allow: {
       // owner is the label from the todos namespace to the $users namespace
-      "update": "auth.id in data.ref('owner.id')",
-    }
-  }
+      update: "auth.id in data.ref('owner.id')",
+    },
+  },
 };
 ```
 
@@ -192,12 +195,12 @@ equivalent rule to the one above using `auth.ref`:
 ```javascript
 export default {
   // users perms...
-  "todos": {
-    "allow": {
+  todos: {
+    allow: {
       // We traverse the users links directly from the auth object
-      "update": "data.id in auth.ref('$user.todos.id')",
-    }
-  }
+      update: "data.id in auth.ref('$user.todos.id')",
+    },
+  },
 };
 ```
 
@@ -219,3 +222,4 @@ export default {
   }
 };
 
+```
