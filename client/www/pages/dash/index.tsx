@@ -1303,19 +1303,18 @@ function Admin({
       <Copyable label="Secret" value={app.admin_token} />
       {isMinRole('collaborator', app.user_app_role) ? (
         <div className="space-y-2">
-          <SectionHeading>Experimental</SectionHeading>
-          <SubsectionHeading>Users namespace</SubsectionHeading>
+          <SectionHeading>Users namespace</SectionHeading>
           <Content>
             The users namespace is a psuedo-namespace named <code>$users</code>.
-            It provides a read-only view into your users on Instant. When
-            enabled, you can view your users from the Explorer and link to the{' '}
+            It provides a read-only view into your users on Instant. It allows
+            you to view your users from the Explorer and link to the{' '}
             <code>$users</code> namespace from other namespaces.
           </Content>
           <Content>
-            When enabling, we add default rules that only allow the
-            authenticated user to view their row in the users namespace. The{' '}
-            <code>view</code> rule can be modified from the{' '}
-            <code>Permissions</code> page.
+            It comes with a default <code>view</code> rule (
+            <code>auth.id == data.id</code>) that allows the the authenticated
+            user to view their row in the users namespace. The <code>view</code>{' '}
+            rule can be modified from the <code>Permissions</code> page.
           </Content>
 
           {usersAttrs?.length ? (
