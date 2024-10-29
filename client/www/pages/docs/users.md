@@ -61,7 +61,7 @@ import { i } from "@instantdb/react";
 const graph = i.graph(
   {
     $users: i.entity({
-      email: i.string().unique(),
+      email: i.any().unique().indexed(),
     }),
     profiles: i.entity({
       nickname: i.string(), // We can't add this directly to `$users`
