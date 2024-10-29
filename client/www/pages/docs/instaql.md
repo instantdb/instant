@@ -679,6 +679,6 @@ const query = {
   },
 };
 
-const { data, pageInfo } = db.useQuery(query);
+const { data, pageInfo } = await db.queryOnce(query);
 // pageInfo behaves the same as with useQuery
 ```
