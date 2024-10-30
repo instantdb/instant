@@ -21,7 +21,8 @@
    [instant.util.string :as string-util]
    [instant.util.uuid :as uuid-util]
    [ring.util.http-response :as response]
-   [instant.model.schema :as schema-model])
+   [instant.model.schema :as schema-model]
+   [clojure.string :as string])
   (:import
    (java.util UUID)))
 
@@ -413,7 +414,10 @@
   (let [{app-id :app_id} (req->admin-token! req)
         current-attrs (attr-model/get-by-app-id app-id)
         current-schema (schema-model/attrs->schema current-attrs)]
-    (response/ok {:schema current-schema})))
+    (response/ok {:schema (update current-schema
+                                  :refs
+                                  update-keys
+                                  (partial string/join "-"))})))
 
 (defroutes routes
   (POST "/admin/query" [] query-post)
