@@ -1,7 +1,7 @@
 import { query as datalogQuery } from "./datalog";
 import { uuidCompare } from "./utils/uuid";
 import { getAttrByFwdIdentName, getAttrByReverseIdentName } from "./instaml";
-import * as s from "./store"; 
+import * as s from "./store";
 
 // Pattern variables
 // -----------------
@@ -81,17 +81,17 @@ function refAttrPat(makeVar, store, etype, level, label) {
   const nextLevel = level + 1;
   const attrPat = fwdAttr
     ? [
-      makeVar(fwdEtype, level),
-      attr.id,
-      makeVar(revEtype, nextLevel),
-      wildcard("time"),
-    ]
+        makeVar(fwdEtype, level),
+        attr.id,
+        makeVar(revEtype, nextLevel),
+        wildcard("time"),
+      ]
     : [
-      makeVar(fwdEtype, nextLevel),
-      attr.id,
-      makeVar(revEtype, level),
-      wildcard("time"),
-    ];
+        makeVar(fwdEtype, nextLevel),
+        attr.id,
+        makeVar(revEtype, level),
+        wildcard("time"),
+      ];
 
   const nextEtype = fwdAttr ? revEtype : fwdEtype;
 
@@ -107,6 +107,21 @@ function valueAttrPat(makeVar, store, valueEtype, valueLevel, valueLabel, v) {
     throw new AttrNotFoundError(
       `No attr for etype = ${valueEtype} label = ${valueLabel} value-label`,
     );
+  }
+
+  if (v?.hasOwnProperty("$isNull")) {
+    const idAttr = getAttrByFwdIdentName(store.attrs, valueEtype, "id");
+    if (!idAttr) {
+      throw new AttrNotFoundError(
+        `No attr for etype = ${valueEtype} label = id value-label`,
+      );
+    }
+    return [
+      makeVar(valueEtype, valueLevel),
+      idAttr.id,
+      { $isNull: { attrId: attr.id, isNull: v.$isNull } },
+      wildcard("time"),
+    ];
   }
 
   return [makeVar(valueEtype, valueLevel), attr.id, v, wildcard("time")];
@@ -200,7 +215,24 @@ function parseWhere(makeVar, store, etype, level, where) {
     if (isAndClauses([k, v])) {
       return parseWhereClauses(makeVar, "and", store, etype, level, v);
     }
+
     const path = k.split(".");
+
+    if (v?.hasOwnProperty("$not")) {
+      // `$not` won't pick up entities that are missing the attr, so we
+      // add in a `$isNull` to catch those too.
+      const notPats = whereCondAttrPats(makeVar, store, etype, level, path, v);
+      const nilPats = whereCondAttrPats(makeVar, store, etype, level, path, {
+        $isNull: true,
+      });
+
+      return [
+        {
+          or: { patterns: [notPats, nilPats], joinSym: makeVar(etype, level) },
+        },
+      ];
+    }
+
     return whereCondAttrPats(makeVar, store, etype, level, path, v);
   });
 }
@@ -245,7 +277,7 @@ function extendObjects(makeVar, store, { etype, level, form }, objects) {
     const childResults = children.map((label) => {
       const isSingular = Boolean(
         store.cardinalityInference &&
-        store.linkIndex?.[etype]?.[label]?.isSingular,
+          store.linkIndex?.[etype]?.[label]?.isSingular,
       );
 
       try {
@@ -318,12 +350,11 @@ function isBefore(startCursor, direction, [e, _a, _v, t]) {
 
 function runDataloadAndReturnObjects(store, etype, direction, pageInfo, dq) {
   const aid = idAttr(store, etype).id;
-  const idVecs = datalogQuery(store, dq)
-    .sort(([_, tsA], [__, tsB]) => {
-      return direction === "desc" ? tsB - tsA : tsA - tsB;
-    });
+  const idVecs = datalogQuery(store, dq).sort(([_, tsA], [__, tsB]) => {
+    return direction === "desc" ? tsB - tsA : tsA - tsB;
+  });
 
-  let objects = {}
+  let objects = {};
   const startCursor = pageInfo?.["start-cursor"];
   const blobAttrs = s.blobAttrs(store, etype);
   for (const [id, time] of idVecs) {

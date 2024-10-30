@@ -29,16 +29,21 @@
 (defn where-value-valid? [x]
   (or (string? x) (uuid? x) (number? x) (boolean? x)))
 
-(s/def ::in (s/coll-of where-value-valid?
+(s/def ::$in (s/coll-of where-value-valid?
                        :kind vector?
                        :min-count 0
                        :into #{}))
+;; Backwards compatibility
+(s/def ::in ::$in)
+
+(s/def ::$not where-value-valid?)
+(s/def ::$isNull boolean?)
 
 (defn where-value-valid-keys? [m]
-  (every? #{:in} (keys m)))
+  (every? #{:in :$in :$not :$isNull} (keys m)))
 
 (s/def ::where-args-map (s/and
-                         (s/keys :opt-un [::in])
+                         (s/keys :opt-un [::in ::$in ::$not ::$isNull])
                          where-value-valid-keys?))
 
 (s/def ::where-v
@@ -139,7 +144,15 @@
                      :in (conj (:in state) :and)
                      :message "The list of `and` conditions can't be empty."}])))}
 
-        :else [(string/split (name k) #"\.") v]))
+        :else (do
+                (if (and (map? v) (contains? v :$not))
+                  ;; If the where cond has `not`, then the check will only include
+                  ;; entities where the entity has a triple with the attr. If the
+                  ;; attr is missing, then we won't find it. We add an extra `isNull`
+                  ;; check to ensure that we find the entity.
+                  {:or [[[(string/split (name k) #"\.") v]]
+                        [[(string/split (name k) #"\.") {:$isNull true}]]]}
+                  [(string/split (name k) #"\.") v]))))
 
 (defn coerce-order [state order-map]
   (case (count order-map)
@@ -444,28 +457,45 @@
    [[?users bookshelves-attr ?bookshelves]
     [?bookshelves books-attr ?books]
     [?books title-attr \"Foo\"]]"
-  [{:keys [level-sym] :as ctx}
+  [{:keys [level-sym attrs] :as ctx}
    {:keys [etype level] :as _form}
    {:keys [path v] :as _where-cond}]
   (let [level-sym (or level-sym
                       attr-pat/default-level-sym)
         [v-type v-value] v
         v (case v-type
-            :value v-value
-            :args-map (:in v-value))
+            :value (if (set? v-value)
+                     v-value
+                     (set [v-value]))
+            :args-map (let [[func args-map-val] (first v-value)]
+                        (case func
+                          (:$in :in) args-map-val
+                          :$not {:$not args-map-val}
+                          :$isNull {:$isNull args-map-val})))
         [refs-path value-label] (ucoll/split-last path)
 
         [last-etype last-level ref-attr-pats referenced-etypes]
         (attr-pat/->ref-attr-pats ctx level-sym etype level refs-path)
 
-        value-attr-pat (attr-pat/->value-attr-pat
-                        ctx
-                        level-sym
-                        last-etype
-                        last-level
-                        value-label
-                        v)]
-    {:pats (concat ref-attr-pats [value-attr-pat])
+        value-attr-pats (if (contains? v :$isNull)
+                          (let [id-attr (attr-model/seek-by-fwd-ident-name [last-etype "id"] attrs)
+                                value-attr (attr-model/seek-by-fwd-ident-name [last-etype value-label] attrs)]
+                            (ex/assert-record!
+                             id-attr :attr {:args [last-etype "id"]})
+                            (ex/assert-record!
+                             value-attr :attr {:args [last-etype value-label]})
+
+                            [[(level-sym last-etype last-level)
+                              (:id id-attr)
+                              {:$isNull {:attr-id (:id value-attr)
+                                         :nil? (:$isNull v)}}]])
+                          [(attr-pat/->value-attr-pat ctx
+                                                      level-sym
+                                                      last-etype
+                                                      last-level
+                                                      value-label
+                                                      v)])]
+    {:pats (concat ref-attr-pats value-attr-pats)
      :referenced-etypes (conj referenced-etypes
                               etype)}))
 

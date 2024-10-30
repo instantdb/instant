@@ -70,17 +70,18 @@ function createIndexMap(attrs, triples) {
 }
 
 export function blobAttrs({ attrs }, etype) {
-  return Object.values(attrs)
-    .filter((attr) => isBlob(attr) && attr['forward-identity'][1] === etype);
+  return Object.values(attrs).filter(
+    (attr) => isBlob(attr) && attr["forward-identity"][1] === etype,
+  );
 }
 
 export function getAsObject(store, attrs, e) {
-  const obj = {}; 
-  for (const attr of attrs) { 
+  const obj = {};
+  for (const attr of attrs) {
     const aMap = store.eav.get(e)?.get(attr.id);
     const vs = allMapValues(aMap, 1);
-    for (const v of vs) {  
-      obj[attr['forward-identity'][2]] = v[2];
+    for (const v of vs) {
+      obj[attr["forward-identity"][2]] = v[2];
     }
   }
   return obj;
@@ -433,8 +434,31 @@ export function allMapValues(m, level, res = []) {
   return res;
 }
 
-function triplesByValue(m, v) {
+function triplesByValue(store, m, v) {
   const res = [];
+  if (v?.hasOwnProperty('$not')) {
+    for (const candidate of m.keys()) {
+      if (v.$not !== candidate) {
+        res.push(m.get(candidate));
+      }
+    }
+    return res;
+  }
+
+  if (v?.hasOwnProperty('$isNull')) {
+    const { attrId, isNull } = v.$isNull;
+
+    const aMap = store.aev.get(attrId);
+    for (const candidate of m.keys()) {
+      const isValNull =
+        !aMap || aMap.get(candidate)?.get(null) || !aMap.get(candidate);
+      if (isNull ? isValNull : !isValNull) {
+        res.push(m.get(candidate));
+      }
+    }
+    return res;
+  }
+
   const values = v.in ? v.in : [v];
 
   for (const value of values) {
@@ -478,7 +502,7 @@ export function getTriples(store, [e, a, v]) {
       if (!aMap) {
         return [];
       }
-      return triplesByValue(aMap, v);
+      return triplesByValue(store, aMap, v);
     }
     case "ev": {
       const eMap = store.eav.get(e);
@@ -487,12 +511,12 @@ export function getTriples(store, [e, a, v]) {
       }
       const res = [];
       for (const aMap of eMap.values()) {
-        res.push(...triplesByValue(aMap, v));
+        res.push(...triplesByValue(store, aMap, v));
       }
       return res;
     }
     case "a": {
-      const aMap = store.aev.get(a)
+      const aMap = store.aev.get(a);
       return allMapValues(aMap, 2);
     }
     case "av": {
@@ -502,7 +526,7 @@ export function getTriples(store, [e, a, v]) {
       }
       const res = [];
       for (const eMap of aMap.values()) {
-        res.push(...triplesByValue(eMap, v));
+        res.push(...triplesByValue(store, eMap, v));
       }
       return res;
     }
@@ -510,7 +534,7 @@ export function getTriples(store, [e, a, v]) {
       const res = [];
       for (const eMap of store.eav.values()) {
         for (const aMap of eMap.values()) {
-          res.push(...triplesByValue(aMap, v));
+          res.push(...triplesByValue(store, aMap, v));
         }
       }
     }
