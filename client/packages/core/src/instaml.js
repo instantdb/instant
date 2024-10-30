@@ -208,12 +208,13 @@ function expandDeepMerge(attrs, [etype, eid, obj]) {
   return [idTuple].concat(attrTuples);
 }
 function removeIdFromArgs(step) { 
-  const newStep = [...step];
-  const lastIdx = newStep.length - 1;
-  const lastArg = {...newStep[lastIdx]};
-  delete lastArg.id;
-  newStep[lastIdx] = lastArg;
-  return newStep;
+  const [op, etype, eid, obj] = step;
+  if (!obj) {
+    return step;
+  }
+  const newObj = {...obj};
+  delete newObj.id
+  return [op, etype, eid, newObj]
 }
 
 function toTxSteps(attrs, step) {
