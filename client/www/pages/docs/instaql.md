@@ -619,9 +619,9 @@ console.log(data);
 }
 ```
 
-### In
+### $in
 
-The `where` clause supports `in` queries that will filter entities that match any of the items in the provided list.
+The `where` clause supports `$in` queries that will filter entities that match any of the items in the provided list.
 You can think of this as a shorthand for `or` on a single key.
 
 ```javascript
@@ -629,7 +629,7 @@ const query = {
   todos: {
     $: {
       where: {
-        title: { in: ['Code a bunch', 'Review PRs'] },
+        title: { $in: ['Code a bunch', 'Review PRs'] },
       },
     },
   },
@@ -653,6 +653,110 @@ console.log(data)
 }
 ```
 
+### $not
+
+The `where` clause supports `$not` queries that will return entities that don't
+match the provided value for the field, including entities where the field is null or undefined.
+
+```javascript
+const query = {
+  todos: {
+    $: {
+      where: {
+        location: { $not: 'work' },
+      },
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data)
+{
+  "todos": [
+    {
+      "id": cookId,
+      "title": "Cook dinner",
+      "location": "home"
+    },
+    {
+      "id": readId,
+      "title": "Read",
+      "location": null
+    },
+        {
+      "id": napId,
+      "title": "Take a nap"
+    }
+  ]
+}
+```
+
+### $isNull
+
+The `where` clause supports `$isNull` queries that will filters entities by whether the field value is either null or undefined.
+
+Set `$isNull` to `true` to return entities where where the field is null or undefined.
+
+Set `$isNull` to `false` to return entities where the field is not null and not undefined.
+
+```javascript
+const query = {
+  todos: {
+    $: {
+      where: {
+        location: { $isNull: false },
+      },
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data)
+{
+  "todos": [
+    {
+      "id": cookId,
+      "title": "Cook dinner",
+      "location": "home"
+    }
+  ]
+}
+```
+
+```javascript
+const query = {
+  todos: {
+    $: {
+      where: {
+        location: { $isNull: true },
+      },
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data)
+{
+  "todos": [
+    {
+      "id": readId,
+      "title": "Read",
+      "location": null
+    },
+    {
+      "id": napId,
+      "title": "Take a nap"
+    }
+  ]
+}
+```
+
 ## Query once
 
 Sometimes, you don't want a subscription, and just want to fetch data once. For example, you might want to fetch data before rendering a page or check whether a user name is available.
@@ -662,7 +766,7 @@ In these cases, you can use `queryOnce` instead of `useQuery`. `queryOnce` retur
 Unlike `useQuery`, `queryOnce` will throw an error if the user is offline. This is because `queryOnce` is intended for use cases where you need the most up-to-date data.
 
 ```javascript
-const query = { todos: {}, };
+const query = { todos: {} };
 const { data } = await db.queryOnce(query);
 // returns the same data as useQuery, but without the isLoading and error fields
 ```
