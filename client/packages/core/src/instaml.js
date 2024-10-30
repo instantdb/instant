@@ -207,8 +207,17 @@ function expandDeepMerge(attrs, [etype, eid, obj]) {
   // id first so that we don't clobber updates on the lookup field
   return [idTuple].concat(attrTuples);
 }
+function removeIdFromArgs(step) { 
+  const newStep = [...step];
+  const lastIdx = newStep.length - 1;
+  const lastArg = {...newStep[lastIdx]};
+  delete lastArg.id;
+  newStep[lastIdx] = lastArg;
+  return newStep;
+}
 
-function toTxSteps(attrs, [action, ...args]) {
+function toTxSteps(attrs, step) {
+  const [action, ...args] = removeIdFromArgs(step);
   switch (action) {
     case "merge":
       return expandDeepMerge(attrs, args);
