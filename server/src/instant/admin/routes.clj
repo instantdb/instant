@@ -20,7 +20,8 @@
    [instant.util.storage :as storage-util]
    [instant.util.string :as string-util]
    [instant.util.uuid :as uuid-util]
-   [ring.util.http-response :as response])
+   [ring.util.http-response :as response]
+   [instant.model.schema :as schema-model])
   (:import
    (java.util UUID)))
 
@@ -407,6 +408,12 @@
                         :headers {"app-id" (str counters-app-id)
                                   "authorization" (str "Bearer " admin-token)}}))
 
+(defn schema-get [req]
+  (let [{app-id :app_id} (req->admin-token! req)
+        current-attrs (attr-model/get-by-app-id app-id)
+        current-schema (schema-model/attrs->schema current-attrs)]
+    (response/ok {:schema current-schema})))
+
 (defroutes routes
   (POST "/admin/query" [] query-post)
   (POST "/admin/transact" [] transact-post)
@@ -424,4 +431,8 @@
   (GET "/admin/storage/files" [] files-get)
   (DELETE "/admin/storage/files" [] file-delete) ;; single delete
   (POST "/admin/storage/files/delete" [] files-delete) ;; bulk delete
-  )
+
+  ;; ---------- 
+  ;; Experimental 
+
+  (GET "/admin/schema" [] schema-get))
