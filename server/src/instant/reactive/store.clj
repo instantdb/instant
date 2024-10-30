@@ -16,7 +16,6 @@
       events across the lifetime of a session"
   (:require
    [datascript.core :as d]
-   [clojure.set :as clojure-set]
    [instant.util.coll :as ucoll]
    [instant.lib.ring.websocket :as ws]
    [instant.util.async :as ua]
@@ -431,7 +430,6 @@
 
 (defn match-topic?
   [iv-topic dq-topic]
-  (tool/def-locals)
   (ucoll/every?-var-args match-topic-part? iv-topic dq-topic))
 
 (defn contains-matching-topic? [dq-topics iv-topic]
