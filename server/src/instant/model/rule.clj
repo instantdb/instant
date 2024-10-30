@@ -52,6 +52,9 @@
           (str "cel.bind(" var-name ", " var-body ", " body ")"))
         expr)))
 
+(defn get-expr [rule etype action]
+  (get-in rule [etype "allow" action]))
+
 (defn extract [rule etype action]
   (when-let [expr (get-in rule [etype "allow" action])]
     (with-binds rule etype expr)))
@@ -71,24 +74,29 @@
         {:etype etype
          :action action
          :code code
+         :display-code code
          :cel-ast ast
          :cel-program (cel/->program ast)})
-      (let [ast (cel/->ast "false")]
+      (let [display-code (format "disallow_%s_on_system_tables" action)
+            code "false"
+            ast (cel/->ast code)]
         {:etype etype
          :action action
-         ;; For display purposes
-         :code (format "disallow_%s_on_system_tables" action)
+         :display-code display-code
+         :code code
          :cel-ast ast
          :cel-program (cel/->program ast)}))))
 
 (defn get-program! [rules etype action]
   (or
-   (when-let [code (some-> rules :code (extract etype action))]
+   (when-let [expr (get-expr (:code rules) etype action)]
      (try
-       (let [ast (cel/->ast code)]
+       (let [code (with-binds (:code rules) etype expr)
+             ast (cel/->ast code)]
          {:etype etype
           :action action
           :code code
+          :display-code expr
           :cel-ast ast
           :cel-program (cel/->program ast)})
        (catch CelValidationException e
