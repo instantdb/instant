@@ -88,12 +88,9 @@ function Example({ appId }: { appId: string }) {
         </button>
         <button
           className="bg-black text-white m-2 p-2"
-          onClick={() =>
-            router.push({
-              ...router,
-              query: {},
-            })
-          }
+          onClick={() => {
+            window.location.href = router.pathname;
+          }}
         >
           Start over
         </button>
