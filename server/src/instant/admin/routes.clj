@@ -408,6 +408,7 @@
                         :headers {"app-id" (str counters-app-id)
                                   "authorization" (str "Bearer " admin-token)}}))
 
+;; Experimental. If we change this let the Kosmik folks know
 (defn schema-get [req]
   (let [{app-id :app_id} (req->admin-token! req)
         current-attrs (attr-model/get-by-app-id app-id)
@@ -431,8 +432,5 @@
   (GET "/admin/storage/files" [] files-get)
   (DELETE "/admin/storage/files" [] file-delete) ;; single delete
   (POST "/admin/storage/files/delete" [] files-delete) ;; bulk delete
-
-  ;; ---------- 
-  ;; Experimental 
 
   (GET "/admin/schema" [] schema-get))
