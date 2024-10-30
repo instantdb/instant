@@ -48,8 +48,7 @@
         compare-fn (if (and (= k "serverCreatedAt")
                             (= direction :desc))
                      reverse-compare
-                     compare)
-        _ (tool/def-locals!)]
+                     compare)]
     (->> entries
          (sort-by (fn [{:strs [$serverCreatedAt] :as _entry}]
                     $serverCreatedAt)
