@@ -750,6 +750,7 @@
                            (:children child))]
             (add-children
              (make-node {:k (:k form)
+                         :option-map (:option-map form)
                          :datalog-query (:datalog-query child)
                          :datalog-result (:result child)})
              nodes)))
@@ -1557,23 +1558,23 @@
                        {:program p
                         :result
                         (let [em (io/warn-io :instaql/entity-map
-                                   (entity-map ctx
-                                               query-cache
-                                               etype
-                                               eid))
+                                             (entity-map ctx
+                                                         query-cache
+                                                         etype
+                                                         eid))
                               ctx (assoc ctx
                                          :preloaded-refs preloaded-refs)]
                           (io/warn-io :instaql/eval-program
-                            (cel/eval-program!
-                             p
-                             {"auth" (cel/->cel-map {:ctx ctx
-                                                     :type :auth
-                                                     :etype "$users"}
-                                                    current-user)
-                              "data" (cel/->cel-map {:ctx ctx
-                                                     :etype etype
-                                                     :type :data}
-                                                    em)})))})])))
+                                      (cel/eval-program!
+                                       p
+                                       {"auth" (cel/->cel-map {:ctx ctx
+                                                               :type :auth
+                                                               :etype "$users"}
+                                                              current-user)
+                                        "data" (cel/->cel-map {:ctx ctx
+                                                               :etype etype
+                                                               :type :data}
+                                                              em)})))})])))
 
            (into {})))))
 
