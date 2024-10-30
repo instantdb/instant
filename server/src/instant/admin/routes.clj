@@ -183,7 +183,6 @@
                         :committed? (:committed? result)
                         :check-results
                         (map (fn [r]
-                               (tool/def-locals!)
                                (-> r
                                    (dissoc :check)
                                    (update :program
