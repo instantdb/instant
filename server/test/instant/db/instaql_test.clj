@@ -533,7 +533,14 @@
                  (get-handles-ordered {:order {:serverCreatedAt "asc"}}))))
         (testing "reverse works"
           (is (= ["daniel" "stopa" "joe"]
-                 (get-handles-ordered {:order {:serverCreatedAt "desc"}}))))))))
+                 (get-handles-ordered {:order {:serverCreatedAt "desc"}}))))
+        ;; This is a sentinel, to remind us to make sure admin queries work with other orders
+        (is (= '{:expected valid-order?
+                 :in ["users" :$ :order "random-field"],
+                 :message
+                 "We currently only support \"serverCreatedAt\" as the sort key in the `order` clause. Got \"random-field\"."}
+               (validation-err {:users
+                                {:$ {:order {:random-field "desc"}}}})))))))
 
 (deftest flat-where-byop
   (testing "plain scan"
