@@ -421,7 +421,7 @@
 (defn- match-topic-part? [iv-part dq-part]
   (cond
     (keyword? iv-part) (= iv-part dq-part)
-    (symbol? dq-part) true
+    (or (symbol? dq-part) (symbol? iv-part)) true
     (set? dq-part) (intersects? iv-part dq-part)
 
     (and (map? dq-part) (contains? dq-part :not))
