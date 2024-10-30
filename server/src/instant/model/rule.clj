@@ -89,13 +89,14 @@
 
 (defn get-program! [rules etype action]
   (or
-   (when-let [expr (get-expr rules etype action)]
+   (when-let [expr (get-expr (:code rules) etype action)]
      (try
-       (let [code (with-binds rules etype expr)
+       (let [code (with-binds (:code rules) etype expr)
              ast (cel/->ast code)]
          {:etype etype
           :action action
           :code code
+          :display-code expr
           :cel-ast ast
           :cel-program (cel/->program ast)})
        (catch CelValidationException e

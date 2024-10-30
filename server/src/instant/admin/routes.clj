@@ -188,7 +188,7 @@
                                    (dissoc :check)
                                    (update :program
                                            select-keys
-                                           [:etype :action :code])))
+                                           [:etype :action :code :display-code])))
                              (:check-results result))}]
     (response/ok cleaned-result)))
 
