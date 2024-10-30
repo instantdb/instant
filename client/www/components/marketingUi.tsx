@@ -192,7 +192,7 @@ export function LandingFooter() {
           >
             <div className="flex flex-col md:gap-0 gap-2 font-mono">
               <div>Instant</div>
-              <div>Engineered in New York & San Francisco</div>
+              <div>Engineered in San Francisco</div>
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
               <NavLink href="/examples">Examples</NavLink>
