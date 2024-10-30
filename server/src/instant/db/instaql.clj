@@ -144,15 +144,14 @@
                      :in (conj (:in state) :and)
                      :message "The list of `and` conditions can't be empty."}])))}
 
-        :else (do
-                (if (and (map? v) (contains? v :$not))
-                  ;; If the where cond has `not`, then the check will only include
-                  ;; entities where the entity has a triple with the attr. If the
-                  ;; attr is missing, then we won't find it. We add an extra `isNull`
-                  ;; check to ensure that we find the entity.
-                  {:or [[[(string/split (name k) #"\.") v]]
-                        [[(string/split (name k) #"\.") {:$isNull true}]]]}
-                  [(string/split (name k) #"\.") v]))))
+        :else (if (and (map? v) (contains? v :$not))
+                ;; If the where cond has `not`, then the check will only include
+                ;; entities where the entity has a triple with the attr. If the
+                ;; attr is missing, then we won't find it. We add an extra
+                ;; `isNull` check to ensure that we find the entity.
+                {:or [[[(string/split (name k) #"\.") v]]
+                      [[(string/split (name k) #"\.") {:$isNull true}]]]}
+                [(string/split (name k) #"\.") v])))
 
 (defn coerce-order [state order-map]
   (case (count order-map)
@@ -464,9 +463,7 @@
                       attr-pat/default-level-sym)
         [v-type v-value] v
         v (case v-type
-            :value (if (set? v-value)
-                     v-value
-                     (set [v-value]))
+            :value v-value
             :args-map (let [[func args-map-val] (first v-value)]
                         (case func
                           (:$in :in) args-map-val
@@ -477,7 +474,7 @@
         [last-etype last-level ref-attr-pats referenced-etypes]
         (attr-pat/->ref-attr-pats ctx level-sym etype level refs-path)
 
-        value-attr-pats (if (contains? v :$isNull)
+        value-attr-pats (if (and (map? v) (contains? v :$isNull))
                           (let [id-attr (attr-model/seek-by-fwd-ident-name [last-etype "id"] attrs)
                                 value-attr (attr-model/seek-by-fwd-ident-name [last-etype value-label] attrs)]
                             (ex/assert-record!
