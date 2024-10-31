@@ -437,8 +437,8 @@
   (dotimes [_ 32]
     (ua/vfut-bg (start-refresh-map-worker rs/store-conn refresh-map-ch)))
   (let [q (LinkedBlockingQueue.)]
-      (reset! hz-ops-q q)
-      (ua/fut-bg (start-hz-sync q))))
+    (reset! hz-ops-q q)
+    (ua/fut-bg (start-hz-sync q))))
 
 (defn stop []
   (a/close! room-refresh-ch)
