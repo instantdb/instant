@@ -34,10 +34,10 @@
 (defn html-path [slug] (str "client/www/_emails/html/" slug ".html"))
 (defn txt-path [slug] (str "client/www/_emails/txt/" slug ".txt"))
 
-(defonce once (atom false))
+(defonce sent-already? (atom false))
 (defonce errors (atom []))
 (comment
-  (reset! once false)
+  (reset! sent-already? false)
   (reset! errors []))
 
 (defn read-file
@@ -113,10 +113,10 @@
     (if-not live?
       (doseq [email emails]
         (log/info "Simulating sending newsletter to" email))
-      (if @once
-        (throw (Exception. "Already sent newsletter! Set once atom to false to send again."))
+      (if @sent-already?
+        (throw (Exception. "Already sent newsletter! Set sent-already? to false to send again."))
         (do
-          (reset! once true)
+          (reset! sent-already? true)
           (doseq [email emails]
             (let [htmlBody (read-file base-path (html-path slug))
                   textBody (read-file base-path (txt-path slug))]
