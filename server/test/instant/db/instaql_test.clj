@@ -131,7 +131,11 @@
              :message "Expected bookshelves to match on a uuid, found \"hello\" in [\"hello\",\"00000000-0000-0000-0000-000000000000\"]"}
            (validation-err {:users
                             {:$ {:where {:bookshelves {:in ["00000000-0000-0000-0000-000000000000"
-                                                            "hello"]}}}}}))))
+                                                            "hello"]}}}}})))
+
+    (is (= '{:in [0 :option-map :where-conds 0 1 :$isNull], :expected boolean?}
+           (validation-err {:users
+                            {:$ {:where {:handle {:$isNull "a"}}}}}))))
   (testing "pagination"
     (is (= '{:expected supported-options?
              :in [:users :$ :limit],
@@ -850,6 +854,227 @@
                   ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
                   ("eid-joe-averbukh" :users/email "joe@instantdb.com")
                   ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))}))))
+
+(deftest where-$not
+  (is-pretty-eq?
+   (query-pretty
+    {:users {:$ {:where {:and [{:handle {:$not "alex"}}
+                               {:handle {:$not "nicolegf"}}]}}}})
+   '({:topics ([:ea #{"eid-joe-averbukh" "eid-stepan-parunashvili"} #{:users/id} _]
+               [:ea _ #{:users/handle} _]
+               [:av
+                #{"eid-joe-averbukh" "eid-stepan-parunashvili"}
+                #{:users/handle}
+                {:$not "nicolegf"}]
+               [:av _ #{:users/handle} {:$not "alex"}]
+               [:ea _ #{:users/id} _]
+               --
+               [:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
+                                                   :users/createdAt
+                                                   :users/email
+                                                   :users/id
+                                                   :users/fullName
+                                                   :users/handle} _]
+               --
+               [:ea #{"eid-joe-averbukh"} #{:users/bookshelves
+                                            :users/createdAt
+                                            :users/email
+                                            :users/id
+                                            :users/fullName
+                                            :users/handle} _]),
+      :triples (("eid-joe-averbukh" :users/handle "joe")
+                ("eid-stepan-parunashvili" :users/handle "stopa")
+                --
+                ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
+                ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+                ("eid-stepan-parunashvili" :users/handle "stopa")
+                ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+                ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+                --
+                ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+                ("eid-joe-averbukh" :users/handle "joe")
+                ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
+                ("eid-joe-averbukh" :users/email "joe@instantdb.com")
+                ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))})))
+
+(deftest where-$not-with-nils
+  (with-empty-app
+    (fn [app]
+      (let [make-ctx (fn []
+                       (let [attrs (attr-model/get-by-app-id (:id app))]
+                         {:db {:conn-pool aurora/conn-pool}
+                          :app-id (:id app)
+                          :attrs attrs}))
+
+            id-aid (random-uuid)
+            title-aid (random-uuid)
+            val-aid (random-uuid)
+
+            id-1 (random-uuid)
+            id-2 (random-uuid)
+            id-null (random-uuid)
+            id-undefined (random-uuid)
+            _ (tx/transact! aurora/conn-pool
+                            (attr-model/get-by-app-id (:id app))
+                            (:id app)
+                            [[:add-attr {:id id-aid
+                                         :forward-identity [(random-uuid) "books" "id"]
+                                         :unique? true
+                                         :index? true
+                                         :value-type :blob
+                                         :cardinality :one}]
+                             [:add-attr {:id title-aid
+                                         :forward-identity [(random-uuid) "books" "title"]
+                                         :unique? false
+                                         :index? false
+                                         :value-type :blob
+                                         :cardinality :one}]
+                             [:add-attr {:id val-aid
+                                         :forward-identity [(random-uuid) "books" "val"]
+                                         :unique? false
+                                         :index? false
+                                         :value-type :blob
+                                         :cardinality :one}]
+                             [:add-triple id-1 id-aid (str id-1)]
+                             [:add-triple id-1 title-aid "a"]
+                             [:add-triple id-1 val-aid "a"]
+                             [:add-triple id-2 id-aid (str id-2)]
+                             [:add-triple id-2 title-aid "b"]
+                             [:add-triple id-2 val-aid "b"]
+                             [:add-triple id-null id-aid (str id-null)]
+                             [:add-triple id-null title-aid "null"]
+                             [:add-triple id-null val-aid nil]
+
+                             [:add-triple id-undefined id-aid (str id-undefined)]
+                             [:add-triple id-undefined title-aid "undefined"]])
+            r (resolvers/make-zeneca-resolver (:id app))]
+        (is-pretty-eq?
+         (query-pretty (make-ctx)
+                       r
+                       {:books {:$ {:where {:val {:$not "a"}}}}})
+         '({:topics
+            ([:ea _ #{:books/val} {:$not "a"}]
+             [:ea _ #{:books/id} _]
+             [:ea _ #{:books/val} _]
+             --
+             [:ea #{"eid-b"} #{:books/val :books/id :books/title} _]
+             --
+             [:ea #{"eid-null"} #{:books/val :books/id :books/title} _]
+             --
+             [:ea #{"eid-undefined"} #{:books/val :books/id :books/title} _]),
+            :triples
+            (("eid-null" :books/id "eid-null")
+             ("eid-undefined" :books/id "eid-undefined")
+             ("eid-b" :books/val "b")
+             ("eid-null" :books/val nil)
+             --
+             ("eid-b" :books/title "b")
+             ("eid-b" :books/id "eid-b")
+             ("eid-b" :books/val "b")
+             --
+             ("eid-null" :books/id "eid-null")
+             ("eid-null" :books/title "null")
+             ("eid-null" :books/val nil)
+             --
+             ("eid-undefined" :books/id "eid-undefined")
+             ("eid-undefined" :books/title "undefined"))}))))))
+
+(deftest where-$isNull
+  (with-empty-app
+    (fn [app]
+      (let [make-ctx (fn []
+                       (let [attrs (attr-model/get-by-app-id (:id app))]
+                         {:db {:conn-pool aurora/conn-pool}
+                          :app-id (:id app)
+                          :attrs attrs}))
+
+            id-aid (random-uuid)
+            title-aid (random-uuid)
+            val-aid (random-uuid)
+
+            id-1 (random-uuid)
+            id-2 (random-uuid)
+            id-null (random-uuid)
+            id-undefined (random-uuid)
+            _ (tx/transact! aurora/conn-pool
+                            (attr-model/get-by-app-id (:id app))
+                            (:id app)
+                            [[:add-attr {:id id-aid
+                                         :forward-identity [(random-uuid) "books" "id"]
+                                         :unique? true
+                                         :index? true
+                                         :value-type :blob
+                                         :cardinality :one}]
+                             [:add-attr {:id title-aid
+                                         :forward-identity [(random-uuid) "books" "title"]
+                                         :unique? false
+                                         :index? false
+                                         :value-type :blob
+                                         :cardinality :one}]
+                             [:add-attr {:id val-aid
+                                         :forward-identity [(random-uuid) "books" "val"]
+                                         :unique? false
+                                         :index? false
+                                         :value-type :blob
+                                         :cardinality :one}]
+                             [:add-triple id-1 id-aid (str id-1)]
+                             [:add-triple id-1 title-aid "a"]
+                             [:add-triple id-1 val-aid "a"]
+                             [:add-triple id-2 id-aid (str id-2)]
+                             [:add-triple id-2 title-aid "b"]
+                             [:add-triple id-2 val-aid "b"]
+                             [:add-triple id-null id-aid (str id-null)]
+                             [:add-triple id-null title-aid "null"]
+                             [:add-triple id-null val-aid nil]
+
+                             [:add-triple id-undefined id-aid (str id-undefined)]
+                             [:add-triple id-undefined title-aid "undefined"]])
+            r (resolvers/make-zeneca-resolver (:id app))]
+        (is-pretty-eq?
+         (query-pretty (make-ctx)
+                       r
+                       {:books {:$ {:where {:val {:$isNull true}}}}})
+         '({:topics
+            ([:ea _ #{:books/id} _]
+             [:ea _ #{:books/val} _]
+             --
+             [:ea #{"eid-null"} #{:books/val :books/id :books/title} _]
+             --
+             [:ea #{"eid-undefined"} #{:books/val :books/id :books/title} _]),
+            :triples
+            (("eid-null" :books/id "eid-null")
+             ("eid-undefined" :books/id "eid-undefined")
+             --
+             ("eid-null" :books/id "eid-null")
+             ("eid-null" :books/title "null")
+             ("eid-null" :books/val nil)
+             --
+             ("eid-undefined" :books/id "eid-undefined")
+             ("eid-undefined" :books/title "undefined"))}))
+
+        (is-pretty-eq?
+         (query-pretty (make-ctx)
+                       r
+                       {:books {:$ {:where {:val {:$isNull false}}}}})
+         '({:topics
+            ([:ea _ #{:books/id} _]
+             [:ea _ #{:books/val} _]
+             --
+             [:ea #{"eid-b"} #{:books/val :books/id :books/title} _]
+             --
+             [:ea #{"eid-a"} #{:books/val :books/id :books/title} _]),
+            :triples
+            (("eid-a" :books/id "eid-a")
+             ("eid-b" :books/id "eid-b")
+             --
+             ("eid-b" :books/title "b")
+             ("eid-b" :books/id "eid-b")
+             ("eid-b" :books/val "b")
+             --
+             ("eid-a" :books/title "a")
+             ("eid-a" :books/id "eid-a")
+             ("eid-a" :books/val "a"))}))))))
+
 
 (deftest where-or
   (testing "with no matches"

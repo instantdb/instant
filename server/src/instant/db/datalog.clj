@@ -694,10 +694,10 @@
   (let [ors (for [or-symbol-map or-symbol-maps
                   :let [ands (for [dest-sym (get symbol-map join-sym)
                                    origin-sym (get or-symbol-map join-sym)]
-                               (if (set? origin-sym)
+                               (if (set? dest-sym)
                                  (list* :or (map (fn [paths]
-                                                   (or-join-cond-for-or-gather prefix paths dest-sym))
-                                                 origin-sym))
+                                                   (or-join-cond-for-or-gather prefix paths origin-sym))
+                                                 dest-sym))
                                  (join-cond-for-or-gather prefix origin-sym dest-sym)))]
                   :when (seq ands)]
               (list* :and ands))]
