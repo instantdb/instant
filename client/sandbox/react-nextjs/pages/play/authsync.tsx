@@ -26,25 +26,32 @@ function App() {
   }, [user, calledSignIn]);
   return (
     <div>
-      <button
-        onClick={() => {
-          db.auth.signOut();
-        }}
-      >
-        Sign out
-      </button>
-      <button
-        onClick={async () => {
-          const ret = await getToken();
-          await db.auth.signInWithToken(ret.token);
-          setCalledSignIn(true);
-        }}
-      >
-        Sign in
-      </button>
+      <div className="space-x-2 space-y-2">
+        <button
+          onClick={() => {
+            db.auth.signOut();
+          }}
+        >
+          Sign out
+        </button>
+        <button
+          onClick={async () => {
+            const ret = await getToken();
+            await db.auth.signInWithToken(ret.token);
+            setCalledSignIn(true);
+          }}
+        >
+          Sign in
+        </button>
+      </div>
       <pre>
         {JSON.stringify({ isLoading, user, calledSignIn, result }, null, 2)}
       </pre>
+      <div>
+        This playground tests that if `signInWithToken` is finished, `useAuth`
+        _should_ already have the user.
+        <br />
+      </div>
     </div>
   );
 }
