@@ -20,7 +20,9 @@
    [instant.util.storage :as storage-util]
    [instant.util.string :as string-util]
    [instant.util.uuid :as uuid-util]
-   [ring.util.http-response :as response])
+   [ring.util.http-response :as response]
+   [instant.model.schema :as schema-model]
+   [clojure.string :as string])
   (:import
    (java.util UUID)))
 
@@ -187,7 +189,7 @@
                                    (dissoc :check)
                                    (update :program
                                            select-keys
-                                           [:etype :action :code])))
+                                           [:etype :action :code :display-code])))
                              (:check-results result))}]
     (response/ok cleaned-result)))
 
@@ -407,6 +409,16 @@
                         :headers {"app-id" (str counters-app-id)
                                   "authorization" (str "Bearer " admin-token)}}))
 
+;; Experimental. If we change this let the Kosmik folks know
+(defn schema-get [req]
+  (let [{app-id :app_id} (req->admin-token! req)
+        current-attrs (attr-model/get-by-app-id app-id)
+        current-schema (schema-model/attrs->schema current-attrs)]
+    (response/ok {:schema (update current-schema
+                                  :refs
+                                  update-keys
+                                  (partial string/join "-"))})))
+
 (defroutes routes
   (POST "/admin/query" [] query-post)
   (POST "/admin/transact" [] transact-post)
@@ -424,4 +436,5 @@
   (GET "/admin/storage/files" [] files-get)
   (DELETE "/admin/storage/files" [] file-delete) ;; single delete
   (POST "/admin/storage/files/delete" [] files-delete) ;; bulk delete
-  )
+
+  (GET "/admin/schema" [] schema-get))

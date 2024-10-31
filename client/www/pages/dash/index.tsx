@@ -1040,6 +1040,7 @@ function Admin({
   const [deleteAppOk, updateDeleteAppOk] = useState(false);
   const [clearAppOk, updateClearAppOk] = useState(false);
   const [editMember, setEditMember] = useState<InstantMember | null>();
+  const [hideAdminToken, setHideAdminToken] = useState(true);
   const clearDialog = useDialog();
   const deleteDialog = useDialog();
   const inviteDialog = useDialog();
@@ -1311,7 +1312,12 @@ function Admin({
           </>
         ) : null}
       </Content>
-      <Copyable label="Secret" value={app.admin_token} />
+      <Copyable
+        onChangeHideValue={() => setHideAdminToken(!hideAdminToken)}
+        hideValue={hideAdminToken}
+        label="Secret"
+        value={app.admin_token}
+      />
       {isMinRole('collaborator', app.user_app_role) ? (
         <div className="space-y-2">
           <SectionHeading>Users namespace</SectionHeading>

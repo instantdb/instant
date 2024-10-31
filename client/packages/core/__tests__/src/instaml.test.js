@@ -26,6 +26,22 @@ test("simple update transform", () => {
   }
 });
 
+test("ignores id attrs", () => {
+  const testId = uuid();
+
+  const ops = instatx.tx.books[testId].update({ title: "New Title", id: 'ploop' });
+  const result = instaml.transform(zenecaAttrs, ops);
+
+  const expected = [
+    ["add-triple", testId, zenecaAttrToId["books/title"], "New Title"],
+    ["add-triple", testId, zenecaAttrToId["books/id"], testId],
+  ];
+  expect(result).toHaveLength(expected.length);
+  for (const item of expected) {
+    expect(result).toContainEqual(item);
+  }
+});
+
 test("optimistically adds attrs if they don't exist", () => {
   const testId = uuid();
 
@@ -677,3 +693,4 @@ test("it doesn't create duplicate ref attrs", () => {
     expect(result).toContainEqual(item);
   }
 });
+

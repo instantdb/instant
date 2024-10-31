@@ -444,7 +444,7 @@ export function Sandbox({ app }: { app: InstantApp }) {
                               view
                             </span>
                             <code className="bg-white px-2">
-                              {cr.program?.code ?? (
+                              {cr.program?.['display-code'] ?? (
                                 <span className="text-gray-400">none</span>
                               )}
                             </code>
@@ -522,7 +522,7 @@ export function Sandbox({ app }: { app: InstantApp }) {
                             {cr.action}
                           </span>
                           <code className="bg-white px-2">
-                            {cr.program?.code ?? (
+                            {cr.program?.['display-code'] ?? (
                               <span className="text-gray-400">none</span>
                             )}
                           </code>

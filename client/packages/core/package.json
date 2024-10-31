@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/core",
-  "version": "v0.14.19",
+  "version": "v0.14.22",
   "description": "Instant's core local abstraction",
   "main": "dist/index.js",
   "module": "dist/module/index.js",
@@ -32,9 +32,7 @@
     "vitest": "^1.6.0"
   },
   "dependencies": {
-    "@types/object-hash": "^3.0.6",
     "mutative": "^1.0.10",
-    "object-hash": "^3.0.0",
     "uuid": "^9.0.0"
   }
 }

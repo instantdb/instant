@@ -952,7 +952,7 @@ function generateSchemaTypescriptFile(id, schema, title, instantModuleName) {
   const entitiesObjCode = `{\n${entitiesEntriesCode}\n}`;
 
   const linksEntriesCode = Object.fromEntries(
-    sortedEntries(schema.refs).map(([name, config]) => {
+    sortedEntries(schema.refs).map(([_name, config]) => {
       const [, fe, flabel] = config["forward-identity"];
       const [, re, rlabel] = config["reverse-identity"];
       const [fhas, rhas] = rels[`${config.cardinality}-${config["unique?"]}`];

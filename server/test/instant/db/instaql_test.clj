@@ -475,6 +475,77 @@
                                  :after alex-cursor
                                  :order {:serverCreatedAt "desc"}}))))))))
 
+(deftest obj-tree-order
+  (with-empty-app
+    (fn [{app-id :id :as _app}]
+      (let [get-handles-ordered (fn [pagination-params]
+                                  (as-> (instaql-nodes->object-tree
+                                         {:db {:conn-pool aurora/conn-pool}
+                                          :app-id app-id
+                                          :attrs (attr-model/get-by-app-id app-id)}
+                                         (iq/query
+                                          {:db {:conn-pool aurora/conn-pool}
+                                           :app-id app-id
+                                           :attrs (attr-model/get-by-app-id app-id)}
+                                          {:users {:$ pagination-params}})) %
+                                    (get % "users")
+                                    (map #(get % "handle") %)
+                                    (vec %)))
+            uid-attr-id (random-uuid)
+            handle-attr-id (random-uuid)
+            joe-eid (random-uuid)
+            stopa-eid (random-uuid)
+            daniel-eid (random-uuid)
+            _ (tx/transact! aurora/conn-pool
+                            (attr-model/get-by-app-id app-id)
+                            app-id
+                            [[:add-attr {:id uid-attr-id
+                                         :forward-identity [(random-uuid) "users" "id"]
+                                         :unique? true
+                                         :index? true
+                                         :value-type :blob
+                                         :cardinality :one}]
+                             [:add-attr {:id handle-attr-id
+                                         :forward-identity [(random-uuid) "users" "handle"]
+                                         :unique? true
+                                         :index? true
+                                         :value-type :blob
+                                         :cardinality :one}]])
+
+            _ (tx/transact! aurora/conn-pool
+                            (attr-model/get-by-app-id app-id)
+                            app-id
+                            [[:add-triple joe-eid uid-attr-id (str joe-eid)]
+                             [:add-triple joe-eid handle-attr-id "joe"]])
+
+            _ (tx/transact! aurora/conn-pool
+                            (attr-model/get-by-app-id app-id)
+                            app-id
+                            [[:add-triple stopa-eid uid-attr-id (str stopa-eid)]
+                             [:add-triple stopa-eid handle-attr-id "stopa"]])
+
+            _ (tx/transact! aurora/conn-pool
+                            (attr-model/get-by-app-id app-id)
+                            app-id
+                            [[:add-triple daniel-eid uid-attr-id (str daniel-eid)]
+                             [:add-triple daniel-eid handle-attr-id "daniel"]])]
+
+        (testing "default is serverCreatedAt asc"
+          (is (= ["joe" "stopa" "daniel"]
+                 (get-handles-ordered {})))
+          (is (= ["joe" "stopa" "daniel"]
+                 (get-handles-ordered {:order {:serverCreatedAt "asc"}}))))
+        (testing "reverse works"
+          (is (= ["daniel" "stopa" "joe"]
+                 (get-handles-ordered {:order {:serverCreatedAt "desc"}}))))
+        ;; This is a sentinel, to remind us to make sure admin queries work with other orders
+        (is (= '{:expected valid-order?
+                 :in ["users" :$ :order "random-field"],
+                 :message
+                 "We currently only support \"serverCreatedAt\" as the sort key in the `order` clause. Got \"random-field\"."}
+               (validation-err {:users
+                                {:$ {:order {:random-field "desc"}}}})))))))
+
 (deftest flat-where-byop
   (testing "plain scan"
     (with-zeneca-byop
@@ -1632,8 +1703,7 @@
                       [[:add-triple shared-id user-id-attr shared-id]
                        [:add-triple shared-id user-handle-attr "handle"]
                        [:add-triple shared-id book-id-attr shared-id]
-                       [:add-triple shared-id book-title-attr "title"]
-                       ])
+                       [:add-triple shared-id book-title-attr "title"]])
         (is-pretty-eq?
          (query-pretty ctx r {:users {:$ {:where {:id shared-id}}}})
          [{:topics
@@ -1873,7 +1943,6 @@
         :triples #{}
         :aggregate [{:count 4}
                     {:count 392}]}))))
-
 
 ;; -----------
 ;; Users table

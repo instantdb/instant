@@ -49,6 +49,7 @@
                ["WITH earliest_transaction_per_app AS (
                   SELECT app_id, MIN(created_at) AS earliest_date
                     FROM transactions
+                    WHERE DATE(created_at) NOT IN ('2024-10-28') -- We migrated $users on this day
                     GROUP BY app_id
                   ),
                   filtered_transactions AS (
@@ -57,6 +58,7 @@
                     JOIN earliest_transaction_per_app eta
                       ON t.app_id = eta.app_id
                     WHERE t.created_at > eta.earliest_date + INTERVAL '7 days'
+                    AND DATE(t.created_at) NOT IN ('2024-10-28') -- We migrated $users on this day
                   )
                   SELECT
                     TO_CHAR(DATE_TRUNC('week', ft.created_at), 'YYYY-MM-DD') AS date_start,
@@ -80,6 +82,7 @@
                ["WITH earliest_transaction_per_app AS (
                    SELECT app_id, MIN(created_at) AS earliest_date
                      FROM transactions
+                     WHERE DATE(created_at) NOT IN ('2024-10-28') -- We migrated $users on this day
                      GROUP BY app_id
                    ),
                    filtered_transactions AS (
@@ -88,6 +91,7 @@
                      JOIN earliest_transaction_per_app eta
                        ON t.app_id = eta.app_id
                      WHERE t.created_at > eta.earliest_date + INTERVAL '7 days'
+                     AND DATE(t.created_at) NOT IN ('2024-10-28') -- We migrated $users on this day
                    )
                    SELECT
                      TO_CHAR(DATE_TRUNC('month', ft.created_at), 'YYYY-MM-DD') AS date_start,
