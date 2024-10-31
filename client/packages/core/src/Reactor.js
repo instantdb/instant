@@ -1441,7 +1441,7 @@ export default class Reactor {
       email,
       code,
     });
-    this.changeCurrentUser(res.user);
+    await this.changeCurrentUser(res.user);
     return res;
   }
 
@@ -1451,7 +1451,7 @@ export default class Reactor {
       appId: this.config.appId,
       refreshToken: authToken,
     });
-    this.changeCurrentUser(res.user);
+    await this.changeCurrentUser(res.user);
     return res;
   }
 
@@ -1467,8 +1467,7 @@ export default class Reactor {
         });
       } catch (e) {}
     }
-
-    this.changeCurrentUser(null);
+    await this.changeCurrentUser(null);
   }
 
   /**
@@ -1490,7 +1489,7 @@ export default class Reactor {
       code: code,
       codeVerifier,
     });
-    this.changeCurrentUser(res.user);
+    await this.changeCurrentUser(res.user);
     return res;
   }
 
@@ -1517,7 +1516,7 @@ export default class Reactor {
       nonce,
       refreshToken,
     });
-    this.changeCurrentUser(res.user);
+    await this.changeCurrentUser(res.user);
     return res;
   }
 
