@@ -451,7 +451,7 @@ class Auth {
   };
 
   /**
-   * Sign in a user with a refresh toke
+   * Sign in a user with a refresh token
    *
    * @see https://instantdb.com/docs/backend#frontend-auth-sign-in-with-token
    *
