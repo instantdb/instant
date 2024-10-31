@@ -6,6 +6,7 @@
    [datascript.core :refer [squuid-time-millis]]
    [instant.config :as config]
    [instant.flags :as flags]
+   [instant.gauges :as gauges]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
    [instant.util.aws :as aws-util]
@@ -21,7 +22,8 @@
    (com.hazelcast.map.listener EntryAddedListener
                                EntryRemovedListener
                                EntryUpdatedListener)
-   (java.util AbstractMap$SimpleImmutableEntry)))
+   (java.util AbstractMap$SimpleImmutableEntry)
+   (java.util.concurrent LinkedBlockingQueue)))
 
 ;; ------
 ;; Setup
@@ -31,7 +33,7 @@
 ;; Channel we use to keep the hazelcast maps in sync for
 ;; apps that aren't using hazelcast. This can go away when
 ;; we fully migrate to hazelcast
-(defonce hz-ops-ch (a/chan))
+(defonce hz-ops-q (atom nil))
 
 (def refresh-timeout-ms 500)
 
@@ -104,16 +106,17 @@
 (defn get-hz-rooms-map ^IMap []
   (:hz-rooms-map @hz))
 
+(def close-sentinel (Object.))
 (defn start-hz-sync
   "Temporary function that syncs apps not using hazelcast
    to hazelcast maps so that they won't lose data if we switch them over."
-  [ch]
-  (loop [f (a/<!! ch)]
-    (when f
+  [q]
+  (loop [f (.take q)]
+    (when (not= f close-sentinel)
       (try (f)
            (catch Exception e
              (tracer/record-exception-span! e {:name "ephemeral/hz-sync"})))
-      (recur (a/<!! ch)))))
+      (recur (.take q)))))
 
 ;; ------
 ;; State
@@ -203,7 +206,8 @@
 
 (defn push-hz-sync-op [f]
   (try
-    (a/put! hz-ops-ch f)
+    (when-let [q @hz-ops-q]
+      (.put q f))
     (catch Throwable e
       (tracer/record-exception-span! e {:name "ephemeral/push-hz-sync-op-err"}))))
 
@@ -422,19 +426,27 @@
   (def ephemeral-store-atom (atom {}))
   (def room-refresh-ch (a/chan (a/sliding-buffer 1)))
   (def refresh-map-ch (a/chan 1024))
-  (def hz-ops-ch (a/chan))
+  (def cleanup-gauge (gauges/add-gauge-metrics-fn
+                      (fn [] (if-let [q @hz-ops-q]
+                               [{:path "instant.ephemeral.hz-ops-q.size"
+                                 :value (.size q)}]
+                               []))))
 
   (start-hz)
   (ua/fut-bg (start-refresh-worker rs/store-conn ephemeral-store-atom room-refresh-ch))
   (dotimes [_ 32]
     (ua/vfut-bg (start-refresh-map-worker rs/store-conn refresh-map-ch)))
-  (dotimes [_ 8]
-    (ua/vfut-bg (start-hz-sync hz-ops-ch))))
+  (let [q (LinkedBlockingQueue.)]
+    (reset! hz-ops-q q)
+    (ua/fut-bg (start-hz-sync q))))
 
 (defn stop []
   (a/close! room-refresh-ch)
   (a/close! refresh-map-ch)
-  (a/close! hz-ops-ch)
+  (when-let [q @hz-ops-q]
+    (.put q close-sentinel))
+  (reset! hz-ops-q nil)
+  (cleanup-gauge)
   (when-let [^HazelcastInstance hz (try (get-hz) (catch Exception _e nil))]
     (.shutdown hz)
     (def hz (delay (init-hz)))))
