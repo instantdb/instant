@@ -144,7 +144,9 @@
                                (tracer/with-span! {:name "stop-server"}
                                  (stop))
                                (tracer/with-span! {:name "stop-invalidator"}
-                                 (inv/stop-global))))))
+                                 (inv/stop-global))
+                               (tracer/with-span! {:name "stop-ephemeral"}
+                                 (eph/stop))))))
 
 (defn -main [& _args]
   (let [{:keys [aead-keyset]} (config/init)]
