@@ -22,6 +22,7 @@
    [instant.jdbc.sql :as sql]
    [instant.data.constants :refer [movies-app-id zeneca-app-id]]
    [instant.db.datalog :as d]
+   [instant.util.uuid :as uuid-util]
    [clojure.string :as string]
    [clojure.set :as clojure-set]
    [clojure.walk :as w]))
@@ -148,9 +149,10 @@
 (defn ->friendly
   ([r x] (->friendly r x nil))
   ([{:keys [aid->friendly-name eid->friendly-name]} x not-found]
-   (or (aid->friendly-name x)
-       (eid->friendly-name x)
-       not-found)))
+   (let [x (or (uuid-util/coerce x) x)]
+     (or (aid->friendly-name x)
+         (eid->friendly-name x)
+         not-found))))
 
 (comment
   (def r (make-movies-resolver))
