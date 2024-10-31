@@ -1617,6 +1617,7 @@
                                               (get (:eid->etype perm-helpers) id)
                                               id)
                           :program (select-keys program [:code
+                                                         :display-code
                                                          :etype
                                                          :action])
                           :check result})
