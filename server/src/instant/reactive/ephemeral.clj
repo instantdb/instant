@@ -52,6 +52,7 @@
         (a/put! ch room-key)))))
 
 (defn init-hz []
+  (System/setProperty "hazelcast.shutdownhook.enabled" "false")
   (let [config (Config.)
         network-config (.getNetworkConfig config)
         join-config (.getJoin network-config)
