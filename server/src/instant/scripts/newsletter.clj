@@ -3,11 +3,16 @@
 
   Usage: First run through these steps to prepare the email content
     1. Create email content in Dropbox. Get sign off on the copy.
-    2. Export content as markdown and save to `www/intern/_emails/[slug].md`
+    2. Export content as markdown and save to `www/intern/_emails/markdown/[slug].md`
     3. Preview the styled markdown at `localhost:3000/intern/emails/[slug]`
     4. Once preview looks good, generate html and text versions of the email
        from `client/Makefile` via `make build-email`
-       Note: we want both html and text to maximize delivery
+       Notes:
+        * We want both html and text to maximize delivery
+        * We use pandoc to convert markdown to html. If you don't have it,
+          you can install it via `brew install pandoc`
+        * If need be, you can edit the ouputs in`client/www/_emails/html/[slug].html`
+          and `client/www/_emails/txt/[slug].txt`
     5. Refresh the page at `localhost:3000/intern/emails/[slug]`
        and verify text version looks good via the text view button
 
