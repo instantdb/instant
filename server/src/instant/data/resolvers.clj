@@ -149,10 +149,11 @@
 (defn ->friendly
   ([r x] (->friendly r x nil))
   ([{:keys [aid->friendly-name eid->friendly-name]} x not-found]
-   (let [x (or (uuid-util/coerce x) x)]
-     (or (aid->friendly-name x)
-         (eid->friendly-name x)
-         not-found))))
+   (or (aid->friendly-name x)
+       (aid->friendly-name (uuid-util/coerce x))
+       (eid->friendly-name x)
+       (eid->friendly-name (uuid-util/coerce x))
+       not-found)))
 
 (comment
   (def r (make-movies-resolver))

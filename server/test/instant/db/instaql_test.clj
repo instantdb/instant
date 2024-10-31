@@ -2044,7 +2044,7 @@
              [["eid-sum" :books/$user-creator "eid-alex"]
               ["eid-sum" :books/title "Sum"]
               '--
-              ["eid-alex" :$users/id (str (resolvers/->uuid r0 "eid-alex"))]
+              ["eid-alex" :$users/id "eid-alex"]
               ["eid-alex" :$users/email "alex@instantdb.com"]]}]))))))
 
 (deftest users-table-perms-with-references
