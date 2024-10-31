@@ -72,9 +72,12 @@
   nil)
 
 (defn send! [{:keys [to title textBody htmlBody
-                     from alias reply-to]
-              :or {from "js@hey.instantdb.com"
-                   alias "instant-news"
+                     ;; alias refers to the email template identifer in postmark
+                     ;; In general you shouldn't need to provide any of these
+                     ;; optional params unless you're sending a custom email
+                     alias from reply-to]
+              :or {alias "instant-news"
+                   from "js@hey.instantdb.com"
                    reply-to "founders@instantdb.com"}}]
   (let [model {:title title
                :textBody textBody
