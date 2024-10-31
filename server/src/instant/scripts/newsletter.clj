@@ -43,12 +43,8 @@
 (defn read-file
   "Reads a file relative to a base path"
   [base-path file-path]
-  (try
-    (let [full-path (io/file base-path file-path)]
-      (slurp full-path))
-    (catch Exception _
-      (println "Error reading file:" file-path)
-      nil)))
+  (let [full-path (io/file base-path file-path)]
+    (slurp full-path)))
 
 (comment
   (read-file base-path (html-path "oct2024"))
