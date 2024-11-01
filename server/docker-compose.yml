@@ -31,5 +31,4 @@ services:
       - ./refinery/rules.yaml:/etc/refinery/rules.yaml
     environment:
       - REFINERY_HONEYCOMB_API_KEY=${REFINERY_HONEYCOMB_API_KEY}
-    ports:
-      - 8082:8082
+    network_mode: "host"
