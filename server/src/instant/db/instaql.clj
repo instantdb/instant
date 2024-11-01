@@ -114,6 +114,15 @@
           []
           conds))
 
+(defn grow-paths
+  "Given a path, creates a list of paths leading up to that path,
+   including the path itself.
+   (grow-paths [1 2 3]) => ((1) (1 2) (1 2 3))"
+  [path]
+  (map (fn [i]
+         (take (inc i) path))
+       (range (count path))))
+
 (defn- coerce-where-cond
   "Splits keys into segments."
   [state [k v :as c]]
@@ -144,14 +153,28 @@
                      :in (conj (:in state) :and)
                      :message "The list of `and` conditions can't be empty."}])))}
 
-        :else (if (and (map? v) (contains? v :$not))
-                ;; If the where cond has `not`, then the check will only include
-                ;; entities where the entity has a triple with the attr. If the
-                ;; attr is missing, then we won't find it. We add an extra
-                ;; `isNull` check to ensure that we find the entity.
-                {:or [[[(string/split (name k) #"\.") v]]
-                      [[(string/split (name k) #"\.") {:$isNull true}]]]}
-                [(string/split (name k) #"\.") v])))
+        (and (map? v) (contains? v :$not))
+        ;; If the where cond has `not`, then the check will only include
+        ;; entities where the entity has a triple with the attr. If the
+        ;; attr is missing, then we won't find it. We add an extra
+        ;; `isNull` check to ensure that we find the entity.
+        (let [path (string/split (name k) #"\.")]
+          {:or (concat [[[path v]]]
+                       (map (fn [p]
+                              [[p {:$isNull true}]])
+                            (grow-paths path)))})
+
+        (and (map? v) (contains? v :$isNull) (= true (:$isNull v)))
+        ;; If the where cond has `$isNull=true`, then we
+        ;; need it should match if any of the intermediate
+        ;; paths are null
+        (let [path (string/split (name k) #"\.")]
+          {:or (concat [[[path v]]]
+                       (map (fn [p]
+                              [[p {:$isNull true}]])
+                            (grow-paths path)))})
+
+        :else [(string/split (name k) #"\.") v]))
 
 (defn coerce-order [state order-map]
   (case (count order-map)
@@ -476,7 +499,10 @@
 
         value-attr-pats (if (and (map? v) (contains? v :$isNull))
                           (let [id-attr (attr-model/seek-by-fwd-ident-name [last-etype "id"] attrs)
-                                value-attr (attr-model/seek-by-fwd-ident-name [last-etype value-label] attrs)]
+                                fwd-attr (attr-model/seek-by-fwd-ident-name [last-etype value-label] attrs)
+                                rev-attr (attr-model/seek-by-rev-ident-name [last-etype value-label] attrs)
+                                value-attr (or fwd-attr
+                                               rev-attr)]
                             (ex/assert-record!
                              id-attr :attr {:args [last-etype "id"]})
                             (ex/assert-record!
@@ -485,7 +511,9 @@
                             [[(level-sym last-etype last-level)
                               (:id id-attr)
                               {:$isNull {:attr-id (:id value-attr)
-                                         :nil? (:$isNull v)}}]])
+                                         :nil? (:$isNull v)
+                                         :ref? (= :ref (:value-type value-attr))
+                                         :reverse? (= value-attr rev-attr)}}]])
                           [(attr-pat/->value-attr-pat ctx
                                                       level-sym
                                                       last-etype

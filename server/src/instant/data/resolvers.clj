@@ -52,7 +52,7 @@
      :eid->friendly-name (constantly nil)
      :friendly-name->eid (constantly nil)}))
 
-(defn- make-resolver
+(defn make-resolver
   [{:keys [conn-pool] :as db} app-id eid-fwd-idents]
   (let [attrs (attr-model/get-by-app-id conn-pool app-id)
         aid->friendly-name (->> attrs

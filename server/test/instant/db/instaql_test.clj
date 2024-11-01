@@ -8,6 +8,7 @@
    [instant.db.datalog :as d]
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
+   [instant.db.model.triple :as triple-model]
    [instant.db.transaction :as tx]
    [instant.fixtures
     :refer [with-empty-app with-zeneca-app with-zeneca-byop]]
@@ -1146,6 +1147,468 @@
              ("eid-a" :books/id "eid-a")
              ("eid-a" :books/val "a"))}))))))
 
+(defn add-references-to-app [app fwd rev]
+  (let [fwd-id-aid (random-uuid)
+        fwd-label-aid (random-uuid)
+        fwd-prop-aid (random-uuid)
+        rev-id-aid (random-uuid)
+        rev-label-aid (random-uuid)
+        rev-prop-aid (random-uuid)
+        link-aid (random-uuid)
+
+        fwd-a-id (random-uuid)
+        fwd-b-id (random-uuid)
+        fwd-c-id (random-uuid)
+        fwd-d-id (random-uuid)
+        fwd-null-id (random-uuid)
+        fwd-undefined-id (random-uuid)
+        rev-a-id (random-uuid)
+        rev-b-id (random-uuid)
+        rev-c-id (random-uuid)
+        rev-d-id (random-uuid)
+        rev-null-id (random-uuid)
+        rev-undefined-id (random-uuid)
+        _ (tx/transact! aurora/conn-pool
+                        (attr-model/get-by-app-id (:id app))
+                        (:id app)
+                        [[:add-attr {:id fwd-id-aid
+                                     :forward-identity [(random-uuid) "fwd" "id"]
+                                     :unique? true
+                                     :index? true
+                                     :value-type :blob
+                                     :cardinality :one}]
+                         [:add-attr {:id fwd-label-aid
+                                     :forward-identity [(random-uuid) "fwd" "label"]
+                                     :unique? false
+                                     :index? false
+                                     :value-type :blob
+                                     :cardinality :one}]
+                         [:add-attr {:id fwd-prop-aid
+                                     :forward-identity [(random-uuid) "fwd" "prop"]
+                                     :unique? false
+                                     :index? false
+                                     :value-type :blob
+                                     :cardinality :one}]
+                         [:add-attr {:id rev-id-aid
+                                     :forward-identity [(random-uuid) "rev" "id"]
+                                     :unique? true
+                                     :index? true
+                                     :value-type :blob
+                                     :cardinality :one}]
+                         [:add-attr {:id rev-label-aid
+                                     :forward-identity [(random-uuid) "rev" "label"]
+                                     :unique? false
+                                     :index? false
+                                     :value-type :blob
+                                     :cardinality :one}]
+                         [:add-attr {:id rev-prop-aid
+                                     :forward-identity [(random-uuid) "rev" "prop"]
+                                     :unique? false
+                                     :index? false
+                                     :value-type :blob
+                                     :cardinality :one}]
+                         [:add-attr {:id link-aid
+                                     :forward-identity [(random-uuid) "fwd" "rev"]
+                                     :reverse-identity [(random-uuid) "rev" "fwd"]
+                                     :unique? (= rev :one)
+                                     :index? false
+                                     :value-type :ref
+                                     :cardinality fwd}]
+                         [:add-triple fwd-a-id fwd-id-aid (str fwd-a-id)]
+                         [:add-triple fwd-a-id fwd-label-aid "fwd-a"]
+                         [:add-triple fwd-a-id fwd-prop-aid "a"]
+
+                         [:add-triple fwd-b-id fwd-id-aid (str fwd-b-id)]
+                         [:add-triple fwd-b-id fwd-label-aid "fwd-b"]
+                         [:add-triple fwd-b-id fwd-prop-aid "b"]
+
+                         [:add-triple fwd-c-id fwd-id-aid (str fwd-c-id)]
+                         [:add-triple fwd-c-id fwd-label-aid "fwd-c"]
+                         [:add-triple fwd-c-id fwd-prop-aid "c"]
+
+                         [:add-triple fwd-d-id fwd-id-aid (str fwd-d-id)]
+                         [:add-triple fwd-d-id fwd-label-aid "fwd-d"]
+                         [:add-triple fwd-d-id fwd-prop-aid "d"]
+
+                         [:add-triple fwd-null-id fwd-id-aid (str fwd-null-id)]
+                         [:add-triple fwd-null-id fwd-label-aid "fwd-null"]
+                         [:add-triple fwd-null-id fwd-prop-aid nil]
+
+                         [:add-triple fwd-undefined-id fwd-id-aid (str fwd-undefined-id)]
+                         [:add-triple fwd-undefined-id fwd-label-aid "fwd-undefined"]
+
+                         [:add-triple rev-a-id rev-id-aid (str rev-a-id)]
+                         [:add-triple rev-a-id rev-label-aid "rev-a"]
+                         [:add-triple rev-a-id rev-prop-aid "a"]
+
+                         [:add-triple rev-b-id rev-id-aid (str rev-b-id)]
+                         [:add-triple rev-b-id rev-prop-aid "b"]
+                         [:add-triple rev-b-id rev-label-aid "rev-b"]
+
+                         [:add-triple rev-c-id rev-id-aid (str rev-c-id)]
+                         [:add-triple rev-c-id rev-label-aid "rev-c"]
+                         [:add-triple rev-c-id rev-prop-aid "c"]
+
+                         [:add-triple rev-d-id rev-id-aid (str rev-d-id)]
+                         [:add-triple rev-d-id rev-label-aid "rev-d"]
+                         [:add-triple rev-d-id rev-prop-aid "d"]
+
+                         [:add-triple rev-null-id rev-id-aid (str rev-null-id)]
+                         [:add-triple rev-null-id rev-prop-aid nil]
+                         [:add-triple rev-null-id rev-label-aid "rev-null"]
+
+                         [:add-triple rev-undefined-id rev-id-aid (str rev-undefined-id)]
+                         [:add-triple rev-undefined-id rev-label-aid "rev-undefined"]])
+
+        r (resolvers/make-resolver {:conn-pool aurora/conn-pool}
+                                   (:id app)
+                                   [["fwd" "label"]
+                                    ["rev" "label"]])
+
+        add-links (fn [links]
+                    (tx/transact! aurora/conn-pool
+                                  (attr-model/get-by-app-id (:id app))
+                                  (:id app)
+                                  (mapv (fn [[fwd-id rev-id]]
+                                          [:add-triple
+                                           (resolvers/->uuid r fwd-id)
+                                           link-aid
+                                           (resolvers/->uuid r rev-id)])
+                                        links)))
+        clear-links (fn []
+                      (def -t (tx/transact! aurora/conn-pool
+                                            (attr-model/get-by-app-id (:id app))
+                                            (:id app)
+                                            (mapv (fn [{:keys [triple]}]
+                                                    (let [[e a v] triple]
+                                                      [:retract-triple e a v]))
+                                                  (triple-model/fetch aurora/conn-pool
+                                                                      (:id app)
+                                                                      [[:= :attr-id link-aid]])))))
+        admin-query (fn [q]
+                      (let [ctx (let [attrs (attr-model/get-by-app-id (:id app))]
+                                  {:db {:conn-pool aurora/conn-pool}
+                                   :app-id (:id app)
+                                   :attrs attrs})]
+                        (->> (iq/query ctx q)
+                             (instaql-nodes->object-tree ctx)
+                             (resolvers/walk-friendly r))))]
+    {:r r
+     :add-links add-links
+     :clear-links clear-links
+     :admin-query admin-query}))
+
+(deftest where-$not-$isNull-with-links-1-to-1
+  (with-empty-app
+    (fn [app]
+      (let [{:keys [r add-links clear-links admin-query]}
+            (add-references-to-app app
+                                   :one
+                                   :one)]
+        (add-links [["eid-fwd-a" "eid-rev-a"
+                     "eid-fwd-b" "eid-rev-null"
+                     "eid-fwd-c" "eid-rev-undefined"]])
+
+        (is (= #{"eid-fwd-b"
+                 "eid-fwd-c"
+                 "eid-fwd-d"
+                 "eid-fwd-null"
+                 "eid-fwd-undefined"}
+               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull true}}}}}) %
+                 (get % "fwd")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-fwd-a"}
+               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull false}}}}}) %
+                 (get % "fwd")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-fwd-b"
+                 "eid-fwd-c"
+                 "eid-fwd-d"
+                 "eid-fwd-null"
+                 "eid-fwd-undefined"}
+               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$not "a"}}}}}) %
+                 (get % "fwd")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-rev-d"
+                 "eid-rev-c"
+                 "eid-rev-null"
+                 "eid-rev-undefined"
+                 "eid-rev-b"}
+               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$not "a"}}}}}) %
+                 (get % "rev")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-rev-d"
+                 "eid-rev-c"
+                 "eid-rev-null"
+                 "eid-rev-undefined"
+                 "eid-rev-b"}
+               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
+                 (get % "rev")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-rev-a"}
+               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull false}}}}}) %
+                 (get % "rev")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+
+        (add-links [["eid-fwd-null" "eid-rev-b"]
+                    ["eid-fwd-undefined" "eid-rev-c"]])
+
+        (is (= #{"eid-rev-d"
+                 "eid-rev-c"
+                 "eid-rev-null"
+                 "eid-rev-undefined"
+                 "eid-rev-b"}
+               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
+                 (get % "rev")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))))))
+
+(deftest where-$not-$isNull-with-links-1-to-many
+  (with-empty-app
+    (fn [app]
+      (let [{:keys [r add-links clear-links admin-query]}
+            (add-references-to-app app
+                                   :one
+                                   :many)]
+        (add-links [["eid-fwd-a" "eid-rev-a"
+                     "eid-fwd-b" "eid-rev-a"
+                     "eid-fwd-b" "eid-rev-null"
+                     "eid-fwd-c" "eid-rev-undefined"]])
+
+        (is (= #{"eid-fwd-b"
+                 "eid-fwd-c"
+                 "eid-fwd-d"
+                 "eid-fwd-null"
+                 "eid-fwd-undefined"}
+               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull true}}}}}) %
+                 (get % "fwd")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-fwd-a"}
+               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull false}}}}}) %
+                 (get % "fwd")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-fwd-b"
+                 "eid-fwd-c"
+                 "eid-fwd-d"
+                 "eid-fwd-null"
+                 "eid-fwd-undefined"}
+               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$not "a"}}}}}) %
+                 (get % "fwd")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-rev-d"
+                 "eid-rev-c"
+                 "eid-rev-null"
+                 "eid-rev-undefined"
+                 "eid-rev-b"}
+               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$not "a"}}}}}) %
+                 (get % "rev")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-rev-d"
+                 "eid-rev-c"
+                 "eid-rev-null"
+                 "eid-rev-undefined"
+                 "eid-rev-b"}
+               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
+                 (get % "rev")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-rev-a"}
+               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull false}}}}}) %
+                 (get % "rev")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+
+        (add-links [["eid-fwd-null" "eid-rev-b"]
+                    ["eid-fwd-undefined" "eid-rev-c"]])
+
+        (is (= #{"eid-rev-d"
+                 "eid-rev-c"
+                 "eid-rev-null"
+                 "eid-rev-undefined"
+                 "eid-rev-b"}
+               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
+                 (get % "rev")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))))))
+
+(deftest where-$not-$isNull-with-links-many-to-1
+  (with-empty-app
+    (fn [app]
+      (let [{:keys [r add-links clear-links admin-query]}
+            (add-references-to-app app
+                                   :many
+                                   :one)]
+        (add-links [["eid-fwd-a" "eid-rev-a"
+                     "eid-fwd-b" "eid-rev-b"
+                     "eid-fwd-b" "eid-rev-null"
+                     "eid-fwd-c" "eid-rev-undefined"]])
+
+        (is (= #{"eid-fwd-b"
+                 "eid-fwd-c"
+                 "eid-fwd-d"
+                 "eid-fwd-null"
+                 "eid-fwd-undefined"}
+               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull true}}}}}) %
+                 (get % "fwd")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-fwd-a"}
+               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull false}}}}}) %
+                 (get % "fwd")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-fwd-b"
+                 "eid-fwd-c"
+                 "eid-fwd-d"
+                 "eid-fwd-null"
+                 "eid-fwd-undefined"}
+               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$not "a"}}}}}) %
+                 (get % "fwd")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-rev-d"
+                 "eid-rev-c"
+                 "eid-rev-null"
+                 "eid-rev-undefined"
+                 "eid-rev-b"}
+               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$not "a"}}}}}) %
+                 (get % "rev")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-rev-d"
+                 "eid-rev-c"
+                 "eid-rev-null"
+                 "eid-rev-undefined"
+                 "eid-rev-b"}
+               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
+                 (get % "rev")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-rev-a"}
+               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull false}}}}}) %
+                 (get % "rev")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+
+        (add-links [["eid-fwd-null" "eid-rev-b"]
+                    ["eid-fwd-undefined" "eid-rev-c"]])
+
+        (is (= #{"eid-rev-d"
+                 "eid-rev-c"
+                 "eid-rev-null"
+                 "eid-rev-undefined"
+                 "eid-rev-b"}
+               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
+                 (get % "rev")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))))))
+
+(deftest where-$not-$isNull-with-links-many-to-many
+  (with-empty-app
+    (fn [app]
+      (let [{:keys [r add-links clear-links admin-query]}
+            (add-references-to-app app
+                                   :many
+                                   :one)]
+        (add-links [["eid-fwd-a" "eid-rev-a"
+                     "eid-fwd-b" "eid-rev-a"
+                     "eid-fwd-b" "eid-rev-b"
+                     "eid-fwd-b" "eid-rev-null"
+                     "eid-fwd-c" "eid-rev-undefined"]])
+
+        (is (= #{"eid-fwd-b"
+                 "eid-fwd-c"
+                 "eid-fwd-d"
+                 "eid-fwd-null"
+                 "eid-fwd-undefined"}
+               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull true}}}}}) %
+                 (get % "fwd")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-fwd-a"}
+               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull false}}}}}) %
+                 (get % "fwd")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-fwd-b"
+                 "eid-fwd-c"
+                 "eid-fwd-d"
+                 "eid-fwd-null"
+                 "eid-fwd-undefined"}
+               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$not "a"}}}}}) %
+                 (get % "fwd")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-rev-d"
+                 "eid-rev-c"
+                 "eid-rev-null"
+                 "eid-rev-undefined"
+                 "eid-rev-b"}
+               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$not "a"}}}}}) %
+                 (get % "rev")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-rev-d"
+                 "eid-rev-c"
+                 "eid-rev-null"
+                 "eid-rev-undefined"
+                 "eid-rev-b"}
+               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
+                 (get % "rev")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+        (is (= #{"eid-rev-a"}
+               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull false}}}}}) %
+                 (get % "rev")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))
+
+
+        (add-links [["eid-fwd-null" "eid-rev-b"]
+                    ["eid-fwd-undefined" "eid-rev-c"]])
+
+        (is (= #{"eid-rev-d"
+                 "eid-rev-c"
+                 "eid-rev-null"
+                 "eid-rev-undefined"
+                 "eid-rev-b"}
+               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
+                 (get % "rev")
+                 (map (fn [x] (get x "id")) %)
+                 (set %))))))))
 
 (deftest where-or
   (testing "with no matches"
@@ -1740,7 +2203,70 @@
             [shared-id :books/title "title"]
             [shared-id :books/id shared-id]]}])))))
 
-;; ------
+(deftest eid-relations
+  (testing "forward works on link name"
+    (is-pretty-eq?
+     (query-pretty {:users {:$ {:where {:bookshelves (resolvers/->uuid @r "eid-worldview")}}}})
+     '({:topics
+        ([:vae _ #{:users/bookshelves} #{"eid-worldview"}]
+         --
+         [:ea
+          #{"eid-stepan-parunashvili"}
+          #{:users/bookshelves
+            :users/createdAt
+            :users/email
+            :users/id
+            :users/fullName
+            :users/handle}
+          _]),
+        :triples
+        (("eid-stepan-parunashvili" :users/bookshelves "eid-worldview")
+         --
+         ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+         ("eid-stepan-parunashvili"
+          :users/createdAt
+          "2021-01-07 18:50:43.447955")
+         ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+         ("eid-stepan-parunashvili" :users/handle "stopa")
+         ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))})))
+  (testing "reverse works on link name"
+    (is-pretty-eq?
+     (query-pretty {:bookshelves {:$ {:where {:users (resolvers/->uuid @r "eid-alex")}}}})
+     '({:topics
+        ([:eav #{"eid-alex"} #{:users/bookshelves} _]
+         --
+         [:ea
+          #{"eid-short-stories"}
+          #{:bookshelves/desc
+            :bookshelves/name
+            :bookshelves/order
+            :bookshelves/id
+            :bookshelves/books}
+          _]
+         --
+         [:ea
+          #{"eid-nonfiction"}
+          #{:bookshelves/desc
+            :bookshelves/name
+            :bookshelves/order
+            :bookshelves/id
+            :bookshelves/books}
+          _]),
+        :triples
+        (("eid-alex" :users/bookshelves "eid-short-stories")
+         ("eid-alex" :users/bookshelves "eid-nonfiction")
+         --
+         ("eid-short-stories" :bookshelves/id "eid-short-stories")
+         ("eid-short-stories" :bookshelves/desc "")
+         ("eid-short-stories" :bookshelves/name "Short Stories")
+         ("eid-short-stories" :bookshelves/order 0)
+         --
+         ("eid-nonfiction" :bookshelves/id "eid-nonfiction")
+         ("eid-nonfiction" :bookshelves/name "Nonfiction")
+         ("eid-nonfiction" :bookshelves/desc "")
+         ("eid-nonfiction" :bookshelves/order 1))}))))
+
+;; -----------
 ;; Permissions
 
 (comment

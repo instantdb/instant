@@ -536,23 +536,28 @@
     :a (in-or-eq :attr-id v)
     :v (in-or-eq :value (map value->jsonb v))))
 
+(defn- value-function-clauses [[v-tag v-value]]
+  (case v-tag
+    :function (let [[func val] (first v-value)]
+                (case func
+                  :$not [[:not= :value (value->jsonb val)]]
+                  :$isNull [[(if (:nil? val)
+                               :not-in
+                               :in)
+                             :entity-id
+                             {:select (if (and (:ref? val)
+                                               (:reverse? val))
+                                        [[[:cast [:->> :t.value :0] :uuid]]]
+                                        :t.entity-id)
+                              :from [[:triples :t]]
+                              :where [:and
+                                      [:= :t.entity-id :entity-id]
+                                      [:= :t.attr-id (:attr-id val)]
+                                      [:not= :t.value [:cast (->json nil) :jsonb]]]}]]))
+    []))
+
 (defn- function-clauses [named-pattern]
-  (let [[v-tag v-value] (:v named-pattern)]
-    (case v-tag
-      :function (let [[func val] (first v-value)]
-                  (case func
-                    :$not [[:not= :value (value->jsonb val)]]
-                    :$isNull [[(if (:nil? val)
-                                 :not-in
-                                 :in)
-                               :entity-id
-                               {:select :t.entity-id
-                                :from [[:triples :t]]
-                                :where [:and
-                                        [:= :t.entity-id :entity-id]
-                                        [:= :t.attr-id (:attr-id val)]
-                                        [:not= :t.value [:cast (->json nil) :jsonb]]]}]]))
-      [])))
+  (value-function-clauses (:v named-pattern)))
 
 (defn- where-clause
   "
