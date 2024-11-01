@@ -22,6 +22,15 @@ function matchWithArgMap(patternPart, triplePart, context) {
   if (inList && inList.includes(triplePart)) {
     return context;
   }
+
+  if (
+    patternPart.hasOwnProperty("$not") ||
+    patternPart.hasOwnProperty("$isNull")
+  ) {
+    // If we use `$not` or `$isNull`, we've already done the filtering in
+    // `getTriples`
+    return context;
+  }
   return null;
 }
 

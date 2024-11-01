@@ -6,6 +6,7 @@ import { createStore, transact } from "../../src/store";
 import query from "../../src/instaql";
 import { tx } from "../../src/instatx";
 import * as instaml from "../../src/instaml";
+import { randomUUID } from "crypto";
 
 const zenecaIdToAttr = zenecaAttrs.reduce((res, x) => {
   res[x.id] = x;
@@ -641,4 +642,86 @@ test("pagination first", () => {
   ).data.books;
 
   expect(books.length).toEqual(10);
+});
+
+test("$isNull", () => {
+  const q = { books: { $: { where: { title: { $isNull: true } } } } };
+  expect(query({ store }, q).data.books.length).toEqual(0);
+  const chunks = [
+    tx.books[randomUUID()].update({ title: null }),
+    tx.books[randomUUID()].update({ pageCount: 20 }),
+  ];
+  const txSteps = instaml.transform(store.attrs, chunks);
+  const newStore = transact(store, txSteps);
+  expect(query({ store: newStore }, q).data.books.map((x) => x.title)).toEqual([
+    null,
+    undefined,
+  ]);
+});
+
+test("$isNull with relations", () => {
+  const q = { users: { $: { where: { bookshelves: { $isNull: true } } } } };
+  expect(query({ store }, q).data.users.length).toEqual(0);
+  const chunks = [tx.users[randomUUID()].update({ handle: "dww" })];
+  const txSteps = instaml.transform(store.attrs, chunks);
+  const newStore = transact(store, txSteps);
+  expect(query({ store: newStore }, q).data.users.map((x) => x.handle)).toEqual(
+    ["dww"],
+  );
+
+  const bookId = query(
+    { store },
+    { books: { $: { where: { title: "The Count of Monte Cristo" } } } },
+  ).data.books[0].id;
+
+  const usersWithBook = query(
+    { store },
+    {
+      users: {
+        $: {
+          where: { "bookshelves.books.title": "The Count of Monte Cristo" },
+        },
+      },
+    },
+  ).data.users.map((x) => x.handle);
+
+  const storeWithNullTitle = transact(
+    newStore,
+    instaml.transform(newStore.attrs, [
+      tx.books[bookId].update({ title: null }),
+    ]),
+  );
+
+  const usersWithNullTitle = query(
+    { store: storeWithNullTitle },
+    {
+      users: {
+        $: {
+          where: { "bookshelves.books.title": { $isNull: true } },
+        },
+      },
+    },
+  ).data.users.map((x) => x.handle);
+
+  expect(usersWithNullTitle).toEqual([...usersWithBook, "dww"]);
+});
+
+test("$not", () => {
+  const q = { tests: { $: { where: { val: { $not: "a" } } } } };
+  expect(query({ store }, q).data.tests.length).toEqual(0);
+  const chunks = [
+    tx.tests[randomUUID()].update({ val: "a" }),
+    tx.tests[randomUUID()].update({ val: "b" }),
+    tx.tests[randomUUID()].update({ val: "c" }),
+    tx.tests[randomUUID()].update({ val: null }),
+    tx.tests[randomUUID()].update({ undefinedVal: "d" }),
+  ];
+  const txSteps = instaml.transform(store.attrs, chunks);
+  const newStore = transact(store, txSteps);
+  expect(query({ store: newStore }, q).data.tests.map((x) => x.val)).toEqual([
+    "b",
+    "c",
+    null,
+    undefined,
+  ]);
 });

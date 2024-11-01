@@ -51,11 +51,23 @@
         :any #{'_}
         :variable symbol?))
 
+(s/def ::$not ::triple-model/value)
+(s/def ::attr-id uuid?)
+(s/def ::nil? boolean?)
+(s/def ::$isNull (s/keys :req-un [::attr-id ::nil?]))
+
+(s/def ::value-pattern-component (s/or :constant (s/coll-of ::triple-model/value
+                                                            :kind set?
+                                                            :min-count 0)
+                                       :any #{'_}
+                                       :variable symbol?
+                                       :function (s/keys :req-un [(or ::$not ::$isNull)])))
+
 (s/def ::pattern
   (s/cat :idx ::triple-model/index
          :e (pattern-component ::triple-model/lookup)
          :a (pattern-component uuid?)
-         :v (pattern-component ::triple-model/value)
+         :v ::value-pattern-component
          :created-at (pattern-component number?)))
 
 (s/def ::patterns (s/coll-of (s/or :pattern ::pattern
@@ -95,9 +107,19 @@
   [[idx & cs :as _triple]]
   (list*
    idx
-   (map (fn [c]
-          (if (or (symbol? c) (set? c)) c #{c}))
-        cs)))
+   (map-indexed
+    (fn [i c]
+      (if (or
+           ;; Don't override not and isnull
+           (and (= i 2)
+                (map? c)
+                (or (contains? c :$not)
+                    (contains? c :$isNull)))
+           (symbol? c)
+           (set? c))
+        c
+        #{c}))
+    cs)))
 
 (defn coerce-pattern
   "1. pads patterns to 5 elements
@@ -290,14 +312,26 @@
       :else
       unwrapped)))
 
-(defn named-pattern->topic
+(defn named-pattern->topics
   "Given a named-pattern and the symbol-values from previous patterns,
    returns the topic that would invalidate the query"
   [{:keys [idx e a v]} symbol-values]
-  [idx
-   (component->topic-component symbol-values :e e)
-   (component->topic-component symbol-values :a a)
-   (component->topic-component symbol-values :v v)])
+  (if (and (= :function (first v))
+           (contains? (second v) :$isNull))
+    ;; This might be a lot simpler if we had a way to do
+    ;; (not [?e :attr-id])
+    [[:ea
+      (component->topic-component symbol-values :e e)
+      (component->topic-component symbol-values :a a)
+      '_]
+     [:ea
+      '_
+      #{(-> v second :$isNull :attr-id)}
+      '_]]
+    [[idx
+      (component->topic-component symbol-values :e e)
+      (component->topic-component symbol-values :a a)
+      (component->topic-component symbol-values :v v)]]))
 
 ;; ----------
 ;; Validation
@@ -502,6 +536,29 @@
     :a (in-or-eq :attr-id v)
     :v (in-or-eq :value (map value->jsonb v))))
 
+(defn- value-function-clauses [[v-tag v-value]]
+  (case v-tag
+    :function (let [[func val] (first v-value)]
+                (case func
+                  :$not [[:not= :value (value->jsonb val)]]
+                  :$isNull [[(if (:nil? val)
+                               :not-in
+                               :in)
+                             :entity-id
+                             {:select (if (and (:ref? val)
+                                               (:reverse? val))
+                                        [[[:cast [:->> :t.value :0] :uuid]]]
+                                        :t.entity-id)
+                              :from [[:triples :t]]
+                              :where [:and
+                                      [:= :t.entity-id :entity-id]
+                                      [:= :t.attr-id (:attr-id val)]
+                                      [:not= :t.value [:cast (->json nil) :jsonb]]]}]]))
+    []))
+
+(defn- function-clauses [named-pattern]
+  (value-function-clauses (:v named-pattern)))
+
 (defn- where-clause
   "
     Given a named pattern, return a where clause with the constants:
@@ -522,6 +579,7 @@
                 constant-components
                 (map (fn [[component-type v]]
                        (constant->where-part app-id component-type v))))
+           (function-clauses named-pattern)
            additional-clauses)))
 
 (comment
@@ -641,10 +699,10 @@
   (let [ors (for [or-symbol-map or-symbol-maps
                   :let [ands (for [dest-sym (get symbol-map join-sym)
                                    origin-sym (get or-symbol-map join-sym)]
-                               (if (set? origin-sym)
+                               (if (set? dest-sym)
                                  (list* :or (map (fn [paths]
-                                                   (or-join-cond-for-or-gather prefix paths dest-sym))
-                                                 origin-sym))
+                                                   (or-join-cond-for-or-gather prefix paths origin-sym))
+                                                 dest-sym))
                                  (join-cond-for-or-gather prefix origin-sym dest-sym)))]
                   :when (seq ands)]
               (list* :and ands))]
@@ -1275,7 +1333,7 @@
        ;; Handling an individual pattern
        (let [{:keys [cte-cols symbol-fields pattern page-info]} pattern-meta
              {:keys [symbol-values symbol-values-for-topics]} acc
-             topic (named-pattern->topic pattern symbol-values-for-topics)
+             topics (named-pattern->topics pattern symbol-values-for-topics)
              {:keys [join-rows symbol-values symbol-values-for-topics]}
              (reduce (fn [acc row]
                        (let [join-row (sql-row->triple row cte-cols coerce-uuids?)]
@@ -1329,7 +1387,7 @@
              (assoc :symbol-values symbol-values)
              (assoc :symbol-values-for-topics symbol-values-for-topics)
              (update :symbol-values (partial ensure-default-symbol-values symbol-fields))
-             (update :topics conj topic)))))
+             (update :topics into topics)))))
    acc
    pattern-metas))
 

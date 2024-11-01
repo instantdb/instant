@@ -153,6 +153,19 @@
        (map (fn [x] (if (= x needle) v x)))
        vec))
 
+(defn coerce-value-uuid [v]
+  (cond (and (map? v)
+             (contains? v :$not))
+        (let [{:keys [$not]} v]
+          (when-let [v-coerced (uuid-util/coerce $not)]
+            {:$not v-coerced}))
+
+        (and (map? v)
+             (contains? v :$isNull))
+        v
+
+        :else (uuid-util/coerce v)))
+
 (defn ->value-attr-pat
   "Take the where-cond:
    [\"users\" \"bookshelves\" \"books\" \"title\"] \"Foo\"
@@ -161,17 +174,20 @@
 
    [?books title-attr \"Foo\"]"
   [{:keys [state attrs]} level-sym value-etype value-level value-label v]
-  (let [{:keys [id value-type]}
-        (ex/assert-record!
-         (attr-model/seek-by-fwd-ident-name [value-etype value-label] attrs)
-         :attr
-         {:args [value-etype value-label]})
+  (let [fwd-attr (attr-model/seek-by-fwd-ident-name [value-etype value-label] attrs)
+        rev-attr (attr-model/seek-by-rev-ident-name [value-etype value-label] attrs)
+
+        {:keys [id value-type] :as attr}
+        (ex/assert-record! (or fwd-attr
+                               rev-attr)
+                           :attr
+                           {:args [value-etype value-label]})
         v-coerced (if (not= :ref value-type)
                     v
                     (if (set? v)
                       (set (map (fn [vv]
-                                  (if-let [v-uuid (uuid-util/coerce vv)]
-                                    v-uuid
+                                  (if-let [v-coerced (coerce-value-uuid vv)]
+                                    v-coerced
                                     (ex/throw-validation-err!
                                      :query
                                      (:root state)
@@ -183,8 +199,8 @@
                                                         (json/->json v))}])))
                                 v))
 
-                      (if-let [v-uuid (uuid-util/coerce v)]
-                        v-uuid
+                      (if-let [v-coerced (coerce-value-uuid v)]
+                        v-coerced
                         (ex/throw-validation-err!
                          :query
                          (:root state)
@@ -193,7 +209,10 @@
                            :message (format "Expected %s to be a uuid, got %s"
                                             value-label
                                             (json/->json v))}]))))]
-    [(level-sym value-etype value-level) id v-coerced]))
+    (if (and (= :ref value-type)
+             (= attr rev-attr))
+      [v-coerced id (level-sym value-etype value-level)]
+      [(level-sym value-etype value-level) id v-coerced])))
 
 (defn attr-pats->patterns-impl
   "Helper for attr-pats->patterns that allows recursion"

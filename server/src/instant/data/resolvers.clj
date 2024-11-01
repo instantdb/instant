@@ -22,6 +22,7 @@
    [instant.jdbc.sql :as sql]
    [instant.data.constants :refer [movies-app-id zeneca-app-id]]
    [instant.db.datalog :as d]
+   [instant.util.uuid :as uuid-util]
    [clojure.string :as string]
    [clojure.set :as clojure-set]
    [clojure.walk :as w]))
@@ -51,7 +52,7 @@
      :eid->friendly-name (constantly nil)
      :friendly-name->eid (constantly nil)}))
 
-(defn- make-resolver
+(defn make-resolver
   [{:keys [conn-pool] :as db} app-id eid-fwd-idents]
   (let [attrs (attr-model/get-by-app-id conn-pool app-id)
         aid->friendly-name (->> attrs
@@ -149,7 +150,9 @@
   ([r x] (->friendly r x nil))
   ([{:keys [aid->friendly-name eid->friendly-name]} x not-found]
    (or (aid->friendly-name x)
+       (aid->friendly-name (uuid-util/coerce x))
        (eid->friendly-name x)
+       (eid->friendly-name (uuid-util/coerce x))
        not-found)))
 
 (comment

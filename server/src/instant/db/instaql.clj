@@ -29,16 +29,21 @@
 (defn where-value-valid? [x]
   (or (string? x) (uuid? x) (number? x) (boolean? x)))
 
-(s/def ::in (s/coll-of where-value-valid?
+(s/def ::$in (s/coll-of where-value-valid?
                        :kind vector?
                        :min-count 0
                        :into #{}))
+;; Backwards compatibility
+(s/def ::in ::$in)
+
+(s/def ::$not where-value-valid?)
+(s/def ::$isNull boolean?)
 
 (defn where-value-valid-keys? [m]
-  (every? #{:in} (keys m)))
+  (every? #{:in :$in :$not :$isNull} (keys m)))
 
 (s/def ::where-args-map (s/and
-                         (s/keys :opt-un [::in])
+                         (s/keys :opt-un [::in ::$in ::$not ::$isNull])
                          where-value-valid-keys?))
 
 (s/def ::where-v
@@ -109,6 +114,15 @@
           []
           conds))
 
+(defn grow-paths
+  "Given a path, creates a list of paths leading up to that path,
+   including the path itself.
+   (grow-paths [1 2 3]) => ((1) (1 2) (1 2 3))"
+  [path]
+  (map (fn [i]
+         (take (inc i) path))
+       (range (count path))))
+
 (defn- coerce-where-cond
   "Splits keys into segments."
   [state [k v :as c]]
@@ -138,6 +152,27 @@
                    [{:expected 'non-empty-list?
                      :in (conj (:in state) :and)
                      :message "The list of `and` conditions can't be empty."}])))}
+
+        (and (map? v) (contains? v :$not))
+        ;; If the where cond has `not`, then the check will only include
+        ;; entities where the entity has a triple with the attr. If the
+        ;; attr is missing, then we won't find it. We add an extra
+        ;; `isNull` check to ensure that we find the entity.
+        (let [path (string/split (name k) #"\.")]
+          {:or (concat [[[path v]]]
+                       (map (fn [p]
+                              [[p {:$isNull true}]])
+                            (grow-paths path)))})
+
+        (and (map? v) (contains? v :$isNull) (= true (:$isNull v)))
+        ;; If the where cond has `$isNull=true`, then we
+        ;; need it should match if any of the intermediate
+        ;; paths are null
+        (let [path (string/split (name k) #"\.")]
+          {:or (concat [[[path v]]]
+                       (map (fn [p]
+                              [[p {:$isNull true}]])
+                            (grow-paths path)))})
 
         :else [(string/split (name k) #"\.") v]))
 
@@ -444,7 +479,7 @@
    [[?users bookshelves-attr ?bookshelves]
     [?bookshelves books-attr ?books]
     [?books title-attr \"Foo\"]]"
-  [{:keys [level-sym] :as ctx}
+  [{:keys [level-sym attrs] :as ctx}
    {:keys [etype level] :as _form}
    {:keys [path v] :as _where-cond}]
   (let [level-sym (or level-sym
@@ -452,20 +487,40 @@
         [v-type v-value] v
         v (case v-type
             :value v-value
-            :args-map (:in v-value))
+            :args-map (let [[func args-map-val] (first v-value)]
+                        (case func
+                          (:$in :in) args-map-val
+                          :$not {:$not args-map-val}
+                          :$isNull {:$isNull args-map-val})))
         [refs-path value-label] (ucoll/split-last path)
 
         [last-etype last-level ref-attr-pats referenced-etypes]
         (attr-pat/->ref-attr-pats ctx level-sym etype level refs-path)
 
-        value-attr-pat (attr-pat/->value-attr-pat
-                        ctx
-                        level-sym
-                        last-etype
-                        last-level
-                        value-label
-                        v)]
-    {:pats (concat ref-attr-pats [value-attr-pat])
+        value-attr-pats (if (and (map? v) (contains? v :$isNull))
+                          (let [id-attr (attr-model/seek-by-fwd-ident-name [last-etype "id"] attrs)
+                                fwd-attr (attr-model/seek-by-fwd-ident-name [last-etype value-label] attrs)
+                                rev-attr (attr-model/seek-by-rev-ident-name [last-etype value-label] attrs)
+                                value-attr (or fwd-attr
+                                               rev-attr)]
+                            (ex/assert-record!
+                             id-attr :attr {:args [last-etype "id"]})
+                            (ex/assert-record!
+                             value-attr :attr {:args [last-etype value-label]})
+
+                            [[(level-sym last-etype last-level)
+                              (:id id-attr)
+                              {:$isNull {:attr-id (:id value-attr)
+                                         :nil? (:$isNull v)
+                                         :ref? (= :ref (:value-type value-attr))
+                                         :reverse? (= value-attr rev-attr)}}]])
+                          [(attr-pat/->value-attr-pat ctx
+                                                      level-sym
+                                                      last-etype
+                                                      last-level
+                                                      value-label
+                                                      v)])]
+    {:pats (concat ref-attr-pats value-attr-pats)
      :referenced-etypes (conj referenced-etypes
                               etype)}))
 
