@@ -207,6 +207,24 @@ function parseWhereClauses(
   return { [clauseType]: { patterns, joinSym } };
 }
 
+// Given a path, returns a list of paths leading up to this path:
+// growPath([1, 2, 3]) -> [[1], [1, 2], [1, 2, 3]]
+function growPath(path) {
+  const ret = [];
+  for (let i = 1; i <= path.length; i++) {
+    ret.push(path.slice(0, i));
+  }
+  return ret;
+}
+
+// Returns array of pattern arrays that should be grouped in OR
+// to capture any intermediate nulls
+function whereCondAttrPatsForNullIsTrue(makeVar, store, etype, level, path) {
+  return growPath(path).map((path) =>
+    whereCondAttrPats(makeVar, store, etype, level, path, { $isNull: true }),
+  );
+}
+
 function parseWhere(makeVar, store, etype, level, where) {
   return Object.entries(where).flatMap(([k, v]) => {
     if (isOrClauses([k, v])) {
@@ -222,13 +240,38 @@ function parseWhere(makeVar, store, etype, level, where) {
       // `$not` won't pick up entities that are missing the attr, so we
       // add in a `$isNull` to catch those too.
       const notPats = whereCondAttrPats(makeVar, store, etype, level, path, v);
-      const nilPats = whereCondAttrPats(makeVar, store, etype, level, path, {
-        $isNull: true,
-      });
-
+      const nilPats = whereCondAttrPatsForNullIsTrue(
+        makeVar,
+        store,
+        etype,
+        level,
+        path,
+      );
       return [
         {
-          or: { patterns: [notPats, nilPats], joinSym: makeVar(etype, level) },
+          or: {
+            patterns: [notPats, ...nilPats],
+            joinSym: makeVar(etype, level),
+          },
+        },
+      ];
+    }
+
+    if (v?.hasOwnProperty("$isNull") && v.$isNull === true && path.length > 1) {
+      // Make sure we're capturing all of the intermediate paths that might be null
+      // by checking for null at each step along the path
+      return [
+        {
+          or: {
+            patterns: whereCondAttrPatsForNullIsTrue(
+              makeVar,
+              store,
+              etype,
+              level,
+              path,
+            ),
+            joinSym: makeVar(etype, level),
+          },
         },
       ];
     }

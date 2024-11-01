@@ -22,6 +22,10 @@ function Example({ appId }: { appId: string }) {
     items: { $: { where: { val: { $not: "a" } } } },
   });
 
+  const { data: fwdLinkNotData } = db.useQuery({
+    items: { $: { where: { "link.val": { $not: "a" } } } },
+  });
+
   return (
     <div>
       <div>
@@ -48,6 +52,34 @@ function Example({ appId }: { appId: string }) {
           onClick={() => db.transact(tx.items[id()].update({ val: "b" }))}
         >
           Create item with val != "a"
+        </button>
+        <button
+          className="bg-black text-white m-2 p-2"
+          onClick={() => {
+            const linkId = id();
+            db.transact([
+              tx.link[linkId].update({ val: "b" }),
+              tx.items[id()]
+                .update({ val: "linked-to-b" })
+                .link({ link: linkId }),
+            ]);
+          }}
+        >
+          Create link with val != "a"
+        </button>
+        <button
+          className="bg-black text-white m-2 p-2"
+          onClick={() => {
+            const linkId = id();
+            db.transact([
+              tx.link[linkId].update({ val: "a" }),
+              tx.items[id()]
+                .update({ val: "linked-to-a" })
+                .link({ link: linkId }),
+            ]);
+          }}
+        >
+          Create link with val = "a"
         </button>
         <button
           className="bg-black text-white m-2 p-2"
@@ -132,6 +164,29 @@ function Example({ appId }: { appId: string }) {
             <summary>not val=a items ({notData?.items.length || 0}):</summary>
 
             {notData?.items.map((item) => (
+              <div key={item.id}>
+                <button
+                  onClick={() => {
+                    db.transact([tx.items[item.id].delete()]);
+                  }}
+                >
+                  X
+                </button>{" "}
+                val ={" "}
+                {item.val === undefined
+                  ? "undefined"
+                  : JSON.stringify(item.val)}
+              </div>
+            ))}
+          </details>
+        </div>
+        <div className="p-2">
+          <details open>
+            <summary>
+              not link.val=a items ({fwdLinkNotData?.items.length || 0}):
+            </summary>
+
+            {fwdLinkNotData?.items.map((item) => (
               <div key={item.id}>
                 <button
                   onClick={() => {

@@ -668,6 +668,42 @@ test("$isNull with relations", () => {
   expect(query({ store: newStore }, q).data.users.map((x) => x.handle)).toEqual(
     ["dww"],
   );
+
+  const bookId = query(
+    { store },
+    { books: { $: { where: { title: "The Count of Monte Cristo" } } } },
+  ).data.books[0].id;
+
+  const usersWithBook = query(
+    { store },
+    {
+      users: {
+        $: {
+          where: { "bookshelves.books.title": "The Count of Monte Cristo" },
+        },
+      },
+    },
+  ).data.users.map((x) => x.handle);
+
+  const storeWithNullTitle = transact(
+    newStore,
+    instaml.transform(newStore.attrs, [
+      tx.books[bookId].update({ title: null }),
+    ]),
+  );
+
+  const usersWithNullTitle = query(
+    { store: storeWithNullTitle },
+    {
+      users: {
+        $: {
+          where: { "bookshelves.books.title": { $isNull: true } },
+        },
+      },
+    },
+  ).data.users.map((x) => x.handle);
+
+  expect(usersWithNullTitle).toEqual([...usersWithBook, "dww"]);
 });
 
 test("$not", () => {
