@@ -1,6 +1,7 @@
 import { getOps, isLookup, parseLookup } from "./instatx";
 import { immutableDeepReplace } from "./utils/object";
 import uuid from "./utils/uuid";
+import { isBlob } from "./store";
 
 // Rewrites optimistic attrs with the attrs we get back from the server.
 export function rewriteStep(attrMapping, txStep) {
@@ -33,11 +34,96 @@ export function rewriteStep(attrMapping, txStep) {
   return rewritten;
 }
 
+export function blobAttrs2(store, etype) {
+  if (!store.__blobAttrsIdx) {
+    store.__blobAttrsIdx = Object.values(store.attrs).reduce((acc, attr) => {
+      if (isBlob(attr)) {
+        const etype = attr["forward-identity"][1];
+        if (!acc[etype]) {
+          acc[etype] = [];
+        }
+        acc[etype].push(attr);
+      }
+      return acc;
+    }, {});
+  }
+  return store.__blobAttrsIdx[etype] || [];
+}
+
+export function blobAttrs({ attrs }, etype) {
+  return Object.values(attrs).filter(
+    (attr) => isBlob(attr) && attr["forward-identity"][1] === etype,
+  );
+}
+
+export function getPrimaryKeyAttr2(store, ns) {
+  if (!store.__primaryKeyAttrIdx) {
+    store.__primaryKeyAttrIdx = Object.values(store.attrs).reduce(
+      (acc, attr) => {
+        if (attr["primary?"]) {
+          acc[attr["forward-identity"][1]] = attr;
+        }
+        return acc;
+      },
+      {},
+    );
+  }
+  const primA = store.__primaryKeyAttrIdx[ns];
+  if (primA) {
+    return primA;
+  }
+  return getAttrByFwdIdentName2(store, ns, "id");
+}
+
+export function getPrimaryKeyAttr(store, ns) {
+  const primary = Object.values(store.attrs).find(
+    (a) => a["primary?"] && a["forward-identity"]?.[1] === ns,
+  );
+
+  if (primary) {
+    return primary;
+  }
+  return getAttrByFwdIdentName2(store, ns, "id");
+}
+
+export function getAttrByFwdIdentName2(store, inputEtype, inputIdentName) {
+  if (!store.__attrsFwdIdx) {
+    store.__attrsFwdIdx = Object.values(store.attrs).reduce((acc, attr) => {
+      const [_id, etype, label] = attr["forward-identity"];
+      if (!acc[etype]) {
+        acc[etype] = {};
+      }
+      acc[etype][label] = attr;
+      return acc;
+    }, {});
+  }
+  // const fwdA = getAttrByFwdIdentName(store.attrs, inputEtype, inputIdentName);
+  const fwdB = store.__attrsFwdIdx[inputEtype]?.[inputIdentName];
+  return fwdB;
+}
+
 export function getAttrByFwdIdentName(attrs, inputEtype, inputIdentName) {
   return Object.values(attrs).find((attr) => {
     const [_id, etype, label] = attr["forward-identity"];
     return etype === inputEtype && label === inputIdentName;
   });
+}
+
+export function getAttrByReverseIdentName2(store, inputEtype, inputIdentName) {
+  if (!store.__attrsRevIdx) {
+    store.__attrsRevIdx = Object.values(store.attrs).reduce((acc, attr) => {
+      if (!attr["reverse-identity"]) {
+        return acc;
+      }
+      const [_id, etype, label] = attr["reverse-identity"];
+      if (!acc[etype]) {
+        acc[etype] = {};
+      }
+      acc[etype][label] = attr;
+      return acc;
+    }, {});
+  }
+  return store.__attrsRevIdx[inputEtype]?.[inputIdentName];
 }
 
 export function getAttrByReverseIdentName(attrs, inputEtype, inputIdentName) {
@@ -207,14 +293,14 @@ function expandDeepMerge(attrs, [etype, eid, obj]) {
   // id first so that we don't clobber updates on the lookup field
   return [idTuple].concat(attrTuples);
 }
-function removeIdFromArgs(step) { 
+function removeIdFromArgs(step) {
   const [op, etype, eid, obj] = step;
   if (!obj) {
     return step;
   }
-  const newObj = {...obj};
-  delete newObj.id
-  return [op, etype, eid, newObj]
+  const newObj = { ...obj };
+  delete newObj.id;
+  return [op, etype, eid, newObj];
 }
 
 function toTxSteps(attrs, step) {

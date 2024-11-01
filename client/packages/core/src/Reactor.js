@@ -264,6 +264,7 @@ export default class Reactor {
    *  - We notify all queryCbs because results may been added during merge
    */
   _onMergeQuerySubs = (_storageSubs, inMemorySubs) => {
+    console.log("onMergeCalled");
     const storageSubs = _storageSubs || {};
     const ret = { ...inMemorySubs };
 
@@ -383,6 +384,7 @@ export default class Reactor {
         this.notifyOneQueryOnce(weakHash(msg.q));
         break;
       case "add-query-ok":
+        return;
         const { q, result, "processed-tx-id": addQueryTxId } = msg;
         this._cleanPendingMutations(addQueryTxId);
         const hash = weakHash(q);
@@ -403,6 +405,7 @@ export default class Reactor {
         this.notifyOneQueryOnce(hash);
         break;
       case "refresh-ok":
+        return;
         const { computations, attrs, "processed-tx-id": refreshOkTxId } = msg;
         this._cleanPendingMutations(refreshOkTxId);
         this._setAttrs(attrs);
@@ -890,7 +893,17 @@ export default class Reactor {
 
   loadedNotifyAll() {
     if (this.pendingMutations.isLoading() || this.querySubs.isLoading()) return;
+    console.profile("notifyAll");
+    const start = performance.now();
+    console.profile()
     this.notifyAll();
+    console.profileEnd('notifyAll');
+    const end = performance.now();
+    // make a red console.log of the time, background red color white
+    console.log(
+      "%cnotifyAll took " + (end - start) + " ms",
+      "background: red; color: white",
+    );
   }
 
   /** Applies transactions locally and sends transact message to server */

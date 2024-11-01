@@ -9,7 +9,7 @@ function isRef(attr) {
   return attr["value-type"] === "ref";
 }
 
-function isBlob(attr) {
+export function isBlob(attr) {
   return attr["value-type"] === "blob";
 }
 
@@ -73,16 +73,21 @@ export function blobAttrs({ attrs }, etype) {
   return Object.values(attrs)
     .filter((attr) => isBlob(attr) && attr['forward-identity'][1] === etype);
 }
+const objCache = new Map();
 
 export function getAsObject(store, attrs, e) {
-  const obj = {}; 
-  for (const attr of attrs) { 
+  if (objCache.has(e)) {
+    return objCache.get(e);
+  }
+  const obj = {};
+  for (const attr of attrs) {
     const aMap = store.eav.get(e)?.get(attr.id);
     const vs = allMapValues(aMap, 1);
-    for (const v of vs) {  
+    for (const v of vs) {
       obj[attr['forward-identity'][2]] = v[2];
     }
   }
+  objCache.set(e, obj);
   return obj;
 }
 

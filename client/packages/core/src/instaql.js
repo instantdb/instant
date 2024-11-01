@@ -1,6 +1,6 @@
 import { query as datalogQuery } from "./datalog";
 import { uuidCompare } from "./utils/uuid";
-import { getAttrByFwdIdentName, getAttrByReverseIdentName } from "./instaml";
+import { getAttrByFwdIdentName2, getAttrByReverseIdentName2, getPrimaryKeyAttr2, blobAttrs2 } from "./instaml";
 import * as s from "./store"; 
 
 // Pattern variables
@@ -34,11 +34,11 @@ function getPrimaryKeyAttr(store, ns) {
   if (primary) {
     return primary;
   }
-  return getAttrByFwdIdentName(store.attrs, ns, "id");
+  return getAttrByFwdIdentName2(store, ns, "id");
 }
 
 function idAttr(store, ns) {
-  const attr = getPrimaryKeyAttr(store, ns);
+  const attr = getPrimaryKeyAttr2(store, ns);
 
   if (!attr) {
     throw new AttrNotFoundError(`Could not find id attr for ${ns}`);
@@ -64,8 +64,8 @@ function replaceInAttrPat(attrPat, needle, v) {
 }
 
 function refAttrPat(makeVar, store, etype, level, label) {
-  const fwdAttr = getAttrByFwdIdentName(store.attrs, etype, label);
-  const revAttr = getAttrByReverseIdentName(store.attrs, etype, label);
+  const fwdAttr = getAttrByFwdIdentName2(store, etype, label);
+  const revAttr = getAttrByReverseIdentName2(store, etype, label);
   const attr = fwdAttr || revAttr;
 
   if (!attr) {
@@ -101,7 +101,7 @@ function refAttrPat(makeVar, store, etype, level, label) {
 }
 
 function valueAttrPat(makeVar, store, valueEtype, valueLevel, valueLabel, v) {
-  const attr = getAttrByFwdIdentName(store.attrs, valueEtype, valueLabel);
+  const attr = getAttrByFwdIdentName2(store, valueEtype, valueLabel);
 
   if (!attr) {
     throw new AttrNotFoundError(
@@ -325,7 +325,7 @@ function runDataloadAndReturnObjects(store, etype, direction, pageInfo, dq) {
 
   let objects = {}
   const startCursor = pageInfo?.["start-cursor"];
-  const blobAttrs = s.blobAttrs(store, etype);
+  const blobAttrs = blobAttrs2(store, etype);
   for (const [id, time] of idVecs) {
     if (
       startCursor &&
