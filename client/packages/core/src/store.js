@@ -118,6 +118,30 @@ function resetAttrIndexes(store) {
   store.attrIndexes = createAttrIndexes(store.attrs);
 }
 
+import ds from 'datascript';
+
+function createDSDB(attrs, triples, uuidToEid) {
+  const txs = triples.map(([eid, aid, v]) => {
+    const attr = getAttr(attrs, aid);
+    if (!attr) return;
+    const newV =  uuidToEid[v] || v;
+    if (!newV) return;
+    return [':db/add', uuidToEid[eid], aid, newV];
+  }).filter(x => x);
+  const schema = Object.values(attrs).reduce((acc, attr) => {
+    if (attr['value-type'] === 'ref') {
+      acc[attr.id] = { ':db/valueType': ':db.type/ref' };
+    }
+    if (attr['forward-identity'][2] === 'id') {
+      acc[attr.id] = { ':db/unique': ':db.unique/identity' };
+    }
+    return acc;
+  }, {})
+  const db = ds.empty_db(schema)
+  const db1 = ds.db_with(db, txs);
+  return db1;
+}
+
 export function createStore(
   attrs,
   triples,
@@ -130,7 +154,17 @@ export function createStore(
   store.cardinalityInference = enableCardinalityInference;
   store.linkIndex = linkIndex;
   store.__type = "store";
-
+  let n = 0;
+  const uuidToEid = triples.reduce((acc, [eid, _, v]) => {
+    acc[eid] = acc[eid] || n++;
+    return acc;
+  }, {});
+  store.uuidToEid = uuidToEid;
+  store.eidToUuid = Object.entries(uuidToEid).reduce((acc, [k, v]) => {
+    acc[v] = k;
+    return acc;
+  }, {});
+  store.dsdb = createDSDB(attrs, triples, uuidToEid);
   return store;
 }
 

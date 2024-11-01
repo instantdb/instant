@@ -43,7 +43,6 @@ function eidWhere(makeVar, store, etype, level) {
     makeVar(etype, level),
     idAttr(store, etype).id,
     makeVar(etype, level),
-    makeVar("time", level),
   ];
 }
 
@@ -68,18 +67,8 @@ function refAttrPat(makeVar, store, etype, level, label) {
   const [_r, revEtype] = attr["reverse-identity"];
   const nextLevel = level + 1;
   const attrPat = fwdAttr
-    ? [
-        makeVar(fwdEtype, level),
-        attr.id,
-        makeVar(revEtype, nextLevel),
-        wildcard("time"),
-      ]
-    : [
-        makeVar(fwdEtype, nextLevel),
-        attr.id,
-        makeVar(revEtype, level),
-        wildcard("time"),
-      ];
+    ? [makeVar(fwdEtype, level), attr.id, makeVar(revEtype, nextLevel)]
+    : [makeVar(fwdEtype, nextLevel), attr.id, makeVar(revEtype, level)];
 
   const nextEtype = fwdAttr ? revEtype : fwdEtype;
 
@@ -281,7 +270,7 @@ function makeWhere(store, etype, level, where) {
 // -----------------
 
 function makeFind(makeVar, etype, level) {
-  return [makeVar(etype, level), makeVar("time", level)];
+  return [makeVar(etype, level)];
 }
 
 // extendObjects
@@ -379,22 +368,64 @@ function isBefore(startCursor, direction, [e, _a, _v, t]) {
   );
 }
 
+import ds from "datascript";
+
+function convertToDSQuery(store, dq) {
+  const convertPart = (store, part) => {
+    const eid = store.uuidToEid[part];
+    if (eid) {
+      return '"' + eid + '"';
+    }
+    if (typeof part === "string" && part.startsWith("?")) {
+      return part;
+    }
+    return JSON.stringify(part);
+  };
+  const convertWhere = ([e, a, v]) => {
+    return (
+      "[" +
+      convertPart(store, e) +
+      " " +
+      convertPart(store, a) +
+      " " +
+      convertPart(store, v) +
+      "]"
+    );
+  };
+
+  const where = dq.where.slice(0, 1);
+  const whereStr = where.map(convertWhere).join("\n");
+  return `
+[:find ${dq.find[0]} :where ${whereStr}]`;
+}
+
+function enhancedDatalogQuery(store, dq) {
+  const converted = convertToDSQuery(store, dq);
+  const myRet = ds.q(converted, store.dsdb);
+  return myRet;
+}
+
 function runDataloadAndReturnObjects(store, etype, direction, pageInfo, dq) {
   const aid = idAttr(store, etype).id;
-  const idVecs = datalogQuery(store, dq).sort(([_, tsA], [__, tsB]) => {
-    return direction === "desc" ? tsB - tsA : tsA - tsB;
-  });
+
+  const idVecs = enhancedDatalogQuery(store, dq).map((x) => [
+    store.eidToUuid[x[0]],
+  ]);
+
+  // .sort(([_, tsA], [__, tsB]) => {
+  //   return direction === "desc" ? tsB - tsA : tsA - tsB;
+  // });
 
   let objects = {};
   const startCursor = pageInfo?.["start-cursor"];
-  for (const [id, time] of idVecs) {
-    if (
-      startCursor &&
-      aid === startCursor[1] &&
-      isBefore(startCursor, direction, [id, aid, id, time])
-    ) {
-      continue;
-    }
+  for (const [id] of idVecs) {
+    // if (
+    //   startCursor &&
+    //   aid === startCursor[1] &&
+    //   isBefore(startCursor, direction, [id, aid, id, time])
+    // ) {
+    //   continue;
+    // }
     const obj = s.getAsObject(store, etype, id);
     if (obj) {
       objects[id] = obj;

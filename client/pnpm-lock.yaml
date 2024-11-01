@@ -91,6 +91,9 @@ importers:
 
   packages/core:
     dependencies:
+      datascript:
+        specifier: ^1.7.3
+        version: 1.7.3
       mutative:
         specifier: ^1.0.10
         version: 1.0.10
@@ -11364,6 +11367,11 @@ packages:
       call-bind: 1.0.7
       es-errors: 1.3.0
       is-data-view: 1.0.1
+
+  /datascript@1.7.3:
+    resolution: {integrity: sha512-FTmixofdWx37j4B9734X36XViSnFFJOgLaTc5rIvwd04V0R/bRgvSlSiQdEDbhXvYK0FemWZc2UBNhU87NTcHg==}
+    engines: {node: '>=0.8.22'}
+    dev: false
 
   /date-fns@2.30.0:
     resolution: {integrity: sha512-fnULvOpxnC5/Vg3NCiWelDsLiUc9bRwAPs/+LfTLNvetFCtCTN+yQz15C/fs4AwX1R9K5GLtLfn8QW+dWisaAw==}
