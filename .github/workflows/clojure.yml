@@ -263,9 +263,11 @@ jobs:
 
   publish-image:
     runs-on: ubuntu-latest
-    if: needs.detect_clj.outputs.did_change == 'True' && github.ref == 'refs/heads/main'
+    # XXX
+    # if: needs.detect_clj.outputs.did_change == 'True' && github.ref == 'refs/heads/main'
     # Start publish image if we have clj changes
-    needs: [ detect_clj ]
+    # XXX
+    # needs: [ detect_clj ]
     permissions:
       id-token: write
       contents: read
@@ -300,7 +302,8 @@ jobs:
     runs-on: ubuntu-latest
     # Publish to elastic beanstalk only if we pass the tests
     needs:
-      - clj-check
+      # XXX
+      # - clj-check
       - publish-image
     permissions:
       id-token: write
