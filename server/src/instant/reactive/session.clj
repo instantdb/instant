@@ -517,8 +517,8 @@
     (let [app-id (-> (rs/get-auth @store-conn id)
                      :app
                      :id)]
-      (eph/leave-by-session-id! eph-store-atom app-id id)
-      (rs/remove-session! store-conn id))))
+      (rs/remove-session! store-conn id)
+      (eph/leave-by-session-id! eph-store-atom app-id id))))
 
 (defn undertow-config
   [store-conn eph-store-atom receive-q {:keys [id]}]
