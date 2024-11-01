@@ -47,7 +47,7 @@ function setInMap(m, path, value) {
   setInMap(nextM, tail, value);
 }
 
-function createIndexMap(attrs, triples) {
+function createTripleIndexes(attrs, triples) {
   const eav = new Map();
   const aev = new Map();
   const vae = new Map();
@@ -69,22 +69,30 @@ function createIndexMap(attrs, triples) {
   return { eav, aev, vae };
 }
 
-export function blobAttrs({ attrs }, etype) {
-  return Object.values(attrs).filter(
-    (attr) => isBlob(attr) && attr["forward-identity"][1] === etype,
-  );
-}
+function createAttrIndexes(attrs) {
+  const blobAttrs = new Map();
+  const primaryKeys = new Map();
+  const forwardIdents = new Map();
+  const revIdents = new Map();
+  for (const attr of Object.values(attrs)) {
+    const fwdIdent = attr["forward-identity"];
+    const [_, fwdEtype, fwdLabel] = fwdIdent;
+    const revIdent = attr["reverse-identity"];
 
-export function getAsObject(store, attrs, e) {
-  const obj = {};
-  for (const attr of attrs) {
-    const aMap = store.eav.get(e)?.get(attr.id);
-    const vs = allMapValues(aMap, 1);
-    for (const v of vs) {
-      obj[attr["forward-identity"][2]] = v[2];
+    setInMap(forwardIdents, [fwdEtype, fwdLabel], attr);
+    if (isBlob(attr)) {
+      setInMap(blobAttrs, [fwdEtype, fwdLabel], attr);
+    }
+    if (attr["primary?"]) {
+      setInMap(primaryKeys, [fwdEtype], attr);
+    }
+    if (revIdent) {
+      const [_, revEtype, revLabel] = revIdent;
+      setInMap(revIdents, [revEtype, revLabel], attr);
     }
   }
-  return obj;
+
+  return { blobAttrs, primaryKeys, forwardIdents, revIdents };
 }
 
 export function toJSON(store) {
@@ -106,14 +114,19 @@ export function fromJSON(storeJSON) {
   );
 }
 
+function resetAttrIndexes(store) {
+  store.attrIndexes = createAttrIndexes(store.attrs);
+}
+
 export function createStore(
   attrs,
   triples,
   enableCardinalityInference,
   linkIndex,
 ) {
-  const store = createIndexMap(attrs, triples);
+  const store = createTripleIndexes(attrs, triples);
   store.attrs = attrs;
+  store.attrIndexes = createAttrIndexes(attrs);
   store.cardinalityInference = enableCardinalityInference;
   store.linkIndex = linkIndex;
   store.__type = "store";
@@ -357,7 +370,7 @@ function deleteEntity(store, args) {
 // * We could add an ave index for all triples, so removing the
 //   right triples is easy and fast.
 function resetIndexMap(store, newTriples) {
-  const newIndexMap = createIndexMap(store.attrs, newTriples);
+  const newIndexMap = createTripleIndexes(store.attrs, newTriples);
   Object.keys(newIndexMap).forEach((key) => {
     store[key] = newIndexMap[key];
   });
@@ -365,6 +378,7 @@ function resetIndexMap(store, newTriples) {
 
 function addAttr(store, [attr]) {
   store.attrs[attr.id] = attr;
+  resetAttrIndexes(store);
 }
 
 function getAllTriples(store) {
@@ -375,6 +389,7 @@ function deleteAttr(store, [id]) {
   if (!store.attrs[id]) return;
   const newTriples = getAllTriples(store).filter(([_, aid]) => aid !== id);
   delete store.attrs[id];
+  resetAttrIndexes(store);
   resetIndexMap(store, newTriples);
 }
 
@@ -382,6 +397,7 @@ function updateAttr(store, [partialAttr]) {
   const attr = store.attrs[partialAttr.id];
   if (!attr) return;
   store.attrs[partialAttr.id] = { ...attr, ...partialAttr };
+  resetAttrIndexes(store);
   resetIndexMap(store, getAllTriples(store));
 }
 
@@ -542,6 +558,37 @@ export function getTriples(store, [e, a, v]) {
       return allMapValues(store.eav, 3);
     }
   }
+}
+
+export function getAsObject(store, etype, e) {
+  const blobAttrs = store.attrIndexes.blobAttrs.get(etype);
+  const obj = {};
+
+  for (const [label, attr] of blobAttrs.entries()) {
+    const aMap = store.eav.get(e)?.get(attr.id);
+    const triples = allMapValues(aMap, 1);
+    for (const triple of triples) {
+      obj[label] = triple[2];
+    }
+  }
+
+  return obj;
+}
+
+export function getAttrByFwdIdentName(store, inputEtype, inputLabel) {
+  return store.attrIndexes.forwardIdents.get(inputEtype)?.get(inputLabel);
+}
+
+export function getAttrByReverseIdentName(store, inputEtype, inputLabel) {
+  return store.attrIndexes.revIdents.get(inputEtype)?.get(inputLabel);
+}
+
+export function getPrimaryKeyAttr(store, etype) {
+  const fromPrimary = store.attrIndexes.primaryKeys.get(etype);
+  if (fromPrimary) {
+    return fromPrimary;
+  }
+  return store.attrIndexes.forwardIdents.get(etype)?.get('id');
 }
 
 export function transact(store, txSteps) {

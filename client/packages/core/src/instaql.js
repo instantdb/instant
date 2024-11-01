@@ -1,6 +1,5 @@
 import { query as datalogQuery } from "./datalog";
 import { uuidCompare } from "./utils/uuid";
-import { getAttrByFwdIdentName, getAttrByReverseIdentName } from "./instaml";
 import * as s from "./store";
 
 // Pattern variables
@@ -26,19 +25,8 @@ class AttrNotFoundError extends Error {
   }
 }
 
-function getPrimaryKeyAttr(store, ns) {
-  const primary = Object.values(store.attrs).find(
-    (a) => a["primary?"] && a["forward-identity"]?.[1] === ns,
-  );
-
-  if (primary) {
-    return primary;
-  }
-  return getAttrByFwdIdentName(store.attrs, ns, "id");
-}
-
 function idAttr(store, ns) {
-  const attr = getPrimaryKeyAttr(store, ns);
+  const attr = s.getPrimaryKeyAttr(store, ns);
 
   if (!attr) {
     throw new AttrNotFoundError(`Could not find id attr for ${ns}`);
@@ -64,8 +52,8 @@ function replaceInAttrPat(attrPat, needle, v) {
 }
 
 function refAttrPat(makeVar, store, etype, level, label) {
-  const fwdAttr = getAttrByFwdIdentName(store.attrs, etype, label);
-  const revAttr = getAttrByReverseIdentName(store.attrs, etype, label);
+  const fwdAttr = s.getAttrByFwdIdentName(store, etype, label);
+  const revAttr = s.getAttrByReverseIdentName(store, etype, label);
   const attr = fwdAttr || revAttr;
 
   if (!attr) {
@@ -101,7 +89,7 @@ function refAttrPat(makeVar, store, etype, level, label) {
 }
 
 function valueAttrPat(makeVar, store, valueEtype, valueLevel, valueLabel, v) {
-  const attr = getAttrByFwdIdentName(store.attrs, valueEtype, valueLabel);
+  const attr = s.getAttrByFwdIdentName(store, valueEtype, valueLabel);
 
   if (!attr) {
     throw new AttrNotFoundError(
@@ -110,7 +98,7 @@ function valueAttrPat(makeVar, store, valueEtype, valueLevel, valueLabel, v) {
   }
 
   if (v?.hasOwnProperty("$isNull")) {
-    const idAttr = getAttrByFwdIdentName(store.attrs, valueEtype, "id");
+    const idAttr = s.getAttrByFwdIdentName(store, valueEtype, "id");
     if (!idAttr) {
       throw new AttrNotFoundError(
         `No attr for etype = ${valueEtype} label = id value-label`,
@@ -399,7 +387,6 @@ function runDataloadAndReturnObjects(store, etype, direction, pageInfo, dq) {
 
   let objects = {};
   const startCursor = pageInfo?.["start-cursor"];
-  const blobAttrs = s.blobAttrs(store, etype);
   for (const [id, time] of idVecs) {
     if (
       startCursor &&
@@ -408,7 +395,7 @@ function runDataloadAndReturnObjects(store, etype, direction, pageInfo, dq) {
     ) {
       continue;
     }
-    const obj = s.getAsObject(store, blobAttrs, id);
+    const obj = s.getAsObject(store, etype, id);
     if (obj) {
       objects[id] = obj;
     }
