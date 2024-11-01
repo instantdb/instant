@@ -25,7 +25,7 @@ services:
       - /var/log/eb-docker:/var/log/eb-docker:ro
 
   refinery:
-    image: honeycombio/refinery:2.7.1
+    image: honeycombio/refinery:2.8.4
     volumes:
       - ./refinery/config.yaml:/etc/refinery/refinery.yaml
       - ./refinery/rules.yaml:/etc/refinery/rules.yaml
