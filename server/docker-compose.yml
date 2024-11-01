@@ -13,6 +13,7 @@ services:
     command: sh -c 'java $${JAVA_OPTS} -agentpath:/usr/local/YourKit-JavaProfiler-2024.3/bin/linux-x86-64/libyjpagent.so=port=10001,listen=all -server -jar target/instant-standalone.jar'
     stop_signal: SIGINT
     stop_grace_period: 1m
+    restart: on-failure
 
   logdna:
     image: logdna/logdna-agent:3.8
@@ -35,3 +36,6 @@ services:
       - REFINERY_HONEYCOMB_API_KEY=${REFINERY_HONEYCOMB_API_KEY}
       - REFINERY_REDIS_HOST=${REFINERY_REDIS_HOST}
     network_mode: "host"
+    restart: on-failure
+    stop_signal: SIGINT
+    stop_grace_period: 30s
