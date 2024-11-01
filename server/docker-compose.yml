@@ -31,4 +31,5 @@ services:
       - ./refinery/rules.yaml:/etc/refinery/rules.yaml
     environment:
       - REFINERY_HONEYCOMB_API_KEY=${REFINERY_HONEYCOMB_API_KEY}
+      - REFINERY_REDIS_HOST=${REFINERY_REDIS_HOST}
     network_mode: "host"

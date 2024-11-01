@@ -12,6 +12,8 @@ OTelMetrics:
   Enabled: true
 PeerManagement:
   Peers: []
+RedisPeerManagement:
+  UseTLS: true
 Logger:
   Level: warn
 Debugging:
