@@ -34,5 +34,7 @@ WORKDIR /app
 COPY --from=builder /app/target/instant-standalone.jar ./target/instant-standalone.jar
 COPY --from=builder /app/YourKit-JavaProfiler-2024.3 /usr/local/YourKit-JavaProfiler-2024.3
 
+STOPSIGNAL SIGINT
+
 EXPOSE 5000
 EXPOSE 6005
