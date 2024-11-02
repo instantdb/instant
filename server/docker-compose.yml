@@ -37,6 +37,7 @@ services:
       - REFINERY_HONEYCOMB_API_KEY=${REFINERY_HONEYCOMB_API_KEY}
       - REFINERY_REDIS_HOST=${REFINERY_REDIS_HOST}
       - REFINERY_CONFIG=${REFINERY_REDIS_HOST:+/etc/refinery/refinery-redis.yaml}
+      - REFINERY_CONFIG=$${REFINERY_CONFIG:-/etc/refinery/refinery.yaml}
     network_mode: "host"
     restart: on-failure
     stop_signal: SIGINT
