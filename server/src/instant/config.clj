@@ -136,10 +136,7 @@
 
 
 (defn get-honeycomb-api-key []
-  ;; XXX
-  nil
-  ;;(some-> @config-map :honeycomb-api-key (.value))
-  )
+  (some-> @config-map :honeycomb-api-key (.value)))
 
 (defn get-honeycomb-endpoint []
   (or (System/getenv "HONEYCOMB_ENDPOINT")
