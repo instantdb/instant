@@ -140,13 +140,24 @@
 (defn add-shutdown-hook []
   (.addShutdownHook (Runtime/getRuntime)
                     (Thread. (fn []
+                               (clj-http.client/get "https://websmee.com/hook/aws-shutdown-test?start")
                                (tracer/record-info! {:name "shut-down"})
                                (tracer/with-span! {:name "stop-server"}
                                  (stop))
+                               (clj-http.client/get "https://websmee.com/hook/aws-shutdown-test?server-done")
                                (tracer/with-span! {:name "stop-invalidator"}
                                  (inv/stop-global))
                                (tracer/with-span! {:name "stop-ephemeral"}
-                                 (eph/stop))))))
+                                 (eph/stop))
+                               (clj-http.client/get "https://websmee.com/hook/aws-shutdown-test?done")
+                               (Thread/sleep (* 1000 20))
+                               (clj-http.client/get "https://websmee.com/hook/aws-shutdown-test?twenty")
+                               (Thread/sleep (* 1000 10))
+                               (clj-http.client/get "https://websmee.com/hook/aws-shutdown-test?thirty")
+                               (Thread/sleep (* 1000 30))
+                               (clj-http.client/get "https://websmee.com/hook/aws-shutdown-test?sixty")
+                               (Thread/sleep (* 1000 30))
+                               (clj-http.client/get "https://websmee.com/hook/aws-shutdown-test?ninety")))))
 
 (defn -main [& _args]
   (let [{:keys [aead-keyset]} (config/init)]

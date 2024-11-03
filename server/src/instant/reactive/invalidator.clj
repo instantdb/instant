@@ -469,7 +469,7 @@
   (a/close! (:close-signal-chan wal-opts)))
 
 (defn stop-global []
-  (when wal-opts
+  (when (bound? #'wal-opts)
     (stop wal-opts)))
 
 (defn restart []
