@@ -134,7 +134,6 @@
      :prod prod-pro-subscription
      test-pro-subscription)))
 
-
 (defn get-honeycomb-api-key []
   (some-> @config-map :honeycomb-api-key (.value)))
 
