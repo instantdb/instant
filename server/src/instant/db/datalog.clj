@@ -682,28 +682,37 @@
   [prefix [origin-idx origin-col-idx] [dest-idx dest-col-idx]]
   (let [origin-ctype (idx->component-type origin-col-idx)
         dest-ctype (idx->component-type dest-col-idx)
-        [origin-col dest-col] (join-cols prefix dest-idx [origin-ctype dest-ctype])]
+        [origin-col dest-col] (join-cols prefix dest-idx [origin-ctype dest-ctype])
+        origin-col (if (= origin-col :value)
+                     :value-blob
+                     origin-col)]
     [:= (kw prefix origin-idx "-" origin-col) dest-col]))
 
 (defn- or-join-cond-for-or-gather
-  [prefix paths dest-path]
-  (mapv (fn [path]
-          (if (set? path)
-            (list* :or (or-join-cond-for-or-gather prefix path dest-path))
-            (join-cond-for-or-gather prefix path dest-path)))
-        paths))
+  [prefix dest-paths origin-path]
+  (mapv (fn [dest-path]
+          (cond (set? dest-path)
+                (list* :or (or-join-cond-for-or-gather prefix dest-path origin-path))
+
+                (and (= 2 (count dest-path))
+                     (every? int? dest-path))
+                (join-cond-for-or-gather prefix origin-path dest-path)
+
+                :else
+                (list* :and (or-join-cond-for-or-gather prefix dest-path origin-path))))
+        dest-paths))
 
 (defn join-conds-for-or-gather
   "Generates the join conditions for connecting the or cte into the previous ctes."
   [prefix symbol-map or-symbol-maps join-sym]
   (let [ors (for [or-symbol-map or-symbol-maps
-                  :let [ands (for [dest-sym (get symbol-map join-sym)
-                                   origin-sym (get or-symbol-map join-sym)]
-                               (if (set? dest-sym)
+                  :let [ands (for [dest-paths (get symbol-map join-sym)
+                                   origin-path (get or-symbol-map join-sym)]
+                               (if (set? dest-paths)
                                  (list* :or (map (fn [paths]
-                                                   (or-join-cond-for-or-gather prefix paths origin-sym))
-                                                 dest-sym))
-                                 (join-cond-for-or-gather prefix origin-sym dest-sym)))]
+                                                   (or-join-cond-for-or-gather prefix paths origin-path))
+                                                 dest-paths))
+                                 (join-cond-for-or-gather prefix dest-paths origin-path)))]
                   :when (seq ands)]
               (list* :and ands))]
     (when (seq ors)
