@@ -11,11 +11,11 @@ RUN echo '0c41063a2fefb53a31bc1bc236899955f759c5103dc0495489cdd74bf8f114bb  linu
 RUN chmod +x linux-install.sh
 RUN ./linux-install.sh
 
-RUN curl -L -O https://www.yourkit.com/download/docker/YourKit-JavaProfiler-2024.3-docker.zip
+RUN curl -L -O https://www.yourkit.com/download/docker/YourKit-JavaProfiler-2024.9-docker.zip
 
-RUN echo '4fb651cef6a4c0cb9c27a07ecb8d9438c0f258119c78aa743385ef4b2c0edd1e  YourKit-JavaProfiler-2024.3-docker.zip' | sha256sum -c
+RUN echo 'f53ba6f7e63315471a1aa1a853f3a8111b90e6a55b21ba5c2029cc5dcb7513fa  YourKit-JavaProfiler-2024.9-docker.zip' | sha256sum -c
 
-RUN unzip YourKit-JavaProfiler-2024.3-docker.zip
+RUN unzip YourKit-JavaProfiler-2024.9-docker.zip
 
 COPY deps.edn .
 
@@ -32,7 +32,7 @@ FROM amazoncorretto:22
 WORKDIR /app
 
 COPY --from=builder /app/target/instant-standalone.jar ./target/instant-standalone.jar
-COPY --from=builder /app/YourKit-JavaProfiler-2024.3 /usr/local/YourKit-JavaProfiler-2024.3
+COPY --from=builder /app/YourKit-JavaProfiler-2024.9 /usr/local/YourKit-JavaProfiler-2024.9
 
 EXPOSE 5000
 EXPOSE 6005
