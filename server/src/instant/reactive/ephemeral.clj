@@ -203,7 +203,7 @@
         (recur (a/<!! ch))))))
 
 (defn get-room-data [app-id room-id]
-  (.get (get-hz-rooms-map) {:app-id app-id :room-id room-id}))
+  (.get (get-hz-rooms-map) (hz-util/room-key app-id room-id)))
 
 (defn push-hz-sync-op [f]
   (try
@@ -216,7 +216,7 @@
   "Registers that the session is following the room and starts a channel
    for the room if one doesn't already exist."
   [app-id room-id sess-id]
-  (let [room-key {:app-id app-id :room-id room-id}
+  (let [room-key (hz-util/room-key app-id room-id)
         chan (a/chan (a/sliding-buffer 1))
         res (swap!
              room-maps
@@ -245,7 +245,7 @@
           (recur))))))
 
 (defn remove-session! [app-id room-id sess-id]
-  (let [room-key {:app-id app-id :room-id room-id}
+  (let [room-key (hz-util/room-key app-id room-id)
 
         [old-val new-val]
         (swap-vals! room-maps
@@ -335,7 +335,7 @@
   (let [hz-op (fn []
                 (register-session! app-id room-id sess-id)
                 (hz-util/join-room! (get-hz-rooms-map)
-                                    {:app-id app-id :room-id room-id}
+                                    (hz-util/room-key app-id room-id)
                                     sess-id
                                     (:id current-user)))
         regular-op
@@ -356,7 +356,7 @@
 (defn set-presence! [store-atom app-id sess-id room-id data]
   (let [hz-op (fn []
                 (hz-util/set-presence! (get-hz-rooms-map)
-                                       {:app-id app-id :room-id room-id}
+                                       (hz-util/room-key app-id room-id)
                                        sess-id
                                        data))
         regular-op (fn []

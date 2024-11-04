@@ -2,6 +2,12 @@
   (:require [instant.util.hazelcast :as h]
             [clojure.test :refer [deftest is testing]]))
 
+(deftest room-key-roundtrips
+  (let [start (h/->RoomKeyV1 (random-uuid) "room-id")
+        serializer h/room-key-serializer]
+    (is (= start (->> (.write serializer start)
+                      (.read serializer))))))
+
 (deftest remove-session-roundtrips
   (let [start (h/->RemoveSessionMergeV1 (random-uuid))
         serializer h/remove-session-serializer]
