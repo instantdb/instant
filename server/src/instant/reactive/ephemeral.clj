@@ -57,8 +57,9 @@
         network-config (.getNetworkConfig config)
         join-config (.getJoin network-config)
         tcp-ip-config (.getTcpIpConfig join-config)
-        aws-config (.getAwsConfig join-config)]
-    (.setInstanceName config "instant-hz")
+        aws-config (.getAwsConfig join-config)
+        serialization-config (.getSerializationConfig config)]
+    (.setInstanceName config "instant-hz-v2")
     (.setEnabled (.getMulticastConfig join-config) false)
     (if (= :prod (config/get-env))
       (let [ip (aws-util/get-instance-ip)]
@@ -74,8 +75,11 @@
 
     (.setClusterName config "instant-server")
 
-    (.setSerializerConfigs (.getSerializationConfig config)
+    (.setSerializerConfigs serialization-config
                            hz-util/serializer-configs)
+
+    (.setGlobalSerializerConfig serialization-config
+                                hz-util/global-serializer-config)
 
     (let [hz (Hazelcast/getOrCreateHazelcastInstance config)
           hz-rooms-map (.getMap hz "rooms-v2")

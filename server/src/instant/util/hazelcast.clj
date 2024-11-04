@@ -2,7 +2,7 @@
   (:require [instant.util.uuid :as uuid-util]
             [medley.core :refer [update-existing]]
             [taoensso.nippy :as nippy])
-  (:import (com.hazelcast.config SerializerConfig)
+  (:import (com.hazelcast.config GlobalSerializerConfig SerializerConfig)
            (com.hazelcast.map IMap)
            (com.hazelcast.nio.serialization ByteArraySerializer)
            (java.nio ByteBuffer)
@@ -188,6 +188,25 @@
 (def set-presence-config
   (make-serializer-config SetPresenceMergeV1
                           set-presence-serializer))
+
+;; -----------------
+;; Global serializer
+
+(def ^ByteArraySerializer global-serializer
+  (reify ByteArraySerializer
+    ;; Must be unique within the project
+    (getTypeId [_] 5)
+    (write ^bytes [_ obj]
+      (tool/def-locals)
+      (nippy/fast-freeze obj))
+    (read [_ ^bytes in]
+      (tool/def-locals)
+      (nippy/fast-thaw in))
+    (destroy [_])))
+
+(def global-serializer-config (-> (GlobalSerializerConfig.)
+                                  (.setImplementation global-serializer)
+                                  (.setOverrideJavaSerialization true)))
 
 (def serializer-configs
   [remove-session-config
