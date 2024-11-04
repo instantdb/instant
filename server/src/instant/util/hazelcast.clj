@@ -197,10 +197,8 @@
     ;; Must be unique within the project
     (getTypeId [_] 5)
     (write ^bytes [_ obj]
-      (tool/def-locals)
       (nippy/fast-freeze obj))
     (read [_ ^bytes in]
-      (tool/def-locals)
       (nippy/fast-thaw in))
     (destroy [_])))
 
