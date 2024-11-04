@@ -95,6 +95,23 @@ test("Where in", () => {
       .data.users.map((x) => x.handle)
       .sort(),
   ).toEqual(["joe", "stopa"]);
+
+  expect(
+    query(
+      { store },
+      {
+        users: {
+          $: {
+            where: {
+              handle: { $in: ["stopa", "joe"] },
+            },
+          },
+        },
+      },
+    )
+      .data.users.map((x) => x.handle)
+      .sort(),
+  ).toEqual(["joe", "stopa"]);
 });
 
 test("Where and", () => {
