@@ -2,7 +2,7 @@
   (:require [instant.util.uuid :as uuid-util]
             [medley.core :refer [update-existing]]
             [taoensso.nippy :as nippy])
-  (:import (com.hazelcast.config SerializerConfig)
+  (:import (com.hazelcast.config GlobalSerializerConfig SerializerConfig)
            (com.hazelcast.map IMap)
            (com.hazelcast.nio.serialization ByteArraySerializer)
            (java.nio ByteBuffer)
@@ -28,6 +28,41 @@
       (.setTypeClass protocol)
       (.setImplementation serializer)))
 
+;; --------
+;; Room key
+
+(defrecord RoomKeyV1 [^UUID app-id ^String room-id])
+
+(def ^ByteArraySerializer room-key-serializer
+  (reify ByteArraySerializer
+    ;; Must be unique within the project
+    (getTypeId [_] 4)
+    (write ^bytes [_ obj]
+      (let [uuid-bytes (uuid-util/->bytes (:app-id obj))
+            ^String room-id (:room-id obj)
+            room-id-bytes (.getBytes room-id)
+            byte-buffer (ByteBuffer/allocate (+ (count uuid-bytes)
+                                                (count room-id-bytes)))]
+        (.put byte-buffer uuid-bytes)
+        (.put byte-buffer room-id-bytes)
+        (.array byte-buffer)))
+    (read [_ ^bytes in]
+      (let [buf (ByteBuffer/wrap in)
+            app-id (UUID. (.getLong buf)
+                          (.getLong buf))
+            room-id-bytes (byte-array (.remaining buf))
+            _ (.get buf room-id-bytes)
+            room-id (String. room-id-bytes)]
+        (->RoomKeyV1 app-id room-id)))
+    (destroy [_])))
+
+(def room-key-config
+  (make-serializer-config RoomKeyV1
+                          room-key-serializer))
+
+(defn room-key [^UUID app-id ^String room-id]
+  (->RoomKeyV1 app-id room-id))
+
 ;; --------------
 ;; Remove session
 
@@ -42,7 +77,7 @@
         nil
         res))))
 
-(defn remove-session! [^IMap hz-map room-key session-id]
+(defn remove-session! [^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id]
   (.merge hz-map
           room-key
           ;; If the current value of the key is null, then the new value
@@ -81,7 +116,7 @@
              :user (when user-id
                      {:id user-id})})))
 
-(defn join-room! [^IMap hz-map room-key ^UUID session-id ^UUID user-id]
+(defn join-room! [^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id ^UUID user-id]
   (.merge hz-map
           room-key
           {session-id {:peer-id session-id
@@ -130,7 +165,7 @@
                      :data
                      data)))
 
-(defn set-presence! [^IMap hz-map room-key ^UUID session-id data]
+(defn set-presence! [^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id data]
   (.merge hz-map
           room-key
           ;; if current value is nil, then we're not in the room, so we
@@ -154,7 +189,25 @@
   (make-serializer-config SetPresenceMergeV1
                           set-presence-serializer))
 
+;; -----------------
+;; Global serializer
+
+(def ^ByteArraySerializer global-serializer
+  (reify ByteArraySerializer
+    ;; Must be unique within the project
+    (getTypeId [_] 5)
+    (write ^bytes [_ obj]
+      (nippy/fast-freeze obj))
+    (read [_ ^bytes in]
+      (nippy/fast-thaw in))
+    (destroy [_])))
+
+(def global-serializer-config (-> (GlobalSerializerConfig.)
+                                  (.setImplementation global-serializer)
+                                  (.setOverrideJavaSerialization true)))
+
 (def serializer-configs
   [remove-session-config
    join-room-config
-   set-presence-config])
+   set-presence-config
+   room-key-config])

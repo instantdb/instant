@@ -57,8 +57,9 @@
         network-config (.getNetworkConfig config)
         join-config (.getJoin network-config)
         tcp-ip-config (.getTcpIpConfig join-config)
-        aws-config (.getAwsConfig join-config)]
-    (.setInstanceName config "instant-hz")
+        aws-config (.getAwsConfig join-config)
+        serialization-config (.getSerializationConfig config)]
+    (.setInstanceName config "instant-hz-v2")
     (.setEnabled (.getMulticastConfig join-config) false)
     (if (= :prod (config/get-env))
       (let [ip (aws-util/get-instance-ip)]
@@ -74,11 +75,14 @@
 
     (.setClusterName config "instant-server")
 
-    (.setSerializerConfigs (.getSerializationConfig config)
+    (.setSerializerConfigs serialization-config
                            hz-util/serializer-configs)
 
+    (.setGlobalSerializerConfig serialization-config
+                                hz-util/global-serializer-config)
+
     (let [hz (Hazelcast/getOrCreateHazelcastInstance config)
-          hz-rooms-map (.getMap hz "rooms")
+          hz-rooms-map (.getMap hz "rooms-v2")
           listener-id (.addEntryListener hz-rooms-map
                                          (reify
                                            EntryAddedListener
@@ -203,7 +207,7 @@
         (recur (a/<!! ch))))))
 
 (defn get-room-data [app-id room-id]
-  (.get (get-hz-rooms-map) {:app-id app-id :room-id room-id}))
+  (.get (get-hz-rooms-map) (hz-util/room-key app-id room-id)))
 
 (defn push-hz-sync-op [f]
   (try
@@ -216,7 +220,7 @@
   "Registers that the session is following the room and starts a channel
    for the room if one doesn't already exist."
   [app-id room-id sess-id]
-  (let [room-key {:app-id app-id :room-id room-id}
+  (let [room-key (hz-util/room-key app-id room-id)
         chan (a/chan (a/sliding-buffer 1))
         res (swap!
              room-maps
@@ -245,7 +249,7 @@
           (recur))))))
 
 (defn remove-session! [app-id room-id sess-id]
-  (let [room-key {:app-id app-id :room-id room-id}
+  (let [room-key (hz-util/room-key app-id room-id)
 
         [old-val new-val]
         (swap-vals! room-maps
@@ -335,7 +339,7 @@
   (let [hz-op (fn []
                 (register-session! app-id room-id sess-id)
                 (hz-util/join-room! (get-hz-rooms-map)
-                                    {:app-id app-id :room-id room-id}
+                                    (hz-util/room-key app-id room-id)
                                     sess-id
                                     (:id current-user)))
         regular-op
@@ -356,7 +360,7 @@
 (defn set-presence! [store-atom app-id sess-id room-id data]
   (let [hz-op (fn []
                 (hz-util/set-presence! (get-hz-rooms-map)
-                                       {:app-id app-id :room-id room-id}
+                                       (hz-util/room-key app-id room-id)
                                        sess-id
                                        data))
         regular-op (fn []
