@@ -475,7 +475,7 @@ function triplesByValue(store, m, v) {
     return res;
   }
 
-  const values = v.in ? v.in : [v];
+  const values = v.in || v.$in ? (v.in || v.$in) : [v];
 
   for (const value of values) {
     const triple = m.get(value);

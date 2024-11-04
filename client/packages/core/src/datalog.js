@@ -18,8 +18,11 @@ function matchExact(patternPart, triplePart, context) {
 }
 
 function matchWithArgMap(patternPart, triplePart, context) {
-  const { in: inList } = patternPart;
-  if (inList && inList.includes(triplePart)) {
+  const { in: inList, $in: $inList } = patternPart;
+  if (
+    (inList && inList.includes(triplePart)) ||
+    ($inList && $inList.includes(triplePart))
+  ) {
     return context;
   }
 
