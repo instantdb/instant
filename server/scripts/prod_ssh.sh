@@ -1,9 +1,19 @@
-instance_id=$(
-  aws ec2 describe-instances \
-    --filter "Name=tag:elasticbeanstalk:environment-name,Values=Instant-docker-prod-env" \
-    --query "Reservations[].Instances[?State.Name == 'running'].InstanceId[]" \
-    --output text
-)
+while [[ "$#" -gt 0 ]]; do
+  case $1 in
+    --instance-id) instance_id="$2"; shift ;;
+    *) echo "Unknown parameter passed: $1"; exit 1 ;;
+  esac
+  shift
+done
+
+if [ -z "$instance_id" ]; then
+  instance_id=$(
+    aws ec2 describe-instances \
+      --filter "Name=tag:elasticbeanstalk:environment-name,Values=Instant-docker-prod-env" \
+      --query "Reservations[].Instances[?State.Name == 'running'].InstanceId[]" \
+      --output text
+  )
+fi
 
 echo "Opening SSH connection to $instance_id"
 
