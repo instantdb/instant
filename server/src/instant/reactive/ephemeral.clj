@@ -78,7 +78,7 @@
                            hz-util/serializer-configs)
 
     (let [hz (Hazelcast/getOrCreateHazelcastInstance config)
-          hz-rooms-map (.getMap hz "rooms")
+          hz-rooms-map (.getMap hz "rooms-v2")
           listener-id (.addEntryListener hz-rooms-map
                                          (reify
                                            EntryAddedListener

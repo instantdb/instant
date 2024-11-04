@@ -43,7 +43,6 @@
             room-id-bytes (.getBytes room-id)
             byte-buffer (ByteBuffer/allocate (+ (count uuid-bytes)
                                                 (count room-id-bytes)))]
-        (tool/def-locals)
         (.put byte-buffer uuid-bytes)
         (.put byte-buffer room-id-bytes)
         (.array byte-buffer)))
@@ -54,7 +53,6 @@
             room-id-bytes (byte-array (.remaining buf))
             _ (.get buf room-id-bytes)
             room-id (String. room-id-bytes)]
-        (tool/def-locals)
         (->RoomKeyV1 app-id room-id)))
     (destroy [_])))
 
