@@ -28,29 +28,11 @@
       (.setTypeClass protocol)
       (.setImplementation serializer)))
 
-(defprotocol MergeHelper
-  ;; Defines a helper for merging, since the behavior of IMap.merge can be
-  ;; surprising.
-  ;; https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ConcurrentMap.html#merge(K,V,java.util.function.BiFunction)
-  (merge! [this ^IMap m room-key]))
-
-
 ;; --------------
 ;; Remove session
 
 ;; Helper to remove a session from the room in the hazelcast map
 (defrecord RemoveSessionMergeV1 [^UUID session-id]
-  MergeHelper
-  (merge! [this m room-key]
-    (.merge ^IMap m
-            room-key
-            ;; If the current value of the key is null, then the new value
-            ;; should just be an empty map. We'd like to put nil here to
-            ;; remove the entry (like we do in the bifunction), but that's
-            ;; not allowed.
-            {}
-            this))
-
   BiFunction
   (apply [_ room-data _]
     (let [res (dissoc room-data session-id)]
@@ -59,6 +41,16 @@
       (if (empty? res)
         nil
         res))))
+
+(defn remove-session! [^IMap hz-map room-key session-id]
+  (.merge hz-map
+          room-key
+          ;; If the current value of the key is null, then the new value
+          ;; should just be an empty map. We'd like to put nil here to
+          ;; remove the entry (like we do in the bifunction), but that's
+          ;; not allowed.
+          {}
+          (->RemoveSessionMergeV1 session-id)))
 
 (def ^ByteArraySerializer remove-session-serializer
   (reify ByteArraySerializer
@@ -80,15 +72,6 @@
 
 ;; Helper to add a session to the room in the hazelcast map
 (defrecord JoinRoomMergeV1 [^UUID session-id ^UUID user-id]
-  MergeHelper
-  (merge! [this m room-key]
-    (.merge ^IMap m
-            room-key
-            {session-id {:peer-id session-id
-                         :user (when user-id
-                                 {:id user-id})
-                         :data {}}}
-            this))
   BiFunction
   (apply [_ room-data _]
     (update room-data
@@ -97,6 +80,15 @@
             {:peer-id session-id
              :user (when user-id
                      {:id user-id})})))
+
+(defn join-room! [^IMap hz-map room-key ^UUID session-id ^UUID user-id]
+  (.merge hz-map
+          room-key
+          {session-id {:peer-id session-id
+                       :user (when user-id
+                               {:id user-id})
+                       :data {}}}
+          (->JoinRoomMergeV1 session-id user-id)))
 
 
 (def ^ByteArraySerializer join-room-serializer
@@ -130,14 +122,6 @@
 ;; Set presence
 
 (defrecord SetPresenceMergeV1 [^UUID session-id data]
-  MergeHelper
-  (merge! [this m room-key]
-    (.merge ^IMap m
-            room-key
-            ;; if current value is nil, then we're not in the room, so we
-            ;; shouldn't set presence
-            {}
-            this))
   BiFunction
   (apply [_ room-data _]
     (update-existing room-data
@@ -145,6 +129,14 @@
                      assoc
                      :data
                      data)))
+
+(defn set-presence! [^IMap hz-map room-key ^UUID session-id data]
+  (.merge hz-map
+          room-key
+          ;; if current value is nil, then we're not in the room, so we
+          ;; shouldn't set presence
+          {}
+          (->SetPresenceMergeV1 session-id data)))
 
 (def ^ByteArraySerializer set-presence-serializer
   (reify ByteArraySerializer

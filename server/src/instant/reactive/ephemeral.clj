@@ -111,7 +111,7 @@
 (defn start-hz-sync
   "Temporary function that syncs apps not using hazelcast
    to hazelcast maps so that they won't lose data if we switch them over."
-  [q]
+  [^LinkedBlockingQueue q]
   (loop [f (.take q)]
     (when (not= f close-sentinel)
       (try (f)
@@ -207,7 +207,7 @@
 
 (defn push-hz-sync-op [f]
   (try
-    (when-let [q @hz-ops-q]
+    (when-let [^LinkedBlockingQueue q @hz-ops-q]
       (.put q f))
     (catch Throwable e
       (tracer/record-exception-span! e {:name "ephemeral/push-hz-sync-op-err"}))))
@@ -264,9 +264,7 @@
       ;; The last session left the room, so we should close out the go loop.
       (a/close! chan-before))
 
-    (hz-util/merge! (hz-util/->RemoveSessionMergeV1 sess-id)
-                    (get-hz-rooms-map)
-                    room-key)))
+    (hz-util/remove-session! (get-hz-rooms-map) room-key sess-id)))
 
 (defn clean-old-sessions []
   (let [oldest-timestamp (aws-util/oldest-instance-timestamp)
@@ -336,9 +334,10 @@
 (defn join-room! [store-atom app-id sess-id current-user room-id]
   (let [hz-op (fn []
                 (register-session! app-id room-id sess-id)
-                (hz-util/merge! (hz-util/->JoinRoomMergeV1 sess-id (:id current-user))
-                                (get-hz-rooms-map)
-                                {:app-id app-id :room-id room-id}))
+                (hz-util/join-room! (get-hz-rooms-map)
+                                    {:app-id app-id :room-id room-id}
+                                    sess-id
+                                    (:id current-user)))
         regular-op
         (fn []
           (when-not (contains? (get-room-session-ids @store-atom app-id room-id)
@@ -356,9 +355,10 @@
 
 (defn set-presence! [store-atom app-id sess-id room-id data]
   (let [hz-op (fn []
-                (hz-util/merge! (hz-util/->SetPresenceMergeV1 sess-id data)
-                                (get-hz-rooms-map)
-                                {:app-id app-id :room-id room-id}))
+                (hz-util/set-presence! (get-hz-rooms-map)
+                                       {:app-id app-id :room-id room-id}
+                                       sess-id
+                                       data))
         regular-op (fn []
                      (swap! store-atom set-presence app-id sess-id room-id data))]
     (run-op app-id hz-op regular-op)))
@@ -428,7 +428,7 @@
   (def room-refresh-ch (a/chan (a/sliding-buffer 1)))
   (def refresh-map-ch (a/chan 1024))
   (def cleanup-gauge (gauges/add-gauge-metrics-fn
-                      (fn [] (if-let [q @hz-ops-q]
+                      (fn [] (if-let [^LinkedBlockingQueue q @hz-ops-q]
                                [{:path "instant.ephemeral.hz-ops-q.size"
                                  :value (.size q)}]
                                []))))
@@ -444,7 +444,7 @@
 (defn stop []
   (a/close! room-refresh-ch)
   (a/close! refresh-map-ch)
-  (when-let [q @hz-ops-q]
+  (when-let [q ^LinkedBlockingQueue @hz-ops-q]
     (.put q close-sentinel))
   (reset! hz-ops-q nil)
   (cleanup-gauge)
