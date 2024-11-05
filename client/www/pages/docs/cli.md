@@ -45,13 +45,12 @@ Note, this command will open Instant's dashboard in a browser window and prompt 
 
 ### Initializing a project
 
-Similar to `git init`, running `instant-cli init` will generate a new app id and add `instant.schema.ts` and `instant.perms.ts` files if none are present in your current directory.
 
 ```sh
 npx instant-cli init
 ```
 
-`instant-cli init` will spin up a new app under your account. It will also add `instant.schema.ts` and `instant.perms.ts` files if none are present in your project.
+Similar to `git init`, running `instant-cli init` will generate a new app id and add `instant.schema.ts` and `instant.perms.ts` files if none are present in your project's root directory.
 
 ### Push schema
 
