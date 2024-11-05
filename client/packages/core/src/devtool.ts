@@ -74,7 +74,7 @@ function createIframe(src: string) {
   const element = document.createElement("iframe");
 
   element.src = src;
-  element.id = "instant-devtool-iframe";
+  element.className = "instant-devtool-iframe";
   Object.assign(element.style, {
     width: "100%",
     height: "100%",
@@ -94,7 +94,7 @@ function createToggler(onClick) {
   `;
   const element = document.createElement("button");
   element.innerHTML = logoSVG;
-  element.id = "instant-devtool-toggler";
+  element.className = "instant-devtool-toggler";
   Object.assign(element.style, {
     // pos
     position: "fixed",
@@ -132,7 +132,7 @@ function createContainer() {
     zIndex: "999990",
   } as Partial<CSSStyleDeclaration>);
   element.style.display = "none";
-  element.id = "instant-devtool-container";
+  element.className = "instant-devtool-container";
   function isVisible() {
     return element.style.display !== "none";
   }
