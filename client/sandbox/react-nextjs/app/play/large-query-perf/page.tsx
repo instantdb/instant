@@ -11,234 +11,231 @@ const db = init({
 });
 
 export default function Home() {
+  //   const result0 = db.useQuery({
+  //     "project": {
+  //       "profile": {
+  //           "$": {
+  //               "where": {
+  //                   "trashed": false
+  //               }
+  //           }
+  //       },
+  //       "ticket__invite": {
+  //           "$": {
+  //               "where": {
+  //                   "trashed": false
+  //               }
+  //           }
+  //       },
+  //       "workspace": {
+  //           "profile": {
+  //               "$": {
+  //                   "where": {
+  //                       "trashed": false
+  //                   }
+  //               }
+  //           },
+  //           "ticket__invite": {
+  //               "$": {
+  //                   "where": {
+  //                       "trashed": false
+  //                   }
+  //               }
+  //           },
+  //           "project": {
+  //               "$": {
+  //                   "where": {
+  //                       "trashed": false
+  //                   }
+  //               }
+  //           },
+  //           "role__workspace__admin": {
+  //               "profile": {
+  //                   "$": {
+  //                       "where": {
+  //                           "trashed": false
+  //                       }
+  //                   }
+  //               },
+  //               "$": {
+  //                   "where": {
+  //                       "trashed": false
+  //                   }
+  //               }
+  //           },
+  //           "$": {
+  //               "where": {
+  //                   "trashed": false
+  //               }
+  //           }
+  //       },
+  //       "category": {
+  //           "$": {
+  //               "where": {
+  //                   "trashed": false
+  //               }
+  //           }
+  //       },
+  //       "group__category": {
+  //           "$": {
+  //               "where": {
+  //                   "trashed": false
+  //               }
+  //           }
+  //       },
+  //       "role__project__admin": {
+  //           "profile": {
+  //               "$": {
+  //                   "where": {
+  //                       "trashed": false
+  //                   }
+  //               }
+  //           },
+  //           "$": {
+  //               "where": {
+  //                   "trashed": false
+  //               }
+  //           }
+  //       },
+  //       "role__project__editor": {
+  //           "profile": {
+  //               "$": {
+  //                   "where": {
+  //                       "trashed": false
+  //                   }
+  //               }
+  //           },
+  //           "$": {
+  //               "where": {
+  //                   "trashed": false
+  //               }
+  //           }
+  //       },
+  //       "list_item__category__in__project": {
+  //           "category": {
+  //               "$": {
+  //                   "where": {
+  //                       "trashed": false
+  //                   }
+  //               }
+  //           },
+  //           "$": {
+  //               "where": {
+  //                   "trashed": false
+  //               }
+  //           }
+  //       },
+  //       "list_item__group__category__in__project": {
+  //           "group__category": {
+  //               "$": {
+  //                   "where": {
+  //                       "trashed": false
+  //                   }
+  //               }
+  //           },
+  //           "$": {
+  //               "where": {
+  //                   "trashed": false
+  //               }
+  //           }
+  //       },
+  //       "$": {
+  //           "where": {
+  //               "id": "0a9d191a-6ad3-4356-9277-3da13e40ffab",
+  //               "trashed": false
+  //           }
+  //       }
+  //     }
+  //   });
 
-  const result0 = db.useQuery({
-    "project": {
-      "profile": {
-          "$": {
-              "where": {
-                  "trashed": false
-              }
-          }
-      },
-      "ticket__invite": {
-          "$": {
-              "where": {
-                  "trashed": false
-              }
-          }
-      },
-      "workspace": {
-          "profile": {
-              "$": {
-                  "where": {
-                      "trashed": false
-                  }
-              }
-          },
-          "ticket__invite": {
-              "$": {
-                  "where": {
-                      "trashed": false
-                  }
-              }
-          },
-          "project": {
-              "$": {
-                  "where": {
-                      "trashed": false
-                  }
-              }
-          },
-          "role__workspace__admin": {
-              "profile": {
-                  "$": {
-                      "where": {
-                          "trashed": false
-                      }
-                  }
-              },
-              "$": {
-                  "where": {
-                      "trashed": false
-                  }
-              }
-          },
-          "$": {
-              "where": {
-                  "trashed": false
-              }
-          }
-      },
-      "category": {
-          "$": {
-              "where": {
-                  "trashed": false
-              }
-          }
-      },
-      "group__category": {
-          "$": {
-              "where": {
-                  "trashed": false
-              }
-          }
-      },
-      "role__project__admin": {
-          "profile": {
-              "$": {
-                  "where": {
-                      "trashed": false
-                  }
-              }
-          },
-          "$": {
-              "where": {
-                  "trashed": false
-              }
-          }
-      },
-      "role__project__editor": {
-          "profile": {
-              "$": {
-                  "where": {
-                      "trashed": false
-                  }
-              }
-          },
-          "$": {
-              "where": {
-                  "trashed": false
-              }
-          }
-      },
-      "list_item__category__in__project": {
-          "category": {
-              "$": {
-                  "where": {
-                      "trashed": false
-                  }
-              }
-          },
-          "$": {
-              "where": {
-                  "trashed": false
-              }
-          }
-      },
-      "list_item__group__category__in__project": {
-          "group__category": {
-              "$": {
-                  "where": {
-                      "trashed": false
-                  }
-              }
-          },
-          "$": {
-              "where": {
-                  "trashed": false
-              }
-          }
-      },
-      "$": {
-          "where": {
-              "id": "0a9d191a-6ad3-4356-9277-3da13e40ffab",
-              "trashed": false
-          }
-      }
-    }
-  });
-  
-  const result1 = db.useQuery(
-  {
-    "category": {
-        "$": {
-            "where": {
-                "project.id": "0a9d191a-6ad3-4356-9277-3da13e40ffab",
-                "trashed": false
-            }
+  const result1 = db.useQuery({
+    category: {
+      $: {
+        where: {
+          "project.id": "0a9d191a-6ad3-4356-9277-3da13e40ffab",
+          trashed: false,
         },
-        "asset": {
-            "task": {
-                "role__task__assignee": {
-                    "profile": {
-                        "$": {
-                            "where": {
-                                "trashed": false
-                            }
-                        }
-                    },
-                    "$": {
-                        "where": {
-                            "trashed": false
-                        }
-                    }
+      },
+      asset: {
+        task: {
+          role__task__assignee: {
+            profile: {
+              $: {
+                where: {
+                  trashed: false,
                 },
-                "$": {
-                    "where": {
-                        "trashed": false
-                    }
-                }
-            },
-            "phase": {
-                "$": {
-                    "where": {
-                        "trashed": false
-                    }
-                }
-            },
-            "$": {
-                "where": {
-                    "trashed": false
-                }
-            }
-        }
-    }
-  }
-  );
-
-  const result2 = db.useQuery(
-    {
-      "phase": {
-          "$": {
-              "where": {
-                  "project.id": "0a9d191a-6ad3-4356-9277-3da13e40ffab",
-                  "trashed": false
-              }
-          },
-          "profile": {
-              "$": {
-                  "where": {
-                      "trashed": false
-                  }
-              }
-          },
-          "task": {
-              "role__task__assignee": {
-                  "profile": {
-                      "$": {
-                          "where": {
-                              "trashed": false
-                          }
-                      }
-                  },
-                  "$": {
-                      "where": {
-                          "trashed": false
-                      }
-                  }
               },
-              "$": {
-                  "where": {
-                      "trashed": false
-                  }
-              }
-          }
-      }
-    }
-  );
-  
-  const firstTask = result2.data?.phase[0].task[0];
+            },
+            $: {
+              where: {
+                trashed: false,
+              },
+            },
+          },
+          $: {
+            where: {
+              trashed: false,
+            },
+          },
+        },
+        phase: {
+          $: {
+            where: {
+              trashed: false,
+            },
+          },
+        },
+        $: {
+          where: {
+            trashed: false,
+          },
+        },
+      },
+    },
+  });
+
+  //   const result2 = db.useQuery(
+  //     {
+  //       "phase": {
+  //           "$": {
+  //               "where": {
+  //                   "project.id": "0a9d191a-6ad3-4356-9277-3da13e40ffab",
+  //                   "trashed": false
+  //               }
+  //           },
+  //           "profile": {
+  //               "$": {
+  //                   "where": {
+  //                       "trashed": false
+  //                   }
+  //               }
+  //           },
+  //           "task": {
+  //               "role__task__assignee": {
+  //                   "profile": {
+  //                       "$": {
+  //                           "where": {
+  //                               "trashed": false
+  //                           }
+  //                       }
+  //                   },
+  //                   "$": {
+  //                       "where": {
+  //                           "trashed": false
+  //                       }
+  //                   }
+  //               },
+  //               "$": {
+  //                   "where": {
+  //                       "trashed": false
+  //                   }
+  //               }
+  //           }
+  //       }
+  //     }
+  //   );
+  const firstTask = null as any;
+  //   const firstTask = result2.data?.phase[0].task[0];
 
   const [howLong, setHowLong] = useState<number>(0);
   const [isAnimating, setIsAnimating] = useState<boolean>(true);
@@ -250,7 +247,7 @@ export default function Home() {
       return;
     }
     const before = performance.now();
-    db.transact(tx['task'][id].update({ "updated_at": (new Date()).getTime() }));
+    db.transact(tx["task"][id].update({ updated_at: new Date().getTime() }));
     const after = performance.now();
     setHowLong(after - before);
   };
@@ -259,11 +256,17 @@ export default function Home() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     let animationFrameId: number;
-    let particles: { x: number; y: number; size: number; speed: number; color: string }[] = [];
+    let particles: {
+      x: number;
+      y: number;
+      size: number;
+      speed: number;
+      color: string;
+    }[] = [];
 
     // Initialize particles
     for (let i = 0; i < 100; i++) {
@@ -310,9 +313,14 @@ export default function Home() {
 
   return (
     <div>
-      <button onClick={mutateFirstTask} className="bg-blue-500 text-white p-2 rounded-md">Update task {firstTask?.id}</button>
+      <button
+        onClick={mutateFirstTask}
+        className="bg-blue-500 text-white p-2 rounded-md"
+      >
+        Update task {firstTask?.id}
+      </button>
       <p>transact() took: {howLong}ms</p>
-      
+
       <div className="mt-4">
         <label className="flex items-center">
           <input
@@ -324,17 +332,19 @@ export default function Home() {
           Enable Animation
         </label>
       </div>
-      
+
       <canvas
         ref={canvasRef}
         width={800}
         height={400}
         className="border border-gray-300 mt-4"
       />
-
-      <pre>{JSON.stringify(result0, null, 2)}</pre>
       <pre>{JSON.stringify(result1, null, 2)}</pre>
-      <pre>{JSON.stringify(result2, null, 2)}</pre>
+      {/* <pre>{JSON.stringify(result0, null, 2)}</pre>
+      <pre>{JSON.stringify(result1, null, 2)}</pre>
+      <pre>{JSON.stringify(result2, null, 2)}</pre> */}
     </div>
   );
 }
+
+

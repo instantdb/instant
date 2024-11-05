@@ -10,7 +10,10 @@
   (:require
    [clojure.string :as str]
    [honey.sql :as hsql]
-   [portal.api :as p])
+   [portal.api :as p]
+   [clojure.java.io :as io]
+   [instant.util.json :as json]
+   [medley.core :as medley])
   (:import
    (com.github.vertical_blank.sqlformatter SqlFormatter)
    (java.awt Toolkit)
@@ -168,3 +171,12 @@
 (comment
   (start-portal!)
   (tap> {:hello [1 2 3]}))
+
+(comment
+  (def d (-> "nested_query_dump.json"
+             io/resource
+             slurp
+             (json/<-json true)))
+
+  (->>  (group-by :find d)
+        (medley/map-vals count)))

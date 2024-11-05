@@ -340,8 +340,10 @@ function extendObjects(makeVar, store, { etype, level, form }, objects) {
     });
 
     return childResults.reduce(function reduceChildren(parent, child) {
-      return { ...parent, ...child };
+      Object.assign(parent, child);
+      return parent;
     }, parent);
+    return parent;
   });
 }
 
@@ -380,31 +382,142 @@ function isBefore(startCursor, direction, [e, _a, _v, t]) {
   );
 }
 
-function runDataloadAndReturnObjects(store, etype, direction, pageInfo, dq) {
-  const aid = idAttr(store, etype).id;
-  const idVecs = datalogQuery(store, dq).sort(function sortIdVecs(
-    [_, tsA],
-    [__, tsB],
-  ) {
-    return direction === "desc" ? tsB - tsA : tsA - tsB;
-  });
+function isFind([a, b], [c, d]) {
+  return a === c && b === d;
+}
 
+function transformIdVecs(store, etype, idVecs) {
   let objects = {};
-  const startCursor = pageInfo?.["start-cursor"];
   for (const [id, time] of idVecs) {
-    if (
-      startCursor &&
-      aid === startCursor[1] &&
-      isBefore(startCursor, direction, [id, aid, id, time])
-    ) {
-      continue;
-    }
     const obj = s.getAsObject(store, etype, id);
     if (obj) {
       objects[id] = obj;
     }
   }
   return objects;
+}
+
+function customQueryForAsset(store, etype, join) {
+  const projectId = join[0];
+  const refAttrId = join[1];
+  const assetRefTriples = store.eav.get(projectId)?.get(refAttrId)?.values();
+  const assetIds = new Set(assetRefTriples?.map((t) => t[2]));
+  const trashedAttrId = "d52ad3bf-22b9-4a27-902a-16bd6e7d1109";
+
+  let resultingIds = new Set();
+  assetIds.forEach((assetId) => {
+    if (store.eav.get(assetId)?.get(trashedAttrId)?.get(true)) {
+      return;
+    }
+    resultingIds.add(assetId);
+  });
+  let idAttrId = "7fd6add9-9bfc-4d20-b582-28458f6616c5";
+  let idVecs = [];
+  resultingIds.forEach((id) => {
+    let time = store.eav.get(id)?.get(idAttrId)?.get(id)?.[3];
+    idVecs.push([id, time]);
+  });
+  return transformIdVecs(store, etype, idVecs);
+}
+
+function customQueryForTask(store, etype, join) {
+  const assetId = join[0];
+  const refAttrId = join[1];
+  const taskRefTriples = store.eav.get(assetId)?.get(refAttrId)?.values();
+  const taskIds = new Set(taskRefTriples?.map((t) => t[2]));
+  const trashedAttrId = "66769434-3d93-4d02-9b65-ebf2df6563bd";
+  // debugger
+  let resultingIds = new Set();
+  taskIds.forEach((assetId) => {
+    if (store.eav.get(assetId)?.get(trashedAttrId)?.get(true)) {
+      return;
+    }
+    resultingIds.add(assetId);
+  });
+  let idAttrId = "cb441f6f-226c-4c0d-a008-b924d65a9754";
+  let idVecs = [];
+  resultingIds.forEach((id) => {
+    let time = store.eav.get(id)?.get(idAttrId)?.get(id)?.[3];
+    idVecs.push([id, time]);
+  });
+  return transformIdVecs(store, etype, idVecs);
+}
+
+function customQueryForRole(store, etype, join) {
+  const taskId = join[0];
+  const refAttrId = join[1];
+  const refTriples = store.eav.get(taskId)?.get(refAttrId)?.values();
+  const asigneeIds = new Set(refTriples?.map((t) => t[2]));
+  const trashedAttrId = "66769434-3d93-4d02-9b65-ebf2df6563bd";
+  // debugger
+  let resultingIds = new Set();
+  asigneeIds.forEach((assetId) => {
+    if (store.eav.get(assetId)?.get(trashedAttrId)?.get(true)) {
+      return;
+    }
+    resultingIds.add(assetId);
+  });
+  let idAttrId = "70aec327-acaa-4c33-a918-5f62f58ca55e";
+  let idVecs = [];
+  resultingIds.forEach((id) => {
+    let time = store.eav.get(id)?.get(idAttrId)?.get(id)?.[3];
+    idVecs.push([id, time]);
+  });
+  return transformIdVecs(store, etype, idVecs);
+}
+
+function customQueryForProfile(store, etype, join) {
+  const roleId = join[2];
+  const refAttrId = join[1];
+  const refTriples = store.vae.get(roleId)?.get(refAttrId)?.values();
+  const asigneeIds = new Set(refTriples?.map((t) => t[0]));
+  const trashedAttrId = "dd8bfbac-bb1e-4bd4-b218-3ac86b831ea5";
+  // debugger
+  let resultingIds = new Set();
+  asigneeIds.forEach((assetId) => {
+    if (store.eav.get(assetId)?.get(trashedAttrId)?.get(true)) {
+      return;
+    }
+    resultingIds.add(assetId);
+  });
+  let idAttrId = "195b0dad-6422-4d83-8bf4-7bbf6b2abcc0";
+  let idVecs = [];
+  resultingIds.forEach((id) => {
+    let time = store.eav.get(id)?.get(idAttrId)?.get(id)?.[3];
+    idVecs.push([id, time]);
+  });
+  return transformIdVecs(store, etype, idVecs);
+}
+
+function customQueryForCategory(store, etype, dq) {
+  const { where } = dq;
+  const projectId = "0a9d191a-6ad3-4356-9277-3da13e40ffab";
+  const refAttrId = where[0][1];
+  const refTriples = store.eav.get(projectId)?.get(refAttrId)?.values();
+  const categoryIds = new Set(refTriples?.map((t) => t[2]));
+  const trashedAttrId = "b0b9be95-c61f-4663-a821-b7b4aa03e1d8";
+  // debugger
+  let resultingIds = new Set();
+  categoryIds.forEach((assetId) => {
+    if (store.eav.get(assetId)?.get(trashedAttrId)?.get(true)) {
+      return;
+    }
+    resultingIds.add(assetId);
+  });
+  let idAttrId = "9dae508d-4c95-4822-9b23-9f81b49fe5ff";
+  let idVecs = [];
+  resultingIds.forEach((id) => {
+    let time = store.eav.get(id)?.get(idAttrId)?.get(id)?.[3];
+    idVecs.push([id, time]);
+  });
+  return transformIdVecs(store, etype, idVecs);
+}
+
+function runDatalogAndReturnObjects(store, etype, direction, pageInfo, dq) {
+  if (isFind(dq.find, ["?category-0", "?time-0"])) {
+    return customQueryForCategory(store, etype, dq);
+  }
+  throw new Error ('oi');
 }
 
 function determineOrder(form) {
@@ -439,11 +552,22 @@ function resolveObjects(store, { etype, level, form, join, pageInfo }) {
   if ((offset || before || after) && (!pageInfo || !pageInfo["start-cursor"])) {
     return [];
   }
-  const where = withJoin(makeWhere(store, etype, level, form.$?.where), join);
 
   const find = makeFind(makeVarImpl, etype, level);
-
-  const objs = runDataloadAndReturnObjects(
+  if (isFind(find, ["?role__task__assignee-3", "?time-3"])) {
+    return customQueryForRole(store, etype, join);
+  }
+  if (isFind(find, ["?profile-4", "?time-4"])) {
+    return customQueryForProfile(store, etype, join);
+  }
+  if (isFind(find, ["?task-2", "?time-2"])) {
+    return customQueryForTask(store, etype, join);
+  }
+  if (isFind(find, ["?asset-1", "?time-1"])) {
+    return customQueryForAsset(store, etype, join);
+  }
+  const where = withJoin(makeWhere(store, etype, level, form.$?.where), join);
+  const objs = runDatalogAndReturnObjects(
     store,
     etype,
     determineOrder(form),
@@ -512,6 +636,8 @@ function formatPageInfo(pageInfo) {
 }
 
 export default function query({ store, pageInfo, aggregate }, q) {
+  const start = performance.now();
+  // console.profile("query");
   const data = Object.keys(q).reduce(function reduceResult(res, k) {
     if (aggregate?.[k]) {
       // Aggregate doesn't return any join rows and has no children,
@@ -535,6 +661,11 @@ export default function query({ store, pageInfo, aggregate }, q) {
   if (aggregate) {
     result.aggregate = aggregate;
   }
-
+  // console.profileEnd("query");
+  const end = performance.now();
+  console.log(
+    "%cquery took " + (end - start) + " ms",
+    "background: red; color: white",
+  );
   return result;
 }

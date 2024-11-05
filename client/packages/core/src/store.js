@@ -51,6 +51,7 @@ function createTripleIndexes(attrs, triples) {
   const eav = new Map();
   const aev = new Map();
   const vae = new Map();
+  const objectsIdx = new Map();
   for (const triple of triples) {
     const [eid, aid, v, t] = triple;
     const attr = getAttr(attrs, aid);
@@ -63,10 +64,16 @@ function createTripleIndexes(attrs, triples) {
       setInMap(vae, [v, aid, eid], triple);
     }
 
+    if (isBlob(attr)) { 
+      const eObj = objectsIdx.get(eid) || {}; 
+      eObj[attr['forward-identity'][2]] = v;
+      objectsIdx.set(eid, eObj);
+    }
+
     setInMap(eav, [eid, aid, v], triple);
     setInMap(aev, [aid, eid, v], triple);
   }
-  return { eav, aev, vae };
+  return { eav, aev, vae, objectsIdx };
 }
 
 function createAttrIndexes(attrs) {
@@ -561,6 +568,7 @@ export function getTriples(store, [e, a, v]) {
 }
 
 export function getAsObject(store, etype, e) {
+  return store.objectsIdx.get(e);
   const blobAttrs = store.attrIndexes.blobAttrs.get(etype);
   const obj = {};
 

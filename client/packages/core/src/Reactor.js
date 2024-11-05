@@ -383,6 +383,7 @@ export default class Reactor {
         this.notifyOneQueryOnce(weakHash(msg.q));
         break;
       case "add-query-ok":
+        return;
         const { q, result, "processed-tx-id": addQueryTxId } = msg;
         this._cleanPendingMutations(addQueryTxId);
         const hash = weakHash(q);
@@ -403,6 +404,7 @@ export default class Reactor {
         this.notifyOneQueryOnce(hash);
         break;
       case "refresh-ok":
+        return;
         const { computations, attrs, "processed-tx-id": refreshOkTxId } = msg;
         this._cleanPendingMutations(refreshOkTxId);
         this._setAttrs(attrs);
@@ -890,7 +892,15 @@ export default class Reactor {
 
   loadedNotifyAll() {
     if (this.pendingMutations.isLoading() || this.querySubs.isLoading()) return;
+    // console.profile('notifyAll')
+    // const start = performance.now();
     this.notifyAll();
+    // const end = performance.now();
+    //     console.log(
+    //   "%cnotifyAll took " + (end - start) + " ms",
+    //   "background: red; color: white",
+    // );
+    // console.profileEnd('notifyAll');
   }
 
   /** Applies transactions locally and sends transact message to server */
