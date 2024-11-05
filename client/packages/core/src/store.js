@@ -569,18 +569,6 @@ export function getTriples(store, [e, a, v]) {
 
 export function getAsObject(store, etype, e) {
   return store.objectsIdx.get(e);
-  const blobAttrs = store.attrIndexes.blobAttrs.get(etype);
-  const obj = {};
-
-  for (const [label, attr] of blobAttrs.entries()) {
-    const aMap = store.eav.get(e)?.get(attr.id);
-    const triples = allMapValues(aMap, 1);
-    for (const triple of triples) {
-      obj[label] = triple[2];
-    }
-  }
-
-  return obj;
 }
 
 export function getAttrByFwdIdentName(store, inputEtype, inputLabel) {

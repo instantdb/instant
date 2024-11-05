@@ -636,8 +636,8 @@ function formatPageInfo(pageInfo) {
 }
 
 export default function query({ store, pageInfo, aggregate }, q) {
-  const start = performance.now();
-  // console.profile("query");
+  // const start = performance.now();
+  console.profile("query");
   const data = Object.keys(q).reduce(function reduceResult(res, k) {
     if (aggregate?.[k]) {
       // Aggregate doesn't return any join rows and has no children,
@@ -661,11 +661,11 @@ export default function query({ store, pageInfo, aggregate }, q) {
   if (aggregate) {
     result.aggregate = aggregate;
   }
-  // console.profileEnd("query");
-  const end = performance.now();
-  console.log(
-    "%cquery took " + (end - start) + " ms",
-    "background: red; color: white",
-  );
+  console.profileEnd("query");
+  // const end = performance.now();
+  // console.log(
+  //   "%cquery took " + (end - start) + " ms",
+  //   "background: red; color: white",
+  // );
   return result;
 }
