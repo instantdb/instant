@@ -22,7 +22,9 @@ export function createDevtool(appId: string) {
       event.shiftKey && event.ctrlKey && event.key === "0";
     const isEsc = event.key === "Escape" || event.key === "Esc";
 
-    if (isToggleShortcut || isEsc) {
+    if (isToggleShortcut) {
+      toggleView();
+    } else if (isEsc && container.isVisible()) {
       toggleView();
     }
   }
@@ -72,6 +74,7 @@ function createIframe(src: string) {
   const element = document.createElement("iframe");
 
   element.src = src;
+  element.id = "instant-devtool-iframe";
   Object.assign(element.style, {
     width: "100%",
     height: "100%",
@@ -91,6 +94,7 @@ function createToggler(onClick) {
   `;
   const element = document.createElement("button");
   element.innerHTML = logoSVG;
+  element.id = "instant-devtool-toggler";
   Object.assign(element.style, {
     // pos
     position: "fixed",
@@ -128,6 +132,7 @@ function createContainer() {
     zIndex: "999990",
   } as Partial<CSSStyleDeclaration>);
   element.style.display = "none";
+  element.id = "instant-devtool-container";
   function isVisible() {
     return element.style.display !== "none";
   }
