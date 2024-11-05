@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/admin",
-  "version": "v0.14.26",
+  "version": "v0.14.27",
   "description": "Admin SDK for Instant DB",
   "main": "dist/index.js",
   "module": "dist/module/index.js",
