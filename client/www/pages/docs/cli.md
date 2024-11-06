@@ -8,7 +8,7 @@ The CLI is currently optimized for starting new projects that are managed
 entirely from code. See the [migration guide below](#migrating-from-the-dashboard) if you have an existing app.
 
 ```sh
-npm install -D instant-cli
+npx instant-cli login
 ```
 
 You can view all commands and flags with `npx instant-cli -h`.
