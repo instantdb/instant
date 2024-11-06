@@ -517,7 +517,7 @@ function Dashboard() {
                     db={connection.db}
                   />
                 ) : tab == 'billing' &&
-                  isMinRole('admin', app.user_app_role) ? (
+                  isMinRole('collaborator', app.user_app_role) ? (
                   <Billing appId={appId} />
                 ) : null}
               </div>
