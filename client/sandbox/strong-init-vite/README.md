@@ -2,10 +2,10 @@
   <a href="#">
     <img alt="Shows the Instant logo" src="https://instantdb.com/img/icon/android-chrome-512x512.png" width="10%">
   </a>
-  <h1 align="center">sandbox/cli-nodejs</h1>
+  <h1 align="center">sandbox/strong-init-vite</h1>
 </p>
 
-This is sandbox app to play with [instant-cli](../../packages/cli/).
+This is sandbox app to play with strong-init.
 
 # Development
 
@@ -16,12 +16,9 @@ cp .env.example .env
 # fill in the variables in .env
 ```
 
-Once you do that, call instant-cli commands like so:
-
-```bash
-INSTANT_CLI_DEV=1 pnpm exec instant-cli -h
-```
+Once done, load [localhost:5173](http://localhost:5173), and you'll see a basic example with auth.
 
 # Questions?
 
 If you have any questions, feel free to drop us a line on our [Discord](https://discord.com/invite/VU53p7uQcE)!
+
