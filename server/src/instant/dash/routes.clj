@@ -697,7 +697,7 @@
     (response/ok {:url (.getUrl session)})))
 
 (defn get-billing [req]
-  (let [{{app-id :id} :app {user-id :id} :user} (req->app-and-user! req)
+  (let [{{app-id :id} :app {user-id :id} :user} (req->app-and-user! :admin req)
         {subscription-name :name stripe-subscription-id :stripe_subscription_id}
         (instant-subscription-model/get-by-user-app {:user-id user-id :app-id app-id})
         {total-app-bytes :num_bytes} (app-model/app-usage {:app-id app-id})

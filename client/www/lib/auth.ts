@@ -130,6 +130,7 @@ const friendlyNameFromIn = (inArr: string[]) => {
   return friendlyName(inArr[inArr.length - 1]);
 };
 
+/* Standardize error messages from Instant */
 export const messageFromInstantError = (
   e: InstantError,
 ): string | undefined => {
@@ -154,6 +155,26 @@ export const messageFromInstantError = (
       return body.message;
   }
 };
+
+/**
+  * Friendly error messages to display to our users
+  * We can add more cases as we encounter them
+*/
+export function friendlyErrorMessage(label: string, message: string) {
+  switch (label) {
+    case 'dash-billing':
+      return friendlyBillingError(message);
+    default:
+      return message;
+  }
+}
+
+function friendlyBillingError(message: string) {
+  if (message.includes('Permission denied')) {
+    return 'Billing management is restricted to the app owner.';
+  }
+  return message;
+}
 
 // --------
 // Auth API

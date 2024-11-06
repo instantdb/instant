@@ -1,5 +1,5 @@
 import { SectionHeading, Button, Content } from '@/components/ui';
-import { messageFromInstantError, useAuthedFetch } from '@/lib/auth';
+import { messageFromInstantError, friendlyErrorMessage, useAuthedFetch } from '@/lib/auth';
 import config, { stripeKey } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
@@ -53,7 +53,8 @@ async function createCheckoutSession(appId: string, token: string) {
       const message =
         messageFromInstantError(err as InstantError) ||
         'Failed to connect w/ Stripe! Try again or ping us on Discord if this persists.';
-      errorToast(message);
+      const friendlyMessage = friendlyErrorMessage('dash-billing', message);
+      errorToast(friendlyMessage);
       console.error(err);
     });
 }
