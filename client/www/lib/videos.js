@@ -26,7 +26,6 @@ const videoTemplate = {
         width="100%"
         src="https://www.youtube.com/embed/${id}?${youtubeParams}"
         title="${title}"
-        frameborder="0"
         allow="autoplay; picture-in-picture"
         allowfullscreen>
       </iframe>
@@ -38,7 +37,6 @@ const videoTemplate = {
         width="100%"
         src="https://stream.mux.com/${id}"
         title="${title}"
-        frameborder="0"
         allowfullscreen>
       </iframe>
     </div>`

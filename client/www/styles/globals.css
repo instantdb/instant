@@ -186,6 +186,7 @@ input#docsearch-input {
 /* ----------- */
 .md-video-container {
   position: relative;
+  border: 1px solid #f8f9fa;
   width: 100%;
   padding-bottom: 56.25%;
   /* 16:9 aspect ratio */
