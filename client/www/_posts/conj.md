@@ -1,7 +1,7 @@
 ---
 title: 'Building a Sync Engine in Clojure [Video]'
 date: '2024-10-24'
-author: stopachka
+author: nezaj
 ---
 
 [!video](https://www.youtube.com/watch?v=6FikTQf8qho "Building a Sync Engine in Clojure")
