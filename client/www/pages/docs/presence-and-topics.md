@@ -183,14 +183,35 @@ const db = init<Schema, RoomSchema>({ appId: APP_ID });
 const room = db.room('video', 'room-id-123');
 
 function Component() {
-  const publishEmote = room.usePublishTopic('emotes');
+  const publishEmote = room.usePublishTopic('reaction');
+  const [broadcastedEmotes, setBroadcastedEmotes] = useState({});
 
-  room.useTopicEffect('emotes', (event, peer) => {
-    // Render broadcasted emotes!
-    renderEmote(event.emoji);
+  room.useTopicEffect('reaction', (event, peer) => {
+    // Set broadcasted emotes!
+    setBroadcastedEmotes((prevEmotes) => ({
+      ...prevEmotes,
+      [event.emoji]: (prevEmotes[event.emoji] ?? 0) + 1,
+    }));
   });
 
-  return <button onClick={() => publishEmote({ emoji: '🔥' })}>🔥</button>;
+  return (
+    <>
+      <div className='flex items-center gap-2'>
+        {['🔥','🚀','🎉'].map((emoji) => (
+          <button key={emoji} className='bg-slate-200 rounded' onClick={() => publishEmote({ emoji })}>
+            {emoji}
+          </button>
+        ))}
+      </div>
+      <div className='mt-1 flex items-center gap-2'>
+        {Object.entries(broadcastedEmotes).map(([emoji, count]) => (
+          <div key={emoji}>
+            {emoji}: {count}
+          </div>
+        ))}
+      </div>
+    </>
+  );
 }
 ```
 
