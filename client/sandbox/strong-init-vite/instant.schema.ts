@@ -1,6 +1,6 @@
 import { i } from "@instantdb/react";
 
-const graph = i.graph(
+const _graph = i.graph(
   {
     messages: i.entity({
       content: i.string(),
@@ -25,5 +25,8 @@ const graph = i.graph(
   },
 );
 
+type _Graph = typeof _graph;
 
+export interface Graph extends _Graph {};
+const graph: Graph = _graph;
 export default graph;
