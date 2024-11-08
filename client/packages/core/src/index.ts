@@ -589,7 +589,7 @@ function coerceQuery(o: any) {
 // XXX-EXPERIMENTAL
 
 class InstantCoreExperimental<
-  Schema extends InstantGraph<any, any> | undefined = undefined,
+  Schema extends InstantGraph<any, any, any>,
 > implements IDatabaseExperimental<Schema>
 {
   public _reactor: Reactor<RoomSchemaOf<Schema>>;
@@ -597,9 +597,7 @@ class InstantCoreExperimental<
   public storage: Storage;
 
   public tx =
-    txInit<
-      Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
-    >();
+    txInit<Schema>();
 
   constructor(reactor: Reactor<RoomSchemaOf<Schema>>) {
     this._reactor = reactor;
@@ -746,9 +744,7 @@ class InstantCoreExperimental<
    *  console.log(resp.data.goals)
    */
   queryOnce<
-    Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
-      : Exactly<Query, Q>,
+    Q extends InstaQLQueryParams<Schema>,
   >(
     query: Q,
   ): Promise<{
