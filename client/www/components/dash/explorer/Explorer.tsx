@@ -43,7 +43,13 @@ import { EditNamespaceDialog } from '@/components/dash/explorer/EditNamespaceDia
 import { EditRowDialog } from '@/components/dash/explorer/EditRowDialog';
 import { useRouter } from 'next/router';
 
-export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
+export function Explorer({
+  db,
+  appId,
+}: {
+  db: InstantReactWeb<any, any>;
+  appId: string;
+}) {
   // DEV
   _dev(db);
 
@@ -60,6 +66,7 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
   // nav
   const router = useRouter();
   const selectedNamespaceId = router.query.ns as string;
+
   const [
     navStack,
     // don't call this directly, instead call `nav`
@@ -68,14 +75,12 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
   const [checkedIds, setCheckedIds] = useState<Record<string, true>>({});
   const currentNav: ExplorerNav | undefined = navStack[navStack.length - 1];
   const showBackButton = navStack.length > 1;
-  const showScope = currentNav && currentNav.where && currentNav.id;
   function nav(s: ExplorerNav[]) {
     _setNavStack(s);
     setCheckedIds({});
 
     const current = s[s.length - 1];
     const ns = current.namespace;
-
     router.replace(
       {
         query: { ...router.query, ns },
@@ -83,7 +88,7 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
       undefined,
       {
         shallow: true,
-      }
+      },
     );
   }
   function replaceNavStackTop(_nav: Partial<ExplorerNav>) {
@@ -105,10 +110,10 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
   const { selectedNamespace } = useMemo(
     () => ({
       selectedNamespace: namespaces?.find(
-        (ns) => ns.id === currentNav?.namespace
+        (ns) => ns.id === currentNav?.namespace,
       ),
     }),
-    [namespaces, currentNav?.namespace]
+    [namespaces, currentNav?.namespace],
   );
 
   const readOnlyNs = selectedNamespace && selectedNamespace.name === '$users';
@@ -122,9 +127,8 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
     db,
     selectedNamespace,
     currentNav?.where,
-    currentNav?.id,
     limit,
-    offset
+    offset,
   );
 
   const { allItems, fuse } = useMemo(() => {
@@ -136,7 +140,7 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
       shouldSort: false,
       keys:
         selectedNamespace?.attrs.map((a) =>
-          a.type === 'ref' ? `${a.name}.id` : a.name
+          a.type === 'ref' ? `${a.name}.id` : a.name,
         ) ?? [],
     });
 
@@ -180,7 +184,7 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
 
   const selectedEditableItem = useMemo(
     () => allItems.find((i) => i.id === editableRowId),
-    [allItems.length, editableRowId]
+    [allItems.length, editableRowId],
   );
   const rowText = Object.keys(checkedIds).length === 1 ? 'row' : 'rows';
 
@@ -214,8 +218,8 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
                 try {
                   await db.transact(
                     Object.keys(checkedIds).map((id) =>
-                      tx[selectedNamespace.name][id].delete()
-                    )
+                      tx[selectedNamespace.name][id].delete(),
+                    ),
                   );
                 } catch (error) {
                   errorToast(`Failed to delete ${rowText}`);
@@ -233,9 +237,11 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
         {selectedNamespace ? (
           <EditNamespaceDialog
             readOnly={!!readOnlyNs}
+            appId={appId}
             db={db}
             namespace={selectedNamespace}
             namespaces={namespaces ?? []}
+            pushNavStack={pushNavStack}
             onClose={(p) => {
               setEditNs(null);
               if (p?.ok) {
@@ -290,7 +296,7 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
           'absolute top-0 left-0 bottom-0 z-50 flex flex-col gap-1 border-r bg-white p-2 shadow-md md:static md:flex md:shadow-none',
           {
             hidden: !isNsOpen,
-          }
+          },
         )}
       >
         <div className="flex items-center gap-1 text-sm font-semibold">
@@ -358,7 +364,7 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
                     onClick={popNavStack}
                   />
                 ) : null}
-                {showScope ? (
+                {currentNav?.where ? (
                   <XIcon
                     className="mr-4 inline cursor-pointer"
                     height="1rem"
@@ -371,13 +377,12 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
                 ) : null}
                 <div className="truncate whitespace-nowrap font-mono text-xs">
                   <strong>{selectedNamespace.name}</strong>{' '}
-                  {showScope ? (
+                  {currentNav.where ? (
                     <>
                       {' '}
-                      where <strong>{currentNav.where}</strong>.
-                      <strong>id</strong> ={' '}
+                      where <strong>{currentNav.where[0]}</strong> ={' '}
                       <em className="rounded-sm border bg-white px-1">
-                        {currentNav.id}
+                        {currentNav.where[1]}
                       </em>
                     </>
                   ) : null}
@@ -480,7 +485,9 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
                     key={page}
                     className={clsx(
                       'px-3 py-1 text-gray-600 rounded-md',
-                      page === currentPage ? 'bg-gray-200' : 'hover:bg-gray-100'
+                      page === currentPage
+                        ? 'bg-gray-200'
+                        : 'hover:bg-gray-100',
                     )}
                     onClick={() =>
                       setOffsets({
@@ -519,7 +526,7 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
                 'absolute top-0 right-0 left-[48px] z-30 flex items-center gap-1.5 overflow-hidden bg-white px-4 py-1.5',
                 {
                   hidden: !Object.keys(checkedIds).length,
-                }
+                },
               )}
             >
               <Button
@@ -553,8 +560,8 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
                         if (checked) {
                           setCheckedIds(
                             Object.fromEntries(
-                              filteredSortedItems.map((i) => [i.id, true])
-                            )
+                              filteredSortedItems.map((i) => [i.id, true]),
+                            ),
                           );
                         } else {
                           setCheckedIds({});
@@ -569,7 +576,7 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
                         'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
                         {
                           'bg-gray-200': currentNav.sortAttr === attr.name,
-                        }
+                        },
                       )}
                       onClick={() => {
                         replaceNavStackTop({
@@ -619,7 +626,7 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
                               } else {
                                 delete draft[item.id as string];
                               }
-                            })
+                            }),
                           );
                         }}
                       />
@@ -651,12 +658,12 @@ export function Explorer({ db }: { db: InstantReactWeb<any, any> }) {
                               attr.linkConfig[
                                 !attr.isForward ? 'forward' : 'reverse'
                               ];
-
-                            pushNavStack({
-                              namespace: linkConfigDir?.namespace,
-                              where: linkConfigDir?.attr,
-                              id: item.id as string,
-                            });
+                            if (linkConfigDir) {
+                              pushNavStack({
+                                namespace: linkConfigDir.namespace,
+                                where: [`${linkConfigDir.attr}.id`, item.id],
+                              });
+                            }
                           }}
                         />
                       </td>
@@ -853,14 +860,15 @@ function NewNamespaceDialog({
 
 // TYPES
 
-interface ExplorerNav {
+export interface ExplorerNav {
   namespace?: string;
-  where?: string;
-  id?: string;
+  where?: [string, any];
   sortAttr?: string;
   sortAsc?: boolean;
   search?: string;
 }
+
+export type PushNavStack = (nav: ExplorerNav) => void;
 
 // DEV
 

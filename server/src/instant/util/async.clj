@@ -2,8 +2,16 @@
   (:refer-clojure :exclude [future-call])
   (:require
    [clojure.core.async :as a]
+   [clojure.core.async.impl.buffers]
+   [clojure.core.async.impl.protocols :as a-impl]
+   [instant.gauges :as gauges]
    [instant.util.tracer :as tracer])
-  (:import [java.util.concurrent Executors ExecutorService]))
+  (:import
+   (java.util.concurrent Executors ExecutorService)
+   (clojure.core.async.impl.buffers FixedBuffer
+                                    DroppingBuffer
+                                    SlidingBuffer
+                                    PromiseBuffer)))
 
 (defmacro fut-bg
   "Futures only throw when de-referenced. fut-bg writes a future
@@ -118,3 +126,50 @@
               (a/alt!
                 ch ([v] v)
                 timeout-ch :timeout))))))
+
+
+(defn buf-capacity [buf]
+  (cond (instance? FixedBuffer buf)
+        (.n ^FixedBuffer buf)
+
+        (instance? SlidingBuffer buf)
+        (.n ^SlidingBuffer buf)
+
+        (instance? DroppingBuffer buf)
+        (.n ^DroppingBuffer buf)
+
+        (instance? PromiseBuffer buf)
+        1
+
+        :else -1))
+
+(defn gauged-chan
+  ([chan-name] (gauged-chan chan-name nil))
+  ([chan-name buf-or-n] (gauged-chan chan-name buf-or-n nil))
+  ([chan-name buf-or-n xform] (gauged-chan chan-name buf-or-n xform nil))
+  ([chan-name buf-or-n xform ex-handler]
+   (assert (keyword? chan-name) "chan-name must be a namespaced keyword")
+   (assert (namespace chan-name) "chan-name must be a namespaced keyword")
+   (when xform (assert buf-or-n "buffer must be supplied when transducer is"))
+   (let [buf-or-n (or buf-or-n 1)
+         buf ^Buffer (if (number? buf-or-n) (a/buffer buf-or-n) buf-or-n)
+         chan (a/chan xform ex-handler)
+         cleanup (promise)
+         cleanup-gauge (gauges/add-gauge-metrics-fn
+                        (fn []
+                          (if (a-impl/closed? chan)
+                            (@cleanup)
+                            [{:path (format "%s.%s.count"
+                                            (namespace chan-name)
+                                            (name chan-name))
+                              :value (count buf)}
+                             {:path (format "%s.%s.capacity"
+                                            (namespace chan-name)
+                                            (name chan-name))
+                              :value (buf-capacity buf)}
+                             {:path (format "%s.%s.full"
+                                            (namespace chan-name)
+                                            (name chan-name))
+                              :value (a-impl/full? buf)}])))]
+     (deliver cleanup cleanup-gauge)
+     chan)))

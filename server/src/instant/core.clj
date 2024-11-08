@@ -10,6 +10,7 @@
    [instant.config :as config]
    [instant.dash.ephemeral-app :as ephemeral-app]
    [instant.dash.routes :as dash-routes]
+   [instant.db.indexing-jobs :as indexing-jobs]
    [instant.flags :as flags]
    [instant.flags-impl :as flags-impl]
    [instant.gauges :as gauges]
@@ -143,10 +144,13 @@
                                (tracer/record-info! {:name "shut-down"})
                                (tracer/with-span! {:name "stop-server"}
                                  (stop))
-                               (tracer/with-span! {:name "stop-invalidator"}
-                                 (inv/stop-global))
-                               (tracer/with-span! {:name "stop-ephemeral"}
-                                 (eph/stop))))))
+                               (doseq [fut [(future (tracer/with-span! {:name "stop-invalidator"}
+                                                      (inv/stop-global)))
+                                            (future (tracer/with-span! {:name "stop-ephemeral"}
+                                                      (eph/stop)))
+                                            (future (tracer/with-span! {:name "stop-indexing-jobs"}
+                                                      (indexing-jobs/stop)))]]
+                                 (deref fut))))))
 
 (defn -main [& _args]
   (let [{:keys [aead-keyset]} (config/init)]
@@ -183,6 +187,7 @@
 
   (ephemeral-app/start)
   (session-counter/start)
+  (indexing-jobs/start)
   (when (= (config/get-env) :prod)
     (log/info "Starting analytics")
     (analytics/start))

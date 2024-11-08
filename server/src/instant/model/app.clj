@@ -189,7 +189,33 @@
                             FROM app_email_templates et
                                 LEFT JOIN app_email_senders es ON et.sender_id = es.id
                             WHERE et.app_id = a.id
-                        ) AS magic_code_email_template
+                        ) AS magic_code_email_template,
+
+                        (
+                          SELECT
+                            coalesce(
+                              json_agg(
+                                json_build_object(
+                                  'id', j.id,
+                                  'app_id', j.app_id,
+                                  'attr_id', j.attr_id,
+                                  'job_type', j.job_type,
+                                  'job_status', j.job_status,
+                                  'job_stage', j.job_stage,
+                                  'work_estimate', j.work_estimate,
+                                  'work_completed', j.work_completed,
+                                  'error', j.error,
+                                  'checked_data_type', j.checked_data_type,
+                                  'created_at', j.created_at,
+                                  'updated_at', j.updated_at,
+                                  'done_at', j.done_at
+                                )
+                              ),
+                              '[]'::json
+                            )
+                            FROM indexing_jobs j
+                            WHERE j.app_id = a.id
+                        ) AS indexing_jobs
 
                       FROM apps a
                         JOIN app_admin_tokens at ON at.app_id = a.id
@@ -400,7 +426,7 @@
   ([conn {:keys [app-id connection-string]}]
    (sql/execute-one! conn
                      ["update apps set connection_string = ?::bytea where id = ?::uuid"
-                      (crypt-util/aead-encrypt {:plaintext (.getBytes connection-string)
+                      (crypt-util/aead-encrypt {:plaintext (.getBytes ^String connection-string)
                                                 :associated-data (uuid-util/->bytes app-id)})
                       app-id])))
 

@@ -45,6 +45,12 @@ function tryJsonParse(value: any) {
 }
 
 function getAppropriateFieldType(attr: SchemaAttr, value: any): FieldType {
+  if (!value && attr.checkedDataType) {
+    if (attr.checkedDataType === 'date') {
+      return 'string';
+    }
+    return attr.checkedDataType;
+  }
   if (!value && attr.inferredTypes?.length) {
     return attr.inferredTypes[0];
   }
@@ -96,15 +102,18 @@ export function EditRowDialog({
 
   const editableAttrs = namespace.attrs.filter(
     // ignore the primary "id" field and any "ref" attributes
-    (a) => a.name !== 'id' && a.type === 'blob'
+    (a) => a.name !== 'id' && a.type === 'blob',
   );
 
-  const current = editableAttrs.reduce((acc, attr) => {
-    const val = item[attr.name];
-    const t = getAppropriateFieldType(attr, val);
+  const current = editableAttrs.reduce(
+    (acc, attr) => {
+      const val = item[attr.name];
+      const t = getAppropriateFieldType(attr, val);
 
-    return { ...acc, [attr.name]: { type: t, value: val, error: null } };
-  }, {} as Record<string, { type: FieldType; value: any; error: string | null }>);
+      return { ...acc, [attr.name]: { type: t, value: val, error: null } };
+    },
+    {} as Record<string, { type: FieldType; value: any; error: string | null }>,
+  );
 
   const [updates, setUpdatedValues] = useState<Record<string, any>>({
     ...current,
@@ -131,7 +140,7 @@ export function EditRowDialog({
   const handleUpdateFieldValue = (
     field: string,
     value: any,
-    validate?: (value: any) => string | null
+    validate?: (value: any) => string | null,
   ) => {
     const error = validate ? validate(value) : null;
     setUpdatedValues((prev) => {
@@ -168,7 +177,7 @@ export function EditRowDialog({
     const params = Object.fromEntries(
       Object.entries(updates).map(([field, { value }]) => {
         return [field, value];
-      })
+      }),
     );
     const itemId = item.id || params.id || id();
     delete params.id;

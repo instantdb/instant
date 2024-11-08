@@ -7,10 +7,9 @@ import { dbAttrsToExplorerSchema } from '@/lib/schema';
 export function useNamespacesQuery(
   db: InstantReactWeb,
   selectedNs?: SchemaNamespace,
-  whereAttr?: string,
-  whereId?: string,
+  where?: [string, any],
   limit?: number,
-  offset?: number
+  offset?: number,
 ) {
   const iql = selectedNs
     ? {
@@ -18,12 +17,10 @@ export function useNamespacesQuery(
           ...Object.fromEntries(
             selectedNs.attrs
               .filter((a) => a.type === 'ref')
-              .map((a) => [a.name, {}])
+              .map((a) => [a.name, {}]),
           ),
           $: {
-            ...(whereAttr && whereId
-              ? { where: { [`${whereAttr}.id`]: whereId } }
-              : {}),
+            ...(where ? { where: { [where[0]]: where[1] } } : {}),
             ...(limit ? { limit } : {}),
             ...(offset ? { offset } : {}),
           },
@@ -39,10 +36,11 @@ export function useNamespacesQuery(
           [selectedNs.name]: {
             $: {
               aggregate: 'count',
+              ...(where ? { where: { [where[0]]: where[1] } } : {}),
             },
           },
         }
-      : {}
+      : {},
   );
 
   // @ts-expect-error: admin-only feature

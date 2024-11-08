@@ -40,6 +40,26 @@ export type InstantAppInvite = {
   expired: boolean;
 }[];
 
+export type InstantIndexingJob = {
+  id: string;
+  app_id: string;
+  attr_id: string;
+  job_type: 'remove-data-type' | 'check-data-type';
+  job_status: 'completed' | 'waiting' | 'processing' | 'canceled' | 'errored';
+  job_stage: 'string';
+  work_estimate: number | null | undefined;
+  work_completed: number | null | undefined;
+  error: 'invalid-triple-error' | 'invalid-attr-state-error' | null | undefined;
+  checked_data_type: CheckedDataType | null | undefined;
+  created_at: string;
+  updated_at: string;
+  done_at: string;
+  invalid_triples_sample:
+    | { entity_id: string; value: any }[]
+    | null
+    | undefined;
+};
+
 export type DashResponse = {
   apps?: InstantApp[];
   invites?: InstantMemberInvite[];
@@ -100,6 +120,8 @@ export type DBIdent =
   | [string, string, string]
   | [string, string, string, boolean];
 
+export type CheckedDataType = 'string' | 'number' | 'boolean' | 'date';
+
 export interface DBAttr {
   id: string;
   'forward-identity': DBIdent;
@@ -111,6 +133,7 @@ export interface DBAttr {
   'value-type': 'ref' | 'blob';
   'inferred-types'?: Array<'string' | 'number' | 'boolean' | 'json'>;
   catalog?: 'user' | 'system';
+  'checked-data-type'?: CheckedDataType;
 }
 
 export interface SchemaNamespace {
@@ -135,6 +158,7 @@ export interface SchemaAttr {
   };
   inferredTypes?: Array<'string' | 'number' | 'boolean' | 'json'>;
   catalog?: 'user' | 'system';
+  checkedDataType?: CheckedDataType;
 }
 
 export type InstantError = {

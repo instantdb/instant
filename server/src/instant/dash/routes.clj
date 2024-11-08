@@ -18,6 +18,7 @@
             [instant.model.app-members :as instant-app-members]
             [instant.model.instant-oauth-code :as instant-oauth-code-model]
             [instant.model.instant-oauth-redirect :as instant-oauth-redirect-model]
+            [instant.db.indexing-jobs :as indexing-jobs]
             [instant.db.model.attr :as attr-model]
             [instant.db.model.transaction :as transaction-model]
             [instant.flags :refer [admin-email?] :as flags]
@@ -58,8 +59,9 @@
             [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
             [instant.model.schema :as schema-model])
   (:import
-   (java.util UUID)
-   (com.stripe.model.checkout Session)))
+   (com.stripe.model.checkout Session)
+   (io.undertow.websockets.core WebSocketChannel)
+   (java.util HashMap UUID)))
 
 ;; ---
 ;; Auth helpers
@@ -474,7 +476,7 @@
 (defn coerce-redirect-path [path]
   (cond
     (string/blank? path) "/dash"
-    (.startsWith path "/") path
+    (.startsWith ^String path "/") path
     :else (str "/" path)))
 
 (defn oauth-start [{{:keys [redirect_path redirect_to_dev ticket]} :params}]
@@ -582,7 +584,7 @@
             :as :json
             :coerce :always ;; also coerce error responses to json
             :form-params {:client_id (:client-id (config/get-google-oauth-client))
-                          :client_secret (.value (:client-secret (config/get-google-oauth-client)))
+                          :client_secret (crypt-util/secret-value (:client-secret (config/get-google-oauth-client)))
                           :code code
                           :grant_type "authorization_code"
                           :redirect_uri oauth-redirect-url}}))
@@ -594,8 +596,8 @@
                            :id_token
                            (string/split #"\.")
                            second
-                           (#(.decode (java.util.Base64/getUrlDecoder) %))
-                           String.
+                           (#(.decode (java.util.Base64/getUrlDecoder) ^String %))
+                           (#(String. ^bytes %))
                            (json/<-json true))
                    (catch IllegalArgumentException _e
                      (log/errorf "Invalid id_token %s" (-> user-info :body :id_token))
@@ -670,30 +672,30 @@
         {customer-id :id} (instant-stripe-customer-model/get-or-create! {:user user})
         metadata {"app-id" app-id "user-id" user-id}
         description (str "App name: " app-title)
-        session
-        (Session/create
-         {"success_url" (str (config/stripe-success-url) "&app=" app-id)
-          "cancel_url" (str (config/stripe-cancel-url) "&app=" app-id)
-          "customer" customer-id
-          "metadata" metadata
-          "allow_promotion_codes" (or (flags/promo-code-email? user-email)
-                                      (admin-email? user-email))
-          "subscription_data" {"metadata" metadata
-                               "description" description
-                               "billing_cycle_anchor"
-                               (.toEpochSecond (date/first-of-next-month-est))}
-          "mode" "subscription"
-          "line_items" [{"price" (config/stripe-pro-subscription)
-                         "quantity" 1}]})]
+        session-params {"success_url" (str (config/stripe-success-url) "&app=" app-id)
+                        "cancel_url" (str (config/stripe-cancel-url) "&app=" app-id)
+                        "customer" customer-id
+                        "metadata" metadata
+                        "allow_promotion_codes" (or (flags/promo-code-email? user-email)
+                                                    (admin-email? user-email))
+                        "subscription_data" {"metadata" metadata
+                                             "description" description
+                                             "billing_cycle_anchor"
+                                             (.toEpochSecond (date/first-of-next-month-est))}
+                        "mode" "subscription"
+                        "line_items" [{"price" (config/stripe-pro-subscription)
+                                       "quantity" 1}]}
+        session (Session/create ^HashMap (into (HashMap.) session-params))]
     (response/ok {:id (.getId session)})))
 
 (defn create-portal [req]
   (let [{{app-id :id} :app user :user} (req->app-and-user! req)
         {customer-id :id} (instant-stripe-customer-model/get-or-create! {:user user})
+        session-params {"return_url" (str (config/stripe-success-url) "&app=" app-id)
+                        "customer" customer-id}
         session
         (com.stripe.model.billingportal.Session/create
-         {"return_url" (str (config/stripe-success-url) "&app=" app-id)
-          "customer" customer-id})]
+         ^HashMap (into (HashMap.) session-params))]
     (response/ok {:url (.getUrl session)})))
 
 (defn get-billing [req]
@@ -1039,6 +1041,51 @@
         r {:perms (:code perms)}]
     (response/ok r)))
 
+;; -------------
+;; Indexing Jobs
+
+(defn indexing-job-get [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        job-id (ex/get-param! req [:params :job_id] uuid-util/coerce)
+        job (indexing-jobs/get-by-id-for-client job-id)]
+    (response/ok {:job job})))
+
+(defn indexing-job-post [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        attr-id (ex/get-param! req [:body :attr-id] uuid-util/coerce)
+        job-type (ex/get-param! req
+                                [:body :job-type]
+                                string-util/coerce-non-blank-str)
+        _ (when-not (contains? #{"check-data-type"
+                                 "remove-data-type"}
+                               job-type)
+            (ex/throw-validation-err! :job-type
+                                      job-type
+                                      [{:message (format "Invalid job type %s." job-type)}]))
+        attrs (attr-model/get-by-app-id app-id)
+        attr (ex/assert-record! (attr-model/seek-by-id attr-id attrs)
+                                :attrs
+                                {:attr-id attr-id})
+
+        job (ex/assert-record! (case job-type
+                                 "check-data-type"
+                                 (indexing-jobs/create-check-data-type-job!
+                                  {:app-id app-id
+                                   :attr-id (:id attr)
+                                   :checked-data-type
+                                   (ex/get-param! req
+                                                  [:body :checked-data-type]
+                                                  string-util/coerce-non-blank-str)})
+
+                                 "remove-data-type"
+                                 (indexing-jobs/create-remove-data-type-job!
+                                  {:app-id app-id :attr-id (:id attr)}))
+                               :indexing-job
+                               {:attr-id attr-id
+                                :job-type job-type})]
+    (indexing-jobs/enqueue-job job)
+    (response/ok {:job (indexing-jobs/job->client-format job)})))
+
 (comment
   (def counters-app-id  #uuid "137ace7a-efdd-490f-b0dc-a3c73a14f892")
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
@@ -1108,7 +1155,7 @@
      {:on-open (fn [{:keys [channel]}]
                  (tracer/with-span! {:name "ws-play/on-open" :attributes {:id id}}
                    (ws/send-json! (format "[%s] ok" id) channel)))
-      :on-message (fn [{:keys [channel data]}]
+      :on-message (fn [{:keys [^WebSocketChannel channel data]}]
                     (tracer/with-span! {:name "ws-play/on-message" :attributes {:id id :data data}}
                       (condp = (string/trim data)
                         "break"
@@ -1212,6 +1259,9 @@
   (POST "/dash/apps/:app_id/schema/push/apply" [] schema-push-apply-post)
   (GET "/dash/apps/:app_id/schema/pull" [] schema-pull-get)
   (GET "/dash/apps/:app_id/perms/pull" [] perms-pull-get)
+
+  (GET "/dash/apps/:app_id/indexing-jobs/:job_id" [] indexing-job-get)
+  (POST "/dash/apps/:app_id/indexing-jobs" [] indexing-job-post)
 
   (GET "/dash/ws_playground" [] ws-playground-get)
 
