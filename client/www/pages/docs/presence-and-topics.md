@@ -208,7 +208,7 @@ import { Cursors } from '@instantdb/react';
 // ...
 
 return (
-  <Cursors room={room} currentUserColor="tomato">
+  <Cursors room={room} className="h-full w-full" userCursorColor="tomato">
     {/* Your app here */}
   </Cursors>
 );
@@ -220,7 +220,7 @@ You can provide a `renderCursor` function to return your own custom cursor compo
 <Cursors
   room={room}
   className="cursors"
-  currentUserColor="papayawhip"
+  userCursorColor="papayawhip"
   renderCursor={renderCoolCustomCursor}
 />
 ```
