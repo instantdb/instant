@@ -280,7 +280,8 @@
                       [[:case :a.is-unique true :else false] :av]
                       [[:case :a.is-indexed true :else false] :ave]
                       [[:case [:= :a.value-type [:inline "ref"]] true :else false]
-                       :vae]]
+                       :vae]
+                      [:a.checked_data_type :checked-data-type]]
                      :from [[:applied-triples :at]]
                      :left-join [[:attrs :a] [:and
                                               [:or
@@ -363,7 +364,8 @@
                             [[:case :a.is-unique true :else [[:raise_exception_message [:inline "attribute is not unique"]]]] :av]
                             [[:case :a.is-indexed true :else false] :ave]
                             [[:case [:= :a.value-type [:inline "ref"]] true :else false]
-                             :vae]]
+                             :vae]
+                            [:a.checked_data_type :checked-data-type]]
                            :from [[:input-lookup-refs :ilr]]
                            :left-join [[:attrs :a] [:and
                                                     :a.is-unique
@@ -632,16 +634,16 @@
            value value_md5
            ea eav av ave vae
            checked_data_type]}]
-  {:triple [entity_id attr_id
-            (if eav
-              (UUID/fromString value)
-              value)]
-   :md5 value_md5
-   :index (->> [[ea :ea] [eav :eav] [av :av] [ave :ave] [vae :vae]]
-               (filter first)
-               (map second)
-               set)
-   :checked-data-type checked_data_type})
+  (cond-> {:triple [entity_id attr_id
+                    (if eav
+                      (UUID/fromString value)
+                      value)]
+           :md5 value_md5
+           :index (->> [[ea :ea] [eav :eav] [av :av] [ave :ave] [vae :vae]]
+                       (filter first)
+                       (map second)
+                       set)}
+    checked_data_type (assoc :checked-data-type checked_data_type)))
 
 (defn fetch
   "Fetches triples from postgres by app-id and optional sql statements and
