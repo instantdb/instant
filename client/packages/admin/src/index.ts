@@ -174,16 +174,13 @@ function init_experimental<Schema extends InstantGraph<any, any, any>>(
  * @example
  *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
  */
-class InstantAdmin<Schema extends InstantGraph<any, any> | {}> {
+class InstantAdmin<Schema extends {}> {
   config: FilledConfig;
   auth: Auth;
   storage: Storage;
   impersonationOpts?: ImpersonationOpts;
 
-  public tx =
-    txInit<
-      Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
-    >();
+  public tx = txInit<InstantGraph<any, any>>();
 
   constructor(_config: Config) {
     this.config = configWithDefaults(_config);
@@ -223,17 +220,10 @@ class InstantAdmin<Schema extends InstantGraph<any, any> | {}> {
    *  // all goals, _alongside_ their todos
    *  await db.query({ goals: { todos: {} } })
    */
-  query = <
-    Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
-      : Exactly<Query, Q>,
-  >(
+  query = <Q extends Exactly<Query, Q>>(
     query: Q,
   ): Promise<QueryResponse<Q, Schema>> => {
-    const withInference =
-      "cardinalityInference" in this.config
-        ? Boolean(this.config.cardinalityInference)
-        : true;
+    const withInference = false;
 
     return jsonFetch(`${this.config.apiURI}/admin/query`, {
       method: "POST",
