@@ -152,7 +152,7 @@
    (assert (namespace chan-name) "chan-name must be a namespaced keyword")
    (when xform (assert buf-or-n "buffer must be supplied when transducer is"))
    (let [buf-or-n (or buf-or-n 1)
-         buf ^Buffer (if (number? buf-or-n) (a/buffer buf-or-n) buf-or-n)
+         buf (if (number? buf-or-n) (a/buffer buf-or-n) buf-or-n)
          chan (a/chan xform ex-handler)
          cleanup (promise)
          cleanup-gauge (gauges/add-gauge-metrics-fn
