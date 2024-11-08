@@ -104,7 +104,19 @@ returns boolean as $$
   end;
 $$ language plpgsql immutable;
 
--- XXX: Note about how we should go about changing this
+-- If you change this function, Postgres won't recheck data already
+-- checked with this function.
+
+-- We do need to update the function when we add a new
+-- `checked_data_type`, but that's fine because it won't affect stored
+-- data as long as the update is sequenced correctly. If you add a new
+-- value to the checked_data_type enum, be sure to add a new clause to
+-- this function in the same transaction.
+
+-- If you change the definition of existing clauses, then you'll have
+-- to add a new constaint, check it, and drop the old constraint to
+-- apply it to all of the existing data. It won't be fun if some of
+-- the data is no longer valid. Hope we got it right the first time!
 create or replace function triples_valid_value(data_type checked_data_type, value jsonb)
 returns boolean as $$
   begin
