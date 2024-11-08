@@ -407,9 +407,7 @@ export abstract class InstantReactExperimental<
    *  db.useQuery(auth.user ? { goals: {} } : null)
    */
   useQuery = <
-    Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
-      : Exactly<Query, Q>,
+    Q extends InstaQLQueryParams<Schema>
   >(
     query: null | Q,
   ): LifecycleSubscriptionStateExperimental<Q, Schema> => {
@@ -482,9 +480,7 @@ export abstract class InstantReactExperimental<
    *  console.log(resp.data.goals)
    */
   queryOnce = <
-    Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
-      : Exactly<Query, Q>,
+    Q extends InstaQLQueryParams<Schema>,
   >(
     query: Q,
   ): Promise<{

@@ -650,10 +650,7 @@ class InstantCoreExperimental<Schema extends InstantGraph<any, any>>
   public auth: Auth;
   public storage: Storage;
 
-  public tx =
-    txInit<
-      Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
-    >();
+  public tx = txInit<Schema>();
 
   constructor(reactor: Reactor<RoomsOf<Schema>>) {
     this._reactor = reactor;
@@ -799,11 +796,7 @@ class InstantCoreExperimental<Schema extends InstantGraph<any, any>>
    *  const resp = await db.queryOnce({ goals: {} });
    *  console.log(resp.data.goals)
    */
-  queryOnce<
-    Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
-      : Exactly<Query, Q>,
-  >(
+  queryOnce<Q extends InstaQLQueryParams<Schema>>(
     query: Q,
   ): Promise<{
     data: QueryResponseExperimental<Q, Schema>;

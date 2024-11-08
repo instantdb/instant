@@ -699,10 +699,7 @@ class InstantAdminExperimental<Schema extends InstantGraph<any, any>> {
   storage: Storage;
   impersonationOpts?: ImpersonationOpts;
 
-  public tx =
-    txInit<
-      Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
-    >();
+  public tx = txInit<Schema>();
 
   constructor(_config: Config) {
     this.config = configWithDefaults(_config);
@@ -742,11 +739,7 @@ class InstantAdminExperimental<Schema extends InstantGraph<any, any>> {
    *  // all goals, _alongside_ their todos
    *  await db.query({ goals: { todos: {} } })
    */
-  query = <
-    Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
-      : Exactly<Query, Q>,
-  >(
+  query = <Q extends InstaQLQueryParams<Schema>>(
     query: Q,
   ): Promise<QueryResponseExperimental<Q, Schema>> => {
     const withInference =
@@ -820,8 +813,8 @@ class InstantAdminExperimental<Schema extends InstantGraph<any, any>> {
    *    { rules: { goals: { allow: { read: "auth.id != null" } } }
    *  )
    */
-  debugQuery = async <Q extends Query>(
-    query: Exactly<Query, Q>,
+  debugQuery = async <Q extends InstaQLQueryParams<Schema>>(
+    query: Q,
     opts?: { rules: any },
   ): Promise<{
     result: QueryResponseExperimental<Q, Schema>;
