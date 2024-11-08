@@ -516,6 +516,10 @@ function EditCheckedDataType({
           return;
         }
         if (finishedJob.job_status === 'errored') {
+          if (finishedJob.error === 'invalid-triple-error') {
+            errorToast(`Found invalid data while updating ${friendlyName}.`);
+            return;
+          }
           errorToast(`Encountered an error while updating ${friendlyName}.`);
         }
       }
@@ -582,6 +586,50 @@ function EditCheckedDataType({
           />
         </div>
       </div>
+      {indexingJob?.error === 'invalid-triple-error' ? (
+        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+          <div>
+            The type can't be set to {indexingJob?.checked_data_type} because
+            some data is the wrong type.
+          </div>
+          {indexingJob?.invalid_triples_sample?.length ? (
+            <div>
+              Here are the first few invalid entities we found:
+              <table className="mx-2 my-2 flex-1 text-left font-mono text-xs text-gray-500">
+                <thead className="bg-white text-gray-700">
+                  <tr>
+                    <th>id</th>
+                    <th>{attr.name}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {indexingJob.invalid_triples_sample
+                    .slice(0, 3)
+                    .map((t, i) => (
+                      <tr
+                        key={i}
+                        className="cursor-pointer whitespace-nowrap rounded-md px-2 hover:bg-gray-200"
+                        onClick={() => {
+                          pushNavStack({
+                            namespace: attr.namespace,
+                            where: ['id', t.entity_id],
+                          });
+                          // It would be nice to have a way to minimize the dialog so you could go back
+                          closeDialog();
+                        }}
+                      >
+                        <td style={{ width: 280 }}>
+                          <pre>{t.entity_id}</pre>
+                        </td>
+                        <td>{t.value}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <ActionButton
         type="submit"
         label={buttonLabel}
@@ -593,48 +641,6 @@ function EditCheckedDataType({
         }
         onClick={updateCheckedType}
       />
-      {indexingJob?.error === 'invalid-triple-error' ? (
-        <div>
-          <div>
-            The type can't be set to {indexingJob?.checked_data_type} because
-            some data is the wrong type.
-          </div>
-          <div>
-            Here are the first few invalid entities we found:
-            <table className="mx-2 my-2 flex-1 text-left font-mono text-xs text-gray-500">
-              <thead className="bg-white text-gray-700">
-                <tr>
-                  <th>id</th>
-                  <th>value</th>
-                </tr>
-              </thead>
-              <tbody>
-                {indexingJob?.invalid_triples_sample
-                  ?.slice(0, 3)
-                  .map((t, i) => (
-                    <tr
-                      key={i}
-                      className="cursor-pointer whitespace-nowrap rounded-md px-2 hover:bg-gray-200"
-                      onClick={() => {
-                        pushNavStack({
-                          namespace: attr.namespace,
-                          where: ['id', t.entity_id],
-                        });
-                        // It would be nice to have a way to minimize the dialog so you could go back
-                        closeDialog();
-                      }}
-                    >
-                      <td style={{ width: 280 }}>
-                        <pre>{t.entity_id}</pre>
-                      </td>
-                      <td>{t.value}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : null}
     </ActionForm>
   );
 }

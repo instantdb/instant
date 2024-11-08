@@ -1,9 +1,12 @@
 (ns instant.db.indexing-jobs
   (:require
+   [chime.core :as chime-core]
    [clojure.core.async :as a]
+   [clojure.string :as string]
    [honey.sql :as hsql]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as transaction-model]
+   [instant.discord :as discord]
    [instant.config :as config]
    [instant.gauges :as gauges]
    [instant.jdbc.aurora :as aurora]
@@ -12,8 +15,9 @@
    [instant.jdbc.sql :as sql]
    [next.jdbc :as next-jdbc])
   (:import
+   (java.lang AutoCloseable)
    (java.sql Timestamp)
-   (java.time Instant)
+   (java.time Duration Instant)
    (java.time.temporal ChronoUnit)))
 
 (declare job-queue)
@@ -46,6 +50,7 @@
 
 (def invalid-triple-error "invalid-triple-error")
 (def invalid-attr-state-error "invalid-attr-state-error")
+(def unexpected-error "unexpected-error")
 
 (defn ms-since [^Timestamp t ^Instant now]
   (.between ChronoUnit/MILLIS (.toInstant t) now))
@@ -176,26 +181,29 @@
                       :job-type "remove-data-type"
                       :job-stage "update-attr-start"})))
 
+(def job-available-wheres
+  [[:= :worker-id nil]
+   ;; Ensure we don't grab a job we can't handle
+   [:in :job-type job-types]
+   [:or
+    ;; XXX: TEST
+    [:= :job-dependency nil]
+    [:= "completed" {:select :job-status
+                     :from [[:indexing-jobs :dep]]
+                     :where [:= :dep.id :job-dependency]}]]
+   [:or
+    [:= :job-status "waiting"]
+    [:= :job-status "processing"]]])
+
 (defn grab-job!
   ([job-id]
    (grab-job! aurora/conn-pool job-id))
   ([conn job-id]
    (sql/execute-one! conn (hsql/format
                            {:update :indexing-jobs
-                            :where [:and
-                                    [:= :id job-id]
-                                    [:= :worker-id nil]
-                                    ;; Ensure we don't grab a job we can't handle
-                                    [:in :job-type job-types]
-                                    [:or
-                                     ;; XXX: TEST
-                                     [:= :job-dependency nil]
-                                     [:= "completed" {:select :job-status
-                                                      :from [[:indexing-jobs :dep]]
-                                                      :where [:= :dep.id :job-dependency]}]]
-                                    [:or
-                                     [:= :job-status "waiting"]
-                                     [:= :job-status "processing"]]]
+                            :where (list* :and
+                                          [:= :id job-id]
+                                          job-available-wheres)
                             :set {:worker-id @config/process-id
                                   :job-status "processing"}}))))
 
@@ -509,13 +517,56 @@
             (process-job chan job)
             (tracer/add-data! {:attributes {:job-not-grabbed true}})))
         (catch Throwable t
-          ;; XXX: Mark job as errored?
+          (discord/send-error-async! (format "%s unexpected job error job-id=%s msg=%s"
+                                             (:dww discord/mention-constants)
+                                             job-id
+                                             (.getMessage t)))
           (tracer/record-exception-span! t {:name "indexing-jobs/process-error"
                                             :escaping? false
                                             :attributes {:job-id job-id}})))
       (recur))))
 
-;; XXX: Something that trolls for jobs in the background
+(defn grab-forgotten-jobs!
+  ([] (grab-forgotten-jobs! aurora/conn-pool))
+  ([conn]
+   (tracer/with-span! {:name "indexing-jobs/grab-forgotten-jobs!"}
+     (let [jobs (sql/select conn (hsql/format {:select :id
+                                               :from :indexing-jobs
+                                               :limit 100
+                                               :where (list* :and job-available-wheres)}))]
+       (tracer/add-data! {:attributes {:job-count (count jobs)
+                                       :job-ids (map :id jobs)}})
+       (doseq [job jobs]
+         (enqueue-job job))
+       jobs))))
+
+(defn warn-stuck-jobs!
+  ([] (warn-stuck-jobs! aurora/conn-pool))
+  ([conn]
+   (tracer/with-span! {:name "indexing-jobs/grab-forgotten-jobs!"}
+     (let [q {:select :id
+              :from :indexing-jobs
+              :limit 5
+              :where [:and
+                      [:in :job-status ["processing" "waiting"]]
+                      [:< [:raw "interval '5 minutes'"] [:- :%now :updated-at]]]}
+           jobs (sql/select conn (hsql/format q))]
+
+       ;; TODO(dww): Notify team once we're comfortable with how this works
+       ;;   Might need a flag to prevent spamming the channel.
+       ;;   Could also just "steal" the job.
+       (if (= :prod (config/get-env))
+         (discord/send-error-async!
+          (str (:dww discord/mention-constants)
+               " Indexing jobs are stuck! First 5 are "
+               (string/join "," (map (fn [{:keys [id]}]
+                                       (format "\"%s\"" id)) jobs))))
+         (tracer/record-info! {:name "indexing-jobs/found-stuck-jobs!"
+                               :attributes {:job-ids (map :id jobs)}}))
+
+       (tracer/add-data! {:attributes {:job-count (count jobs)
+                                       :job-ids (map :id jobs)}})
+       jobs))))
 
 (defn start []
   (let [job-queue-chan (ua/gauged-chan ::job-queue 32000)]
@@ -526,12 +577,20 @@
                             (tracer/with-span! {:name "indexing-jobs/start-worker"
                                                 :attributes {:i i}})
                             {:i i
-                             :process (ua/vfut-bg (start-process job-queue-chan))}))))))
+                             :process (ua/vfut-bg (start-process job-queue-chan))}))))
+
+    (def schedule (chime-core/chime-at
+                   (chime-core/periodic-seq (Instant/now) (Duration/ofMinutes 5))
+                   (fn [_time]
+                     (grab-forgotten-jobs!)
+                     (warn-stuck-jobs!))))))
 
 (defn stop []
-  ;; XXX: Shutdown logic needs to put all of the jobs back into the waiting state
+  (when (bound? #'schedule)
+    (.close ^AutoCloseable schedule))
   (when (bound? #'job-queue)
     (a/close! job-queue))
+
   (when (bound? #'workers)
     (doseq [{:keys [i process]} workers]
       (tracer/with-span! {:name "indexing-jobs/wait-for-worker-to-stop"

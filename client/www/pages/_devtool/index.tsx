@@ -10,9 +10,20 @@ import { Sandbox } from '@/components/dash/Sandbox';
 import { Explorer } from '@/components/dash/explorer/Explorer';
 import { init } from '@instantdb/react';
 import { useEffect, useState, useContext } from 'react';
-import { Button, Checkbox, Dialog, SectionHeading, SubsectionHeading, Stack, TabBar, Content, twel, useDialog } from '@/components/ui';
+import {
+  Button,
+  Checkbox,
+  Dialog,
+  SectionHeading,
+  SubsectionHeading,
+  Stack,
+  TabBar,
+  Content,
+  twel,
+  useDialog,
+} from '@/components/ui';
 import Auth from '@/components/dash/Auth';
-import { isMinRole } from '@/pages/dash/index'
+import { isMinRole } from '@/pages/dash/index';
 import { TrashIcon } from '@heroicons/react/solid';
 
 type InstantReactClient = ReturnType<typeof init>;
@@ -23,7 +34,7 @@ export default function Devtool() {
   const isHydrated = useIsHydrated();
   const dashResponse = useTokenFetch<DashResponse>(
     `${config.apiURI}/dash`,
-    authToken
+    authToken,
   );
   const appId = router.query.appId as string;
   const app = dashResponse.data?.apps?.find((a) => a.id === appId);
@@ -50,7 +61,7 @@ export default function Devtool() {
           {
             type: 'close',
           },
-          '*'
+          '*',
         );
       }
     }
@@ -206,7 +217,7 @@ export default function Devtool() {
           />
           <div className="flex w-full flex-1 overflow-auto">
             {tab === 'explorer' ? (
-              <Explorer db={connection.db} />
+              <Explorer db={connection.db} appId={appId} />
             ) : tab === 'sandbox' ? (
               <div className="min-w-[960px] w-full">
                 <Sandbox app={app} />
@@ -244,7 +255,8 @@ function Admin({
         <div className="space-y-2">
           <SectionHeading>Danger zone</SectionHeading>
           <Content>
-            These are destructive actions and will irreversibly delete associated data.
+            These are destructive actions and will irreversibly delete
+            associated data.
           </Content>
           <div>
             <div className="flex flex-col space-y-6">
@@ -259,9 +271,18 @@ function Admin({
                 Clear app
               </SubsectionHeading>
               <Content className="space-y-2">
-                <p>Clearing an app will irreversibly delete all namespaces, triples, and permissions.</p>
-                <p>All other data like app id, admin token, users, billing, team members, etc. will remain.</p>
-                <p>This is equivalent to deleting all your namespaces in the explorer and clearing your permissions.</p>
+                <p>
+                  Clearing an app will irreversibly delete all namespaces,
+                  triples, and permissions.
+                </p>
+                <p>
+                  All other data like app id, admin token, users, billing, team
+                  members, etc. will remain.
+                </p>
+                <p>
+                  This is equivalent to deleting all your namespaces in the
+                  explorer and clearing your permissions.
+                </p>
               </Content>
               <Checkbox
                 checked={clearAppOk}
@@ -272,13 +293,16 @@ function Admin({
                 disabled={!clearAppOk}
                 variant="destructive"
                 onClick={async () => {
-                  await jsonFetch(`${config.apiURI}/dash/apps/${app.id}/clear`, {
-                    method: 'POST',
-                    headers: {
-                      authorization: `Bearer ${token}`,
-                      'content-type': 'application/json',
+                  await jsonFetch(
+                    `${config.apiURI}/dash/apps/${app.id}/clear`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        authorization: `Bearer ${token}`,
+                        'content-type': 'application/json',
+                      },
                     },
-                  });
+                  );
 
                   clearDialog.onClose();
                   dashResponse.mutate();
@@ -290,16 +314,16 @@ function Admin({
             </div>
           </Dialog>
         </div>
-      ) :
+      ) : (
         <>
           <SectionHeading>Insufficent Role</SectionHeading>
           <Content>
             Only app owners can use admin features in the devtool.
           </Content>
         </>
-      }
+      )}
     </Stack>
-  )
+  );
 }
 
 function Help() {

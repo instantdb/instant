@@ -355,7 +355,7 @@ function Dashboard() {
     return () => {
       db._core.shutdown();
     };
-  }, [router.isReady, app]);
+  }, [router.isReady, app?.id, app?.admin_token]);
 
   function nav(q: { s: string; app?: string; t?: string }) {
     if (q.app) setLocal('dash_app_id', q.app);

@@ -16,8 +16,6 @@ export async function createJob(
   },
   token: string,
 ): Promise<InstantIndexingJob> {
-  // XXX: Test different types of errors
-  //      1. Job already exists?
   const res = await fetch(`${config.apiURI}/dash/apps/${appId}/indexing-jobs`, {
     method: 'POST',
     headers: {
@@ -44,14 +42,12 @@ export function jobFetchLoop(appId: string, jobId: string, token: string) {
 
   const nextWaitMs = (body: string) => {
     if (body !== lastBody) {
-      console.log('gotChange', 100);
       waitMs = 20;
       lastBody = body;
       return waitMs;
     }
     const ret = waitMs;
-    console.log('waitMs', ret);
-    waitMs = Math.min(1000, waitMs * 2);
+    waitMs = Math.min(10000, waitMs * 2);
     return ret;
   };
 

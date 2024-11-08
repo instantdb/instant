@@ -44,12 +44,24 @@ export type InstantIndexingJob = {
   id: string;
   app_id: string;
   attr_id: string;
-  job_type: 'remove-data-type' | 'check-data-type';
-  job_status: 'completed' | 'waiting' | 'processing' | 'canceled' | 'errored';
+  job_type: 'remove-data-type' | 'check-data-type' | string;
+  job_status:
+    | 'completed'
+    | 'waiting'
+    | 'processing'
+    | 'canceled'
+    | 'errored'
+    | string;
   job_stage: 'string';
   work_estimate: number | null | undefined;
   work_completed: number | null | undefined;
-  error: 'invalid-triple-error' | 'invalid-attr-state-error' | null | undefined;
+  error:
+    | 'invalid-triple-error'
+    | 'invalid-attr-state-error'
+    | 'unexpected-error'
+    | string
+    | null
+    | undefined;
   checked_data_type: CheckedDataType | null | undefined;
   created_at: string;
   updated_at: string;
