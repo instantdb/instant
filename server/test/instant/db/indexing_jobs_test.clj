@@ -12,7 +12,7 @@
 (deftest indexing-jobs-checks-types
   (with-zeneca-app
     (fn [app r]
-      (let [job-queue (a/chan)
+      (let [job-queue (a/chan 1024)
             process (future (jobs/start-process job-queue))
             title-job (jobs/create-check-data-type-job!
                        {:app-id (:id app)
@@ -29,9 +29,9 @@
                              :attr-id (resolvers/->uuid r :users/createdAt)
                              :checked-data-type "date"})
 
-            _ (jobs/enqueue-job title-job)
-            _ (jobs/enqueue-job order-job)
-            _ (jobs/enqueue-job created-at-job)
+            _ (jobs/enqueue-job job-queue title-job)
+            _ (jobs/enqueue-job job-queue order-job)
+            _ (jobs/enqueue-job job-queue created-at-job)
             _ (wait-for (fn []
                           (every? (fn [{:keys [id]}]
                                     (= "completed" (:job_status (jobs/get-by-id id))))
@@ -81,14 +81,14 @@
 (deftest indexing-jobs-errors-with-invalid-triples
   (with-zeneca-app
     (fn [app r]
-      (let [job-queue (a/chan)
+      (let [job-queue (a/chan 1024)
             process (future (jobs/start-process job-queue))
             handle-job (jobs/create-check-data-type-job!
                         {:app-id (:id app)
                          :attr-id (resolvers/->uuid r :users/handle)
                          :checked-data-type "number"})
 
-            _ (jobs/enqueue-job handle-job)
+            _ (jobs/enqueue-job job-queue handle-job)
             _ (wait-for (fn []
                           (every? (fn [{:keys [id]}]
                                     (= "errored" (:job_status (jobs/get-by-id id))))
