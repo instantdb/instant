@@ -34,7 +34,9 @@ import {
 } from "@instantdb/core";
 
 import { InstantReact } from "./InstantReact";
+import { InstantReactExperimental } from "./InstantReactExperimental";
 import { InstantReactWeb } from "./InstantReactWeb";
+import { InstantReactWebExperimental } from "./InstantReactWebExperimental";
 import { init, init_experimental } from "./init";
 import { Cursors } from "./Cursors";
 
@@ -45,11 +47,13 @@ export {
   init,
   init_experimental,
   InstantReactWeb,
+  InstantReactWebExperimental,
   Cursors,
   i,
 
   // internal
   InstantReact,
+  InstantReactExperimental,
 
   // types
   type Config,
