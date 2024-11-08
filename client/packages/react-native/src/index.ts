@@ -40,6 +40,7 @@ import {
   type ValueTypes,
   type InstantEntity,
 } from "@instantdb/core";
+import { InstantReactExperimental } from "@instantdb/react/dist/module/InstantReactExperimental";
 
 /**
  *
@@ -50,7 +51,7 @@ import {
  * @example
  *  const db = init({ appId: "my-app-id" })
  *
- * // You can also provide a schema for type safety and editor autocomplete!
+ *  // You can also provide a schema for type safety and editor autocomplete!
  *
  *  type Schema = {
  *    goals: {
@@ -76,7 +77,7 @@ function init_experimental<
     cardinalityInference?: WithCardinalityInference;
   },
 ) {
-  return new InstantReactNative<
+  return new InstantReactNativeExperimental<
     Schema,
     Schema extends InstantGraph<any, infer RoomSchema, any>
       ? RoomSchema
@@ -90,6 +91,16 @@ class InstantReactNative<
   RoomSchema extends RoomSchemaShape = {},
   WithCardinalityInference extends boolean = false,
 > extends InstantReact<Schema, RoomSchema, WithCardinalityInference> {
+  static Storage = Storage;
+  static NetworkListener = NetworkListener;
+}
+
+// XXX-EXPERIMENTAL
+class InstantReactNativeExperimental<
+  Schema extends InstantGraph<any, any, any> | {} = {},
+  RoomSchema extends RoomSchemaShape = {},
+  WithCardinalityInference extends boolean = false,
+> extends InstantReactExperimental<Schema, RoomSchema, WithCardinalityInference> {
   static Storage = Storage;
   static NetworkListener = NetworkListener;
 }
