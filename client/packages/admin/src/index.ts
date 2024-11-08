@@ -896,6 +896,7 @@ class InstantAdminExperimental<
 export {
   init,
   init_experimental,
+  init_experimental_v2,
   id,
   tx,
   lookup,
