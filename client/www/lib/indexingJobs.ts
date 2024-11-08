@@ -56,7 +56,6 @@ export function jobFetchLoop(appId: string, jobId: string, token: string) {
   ) => {
     while (!stopped && !errored) {
       try {
-        console.log('fetching');
         const res = await fetch(
           `${config.apiURI}/dash/apps/${appId}/indexing-jobs/${jobId}`,
           { headers: { authorization: `Bearer ${token}` } },
@@ -65,9 +64,7 @@ export function jobFetchLoop(appId: string, jobId: string, token: string) {
         const json = JSON.parse(body);
         const job = json.job;
         cb(job);
-        console.log('status', job.job_status);
         if (job.job_status !== 'processing' && job.job_status !== 'waiting') {
-          console.log('done');
           return job;
         }
         await new Promise((resolve) => setTimeout(resolve, nextWaitMs(body)));

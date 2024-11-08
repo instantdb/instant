@@ -67,7 +67,6 @@
 
 (s/def ::index? boolean?)
 
-;; XXX: Maybe we should have a `checked-data-type` and an indexed?
 (s/def ::checked-data-type #{"number" "string" "boolean" "date"})
 
 (s/def ::attr-common (s/keys :req-un

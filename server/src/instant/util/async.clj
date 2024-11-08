@@ -144,6 +144,11 @@
         :else -1))
 
 (defn gauged-chan
+  "Creates a channel that will publish its size in gauges.
+   chan-name should be a namespaced keyword, e.g. ::my-channel
+
+   There's a small cost to setting it up and it adds 3 attrs per
+   channel, so should be used sparingling with long-running channels."
   ([chan-name] (gauged-chan chan-name nil))
   ([chan-name buf-or-n] (gauged-chan chan-name buf-or-n nil))
   ([chan-name buf-or-n xform] (gauged-chan chan-name buf-or-n xform nil))

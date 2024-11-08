@@ -416,7 +416,6 @@
      ;; update attr to prevent adding invalid data
      "update-attr-start" (update-attr-for-check-start! conn job)
      ;; recheck that no invalid data was added
-     ;; XXX: Should we undo the work that we've done???
      "revalidate" (validate-check! conn "estimate-work" job)
      "estimate-work" (update-work-estimate! conn "update-triples" job)
      ;; set checked_data_type on triples
