@@ -846,6 +846,7 @@ export {
   init,
   init_experimental,
   _init_internal,
+  _init_internal_experimental,
   id,
   tx,
   txInit,

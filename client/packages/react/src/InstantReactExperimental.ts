@@ -21,6 +21,8 @@ import {
   type InstantGraph,
   type QueryResponse,
   type PageInfoResponse,
+  InstantClientExperimental,
+  _init_internal_experimental,
 } from "@instantdb/core";
 import {
   KeyboardEvent,
@@ -31,7 +33,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { useQuery } from "./useQuery";
+import { useQuery, useQueryExperimental } from "./useQuery";
 import { useTimeout } from "./useTimeout";
 import { IDatabaseExperimental } from "@instantdb/core/dist/module/coreTypes";
 
@@ -310,13 +312,13 @@ export abstract class InstantReactExperimental<
 
   public auth: Auth;
   public storage: Storage;
-  public _core: InstantClient<Schema, RoomSchema, WithCardinalityInference>;
+  public _core: InstantClientExperimental<Schema, RoomSchema, WithCardinalityInference>;
 
   static Storage?: any;
   static NetworkListener?: any;
 
   constructor(config: Config | ConfigWithSchema<any>) {
-    this._core = _init_internal<Schema, RoomSchema, WithCardinalityInference>(
+    this._core = _init_internal_experimental<Schema, RoomSchema, WithCardinalityInference>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.Storage,
@@ -412,7 +414,7 @@ export abstract class InstantReactExperimental<
   >(
     query: null | Q,
   ): LifecycleSubscriptionState<Q, Schema, WithCardinalityInference> => {
-    return useQuery(this._core, query).state;
+    return useQueryExperimental(this._core, query).state;
   };
 
   /**
