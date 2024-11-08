@@ -91,7 +91,6 @@
   https://developers.google.com/tink/exchange-data#hybrid_encryption"
   [^HybridDecryptWrapper$WrappedHybridDecrypt hybrid
    {:keys [^bytes ciphertext ^bytes associated-data] :as _input}]
-  (tool/def-locals)
   (.decrypt hybrid ciphertext associated-data))
 
 ;; A type for encapsulating sensitive information. When printed,

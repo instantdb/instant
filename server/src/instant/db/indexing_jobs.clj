@@ -502,7 +502,6 @@
    (process-job aurora/conn-pool chan job))
   ([conn chan job]
    (let [updated-job (run-next-step conn job)]
-     (tool/def-locals)
      (if (not= "processing" (:job_status updated-job))
        (tracer/record-info! (job-span-attrs "job-finished-processing" updated-job))
        (if-let [job (release-job! conn updated-job)]
