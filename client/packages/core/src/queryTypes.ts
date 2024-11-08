@@ -100,10 +100,10 @@ type QueryResponse<Q, Schema> = ResponseOf<
 type QueryResponseExperimental<
   Q,
   Schema,
-  WithCardinalityInference extends boolean = false,
 > =
+  // XXX: do I need this top-level check?
   Schema extends InstantGraph<infer E, any>
-    ? InstaQLQueryResult<E, Q, WithCardinalityInference>
+    ? InstaQLQueryResult<E, Q>
     : ResponseOf<{ [K in keyof Q]: Remove$<Q[K]> }, Schema>;
 
 type PageInfoResponse<T> = {
@@ -150,35 +150,25 @@ type InstaQLQueryEntityLinksResult<
   Query extends {
     [LinkAttrName in keyof Entities[EntityName]["links"]]?: any;
   },
-  WithCardinalityInference extends boolean,
 > = {
   [QueryPropName in keyof Query]: Entities[EntityName]["links"][QueryPropName] extends LinkAttrDef<
     infer Cardinality,
     infer LinkedEntityName
   >
     ? LinkedEntityName extends keyof Entities
-      ? WithCardinalityInference extends true
         ? Cardinality extends "one"
           ?
               | InstaQLQueryEntityResult<
                   Entities,
                   LinkedEntityName,
-                  Query[QueryPropName],
-                  WithCardinalityInference
+                  Query[QueryPropName]
                 >
               | undefined
           : InstaQLQueryEntityResult<
               Entities,
               LinkedEntityName,
-              Query[QueryPropName],
-              WithCardinalityInference
+              Query[QueryPropName]
             >[]
-        : InstaQLQueryEntityResult<
-            Entities,
-            LinkedEntityName,
-            Query[QueryPropName],
-            WithCardinalityInference
-          >[]
       : never
     : never;
 };
@@ -189,26 +179,22 @@ type InstaQLQueryEntityResult<
   Query extends {
     [QueryPropName in keyof Entities[EntityName]["links"]]?: any;
   },
-  WithCardinalityInference extends boolean,
 > = { id: string } & ResolveAttrs<Entities, EntityName> &
   InstaQLQueryEntityLinksResult<
     Entities,
     EntityName,
-    Query,
-    WithCardinalityInference
+    Query
   >;
 
 type InstaQLQueryResult<
   Entities extends EntitiesDef,
   Query,
-  WithCardinalityInference extends boolean,
 > = {
   [QueryPropName in keyof Query]: QueryPropName extends keyof Entities
     ? InstaQLQueryEntityResult<
         Entities,
         QueryPropName,
-        Query[QueryPropName],
-        WithCardinalityInference
+        Query[QueryPropName]
       >[]
     : never;
 };

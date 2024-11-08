@@ -74,7 +74,7 @@ export class InstantReactRoom<
   id: string;
 
   constructor(
-    _core: InstantClientExperimental<Schema, RoomSchema, any>,
+    _core: InstantClientExperimental<Schema, RoomSchema>,
     type: RoomType,
     id: string,
   ) {
@@ -303,10 +303,8 @@ const defaultAuthState = {
 export abstract class InstantReactExperimental<
   Schema extends InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
-  WithCardinalityInference extends boolean = false,
-> implements IDatabaseExperimental<Schema, RoomSchema, WithCardinalityInference>
+> implements IDatabaseExperimental<Schema, RoomSchema>
 {
-  public withCardinalityInference?: WithCardinalityInference;
   public tx =
     txInit<
       Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
@@ -314,13 +312,13 @@ export abstract class InstantReactExperimental<
 
   public auth: Auth;
   public storage: Storage;
-  public _core: InstantClientExperimental<Schema, RoomSchema, WithCardinalityInference>;
+  public _core: InstantClientExperimental<Schema, RoomSchema>;
 
   static Storage?: any;
   static NetworkListener?: any;
 
   constructor(config: Config | ConfigWithSchema<any>) {
-    this._core = _init_internal_experimental<Schema, RoomSchema, WithCardinalityInference>(
+    this._core = _init_internal_experimental<Schema, RoomSchema>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.Storage,
@@ -415,7 +413,7 @@ export abstract class InstantReactExperimental<
       : Exactly<Query, Q>,
   >(
     query: null | Q,
-  ): LifecycleSubscriptionStateExperimental<Q, Schema, WithCardinalityInference> => {
+  ): LifecycleSubscriptionStateExperimental<Q, Schema> => {
     return useQueryExperimental(this._core, query).state;
   };
 
@@ -491,7 +489,7 @@ export abstract class InstantReactExperimental<
   >(
     query: Q,
   ): Promise<{
-    data: QueryResponseExperimental<Q, Schema, WithCardinalityInference>;
+    data: QueryResponseExperimental<Q, Schema>;
     pageInfo: PageInfoResponse<Q>;
   }> => {
     return this._core.queryOnce(query);

@@ -159,14 +159,12 @@ function init<Schema extends {} = {}>(config: Config) {
 
 function init_experimental<
   Schema extends InstantGraph<any, any, any>,
-  WithCardinalityInference extends boolean = true,
 >(
   config: Config & {
     schema: Schema;
-    cardinalityInference?: WithCardinalityInference;
   },
 ) {
-  return new InstantAdminExperimental<Schema, WithCardinalityInference>(config);
+  return new InstantAdminExperimental<Schema>(config);
 }
 
 /**
@@ -675,8 +673,8 @@ class Storage {
  *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
  */
 class InstantAdminExperimental<
-  Schema extends InstantGraph<any, any> | {},
-  WithCardinalityInference extends boolean,
+  // XXX is this {} necessary?
+  Schema extends InstantGraph<any, any> | {}
 > {
   config: FilledConfig;
   auth: Auth;
@@ -733,19 +731,14 @@ class InstantAdminExperimental<
   >(
     query: Q,
   ): Promise<
-    QueryResponseExperimental<Q, Schema, WithCardinalityInference>
+    QueryResponseExperimental<Q, Schema>
   > => {
-    const withInference =
-      "cardinalityInference" in this.config
-        ? Boolean(this.config.cardinalityInference)
-        : true;
-
     return jsonFetch(`${this.config.apiURI}/admin/query`, {
       method: "POST",
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({
         query: query,
-        "inference?": withInference,
+        "inference?": true,
       }),
     });
   };
@@ -810,7 +803,7 @@ class InstantAdminExperimental<
     query: Exactly<Query, Q>,
     opts?: { rules: any },
   ): Promise<{
-    result: QueryResponseExperimental<Q, Schema, WithCardinalityInference>;
+    result: QueryResponseExperimental<Q, Schema>;
     checkResults: DebugCheckResult[];
   }> => {
     const response = await jsonFetch(

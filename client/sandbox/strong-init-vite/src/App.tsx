@@ -9,7 +9,7 @@ const db = init_experimental({
 });
 
 function App() {
-  const { isLoading, data, error } = db.useQuery({ messages: {} });
+  const { isLoading, data, error } = db.useQuery({ messages: { profile: {} } });
   if (isLoading || error) return null;
   const { messages } = data;
 
@@ -17,14 +17,20 @@ function App() {
     <div>
       <div>
         {messages.map((m) => (
-          <div key={m.id}>{m.content}</div>
+          <div key={m.id}>
+            {m.profile?.name} | {m.content}
+          </div>
         ))}
       </div>
       <button
         onClick={() => {
-          db.transact(
-            db.tx.messages[id()].update({ content: "Hello, world!" }),
-          );
+          const profileId = id();
+          db.transact([
+            db.tx.profiles[profileId].update({ name: "Alice" }),
+            db.tx.messages[id()]
+              .update({ content: "Hello, world!" })
+              .link({ profile: profileId }),
+          ]);
         }}
       >
         Add message

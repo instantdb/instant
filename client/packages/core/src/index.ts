@@ -103,15 +103,11 @@ type SubscriptionState<Q, Schema> =
       pageInfo: PageInfoResponse<Q>;
     };
 
-type SubscriptionStateExperimental<
-  Q,
-  Schema,
-  WithCardinalityInference extends boolean,
-> =
+type SubscriptionStateExperimental<Q, Schema> =
   | { error: { message: string }; data: undefined; pageInfo: undefined }
   | {
       error: undefined;
-      data: QueryResponseExperimental<Q, Schema, WithCardinalityInference>;
+      data: QueryResponseExperimental<Q, Schema>;
       pageInfo: PageInfoResponse<Q>;
     };
 
@@ -119,13 +115,10 @@ type LifecycleSubscriptionState<Q, Schema> = SubscriptionState<Q, Schema> & {
   isLoading: boolean;
 };
 
-type LifecycleSubscriptionStateExperimental<
-  Q,
-  Schema,
-  WithCardinalityInference extends boolean,
-> = SubscriptionStateExperimental<Q, Schema, WithCardinalityInference> & {
-  isLoading: boolean;
-};
+type LifecycleSubscriptionStateExperimental<Q, Schema> =
+  SubscriptionStateExperimental<Q, Schema> & {
+    isLoading: boolean;
+  };
 
 type UnsubscribeFn = () => void;
 
@@ -174,10 +167,7 @@ function init<Schema extends {} = {}, RoomSchema extends RoomSchemaShape = {}>(
   return _init_internal(config, Storage, NetworkListener);
 }
 
-function _init_internal<
-  Schema extends {},
-  RoomSchema extends RoomSchemaShape,
->(
+function _init_internal<Schema extends {}, RoomSchema extends RoomSchemaShape>(
   config: Config,
   Storage?: any,
   NetworkListener?: any,
@@ -586,11 +576,8 @@ function coerceQuery(o: any) {
 class InstantCoreExperimental<
   Schema extends InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
-  WithCardinalityInference extends boolean = false,
-> implements
-    IDatabaseExperimental<Schema, RoomSchema, WithCardinalityInference>
+> implements IDatabaseExperimental<Schema, RoomSchema>
 {
-  public withCardinalityInference?: WithCardinalityInference;
   public _reactor: Reactor<RoomSchema>;
   public auth: Auth;
   public storage: Storage;
@@ -667,12 +654,7 @@ class InstantCoreExperimental<
     Q extends Schema extends InstantGraph<any, any>
       ? InstaQLQueryParams<Schema>
       : Exactly<Query, Q>,
-  >(
-    query: Q,
-    cb: (
-      resp: SubscriptionStateExperimental<Q, Schema, WithCardinalityInference>,
-    ) => void,
-  ) {
+  >(query: Q, cb: (resp: SubscriptionStateExperimental<Q, Schema>) => void) {
     return this._reactor.subscribeQuery(query, cb);
   }
 
@@ -760,49 +742,38 @@ class InstantCoreExperimental<
   >(
     query: Q,
   ): Promise<{
-    data: QueryResponseExperimental<Q, Schema, WithCardinalityInference>;
+    data: QueryResponseExperimental<Q, Schema>;
     pageInfo: PageInfoResponse<Q>;
   }> {
     return this._reactor.queryOnce(query);
   }
 }
 
-function init_experimental<
-  Schema extends InstantGraph<any, any, any>,
-  WithCardinalityInference extends boolean = true,
->(
-  config: Config & {
-    schema: Schema;
-    cardinalityInference?: WithCardinalityInference;
-  },
+function init_experimental<Schema extends InstantGraph<any, any, any>>(
+  config: ConfigWithSchema<Schema>,
   Storage?: any,
   NetworkListener?: any,
 ): InstantCoreExperimental<
   Schema,
-  Schema extends InstantGraph<any, infer RoomSchema, any> ? RoomSchema : never,
-  WithCardinalityInference
+  Schema extends InstantGraph<any, infer RoomSchema, any> ? RoomSchema : never
 > {
   return _init_internal_experimental<
     Schema,
-    Schema extends InstantGraph<any, infer RoomSchema, any>
-      ? RoomSchema
-      : never,
-    WithCardinalityInference
+    Schema extends InstantGraph<any, infer RoomSchema, any> ? RoomSchema : never
   >(config, Storage, NetworkListener);
 }
 
 function _init_internal_experimental<
   Schema extends {} | InstantGraph<any, any, any>,
   RoomSchema extends RoomSchemaShape,
-  WithCardinalityInference extends boolean = false,
 >(
   config: Config,
   Storage?: any,
   NetworkListener?: any,
-): InstantCoreExperimental<Schema, RoomSchema, WithCardinalityInference> {
+): InstantCoreExperimental<Schema, RoomSchema> {
   const existingClient = globalInstantCoreStore[
     config.appId
-  ] as InstantCoreExperimental<any, RoomSchema, WithCardinalityInference>;
+  ] as InstantCoreExperimental<any, RoomSchema>;
 
   if (existingClient) {
     return existingClient;
@@ -812,16 +783,13 @@ function _init_internal_experimental<
     {
       ...defaultConfig,
       ...config,
+      cardinalityInference: true,
     },
     Storage || IndexedDBStorage,
     NetworkListener || WindowNetworkListener,
   );
 
-  const client = new InstantCoreExperimental<
-    any,
-    RoomSchema,
-    WithCardinalityInference
-  >(reactor);
+  const client = new InstantCoreExperimental<any, RoomSchema>(reactor);
   globalInstantCoreStore[config.appId] = client;
 
   if (typeof window !== "undefined" && typeof window.location !== "undefined") {
