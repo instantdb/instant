@@ -8,7 +8,6 @@
    [instant.db.model.transaction :as transaction-model]
    [instant.discord :as discord]
    [instant.config :as config]
-   [instant.gauges :as gauges]
    [instant.jdbc.aurora :as aurora]
    [instant.util.async :as ua]
    [instant.util.tracer :as tracer]
@@ -97,15 +96,16 @@
                     :invalid_triples_sample]))
 
 (defn get-by-id-for-client
-  ([job-id]
-   (get-by-id-for-client aurora/conn-pool job-id))
-  ([conn job-id]
+  ([app-id job-id]
+   (get-by-id-for-client aurora/conn-pool app-id job-id))
+  ([conn app-id job-id]
    (let [q {:select [:j.* [[:case [:= :error invalid-triple-error]
                             {:select [[[:json_agg :t]]]
                              :from [[{:select [:t.entity-id :t.value]
                                       :from [[:triples :t]]
                                       :limit 10
                                       :where [:and
+                                              [:= :app-id app-id]
                                               [:not= nil :j.checked-data-type]
                                               [:= :t.app_id :j.app_id]
                                               [:= :t.attr_id :j.attr_id]
@@ -124,6 +124,7 @@
    (sql/select conn (hsql/format {:select :t.*
                                   :from [[:triples :t]]
                                   :join [[:indexing-jobs :j] [:= :t.app_id :j.app_id]]
+                                  :limit limit
                                   :where [:and
                                           [:= :j.id job-id]
                                           [:not= nil :j.checked-data-type]
@@ -286,7 +287,7 @@
 (defn check-next-batch!
   ([job]
    (check-next-batch! aurora/conn-pool job))
-  ([conn {:keys [app_id attr_id job_type checked_data_type] :as job}]
+  ([conn {:keys [app_id attr_id job_type checked_data_type]}]
    (assert (= "check-data-type" job_type))
    (assert checked_data_type)
    (let [res (sql/do-execute! conn (hsql/format {:update :triples
@@ -441,8 +442,9 @@
 (defn remove-data-type-next-batch!
   ([job]
    (remove-data-type-next-batch! aurora/conn-pool job))
-  ([conn {:keys [app_id attr_id job_type checked_data_type] :as job}]
+  ([conn {:keys [app_id attr_id job_type checked_data_type]}]
    (assert (= "remove-data-type" job_type))
+   (assert (nil? checked_data_type))
    (let [res (sql/do-execute! conn (hsql/format {:update :triples
                                                  :set {:checked-data-type nil}
                                                  :where [:in :ctid

@@ -1047,7 +1047,7 @@
 (defn indexing-job-get [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         job-id (ex/get-param! req [:params :job_id] uuid-util/coerce)
-        job (indexing-jobs/get-by-id-for-client job-id)]
+        job (indexing-jobs/get-by-id-for-client app-id job-id)]
     (response/ok {:job job})))
 
 (defn indexing-job-post [req]
