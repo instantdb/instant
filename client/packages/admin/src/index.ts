@@ -15,6 +15,7 @@ import {
 
   // query types
   type QueryResponse,
+  type QueryResponseExperimental,
   type InstaQLQueryParams,
   type InstantQuery,
   type InstantQueryResult,
@@ -153,7 +154,7 @@ async function jsonFetch(
  *
  */
 function init<Schema extends {} = {}>(config: Config) {
-  return new InstantAdmin<Schema, false>(config);
+  return new InstantAdmin<Schema>(config);
 }
 
 function init_experimental<
@@ -165,7 +166,7 @@ function init_experimental<
     cardinalityInference?: WithCardinalityInference;
   },
 ) {
-  return new InstantAdmin<Schema, WithCardinalityInference>(config);
+  return new InstantAdminExperimental<Schema, WithCardinalityInference>(config);
 }
 
 /**
@@ -177,10 +178,7 @@ function init_experimental<
  * @example
  *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
  */
-class InstantAdmin<
-  Schema extends InstantGraph<any, any> | {},
-  WithCardinalityInference extends boolean,
-> {
+class InstantAdmin<Schema extends InstantGraph<any, any> | {}> {
   config: FilledConfig;
   auth: Auth;
   storage: Storage;
@@ -208,8 +206,8 @@ class InstantAdmin<
    */
   asUser = (
     opts: ImpersonationOpts,
-  ): InstantAdmin<Schema, WithCardinalityInference> => {
-    const newClient = new InstantAdmin<Schema, WithCardinalityInference>({
+  ): InstantAdmin<Schema> => {
+    const newClient = new InstantAdmin<Schema>({
       ...this.config,
     });
     newClient.impersonationOpts = opts;
@@ -237,7 +235,7 @@ class InstantAdmin<
       : Exactly<Query, Q>,
   >(
     query: Q,
-  ): Promise<QueryResponse<Q, Schema, WithCardinalityInference>> => {
+  ): Promise<QueryResponse<Q, Schema>> => {
     const withInference =
       "cardinalityInference" in this.config
         ? Boolean(this.config.cardinalityInference)
@@ -313,7 +311,7 @@ class InstantAdmin<
     query: Exactly<Query, Q>,
     opts?: { rules: any },
   ): Promise<{
-    result: QueryResponse<Q, Schema, WithCardinalityInference>;
+    result: QueryResponse<Q, Schema>;
     checkResults: DebugCheckResult[];
   }> => {
     const response = await jsonFetch(
@@ -473,7 +471,7 @@ class Auth {
   ): Promise<User> => {
     const qs = Object.entries(params)
       .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
-      .join('&');
+      .join("&");
 
     const response: { user: User } = await jsonFetch(
       `${this.config.apiURI}/admin/users?${qs}`,
@@ -663,6 +661,206 @@ class Storage {
       method: "POST",
       headers: authorizedHeaders(this.config),
       body: JSON.stringify({ filenames: pathnames }),
+    });
+  };
+}
+
+/**
+ *
+ * The first step: init your application!
+ *
+ * Visit https://instantdb.com/dash to get your `appId` and `adminToken` :)
+ *
+ * @example
+ *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
+ */
+class InstantAdminExperimental<
+  Schema extends InstantGraph<any, any> | {},
+  WithCardinalityInference extends boolean,
+> {
+  config: FilledConfig;
+  auth: Auth;
+  storage: Storage;
+  impersonationOpts?: ImpersonationOpts;
+
+  public tx =
+    txInit<
+      Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
+    >();
+
+  constructor(_config: Config) {
+    this.config = configWithDefaults(_config);
+    this.auth = new Auth(this.config);
+    this.storage = new Storage(this.config);
+  }
+
+  /**
+   * Sometimes you want to scope queries to a specific user.
+   *
+   * You can provide a user's auth token, email, or impersonate a guest.
+   *
+   * @see https://instantdb.com/docs/backend#impersonating-users
+   * @example
+   *  await db.asUser({email: "stopa@instantdb.com"}).query({ goals: {} })
+   */
+  asUser = (opts: ImpersonationOpts): InstantAdmin<Schema> => {
+    const newClient = new InstantAdmin<Schema>({
+      ...this.config,
+    });
+    newClient.impersonationOpts = opts;
+    return newClient;
+  };
+
+  /**
+   * Use this to query your data!
+   *
+   * @see https://instantdb.com/docs/instaql
+   *
+   * @example
+   *  // fetch all goals
+   *  await db.query({ goals: {} })
+   *
+   *  // goals where the title is "Get Fit"
+   *  await db.query({ goals: { $: { where: { title: "Get Fit" } } } })
+   *
+   *  // all goals, _alongside_ their todos
+   *  await db.query({ goals: { todos: {} } })
+   */
+  query = <
+    Q extends Schema extends InstantGraph<any, any>
+      ? InstaQLQueryParams<Schema>
+      : Exactly<Query, Q>,
+  >(
+    query: Q,
+  ): Promise<
+    QueryResponseExperimental<Q, Schema, WithCardinalityInference>
+  > => {
+    const withInference =
+      "cardinalityInference" in this.config
+        ? Boolean(this.config.cardinalityInference)
+        : true;
+
+    return jsonFetch(`${this.config.apiURI}/admin/query`, {
+      method: "POST",
+      headers: authorizedHeaders(this.config, this.impersonationOpts),
+      body: JSON.stringify({
+        query: query,
+        "inference?": withInference,
+      }),
+    });
+  };
+
+  /**
+   * Use this to write data! You can create, update, delete, and link objects
+   *
+   * @see https://instantdb.com/docs/instaml
+   *
+   * @example
+   *   // Create a new object in the `goals` namespace
+   *   const goalId = id();
+   *   db.transact(tx.goals[goalId].update({title: "Get fit"}))
+   *
+   *   // Update the title
+   *   db.transact(tx.goals[goalId].update({title: "Get super fit"}))
+   *
+   *   // Delete it
+   *   db.transact(tx.goals[goalId].delete())
+   *
+   *   // Or create an association:
+   *   todoId = id();
+   *   db.transact([
+   *    tx.todos[todoId].update({ title: 'Go on a run' }),
+   *    tx.goals[goalId].link({todos: todoId}),
+   *  ])
+   */
+  transact = (
+    inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
+  ) => {
+    const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
+    const steps = chunks.flatMap((tx) => getOps(tx));
+    return jsonFetch(`${this.config.apiURI}/admin/transact`, {
+      method: "POST",
+      headers: authorizedHeaders(this.config, this.impersonationOpts),
+      body: JSON.stringify({ steps: steps }),
+    });
+  };
+
+  /**
+   * Like `query`, but returns debugging information
+   * for permissions checks along with the result.
+   * Useful for inspecting the values returned by the permissions checks.
+   * Note, this will return debug information for *all* entities
+   * that match the query's `where` clauses.
+   *
+   * Requires a user/guest context to be set with `asUser`,
+   * since permissions checks are user-specific.
+   *
+   * Accepts an optional configuration object with a `rules` key.
+   * The provided rules will override the rules in the database for the query.
+   *
+   * @see https://instantdb.com/docs/instaql
+   *
+   * @example
+   *  await db.asUser({ guest: true }).debugQuery(
+   *    { goals: {} },
+   *    { rules: { goals: { allow: { read: "auth.id != null" } } }
+   *  )
+   */
+  debugQuery = async <Q extends Query>(
+    query: Exactly<Query, Q>,
+    opts?: { rules: any },
+  ): Promise<{
+    result: QueryResponseExperimental<Q, Schema, WithCardinalityInference>;
+    checkResults: DebugCheckResult[];
+  }> => {
+    const response = await jsonFetch(
+      `${this.config.apiURI}/admin/query_perms_check`,
+      {
+        method: "POST",
+        headers: authorizedHeaders(this.config, this.impersonationOpts),
+        body: JSON.stringify({ query, "rules-override": opts?.rules }),
+      },
+    );
+
+    return {
+      result: response.result,
+      checkResults: response["check-results"],
+    };
+  };
+
+  /**
+   * Like `transact`, but does not write to the database.
+   * Returns debugging information for permissions checks.
+   * Useful for inspecting the values returned by the permissions checks.
+   *
+   * Requires a user/guest context to be set with `asUser`,
+   * since permissions checks are user-specific.
+   *
+   * Accepts an optional configuration object with a `rules` key.
+   * The provided rules will override the rules in the database for the duration of the transaction.
+   *
+   * @example
+   *   const goalId = id();
+   *   db.asUser({ guest: true }).debugTransact(
+   *      [tx.goals[goalId].update({title: "Get fit"})],
+   *      { rules: { goals: { allow: { update: "auth.id != null" } } }
+   *   )
+   */
+  debugTransact = (
+    inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
+    opts?: { rules?: any },
+  ) => {
+    const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
+    const steps = chunks.flatMap((tx) => getOps(tx));
+    return jsonFetch(`${this.config.apiURI}/admin/transact_perms_check`, {
+      method: "POST",
+      headers: authorizedHeaders(this.config, this.impersonationOpts),
+      body: JSON.stringify({
+        steps: steps,
+        "rules-override": opts?.rules,
+        // @ts-expect-error because we're using a private API (for now)
+        "dangerously-commit-tx": opts?.__dangerouslyCommit,
+      }),
     });
   };
 }

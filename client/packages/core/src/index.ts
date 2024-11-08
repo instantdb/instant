@@ -28,6 +28,7 @@ import type {
   Exactly,
   InstantObject,
   InstaQLQueryParams,
+  QueryResponseExperimental,
 } from "./queryTypes";
 import type { AuthState, User, AuthResult } from "./clientTypes";
 import type {
@@ -94,11 +95,11 @@ export type RoomHandle<PresenceShape, TopicsByKey> = {
 
 type AuthToken = string;
 
-type SubscriptionState<Q, Schema, WithCardinalityInference extends boolean> =
+type SubscriptionState<Q, Schema> =
   | { error: { message: string }; data: undefined; pageInfo: undefined }
   | {
       error: undefined;
-      data: QueryResponse<Q, Schema, WithCardinalityInference>;
+      data: QueryResponse<Q, Schema>;
       pageInfo: PageInfoResponse<Q>;
     };
 
@@ -110,15 +111,11 @@ type SubscriptionStateExperimental<
   | { error: { message: string }; data: undefined; pageInfo: undefined }
   | {
       error: undefined;
-      data: QueryResponse<Q, Schema, WithCardinalityInference>;
+      data: QueryResponseExperimental<Q, Schema, WithCardinalityInference>;
       pageInfo: PageInfoResponse<Q>;
     };
 
-type LifecycleSubscriptionState<
-  Q,
-  Schema,
-  WithCardinalityInference extends boolean,
-> = SubscriptionState<Q, Schema, WithCardinalityInference> & {
+type LifecycleSubscriptionState<Q, Schema> = SubscriptionState<Q, Schema> & {
   isLoading: boolean;
 };
 
@@ -178,18 +175,16 @@ function init<Schema extends {} = {}, RoomSchema extends RoomSchemaShape = {}>(
 }
 
 function _init_internal<
-  Schema extends {} | InstantGraph<any, any, any>,
+  Schema extends {},
   RoomSchema extends RoomSchemaShape,
-  WithCardinalityInference extends boolean = false,
 >(
   config: Config,
   Storage?: any,
   NetworkListener?: any,
-): InstantCore<Schema, RoomSchema, WithCardinalityInference> {
+): InstantCore<Schema, RoomSchema> {
   const existingClient = globalInstantCoreStore[config.appId] as InstantCore<
     any,
-    RoomSchema,
-    WithCardinalityInference
+    RoomSchema
   >;
 
   if (existingClient) {
@@ -205,9 +200,7 @@ function _init_internal<
     NetworkListener || WindowNetworkListener,
   );
 
-  const client = new InstantCore<any, RoomSchema, WithCardinalityInference>(
-    reactor,
-  );
+  const client = new InstantCore<any, RoomSchema>(reactor);
   globalInstantCoreStore[config.appId] = client;
 
   if (typeof window !== "undefined" && typeof window.location !== "undefined") {
@@ -227,21 +220,14 @@ function _init_internal<
   return client;
 }
 
-class InstantCore<
-  Schema extends InstantGraph<any, any> | {} = {},
-  RoomSchema extends RoomSchemaShape = {},
-  WithCardinalityInference extends boolean = false,
-> implements IDatabase<Schema, RoomSchema, WithCardinalityInference>
+class InstantCore<Schema extends {}, RoomSchema extends RoomSchemaShape = {}>
+  implements IDatabase<Schema, RoomSchema>
 {
-  public withCardinalityInference?: WithCardinalityInference;
   public _reactor: Reactor<RoomSchema>;
   public auth: Auth;
   public storage: Storage;
 
-  public tx =
-    txInit<
-      Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
-    >();
+  public tx = txInit<InstantGraph<any, any>>();
 
   constructor(reactor: Reactor<RoomSchema>) {
     this._reactor = reactor;
@@ -306,13 +292,9 @@ class InstantCore<
    *    console.log(resp.data.goals)
    *  });
    */
-  subscribeQuery<
-    Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
-      : Exactly<Query, Q>,
-  >(
+  subscribeQuery<Q extends Exactly<Query, Q>>(
     query: Q,
-    cb: (resp: SubscriptionState<Q, Schema, WithCardinalityInference>) => void,
+    cb: (resp: SubscriptionState<Q, Schema>) => void,
   ) {
     return this._reactor.subscribeQuery(query, cb);
   }
@@ -394,14 +376,10 @@ class InstantCore<
    *  const resp = await db.queryOnce({ goals: {} });
    *  console.log(resp.data.goals)
    */
-  queryOnce<
-    Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
-      : Exactly<Query, Q>,
-  >(
+  queryOnce<Q extends Exactly<Query, Q>>(
     query: Q,
   ): Promise<{
-    data: QueryResponse<Q, Schema, WithCardinalityInference>;
+    data: QueryResponse<Q, Schema>;
     pageInfo: PageInfoResponse<Q>;
   }> {
     return this._reactor.queryOnce(query);
@@ -782,7 +760,7 @@ class InstantCoreExperimental<
   >(
     query: Q,
   ): Promise<{
-    data: QueryResponse<Q, Schema, WithCardinalityInference>;
+    data: QueryResponseExperimental<Q, Schema, WithCardinalityInference>;
     pageInfo: PageInfoResponse<Q>;
   }> {
     return this._reactor.queryOnce(query);
@@ -893,6 +871,7 @@ export {
   type RoomSchemaShape,
   type Query,
   type QueryResponse,
+  type QueryResponseExperimental,
   type PageInfoResponse,
   type InstantObject,
   type Exactly,
