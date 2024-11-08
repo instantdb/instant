@@ -260,3 +260,27 @@ export type ResolveAttrs<
       ? ResolvedAttrs
       : Omit<ResolvedAttrs, keyof AsType> & AsType
     : ResolvedAttrs;
+
+
+export type RoomsOf<S> =
+  S extends InstantGraph<any, any, infer R>
+    ? R extends RoomSchemaShape
+      ? R
+      : never
+    : never;
+
+export type PresenceOf<
+  S,
+  RoomType extends keyof RoomsOf<S>,
+> = RoomsOf<S>[RoomType] extends { presence: infer P } ? P : {};
+
+export type TopicsOf<
+  S,
+  RoomType extends keyof RoomsOf<S>,
+> = RoomsOf<S>[RoomType] extends { topics: infer T } ? T : {};
+
+export type TopicOf<
+  S,
+  RoomType extends keyof RoomsOf<S>,
+  TopicType extends keyof TopicsOf<S, RoomType>,
+> = TopicsOf<S, RoomType>[TopicType];

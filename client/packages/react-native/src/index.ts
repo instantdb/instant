@@ -89,21 +89,12 @@ function init_experimental<
   >(config);
 }
 
-function init_experimental_v2<
-  Schema extends InstantGraph<any, any, any>,
-  WithCardinalityInference extends boolean = true,
->(
+function init_experimental_v2<Schema extends InstantGraph<any, any, any>>(
   config: Config & {
     schema: Schema;
-    cardinalityInference?: WithCardinalityInference;
   },
 ) {
-  return new InstantReactNativeExperimental<
-    Schema,
-    Schema extends InstantGraph<any, infer RoomSchema, any>
-      ? RoomSchema
-      : never
-  >(config);
+  return new InstantReactNativeExperimental<Schema>(config);
 }
 
 class InstantReactNative<
@@ -121,11 +112,7 @@ class InstantReactNative<
 
 class InstantReactNativeExperimental<
   Schema extends InstantGraph<any, any, any>,
-  RoomSchema extends RoomSchemaShape = {}
-> extends InstantReactExperimental<
-  Schema,
-  RoomSchema
-> {
+> extends InstantReactExperimental<Schema> {
   static Storage = Storage;
   static NetworkListener = NetworkListener;
 }
@@ -133,6 +120,7 @@ class InstantReactNativeExperimental<
 export {
   init,
   init_experimental,
+  init_experimental_v2,
   id,
   tx,
   lookup,

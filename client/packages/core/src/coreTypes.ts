@@ -18,10 +18,7 @@ export interface IDatabase<
 // XXX-EXPERIMENTAL
 
 export interface IDatabaseExperimental<
-  Schema extends InstantGraph<any, any>,
-  RoomSchema extends RoomSchemaShape = {}
+  Schema extends InstantGraph<any, any, any>,
 > {
-  tx: TxChunk<
-    Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
-  >;
+  tx: TxChunk<Schema>;
 }

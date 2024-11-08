@@ -60,7 +60,6 @@ export function init_experimental_v2<
   },
 ) {
   return new InstantReactWebExperimental<
-    Schema,
-    Schema extends InstantGraph<any, any, infer RoomSchema> ? RoomSchema : never
+    Schema
   >(config);
 }

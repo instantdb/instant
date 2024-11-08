@@ -25,6 +25,7 @@ import {
   _init_internal_experimental_v2,
   LifecycleSubscriptionStateExperimental,
   QueryResponseExperimental,
+  RoomsOf,
 } from "@instantdb/core";
 import {
   KeyboardEvent,
@@ -69,12 +70,12 @@ export class InstantReactRoomExperimental<
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
 > {
-  _core: InstantClientExperimental<Schema, RoomSchema>;
+  _core: InstantClientExperimental<Schema>;
   type: RoomType;
   id: string;
 
   constructor(
-    _core: InstantClientExperimental<Schema, RoomSchema>,
+    _core: InstantClientExperimental<Schema>,
     type: RoomType,
     id: string,
   ) {
@@ -302,21 +303,21 @@ const defaultAuthState = {
 
 export abstract class InstantReactExperimental<
   Schema extends InstantGraph<any, any>,
-  RoomSchema extends RoomSchemaShape = {}
-> implements IDatabaseExperimental<Schema, RoomSchema>
+  Rooms extends RoomSchemaShape = RoomsOf<Schema>
+> implements IDatabaseExperimental<Schema>
 {
   public tx =
     txInit<Schema>();
 
   public auth: Auth;
   public storage: Storage;
-  public _core: InstantClientExperimental<Schema, RoomSchema>;
+  public _core: InstantClientExperimental<Schema>;
 
   static Storage?: any;
   static NetworkListener?: any;
 
   constructor(config: Config | ConfigWithSchema<any>) {
-    this._core = _init_internal_experimental_v2<Schema, RoomSchema>(
+    this._core = _init_internal_experimental_v2<Schema>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.Storage,
@@ -347,11 +348,11 @@ export abstract class InstantReactExperimental<
    *   useTypingIndicator,
    * } = db.room(roomType, roomId);
    */
-  room<RoomType extends keyof RoomSchema>(
+  room<RoomType extends keyof Rooms>(
     type: RoomType = "_defaultRoomType" as RoomType,
     id: string = "_defaultRoomId",
   ) {
-    return new InstantReactRoomExperimental<Schema, RoomSchema, RoomType>(
+    return new InstantReactRoomExperimental<Schema, Rooms, RoomType>(
       this._core,
       type,
       id,
