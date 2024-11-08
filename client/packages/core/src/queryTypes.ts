@@ -101,6 +101,15 @@ type QueryResponse<
     ? InstaQLQueryResult<E, Q, WithCardinalityInference>
     : ResponseOf<{ [K in keyof Q]: Remove$<Q[K]> }, Schema>;
 
+type QueryResponseExperimental<
+  Q,
+  Schema,
+  WithCardinalityInference extends boolean = false,
+> =
+  Schema extends InstantGraph<infer E, any>
+    ? InstaQLQueryResult<E, Q, WithCardinalityInference>
+    : ResponseOf<{ [K in keyof Q]: Remove$<Q[K]> }, Schema>;
+
 type PageInfoResponse<T> = {
   [K in keyof T]: {
     startCursor: Cursor;
@@ -230,6 +239,7 @@ type InstaQLQueryParams<S extends InstantGraph<any, any>> = {
 export {
   Query,
   QueryResponse,
+  QueryResponseExperimental,
   PageInfoResponse,
   InstantObject,
   Exactly,

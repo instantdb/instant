@@ -8,6 +8,7 @@ import type { InstantGraph } from "./schemaTypes";
 import type { IDatabase } from "./coreTypes";
 import { RoomSchemaShape } from "./presence";
 
+// TODO: decide about these guys for v2
 export type InstantQuery<DB extends IDatabase<any, any, any>> =
   DB extends IDatabase<infer Schema, any, any>
     ? Schema extends InstantGraph<any, any, any>

@@ -5,6 +5,7 @@ import type {
   RoomSchemaShape,
 } from "@instantdb/core";
 import { InstantReactWeb } from "./InstantReactWeb";
+import { InstantReactWebExperimental } from "./InstantReactWebExperimental";
 
 /**
  *
@@ -50,3 +51,22 @@ export function init_experimental<
     WithCardinalityInference
   >(config);
 }
+
+export function init_experimental_v2<
+  Schema extends InstantGraph<any, any, any>,
+  WithCardinalityInference extends boolean = true,
+>(
+  config: Config & {
+    schema: Schema;
+    cardinalityInference?: WithCardinalityInference;
+  },
+) {
+  return new InstantReactWebExperimental<
+    Schema,
+    Schema extends InstantGraph<any, any, infer RoomSchema>
+      ? RoomSchema
+      : never,
+    WithCardinalityInference
+  >(config);
+}
+

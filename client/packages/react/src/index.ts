@@ -35,7 +35,8 @@ import {
 
 import { InstantReact } from "./InstantReact";
 import { InstantReactWeb } from "./InstantReactWeb";
-import { init, init_experimental } from "./init";
+import { InstantReactWebExperimental } from "./InstantReactWebExperimental";
+import { init, init_experimental, init_experimental_v2 } from "./init";
 import { Cursors } from "./Cursors";
 
 export {
@@ -44,7 +45,9 @@ export {
   lookup,
   init,
   init_experimental,
+  init_experimental_v2,
   InstantReactWeb,
+  InstantReactWebExperimental,
   Cursors,
   i,
 

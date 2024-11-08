@@ -43,6 +43,7 @@ import {
   type InstantEntity,
   ConfigWithSchema,
 } from "@instantdb/core";
+import { InstantReactExperimental } from "@instantdb/react/dist/module/InstantReactExperimental";
 
 /**
  *
@@ -88,6 +89,24 @@ function init_experimental<
   >(config);
 }
 
+function init_experimental_v2<
+  Schema extends InstantGraph<any, any, any>,
+  WithCardinalityInference extends boolean = true,
+>(
+  config: Config & {
+    schema: Schema;
+    cardinalityInference?: WithCardinalityInference;
+  },
+) {
+  return new InstantReactNativeExperimental<
+    Schema,
+    Schema extends InstantGraph<any, infer RoomSchema, any>
+      ? RoomSchema
+      : never,
+    WithCardinalityInference
+  >(config);
+}
+
 class InstantReactNative<
   Schema extends InstantGraph<any, any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
@@ -99,6 +118,19 @@ class InstantReactNative<
   constructor(config: Config | ConfigWithSchema<any>) {
     super(config, { "@instantdb/react-native": version });
   }
+}
+
+class InstantReactNativeExperimental<
+  Schema extends InstantGraph<any, any, any> | {} = {},
+  RoomSchema extends RoomSchemaShape = {},
+  WithCardinalityInference extends boolean = false,
+> extends InstantReactExperimental<
+  Schema,
+  RoomSchema,
+  WithCardinalityInference
+> {
+  static Storage = Storage;
+  static NetworkListener = NetworkListener;
 }
 
 export {
