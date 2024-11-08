@@ -29,6 +29,7 @@ import { RelationshipConfigurator } from '@/components/dash/explorer/Relationshi
 import { createJob, jobFetchLoop } from '@/lib/indexingJobs';
 import { useAuthToken } from '@/lib/auth';
 import type { PushNavStack } from './Explorer';
+import { useClose } from '@headlessui/react';
 
 export function EditNamespaceDialog({
   db,
@@ -499,7 +500,6 @@ function EditCheckedDataType({
         }
         if (data) {
           setIndexingJob(data);
-          console.log('data', data);
         }
       });
       if (finishedJob) {
@@ -541,7 +541,7 @@ function EditCheckedDataType({
       ? 'Remove type'
       : `Set type to ${checkedDataType}`;
 
-  console.log(indexingJob);
+  const closeDialog = useClose();
 
   return (
     <ActionForm className="flex flex-col gap-1">
@@ -620,6 +620,8 @@ function EditCheckedDataType({
                           namespace: attr.namespace,
                           where: ['id', t.entity_id],
                         });
+                        // It would be nice to have a way to minimize the dialog so you could go back
+                        closeDialog();
                       }}
                     >
                       <td style={{ width: 280 }}>
