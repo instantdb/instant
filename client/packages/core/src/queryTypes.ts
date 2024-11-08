@@ -92,7 +92,12 @@ type Remove$<T> = T extends object
   ? { [K in keyof T as Exclude<K, "$">]: Remove$<T[K]> }
   : T;
 
-type QueryResponse<
+type QueryResponse<Q, Schema> = ResponseOf<
+  { [K in keyof Q]: Remove$<Q[K]> },
+  Schema
+>;
+
+type QueryResponseExperimental<
   Q,
   Schema,
   WithCardinalityInference extends boolean = false,
@@ -227,9 +232,10 @@ type InstaQLQueryParams<S extends InstantGraph<any, any>> = {
     | ($Option & InstaQLQuerySubqueryParams<S, K>);
 };
 
-export {
+export type{
   Query,
   QueryResponse,
+  QueryResponseExperimental,
   PageInfoResponse,
   InstantObject,
   Exactly,

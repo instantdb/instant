@@ -60,7 +60,7 @@ export type TypingIndicatorHandle<PresenceShape> = {
 export const defaultActivityStopTimeout = 1_000;
 
 export class InstantReactRoom<
-  Schema extends InstantGraph<any, any> | {},
+  Schema extends {},
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
 > {
@@ -69,7 +69,7 @@ export class InstantReactRoom<
   id: string;
 
   constructor(
-    _core: InstantClient<Schema, RoomSchema, any>,
+    _core: InstantClient<Schema, RoomSchema>,
     type: RoomType,
     id: string,
   ) {
@@ -296,26 +296,21 @@ const defaultAuthState = {
 };
 
 export abstract class InstantReact<
-  Schema extends InstantGraph<any, any> | {} = {},
+  Schema extends {},
   RoomSchema extends RoomSchemaShape = {},
-  WithCardinalityInference extends boolean = false,
-> implements IDatabase<Schema, RoomSchema, WithCardinalityInference>
+> implements IDatabase<Schema, RoomSchema>
 {
-  public withCardinalityInference?: WithCardinalityInference;
-  public tx =
-    txInit<
-      Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
-    >();
+  public tx = txInit<InstantGraph<any, any>>();
 
   public auth: Auth;
   public storage: Storage;
-  public _core: InstantClient<Schema, RoomSchema, WithCardinalityInference>;
+  public _core: InstantClient<Schema, RoomSchema>;
 
   static Storage?: any;
   static NetworkListener?: any;
 
   constructor(config: Config | ConfigWithSchema<any>) {
-    this._core = _init_internal<Schema, RoomSchema, WithCardinalityInference>(
+    this._core = _init_internal<Schema, RoomSchema>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.Storage,
@@ -405,12 +400,10 @@ export abstract class InstantReact<
    *  db.useQuery(auth.user ? { goals: {} } : null)
    */
   useQuery = <
-    Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
-      : Exactly<Query, Q>,
+    Q extends Exactly<Query, Q>,
   >(
     query: null | Q,
-  ): LifecycleSubscriptionState<Q, Schema, WithCardinalityInference> => {
+  ): LifecycleSubscriptionState<Q, Schema> => {
     return useQuery(this._core, query).state;
   };
 
@@ -480,13 +473,11 @@ export abstract class InstantReact<
    *  console.log(resp.data.goals)
    */
   queryOnce = <
-    Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
-      : Exactly<Query, Q>,
+    Q extends Exactly<Query, Q>,
   >(
     query: Q,
   ): Promise<{
-    data: QueryResponse<Q, Schema, WithCardinalityInference>;
+    data: QueryResponse<Q, Schema>;
     pageInfo: PageInfoResponse<Q>;
   }> => {
     return this._core.queryOnce(query);

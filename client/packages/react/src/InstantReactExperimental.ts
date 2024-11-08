@@ -23,6 +23,7 @@ import {
   type PageInfoResponse,
   InstantClientExperimental,
   _init_internal_experimental,
+  LifecycleSubscriptionStateExperimental,
 } from "@instantdb/core";
 import {
   KeyboardEvent,
@@ -36,6 +37,7 @@ import {
 import { useQuery, useQueryExperimental } from "./useQuery";
 import { useTimeout } from "./useTimeout";
 import { IDatabaseExperimental } from "@instantdb/core/dist/module/coreTypes";
+import { QueryResponseExperimental } from "@instantdb/core/dist/module/queryTypes";
 
 export type PresenceHandle<
   PresenceShape,
@@ -67,12 +69,12 @@ export class InstantReactRoom<
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
 > {
-  _core: InstantClient<Schema, RoomSchema>;
+  _core: InstantClientExperimental<Schema, RoomSchema>;
   type: RoomType;
   id: string;
 
   constructor(
-    _core: InstantClient<Schema, RoomSchema, any>,
+    _core: InstantClientExperimental<Schema, RoomSchema, any>,
     type: RoomType,
     id: string,
   ) {
@@ -413,7 +415,7 @@ export abstract class InstantReactExperimental<
       : Exactly<Query, Q>,
   >(
     query: null | Q,
-  ): LifecycleSubscriptionState<Q, Schema, WithCardinalityInference> => {
+  ): LifecycleSubscriptionStateExperimental<Q, Schema, WithCardinalityInference> => {
     return useQueryExperimental(this._core, query).state;
   };
 
@@ -489,7 +491,7 @@ export abstract class InstantReactExperimental<
   >(
     query: Q,
   ): Promise<{
-    data: QueryResponse<Q, Schema, WithCardinalityInference>;
+    data: QueryResponseExperimental<Q, Schema, WithCardinalityInference>;
     pageInfo: PageInfoResponse<Q>;
   }> => {
     return this._core.queryOnce(query);
