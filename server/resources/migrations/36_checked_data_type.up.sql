@@ -183,19 +183,3 @@ create unique index on indexing_jobs (app_id, attr_id, job_serial_key)
 create trigger update_updated_at_trigger
   before update on indexing_jobs for each row
   execute function update_updated_at_column();
-
--- create table invalid_triples(
---   id uuid primary key,
---   app_id uuid not null references apps(id) on delete cascade,
---   indexing_job_id uuid not null references indexing_jobs(id) on delete cascade,
---   -- It would be nice to add a foreign key into the triples table,
---   -- but we don't want to slow down triple deletion to update this table.
---   entity_id uuid not null,
---   -- No need for reference, because if attr_id is deleted, indexing_job_id
---   -- will cascade delete and delete this row
---   attr_id uuid not null,
---   value_md5 text not null
--- );
-
--- create index on invalid_triples (app_id, entity_id, attr_id);
--- create index on invalid_triples (indexing_job_id);

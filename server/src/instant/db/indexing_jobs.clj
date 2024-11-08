@@ -21,9 +21,6 @@
 
 (declare job-queue)
 
-;; Something in the background to pick up stuck jobs or
-;; jobs that need action
-
 (def job-types #{"check-data-type"
                  "remove-data-type"
                  "index"
@@ -182,19 +179,22 @@
                       :job-type "remove-data-type"
                       :job-stage "update-attr-start"})))
 
-(def job-available-wheres
-  [[:= :worker-id nil]
-   ;; Ensure we don't grab a job we can't handle
-   [:in :job-type job-types]
-   [:or
-    ;; XXX: TEST
-    [:= :job-dependency nil]
-    [:= "completed" {:select :job-status
-                     :from [[:indexing-jobs :dep]]
-                     :where [:= :dep.id :job-dependency]}]]
-   [:or
-    [:= :job-status "waiting"]
-    [:= :job-status "processing"]]])
+(defn job-available-wheres
+  "Where clauses that select jobs that are available for taking."
+  [& additional-clauses]
+  (list* :and
+         [:= :worker-id nil]
+         ;; Ensure we don't grab a job we can't handle
+         [:in :job-type job-types]
+         [:or
+          [:= :job-dependency nil]
+          [:= "completed" {:select :job-status
+                           :from [[:indexing-jobs :dep]]
+                           :where [:= :dep.id :job-dependency]}]]
+         [:or
+          [:= :job-status "waiting"]
+          [:= :job-status "processing"]]
+         additional-clauses))
 
 (defn grab-job!
   ([job-id]
@@ -202,11 +202,18 @@
   ([conn job-id]
    (sql/execute-one! conn (hsql/format
                            {:update :indexing-jobs
-                            :where (list* :and
-                                          [:= :id job-id]
-                                          job-available-wheres)
+                            :where (job-available-wheres
+                                    [:= :id job-id])
                             :set {:worker-id @config/process-id
                                   :job-status "processing"}}))))
+
+(defn job-update-wheres
+  "Where clauses that prevent us from updating a job we don't own."
+  [& additional-clauses]
+  (list* :and
+         [:= :worker-id @config/process-id]
+         [:= :job-status "processing"]
+         additional-clauses))
 
 (defn update-work-estimate!
   ([job next-stage]
@@ -214,16 +221,17 @@
   ([conn next-stage job]
    (let [estimate (case (:job_type job)
                     ("check-data-type" "remove-data-type" "index" "unique")
-                    (-> (sql/select-one conn (hsql/format {:select :%count.*
-                                                           :from :triples
-                                                           :where [:and
-                                                                   ;; XXX: Should we check how many need the
-                                                                   ;;      data type?
-                                                                   [:= :app-id (:app_id job)]
-                                                                   [:= :attr-id (:attr_id job)]]}))
+                    (-> (sql/select-one
+                         conn
+                         (hsql/format {:select :%count.*
+                                       :from :triples
+                                       :where [:and
+                                               [:= :app-id (:app_id job)]
+                                               [:= :attr-id (:attr_id job)]]}))
                         :count))]
      (sql/execute-one! conn (hsql/format {:update :indexing-jobs
-                                          :where [:= :id (:id job)]
+                                          :where (job-update-wheres
+                                                  [:= :id (:id job)])
                                           :set {:work-estimate estimate
                                                 :job-stage next-stage}})))))
 
@@ -232,19 +240,20 @@
    (add-work-completed! aurora/conn-pool completed-count job))
   ([conn completed-count job]
    (sql/execute-one! conn (hsql/format {:update :indexing-jobs
-                                        :where [:= :id (:id job)]
-                                        :set {:work-completed [:+ [:coalesce :work-completed 0] completed-count]}}))))
+                                        :where (job-update-wheres
+                                                [:= :id (:id job)])
+                                        :set {:work-completed
+                                              [:+
+                                               [:coalesce :work-completed 0]
+                                               completed-count]}}))))
 
 (defn release-job!
   ([job] (release-job! aurora/conn-pool job))
   ([conn job]
    (tracer/with-span! (job-span-attrs "release-job" job)
      (sql/execute-one! conn (hsql/format {:update :indexing-jobs
-                                          :where [:and
-                                                  [:= :id (:id job)]
-                                                  ;; Guard against job being canceled
-                                                  [:= :worker-id @config/process-id]
-                                                  [:= :job-status "processing"]]
+                                          :where (job-update-wheres
+                                                  [:= :id (:id job)])
                                           :set {:worker-id nil}})))))
 
 (defn mark-job-completed!
@@ -253,11 +262,8 @@
   ([conn job]
    (tracer/with-span! (job-span-attrs "mark-job-completed" job)
      (sql/execute-one! conn (hsql/format {:update :indexing-jobs
-                                          :where [:and
-                                                  [:= :id (:id job)]
-                                                  ;; Guard against job being canceled
-                                                  [:= :worker-id @config/process-id]
-                                                  [:= :job-status "processing"]]
+                                          :where (job-update-wheres
+                                                  [:= :id (:id job)])
                                           :set {:job-status "completed"
                                                 :done-at :%now}})))))
 
@@ -268,7 +274,8 @@
    (tracer/with-span! (update (job-span-attrs "set-next-stage" job)
                               :attributes assoc :next-stage stage)
      (sql/execute-one! conn (hsql/format {:update :indexing-jobs
-                                          :where [:= :id (:id job)]
+                                          :where (job-update-wheres
+                                                  [:= :id (:id job)])
                                           :set {:job-stage stage}})))))
 
 (defn mark-error!
@@ -278,7 +285,8 @@
    (tracer/with-span! (assoc (job-span-attrs "mark-error" job)
                              :error error)
      (sql/execute-one! conn (hsql/format {:update :indexing-jobs
-                                          :where [:= :id (:id job)]
+                                          :where (job-update-wheres
+                                                  [:= :id (:id job)])
                                           :set {:job-status "errored"
                                                 :error error}})))))
 
@@ -534,7 +542,7 @@
      (let [jobs (sql/select conn (hsql/format {:select :id
                                                :from :indexing-jobs
                                                :limit 100
-                                               :where (list* :and job-available-wheres)}))]
+                                               :where (job-available-wheres)}))]
        (tracer/add-data! {:attributes {:job-count (count jobs)
                                        :job-ids (map :id jobs)}})
        (doseq [job jobs]
