@@ -77,7 +77,7 @@ export function useQuery<
       return unsubscribe;
     },
     // Build a new subscribe function if the query changes
-    [queryHash],
+    [queryHash, _core],
   );
 
   const state = useSyncExternalStore<
