@@ -102,6 +102,18 @@ type SubscriptionState<Q, Schema, WithCardinalityInference extends boolean> =
       pageInfo: PageInfoResponse<Q>;
     };
 
+type SubscriptionStateExperimental<
+  Q,
+  Schema,
+  WithCardinalityInference extends boolean,
+> =
+  | { error: { message: string }; data: undefined; pageInfo: undefined }
+  | {
+      error: undefined;
+      data: QueryResponse<Q, Schema, WithCardinalityInference>;
+      pageInfo: PageInfoResponse<Q>;
+    };
+
 type LifecycleSubscriptionState<
   Q,
   Schema,
@@ -114,10 +126,9 @@ type LifecycleSubscriptionStateExperimental<
   Q,
   Schema,
   WithCardinalityInference extends boolean,
-> = SubscriptionState<Q, Schema, WithCardinalityInference> & {
+> = SubscriptionStateExperimental<Q, Schema, WithCardinalityInference> & {
   isLoading: boolean;
 };
-
 
 type UnsubscribeFn = () => void;
 
@@ -680,7 +691,9 @@ class InstantCoreExperimental<
       : Exactly<Query, Q>,
   >(
     query: Q,
-    cb: (resp: SubscriptionState<Q, Schema, WithCardinalityInference>) => void,
+    cb: (
+      resp: SubscriptionStateExperimental<Q, Schema, WithCardinalityInference>,
+    ) => void,
   ) {
     return this._reactor.subscribeQuery(query, cb);
   }
@@ -889,6 +902,7 @@ export {
   type AuthToken,
   type TxChunk,
   type SubscriptionState,
+  type SubscriptionStateExperimental,
   type LifecycleSubscriptionState,
   type LifecycleSubscriptionStateExperimental,
 
