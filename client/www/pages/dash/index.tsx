@@ -598,11 +598,14 @@ export function HomeButton({
   children: React.ReactNode;
 }) {
   return (
-    <NextLink href={formatRouteParams(href)}>
-      <a className="justify-start p-4 border shadow-sm rounded space-y-2 bg-white hover:bg-gray-50 disabled:text-gray-400 cursor-pointer">
+    <NextLink
+      href={formatRouteParams(href)}
+      className="justify-start p-4 border shadow-sm rounded space-y-2 bg-white hover:bg-gray-50 disabled:text-gray-400 cursor-pointer"
+    >
+      <div>
         <div className="font-mono font-bold text-xl">{title}</div>
         <div className="text-gray-500">{children}</div>
-      </a>
+      </div>
     </NextLink>
   );
 }

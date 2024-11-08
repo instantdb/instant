@@ -9,15 +9,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
     "@instantdb/react": "workspace:*",
     "instant-cli": "workspace:*"
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
-    "@types/react": "18.2.0",
-    "@types/react-dom": "18.2.0",
+    "@types/react": "18.3.1",
+    "@types/react-dom": "18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
     "eslint": "^9.13.0",
     "eslint-plugin-react-hooks": "^5.0.0",
