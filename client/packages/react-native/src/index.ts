@@ -102,8 +102,7 @@ function init_experimental_v2<
     Schema,
     Schema extends InstantGraph<any, infer RoomSchema, any>
       ? RoomSchema
-      : never,
-    WithCardinalityInference
+      : never
   >(config);
 }
 
@@ -121,13 +120,11 @@ class InstantReactNative<
 }
 
 class InstantReactNativeExperimental<
-  Schema extends InstantGraph<any, any, any> | {} = {},
-  RoomSchema extends RoomSchemaShape = {},
-  WithCardinalityInference extends boolean = false,
+  Schema extends InstantGraph<any, any, any>,
+  RoomSchema extends RoomSchemaShape = {}
 > extends InstantReactExperimental<
   Schema,
-  RoomSchema,
-  WithCardinalityInference
+  RoomSchema
 > {
   static Storage = Storage;
   static NetworkListener = NetworkListener;

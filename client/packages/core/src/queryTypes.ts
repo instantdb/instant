@@ -101,13 +101,9 @@ type QueryResponse<
     ? InstaQLQueryResult<E, Q, WithCardinalityInference>
     : ResponseOf<{ [K in keyof Q]: Remove$<Q[K]> }, Schema>;
 
-type QueryResponseExperimental<
-  Q,
-  Schema,
-  WithCardinalityInference extends boolean = false,
-> =
+type QueryResponseExperimental<Q, Schema> =
   Schema extends InstantGraph<infer E, any>
-    ? InstaQLQueryResult<E, Q, WithCardinalityInference>
+    ? InstaQLQueryResultExperimental<E, Q>
     : ResponseOf<{ [K in keyof Q]: Remove$<Q[K]> }, Schema>;
 
 type PageInfoResponse<T> = {
@@ -148,6 +144,35 @@ type Exactly<Parent, Child> = Parent & {
 // ==========
 // InstaQL helpers
 
+type InstaQLQueryEntityLinksResultExperimental<
+  Entities extends EntitiesDef,
+  EntityName extends keyof Entities,
+  Query extends {
+    [LinkAttrName in keyof Entities[EntityName]["links"]]?: any;
+  },
+> = {
+  [QueryPropName in keyof Query]: Entities[EntityName]["links"][QueryPropName] extends LinkAttrDef<
+    infer Cardinality,
+    infer LinkedEntityName
+  >
+    ? LinkedEntityName extends keyof Entities
+      ? Cardinality extends "one"
+        ?
+            | InstaQLQueryEntityResultExperimental<
+                Entities,
+                LinkedEntityName,
+                Query[QueryPropName]
+              >
+            | undefined
+        : InstaQLQueryEntityResultExperimental<
+            Entities,
+            LinkedEntityName,
+            Query[QueryPropName]
+          >[]
+      : never
+    : never;
+};
+
 type InstaQLQueryEntityLinksResult<
   Entities extends EntitiesDef,
   EntityName extends keyof Entities,
@@ -187,6 +212,15 @@ type InstaQLQueryEntityLinksResult<
     : never;
 };
 
+type InstaQLQueryEntityResultExperimental<
+  Entities extends EntitiesDef,
+  EntityName extends keyof Entities,
+  Query extends {
+    [QueryPropName in keyof Entities[EntityName]["links"]]?: any;
+  },
+> = { id: string } & ResolveAttrs<Entities, EntityName> &
+  InstaQLQueryEntityLinksResultExperimental<Entities, EntityName, Query>;
+
 type InstaQLQueryEntityResult<
   Entities extends EntitiesDef,
   EntityName extends keyof Entities,
@@ -213,6 +247,16 @@ type InstaQLQueryResult<
         QueryPropName,
         Query[QueryPropName],
         WithCardinalityInference
+      >[]
+    : never;
+};
+
+type InstaQLQueryResultExperimental<Entities extends EntitiesDef, Query> = {
+  [QueryPropName in keyof Query]: QueryPropName extends keyof Entities
+    ? InstaQLQueryEntityResultExperimental<
+        Entities,
+        QueryPropName,
+        Query[QueryPropName]
       >[]
     : never;
 };
@@ -247,5 +291,7 @@ export {
   InstaQLQueryResult,
   InstaQLQueryParams,
   InstaQLQueryEntityResult,
+  InstaQLQueryEntityResultExperimental,
+  InstaQLQueryResultExperimental,
   Cursor,
 };

@@ -23,6 +23,8 @@ import {
   type PageInfoResponse,
   InstantClientExperimental,
   _init_internal_experimental_v2,
+  LifecycleSubscriptionStateExperimental,
+  QueryResponseExperimental,
 } from "@instantdb/core";
 import {
   KeyboardEvent,
@@ -63,7 +65,7 @@ export type TypingIndicatorHandle<PresenceShape> = {
 export const defaultActivityStopTimeout = 1_000;
 
 export class InstantReactRoomExperimental<
-  Schema extends InstantGraph<any, any> | {},
+  Schema extends InstantGraph<any, any>,
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
 > {
@@ -72,7 +74,7 @@ export class InstantReactRoomExperimental<
   id: string;
 
   constructor(
-    _core: InstantClientExperimental<Schema, RoomSchema, any>,
+    _core: InstantClientExperimental<Schema, RoomSchema>,
     type: RoomType,
     id: string,
   ) {
@@ -299,26 +301,22 @@ const defaultAuthState = {
 };
 
 export abstract class InstantReactExperimental<
-  Schema extends InstantGraph<any, any> | {} = {},
-  RoomSchema extends RoomSchemaShape = {},
-  WithCardinalityInference extends boolean = false,
-> implements IDatabaseExperimental<Schema, RoomSchema, WithCardinalityInference>
+  Schema extends InstantGraph<any, any>,
+  RoomSchema extends RoomSchemaShape = {}
+> implements IDatabaseExperimental<Schema, RoomSchema>
 {
-  public withCardinalityInference?: WithCardinalityInference;
   public tx =
-    txInit<
-      Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
-    >();
+    txInit<Schema>();
 
   public auth: Auth;
   public storage: Storage;
-  public _core: InstantClientExperimental<Schema, RoomSchema, WithCardinalityInference>;
+  public _core: InstantClientExperimental<Schema, RoomSchema>;
 
   static Storage?: any;
   static NetworkListener?: any;
 
   constructor(config: Config | ConfigWithSchema<any>) {
-    this._core = _init_internal_experimental_v2<Schema, RoomSchema, WithCardinalityInference>(
+    this._core = _init_internal_experimental_v2<Schema, RoomSchema>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.Storage,
@@ -413,7 +411,7 @@ export abstract class InstantReactExperimental<
       : Exactly<Query, Q>,
   >(
     query: null | Q,
-  ): LifecycleSubscriptionState<Q, Schema, WithCardinalityInference> => {
+  ): LifecycleSubscriptionStateExperimental<Q, Schema> => {
     return useQueryExperimental(this._core, query).state;
   };
 
@@ -489,7 +487,7 @@ export abstract class InstantReactExperimental<
   >(
     query: Q,
   ): Promise<{
-    data: QueryResponse<Q, Schema, WithCardinalityInference>;
+    data: QueryResponseExperimental<Q, Schema>;
     pageInfo: PageInfoResponse<Q>;
   }> => {
     return this._core.queryOnce(query);

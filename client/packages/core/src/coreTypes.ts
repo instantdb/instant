@@ -18,13 +18,10 @@ export interface IDatabase<
 // XXX-EXPERIMENTAL
 
 export interface IDatabaseExperimental<
-  Schema extends InstantGraph<any, any> | {} = {},
-  RoomSchema extends RoomSchemaShape = {},
-  WithCardinalityInference extends boolean = false,
+  Schema extends InstantGraph<any, any>,
+  RoomSchema extends RoomSchemaShape = {}
 > {
   tx: TxChunk<
     Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
   >;
-
-  withCardinalityInference?: WithCardinalityInference;
 }

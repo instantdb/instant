@@ -177,16 +177,12 @@ function init_experimental<
   return new InstantAdmin<Schema, WithCardinalityInference>(config);
 }
 
-function init_experimental_v2<
-  Schema extends InstantGraph<any, any, any>,
-  WithCardinalityInference extends boolean = true,
->(
+function init_experimental_v2<Schema extends InstantGraph<any, any, any>>(
   config: Config & {
     schema: Schema;
-    cardinalityInference?: WithCardinalityInference;
   },
 ) {
-  return new InstantAdminExperimental<Schema, WithCardinalityInference>(config);
+  return new InstantAdminExperimental<Schema>(config);
 }
 
 /**
@@ -697,10 +693,7 @@ class Storage {
  * @example
  *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
  */
-class InstantAdminExperimental<
-  Schema extends InstantGraph<any, any> | {},
-  WithCardinalityInference extends boolean,
-> {
+class InstantAdminExperimental<Schema extends InstantGraph<any, any>> {
   config: FilledConfig;
   auth: Auth;
   storage: Storage;
@@ -726,13 +719,8 @@ class InstantAdminExperimental<
    * @example
    *  await db.asUser({email: "stopa@instantdb.com"}).query({ goals: {} })
    */
-  asUser = (
-    opts: ImpersonationOpts,
-  ): InstantAdminExperimental<Schema, WithCardinalityInference> => {
-    const newClient = new InstantAdminExperimental<
-      Schema,
-      WithCardinalityInference
-    >({
+  asUser = (opts: ImpersonationOpts): InstantAdminExperimental<Schema> => {
+    const newClient = new InstantAdminExperimental<Schema>({
       ...this.config,
     });
     newClient.impersonationOpts = opts;
@@ -760,9 +748,7 @@ class InstantAdminExperimental<
       : Exactly<Query, Q>,
   >(
     query: Q,
-  ): Promise<
-    QueryResponseExperimental<Q, Schema, WithCardinalityInference>
-  > => {
+  ): Promise<QueryResponseExperimental<Q, Schema>> => {
     const withInference =
       "cardinalityInference" in this.config
         ? Boolean(this.config.cardinalityInference)
@@ -838,7 +824,7 @@ class InstantAdminExperimental<
     query: Exactly<Query, Q>,
     opts?: { rules: any },
   ): Promise<{
-    result: QueryResponseExperimental<Q, Schema, WithCardinalityInference>;
+    result: QueryResponseExperimental<Q, Schema>;
     checkResults: DebugCheckResult[];
   }> => {
     const response = await jsonFetch(

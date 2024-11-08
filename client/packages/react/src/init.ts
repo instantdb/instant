@@ -54,19 +54,13 @@ export function init_experimental<
 
 export function init_experimental_v2<
   Schema extends InstantGraph<any, any, any>,
-  WithCardinalityInference extends boolean = true,
 >(
   config: Config & {
     schema: Schema;
-    cardinalityInference?: WithCardinalityInference;
   },
 ) {
   return new InstantReactWebExperimental<
     Schema,
-    Schema extends InstantGraph<any, any, infer RoomSchema>
-      ? RoomSchema
-      : never,
-    WithCardinalityInference
+    Schema extends InstantGraph<any, any, infer RoomSchema> ? RoomSchema : never
   >(config);
 }
-
