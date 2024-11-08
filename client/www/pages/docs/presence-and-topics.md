@@ -113,6 +113,10 @@ function Component() {
     publishPresence({ name: user.name });
   }, []);
 
+  if (!myPresence) {
+    return <p>App loading...</p>;
+  }
+
   return (
     <div>
       <h1>Who's online?</h1>
