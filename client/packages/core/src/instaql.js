@@ -300,12 +300,12 @@ function makeJoin(makeVar, store, etype, level, label, eid) {
 }
 
 function extendObjects(makeVar, store, { etype, level, form }, objects) {
-  const children = Object.keys(form).filter((c) => c !== "$");
-  if (!children.length) {
+  const childQueries = Object.keys(form).filter((c) => c !== "$");
+  if (!childQueries.length) {
     return Object.values(objects);
   }
-  return Object.entries(objects).map(([eid, parent]) => {
-    const childResults = children.map((label) => {
+  return Object.entries(objects).map(function extendChildren([eid, parent]) {
+    const childResults = childQueries.map(function getChildResult(label) {
       const isSingular = Boolean(
         store.cardinalityInference &&
           store.linkIndex?.[etype]?.[label]?.isSingular,
@@ -338,7 +338,8 @@ function extendObjects(makeVar, store, { etype, level, form }, objects) {
         throw e;
       }
     });
-    return childResults.reduce((parent, child) => {
+
+    return childResults.reduce(function reduceChildren(parent, child) {
       return { ...parent, ...child };
     }, parent);
   });
@@ -381,7 +382,10 @@ function isBefore(startCursor, direction, [e, _a, _v, t]) {
 
 function runDataloadAndReturnObjects(store, etype, direction, pageInfo, dq) {
   const aid = idAttr(store, etype).id;
-  const idVecs = datalogQuery(store, dq).sort(([_, tsA], [__, tsB]) => {
+  const idVecs = datalogQuery(store, dq).sort(function sortIdVecs(
+    [_, tsA],
+    [__, tsB],
+  ) {
     return direction === "desc" ? tsB - tsA : tsA - tsB;
   });
 
@@ -508,7 +512,7 @@ function formatPageInfo(pageInfo) {
 }
 
 export default function query({ store, pageInfo, aggregate }, q) {
-  const data = Object.keys(q).reduce((res, k) => {
+  const data = Object.keys(q).reduce(function reduceResult(res, k) {
     if (aggregate?.[k]) {
       // Aggregate doesn't return any join rows and has no children,
       // so don't bother querying further

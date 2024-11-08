@@ -39,26 +39,21 @@ export const Section = ({ children }: PropsWithChildren) => (
 export const TwoColResponsive = ({ children }: PropsWithChildren) => (
   <div
     className={clsx(
-      `flex flex-col gap-16 md:flex-row md:justify-between md:gap-6`
+      `flex flex-col gap-16 md:flex-row md:justify-between md:gap-6`,
     )}
   >
     {children}
   </div>
 );
 
-// (XXX)
-// Should this just be `NextLink`?
-export const Link: React.FC<PropsWithChildren<{ href: string }>> = ({
-  children,
-  href,
-}) => <NextLink href={href}>{children}</NextLink>;
+export const Link = NextLink;
 
 export const TextLink: React.FC<PropsWithChildren<{ href: string }>> = ({
   children,
   href,
 }) => (
-  <NextLink href={href}>
-    <a className="underline">{children}</a>
+  <NextLink href={href} className="underline">
+    {children}
   </NextLink>
 );
 
@@ -66,18 +61,16 @@ const NavLink: React.FC<PropsWithChildren<{ href: string }>> = ({
   href,
   children,
 }) => (
-  <NextLink href={href}>
-    <a className="hover:text-blue-500 whitespace-nowrap">{children}</a>
+  <NextLink href={href} className="hover:text-blue-500 whitespace-nowrap">
+    {children}
   </NextLink>
 );
 
 function LogoType() {
   return (
-    <Link href="/">
-      <a className="inline-flex items-center space-x-2">
-        <LogoIcon />
-        <HeadingBrand>instant</HeadingBrand>
-      </a>
+    <Link href="/" className="inline-flex items-center space-x-2">
+      <LogoIcon />
+      <HeadingBrand>instant</HeadingBrand>
     </Link>
   );
 }
@@ -156,7 +149,7 @@ export function MainNav({ children }: PropsWithChildren) {
               'bg-white/90 backdrop-blur-xl md:bg-transparent',
               {
                 flex: isOpen,
-              }
+              },
             )}
           >
             <div className="md:hidden flex self-stretch justify-between">
@@ -187,7 +180,7 @@ export function LandingFooter() {
         <div className="flex flex-col gap-2 py-6">
           <div
             className={clsx(
-              `flex flex-col gap-6 md:flex-row md:justify-between`
+              `flex flex-col gap-6 md:flex-row md:justify-between`,
             )}
           >
             <div className="flex flex-col md:gap-0 gap-2 font-mono">

@@ -89,7 +89,7 @@ function useSelectedApp(apps = []) {
         undefined,
         {
           shallow: true,
-        }
+        },
       );
     } else if (cachedAppData) {
       setSelectedAppData(cachedAppData);
@@ -108,7 +108,7 @@ function useSelectedApp(apps = []) {
       setSelectedAppData(data);
       setLocal(cacheKey, data);
     },
-    [apps.length]
+    [apps.length],
   );
 
   return { loading: isLoading, data: selectedAppData, update };
@@ -174,7 +174,7 @@ export function Layout({ children, title, tableOfContents }) {
   let previousPage = allLinks[linkIndex - 1];
   let nextPage = allLinks[linkIndex + 1];
   let section = navigation.find((section) =>
-    section.links.find((link) => link.href === router.pathname)
+    section.links.find((link) => link.href === router.pathname),
   );
   let currentSection = useTableOfContents(tableOfContents, scrollContainerRef);
 
@@ -248,11 +248,12 @@ export function Layout({ children, title, tableOfContents }) {
                     Previous
                   </dt>
                   <dd className="mt-1">
-                    <Link href={previousPage.href}>
-                      <a className="text-base font-semibold text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300">
-                        <span aria-hidden="true">&larr;</span>{' '}
-                        {previousPage.title}
-                      </a>
+                    <Link
+                      href={previousPage.href}
+                      className="text-base font-semibold text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
+                    >
+                      <span aria-hidden="true">&larr;</span>{' '}
+                      {previousPage.title}
                     </Link>
                   </dd>
                 </div>
@@ -263,10 +264,11 @@ export function Layout({ children, title, tableOfContents }) {
                     Next
                   </dt>
                   <dd className="mt-1">
-                    <Link href={nextPage.href}>
-                      <a className="text-base font-semibold text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300">
-                        {nextPage.title} <span aria-hidden="true">&rarr;</span>
-                      </a>
+                    <Link
+                      href={nextPage.href}
+                      className="text-base font-semibold text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
+                    >
+                      {nextPage.title} <span aria-hidden="true">&rarr;</span>
                     </Link>
                   </dd>
                 </div>
@@ -287,16 +289,15 @@ export function Layout({ children, title, tableOfContents }) {
                     {tableOfContents.map((section) => (
                       <li key={section.id}>
                         <h3>
-                          <Link href={`#${section.id}`}>
-                            <a
-                              className={clsx(
-                                isActive(section)
-                                  ? 'text-sky-500'
-                                  : 'font-normal text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
-                              )}
-                            >
-                              {section.title}
-                            </a>
+                          <Link
+                            href={`#${section.id}`}
+                            className={clsx(
+                              isActive(section)
+                                ? 'text-sky-500'
+                                : 'font-normal text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300',
+                            )}
+                          >
+                            {section.title}
                           </Link>
                         </h3>
                         {section.children.length > 0 && (
@@ -306,16 +307,15 @@ export function Layout({ children, title, tableOfContents }) {
                           >
                             {section.children.map((subSection) => (
                               <li key={subSection.id}>
-                                <Link href={`#${subSection.id}`}>
-                                  <a
-                                    className={
-                                      isActive(subSection)
-                                        ? 'text-sky-500'
-                                        : 'hover:text-slate-600 dark:hover:text-slate-300'
-                                    }
-                                  >
-                                    {subSection.title}
-                                  </a>
+                                <Link
+                                  href={`#${subSection.id}`}
+                                  className={
+                                    isActive(subSection)
+                                      ? 'text-sky-500'
+                                      : 'hover:text-slate-600 dark:hover:text-slate-300'
+                                  }
+                                >
+                                  {subSection.title}
                                 </Link>
                               </li>
                             ))}

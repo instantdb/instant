@@ -73,7 +73,7 @@ function addAuthorizedOrigin({
         'content-type': 'application/json',
       },
       body: JSON.stringify({ service, params }),
-    }
+    },
   );
 }
 
@@ -95,7 +95,7 @@ function removeAuthorizedOrigin({
         'content-type': 'application/json',
       },
       body: JSON.stringify({}),
-    }
+    },
   );
 }
 
@@ -117,7 +117,7 @@ function addProvider({
         'content-type': 'application/json',
       },
       body: JSON.stringify({ provider_name: providerName }),
-    }
+    },
   );
 }
 
@@ -181,7 +181,7 @@ function deleteClient({
         'content-type': 'application/json',
       },
       body: JSON.stringify({}),
-    }
+    },
   );
 }
 
@@ -209,7 +209,7 @@ function AuthorizedOriginsForm({
 
   const validateUrl = (
     originParam: string,
-    service: AuthorizedOriginService
+    service: AuthorizedOriginService,
   ):
     | { type: 'error'; message: string }
     | { type: 'success'; params: string[] } => {
@@ -357,17 +357,17 @@ function AddClientForm({
 
   // We're going to assume Google only for now
   const [authorizationEndpoint, _setAuthorizationEndpoint] = useState<string>(
-    'https://accounts.google.com/o/oauth2/v2/auth'
+    'https://accounts.google.com/o/oauth2/v2/auth',
   );
 
   // We're going to assume Google only for now
   const [tokenEndpoint, _setTokenEndpoint] = useState<string>(
-    'https://oauth2.googleapis.com/token'
+    'https://oauth2.googleapis.com/token',
   );
 
   // We're going to assume Google only for now
   const [discoveryEndpoint, _setDiscoveryEndpoint] = useState<string>(
-    'https://accounts.google.com/.well-known/openid-configuration'
+    'https://accounts.google.com/.well-known/openid-configuration',
   );
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -543,7 +543,7 @@ function AddGoogleProviderForm({
         onClick={addGoogleProvider}
       >
         <span className="flex items-center space-x-2">
-          <Image src={googleIconSvg} />
+          <Image alt="google icon" src={googleIconSvg} />
           <span>Setup Google</span>
         </span>
       </Button>
@@ -607,7 +607,7 @@ const url = db.auth.createAuthorizationURL({
           <div className="flex flex-1 justify-between items-center">
             <div className="flex gap-2">
               {' '}
-              <Image src={googleIconSvg} />
+              <Image alt="google logo" src={googleIconSvg} />
               <SectionHeading>
                 {client.client_name}{' '}
                 <span className="text-gray-400">(Google)</span>
@@ -788,7 +788,7 @@ function AddClerkProviderForm({
         onClick={addClerkProvider}
       >
         <span className="flex items-center space-x-2">
-          <Image src={clerkLogoSvg} />
+          <Image alt="clerk logo" src={clerkLogoSvg} />
           <span>Setup Clerk</span>
         </span>
       </Button>
@@ -977,7 +977,7 @@ function ClerkClient({
           <div className="flex flex-1 justify-between items-center">
             <div className="flex gap-2">
               {' '}
-              <Image src={clerkLogoSvg} />
+              <Image alt="clerk logo" src={clerkLogoSvg} />
               <SectionHeading>
                 {client.client_name}{' '}
                 <span className="text-gray-400">(Clerk)</span>
@@ -1084,7 +1084,7 @@ function AddClerkClientForm({
 }) {
   const token = useContext(TokenContext);
   const [clientName, setClientName] = useState<string>(
-    usedClientNames.has('clerk') ? '' : 'clerk'
+    usedClientNames.has('clerk') ? '' : 'clerk',
   );
   const [publishableKey, setPublishableKey] = useState<string>('');
 
@@ -1119,7 +1119,7 @@ function AddClerkClientForm({
     if (!domain) {
       errorToast(
         'Could not determine Clerk domain from key. Ping us in Discord for help.',
-        { autoClose: 5000 }
+        { autoClose: 5000 },
       );
     }
     try {
@@ -1182,7 +1182,7 @@ function AddClerkClientForm({
           Navigate to your{' '}
           <a
             className="underline"
-            href={"https://dashboard.clerk.com/last-active?path=sessions"}
+            href={'https://dashboard.clerk.com/last-active?path=sessions'}
             target="_blank"
             rel="noopener noreferer"
           >
@@ -1439,7 +1439,7 @@ function AuthorizedOrigins({
   onRemoveOrigin: (origin: AuthorizedOrigin) => void;
 }) {
   const [showAddOriginForm, setShowAddOriginForm] = useState(
-    origins.length === 0
+    origins.length === 0,
   );
   return (
     <div className="flex gap-2 flex-col">
@@ -1496,12 +1496,12 @@ export function AppAuth({
   nav: (p: { s: string; t?: string; app?: string }) => void;
 }) {
   const authResponse = useAuthedFetch<AppsAuthResponse>(
-    `${config.apiURI}/dash/apps/${app.id}/auth`
+    `${config.apiURI}/dash/apps/${app.id}/auth`,
   );
 
   // Used to know if we should open the client details by default
   const [lastCreatedClientId, setLastCreatedClientId] = useState<null | string>(
-    null
+    null,
   );
 
   // Used to know if we should open the provider details by default
@@ -1550,7 +1550,7 @@ export function AppAuth({
     authResponse.mutate({
       ...data,
       authorized_redirect_origins: data.authorized_redirect_origins?.filter(
-        (o) => o.id !== origin.id
+        (o) => o.id !== origin.id,
       ),
     });
   };
@@ -1578,17 +1578,17 @@ export function AppAuth({
     authResponse.mutate({
       ...data,
       oauth_clients: (data.oauth_clients || []).filter(
-        (c) => c.id !== client.id
+        (c) => c.id !== client.id,
       ),
     });
   };
 
   const googleProvider = data.oauth_service_providers?.find(
-    (p) => p.provider_name === 'google'
+    (p) => p.provider_name === 'google',
   );
 
   const clerkProvider = data.oauth_service_providers?.find(
-    (p) => p.provider_name === 'clerk'
+    (p) => p.provider_name === 'clerk',
   );
 
   const usedClientNames = new Set<string>();
@@ -1622,7 +1622,7 @@ export function AppAuth({
             provider={googleProvider}
             clients={
               data.oauth_clients?.filter(
-                (c) => c.provider_id === googleProvider.id
+                (c) => c.provider_id === googleProvider.id,
               ) || []
             }
             onAddClient={handleAddClient}
@@ -1646,7 +1646,7 @@ export function AppAuth({
             provider={clerkProvider}
             clients={
               data.oauth_clients?.filter(
-                (c) => c.provider_id === clerkProvider.id
+                (c) => c.provider_id === clerkProvider.id,
               ) || []
             }
             onAddClient={handleAddClient}

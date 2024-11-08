@@ -36,16 +36,17 @@ export default function Page({ posts }: { posts: Post[] }) {
                       idx !== posts.length - 1 ? 'border-b' : ''
                     }`}
                   >
-                    <NextLink href={`/essays/${slug}`}>
-                      <a className="hover:text-blue-500">
-                        <H3>{title}</H3>
-                      </a>
+                    <NextLink
+                      href={`/essays/${slug}`}
+                      className="hover:text-blue-500"
+                    >
+                      <H3>{title}</H3>
                     </NextLink>
                     <div className="flex justify-between text-xs font-bold uppercase text-gray-500">
                       <span className="font-bold uppercase">{author.name}</span>
                       {format(
                         parse(date, 'yyyy-MM-dd', new Date()),
-                        'MMM do, yyyy'
+                        'MMM do, yyyy',
                       )}
                     </div>
                   </div>

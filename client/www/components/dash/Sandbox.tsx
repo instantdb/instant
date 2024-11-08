@@ -46,7 +46,12 @@ export function Sandbox({ app }: { app: InstantApp }) {
     });
 
     const unsubAttrs = coreDb._reactor.subscribeAttrs((_oAttrs: any) => {
-      setTimeout(unsubAttrs);
+      let unsubImmediately = setInterval(() => {
+        if (unsubAttrs) {
+          unsubAttrs();
+          clearInterval(unsubImmediately);
+        }
+      }, 10);
       if (sandboxCodeValue) return;
       const schema = dbAttrsToExplorerSchema(_oAttrs);
       const ns = schema.at(0);
