@@ -61,7 +61,7 @@
     "@types/lodash": "^4.14.182",
     "@types/node": "17.0.4",
     "@types/prismjs": "^1.26.0",
-    "@types/react": "^18.2.74",
+    "@types/react": "^18.3.1",
     "@types/react-copy-to-clipboard": "^5.0.4",
     "@types/uuid": "^8.3.4",
     "@types/ws": "^8.5.3",
