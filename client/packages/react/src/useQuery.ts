@@ -8,6 +8,7 @@ import {
   type InstaQLQueryParams,
   type InstantGraph,
   InstantClientExperimental,
+  LifecycleSubscriptionStateExperimental,
 } from "@instantdb/core";
 import { useCallback, useRef, useSyncExternalStore } from "react";
 
@@ -102,7 +103,7 @@ export function useQueryExperimental<
   _core: InstantClientExperimental<Schema, any, WithCardinalityInference>,
   _query: null | Q,
 ): {
-  state: LifecycleSubscriptionState<Q, Schema, WithCardinalityInference>;
+  state: LifecycleSubscriptionStateExperimental<Q, Schema, WithCardinalityInference>;
   query: any;
 } {
   const query = _query ? coerceQuery(_query) : null;
@@ -114,7 +115,7 @@ export function useQueryExperimental<
   // If we don't use a ref, the state will always be considered different, so
   // the component will always re-render.
   const resultCacheRef = useRef<
-    LifecycleSubscriptionState<Q, Schema, WithCardinalityInference>
+    LifecycleSubscriptionStateExperimental<Q, Schema, WithCardinalityInference>
   >(stateForResult(_core._reactor.getPreviousResult(query)));
 
   // Similar to `resultCacheRef`, `useSyncExternalStore` will unsubscribe
@@ -146,7 +147,7 @@ export function useQueryExperimental<
   );
 
   const state = useSyncExternalStore<
-    LifecycleSubscriptionState<Q, Schema, WithCardinalityInference>
+    LifecycleSubscriptionStateExperimental<Q, Schema, WithCardinalityInference>
   >(
     subscribe,
     () => resultCacheRef.current,

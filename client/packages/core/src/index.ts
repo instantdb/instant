@@ -110,6 +110,15 @@ type LifecycleSubscriptionState<
   isLoading: boolean;
 };
 
+type LifecycleSubscriptionStateExperimental<
+  Q,
+  Schema,
+  WithCardinalityInference extends boolean,
+> = SubscriptionState<Q, Schema, WithCardinalityInference> & {
+  isLoading: boolean;
+};
+
+
 type UnsubscribeFn = () => void;
 
 // consts
@@ -881,6 +890,7 @@ export {
   type TxChunk,
   type SubscriptionState,
   type LifecycleSubscriptionState,
+  type LifecycleSubscriptionStateExperimental,
 
   // presence types
   type PresenceOpts,
