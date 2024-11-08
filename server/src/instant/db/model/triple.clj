@@ -77,7 +77,8 @@
               [true :av]
               [true :ave]
               [false :vae]
-              [[:cast [:* 1000 [:extract [:epoch-from :created-at]]] :bigint] :created-at]]
+              [[:cast [:* 1000 [:extract [:epoch-from :created-at]]] :bigint] :created-at]
+              [[:cast nil :checked_data_type] :checked_data_type]]
      :from :users-triples-up-to-md5}]
    [:triples
     {:union-all [{:select :*
