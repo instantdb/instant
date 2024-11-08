@@ -20,7 +20,7 @@ import type {
   PresenceSlice,
   RoomSchemaShape,
 } from "./presence";
-import type { IDatabase } from "./coreTypes";
+import type { IDatabase, IDatabaseExperimental } from "./coreTypes";
 import type {
   Query,
   QueryResponse,
@@ -102,11 +102,31 @@ type SubscriptionState<Q, Schema, WithCardinalityInference extends boolean> =
       pageInfo: PageInfoResponse<Q>;
     };
 
+type SubscriptionStateExperimental<
+  Q,
+  Schema,
+  WithCardinalityInference extends boolean,
+> =
+  | { error: { message: string }; data: undefined; pageInfo: undefined }
+  | {
+      error: undefined;
+      data: QueryResponse<Q, Schema, WithCardinalityInference>;
+      pageInfo: PageInfoResponse<Q>;
+    };
+
 type LifecycleSubscriptionState<
   Q,
   Schema,
   WithCardinalityInference extends boolean,
 > = SubscriptionState<Q, Schema, WithCardinalityInference> & {
+  isLoading: boolean;
+};
+
+type LifecycleSubscriptionStateExperimental<
+  Q,
+  Schema,
+  WithCardinalityInference extends boolean,
+> = SubscriptionStateExperimental<Q, Schema, WithCardinalityInference> & {
   isLoading: boolean;
 };
 
@@ -120,39 +140,12 @@ const defaultConfig = {
 };
 
 // hmr
-function initGlobalInstantCoreStore(): Record<
-  string,
-  InstantCore<any, any, any>
-> {
+function initGlobalInstantCoreStore(): Record<string, any> {
   globalThis.__instantDbStore = globalThis.__instantDbStore ?? {};
   return globalThis.__instantDbStore;
 }
 
 const globalInstantCoreStore = initGlobalInstantCoreStore();
-
-function init_experimental<
-  Schema extends InstantGraph<any, any, any>,
-  WithCardinalityInference extends boolean = true,
->(
-  config: Config & {
-    schema: Schema;
-    cardinalityInference?: WithCardinalityInference;
-  },
-  Storage?: any,
-  NetworkListener?: any,
-): InstantCore<
-  Schema,
-  Schema extends InstantGraph<any, infer RoomSchema, any> ? RoomSchema : never,
-  WithCardinalityInference
-> {
-  return _init_internal<
-    Schema,
-    Schema extends InstantGraph<any, infer RoomSchema, any>
-      ? RoomSchema
-      : never,
-    WithCardinalityInference
-  >(config, Storage, NetworkListener);
-}
 
 // main
 
@@ -609,13 +602,273 @@ function coerceQuery(o: any) {
   return JSON.parse(JSON.stringify(o));
 }
 
-// dev
+// ----------------
+// XXX-EXPERIMENTAL
+
+class InstantCoreExperimental<
+  Schema extends InstantGraph<any, any> | {} = {},
+  RoomSchema extends RoomSchemaShape = {},
+  WithCardinalityInference extends boolean = false,
+> implements
+    IDatabaseExperimental<Schema, RoomSchema, WithCardinalityInference>
+{
+  public withCardinalityInference?: WithCardinalityInference;
+  public _reactor: Reactor<RoomSchema>;
+  public auth: Auth;
+  public storage: Storage;
+
+  public tx =
+    txInit<
+      Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
+    >();
+
+  constructor(reactor: Reactor<RoomSchema>) {
+    this._reactor = reactor;
+    this.auth = new Auth(this._reactor);
+    this.storage = new Storage(this._reactor);
+  }
+
+  /**
+   * Use this to write data! You can create, update, delete, and link objects
+   *
+   * @see https://instantdb.com/docs/instaml
+   *
+   * @example
+   *   // Create a new object in the `goals` namespace
+   *   const goalId = id();
+   *   db.transact(tx.goals[goalId].update({title: "Get fit"}))
+   *
+   *   // Update the title
+   *   db.transact(tx.goals[goalId].update({title: "Get super fit"}))
+   *
+   *   // Delete it
+   *   db.transact(tx.goals[goalId].delete())
+   *
+   *   // Or create an association:
+   *   todoId = id();
+   *   db.transact([
+   *    tx.todos[todoId].update({ title: 'Go on a run' }),
+   *    tx.goals[goalId].link({todos: todoId}),
+   *  ])
+   */
+  transact(
+    chunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
+  ): Promise<TransactionResult> {
+    return this._reactor.pushTx(chunks);
+  }
+
+  getLocalId(name: string): Promise<string> {
+    return this._reactor.getLocalId(name);
+  }
+
+  /**
+   * Use this to query your data!
+   *
+   * @see https://instantdb.com/docs/instaql
+   *
+   * @example
+   *  // listen to all goals
+   *  db.subscribeQuery({ goals: {} }, (resp) => {
+   *    console.log(resp.data.goals)
+   *  })
+   *
+   *  // goals where the title is "Get Fit"
+   *  db.subscribeQuery(
+   *    { goals: { $: { where: { title: "Get Fit" } } } },
+   *    (resp) => {
+   *      console.log(resp.data.goals)
+   *    }
+   *  )
+   *
+   *  // all goals, _alongside_ their todos
+   *  db.subscribeQuery({ goals: { todos: {} } }, (resp) => {
+   *    console.log(resp.data.goals)
+   *  });
+   */
+  subscribeQuery<
+    Q extends Schema extends InstantGraph<any, any>
+      ? InstaQLQueryParams<Schema>
+      : Exactly<Query, Q>,
+  >(
+    query: Q,
+    cb: (
+      resp: SubscriptionStateExperimental<Q, Schema, WithCardinalityInference>,
+    ) => void,
+  ) {
+    return this._reactor.subscribeQuery(query, cb);
+  }
+
+  /**
+   * Listen for the logged in state. This is useful
+   * for deciding when to show a login screen.
+   *
+   * @see https://instantdb.com/docs/auth
+   * @example
+   *   const unsub = db.subscribeAuth((auth) => {
+   *     if (auth.user) {
+   *     console.log('logged in as', auth.user.email)
+   *    } else {
+   *      console.log('logged out')
+   *    }
+   *  })
+   */
+  subscribeAuth(cb: (auth: AuthResult) => void): UnsubscribeFn {
+    return this._reactor.subscribeAuth(cb);
+  }
+
+  /**
+   * Join a room to publish and subscribe to topics and presence.
+   *
+   * @see https://instantdb.com/docs/presence-and-topics
+   * @example
+   * // init
+   * const db = init();
+   * const room = db.joinRoom(roomType, roomId);
+   * // usage
+   * const unsubscribeTopic = room.subscribeTopic("foo", console.log);
+   * const unsubscribePresence = room.subscribePresence({}, console.log);
+   * room.publishTopic("hello", { message: "hello world!" });
+   * room.publishPresence({ name: "joe" });
+   * // later
+   * unsubscribePresence();
+   * unsubscribeTopic();
+   * room.leaveRoom();
+   */
+  joinRoom<RoomType extends keyof RoomSchema>(
+    roomType: RoomType = "_defaultRoomType" as RoomType,
+    roomId: string = "_defaultRoomId",
+  ): RoomHandle<
+    RoomSchema[RoomType]["presence"],
+    RoomSchema[RoomType]["topics"]
+  > {
+    const leaveRoom = this._reactor.joinRoom(roomId);
+
+    return {
+      leaveRoom,
+      subscribeTopic: (topic, onEvent) =>
+        this._reactor.subscribeTopic(roomId, topic, onEvent),
+      subscribePresence: (opts, onChange) =>
+        this._reactor.subscribePresence(roomType, roomId, opts, onChange),
+      publishTopic: (topic, data) =>
+        this._reactor.publishTopic({ roomType, roomId, topic, data }),
+      publishPresence: (data) =>
+        this._reactor.publishPresence(roomType, roomId, data),
+      getPresence: (opts) => this._reactor.getPresence(roomType, roomId, opts),
+    };
+  }
+
+  shutdown() {
+    delete globalInstantCoreStore[this._reactor.config.appId];
+    this._reactor.shutdown();
+  }
+
+  /**
+   * Use this for one-off queries.
+   * Returns local data if available, otherwise fetches from the server.
+   * Because we want to avoid stale data, this method will throw an error
+   * if the user is offline or there is no active connection to the server.
+   *
+   * @see https://instantdb.com/docs/instaql
+   *
+   * @example
+   *
+   *  const resp = await db.queryOnce({ goals: {} });
+   *  console.log(resp.data.goals)
+   */
+  queryOnce<
+    Q extends Schema extends InstantGraph<any, any>
+      ? InstaQLQueryParams<Schema>
+      : Exactly<Query, Q>,
+  >(
+    query: Q,
+  ): Promise<{
+    data: QueryResponse<Q, Schema, WithCardinalityInference>;
+    pageInfo: PageInfoResponse<Q>;
+  }> {
+    return this._reactor.queryOnce(query);
+  }
+}
+
+function init_experimental<
+  Schema extends InstantGraph<any, any, any>,
+  WithCardinalityInference extends boolean = true,
+>(
+  config: Config & {
+    schema: Schema;
+    cardinalityInference?: WithCardinalityInference;
+  },
+  Storage?: any,
+  NetworkListener?: any,
+): InstantCoreExperimental<
+  Schema,
+  Schema extends InstantGraph<any, infer RoomSchema, any> ? RoomSchema : never,
+  WithCardinalityInference
+> {
+  return _init_internal_experimental<
+    Schema,
+    Schema extends InstantGraph<any, infer RoomSchema, any>
+      ? RoomSchema
+      : never,
+    WithCardinalityInference
+  >(config, Storage, NetworkListener);
+}
+
+function _init_internal_experimental<
+  Schema extends {} | InstantGraph<any, any, any>,
+  RoomSchema extends RoomSchemaShape,
+  WithCardinalityInference extends boolean = false,
+>(
+  config: Config,
+  Storage?: any,
+  NetworkListener?: any,
+): InstantCoreExperimental<Schema, RoomSchema, WithCardinalityInference> {
+  const existingClient = globalInstantCoreStore[
+    config.appId
+  ] as InstantCoreExperimental<any, RoomSchema, WithCardinalityInference>;
+
+  if (existingClient) {
+    return existingClient;
+  }
+
+  const reactor = new Reactor<RoomSchema>(
+    {
+      ...defaultConfig,
+      ...config,
+    },
+    Storage || IndexedDBStorage,
+    NetworkListener || WindowNetworkListener,
+  );
+
+  const client = new InstantCoreExperimental<
+    any,
+    RoomSchema,
+    WithCardinalityInference
+  >(reactor);
+  globalInstantCoreStore[config.appId] = client;
+
+  if (typeof window !== "undefined" && typeof window.location !== "undefined") {
+    const showDevtool =
+      // show widget by default?
+      ("devtool" in config ? Boolean(config.devtool) : defaultOpenDevtool) &&
+      // only run on localhost (dev env)
+      window.location.hostname === "localhost" &&
+      // used by dash and other internal consumers
+      !Boolean((globalThis as any)._nodevtool);
+
+    if (showDevtool) {
+      createDevtool(config.appId);
+    }
+  }
+
+  return client;
+}
 
 export {
   // bada bing bada boom
   init,
   init_experimental,
   _init_internal,
+  _init_internal_experimental,
   id,
   tx,
   txInit,
@@ -631,6 +884,7 @@ export {
   IndexedDBStorage,
   WindowNetworkListener,
   InstantCore as InstantClient,
+  InstantCoreExperimental as InstantClientExperimental,
   Auth,
   Storage,
 
@@ -648,7 +902,9 @@ export {
   type AuthToken,
   type TxChunk,
   type SubscriptionState,
+  type SubscriptionStateExperimental,
   type LifecycleSubscriptionState,
+  type LifecycleSubscriptionStateExperimental,
 
   // presence types
   type PresenceOpts,
