@@ -73,6 +73,30 @@ export class InstantGraph<
   }
 }
 
+interface RoomDef {
+  presence: EntityDef<any, any, any>;
+  topics?: {
+    [TopicName: string]: EntityDef<any, any, any>;
+  }
+}
+
+export interface RoomsDef {
+  [RoomType: string]: RoomDef;
+}
+
+
+export class InstantSchema<
+  Entities extends EntitiesDef,
+  Links extends LinksDef<Entities>,
+  Rooms extends RoomSchemaShape,
+> {
+  constructor(
+    public entities: Entities,
+    public links: Links,
+    public rooms: Rooms,
+  ) {}
+}
+
 export type RoomSchemaOf<S> =
   S extends InstantGraph<any, any, infer R>
     ? R extends RoomSchemaShape
@@ -131,11 +155,12 @@ export class EntityDef<
   }
 }
 
-export type EntitiesDef = Record<string, EntityDef<any, any, any>>;
+export interface EntitiesDef { 
+  [EntityName: string]: EntityDef<any, any, any>
+};
 
-export type LinksDef<Entities extends EntitiesDef> = Record<
-  string,
-  LinkDef<
+export interface LinksDef<Entities extends EntitiesDef> {
+  [linkName: string]: LinkDef<
     Entities,
     keyof Entities,
     string,
@@ -144,7 +169,7 @@ export type LinksDef<Entities extends EntitiesDef> = Record<
     string,
     CardinalityKind
   >
->;
+}
 
 export type LinkDef<
   Entities extends EntitiesDef,

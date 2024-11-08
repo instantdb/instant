@@ -6,6 +6,8 @@ import {
   type AttrsDefs,
   type EntitiesWithLinks,
   type LinksDef,
+  RoomsDef,
+  InstantSchema,
 } from "./schemaTypes";
 
 // ==========
@@ -54,6 +56,32 @@ function graph<
     // correctly aligned and does not allow for substituting a type that might
     // be broader or have additional properties.
     links as LinksDef<any>,
+  );
+}
+
+// XXXTODO: add docstring
+function schema<
+  EntitiesWithoutLinks extends EntitiesDef,
+  const Links extends LinksDef<EntitiesWithoutLinks>,
+  Rooms extends RoomsDef,
+>({
+  entities,
+  links,
+  rooms,
+}: {
+  entities: EntitiesWithoutLinks;
+  links: Links;
+  rooms: Rooms;
+}) {
+  return new InstantSchema(
+    enrichEntitiesWithLinks<EntitiesWithoutLinks, Links>(entities, links),
+    // (XXX): LinksDef<any> stems from TypeScript’s inability to reconcile the
+    // type EntitiesWithLinks<EntitiesWithoutLinks, Links> with
+    // EntitiesWithoutLinks. TypeScript is strict about ensuring that types are
+    // correctly aligned and does not allow for substituting a type that might
+    // be broader or have additional properties.
+    links as LinksDef<any>,
+    rooms,
   );
 }
 
