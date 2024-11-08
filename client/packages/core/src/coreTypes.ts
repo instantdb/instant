@@ -14,9 +14,7 @@ export interface IDatabase<
 // ----------------
 // XXX-EXPERIMENTAL
 export interface IDatabaseExperimental<
-  // TODO: does this need to extend to {} ? 
-  Schema extends InstantGraph<any, any> | {} = {},
-  RoomSchema extends RoomSchemaShape = {}
+  Schema extends InstantGraph<any, any> | undefined = undefined,
 > {
   tx: TxChunk<
     Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>

@@ -12,6 +12,13 @@ export type RoomSchemaShape = {
   };
 };
 
+export type DefaultRoomSchemaShape = {
+  _defaultRoomType: {
+    presence: {}, 
+    topics: {}
+  }
+}
+
 export type PresenceOpts<PresenceShape, Keys extends keyof PresenceShape> = {
   user?: boolean;
   peers?: string[];

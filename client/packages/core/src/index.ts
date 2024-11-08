@@ -51,6 +51,9 @@ import type {
   LinksDef,
   ResolveAttrs,
   ValueTypes,
+  RoomSchemaOf,
+  PresenceOf,
+  TopicsOf,
 } from "./schemaTypes";
 
 const defaultOpenDevtool = true;
@@ -73,25 +76,37 @@ export type TransactionResult = {
   clientId: string;
 };
 
-export type RoomHandle<PresenceShape, TopicsByKey> = {
+export type PublishTopic<TopicsByKey> = <Key extends keyof TopicsByKey>(
+  topic: Key,
+  data: TopicsByKey[Key],
+) => void;
+
+export type SubscribeTopic<PresenceShape, TopicsByKey> = <
+  Key extends keyof TopicsByKey,
+>(
+  topic: Key,
+  onEvent: (event: TopicsByKey[Key], peer: PresenceShape) => void,
+) => () => void;
+
+export type GetPresence<PresenceShape> = <Keys extends keyof PresenceShape>(
+  opts: PresenceOpts<PresenceShape, Keys>,
+) => PresenceResponse<PresenceShape, Keys>;
+
+export type SubscribePresence<PresenceShape> = <
+  Keys extends keyof PresenceShape,
+>(
+  opts: PresenceOpts<PresenceShape, Keys>,
+  onChange: (slice: PresenceResponse<PresenceShape, Keys>) => void,
+) => () => void;
+
+export interface RoomHandle<PresenceShape, TopicsByKey> {
   leaveRoom: () => void;
-  publishTopic: <Key extends keyof TopicsByKey>(
-    topic: Key,
-    data: TopicsByKey[Key],
-  ) => void;
-  subscribeTopic: <Key extends keyof TopicsByKey>(
-    topic: Key,
-    onEvent: (event: TopicsByKey[Key], peer: PresenceShape) => void,
-  ) => () => void;
+  publishTopic: PublishTopic<TopicsByKey>;
+  subscribeTopic: SubscribeTopic<PresenceShape, TopicsByKey>;
   publishPresence: (data: Partial<PresenceShape>) => void;
-  getPresence: <Keys extends keyof PresenceShape>(
-    opts: PresenceOpts<PresenceShape, Keys>,
-  ) => PresenceResponse<PresenceShape, Keys>;
-  subscribePresence: <Keys extends keyof PresenceShape>(
-    opts: PresenceOpts<PresenceShape, Keys>,
-    onChange: (slice: PresenceResponse<PresenceShape, Keys>) => void,
-  ) => () => void;
-};
+  getPresence: GetPresence<PresenceShape>;
+  subscribePresence: SubscribePresence<PresenceShape>;
+}
 
 type AuthToken = string;
 
@@ -574,11 +589,10 @@ function coerceQuery(o: any) {
 // XXX-EXPERIMENTAL
 
 class InstantCoreExperimental<
-  Schema extends InstantGraph<any, any> | {} = {},
-  RoomSchema extends RoomSchemaShape = {},
-> implements IDatabaseExperimental<Schema, RoomSchema>
+  Schema extends InstantGraph<any, any> | undefined = undefined,
+> implements IDatabaseExperimental<Schema>
 {
-  public _reactor: Reactor<RoomSchema>;
+  public _reactor: Reactor<RoomSchemaOf<Schema>>;
   public auth: Auth;
   public storage: Storage;
 
@@ -587,7 +601,7 @@ class InstantCoreExperimental<
       Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
     >();
 
-  constructor(reactor: Reactor<RoomSchema>) {
+  constructor(reactor: Reactor<RoomSchemaOf<Schema>>) {
     this._reactor = reactor;
     this.auth = new Auth(this._reactor);
     this.storage = new Storage(this._reactor);
@@ -650,11 +664,10 @@ class InstantCoreExperimental<
    *    console.log(resp.data.goals)
    *  });
    */
-  subscribeQuery<
-    Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
-      : Exactly<Query, Q>,
-  >(query: Q, cb: (resp: SubscriptionStateExperimental<Q, Schema>) => void) {
+  subscribeQuery<Q extends InstaQLQueryParams<Schema>>(
+    query: Q,
+    cb: (resp: SubscriptionStateExperimental<Q, Schema>) => void,
+  ) {
     return this._reactor.subscribeQuery(query, cb);
   }
 
@@ -694,13 +707,10 @@ class InstantCoreExperimental<
    * unsubscribeTopic();
    * room.leaveRoom();
    */
-  joinRoom<RoomType extends keyof RoomSchema>(
+  joinRoom<RoomType extends keyof RoomSchemaOf<Schema>>(
     roomType: RoomType = "_defaultRoomType" as RoomType,
     roomId: string = "_defaultRoomId",
-  ): RoomHandle<
-    RoomSchema[RoomType]["presence"],
-    RoomSchema[RoomType]["topics"]
-  > {
+  ): RoomHandle<PresenceOf<Schema, RoomType>, TopicsOf<Schema, RoomType>> {
     const leaveRoom = this._reactor.joinRoom(roomId);
 
     return {
@@ -749,37 +759,32 @@ class InstantCoreExperimental<
   }
 }
 
-function init_experimental<Schema extends InstantGraph<any, any, any>>(
+function init_experimental<
+  Schema extends InstantGraph<any, any, any> | undefined,
+>(
   config: ConfigWithSchema<Schema>,
   Storage?: any,
   NetworkListener?: any,
-): InstantCoreExperimental<
-  Schema,
-  Schema extends InstantGraph<any, infer RoomSchema, any> ? RoomSchema : never
-> {
-  return _init_internal_experimental<
-    Schema,
-    Schema extends InstantGraph<any, infer RoomSchema, any> ? RoomSchema : never
-  >(config, Storage, NetworkListener);
+): InstantCoreExperimental<Schema> {
+  return _init_internal_experimental<Schema>(config, Storage, NetworkListener);
 }
 
 function _init_internal_experimental<
-  Schema extends {} | InstantGraph<any, any, any>,
-  RoomSchema extends RoomSchemaShape,
+  Schema extends InstantGraph<any, any, any> | undefined,
 >(
   config: Config,
   Storage?: any,
   NetworkListener?: any,
-): InstantCoreExperimental<Schema, RoomSchema> {
+): InstantCoreExperimental<Schema> {
   const existingClient = globalInstantCoreStore[
     config.appId
-  ] as InstantCoreExperimental<any, RoomSchema>;
+  ] as InstantCoreExperimental<any>;
 
   if (existingClient) {
     return existingClient;
   }
 
-  const reactor = new Reactor<RoomSchema>(
+  const reactor = new Reactor<RoomSchemaOf<Schema>>(
     {
       ...defaultConfig,
       ...config,
@@ -789,7 +794,7 @@ function _init_internal_experimental<
     NetworkListener || WindowNetworkListener,
   );
 
-  const client = new InstantCoreExperimental<any, RoomSchema>(reactor);
+  const client = new InstantCoreExperimental<Schema>(reactor);
   globalInstantCoreStore[config.appId] = client;
 
   if (typeof window !== "undefined" && typeof window.location !== "undefined") {
@@ -879,4 +884,7 @@ export {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
+  type RoomSchemaOf,
+  type PresenceOf,
+  type TopicsOf,
 };

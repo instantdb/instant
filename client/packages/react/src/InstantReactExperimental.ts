@@ -24,6 +24,7 @@ import {
   InstantClientExperimental,
   _init_internal_experimental,
   LifecycleSubscriptionStateExperimental,
+  RoomSchemaOf,
 } from "@instantdb/core";
 import {
   KeyboardEvent,
@@ -65,16 +66,16 @@ export type TypingIndicatorHandle<PresenceShape> = {
 export const defaultActivityStopTimeout = 1_000;
 
 export class InstantReactRoom<
-  Schema extends InstantGraph<any, any> | {},
+  Schema extends InstantGraph<any, any>,
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
 > {
-  _core: InstantClientExperimental<Schema, RoomSchema>;
+  _core: InstantClientExperimental<Schema>;
   type: RoomType;
   id: string;
 
   constructor(
-    _core: InstantClientExperimental<Schema, RoomSchema>,
+    _core: InstantClientExperimental<Schema>,
     type: RoomType,
     id: string,
   ) {
@@ -301,9 +302,8 @@ const defaultAuthState = {
 };
 
 export abstract class InstantReactExperimental<
-  Schema extends InstantGraph<any, any> | {} = {},
-  RoomSchema extends RoomSchemaShape = {},
-> implements IDatabaseExperimental<Schema, RoomSchema>
+  Schema extends InstantGraph<any, any>,
+> implements IDatabaseExperimental<Schema>
 {
   public tx =
     txInit<
@@ -312,13 +312,13 @@ export abstract class InstantReactExperimental<
 
   public auth: Auth;
   public storage: Storage;
-  public _core: InstantClientExperimental<Schema, RoomSchema>;
+  public _core: InstantClientExperimental<Schema>;
 
   static Storage?: any;
   static NetworkListener?: any;
 
   constructor(config: Config | ConfigWithSchema<any>) {
-    this._core = _init_internal_experimental<Schema, RoomSchema>(
+    this._core = _init_internal_experimental<Schema>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.Storage,
@@ -349,11 +349,11 @@ export abstract class InstantReactExperimental<
    *   useTypingIndicator,
    * } = db.room(roomType, roomId);
    */
-  room<RoomType extends keyof RoomSchema>(
+  room<RoomType extends keyof RoomSchemaOf<Schema>>(
     type: RoomType = "_defaultRoomType" as RoomType,
     id: string = "_defaultRoomId",
   ) {
-    return new InstantReactRoom<Schema, RoomSchema, RoomType>(
+    return new InstantReactRoom<Schema, RoomSchemaOf<Schema>, RoomType>(
       this._core,
       type,
       id,
@@ -407,11 +407,7 @@ export abstract class InstantReactExperimental<
    *  // skip if `user` is not logged in
    *  db.useQuery(auth.user ? { goals: {} } : null)
    */
-  useQuery = <
-    Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
-      : Exactly<Query, Q>,
-  >(
+  useQuery = <Q extends InstaQLQueryParams<Schema>>(
     query: null | Q,
   ): LifecycleSubscriptionStateExperimental<Q, Schema> => {
     return useQueryExperimental(this._core, query).state;

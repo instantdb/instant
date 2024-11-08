@@ -91,12 +91,10 @@ export function useQuery<
 
 // XXX-EXPERIMENTAL
 export function useQueryExperimental<
-  Q extends Schema extends InstantGraph<any, any>
-    ? InstaQLQueryParams<Schema>
-    : Exactly<Query, Q>,
-  Schema extends InstantGraph<any, any, any> | {},
+  Q extends InstaQLQueryParams<Schema>,
+  Schema extends InstantGraph<any, any, any>,
 >(
-  _core: InstantClientExperimental<Schema, any>,
+  _core: InstantClientExperimental<Schema>,
   _query: null | Q,
 ): {
   state: LifecycleSubscriptionStateExperimental<Q, Schema>;

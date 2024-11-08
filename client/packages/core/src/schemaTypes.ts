@@ -1,4 +1,4 @@
-import type { RoomSchemaShape } from "./presence";
+import type { DefaultRoomSchemaShape, RoomSchemaShape } from "./presence";
 
 export class LinkAttrDef<
   Cardinality extends CardinalityKind,
@@ -72,6 +72,29 @@ export class InstantGraph<
     );
   }
 }
+
+export type RoomSchemaOf<S> =
+  S extends InstantGraph<any, any, infer R>
+    ? R extends RoomSchemaShape
+      ? R
+      : never
+    : never;
+
+export type PresenceOf<
+  S,
+  RoomType extends keyof RoomSchemaOf<S>,
+> = RoomSchemaOf<S>[RoomType] extends { presence: infer P } ? P : {};
+
+export type TopicsOf<
+  S,
+  RoomType extends keyof RoomSchemaOf<S>,
+> = RoomSchemaOf<S>[RoomType] extends { topics: infer T } ? T : {};
+
+export type TopicOf<
+  S, 
+  RoomType extends keyof RoomSchemaOf<S>, 
+  TopicType extends keyof TopicsOf<S, RoomType>
+> = TopicsOf<S, RoomType>[TopicType];
 
 // ==========
 // base types
