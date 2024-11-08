@@ -157,9 +157,7 @@ function init<Schema extends {} = {}>(config: Config) {
   return new InstantAdmin<Schema>(config);
 }
 
-function init_experimental<
-  Schema extends InstantGraph<any, any, any>,
->(
+function init_experimental<Schema extends InstantGraph<any, any, any>>(
   config: Config & {
     schema: Schema;
   },
@@ -202,9 +200,7 @@ class InstantAdmin<Schema extends InstantGraph<any, any> | {}> {
    * @example
    *  await db.asUser({email: "stopa@instantdb.com"}).query({ goals: {} })
    */
-  asUser = (
-    opts: ImpersonationOpts,
-  ): InstantAdmin<Schema> => {
+  asUser = (opts: ImpersonationOpts): InstantAdmin<Schema> => {
     const newClient = new InstantAdmin<Schema>({
       ...this.config,
     });
@@ -672,19 +668,13 @@ class Storage {
  * @example
  *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
  */
-class InstantAdminExperimental<
-  // XXX is this {} necessary?
-  Schema extends InstantGraph<any, any> | {}
-> {
+class InstantAdminExperimental<Schema extends InstantGraph<any, any>> {
   config: FilledConfig;
   auth: Auth;
   storage: Storage;
   impersonationOpts?: ImpersonationOpts;
 
-  public tx =
-    txInit<
-      Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
-    >();
+  public tx = txInit<Schema>();
 
   constructor(_config: Config) {
     this.config = configWithDefaults(_config);
@@ -724,15 +714,9 @@ class InstantAdminExperimental<
    *  // all goals, _alongside_ their todos
    *  await db.query({ goals: { todos: {} } })
    */
-  query = <
-    Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
-      : Exactly<Query, Q>,
-  >(
+  query = <Q extends InstaQLQueryParams<Schema>>(
     query: Q,
-  ): Promise<
-    QueryResponseExperimental<Q, Schema>
-  > => {
+  ): Promise<QueryResponseExperimental<Q, Schema>> => {
     return jsonFetch(`${this.config.apiURI}/admin/query`, {
       method: "POST",
       headers: authorizedHeaders(this.config, this.impersonationOpts),
@@ -799,8 +783,8 @@ class InstantAdminExperimental<
    *    { rules: { goals: { allow: { read: "auth.id != null" } } }
    *  )
    */
-  debugQuery = async <Q extends Query>(
-    query: Exactly<Query, Q>,
+  debugQuery = async <Q extends InstaQLQueryParams<Schema>>(
+    query: Q,
     opts?: { rules: any },
   ): Promise<{
     result: QueryResponseExperimental<Q, Schema>;
