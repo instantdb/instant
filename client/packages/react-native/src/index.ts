@@ -97,7 +97,7 @@ class InstantReactNative<
   static NetworkListener = NetworkListener;
 
   constructor(config: Config | ConfigWithSchema<any>) {
-    super(config, { versions: { "@instantdb/react-native": version } });
+    super(config, { "@instantdb/react-native": version });
   }
 }
 

@@ -315,7 +315,10 @@ export abstract class InstantReact<
   static Storage?: any;
   static NetworkListener?: any;
 
-  constructor(config: Config | ConfigWithSchema<any>, versions) {
+  constructor(
+    config: Config | ConfigWithSchema<any>,
+    versions?: { [key: string]: string },
+  ) {
     this._core = _init_internal<Schema, RoomSchema, WithCardinalityInference>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
