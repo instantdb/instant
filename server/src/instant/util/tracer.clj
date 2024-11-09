@@ -16,6 +16,7 @@
   (:gen-class))
 
 (def ^:dynamic *span* nil)
+(def ^:dynamic *skipped* false)
 
 ;; Expects an atom with a boolean value if not nil
 ;; Used to mute `add-exception!` from the outside when the caller expects errors
@@ -63,12 +64,13 @@
 (defonce last-calculated-metrics (atom {}))
 
 (defn new-span!
-  [{span-name :name :keys [attributes source] :as params}]
+  [{span-name :name :keys [attributes source sample-rate] :as params}]
   (when-not span-name
     (throw (Exception. (format "Expected a map with :name key, got %s." params))))
   (let [thread (Thread/currentThread)
         {:keys [code-ns code-line code-file]} source
         default-attributes (cond-> @last-calculated-metrics
+                             sample-rate (assoc "sample_rate" sample-rate)
                              true (assoc "host.name" (config/get-hostname))
                              thread (assoc SemanticAttributes/THREAD_NAME
                                            (.getName thread)
@@ -148,11 +150,12 @@
      (binding [*silence-exceptions?* silencer#]
        ~@body)))
 
-(defmacro with-span!
+(defmacro with-span!*
   [span-opts & body]
   `(let [source# {:code-line ~(:line (meta &form))
                   :code-file ~*file*
                   :code-ns   ~(str *ns*)}
+         sample-rate# (:sample-rate ~span-opts 1.0)
          span-opts# (assoc ~span-opts :source source#)]
      (binding [*span* (new-span! span-opts#)]
        (try
@@ -162,6 +165,40 @@
            (throw t#))
          (finally
            (end-span! *span*))))))
+
+(defmacro with-span!
+  [span-opts & body]
+  `(let [span-opts# ~span-opts]
+     (cond
+       *skipped* (do ~@body)
+       (> (rand) (:sample-rate span-opts# 1.0))
+       (binding [*skipped* true]
+         ~@body)
+       :else
+       (with-span!* span-opts# ~@body))))
+
+(comment
+  ;; this will always print new-span!
+  (with-redefs [new-span! (fn [& args] (println "new-span!" args))
+                end-span! (fn [& _] _)]
+    (with-span! {:name "foo"}
+      (+ 1 1)))
+  ;; this will never print new-span!
+  (with-redefs [new-span! (fn [& args] (println "new-span!" args))
+                end-span! (fn [& _] _)]
+    (with-span! {:name "foo" :sample-rate 0}
+      (+ 1 1)))
+  ;; this will sometimes print new-span!
+  (with-redefs [new-span! (fn [& args] (println "new-span!" args))
+                end-span! (fn [& _] _)]
+    (with-span! {:name "foo" :sample-rate 0.5}
+      (+ 1 1)))
+  ;; this will never print, since the parent span is skipped
+  (with-redefs [new-span! (fn [& args] (println "new-span!" args))
+                end-span! (fn [& _] _)]
+    (with-span! {:name "foo" :sample-rate 0}
+      (with-span! {:name "foo" :sample-rate 1}
+        (+ 1 1)))))
 
 (defn record-info!
   "Analogous to log/info.

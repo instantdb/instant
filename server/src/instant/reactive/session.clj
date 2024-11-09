@@ -299,8 +299,18 @@
                                               :op :client-broadcast-ok
                                               :client-event-id client-event-id))))
 
+;; Events like set-presence, client-broadcast, and join-room
+;; produce lots of logs in CloudWatch. We want to sample these
+;; out since they don't provide much value and are wasteful in terms of costs
+(defn event-sample-rate [{:keys [op]}]
+  (cond
+    (= op :set-presence) 0.01
+    (#{:client-broadcast :join-room} op) 0.1
+    :else 1))
+
 (defn handle-event [store-conn eph-store-atom session event]
-  (tracer/with-span! {:name "receive-worker/handle-event"}
+  (tracer/with-span! {:name "receive-worker/handle-event"
+                      :sample-rate (event-sample-rate event)}
     (let [{:keys [op]} event
           {:keys [session/socket]} session
           {:keys [id]} socket]
