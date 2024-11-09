@@ -49,12 +49,24 @@
 ;; ------
 ;; handlers
 
-(defn auth-and-creator-attrs [auth creator]
-  {:app-id (-> auth :app :id)
-   :app-title (-> auth :app :title)
-   :app-user-email (-> auth :user :email)
-   :creator-id (-> creator :id)
-   :creator-email (-> creator :email)})
+(def core-version-key (keyword "@instantdb/core"))
+(def react-version-key (keyword "@instantdb/react"))
+(def react-native-version-key (keyword "@instantdb/react-native"))
+
+(defn auth-and-creator-attrs [auth creator versions]
+  (cond-> {:app-id (-> auth :app :id)
+           :app-title (-> auth :app :title)
+           :app-user-email (-> auth :user :email)
+           :creator-id (-> creator :id)
+           :creator-email (-> creator :email)}
+    (get versions react-version-key)
+    (assoc "@instantdb/react" (get versions react-version-key))
+
+    (get versions react-native-version-key)
+    (assoc "@instantdb/react-native" (get versions react-native-version-key))
+
+    (get versions core-version-key)
+    (assoc "@instantdb/core" (get versions core-version-key))))
 
 ;; -------
 ;; init
@@ -70,7 +82,7 @@
     {:attrs (attr-model/get-by-app-id (:id app))}))
 
 (defn- handle-init! [store-conn sess-id
-                     {:keys [refresh-token client-event-id __admin-token] :as event}]
+                     {:keys [refresh-token client-event-id versions __admin-token] :as event}]
   (let [prev-auth (rs/get-auth @store-conn sess-id)
         _ (when prev-auth
             (ex/throw-validation-err! :init event [{:message "`init` has already run for this session."}]))
@@ -87,9 +99,10 @@
                      (app-admin-token-model/fetch! {:app-id app-id
                                                     :token __admin-token})))
         auth {:app app :user user :admin? admin?}]
-    (tracer/add-data! {:attributes (auth-and-creator-attrs auth creator)})
-    (rs/set-auth! store-conn sess-id auth)
-    (rs/set-creator! store-conn sess-id creator)
+    (tracer/add-data! {:attributes (auth-and-creator-attrs auth creator versions)})
+    (rs/set-session-props! store-conn sess-id {:auth auth
+                                               :creator creator
+                                               :versions versions})
     (rs/send-event! store-conn sess-id {:op :init-ok
                                         :session-id sess-id
                                         :client-event-id client-event-id
@@ -225,7 +238,8 @@
            worker-delay-ms
            ws-ping-latency-ms] :as _event}]
   (let [auth (rs/get-auth @store-conn session-id)
-        creator (rs/get-creator @store-conn session-id)]
+        creator (rs/get-creator @store-conn session-id)
+        versions (rs/get-versions @store-conn session-id)]
     (merge
      {:op op
       :client-event-id client-event-id
@@ -233,7 +247,7 @@
       :worker-delay-ms worker-delay-ms
       :receive-q-delay-ms receive-q-delay-ms
       :ws-ping-latency-ms ws-ping-latency-ms}
-     (auth-and-creator-attrs auth creator))))
+     (auth-and-creator-attrs auth creator versions))))
 
 (defn socket-origin [{:keys [http-req]}]
   (some-> http-req

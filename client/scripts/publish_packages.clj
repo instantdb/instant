@@ -28,6 +28,23 @@
     (println (str  "[" (name k) "]" " set version = " v))
     (jq-set! (package-json-path path) ".version" v)))
 
+(defn version-js-body [v]
+  (format
+   (str/triml "
+const version = \"%s\";
+
+export default version;
+")
+   v))
+
+(defn set-version-js!
+  "Update all src/version.js with the given version"
+  [v]
+  (doseq [[k path] PACKAGE_PATHS]
+    (println (str  "[" (name k) "]" " set version.js = " v))
+    (spit (format "%s/src/version.js" path)
+          (version-js-body v))))
+
 (defn set-dep-versions!
   "Some packages depend on @instantdb/*.
 
@@ -64,8 +81,10 @@
         version (str/trim (slurp "version.md"))]
     (set-package-versions! version)
     (set-dep-versions! version)
+    (set-version-js! version)
     (publish-packages! tag)
-    (set-dep-versions! "workspace:*")))
+    (set-dep-versions! "workspace:*")
+    (set-version-js! (str version "-dev"))))
 
 (when (= *file* (System/getProperty "babashka.file"))
   (apply -main *command-line-args*))

@@ -2,6 +2,8 @@ import "react-native-get-random-values";
 
 import Storage from "./Storage";
 import NetworkListener from "./NetworkListener";
+import version from "./version";
+
 import {
   // react
   InstantReact,
@@ -39,6 +41,7 @@ import {
   type ResolveAttrs,
   type ValueTypes,
   type InstantEntity,
+  ConfigWithSchema,
 } from "@instantdb/core";
 
 /**
@@ -92,6 +95,10 @@ class InstantReactNative<
 > extends InstantReact<Schema, RoomSchema, WithCardinalityInference> {
   static Storage = Storage;
   static NetworkListener = NetworkListener;
+
+  constructor(config: Config | ConfigWithSchema<any>) {
+    super(config, { versions: { "@instantdb/react-native": version } });
+  }
 }
 
 export {

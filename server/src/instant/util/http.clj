@@ -32,6 +32,9 @@
     (let [{:keys [uri request-method headers body query-params]} request
           app-id (get headers "app-id")
           authorization (get headers "authorization")
+          cli-version (get headers "instant-cli-version")
+          core-version (get headers "instant-core-version")
+          admin-version (get headers "instant-admin-version")
           origin (get headers "origin")
           attrs {:request-uri uri
                  :request-method request-method
@@ -40,6 +43,9 @@
                  :app-id app-id
                  :authorization authorization
                  :query-params query-params
+                 :cli-version cli-version
+                 :core-version core-version
+                 :admin-version admin-version
                  :body (when (map? body) body)}]
       (tracer/add-data! {:attributes attrs})
       (handler request))))

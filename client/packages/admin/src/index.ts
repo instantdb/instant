@@ -5,6 +5,7 @@ import {
   i,
   id,
   txInit,
+  version as coreVersion,
   type TransactionChunk,
   type AuthToken,
   type Exactly,
@@ -37,6 +38,8 @@ import {
   type ResolveAttrs,
   type ValueTypes,
 } from "@instantdb/core";
+
+import version from "./version";
 
 type DebugCheckResult = {
   /** The ID of the record. */
@@ -125,7 +128,12 @@ async function jsonFetch(
   input: RequestInfo,
   init: RequestInit | undefined,
 ): Promise<any> {
-  const res = await fetch(input, { ...FETCH_OPTS, ...init });
+  const headers = {
+    ...(init.headers || {}),
+    "Instant-Admin-Version": version,
+    "Instant-Core-Version": coreVersion,
+  };
+  const res = await fetch(input, { ...FETCH_OPTS, ...init, headers });
   const json = await res.json();
   return res.status === 200
     ? Promise.resolve(json)
@@ -473,7 +481,7 @@ class Auth {
   ): Promise<User> => {
     const qs = Object.entries(params)
       .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
-      .join('&');
+      .join("&");
 
     const response: { user: User } = await jsonFetch(
       `${this.config.apiURI}/admin/users?${qs}`,
