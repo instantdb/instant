@@ -4,10 +4,11 @@
    [clojure.tools.logging :as log]
    [clojure.string :as string]
    [instant.config :as config])
-  (:import [io.opentelemetry.sdk.common CompletableResultCode]
-           [io.opentelemetry.sdk.trace.export SpanExporter]
-           [java.util.concurrent TimeUnit]
-           [java.util.concurrent.atomic AtomicBoolean]))
+  (:import (io.opentelemetry.api.common AttributeKey)
+           (io.opentelemetry.sdk.common CompletableResultCode)
+           (io.opentelemetry.sdk.trace.export SpanExporter)
+           (java.util.concurrent TimeUnit)
+           (java.util.concurrent.atomic AtomicBoolean)))
 
 ;; -------
 ;; Colors 
@@ -113,8 +114,20 @@
             (cond-> data-str
               (= :prod (config/get-env)) escape-newlines))))
 
+(def op-attr-key (AttributeKey/stringKey "op"))
+
+(def exclude-span?
+  (if (= :prod (config/get-env))
+    (fn [span]
+      (-> (.getAttributes span)
+          (.get op-attr-key)
+          (= ":set-presence")))
+    (fn [_span]
+      false)))
+
 (defn log-spans [spans]
-  (doseq [span spans]
+  (doseq [span spans
+          :when (not (exclude-span? span))]
     (log/info (span-str span))))
 
 (defn export [shutdown? spans]
