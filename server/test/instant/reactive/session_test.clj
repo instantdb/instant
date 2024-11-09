@@ -631,7 +631,7 @@
   (with-session
     (fn [_store-conn eph-store-atom {:keys [socket]}]
       (blocking-send-msg socket {:op :init :app-id movies-app-id})
-      (let [rid (UUID/randomUUID)
+      (let [rid (str (UUID/randomUUID))
             sess-id (:id socket)
             {:keys [op room-id]} (blocking-send-msg socket
                                                     {:op :join-room
@@ -650,7 +650,7 @@
   (with-session
     (fn [_store-conn eph-store-atom {:keys [socket]}]
       (blocking-send-msg socket {:op :init :app-id movies-app-id})
-      (let [rid (UUID/randomUUID)
+      (let [rid (str (UUID/randomUUID))
             sess-id (:id socket)]
         (blocking-send-msg socket
                            {:op :join-room :room-id rid})
@@ -677,7 +677,7 @@
     (fn [_store-conn eph-store-atom {:keys [socket second-socket]}]
       (blocking-send-msg socket {:op :init :app-id movies-app-id})
       (blocking-send-msg second-socket {:op :init :app-id movies-app-id})
-      (let [rid (UUID/randomUUID)
+      (let [rid (str (UUID/randomUUID))
             initial-rooms (get-in @eph-store-atom [:rooms])
             join-room (blocking-send-msg socket
                                          {:op :join-room :room-id rid})
@@ -718,7 +718,7 @@
 (deftest set-presence-works
   (with-session
     (fn [_store-conn eph-store-atom {:keys [socket]}]
-      (let [rid (UUID/randomUUID)
+      (let [rid (str (UUID/randomUUID))
             sess-id (:id socket)
             d1 {:hello "world"}
             d2 {:foo "bar"}]
@@ -751,7 +751,7 @@
   (with-session
     (fn [_store-conn _eph-store-atom {:keys [socket]}]
       (blocking-send-msg socket {:op :init :app-id movies-app-id})
-      (let [rid (UUID/randomUUID)
+      (let [rid (str (UUID/randomUUID))
             d1 {:hello "world"}
             {:keys [op status]} (blocking-send-msg socket {:op :set-presence :room-id rid :data d1})]
         (is (= :error op))
@@ -760,7 +760,7 @@
 (deftest broadcast-works
   (with-session
     (fn [_store-conn eph-store-atom {:keys [socket]}]
-      (let [rid (UUID/randomUUID)
+      (let [rid (str (UUID/randomUUID))
             sess-id (:id socket)
             t1 "foo"
             d1 {:hello "world"}]
@@ -789,7 +789,7 @@
   (with-session
     (fn [_store-conn _eph-store-atom {:keys [socket]}]
       (blocking-send-msg socket {:op :init :app-id movies-app-id})
-      (let [rid (UUID/randomUUID)
+      (let [rid (str (UUID/randomUUID))
             t1 "foo"
             d1 {:hello "world"}
             {:keys [op status]} (blocking-send-msg socket {:op :client-broadcast
