@@ -166,35 +166,159 @@ const { publishPresence } = room.usePresence({
 
 Instant provides 2 hooks for sending and handling events for a given topic. `usePublishTopic` returns a function you can call to publish an event, and `useTopicEffect` will be called each time a peer in the same room publishes a topic event.
 
+Here's a live reaction feature using topics. You can also play with it live on [our examples page](https://www.instantdb.com/examples?#5-reactions)
+
 ```typescript
-type Schema = {
-  user: { name: string };
-  video: { url: string, title: string };
-}
+import { init } from '@instantdb/react';
+import { RefObject, createRef, useRef } from 'react';
+
+// Instant app
+const APP_ID = '__APP_ID__'
+
+// Set up room schema
+const emoji = {
+  fire: '🔥',
+  wave: '👋',
+  confetti: '🎉',
+  heart: '❤️',
+} as const;
+
+type EmojiName = keyof typeof emoji;
 
 type RoomSchema = {
-  video: {
-    presence: { name: string };
+  'main': {
     topics: {
-      reaction: { emoji: string };
+      emoji: {
+        name: EmojiName;
+        rotationAngle: number;
+        directionAngle: number;
+      };
     };
   };
-}
+};
 
-const APP_ID = '__APP_ID__';
-const db = init<Schema, RoomSchema>({ appId: APP_ID });
+const db = init<{}, RoomSchema>({
+  appId: APP_ID,
+});
 
-const room = db.room('video', 'room-id-123');
+const room = db.room('main');
 
-function Component() {
-  const publishEmote = room.usePublishTopic('emotes');
+export default function InstantTopics() {
+  // Use publishEmoji to broadcast to peers listening to `emoji` events.
+  const publishEmoji = room.usePublishTopic('emoji');
 
-  room.useTopicEffect('emotes', (event, peer) => {
-    // Render broadcasted emotes!
-    renderEmote(event.emoji);
+  // Use useTopicEffect to listen for `emoji` events from peers
+  // and animate their emojis on the screen.
+  room.useTopicEffect('emoji', ({ name, directionAngle, rotationAngle }) => {
+    if (!emoji[name]) return;
+
+    animateEmoji(
+      { emoji: emoji[name], directionAngle, rotationAngle },
+      elRefsRef.current[name].current
+    );
   });
 
-  return <button onClick={() => publishEmote({ emoji: '🔥' })}>🔥</button>;
+  const elRefsRef = useRef<{
+    [k: string]: RefObject<HTMLDivElement>;
+  }>(refsInit);
+
+  return (
+    <div className={containerClassNames}>
+      <div className="flex gap-4">
+        {emojiNames.map((name) => (
+          <div className="relative" key={name} ref={elRefsRef.current[name]}>
+            <button
+              className={emojiButtonClassNames}
+              {/* We sent an emoji! Let's animate and broadcast it! */}
+              onClick={() => {
+                const params = {
+                  name,
+                  rotationAngle: Math.random() * 360,
+                  directionAngle: Math.random() * 360,
+                };
+
+                {/* Animate the emoji on our screen */}
+                animateEmoji(
+                  {
+                    emoji: emoji[name],
+                    rotationAngle: params.rotationAngle,
+                    directionAngle: params.directionAngle,
+                  },
+                  elRefsRef.current[name].current
+                );
+
+                {/* Broadcast our emoji to our peers! */}
+                publishEmoji(params);
+              }}
+            >
+              {emoji[name]}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Below are helper functions and styles used to animate the emojis
+
+const emojiNames = Object.keys(emoji) as EmojiName[];
+
+const refsInit = Object.fromEntries(
+  emojiNames.map((name) => [name, createRef<HTMLDivElement>()])
+);
+
+const containerClassNames =
+  'flex h-screen w-screen items-center justify-center overflow-hidden bg-gray-200 select-none';
+
+const emojiButtonClassNames =
+  'rounded-lg bg-white p-3 text-3xl shadow-lg transition duration-200 ease-in-out hover:-translate-y-1 hover:shadow-xl';
+
+function animateEmoji(
+  config: { emoji: string; directionAngle: number; rotationAngle: number },
+  target: HTMLDivElement | null
+) {
+  if (!target) return;
+
+  const rootEl = document.createElement('div');
+  const directionEl = document.createElement('div');
+  const spinEl = document.createElement('div');
+
+  spinEl.innerText = config.emoji;
+  directionEl.appendChild(spinEl);
+  rootEl.appendChild(directionEl);
+  target.appendChild(rootEl);
+
+  style(rootEl, {
+    transform: `rotate(${config.directionAngle * 360}deg)`,
+    position: 'absolute',
+    top: '0',
+    left: '0',
+    right: '0',
+    bottom: '0',
+    margin: 'auto',
+    zIndex: '9999',
+    pointerEvents: 'none',
+  });
+
+  style(spinEl, {
+    transform: `rotateZ(${config.rotationAngle * 400}deg)`,
+    fontSize: `40px`,
+  });
+
+  setTimeout(() => {
+    style(directionEl, {
+      transform: `translateY(40vh) scale(2)`,
+      transition: 'all 400ms',
+      opacity: '0',
+    });
+  }, 20);
+
+  setTimeout(() => rootEl.remove(), 800);
+}
+
+function style(el: HTMLElement, styles: Partial<CSSStyleDeclaration>) {
+  Object.assign(el.style, styles);
 }
 ```
 
