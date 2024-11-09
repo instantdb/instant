@@ -145,9 +145,11 @@
                                                versions]}]
   (transact! "store/set-session-props"
              conn
-             [[:db/add [:session/id sess-id] :session/auth auth]
-              [:db/add [:session/id sess-id] :session/creator creator]
-              [:db/add [:session/id sess-id] :session/versions versions]]))
+             (concat
+              [[:db/add [:session/id sess-id] :session/auth auth]
+               [:db/add [:session/id sess-id] :session/creator creator]]
+              (when versions
+                [[:db/add [:session/id sess-id] :session/versions versions]]))))
 
 (defn get-versions [db sess-id]
   (:session/versions (d/entity db [:session/id sess-id])))
