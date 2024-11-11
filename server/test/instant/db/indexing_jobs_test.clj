@@ -9,7 +9,7 @@
             [clojure.core.async :as a]
             [clojure.test :refer [deftest testing is]]))
 
-(deftest indexing-jobs-checks-types
+(deftest checks-types-works
   (with-zeneca-app
     (fn [app r]
       (let [job-queue (a/chan 1024)
@@ -36,7 +36,8 @@
                           (every? (fn [{:keys [id]}]
                                     (= "completed" (:job_status (jobs/get-by-id id))))
                                   [title-job
-                                   order-job]))
+                                   order-job
+                                   created-at-job]))
                         1000)
             title-triples (triple-model/fetch aurora/conn-pool
                                               (:id app)
@@ -111,3 +112,53 @@
           (is (every? (fn [a]
                         (not (:checking-data-type? a)))
                       attrs)))))))
+
+(deftest remove-types-works
+  (with-zeneca-app
+    (fn [app r]
+      (let [job-queue (a/chan 1024)
+            process (future (jobs/start-process job-queue))
+            title-job (jobs/create-check-data-type-job!
+                       {:app-id (:id app)
+                        :attr-id (resolvers/->uuid r :books/title)
+                        :checked-data-type "string"})
+
+            _ (jobs/enqueue-job job-queue title-job)
+            _ (wait-for (fn []
+                          (every? (fn [{:keys [id]}]
+                                    (= "completed" (:job_status (jobs/get-by-id id))))
+                                  [title-job]))
+                        1000)
+            title-triples (triple-model/fetch aurora/conn-pool
+                                              (:id app)
+                                              [[:= :attr-id (resolvers/->uuid r :books/title)]])]
+        (testing "setup worked"
+          (is (pos? (count title-triples)))
+          (is (every? (fn [{:keys [triple checked-data-type]}]
+                        (and (string? (nth triple 2))
+                             (= checked-data-type "string")))
+                      title-triples))
+          (let [attrs (attr-model/get-by-app-id (:id app))]
+            (is (= :string (-> (resolvers/->uuid r :books/title)
+                               (attr-model/seek-by-id attrs)
+                               :checked-data-type)))))
+        (let [remove-type-job (jobs/create-remove-data-type-job!
+                               {:app-id (:id app)
+                                :attr-id (resolvers/->uuid r :books/title)})
+              _ (jobs/enqueue-job job-queue remove-type-job)
+              _ (wait-for (fn []
+                            (every? (fn [{:keys [id]}]
+                                      (= "completed" (:job_status (jobs/get-by-id id))))
+                                    [remove-type-job]))
+                          1000)
+              title-triples (triple-model/fetch aurora/conn-pool
+                                                (:id app)
+                                                [[:= :attr-id (resolvers/->uuid r :books/title)]])]
+          (is (pos? (count title-triples)))
+          (is (every? (fn [{:keys [checked-data-type]}]
+                        (nil? checked-data-type))
+                      title-triples))
+          (let [attrs (attr-model/get-by-app-id (:id app))]
+            (is (nil? (-> (resolvers/->uuid r :books/title)
+                          (attr-model/seek-by-id attrs)
+                          :checked-data-type)))))))))
