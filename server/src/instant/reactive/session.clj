@@ -31,7 +31,8 @@
    [instant.util.exception :as ex]
    [instant.util.uuid :as uuid-util]
    [instant.grouped-queue :as grouped-queue]
-   [instant.gauges :as gauges])
+   [instant.gauges :as gauges]
+   [instant.reactive.receive-queue :as receive-queue :refer [receive-q]])
   (:import
    (java.util.concurrent CancellationException)
    (java.util.concurrent.atomic AtomicLong)
@@ -40,7 +41,6 @@
 ;; ------
 ;; Setup
 
-(declare receive-q)
 (declare receive-q-stop-signal)
 (def handle-receive-timeout-ms 5000)
 
@@ -299,6 +299,12 @@
                                               :op :client-broadcast-ok
                                               :client-event-id client-event-id))))
 
+(defn- handle-refresh-presence!
+  [store-conn sess-id {:keys [room-id data]}]
+  (rs/send-event! store-conn sess-id {:op :refresh-presence
+                                      :room-id room-id
+                                      :data data}))
+
 (defn handle-event [store-conn eph-store-atom session event]
   (tracer/with-span! {:name "receive-worker/handle-event"}
     (let [{:keys [op]} event
@@ -316,7 +322,8 @@
         :join-room (handle-join-room! store-conn eph-store-atom id event)
         :leave-room (handle-leave-room! store-conn eph-store-atom id event)
         :set-presence (handle-set-presence! store-conn eph-store-atom id event)
-        :client-broadcast (handle-client-broadcast! store-conn eph-store-atom id event)))))
+        :client-broadcast (handle-client-broadcast! store-conn eph-store-atom id event)
+        :refresh-presence (handle-refresh-presence! store-conn id event)))))
 
 ;; --------------
 ;; Receive Workers
@@ -423,14 +430,15 @@
             (swap! pending-handlers disj pending-handler)))))))
 
 (defn process-receive-q-entry [store-conn eph-store-atom entry metadata]
-  (let [{:keys [put-at item]} entry
+  (let [{:keys [put-at item skipped-size]} entry
         {:keys [session-id] :as event} item
         now (Instant/now)
         session (rs/get-session @store-conn session-id)]
     (cond
       (not session)
       (tracer/record-info! {:name "receive-worker/session-not-found"
-                            :attributes (assoc metadata :session-id session-id)})
+                            :attributes (assoc metadata
+                                               :session-id session-id)})
 
       :else
       (handle-receive
@@ -445,7 +453,7 @@
                       :session/socket
                       :get-ping-latency-ms
                       (#(%))))
-       metadata))))
+       (assoc metadata :skipped-size skipped-size)))))
 
 (defn straight-jacket-process-receive-q-entry [store-conn eph-store-atom entry metadata]
   (try
@@ -466,7 +474,9 @@
                            (= :set-presence
                               (-> entry :item :op)))
                     {:entries-to-process entries-to-process
-                     :last-entry entry}
+                     :last-entry (assoc entry
+                                        :skipped-size
+                                        (inc (or (:skipped-size last-entry) 0)))}
                     {:entries-to-process (conj entries-to-process last-entry)
                      :last-entry entry}))
                 {:entries-to-process []
@@ -477,12 +487,29 @@
 (defn straight-jacket-process-receive-q-batch [store-conn eph-store-atom batch metadata]
   (try
     (let [t (-> metadata :group-key first)]
-      (if (or (= :refresh t)
-              (not= :room t)
-              (= 1 (count batch)))
+      (if (= 1 (count batch))
         (process-receive-q-entry store-conn eph-store-atom (first batch) metadata)
-        (doseq [entry (drop-consecutive-set-presence batch)]
-          (process-receive-q-entry store-conn eph-store-atom entry metadata))))
+        (case t
+          :refresh
+          (process-receive-q-entry store-conn
+                                   eph-store-atom
+                                   (assoc (first batch)
+                                          :skipped-size (dec (count batch)))
+                                   metadata)
+
+          :refresh-presence
+          (process-receive-q-entry store-conn
+                                   eph-store-atom
+                                   (assoc (last batch)
+                                          :skipped-size (dec (count batch)))
+                                   metadata)
+
+          :room
+          (doseq [entry (drop-consecutive-set-presence batch)]
+            (process-receive-q-entry store-conn
+                                     eph-store-atom
+                                     entry
+                                     metadata)))))
     (catch Throwable e
       (tracer/record-exception-span! e {:name "receive-worker/handle-receive-batch-straight-jacket"
                                         :attributes (assoc metadata
@@ -490,8 +517,10 @@
                                                            :items batch)}))))
 
 (defn receive-worker-reserve-fn [[t] inflight-q]
-  (if (contains? #{:refresh :room} t)
+  (case t
+    (:refresh :room :refresh-presence)
     (grouped-queue/inflight-queue-reserve-all inflight-q)
+
     (grouped-queue/inflight-queue-reserve 1 inflight-q)))
 
 (defn start-receive-workers [store-conn eph-store-atom receive-q stop-signal]
@@ -513,11 +542,6 @@
                                                                         :group-key group-key}))})
               (recur)))))))
 
-(defn enqueue->receive-q [receive-q item]
-  (grouped-queue/put!
-   receive-q
-   {:item item :put-at (Instant/now)}))
-
 ;; -----------------
 ;; Websocket Interop
 
@@ -527,9 +551,9 @@
     (rs/add-socket! store-conn id socket)))
 
 (defn on-message [{:keys [id receive-q data]}]
-  (enqueue->receive-q receive-q (-> (<-json data true)
-                                    (update :op keyword)
-                                    (assoc :session-id id))))
+  (receive-queue/enqueue->receive-q receive-q (-> (<-json data true)
+                                                  (update :op keyword)
+                                                  (assoc :session-id id))))
 
 (defn on-error [{:keys [id error]}]
   (condp instance? error
@@ -586,29 +610,25 @@
 ;; ------
 ;; System
 
-(defn receive-q-metrics [receive-q]
-  [{:path "instant.reactive.session.receive-q.size"
-    :value (grouped-queue/size receive-q)}
-   {:path "instant.reactive.session.receive-q.longest-waiting-ms"
-    :value (if-let [{:keys [put-at]} (grouped-queue/peek receive-q)]
-             (.toMillis (Duration/between put-at (Instant/now)))
-             0)}])
-
 (defn group-fn [{:keys [item] :as _input}]
   (let [{:keys [session-id op room-id]} item]
-    (condp contains? op
-      #{:transact}
+    (case op
+      :transact
       [:transact session-id]
 
-      #{:join-room :leave-room :set-presence :client-broadcast}
+      (:join-room :leave-room :set-presence :client-broadcast)
       [:room session-id room-id]
 
-      #{:add-query :remove-query}
+      (:add-query :remove-query)
       (let [{:keys [q]} item]
         [:query session-id q])
 
-      #{:refresh}
+      :refresh
       [:refresh session-id]
+
+      :refresh-presence
+      [:refresh-presence session-id room-id]
+
       nil)))
 
 (comment
@@ -617,10 +637,8 @@
   (group-fn {:item {:session-id 1 :op :add-query :q {:users {}}}}))
 
 (defn start []
-  (def receive-q (grouped-queue/create {:group-fn #'group-fn}))
+  (receive-queue/start #'group-fn)
   (def receive-q-stop-signal (atom false))
-  (def cleanup-gauge (gauges/add-gauge-metrics-fn
-                      (fn [] (receive-q-metrics receive-q))))
 
   (ua/fut-bg
    (start-receive-workers
@@ -631,7 +649,7 @@
 
 (defn stop []
   (reset! receive-q-stop-signal true)
-  (cleanup-gauge))
+  (receive-queue/stop))
 
 (defn restart []
   (stop)

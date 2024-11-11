@@ -16,7 +16,8 @@
    [instant.db.instaql :as iq]
    [instant.lib.ring.websocket :as ws]
    [instant.reactive.ephemeral :as eph]
-   [instant.reactive.query :as rq])
+   [instant.reactive.query :as rq]
+   [instant.reactive.receive-queue :as receive-queue])
   (:import
    (java.util UUID)
    (java.util.concurrent LinkedBlockingQueue)))
@@ -54,7 +55,7 @@
     (binding [*store-conn* store-conn
               *instaql-query-results* (atom {})
               *eph-store-atom* eph-store-atom]
-      (with-redefs [session/receive-q receive-q
+      (with-redefs [receive-queue/receive-q receive-q
                     eph/room-refresh-ch room-refresh-ch
                     ws/send-json! (fn [msg fake-ws-conn]
                                     (a/>!! fake-ws-conn msg))

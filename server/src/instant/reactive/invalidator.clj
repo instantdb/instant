@@ -8,6 +8,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
    [instant.reactive.session :as session]
+   [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
    [instant.util.crypt :as crypt-util]
@@ -348,8 +349,8 @@
                 (doseq [{:keys [id]} sockets]
                   (tracer/with-span! {:name "invalidator/send-refresh"
                                       :attributes {:session-id id}}
-                    (session/enqueue->receive-q session/receive-q
-                                                {:op :refresh :session-id id}))))
+                    (receive-queue/enqueue->receive-q {:op :refresh
+                                                       :session-id id}))))
               (catch Throwable t
                 (def -wal-record wal-record)
                 (def -store-value @store-conn)
@@ -364,8 +365,8 @@
         (doseq [{:keys [id]} sockets]
           (tracer/with-span! {:name "invalidator/send-refresh"
                               :session-id id}
-            (session/enqueue->receive-q session/receive-q {:op :refresh
-                                                           :session-id id}))))
+            (receive-queue/enqueue->receive-q {:op :refresh
+                                               :session-id id}))))
       (catch Throwable t
         (def -wal-record wal-record)
         (def -store-value @store-conn)

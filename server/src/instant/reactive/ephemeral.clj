@@ -7,6 +7,7 @@
    [instant.config :as config]
    [instant.flags :as flags]
    [instant.gauges :as gauges]
+   [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
    [instant.util.aws :as aws-util]
@@ -180,9 +181,14 @@
         session-ids (filter (fn [sess-id]
                               (rs/get-session @store-conn sess-id))
                             (keys room-data))]
-    (rs/try-broadcast-event! store-conn session-ids {:op :refresh-presence
-                                                     :room-id room-id
-                                                     :data room-data})))
+    (doseq [sess-id session-ids
+            :let [q (:receive-q (rs/get-socket @store-conn sess-id))]
+            :when q]
+      (receive-queue/enqueue->receive-q q
+                                        {:op :refresh-presence
+                                         :room-id room-id
+                                         :data room-data
+                                         :session-id sess-id}))))
 
 (defn straight-jacket-refresh-event!
   [store-conn {:keys [room-key room-id on-sent]}]
@@ -383,15 +389,17 @@
         new-apps-rooms (get-in new-v [:rooms])
         changed-rooms (get-changed-rooms old-apps-rooms new-apps-rooms)]
     (when (seq changed-rooms)
-      (tracer/with-span!
-        {:name "refresh-rooms"
-         :attributes {:room-ids (pr-str (map first changed-rooms))}}
-        (ua/vfuture-pmap
-         (fn [[room-id {:keys [data session-ids]}]]
-           (rs/try-broadcast-event! store-conn session-ids {:op :refresh-presence
-                                                            :room-id room-id
-                                                            :data data}))
-         changed-rooms)))))
+      (tracer/with-span! {:name "refresh-rooms"
+                          :attributes {:room-ids (pr-str (map first changed-rooms))}}
+        (doseq [[room-id {:keys [data session-ids]}] changed-rooms
+                sess-id session-ids
+                :let [q (:receive-q (rs/get-socket @store-conn sess-id))]
+                :when q]
+          (receive-queue/enqueue->receive-q q
+                                            {:op :refresh-presence
+                                             :room-id room-id
+                                             :data data
+                                             :session-id sess-id}))))))
 
 (defn straight-jacket-refresh-rooms! [store-conn prev curr]
   (try
