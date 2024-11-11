@@ -132,15 +132,17 @@
 
 (defn app-schema-plan-post [req]
   (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
-        client-defs (-> req :body :schema)]
-    (response/ok (schema-model/plan! app-id client-defs))))
+        client-defs (-> req :body :schema)
+        check-types? (-> req :body :check_types)]
+    (response/ok (schema-model/plan! app-id check-types? client-defs))))
 
 (defn app-schema-apply-post [req]
   (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
         client-defs (-> req :body :schema)
-        plan (schema-model/plan! app-id client-defs)]
-    (schema-model/apply-plan! app-id plan)
-    (response/ok plan)))
+        check-types? (-> req :body :check_types)
+        plan (schema-model/plan! app-id check-types? client-defs)
+        plan-result (schema-model/apply-plan! app-id plan)]
+    (response/ok (merge plan plan-result))))
 
 (comment
   (def user (instant-user-model/get-by-email {:email "stepan.p@gmail.com"}))

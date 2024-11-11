@@ -1099,6 +1099,7 @@
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (def r (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id (:id u)}))
   (schema-model/schemas->ops
+   true
    {:refs {}
     :blobs {}}
    {:refs {["posts" "comments" "comments" "post"] {:unique? false :cardinality "many"}}

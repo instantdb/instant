@@ -344,12 +344,14 @@
                      :index? false,
                      :inferred-types nil})
   (schemas->ops
+   true
    {:refs {}
     :blobs {:ns {:a {:unique? "one"}}}}
    {:refs {["comments" "post" "posts" "x"] {:unique? true :cardinality "one"}
            ["comments" "post" "posts" "comments"] {:unique? true :cardinality "one"}}
     :blobs {:ns {:a {:cardinality "many"} :b {:cardinality  "many"}}}})
   (schemas->ops
+   true
    {:refs {}
     :blobs {:ns {:a {:unique? "one"}}}}
    {:refs {["comments" "post" "posts" "comments"] {:unique? true :cardinality "one"}}
