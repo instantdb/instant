@@ -450,11 +450,12 @@ async function waitForIndexingJobsToFinish(appId, data) {
   }).start();
   const groupId = data["group-id"];
   let jobs = data.jobs;
-  let waitMs = 20;
+  let waitMs = 1;
   let lastUpdatedAt = new Date(0);
 
   const completedIds = new Set();
 
+  const completedMessages = [];
   const errorMessages = [];
 
   while (true) {
@@ -471,7 +472,8 @@ async function waitForIndexingJobsToFinish(appId, data) {
       }
       if (job.job_status === "waiting" || job.job_status === "processing") {
         stillRunning = true;
-        workEstimateTotal += job.work_estimate ?? 1000; // Don't want it to be zero
+        // Default estimate to high value to prevent % from jumping around
+        workEstimateTotal += job.work_estimate ?? 50000;
         workCompletedTotal += job.work_completed ?? 0;
       } else {
         if (!completedIds.has(job.id)) {
@@ -480,10 +482,7 @@ async function waitForIndexingJobsToFinish(appId, data) {
           if (job.job_status === "errored") {
             errorMessages.push(msg);
           } else {
-            // Pause the spinner so that console.log works
-            spinner.stop();
-            console.log(msg);
-            spinner.start();
+            completedMessages.push(msg);
           }
         }
       }
@@ -495,9 +494,12 @@ async function waitForIndexingJobsToFinish(appId, data) {
       const percent = Math.floor(
         (workCompletedTotal / workEstimateTotal) * 100,
       );
-      spinner.start(`checking data types ${percent}%`);
+      spinner.text = `checking data types ${percent}%`;
     }
-    waitMs = updated ? 20 : Math.min(10000, waitMs * 2);
+    if (completedMessages.length) {
+      spinner.prefixText = completedMessages.join("\n") + "\n";
+    }
+    waitMs = updated ? 1 : Math.min(10000, waitMs * 2);
     await sleep(waitMs);
     const res = await fetchJson({
       debugName: "Check indexing status",
@@ -510,7 +512,10 @@ async function waitForIndexingJobsToFinish(appId, data) {
     }
     jobs = res.data.jobs;
   }
-  spinner.stop();
+  spinner.stopAndPersist({
+    text: "",
+    prefixText: completedMessages.join("\n"),
+  });
 
   // Log errors at the end so that they're easier to see.
   if (errorMessages.length) {
