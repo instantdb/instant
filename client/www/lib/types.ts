@@ -67,7 +67,11 @@ export type InstantIndexingJob = {
   updated_at: string;
   done_at: string;
   invalid_triples_sample:
-    | { entity_id: string; value: any }[]
+    | {
+        entity_id: string;
+        value: any;
+        json_type: 'string' | 'number' | 'boolean' | 'null' | 'object' | 'array';
+      }[]
     | null
     | undefined;
 };

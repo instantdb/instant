@@ -102,7 +102,7 @@
              :attr-name]
             [[:case [:= :error invalid-triple-error]
               {:select [[[:json_agg :t]]]
-               :from [[{:select [:t.entity-id :t.value]
+               :from [[{:select [:t.entity-id :t.value [[:jsonb_typeof :t.value] :json-type]]
                         :from [[:triples :t]]
                         :limit 10
                         :where [:and
@@ -138,7 +138,7 @@
   ([limit job-id]
    (invalid-triples aurora/conn-pool limit job-id))
   ([conn limit job-id]
-   (sql/select conn (hsql/format {:select :t.*
+   (sql/select conn (hsql/format {:select [:t.* [[:jsonb_typeof :value] :json-type]]
                                   :from [[:triples :t]]
                                   :join [[:indexing-jobs :j] [:= :t.app_id :j.app_id]]
                                   :limit limit

@@ -598,8 +598,9 @@ function EditCheckedDataType({
               <table className="mx-2 my-2 flex-1 text-left font-mono text-xs text-gray-500">
                 <thead className="bg-white text-gray-700">
                   <tr>
-                    <th>id</th>
-                    <th>{attr.name}</th>
+                    <th className="pr-2">id</th>
+                    <th className="pr-2">{attr.name}</th>
+                    <th className="pr-2">type</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -618,10 +619,11 @@ function EditCheckedDataType({
                           closeDialog();
                         }}
                       >
-                        <td style={{ width: 280 }}>
+                        <td className="pr-2">
                           <pre>{t.entity_id}</pre>
                         </td>
-                        <td>{t.value}</td>
+                        <td className="pr-2">{t.value}</td>
+                        <td className="pr-2">{t.json_type}</td>
                       </tr>
                     ))}
                 </tbody>
