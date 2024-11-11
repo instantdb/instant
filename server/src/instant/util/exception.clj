@@ -275,9 +275,13 @@
 ;; --------
 ;; Oauth
 
-(defn throw-oauth-err! [message]
-  (throw+ {::type ::oauth-error
-           ::message message}))
+(defn throw-oauth-err!
+  ([message]
+   (throw-oauth-err! message nil))
+  ([message cause]
+   (throw+ {::type ::oauth-error
+            ::message message}
+           cause)))
 
 ;; -------------
 ;; Wrappers
@@ -288,4 +292,3 @@
       (::type (ex-data cause)) cause
       (nil? (.getCause cause)) nil
       :else (recur (.getCause cause)))))
-

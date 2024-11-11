@@ -3,9 +3,10 @@
    [chime.core :as chime-core]
    [clj-http.client :as clj-http]
    [clojure.core.cache.wrapped :as cache]
-   [clojure.string :as string] 
+   [clojure.string :as string]
    [instant.auth.jwt :refer [verify-jwt]]
    [instant.util.crypt]
+   [instant.util.exception :as ex]
    [instant.util.json :as json]
    [instant.util.tracer :as tracer]
    [instant.util.url :as url])
@@ -134,8 +135,7 @@
     (if (clj-http/success? resp)
       {:date (Instant/now)
        :data (:body resp)}
-      (throw (ex-info "Unable to fetch OAuth configuration."
-                      {:type :oauth-error :message "Unable to fetch OAuth configuration."})))))
+      (ex/throw-oauth-err! "Unable to fetch OAuth configuration."))))
 
 (defn get-discovery [endpoint]
   (:data (cache/lookup-or-miss discovery-endpoint-cache endpoint fetch-discovery)))
