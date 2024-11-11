@@ -166,6 +166,8 @@ create table indexing_jobs(
   id uuid primary key,
   app_id uuid not null references apps(id) on delete cascade,
   attr_id uuid not null references attrs(id) on delete cascade,
+  -- a way to tie the jobs together when doing a batch of indexing jobs
+  group_id uuid,
   -- Prevents multiple processes from conflicting (see index below)
   job_serial_key text not null,
   job_type text not null,
@@ -187,6 +189,7 @@ create table indexing_jobs(
 create index on indexing_jobs (app_id);
 create index on indexing_jobs (attr_id);
 create index on indexing_jobs (job_dependency);
+create index on indexing_jobs (group_id);
 
 -- Prevents multiple processes from conflicting
 create unique index on indexing_jobs (app_id, attr_id, job_serial_key)

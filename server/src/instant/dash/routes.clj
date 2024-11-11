@@ -1012,20 +1012,22 @@
   (file-delete {:params {:app_id app-id :filename "pika.webp"}
                 :headers {"authorization" (str "Bearer " (:id refresh-token))}}))
 
-;; --- 
+;; ---
 ;; CLI
 
 (defn schema-push-plan-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        client-defs (-> req :body :schema)]
-    (response/ok (schema-model/plan! app-id client-defs))))
+        client-defs (-> req :body :schema)
+        check-types? (-> req :body :check_types)]
+    (response/ok (schema-model/plan! app-id check-types? client-defs))))
 
 (defn schema-push-apply-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         client-defs (-> req :body :schema)
-        r (schema-model/plan! app-id client-defs)]
-    (schema-model/apply-plan! app-id r)
-    (response/ok r)))
+        check-types? (-> req :body :check_types)
+        r (schema-model/plan! app-id check-types? client-defs)
+        plan-result (schema-model/apply-plan! app-id r)]
+    (response/ok (merge r plan-result))))
 
 (defn schema-pull-get [req]
   (let [{{app-id :id app-title :title} :app} (req->app-and-user! :collaborator req)
@@ -1049,6 +1051,12 @@
         job-id (ex/get-param! req [:params :job_id] uuid-util/coerce)
         job (indexing-jobs/get-by-id-for-client app-id job-id)]
     (response/ok {:job job})))
+
+(defn indexing-jobs-group-get [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        group-id (ex/get-param! req [:params :group_id] uuid-util/coerce)
+        jobs (indexing-jobs/get-by-group-id-for-client app-id group-id)]
+    (response/ok {:jobs jobs})))
 
 (defn indexing-job-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
@@ -1261,6 +1269,7 @@
   (GET "/dash/apps/:app_id/perms/pull" [] perms-pull-get)
 
   (GET "/dash/apps/:app_id/indexing-jobs/:job_id" [] indexing-job-get)
+  (GET "/dash/apps/:app_id/indexing-jobs/group/:group_id" [] indexing-jobs-group-get)
   (POST "/dash/apps/:app_id/indexing-jobs" [] indexing-job-post)
 
   (GET "/dash/ws_playground" [] ws-playground-get)

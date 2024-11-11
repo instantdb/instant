@@ -11,13 +11,16 @@
   },
   "dependencies": {
     "@inquirer/prompts": "^5.3.8",
+    "@opentf/cli-pbar": "^0.7.2",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "dotenv": "^16.3.1",
     "env-paths": "^3.0.0",
     "inquirer": "^10.1.6",
     "open": "^10.1.0",
+    "ora": "^8.1.1",
     "pkg-dir": "^8.0.0",
+    "terminal-link": "^3.0.0",
     "unconfig": "^0.5.5"
   }
 }

@@ -46,6 +46,8 @@
           0
           friendly-set))
 
+(def checked-data-types #{"number" "string" "boolean" "date"})
+
 ;; ----
 ;; Spec
 
@@ -67,7 +69,7 @@
 
 (s/def ::index? boolean?)
 
-(s/def ::checked-data-type #{"number" "string" "boolean" "date"})
+(s/def ::checked-data-type checked-data-types)
 
 (s/def ::attr-common (s/keys :req-un
                              [::id

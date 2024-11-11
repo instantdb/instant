@@ -3,7 +3,7 @@
 import { readFileSync } from "fs";
 import { mkdir, writeFile, readFile, stat } from "fs/promises";
 import { dirname, join } from "path";
-import { fileURLToPath } from 'url';
+import { fileURLToPath } from "url";
 import { randomUUID } from "crypto";
 import dotenv from "dotenv";
 import chalk from "chalk";
@@ -13,10 +13,11 @@ import envPaths from "env-paths";
 import { loadConfig } from "unconfig";
 import { packageDirectory } from "pkg-dir";
 import openInBrowser from "open";
+import ora from "ora";
+import terminalLink from "terminal-link";
 
 // config
 dotenv.config();
-
 
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
@@ -47,11 +48,11 @@ program
   .option("-v --version", "output the version number", () => {
     const __dirname = dirname(fileURLToPath(import.meta.url));
     const version = JSON.parse(
-      readFileSync(join(__dirname, 'package.json'), 'utf8')
+      readFileSync(join(__dirname, "package.json"), "utf8"),
     ).version;
     console.log(version);
     process.exit(0);
-  })
+  });
 
 program
   .command("login")
@@ -68,8 +69,12 @@ program
   .command("push-schema")
   .argument("[ID]")
   .description("Pushes local instant.schema definition to production.")
-  .action(() => {
-    pushSchema();
+  .option(
+    "--skip-check-types",
+    "Don't check types on the server when pushing schema",
+  )
+  .action((id, opts) => {
+    pushSchema(id, opts);
   });
 
 program
@@ -83,6 +88,10 @@ program
 program
   .command("push")
   .argument("[ID]")
+  .option(
+    "--skip-check-types",
+    "Don't check types on the server when pushing schema",
+  )
   .description(
     "Pushes local instant.schema and instant.perms rules to production.",
   )
@@ -120,8 +129,8 @@ program.parse(process.argv);
 
 // command actions
 
-async function pushAll(appIdOrName) {
-  const ok = await pushSchema(appIdOrName);
+async function pushAll(appIdOrName, opts) {
+  const ok = await pushSchema(appIdOrName, opts);
   if (!ok) return;
 
   await pushPerms(appIdOrName);
@@ -283,16 +292,14 @@ async function pullSchema(appIdOrName) {
     );
 
     if (ok) {
-      await writeFile(
-        join(pkgDir, ".env"),
-        `INSTANT_APP_ID=${appId}`,
-        "utf-8",
-      );
+      await writeFile(join(pkgDir, ".env"), `INSTANT_APP_ID=${appId}`, "utf-8");
       console.log(
         `Created .env file with INSTANT_APP_ID=${appId} in ${pkgDir}`,
       );
     } else {
-      console.log("No .env file created. If you plan to push updates, please create one.");
+      console.log(
+        "No .env file created. If you plan to push updates, please create one.",
+      );
     }
   }
 
@@ -381,7 +388,139 @@ async function pullPerms(appIdOrName) {
   return true;
 }
 
-async function pushSchema(appIdOrName) {
+function indexingJobCompletedActionMessage(job) {
+  if (job.job_type === "check-data-type") {
+    return `setting type of ${job.attr_name} to ${job.checked_data_type}`;
+  }
+  if (job.job_type === "remove-data-type") {
+    return `removing type from ${job.attr_name}`;
+  }
+}
+
+function indexingJobCompletedMessage(job) {
+  const actionMessage = indexingJobCompletedActionMessage(job);
+  if (job.job_status === "canceled") {
+    return `Canceled ${actionMessage} before it could finish.`;
+  }
+  if (job.job_status === "completed") {
+    return `Finished ${actionMessage}.`;
+  }
+  if (job.job_status === "errored") {
+    if (
+      job.error === "invalid-triple-error" &&
+      job.invalid_triples_sample?.length
+    ) {
+      const [etype, label] = job.attr_name.split(".");
+      const longestValue = job.invalid_triples_sample
+        .slice(0, 3)
+        .reduce((acc, { value }) => Math.max(acc, value.length), 0);
+
+      let msg = `${chalk.red("INVALID DATA")} ${actionMessage}.\n`;
+      msg += `  First few examples:\n`;
+      msg += `  ${chalk.bold("id")}${" ".repeat(35)}| ${chalk.bold(label)}\n`;
+      msg += `  ${"-".repeat(37)}|${"-".repeat(longestValue + 2)}\n`;
+      for (const triple of job.invalid_triples_sample.slice(0, 3)) {
+        const urlParams = new URLSearchParams({
+          s: "main",
+          app: job.app_id,
+          t: "explorer",
+          ns: etype,
+          where: JSON.stringify(["id", triple.entity_id]),
+        });
+        const url = new URL(instantDashOrigin);
+        url.pathname = "/dash";
+        url.search = urlParams.toString();
+
+        const link = terminalLink(triple.entity_id, url.toString(), {
+          fallback: () => triple.entity_id,
+        });
+        msg += `  ${link} | ${triple.value}\n`;
+      }
+      return msg;
+    }
+    return `Error ${actionMessage}.`;
+  }
+}
+
+async function waitForIndexingJobsToFinish(appId, data) {
+  const spinner = ora({
+    text: "checking data types",
+  }).start();
+  const groupId = data["group-id"];
+  let jobs = data.jobs;
+  let waitMs = 20;
+  let lastUpdatedAt = new Date(0);
+
+  const completedIds = new Set();
+
+  const errorMessages = [];
+
+  while (true) {
+    let stillRunning = false;
+    let updated = false;
+    let workEstimateTotal = 0;
+    let workCompletedTotal = 0;
+
+    for (const job of jobs) {
+      const updatedAt = new Date(job.updated_at);
+      if (updatedAt > lastUpdatedAt) {
+        updated = true;
+        lastUpdatedAt = updatedAt;
+      }
+      if (job.job_status === "waiting" || job.job_status === "processing") {
+        stillRunning = true;
+        workEstimateTotal += job.work_estimate ?? 1000; // Don't want it to be zero
+        workCompletedTotal += job.work_completed ?? 0;
+      } else {
+        if (!completedIds.has(job.id)) {
+          completedIds.add(job.id);
+          const msg = indexingJobCompletedMessage(job);
+          if (job.job_status === "errored") {
+            errorMessages.push(msg);
+          } else {
+            // Pause the spinner so that console.log works
+            spinner.stop();
+            console.log(msg);
+            spinner.start();
+          }
+        }
+      }
+    }
+    if (!stillRunning) {
+      break;
+    }
+    if (workEstimateTotal) {
+      const percent = Math.floor(
+        (workCompletedTotal / workEstimateTotal) * 100,
+      );
+      spinner.start(`checking data types ${percent}%`);
+    }
+    waitMs = updated ? 20 : Math.min(10000, waitMs * 2);
+    await sleep(waitMs);
+    const res = await fetchJson({
+      debugName: "Check indexing status",
+      method: "GET",
+      path: `/dash/apps/${appId}/indexing-jobs/group/${groupId}`,
+      errorMessage: "Failed to check indexing status.",
+    });
+    if (!res.ok) {
+      break;
+    }
+    jobs = res.data.jobs;
+  }
+  spinner.stop();
+
+  // Log errors at the end so that they're easier to see.
+  if (errorMessages.length) {
+    for (const msg of errorMessages) {
+      console.log(msg);
+    }
+    console.log(chalk.red("Some steps failed while updating schema."));
+    process.exit(1);
+  }
+}
+
+async function pushSchema(appIdOrName, opts) {
   const appId = await getAppIdWithErrorLogging(appIdOrName);
   if (!appId) return;
 
@@ -402,6 +541,7 @@ async function pushSchema(appIdOrName) {
     errorMessage: "Failed to update schema.",
     body: {
       schema,
+      check_types: !opts?.skipCheckTypes,
     },
   });
 
@@ -417,21 +557,40 @@ async function pushSchema(appIdOrName) {
   );
 
   for (const [action, attr] of planRes.data.steps) {
-    const [, fns, fname] = attr["forward-identity"];
-    const [, rns, rname] = attr["reverse-identity"] ?? [null, null, null];
+    switch (action) {
+      case "add-attr":
+      case "update-attr": {
+        const valueType = attr["value-type"];
+        const isAdd = action === "add-attr";
+        if (valueType === "blob" && attrFwdLabel(attr) === "id") {
+          console.log(
+            `${isAdd ? chalk.magenta("ADD ENTITY") : chalk.magenta("UPDATE ENTITY")} ${attrFwdName(attr)}`,
+          );
+          break;
+        }
 
-    if (attr["value-type"] === "blob" && fname === "id") {
-      console.log(
-        `${action === "add-attr" ? chalk.magenta("ADD ENTITY") : chalk.magenta("UPDATE ENTITY")} ${fns}`,
-      );
-    } else if (attr["value-type"] === "blob") {
-      console.log(
-        `${action === "add-attr" ? chalk.green("ADD ATTR") : chalk.blue("UPDATE ATTR")} ${fns}.${fname} :: unique=${attr["unique?"]}, indexed=${attr["index?"]}`,
-      );
-    } else {
-      console.log(
-        `${action === "add-attr" ? chalk.green("ADD LINK") : chalk.blue("UPDATE LINK")} ${fns}.${fname} <=> ${rns}.${rname}`,
-      );
+        if (valueType === "blob") {
+          console.log(
+            `${isAdd ? chalk.green("ADD ATTR") : chalk.blue("UPDATE ATTR")} ${attrFwdName(attr)} :: unique=${attr["unique?"]}, indexed=${attr["index?"]}`,
+          );
+          break;
+        }
+
+        console.log(
+          `${isAdd ? chalk.green("ADD LINK") : chalk.blue("UPDATE LINK")} ${attrFwdName(attr)} <=> ${attrRevName(attr)}`,
+        );
+        break;
+      }
+      case "check-data-type": {
+        console.log(
+          `${chalk.green("CHECK TYPE")} ${attrFwdName(attr)} => ${attr["checked-data-type"]}`,
+        );
+        break;
+      }
+      case "remove-data-type": {
+        console.log(`${chalk.red("REMOVE TYPE")} ${attrFwdName(attr)} => any`);
+        break;
+      }
     }
   }
 
@@ -445,10 +604,15 @@ async function pushSchema(appIdOrName) {
     errorMessage: "Failed to update schema.",
     body: {
       schema,
+      check_types: !opts?.skipCheckTypes,
     },
   });
 
   if (!applyRes.ok) return;
+
+  if (applyRes.data["indexing-jobs"]) {
+    await waitForIndexingJobsToFinish(appId, applyRes.data["indexing-jobs"]);
+  }
 
   console.log(chalk.green("Schema updated!"));
 
@@ -579,7 +743,7 @@ async function fetchJson({
         if (Array.isArray(data?.hint?.errors)) {
           for (const error of data.hint.errors) {
             console.error(
-              `${error.in ? error.in.join("->") + ": " : ""}${error.message}`
+              `${error.in ? error.in.join("->") + ": " : ""}${error.message}`,
             );
           }
         }
@@ -595,11 +759,12 @@ async function fetchJson({
     }
 
     return { ok: true, data };
-
   } catch (err) {
     if (withErrorLogging) {
       if (err.name === "AbortError") {
-        console.error(`Timeout: It took more than ${timeoutMs / 60000} minutes to get the result!`);
+        console.error(
+          `Timeout: It took more than ${timeoutMs / 60000} minutes to get the result!`,
+        );
       } else {
         console.error(`Error: type: ${err.name}, message: ${err.message}`);
       }
@@ -767,6 +932,34 @@ function indentLines(s, n) {
     .join("\n");
 }
 
+// attr helpers
+
+function attrFwdLabel(attr) {
+  return attr["forward-identity"]?.[2];
+}
+
+function attrFwdEtype(attr) {
+  return attr["forward-identity"]?.[1];
+}
+
+function attrRevLabel(attr) {
+  return attr["reverse-identity"]?.[2];
+}
+
+function attrRevEtype(attr) {
+  return attr["reverse-identity"]?.[1];
+}
+
+function attrFwdName(attr) {
+  return `${attrFwdEtype(attr)}.${attrFwdLabel(attr)}`;
+}
+
+function attrRevName(attr) {
+  if (attr["reverse-entity"]) {
+    return `${attrRevEtype(attr)}.${attrRevLabel(attr)}`;
+  }
+}
+
 // templates and constants
 
 export const rels = {
@@ -930,11 +1123,13 @@ function generateSchemaTypescriptFile(id, schema, title, instantModuleName) {
         sortedEntries(attrs)
           .filter(([name]) => name !== "id")
           .map(([name, config]) => {
+            const type = config["checked-data-type"] || "any";
+
             return [
               `    `,
               `"${name}"`,
               `: `,
-              `i.any()`,
+              `i.${type}()`,
               config["unique?"] ? ".unique()" : "",
               config["index?"] ? ".indexed()" : "",
               `,`,

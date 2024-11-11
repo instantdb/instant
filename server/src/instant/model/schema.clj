@@ -3,6 +3,7 @@
             [instant.util.coll :as coll]
             [instant.jdbc.aurora :as aurora]
             [instant.db.datalog :as d]
+            [instant.db.indexing-jobs :as indexing-jobs]
             [instant.model.rule :as rule-model]
             [instant.db.permissioned-transaction :as permissioned-tx]
             [instant.util.exception :as ex])
@@ -14,7 +15,7 @@
 (defn attr-ident-names [attr]
   (keep seq [(attr-model/fwd-ident-name attr) (attr-model/rev-ident-name attr)]))
 
-(defn schemas->ops [current-schema new-schema]
+(defn schemas->ops [check-types? current-schema new-schema]
   (let [{new-blobs :blobs new-refs :refs} new-schema
         eid-ops (map (fn [[ns-name _]] (if (get-in current-schema [:blobs ns-name])
                                          nil
@@ -27,42 +28,55 @@
                                            :index? false}])) new-blobs)
         blob-ops (mapcat
                   (fn [[ns-name attrs]]
-                    (map (fn [[attr-name new-attr]]
-                           (let
-                            [current-attr (get-in current-schema [:blobs ns-name attr-name])
-                             name-id? (= "id" (name attr-name))
-                             new-attr? (not current-attr)
-                             unchanged-attr? (and
-                                              (= (get new-attr :unique?) (get current-attr :unique?))
-                                              (= (get new-attr :index?) (get current-attr :index?)))]
-                             (cond
-                               name-id? nil
-                               unchanged-attr? nil
-                               new-attr?  [:add-attr
-                                           {:value-type :blob
-                                            :cardinality :one
-                                            :id (UUID/randomUUID)
-                                            :forward-identity [(UUID/randomUUID) (name ns-name) (name attr-name)]
-                                            :unique? (:unique? new-attr)
-                                            :index? (:index? new-attr)}]
-                               :else [:update-attr
-                                      {:value-type :blob
-                                       :cardinality :one
-                                       :id (:id current-attr)
-                                       :forward-identity (:forward-identity current-attr)
-                                       :unique? (:unique? new-attr)
-                                       :index? (:index? new-attr)}])))
-                         attrs))
+                    (mapcat (fn [[attr-name new-attr]]
+                              (let [current-attr (get-in current-schema [:blobs ns-name attr-name])
+                                    name-id? (= "id" (name attr-name))
+                                    new-attr? (not current-attr)
+                                    changed-type? (and check-types?
+                                                       (not= (get new-attr :checked-data-type)
+                                                             (get current-attr :checked-data-type)))
+                                    unchanged-attr? (and
+                                                     (= (get new-attr :unique?) (get current-attr :unique?))
+                                                     (= (get new-attr :index?) (get current-attr :index?)))]
+                                (cond
+                                  name-id? nil
+                                  (and unchanged-attr? (not changed-type?)) nil
+                                  new-attr? [[:add-attr
+                                              {:value-type :blob
+                                               :cardinality :one
+                                               :id (UUID/randomUUID)
+                                               :forward-identity [(UUID/randomUUID) (name ns-name) (name attr-name)]
+                                               :unique? (:unique? new-attr)
+                                               :index? (:index? new-attr)}]]
+                                  :else (concat (when-not unchanged-attr?
+                                                  [[:update-attr
+                                                    {:value-type :blob
+                                                     :cardinality :one
+                                                     :id (:id current-attr)
+                                                     :forward-identity (:forward-identity current-attr)
+                                                     :unique? (:unique? new-attr)
+                                                     :index? (:index? new-attr)}]])
+                                                (when (and changed-type?
+                                                           (not (= :system (:catalog current-attr))))
+                                                  (tool/def-locals)
+                                                  (if-let [new-data-type (:checked-data-type new-attr)]
+                                                    [[:check-data-type
+                                                      {:attr-id (:id current-attr)
+                                                       :checked-data-type (name new-data-type)
+                                                       :forward-identity (:forward-identity current-attr)}]]
+                                                    [[:remove-data-type
+                                                      {:attr-id (:id current-attr)
+                                                       :forward-identity (:forward-identity current-attr)}]]))))))
+                            attrs))
                   new-blobs)
         ref-ops (map
                  (fn [[link-desc new-attr]]
-                   (let
-                    [[from-ns from-attr to-ns to-attr] link-desc
-                     current-attr (get-in current-schema [:refs link-desc])
-                     new-attr? (not current-attr)
-                     unchanged-attr? (and
-                                      (= (get new-attr :cardinality) (get current-attr :cardinality))
-                                      (= (get new-attr :unique?) (get current-attr :unique?)))]
+                   (let [[from-ns from-attr to-ns to-attr] link-desc
+                         current-attr (get-in current-schema [:refs link-desc])
+                         new-attr? (not current-attr)
+                         unchanged-attr? (and
+                                          (= (get new-attr :cardinality) (get current-attr :cardinality))
+                                          (= (get new-attr :unique?) (get current-attr :unique?)))]
                      (cond
                        unchanged-attr? nil
                        new-attr? [:add-attr
@@ -136,7 +150,10 @@
                                              :cardinality :one
                                              :forward-identity [nil (name ns-name) (name attr-name)]
                                              :unique? (or (-> attr-def :config :unique) false)
-                                             :index? (or (-> attr-def :config :indexed) false)})
+                                             :index? (or (-> attr-def :config :indexed) false)
+                                             :checked-data-type (let [{:keys [valueType]} attr-def]
+                                                                  (when (contains? attr-model/checked-data-types valueType)
+                                                                    (keyword valueType)))})
                                           (:attrs def)))
                                entities)]
     {:refs refs-indexed :blobs blobs-indexed}))
@@ -303,15 +320,15 @@
                 :index? false}]])
   (plan-errors current-attrs steps))
 
-;; ---- 
+;; ---
 ;; API
 
 (defn plan!
-  [app-id client-defs]
+  [app-id check-types? client-defs]
   (let [new-schema (defs->schema client-defs)
         current-attrs (attr-model/get-by-app-id app-id)
         current-schema (attrs->schema current-attrs)
-        steps (schemas->ops current-schema new-schema)]
+        steps (schemas->ops check-types? current-schema new-schema)]
     (ex/assert-valid! :schema :plan (plan-errors current-attrs steps))
     {:new-schema new-schema
      :current-schema current-schema
@@ -338,6 +355,25 @@
    {:refs {["comments" "post" "posts" "comments"] {:unique? true :cardinality "one"}}
     :blobs {:ns {:a {:cardinality "many"} :b {:cardinality  "many"}}}}))
 
+(defn create-indexing-jobs [app-id job-steps]
+  (let [group-id (random-uuid)
+        jobs (mapv (fn [[action {:keys [attr-id checked-data-type]}]]
+                     (let [job (case action
+                                 :check-data-type (indexing-jobs/create-check-data-type-job!
+                                                   {:app-id app-id
+                                                    :group-id group-id
+                                                    :attr-id attr-id
+                                                    :checked-data-type checked-data-type})
+                                 :remove-data-type (indexing-jobs/create-remove-data-type-job!
+                                                    {:app-id app-id
+                                                     :group-id group-id
+                                                     :attr-id attr-id}))]
+                       (indexing-jobs/enqueue-job job)
+                       (indexing-jobs/job->client-format job)))
+                   job-steps)]
+    {:group-id group-id
+     :jobs jobs}))
+
 (defn apply-plan! [app-id {:keys [steps] :as _plan}]
   (let [ctx {:admin? true
              :db {:conn-pool aurora/conn-pool}
@@ -345,5 +381,16 @@
              :attrs (attr-model/get-by-app-id app-id)
              :datalog-query-fn d/query
              :rules (rule-model/get-by-app-id aurora/conn-pool
-                                              {:app-id app-id})}]
-    (permissioned-tx/transact! ctx steps)))
+                                              {:app-id app-id})}
+        tx-steps (filter (fn [[action]]
+                           (contains? #{:add-attr :update-attr} action))
+                         steps)
+        tx-res (when (seq tx-steps)
+                 (permissioned-tx/transact! ctx steps))
+        job-steps (filter (fn [[action]]
+                            (contains? #{:check-data-type :remove-data-type} action))
+                          steps)
+        jobs-res (when (seq job-steps)
+                   (create-indexing-jobs app-id job-steps))]
+    {:transaction tx-res
+     :indexing-jobs jobs-res}))

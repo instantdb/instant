@@ -76,7 +76,7 @@ export class InstantGraph<
 // ==========
 // base types
 
-export type ValueTypes = "string" | "number" | "boolean" | "json";
+export type ValueTypes = "string" | "number" | "boolean" | "date" | "json";
 
 export type CardinalityKind = "one" | "many";
 

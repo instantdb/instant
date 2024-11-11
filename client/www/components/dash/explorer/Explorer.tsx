@@ -172,9 +172,17 @@ export function Explorer({
 
   useEffect(() => {
     const isFirstLoad = namespaces?.length && !navStack.length;
+    const urlWhere = router.query.where
+      ? JSON.parse(router.query.where as string)
+      : null;
 
     if (isFirstLoad) {
-      nav([{ namespace: selectedNamespaceId || namespaces[0].id }]);
+      nav([
+        {
+          namespace: selectedNamespaceId || namespaces[0].id,
+          where: urlWhere,
+        },
+      ]);
     }
   }, [namespaces === null]);
 

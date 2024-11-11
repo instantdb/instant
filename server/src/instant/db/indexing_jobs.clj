@@ -79,7 +79,9 @@
   ;; Keep in sync with app/get-all-for-user (except for invalid_triples_sample)
   (select-keys job [:id
                     :app_id
+                    :group_id
                     :attr_id
+                    :attr_name
                     :job_type
                     :job_status
                     :job_stage
@@ -92,27 +94,45 @@
                     :done_at
                     :invalid_triples_sample]))
 
+(defn get-for-client-q [app-id & wheres]
+  {:select [:j.*
+            [{:select [[[:|| :idents.etype "." :idents.label]]]
+              :from :idents
+              :where [:= :attr-id :j.attr-id]}
+             :attr-name]
+            [[:case [:= :error invalid-triple-error]
+              {:select [[[:json_agg :t]]]
+               :from [[{:select [:t.entity-id :t.value]
+                        :from [[:triples :t]]
+                        :limit 10
+                        :where [:and
+                                [:= :app-id app-id]
+                                [:not= nil :j.checked-data-type]
+                                [:= :t.app_id :j.app_id]
+                                [:= :t.attr_id :j.attr_id]
+                                [:not [:triples_valid_value :j.checked-data-type :t.value]]]}
+                       :t]]}
+              ] :invalid-triples-sample]]
+   :from [[:indexing-jobs :j]]
+   :where (list* :and
+                 [:= :app-id app-id]
+                 wheres)})
+
 (defn get-by-id-for-client
   ([app-id job-id]
    (get-by-id-for-client aurora/conn-pool app-id job-id))
   ([conn app-id job-id]
-   (let [q {:select [:j.* [[:case [:= :error invalid-triple-error]
-                            {:select [[[:json_agg :t]]]
-                             :from [[{:select [:t.entity-id :t.value]
-                                      :from [[:triples :t]]
-                                      :limit 10
-                                      :where [:and
-                                              [:= :app-id app-id]
-                                              [:not= nil :j.checked-data-type]
-                                              [:= :t.app_id :j.app_id]
-                                              [:= :t.attr_id :j.attr_id]
-                                              [:not [:triples_valid_value :j.checked-data-type :t.value]]]}
-                                     :t]]}
-                            ] :invalid-triples-sample]]
-            :from [[:indexing-jobs :j]]
-            :where [:= :id job-id]}
+   (let [q (get-for-client-q app-id [:= :id job-id])
          res (sql/select-one conn (hsql/format q))]
      (job->client-format res))))
+
+(defn get-by-group-id-for-client
+  ([app-id group-id]
+   (get-by-group-id-for-client aurora/conn-pool app-id group-id))
+  ([conn app-id group-id]
+   (let [q (get-for-client-q app-id [:= :group-id group-id])
+         jobs (sql/select conn (hsql/format q))]
+     (map job->client-format jobs))))
 
 (defn invalid-triples
   ([limit job-id]
@@ -133,6 +153,7 @@
   ([params]
    (create-job! aurora/conn-pool params))
   ([conn {:keys [app-id
+                 group-id
                  attr-id
                  job-serial-key
                  job-type
@@ -145,6 +166,7 @@
      (assert checked-data-type "checked-data-type must be provided if job type is check-data-type"))
    (sql/execute-one! conn (hsql/format {:insert-into :indexing-jobs
                                         :values [{:id (random-uuid)
+                                                  :group-id group-id
                                                   :app-id app-id
                                                   :attr-id attr-id
                                                   :job-serial-key job-serial-key
@@ -158,10 +180,12 @@
   ([params]
    (create-check-data-type-job! aurora/conn-pool params))
   ([conn {:keys [app-id
+                 group-id
                  attr-id
                  checked-data-type]}]
    (assert checked-data-type "checked-data-type must be provided if job type is check-data-type")
    (create-job! conn {:app-id app-id
+                      :group-id group-id
                       :attr-id attr-id
                       :job-serial-key "index"
                       :job-type "check-data-type"
@@ -172,8 +196,10 @@
   ([params]
    (create-remove-data-type-job! aurora/conn-pool params))
   ([conn {:keys [app-id
+                 group-id
                  attr-id]}]
    (create-job! conn {:app-id app-id
+                      :group-id group-id
                       :attr-id attr-id
                       :job-serial-key "index"
                       :job-type "remove-data-type"
@@ -502,7 +528,7 @@
      (throw (Exception. "job queue not started"))
      (enqueue-job job-queue job)))
   ([chan job]
-   (a/>!! chan (:id job))))
+   (a/put! chan (:id job))))
 
 (defn process-job
   ([chan job]
