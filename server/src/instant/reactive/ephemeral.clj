@@ -11,7 +11,6 @@
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
    [instant.util.aws :as aws-util]
-   [instant.util.exception :as ex]
    [instant.util.hazelcast :as hz-util]
    [instant.util.tracer :as tracer]
    [medley.core :refer [dissoc-in]])

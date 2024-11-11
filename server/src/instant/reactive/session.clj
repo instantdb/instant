@@ -31,7 +31,6 @@
    [instant.util.exception :as ex]
    [instant.util.uuid :as uuid-util]
    [instant.grouped-queue :as grouped-queue]
-   [instant.gauges :as gauges]
    [instant.reactive.receive-queue :as receive-queue :refer [receive-q]])
   (:import
    (java.util.concurrent CancellationException)

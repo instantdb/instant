@@ -120,7 +120,7 @@
   (if (= :prod (config/get-env))
     (fn [span]
       (let [attrs (.getAttributes span)]
-        (when-let [op (.get op-attr-key)]
+        (when-let [op (.get attrs op-attr-key)]
           (or (= op ":set-presence")
               (= op ":refresh-presence")))))
     (fn [_span]

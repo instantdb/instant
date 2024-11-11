@@ -7,7 +7,6 @@
    [instant.db.pg-introspect :as pg-introspect]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
-   [instant.reactive.session :as session]
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
