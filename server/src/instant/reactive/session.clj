@@ -595,13 +595,13 @@
              0)}])
 
 (defn group-fn [{:keys [item] :as _input}]
-  (let [{:keys [session-id op]} item]
+  (let [{:keys [session-id op room-id]} item]
     (condp contains? op
       #{:transact}
       [:transact session-id]
 
       #{:join-room :leave-room :set-presence :client-broadcast}
-      [:room session-id]
+      [:room session-id room-id]
 
       #{:add-query :remove-query}
       (let [{:keys [q]} item]
