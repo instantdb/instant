@@ -36,8 +36,6 @@
 ;; we fully migrate to hazelcast
 (defonce hz-ops-q (atom nil))
 
-(def refresh-timeout-ms 500)
-
 ;; room-maps keeps track of the rooms each session is in (for easy removal
 ;; on session close) and some info about the rooms we're subscribed to on
 ;; this machine
@@ -193,13 +191,7 @@
 (defn straight-jacket-refresh-event!
   [store-conn {:keys [room-key room-id on-sent]}]
   (try
-    (let [fut (ua/vfuture (handle-refresh-event store-conn
-                                                room-key
-                                                room-id))
-          ret (deref fut refresh-timeout-ms :timeout)]
-      (when (= :timeout ret)
-        (future-cancel fut)
-        (ex/throw-operation-timeout! :refresh-rooms refresh-timeout-ms)))
+    (handle-refresh-event store-conn room-key room-id)
     (catch Throwable t
       (tracer/record-exception-span! t {:name "rooms-refresh-map/straight-jacket"}))
     (finally (on-sent))))
@@ -403,11 +395,7 @@
 
 (defn straight-jacket-refresh-rooms! [store-conn prev curr]
   (try
-    (let [refresh-fut (ua/vfuture (refresh-rooms! store-conn prev curr))
-          ret (deref refresh-fut refresh-timeout-ms :timeout)]
-      (when (= :timeout ret)
-        (future-cancel refresh-fut)
-        (ex/throw-operation-timeout! :refresh-rooms refresh-timeout-ms)))
+    (refresh-rooms! store-conn prev curr)
     (catch Throwable e
       (tracer/record-exception-span! e {:name "rooms-refresh/straight-jacket"}))))
 
