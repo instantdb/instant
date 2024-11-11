@@ -456,29 +456,62 @@
                                                            :session-id (:session-id (:item entry))
                                                            :item entry)}))))
 
+(defn drop-consecutive-set-presence [batch]
+  (let [{:keys [entries-to-process last-entry]}
+        (reduce (fn [{:keys [entries-to-process
+                             last-entry]}
+                     entry]
+                  (if (and (= :set-presence
+                              (-> last-entry :item :op))
+                           (= :set-presence
+                              (-> entry :item :op)))
+                    {:entries-to-process entries-to-process
+                     :last-entry entry}
+                    {:entries-to-process (conj entries-to-process last-entry)
+                     :last-entry entry}))
+                {:entries-to-process []
+                 :last-entry (first batch)}
+                (rest batch))]
+    (conj entries-to-process last-entry)))
+
+(defn straight-jacket-process-receive-q-batch [store-conn eph-store-atom batch metadata]
+  (try
+    (let [t (-> metadata :group-key first)]
+      (if (or (= :refresh t)
+              (not= :room t)
+              (= 1 (count batch)))
+        (process-receive-q-entry store-conn eph-store-atom (first batch) metadata)
+        (doseq [entry (drop-consecutive-set-presence batch)]
+          (process-receive-q-entry store-conn eph-store-atom entry metadata))))
+    (catch Throwable e
+      (tracer/record-exception-span! e {:name "receive-worker/handle-receive-batch-straight-jacket"
+                                        :attributes (assoc metadata
+                                                           :session-id (:session-id (:item (first batch)))
+                                                           :items batch)}))))
+
 (defn receive-worker-reserve-fn [[t] inflight-q]
-  (if (= t :refresh)
+  (if (contains? #{:refresh :room} t)
     (grouped-queue/inflight-queue-reserve-all inflight-q)
     (grouped-queue/inflight-queue-reserve 1 inflight-q)))
 
 (defn start-receive-workers [store-conn eph-store-atom receive-q stop-signal]
   (doseq [n (range num-receive-workers)]
     (ua/fut-bg
-     (loop []
-       (if @stop-signal
-         (tracer/record-info! {:name "receive-worker/shutdown-complete"
-                               :attributes {:worker-n n}})
-         (do (grouped-queue/process-polling!
-              receive-q
-              {:reserve-fn receive-worker-reserve-fn
-               :process-fn (fn [group-key [entry :as batch]]
-                             (straight-jacket-process-receive-q-entry store-conn
-                                                                      eph-store-atom
-                                                                      entry
-                                                                      {:worker-n n
-                                                                       :batch-size (count batch)
-                                                                       :group-key group-key}))})
-             (recur)))))))
+      (loop []
+        (if @stop-signal
+          (tracer/record-info! {:name "receive-worker/shutdown-complete"
+                                :attributes {:worker-n n}})
+          (do (grouped-queue/process-polling!
+               receive-q
+               {:reserve-fn receive-worker-reserve-fn
+                :process-fn (fn [group-key batch]
+                              (straight-jacket-process-receive-q-batch store-conn
+                                                                       eph-store-atom
+                                                                       batch
+                                                                       {:worker-n n
+                                                                        :batch-size (count batch)
+                                                                        :group-key group-key}))})
+              (recur)))))))
 
 (defn enqueue->receive-q [receive-q item]
   (grouped-queue/put!
