@@ -9,6 +9,7 @@ import {
   Button,
   Checkbox,
   Content,
+  InfoTip,
   Select,
   TextInput,
   ToggleGroup,
@@ -470,8 +471,8 @@ function EditCheckedDataType({
   //const closeDialog = useClose();
   const token = useAuthToken();
   const [checkedDataType, setCheckedDataType] = useState<
-    CheckedDataType | undefined | 'any'
-  >(attr.checkedDataType);
+    CheckedDataType | 'any'
+  >(attr.checkedDataType || 'any');
   const [indexingJob, setIndexingJob] = useState<InstantIndexingJob | null>(
     null,
   );
@@ -550,7 +551,15 @@ function EditCheckedDataType({
   return (
     <ActionForm className="flex flex-col gap-1">
       <div className="flex flex-col gap-2">
-        <h6 className="text-md font-bold">Enforce type</h6>
+        <h6 className="text-md font-bold">
+          Enforce type{' '}
+          <InfoTip>
+            <div className="text-sm w-48">
+              Checks the type on all existing entities and enforces the type
+              when entities are created or updated.
+            </div>
+          </InfoTip>
+        </h6>
         <div className="flex gap-2">
           <Select
             value={checkedDataType || 'any'}
