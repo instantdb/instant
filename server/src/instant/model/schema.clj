@@ -58,7 +58,6 @@
                                                      :index? (:index? new-attr)}]])
                                                 (when (and changed-type?
                                                            (not (= :system (:catalog current-attr))))
-                                                  (tool/def-locals)
                                                   (if-let [new-data-type (:checked-data-type new-attr)]
                                                     [[:check-data-type
                                                       {:attr-id (:id current-attr)
