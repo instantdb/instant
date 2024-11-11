@@ -412,14 +412,14 @@ function indexingJobCompletedMessage(job) {
     ) {
       const [etype, label] = job.attr_name.split(".");
       const longestValue = job.invalid_triples_sample.slice(0, 3).reduce(
-        (acc, { value }) => Math.max(acc, value.length),
+        (acc, { value }) => Math.max(acc, JSON.stringify(value).length),
         // Start with length of label
         label.length,
       );
 
       let msg = `${chalk.red("INVALID DATA")} ${actionMessage}.\n`;
       msg += `  First few examples:\n`;
-      msg += `  ${chalk.bold("id")}${" ".repeat(35)}| ${chalk.bold(label)}${" ".repeat(longestValue - label.length + 1)}| ${chalk.bold("type")}\n`;
+      msg += `  ${chalk.bold("id")}${" ".repeat(35)}| ${chalk.bold(label)}${" ".repeat(longestValue - label.length)} | ${chalk.bold("type")}\n`;
       msg += `  ${"-".repeat(37)}|${"-".repeat(longestValue + 2)}|--------\n`;
       for (const triple of job.invalid_triples_sample.slice(0, 3)) {
         const urlParams = new URLSearchParams({
@@ -436,7 +436,7 @@ function indexingJobCompletedMessage(job) {
         const link = terminalLink(triple.entity_id, url.toString(), {
           fallback: () => triple.entity_id,
         });
-        msg += `  ${link} | ${triple.value}${" ".repeat(longestValue - triple.value.length)} | ${triple.json_type}\n`;
+        msg += `  ${link} | ${triple.value}${" ".repeat(longestValue - JSON.stringify(triple.value).length)} | ${triple.json_type}\n`;
       }
       return msg;
     }
