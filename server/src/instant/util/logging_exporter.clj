@@ -119,9 +119,10 @@
 (def exclude-span?
   (if (= :prod (config/get-env))
     (fn [span]
-      (-> (.getAttributes span)
-          (.get op-attr-key)
-          (= ":set-presence")))
+      (let [attrs (.getAttributes span)]
+        (when-let [op (.get attrs op-attr-key)]
+          (or (= op ":set-presence")
+              (= op ":refresh-presence")))))
     (fn [_span]
       false)))
 
