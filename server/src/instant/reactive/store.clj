@@ -35,6 +35,7 @@
    :session/socket {} ;; socket (from session.clj)
    :session/auth {} ;; {:app app :user user :admin? admin?} (from session.clj)
    :session/creator {} ;; user (from session.clj)
+   :session/versions {} ;; library versions, e.g. {"@instantdb/react": "v0.1.2"}
    :session/datalog-loader {} ;; datalog-loader (from datalog.clj)
 
    :tx-meta/app-id {:db/unique :db.unique/identity}
@@ -135,6 +136,23 @@
   (transact! "store/set-creator!"
              conn
              [[:db/add [:session/id sess-id] :session/creator creator]]))
+
+;; -------------
+;; session props
+
+(defn set-session-props! [conn sess-id {:keys [creator
+                                               auth
+                                               versions]}]
+  (transact! "store/set-session-props"
+             conn
+             (concat
+              [[:db/add [:session/id sess-id] :session/auth auth]
+               [:db/add [:session/id sess-id] :session/creator creator]]
+              (when versions
+                [[:db/add [:session/id sess-id] :session/versions versions]]))))
+
+(defn get-versions [db sess-id]
+  (:session/versions (d/entity db [:session/id sess-id])))
 
 ;; -----
 ;; tx-id
