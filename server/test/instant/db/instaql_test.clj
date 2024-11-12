@@ -1,7 +1,6 @@
 (ns instant.db.instaql-test
   (:require
    [clojure.test :as test :refer [deftest is testing]]
-   [instant.dash.routes :refer [insert-users-table!]]
    [instant.data.bootstrap :as bootstrap]
    [instant.data.constants :refer [zeneca-app-id]]
    [instant.data.resolvers :as resolvers]
@@ -2545,8 +2544,6 @@
         (doseq [user users]
           (app-user-model/create! user))
 
-        (insert-users-table! aurora/conn-pool (:id app))
-
         (testing "default rules let you see no users without auth"
           (is (= (pretty-perm-q (make-ctx) {:$users {}})
                  {:$users []})))
@@ -2561,7 +2558,6 @@
 (deftest users-table-references
   (with-zeneca-app
     (fn [app r0]
-      (insert-users-table! aurora/conn-pool (:id app))
       (let [make-ctx (fn []
                        (let [attrs (attr-model/get-by-app-id (:id app))]
                          {:db {:conn-pool aurora/conn-pool}
@@ -2639,7 +2635,6 @@
 (deftest users-table-perms-with-references
   (with-zeneca-app
     (fn [app r0]
-      (insert-users-table! aurora/conn-pool (:id app))
       (let [make-ctx (fn []
                        (let [attrs (attr-model/get-by-app-id (:id app))]
                          {:db {:conn-pool aurora/conn-pool}
@@ -2694,7 +2689,6 @@
 (deftest auth-ref-perms
   (with-zeneca-app
     (fn [app r0]
-      (insert-users-table! aurora/conn-pool (:id app))
       (let [make-ctx (fn []
                        (let [attrs (attr-model/get-by-app-id (:id app))]
                          {:db {:conn-pool aurora/conn-pool}
