@@ -97,7 +97,8 @@
                     (try
                       (metric-fn)
                       (catch Throwable t
-                        [])))])]
+                        [{:path "instant.gauges.metric-fn-error"
+                          :value (.getMessage t)}])))])]
     (into {} (map (juxt :path :value) metrics))))
 
 (comment
