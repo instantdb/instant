@@ -1,6 +1,6 @@
 import { id } from '@instantdb/core';
 import { InstantReactWeb } from '@instantdb/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/solid';
 import { errorToast, successToast } from '@/lib/toast';
 import {
@@ -468,7 +468,6 @@ function EditCheckedDataType({
   readOnly: boolean;
   pushNavStack: PushNavStack;
 }) {
-  //const closeDialog = useClose();
   const token = useAuthToken();
   const [checkedDataType, setCheckedDataType] = useState<
     CheckedDataType | 'any'
@@ -476,11 +475,17 @@ function EditCheckedDataType({
   const [indexingJob, setIndexingJob] = useState<InstantIndexingJob | null>(
     null,
   );
+
+  const stopFetchLoop = useRef<null | (() => void)>(null);
+
+  useEffect(() => {
+    return () => stopFetchLoop.current?.();
+  }, [stopFetchLoop]);
   const updateCheckedType = async () => {
     if (!token || !checkedDataType) {
-      // XXX: Some error
       return;
     }
+    stopFetchLoop.current?.();
     const friendlyName = `${attr.namespace}.${attr.name}`;
     try {
       const job = await createJob(
@@ -495,9 +500,10 @@ function EditCheckedDataType({
       );
       setIndexingJob(job);
       const fetchLoop = jobFetchLoop(appId, job.id, token);
+      stopFetchLoop.current = fetchLoop.stop;
       const finishedJob = await fetchLoop.start((data, error) => {
         if (error) {
-          // Handle error
+          errorToast(`Unexpected error while updating ${friendlyName}.`);
         }
         if (data) {
           setIndexingJob(data);
@@ -513,7 +519,7 @@ function EditCheckedDataType({
           return;
         }
         if (finishedJob.job_status === 'canceled') {
-          errorToast('Attribute updated was canceled.');
+          errorToast('Attribute update was canceled.');
           return;
         }
         if (finishedJob.job_status === 'errored') {
@@ -527,7 +533,6 @@ function EditCheckedDataType({
     } catch (e) {
       console.error(e);
       errorToast(`Unexpected error while updating ${friendlyName}`);
-      // handle error
     }
   };
 
