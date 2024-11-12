@@ -591,14 +591,15 @@
        ;; TODO(dww): Notify team once we're comfortable with how this works
        ;;   Might need a flag to prevent spamming the channel.
        ;;   Could also just "steal" the job.
-       (if (= :prod (config/get-env))
-         (discord/send-error-async!
-          (str (:dww discord/mention-constants)
-               " Indexing jobs are stuck! First 5 are "
-               (string/join "," (map (fn [{:keys [id]}]
-                                       (format "\"%s\"" id)) jobs))))
-         (tracer/record-info! {:name "indexing-jobs/found-stuck-jobs!"
-                               :attributes {:job-ids (map :id jobs)}}))
+       (when (seq jobs)
+         (if (= :prod (config/get-env))
+           (discord/send-error-async!
+            (str (:dww discord/mention-constants)
+                 " Indexing jobs are stuck! First 5 are "
+                 (string/join "," (map (fn [{:keys [id]}]
+                                         (format "\"%s\"" id)) jobs))))
+           (tracer/record-info! {:name "indexing-jobs/found-stuck-jobs!"
+                                 :attributes {:job-ids (map :id jobs)}})))
 
        (tracer/add-data! {:attributes {:job-count (count jobs)
                                        :job-ids (map :id jobs)}})
