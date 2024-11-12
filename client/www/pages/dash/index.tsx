@@ -517,7 +517,7 @@ function Dashboard() {
                     db={connection.db}
                   />
                 ) : tab == 'billing' &&
-                  isMinRole('owner', app.user_app_role) ? (
+                  isMinRole('collaborator', app.user_app_role) ? (
                   <Billing appId={appId} />
                 ) : null}
               </div>
@@ -598,11 +598,14 @@ export function HomeButton({
   children: React.ReactNode;
 }) {
   return (
-    <NextLink href={formatRouteParams(href)}>
-      <a className="justify-start p-4 border shadow-sm rounded space-y-2 bg-white hover:bg-gray-50 disabled:text-gray-400 cursor-pointer">
+    <NextLink
+      href={formatRouteParams(href)}
+      className="justify-start p-4 border shadow-sm rounded space-y-2 bg-white hover:bg-gray-50 disabled:text-gray-400 cursor-pointer"
+    >
+      <div>
         <div className="font-mono font-bold text-xl">{title}</div>
         <div className="text-gray-500">{children}</div>
-      </a>
+      </div>
     </NextLink>
   );
 }
@@ -1040,6 +1043,7 @@ function Admin({
   const [deleteAppOk, updateDeleteAppOk] = useState(false);
   const [clearAppOk, updateClearAppOk] = useState(false);
   const [editMember, setEditMember] = useState<InstantMember | null>();
+  const [hideAdminToken, setHideAdminToken] = useState(true);
   const clearDialog = useDialog();
   const deleteDialog = useDialog();
   const inviteDialog = useDialog();
@@ -1311,7 +1315,12 @@ function Admin({
           </>
         ) : null}
       </Content>
-      <Copyable label="Secret" value={app.admin_token} />
+      <Copyable
+        onChangeHideValue={() => setHideAdminToken(!hideAdminToken)}
+        hideValue={hideAdminToken}
+        label="Secret"
+        value={app.admin_token}
+      />
       {isMinRole('collaborator', app.user_app_role) ? (
         <div className="space-y-2">
           <SectionHeading>Users namespace</SectionHeading>

@@ -1,9 +1,8 @@
 // @ts-check
 
-import { readFileSync } from "fs";
+import version from "./src/version.js";
 import { mkdir, writeFile, readFile, stat } from "fs/promises";
-import { dirname, join } from "path";
-import { fileURLToPath } from 'url';
+import { join } from "path";
 import { randomUUID } from "crypto";
 import dotenv from "dotenv";
 import chalk from "chalk";
@@ -16,7 +15,6 @@ import openInBrowser from "open";
 
 // config
 dotenv.config();
-
 
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
@@ -45,13 +43,9 @@ program
   .option("-t --token <TOKEN>", "auth token override")
   .option("-y", "skip confirmation prompt")
   .option("-v --version", "output the version number", () => {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    const version = JSON.parse(
-      readFileSync(join(__dirname, 'package.json'), 'utf8')
-    ).version;
     console.log(version);
     process.exit(0);
-  })
+  });
 
 program
   .command("login")
@@ -283,16 +277,14 @@ async function pullSchema(appIdOrName) {
     );
 
     if (ok) {
-      await writeFile(
-        join(pkgDir, ".env"),
-        `INSTANT_APP_ID=${appId}`,
-        "utf-8",
-      );
+      await writeFile(join(pkgDir, ".env"), `INSTANT_APP_ID=${appId}`, "utf-8");
       console.log(
         `Created .env file with INSTANT_APP_ID=${appId} in ${pkgDir}`,
       );
     } else {
-      console.log("No .env file created. If you plan to push updates, please create one.");
+      console.log(
+        "No .env file created. If you plan to push updates, please create one.",
+      );
     }
   }
 
@@ -554,6 +546,7 @@ async function fetchJson({
       headers: {
         ...(withAuth ? { Authorization: `Bearer ${authToken}` } : {}),
         "Content-Type": "application/json",
+        "Instant-CLI-Version": version,
       },
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(timeoutMs),
@@ -579,7 +572,7 @@ async function fetchJson({
         if (Array.isArray(data?.hint?.errors)) {
           for (const error of data.hint.errors) {
             console.error(
-              `${error.in ? error.in.join("->") + ": " : ""}${error.message}`
+              `${error.in ? error.in.join("->") + ": " : ""}${error.message}`,
             );
           }
         }
@@ -595,11 +588,12 @@ async function fetchJson({
     }
 
     return { ok: true, data };
-
   } catch (err) {
     if (withErrorLogging) {
       if (err.name === "AbortError") {
-        console.error(`Timeout: It took more than ${timeoutMs / 60000} minutes to get the result!`);
+        console.error(
+          `Timeout: It took more than ${timeoutMs / 60000} minutes to get the result!`,
+        );
       } else {
         console.error(`Error: type: ${err.name}, message: ${err.message}`);
       }
@@ -952,7 +946,7 @@ function generateSchemaTypescriptFile(id, schema, title, instantModuleName) {
   const entitiesObjCode = `{\n${entitiesEntriesCode}\n}`;
 
   const linksEntriesCode = Object.fromEntries(
-    sortedEntries(schema.refs).map(([name, config]) => {
+    sortedEntries(schema.refs).map(([_name, config]) => {
       const [, fe, flabel] = config["forward-identity"];
       const [, re, rlabel] = config["reverse-identity"];
       const [fhas, rhas] = rels[`${config.cardinality}-${config["unique?"]}`];

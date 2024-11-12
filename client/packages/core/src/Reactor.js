@@ -15,6 +15,7 @@ import { PersistedObject } from "./utils/PersistedObject";
 import { extractTriples } from "./model/instaqlResult";
 import { areObjectsDeepEqual } from "./utils/object";
 import { createLinkIndex } from "./utils/linkIndex";
+import version from "./version";
 
 const STATUS = {
   CONNECTING: "connecting",
@@ -142,8 +143,10 @@ export default class Reactor {
     config,
     Storage = IndexedDBStorage,
     NetworkListener = WindowNetworkListener,
+    versions,
   ) {
     this.config = { ...defaultConfig, ...config };
+    this.versions = { ...(versions || {}), "@instantdb/core": version };
 
     if (this.config.schema) {
       this._linkIndex = createLinkIndex(this.config.schema);
@@ -1050,6 +1053,7 @@ export default class Reactor {
         op: "init",
         "app-id": this.config.appId,
         "refresh-token": resp.user?.["refresh_token"],
+        versions: this.versions,
         // If an admin token is provided for an app, we will
         // skip all permission checks. This is an advanced feature,
         // to let users write internal tools
@@ -1441,7 +1445,7 @@ export default class Reactor {
       email,
       code,
     });
-    this.changeCurrentUser(res.user);
+    await this.changeCurrentUser(res.user);
     return res;
   }
 
@@ -1451,7 +1455,7 @@ export default class Reactor {
       appId: this.config.appId,
       refreshToken: authToken,
     });
-    this.changeCurrentUser(res.user);
+    await this.changeCurrentUser(res.user);
     return res;
   }
 
@@ -1467,8 +1471,7 @@ export default class Reactor {
         });
       } catch (e) {}
     }
-
-    this.changeCurrentUser(null);
+    await this.changeCurrentUser(null);
   }
 
   /**
@@ -1490,7 +1493,7 @@ export default class Reactor {
       code: code,
       codeVerifier,
     });
-    this.changeCurrentUser(res.user);
+    await this.changeCurrentUser(res.user);
     return res;
   }
 
@@ -1517,7 +1520,7 @@ export default class Reactor {
       nonce,
       refreshToken,
     });
-    this.changeCurrentUser(res.user);
+    await this.changeCurrentUser(res.user);
     return res;
   }
 

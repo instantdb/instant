@@ -16,7 +16,6 @@
       events across the lifetime of a session"
   (:require
    [datascript.core :as d]
-   [clojure.set :as clojure-set]
    [instant.util.coll :as ucoll]
    [instant.lib.ring.websocket :as ws]
    [instant.util.async :as ua]
@@ -36,6 +35,7 @@
    :session/socket {} ;; socket (from session.clj)
    :session/auth {} ;; {:app app :user user :admin? admin?} (from session.clj)
    :session/creator {} ;; user (from session.clj)
+   :session/versions {} ;; library versions, e.g. {"@instantdb/react": "v0.1.2"}
    :session/datalog-loader {} ;; datalog-loader (from datalog.clj)
 
    :tx-meta/app-id {:db/unique :db.unique/identity}
@@ -136,6 +136,23 @@
   (transact! "store/set-creator!"
              conn
              [[:db/add [:session/id sess-id] :session/creator creator]]))
+
+;; -------------
+;; session props
+
+(defn set-session-props! [conn sess-id {:keys [creator
+                                               auth
+                                               versions]}]
+  (transact! "store/set-session-props"
+             conn
+             (concat
+              [[:db/add [:session/id sess-id] :session/auth auth]
+               [:db/add [:session/id sess-id] :session/creator creator]]
+              (when versions
+                [[:db/add [:session/id sess-id] :session/versions versions]]))))
+
+(defn get-versions [db sess-id]
+  (:session/versions (d/entity db [:session/id sess-id])))
 
 ;; -----
 ;; tx-id
@@ -405,23 +422,40 @@
 ;; ------
 ;; invalidation
 
-(defn- match-topic-part? [a b]
+(defn intersects?
+  "Like (not (empty? (set/intersection set-a set-b))), but it returns early
+   instead of calculating the full intersection."
+  [set-a set-b]
+  (let [[big small] (if (> (count set-a) (count set-b))
+                      [set-a set-b]
+                      [set-b set-a])]
+    (reduce (fn [_ item]
+              (if (contains? big item)
+                (reduced true)
+                false))
+            false
+            small)))
+
+(defn- match-topic-part? [iv-part dq-part]
   (cond
-    (keyword? a) (= a b)
-    (some symbol? [a b]) true
-    (set? a) (seq (clojure-set/intersection a b))))
+    (keyword? iv-part) (= iv-part dq-part)
+    (or (symbol? dq-part) (symbol? iv-part)) true
+    (set? dq-part) (intersects? iv-part dq-part)
+
+    (and (map? dq-part) (contains? dq-part :not))
+    (let [not-val (:not dq-part)]
+      (some (partial not= not-val) iv-part))))
 
 (defn match-topic?
-  [t1 t2]
-  (let [zipped (ucoll/zip t1 t2)]
-    (every? (partial apply match-topic-part?) zipped)))
+  [iv-topic dq-topic]
+  (ucoll/every?-var-args match-topic-part? iv-topic dq-topic))
 
-(defn contains-matching-topic? [ts t]
-  (some (partial match-topic? t) ts))
+(defn contains-matching-topic? [dq-topics iv-topic]
+  (some (partial match-topic? iv-topic) dq-topics))
 
-(defn matching-topic-intersection? [ts1 ts2]
-  (some (partial contains-matching-topic? ts2)
-        ts1))
+(defn matching-topic-intersection? [iv-topics dq-topics]
+  (some (partial contains-matching-topic? dq-topics)
+        iv-topics))
 
 (defn mark-instaql-queries-stale-tx-data
   "Should be used in a db.fn/call. Returns transactions.
@@ -461,11 +495,11 @@
 
           (mapv (fn [e] [:db.fn/retractEntity e]) datalog-query-eids))))
 
-(defn get-datalog-queries-for-topics [db app-id topics]
+(defn get-datalog-queries-for-topics [db app-id iv-topics]
   (->> (d/datoms db :avet :datalog-query/app-id app-id)
        (keep (fn [datom]
                (when-let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
-                 (when (matching-topic-intersection? topics dq-topics)
+                 (when (matching-topic-intersection? iv-topics dq-topics)
                    (:e datom)))))))
 
 (defn mark-stale-topics!

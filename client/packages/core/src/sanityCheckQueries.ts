@@ -65,6 +65,9 @@ const sanityCheckQueries = () => {
   const s1 = dummyQuery({
     users: { $: { where: { foo: { in: [1, 2, 3] } } } },
   });
+  const s1_5 = dummyQuery({
+    users: { $: { where: { foo: { $in: [1, 2, 3] } } } },
+  });
   const t1 = dummyQuery({
     users: { $: { where: { or: [{ foo: 1 }] } } },
   });
@@ -108,6 +111,14 @@ const sanityCheckQueries = () => {
     users: { $: { before: cursor } },
   });
 
+  const t12 = dummyQuery({
+    users: { $: { where: { val: { $isNull: true } } } },
+  });
+
+  const t13 = dummyQuery({
+    users: { $: { where: { val: { $not: "a" } } } },
+  });
+
   // ------------------
   // Bad $ clauses fail
   // @ts-expect-error
@@ -123,6 +134,16 @@ const sanityCheckQueries = () => {
   const s3 = dummyQuery({
     // @ts-expect-error
     users: { $: { where: { foo: [] } } },
+  });
+
+  const s4 = dummyQuery({
+    // @ts-expect-error
+    users: { $: { where: { val: { $isNull: "a" } } } },
+  });
+
+  const s5 = dummyQuery({
+    // @ts-expect-error
+    users: { $: { where: { val: { $not: { val: "a" } } } } },
   });
 
   // ----------------

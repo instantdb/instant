@@ -1,7 +1,6 @@
 import { query as datalogQuery } from "./datalog";
 import { uuidCompare } from "./utils/uuid";
-import { getAttrByFwdIdentName, getAttrByReverseIdentName } from "./instaml";
-import * as s from "./store"; 
+import * as s from "./store";
 
 // Pattern variables
 // -----------------
@@ -26,19 +25,8 @@ class AttrNotFoundError extends Error {
   }
 }
 
-function getPrimaryKeyAttr(store, ns) {
-  const primary = Object.values(store.attrs).find(
-    (a) => a["primary?"] && a["forward-identity"]?.[1] === ns,
-  );
-
-  if (primary) {
-    return primary;
-  }
-  return getAttrByFwdIdentName(store.attrs, ns, "id");
-}
-
 function idAttr(store, ns) {
-  const attr = getPrimaryKeyAttr(store, ns);
+  const attr = s.getPrimaryKeyAttr(store, ns);
 
   if (!attr) {
     throw new AttrNotFoundError(`Could not find id attr for ${ns}`);
@@ -64,8 +52,8 @@ function replaceInAttrPat(attrPat, needle, v) {
 }
 
 function refAttrPat(makeVar, store, etype, level, label) {
-  const fwdAttr = getAttrByFwdIdentName(store.attrs, etype, label);
-  const revAttr = getAttrByReverseIdentName(store.attrs, etype, label);
+  const fwdAttr = s.getAttrByFwdIdentName(store, etype, label);
+  const revAttr = s.getAttrByReverseIdentName(store, etype, label);
   const attr = fwdAttr || revAttr;
 
   if (!attr) {
@@ -81,17 +69,17 @@ function refAttrPat(makeVar, store, etype, level, label) {
   const nextLevel = level + 1;
   const attrPat = fwdAttr
     ? [
-      makeVar(fwdEtype, level),
-      attr.id,
-      makeVar(revEtype, nextLevel),
-      wildcard("time"),
-    ]
+        makeVar(fwdEtype, level),
+        attr.id,
+        makeVar(revEtype, nextLevel),
+        wildcard("time"),
+      ]
     : [
-      makeVar(fwdEtype, nextLevel),
-      attr.id,
-      makeVar(revEtype, level),
-      wildcard("time"),
-    ];
+        makeVar(fwdEtype, nextLevel),
+        attr.id,
+        makeVar(revEtype, level),
+        wildcard("time"),
+      ];
 
   const nextEtype = fwdAttr ? revEtype : fwdEtype;
 
@@ -101,12 +89,27 @@ function refAttrPat(makeVar, store, etype, level, label) {
 }
 
 function valueAttrPat(makeVar, store, valueEtype, valueLevel, valueLabel, v) {
-  const attr = getAttrByFwdIdentName(store.attrs, valueEtype, valueLabel);
+  const attr = s.getAttrByFwdIdentName(store, valueEtype, valueLabel);
 
   if (!attr) {
     throw new AttrNotFoundError(
       `No attr for etype = ${valueEtype} label = ${valueLabel} value-label`,
     );
+  }
+
+  if (v?.hasOwnProperty("$isNull")) {
+    const idAttr = s.getAttrByFwdIdentName(store, valueEtype, "id");
+    if (!idAttr) {
+      throw new AttrNotFoundError(
+        `No attr for etype = ${valueEtype} label = id value-label`,
+      );
+    }
+    return [
+      makeVar(valueEtype, valueLevel),
+      idAttr.id,
+      { $isNull: { attrId: attr.id, isNull: v.$isNull } },
+      wildcard("time"),
+    ];
   }
 
   return [makeVar(valueEtype, valueLevel), attr.id, v, wildcard("time")];
@@ -192,6 +195,24 @@ function parseWhereClauses(
   return { [clauseType]: { patterns, joinSym } };
 }
 
+// Given a path, returns a list of paths leading up to this path:
+// growPath([1, 2, 3]) -> [[1], [1, 2], [1, 2, 3]]
+function growPath(path) {
+  const ret = [];
+  for (let i = 1; i <= path.length; i++) {
+    ret.push(path.slice(0, i));
+  }
+  return ret;
+}
+
+// Returns array of pattern arrays that should be grouped in OR
+// to capture any intermediate nulls
+function whereCondAttrPatsForNullIsTrue(makeVar, store, etype, level, path) {
+  return growPath(path).map((path) =>
+    whereCondAttrPats(makeVar, store, etype, level, path, { $isNull: true }),
+  );
+}
+
 function parseWhere(makeVar, store, etype, level, where) {
   return Object.entries(where).flatMap(([k, v]) => {
     if (isOrClauses([k, v])) {
@@ -200,7 +221,49 @@ function parseWhere(makeVar, store, etype, level, where) {
     if (isAndClauses([k, v])) {
       return parseWhereClauses(makeVar, "and", store, etype, level, v);
     }
+
     const path = k.split(".");
+
+    if (v?.hasOwnProperty("$not")) {
+      // `$not` won't pick up entities that are missing the attr, so we
+      // add in a `$isNull` to catch those too.
+      const notPats = whereCondAttrPats(makeVar, store, etype, level, path, v);
+      const nilPats = whereCondAttrPatsForNullIsTrue(
+        makeVar,
+        store,
+        etype,
+        level,
+        path,
+      );
+      return [
+        {
+          or: {
+            patterns: [notPats, ...nilPats],
+            joinSym: makeVar(etype, level),
+          },
+        },
+      ];
+    }
+
+    if (v?.hasOwnProperty("$isNull") && v.$isNull === true && path.length > 1) {
+      // Make sure we're capturing all of the intermediate paths that might be null
+      // by checking for null at each step along the path
+      return [
+        {
+          or: {
+            patterns: whereCondAttrPatsForNullIsTrue(
+              makeVar,
+              store,
+              etype,
+              level,
+              path,
+            ),
+            joinSym: makeVar(etype, level),
+          },
+        },
+      ];
+    }
+
     return whereCondAttrPats(makeVar, store, etype, level, path, v);
   });
 }
@@ -237,15 +300,15 @@ function makeJoin(makeVar, store, etype, level, label, eid) {
 }
 
 function extendObjects(makeVar, store, { etype, level, form }, objects) {
-  const children = Object.keys(form).filter((c) => c !== "$");
-  if (!children.length) {
+  const childQueries = Object.keys(form).filter((c) => c !== "$");
+  if (!childQueries.length) {
     return Object.values(objects);
   }
-  return Object.entries(objects).map(([eid, parent]) => {
-    const childResults = children.map((label) => {
+  return Object.entries(objects).map(function extendChildren([eid, parent]) {
+    const childResults = childQueries.map(function getChildResult(label) {
       const isSingular = Boolean(
         store.cardinalityInference &&
-        store.linkIndex?.[etype]?.[label]?.isSingular,
+          store.linkIndex?.[etype]?.[label]?.isSingular,
       );
 
       try {
@@ -275,7 +338,8 @@ function extendObjects(makeVar, store, { etype, level, form }, objects) {
         throw e;
       }
     });
-    return childResults.reduce((parent, child) => {
+
+    return childResults.reduce(function reduceChildren(parent, child) {
       return { ...parent, ...child };
     }, parent);
   });
@@ -318,14 +382,15 @@ function isBefore(startCursor, direction, [e, _a, _v, t]) {
 
 function runDataloadAndReturnObjects(store, etype, direction, pageInfo, dq) {
   const aid = idAttr(store, etype).id;
-  const idVecs = datalogQuery(store, dq)
-    .sort(([_, tsA], [__, tsB]) => {
-      return direction === "desc" ? tsB - tsA : tsA - tsB;
-    });
+  const idVecs = datalogQuery(store, dq).sort(function sortIdVecs(
+    [_, tsA],
+    [__, tsB],
+  ) {
+    return direction === "desc" ? tsB - tsA : tsA - tsB;
+  });
 
-  let objects = {}
+  let objects = {};
   const startCursor = pageInfo?.["start-cursor"];
-  const blobAttrs = s.blobAttrs(store, etype);
   for (const [id, time] of idVecs) {
     if (
       startCursor &&
@@ -334,7 +399,7 @@ function runDataloadAndReturnObjects(store, etype, direction, pageInfo, dq) {
     ) {
       continue;
     }
-    const obj = s.getAsObject(store, blobAttrs, id);
+    const obj = s.getAsObject(store, etype, id);
     if (obj) {
       objects[id] = obj;
     }
@@ -447,7 +512,7 @@ function formatPageInfo(pageInfo) {
 }
 
 export default function query({ store, pageInfo, aggregate }, q) {
-  const data = Object.keys(q).reduce((res, k) => {
+  const data = Object.keys(q).reduce(function reduceResult(res, k) {
     if (aggregate?.[k]) {
       // Aggregate doesn't return any join rows and has no children,
       // so don't bother querying further

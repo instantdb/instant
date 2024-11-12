@@ -139,3 +139,9 @@
             (update acc v (fnil conj #{}) k))
           {}
           m))
+
+(defn every?-var-args [pred & colls]
+  (if (= 1 (count colls))
+    (every? pred (first colls))
+    (every? (fn [args] (apply pred args))
+            (apply map vector colls))))

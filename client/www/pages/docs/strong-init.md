@@ -90,9 +90,9 @@ const db = init_experimental({
 
 Sometimes, you'll want to abstract out your query and result types. For example, a query's result might be consumed across multiple React components, each with their own prop types. For such cases, we provide `InstantQuery` and `InstantQueryResult`.
 
-To declare a query and validate it's type against your schema, you can import `InstantQuery` and leverage [TypeScript's `satisfies` operator](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-9.html#the-satisfies-operator) like so: `const myQuery = { myTable: {} } satisfies InstantQuery<DB>;`.
+To declare a query and validate its type against your schema, you can import `InstantQuery` and leverage [TypeScript's `satisfies` operator](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-9.html#the-satisfies-operator) like so: `const myQuery = { myTable: {} } satisfies InstantQuery<DB>;`.
 
-To obtain the resolved result type of your query, import `InstantQueryResult` and provide it your DB and query types `const myQueryResult = InstantQueryResult<DB, typeof myQuery>`.
+To obtain the resolved result type of your query, import `InstantQueryResult` and provide it your DB and query types `type MyQueryResult = InstantQueryResult<DB, typeof myQuery>`.
 
 If you only want the type of a single entity, you can leverage `InstantEntity`. `InstantEntity` resolves an entity type from your DB: `type Todo = InstantEntity<DB, 'todos'>`. You can specify links relative to the entity, too: `type Todo = InstantEntity<DB, 'todos', { category: {}, assignee: {} }>`
 

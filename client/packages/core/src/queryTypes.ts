@@ -15,7 +15,11 @@ type NonEmpty<T> = {
 }[keyof T];
 
 type WhereArgs = {
+  /** @deprecated use `$in` instead of `in` */
   in?: (string | number | boolean)[];
+  $in?: (string | number | boolean)[];
+  $not?: string | number | boolean;
+  $isNull?: boolean;
 };
 
 type WhereClauseValue = string | number | boolean | NonEmpty<WhereArgs>;

@@ -107,7 +107,6 @@
                                                  attrs)))))]
     {:refs refs-indexed :blobs blobs-indexed}))
 
-
 (def relationships->schema-params {[:many :many] {:cardinality :many
                                                   :unique? false}
                                    [:one :one] {:cardinality :one
@@ -338,7 +337,6 @@
     :blobs {:ns {:a {:unique? "one"}}}}
    {:refs {["comments" "post" "posts" "comments"] {:unique? true :cardinality "one"}}
     :blobs {:ns {:a {:cardinality "many"} :b {:cardinality  "many"}}}}))
-
 
 (defn apply-plan! [app-id {:keys [steps] :as _plan}]
   (let [ctx {:admin? true

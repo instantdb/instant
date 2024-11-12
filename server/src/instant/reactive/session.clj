@@ -31,7 +31,7 @@
    [instant.util.exception :as ex]
    [instant.util.uuid :as uuid-util]
    [instant.grouped-queue :as grouped-queue]
-   [instant.gauges :as gauges])
+   [instant.reactive.receive-queue :as receive-queue :refer [receive-q]])
   (:import
    (java.util.concurrent CancellationException)
    (java.util.concurrent.atomic AtomicLong)
@@ -40,21 +40,32 @@
 ;; ------
 ;; Setup
 
-(declare receive-q)
 (declare receive-q-stop-signal)
 (def handle-receive-timeout-ms 5000)
 
-(def num-receive-workers (* 3 (delay/cpu-count)))
+(def num-receive-workers (* 100 (delay/cpu-count)))
 
 ;; ------
 ;; handlers
 
-(defn auth-and-creator-attrs [auth creator]
-  {:app-id (-> auth :app :id)
-   :app-title (-> auth :app :title)
-   :app-user-email (-> auth :user :email)
-   :creator-id (-> creator :id)
-   :creator-email (-> creator :email)})
+(def core-version-key (keyword "@instantdb/core"))
+(def react-version-key (keyword "@instantdb/react"))
+(def react-native-version-key (keyword "@instantdb/react-native"))
+
+(defn auth-and-creator-attrs [auth creator versions]
+  (cond-> {:app-id (-> auth :app :id)
+           :app-title (-> auth :app :title)
+           :app-user-email (-> auth :user :email)
+           :creator-id (-> creator :id)
+           :creator-email (-> creator :email)}
+    (get versions react-version-key)
+    (assoc "@instantdb/react" (get versions react-version-key))
+
+    (get versions react-native-version-key)
+    (assoc "@instantdb/react-native" (get versions react-native-version-key))
+
+    (get versions core-version-key)
+    (assoc "@instantdb/core" (get versions core-version-key))))
 
 ;; -------
 ;; init
@@ -70,7 +81,7 @@
     {:attrs (attr-model/get-by-app-id (:id app))}))
 
 (defn- handle-init! [store-conn sess-id
-                     {:keys [refresh-token client-event-id __admin-token] :as event}]
+                     {:keys [refresh-token client-event-id versions __admin-token] :as event}]
   (let [prev-auth (rs/get-auth @store-conn sess-id)
         _ (when prev-auth
             (ex/throw-validation-err! :init event [{:message "`init` has already run for this session."}]))
@@ -87,9 +98,10 @@
                      (app-admin-token-model/fetch! {:app-id app-id
                                                     :token __admin-token})))
         auth {:app app :user user :admin? admin?}]
-    (tracer/add-data! {:attributes (auth-and-creator-attrs auth creator)})
-    (rs/set-auth! store-conn sess-id auth)
-    (rs/set-creator! store-conn sess-id creator)
+    (tracer/add-data! {:attributes (auth-and-creator-attrs auth creator versions)})
+    (rs/set-session-props! store-conn sess-id {:auth auth
+                                               :creator creator
+                                               :versions versions})
     (rs/send-event! store-conn sess-id {:op :init-ok
                                         :session-id sess-id
                                         :client-event-id client-event-id
@@ -225,7 +237,8 @@
            worker-delay-ms
            ws-ping-latency-ms] :as _event}]
   (let [auth (rs/get-auth @store-conn session-id)
-        creator (rs/get-creator @store-conn session-id)]
+        creator (rs/get-creator @store-conn session-id)
+        versions (rs/get-versions @store-conn session-id)]
     (merge
      {:op op
       :client-event-id client-event-id
@@ -233,7 +246,7 @@
       :worker-delay-ms worker-delay-ms
       :receive-q-delay-ms receive-q-delay-ms
       :ws-ping-latency-ms ws-ping-latency-ms}
-     (auth-and-creator-attrs auth creator))))
+     (auth-and-creator-attrs auth creator versions))))
 
 (defn socket-origin [{:keys [http-req]}]
   (some-> http-req
@@ -299,6 +312,12 @@
                                               :op :client-broadcast-ok
                                               :client-event-id client-event-id))))
 
+(defn- handle-refresh-presence!
+  [store-conn sess-id {:keys [room-id data]}]
+  (rs/send-event! store-conn sess-id {:op :refresh-presence
+                                      :room-id room-id
+                                      :data data}))
+
 (defn handle-event [store-conn eph-store-atom session event]
   (tracer/with-span! {:name "receive-worker/handle-event"}
     (let [{:keys [op]} event
@@ -316,7 +335,8 @@
         :join-room (handle-join-room! store-conn eph-store-atom id event)
         :leave-room (handle-leave-room! store-conn eph-store-atom id event)
         :set-presence (handle-set-presence! store-conn eph-store-atom id event)
-        :client-broadcast (handle-client-broadcast! store-conn eph-store-atom id event)))))
+        :client-broadcast (handle-client-broadcast! store-conn eph-store-atom id event)
+        :refresh-presence (handle-refresh-presence! store-conn id event)))))
 
 ;; --------------
 ;; Receive Workers
@@ -423,14 +443,15 @@
             (swap! pending-handlers disj pending-handler)))))))
 
 (defn process-receive-q-entry [store-conn eph-store-atom entry metadata]
-  (let [{:keys [put-at item]} entry
+  (let [{:keys [put-at item skipped-size]} entry
         {:keys [session-id] :as event} item
         now (Instant/now)
         session (rs/get-session @store-conn session-id)]
     (cond
       (not session)
       (tracer/record-info! {:name "receive-worker/session-not-found"
-                            :attributes (assoc metadata :session-id session-id)})
+                            :attributes (assoc metadata
+                                               :session-id session-id)})
 
       :else
       (handle-receive
@@ -445,7 +466,7 @@
                       :session/socket
                       :get-ping-latency-ms
                       (#(%))))
-       metadata))))
+       (assoc metadata :skipped-size skipped-size)))))
 
 (defn straight-jacket-process-receive-q-entry [store-conn eph-store-atom entry metadata]
   (try
@@ -456,34 +477,83 @@
                                                            :session-id (:session-id (:item entry))
                                                            :item entry)}))))
 
+(defn drop-consecutive-set-presence [batch]
+  (let [{:keys [entries-to-process last-entry]}
+        (reduce (fn [{:keys [entries-to-process
+                             last-entry]}
+                     entry]
+                  (if (and (= :set-presence
+                              (-> last-entry :item :op))
+                           (= :set-presence
+                              (-> entry :item :op)))
+                    {:entries-to-process entries-to-process
+                     :last-entry (assoc entry
+                                        :skipped-size
+                                        (inc (or (:skipped-size last-entry) 0)))}
+                    {:entries-to-process (conj entries-to-process last-entry)
+                     :last-entry entry}))
+                {:entries-to-process []
+                 :last-entry (first batch)}
+                (rest batch))]
+    (conj entries-to-process last-entry)))
+
+(defn straight-jacket-process-receive-q-batch [store-conn eph-store-atom batch metadata]
+  (try
+    (let [t (-> metadata :group-key first)]
+      (if (= 1 (count batch))
+        (process-receive-q-entry store-conn eph-store-atom (first batch) metadata)
+        (case t
+          :refresh
+          (process-receive-q-entry store-conn
+                                   eph-store-atom
+                                   (assoc (first batch)
+                                          :skipped-size (dec (count batch)))
+                                   metadata)
+
+          :refresh-presence
+          (process-receive-q-entry store-conn
+                                   eph-store-atom
+                                   (assoc (last batch)
+                                          :skipped-size (dec (count batch)))
+                                   metadata)
+
+          :room
+          (doseq [entry (drop-consecutive-set-presence batch)]
+            (process-receive-q-entry store-conn
+                                     eph-store-atom
+                                     entry
+                                     metadata)))))
+    (catch Throwable e
+      (tracer/record-exception-span! e {:name "receive-worker/handle-receive-batch-straight-jacket"
+                                        :attributes (assoc metadata
+                                                           :session-id (:session-id (:item (first batch)))
+                                                           :items batch)}))))
+
 (defn receive-worker-reserve-fn [[t] inflight-q]
-  (if (= t :refresh)
+  (case t
+    (:refresh :room :refresh-presence)
     (grouped-queue/inflight-queue-reserve-all inflight-q)
+
     (grouped-queue/inflight-queue-reserve 1 inflight-q)))
 
 (defn start-receive-workers [store-conn eph-store-atom receive-q stop-signal]
   (doseq [n (range num-receive-workers)]
     (ua/fut-bg
-     (loop []
-       (if @stop-signal
-         (tracer/record-info! {:name "receive-worker/shutdown-complete"
-                               :attributes {:worker-n n}})
-         (do (grouped-queue/process-polling!
-              receive-q
-              {:reserve-fn receive-worker-reserve-fn
-               :process-fn (fn [group-key [entry :as batch]]
-                             (straight-jacket-process-receive-q-entry store-conn
-                                                                      eph-store-atom
-                                                                      entry
-                                                                      {:worker-n n
-                                                                       :batch-size (count batch)
-                                                                       :group-key group-key}))})
-             (recur)))))))
-
-(defn enqueue->receive-q [receive-q item]
-  (grouped-queue/put!
-   receive-q
-   {:item item :put-at (Instant/now)}))
+      (loop []
+        (if @stop-signal
+          (tracer/record-info! {:name "receive-worker/shutdown-complete"
+                                :attributes {:worker-n n}})
+          (do (grouped-queue/process-polling!
+               receive-q
+               {:reserve-fn receive-worker-reserve-fn
+                :process-fn (fn [group-key batch]
+                              (straight-jacket-process-receive-q-batch store-conn
+                                                                       eph-store-atom
+                                                                       batch
+                                                                       {:worker-n n
+                                                                        :batch-size (count batch)
+                                                                        :group-key group-key}))})
+              (recur)))))))
 
 ;; -----------------
 ;; Websocket Interop
@@ -494,9 +564,9 @@
     (rs/add-socket! store-conn id socket)))
 
 (defn on-message [{:keys [id receive-q data]}]
-  (enqueue->receive-q receive-q (-> (<-json data true)
-                                    (update :op keyword)
-                                    (assoc :session-id id))))
+  (receive-queue/enqueue->receive-q receive-q (-> (<-json data true)
+                                                  (update :op keyword)
+                                                  (assoc :session-id id))))
 
 (defn on-error [{:keys [id error]}]
   (condp instance? error
@@ -517,8 +587,8 @@
     (let [app-id (-> (rs/get-auth @store-conn id)
                      :app
                      :id)]
-      (eph/leave-by-session-id! eph-store-atom app-id id)
-      (rs/remove-session! store-conn id))))
+      (rs/remove-session! store-conn id)
+      (eph/leave-by-session-id! eph-store-atom app-id id))))
 
 (defn undertow-config
   [store-conn eph-store-atom receive-q {:keys [id]}]
@@ -553,29 +623,25 @@
 ;; ------
 ;; System
 
-(defn receive-q-metrics [receive-q]
-  [{:path "instant.reactive.session.receive-q.size"
-    :value (grouped-queue/size receive-q)}
-   {:path "instant.reactive.session.receive-q.longest-waiting-ms"
-    :value (if-let [{:keys [put-at]} (grouped-queue/peek receive-q)]
-             (.toMillis (Duration/between put-at (Instant/now)))
-             0)}])
-
 (defn group-fn [{:keys [item] :as _input}]
-  (let [{:keys [session-id op]} item]
-    (condp contains? op
-      #{:transact}
+  (let [{:keys [session-id op room-id]} item]
+    (case op
+      :transact
       [:transact session-id]
 
-      #{:join-room :leave-room :set-presence :client-broadcast}
-      [:room session-id]
+      (:join-room :leave-room :set-presence :client-broadcast)
+      [:room session-id room-id]
 
-      #{:add-query :remove-query}
+      (:add-query :remove-query)
       (let [{:keys [q]} item]
         [:query session-id q])
 
-      #{:refresh}
+      :refresh
       [:refresh session-id]
+
+      :refresh-presence
+      [:refresh-presence session-id room-id]
+
       nil)))
 
 (comment
@@ -584,10 +650,8 @@
   (group-fn {:item {:session-id 1 :op :add-query :q {:users {}}}}))
 
 (defn start []
-  (def receive-q (grouped-queue/create {:group-fn #'group-fn}))
+  (receive-queue/start #'group-fn)
   (def receive-q-stop-signal (atom false))
-  (def cleanup-gauge (gauges/add-gauge-metrics-fn
-                      (fn [] (receive-q-metrics receive-q))))
 
   (ua/fut-bg
    (start-receive-workers
@@ -598,7 +662,7 @@
 
 (defn stop []
   (reset! receive-q-stop-signal true)
-  (cleanup-gauge))
+  (receive-queue/stop))
 
 (defn restart []
   (stop)

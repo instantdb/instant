@@ -5,6 +5,7 @@ import * as ReactDOMServer from 'react-dom/server';
 import { marked } from 'marked';
 import { Fence } from '../components/ui';
 import footnotes from './footnotes';
+import videos from './videos';
 
 marked.use({
   renderer: {
@@ -14,6 +15,7 @@ marked.use({
       );
     },
     ...footnotes,
+    ...videos,
   },
 });
 

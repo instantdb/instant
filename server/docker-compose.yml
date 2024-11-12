@@ -10,7 +10,9 @@ services:
     env_file:
       - .env
     network_mode: "host"
-    command: sh -c 'java $${JAVA_OPTS} -agentpath:/usr/local/YourKit-JavaProfiler-2024.3/bin/linux-x86-64/libyjpagent.so=port=10001,listen=all -server -jar target/instant-standalone.jar'
+    command: sh -c 'java $${JAVA_OPTS} -agentpath:/usr/local/YourKit-JavaProfiler-2024.9/bin/linux-x86-64/libyjpagent.so=port=10001,listen=all -server -jar target/instant-standalone.jar'
+    stop_grace_period: 1m
+    restart: on-failure
 
   logdna:
     image: logdna/logdna-agent:3.8
@@ -25,11 +27,17 @@ services:
       - /var/log/eb-docker:/var/log/eb-docker:ro
 
   refinery:
-    image: honeycombio/refinery:2.7.1
+    image: honeycombio/refinery:2.8.4
     volumes:
       - ./refinery/config.yaml:/etc/refinery/refinery.yaml
+      - ./refinery/config-redis.yaml:/etc/refinery/refinery-redis.yaml
       - ./refinery/rules.yaml:/etc/refinery/rules.yaml
     environment:
       - REFINERY_HONEYCOMB_API_KEY=${REFINERY_HONEYCOMB_API_KEY}
-    ports:
-      - 8082:8082
+      - REFINERY_REDIS_HOST=${REFINERY_REDIS_HOST}
+    env_file:
+      - ./refinery/.env
+
+    network_mode: "host"
+    restart: on-failure
+    stop_grace_period: 30s

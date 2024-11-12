@@ -6,10 +6,11 @@
    [datascript.core :refer [squuid-time-millis]]
    [instant.config :as config]
    [instant.flags :as flags]
+   [instant.gauges :as gauges]
+   [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
    [instant.util.aws :as aws-util]
-   [instant.util.exception :as ex]
    [instant.util.hazelcast :as hz-util]
    [instant.util.tracer :as tracer]
    [medley.core :refer [dissoc-in]])
@@ -21,7 +22,8 @@
    (com.hazelcast.map.listener EntryAddedListener
                                EntryRemovedListener
                                EntryUpdatedListener)
-   (java.util AbstractMap$SimpleImmutableEntry)))
+   (java.util AbstractMap$SimpleImmutableEntry)
+   (java.util.concurrent LinkedBlockingQueue)))
 
 ;; ------
 ;; Setup
@@ -31,9 +33,7 @@
 ;; Channel we use to keep the hazelcast maps in sync for
 ;; apps that aren't using hazelcast. This can go away when
 ;; we fully migrate to hazelcast
-(defonce hz-ops-ch (a/chan))
-
-(def refresh-timeout-ms 500)
+(defonce hz-ops-q (atom nil))
 
 ;; room-maps keeps track of the rooms each session is in (for easy removal
 ;; on session close) and some info about the rooms we're subscribed to on
@@ -50,12 +50,14 @@
         (a/put! ch room-key)))))
 
 (defn init-hz []
+  (System/setProperty "hazelcast.shutdownhook.enabled" "false")
   (let [config (Config.)
         network-config (.getNetworkConfig config)
         join-config (.getJoin network-config)
         tcp-ip-config (.getTcpIpConfig join-config)
-        aws-config (.getAwsConfig join-config)]
-    (.setInstanceName config "instant-hz")
+        aws-config (.getAwsConfig join-config)
+        serialization-config (.getSerializationConfig config)]
+    (.setInstanceName config "instant-hz-v2")
     (.setEnabled (.getMulticastConfig join-config) false)
     (if (= :prod (config/get-env))
       (let [ip (aws-util/get-instance-ip)]
@@ -71,11 +73,14 @@
 
     (.setClusterName config "instant-server")
 
-    (.setSerializerConfigs (.getSerializationConfig config)
+    (.setSerializerConfigs serialization-config
                            hz-util/serializer-configs)
 
+    (.setGlobalSerializerConfig serialization-config
+                                hz-util/global-serializer-config)
+
     (let [hz (Hazelcast/getOrCreateHazelcastInstance config)
-          hz-rooms-map (.getMap hz "rooms")
+          hz-rooms-map (.getMap hz "rooms-v2")
           listener-id (.addEntryListener hz-rooms-map
                                          (reify
                                            EntryAddedListener
@@ -104,16 +109,17 @@
 (defn get-hz-rooms-map ^IMap []
   (:hz-rooms-map @hz))
 
+(def close-sentinel (Object.))
 (defn start-hz-sync
   "Temporary function that syncs apps not using hazelcast
    to hazelcast maps so that they won't lose data if we switch them over."
-  [ch]
-  (loop [f (a/<!! ch)]
-    (when f
+  [^LinkedBlockingQueue q]
+  (loop [f (.take q)]
+    (when (not= f close-sentinel)
       (try (f)
            (catch Exception e
              (tracer/record-exception-span! e {:name "ephemeral/hz-sync"})))
-      (recur (a/<!! ch)))))
+      (recur (.take q)))))
 
 ;; ------
 ;; State
@@ -172,20 +178,19 @@
         session-ids (filter (fn [sess-id]
                               (rs/get-session @store-conn sess-id))
                             (keys room-data))]
-    (rs/try-broadcast-event! store-conn session-ids {:op :refresh-presence
-                                                     :room-id room-id
-                                                     :data room-data})))
+    (doseq [sess-id session-ids
+            :let [q (:receive-q (rs/get-socket @store-conn sess-id))]
+            :when q]
+      (receive-queue/enqueue->receive-q q
+                                        {:op :refresh-presence
+                                         :room-id room-id
+                                         :data room-data
+                                         :session-id sess-id}))))
 
 (defn straight-jacket-refresh-event!
   [store-conn {:keys [room-key room-id on-sent]}]
   (try
-    (let [fut (ua/vfuture (handle-refresh-event store-conn
-                                                room-key
-                                                room-id))
-          ret (deref fut refresh-timeout-ms :timeout)]
-      (when (= :timeout ret)
-        (future-cancel fut)
-        (ex/throw-operation-timeout! :refresh-rooms refresh-timeout-ms)))
+    (handle-refresh-event store-conn room-key room-id)
     (catch Throwable t
       (tracer/record-exception-span! t {:name "rooms-refresh-map/straight-jacket"}))
     (finally (on-sent))))
@@ -199,11 +204,12 @@
         (recur (a/<!! ch))))))
 
 (defn get-room-data [app-id room-id]
-  (.get (get-hz-rooms-map) {:app-id app-id :room-id room-id}))
+  (.get (get-hz-rooms-map) (hz-util/room-key app-id room-id)))
 
 (defn push-hz-sync-op [f]
   (try
-    (a/put! hz-ops-ch f)
+    (when-let [^LinkedBlockingQueue q @hz-ops-q]
+      (.put q f))
     (catch Throwable e
       (tracer/record-exception-span! e {:name "ephemeral/push-hz-sync-op-err"}))))
 
@@ -211,7 +217,7 @@
   "Registers that the session is following the room and starts a channel
    for the room if one doesn't already exist."
   [app-id room-id sess-id]
-  (let [room-key {:app-id app-id :room-id room-id}
+  (let [room-key (hz-util/room-key app-id room-id)
         chan (a/chan (a/sliding-buffer 1))
         res (swap!
              room-maps
@@ -240,7 +246,7 @@
           (recur))))))
 
 (defn remove-session! [app-id room-id sess-id]
-  (let [room-key {:app-id app-id :room-id room-id}
+  (let [room-key (hz-util/room-key app-id room-id)
 
         [old-val new-val]
         (swap-vals! room-maps
@@ -259,9 +265,7 @@
       ;; The last session left the room, so we should close out the go loop.
       (a/close! chan-before))
 
-    (hz-util/merge! (hz-util/->RemoveSessionMergeV1 sess-id)
-                    (get-hz-rooms-map)
-                    room-key)))
+    (hz-util/remove-session! (get-hz-rooms-map) room-key sess-id)))
 
 (defn clean-old-sessions []
   (let [oldest-timestamp (aws-util/oldest-instance-timestamp)
@@ -331,9 +335,10 @@
 (defn join-room! [store-atom app-id sess-id current-user room-id]
   (let [hz-op (fn []
                 (register-session! app-id room-id sess-id)
-                (hz-util/merge! (hz-util/->JoinRoomMergeV1 sess-id (:id current-user))
-                                (get-hz-rooms-map)
-                                {:app-id app-id :room-id room-id}))
+                (hz-util/join-room! (get-hz-rooms-map)
+                                    (hz-util/room-key app-id room-id)
+                                    sess-id
+                                    (:id current-user)))
         regular-op
         (fn []
           (when-not (contains? (get-room-session-ids @store-atom app-id room-id)
@@ -351,9 +356,10 @@
 
 (defn set-presence! [store-atom app-id sess-id room-id data]
   (let [hz-op (fn []
-                (hz-util/merge! (hz-util/->SetPresenceMergeV1 sess-id data)
-                                (get-hz-rooms-map)
-                                {:app-id app-id :room-id room-id}))
+                (hz-util/set-presence! (get-hz-rooms-map)
+                                       (hz-util/room-key app-id room-id)
+                                       sess-id
+                                       data))
         regular-op (fn []
                      (swap! store-atom set-presence app-id sess-id room-id data))]
     (run-op app-id hz-op regular-op)))
@@ -374,23 +380,21 @@
         new-apps-rooms (get-in new-v [:rooms])
         changed-rooms (get-changed-rooms old-apps-rooms new-apps-rooms)]
     (when (seq changed-rooms)
-      (tracer/with-span!
-        {:name "refresh-rooms"
-         :attributes {:room-ids (pr-str (map first changed-rooms))}}
-        (ua/vfuture-pmap
-         (fn [[room-id {:keys [data session-ids]}]]
-           (rs/try-broadcast-event! store-conn session-ids {:op :refresh-presence
-                                                            :room-id room-id
-                                                            :data data}))
-         changed-rooms)))))
+      (tracer/with-span! {:name "refresh-rooms"
+                          :attributes {:room-ids (pr-str (map first changed-rooms))}}
+        (doseq [[room-id {:keys [data session-ids]}] changed-rooms
+                sess-id session-ids
+                :let [q (:receive-q (rs/get-socket @store-conn sess-id))]
+                :when q]
+          (receive-queue/enqueue->receive-q q
+                                            {:op :refresh-presence
+                                             :room-id room-id
+                                             :data data
+                                             :session-id sess-id}))))))
 
 (defn straight-jacket-refresh-rooms! [store-conn prev curr]
   (try
-    (let [refresh-fut (ua/vfuture (refresh-rooms! store-conn prev curr))
-          ret (deref refresh-fut refresh-timeout-ms :timeout)]
-      (when (= :timeout ret)
-        (future-cancel refresh-fut)
-        (ex/throw-operation-timeout! :refresh-rooms refresh-timeout-ms)))
+    (refresh-rooms! store-conn prev curr)
     (catch Throwable e
       (tracer/record-exception-span! e {:name "rooms-refresh/straight-jacket"}))))
 
@@ -422,19 +426,27 @@
   (def ephemeral-store-atom (atom {}))
   (def room-refresh-ch (a/chan (a/sliding-buffer 1)))
   (def refresh-map-ch (a/chan 1024))
-  (def hz-ops-ch (a/chan))
+  (def cleanup-gauge (gauges/add-gauge-metrics-fn
+                      (fn [] (if-let [^LinkedBlockingQueue q @hz-ops-q]
+                               [{:path "instant.ephemeral.hz-ops-q.size"
+                                 :value (.size q)}]
+                               []))))
 
   (start-hz)
   (ua/fut-bg (start-refresh-worker rs/store-conn ephemeral-store-atom room-refresh-ch))
   (dotimes [_ 32]
     (ua/vfut-bg (start-refresh-map-worker rs/store-conn refresh-map-ch)))
-  (dotimes [_ 8]
-    (ua/vfut-bg (start-hz-sync hz-ops-ch))))
+  (let [q (LinkedBlockingQueue.)]
+    (reset! hz-ops-q q)
+    (ua/fut-bg (start-hz-sync q))))
 
 (defn stop []
   (a/close! room-refresh-ch)
   (a/close! refresh-map-ch)
-  (a/close! hz-ops-ch)
+  (when-let [q ^LinkedBlockingQueue @hz-ops-q]
+    (.put q close-sentinel))
+  (reset! hz-ops-q nil)
+  (cleanup-gauge)
   (when-let [^HazelcastInstance hz (try (get-hz) (catch Exception _e nil))]
     (.shutdown hz)
     (def hz (delay (init-hz)))))

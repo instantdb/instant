@@ -20,6 +20,7 @@
             [instant.model.instant-user :as instant-user-model]
             [instant.postmark :as postmark]
             [instant.reactive.ephemeral :as eph]
+            [instant.reactive.receive-queue :as receive-queue]
             [instant.reactive.session :as session]
             [instant.reactive.store :as rs]
             [instant.util.coll :as ucoll]
@@ -42,7 +43,7 @@
 (defn session-get [_req]
   (session/undertow-config rs/store-conn
                            eph/ephemeral-store-atom
-                           session/receive-q
+                           receive-queue/receive-q
                            {:id (squuid)}))
 
 ;; -----------

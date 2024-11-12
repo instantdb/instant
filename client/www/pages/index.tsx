@@ -46,7 +46,7 @@ const emoji = {
 const emojiNames = Object.keys(emoji) as EmojiName[];
 
 const refsInit = Object.fromEntries(
-  emojiNames.map((a) => [a, createRef<HTMLDivElement>()])
+  emojiNames.map((a) => [a, createRef<HTMLDivElement>()]),
 );
 
 const appId = 'fc5a4977-910a-43d9-ac28-39c7837c1eb5';
@@ -115,7 +115,8 @@ function LandingHero() {
           <div className="flex flex-1 flex-col gap-8">
             <H2>Build modern applications today</H2>
             <p>
-              Instant is a modern Firebase. We make you productive by giving your frontend a real-time database.
+              Instant is a modern Firebase. We make you productive by giving
+              your frontend a real-time database.
             </p>
             <div className="flex flex-row gap-2 md:justify-start">
               <Button type="link" variant="cta" size="large" href="/dash">
@@ -137,10 +138,11 @@ function LandingHero() {
           </div>
           <div className="flex flex-1 flex-col items-center justify-center space-y-2">
             <MuxPlayer {...muxVideos.walkthrough} />
-            <Link href={'/examples'}>
-              <a className="flex items-center text-sm rounded-full border bg-white backdrop-blur-lg px-2.5 py-0.5 gap-1 hover:bg-gray-50 shadow">
-                See some examples <ChevronRightIcon height="1rem" />
-              </a>
+            <Link
+              href={'/examples'}
+              className="flex items-center text-sm rounded-full border bg-white backdrop-blur-lg px-2.5 py-0.5 gap-1 hover:bg-gray-50 shadow"
+            >
+              See some examples <ChevronRightIcon height="1rem" />
             </Link>
           </div>
         </TwoColResponsive>
@@ -228,7 +230,7 @@ const ThemedTab = ({
         clsx(
           'relative z-10 translate-x-1 px-5 py-2 last:translate-x-0 outline-none',
           className,
-          selected ? 'z-20 bg-prism-dark' : 'bg-prism'
+          selected ? 'z-20 bg-prism-dark' : 'bg-prism',
         )
       }
     >
@@ -534,10 +536,11 @@ function LandingTeam() {
 }
 
 const SeeTheCodeButton = ({ href }: { href: string }) => (
-  <Link href={href}>
-    <a className="flex items-center text-sm rounded-full border bg-white backdrop-blur-lg px-2.5 py-0.5 gap-1 hover:bg-gray-50 shadow">
-      See the code <ChevronRightIcon height="1rem" />
-    </a>
+  <Link
+    href={href}
+    className="flex items-center text-sm rounded-full border bg-white backdrop-blur-lg px-2.5 py-0.5 gap-1 hover:bg-gray-50 shadow"
+  >
+    See the code <ChevronRightIcon height="1rem" />
   </Link>
 );
 
@@ -593,7 +596,7 @@ function LandingParty() {
         rotationAngle: params.rotationAngle,
         directionAngle: params.directionAngle,
       },
-      elRefsRef.current[name].current
+      elRefsRef.current[name].current,
     );
 
     publishEmoji(params);
@@ -649,7 +652,7 @@ function LandingMultiplayerGraphic() {
               d[index].done = false;
             }
           }
-        })
+        }),
       );
     }, 2000);
 
@@ -665,7 +668,7 @@ function LandingMultiplayerGraphic() {
             className={clsx(
               'w-1/2 rounded bg-gray-500/10 p-1 shadow-xl',
               '-translate-x-4 first:translate-x-0',
-              'translate-y-3 first:translate-y-0'
+              'translate-y-3 first:translate-y-0',
             )}
           >
             <div className="flex h-full w-full flex-col gap-1 overflow-auto rounded bg-white p-4 text-sm text-gray-600">
@@ -678,13 +681,13 @@ function LandingMultiplayerGraphic() {
                       setItems(
                         produce(items, (d) => {
                           d[i].done = !d[i].done;
-                        })
+                        }),
                       )
                     }
                   />
                   <span
                     className={clsx(
-                      item.done ? 'text-gray-400 line-through' : undefined
+                      item.done ? 'text-gray-400 line-through' : undefined,
                     )}
                   >
                     {item.title}
@@ -722,7 +725,7 @@ function LandingOfflineGraphic() {
         } else {
           d.synced.push(e);
         }
-      })
+      }),
     );
   }
 
@@ -752,7 +755,7 @@ function LandingOfflineGraphic() {
             'flex w-36 items-center space-x-2 rounded px-2 py-2 shadow-sm transition-colors cursor-pointer',
             state.online
               ? 'bg-emerald-500/10 text-emerald-700'
-              : 'bg-gray-500/20 text-gray-900'
+              : 'bg-gray-500/20 text-gray-900',
           )}
         >
           <Switch enabled={state.online} onChange={onChangeOnline} />
@@ -764,7 +767,7 @@ function LandingOfflineGraphic() {
           <div key={q} className="flex flex-1 flex-col gap-3">
             <div
               className={clsx(
-                'w-fullrounded-lg aspect-[16/10] rounded bg-gray-500/10 p-1 shadow-xl'
+                'w-fullrounded-lg aspect-[16/10] rounded bg-gray-500/10 p-1 shadow-xl',
               )}
             >
               <div className="flex h-full flex-col items-center justify-center gap-1 rounded bg-white p-2">
@@ -784,7 +787,7 @@ function LandingOfflineGraphic() {
                 {state[q].slice(-showQueueLength).map((item, i) => (
                   <div
                     className={clsx(
-                      'overflow-hidden rounded-sm border bg-white px-2 py-1 font-mono text-xs shadow-sm transition-transform'
+                      'overflow-hidden rounded-sm border bg-white px-2 py-1 font-mono text-xs shadow-sm transition-transform',
                     )}
                   >
                     {item.ts}
@@ -814,7 +817,10 @@ export default function Landing2024() {
       <GlowBackground>
         <div className="w-full bg-gray-50/80 p-1 text-center">
           <p className="font-mono text-gray-500 text-sm font-semibold">
-            Instant is hiring! Want to build Figma-like tech? <span className='text-orange-600'><TextLink href="/hiring">Come work with us!</TextLink></span>
+            Instant is hiring! Want to build Figma-like tech?{' '}
+            <span className="text-orange-600">
+              <TextLink href="/hiring">Come work with us!</TextLink>
+            </span>
           </p>
         </div>
 
@@ -976,7 +982,7 @@ const presenceExampleDataCode = /*json*/ `{
 
 function animateEmoji(
   config: { emoji: string; directionAngle: number; rotationAngle: number },
-  target: HTMLDivElement | null
+  target: HTMLDivElement | null,
 ) {
   if (!target) return;
 
