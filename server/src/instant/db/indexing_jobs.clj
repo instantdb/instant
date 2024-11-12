@@ -77,7 +77,6 @@
                                       :where [:= :id job-id]}))))
 
 (defn job->client-format [job]
-  ;; Keep in sync with app/get-all-for-user (except for invalid_triples_sample)
   (select-keys job [:id
                     :app_id
                     :group_id
