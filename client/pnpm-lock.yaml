@@ -45,9 +45,6 @@ importers:
       '@inquirer/prompts':
         specifier: ^5.3.8
         version: 5.3.8
-      '@opentf/cli-pbar':
-        specifier: ^0.7.2
-        version: 0.7.2
       chalk:
         specifier: ^5.3.0
         version: 5.3.0
@@ -5713,27 +5710,6 @@ packages:
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
     dependencies:
       semver: 7.6.3
-    dev: false
-
-  /@opentf/cli-pbar@0.7.2:
-    resolution: {integrity: sha512-1367ENsch7Ybs0dFMhTkPU3cQNETl/F9bETgJc1TeKUaZG61Fhs+rsIlm8eVtEd2qC3z0bYaZ3b5Bpehcr7C1Q==}
-    dependencies:
-      '@opentf/cli-styles': 0.15.0
-      '@opentf/std': 0.5.1
-    dev: false
-
-  /@opentf/cli-styles@0.15.0:
-    resolution: {integrity: sha512-7eETZJLNCyOq6sX4W5up8l1IdTu0sf1qDdsBJ2KHx9u4rh3drFmMgF1ZoZ92K9oCiqzKAGqpCCjuasnRWbNLOw==}
-    dependencies:
-      '@opentf/std': 0.3.0
-    dev: false
-
-  /@opentf/std@0.3.0:
-    resolution: {integrity: sha512-8Dtm0NqgoRi30FAUORo74SEruw2t2YlICxUy9nRpozzpbORCu4drpcAUq4stLsUY0bGHmFSZfZGpdA3wFamcwg==}
-    dev: false
-
-  /@opentf/std@0.5.1:
-    resolution: {integrity: sha512-WIK/3Zwg8t6XeI3CJEEbK6wrC/uPkR7dk2DNWAhXqfql7NBCPjTb4NdXNSyChqMRY1qk+6E4/l32MaXk9x7+zA==}
     dev: false
 
   /@pkgjs/parseargs@0.11.0:
