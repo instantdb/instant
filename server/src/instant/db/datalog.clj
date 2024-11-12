@@ -690,7 +690,7 @@
   [prefix [origin-idx origin-col-idx] [dest-idx dest-col-idx]]
   (let [origin-ctype (idx->component-type origin-col-idx)
         dest-ctype (idx->component-type dest-col-idx)
-        [origin-col dest-col] (join-cols prefix dest-idx [origin-ctype dest-ctype])
+        [origin-col dest-col] (join-cols nil prefix dest-idx [origin-ctype dest-ctype])
         origin-col (if (= origin-col :value)
                      :value-blob
                      origin-col)]
