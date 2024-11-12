@@ -44,7 +44,7 @@ First we specify the expected type of the attribute: `i.string()`, `i.number()`,
 
 {% callout %}
 
-`i.date()` accepts dates as either a numeric timestamp (in milliseconds), or an ISO 8601 string.
+`i.date()` accepts dates as either a numeric timestamp (in milliseconds) or an ISO 8601 string. `JSON.stringify(new Date())` will return an ISO 8601 string.
 
 {% /callout %}
 
