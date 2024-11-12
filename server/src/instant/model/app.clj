@@ -23,8 +23,10 @@
    (next-jdbc/with-transaction [tx-conn conn]
      (let [app (sql/execute-one!
                 tx-conn
-                ["INSERT INTO apps (id, title, creator_id) VALUES (?::uuid, ?, ?::uuid, ?)"
-                 id title creator-id])
+                (hsql/format {:insert-into :apps
+                              :values [{:id id
+                                        :title title
+                                        :creator-id creator-id}]}))
            {:keys [token]} (app-admin-token-model/create! tx-conn {:app-id id
                                                                    :token admin-token})]
        (assoc app :admin-token token)))))
