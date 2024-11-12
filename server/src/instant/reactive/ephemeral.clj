@@ -227,31 +227,29 @@
   "Registers that the session is following the room and starts a channel
    for the room if one doesn't already exist."
   [app-id room-id sess-id]
-  (let [room-key (hz-util/room-key app-id room-id)
-        res (swap!
-             room-maps
-             (fn [m]
-               (-> m
-                   (update-in [:sessions sess-id] (fnil conj #{}) room-id)
-                   ;; Keep track of which sessions are interested in the room
-                   ;; so we can close our channel when the last session leaves
-                   (update-in [:rooms room-key :session-ids]
-                              (fnil conj #{}) sess-id))))]))
+  (let [room-key (hz-util/room-key app-id room-id)]
+    (swap!
+     room-maps
+     (fn [m]
+       (-> m
+           (update-in [:sessions sess-id] (fnil conj #{}) room-id)
+           ;; Keep track of which sessions are interested in the room
+           ;; so we can close our channel when the last session leaves
+           (update-in [:rooms room-key :session-ids]
+                      (fnil conj #{}) sess-id))))))
 
 (defn remove-session! [app-id room-id sess-id]
-  (let [room-key (hz-util/room-key app-id room-id)
-
-        [old-val new-val]
-        (swap-vals! room-maps
-                    (fn [m]
-                      (let [session-ids (-> m
-                                            (get-in [:rooms room-key :session-ids])
-                                            (disj sess-id))]
-                        (cond-> m
-                          true (disj-in [:sessions sess-id] room-id)
-                          (empty? session-ids) (dissoc-in [:rooms room-key])
-                          (seq session-ids) (assoc-in [:rooms room-key :session-ids]
-                                                      session-ids)))))]
+  (let [room-key (hz-util/room-key app-id room-id)]
+    (swap! room-maps
+           (fn [m]
+             (let [session-ids (-> m
+                                   (get-in [:rooms room-key :session-ids])
+                                   (disj sess-id))]
+               (cond-> m
+                 true (disj-in [:sessions sess-id] room-id)
+                 (empty? session-ids) (dissoc-in [:rooms room-key])
+                 (seq session-ids) (assoc-in [:rooms room-key :session-ids]
+                                             session-ids)))))
 
     (hz-util/remove-session! (get-hz-rooms-map) room-key sess-id)))
 
