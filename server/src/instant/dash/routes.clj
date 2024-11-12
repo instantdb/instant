@@ -61,7 +61,7 @@
   (:import
    (com.stripe.model.checkout Session)
    (io.undertow.websockets.core WebSocketChannel)
-   (java.util HashMap UUID)))
+   (java.util Map UUID)))
 
 ;; ---
 ;; Auth helpers
@@ -685,7 +685,7 @@
                         "mode" "subscription"
                         "line_items" [{"price" (config/stripe-pro-subscription)
                                        "quantity" 1}]}
-        session (Session/create ^HashMap (into (HashMap.) session-params))]
+        session (Session/create ^Map session-params)]
     (response/ok {:id (.getId session)})))
 
 (defn create-portal [req]
@@ -693,9 +693,7 @@
         {customer-id :id} (instant-stripe-customer-model/get-or-create! {:user user})
         session-params {"return_url" (str (config/stripe-success-url) "&app=" app-id)
                         "customer" customer-id}
-        session
-        (com.stripe.model.billingportal.Session/create
-         ^HashMap (into (HashMap.) session-params))]
+        session (com.stripe.model.billingportal.Session/create ^Map session-params)]
     (response/ok {:url (.getUrl session)})))
 
 (defn get-billing [req]

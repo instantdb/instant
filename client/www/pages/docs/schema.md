@@ -50,7 +50,7 @@ First we specify the expected type of the attribute: `i.string()`, `i.number()`,
 
 We can then chain modifiers: `.optional()`, `.unique()` and `.indexed()`.
 
-When adding a type to an existing attribute, `push-schema` will kick of a job to check the existing data for the attribute before setting the type on the attribute. If you prefer not to enforce the type, you can run `push-schema` with the `--skip-check-types` flag.
+When adding a type to an existing attribute, `push-schema` will kick off a job to check the existing data for the attribute before setting the type on the attribute. If you prefer not to enforce the type, you can run `push-schema` with the `--skip-check-types` flag.
 
 Here are some examples:
 
