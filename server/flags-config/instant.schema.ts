@@ -5,6 +5,9 @@ import { i } from "@instantdb/core";
 
 const graph = i.graph(
   {
+    "$users": i.entity({
+      "email": i.string().unique().indexed(),
+    }),
     "app-users-to-triples-migration": i.entity({
       "appId": i.string(),
       "processId": i.string(),
