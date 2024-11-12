@@ -242,7 +242,6 @@
 (comment
   (kw-table-name "app_oauth_codes"))
 
-;; XXX: Write a test that actually hits the db because this will break if we add extra fields to the triples table
 (defn extract-invalid-value-constraint-triple [{:keys [table constraint detail]}]
   (when (and (= table "triples")
              (= constraint "valid_value_data_type")
