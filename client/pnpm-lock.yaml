@@ -385,9 +385,18 @@ importers:
 
   sandbox/strong-init-vite:
     dependencies:
+      '@instantdb/admin':
+        specifier: workspace:*
+        version: link:../../packages/admin
+      '@instantdb/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@instantdb/react':
         specifier: workspace:*
         version: link:../../packages/react
+      '@instantdb/react-native':
+        specifier: workspace:*
+        version: link:../../packages/react-native
       instant-cli:
         specifier: workspace:*
         version: link:../../packages/cli
