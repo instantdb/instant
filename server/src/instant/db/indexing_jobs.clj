@@ -9,6 +9,7 @@
    [instant.discord :as discord]
    [instant.config :as config]
    [instant.jdbc.aurora :as aurora]
+   [instant.system-catalog :as system-catalog]
    [instant.util.async :as ua]
    [instant.util.tracer :as tracer]
    [instant.jdbc.sql :as sql]
@@ -634,3 +635,39 @@
 (defn restart []
   (stop)
   (start))
+
+;; ----------------------
+;; Migrate system catalog
+
+(defn migrate-system-catalog []
+  (doseq [{:keys [checked-data-type] :as attr} system-catalog/all-attrs
+          :when checked-data-type]
+    (println (format "Updating attr %s.%s"
+                     (attr-model/fwd-etype attr)
+                     (attr-model/fwd-label attr)))
+    (update-attr! aurora/conn-pool
+                  {:app-id system-catalog/system-catalog-app-id
+                   :attr-id (:id attr)
+                   :set {:checked-data-type [:cast
+                                             (name checked-data-type)
+                                             :checked_data_type]}})
+    (loop []
+      (let [batch-size 5000
+            checked-data-type (name checked-data-type)
+            q {:update :triples
+               :set {:checked-data-type
+                     [:cast checked-data-type :checked_data_type]}
+               :where [:in :ctid
+                       {:select :ctid
+                        :from :triples
+                        :limit batch-size
+                        :where [:and
+                                [:= :attr-id (:id attr)]
+                                [:or
+                                 [:not=
+                                  :checked-data-type
+                                  [:cast checked-data-type :checked_data_type]]
+                                 [:= :checked-data-type nil]]]}]}
+            res (sql/do-execute! aurora/conn-pool (hsql/format q))]
+        (when (<= batch-size (:next.jdbc/update-count (first res)))
+          (recur))))))

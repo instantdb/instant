@@ -136,7 +136,8 @@
               :index? true)
    (make-attr "$users" "email"
               :unique? true
-              :index? true)])
+              :index? true
+              :checked-data-type :string)])
 
 (def $magic-code-attrs
   [(make-attr "$magicCodes" "id"
@@ -144,7 +145,8 @@
               :index? true)
    (make-attr "$magicCodes" "codeHash"
               :unique? false
-              :index? true)
+              :index? true
+              :checked-data-type :string)
    (make-attr "$magicCodes" "$user"
               :reverse-identity (get-ident-spec "$users" "$magicCodes")
               :index? true
@@ -157,7 +159,8 @@
               :index? true)
    (make-attr "$userRefreshTokens" "hashedToken"
               :unique? true
-              :index? true)
+              :index? true
+              :checked-data-type :string)
    (make-attr "$userRefreshTokens" "$user"
               :reverse-identity (get-ident-spec "$users" "$userRefreshTokens")
               :index? true
@@ -170,7 +173,8 @@
               :index? true)
    (make-attr "$oauthProviders" "name"
               :unique? true
-              :index? true)])
+              :index? true
+              :checked-data-type :string)])
 
 (def $user-oauth-link-attrs
   [(make-attr "$oauthUserLinks" "id"
@@ -178,7 +182,8 @@
               :index? true)
    (make-attr "$oauthUserLinks" "sub"
               :unique? false
-              :index? true)
+              :index? true
+              :checked-data-type :string)
    (make-attr "$oauthUserLinks" "$user"
               :reverse-identity (get-ident-spec "$users" "$oauthUserLinks")
               :index? true
@@ -193,7 +198,8 @@
    ;; computed column to do this automatically
    (make-attr "$oauthUserLinks" "sub+$oauthProvider"
               :unique? true
-              :index? true)])
+              :index? true
+              :checked-data-type :string)])
 
 (def $oauth-client-attrs
   [(make-attr "$oauthClients" "id"
@@ -205,11 +211,14 @@
               :on-delete :cascade)
    (make-attr "$oauthClients" "name"
               :unique? true
-              :index? true)
+              :index? true
+              :checked-data-type :string)
    (make-attr "$oauthClients" "clientId"
               :index? true)
-   (make-attr "$oauthClients" "encryptedClientSecret")
-   (make-attr "$oauthClients" "discoveryEndpoint")
+   (make-attr "$oauthClients" "encryptedClientSecret"
+              :checked-data-type :string)
+   (make-attr "$oauthClients" "discoveryEndpoint"
+              :checked-data-type :string)
    (make-attr "$oauthClients" "meta")])
 
 (def $oauth-code-attrs
@@ -218,13 +227,16 @@
               :index? true)
    (make-attr "$oauthCodes" "codeHash"
               :unique? true
-              :index? true)
+              :index? true
+              :checked-data-type :string)
    (make-attr "$oauthCodes" "$user"
               :reverse-identity (get-ident-spec "$users" "$oauthCodes")
               :value-type :ref
               :on-delete :cascade)
-   (make-attr "$oauthCodes" "codeChallengeMethod")
-   (make-attr "$oauthCodes" "codeChallenge")])
+   (make-attr "$oauthCodes" "codeChallengeMethod"
+              :checked-data-type :string)
+   (make-attr "$oauthCodes" "codeChallenge"
+              :checked-data-type :string)])
 
 (def $oauth-redirect-attrs
   [(make-attr "$oauthRedirects" "id"
@@ -232,19 +244,24 @@
               :index? true)
    (make-attr "$oauthRedirects" "stateHash"
               :unique? true
-              :index? true)
+              :index? true
+              :checked-data-type :string)
    (make-attr "$oauthRedirects" "cookieHash"
               :unique? false
-              :index? false)
+              :index? false
+              :checked-data-type :string)
    (make-attr "$oauthRedirects" "redirectUrl"
               :unique? false
-              :index? false)
+              :index? false
+              :checked-data-type :string)
    (make-attr "$oauthRedirects" "$oauthClient"
               :reverse-identity (get-ident-spec "$oauthClients" "$oauthRedirects")
               :value-type :ref
               :on-delete :cascade)
-   (make-attr "$oauthRedirects" "codeChallengeMethod")
-   (make-attr "$oauthRedirects" "codeChallenge")])
+   (make-attr "$oauthRedirects" "codeChallengeMethod"
+              :checked-data-type :string)
+   (make-attr "$oauthRedirects" "codeChallenge"
+              :checked-data-type :string)])
 
 (def all-attrs (concat $users-attrs
                        $magic-code-attrs
