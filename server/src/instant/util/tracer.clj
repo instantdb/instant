@@ -69,7 +69,8 @@
   (let [thread (Thread/currentThread)
         {:keys [code-ns code-line code-file]} source
         default-attributes (cond-> @last-calculated-metrics
-                             true (assoc "host.name" (config/get-hostname))
+                             true (assoc "host.name" (config/get-hostname)
+                                         "process-id" @config/process-id)
                              thread (assoc SemanticAttributes/THREAD_NAME
                                            (.getName thread)
                                            SemanticAttributes/THREAD_ID

@@ -45,7 +45,7 @@
 ;; insert-multi!
 
 (def triple-cols
-  [:app-id :entity-id :attr-id :value :value-md5 :ea :eav :av :ave :vae])
+  [:app-id :entity-id :attr-id :value :value-md5 :ea :eav :av :ave :vae :checked-data-type])
 
 (defn eid-lookup-ref?
   "Takes the eid part of a triple and returns true if it is a lookup ref ([a v])."
@@ -161,7 +161,8 @@
                         [[:case :a.is-unique true :else [[:raise_exception_message [:inline "attribute is not unique"]]]] :av]
                         [[:case :a.is-indexed true :else false] :ave]
                         [[:case [:= :a.value-type [:inline "ref"]] true :else false]
-                         :vae]]
+                         :vae]
+                        [:a.checked_data_type :checked-data-type]]
                        :from [[:input-lookup-refs :ilr]]
                        :left-join [[:attrs :a] [:and
                                                 :a.is-unique
@@ -221,7 +222,8 @@
                       [[:case :a.is-unique true :else false] :av]
                       [[:case :a.is-indexed true :else false] :ave]
                       [[:case [:= :a.value-type [:inline "ref"]] true :else false]
-                       :vae]]
+                       :vae]
+                      [:a.checked_data_type :checked-data-type]]
                      :from [[:applied-triples :at]]
                      :left-join [[:attrs :a] [:and
                                               [:or
@@ -289,7 +291,8 @@
                             [[:case :a.is-unique true :else [[:raise_exception_message [:inline "attribute is not unique"]]]] :av]
                             [[:case :a.is-indexed true :else false] :ave]
                             [[:case [:= :a.value-type [:inline "ref"]] true :else false]
-                             :vae]]
+                             :vae]
+                            [:a.checked_data_type :checked-data-type]]
                            :from [[:input-lookup-refs :ilr]]
                            :left-join [[:attrs :a] [:and
                                                     :a.is-unique
@@ -382,7 +385,8 @@
                           [[:case :a.is-unique true :else false] :av]
                           [[:case :a.is-indexed true :else false] :ave]
                           [[:case [:= :a.value-type [:inline "ref"]] true :else false]
-                           :vae]]
+                           :vae]
+                          [:a.checked_data_type :checked-data-type]]
                          :from [[:input-triples :it]]
                          :left-join [[:attrs :a] [:and
                                                   [:or
@@ -555,16 +559,18 @@
   "Marshal triples from postgres into clj representation"
   [{:keys [entity_id attr_id
            value value_md5
-           ea eav av ave vae]}]
-  {:triple [entity_id attr_id
-            (if eav
-              (UUID/fromString value)
-              value)]
-   :md5 value_md5
-   :index (->> [[ea :ea] [eav :eav] [av :av] [ave :ave] [vae :vae]]
-               (filter first)
-               (map second)
-               set)})
+           ea eav av ave vae
+           checked_data_type]}]
+  (cond-> {:triple [entity_id attr_id
+                    (if eav
+                      (UUID/fromString value)
+                      value)]
+           :md5 value_md5
+           :index (->> [[ea :ea] [eav :eav] [av :av] [ave :ave] [vae :vae]]
+                       (filter first)
+                       (map second)
+                       set)}
+    checked_data_type (assoc :checked-data-type checked_data_type)))
 
 (defn fetch
   "Fetches triples from postgres by app-id and optional sql statements and

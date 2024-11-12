@@ -12,7 +12,12 @@ import {
   PropsWithChildren,
 } from 'react';
 import { Editor, OnMount } from '@monaco-editor/react';
-import { Dialog as HeadlessDialog } from '@headlessui/react';
+import {
+  Dialog as HeadlessDialog,
+  Popover,
+  PopoverButton,
+  PopoverPanel,
+} from '@headlessui/react';
 import * as HeadlessToggleGroup from '@radix-ui/react-toggle-group';
 import Highlight, { defaultProps } from 'prism-react-renderer';
 
@@ -23,6 +28,7 @@ import {
   EyeIcon,
   EyeOffIcon,
 } from '@heroicons/react/solid';
+import { InformationCircleIcon } from '@heroicons/react/outline';
 import { errorToast, successToast } from '@/lib/toast';
 import CopyToClipboard from 'react-copy-to-clipboard';
 import copy from 'copy-to-clipboard';
@@ -195,7 +201,7 @@ export function TextInput({
       <input
         disabled={disabled}
         title={title}
-        type={type === 'sensitive' ? 'password' : type ?? 'text'}
+        type={type === 'sensitive' ? 'password' : (type ?? 'text')}
         // Try to prevent password managers from trying to save
         // sensitive input
         autoComplete={type === 'sensitive' ? 'off' : undefined}
@@ -912,6 +918,31 @@ export const Divider = ({ children }: PropsWithChildren) => (
     ></div>
   </div>
 );
+
+export const InfoTip = ({ children }: PropsWithChildren) => {
+  return (
+    <Popover
+      as="span"
+      className="inline-flex align-middle relative"
+      data-open="true"
+    >
+      <PopoverButton className="inline">
+        <InformationCircleIcon
+          height="1em"
+          width="1em"
+          className="cursor-pointer"
+        />
+      </PopoverButton>
+
+      <PopoverPanel
+        anchor="bottom start"
+        className="bg-white p-2 rounded-lg shadow-lg z-50"
+      >
+        {children}
+      </PopoverPanel>
+    </Popover>
+  );
+};
 
 // utils
 

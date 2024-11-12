@@ -62,6 +62,7 @@ export function dbAttrsToExplorerSchema(
           linkConfig,
           inferredTypes: attrDesc['inferred-types'],
           catalog: attrDesc.catalog,
+          checkedDataType: attrDesc['checked-data-type'],
         };
       }
     }

@@ -93,6 +93,10 @@ function boolean(): DataAttrDef<boolean, true> {
   return new DataAttrDef("boolean", true);
 }
 
+function date(): DataAttrDef<string | number, true> {
+  return new DataAttrDef("date", true);
+}
+
 function json<T = any>(): DataAttrDef<T, true> {
   return new DataAttrDef("json", true);
 }
@@ -152,6 +156,7 @@ export const i = {
   string,
   number,
   boolean,
+  date,
   json,
   any,
 };

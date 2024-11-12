@@ -40,9 +40,17 @@ The first parameter to `i.graph` is a dictionary of entities, where the key repr
 
 Entity definitions accept a map of attribute definitions, where the key represents the attribute name and the value contains configuration for the attribute.
 
-First we specify the expected type of the attribute: `i.string()`, `i.number()`, `i.boolean()`, `i.json()` and `i.any()`.
+First we specify the expected type of the attribute: `i.string()`, `i.number()`, `i.boolean()`, `i.date()`, `i.json()`, or `i.any()`.
+
+{% callout %}
+
+`i.date()` accepts dates as either a numeric timestamp (in milliseconds) or an ISO 8601 string. `JSON.stringify(new Date())` will return an ISO 8601 string.
+
+{% /callout %}
 
 We can then chain modifiers: `.optional()`, `.unique()` and `.indexed()`.
+
+When adding a type to an existing attribute, `push-schema` will kick off a job to check the existing data for the attribute before setting the type on the attribute. If you prefer not to enforce the type, you can run `push-schema` with the `--skip-check-types` flag.
 
 Here are some examples:
 

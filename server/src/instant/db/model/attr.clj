@@ -46,6 +46,8 @@
           0
           friendly-set))
 
+(def checked-data-types #{"number" "string" "boolean" "date"})
+
 ;; ----
 ;; Spec
 
@@ -67,13 +69,17 @@
 
 (s/def ::index? boolean?)
 
+(s/def ::checked-data-type checked-data-types)
+
 (s/def ::attr-common (s/keys :req-un
                              [::id
                               ::forward-identity
                               ::value-type
                               ::cardinality
                               ::unique?
-                              ::index?]))
+                              ::index?]
+                             :opt-un
+                             [::checked-data-type]))
 
 (s/def ::blob-attr ::attr-common)
 
@@ -158,13 +164,15 @@
   "Manual reflection of postgres attr table columns"
   [:id :app-id :value-type
    :cardinality :is-unique :is-indexed
-   :forward-ident :reverse-ident :on-delete])
+   :forward-ident :reverse-ident :on-delete
+   :checked-data-type])
 
 (defn attr-table-values
   "Marshals a collection of attrs into insertable sql attr values"
   [app-id attrs]
   (map (fn [{:keys [id value-type cardinality unique? index?
-                    forward-identity reverse-identity on-delete]}]
+                    forward-identity reverse-identity on-delete
+                    checked-data-type]}]
          [id
           app-id
           [:cast (when value-type (name value-type)) :text]
@@ -173,10 +181,8 @@
           [:cast index? :boolean]
           [:cast (first forward-identity) :uuid]
           [:cast (first reverse-identity) :uuid]
-          [:cast
-           (some-> on-delete
-                   name)
-           :attr_on_delete]])
+          [:cast (some-> on-delete name) :attr_on_delete]
+          [:cast (some-> checked-data-type name) :checked_data_type]])
        attrs))
 
 (def ident-table-cols
@@ -451,7 +457,10 @@
            rev_label
            rev_etype
            inferred_types
-           on_delete]}]
+           on_delete
+           checked_data_type
+           checking_data_type
+           indexing]}]
   (cond-> {:id id
            :value-type (keyword value_type)
            :cardinality (keyword cardinality)
@@ -464,7 +473,10 @@
                       :system
                       :user)}
     on_delete (assoc :on-delete (keyword on_delete))
-    reverse_ident (assoc :reverse-identity [reverse_ident rev_etype rev_label])))
+    reverse_ident (assoc :reverse-identity [reverse_ident rev_etype rev_label])
+    checked_data_type (assoc :checked-data-type (keyword checked_data_type))
+    checking_data_type (assoc :checking-data-type? true)
+    indexing (assoc :indexing? true)))
 
 (defn index-attrs
   "Groups attrs by common lookup patterns so that we can efficiently look them up."

@@ -1,14 +1,15 @@
 import { id } from '@instantdb/core';
 import { InstantReactWeb } from '@instantdb/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/solid';
-import { successToast } from '@/lib/toast';
+import { errorToast, successToast } from '@/lib/toast';
 import {
   ActionButton,
   ActionForm,
   Button,
   Checkbox,
   Content,
+  InfoTip,
   Select,
   TextInput,
   ToggleGroup,
@@ -18,27 +19,41 @@ import {
   relationshipConstraints,
   relationshipConstraintsInverse,
 } from '@/lib/relationships';
-import { DBAttr, SchemaAttr, SchemaNamespace } from '@/lib/types';
+import {
+  CheckedDataType,
+  DBAttr,
+  InstantIndexingJob,
+  SchemaAttr,
+  SchemaNamespace,
+} from '@/lib/types';
 import { RelationshipConfigurator } from '@/components/dash/explorer/RelationshipConfigurator';
+import { createJob, jobFetchLoop } from '@/lib/indexingJobs';
+import { useAuthToken } from '@/lib/auth';
+import type { PushNavStack } from './Explorer';
+import { useClose } from '@headlessui/react';
 
 export function EditNamespaceDialog({
   db,
+  appId,
   namespace,
   namespaces,
   onClose,
   readOnly,
+  pushNavStack,
 }: {
   db: InstantReactWeb;
+  appId: string;
   namespace: SchemaNamespace;
   namespaces: SchemaNamespace[];
   onClose: (p?: { ok: boolean }) => void;
   readOnly: boolean;
+  pushNavStack: PushNavStack;
 }) {
   const [screen, setScreen] = useState<
     | { type: 'main' }
     | { type: 'delete' }
     | { type: 'add' }
-    | { type: 'edit'; attr: SchemaAttr }
+    | { type: 'edit'; attrId: string }
   >({ type: 'main' });
 
   async function deleteNs() {
@@ -46,6 +61,12 @@ export function EditNamespaceDialog({
     await db._core._reactor.pushOps(ops);
     onClose({ ok: true });
   }
+
+  const screenAttrId = screen.type === 'edit' ? screen.attrId : null;
+
+  const screenAttr = useMemo(() => {
+    return namespace.attrs.find((a) => a.id === screenAttrId);
+  }, [screenAttrId, namespace.attrs]);
 
   return (
     <>
@@ -83,7 +104,7 @@ export function EditNamespaceDialog({
                     className="px-2"
                     size="mini"
                     variant="subtle"
-                    onClick={() => setScreen({ type: 'edit', attr })}
+                    onClick={() => setScreen({ type: 'edit', attrId: attr.id })}
                   >
                     Edit
                   </Button>
@@ -122,12 +143,14 @@ export function EditNamespaceDialog({
           onClose={onClose}
           onConfirm={deleteNs}
         />
-      ) : screen.type === 'edit' ? (
+      ) : screen.type === 'edit' && screenAttr ? (
         <EditAttrForm
+          appId={appId}
           readOnly={readOnly}
           db={db}
-          attr={screen.attr}
+          attr={screenAttr}
           onClose={() => setScreen({ type: 'main' })}
+          pushNavStack={pushNavStack}
         />
       ) : null}
     </>
@@ -193,6 +216,8 @@ function AddAttrForm({
 }) {
   const [isIndex, setIsIndex] = useState(false);
   const [isUniq, setIsUniq] = useState(false);
+  const [checkedDataType, setCheckedDataType] =
+    useState<CheckedDataType | null>(null);
   const [attrType, setAttrType] = useState<'blob' | 'ref'>('blob');
   const [relationship, setRelationship] =
     useState<RelationshipKinds>('many-many');
@@ -233,6 +258,7 @@ function AddAttrForm({
         cardinality: 'one',
         'unique?': isUniq,
         'index?': isIndex,
+        'checked-data-type': checkedDataType ?? undefined,
       };
 
       const ops = [['add-attr', attr]];
@@ -309,6 +335,46 @@ function AddAttrForm({
               />
             </div>
           </div>
+          <div className="flex flex-col gap-2">
+            <h6 className="text-md font-bold">Enforce type</h6>
+            <div className="flex gap-2">
+              <Select
+                value={checkedDataType || 'none'}
+                onChange={(v) => {
+                  if (!v) {
+                    return;
+                  }
+                  const { value } = v;
+                  if (value === 'none') {
+                    setCheckedDataType(null);
+                  }
+                  setCheckedDataType(value as CheckedDataType);
+                }}
+                options={[
+                  {
+                    label: 'Any (not enforced)',
+                    value: '',
+                  },
+                  {
+                    label: 'String',
+                    value: 'string',
+                  },
+                  {
+                    label: 'Number',
+                    value: 'number',
+                  },
+                  {
+                    label: 'Boolean',
+                    value: 'boolean',
+                  },
+                  {
+                    label: 'Date',
+                    value: 'date',
+                  },
+                ]}
+              />
+            </div>
+          </div>
         </>
       ) : attrType === 'ref' ? (
         <>
@@ -367,16 +433,248 @@ function AddAttrForm({
     </ActionForm>
   );
 }
+
+function jobWorkingStatus(job: InstantIndexingJob | null) {
+  if (
+    !job ||
+    (job.job_status !== 'processing' && job.job_status !== 'waiting')
+  ) {
+    return;
+  }
+
+  if (job.job_status === 'waiting') {
+    return 'Waiting for worker...';
+  }
+
+  if (!job.work_estimate) {
+    return 'Estimating work...';
+  }
+
+  const completed = Math.min(job.work_estimate, job.work_completed || 0);
+
+  const percent = Math.floor((completed / job.work_estimate) * 100);
+
+  return `${percent}% complete...`;
+}
+
+function EditCheckedDataType({
+  appId,
+  attr,
+  readOnly,
+  pushNavStack,
+}: {
+  appId: string;
+  attr: SchemaAttr;
+  readOnly: boolean;
+  pushNavStack: PushNavStack;
+}) {
+  const token = useAuthToken();
+  const [checkedDataType, setCheckedDataType] = useState<
+    CheckedDataType | 'any'
+  >(attr.checkedDataType || 'any');
+  const [indexingJob, setIndexingJob] = useState<InstantIndexingJob | null>(
+    null,
+  );
+
+  const stopFetchLoop = useRef<null | (() => void)>(null);
+
+  useEffect(() => {
+    return () => stopFetchLoop.current?.();
+  }, [stopFetchLoop]);
+  const updateCheckedType = async () => {
+    if (!token || !checkedDataType) {
+      return;
+    }
+    stopFetchLoop.current?.();
+    const friendlyName = `${attr.namespace}.${attr.name}`;
+    try {
+      const job = await createJob(
+        {
+          appId,
+          attrId: attr.id,
+          jobType:
+            checkedDataType === 'any' ? 'remove-data-type' : 'check-data-type',
+          checkedDataType: checkedDataType === 'any' ? null : checkedDataType,
+        },
+        token,
+      );
+      setIndexingJob(job);
+      const fetchLoop = jobFetchLoop(appId, job.id, token);
+      stopFetchLoop.current = fetchLoop.stop;
+      const finishedJob = await fetchLoop.start((data, error) => {
+        if (error) {
+          errorToast(`Unexpected error while updating ${friendlyName}.`);
+        }
+        if (data) {
+          setIndexingJob(data);
+        }
+      });
+      if (finishedJob) {
+        if (finishedJob.job_status === 'completed') {
+          successToast(
+            checkedDataType === 'any'
+              ? `Removed type for ${friendlyName}.`
+              : `Updated type for ${friendlyName} to ${checkedDataType}.`,
+          );
+          return;
+        }
+        if (finishedJob.job_status === 'canceled') {
+          errorToast('Attribute update was canceled.');
+          return;
+        }
+        if (finishedJob.job_status === 'errored') {
+          if (finishedJob.error === 'invalid-triple-error') {
+            errorToast(`Found invalid data while updating ${friendlyName}.`);
+            return;
+          }
+          errorToast(`Encountered an error while updating ${friendlyName}.`);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      errorToast(`Unexpected error while updating ${friendlyName}`);
+    }
+  };
+
+  const typeNotChanged =
+    checkedDataType === attr.checkedDataType ||
+    ((!checkedDataType || checkedDataType === 'any') &&
+      !attr.checkedDataType) ||
+    (checkedDataType === indexingJob?.checked_data_type &&
+      indexingJob?.job_status === 'completed');
+
+  const buttonDisabled = readOnly || typeNotChanged;
+
+  const buttonLabel = typeNotChanged
+    ? `Type is ${checkedDataType}`
+    : checkedDataType === 'any'
+      ? 'Remove type'
+      : `Set type to ${checkedDataType}`;
+
+  const closeDialog = useClose();
+
+  return (
+    <ActionForm className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2">
+        <h6 className="text-md font-bold">
+          Enforce type{' '}
+          <InfoTip>
+            <div className="text-sm w-48">
+              Checks the type on all existing entities and enforces the type
+              when entities are created or updated.
+            </div>
+          </InfoTip>
+        </h6>
+        <div className="flex gap-2">
+          <Select
+            value={checkedDataType || 'any'}
+            onChange={(v) => {
+              if (!v) {
+                return;
+              }
+              const { value } = v;
+              setCheckedDataType(value as CheckedDataType | 'any');
+            }}
+            options={[
+              {
+                label: 'Any (not enforced)',
+                value: 'any',
+              },
+              {
+                label: 'String',
+                value: 'string',
+              },
+              {
+                label: 'Number',
+                value: 'number',
+              },
+              {
+                label: 'Boolean',
+                value: 'boolean',
+              },
+              {
+                label: 'Date',
+                value: 'date',
+              },
+            ]}
+          />
+        </div>
+      </div>
+      {indexingJob?.error === 'invalid-triple-error' ? (
+        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+          <div>
+            The type can't be set to {indexingJob?.checked_data_type} because
+            some data is the wrong type.
+          </div>
+          {indexingJob?.invalid_triples_sample?.length ? (
+            <div>
+              Here are the first few invalid entities we found:
+              <table className="mx-2 my-2 flex-1 text-left font-mono text-xs text-gray-500">
+                <thead className="bg-white text-gray-700">
+                  <tr>
+                    <th className="pr-2">id</th>
+                    <th className="pr-2">{attr.name}</th>
+                    <th className="pr-2">type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {indexingJob.invalid_triples_sample
+                    .slice(0, 3)
+                    .map((t, i) => (
+                      <tr
+                        key={i}
+                        className="cursor-pointer whitespace-nowrap rounded-md px-2 hover:bg-gray-200"
+                        onClick={() => {
+                          pushNavStack({
+                            namespace: attr.namespace,
+                            where: ['id', t.entity_id],
+                          });
+                          // It would be nice to have a way to minimize the dialog so you could go back
+                          closeDialog();
+                        }}
+                      >
+                        <td className="pr-2">
+                          <pre>{t.entity_id}</pre>
+                        </td>
+                        <td className="pr-2">{t.value}</td>
+                        <td className="pr-2">{t.json_type}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      <ActionButton
+        type="submit"
+        label={buttonLabel}
+        submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
+        errorMessage="Failed to update attribute"
+        disabled={buttonDisabled}
+        title={
+          readOnly ? `The ${attr.namespace} namespace is read-only.` : undefined
+        }
+        onClick={updateCheckedType}
+      />
+    </ActionForm>
+  );
+}
+
 function EditAttrForm({
   db,
+  appId,
   attr,
   onClose,
   readOnly,
+  pushNavStack,
 }: {
   db: InstantReactWeb;
+  appId: string;
   attr: SchemaAttr;
   onClose: () => void;
   readOnly: boolean;
+  pushNavStack: PushNavStack;
 }) {
   const [screen, setScreen] = useState<{ type: 'main' } | { type: 'delete' }>({
     type: 'main',
@@ -569,6 +867,12 @@ function EditAttrForm({
               />
             </div>
           </ActionForm>
+          <EditCheckedDataType
+            appId={appId}
+            attr={attr}
+            readOnly={readOnly}
+            pushNavStack={pushNavStack}
+          />
           <ActionForm className="flex flex-col gap-1">
             <h6 className="text-md font-bold">Rename</h6>
             <Content className="text-sm">

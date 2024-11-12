@@ -53,7 +53,8 @@
                   "host.name"
                   "detailed_query"
                   "detailed_patterns"
-                  "detailed_tx_steps"})
+                  "detailed_tx_steps"
+                  "process_id"})
 
 (defn exclude? [[k]]
   (or (exclude-ks k)

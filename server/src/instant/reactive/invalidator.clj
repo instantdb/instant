@@ -230,9 +230,10 @@
                          (seq attrs))
         transactions-change (first transactions)
         app-id (extract-app-id transactions-change)]
+    (doseq [attr attrs]
+      (attr-model/evict-app-id-from-cache (or app-id
+                                              (extract-app-id attr))))
     (when (and some-changes app-id)
-      (when (seq attrs)
-        (attr-model/evict-app-id-from-cache app-id))
       {:attr-changes attrs
        :ident-changes idents
        :triple-changes triples

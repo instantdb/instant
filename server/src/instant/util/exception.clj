@@ -1,10 +1,15 @@
 (ns instant.util.exception
-  (:require [clojure.spec.alpha :as s]
-            [instant.util.string :refer [safe-name]]
-            [clojure.walk :as w]
-            [instant.jdbc.pgerrors :as pgerrors]
-            [inflections.core :as inflections])
-  (:import [org.postgresql.util PSQLException]))
+  (:require
+   [clojure.spec.alpha :as s]
+   [clojure.string :as string]
+   [clojure.walk :as w]
+   [inflections.core :as inflections]
+   [instant.jdbc.pgerrors :as pgerrors]
+   [instant.util.json :refer [<-json]]
+   [instant.util.string :refer [indexes-of safe-name]])
+  (:import
+   (java.io IOException)
+   (org.postgresql.util PSQLException)))
 
 ;; -------- 
 ;; Spec 
@@ -86,7 +91,7 @@
                      :expected perm}}))
   pass?)
 
-(defn throw-permission-evaluation-failed! [etype action e]
+(defn throw-permission-evaluation-failed! [etype action ^Exception e]
   (let [cause-data (-> e (.getCause) ex-data)
         cause-message (or (::message cause-data)
                           "You may have a typo")]
@@ -183,7 +188,7 @@
            ::message (format "Socket missing for session: %s" sess-id)
            ::hint {:sess-id sess-id}}))
 
-(defn throw-socket-error! [sess-id io-ex]
+(defn throw-socket-error! [sess-id ^IOException io-ex]
   (throw+ {::type ::socket-missing
            ::message (format "Socket error for session: %s" sess-id)
            ::hint {:sess-id sess-id
@@ -237,11 +242,40 @@
 (comment
   (kw-table-name "app_oauth_codes"))
 
+(defn extract-invalid-value-constraint-triple [{:keys [table constraint detail]}]
+  (when (and (= table "triples")
+             (= constraint "valid_value_data_type")
+             detail
+             (string/starts-with? detail "Failing row contains"))
+    ;; The error detail looks like "Failing row contains (app_id, entity_id, ...),
+    ;; so we extract all of those values by looking for what's between the commas
+    (let [borders (conj (into [(string/index-of detail "(")]
+                              (indexes-of detail ","))
+                        (string/last-index-of detail ")"))
+          ;; Skip any `,` in the value
+          borders (concat (take 4 borders)
+                          (take-last 9 borders))]
+      (zipmap [:app-id
+               :entity-id
+               :attr-id
+               :value
+               :value-md5
+               :ea
+               :eav
+               :av
+               :ave
+               :vae
+               :created-at
+               :checked-data-type]
+              (map (fn [[start end]]
+                     (string/trim (subs detail (inc start) end)))
+                   (partition 2 1 borders))))))
+
 (defn translate-and-throw-psql-exception!
   [^PSQLException e]
   (let [{:keys [server-message condition table] :as data} (pgerrors/extract-data e)
         hint (select-keys data [:table :condition :constraint])]
-    (condp = condition
+    (case condition
       :unique-violation
       (throw-record-not-unique! (kw-table-name table) e)
 
@@ -253,11 +287,21 @@
               e)
 
       :check-violation
-      (throw+ {::type ::record-check-violation
-               ::message (format "Check Violation: %s" (name condition))
-               ::hint hint
-               ::pg-error-data data}
-              e)
+      (if-let [triple (extract-invalid-value-constraint-triple data)]
+        (throw-validation-err! :triple
+                               (some-> (:value triple)
+                                       <-json)
+                               [{:message "Invalid value type for triple."
+                                 :hint {:value (some-> (:value triple)
+                                                       <-json)
+                                        :checked-data-type (:checked-data-type triple)
+                                        :attr-id (:attr-id triple)
+                                        :entity-id (:entity-id triple)}}])
+        (throw+ {::type ::record-check-violation
+                 ::message (format "Check Violation: %s" (name condition))
+                 ::hint hint
+                 ::pg-error-data data}
+                e))
 
       :raise-exception
       (throw+ {::type ::sql-raise

@@ -37,10 +37,10 @@
   (-> @config-map :instant-config-app-id))
 
 (defn postmark-token []
-  (some-> @config-map :postmark-token (.value)))
+  (some-> @config-map :postmark-token crypt-util/secret-value))
 
 (defn postmark-account-token []
-  (some-> @config-map :postmark-account-token (.value)))
+  (some-> @config-map :postmark-account-token crypt-util/secret-value))
 
 (defn postmark-send-enabled? []
   (not (string/blank? (postmark-token))))
@@ -49,7 +49,7 @@
   (not (string/blank? (postmark-account-token))))
 
 (defn secret-discord-token []
-  (some-> @config-map :secret-discord-token (.value)))
+  (some-> @config-map :secret-discord-token crypt-util/secret-value))
 
 (defn discord-enabled? []
   (not (string/blank? (secret-discord-token))))
@@ -95,7 +95,7 @@
                                                     (get-hostname)
                                                     (name env)))
          url (or (System/getenv "DATABASE_URL")
-                 (some-> @config-map :database-url (.value))
+                 (some-> @config-map :database-url crypt-util/secret-value)
                  "jdbc:postgresql://localhost:5432/instant")]
      (assoc (db-url->config url)
             :ApplicationName application-name))))
@@ -106,10 +106,10 @@
   ;; Add an override from the environment because we need
   ;; it for the tests (populated at https://github.com/jsventures/instant/settings/secrets/actions)
   (or (System/getenv "STRIPE_API_KEY")
-      (some-> @config-map :stripe-secret (.value))))
+      (some-> @config-map :stripe-secret crypt-util/secret-value)))
 
 (defn stripe-webhook-secret []
-  (-> @config-map :stripe-webhook-secret (.value)))
+  (-> @config-map :stripe-webhook-secret crypt-util/secret-value))
 
 (defn stripe-success-url
   ([] (stripe-success-url {:env (get-env)}))
@@ -135,7 +135,7 @@
      test-pro-subscription)))
 
 (defn get-honeycomb-api-key []
-  (some-> @config-map :honeycomb-api-key (.value)))
+  (some-> @config-map :honeycomb-api-key crypt-util/secret-value))
 
 (defn get-honeycomb-endpoint []
   (or (System/getenv "HONEYCOMB_ENDPOINT")

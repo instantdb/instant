@@ -355,7 +355,7 @@ function Dashboard() {
     return () => {
       db._core.shutdown();
     };
-  }, [router.isReady, app]);
+  }, [router.isReady, app?.id, app?.admin_token]);
 
   function nav(q: { s: string; app?: string; t?: string }) {
     if (q.app) setLocal('dash_app_id', q.app);
@@ -484,7 +484,7 @@ function Dashboard() {
                 {tab === 'home' ? (
                   <Home />
                 ) : tab === 'explorer' ? (
-                  <ExplorerTab db={connection.db} />
+                  <ExplorerTab appId={appId} db={connection.db} />
                 ) : tab === 'repl' ? (
                   <QueryInspector
                     className="flex-1 w-full"
@@ -843,11 +843,11 @@ function Home() {
   );
 }
 
-function ExplorerTab({ db }: { db: InstantReactClient }) {
+function ExplorerTab({ db, appId }: { db: InstantReactClient; appId: string }) {
   return (
     <div className="flex-1 overflow-hidden flex flex-col">
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Explorer db={db} key={db._core._reactor.config.appId} />
+        <Explorer db={db} appId={appId} key={db._core._reactor.config.appId} />
       </div>
     </div>
   );

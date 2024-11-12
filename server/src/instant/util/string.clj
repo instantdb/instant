@@ -37,3 +37,11 @@
    string across multiple lines to meet line-width requirements in code."
   [s]
   (string/replace s #"\s+" (fn [_] " ")))
+
+(defn indexes-of [^String s ^String value]
+  (loop [next-idx 0
+         idxes []]
+    (if-let [found-idx (string/index-of s value next-idx)]
+      (recur (inc found-idx)
+             (conj idxes found-idx))
+      idxes)))
