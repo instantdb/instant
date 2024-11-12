@@ -45,23 +45,28 @@ function tryJsonParse(value: any) {
 }
 
 function getAppropriateFieldType(attr: SchemaAttr, value: any): FieldType {
-  if (!value && attr.checkedDataType) {
+  if (value != null) {
+    // if object or array, label as "json" for now
+    const t = isJsonObject(value) ? 'json' : typeof value;
+    // defaults to 'string' type (fieldTypeOptions[0])
+    const option = fieldTypeOptions.find((opt) => opt.value === t);
+
+    if (option) {
+      return option.value;
+    }
+  }
+  if (attr.checkedDataType) {
     if (attr.checkedDataType === 'date') {
       return 'string';
     }
     return attr.checkedDataType;
   }
-  if (!value && attr.inferredTypes?.length) {
+  if (attr.inferredTypes?.length) {
     return attr.inferredTypes[0];
   }
 
-  // if object or array, label as "json" for now
-  const t = isJsonObject(value) ? 'json' : typeof value;
-  // defaults to 'string' type (fieldTypeOptions[0])
-  const option =
-    fieldTypeOptions.find((opt) => opt.value === t) || fieldTypeOptions[0];
-
-  return option.value;
+  // Fallback to the first option
+  return fieldTypeOptions[0].value;
 }
 
 // For now, since all values are stored as type "blob", we try
