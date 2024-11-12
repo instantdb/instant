@@ -2,7 +2,8 @@
   (:require
    [chime.core :as chime-core]
    [clj-http.client :as clj-http]
-   [clojure.core.cache.wrapped :as cache] 
+   [clojure.core.cache.wrapped :as cache]
+   [instant.util.exception :as ex]
    [instant.util.tracer :as tracer])
   (:import
    (com.auth0.jwk Jwk SigningKeyNotFoundException)
@@ -88,9 +89,7 @@
                     "ES256" (Algorithm/ECDSA256
                              (proxy [ECDSAKeyProvider] []
                                (getPublicKeyById [kid] (get-public-key kid))))
-                    (throw (ex-info (str "Unsupported signing algorithm " alg)
-                                    {:type :oauth-error
-                                     :message (str "Unsupported signing algorithm " alg)})))]
+                    (ex/throw-oauth-err! (str "Unsupported signing algorithm " alg)))]
     (.build (JWT/require algorithm))))
 
 (defn verify-jwt [{:keys [jwks-uri jwt]}]
@@ -98,31 +97,20 @@
     (.verify (get-verifier {:jwks-uri jwks-uri :jwt jwt})
              jwt)
     (catch SigningKeyNotFoundException e
-      (throw (ex-info (str "Error validating JWT. Could not find signing key.")
-                      {:type :oauth-error
-                       :message "Error validating JWT. Could not find signing key."
-                       :e e})))
+      (ex/throw-oauth-err! "Error validating JWT. Could not find signing key."
+                           e))
     (catch AlgorithmMismatchException e
-      (throw (ex-info (str "Error validating JWT. Algorithm Mismatch")
-                      {:type :oauth-error
-                       :message "Error validating JWT."
-                       :e e})))
+      (ex/throw-oauth-err! "Error validating JWT. Algorithm Mismatch"
+                           e))
     (catch SignatureVerificationException e
-      (throw (ex-info (str "Error validating JWT. Signature is invalid.")
-                      {:type :oauth-error
-                       :message "Error validating JWT. Signature is invalid."
-                       :e e})))
+      (ex/throw-oauth-err! "Error validating JWT. Signature is invalid."
+                           e))
     (catch TokenExpiredException e
-      (throw (ex-info (str "Error validating JWT. Token is expired.")
-                      {:type :oauth-error
-                       :message "Error validating JWT. Token is expired."
-                       :e e})))
-
+      (ex/throw-oauth-err! "Error validating JWT. Token is expired."
+                           e))
     (catch JWTDecodeException e
-      (throw (ex-info (str "Invalid JWT.")
-                      {:type :oauth-error
-                       :message "Invalid JWT."
-                       :e e})))))
+      (ex/throw-oauth-err! "Invalid JWT."
+                           e))))
 
 (def schedule nil)
 
