@@ -14,8 +14,7 @@
             :test-emails {}
             :view-checks {}
             :hazelcast {}
-            :promo-emails {}
-            :app-users-to-triples-migration {}})
+            :promo-emails {}})
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -61,15 +60,11 @@
                        :disabled? disabled?}))
         promo-code-emails (set (keep (fn [o]
                                        (get o "email"))
-                                     (get result "promo-emails")))
-        migrating-app-users-apps (set (map (fn [{:strs [appId]}]
-                                             (parse-uuid appId))
-                                           (get result "app-users-to-triples-migration")))]
+                                     (get result "promo-emails")))]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
      :hazelcast hazelcast
-     :promo-code-emails promo-code-emails
-     :migrating-app-users-apps migrating-app-users-apps}))
+     :promo-code-emails promo-code-emails}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -114,7 +109,3 @@
 
 (defn hazelcast-disabled? []
   (get-in (query-result) [:hazelcast :disabled?] false))
-
-(defn migrating-app-users? [app-id]
-  (contains? (get (query-result) :migrating-app-users-apps)
-             app-id))

@@ -563,10 +563,7 @@
            :left-join [[:idents :rev-idents] [:= :attrs.reverse-ident :rev-idents.id]]
            :where [:or
                    [:= :attrs.app-id [:cast app-id :uuid]]
-                   [:and {:select :users-in-triples
-                          :from :apps
-                          :where [:= :id app-id]}
-                    [:= :attrs.app-id [:cast system-catalog-app-id :uuid]]]]})))))
+                   [:= :attrs.app-id [:cast system-catalog-app-id :uuid]]]})))))
 
 (defn get-by-app-id
   ([app-id]
