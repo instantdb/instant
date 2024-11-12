@@ -400,7 +400,7 @@
   ([conn {:keys [app-id connection-string]}]
    (sql/execute-one! conn
                      ["update apps set connection_string = ?::bytea where id = ?::uuid"
-                      (crypt-util/aead-encrypt {:plaintext (.getBytes connection-string)
+                      (crypt-util/aead-encrypt {:plaintext (.getBytes ^String connection-string)
                                                 :associated-data (uuid-util/->bytes app-id)})
                       app-id])))
 

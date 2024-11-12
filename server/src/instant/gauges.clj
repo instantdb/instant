@@ -10,13 +10,17 @@
 (defonce gauge-metric-fns (atom {}))
 
 (defn add-gauge-metrics-fn
-  "Takes a function of no args that should return a list of maps with
-  `path` and `value`. Will run every second and be appended to gauges."
+  "Takes a function that should return a list of maps with `path` and `value`.
+   Will run every second and be appended to gauges.  The function
+   should take a single argument, which contains a `cleanup` function
+   it can call to remove itself. `add-gauge-metrics-fn` returns the
+   same cleanup function."
   [f]
-  (let [id (random-uuid)]
-    (swap! gauge-metric-fns assoc id f)
-    (fn []
-      (swap! gauge-metric-fns dissoc id))))
+  (let [id (random-uuid)
+        cleanup (fn []
+                  (swap! gauge-metric-fns dissoc id))]
+    (swap! gauge-metric-fns assoc id (partial f {:cleanup cleanup}))
+    cleanup))
 
 (defn gauges []
   (let [memory (ManagementFactory/getMemoryMXBean)
@@ -90,7 +94,11 @@
                      {:path (str "jvm." description ".maximum-size")
                       :value (.getMaximumPoolSize executor)}])
                   (for [[_k metric-fn] @gauge-metric-fns]
-                    (metric-fn))])]
+                    (try
+                      (metric-fn)
+                      (catch Throwable t
+                        [{:path "instant.gauges.metric-fn-error"
+                          :value (.getMessage t)}])))])]
     (into {} (map (juxt :path :value) metrics))))
 
 (comment

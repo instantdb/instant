@@ -440,7 +440,8 @@
                             "ea" true,
                             "value" "\"dww\"",
                             "vae" false,
-                            "app_id" (str (:id app))}
+                            "app_id" (str (:id app))
+                            "checked_data_type" nil}
                            {"eav" true,
                             "av" true,
                             "ave" true,
@@ -450,7 +451,8 @@
                             "ea" true,
                             "value" (->json (str uid))
                             "vae" true,
-                            "app_id" (str (:id app))}})))
+                            "app_id" (str (:id app))
+                            "checked_data_type" nil}})))
 
                 (finally
                   (inv/stop process))))))))))

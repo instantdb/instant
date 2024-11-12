@@ -270,7 +270,12 @@
                                        :room-id room-id
                                        :session-id sess-id
                                        :squuid-timestamp squuid-timestamp}}
-        (remove-session! app-id room-id sess-id)))))
+        (remove-session! app-id room-id sess-id)))
+    (doseq [^AbstractMap$SimpleImmutableEntry entry (.entrySet hz-map)
+            :let [{:keys [app-id room-id]} (.getKey entry)
+                  v (.getValue entry)]
+            :when (and app-id room-id (empty? v))]
+      (remove-session! app-id room-id (random-uuid)))))
 
 ;; ----------
 ;; Public API
@@ -413,10 +418,10 @@
   (def ephemeral-store-atom (atom {}))
   (def room-refresh-ch (a/chan (a/sliding-buffer 1)))
   (def cleanup-gauge (gauges/add-gauge-metrics-fn
-                      (fn [] (if-let [^LinkedBlockingQueue q @hz-ops-q]
-                               [{:path "instant.ephemeral.hz-ops-q.size"
-                                 :value (.size q)}]
-                               []))))
+                      (fn [_] (if-let [^LinkedBlockingQueue q @hz-ops-q]
+                                [{:path "instant.ephemeral.hz-ops-q.size"
+                                  :value (.size q)}]
+                                []))))
 
   (start-hz)
   (ua/fut-bg (start-refresh-worker rs/store-conn ephemeral-store-atom room-refresh-ch))

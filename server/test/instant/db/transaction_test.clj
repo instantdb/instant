@@ -1439,6 +1439,56 @@
                         [[:add-triple stopa-eid (UUID/randomUUID) "Stopa"]]))
                       ::ex/type))))))))
 
+(deftest rejects-invalid-data-for-checked-attrs
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [email-attr-id (random-uuid)]
+        (tx/transact!
+         aurora/conn-pool
+         (attr-model/get-by-app-id app-id)
+         app-id
+         [[:add-attr
+           {:id email-attr-id
+            :forward-identity [(random-uuid) "users" "email"]
+            :value-type :blob
+            :cardinality :one
+            :unique? true
+            :index? true
+            :checked-data-type :string}]])
+        (testing "allows good data"
+          (tx/transact! aurora/conn-pool
+                        (attr-model/get-by-app-id app-id)
+                        app-id
+                        [[:add-triple (random-uuid) email-attr-id "test@example.com"]])
+          (is (= ["test@example.com"]
+                 (map (fn [{:keys [triple]}]
+                        (nth triple 2))
+                      (triple-model/fetch
+                       aurora/conn-pool
+                       app-id
+                       [[:= :attr-id email-attr-id]])))))
+        ;; If this failed it might be because we added new columns to the triples
+        ;; table, check instant.util.exception/extract-invalid-value-constraint-triple
+        (testing "returns a friendly error message for bad data"
+          (let [eid (random-uuid)]
+            (is (= #:instant.util.exception{:type
+                                            :instant.util.exception/validation-failed,
+                                            :message "Validation failed for triple",
+                                            :hint
+                                            {:data-type :triple,
+                                             :input 10,
+                                             :errors
+                                             [{:message "Invalid value type for triple.",
+                                               :hint {:value 10,
+                                                      :checked-data-type "string",
+                                                      :attr-id (str email-attr-id)
+                                                      :entity-id (str eid)}}]}}
+                   (instant-ex-data
+                     (tx/transact! aurora/conn-pool
+                                   (attr-model/get-by-app-id app-id)
+                                   app-id
+                                   [[:add-triple eid email-attr-id 10]]))))))))))
+
 (deftest deep-merge-existing-object
   (with-empty-app
     (fn [{app-id :id}]

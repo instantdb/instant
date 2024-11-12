@@ -52,7 +52,9 @@
                          (send! channel-id message))))
 
 (defn send-error-async! [message]
-  (send-async! config/discord-errors-channel-id
+  (send-async! (if (= :prod (config/get-env))
+                 config/discord-errors-channel-id
+                 config/discord-debug-channel-id)
                message))
 
 (comment
