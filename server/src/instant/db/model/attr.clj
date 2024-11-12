@@ -572,30 +572,6 @@
    ;; Don't cache if we're using a custom connection
    (get-by-app-id* conn app-id)))
 
-(defn get-all-users-shims
-  "Fetching the mapping from app-users table to attributes that we use to
-   create the $users table.
-   Returns a mapping of app_id to {email-attr-id: ?uuid
-                                   id-attr-id: ?uuid}"
-  [conn]
-  (let [query (hsql/format {:select :*
-                            :from :idents
-                            :where [:and
-                                    [:= :etype "$users"]
-                                    [:or
-                                     [:= :label "id"]
-                                     [:= :label "email"]]]})
-        rows (sql/select conn query)]
-    (reduce (fn [acc row]
-              (let [app-id (:app_id row)
-                    field (case (:label row)
-                            "id" :id-attr-id
-                            "email" :email-attr-id)
-                    attr-id (:attr_id row)]
-                (assoc-in acc [(str app-id) field] attr-id)))
-            {}
-            rows)))
-
 ;; ------
 ;; seek
 
@@ -619,40 +595,6 @@
             (and (= :system (:catalog a))
                  (not= "$users" (fwd-etype a))))
           attrs))
-
-;; -------
-;; Helpers
-
-(defn has-$users? [^Attrs attrs]
-  (and (seek-by-fwd-ident-name ["$users" "email"] attrs)
-       (seek-by-fwd-ident-name ["$users" "id"] attrs)))
-
-(defn users-shim-info
-  "Returns the users shim info if the users shim attrs exist"
-  [^Attrs attrs]
-  (let [email-attr (seek-by-fwd-ident-name ["$users" "email"] attrs)
-        id-attr (seek-by-fwd-ident-name ["$users" "id"] attrs)
-        migrated-field (seek-by-fwd-ident-name ["$magicCodes" "id"] attrs)]
-    (when (and email-attr id-attr (not migrated-field))
-      {:email-attr-id (:id email-attr)
-       :id-attr-id (:id id-attr)})))
-
-(defn gen-users-shim-attrs [attrs]
-  (keep identity
-        [(when-not (seek-by-fwd-ident-name ["$users" "id"] attrs)
-           {:id (random-uuid)
-            :forward-identity [(random-uuid) "$users" "id"]
-            :unique? true
-            :index? true
-            :value-type :blob
-            :cardinality :one})
-         (when-not (seek-by-fwd-ident-name ["$users" "email"] attrs)
-           {:id (random-uuid)
-            :forward-identity [(random-uuid) "$users" "email"]
-            :unique? true
-            :index? true
-            :value-type :blob
-            :cardinality :one})]))
 
 ;; ------
 ;; play

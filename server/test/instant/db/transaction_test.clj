@@ -2015,24 +2015,13 @@
   (with-empty-app
     (fn [{app-id :id :as app}]
       (testing "auth.ref requires $users namespace"
-        (when-not (:users_in_triples app)
-          (is (= [{:message
-                   "auth.ref is only available when the $users namespace is enabled.",
-                   :in ["bookshelves" :allow "update"]}]
-                 (rule-model/validation-errors
-                  (attr-model/get-by-app-id app-id)
-                  {"bookshelves" {"allow" {"update" "auth.ref('$user.a.b')"}}})))
-
-          (insert-users-table! aurora/conn-pool app-id))
         (is (= []
                (rule-model/validation-errors
-                (attr-model/get-by-app-id app-id)
                 {"bookshelves" {"allow" {"update" "auth.ref('$user.a.b')"}}})))
 
         (is (= [{:message "auth.ref arg must start with `$user.`",
                  :in ["bookshelves" :allow "update"]}]
                (rule-model/validation-errors
-                (attr-model/get-by-app-id app-id)
                 {"bookshelves" {"allow" {"update" "auth.ref('a.b')"}}})))))))
 
 (deftest users-write-perms

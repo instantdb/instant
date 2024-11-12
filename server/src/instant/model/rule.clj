@@ -135,7 +135,7 @@
       (format "The %s namespace is a reserved internal namespace that does not yet support rules."
               etype)]]))
 
-(defn validation-errors [attrs rules]
+(defn validation-errors [rules]
   (->> (keys rules)
        (mapcat (fn [etype] (map (fn [action] [etype action]) ["view" "create" "update" "delete"])))
        (mapcat (fn [[etype action]]
@@ -147,7 +147,7 @@
                          (let [ast (cel/->ast expr)
                                ;; create the program to see if it throws
                                _program (cel/->program ast)
-                               errors (cel/validation-errors attrs ast)]
+                               errors (cel/validation-errors ast)]
                            (when (seq errors)
                              (format-errors etype action errors))))
                        (catch CelValidationException e
@@ -162,4 +162,4 @@
                               "create" "true"
                               "update" "moop"}}})
 
-  (validation-errors [] code))
+  (validation-errors code))

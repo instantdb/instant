@@ -1198,23 +1198,13 @@
          (assoc :children {:pattern-groups (:pattern-groups res)
                            :join-sym (get-in nested-named-patterns [:children :join-sym])})))))
 
-(defn maybe-add-users-shim
-  "Appends the app-users table to triples through a few extra CTEs that coerce
-   the table into the triples format."
-  [ctx app-id ctes]
-  (if-let [{:keys [email-attr-id
-                   id-attr-id]} (:users-shim-info ctx)]
-    (into (triple-model/users-triples-ctes app-id email-attr-id id-attr-id)
-          ctes)
-    ctes))
-
 (defn nested-match-query
   "Generates the hsql `query` and metadata about the query under `children`.
   `children` matches the structure of nested-named-patterns and has all of the
   info we need to collect the data from the sql result, build fully-qualified
   topics (replacing join-sym with the actual value), and fully-qualified datalog
   queries."
-  [ctx prefix app-id nested-named-patterns]
+  [_ctx prefix app-id nested-named-patterns]
   (let [{:keys [ctes result-tables children]}
         (accumulate-nested-match-query prefix app-id nested-named-patterns)
         query (when (seq ctes)
@@ -1225,7 +1215,7 @@
                                ;; If count != 2, then someone higher up set a materialized
                                ;; option, let's not override their wisdom.
                                %)
-                            (maybe-add-users-shim ctx app-id ctes))
+                            ctes)
                  :select [[(into [:json_build_array]
                                  (mapv (fn [tables]
                                          (into [:json_build_object]
@@ -1633,12 +1623,10 @@
 
 (defn send-query-single
   "Sends a single query, returns the join rows."
-  [ctx conn app-id named-patterns]
+  [_ctx conn app-id named-patterns]
   (tracer/with-span! {:name "datalog/send-query-single"}
     (let [{:keys [query pattern-metas]} (match-query :match-0- app-id named-patterns)
-          sql-query (hsql/format
-                     (update query :with (fn [ctes]
-                                           (maybe-add-users-shim ctx app-id ctes))))
+          sql-query (hsql/format query)
           sql-res (sql/select-string-keys conn sql-query)]
       (sql-result->result sql-res
                           pattern-metas
@@ -1684,7 +1672,7 @@
 (defn send-query-batch
   "Sends a batched query, returns a list of join rows in the same order that
    the args were provided."
-  [ctx conn args-col]
+  [_ctx conn args-col]
   (tracer/with-span! {:name "datalog/send-query-batch"
                       :attributes {:batch-size (count args-col)}}
     (let [batch-data (map-indexed
@@ -1692,10 +1680,7 @@
                         (apply match-query (kw "match-" i "-") args))
                       args-col)
           hsql-query (batch-queries (map :query batch-data))
-          sql-query (hsql/format (update hsql-query
-                                         :with
-                                         (fn [ctes]
-                                           (maybe-add-users-shim ctx (:app-id ctx) ctes))))
+          sql-query (hsql/format hsql-query)
           sql-res (-> (sql/select-arrays conn sql-query)
                       second ;; remove header row
                       first ;; all results are in one json blob in first result
