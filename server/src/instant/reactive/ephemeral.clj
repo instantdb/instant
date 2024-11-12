@@ -270,7 +270,12 @@
                                        :room-id room-id
                                        :session-id sess-id
                                        :squuid-timestamp squuid-timestamp}}
-        (remove-session! app-id room-id sess-id)))))
+        (remove-session! app-id room-id sess-id)))
+    (doseq [^AbstractMap$SimpleImmutableEntry entry (.entrySet hz-map)
+            :let [{:keys [app-id room-id]} (.getKey entry)
+                  v (.getValue entry)]
+            :when (and app-id room-id (empty? v))]
+      (remove-session! app-id room-id (random-uuid)))))
 
 ;; ----------
 ;; Public API
