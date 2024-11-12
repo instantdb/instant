@@ -52,7 +52,7 @@ returns timestamp with time zone as $$
   begin
     case jsonb_typeof(value)
       when 'number' then
-        return to_timestamp((value->>0)::double precision);
+        return to_timestamp((value->>0)::double precision / 1000);
       when 'string' then
         return ((value->>0)::text)::timestamp with time zone;
       else
