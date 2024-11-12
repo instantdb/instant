@@ -110,7 +110,7 @@
                           :configurator (fn [^Undertow$Builder builder]
                                           (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}))
   (def stop-gauge (gauges/add-gauge-metrics-fn
-                   (fn []
+                   (fn [_]
                      (let [^Undertow server server
                            ^Undertow$ListenerInfo listener (some-> server
                                                                    (.getListenerInfo)

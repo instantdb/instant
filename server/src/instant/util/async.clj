@@ -158,23 +158,21 @@
    (when xform (assert buf-or-n "buffer must be supplied when transducer is"))
    (let [buf-or-n (or buf-or-n 1)
          buf (if (number? buf-or-n) (a/buffer buf-or-n) buf-or-n)
-         chan (a/chan xform ex-handler)
-         cleanup (promise)
-         cleanup-gauge (gauges/add-gauge-metrics-fn
-                        (fn []
-                          (if (a-impl/closed? chan)
-                            (@cleanup)
-                            [{:path (format "%s.%s.count"
-                                            (namespace chan-name)
-                                            (name chan-name))
-                              :value (count buf)}
-                             {:path (format "%s.%s.capacity"
-                                            (namespace chan-name)
-                                            (name chan-name))
-                              :value (buf-capacity buf)}
-                             {:path (format "%s.%s.full"
-                                            (namespace chan-name)
-                                            (name chan-name))
-                              :value (a-impl/full? buf)}])))]
-     (deliver cleanup cleanup-gauge)
+         chan (a/chan xform ex-handler)]
+     (gauges/add-gauge-metrics-fn
+      (fn [{:keys [cleanup]}]
+        (if (a-impl/closed? chan)
+          (cleanup)
+          [{:path (format "%s.%s.count"
+                          (namespace chan-name)
+                          (name chan-name))
+            :value (count buf)}
+           {:path (format "%s.%s.capacity"
+                          (namespace chan-name)
+                          (name chan-name))
+            :value (buf-capacity buf)}
+           {:path (format "%s.%s.full"
+                          (namespace chan-name)
+                          (name chan-name))
+            :value (a-impl/full? buf)}])))
      chan)))

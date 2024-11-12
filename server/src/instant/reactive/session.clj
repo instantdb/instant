@@ -587,7 +587,7 @@
   (def receive-q (grouped-queue/create {:group-fn #'group-fn}))
   (def receive-q-stop-signal (atom false))
   (def cleanup-gauge (gauges/add-gauge-metrics-fn
-                      (fn [] (receive-q-metrics receive-q))))
+                      (fn [_] (receive-q-metrics receive-q))))
 
   (ua/fut-bg
    (start-receive-workers

@@ -324,20 +324,21 @@
   ([conn {:keys [app_id attr_id job_type checked_data_type]}]
    (assert (= "check-data-type" job_type))
    (assert checked_data_type)
-   (let [res (sql/do-execute! conn (hsql/format {:update :triples
-                                                 :set {:checked-data-type [:cast checked_data_type :checked_data_type]}
-                                                 :where [:in :ctid
-                                                         {:select :ctid
-                                                          :from :triples
-                                                          :limit batch-size
-                                                          :where [:and
-                                                                  [:= :app-id app_id]
-                                                                  [:= :attr-id attr_id]
-                                                                  [:or
-                                                                   [:not=
-                                                                    :checked-data-type
-                                                                    [:cast checked_data_type :checked_data_type]]
-                                                                   [:= :checked-data-type nil]]]}]}))]
+   (let [q {:update :triples
+            :set {:checked-data-type [:cast checked_data_type :checked_data_type]}
+            :where [:in :ctid
+                    {:select :ctid
+                     :from :triples
+                     :limit batch-size
+                     :where [:and
+                             [:= :app-id app_id]
+                             [:= :attr-id attr_id]
+                             [:or
+                              [:not=
+                               :checked-data-type
+                               [:cast checked_data_type :checked_data_type]]
+                              [:= :checked-data-type nil]]]}]}
+         res (sql/do-execute! conn (hsql/format q))]
      (:next.jdbc/update-count (first res)))))
 
 (defn check-batch-and-update-job!
@@ -478,16 +479,17 @@
   ([conn {:keys [app_id attr_id job_type checked_data_type]}]
    (assert (= "remove-data-type" job_type))
    (assert (nil? checked_data_type))
-   (let [res (sql/do-execute! conn (hsql/format {:update :triples
-                                                 :set {:checked-data-type nil}
-                                                 :where [:in :ctid
-                                                         {:select :ctid
-                                                          :from :triples
-                                                          :limit batch-size
-                                                          :where [:and
-                                                                  [:= :app-id app_id]
-                                                                  [:= :attr-id attr_id]
-                                                                  [:not= nil :checked-data-type]]}]}))]
+   (let [q {:update :triples
+            :set {:checked-data-type nil}
+            :where [:in :ctid
+                    {:select :ctid
+                     :from :triples
+                     :limit batch-size
+                     :where [:and
+                             [:= :app-id app_id]
+                             [:= :attr-id attr_id]
+                             [:not= nil :checked-data-type]]}]}
+         res (sql/do-execute! conn (hsql/format q))]
      (:next.jdbc/update-count (first res)))))
 
 (defn remove-data-type-batch-and-update-job!
@@ -614,7 +616,11 @@
                              :process (ua/vfut-bg (start-process job-queue-chan))}))))
 
     (def schedule (chime-core/chime-at
-                   (chime-core/periodic-seq (Instant/now) (Duration/ofMinutes 5))
+                   (chime-core/periodic-seq (Instant/now)
+                                            (Duration/ofMinutes
+                                             (if (= :prod (config/get-env))
+                                               1
+                                               10)))
                    (fn [_time]
                      (grab-forgotten-jobs!)
                      (warn-stuck-jobs!))))))

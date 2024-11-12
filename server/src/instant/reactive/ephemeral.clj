@@ -432,10 +432,10 @@
   (def room-refresh-ch (a/chan (a/sliding-buffer 1)))
   (def refresh-map-ch (a/chan 1024))
   (def cleanup-gauge (gauges/add-gauge-metrics-fn
-                      (fn [] (if-let [^LinkedBlockingQueue q @hz-ops-q]
-                               [{:path "instant.ephemeral.hz-ops-q.size"
-                                 :value (.size q)}]
-                               []))))
+                      (fn [_] (if-let [^LinkedBlockingQueue q @hz-ops-q]
+                                [{:path "instant.ephemeral.hz-ops-q.size"
+                                  :value (.size q)}]
+                                []))))
 
   (start-hz)
   (ua/fut-bg (start-refresh-worker rs/store-conn ephemeral-store-atom room-refresh-ch))
