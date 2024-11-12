@@ -143,12 +143,12 @@ function init_experimental<
   NetworkListener?: any,
 ): InstantCore<
   Schema,
-  Schema extends InstantGraph<any, infer RoomSchema, any> ? RoomSchema : never,
+  Schema extends InstantGraph<any, any, infer RoomSchema> ? RoomSchema : never,
   WithCardinalityInference
 > {
   return _init_internal<
     Schema,
-    Schema extends InstantGraph<any, infer RoomSchema, any>
+    Schema extends InstantGraph<any, any, infer RoomSchema>
       ? RoomSchema
       : never,
     WithCardinalityInference

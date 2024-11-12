@@ -81,7 +81,7 @@ function init_experimental<
 ) {
   return new InstantReactNative<
     Schema,
-    Schema extends InstantGraph<any, infer RoomSchema, any>
+    Schema extends InstantGraph<any, any, infer RoomSchema>
       ? RoomSchema
       : never,
     WithCardinalityInference
