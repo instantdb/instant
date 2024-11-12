@@ -13,6 +13,7 @@ import IndexedDBStorage from "./IndexedDBStorage";
 import WindowNetworkListener from "./WindowNetworkListener";
 import { i } from "./schema";
 import { createDevtool } from "./devtool";
+import version from "./version";
 
 import type {
   PresenceOpts,
@@ -192,6 +193,7 @@ function _init_internal<
   config: Config,
   Storage?: any,
   NetworkListener?: any,
+  versions?: { [key: string]: string },
 ): InstantCore<Schema, RoomSchema, WithCardinalityInference> {
   const existingClient = globalInstantCoreStore[config.appId] as InstantCore<
     any,
@@ -210,6 +212,7 @@ function _init_internal<
     },
     Storage || IndexedDBStorage,
     NetworkListener || WindowNetworkListener,
+    versions,
   );
 
   const client = new InstantCore<any, RoomSchema, WithCardinalityInference>(
@@ -633,6 +636,7 @@ export {
   InstantCore as InstantClient,
   Auth,
   Storage,
+  version,
 
   // og types
   type IDatabase,

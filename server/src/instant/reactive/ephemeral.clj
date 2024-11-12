@@ -43,13 +43,9 @@
 ;;                                                :chan async/chan}}}
 (defonce room-maps (atom {}))
 
-(defn handle-event [^DataAwareEntryEvent event]
-  (let [{:keys [app-id] :as room-key} (.getKey event)]
-    (when (flags/use-hazelcast? app-id)
-      (when-let [ch (get-in @room-maps [:rooms room-key :chan])]
-        (a/put! ch room-key)))))
+(declare handle-event)
 
-(defn init-hz []
+(defn init-hz [store-conn]
   (System/setProperty "hazelcast.shutdownhook.enabled" "false")
   (let [config (Config.)
         network-config (.getNetworkConfig config)
@@ -85,15 +81,15 @@
                                          (reify
                                            EntryAddedListener
                                            (entryAdded [_ event]
-                                             (handle-event event))
+                                             (handle-event store-conn event))
 
                                            EntryRemovedListener
                                            (entryRemoved [_ event]
-                                             (handle-event event))
+                                             (handle-event store-conn event))
 
                                            EntryUpdatedListener
                                            (entryUpdated [_ event]
-                                             (handle-event event)))
+                                             (handle-event store-conn event)))
                                          ;; Don't send value, since we may not be
                                          ;; interested in this change
                                          false)]
@@ -101,7 +97,7 @@
        :hz-rooms-map hz-rooms-map
        :listener-id listener-id})))
 
-(defonce hz (delay (init-hz)))
+(defonce hz (delay (init-hz rs/store-conn)))
 
 (defn get-hz ^HazelcastInstance []
   (:hz @hz))
@@ -203,6 +199,20 @@
         (straight-jacket-refresh-event! store-conn event)
         (recur (a/<!! ch))))))
 
+(defn handle-event [store-conn ^DataAwareEntryEvent event]
+  (let [{:keys [app-id room-id] :as room-key} (.getKey event)]
+    (when (flags/use-hazelcast? app-id)
+      (when (seq (get-in @room-maps [:rooms room-key :session-ids]))
+        (let [room-data (.get (get-hz-rooms-map) room-key)]
+          (doseq [sess-id (keys room-data)
+                  :let [q (:receive-q (rs/get-socket @store-conn sess-id))]
+                  :when q]
+            (receive-queue/enqueue->receive-q q
+                                              {:op :refresh-presence
+                                               :room-id room-id
+                                               :data room-data
+                                               :session-id sess-id})))))))
+
 (defn get-room-data [app-id room-id]
   (.get (get-hz-rooms-map) (hz-util/room-key app-id room-id)))
 
@@ -217,53 +227,29 @@
   "Registers that the session is following the room and starts a channel
    for the room if one doesn't already exist."
   [app-id room-id sess-id]
-  (let [room-key (hz-util/room-key app-id room-id)
-        chan (a/chan (a/sliding-buffer 1))
-        res (swap!
-             room-maps
-             (fn [m]
-               (-> m
-                   (update-in [:sessions sess-id] (fnil conj #{}) room-id)
-                   ;; Keep track of which sessions are interested in the room
-                   ;; so we can close our channel when the last session leaves
-                   (update-in [:rooms room-key :session-ids]
-                              (fnil conj #{}) sess-id)
-                   (update-in [:rooms room-key :chan]
-                              #(or % chan)))))]
-    (when (= chan (get-in res [:rooms room-key :chan]))
-      ;; We set the chan, so we should create the go block that will
-      ;; shuttle messages from the map listener to the channel that
-      ;; broadcasts the room updates.
-      (a/go-loop []
-        (when-let [room-key (a/<! chan)]
-          (let [complete-chan (a/chan)]
-            (a/>! refresh-map-ch {:room-key room-key
-                                  :room-id room-id
-                                  :on-sent (fn [] (a/close! complete-chan))})
-            ;; Wait until we've finished broadcasting before publishing a new
-            ;; message. Helps to prevent the broadcaster getting overwhelmed.
-            (a/<! complete-chan))
-          (recur))))))
+  (let [room-key (hz-util/room-key app-id room-id)]
+    (swap!
+     room-maps
+     (fn [m]
+       (-> m
+           (update-in [:sessions sess-id] (fnil conj #{}) room-id)
+           ;; Keep track of which sessions are interested in the room
+           ;; so we can close our channel when the last session leaves
+           (update-in [:rooms room-key :session-ids]
+                      (fnil conj #{}) sess-id))))))
 
 (defn remove-session! [app-id room-id sess-id]
-  (let [room-key (hz-util/room-key app-id room-id)
-
-        [old-val new-val]
-        (swap-vals! room-maps
-                    (fn [m]
-                      (let [session-ids (-> m
-                                            (get-in [:rooms room-key :session-ids])
-                                            (disj sess-id))]
-                        (cond-> m
-                          true (disj-in [:sessions sess-id] room-id)
-                          (empty? session-ids) (dissoc-in [:rooms room-key])
-                          (seq session-ids) (assoc-in [:rooms room-key :session-ids]
-                                                      session-ids)))))
-        chan-before (get-in old-val [:rooms room-key :chan])
-        chan-after (get-in new-val [:rooms room-key :chan])]
-    (when (and chan-before (not= chan-before chan-after))
-      ;; The last session left the room, so we should close out the go loop.
-      (a/close! chan-before))
+  (let [room-key (hz-util/room-key app-id room-id)]
+    (swap! room-maps
+           (fn [m]
+             (let [session-ids (-> m
+                                   (get-in [:rooms room-key :session-ids])
+                                   (disj sess-id))]
+               (cond-> m
+                 true (disj-in [:sessions sess-id] room-id)
+                 (empty? session-ids) (dissoc-in [:rooms room-key])
+                 (seq session-ids) (assoc-in [:rooms room-key :session-ids]
+                                             session-ids)))))
 
     (hz-util/remove-session! (get-hz-rooms-map) room-key sess-id)))
 
@@ -423,9 +409,9 @@
        {:name "ephemeral/hazelcast-load-timeout"}))))
 
 (defn start []
+  (def hz (delay (init-hz rs/store-conn)))
   (def ephemeral-store-atom (atom {}))
   (def room-refresh-ch (a/chan (a/sliding-buffer 1)))
-  (def refresh-map-ch (a/chan 1024))
   (def cleanup-gauge (gauges/add-gauge-metrics-fn
                       (fn [_] (if-let [^LinkedBlockingQueue q @hz-ops-q]
                                 [{:path "instant.ephemeral.hz-ops-q.size"
@@ -434,8 +420,6 @@
 
   (start-hz)
   (ua/fut-bg (start-refresh-worker rs/store-conn ephemeral-store-atom room-refresh-ch))
-  (dotimes [_ 32]
-    (ua/vfut-bg (start-refresh-map-worker rs/store-conn refresh-map-ch)))
   (let [q (LinkedBlockingQueue.)]
     (reset! hz-ops-q q)
     (ua/fut-bg (start-hz-sync q))))
@@ -448,8 +432,7 @@
   (reset! hz-ops-q nil)
   (cleanup-gauge)
   (when-let [^HazelcastInstance hz (try (get-hz) (catch Exception _e nil))]
-    (.shutdown hz)
-    (def hz (delay (init-hz)))))
+    (.shutdown hz)))
 
 (defn restart []
   (stop)

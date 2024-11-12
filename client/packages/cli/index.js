@@ -1,9 +1,8 @@
 // @ts-check
 
-import { readFileSync } from "fs";
+import version from "./src/version.js";
 import { mkdir, writeFile, readFile, stat } from "fs/promises";
-import { dirname, join } from "path";
-import { fileURLToPath } from "url";
+import { join } from "path";
 import { randomUUID } from "crypto";
 import dotenv from "dotenv";
 import chalk from "chalk";
@@ -46,10 +45,6 @@ program
   .option("-t --token <TOKEN>", "auth token override")
   .option("-y", "skip confirmation prompt")
   .option("-v --version", "output the version number", () => {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    const version = JSON.parse(
-      readFileSync(join(__dirname, "package.json"), "utf8"),
-    ).version;
     console.log(version);
     process.exit(0);
   });
@@ -720,6 +715,7 @@ async function fetchJson({
       headers: {
         ...(withAuth ? { Authorization: `Bearer ${authToken}` } : {}),
         "Content-Type": "application/json",
+        "Instant-CLI-Version": version,
       },
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(timeoutMs),

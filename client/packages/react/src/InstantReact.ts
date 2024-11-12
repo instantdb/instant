@@ -33,6 +33,7 @@ import {
 } from "react";
 import { useQuery } from "./useQuery";
 import { useTimeout } from "./useTimeout";
+import version from "./version";
 
 export type PresenceHandle<
   PresenceShape,
@@ -314,13 +315,17 @@ export abstract class InstantReact<
   static Storage?: any;
   static NetworkListener?: any;
 
-  constructor(config: Config | ConfigWithSchema<any>) {
+  constructor(
+    config: Config | ConfigWithSchema<any>,
+    versions?: { [key: string]: string },
+  ) {
     this._core = _init_internal<Schema, RoomSchema, WithCardinalityInference>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.Storage,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.NetworkListener,
+      { ...(versions || {}), "@instantdb/react": version },
     );
     this.auth = this._core.auth;
     this.storage = this._core.storage;
