@@ -226,13 +226,8 @@
 (defn format-cookie [^UUID cookie-uuid]
   (str cookie-value-prefix cookie-uuid))
 (defn parse-cookie [v]
-  (cond (string/starts-with? v cookie-value-prefix)
-        (uuid-util/coerce (subs v (count cookie-value-prefix)))
-
-        ;; TODO(dww): remove this legacy code after old cookies expire
-        (= 36 (count v)) (uuid-util/coerce v)
-
-        :else nil))
+  (when (string/starts-with? v cookie-value-prefix)
+    (uuid-util/coerce (subs v (count cookie-value-prefix)))))
 
 (defn oauth-start [{{:keys [state code_challenge code_challenge_method]} :params :as req}]
   (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)

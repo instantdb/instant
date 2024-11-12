@@ -3,7 +3,6 @@
    [clojure.string :as string]
    [clojure.test :as test :refer [are deftest is testing]]
    [instant.admin.model :as admin-model]
-   [instant.dash.routes :refer [insert-users-table!]]
    [instant.data.bootstrap :as bootstrap]
    [instant.data.constants :refer [test-user-id]]
    [instant.data.resolvers :as resolvers]
@@ -1939,7 +1938,6 @@
 (deftest perms-rejects-writes-to-users-table
   (with-empty-app
     (fn [{app-id :id}]
-      (insert-users-table! aurora/conn-pool app-id)
       (let [r (resolvers/make-movies-resolver app-id)
             id (random-uuid)
             make-ctx (fn [] {:db {:conn-pool aurora/conn-pool}
@@ -1966,7 +1964,6 @@
 (deftest perms-accepts-writes-to-reverse-links-to-users-table
   (with-empty-app
     (fn [{app-id :id}]
-      (insert-users-table! aurora/conn-pool app-id)
       (let [r (resolvers/make-movies-resolver app-id)
             book-id-attr-id (random-uuid)
             book-creator-attr-id (random-uuid)
@@ -2003,7 +2000,6 @@
 (deftest perms-accepts-writes-to-reverse-links-to-users-table-with-lookups
   (with-empty-app
     (fn [{app-id :id}]
-      (insert-users-table! aurora/conn-pool app-id)
       (let [r (resolvers/make-movies-resolver app-id)
             book-id-attr-id (random-uuid)
             book-creator-attr-id (random-uuid)
@@ -2065,30 +2061,18 @@
   (with-empty-app
     (fn [{app-id :id :as app}]
       (testing "auth.ref requires $users namespace"
-        (when-not (:users_in_triples app)
-          (is (= [{:message
-                   "auth.ref is only available when the $users namespace is enabled.",
-                   :in ["bookshelves" :allow "update"]}]
-                 (rule-model/validation-errors
-                  (attr-model/get-by-app-id app-id)
-                  {"bookshelves" {"allow" {"update" "auth.ref('$user.a.b')"}}})))
-
-          (insert-users-table! aurora/conn-pool app-id))
         (is (= []
                (rule-model/validation-errors
-                (attr-model/get-by-app-id app-id)
                 {"bookshelves" {"allow" {"update" "auth.ref('$user.a.b')"}}})))
 
         (is (= [{:message "auth.ref arg must start with `$user.`",
                  :in ["bookshelves" :allow "update"]}]
                (rule-model/validation-errors
-                (attr-model/get-by-app-id app-id)
                 {"bookshelves" {"allow" {"update" "auth.ref('a.b')"}}})))))))
 
 (deftest users-write-perms
   (with-empty-app
     (fn [{app-id :id}]
-      (insert-users-table! aurora/conn-pool app-id)
       (let [r (resolvers/make-movies-resolver app-id)
             book-id-attr-id (random-uuid)
             book-creator-attr-id (random-uuid)
@@ -2166,7 +2150,6 @@
 (deftest on-delete-cascade
   (with-empty-app
     (fn [{app-id :id}]
-      (insert-users-table! aurora/conn-pool app-id)
       (let [r (resolvers/make-movies-resolver app-id)
             user-id-attr-id (random-uuid)
             book-id-attr-id (random-uuid)

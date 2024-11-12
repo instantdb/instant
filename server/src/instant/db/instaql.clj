@@ -922,10 +922,7 @@
                                    :forms o}}
     (let [ctx (merge {:datalog-query-fn #'d/query}
                      base-ctx)
-          {:keys [patterns forms referenced-etypes]} (instaql-query->patterns ctx o)
-          ctx (merge ctx
-                     (when (contains? referenced-etypes "$users")
-                       {:users-shim-info (attr-model/users-shim-info (:attrs ctx))}))
+          {:keys [patterns forms]} (instaql-query->patterns ctx o)
           datalog-result ((:datalog-query-fn ctx) ctx patterns)]
       (collect-query-results (:data datalog-result) forms))))
 
@@ -1552,11 +1549,7 @@
   (let [datalog-query [[:ea eid (attr-model/attr-ids-for-etype etype attrs)]]
         datalog-result
         (or (get query-cache datalog-query)
-            (datalog-query-fn (merge ctx
-                                     (when (= etype "$users")
-                                       {:users-shim-info
-                                        (attr-model/users-shim-info (:attrs ctx))}))
-                              datalog-query))]
+            (datalog-query-fn ctx datalog-query))]
     (entity-model/datalog-result->map ctx datalog-result)))
 
 (defn extract-refs

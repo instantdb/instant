@@ -83,7 +83,7 @@
 
 (defn- get-ref-many
   [{:keys [datalog-query-fn] :as ctx} {:keys [etype eids path-str]}]
-  (let [{:keys [pats referenced-etypes]}
+  (let [{:keys [pats]}
         (build-query ctx {:etype etype :eids (set eids) :path-str path-str})
 
         ;; We know that the `eid` is always going to be
@@ -91,11 +91,7 @@
         group-by-path [0 0]
         val-path (find-val-path pats)
         {:keys [join-rows]}
-        (datalog-query-fn (merge ctx
-                                 (when (contains? referenced-etypes "$users")
-                                   {:users-shim-info
-                                    (attr-model/users-shim-info (:attrs ctx))}))
-                          pats)
+        (datalog-query-fn ctx pats)
         grouped-join-rows (group-by #(get-in % group-by-path) join-rows)
         results (map
                  (fn [eid]
@@ -359,7 +355,7 @@
    Returns a map of:
      {{eid: uuid, etype: string, path: string}: get-ref-result}"
   [{:keys [datalog-query-fn] :as ctx} refs]
-  (let [{:keys [patterns referenced-etypes]}
+  (let [{:keys [patterns]}
         (reduce (fn [acc ref-info]
                   (let [{:keys [pats referenced-etypes]}
                         (build-query ctx ref-info)]
@@ -373,12 +369,7 @@
         query {:children {:pattern-groups (map (fn [patterns]
                                                  {:patterns patterns})
                                                patterns)}}
-        results (:data (datalog-query-fn
-                        (merge ctx
-                               (when (contains? referenced-etypes "$users")
-                                 {:users-shim-info
-                                  (attr-model/users-shim-info (:attrs ctx))}))
-                        query))]
+        results (:data (datalog-query-fn ctx query))]
     (reduce (fn [acc [ref pattern result]]
               (let [group-by-path [0 0]
                     val-path (find-val-path pattern)
@@ -400,7 +391,7 @@
                  patterns
                  results))))
 
-(defn make-validator ^CelAstValidator [attrs]
+(def auth-ref-validator ^CelAstValidator 
   (reify CelAstValidator
     (validate [_this ast _cel issues-factory]
       (doseq [^CelNavigableExpr node (-> ast
@@ -422,13 +413,8 @@
                 [obj f] (function-name call)]
             (when (and (= f "ref")
                        (= obj "auth"))
-              (let [users-shim (attr-model/has-$users? attrs)
-                    arg ^CelExpr (first (.args call))
+              (let [arg ^CelExpr (first (.args call))
                     arg-val (ref-arg call)]
-                (when-not users-shim
-                  (.addError issues-factory
-                             (.id expr)
-                             "auth.ref is only available when the $users namespace is enabled."))
                 (when (or (not arg-val)
                           (not (clojure-string/starts-with? arg-val "$user.")))
                   (.addError issues-factory
@@ -437,14 +423,13 @@
                                (.id expr))
                              "auth.ref arg must start with `$user.`"))))))))))
 
-(defn validation-errors [attrs ^CelAbstractSyntaxTree ast]
-  (let [validator (make-validator attrs)]
-    (-> (CelValidatorFactory/standardCelValidatorBuilder cel-compiler
-                                                         cel-runtime)
-        (.addAstValidators (ucoll/array-of CelAstValidator [validator]))
-        (.build)
-        (.validate ast)
-        (.getErrors))))
+(defn validation-errors [^CelAbstractSyntaxTree ast]
+  (-> (CelValidatorFactory/standardCelValidatorBuilder cel-compiler
+                                                       cel-runtime)
+      (.addAstValidators (ucoll/array-of CelAstValidator [auth-ref-validator]))
+      (.build)
+      (.validate ast)
+      (.getErrors)))
 
 (comment
   (def m (->cel-map {:etype "bookshelves"}

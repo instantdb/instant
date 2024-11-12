@@ -18,15 +18,15 @@
 
 (defn create!
   ([params] (create! aurora/conn-pool params))
-  ([conn {:keys [id title creator-id admin-token users-in-triples?]}]
+  ([conn {:keys [id title creator-id admin-token]}]
 
    (next-jdbc/with-transaction [tx-conn conn]
      (let [app (sql/execute-one!
                 tx-conn
-                ["INSERT INTO apps (id, title, creator_id, users_in_triples) VALUES (?::uuid, ?, ?::uuid, ?)"
-                 id title creator-id (if (nil? users-in-triples?)
-                                       true
-                                       users-in-triples?)])
+                (hsql/format {:insert-into :apps
+                              :values [{:id id
+                                        :title title
+                                        :creator-id creator-id}]}))
            {:keys [token]} (app-admin-token-model/create! tx-conn {:app-id id
                                                                    :token admin-token})]
        (assoc app :admin-token token)))))
@@ -221,60 +221,12 @@
   ([conn {:keys [app-id]}]
    (query-op
     conn
-    {:app-id app-id
-     :legacy-op
-     (fn []
-       (sql/select-one
-        conn
-        ["SELECT json_build_object(
-            'oauth_service_providers', (
-              SELECT json_agg(json_build_object(
-                'id', osp.id,
-                'provider_name', osp.provider_name,
-                'created_at', osp.created_at
-              ))
-              FROM (SELECT * FROM app_oauth_service_providers osp
-                      WHERE osp.app_id = a.id
-                      ORDER BY osp.created_at desc)
-              AS osp
-            ),
-            'oauth_clients', (
-              SELECT json_agg(json_build_object(
-                'id', oc.id,
-                'client_name', oc.client_name,
-                'client_id', oc.client_id,
-                'provider_id', oc.provider_id,
-                'created_at', oc.created_at,
-                'meta', oc.meta,
-                'discovery_endpoint', oc.discovery_endpoint
-              ))
-              FROM (SELECT * FROM app_oauth_clients oc
-                     WHERE oc.app_id = a.id
-                     ORDER BY oc.created_at desc)
-              AS oc
-            ),
-            'authorized_redirect_origins', (
-              SELECT json_agg(json_build_object(
-                'id', ro.id,
-                'service', ro.service,
-                'params', ro.params,
-                'created_at', ro.created_at
-              ))
-              FROM (SELECT * from app_authorized_redirect_origins ro
-                     WHERE ro.app_id = a.id
-                     ORDER BY ro.created_at desc)
-              AS ro
-            )
-          ) AS data
-          FROM apps a
-          WHERE a.id = ?::uuid"
-         app-id]))
-     :triples-op
-     (fn [{:keys [admin-query]}]
-       (let [redirect-origins
-             (-> (sql/select-one
-                  conn
-                  ["SELECT json_build_object(
+    {:app-id app-id}
+    (fn [{:keys [admin-query]}]
+      (let [redirect-origins
+            (-> (sql/select-one
+                 conn
+                 ["SELECT json_build_object(
                       'authorized_redirect_origins', (
                         SELECT json_agg(json_build_object(
                           'id', ro.id,
@@ -290,32 +242,32 @@
                     ) AS data
                     FROM apps a
                     WHERE a.id = ?::uuid"
-                   app-id])
-                 (get-in [:data "authorized_redirect_origins"]))
+                  app-id])
+                (get-in [:data "authorized_redirect_origins"]))
 
-             {:strs [$oauthProviders
-                     $oauthClients]}
-             (admin-query {:$oauthProviders {}
-                           :$oauthClients {}})
+            {:strs [$oauthProviders
+                    $oauthClients]}
+            (admin-query {:$oauthProviders {}
+                          :$oauthClients {}})
 
-             providers (map (fn [provider]
-                              {"id" (get provider "id")
-                               "provider_name" (get provider "name")
-                               "created_at" (get provider "$serverCreatedAt")})
-                            $oauthProviders)
+            providers (map (fn [provider]
+                             {"id" (get provider "id")
+                              "provider_name" (get provider "name")
+                              "created_at" (get provider "$serverCreatedAt")})
+                           $oauthProviders)
 
-             clients (map (fn [client]
-                            {"id" (get client "id")
-                             "client_name" (get client "name")
-                             "client_id" (get client "clientId")
-                             "provider_id" (get client "$oauthProvider")
-                             "meta" (get client "meta")
-                             "discovery_endpoint" (get client "discovery_endpoint")
-                             "created_at" (get client "$serverCreatedAt")})
-                          $oauthClients)]
-         {:data {"oauth_service_providers" providers
-                 "oauth_clients" clients
-                 "authorized_redirect_origins" redirect-origins}}))})))
+            clients (map (fn [client]
+                           {"id" (get client "id")
+                            "client_name" (get client "name")
+                            "client_id" (get client "clientId")
+                            "provider_id" (get client "$oauthProvider")
+                            "meta" (get client "meta")
+                            "discovery_endpoint" (get client "discovery_endpoint")
+                            "created_at" (get client "$serverCreatedAt")})
+                         $oauthClients)]
+        {:data {"oauth_service_providers" providers
+                "oauth_clients" clients
+                "authorized_redirect_origins" redirect-origins}})))))
 
 (defn delete-by-id!
   ([params] (delete-by-id! aurora/conn-pool params))
@@ -403,13 +355,6 @@
                       (crypt-util/aead-encrypt {:plaintext (.getBytes ^String connection-string)
                                                 :associated-data (uuid-util/->bytes app-id)})
                       app-id])))
-
-(defn set-users-in-triples!
-  ([params] (set-users-in-triples! aurora/conn-pool params))
-  ([conn {:keys [app-id users-in-triples]}]
-   (sql/execute-one! conn ["update apps set users_in_triples = ?::boolean where id = ?::uuid"
-                           users-in-triples
-                           app-id])))
 
 (comment
   (app-usage aurora/conn-pool {:app-id "5cb86bd5-5dfb-4489-a455-78bb86cd3da3"}))
