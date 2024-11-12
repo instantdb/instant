@@ -534,11 +534,6 @@ async function pushSchema(appIdOrName, opts) {
   const schema = await readLocalSchemaFileWithErrorLogging();
   if (!schema) return;
 
-  const okStart = await promptOk(
-    "Pushing schema.  This will immediately overwrite your production schema. OK to proceed?",
-  );
-  if (!okStart) return;
-
   console.log("Planning...");
 
   const planRes = await fetchJson({
