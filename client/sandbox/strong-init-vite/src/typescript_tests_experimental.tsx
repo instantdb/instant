@@ -1,6 +1,9 @@
 import {
   id,
   init_experimental as core_init_experimental,
+  InstantQuery,
+  InstantEntity,
+  InstantQueryResult,
 } from "@instantdb/core";
 import { init_experimental as react_init_experimental } from "@instantdb/react";
 import { init_experimental as react_native_init_experimental } from "@instantdb/react-native";
@@ -57,6 +60,43 @@ coreDB.tx.messages[id()]
   .update({ content: "Hello world" })
   .link({ creator: "foo" });
 
+// type helpers
+type CoreDB = typeof coreDB;
+const coreMessagesQuery = {
+  messages: {
+    creator: {},
+  },
+} satisfies InstantQuery<CoreDB>;
+
+type CoreMessage = InstantEntity<CoreDB, "messages">;
+let coreMessage: CoreMessage = 1 as any;
+coreMessage.content;
+
+type CoreMessageWithCreator = InstantEntity<
+  CoreDB,
+  "messages",
+  { creator: {} }
+>;
+let coreMessageWithCreator: CoreMessageWithCreator = 1 as any;
+coreMessageWithCreator.creator?.id;
+
+type MessageCreatorResult = InstantQueryResult<
+  CoreDB,
+  typeof coreMessagesQuery
+>;
+function subMessagesWithCreator(
+  resultCB: (data: MessageCreatorResult) => void,
+) {
+  coreDB.subscribeQuery(coreMessagesQuery, (result) => {
+    if (result.data) {
+      resultCB(result.data);
+    }
+  });
+}
+
+// to silence ts warnings
+((..._args) => {})(coreMessagesQuery, subMessagesWithCreator);
+
 // ----
 // React
 
@@ -96,6 +136,38 @@ function ReactNormalApp() {
   );
 }
 
+// type helpers
+type ReactDB = typeof reactDB;
+const reactMessagesQuery = {
+  messages: {
+    creator: {},
+  },
+} satisfies InstantQuery<ReactDB>;
+
+type ReactMessage = InstantEntity<ReactDB, "messages">;
+let reactMessage: ReactMessage = 1 as any;
+reactMessage.content;
+
+type ReactMessageWithCreator = InstantEntity<
+  ReactDB,
+  "messages",
+  { creator: {} }
+>;
+let reactMessageWithCreator: ReactMessageWithCreator = 1 as any;
+reactMessageWithCreator.creator?.id;
+
+type ReactMessageCreatorResult = InstantQueryResult<
+  ReactDB,
+  typeof reactMessagesQuery
+>;
+function useMessagesWithCreator(): ReactMessageCreatorResult | undefined {
+  const result = reactDB.useQuery(reactMessagesQuery);
+  return result.data;
+}
+
+// to silence ts warnings
+((..._args) => {})(reactMessagesQuery, useMessagesWithCreator);
+
 // ----
 // React-Native
 
@@ -129,6 +201,40 @@ function ReactNativeNormalApp() {
   );
 }
 
+// type helpers
+type ReactNativeDB = typeof reactNativeDB;
+const reactNativeMessagesQuery = {
+  messages: {
+    creator: {},
+  },
+} satisfies InstantQuery<ReactNativeDB>;
+
+type ReactNativeMessage = InstantEntity<ReactNativeDB, "messages">;
+let reactNativeMessage: ReactNativeMessage = 1 as any;
+reactNativeMessage.content;
+
+type ReactNativeMessageWithCreator = InstantEntity<
+  ReactNativeDB,
+  "messages",
+  { creator: {} }
+>;
+let reactNativeMessageWithCreator: ReactNativeMessageWithCreator = 1 as any;
+reactNativeMessageWithCreator.creator?.id;
+
+type ReactNativeMessageCreatorResult = InstantQueryResult<
+  ReactNativeDB,
+  typeof reactNativeMessagesQuery
+>;
+function useMessagesWithCreatorRN():
+  | ReactNativeMessageCreatorResult
+  | undefined {
+  const result = reactNativeDB.useQuery(reactNativeMessagesQuery);
+  return result.data;
+}
+
+// to silence ts warnings
+((..._args) => {})(reactNativeMessagesQuery, useMessagesWithCreatorRN);
+
 // ----
 // Admin
 
@@ -148,6 +254,39 @@ await adminDB.transact(
     .update({ content: "Hello world" })
     .link({ creator: "foo" }),
 );
+
+// type helpers
+type AdminDB = typeof adminDB;
+const adminMessagesQuery = {
+  messages: {
+    creator: {},
+  },
+} satisfies InstantQuery<AdminDB>;
+
+type AdminMessage = InstantEntity<AdminDB, "messages">;
+let adminMessage: AdminMessage = 1 as any;
+adminMessage.content;
+
+type AdminMessageWithCreator = InstantEntity<
+  AdminDB,
+  "messages",
+  { creator: {} }
+>;
+let adminMessageWithCreator: AdminMessageWithCreator = 1 as any;
+adminMessageWithCreator.creator?.id;
+
+type AdminMessageCreatorResult = InstantQueryResult<
+  AdminDB,
+  typeof adminMessagesQuery
+>;
+
+async function getMessagesWithCreator(): Promise<AdminMessageCreatorResult> {
+  const result = await adminDB.query(adminMessagesQuery);
+  return result;
+}
+
+// to silence ts warnings
+((..._args) => {})(adminMessagesQuery, getMessagesWithCreator);
 
 // to silence ts warnings
 export { ReactNormalApp, ReactNativeNormalApp };
