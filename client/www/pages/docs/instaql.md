@@ -369,11 +369,13 @@ console.log(data)
 
 ## Pagination
 
-You can limit the number of items returned by adding a `limit` to the option map:
+You can limit the number of items from a top level namespace by adding a `limit` to the option map:
 
 ```javascript
 const query = {
   todos: {
+    // limit is only supported for top-level namespaces right now
+    // and not for nested namespaces.
     $: { limit: 10 },
   },
 };
@@ -381,7 +383,8 @@ const query = {
 const { isLoading, error, data, pageInfo } = db.useQuery(query);
 ```
 
-Instant supports both offset-based and cursor-based pagination.
+Instant supports both offset-based and cursor-based pagination for top-level
+namespaces.
 
 ### Offset
 
@@ -392,6 +395,7 @@ const query = {
   todos: {
     $: {
       limit: 10,
+      // similar to `limit`, `offset` is only supported for top-level namespaces
       offset: 10,
     },
   },
@@ -439,6 +443,7 @@ You can also get the next page with the `endCursor` returned in the `pageInfo` m
 const query = {
   todos: {
     $: {
+      // These also are only supported for top-level namespaces
       first: 10,
       after: pageInfo?.todos?.endCursor,
     },
@@ -498,13 +503,14 @@ const loadPreviousPage = () => {
 
 ### Ordering
 
-The default ordering is by the time the objects were created, in ascending order. You can change the order with the `order` key in the option map:
+The default ordering is by the time the objects were created, in ascending order. You can change the order with the `order` key in the option map for top-level namespaces:
 
 ```javascript
 const query = {
   todos: {
     $: {
       limit: 10,
+      // Similar to limit, order is limited to top-level namespaces right now
       order: {
         serverCreatedAt: 'desc',
       },
