@@ -260,7 +260,7 @@
 (comment
   (kw-table-name "app_oauth_codes"))
 
-(defn extract-triple-from-constraint [{:keys [table constraint detail]}]
+(defn extract-triple-from-constraint [{:keys [table detail]}]
   (when (and (= table "triples")
              detail
              (string/starts-with? detail "Failing row contains"))

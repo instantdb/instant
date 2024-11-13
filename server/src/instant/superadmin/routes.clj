@@ -133,8 +133,8 @@
         client-defs (-> req :body :schema)
         check-types? (-> req :body :check_types)
         background-updates? (-> req :body :supports_background_updates)]
-    (response/ok (schema-model/plan! app-id
-                                     {:check-types? check-types?
+    (response/ok (schema-model/plan! {:app-id app-id
+                                      :check-types? check-types?
                                       :background-updates? background-updates?}
                                      client-defs))))
 
@@ -143,8 +143,8 @@
         client-defs (-> req :body :schema)
         check-types? (-> req :body :check_types)
         background-updates? (-> req :body :supports_background_updates)
-        plan (schema-model/plan! app-id
-                                 {:check-types? check-types?
+        plan (schema-model/plan! {:app-id app-id
+                                  :check-types? check-types?
                                   :background-updates? background-updates?}
                                  client-defs)
         plan-result (schema-model/apply-plan! app-id plan)]
