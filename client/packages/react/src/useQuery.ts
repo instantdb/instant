@@ -9,6 +9,7 @@ import {
   type InstantGraph,
   InstantClientExperimental,
   LifecycleSubscriptionStateExperimental,
+  InstantSchemaV2,
 } from "@instantdb/core";
 import { useCallback, useRef, useSyncExternalStore } from "react";
 
@@ -92,10 +93,9 @@ export function useQuery<
   return { state, query };
 }
 
-// XXX-EXPERIMENTAL
 export function useQueryExperimental<
   Q extends InstaQLQueryParams<Schema>,
-  Schema extends InstantGraph<any, any, any>,
+  Schema extends InstantSchemaV2<any, any, any>,
 >(
   _core: InstantClientExperimental<Schema>,
   _query: null | Q,

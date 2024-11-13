@@ -2,10 +2,12 @@ import {
   EntityDef,
   DataAttrDef,
   InstantGraph,
+  InstantSchemaV2,
   type EntitiesDef,
   type AttrsDefs,
   type EntitiesWithLinks,
   type LinksDef,
+  type RoomsDef,
 } from "./schemaTypes";
 
 // ==========
@@ -148,9 +150,36 @@ type LinksIndex = Record<
   Record<string, Record<string, { entityName: string; cardinality: string }>>
 >;
 
+// XXX: add docstring
+function schema<
+  EntitiesWithoutLinks extends EntitiesDef,
+  const Links extends LinksDef<EntitiesWithoutLinks>,
+  Rooms extends RoomsDef,
+>({
+  entities,
+  links,
+  rooms,
+}: {
+  entities: EntitiesWithoutLinks;
+  links: Links;
+  rooms: Rooms;
+}) {
+  return new InstantSchemaV2(
+    enrichEntitiesWithLinks<EntitiesWithoutLinks, Links>(entities, links),
+    // (XXX): LinksDef<any> stems from TypeScript’s inability to reconcile the
+    // type EntitiesWithLinks<EntitiesWithoutLinks, Links> with
+    // EntitiesWithoutLinks. TypeScript is strict about ensuring that types are
+    // correctly aligned and does not allow for substituting a type that might
+    // be broader or have additional properties.
+    links as LinksDef<any>,
+    rooms,
+  );
+}
+
 export const i = {
   // constructs
   graph,
+  schema,
   entity,
   // value types
   string,

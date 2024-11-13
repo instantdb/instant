@@ -1,7 +1,9 @@
 import type {
   // types
   Config,
+  ConfigExperimental,
   InstantGraph,
+  InstantSchemaV2,
   RoomSchemaShape,
 } from "@instantdb/core";
 import { InstantReactWeb } from "./InstantReactWeb";
@@ -53,13 +55,7 @@ export function init_experimental<
 }
 
 export function init_experimental_v2<
-  Schema extends InstantGraph<any, any, any>,
->(
-  config: Config & {
-    schema: Schema;
-  },
-) {
-  return new InstantReactWebExperimental<
-    Schema
-  >(config);
+  Schema extends InstantSchemaV2<any, any, any>,
+>(config: ConfigExperimental<Schema>) {
+  return new InstantReactWebExperimental<Schema>(config);
 }

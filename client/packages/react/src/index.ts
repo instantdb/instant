@@ -31,6 +31,8 @@ import {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
+  type InstantEntityExperimental,
+  type InstaQLQueryResultExperimental,
 } from "@instantdb/core";
 
 import { InstantReact } from "./InstantReact";
@@ -81,4 +83,6 @@ export {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
+  type InstantEntityExperimental,
+  type InstaQLQueryResultExperimental,
 };

@@ -1,6 +1,6 @@
-import type { InstantGraph, RoomSchemaShape } from "@instantdb/core";
+import type { InstantSchemaV2 } from "@instantdb/core";
 import { InstantReactExperimental } from "./InstantReactExperimental";
 
 export class InstantReactWebExperimental<
-  Schema extends InstantGraph<any, any>
+  Schema extends InstantSchemaV2<any, any, any>,
 > extends InstantReactExperimental<Schema> {}

@@ -1,31 +1,24 @@
 import {
   // types
-  InstantClient,
   Auth,
   Storage,
   txInit,
   _init_internal,
-  i,
   type AuthState,
-  type Config,
-  type Query,
-  type Exactly,
   type TransactionChunk,
-  type LifecycleSubscriptionState,
   type PresenceOpts,
   type PresenceResponse,
   type RoomSchemaShape,
   type InstaQLQueryParams,
-  type ConfigWithSchema,
-  type IDatabase,
-  type InstantGraph,
-  type QueryResponse,
+  type ConfigExperimental,
   type PageInfoResponse,
   InstantClientExperimental,
   _init_internal_experimental_v2,
   LifecycleSubscriptionStateExperimental,
   QueryResponseExperimental,
   RoomsOf,
+  InstantSchemaV2,
+  IDatabaseExperimental,
 } from "@instantdb/core";
 import {
   KeyboardEvent,
@@ -38,7 +31,6 @@ import {
 } from "react";
 import { useQueryExperimental } from "./useQuery";
 import { useTimeout } from "./useTimeout";
-import { IDatabaseExperimental } from "@instantdb/core/dist/module/coreTypes";
 
 export type PresenceHandle<
   PresenceShape,
@@ -66,7 +58,7 @@ export type TypingIndicatorHandle<PresenceShape> = {
 export const defaultActivityStopTimeout = 1_000;
 
 export class InstantReactRoomExperimental<
-  Schema extends InstantGraph<any, any>,
+  Schema extends InstantSchemaV2<any, any, any>,
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
 > {
@@ -302,12 +294,11 @@ const defaultAuthState = {
 };
 
 export abstract class InstantReactExperimental<
-  Schema extends InstantGraph<any, any>,
-  Rooms extends RoomSchemaShape = RoomsOf<Schema>
+  Schema extends InstantSchemaV2<any, any, any>,
+  Rooms extends RoomSchemaShape = RoomsOf<Schema>,
 > implements IDatabaseExperimental<Schema>
 {
-  public tx =
-    txInit<Schema>();
+  public tx = txInit<Schema>();
 
   public auth: Auth;
   public storage: Storage;
@@ -316,7 +307,7 @@ export abstract class InstantReactExperimental<
   static Storage?: any;
   static NetworkListener?: any;
 
-  constructor(config: Config | ConfigWithSchema<any>) {
+  constructor(config: ConfigExperimental<Schema>) {
     this._core = _init_internal_experimental_v2<Schema>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
@@ -406,9 +397,7 @@ export abstract class InstantReactExperimental<
    *  // skip if `user` is not logged in
    *  db.useQuery(auth.user ? { goals: {} } : null)
    */
-  useQuery = <
-    Q extends InstaQLQueryParams<Schema>
-  >(
+  useQuery = <Q extends InstaQLQueryParams<Schema>>(
     query: null | Q,
   ): LifecycleSubscriptionStateExperimental<Q, Schema> => {
     return useQueryExperimental(this._core, query).state;
@@ -479,9 +468,7 @@ export abstract class InstantReactExperimental<
    *  const resp = await db.queryOnce({ goals: {} });
    *  console.log(resp.data.goals)
    */
-  queryOnce = <
-    Q extends InstaQLQueryParams<Schema>,
-  >(
+  queryOnce = <Q extends InstaQLQueryParams<Schema>>(
     query: Q,
   ): Promise<{
     data: QueryResponseExperimental<Q, Schema>;

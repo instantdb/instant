@@ -41,7 +41,11 @@ import {
   type ResolveAttrs,
   type ValueTypes,
   type InstantEntity,
-  ConfigWithSchema,
+  type ConfigWithSchema,
+  type InstantEntityExperimental,
+  type InstaQLQueryResultExperimental,
+  type ConfigExperimental,
+  InstantSchemaV2,
 } from "@instantdb/core";
 import { InstantReactExperimental } from "@instantdb/react/dist/module/InstantReactExperimental";
 
@@ -89,10 +93,8 @@ function init_experimental<
   >(config);
 }
 
-function init_experimental_v2<Schema extends InstantGraph<any, any, any>>(
-  config: Config & {
-    schema: Schema;
-  },
+function init_experimental_v2<Schema extends InstantSchemaV2<any, any, any>>(
+  config: ConfigExperimental<Schema>,
 ) {
   return new InstantReactNativeExperimental<Schema>(config);
 }
@@ -111,7 +113,7 @@ class InstantReactNative<
 }
 
 class InstantReactNativeExperimental<
-  Schema extends InstantGraph<any, any, any>,
+  Schema extends InstantSchemaV2<any, any, any>,
 > extends InstantReactExperimental<Schema> {
   static Storage = Storage;
   static NetworkListener = NetworkListener;
@@ -154,4 +156,6 @@ export {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
+  type InstantEntityExperimental,
+  type InstaQLQueryResultExperimental,
 };

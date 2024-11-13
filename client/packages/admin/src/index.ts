@@ -38,6 +38,7 @@ import {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
+  type InstantSchemaV2,
 } from "@instantdb/core";
 
 import version from "./version";
@@ -59,6 +60,16 @@ type Config = {
   apiURI?: string;
 };
 
+type ConfigExperimental<Schema extends InstantSchemaV2<any, any, any>> = {
+  appId: string;
+  adminToken: string;
+  apiURI?: string;
+  schema: Schema;
+};
+
+type FilledConfigExperimental<Schema extends InstantSchemaV2<any, any, any>> =
+  ConfigExperimental<Schema> & { apiURI: string };
+
 type FilledConfig = Config & { apiURI: string };
 
 type ImpersonationOpts =
@@ -67,6 +78,16 @@ type ImpersonationOpts =
   | { guest: boolean };
 
 function configWithDefaults(config: Config): FilledConfig {
+  const defaultConfig = {
+    apiURI: "https://api.instantdb.com",
+  };
+  const r = { ...defaultConfig, ...config };
+  return r;
+}
+
+function configWithDefaultsExperimental<
+  Schema extends InstantSchemaV2<any, any, any>,
+>(config: ConfigExperimental<Schema>): FilledConfigExperimental<Schema> {
   const defaultConfig = {
     apiURI: "https://api.instantdb.com",
   };
@@ -177,10 +198,8 @@ function init_experimental<
   return new InstantAdmin<Schema, WithCardinalityInference>(config);
 }
 
-function init_experimental_v2<Schema extends InstantGraph<any, any, any>>(
-  config: Config & {
-    schema: Schema;
-  },
+function init_experimental_v2<Schema extends InstantSchemaV2<any, any, any>>(
+  config: ConfigExperimental<Schema>,
 ) {
   return new InstantAdminExperimental<Schema>(config);
 }
@@ -693,16 +712,16 @@ class Storage {
  * @example
  *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
  */
-class InstantAdminExperimental<Schema extends InstantGraph<any, any>> {
-  config: FilledConfig;
+class InstantAdminExperimental<Schema extends InstantSchemaV2<any, any, any>> {
+  config: FilledConfigExperimental<Schema>;
   auth: Auth;
   storage: Storage;
   impersonationOpts?: ImpersonationOpts;
 
   public tx = txInit<Schema>();
 
-  constructor(_config: Config) {
-    this.config = configWithDefaults(_config);
+  constructor(_config: ConfigExperimental<Schema>) {
+    this.config = configWithDefaultsExperimental(_config);
     this.auth = new Auth(this.config);
     this.storage = new Storage(this.config);
   }
@@ -742,17 +761,12 @@ class InstantAdminExperimental<Schema extends InstantGraph<any, any>> {
   query = <Q extends InstaQLQueryParams<Schema>>(
     query: Q,
   ): Promise<QueryResponseExperimental<Q, Schema>> => {
-    const withInference =
-      "cardinalityInference" in this.config
-        ? Boolean(this.config.cardinalityInference)
-        : true;
-
     return jsonFetch(`${this.config.apiURI}/admin/query`, {
       method: "POST",
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({
         query: query,
-        "inference?": withInference,
+        "inference?": true,
       }),
     });
   };

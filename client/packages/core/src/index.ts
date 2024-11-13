@@ -30,6 +30,8 @@ import type {
   Exactly,
   InstantObject,
   InstaQLQueryParams,
+  InstantEntityExperimental,
+  InstaQLQueryResultExperimental,
 } from "./queryTypes";
 import type { AuthState, User, AuthResult } from "./clientTypes";
 import type {
@@ -46,6 +48,8 @@ import type {
   EntitiesDef,
   EntitiesWithLinks,
   EntityDef,
+  RoomsDef,
+  InstantSchemaV2,
   InstantGraph,
   LinkAttrDef,
   LinkDef,
@@ -66,6 +70,14 @@ export type Config = {
   websocketURI?: string;
   apiURI?: string;
   devtool?: boolean;
+};
+
+export type ConfigExperimental<S extends InstantSchemaV2<any, any, any>> = {
+  appId: string;
+  websocketURI?: string;
+  apiURI?: string;
+  devtool?: boolean;
+  schema: S;
 };
 
 export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {
@@ -638,12 +650,7 @@ function coerceQuery(o: any) {
   return JSON.parse(JSON.stringify(o));
 }
 
-// XXX--EXPERIMENTALV2
-
-// ----------------
-// XXX-EXPERIMENTAL
-
-class InstantCoreExperimental<Schema extends InstantGraph<any, any>>
+class InstantCoreExperimental<Schema extends InstantSchemaV2<any, any, any>>
   implements IDatabaseExperimental<Schema>
 {
   public _reactor: Reactor<RoomsOf<Schema>>;
@@ -806,10 +813,8 @@ class InstantCoreExperimental<Schema extends InstantGraph<any, any>>
   }
 }
 
-function init_experimental_v2<Schema extends InstantGraph<any, any, any>>(
-  config: Config & {
-    schema: Schema;
-  },
+function init_experimental_v2<Schema extends InstantSchemaV2<any, any, any>>(
+  config: ConfigExperimental<Schema>,
   Storage?: any,
   NetworkListener?: any,
 ): InstantCoreExperimental<Schema> {
@@ -821,7 +826,7 @@ function init_experimental_v2<Schema extends InstantGraph<any, any, any>>(
 }
 
 function _init_internal_experimental_v2<
-  Schema extends InstantGraph<any, any, any>,
+  Schema extends InstantSchemaV2<any, any, any>,
 >(
   config: Config,
   Storage?: any,
@@ -894,6 +899,7 @@ export {
 
   // og types
   type IDatabase,
+  type IDatabaseExperimental,
   type RoomSchemaShape,
   type Query,
   type QueryResponse,
@@ -931,7 +937,9 @@ export {
   type EntitiesDef,
   type EntitiesWithLinks,
   type EntityDef,
+  type RoomsDef,
   type InstantGraph,
+  type InstantSchemaV2,
   type LinkAttrDef,
   type LinkDef,
   type LinksDef,
@@ -940,4 +948,6 @@ export {
   type RoomsOf,
   type PresenceOf,
   type TopicsOf,
+  type InstantEntityExperimental,
+  type InstaQLQueryResultExperimental,
 };

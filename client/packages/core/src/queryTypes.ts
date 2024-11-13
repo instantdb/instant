@@ -4,9 +4,12 @@
 import { IDatabase } from "./coreTypes";
 import type {
   EntitiesDef,
+  IInstantDataSchema,
   InstantGraph,
+  InstantSchemaV2,
   LinkAttrDef,
   ResolveAttrs,
+  ResolveEntityAttrs,
 } from "./schemaTypes";
 
 // NonEmpty disallows {}, so that you must provide at least one field
@@ -102,9 +105,9 @@ type QueryResponse<
     : ResponseOf<{ [K in keyof Q]: Remove$<Q[K]> }, Schema>;
 
 type QueryResponseExperimental<Q, Schema> =
-  Schema extends InstantGraph<infer E, any>
-    ? InstaQLQueryResultExperimental<E, Q>
-    : ResponseOf<{ [K in keyof Q]: Remove$<Q[K]> }, Schema>;
+  Schema extends IInstantDataSchema<any, any>
+    ? InstaQLQueryResultExperimental<Schema, Q>
+    : never;
 
 type PageInfoResponse<T> = {
   [K in keyof T]: {
@@ -145,27 +148,27 @@ type Exactly<Parent, Child> = Parent & {
 // InstaQL helpers
 
 type InstaQLQueryEntityLinksResultExperimental<
-  Entities extends EntitiesDef,
-  EntityName extends keyof Entities,
+  Schema extends IInstantDataSchema<EntitiesDef, any>,
+  EntityName extends keyof Schema["entities"],
   Query extends {
-    [LinkAttrName in keyof Entities[EntityName]["links"]]?: any;
+    [LinkAttrName in keyof Schema["entities"][EntityName]["links"]]?: any;
   },
 > = {
-  [QueryPropName in keyof Query]: Entities[EntityName]["links"][QueryPropName] extends LinkAttrDef<
+  [QueryPropName in keyof Query]: Schema["entities"][EntityName]["links"][QueryPropName] extends LinkAttrDef<
     infer Cardinality,
     infer LinkedEntityName
   >
-    ? LinkedEntityName extends keyof Entities
+    ? LinkedEntityName extends keyof Schema["entities"]
       ? Cardinality extends "one"
         ?
-            | InstaQLQueryEntityResultExperimental<
-                Entities,
+            | InstantEntityExperimental<
+                Schema,
                 LinkedEntityName,
                 Query[QueryPropName]
               >
             | undefined
-        : InstaQLQueryEntityResultExperimental<
-            Entities,
+        : InstantEntityExperimental<
+            Schema,
             LinkedEntityName,
             Query[QueryPropName]
           >[]
@@ -212,14 +215,14 @@ type InstaQLQueryEntityLinksResult<
     : never;
 };
 
-type InstaQLQueryEntityResultExperimental<
-  Entities extends EntitiesDef,
-  EntityName extends keyof Entities,
-  Query extends {
-    [QueryPropName in keyof Entities[EntityName]["links"]]?: any;
-  },
-> = { id: string } & ResolveAttrs<Entities, EntityName> &
-  InstaQLQueryEntityLinksResultExperimental<Entities, EntityName, Query>;
+type InstantEntityExperimental<
+  Schema extends IInstantDataSchema<EntitiesDef, any>,
+  EntityName extends keyof Schema["entities"],
+  Subquery extends {
+    [QueryPropName in keyof Schema["entities"][EntityName]["links"]]?: any;
+  } = {},
+> = { id: string } & ResolveEntityAttrs<Schema["entities"][EntityName]> &
+  InstaQLQueryEntityLinksResultExperimental<Schema, EntityName, Subquery>;
 
 type InstaQLQueryEntityResult<
   Entities extends EntitiesDef,
@@ -251,18 +254,17 @@ type InstaQLQueryResult<
     : never;
 };
 
-type InstaQLQueryResultExperimental<Entities extends EntitiesDef, Query> = {
-  [QueryPropName in keyof Query]: QueryPropName extends keyof Entities
-    ? InstaQLQueryEntityResultExperimental<
-        Entities,
-        QueryPropName,
-        Query[QueryPropName]
-      >[]
+type InstaQLQueryResultExperimental<
+  Schema extends IInstantDataSchema<EntitiesDef, any>,
+  Query,
+> = {
+  [QueryPropName in keyof Query]: QueryPropName extends keyof Schema["entities"]
+    ? InstantEntityExperimental<Schema, QueryPropName, Query[QueryPropName]>[]
     : never;
 };
 
 type InstaQLQuerySubqueryParams<
-  S extends InstantGraph<any, any>,
+  S extends IInstantDataSchema<any, any>,
   E extends keyof S["entities"],
 > = {
   [K in keyof S["entities"][E]["links"]]?:
@@ -274,7 +276,7 @@ type InstaQLQuerySubqueryParams<
         >);
 };
 
-type InstaQLQueryParams<S extends InstantGraph<any, any>> = {
+type InstaQLQueryParams<S extends IInstantDataSchema<any, any>> = {
   [K in keyof S["entities"]]?:
     | $Option
     | ($Option & InstaQLQuerySubqueryParams<S, K>);
@@ -291,7 +293,7 @@ export {
   InstaQLQueryResult,
   InstaQLQueryParams,
   InstaQLQueryEntityResult,
-  InstaQLQueryEntityResultExperimental,
+  InstantEntityExperimental,
   InstaQLQueryResultExperimental,
   Cursor,
 };

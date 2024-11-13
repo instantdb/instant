@@ -1,6 +1,6 @@
 import { TxChunk } from "./instatx";
 import { RoomSchemaShape } from "./presence";
-import type { InstantGraph } from "./schemaTypes";
+import type { InstantGraph, InstantSchemaV2 } from "./schemaTypes";
 
 export interface IDatabase<
   Schema extends InstantGraph<any, any> | {} = {},
@@ -14,11 +14,8 @@ export interface IDatabase<
   withCardinalityInference?: WithCardinalityInference;
 }
 
-// ----------------
-// XXX-EXPERIMENTAL
-
 export interface IDatabaseExperimental<
-  Schema extends InstantGraph<any, any, any>,
+  Schema extends InstantSchemaV2<any, any, any>,
 > {
   tx: TxChunk<Schema>;
 }
