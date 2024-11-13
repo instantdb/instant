@@ -52,7 +52,7 @@ export type InstantIndexingJob = {
     | 'canceled'
     | 'errored'
     | string;
-  job_stage: 'string';
+  job_stage: string;
   work_estimate: number | null | undefined;
   work_completed: number | null | undefined;
   error:
