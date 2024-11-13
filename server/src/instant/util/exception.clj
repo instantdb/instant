@@ -303,6 +303,13 @@
                  ::pg-error-data data}
                 e))
 
+      ;; This could be other things besides a timeout,
+      ;; but we don't have any way to check :/
+      :query-canceled
+      (throw+ {::type ::timeout
+               ::message "The query took too long to complete."}
+              e)
+
       :raise-exception
       (throw+ {::type ::sql-raise
                ::message (format "Raised Exception: %s" server-message)
