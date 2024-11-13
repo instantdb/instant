@@ -91,9 +91,9 @@ function Demo() {
   inputIndicator.active[0]?.__notInSchema;
 
   useEffect(() => {
-    const room = db.room('demo-room');
-    const presence = room.usePresence({keys: ['test']});
-    const user = presence.user;
+    const user = db._core.joinRoom("demo-room", roomId).getPresence({
+      keys: ["test"],
+    }).user;
 
     user?.test;
     // @ts-expect-error
