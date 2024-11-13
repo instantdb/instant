@@ -23,6 +23,7 @@ import {
   CheckedDataType,
   DBAttr,
   InstantIndexingJob,
+  InstantIndexingJobInvalidTriple,
   SchemaAttr,
   SchemaNamespace,
 } from '@/lib/types';
@@ -457,6 +458,367 @@ function jobWorkingStatus(job: InstantIndexingJob | null) {
   return `${percent}% complete...`;
 }
 
+function InvalidTriplesSample({
+  job,
+  attr,
+  onClickSample,
+}: {
+  job: InstantIndexingJob | null;
+  attr: SchemaAttr;
+  onClickSample: (triple: InstantIndexingJobInvalidTriple) => void;
+}) {
+  if (!job?.invalid_triples_sample?.length) {
+    return;
+  }
+  return (
+    <div>
+      Here are the first few invalid entities we found:
+      <table className="mx-2 my-2 flex-1 text-left font-mono text-xs text-gray-500">
+        <thead className="bg-white text-gray-700">
+          <tr>
+            <th className="pr-2">id</th>
+            <th className="pr-2 max-w-fit">{attr.name}</th>
+            <th className="pr-2">type</th>
+          </tr>
+        </thead>
+        <tbody>
+          {job.invalid_triples_sample.slice(0, 3).map((t, i) => (
+            <tr
+              key={i}
+              className="cursor-pointer whitespace-nowrap rounded-md px-2 hover:bg-gray-200"
+              onClick={() => onClickSample(t)}
+            >
+              <td className="pr-2">
+                <pre>{t.entity_id}</pre>
+              </td>
+              <td className="pr-2 truncate" style={{ maxWidth: "12rem" }}>
+                {JSON.stringify(t.value)}
+              </td>
+              <td className="pr-2">{t.json_type}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function EditIndexed({
+  appId,
+  attr,
+  readOnly,
+  pushNavStack,
+}: {
+  appId: string;
+  attr: SchemaAttr;
+  readOnly: boolean;
+  pushNavStack: PushNavStack;
+}) {
+  const token = useAuthToken();
+  const [indexChecked, setIndexChecked] = useState(attr.isIndex);
+  const [indexingJob, setIndexingJob] = useState<InstantIndexingJob | null>(
+    null,
+  );
+
+  const stopFetchLoop = useRef<null | (() => void)>(null);
+
+  useEffect(() => {
+    return () => stopFetchLoop.current?.();
+  }, [stopFetchLoop]);
+  const updateIndexed = async () => {
+    if (!token || indexChecked === attr.isIndex) {
+      return;
+    }
+    stopFetchLoop.current?.();
+    const friendlyName = `${attr.namespace}.${attr.name}`;
+    try {
+      const job = await createJob(
+        {
+          appId,
+          attrId: attr.id,
+          jobType: indexChecked ? 'index' : 'remove-index',
+        },
+        token,
+      );
+      setIndexingJob(job);
+      const fetchLoop = jobFetchLoop(appId, job.id, token);
+      stopFetchLoop.current = fetchLoop.stop;
+      const finishedJob = await fetchLoop.start((data, error) => {
+        if (error) {
+          errorToast(`Unexpected error while indexing ${friendlyName}.`);
+        }
+        if (data) {
+          setIndexingJob(data);
+        }
+      });
+      if (finishedJob) {
+        if (finishedJob.job_status === 'completed') {
+          successToast(
+            indexChecked
+              ? `Indexed ${friendlyName}.`
+              : `Removed index from ${friendlyName}.`,
+          );
+          return;
+        }
+        if (finishedJob.job_status === 'canceled') {
+          errorToast('Indexing was canceled.');
+          return;
+        }
+        if (finishedJob.job_status === 'errored') {
+          if (finishedJob.error === 'invalid-triple-error') {
+            errorToast(`Found invalid data while updating ${friendlyName}.`);
+            return;
+          }
+          errorToast(`Encountered an error while updating ${friendlyName}.`);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      errorToast(`Unexpected error while updating ${friendlyName}`);
+    }
+  };
+
+  const valueNotChanged = indexChecked === attr.isIndex;
+
+  const buttonDisabled = readOnly || valueNotChanged;
+
+  const closeDialog = useClose();
+
+  return (
+    <ActionForm className="flex flex-col gap-1">
+      <div className="flex gap-2">
+        <Checkbox
+          disabled={readOnly}
+          title={
+            readOnly
+              ? `The ${attr.namespace} namespace is read-only.`
+              : undefined
+          }
+          checked={indexChecked}
+          onChange={(enabled) => setIndexChecked(enabled)}
+          label={
+            <span>
+              <strong>Index this attribute</strong> to improve lookup
+              performance of values
+            </span>
+          }
+        />
+      </div>
+
+      {indexingJob?.error === 'triple-too-large-error' ? (
+        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+          <div>Some of the existing data is too large to index. </div>
+          <InvalidTriplesSample
+            job={indexingJob}
+            attr={attr}
+            onClickSample={(t) => {
+              pushNavStack({
+                namespace: attr.namespace,
+                where: ['id', t.entity_id],
+              });
+              // It would be nice to have a way to minimize the dialog so you could go back
+              closeDialog();
+            }}
+          />
+        </div>
+      ) : null}
+
+      <ActionButton
+        type="submit"
+        label="Update index status"
+        submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
+        errorMessage="Failed to update attribute"
+        disabled={buttonDisabled}
+        title={
+          readOnly ? `The ${attr.namespace} namespace is read-only.` : undefined
+        }
+        onClick={updateIndexed}
+      />
+    </ActionForm>
+  );
+}
+
+function EditUnique({
+  appId,
+  attr,
+  readOnly,
+  pushNavStack,
+}: {
+  appId: string;
+  attr: SchemaAttr;
+  readOnly: boolean;
+  pushNavStack: PushNavStack;
+}) {
+  const token = useAuthToken();
+  const [uniqueChecked, setUniqueChecked] = useState(attr.isUniq);
+  const [indexingJob, setIndexingJob] = useState<InstantIndexingJob | null>(
+    null,
+  );
+
+  const stopFetchLoop = useRef<null | (() => void)>(null);
+
+  useEffect(() => {
+    return () => stopFetchLoop.current?.();
+  }, [stopFetchLoop]);
+  const updateUniqueness = async () => {
+    if (!token || uniqueChecked === attr.isUniq) {
+      return;
+    }
+    stopFetchLoop.current?.();
+    const friendlyName = `${attr.namespace}.${attr.name}`;
+    try {
+      const job = await createJob(
+        {
+          appId,
+          attrId: attr.id,
+          jobType: uniqueChecked ? 'unique' : 'remove-unique',
+        },
+        token,
+      );
+      setIndexingJob(job);
+      const fetchLoop = jobFetchLoop(appId, job.id, token);
+      stopFetchLoop.current = fetchLoop.stop;
+      const finishedJob = await fetchLoop.start((data, error) => {
+        if (error) {
+          errorToast(`Unexpected error while indexing ${friendlyName}.`);
+        }
+        if (data) {
+          setIndexingJob(data);
+        }
+      });
+      if (finishedJob) {
+        if (finishedJob.job_status === 'completed') {
+          successToast(
+            uniqueChecked
+              ? `Enforced uniqueness constraint for ${friendlyName}.`
+              : `Removed uniqueness constraint from ${friendlyName}.`,
+          );
+          return;
+        }
+        if (finishedJob.job_status === 'canceled') {
+          errorToast('Indexing was canceled.');
+          return;
+        }
+        if (finishedJob.job_status === 'errored') {
+          if (finishedJob.error === 'invalid-triple-error') {
+            errorToast(`Found invalid data while updating ${friendlyName}.`);
+            return;
+          }
+          errorToast(`Encountered an error while updating ${friendlyName}.`);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      errorToast(`Unexpected error while updating ${friendlyName}`);
+    }
+  };
+
+  const valueNotChanged = uniqueChecked === attr.isUniq;
+
+  const buttonDisabled = readOnly || valueNotChanged;
+
+  const closeDialog = useClose();
+
+  return (
+    <ActionForm className="flex flex-col gap-1">
+      <div className="flex gap-2">
+        <Checkbox
+          disabled={readOnly}
+          title={
+            readOnly
+              ? `The ${attr.namespace} namespace is read-only.`
+              : undefined
+          }
+          checked={uniqueChecked}
+          onChange={(enabled) => setUniqueChecked(enabled)}
+          label={
+            <span>
+              <strong>Enforce uniqueness</strong> so no two entities can have
+              the same value for this attribute
+            </span>
+          }
+        />
+      </div>
+
+      {indexingJob?.error === 'triple-not-unique-error' ? (
+        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+          <div>Some of the existing data is not unique. </div>
+          {indexingJob.invalid_unique_value != null ? (
+            <div>
+              Found{' '}
+              <span
+                className={
+                  typeof indexingJob.invalid_unique_value === 'object'
+                    ? ''
+                    : 'cursor-pointer underline'
+                }
+                onClick={
+                  typeof indexingJob.invalid_unique_value === 'object'
+                    ? undefined
+                    : () => {
+                        pushNavStack({
+                          namespace: attr.namespace,
+                          where: [attr.name, indexingJob.invalid_unique_value],
+                        });
+                        // It would be nice to have a way to minimize the dialog so you could go back
+                        closeDialog();
+                      }
+                }
+              >
+                multiple entities with value{' '}
+                <code>{JSON.stringify(indexingJob.invalid_unique_value)}</code>
+              </span>
+              .
+            </div>
+          ) : null}
+          <InvalidTriplesSample
+            job={indexingJob}
+            attr={attr}
+            onClickSample={(t) => {
+              pushNavStack({
+                namespace: attr.namespace,
+                where: ['id', t.entity_id],
+              });
+              // It would be nice to have a way to minimize the dialog so you could go back
+              closeDialog();
+            }}
+          />
+        </div>
+      ) : null}
+
+      {indexingJob?.error === 'triple-too-large-error' ? (
+        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+          <div>Some of the existing data is too large to index. </div>
+          <InvalidTriplesSample
+            job={indexingJob}
+            attr={attr}
+            onClickSample={(t) => {
+              pushNavStack({
+                namespace: attr.namespace,
+                where: ['id', t.entity_id],
+              });
+              // It would be nice to have a way to minimize the dialog so you could go back
+              closeDialog();
+            }}
+          />
+        </div>
+      ) : null}
+
+      <ActionButton
+        type="submit"
+        label="Update uniqueness"
+        submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
+        errorMessage="Failed to update attribute"
+        disabled={buttonDisabled}
+        title={
+          readOnly ? `The ${attr.namespace} namespace is read-only.` : undefined
+        }
+        onClick={updateUniqueness}
+      />
+    </ActionForm>
+  );
+}
+
 function EditCheckedDataType({
   appId,
   attr,
@@ -606,44 +968,18 @@ function EditCheckedDataType({
             The type can't be set to {indexingJob?.checked_data_type} because
             some data is the wrong type.
           </div>
-          {indexingJob?.invalid_triples_sample?.length ? (
-            <div>
-              Here are the first few invalid entities we found:
-              <table className="mx-2 my-2 flex-1 text-left font-mono text-xs text-gray-500">
-                <thead className="bg-white text-gray-700">
-                  <tr>
-                    <th className="pr-2">id</th>
-                    <th className="pr-2">{attr.name}</th>
-                    <th className="pr-2">type</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {indexingJob.invalid_triples_sample
-                    .slice(0, 3)
-                    .map((t, i) => (
-                      <tr
-                        key={i}
-                        className="cursor-pointer whitespace-nowrap rounded-md px-2 hover:bg-gray-200"
-                        onClick={() => {
-                          pushNavStack({
-                            namespace: attr.namespace,
-                            where: ['id', t.entity_id],
-                          });
-                          // It would be nice to have a way to minimize the dialog so you could go back
-                          closeDialog();
-                        }}
-                      >
-                        <td className="pr-2">
-                          <pre>{t.entity_id}</pre>
-                        </td>
-                        <td className="pr-2">{t.value}</td>
-                        <td className="pr-2">{t.json_type}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
+          <InvalidTriplesSample
+            job={indexingJob}
+            attr={attr}
+            onClickSample={(t) => {
+              pushNavStack({
+                namespace: attr.namespace,
+                where: ['id', t.entity_id],
+              });
+              // It would be nice to have a way to minimize the dialog so you could go back
+              closeDialog();
+            }}
+          />
         </div>
       ) : null}
       <ActionButton
@@ -684,7 +1020,6 @@ function EditAttrForm({
   const [reverseAttrName, setReverseAttrName] = useState(
     attr.linkConfig.reverse?.attr,
   );
-  const [attrConfig, setAttrConfig] = useState<SchemaAttr>(attr);
   const [relationship, setRelationship] = useState<RelationshipKinds>(() => {
     const relKey = `${attr.cardinality}-${attr.isUniq}`;
     const relKind = relationshipConstraintsInverse[relKey];
@@ -697,28 +1032,6 @@ function EditAttrForm({
     namespaceName: attr.linkConfig.forward.namespace,
     reverseNamespaceName: attr.linkConfig.reverse?.namespace,
   });
-
-  useEffect(() => {
-    setAttrConfig(attr);
-  }, [attr]);
-
-  async function updateBlob() {
-    const ops = [
-      [
-        'update-attr',
-        {
-          id: attr.id,
-          'index?': attrConfig.isIndex,
-          'unique?': attrConfig.isUniq,
-          cardinality: attrConfig.cardinality,
-        },
-      ],
-    ];
-
-    await db._core._reactor.pushOps(ops);
-
-    successToast('Updated attribute');
-  }
 
   async function updateRef() {
     if (!attr.linkConfig.reverse) {
@@ -809,64 +1122,22 @@ function EditAttrForm({
 
       {attr.type === 'blob' ? (
         <>
-          <ActionForm className="flex flex-col gap-2">
-            <div className="flex flex-col gap-2">
-              <h6 className="text-md font-bold">Constraints</h6>
-              <div className="flex gap-2">
-                <Checkbox
-                  disabled={readOnly}
-                  title={
-                    readOnly
-                      ? `The ${attr.namespace} namespace is read-only.`
-                      : undefined
-                  }
-                  checked={attrConfig.isIndex}
-                  onChange={(enabled) =>
-                    setAttrConfig((c) => ({ ...c, isIndex: enabled }))
-                  }
-                  label={
-                    <span>
-                      <strong>Index this attribute</strong> to improve lookup
-                      performance of values
-                    </span>
-                  }
-                />
-              </div>
-              <div className="flex gap-2">
-                <Checkbox
-                  disabled={readOnly}
-                  title={
-                    readOnly
-                      ? `The ${attr.namespace} namespace is read-only.`
-                      : undefined
-                  }
-                  checked={attrConfig.isUniq}
-                  onChange={(enabled) =>
-                    setAttrConfig((c) => ({ ...c, isUniq: enabled }))
-                  }
-                  label={
-                    <span>
-                      <strong>Enforce uniqueness</strong> so no two entities can
-                      have the same value for this attribute
-                    </span>
-                  }
-                />
-              </div>
-              <ActionButton
-                type="submit"
-                label={`Update ${attr.name}`}
-                submitLabel="Updating attribute..."
-                errorMessage="Failed to update attribute"
-                disabled={readOnly || !attrName}
-                title={
-                  readOnly
-                    ? `The ${attr.namespace} namespace is read-only.`
-                    : undefined
-                }
-                onClick={updateBlob}
-              />
-            </div>
-          </ActionForm>
+          <div className="flex flex-col gap-2">
+            <h6 className="text-md font-bold">Constraints</h6>
+            <EditIndexed
+              appId={appId}
+              attr={attr}
+              readOnly={readOnly}
+              pushNavStack={pushNavStack}
+            />
+            <EditUnique
+              appId={appId}
+              attr={attr}
+              readOnly={readOnly}
+              pushNavStack={pushNavStack}
+            />
+          </div>
+
           <EditCheckedDataType
             appId={appId}
             attr={attr}

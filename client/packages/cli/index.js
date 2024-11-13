@@ -390,6 +390,31 @@ function indexingJobCompletedActionMessage(job) {
   if (job.job_type === "remove-data-type") {
     return `removing type from ${job.attr_name}`;
   }
+  if (job.job_type === "index") {
+    return `adding index to ${job.attr_name}`;
+  }
+  if (job.job_type === "remove-index") {
+    return `removing index from ${job.attr_name}`;
+  }
+  if (job.job_type === "unique") {
+    return `adding uniqueness constraint to ${job.attr_name}`;
+  }
+  if (job.job_type === "remove-unique") {
+    return `removing uniqueness constraint to ${job.attr_name}`;
+  }
+}
+
+function truncate(s, maxLen) {
+  if (s.length > maxLen) {
+    return `${s.substr(0, maxLen - 3)}...`;
+  }
+  return s;
+}
+
+function formatSamples(triples_samples) {
+  return triples_samples.slice(0, 3).map((t) => {
+    return { ...t, value: truncate(JSON.stringify(t.value), 32) };
+  });
 }
 
 function indexingJobCompletedMessage(job) {
@@ -401,22 +426,26 @@ function indexingJobCompletedMessage(job) {
     return `Finished ${actionMessage}.`;
   }
   if (job.job_status === "errored") {
-    if (
-      job.error === "invalid-triple-error" &&
-      job.invalid_triples_sample?.length
-    ) {
+    if (job.invalid_triples_sample?.length) {
       const [etype, label] = job.attr_name.split(".");
-      const longestValue = job.invalid_triples_sample.slice(0, 3).reduce(
-        (acc, { value }) => Math.max(acc, JSON.stringify(value).length),
+      const samples = formatSamples(job.invalid_triples_sample);
+      const longestValue = samples.reduce(
+        (acc, { value }) => Math.max(acc, value.length),
         // Start with length of label
         label.length,
       );
 
       let msg = `${chalk.red("INVALID DATA")} ${actionMessage}.\n`;
+      if (job.invalid_unique_value) {
+        msg += `  Found multiple entities with value ${truncate(JSON.stringify(job.invalid_unique_value), 64)}.\n`;
+      }
+      if (job.error === "triple-too-large-error") {
+        msg += `  Some of the existing data is too large to index.\n`;
+      }
       msg += `  First few examples:\n`;
       msg += `  ${chalk.bold("id")}${" ".repeat(35)}| ${chalk.bold(label)}${" ".repeat(longestValue - label.length)} | ${chalk.bold("type")}\n`;
       msg += `  ${"-".repeat(37)}|${"-".repeat(longestValue + 2)}|--------\n`;
-      for (const triple of job.invalid_triples_sample.slice(0, 3)) {
+      for (const triple of samples) {
         const urlParams = new URLSearchParams({
           s: "main",
           app: job.app_id,
@@ -431,12 +460,41 @@ function indexingJobCompletedMessage(job) {
         const link = terminalLink(triple.entity_id, url.toString(), {
           fallback: () => triple.entity_id,
         });
-        msg += `  ${link} | ${triple.value}${" ".repeat(longestValue - JSON.stringify(triple.value).length)} | ${triple.json_type}\n`;
+        msg += `  ${link} | ${triple.value}${" ".repeat(longestValue - triple.value.length)} | ${triple.json_type}\n`;
       }
       return msg;
     }
     return `Error ${actionMessage}.`;
   }
+}
+
+function joinInSentence(items) {
+  if (items.length === 0) {
+    return "";
+  }
+  if (items.length === 1) {
+    return items[0];
+  }
+  if (items.length === 2) {
+    return `${items[0]} and ${items[1]}`;
+  }
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+function jobGroupDescription(jobs) {
+  const actions = new Set();
+  const jobActions = {
+    "check-data-type": "updating types",
+    "remove-data-type": "updating types",
+    index: "updating indexes",
+    "remove-index": "updating indexes",
+    unique: "updating uniqueness constraints",
+    "remove-unique": "updating uniqueness constraints",
+  };
+  for (const job of jobs) {
+    actions.add(jobActions[job.job_type]);
+  }
+  return joinInSentence([...actions]) || "updating schema";
 }
 
 async function waitForIndexingJobsToFinish(appId, data) {
@@ -445,7 +503,7 @@ async function waitForIndexingJobsToFinish(appId, data) {
   }).start();
   const groupId = data["group-id"];
   let jobs = data.jobs;
-  let waitMs = 1;
+  let waitMs = 20;
   let lastUpdatedAt = new Date(0);
 
   const completedIds = new Set();
@@ -489,7 +547,7 @@ async function waitForIndexingJobsToFinish(appId, data) {
       const percent = Math.floor(
         (workCompletedTotal / workEstimateTotal) * 100,
       );
-      spinner.text = `checking data types ${percent}%`;
+      spinner.text = `${jobGroupDescription(jobs)} ${percent}%`;
     }
     if (completedMessages.length) {
       spinner.prefixText = completedMessages.join("\n") + "\n";
@@ -539,6 +597,7 @@ async function pushSchema(appIdOrName, opts) {
     body: {
       schema,
       check_types: !opts?.skipCheckTypes,
+      supports_background_updates: true,
     },
   });
 
@@ -588,6 +647,30 @@ async function pushSchema(appIdOrName, opts) {
         console.log(`${chalk.red("REMOVE TYPE")} ${attrFwdName(attr)} => any`);
         break;
       }
+      case "index": {
+        console.log("%s on %s", chalk.green("ADD INDEX"), attrFwdName(attr));
+        break;
+      }
+      case "remove-index": {
+        console.log("%s on %s", chalk.red("REMOVE INDEX"), attrFwdName(attr));
+        break;
+      }
+      case "unique": {
+        console.log(
+          "%s to %s",
+          chalk.green("ADD UNIQUE CONSTRAINT"),
+          attrFwdName(attr),
+        );
+        break;
+      }
+      case "remove-unique": {
+        console.log(
+          "%s from %s",
+          chalk.red("REMOVE UNIQUE CONSTRAINT"),
+          attrFwdName(attr),
+        );
+        break;
+      }
     }
   }
 
@@ -602,6 +685,7 @@ async function pushSchema(appIdOrName, opts) {
     body: {
       schema,
       check_types: !opts?.skipCheckTypes,
+      supports_background_updates: true,
     },
   });
 

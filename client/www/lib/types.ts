@@ -40,11 +40,23 @@ export type InstantAppInvite = {
   expired: boolean;
 }[];
 
+export type InstantIndexingJobInvalidTriple = {
+  entity_id: string;
+  value: any;
+  json_type: 'string' | 'number' | 'boolean' | 'null' | 'object' | 'array';
+};
 export type InstantIndexingJob = {
   id: string;
   app_id: string;
   attr_id: string;
-  job_type: 'remove-data-type' | 'check-data-type' | string;
+  job_type:
+    | 'remove-data-type'
+    | 'check-data-type'
+    | 'index'
+    | 'remove-index'
+    | 'unique'
+    | 'remove-unique'
+    | string;
   job_status:
     | 'completed'
     | 'waiting'
@@ -58,6 +70,8 @@ export type InstantIndexingJob = {
   error:
     | 'invalid-triple-error'
     | 'invalid-attr-state-error'
+    | 'triple-not-unique-error'
+    | 'triple-too-large-error'
     | 'unexpected-error'
     | string
     | null
@@ -66,14 +80,8 @@ export type InstantIndexingJob = {
   created_at: string;
   updated_at: string;
   done_at: string;
-  invalid_triples_sample:
-    | {
-        entity_id: string;
-        value: any;
-        json_type: 'string' | 'number' | 'boolean' | 'null' | 'object' | 'array';
-      }[]
-    | null
-    | undefined;
+  invalid_unique_value: any;
+  invalid_triples_sample: InstantIndexingJobInvalidTriple[] | null | undefined;
 };
 
 export type DashResponse = {

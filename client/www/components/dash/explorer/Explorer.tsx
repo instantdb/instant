@@ -390,7 +390,7 @@ export function Explorer({
                       {' '}
                       where <strong>{currentNav.where[0]}</strong> ={' '}
                       <em className="rounded-sm border bg-white px-1">
-                        {currentNav.where[1]}
+                        {JSON.stringify(currentNav.where[1])}
                       </em>
                     </>
                   ) : null}

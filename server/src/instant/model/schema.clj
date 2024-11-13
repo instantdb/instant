@@ -15,7 +15,10 @@
 (defn attr-ident-names [attr]
   (keep seq [(attr-model/fwd-ident-name attr) (attr-model/rev-ident-name attr)]))
 
-(defn schemas->ops [check-types? current-schema new-schema]
+(defn schemas->ops [{:keys [check-types?
+                            background-updates?]}
+                    current-schema
+                    new-schema]
   (let [{new-blobs :blobs new-refs :refs} new-schema
         eid-ops (map (fn [[ns-name _]] (if (get-in current-schema [:blobs ns-name])
                                          nil
@@ -35,12 +38,11 @@
                                     changed-type? (and check-types?
                                                        (not= (get new-attr :checked-data-type)
                                                              (get current-attr :checked-data-type)))
-                                    unchanged-attr? (and
-                                                     (= (get new-attr :unique?) (get current-attr :unique?))
-                                                     (= (get new-attr :index?) (get current-attr :index?)))]
+                                    changed-unique? (not= (get new-attr :unique?) (get current-attr :unique?))
+                                    changed-index? (not= (get new-attr :index?) (get current-attr :index?))
+                                    attr-changed? (or changed-unique? changed-index?)]
                                 (cond
                                   name-id? nil
-                                  (and unchanged-attr? (not changed-type?)) nil
                                   new-attr? [[:add-attr
                                               {:value-type :blob
                                                :cardinality :one
@@ -48,7 +50,8 @@
                                                :forward-identity [(UUID/randomUUID) (name ns-name) (name attr-name)]
                                                :unique? (:unique? new-attr)
                                                :index? (:index? new-attr)}]]
-                                  :else (concat (when-not unchanged-attr?
+                                  :else (concat (when (and attr-changed?
+                                                           (not background-updates?))
                                                   [[:update-attr
                                                     {:value-type :blob
                                                      :cardinality :one
@@ -56,6 +59,16 @@
                                                      :forward-identity (:forward-identity current-attr)
                                                      :unique? (:unique? new-attr)
                                                      :index? (:index? new-attr)}]])
+                                                (when (and background-updates?
+                                                           changed-index?)
+                                                  [[(if (:index? new-attr) :index :remove-index)
+                                                    {:attr-id (:id current-attr)
+                                                     :forward-identity (:forward-identity current-attr)}]])
+                                                (when (and background-updates?
+                                                           changed-unique?)
+                                                  [[(if (:unique? new-attr) :unique :remove-unique)
+                                                    {:attr-id (:id current-attr)
+                                                     :forward-identity (:forward-identity current-attr)}]])
                                                 (when (and changed-type?
                                                            (not (= :system (:catalog current-attr))))
                                                   (if-let [new-data-type (:checked-data-type new-attr)]
@@ -323,11 +336,14 @@
 ;; API
 
 (defn plan!
-  [app-id check-types? client-defs]
+  [{:keys [app-id check-types? background-updates?]} client-defs]
   (let [new-schema (defs->schema client-defs)
         current-attrs (attr-model/get-by-app-id app-id)
         current-schema (attrs->schema current-attrs)
-        steps (schemas->ops check-types? current-schema new-schema)]
+        steps (schemas->ops {:check-types? check-types?
+                             :background-updates? background-updates?}
+                            current-schema
+                            new-schema)]
     (ex/assert-valid! :schema :plan (plan-errors current-attrs steps))
     {:new-schema new-schema
      :current-schema current-schema
@@ -368,7 +384,23 @@
                                  :remove-data-type (indexing-jobs/create-remove-data-type-job!
                                                     {:app-id app-id
                                                      :group-id group-id
-                                                     :attr-id attr-id}))]
+                                                     :attr-id attr-id})
+                                 :index (indexing-jobs/create-index-job!
+                                         {:app-id app-id
+                                          :group-id group-id
+                                          :attr-id attr-id})
+                                 :remove-index (indexing-jobs/create-remove-index-job!
+                                                {:app-id app-id
+                                                 :group-id group-id
+                                                 :attr-id attr-id})
+                                 :unique (indexing-jobs/create-unique-job!
+                                          {:app-id app-id
+                                           :group-id group-id
+                                           :attr-id attr-id})
+                                 :remove-unique (indexing-jobs/create-remove-unique-job!
+                                                 {:app-id app-id
+                                                  :group-id group-id
+                                                  :attr-id attr-id}))]
                        (indexing-jobs/enqueue-job job)
                        (indexing-jobs/job->client-format job)))
                    job-steps)]
@@ -389,7 +421,10 @@
         tx-res (when (seq tx-steps)
                  (permissioned-tx/transact! ctx steps))
         job-steps (filter (fn [[action]]
-                            (contains? #{:check-data-type :remove-data-type} action))
+                            (contains? #{:check-data-type :remove-data-type
+                                         :index :remove-index
+                                         :unique :remove-unique}
+                                       action))
                           steps)
         jobs-res (when (seq job-steps)
                    (create-indexing-jobs app-id job-steps))]

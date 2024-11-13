@@ -985,14 +985,22 @@
 (defn schema-push-plan-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         client-defs (-> req :body :schema)
-        check-types? (-> req :body :check_types)]
-    (response/ok (schema-model/plan! app-id check-types? client-defs))))
+        check-types? (-> req :body :check_types)
+        background-updates? (-> req :body :supports_background_updates)]
+    (response/ok (schema-model/plan! {:app-id app-id
+                                      :check-types? check-types?
+                                      :background-updates? background-updates?}
+                                     client-defs))))
 
 (defn schema-push-apply-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         client-defs (-> req :body :schema)
         check-types? (-> req :body :check_types)
-        r (schema-model/plan! app-id check-types? client-defs)
+        background-updates? (-> req :body :supports_background_updates)
+        r (schema-model/plan! {:app-id app-id
+                               :check-types? check-types?
+                               :background-updates? background-updates?}
+                              client-defs)
         plan-result (schema-model/apply-plan! app-id r)]
     (response/ok (merge r plan-result))))
 
@@ -1032,7 +1040,11 @@
                                 [:body :job-type]
                                 string-util/coerce-non-blank-str)
         _ (when-not (contains? #{"check-data-type"
-                                 "remove-data-type"}
+                                 "remove-data-type"
+                                 "index"
+                                 "remove-index"
+                                 "unique"
+                                 "remove-unique"}
                                job-type)
             (ex/throw-validation-err! :job-type
                                       job-type
@@ -1054,6 +1066,22 @@
 
                                  "remove-data-type"
                                  (indexing-jobs/create-remove-data-type-job!
+                                  {:app-id app-id :attr-id (:id attr)})
+
+                                 "index"
+                                 (indexing-jobs/create-index-job!
+                                  {:app-id app-id :attr-id (:id attr)})
+
+                                 "remove-index"
+                                 (indexing-jobs/create-remove-index-job!
+                                  {:app-id app-id :attr-id (:id attr)})
+
+                                 "unique"
+                                 (indexing-jobs/create-unique-job!
+                                  {:app-id app-id :attr-id (:id attr)})
+
+                                 "remove-unique"
+                                 (indexing-jobs/create-remove-unique-job!
                                   {:app-id app-id :attr-id (:id attr)}))
                                :indexing-job
                                {:attr-id attr-id
