@@ -304,7 +304,7 @@
                 e))
 
       ;; This could be other things besides a timeout,
-      ;; but we don'thave any way to check :/
+      ;; but we don't have any way to check :/
       :query-canceled
       (throw+ {::type ::timeout
                ::message "The query took too long to complete."}
