@@ -57,8 +57,8 @@ export class LinkAttrDef<
   EntityName extends string,
 > {
   constructor(
-    public entityName: EntityName,
     public cardinality: Cardinality,
+    public entityName: EntityName,
   ) {}
 }
 
