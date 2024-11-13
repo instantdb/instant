@@ -7,6 +7,7 @@ import version from "./version";
 import {
   // react
   InstantReact,
+  InstantReactExperimental,
 
   // types
   type Config,
@@ -47,7 +48,6 @@ import {
   type ConfigExperimental,
   InstantSchemaV2,
 } from "@instantdb/core";
-import { InstantReactExperimental } from "@instantdb/react/dist/module/InstantReactExperimental";
 
 /**
  *

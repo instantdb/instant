@@ -36,6 +36,7 @@ import {
 } from "@instantdb/core";
 
 import { InstantReact } from "./InstantReact";
+import { InstantReactExperimental } from "./InstantReactExperimental";
 import { InstantReactWeb } from "./InstantReactWeb";
 import { InstantReactWebExperimental } from "./InstantReactWebExperimental";
 import { init, init_experimental, init_experimental_v2 } from "./init";
@@ -55,6 +56,7 @@ export {
 
   // internal
   InstantReact,
+  InstantReactExperimental,
 
   // types
   type Config,
