@@ -11,7 +11,7 @@ import {
   type Query,
   type Exactly,
   type TransactionChunk,
-  type LifecycleSubscriptionState,
+  type DoNotUseLifecycleSubscriptionState,
   type PresenceOpts,
   type PresenceResponse,
   type RoomSchemaShape,
@@ -415,7 +415,7 @@ export abstract class InstantReact<
       : Exactly<Query, Q>,
   >(
     query: null | Q,
-  ): LifecycleSubscriptionState<Q, Schema, WithCardinalityInference> => {
+  ): DoNotUseLifecycleSubscriptionState<Q, Schema, WithCardinalityInference> => {
     return useQuery(this._core, query).state;
   };
 

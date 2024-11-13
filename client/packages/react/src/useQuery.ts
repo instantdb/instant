@@ -4,12 +4,12 @@ import {
   type Query,
   type Exactly,
   type InstantClient,
-  type LifecycleSubscriptionState,
+  type DoNotUseLifecycleSubscriptionState,
   type InstaQLQueryParams,
   type InstantGraph,
-  InstantClientExperimental,
-  LifecycleSubscriptionStateExperimental,
-  InstantSchemaV2,
+  DoNotUseInstantClient,
+  DoNotUseDoNotUseLifecycleSubscriptionState,
+  DoNotUseInstantSchema,
 } from "@instantdb/core";
 import { useCallback, useRef, useSyncExternalStore } from "react";
 
@@ -40,7 +40,7 @@ export function useQuery<
   _core: InstantClient<Schema, any, WithCardinalityInference>,
   _query: null | Q,
 ): {
-  state: LifecycleSubscriptionState<Q, Schema, WithCardinalityInference>;
+  state: DoNotUseLifecycleSubscriptionState<Q, Schema, WithCardinalityInference>;
   query: any;
 } {
   const query = _query ? coerceQuery(_query) : null;
@@ -52,7 +52,7 @@ export function useQuery<
   // If we don't use a ref, the state will always be considered different, so
   // the component will always re-render.
   const resultCacheRef = useRef<
-    LifecycleSubscriptionState<Q, Schema, WithCardinalityInference>
+    DoNotUseLifecycleSubscriptionState<Q, Schema, WithCardinalityInference>
   >(stateForResult(_core._reactor.getPreviousResult(query)));
 
   // Similar to `resultCacheRef`, `useSyncExternalStore` will unsubscribe
@@ -84,7 +84,7 @@ export function useQuery<
   );
 
   const state = useSyncExternalStore<
-    LifecycleSubscriptionState<Q, Schema, WithCardinalityInference>
+    DoNotUseLifecycleSubscriptionState<Q, Schema, WithCardinalityInference>
   >(
     subscribe,
     () => resultCacheRef.current,
@@ -93,14 +93,14 @@ export function useQuery<
   return { state, query };
 }
 
-export function useQueryExperimental<
+export function doNotUseUseQuery<
   Q extends InstaQLQueryParams<Schema>,
-  Schema extends InstantSchemaV2<any, any, any>,
+  Schema extends DoNotUseInstantSchema<any, any, any>,
 >(
-  _core: InstantClientExperimental<Schema>,
+  _core: DoNotUseInstantClient<Schema>,
   _query: null | Q,
 ): {
-  state: LifecycleSubscriptionStateExperimental<Q, Schema>;
+  state: DoNotUseDoNotUseLifecycleSubscriptionState<Q, Schema>;
   query: any;
 } {
   const query = _query ? coerceQuery(_query) : null;
@@ -112,7 +112,7 @@ export function useQueryExperimental<
   // If we don't use a ref, the state will always be considered different, so
   // the component will always re-render.
   const resultCacheRef = useRef<
-    LifecycleSubscriptionStateExperimental<Q, Schema>
+    DoNotUseDoNotUseLifecycleSubscriptionState<Q, Schema>
   >(stateForResult(_core._reactor.getPreviousResult(query)));
 
   // Similar to `resultCacheRef`, `useSyncExternalStore` will unsubscribe
@@ -144,7 +144,7 @@ export function useQueryExperimental<
   );
 
   const state = useSyncExternalStore<
-    LifecycleSubscriptionStateExperimental<Q, Schema>
+    DoNotUseDoNotUseLifecycleSubscriptionState<Q, Schema>
   >(
     subscribe,
     () => resultCacheRef.current,

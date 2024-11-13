@@ -7,7 +7,7 @@ import version from "./version";
 import {
   // react
   InstantReact,
-  InstantReactExperimental,
+  DoNotUseInstantReact,
 
   // types
   type Config,
@@ -43,10 +43,10 @@ import {
   type ValueTypes,
   type InstantEntity,
   type ConfigWithSchema,
-  type InstantEntityExperimental,
-  type InstaQLQueryResultExperimental,
-  type ConfigExperimental,
-  InstantSchemaV2,
+  type DoNotUseInstantEntity,
+  type DoNotUseInstaQLQueryResult,
+  type DoNotUseConfig,
+  DoNotUseInstantSchema,
 } from "@instantdb/core";
 
 /**
@@ -93,10 +93,10 @@ function init_experimental<
   >(config);
 }
 
-function init_experimental_v2<Schema extends InstantSchemaV2<any, any, any>>(
-  config: ConfigExperimental<Schema>,
+function do_not_use_init_experimental<Schema extends DoNotUseInstantSchema<any, any, any>>(
+  config: DoNotUseConfig<Schema>,
 ) {
-  return new InstantReactNativeExperimental<Schema>(config);
+  return new DoNotUseInstantReactNative<Schema>(config);
 }
 
 class InstantReactNative<
@@ -112,9 +112,9 @@ class InstantReactNative<
   }
 }
 
-class InstantReactNativeExperimental<
-  Schema extends InstantSchemaV2<any, any, any>,
-> extends InstantReactExperimental<Schema> {
+class DoNotUseInstantReactNative<
+  Schema extends DoNotUseInstantSchema<any, any, any>,
+> extends DoNotUseInstantReact<Schema> {
   static Storage = Storage;
   static NetworkListener = NetworkListener;
 }
@@ -122,7 +122,7 @@ class InstantReactNativeExperimental<
 export {
   init,
   init_experimental,
-  init_experimental_v2,
+  do_not_use_init_experimental,
   id,
   tx,
   lookup,
@@ -156,6 +156,6 @@ export {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
-  type InstantEntityExperimental,
-  type InstaQLQueryResultExperimental,
+  type DoNotUseInstantEntity,
+  type DoNotUseInstaQLQueryResult,
 };

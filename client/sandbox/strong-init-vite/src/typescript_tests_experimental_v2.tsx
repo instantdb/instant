@@ -1,13 +1,13 @@
 import {
   id,
-  init_experimental_v2 as core_init_experimental,
+  do_not_use_init_experimental as core_init_experimental,
   InstaQLQueryParams,
-  InstantEntityExperimental,
-  InstaQLQueryResultExperimental,
+  DoNotUseInstantEntity,
+  DoNotUseInstaQLQueryResult,
 } from "@instantdb/core";
-import { init_experimental_v2 as react_init_experimental } from "@instantdb/react";
-import { init_experimental_v2 as react_native_init_experimental } from "@instantdb/react-native";
-import { init_experimental_v2 as admin_init_experimental } from "@instantdb/admin";
+import { do_not_use_init_experimental as react_init_experimental } from "@instantdb/react";
+import { do_not_use_init_experimental as react_native_init_experimental } from "@instantdb/react-native";
+import { do_not_use_init_experimental as admin_init_experimental } from "@instantdb/admin";
 import schema, { AppSchema } from "../instant.schema.v2";
 
 // ----
@@ -146,11 +146,11 @@ const messagesQuery: InstaQLQueryParams<AppSchema> = {
   },
 };
 
-type CoreMessage = InstantEntityExperimental<AppSchema, "messages">;
+type CoreMessage = DoNotUseInstantEntity<AppSchema, "messages">;
 let coreMessage: CoreMessage = 1 as any;
 coreMessage.content;
 
-type CoreMessageWithCreator = InstantEntityExperimental<
+type CoreMessageWithCreator = DoNotUseInstantEntity<
   AppSchema,
   "messages",
   { creator: {} }
@@ -158,7 +158,7 @@ type CoreMessageWithCreator = InstantEntityExperimental<
 let coreMessageWithCreator: CoreMessageWithCreator = 1 as any;
 coreMessageWithCreator.creator?.id;
 
-type MessageCreatorResult = InstaQLQueryResultExperimental<
+type MessageCreatorResult = DoNotUseInstaQLQueryResult<
   AppSchema,
   InstaQLQueryParams<AppSchema>
 >;

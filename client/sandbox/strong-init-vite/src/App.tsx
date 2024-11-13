@@ -1,22 +1,14 @@
-import { id, init_experimental_v2 } from "@instantdb/react";
+import { id, do_not_use_init_experimental } from "@instantdb/react";
 import schema from "../instant.schema.v2";
 
-const db = init_experimental_v2({
+const db = do_not_use_init_experimental({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
   schema,
   apiURI: "http://localhost:8888",
   websocketURI: "ws://localhost:8888/runtime/session",
 });
 
-const room = db.room('chat');
-
 function App() {
-  const publishEmoji = room.usePublishTopic("emoji");
-  const presence = room.usePresence({ keys: ["name"] });
-  const user = presence.user!;
-  const peers = presence.peers!;
-  const publishPresence = presence.publishPresence;
-  ((..._args) => {})(publishEmoji, user, peers, publishPresence);
   const { isLoading, data, error } = db.useQuery({ messages: { creator: {} } });
   if (isLoading || error) return null;
   const { messages } = data;

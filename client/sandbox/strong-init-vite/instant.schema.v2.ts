@@ -1,6 +1,6 @@
 import { i } from "@instantdb/react";
 
-const _schema = i.schema({
+const _schema = i.do_not_use_schema({
   entities: {
     messages: i.entity({
       content: i.string(),

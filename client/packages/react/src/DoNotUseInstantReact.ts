@@ -10,15 +10,15 @@ import {
   type PresenceResponse,
   type RoomSchemaShape,
   type InstaQLQueryParams,
-  type ConfigExperimental,
+  type DoNotUseConfig,
   type PageInfoResponse,
-  InstantClientExperimental,
-  _init_internal_experimental_v2,
-  LifecycleSubscriptionStateExperimental,
-  QueryResponseExperimental,
+  DoNotUseInstantClient,
+  _do_not_use_init_internal,
+  DoNotUseDoNotUseLifecycleSubscriptionState,
+  DoNotUseQueryResponse,
   RoomsOf,
-  InstantSchemaV2,
-  IDatabaseExperimental,
+  DoNotUseInstantSchema,
+  IDoNotUseDatabase,
 } from "@instantdb/core";
 import {
   KeyboardEvent,
@@ -29,7 +29,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { useQueryExperimental } from "./useQuery";
+import { doNotUseUseQuery } from "./useQuery";
 import { useTimeout } from "./useTimeout";
 
 export type PresenceHandle<
@@ -57,17 +57,17 @@ export type TypingIndicatorHandle<PresenceShape> = {
 
 export const defaultActivityStopTimeout = 1_000;
 
-export class InstantReactRoomExperimental<
-  Schema extends InstantSchemaV2<any, any, any>,
+export class DoNotUseInstantReactRoom<
+  Schema extends DoNotUseInstantSchema<any, any, any>,
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
 > {
-  _core: InstantClientExperimental<Schema>;
+  _core: DoNotUseInstantClient<Schema>;
   type: RoomType;
   id: string;
 
   constructor(
-    _core: InstantClientExperimental<Schema>,
+    _core: DoNotUseInstantClient<Schema>,
     type: RoomType,
     id: string,
   ) {
@@ -293,22 +293,22 @@ const defaultAuthState = {
   error: undefined,
 };
 
-export abstract class InstantReactExperimental<
-  Schema extends InstantSchemaV2<any, any, any>,
+export abstract class DoNotUseInstantReact<
+  Schema extends DoNotUseInstantSchema<any, any, any>,
   Rooms extends RoomSchemaShape = RoomsOf<Schema>,
-> implements IDatabaseExperimental<Schema>
+> implements IDoNotUseDatabase<Schema>
 {
   public tx = txInit<Schema>();
 
   public auth: Auth;
   public storage: Storage;
-  public _core: InstantClientExperimental<Schema>;
+  public _core: DoNotUseInstantClient<Schema>;
 
   static Storage?: any;
   static NetworkListener?: any;
 
-  constructor(config: ConfigExperimental<Schema>) {
-    this._core = _init_internal_experimental_v2<Schema>(
+  constructor(config: DoNotUseConfig<Schema>) {
+    this._core = _do_not_use_init_internal<Schema>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.Storage,
@@ -343,7 +343,7 @@ export abstract class InstantReactExperimental<
     type: RoomType = "_defaultRoomType" as RoomType,
     id: string = "_defaultRoomId",
   ) {
-    return new InstantReactRoomExperimental<Schema, Rooms, RoomType>(
+    return new DoNotUseInstantReactRoom<Schema, Rooms, RoomType>(
       this._core,
       type,
       id,
@@ -399,8 +399,8 @@ export abstract class InstantReactExperimental<
    */
   useQuery = <Q extends InstaQLQueryParams<Schema>>(
     query: null | Q,
-  ): LifecycleSubscriptionStateExperimental<Q, Schema> => {
-    return useQueryExperimental(this._core, query).state;
+  ): DoNotUseDoNotUseLifecycleSubscriptionState<Q, Schema> => {
+    return doNotUseUseQuery(this._core, query).state;
   };
 
   /**
@@ -471,7 +471,7 @@ export abstract class InstantReactExperimental<
   queryOnce = <Q extends InstaQLQueryParams<Schema>>(
     query: Q,
   ): Promise<{
-    data: QueryResponseExperimental<Q, Schema>;
+    data: DoNotUseQueryResponse<Q, Schema>;
     pageInfo: PageInfoResponse<Q>;
   }> => {
     return this._core.queryOnce(query);

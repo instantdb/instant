@@ -6,7 +6,7 @@ import type {
   EntitiesDef,
   IInstantDataSchema,
   InstantGraph,
-  InstantSchemaV2,
+  DoNotUseInstantSchema,
   LinkAttrDef,
   ResolveAttrs,
   ResolveEntityAttrs,
@@ -104,9 +104,9 @@ type QueryResponse<
     ? InstaQLQueryResult<E, Q, WithCardinalityInference>
     : ResponseOf<{ [K in keyof Q]: Remove$<Q[K]> }, Schema>;
 
-type QueryResponseExperimental<Q, Schema> =
+type DoNotUseQueryResponse<Q, Schema> =
   Schema extends IInstantDataSchema<any, any>
-    ? InstaQLQueryResultExperimental<Schema, Q>
+    ? DoNotUseInstaQLQueryResult<Schema, Q>
     : never;
 
 type PageInfoResponse<T> = {
@@ -147,7 +147,7 @@ type Exactly<Parent, Child> = Parent & {
 // ==========
 // InstaQL helpers
 
-type InstaQLQueryEntityLinksResultExperimental<
+type DoNotUseInstaQLQueryEntityLinksResult<
   Schema extends IInstantDataSchema<EntitiesDef, any>,
   EntityName extends keyof Schema["entities"],
   Query extends {
@@ -161,13 +161,13 @@ type InstaQLQueryEntityLinksResultExperimental<
     ? LinkedEntityName extends keyof Schema["entities"]
       ? Cardinality extends "one"
         ?
-            | InstantEntityExperimental<
+            | DoNotUseInstantEntity<
                 Schema,
                 LinkedEntityName,
                 Query[QueryPropName]
               >
             | undefined
-        : InstantEntityExperimental<
+        : DoNotUseInstantEntity<
             Schema,
             LinkedEntityName,
             Query[QueryPropName]
@@ -215,14 +215,14 @@ type InstaQLQueryEntityLinksResult<
     : never;
 };
 
-type InstantEntityExperimental<
+type DoNotUseInstantEntity<
   Schema extends IInstantDataSchema<EntitiesDef, any>,
   EntityName extends keyof Schema["entities"],
   Subquery extends {
     [QueryPropName in keyof Schema["entities"][EntityName]["links"]]?: any;
   } = {},
 > = { id: string } & ResolveEntityAttrs<Schema["entities"][EntityName]> &
-  InstaQLQueryEntityLinksResultExperimental<Schema, EntityName, Subquery>;
+  DoNotUseInstaQLQueryEntityLinksResult<Schema, EntityName, Subquery>;
 
 type InstaQLQueryEntityResult<
   Entities extends EntitiesDef,
@@ -254,12 +254,12 @@ type InstaQLQueryResult<
     : never;
 };
 
-type InstaQLQueryResultExperimental<
+type DoNotUseInstaQLQueryResult<
   Schema extends IInstantDataSchema<EntitiesDef, any>,
   Query,
 > = {
   [QueryPropName in keyof Query]: QueryPropName extends keyof Schema["entities"]
-    ? InstantEntityExperimental<Schema, QueryPropName, Query[QueryPropName]>[]
+    ? DoNotUseInstantEntity<Schema, QueryPropName, Query[QueryPropName]>[]
     : never;
 };
 
@@ -285,7 +285,7 @@ type InstaQLQueryParams<S extends IInstantDataSchema<any, any>> = {
 export {
   Query,
   QueryResponse,
-  QueryResponseExperimental,
+  DoNotUseQueryResponse,
   PageInfoResponse,
   InstantObject,
   Exactly,
@@ -293,7 +293,7 @@ export {
   InstaQLQueryResult,
   InstaQLQueryParams,
   InstaQLQueryEntityResult,
-  InstantEntityExperimental,
-  InstaQLQueryResultExperimental,
+  DoNotUseInstantEntity,
+  DoNotUseInstaQLQueryResult,
   Cursor,
 };

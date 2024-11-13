@@ -1,13 +1,13 @@
 import type {
   // types
   Config,
-  ConfigExperimental,
+  DoNotUseConfig,
   InstantGraph,
-  InstantSchemaV2,
+  DoNotUseInstantSchema,
   RoomSchemaShape,
 } from "@instantdb/core";
 import { InstantReactWeb } from "./InstantReactWeb";
-import { InstantReactWebExperimental } from "./InstantReactWebExperimental";
+import { DoNotUseInstantReactWeb } from "./DoNotUseInstantReactWeb";
 
 /**
  *
@@ -54,8 +54,8 @@ export function init_experimental<
   >(config);
 }
 
-export function init_experimental_v2<
-  Schema extends InstantSchemaV2<any, any, any>,
->(config: ConfigExperimental<Schema>) {
-  return new InstantReactWebExperimental<Schema>(config);
+export function do_not_use_init_experimental<
+  Schema extends DoNotUseInstantSchema<any, any, any>,
+>(config: DoNotUseConfig<Schema>) {
+  return new DoNotUseInstantReactWeb<Schema>(config);
 }

@@ -16,7 +16,7 @@ import {
 
   // query types
   type QueryResponse,
-  type QueryResponseExperimental,
+  type DoNotUseQueryResponse,
   type InstaQLQueryParams,
   type InstantQuery,
   type InstantQueryResult,
@@ -38,7 +38,7 @@ import {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
-  type InstantSchemaV2,
+  type DoNotUseInstantSchema,
 } from "@instantdb/core";
 
 import version from "./version";
@@ -60,15 +60,15 @@ type Config = {
   apiURI?: string;
 };
 
-type ConfigExperimental<Schema extends InstantSchemaV2<any, any, any>> = {
+type DoNotUseConfig<Schema extends DoNotUseInstantSchema<any, any, any>> = {
   appId: string;
   adminToken: string;
   apiURI?: string;
   schema: Schema;
 };
 
-type FilledConfigExperimental<Schema extends InstantSchemaV2<any, any, any>> =
-  ConfigExperimental<Schema> & { apiURI: string };
+type DoNotUseFilledConfig<Schema extends DoNotUseInstantSchema<any, any, any>> =
+  DoNotUseConfig<Schema> & { apiURI: string };
 
 type FilledConfig = Config & { apiURI: string };
 
@@ -85,9 +85,9 @@ function configWithDefaults(config: Config): FilledConfig {
   return r;
 }
 
-function configWithDefaultsExperimental<
-  Schema extends InstantSchemaV2<any, any, any>,
->(config: ConfigExperimental<Schema>): FilledConfigExperimental<Schema> {
+function doNotUseConfigWithDefaults<
+  Schema extends DoNotUseInstantSchema<any, any, any>,
+>(config: DoNotUseConfig<Schema>): DoNotUseFilledConfig<Schema> {
   const defaultConfig = {
     apiURI: "https://api.instantdb.com",
   };
@@ -198,10 +198,10 @@ function init_experimental<
   return new InstantAdmin<Schema, WithCardinalityInference>(config);
 }
 
-function init_experimental_v2<Schema extends InstantSchemaV2<any, any, any>>(
-  config: ConfigExperimental<Schema>,
-) {
-  return new InstantAdminExperimental<Schema>(config);
+function do_not_use_init_experimental<
+  Schema extends DoNotUseInstantSchema<any, any, any>,
+>(config: DoNotUseConfig<Schema>) {
+  return new DoNotUseInstantAdmin<Schema>(config);
 }
 
 /**
@@ -712,16 +712,18 @@ class Storage {
  * @example
  *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
  */
-class InstantAdminExperimental<Schema extends InstantSchemaV2<any, any, any>> {
-  config: FilledConfigExperimental<Schema>;
+class DoNotUseInstantAdmin<
+  Schema extends DoNotUseInstantSchema<any, any, any>,
+> {
+  config: DoNotUseFilledConfig<Schema>;
   auth: Auth;
   storage: Storage;
   impersonationOpts?: ImpersonationOpts;
 
   public tx = txInit<Schema>();
 
-  constructor(_config: ConfigExperimental<Schema>) {
-    this.config = configWithDefaultsExperimental(_config);
+  constructor(_config: DoNotUseConfig<Schema>) {
+    this.config = doNotUseConfigWithDefaults(_config);
     this.auth = new Auth(this.config);
     this.storage = new Storage(this.config);
   }
@@ -735,8 +737,8 @@ class InstantAdminExperimental<Schema extends InstantSchemaV2<any, any, any>> {
    * @example
    *  await db.asUser({email: "stopa@instantdb.com"}).query({ goals: {} })
    */
-  asUser = (opts: ImpersonationOpts): InstantAdminExperimental<Schema> => {
-    const newClient = new InstantAdminExperimental<Schema>({
+  asUser = (opts: ImpersonationOpts): DoNotUseInstantAdmin<Schema> => {
+    const newClient = new DoNotUseInstantAdmin<Schema>({
       ...this.config,
     });
     newClient.impersonationOpts = opts;
@@ -760,7 +762,7 @@ class InstantAdminExperimental<Schema extends InstantSchemaV2<any, any, any>> {
    */
   query = <Q extends InstaQLQueryParams<Schema>>(
     query: Q,
-  ): Promise<QueryResponseExperimental<Q, Schema>> => {
+  ): Promise<DoNotUseQueryResponse<Q, Schema>> => {
     return jsonFetch(`${this.config.apiURI}/admin/query`, {
       method: "POST",
       headers: authorizedHeaders(this.config, this.impersonationOpts),
@@ -831,7 +833,7 @@ class InstantAdminExperimental<Schema extends InstantSchemaV2<any, any, any>> {
     query: Q,
     opts?: { rules: any },
   ): Promise<{
-    result: QueryResponseExperimental<Q, Schema>;
+    result: DoNotUseQueryResponse<Q, Schema>;
     checkResults: DebugCheckResult[];
   }> => {
     const response = await jsonFetch(
@@ -889,7 +891,7 @@ class InstantAdminExperimental<Schema extends InstantSchemaV2<any, any, any>> {
 export {
   init,
   init_experimental,
-  init_experimental_v2,
+  do_not_use_init_experimental,
   id,
   tx,
   lookup,

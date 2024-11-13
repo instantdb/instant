@@ -2,7 +2,7 @@ import {
   EntityDef,
   DataAttrDef,
   InstantGraph,
-  InstantSchemaV2,
+  DoNotUseInstantSchema,
   type EntitiesDef,
   type AttrsDefs,
   type EntitiesWithLinks,
@@ -151,7 +151,7 @@ type LinksIndex = Record<
 >;
 
 // XXX: add docstring
-function schema<
+function do_not_use_schema<
   EntitiesWithoutLinks extends EntitiesDef,
   const Links extends LinksDef<EntitiesWithoutLinks>,
   Rooms extends RoomsDef,
@@ -164,7 +164,7 @@ function schema<
   links: Links;
   rooms: Rooms;
 }) {
-  return new InstantSchemaV2(
+  return new DoNotUseInstantSchema(
     enrichEntitiesWithLinks<EntitiesWithoutLinks, Links>(entities, links),
     // (XXX): LinksDef<any> stems from TypeScript’s inability to reconcile the
     // type EntitiesWithLinks<EntitiesWithoutLinks, Links> with
@@ -179,7 +179,7 @@ function schema<
 export const i = {
   // constructs
   graph,
-  schema,
+  do_not_use_schema,
   entity,
   // value types
   string,

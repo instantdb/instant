@@ -31,15 +31,15 @@ import {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
-  type InstantEntityExperimental,
-  type InstaQLQueryResultExperimental,
+  type DoNotUseInstantEntity,
+  type DoNotUseInstaQLQueryResult,
 } from "@instantdb/core";
 
 import { InstantReact } from "./InstantReact";
-import { InstantReactExperimental } from "./InstantReactExperimental";
+import { DoNotUseInstantReact } from "./DoNotUseInstantReact";
 import { InstantReactWeb } from "./InstantReactWeb";
-import { InstantReactWebExperimental } from "./InstantReactWebExperimental";
-import { init, init_experimental, init_experimental_v2 } from "./init";
+import { DoNotUseInstantReactWeb } from "./DoNotUseInstantReactWeb";
+import { init, init_experimental, do_not_use_init_experimental } from "./init";
 import { Cursors } from "./Cursors";
 
 export {
@@ -48,15 +48,15 @@ export {
   lookup,
   init,
   init_experimental,
-  init_experimental_v2,
+  do_not_use_init_experimental,
   InstantReactWeb,
-  InstantReactWebExperimental,
+  DoNotUseInstantReactWeb,
   Cursors,
   i,
 
   // internal
   InstantReact,
-  InstantReactExperimental,
+  DoNotUseInstantReact,
 
   // types
   type Config,
@@ -85,6 +85,6 @@ export {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
-  type InstantEntityExperimental,
-  type InstaQLQueryResultExperimental,
+  type DoNotUseInstantEntity,
+  type DoNotUseInstaQLQueryResult,
 };

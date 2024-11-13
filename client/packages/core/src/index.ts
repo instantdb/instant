@@ -21,17 +21,17 @@ import type {
   PresenceSlice,
   RoomSchemaShape,
 } from "./presence";
-import type { IDatabase, IDatabaseExperimental } from "./coreTypes";
+import type { IDatabase, IDoNotUseDatabase } from "./coreTypes";
 import type {
   Query,
   QueryResponse,
-  QueryResponseExperimental,
+  DoNotUseQueryResponse,
   PageInfoResponse,
   Exactly,
   InstantObject,
   InstaQLQueryParams,
-  InstantEntityExperimental,
-  InstaQLQueryResultExperimental,
+  DoNotUseInstantEntity,
+  DoNotUseInstaQLQueryResult,
 } from "./queryTypes";
 import type { AuthState, User, AuthResult } from "./clientTypes";
 import type {
@@ -49,7 +49,7 @@ import type {
   EntitiesWithLinks,
   EntityDef,
   RoomsDef,
-  InstantSchemaV2,
+  DoNotUseInstantSchema,
   InstantGraph,
   LinkAttrDef,
   LinkDef,
@@ -72,7 +72,7 @@ export type Config = {
   devtool?: boolean;
 };
 
-export type ConfigExperimental<S extends InstantSchemaV2<any, any, any>> = {
+export type DoNotUseConfig<S extends DoNotUseInstantSchema<any, any, any>> = {
   appId: string;
   websocketURI?: string;
   apiURI?: string;
@@ -131,15 +131,15 @@ type SubscriptionState<Q, Schema, WithCardinalityInference extends boolean> =
       pageInfo: PageInfoResponse<Q>;
     };
 
-type SubscriptionStateExperimental<Q, Schema> =
+type DoNotUseSubscriptionState<Q, Schema> =
   | { error: { message: string }; data: undefined; pageInfo: undefined }
   | {
       error: undefined;
-      data: QueryResponseExperimental<Q, Schema>;
+      data: DoNotUseQueryResponse<Q, Schema>;
       pageInfo: PageInfoResponse<Q>;
     };
 
-type LifecycleSubscriptionState<
+type DoNotUseLifecycleSubscriptionState<
   Q,
   Schema,
   WithCardinalityInference extends boolean,
@@ -147,8 +147,8 @@ type LifecycleSubscriptionState<
   isLoading: boolean;
 };
 
-type LifecycleSubscriptionStateExperimental<Q, Schema> =
-  SubscriptionStateExperimental<Q, Schema> & {
+type DoNotUseDoNotUseLifecycleSubscriptionState<Q, Schema> =
+  DoNotUseSubscriptionState<Q, Schema> & {
     isLoading: boolean;
   };
 
@@ -650,8 +650,8 @@ function coerceQuery(o: any) {
   return JSON.parse(JSON.stringify(o));
 }
 
-class InstantCoreExperimental<Schema extends InstantSchemaV2<any, any, any>>
-  implements IDatabaseExperimental<Schema>
+class DoNotUseInstantCore<Schema extends DoNotUseInstantSchema<any, any, any>>
+  implements IDoNotUseDatabase<Schema>
 {
   public _reactor: Reactor<RoomsOf<Schema>>;
   public auth: Auth;
@@ -724,7 +724,7 @@ class InstantCoreExperimental<Schema extends InstantSchemaV2<any, any, any>>
    */
   subscribeQuery<Q extends InstaQLQueryParams<Schema>>(
     query: Q,
-    cb: (resp: SubscriptionStateExperimental<Q, Schema>) => void,
+    cb: (resp: DoNotUseSubscriptionState<Q, Schema>) => void,
   ) {
     return this._reactor.subscribeQuery(query, cb);
   }
@@ -806,35 +806,35 @@ class InstantCoreExperimental<Schema extends InstantSchemaV2<any, any, any>>
   queryOnce<Q extends InstaQLQueryParams<Schema>>(
     query: Q,
   ): Promise<{
-    data: QueryResponseExperimental<Q, Schema>;
+    data: DoNotUseQueryResponse<Q, Schema>;
     pageInfo: PageInfoResponse<Q>;
   }> {
     return this._reactor.queryOnce(query);
   }
 }
 
-function init_experimental_v2<Schema extends InstantSchemaV2<any, any, any>>(
-  config: ConfigExperimental<Schema>,
+function do_not_use_init_experimental<Schema extends DoNotUseInstantSchema<any, any, any>>(
+  config: DoNotUseConfig<Schema>,
   Storage?: any,
   NetworkListener?: any,
-): InstantCoreExperimental<Schema> {
-  return _init_internal_experimental_v2<Schema>(
+): DoNotUseInstantCore<Schema> {
+  return _do_not_use_init_internal<Schema>(
     config,
     Storage,
     NetworkListener,
   );
 }
 
-function _init_internal_experimental_v2<
-  Schema extends InstantSchemaV2<any, any, any>,
+function _do_not_use_init_internal<
+  Schema extends DoNotUseInstantSchema<any, any, any>,
 >(
   config: Config,
   Storage?: any,
   NetworkListener?: any,
-): InstantCoreExperimental<Schema> {
+): DoNotUseInstantCore<Schema> {
   const existingClient = globalInstantCoreStore[
     config.appId
-  ] as InstantCoreExperimental<any>;
+  ] as DoNotUseInstantCore<any>;
 
   if (existingClient) {
     return existingClient;
@@ -850,7 +850,7 @@ function _init_internal_experimental_v2<
     NetworkListener || WindowNetworkListener,
   );
 
-  const client = new InstantCoreExperimental<any>(reactor);
+  const client = new DoNotUseInstantCore<any>(reactor);
   globalInstantCoreStore[config.appId] = client;
 
   if (typeof window !== "undefined" && typeof window.location !== "undefined") {
@@ -874,9 +874,9 @@ export {
   // bada bing bada boom
   init,
   init_experimental,
-  init_experimental_v2,
+  do_not_use_init_experimental,
   _init_internal,
-  _init_internal_experimental_v2,
+  _do_not_use_init_internal,
   id,
   tx,
   txInit,
@@ -892,18 +892,18 @@ export {
   IndexedDBStorage,
   WindowNetworkListener,
   InstantCore as InstantClient,
-  InstantCoreExperimental as InstantClientExperimental,
+  DoNotUseInstantCore as DoNotUseInstantClient,
   Auth,
   Storage,
   version,
 
   // og types
   type IDatabase,
-  type IDatabaseExperimental,
+  type IDoNotUseDatabase,
   type RoomSchemaShape,
   type Query,
   type QueryResponse,
-  type QueryResponseExperimental,
+  type DoNotUseQueryResponse,
   type PageInfoResponse,
   type InstantObject,
   type Exactly,
@@ -913,9 +913,9 @@ export {
   type AuthToken,
   type TxChunk,
   type SubscriptionState,
-  type SubscriptionStateExperimental,
-  type LifecycleSubscriptionState,
-  type LifecycleSubscriptionStateExperimental,
+  type DoNotUseSubscriptionState,
+  type DoNotUseLifecycleSubscriptionState,
+  type DoNotUseDoNotUseLifecycleSubscriptionState,
 
   // presence types
   type PresenceOpts,
@@ -939,7 +939,7 @@ export {
   type EntityDef,
   type RoomsDef,
   type InstantGraph,
-  type InstantSchemaV2,
+  type DoNotUseInstantSchema,
   type LinkAttrDef,
   type LinkDef,
   type LinksDef,
@@ -948,6 +948,6 @@ export {
   type RoomsOf,
   type PresenceOf,
   type TopicsOf,
-  type InstantEntityExperimental,
-  type InstaQLQueryResultExperimental,
+  type DoNotUseInstantEntity,
+  type DoNotUseInstaQLQueryResult,
 };

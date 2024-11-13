@@ -285,7 +285,7 @@ export type RoomsOf<S> =
     ? R extends RoomSchemaShape
       ? R
       : never
-    : S extends InstantSchemaV2<any, any, infer RDef>
+    : S extends DoNotUseInstantSchema<any, any, infer RDef>
       ? RoomsFromDef<RDef>
       : never;
 
@@ -316,7 +316,7 @@ export interface RoomsDef {
   [RoomType: string]: RoomDef;
 }
 
-export class InstantSchemaV2<
+export class DoNotUseInstantSchema<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
   Rooms extends RoomsDef,
