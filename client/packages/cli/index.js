@@ -257,6 +257,7 @@ async function login(options) {
 
   const { secret, ticket } = registerRes.data;
 
+  console.log("Let's log in you in! \n");
   const ok = await promptOk(
     `This will open instantdb.com in your browser, OK to proceed?`,
   );
