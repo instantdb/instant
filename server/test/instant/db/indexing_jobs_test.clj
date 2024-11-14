@@ -172,7 +172,6 @@
                             (attr-model/seek-by-id attrs)
                             :checked-data-type))))))))))
 
-;; XXX: NEXTUP AFTER TESTS: MAKE SURE TO IGNORE INDEXES WHILE INDEXING AND UNIQUE WHILE UNIQUEING
 (deftest index-works
   (with-queue job-queue
     (with-zeneca-app

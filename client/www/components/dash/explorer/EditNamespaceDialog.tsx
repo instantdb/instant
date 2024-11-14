@@ -491,7 +491,7 @@ function InvalidTriplesSample({
               <td className="pr-2">
                 <pre>{t.entity_id}</pre>
               </td>
-              <td className="pr-2 truncate" style={{ maxWidth: "12rem" }}>
+              <td className="pr-2 truncate" style={{ maxWidth: '12rem' }}>
                 {JSON.stringify(t.value)}
               </td>
               <td className="pr-2">{t.json_type}</td>
@@ -625,7 +625,15 @@ function EditIndexed({
 
       <ActionButton
         type="submit"
-        label="Update index status"
+        label={
+          valueNotChanged
+            ? indexChecked
+              ? 'Indexed'
+              : 'Not indexed'
+            : indexChecked
+              ? 'Index attribute'
+              : 'Remove index'
+        }
         submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
         errorMessage="Failed to update attribute"
         disabled={buttonDisabled}
@@ -806,7 +814,15 @@ function EditUnique({
 
       <ActionButton
         type="submit"
-        label="Update uniqueness"
+        label={
+          valueNotChanged
+            ? uniqueChecked
+              ? 'Unique'
+              : 'Not unique'
+            : uniqueChecked
+              ? 'Add uniqueness constraint'
+              : 'Remove uniqueness constraint'
+        }
         submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
         errorMessage="Failed to update attribute"
         disabled={buttonDisabled}

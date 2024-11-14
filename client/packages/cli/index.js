@@ -494,7 +494,7 @@ function jobGroupDescription(jobs) {
   for (const job of jobs) {
     actions.add(jobActions[job.job_type]);
   }
-  return joinInSentence([...actions]) || "updating schema";
+  return joinInSentence([...actions].sort()) || "updating schema";
 }
 
 async function waitForIndexingJobsToFinish(appId, data) {
