@@ -6,7 +6,6 @@ import type {
   EntitiesDef,
   IInstantDataSchema,
   InstantGraph,
-  DoNotUseInstantSchema,
   LinkAttrDef,
   ResolveAttrs,
   ResolveEntityAttrs,
@@ -147,7 +146,7 @@ type Exactly<Parent, Child> = Parent & {
 // ==========
 // InstaQL helpers
 
-type DoNotUseInstaQLQueryEntityLinksResult<
+type DoNotUseInstaQLSubqueryResult<
   Schema extends IInstantDataSchema<EntitiesDef, any>,
   EntityName extends keyof Schema["entities"],
   Query extends {
@@ -221,8 +220,8 @@ type DoNotUseInstantEntity<
   Subquery extends {
     [QueryPropName in keyof Schema["entities"][EntityName]["links"]]?: any;
   } = {},
-> = { id: string } & ResolveEntityAttrs<Schema["entities"][EntityName]> &
-  DoNotUseInstaQLQueryEntityLinksResult<Schema, EntityName, Subquery>;
+> = ResolveEntityAttrs<Schema["entities"][EntityName]> &
+  DoNotUseInstaQLSubqueryResult<Schema, EntityName, Subquery>;
 
 type InstaQLQueryEntityResult<
   Entities extends EntitiesDef,

@@ -33,6 +33,8 @@ import {
   type ValueTypes,
   type DoNotUseInstantEntity,
   type DoNotUseInstaQLQueryResult,
+  type DoNotUseUnknownSchema,
+  type DoNotUseInstantSchema,
 } from "@instantdb/core";
 
 import { InstantReact } from "./InstantReact";
@@ -87,4 +89,6 @@ export {
   type ValueTypes,
   type DoNotUseInstantEntity,
   type DoNotUseInstaQLQueryResult,
+  type DoNotUseUnknownSchema,
+  type DoNotUseInstantSchema,
 };

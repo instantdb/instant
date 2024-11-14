@@ -4,18 +4,17 @@ import {
   InstaQLQueryParams,
   DoNotUseInstantEntity,
   DoNotUseInstaQLQueryResult,
+  DoNotUseUnknownSchema,
 } from "@instantdb/core";
 import { do_not_use_init_experimental as react_init_experimental } from "@instantdb/react";
 import { do_not_use_init_experimental as react_native_init_experimental } from "@instantdb/react-native";
 import { do_not_use_init_experimental as admin_init_experimental } from "@instantdb/admin";
-import schema, { AppSchema } from "../instant.schema.v2";
 
 // ----
 // Core
 
 const coreDB = core_init_experimental({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
-  schema,
 });
 
 // rooms
@@ -29,19 +28,19 @@ coreRoom.publishTopic("emoji", {
 });
 
 // queries
-coreDB.subscribeQuery({ messages: { creator: {} } }, (result) => {
+coreDB.subscribeQuery({ posts: { comments: {} } }, (result) => {
   if (result.error) {
     return;
   }
-  const { messages } = result.data;
-  const message = messages[0];
-  message.content;
-  message.creator?.email;
+  const { posts } = result.data;
+  const post = posts[0];
+  post.id;
+  post.comments[0].id;
 });
 
 // transactions
-coreDB.tx.messages[id()]
-  .update({ content: "Hello world" })
+coreDB.tx.posts[id()]
+  .update({ title: "Hello world", num: 1 })
   .link({ creator: "foo" });
 
 // ----
@@ -49,7 +48,6 @@ coreDB.tx.messages[id()]
 
 const reactDB = react_init_experimental({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
-  schema,
 });
 
 function ReactNormalApp() {
@@ -61,15 +59,15 @@ function ReactNormalApp() {
   const _reactPresencePeers = reactPresence.peers!;
   // queries
   const { isLoading, error, data } = reactDB.useQuery({
-    messages: { creator: {} },
+    posts: { comments: {} },
   });
   if (isLoading || error) {
     return null;
   }
-  const { messages } = data;
-  const message = messages[0];
-  message.content;
-  message.creator?.email;
+  const { posts } = data;
+  const post = posts[0];
+  post.id;
+  post.comments[0].id;
 
   // transactions
   reactDB.transact(
@@ -89,7 +87,6 @@ function ReactNormalApp() {
 
 const reactNativeDB = react_native_init_experimental({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
-  schema: schema,
 });
 
 function ReactNativeNormalApp() {
@@ -101,15 +98,16 @@ function ReactNativeNormalApp() {
   const _reactPresencePeers = reactPresence.peers!;
   // queries
   const { isLoading, error, data } = reactNativeDB.useQuery({
-    messages: { creator: {} },
+    posts: { comments: {} },
   });
   if (isLoading || error) {
     return null;
   }
-  const { messages } = data;
-  const message = messages[0];
-  message.content;
-  message.creator?.email;
+  const { posts } = data;
+  const post = posts[0];
+  post.id;
+  post.comments[0].id;
+
   // to silence ts warnings
   _reactPublishEmoji;
   _reactPresenceUser;
@@ -122,14 +120,12 @@ function ReactNativeNormalApp() {
 const adminDB = admin_init_experimental({
   appId: import.meta.env.VITE_INSTANT_APP_ID!,
   adminToken: import.meta.env.VITE_INSTANT_ADMIN_TOKEN!,
-  schema,
 });
 
 // queries
 const adminQueryResult = await adminDB.query({ messages: { creator: {} } });
-const message = adminQueryResult.messages[0];
-message.content;
-message.creator?.email;
+adminQueryResult.messages[0].content;
+
 // transacts
 await adminDB.transact(
   adminDB.tx.messages[id()]
@@ -138,39 +134,38 @@ await adminDB.transact(
 );
 
 // to silence ts warnings
-ReactNormalApp;
-ReactNativeNormalApp;
+export { ReactNormalApp, ReactNativeNormalApp };
 
 // ------------
 // type helpers
 
-const messagesQuery = {
-  messages: {
-    creator: {},
+const postsQuery = {
+  posts: {
+    comments: {},
   },
-} satisfies InstaQLQueryParams<AppSchema>;
+} satisfies InstaQLQueryParams<DoNotUseUnknownSchema>;
 
-type CoreMessage = DoNotUseInstantEntity<AppSchema, "messages">;
-let coreMessage: CoreMessage = 1 as any;
-coreMessage.content;
+type CorePost = DoNotUseInstantEntity<DoNotUseUnknownSchema, "messages">;
+let coreMessage: CorePost = 1 as any;
+coreMessage.id;
 
-type CoreMessageWithCreator = DoNotUseInstantEntity<
-  AppSchema,
+type CorePostWithCreator = DoNotUseInstantEntity<
+  DoNotUseUnknownSchema,
   "messages",
   { creator: {} }
 >;
-let coreMessageWithCreator: CoreMessageWithCreator = 1 as any;
-coreMessageWithCreator.content;
-coreMessageWithCreator.creator?.email;
+let coreMessageWithCreator: CorePostWithCreator = 1 as any;
+coreMessageWithCreator.creator[0].id;
 
 type MessageCreatorResult = DoNotUseInstaQLQueryResult<
-  AppSchema,
-  InstaQLQueryParams<AppSchema>
+  DoNotUseUnknownSchema,
+  typeof postsQuery
 >;
+
 function subMessagesWithCreator(
   resultCB: (data: MessageCreatorResult) => void,
 ) {
-  coreDB.subscribeQuery(messagesQuery, (result) => {
+  coreDB.subscribeQuery(postsQuery, (result) => {
     if (result.data) {
       resultCB(result.data);
     }
@@ -178,5 +173,5 @@ function subMessagesWithCreator(
 }
 
 // to silence ts warnings
-messagesQuery;
+postsQuery;
 subMessagesWithCreator;

@@ -59,6 +59,7 @@ import type {
   RoomsOf,
   TopicsOf,
   ValueTypes,
+  DoNotUseUnknownSchema,
 } from "./schemaTypes";
 
 const defaultOpenDevtool = true;
@@ -77,7 +78,7 @@ export type DoNotUseConfig<S extends DoNotUseInstantSchema<any, any, any>> = {
   websocketURI?: string;
   apiURI?: string;
   devtool?: boolean;
-  schema: S;
+  schema?: S;
 };
 
 export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {
@@ -813,22 +814,20 @@ class DoNotUseInstantCore<Schema extends DoNotUseInstantSchema<any, any, any>>
   }
 }
 
-function do_not_use_init_experimental<Schema extends DoNotUseInstantSchema<any, any, any>>(
+function do_not_use_init_experimental<
+  Schema extends DoNotUseInstantSchema<any, any, any> = DoNotUseUnknownSchema,
+>(
   config: DoNotUseConfig<Schema>,
   Storage?: any,
   NetworkListener?: any,
 ): DoNotUseInstantCore<Schema> {
-  return _do_not_use_init_internal<Schema>(
-    config,
-    Storage,
-    NetworkListener,
-  );
+  return _do_not_use_init_internal<Schema>(config, Storage, NetworkListener);
 }
 
 function _do_not_use_init_internal<
   Schema extends DoNotUseInstantSchema<any, any, any>,
 >(
-  config: Config,
+  config: DoNotUseConfig<Schema>,
   Storage?: any,
   NetworkListener?: any,
 ): DoNotUseInstantCore<Schema> {
@@ -844,7 +843,7 @@ function _do_not_use_init_internal<
     {
       ...defaultConfig,
       ...config,
-      cardinalityInference: true,
+      cardinalityInference: config.schema ? true : false,
     },
     Storage || IndexedDBStorage,
     NetworkListener || WindowNetworkListener,
@@ -939,7 +938,6 @@ export {
   type EntityDef,
   type RoomsDef,
   type InstantGraph,
-  type DoNotUseInstantSchema,
   type LinkAttrDef,
   type LinkDef,
   type LinksDef,
@@ -950,4 +948,6 @@ export {
   type TopicsOf,
   type DoNotUseInstantEntity,
   type DoNotUseInstaQLQueryResult,
+  type DoNotUseInstantSchema,
+  type DoNotUseUnknownSchema,
 };
