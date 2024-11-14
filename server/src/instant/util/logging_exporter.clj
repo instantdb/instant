@@ -123,7 +123,9 @@
       (let [attrs (.getAttributes span)]
         (when-let [op (.get attrs op-attr-key)]
           (or (= op ":set-presence")
-              (= op ":refresh-presence")))))
+              (= op ":refresh-presence")
+              (= op ":server-broadcast")
+              (= op ":client-broadcast")))))
     (fn [_span]
       false)))
 
