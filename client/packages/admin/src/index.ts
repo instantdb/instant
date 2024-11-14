@@ -65,7 +65,7 @@ type DoNotUseConfig<Schema extends DoNotUseInstantSchema<any, any, any>> = {
   appId: string;
   adminToken: string;
   apiURI?: string;
-  schema: Schema;
+  schema?: Schema;
 };
 
 type DoNotUseFilledConfig<Schema extends DoNotUseInstantSchema<any, any, any>> =

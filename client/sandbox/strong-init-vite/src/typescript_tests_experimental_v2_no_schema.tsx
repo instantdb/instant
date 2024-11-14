@@ -4,6 +4,7 @@ import {
   InstaQLQueryParams,
   DoNotUseInstantEntity,
   DoNotUseInstaQLQueryResult,
+  DoNotUseUnknownSchema,
 } from "@instantdb/core";
 import { do_not_use_init_experimental as react_init_experimental } from "@instantdb/react";
 import { do_not_use_init_experimental as react_native_init_experimental } from "@instantdb/react-native";
@@ -152,32 +153,33 @@ export { ReactNormalApp, ReactNativeNormalApp };
 // ------------
 // type helpers
 
-const messagesQuery: InstaQLQueryParams<DoNotUseUnknownSchema> = {
-  messages: {
-    creator: {},
+const postsQuery = {
+  posts: {
+    comments: {},
   },
-};
+} satisfies InstaQLQueryParams<DoNotUseUnknownSchema>;
 
-type CoreMessage = DoNotUseInstantEntity<DoNotUseUnknownSchema, "messages">;
-let coreMessage: CoreMessage = 1 as any;
-coreMessage.content;
+type CorePost = DoNotUseInstantEntity<DoNotUseUnknownSchema, "messages">;
+let coreMessage: CorePost = 1 as any;
+coreMessage.id;
 
-type CoreMessageWithCreator = DoNotUseInstantEntity<
+type CorePostWithCreator = DoNotUseInstantEntity<
   DoNotUseUnknownSchema,
   "messages",
   { creator: {} }
 >;
-let coreMessageWithCreator: CoreMessageWithCreator = 1 as any;
-coreMessageWithCreator.creator?.id;
+let coreMessageWithCreator: CorePostWithCreator = 1 as any;
+coreMessageWithCreator.creator[0].id;
 
 type MessageCreatorResult = DoNotUseInstaQLQueryResult<
   DoNotUseUnknownSchema,
-  InstaQLQueryParams<DoNotUseUnknownSchema>
+  typeof postsQuery
 >;
+
 function subMessagesWithCreator(
   resultCB: (data: MessageCreatorResult) => void,
 ) {
-  coreDB.subscribeQuery(messagesQuery, (result) => {
+  coreDB.subscribeQuery(postsQuery, (result) => {
     if (result.data) {
       resultCB(result.data);
     }
@@ -185,4 +187,5 @@ function subMessagesWithCreator(
 }
 
 // to silence ts warnings
-((..._args) => {})(messagesQuery, subMessagesWithCreator);
+postsQuery;
+subMessagesWithCreator;

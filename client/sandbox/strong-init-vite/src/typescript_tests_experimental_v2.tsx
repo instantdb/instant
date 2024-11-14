@@ -9,6 +9,7 @@ import { do_not_use_init_experimental as react_init_experimental } from "@instan
 import { do_not_use_init_experimental as react_native_init_experimental } from "@instantdb/react-native";
 import { do_not_use_init_experimental as admin_init_experimental } from "@instantdb/admin";
 import schema, { AppSchema } from "../instant.schema.v2";
+import { SpecificallyExtends } from "./helpers";
 
 // ----
 // Core
@@ -63,7 +64,11 @@ function ReactNormalApp() {
     return null;
   }
   const { messages } = data;
-  messages[0].content;
+  const message = messages[0];
+  const messageIsTyped: SpecificallyExtends<
+    typeof message,
+    { id: string; content: string }
+  > = true;
 
   // transactions
   reactDB.transact(
@@ -73,12 +78,10 @@ function ReactNormalApp() {
   );
 
   // to silence ts warnings
-  ((..._args) => {})(
-    _reactPublishEmoji,
-    _reactPresenceUser,
-    _reactPresencePeers,
-    messages,
-  );
+  _reactPublishEmoji;
+  _reactPresenceUser;
+  _reactPresencePeers;
+  messageIsTyped;
 }
 
 // ----
@@ -104,14 +107,16 @@ function ReactNativeNormalApp() {
     return null;
   }
   const { messages } = data;
-  messages[0].content;
+  const message = messages[0];
+  const messageIsTyped: SpecificallyExtends<
+    typeof message,
+    { id: string; content: string }
+  > = true;
   // to silence ts warnings
-  ((..._args) => {})(
-    _reactPublishEmoji,
-    _reactPresenceUser,
-    _reactPresencePeers,
-    messages,
-  );
+  _reactPublishEmoji;
+  _reactPresenceUser;
+  _reactPresencePeers;
+  messageIsTyped;
 }
 
 // ----
@@ -120,12 +125,16 @@ function ReactNativeNormalApp() {
 const adminDB = admin_init_experimental({
   appId: import.meta.env.VITE_INSTANT_APP_ID!,
   adminToken: import.meta.env.VITE_INSTANT_ADMIN_TOKEN!,
-  schema: schema,
+  schema,
 });
 
 // queries
 const adminQueryResult = await adminDB.query({ messages: { creator: {} } });
-adminQueryResult.messages[0].content;
+const message = adminQueryResult.messages[0];
+const messageIsTyped: SpecificallyExtends<
+  typeof message,
+  { id: string; content: string }
+> = true;
 
 // transacts
 await adminDB.transact(
@@ -135,16 +144,18 @@ await adminDB.transact(
 );
 
 // to silence ts warnings
-export { ReactNormalApp, ReactNativeNormalApp };
+ReactNormalApp;
+ReactNativeNormalApp;
+messageIsTyped;
 
 // ------------
 // type helpers
 
-const messagesQuery: InstaQLQueryParams<AppSchema> = {
+const messagesQuery = {
   messages: {
     creator: {},
   },
-};
+} satisfies InstaQLQueryParams<AppSchema>;
 
 type CoreMessage = DoNotUseInstantEntity<AppSchema, "messages">;
 let coreMessage: CoreMessage = 1 as any;
@@ -156,7 +167,8 @@ type CoreMessageWithCreator = DoNotUseInstantEntity<
   { creator: {} }
 >;
 let coreMessageWithCreator: CoreMessageWithCreator = 1 as any;
-coreMessageWithCreator.creator?.id;
+const creatorId = coreMessageWithCreator.creator?.id;
+const creatorIdIsString: SpecificallyExtends<typeof creatorId, string> = true;
 
 type MessageCreatorResult = DoNotUseInstaQLQueryResult<
   AppSchema,
@@ -173,4 +185,6 @@ function subMessagesWithCreator(
 }
 
 // to silence ts warnings
-((..._args) => {})(messagesQuery, subMessagesWithCreator);
+messagesQuery;
+subMessagesWithCreator;
+creatorIdIsString;
