@@ -642,7 +642,7 @@
 ;; System
 
 (defn group-fn [{:keys [item] :as _input}]
-  (let [{:keys [session-id op room-id topic]} item]
+  (let [{:keys [session-id op room-id]} item]
     (case op
       :transact
       [:transact session-id]
