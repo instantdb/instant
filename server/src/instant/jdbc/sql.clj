@@ -110,7 +110,7 @@
 
 (defn span-attrs-from-conn-pool [conn]
   (when (instance? HikariDataSource conn)
-    (let [mx-bean (.getHikariPoolMXBean conn)
+    (let [mx-bean (.getHikariPoolMXBean ^HikariDataSource conn)
           pending (.getThreadsAwaitingConnection mx-bean)
           active (.getActiveConnections mx-bean)]
       {:idle-connections (.getIdleConnections mx-bean)

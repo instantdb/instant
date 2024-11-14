@@ -501,15 +501,17 @@
                    ::ex/hint
                    :condition)))
           (is
-           (= :check-violation
-              (->  (instant-ex-data
-                     (tx/transact!
-                      aurora/conn-pool
-                      (attr-model/get-by-app-id app-id)
-                      app-id
-                      [[:add-triple stopa-eid tag-attr-id {:foo "bar"}]]))
-                   ::ex/hint
-                   :condition))))))))
+           (= "Check Violation: ref_values_are_uuid"
+              (-> (instant-ex-data
+                    (tx/transact!
+                     aurora/conn-pool
+                     (attr-model/get-by-app-id app-id)
+                     app-id
+                     [[:add-triple stopa-eid tag-attr-id {:foo "bar"}]]))
+                  ::ex/hint
+                  :errors
+                  first
+                  :message))))))))
 
 (deftest tx-ref-many-to-one
   (with-empty-app
@@ -1467,7 +1469,7 @@
                        app-id
                        [[:= :attr-id email-attr-id]])))))
         ;; If this failed it might be because we added new columns to the triples
-        ;; table, check instant.util.exception/extract-invalid-value-constraint-triple
+        ;; table, check instant.util.exception/extract-triple-from-constraint
         (testing "returns a friendly error message for bad data"
           (let [eid (random-uuid)]
             (is (= #:instant.util.exception{:type
@@ -1487,6 +1489,75 @@
                                    (attr-model/get-by-app-id app-id)
                                    app-id
                                    [[:add-triple eid email-attr-id 10]]))))))))))
+
+(deftest rejects-large-values-for-indexed-data
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [email-attr-id (random-uuid)
+            unique-attr-id (random-uuid)]
+        (tx/transact!
+         aurora/conn-pool
+         (attr-model/get-by-app-id app-id)
+         app-id
+         [[:add-attr
+           {:id email-attr-id
+            :forward-identity [(random-uuid) "users" "email"]
+            :value-type :blob
+            :cardinality :one
+            :unique? false
+            :index? true
+            :checked-data-type :string}]
+          [:add-attr
+           {:id unique-attr-id
+            :forward-identity [(random-uuid) "users" "unique"]
+            :value-type :blob
+            :cardinality :one
+            :unique? true
+            :index? false
+            :checked-data-type :string}]])
+
+        ;; If this failed it might be because we added new columns to the triples
+        ;; table, check instant.util.exception/extract-triple-from-constraint
+        (testing "returns a friendly error message for indexed data"
+          (let [eid (random-uuid)]
+            (is (= #:instant.util.exception{:type
+                                            :instant.util.exception/validation-failed,
+                                            :message "Validation failed for triple",
+                                            :hint
+                                            {:data-type :triple,
+                                             :input "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
+                                             :errors
+                                             [{:message "Value is too large for an indexed attribute.",
+                                               :hint {:value "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
+                                                      :checked-data-type "string",
+                                                      :attr-id (str email-attr-id)
+                                                      :entity-id (str eid)
+                                                      :value-too-large? true}}]}}
+                   (instant-ex-data
+                     (tx/transact! aurora/conn-pool
+                                   (attr-model/get-by-app-id app-id)
+                                   app-id
+                                   [[:add-triple eid email-attr-id (apply str (repeat 1000000 "a"))]]))))))
+        (testing "returns a friendly error message for unique data"
+          (let [eid (random-uuid)]
+            (is (= #:instant.util.exception{:type
+                                            :instant.util.exception/validation-failed,
+                                            :message "Validation failed for triple",
+                                            :hint
+                                            {:data-type :triple,
+                                             :input "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
+                                             :errors
+                                             [{:message "Value is too large for a unique attribute.",
+                                               :hint {:value "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
+                                                      :checked-data-type "string",
+                                                      :attr-id (str unique-attr-id)
+                                                      :entity-id (str eid)
+                                                      :value-too-large? true}}]}}
+                   (instant-ex-data
+                     (tx/transact! aurora/conn-pool
+                                   (attr-model/get-by-app-id app-id)
+                                   app-id
+                                   [[:add-triple eid unique-attr-id (apply str (repeat 1000000 "a"))]]))))))))))
 
 (deftest deep-merge-existing-object
   (with-empty-app

@@ -11,6 +11,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.system-catalog :as system-catalog]
    [instant.util.async :as ua]
+   [instant.util.exception :as ex]
    [instant.util.tracer :as tracer]
    [instant.jdbc.sql :as sql]
    [next.jdbc :as next-jdbc])
@@ -25,11 +26,17 @@
 (def job-types #{"check-data-type"
                  "remove-data-type"
                  "index"
-                 "unique"})
+                 "remove-index"
+                 "unique"
+                 "remove-unique"})
 
-;; This is the key we use to ensure that we don't
-;; check and index simultaneously
-(def check-and-index-serial-key "index")
+;; This is the key we use for checking to ensure we don't set the type
+;; to two values simultaneously
+(def check-serial-key "check")
+;; This is the key we use for checking to ensure we don't start multiple indexing
+;; jobs for the same attr
+(def index-serial-key "index")
+(def unique-serial-key "unique")
 
 (def check-data-type-stages ["validate" ;; make sure this will work
                              "update-attr-start" ;; update attr to prevent adding invalid data
@@ -45,7 +52,30 @@
                               "update-attr-done" ;; update attr to mark checking finished
                               ])
 
+(def index-stages ["update-attr-start"
+                   "estimate-work"
+                   "update-triples"
+                   "update-attr-done"])
+
+(def remove-index-stages ["update-attr-start"
+                          "estimate-work"
+                          "update-triples"
+                          "update-attr-done"])
+
+(def unique-stages ["update-attr-start"
+                    "estimate-work"
+                    "update-triples"
+                    "update-attr-done"])
+
+(def remove-unique-stages ["update-attr-start"
+                           "estimate-work"
+                           "update-triples"
+                           "update-attr-done"])
+
+
 (def invalid-triple-error "invalid-triple-error")
+(def triple-too-large-error "triple-too-large-error")
+(def triple-not-unique-error "triple-not-unique-error")
 (def invalid-attr-state-error "invalid-attr-state-error")
 (def unexpected-error "unexpected-error")
 
@@ -92,6 +122,7 @@
                     :created_at
                     :updated_at
                     :done_at
+                    :invalid_unique_value
                     :invalid_triples_sample]))
 
 (defn get-for-client-q [app-id & wheres]
@@ -100,17 +131,43 @@
               :from :idents
               :where [:= :attr-id :j.attr-id]}
              :attr-name]
-            [[:case [:= :error invalid-triple-error]
+            [[:case-expr :error
+              [:inline invalid-triple-error]
+              [:case-expr :job-type
+               "check-data-type"
+               {:select [[[:json_agg :t]]]
+                :from [[{:select [:t.entity-id :t.value [[:jsonb_typeof :t.value] :json-type]]
+                         :from [[:triples :t]]
+                         :limit 10
+                         :where [:and
+                                 [:= :app-id app-id]
+                                 [:not= nil :j.checked-data-type]
+                                 [:= :t.app_id :j.app_id]
+                                 [:= :t.attr_id :j.attr_id]
+                                 [:not [:triples_valid_value :j.checked-data-type :t.value]]]}
+                        :t]]}]
+              [:inline triple-not-unique-error]
               {:select [[[:json_agg :t]]]
                :from [[{:select [:t.entity-id :t.value [[:jsonb_typeof :t.value] :json-type]]
                         :from [[:triples :t]]
                         :limit 10
                         :where [:and
                                 [:= :app-id app-id]
-                                [:not= nil :j.checked-data-type]
                                 [:= :t.app_id :j.app_id]
                                 [:= :t.attr_id :j.attr_id]
-                                [:not [:triples_valid_value :j.checked-data-type :t.value]]]}
+                                [:= :t.value :j.invalid-unique-value]]}
+                       :t]]}
+
+              [:inline triple-too-large-error]
+              {:select [[[:json_agg :t]]]
+               :from [[{:select [:t.entity-id :t.value [[:jsonb_typeof :t.value] :json-type]]
+                        :from [[:triples :t]]
+                        :limit 10
+                        :where [:and
+                                [:= :app-id app-id]
+                                [:= :t.app_id :j.app_id]
+                                [:= :t.attr_id :j.attr_id]
+                                [:= :t.entity_id :j.invalid-entity-id]]}
                        :t]]}
               ] :invalid-triples-sample]]
    :from [[:indexing-jobs :j]]
@@ -187,7 +244,7 @@
    (create-job! conn {:app-id app-id
                       :group-id group-id
                       :attr-id attr-id
-                      :job-serial-key "index"
+                      :job-serial-key check-serial-key
                       :job-type "check-data-type"
                       :checked-data-type checked-data-type
                       :job-stage "validate"})))
@@ -201,8 +258,60 @@
    (create-job! conn {:app-id app-id
                       :group-id group-id
                       :attr-id attr-id
-                      :job-serial-key "index"
+                      :job-serial-key check-serial-key
                       :job-type "remove-data-type"
+                      :job-stage "update-attr-start"})))
+
+(defn create-index-job!
+  ([params]
+   (create-index-job! aurora/conn-pool params))
+  ([conn {:keys [app-id
+                 group-id
+                 attr-id]}]
+   (create-job! conn {:app-id app-id
+                      :group-id group-id
+                      :attr-id attr-id
+                      :job-serial-key index-serial-key
+                      :job-type "index"
+                      :job-stage "update-attr-start"})))
+
+(defn create-remove-index-job!
+  ([params]
+   (create-remove-index-job! aurora/conn-pool params))
+  ([conn {:keys [app-id
+                 group-id
+                 attr-id]}]
+   (create-job! conn {:app-id app-id
+                      :group-id group-id
+                      :attr-id attr-id
+                      :job-serial-key index-serial-key
+                      :job-type "remove-index"
+                      :job-stage "update-attr-start"})))
+
+(defn create-unique-job!
+  ([params]
+   (create-unique-job! aurora/conn-pool params))
+  ([conn {:keys [app-id
+                 group-id
+                 attr-id]}]
+   (create-job! conn {:app-id app-id
+                      :group-id group-id
+                      :attr-id attr-id
+                      :job-serial-key unique-serial-key
+                      :job-type "unique"
+                      :job-stage "update-attr-start"})))
+
+(defn create-remove-unique-job!
+  ([params]
+   (create-remove-unique-job! aurora/conn-pool params))
+  ([conn {:keys [app-id
+                 group-id
+                 attr-id]}]
+   (create-job! conn {:app-id app-id
+                      :group-id group-id
+                      :attr-id attr-id
+                      :job-serial-key unique-serial-key
+                      :job-type "remove-unique"
                       :job-stage "update-attr-start"})))
 
 (defn job-available-wheres
@@ -245,16 +354,14 @@
   ([job next-stage]
    (update-work-estimate! aurora/conn-pool next-stage job))
   ([conn next-stage job]
-   (let [estimate (case (:job_type job)
-                    ("check-data-type" "remove-data-type" "index" "unique")
-                    (-> (sql/select-one
-                         conn
-                         (hsql/format {:select :%count.*
-                                       :from :triples
-                                       :where [:and
-                                               [:= :app-id (:app_id job)]
-                                               [:= :attr-id (:attr_id job)]]}))
-                        :count))]
+   (let [estimate (-> (sql/select-one
+                       conn
+                       (hsql/format {:select :%count.*
+                                     :from :triples
+                                     :where [:and
+                                             [:= :app-id (:app_id job)]
+                                             [:= :attr-id (:attr_id job)]]}))
+                      :count)]
      (sql/execute-one! conn (hsql/format {:update :indexing-jobs
                                           :where (job-update-wheres
                                                   [:= :id (:id job)])
@@ -305,16 +412,52 @@
                                           :set {:job-stage stage}})))))
 
 (defn mark-error!
-  ([error job]
-   (mark-error! aurora/conn-pool error job))
-  ([conn error job]
-   (tracer/with-span! (assoc (job-span-attrs "mark-error" job)
-                             :error error)
+  ([props job]
+   (mark-error! aurora/conn-pool props job))
+  ([conn props job]
+   (tracer/with-span! (merge (job-span-attrs "mark-error" job)
+                             props)
      (sql/execute-one! conn (hsql/format {:update :indexing-jobs
                                           :where (job-update-wheres
                                                   [:= :id (:id job)])
-                                          :set {:job-status "errored"
-                                                :error error}})))))
+                                          :set (merge {:job-status "errored"}
+                                                      props)})))))
+
+(defn mark-error-from-ex-info!
+  ([^clojure.lang.ExceptionInfo e job]
+   (mark-error-from-ex-info! aurora/conn-pool e job))
+  ([conn ^clojure.lang.ExceptionInfo e job]
+   (let [error-data (ex-data e)
+         validation-error (some-> error-data
+                                  ::ex/hint
+                                  :errors
+                                  first)
+         job-error-fields (case (::ex/type error-data)
+                            ::ex/record-not-unique
+                            {:error triple-not-unique-error
+                             :invalid-unique-value [:cast
+                                                    (-> error-data
+                                                        ::ex/hint
+                                                        :value)
+                                                    :jsonb]}
+
+                            ::ex/validation-failed
+                            (if (and (some-> validation-error
+                                             :hint
+                                             :entity-id)
+                                     (some-> validation-error
+                                             :hint
+                                             :value-too-large?))
+                              {:error triple-too-large-error
+                               :invalid-entity-id [:cast
+                                                   (-> validation-error
+                                                       :hint
+                                                       :entity-id)
+                                                   :uuid]}
+                              {:error unexpected-error})
+
+                            {:error unexpected-error})]
+     (mark-error! conn job-error-fields job))))
 
 (def batch-size 1000)
 
@@ -328,6 +471,7 @@
             :set {:checked-data-type [:cast checked_data_type :checked_data_type]}
             :where [:in :ctid
                     {:select :ctid
+                     :for :update
                      :from :triples
                      :limit batch-size
                      :where [:and
@@ -398,7 +542,7 @@
                            :set {:checked-data-type [:cast (:checked_data_type job) :checked_data_type]
                                  :checking-data-type true}})
      (set-next-stage! conn "revalidate" job)
-     (mark-error! conn invalid-attr-state-error job))))
+     (mark-error! conn {:error invalid-attr-state-error} job))))
 
 (defn update-attr-for-check-done!
   ([job]
@@ -410,7 +554,7 @@
                                    [:= :checking-data-type true]]
                            :set {:checking-data-type false}})
      (mark-job-completed! conn job)
-     (mark-error! conn invalid-attr-state-error job))))
+     (mark-error! conn {:error invalid-attr-state-error} job))))
 
 (defn rollback-attr-for-check!
   ([job]
@@ -430,7 +574,7 @@
    (if (has-invalid-row? conn job)
      (do
        (rollback-attr-for-check! conn job)
-       (mark-error! conn invalid-triple-error job))
+       (mark-error! conn {:error invalid-triple-error} job))
      (set-next-stage! conn next-stage job))))
 
 (defn run-next-check-step
@@ -459,7 +603,7 @@
                            :set {:checked-data-type nil
                                  :checking-data-type true}})
      (set-next-stage! conn "estimate-work" job)
-     (mark-error! conn invalid-attr-state-error job))))
+     (mark-error! conn {:error invalid-attr-state-error} job))))
 
 (defn update-attr-for-remove-data-type-done!
   ([job]
@@ -471,7 +615,7 @@
                                    [:= :checking-data-type true]]
                            :set {:checking-data-type false}})
      (mark-job-completed! conn job)
-     (mark-error! conn invalid-attr-state-error job))))
+     (mark-error! conn {:error invalid-attr-state-error} job))))
 
 (defn remove-data-type-next-batch!
   ([job]
@@ -483,6 +627,7 @@
             :set {:checked-data-type nil}
             :where [:in :ctid
                     {:select :ctid
+                     :for :update
                      :from :triples
                      :limit batch-size
                      :where [:and
@@ -514,6 +659,300 @@
      "update-triples" (remove-data-type-batch-and-update-job! conn job)
      "update-attr-done" (update-attr-for-remove-data-type-done! conn job))))
 
+(defn update-attr-for-index-start!
+  ([job]
+   (update-attr-for-index-start! aurora/conn-pool job))
+  ([conn job]
+   (if (update-attr! conn {:app-id (:app_id job)
+                           :attr-id (:attr_id job)
+                           :set {:is-indexed true
+                                 :indexing true}})
+     (set-next-stage! conn "estimate-work" job)
+     (mark-error! conn {:error invalid-attr-state-error} job))))
+
+(defn update-attr-for-index-done!
+  ([job]
+   (update-attr-for-index-done! aurora/conn-pool job))
+  ([conn job]
+   (if (update-attr! conn {:app-id (:app_id job)
+                           :attr-id (:attr_id job)
+                           :where [[:= :is-indexed true]
+                                   [:= :indexing true]]
+                           :set {:indexing false}})
+     (mark-job-completed! conn job)
+     (mark-error! conn {:error invalid-attr-state-error} job))))
+
+(defn index-next-batch!
+  ([job]
+   (index-next-batch! aurora/conn-pool job))
+  ([conn {:keys [app_id attr_id job_type]}]
+   (assert (= "index" job_type))
+   (let [q {:update :triples
+            :set {:ave true}
+            :where [:in :ctid
+                    {:select :ctid
+                     :for :update
+                     :from :triples
+                     :limit batch-size
+                     :where [:and
+                             [:= :app-id app_id]
+                             [:= :attr-id attr_id]
+                             [:not :ave]]}]}
+         res (sql/do-execute! conn (hsql/format q))]
+     (:next.jdbc/update-count (first res)))))
+
+(defn abort-index! [conn job]
+  (update-attr! conn {:app-id (:app_id job)
+                      :attr-id (:attr_id job)
+                      :where [[:= :is-indexed true]
+                              [:= :indexing true]]
+                      :set {:indexing false
+                            :is-indexed false}})
+  ;; It would be better to do this in a batch or even to
+  ;; create a new job to undo the update
+  (sql/do-execute! conn (hsql/format {:update :triples
+                                      :set {:ave false}
+                                      :where [:and
+                                              [:= :app-id (:app_id job)]
+                                              [:= :attr-id (:attr_id job)]
+                                              :ave]})))
+
+(defn index-batch-and-update-job!
+  ([job]
+   (index-batch-and-update-job! aurora/conn-pool job))
+  ([conn job]
+   (tracer/with-span! (job-span-attrs "index" job)
+     (try
+       (let [update-count (index-next-batch! conn job)]
+         (tracer/add-data! {:attributes {:update-count update-count}})
+         (cond->> job
+           (not (zero? update-count)) (add-work-completed! conn update-count)
+           (< update-count batch-size) (set-next-stage! conn "update-attr-done")))
+       (catch clojure.lang.ExceptionInfo e
+         (abort-index! conn job)
+         (mark-error-from-ex-info! conn e job))))))
+
+(defn run-next-index-step
+  ([job]
+   (run-next-index-step aurora/conn-pool job))
+  ([conn job]
+   (case (:job_stage job)
+     "update-attr-start" (update-attr-for-index-start! conn job)
+     "estimate-work" (update-work-estimate! conn "update-triples" job)
+     "update-triples" (index-batch-and-update-job! conn job)
+     "update-attr-done" (update-attr-for-index-done! conn job))))
+
+(defn update-attr-for-remove-index-start!
+  ([job]
+   (update-attr-for-remove-index-start! aurora/conn-pool job))
+  ([conn job]
+   (if (update-attr! conn {:app-id (:app_id job)
+                           :attr-id (:attr_id job)
+                           :set {:is-indexed false
+                                 :indexing true}})
+     (set-next-stage! conn "estimate-work" job)
+     (mark-error! conn {:error invalid-attr-state-error} job))))
+
+(defn update-attr-for-remove-index-done!
+  ([job]
+   (update-attr-for-remove-index-done! aurora/conn-pool job))
+  ([conn job]
+   (if (update-attr! conn {:app-id (:app_id job)
+                           :attr-id (:attr_id job)
+                           :where [[:= :is-indexed false]
+                                   [:= :indexing true]]
+                           :set {:indexing false}})
+     (mark-job-completed! conn job)
+     (mark-error! conn {:error invalid-attr-state-error} job))))
+
+(defn remove-index-next-batch!
+  ([job]
+   (remove-index-next-batch! aurora/conn-pool job))
+  ([conn {:keys [app_id attr_id job_type]}]
+   (assert (= "remove-index" job_type))
+   (let [q {:update :triples
+            :set {:ave false}
+            :where [:in :ctid
+                    {:select :ctid
+                     :for :update
+                     :from :triples
+                     :limit batch-size
+                     :where [:and
+                             [:= :app-id app_id]
+                             [:= :attr-id attr_id]
+                             :ave]}]}
+         res (sql/do-execute! conn (hsql/format q))]
+     (:next.jdbc/update-count (first res)))))
+
+(defn remove-index-batch-and-update-job!
+  ([job]
+   (remove-index-batch-and-update-job! aurora/conn-pool job))
+  ([conn job]
+   (tracer/with-span! (job-span-attrs "remove-index" job)
+     (let [update-count (remove-index-next-batch! conn job)]
+       (tracer/add-data! {:attributes {:update-count update-count}})
+       (cond->> job
+         (not (zero? update-count)) (add-work-completed! conn update-count)
+         (< update-count batch-size) (set-next-stage! conn "update-attr-done"))))))
+
+(defn run-next-remove-index-step
+  ([job]
+   (run-next-index-step aurora/conn-pool job))
+  ([conn job]
+   (assert (= "remove-index" (:job_type job)))
+   (case (:job_stage job)
+     "update-attr-start" (update-attr-for-remove-index-start! conn job)
+     "estimate-work" (update-work-estimate! conn "update-triples" job)
+     "update-triples" (remove-index-batch-and-update-job! conn job)
+     "update-attr-done" (update-attr-for-remove-index-done! conn job))))
+
+(defn update-attr-for-unique-start!
+  ([job]
+   (update-attr-for-unique-start! aurora/conn-pool job))
+  ([conn job]
+   (if (update-attr! conn {:app-id (:app_id job)
+                           :attr-id (:attr_id job)
+                           :set {:is-unique true
+                                 :setting-unique true}})
+     (set-next-stage! conn "estimate-work" job)
+     (mark-error! conn {:error invalid-attr-state-error} job))))
+
+(defn update-attr-for-unique-done!
+  ([job]
+   (update-attr-for-unique-done! aurora/conn-pool job))
+  ([conn job]
+   (if (update-attr! conn {:app-id (:app_id job)
+                           :attr-id (:attr_id job)
+                           :where [[:= :is-unique true]
+                                   [:= :setting-unique true]]
+                           :set {:setting-unique false}})
+     (mark-job-completed! conn job)
+     (mark-error! conn {:error invalid-attr-state-error} job))))
+
+(defn unique-next-batch!
+  ([job]
+   (unique-next-batch! aurora/conn-pool job))
+  ([conn {:keys [app_id attr_id job_type]}]
+   (assert (= "unique" job_type))
+   (let [q {:update :triples
+            :set {:av true}
+            :where [:in :ctid
+                    {:select :ctid
+                     :for :update
+                     :from :triples
+                     :limit batch-size
+                     :where [:and
+                             [:= :app-id app_id]
+                             [:= :attr-id attr_id]
+                             [:not :av]]}]}
+         res (sql/do-execute! conn (hsql/format q))]
+     (:next.jdbc/update-count (first res)))))
+
+(defn abort-unique! [conn job]
+  (update-attr! conn {:app-id (:app_id job)
+                      :attr-id (:attr_id job)
+                      :where [[:= :is-unique true]
+                              [:= :setting-unique true]]
+                      :set {:setting-unique false
+                            :is-unique false}})
+  ;; It would be better to do this in a batch or even to
+  ;; create a new job to undo the update
+  (sql/do-execute! conn (hsql/format {:update :triples
+                                      :set {:av false}
+                                      :where [:and
+                                              [:= :app-id (:app_id job)]
+                                              [:= :attr-id (:attr_id job)]
+                                              :av]})))
+
+(defn unique-batch-and-update-job!
+  ([job]
+   (unique-batch-and-update-job! aurora/conn-pool job))
+  ([conn job]
+   (tracer/with-span! (job-span-attrs "unique" job)
+     (try
+       (let [update-count (unique-next-batch! conn job)]
+         (tracer/add-data! {:attributes {:update-count update-count}})
+         (cond->> job
+           (not (zero? update-count)) (add-work-completed! conn update-count)
+           (< update-count batch-size) (set-next-stage! conn "update-attr-done")))
+       (catch clojure.lang.ExceptionInfo e
+         (abort-unique! conn job)
+         (mark-error-from-ex-info! conn e job))))))
+
+(defn run-next-unique-step
+  ([job]
+   (run-next-unique-step aurora/conn-pool job))
+  ([conn job]
+   (case (:job_stage job)
+     "update-attr-start" (update-attr-for-unique-start! conn job)
+     "estimate-work" (update-work-estimate! conn "update-triples" job)
+     "update-triples" (unique-batch-and-update-job! conn job)
+     "update-attr-done" (update-attr-for-unique-done! conn job))))
+
+(defn update-attr-for-remove-unique-start!
+  ([job]
+   (update-attr-for-remove-unique-start! aurora/conn-pool job))
+  ([conn job]
+   (if (update-attr! conn {:app-id (:app_id job)
+                           :attr-id (:attr_id job)
+                           :set {:is-unique false
+                                 :setting-unique true}})
+     (set-next-stage! conn "estimate-work" job)
+     (mark-error! conn {:error invalid-attr-state-error} job))))
+
+(defn update-attr-for-remove-unique-done!
+  ([job]
+   (update-attr-for-remove-unique-done! aurora/conn-pool job))
+  ([conn job]
+   (if (update-attr! conn {:app-id (:app_id job)
+                           :attr-id (:attr_id job)
+                           :where [[:= :is-unique false]
+                                   [:= :setting-unique true]]
+                           :set {:setting-unique false}})
+     (mark-job-completed! conn job)
+     (mark-error! conn {:error invalid-attr-state-error} job))))
+
+(defn remove-unique-next-batch!
+  ([job]
+   (remove-unique-next-batch! aurora/conn-pool job))
+  ([conn {:keys [app_id attr_id job_type]}]
+   (assert (= "remove-unique" job_type))
+   (let [q {:update :triples
+            :set {:av false}
+            :where [:in :ctid
+                    {:select :ctid
+                     :for :update
+                     :from :triples
+                     :limit batch-size
+                     :where [:and
+                             [:= :app-id app_id]
+                             [:= :attr-id attr_id]
+                             :av]}]}
+         res (sql/do-execute! conn (hsql/format q))]
+     (:next.jdbc/update-count (first res)))))
+
+(defn remove-unique-batch-and-update-job!
+  ([job]
+   (remove-unique-batch-and-update-job! aurora/conn-pool job))
+  ([conn job]
+   (tracer/with-span! (job-span-attrs "remove-unique" job)
+     (let [update-count (remove-unique-next-batch! conn job)]
+       (tracer/add-data! {:attributes {:update-count update-count}})
+       (cond->> job
+         (not (zero? update-count)) (add-work-completed! conn update-count)
+         (< update-count batch-size) (set-next-stage! conn "update-attr-done"))))))
+
+(defn run-next-remove-unique-step
+  ([job]
+   (run-next-unique-step aurora/conn-pool job))
+  ([conn job]
+   (assert (= "remove-unique" (:job_type job)))
+   (case (:job_stage job)
+     "update-attr-start" (update-attr-for-remove-unique-start! conn job)
+     "estimate-work" (update-work-estimate! conn "update-triples" job)
+     "update-triples" (remove-unique-batch-and-update-job! conn job)
+     "update-attr-done" (update-attr-for-remove-unique-done! conn job))))
+
 (defn run-next-step
   ([job]
    (run-next-step aurora/conn-pool job))
@@ -522,7 +961,11 @@
      (assert (= "processing" (:job_status job)) (:job_status job))
      (case (:job_type job)
        "check-data-type" (run-next-check-step conn job)
-       "remove-data-type" (run-next-remove-data-type-step conn job)))))
+       "remove-data-type" (run-next-remove-data-type-step conn job)
+       "index" (run-next-index-step conn job)
+       "remove-index" (run-next-remove-index-step conn job)
+       "unique" (run-next-unique-step conn job)
+       "remove-unique" (run-next-remove-unique-step conn job)))))
 
 (defn enqueue-job
   ([job]
@@ -543,23 +986,33 @@
          (enqueue-job chan job)
          (tracer/record-info! (job-span-attrs "unable-to-release-job" updated-job)))))))
 
+(defn handle-process [chan job-id]
+  (try
+    (tracer/with-span! {:name "indexing-jobs/grab-job"
+                        :attributes {:job-id job-id}}
+      (if-let [job (grab-job! job-id)]
+        (process-job chan job)
+        (tracer/add-data! {:attributes {:job-not-grabbed true}})))
+    (catch Throwable t
+      (discord/send-error-async! (format "%s unexpected job error job-id=%s msg=%s"
+                                         (:dww discord/mention-constants)
+                                         job-id
+                                         (.getMessage t)))
+      (tracer/record-exception-span! t {:name "indexing-jobs/process-error"
+                                        :escaping? false
+                                        :attributes {:job-id job-id}})
+      (sql/execute-one! aurora/conn-pool
+                        (hsql/format {:update :indexing-jobs
+                                      :where (job-update-wheres
+                                              [:= :id job-id])
+                                      :set {:job-status "errored"
+                                            :error unexpected-error
+                                            :error-detail (.getMessage t)}})))))
+
 (defn start-process [chan]
   (loop []
     (when-let [job-id (a/<!! chan)]
-      (try
-        (tracer/with-span! {:name "indexing-jobs/grab-job"
-                            :attributes {:job-id job-id}}
-          (if-let [job (grab-job! job-id)]
-            (process-job chan job)
-            (tracer/add-data! {:attributes {:job-not-grabbed true}})))
-        (catch Throwable t
-          (discord/send-error-async! (format "%s unexpected job error job-id=%s msg=%s"
-                                             (:dww discord/mention-constants)
-                                             job-id
-                                             (.getMessage t)))
-          (tracer/record-exception-span! t {:name "indexing-jobs/process-error"
-                                            :escaping? false
-                                            :attributes {:job-id job-id}})))
+      (handle-process chan job-id)
       (recur))))
 
 (defn grab-forgotten-jobs!
@@ -636,7 +1089,10 @@
     (doseq [{:keys [i process]} workers]
       (tracer/with-span! {:name "indexing-jobs/wait-for-worker-to-stop"
                           :attributes {:i i}}
-        @process))))
+        (try
+          @process
+          (catch Exception _e
+            nil))))))
 
 (defn restart []
   (stop)
@@ -665,6 +1121,7 @@
                      [:cast checked-data-type :checked_data_type]}
                :where [:in :ctid
                        {:select :ctid
+                        :for :update
                         :from :triples
                         :limit batch-size
                         :where [:and

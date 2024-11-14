@@ -11,7 +11,7 @@ export async function createJob(
   }: {
     appId: string;
     attrId: string;
-    jobType: 'check-data-type' | 'remove-data-type';
+    jobType: InstantIndexingJob['job_type'];
     checkedDataType?: CheckedDataType | null | undefined;
   },
   token: string,

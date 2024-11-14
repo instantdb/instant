@@ -284,6 +284,7 @@ export function EditRowDialog({
                     tabIndex={tabIndex}
                     value={value}
                     options={[
+                      { value: '', label: '-' },
                       { value: 'false', label: 'false' },
                       { value: 'true', label: 'true' },
                     ]}

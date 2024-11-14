@@ -31,8 +31,8 @@
                                                :app-id id})]
     {:user user :app app}))
 
-;; -------- 
-;; App crud 
+;; --------
+;; App crud
 
 (defn apps-list-get [req]
   (let [{user-id :id} (req->superadmin-user! req)
@@ -63,8 +63,8 @@
         app (app-model/delete-by-id! {:id app-id})]
     (response/ok {:app app})))
 
-;; ---------- 
-;; Transfers 
+;; ---------
+;; Transfers
 
 (defn transfer-app-invite-email [inviter-user app invitee-email]
   (let [title "Instant"]
@@ -110,8 +110,8 @@
 
     (response/ok {:count rejected-count})))
 
-;; --------- 
-;; Rules 
+;; -----
+;; Rules
 
 (defn app-rules-get [req]
   (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
@@ -125,20 +125,28 @@
     (response/ok {:rules (rule-model/put! {:app-id app-id
                                            :code code})})))
 
-;; --------- 
-;; Schema 
+;; ------
+;; Schema
 
 (defn app-schema-plan-post [req]
   (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
         client-defs (-> req :body :schema)
-        check-types? (-> req :body :check_types)]
-    (response/ok (schema-model/plan! app-id check-types? client-defs))))
+        check-types? (-> req :body :check_types)
+        background-updates? (-> req :body :supports_background_updates)]
+    (response/ok (schema-model/plan! {:app-id app-id
+                                      :check-types? check-types?
+                                      :background-updates? background-updates?}
+                                     client-defs))))
 
 (defn app-schema-apply-post [req]
   (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
         client-defs (-> req :body :schema)
         check-types? (-> req :body :check_types)
-        plan (schema-model/plan! app-id check-types? client-defs)
+        background-updates? (-> req :body :supports_background_updates)
+        plan (schema-model/plan! {:app-id app-id
+                                  :check-types? check-types?
+                                  :background-updates? background-updates?}
+                                 client-defs)
         plan-result (schema-model/apply-plan! app-id plan)]
     (response/ok (merge plan plan-result))))
 

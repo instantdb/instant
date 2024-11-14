@@ -12,6 +12,7 @@
    [instant.fixtures
     :refer [with-empty-app with-zeneca-app with-zeneca-byop]]
    [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.rule :as rule-model]
@@ -2264,6 +2265,142 @@
          ("eid-nonfiction" :bookshelves/name "Nonfiction")
          ("eid-nonfiction" :bookshelves/desc "")
          ("eid-nonfiction" :bookshelves/order 1))}))))
+
+(deftest indexing?
+  (testing "queries ignore indexes while still indexing"
+    (with-empty-app
+      (fn [app]
+        (let [make-ctx (fn []
+                         ;; pass in conn-pool to bypass cache
+                         (let [attrs (attr-model/get-by-app-id aurora/conn-pool (:id app))]
+                           {:db {:conn-pool aurora/conn-pool}
+                            :app-id (:id app)
+                            :attrs attrs}))
+              app-id (:id app)
+
+              uid-attr-id (random-uuid)
+              handle-attr-id (random-uuid)
+              eid (random-uuid)
+
+              _ (tx/transact! aurora/conn-pool
+                              (attr-model/get-by-app-id app-id)
+                              app-id
+                              [[:add-attr {:id uid-attr-id
+                                           :forward-identity [(random-uuid) "users" "id"]
+                                           :unique? true
+                                           :index? true
+                                           :value-type :blob
+                                           :cardinality :one}]
+                               [:add-attr {:id handle-attr-id
+                                           :forward-identity [(random-uuid) "users" "handle"]
+                                           :unique? false
+                                           :index? false
+                                           :value-type :blob
+                                           :cardinality :one}]
+                               [:add-triple eid uid-attr-id eid]
+                               [:add-triple eid handle-attr-id "dww"]])
+              r (resolvers/make-resolver (:db (make-ctx)) (:id app) [["users" "handle"]])
+              before-index-result '({:topics
+                                     ([:ea _ #{:users/handle} #{"dww"}]
+                                      --
+                                      [:ea #{"eid-dww"} #{:users/id :users/handle} _]),
+                                     :triples
+                                     (("eid-dww" :users/handle "dww")
+                                      --
+                                      ("eid-dww" :users/id "eid-dww")
+                                      ("eid-dww" :users/handle "dww")),
+                                     :aggregate (nil nil)})]
+          (is-pretty-eq?
+           (query-pretty (make-ctx) r {:users {:$ {:where {:handle "dww"}}}})
+           before-index-result)
+
+          (sql/execute! aurora/conn-pool
+                        ["update attrs set is_indexed = true where id = ?"
+                         handle-attr-id])
+
+          (testing "incorrect indexes would break the query"
+            (is-pretty-eq?
+             (query-pretty (make-ctx) r {:users {:$ {:where {:handle "dww"}}}})
+             '({:topics ([:ave _ #{:users/handle} #{"dww"}]),
+                :triples (),
+                :aggregate (nil)})))
+
+          (sql/execute! aurora/conn-pool
+                        ["update attrs set indexing = true where id = ?"
+                         handle-attr-id])
+
+          (testing "setting in-progress saves the query"
+            (is-pretty-eq?
+             (query-pretty (make-ctx) r {:users {:$ {:where {:handle "dww"}}}})
+             before-index-result)))))))
+
+(deftest uniqueing?
+  (testing "queries ignore unique? while still uniqueing?"
+    (with-empty-app
+      (fn [app]
+        (let [make-ctx (fn []
+                         ;; pass in conn-pool to bypass cache
+                         (let [attrs (attr-model/get-by-app-id aurora/conn-pool (:id app))]
+                           {:db {:conn-pool aurora/conn-pool}
+                            :app-id (:id app)
+                            :attrs attrs}))
+              app-id (:id app)
+
+              uid-attr-id (random-uuid)
+              handle-attr-id (random-uuid)
+              eid (random-uuid)
+
+              _ (tx/transact! aurora/conn-pool
+                              (attr-model/get-by-app-id app-id)
+                              app-id
+                              [[:add-attr {:id uid-attr-id
+                                           :forward-identity [(random-uuid) "users" "id"]
+                                           :unique? true
+                                           :index? true
+                                           :value-type :blob
+                                           :cardinality :one}]
+                               [:add-attr {:id handle-attr-id
+                                           :forward-identity [(random-uuid) "users" "handle"]
+                                           :unique? false
+                                           :index? false
+                                           :value-type :blob
+                                           :cardinality :one}]
+                               [:add-triple eid uid-attr-id eid]
+                               [:add-triple eid handle-attr-id "dww"]])
+              r (resolvers/make-resolver (:db (make-ctx)) (:id app) [["users" "handle"]])
+              before-index-result '({:topics
+                                     ([:ea _ #{:users/handle} #{"dww"}]
+                                      --
+                                      [:ea #{"eid-dww"} #{:users/id :users/handle} _]),
+                                     :triples
+                                     (("eid-dww" :users/handle "dww")
+                                      --
+                                      ("eid-dww" :users/id "eid-dww")
+                                      ("eid-dww" :users/handle "dww")),
+                                     :aggregate (nil nil)})]
+          (is-pretty-eq?
+           (query-pretty (make-ctx) r {:users {:$ {:where {:handle "dww"}}}})
+           before-index-result)
+
+          (sql/execute! aurora/conn-pool
+                        ["update attrs set is_unique = true where id = ?"
+                         handle-attr-id])
+
+          (testing "incorrect indexes would break the query"
+            (is-pretty-eq?
+             (query-pretty (make-ctx) r {:users {:$ {:where {:handle "dww"}}}})
+             '({:topics ([:av _ #{:users/handle} #{"dww"}]),
+                :triples (),
+                :aggregate (nil)})))
+
+          (sql/execute! aurora/conn-pool
+                        ["update attrs set setting_unique = true where id = ?"
+                         handle-attr-id])
+
+          (testing "setting in-progress saves the query"
+            (is-pretty-eq?
+             (query-pretty (make-ctx) r {:users {:$ {:where {:handle "dww"}}}})
+             before-index-result)))))))
 
 ;; -----------
 ;; Permissions

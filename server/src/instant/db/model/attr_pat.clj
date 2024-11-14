@@ -24,12 +24,12 @@
 
    [post-owner-attr true] => :vae if ?owner is actualized
    [posts-owner-attr false] => :eav if ?owner isn't actualized"
-  [{:keys [value-type index? unique?]} v-actualized?]
+  [{:keys [value-type index? indexing? unique? setting-unique?]} v-actualized?]
   (let [ref? (= value-type :ref)
         e-idx (if ref? :eav :ea)
         v-idx (cond
-                unique? :av
-                index? :ave
+                (and unique? (not setting-unique?)) :av
+                (and index? (not indexing?)) :ave
                 ref? :vae
                 :else :ea ;; this means we are searching over an unindexed blob attr
                 )]
