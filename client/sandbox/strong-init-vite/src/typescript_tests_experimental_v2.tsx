@@ -9,7 +9,6 @@ import { do_not_use_init_experimental as react_init_experimental } from "@instan
 import { do_not_use_init_experimental as react_native_init_experimental } from "@instantdb/react-native";
 import { do_not_use_init_experimental as admin_init_experimental } from "@instantdb/admin";
 import schema, { AppSchema } from "../instant.schema.v2";
-import { SpecificallyExtends } from "./helpers";
 
 // ----
 // Core
@@ -35,7 +34,9 @@ coreDB.subscribeQuery({ messages: { creator: {} } }, (result) => {
     return;
   }
   const { messages } = result.data;
-  messages[0].content;
+  const message = messages[0];
+  message.content;
+  message.creator?.email;
 });
 
 // transactions
@@ -59,16 +60,16 @@ function ReactNormalApp() {
   const _reactPresenceUser = reactPresence.user!;
   const _reactPresencePeers = reactPresence.peers!;
   // queries
-  const { isLoading, error, data } = reactDB.useQuery({ messages: {} });
+  const { isLoading, error, data } = reactDB.useQuery({
+    messages: { creator: {} },
+  });
   if (isLoading || error) {
     return null;
   }
   const { messages } = data;
   const message = messages[0];
-  const messageIsTyped: SpecificallyExtends<
-    typeof message,
-    { id: string; content: string }
-  > = true;
+  message.content;
+  message.creator?.email;
 
   // transactions
   reactDB.transact(
@@ -81,7 +82,6 @@ function ReactNormalApp() {
   _reactPublishEmoji;
   _reactPresenceUser;
   _reactPresencePeers;
-  messageIsTyped;
 }
 
 // ----
@@ -101,22 +101,19 @@ function ReactNativeNormalApp() {
   const _reactPresencePeers = reactPresence.peers!;
   // queries
   const { isLoading, error, data } = reactNativeDB.useQuery({
-    messages: {},
+    messages: { creator: {} },
   });
   if (isLoading || error) {
     return null;
   }
   const { messages } = data;
   const message = messages[0];
-  const messageIsTyped: SpecificallyExtends<
-    typeof message,
-    { id: string; content: string }
-  > = true;
+  message.content;
+  message.creator?.email;
   // to silence ts warnings
   _reactPublishEmoji;
   _reactPresenceUser;
   _reactPresencePeers;
-  messageIsTyped;
 }
 
 // ----
@@ -131,11 +128,8 @@ const adminDB = admin_init_experimental({
 // queries
 const adminQueryResult = await adminDB.query({ messages: { creator: {} } });
 const message = adminQueryResult.messages[0];
-const messageIsTyped: SpecificallyExtends<
-  typeof message,
-  { id: string; content: string }
-> = true;
-
+message.content;
+message.creator?.email;
 // transacts
 await adminDB.transact(
   adminDB.tx.messages[id()]
@@ -146,7 +140,6 @@ await adminDB.transact(
 // to silence ts warnings
 ReactNormalApp;
 ReactNativeNormalApp;
-messageIsTyped;
 
 // ------------
 // type helpers
@@ -167,8 +160,8 @@ type CoreMessageWithCreator = DoNotUseInstantEntity<
   { creator: {} }
 >;
 let coreMessageWithCreator: CoreMessageWithCreator = 1 as any;
-const creatorId = coreMessageWithCreator.creator?.id;
-const creatorIdIsString: SpecificallyExtends<typeof creatorId, string> = true;
+coreMessageWithCreator.content;
+coreMessageWithCreator.creator?.email;
 
 type MessageCreatorResult = DoNotUseInstaQLQueryResult<
   AppSchema,
@@ -187,4 +180,3 @@ function subMessagesWithCreator(
 // to silence ts warnings
 messagesQuery;
 subMessagesWithCreator;
-creatorIdIsString;

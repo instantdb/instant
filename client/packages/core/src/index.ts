@@ -938,7 +938,6 @@ export {
   type EntityDef,
   type RoomsDef,
   type InstantGraph,
-  type DoNotUseInstantSchema,
   type LinkAttrDef,
   type LinkDef,
   type LinksDef,
@@ -949,5 +948,6 @@ export {
   type TopicsOf,
   type DoNotUseInstantEntity,
   type DoNotUseInstaQLQueryResult,
+  type DoNotUseInstantSchema,
   type DoNotUseUnknownSchema,
 };

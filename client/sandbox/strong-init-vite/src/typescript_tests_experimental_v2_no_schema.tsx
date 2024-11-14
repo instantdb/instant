@@ -9,7 +9,6 @@ import {
 import { do_not_use_init_experimental as react_init_experimental } from "@instantdb/react";
 import { do_not_use_init_experimental as react_native_init_experimental } from "@instantdb/react-native";
 import { do_not_use_init_experimental as admin_init_experimental } from "@instantdb/admin";
-import { SpecificallyExtends } from "./helpers";
 
 // ----
 // Core
@@ -35,13 +34,8 @@ coreDB.subscribeQuery({ posts: { comments: {} } }, (result) => {
   }
   const { posts } = result.data;
   const post = posts[0];
-  const postHasId: SpecificallyExtends<typeof post, { id: string }> = true;
-  const comments = post.comments[0];
-  const commentsHasId: SpecificallyExtends<typeof comments, { id: string }> =
-    true;
-  // to silence ts warnings
-  postHasId;
-  commentsHasId;
+  post.id;
+  post.comments[0].id;
 });
 
 // transactions
@@ -72,10 +66,8 @@ function ReactNormalApp() {
   }
   const { posts } = data;
   const post = posts[0];
-  const postHasId: SpecificallyExtends<typeof post, { id: string }> = true;
-  const comments = post.comments[0];
-  const commentsHasId: SpecificallyExtends<typeof comments, { id: string }> =
-    true;
+  post.id;
+  post.comments[0].id;
 
   // transactions
   reactDB.transact(
@@ -85,8 +77,6 @@ function ReactNormalApp() {
   );
 
   // to silence ts warnings
-  postHasId;
-  commentsHasId;
   _reactPublishEmoji;
   _reactPresenceUser;
   _reactPresencePeers;
@@ -115,17 +105,13 @@ function ReactNativeNormalApp() {
   }
   const { posts } = data;
   const post = posts[0];
-  const postHasId: SpecificallyExtends<typeof post, { id: string }> = true;
-  const comments = post.comments[0];
-  const commentsHasId: SpecificallyExtends<typeof comments, { id: string }> =
-    true;
+  post.id;
+  post.comments[0].id;
 
   // to silence ts warnings
   _reactPublishEmoji;
   _reactPresenceUser;
   _reactPresencePeers;
-  postHasId;
-  commentsHasId;
 }
 
 // ----

@@ -46,8 +46,8 @@ import {
   type DoNotUseInstantEntity,
   type DoNotUseInstaQLQueryResult,
   type DoNotUseConfig,
-  DoNotUseInstantSchema,
-  DoNotUseUnknownSchema,
+  type DoNotUseInstantSchema,
+  type DoNotUseUnknownSchema,
 } from "@instantdb/core";
 
 /**

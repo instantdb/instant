@@ -95,7 +95,8 @@ function subMessagesWithCreator(
 }
 
 // to silence ts warnings
-((..._args) => {})(coreMessagesQuery, subMessagesWithCreator);
+coreMessagesQuery;
+subMessagesWithCreator;
 
 // ----
 // React
@@ -128,12 +129,10 @@ function ReactNormalApp() {
   );
 
   // to silence ts warnings
-  ((..._args) => {})(
-    _reactPublishEmoji,
-    _reactPresenceUser,
-    _reactPresencePeers,
-    messages,
-  );
+  _reactPublishEmoji;
+  _reactPresenceUser;
+  _reactPresencePeers;
+  messages;
 }
 
 // type helpers
@@ -166,7 +165,8 @@ function useMessagesWithCreator(): ReactMessageCreatorResult | undefined {
 }
 
 // to silence ts warnings
-((..._args) => {})(reactMessagesQuery, useMessagesWithCreator);
+reactMessagesQuery;
+useMessagesWithCreator;
 
 // ----
 // React-Native
@@ -233,7 +233,8 @@ function useMessagesWithCreatorRN():
 }
 
 // to silence ts warnings
-((..._args) => {})(reactNativeMessagesQuery, useMessagesWithCreatorRN);
+reactNativeMessagesQuery;
+useMessagesWithCreatorRN;
 
 // ----
 // Admin
@@ -286,7 +287,8 @@ async function getMessagesWithCreator(): Promise<AdminMessageCreatorResult> {
 }
 
 // to silence ts warnings
-((..._args) => {})(adminMessagesQuery, getMessagesWithCreator);
+adminMessagesQuery;
+getMessagesWithCreator;
 
 // to silence ts warnings
 export { ReactNormalApp, ReactNativeNormalApp };

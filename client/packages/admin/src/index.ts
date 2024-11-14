@@ -39,7 +39,7 @@ import {
   type ResolveAttrs,
   type ValueTypes,
   type DoNotUseInstantSchema,
-  DoNotUseUnknownSchema,
+  type DoNotUseUnknownSchema,
 } from "@instantdb/core";
 
 import version from "./version";

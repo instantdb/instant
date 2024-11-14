@@ -94,12 +94,10 @@ function ReactNormalApp() {
   );
 
   // to silence ts warnings
-  ((..._args) => {})(
-    _reactPublishEmoji,
-    _reactPresenceUser,
-    _reactPresencePeers,
-    messages,
-  );
+  _reactPublishEmoji;
+  _reactPresenceUser;
+  _reactPresencePeers;
+  messages;
 }
 
 // ----
@@ -126,12 +124,10 @@ function ReactNativeNormalApp() {
   const { messages } = data;
   messages[0].content;
   // to silence ts warnings
-  ((..._args) => {})(
-    _reactPublishEmoji,
-    _reactPresenceUser,
-    _reactPresencePeers,
-    messages,
-  );
+  _reactPublishEmoji;
+  _reactPresenceUser;
+  _reactPresencePeers;
+  messages;
 }
 
 // ----
