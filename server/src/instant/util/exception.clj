@@ -311,20 +311,26 @@
                       (catch Exception _e
                         ;; We may get a truncated value, so just give that back to the user
                         (:value triple)))]
-          (throw-validation-err! :triple
-                                 value
-                                 [{:message (case (:constraint data)
-                                              "valid_value_data_type" "Invalid value type for triple."
-                                              "indexed_values_are_constrained" (if (= "true" (:av triple))
-                                                                                 "Value is too large for a unique attribute."
-                                                                                 "Value is too large for an indexed attribute.")
-                                              (format "Check Violation: %s" (name condition)))
-                                   :hint {:value value
-                                          :checked-data-type (:checked-data-type triple)
-                                          :attr-id (:attr-id triple)
-                                          :entity-id (:entity-id triple)
-                                          :value-too-large? (= (:constraint data)
-                                                               "indexed_values_are_constrained")}}]))
+          (throw-validation-err!
+           :triple
+           value
+           [{:message (case (:constraint data)
+                        "valid_value_data_type" "Invalid value type for triple."
+
+                        "indexed_values_are_constrained"
+                        (if (= "t" (:av triple))
+                          "Value is too large for a unique attribute."
+                          "Value is too large for an indexed attribute.")
+
+                        (format "Check Violation: %s" (name (:constraint data))))
+             :hint (merge
+                    {:value value
+                     :checked-data-type (:checked-data-type triple)
+                     :attr-id (:attr-id triple)
+                     :entity-id (:entity-id triple)}
+                    (when (= (:constraint data)
+                             "indexed_values_are_constrained")
+                      {:value-too-large? true}))}]))
         (throw+ {::type ::record-check-violation
                  ::message (format "Check Violation: %s" (name condition))
                  ::hint hint
