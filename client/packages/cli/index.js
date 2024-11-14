@@ -6,7 +6,7 @@ import { join } from "path";
 import { randomUUID } from "crypto";
 import dotenv from "dotenv";
 import chalk from "chalk";
-import { program } from "commander";
+import { program, Option } from "commander";
 import { input, confirm } from "@inquirer/prompts";
 import envPaths from "env-paths";
 import { loadConfig } from "unconfig";
@@ -34,29 +34,32 @@ const instantBackendOrigin =
 // cli
 const dimbold = (text) => chalk.bold.dim(text);
 
-const logoChalk = chalk.white.bold("instant-cli");
+const logoChalk = chalk.bold("instant-cli");
 const versionChalk = chalk.dim(`${version.trim()}`);
 
 const beforeAllHeader = `${logoChalk} ${versionChalk} ` + "\n";
 program.addHelpText("beforeAll", beforeAllHeader);
 
-const afterHeader = `
+const afterHeader =
+  "\n" +
+  `
 ${dimbold("Want to learn more?")}
-${chalk.white("Check out the docs")}
-${chalk.white("Join the Discord")}
+${chalk.white("Check out the docs")}: ${chalk.blueBright("https://instantdb.com/docs")}
+${chalk.white("Join the Discord")}:   ${chalk.blueBright("https://instantdb.com/discord")}
 `.trim();
-// program.addHelpText("after", afterHeader)
+
+program.addHelpText("after", afterHeader);
 
 program.configureHelp({
   subcommandTerm(cmd) {
-    return chalk.white.bold(cmd.name());
+    return chalk.blueBright.bold(cmd.name());
   },
   formatHelp(cmd, helper) {
     const termWidth = helper.padWidth(cmd, helper);
     const helpWidth = helper.helpWidth || 80;
     const itemIndentWidth = 2;
-    const itemSeparatorWidth = 2; // between term and description
-    function formatItem(term, description) {
+    const itemSeparatorWidth = 4; // between term and description
+    function formatItem(term, description, override) {
       if (description) {
         const fullText = `${term.padEnd(termWidth + itemSeparatorWidth)}${description}`;
         return helper.wrap(
@@ -108,47 +111,56 @@ program.configureHelp({
         "",
       ]);
     }
-    // // Options
-    // const optionList = helper.visibleOptions(cmd).map((option) => {
-    //   return formatItem(
-    //     helper.optionTerm(option),
-    //     helper.optionDescription(option),
-    //   );
-    // });
-    // if (optionList.length > 0) {
-    //   output = output.concat([dimbold("Options"), formatList(optionList), ""]);
-    // }
+    // Options
+    const optionList = helper.visibleOptions(cmd).map((option) => {
+      return formatItem(
+        helper.optionTerm(option),
+        helper.optionDescription(option),
+      );
+    });
+    if (optionList.length > 0) {
+      output = output.concat([dimbold("Options"), formatList(optionList), ""]);
+    }
 
-    // if (this.showGlobalOptions) {
-    //   const globalOptionList = helper
-    //     .visibleGlobalOptions(cmd)
-    //     .map((option) => {
-    //       return formatItem(
-    //         helper.optionTerm(option),
-    //         helper.optionDescription(option),
-    //       );
-    //     });
-    //   if (globalOptionList.length > 0) {
-    //     output = output.concat([
-    //       "Global Options:",
-    //       formatList(globalOptionList),
-    //       "",
-    //     ]);
-    //   }
-    // }
+    if (this.showGlobalOptions) {
+      const globalOptionList = helper
+        .visibleGlobalOptions(cmd)
+        .map((option) => {
+          return formatItem(
+            helper.optionTerm(option),
+            helper.optionDescription(option),
+          );
+        });
+      if (globalOptionList.length > 0) {
+        output = output.concat([
+          "Global Options:",
+          formatList(globalOptionList),
+          "",
+        ]);
+      }
+    }
     return output.join("\n");
   },
 });
 
 program
   .name("instant-cli")
-  .option("-t --token <TOKEN>", "auth token override")
-  .option("-y", "skip confirmation prompt")
-  .option("-v --version", "output the version number", () => {
-    console.log(version);
-    process.exit(0);
-  })
-  .usage(`${chalk.blueBright.bold('<command>')} [...flags] [...args]`);
+  .addOption(new Option("-y --yes", "skip confirmation prompt").hideHelp())
+  .addOption(new Option("-t --token <TOKEN>", "Auth token override").hideHelp())
+  .addOption(
+    new Option("-v -V --version", "output the version number")
+      .argParser(() => {
+        console.log(version);
+        process.exit(0);
+      })
+      .hideHelp(),
+  )
+  .addHelpOption(
+    new Option("-h --help", "Show help text for command").hideHelp(),
+  )
+  .usage(
+    `${chalk.blueBright.bold("<command>")} ${chalk.dim("[...flags] [...args]")}`,
+  );
 
 program
   .command("login")
