@@ -427,7 +427,6 @@
   ([^clojure.lang.ExceptionInfo e job]
    (mark-error-from-ex-info! aurora/conn-pool e job))
   ([conn ^clojure.lang.ExceptionInfo e job]
-   (def -e e)
    (let [error-data (ex-data e)
          validation-error (some-> error-data
                                   ::ex/hint

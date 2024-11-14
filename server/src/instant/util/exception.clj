@@ -82,7 +82,6 @@
                             (count prefix)
                             (+ (count prefix) 36))
                       uuid-util/coerce)
-          ;; probably run this through json?
           value (-> (subs (:detail pg-data)
                           (+ (count prefix) 36 2)
                           (string/last-index-of (:detail pg-data) ") already exists.")))]
