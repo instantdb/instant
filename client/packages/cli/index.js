@@ -400,7 +400,7 @@ function indexingJobCompletedActionMessage(job) {
     return `adding uniqueness constraint to ${job.attr_name}`;
   }
   if (job.job_type === "remove-unique") {
-    return `removing uniqueness constraint to ${job.attr_name}`;
+    return `removing uniqueness constraint from ${job.attr_name}`;
   }
 }
 
