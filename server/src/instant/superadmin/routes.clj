@@ -13,8 +13,7 @@
             [instant.model.app-member-invites :as instant-app-member-invites-model]
             [clojure.walk :as w]
             [instant.model.rule :as rule-model]
-            [instant.model.schema :as schema-model]
-            [instant.jdbc.aurora :as aurora])
+            [instant.model.schema :as schema-model])
 
   (:import
    (java.util UUID)))
