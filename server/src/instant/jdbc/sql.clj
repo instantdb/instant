@@ -24,8 +24,6 @@
             IPersistentVector
             IPersistentMap)))
 
-(require 'tool)
-
 (defn ->pg-text-array
   "Formats as text[] in pg, i.e. {item-1, item-2, item3}"
   [col]
@@ -139,15 +137,8 @@
     (merge {:detailed-query (pr-str query)}
            pool-stats)))
 
-(def portal-agent (agent nil))
-
-(defn record-query-async [query]
-  (send-off portal-agent (fn [_]
-                           (tap> (tool/unsafe-sql-format-query query)))))
-
 (defn select
   [conn query]
-  (record-query-async query)
   (tracer/with-span! {:name "sql/select"
                       :attributes (span-attrs conn query)}
     (io/tag-io
@@ -155,7 +146,6 @@
 
 (defn select-qualified
   [conn query]
-  (record-query-async query)
   (tracer/with-span! {:name "sql/select-qualified"
                       :attributes (span-attrs conn query)}
     (io/tag-io
@@ -163,7 +153,6 @@
 
 (defn select-arrays
   [conn query]
-  (record-query-async query)
   (tracer/with-span! {:name "sql/select-arrays"
                       :attributes (span-attrs conn query)}
     (io/tag-io
@@ -171,7 +160,6 @@
 
 (defn select-string-keys
   [conn query]
-  (record-query-async query)
   (tracer/with-span! {:name "sql/select-string-keys"
                       :attributes (span-attrs conn query)}
     (io/tag-io
@@ -188,7 +176,6 @@
 
 (defn execute!
   [conn query]
-  (record-query-async query)
   (tracer/with-span! {:name  "sql/execute!"
                       :attributes (span-attrs conn query)}
     (with-translating-psql-exceptions
@@ -197,7 +184,6 @@
                                         :return-keys true})))))
 (defn execute-one!
   [conn query]
-  (record-query-async query)
   (tracer/with-span! {:name  "sql/execute-one!"
                       :attributes (span-attrs conn query)}
     (with-translating-psql-exceptions
@@ -206,7 +192,6 @@
                                             :return-keys true})))))
 
 (defn do-execute! [conn query]
-  (record-query-async query)
   (tracer/with-span! {:name  "sql/do-execute!"
                       :attributes (span-attrs conn query)}
     (with-translating-psql-exceptions
