@@ -419,7 +419,7 @@
                            (contains? #{:add-attr :update-attr} action))
                          steps)
         tx-res (when (seq tx-steps)
-                 (permissioned-tx/transact! ctx steps))
+                 (permissioned-tx/transact! ctx tx-steps))
         job-steps (filter (fn [[action]]
                             (contains? #{:check-data-type :remove-data-type
                                          :index :remove-index
