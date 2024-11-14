@@ -7,6 +7,7 @@
    [instant.db.pg-introspect :as pg-introspect]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
+   [instant.model.rule :as rule-model]
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
@@ -222,7 +223,7 @@
   (get-column columns "id"))
 
 (defn transform-wal-record [{:keys [changes] :as _record}]
-  (let [{:strs [idents triples attrs transactions]}
+  (let [{:strs [idents triples attrs transactions rules]}
         (group-by :table changes)
 
         some-changes (or (seq idents)
@@ -233,6 +234,9 @@
     (doseq [attr attrs]
       (attr-model/evict-app-id-from-cache (or app-id
                                               (extract-app-id attr))))
+    (doseq [rule rules]
+      (let [app-id (or app-id (extract-app-id rule))]
+        (rule-model/evict-app-id-from-cache app-id)))
     (when (and some-changes app-id)
       {:attr-changes attrs
        :ident-changes idents
@@ -243,7 +247,7 @@
 (defn wal-record-xf
   "Filters wal records for supported changes. Returns [app-id changes]"
   []
-  (keep transform-wal-record))
+  (keep #'transform-wal-record))
 
 (defn transform-byop-wal-record [{:keys [changes nextlsn]}]
   ;; TODO(byop): if change is empty, then there might be changes to the schema
