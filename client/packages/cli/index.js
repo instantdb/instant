@@ -159,13 +159,14 @@ program
     new Option("-h --help", "Show help text for command").hideHelp(),
   )
   .usage(
-    `${chalk.blueBright.bold("<command>")} ${chalk.dim("[...flags] [...args]")}`,
+    `${chalk.blueBright.bold("<command>")} ${chalk.dim("[options] [args]")}`,
   );
 
 program
   .command("login")
   .description("Log into your account")
-  .option("-p --print", "print auth token")
+  .option("-p --print", "Prints the auth token into the console.")
+  .usage(`${chalk.dim("[options]")}`)
   .action(login);
 
 program.command("init").description("Create a new app").action(init);
