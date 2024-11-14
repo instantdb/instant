@@ -328,8 +328,8 @@
                                               :op :client-broadcast-ok
                                               :client-event-id client-event-id))))
 
-(defn- handle-server-broadcast! [store-conn sess-id {:keys [app-id room-id topic data]}]
-  (when (eph/in-room? @store-conn app-id room-id sess-id)
+(defn- handle-server-broadcast! [store-conn eph-store-atom sess-id {:keys [app-id room-id topic data]}]
+  (when (eph/in-room? @eph-store-atom app-id room-id sess-id)
     (rs/send-event! store-conn sess-id {:op :server-broadcast
                                         :room-id room-id
                                         :topic topic
@@ -354,7 +354,7 @@
         :set-presence (handle-set-presence! store-conn eph-store-atom id event)
         :refresh-presence (handle-refresh-presence! store-conn id event)
         :client-broadcast (handle-client-broadcast! store-conn eph-store-atom id event)
-        :server-broadcast (handle-server-broadcast! store-conn id event)))))
+        :server-broadcast (handle-server-broadcast! store-conn eph-store-atom id event)))))
 
 ;; --------------
 ;; Receive Workers

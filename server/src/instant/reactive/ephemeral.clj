@@ -44,7 +44,7 @@
 (defonce room-maps (atom {}))
 
 (declare handle-event)
-(declare handle-message)
+(declare handle-broadcast-message)
 
 (defn init-hz [store-conn]
   (System/setProperty "hazelcast.shutdownhook.enabled" "false")
@@ -102,7 +102,7 @@
                              (onMessage [_ message]
                                ;; Don't bother handling messages that we put on the topic
                                (when (not= local-member (.getPublishingMember message))
-                                 (handle-message store-conn message)))))
+                                 (handle-broadcast-message store-conn message)))))
       {:hz hz
        :hz-rooms-map hz-rooms-map
        :hz-broadcast-topic hz-broadcast-topic})))
@@ -226,7 +226,11 @@
                                                :data room-data
                                                :session-id sess-id})))))))
 
-(defn handle-message [store-conn ^Message m]
+(defn handle-broadcast-message
+  "Handles the message on the topic we use to broadcast a client-broadcast
+   message to sessions that are in the room, but live on a different physical
+   machine."
+  [store-conn ^Message m]
   (let [{:keys [app-id session-ids base-msg]} (.getMessageObject m)]
     (when (flags/use-hazelcast? app-id)
       (doseq [sess-id session-ids
@@ -346,7 +350,7 @@
   [store-v app-id room-id sess-id]
   (if (flags/use-hazelcast? app-id)
     (contains? (get-room-data app-id room-id) sess-id)
-    (contains? (get-room-session-ids store-v app-id room-id) sess-id)))
+    (contains? (get-in store-v [:rooms app-id room-id :session-ids]) sess-id)))
 
 (defn run-op [app-id hz-op regular-op]
   ;; Always run the regular op in case we disable hazelcast for the app
@@ -372,8 +376,7 @@
                                     (:id current-user)))
         regular-op
         (fn []
-          (when-not (contains? (get-room-session-ids @store-atom app-id room-id)
-                               sess-id)
+          (when-not (in-room? @store-atom app-id room-id sess-id)
             (swap! store-atom join-room app-id sess-id current-user room-id)))]
 
     (run-op app-id hz-op regular-op)))
