@@ -1012,9 +1012,7 @@
 
 (defn perms-pull-get [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        perms (rule-model/get-by-app-id
-               aurora/conn-pool
-               {:app-id app-id})
+        perms (rule-model/get-by-app-id {:app-id app-id})
         r {:perms (:code perms)}]
     (response/ok r)))
 

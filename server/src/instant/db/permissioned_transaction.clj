@@ -644,7 +644,7 @@
               :app-id colors-app-id
               :attrs app-attrs
               :current-user {:id joe-eid}
-              :rules (rule-model/get-by-app-id aurora/conn-pool {:app-id colors-app-id})
+              :rules (rule-model/get-by-app-id {:app-id colors-app-id})
               :datalog-query-fn d/query} tx-steps)
 
   ;; OG transact

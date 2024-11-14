@@ -146,8 +146,7 @@
                     :app-id app-id
                     :attrs attrs
                     :datalog-query-fn d/query
-                    :rules (rule-model/get-by-app-id aurora/conn-pool
-                                                     {:app-id app-id})}
+                    :rules (rule-model/get-by-app-id {:app-id app-id})}
                    perms)
         tx-steps (admin-model/->tx-steps! attrs steps)
         {tx-id :id} (permissioned-tx/transact! ctx tx-steps)]
@@ -167,9 +166,7 @@
         attrs (attr-model/get-by-app-id app-id)
         rules (if rules-override
                 {:app_id app-id :code rules-override}
-                (rule-model/get-by-app-id
-                 aurora/conn-pool
-                 {:app-id app-id}))
+                (rule-model/get-by-app-id {:app-id app-id}))
         ctx (merge {:db {:conn-pool aurora/conn-pool}
                     :app-id app-id
                     :attrs attrs
@@ -209,7 +206,7 @@
                                    "authorization" (str "Bearer " admin-token)
                                    "as-guest" "true"}}))
 
-;; -------- 
+;; --------
 ;; Refresh tokens
 
 (defn refresh-tokens-post [req]
