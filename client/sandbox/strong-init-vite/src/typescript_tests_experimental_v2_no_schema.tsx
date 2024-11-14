@@ -8,7 +8,7 @@ import {
 import { do_not_use_init_experimental as react_init_experimental } from "@instantdb/react";
 import { do_not_use_init_experimental as react_native_init_experimental } from "@instantdb/react-native";
 import { do_not_use_init_experimental as admin_init_experimental } from "@instantdb/admin";
-import schema, { AppSchema } from "../instant.schema.v2";
+import { SpecificallyExtends } from "./helpers";
 
 // ----
 // Core
@@ -28,18 +28,24 @@ coreRoom.publishTopic("emoji", {
 });
 
 // queries
-coreDB.subscribeQuery({ messages: { creator: {} } }, (result) => {
+coreDB.subscribeQuery({ posts: { comments: {} } }, (result) => {
   if (result.error) {
     return;
   }
-  const { messages } = result.data;
-  messages[0].content;
-  messages[0].creator[0].foo
+  const { posts } = result.data;
+  const post = posts[0];
+  const postHasId: SpecificallyExtends<typeof post, { id: string }> = true;
+  const comments = post.comments[0];
+  const commentsHasId: SpecificallyExtends<typeof comments, { id: string }> =
+    true;
+  // to silence ts warnings
+  postHasId;
+  commentsHasId;
 });
 
 // transactions
-coreDB.tx.messages[id()]
-  .update({ content: "Hello world" })
+coreDB.tx.posts[id()]
+  .update({ title: "Hello world", num: 1 })
   .link({ creator: "foo" });
 
 // ----
@@ -47,7 +53,6 @@ coreDB.tx.messages[id()]
 
 const reactDB = react_init_experimental({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
-  schema,
 });
 
 function ReactNormalApp() {
@@ -58,12 +63,18 @@ function ReactNormalApp() {
   const _reactPresenceUser = reactPresence.user!;
   const _reactPresencePeers = reactPresence.peers!;
   // queries
-  const { isLoading, error, data } = reactDB.useQuery({ messages: {} });
+  const { isLoading, error, data } = reactDB.useQuery({
+    posts: { comments: {} },
+  });
   if (isLoading || error) {
     return null;
   }
-  const { messages } = data;
-  messages[0].content;
+  const { posts } = data;
+  const post = posts[0];
+  const postHasId: SpecificallyExtends<typeof post, { id: string }> = true;
+  const comments = post.comments[0];
+  const commentsHasId: SpecificallyExtends<typeof comments, { id: string }> =
+    true;
 
   // transactions
   reactDB.transact(
@@ -73,12 +84,11 @@ function ReactNormalApp() {
   );
 
   // to silence ts warnings
-  ((..._args) => {})(
-    _reactPublishEmoji,
-    _reactPresenceUser,
-    _reactPresencePeers,
-    messages,
-  );
+  postHasId;
+  commentsHasId;
+  _reactPublishEmoji;
+  _reactPresenceUser;
+  _reactPresencePeers;
 }
 
 // ----
@@ -86,7 +96,6 @@ function ReactNormalApp() {
 
 const reactNativeDB = react_native_init_experimental({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
-  schema: schema,
 });
 
 function ReactNativeNormalApp() {
@@ -98,20 +107,24 @@ function ReactNativeNormalApp() {
   const _reactPresencePeers = reactPresence.peers!;
   // queries
   const { isLoading, error, data } = reactNativeDB.useQuery({
-    messages: {},
+    posts: { comments: {} },
   });
   if (isLoading || error) {
     return null;
   }
-  const { messages } = data;
-  messages[0].content;
+  const { posts } = data;
+  const post = posts[0];
+  const postHasId: SpecificallyExtends<typeof post, { id: string }> = true;
+  const comments = post.comments[0];
+  const commentsHasId: SpecificallyExtends<typeof comments, { id: string }> =
+    true;
+
   // to silence ts warnings
-  ((..._args) => {})(
-    _reactPublishEmoji,
-    _reactPresenceUser,
-    _reactPresencePeers,
-    messages,
-  );
+  _reactPublishEmoji;
+  _reactPresenceUser;
+  _reactPresencePeers;
+  postHasId;
+  commentsHasId;
 }
 
 // ----
@@ -120,7 +133,6 @@ function ReactNativeNormalApp() {
 const adminDB = admin_init_experimental({
   appId: import.meta.env.VITE_INSTANT_APP_ID!,
   adminToken: import.meta.env.VITE_INSTANT_ADMIN_TOKEN!,
-  schema: schema,
 });
 
 // queries
@@ -140,18 +152,18 @@ export { ReactNormalApp, ReactNativeNormalApp };
 // ------------
 // type helpers
 
-const messagesQuery: InstaQLQueryParams<AppSchema> = {
+const messagesQuery: InstaQLQueryParams<DoNotUseUnknownSchema> = {
   messages: {
     creator: {},
   },
 };
 
-type CoreMessage = DoNotUseInstantEntity<AppSchema, "messages">;
+type CoreMessage = DoNotUseInstantEntity<DoNotUseUnknownSchema, "messages">;
 let coreMessage: CoreMessage = 1 as any;
 coreMessage.content;
 
 type CoreMessageWithCreator = DoNotUseInstantEntity<
-  AppSchema,
+  DoNotUseUnknownSchema,
   "messages",
   { creator: {} }
 >;
@@ -159,8 +171,8 @@ let coreMessageWithCreator: CoreMessageWithCreator = 1 as any;
 coreMessageWithCreator.creator?.id;
 
 type MessageCreatorResult = DoNotUseInstaQLQueryResult<
-  AppSchema,
-  InstaQLQueryParams<AppSchema>
+  DoNotUseUnknownSchema,
+  InstaQLQueryParams<DoNotUseUnknownSchema>
 >;
 function subMessagesWithCreator(
   resultCB: (data: MessageCreatorResult) => void,

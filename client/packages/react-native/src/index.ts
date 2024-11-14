@@ -47,6 +47,7 @@ import {
   type DoNotUseInstaQLQueryResult,
   type DoNotUseConfig,
   DoNotUseInstantSchema,
+  DoNotUseUnknownSchema,
 } from "@instantdb/core";
 
 /**
@@ -93,9 +94,9 @@ function init_experimental<
   >(config);
 }
 
-function do_not_use_init_experimental<Schema extends DoNotUseInstantSchema<any, any, any>>(
-  config: DoNotUseConfig<Schema>,
-) {
+function do_not_use_init_experimental<
+  Schema extends DoNotUseInstantSchema<any, any, any> = DoNotUseUnknownSchema,
+>(config: DoNotUseConfig<Schema>) {
   return new DoNotUseInstantReactNative<Schema>(config);
 }
 
@@ -158,4 +159,6 @@ export {
   type ValueTypes,
   type DoNotUseInstantEntity,
   type DoNotUseInstaQLQueryResult,
+  type DoNotUseInstantSchema,
+  type DoNotUseUnknownSchema,
 };

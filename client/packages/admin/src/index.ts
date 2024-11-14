@@ -39,6 +39,7 @@ import {
   type ResolveAttrs,
   type ValueTypes,
   type DoNotUseInstantSchema,
+  DoNotUseUnknownSchema,
 } from "@instantdb/core";
 
 import version from "./version";
@@ -199,7 +200,7 @@ function init_experimental<
 }
 
 function do_not_use_init_experimental<
-  Schema extends DoNotUseInstantSchema<any, any, any>,
+  Schema extends DoNotUseInstantSchema<any, any, any> = DoNotUseUnknownSchema,
 >(config: DoNotUseConfig<Schema>) {
   return new DoNotUseInstantAdmin<Schema>(config);
 }
@@ -931,4 +932,6 @@ export {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
+  type DoNotUseInstantSchema,
+  type DoNotUseUnknownSchema,
 };

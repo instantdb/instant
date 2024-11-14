@@ -10,6 +10,7 @@ import type {
   LinkAttrDef,
   ResolveAttrs,
   ResolveEntityAttrs,
+  DoNotUseUnknownSchema,
 } from "./schemaTypes";
 
 // NonEmpty disallows {}, so that you must provide at least one field

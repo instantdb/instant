@@ -328,3 +328,43 @@ export class DoNotUseInstantSchema<
     public rooms: Rooms,
   ) {}
 }
+
+export type UnknownEntity = EntityDef<
+  {
+    id: DataAttrDef<string, true>;
+    [AttrName: string]: DataAttrDef<unknown, any>;
+  },
+  { [LinkName: string]: LinkAttrDef<"many", string> },
+  void
+>;
+
+export type DoNotUseUnknownEntities = {
+  [EntityName: string]: UnknownEntity;
+};
+
+export type DoNotUseUnknownLinks<Entities extends EntitiesDef> = {
+  [LinkName: string]: LinkDef<
+    Entities,
+    string,
+    string,
+    "many",
+    string,
+    string,
+    "many"
+  >;
+};
+
+export type DoNotUseUnknownRooms = {
+  [RoomName: string]: {
+    presence: EntityDef<any, any, any>;
+    topics: {
+      [TopicName: string]: EntityDef<any, any, any>;
+    };
+  };
+};
+
+export type DoNotUseUnknownSchema = DoNotUseInstantSchema<
+  DoNotUseUnknownEntities,
+  DoNotUseUnknownLinks<DoNotUseUnknownEntities>,
+  DoNotUseUnknownRooms
+>;

@@ -5,6 +5,7 @@ import type {
   InstantGraph,
   DoNotUseInstantSchema,
   RoomSchemaShape,
+  DoNotUseUnknownSchema,
 } from "@instantdb/core";
 import { InstantReactWeb } from "./InstantReactWeb";
 import { DoNotUseInstantReactWeb } from "./DoNotUseInstantReactWeb";
@@ -55,7 +56,7 @@ export function init_experimental<
 }
 
 export function do_not_use_init_experimental<
-  Schema extends DoNotUseInstantSchema<any, any, any>,
+  Schema extends DoNotUseInstantSchema<any, any, any> = DoNotUseUnknownSchema,
 >(config: DoNotUseConfig<Schema>) {
   return new DoNotUseInstantReactWeb<Schema>(config);
 }
