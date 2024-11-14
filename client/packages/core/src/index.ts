@@ -21,14 +21,17 @@ import type {
   PresenceSlice,
   RoomSchemaShape,
 } from "./presence";
-import type { IDatabase } from "./coreTypes";
+import type { IDatabase, IDoNotUseDatabase } from "./coreTypes";
 import type {
   Query,
   QueryResponse,
+  DoNotUseQueryResponse,
   PageInfoResponse,
   Exactly,
   InstantObject,
   InstaQLQueryParams,
+  DoNotUseInstantEntity,
+  DoNotUseInstaQLQueryResult,
 } from "./queryTypes";
 import type { AuthState, User, AuthResult } from "./clientTypes";
 import type {
@@ -45,11 +48,16 @@ import type {
   EntitiesDef,
   EntitiesWithLinks,
   EntityDef,
+  RoomsDef,
+  DoNotUseInstantSchema,
   InstantGraph,
   LinkAttrDef,
   LinkDef,
   LinksDef,
+  PresenceOf,
   ResolveAttrs,
+  RoomsOf,
+  TopicsOf,
   ValueTypes,
 } from "./schemaTypes";
 
@@ -64,6 +72,14 @@ export type Config = {
   devtool?: boolean;
 };
 
+export type DoNotUseConfig<S extends DoNotUseInstantSchema<any, any, any>> = {
+  appId: string;
+  websocketURI?: string;
+  apiURI?: string;
+  devtool?: boolean;
+  schema: S;
+};
+
 export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {
   schema: S;
 };
@@ -73,24 +89,36 @@ export type TransactionResult = {
   clientId: string;
 };
 
+export type PublishTopic<TopicsByKey> = <Key extends keyof TopicsByKey>(
+  topic: Key,
+  data: TopicsByKey[Key],
+) => void;
+
+export type SubscribeTopic<PresenceShape, TopicsByKey> = <
+  Key extends keyof TopicsByKey,
+>(
+  topic: Key,
+  onEvent: (event: TopicsByKey[Key], peer: PresenceShape) => void,
+) => () => void;
+
+export type GetPresence<PresenceShape> = <Keys extends keyof PresenceShape>(
+  opts: PresenceOpts<PresenceShape, Keys>,
+) => PresenceResponse<PresenceShape, Keys>;
+
+export type SubscribePresence<PresenceShape> = <
+  Keys extends keyof PresenceShape,
+>(
+  opts: PresenceOpts<PresenceShape, Keys>,
+  onChange: (slice: PresenceResponse<PresenceShape, Keys>) => void,
+) => () => void;
+
 export type RoomHandle<PresenceShape, TopicsByKey> = {
   leaveRoom: () => void;
-  publishTopic: <Key extends keyof TopicsByKey>(
-    topic: Key,
-    data: TopicsByKey[Key],
-  ) => void;
-  subscribeTopic: <Key extends keyof TopicsByKey>(
-    topic: Key,
-    onEvent: (event: TopicsByKey[Key], peer: PresenceShape) => void,
-  ) => () => void;
+  publishTopic: PublishTopic<TopicsByKey>;
+  subscribeTopic: SubscribeTopic<PresenceShape, TopicsByKey>;
   publishPresence: (data: Partial<PresenceShape>) => void;
-  getPresence: <Keys extends keyof PresenceShape>(
-    opts: PresenceOpts<PresenceShape, Keys>,
-  ) => PresenceResponse<PresenceShape, Keys>;
-  subscribePresence: <Keys extends keyof PresenceShape>(
-    opts: PresenceOpts<PresenceShape, Keys>,
-    onChange: (slice: PresenceResponse<PresenceShape, Keys>) => void,
-  ) => () => void;
+  getPresence: GetPresence<PresenceShape>;
+  subscribePresence: SubscribePresence<PresenceShape>;
 };
 
 type AuthToken = string;
@@ -103,13 +131,26 @@ type SubscriptionState<Q, Schema, WithCardinalityInference extends boolean> =
       pageInfo: PageInfoResponse<Q>;
     };
 
-type LifecycleSubscriptionState<
+type DoNotUseSubscriptionState<Q, Schema> =
+  | { error: { message: string }; data: undefined; pageInfo: undefined }
+  | {
+      error: undefined;
+      data: DoNotUseQueryResponse<Q, Schema>;
+      pageInfo: PageInfoResponse<Q>;
+    };
+
+type DoNotUseLifecycleSubscriptionState<
   Q,
   Schema,
   WithCardinalityInference extends boolean,
 > = SubscriptionState<Q, Schema, WithCardinalityInference> & {
   isLoading: boolean;
 };
+
+type DoNotUseDoNotUseLifecycleSubscriptionState<Q, Schema> =
+  DoNotUseSubscriptionState<Q, Schema> & {
+    isLoading: boolean;
+  };
 
 type UnsubscribeFn = () => void;
 
@@ -121,10 +162,7 @@ const defaultConfig = {
 };
 
 // hmr
-function initGlobalInstantCoreStore(): Record<
-  string,
-  InstantCore<any, any, any>
-> {
+function initGlobalInstantCoreStore(): Record<string, any> {
   globalThis.__instantDbStore = globalThis.__instantDbStore ?? {};
   return globalThis.__instantDbStore;
 }
@@ -612,13 +650,233 @@ function coerceQuery(o: any) {
   return JSON.parse(JSON.stringify(o));
 }
 
-// dev
+class DoNotUseInstantCore<Schema extends DoNotUseInstantSchema<any, any, any>>
+  implements IDoNotUseDatabase<Schema>
+{
+  public _reactor: Reactor<RoomsOf<Schema>>;
+  public auth: Auth;
+  public storage: Storage;
+
+  public tx = txInit<Schema>();
+
+  constructor(reactor: Reactor<RoomsOf<Schema>>) {
+    this._reactor = reactor;
+    this.auth = new Auth(this._reactor);
+    this.storage = new Storage(this._reactor);
+  }
+
+  /**
+   * Use this to write data! You can create, update, delete, and link objects
+   *
+   * @see https://instantdb.com/docs/instaml
+   *
+   * @example
+   *   // Create a new object in the `goals` namespace
+   *   const goalId = id();
+   *   db.transact(tx.goals[goalId].update({title: "Get fit"}))
+   *
+   *   // Update the title
+   *   db.transact(tx.goals[goalId].update({title: "Get super fit"}))
+   *
+   *   // Delete it
+   *   db.transact(tx.goals[goalId].delete())
+   *
+   *   // Or create an association:
+   *   todoId = id();
+   *   db.transact([
+   *    tx.todos[todoId].update({ title: 'Go on a run' }),
+   *    tx.goals[goalId].link({todos: todoId}),
+   *  ])
+   */
+  transact(
+    chunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
+  ): Promise<TransactionResult> {
+    return this._reactor.pushTx(chunks);
+  }
+
+  getLocalId(name: string): Promise<string> {
+    return this._reactor.getLocalId(name);
+  }
+
+  /**
+   * Use this to query your data!
+   *
+   * @see https://instantdb.com/docs/instaql
+   *
+   * @example
+   *  // listen to all goals
+   *  db.subscribeQuery({ goals: {} }, (resp) => {
+   *    console.log(resp.data.goals)
+   *  })
+   *
+   *  // goals where the title is "Get Fit"
+   *  db.subscribeQuery(
+   *    { goals: { $: { where: { title: "Get Fit" } } } },
+   *    (resp) => {
+   *      console.log(resp.data.goals)
+   *    }
+   *  )
+   *
+   *  // all goals, _alongside_ their todos
+   *  db.subscribeQuery({ goals: { todos: {} } }, (resp) => {
+   *    console.log(resp.data.goals)
+   *  });
+   */
+  subscribeQuery<Q extends InstaQLQueryParams<Schema>>(
+    query: Q,
+    cb: (resp: DoNotUseSubscriptionState<Q, Schema>) => void,
+  ) {
+    return this._reactor.subscribeQuery(query, cb);
+  }
+
+  /**
+   * Listen for the logged in state. This is useful
+   * for deciding when to show a login screen.
+   *
+   * @see https://instantdb.com/docs/auth
+   * @example
+   *   const unsub = db.subscribeAuth((auth) => {
+   *     if (auth.user) {
+   *     console.log('logged in as', auth.user.email)
+   *    } else {
+   *      console.log('logged out')
+   *    }
+   *  })
+   */
+  subscribeAuth(cb: (auth: AuthResult) => void): UnsubscribeFn {
+    return this._reactor.subscribeAuth(cb);
+  }
+
+  /**
+   * Join a room to publish and subscribe to topics and presence.
+   *
+   * @see https://instantdb.com/docs/presence-and-topics
+   * @example
+   * // init
+   * const db = init();
+   * const room = db.joinRoom(roomType, roomId);
+   * // usage
+   * const unsubscribeTopic = room.subscribeTopic("foo", console.log);
+   * const unsubscribePresence = room.subscribePresence({}, console.log);
+   * room.publishTopic("hello", { message: "hello world!" });
+   * room.publishPresence({ name: "joe" });
+   * // later
+   * unsubscribePresence();
+   * unsubscribeTopic();
+   * room.leaveRoom();
+   */
+  joinRoom<RoomType extends keyof RoomsOf<Schema>>(
+    roomType: RoomType = "_defaultRoomType" as RoomType,
+    roomId: string = "_defaultRoomId",
+  ): RoomHandle<PresenceOf<Schema, RoomType>, TopicsOf<Schema, RoomType>> {
+    const leaveRoom = this._reactor.joinRoom(roomId);
+
+    return {
+      leaveRoom,
+      subscribeTopic: (topic, onEvent) =>
+        this._reactor.subscribeTopic(roomId, topic, onEvent),
+      subscribePresence: (opts, onChange) =>
+        this._reactor.subscribePresence(roomType, roomId, opts, onChange),
+      publishTopic: (topic, data) =>
+        this._reactor.publishTopic({ roomType, roomId, topic, data }),
+      publishPresence: (data) =>
+        this._reactor.publishPresence(roomType, roomId, data),
+      getPresence: (opts) => this._reactor.getPresence(roomType, roomId, opts),
+    };
+  }
+
+  shutdown() {
+    delete globalInstantCoreStore[this._reactor.config.appId];
+    this._reactor.shutdown();
+  }
+
+  /**
+   * Use this for one-off queries.
+   * Returns local data if available, otherwise fetches from the server.
+   * Because we want to avoid stale data, this method will throw an error
+   * if the user is offline or there is no active connection to the server.
+   *
+   * @see https://instantdb.com/docs/instaql
+   *
+   * @example
+   *
+   *  const resp = await db.queryOnce({ goals: {} });
+   *  console.log(resp.data.goals)
+   */
+  queryOnce<Q extends InstaQLQueryParams<Schema>>(
+    query: Q,
+  ): Promise<{
+    data: DoNotUseQueryResponse<Q, Schema>;
+    pageInfo: PageInfoResponse<Q>;
+  }> {
+    return this._reactor.queryOnce(query);
+  }
+}
+
+function do_not_use_init_experimental<Schema extends DoNotUseInstantSchema<any, any, any>>(
+  config: DoNotUseConfig<Schema>,
+  Storage?: any,
+  NetworkListener?: any,
+): DoNotUseInstantCore<Schema> {
+  return _do_not_use_init_internal<Schema>(
+    config,
+    Storage,
+    NetworkListener,
+  );
+}
+
+function _do_not_use_init_internal<
+  Schema extends DoNotUseInstantSchema<any, any, any>,
+>(
+  config: Config,
+  Storage?: any,
+  NetworkListener?: any,
+): DoNotUseInstantCore<Schema> {
+  const existingClient = globalInstantCoreStore[
+    config.appId
+  ] as DoNotUseInstantCore<any>;
+
+  if (existingClient) {
+    return existingClient;
+  }
+
+  const reactor = new Reactor<RoomsOf<Schema>>(
+    {
+      ...defaultConfig,
+      ...config,
+      cardinalityInference: true,
+    },
+    Storage || IndexedDBStorage,
+    NetworkListener || WindowNetworkListener,
+  );
+
+  const client = new DoNotUseInstantCore<any>(reactor);
+  globalInstantCoreStore[config.appId] = client;
+
+  if (typeof window !== "undefined" && typeof window.location !== "undefined") {
+    const showDevtool =
+      // show widget by default?
+      ("devtool" in config ? Boolean(config.devtool) : defaultOpenDevtool) &&
+      // only run on localhost (dev env)
+      window.location.hostname === "localhost" &&
+      // used by dash and other internal consumers
+      !Boolean((globalThis as any)._nodevtool);
+
+    if (showDevtool) {
+      createDevtool(config.appId);
+    }
+  }
+
+  return client;
+}
 
 export {
   // bada bing bada boom
   init,
   init_experimental,
+  do_not_use_init_experimental,
   _init_internal,
+  _do_not_use_init_internal,
   id,
   tx,
   txInit,
@@ -634,15 +892,18 @@ export {
   IndexedDBStorage,
   WindowNetworkListener,
   InstantCore as InstantClient,
+  DoNotUseInstantCore as DoNotUseInstantClient,
   Auth,
   Storage,
   version,
 
   // og types
   type IDatabase,
+  type IDoNotUseDatabase,
   type RoomSchemaShape,
   type Query,
   type QueryResponse,
+  type DoNotUseQueryResponse,
   type PageInfoResponse,
   type InstantObject,
   type Exactly,
@@ -652,7 +913,9 @@ export {
   type AuthToken,
   type TxChunk,
   type SubscriptionState,
-  type LifecycleSubscriptionState,
+  type DoNotUseSubscriptionState,
+  type DoNotUseLifecycleSubscriptionState,
+  type DoNotUseDoNotUseLifecycleSubscriptionState,
 
   // presence types
   type PresenceOpts,
@@ -674,10 +937,17 @@ export {
   type EntitiesDef,
   type EntitiesWithLinks,
   type EntityDef,
+  type RoomsDef,
   type InstantGraph,
+  type DoNotUseInstantSchema,
   type LinkAttrDef,
   type LinkDef,
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
+  type RoomsOf,
+  type PresenceOf,
+  type TopicsOf,
+  type DoNotUseInstantEntity,
+  type DoNotUseInstaQLQueryResult,
 };

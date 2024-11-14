@@ -1,26 +1,24 @@
 import {
   // types
-  InstantClient,
   Auth,
   Storage,
   txInit,
   _init_internal,
-  i,
   type AuthState,
-  type Config,
-  type Query,
-  type Exactly,
   type TransactionChunk,
-  type DoNotUseLifecycleSubscriptionState,
   type PresenceOpts,
   type PresenceResponse,
   type RoomSchemaShape,
   type InstaQLQueryParams,
-  type ConfigWithSchema,
-  type IDatabase,
-  type InstantGraph,
-  type QueryResponse,
+  type DoNotUseConfig,
   type PageInfoResponse,
+  DoNotUseInstantClient,
+  _do_not_use_init_internal,
+  DoNotUseDoNotUseLifecycleSubscriptionState,
+  DoNotUseQueryResponse,
+  RoomsOf,
+  DoNotUseInstantSchema,
+  IDoNotUseDatabase,
 } from "@instantdb/core";
 import {
   KeyboardEvent,
@@ -31,9 +29,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { useQuery } from "./useQuery";
+import { doNotUseUseQuery } from "./useQuery";
 import { useTimeout } from "./useTimeout";
-import version from "./version";
 
 export type PresenceHandle<
   PresenceShape,
@@ -60,17 +57,17 @@ export type TypingIndicatorHandle<PresenceShape> = {
 
 export const defaultActivityStopTimeout = 1_000;
 
-export class InstantReactRoom<
-  Schema extends InstantGraph<any, any> | {},
+export class DoNotUseInstantReactRoom<
+  Schema extends DoNotUseInstantSchema<any, any, any>,
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
 > {
-  _core: InstantClient<Schema, RoomSchema>;
+  _core: DoNotUseInstantClient<Schema>;
   type: RoomType;
   id: string;
 
   constructor(
-    _core: InstantClient<Schema, RoomSchema, any>,
+    _core: DoNotUseInstantClient<Schema>,
     type: RoomType,
     id: string,
   ) {
@@ -296,36 +293,27 @@ const defaultAuthState = {
   error: undefined,
 };
 
-export abstract class InstantReact<
-  Schema extends InstantGraph<any, any> | {} = {},
-  RoomSchema extends RoomSchemaShape = {},
-  WithCardinalityInference extends boolean = false,
-> implements IDatabase<Schema, RoomSchema, WithCardinalityInference>
+export abstract class DoNotUseInstantReact<
+  Schema extends DoNotUseInstantSchema<any, any, any>,
+  Rooms extends RoomSchemaShape = RoomsOf<Schema>,
+> implements IDoNotUseDatabase<Schema>
 {
-  public withCardinalityInference?: WithCardinalityInference;
-  public tx =
-    txInit<
-      Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
-    >();
+  public tx = txInit<Schema>();
 
   public auth: Auth;
   public storage: Storage;
-  public _core: InstantClient<Schema, RoomSchema, WithCardinalityInference>;
+  public _core: DoNotUseInstantClient<Schema>;
 
   static Storage?: any;
   static NetworkListener?: any;
 
-  constructor(
-    config: Config | ConfigWithSchema<any>,
-    versions?: { [key: string]: string },
-  ) {
-    this._core = _init_internal<Schema, RoomSchema, WithCardinalityInference>(
+  constructor(config: DoNotUseConfig<Schema>) {
+    this._core = _do_not_use_init_internal<Schema>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.Storage,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.NetworkListener,
-      { ...(versions || {}), "@instantdb/react": version },
     );
     this.auth = this._core.auth;
     this.storage = this._core.storage;
@@ -351,11 +339,11 @@ export abstract class InstantReact<
    *   useTypingIndicator,
    * } = db.room(roomType, roomId);
    */
-  room<RoomType extends keyof RoomSchema>(
+  room<RoomType extends keyof Rooms>(
     type: RoomType = "_defaultRoomType" as RoomType,
     id: string = "_defaultRoomId",
   ) {
-    return new InstantReactRoom<Schema, RoomSchema, RoomType>(
+    return new DoNotUseInstantReactRoom<Schema, Rooms, RoomType>(
       this._core,
       type,
       id,
@@ -409,14 +397,10 @@ export abstract class InstantReact<
    *  // skip if `user` is not logged in
    *  db.useQuery(auth.user ? { goals: {} } : null)
    */
-  useQuery = <
-    Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
-      : Exactly<Query, Q>,
-  >(
+  useQuery = <Q extends InstaQLQueryParams<Schema>>(
     query: null | Q,
-  ): DoNotUseLifecycleSubscriptionState<Q, Schema, WithCardinalityInference> => {
-    return useQuery(this._core, query).state;
+  ): DoNotUseDoNotUseLifecycleSubscriptionState<Q, Schema> => {
+    return doNotUseUseQuery(this._core, query).state;
   };
 
   /**
@@ -484,14 +468,10 @@ export abstract class InstantReact<
    *  const resp = await db.queryOnce({ goals: {} });
    *  console.log(resp.data.goals)
    */
-  queryOnce = <
-    Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
-      : Exactly<Query, Q>,
-  >(
+  queryOnce = <Q extends InstaQLQueryParams<Schema>>(
     query: Q,
   ): Promise<{
-    data: QueryResponse<Q, Schema, WithCardinalityInference>;
+    data: DoNotUseQueryResponse<Q, Schema>;
     pageInfo: PageInfoResponse<Q>;
   }> => {
     return this._core.queryOnce(query);

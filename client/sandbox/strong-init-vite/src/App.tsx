@@ -1,15 +1,15 @@
-import { id, init_experimental } from "@instantdb/react";
-import graph from "../instant.schema";
+import { id, do_not_use_init_experimental } from "@instantdb/react";
+import schema from "../instant.schema.v2";
 
-const db = init_experimental({
+const db = do_not_use_init_experimental({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
-  schema: graph,
+  schema,
   apiURI: "http://localhost:8888",
   websocketURI: "ws://localhost:8888/runtime/session",
 });
 
 function App() {
-  const { isLoading, data, error } = db.useQuery({ messages: {} });
+  const { isLoading, data, error } = db.useQuery({ messages: { creator: {} } });
   if (isLoading || error) return null;
   const { messages } = data;
 

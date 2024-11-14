@@ -31,11 +31,15 @@ import {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
+  type DoNotUseInstantEntity,
+  type DoNotUseInstaQLQueryResult,
 } from "@instantdb/core";
 
 import { InstantReact } from "./InstantReact";
+import { DoNotUseInstantReact } from "./DoNotUseInstantReact";
 import { InstantReactWeb } from "./InstantReactWeb";
-import { init, init_experimental } from "./init";
+import { DoNotUseInstantReactWeb } from "./DoNotUseInstantReactWeb";
+import { init, init_experimental, do_not_use_init_experimental } from "./init";
 import { Cursors } from "./Cursors";
 
 export {
@@ -44,12 +48,15 @@ export {
   lookup,
   init,
   init_experimental,
+  do_not_use_init_experimental,
   InstantReactWeb,
+  DoNotUseInstantReactWeb,
   Cursors,
   i,
 
   // internal
   InstantReact,
+  DoNotUseInstantReact,
 
   // types
   type Config,
@@ -78,4 +85,6 @@ export {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
+  type DoNotUseInstantEntity,
+  type DoNotUseInstaQLQueryResult,
 };

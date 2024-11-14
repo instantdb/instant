@@ -7,6 +7,7 @@ import version from "./version";
 import {
   // react
   InstantReact,
+  DoNotUseInstantReact,
 
   // types
   type Config,
@@ -41,7 +42,11 @@ import {
   type ResolveAttrs,
   type ValueTypes,
   type InstantEntity,
-  ConfigWithSchema,
+  type ConfigWithSchema,
+  type DoNotUseInstantEntity,
+  type DoNotUseInstaQLQueryResult,
+  type DoNotUseConfig,
+  DoNotUseInstantSchema,
 } from "@instantdb/core";
 
 /**
@@ -88,6 +93,12 @@ function init_experimental<
   >(config);
 }
 
+function do_not_use_init_experimental<Schema extends DoNotUseInstantSchema<any, any, any>>(
+  config: DoNotUseConfig<Schema>,
+) {
+  return new DoNotUseInstantReactNative<Schema>(config);
+}
+
 class InstantReactNative<
   Schema extends InstantGraph<any, any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
@@ -101,9 +112,17 @@ class InstantReactNative<
   }
 }
 
+class DoNotUseInstantReactNative<
+  Schema extends DoNotUseInstantSchema<any, any, any>,
+> extends DoNotUseInstantReact<Schema> {
+  static Storage = Storage;
+  static NetworkListener = NetworkListener;
+}
+
 export {
   init,
   init_experimental,
+  do_not_use_init_experimental,
   id,
   tx,
   lookup,
@@ -137,4 +156,6 @@ export {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
+  type DoNotUseInstantEntity,
+  type DoNotUseInstaQLQueryResult,
 };

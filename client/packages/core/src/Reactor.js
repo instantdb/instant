@@ -1564,14 +1564,7 @@ export default class Reactor {
   // --------
   // Presence
 
-  /**
-   * @template {keyof RoomSchema} RoomType
-   * @template {keyof RoomSchema[RoomType]['presence']} Keys
-   * @param {RoomType} roomType
-   * @param {string | number} roomId
-   * @param {import('./presence').PresenceOpts<RoomSchema[RoomType]['presence'], Keys>} opts
-   * @returns {import('./presence').PresenceResponse<RoomSchema[RoomType]['presence'], Keys>}
-   */
+  // TODO: look into typing again
   getPresence(roomType, roomId, opts = {}) {
     const room = this._rooms[roomId];
     const presence = this._presence[roomId];
@@ -1584,12 +1577,7 @@ export default class Reactor {
     };
   }
 
-  /**
-   * @template {keyof RoomSchema} RoomType
-   * @param {RoomType} roomType
-   * @param {string | number} roomId
-   * @param {Partial<RoomSchema[RoomType]['presence']>} partialData
-   */
+  // TODO: look into typing again
   publishPresence(roomType, roomId, partialData) {
     const room = this._rooms[roomId];
     const presence = this._presence[roomId];
@@ -1631,15 +1619,7 @@ export default class Reactor {
     this._trySendAuthed(uuid(), { op: "leave-room", "room-id": roomId });
   }
 
-  /**
-   * @template {keyof RoomSchema} RoomType
-   * @template {keyof RoomSchema[RoomType]['presence']} Keys
-   * @param {RoomType} roomType
-   * @param {string | number} roomId
-   * @param {import('./presence').PresenceOpts<RoomSchema[RoomType]['presence'], Keys>} opts
-   * @param {(slice: import('./presence').PresenceResponse<RoomSchema[RoomType]['presence'], Keys>) => void} cb
-   * @returns {() => void}
-   */
+  // TODO: look into typing again
   subscribePresence(roomType, roomId, opts, cb) {
     const leaveRoom = this.joinRoom(roomId);
 
