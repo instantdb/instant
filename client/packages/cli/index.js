@@ -31,37 +31,135 @@ const instantBackendOrigin =
   process.env.INSTANT_CLI_API_URI ||
   (dev ? "http://localhost:8888" : "https://api.instantdb.com");
 
-const instantCLIDescription = `
-${chalk.magenta(`Instant CLI`)}
-Docs: ${chalk.underline(`https://www.instantdb.com/docs/cli`)}
-Dash: ${chalk.underline(`https://www.instantdb.com/dash`)}
-Discord: ${chalk.underline(`https://discord.com/invite/VU53p7uQcE`)}`.trim();
-
 // cli
+const dimbold = (text) => chalk.bold.dim(text);
+
+const logoChalk = chalk.white.bold("instant-cli");
+const versionChalk = chalk.dim(`${version.trim()}`);
+
+const beforeAllHeader = `${logoChalk} ${versionChalk} ` + "\n";
+program.addHelpText("beforeAll", beforeAllHeader);
+
+const afterHeader = `
+${dimbold("Want to learn more?")}
+${chalk.white("Check out the docs")}
+${chalk.white("Join the Discord")}
+`.trim();
+// program.addHelpText("after", afterHeader)
+
+program.configureHelp({
+  subcommandTerm(cmd) {
+    return chalk.white.bold(cmd.name());
+  },
+  formatHelp(cmd, helper) {
+    const termWidth = helper.padWidth(cmd, helper);
+    const helpWidth = helper.helpWidth || 80;
+    const itemIndentWidth = 2;
+    const itemSeparatorWidth = 2; // between term and description
+    function formatItem(term, description) {
+      if (description) {
+        const fullText = `${term.padEnd(termWidth + itemSeparatorWidth)}${description}`;
+        return helper.wrap(
+          fullText,
+          helpWidth - itemIndentWidth,
+          termWidth + itemSeparatorWidth,
+        );
+      }
+      return term;
+    }
+    function formatList(textArray) {
+      return textArray.join("\n").replace(/^/gm, " ".repeat(itemIndentWidth));
+    }
+
+    // Usage
+    let output = [`${dimbold("Usage ")}${helper.commandUsage(cmd)}`, ""];
+
+    // Description
+    const commandDescription = helper.commandDescription(cmd);
+    if (commandDescription.length > 0) {
+      output = output.concat([
+        helper.wrap(commandDescription, helpWidth, 0),
+        "",
+      ]);
+    }
+
+    // Arguments
+    const argumentList = helper.visibleArguments(cmd).map((argument) => {
+      return formatItem(
+        helper.argumentTerm(argument),
+        helper.argumentDescription(argument),
+      );
+    });
+    if (argumentList.length > 0) {
+      output = output.concat(["Arguments:", formatList(argumentList), ""]);
+    }
+
+    // Commands
+    const commandList = helper.visibleCommands(cmd).map((cmd) => {
+      return formatItem(
+        helper.subcommandTerm(cmd),
+        helper.subcommandDescription(cmd),
+      );
+    });
+    if (commandList.length > 0) {
+      output = output.concat([
+        dimbold("Commands"),
+        formatList(commandList),
+        "",
+      ]);
+    }
+    // // Options
+    // const optionList = helper.visibleOptions(cmd).map((option) => {
+    //   return formatItem(
+    //     helper.optionTerm(option),
+    //     helper.optionDescription(option),
+    //   );
+    // });
+    // if (optionList.length > 0) {
+    //   output = output.concat([dimbold("Options"), formatList(optionList), ""]);
+    // }
+
+    // if (this.showGlobalOptions) {
+    //   const globalOptionList = helper
+    //     .visibleGlobalOptions(cmd)
+    //     .map((option) => {
+    //       return formatItem(
+    //         helper.optionTerm(option),
+    //         helper.optionDescription(option),
+    //       );
+    //     });
+    //   if (globalOptionList.length > 0) {
+    //     output = output.concat([
+    //       "Global Options:",
+    //       formatList(globalOptionList),
+    //       "",
+    //     ]);
+    //   }
+    // }
+    return output.join("\n");
+  },
+});
 
 program
   .name("instant-cli")
-  .description(instantCLIDescription)
   .option("-t --token <TOKEN>", "auth token override")
   .option("-y", "skip confirmation prompt")
   .option("-v --version", "output the version number", () => {
     console.log(version);
     process.exit(0);
-  });
+  })
+  .usage(`${chalk.blueBright.bold('<command>')} [...flags] [...args]`);
 
 program
   .command("login")
-  .description("Authenticates with Instant")
+  .description("Log into your account")
   .option("-p --print", "print auth token")
   .action(login);
 
-program
-  .command("init")
-  .description("Creates a new app with configuration files")
-  .action(init);
+program.command("init").description("Create a new app").action(init);
 
 program
-  .command("push-schema")
+  .command("push-schema", { hidden: true })
   .argument("[ID]")
   .description("Pushes local instant.schema definition to production.")
   .option(
@@ -73,7 +171,7 @@ program
   });
 
 program
-  .command("push-perms")
+  .command("push-perms", { hidden: true })
   .argument("[ID]")
   .description("Pushes local instant.perms rules to production.")
   .action(() => {
@@ -87,13 +185,11 @@ program
     "--skip-check-types",
     "Don't check types on the server when pushing schema",
   )
-  .description(
-    "Pushes local instant.schema and instant.perms rules to production.",
-  )
+  .description("Push your local schema and rules to production")
   .action(pushAll);
 
 program
-  .command("pull-schema")
+  .command("pull-schema", { hidden: true })
   .argument("[ID]")
   .description(
     "Generates an initial instant.schema definition from production state.",
@@ -103,7 +199,7 @@ program
   });
 
 program
-  .command("pull-perms")
+  .command("pull-perms", { hidden: true })
   .argument("[ID]")
   .description(
     "Generates an initial instant.perms definition from production rules.",
@@ -115,9 +211,7 @@ program
 program
   .command("pull")
   .argument("[ID]")
-  .description(
-    "Generates initial instant.schema and instant.perms definition from production state.",
-  )
+  .description("Pull your schema and rules from production")
   .action(pullAll);
 
 program.parse(process.argv);
