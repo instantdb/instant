@@ -22,6 +22,7 @@
    (com.hazelcast.map.listener EntryAddedListener
                                EntryRemovedListener
                                EntryUpdatedListener)
+   (com.hazelcast.topic ITopic MessageListener Message)
    (java.util AbstractMap$SimpleImmutableEntry)
    (java.util.concurrent LinkedBlockingQueue)))
 
@@ -39,11 +40,11 @@
 ;; on session close) and some info about the rooms we're subscribed to on
 ;; this machine
 ;; {:sessions {<session-id>: #{<room-id>}}
-;;  :rooms {<{app-id: app-id, room-id: room-id}> {:session-ids #{<sess-id>}
-;;                                                :chan async/chan}}}
+;;  :rooms {<{app-id: app-id, room-id: room-id}> {:session-ids #{<sess-id>}}}}
 (defonce room-maps (atom {}))
 
 (declare handle-event)
+(declare handle-broadcast-message)
 
 (defn init-hz [store-conn]
   (System/setProperty "hazelcast.shutdownhook.enabled" "false")
@@ -76,26 +77,35 @@
                                 hz-util/global-serializer-config)
 
     (let [hz (Hazelcast/getOrCreateHazelcastInstance config)
+          local-member (.getLocalMember (.getCluster hz))
           hz-rooms-map (.getMap hz "rooms-v2")
-          listener-id (.addEntryListener hz-rooms-map
-                                         (reify
-                                           EntryAddedListener
-                                           (entryAdded [_ event]
-                                             (handle-event store-conn event))
+          hz-broadcast-topic (.getTopic hz "rooms-broadcast")]
+      (.addEntryListener hz-rooms-map
+                         (reify
+                           EntryAddedListener
+                           (entryAdded [_ event]
+                             (handle-event store-conn event))
 
-                                           EntryRemovedListener
-                                           (entryRemoved [_ event]
-                                             (handle-event store-conn event))
+                           EntryRemovedListener
+                           (entryRemoved [_ event]
+                             (handle-event store-conn event))
 
-                                           EntryUpdatedListener
-                                           (entryUpdated [_ event]
-                                             (handle-event store-conn event)))
-                                         ;; Don't send value, since we may not be
-                                         ;; interested in this change
-                                         false)]
+                           EntryUpdatedListener
+                           (entryUpdated [_ event]
+                             (handle-event store-conn event)))
+                         ;; Don't send value, since we may not be
+                         ;; interested in this change
+                         false)
+      (.addMessageListener hz-broadcast-topic
+                           (reify
+                             MessageListener
+                             (onMessage [_ message]
+                               ;; Don't bother handling messages that we put on the topic
+                               (when (not= local-member (.getPublishingMember message))
+                                 (handle-broadcast-message store-conn message)))))
       {:hz hz
        :hz-rooms-map hz-rooms-map
-       :listener-id listener-id})))
+       :hz-broadcast-topic hz-broadcast-topic})))
 
 (defonce hz (delay (init-hz rs/store-conn)))
 
@@ -104,6 +114,9 @@
 
 (defn get-hz-rooms-map ^IMap []
   (:hz-rooms-map @hz))
+
+(defn get-hz-broadcast-topic ^ITopic []
+  (:hz-broadcast-topic @hz))
 
 (def close-sentinel (Object.))
 (defn start-hz-sync
@@ -213,6 +226,28 @@
                                                :data room-data
                                                :session-id sess-id})))))))
 
+(defn handle-broadcast-message
+  "Handles the message on the topic we use to broadcast a client-broadcast
+   message to sessions that are in the room, but live on a different physical
+   machine."
+  [store-conn ^Message m]
+  (let [{:keys [app-id session-ids base-msg]} (.getMessageObject m)]
+    (when (flags/use-hazelcast? app-id)
+      (doseq [sess-id session-ids
+              :let [q (:receive-q (rs/get-socket @store-conn sess-id))]
+              :when q]
+        (receive-queue/enqueue->receive-q q
+                                          (assoc base-msg
+                                                 :op :server-broadcast
+                                                 :session-id sess-id
+                                                 :app-id app-id))))))
+
+(defn broadcast [app-id session-ids base-msg]
+  (.publish (get-hz-broadcast-topic)
+            (hz-util/room-broadcast-message app-id
+                                            session-ids
+                                            base-msg)))
+
 (defn get-room-data [app-id room-id]
   (.get (get-hz-rooms-map) (hz-util/room-key app-id room-id)))
 
@@ -299,14 +334,23 @@
             app-ids)))
 
 (defn get-room-session-ids [store-v app-id room-id]
-  (get-in store-v [:rooms app-id room-id :session-ids]))
+  (if (flags/use-hazelcast? app-id)
+    (let [room-data (get-room-data app-id room-id)
+          room-key (hz-util/room-key app-id room-id)
+          local-session-ids (get-in @room-maps [:rooms room-key :session-ids])
+          {local-ids true remote-ids false} (group-by #(contains? local-session-ids %)
+                                                      (keys room-data))]
+      {:local-ids local-ids
+       :remote-ids remote-ids})
+    {:local-ids (get-in store-v [:rooms app-id room-id :session-ids])
+     :remote-ids []}))
 
 (defn in-room?
   "Returns whether a session is part of a room."
   [store-v app-id room-id sess-id]
   (if (flags/use-hazelcast? app-id)
     (contains? (get-room-data app-id room-id) sess-id)
-    (contains? (get-room-session-ids store-v app-id room-id) sess-id)))
+    (contains? (get-in store-v [:rooms app-id room-id :session-ids]) sess-id)))
 
 (defn run-op [app-id hz-op regular-op]
   ;; Always run the regular op in case we disable hazelcast for the app
@@ -332,8 +376,7 @@
                                     (:id current-user)))
         regular-op
         (fn []
-          (when-not (contains? (get-room-session-ids @store-atom app-id room-id)
-                               sess-id)
+          (when-not (in-room? @store-atom app-id room-id sess-id)
             (swap! store-atom join-room app-id sess-id current-user room-id)))]
 
     (run-op app-id hz-op regular-op)))

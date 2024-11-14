@@ -189,6 +189,28 @@
   (make-serializer-config SetPresenceMergeV1
                           set-presence-serializer))
 
+;; --------------
+;; Broadcast data
+
+(defrecord RoomBroadcastV1 [^UUID app-id session-ids base-msg])
+
+(defn room-broadcast-message [^UUID app-id session-ids base-msg]
+  (->RoomBroadcastV1 app-id session-ids base-msg))
+
+(def ^ByteArraySerializer room-broadcast-serializer
+  (reify ByteArraySerializer
+    ;; Must be unique within the project
+    (getTypeId [_] 6)
+    (write ^bytes [_ obj]
+      (nippy/fast-freeze obj))
+    (read [_ ^bytes in]
+      (nippy/fast-thaw in))
+    (destroy [_])))
+
+(def room-broadcast-config
+  (make-serializer-config RoomBroadcastV1
+                          room-broadcast-serializer))
+
 ;; -----------------
 ;; Global serializer
 
@@ -208,6 +230,7 @@
 
 (def serializer-configs
   [remove-session-config
+   room-broadcast-config
    join-room-config
    set-presence-config
    room-key-config])

@@ -292,6 +292,12 @@
                                         :room-id room-id
                                         :client-event-id client-event-id})))
 
+(defn- handle-refresh-presence!
+  [store-conn sess-id {:keys [room-id data]}]
+  (rs/send-event! store-conn sess-id {:op :refresh-presence
+                                      :room-id room-id
+                                      :data data}))
+
 (defn- handle-client-broadcast!
   "Broadcasts a client message to other sessions in the room"
   [store-conn eph-store-atom sess-id {:keys [client-event-id room-id topic data] :as _event}]
@@ -299,24 +305,35 @@
         app-id (-> auth :app :id)
         _ (assert-in-room! @eph-store-atom app-id room-id sess-id)
         current-user (-> auth :user)
-        ids-to-notify (-> (eph/get-room-session-ids @eph-store-atom app-id room-id)
-                          (disj sess-id))
+        {:keys [local-ids remote-ids]} (eph/get-room-session-ids @eph-store-atom app-id room-id)
         base-msg {:room-id room-id
                   :topic topic
                   :data {:peer-id sess-id
                          :user (when current-user
                                  {:id (:id current-user)})
                          :data data}}]
-    (rs/try-broadcast-event! store-conn ids-to-notify (assoc base-msg :op :server-broadcast))
+
+    (doseq [notify-sess-id local-ids
+            :let [q (:receive-q (rs/get-socket @store-conn notify-sess-id))]
+            :when (and q (not= sess-id notify-sess-id))]
+      (receive-queue/enqueue->receive-q q
+                                        (assoc base-msg
+                                               :op :server-broadcast
+                                               :session-id notify-sess-id
+                                               :app-id app-id)))
+    (when (seq remote-ids)
+      (eph/broadcast app-id remote-ids base-msg))
+
     (rs/send-event! store-conn sess-id (assoc base-msg
                                               :op :client-broadcast-ok
                                               :client-event-id client-event-id))))
 
-(defn- handle-refresh-presence!
-  [store-conn sess-id {:keys [room-id data]}]
-  (rs/send-event! store-conn sess-id {:op :refresh-presence
-                                      :room-id room-id
-                                      :data data}))
+(defn- handle-server-broadcast! [store-conn eph-store-atom sess-id {:keys [app-id room-id topic data]}]
+  (when (eph/in-room? @eph-store-atom app-id room-id sess-id)
+    (rs/send-event! store-conn sess-id {:op :server-broadcast
+                                        :room-id room-id
+                                        :topic topic
+                                        :data data})))
 
 (defn handle-event [store-conn eph-store-atom session event]
   (tracer/with-span! {:name "receive-worker/handle-event"}
@@ -335,8 +352,9 @@
         :join-room (handle-join-room! store-conn eph-store-atom id event)
         :leave-room (handle-leave-room! store-conn eph-store-atom id event)
         :set-presence (handle-set-presence! store-conn eph-store-atom id event)
+        :refresh-presence (handle-refresh-presence! store-conn id event)
         :client-broadcast (handle-client-broadcast! store-conn eph-store-atom id event)
-        :refresh-presence (handle-refresh-presence! store-conn id event)))))
+        :server-broadcast (handle-server-broadcast! store-conn eph-store-atom id event)))))
 
 ;; --------------
 ;; Receive Workers
@@ -629,7 +647,7 @@
       :transact
       [:transact session-id]
 
-      (:join-room :leave-room :set-presence :client-broadcast)
+      (:join-room :leave-room :set-presence :client-broadcast :server-broadcast)
       [:room session-id room-id]
 
       (:add-query :remove-query)
