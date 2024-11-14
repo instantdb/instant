@@ -827,7 +827,7 @@ function do_not_use_init_experimental<
 function _do_not_use_init_internal<
   Schema extends DoNotUseInstantSchema<any, any, any>,
 >(
-  config: Config,
+  config: DoNotUseConfig<Schema>,
   Storage?: any,
   NetworkListener?: any,
 ): DoNotUseInstantCore<Schema> {
@@ -843,7 +843,7 @@ function _do_not_use_init_internal<
     {
       ...defaultConfig,
       ...config,
-      cardinalityInference: true,
+      cardinalityInference: config.schema ? true : false,
     },
     Storage || IndexedDBStorage,
     NetworkListener || WindowNetworkListener,
