@@ -413,8 +413,7 @@
              :app-id app-id
              :attrs (attr-model/get-by-app-id app-id)
              :datalog-query-fn d/query
-             :rules (rule-model/get-by-app-id aurora/conn-pool
-                                              {:app-id app-id})}
+             :rules (rule-model/get-by-app-id {:app-id app-id})}
         tx-steps (filter (fn [[action]]
                            (contains? #{:add-attr :update-attr} action))
                          steps)

@@ -211,9 +211,7 @@
         {tx-id :id}
         (permissioned-tx/transact!
          {:db {:conn-pool aurora/conn-pool}
-          :rules  (rule-model/get-by-app-id aurora/conn-pool
-                                            {:app-id app-id})
-
+          :rules (rule-model/get-by-app-id {:app-id app-id})
           :app-id app-id
           :current-user (:user auth)
           :admin? (:admin? auth)

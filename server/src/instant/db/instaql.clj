@@ -1636,7 +1636,7 @@
     (let [res (query ctx o)]
       (if admin?
         res
-        (let [rules (rule-model/get-by-app-id aurora/conn-pool {:app-id app-id})
+        (let [rules (rule-model/get-by-app-id {:app-id app-id})
               perm-helpers
               (extract-permission-helpers {:attrs (:attrs ctx)
                                            :rules rules}
@@ -1649,8 +1649,7 @@
 (defn permissioned-query-check [{:keys [app-id] :as ctx} o rules-override]
   (let [res (query ctx o)
         rules (or (when rules-override {:app_id app-id :code rules-override})
-                  (rule-model/get-by-app-id aurora/conn-pool
-                                            {:app-id app-id}))
+                  (rule-model/get-by-app-id {:app-id app-id}))
         perm-helpers
         (extract-permission-helpers {:attrs (:attrs ctx)
                                      :rules rules}
