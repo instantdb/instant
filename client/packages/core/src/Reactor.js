@@ -1535,6 +1535,8 @@ export default class Reactor {
       };
     }
 
+    this._presence[roomId] = this._presence[roomId] || {};
+
     this._tryJoinRoom(roomId);
 
     return () => {
