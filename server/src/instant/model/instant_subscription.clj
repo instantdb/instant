@@ -23,18 +23,17 @@
                    ["SELECT * FROM instant_subscriptions WHERE stripe_event_id = ?"
                     event-id])))
 
-(defn get-by-user-app
-  ([params] (get-by-user-app aurora/conn-pool params))
-  ([conn {:keys [user-id app-id]}]
+(defn get-by-app-id
+  ([params] (get-by-app-id aurora/conn-pool params))
+  ([conn {:keys [app-id]}]
    (sql/select-one conn
-                   ["SELECT s.user_id, s.app_id, s.stripe_subscription_id, t.name
+                   ["SELECT s.app_id, s.stripe_subscription_id, t.name
                     FROM instant_subscriptions s
                     JOIN instant_subscription_types t on s.subscription_type_id = t.id
-                    WHERE s.user_id = ?::uuid AND s.app_id = ?::uuid
+                    WHERE s.app_id = ?::uuid
                     ORDER BY s.created_at DESC
                     LIMIT 1"
-                    user-id app-id])))
+                    app-id])))
 
 (comment
-  (get-by-user-app {:user-id "7b395905-3f8f-4fcf-be54-be0c66ad687c"
-                    :app-id "b40b42d5-d857-431b-90f5-f0cf36b146dd"}))
+  (get-by-app-id {:app-id "b40b42d5-d857-431b-90f5-f0cf36b146dd"}))

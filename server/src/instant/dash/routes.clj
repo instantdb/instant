@@ -108,8 +108,7 @@
    (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
          {app-creator-id :creator_id :as app} (app-model/get-by-id! {:id app-id})
          {user-id :id :as user} (req->auth-user! req)
-         subscription (instant-subscription-model/get-by-user-app {:user-id (:creator_id app)
-                                                                   :app-id (:id app)})]
+         subscription (instant-subscription-model/get-by-app-id {:app-id app-id})]
 
      (assert-least-privilege!
       least-privilege
@@ -662,8 +661,7 @@
 (defn checkout-session-post [req]
   (let [{{app-id :id app-title :title} :app
          {user-id :id user-email :email :as user} :user} (req->app-and-user! req)
-        {:keys [name]} (instant-subscription-model/get-by-user-app
-                        {:user-id user-id :app-id app-id})
+        {:keys [name]} (instant-subscription-model/get-by-app-id {:app-id app-id})
         already-subscribed? (not (or (= name default-subscription) (nil? name)))
         _ (when already-subscribed?
             (ex/throw-record-not-unique! :instant-subscription))
@@ -695,9 +693,9 @@
     (response/ok {:url (.getUrl session)})))
 
 (defn get-billing [req]
-  (let [{{app-id :id} :app {user-id :id} :user} (req->app-and-user! :collaborator req)
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         {subscription-name :name stripe-subscription-id :stripe_subscription_id}
-        (instant-subscription-model/get-by-user-app {:user-id user-id :app-id app-id})
+        (instant-subscription-model/get-by-app-id {:app-id app-id})
         {total-app-bytes :num_bytes} (app-model/app-usage {:app-id app-id})
         total-storage-bytes (calculate-storage-usage app-id)]
     (response/ok {:subscription-name (or subscription-name default-subscription)

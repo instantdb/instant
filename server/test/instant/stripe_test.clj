@@ -25,7 +25,7 @@
 (deftest handle-stripe-events
   (with-stripe-customer
     (fn [data]
-      (let [{:keys [app-id user-id]} (-> data :object :metadata)
+      (let [{:keys [app-id]} (-> data :object :metadata)
             upgrade-event {:type "checkout.session.completed"
                            :id "evt_upgrade"
                            :data data}
@@ -34,24 +34,21 @@
                              :data data}]
 
         ; No subscription exists at first
-        (is (nil? (instant-subscription-model/get-by-user-app {:user-id user-id
-                                                               :app-id app-id})))
+        (is (nil? (instant-subscription-model/get-by-app-id {:app-id app-id})))
+
         ; Subscription is created
         (stripe/handle-stripe-webhook-event upgrade-event)
         (is (= "Pro"
-               (:name (instant-subscription-model/get-by-user-app {:user-id user-id :app-id app-id}))))
+               (:name (instant-subscription-model/get-by-app-id {:app-id app-id}))))
 
         ; Subscription is downgraded
         (stripe/handle-stripe-webhook-event downgrade-event)
         (is (= "Free"
-               (:name (instant-subscription-model/get-by-user-app {:user-id user-id
-                                                                   :app-id app-id}))))
+               (:name (instant-subscription-model/get-by-app-id {:app-id app-id}))))
 
         ; Re-processing the upgrade event should not create a new subscription
         (stripe/handle-stripe-webhook-event upgrade-event)
         (is (= "Free"
-               (:name (instant-subscription-model/get-by-user-app {:user-id user-id
-                                                                   :app-id app-id}))))))))
-
+               (:name (instant-subscription-model/get-by-app-id {:app-id app-id}))))))))
 (comment
   (test/run-tests *ns*))
