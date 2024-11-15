@@ -130,12 +130,14 @@
        (with-open [~conn-name (.getConnection ~conn-pool)]
          ~@body))))
 
-(defn- span-attrs [conn query]
+(defn- span-attrs [conn query tag]
   (let [pool-stats (if (instance? HikariDataSource conn)
                      (span-attrs-from-conn-pool conn)
                      *conn-pool-span-stats*)]
     (merge {:detailed-query (pr-str query)}
-           pool-stats)))
+           pool-stats
+           (when tag
+             {:query-tag tag}))))
 
 (def ^:dynamic *query-timeout-seconds* 30)
 
@@ -146,70 +148,31 @@
      (catch PSQLException e#
        (throw (ex/translate-and-throw-psql-exception! e#)))))
 
-(defn select
-  [conn query]
-  (tracer/with-span! {:name "sql/select"
-                      :attributes (span-attrs conn query)}
-    (with-translating-psql-exceptions
-      (io/tag-io
-        (sql/query conn query {:builder-fn rs/as-unqualified-maps
-                               :timeout *query-timeout-seconds*})))))
+(defmacro defsql [name query-fn opts]
+  (let [span-name (format "sql/%s" name)]
+    `(defn ~name
+       ([~'conn ~'query]
+        (~name nil ~'conn ~'query))
+       ([~'tag ~'conn ~'query]
+        (tracer/with-span! {:name ~span-name
+                            :attributes (span-attrs ~'conn ~'query ~'tag)}
+          (try
+            (io/tag-io
+              (~query-fn ~'conn ~'query (merge ~opts
+                                               {:timeout *query-timeout-seconds*})))
+            (catch PSQLException e#
+              (throw (ex/translate-and-throw-psql-exception! e#)))))))))
 
-(defn select-qualified
-  [conn query]
-  (tracer/with-span! {:name "sql/select-qualified"
-                      :attributes (span-attrs conn query)}
-    (with-translating-psql-exceptions
-      (io/tag-io
-        (sql/query conn query {:builder-fn rs/as-maps
-                               :timeout *query-timeout-seconds*})))))
-
-(defn select-arrays
-  [conn query]
-  (tracer/with-span! {:name "sql/select-arrays"
-                      :attributes (span-attrs conn query)}
-    (with-translating-psql-exceptions
-      (io/tag-io
-        (sql/query conn query {:builder-fn rs/as-unqualified-arrays
-                               :timeout *query-timeout-seconds*})))))
-
-(defn select-string-keys
-  [conn query]
-  (tracer/with-span! {:name "sql/select-string-keys"
-                      :attributes (span-attrs conn query)}
-    (with-translating-psql-exceptions
-      (io/tag-io
-        (sql/query conn query {:builder-fn as-string-maps
-                               :timeout *query-timeout-seconds*})))))
-
+(defsql select sql/query {:builder-fn rs/as-unqualified-maps})
+(defsql select-qualified sql/query {:builder-fn rs/as-maps})
+(defsql select-arrays sql/query {:builder-fn rs/as-unqualified-arrays})
+(defsql select-string-keys sql/query {:builder-fn as-string-maps})
 (def select-one (comp first select))
-
-(defn execute!
-  [conn query]
-  (tracer/with-span! {:name  "sql/execute!"
-                      :attributes (span-attrs conn query)}
-    (with-translating-psql-exceptions
-      (io/tag-io
-        (next-jdbc/execute! conn query {:builder-fn rs/as-unqualified-maps
-                                        :return-keys true
-                                        :timeout *query-timeout-seconds*})))))
-(defn execute-one!
-  [conn query]
-  (tracer/with-span! {:name  "sql/execute-one!"
-                      :attributes (span-attrs conn query)}
-    (with-translating-psql-exceptions
-      (io/tag-io
-        (next-jdbc/execute-one! conn query {:builder-fn rs/as-unqualified-maps
-                                            :return-keys true
-                                            :timeout *query-timeout-seconds*})))))
-
-(defn do-execute! [conn query]
-  (tracer/with-span! {:name  "sql/do-execute!"
-                      :attributes (span-attrs conn query)}
-    (with-translating-psql-exceptions
-      (io/tag-io
-        (next-jdbc/execute! conn query {:return-keys false
-                                        :timeout *query-timeout-seconds*})))))
+(defsql execute! next-jdbc/execute! {:builder-fn rs/as-unqualified-maps
+                                     :return-keys true})
+(defsql execute-one! next-jdbc/execute-one! {:builder-fn rs/as-unqualified-maps
+                                             :return-keys true})
+(defsql do-execute! next-jdbc/execute! {:return-keys false})
 
 (defn patch-hikari []
   ;; Hikari will send an extra query to ensure the connection is valid
