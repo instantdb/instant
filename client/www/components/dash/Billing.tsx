@@ -81,7 +81,8 @@ async function createPortalSession(appId: string, token: string) {
       const message =
         messageFromInstantError(err as InstantError) ||
         'Failed to connect w/ Stripe! Try again or ping us on Discord if this persists.';
-      errorToast(message);
+      const friendlyMessage = friendlyErrorMessage('dash-billing', message);
+      errorToast(friendlyMessage);
       console.error(err);
     });
 }

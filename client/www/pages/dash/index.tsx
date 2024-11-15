@@ -97,7 +97,7 @@ const tabs: Tab[] = [
   { id: 'repl', title: 'Query Inspector' },
   { id: 'sandbox', title: 'Sandbox' },
   { id: 'admin', title: 'Admin', minRole: 'admin' },
-  { id: 'billing', title: 'Billing', minRole: 'owner' },
+  { id: 'billing', title: 'Billing' },
   { id: 'docs', title: 'Docs' },
 ];
 
@@ -181,7 +181,7 @@ export default function DashV2() {
               onClick={() => {
                 try {
                   window.close();
-                } catch (error) {}
+                } catch (error) { }
                 cliAuthCompleteDialog.onClose();
               }}
             >
