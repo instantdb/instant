@@ -590,8 +590,10 @@
   ([app-id]
    (cache/lookup-or-miss attr-cache app-id (partial get-by-app-id* aurora/conn-pool)))
   ([conn app-id]
-   ;; Don't cache if we're using a custom connection
-   (get-by-app-id* conn app-id)))
+   (if (= conn aurora/conn-pool)
+     (get-by-app-id app-id)
+     ;; Don't cache if we're using a custom connection
+     (get-by-app-id* conn app-id))))
 
 ;; ------
 ;; seek

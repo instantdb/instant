@@ -7,6 +7,8 @@
    [instant.db.pg-introspect :as pg-introspect]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
+   [instant.model.app :as app-model]
+   [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
@@ -219,11 +221,20 @@
   [{:keys [columns] :as _change}]
   (app-id-from-columns columns))
 
+(defn id-from-columns [columns]
+  (some-> columns
+          (get-column "id")
+          (parse-uuid)))
+
+(defn extract-id
+  [{:keys [columns] :as _change}]
+  (id-from-columns columns))
+
 (defn extract-tx-id [{:keys [columns] :as _change}]
   (get-column columns "id"))
 
 (defn transform-wal-record [{:keys [changes] :as _record}]
-  (let [{:strs [idents triples attrs transactions rules]}
+  (let [{:strs [idents triples attrs transactions rules apps instant_users]}
         (group-by :table changes)
 
         some-changes (or (seq idents)
@@ -237,6 +248,16 @@
     (doseq [rule rules]
       (let [app-id (or app-id (extract-app-id rule))]
         (rule-model/evict-app-id-from-cache app-id)))
+
+    (doseq [app apps]
+      (let [app-id (or app-id (extract-id app))]
+        (app-model/evict-app-id-from-cache app-id)
+        (instant-user-model/evict-app-id-from-cache app-id)))
+
+    (doseq [user instant_users]
+      (let [id (extract-id user)]
+        (instant-user-model/evict-user-id-from-cache id)))
+
     (when (and some-changes app-id)
       {:attr-changes attrs
        :ident-changes idents

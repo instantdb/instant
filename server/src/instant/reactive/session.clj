@@ -91,8 +91,7 @@
         user (when refresh-token
                (app-user-model/get-by-refresh-token!
                 {:app-id app-id :refresh-token refresh-token}))
-        creator (instant-user-model/get-by-app-id
-                 aurora/conn-pool {:app-id app-id})
+        creator (instant-user-model/get-by-app-id {:app-id app-id})
         admin? (and __admin-token
                     (boolean
                      (app-admin-token-model/fetch! {:app-id app-id

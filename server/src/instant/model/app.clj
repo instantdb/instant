@@ -1,5 +1,6 @@
 (ns instant.model.app
   (:require
+   [clojure.core.cache.wrapped :as cache]
    [honey.sql :as hsql]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as transaction-model]
@@ -16,6 +17,25 @@
   (:import
    (java.util UUID)))
 
+(def app-cache (cache/lru-cache-factory {} :threshold 256))
+
+(defn evict-app-id-from-cache [app-id]
+  (cache/evict app-cache app-id))
+
+(defn evict-app-ids-from-cache [app-ids]
+  (doseq [app-id app-ids]
+    (evict-app-id-from-cache app-id)))
+
+(defmacro with-cache-invalidation [app-id-or-ids & body]
+  `(let [input# ~app-id-or-ids
+         ids# (if (coll? input#)
+                input#
+                [input#])]
+     (evict-app-ids-from-cache ids#)
+     (let [res# ~@body]
+       (evict-app-ids-from-cache ids#)
+       res#)))
+
 (defn create!
   ([params] (create! aurora/conn-pool params))
   ([conn {:keys [id title creator-id admin-token]}]
@@ -31,14 +51,18 @@
                                                                    :token admin-token})]
        (assoc app :admin-token token)))))
 
+(defn get-by-id* [conn id]
+  (sql/select-one conn
+                  ["SELECT * FROM apps WHERE apps.id = ?::uuid" id]))
+
 (defn get-by-id
-  ([params] (get-by-id aurora/conn-pool params))
-  ([conn {:keys [id]}]
-   (sql/select-one conn
-                   ["SELECT
-                       a.*
-                     FROM apps a
-                     WHERE a.id = ?::uuid" id])))
+  ([{:keys [id]}]
+   (cache/lookup-or-miss app-cache id (partial get-by-id* aurora/conn-pool)))
+  ([conn {:keys [id] :as params}]
+   (if (= conn aurora/conn-pool)
+     (get-by-id params)
+     ;; Don't cache if we're using a custom connection
+     (get-by-id* conn id))))
 
 (defn get-by-id!
   ([params]
@@ -272,20 +296,24 @@
 (defn delete-by-id!
   ([params] (delete-by-id! aurora/conn-pool params))
   ([conn {:keys [id]}]
-   (sql/execute-one! conn ["DELETE FROM apps WHERE id = ?::uuid" id])))
+   (with-cache-invalidation id
+     (sql/execute-one! conn ["DELETE FROM apps WHERE id = ?::uuid" id]))))
 
 (defn rename-by-id!
   ([params] (rename-by-id! aurora/conn-pool params))
   ([conn {:keys [id title]}]
-   (sql/execute-one! conn ["UPDATE apps SET title = ? WHERE id = ?::uuid " title id])))
+   (with-cache-invalidation id
+     (sql/execute-one! conn ["UPDATE apps SET title = ? WHERE id = ?::uuid " title id]))))
 
 (defn change-creator!
   ([params] (change-creator! aurora/conn-pool params))
   ([conn {:keys [id new-creator-id]}]
-   (sql/execute-one! conn ["UPDATE apps a
-                            SET creator_id = ?::uuid
-                            WHERE a.id = ?::uuid"
-                           new-creator-id id])))
+   (instant-user-model/with-cache-invalidation id
+     (with-cache-invalidation id
+       (sql/execute-one! conn ["UPDATE apps a
+                                 SET creator_id = ?::uuid
+                                 WHERE a.id = ?::uuid"
+                               new-creator-id id])))))
 
 (defn clear-by-id!
   "Deletes attrs, rules, and triples for the specified app_id"
@@ -302,11 +330,12 @@
 (defn delete-by-ids!
   ([params] (delete-by-ids! aurora/conn-pool params))
   ([conn {:keys [creator-id ids]}]
-   (sql/execute-one! conn
-                     (hsql/format
-                      {:delete-from [:apps]
-                       :where [:and [:= :creator-id [:cast creator-id :uuid]]
-                               [:in :id (mapv (fn [x] [:cast x :uuid]) ids)]]}))))
+   (with-cache-invalidation ids
+     (sql/execute-one! conn
+                       (hsql/format
+                        {:delete-from [:apps]
+                         :where [:and [:= :creator-id [:cast creator-id :uuid]]
+                                 [:in :id (mapv (fn [x] [:cast x :uuid]) ids)]]})))))
 
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
@@ -350,11 +379,12 @@
 (defn set-connection-string!
   ([params] (set-connection-string! aurora/conn-pool params))
   ([conn {:keys [app-id connection-string]}]
-   (sql/execute-one! conn
-                     ["update apps set connection_string = ?::bytea where id = ?::uuid"
-                      (crypt-util/aead-encrypt {:plaintext (.getBytes ^String connection-string)
-                                                :associated-data (uuid-util/->bytes app-id)})
-                      app-id])))
+   (with-cache-invalidation app-id
+     (sql/execute-one! conn
+                       ["update apps set connection_string = ?::bytea where id = ?::uuid"
+                        (crypt-util/aead-encrypt {:plaintext (.getBytes ^String connection-string)
+                                                  :associated-data (uuid-util/->bytes app-id)})
+                        app-id]))))
 
 (comment
   (app-usage aurora/conn-pool {:app-id "5cb86bd5-5dfb-4489-a455-78bb86cd3da3"}))

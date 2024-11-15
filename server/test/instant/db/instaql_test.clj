@@ -2314,9 +2314,10 @@
            (query-pretty (make-ctx) r {:users {:$ {:where {:handle "dww"}}}})
            before-index-result)
 
-          (sql/execute! aurora/conn-pool
-                        ["update attrs set is_indexed = true where id = ?"
-                         handle-attr-id])
+          (attr-model/with-cache-invalidation app-id
+            (sql/execute! aurora/conn-pool
+                          ["update attrs set is_indexed = true where id = ?"
+                           handle-attr-id]))
 
           (testing "incorrect indexes would break the query"
             (is-pretty-eq?
@@ -2325,9 +2326,10 @@
                 :triples (),
                 :aggregate (nil)})))
 
-          (sql/execute! aurora/conn-pool
-                        ["update attrs set indexing = true where id = ?"
-                         handle-attr-id])
+          (attr-model/with-cache-invalidation app-id
+            (sql/execute! aurora/conn-pool
+                          ["update attrs set indexing = true where id = ?"
+                           handle-attr-id]))
 
           (testing "setting in-progress saves the query"
             (is-pretty-eq?
@@ -2382,9 +2384,10 @@
            (query-pretty (make-ctx) r {:users {:$ {:where {:handle "dww"}}}})
            before-index-result)
 
-          (sql/execute! aurora/conn-pool
-                        ["update attrs set is_unique = true where id = ?"
-                         handle-attr-id])
+          (attr-model/with-cache-invalidation app-id
+            (sql/execute! aurora/conn-pool
+                          ["update attrs set is_unique = true where id = ?"
+                           handle-attr-id]))
 
           (testing "incorrect indexes would break the query"
             (is-pretty-eq?
@@ -2393,9 +2396,10 @@
                 :triples (),
                 :aggregate (nil)})))
 
-          (sql/execute! aurora/conn-pool
-                        ["update attrs set setting_unique = true where id = ?"
-                         handle-attr-id])
+          (attr-model/with-cache-invalidation app-id
+            (sql/execute! aurora/conn-pool
+                          ["update attrs set setting_unique = true where id = ?"
+                           handle-attr-id]))
 
           (testing "setting in-progress saves the query"
             (is-pretty-eq?

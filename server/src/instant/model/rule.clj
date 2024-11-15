@@ -51,7 +51,7 @@
 
 (defn get-by-app-id
   ([{:keys [app-id]}]
-   (cache/lookup-or-miss rule-cache app-id get-by-app-id* aurora/conn-pool))
+   (cache/lookup-or-miss rule-cache app-id (partial get-by-app-id* aurora/conn-pool)))
   ([conn {:keys [app-id]}]
    ;; Don't cache if we're using a custom connection
    (get-by-app-id* conn app-id)))

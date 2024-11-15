@@ -1,9 +1,32 @@
 (ns instant.model.instant-user
-  (:require [instant.jdbc.aurora :as aurora]
+  (:require [clojure.core.cache.wrapped :as cache]
+            [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
+            [instant.util.cache :refer [multi-evict-lru-cache-factory]]
             [instant.util.exception :as ex])
   (:import
    (java.util UUID)))
+
+;; We lookup the user by the app-id, but the multi-evict
+;; cache will let us evict by both the app-id and the user-id
+(def user-by-app-cache
+  (multi-evict-lru-cache-factory {}
+                                 (fn [user]
+                                   (:id user))
+                                 256))
+
+(defn evict-app-id-from-cache [app-id]
+  (cache/evict user-by-app-cache app-id))
+
+(defn evict-user-id-from-cache [user-id]
+  (cache/evict user-by-app-cache user-id))
+
+(defmacro with-cache-invalidation [key & body]
+  `(do
+     (evict-user-id-from-cache ~key)
+     (let [res# ~@body]
+       (evict-user-id-from-cache ~key)
+       res#)))
 
 (defn create!
   ([params] (create! aurora/conn-pool params))
@@ -15,16 +38,18 @@
 (defn update-email!
   ([params] (update-email! aurora/conn-pool params))
   ([conn {:keys [id email]}]
-   (sql/execute-one! conn
-                     ["UPDATE instant_users set email = ? where id = ?::uuid"
-                      email id])))
+   (with-cache-invalidation id
+     (sql/execute-one! conn
+                       ["UPDATE instant_users set email = ? where id = ?::uuid"
+                        email id]))))
 
 (defn update-google-sub!
   ([params] (update-google-sub! aurora/conn-pool params))
   ([conn {:keys [id google-sub]}]
-   (sql/execute-one! conn
-                     ["UPDATE instant_users set google_sub = ? where id = ?::uuid"
-                      google-sub id])))
+   (with-cache-invalidation id
+     (sql/execute-one! conn
+                       ["UPDATE instant_users set google_sub = ? where id = ?::uuid"
+                        google-sub id]))))
 
 (defn get-by-id
   ([params] (get-by-id aurora/conn-pool params))
@@ -35,17 +60,22 @@
 (defn get-by-id! [params]
   (ex/assert-record! (get-by-id params) :instant-user {:args [params]}))
 
-(defn get-by-app-id
-  ([params] (get-by-app-id aurora/conn-pool params))
-  ([conn {:keys [app-id]}]
-   (sql/select-one conn
-                   ["SELECT 
+(defn get-by-app-id* [conn app-id]
+  (sql/select-one conn
+                  ["SELECT
                     iu.*
-                    FROM instant_users iu 
-                    JOIN apps a 
+                    FROM instant_users iu
+                    JOIN apps a
                     ON iu.id = a.creator_id
                     WHERE a.id = ?::uuid"
-                    app-id])))
+                   app-id]))
+
+(defn get-by-app-id
+  ([{:keys [app-id]}]
+   (cache/lookup-or-miss user-by-app-cache app-id (partial get-by-app-id* aurora/conn-pool)))
+  ([conn {:keys [app-id]}]
+   ;; Don't cache if we're using a custom connection
+   (get-by-app-id* conn app-id)))
 
 (defn get-by-refresh-token
   ([params] (get-by-refresh-token aurora/conn-pool params))
@@ -93,8 +123,10 @@
 (defn delete-by-email!
   ([params] (delete-by-email! aurora/conn-pool params))
   ([conn {:keys [email]}]
-   (sql/execute-one! conn
-                     ["DELETE FROM instant_users WHERE email = ?" email])))
+   (let [res (sql/execute-one! conn
+                               ["DELETE FROM instant_users WHERE email = ?" email])]
+     (evict-user-id-from-cache (:id res))
+     res)))
 
 (comment
   (get-by-email {:email "stopa@instantdb.com"})
