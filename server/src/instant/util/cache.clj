@@ -71,14 +71,13 @@
                          limit))
 
   MultiEvictLRUCacheImpl
-  (evict-impl [this key]
+  (evict-impl [_ key]
     (MultiEvictLRUCache. (dissoc cache key)
                          (dissoc lru key)
                          (disj-in mapping
                                   [(mapping-fn (get cache key))]
                                   key)
                          mapping-fn
-                         ;; XXX: Only tick once??
                          (inc tick)
                          limit))
 

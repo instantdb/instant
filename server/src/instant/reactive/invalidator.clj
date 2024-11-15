@@ -256,7 +256,7 @@
 
     (doseq [user instant_users]
       (let [id (extract-id user)]
-        (instant-user-model/evict-user-id-from-cache app-id)))
+        (instant-user-model/evict-user-id-from-cache id)))
 
     (when (and some-changes app-id)
       {:attr-changes attrs

@@ -4,4 +4,5 @@
                                       amazonica.aws.s3]}}
  :ignore [:inline-def]
  :lint-as {instant.jdbc.sql/with-connection clojure.core/let
-           instant.util.tracer/with-exceptions-silencer clojure.core/fn}}
+           instant.util.tracer/with-exceptions-silencer clojure.core/fn
+           clojure.core.cache/defcache clojure.core/defrecord}}

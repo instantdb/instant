@@ -1,4 +1,5 @@
-(ns instant.util.coll)
+(ns instant.util.coll
+  (:require [medley.core :as medley]))
 
 (defn split-last [coll]
   (list (butlast coll)
@@ -93,7 +94,7 @@
   [m path item]
   (let [new-m (update-in m path disj item)]
     (if (empty? (get-in new-m path))
-      (dissoc-in new-m path)
+      (medley/dissoc-in new-m path)
       new-m)))
 
 (comment
