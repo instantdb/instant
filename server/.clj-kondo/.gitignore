@@ -2,3 +2,5 @@
 !.gitignore
 !config.edn
 !ci-config.edn
+!hooks/defsql.clj
+!hooks

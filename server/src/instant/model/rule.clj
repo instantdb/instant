@@ -29,6 +29,7 @@
   ([conn {:keys [app-id code]}]
    (with-cache-invalidation app-id
      (sql/execute-one!
+      ::put!
       conn
       ["INSERT INTO rules (app_id, code) VALUES (?::uuid, ?::jsonb)
           ON CONFLICT (app_id) DO UPDATE SET code = excluded.code"
@@ -39,6 +40,7 @@
   ([conn {:keys [app-id code]}]
    (with-cache-invalidation app-id
      (sql/execute-one!
+      ::merge!
       conn
       (hsql/format {:insert-into :rules
                     :values [{:app-id app-id
@@ -47,7 +49,8 @@
                     :do-update-set {:code [:|| :rules.code :excluded.code]}})))))
 
 (defn get-by-app-id* [conn app-id]
-  (sql/select-one conn ["SELECT * FROM rules WHERE app_id = ?::uuid" app-id]))
+  (sql/select-one ::get-by-app-id*
+                  conn ["SELECT * FROM rules WHERE app_id = ?::uuid" app-id]))
 
 (defn get-by-app-id
   ([{:keys [app-id]}]
@@ -61,6 +64,7 @@
   ([conn {:keys [app-id]}]
    (with-cache-invalidation app-id
      (sql/do-execute!
+      ::delete-by-app-id!
       conn
       ["DELETE FROM rules WHERE app_id = ?::uuid" app-id]))))
 

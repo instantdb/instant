@@ -161,6 +161,7 @@
   [conn app-id]
   (with-cache-invalidation app-id
     (sql/do-execute!
+     ::delete-by-app-id!
      conn
      ["DELETE FROM attrs WHERE attrs.app_id = ?::uuid" app-id])))
 
@@ -265,6 +266,7 @@
      (validate-on-deletes! attrs))
    (with-cache-invalidation app-id
      (sql/do-execute!
+      ::insert-multi!
       conn
       (hsql/format
        {:with [[[:attr-values
@@ -377,6 +379,7 @@
   (validate-reserved-names! updates)
   (with-cache-invalidation app-id
     (sql/do-execute!
+     ::update-multi!
      conn
      (hsql/format
       {:with (concat
@@ -440,6 +443,7 @@
   [conn app-id ids]
   (with-cache-invalidation app-id
     (sql/do-execute!
+     ::delte-multi!
      conn
      (hsql/format
       {:delete-from :attrs
@@ -572,6 +576,7 @@
   (wrap-attrs
    (map row->attr
         (sql/select
+         ::get-by-app-id*
          conn
          (hsql/format
           {:select [:attrs.*
