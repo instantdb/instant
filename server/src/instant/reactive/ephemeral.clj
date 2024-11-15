@@ -11,6 +11,7 @@
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
    [instant.util.aws :as aws-util]
+   [instant.util.coll :refer [disj-in]]
    [instant.util.hazelcast :as hz-util]
    [instant.util.tracer :as tracer]
    [medley.core :refer [dissoc-in]])
@@ -145,15 +146,6 @@
                                                        :data {}})
       ;; Tracking room-ids for a session is useful for cleanup when a session disconnects
       (update-in [:sessions sess-id :room-ids] (fnil conj #{}) room-id)))
-
-(defn disj-in
-  "Calls dissoc-in to clean up the map when the item at path is empty after
-   calling disj. Useful for cleaning up the room and session maps."
-  [m path item]
-  (let [new-m (update-in m path disj item)]
-    (if (empty? (get-in new-m path))
-      (dissoc-in new-m path)
-      new-m)))
 
 (defn- leave-room
   "Removes a session and its data from a room."
