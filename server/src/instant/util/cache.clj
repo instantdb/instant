@@ -7,14 +7,13 @@
   [base start-at]
   (into (priority-map/priority-map) (for [[k _] base] [k start-at])))
 
-;; mapping is {item-key -> #{cache-keys}}
-
 (defprotocol MultiEvictLRUCacheImpl
   (evict-impl [this key]))
 
 ;; mapping-fn takes an result in the cache and returns a new cache key
-;; n.b. the mapping-fn should a key that doesn't overlap with a key
-;; that could potentially be in the cache.
+;; n.b. the mapping-fn should return a key that doesn't overlap with a
+;; key that could potentially be in the cache.
+;; mapping is a hash map of {(mapping-fn cache-item) -> #{cache-keys}}
 (defcache MultiEvictLRUCache [cache lru mapping mapping-fn tick limit]
   CacheProtocol
   (lookup [_ item]
