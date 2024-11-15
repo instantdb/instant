@@ -5,6 +5,5 @@
  :ignore [:inline-def]
  :hooks {:analyze-call {instant.jdbc.sql/defsql hooks.defsql/defsql}}
  :lint-as {instant.jdbc.sql/with-connection clojure.core/let
-
            instant.util.tracer/with-exceptions-silencer clojure.core/fn
            clojure.core.cache/defcache clojure.core/defrecord}}
