@@ -553,7 +553,7 @@
 
 (defn start-receive-workers [store-conn eph-store-atom receive-q stop-signal]
   (doseq [n (range num-receive-workers)]
-    (ua/fut-bg
+    (ua/vfut-bg
       (loop []
         (if @stop-signal
           (tracer/record-info! {:name "receive-worker/shutdown-complete"
