@@ -1,6 +1,7 @@
 (ns instant.health
   (:require [compojure.core :refer [defroutes GET] :as compojure]
             [instant.config :as config]
+            [instant.util.tracer :as tracer]
             [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
             [instant.util.json :refer [->json]]
@@ -30,11 +31,21 @@
 
 (defn mark-wal-unhealthy-async []
   (send-off send-agent (fn [_]
-                         (mark-wal-unhealthy))))
+                         (try
+                           (mark-wal-unhealthy)
+                           (catch Throwable t
+                             (tracer/record-exception-span! t
+                                                            {:name "health/mark-wal-unhealthy"
+                                                             :escpaing? false}))))))
 
 (defn mark-wal-healthy-async []
   (send-off send-agent (fn [_]
-                         (mark-wal-healthy))))
+                         (try
+                           (mark-wal-healthy)
+                           (catch Throwable t
+                             (tracer/record-exception-span! t
+                                                            {:name "health/mark-wal-healthy"
+                                                             :escpaing? false}))))))
 
 (defn health-get [_req]
   (let [wal-errors (sql/select-one aurora/conn-pool ["select v from config where k = 'wal-errors'"])]
