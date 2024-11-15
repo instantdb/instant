@@ -108,7 +108,7 @@
    (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
          {app-creator-id :creator_id :as app} (app-model/get-by-id! {:id app-id})
          {user-id :id :as user} (req->auth-user! req)
-         subscription (instant-subscription-model/get-by-app-id {:app-id (:id app)})]
+         subscription (instant-subscription-model/get-by-app-id {:app-id app-id})]
 
      (assert-least-privilege!
       least-privilege
