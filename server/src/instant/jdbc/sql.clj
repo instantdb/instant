@@ -141,12 +141,6 @@
 
 (def ^:dynamic *query-timeout-seconds* 30)
 
-(defmacro with-translating-psql-exceptions
-  [& body]
-  `(try
-     ~@body
-     (catch PSQLException e#
-       (throw (ex/translate-and-throw-psql-exception! e#)))))
 
 (defmacro defsql [name query-fn opts]
   (let [span-name (format "sql/%s" name)]
