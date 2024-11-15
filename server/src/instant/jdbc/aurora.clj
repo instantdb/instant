@@ -1,7 +1,7 @@
 (ns instant.jdbc.aurora
   (:require
    [instant.config :as config]
-   [instant.jdbc.sql :as sql] 
+   [instant.jdbc.sql :as sql]
    [instant.util.tracer :as tracer]))
 
 (declare conn-pool)
@@ -13,7 +13,8 @@
     (def conn-pool (sql/start-pool
                     (assoc (config/get-aurora-config)
                            :maxLifetime (* 10 60 1000)
-                           :maximumPoolSize conn-pool-size)))))
+                           :maximumPoolSize conn-pool-size
+                           :targetServerType "primary")))))
 
 (defn stop []
   (.close conn-pool))
