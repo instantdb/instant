@@ -6,7 +6,7 @@ What if you could use the types you defined in `instant.schema.ts`, inside `init
 
 Here's how it works
 
-If you want to migrate, swap out `init` with `init_experimental` and pass it your app's graph schema object.
+If you want to migrate, swap out `init` with `init_experimental` and pass it your app's schema object.
 
 ```ts
 import { init_experimental } from '@instantdb/react';
@@ -65,8 +65,6 @@ const author = firstUser.author[0];
 const author = firstUser.author; // no more array! 🎉
 ```
 
-If you don't want to migrate your components just yet, you can opt out by adding a `cardinalityInference` flag set to `false` in your `init_experimental` call. This way, you'll get all the typechecking benefits without having to update your logic.
-
 ## Rooms support
 
 Rooms are still expressed in pure TypeScript. You can type rooms with `schema.withRoomSchema<R>`. Here's how it looks:
@@ -88,30 +86,33 @@ const db = init_experimental({
 
 ## Reusable types
 
-Sometimes, you'll want to abstract out your query and result types. For example, a query's result might be consumed across multiple React components, each with their own prop types. For such cases, we provide `InstantQuery` and `InstantQueryResult`.
+Sometimes, you'll want to abstract out your query and result types. For example, a query's result might be consumed across multiple React components, each with their own prop types. For such cases, we provide `InstaQLParams` and `InstaQLResult`.
 
 To declare a query and validate its type against your schema, you can import `InstantQuery` and leverage [TypeScript's `satisfies` operator](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-9.html#the-satisfies-operator) like so:
 
 ```typescript
-const myQuery = { myTable: {} } satisfies InstantQuery<DB>;
+const myQuery = { myTable: {} } satisfies InstaQLParams<typeof schema>;
 ```
 
-To obtain the resolved result type of your query, import `InstantQueryResult` and provide it your DB and query types
+To obtain the resolved result type of your query, import `InstaQLResult` and provide it your DB and query types
 
 ```typescript
-type MyQueryResult = InstantQueryResult<DB, typeof myQuery>;
+type MyQueryResult = InstaQLResult<typeof schema, typeof myQuery>;
 ```
 
-If you only want the type of a single entity, you can leverage `InstantEntity`. `InstantEntity` resolves an entity type from your DB:
+If you only want the type of a single entity, you can leverage `InstaQLEntity`. `InstaQLEntity` resolves an entity type from your DB:
 
 ```typescript
-type Todo = InstantEntity<DB, 'todos'>;
+type Todo = InstaQLEntity<typeof schema, 'todos'>;
 ```
 
 You can specify links relative to the entity, too:
 
 ```typescript
-type Todo = InstantEntity<DB, 'todos', { category: {}; assignee: {} }>;
+type TodoWithOwner = InstantEntity<
+  typeof schema, 
+  'todos', 
+  { owner: {} }>;
 ```
 
 [Here's a full example](https://github.com/instantdb/instant/blob/main/client/sandbox/react-nextjs/pages/play/strong-todos.tsx) demonstranting reusable query types in a React app.

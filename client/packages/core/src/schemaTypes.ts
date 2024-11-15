@@ -62,31 +62,12 @@ export class LinkAttrDef<
   ) {}
 }
 
-export interface IInstantDataSchema<
+export interface IContainEntitiesAndLinks<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
 > {
   entities: Entities;
   links: Links;
-}
-
-export class InstantGraph<
-  Entities extends EntitiesDef,
-  Links extends LinksDef<Entities>,
-  RoomSchema extends RoomSchemaShape = {},
-> implements IInstantDataSchema<Entities, Links>
-{
-  constructor(
-    public entities: Entities,
-    public links: Links,
-  ) {}
-
-  withRoomSchema<_RoomSchema extends RoomSchemaShape>() {
-    return new InstantGraph<Entities, Links, _RoomSchema>(
-      this.entities,
-      this.links,
-    );
-  }
 }
 
 // ==========
@@ -281,13 +262,9 @@ export type RoomsFromDef<RDef extends RoomsDef> = {
 };
 
 export type RoomsOf<S> =
-  S extends InstantGraph<any, any, infer R>
-    ? R extends RoomSchemaShape
-      ? R
-      : never
-    : S extends DoNotUseInstantSchema<any, any, infer RDef>
-      ? RoomsFromDef<RDef>
-      : never;
+  S extends InstantSchemaDef<any, any, infer RDef>
+    ? RoomsFromDef<RDef>
+    : never;
 
 export type PresenceOf<
   S,
@@ -316,18 +293,66 @@ export interface RoomsDef {
   [RoomType: string]: RoomDef;
 }
 
-export class DoNotUseInstantSchema<
+export class InstantSchemaDef<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
   Rooms extends RoomsDef,
-> implements IInstantDataSchema<Entities, Links>
+> implements IContainEntitiesAndLinks<Entities, Links>
 {
   constructor(
     public entities: Entities,
     public links: Links,
     public rooms: Rooms,
   ) {}
+  
+  withRoomSchema<_RoomSchema extends RoomSchemaShape>() {
+    type RDef = RoomDefFrom<_RoomSchema>;
+    return new InstantSchemaDef<Entities, Links, RDef>(
+      this.entities,
+      this.links,
+      {} as RDef,
+    );
+  }
 }
+
+export class InstantGraph<
+  Entities extends EntitiesDef,
+  Links extends LinksDef<Entities>,
+  RoomSchema extends RoomSchemaShape = {},
+> implements IContainEntitiesAndLinks<Entities, Links>
+{
+  constructor(
+    public entities: Entities,
+    public links: Links,
+  ) {}
+
+  withRoomSchema<_RoomSchema extends RoomSchemaShape>() {
+    return new InstantGraph<Entities, Links, _RoomSchema>(
+      this.entities,
+      this.links,
+    );
+  }
+}
+
+type EntityDefFrom<Shape extends { [k: string]: any }> = EntityDef<
+  any,
+  any,
+  Shape
+>;
+
+type RoomDefFrom<RoomSchema extends RoomSchemaShape> = {
+  [RoomName in keyof RoomSchema]: {
+    presence: EntityDefFrom<RoomSchema[RoomName]["presence"]>;
+    topics: {
+      [TopicName in keyof RoomSchema[RoomName]["topics"]]: EntityDefFrom<
+        RoomSchema[RoomName]["topics"][TopicName]
+      >;
+    };
+  };
+};
+
+// ----------
+// InstantUnknownSchema
 
 export type UnknownEntity = EntityDef<
   {
@@ -338,11 +363,11 @@ export type UnknownEntity = EntityDef<
   void
 >;
 
-export type DoNotUseUnknownEntities = {
+export type UnknownEntities = {
   [EntityName: string]: UnknownEntity;
 };
 
-export type DoNotUseUnknownLinks<Entities extends EntitiesDef> = {
+export interface UnknownLinks<Entities extends EntitiesDef> {
   [LinkName: string]: LinkDef<
     Entities,
     string,
@@ -352,19 +377,19 @@ export type DoNotUseUnknownLinks<Entities extends EntitiesDef> = {
     string,
     "many"
   >;
-};
+}
 
-export type DoNotUseUnknownRooms = {
+export interface UnknownRooms {
   [RoomName: string]: {
     presence: EntityDef<any, any, any>;
     topics: {
       [TopicName: string]: EntityDef<any, any, any>;
     };
   };
-};
+}
 
-export type DoNotUseUnknownSchema = DoNotUseInstantSchema<
-  DoNotUseUnknownEntities,
-  DoNotUseUnknownLinks<DoNotUseUnknownEntities>,
-  DoNotUseUnknownRooms
+export type InstantUnknownSchema = InstantSchemaDef<
+  UnknownEntities,
+  UnknownLinks<UnknownEntities>,
+  UnknownRooms
 >;

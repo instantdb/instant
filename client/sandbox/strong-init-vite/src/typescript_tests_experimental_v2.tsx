@@ -1,13 +1,13 @@
 import {
   id,
-  do_not_use_init_experimental as core_init_experimental,
-  InstaQLQueryParams,
-  DoNotUseInstantEntity,
-  DoNotUseInstaQLQueryResult,
+  init_experimental as core_init_experimental,
+  InstaQLParams,
+  InstaQLEntity,
+  InstaQLResult,
 } from "@instantdb/core";
-import { do_not_use_init_experimental as react_init_experimental } from "@instantdb/react";
-import { do_not_use_init_experimental as react_native_init_experimental } from "@instantdb/react-native";
-import { do_not_use_init_experimental as admin_init_experimental } from "@instantdb/admin";
+import { init_experimental as react_init_experimental } from "@instantdb/react";
+import { init_experimental as react_native_init_experimental } from "@instantdb/react-native";
+import { init_experimental as admin_init_experimental } from "@instantdb/admin";
 import schema, { AppSchema } from "../instant.schema.v2";
 
 // ----
@@ -148,13 +148,13 @@ const messagesQuery = {
   messages: {
     creator: {},
   },
-} satisfies InstaQLQueryParams<AppSchema>;
+} satisfies InstaQLParams<AppSchema>;
 
-type CoreMessage = DoNotUseInstantEntity<AppSchema, "messages">;
+type CoreMessage = InstaQLEntity<AppSchema, "messages">;
 let coreMessage: CoreMessage = 1 as any;
 coreMessage.content;
 
-type CoreMessageWithCreator = DoNotUseInstantEntity<
+type CoreMessageWithCreator = InstaQLEntity<
   AppSchema,
   "messages",
   { creator: {} }
@@ -163,9 +163,9 @@ let coreMessageWithCreator: CoreMessageWithCreator = 1 as any;
 coreMessageWithCreator.content;
 coreMessageWithCreator.creator?.email;
 
-type MessageCreatorResult = DoNotUseInstaQLQueryResult<
+type MessageCreatorResult = InstaQLResult<
   AppSchema,
-  InstaQLQueryParams<AppSchema>
+  InstaQLParams<AppSchema>
 >;
 function subMessagesWithCreator(
   resultCB: (data: MessageCreatorResult) => void,
