@@ -13,8 +13,7 @@
     (def conn-pool (sql/start-pool
                     (assoc (config/get-aurora-config)
                            :maxLifetime (* 10 60 1000)
-                           :maximumPoolSize conn-pool-size
-                           :targetServerType "primary")))))
+                           :maximumPoolSize conn-pool-size)))))
 
 (defn stop []
   (.close conn-pool))
