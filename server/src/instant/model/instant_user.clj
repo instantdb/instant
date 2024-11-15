@@ -31,7 +31,8 @@
 (defn create!
   ([params] (create! aurora/conn-pool params))
   ([conn {:keys [id email google-sub]}]
-   (sql/execute-one! conn
+   (sql/execute-one! ::create!
+                     conn
                      ["INSERT INTO instant_users (id, email, google_sub) VALUES (?::uuid, ?, ?)"
                       id email google-sub])))
 
@@ -39,7 +40,8 @@
   ([params] (update-email! aurora/conn-pool params))
   ([conn {:keys [id email]}]
    (with-cache-invalidation id
-     (sql/execute-one! conn
+     (sql/execute-one! ::update-email!
+                       conn
                        ["UPDATE instant_users set email = ? where id = ?::uuid"
                         email id]))))
 
@@ -47,21 +49,24 @@
   ([params] (update-google-sub! aurora/conn-pool params))
   ([conn {:keys [id google-sub]}]
    (with-cache-invalidation id
-     (sql/execute-one! conn
+     (sql/execute-one! ::update-google-sub!
+                       conn
                        ["UPDATE instant_users set google_sub = ? where id = ?::uuid"
                         google-sub id]))))
 
 (defn get-by-id
   ([params] (get-by-id aurora/conn-pool params))
   ([conn {:keys [id]}]
-   (sql/select-one conn
+   (sql/select-one ::get-by-id
+                   conn
                    ["SELECT * FROM instant_users WHERE id = ?::uuid" id])))
 
 (defn get-by-id! [params]
   (ex/assert-record! (get-by-id params) :instant-user {:args [params]}))
 
 (defn get-by-app-id* [conn app-id]
-  (sql/select-one conn
+  (sql/select-one ::get-by-app-id*
+                  conn
                   ["SELECT
                     iu.*
                     FROM instant_users iu
@@ -81,6 +86,7 @@
   ([params] (get-by-refresh-token aurora/conn-pool params))
   ([conn {:keys [refresh-token]}]
    (sql/select-one
+    ::get-by-refresh-token
     conn
     ["SELECT instant_users.*
      FROM instant_users
@@ -95,6 +101,7 @@
   ([params] (get-by-personal-access-token aurora/conn-pool params))
   ([conn {:keys [personal-access-token]}]
    (sql/select-one
+    ::get-by-personal-access-token
     conn
     ["SELECT instant_users.*
       FROM instant_users
@@ -109,21 +116,24 @@
 (defn get-by-email
   ([params] (get-by-email aurora/conn-pool params))
   ([conn {:keys [email]}]
-   (sql/select-one conn
+   (sql/select-one ::get-by-email
+                   conn
                    ["SELECT * FROM instant_users WHERE email = ?"
                     email])))
 
 (defn get-by-email-or-google-sub
   ([params] (get-by-email-or-google-sub aurora/conn-pool params))
   ([conn {:keys [email google-sub]}]
-   (sql/select conn
+   (sql/select ::get-by-email-or-google-sub
+               conn
                ["SELECT * FROM instant_users where email = ? or google_sub = ?"
                 email google-sub])))
 
 (defn delete-by-email!
   ([params] (delete-by-email! aurora/conn-pool params))
   ([conn {:keys [email]}]
-   (let [res (sql/execute-one! conn
+   (let [res (sql/execute-one! ::delete-by-email!
+                               conn
                                ["DELETE FROM instant_users WHERE email = ?" email])]
      (evict-user-id-from-cache (:id res))
      res)))

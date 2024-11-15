@@ -1627,7 +1627,7 @@
   (tracer/with-span! {:name "datalog/send-query-single"}
     (let [{:keys [query pattern-metas]} (match-query :match-0- app-id named-patterns)
           sql-query (hsql/format query)
-          sql-res (sql/select-string-keys conn sql-query)]
+          sql-res (sql/select-string-keys ::send-query-single conn sql-query)]
       (sql-result->result sql-res
                           pattern-metas
                           ;; No need to parse uuids because the db driver will
@@ -1654,7 +1654,7 @@
                                                        nested-named-patterns)
           sql-query (hsql/format query)
           sql-res (when query ;; we may not have a query if everything is missing attrs
-                    (->> (sql/select-arrays conn sql-query)
+                    (->> (sql/select-arrays ::send-query-nested conn sql-query)
                          ;; remove header row
                          second
                          ;; all results are in one json blob in first result
@@ -1681,7 +1681,7 @@
                       args-col)
           hsql-query (batch-queries (map :query batch-data))
           sql-query (hsql/format hsql-query)
-          sql-res (-> (sql/select-arrays conn sql-query)
+          sql-res (-> (sql/select-arrays ::send-query-batch conn sql-query)
                       second ;; remove header row
                       first ;; all results are in one json blob in first result
                       )]
