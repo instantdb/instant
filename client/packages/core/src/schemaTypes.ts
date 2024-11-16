@@ -262,9 +262,7 @@ export type RoomsFromDef<RDef extends RoomsDef> = {
 };
 
 export type RoomsOf<S> =
-  S extends InstantSchemaDef<any, any, infer RDef>
-    ? RoomsFromDef<RDef>
-    : never;
+  S extends InstantSchemaDef<any, any, infer RDef> ? RoomsFromDef<RDef> : never;
 
 export type PresenceOf<
   S,
@@ -304,9 +302,9 @@ export class InstantSchemaDef<
     public links: Links,
     public rooms: Rooms,
   ) {}
-  
+
   withRoomSchema<_RoomSchema extends RoomSchemaShape>() {
-    type RDef = RoomDefFrom<_RoomSchema>;
+    type RDef = RoomDefFromShape<_RoomSchema>;
     return new InstantSchemaDef<Entities, Links, RDef>(
       this.entities,
       this.links,
@@ -334,22 +332,64 @@ export class InstantGraph<
   }
 }
 
-type EntityDefFrom<Shape extends { [k: string]: any }> = EntityDef<
+type EntityDefFromRoomSlice<Shape extends { [k: string]: any }> = EntityDef<
+  {
+    [AttrName in keyof Shape]: DataAttrDef<
+      Shape[AttrName],
+      Shape[AttrName] extends undefined ? false : true
+    >;
+  },
   any,
-  any,
-  Shape
+  void
 >;
 
-type RoomDefFrom<RoomSchema extends RoomSchemaShape> = {
+type RoomDefFromShape<RoomSchema extends RoomSchemaShape> = {
   [RoomName in keyof RoomSchema]: {
-    presence: EntityDefFrom<RoomSchema[RoomName]["presence"]>;
+    presence: EntityDefFromRoomSlice<RoomSchema[RoomName]["presence"]>;
     topics: {
-      [TopicName in keyof RoomSchema[RoomName]["topics"]]: EntityDefFrom<
+      [TopicName in keyof RoomSchema[RoomName]["topics"]]: EntityDefFromRoomSlice<
         RoomSchema[RoomName]["topics"][TopicName]
       >;
     };
   };
 };
+
+type EntityDefFromShape<Shape, K extends keyof Shape> = EntityDef<
+  {
+    [AttrName in keyof Shape[K]]: DataAttrDef<
+      Shape[K][AttrName],
+      Shape[K][AttrName] extends undefined ? false : true
+    >;
+  },
+  {
+    [LinkName in keyof Shape]: LinkAttrDef<
+      "many",
+      LinkName extends string ? LinkName : string
+    >;
+  },
+  void
+>;
+
+/**
+ * @deprecated
+ * If you were using the old `schema` types, you can use this to help you
+ * migrate.
+ *
+ * @example
+ * // Before
+ * const db = init<Schema, Rooms>({...})
+ *
+ * // After
+ * const db = init<BackwardsCompatibleSchema<Schema, Rooms>>({...})
+ */
+export type BackwardsCompatibleSchema<
+  Shape extends { [k: string]: any },
+  RoomSchema extends RoomSchemaShape = {},
+> = InstantSchemaDef<
+  { [K in keyof Shape]: EntityDefFromShape<Shape, K> },
+  UnknownLinks<EntitiesDef>,
+  RoomDefFromShape<RoomSchema>
+>;
 
 // ----------
 // InstantUnknownSchema

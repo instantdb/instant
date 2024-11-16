@@ -61,6 +61,7 @@ import type {
   TopicsOf,
   ValueTypes,
   InstantUnknownSchema,
+  BackwardsCompatibleSchema,
 } from "./schemaTypes";
 
 const defaultOpenDevtool = true;
@@ -913,4 +914,5 @@ export {
   type InstantSchemaDef,
   type InstantUnknownSchema,
   type IInstantDatabase,
+  type BackwardsCompatibleSchema,
 };
