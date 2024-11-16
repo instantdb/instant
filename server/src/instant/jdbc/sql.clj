@@ -174,14 +174,15 @@
           (try
             (io/tag-io
               (let [create-connection?# (not (instance? Connection ~'conn))
+                    opts# (merge ~opts
+                                 {:timeout *query-timeout-seconds*})
                     c# (if create-connection?#
                          (next-jdbc/get-connection ~'conn)
                          ~'conn)]
                 (try
-                  (with-open [ps# (next-jdbc/prepare c# ~'query)
+                  (with-open [ps# (next-jdbc/prepare c# ~'query opts#)
                               _cleanup# (register-in-progress c# ps#)]
-                    (~query-fn ps# nil (merge ~opts
-                                              {:timeout *query-timeout-seconds*})))
+                    (~query-fn ps# nil opts#))
                   (finally
                     ;; Don't close the connection if a java.sql.Connection was
                     ;; passed in, or we'll end transactions before they're done.
