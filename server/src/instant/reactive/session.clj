@@ -11,6 +11,7 @@
    [instant.config :as config]
    [instant.util.async :as ua]
    [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
    [instant.reactive.store :as rs]
    [instant.reactive.query :as rq]
    [instant.db.transaction :as tx]
@@ -428,16 +429,27 @@
     (tracer/with-span! {:name "receive-worker/handle-receive"
                         :attributes (handle-receive-attrs store-conn session event metadata)}
       (let [pending-handlers (:pending-handlers (:session/socket session))
-            event-fut (ua/vfuture (handle-event store-conn eph-store-atom session event))
+            in-progress-stmts (atom #{})
+            event-fut (binding [sql/*in-progress-stmts* in-progress-stmts]
+                        (ua/vfuture (handle-event store-conn eph-store-atom session event)))
             pending-handler {:future event-fut
                              :op (:op event)
+                             :in-progress-stmts in-progress-stmts
                              :silence-exceptions silence-exceptions}]
         (swap! pending-handlers conj pending-handler)
         (tracer/add-data! {:attributes {:concurrent-handler-count (count @pending-handlers)}})
         (try
           (let [ret (deref event-fut handle-receive-timeout-ms :timeout)]
             (when (= :timeout ret)
-              (future-cancel event-fut)
+              (let [in-progress @in-progress-stmts
+                    _ (sql/cancel-in-progress in-progress)
+                    cancel-res (future-cancel event-fut)]
+                (tracer/add-data! {:attributes
+                                   {:timedout true
+                                    :in-progress-query-count (count in-progress)
+                                    ;; If false, then canceling the queries let
+                                    ;; the future complete before we could cancel it
+                                    :future-cancel-result cancel-res}}))
               (ex/throw-operation-timeout! :handle-receive handle-receive-timeout-ms)))
 
           (catch CancellationException _e
@@ -593,10 +605,16 @@
 (defn on-close [store-conn eph-store-atom {:keys [id pending-handlers]}]
   (tracer/with-span! {:name "socket/on-close"
                       :attributes {:session-id id}}
-    (doseq [{:keys [future silence-exceptions op]} @pending-handlers]
+    (doseq [{:keys [op
+                    future
+                    silence-exceptions
+                    in-progress-stmts]} @pending-handlers
+            :let [in-progress @in-progress-stmts]]
       (tracer/with-span! {:name "cancel-pending-handler"
-                          :attributes {:op op}}
+                          :attributes {:op op
+                                       :in-progress-query-count (count in-progress)}}
         (silence-exceptions true)
+        (sql/cancel-in-progress in-progress)
         (future-cancel future)))
 
     (let [app-id (-> (rs/get-auth @store-conn id)

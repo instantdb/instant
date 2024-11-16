@@ -1,28 +1,23 @@
 (ns instant.jdbc.sql
   (:require
-   [next.jdbc :as next-jdbc]
-   [next.jdbc.sql :as sql]
-   [next.jdbc.result-set :as rs]
-   [next.jdbc.prepare :as p]
-   [next.jdbc.connection :as connection]
    [clojure.string :as string]
+   ;; load all pg-ops for hsql
+   [honey.sql.pg-ops]
+   [instant.util.exception :as ex]
    [instant.util.io :as io]
    [instant.util.json :refer [->json <-json]]
    [instant.util.tracer :as tracer]
-   ;; load all pg-ops for hsql
-   [honey.sql.pg-ops]
-   [instant.util.exception :as ex])
-  (:import (org.postgresql.util PGobject PSQLException)
-           (java.sql Array PreparedStatement ResultSet ResultSetMetaData)
-           (com.zaxxer.hikari HikariDataSource)
-           (java.time
-            Instant
-            LocalDate
-            LocalDateTime)
-           (clojure.lang
-            IPersistentList
-            IPersistentVector
-            IPersistentMap)))
+   [next.jdbc :as next-jdbc]
+   [next.jdbc.connection :as connection]
+   [next.jdbc.prepare :as p]
+   [next.jdbc.result-set :as rs]
+   [next.jdbc.sql :as sql])
+  (:import
+   (clojure.lang IPersistentList IPersistentMap IPersistentVector)
+   (com.zaxxer.hikari HikariDataSource)
+   (java.sql Array Connection PreparedStatement ResultSet ResultSetMetaData)
+   (java.time Instant LocalDate LocalDateTime)
+   (org.postgresql.util PGobject PSQLException)))
 
 (defn ->pg-text-array
   "Formats as text[] in pg, i.e. {item-1, item-2, item3}"
@@ -141,6 +136,32 @@
 
 (def ^:dynamic *query-timeout-seconds* 30)
 
+(def ^:dynamic *in-progress-stmts* nil)
+
+(defn cancel-in-progress [stmts]
+  (doseq [stmt stmts]
+    (.cancel stmt)))
+
+(defprotocol Cancelable
+  (cancel [this]))
+
+(defn register-in-progress
+  "Registers the statement in the in-progress set (if we're tracking it)
+  and returns a closeable that will remove the statement from the set at
+  the end of the query."
+  [conn stmt]
+  (if-let [in-progress *in-progress-stmts*]
+    (let [cancelable (reify Cancelable
+                       (cancel [_]
+                         (.cancel stmt)
+                         (.close conn)))]
+      (swap! in-progress conj cancelable)
+      (reify java.lang.AutoCloseable
+        (close [_]
+          (swap! in-progress disj cancelable))))
+    (reify java.lang.AutoCloseable
+      (close [_]
+        nil))))
 
 (defmacro defsql [name query-fn opts]
   (let [span-name (format "sql/%s" name)]
@@ -152,8 +173,20 @@
                             :attributes (span-attrs ~'conn ~'query ~'tag)}
           (try
             (io/tag-io
-              (~query-fn ~'conn ~'query (merge ~opts
-                                               {:timeout *query-timeout-seconds*})))
+              (let [create-connection?# (not (instance? Connection ~'conn))
+                    c# (if create-connection?#
+                         (next-jdbc/get-connection ~'conn)
+                         ~'conn)]
+                (try
+                  (with-open [ps# (next-jdbc/prepare c# ~'query)
+                              _cleanup# (register-in-progress c# ps#)]
+                    (~query-fn ps# nil (merge ~opts
+                                              {:timeout *query-timeout-seconds*})))
+                  (finally
+                    ;; Don't close the connection if a java.sql.Connection was
+                    ;; passed in, or we'll end transactions before they're done.
+                    (when create-connection?#
+                      (.close c#))))))
             (catch PSQLException e#
               (throw (ex/translate-and-throw-psql-exception! e#)))))))))
 
@@ -173,7 +206,7 @@
   ;; if it has been idle for half a second. This raises the limit so
   ;; that it only checks every minute.
   ;; This shouldn't be necessary at all--the connection should be able
-  ;; to tell when its closed. But even if it can't tell if it's closed,
+  ;; to tell when it's closed. But even if it can't tell if it's closed,
   ;; the connection pool should use the query you want to send as the
   ;; validation check. If it gets a retryable error, like connection_closed,
   ;; then it can try again on another connection.
