@@ -191,6 +191,18 @@
             (catch PSQLException e#
               (throw (ex/translate-and-throw-psql-exception! e#)))))))))
 
+(defn next-do-execute!
+  "For some reason, next-jdbc overrides {:return-keys false}
+   when you call next-jdbc/execute! on a prepared statement.
+   This wrapper is here to undo that."
+  [connectable sql-params opts]
+  (if (instance? PreparedStatement connectable)
+    (if-let [result-set (when (.execute connectable)
+                          (.getResultSet connectable))]
+      (rs/datafiable-result-set result-set connectable opts)
+      [{:next.jdbc/update-count (.getUpdateCount connectable)}])
+    (next-jdbc/execute! connectable sql-params opts)))
+
 (defsql select sql/query {:builder-fn rs/as-unqualified-maps})
 (defsql select-qualified sql/query {:builder-fn rs/as-maps})
 (defsql select-arrays sql/query {:builder-fn rs/as-unqualified-arrays})
@@ -200,7 +212,7 @@
                                      :return-keys true})
 (defsql execute-one! next-jdbc/execute-one! {:builder-fn rs/as-unqualified-maps
                                              :return-keys true})
-(defsql do-execute! next-jdbc/execute! {:return-keys false})
+(defsql do-execute! next-do-execute! {:return-keys false})
 
 (defn patch-hikari []
   ;; Hikari will send an extra query to ensure the connection is valid
