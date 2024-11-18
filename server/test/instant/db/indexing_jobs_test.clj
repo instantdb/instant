@@ -242,7 +242,7 @@
                                            :index? false
                                            :value-type :blob
                                            :cardinality :one}]])
-              _ (dotimes [x 20]
+              _ (dotimes [x 10]
                   (tx/transact! aurora/conn-pool
                                 (attr-model/get-by-app-id (:id app))
                                 (:id app)
