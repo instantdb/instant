@@ -77,9 +77,19 @@ export default version;
     (proc/shell "pnpm" "publish-packages" "--" "--tag" tag)
     (proc/shell "pnpm" "publish-packages")))
 
-(defn -main [& _args]
-  (let [tag (first _args)
+(defn -main [& args]
+  (let [tag (first args)
         version (str/trim (slurp "version.md"))]
+    (if tag
+      (when (not (str/includes? version tag))
+        (println (format "When publishing the `%s` tag, the version must contain the tag (e.g. v0.1.2-%s.0)."
+                         tag tag))
+        (println (format "You provided %s" version))
+        (System/exit 1))
+      (when (not (re-find #"^v\d+\.\d+\.\d+$" version))
+        (println (format "Version should match format v0.1.2, but you provided %s"
+                         version))
+        (System/exit 1)))
     (set-package-versions! version)
     (set-dep-versions! version)
     (set-version-js! version)
