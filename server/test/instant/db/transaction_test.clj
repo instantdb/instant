@@ -2128,6 +2128,34 @@
                          :creator [{:id (str user-id)
                                     :email "test@example.com"}]}]}))))))
 
+(deftest admins-can-write-to-users-table
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [r (resolvers/make-movies-resolver app-id)
+            id (random-uuid)
+            make-ctx (fn [] {:db {:conn-pool aurora/conn-pool}
+                             :app-id app-id
+                             :admin? true
+                             :attrs (attr-model/get-by-app-id app-id)
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id aurora/conn-pool {:app-id app-id})
+                             :current-user nil})]
+
+        (permissioned-tx/transact! (make-ctx)
+                                   [[:add-triple id (resolvers/->uuid r :$users/id) (str id)]
+                                    [:add-triple id (resolvers/->uuid r :$users/email) "test@example.com"]])
+
+        (is (app-user-model/get-by-email {:app-id app-id
+                                          :email "test@example.com"}))
+
+        (permissioned-tx/transact! (make-ctx)
+                                   [[:delete-entity id "$users"]])
+
+        (is (empty? (app-user-model/get-by-email {:app-id app-id
+                                                  :email "test@example.com"})))))))
+
+
+
 (deftest auth-refs-requires-users
   (with-empty-app
     (fn [{app-id :id :as app}]

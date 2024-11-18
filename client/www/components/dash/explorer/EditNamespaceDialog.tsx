@@ -40,6 +40,7 @@ export function EditNamespaceDialog({
   namespaces,
   onClose,
   readOnly,
+  isSystemCatalogNs,
   pushNavStack,
 }: {
   db: InstantReactWeb;
@@ -48,6 +49,7 @@ export function EditNamespaceDialog({
   namespaces: SchemaNamespace[];
   onClose: (p?: { ok: boolean }) => void;
   readOnly: boolean;
+  isSystemCatalogNs: boolean;
   pushNavStack: PushNavStack;
 }) {
   const [screen, setScreen] = useState<
@@ -78,10 +80,10 @@ export function EditNamespaceDialog({
               {namespace.name}
             </h5>
             <Button
-              disabled={readOnly}
+              disabled={isSystemCatalogNs}
               title={
-                readOnly
-                  ? `The ${namespace.name} namespace is read-only.`
+                isSystemCatalogNs
+                  ? `The ${namespace.name} namespace can't be deleted.`
                   : undefined
               }
               size="mini"
@@ -116,10 +118,10 @@ export function EditNamespaceDialog({
 
           <div>
             <Button
-              disabled={readOnly}
+              disabled={isSystemCatalogNs}
               title={
-                readOnly
-                  ? `The ${namespace.name} namespace is read-only.`
+                isSystemCatalogNs
+                  ? `Attributes can't be added to the ${namespace.name} namespace directly. You can still create links to them by adding the links from one of your namespaces.`
                   : undefined
               }
               size="mini"
@@ -147,7 +149,7 @@ export function EditNamespaceDialog({
       ) : screen.type === 'edit' && screenAttr ? (
         <EditAttrForm
           appId={appId}
-          readOnly={readOnly}
+          isSystemCatalogNs={isSystemCatalogNs}
           db={db}
           attr={screenAttr}
           onClose={() => setScreen({ type: 'main' })}
@@ -506,12 +508,12 @@ function InvalidTriplesSample({
 function EditIndexed({
   appId,
   attr,
-  readOnly,
+  isSystemCatalogNs,
   pushNavStack,
 }: {
   appId: string;
   attr: SchemaAttr;
-  readOnly: boolean;
+  isSystemCatalogNs: boolean;
   pushNavStack: PushNavStack;
 }) {
   const token = useAuthToken();
@@ -580,7 +582,7 @@ function EditIndexed({
 
   const valueNotChanged = indexChecked === attr.isIndex;
 
-  const buttonDisabled = readOnly || valueNotChanged;
+  const buttonDisabled = isSystemCatalogNs || valueNotChanged;
 
   const closeDialog = useClose();
 
@@ -588,10 +590,10 @@ function EditIndexed({
     <ActionForm className="flex flex-col gap-1">
       <div className="flex gap-2">
         <Checkbox
-          disabled={readOnly}
+          disabled={isSystemCatalogNs}
           title={
-            readOnly
-              ? `The ${attr.namespace} namespace is read-only.`
+            isSystemCatalogNs
+              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
               : undefined
           }
           checked={indexChecked}
@@ -638,7 +640,9 @@ function EditIndexed({
         errorMessage="Failed to update attribute"
         disabled={buttonDisabled}
         title={
-          readOnly ? `The ${attr.namespace} namespace is read-only.` : undefined
+          isSystemCatalogNs
+            ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+            : undefined
         }
         onClick={updateIndexed}
       />
@@ -649,12 +653,12 @@ function EditIndexed({
 function EditUnique({
   appId,
   attr,
-  readOnly,
+  isSystemCatalogNs,
   pushNavStack,
 }: {
   appId: string;
   attr: SchemaAttr;
-  readOnly: boolean;
+  isSystemCatalogNs: boolean;
   pushNavStack: PushNavStack;
 }) {
   const token = useAuthToken();
@@ -723,7 +727,7 @@ function EditUnique({
 
   const valueNotChanged = uniqueChecked === attr.isUniq;
 
-  const buttonDisabled = readOnly || valueNotChanged;
+  const buttonDisabled = isSystemCatalogNs || valueNotChanged;
 
   const closeDialog = useClose();
 
@@ -731,10 +735,10 @@ function EditUnique({
     <ActionForm className="flex flex-col gap-1">
       <div className="flex gap-2">
         <Checkbox
-          disabled={readOnly}
+          disabled={isSystemCatalogNs}
           title={
-            readOnly
-              ? `The ${attr.namespace} namespace is read-only.`
+            isSystemCatalogNs
+              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
               : undefined
           }
           checked={uniqueChecked}
@@ -827,7 +831,9 @@ function EditUnique({
         errorMessage="Failed to update attribute"
         disabled={buttonDisabled}
         title={
-          readOnly ? `The ${attr.namespace} namespace is read-only.` : undefined
+          isSystemCatalogNs
+            ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+            : undefined
         }
         onClick={updateUniqueness}
       />
@@ -838,12 +844,12 @@ function EditUnique({
 function EditCheckedDataType({
   appId,
   attr,
-  readOnly,
+  isSystemCatalogNs,
   pushNavStack,
 }: {
   appId: string;
   attr: SchemaAttr;
-  readOnly: boolean;
+  isSystemCatalogNs: boolean;
   pushNavStack: PushNavStack;
 }) {
   const token = useAuthToken();
@@ -921,7 +927,7 @@ function EditCheckedDataType({
     (checkedDataType === indexingJob?.checked_data_type &&
       indexingJob?.job_status === 'completed');
 
-  const buttonDisabled = readOnly || typeNotChanged;
+  const buttonDisabled = isSystemCatalogNs || typeNotChanged;
 
   const buttonLabel = typeNotChanged
     ? `Type is ${checkedDataType}`
@@ -945,6 +951,12 @@ function EditCheckedDataType({
         </h6>
         <div className="flex gap-2">
           <Select
+            disabled={isSystemCatalogNs}
+            title={
+              isSystemCatalogNs
+                ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+                : undefined
+            }
             value={checkedDataType || 'any'}
             onChange={(v) => {
               if (!v) {
@@ -1005,7 +1017,9 @@ function EditCheckedDataType({
         errorMessage="Failed to update attribute"
         disabled={buttonDisabled}
         title={
-          readOnly ? `The ${attr.namespace} namespace is read-only.` : undefined
+          isSystemCatalogNs
+            ? `Attributes in the ${attr.namespace} namespace can't be changed.`
+            : undefined
         }
         onClick={updateCheckedType}
       />
@@ -1018,14 +1032,14 @@ function EditAttrForm({
   appId,
   attr,
   onClose,
-  readOnly,
+  isSystemCatalogNs,
   pushNavStack,
 }: {
   db: InstantReactWeb;
   appId: string;
   attr: SchemaAttr;
   onClose: () => void;
-  readOnly: boolean;
+  isSystemCatalogNs: boolean;
   pushNavStack: PushNavStack;
 }) {
   const [screen, setScreen] = useState<{ type: 'main' } | { type: 'delete' }>({
@@ -1121,10 +1135,10 @@ function EditAttrForm({
         </div>
 
         <Button
-          disabled={readOnly && attr.type !== 'ref'}
+          disabled={isSystemCatalogNs && attr.type !== 'ref'}
           title={
-            readOnly && attr.type !== 'ref'
-              ? `The ${attr.namespace} namespace is read-only.`
+            isSystemCatalogNs && attr.type !== 'ref'
+              ? `Attributes in the ${attr.namespace} can't be edited`
               : undefined
           }
           variant="secondary"
@@ -1143,13 +1157,13 @@ function EditAttrForm({
             <EditIndexed
               appId={appId}
               attr={attr}
-              readOnly={readOnly}
+              isSystemCatalogNs={isSystemCatalogNs}
               pushNavStack={pushNavStack}
             />
             <EditUnique
               appId={appId}
               attr={attr}
-              readOnly={readOnly}
+              isSystemCatalogNs={isSystemCatalogNs}
               pushNavStack={pushNavStack}
             />
           </div>
@@ -1157,7 +1171,7 @@ function EditAttrForm({
           <EditCheckedDataType
             appId={appId}
             attr={attr}
-            readOnly={readOnly}
+            isSystemCatalogNs={isSystemCatalogNs}
             pushNavStack={pushNavStack}
           />
           <ActionForm className="flex flex-col gap-1">
@@ -1167,10 +1181,10 @@ function EditAttrForm({
               <strong>update your code</strong> to the new name.
             </Content>
             <TextInput
-              disabled={readOnly}
+              disabled={isSystemCatalogNs}
               title={
-                readOnly
-                  ? `The ${attr.namespace} namespace is read-only.`
+                isSystemCatalogNs
+                  ? `Attributes in the ${attr.namespace} namespace can't be edited.`
                   : undefined
               }
               value={attrName}
@@ -1182,10 +1196,12 @@ function EditAttrForm({
                 label={`Rename ${attr.name} → ${attrName}`}
                 submitLabel="Renaming attribute..."
                 errorMessage="Failed to rename attribute"
-                disabled={readOnly || !attrName || attrName === attr.name}
+                disabled={
+                  isSystemCatalogNs || !attrName || attrName === attr.name
+                }
                 title={
-                  readOnly
-                    ? `The ${attr.namespace} namespace is read-only.`
+                  isSystemCatalogNs
+                    ? `Attributes in the ${attr.namespace} namespace can't be edited.`
                     : undefined
                 }
                 onClick={renameBlobAttr}

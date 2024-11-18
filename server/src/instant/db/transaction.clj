@@ -123,7 +123,7 @@
 (comment
   (batch (gen/generate (s/gen ::tx-steps))))
 
-(defn prevent-$users-updates [op attrs]
+(defn prevent-system-catalog-attrs-updates! [op attrs]
   (doseq [attr attrs
           :let [etype (attr-model/fwd-etype attr)]]
     (when (and etype (string/starts-with? etype "$"))
@@ -184,7 +184,7 @@
            (reduce
             (fn [acc [op & args]]
               (when (#{:add-attr :update-attr} op)
-                (prevent-$users-updates op args))
+                (prevent-system-catalog-attrs-updates! op args))
               (let [res (case op
                           :add-attr
                           (attr-model/insert-multi! conn app-id args)
