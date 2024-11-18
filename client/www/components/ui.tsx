@@ -291,7 +291,7 @@ export function Select({
   disabled?: boolean;
   emptyLabel?: string;
   tabIndex?: number;
-  title?: string | null | undefined;
+  title?: string | undefined;
 }) {
   return (
     <select
