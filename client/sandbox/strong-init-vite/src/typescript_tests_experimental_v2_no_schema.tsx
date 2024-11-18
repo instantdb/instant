@@ -1,14 +1,14 @@
 import {
   id,
-  do_not_use_init_experimental as core_init_experimental,
-  InstaQLQueryParams,
-  DoNotUseInstantEntity,
-  DoNotUseInstaQLQueryResult,
-  DoNotUseUnknownSchema,
+  init_experimental as core_init_experimental,
+  InstaQLParams,
+  InstaQLEntity,
+  InstaQLResult,
+  InstantUnknownSchema,
 } from "@instantdb/core";
-import { do_not_use_init_experimental as react_init_experimental } from "@instantdb/react";
-import { do_not_use_init_experimental as react_native_init_experimental } from "@instantdb/react-native";
-import { do_not_use_init_experimental as admin_init_experimental } from "@instantdb/admin";
+import { init_experimental as react_init_experimental } from "@instantdb/react";
+import { init_experimental as react_native_init_experimental } from "@instantdb/react-native";
+import { init_experimental as admin_init_experimental } from "@instantdb/admin";
 
 // ----
 // Core
@@ -143,22 +143,22 @@ const postsQuery = {
   posts: {
     comments: {},
   },
-} satisfies InstaQLQueryParams<DoNotUseUnknownSchema>;
+} satisfies InstaQLParams<InstantUnknownSchema>;
 
-type CorePost = DoNotUseInstantEntity<DoNotUseUnknownSchema, "messages">;
+type CorePost = InstaQLEntity<InstantUnknownSchema, "messages">;
 let coreMessage: CorePost = 1 as any;
 coreMessage.id;
 
-type CorePostWithCreator = DoNotUseInstantEntity<
-  DoNotUseUnknownSchema,
+type CorePostWithCreator = InstaQLEntity<
+  InstantUnknownSchema,
   "messages",
   { creator: {} }
 >;
 let coreMessageWithCreator: CorePostWithCreator = 1 as any;
 coreMessageWithCreator.creator[0].id;
 
-type MessageCreatorResult = DoNotUseInstaQLQueryResult<
-  DoNotUseUnknownSchema,
+type MessageCreatorResult = InstaQLResult<
+  InstantUnknownSchema,
   typeof postsQuery
 >;
 

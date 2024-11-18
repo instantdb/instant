@@ -11,11 +11,11 @@ import {
   type Query,
   type Exactly,
   type TransactionChunk,
-  type DoNotUseLifecycleSubscriptionState,
+  type LifecycleSubscriptionState,
   type PresenceOpts,
   type PresenceResponse,
   type RoomSchemaShape,
-  type InstaQLQueryParams,
+  type InstaQLParams,
   type ConfigWithSchema,
   type IDatabase,
   type InstantGraph,
@@ -411,11 +411,11 @@ export abstract class InstantReact<
    */
   useQuery = <
     Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
+      ? InstaQLParams<Schema>
       : Exactly<Query, Q>,
   >(
     query: null | Q,
-  ): DoNotUseLifecycleSubscriptionState<Q, Schema, WithCardinalityInference> => {
+  ): LifecycleSubscriptionState<Q, Schema, WithCardinalityInference> => {
     return useQuery(this._core, query).state;
   };
 
@@ -486,7 +486,7 @@ export abstract class InstantReact<
    */
   queryOnce = <
     Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
+      ? InstaQLParams<Schema>
       : Exactly<Query, Q>,
   >(
     query: Q,

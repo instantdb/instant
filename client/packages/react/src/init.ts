@@ -1,14 +1,14 @@
 import type {
   // types
   Config,
-  DoNotUseConfig,
+  InstantConfig,
   InstantGraph,
-  DoNotUseInstantSchema,
+  InstantSchemaDef,
   RoomSchemaShape,
-  DoNotUseUnknownSchema,
+  InstantUnknownSchema,
 } from "@instantdb/core";
 import { InstantReactWeb } from "./InstantReactWeb";
-import { DoNotUseInstantReactWeb } from "./DoNotUseInstantReactWeb";
+import InstantReactWebDatabase from "./InstantReactWebDatabase";
 
 /**
  *
@@ -38,25 +38,7 @@ export function init<
 }
 
 export function init_experimental<
-  Schema extends InstantGraph<any, any, any>,
-  WithCardinalityInference extends boolean = true,
->(
-  config: Config & {
-    schema: Schema;
-    cardinalityInference?: WithCardinalityInference;
-  },
-) {
-  return new InstantReactWeb<
-    Schema,
-    Schema extends InstantGraph<any, any, infer RoomSchema>
-      ? RoomSchema
-      : never,
-    WithCardinalityInference
-  >(config);
-}
-
-export function do_not_use_init_experimental<
-  Schema extends DoNotUseInstantSchema<any, any, any> = DoNotUseUnknownSchema,
->(config: DoNotUseConfig<Schema>) {
-  return new DoNotUseInstantReactWeb<Schema>(config);
+  Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
+>(config: InstantConfig<Schema>) {
+  return new InstantReactWebDatabase<Schema>(config);
 }

@@ -1,11 +1,11 @@
 import {
   i,
   init_experimental,
-  type InstantEntity,
-  type InstantQuery,
-  type InstantQueryResult,
-  type InstantSchemaDatabase,
+  InstaQLEntity,
+  type InstaQLParams,
+  type InstaQLResult,
 } from "@instantdb/react";
+
 import config from "../../config";
 
 const schema = i.graph(
@@ -14,27 +14,42 @@ const schema = i.graph(
       text: i.string(),
       completed: i.boolean(),
     }),
+    owner: i.entity({
+      name: i.string(),
+    }),
   },
-  {},
+  {
+    todosOwner: {
+      forward: {
+        on: "todos",
+        has: "one",
+        label: "owner",
+      },
+      reverse: {
+        on: "owner",
+        has: "many",
+        label: "ownedTodos",
+      },
+    },
+  },
 );
+type _Schema = typeof schema;
+// This is a little hack that makes
+// Typescript intellisense look a lot cleaner
+interface Schema extends _Schema {}
 
 const db = init_experimental({
   ...config,
   schema,
 });
 
-type DB = typeof db;
-// for when your want to get the type of DB before calling `init`
-type DB_alternate = InstantSchemaDatabase<typeof schema>;
-
 const todosQuery = {
-  todos: {},
-} satisfies InstantQuery<DB>;
+  todos: {
+    owner: {},
+  },
+} satisfies InstaQLParams<Schema>;
 
-export type Todo = InstantEntity<DB, "todos">;
-
-// alternatively
-export type TodosResult = InstantQueryResult<DB, typeof todosQuery>["todos"];
+export type Todo = InstaQLEntity<Schema, "todos">;
 
 export default function TodoApp() {
   const result = db.useQuery(todosQuery);

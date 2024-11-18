@@ -1,17 +1,18 @@
 import {
   EntityDef,
   DataAttrDef,
-  InstantGraph,
-  DoNotUseInstantSchema,
+  InstantSchemaDef,
   type EntitiesDef,
   type AttrsDefs,
   type EntitiesWithLinks,
   type LinksDef,
   type RoomsDef,
+  type UnknownRooms,
 } from "./schemaTypes";
 
 // ==========
 // API
+
 
 /**
  * Accepts entities and links and merges them into a single graph definition.
@@ -48,7 +49,7 @@ function graph<
   EntitiesWithoutLinks extends EntitiesDef,
   const Links extends LinksDef<EntitiesWithoutLinks>,
 >(entities: EntitiesWithoutLinks, links: Links) {
-  return new InstantGraph(
+  return new InstantSchemaDef(
     enrichEntitiesWithLinks<EntitiesWithoutLinks, Links>(entities, links),
     // (XXX): LinksDef<any> stems from TypeScript’s inability to reconcile the
     // type EntitiesWithLinks<EntitiesWithoutLinks, Links> with
@@ -56,6 +57,7 @@ function graph<
     // correctly aligned and does not allow for substituting a type that might
     // be broader or have additional properties.
     links as LinksDef<any>,
+    undefined as UnknownRooms,
   );
 }
 
@@ -150,8 +152,10 @@ type LinksIndex = Record<
   Record<string, Record<string, { entityName: string; cardinality: string }>>
 >;
 
-// XXX: add docstring
-function do_not_use_schema<
+/**
+ * TODO
+ */
+function schema<
   EntitiesWithoutLinks extends EntitiesDef,
   const Links extends LinksDef<EntitiesWithoutLinks>,
   Rooms extends RoomsDef,
@@ -164,7 +168,7 @@ function do_not_use_schema<
   links: Links;
   rooms: Rooms;
 }) {
-  return new DoNotUseInstantSchema(
+  return new InstantSchemaDef(
     enrichEntitiesWithLinks<EntitiesWithoutLinks, Links>(entities, links),
     // (XXX): LinksDef<any> stems from TypeScript’s inability to reconcile the
     // type EntitiesWithLinks<EntitiesWithoutLinks, Links> with
@@ -179,7 +183,7 @@ function do_not_use_schema<
 export const i = {
   // constructs
   graph,
-  do_not_use_schema,
+  schema,
   entity,
   // value types
   string,

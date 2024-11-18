@@ -1,10 +1,9 @@
 // Query
 // -----
 
-import { IDatabase } from "./coreTypes";
 import type {
   EntitiesDef,
-  IInstantDataSchema,
+  IContainEntitiesAndLinks,
   InstantGraph,
   LinkAttrDef,
   ResolveAttrs,
@@ -103,9 +102,9 @@ type QueryResponse<
     ? InstaQLQueryResult<E, Q, WithCardinalityInference>
     : ResponseOf<{ [K in keyof Q]: Remove$<Q[K]> }, Schema>;
 
-type DoNotUseQueryResponse<Q, Schema> =
-  Schema extends IInstantDataSchema<any, any>
-    ? DoNotUseInstaQLQueryResult<Schema, Q>
+type InstaQLResponse<Schema, Q> =
+  Schema extends IContainEntitiesAndLinks<any, any>
+    ? InstaQLResult<Schema, Q>
     : never;
 
 type PageInfoResponse<T> = {
@@ -146,8 +145,8 @@ type Exactly<Parent, Child> = Parent & {
 // ==========
 // InstaQL helpers
 
-type DoNotUseInstaQLSubqueryResult<
-  Schema extends IInstantDataSchema<EntitiesDef, any>,
+type InstaQLSubqueryResult<
+  Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   EntityName extends keyof Schema["entities"],
   Query extends {
     [LinkAttrName in keyof Schema["entities"][EntityName]["links"]]?: any;
@@ -160,13 +159,13 @@ type DoNotUseInstaQLSubqueryResult<
     ? LinkedEntityName extends keyof Schema["entities"]
       ? Cardinality extends "one"
         ?
-            | DoNotUseInstantEntity<
+            | InstaQLEntity<
                 Schema,
                 LinkedEntityName,
                 Query[QueryPropName]
               >
             | undefined
-        : DoNotUseInstantEntity<
+        : InstaQLEntity<
             Schema,
             LinkedEntityName,
             Query[QueryPropName]
@@ -214,14 +213,14 @@ type InstaQLQueryEntityLinksResult<
     : never;
 };
 
-type DoNotUseInstantEntity<
-  Schema extends IInstantDataSchema<EntitiesDef, any>,
+type InstaQLEntity<
+  Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   EntityName extends keyof Schema["entities"],
   Subquery extends {
     [QueryPropName in keyof Schema["entities"][EntityName]["links"]]?: any;
   } = {},
-> = ResolveEntityAttrs<Schema["entities"][EntityName]> &
-  DoNotUseInstaQLSubqueryResult<Schema, EntityName, Subquery>;
+> = { id: string } & ResolveEntityAttrs<Schema["entities"][EntityName]> &
+  InstaQLSubqueryResult<Schema, EntityName, Subquery>;
 
 type InstaQLQueryEntityResult<
   Entities extends EntitiesDef,
@@ -253,17 +252,17 @@ type InstaQLQueryResult<
     : never;
 };
 
-type DoNotUseInstaQLQueryResult<
-  Schema extends IInstantDataSchema<EntitiesDef, any>,
+type InstaQLResult<
+  Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Query,
 > = {
   [QueryPropName in keyof Query]: QueryPropName extends keyof Schema["entities"]
-    ? DoNotUseInstantEntity<Schema, QueryPropName, Query[QueryPropName]>[]
+    ? InstaQLEntity<Schema, QueryPropName, Query[QueryPropName]>[]
     : never;
 };
 
 type InstaQLQuerySubqueryParams<
-  S extends IInstantDataSchema<any, any>,
+  S extends IContainEntitiesAndLinks<any, any>,
   E extends keyof S["entities"],
 > = {
   [K in keyof S["entities"][E]["links"]]?:
@@ -275,24 +274,37 @@ type InstaQLQuerySubqueryParams<
         >);
 };
 
-type InstaQLQueryParams<S extends IInstantDataSchema<any, any>> = {
+type InstaQLParams<S extends IContainEntitiesAndLinks<any, any>> = {
   [K in keyof S["entities"]]?:
     | $Option
     | ($Option & InstaQLQuerySubqueryParams<S, K>);
 };
 
+/**
+ * @deprecated
+ * `InstaQLQueryParams` is deprecated. Use `InstaQLParams` instead.
+ * 
+ * @example
+ * // Before
+ * const myQuery = {...} satisfies InstaQLQueryParams<Schema> 
+ * // After
+ * const myQuery = {...} satisfies InstaQLParams<Schema>
+ */
+type InstaQLQueryParams<S extends IContainEntitiesAndLinks<any, any>> = InstaQLParams<S>;
+
 export {
   Query,
   QueryResponse,
-  DoNotUseQueryResponse,
+  InstaQLResponse,
   PageInfoResponse,
   InstantObject,
   Exactly,
   Remove$,
   InstaQLQueryResult,
-  InstaQLQueryParams,
+  InstaQLParams,
   InstaQLQueryEntityResult,
-  DoNotUseInstantEntity,
-  DoNotUseInstaQLQueryResult,
+  InstaQLEntity,
+  InstaQLResult,
   Cursor,
+  InstaQLQueryParams,
 };

@@ -21,17 +21,18 @@ import type {
   PresenceSlice,
   RoomSchemaShape,
 } from "./presence";
-import type { IDatabase, IDoNotUseDatabase } from "./coreTypes";
+import type { IDatabase, IInstantDatabase } from "./coreTypes";
 import type {
   Query,
   QueryResponse,
-  DoNotUseQueryResponse,
+  InstaQLResponse,
   PageInfoResponse,
   Exactly,
   InstantObject,
+  InstaQLParams,
   InstaQLQueryParams,
-  DoNotUseInstantEntity,
-  DoNotUseInstaQLQueryResult,
+  InstaQLEntity,
+  InstaQLResult,
 } from "./queryTypes";
 import type { AuthState, User, AuthResult } from "./clientTypes";
 import type {
@@ -49,7 +50,7 @@ import type {
   EntitiesWithLinks,
   EntityDef,
   RoomsDef,
-  DoNotUseInstantSchema,
+  InstantSchemaDef,
   InstantGraph,
   LinkAttrDef,
   LinkDef,
@@ -59,7 +60,7 @@ import type {
   RoomsOf,
   TopicsOf,
   ValueTypes,
-  DoNotUseUnknownSchema,
+  InstantUnknownSchema,
 } from "./schemaTypes";
 
 const defaultOpenDevtool = true;
@@ -73,7 +74,7 @@ export type Config = {
   devtool?: boolean;
 };
 
-export type DoNotUseConfig<S extends DoNotUseInstantSchema<any, any, any>> = {
+export type InstantConfig<S extends InstantSchemaDef<any, any, any>> = {
   appId: string;
   websocketURI?: string;
   apiURI?: string;
@@ -132,15 +133,15 @@ type SubscriptionState<Q, Schema, WithCardinalityInference extends boolean> =
       pageInfo: PageInfoResponse<Q>;
     };
 
-type DoNotUseSubscriptionState<Q, Schema> =
+type InstaQLSubscriptionState<Schema, Q> =
   | { error: { message: string }; data: undefined; pageInfo: undefined }
   | {
       error: undefined;
-      data: DoNotUseQueryResponse<Q, Schema>;
+      data: InstaQLResponse<Schema, Q>;
       pageInfo: PageInfoResponse<Q>;
     };
 
-type DoNotUseLifecycleSubscriptionState<
+type LifecycleSubscriptionState<
   Q,
   Schema,
   WithCardinalityInference extends boolean,
@@ -148,10 +149,9 @@ type DoNotUseLifecycleSubscriptionState<
   isLoading: boolean;
 };
 
-type DoNotUseDoNotUseLifecycleSubscriptionState<Q, Schema> =
-  DoNotUseSubscriptionState<Q, Schema> & {
-    isLoading: boolean;
-  };
+type InstaQLLifecycleState<Schema, Q> = InstaQLSubscriptionState<Schema, Q> & {
+  isLoading: boolean;
+};
 
 type UnsubscribeFn = () => void;
 
@@ -169,32 +169,6 @@ function initGlobalInstantCoreStore(): Record<string, any> {
 }
 
 const globalInstantCoreStore = initGlobalInstantCoreStore();
-
-function init_experimental<
-  Schema extends InstantGraph<any, any, any>,
-  WithCardinalityInference extends boolean = true,
->(
-  config: Config & {
-    schema: Schema;
-    cardinalityInference?: WithCardinalityInference;
-  },
-  Storage?: any,
-  NetworkListener?: any,
-): InstantCore<
-  Schema,
-  Schema extends InstantGraph<any, any, infer RoomSchema> ? RoomSchema : never,
-  WithCardinalityInference
-> {
-  return _init_internal<
-    Schema,
-    Schema extends InstantGraph<any, any, infer RoomSchema>
-      ? RoomSchema
-      : never,
-    WithCardinalityInference
-  >(config, Storage, NetworkListener);
-}
-
-// main
 
 /**
  *
@@ -357,7 +331,7 @@ class InstantCore<
    */
   subscribeQuery<
     Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
+      ? InstaQLParams<Schema>
       : Exactly<Query, Q>,
   >(
     query: Q,
@@ -445,7 +419,7 @@ class InstantCore<
    */
   queryOnce<
     Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
+      ? InstaQLParams<Schema>
       : Exactly<Query, Q>,
   >(
     query: Q,
@@ -651,8 +625,8 @@ function coerceQuery(o: any) {
   return JSON.parse(JSON.stringify(o));
 }
 
-class DoNotUseInstantCore<Schema extends DoNotUseInstantSchema<any, any, any>>
-  implements IDoNotUseDatabase<Schema>
+class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
+  implements IInstantDatabase<Schema>
 {
   public _reactor: Reactor<RoomsOf<Schema>>;
   public auth: Auth;
@@ -723,9 +697,9 @@ class DoNotUseInstantCore<Schema extends DoNotUseInstantSchema<any, any, any>>
    *    console.log(resp.data.goals)
    *  });
    */
-  subscribeQuery<Q extends InstaQLQueryParams<Schema>>(
+  subscribeQuery<Q extends InstaQLParams<Schema>>(
     query: Q,
-    cb: (resp: DoNotUseSubscriptionState<Q, Schema>) => void,
+    cb: (resp: InstaQLSubscriptionState<Schema, Q>) => void,
   ) {
     return this._reactor.subscribeQuery(query, cb);
   }
@@ -804,36 +778,26 @@ class DoNotUseInstantCore<Schema extends DoNotUseInstantSchema<any, any, any>>
    *  const resp = await db.queryOnce({ goals: {} });
    *  console.log(resp.data.goals)
    */
-  queryOnce<Q extends InstaQLQueryParams<Schema>>(
+  queryOnce<Q extends InstaQLParams<Schema>>(
     query: Q,
   ): Promise<{
-    data: DoNotUseQueryResponse<Q, Schema>;
+    data: InstaQLResponse<Schema, Q>;
     pageInfo: PageInfoResponse<Q>;
   }> {
     return this._reactor.queryOnce(query);
   }
 }
 
-function do_not_use_init_experimental<
-  Schema extends DoNotUseInstantSchema<any, any, any> = DoNotUseUnknownSchema,
+function init_experimental<
+  Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
 >(
-  config: DoNotUseConfig<Schema>,
+  config: InstantConfig<Schema>,
   Storage?: any,
   NetworkListener?: any,
-): DoNotUseInstantCore<Schema> {
-  return _do_not_use_init_internal<Schema>(config, Storage, NetworkListener);
-}
-
-function _do_not_use_init_internal<
-  Schema extends DoNotUseInstantSchema<any, any, any>,
->(
-  config: DoNotUseConfig<Schema>,
-  Storage?: any,
-  NetworkListener?: any,
-): DoNotUseInstantCore<Schema> {
+): InstantCoreDatabase<Schema> {
   const existingClient = globalInstantCoreStore[
     config.appId
-  ] as DoNotUseInstantCore<any>;
+  ] as InstantCoreDatabase<any>;
 
   if (existingClient) {
     return existingClient;
@@ -849,7 +813,7 @@ function _do_not_use_init_internal<
     NetworkListener || WindowNetworkListener,
   );
 
-  const client = new DoNotUseInstantCore<any>(reactor);
+  const client = new InstantCoreDatabase<any>(reactor);
   globalInstantCoreStore[config.appId] = client;
 
   if (typeof window !== "undefined" && typeof window.location !== "undefined") {
@@ -873,9 +837,7 @@ export {
   // bada bing bada boom
   init,
   init_experimental,
-  do_not_use_init_experimental,
   _init_internal,
-  _do_not_use_init_internal,
   id,
   tx,
   txInit,
@@ -891,18 +853,17 @@ export {
   IndexedDBStorage,
   WindowNetworkListener,
   InstantCore as InstantClient,
-  DoNotUseInstantCore as DoNotUseInstantClient,
+  InstantCoreDatabase,
   Auth,
   Storage,
   version,
 
   // og types
   type IDatabase,
-  type IDoNotUseDatabase,
   type RoomSchemaShape,
   type Query,
   type QueryResponse,
-  type DoNotUseQueryResponse,
+  type InstaQLResponse,
   type PageInfoResponse,
   type InstantObject,
   type Exactly,
@@ -912,9 +873,9 @@ export {
   type AuthToken,
   type TxChunk,
   type SubscriptionState,
-  type DoNotUseSubscriptionState,
-  type DoNotUseLifecycleSubscriptionState,
-  type DoNotUseDoNotUseLifecycleSubscriptionState,
+  type InstaQLSubscriptionState,
+  type LifecycleSubscriptionState,
+  type InstaQLLifecycleState,
 
   // presence types
   type PresenceOpts,
@@ -922,6 +883,7 @@ export {
   type PresenceResponse,
 
   // new query types
+  type InstaQLParams,
   type InstaQLQueryParams,
   type InstantQuery,
   type InstantQueryResult,
@@ -946,8 +908,9 @@ export {
   type RoomsOf,
   type PresenceOf,
   type TopicsOf,
-  type DoNotUseInstantEntity,
-  type DoNotUseInstaQLQueryResult,
-  type DoNotUseInstantSchema,
-  type DoNotUseUnknownSchema,
+  type InstaQLEntity,
+  type InstaQLResult,
+  type InstantSchemaDef,
+  type InstantUnknownSchema,
+  type IInstantDatabase,
 };

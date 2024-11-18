@@ -7,9 +7,10 @@ import version from "./version";
 import {
   // react
   InstantReact,
-  DoNotUseInstantReact,
+  InstantReactAbstractDatabase,
 
   // types
+  type IInstantDatabase,
   type Config,
   type Query,
   type QueryResponse,
@@ -43,11 +44,11 @@ import {
   type ValueTypes,
   type InstantEntity,
   type ConfigWithSchema,
-  type DoNotUseInstantEntity,
-  type DoNotUseInstaQLQueryResult,
-  type DoNotUseConfig,
-  type DoNotUseInstantSchema,
-  type DoNotUseUnknownSchema,
+  type InstaQLEntity,
+  type InstaQLResult,
+  type InstantConfig,
+  type InstantSchemaDef,
+  type InstantUnknownSchema,
 } from "@instantdb/core";
 
 /**
@@ -77,27 +78,9 @@ function init<Schema extends {} = {}, RoomSchema extends RoomSchemaShape = {}>(
 }
 
 function init_experimental<
-  Schema extends InstantGraph<any, any, any>,
-  WithCardinalityInference extends boolean = true,
->(
-  config: Config & {
-    schema: Schema;
-    cardinalityInference?: WithCardinalityInference;
-  },
-) {
-  return new InstantReactNative<
-    Schema,
-    Schema extends InstantGraph<any, any, infer RoomSchema>
-      ? RoomSchema
-      : never,
-    WithCardinalityInference
-  >(config);
-}
-
-function do_not_use_init_experimental<
-  Schema extends DoNotUseInstantSchema<any, any, any> = DoNotUseUnknownSchema,
->(config: DoNotUseConfig<Schema>) {
-  return new DoNotUseInstantReactNative<Schema>(config);
+  Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
+>(config: InstantConfig<Schema>) {
+  return new InstantReactNativeDatabase<Schema>(config);
 }
 
 class InstantReactNative<
@@ -113,9 +96,9 @@ class InstantReactNative<
   }
 }
 
-class DoNotUseInstantReactNative<
-  Schema extends DoNotUseInstantSchema<any, any, any>,
-> extends DoNotUseInstantReact<Schema> {
+class InstantReactNativeDatabase<
+  Schema extends InstantSchemaDef<any, any, any>,
+> extends InstantReactAbstractDatabase<Schema> {
   static Storage = Storage;
   static NetworkListener = NetworkListener;
 }
@@ -123,7 +106,6 @@ class DoNotUseInstantReactNative<
 export {
   init,
   init_experimental,
-  do_not_use_init_experimental,
   id,
   tx,
   lookup,
@@ -141,6 +123,7 @@ export {
   type InstantQueryResult,
   type InstantSchema,
   type InstantSchemaDatabase,
+  type IInstantDatabase,
   type InstantEntity,
   type RoomSchemaShape,
 
@@ -157,8 +140,8 @@ export {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
-  type DoNotUseInstantEntity,
-  type DoNotUseInstaQLQueryResult,
-  type DoNotUseInstantSchema,
-  type DoNotUseUnknownSchema,
+  type InstaQLEntity,
+  type InstaQLResult,
+  type InstantSchemaDef,
+  type InstantUnknownSchema,
 };
