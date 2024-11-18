@@ -498,7 +498,7 @@
 
 (defn validate-reserved-names!
   "Throws a validation error if the users tries to add triples to the $users table"
-  [attrs tx-steps]
+  [admin? attrs tx-steps]
   (doseq [tx-step tx-steps
           :let [etype (case (first tx-step)
                         (:add-triple :deep-merge-triple :retract-triple)
@@ -511,7 +511,9 @@
                           etype)
 
                         nil)]
-          :when (and etype (string/starts-with? etype "$"))]
+          :when (and etype
+                     (string/starts-with? etype "$")
+                     (not (and admin? (= etype "$users"))))]
     (ex/throw-validation-err!
      :tx-step
      tx-step
@@ -542,7 +544,7 @@
   [{:keys [db app-id admin? admin-check? admin-dry-run? attrs] :as ctx} tx-steps]
   (tracer/with-span! {:name "permissioned-transaction/transact!"
                       :attributes {:app-id app-id}}
-    (validate-reserved-names! attrs tx-steps)
+    (validate-reserved-names! admin? attrs tx-steps)
     (let [{:keys [conn-pool]} db]
       (next-jdbc/with-transaction [tx-conn conn-pool]
         ;; transact does read and then a write.

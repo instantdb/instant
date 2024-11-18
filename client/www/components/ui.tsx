@@ -282,6 +282,7 @@ export function Select({
   disabled,
   emptyLabel,
   tabIndex,
+  title,
 }: {
   value?: string;
   options: { label: string; value: string }[];
@@ -290,9 +291,11 @@ export function Select({
   disabled?: boolean;
   emptyLabel?: string;
   tabIndex?: number;
+  title?: string | null | undefined;
 }) {
   return (
     <select
+      title={title}
       tabIndex={tabIndex}
       value={value ?? undefined}
       disabled={disabled}

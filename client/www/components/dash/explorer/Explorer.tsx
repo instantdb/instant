@@ -116,7 +116,12 @@ export function Explorer({
     [namespaces, currentNav?.namespace],
   );
 
-  const readOnlyNs = selectedNamespace && selectedNamespace.name === '$users';
+  const isSystemCatalogNs =
+    selectedNamespace != null &&
+    selectedNamespace.name != null &&
+    selectedNamespace.name.startsWith('$');
+
+  const readOnlyNs = isSystemCatalogNs && selectedNamespace.name !== '$users';
 
   const [limit, setLimit] = useState(50);
   const [offsets, setOffsets] = useState<{ [namespace: string]: number }>({});
@@ -244,7 +249,8 @@ export function Explorer({
       <Dialog open={Boolean(editNs)} onClose={() => setEditNs(null)}>
         {selectedNamespace ? (
           <EditNamespaceDialog
-            readOnly={!!readOnlyNs}
+            readOnly={readOnlyNs}
+            isSystemCatalogNs={isSystemCatalogNs}
             appId={appId}
             db={db}
             namespace={selectedNamespace}
