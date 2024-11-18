@@ -24,6 +24,7 @@ import {
   type InstantSchemaDatabase,
   type InstantObject,
   type InstantEntity,
+  type BackwardsCompatibleSchema,
   type IInstantDatabase,
 
   // schema types
@@ -905,6 +906,7 @@ export {
   type IInstantDatabase,
   type InstantObject,
   type InstantEntity,
+  type BackwardsCompatibleSchema,
 
   // schema types
   type AttrsDefs,

@@ -36,6 +36,7 @@ import {
   type InstaQLResult,
   type InstantUnknownSchema,
   type InstantSchemaDef,
+  type BackwardsCompatibleSchema,
 } from "@instantdb/core";
 
 import { InstantReact } from "./InstantReact";
@@ -92,4 +93,5 @@ export {
   type InstaQLResult,
   type InstantUnknownSchema,
   type InstantSchemaDef,
+  type BackwardsCompatibleSchema,
 };

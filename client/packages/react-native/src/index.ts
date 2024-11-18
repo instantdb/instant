@@ -10,6 +10,7 @@ import {
   InstantReactAbstractDatabase,
 
   // types
+  type BackwardsCompatibleSchema,
   type IInstantDatabase,
   type Config,
   type Query,
@@ -144,4 +145,5 @@ export {
   type InstaQLResult,
   type InstantSchemaDef,
   type InstantUnknownSchema,
+  type BackwardsCompatibleSchema,
 };
