@@ -2,6 +2,9 @@
   (:require [instant.util.async :refer [vfuture vfut-bg]]
             [clojure.test :refer [is deftest testing]]))
 
+(deftest vfuture-works
+  (is (= 1 @(vfuture 1))))
+
 (deftest child-vfutures-are-canceled
   (testing "demonstrate the problem"
     (let [signal (atom nil)
@@ -22,7 +25,22 @@
       (future-cancel v)
       (Thread/sleep 50)
       (deliver go-ahead true)
-     (Thread/sleep 50)
+      (Thread/sleep 50)
+      (is (thrown? java.util.concurrent.CancellationException @v))
+      (is (= @signal nil))))
+  (testing "works with multiple levels fix"
+    (let [signal (atom nil)
+          go-ahead (promise)
+          v (vfuture
+              @(vfuture
+                 @(vfuture
+                    @(vfuture
+                       @(vfuture @go-ahead (reset! signal :whoops!))))))]
+      (Thread/sleep 50)
+      (future-cancel v)
+      (Thread/sleep 50)
+      (deliver go-ahead true)
+      (Thread/sleep 50)
       (is (thrown? java.util.concurrent.CancellationException @v))
       (is (= @signal nil)))))
 
