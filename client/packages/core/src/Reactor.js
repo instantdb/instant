@@ -900,7 +900,7 @@ export default class Reactor {
   pushTx = (chunks) => {
     try {
       const txSteps = instaml.transform(
-        { attrs: this.optimisticAttrs() },
+        { attrs: this.optimisticAttrs(), schema: this.config.schema },
         chunks,
       );
       return this.pushOps(txSteps);
