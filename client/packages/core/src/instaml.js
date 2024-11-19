@@ -251,7 +251,7 @@ function objectPropsFromSchema(schema, etype, label) {
   };
 }
 
-function createObjectAttr2(schema, etype, label, props) {
+function createObjectAttr(schema, etype, label, props) {
   const schemaObjectProps = schema
     ? objectPropsFromSchema(schema, etype, label)
     : {};
@@ -410,7 +410,7 @@ function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
         } else {
           const attr = getAttrByFwdIdentName(attrs, linkEtype, identName);
           if (!attr) {
-            addAttr(createObjectAttr2(schema, linkEtype, identName, lookupProps));
+            addAttr(createObjectAttr(schema, linkEtype, identName, lookupProps));
           }
           addUnsynced(attr);
         }
@@ -419,7 +419,7 @@ function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
       } else {
         const attr = getAttrByFwdIdentName(attrs, etype, identName);
         if (!attr) {
-          addAttr(createObjectAttr2(schema, etype, identName, lookupProps));
+          addAttr(createObjectAttr(schema, etype, identName, lookupProps));
         }
         addUnsynced(attr);
       }
@@ -438,7 +438,7 @@ function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
         if (UPDATE_ACTIONS.has(action)) {
           if (!fwdAttr) {
             addAttr(
-              createObjectAttr2(
+              createObjectAttr(
                 schema,
                 etype,
                 label,
