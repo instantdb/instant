@@ -240,7 +240,7 @@ function toTxSteps(attrs, step) {
 
 function objectPropsFromSchema(schema, etype, label) {
   const attr = schema.entities[etype]?.attrs?.[label];
-  if (label === "id") return {};
+  if (label === "id") return null;
   if (!attr) {
     throw new Error(`${etype}.${label} does not exist in your schema`);
   }
@@ -254,7 +254,7 @@ function objectPropsFromSchema(schema, etype, label) {
 function createObjectAttr(schema, etype, label, props) {
   const schemaObjectProps = schema
     ? objectPropsFromSchema(schema, etype, label)
-    : {};
+    : null;
   const attrId = uuid();
   const fwdIdentId = uuid();
   const fwdIdent = [fwdIdentId, etype, label];
@@ -266,7 +266,7 @@ function createObjectAttr(schema, etype, label, props) {
     "unique?": false,
     "index?": false,
     isUnsynced: true,
-    ...schemaObjectProps,
+    ...(schemaObjectProps || {}),
     ...(props || {}),
   };
 }
@@ -296,7 +296,9 @@ function refPropsFromSchema(schema, etype, label) {
 }
 
 function createRefAttr(schema, etype, label, props) {
-  const schemaRefProps = schema ? refPropsFromSchema(schema, etype, label) : {};
+  const schemaRefProps = schema
+    ? refPropsFromSchema(schema, etype, label)
+    : null;
   const attrId = uuid();
   const fwdIdent = [uuid(), etype, label];
   const revIdent = [uuid(), label, etype];
@@ -309,7 +311,7 @@ function createRefAttr(schema, etype, label, props) {
     "unique?": false,
     "index?": false,
     isUnsynced: true,
-    ...schemaRefProps,
+    ...(schemaRefProps || {}),
     ...(props || {}),
   };
 }
@@ -388,7 +390,7 @@ function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
   // before we get to it
   for (const op of ops) {
     for (const { etype, lookupPair, linkLabel } of lookupPairsOfOp(op)) {
-      debugger
+      debugger;
       const identName = lookupPair[0];
       // We got a link eid that's a lookup, linkLabel is the label of the ident,
       // e.g. `posts` in `link({posts: postIds})`
@@ -411,7 +413,9 @@ function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
         } else {
           const attr = getAttrByFwdIdentName(attrs, linkEtype, identName);
           if (!attr) {
-            addAttr(createObjectAttr(schema, linkEtype, identName, lookupProps));
+            addAttr(
+              createObjectAttr(schema, linkEtype, identName, lookupProps),
+            );
           }
           addUnsynced(attr);
         }
