@@ -3,6 +3,7 @@ import * as instaml from "../../src/instaml";
 import * as instatx from "../../src/instatx";
 import zenecaAttrs from "./data/zeneca/attrs.json";
 import uuid from "../../src/utils/uuid";
+import { i } from "../../src/index";
 
 const zenecaAttrToId = zenecaAttrs.reduce((res, x) => {
   res[`${x["forward-identity"][1]}/${x["forward-identity"][2]}`] = x.id;
@@ -448,7 +449,6 @@ test("lookup doesn't override attrs for lookups in self links", () => {
     .update({})
     .link({ parent: instatx.lookup("slug", "life-is-good") });
 
-
   const result1 = instaml.transform(attrs, ops1);
 
   expect(result1.filter((x) => x[0] !== "add-triple")).toEqual([]);
@@ -456,7 +456,6 @@ test("lookup doesn't override attrs for lookups in self links", () => {
   const ops2 = instatx.tx.posts[instatx.lookup("slug", "life-is-good")]
     .update({})
     .link({ child: instatx.lookup("slug", "life-is-good") });
-
 
   const result2 = instaml.transform(attrs, ops2);
 
@@ -694,3 +693,92 @@ test("it doesn't create duplicate ref attrs", () => {
   }
 });
 
+test("Uses schema to build optimistic attrs", () => {
+  const schema = i.graph(
+    {
+      comments: i.entity({
+        slug: i.string().unique().indexed(),
+      }),
+      books: i.entity({}),
+    },
+    {
+      commentBooks: {
+        forward: {
+          on: "comments",
+          has: "one",
+          label: "book",
+        },
+        reverse: {
+          on: "books",
+          has: "many",
+          label: "comments",
+        },
+      },
+    },
+  );
+
+  const commentId = uuid();
+  const bookId = uuid();
+  const ops = instatx.tx.comments[commentId]
+    .update({
+      slug: "test-slug",
+    })
+    .link({
+      book: bookId,
+    });
+
+  const result = instaml.transform2(
+    {
+      attrs: zenecaAttrs,
+      schema: schema,
+    },
+    ops,
+  );
+
+  const expected = [
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "comments", "slug"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": true,
+        "index?": true,
+        isUnsynced: true,
+      },
+    ],
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "comments", "id"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": true,
+        "index?": false,
+        isUnsynced: true,
+      },
+    ],
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "comments", "book"],
+        "reverse-identity": [expect.any(String), "books", "comments"],
+        "value-type": "ref",
+        cardinality: "one",
+        "unique?": false,
+        "index?": false,
+        isUnsynced: true,
+      },
+    ],
+    ["add-triple", commentId, expect.any(String), commentId],
+    ["add-triple", commentId, expect.any(String), "test-slug"],
+    ["add-triple", commentId, expect.any(String), bookId],
+  ];
+  expect(result).toHaveLength(expected.length);  
+  for (const item of expected) {
+    expect(result).toContainEqual(item);
+  }
+});

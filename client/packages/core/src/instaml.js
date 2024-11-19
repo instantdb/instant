@@ -207,14 +207,14 @@ function expandDeepMerge(attrs, [etype, eid, obj]) {
   // id first so that we don't clobber updates on the lookup field
   return [idTuple].concat(attrTuples);
 }
-function removeIdFromArgs(step) { 
+function removeIdFromArgs(step) {
   const [op, etype, eid, obj] = step;
   if (!obj) {
     return step;
   }
-  const newObj = {...obj};
-  delete newObj.id
-  return [op, etype, eid, newObj]
+  const newObj = { ...obj };
+  delete newObj.id;
+  return [op, etype, eid, newObj];
 }
 
 function toTxSteps(attrs, step) {
@@ -238,6 +238,39 @@ function toTxSteps(attrs, step) {
 // ---------
 // transform
 
+function objectPropsFromSchema(schema, etype, label) {
+  const attr = schema.entities[etype]?.attrs?.[label];
+  if (label === "id") return {};
+  if (!attr) {
+    throw new Error(`${etype}.${label} does not exist in your schema`);
+  }
+  const { unique, indexed } = attr?.config;
+  return {
+    "index?": indexed,
+    "unique?": unique,
+  };
+}
+
+function createObjectAttr2(schema, etype, label, props) {
+  const schemaObjectProps = schema
+    ? objectPropsFromSchema(schema, etype, label)
+    : {};
+  const attrId = uuid();
+  const fwdIdentId = uuid();
+  const fwdIdent = [fwdIdentId, etype, label];
+  return {
+    id: attrId,
+    "forward-identity": fwdIdent,
+    "value-type": "blob",
+    cardinality: "one",
+    "unique?": false,
+    "index?": false,
+    isUnsynced: true,
+    ...schemaObjectProps,
+    ...(props || {}),
+  };
+}
+
 function createObjectAttr(etype, label, props) {
   const attrId = uuid();
   const fwdIdentId = uuid();
@@ -250,6 +283,49 @@ function createObjectAttr(etype, label, props) {
     "unique?": false,
     "index?": false,
     isUnsynced: true,
+    ...(props || {}),
+  };
+}
+
+function findSchemaLink(schema, etype, label) {
+  const found = Object.values(schema.links).find((x) => {
+    return (
+      (x.forward.on === etype && x.forward.label === label) ||
+      (x.reverse.on === etype && x.reverse.label === label)
+    );
+  });
+  return found;
+}
+
+function refPropsFromSchema(schema, etype, label) {
+  const found = findSchemaLink(schema, etype, label);
+  if (!found) {
+    throw new Error(`Couldn't find the link ${etype}.${label} in your schema`);
+  }
+  const {forward, reverse} = found;
+  return {
+    'forward-identity': [uuid(), forward.on, forward.label],
+    'reverse-identity': [uuid(), reverse.on, reverse.label], 
+    'cardinality': forward.has === 'one' ? 'one' : 'many',
+    'unique?': reverse.has === 'one', 
+  }
+}
+
+function createRefAttr2(schema, etype, label, props) {
+  const schemaRefProps = schema ? refPropsFromSchema(schema, etype, label) : {};
+  const attrId = uuid();
+  const fwdIdent = [uuid(), etype, label];
+  const revIdent = [uuid(), label, etype];
+  return {
+    id: attrId,
+    "forward-identity": fwdIdent,
+    "reverse-identity": revIdent,
+    "value-type": "ref",
+    cardinality: "many",
+    "unique?": false,
+    "index?": false,
+    isUnsynced: true,
+    ...schemaRefProps,
     ...(props || {}),
   };
 }
@@ -317,7 +393,7 @@ function lookupPairsOfOp(op) {
   return res;
 }
 
-function createMissingAttrs(existingAttrs, ops) {
+function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
   const [addedIds, attrs, addOps] = [new Set(), { ...existingAttrs }, []];
   function addAttr(attr) {
     attrs[attr.id] = attr;
@@ -352,6 +428,7 @@ function createMissingAttrs(existingAttrs, ops) {
       // e.g. `posts` in `link({posts: postIds})`
       if (linkLabel) {
         // Add our ref attr, e.g. users.posts
+        // TODO1
         addForRef(etype, linkLabel);
 
         // Figure out the link etype so we can make sure we have the attrs
@@ -365,6 +442,7 @@ function createMissingAttrs(existingAttrs, ops) {
           revAttr?.["forward-identity"]?.[1] ||
           linkLabel;
         if (isRefLookupIdent(attrs, linkEtype, identName)) {
+          // TODO2:
           addForRef(linkEtype, extractRefLookupFwdName(identName));
         } else {
           const attr = getAttrByFwdIdentName(attrs, linkEtype, identName);
@@ -374,8 +452,10 @@ function createMissingAttrs(existingAttrs, ops) {
           addUnsynced(attr);
         }
       } else if (isRefLookupIdent(attrs, etype, identName)) {
+        // TODO3:
         addForRef(etype, extractRefLookupFwdName(identName));
       } else {
+        // TODO4:
         const attr = getAttrByFwdIdentName(attrs, etype, identName);
         if (!attr) {
           addAttr(createObjectAttr(etype, identName, lookupProps));
@@ -397,7 +477,8 @@ function createMissingAttrs(existingAttrs, ops) {
         if (UPDATE_ACTIONS.has(action)) {
           if (!fwdAttr) {
             addAttr(
-              createObjectAttr(
+              createObjectAttr2(
+                schema,
                 etype,
                 label,
                 label === "id" ? { "unique?": true } : null,
@@ -408,7 +489,8 @@ function createMissingAttrs(existingAttrs, ops) {
         if (REF_ACTIONS.has(action)) {
           const revAttr = getAttrByReverseIdentName(attrs, etype, label);
           if (!fwdAttr && !revAttr) {
-            addAttr(createRefAttr(etype, label));
+            // TODO6
+            addAttr(createRefAttr2(schema, etype, label));
           }
           addUnsynced(revAttr);
         }
@@ -421,7 +503,15 @@ function createMissingAttrs(existingAttrs, ops) {
 export function transform(attrs, inputChunks) {
   const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
   const ops = chunks.flatMap((tx) => getOps(tx));
-  const [newAttrs, addAttrTxSteps] = createMissingAttrs(attrs, ops);
+  const [newAttrs, addAttrTxSteps] = createMissingAttrs({ attrs }, ops);
+  const txSteps = ops.flatMap((op) => toTxSteps(newAttrs, op));
+  return [...addAttrTxSteps, ...txSteps];
+}
+
+export function transform2(ctx, inputChunks) {
+  const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
+  const ops = chunks.flatMap((tx) => getOps(tx));
+  const [newAttrs, addAttrTxSteps] = createMissingAttrs(ctx, ops);
   const txSteps = ops.flatMap((op) => toTxSteps(newAttrs, op));
   return [...addAttrTxSteps, ...txSteps];
 }
