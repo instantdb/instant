@@ -263,7 +263,7 @@ jobs:
         bucket: "elasticbeanstalk-us-east-1-597134865416"
         application-name: "instant-docker-prod"
 
-  detect-refinery:
+  detect_refinery:
     runs-on: ubuntu-latest
     # XXX
     ## if: github.ref == 'refs/heads/main'
@@ -299,7 +299,7 @@ jobs:
     runs-on: ubuntu-latest
     if: needs.detect_refinery.outputs.did_change == 'True'
     needs:
-      - detect-refinery
+      - detect_refinery
     permissions:
       id-token: write
       contents: read
