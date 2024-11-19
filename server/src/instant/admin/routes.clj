@@ -139,7 +139,6 @@
 ;; Transact
 
 (defn transact-post [req]
-  (tool/def-locals!)
   (let [steps (ex/get-param! req [:body :steps] #(when (coll? %) %))
         throw-on-missing-attrs? (ex/get-optional-param!
                                  req
