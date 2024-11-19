@@ -223,6 +223,25 @@
                      :tx-id tx-id
                      :client-event-id client-event-id})))
 
+;; -----
+;; error
+
+(defn handle-error! [store-conn sess-id {:keys [status
+                                                client-event-id
+                                                original-event
+                                                type
+                                                message
+                                                hint]}]
+  (rs/send-event! store-conn
+                  sess-id
+                  {:op :error
+                   :status status
+                   :client-event-id client-event-id
+                   :original-event original-event
+                   :type type
+                   :message message
+                   :hint hint}))
+
 ;; ------
 ;; worker
 
@@ -345,6 +364,7 @@
         :remove-query (handle-remove-query! store-conn id event)
         :refresh (handle-refresh! store-conn id event)
         :transact (handle-transact! store-conn id event)
+        :error (handle-error! store-conn id event)
         ;; -----
         ;; EPH events
         :join-room (handle-join-room! store-conn eph-store-atom id event)
@@ -357,63 +377,69 @@
 ;; --------------
 ;; Receive Workers
 
-(defn- handle-instant-exception [store-conn session original-event instant-ex]
+(defn- handle-instant-exception [session original-event instant-ex]
   (let [sess-id (:session/id session)
+        q (:receive-q (:session/socket session))
         {:keys [client-event-id]} original-event
         {:keys [::ex/type ::ex/message ::ex/hint] :as err-data} (ex-data instant-ex)]
     (tracer/add-data! {:attributes {:err-data (pr-str err-data)}})
-    (condp contains? type
-      #{::ex/record-not-found
-        ::ex/record-expired
-        ::ex/record-not-unique
-        ::ex/record-foreign-key-invalid
-        ::ex/record-check-violation
-        ::ex/sql-raise
+    (case type
+      (::ex/record-not-found
+       ::ex/record-expired
+       ::ex/record-not-unique
+       ::ex/record-foreign-key-invalid
+       ::ex/record-check-violation
+       ::ex/sql-raise
 
-        ::ex/permission-denied
-        ::ex/permission-evaluation-failed
+       ::ex/permission-denied
+       ::ex/permission-evaluation-failed
 
-        ::ex/param-missing
-        ::ex/param-malformed
+       ::ex/param-missing
+       ::ex/param-malformed
 
-        ::ex/validation-failed}
-      (rs/try-send-event! store-conn sess-id
-                          {:op :error
-                           :status 400
-                           :client-event-id client-event-id
-                           :original-event original-event
-                           :type (keyword (name type))
-                           :message message
-                           :hint hint})
+       ::ex/validation-failed)
+      (receive-queue/enqueue->receive-q q
+                                        {:op :error
+                                         :status 400
+                                         :client-event-id client-event-id
+                                         :original-event original-event
+                                         :type (keyword (name type))
+                                         :message message
+                                         :hint hint
+                                         :session-id sess-id})
 
-      #{::ex/session-missing
-        ::ex/socket-missing
-        ::ex/socket-error}
+      (::ex/session-missing
+       ::ex/socket-missing
+       ::ex/socket-error)
       (tracer/record-exception-span! instant-ex
                                      {:name "receive-worker/socket-unreachable"})
 
       (do
         (tracer/add-exception! instant-ex {:escaping? false})
-        (rs/try-send-event! store-conn sess-id
-                            {:op :error
-                             :status 500
-                             :client-event-id client-event-id
-                             :original-event original-event
-                             :type (keyword (name type))
-                             :message message
-                             :hint hint})))))
+        (receive-queue/enqueue->receive-q q
+                                          {:op :error
+                                           :status 500
+                                           :client-event-id client-event-id
+                                           :original-event original-event
+                                           :type (keyword (name type))
+                                           :message message
+                                           :hint hint
+                                           :session-id sess-id})))))
 
-(defn- handle-uncaught-err [store-conn session original-event root-err]
+(defn- handle-uncaught-err [session original-event root-err]
   (let [sess-id (:session/id session)
+        q (:receive-q (:session/socket session))
         {:keys [client-event-id]} original-event]
     (tracer/add-exception! root-err {:escaping? false})
-    (rs/try-send-event! store-conn sess-id
-                        {:op :error
-                         :client-event-id client-event-id
-                         :status 500
-                         :original-event original-event
-                         :message (str "Yikes, something broke on our end! Sorry about that."
-                                       " Please ping us (Joe and Stopa) on Discord and let us know!")})))
+
+    (receive-queue/enqueue->receive-q q
+                                      {:op :error
+                                       :client-event-id client-event-id
+                                       :status 500
+                                       :original-event original-event
+                                       :message (str "Yikes, something broke on our end! Sorry about that."
+                                                     " Please ping us (Joe and Stopa) on Discord and let us know!")
+                                       :session-id sess-id})))
 
 (defn handle-receive-attrs [store-conn session event metadata]
   (let [{:keys [session/socket]} session
@@ -462,10 +488,10 @@
                   instant-ex (ex/find-instant-exception e)
                   root-err (root-cause e)]
               (cond
-                instant-ex (handle-instant-exception
-                            store-conn session original-event instant-ex)
-                :else (handle-uncaught-err
-                       store-conn session original-event root-err))))
+                instant-ex (handle-instant-exception session
+                                                     original-event
+                                                     instant-ex)
+                :else (handle-uncaught-err session original-event root-err))))
           (finally
             (swap! pending-handlers disj pending-handler)))))))
 
@@ -563,24 +589,27 @@
 
     (grouped-queue/inflight-queue-reserve 1 inflight-q)))
 
+(defn start-receive-worker [store-conn eph-store-atom receive-q stop-signal id]
+  (ua/vfut-bg
+    (loop []
+      (if @stop-signal
+        (tracer/record-info! {:name "receive-worker/shutdown-complete"
+                              :attributes {:worker-n id}})
+        (do (grouped-queue/process-polling!
+             receive-q
+             {:reserve-fn receive-worker-reserve-fn
+              :process-fn (fn [group-key batch]
+                            (straight-jacket-process-receive-q-batch store-conn
+                                                                     eph-store-atom
+                                                                     batch
+                                                                     {:worker-n id
+                                                                      :batch-size (count batch)
+                                                                      :group-key group-key}))})
+            (recur))))))
+
 (defn start-receive-workers [store-conn eph-store-atom receive-q stop-signal]
   (doseq [n (range num-receive-workers)]
-    (ua/vfut-bg
-      (loop []
-        (if @stop-signal
-          (tracer/record-info! {:name "receive-worker/shutdown-complete"
-                                :attributes {:worker-n n}})
-          (do (grouped-queue/process-polling!
-               receive-q
-               {:reserve-fn receive-worker-reserve-fn
-                :process-fn (fn [group-key batch]
-                              (straight-jacket-process-receive-q-batch store-conn
-                                                                       eph-store-atom
-                                                                       batch
-                                                                       {:worker-n n
-                                                                        :batch-size (count batch)
-                                                                        :group-key group-key}))})
-              (recur)))))))
+    (start-receive-worker store-conn eph-store-atom receive-q stop-signal n)))
 
 ;; -----------------
 ;; Websocket Interop
@@ -674,6 +703,9 @@
 
       :refresh-presence
       [:refresh-presence session-id room-id]
+
+      :error
+      [:error session-id]
 
       nil)))
 
