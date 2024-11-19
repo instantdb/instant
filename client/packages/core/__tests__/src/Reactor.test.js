@@ -112,7 +112,7 @@ test("rewrite mutations", () => {
   ];
 
   // create transactions without any attributes
-  const optimisticSteps = instaml.transform({}, ops);
+  const optimisticSteps = instaml.transform({ attrs: {} }, ops);
 
   const mutations = new Map([["k", { "tx-steps": optimisticSteps }]]);
 
@@ -128,7 +128,7 @@ test("rewrite mutations", () => {
     ._rewriteMutations(zenecaIdToAttr, mutations)
     .get("k")["tx-steps"];
 
-  const serverSteps = instaml.transform(zenecaIdToAttr, ops);
+  const serverSteps = instaml.transform({ attrs: zenecaIdToAttr }, ops);
   expect(rewrittenSteps).toEqual(serverSteps);
 });
 
@@ -159,7 +159,7 @@ test("rewrite mutations works with multiple transactions", () => {
 
   for (const k of keys) {
     const attrs = reactor.optimisticAttrs();
-    const steps = instaml.transform(attrs, ops);
+    const steps = instaml.transform({ attrs }, ops);
     const mut = {
       op: "transact",
       "tx-steps": steps,
@@ -176,7 +176,7 @@ test("rewrite mutations works with multiple transactions", () => {
     reactor.pendingMutations.currentValue,
   );
 
-  const serverSteps = instaml.transform(zenecaIdToAttr, ops);
+  const serverSteps = instaml.transform({ attrs: zenecaIdToAttr }, ops);
   for (const k of keys) {
     expect(rewrittenMutations.get(k)["tx-steps"]).toEqual(serverSteps);
   }

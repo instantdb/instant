@@ -899,7 +899,10 @@ export default class Reactor {
   /** Applies transactions locally and sends transact message to server */
   pushTx = (chunks) => {
     try {
-      const txSteps = instaml.transform(this.optimisticAttrs(), chunks);
+      const txSteps = instaml.transform(
+        { attrs: this.optimisticAttrs(), schema: this.config.schema },
+        chunks,
+      );
       return this.pushOps(txSteps);
     } catch (e) {
       return this.pushOps([], e);
