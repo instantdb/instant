@@ -330,8 +330,20 @@
       (create-lookup-attrs ops)
       (create-attrs-from-objs ops)))
 
-(defn transform [attrs steps]
+(defn transform [{:keys [attrs throw-on-missing-attrs?] :as _ctx} steps]
   (let [{attrs :attrs add-attr-tx-steps :add-ops} (create-missing-attrs attrs steps)
+        _ (when (and throw-on-missing-attrs? (seq add-attr-tx-steps))
+            (let [ident-names (->> add-attr-tx-steps
+                                   (map (comp
+                                         #(string/join "." %1)
+                                         attr-model/ident-name
+                                         :forward-identity
+                                         second)))]
+              (ex/throw-validation-err!
+               :steps
+               steps
+               [{:message "Attributes are missing in you schema"
+                 :hint {:attributes ident-names}}])))
         tx-steps (mapcat (fn [step] (to-tx-steps attrs step)) steps)]
     (concat add-attr-tx-steps tx-steps)))
 
@@ -392,7 +404,7 @@
   (str (UUID/randomUUID)))
 
 (defn ->tx-steps!
-  [attrs steps]
+  [ctx steps]
   (let [coerced-admin-steps (<-json (->json steps) false)
         valid? (s/valid? ::ops coerced-admin-steps)
         _ (when-not valid?
@@ -401,7 +413,7 @@
              steps
              (ex/explain->validation-errors
               (s/explain-data ::ops steps))))
-        tx-steps (transform attrs coerced-admin-steps)
+        tx-steps (transform ctx coerced-admin-steps)
         coerced (tx/coerce! tx-steps)
         _ (tx/validate! coerced)]
     coerced))
@@ -409,8 +421,8 @@
 (comment
   (def counters-app-id  #uuid "b502cabc-11ed-4534-b340-349d46548642")
   (def attrs (attr-model/get-by-app-id counters-app-id))
-  (->tx-steps! attrs [["merge" "goals" (str-uuid) {"title" "plop"}]])
-  (->tx-steps! attrs
+  (->tx-steps! {:attrs attrs} [["merge" "goals" (str-uuid) {"title" "plop"}]])
+  (->tx-steps! {:attrs attrs}
                [["update" "goals" (str-uuid) {"title" "moop"}]
                 ["link" "goals" (str-uuid) {"todos" (str-uuid)}]
                 ["unlink" "goals" (str-uuid) {"todos" (str-uuid)}]

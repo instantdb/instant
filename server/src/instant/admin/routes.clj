@@ -139,7 +139,11 @@
 ;; Transact
 
 (defn transact-post [req]
+  (tool/def-locals!)
   (let [steps (ex/get-param! req [:body :steps] #(when (coll? %) %))
+        throw-on-missing-attrs? (ex/get-optional-param!
+                                 req
+                                 [:body :throw-on-missing-attrs?] boolean)
         {:keys [app-id] :as perms} (get-perms! req)
         attrs (attr-model/get-by-app-id app-id)
         ctx (merge {:db {:conn-pool aurora/conn-pool}
@@ -148,7 +152,9 @@
                     :datalog-query-fn d/query
                     :rules (rule-model/get-by-app-id {:app-id app-id})}
                    perms)
-        tx-steps (admin-model/->tx-steps! attrs steps)
+        tx-steps (admin-model/->tx-steps! {:attrs attrs
+                                           :throw-on-missing-attrs? throw-on-missing-attrs?}
+                                          steps)
         {tx-id :id} (permissioned-tx/transact! ctx tx-steps)]
     (cond
       :else
@@ -163,6 +169,9 @@
         commit-tx (-> req :body :dangerously-commit-tx)
         dry-run (not commit-tx)
         steps (ex/get-param! req [:body :steps] #(when (coll? %) %))
+        throw-on-missing-attrs? (ex/get-optional-param!
+                                 req
+                                 [:body :throw-on-missing-attrs?] boolean)
         attrs (attr-model/get-by-app-id app-id)
         rules (if rules-override
                 {:app_id app-id :code rules-override}
@@ -175,7 +184,9 @@
                     :admin-check? true
                     :admin-dry-run? dry-run}
                    perms)
-        tx-steps (admin-model/->tx-steps! attrs steps)
+        tx-steps (admin-model/->tx-steps! {:attrs attrs
+                                           :throw-on-missing-attrs? throw-on-missing-attrs?}
+                                          steps)
         result (permissioned-tx/transact! ctx tx-steps)
         cleaned-result {:tx-id (:id result)
                         :all-checks-ok? (:all-checks-ok? result)

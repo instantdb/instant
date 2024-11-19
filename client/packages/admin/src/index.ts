@@ -757,7 +757,7 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({
         query: query,
-        "inference?": true,
+        "inference?": !!this.config.schema,
       }),
     });
   };
@@ -793,7 +793,10 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
     return jsonFetch(`${this.config.apiURI}/admin/transact`, {
       method: "POST",
       headers: authorizedHeaders(this.config, this.impersonationOpts),
-      body: JSON.stringify({ steps: steps }),
+      body: JSON.stringify({
+        steps: steps,
+        "throw-on-missing-attrs?": !!this.config.schema,
+      }),
     });
   };
 
