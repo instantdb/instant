@@ -388,6 +388,7 @@ function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
   // before we get to it
   for (const op of ops) {
     for (const { etype, lookupPair, linkLabel } of lookupPairsOfOp(op)) {
+      debugger
       const identName = lookupPair[0];
       // We got a link eid that's a lookup, linkLabel is the label of the ident,
       // e.g. `posts` in `link({posts: postIds})`

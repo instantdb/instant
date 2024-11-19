@@ -477,7 +477,7 @@ test("objects are created by etype", () => {
   const chunk = tx.user[stopa.id].update({
     email: "this-should-not-change-users-stopa@gmail.com",
   });
-  const txSteps = instaml.transform(store.attrs, chunk);
+  const txSteps = instaml.transform2({ attrs: store.attrs }, chunk);
   const newStore = transact(store, txSteps);
   const newStopa = query(
     { store: newStore },
@@ -504,7 +504,7 @@ test("object values", () => {
     jsonField: { hello: "world" },
     otherJsonField: { world: "hello" },
   });
-  const txSteps = instaml.transform(store.attrs, chunk);
+  const txSteps = instaml.transform2({ attrs: store.attrs }, chunk);
   const newStore = transact(store, txSteps);
   const newStopa = query(
     { store: newStore },
@@ -668,7 +668,7 @@ test("$isNull", () => {
     tx.books[randomUUID()].update({ title: null }),
     tx.books[randomUUID()].update({ pageCount: 20 }),
   ];
-  const txSteps = instaml.transform(store.attrs, chunks);
+  const txSteps = instaml.transform2({ attrs: store.attrs }, chunks);
   const newStore = transact(store, txSteps);
   expect(query({ store: newStore }, q).data.books.map((x) => x.title)).toEqual([
     null,
@@ -680,7 +680,7 @@ test("$isNull with relations", () => {
   const q = { users: { $: { where: { bookshelves: { $isNull: true } } } } };
   expect(query({ store }, q).data.users.length).toEqual(0);
   const chunks = [tx.users[randomUUID()].update({ handle: "dww" })];
-  const txSteps = instaml.transform(store.attrs, chunks);
+  const txSteps = instaml.transform2({ attrs: store.attrs }, chunks);
   const newStore = transact(store, txSteps);
   expect(query({ store: newStore }, q).data.users.map((x) => x.handle)).toEqual(
     ["dww"],
@@ -704,7 +704,7 @@ test("$isNull with relations", () => {
 
   const storeWithNullTitle = transact(
     newStore,
-    instaml.transform(newStore.attrs, [
+    instaml.transform2({ attrs: newStore.attrs }, [
       tx.books[bookId].update({ title: null }),
     ]),
   );
@@ -733,7 +733,7 @@ test("$not", () => {
     tx.tests[randomUUID()].update({ val: null }),
     tx.tests[randomUUID()].update({ undefinedVal: "d" }),
   ];
-  const txSteps = instaml.transform(store.attrs, chunks);
+  const txSteps = instaml.transform2({ attrs: store.attrs }, chunks);
   const newStore = transact(store, txSteps);
   expect(query({ store: newStore }, q).data.tests.map((x) => x.val)).toEqual([
     "b",
