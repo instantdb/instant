@@ -14,7 +14,7 @@ test("simple update transform", () => {
   const testId = uuid();
 
   const ops = instatx.tx.books[testId].update({ title: "New Title" });
-  const result = instaml.transform2({ attrs: zenecaAttrs }, ops);
+  const result = instaml.transform({ attrs: zenecaAttrs }, ops);
 
   const expected = [
     ["add-triple", testId, zenecaAttrToId["books/title"], "New Title"],
@@ -34,7 +34,7 @@ test("ignores id attrs", () => {
     title: "New Title",
     id: "ploop",
   });
-  const result = instaml.transform2({ attrs: zenecaAttrs }, ops);
+  const result = instaml.transform({ attrs: zenecaAttrs }, ops);
 
   const expected = [
     ["add-triple", testId, zenecaAttrToId["books/title"], "New Title"],
@@ -51,7 +51,7 @@ test("optimistically adds attrs if they don't exist", () => {
 
   const ops = instatx.tx.books[testId].update({ newAttr: "New Title" });
 
-  const result = instaml.transform2({ attrs: zenecaAttrs }, ops);
+  const result = instaml.transform({ attrs: zenecaAttrs }, ops);
 
   const expected = [
     [
@@ -85,7 +85,7 @@ test("lookup resolves attr ids", () => {
 
   const stopaLookup = [zenecaAttrToId["users/email"], "stopa@instantdb.com"];
 
-  const result = instaml.transform2({ attrs: zenecaAttrs }, ops);
+  const result = instaml.transform({ attrs: zenecaAttrs }, ops);
 
   const expected = [
     ["add-triple", stopaLookup, zenecaAttrToId["users/handle"], "stopa"],
@@ -111,7 +111,7 @@ test("lookup creates unique attrs for custom lookups", () => {
     "newAttrValue",
   ];
 
-  const result = instaml.transform2({ attrs: zenecaAttrs }, ops);
+  const result = instaml.transform({ attrs: zenecaAttrs }, ops);
   const expected = [
     [
       "add-attr",
@@ -141,7 +141,7 @@ test("lookup creates unique attrs for lookups in link values", () => {
     .update({})
     .link({ posts: instatx.lookup("slug", "life-is-good") });
 
-  const result = instaml.transform2({ attrs: {} }, ops);
+  const result = instaml.transform({ attrs: {} }, ops);
 
   expect(result).toEqual([
     [
@@ -200,7 +200,7 @@ test("lookup creates unique attrs for lookups in link values with arrays", () =>
     ],
   });
 
-  const result = instaml.transform2({ attrs: {} }, ops);
+  const result = instaml.transform({ attrs: {} }, ops);
 
   const expected = [
     [
@@ -278,7 +278,7 @@ test("lookup creates unique attrs for lookups in link values when fwd-ident exis
     "index?": true,
   };
 
-  const result = instaml.transform2(
+  const result = instaml.transform(
     { attrs: { [attrId]: existingRefAttr } },
     ops,
   );
@@ -335,7 +335,7 @@ test("lookup creates unique attrs for lookups in link values when rev-ident exis
     "index?": true,
   };
 
-  const result = instaml.transform2(
+  const result = instaml.transform(
     { attrs: { [attrId]: existingRefAttr } },
     ops,
   );
@@ -413,7 +413,7 @@ test("lookup doesn't override attrs for lookups in link values", () => {
     },
   };
 
-  const result = instaml.transform2({ attrs }, ops);
+  const result = instaml.transform({ attrs }, ops);
 
   expect(result).toEqual([
     ["add-triple", uid, userIdAttrId, uid],
@@ -458,7 +458,7 @@ test("lookup doesn't override attrs for lookups in self links", () => {
     .update({})
     .link({ parent: instatx.lookup("slug", "life-is-good") });
 
-  const result1 = instaml.transform2({ attrs }, ops1);
+  const result1 = instaml.transform({ attrs }, ops1);
 
   expect(result1.filter((x) => x[0] !== "add-triple")).toEqual([]);
 
@@ -466,7 +466,7 @@ test("lookup doesn't override attrs for lookups in self links", () => {
     .update({})
     .link({ child: instatx.lookup("slug", "life-is-good") });
 
-  const result2 = instaml.transform2({ attrs }, ops2);
+  const result2 = instaml.transform({ attrs }, ops2);
 
   expect(result2.filter((x) => x[0] !== "add-triple")).toEqual([]);
 });
@@ -484,7 +484,7 @@ test("lookup creates unique ref attrs for ref lookup", () => {
     uid,
   ];
 
-  const result = instaml.transform2({ attrs: {} }, ops);
+  const result = instaml.transform({ attrs: {} }, ops);
   const expected = [
     [
       "add-attr",
@@ -547,7 +547,7 @@ test("lookup creates unique ref attrs for ref lookup in link value", () => {
     uid,
   ];
 
-  const result = instaml.transform2({ attrs: {} }, ops);
+  const result = instaml.transform({ attrs: {} }, ops);
 
   const expected = [
     [
@@ -587,7 +587,7 @@ test("lookup creates unique ref attrs for ref lookup in link value", () => {
 
 test("it throws if you use an invalid link attr", () => {
   expect(() =>
-    instaml.transform2(
+    instaml.transform(
       { attrs: {} },
       instatx.tx.users[
         instatx.lookup("user_pref.email", "test@example.com")
@@ -630,7 +630,7 @@ test("it doesn't throw if you have a period in your attr", () => {
   };
 
   expect(
-    instaml.transform2(
+    instaml.transform(
       { attrs },
       instatx.tx.users[instatx.lookup("attr.with.dot", "value")].update({
         a: 1,
@@ -650,7 +650,7 @@ test("it doesn't create duplicate ref attrs", () => {
     instatx.tx.nsB[bid].update({}).link({ nsA: aid }),
   ];
 
-  const result = instaml.transform2({ attrs: {} }, ops);
+  const result = instaml.transform({ attrs: {} }, ops);
 
   const expected = [
     [
@@ -736,7 +736,7 @@ test("Schema: uses info in `attrs` and `links`", () => {
       book: bookId,
     });
 
-  const result = instaml.transform2(
+  const result = instaml.transform(
     {
       attrs: zenecaAttrs,
       schema: schema,
@@ -821,7 +821,7 @@ test("Schema: doesn't create duplicate ref attrs", () => {
     instatx.tx.books[bookId].update({}).link({ comments: commentId }),
   ];
 
-  const result = instaml.transform2({ attrs: zenecaAttrs, schema }, ops);
+  const result = instaml.transform({ attrs: zenecaAttrs, schema }, ops);
 
   const expected = [
     [
@@ -882,7 +882,7 @@ test("Schema: lookup creates unique attrs for custom lookups", () => {
     "stopanator",
   ];
 
-  const result = instaml.transform2({ attrs: zenecaAttrs, schema }, ops);
+  const result = instaml.transform({ attrs: zenecaAttrs, schema }, ops);
   const expected = [
     [
       "add-attr",
@@ -935,7 +935,7 @@ test("Schema: lookup creates unique attrs for lookups in link values", () => {
     .update({})
     .link({ authoredPosts: instatx.lookup("slug", "life-is-good") });
 
-  const result = instaml.transform2({ attrs: {}, schema }, ops);
+  const result = instaml.transform({ attrs: {}, schema }, ops);
 
   expect(result).toEqual([
     [
@@ -1018,7 +1018,7 @@ test("Schema: lookup creates unique attrs for lookups in link values with arrays
     ],
   });
 
-  const result = instaml.transform2({ attrs: {}, schema }, ops);
+  const result = instaml.transform({ attrs: {}, schema }, ops);
 
   const expected = [
     [
@@ -1113,7 +1113,7 @@ test("Schema: lookup creates unique ref attrs for ref lookup", () => {
     uid,
   ];
 
-  const result = instaml.transform2({ attrs: {}, schema }, ops);
+  const result = instaml.transform({ attrs: {}, schema }, ops);
   const expected = [
     [
       "add-attr",
@@ -1196,7 +1196,7 @@ test("Schema: lookup creates unique ref attrs for ref lookup in link value", () 
     uid,
   ];
 
-  const result = instaml.transform2({ attrs: {}, schema }, ops);
+  const result = instaml.transform({ attrs: {}, schema }, ops);
 
   const expected = [
     [

@@ -66,7 +66,7 @@ function checkIndexIntegrity(store) {
 test("simple add", () => {
   const id = uuid();
   const chunk = tx.users[id].update({ handle: "bobby" });
-  const txSteps = instaml.transform2({ attrs: store.attrs }, chunk);
+  const txSteps = instaml.transform({ attrs: store.attrs }, chunk);
   const newStore = transact(store, txSteps);
   expect(
     query({ store: newStore }, { users: {} }).data.users.map((x) => x.handle),
@@ -80,7 +80,7 @@ test("cardinality-one add", () => {
   const chunk = tx.users[id]
     .update({ handle: "bobby" })
     .update({ handle: "bob" });
-  const txSteps = instaml.transform2({ attrs: store.attrs }, chunk);
+  const txSteps = instaml.transform({ attrs: store.attrs }, chunk);
   const newStore = transact(store, txSteps);
   const ret = datalog
     .query(newStore, {
@@ -102,7 +102,7 @@ test("link/unlink", () => {
   const bookshelfChunk = tx.bookshelves[bookshelfId].update({
     name: "my books",
   });
-  const txSteps = instaml.transform2({ attrs: store.attrs }, [
+  const txSteps = instaml.transform({ attrs: store.attrs }, [
     userChunk,
     bookshelfChunk,
   ]);
@@ -129,7 +129,7 @@ test("link/unlink", () => {
       bookshelves: bookshelfId,
     })
     .link({ bookshelves: secondBookshelfId });
-  const secondTxSteps = instaml.transform2({ attrs: newStore.attrs }, [
+  const secondTxSteps = instaml.transform({ attrs: newStore.attrs }, [
     unlinkFirstChunk,
     secondBookshelfChunk,
   ]);
@@ -162,7 +162,7 @@ test("link/unlink multi", () => {
   const bookshelf2Chunk = tx.bookshelves[bookshelfId2].update({
     name: "my books 2",
   });
-  const txSteps = instaml.transform2({ attrs: store.attrs }, [
+  const txSteps = instaml.transform({ attrs: store.attrs }, [
     userChunk,
     bookshelf1Chunk,
     bookshelf2Chunk,
@@ -191,7 +191,7 @@ test("link/unlink multi", () => {
       bookshelves: [bookshelfId1, bookshelfId2],
     })
     .link({ bookshelves: bookshelfId3 });
-  const secondTxSteps = instaml.transform2({ attrs: newStore.attrs }, [
+  const secondTxSteps = instaml.transform({ attrs: newStore.attrs }, [
     unlinkChunk,
     bookshelf3Chunk,
   ]);
@@ -219,7 +219,7 @@ test("delete entity", () => {
   const bookshelfChunk = tx.bookshelves[bookshelfId].update({
     name: "my books",
   });
-  const txSteps = instaml.transform2({ attrs: store.attrs }, [
+  const txSteps = instaml.transform({ attrs: store.attrs }, [
     userChunk,
     bookshelfChunk,
   ]);
@@ -241,7 +241,7 @@ test("delete entity", () => {
   expect(retOne).contains("my books");
   expect(retTwo).contains(userId);
 
-  const txStepsTwo = instaml.transform2(
+  const txStepsTwo = instaml.transform(
     { attrs: newStore.attrs },
     tx.bookshelves[bookshelfId].delete(),
   );
@@ -271,7 +271,7 @@ test("new attrs", () => {
     .update({ handle: "bobby" })
     .link({ colors: colorId });
   const colorChunk = tx.colors[colorId].update({ name: "red" });
-  const txSteps = instaml.transform2({ attrs: store.attrs }, [
+  const txSteps = instaml.transform({ attrs: store.attrs }, [
     userChunk,
     colorChunk,
   ]);
