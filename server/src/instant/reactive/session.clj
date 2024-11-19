@@ -377,7 +377,7 @@
 ;; --------------
 ;; Receive Workers
 
-(defn- handle-instant-exception [store-conn session original-event instant-ex]
+(defn- handle-instant-exception [session original-event instant-ex]
   (let [sess-id (:session/id session)
         q (:receive-q (:session/socket session))
         {:keys [client-event-id]} original-event
@@ -426,7 +426,7 @@
                                            :hint hint
                                            :session-id sess-id})))))
 
-(defn- handle-uncaught-err [store-conn session original-event root-err]
+(defn- handle-uncaught-err [session original-event root-err]
   (let [sess-id (:session/id session)
         q (:receive-q (:session/socket session))
         {:keys [client-event-id]} original-event]
@@ -488,10 +488,10 @@
                   instant-ex (ex/find-instant-exception e)
                   root-err (root-cause e)]
               (cond
-                instant-ex (handle-instant-exception
-                            store-conn session original-event instant-ex)
-                :else (handle-uncaught-err
-                       store-conn session original-event root-err))))
+                instant-ex (handle-instant-exception session
+                                                     original-event
+                                                     instant-ex)
+                :else (handle-uncaught-err session original-event root-err))))
           (finally
             (swap! pending-handlers disj pending-handler)))))))
 
