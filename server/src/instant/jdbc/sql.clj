@@ -138,23 +138,32 @@
 
 (def ^:dynamic *in-progress-stmts* nil)
 
-(defn cancel-in-progress [stmts]
-  (doseq [stmt stmts]
-    (.cancel stmt)))
-
 (defprotocol Cancelable
   (cancel [this]))
+
+(defn cancel-in-progress [stmts]
+  (doseq [stmt stmts]
+    (cancel stmt)))
 
 (defn register-in-progress
   "Registers the statement in the in-progress set (if we're tracking it)
   and returns a closeable that will remove the statement from the set at
   the end of the query."
-  [conn stmt]
+  ^java.lang.AutoCloseable
+  [created-connection? ^Connection conn ^PreparedStatement stmt]
   (if-let [in-progress *in-progress-stmts*]
     (let [cancelable (reify Cancelable
                        (cancel [_]
                          (.cancel stmt)
-                         (.close conn)))]
+                         ;; Don't close the connection we opened b/c
+                         ;; it seems to cause thread pinning when you
+                         ;; close from a different thread and it will
+                         ;; get closed in the `finally` clause
+                         ;; below. We have to close connections we
+                         ;; were passed to make sure transactions are
+                         ;; rolled back.
+                         (when-not created-connection?
+                           (.close conn))))]
       (swap! in-progress conj cancelable)
       (reify java.lang.AutoCloseable
         (close [_]
@@ -176,12 +185,12 @@
               (let [create-connection?# (not (instance? Connection ~'conn))
                     opts# (merge ~opts
                                  {:timeout *query-timeout-seconds*})
-                    c# (if create-connection?#
-                         (next-jdbc/get-connection ~'conn)
-                         ~'conn)]
+                    ^Connection c# (if create-connection?#
+                                     (next-jdbc/get-connection ~'conn)
+                                     ~'conn)]
                 (try
                   (with-open [ps# (next-jdbc/prepare c# ~'query opts#)
-                              _cleanup# (register-in-progress c# ps#)]
+                              _cleanup# (register-in-progress create-connection?# c# ps#)]
                     (~query-fn ps# nil opts#))
                   (finally
                     ;; Don't close the connection if a java.sql.Connection was
