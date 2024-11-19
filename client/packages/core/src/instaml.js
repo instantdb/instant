@@ -271,22 +271,6 @@ function createObjectAttr2(schema, etype, label, props) {
   };
 }
 
-function createObjectAttr(etype, label, props) {
-  const attrId = uuid();
-  const fwdIdentId = uuid();
-  const fwdIdent = [fwdIdentId, etype, label];
-  return {
-    id: attrId,
-    "forward-identity": fwdIdent,
-    "value-type": "blob",
-    cardinality: "one",
-    "unique?": false,
-    "index?": false,
-    isUnsynced: true,
-    ...(props || {}),
-  };
-}
-
 function findSchemaLink(schema, etype, label) {
   const found = Object.values(schema.links).find((x) => {
     return (
@@ -302,16 +286,16 @@ function refPropsFromSchema(schema, etype, label) {
   if (!found) {
     throw new Error(`Couldn't find the link ${etype}.${label} in your schema`);
   }
-  const {forward, reverse} = found;
+  const { forward, reverse } = found;
   return {
-    'forward-identity': [uuid(), forward.on, forward.label],
-    'reverse-identity': [uuid(), reverse.on, reverse.label], 
-    'cardinality': forward.has === 'one' ? 'one' : 'many',
-    'unique?': reverse.has === 'one', 
-  }
+    "forward-identity": [uuid(), forward.on, forward.label],
+    "reverse-identity": [uuid(), reverse.on, reverse.label],
+    cardinality: forward.has === "one" ? "one" : "many",
+    "unique?": reverse.has === "one",
+  };
 }
 
-function createRefAttr2(schema, etype, label, props) {
+function createRefAttr(schema, etype, label, props) {
   const schemaRefProps = schema ? refPropsFromSchema(schema, etype, label) : {};
   const attrId = uuid();
   const fwdIdent = [uuid(), etype, label];
@@ -326,25 +310,6 @@ function createRefAttr2(schema, etype, label, props) {
     "index?": false,
     isUnsynced: true,
     ...schemaRefProps,
-    ...(props || {}),
-  };
-}
-
-function createRefAttr(etype, label, props) {
-  const attrId = uuid();
-  const fwdIdentId = uuid();
-  const revIdentId = uuid();
-  const fwdIdent = [fwdIdentId, etype, label];
-  const revIdent = [revIdentId, label, etype];
-  return {
-    id: attrId,
-    "forward-identity": fwdIdent,
-    "reverse-identity": revIdent,
-    "value-type": "ref",
-    cardinality: "many",
-    "unique?": false,
-    "index?": false,
-    isUnsynced: true,
     ...(props || {}),
   };
 }
@@ -414,7 +379,7 @@ function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
     addUnsynced(fwdAttr);
     addUnsynced(revAttr);
     if (!fwdAttr && !revAttr) {
-      addAttr(createRefAttr(etype, label, refLookupProps));
+      addAttr(createRefAttr(schema, etype, label, refLookupProps));
     }
   }
 
@@ -428,7 +393,6 @@ function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
       // e.g. `posts` in `link({posts: postIds})`
       if (linkLabel) {
         // Add our ref attr, e.g. users.posts
-        // TODO1
         addForRef(etype, linkLabel);
 
         // Figure out the link etype so we can make sure we have the attrs
@@ -442,23 +406,20 @@ function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
           revAttr?.["forward-identity"]?.[1] ||
           linkLabel;
         if (isRefLookupIdent(attrs, linkEtype, identName)) {
-          // TODO2:
           addForRef(linkEtype, extractRefLookupFwdName(identName));
         } else {
           const attr = getAttrByFwdIdentName(attrs, linkEtype, identName);
           if (!attr) {
-            addAttr(createObjectAttr(linkEtype, identName, lookupProps));
+            addAttr(createObjectAttr2(schema, linkEtype, identName, lookupProps));
           }
           addUnsynced(attr);
         }
       } else if (isRefLookupIdent(attrs, etype, identName)) {
-        // TODO3:
         addForRef(etype, extractRefLookupFwdName(identName));
       } else {
-        // TODO4:
         const attr = getAttrByFwdIdentName(attrs, etype, identName);
         if (!attr) {
-          addAttr(createObjectAttr(etype, identName, lookupProps));
+          addAttr(createObjectAttr2(schema, etype, identName, lookupProps));
         }
         addUnsynced(attr);
       }
@@ -489,8 +450,7 @@ function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
         if (REF_ACTIONS.has(action)) {
           const revAttr = getAttrByReverseIdentName(attrs, etype, label);
           if (!fwdAttr && !revAttr) {
-            // TODO6
-            addAttr(createRefAttr2(schema, etype, label));
+            addAttr(createRefAttr(schema, etype, label));
           }
           addUnsynced(revAttr);
         }
