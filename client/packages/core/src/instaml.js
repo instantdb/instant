@@ -461,14 +461,6 @@ function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
   return [attrs, addOps];
 }
 
-export function transform(attrs, inputChunks) {
-  const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
-  const ops = chunks.flatMap((tx) => getOps(tx));
-  const [newAttrs, addAttrTxSteps] = createMissingAttrs({ attrs }, ops);
-  const txSteps = ops.flatMap((op) => toTxSteps(newAttrs, op));
-  return [...addAttrTxSteps, ...txSteps];
-}
-
 export function transform2(ctx, inputChunks) {
   const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
   const ops = chunks.flatMap((tx) => getOps(tx));
