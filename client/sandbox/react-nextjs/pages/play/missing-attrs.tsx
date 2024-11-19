@@ -55,6 +55,14 @@ function Example({ appId, useSchema }: { appId: string; useSchema: boolean }) {
         >
           Create comment
         </button>
+        <button
+          className="bg-black text-white m-2 p-2"
+          onClick={() =>
+            db.transact(tx.profiles[id()].update({ name: "stonado" }))
+          }
+        >
+          Create something that isnt' in schema
+        </button>
       </div>
       <div className="p-2"></div>
       <div>
