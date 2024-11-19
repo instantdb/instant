@@ -342,7 +342,7 @@
               (ex/throw-validation-err!
                :steps
                steps
-               [{:message "Attributes are missing in you schema"
+               [{:message "Attributes are missing in your schema"
                  :hint {:attributes ident-names}}])))
         tx-steps (mapcat (fn [step] (to-tx-steps attrs step)) steps)]
     (concat add-attr-tx-steps tx-steps)))
