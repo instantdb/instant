@@ -6,7 +6,7 @@ import { join } from "path";
 import { randomUUID } from "crypto";
 import dotenv from "dotenv";
 import chalk from "chalk";
-import { program } from "commander";
+import { program, Option } from "commander";
 import { input, confirm } from "@inquirer/prompts";
 import envPaths from "env-paths";
 import { loadConfig } from "unconfig";
@@ -48,7 +48,8 @@ const headerChalk = `${logoChalk} ${versionChalk} ` + "\n";
 // Help Footer -- this only shows up in help commands
 const helpFooterChalk =
   "\n" +
-  "Want to learn more?" + "\n" +
+  "Want to learn more?" +
+  "\n" +
   `Check out the docs: ${chalk.blueBright.underline("https://instantdb.com/docs")}
 Join the Discord:   ${chalk.blueBright.underline("https://discord.com/invite/VU53p7uQcE")}
 `.trim();
@@ -57,14 +58,134 @@ program.addHelpText("after", helpFooterChalk);
 
 program.addHelpText("beforeAll", headerChalk);
 
+
+function getLocalAndGlobalOptions(cmd, helper) {
+  const mixOfLocalAndGlobal = helper.visibleOptions(cmd);
+  const localOptionsFromMix = mixOfLocalAndGlobal.filter(
+    (option) => !option.__global,
+  );
+  const globalOptionsFromMix = mixOfLocalAndGlobal.filter(
+    (option) => option.__global,
+  );
+  const globalOptions = helper.visibleGlobalOptions(cmd);
+
+  return [localOptionsFromMix, globalOptionsFromMix.concat(globalOptions)];
+}
+
+// custom `formatHelp`
+// original: https://github.com/tj/commander.js/blob/master/lib/help.js
+function formatHelp(cmd, helper) {
+  const termWidth = helper.padWidth(cmd, helper);
+  const helpWidth = helper.helpWidth || 80;
+  const itemIndentWidth = 2;
+  const itemSeparatorWidth = 2; // between term and description
+  function formatItem(term, description) {
+    if (description) {
+      const fullText = `${term.padEnd(termWidth + itemSeparatorWidth)}${description}`;
+      return helper.wrap(
+        fullText,
+        helpWidth - itemIndentWidth,
+        termWidth + itemSeparatorWidth,
+      );
+    }
+    return term;
+  }
+  function formatList(textArray) {
+    return textArray.join("\n").replace(/^/gm, " ".repeat(itemIndentWidth));
+  }
+
+  // Usage
+  let output = [`Usage: ${helper.commandUsage(cmd)}`, ""];
+
+  // Description
+  const commandDescription = helper.commandDescription(cmd);
+  if (commandDescription.length > 0) {
+    output = output.concat([helper.wrap(commandDescription, helpWidth, 0), ""]);
+  }
+
+  // Arguments
+  const argumentList = helper.visibleArguments(cmd).map((argument) => {
+    return formatItem(
+      helper.argumentTerm(argument),
+      helper.argumentDescription(argument),
+    );
+  });
+  if (argumentList.length > 0) {
+    output = output.concat(["Arguments:", formatList(argumentList), ""]);
+  }
+  const [visibleOptions, visibleGlobalOptions] = getLocalAndGlobalOptions(cmd, helper);
+
+  // Options
+  const optionList = visibleOptions.map((option) => {
+    return formatItem(
+      helper.optionTerm(option),
+      helper.optionDescription(option),
+    );
+  });
+  if (optionList.length > 0) {
+    output = output.concat(["Options:", formatList(optionList), ""]);
+  }
+  // Commands
+  const commandList = helper.visibleCommands(cmd).map((cmd) => {
+    return formatItem(
+      helper.subcommandTerm(cmd),
+      helper.subcommandDescription(cmd),
+    );
+  });
+  if (commandList.length > 0) {
+    output = output.concat(["Commands:", formatList(commandList), ""]);
+  }
+
+  if (this.showGlobalOptions) {
+    const globalOptionList = visibleGlobalOptions.map((option) => {
+      return formatItem(
+        helper.optionTerm(option),
+        helper.optionDescription(option),
+      );
+    });
+    if (globalOptionList.length > 0) {
+      output = output.concat([
+        "Global Options:",
+        formatList(globalOptionList),
+        "",
+      ]);
+    }
+  }
+
+  return output.join("\n");
+}
+
+program.configureHelp({
+  showGlobalOptions: true,
+  formatHelp,
+});
+
+function globalOption(flags, description, argParser) {
+  const opt = new Option(flags, description);
+  if (argParser) {
+    opt.argParser(argParser);
+  }
+  // @ts-ignore
+  // __global does not exist on `Option`, 
+  // but we use it in `getLocalAndGlobalOptions`, to produce 
+  // our own custom list of local and global options.
+  // For more info, see the original PR:
+  // https://github.com/instantdb/instant/pull/505
+  opt.__global = true;
+  return opt;
+}
+
 program
   .name("instant-cli")
-  .option("-t --token <TOKEN>", "auth token override")
-  .option("-y", "skip confirmation prompt")
-  .option("-v --version", "output the version number", () => {
-    console.log(version);
-    process.exit(0);
-  })
+  .addOption(globalOption("-t --token <TOKEN>", "Auth token override"))
+  .addOption(globalOption("-y --yes", "Answer 'yes' to all prompts"))
+  .addOption(
+    globalOption("-v --version", "Print the version number", () => {
+      console.log(version);
+      process.exit(0);
+    }),
+  )
+  .addHelpOption(globalOption("-h --help", "Print the help text for a command"))
   .usage(`<command> ${chalk.dim("[options] [args]")}`);
 
 program
