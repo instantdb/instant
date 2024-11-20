@@ -108,7 +108,7 @@ program
 program
   .command("pull-schema")
   .argument("[ID]")
-  .description("Genereate instant.schema.ts from production")
+  .description("Generate instant.schema.ts from production")
   .action((appIdOrName) => {
     pullSchema(appIdOrName);
   });
