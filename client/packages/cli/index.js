@@ -264,7 +264,7 @@ program
   )
   .action(async (appIdOrName, opts) => {
     deprecationWarning("push-schema", "push schema");
-    const appId = await getAppIdWithErrorLogging(appIdOrName, opts);
+    const appId = await getAppIdWithErrorLogging(appIdOrName);
     if (!appId) return;
     pushSchema(appId, opts);
   });
@@ -276,9 +276,9 @@ program
   .command("push-perms", { hidden: true })
   .argument("[app-id]")
   .description("Push perms to production.")
-  .action(async (appIdOrName, opts) => {
+  .action(async (appIdOrName) => {
     deprecationWarning("push-perms", "push perms");
-    const appId = await getAppIdWithErrorLogging(appIdOrName, opts);
+    const appId = await getAppIdWithErrorLogging(appIdOrName);
     if (!appId) return;
 
     pushPerms(appId);
@@ -308,9 +308,9 @@ program
   .command("pull-schema", { hidden: true })
   .argument("[app-id]")
   .description("Generate instant.schema.ts from production")
-  .action(async (appIdOrName, opts) => {
+  .action(async (appIdOrName) => {
     deprecationWarning("pull-schema", "pull schema");
-    const appId = await getAppIdWithErrorLogging(appIdOrName, opts);
+    const appId = await getAppIdWithErrorLogging(appIdOrName);
     if (!appId) return;
     pullSchema(appId);
   });
@@ -322,9 +322,9 @@ program
   .command("pull-perms", { hidden: true })
   .argument("[app-id]")
   .description("Generate instant.perms.ts from production.")
-  .action(async (appIdOrName, opts) => {
+  .action(async (appIdOrName) => {
     deprecationWarning("pull-perms", "pull perms");
-    const appId = await getAppIdWithErrorLogging(appIdOrName, opts);
+    const appId = await getAppIdWithErrorLogging(appIdOrName);
     if (!appId) return;
     pullPerms(appId);
   });
