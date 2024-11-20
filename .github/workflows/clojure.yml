@@ -29,7 +29,7 @@ jobs:
         echo "did_change=False" >> $GITHUB_OUTPUT
         for file in ${changeArr[*]}
         do
-          if echo $file | grep -E '^server/'; then
+          if echo $file | grep -E '^server/' | grep -E -v '^server/refinery/'; then
             echo "did_change=True" >> $GITHUB_OUTPUT
             break
           fi
