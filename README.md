@@ -15,6 +15,9 @@
   <a href="#">
     <img src="https://img.shields.io/github/stars/instantdb/instant" alt="stars">
   </a>
+  <a href="https://gurubase.io/g/instantdb">
+    <img src="https://img.shields.io/badge/Gurubase-Ask%20InstantDB%20Guru-006BFF" alt="Gurubase">
+  </a>
 </p>
 
 <p align="center">
