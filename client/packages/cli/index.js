@@ -59,7 +59,9 @@ ${chalk.white("Join the Discord")}:   ${chalk.blueBright.underline("https://disc
 
 
 program.addHelpText("after", helpFooterChalk);
+
 program.addHelpText("beforeAll", headerChalk);
+
 program
   .name("instant-cli")
   .option("-t --token <TOKEN>", "auth token override")
@@ -67,23 +69,26 @@ program
   .option("-v --version", "output the version number", () => {
     console.log(version);
     process.exit(0);
-  });
+  })
+  .usage(
+    `${chalk.blueBright.bold("<command>")} ${chalk.dim("[options] [args]")}`,
+  );
 
 program
   .command("login")
-  .description("Authenticates with Instant")
-  .option("-p --print", "print auth token")
+  .description("Log into your account")
+  .option("-p --print", "Prints the auth token into the console.")
   .action(login);
 
 program
   .command("init")
-  .description("Creates a new app with configuration files")
+  .description("Create a new app")
   .action(init);
 
 program
   .command("push-schema")
   .argument("[ID]")
-  .description("Pushes local instant.schema definition to production.")
+  .description("Push schema to production.")
   .option(
     "--skip-check-types",
     "Don't check types on the server when pushing schema",
@@ -95,7 +100,7 @@ program
 program
   .command("push-perms")
   .argument("[ID]")
-  .description("Pushes local instant.perms rules to production.")
+  .description("Push perms to production.")
   .action(() => {
     pushPerms();
   });
@@ -108,7 +113,7 @@ program
     "Don't check types on the server when pushing schema",
   )
   .description(
-    "Pushes local instant.schema and instant.perms rules to production.",
+    "Push schema and perms to production.",
   )
   .action(pushAll);
 
@@ -116,7 +121,7 @@ program
   .command("pull-schema")
   .argument("[ID]")
   .description(
-    "Generates an initial instant.schema definition from production state.",
+    "Genereate instant.schema.ts from production",
   )
   .action((appIdOrName) => {
     pullSchema(appIdOrName);
@@ -126,7 +131,7 @@ program
   .command("pull-perms")
   .argument("[ID]")
   .description(
-    "Generates an initial instant.perms definition from production rules.",
+    "Generate instant.perms.ts from production.",
   )
   .action((appIdOrName) => {
     pullPerms(appIdOrName);
@@ -136,7 +141,7 @@ program
   .command("pull")
   .argument("[ID]")
   .description(
-    "Generates initial instant.schema and instant.perms definition from production state.",
+    "Generate schema and perm files from from your production state.",
   )
   .action(pullAll);
 
