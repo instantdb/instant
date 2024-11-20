@@ -78,7 +78,7 @@ function formatHelp(cmd, helper) {
   }
 
   // Usage
-  let output = [`Usage: ${helper.commandUsage(cmd)}`, ""];
+  let output = [`${chalk.dim.bold("Usage ")}${helper.commandUsage(cmd)}`, ""];
 
   // Description
   const commandDescription = helper.commandDescription(cmd);
@@ -94,7 +94,7 @@ function formatHelp(cmd, helper) {
     );
   });
   if (argumentList.length > 0) {
-    output = output.concat(["Arguments:", formatList(argumentList), ""]);
+    output = output.concat([chalk.dim.bold("Arguments:"), formatList(argumentList), ""]);
   }
 
   // Options
@@ -105,7 +105,7 @@ function formatHelp(cmd, helper) {
     );
   });
   if (optionList.length > 0) {
-    output = output.concat(["Options:", formatList(optionList), ""]);
+    output = output.concat([chalk.dim.bold("Options"), formatList(optionList), ""]);
   }
 
   if (this.showGlobalOptions) {
@@ -117,7 +117,7 @@ function formatHelp(cmd, helper) {
     });
     if (globalOptionList.length > 0) {
       output = output.concat([
-        "Global Options:",
+        chalk.dim.bold("Global Options:"),
         formatList(globalOptionList),
         "",
       ]);
@@ -132,7 +132,7 @@ function formatHelp(cmd, helper) {
     );
   });
   if (commandList.length > 0) {
-    output = output.concat(["Commands:", formatList(commandList), ""]);
+    output = output.concat([chalk.dim.bold("Commands"), formatList(commandList), ""]);
   }
 
   return output.join("\n");
