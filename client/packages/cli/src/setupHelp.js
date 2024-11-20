@@ -8,7 +8,7 @@ Docs: ${chalk.underline(`https://www.instantdb.com/docs/cli`)}
 Dash: ${chalk.underline(`https://www.instantdb.com/dash`)}
 Discord: ${chalk.underline(`https://discord.com/invite/VU53p7uQcE`)}`.trim();
 
-// -------------------------------------
+// ----------------------------------------
 // Header -- this shows up in every command
 
 const logoChalk = chalk.bold("instant-cli");
@@ -23,7 +23,7 @@ const helpFooterChalk =
   `
 ${tui.dimbold("Want to learn more?")}
 ${chalk.white("Check out the docs")}: ${chalk.blueBright.underline("https://instantdb.com/docs")}
-${chalk.white("Join the Discord")}:   ${chalk.blueBright.underline("https://instantdb.com/discord")}
+${chalk.white("Join the Discord")}:   ${chalk.blueBright.underline("https://discord.com/invite/VU53p7uQcE")}
 `.trim();
 
 export default function setupHelp(program) {
