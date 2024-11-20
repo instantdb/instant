@@ -45,6 +45,7 @@ const logoChalk = chalk.bold("instant-cli");
 const versionChalk = chalk.dim(`${version.trim()}`);
 const headerChalk = `${logoChalk} ${versionChalk} ` + "\n";
 
+
 // Help Footer -- this only shows up in help commands
 const helpFooterChalk =
   "\n" +
@@ -54,95 +55,9 @@ ${chalk.white("Check out the docs")}: ${chalk.blueBright.underline("https://inst
 ${chalk.white("Join the Discord")}:   ${chalk.blueBright.underline("https://discord.com/invite/VU53p7uQcE")}
 `.trim();
 
-// formatHelp
-// Original: https://github.com/tj/commander.js/blob/master/lib/help.js
-// Modified for UI
-function formatHelp(cmd, helper) {
-  const termWidth = helper.padWidth(cmd, helper);
-  const helpWidth = helper.helpWidth || 80;
-  const itemIndentWidth = 2;
-  const itemSeparatorWidth = 2; // between term and description
-  function formatItem(term, description) {
-    if (description) {
-      const fullText = `${term.padEnd(termWidth + itemSeparatorWidth)}${description}`;
-      return helper.wrap(
-        fullText,
-        helpWidth - itemIndentWidth,
-        termWidth + itemSeparatorWidth,
-      );
-    }
-    return term;
-  }
-  function formatList(textArray) {
-    return textArray.join("\n").replace(/^/gm, " ".repeat(itemIndentWidth));
-  }
-
-  // Usage
-  let output = [`${chalk.dim.bold("Usage ")}${helper.commandUsage(cmd)}`, ""];
-
-  // Description
-  const commandDescription = helper.commandDescription(cmd);
-  if (commandDescription.length > 0) {
-    output = output.concat([helper.wrap(commandDescription, helpWidth, 0), ""]);
-  }
-
-  // Arguments
-  const argumentList = helper.visibleArguments(cmd).map((argument) => {
-    return formatItem(
-      helper.argumentTerm(argument),
-      helper.argumentDescription(argument),
-    );
-  });
-  if (argumentList.length > 0) {
-    output = output.concat([chalk.dim.bold("Arguments:"), formatList(argumentList), ""]);
-  }
-
-  // Options
-  const optionList = helper.visibleOptions(cmd).map((option) => {
-    return formatItem(
-      helper.optionTerm(option),
-      helper.optionDescription(option),
-    );
-  });
-  if (optionList.length > 0) {
-    output = output.concat([chalk.dim.bold("Options"), formatList(optionList), ""]);
-  }
-
-  if (this.showGlobalOptions) {
-    const globalOptionList = helper.visibleGlobalOptions(cmd).map((option) => {
-      return formatItem(
-        helper.optionTerm(option),
-        helper.optionDescription(option),
-      );
-    });
-    if (globalOptionList.length > 0) {
-      output = output.concat([
-        chalk.dim.bold("Global Options:"),
-        formatList(globalOptionList),
-        "",
-      ]);
-    }
-  }
-
-  // Commands
-  const commandList = helper.visibleCommands(cmd).map((cmd) => {
-    return formatItem(
-      helper.subcommandTerm(cmd),
-      helper.subcommandDescription(cmd),
-    );
-  });
-  if (commandList.length > 0) {
-    output = output.concat([chalk.dim.bold("Commands"), formatList(commandList), ""]);
-  }
-
-  return output.join("\n");
-}
-
 program.addHelpText("after", helpFooterChalk);
 
 program.addHelpText("beforeAll", headerChalk);
-
-program.configureHelp({ formatHelp });
 
 program
   .name("instant-cli")
@@ -153,7 +68,7 @@ program
     process.exit(0);
   })
   .usage(
-    `${chalk.blueBright.bold("<command>")} ${chalk.dim("[options] [args]")}`,
+    `<command> ${chalk.dim("[options] [args]")}`,
   );
 
 program
@@ -162,7 +77,10 @@ program
   .option("-p --print", "Prints the auth token into the console.")
   .action(login);
 
-program.command("init").description("Create a new app").action(init);
+program
+  .command("init")
+  .description("Create a new app")
+  .action(init);
 
 program
   .command("push-schema")
@@ -191,13 +109,17 @@ program
     "--skip-check-types",
     "Don't check types on the server when pushing schema",
   )
-  .description("Push schema and perms to production.")
+  .description(
+    "Push schema and perms to production.",
+  )
   .action(pushAll);
 
 program
   .command("pull-schema")
   .argument("[ID]")
-  .description("Genereate instant.schema.ts from production")
+  .description(
+    "Genereate instant.schema.ts from production",
+  )
   .action((appIdOrName) => {
     pullSchema(appIdOrName);
   });
@@ -205,7 +127,9 @@ program
 program
   .command("pull-perms")
   .argument("[ID]")
-  .description("Generate instant.perms.ts from production.")
+  .description(
+    "Generate instant.perms.ts from production.",
+  )
   .action((appIdOrName) => {
     pullPerms(appIdOrName);
   });
