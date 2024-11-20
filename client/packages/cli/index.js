@@ -45,7 +45,6 @@ const logoChalk = chalk.bold("instant-cli");
 const versionChalk = chalk.dim(`${version.trim()}`);
 const headerChalk = `${logoChalk} ${versionChalk} ` + "\n";
 
-
 // Help Footer -- this only shows up in help commands
 const helpFooterChalk =
   "\n" +
@@ -75,19 +74,16 @@ function formatHelp(cmd, helper) {
     return term;
   }
   function formatList(textArray) {
-    return textArray.join('\n').replace(/^/gm, ' '.repeat(itemIndentWidth));
+    return textArray.join("\n").replace(/^/gm, " ".repeat(itemIndentWidth));
   }
 
   // Usage
-  let output = [`Usage: ${helper.commandUsage(cmd)}`, ''];
+  let output = [`Usage: ${helper.commandUsage(cmd)}`, ""];
 
   // Description
   const commandDescription = helper.commandDescription(cmd);
   if (commandDescription.length > 0) {
-    output = output.concat([
-      helper.wrap(commandDescription, helpWidth, 0),
-      '',
-    ]);
+    output = output.concat([helper.wrap(commandDescription, helpWidth, 0), ""]);
   }
 
   // Arguments
@@ -98,7 +94,7 @@ function formatHelp(cmd, helper) {
     );
   });
   if (argumentList.length > 0) {
-    output = output.concat(['Arguments:', formatList(argumentList), '']);
+    output = output.concat(["Arguments:", formatList(argumentList), ""]);
   }
 
   // Options
@@ -109,23 +105,21 @@ function formatHelp(cmd, helper) {
     );
   });
   if (optionList.length > 0) {
-    output = output.concat(['Options:', formatList(optionList), '']);
+    output = output.concat(["Options:", formatList(optionList), ""]);
   }
 
   if (this.showGlobalOptions) {
-    const globalOptionList = helper
-      .visibleGlobalOptions(cmd)
-      .map((option) => {
-        return formatItem(
-          helper.optionTerm(option),
-          helper.optionDescription(option),
-        );
-      });
+    const globalOptionList = helper.visibleGlobalOptions(cmd).map((option) => {
+      return formatItem(
+        helper.optionTerm(option),
+        helper.optionDescription(option),
+      );
+    });
     if (globalOptionList.length > 0) {
       output = output.concat([
-        'Global Options:',
+        "Global Options:",
         formatList(globalOptionList),
-        '',
+        "",
       ]);
     }
   }
@@ -138,12 +132,11 @@ function formatHelp(cmd, helper) {
     );
   });
   if (commandList.length > 0) {
-    output = output.concat(['Commands:', formatList(commandList), '']);
+    output = output.concat(["Commands:", formatList(commandList), ""]);
   }
 
-  return output.join('\n');
+  return output.join("\n");
 }
-
 
 program.addHelpText("after", helpFooterChalk);
 
@@ -169,10 +162,7 @@ program
   .option("-p --print", "Prints the auth token into the console.")
   .action(login);
 
-program
-  .command("init")
-  .description("Create a new app")
-  .action(init);
+program.command("init").description("Create a new app").action(init);
 
 program
   .command("push-schema")
@@ -201,17 +191,13 @@ program
     "--skip-check-types",
     "Don't check types on the server when pushing schema",
   )
-  .description(
-    "Push schema and perms to production.",
-  )
+  .description("Push schema and perms to production.")
   .action(pushAll);
 
 program
   .command("pull-schema")
   .argument("[ID]")
-  .description(
-    "Genereate instant.schema.ts from production",
-  )
+  .description("Genereate instant.schema.ts from production")
   .action((appIdOrName) => {
     pullSchema(appIdOrName);
   });
@@ -219,9 +205,7 @@ program
 program
   .command("pull-perms")
   .argument("[ID]")
-  .description(
-    "Generate instant.perms.ts from production.",
-  )
+  .description("Generate instant.perms.ts from production.")
   .action((appIdOrName) => {
     pullPerms(appIdOrName);
   });
