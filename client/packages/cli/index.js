@@ -48,7 +48,7 @@ const headerChalk = `${logoChalk} ${versionChalk} ` + "\n";
 // Help Footer -- this only shows up in help commands
 const helpFooterChalk =
   "\n" +
-  "Want to learn more?" +
+  chalk.dim.bold("Want to learn more?") +
   "\n" +
   `Check out the docs: ${chalk.blueBright.underline("https://instantdb.com/docs")}
 Join the Discord:   ${chalk.blueBright.underline("https://discord.com/invite/VU53p7uQcE")}
@@ -95,7 +95,7 @@ function formatHelp(cmd, helper) {
   }
 
   // Usage
-  let output = [`Usage: ${helper.commandUsage(cmd)}`, ""];
+  let output = [`${helper.commandUsage(cmd)}`, ""];
 
   // Description
   const commandDescription = helper.commandDescription(cmd);
@@ -133,7 +133,7 @@ function formatHelp(cmd, helper) {
     );
   });
   if (commandList.length > 0) {
-    output = output.concat(["Commands:", formatList(commandList), ""]);
+    output = output.concat([chalk.dim.bold("Commands"), formatList(commandList), ""]);
   }
 
   if (this.showGlobalOptions) {
@@ -145,7 +145,7 @@ function formatHelp(cmd, helper) {
     });
     if (globalOptionList.length > 0) {
       output = output.concat([
-        "Global Options:",
+        chalk.dim.bold("Global Options"),
         formatList(globalOptionList),
         "",
       ]);
