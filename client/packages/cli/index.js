@@ -23,6 +23,13 @@ const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
 
 // consts
 
+const noAppIdErrorMessage = `
+No app ID found.
+Add \`INSTANT_APP_ID=<ID>\` to your .env file.
+(Or \`NEXT_PUBLIC_INSTANT_APP_ID\`, \`VITE_INSTANT_APP_ID\`)
+Or provide an app ID via the CLI \`instant-cli pull-schema <ID>\`.
+`.trim();
+
 const instantDashOrigin = dev
   ? "http://localhost:3000"
   : "https://instantdb.com";
@@ -1084,7 +1091,6 @@ async function getAppIdWithErrorLogging(defaultAppIdOrName) {
       uuidAppId
     );
   }
-
   const appId =
     // finally, check .env
     process.env.INSTANT_APP_ID ||
@@ -1264,10 +1270,3 @@ ${indentLines(JSON.stringify(linksEntriesCode, null, "  "), 1)}
 export default graph;
 `;
 }
-
-const noAppIdErrorMessage = `
-No app ID found.
-Add \`INSTANT_APP_ID=<ID>\` to your .env file.
-(Or \`NEXT_PUBLIC_INSTANT_APP_ID\`, \`VITE_INSTANT_APP_ID\`)
-Or provide an app ID via the CLI \`instant-cli pull-schema <ID>\`.
-`.trim();
