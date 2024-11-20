@@ -123,7 +123,7 @@ function formatHelp(cmd, helper) {
     );
   });
   if (optionList.length > 0) {
-    output = output.concat(["Options:", formatList(optionList), ""]);
+    output = output.concat([chalk.dim.bold("Options"), formatList(optionList), ""]);
   }
   // Commands
   const commandList = helper.visibleCommands(cmd).map((cmd) => {
@@ -175,6 +175,7 @@ function globalOption(flags, description, argParser) {
   return opt;
 }
 
+
 program
   .name("instant-cli")
   .addOption(globalOption("-t --token <TOKEN>", "Auth token override"))
@@ -198,7 +199,7 @@ program.command("init").description("Create a new app").action(init);
 
 program
   .command("push-schema")
-  .argument("[ID]")
+  .argument("[app-id]")
   .description("Push schema to production.")
   .option(
     "--skip-check-types",
@@ -210,7 +211,7 @@ program
 
 program
   .command("push-perms")
-  .argument("[ID]")
+  .argument("[app-id]")
   .description("Push perms to production.")
   .action(() => {
     pushPerms();
@@ -218,7 +219,7 @@ program
 
 program
   .command("push")
-  .argument("[ID]")
+  .argument("[app-id]")
   .option(
     "--skip-check-types",
     "Don't check types on the server when pushing schema",
@@ -228,7 +229,7 @@ program
 
 program
   .command("pull-schema")
-  .argument("[ID]")
+  .argument("[app-id]")
   .description("Generate instant.schema.ts from production")
   .action((appIdOrName) => {
     pullSchema(appIdOrName);
@@ -236,7 +237,7 @@ program
 
 program
   .command("pull-perms")
-  .argument("[ID]")
+  .argument("[app-id]")
   .description("Generate instant.perms.ts from production.")
   .action((appIdOrName) => {
     pullPerms(appIdOrName);
@@ -244,7 +245,7 @@ program
 
 program
   .command("pull")
-  .argument("[ID]")
+  .argument("[app-id]")
   .description(
     "Generate schema and perm files from from your production state.",
   )
