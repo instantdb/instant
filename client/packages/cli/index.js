@@ -166,6 +166,11 @@ function globalOption(flags, description, argParser) {
     opt.argParser(argParser);
   }
   // @ts-ignore
+  // __global does not exist on `Option`, 
+  // but we use it in `getLocalAndGlobalOptions`, to produce 
+  // our own custom list of local and global options.
+  // For more info, see the original PR:
+  // https://github.com/instantdb/instant/pull/505
   opt.__global = true;
   return opt;
 }
