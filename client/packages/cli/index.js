@@ -45,14 +45,12 @@ const logoChalk = chalk.bold("instant-cli");
 const versionChalk = chalk.dim(`${version.trim()}`);
 const headerChalk = `${logoChalk} ${versionChalk} ` + "\n";
 
-
 // Help Footer -- this only shows up in help commands
 const helpFooterChalk =
   "\n" +
-  `
-${chalk.bold.dim("Want to learn more?")}
-${chalk.white("Check out the docs")}: ${chalk.blueBright.underline("https://instantdb.com/docs")}
-${chalk.white("Join the Discord")}:   ${chalk.blueBright.underline("https://discord.com/invite/VU53p7uQcE")}
+  "Want to learn more?" + "\n" +
+  `Check out the docs: ${chalk.blueBright.underline("https://instantdb.com/docs")}
+Join the Discord:   ${chalk.blueBright.underline("https://discord.com/invite/VU53p7uQcE")}
 `.trim();
 
 program.addHelpText("after", helpFooterChalk);
@@ -67,9 +65,7 @@ program
     console.log(version);
     process.exit(0);
   })
-  .usage(
-    `<command> ${chalk.dim("[options] [args]")}`,
-  );
+  .usage(`<command> ${chalk.dim("[options] [args]")}`);
 
 program
   .command("login")
@@ -77,10 +73,7 @@ program
   .option("-p --print", "Prints the auth token into the console.")
   .action(login);
 
-program
-  .command("init")
-  .description("Create a new app")
-  .action(init);
+program.command("init").description("Create a new app").action(init);
 
 program
   .command("push-schema")
@@ -109,17 +102,13 @@ program
     "--skip-check-types",
     "Don't check types on the server when pushing schema",
   )
-  .description(
-    "Push schema and perms to production.",
-  )
+  .description("Push schema and perms to production.")
   .action(pushAll);
 
 program
   .command("pull-schema")
   .argument("[ID]")
-  .description(
-    "Genereate instant.schema.ts from production",
-  )
+  .description("Genereate instant.schema.ts from production")
   .action((appIdOrName) => {
     pullSchema(appIdOrName);
   });
@@ -127,9 +116,7 @@ program
 program
   .command("pull-perms")
   .argument("[ID]")
-  .description(
-    "Generate instant.perms.ts from production.",
-  )
+  .description("Generate instant.perms.ts from production.")
   .action((appIdOrName) => {
     pullPerms(appIdOrName);
   });
