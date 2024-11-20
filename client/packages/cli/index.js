@@ -1,6 +1,7 @@
 // @ts-check
 
 import version from "./src/version.js";
+import setupHelp from "./src/setupHelp.js";
 import { mkdir, writeFile, readFile, stat } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
@@ -38,17 +39,12 @@ const instantBackendOrigin =
   process.env.INSTANT_CLI_API_URI ||
   (dev ? "http://localhost:8888" : "https://api.instantdb.com");
 
-const instantCLIDescription = `
-${chalk.magenta(`Instant CLI`)}
-Docs: ${chalk.underline(`https://www.instantdb.com/docs/cli`)}
-Dash: ${chalk.underline(`https://www.instantdb.com/dash`)}
-Discord: ${chalk.underline(`https://discord.com/invite/VU53p7uQcE`)}`.trim();
-
 // cli
+
+setupHelp(program);
 
 program
   .name("instant-cli")
-  .description(instantCLIDescription)
   .option("-t --token <TOKEN>", "auth token override")
   .option("-y", "skip confirmation prompt")
   .option("-v --version", "output the version number", () => {
