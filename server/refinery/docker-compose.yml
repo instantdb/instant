@@ -5,9 +5,6 @@ services:
       - ./config.yaml:/etc/refinery/refinery.yaml
       - ./config-redis.yaml:/etc/refinery/refinery-redis.yaml
       - ./rules.yaml:/etc/refinery/rules.yaml
-    environment:
-      - REFINERY_HONEYCOMB_API_KEY=${REFINERY_HONEYCOMB_API_KEY}
-      - REFINERY_REDIS_HOST=${REFINERY_REDIS_HOST}
     env_file:
       - ./.env
     network_mode: "host"
