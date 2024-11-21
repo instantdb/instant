@@ -5,7 +5,7 @@ services:
       - BEANSTALK_PORT=80
       - PRODUCTION=true
       # Internal load balancer
-      - HONEYCOMB_ENDPOINT="http://refinery.us-east-1.elasticbeanstalk.com:8082"
+      - HONEYCOMB_ENDPOINT=http://refinery.us-east-1.elasticbeanstalk.com:8082
     env_file:
       - .env
     network_mode: "host"
