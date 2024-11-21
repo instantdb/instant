@@ -476,7 +476,7 @@
                                     ;; If false, then canceling the queries let
                                     ;; the future complete before we could cancel it
                                     :future-cancel-result cancel-res}}))
-              (ex/throw-operation-timeout! :handle-receive handle-receive-timeout-ms)))
+              (ex/throw-operation-timeout! :handle-receive handle-receive-timeout-ms :in-progress-stmts in-progress-stmts)))
 
           (catch CancellationException _e
             ;; We must have cancelled this in the on-close, so don't try to do any

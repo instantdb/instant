@@ -187,10 +187,10 @@
 ;; --------
 ;; Timeouts
 
-(defn throw-operation-timeout! [operation-name timeout-ms]
+(defn throw-operation-timeout! [operation-name timeout-ms & {:as additional-hints}]
   (throw+ {::type ::operation-timed-out
            ::message (format "Operation timed out: %s" (name operation-name))
-           ::hint {:timeout-ms timeout-ms}}))
+           ::hint (merge {:timeout-ms timeout-ms} additional-hints)}))
 
 ;; -------
 ;; Sockets
