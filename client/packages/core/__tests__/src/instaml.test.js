@@ -754,6 +754,7 @@ test("Schema: uses info in `attrs` and `links`", () => {
         cardinality: "one",
         "unique?": true,
         "index?": true,
+        "checked-data-type": "string",
         isUnsynced: true,
       },
     ],
@@ -893,6 +894,7 @@ test("Schema: lookup creates unique attrs for custom lookups", () => {
         "index?": true,
         isUnsynced: true,
         "unique?": true,
+        "checked-data-type": "string",
         "value-type": "blob",
       },
     ],
@@ -961,6 +963,7 @@ test("Schema: lookup creates unique attrs for lookups in link values", () => {
         cardinality: "one",
         "unique?": true,
         "index?": true,
+        "checked-data-type": "string",
         isUnsynced: true,
       },
     ],
@@ -1043,6 +1046,7 @@ test("Schema: lookup creates unique attrs for lookups in link values with arrays
         cardinality: "one",
         "unique?": true,
         "index?": true,
+        "checked-data-type": "string",
         isUnsynced: true,
       },
     ],
@@ -1226,6 +1230,143 @@ test("Schema: lookup creates unique ref attrs for ref lookup in link value", () 
     ],
     ["add-triple", uid, expect.any(String), uid],
     ["add-triple", uid, expect.any(String), lookup],
+  ];
+
+  expect(result).toHaveLength(expected.length);
+  for (const item of expected) {
+    expect(result).toContainEqual(item);
+  }
+});
+
+test("Schema: populates checked-data-type", () => {
+  const schema = i.graph(
+    {
+      comments: i.entity({
+        s: i.string(),
+        n: i.number(),
+        d: i.date(),
+        b: i.boolean(),
+        a: i.any(),
+        j: i.json(),
+      }),
+    },
+    {},
+  );
+
+  const commentId = uuid();
+  const ops = instatx.tx.comments[commentId].update({
+    s: "str",
+    n: "num",
+    d: "date",
+    b: "bool",
+    a: "any",
+    j: "json",
+  });
+
+  const result = instaml.transform(
+    {
+      attrs: zenecaAttrs,
+      schema: schema,
+    },
+    ops,
+  );
+
+  const expected = [
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "comments", "s"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": false,
+        "index?": false,
+        isUnsynced: true,
+        "checked-data-type": "string",
+      },
+    ],
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "comments", "n"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": false,
+        "index?": false,
+        isUnsynced: true,
+        "checked-data-type": "number",
+      },
+    ],
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "comments", "d"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": false,
+        "index?": false,
+        isUnsynced: true,
+        "checked-data-type": "date",
+      },
+    ],
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "comments", "b"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": false,
+        "index?": false,
+        isUnsynced: true,
+        "checked-data-type": "boolean",
+      },
+    ],
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "comments", "a"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": false,
+        "index?": false,
+        isUnsynced: true,
+      },
+    ],
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "comments", "j"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": false,
+        "index?": false,
+        isUnsynced: true,
+      },
+    ],
+    [
+      "add-attr",
+      {
+        id: expect.any(String),
+        "forward-identity": [expect.any(String), "comments", "id"],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": true,
+        "index?": false,
+        isUnsynced: true,
+      },
+    ],
+    ["add-triple", commentId, expect.any(String), commentId],
+    ["add-triple", commentId, expect.any(String), "str"],
+    ["add-triple", commentId, expect.any(String), "num"],
+    ["add-triple", commentId, expect.any(String), "date"],
+    ["add-triple", commentId, expect.any(String), "bool"],
+    ["add-triple", commentId, expect.any(String), "any"],
+    ["add-triple", commentId, expect.any(String), "json"],
   ];
 
   expect(result).toHaveLength(expected.length);
