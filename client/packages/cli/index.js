@@ -1124,7 +1124,7 @@ async function readLocalPermsFile() {
   });
 
   return {
-    perms: null && config,
+    perms: config,
     path: sources.at(0),
   };
 }
