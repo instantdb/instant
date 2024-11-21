@@ -55,13 +55,14 @@
 (s/def ::attr-id uuid?)
 (s/def ::nil? boolean?)
 (s/def ::$isNull (s/keys :req-un [::attr-id ::nil?]))
+(s/def ::$like string?)
 
 (s/def ::value-pattern-component (s/or :constant (s/coll-of ::triple-model/value
                                                             :kind set?
                                                             :min-count 0)
                                        :any #{'_}
                                        :variable symbol?
-                                       :function (s/keys :req-un [(or ::$not ::$isNull)])))
+                                       :function (s/keys :req-un [(or ::$not ::$isNull ::$like)])))
 
 (s/def ::pattern
   (s/cat :idx ::triple-model/index
@@ -110,10 +111,11 @@
    (map-indexed
     (fn [i c]
       (if (or
-           ;; Don't override not and isnull
+           ;; Don't override function clauses
            (and (= i 2)
                 (map? c)
                 (or (contains? c :$not)
+                    (contains? c :$like)
                     (contains? c :$isNull)))
            (symbol? c)
            (set? c))
@@ -316,8 +318,9 @@
   "Given a named-pattern and the symbol-values from previous patterns,
    returns the topic that would invalidate the query"
   [{:keys [idx e a v]} symbol-values]
-  (if (and (= :function (first v))
-           (contains? (second v) :$isNull))
+  (cond
+    (and (= :function (first v))
+         (contains? (second v) :$isNull))
     ;; This might be a lot simpler if we had a way to do
     ;; (not [?e :attr-id])
     [[:ea
@@ -328,6 +331,16 @@
       '_
       #{(-> v second :$isNull :attr-id)}
       '_]]
+
+    ;; Handle $like patterns by using wildcard for v
+    (and (= :function (first v))
+         (contains? (second v) :$like))
+    [[idx
+      (component->topic-component symbol-values :e e)
+      (component->topic-component symbol-values :a a)
+      '_]] ;; Wildcard for v
+
+    :else
     [[idx
       (component->topic-component symbol-values :e e)
       (component->topic-component symbol-values :a a)
@@ -541,6 +554,7 @@
     :function (let [[func val] (first v-value)]
                 (case func
                   :$not [[:not= :value (value->jsonb val)]]
+                  :$like [[:like [:->> :value :0] val]]
                   :$isNull [[(if (:nil? val)
                                :not-in
                                :in)
@@ -1141,8 +1155,6 @@
                         ctes (if-let [page-info (:page-info pattern-group)]
                                (add-page-info page-info (:with query))
                                (:with query))
-
-
 
                         next-acc (cond-> acc
                                    true (assoc :next-idx next-idx)

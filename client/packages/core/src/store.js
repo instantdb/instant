@@ -450,6 +450,15 @@ export function allMapValues(m, level, res = []) {
   return res;
 }
 
+function matchesLikePattern(value, pattern) {
+  if (typeof value !== 'string' || typeof pattern !== 'string') return false;
+  const regexPattern = pattern
+    .replace(/%/g, '.*')
+  const regex = new RegExp(`^${regexPattern}$`, 'i');
+  return regex.test(value);
+}
+
+
 function triplesByValue(store, m, v) {
   const res = [];
   if (v?.hasOwnProperty('$not')) {
@@ -469,6 +478,16 @@ function triplesByValue(store, m, v) {
       const isValNull =
         !aMap || aMap.get(candidate)?.get(null) || !aMap.get(candidate);
       if (isNull ? isValNull : !isValNull) {
+        res.push(m.get(candidate));
+      }
+    }
+    return res;
+  }
+
+  if (v?.hasOwnProperty('$like')) {
+    const pattern = v.$like;
+    for (const candidate of m.keys()) {
+      if (matchesLikePattern(candidate, pattern)) {
         res.push(m.get(candidate));
       }
     }

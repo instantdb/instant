@@ -40,10 +40,10 @@
 (s/def ::$isNull boolean?)
 
 (defn where-value-valid-keys? [m]
-  (every? #{:in :$in :$not :$isNull} (keys m)))
+  (every? #{:in :$in :$not :$isNull :$like} (keys m)))
 
 (s/def ::where-args-map (s/and
-                         (s/keys :opt-un [::in ::$in ::$not ::$isNull])
+                         (s/keys :opt-un [::in ::$in ::$not ::$isNull ::$like])
                          where-value-valid-keys?))
 
 (s/def ::where-v
@@ -491,7 +491,8 @@
                         (case func
                           (:$in :in) args-map-val
                           :$not {:$not args-map-val}
-                          :$isNull {:$isNull args-map-val})))
+                          :$isNull {:$isNull args-map-val}
+                          :$like {:$like args-map-val})))
         [refs-path value-label] (ucoll/split-last path)
 
         [last-etype last-level ref-attr-pats referenced-etypes]
@@ -1049,7 +1050,12 @@
                                  [(:gt (second v))]
 
                                  (contains? (second v) :lt)
-                                 [(:lt (second v))]))]
+                                 [(:lt (second v))]
+
+                                 (contains? (second v) :$like)
+                                 (when-let [like-val (:$like (second v))]
+                                   like-val)))]
+
     (if (< 1 (count path))
       (let [relations-fields (butlast path)
 
@@ -1088,7 +1094,10 @@
                                          :>
 
                                          (contains? (second v) :lt)
-                                         :<))]
+                                         :<
+
+                                         (contains? (second v) :$like)
+                                         :like))]
         {:sql-conds (list* :or
                            (for [value values]
                              [comparison field [:cast value field-type]]))

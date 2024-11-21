@@ -763,6 +763,79 @@ console.log(data)
 }
 ```
 
+### $like
+
+The `where` clause supports `$like` queries that will return entities that match
+a case-insensitive substring of the provided value for the field. You can use
+`$like` to do queries like `contains`, `startsWith`, and `endsWith`.
+
+`{ $like: "%promoted!" }` looks for values that end with "promoted!".
+
+`{ $like: "Get%" }` looks for values that start with "Get".
+
+`{ $like: "%fit%" }` looks for values that contain "fit".
+
+
+```javascript
+// Find all goals that end with the word "promoted!"
+const query = {
+  goals: {
+    $: {
+      where: {
+        title: { $like: '%promoted!' },
+      },
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data)
+{
+  "goals": [
+    {
+      "id": workId,
+      "title": "Get promoted!",
+    }
+  ]
+}
+```
+
+You can use `$like` in nested queries as well
+
+```javascript
+// Find goals that have todos with the word "standup" in their title
+const query = {
+  goals: {
+    $: {
+      where: {
+        'todos.title': { $like: '%standup%' },
+      },
+    },
+    todos: {},
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+Returns
+
+```javascript
+console.log(data)
+{
+  "goals": [
+    {
+      "id": workId,
+      "title": "Get promoted!",
+    }
+      ]
+    }
+  ]
+}
+```
+
+
 ## Query once
 
 Sometimes, you don't want a subscription, and just want to fetch data once. For example, you might want to fetch data before rendering a page or check whether a user name is available.

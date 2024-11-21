@@ -112,6 +112,16 @@ function valueAttrPat(makeVar, store, valueEtype, valueLevel, valueLabel, v) {
     ];
   }
 
+  if (v?.hasOwnProperty("$like")) {
+    return [
+      makeVar(valueEtype, valueLevel),
+      attr.id,
+      { $like: v.$like },
+      wildcard("time"),
+    ];
+  }
+
+
   return [makeVar(valueEtype, valueLevel), attr.id, v, wildcard("time")];
 }
 

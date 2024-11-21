@@ -171,7 +171,6 @@
                     [:vae '?movie movie-director-aid '?director]
                     [:ea '?movie movie-title-aid '?title]]
 
-
         named-ps-1 (d/->named-patterns patterns-1)
 
         named-ps-2 (d/->named-patterns patterns-2)]
@@ -380,7 +379,6 @@
 
             (testing "we only make a single sql query for both d/query calls"
               (is (= @counts 1)))))))))
-
 
 (comment
   (test/run-tests *ns*))

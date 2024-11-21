@@ -28,10 +28,10 @@ function matchWithArgMap(patternPart, triplePart, context) {
 
   if (
     patternPart.hasOwnProperty("$not") ||
-    patternPart.hasOwnProperty("$isNull")
+    patternPart.hasOwnProperty("$isNull") ||
+    patternPart.hasOwnProperty("$like")
   ) {
-    // If we use `$not` or `$isNull`, we've already done the filtering in
-    // `getTriples`
+    // We've already done the filtering in `getTriples`
     return context;
   }
   return null;
