@@ -1054,14 +1054,14 @@ async function fetchJson({
 
     if (!res.ok) {
       if (withErrorLogging) {
-        console.error(errorMessage);
+        error(errorMessage);
         if (data?.message) {
-          console.error(data.message);
+          error(data.message);
         }
         if (Array.isArray(data?.hint?.errors)) {
-          for (const error of data.hint.errors) {
-            console.error(
-              `${error.in ? error.in.join("->") + ": " : ""}${error.message}`,
+          for (const err of data.hint.errors) {
+            error(
+              `${err.in ? err.in.join("->") + ": " : ""}${err.message}`,
             );
           }
         }
@@ -1080,11 +1080,11 @@ async function fetchJson({
   } catch (err) {
     if (withErrorLogging) {
       if (err.name === "AbortError") {
-        console.error(
-          `Timeout: It took more than ${timeoutMs / 60000} minutes to get the result!`,
+        error(
+          `Timeout: It took more than ${timeoutMs / 60000} minutes to get the result.`,
         );
       } else {
-        console.error(`Error: type: ${err.name}, message: ${err.message}`);
+        error(`Error: type: ${err.name}, message: ${err.message}`);
       }
     }
     return { ok: false, data: null };
