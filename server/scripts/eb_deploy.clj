@@ -72,7 +72,7 @@
   (println "Deploying " (get version "VersionLabel") " " (get version "Description"))
   (Thread/sleep 500)
   (apply exec
-         (str "eb deploy instant-docker-prod-env --version " (get version "VersionLabel"))
+         (str "eb deploy Instant-docker-prod-env-2 --version " (get version "VersionLabel"))
          *command-line-args*))
 
 (defn main-loop []
