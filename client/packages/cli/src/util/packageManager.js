@@ -1,3 +1,7 @@
+// Note: 
+// Extracted the main logic for `detectPackageManager` from:
+// https://github.com/vercel/vercel/blob/eb7fe8a9266563cfeaf275cd77cd9fad3f17c92b/packages/build-utils/src/fs/run-user-scripts.ts
+
 import { pathExists, readJsonFile } from './fs.js';
 import path from 'path';
 
