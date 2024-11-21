@@ -452,9 +452,8 @@ export function allMapValues(m, level, res = []) {
 
 function matchesLikePattern(value, pattern) {
   if (typeof value !== 'string' || typeof pattern !== 'string') return false;
-  const regexPattern = pattern
-    .replace(/%/g, '.*')
-  const regex = new RegExp(`^${regexPattern}$`, 'i');
+  const regexPattern = pattern.replace(/%/g, '.*')
+  const regex = new RegExp(`^${regexPattern}$`);
   return regex.test(value);
 }
 
