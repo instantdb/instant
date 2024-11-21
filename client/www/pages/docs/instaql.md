@@ -813,7 +813,6 @@ const query = {
         'todos.title': { $like: '%standup%' },
       },
     },
-    todos: {},
   },
 };
 const { isLoading, error, data } = db.useQuery(query);
@@ -828,8 +827,6 @@ console.log(data)
     {
       "id": workId,
       "title": "Get promoted!",
-    }
-      ]
     }
   ]
 }

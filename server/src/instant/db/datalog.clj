@@ -332,13 +332,14 @@
       #{(-> v second :$isNull :attr-id)}
       '_]]
 
-    ;; Handle $like patterns by using wildcard for v
+    ;; There's probably a more clever way to invalidate against like
+    ;; values but this is a simple way for now
     (and (= :function (first v))
          (contains? (second v) :$like))
     [[idx
       (component->topic-component symbol-values :e e)
       (component->topic-component symbol-values :a a)
-      '_]] ;; Wildcard for v
+      '_]]
 
     :else
     [[idx
