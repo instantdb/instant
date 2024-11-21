@@ -71,12 +71,13 @@ async function resolveBagAndAppWithErrorLogging(cmdName, arg, opts) {
   } else if (PUSH_PULL_OPTIONS.has(arg)) {
     bag = arg;
   } else {
-    console.error(
-      `Invalid argument: ${arg} must be one of ${Array.from(PUSH_PULL_OPTIONS).join(", ")}`,
+    error(
+      `${chalk.red(arg)} must be one of ${chalk.green(Array.from(PUSH_PULL_OPTIONS).join(", "))}`,
     );
+    return;
   }
   const appId = await getAppIdWithErrorLogging(opts.app);
-  if (!bag || !appId) return;
+  if (!appId) return;
   return [bag, appId];
 }
 
@@ -1315,14 +1316,14 @@ async function getAppIdWithErrorLogging(arg) {
       uuidAppId
     );
   }
-  const appId = null;
-  // const appId =
-  //   // finally, check .env
-  //   process.env.INSTANT_APP_ID ||
-  //   process.env.NEXT_PUBLIC_INSTANT_APP_ID ||
-  //   process.env.PUBLIC_INSTANT_APP_ID || // for Svelte
-  //   process.env.VITE_INSTANT_APP_ID ||
-  //   null;
+
+  const appId =
+    // finally, check .env
+    process.env.INSTANT_APP_ID ||
+    process.env.NEXT_PUBLIC_INSTANT_APP_ID ||
+    process.env.PUBLIC_INSTANT_APP_ID || // for Svelte
+    process.env.VITE_INSTANT_APP_ID ||
+    null;
 
   // otherwise, instruct the user to set one of these up
   if (!appId) {
