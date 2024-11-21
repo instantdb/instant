@@ -4,7 +4,7 @@ title: Schema-as-code
 
 **The schema definition file: `instant.schema.ts`**
 
-This file lives in the root of your project and will be consumed by [the Instant CLI](/docs/cli). You can apply your schema to the production database with `npx instant-cli push-schema`.
+This file lives in the root of your project and will be consumed by [the Instant CLI](/docs/cli). You can apply your schema to the production database with `npx instant-cli push schema`.
 
 The default export of `instant.schema.ts` should always be the result of a call to `i.graph`.
 
@@ -50,7 +50,7 @@ First we specify the expected type of the attribute: `i.string()`, `i.number()`,
 
 We can then chain modifiers: `.optional()`, `.unique()` and `.indexed()`.
 
-When adding a type to an existing attribute, `push-schema` will kick off a job to check the existing data for the attribute before setting the type on the attribute. If you prefer not to enforce the type, you can run `push-schema` with the `--skip-check-types` flag.
+When adding a type to an existing attribute, `push schema` will kick off a job to check the existing data for the attribute before setting the type on the attribute. If you prefer not to enforce the type, you can run `push schema` with the `--skip-check-types` flag.
 
 Here are some examples:
 
