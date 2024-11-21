@@ -6,7 +6,7 @@ import { join } from "path";
 import { randomUUID } from "crypto";
 import dotenv from "dotenv";
 import chalk from "chalk";
-import { program } from "commander";
+import { program, Option } from "commander";
 import { input, confirm } from "@inquirer/prompts";
 import envPaths from "env-paths";
 import { loadConfig } from "unconfig";
@@ -23,6 +23,13 @@ const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
 
 // consts
 
+const noAppIdErrorMessage = `
+No app ID found.
+Add \`INSTANT_APP_ID=<ID>\` to your .env file.
+(Or \`NEXT_PUBLIC_INSTANT_APP_ID\`, \`VITE_INSTANT_APP_ID\`)
+Or provide an app ID via the CLI \`instant-cli pull-schema <ID>\`.
+`.trim();
+
 const instantDashOrigin = dev
   ? "http://localhost:3000"
   : "https://instantdb.com";
@@ -31,92 +38,309 @@ const instantBackendOrigin =
   process.env.INSTANT_CLI_API_URI ||
   (dev ? "http://localhost:8888" : "https://api.instantdb.com");
 
-const instantCLIDescription = `
-${chalk.magenta(`Instant CLI`)}
-Docs: ${chalk.underline(`https://www.instantdb.com/docs/cli`)}
-Dash: ${chalk.underline(`https://www.instantdb.com/dash`)}
-Discord: ${chalk.underline(`https://discord.com/invite/VU53p7uQcE`)}`.trim();
+const PUSH_PULL_OPTIONS = new Set(["schema", "perms", "all"]);
+async function resolveBagAndAppWithErrorLogging(cmdName, arg, opts) {
+  // Note: Nov 20, 2024
+  // We can eventually deprecate this
+  // check, once we're confident that users no longer
+  // provide app ID as their first argument
+  if (arg && !PUSH_PULL_OPTIONS.has(arg)) {
+    deprecationWarning(`${cmdName} ${arg}`, `${cmdName} --app ${arg}`);
+    const bag = "all";
+    const appId = await getAppIdWithErrorLogging(arg);
+    if (!appId) return;
+    return [bag, appId];
+  }
+
+  let bag;
+  if (!arg) {
+    bag = "all";
+  } else if (PUSH_PULL_OPTIONS.has(arg)) {
+    bag = arg;
+  } else {
+    console.error(
+      `Invalid argument: ${arg} must be one of ${Array.from(PUSH_PULL_OPTIONS).join(", ")}`,
+    );
+  }
+  const appId = await getAppIdWithErrorLogging(opts.app);
+  if (!bag || !appId) return;
+  return [bag, appId];
+}
 
 // cli
 
+// Header -- this shows up in every command
+const logoChalk = chalk.bold("instant-cli");
+const versionChalk = chalk.dim(`${version.trim()}`);
+const headerChalk = `${logoChalk} ${versionChalk} ` + "\n";
+
+// Help Footer -- this only shows up in help commands
+const helpFooterChalk =
+  "\n" +
+  chalk.dim.bold("Want to learn more?") +
+  "\n" +
+  `Check out the docs: ${chalk.blueBright.underline("https://instantdb.com/docs")}
+Join the Discord:   ${chalk.blueBright.underline("https://discord.com/invite/VU53p7uQcE")}
+`.trim();
+
+program.addHelpText("after", helpFooterChalk);
+
+program.addHelpText("beforeAll", headerChalk);
+
+function getLocalAndGlobalOptions(cmd, helper) {
+  const mixOfLocalAndGlobal = helper.visibleOptions(cmd);
+  const localOptionsFromMix = mixOfLocalAndGlobal.filter(
+    (option) => !option.__global,
+  );
+  const globalOptionsFromMix = mixOfLocalAndGlobal.filter(
+    (option) => option.__global,
+  );
+  const globalOptions = helper.visibleGlobalOptions(cmd);
+
+  return [localOptionsFromMix, globalOptionsFromMix.concat(globalOptions)];
+}
+
+// custom `formatHelp`
+// original: https://github.com/tj/commander.js/blob/master/lib/help.js
+function formatHelp(cmd, helper) {
+  const termWidth = helper.padWidth(cmd, helper);
+  const helpWidth = helper.helpWidth || 80;
+  const itemIndentWidth = 2;
+  const itemSeparatorWidth = 2; // between term and description
+  function formatItem(term, description) {
+    if (description) {
+      const fullText = `${term.padEnd(termWidth + itemSeparatorWidth)}${description}`;
+      return helper.wrap(
+        fullText,
+        helpWidth - itemIndentWidth,
+        termWidth + itemSeparatorWidth,
+      );
+    }
+    return term;
+  }
+  function formatList(textArray) {
+    return textArray.join("\n").replace(/^/gm, " ".repeat(itemIndentWidth));
+  }
+
+  // Usage
+  let output = [`${helper.commandUsage(cmd)}`, ""];
+
+  // Description
+  const commandDescription = helper.commandDescription(cmd);
+  if (commandDescription.length > 0) {
+    output = output.concat([helper.wrap(commandDescription, helpWidth, 0), ""]);
+  }
+
+  // Arguments
+  const argumentList = helper.visibleArguments(cmd).map((argument) => {
+    return formatItem(
+      helper.argumentTerm(argument),
+      helper.argumentDescription(argument),
+    );
+  });
+  if (argumentList.length > 0) {
+    output = output.concat([
+      chalk.dim.bold("Arguments"),
+      formatList(argumentList),
+      "",
+    ]);
+  }
+  const [visibleOptions, visibleGlobalOptions] = getLocalAndGlobalOptions(
+    cmd,
+    helper,
+  );
+
+  // Options
+  const optionList = visibleOptions.map((option) => {
+    return formatItem(
+      helper.optionTerm(option),
+      helper.optionDescription(option),
+    );
+  });
+  if (optionList.length > 0) {
+    output = output.concat([
+      chalk.dim.bold("Options"),
+      formatList(optionList),
+      "",
+    ]);
+  }
+  // Commands
+  const commandList = helper.visibleCommands(cmd).map((cmd) => {
+    return formatItem(
+      helper.subcommandTerm(cmd),
+      helper.subcommandDescription(cmd),
+    );
+  });
+  if (commandList.length > 0) {
+    output = output.concat([
+      chalk.dim.bold("Commands"),
+      formatList(commandList),
+      "",
+    ]);
+  }
+
+  if (this.showGlobalOptions) {
+    const globalOptionList = visibleGlobalOptions.map((option) => {
+      return formatItem(
+        helper.optionTerm(option),
+        helper.optionDescription(option),
+      );
+    });
+    if (globalOptionList.length > 0) {
+      output = output.concat([
+        chalk.dim.bold("Global Options"),
+        formatList(globalOptionList),
+        "",
+      ]);
+    }
+  }
+
+  return output.join("\n");
+}
+
+program.configureHelp({
+  showGlobalOptions: true,
+  formatHelp,
+});
+
+function globalOption(flags, description, argParser) {
+  const opt = new Option(flags, description);
+  if (argParser) {
+    opt.argParser(argParser);
+  }
+  // @ts-ignore
+  // __global does not exist on `Option`,
+  // but we use it in `getLocalAndGlobalOptions`, to produce
+  // our own custom list of local and global options.
+  // For more info, see the original PR:
+  // https://github.com/instantdb/instant/pull/505
+  opt.__global = true;
+  return opt;
+}
+
+function deprecationWarning(oldCmd, newCmd) {
+  console.log(
+    chalk.yellow(
+      "[warning]: " + "`instant-cli " + oldCmd + "` is deprecated.",
+    ) +
+      " Use " +
+      chalk.green("`instant-cli " + newCmd + "`") +
+      " instead." +
+      "\n",
+  );
+}
+
 program
   .name("instant-cli")
-  .description(instantCLIDescription)
-  .option("-t --token <TOKEN>", "auth token override")
-  .option("-y", "skip confirmation prompt")
-  .option("-v --version", "output the version number", () => {
-    console.log(version);
-    process.exit(0);
-  });
+  .addOption(globalOption("-t --token <token>", "Auth token override"))
+  .addOption(globalOption("-y --yes", "Answer 'yes' to all prompts"))
+  .addOption(
+    globalOption("-v --version", "Print the version number", () => {
+      console.log(version);
+      process.exit(0);
+    }),
+  )
+  .addHelpOption(globalOption("-h --help", "Print the help text for a command"))
+  .usage(`<command> ${chalk.dim("[options] [args]")}`);
 
 program
   .command("login")
-  .description("Authenticates with Instant")
-  .option("-p --print", "print auth token")
+  .description("Log into your account")
+  .option("-p --print", "Prints the auth token into the console.")
   .action(login);
 
-program
-  .command("init")
-  .description("Creates a new app with configuration files")
-  .action(init);
+program.command("init").description("Create a new app").action(init);
 
+// Note: Nov 20, 2024
+// We can eventually delete this,
+// once we know most people use the new pull and push commands
 program
-  .command("push-schema")
-  .argument("[ID]")
-  .description("Pushes local instant.schema definition to production.")
+  .command("push-schema", { hidden: true })
+  .argument("[app-id]")
+  .description("Push schema to production.")
   .option(
     "--skip-check-types",
     "Don't check types on the server when pushing schema",
   )
-  .action((id, opts) => {
-    pushSchema(id, opts);
+  .action(async (appIdOrName, opts) => {
+    deprecationWarning("push-schema", "push schema");
+    const appId = await getAppIdWithErrorLogging(appIdOrName);
+    if (!appId) return;
+    pushSchema(appId, opts);
   });
 
+// Note: Nov 20, 2024
+// We can eventually delete this,
+// once we know most people use the new pull and push commands
 program
-  .command("push-perms")
-  .argument("[ID]")
-  .description("Pushes local instant.perms rules to production.")
-  .action(() => {
-    pushPerms();
+  .command("push-perms", { hidden: true })
+  .argument("[app-id]")
+  .description("Push perms to production.")
+  .action(async (appIdOrName) => {
+    deprecationWarning("push-perms", "push perms");
+    const appId = await getAppIdWithErrorLogging(appIdOrName);
+    if (!appId) return;
+
+    pushPerms(appId);
   });
 
 program
   .command("push")
-  .argument("[ID]")
+  .argument(
+    "[schema|perms|all]",
+    "Which configuration to push. Defaults to `all`",
+  )
+  .option(
+    "-a --app <app-id>",
+    "App ID to push too. Defaults to *_INSTANT_APP_ID in .env",
+  )
   .option(
     "--skip-check-types",
     "Don't check types on the server when pushing schema",
   )
-  .description(
-    "Pushes local instant.schema and instant.perms rules to production.",
-  )
+  .description("Push schema and perms to production.")
   .action(pushAll);
 
+// Note: Nov 20, 2024
+// We can eventually delete this,
+// once we know most people use the new pull and push commands
 program
-  .command("pull-schema")
-  .argument("[ID]")
-  .description(
-    "Generates an initial instant.schema definition from production state.",
-  )
-  .action((appIdOrName) => {
-    pullSchema(appIdOrName);
+  .command("pull-schema", { hidden: true })
+  .argument("[app-id]")
+  .description("Generate instant.schema.ts from production")
+  .action(async (appIdOrName) => {
+    deprecationWarning("pull-schema", "pull schema");
+    const appId = await getAppIdWithErrorLogging(appIdOrName);
+    if (!appId) return;
+    pullSchema(appId);
   });
 
+// Note: Nov 20, 2024
+// We can eventually delete this,
+// once we know most people use the new pull and push commands
 program
-  .command("pull-perms")
-  .argument("[ID]")
-  .description(
-    "Generates an initial instant.perms definition from production rules.",
-  )
-  .action((appIdOrName) => {
-    pullPerms(appIdOrName);
+  .command("pull-perms", { hidden: true })
+  .argument("[app-id]")
+  .description("Generate instant.perms.ts from production.")
+  .action(async (appIdOrName) => {
+    deprecationWarning("pull-perms", "pull perms");
+    const appId = await getAppIdWithErrorLogging(appIdOrName);
+    if (!appId) return;
+    pullPerms(appId);
   });
 
 program
   .command("pull")
-  .argument("[ID]")
+  .argument(
+    "[schema|perms|all]",
+    "Which configuration to push. Defaults to `all`",
+  )
+  .option(
+    "-a --app <app-id>",
+    "App ID to push to. Defaults to *_INSTANT_APP_ID in .env",
+  )
   .description(
-    "Generates initial instant.schema and instant.perms definition from production state.",
+    "Generate schema and perm files from from your production state.",
   )
   .action(pullAll);
 
@@ -125,16 +349,29 @@ program.parse(process.argv);
 // command actions
 
 async function pushAll(appIdOrName, opts) {
-  const ok = await pushSchema(appIdOrName, opts);
-  if (!ok) return;
-
-  await pushPerms(appIdOrName);
+  const ret = await resolveBagAndAppWithErrorLogging("push", appIdOrName, opts);
+  if (!ret) return;
+  const [bag, appId] = ret;
+  if (bag === "schema" || bag === "all") {
+    const ok = await pushSchema(appId, opts);
+    if (!ok) return;
+  }
+  if (bag === "perms" || bag === "all") {
+    await pushPerms(appId);
+  }
 }
 
-async function pullAll(appIdOrName) {
-  const ok = await pullSchema(appIdOrName);
-  if (!ok) return;
-  await pullPerms(appIdOrName);
+async function pullAll(appIdOrName, opts) {
+  const ret = await resolveBagAndAppWithErrorLogging("pull", appIdOrName, opts);
+  if (!ret) return;
+  const [bag, appId] = ret;
+  if (bag === "schema" || bag === "all") {
+    const ok = await pullSchema(appId);
+    if (!ok) return;
+  }
+  if (bag === "perms" || bag === "all") {
+    await pullPerms(appId);
+  }
 }
 
 async function login(options) {
@@ -247,16 +484,12 @@ async function getInstantModuleName(pkgDir) {
   return instantModuleName;
 }
 
-async function pullSchema(appIdOrName) {
+async function pullSchema(appId) {
   const pkgDir = await packageDirectory();
   if (!pkgDir) {
     console.error("Failed to locate app root dir.");
     return;
   }
-
-  const appId = await getAppIdWithErrorLogging(appIdOrName);
-  if (!appId) return;
-
   const instantModuleName = await getInstantModuleName(pkgDir);
   if (!instantModuleName) {
     console.warn(
@@ -332,12 +565,8 @@ async function pullSchema(appIdOrName) {
   return true;
 }
 
-async function pullPerms(appIdOrName) {
+async function pullPerms(appId) {
   console.log("Pulling perms...");
-
-  const appId = await getAppIdWithErrorLogging(appIdOrName);
-  if (!appId) return;
-
   const pkgDir = await packageDirectory();
   if (!pkgDir) {
     console.error("Failed to locate app root dir.");
@@ -580,10 +809,7 @@ async function waitForIndexingJobsToFinish(appId, data) {
   }
 }
 
-async function pushSchema(appIdOrName, opts) {
-  const appId = await getAppIdWithErrorLogging(appIdOrName);
-  if (!appId) return;
-
+async function pushSchema(appId, opts) {
   const schema = await readLocalSchemaFileWithErrorLogging();
   if (!schema) return;
 
@@ -700,10 +926,7 @@ async function pushSchema(appIdOrName, opts) {
   return true;
 }
 
-async function pushPerms(appIdOrName) {
-  const appId = await getAppIdWithErrorLogging(appIdOrName);
-  if (!appId) return;
-
+async function pushPerms(appId) {
   const { perms } = await readLocalPermsFile();
   if (!perms) {
     console.error("Missing instant.perms file!");
@@ -1057,21 +1280,16 @@ function isUUID(uuid) {
   return uuidRegex.test(uuid);
 }
 
-async function getAppIdWithErrorLogging(defaultAppIdOrName) {
-  if (defaultAppIdOrName) {
+async function getAppIdWithErrorLogging(arg) {
+  if (arg) {
     const config = await readInstantConfigFile();
 
-    const nameMatch = config?.apps?.[defaultAppIdOrName];
+    const nameMatch = config?.apps?.[arg];
     const namedAppId = nameMatch?.id && isUUID(nameMatch.id) ? nameMatch : null;
-    const uuidAppId =
-      defaultAppIdOrName && isUUID(defaultAppIdOrName)
-        ? defaultAppIdOrName
-        : null;
+    const uuidAppId = arg && isUUID(arg) ? arg : null;
 
     if (nameMatch && !namedAppId) {
-      console.error(
-        `App ID for \`${defaultAppIdOrName}\` is not a valid UUID.`,
-      );
+      console.error(`App ID for \`${arg}\` is not a valid UUID.`);
     } else if (!namedAppId && !uuidAppId) {
       console.error(`The provided app ID is not a valid UUID.`);
     }
@@ -1084,7 +1302,6 @@ async function getAppIdWithErrorLogging(defaultAppIdOrName) {
       uuidAppId
     );
   }
-
   const appId =
     // finally, check .env
     process.env.INSTANT_APP_ID ||
@@ -1264,10 +1481,3 @@ ${indentLines(JSON.stringify(linksEntriesCode, null, "  "), 1)}
 export default graph;
 `;
 }
-
-const noAppIdErrorMessage = `
-No app ID found.
-Add \`INSTANT_APP_ID=<ID>\` to your .env file.
-(Or \`NEXT_PUBLIC_INSTANT_APP_ID\`, \`VITE_INSTANT_APP_ID\`)
-Or provide an app ID via the CLI \`instant-cli pull-schema <ID>\`.
-`.trim();
