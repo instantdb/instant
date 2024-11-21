@@ -238,7 +238,17 @@ function toTxSteps(attrs, step) {
 // ---------
 // transform
 
-const CHECKED_DATA_TYPES = ["string", "date", "boolean", "number"];
+function checkedDataTypeOfValueType(valueType) {
+  switch (valueType) {
+    case "string":
+    case "date":
+    case "boolean":
+    case "number":
+      return valueType;
+    default:
+      return undefined;
+  }
+}
 
 function objectPropsFromSchema(schema, etype, label) {
   const attr = schema.entities[etype]?.attrs?.[label];
@@ -247,9 +257,7 @@ function objectPropsFromSchema(schema, etype, label) {
     throw new Error(`${etype}.${label} does not exist in your schema`);
   }
   const { unique, indexed } = attr?.config;
-  const checkedDataType = CHECKED_DATA_TYPES.includes(attr?.valueType)
-    ? attr.valueType
-    : undefined;
+  const checkedDataType = checkedDataTypeOfValueType(attr?.valueType);
 
   return {
     "index?": indexed,
