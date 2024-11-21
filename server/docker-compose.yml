@@ -9,6 +9,6 @@ services:
     env_file:
       - .env
     network_mode: "host"
-    command: sh -c 'java $${JAVA_OPTS} -agentpath:/usr/local/YourKit-JavaProfiler-2024.9/bin/linux-x86-64/libyjpagent.so=port=10001,listen=all -server -jar target/instant-standalone.jar'
     stop_grace_period: 1m
     restart: on-failure
+    command: sh -c 'java $${JAVA_OPTS} -agentpath:/usr/local/YourKit-JavaProfiler-2024.9/bin/linux-x86-64/libyjpagent.so=port=10001,listen=all -server -jar target/instant-standalone.jar'
