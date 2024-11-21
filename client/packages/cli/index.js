@@ -942,9 +942,8 @@ async function pushSchema(appId, opts) {
 }
 
 async function pushPerms(appId) {
-  const { perms } = await readLocalPermsFile();
+  const perms = await readLocalPermsFileWithErrorLogging();
   if (!perms) {
-    console.error("Missing instant.perms file!");
     return;
   }
 
@@ -991,7 +990,7 @@ async function waitForAuthToken({ secret }) {
     } catch (error) {}
   }
 
-  console.error("Login timed out.");
+  error("Timed out waiting for authentication");
   return null;
 }
 
@@ -1127,9 +1126,19 @@ async function readLocalPermsFile() {
   });
 
   return {
-    perms: config,
+    perms: null && config,
     path: sources.at(0),
   };
+}
+
+async function readLocalPermsFileWithErrorLogging() {
+  const { perms } = await readLocalPermsFile();
+  if (!perms) {
+    error(
+      `We couldn't find your ${chalk.yellow("`instant.perms.ts`")} file. Make sure it's in the root directory.`,
+    );
+  }
+  return perms;
 }
 
 async function readLocalSchemaFile() {
