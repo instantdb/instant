@@ -451,13 +451,13 @@ async function init() {
   const id = randomUUID();
   const token = randomUUID();
 
-  const title = await input({
+  const _title = await input({
     message: "Enter a name for your app",
     required: true,
   }).catch(() => null);
-
+  const title = _title?.trim();
   if (!title) {
-    console.error("No name provided. Exiting.");
+    error("No name provided. Exiting.");
     return;
   }
 
