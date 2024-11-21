@@ -21,13 +21,26 @@ dotenv.config();
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
 
+// logs
+
+function warn(firstArg, ...rest) {
+  console.warn(chalk.yellow("[warning]") + " " + firstArg, ...rest);
+}
+
+function error(firstArg, ...rest) {
+  console.error(chalk.red("[error]") + " " + firstArg, ...rest);
+}
+
 // consts
 
 const noAppIdErrorMessage = `
-No app ID found.
-Add \`INSTANT_APP_ID=<ID>\` to your .env file.
-(Or \`NEXT_PUBLIC_INSTANT_APP_ID\`, \`VITE_INSTANT_APP_ID\`)
-Or provide an app ID via the CLI \`instant-cli pull schema <ID>\`.
+Couldn't find an app ID.
+
+You can either: 
+a. Set ${chalk.green("`INSTANT_APP_ID`")} in your .env file. [1]
+b. Or provide an app ID via the CLI: ${chalk.green("`instant-cli push|pull -a <app-id>`")}.
+
+[1] Alternatively, If you have ${chalk.green("`NEXT_PUBLIC_INSTANT_APP_ID`")}, ${chalk.green("`VITE_INSTANT_APP_ID`")}, we can detect those too!
 `.trim();
 
 const instantDashOrigin = dev
@@ -1289,9 +1302,9 @@ async function getAppIdWithErrorLogging(arg) {
     const uuidAppId = arg && isUUID(arg) ? arg : null;
 
     if (nameMatch && !namedAppId) {
-      console.error(`App ID for \`${arg}\` is not a valid UUID.`);
+      error(`Expected \`${arg}\` to point to a UUID, but got ${nameMatch.id}.`);
     } else if (!namedAppId && !uuidAppId) {
-      console.error(`The provided app ID is not a valid UUID.`);
+      error(`Expected App ID to be a UUID, but got: ${chalk.red(arg)}`);
     }
 
     return (
@@ -1302,17 +1315,18 @@ async function getAppIdWithErrorLogging(arg) {
       uuidAppId
     );
   }
-  const appId =
-    // finally, check .env
-    process.env.INSTANT_APP_ID ||
-    process.env.NEXT_PUBLIC_INSTANT_APP_ID ||
-    process.env.PUBLIC_INSTANT_APP_ID || // for Svelte
-    process.env.VITE_INSTANT_APP_ID ||
-    null;
+  const appId = null;
+  // const appId =
+  //   // finally, check .env
+  //   process.env.INSTANT_APP_ID ||
+  //   process.env.NEXT_PUBLIC_INSTANT_APP_ID ||
+  //   process.env.PUBLIC_INSTANT_APP_ID || // for Svelte
+  //   process.env.VITE_INSTANT_APP_ID ||
+  //   null;
 
   // otherwise, instruct the user to set one of these up
   if (!appId) {
-    console.error(noAppIdErrorMessage);
+    error(noAppIdErrorMessage);
   }
 
   return appId;
