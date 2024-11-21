@@ -7,13 +7,22 @@ import { randomUUID } from "crypto";
 import dotenv from "dotenv";
 import chalk from "chalk";
 import { program, Option } from "commander";
-import { input, confirm } from "@inquirer/prompts";
+import { input, confirm, select } from "@inquirer/prompts";
 import envPaths from "env-paths";
 import { loadConfig } from "unconfig";
 import { packageDirectory } from "pkg-dir";
 import openInBrowser from "open";
 import ora from "ora";
 import terminalLink from "terminal-link";
+import { exec } from "child_process";
+import { promisify } from "util";
+import {
+  detectPackageManager,
+  getInstallCommand,
+} from "./src/util/packageManager.js";
+import { pathExists, readJsonFile } from "./src/util/fs.js";
+
+const execAsync = promisify(exec);
 
 // config
 dotenv.config();
@@ -432,30 +441,79 @@ async function login(options) {
   }
 }
 
+async function getOrInstallInstantModuleWithErrorLogging(pkgDir) {
+  const pkgJson = await getPackageJSONWithErrorLogging(pkgDir);
+  if (!pkgJson) {
+    return;
+  }
+  console.log("Checking for an Instant SDK...");
+  const instantModuleName = await getInstantModuleName(pkgJson);
+  if (instantModuleName) {
+    console.log(
+      `Found ${chalk.green(instantModuleName)} in your package.json.`,
+    );
+    return instantModuleName;
+  }
+  console.log(
+    "Couldn't find an Instant SDK in your package.json, let's install one!",
+  );
+  const moduleName = await select({
+    message: "Which package would you like to use?",
+    choices: [
+      { name: "@instantdb/react", value: "@instantdb/react" },
+      { name: "@instantdb/react-native", value: "@instantdb/react-native" },
+      { name: "@instantdb/core", value: "@instantdb/core" },
+      { name: "@instantdb/admin", value: "@instantdb/admin" },
+    ],
+  });
+  
+  const packageManager = await detectPackageManager(pkgDir);
+  const installCommand = getInstallCommand(packageManager, moduleName);
+
+  const spinner = ora(
+    `Installing ${moduleName} using ${packageManager}...`,
+  ).start();
+
+  try {
+    await execAsync(installCommand, pkgDir);
+    spinner.succeed(`Installed ${moduleName} using ${packageManager}.`);
+  } catch (e) {
+    spinner.fail(`Failed to install ${moduleName} using ${packageManager}.`);
+    error(e.message);
+    return;
+  }
+
+  return moduleName;
+}
+
 async function init() {
   const pkgDir = await packageDirectoryWithErrorLogging();
   if (!pkgDir) {
     return;
   }
-  const instantModuleName = await getInstantModuleNameWithErrorLogging(pkgDir);
-  if (!instantModuleName) {
-    return;
-  }
-  const schema = await readLocalSchemaFile();
-  const { perms } = await readLocalPermsFile();
+
   const authToken = await readConfigAuthTokenWithErrorLogging();
   if (!authToken) {
     return;
   }
+  const instantModuleName = await getOrInstallInstantModuleWithErrorLogging(pkgDir);
+  if (!instantModuleName) { 
+    return
+  }
+
+  const schema = await readLocalSchemaFile();
+  const { perms } = await readLocalPermsFile();
 
   const id = randomUUID();
   const token = randomUUID();
-
+  console.log("Let's create a new app!");
   const _title = await input({
-    message: "Enter a name for your app",
+    message: "What would you like to call it?",
     required: true,
   }).catch(() => null);
+  
   const title = _title?.trim();
+
   if (!title) {
     error("No name provided. Exiting.");
     return;
@@ -495,25 +553,24 @@ async function init() {
   }
 }
 
-async function getInstantModuleName(pkgDir) {
-  const pkgJson = await readJsonFile(join(pkgDir, "package.json"));
-  const instantModuleName = pkgJson?.dependencies?.["@instantdb/react"]
-    ? "@instantdb/react"
-    : pkgJson?.dependencies?.["@instantdb/core"]
-      ? "@instantdb/core"
-      : null;
+async function getInstantModuleName(pkgJson) {
+  const deps = pkgJson.dependencies || {};
+  const instantModuleName = [
+    "@instantdb/react",
+    "@instantdb/react-native",
+    "@instantdb/core",
+    "@instantdb/admin"
+  ].find((name) => deps[name]);
   return instantModuleName;
 }
 
-async function getInstantModuleNameWithErrorLogging(pkgDir) {
-  const instantModuleName = await getInstantModuleName(pkgDir);
-  if (!instantModuleName) {
-    error(
-      `Couldn't find Instant in your package.json. Please install ${chalk.green("`@instantdb/react`")} or ${chalk.green("`@instantdb/core`")}.`,
-    );
+async function getPackageJSONWithErrorLogging(pkgDir) {
+  const pkgJson = await readJsonFile(join(pkgDir, "package.json"));
+  if (!pkgJson) {
+    error(`Couldn't find a packge.json file in: ${pkgDir}. Please add one.`);
     return;
   }
-  return instantModuleName;
+  return pkgJson;
 }
 
 async function pullSchema(appId) {
@@ -521,7 +578,7 @@ async function pullSchema(appId) {
   if (!pkgDir) {
     return;
   }
-  const instantModuleName = await getInstantModuleNameWithErrorLogging(pkgDir);
+  const instantModuleName = await getOrInstallInstantModuleWithErrorLogging(pkgDir);
   if (!instantModuleName) {
     return;
   }
@@ -1109,15 +1166,6 @@ async function promptOk(message) {
   }).catch(() => false);
 }
 
-async function pathExists(f) {
-  try {
-    await stat(f);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function readLocalPermsFile() {
   const { config, sources } = await loadConfig({
     sources: [
@@ -1193,19 +1241,6 @@ async function readLocalSchemaFileWithErrorLogging() {
   }
 
   return schema;
-}
-
-async function readJsonFile(path) {
-  if (!pathExists(path)) {
-    return null;
-  }
-
-  try {
-    const data = await readFile(path, "utf-8");
-    return JSON.parse(data);
-  } catch (error) {}
-
-  return null;
 }
 
 async function readConfigAuthToken() {
