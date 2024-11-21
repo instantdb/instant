@@ -162,7 +162,7 @@
          (string/replace (UUID/randomUUID) #"-" "_"))))
 
 (defn get-connection-pool-size []
-  (if (= :prod (get-env)) 400 20))
+  (if (= :prod (get-env)) 200 20))
 
 (defn env-integer [var-name]
   (when (System/getenv var-name)
