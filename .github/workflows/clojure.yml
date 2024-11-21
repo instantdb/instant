@@ -246,14 +246,6 @@ jobs:
         sed -i "s|IMAGE_REPLACE_ME|597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:${IMAGE_TAG}|g" docker-compose.yml
         cat docker-compose.yml
 
-    - name: Update logdna.sh
-      working-directory: server
-      env:
-        SHA: ${{ github.sha }}
-      run: |
-        sed -i "s|SHA_REPLACE_ME|${SHA}|g" .platform/hooks/prebuild/logdna.sh
-        cat .platform/hooks/prebuild/logdna.sh
-
     - name: Create eb application version
       uses: "./.github/actions/elastic-beanstalk"
       with:
