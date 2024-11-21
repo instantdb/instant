@@ -443,9 +443,8 @@ async function init() {
   const instantModuleName = await getInstantModuleName(pkgDir);
   const schema = await readLocalSchemaFile();
   const { perms } = await readLocalPermsFile();
-  const authToken = await readConfigAuthToken();
+  const authToken = await readConfigAuthTokenWithErrorLogging();
   if (!authToken) {
-    console.error("Unauthenticated.  Please log in with `instant-cli login`!");
     return;
   }
 
@@ -517,10 +516,8 @@ async function pullSchema(appId) {
       "Missing Instant dependency in package.json.  Please install `@instantdb/react` or `@instantdb/core`.",
     );
   }
-
-  const authToken = await readConfigAuthToken();
+  const authToken = await readConfigAuthTokenWithErrorLogging();
   if (!authToken) {
-    console.error("Unauthenticated.  Please log in with `login`!");
     return;
   }
 
@@ -592,9 +589,8 @@ async function pullPerms(appId) {
   if (!pkgDir) {
     return;
   }
-  const authToken = await readConfigAuthToken();
+  const authToken = await readConfigAuthTokenWithErrorLogging();
   if (!authToken) {
-    console.error("Unauthenticated.  Please log in with `login`!");
     return;
   }
 
@@ -1027,9 +1023,8 @@ async function fetchJson({
   const withErrorLogging = !noLogError;
   let authToken = null;
   if (withAuth) {
-    authToken = await readConfigAuthToken();
+    authToken = await readConfigAuthTokenWithErrorLogging();
     if (!authToken) {
-      console.error("Unauthenticated. Please log in with `instant-cli login`");
       return { ok: false, data: undefined };
     }
   }
@@ -1211,6 +1206,15 @@ async function readConfigAuthToken() {
   ).catch(() => null);
 
   return authToken;
+}
+async function readConfigAuthTokenWithErrorLogging() {
+  const token = await readConfigAuthToken();
+  if (!token) {
+    error(
+      `Looks like you are not logged in. Please log in with ${chalk.green("`instant-cli login`")}`,
+    );
+  }
+  return token;
 }
 
 async function saveConfigAuthToken(authToken) {
