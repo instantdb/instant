@@ -58,7 +58,7 @@ async function resolveBagAndAppWithErrorLogging(cmdName, arg, opts) {
   // check, once we're confident that users no longer
   // provide app ID as their first argument
   if (arg && !PUSH_PULL_OPTIONS.has(arg)) {
-    deprecationWarning(`${cmdName} ${arg}`, `${cmdName} --app ${arg}`);
+    warnDeprecation(`${cmdName} ${arg}`, `${cmdName} --app ${arg}`);
     const bag = "all";
     const appId = await getAppIdWithErrorLogging(arg);
     if (!appId) return;
@@ -241,11 +241,9 @@ function globalOption(flags, description, argParser) {
   return opt;
 }
 
-function deprecationWarning(oldCmd, newCmd) {
-  console.log(
-    chalk.yellow(
-      "[warning]: " + "`instant-cli " + oldCmd + "` is deprecated.",
-    ) +
+function warnDeprecation(oldCmd, newCmd) {
+  warn(
+    chalk.yellow("`instant-cli " + oldCmd + "` is deprecated.") +
       " Use " +
       chalk.green("`instant-cli " + newCmd + "`") +
       " instead." +
@@ -286,7 +284,7 @@ program
     "Don't check types on the server when pushing schema",
   )
   .action(async (appIdOrName, opts) => {
-    deprecationWarning("push-schema", "push schema");
+    warnDeprecation("push-schema", "push schema");
     const appId = await getAppIdWithErrorLogging(appIdOrName);
     if (!appId) return;
     pushSchema(appId, opts);
@@ -300,7 +298,7 @@ program
   .argument("[app-id]")
   .description("Push perms to production.")
   .action(async (appIdOrName) => {
-    deprecationWarning("push-perms", "push perms");
+    warnDeprecation("push-perms", "push perms");
     const appId = await getAppIdWithErrorLogging(appIdOrName);
     if (!appId) return;
 
@@ -332,7 +330,7 @@ program
   .argument("[app-id]")
   .description("Generate instant.schema.ts from production")
   .action(async (appIdOrName) => {
-    deprecationWarning("pull-schema", "pull schema");
+    warnDeprecation("pull-schema", "pull schema");
     const appId = await getAppIdWithErrorLogging(appIdOrName);
     if (!appId) return;
     pullSchema(appId);
@@ -346,7 +344,7 @@ program
   .argument("[app-id]")
   .description("Generate instant.perms.ts from production.")
   .action(async (appIdOrName) => {
-    deprecationWarning("pull-perms", "pull perms");
+    warnDeprecation("pull-perms", "pull perms");
     const appId = await getAppIdWithErrorLogging(appIdOrName);
     if (!appId) return;
     pullPerms(appId);
@@ -439,8 +437,10 @@ async function init() {
   if (!pkgDir) {
     return;
   }
-
-  const instantModuleName = await getInstantModuleName(pkgDir);
+  const instantModuleName = await getInstantModuleNameWithErrorLogging(pkgDir);
+  if (!instantModuleName) {
+    return;
+  }
   const schema = await readLocalSchemaFile();
   const { perms } = await readLocalPermsFile();
   const authToken = await readConfigAuthTokenWithErrorLogging();
@@ -505,16 +505,25 @@ async function getInstantModuleName(pkgDir) {
   return instantModuleName;
 }
 
+async function getInstantModuleNameWithErrorLogging(pkgDir) {
+  const instantModuleName = await getInstantModuleName(pkgDir);
+  if (!instantModuleName) {
+    error(
+      `Couldn't find Instant in your package.json. Please install ${chalk.green("`@instantdb/react`")} or ${chalk.green("`@instantdb/core`")}.`,
+    );
+    return;
+  }
+  return instantModuleName;
+}
+
 async function pullSchema(appId) {
   const pkgDir = await packageDirectoryWithErrorLogging();
   if (!pkgDir) {
     return;
   }
-  const instantModuleName = await getInstantModuleName(pkgDir);
+  const instantModuleName = await getInstantModuleNameWithErrorLogging(pkgDir);
   if (!instantModuleName) {
-    console.warn(
-      "Missing Instant dependency in package.json.  Please install `@instantdb/react` or `@instantdb/core`.",
-    );
+    return;
   }
   const authToken = await readConfigAuthTokenWithErrorLogging();
   if (!authToken) {
@@ -553,7 +562,7 @@ async function pullSchema(appId) {
     !countEntities(pullRes.data.schema.refs) &&
     !countEntities(pullRes.data.schema.blobs)
   ) {
-    console.log("Schema is empty.  Skipping.");
+    console.log("Schema is empty. Skipping.");
     return;
   }
 
