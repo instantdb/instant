@@ -21,13 +21,26 @@ dotenv.config();
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
 
+// logs
+
+function warn(firstArg, ...rest) {
+  console.warn(chalk.yellow("[warning]") + " " + firstArg, ...rest);
+}
+
+function error(firstArg, ...rest) {
+  console.error(chalk.red("[error]") + " " + firstArg, ...rest);
+}
+
 // consts
 
 const noAppIdErrorMessage = `
-No app ID found.
-Add \`INSTANT_APP_ID=<ID>\` to your .env file.
-(Or \`NEXT_PUBLIC_INSTANT_APP_ID\`, \`VITE_INSTANT_APP_ID\`)
-Or provide an app ID via the CLI \`instant-cli pull schema <ID>\`.
+Couldn't find an app ID.
+
+You can either: 
+a. Set ${chalk.green("`INSTANT_APP_ID`")} in your .env file. [1]
+b. Or provide an app ID via the CLI: ${chalk.green("`instant-cli push|pull -a <app-id>`")}.
+
+[1] Alternatively, If you have ${chalk.green("`NEXT_PUBLIC_INSTANT_APP_ID`")}, ${chalk.green("`VITE_INSTANT_APP_ID`")}, we can detect those too!
 `.trim();
 
 const instantDashOrigin = dev
@@ -58,13 +71,23 @@ async function resolveBagAndAppWithErrorLogging(cmdName, arg, opts) {
   } else if (PUSH_PULL_OPTIONS.has(arg)) {
     bag = arg;
   } else {
-    console.error(
-      `Invalid argument: ${arg} must be one of ${Array.from(PUSH_PULL_OPTIONS).join(", ")}`,
+    error(
+      `${chalk.red(arg)} must be one of ${chalk.green(Array.from(PUSH_PULL_OPTIONS).join(", "))}`,
     );
+    return;
   }
   const appId = await getAppIdWithErrorLogging(opts.app);
-  if (!bag || !appId) return;
+  if (!appId) return;
   return [bag, appId];
+}
+
+async function packageDirectoryWithErrorLogging() {
+  const pkgDir = await packageDirectory();
+  if (!pkgDir) {
+    error("Couldn't find your root directory. Is there a package.json file?");
+    return;
+  }
+  return pkgDir;
 }
 
 // cli
@@ -412,31 +435,29 @@ async function login(options) {
 }
 
 async function init() {
-  const pkgDir = await packageDirectory();
+  const pkgDir = await packageDirectoryWithErrorLogging();
   if (!pkgDir) {
-    console.error("Failed to locate app root dir.");
     return;
   }
 
   const instantModuleName = await getInstantModuleName(pkgDir);
   const schema = await readLocalSchemaFile();
   const { perms } = await readLocalPermsFile();
-  const authToken = await readConfigAuthToken();
+  const authToken = await readConfigAuthTokenWithErrorLogging();
   if (!authToken) {
-    console.error("Unauthenticated.  Please log in with `instant-cli login`!");
     return;
   }
 
   const id = randomUUID();
   const token = randomUUID();
 
-  const title = await input({
+  const _title = await input({
     message: "Enter a name for your app",
     required: true,
   }).catch(() => null);
-
+  const title = _title?.trim();
   if (!title) {
-    console.error("No name provided. Exiting.");
+    error("No name provided. Exiting.");
     return;
   }
 
@@ -485,9 +506,8 @@ async function getInstantModuleName(pkgDir) {
 }
 
 async function pullSchema(appId) {
-  const pkgDir = await packageDirectory();
+  const pkgDir = await packageDirectoryWithErrorLogging();
   if (!pkgDir) {
-    console.error("Failed to locate app root dir.");
     return;
   }
   const instantModuleName = await getInstantModuleName(pkgDir);
@@ -496,10 +516,8 @@ async function pullSchema(appId) {
       "Missing Instant dependency in package.json.  Please install `@instantdb/react` or `@instantdb/core`.",
     );
   }
-
-  const authToken = await readConfigAuthToken();
+  const authToken = await readConfigAuthTokenWithErrorLogging();
   if (!authToken) {
-    console.error("Unauthenticated.  Please log in with `login`!");
     return;
   }
 
@@ -567,15 +585,12 @@ async function pullSchema(appId) {
 
 async function pullPerms(appId) {
   console.log("Pulling perms...");
-  const pkgDir = await packageDirectory();
+  const pkgDir = await packageDirectoryWithErrorLogging();
   if (!pkgDir) {
-    console.error("Failed to locate app root dir.");
     return;
   }
-
-  const authToken = await readConfigAuthToken();
+  const authToken = await readConfigAuthTokenWithErrorLogging();
   if (!authToken) {
-    console.error("Unauthenticated.  Please log in with `login`!");
     return;
   }
 
@@ -927,9 +942,8 @@ async function pushSchema(appId, opts) {
 }
 
 async function pushPerms(appId) {
-  const { perms } = await readLocalPermsFile();
+  const perms = await readLocalPermsFileWithErrorLogging();
   if (!perms) {
-    console.error("Missing instant.perms file!");
     return;
   }
 
@@ -976,7 +990,7 @@ async function waitForAuthToken({ secret }) {
     } catch (error) {}
   }
 
-  console.error("Login timed out.");
+  error("Timed out waiting for authentication");
   return null;
 }
 
@@ -1008,9 +1022,8 @@ async function fetchJson({
   const withErrorLogging = !noLogError;
   let authToken = null;
   if (withAuth) {
-    authToken = await readConfigAuthToken();
+    authToken = await readConfigAuthTokenWithErrorLogging();
     if (!authToken) {
-      console.error("Unauthenticated. Please log in with `instant-cli login`");
       return { ok: false, data: undefined };
     }
   }
@@ -1041,19 +1054,17 @@ async function fetchJson({
 
     if (!res.ok) {
       if (withErrorLogging) {
-        console.error(errorMessage);
+        error(errorMessage);
         if (data?.message) {
-          console.error(data.message);
+          error(data.message);
         }
         if (Array.isArray(data?.hint?.errors)) {
-          for (const error of data.hint.errors) {
-            console.error(
-              `${error.in ? error.in.join("->") + ": " : ""}${error.message}`,
-            );
+          for (const err of data.hint.errors) {
+            error(`${err.in ? err.in.join("->") + ": " : ""}${err.message}`);
           }
         }
         if (!data) {
-          console.error("Failed to parse error response");
+          error("Failed to parse error response");
         }
       }
       return { ok: false, data };
@@ -1067,11 +1078,11 @@ async function fetchJson({
   } catch (err) {
     if (withErrorLogging) {
       if (err.name === "AbortError") {
-        console.error(
-          `Timeout: It took more than ${timeoutMs / 60000} minutes to get the result!`,
+        error(
+          `Timeout: It took more than ${timeoutMs / 60000} minutes to get the result.`,
         );
       } else {
-        console.error(`Error: type: ${err.name}, message: ${err.message}`);
+        error(`Error: type: ${err.name}, message: ${err.message}`);
       }
     }
     return { ok: false, data: null };
@@ -1113,9 +1124,19 @@ async function readLocalPermsFile() {
   });
 
   return {
-    perms: config,
+    perms: null && config,
     path: sources.at(0),
   };
+}
+
+async function readLocalPermsFileWithErrorLogging() {
+  const { perms } = await readLocalPermsFile();
+  if (!perms) {
+    error(
+      `We couldn't find your ${chalk.yellow("`instant.perms.ts`")} file. Make sure it's in the root directory.`,
+    );
+  }
+  return perms;
 }
 
 async function readLocalSchemaFile() {
@@ -1156,7 +1177,9 @@ async function readLocalSchemaFileWithErrorLogging() {
   const schema = await readLocalSchemaFile();
 
   if (!schema) {
-    console.error("Missing instant.schema file!");
+    error(
+      `We couldn't find your ${chalk.yellow("`instant.schema.ts`")} file. Make sure it's in the root directory.`,
+    );
     return;
   }
 
@@ -1192,6 +1215,15 @@ async function readConfigAuthToken() {
   ).catch(() => null);
 
   return authToken;
+}
+async function readConfigAuthTokenWithErrorLogging() {
+  const token = await readConfigAuthToken();
+  if (!token) {
+    error(
+      `Looks like you are not logged in. Please log in with ${chalk.green("`instant-cli login`")}`,
+    );
+  }
+  return token;
 }
 
 async function saveConfigAuthToken(authToken) {
@@ -1289,9 +1321,9 @@ async function getAppIdWithErrorLogging(arg) {
     const uuidAppId = arg && isUUID(arg) ? arg : null;
 
     if (nameMatch && !namedAppId) {
-      console.error(`App ID for \`${arg}\` is not a valid UUID.`);
+      error(`Expected \`${arg}\` to point to a UUID, but got ${nameMatch.id}.`);
     } else if (!namedAppId && !uuidAppId) {
-      console.error(`The provided app ID is not a valid UUID.`);
+      error(`Expected App ID to be a UUID, but got: ${chalk.red(arg)}`);
     }
 
     return (
@@ -1302,6 +1334,7 @@ async function getAppIdWithErrorLogging(arg) {
       uuidAppId
     );
   }
+
   const appId =
     // finally, check .env
     process.env.INSTANT_APP_ID ||
@@ -1312,7 +1345,7 @@ async function getAppIdWithErrorLogging(arg) {
 
   // otherwise, instruct the user to set one of these up
   if (!appId) {
-    console.error(noAppIdErrorMessage);
+    error(noAppIdErrorMessage);
   }
 
   return appId;
