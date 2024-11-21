@@ -81,6 +81,15 @@ async function resolveBagAndAppWithErrorLogging(cmdName, arg, opts) {
   return [bag, appId];
 }
 
+async function packageDirectoryWithErrorLogging() {
+  const pkgDir = await packageDirectory();
+  if (!pkgDir) {
+    error("Couldn't find your root directory. Is there a package.json file?");
+    return;
+  }
+  return pkgDir;
+}
+
 // cli
 
 // Header -- this shows up in every command
@@ -426,9 +435,8 @@ async function login(options) {
 }
 
 async function init() {
-  const pkgDir = await packageDirectory();
+  const pkgDir = await packageDirectoryWithErrorLogging();
   if (!pkgDir) {
-    console.error("Failed to locate app root dir.");
     return;
   }
 
@@ -499,9 +507,8 @@ async function getInstantModuleName(pkgDir) {
 }
 
 async function pullSchema(appId) {
-  const pkgDir = await packageDirectory();
+  const pkgDir = await packageDirectoryWithErrorLogging();
   if (!pkgDir) {
-    console.error("Failed to locate app root dir.");
     return;
   }
   const instantModuleName = await getInstantModuleName(pkgDir);
@@ -581,12 +588,10 @@ async function pullSchema(appId) {
 
 async function pullPerms(appId) {
   console.log("Pulling perms...");
-  const pkgDir = await packageDirectory();
+  const pkgDir = await packageDirectoryWithErrorLogging();
   if (!pkgDir) {
-    console.error("Failed to locate app root dir.");
     return;
   }
-
   const authToken = await readConfigAuthToken();
   if (!authToken) {
     console.error("Unauthenticated.  Please log in with `login`!");
