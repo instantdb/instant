@@ -177,9 +177,8 @@
   (eph/start)
   (stripe/init)
   (session/start)
-  ;; XXX
-  ;; (inv/start-global)
-  ;; (wal/init-cleanup aurora/conn-pool)
+  (inv/start-global)
+  (wal/init-cleanup aurora/conn-pool)
 
   (when-let [config-app-id (config/instant-config-app-id)]
     (flags-impl/init config-app-id
@@ -188,8 +187,7 @@
 
   (ephemeral-app/start)
   (session-counter/start)
-  ;; XXX
-  ;; (indexing-jobs/start)
+  (indexing-jobs/start)
   (when (= (config/get-env) :prod)
     (log/info "Starting analytics")
     (analytics/start))

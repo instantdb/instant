@@ -186,7 +186,7 @@ jobs:
 
   publish-image:
     runs-on: ubuntu-latest
-    if: needs.detect_clj.outputs.did_change == 'True' ### XXX ### && github.ref == 'refs/heads/main'
+    if: needs.detect_clj.outputs.did_change == 'True' && github.ref == 'refs/heads/main'
     # Start publish image if we have clj changes
     needs: [ detect_clj ]
     permissions:
@@ -265,8 +265,7 @@ jobs:
 
   detect_refinery:
     runs-on: ubuntu-latest
-    # XXX
-    ## if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
     outputs:
       did_change: ${{ steps.detect-change.outputs.did_change }}
     steps:
