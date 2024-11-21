@@ -1060,13 +1060,11 @@ async function fetchJson({
         }
         if (Array.isArray(data?.hint?.errors)) {
           for (const err of data.hint.errors) {
-            error(
-              `${err.in ? err.in.join("->") + ": " : ""}${err.message}`,
-            );
+            error(`${err.in ? err.in.join("->") + ": " : ""}${err.message}`);
           }
         }
         if (!data) {
-          console.error("Failed to parse error response");
+          error("Failed to parse error response");
         }
       }
       return { ok: false, data };
@@ -1179,7 +1177,9 @@ async function readLocalSchemaFileWithErrorLogging() {
   const schema = await readLocalSchemaFile();
 
   if (!schema) {
-    console.error("Missing instant.schema file!");
+    error(
+      `We couldn't find your ${chalk.yellow("`instant.schema.ts`")} file. Make sure it's in the root directory.`,
+    );
     return;
   }
 
