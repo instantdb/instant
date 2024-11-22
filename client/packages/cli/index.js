@@ -67,6 +67,20 @@ const instantBackendOrigin =
   process.env.INSTANT_CLI_API_URI ||
   (dev ? "http://localhost:8888" : "https://api.instantdb.com");
 
+export const rels = {
+  "many-false": ["many", "many"],
+  "one-true": ["one", "one"],
+  "many-true": ["many", "one"],
+  "one-false": ["one", "many"],
+};
+
+const uuidRegex =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUUID(uuid) {
+  return uuidRegex.test(uuid);
+}
+
 const PUSH_PULL_OPTIONS = new Set(["schema", "perms", "all"]);
 async function resolveBagAndAppWithErrorLogging(cmdName, arg, opts) {
   // Note: Nov 20, 2024
@@ -286,7 +300,14 @@ program
   .option("-p --print", "Prints the auth token into the console.")
   .action(login);
 
-program.command("init").description("Create a new app").action(init);
+program
+  .command("init")
+  .description("Set up a new project.")
+  .option(
+    "-a --app <app-id>",
+    "If you have an existing app ID, we can pull schema and perms from there.",
+  )
+  .action(init);
 
 // Note: Nov 20, 2024
 // We can eventually delete this,
@@ -378,12 +399,10 @@ program
   )
   .option(
     "-a --app <app-id>",
-    "App ID to push to. Defaults to *_INSTANT_APP_ID in .env",
+    "App ID to pull from. Defaults to *_INSTANT_APP_ID in .env",
   )
-  .description(
-    "Generate schema and perm files from from your production state.",
-  )
-  .action(async function handlePull(arg, opts) {
+  .description("Generate schema and perm files from production.")
+  .action(async function (arg, opts) {
     const ret = await resolveBagAndAppWithErrorLogging("pull", arg, opts);
     if (!ret) return;
     const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
@@ -480,7 +499,7 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir) {
       { name: "@instantdb/core", value: "@instantdb/core" },
       { name: "@instantdb/admin", value: "@instantdb/admin" },
     ],
-  });
+  }).catch(() => null);
 
   const packageManager = await detectPackageManager(pkgDir);
   const installCommand = getInstallCommand(packageManager, moduleName);
@@ -514,9 +533,7 @@ async function createApp({ pkgDir, instantModuleName }) {
   }).catch(() => null);
 
   const title = _title?.trim();
-
   if (!title) {
-    error("No name provided. Exiting.");
     return;
   }
 
@@ -566,7 +583,9 @@ async function promptForAppId(pkgAndAuthInfo) {
   }
   const { apps } = res.data;
   if (!apps.length) {
-    const ok = await promptOk("You don't have any apps. Want to create a new one?");
+    const ok = await promptOk(
+      "You don't have any apps. Want to create a new one?",
+    );
     if (!ok) return;
     await createApp(pkgAndAuthInfo);
     return;
@@ -576,26 +595,30 @@ async function promptForAppId(pkgAndAuthInfo) {
     choices: res.data.apps.map((app) => {
       return { name: `${app.title} (${app.id})`, value: app.id };
     }),
-  });
+  }).catch(() => null);
   if (!choice) return;
   return choice;
 }
 
-async function init() {
+async function init(opts) {
   const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
   if (!pkgAndAuthInfo) return;
-
-  const found = detectAppIdFromEnvWithErrorLogging();
-  if (found) {
-    const { envName, value } = found;
-    console.log(`Found ${chalk.green(envName)}: ${value}`);
-    const ok = await promptOk(
-      `Would you like to import schema and perms from ${chalk.green(envName)}?`,
-    );
-    if (ok) {
-      await pull("all", value, pkgAndAuthInfo);
-      return;
+  if (opts.app) {
+    const { ok, appId } = await detectAppIdFromInputWithErrorLogging(opts.app);
+    if (!ok) return;
+    if (appId) {
+      return await pull("all", appId, pkgAndAuthInfo);
     }
+  }
+  const { ok, found: appFromEnv } = detectAppIdFromEnvWithErrorLogging();
+
+  if (!ok) return;
+
+  if (appFromEnv) {
+    const { envName, value } = appFromEnv;
+    console.log(`Found ${chalk.green(envName)}: ${value}`);
+    await pull("all", value, pkgAndAuthInfo);
+    return;
   }
 
   const action = await select({
@@ -604,7 +627,7 @@ async function init() {
       { name: "Create a new app", value: "create" },
       { name: "Import an existing app", value: "import" },
     ],
-  });
+  }).catch(() => null);
 
   if (action === "create") {
     await createApp(pkgAndAuthInfo);
@@ -1405,19 +1428,6 @@ function attrRevName(attr) {
 
 // templates and constants
 
-export const rels = {
-  "many-false": ["many", "many"],
-  "one-true": ["one", "one"],
-  "many-true": ["many", "one"],
-  "one-false": ["one", "many"],
-};
-
-const uuidRegex =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function isUUID(uuid) {
-  return uuidRegex.test(uuid);
-}
-
 function detectAppIdFromEnvWithErrorLogging() {
   const found = Object.keys(potentialEnvs)
     .map((type) => {
@@ -1430,42 +1440,52 @@ function detectAppIdFromEnvWithErrorLogging() {
     error(
       `Found ${chalk.green("`" + found.envName + "`")} but it's not a valid UUID.`,
     );
-    return;
+    return { ok: false, found };
   }
-  return found;
+  return { ok: true, found };
+}
+
+async function detectAppIdFromInputWithErrorLogging(appId) {
+  const config = await readInstantConfigFile();
+  const nameMatch = config?.apps?.[appId];
+  const namedAppId = nameMatch?.id && isUUID(nameMatch.id) ? nameMatch : null;
+  const uuidAppId = appId && isUUID(appId) ? appId : null;
+
+  if (nameMatch && !namedAppId) {
+    error(`Expected \`${appId}\` to point to a UUID, but got ${nameMatch.id}.`);
+    return { ok: false };
+  }
+  if (!namedAppId && !uuidAppId) {
+    error(`Expected App ID to be a UUID, but got: ${chalk.red(appId)}`);
+    return { ok: false };
+  }
+  return { ok: true, appId: namedAppId || uuidAppId };
 }
 
 async function getAppIdWithErrorLogging(arg) {
   if (arg) {
-    const config = await readInstantConfigFile();
-
-    const nameMatch = config?.apps?.[arg];
-    const namedAppId = nameMatch?.id && isUUID(nameMatch.id) ? nameMatch : null;
-    const uuidAppId = arg && isUUID(arg) ? arg : null;
-
-    if (nameMatch && !namedAppId) {
-      error(`Expected \`${arg}\` to point to a UUID, but got ${nameMatch.id}.`);
-    } else if (!namedAppId && !uuidAppId) {
-      error(`Expected App ID to be a UUID, but got: ${chalk.red(arg)}`);
+    const { ok, appId } = await detectAppIdFromInputWithErrorLogging(arg);
+    if (!ok) {
+      return;
     }
-
-    return (
-      // first, check for a config and whether the provided arg
-      // matched a named ID
-      namedAppId ||
-      // next, check whether there's a provided arg at all
-      uuidAppId
-    );
+    if (appId) {
+      return appId;
+    }
   }
-  const found = detectAppIdFromEnvWithErrorLogging();
+  const { ok, found } = detectAppIdFromEnvWithErrorLogging();
+  if (!ok) {
+    return;
+  }
   if (found) {
     const { envName, value } = found;
     console.log(`Found ${chalk.green(envName)}: ${value}`);
     return value;
   }
+
+  console.log("We couldn't find an app id. What would you like to do?");
+
   // otherwise, instruct the user to set one of these up
   error(noAppIdErrorMessage);
-
   return;
 }
 
