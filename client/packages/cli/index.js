@@ -574,7 +574,7 @@ async function promptForAppId(pkgAndAuthInfo) {
   const choice = await select({
     message: "Which app would you like to import?",
     choices: res.data.apps.map((app) => {
-      return { name: app.title, value: app.id };
+      return { name: `${app.title} (${app.id})`, value: app.id };
     }),
   });
   if (!choice) return;
