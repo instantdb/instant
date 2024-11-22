@@ -7,7 +7,8 @@
             [instant.jdbc.aurora :as aurora]
             [instant.data.constants :refer [zeneca-app-id]]
             [clojure.spec.alpha :as s]
-            [instant.db.model.triple :as triple-model]))
+            [instant.db.model.triple :as triple-model])
+  (:import (java.time Instant)))
 
 (s/def ::attr-pat
   (s/cat :e (d/pattern-component uuid?)
@@ -24,10 +25,22 @@
 
    [post-owner-attr true] => :vae if ?owner is actualized
    [posts-owner-attr false] => :eav if ?owner isn't actualized"
-  [{:keys [value-type index? indexing? unique? setting-unique?]} v-actualized?]
+  [{:keys [value-type
+           index?
+           indexing?
+           unique?
+           setting-unique?
+           checked-data-type
+           checking-data-type?]}
+   v-actualized?]
   (let [ref? (= value-type :ref)
         e-idx (if ref? :eav :ea)
         v-idx (cond
+                (and index?
+                     (not indexing?)
+                     checked-data-type
+                     (not checking-data-type?)) {:idx-key :ave
+                                                 :data-type checked-data-type}
                 (and unique? (not setting-unique?)) :av
                 (and index? (not indexing?)) :ave
                 ref? :vae
@@ -166,6 +179,152 @@
 
         :else (uuid-util/coerce v)))
 
+;; XXX: Would be nice to get a list of all the errors instead of just the first one??
+;; XXX: Put full attr name in the error
+(defn assert-checked-data-type! [state attr]
+  (cond (:checking-data-type? attr)
+        (ex/throw-validation-err!
+         :query
+         (:root state)
+         [{:expected? 'checked-data-type?
+           :in (:in state)
+           :message "Attribute must be finished checking the data type before using comparison operators."}])
+
+        (:indexing? attr)
+        (ex/throw-validation-err!
+         :query
+         (:root state)
+         [{:expected? 'indexed?
+           :in (:in state)
+           :message "Attribute must be finished indexing before using comparison operators."}])
+
+        (not (:index? attr))
+        (ex/throw-validation-err!
+         :query
+         (:root state)
+         [{:expected? 'indexed?
+           :in (:in state)
+           :message "Attribute must be indexed to use comparison operators."}])
+
+        (not (:checked-data-type attr))
+        (ex/throw-validation-err!
+         :query
+         (:root state)
+         [{:expected? 'checked-data-type?
+           :in (:in state)
+           :message "Attribute must have an enforced type to use comparison operators."}])
+
+        :else (:checked-data-type attr)))
+
+(defn throw-invalid-number-comparison! [state value]
+  (ex/throw-validation-err!
+   :query
+   (:root state)
+   [{:expected? 'number?
+     :in (:in state)
+     :message (format "The data type of the attribute is `number`, but the comparison operator got `%s`."
+                      (json/->json value))}]))
+
+(defn throw-invalid-timestamp! [state value]
+  (ex/throw-validation-err!
+   :query
+   (:root state)
+   [{:expected? 'timestamp?
+     :in (:in state)
+     :message (format "The data type of the attribute is `date`, but the comparison operator got an invalid timestamp `%s`."
+                      (json/->json value))}]))
+
+(defn throw-invalid-date-string! [state value]
+  (ex/throw-validation-err!
+   :query
+   (:root state)
+   [{:expected? 'timestamp?
+     :in (:in state)
+     :message (format "The data type of the attribute is `date`, but the comparison operator got invalid string `%s`."
+                      (json/->json value))}]))
+
+(defn coerced-type-comparison-value! [state data-type op tag value]
+  (case data-type
+    :number
+    (if-not (= tag :number)
+      (throw-invalid-number-comparison! state value)
+      value)
+    :date (case tag
+            :number (try
+                      (Instant/ofEpochMilli value)
+                      (catch Exception _e
+                        (throw-invalid-timestamp! state value)))
+            :date-string (try
+                           (Instant/parse value)
+                           (catch Exception _e
+                             (throw-invalid-date-string! state value))))
+    :string (case tag
+              :string value)))
+
+(defn invalid-data-value-ex!
+  [state data-type value]
+  (ex/throw-validation-err!
+   :query
+   (:root state)
+   [{:expected? data-type
+     :in (:in state)
+     ;; XXX: name
+     :message (format "The data type of the attribute is `%s`, but the query got the value `%s`."
+                      (name data-type)
+                      (json/->json value))}]))
+
+(defn throw-on-invalid-value-data-value!
+  "Validates an individual value"
+  [state data-type v]
+  (case data-type
+    :string (when-not (string? v)
+              (invalid-data-value-ex! state data-type v))
+    :number (when-not (number? v)
+              (invalid-data-value-ex! state data-type v))
+    :boolean (when-not (boolean? v)
+               (invalid-data-value-ex! state data-type v))
+    :date (cond (number? v)
+                (try
+                  (Instant/ofEpochMilli v)
+                  (catch Exception _e
+                    (throw-invalid-timestamp! state v)))
+
+                (string? v)
+                (try
+                  (Instant/parse v)
+                  (catch Exception _e
+                    (throw-invalid-date-string! state v)))
+
+                :else
+                (invalid-data-value-ex! state data-type v))
+    nil))
+
+(defn validate-value-type! [state data-type v]
+  (doseq [v (if (set? v) v [v])]
+    (throw-on-invalid-value-data-value! state data-type v))
+  v)
+
+(defn coerce-value-for-typed-comparison!
+  "Coerces the value for a typed comparison, throwing a validation error
+   if the attr doesn't support the comparison."
+  [state attr v]
+  (if-not (and (map? v)
+               (= (count v) 1)
+               ;; XXX: Duplication
+               (contains? #{:$gt :$gte :$lt :$lte :$like} (ffirst v)))
+    (if (and (:checked-data-type attr)
+             (not (:checking-data-type? attr)))
+      (validate-value-type! state (:checked-data-type attr) v)
+      v)
+    (let [[op [tag value]] (first v)
+          data-type (assert-checked-data-type! state attr)
+          state (update state :in conj op)]
+      ;; XXX: Maybe call this typed comparison??
+      {:$comparison
+       {:op op
+        :value (coerced-type-comparison-value! state data-type op tag value)
+        :data-type data-type}})))
+
 (defn ->value-attr-pat
   "Take the where-cond:
    [\"users\" \"bookshelves\" \"books\" \"title\"] \"Foo\"
@@ -183,7 +342,10 @@
                            :attr
                            {:args [value-etype value-label]})
         v-coerced (if (not= :ref value-type)
-                    v
+                    (coerce-value-for-typed-comparison!
+                     (update state conj :in [:$ :where value-label])
+                     attr
+                     v)
                     (if (set? v)
                       (set (map (fn [vv]
                                   (if-let [v-coerced (coerce-value-uuid vv)]
