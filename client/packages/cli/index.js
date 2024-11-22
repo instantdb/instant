@@ -554,18 +554,31 @@ async function createApp({ pkgDir, instantModuleName }) {
   }
 }
 
-async function promptForAppId() {
-  console.log(
-    "Great! Grab your app id from: " +
-      chalk.blueBright.underline("https://instantdb.com/dash"),
-  );
-  const _id = await input({
-    message: "What's the app ID?",
-    required: true,
-  }).catch(() => null);
-  const id = _id?.trim();
-  if (id) return id;
-  error("No app ID provided. Exiting.");
+async function promptForAppId(pkgAndAuthInfo) {
+  const res = await fetchJson({
+    debugName: "Fetching apps",
+    method: "GET",
+    path: "/dash",
+    errorMessage: "Failed to fetch apps.",
+  });
+  if (!res.ok) {
+    return;
+  }
+  const { apps } = res.data;
+  if (!apps.length) {
+    const ok = await "You don't have any apps. Want to create a new one?";
+    if (!ok) return;
+    await createApp(pkgAndAuthInfo);
+    return;
+  }
+  const choice = await select({
+    message: "Which app would you like to import?",
+    choices: res.data.apps.map((app) => {
+      return { name: app.title, value: app.id };
+    }),
+  });
+  if (!choice) return;
+  return choice;
 }
 
 async function init() {
@@ -599,7 +612,7 @@ async function init() {
   }
 
   if (action === "import") {
-    const appId = await promptForAppId();
+    const appId = await promptForAppId(pkgAndAuthInfo);
     if (!appId) return;
     await pull("all", appId, pkgAndAuthInfo);
     return;
