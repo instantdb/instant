@@ -342,7 +342,9 @@ program
     warnDeprecation("pull-schema", "pull schema");
     const appId = await getAppIdWithErrorLogging(appIdOrName);
     if (!appId) return;
-    pullSchema(appId);
+    const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
+    if (!pkgAndAuthInfo) return;
+    pullSchema(appId, pkgAndAuthInfo);
   });
 
 // Note: Nov 20, 2024
@@ -356,7 +358,9 @@ program
     warnDeprecation("pull-perms", "pull perms");
     const appId = await getAppIdWithErrorLogging(appIdOrName);
     if (!appId) return;
-    pullPerms(appId);
+    const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
+    if (!pkgAndAuthInfo) return;
+    pullPerms(appId, pkgAndAuthInfo);
   });
 
 program
@@ -372,7 +376,14 @@ program
   .description(
     "Generate schema and perm files from from your production state.",
   )
-  .action(pullAll);
+  .action(async function handlePull(arg, opts) {
+    const ret = await resolveBagAndAppWithErrorLogging("pull", arg, opts);
+    if (!ret) return;
+    const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
+    if (!pkgAndAuthInfo) return;
+    const [bag, appId] = ret;
+    await pull(bag, appId, pkgAndAuthInfo);
+  });
 
 program.parse(process.argv);
 
@@ -391,16 +402,13 @@ async function pushAll(appIdOrName, opts) {
   }
 }
 
-async function pullAll(appIdOrName, opts) {
-  const ret = await resolveBagAndAppWithErrorLogging("pull", appIdOrName, opts);
-  if (!ret) return;
-  const [bag, appId] = ret;
+async function pull(bag, appId, pkgAndAuthInfo) {
   if (bag === "schema" || bag === "all") {
-    const ok = await pullSchema(appId);
+    const ok = await pullSchema(appId, pkgAndAuthInfo);
     if (!ok) return;
   }
   if (bag === "perms" || bag === "all") {
-    await pullPerms(appId);
+    await pullPerms(appId, pkgAndAuthInfo);
   }
 }
 
@@ -466,7 +474,7 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir) {
       { name: "@instantdb/admin", value: "@instantdb/admin" },
     ],
   });
-  
+
   const packageManager = await detectPackageManager(pkgDir);
   const installCommand = getInstallCommand(packageManager, moduleName);
 
@@ -486,32 +494,17 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir) {
   return moduleName;
 }
 
-async function init() {
-  const pkgDir = await packageDirectoryWithErrorLogging();
-  if (!pkgDir) {
-    return;
-  }
-
-  const authToken = await readConfigAuthTokenWithErrorLogging();
-  if (!authToken) {
-    return;
-  }
-  const instantModuleName = await getOrInstallInstantModuleWithErrorLogging(pkgDir);
-  if (!instantModuleName) { 
-    return
-  }
-
+async function createApp({ pkgDir, instantModuleName }) {
   const schema = await readLocalSchemaFile();
   const { perms } = await readLocalPermsFile();
 
   const id = randomUUID();
   const token = randomUUID();
-  console.log("Let's create a new app!");
   const _title = await input({
     message: "What would you like to call it?",
     required: true,
   }).catch(() => null);
-  
+
   const title = _title?.trim();
 
   if (!title) {
@@ -553,13 +546,51 @@ async function init() {
   }
 }
 
+async function importApp(pkgAndAuthInfo) {
+  console.log(
+    "Great! Grab your app id from: " +
+      chalk.blueBright.underline("https://instantdb.com/dash"),
+  );
+  const _id = await input({
+    message: "What's the app ID?",
+    required: true,
+  }).catch(() => null);
+  const id = _id?.trim();
+  if (!id) {
+    error("No app ID provided. Exiting.");
+    return;
+  }
+  await pull("all", id, pkgAndAuthInfo);
+}
+
+async function init() {
+  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
+  if (!pkgAndAuthInfo) return;
+
+  const action = await select({
+    message: "What would you like to do?",
+    choices: [
+      { name: "Create a new app", value: "create" },
+      { name: "Import an existing app", value: "import" },
+    ],
+  });
+
+  if (action === "create") {
+    await createApp(pkgAndAuthInfo);
+  } else if (action === "import") {
+    await importApp(pkgAndAuthInfo);
+  }
+
+  process.exit(0);
+}
+
 async function getInstantModuleName(pkgJson) {
   const deps = pkgJson.dependencies || {};
   const instantModuleName = [
     "@instantdb/react",
     "@instantdb/react-native",
     "@instantdb/core",
-    "@instantdb/admin"
+    "@instantdb/admin",
   ].find((name) => deps[name]);
   return instantModuleName;
 }
@@ -573,12 +604,13 @@ async function getPackageJSONWithErrorLogging(pkgDir) {
   return pkgJson;
 }
 
-async function pullSchema(appId) {
+async function resolvePackageAndAuthInfoWithErrorLogging() {
   const pkgDir = await packageDirectoryWithErrorLogging();
   if (!pkgDir) {
     return;
   }
-  const instantModuleName = await getOrInstallInstantModuleWithErrorLogging(pkgDir);
+  const instantModuleName =
+    await getOrInstallInstantModuleWithErrorLogging(pkgDir);
   if (!instantModuleName) {
     return;
   }
@@ -586,7 +618,10 @@ async function pullSchema(appId) {
   if (!authToken) {
     return;
   }
+  return { pkgDir, instantModuleName, authToken };
+}
 
+async function pullSchema(appId, { pkgDir, instantModuleName }) {
   console.log("Pulling schema...");
 
   const pullRes = await fetchJson({
@@ -649,16 +684,8 @@ async function pullSchema(appId) {
   return true;
 }
 
-async function pullPerms(appId) {
+async function pullPerms(appId, { pkgDir }) {
   console.log("Pulling perms...");
-  const pkgDir = await packageDirectoryWithErrorLogging();
-  if (!pkgDir) {
-    return;
-  }
-  const authToken = await readConfigAuthTokenWithErrorLogging();
-  if (!authToken) {
-    return;
-  }
 
   const pullRes = await fetchJson({
     path: `/dash/apps/${appId}/perms/pull`,
