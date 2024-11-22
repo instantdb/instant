@@ -163,10 +163,7 @@ let coreMessageWithCreator: CoreMessageWithCreator = 1 as any;
 coreMessageWithCreator.content;
 coreMessageWithCreator.creator?.email;
 
-type MessageCreatorResult = InstaQLResult<
-  AppSchema,
-  InstaQLParams<AppSchema>
->;
+type MessageCreatorResult = InstaQLResult<AppSchema, InstaQLParams<AppSchema>>;
 function subMessagesWithCreator(
   resultCB: (data: MessageCreatorResult) => void,
 ) {
@@ -177,6 +174,61 @@ function subMessagesWithCreator(
   });
 }
 
+// Test that the `Q` bit is typed
+type DeeplyNestedQueryWorks = InstaQLEntity<
+  AppSchema,
+  "messages",
+  { creator: { createdMessages: { creator: {} } } }
+>;
+let deeplyNestedQuery: DeeplyNestedQueryWorks = 1 as any;
+deeplyNestedQuery.creator?.createdMessages[0].creator?.email;
+
+type DeeplyNestedQueryWillFailsBadInput = InstaQLEntity<
+  AppSchema,
+  "messages",
+  // Type '{ foo: {}; }' has no properties in common with type 'InstaQLSubqueryParams<AppSchema, "messages">'
+  // @ts-expect-error
+  { creator: { createdMessages: { foo: {} } } }
+>;
+let deeplyNestedQueryFailed: DeeplyNestedQueryWillFailsBadInput = 1 as any;
+
+type DeeplyNestedResultWorks = InstaQLResult<
+  AppSchema,
+  {
+    messages: {
+      creator: {
+        createdMessages: {
+          creator: {};
+        };
+      };
+    };
+  }
+>;
+let deeplyNestedResult: DeeplyNestedResultWorks = 1 as any;
+deeplyNestedQuery.creator?.createdMessages[0].creator?.email;
+
+type DeeplyNestedResultFailsBadInput = InstaQLResult<
+  AppSchema,
+  // @ts-expect-error
+  {
+    messages: {
+      creator: {
+        createdMessages: {
+          // Type '{ foo: {}; }' is not assignable to type 
+          // '$Option | ($Option & InstaQLQuerySubqueryParams<AppSchema, "messages">) 
+          // | undefined'
+          foo: {};
+        };
+      };
+    };
+  }
+>;
+let deeplyNestedResultFailed: DeeplyNestedResultFailsBadInput = 1 as any;
+
 // to silence ts warnings
+deeplyNestedQueryFailed;
+deeplyNestedResultFailed;
 messagesQuery;
 subMessagesWithCreator;
+deeplyNestedQuery;
+deeplyNestedResult;
