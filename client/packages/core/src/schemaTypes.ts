@@ -371,7 +371,6 @@ type EntityDefFromShape<Shape, K extends keyof Shape> = EntityDef<
 >;
 
 /**
- * @deprecated
  * If you were using the old `schema` types, you can use this to help you
  * migrate.
  *
