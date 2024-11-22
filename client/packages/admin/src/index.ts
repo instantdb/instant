@@ -42,6 +42,8 @@ import {
   type ValueTypes,
   type InstantSchemaDef,
   type InstantUnknownSchema,
+  type InstaQLEntity,
+  type InstaQLResult,
 } from "@instantdb/core";
 
 import version from "./version";
@@ -926,4 +928,6 @@ export {
   type ValueTypes,
   type InstantSchemaDef,
   type InstantUnknownSchema,
+  type InstaQLEntity,
+  type InstaQLResult,
 };

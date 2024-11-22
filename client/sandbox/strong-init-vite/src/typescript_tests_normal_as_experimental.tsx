@@ -90,7 +90,6 @@ function ReactNormalApp() {
   }
   const { messages } = data;
   messages[0].content;
-
   // transactions
   reactDB.transact(
     reactDB.tx.messages[id()]

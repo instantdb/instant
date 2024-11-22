@@ -10,6 +10,12 @@ import type {
   ResolveEntityAttrs,
 } from "./schemaTypes";
 
+type Expand<T> = T extends object
+  ? T extends infer O
+    ? { [K in keyof O]: Expand<O[K]> }
+    : never
+  : T;
+
 // NonEmpty disallows {}, so that you must provide at least one field
 type NonEmpty<T> = {
   [K in keyof T]-?: Required<Pick<T, K>>;
@@ -207,8 +213,10 @@ type InstaQLEntity<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   EntityName extends keyof Schema["entities"],
   Subquery extends InstaQLEntitySubquery<Schema, EntityName> = {},
-> = { id: string } & ResolveEntityAttrs<Schema["entities"][EntityName]> &
-  InstaQLEntitySubqueryResult<Schema, EntityName, Subquery>;
+> = Expand<
+  { id: string } & ResolveEntityAttrs<Schema["entities"][EntityName]> &
+    InstaQLEntitySubqueryResult<Schema, EntityName, Subquery>
+>;
 
 type InstaQLQueryEntityResult<
   Entities extends EntitiesDef,
@@ -243,11 +251,11 @@ type InstaQLQueryResult<
 type InstaQLResult<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Query extends InstaQLParams<Schema>,
-> = {
+> = Expand<{
   [QueryPropName in keyof Query]: QueryPropName extends keyof Schema["entities"]
     ? InstaQLEntity<Schema, QueryPropName, Query[QueryPropName]>[]
     : never;
-};
+}>;
 
 type InstaQLEntitySubquery<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
