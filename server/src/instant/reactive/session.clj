@@ -165,7 +165,7 @@
      :instaql-result instaql-result
      :result-changed? result-changed?}))
 
-(defn- handle-refresh! [store-conn sess-id _event]
+(defn- handle-refresh! [store-conn sess-id _event debug-info]
   (let [auth (get-auth! store-conn sess-id)
         app-id (-> auth :app :id)
         current-user (-> auth :user)
@@ -180,6 +180,8 @@
               :table-info table-info
               :admin? admin?}
         processed-tx-id (rs/get-processed-tx-id @store-conn app-id)
+        _ (reset! debug-info {:processed-tx-id processed-tx-id
+                              :instaql-queries (map :instaql-query/query stale-queries)})
         recompute-results (->> stale-queries
                                (ua/vfuture-pmap (partial recompute-instaql-query! opts)))
         {computations true spam false} (group-by :result-changed? recompute-results)
@@ -352,7 +354,7 @@
                                         :topic topic
                                         :data data})))
 
-(defn handle-event [store-conn eph-store-atom session event]
+(defn handle-event [store-conn eph-store-atom session event debug-info]
   (tracer/with-span! {:name "receive-worker/handle-event"}
     (let [{:keys [op]} event
           {:keys [session/socket]} session
@@ -362,7 +364,7 @@
         :init (handle-init! store-conn id event)
         :add-query (handle-add-query! store-conn id event)
         :remove-query (handle-remove-query! store-conn id event)
-        :refresh (handle-refresh! store-conn id event)
+        :refresh (handle-refresh! store-conn id event debug-info)
         :transact (handle-transact! store-conn id event)
         :error (handle-error! store-conn id event)
         ;; -----
@@ -377,7 +379,7 @@
 ;; --------------
 ;; Receive Workers
 
-(defn- handle-instant-exception [session original-event instant-ex]
+(defn- handle-instant-exception [session original-event instant-ex debug-info]
   (let [sess-id (:session/id session)
         q (:receive-q (:session/socket session))
         {:keys [client-event-id]} original-event
@@ -402,7 +404,8 @@
                                         {:op :error
                                          :status 400
                                          :client-event-id client-event-id
-                                         :original-event original-event
+                                         :original-event (merge original-event
+                                                                debug-info)
                                          :type (keyword (name type))
                                          :message message
                                          :hint hint
@@ -420,13 +423,14 @@
                                           {:op :error
                                            :status 500
                                            :client-event-id client-event-id
-                                           :original-event original-event
+                                           :original-event (merge original-event
+                                                                  debug-info)
                                            :type (keyword (name type))
                                            :message message
                                            :hint hint
                                            :session-id sess-id})))))
 
-(defn- handle-uncaught-err [session original-event root-err]
+(defn- handle-uncaught-err [session original-event root-err debug-info]
   (let [sess-id (:session/id session)
         q (:receive-q (:session/socket session))
         {:keys [client-event-id]} original-event]
@@ -436,7 +440,8 @@
                                       {:op :error
                                        :client-event-id client-event-id
                                        :status 500
-                                       :original-event original-event
+                                       :original-event (merge original-event
+                                                              debug-info)
                                        :message (str "Yikes, something broke on our end! Sorry about that."
                                                      " Please ping us (Joe and Stopa) on Discord and let us know!")
                                        :session-id sess-id})))
@@ -456,8 +461,13 @@
                         :attributes (handle-receive-attrs store-conn session event metadata)}
       (let [pending-handlers (:pending-handlers (:session/socket session))
             in-progress-stmts (atom #{})
+            debug-info (atom nil)
             event-fut (binding [sql/*in-progress-stmts* in-progress-stmts]
-                        (ua/vfuture (handle-event store-conn eph-store-atom session event)))
+                        (ua/vfuture (handle-event store-conn
+                                                  eph-store-atom
+                                                  session
+                                                  event
+                                                  debug-info)))
             pending-handler {:future event-fut
                              :op (:op event)
                              :in-progress-stmts in-progress-stmts
@@ -490,8 +500,12 @@
               (cond
                 instant-ex (handle-instant-exception session
                                                      original-event
-                                                     instant-ex)
-                :else (handle-uncaught-err session original-event root-err))))
+                                                     instant-ex
+                                                     @debug-info)
+                :else (handle-uncaught-err session
+                                           original-event
+                                           root-err
+                                           @debug-info))))
           (finally
             (swap! pending-handlers disj pending-handler)))))))
 
