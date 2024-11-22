@@ -566,7 +566,7 @@ async function promptForAppId(pkgAndAuthInfo) {
   }
   const { apps } = res.data;
   if (!apps.length) {
-    const ok = await "You don't have any apps. Want to create a new one?";
+    const ok = await promptOk("You don't have any apps. Want to create a new one?");
     if (!ok) return;
     await createApp(pkgAndAuthInfo);
     return;
