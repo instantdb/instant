@@ -42,6 +42,13 @@ function error(firstArg, ...rest) {
 
 // consts
 
+const potentialEnvs = {
+  catchall: "INSTANT_APP_ID",
+  next: "NEXT_PUBLIC_INSTANT_APP_ID",
+  svelte: "PUBLIC_INSTANT_APP_ID",
+  vite: "VITE_INSTANT_APP_ID",
+};
+
 const noAppIdErrorMessage = `
 Couldn't find an app ID.
 
@@ -502,6 +509,7 @@ async function createApp({ pkgDir, instantModuleName }) {
   const token = randomUUID();
   const _title = await input({
     message: "What would you like to call it?",
+    default: "My cool app",
     required: true,
   }).catch(() => null);
 
@@ -546,7 +554,7 @@ async function createApp({ pkgDir, instantModuleName }) {
   }
 }
 
-async function importApp(pkgAndAuthInfo) {
+async function promptForAppId() {
   console.log(
     "Great! Grab your app id from: " +
       chalk.blueBright.underline("https://instantdb.com/dash"),
@@ -556,16 +564,26 @@ async function importApp(pkgAndAuthInfo) {
     required: true,
   }).catch(() => null);
   const id = _id?.trim();
-  if (!id) {
-    error("No app ID provided. Exiting.");
-    return;
-  }
-  await pull("all", id, pkgAndAuthInfo);
+  if (id) return id;
+  error("No app ID provided. Exiting.");
 }
 
 async function init() {
   const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
   if (!pkgAndAuthInfo) return;
+
+  const found = detectAppIdFromEnvWithErrorLogging();
+  if (found) {
+    const { envName, value } = found;
+    console.log(`Found ${chalk.green(envName)}: ${value}`);
+    const ok = await promptOk(
+      `Would you like to import schema and perms from ${chalk.green(envName)}?`,
+    );
+    if (ok) {
+      await pull("all", value, pkgAndAuthInfo);
+      return;
+    }
+  }
 
   const action = await select({
     message: "What would you like to do?",
@@ -577,11 +595,15 @@ async function init() {
 
   if (action === "create") {
     await createApp(pkgAndAuthInfo);
-  } else if (action === "import") {
-    await importApp(pkgAndAuthInfo);
+    return;
   }
 
-  process.exit(0);
+  if (action === "import") {
+    const appId = await promptForAppId();
+    if (!appId) return;
+    await pull("all", appId, pkgAndAuthInfo);
+    return;
+  }
 }
 
 async function getInstantModuleName(pkgJson) {
@@ -1383,6 +1405,23 @@ function isUUID(uuid) {
   return uuidRegex.test(uuid);
 }
 
+function detectAppIdFromEnvWithErrorLogging() {
+  const found = Object.keys(potentialEnvs)
+    .map((type) => {
+      const envName = potentialEnvs[type];
+      const value = process.env[envName];
+      return { type, envName, value };
+    })
+    .find(({ value }) => !!value);
+  if (found && !isUUID(found.value)) {
+    error(
+      `Found ${chalk.green("`" + found.envName + "`")} but it's not a valid UUID.`,
+    );
+    return;
+  }
+  return found;
+}
+
 async function getAppIdWithErrorLogging(arg) {
   if (arg) {
     const config = await readInstantConfigFile();
@@ -1405,21 +1444,16 @@ async function getAppIdWithErrorLogging(arg) {
       uuidAppId
     );
   }
-
-  const appId =
-    // finally, check .env
-    process.env.INSTANT_APP_ID ||
-    process.env.NEXT_PUBLIC_INSTANT_APP_ID ||
-    process.env.PUBLIC_INSTANT_APP_ID || // for Svelte
-    process.env.VITE_INSTANT_APP_ID ||
-    null;
-
-  // otherwise, instruct the user to set one of these up
-  if (!appId) {
-    error(noAppIdErrorMessage);
+  const found = detectAppIdFromEnvWithErrorLogging();
+  if (found) {
+    const { envName, value } = found;
+    console.log(`Found ${chalk.green(envName)}: ${value}`);
+    return value;
   }
+  // otherwise, instruct the user to set one of these up
+  error(noAppIdErrorMessage);
 
-  return appId;
+  return;
 }
 
 function appDashUrl(id) {
