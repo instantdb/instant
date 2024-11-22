@@ -89,11 +89,13 @@ function refAttrPat(makeVar, store, etype, level, label) {
 }
 
 function valueAttrPat(makeVar, store, valueEtype, valueLevel, valueLabel, v) {
-  const attr = s.getAttrByFwdIdentName(store, valueEtype, valueLabel);
+  const fwdAttr = s.getAttrByFwdIdentName(store, valueEtype, valueLabel);
+  const revAttr = s.getAttrByReverseIdentName(store, valueEtype, valueLabel);
+  const attr = fwdAttr || revAttr;
 
   if (!attr) {
     throw new AttrNotFoundError(
-      `No attr for etype = ${valueEtype} label = ${valueLabel} value-label`,
+      `No attr for etype = ${valueEtype} label = ${valueLabel}`,
     );
   }
 
@@ -101,18 +103,21 @@ function valueAttrPat(makeVar, store, valueEtype, valueLevel, valueLabel, v) {
     const idAttr = s.getAttrByFwdIdentName(store, valueEtype, "id");
     if (!idAttr) {
       throw new AttrNotFoundError(
-        `No attr for etype = ${valueEtype} label = id value-label`,
+        `No attr for etype = ${valueEtype} label = id`,
       );
     }
+
     return [
       makeVar(valueEtype, valueLevel),
       idAttr.id,
-      { $isNull: { attrId: attr.id, isNull: v.$isNull } },
+      { $isNull: { attrId: attr.id, isNull: v.$isNull, reverse: !fwdAttr } },
       wildcard("time"),
     ];
   }
-
-  return [makeVar(valueEtype, valueLevel), attr.id, v, wildcard("time")];
+  if (fwdAttr) {
+    return [makeVar(valueEtype, valueLevel), attr.id, v, wildcard("time")];
+  }
+  return [v, attr.id, makeVar(valueEtype, valueLevel), wildcard("time")];
 }
 
 function refAttrPats(makeVar, store, etype, level, refsPath) {
