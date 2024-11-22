@@ -2610,6 +2610,68 @@
         :aggregate [{:count 4}
                     {:count 392}]}))))
 
+(deftest namespaces-that-share-eids []
+  (with-empty-app
+    (fn [app]
+      (let [book-id-aid (random-uuid)
+            book-field-aid (random-uuid)
+            author-id-aid (random-uuid)
+            author-field-aid (random-uuid)
+            shared-eid (random-uuid)
+            run-query (fn [{:keys [admin?]} q]
+                        (let [ctx (let [attrs (attr-model/get-by-app-id (:id app))]
+                                    {:db {:conn-pool aurora/conn-pool}
+                                     :app-id (:id app)
+                                     :attrs attrs
+                                     :admin? admin?})
+                              r (resolvers/make-resolver {:conn-pool aurora/conn-pool}
+                                                         (:id app)
+                                                         [["books" "field"]
+                                                          ["authors" "field"]])]
+                          (->> (iq/permissioned-query ctx q)
+                               (instaql-nodes->object-tree ctx))))]
+        (tx/transact! aurora/conn-pool
+                      (attr-model/get-by-app-id (:id app))
+                      (:id app)
+                      [[:add-attr {:id book-id-aid
+                                   :forward-identity [(random-uuid) "books" "id"]
+                                   :unique? true
+                                   :index? true
+                                   :value-type :blob
+                                   :cardinality :one}]
+                       [:add-attr {:id book-field-aid
+                                   :forward-identity [(random-uuid) "books" "field"]
+                                   :unique? false
+                                   :index? false
+                                   :value-type :blob
+                                   :cardinality :one}]
+                       [:add-attr {:id author-id-aid
+                                   :forward-identity [(random-uuid) "authors" "id"]
+                                   :unique? true
+                                   :index? true
+                                   :value-type :blob
+                                   :cardinality :one}]
+                       [:add-attr {:id author-field-aid
+                                   :forward-identity [(random-uuid) "authors" "field"]
+                                   :unique? false
+                                   :index? false
+                                   :value-type :blob
+                                   :cardinality :one}]
+                       [:add-triple shared-eid book-id-aid (str shared-eid)]
+                       [:add-triple shared-eid book-field-aid "book"]
+                       [:add-triple shared-eid author-id-aid (str shared-eid)]
+                       [:add-triple shared-eid author-field-aid "author"]])
+        (rule-model/put! aurora/conn-pool
+                         {:app-id (:id app) :code {:books {:allow {:view "false"}}
+                                                   :authors {:allow {:view "true"}}}})
+        (is (= {"books" [{"field" "book", "id" (str shared-eid)}]
+                "authors" [{"field" "author", "id" (str shared-eid)}]}
+               (run-query {:admin? true} {:books {} :authors {}})))
+
+        (is (= {"books" []
+                "authors" [{"field" "author", "id" (str shared-eid)}]}
+               (run-query {:admin? false} {:books {} :authors {}})))))))
+
 ;; -----------
 ;; Users table
 

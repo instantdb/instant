@@ -1462,12 +1462,12 @@
      (reduce
       (fn [acc [e a]]
         (let [etype (-> (attr-model/seek-by-id a attrs)
-                        :forward-identity
-                        second)
-              next-acc (assoc-in acc [:eid->etype e] etype)]
-          (if-not (contains? (:etype->program acc) etype)
-            (assoc-in next-acc [:etype->program etype] (rule-model/get-program! rules etype "view"))
-            next-acc)))
+                        attr-model/fwd-etype)]
+          (-> acc
+              (update-in [:etype->eids+program etype :eids] (fnil conj #{}) e)
+              (update-in [:etype->eids+program etype :program] (fn [p]
+                                                                 (or p
+                                                                     (rule-model/get-program! rules etype "view")))))))
       acc
       join-rows))
    acc
@@ -1491,8 +1491,7 @@
   "Takes the result of `query` and generates a query cache of
    datalog-query -> datalog-result, and maps for etype->program and eid->type."
   ([ctx instaql-res]
-   (extract-permission-helpers {:eid->etype {}
-                                :etype->program {}
+   (extract-permission-helpers {:etype->eids+program {}
                                 :query-cache {}}
                                ctx
                                instaql-res))
@@ -1501,18 +1500,27 @@
    (tracer/with-span! {:name "extract-permission-helpers"}
      (extract-permission-helpers* acc ctx instaql-res))))
 
-(defn permissioned-node [eid->check res]
+(defn permissioned-node [{:keys [attrs] :as ctx} etype+eid->check res]
   (let [cleaned-join-rows (->> res
                                :data
                                :datalog-result
                                :join-rows
                                (filter (fn [triples]
-                                         (every? (comp :result eid->check first) triples)))
+                                         (every? (fn [[e a]]
+                                                   (let [etype (-> (attr-model/seek-by-id a attrs)
+                                                                   attr-model/fwd-etype)
+                                                         check (get etype+eid->check [etype e])]
+                                                     (:result check)))
+                                                 triples)))
                                set)
 
         cleaned-page-info
         (when (get-in res [:data :datalog-result :page-info])
-          (when-let [filtered-rows (seq (filter (comp :result eid->check first)
+          (when-let [filtered-rows (seq (filter (fn [[e a]]
+                                                  (let [etype (-> (attr-model/seek-by-id a attrs)
+                                                                  attr-model/fwd-etype)
+                                                        check (get etype+eid->check [etype e])]
+                                                    (:result check)))
                                                 (get-in res [:data
                                                              :datalog-result
                                                              :page-info-rows])))]
@@ -1536,7 +1544,7 @@
                   (if (empty? cleaned-join-rows)
                     []
                     (->> child-nodes
-                         (map (partial permissioned-node eid->check))
+                         (map (partial permissioned-node ctx etype+eid->check))
                          (filter
                           (fn [node]
                             (seq (-> node :data :datalog-result :join-rows))))
@@ -1555,76 +1563,76 @@
 (defn extract-refs
   "Extracts a list of refs that can be passed to cel/prefetch-data-refs.
    Returns: [{:etype string path-str string eids #{uuid}}]"
-  [user-id eid->etype etype->program]
-  (let [etype->eid (ucoll/map-invert-key-set eid->etype)]
-    (reduce (fn [acc [etype program]]
-              (if-let [refs (some-> program
-                                    :cel-ast
-                                    cel/collect-ref-uses
-                                    seq)]
-                (reduce (fn [acc {:keys [obj path]}]
-                          (case obj
-                            "data" (conj acc {:etype etype
-                                              :path-str path
-                                              :eids (get etype->eid etype)})
-                            "auth" (conj acc {:etype "$users"
-                                              :path-str path
-                                              :eids (if user-id
-                                                      #{user-id}
-                                                      #{})})
+  [user-id etype->eids+program]
+  (reduce-kv (fn [acc etype {:keys [eids program]}]
+               (if-let [refs (some-> program
+                                     :cel-ast
+                                     cel/collect-ref-uses
+                                     seq)]
+                 (reduce (fn [acc {:keys [obj path]}]
+                           (case obj
+                             "data" (conj acc {:etype etype
+                                               :path-str path
+                                               :eids eids})
+                             "auth" (conj acc {:etype "$users"
+                                               :path-str path
+                                               :eids (if user-id
+                                                       #{user-id}
+                                                       #{})})
 
-                            acc))
-                        acc
-                        refs)
-                acc))
-            []
-            etype->program)))
+                             acc))
+                         acc
+                         refs)
+                 acc))
+             []
+             etype->eids+program))
 
-(defn preload-refs [ctx eid->etype etype->program]
+(defn preload-refs [ctx etype->eids+program]
   (let [refs (extract-refs (-> ctx
                                :current-user
                                :id)
-                           eid->etype
-                           etype->program)]
+                           etype->eids+program)]
     (if (seq refs)
       (cel/prefetch-data-refs ctx refs)
       {})))
 
-(defn get-eid-check-result! [{:keys [current-user] :as ctx}
-                             {:keys [eid->etype etype->program query-cache]}]
+(defn get-etype+eid-check-result! [{:keys [current-user] :as ctx}
+                                   {:keys [etype->eids+program query-cache]}]
   (tracer/with-span! {:name "instaql/get-eid-check-result!"}
     (let [preloaded-refs (tracer/with-span! {:name "instaql/preload-refs"}
-                           (let [res (preload-refs ctx eid->etype etype->program)]
+                           (let [res (preload-refs ctx etype->eids+program)]
                              (tracer/add-data! {:attributes {:ref-count (count res)}})
                              res))]
-      (->> eid->etype
-           (ua/vfuture-pmap
-            (fn [[eid etype]]
-              (let [p (etype->program etype)]
-                [eid (if-not p
-                       {:result true}
-                       {:program p
-                        :result
-                        (let [em (io/warn-io :instaql/entity-map
-                                             (entity-map ctx
-                                                         query-cache
-                                                         etype
-                                                         eid))
-                              ctx (assoc ctx
-                                         :preloaded-refs preloaded-refs)]
-                          (io/warn-io :instaql/eval-program
-                                      (cel/eval-program!
-                                       p
-                                       {"auth" (cel/->cel-map {:ctx ctx
-                                                               :type :auth
-                                                               :etype "$users"}
-                                                              current-user)
-                                        "data" (cel/->cel-map {:ctx ctx
-                                                               :etype etype
-                                                               :type :data}
-                                                              em)})))})])))
-
-           (into {})))))
+      (reduce-kv (fn [acc etype {:keys [eids program]}]
+                   (reduce (fn [acc eid]
+                             (assoc acc
+                                    [etype eid]
+                                    (if-not program
+                                      {:result true}
+                                      {:program program
+                                       :result
+                                       (let [em (io/warn-io :instaql/entity-map
+                                                  (entity-map ctx
+                                                              query-cache
+                                                              etype
+                                                              eid))
+                                             ctx (assoc ctx
+                                                        :preloaded-refs preloaded-refs)]
+                                         (io/warn-io :instaql/eval-program
+                                           (cel/eval-program!
+                                            program
+                                            {"auth" (cel/->cel-map {:ctx ctx
+                                                                    :type :auth
+                                                                    :etype "$users"}
+                                                                   current-user)
+                                             "data" (cel/->cel-map {:ctx ctx
+                                                                    :etype etype
+                                                                    :type :data}
+                                                                   em)})))})))
+                           acc
+                           eids))
+                 {}
+                 etype->eids+program))))
 
 (defn permissioned-query [{:keys [app-id current-user admin?] :as ctx} o]
   (tracer/with-span! {:name "instaql/permissioned-query"
@@ -1641,9 +1649,9 @@
               (extract-permission-helpers {:attrs (:attrs ctx)
                                            :rules rules}
                                           res)
-              eid->check (get-eid-check-result! ctx perm-helpers)
+              etype+eid->check (get-etype+eid-check-result! ctx perm-helpers)
               res' (tracer/with-span! {:name "instaql/map-permissioned-node"}
-                     (mapv (partial permissioned-node eid->check) res))]
+                     (mapv (partial permissioned-node ctx etype+eid->check) res))]
           res')))))
 
 (defn permissioned-query-check [{:keys [app-id] :as ctx} o rules-override]
@@ -1654,22 +1662,22 @@
         (extract-permission-helpers {:attrs (:attrs ctx)
                                      :rules rules}
                                     res)
-        eid->check (get-eid-check-result! ctx perm-helpers)
+        etype+eid->check (get-etype+eid-check-result! ctx perm-helpers)
         check-results (map
-                       (fn [[id {:keys [result program]}]]
+                       (fn [[[etype id] {:keys [result program]}]]
                          {:id id
-                          :entity (get (:eid->etype perm-helpers) id)
+                          :entity etype
                           :record (entity-map ctx
                                               (:query-cache perm-helpers)
-                                              (get (:eid->etype perm-helpers) id)
+                                              etype
                                               id)
                           :program (select-keys program [:code
                                                          :display-code
                                                          :etype
                                                          :action])
                           :check result})
-                       eid->check)
-        nodes (mapv (partial permissioned-node eid->check) res)]
+                       etype+eid->check)
+        nodes (mapv (partial permissioned-node ctx etype+eid->check) res)]
     {:nodes nodes :check-results check-results}))
 
 ;; ----
