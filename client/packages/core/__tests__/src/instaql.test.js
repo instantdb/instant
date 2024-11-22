@@ -464,6 +464,81 @@ test("multiple connections", () => {
   ]);
 });
 
+test("query forward references work with and without id", () => {
+  const bookshelf = query(
+    { store },
+    {
+      bookshelves: {
+        $: { where: { "users.handle": "stopa" } },
+      },
+    },
+  ).data.bookshelves[0];
+
+  const usersByBookshelfId = query(
+    { store },
+    {
+      users: {
+        $: { where: { "bookshelves.id": bookshelf.id } },
+      },
+    },
+  ).data.users.map((x) => x.handle);
+
+  const usersByBookshelfLinkFIeld = query(
+    { store },
+    {
+      users: {
+        $: { where: { bookshelves: bookshelf.id } },
+      },
+    },
+  ).data.users.map((x) => x.handle);
+
+  expect(usersByBookshelfId).toEqual(["stopa"]);
+  expect(usersByBookshelfLinkFIeld).toEqual(["stopa"]);
+});
+
+test("query reverse references work with and without id", () => {
+  const stopa = query(
+    { store },
+    {
+      users: {
+        $: { where: { handle: "stopa" } },
+      },
+    },
+  ).data.users[0];
+
+  const stopaBookshelvesByHandle = query(
+    { store },
+    {
+      bookshelves: {
+        $: { where: { "users.handle": "stopa" } },
+      },
+    },
+  ).data.bookshelves;
+
+  const stopaBookshelvesById = query(
+    { store },
+    {
+      bookshelves: {
+        $: { where: { "users.id": stopa.id } },
+      },
+    },
+  ).data.bookshelves;
+
+  const stopaBookshelvesByLinkField = query(
+    { store },
+    {
+      bookshelves: {
+        $: { where: { users: stopa.id } },
+      },
+    },
+  ).data.bookshelves;
+
+  expect(stopaBookshelvesByHandle.length).toBe(16);
+
+  expect(stopaBookshelvesByHandle).toEqual(stopaBookshelvesById);
+  expect(stopaBookshelvesByHandle).toEqual(stopaBookshelvesByLinkField);
+});
+
 test("objects are created by etype", () => {
   const stopa = query(
     { store },
@@ -721,6 +796,22 @@ test("$isNull with relations", () => {
   ).data.users.map((x) => x.handle);
 
   expect(usersWithNullTitle).toEqual([...usersWithBook, "dww"]);
+});
+
+test("$isNull with reverse relations", () => {
+  const q = {
+    bookshelves: { $: { where: { "users.id": { $isNull: true } } }, users: {} },
+  };
+  expect(query({ store }, q).data.bookshelves.length).toBe(0);
+
+  const chunks = [
+    tx.bookshelves[randomUUID()].update({ name: "Lonely shelf" }),
+  ];
+  const txSteps = instaml.transform({ attrs: store.attrs }, chunks);
+  const newStore = transact(store, txSteps);
+  expect(
+    query({ store: newStore }, q).data.bookshelves.map((x) => x.name),
+  ).toEqual(["Lonely shelf"]);
 });
 
 test("$not", () => {
