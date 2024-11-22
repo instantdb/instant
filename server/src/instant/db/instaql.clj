@@ -14,7 +14,6 @@
             [instant.data.resolvers :as resolvers]
             [instant.util.tracer :as tracer]
             [instant.util.coll :as ucoll]
-            [instant.util.async :as ua]
             [instant.model.rule :as rule-model]
             [instant.db.cel :as cel]
             [instant.util.exception :as ex]
