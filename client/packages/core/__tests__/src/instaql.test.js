@@ -464,6 +464,38 @@ test("multiple connections", () => {
   ]);
 });
 
+test("query forward references work with and without id", () => {
+  const bookshelf = query(
+    { store },
+    {
+      bookshelves: {
+        $: { where: { "users.handle": "stopa" } },
+      },
+    },
+  ).data.bookshelves[0];
+
+  const usersByBookshelfId = query(
+    { store },
+    {
+      users: {
+        $: { where: { "bookshelves.id": bookshelf.id } },
+      },
+    },
+  ).data.users.map((x) => x.handle);
+
+  const usersByBookshelfLinkFIeld = query(
+    { store },
+    {
+      users: {
+        $: { where: { bookshelves: bookshelf.id } },
+      },
+    },
+  ).data.users.map((x) => x.handle);
+
+  expect(usersByBookshelfId).toEqual(["stopa"]);
+  expect(usersByBookshelfLinkFIeld).toEqual(["stopa"]);
+});
+
 test("query reverse references work with and without id", () => {
   const stopa = query(
     { store },
@@ -500,6 +532,8 @@ test("query reverse references work with and without id", () => {
       },
     },
   ).data.bookshelves;
+
+  expect(stopaBookshelvesByHandle.length).toBe(16);
 
   expect(stopaBookshelvesByHandle).toEqual(stopaBookshelvesById);
   expect(stopaBookshelvesByHandle).toEqual(stopaBookshelvesByLinkField);
