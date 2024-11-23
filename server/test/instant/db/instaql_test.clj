@@ -241,16 +241,16 @@
                    "The data type of `etype.date` is `date`, but the query got value `\"tomorrow\"` of type `string`."}
                  (validation-err ctx {:etype {:$ {:where {:date "tomorrow"}}}})))
 
-          (is (= '{:expected? valid-data-type-for-comparison?,
+          (is (= '{:expected? string?
                    :in ["etype" :$ :where "string" :$gt],
                    :message
-                   "The data type of `etype.string` is `string`, but the `$gt` operator only supports `date` and `number`."}
+                   "The data type of `etype.string` is `string`, but the query got the value `10` of type `number`."}
                  (validation-err ctx {:etype {:$ {:where {:string {:$gt 10}}}}})))
 
-          (is (= '{:expected? valid-data-type-for-comparison?,
+          (is (= '{:expected? boolean?
                    :in ["etype" :$ :where "boolean" :$gt],
                    :message
-                   "The data type of `etype.boolean` is `boolean`, but the `$gt` operator only supports `date` and `number`."}
+                   "The data type of `etype.boolean` is `boolean`, but the query got the value `1` of type `number`."}
                  (validation-err ctx {:etype {:$ {:where {:boolean {:$gt 1}}}}}))))))))
 
 (deftest pagination

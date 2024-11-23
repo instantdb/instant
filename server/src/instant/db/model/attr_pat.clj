@@ -1,10 +1,10 @@
 (ns instant.db.model.attr-pat
   (:require [clojure.spec.alpha :as s]
-            [clojure.string :as string]
             [instant.db.datalog :as d]
             [instant.db.model.attr :as attr-model]
             [instant.util.exception :as ex]
             [instant.util.json :as json]
+            [instant.util.string :refer [join-in-sentence]]
             [instant.util.uuid :as uuid-util]
             [instant.jdbc.aurora :as aurora]
             [instant.data.constants :refer [zeneca-app-id]]
@@ -219,17 +219,6 @@
 
         :else (:checked-data-type attr)))
 
-(defn throw-invalid-number-comparison! [state attr value]
-  (ex/throw-validation-err!
-   :query
-   (:root state)
-   [{:expected? 'number?
-     :in (:in state)
-     :message (format "The data type of `%` is `number`, but the query got value `%s` of type `%s`."
-                      (attr-model/fwd-friendly-name attr)
-                      (json/->json value)
-                      (json/json-type-of-clj value))}]))
-
 (defn throw-invalid-timestamp! [state attr value]
   (ex/throw-validation-err!
    :query
@@ -252,7 +241,7 @@
                       (json/->json value)
                       (json/json-type-of-clj value))}]))
 
-(defn invalid-data-value-ex!
+(defn throw-invalid-data-value!
   [state attr data-type value]
   (ex/throw-validation-err!
    :query
@@ -270,11 +259,11 @@
   [state attr data-type v]
   (case data-type
     :string (when-not (string? v)
-              (invalid-data-value-ex! state attr data-type v))
+              (throw-invalid-data-value! state attr data-type v))
     :number (when-not (number? v)
-              (invalid-data-value-ex! state attr data-type v))
+              (throw-invalid-data-value! state attr data-type v))
     :boolean (when-not (boolean? v)
-               (invalid-data-value-ex! state attr data-type v))
+               (throw-invalid-data-value! state attr data-type v))
     :date (cond (number? v)
                 (try
                   (Instant/ofEpochMilli v)
@@ -288,61 +277,23 @@
                     (throw-invalid-date-string! state attr v)))
 
                 :else
-                (invalid-data-value-ex! state attr data-type v))
+                (throw-invalid-data-value! state attr data-type v))
     nil))
 
-(defn join-in-sentence [ls]
-  (case (count ls)
-    0 ""
-    1 (format "%s" (first ls))
-    2 (format "%s and %s"
-              (first ls)
-              (second ls))
-    (format "%s, and %s"
-            (string/join ", " (butlast ls))
-            (last ls))))
-
-(defn throw-invalid-attr-data-type-for-comparison!
-  [state attr attr-data-type op allowed-data-types]
-  (ex/throw-validation-err!
-   :query
-   (:root state)
-   [{:expected? 'valid-data-type-for-comparison?
-     :in (:in state)
-     :message (format "The data type of `%s` is `%s`, but the `%s` operator only supports %s."
-                      (attr-model/fwd-friendly-name attr)
-                      (name attr-data-type)
-                      (name op)
-                      (join-in-sentence (map (fn [t]
-                                               (format "`%s`" (name t)))
-                                             allowed-data-types)))}]))
-
-(defn op->allowed-attr-data-types [op]
-  (case op
-    (:$gt :$gte :$lt :$lte) #{:number :date}))
-
 (defn coerced-type-comparison-value! [state attr attr-data-type op tag value]
-  (let [allowed-data-types (op->allowed-attr-data-types op)]
-    (when (not (contains? allowed-data-types attr-data-type))
-      (throw-invalid-attr-data-type-for-comparison! state
-                                                    attr
-                                                    attr-data-type
-                                                    op
-                                                    allowed-data-types)))
   (case attr-data-type
-    :number
-    (if-not (= tag :number)
-      (throw-invalid-number-comparison! state attr value)
-      value)
     :date (case tag
             :number (try
                       (Instant/ofEpochMilli value)
                       (catch Exception _e
                         (throw-invalid-timestamp! state attr value)))
-            :date-string (try
-                           (Instant/parse value)
-                           (catch Exception _e
-                             (throw-invalid-date-string! state attr value))))))
+            :string (try
+                      (Instant/parse value)
+                      (catch Exception _e
+                        (throw-invalid-date-string! state attr value))))
+    (if-not (= tag attr-data-type)
+      (throw-invalid-data-value! state attr attr-data-type value)
+      value)))
 
 (defn validate-value-type! [state attr data-type v]
   (doseq [v (if (set? v) v [v])]
