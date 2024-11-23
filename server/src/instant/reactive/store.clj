@@ -442,9 +442,19 @@
     (or (symbol? dq-part) (symbol? iv-part)) true
     (set? dq-part) (intersects? iv-part dq-part)
 
-    (and (map? dq-part) (contains? dq-part :not))
-    (let [not-val (:not dq-part)]
-      (some (partial not= not-val) iv-part))))
+    (map? dq-part)
+    (if-let [{:keys [op value]} (:$comparator dq-part)]
+      (let [f (case op
+                :$gt >
+                :$gte >=
+                :$lt <
+                :$lte <=)]
+        (some (fn [v]
+                (f v value))
+              iv-part))
+      (when (contains? dq-part :$not)
+        (let [not-val (:$not dq-part)]
+          (some (partial not= not-val) iv-part))))))
 
 (defn match-topic?
   [iv-topic dq-topic]

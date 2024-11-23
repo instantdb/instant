@@ -21,6 +21,10 @@ type WhereArgs = {
   $in?: (string | number | boolean)[];
   $not?: string | number | boolean;
   $isNull?: boolean;
+  $gt?: string | number | boolean;
+  $lt?: string | number | boolean;
+  $gte?: string | number | boolean;
+  $lte?: string | number | boolean;
 };
 
 type WhereClauseValue = string | number | boolean | NonEmpty<WhereArgs>;

@@ -59,14 +59,14 @@
 (s/def ::op #{:$gt :$gte :$lt :$lte :$like})
 (s/def ::data-type #{:string :number :date :boolean})
 (s/def ::value any?)
-(s/def ::$comparison (s/keys :req-un [::op ::data-type ::value]))
+(s/def ::$comparator (s/keys :req-un [::op ::data-type ::value]))
 
 (s/def ::value-pattern-component (s/or :constant (s/coll-of ::triple-model/value
                                                             :kind set?
                                                             :min-count 0)
                                        :any #{'_}
                                        :variable symbol?
-                                       :function (s/keys :req-un [(or ::$not ::$isNull ::$comparison)])))
+                                       :function (s/keys :req-un [(or ::$not ::$isNull ::$comparator)])))
 
 (s/def ::idx-key #{:ea :eav :av :ave :vae})
 (s/def ::data-type #{:string :number :boolean :date})
@@ -126,7 +126,7 @@
                 (map? c)
                 (or (contains? c :$not)
                     (contains? c :$isNull)
-                    (contains? c :$comparison)))
+                    (contains? c :$comparator)))
            (symbol? c)
            (set? c))
         c
@@ -588,7 +588,7 @@
                                       [:= :t.entity-id :entity-id]
                                       [:= :t.attr-id (:attr-id val)]
                                       [:not= :t.value [:cast (->json nil) :jsonb]]]}]]
-                  :$comparison (let [{:keys [op value data-type]} val]
+                  :$comparator (let [{:keys [op value data-type]} val]
                                  [[(case op
                                      :$gt :>
                                      :$gte :>=

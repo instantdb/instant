@@ -296,7 +296,11 @@
       value)))
 
 (defn validate-value-type! [state attr data-type v]
-  (doseq [v (if (set? v) v [v])]
+  (doseq [v (if (set? v) v [v])
+          :let [v (if (and (map? v)
+                           (contains? v :$not))
+                    (:$not v)
+                    v)]]
     (throw-on-invalid-value-data-value! state attr data-type v))
   v)
 
@@ -315,9 +319,7 @@
     (let [[op [tag value]] (first v)
           attr-data-type (assert-checked-attr-data-type! state attr)
           state (update state :in conj op)]
-
-      ;; XXX: Maybe call this typed comparison??
-      {:$comparison
+      {:$comparator
        {:op op
         :value (coerced-type-comparison-value! state attr attr-data-type op tag value)
         :data-type attr-data-type}})))
