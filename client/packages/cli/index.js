@@ -286,7 +286,14 @@ program
   .option("-p --print", "Prints the auth token into the console.")
   .action(login);
 
-program.command("init").description("Create a new app").action(init);
+program
+  .command("init")
+  .description("Set up a new project.")
+  .option(
+    "-a --app <app-id>",
+    "If you have an existing app ID, we can pull schema and perms from there.",
+  )
+  .action(init);
 
 // Note: Nov 20, 2024
 // We can eventually delete this,
