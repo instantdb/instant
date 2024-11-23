@@ -81,33 +81,20 @@ function isUUID(uuid) {
 }
 
 const PUSH_PULL_OPTIONS = new Set(["schema", "perms", "all"]);
-async function resolveBagAndAppWithErrorLogging(cmdName, arg, opts) {
-  // Note: Nov 20, 2024
-  // We can eventually deprecate this
-  // check, once we're confident that users no longer
-  // provide app ID as their first argument
+
+function coerceBag(arg) {
+  if (PUSH_PULL_OPTIONS.has(arg)) {
+    return arg;
+  }
+  return "all";
+}
+
+async function coerceInputToOptsWithErrorLogging(cmdName, arg, opts) {
   if (arg && !PUSH_PULL_OPTIONS.has(arg)) {
     warnDeprecation(`${cmdName} ${arg}`, `${cmdName} --app ${arg}`);
-    const bag = "all";
-    const appId = await getAppIdWithErrorLogging(arg);
-    if (!appId) return;
-    return [bag, appId];
+    return { app: arg };
   }
-
-  let bag;
-  if (!arg) {
-    bag = "all";
-  } else if (PUSH_PULL_OPTIONS.has(arg)) {
-    bag = arg;
-  } else {
-    error(
-      `${chalk.red(arg)} must be one of ${chalk.green(Array.from(PUSH_PULL_OPTIONS).join(", "))}`,
-    );
-    return;
-  }
-  const appId = await getAppIdWithErrorLogging(opts.app);
-  if (!appId) return;
-  return [bag, appId];
+  return opts;
 }
 
 async function packageDirectoryWithErrorLogging() {
@@ -306,7 +293,13 @@ program
     "-a --app <app-id>",
     "If you have an existing app ID, we can pull schema and perms from there.",
   )
-  .action(init);
+  .action(async function (opts) {
+    const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
+    if (!pkgAndAuthInfo) return;
+    const appId = await getOrCreateAppIdWithErrorLogging(opts);
+    if (!appId) return;
+    await pull("all", appId, pkgAndAuthInfo);
+  });
 
 // Note: Nov 20, 2024
 // We can eventually delete this,
@@ -401,12 +394,18 @@ program
     "App ID to pull from. Defaults to *_INSTANT_APP_ID in .env",
   )
   .description("Pull schema and perm files from from production.")
-  .action(async function handlePull(arg, opts) {
-    const ret = await resolveBagAndAppWithErrorLogging("pull", arg, opts);
-    if (!ret) return;
+  .action(async function handlePull(arg, inputOpts) {
+    const bag = coerceBag(arg);
+    const opts = await coerceInputToOptsWithErrorLogging(
+      "pull",
+      arg,
+      inputOpts,
+    );
+    if (!opts) return;
     const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
     if (!pkgAndAuthInfo) return;
-    const [bag, appId] = ret;
+    const appId = await getOrCreateAppIdWithErrorLogging(opts);
+    if (!appId) return;
     await pull(bag, appId, pkgAndAuthInfo);
   });
 
@@ -415,7 +414,11 @@ program.parse(process.argv);
 // command actions
 
 async function pushAll(appIdOrName, opts) {
-  const ret = await resolveBagAndAppWithErrorLogging("push", appIdOrName, opts);
+  const ret = await coerceInputToOptsWithErrorLogging(
+    "push",
+    appIdOrName,
+    opts,
+  );
   if (!ret) return;
   const [bag, appId] = ret;
   if (bag === "schema" || bag === "all") {
@@ -519,10 +522,7 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir) {
   return moduleName;
 }
 
-async function createApp({ pkgDir, instantModuleName }) {
-  const schema = await readLocalSchemaFile();
-  const { perms } = await readLocalPermsFile();
-
+async function appIdFromCreate() {
   const id = randomUUID();
   const token = randomUUID();
   const _title = await input({
@@ -547,32 +547,10 @@ async function createApp({ pkgDir, instantModuleName }) {
   });
 
   if (!appRes.ok) return;
-
-  console.log(chalk.green(`Successfully created your Instant app "${title}"`));
-  console.log(`Please add your app ID to your .env config:`);
-  console.log(chalk.magenta(`INSTANT_APP_ID=${id}`));
-  console.log(chalk.underline(appDashUrl(id)));
-
-  if (!schema) {
-    const schemaPath = join(pkgDir, "instant.schema.ts");
-    await writeFile(
-      schemaPath,
-      instantSchemaTmpl(title, id, instantModuleName),
-      "utf-8",
-    );
-    console.log("Start building your schema: " + schemaPath);
-  }
-
-  if (!perms) {
-    await writeFile(
-      join(pkgDir, "instant.perms.ts"),
-      examplePermsTmpl,
-      "utf-8",
-    );
-  }
+  return id;
 }
 
-async function promptForAppId(pkgAndAuthInfo) {
+async function appIdFromImport() {
   const res = await fetchJson({
     debugName: "Fetching apps",
     method: "GET",
@@ -588,7 +566,7 @@ async function promptForAppId(pkgAndAuthInfo) {
       "You don't have any apps. Want to create a new one?",
     );
     if (!ok) return;
-    await createApp(pkgAndAuthInfo);
+    await appIdFromCreate();
     return;
   }
   const choice = await select({
@@ -601,26 +579,23 @@ async function promptForAppId(pkgAndAuthInfo) {
   return choice;
 }
 
-async function init(opts) {
+async function getOrCreateAppIdWithErrorLogging(opts) {
   const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
   if (!pkgAndAuthInfo) return;
   if (opts.app) {
     const fromOpts = await detectAppIdFromInputWithErrorLogging(opts.app);
     if (!fromOpts.ok) return;
     if (fromOpts.appId) {
-      return await pull("all", fromOpts.appId, pkgAndAuthInfo);
+      return fromOpts.appId;
     }
   }
-
   const fromEnv = detectAppIdFromEnvWithErrorLogging();
   if (!fromEnv.ok) return;
   if (fromEnv.found) {
     const { envName, value } = fromEnv.found;
     console.log(`Found ${chalk.green(envName)}: ${value}`);
-    await pull("all", value, pkgAndAuthInfo);
-    return;
+    return value;
   }
-
   const action = await select({
     message: "What would you like to do?",
     choices: [
@@ -630,15 +605,12 @@ async function init(opts) {
   }).catch(() => null);
 
   if (action === "create") {
-    await createApp(pkgAndAuthInfo);
-    return;
+    const id = await appIdFromCreate();
+    return id;
   }
-
   if (action === "import") {
-    const appId = await promptForAppId(pkgAndAuthInfo);
-    if (!appId) return;
-    await pull("all", appId, pkgAndAuthInfo);
-    return;
+    const id = await appIdFromImport();
+    return id;
   }
 }
 
