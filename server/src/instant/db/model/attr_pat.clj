@@ -1,12 +1,13 @@
 (ns instant.db.model.attr-pat
-  (:require [instant.db.datalog :as d]
+  (:require [clojure.spec.alpha :as s]
+            [clojure.string :as string]
+            [instant.db.datalog :as d]
             [instant.db.model.attr :as attr-model]
             [instant.util.exception :as ex]
             [instant.util.json :as json]
             [instant.util.uuid :as uuid-util]
             [instant.jdbc.aurora :as aurora]
             [instant.data.constants :refer [zeneca-app-id]]
-            [clojure.spec.alpha :as s]
             [instant.db.model.triple :as triple-model])
   (:import (java.time Instant)))
 
@@ -179,16 +180,15 @@
 
         :else (uuid-util/coerce v)))
 
-;; XXX: Would be nice to get a list of all the errors instead of just the first one??
-;; XXX: Put full attr name in the error
-(defn assert-checked-data-type! [state attr]
+(defn assert-checked-attr-data-type! [state attr]
   (cond (:checking-data-type? attr)
         (ex/throw-validation-err!
          :query
          (:root state)
          [{:expected? 'checked-data-type?
            :in (:in state)
-           :message "Attribute must be finished checking the data type before using comparison operators."}])
+           :message (format "The `%s` attribute is still in the process of checking its data type. It must finish before using comparison operators."
+                            (attr-model/fwd-friendly-name attr))}])
 
         (:indexing? attr)
         (ex/throw-validation-err!
@@ -196,7 +196,8 @@
          (:root state)
          [{:expected? 'indexed?
            :in (:in state)
-           :message "Attribute must be finished indexing before using comparison operators."}])
+           :message (format "The `%s` attribute is still in the process of indexing. It must finish before using comparison operators."
+                            (attr-model/fwd-friendly-name attr))}])
 
         (not (:index? attr))
         (ex/throw-validation-err!
@@ -204,7 +205,8 @@
          (:root state)
          [{:expected? 'indexed?
            :in (:in state)
-           :message "Attribute must be indexed to use comparison operators."}])
+           :message (format "The `%s` attribute must be indexed to use comparison operators."
+                            (attr-model/fwd-friendly-name attr))}])
 
         (not (:checked-data-type attr))
         (ex/throw-validation-err!
@@ -212,96 +214,139 @@
          (:root state)
          [{:expected? 'checked-data-type?
            :in (:in state)
-           :message "Attribute must have an enforced type to use comparison operators."}])
+           :message (format "The `%s` attribute must have an enforced type to use comparison operators."
+                            (attr-model/fwd-friendly-name attr))}])
 
         :else (:checked-data-type attr)))
 
-(defn throw-invalid-number-comparison! [state value]
+(defn throw-invalid-number-comparison! [state attr value]
   (ex/throw-validation-err!
    :query
    (:root state)
    [{:expected? 'number?
      :in (:in state)
-     :message (format "The data type of the attribute is `number`, but the comparison operator got `%s`."
-                      (json/->json value))}]))
+     :message (format "The data type of `%` is `number`, but the query got value `%s` of type `%s`."
+                      (attr-model/fwd-friendly-name attr)
+                      (json/->json value)
+                      (json/json-type-of-clj value))}]))
 
-(defn throw-invalid-timestamp! [state value]
+(defn throw-invalid-timestamp! [state attr value]
   (ex/throw-validation-err!
    :query
    (:root state)
    [{:expected? 'timestamp?
      :in (:in state)
-     :message (format "The data type of the attribute is `date`, but the comparison operator got an invalid timestamp `%s`."
-                      (json/->json value))}]))
+     :message (format "The data type of `%s` is `date`, but the query got value `%s` of type `%s`."
+                      (attr-model/fwd-friendly-name attr)
+                      (json/->json value)
+                      (json/json-type-of-clj value))}]))
 
-(defn throw-invalid-date-string! [state value]
+(defn throw-invalid-date-string! [state attr value]
   (ex/throw-validation-err!
    :query
    (:root state)
-   [{:expected? 'timestamp?
+   [{:expected? 'date-string?
      :in (:in state)
-     :message (format "The data type of the attribute is `date`, but the comparison operator got invalid string `%s`."
-                      (json/->json value))}]))
-
-(defn coerced-type-comparison-value! [state data-type op tag value]
-  (case data-type
-    :number
-    (if-not (= tag :number)
-      (throw-invalid-number-comparison! state value)
-      value)
-    :date (case tag
-            :number (try
-                      (Instant/ofEpochMilli value)
-                      (catch Exception _e
-                        (throw-invalid-timestamp! state value)))
-            :date-string (try
-                           (Instant/parse value)
-                           (catch Exception _e
-                             (throw-invalid-date-string! state value))))
-    :string (case tag
-              :string value)))
+     :message (format "The data type of `%s` is `date`, but the query got value `%s` of type `%s`."
+                      (attr-model/fwd-friendly-name attr)
+                      (json/->json value)
+                      (json/json-type-of-clj value))}]))
 
 (defn invalid-data-value-ex!
-  [state data-type value]
+  [state attr data-type value]
   (ex/throw-validation-err!
    :query
    (:root state)
-   [{:expected? data-type
+   [{:expected? (symbol (format "%s?" (name data-type)))
      :in (:in state)
-     ;; XXX: name
-     :message (format "The data type of the attribute is `%s`, but the query got the value `%s`."
+     :message (format "The data type of `%s` is `%s`, but the query got the value `%s` of type `%s`."
+                      (attr-model/fwd-friendly-name attr)
                       (name data-type)
-                      (json/->json value))}]))
+                      (json/->json value)
+                      (json/json-type-of-clj value))}]))
 
 (defn throw-on-invalid-value-data-value!
   "Validates an individual value"
-  [state data-type v]
+  [state attr data-type v]
   (case data-type
     :string (when-not (string? v)
-              (invalid-data-value-ex! state data-type v))
+              (invalid-data-value-ex! state attr data-type v))
     :number (when-not (number? v)
-              (invalid-data-value-ex! state data-type v))
+              (invalid-data-value-ex! state attr data-type v))
     :boolean (when-not (boolean? v)
-               (invalid-data-value-ex! state data-type v))
+               (invalid-data-value-ex! state attr data-type v))
     :date (cond (number? v)
                 (try
                   (Instant/ofEpochMilli v)
                   (catch Exception _e
-                    (throw-invalid-timestamp! state v)))
+                    (throw-invalid-timestamp! state attr v)))
 
                 (string? v)
                 (try
                   (Instant/parse v)
                   (catch Exception _e
-                    (throw-invalid-date-string! state v)))
+                    (throw-invalid-date-string! state attr v)))
 
                 :else
-                (invalid-data-value-ex! state data-type v))
+                (invalid-data-value-ex! state attr data-type v))
     nil))
 
-(defn validate-value-type! [state data-type v]
+(defn join-in-sentence [ls]
+  (case (count ls)
+    0 ""
+    1 (format "%s" (first ls))
+    2 (format "%s and %s"
+              (first ls)
+              (second ls))
+    (format "%s, and %s"
+            (string/join ", " (butlast ls))
+            (last ls))))
+
+(defn throw-invalid-attr-data-type-for-comparison!
+  [state attr attr-data-type op allowed-data-types]
+  (ex/throw-validation-err!
+   :query
+   (:root state)
+   [{:expected? 'valid-data-type-for-comparison?
+     :in (:in state)
+     :message (format "The data type of `%s` is `%s`, but the `%s` operator only supports %s."
+                      (attr-model/fwd-friendly-name attr)
+                      (name attr-data-type)
+                      (name op)
+                      (join-in-sentence (map (fn [t]
+                                               (format "`%s`" (name t)))
+                                             allowed-data-types)))}]))
+
+(defn op->allowed-attr-data-types [op]
+  (case op
+    (:$gt :$gte :$lt :$lte) #{:number :date}))
+
+(defn coerced-type-comparison-value! [state attr attr-data-type op tag value]
+  (let [allowed-data-types (op->allowed-attr-data-types op)]
+    (when (not (contains? allowed-data-types attr-data-type))
+      (throw-invalid-attr-data-type-for-comparison! state
+                                                    attr
+                                                    attr-data-type
+                                                    op
+                                                    allowed-data-types)))
+  (case attr-data-type
+    :number
+    (if-not (= tag :number)
+      (throw-invalid-number-comparison! state attr value)
+      value)
+    :date (case tag
+            :number (try
+                      (Instant/ofEpochMilli value)
+                      (catch Exception _e
+                        (throw-invalid-timestamp! state attr value)))
+            :date-string (try
+                           (Instant/parse value)
+                           (catch Exception _e
+                             (throw-invalid-date-string! state attr value))))))
+
+(defn validate-value-type! [state attr data-type v]
   (doseq [v (if (set? v) v [v])]
-    (throw-on-invalid-value-data-value! state data-type v))
+    (throw-on-invalid-value-data-value! state attr data-type v))
   v)
 
 (defn coerce-value-for-typed-comparison!
@@ -311,19 +356,20 @@
   (if-not (and (map? v)
                (= (count v) 1)
                ;; XXX: Duplication
-               (contains? #{:$gt :$gte :$lt :$lte :$like} (ffirst v)))
+               (contains? #{:$gt :$gte :$lt :$lte} (ffirst v)))
     (if (and (:checked-data-type attr)
              (not (:checking-data-type? attr)))
-      (validate-value-type! state (:checked-data-type attr) v)
+      (validate-value-type! state attr (:checked-data-type attr) v)
       v)
     (let [[op [tag value]] (first v)
-          data-type (assert-checked-data-type! state attr)
+          attr-data-type (assert-checked-attr-data-type! state attr)
           state (update state :in conj op)]
+
       ;; XXX: Maybe call this typed comparison??
       {:$comparison
        {:op op
-        :value (coerced-type-comparison-value! state data-type op tag value)
-        :data-type data-type}})))
+        :value (coerced-type-comparison-value! state attr attr-data-type op tag value)
+        :data-type attr-data-type}})))
 
 (defn ->value-attr-pat
   "Take the where-cond:
@@ -342,10 +388,10 @@
                            :attr
                            {:args [value-etype value-label]})
         v-coerced (if (not= :ref value-type)
-                    (coerce-value-for-typed-comparison!
-                     (update state conj :in [:$ :where value-label])
-                     attr
-                     v)
+                    (let [state (update state :in conj :$ :where value-label)]
+                      (coerce-value-for-typed-comparison! state
+                                                          attr
+                                                          v))
                     (if (set? v)
                       (set (map (fn [vv]
                                   (if-let [v-coerced (coerce-value-uuid vv)]
@@ -354,7 +400,7 @@
                                      :query
                                      (:root state)
                                      [{:expected 'uuid?
-                                       :in (conj (:in state) [:$ :where value-label])
+                                       :in (conj (:in state) :$ :where value-label)
                                        :message (format "Expected %s to match on a uuid, found %s in %s"
                                                         value-label
                                                         (json/->json vv)
@@ -367,7 +413,7 @@
                          :query
                          (:root state)
                          [{:expected 'uuid?
-                           :in (conj (:in state) [:$ :where value-label])
+                           :in (conj (:in state) :$ :where value-label)
                            :message (format "Expected %s to be a uuid, got %s"
                                             value-label
                                             (json/->json v))}]))))]

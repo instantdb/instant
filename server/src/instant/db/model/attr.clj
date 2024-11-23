@@ -138,6 +138,11 @@
   "Given an attr, return it's reverse etype or nil"
   (comp second :reverse-identity))
 
+(defn fwd-friendly-name
+  "Given an attr, returns `etype.label`"
+  [attr]
+  (format "%s.%s" (fwd-etype attr) (fwd-label attr)))
+
 ;; -------
 ;; caching
 

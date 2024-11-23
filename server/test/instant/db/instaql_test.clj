@@ -196,6 +196,63 @@
                             {:$ {:aggregate :count}
                              :bookshelves {}}})))))
 
+(deftest validations-on-checked-data
+  (with-empty-app
+    (fn [app]
+      (testing "checked-data-types"
+        (tx/transact! aurora/conn-pool
+                      (attr-model/get-by-app-id (:id app))
+                      (:id app)
+                      (for [t [:string :number :boolean :date]]
+                        [:add-attr {:id (random-uuid)
+                                    :forward-identity [(random-uuid) "etype" (name t)]
+                                    :unique? false
+                                    :index? true
+                                    :value-type :blob
+                                    :checked-data-type t
+                                    :cardinality :one}]))
+        (let [ctx (let [attrs (attr-model/get-by-app-id (:id app))]
+                    {:db {:conn-pool aurora/conn-pool}
+                     :app-id (:id app)
+                     :attrs attrs})]
+          (is (= '{:expected? string?,
+                   :in ["etype" :$ :where "string"],
+                   :message
+                   "The data type of `etype.string` is `string`, but the query got the value `1` of type `number`."}
+                 (validation-err ctx {:etype {:$ {:where {:string 1}}}})))
+          (is (= '{:expected? number?,
+                   :in ["etype" :$ :where "number"],
+                   :message
+                   "The data type of `etype.number` is `number`, but the query got the value `\"hello\"` of type `string`."}
+                 (validation-err ctx {:etype {:$ {:where {:number "hello"}}}})))
+          (is (= '{:expected? boolean?,
+                   :in ["etype" :$ :where "boolean"],
+                   :message
+                   "The data type of `etype.boolean` is `boolean`, but the query got the value `0` of type `number`."}
+                 (validation-err ctx {:etype {:$ {:where {:boolean 0}}}})))
+          (is (= '{:expected? timestamp?,
+                   :in ["etype" :$ :where "date"],
+                   :message
+                   "The data type of `etype.date` is `date`, but the query got value `9999999999999999999999` of type `number`."}
+                 (validation-err ctx {:etype {:$ {:where {:date 9999999999999999999999}}}})))
+          (is (= '{:expected? date-string?,
+                   :in ["etype" :$ :where "date"],
+                   :message
+                   "The data type of `\"tomorrow\"` is `date`, but the query got value `\"tomorrow\"` of type `string`."}
+                 (validation-err ctx {:etype {:$ {:where {:date "tomorrow"}}}})))
+
+          (is (= '{:expected? valid-data-type-for-comparison?,
+                   :in ["etype" :$ :where "string" :$gt],
+                   :message
+                   "The data type of `etype.string` is `string`, but the `$gt` operator only supports `date` and `number`."}
+                 (validation-err ctx {:etype {:$ {:where {:string {:$gt 10}}}}})))
+
+          (is (= '{:expected? valid-data-type-for-comparison?,
+                   :in ["etype" :$ :where "boolean" :$gt],
+                   :message
+                   "The data type of `etype.boolean` is `boolean`, but the `$gt` operator only supports `date` and `number`."}
+                 (validation-err ctx {:etype {:$ {:where {:boolean {:$gt 1}}}}}))))))))
+
 (deftest pagination
   (testing "limit"
     (is-pretty-eq? (query-pretty {:users {:$ {:limit 2
