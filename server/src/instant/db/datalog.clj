@@ -71,7 +71,7 @@
 (s/def ::idx-key #{:ea :eav :av :ave :vae})
 (s/def ::data-type #{:string :number :boolean :date})
 (s/def ::index-map (s/keys :req-un [::idx-key ::data-type]))
-(s/def ::index (s/or :keyword ::idx
+(s/def ::index (s/or :keyword ::idx-key
                      :map ::index-map))
 
 (s/def ::pattern
