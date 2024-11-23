@@ -17,39 +17,46 @@ function matchExact(patternPart, triplePart, context) {
   return patternPart === triplePart ? context : null;
 }
 
-function matchWithArgMap(patternPart, triplePart, context) {
-  const { in: inList, $in: $inList } = patternPart;
-  if (
-    (inList && inList.includes(triplePart)) ||
-    ($inList && $inList.includes(triplePart))
-  ) {
-    return context;
-  }
-
-  if (
-    patternPart.hasOwnProperty("$not") ||
-    patternPart.hasOwnProperty("$isNull")
-  ) {
-    // If we use `$not` or `$isNull`, we've already done the filtering in
-    // `getTriples`
-    return context;
-  }
-  return null;
-}
-
 function matcherForPatternPart(patternPart) {
   switch (typeof patternPart) {
     case "string":
       return patternPart.startsWith("?") ? matchVariable : matchExact;
-    case "object":
-      return matchWithArgMap;
     default:
       return matchExact;
   }
 }
 
+const validArgMapProps = [
+  "in",
+  "$in",
+  "$not",
+  "$isNull",
+  "$gt",
+  "$lt",
+  "$lte",
+  "$gte",
+];
+
+// Checks if an object is an args map
+function isArgsMap(patternPart) {
+  for (const prop of validArgMapProps) {
+    if (patternPart.hasOwnProperty(prop)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function matchPart(patternPart, triplePart, context) {
   if (!context) return null;
+  if (typeof patternPart === "object") {
+    // This is an args map, so we'll have already fitered the triples
+    // in `getRelevantTriples`
+    if (isArgsMap(patternPart)) {
+      return context;
+    }
+    return null;
+  }
   const matcher = matcherForPatternPart(patternPart);
   return matcher(patternPart, triplePart, context);
 }

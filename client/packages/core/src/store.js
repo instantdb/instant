@@ -486,7 +486,12 @@ function triplesByValue(store, m, v) {
     return res;
   }
 
-  const values = v.in || v.$in ? v.in || v.$in : [v];
+  if (v?.$comparator) {
+    // TODO: A sorted index would be nice here
+    return allMapValues(m, 1).filter(v.$op);
+  }
+
+  const values = v.in || v.$in || [v];
 
   for (const value of values) {
     const triple = m.get(value);
@@ -494,6 +499,7 @@ function triplesByValue(store, m, v) {
       res.push(triple);
     }
   }
+
   return res;
 }
 

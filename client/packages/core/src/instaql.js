@@ -218,6 +218,52 @@ function whereCondAttrPatsForNullIsTrue(makeVar, store, etype, level, path) {
   );
 }
 
+function parseV(v) {
+  if (
+    typeof v !== "object" ||
+    v.hasOwnProperty("$in") ||
+    v.hasOwnProperty("in")
+  ) {
+    return v;
+  }
+
+  if (v.hasOwnProperty("$gt")) {
+    return {
+      $comparator: true,
+      $op: function gt(triple) {
+        return triple[2] > v.$gt;
+      },
+    };
+  }
+  if (v.hasOwnProperty("$gte")) {
+    return {
+      $comparator: true,
+      $op: function gte(triple) {
+        return triple[2] >= v.$gte;
+      },
+    };
+  }
+
+  if (v.hasOwnProperty("$lt")) {
+    return {
+      $comparator: true,
+      $op: function lt(triple) {
+        return triple[2] < v.$lt;
+      },
+    };
+  }
+  if (v.hasOwnProperty("$lte")) {
+    return {
+      $comparator: true,
+      $op: function lte(triple) {
+        return triple[2] <= v.$gte;
+      },
+    };
+  }
+
+  return v;
+}
+
 function parseWhere(makeVar, store, etype, level, where) {
   return Object.entries(where).flatMap(([k, v]) => {
     if (isOrClauses([k, v])) {
@@ -269,7 +315,7 @@ function parseWhere(makeVar, store, etype, level, where) {
       ];
     }
 
-    return whereCondAttrPats(makeVar, store, etype, level, path, v);
+    return whereCondAttrPats(makeVar, store, etype, level, path, parseV(v));
   });
 }
 
