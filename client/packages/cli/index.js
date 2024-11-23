@@ -579,9 +579,7 @@ async function appIdFromImport() {
   return choice;
 }
 
-async function getOrCreateAppIdWithErrorLogging(opts) {
-  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
-  if (!pkgAndAuthInfo) return;
+async function getOrCreateAppIdWithErrorLogging(opts, pkgAndAuthInfo) {
   if (opts.app) {
     const fromOpts = await detectAppIdFromInputWithErrorLogging(opts.app);
     if (!fromOpts.ok) return;
