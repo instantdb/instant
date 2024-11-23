@@ -238,7 +238,7 @@
           (is (= '{:expected? date-string?,
                    :in ["etype" :$ :where "date"],
                    :message
-                   "The data type of `\"tomorrow\"` is `date`, but the query got value `\"tomorrow\"` of type `string`."}
+                   "The data type of `etype.date` is `date`, but the query got value `\"tomorrow\"` of type `string`."}
                  (validation-err ctx {:etype {:$ {:where {:date "tomorrow"}}}})))
 
           (is (= '{:expected? valid-data-type-for-comparison?,
