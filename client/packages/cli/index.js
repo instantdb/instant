@@ -570,7 +570,7 @@ async function promptForAppId(pkgAndAuthInfo) {
 async function init(opts) {
   const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
   if (!pkgAndAuthInfo) return;
-  const getOrCreateRes = await getOrCreateAppWithErrorLogging(pkgAndAuthInfo);
+  const getOrCreateRes = await getOrCreateAppWithErrorLogging(opts);
   if (!getOrCreateRes) return;
   const { source, app, appId } = getOrCreateRes;
   if (source === "created") {
