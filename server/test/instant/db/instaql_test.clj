@@ -57,7 +57,7 @@
      (when (seq aggregates)
        {:aggregate aggregates}))))
 
-(defn- is-pretty-eq?
+(defmacro is-pretty-eq?
   "InstaQL will execute in parallel.
 
    This means that it _is_ possible for nodes
@@ -71,15 +71,16 @@
    This checks equality strictly based on
    the set of topics and triples in the result"
   [pretty-a pretty-b]
-  (testing "(topics is-pretty-eq?)"
-    (is (= (set (mapcat :topics pretty-a))
-           (set (mapcat :topics pretty-b)))))
-  (testing "(triples is-pretty-eq?)"
-    (is (= (set (mapcat :triples pretty-a))
-           (set (mapcat :triples pretty-b)))))
-  (testing "(aggregate is-pretty-eq?)"
-    (is (= (set (remove nil? (mapcat :aggregate pretty-a)))
-           (set (remove nil? (mapcat :aggregate pretty-b)))))))
+  `(do
+    (testing "(topics is-pretty-eq?)"
+      (is (= (set (mapcat :topics ~pretty-a))
+             (set (mapcat :topics ~pretty-b)))))
+    (testing "(triples is-pretty-eq?)"
+      (is (= (set (mapcat :triples ~pretty-a))
+             (set (mapcat :triples ~pretty-b)))))
+    (testing "(aggregate is-pretty-eq?)"
+      (is (= (set (remove nil? (mapcat :aggregate ~pretty-a)))
+             (set (remove nil? (mapcat :aggregate ~pretty-b))))))))
 
 (defn- query-pretty
   ([q]
@@ -123,12 +124,12 @@
              :in [0 :option-map :where-conds 0 1]}
            (validation-err {:users {:$ {:where {:handle {:is "stopa"}}}}})))
     (is (= '{:expected uuid?
-             :in ["users" [:$ :where "bookshelves"]]
+             :in ["users" :$ :where "bookshelves"]
              :message "Expected bookshelves to be a uuid, got \"hello\""}
            (validation-err {:users
                             {:$ {:where {:bookshelves "hello"}}}})))
     (is (= '{:expected uuid?
-             :in ["users" [:$ :where "bookshelves"]]
+             :in ["users" :$ :where "bookshelves"]
              :message "Expected bookshelves to match on a uuid, found \"hello\" in [\"hello\",\"00000000-0000-0000-0000-000000000000\"]"}
            (validation-err {:users
                             {:$ {:where {:bookshelves {:in ["00000000-0000-0000-0000-000000000000"
@@ -2775,7 +2776,7 @@
         (is-pretty-eq?
          (query-pretty' {:$users {:$ {:where {:email "first@example.com"}}}})
          [{:topics
-           [[:av '_ #{:$users/email} #{"first@example.com"}]
+           [[:ave '_ #{:$users/email} #{"first@example.com"}]
             '--
             [:ea #{first-id} #{:$users/email :$users/id} '_]],
            :triples
@@ -2847,7 +2848,7 @@
                          r1
                          {:books {:$ {:where {"$user-creator.email" "alex@instantdb.com"}}}})
            [{:topics
-             [[:av '_ #{:$users/email} #{"alex@instantdb.com"}]
+             [[:ave '_ #{:$users/email} #{"alex@instantdb.com"}]
               [:vae '_ #{:books/$user-creator} #{"eid-alex"}]
               '--
               [:ea
