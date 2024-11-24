@@ -45,8 +45,7 @@ function Example({ appId }: { appId: string }) {
 
   const { data } = db.useQuery({
     comments: {
-      // XXX: Update client
-      $: { where: { date: { $lt: d } } },
+      $: { where: { order: { $gt: 50 } } },
     },
   });
 
@@ -66,7 +65,19 @@ function Example({ appId }: { appId: string }) {
             )
           }
         >
-          Create comment
+          Add random item
+        </button>
+        <button
+          className="bg-black text-white m-2 p-2"
+          onClick={() =>
+            db.transact(
+              tx.comments[id()].update({
+                order: 50,
+              }),
+            )
+          }
+        >
+          Add order = 50
         </button>
         <button
           className="bg-black text-white m-2 p-2"
