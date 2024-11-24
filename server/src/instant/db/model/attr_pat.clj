@@ -4,7 +4,6 @@
             [instant.db.model.attr :as attr-model]
             [instant.util.exception :as ex]
             [instant.util.json :as json]
-            [instant.util.string :refer [join-in-sentence]]
             [instant.util.uuid :as uuid-util]
             [instant.jdbc.aurora :as aurora]
             [instant.data.constants :refer [zeneca-app-id]]
@@ -280,7 +279,7 @@
                 (throw-invalid-data-value! state attr data-type v))
     nil))
 
-(defn coerced-type-comparison-value! [state attr attr-data-type op tag value]
+(defn coerced-type-comparison-value! [state attr attr-data-type tag value]
   (case attr-data-type
     :date (case tag
             :number (try
@@ -321,7 +320,7 @@
           state (update state :in conj op)]
       {:$comparator
        {:op op
-        :value (coerced-type-comparison-value! state attr attr-data-type op tag value)
+        :value (coerced-type-comparison-value! state attr attr-data-type tag value)
         :data-type attr-data-type}})))
 
 (defn ->value-attr-pat
