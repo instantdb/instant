@@ -1748,10 +1748,10 @@
   (assert (map? patterns) "explain only works with nested patterns.")
   (let [nested-named-patterns (nested->named-patterns patterns)]
     (throw-invalid-nested-patterns nested-named-patterns)
-    (let [{:keys [query children]} (nested-match-query ctx
-                                                       :match-0-
-                                                       (:app-id ctx)
-                                                       nested-named-patterns)
+    (let [{:keys [query]} (nested-match-query ctx
+                                              :match-0-
+                                              (:app-id ctx)
+                                              nested-named-patterns)
           sql-query (update (hsql/format query)
                             0
                             (fn [s]
