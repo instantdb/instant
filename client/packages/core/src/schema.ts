@@ -15,35 +15,15 @@ import {
 
 
 /**
- * Accepts entities and links and merges them into a single graph definition.
- *
- * @see https://instantdb.com/docs/schema#defining-entities
- * @example
- *   export default i.graph(
- *     {
- *       posts: i.entity({
- *         title: i.string(),
- *         body: i.string(),
- *       }),
- *       comments: i.entity({
- *         body: i.string(),
- *       }),
- *     },
- *     {
- *       postsComments: {
- *         forward: {
- *           on: "posts",
- *           has: "many",
- *           label: "comments",
- *         },
- *         reverse: {
- *           on: "comments",
- *           has: "one",
- *           label: "post",
- *         },
- *       },
- *     },
- *   );
+ * @deprecated  
+ * i.graph is dreprecated. Use i.schema instead: 
+ * 
+ * @example 
+ * // Before
+ * type MyRoomSchema = {}
+ * const graph = i.graph(entities, links).withRooms<MyRoomSchema>() 
+ * // After
+ * const schema = i.graph({ entities, links, rooms: {} })
  */
 function graph<
   EntitiesWithoutLinks extends EntitiesDef,
@@ -153,7 +133,37 @@ type LinksIndex = Record<
 >;
 
 /**
- * TODO
+ * Use `i.graph` to define your schema! You can define entities, how their link together, 
+ * and if you use presence, you can define rooms: 
+ *
+ * @see https://instantdb.com/docs/schema#defining-entities
+ * @example
+ *   export default i.schema({
+ *     entities: {
+ *       posts: i.entity({
+ *         title: i.string(),
+ *         body: i.string(),
+ *       }),
+ *       comments: i.entity({
+ *         body: i.string(),
+ *       }),
+ *     },
+ *     links: {
+ *       postsComments: {
+ *         forward: {
+ *           on: "posts",
+ *           has: "many",
+ *           label: "comments",
+ *         },
+ *         reverse: {
+ *           on: "comments",
+ *           has: "one",
+ *           label: "post",
+ *         },
+ *       },
+ *     },
+ *     rooms: { }
+ *   });
  */
 function schema<
   EntitiesWithoutLinks extends EntitiesDef,

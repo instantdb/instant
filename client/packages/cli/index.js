@@ -412,6 +412,8 @@ async function push(bag, appId, opts) {
 async function handlePull(bag, opts) {
   const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
   if (!pkgAndAuthInfo) return;
+  await handleCreatedApp(pkgAndAuthInfo, randomUUID(), 'myNewlyCreatedApp');
+  return;
   const { ok, appId, appTitle, isCreated } =
     await detectOrCreateAppWithErrorLogging(opts);
   if (!ok) return;
@@ -695,7 +697,7 @@ async function handleCreatedApp(
   const schema = await readLocalSchemaFile();
   const { perms } = await readLocalPermsFile();
 
-  console.log(chalk.green(`Successfully created your Instant app "${appId}"`));
+  console.log(chalk.green(`Successfully created your Instant app "${appTitle}"`));
   console.log(`Please add your app ID to your .env config:`);
   console.log(chalk.magenta(`INSTANT_APP_ID=${appId}`));
   console.log(chalk.underline(appDashUrl(appId)));
