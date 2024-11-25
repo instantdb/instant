@@ -21,7 +21,7 @@ import {
   getInstallCommand,
 } from "./src/util/packageManager.js";
 import { pathExists, readJsonFile } from "./src/util/fs.js";
-import prettier from 'prettier';
+import prettier from "prettier";
 
 const execAsync = promisify(exec);
 
@@ -411,14 +411,15 @@ async function push(bag, appId, opts) {
 async function handlePull(bag, opts) {
   const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
   if (!pkgAndAuthInfo) return;
-  const { ok, appId, appTitle, isCreated } =
-    await detectOrCreateAppWithErrorLogging(opts);
-  if (!ok) return;
-  if (isCreated) {
-    await handleCreatedApp(pkgAndAuthInfo, appId, appTitle);
-  } else {
-    await pull(bag, appId, pkgAndAuthInfo);
+  const { ok, appId, source } = await detectOrCreateAppWithErrorLogging(opts);
+  if (source === "imported" || source === "created")  {
+    console.log(chalk.green(`Successfully ${source} your Instant app "${appId}"`));
+    console.log(`You can add your app ID to your .env config:`);
+    console.log(chalk.magenta(`INSTANT_APP_ID=${appId}`));
+    console.log(terminalLink("Dashboard", appDashUrl(appId)));
   }
+  if (!ok) return;
+  await pull(bag, appId, pkgAndAuthInfo);
 }
 
 async function pull(bag, appId, pkgAndAuthInfo) {
@@ -542,7 +543,7 @@ async function promptCreateApp() {
     ok: true,
     appId: id,
     appTitle: title,
-    isCreated: true,
+    source: "created",
   };
 }
 
@@ -571,14 +572,14 @@ async function promptImportAppOrCreateApp() {
     }),
   }).catch(() => null);
   if (!choice) return { ok: false };
-  return { ok: true, appId: choice };
+  return { ok: true, appId: choice, source: "imported" };
 }
 
 async function detectOrCreateAppWithErrorLogging(opts) {
   const fromOpts = await detectAppIdFromOptsWithErrorLogging(opts);
   if (!fromOpts.ok) return fromOpts;
   if (fromOpts.appId) {
-    return { ok: true, appId: fromOpts.appId };
+    return { ok: true, appId: fromOpts.appId, source: "opts" };
   }
 
   const fromEnv = detectAppIdFromEnvWithErrorLogging();
@@ -586,7 +587,7 @@ async function detectOrCreateAppWithErrorLogging(opts) {
   if (fromEnv.found) {
     const { envName, value } = fromEnv.found;
     console.log(`Found ${chalk.green(envName)}: ${value}`);
-    return { ok: true, appId: value };
+    return { ok: true, appId: value, source: 'env' };
   }
 
   const action = await select({
@@ -604,45 +605,13 @@ async function detectOrCreateAppWithErrorLogging(opts) {
   return await promptImportAppOrCreateApp();
 }
 
-async function writeTypescript(path, content, encoding) { 
+async function writeTypescript(path, content, encoding) {
   const prettierConfig = await prettier.resolveConfig(path);
   const formattedCode = await prettier.format(content, {
     ...prettierConfig,
-    parser: 'typescript',
+    parser: "typescript",
   });
   return await writeFile(path, formattedCode, encoding);
-}
-
-async function handleCreatedApp(
-  { pkgDir, instantModuleName },
-  appId,
-  appTitle,
-) {
-  const schema = await readLocalSchemaFile();
-  const { perms } = await readLocalPermsFile();
-
-  console.log(chalk.green(`Successfully created your Instant app "${appId}"`));
-  console.log(`Please add your app ID to your .env config:`);
-  console.log(chalk.magenta(`INSTANT_APP_ID=${appId}`));
-  console.log(terminalLink("Dashboard", appDashUrl(appId)));
-
-  if (!schema) {
-    const schemaPath = join(pkgDir, "instant.schema.ts");
-    await writeTypescript(
-      schemaPath,
-      instantSchemaTmpl(appTitle, appId, instantModuleName),
-      "utf-8",
-    );
-    console.log("Start building your schema: " + schemaPath);
-  }
-
-  if (!perms) {
-    await writeTypescript(
-      join(pkgDir, "instant.perms.ts"),
-      examplePermsTmpl,
-      "utf-8",
-    );
-  }
 }
 
 async function getInstantModuleName(pkgJson) {
@@ -1141,7 +1110,7 @@ async function waitForAuthToken({ secret }) {
     if (authCheckRes.data?.hint.errors?.[0]?.issue === "waiting-for-user") {
       continue;
     }
-    error('Failed to authenticate ');
+    error("Failed to authenticate ");
     prettyPrintJSONErr(authCheckRes.data);
     return;
   }
@@ -1487,115 +1456,9 @@ function detectAppIdFromEnvWithErrorLogging() {
   return { ok: true, found };
 }
 
-async function getAppIdWithErrorLogging(arg) {
-  const fromArg = await detectAppIdFromOptsWithErrorLogging({
-    app: arg,
-  });
-  if (!fromArg.ok) return;
-  if (fromArg.appId) {
-    return fromArg.appId;
-  }
-  const fromEnv = detectAppIdFromEnvWithErrorLogging();
-  if (!fromEnv.ok) return;
-  if (fromEnv.found) {
-    const { envName, value } = fromEnv.found;
-    console.log(`Found ${chalk.green(envName)}: ${value}`);
-    return value;
-  }
-  // otherwise, instruct the user to set one of these up
-  error(noAppIdErrorMessage);
-
-  return;
-}
-
 function appDashUrl(id) {
   return `${instantDashOrigin}/dash?s=main&t=home&app=${id}`;
 }
-
-function instantSchemaTmpl(title, id, instantModuleName) {
-  return /* ts */ `// ${title}
-// ${appDashUrl(id)}
-
-import { i } from "${instantModuleName ?? "@instantdb/core"}";
-
-// Example entities and links (you can delete these!)
-const graph = i.graph(
-  {
-    posts: i.entity({
-      name: i.string(),
-      content: i.string(),
-    }),
-    authors: i.entity({
-      userId: i.string(),
-      name: i.string(),
-    }),
-    tags: i.entity({
-      label: i.string(),
-    }),
-  },
-  {
-    authorPosts: {
-      forward: {
-        on: "authors",
-        has: "many",
-        label: "posts",
-      },
-      reverse: {
-        on: "posts",
-        has: "one",
-        label: "author",
-      },
-    },
-    postsTags: {
-      forward: {
-        on: "posts",
-        has: "many",
-        label: "tags",
-      },
-      reverse: {
-        on: "tags",
-        has: "many",
-        label: "posts",
-      },
-    },
-  },
-);
-
-
-export default graph;
-`;
-}
-
-const examplePermsTmpl = /* ts */ `export default {
-  authors: {
-    bind: ["isAuthor", "auth.id == data.userId"],
-    allow: {
-      view: "true",
-      create: "isAuthor",
-      update: "isAuthor",
-      delete: "isAuthor",
-    },
-  },
-  posts: {
-    bind: ["isAuthor", "auth.id in data.ref('authors.userId')"],
-    allow: {
-      view: "true",
-      create: "isAuthor",
-      update: "isAuthor",
-      delete: "isAuthor",
-    },
-  },
-  tags: {
-    bind: ["isOwner", "auth.id in data.ref('posts.authors.userId')"],
-    allow: {
-      view: "true",
-      create: "isOwner",
-      update: "isOwner",
-      delete: "isOwner",
-    },
-  },
-};
-`;
 
 function generateSchemaTypescriptFile(id, schema, title, instantModuleName) {
   const entitiesEntriesCode = sortedEntries(schema.blobs)
