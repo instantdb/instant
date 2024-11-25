@@ -1215,7 +1215,9 @@ async function waitForAuthToken({ secret }) {
       if (authCheckRes.ok) {
         return authCheckRes.data;
       }
-    } catch (error) {}
+    } catch (error) {
+      throw error;
+    }
   }
 
   error("Timed out waiting for authentication");
@@ -1280,7 +1282,7 @@ async function fetchJson({
       data = null;
     }
     if (data) {
-      console.log(debugName, "json:", data);
+      console.log(debugName, "json:", JSON.stringify(data));
     }
     if (!res.ok) {
       if (withErrorLogging) {
