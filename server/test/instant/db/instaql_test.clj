@@ -9,8 +9,10 @@
    [instant.db.model.attr :as attr-model]
    [instant.db.model.triple :as triple-model]
    [instant.db.transaction :as tx]
-   [instant.fixtures
-    :refer [with-empty-app with-zeneca-app with-zeneca-byop]]
+   [instant.fixtures :refer [with-empty-app
+                             with-zeneca-app
+                             with-zeneca-checked-data-app
+                             with-zeneca-byop]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
@@ -2589,145 +2591,148 @@
   (app-model/delete-by-id! {:id app-id}))
 
 (deftest read-perms
-  (with-zeneca-app
-    (fn [{app-id :id :as _app} _r]
-      (testing "no perms returns full"
-        (rule-model/put!
-         aurora/conn-pool
-         {:app-id app-id :code {}})
-        (is
-         (= #{"alex" "joe" "stopa" "nicolegf"}
-            (->>  (pretty-perm-q
-                   {:app-id app-id :current-user nil}
-                   {:users {}})
-                  :users
-                  (map :handle)
-                  set))))
-      (testing "false returns nothing"
-        (rule-model/put!
-         aurora/conn-pool
-         {:app-id app-id :code {:users {:allow {:view "false"}}}})
-        (is
-         (empty?
-          (->>  (pretty-perm-q
-                 {:app-id app-id :current-user nil}
-                 {:users {}})
-                :users
-                (map :handle)
-                set))))
-      (testing "property equality"
-        (rule-model/put!
-         aurora/conn-pool
-         {:app-id app-id :code {:users {:allow {:view "data.handle == 'stopa'"}}}})
-        (is
-         (=
-          #{"stopa"}
-          (->>  (pretty-perm-q
-                 {:app-id app-id :current-user nil}
-                 {:users {}})
-                :users
-                (map :handle)
-                set))))
-      (testing "bind"
-        (rule-model/put!
-         aurora/conn-pool
-         {:app-id app-id :code {:users {:allow {:view "data.handle != handle"}
-                                        :bind ["handle" "'stopa'"]}}})
-        (is
-         (=
-          #{"alex" "joe" "nicolegf"}
-          (->>  (pretty-perm-q
-                 {:app-id app-id :current-user nil}
-                 {:users {}})
-                :users
-                (map :handle)
-                set))))
-      (testing "ref"
-        (rule-model/put!
-         aurora/conn-pool
-         {:app-id app-id :code {:bookshelves {:allow {:view "handle in data.ref('users.handle')"}
-                                              :bind ["handle" "'alex'"]}}})
-        (is
-         (=
-          #{"Short Stories" "Nonfiction"}
-          (->>  (pretty-perm-q
-                 {:app-id app-id :current-user nil}
-                 {:bookshelves {}})
-                :bookshelves
-                (map :name)
-                set))))
-      (testing "auth required"
-        (rule-model/put!
-         aurora/conn-pool
-         {:app-id app-id :code {:users {:allow {:view "auth.id != null"}}}})
-        (is
-         (empty?
-          (->>  (pretty-perm-q
-                 {:app-id app-id :current-user nil}
-                 {:users {}})
-                :users
-                (map :handle)
-                set))))
+  (doseq [[app-fn description] [[with-zeneca-app "without checked attrs"]
+                                [with-zeneca-checked-data-app "with checked attrs"]]]
+    (testing description
+      (app-fn
+       (fn [{app-id :id :as _app} _r]
+         (testing "no perms returns full"
+           (rule-model/put!
+            aurora/conn-pool
+            {:app-id app-id :code {}})
+           (is
+            (= #{"alex" "joe" "stopa" "nicolegf"}
+               (->>  (pretty-perm-q
+                      {:app-id app-id :current-user nil}
+                      {:users {}})
+                     :users
+                     (map :handle)
+                     set))))
+         (testing "false returns nothing"
+           (rule-model/put!
+            aurora/conn-pool
+            {:app-id app-id :code {:users {:allow {:view "false"}}}})
+           (is
+            (empty?
+             (->>  (pretty-perm-q
+                    {:app-id app-id :current-user nil}
+                    {:users {}})
+                   :users
+                   (map :handle)
+                   set))))
+         (testing "property equality"
+           (rule-model/put!
+            aurora/conn-pool
+            {:app-id app-id :code {:users {:allow {:view "data.handle == 'stopa'"}}}})
+           (is
+            (=
+             #{"stopa"}
+             (->>  (pretty-perm-q
+                    {:app-id app-id :current-user nil}
+                    {:users {}})
+                   :users
+                   (map :handle)
+                   set))))
+         (testing "bind"
+           (rule-model/put!
+            aurora/conn-pool
+            {:app-id app-id :code {:users {:allow {:view "data.handle != handle"}
+                                           :bind ["handle" "'stopa'"]}}})
+           (is
+            (=
+             #{"alex" "joe" "nicolegf"}
+             (->>  (pretty-perm-q
+                    {:app-id app-id :current-user nil}
+                    {:users {}})
+                   :users
+                   (map :handle)
+                   set))))
+         (testing "ref"
+           (rule-model/put!
+            aurora/conn-pool
+            {:app-id app-id :code {:bookshelves {:allow {:view "handle in data.ref('users.handle')"}
+                                                 :bind ["handle" "'alex'"]}}})
+           (is
+            (=
+             #{"Short Stories" "Nonfiction"}
+             (->>  (pretty-perm-q
+                    {:app-id app-id :current-user nil}
+                    {:bookshelves {}})
+                   :bookshelves
+                   (map :name)
+                   set))))
+         (testing "auth required"
+           (rule-model/put!
+            aurora/conn-pool
+            {:app-id app-id :code {:users {:allow {:view "auth.id != null"}}}})
+           (is
+            (empty?
+             (->>  (pretty-perm-q
+                    {:app-id app-id :current-user nil}
+                    {:users {}})
+                   :users
+                   (map :handle)
+                   set))))
 
-      (testing "null shouldn't evaluate to true"
-        (rule-model/put!
-         aurora/conn-pool
-         {:app-id app-id :code {:users {:allow {:view "auth.isAdmin"}}}})
-        (is
-         (empty?
-          (->>  (pretty-perm-q
-                 {:app-id app-id :current-user nil}
-                 {:users {}})
-                :users
-                (map :handle)
-                set))))
-      (testing "can only view authed user data"
-        (rule-model/put!
-         aurora/conn-pool
-         {:app-id app-id :code {:users {:allow {:view "auth.handle == data.handle"}}}})
-        (is
-         (= #{"stopa"}
-            (->>  (pretty-perm-q
-                   {:app-id app-id :current-user {:handle "stopa"}}
-                   {:users {}})
-                  :users
-                  (map :handle)
-                  set))))
+         (testing "null shouldn't evaluate to true"
+           (rule-model/put!
+            aurora/conn-pool
+            {:app-id app-id :code {:users {:allow {:view "auth.isAdmin"}}}})
+           (is
+            (empty?
+             (->>  (pretty-perm-q
+                    {:app-id app-id :current-user nil}
+                    {:users {}})
+                   :users
+                   (map :handle)
+                   set))))
+         (testing "can only view authed user data"
+           (rule-model/put!
+            aurora/conn-pool
+            {:app-id app-id :code {:users {:allow {:view "auth.handle == data.handle"}}}})
+           (is
+            (= #{"stopa"}
+               (->>  (pretty-perm-q
+                      {:app-id app-id :current-user {:handle "stopa"}}
+                      {:users {}})
+                     :users
+                     (map :handle)
+                     set))))
 
-      (testing "page-info is filtered"
-        (is
-         (= {:start-cursor ["eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"],
-             :end-cursor ["eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"]
-             :has-next-page? false,
-             :has-previous-page? false}
-            (let [r (resolvers/make-zeneca-resolver app-id)]
-              (->> (iq/permissioned-query
-                    {:db {:conn-pool aurora/conn-pool}
-                     :app-id app-id
-                     :attrs (attr-model/get-by-app-id app-id)
-                     :datalog-query-fn d/query
-                     :current-user {:handle "stopa"}}
-                    {:users {:$ {:limit 10}}})
-                   first
-                   :data
-                   :datalog-result
-                   :page-info
-                   (resolvers/walk-friendly r)
-                   ;; remove timestamps
-                   (#(update % :start-cursor drop-last))
-                   (#(update % :end-cursor drop-last)))))))
+         (testing "page-info is filtered"
+           (is
+            (= {:start-cursor ["eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"],
+                :end-cursor ["eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"]
+                :has-next-page? false,
+                :has-previous-page? false}
+               (let [r (resolvers/make-zeneca-resolver app-id)]
+                 (->> (iq/permissioned-query
+                       {:db {:conn-pool aurora/conn-pool}
+                        :app-id app-id
+                        :attrs (attr-model/get-by-app-id app-id)
+                        :datalog-query-fn d/query
+                        :current-user {:handle "stopa"}}
+                       {:users {:$ {:limit 10}}})
+                      first
+                      :data
+                      :datalog-result
+                      :page-info
+                      (resolvers/walk-friendly r)
+                      ;; remove timestamps
+                      (#(update % :start-cursor drop-last))
+                      (#(update % :end-cursor drop-last)))))))
 
-      (testing "bad rules produce a permission evaluation exception"
-        (rule-model/put!
-         aurora/conn-pool
-         {:app-id app-id :code {:users {:allow {:view "auth.handle in data.nonexistent"}}}})
+         (testing "bad rules produce a permission evaluation exception"
+           (rule-model/put!
+            aurora/conn-pool
+            {:app-id app-id :code {:users {:allow {:view "auth.handle in data.nonexistent"}}}})
 
-        (is
-         (= ::ex/permission-evaluation-failed
-            (::ex/type (instant-ex-data
-                        (pretty-perm-q
-                         {:app-id app-id :current-user {:handle "stopa"}}
-                         {:users {}})))))))))
+           (is
+            (= ::ex/permission-evaluation-failed
+               (::ex/type (instant-ex-data
+                            (pretty-perm-q
+                             {:app-id app-id :current-user {:handle "stopa"}}
+                             {:users {}})))))))))))
 
 (deftest coarse-topics []
   (let [{:keys [patterns]}
