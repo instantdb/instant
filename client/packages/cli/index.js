@@ -338,7 +338,7 @@ program
     "--skip-check-types",
     "Don't check types on the server when pushing schema",
   )
-  .description("Push schema and perms to production.")
+  .description("Push schema and perm files to production.")
   .action(async function (arg, inputOpts) {
     const ret = convertPushPullToCurrentFormat("push", arg, inputOpts);
     if (!ret.ok) return;
@@ -380,9 +380,7 @@ program
     "-a --app <app-id>",
     "App ID to push to. Defaults to *_INSTANT_APP_ID in .env",
   )
-  .description(
-    "Generate schema and perm files from from your production state.",
-  )
+  .description("Pull schema and perm files from production.")
   .action(async function (arg, inputOpts) {
     const ret = convertPushPullToCurrentFormat("pull", arg, inputOpts);
     if (!ret.ok) return;
@@ -698,7 +696,7 @@ async function handleCreatedApp(
   console.log(chalk.green(`Successfully created your Instant app "${appId}"`));
   console.log(`Please add your app ID to your .env config:`);
   console.log(chalk.magenta(`INSTANT_APP_ID=${appId}`));
-  console.log(chalk.underline(appDashUrl(appId)));
+  console.log(terminalLink("Dashboard", appDashUrl(appId)));
 
   if (!schema) {
     const schemaPath = join(pkgDir, "instant.schema.ts");
