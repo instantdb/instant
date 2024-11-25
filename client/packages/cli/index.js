@@ -309,8 +309,6 @@ program
   )
   .action(async (appIdOrName, opts) => {
     warnDeprecation("push-schema", "push schema");
-    const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
-    if (!pkgAndAuthInfo) return;
     const { ok, appId } = await detectOrCreateAppWithErrorLogging({
       app: appIdOrName,
     });
@@ -327,8 +325,6 @@ program
   .description("Push perms to production.")
   .action(async (appIdOrName) => {
     warnDeprecation("push-perms", "push perms");
-    const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
-    if (!pkgAndAuthInfo) return;
     const { ok, appId } = await detectOrCreateAppWithErrorLogging({
       app: appIdOrName,
     });
