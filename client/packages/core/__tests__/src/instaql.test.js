@@ -5,6 +5,7 @@ import zenecaTriples from "./data/zeneca/triples.json";
 import { createStore, transact } from "../../src/store";
 import query from "../../src/instaql";
 import { tx } from "../../src/instatx";
+import { i } from "../../src/index";
 import * as instaml from "../../src/instaml";
 import { randomUUID } from "crypto";
 
@@ -831,5 +832,82 @@ test("$not", () => {
     "c",
     null,
     undefined,
+  ]);
+});
+
+test("comparators", () => {
+  const schema = i.graph(
+    {
+      tests: i.entity({
+        string: i.string().indexed(),
+        number: i.number().indexed(),
+        date: i.date().indexed(),
+        boolean: i.boolean().indexed(),
+      }),
+    },
+    {},
+  );
+
+  const txSteps = [];
+  for (let i = 0; i < 5; i++) {
+    txSteps.push(
+      tx.tests[randomUUID()].update({
+        string: `${i}`,
+        number: i,
+        date: i,
+        boolean: i % 2 === 0,
+      }),
+    );
+  }
+
+  const newStore = transact(
+    store,
+    instaml.transform({ attrs: store.attrs, schema: schema }, txSteps),
+  );
+
+  function runQuery(dataType, op, value) {
+    const res = query(
+      { store: newStore },
+      {
+        tests: {
+          $: { where: { [dataType]: { [op]: value } } },
+        },
+      },
+    );
+    return res.data.tests.map((x) => x[dataType]);
+  }
+
+  expect(runQuery("string", "$gt", "2")).toEqual(["3", "4"]);
+  expect(runQuery("string", "$gte", "2")).toEqual(["2", "3", "4"]);
+  expect(runQuery("string", "$lt", "2")).toEqual(["0", "1"]);
+  expect(runQuery("string", "$lte", "2")).toEqual(["0", "1", "2"]);
+
+  expect(runQuery("number", "$gt", 2)).toEqual([3, 4]);
+  expect(runQuery("number", "$gte", 2)).toEqual([2, 3, 4]);
+  expect(runQuery("number", "$lt", 2)).toEqual([0, 1]);
+  expect(runQuery("number", "$lte", 2)).toEqual([0, 1, 2]);
+
+  expect(runQuery("date", "$gt", 2)).toEqual([3, 4]);
+  expect(runQuery("date", "$gte", 2)).toEqual([2, 3, 4]);
+  expect(runQuery("date", "$lt", 2)).toEqual([0, 1]);
+  expect(runQuery("date", "$lte", 2)).toEqual([0, 1, 2]);
+
+  // Accepts string dates
+  expect(
+    runQuery("date", "$lt", JSON.parse(JSON.stringify(new Date()))),
+  ).toEqual([0, 1, 2, 3, 4]);
+  expect(
+    runQuery("date", "$gt", JSON.parse(JSON.stringify(new Date()))),
+  ).toEqual([]);
+
+  expect(runQuery("boolean", "$gt", true)).toEqual([]);
+  expect(runQuery("boolean", "$gte", true)).toEqual([true, true, true]);
+  expect(runQuery("boolean", "$lt", true)).toEqual([false, false]);
+  expect(runQuery("boolean", "$lte", true)).toEqual([
+    true,
+    false,
+    true,
+    false,
+    true,
   ]);
 });

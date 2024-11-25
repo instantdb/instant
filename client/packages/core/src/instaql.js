@@ -88,6 +88,70 @@ function refAttrPat(makeVar, store, etype, level, label) {
   return [nextEtype, nextLevel, attrPat, attr, isForward];
 }
 
+function parseValue(attr, v) {
+  if (
+    typeof v !== "object" ||
+    v.hasOwnProperty("$in") ||
+    v.hasOwnProperty("in")
+  ) {
+    return v;
+  }
+
+  const isDate = attr["checked-data-type"] === "date";
+
+  if (v.hasOwnProperty("$gt")) {
+    return {
+      $comparator: true,
+      $op: isDate
+        ? function gtDate(triple) {
+            return new Date(triple[2]) > new Date(v.$gt);
+          }
+        : function gt(triple) {
+            return triple[2] > v.$gt;
+          },
+    };
+  }
+  if (v.hasOwnProperty("$gte")) {
+    return {
+      $comparator: true,
+      $op: isDate
+        ? function gteDate(triple) {
+            return new Date(triple[2]) >= new Date(v.$gte);
+          }
+        : function gte(triple) {
+            return triple[2] >= v.$gte;
+          },
+    };
+  }
+
+  if (v.hasOwnProperty("$lt")) {
+    return {
+      $comparator: true,
+      $op: isDate
+        ? function ltDate(triple) {
+            return new Date(triple[2]) < new Date(v.$lt);
+          }
+        : function lt(triple) {
+            return triple[2] < v.$lt;
+          },
+    };
+  }
+  if (v.hasOwnProperty("$lte")) {
+    return {
+      $comparator: true,
+      $op: isDate
+        ? function lteDate(triple) {
+            return new Date(triple[2]) <= new Date(v.$lte);
+          }
+        : function lte(triple) {
+            return triple[2] <= v.$lte;
+          },
+    };
+  }
+
+  return v;
+}
+
 function valueAttrPat(makeVar, store, valueEtype, valueLevel, valueLabel, v) {
   const fwdAttr = s.getAttrByFwdIdentName(store, valueEtype, valueLabel);
   const revAttr = s.getAttrByReverseIdentName(store, valueEtype, valueLabel);
@@ -114,10 +178,21 @@ function valueAttrPat(makeVar, store, valueEtype, valueLevel, valueLabel, v) {
       wildcard("time"),
     ];
   }
+  const parsedValue = parseValue(attr, v);
   if (fwdAttr) {
-    return [makeVar(valueEtype, valueLevel), attr.id, v, wildcard("time")];
+    return [
+      makeVar(valueEtype, valueLevel),
+      attr.id,
+      parsedValue,
+      wildcard("time"),
+    ];
   }
-  return [v, attr.id, makeVar(valueEtype, valueLevel), wildcard("time")];
+  return [
+    parsedValue,
+    attr.id,
+    makeVar(valueEtype, valueLevel),
+    wildcard("time"),
+  ];
 }
 
 function refAttrPats(makeVar, store, etype, level, refsPath) {
@@ -218,52 +293,6 @@ function whereCondAttrPatsForNullIsTrue(makeVar, store, etype, level, path) {
   );
 }
 
-function parseV(v) {
-  if (
-    typeof v !== "object" ||
-    v.hasOwnProperty("$in") ||
-    v.hasOwnProperty("in")
-  ) {
-    return v;
-  }
-
-  if (v.hasOwnProperty("$gt")) {
-    return {
-      $comparator: true,
-      $op: function gt(triple) {
-        return triple[2] > v.$gt;
-      },
-    };
-  }
-  if (v.hasOwnProperty("$gte")) {
-    return {
-      $comparator: true,
-      $op: function gte(triple) {
-        return triple[2] >= v.$gte;
-      },
-    };
-  }
-
-  if (v.hasOwnProperty("$lt")) {
-    return {
-      $comparator: true,
-      $op: function lt(triple) {
-        return triple[2] < v.$lt;
-      },
-    };
-  }
-  if (v.hasOwnProperty("$lte")) {
-    return {
-      $comparator: true,
-      $op: function lte(triple) {
-        return triple[2] <= v.$gte;
-      },
-    };
-  }
-
-  return v;
-}
-
 function parseWhere(makeVar, store, etype, level, where) {
   return Object.entries(where).flatMap(([k, v]) => {
     if (isOrClauses([k, v])) {
@@ -315,7 +344,7 @@ function parseWhere(makeVar, store, etype, level, where) {
       ];
     }
 
-    return whereCondAttrPats(makeVar, store, etype, level, path, parseV(v));
+    return whereCondAttrPats(makeVar, store, etype, level, path, v);
   });
 }
 
