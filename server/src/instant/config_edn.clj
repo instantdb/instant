@@ -27,6 +27,8 @@
 (s/def ::oauth-client (s/keys :req-un [::client-id
                                        ::client-secret]))
 
+(s/def ::s3-storage-access-key ::config-value)
+(s/def ::s3-storage-secret-key ::config-value)
 (s/def ::postmark-token ::config-value)
 (s/def ::postmark-account-token ::config-value)
 (s/def ::secret-discord-token ::config-value)
@@ -50,6 +52,8 @@
                                         ::public-key-json]))
 
 (s/def ::config (s/keys :opt-un [::instant-config-app-id
+                                 ::s3-storage-access-key
+                                 ::s3-storage-secret-key
                                  ::database-url
                                  ::postmark-token
                                  ::postmark-account-token
@@ -64,6 +68,8 @@
 ;; Prod config is more restrictive because we don't want to accidentally
 ;; forget to set one of these variables in prod
 (s/def ::config-prod (s/keys :req-un [::aead-keyset
+                                      ::s3-storage-access-key
+                                      ::s3-storage-secret-key
                                       ::database-url
                                       ::postmark-token
                                       ::postmark-account-token
