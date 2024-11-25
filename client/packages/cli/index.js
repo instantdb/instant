@@ -276,6 +276,7 @@ program
       process.exit(0);
     }),
   )
+  .helpCommand(false)
   .addHelpOption(globalOption("-h --help", "Print the help text for a command"))
   .usage(`<command> ${chalk.dim("[options] [args]")}`);
 
@@ -338,7 +339,7 @@ program
     "--skip-check-types",
     "Don't check types on the server when pushing schema",
   )
-  .description("Push schema and perms to production.")
+  .description("Push schema and perm files to production.")
   .action(async function (arg, inputOpts) {
     const ret = convertPushPullToCurrentFormat("push", arg, inputOpts);
     if (!ret.ok) return;
@@ -380,9 +381,7 @@ program
     "-a --app <app-id>",
     "App ID to push to. Defaults to *_INSTANT_APP_ID in .env",
   )
-  .description(
-    "Generate schema and perm files from from your production state.",
-  )
+  .description("Pull schema and perm files from production.")
   .action(async function (arg, inputOpts) {
     const ret = convertPushPullToCurrentFormat("pull", arg, inputOpts);
     if (!ret.ok) return;
