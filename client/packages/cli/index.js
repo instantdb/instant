@@ -21,6 +21,7 @@ import {
   getInstallCommand,
 } from "./src/util/packageManager.js";
 import { pathExists, readJsonFile } from "./src/util/fs.js";
+import prettier from 'prettier';
 
 const execAsync = promisify(exec);
 
@@ -603,6 +604,15 @@ async function detectOrCreateAppWithErrorLogging(opts) {
   return await promptImportAppOrCreateApp();
 }
 
+async function writeTypescript(path, content, encoding) { 
+  const prettierConfig = await prettier.resolveConfig(path);
+  const formattedCode = await prettier.format(content, {
+    ...prettierConfig,
+    parser: 'typescript',
+  });
+  return await writeFile(path, formattedCode, encoding);
+}
+
 async function handleCreatedApp(
   { pkgDir, instantModuleName },
   appId,
@@ -618,7 +628,7 @@ async function handleCreatedApp(
 
   if (!schema) {
     const schemaPath = join(pkgDir, "instant.schema.ts");
-    await writeFile(
+    await writeTypescript(
       schemaPath,
       instantSchemaTmpl(appTitle, appId, instantModuleName),
       "utf-8",
@@ -627,7 +637,7 @@ async function handleCreatedApp(
   }
 
   if (!perms) {
-    await writeFile(
+    await writeTypescript(
       join(pkgDir, "instant.perms.ts"),
       examplePermsTmpl,
       "utf-8",
@@ -719,7 +729,7 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
   }
 
   const schemaPath = join(pkgDir, "instant.schema.ts");
-  await writeFile(
+  await writeTypescript(
     schemaPath,
     generateSchemaTypescriptFile(
       appId,
@@ -760,7 +770,7 @@ async function pullPerms(appId, { pkgDir }) {
   }
 
   const permsPath = join(pkgDir, "instant.perms.ts");
-  await writeFile(
+  await writeTypescript(
     permsPath,
     `export default ${JSON.stringify(pullRes.data.perms, null, "  ")};`,
     "utf-8",
