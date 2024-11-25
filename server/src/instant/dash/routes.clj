@@ -1124,11 +1124,8 @@
 
 (defn cli-auth-check-post [req]
   (let [secret (ex/get-param! req [:body :secret] uuid-util/coerce)
-        cli-auth (instant-cli-login-model/check! aurora/conn-pool {:secret secret})
+        cli-auth (instant-cli-login-model/use! aurora/conn-pool {:secret secret})
         user-id (:user_id cli-auth)
-        _ (ex/assert-valid! :cli-auth
-                            (:id cli-auth)
-                            (when-not user-id [{:message "Invalid CLI auth ticket"}]))
         refresh-token (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id user-id})
         token (:id refresh-token)
         {email :email} (instant-user-model/get-by-id! {:id user-id})

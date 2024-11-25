@@ -444,7 +444,7 @@ async function login(options) {
   if (!registerRes.ok) return;
 
   const { secret, ticket } = registerRes.data;
-
+  console.log("Let's log you in!");
   const ok = await promptOk(
     `This will open instantdb.com in your browser, OK to proceed?`,
   );
@@ -1200,24 +1200,25 @@ async function pushPerms(appId) {
 async function waitForAuthToken({ secret }) {
   for (let i = 1; i <= 120; i++) {
     await sleep(1000);
-
-    try {
-      const authCheckRes = await fetchJson({
-        method: "POST",
-        debugName: "Auth check",
-        errorMessage: "Failed to check auth status.",
-        path: "/dash/cli/auth/check",
-        body: { secret },
-        noAuth: true,
-        noLogError: true,
-      });
-
-      if (authCheckRes.ok) {
-        return authCheckRes.data;
-      }
-    } catch (error) {}
+    const authCheckRes = await fetchJson({
+      method: "POST",
+      debugName: "Auth check",
+      errorMessage: "Failed to check auth status.",
+      path: "/dash/cli/auth/check",
+      body: { secret },
+      noAuth: true,
+      noLogError: true,
+    });
+    if (authCheckRes.ok) {
+      return authCheckRes.data;
+    }
+    if (authCheckRes.data?.hint.errors?.[0]?.issue === "waiting-for-user") {
+      continue;
+    }
+    error('Failed to authenticate ');
+    prettyPrintJSONErr(authCheckRes.data);
+    return;
   }
-
   error("Timed out waiting for authentication");
   return null;
 }
@@ -1279,21 +1280,13 @@ async function fetchJson({
     } catch {
       data = null;
     }
-
+    if (verbose && data) {
+      console.log(debugName, "json:", JSON.stringify(data));
+    }
     if (!res.ok) {
       if (withErrorLogging) {
         error(errorMessage);
-        if (data?.message) {
-          error(data.message);
-        }
-        if (Array.isArray(data?.hint?.errors)) {
-          for (const err of data.hint.errors) {
-            error(`${err.in ? err.in.join("->") + ": " : ""}${err.message}`);
-          }
-        }
-        if (!data) {
-          error("Failed to parse error response");
-        }
+        prettyPrintJSONErr(data);
       }
       return { ok: false, data };
     }
@@ -1314,6 +1307,20 @@ async function fetchJson({
       }
     }
     return { ok: false, data: null };
+  }
+}
+
+function prettyPrintJSONErr(data) {
+  if (data?.message) {
+    error(data.message);
+  }
+  if (Array.isArray(data?.hint?.errors)) {
+    for (const err of data.hint.errors) {
+      error(`${err.in ? err.in.join("->") + ": " : ""}${err.message}`);
+    }
+  }
+  if (!data) {
+    error("Failed to parse error response");
   }
 }
 
