@@ -276,9 +276,6 @@ program
       process.exit(0);
     }),
   )
-  .helpCommand("help [command]", "Display help for a specific command.", {
-    noHelp: true,
-  })
   .addHelpOption(globalOption("-h --help", "Print the help text for a command"))
   .usage(`<command> ${chalk.dim("[options] [args]")}`);
 
