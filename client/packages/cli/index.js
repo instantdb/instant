@@ -309,11 +309,7 @@ program
   )
   .action(async (appIdOrName, opts) => {
     warnDeprecation("push-schema", "push schema");
-    const { ok, appId } = await detectOrCreateAppWithErrorLogging({
-      app: appIdOrName,
-    });
-    if (!ok) return;
-    await pushSchema(appId, opts);
+    await handlePush("schema", { app: appIdOrName, ...opts });
   });
 
 // Note: Nov 20, 2024
@@ -325,11 +321,7 @@ program
   .description("Push perms to production.")
   .action(async (appIdOrName) => {
     warnDeprecation("push-perms", "push perms");
-    const { ok, appId } = await detectOrCreateAppWithErrorLogging({
-      app: appIdOrName,
-    });
-    if (!ok) return;
-    await pushPerms(appId);
+    await handlePush("perms", { app: appIdOrName });
   });
 
 program
@@ -363,13 +355,7 @@ program
   .description("Generate instant.schema.ts from production")
   .action(async (appIdOrName) => {
     warnDeprecation("pull-schema", "pull schema");
-    const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
-    if (!pkgAndAuthInfo) return;
-    const { ok, appId } = await detectOrCreateAppWithErrorLogging({
-      app: appIdOrName,
-    });
-    if (!ok) return;
-    await pullSchema(appId, pkgAndAuthInfo);
+    await handlePull("schema", { app: appIdOrName });
   });
 
 // Note: Nov 20, 2024
@@ -381,13 +367,7 @@ program
   .description("Generate instant.perms.ts from production.")
   .action(async (appIdOrName) => {
     warnDeprecation("pull-perms", "pull perms");
-    const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
-    if (!pkgAndAuthInfo) return;
-    const { ok, appId } = await detectOrCreateAppWithErrorLogging({
-      app: appIdOrName,
-    });
-    if (!ok) return;
-    await pullPerms(appId, pkgAndAuthInfo);
+    await handlePull("perms", { app: appIdOrName });
   });
 
 program
@@ -413,22 +393,7 @@ program
 program.parse(process.argv);
 
 // command actions
-async function handlePull(bag, opts) {
-  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
-  if (!pkgAndAuthInfo) return;
-  const { ok, appId, appTitle, isCreated } =
-    await detectOrCreateAppWithErrorLogging(opts);
-  if (!ok) return;
-  if (isCreated) {
-    await handleCreatedApp(pkgAndAuthInfo, appId, appTitle);
-  } else {
-    await pull(bag, appId, pkgAndAuthInfo);
-  }
-}
-
 async function handlePush(bag, opts) {
-  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
-  if (!pkgAndAuthInfo) return;
   const { ok, appId } = await detectOrCreateAppWithErrorLogging(opts);
   if (!ok) return;
   await push(bag, appId, opts);
@@ -441,6 +406,19 @@ async function push(bag, appId, opts) {
   }
   if (bag === "perms" || bag === "all") {
     await pushPerms(appId);
+  }
+}
+
+async function handlePull(bag, opts) {
+  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
+  if (!pkgAndAuthInfo) return;
+  const { ok, appId, appTitle, isCreated } =
+    await detectOrCreateAppWithErrorLogging(opts);
+  if (!ok) return;
+  if (isCreated) {
+    await handleCreatedApp(pkgAndAuthInfo, appId, appTitle);
+  } else {
+    await pull(bag, appId, pkgAndAuthInfo);
   }
 }
 
