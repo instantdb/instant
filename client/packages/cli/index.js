@@ -697,7 +697,7 @@ async function handleCreatedApp(
   console.log(chalk.green(`Successfully created your Instant app "${appId}"`));
   console.log(`Please add your app ID to your .env config:`);
   console.log(chalk.magenta(`INSTANT_APP_ID=${appId}`));
-  console.log(chalk.underline(appDashUrl(appId)));
+  console.log(terminalLink('Dashboard',appDashUrl(appId)));
 
   if (!schema) {
     const schemaPath = join(pkgDir, "instant.schema.ts");
