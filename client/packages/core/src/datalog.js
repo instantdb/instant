@@ -31,7 +31,7 @@ const validArgMapProps = [
   "$in",
   "$not",
   "$isNull",
-  "$comparator", // covers all of $gt, $lt, etc.l
+  "$comparator", // covers all of $gt, $lt, etc.
 ];
 
 // Checks if an object is an args map
