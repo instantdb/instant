@@ -1280,7 +1280,7 @@ async function fetchJson({
     } catch {
       data = null;
     }
-    if (data) {
+    if (verbose && data) {
       console.log(debugName, "json:", JSON.stringify(data));
     }
     if (!res.ok) {
