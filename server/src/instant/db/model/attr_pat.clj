@@ -307,20 +307,26 @@
   "Coerces the value for a typed comparison, throwing a validation error
    if the attr doesn't support the comparison."
   [state attr v]
-  (if-not (and (map? v)
-               (= (count v) 1)
-               (contains? #{:$gt :$gte :$lt :$lte} (ffirst v)))
-    (if (and (:checked-data-type attr)
-             (not (:checking-data-type? attr)))
-      (validate-value-type! state attr (:checked-data-type attr) v)
-      v)
-    (let [[op [tag value]] (first v)
-          attr-data-type (assert-checked-attr-data-type! state attr)
-          state (update state :in conj op)]
-      {:$comparator
-       {:op op
-        :value (coerced-type-comparison-value! state attr attr-data-type tag value)
-        :data-type attr-data-type}})))
+  (cond (symbol? v) v
+
+        (and (map? v)
+             (= (count v) 1)
+             (contains? #{:$gt :$gte :$lt :$lte} (ffirst v)))
+        (let [[op [tag value]] (first v)
+              attr-data-type (assert-checked-attr-data-type! state attr)
+              state (update state :in conj op)]
+          {:$comparator
+           {:op op
+            :value (coerced-type-comparison-value! state attr attr-data-type tag value)
+            :data-type attr-data-type}})
+
+
+        :else
+        (if (and (:checked-data-type attr)
+                 (not (:checking-data-type? attr)))
+          (validate-value-type! state attr (:checked-data-type attr) v)
+          v)))
+
 
 (defn ->value-attr-pat
   "Take the where-cond:
