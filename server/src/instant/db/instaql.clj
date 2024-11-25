@@ -37,12 +37,21 @@
 
 (s/def ::$not where-value-valid?)
 (s/def ::$isNull boolean?)
+(s/def ::comparator (s/or :string string?
+                          :number number?
+                          :boolean boolean?))
+
+(s/def ::$gt ::comparator)
+(s/def ::$gte ::comparator)
+(s/def ::$lt ::comparator)
+(s/def ::$lte ::comparator)
 
 (defn where-value-valid-keys? [m]
-  (every? #{:in :$in :$not :$isNull} (keys m)))
+  (every? #{:in :$in :$not :$isNull :$gt :$gte :$lt :$lte} (keys m)))
 
 (s/def ::where-args-map (s/and
-                         (s/keys :opt-un [::in ::$in ::$not ::$isNull])
+                         (s/keys :opt-un [::in ::$in ::$not ::$isNull
+                                          ::$gt ::$gte ::$lt ::$lte])
                          where-value-valid-keys?))
 
 (s/def ::where-v
@@ -489,8 +498,7 @@
             :args-map (let [[func args-map-val] (first v-value)]
                         (case func
                           (:$in :in) args-map-val
-                          :$not {:$not args-map-val}
-                          :$isNull {:$isNull args-map-val})))
+                          {func args-map-val})))
         [refs-path value-label] (ucoll/split-last path)
 
         [last-etype last-level ref-attr-pats referenced-etypes]

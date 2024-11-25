@@ -21,6 +21,7 @@
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.test :refer [instant-ex-data pretty-perm-q]])
   (:import
+   (java.time Instant)
    (java.util UUID)))
 
 (def ^:private r (delay (resolvers/make-zeneca-resolver)))
@@ -57,7 +58,7 @@
      (when (seq aggregates)
        {:aggregate aggregates}))))
 
-(defn- is-pretty-eq?
+(defmacro is-pretty-eq?
   "InstaQL will execute in parallel.
 
    This means that it _is_ possible for nodes
@@ -71,15 +72,16 @@
    This checks equality strictly based on
    the set of topics and triples in the result"
   [pretty-a pretty-b]
-  (testing "(topics is-pretty-eq?)"
-    (is (= (set (mapcat :topics pretty-a))
-           (set (mapcat :topics pretty-b)))))
-  (testing "(triples is-pretty-eq?)"
-    (is (= (set (mapcat :triples pretty-a))
-           (set (mapcat :triples pretty-b)))))
-  (testing "(aggregate is-pretty-eq?)"
-    (is (= (set (remove nil? (mapcat :aggregate pretty-a)))
-           (set (remove nil? (mapcat :aggregate pretty-b)))))))
+  `(do
+    (testing "(topics is-pretty-eq?)"
+      (is (= (set (mapcat :topics ~pretty-a))
+             (set (mapcat :topics ~pretty-b)))))
+    (testing "(triples is-pretty-eq?)"
+      (is (= (set (mapcat :triples ~pretty-a))
+             (set (mapcat :triples ~pretty-b)))))
+    (testing "(aggregate is-pretty-eq?)"
+      (is (= (set (remove nil? (mapcat :aggregate ~pretty-a)))
+             (set (remove nil? (mapcat :aggregate ~pretty-b))))))))
 
 (defn- query-pretty
   ([q]
@@ -123,12 +125,12 @@
              :in [0 :option-map :where-conds 0 1]}
            (validation-err {:users {:$ {:where {:handle {:is "stopa"}}}}})))
     (is (= '{:expected uuid?
-             :in ["users" [:$ :where "bookshelves"]]
+             :in ["users" :$ :where "bookshelves"]
              :message "Expected bookshelves to be a uuid, got \"hello\""}
            (validation-err {:users
                             {:$ {:where {:bookshelves "hello"}}}})))
     (is (= '{:expected uuid?
-             :in ["users" [:$ :where "bookshelves"]]
+             :in ["users" :$ :where "bookshelves"]
              :message "Expected bookshelves to match on a uuid, found \"hello\" in [\"hello\",\"00000000-0000-0000-0000-000000000000\"]"}
            (validation-err {:users
                             {:$ {:where {:bookshelves {:in ["00000000-0000-0000-0000-000000000000"
@@ -195,6 +197,63 @@
                            {:users
                             {:$ {:aggregate :count}
                              :bookshelves {}}})))))
+
+(deftest validations-on-checked-data
+  (with-empty-app
+    (fn [app]
+      (testing "checked-data-types"
+        (tx/transact! aurora/conn-pool
+                      (attr-model/get-by-app-id (:id app))
+                      (:id app)
+                      (for [t [:string :number :boolean :date]]
+                        [:add-attr {:id (random-uuid)
+                                    :forward-identity [(random-uuid) "etype" (name t)]
+                                    :unique? false
+                                    :index? true
+                                    :value-type :blob
+                                    :checked-data-type t
+                                    :cardinality :one}]))
+        (let [ctx (let [attrs (attr-model/get-by-app-id (:id app))]
+                    {:db {:conn-pool aurora/conn-pool}
+                     :app-id (:id app)
+                     :attrs attrs})]
+          (is (= '{:expected? string?,
+                   :in ["etype" :$ :where "string"],
+                   :message
+                   "The data type of `etype.string` is `string`, but the query got the value `1` of type `number`."}
+                 (validation-err ctx {:etype {:$ {:where {:string 1}}}})))
+          (is (= '{:expected? number?,
+                   :in ["etype" :$ :where "number"],
+                   :message
+                   "The data type of `etype.number` is `number`, but the query got the value `\"hello\"` of type `string`."}
+                 (validation-err ctx {:etype {:$ {:where {:number "hello"}}}})))
+          (is (= '{:expected? boolean?,
+                   :in ["etype" :$ :where "boolean"],
+                   :message
+                   "The data type of `etype.boolean` is `boolean`, but the query got the value `0` of type `number`."}
+                 (validation-err ctx {:etype {:$ {:where {:boolean 0}}}})))
+          (is (= '{:expected? timestamp?,
+                   :in ["etype" :$ :where "date"],
+                   :message
+                   "The data type of `etype.date` is `date`, but the query got value `9999999999999999999999` of type `number`."}
+                 (validation-err ctx {:etype {:$ {:where {:date 9999999999999999999999}}}})))
+          (is (= '{:expected? date-string?,
+                   :in ["etype" :$ :where "date"],
+                   :message
+                   "The data type of `etype.date` is `date`, but the query got value `\"tomorrow\"` of type `string`."}
+                 (validation-err ctx {:etype {:$ {:where {:date "tomorrow"}}}})))
+
+          (is (= '{:expected? string?
+                   :in ["etype" :$ :where "string" :$gt],
+                   :message
+                   "The data type of `etype.string` is `string`, but the query got the value `10` of type `number`."}
+                 (validation-err ctx {:etype {:$ {:where {:string {:$gt 10}}}}})))
+
+          (is (= '{:expected? boolean?
+                   :in ["etype" :$ :where "boolean" :$gt],
+                   :message
+                   "The data type of `etype.boolean` is `boolean`, but the query got the value `1` of type `number`."}
+                 (validation-err ctx {:etype {:$ {:where {:boolean {:$gt 1}}}}}))))))))
 
 (deftest pagination
   (testing "limit"
@@ -1841,6 +1900,116 @@
                   ("eid-joe-averbukh" :users/email "joe@instantdb.com")
                   ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))}))))
 
+(deftest comparators
+  (with-empty-app
+    (fn [app]
+      (let [attr-ids {:string (random-uuid)
+                      :number (random-uuid)
+                      :boolean (random-uuid)
+                      :date (random-uuid)}
+            label-attr-id (random-uuid)
+            labels ["a" "b" "c" "d" "e"]
+            make-ctx (fn []
+                       (let [attrs (attr-model/get-by-app-id (:id app))]
+                         {:db {:conn-pool aurora/conn-pool}
+                          :app-id (:id app)
+                          :attrs attrs}))
+            run-query (fn [return-field q]
+                        (let [ctx (make-ctx)
+                              r (resolvers/make-resolver {:conn-pool aurora/conn-pool}
+                                                         (:id app)
+                                                         [["books" "field"]
+                                                          ["authors" "field"]])]
+                          (->> (iq/permissioned-query ctx q)
+                               (instaql-nodes->object-tree ctx)
+                               (#(get % "etype"))
+                               (map #(get % (name return-field)))
+                               set)))
+            run-explain (fn [data-type value]
+                          (-> (d/explain (make-ctx)
+                                         {:children
+                                          {:pattern-groups
+                                           [{:patterns
+                                             [[{:idx-key :ave, :data-type data-type}
+                                               '?etype-0
+                                               (get attr-ids data-type)
+                                               {:$comparator {:op :$gt, :value value, :data-type data-type}}]]}]}})
+                              (get "QUERY PLAN")
+                              first
+                              (get-in ["Plan" "Plans" 0 "Index Name"])))]
+        (tx/transact! aurora/conn-pool
+                      (attr-model/get-by-app-id (:id app))
+                      (:id app)
+                      (concat
+                       [[:add-attr {:id (random-uuid)
+                                    :forward-identity [(random-uuid) "etype" "id"]
+                                    :unique? true
+                                    :index? true
+                                    :value-type :blob
+                                    :checked-data-type :string
+                                    :cardinality :one}]
+                        [:add-attr {:id label-attr-id
+                                    :forward-identity [(random-uuid) "etype" "label"]
+                                    :unique? true
+                                    :index? true
+                                    :value-type :blob
+                                    :checked-data-type :string
+                                    :cardinality :one}]]
+                       (for [[t attr-id] attr-ids]
+                         [:add-attr {:id attr-id
+                                     :forward-identity [(random-uuid) "etype" (name t)]
+                                     :unique? false
+                                     :index? true
+                                     :value-type :blob
+                                     :checked-data-type t
+                                     :cardinality :one}])
+                       (mapcat
+                        (fn [i]
+                          (let [id (random-uuid)]
+                            [[:add-triple id label-attr-id (nth labels i)]
+                             [:add-triple id (:string attr-ids) (str i)]
+                             [:add-triple id (:number attr-ids) i]
+                             [:add-triple id (:date attr-ids) i]
+                             [:add-triple id (:boolean attr-ids) (zero? (mod i 2))]]))
+                        (range (count labels)))))
+        (testing "string"
+          (is (= #{"3" "4"} (run-query :string {:etype {:$ {:where {:string {:$gt "2"}}}}})))
+          (is (= #{"2" "3" "4"} (run-query :string {:etype {:$ {:where {:string {:$gte "2"}}}}})))
+          (is (= #{"0" "1"} (run-query :string {:etype {:$ {:where {:string {:$lt "2"}}}}})))
+          (is (= #{"0" "1" "2"} (run-query :string {:etype {:$ {:where {:string {:$lte "2"}}}}})))
+
+          (testing "uses index"
+            (is (= "triples_string_trgm_gist_idx" (run-explain :string "2")))))
+
+        (testing "number"
+          (is (= #{3 4} (run-query :number {:etype {:$ {:where {:number {:$gt 2}}}}})))
+          (is (= #{2 3 4} (run-query :number {:etype {:$ {:where {:number {:$gte 2}}}}})))
+          (is (= #{0 1} (run-query :number {:etype {:$ {:where {:number {:$lt 2}}}}})))
+          (is (= #{0 1 2} (run-query :number {:etype {:$ {:where {:number {:$lte 2}}}}})))
+
+          (testing "uses index"
+            (is (= "triples_number_type_idx" (run-explain :number 2)))))
+
+        (testing "date"
+          (is (= #{3 4} (run-query :date {:etype {:$ {:where {:date {:$gt 2}}}}})))
+          (is (= #{2 3 4} (run-query :date {:etype {:$ {:where {:date {:$gte 2}}}}})))
+          (is (= #{0 1} (run-query :date {:etype {:$ {:where {:date {:$lt 2}}}}})))
+          (is (= #{0 1 2} (run-query :date {:etype {:$ {:where {:date {:$lte 2}}}}})))
+
+          (testing "uses index"
+            (is (= "triples_date_type_idx" (run-explain :date (Instant/ofEpochMilli 2))))))
+
+        (testing "boolean"
+          (is (= #{} (run-query :boolean {:etype {:$ {:where {:boolean {:$gt true}}}}})))
+          (is (= #{true} (run-query :boolean {:etype {:$ {:where {:boolean {:$gt false}}}}})))
+          (is (= #{true} (run-query :boolean {:etype {:$ {:where {:boolean {:$gte true}}}}})))
+          (is (= #{} (run-query :boolean {:etype {:$ {:where {:boolean {:$lt false}}}}})))
+          (is (= #{false} (run-query :boolean {:etype {:$ {:where {:boolean {:$lt true}}}}})))
+          (is (= #{false true} (run-query :boolean {:etype {:$ {:where {:boolean {:$lte true}}}}})))
+
+          (testing "uses index"
+            (is (= "triples_boolean_type_idx" (run-explain :boolean true)))))))))
+
 (deftest child-forms
   (testing "no child where"
     (is-pretty-eq?
@@ -2718,7 +2887,7 @@
         (is-pretty-eq?
          (query-pretty' {:$users {:$ {:where {:email "first@example.com"}}}})
          [{:topics
-           [[:av '_ #{:$users/email} #{"first@example.com"}]
+           [[:ave '_ #{:$users/email} #{"first@example.com"}]
             '--
             [:ea #{first-id} #{:$users/email :$users/id} '_]],
            :triples
@@ -2790,7 +2959,7 @@
                          r1
                          {:books {:$ {:where {"$user-creator.email" "alex@instantdb.com"}}}})
            [{:topics
-             [[:av '_ #{:$users/email} #{"alex@instantdb.com"}]
+             [[:ave '_ #{:$users/email} #{"alex@instantdb.com"}]
               [:vae '_ #{:books/$user-creator} #{"eid-alex"}]
               '--
               [:ea
