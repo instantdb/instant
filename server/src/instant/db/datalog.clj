@@ -549,7 +549,7 @@
         (in-or-eq :value (map value->jsonb v-set))
         (list* :or (map (fn [v]
                           [:and
-                           [:= :checked_data_type [:cast (name data-type) :checked_data_type]]
+                           [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
                            [:= [(kw :triples_extract_ data-type :_value) :value] v]])
                         v-set))))))
 
@@ -598,7 +598,7 @@
                                     :value]
                                    value]
                                   ;; Need this check so that postgres knows it can use the index
-                                  [:= :checked_data_type [:cast (name data-type) :checked_data_type]]])))
+                                  [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]])))
     []))
 
 (defn- function-clauses [named-pattern]
@@ -1740,6 +1740,24 @@
   (let [nested-named-patterns (nested->named-patterns nested-patterns)]
     (throw-invalid-nested-patterns nested-named-patterns)
     (send-query-nested ctx (:conn-pool db) app-id nested-named-patterns)))
+
+(defn explain
+  "Takes nested patterns and returns the explain result from running
+   the postgres query. Useful for testing and debugging."
+  [ctx patterns]
+  (assert (map? patterns) "explain only works with nested patterns.")
+  (let [nested-named-patterns (nested->named-patterns patterns)]
+    (throw-invalid-nested-patterns nested-named-patterns)
+    (let [{:keys [query children]} (nested-match-query ctx
+                                                       :match-0-
+                                                       (:app-id ctx)
+                                                       nested-named-patterns)
+          sql-query (update (hsql/format query)
+                            0
+                            (fn [s]
+                              (str "explain (analyze, verbose, buffers, timing, format json) " s)))]
+
+      (first (sql/select-string-keys (-> ctx :db :conn-pool) sql-query)))))
 
 (defn query
   "Executes a Datalog(ish) query over the given aurora `conn`, Instant `app_id`

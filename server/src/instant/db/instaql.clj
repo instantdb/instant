@@ -38,7 +38,8 @@
 (s/def ::$not where-value-valid?)
 (s/def ::$isNull boolean?)
 (s/def ::comparator (s/or :string string?
-                          :number number?))
+                          :number number?
+                          :boolean boolean?))
 
 ;; XXX: do we want to support aliases like :$greaterThan, :$greaterThanOrEqualTo
 (s/def ::$gt ::comparator)

@@ -21,6 +21,7 @@
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.test :refer [instant-ex-data pretty-perm-q]])
   (:import
+   (java.time Instant)
    (java.util UUID)))
 
 (def ^:private r (delay (resolvers/make-zeneca-resolver)))
@@ -1898,6 +1899,116 @@
                   ("eid-stepan-parunashvili" :users/handle "stopa")
                   ("eid-joe-averbukh" :users/email "joe@instantdb.com")
                   ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))}))))
+
+(deftest comparators
+  (with-empty-app
+    (fn [app]
+      (let [attr-ids {:string (random-uuid)
+                      :number (random-uuid)
+                      :boolean (random-uuid)
+                      :date (random-uuid)}
+            label-attr-id (random-uuid)
+            labels ["a" "b" "c" "d" "e"]
+            make-ctx (fn []
+                       (let [attrs (attr-model/get-by-app-id (:id app))]
+                         {:db {:conn-pool aurora/conn-pool}
+                          :app-id (:id app)
+                          :attrs attrs}))
+            run-query (fn [return-field q]
+                        (let [ctx (make-ctx)
+                              r (resolvers/make-resolver {:conn-pool aurora/conn-pool}
+                                                         (:id app)
+                                                         [["books" "field"]
+                                                          ["authors" "field"]])]
+                          (->> (iq/permissioned-query ctx q)
+                               (instaql-nodes->object-tree ctx)
+                               (#(get % "etype"))
+                               (map #(get % (name return-field)))
+                               set)))
+            run-explain (fn [data-type value]
+                          (-> (d/explain (make-ctx)
+                                         {:children
+                                          {:pattern-groups
+                                           [{:patterns
+                                             [[{:idx-key :ave, :data-type data-type}
+                                               '?etype-0
+                                               (get attr-ids data-type)
+                                               {:$comparator {:op :$gt, :value value, :data-type data-type}}]]}]}})
+                              (get "QUERY PLAN")
+                              first
+                              (get-in ["Plan" "Plans" 0 "Index Name"])))]
+        (tx/transact! aurora/conn-pool
+                      (attr-model/get-by-app-id (:id app))
+                      (:id app)
+                      (concat
+                       [[:add-attr {:id (random-uuid)
+                                    :forward-identity [(random-uuid) "etype" "id"]
+                                    :unique? true
+                                    :index? true
+                                    :value-type :blob
+                                    :checked-data-type :string
+                                    :cardinality :one}]
+                        [:add-attr {:id label-attr-id
+                                    :forward-identity [(random-uuid) "etype" "label"]
+                                    :unique? true
+                                    :index? true
+                                    :value-type :blob
+                                    :checked-data-type :string
+                                    :cardinality :one}]]
+                       (for [[t attr-id] attr-ids]
+                         [:add-attr {:id attr-id
+                                     :forward-identity [(random-uuid) "etype" (name t)]
+                                     :unique? false
+                                     :index? true
+                                     :value-type :blob
+                                     :checked-data-type t
+                                     :cardinality :one}])
+                       (mapcat
+                        (fn [i]
+                          (let [id (random-uuid)]
+                            [[:add-triple id label-attr-id (nth labels i)]
+                             [:add-triple id (:string attr-ids) (str i)]
+                             [:add-triple id (:number attr-ids) i]
+                             [:add-triple id (:date attr-ids) i]
+                             [:add-triple id (:boolean attr-ids) (zero? (mod i 2))]]))
+                        (range (count labels)))))
+        (testing "string"
+          (is (= #{"3" "4"} (run-query :string {:etype {:$ {:where {:string {:$gt "2"}}}}})))
+          (is (= #{"2" "3" "4"} (run-query :string {:etype {:$ {:where {:string {:$gte "2"}}}}})))
+          (is (= #{"0" "1"} (run-query :string {:etype {:$ {:where {:string {:$lt "2"}}}}})))
+          (is (= #{"0" "1" "2"} (run-query :string {:etype {:$ {:where {:string {:$lte "2"}}}}})))
+
+          (testing "uses index"
+            (is (= "triples_string_trgm_gist_idx" (run-explain :string "2")))))
+
+        (testing "number"
+          (is (= #{3 4} (run-query :number {:etype {:$ {:where {:number {:$gt 2}}}}})))
+          (is (= #{2 3 4} (run-query :number {:etype {:$ {:where {:number {:$gte 2}}}}})))
+          (is (= #{0 1} (run-query :number {:etype {:$ {:where {:number {:$lt 2}}}}})))
+          (is (= #{0 1 2} (run-query :number {:etype {:$ {:where {:number {:$lte 2}}}}})))
+
+          (testing "uses index"
+            (is (= "triples_number_type_idx" (run-explain :number 2)))))
+
+        (testing "date"
+          (is (= #{3 4} (run-query :date {:etype {:$ {:where {:date {:$gt 2}}}}})))
+          (is (= #{2 3 4} (run-query :date {:etype {:$ {:where {:date {:$gte 2}}}}})))
+          (is (= #{0 1} (run-query :date {:etype {:$ {:where {:date {:$lt 2}}}}})))
+          (is (= #{0 1 2} (run-query :date {:etype {:$ {:where {:date {:$lte 2}}}}})))
+
+          (testing "uses index"
+            (is (= "triples_date_type_idx" (run-explain :date (Instant/ofEpochMilli 2))))))
+
+        (testing "boolean"
+          (is (= #{} (run-query :boolean {:etype {:$ {:where {:boolean {:$gt true}}}}})))
+          (is (= #{true} (run-query :boolean {:etype {:$ {:where {:boolean {:$gt false}}}}})))
+          (is (= #{true} (run-query :boolean {:etype {:$ {:where {:boolean {:$gte true}}}}})))
+          (is (= #{} (run-query :boolean {:etype {:$ {:where {:boolean {:$lt false}}}}})))
+          (is (= #{false} (run-query :boolean {:etype {:$ {:where {:boolean {:$lt true}}}}})))
+          (is (= #{false true} (run-query :boolean {:etype {:$ {:where {:boolean {:$lte true}}}}})))
+
+          (testing "uses index"
+            (is (= "triples_boolean_type_idx" (run-explain :boolean true)))))))))
 
 (deftest child-forms
   (testing "no child where"
