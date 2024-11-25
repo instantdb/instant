@@ -719,19 +719,6 @@ async function handleCreatedApp(
   }
 }
 
-async function handlePull(bag, opts) {
-  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
-  if (!pkgAndAuthInfo) return;
-  const { ok, appId, appTitle, isCreated } =
-    await detectOrCreateAppWithErrorLogging(opts);
-  if (!ok) return;
-  if (isCreated) {
-    await handleCreatedApp(pkgAndAuthInfo, appId, appTitle);
-  } else {
-    await pull(bag, appId, pkgAndAuthInfo);
-  }
-}
-
 async function getInstantModuleName(pkgJson) {
   const deps = pkgJson.dependencies || {};
   const instantModuleName = [
