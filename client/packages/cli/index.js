@@ -286,7 +286,14 @@ program
   .option("-p --print", "Prints the auth token into the console.")
   .action(login);
 
-program.command("init").description("Create a new app").action(init);
+program
+  .command("init")
+  .description("Set up a new project.")
+  .option(
+    "-a --app <app-id>",
+    "If you have an existing app ID, we can pull schema and perms from there.",
+  )
+  .action(init);
 
 // Note: Nov 20, 2024
 // We can eventually delete this,
@@ -566,7 +573,9 @@ async function promptForAppId(pkgAndAuthInfo) {
   }
   const { apps } = res.data;
   if (!apps.length) {
-    const ok = await promptOk("You don't have any apps. Want to create a new one?");
+    const ok = await promptOk(
+      "You don't have any apps. Want to create a new one?",
+    );
     if (!ok) return;
     await createApp(pkgAndAuthInfo);
     return;
@@ -581,21 +590,80 @@ async function promptForAppId(pkgAndAuthInfo) {
   return choice;
 }
 
-async function init() {
-  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
-  if (!pkgAndAuthInfo) return;
+async function promptCreateApp() {
+  const id = randomUUID();
+  const token = randomUUID();
+  const _title = await input({
+    message: "What would you like to call it?",
+    default: "My cool app",
+    required: true,
+  }).catch(() => null);
 
-  const found = detectAppIdFromEnvWithErrorLogging();
-  if (found) {
-    const { envName, value } = found;
-    console.log(`Found ${chalk.green(envName)}: ${value}`);
+  const title = _title?.trim();
+
+  if (!title) {
+    error("No name provided. Exiting.");
+    return { ok: false };
+  }
+  const app = { id, title, admin_token: token };
+  const appRes = await fetchJson({
+    method: "POST",
+    path: "/dash/apps",
+    debugName: "App create",
+    errorMessage: "Failed to create app.",
+    body: app,
+  });
+
+  if (!appRes.ok) return { ok: false };
+  return {
+    ok: true,
+    appId: id,
+    appTitle: title,
+    isCreated: true,
+  };
+}
+
+async function promptImportAppOrCreateApp() {
+  const res = await fetchJson({
+    debugName: "Fetching apps",
+    method: "GET",
+    path: "/dash",
+    errorMessage: "Failed to fetch apps.",
+  });
+  if (!res.ok) {
+    return { ok: false };
+  }
+  const { apps } = res.data;
+  if (!apps.length) {
     const ok = await promptOk(
-      `Would you like to import schema and perms from ${chalk.green(envName)}?`,
+      "You don't have any apps. Want to create a new one?",
     );
-    if (ok) {
-      await pull("all", value, pkgAndAuthInfo);
-      return;
-    }
+    if (!ok) return { ok: false };
+    return await promptCreateApp();
+  }
+  const choice = await select({
+    message: "Which app would you like to import?",
+    choices: res.data.apps.map((app) => {
+      return { name: `${app.title} (${app.id})`, value: app.id };
+    }),
+  }).catch(() => null);
+  if (!choice) return { ok: false };
+  return { ok: true, appId: choice };
+}
+
+async function detectOrCreateAppWithErrorLogging(opts) {
+  const fromOpts = await detectAppIdFromOptsWithErrorLogging(opts);
+  if (!fromOpts.ok) return fromOpts;
+  if (fromOpts.appId) {
+    return { ok: true, appId: fromOpts.appId };
+  }
+
+  const fromEnv = detectAppIdFromEnvWithErrorLogging();
+  if (!fromEnv.ok) return fromEnv;
+  if (fromEnv.found) {
+    const { envName, value } = fromEnv.found;
+    console.log(`Found ${chalk.green(envName)}: ${value}`);
+    return { ok: true, appId: value };
   }
 
   const action = await select({
@@ -604,18 +672,57 @@ async function init() {
       { name: "Create a new app", value: "create" },
       { name: "Import an existing app", value: "import" },
     ],
-  });
+  }).catch(() => null);
 
   if (action === "create") {
-    await createApp(pkgAndAuthInfo);
-    return;
+    return await promptCreateApp();
   }
 
-  if (action === "import") {
-    const appId = await promptForAppId(pkgAndAuthInfo);
-    if (!appId) return;
+  return await promptImportAppOrCreateApp();
+}
+
+async function handleCreatedApp(
+  { pkgDir, instantModuleName },
+  appId,
+  appTitle,
+) {
+  const schema = await readLocalSchemaFile();
+  const { perms } = await readLocalPermsFile();
+
+  console.log(chalk.green(`Successfully created your Instant app "${appId}"`));
+  console.log(`Please add your app ID to your .env config:`);
+  console.log(chalk.magenta(`INSTANT_APP_ID=${appId}`));
+  console.log(chalk.underline(appDashUrl(appId)));
+
+  if (!schema) {
+    const schemaPath = join(pkgDir, "instant.schema.ts");
+    await writeFile(
+      schemaPath,
+      instantSchemaTmpl(appTitle, appId, instantModuleName),
+      "utf-8",
+    );
+    console.log("Start building your schema: " + schemaPath);
+  }
+
+  if (!perms) {
+    await writeFile(
+      join(pkgDir, "instant.perms.ts"),
+      examplePermsTmpl,
+      "utf-8",
+    );
+  }
+}
+
+async function init(opts) {
+  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
+  if (!pkgAndAuthInfo) return;
+  const { ok, appId, appTitle, isCreated } =
+    await detectOrCreateAppWithErrorLogging(opts);
+  if (!ok) return;
+  if (isCreated) {
+    await handleCreatedApp(pkgAndAuthInfo, appId, appTitle);
+  } else {
     await pull("all", appId, pkgAndAuthInfo);
-    return;
   }
 }
 
@@ -1418,6 +1525,25 @@ function isUUID(uuid) {
   return uuidRegex.test(uuid);
 }
 
+async function detectAppIdFromOptsWithErrorLogging(opts) {
+  if (!opts.app) return { ok: true };
+  const appId = opts.app;
+  const config = await readInstantConfigFile();
+  const nameMatch = config?.apps?.[appId];
+  const namedAppId = nameMatch?.id && isUUID(nameMatch.id) ? nameMatch : null;
+  const uuidAppId = appId && isUUID(appId) ? appId : null;
+
+  if (nameMatch && !namedAppId) {
+    error(`Expected \`${appId}\` to point to a UUID, but got ${nameMatch.id}.`);
+    return { ok: false };
+  }
+  if (!namedAppId && !uuidAppId) {
+    error(`Expected App ID to be a UUID, but got: ${chalk.red(appId)}`);
+    return { ok: false };
+  }
+  return { ok: true, appId: namedAppId || uuidAppId };
+}
+
 function detectAppIdFromEnvWithErrorLogging() {
   const found = Object.keys(potentialEnvs)
     .map((type) => {
@@ -1430,36 +1556,23 @@ function detectAppIdFromEnvWithErrorLogging() {
     error(
       `Found ${chalk.green("`" + found.envName + "`")} but it's not a valid UUID.`,
     );
-    return;
+    return { ok: false, found };
   }
-  return found;
+  return { ok: true, found };
 }
 
 async function getAppIdWithErrorLogging(arg) {
-  if (arg) {
-    const config = await readInstantConfigFile();
-
-    const nameMatch = config?.apps?.[arg];
-    const namedAppId = nameMatch?.id && isUUID(nameMatch.id) ? nameMatch : null;
-    const uuidAppId = arg && isUUID(arg) ? arg : null;
-
-    if (nameMatch && !namedAppId) {
-      error(`Expected \`${arg}\` to point to a UUID, but got ${nameMatch.id}.`);
-    } else if (!namedAppId && !uuidAppId) {
-      error(`Expected App ID to be a UUID, but got: ${chalk.red(arg)}`);
-    }
-
-    return (
-      // first, check for a config and whether the provided arg
-      // matched a named ID
-      namedAppId ||
-      // next, check whether there's a provided arg at all
-      uuidAppId
-    );
+  const fromArg = await detectAppIdFromOptsWithErrorLogging({
+    app: arg,
+  });
+  if (!fromArg.ok) return;
+  if (fromArg.appId) {
+    return fromArg.appId;
   }
-  const found = detectAppIdFromEnvWithErrorLogging();
-  if (found) {
-    const { envName, value } = found;
+  const fromEnv = detectAppIdFromEnvWithErrorLogging();
+  if (!fromEnv.ok) return;
+  if (fromEnv.found) {
+    const { envName, value } = fromEnv.found;
     console.log(`Found ${chalk.green(envName)}: ${value}`);
     return value;
   }
