@@ -2,12 +2,10 @@
   (:require [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
             [instant.util.crypt :as crypt-util]
-            [instant.util.exception :as ex]
-            [next.jdbc :as next-jdbc])
+            [instant.util.exception :as ex])
   (:import
    (java.time Instant)
-   (java.time.temporal ChronoUnit)
-   (java.util UUID)))
+   (java.time.temporal ChronoUnit)))
 
 (defn create!
   ([params] (create! aurora/conn-pool params))
