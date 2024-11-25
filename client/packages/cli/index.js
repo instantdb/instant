@@ -444,7 +444,7 @@ async function login(options) {
   if (!registerRes.ok) return;
 
   const { secret, ticket } = registerRes.data;
-
+  console.log("Let's log you in!");
   const ok = await promptOk(
     `This will open instantdb.com in your browser, OK to proceed?`,
   );
@@ -1279,7 +1279,9 @@ async function fetchJson({
     } catch {
       data = null;
     }
-
+    if (data) {
+      console.log(debugName, "json:", data);
+    }
     if (!res.ok) {
       if (withErrorLogging) {
         error(errorMessage);
