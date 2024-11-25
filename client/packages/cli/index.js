@@ -276,7 +276,9 @@ program
       process.exit(0);
     }),
   )
-  .helpCommand(false)
+  .helpCommand("help [command]", "Display help for a specific command.", {
+    noHelp: true,
+  })
   .addHelpOption(globalOption("-h --help", "Print the help text for a command"))
   .usage(`<command> ${chalk.dim("[options] [args]")}`);
 
@@ -697,7 +699,7 @@ async function handleCreatedApp(
   console.log(chalk.green(`Successfully created your Instant app "${appId}"`));
   console.log(`Please add your app ID to your .env config:`);
   console.log(chalk.magenta(`INSTANT_APP_ID=${appId}`));
-  console.log(terminalLink('Dashboard',appDashUrl(appId)));
+  console.log(terminalLink("Dashboard", appDashUrl(appId)));
 
   if (!schema) {
     const schemaPath = join(pkgDir, "instant.schema.ts");
