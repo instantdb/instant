@@ -34,6 +34,3 @@ create index if not exists triples_date_type_idx on triples (
     entity_id
   )
   where ave and checked_data_type = 'date';
-
--- XXX: Should we even have the `eav_index` in the database after this?
----     Need to filter that index at least

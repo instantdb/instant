@@ -178,21 +178,16 @@ function valueAttrPat(makeVar, store, valueEtype, valueLevel, valueLabel, v) {
       wildcard("time"),
     ];
   }
-  const parsedValue = parseValue(attr, v);
+
   if (fwdAttr) {
     return [
       makeVar(valueEtype, valueLevel),
       attr.id,
-      parsedValue,
+      parseValue(attr, v),
       wildcard("time"),
     ];
   }
-  return [
-    parsedValue,
-    attr.id,
-    makeVar(valueEtype, valueLevel),
-    wildcard("time"),
-  ];
+  return [v, attr.id, makeVar(valueEtype, valueLevel), wildcard("time")];
 }
 
 function refAttrPats(makeVar, store, etype, level, refsPath) {

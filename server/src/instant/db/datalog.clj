@@ -334,7 +334,6 @@
   "Given a named-pattern and the symbol-values from previous patterns,
    returns the topic that would invalidate the query"
   [{:keys [idx e a v]} symbol-values]
-  ;; XXX: update for comparision operators
   (if (and (= :function (first v))
            (contains? (second v) :$isNull))
     ;; This might be a lot simpler if we had a way to do

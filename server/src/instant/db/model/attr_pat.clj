@@ -309,7 +309,6 @@
   [state attr v]
   (if-not (and (map? v)
                (= (count v) 1)
-               ;; XXX: Duplication
                (contains? #{:$gt :$gte :$lt :$lte} (ffirst v)))
     (if (and (:checked-data-type attr)
              (not (:checking-data-type? attr)))

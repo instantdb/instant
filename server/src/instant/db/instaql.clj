@@ -41,7 +41,6 @@
                           :number number?
                           :boolean boolean?))
 
-;; XXX: do we want to support aliases like :$greaterThan, :$greaterThanOrEqualTo
 (s/def ::$gt ::comparator)
 (s/def ::$gte ::comparator)
 (s/def ::$lt ::comparator)
