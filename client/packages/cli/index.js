@@ -68,33 +68,32 @@ const instantBackendOrigin =
   (dev ? "http://localhost:8888" : "https://api.instantdb.com");
 
 const PUSH_PULL_OPTIONS = new Set(["schema", "perms", "all"]);
-async function resolveBagAndAppWithErrorLogging(cmdName, arg, opts) {
-  // Note: Nov 20, 2024
-  // We can eventually deprecate this
-  // check, once we're confident that users no longer
-  // provide app ID as their first argument
-  if (arg && !PUSH_PULL_OPTIONS.has(arg)) {
-    warnDeprecation(`${cmdName} ${arg}`, `${cmdName} --app ${arg}`);
-    const bag = "all";
-    const appId = await getAppIdWithErrorLogging(arg);
-    if (!appId) return;
-    return [bag, appId];
-  }
 
-  let bag;
+function convertArgToBagWithErrorLogging(arg) {
   if (!arg) {
-    bag = "all";
-  } else if (PUSH_PULL_OPTIONS.has(arg)) {
-    bag = arg;
+    return { ok: true, bag: "all" };
+  } else if (PUSH_PULL_OPTIONS.has(arg.trim().lowercase())) {
+    return { ok: true, bag: arg };
   } else {
     error(
       `${chalk.red(arg)} must be one of ${chalk.green(Array.from(PUSH_PULL_OPTIONS).join(", "))}`,
     );
-    return;
+    return { ok: false };
   }
-  const appId = await getAppIdWithErrorLogging(opts.app);
-  if (!appId) return;
-  return [bag, appId];
+}
+
+// Note: Nov 20, 2024
+// We can eventually deprecate this
+// once we're confident that users no longer
+// provide app ID as their first argument
+function convertPushPullToCurrentFormat(cmdName, arg, opts) {
+  if (arg && !PUSH_PULL_OPTIONS.has(arg) && !opts.app) {
+    warnDeprecation(`${cmdName} ${arg}`, `${cmdName} --app ${arg}`);
+    return { ok: true, bag: "all", opts: { ...opts, app: arg } };
+  }
+  const { ok, bag } = convertArgToBagWithErrorLogging(arg);
+  if (!ok) return { ok: false };
+  return { ok: true, bag, opts };
 }
 
 async function packageDirectoryWithErrorLogging() {
@@ -293,7 +292,9 @@ program
     "-a --app <app-id>",
     "If you have an existing app ID, we can pull schema and perms from there.",
   )
-  .action(init);
+  .action(async function (opts) {
+    await handlePull("all", opts);
+  });
 
 // Note: Nov 20, 2024
 // We can eventually delete this,
@@ -308,9 +309,7 @@ program
   )
   .action(async (appIdOrName, opts) => {
     warnDeprecation("push-schema", "push schema");
-    const appId = await getAppIdWithErrorLogging(appIdOrName);
-    if (!appId) return;
-    pushSchema(appId, opts);
+    await handlePush("schema", { app: appIdOrName, ...opts });
   });
 
 // Note: Nov 20, 2024
@@ -322,10 +321,7 @@ program
   .description("Push perms to production.")
   .action(async (appIdOrName) => {
     warnDeprecation("push-perms", "push perms");
-    const appId = await getAppIdWithErrorLogging(appIdOrName);
-    if (!appId) return;
-
-    pushPerms(appId);
+    await handlePush("perms", { app: appIdOrName });
   });
 
 program
@@ -343,7 +339,12 @@ program
     "Don't check types on the server when pushing schema",
   )
   .description("Push schema and perms to production.")
-  .action(pushAll);
+  .action(async function (arg, inputOpts) {
+    const ret = convertPushPullToCurrentFormat("push", arg, inputOpts);
+    if (!ret.ok) return;
+    const { bag, opts } = ret;
+    await handlePush(bag, opts);
+  });
 
 // Note: Nov 20, 2024
 // We can eventually delete this,
@@ -354,11 +355,7 @@ program
   .description("Generate instant.schema.ts from production")
   .action(async (appIdOrName) => {
     warnDeprecation("pull-schema", "pull schema");
-    const appId = await getAppIdWithErrorLogging(appIdOrName);
-    if (!appId) return;
-    const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
-    if (!pkgAndAuthInfo) return;
-    pullSchema(appId, pkgAndAuthInfo);
+    await handlePull("schema", { app: appIdOrName });
   });
 
 // Note: Nov 20, 2024
@@ -370,11 +367,7 @@ program
   .description("Generate instant.perms.ts from production.")
   .action(async (appIdOrName) => {
     warnDeprecation("pull-perms", "pull perms");
-    const appId = await getAppIdWithErrorLogging(appIdOrName);
-    if (!appId) return;
-    const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
-    if (!pkgAndAuthInfo) return;
-    pullPerms(appId, pkgAndAuthInfo);
+    await handlePull("perms", { app: appIdOrName });
   });
 
 program
@@ -390,29 +383,42 @@ program
   .description(
     "Generate schema and perm files from from your production state.",
   )
-  .action(async function handlePull(arg, opts) {
-    const ret = await resolveBagAndAppWithErrorLogging("pull", arg, opts);
-    if (!ret) return;
-    const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
-    if (!pkgAndAuthInfo) return;
-    const [bag, appId] = ret;
-    await pull(bag, appId, pkgAndAuthInfo);
+  .action(async function (arg, inputOpts) {
+    const ret = convertPushPullToCurrentFormat("pull", arg, inputOpts);
+    if (!ret.ok) return;
+    const { bag, opts } = ret;
+    await handlePull(bag, opts);
   });
 
 program.parse(process.argv);
 
 // command actions
+async function handlePush(bag, opts) {
+  const { ok, appId } = await detectOrCreateAppWithErrorLogging(opts);
+  if (!ok) return;
+  await push(bag, appId, opts);
+}
 
-async function pushAll(appIdOrName, opts) {
-  const ret = await resolveBagAndAppWithErrorLogging("push", appIdOrName, opts);
-  if (!ret) return;
-  const [bag, appId] = ret;
+async function push(bag, appId, opts) {
   if (bag === "schema" || bag === "all") {
     const ok = await pushSchema(appId, opts);
     if (!ok) return;
   }
   if (bag === "perms" || bag === "all") {
     await pushPerms(appId);
+  }
+}
+
+async function handlePull(bag, opts) {
+  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
+  if (!pkgAndAuthInfo) return;
+  const { ok, appId, appTitle, isCreated } =
+    await detectOrCreateAppWithErrorLogging(opts);
+  if (!ok) return;
+  if (isCreated) {
+    await handleCreatedApp(pkgAndAuthInfo, appId, appTitle);
+  } else {
+    await pull(bag, appId, pkgAndAuthInfo);
   }
 }
 
@@ -710,19 +716,6 @@ async function handleCreatedApp(
       examplePermsTmpl,
       "utf-8",
     );
-  }
-}
-
-async function init(opts) {
-  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
-  if (!pkgAndAuthInfo) return;
-  const { ok, appId, appTitle, isCreated } =
-    await detectOrCreateAppWithErrorLogging(opts);
-  if (!ok) return;
-  if (isCreated) {
-    await handleCreatedApp(pkgAndAuthInfo, appId, appTitle);
-  } else {
-    await pull("all", appId, pkgAndAuthInfo);
   }
 }
 
