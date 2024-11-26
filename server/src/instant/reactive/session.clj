@@ -7,36 +7,36 @@
    Each connection has their own `session` worker, that can understand these
    commands."
   (:require
-   [lambdaisland.uri :as uri]
-   [instant.config :as config]
-   [instant.util.async :as ua]
+   [clojure.main :refer [root-cause]]
+   [instant.db.datalog :as d]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.permissioned-transaction :as permissioned-tx]
+   [instant.db.pg-introspect :as pg-introspect]
+   [instant.db.transaction :as tx]
+   [instant.flags :as flags]
+   [instant.grouped-queue :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.reactive.store :as rs]
-   [instant.reactive.query :as rq]
-   [instant.db.transaction :as tx]
-   [instant.util.tracer :as tracer]
-   [instant.db.datalog :as d]
-   [instant.util.json :refer [<-json]]
-   [instant.util.delay :as delay]
    [instant.model.app :as app-model]
-   [instant.db.model.attr :as attr-model]
-   [instant.db.pg-introspect :as pg-introspect]
+   [instant.model.app-admin-token :as app-admin-token-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.instant-user :as instant-user-model]
-   [instant.model.app-admin-token :as app-admin-token-model]
-   [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.model.rule :as rule-model]
-   [clojure.main :refer [root-cause]]
    [instant.reactive.ephemeral :as eph]
+   [instant.reactive.query :as rq]
+   [instant.reactive.receive-queue :as receive-queue :refer [receive-q]]
+   [instant.reactive.store :as rs]
+   [instant.util.async :as ua]
+   [instant.util.delay :as delay]
    [instant.util.exception :as ex]
+   [instant.util.json :refer [<-json]]
+   [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
-   [instant.grouped-queue :as grouped-queue]
-   [instant.reactive.receive-queue :as receive-queue :refer [receive-q]])
+   [lambdaisland.uri :as uri])
   (:import
+   (java.time Duration Instant)
    (java.util.concurrent CancellationException)
-   (java.util.concurrent.atomic AtomicLong)
-   (java.time Duration Instant)))
+   (java.util.concurrent.atomic AtomicLong)))
 
 ;; ------
 ;; Setup
@@ -188,13 +188,15 @@
         num-spam (count spam)
         num-computations (count computations)
         num-recomputations (count recompute-results)
-        computations (if config/drop-refresh-spam?
+        drop-spam? (flags/drop-refresh-spam? app-id)
+        computations (if drop-spam?
                        computations
                        recompute-results)]
     (tracer/with-span! {:name "handle-refresh/send-event!"
                         :attributes {:num-recomputations num-recomputations
                                      :num-spam num-spam
-                                     :num-computations num-computations}}
+                                     :num-computations num-computations
+                                     :dropped-spam? drop-spam?}}
       (when (seq computations)
         (rs/send-event! store-conn app-id sess-id {:op :refresh-ok
                                                    :processed-tx-id processed-tx-id

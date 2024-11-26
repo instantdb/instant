@@ -12,8 +12,8 @@
             :storage-whitelist {}
             :team-emails {}
             :test-emails {}
-            :view-checks {}
             :hazelcast {}
+            :drop-refresh-spam {}
             :promo-emails {}})
 
 (defn transform-query-result
@@ -60,11 +60,26 @@
                        :disabled? disabled?}))
         promo-code-emails (set (keep (fn [o]
                                        (get o "email"))
-                                     (get result "promo-emails")))]
+                                     (get result "promo-emails")))
+        drop-refresh-spam (when-let [hz-flag (-> (get result "drop-refresh-spam")
+                                                 first)]
+                            (let [disabled-apps (-> hz-flag
+                                                    (get "disabled-apps")
+                                                    (#(map parse-uuid %))
+                                                    set)
+                                  enabled-apps (-> hz-flag
+                                                   (get "enabled-apps")
+                                                   (#(map parse-uuid %))
+                                                   set)
+                                  default-value (get hz-flag "default-value" false)]
+                              {:disabled-apps disabled-apps
+                               :enabled-apps enabled-apps
+                               :default-value default-value}))]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
      :hazelcast hazelcast
-     :promo-code-emails promo-code-emails}))
+     :promo-code-emails promo-code-emails
+     :drop-refresh-spam drop-refresh-spam}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -109,3 +124,16 @@
 
 (defn hazelcast-disabled? []
   (get-in (query-result) [:hazelcast :disabled?] false))
+
+(defn drop-refresh-spam? [app-id]
+  (if-let [flag (get (query-result) :drop-refresh-spam)]
+    (let [{:keys [disabled-apps enabled-apps default-value]} flag]
+      (cond (contains? disabled-apps app-id)
+            false
+
+            (contains? enabled-apps app-id)
+            true
+
+            :else default-value))
+    ;; Default false
+    false))

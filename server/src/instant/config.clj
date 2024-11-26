@@ -67,8 +67,6 @@
   (when-let [app-id (System/getenv "INSTANT_ON_INSTANT_APP_ID")]
     (parse-uuid app-id)))
 
-(def drop-refresh-spam? (= "true" (System/getenv "DROP_REFRESH_SPAM")))
-
 (defn db-url->config [url]
   (cond (string/starts-with? url "jdbc")
         {:jdbcUrl url}
