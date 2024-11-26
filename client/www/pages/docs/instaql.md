@@ -659,23 +659,6 @@ console.log(data)
 }
 ```
 
-### Comparison operators
-
-The `where` clause supports comparison operators on fields that are indexed and have checked types.
-
-{% callout %}
-Add indexes and checked types to your attributes from the [Explorer on the the Instant dashboard](/dash?t=explorer) or from the [cli with Schema-as-code](/docs/schema).
-{% /callout %}
-
-| Operator |       Description        | JS equivalent |
-| :------: | :----------------------: | :-----------: |
-|  `$gt`   |       greater than       |      `>`      |
-|  `$lt`   |        less than         |      `<`      |
-|  `$gte`  | greater than or equal to |     `>=`      |
-|  `$lte`  |  less than or equal to   |     `<=`      |
-
-
-
 ### $not
 
 The `where` clause supports `$not` queries that will return entities that don't
