@@ -896,6 +896,7 @@ export {
   type TransactionChunk,
   type DebugCheckResult,
   type InstantAdmin,
+  type InstantAdminDatabase,
 
   // core types
   type User,
