@@ -1559,7 +1559,7 @@ function generateSchemaTypescriptFile(id, schema, title, instantModuleName) {
 
 import { i } from "${instantModuleName ?? "@instantdb/core"}";
 
-const graph = i.graph(
+const _schema = i.schema(
 ${
   Object.keys(schema.blobs).length === 1 &&
   Object.keys(schema.blobs)[0] === "$users"
@@ -1584,6 +1584,12 @@ ${
 ${indentLines(JSON.stringify(linksEntriesCode, null, "  "), 1)}
 );
 
-export default graph;
+// This helps Typescript display nicer intellisense
+type _AppSchema = typeof _schema;
+interface AppSchema extends _AppSchema {}
+const schema: AppSchema = _schema;
+
+export type AppSchema; 
+export default schema;
 `;
 }
