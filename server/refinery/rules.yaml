@@ -11,6 +11,7 @@ Samplers:
             Conditions:
               - Field: error
                 Operator: exists
+
           - Name: default rule
             Sampler:
               EMAThroughputSampler:

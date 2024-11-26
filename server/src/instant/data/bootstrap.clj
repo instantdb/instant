@@ -16,7 +16,7 @@
   (:import
    (java.util UUID)))
 
-(defn extract-zeneca-txes []
+(defn extract-zeneca-txes [checked-data?]
   (let [imported (<-json (slurp (io/resource "sample_triples/zeneca.json")))
         triples (->> imported
                      (remove (fn [[_ a v]]
@@ -77,12 +77,25 @@
                       :unique? true
                       :index? true}
                      :else
-                     {:id uuid
-                      :forward-identity [(java.util.UUID/randomUUID) nsp idn]
-                      :cardinality :one
-                      :value-type :blob
-                      :unique? (boolean (#{"email" "handle" "isbn13"} idn))
-                      :index? (boolean (#{"email" "handle"} idn))})]))))
+                     (merge
+                      {:id uuid
+                       :forward-identity [(java.util.UUID/randomUUID) nsp idn]
+                       :cardinality :one
+                       :value-type :blob
+                       :unique? (boolean (#{"email" "handle" "isbn13"} idn))
+                       :index? (boolean (#{"email" "handle"} idn))}
+                      (when-let [data-type (when checked-data?
+                                             (case idn
+                                               ("email"
+                                                "handle"
+                                                "isbn13"
+                                                "title"
+                                                "fullName"
+                                                "description") "string"
+                                               ("order") "number"
+                                               ("createdAt") "date"
+                                               nil))]
+                        {:checked-data-type data-type})))]))))
 
         triples-to-insert
         (map (fn [[e a v]]
@@ -97,41 +110,42 @@
 
 (defn add-zeneca-to-app!
   "Bootstraps an app with zeneca data."
-  [app-id]
-  ;; Note: This is ugly code, but it works.
-  ;; Maybe we clean it up later, but we don't really need to right now.
-  ;; One idea for a cleanup, is to create an "exported app" file.
-  ;; We can then write a function that works on this kind of file schema.
-  (attr-model/delete-by-app-id! aurora/conn-pool app-id)
-  (let [txes (extract-zeneca-txes)
-        _ (tx/transact!
-           aurora/conn-pool
-           (attr-model/get-by-app-id app-id)
-           app-id
-           txes)
-        triples (triple-model/fetch
-                 aurora/conn-pool
-                 app-id)
-        attrs (attr-model/get-by-app-id app-id)
-        users (for [[_ group] (group-by first (map :triple triples))
-                    :when (= (attr-model/fwd-etype
-                              (attr-model/seek-by-id (second (first group))
-                                                     attrs))
-                             "users")
-                    :let [{:strs [email id]}
-                          (entity-model/triples->map {:attrs attrs} group)]]
-                {:email email
-                 :id id
-                 :app-id app-id})]
-    (doseq [user users]
-      (app-user-model/create! user))
+  ([app-id] (add-zeneca-to-app! false app-id))
+  ([checked-data? app-id]
+   ;; Note: This is ugly code, but it works.
+   ;; Maybe we clean it up later, but we don't really need to right now.
+   ;; One idea for a cleanup, is to create an "exported app" file.
+   ;; We can then write a function that works on this kind of file schema.
+   (attr-model/delete-by-app-id! aurora/conn-pool app-id)
+   (let [txes (extract-zeneca-txes checked-data?)
+         _ (tx/transact!
+            aurora/conn-pool
+            (attr-model/get-by-app-id app-id)
+            app-id
+            txes)
+         triples (triple-model/fetch
+                  aurora/conn-pool
+                  app-id)
+         attrs (attr-model/get-by-app-id app-id)
+         users (for [[_ group] (group-by first (map :triple triples))
+                     :when (= (attr-model/fwd-etype
+                               (attr-model/seek-by-id (second (first group))
+                                                      attrs))
+                              "users")
+                     :let [{:strs [email id]}
+                           (entity-model/triples->map {:attrs attrs} group)]]
+                 {:email email
+                  :id id
+                  :app-id app-id})]
+     (doseq [user users]
+       (app-user-model/create! user))
 
-    (count triples)))
+     (count triples))))
 
 (defn add-zeneca-to-byop-app!
   "Bootstraps an app with zeneca data."
   [conn]
-  (let [txes (extract-zeneca-txes)
+  (let [txes (extract-zeneca-txes false)
         {:keys [add-triple add-attr]} (group-by first txes)
         attrs (map second add-attr)
         attrs-by-id (reduce (fn [acc attr]

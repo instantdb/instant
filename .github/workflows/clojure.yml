@@ -29,7 +29,7 @@ jobs:
         echo "did_change=False" >> $GITHUB_OUTPUT
         for file in ${changeArr[*]}
         do
-          if echo $file | grep -E '^server/'; then
+          if echo $file | grep -E '^server/' | grep -E -v '^server/refinery/'; then
             echo "did_change=True" >> $GITHUB_OUTPUT
             break
           fi
@@ -246,19 +246,69 @@ jobs:
         sed -i "s|IMAGE_REPLACE_ME|597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:${IMAGE_TAG}|g" docker-compose.yml
         cat docker-compose.yml
 
-    - name: Update logdna.sh
-      working-directory: server
-      env:
-        SHA: ${{ github.sha }}
-      run: |
-        sed -i "s|SHA_REPLACE_ME|${SHA}|g" .platform/hooks/prebuild/logdna.sh
-        cat .platform/hooks/prebuild/logdna.sh
-
     - name: Create eb application version
       uses: "./.github/actions/elastic-beanstalk"
       with:
         working-directory: "server"
-        files: '["docker-compose.yml", ".platform/hooks/prebuild/logdna.sh", "refinery/config.yaml", "refinery/config-redis.yaml", "refinery/rules.yaml", "refinery/.env"]'
+        files: '["docker-compose.yml", ".ebextensions/resources.config"]'
         aws-region: "us-east-1"
         bucket: "elasticbeanstalk-us-east-1-597134865416"
         application-name: "instant-docker-prod"
+
+  detect_refinery:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      did_change: ${{ steps.detect-change.outputs.did_change }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 0 }}
+    - name: Get changed files
+      id: changed-files
+      run: |
+        if ${{ github.event_name == 'pull_request' || github.event.before == '0000000000000000000000000000000000000000' }}; then
+            echo "changed_files=$(git diff --name-only -r HEAD^1 HEAD | xargs)" >> $GITHUB_OUTPUT
+        else
+            echo "changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | xargs)" >> $GITHUB_OUTPUT
+        fi
+    - name: Detect refinery changes
+      id: detect-change
+      run: |
+        changeArr=($(echo ${{ steps.changed-files.outputs.changed_files }}))
+        echo "did_change=False" >> $GITHUB_OUTPUT
+        for file in ${changeArr[*]}
+        do
+          if echo $file | grep -E '^server/refinery/'; then
+            echo "did_change=True" >> $GITHUB_OUTPUT
+            break
+          fi
+        done
+
+  publish-refinery-eb:
+    runs-on: ubuntu-latest
+    if: needs.detect_refinery.outputs.did_change == 'True'
+    needs:
+      - detect_refinery
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::597134865416:role/aws-credentials-for-github-actions-Role-x0lUbtwJNb7G
+        aws-region: us-east-1
+
+    - name: Create eb application version
+      uses: "./.github/actions/elastic-beanstalk"
+      with:
+        working-directory: "server/refinery/"
+        files: '["docker-compose.yml", "config.yaml", "config-redis.yaml", "rules.yaml", "refinery.env", ".ebextensions/resources.config"]'
+        aws-region: "us-east-1"
+        bucket: "elasticbeanstalk-us-east-1-597134865416"
+        application-name: "refinery"

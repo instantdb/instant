@@ -55,12 +55,12 @@ Similar to `git init`, running `instant-cli init` will generate a new app id and
 ### Push schema
 
 ```sh
-npx instant-cli push-schema
+npx instant-cli push schema
 ```
 
-`push-schema` evals your `instant.schema.ts` file and applies it your app's production database. [Read more about schema as code](/docs/schema).
+`push schema` evals your `instant.schema.ts` file and applies it your app's production database. [Read more about schema as code](/docs/schema).
 
-Note, to avoid accidental data loss, `push-schema` does not delete entities or fields you've removed from your schema. You can manually delete them in the [Explorer](https://www.instantdb.com/dash?s=main&t=explorer).
+Note, to avoid accidental data loss, `push schema` does not delete entities or fields you've removed from your schema. You can manually delete them in the [Explorer](https://www.instantdb.com/dash?s=main&t=explorer).
 
 Here's an example `instant.schema.ts` file.
 
@@ -100,10 +100,10 @@ export default graph;
 ### Push perms
 
 ```sh
-npx instant-cli push-perms
+npx instant-cli push perms
 ```
 
-`push-perms` evals your `instant.perms.ts` file and applies it your app's production database. `instant.perms.ts` should export an object implementing Instant's standard permissions CEL+JSON format. [Read more about permissions in Instant](/docs/permissions).
+`push perms` evals your `instant.perms.ts` file and applies it your app's production database. `instant.perms.ts` should export an object implementing Instant's standard permissions CEL+JSON format. [Read more about permissions in Instant](/docs/permissions).
 
 Here's an example `instant.perms.ts` file.
 
@@ -126,16 +126,16 @@ export default {
 ### Pull: migrating from the dashboard
 
 If you already created an app in the dashboard and created some schema and
-permissions, you can run `npx instant-cli pull <APP_ID>` to generate an `instant.schema.ts` and `instant.perms.ts` files based on your production configuration.
+permissions, you can run `npx instant-cli pull --app <APP_ID>` to generate an `instant.schema.ts` and `instant.perms.ts` files based on your production configuration.
 
 ```bash
-npx instant-cli pull-schema
-npx instant-cli pull-perms
+npx instant-cli pull schema
+npx instant-cli pull perms
 npx instant-cli pull # pulls both schema and perms
 ```
 
 {% callout type="warning" %}
 
-Note: Strongly typed attributes are under active development. For now, `pull-schema` will default all attribute types to `i.any()`.
+Note: Strongly typed attributes are under active development. For now, `pull schema` will default all attribute types to `i.any()`.
 
 {% /callout %}

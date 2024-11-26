@@ -57,15 +57,26 @@
 (s/def ::$isNull (s/keys :req-un [::attr-id ::nil?]))
 (s/def ::$like string?)
 
+(s/def ::op #{:$gt :$gte :$lt :$lte :$like})
+(s/def ::data-type #{:string :number :date :boolean})
+(s/def ::value any?)
+(s/def ::$comparator (s/keys :req-un [::op ::data-type ::value]))
+
 (s/def ::value-pattern-component (s/or :constant (s/coll-of ::triple-model/value
                                                             :kind set?
                                                             :min-count 0)
                                        :any #{'_}
                                        :variable symbol?
-                                       :function (s/keys :req-un [(or ::$not ::$isNull ::$like)])))
+                                       :function (s/keys :req-un [(or ::$not ::$isNull ::$comparator)])))
+
+(s/def ::idx-key #{:ea :eav :av :ave :vae})
+(s/def ::data-type #{:string :number :boolean :date})
+(s/def ::index-map (s/keys :req-un [::idx-key ::data-type]))
+(s/def ::index (s/or :keyword ::idx-key
+                     :map ::index-map))
 
 (s/def ::pattern
-  (s/cat :idx ::triple-model/index
+  (s/cat :idx ::index
          :e (pattern-component ::triple-model/lookup)
          :a (pattern-component uuid?)
          :v ::value-pattern-component
@@ -115,8 +126,8 @@
            (and (= i 2)
                 (map? c)
                 (or (contains? c :$not)
-                    (contains? c :$like)
-                    (contains? c :$isNull)))
+                    (contains? c :$isNull)
+                    (contains? c :$comparator)))
            (symbol? c)
            (set? c))
         c
@@ -143,6 +154,12 @@
         (->> p
              (coll/pad 5 '_)
              ensure-set-constants)))
+
+(defn idx-key [idx]
+  (let [[tag v] idx]
+    (case tag
+      :map (:idx-key v)
+      :keyword v)))
 
 (defn untag-e
   "Removes the tag from the entity-id position, where it can be either :entity-id
@@ -206,7 +223,7 @@
   "Given a named pattern, returns a mapping of symbols to their
    binding paths:
 
-   idx [:eav ?a ?b ?c]
+   pattern-idx [:eav ?a ?b ?c]
 
 
    ;=>
@@ -214,15 +231,15 @@
    {?a [[idx 0]],
     ?b [[idx 1]],
     ?c [[idx 2]]}"
-  [idx {:keys [e a v]}]
+  [pattern-idx {:keys [e a v]}]
   (reduce (fn [acc [x path]]
             (if (named-variable? x)
               (update acc (uspec/tagged-unwrap x) (fnil conj []) path)
               acc))
           {}
-          [[e [idx 0]]
-           [a [idx 1]]
-           [v [idx 2]]]))
+          [[e [pattern-idx 0]]
+           [a [pattern-idx 1]]
+           [v [pattern-idx 2]]]))
 
 ;; ----
 ;; join-vals
@@ -331,18 +348,7 @@
       '_
       #{(-> v second :$isNull :attr-id)}
       '_]]
-
-    ;; There's probably a more clever way to invalidate against like
-    ;; values but this is a simple way for now
-    (and (= :function (first v))
-         (contains? (second v) :$like))
-    [[idx
-      (component->topic-component symbol-values :e e)
-      (component->topic-component symbol-values :a a)
-      '_]]
-
-    :else
-    [[idx
+    [[(idx-key idx)
       (component->topic-component symbol-values :e e)
       (component->topic-component symbol-values :a a)
       (component->topic-component symbol-values :v v)]]))
@@ -533,7 +539,22 @@
 (defn- value->jsonb [x]
   [:cast (->json x) :jsonb])
 
-(defn- constant->where-part [app-id component-type [_ v]]
+(defn- in-or-eq-value [idx v-set]
+  (let [[tag idx-val] idx
+        data-type (case tag
+                    :keyword nil
+                    :map (:data-type idx-val))]
+    (if (empty? v-set)
+      [:= 0 1]
+      (if-not data-type
+        (in-or-eq :value (map value->jsonb v-set))
+        (list* :or (map (fn [v]
+                          [:and
+                           [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
+                           [:= [(kw :triples_extract_ data-type :_value) :value] v]])
+                        v-set))))))
+
+(defn- constant->where-part [idx app-id component-type [_ v]]
   (condp = component-type
     :e (list* :or
               (for [lookup v]
@@ -548,7 +569,7 @@
                             [:= :value [:cast (->json (second lookup)) :jsonb]]
                             [:= :attr-id [:cast (first lookup) :uuid]]]}])))
     :a (in-or-eq :attr-id v)
-    :v (in-or-eq :value (map value->jsonb v))))
+    :v (in-or-eq-value idx v)))
 
 (defn- value-function-clauses [[v-tag v-value]]
   (case v-tag
@@ -568,7 +589,18 @@
                               :where [:and
                                       [:= :t.entity-id :entity-id]
                                       [:= :t.attr-id (:attr-id val)]
-                                      [:not= :t.value [:cast (->json nil) :jsonb]]]}]]))
+                                      [:not= :t.value [:cast (->json nil) :jsonb]]]}]]
+                  :$comparator (let [{:keys [op value data-type]} val]
+                                 [[(case op
+                                     :$gt :>
+                                     :$gte :>=
+                                     :$lt :<
+                                     :$lte :<=)
+                                   [(kw :triples_extract_ data-type :_value)
+                                    :value]
+                                   value]
+                                  ;; Need this check so that postgres knows it can use the index
+                                  [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]])))
     []))
 
 (defn- function-clauses [named-pattern]
@@ -589,11 +621,11 @@
   (list*
    :and
    [:= :app-id app-id]
-   [:= idx :true]
+   [:= (idx-key idx) :true]
    (concat (->> named-pattern
                 constant-components
                 (map (fn [[component-type v]]
-                       (constant->where-part app-id component-type v))))
+                       (constant->where-part idx app-id component-type v))))
            (function-clauses named-pattern)
            additional-clauses)))
 
@@ -789,7 +821,7 @@
               (if (named-variable? x)
                 (assoc acc pat-idx {:sym sym
                                     :ref-value? (and (= :v component)
-                                                     (= :eav (:idx named-p)))})
+                                                     (= :eav (idx-key (:idx named-p))))})
                 acc)))
           {}
           [[:e 0] [:a 1] [:v 2]]))
@@ -1708,6 +1740,24 @@
   (let [nested-named-patterns (nested->named-patterns nested-patterns)]
     (throw-invalid-nested-patterns nested-named-patterns)
     (send-query-nested ctx (:conn-pool db) app-id nested-named-patterns)))
+
+(defn explain
+  "Takes nested patterns and returns the explain result from running
+   the postgres query. Useful for testing and debugging."
+  [ctx patterns]
+  (assert (map? patterns) "explain only works with nested patterns.")
+  (let [nested-named-patterns (nested->named-patterns patterns)]
+    (throw-invalid-nested-patterns nested-named-patterns)
+    (let [{:keys [query]} (nested-match-query ctx
+                                              :match-0-
+                                              (:app-id ctx)
+                                              nested-named-patterns)
+          sql-query (update (hsql/format query)
+                            0
+                            (fn [s]
+                              (str "explain (analyze, verbose, buffers, timing, format json) " s)))]
+
+      (first (sql/select-string-keys (-> ctx :db :conn-pool) sql-query)))))
 
 (defn query
   "Executes a Datalog(ish) query over the given aurora `conn`, Instant `app_id`

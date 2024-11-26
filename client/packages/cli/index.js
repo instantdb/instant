@@ -6,14 +6,24 @@ import { join } from "path";
 import { randomUUID } from "crypto";
 import dotenv from "dotenv";
 import chalk from "chalk";
-import { program } from "commander";
-import { input, confirm } from "@inquirer/prompts";
+import { program, Option } from "commander";
+import { input, confirm, select } from "@inquirer/prompts";
 import envPaths from "env-paths";
 import { loadConfig } from "unconfig";
 import { packageDirectory } from "pkg-dir";
 import openInBrowser from "open";
 import ora from "ora";
 import terminalLink from "terminal-link";
+import { exec } from "child_process";
+import { promisify } from "util";
+import {
+  detectPackageManager,
+  getInstallCommand,
+} from "./src/util/packageManager.js";
+import { pathExists, readJsonFile } from "./src/util/fs.js";
+import prettier from 'prettier';
+
+const execAsync = promisify(exec);
 
 // config
 dotenv.config();
@@ -21,7 +31,34 @@ dotenv.config();
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
 
+// logs
+
+function warn(firstArg, ...rest) {
+  console.warn(chalk.yellow("[warning]") + " " + firstArg, ...rest);
+}
+
+function error(firstArg, ...rest) {
+  console.error(chalk.red("[error]") + " " + firstArg, ...rest);
+}
+
 // consts
+
+const potentialEnvs = {
+  catchall: "INSTANT_APP_ID",
+  next: "NEXT_PUBLIC_INSTANT_APP_ID",
+  svelte: "PUBLIC_INSTANT_APP_ID",
+  vite: "VITE_INSTANT_APP_ID",
+};
+
+const noAppIdErrorMessage = `
+Couldn't find an app ID.
+
+You can either: 
+a. Set ${chalk.green("`INSTANT_APP_ID`")} in your .env file. [1]
+b. Or provide an app ID via the CLI: ${chalk.green("`instant-cli push|pull -a <app-id>`")}.
+
+[1] Alternatively, If you have ${chalk.green("`NEXT_PUBLIC_INSTANT_APP_ID`")}, ${chalk.green("`VITE_INSTANT_APP_ID`")}, we can detect those too!
+`.trim();
 
 const instantDashOrigin = dev
   ? "http://localhost:3000"
@@ -31,110 +68,367 @@ const instantBackendOrigin =
   process.env.INSTANT_CLI_API_URI ||
   (dev ? "http://localhost:8888" : "https://api.instantdb.com");
 
-const instantCLIDescription = `
-${chalk.magenta(`Instant CLI`)}
-Docs: ${chalk.underline(`https://www.instantdb.com/docs/cli`)}
-Dash: ${chalk.underline(`https://www.instantdb.com/dash`)}
-Discord: ${chalk.underline(`https://discord.com/invite/VU53p7uQcE`)}`.trim();
+const PUSH_PULL_OPTIONS = new Set(["schema", "perms", "all"]);
+
+function convertArgToBagWithErrorLogging(arg) {
+  if (!arg) {
+    return { ok: true, bag: "all" };
+  } else if (PUSH_PULL_OPTIONS.has(arg.trim().lowercase())) {
+    return { ok: true, bag: arg };
+  } else {
+    error(
+      `${chalk.red(arg)} must be one of ${chalk.green(Array.from(PUSH_PULL_OPTIONS).join(", "))}`,
+    );
+    return { ok: false };
+  }
+}
+
+// Note: Nov 20, 2024
+// We can eventually deprecate this
+// once we're confident that users no longer
+// provide app ID as their first argument
+function convertPushPullToCurrentFormat(cmdName, arg, opts) {
+  if (arg && !PUSH_PULL_OPTIONS.has(arg) && !opts.app) {
+    warnDeprecation(`${cmdName} ${arg}`, `${cmdName} --app ${arg}`);
+    return { ok: true, bag: "all", opts: { ...opts, app: arg } };
+  }
+  const { ok, bag } = convertArgToBagWithErrorLogging(arg);
+  if (!ok) return { ok: false };
+  return { ok: true, bag, opts };
+}
+
+async function packageDirectoryWithErrorLogging() {
+  const pkgDir = await packageDirectory();
+  if (!pkgDir) {
+    error("Couldn't find your root directory. Is there a package.json file?");
+    return;
+  }
+  return pkgDir;
+}
 
 // cli
 
+// Header -- this shows up in every command
+const logoChalk = chalk.bold("instant-cli");
+const versionChalk = chalk.dim(`${version.trim()}`);
+const headerChalk = `${logoChalk} ${versionChalk} ` + "\n";
+
+// Help Footer -- this only shows up in help commands
+const helpFooterChalk =
+  "\n" +
+  chalk.dim.bold("Want to learn more?") +
+  "\n" +
+  `Check out the docs: ${chalk.blueBright.underline("https://instantdb.com/docs")}
+Join the Discord:   ${chalk.blueBright.underline("https://discord.com/invite/VU53p7uQcE")}
+`.trim();
+
+program.addHelpText("after", helpFooterChalk);
+
+program.addHelpText("beforeAll", headerChalk);
+
+function getLocalAndGlobalOptions(cmd, helper) {
+  const mixOfLocalAndGlobal = helper.visibleOptions(cmd);
+  const localOptionsFromMix = mixOfLocalAndGlobal.filter(
+    (option) => !option.__global,
+  );
+  const globalOptionsFromMix = mixOfLocalAndGlobal.filter(
+    (option) => option.__global,
+  );
+  const globalOptions = helper.visibleGlobalOptions(cmd);
+
+  return [localOptionsFromMix, globalOptionsFromMix.concat(globalOptions)];
+}
+
+// custom `formatHelp`
+// original: https://github.com/tj/commander.js/blob/master/lib/help.js
+function formatHelp(cmd, helper) {
+  const termWidth = helper.padWidth(cmd, helper);
+  const helpWidth = helper.helpWidth || 80;
+  const itemIndentWidth = 2;
+  const itemSeparatorWidth = 2; // between term and description
+  function formatItem(term, description) {
+    if (description) {
+      const fullText = `${term.padEnd(termWidth + itemSeparatorWidth)}${description}`;
+      return helper.wrap(
+        fullText,
+        helpWidth - itemIndentWidth,
+        termWidth + itemSeparatorWidth,
+      );
+    }
+    return term;
+  }
+  function formatList(textArray) {
+    return textArray.join("\n").replace(/^/gm, " ".repeat(itemIndentWidth));
+  }
+
+  // Usage
+  let output = [`${helper.commandUsage(cmd)}`, ""];
+
+  // Description
+  const commandDescription = helper.commandDescription(cmd);
+  if (commandDescription.length > 0) {
+    output = output.concat([helper.wrap(commandDescription, helpWidth, 0), ""]);
+  }
+
+  // Arguments
+  const argumentList = helper.visibleArguments(cmd).map((argument) => {
+    return formatItem(
+      helper.argumentTerm(argument),
+      helper.argumentDescription(argument),
+    );
+  });
+  if (argumentList.length > 0) {
+    output = output.concat([
+      chalk.dim.bold("Arguments"),
+      formatList(argumentList),
+      "",
+    ]);
+  }
+  const [visibleOptions, visibleGlobalOptions] = getLocalAndGlobalOptions(
+    cmd,
+    helper,
+  );
+
+  // Options
+  const optionList = visibleOptions.map((option) => {
+    return formatItem(
+      helper.optionTerm(option),
+      helper.optionDescription(option),
+    );
+  });
+  if (optionList.length > 0) {
+    output = output.concat([
+      chalk.dim.bold("Options"),
+      formatList(optionList),
+      "",
+    ]);
+  }
+  // Commands
+  const commandList = helper.visibleCommands(cmd).map((cmd) => {
+    return formatItem(
+      helper.subcommandTerm(cmd),
+      helper.subcommandDescription(cmd),
+    );
+  });
+  if (commandList.length > 0) {
+    output = output.concat([
+      chalk.dim.bold("Commands"),
+      formatList(commandList),
+      "",
+    ]);
+  }
+
+  if (this.showGlobalOptions) {
+    const globalOptionList = visibleGlobalOptions.map((option) => {
+      return formatItem(
+        helper.optionTerm(option),
+        helper.optionDescription(option),
+      );
+    });
+    if (globalOptionList.length > 0) {
+      output = output.concat([
+        chalk.dim.bold("Global Options"),
+        formatList(globalOptionList),
+        "",
+      ]);
+    }
+  }
+
+  return output.join("\n");
+}
+
+program.configureHelp({
+  showGlobalOptions: true,
+  formatHelp,
+});
+
+function globalOption(flags, description, argParser) {
+  const opt = new Option(flags, description);
+  if (argParser) {
+    opt.argParser(argParser);
+  }
+  // @ts-ignore
+  // __global does not exist on `Option`,
+  // but we use it in `getLocalAndGlobalOptions`, to produce
+  // our own custom list of local and global options.
+  // For more info, see the original PR:
+  // https://github.com/instantdb/instant/pull/505
+  opt.__global = true;
+  return opt;
+}
+
+function warnDeprecation(oldCmd, newCmd) {
+  warn(
+    chalk.yellow("`instant-cli " + oldCmd + "` is deprecated.") +
+      " Use " +
+      chalk.green("`instant-cli " + newCmd + "`") +
+      " instead." +
+      "\n",
+  );
+}
+
 program
   .name("instant-cli")
-  .description(instantCLIDescription)
-  .option("-t --token <TOKEN>", "auth token override")
-  .option("-y", "skip confirmation prompt")
-  .option("-v --version", "output the version number", () => {
-    console.log(version);
-    process.exit(0);
-  });
+  .addOption(globalOption("-t --token <token>", "Auth token override"))
+  .addOption(globalOption("-y --yes", "Answer 'yes' to all prompts"))
+  .addOption(
+    globalOption("-v --version", "Print the version number", () => {
+      console.log(version);
+      process.exit(0);
+    }),
+  )
+  .addHelpOption(globalOption("-h --help", "Print the help text for a command"))
+  .usage(`<command> ${chalk.dim("[options] [args]")}`);
 
 program
   .command("login")
-  .description("Authenticates with Instant")
-  .option("-p --print", "print auth token")
+  .description("Log into your account")
+  .option("-p --print", "Prints the auth token into the console.")
   .action(login);
 
 program
   .command("init")
-  .description("Creates a new app with configuration files")
-  .action(init);
+  .description("Set up a new project.")
+  .option(
+    "-a --app <app-id>",
+    "If you have an existing app ID, we can pull schema and perms from there.",
+  )
+  .action(async function (opts) {
+    await handlePull("all", opts);
+  });
 
+// Note: Nov 20, 2024
+// We can eventually delete this,
+// once we know most people use the new pull and push commands
 program
-  .command("push-schema")
-  .argument("[ID]")
-  .description("Pushes local instant.schema definition to production.")
+  .command("push-schema", { hidden: true })
+  .argument("[app-id]")
+  .description("Push schema to production.")
   .option(
     "--skip-check-types",
     "Don't check types on the server when pushing schema",
   )
-  .action((id, opts) => {
-    pushSchema(id, opts);
+  .action(async (appIdOrName, opts) => {
+    warnDeprecation("push-schema", "push schema");
+    await handlePush("schema", { app: appIdOrName, ...opts });
   });
 
+// Note: Nov 20, 2024
+// We can eventually delete this,
+// once we know most people use the new pull and push commands
 program
-  .command("push-perms")
-  .argument("[ID]")
-  .description("Pushes local instant.perms rules to production.")
-  .action(() => {
-    pushPerms();
+  .command("push-perms", { hidden: true })
+  .argument("[app-id]")
+  .description("Push perms to production.")
+  .action(async (appIdOrName) => {
+    warnDeprecation("push-perms", "push perms");
+    await handlePush("perms", { app: appIdOrName });
   });
 
 program
   .command("push")
-  .argument("[ID]")
+  .argument(
+    "[schema|perms|all]",
+    "Which configuration to push. Defaults to `all`",
+  )
+  .option(
+    "-a --app <app-id>",
+    "App ID to push too. Defaults to *_INSTANT_APP_ID in .env",
+  )
   .option(
     "--skip-check-types",
     "Don't check types on the server when pushing schema",
   )
-  .description(
-    "Pushes local instant.schema and instant.perms rules to production.",
-  )
-  .action(pushAll);
-
-program
-  .command("pull-schema")
-  .argument("[ID]")
-  .description(
-    "Generates an initial instant.schema definition from production state.",
-  )
-  .action((appIdOrName) => {
-    pullSchema(appIdOrName);
+  .description("Push schema and perm files to production.")
+  .action(async function (arg, inputOpts) {
+    const ret = convertPushPullToCurrentFormat("push", arg, inputOpts);
+    if (!ret.ok) return;
+    const { bag, opts } = ret;
+    await handlePush(bag, opts);
   });
 
+// Note: Nov 20, 2024
+// We can eventually delete this,
+// once we know most people use the new pull and push commands
 program
-  .command("pull-perms")
-  .argument("[ID]")
-  .description(
-    "Generates an initial instant.perms definition from production rules.",
-  )
-  .action((appIdOrName) => {
-    pullPerms(appIdOrName);
+  .command("pull-schema", { hidden: true })
+  .argument("[app-id]")
+  .description("Generate instant.schema.ts from production")
+  .action(async (appIdOrName) => {
+    warnDeprecation("pull-schema", "pull schema");
+    await handlePull("schema", { app: appIdOrName });
+  });
+
+// Note: Nov 20, 2024
+// We can eventually delete this,
+// once we know most people use the new pull and push commands
+program
+  .command("pull-perms", { hidden: true })
+  .argument("[app-id]")
+  .description("Generate instant.perms.ts from production.")
+  .action(async (appIdOrName) => {
+    warnDeprecation("pull-perms", "pull perms");
+    await handlePull("perms", { app: appIdOrName });
   });
 
 program
   .command("pull")
-  .argument("[ID]")
-  .description(
-    "Generates initial instant.schema and instant.perms definition from production state.",
+  .argument(
+    "[schema|perms|all]",
+    "Which configuration to push. Defaults to `all`",
   )
-  .action(pullAll);
+  .option(
+    "-a --app <app-id>",
+    "App ID to push to. Defaults to *_INSTANT_APP_ID in .env",
+  )
+  .description("Pull schema and perm files from production.")
+  .action(async function (arg, inputOpts) {
+    const ret = convertPushPullToCurrentFormat("pull", arg, inputOpts);
+    if (!ret.ok) return;
+    const { bag, opts } = ret;
+    await handlePull(bag, opts);
+  });
 
 program.parse(process.argv);
 
 // command actions
-
-async function pushAll(appIdOrName, opts) {
-  const ok = await pushSchema(appIdOrName, opts);
+async function handlePush(bag, opts) {
+  const { ok, appId } = await detectOrCreateAppWithErrorLogging(opts);
   if (!ok) return;
-
-  await pushPerms(appIdOrName);
+  await push(bag, appId, opts);
 }
 
-async function pullAll(appIdOrName) {
-  const ok = await pullSchema(appIdOrName);
+async function push(bag, appId, opts) {
+  if (bag === "schema" || bag === "all") {
+    const ok = await pushSchema(appId, opts);
+    if (!ok) return;
+  }
+  if (bag === "perms" || bag === "all") {
+    await pushPerms(appId);
+  }
+}
+
+async function handlePull(bag, opts) {
+  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
+  if (!pkgAndAuthInfo) return;
+  const { ok, appId, appTitle, isCreated } =
+    await detectOrCreateAppWithErrorLogging(opts);
   if (!ok) return;
-  await pullPerms(appIdOrName);
+  if (isCreated) {
+    await handleCreatedApp(pkgAndAuthInfo, appId, appTitle);
+  } else {
+    await pull(bag, appId, pkgAndAuthInfo);
+  }
+}
+
+async function pull(bag, appId, pkgAndAuthInfo) {
+  if (bag === "schema" || bag === "all") {
+    const ok = await pullSchema(appId, pkgAndAuthInfo);
+    if (!ok) return;
+  }
+  if (bag === "perms" || bag === "all") {
+    await pullPerms(appId, pkgAndAuthInfo);
+  }
 }
 
 async function login(options) {
@@ -149,7 +443,7 @@ async function login(options) {
   if (!registerRes.ok) return;
 
   const { secret, ticket } = registerRes.data;
-
+  console.log("Let's log you in!");
   const ok = await promptOk(
     `This will open instantdb.com in your browser, OK to proceed?`,
   );
@@ -174,62 +468,176 @@ async function login(options) {
   }
 }
 
-async function init() {
-  const pkgDir = await packageDirectory();
-  if (!pkgDir) {
-    console.error("Failed to locate app root dir.");
+async function getOrInstallInstantModuleWithErrorLogging(pkgDir) {
+  const pkgJson = await getPackageJSONWithErrorLogging(pkgDir);
+  if (!pkgJson) {
+    return;
+  }
+  console.log("Checking for an Instant SDK...");
+  const instantModuleName = await getInstantModuleName(pkgJson);
+  if (instantModuleName) {
+    console.log(
+      `Found ${chalk.green(instantModuleName)} in your package.json.`,
+    );
+    return instantModuleName;
+  }
+  console.log(
+    "Couldn't find an Instant SDK in your package.json, let's install one!",
+  );
+  const moduleName = await select({
+    message: "Which package would you like to use?",
+    choices: [
+      { name: "@instantdb/react", value: "@instantdb/react" },
+      { name: "@instantdb/react-native", value: "@instantdb/react-native" },
+      { name: "@instantdb/core", value: "@instantdb/core" },
+      { name: "@instantdb/admin", value: "@instantdb/admin" },
+    ],
+  });
+
+  const packageManager = await detectPackageManager(pkgDir);
+  const installCommand = getInstallCommand(packageManager, moduleName);
+
+  const spinner = ora(
+    `Installing ${moduleName} using ${packageManager}...`,
+  ).start();
+
+  try {
+    await execAsync(installCommand, pkgDir);
+    spinner.succeed(`Installed ${moduleName} using ${packageManager}.`);
+  } catch (e) {
+    spinner.fail(`Failed to install ${moduleName} using ${packageManager}.`);
+    error(e.message);
     return;
   }
 
-  const instantModuleName = await getInstantModuleName(pkgDir);
-  const schema = await readLocalSchemaFile();
-  const { perms } = await readLocalPermsFile();
-  const authToken = await readConfigAuthToken();
-  if (!authToken) {
-    console.error("Unauthenticated.  Please log in with `instant-cli login`!");
-    return;
-  }
+  return moduleName;
+}
 
+async function promptCreateApp() {
   const id = randomUUID();
   const token = randomUUID();
-
-  const title = await input({
-    message: "Enter a name for your app",
+  const _title = await input({
+    message: "What would you like to call it?",
+    default: "My cool app",
     required: true,
   }).catch(() => null);
 
-  if (!title) {
-    console.error("No name provided. Exiting.");
-    return;
-  }
+  const title = _title?.trim();
 
+  if (!title) {
+    error("No name provided. Exiting.");
+    return { ok: false };
+  }
+  const app = { id, title, admin_token: token };
   const appRes = await fetchJson({
     method: "POST",
     path: "/dash/apps",
     debugName: "App create",
     errorMessage: "Failed to create app.",
-    body: { id, title, admin_token: token },
+    body: app,
   });
 
-  if (!appRes.ok) return;
+  if (!appRes.ok) return { ok: false };
+  return {
+    ok: true,
+    appId: id,
+    appTitle: title,
+    isCreated: true,
+  };
+}
 
-  console.log(chalk.green(`Successfully created your Instant app "${title}"`));
+async function promptImportAppOrCreateApp() {
+  const res = await fetchJson({
+    debugName: "Fetching apps",
+    method: "GET",
+    path: "/dash",
+    errorMessage: "Failed to fetch apps.",
+  });
+  if (!res.ok) {
+    return { ok: false };
+  }
+  const { apps } = res.data;
+  if (!apps.length) {
+    const ok = await promptOk(
+      "You don't have any apps. Want to create a new one?",
+    );
+    if (!ok) return { ok: false };
+    return await promptCreateApp();
+  }
+  const choice = await select({
+    message: "Which app would you like to import?",
+    choices: res.data.apps.map((app) => {
+      return { name: `${app.title} (${app.id})`, value: app.id };
+    }),
+  }).catch(() => null);
+  if (!choice) return { ok: false };
+  return { ok: true, appId: choice };
+}
+
+async function detectOrCreateAppWithErrorLogging(opts) {
+  const fromOpts = await detectAppIdFromOptsWithErrorLogging(opts);
+  if (!fromOpts.ok) return fromOpts;
+  if (fromOpts.appId) {
+    return { ok: true, appId: fromOpts.appId };
+  }
+
+  const fromEnv = detectAppIdFromEnvWithErrorLogging();
+  if (!fromEnv.ok) return fromEnv;
+  if (fromEnv.found) {
+    const { envName, value } = fromEnv.found;
+    console.log(`Found ${chalk.green(envName)}: ${value}`);
+    return { ok: true, appId: value };
+  }
+
+  const action = await select({
+    message: "What would you like to do?",
+    choices: [
+      { name: "Create a new app", value: "create" },
+      { name: "Import an existing app", value: "import" },
+    ],
+  }).catch(() => null);
+
+  if (action === "create") {
+    return await promptCreateApp();
+  }
+
+  return await promptImportAppOrCreateApp();
+}
+
+async function writeTypescript(path, content, encoding) { 
+  const prettierConfig = await prettier.resolveConfig(path);
+  const formattedCode = await prettier.format(content, {
+    ...prettierConfig,
+    parser: 'typescript',
+  });
+  return await writeFile(path, formattedCode, encoding);
+}
+
+async function handleCreatedApp(
+  { pkgDir, instantModuleName },
+  appId,
+  appTitle,
+) {
+  const schema = await readLocalSchemaFile();
+  const { perms } = await readLocalPermsFile();
+
+  console.log(chalk.green(`Successfully created your Instant app "${appId}"`));
   console.log(`Please add your app ID to your .env config:`);
-  console.log(chalk.magenta(`INSTANT_APP_ID=${id}`));
-  console.log(chalk.underline(appDashUrl(id)));
+  console.log(chalk.magenta(`INSTANT_APP_ID=${appId}`));
+  console.log(terminalLink("Dashboard", appDashUrl(appId)));
 
   if (!schema) {
     const schemaPath = join(pkgDir, "instant.schema.ts");
-    await writeFile(
+    await writeTypescript(
       schemaPath,
-      instantSchemaTmpl(title, id, instantModuleName),
+      instantSchemaTmpl(appTitle, appId, instantModuleName),
       "utf-8",
     );
     console.log("Start building your schema: " + schemaPath);
   }
 
   if (!perms) {
-    await writeFile(
+    await writeTypescript(
       join(pkgDir, "instant.perms.ts"),
       examplePermsTmpl,
       "utf-8",
@@ -237,39 +645,44 @@ async function init() {
   }
 }
 
-async function getInstantModuleName(pkgDir) {
-  const pkgJson = await readJsonFile(join(pkgDir, "package.json"));
-  const instantModuleName = pkgJson?.dependencies?.["@instantdb/react"]
-    ? "@instantdb/react"
-    : pkgJson?.dependencies?.["@instantdb/core"]
-      ? "@instantdb/core"
-      : null;
+async function getInstantModuleName(pkgJson) {
+  const deps = pkgJson.dependencies || {};
+  const instantModuleName = [
+    "@instantdb/react",
+    "@instantdb/react-native",
+    "@instantdb/core",
+    "@instantdb/admin",
+  ].find((name) => deps[name]);
   return instantModuleName;
 }
 
-async function pullSchema(appIdOrName) {
-  const pkgDir = await packageDirectory();
+async function getPackageJSONWithErrorLogging(pkgDir) {
+  const pkgJson = await readJsonFile(join(pkgDir, "package.json"));
+  if (!pkgJson) {
+    error(`Couldn't find a packge.json file in: ${pkgDir}. Please add one.`);
+    return;
+  }
+  return pkgJson;
+}
+
+async function resolvePackageAndAuthInfoWithErrorLogging() {
+  const pkgDir = await packageDirectoryWithErrorLogging();
   if (!pkgDir) {
-    console.error("Failed to locate app root dir.");
     return;
   }
-
-  const appId = await getAppIdWithErrorLogging(appIdOrName);
-  if (!appId) return;
-
-  const instantModuleName = await getInstantModuleName(pkgDir);
+  const instantModuleName =
+    await getOrInstallInstantModuleWithErrorLogging(pkgDir);
   if (!instantModuleName) {
-    console.warn(
-      "Missing Instant dependency in package.json.  Please install `@instantdb/react` or `@instantdb/core`.",
-    );
-  }
-
-  const authToken = await readConfigAuthToken();
-  if (!authToken) {
-    console.error("Unauthenticated.  Please log in with `login`!");
     return;
   }
+  const authToken = await readConfigAuthTokenWithErrorLogging();
+  if (!authToken) {
+    return;
+  }
+  return { pkgDir, instantModuleName, authToken };
+}
 
+async function pullSchema(appId, { pkgDir, instantModuleName }) {
   console.log("Pulling schema...");
 
   const pullRes = await fetchJson({
@@ -302,7 +715,7 @@ async function pullSchema(appIdOrName) {
     !countEntities(pullRes.data.schema.refs) &&
     !countEntities(pullRes.data.schema.blobs)
   ) {
-    console.log("Schema is empty.  Skipping.");
+    console.log("Schema is empty. Skipping.");
     return;
   }
 
@@ -316,7 +729,7 @@ async function pullSchema(appIdOrName) {
   }
 
   const schemaPath = join(pkgDir, "instant.schema.ts");
-  await writeFile(
+  await writeTypescript(
     schemaPath,
     generateSchemaTypescriptFile(
       appId,
@@ -332,23 +745,8 @@ async function pullSchema(appIdOrName) {
   return true;
 }
 
-async function pullPerms(appIdOrName) {
+async function pullPerms(appId, { pkgDir }) {
   console.log("Pulling perms...");
-
-  const appId = await getAppIdWithErrorLogging(appIdOrName);
-  if (!appId) return;
-
-  const pkgDir = await packageDirectory();
-  if (!pkgDir) {
-    console.error("Failed to locate app root dir.");
-    return;
-  }
-
-  const authToken = await readConfigAuthToken();
-  if (!authToken) {
-    console.error("Unauthenticated.  Please log in with `login`!");
-    return;
-  }
 
   const pullRes = await fetchJson({
     path: `/dash/apps/${appId}/perms/pull`,
@@ -372,7 +770,7 @@ async function pullPerms(appIdOrName) {
   }
 
   const permsPath = join(pkgDir, "instant.perms.ts");
-  await writeFile(
+  await writeTypescript(
     permsPath,
     `export default ${JSON.stringify(pullRes.data.perms, null, "  ")};`,
     "utf-8",
@@ -580,10 +978,7 @@ async function waitForIndexingJobsToFinish(appId, data) {
   }
 }
 
-async function pushSchema(appIdOrName, opts) {
-  const appId = await getAppIdWithErrorLogging(appIdOrName);
-  if (!appId) return;
-
+async function pushSchema(appId, opts) {
   const schema = await readLocalSchemaFileWithErrorLogging();
   if (!schema) return;
 
@@ -700,13 +1095,9 @@ async function pushSchema(appIdOrName, opts) {
   return true;
 }
 
-async function pushPerms(appIdOrName) {
-  const appId = await getAppIdWithErrorLogging(appIdOrName);
-  if (!appId) return;
-
-  const { perms } = await readLocalPermsFile();
+async function pushPerms(appId) {
+  const perms = await readLocalPermsFileWithErrorLogging();
   if (!perms) {
-    console.error("Missing instant.perms file!");
     return;
   }
 
@@ -735,25 +1126,26 @@ async function pushPerms(appIdOrName) {
 async function waitForAuthToken({ secret }) {
   for (let i = 1; i <= 120; i++) {
     await sleep(1000);
-
-    try {
-      const authCheckRes = await fetchJson({
-        method: "POST",
-        debugName: "Auth check",
-        errorMessage: "Failed to check auth status.",
-        path: "/dash/cli/auth/check",
-        body: { secret },
-        noAuth: true,
-        noLogError: true,
-      });
-
-      if (authCheckRes.ok) {
-        return authCheckRes.data;
-      }
-    } catch (error) {}
+    const authCheckRes = await fetchJson({
+      method: "POST",
+      debugName: "Auth check",
+      errorMessage: "Failed to check auth status.",
+      path: "/dash/cli/auth/check",
+      body: { secret },
+      noAuth: true,
+      noLogError: true,
+    });
+    if (authCheckRes.ok) {
+      return authCheckRes.data;
+    }
+    if (authCheckRes.data?.hint.errors?.[0]?.issue === "waiting-for-user") {
+      continue;
+    }
+    error('Failed to authenticate ');
+    prettyPrintJSONErr(authCheckRes.data);
+    return;
   }
-
-  console.error("Login timed out.");
+  error("Timed out waiting for authentication");
   return null;
 }
 
@@ -785,9 +1177,8 @@ async function fetchJson({
   const withErrorLogging = !noLogError;
   let authToken = null;
   if (withAuth) {
-    authToken = await readConfigAuthToken();
+    authToken = await readConfigAuthTokenWithErrorLogging();
     if (!authToken) {
-      console.error("Unauthenticated. Please log in with `instant-cli login`");
       return { ok: false, data: undefined };
     }
   }
@@ -815,23 +1206,13 @@ async function fetchJson({
     } catch {
       data = null;
     }
-
+    if (verbose && data) {
+      console.log(debugName, "json:", JSON.stringify(data));
+    }
     if (!res.ok) {
       if (withErrorLogging) {
-        console.error(errorMessage);
-        if (data?.message) {
-          console.error(data.message);
-        }
-        if (Array.isArray(data?.hint?.errors)) {
-          for (const error of data.hint.errors) {
-            console.error(
-              `${error.in ? error.in.join("->") + ": " : ""}${error.message}`,
-            );
-          }
-        }
-        if (!data) {
-          console.error("Failed to parse error response");
-        }
+        error(errorMessage);
+        prettyPrintJSONErr(data);
       }
       return { ok: false, data };
     }
@@ -844,14 +1225,28 @@ async function fetchJson({
   } catch (err) {
     if (withErrorLogging) {
       if (err.name === "AbortError") {
-        console.error(
-          `Timeout: It took more than ${timeoutMs / 60000} minutes to get the result!`,
+        error(
+          `Timeout: It took more than ${timeoutMs / 60000} minutes to get the result.`,
         );
       } else {
-        console.error(`Error: type: ${err.name}, message: ${err.message}`);
+        error(`Error: type: ${err.name}, message: ${err.message}`);
       }
     }
     return { ok: false, data: null };
+  }
+}
+
+function prettyPrintJSONErr(data) {
+  if (data?.message) {
+    error(data.message);
+  }
+  if (Array.isArray(data?.hint?.errors)) {
+    for (const err of data.hint.errors) {
+      error(`${err.in ? err.in.join("->") + ": " : ""}${err.message}`);
+    }
+  }
+  if (!data) {
+    error("Failed to parse error response");
   }
 }
 
@@ -864,15 +1259,6 @@ async function promptOk(message) {
     message,
     default: false,
   }).catch(() => false);
-}
-
-async function pathExists(f) {
-  try {
-    await stat(f);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 async function readLocalPermsFile() {
@@ -893,6 +1279,16 @@ async function readLocalPermsFile() {
     perms: config,
     path: sources.at(0),
   };
+}
+
+async function readLocalPermsFileWithErrorLogging() {
+  const { perms } = await readLocalPermsFile();
+  if (!perms) {
+    error(
+      `We couldn't find your ${chalk.yellow("`instant.perms.ts`")} file. Make sure it's in the root directory.`,
+    );
+  }
+  return perms;
 }
 
 async function readLocalSchemaFile() {
@@ -933,24 +1329,13 @@ async function readLocalSchemaFileWithErrorLogging() {
   const schema = await readLocalSchemaFile();
 
   if (!schema) {
-    console.error("Missing instant.schema file!");
+    error(
+      `We couldn't find your ${chalk.yellow("`instant.schema.ts`")} file. Make sure it's in the root directory.`,
+    );
     return;
   }
 
   return schema;
-}
-
-async function readJsonFile(path) {
-  if (!pathExists(path)) {
-    return null;
-  }
-
-  try {
-    const data = await readFile(path, "utf-8");
-    return JSON.parse(data);
-  } catch (error) {}
-
-  return null;
 }
 
 async function readConfigAuthToken() {
@@ -969,6 +1354,15 @@ async function readConfigAuthToken() {
   ).catch(() => null);
 
   return authToken;
+}
+async function readConfigAuthTokenWithErrorLogging() {
+  const token = await readConfigAuthToken();
+  if (!token) {
+    error(
+      `Looks like you are not logged in. Please log in with ${chalk.green("`instant-cli login`")}`,
+    );
+  }
+  return token;
 }
 
 async function saveConfigAuthToken(authToken) {
@@ -1057,48 +1451,61 @@ function isUUID(uuid) {
   return uuidRegex.test(uuid);
 }
 
-async function getAppIdWithErrorLogging(defaultAppIdOrName) {
-  if (defaultAppIdOrName) {
-    const config = await readInstantConfigFile();
+async function detectAppIdFromOptsWithErrorLogging(opts) {
+  if (!opts.app) return { ok: true };
+  const appId = opts.app;
+  const config = await readInstantConfigFile();
+  const nameMatch = config?.apps?.[appId];
+  const namedAppId = nameMatch?.id && isUUID(nameMatch.id) ? nameMatch : null;
+  const uuidAppId = appId && isUUID(appId) ? appId : null;
 
-    const nameMatch = config?.apps?.[defaultAppIdOrName];
-    const namedAppId = nameMatch?.id && isUUID(nameMatch.id) ? nameMatch : null;
-    const uuidAppId =
-      defaultAppIdOrName && isUUID(defaultAppIdOrName)
-        ? defaultAppIdOrName
-        : null;
+  if (nameMatch && !namedAppId) {
+    error(`Expected \`${appId}\` to point to a UUID, but got ${nameMatch.id}.`);
+    return { ok: false };
+  }
+  if (!namedAppId && !uuidAppId) {
+    error(`Expected App ID to be a UUID, but got: ${chalk.red(appId)}`);
+    return { ok: false };
+  }
+  return { ok: true, appId: namedAppId || uuidAppId };
+}
 
-    if (nameMatch && !namedAppId) {
-      console.error(
-        `App ID for \`${defaultAppIdOrName}\` is not a valid UUID.`,
-      );
-    } else if (!namedAppId && !uuidAppId) {
-      console.error(`The provided app ID is not a valid UUID.`);
-    }
-
-    return (
-      // first, check for a config and whether the provided arg
-      // matched a named ID
-      namedAppId ||
-      // next, check whether there's a provided arg at all
-      uuidAppId
+function detectAppIdFromEnvWithErrorLogging() {
+  const found = Object.keys(potentialEnvs)
+    .map((type) => {
+      const envName = potentialEnvs[type];
+      const value = process.env[envName];
+      return { type, envName, value };
+    })
+    .find(({ value }) => !!value);
+  if (found && !isUUID(found.value)) {
+    error(
+      `Found ${chalk.green("`" + found.envName + "`")} but it's not a valid UUID.`,
     );
+    return { ok: false, found };
   }
+  return { ok: true, found };
+}
 
-  const appId =
-    // finally, check .env
-    process.env.INSTANT_APP_ID ||
-    process.env.NEXT_PUBLIC_INSTANT_APP_ID ||
-    process.env.PUBLIC_INSTANT_APP_ID || // for Svelte
-    process.env.VITE_INSTANT_APP_ID ||
-    null;
-
+async function getAppIdWithErrorLogging(arg) {
+  const fromArg = await detectAppIdFromOptsWithErrorLogging({
+    app: arg,
+  });
+  if (!fromArg.ok) return;
+  if (fromArg.appId) {
+    return fromArg.appId;
+  }
+  const fromEnv = detectAppIdFromEnvWithErrorLogging();
+  if (!fromEnv.ok) return;
+  if (fromEnv.found) {
+    const { envName, value } = fromEnv.found;
+    console.log(`Found ${chalk.green(envName)}: ${value}`);
+    return value;
+  }
   // otherwise, instruct the user to set one of these up
-  if (!appId) {
-    console.error(noAppIdErrorMessage);
-  }
+  error(noAppIdErrorMessage);
 
-  return appId;
+  return;
 }
 
 function appDashUrl(id) {
@@ -1264,10 +1671,3 @@ ${indentLines(JSON.stringify(linksEntriesCode, null, "  "), 1)}
 export default graph;
 `;
 }
-
-const noAppIdErrorMessage = `
-No app ID found.
-Add \`INSTANT_APP_ID=<ID>\` to your .env file.
-(Or \`NEXT_PUBLIC_INSTANT_APP_ID\`, \`VITE_INSTANT_APP_ID\`)
-Or provide an app ID via the CLI \`instant-cli pull-schema <ID>\`.
-`.trim();

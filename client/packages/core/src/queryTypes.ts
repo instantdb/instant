@@ -10,6 +10,12 @@ import type {
   ResolveEntityAttrs,
 } from "./schemaTypes";
 
+type Expand<T> = T extends object
+  ? T extends infer O
+    ? { [K in keyof O]: Expand<O[K]> }
+    : never
+  : T;
+
 // NonEmpty disallows {}, so that you must provide at least one field
 type NonEmpty<T> = {
   [K in keyof T]-?: Required<Pick<T, K>>;
@@ -21,6 +27,10 @@ type WhereArgs = {
   $in?: (string | number | boolean)[];
   $not?: string | number | boolean;
   $isNull?: boolean;
+  $gt?: string | number | boolean;
+  $lt?: string | number | boolean;
+  $gte?: string | number | boolean;
+  $lte?: string | number | boolean;
 };
 
 type WhereClauseValue = string | number | boolean | NonEmpty<WhereArgs>;
@@ -145,12 +155,10 @@ type Exactly<Parent, Child> = Parent & {
 // ==========
 // InstaQL helpers
 
-type InstaQLSubqueryResult<
+type InstaQLEntitySubqueryResult<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   EntityName extends keyof Schema["entities"],
-  Query extends {
-    [LinkAttrName in keyof Schema["entities"][EntityName]["links"]]?: any;
-  },
+  Query extends InstaQLEntitySubquery<Schema, EntityName> = {},
 > = {
   [QueryPropName in keyof Query]: Schema["entities"][EntityName]["links"][QueryPropName] extends LinkAttrDef<
     infer Cardinality,
@@ -159,17 +167,9 @@ type InstaQLSubqueryResult<
     ? LinkedEntityName extends keyof Schema["entities"]
       ? Cardinality extends "one"
         ?
-            | InstaQLEntity<
-                Schema,
-                LinkedEntityName,
-                Query[QueryPropName]
-              >
+            | InstaQLEntity<Schema, LinkedEntityName, Query[QueryPropName]>
             | undefined
-        : InstaQLEntity<
-            Schema,
-            LinkedEntityName,
-            Query[QueryPropName]
-          >[]
+        : InstaQLEntity<Schema, LinkedEntityName, Query[QueryPropName]>[]
       : never
     : never;
 };
@@ -216,11 +216,11 @@ type InstaQLQueryEntityLinksResult<
 type InstaQLEntity<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   EntityName extends keyof Schema["entities"],
-  Subquery extends {
-    [QueryPropName in keyof Schema["entities"][EntityName]["links"]]?: any;
-  } = {},
-> = { id: string } & ResolveEntityAttrs<Schema["entities"][EntityName]> &
-  InstaQLSubqueryResult<Schema, EntityName, Subquery>;
+  Subquery extends InstaQLEntitySubquery<Schema, EntityName> = {},
+> = Expand<
+  { id: string } & ResolveEntityAttrs<Schema["entities"][EntityName]> &
+    InstaQLEntitySubqueryResult<Schema, EntityName, Subquery>
+>;
 
 type InstaQLQueryEntityResult<
   Entities extends EntitiesDef,
@@ -254,11 +254,21 @@ type InstaQLQueryResult<
 
 type InstaQLResult<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
-  Query,
-> = {
+  Query extends InstaQLParams<Schema>,
+> = Expand<{
   [QueryPropName in keyof Query]: QueryPropName extends keyof Schema["entities"]
     ? InstaQLEntity<Schema, QueryPropName, Query[QueryPropName]>[]
     : never;
+}>;
+
+type InstaQLEntitySubquery<
+  Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
+  EntityName extends keyof Schema["entities"],
+> = {
+  [QueryPropName in keyof Schema["entities"][EntityName]["links"]]?: InstaQLEntitySubquery<
+    Schema,
+    Schema["entities"][EntityName]["links"][QueryPropName]["entityName"]
+  >;
 };
 
 type InstaQLQuerySubqueryParams<
@@ -283,14 +293,15 @@ type InstaQLParams<S extends IContainEntitiesAndLinks<any, any>> = {
 /**
  * @deprecated
  * `InstaQLQueryParams` is deprecated. Use `InstaQLParams` instead.
- * 
+ *
  * @example
  * // Before
- * const myQuery = {...} satisfies InstaQLQueryParams<Schema> 
+ * const myQuery = {...} satisfies InstaQLQueryParams<Schema>
  * // After
  * const myQuery = {...} satisfies InstaQLParams<Schema>
  */
-type InstaQLQueryParams<S extends IContainEntitiesAndLinks<any, any>> = InstaQLParams<S>;
+type InstaQLQueryParams<S extends IContainEntitiesAndLinks<any, any>> =
+  InstaQLParams<S>;
 
 export {
   Query,

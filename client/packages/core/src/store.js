@@ -460,7 +460,7 @@ function matchesLikePattern(value, pattern) {
 
 function triplesByValue(store, m, v) {
   const res = [];
-  if (v?.hasOwnProperty('$not')) {
+  if (v?.hasOwnProperty("$not")) {
     for (const candidate of m.keys()) {
       if (v.$not !== candidate) {
         res.push(m.get(candidate));
@@ -469,31 +469,37 @@ function triplesByValue(store, m, v) {
     return res;
   }
 
-  if (v?.hasOwnProperty('$isNull')) {
-    const { attrId, isNull } = v.$isNull;
+  if (v?.hasOwnProperty("$isNull")) {
+    const { attrId, isNull, reverse } = v.$isNull;
 
-    const aMap = store.aev.get(attrId);
-    for (const candidate of m.keys()) {
-      const isValNull =
-        !aMap || aMap.get(candidate)?.get(null) || !aMap.get(candidate);
-      if (isNull ? isValNull : !isValNull) {
-        res.push(m.get(candidate));
+    if (reverse) {
+      for (const candidate of m.keys()) {
+        const vMap = store.vae.get(candidate);
+        const isValNull =
+          !vMap || vMap.get(attrId)?.get(null) || !vMap.get(attrId);
+        if (isNull ? isValNull : !isValNull) {
+          res.push(m.get(candidate));
+        }
+      }
+    } else {
+      const aMap = store.aev.get(attrId);
+      for (const candidate of m.keys()) {
+        const isValNull =
+          !aMap || aMap.get(candidate)?.get(null) || !aMap.get(candidate);
+        if (isNull ? isValNull : !isValNull) {
+          res.push(m.get(candidate));
+        }
       }
     }
     return res;
   }
 
-  if (v?.hasOwnProperty('$like')) {
-    const pattern = v.$like;
-    for (const candidate of m.keys()) {
-      if (matchesLikePattern(candidate, pattern)) {
-        res.push(m.get(candidate));
-      }
-    }
-    return res;
+  if (v?.$comparator) {
+    // TODO: A sorted index would be nice here
+    return allMapValues(m, 1).filter(v.$op);
   }
 
-  const values = v.in || v.$in ? (v.in || v.$in) : [v];
+  const values = v.in || v.$in || [v];
 
   for (const value of values) {
     const triple = m.get(value);
@@ -501,6 +507,7 @@ function triplesByValue(store, m, v) {
       res.push(triple);
     }
   }
+
   return res;
 }
 
@@ -606,7 +613,7 @@ export function getPrimaryKeyAttr(store, etype) {
   if (fromPrimary) {
     return fromPrimary;
   }
-  return store.attrIndexes.forwardIdents.get(etype)?.get('id');
+  return store.attrIndexes.forwardIdents.get(etype)?.get("id");
 }
 
 export function transact(store, txSteps) {

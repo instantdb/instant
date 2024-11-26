@@ -30,14 +30,14 @@
 
 (deftest patterns
   (testing "named patterns are verbose raw patterns"
-    (is (= '([:pattern {:idx :eav, :e [:variable ?a], :a [:variable ?b], :v [:variable ?c] :created-at [:any _]}]
-             [:pattern {:idx :ea, :e [:variable ?c], :a [:variable ?d], :v [:variable ?e] :created-at [:any _]}])
+    (is (= '([:pattern {:idx [:keyword :eav], :e [:variable ?a], :a [:variable ?b], :v [:variable ?c] :created-at [:any _]}]
+             [:pattern {:idx [:keyword :ea], :e [:variable ?c], :a [:variable ?d], :v [:variable ?e] :created-at [:any _]}])
            (d/->named-patterns '[[:eav ?a ?b ?c] [:ea ?c ?d ?e]]))))
   (testing "named patterns coerce values into sets"
-    (is (= '([:pattern {:idx :av, :e [:any _], :a [:variable ?a], :v [:constant #{5}] :created-at [:any _]}])
+    (is (= '([:pattern {:idx [:keyword :av], :e [:any _], :a [:variable ?a], :v [:constant #{5}] :created-at [:any _]}])
            (d/->named-patterns '[[:av _ ?a 5]]))))
   (testing "named patterns add wildcards for missing params"
-    (is (= '([:pattern {:idx :vae, :e [:any _], :a [:any _], :v [:any _] :created-at [:any _]}])
+    (is (= '([:pattern {:idx [:keyword :vae], :e [:any _], :a [:any _], :v [:any _] :created-at [:any _]}])
            (d/->named-patterns '[[:vae]])))))
 
 (deftest pats->coarse-topics

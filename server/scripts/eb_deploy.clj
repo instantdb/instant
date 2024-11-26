@@ -16,7 +16,7 @@
                {:out :string
                 :err :string
                 :continue true}
-               "aws elasticbeanstalk describe-environments --region us-east-1 --environment-name Instant-docker-prod-env"
+               "aws elasticbeanstalk describe-environments --region us-east-1 --environment-name Instant-docker-prod-env-2"
                *command-line-args*)]
     (when-not (string/blank? out)
       (-> (json/parse-string out)
@@ -72,7 +72,7 @@
   (println "Deploying " (get version "VersionLabel") " " (get version "Description"))
   (Thread/sleep 500)
   (apply exec
-         (str "eb deploy instant-docker-prod-env --version " (get version "VersionLabel"))
+         (str "eb deploy Instant-docker-prod-env-2 --version " (get version "VersionLabel"))
          *command-line-args*))
 
 (defn main-loop []
