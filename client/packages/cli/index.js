@@ -73,7 +73,7 @@ const PUSH_PULL_OPTIONS = new Set(["schema", "perms", "all"]);
 function convertArgToBagWithErrorLogging(arg) {
   if (!arg) {
     return { ok: true, bag: "all" };
-  } else if (PUSH_PULL_OPTIONS.has(arg.trim().lowercase())) {
+  } else if (PUSH_PULL_OPTIONS.has(arg.trim().toLowerCase())) {
     return { ok: true, bag: arg };
   } else {
     error(
