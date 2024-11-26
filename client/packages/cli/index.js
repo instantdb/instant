@@ -410,8 +410,8 @@ function printDotEnvInfo(source, appId) {
     const otherEnvs = Object.values(rest);
     otherEnvs.sort();
     const otherEnvStr = otherEnvs.map((x) => "  " + chalk.green(x)).join("\n");
-    console.log(`Alternative names: \n${otherEnvStr}`);
-    console.log(terminalLink("Dashboard", appDashUrl(appId)));
+    console.log(`Alternative names: \n${otherEnvStr}\n`);
+    console.log(terminalLink("Dashboard", appDashUrl(appId)) + "\n");
   }
 }
 
@@ -1530,7 +1530,7 @@ function generateSchemaTypescriptFile(id, schema, title, instantModuleName) {
 
   const entitiesObjCode = `{\n${entitiesEntriesCode}\n}`;
 
-  const linksEntriesCode = Object.fromEntries(
+  const linksEntries = Object.fromEntries(
     sortedEntries(schema.refs).map(([_name, config]) => {
       const [, fe, flabel] = config["forward-identity"];
       const [, re, rlabel] = config["reverse-identity"];
@@ -1552,44 +1552,52 @@ function generateSchemaTypescriptFile(id, schema, title, instantModuleName) {
       ];
     }),
   );
+  const linksEntriesCode = JSON.stringify(linksEntries, null, "  ");
 
-  return `
-// ${appDashUrl(id)}
-// Docs: https://www.instantdb.com/docs/schema
-
-import { i } from "${instantModuleName ?? "@instantdb/core"}";
-
-const _schema = i.schema(
-${
-  Object.keys(schema.blobs).length === 1 &&
-  Object.keys(schema.blobs)[0] === "$users"
+  const etypes = Object.keys(schema.blobs);
+  const hasOnlyUserTable = etypes.length === 1 && etypes[0] === "$users";
+  const entitiesComment = hasOnlyUserTable
     ? `
 // This section lets you define entities: think \`posts\`, \`comments\`, etc
 // Take a look at the docs to learn more:
 // https://www.instantdb.com/docs/schema#defining-entities
 `.trim()
-    : ""
-}
-${indentLines(entitiesObjCode, 1)},
-${
-  Object.keys(schema.refs).length === 0
+    : "";
+  const hasNoLinks = Object.keys(linksEntries).length === 0;
+  const linksComment = hasNoLinks
     ? `
-// You can define links here.
-// For example, if \`posts\` should have many \`comments\`.
-// More in the docs:
-// https://www.instantdb.com/docs/schema#defining-links
-`.trim()
-    : ""
-}
-${indentLines(JSON.stringify(linksEntriesCode, null, "  "), 1)}
-);
+  // You can define links here.
+  // For example, if \`posts\` should have many \`comments\`.
+  // More in the docs:
+  // https://www.instantdb.com/docs/schema#defining-links
+  `.trim()
+    : "";
+
+  const roomsComment = `
+// If you use presence, you can define a room schema here
+// https://www.instantdb.com/docs/schema#defining-rooms
+  `.trim();
+
+  return `
+// Docs: https://www.instantdb.com/docs/schema
+
+import { i } from "${instantModuleName ?? "@instantdb/core"}";
+
+const _schema = i.schema({
+  ${entitiesComment}
+  entities: ${entitiesObjCode},
+  ${linksComment}
+  links: ${linksEntriesCode},
+  ${roomsComment}
+  rooms: {}
+});
 
 // This helps Typescript display nicer intellisense
 type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
 
-export type AppSchema; 
+export { type AppSchema }
 export default schema;
 `;
 }
