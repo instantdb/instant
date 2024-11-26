@@ -3,6 +3,7 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { init } from "@instantdb/react";
 
+import Login from "../../components/Login";
 import config from "../../config";
 
 const DEFAULT_APP_ID = "524bc106-1f0d-44a0-b222-923505264c47";
@@ -13,6 +14,15 @@ const App = ({ appId }: { appId: string }) => {
     appId: appId,
   });
 
+  const { isLoading, error, user } = db.useAuth();
+  if (isLoading) { return <div>Loading...</div>; }
+  if (error) { return <div>Uh oh! {error.message}</div>; }
+  if (!user) { return <Login auth={db.auth} />; }
+
+  return <Main db={db} />;
+}
+
+function Main({ db }: { db: any }) {
   const [files, setFiles] = React.useState<File[]>([]);
   const [imageUrl, setImageUrl] = React.useState<string | null>(null);
   const [imageStatus, setImageStatus] = React.useState<
@@ -53,8 +63,6 @@ const App = ({ appId }: { appId: string }) => {
         setImageUrl(url);
         setImageStatus("pending");
       }
-      // Reset input
-      setFiles([]);
     } catch (error) {
       console.error("Error uploading file:", error);
     }

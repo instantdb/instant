@@ -36,6 +36,12 @@
 (defn instant-config-app-id []
   (-> @config-map :instant-config-app-id))
 
+(defn s3-storage-access-key []
+  (some-> @config-map :s3-storage-access-key crypt-util/secret-value))
+
+(defn s3-storage-secret-key []
+  (some-> @config-map :s3-storage-secret-key crypt-util/secret-value))
+
 (defn postmark-token []
   (some-> @config-map :postmark-token crypt-util/secret-value))
 

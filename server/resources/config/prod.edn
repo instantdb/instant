@@ -8,6 +8,10 @@
   :json "{\"encryptedKeyset\":\"AQICAHhpp/gyLqbSj/AUco4gftFgpQ99AbOx+UEx1DTG6st//AFoN+9a7FNl1rjvox4RwL97AAABAjCB/wYJKoZIhvcNAQcGoIHxMIHuAgEAMIHoBgkqhkiG9w0BBwEwHgYJYIZIAWUDBAEuMBEEDN1Uv+fy9Ru9r+3mTQIBEICBur72urR4FwbzDJ9IVe3q8Uv/uqpoBRTj3CsQnlHk4U97MjLf1W3oYVE2jdM0WOpLdvWhZfdWTcPhpgonP6CyyoHspFZ8MC8LrSheC8AVX6CRBEQSbNLiJ11Mbcjq6MHgH9pwxZAgmWdY7MJgmOqJw6+VA9otMG2LA4ssnIypuqewdLHWHdhp1EQNmfF5dKxcLe+OL/ee9GLfokI+AP/a91DeBHFo+32Co1ECjEd9CHIK/f3AhCVPtPvF2A==\",\"keysetInfo\":{\"primaryKeyId\":1349240052,\"keyInfo\":[{\"typeUrl\":\"type.googleapis.com/google.crypto.tink.HpkePrivateKey\",\"status\":\"ENABLED\",\"keyId\":1349240052,\"outputPrefixType\":\"TINK\"}]}}"
   :public-key-json "{\"primaryKeyId\":1349240052,\"key\":[{\"keyData\":{\"typeUrl\":\"type.googleapis.com/google.crypto.tink.HpkePublicKey\",\"value\":\"EgYIARABGAIaIML+zPIaSSQvRzuOODD1ZKz/9QWHXj3Y/+A5btFCwxpz\",\"keyMaterialType\":\"ASYMMETRIC_PUBLIC\"},\"status\":\"ENABLED\",\"keyId\":1349240052,\"outputPrefixType\":\"TINK\"}]}"}
 
+ :s3-storage-access-key {:enc "01506bc4f451bbb565bfcb437ae2c305c1a3170c189c29c3e8cceca363a09b0d66dd26c5769b03e7351606075de558a8417b88a39f8640fdd0fd29faf4f3bea6f71646a7e3b138b452"}
+
+ :s3-storage-secret-key {:enc "01506bc4f4972c313c0bf2ec5be9f42a7f7389e4866ada94ae131b2cc5aa3c4ccd8007c876070813e1ce5d63485ee54d86471548322bc3af5162b0c45713cc9047dee6b5aea2c52181a37b323d3438b76266274afaccce01a935d00e62"}
+
  :postmark-token {:enc "01506bc4f4f166d70857fd4d420ef1405c0b2d5a30cabaf073b1aa608d3618f4faca8bc168b7495f9175509e06dfa7d52f48ba76408cd346e562cab0afb1cf1b040caf358a3025fa37a450c6a6a387ddc463049d0f2b41031d"}
 
  :postmark-account-token {:enc "01506bc4f4c67e78161ce519cf3bf14272614d38a7931e5606406e59a488084f42449f2401c89976d49d0d9d8c72745ac1991bb9d9c30f302067514a92491639fedc74aa34fb92508359255853d114a7b5f3f8fb3a3e6355de"}
