@@ -401,7 +401,7 @@ async function push(bag, appId, opts) {
 
 function printDotEnvInfo(source, appId) {
   if (source === "imported" || source === "created") {
-    console.log(`\nPicked app ${chalk.green(appId)}! \n`);
+    console.log(`\nPicked app ${chalk.green(appId)}!\n`);
     console.log(
       `To use this app automatically from now on, update your ${chalk.green("`.env`")} file:`,
     );
@@ -409,8 +409,8 @@ function printDotEnvInfo(source, appId) {
     console.log(`  ${chalk.green(catchall)}=${appId}`);
     const otherEnvs = Object.values(rest);
     otherEnvs.sort();
-    const otherEnvStr = otherEnvs.map((x) => chalk.green(x)).join("\n ");
-    console.log(`Alternative names: \n ${otherEnvStr}`);
+    const otherEnvStr = otherEnvs.map((x) => "  " + chalk.green(x)).join("\n");
+    console.log(`Alternative names: \n${otherEnvStr}`);
     console.log(terminalLink("Dashboard", appDashUrl(appId)));
   }
 }
@@ -567,6 +567,9 @@ async function promptImportAppOrCreateApp() {
     if (!ok) return { ok: false };
     return await promptCreateApp();
   }
+
+  apps.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+
   const choice = await select({
     message: "Which app would you like to import?",
     choices: res.data.apps.map((app) => {
@@ -965,7 +968,7 @@ async function pushSchema(appId, opts) {
   if (!planRes.ok) return;
 
   if (!planRes.data.steps.length) {
-    console.log("No schema changes detected.  Exiting.");
+    console.log("No schema changes detected. Exiting.");
     return;
   }
 
@@ -1550,8 +1553,9 @@ function generateSchemaTypescriptFile(id, schema, title, instantModuleName) {
     }),
   );
 
-  return `// ${title}
+  return `
 // ${appDashUrl(id)}
+// Docs: https://www.instantdb.com/docs/schema
 
 import { i } from "${instantModuleName ?? "@instantdb/core"}";
 
