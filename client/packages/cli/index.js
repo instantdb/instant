@@ -4,7 +4,7 @@ import version from "./src/version.js";
 import { mkdir, writeFile, readFile, stat } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
-import jsonDiff from "json-diff";
+import jsonDiff, { diff } from "json-diff";
 import dotenv from "dotenv";
 import chalk from "chalk";
 import { program, Option } from "commander";
@@ -1065,10 +1065,6 @@ async function pushSchema(appId, opts) {
   return true;
 }
 
-function printPermChanges(prodPerms, candidatePerms) {
-  console.log(jsonDiff.diffString(prodPerms, candidatePerms));
-}
-
 async function pushPerms(appId) {
   const perms = await readLocalPermsFileWithErrorLogging();
   if (!perms) {
@@ -1085,14 +1081,17 @@ async function pushPerms(appId) {
 
   if (!prodPerms.ok) return;
 
+  const diffedStr = jsonDiff.diffString(prodPerms.data.perms, perms)
+  if (!diffedStr.length) {
+    console.log("There are no changes to apply.");
+    return; 
+  }
+  
   console.log("The following changes will be applied to your perms:");
-
-  printPermChanges(prodPerms.data.perms, perms);
-
-  const ok = await promptOk(
-    "Pushing permissions rules. This will immediately replace your production rules. OK to proceed?",
-  );
-  if (!ok) return;
+  console.log(diffedStr);
+  
+  const okPush = await promptOk("OK to proceed?");
+  if (!okPush) return;
 
   const permsRes = await fetchJson({
     method: "POST",
