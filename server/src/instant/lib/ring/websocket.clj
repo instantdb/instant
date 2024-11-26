@@ -187,7 +187,7 @@
 
 (defn send-json!
   "Serializes `obj` to json, and sends over a websocket."
-  [obj {:keys [websocket-stub undertow-websocket send-lock]}]
+  [app-id obj {:keys [websocket-stub undertow-websocket send-lock]}]
   ;; Websockets/sendText _should_ be thread-safe
   ;; But, t becomes thread-unsafe when we use per-message-deflate
   ;; Using a `send-lock` to make `send-json!` thread-safe
@@ -196,20 +196,21 @@
     (let [obj-json (->json obj)
           p (promise)
           _ (try
-              (tracer/add-data!
-               {:attributes
-                {:send-lock.queue-length (.getQueueLength send-lock)
-                 :send-lock.is-locked (.isLocked send-lock)
-                 :send-lock.held-by-current-thread (.isHeldByCurrentThread send-lock)}})
-              (.lock send-lock)
-              (WebSockets/sendText
-               ^String obj-json
-               ^WebSocketChannel undertow-websocket
-               (proxy [WebSocketCallback] []
-                 (complete [ws-conn context]
-                   (deliver p nil))
-                 (onError [ws-conn context throwable]
-                   (deliver p throwable))))
+              (tracer/with-span! {:name "ws/send-json!"
+                                  :attributes {:size (count obj-json)
+                                               :app-id app-id
+                                               :send-lock.queue-length (.getQueueLength send-lock)
+                                               :send-lock.is-locked (.isLocked send-lock)
+                                               :send-lock.held-by-current-thread (.isHeldByCurrentThread send-lock)}}
+                (.lock send-lock)
+                (WebSockets/sendText
+                 ^String obj-json
+                 ^WebSocketChannel undertow-websocket
+                 (proxy [WebSocketCallback] []
+                   (complete [ws-conn context]
+                     (deliver p nil))
+                   (onError [ws-conn context throwable]
+                     (deliver p throwable)))))
               (finally
                 (.unlock send-lock)))
           ret @p]

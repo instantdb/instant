@@ -1151,7 +1151,7 @@
     {:undertow/websocket
      {:on-open (fn [{:keys [channel]}]
                  (tracer/with-span! {:name "ws-play/on-open" :attributes {:id id}}
-                   (ws/send-json! (format "[%s] ok" id) channel)))
+                   (ws/send-json! nil (format "[%s] ok" id) channel)))
       :on-message (fn [{:keys [^WebSocketChannel channel data]}]
                     (tracer/with-span! {:name "ws-play/on-message" :attributes {:id id :data data}}
                       (condp = (string/trim data)
@@ -1161,8 +1161,8 @@
                         "throw-err"
                         (tracer/with-span! {:name "ws-play/throw-err" :attributes {:id id}}
                           (do (.close channel)
-                              (ws/send-json! "this can't send" channel)))
-                        (ws/send-json! (format "[%s] received %s" id data) channel))))
+                              (ws/send-json! nil "this can't send" channel)))
+                        (ws/send-json! nil (format "[%s] received %s" id data) channel))))
 
       :on-close (fn [_]
                   (tracer/record-info! {:name  "ws-play/on-close" :attributes {:id id}}))
