@@ -872,7 +872,7 @@ console.log(data)
 
 The `where` clause supports `$like` on fields that are indexed with a checked `string` type.
 
-`$like` queries will return entities that match a case-insensitive substring of the provided value for the field. Here's how you can do queries like `startsWith`, `endsWith` and `includes`.
+`$like` queries will return entities that match a **case sensitive** substring of the provided value for the field. Here's how you can do queries like `startsWith`, `endsWith` and `includes`.
 
 | Example                   | Description           | JS equivalent |
 | :-----------------------: | :-------------------: | :-----------: |
