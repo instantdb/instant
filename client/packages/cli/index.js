@@ -4,6 +4,7 @@ import version from "./src/version.js";
 import { mkdir, writeFile, readFile, stat } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
+import jsonDiff from "json-diff";
 import dotenv from "dotenv";
 import chalk from "chalk";
 import { program, Option } from "commander";
@@ -1064,11 +1065,29 @@ async function pushSchema(appId, opts) {
   return true;
 }
 
+function printPermChanges(prodPerms, candidatePerms) {
+  console.log(jsonDiff.diffString(prodPerms, candidatePerms));
+}
+
 async function pushPerms(appId) {
   const perms = await readLocalPermsFileWithErrorLogging();
   if (!perms) {
     return;
   }
+
+  console.log("Planning...");
+
+  const prodPerms = await fetchJson({
+    path: `/dash/apps/${appId}/perms/pull`,
+    debugName: "Perms pull",
+    errorMessage: "Failed to pull perms.",
+  });
+
+  if (!prodPerms.ok) return;
+
+  console.log("The following changes will be applied to your perms:");
+
+  printPermChanges(prodPerms.data.perms, perms);
 
   const ok = await promptOk(
     "Pushing permissions rules. This will immediately replace your production rules. OK to proceed?",
