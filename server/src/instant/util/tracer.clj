@@ -12,7 +12,7 @@
    (io.opentelemetry.context Context)
    (io.opentelemetry.exporter.otlp.trace OtlpGrpcSpanExporter)
    (io.opentelemetry.sdk.resources Resource)
-   (io.opentelemetry.sdk.trace SdkTracerProvider)
+   (io.opentelemetry.sdk.trace SdkTracerProvider SdkTracer)
    (io.opentelemetry.sdk.trace.export BatchSpanProcessor SimpleSpanProcessor))
   (:gen-class))
 
@@ -23,7 +23,7 @@
 (def ^:dynamic *silence-exceptions?* nil)
 
 (defonce tracer (atom nil))
-(defn get-tracer []
+(defn get-tracer ^SdkTracer []
   (if-let [t @tracer]
     t
     (throw (Exception. "Call to trace before initialization."))))
@@ -31,6 +31,7 @@
 (defn make-log-only-sdk
   "Creates an opentelemetry sdk that logs to the console for use in tests
   and for Open Source when no Honeycomb API key is available."
+  ^OpenTelemetrySdk
   []
   (let [trace-provider-builder (SdkTracerProvider/builder)
         sdk-builder (OpenTelemetrySdk/builder)
@@ -40,7 +41,9 @@
         (.setTracerProvider (.build trace-provider-builder))
         (.build))))
 
-(defn make-honeycomb-sdk [honeycomb-api-key]
+(defn make-honeycomb-sdk
+  ^OpenTelemetrySdk
+  [honeycomb-api-key]
   (let [trace-provider-builder (SdkTracerProvider/builder)
         sdk-builder (OpenTelemetrySdk/builder)
         log-processor (SimpleSpanProcessor/create (logging-exporter/create))
@@ -212,7 +215,7 @@
   ([]
    (when *span*
      (span-uri *span*)))
-  ([span]
+  ([^Span span]
    (let [ctx (.getSpanContext span)
          trace-id (.getTraceId ctx)
          span-id (.getSpanId ctx)]
