@@ -14,7 +14,8 @@ import {
 // API
 
 /**
- * @deprecated Use `i.schema` instead.
+ * @deprecated 
+ * `i.graph` is deprecated. Use `i.schema` instead.
  *
  * @example
  * // Before 
@@ -22,6 +23,9 @@ import {
  * 
  * // After 
  * i.schema({ entities, links, rooms })
+ * 
+ * @see
+ * https://instantdb.com/docs/schema
  */
 function graph<
   EntitiesWithoutLinks extends EntitiesDef,
