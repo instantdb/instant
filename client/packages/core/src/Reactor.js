@@ -530,6 +530,10 @@ export default class Reactor {
       message: msg.message || "Uh-oh, something went wrong. Ping Joe & Stopa.",
     };
 
+    if (msg.hint) {
+      errorMessage.hint = msg.hint;
+    }
+
     if (prevMutation) {
       // This must be a transaction error
       const errDetails = {
