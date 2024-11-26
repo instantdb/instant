@@ -50,16 +50,6 @@ const potentialEnvs = {
   vite: "VITE_INSTANT_APP_ID",
 };
 
-const noAppIdErrorMessage = `
-Couldn't find an app ID.
-
-You can either: 
-a. Set ${chalk.green("`INSTANT_APP_ID`")} in your .env file. [1]
-b. Or provide an app ID via the CLI: ${chalk.green("`instant-cli push|pull -a <app-id>`")}.
-
-[1] Alternatively, If you have ${chalk.green("`NEXT_PUBLIC_INSTANT_APP_ID`")}, ${chalk.green("`VITE_INSTANT_APP_ID`")}, we can detect those too!
-`.trim();
-
 const instantDashOrigin = dev
   ? "http://localhost:3000"
   : "https://instantdb.com";
@@ -737,11 +727,6 @@ async function pullPerms(appId, { pkgDir }) {
 
   if (!pullRes.ok) return;
 
-  if (!pullRes.data.perms || !countEntities(pullRes.data.perms)) {
-    console.log("No perms.  Exiting.");
-    return;
-  }
-
   if (await pathExists(join(pkgDir, "instant.perms.ts"))) {
     const ok = await promptOk(
       "This will ovwerwrite your local instant.perms file, OK to proceed?",
@@ -753,7 +738,7 @@ async function pullPerms(appId, { pkgDir }) {
   const permsPath = join(pkgDir, "instant.perms.ts");
   await writeTypescript(
     permsPath,
-    `export default ${JSON.stringify(pullRes.data.perms, null, "  ")};`,
+    generatePermsTypescriptFile(pullRes.data.perms || {}),
     "utf-8",
   );
 
@@ -1472,6 +1457,38 @@ function appDashUrl(id) {
   return `${instantDashOrigin}/dash?s=main&t=home&app=${id}`;
 }
 
+function generatePermsTypescriptFile(perms) {
+  const rulesTxt = Object.keys(perms).length
+    ? JSON.stringify(perms, null, 2)
+    : `
+{
+  /** 
+   * Welcome to Instant's permission system!
+   * Right now your rules are empty. To start filling them in, check out the docs:
+   * https://www.instantdb.com/docs/permissions
+   * 
+   * Here's an example to give you a feel: 
+   * posts: {
+   *   allow: {
+   *     view: "true",
+   *     create: "isOwner",
+   *     update: "isOwner",
+   *     delete: "isOwner",
+   *   },
+   *   bind: ["isOwner", "data.creator == auth.uid"],
+   * },
+   */
+};
+`.trim();
+  return `
+// Docs: https://www.instantdb.com/docs/permissions
+
+const rules = ${rulesTxt};
+
+export default rules;
+  `.trim();
+}
+
 function generateSchemaTypescriptFile(id, schema, title, instantModuleName) {
   const entitiesEntriesCode = sortedEntries(schema.blobs)
     .map(([name, attrs]) => {
@@ -1539,7 +1556,27 @@ function generateSchemaTypescriptFile(id, schema, title, instantModuleName) {
 import { i } from "${instantModuleName ?? "@instantdb/core"}";
 
 const graph = i.graph(
+${
+  Object.keys(schema.blobs).length === 1 &&
+  Object.keys(schema.blobs)[0] === "$users"
+    ? `
+// This section lets you define entities: think \`posts\`, \`comments\`, etc
+// Take a look at the docs to learn more:
+// https://www.instantdb.com/docs/schema#defining-entities
+`.trim()
+    : ""
+}
 ${indentLines(entitiesObjCode, 1)},
+${
+  Object.keys(schema.refs).length === 0
+    ? `
+// You can define links here.
+// For example, if \`posts\` should have many \`comments\`.
+// More in the docs:
+// https://www.instantdb.com/docs/schema#defining-links
+`.trim()
+    : ""
+}
 ${indentLines(JSON.stringify(linksEntriesCode, null, "  "), 1)}
 );
 
