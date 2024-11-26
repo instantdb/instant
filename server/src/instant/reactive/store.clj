@@ -436,6 +436,13 @@
             false
             small)))
 
+(defn like-match? [text pattern]
+  (let [regex-pattern (-> pattern
+                          (clojure.string/replace "_" ".")
+                          (clojure.string/replace "%" ".*")
+                          (#(str "^" % "$")))]
+    (re-matches (re-pattern regex-pattern) text)))
+
 (defn- match-topic-part? [iv-part dq-part]
   (cond
     (keyword? iv-part) (= iv-part dq-part)
@@ -448,7 +455,8 @@
                 :$gt >
                 :$gte >=
                 :$lt <
-                :$lte <=)]
+                :$lte <=
+                :$like like-match?)]
         (some (fn [v]
                 (f v value))
               iv-part))

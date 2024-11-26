@@ -83,7 +83,7 @@
                        :cardinality :one
                        :value-type :blob
                        :unique? (boolean (#{"email" "handle" "isbn13"} idn))
-                       :index? (boolean (#{"email" "handle"} idn))}
+                       :index? (boolean (#{"email" "handle" "title"} idn))}
                       (when-let [data-type (when checked-data?
                                              (case idn
                                                ("email"

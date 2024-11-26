@@ -255,7 +255,13 @@
                    :in ["etype" :$ :where "boolean" :$gt],
                    :message
                    "The data type of `etype.boolean` is `boolean`, but the query got the value `1` of type `number`."}
-                 (validation-err ctx {:etype {:$ {:where {:boolean {:$gt 1}}}}}))))))))
+                 (validation-err ctx {:etype {:$ {:where {:boolean {:$gt 1}}}}})))
+
+          (is (= '{:expected? string?
+                   :in ["etype" :$ :where "string" :$like],
+                   :message
+                   "The $like value for `etype.string` must be a string, but the query got the value `10` of type `number`."}
+                 (validation-err ctx {:etype {:$ {:where {:string {:$like 10}}}}}))))))))
 
 (deftest pagination
   (testing "limit"
@@ -989,122 +995,128 @@
                   ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))}))))
 
 (deftest where-$like
-  (testing "with no matches"
-    (is-pretty-eq?
-     (query-pretty
-      {:users {:$ {:where {:handle {:$like "%moop%"}}}}})
-     '({:topics ([:av _ #{:users/handle} _]), :triples (), :aggregate (nil)})))
-  (testing "with equality"
-    (is-pretty-eq?
-     (query-pretty
-      {:users {:$ {:where {:handle {:$like "joe"}}}}})
-     '({:topics
-        ([:av _ #{:users/handle} _]
-         --
-         [:ea
-          #{"eid-joe-averbukh"}
-          #{:users/bookshelves
-            :users/createdAt
-            :users/email
-            :users/id
-            :users/fullName
-            :users/handle}
-          _]),
-        :triples
-        (("eid-joe-averbukh" :users/handle "joe")
-         --
-         ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
-         ("eid-joe-averbukh" :users/email "joe@instantdb.com")
-         ("eid-joe-averbukh" :users/handle "joe")
-         ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
-         ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")),
-        :aggregate (nil nil)})))
-  (testing "like startsWith"
-    (is-pretty-eq?
-     (query-pretty
-      {:users {:$ {:where {:handle {:$like "al%"}}}}})
-     '({:topics
-        ([:av _ #{:users/handle} _]
-         --
-         [:ea
-          #{"eid-alex"}
-          #{:users/bookshelves
-            :users/createdAt
-            :users/email
-            :users/id
-            :users/fullName
-            :users/handle}
-          _]),
-        :triples
-        (("eid-alex" :users/handle "alex")
-         --
-         ("eid-alex" :users/id "eid-alex")
-         ("eid-alex" :users/fullName "Alex")
-         ("eid-alex" :users/email "alex@instantdb.com")
-         ("eid-alex" :users/handle "alex")
-         ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689")),
-        :aggregate (nil nil)})))
-  (testing "like endsWith deep"
-    (is-pretty-eq?
-     (query-pretty
-      {:users {:$ {:where {:bookshelves.books.title {:$like "%Monte Cristo"}}}}})
-     '({:topics
-        ([:ea _ #{:books/title} _]
-         [:vae _ #{:bookshelves/books} #{"eid-the-count-of-monte-cristo"}]
-         [:vae
-          _
-          #{:users/bookshelves}
-          #{"eid-the-way-of-the-gentleman" "eid-fiction"}]
-         --
-         [:ea
-          #{"eid-stepan-parunashvili"}
-          #{:users/bookshelves
-            :users/createdAt
-            :users/email
-            :users/id
-            :users/fullName
-            :users/handle}
-          _]
-         --
-         [:ea
-          #{"eid-nicole"}
-          #{:users/bookshelves
-            :users/createdAt
-            :users/email
-            :users/id
-            :users/fullName
-            :users/handle}
-          _]),
-        :triples
-        (("eid-the-count-of-monte-cristo"
-          :books/title
-          "The Count of Monte Cristo")
-         ("eid-the-count-of-monte-cristo"
-          :books/title
-          "The Count of Monte Cristo")
-         ("eid-nicole" :users/bookshelves "eid-fiction")
-         ("eid-fiction" :bookshelves/books "eid-the-count-of-monte-cristo")
-         ("eid-the-way-of-the-gentleman"
-          :bookshelves/books
-          "eid-the-count-of-monte-cristo")
-         ("eid-stepan-parunashvili"
-          :users/bookshelves
-          "eid-the-way-of-the-gentleman")
-         --
-         ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-         ("eid-stepan-parunashvili"
-          :users/createdAt
-          "2021-01-07 18:50:43.447955")
-         ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
-         ("eid-stepan-parunashvili" :users/handle "stopa")
-         ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
-         --
-         ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
-         ("eid-nicole" :users/email "nicole@instantdb.com")
-         ("eid-nicole" :users/handle "nicolegf")
-         ("eid-nicole" :users/id "eid-nicole")
-         ("eid-nicole" :users/fullName "Nicole")),
-        :aggregate (nil nil nil)}))))
+  (with-zeneca-checked-data-app
+    (fn [app r]
+      (let [ctx {:db {:conn-pool aurora/conn-pool}
+                 :app-id (:id app)
+                 :attrs (attr-model/get-by-app-id (:id app))}]
+        (testing "with no matches"
+          (is-pretty-eq?
+           (query-pretty ctx r
+                         {:users {:$ {:where {:handle {:$like "%moop%"}}}}})
+           '({:topics ([:ave _ #{:users/handle} {:$comparator {:op :$like, :value "%moop%", :data-type :string}}])
+              :triples ()})))
+        (testing "with equality"
+          (is-pretty-eq?
+           (query-pretty ctx r
+                         {:users {:$ {:where {:handle {:$like "joe"}}}}})
+           '({:topics
+              ([:ave _ #{:users/handle} {:$comparator {:op :$like, :value "joe", :data-type :string}}]
+               --
+               [:ea
+                #{"eid-joe-averbukh"}
+                #{:users/bookshelves
+                  :users/createdAt
+                  :users/email
+                  :users/id
+                  :users/fullName
+                  :users/handle}
+                _]),
+              :triples
+              (("eid-joe-averbukh" :users/handle "joe")
+               --
+               ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+               ("eid-joe-averbukh" :users/email "joe@instantdb.com")
+               ("eid-joe-averbukh" :users/handle "joe")
+               ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
+               ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))})))
+        (testing "like startsWith"
+          (is-pretty-eq?
+           (query-pretty ctx r
+                         {:users {:$ {:where {:handle {:$like "al%"}}}}})
+           '({:topics
+              ([:ave _ #{:users/handle} {:$comparator {:op :$like, :value "al%", :data-type :string}}]
+               --
+               [:ea
+                #{"eid-alex"}
+                #{:users/bookshelves
+                  :users/createdAt
+                  :users/email
+                  :users/id
+                  :users/fullName
+                  :users/handle}
+                _]),
+              :triples
+              (("eid-alex" :users/handle "alex")
+               --
+               ("eid-alex" :users/id "eid-alex")
+               ("eid-alex" :users/fullName "Alex")
+               ("eid-alex" :users/email "alex@instantdb.com")
+               ("eid-alex" :users/handle "alex")
+               ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689")),
+              :aggregate (nil nil)})))
+        (testing "like endsWith deep"
+          (is-pretty-eq?
+           (query-pretty ctx r
+                         {:users {:$ {:where {:bookshelves.books.title {:$like "%Monte Cristo"}}}}})
+           '({:topics
+              ([:ave _ #{:books/title} {:$comparator
+                                        {:op :$like, :value "%Monte Cristo", :data-type :string}}]
+               [:vae _ #{:bookshelves/books} #{"eid-the-count-of-monte-cristo"}]
+               [:vae
+                _
+                #{:users/bookshelves}
+                #{"eid-the-way-of-the-gentleman" "eid-fiction"}]
+               --
+               [:ea
+                #{"eid-stepan-parunashvili"}
+                #{:users/bookshelves
+                  :users/createdAt
+                  :users/email
+                  :users/id
+                  :users/fullName
+                  :users/handle}
+                _]
+               --
+               [:ea
+                #{"eid-nicole"}
+                #{:users/bookshelves
+                  :users/createdAt
+                  :users/email
+                  :users/id
+                  :users/fullName
+                  :users/handle}
+                _]),
+              :triples
+              (("eid-the-count-of-monte-cristo"
+                :books/title
+                "The Count of Monte Cristo")
+               ("eid-the-count-of-monte-cristo"
+                :books/title
+                "The Count of Monte Cristo")
+               ("eid-nicole" :users/bookshelves "eid-fiction")
+               ("eid-fiction" :bookshelves/books "eid-the-count-of-monte-cristo")
+               ("eid-the-way-of-the-gentleman"
+                :bookshelves/books
+                "eid-the-count-of-monte-cristo")
+               ("eid-stepan-parunashvili"
+                :users/bookshelves
+                "eid-the-way-of-the-gentleman")
+               --
+               ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+               ("eid-stepan-parunashvili"
+                :users/createdAt
+                "2021-01-07 18:50:43.447955")
+               ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+               ("eid-stepan-parunashvili" :users/handle "stopa")
+               ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+               --
+               ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
+               ("eid-nicole" :users/email "nicole@instantdb.com")
+               ("eid-nicole" :users/handle "nicolegf")
+               ("eid-nicole" :users/id "eid-nicole")
+               ("eid-nicole" :users/fullName "Nicole")),
+              :aggregate (nil nil nil)})))))))
 
 (deftest where-$not
   (is-pretty-eq?
@@ -2041,18 +2053,21 @@
                                (#(get % "etype"))
                                (map #(get % (name return-field)))
                                set)))
-            run-explain (fn [data-type value]
-                          (-> (d/explain (make-ctx)
-                                         {:children
-                                          {:pattern-groups
-                                           [{:patterns
-                                             [[{:idx-key :ave, :data-type data-type}
-                                               '?etype-0
-                                               (get attr-ids data-type)
-                                               {:$comparator {:op :$gt, :value value, :data-type data-type}}]]}]}})
-                              (get "QUERY PLAN")
-                              first
-                              (get-in ["Plan" "Plans" 0 "Index Name"])))]
+            run-explain (fn run-explain
+                          ([data-type value]
+                           (run-explain :$gt data-type value))
+                          ([op data-type value]
+                           (-> (d/explain (make-ctx)
+                                          {:children
+                                           {:pattern-groups
+                                            [{:patterns
+                                              [[{:idx-key :ave, :data-type data-type}
+                                                '?etype-0
+                                                (get attr-ids data-type)
+                                                {:$comparator {:op op, :value value, :data-type data-type}}]]}]}})
+                               (get "QUERY PLAN")
+                               first
+                               (get-in ["Plan" "Plans" 0 "Index Name"]))))]
         (tx/transact! aurora/conn-pool
                       (attr-model/get-by-app-id (:id app))
                       (:id app)
@@ -2095,7 +2110,10 @@
           (is (= #{"0" "1" "2"} (run-query :string {:etype {:$ {:where {:string {:$lte "2"}}}}})))
 
           (testing "uses index"
-            (is (= "triples_string_trgm_gist_idx" (run-explain :string "2")))))
+            (is (= "triples_string_trgm_gist_idx" (run-explain :string "2"))))
+
+          (testing "like uses index"
+            (is (= "triples_string_trgm_gist_idx" (run-explain :$like :string "%aaa")))))
 
         (testing "number"
           (is (= #{3 4} (run-query :number {:etype {:$ {:where {:number {:$gt 2}}}}})))

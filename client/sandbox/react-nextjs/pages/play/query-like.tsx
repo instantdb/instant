@@ -1,12 +1,37 @@
 import { useEffect, useState } from "react";
 import config from "../../config";
-import { init, tx, id } from "@instantdb/react";
+import { init_experimental, tx, id, i } from "@instantdb/react";
 import { useRouter } from "next/router";
+
+const schema = i.graph(
+  {
+    items: i.entity({
+      val: i.string().indexed(),
+    }),
+    link: i.entity({
+      val: i.string().indexed(),
+    }),
+  },
+  {
+    valLink: {
+      forward: {
+        on: "items",
+        has: "one",
+        label: "link",
+      },
+      reverse: {
+        on: "link",
+        has: "many",
+        label: "items",
+      },
+    },
+  },
+);
 
 function Example({ appId }: { appId: string }) {
   const router = useRouter();
-  const myConfig = { ...config, appId };
-  const db = init(myConfig);
+  const myConfig = { ...config, appId, schema };
+  const db = init_experimental(myConfig);
 
   const { data } = db.useQuery({ items: {} });
 
@@ -43,7 +68,9 @@ function Example({ appId }: { appId: string }) {
       <div>
         <button
           className="bg-black text-white m-2 p-2"
-          onClick={() => db.transact(tx.items[id()].update({ val: "Go Team Instant" }))}
+          onClick={() =>
+            db.transact(tx.items[id()].update({ val: "Go Team Instant" }))
+          }
         >
           Create item with val = "Go Team Instant"
         </button>
@@ -163,7 +190,9 @@ function Example({ appId }: { appId: string }) {
         </div>
         <div className="p-2">
           <details open>
-            <summary>ends with "Instant" ({isEndsWith?.items.length || 0}):</summary>
+            <summary>
+              ends with "Instant" ({isEndsWith?.items.length || 0}):
+            </summary>
 
             {isEndsWith?.items.map((item) => (
               <div key={item.id}>
@@ -306,4 +335,3 @@ function Page() {
 }
 
 export default Page;
-

@@ -450,14 +450,6 @@ export function allMapValues(m, level, res = []) {
   return res;
 }
 
-function matchesLikePattern(value, pattern) {
-  if (typeof value !== 'string' || typeof pattern !== 'string') return false;
-  const regexPattern = pattern.replace(/%/g, '.*')
-  const regex = new RegExp(`^${regexPattern}$`);
-  return regex.test(value);
-}
-
-
 function triplesByValue(store, m, v) {
   const res = [];
   if (v?.hasOwnProperty("$not")) {

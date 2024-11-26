@@ -55,7 +55,6 @@
 (s/def ::attr-id uuid?)
 (s/def ::nil? boolean?)
 (s/def ::$isNull (s/keys :req-un [::attr-id ::nil?]))
-(s/def ::$like string?)
 
 (s/def ::op #{:$gt :$gte :$lt :$lte :$like})
 (s/def ::data-type #{:string :number :date :boolean})
@@ -335,9 +334,8 @@
   "Given a named-pattern and the symbol-values from previous patterns,
    returns the topic that would invalidate the query"
   [{:keys [idx e a v]} symbol-values]
-  (cond
-    (and (= :function (first v))
-         (contains? (second v) :$isNull))
+  (if (and (= :function (first v))
+           (contains? (second v) :$isNull))
     ;; This might be a lot simpler if we had a way to do
     ;; (not [?e :attr-id])
     [[:ea
@@ -576,7 +574,6 @@
     :function (let [[func val] (first v-value)]
                 (case func
                   :$not [[:not= :value (value->jsonb val)]]
-                  :$like [[:like [:->> :value :0] val]]
                   :$isNull [[(if (:nil? val)
                                :not-in
                                :in)
@@ -595,7 +592,8 @@
                                      :$gt :>
                                      :$gte :>=
                                      :$lt :<
-                                     :$lte :<=)
+                                     :$lte :<=
+                                     :$like :like)
                                    [(kw :triples_extract_ data-type :_value)
                                     :value]
                                    value]

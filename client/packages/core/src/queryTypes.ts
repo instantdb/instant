@@ -31,6 +31,7 @@ type WhereArgs = {
   $lt?: string | number | boolean;
   $gte?: string | number | boolean;
   $lte?: string | number | boolean;
+  $like?: string;
 };
 
 type WhereClauseValue = string | number | boolean | NonEmpty<WhereArgs>;
