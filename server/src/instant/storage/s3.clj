@@ -52,28 +52,33 @@
   (list-app-objects default-bucket app-id)
   (list-app-objects app-id))
 
+(defn generate-presigned-url
+  ([opts]
+   (let [access-key (config/s3-storage-access-key)
+         secret-key (config/s3-storage-secret-key)]
+     (if (and access-key secret-key)
+       (s3/generate-presigned-url {:access-key access-key
+                                   :secret-key secret-key} opts)
+       ;; For OSS developers, use the default credentials provider chain
+       ;; so they don't need to set up separate storage credentials
+       (s3/generate-presigned-url opts)))))
+
 (defn signed-upload-url
   ([object-key] (signed-upload-url default-bucket object-key))
   ([bucket-name object-key]
-   (s3/generate-presigned-url
-    {:access-key (config/s3-storage-access-key)
-     :secret-key (config/s3-storage-secret-key)}
-    {:method :put
-     :bucket-name bucket-name
-     :key object-key})))
+   (generate-presigned-url {:method :put
+                            :bucket-name bucket-name
+                            :key object-key})))
 
 (defn signed-download-url
   ([object-key] (let [expiration (+ (System/currentTimeMillis) (* 1000 60 60 24 7))] ;; 7 days
                   (signed-download-url default-bucket object-key expiration)))
   ([object-key expiration] (signed-download-url default-bucket object-key expiration))
   ([bucket-name object-key expiration]
-   (s3/generate-presigned-url
-    {:access-key (config/s3-storage-access-key)
-     :secret-key (config/s3-storage-secret-key)}
-    {:method :get
-     :bucket-name bucket-name
-     :key object-key
-     :expiration expiration})))
+   (generate-presigned-url {:method :get
+                            :bucket-name bucket-name
+                            :key object-key
+                            :expiration expiration})))
 
 (defn upload-image-to-s3
   ([object-key image-url] (upload-image-to-s3 default-bucket object-key image-url))
