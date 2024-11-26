@@ -3130,7 +3130,7 @@
                          r1
                          {:$users {:$ {:where {"books.title" "Sum"}}}})
            [{:topics
-             [[:ea '_ #{:books/title} #{"Sum"}]
+             [[:ave '_ #{:books/title} #{"Sum"}]
               [:eav #{"eid-sum"} #{:books/$user-creator} '_]
               '--
               [:ea #{"eid-alex"} #{:$users/email :$users/id} '_]],
