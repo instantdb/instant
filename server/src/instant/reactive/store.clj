@@ -15,6 +15,7 @@
    4. Metadata. Sessions have auth, sockets, and other misc data for handling
       events across the lifetime of a session"
   (:require
+   [clojure.string :as string]
    [datascript.core :as d]
    [instant.util.coll :as ucoll]
    [instant.lib.ring.websocket :as ws]
@@ -438,8 +439,8 @@
 
 (defn like-match? [text pattern]
   (let [regex-pattern (-> pattern
-                          (clojure.string/replace "_" ".")
-                          (clojure.string/replace "%" ".*")
+                          (string/replace "_" ".")
+                          (string/replace "%" ".*")
                           (#(str "^" % "$")))]
     (re-matches (re-pattern regex-pattern) text)))
 
