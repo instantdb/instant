@@ -88,6 +88,13 @@ function refAttrPat(makeVar, store, etype, level, label) {
   return [nextEtype, nextLevel, attrPat, attr, isForward];
 }
 
+function matchesLikePattern(value, pattern) {
+  if (typeof value !== "string" || typeof pattern !== "string") return false;
+  const regexPattern = pattern.replace(/%/g, ".*").replace(/_/g, ".");
+  const regex = new RegExp(`^${regexPattern}$`);
+  return regex.test(value);
+}
+
 function parseValue(attr, v) {
   if (
     typeof v !== "object" ||
@@ -146,6 +153,15 @@ function parseValue(attr, v) {
         : function lte(triple) {
             return triple[2] <= v.$lte;
           },
+    };
+  }
+
+  if (v.hasOwnProperty("$like")) {
+    return {
+      $comparator: true,
+      $op: function like(triple) {
+        return matchesLikePattern(triple[2], v.$like);
+      },
     };
   }
 

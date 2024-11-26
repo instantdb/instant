@@ -279,6 +279,18 @@
                 (throw-invalid-data-value! state attr data-type v))
     nil))
 
+(defn assert-like-is-string! [state attr tag value]
+  (when (not= tag :string)
+    (ex/throw-validation-err!
+     :query
+     (:root state)
+     [{:expected? 'string?
+       :in (:in state)
+       :message (format "The $like value for `%s` must be a string, but the query got the value `%s` of type `%s`."
+                        (attr-model/fwd-friendly-name attr)
+                        (json/->json value)
+                        (json/json-type-of-clj value))}])))
+
 (defn coerced-type-comparison-value! [state attr attr-data-type tag value]
   (case attr-data-type
     :date (case tag
@@ -311,10 +323,12 @@
 
         (and (map? v)
              (= (count v) 1)
-             (contains? #{:$gt :$gte :$lt :$lte} (ffirst v)))
+             (contains? #{:$gt :$gte :$lt :$lte :$like} (ffirst v)))
         (let [[op [tag value]] (first v)
               attr-data-type (assert-checked-attr-data-type! state attr)
               state (update state :in conj op)]
+          (when (= op :$like)
+            (assert-like-is-string! state attr tag value))
           {:$comparator
            {:op op
             :value (coerced-type-comparison-value! state attr attr-data-type tag value)

@@ -115,6 +115,83 @@ test("Where in", () => {
   ).toEqual(["joe", "stopa"]);
 });
 
+test("Where %like%", () => {
+  expect(
+    query(
+      { store },
+      {
+        users: {
+          $: {
+            where: {
+              handle: { $like: "%o%" },
+            },
+          },
+        },
+      },
+    )
+      .data.users.map((x) => x.handle)
+      .sort(),
+  ).toEqual(["joe", "nicolegf", "stopa"]);
+});
+
+test("Where like equality", () => {
+  expect(
+    query(
+      { store },
+      {
+        users: {
+          $: {
+            where: {
+              handle: { $like: "joe" },
+            },
+          },
+        },
+      },
+    )
+      .data.users.map((x) => x.handle)
+      .sort(),
+  ).toEqual(["joe"]);
+});
+
+test("Where startsWith deep", () => {
+  expect(
+    query(
+      { store },
+      {
+        users: {
+          $: {
+            where: {
+              "bookshelves.books.title": { $like: "%Monte Cristo" },
+            },
+          },
+        },
+      },
+    )
+      .data.users.map((x) => x.handle)
+      .sort(),
+  ).toEqual(["nicolegf", "stopa"]);
+});
+
+test("Where endsWith deep", () => {
+  expect(
+    query(
+      { store },
+      {
+        users: {
+          $: {
+            where: {
+              "bookshelves.books.title": { $like: "Anti%" },
+            },
+          },
+        },
+      },
+    )
+      .data.users.map((x) => x.handle)
+      .sort(),
+  ).toEqual(["alex", "nicolegf", "stopa"]);
+});
+
+
 test("Where and", () => {
   expect(
     query(

@@ -121,7 +121,7 @@
    (map-indexed
     (fn [i c]
       (if (or
-           ;; Don't override not and isnull
+           ;; Don't override function clauses
            (and (= i 2)
                 (map? c)
                 (or (contains? c :$not)
@@ -592,7 +592,8 @@
                                      :$gt :>
                                      :$gte :>=
                                      :$lt :<
-                                     :$lte :<=)
+                                     :$lte :<=
+                                     :$like :like)
                                    [(kw :triples_extract_ data-type :_value)
                                     :value]
                                    value]
@@ -1185,8 +1186,6 @@
                         ctes (if-let [page-info (:page-info pattern-group)]
                                (add-page-info page-info (:with query))
                                (:with query))
-
-
 
                         next-acc (cond-> acc
                                    true (assoc :next-idx next-idx)

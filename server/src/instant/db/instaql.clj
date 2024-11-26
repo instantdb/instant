@@ -45,13 +45,18 @@
 (s/def ::$gte ::comparator)
 (s/def ::$lt ::comparator)
 (s/def ::$lte ::comparator)
+(s/def ::$like ::comparator)
 
 (defn where-value-valid-keys? [m]
-  (every? #{:in :$in :$not :$isNull :$gt :$gte :$lt :$lte} (keys m)))
+  (every? #{:in :$in
+            :$not :$isNull
+            :$gt :$gte :$lt :$lte
+            :$like}
+          (keys m)))
 
 (s/def ::where-args-map (s/and
                          (s/keys :opt-un [::in ::$in ::$not ::$isNull
-                                          ::$gt ::$gte ::$lt ::$lte])
+                                          ::$gt ::$gte ::$lt ::$lte ::$like])
                          where-value-valid-keys?))
 
 (s/def ::where-v
@@ -1056,7 +1061,12 @@
                                  [(:gt (second v))]
 
                                  (contains? (second v) :lt)
-                                 [(:lt (second v))]))]
+                                 [(:lt (second v))]
+
+                                 (contains? (second v) :$like)
+                                 (when-let [like-val (:$like (second v))]
+                                   like-val)))]
+
     (if (< 1 (count path))
       (let [relations-fields (butlast path)
 
@@ -1095,7 +1105,10 @@
                                          :>
 
                                          (contains? (second v) :lt)
-                                         :<))]
+                                         :<
+
+                                         (contains? (second v) :$like)
+                                         :like))]
         {:sql-conds (list* :or
                            (for [value values]
                              [comparison field [:cast value field-type]]))
