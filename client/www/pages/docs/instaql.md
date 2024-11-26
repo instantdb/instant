@@ -881,12 +881,8 @@ The `where` clause supports `$like` on fields that are indexed with a checked `s
 | `{ $like: "%fit%" }`      | Contains 'fit'       | `includes`    |
 
 
-`{ $like: "%promoted!" }` looks for values that end with "promoted!".
-
-`{ $like: "Get%" }` looks for values that start with "Get".
-
-`{ $like: "%fit%" }` looks for values that contain "fit".
-
+Here's how you can use `$like` to find all goals that end with the word
+"promoted!"
 
 ```javascript
 // Find all goals that end with the word "promoted!"
