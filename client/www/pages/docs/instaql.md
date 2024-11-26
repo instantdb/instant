@@ -654,8 +654,113 @@ console.log(data)
     {
       "id": reviewPRsId,
       "title": "Review PRs"
-    },
+    }
   ]
+}
+```
+
+### Comparison operators
+
+The `where` clause supports comparison operators on fields that are indexed and have checked types.
+
+{% callout %}
+Add indexes and checked types to your attributes from the [Explorer on the the Instant dashboard](/dash?t=explorer) or from the [cli with Schema-as-code](/docs/schema).
+{% /callout %}
+
+| Operator |       Description        | JS equivalent |
+| :------: | :----------------------: | :-----------: |
+|  `$gt`   |       greater than       |      `>`      |
+|  `$lt`   |        less than         |      `<`      |
+|  `$gte`  | greater than or equal to |     `>=`      |
+|  `$lte`  |  less than or equal to   |     `<=`      |
+
+```javascript
+const query = {
+  todos: {
+    $: {
+      where: {
+        timeEstimateHours: { $gt: 24 },
+      },
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data);
+{
+  "todos": [
+    {
+      "id": buildShipId,
+      "title": "Build a starship prototype",
+      "timeEstimateHours": 5000
+    }
+  ]
+}
+```
+
+Dates can be stored as timestamps (milliseconds since the epoch, e.g. `Date.now()`) or as ISO 8601 strings (e.g. `JSON.stringify(new Date())`) and can be queried in the same formats:
+
+```javascript
+const now = '2024-11-26T15:25:00.054Z';
+const query = {
+  todos: {
+    $: { where: { dueDate: { $lte: now } } },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data);
+{
+  "todos": [
+    {
+      "id": slsFlightId,
+      "title": "Space Launch System maiden flight",
+      "dueDate": "2017-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+If you try to use comparison operators on data that isn't indexed and type-checked, you'll get an error:
+
+```javascript
+const query = {
+  todos: {
+    $: { where: { priority: { $gt: 2 } } },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(error);
+{
+  "message": "Validation failed for query",
+  "hint": {
+    "data-type": "query",
+    "errors": [
+      {
+        "expected?": "indexed?",
+        "in": ["priority", "$", "where", "priority"],
+        "message": "The `todos.priority` attribute must be indexed to use comparison operators."
+      }
+    ],
+    "input": {
+      "todos": {
+        "$": {
+          "where": {
+            "priority": {
+              "$gt": 2
+            }
+          }
+        }
+      }
+    }
+  }
 }
 ```
 
