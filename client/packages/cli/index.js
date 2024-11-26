@@ -21,7 +21,7 @@ import {
   getInstallCommand,
 } from "./src/util/packageManager.js";
 import { pathExists, readJsonFile } from "./src/util/fs.js";
-import prettier from 'prettier';
+import prettier from "prettier";
 
 const execAsync = promisify(exec);
 
@@ -49,16 +49,6 @@ const potentialEnvs = {
   svelte: "PUBLIC_INSTANT_APP_ID",
   vite: "VITE_INSTANT_APP_ID",
 };
-
-const noAppIdErrorMessage = `
-Couldn't find an app ID.
-
-You can either: 
-a. Set ${chalk.green("`INSTANT_APP_ID`")} in your .env file. [1]
-b. Or provide an app ID via the CLI: ${chalk.green("`instant-cli push|pull -a <app-id>`")}.
-
-[1] Alternatively, If you have ${chalk.green("`NEXT_PUBLIC_INSTANT_APP_ID`")}, ${chalk.green("`VITE_INSTANT_APP_ID`")}, we can detect those too!
-`.trim();
 
 const instantDashOrigin = dev
   ? "http://localhost:3000"
@@ -393,8 +383,9 @@ program.parse(process.argv);
 
 // command actions
 async function handlePush(bag, opts) {
-  const { ok, appId } = await detectOrCreateAppWithErrorLogging(opts);
+  const { ok, appId, source } = await detectOrCreateAppWithErrorLogging(opts);
   if (!ok) return;
+  printDotEnvInfo(source, appId);
   await push(bag, appId, opts);
 }
 
@@ -408,17 +399,29 @@ async function push(bag, appId, opts) {
   }
 }
 
+function printDotEnvInfo(source, appId) {
+  if (source === "imported" || source === "created") {
+    console.log(`\nPicked app ${chalk.green(appId)}!\n`);
+    console.log(
+      `To use this app automatically from now on, update your ${chalk.green("`.env`")} file:`,
+    );
+    const { catchall, ...rest } = potentialEnvs;
+    console.log(`  ${chalk.green(catchall)}=${appId}`);
+    const otherEnvs = Object.values(rest);
+    otherEnvs.sort();
+    const otherEnvStr = otherEnvs.map((x) => "  " + chalk.green(x)).join("\n");
+    console.log(`Alternative names: \n${otherEnvStr}`);
+    console.log(terminalLink("Dashboard", appDashUrl(appId)));
+  }
+}
+
 async function handlePull(bag, opts) {
   const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
   if (!pkgAndAuthInfo) return;
-  const { ok, appId, appTitle, isCreated } =
-    await detectOrCreateAppWithErrorLogging(opts);
+  const { ok, appId, source } = await detectOrCreateAppWithErrorLogging(opts);
   if (!ok) return;
-  if (isCreated) {
-    await handleCreatedApp(pkgAndAuthInfo, appId, appTitle);
-  } else {
-    await pull(bag, appId, pkgAndAuthInfo);
-  }
+  printDotEnvInfo(source, appId);
+  await pull(bag, appId, pkgAndAuthInfo);
 }
 
 async function pull(bag, appId, pkgAndAuthInfo) {
@@ -542,7 +545,7 @@ async function promptCreateApp() {
     ok: true,
     appId: id,
     appTitle: title,
-    isCreated: true,
+    source: "created",
   };
 }
 
@@ -564,6 +567,9 @@ async function promptImportAppOrCreateApp() {
     if (!ok) return { ok: false };
     return await promptCreateApp();
   }
+
+  apps.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+
   const choice = await select({
     message: "Which app would you like to import?",
     choices: res.data.apps.map((app) => {
@@ -571,14 +577,14 @@ async function promptImportAppOrCreateApp() {
     }),
   }).catch(() => null);
   if (!choice) return { ok: false };
-  return { ok: true, appId: choice };
+  return { ok: true, appId: choice, source: "imported" };
 }
 
 async function detectOrCreateAppWithErrorLogging(opts) {
   const fromOpts = await detectAppIdFromOptsWithErrorLogging(opts);
   if (!fromOpts.ok) return fromOpts;
   if (fromOpts.appId) {
-    return { ok: true, appId: fromOpts.appId };
+    return { ok: true, appId: fromOpts.appId, source: "opts" };
   }
 
   const fromEnv = detectAppIdFromEnvWithErrorLogging();
@@ -586,7 +592,7 @@ async function detectOrCreateAppWithErrorLogging(opts) {
   if (fromEnv.found) {
     const { envName, value } = fromEnv.found;
     console.log(`Found ${chalk.green(envName)}: ${value}`);
-    return { ok: true, appId: value };
+    return { ok: true, appId: value, source: "env" };
   }
 
   const action = await select({
@@ -604,45 +610,13 @@ async function detectOrCreateAppWithErrorLogging(opts) {
   return await promptImportAppOrCreateApp();
 }
 
-async function writeTypescript(path, content, encoding) { 
+async function writeTypescript(path, content, encoding) {
   const prettierConfig = await prettier.resolveConfig(path);
   const formattedCode = await prettier.format(content, {
     ...prettierConfig,
-    parser: 'typescript',
+    parser: "typescript",
   });
   return await writeFile(path, formattedCode, encoding);
-}
-
-async function handleCreatedApp(
-  { pkgDir, instantModuleName },
-  appId,
-  appTitle,
-) {
-  const schema = await readLocalSchemaFile();
-  const { perms } = await readLocalPermsFile();
-
-  console.log(chalk.green(`Successfully created your Instant app "${appId}"`));
-  console.log(`Please add your app ID to your .env config:`);
-  console.log(chalk.magenta(`INSTANT_APP_ID=${appId}`));
-  console.log(terminalLink("Dashboard", appDashUrl(appId)));
-
-  if (!schema) {
-    const schemaPath = join(pkgDir, "instant.schema.ts");
-    await writeTypescript(
-      schemaPath,
-      instantSchemaTmpl(appTitle, appId, instantModuleName),
-      "utf-8",
-    );
-    console.log("Start building your schema: " + schemaPath);
-  }
-
-  if (!perms) {
-    await writeTypescript(
-      join(pkgDir, "instant.perms.ts"),
-      examplePermsTmpl,
-      "utf-8",
-    );
-  }
 }
 
 async function getInstantModuleName(pkgJson) {
@@ -756,11 +730,6 @@ async function pullPerms(appId, { pkgDir }) {
 
   if (!pullRes.ok) return;
 
-  if (!pullRes.data.perms || !countEntities(pullRes.data.perms)) {
-    console.log("No perms.  Exiting.");
-    return;
-  }
-
   if (await pathExists(join(pkgDir, "instant.perms.ts"))) {
     const ok = await promptOk(
       "This will ovwerwrite your local instant.perms file, OK to proceed?",
@@ -772,7 +741,7 @@ async function pullPerms(appId, { pkgDir }) {
   const permsPath = join(pkgDir, "instant.perms.ts");
   await writeTypescript(
     permsPath,
-    `export default ${JSON.stringify(pullRes.data.perms, null, "  ")};`,
+    generatePermsTypescriptFile(pullRes.data.perms || {}),
     "utf-8",
   );
 
@@ -999,7 +968,7 @@ async function pushSchema(appId, opts) {
   if (!planRes.ok) return;
 
   if (!planRes.data.steps.length) {
-    console.log("No schema changes detected.  Exiting.");
+    console.log("No schema changes detected. Exiting.");
     return;
   }
 
@@ -1141,7 +1110,7 @@ async function waitForAuthToken({ secret }) {
     if (authCheckRes.data?.hint.errors?.[0]?.issue === "waiting-for-user") {
       continue;
     }
-    error('Failed to authenticate ');
+    error("Failed to authenticate ");
     prettyPrintJSONErr(authCheckRes.data);
     return;
   }
@@ -1487,115 +1456,41 @@ function detectAppIdFromEnvWithErrorLogging() {
   return { ok: true, found };
 }
 
-async function getAppIdWithErrorLogging(arg) {
-  const fromArg = await detectAppIdFromOptsWithErrorLogging({
-    app: arg,
-  });
-  if (!fromArg.ok) return;
-  if (fromArg.appId) {
-    return fromArg.appId;
-  }
-  const fromEnv = detectAppIdFromEnvWithErrorLogging();
-  if (!fromEnv.ok) return;
-  if (fromEnv.found) {
-    const { envName, value } = fromEnv.found;
-    console.log(`Found ${chalk.green(envName)}: ${value}`);
-    return value;
-  }
-  // otherwise, instruct the user to set one of these up
-  error(noAppIdErrorMessage);
-
-  return;
-}
-
 function appDashUrl(id) {
   return `${instantDashOrigin}/dash?s=main&t=home&app=${id}`;
 }
 
-function instantSchemaTmpl(title, id, instantModuleName) {
-  return /* ts */ `// ${title}
-// ${appDashUrl(id)}
-
-import { i } from "${instantModuleName ?? "@instantdb/core"}";
-
-// Example entities and links (you can delete these!)
-const graph = i.graph(
-  {
-    posts: i.entity({
-      name: i.string(),
-      content: i.string(),
-    }),
-    authors: i.entity({
-      userId: i.string(),
-      name: i.string(),
-    }),
-    tags: i.entity({
-      label: i.string(),
-    }),
-  },
-  {
-    authorPosts: {
-      forward: {
-        on: "authors",
-        has: "many",
-        label: "posts",
-      },
-      reverse: {
-        on: "posts",
-        has: "one",
-        label: "author",
-      },
-    },
-    postsTags: {
-      forward: {
-        on: "posts",
-        has: "many",
-        label: "tags",
-      },
-      reverse: {
-        on: "tags",
-        has: "many",
-        label: "posts",
-      },
-    },
-  },
-);
-
-
-export default graph;
-`;
-}
-
-const examplePermsTmpl = /* ts */ `export default {
-  authors: {
-    bind: ["isAuthor", "auth.id == data.userId"],
-    allow: {
-      view: "true",
-      create: "isAuthor",
-      update: "isAuthor",
-      delete: "isAuthor",
-    },
-  },
-  posts: {
-    bind: ["isAuthor", "auth.id in data.ref('authors.userId')"],
-    allow: {
-      view: "true",
-      create: "isAuthor",
-      update: "isAuthor",
-      delete: "isAuthor",
-    },
-  },
-  tags: {
-    bind: ["isOwner", "auth.id in data.ref('posts.authors.userId')"],
-    allow: {
-      view: "true",
-      create: "isOwner",
-      update: "isOwner",
-      delete: "isOwner",
-    },
-  },
+function generatePermsTypescriptFile(perms) {
+  const rulesTxt = Object.keys(perms).length
+    ? JSON.stringify(perms, null, 2)
+    : `
+{
+  /** 
+   * Welcome to Instant's permission system!
+   * Right now your rules are empty. To start filling them in, check out the docs:
+   * https://www.instantdb.com/docs/permissions
+   * 
+   * Here's an example to give you a feel: 
+   * posts: {
+   *   allow: {
+   *     view: "true",
+   *     create: "isOwner",
+   *     update: "isOwner",
+   *     delete: "isOwner",
+   *   },
+   *   bind: ["isOwner", "data.creator == auth.uid"],
+   * },
+   */
 };
-`;
+`.trim();
+  return `
+// Docs: https://www.instantdb.com/docs/permissions
+
+const rules = ${rulesTxt};
+
+export default rules;
+  `.trim();
+}
 
 function generateSchemaTypescriptFile(id, schema, title, instantModuleName) {
   const entitiesEntriesCode = sortedEntries(schema.blobs)
@@ -1658,13 +1553,34 @@ function generateSchemaTypescriptFile(id, schema, title, instantModuleName) {
     }),
   );
 
-  return `// ${title}
+  return `
 // ${appDashUrl(id)}
+// Docs: https://www.instantdb.com/docs/schema
 
 import { i } from "${instantModuleName ?? "@instantdb/core"}";
 
 const graph = i.graph(
+${
+  Object.keys(schema.blobs).length === 1 &&
+  Object.keys(schema.blobs)[0] === "$users"
+    ? `
+// This section lets you define entities: think \`posts\`, \`comments\`, etc
+// Take a look at the docs to learn more:
+// https://www.instantdb.com/docs/schema#defining-entities
+`.trim()
+    : ""
+}
 ${indentLines(entitiesObjCode, 1)},
+${
+  Object.keys(schema.refs).length === 0
+    ? `
+// You can define links here.
+// For example, if \`posts\` should have many \`comments\`.
+// More in the docs:
+// https://www.instantdb.com/docs/schema#defining-links
+`.trim()
+    : ""
+}
 ${indentLines(JSON.stringify(linksEntriesCode, null, "  "), 1)}
 );
 
