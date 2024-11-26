@@ -393,8 +393,9 @@ program.parse(process.argv);
 
 // command actions
 async function handlePush(bag, opts) {
-  const { ok, appId } = await detectOrCreateAppWithErrorLogging(opts);
+  const { ok, appId, source } = await detectOrCreateAppWithErrorLogging(opts);
   if (!ok) return;
+  printDotEnvInfo(source, appId);
   await push(bag, appId, opts);
 }
 
@@ -408,17 +409,28 @@ async function push(bag, appId, opts) {
   }
 }
 
+function printDotEnvInfo(source, appId) {
+  if (source === "imported" || source === "created") {
+    console.log(`\nPicked app ${chalk.green(appId)}! \n`);
+    console.log(
+      `To use this app automatically from now on, update your ${chalk.green("`.env`")} file:`,
+    );
+    const { catchall, ...rest } = potentialEnvs;
+    console.log(`  ${chalk.green(catchall)}=${appId}`);
+    const otherEnvs = Object.values(rest);
+    otherEnvs.sort();
+    const otherEnvStr = otherEnvs.map((x) => chalk.green(x)).join("\n ");
+    console.log(`Alternative names: \n ${otherEnvStr}`);
+    console.log(terminalLink("Dashboard", appDashUrl(appId)));
+  }
+}
+
 async function handlePull(bag, opts) {
   const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
   if (!pkgAndAuthInfo) return;
   const { ok, appId, source } = await detectOrCreateAppWithErrorLogging(opts);
-  if (source === "imported" || source === "created")  {
-    console.log(chalk.green(`Successfully ${source} your Instant app "${appId}"`));
-    console.log(`You can add your app ID to your .env config:`);
-    console.log(chalk.magenta(`INSTANT_APP_ID=${appId}`));
-    console.log(terminalLink("Dashboard", appDashUrl(appId)));
-  }
   if (!ok) return;
+  printDotEnvInfo(source, appId);
   await pull(bag, appId, pkgAndAuthInfo);
 }
 
@@ -587,7 +599,7 @@ async function detectOrCreateAppWithErrorLogging(opts) {
   if (fromEnv.found) {
     const { envName, value } = fromEnv.found;
     console.log(`Found ${chalk.green(envName)}: ${value}`);
-    return { ok: true, appId: value, source: 'env' };
+    return { ok: true, appId: value, source: "env" };
   }
 
   const action = await select({
