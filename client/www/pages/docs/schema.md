@@ -6,17 +6,18 @@ title: Schema-as-code
 
 This file lives in the root of your project and will be consumed by [the Instant CLI](/docs/cli). You can apply your schema to the production database with `npx instant-cli push schema`.
 
-The default export of `instant.schema.ts` should always be the result of a call to `i.graph`.
+The default export of `instant.schema.ts` should always be the result of a call to `i.schema`.
 
 ```typescript
 // instant.schema.ts
 
 import { i } from '@instantdb/core';
 
-const graph = i.graph(
-  entitiesMap, // a map of `i.entity` definitions, see "Defining entities" below
-  linksMap // a description of links between your app's entities, see "Defining links" below
-);
+const schema = i.graph(
+  entities: entitiesMap, // a map of `i.entity` definitions, see "Defining entities" below
+  links: linksMap // a description of links between your app's entities, see "Defining links" below, 
+  rooms: roomsMap // a description of your presence state
+});
 
 export default graph;
 ```
@@ -106,6 +107,9 @@ Links are bidirectional, and you can specify a name and cardinality for both the
   // more links...
 }
 ```
+
+## Defining rooms
+
 
 ## An example schema file
 
