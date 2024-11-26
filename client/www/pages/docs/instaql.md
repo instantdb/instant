@@ -870,9 +870,10 @@ console.log(data)
 
 ### $like
 
-The `where` clause supports `$like` queries that will return entities that match
-a case-insensitive substring of the provided value for the field. You can use
-`$like` to do queries like `contains`, `startsWith`, and `endsWith`.
+The `where` clause supports `$like` on fields that are indexed with a checked `string` type.
+
+`$like` queries will return entities that match a case-insensitive substring of the provided value for the field.
+You can use `$like` to do queries like `contains`, `startsWith`, and `endsWith`.
 
 `{ $like: "%promoted!" }` looks for values that end with "promoted!".
 
