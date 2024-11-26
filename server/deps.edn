@@ -41,9 +41,15 @@
         pjstadig/humane-test-output {:mvn/version "0.11.0"}
         com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.3"}
         org.clj-commons/claypoole {:mvn/version "1.2.2"}
-        io.honeycomb/honeycomb-opentelemetry-sdk {:mvn/version "1.5.2"}
-        dev.cel/cel {:mvn/version "0.5.2"}
+
+        ;; opentelemetry
+        io.opentelemetry/opentelemetry-api {:mvn/version "1.44.1"}
+        io.opentelemetry/opentelemetry-sdk {:mvn/version "1.44.1"}
+        io.opentelemetry/opentelemetry-exporter-otlp {:mvn/version "1.44.1"}
+        io.grpc/grpc-netty-shaded {:mvn/version "1.68.1"}
         com.github.steffan-westcott/clj-otel-api {:mvn/version "0.2.4-SNAPSHOT"}
+
+        dev.cel/cel {:mvn/version "0.5.2"}
         com.fasterxml.jackson.core/jackson-core {:mvn/version "2.12.6"}
         com.google.crypto.tink/tink {:mvn/version "1.12.0"}
         com.google.crypto.tink/tink-awskms {:mvn/version "1.9.1"}
