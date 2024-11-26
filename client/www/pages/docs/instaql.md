@@ -664,7 +664,7 @@ console.log(data)
 The `where` clause supports comparison operators on fields that are indexed and have checked types.
 
 {% callout %}
-Add indexes and checked types to your attributes from the [Explorer on the the Instant dashboard](/dash?t=explorer) or from the [cli with Schema-as-code](/docs/schema).
+Add indexes and checked types to your attributes from the [Explorer on the Instant dashboard](/dash?t=explorer) or from the [cli with Schema-as-code](/docs/schema).
 {% /callout %}
 
 | Operator |       Description        | JS equivalent |
@@ -870,16 +870,19 @@ console.log(data)
 
 ### $like
 
-The `where` clause supports `$like` queries that will return entities that match
-a case-insensitive substring of the provided value for the field. You can use
-`$like` to do queries like `contains`, `startsWith`, and `endsWith`.
+The `where` clause supports `$like` on fields that are indexed with a checked `string` type.
 
-`{ $like: "%promoted!" }` looks for values that end with "promoted!".
+`$like` queries will return entities that match a **case sensitive** substring of the provided value for the field. Here's how you can do queries like `startsWith`, `endsWith` and `includes`.
 
-`{ $like: "Get%" }` looks for values that start with "Get".
+| Example                   | Description           | JS equivalent |
+| :-----------------------: | :-------------------: | :-----------: |
+| `{ $like: "Get%" }`       | Starts with 'Get'     | `startsWith`  |
+| `{ $like: "%promoted!" }` | Ends with 'promoted!' | `endsWith`    |
+| `{ $like: "%fit%" }`      | Contains 'fit'        | `includes`    |
 
-`{ $like: "%fit%" }` looks for values that contain "fit".
 
+Here's how you can use `$like` to find all goals that end with the word
+"promoted!"
 
 ```javascript
 // Find all goals that end with the word "promoted!"
