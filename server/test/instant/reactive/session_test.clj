@@ -59,7 +59,7 @@
               *eph-store-atom* eph-store-atom]
       (with-redefs [receive-queue/receive-q receive-q
                     eph/room-refresh-ch room-refresh-ch
-                    ws/send-json! (fn [msg fake-ws-conn]
+                    ws/send-json! (fn [_app-id msg fake-ws-conn]
                                     (a/>!! fake-ws-conn msg))
 
                     rq/instaql-query-reactive!

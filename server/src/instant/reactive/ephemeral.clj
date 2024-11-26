@@ -184,6 +184,7 @@
             :when q]
       (receive-queue/enqueue->receive-q q
                                         {:op :refresh-presence
+                                         :app-id (:app-id room-key)
                                          :room-id room-id
                                          :data room-data
                                          :session-id sess-id}))))
@@ -214,6 +215,7 @@
                   :when q]
             (receive-queue/enqueue->receive-q q
                                               {:op :refresh-presence
+                                               :app-id app-id
                                                :room-id room-id
                                                :data room-data
                                                :session-id sess-id})))))))

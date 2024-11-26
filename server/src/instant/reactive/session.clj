@@ -102,11 +102,11 @@
     (rs/set-session-props! store-conn sess-id {:auth auth
                                                :creator creator
                                                :versions versions})
-    (rs/send-event! store-conn sess-id {:op :init-ok
-                                        :session-id sess-id
-                                        :client-event-id client-event-id
-                                        :auth auth
-                                        :attrs attrs})))
+    (rs/send-event! store-conn app-id sess-id {:op :init-ok
+                                               :session-id sess-id
+                                               :client-event-id client-event-id
+                                               :auth auth
+                                               :attrs attrs})))
 
 (defn- get-auth! [store-conn sess-id]
   (let [auth (rs/get-auth @store-conn sess-id)]
@@ -120,8 +120,8 @@
 
     (cond
       (contains? instaql-queries q)
-      (rs/send-event! store-conn sess-id {:op :add-query-exists :q q
-                                          :client-event-id client-event-id})
+      (rs/send-event! store-conn (:id app) sess-id {:op :add-query-exists :q q
+                                                    :client-event-id client-event-id})
 
       :else
       (let [return-type (keyword (or return-type "join-rows"))
@@ -138,15 +138,15 @@
                  :admin? admin?
                  :current-user user}
             {:keys [instaql-result]} (rq/instaql-query-reactive! store-conn ctx q return-type)]
-        (rs/send-event! store-conn sess-id {:op :add-query-ok :q q :result instaql-result
-                                            :processed-tx-id processed-tx-id
-                                            :client-event-id client-event-id})))))
+        (rs/send-event! store-conn app-id sess-id {:op :add-query-ok :q q :result instaql-result
+                                                   :processed-tx-id processed-tx-id
+                                                   :client-event-id client-event-id})))))
 
 (defn- handle-remove-query! [store-conn sess-id {:keys [q client-event-id] :as _event}]
   (let [{:keys [app]} (get-auth! store-conn sess-id)]
     (rs/remove-query! store-conn sess-id (:id app) q)
-    (rs/send-event! store-conn sess-id {:op :remove-query-ok :q q
-                                        :client-event-id client-event-id})))
+    (rs/send-event! store-conn (:id app) sess-id {:op :remove-query-ok :q q
+                                                  :client-event-id client-event-id})))
 
 (defn- recompute-instaql-query!
   [{:keys [store-conn current-user app-id sess-id attrs table-info admin?]}
@@ -196,10 +196,10 @@
                                      :num-spam num-spam
                                      :num-computations num-computations}}
       (when (seq computations)
-        (rs/send-event! store-conn sess-id {:op :refresh-ok
-                                            :processed-tx-id processed-tx-id
-                                            :attrs attrs
-                                            :computations computations})))))
+        (rs/send-event! store-conn app-id sess-id {:op :refresh-ok
+                                                   :processed-tx-id processed-tx-id
+                                                   :attrs attrs
+                                                   :computations computations})))))
 
 ;; -----
 ;; transact
@@ -220,7 +220,7 @@
           :datalog-query-fn d/query
           :attrs (attr-model/get-by-app-id app-id)}
          coerced)]
-    (rs/send-event! store-conn sess-id
+    (rs/send-event! store-conn app-id sess-id
                     {:op :transact-ok
                      :tx-id tx-id
                      :client-event-id client-event-id})))
@@ -229,12 +229,14 @@
 ;; error
 
 (defn handle-error! [store-conn sess-id {:keys [status
+                                                app-id
                                                 client-event-id
                                                 original-event
                                                 type
                                                 message
                                                 hint]}]
   (rs/send-event! store-conn
+                  app-id
                   sess-id
                   {:op :error
                    :status status
@@ -282,17 +284,17 @@
         app-id (-> auth :app :id)
         current-user (-> auth :user)]
     (eph/join-room! eph-store-atom app-id sess-id current-user room-id)
-    (rs/send-event! store-conn sess-id {:op :join-room-ok
-                                        :room-id room-id
-                                        :client-event-id client-event-id})))
+    (rs/send-event! store-conn app-id sess-id {:op :join-room-ok
+                                               :room-id room-id
+                                               :client-event-id client-event-id})))
 
 (defn- handle-leave-room! [store-conn eph-store-atom sess-id {:keys [client-event-id room-id] :as _event}]
   (let [auth (get-auth! store-conn sess-id)
         app-id (-> auth :app :id)]
     (eph/leave-room! eph-store-atom app-id sess-id room-id)
-    (rs/send-event! store-conn sess-id {:op :leave-room-ok
-                                        :room-id room-id
-                                        :client-event-id client-event-id})))
+    (rs/send-event! store-conn app-id sess-id {:op :leave-room-ok
+                                               :room-id room-id
+                                               :client-event-id client-event-id})))
 
 (defn assert-in-room! [store-v app-id room-id sess-id]
   (when-not (eph/in-room? store-v app-id room-id sess-id)
@@ -307,15 +309,15 @@
         app-id (-> auth :app :id)
         _ (assert-in-room! @eph-store-atom app-id room-id sess-id)]
     (eph/set-presence! eph-store-atom app-id sess-id room-id data)
-    (rs/send-event! store-conn sess-id {:op :set-presence-ok
-                                        :room-id room-id
-                                        :client-event-id client-event-id})))
+    (rs/send-event! store-conn app-id sess-id {:op :set-presence-ok
+                                               :room-id room-id
+                                               :client-event-id client-event-id})))
 
 (defn- handle-refresh-presence!
-  [store-conn sess-id {:keys [room-id data]}]
-  (rs/send-event! store-conn sess-id {:op :refresh-presence
-                                      :room-id room-id
-                                      :data data}))
+  [store-conn sess-id {:keys [app-id room-id data]}]
+  (rs/send-event! store-conn app-id sess-id {:op :refresh-presence
+                                             :room-id room-id
+                                             :data data}))
 
 (defn- handle-client-broadcast!
   "Broadcasts a client message to other sessions in the room"
@@ -343,16 +345,16 @@
     (when (seq remote-ids)
       (eph/broadcast app-id remote-ids base-msg))
 
-    (rs/send-event! store-conn sess-id (assoc base-msg
-                                              :op :client-broadcast-ok
-                                              :client-event-id client-event-id))))
+    (rs/send-event! store-conn app-id sess-id (assoc base-msg
+                                                     :op :client-broadcast-ok
+                                                     :client-event-id client-event-id))))
 
 (defn- handle-server-broadcast! [store-conn eph-store-atom sess-id {:keys [app-id room-id topic data]}]
   (when (eph/in-room? @eph-store-atom app-id room-id sess-id)
-    (rs/send-event! store-conn sess-id {:op :server-broadcast
-                                        :room-id room-id
-                                        :topic topic
-                                        :data data})))
+    (rs/send-event! store-conn app-id sess-id {:op :server-broadcast
+                                               :room-id room-id
+                                               :topic topic
+                                               :data data})))
 
 (defn handle-event [store-conn eph-store-atom session event debug-info]
   (tracer/with-span! {:name "receive-worker/handle-event"}
@@ -379,7 +381,7 @@
 ;; --------------
 ;; Receive Workers
 
-(defn- handle-instant-exception [session original-event instant-ex debug-info]
+(defn- handle-instant-exception [session app-id original-event instant-ex debug-info]
   (let [sess-id (:session/id session)
         q (:receive-q (:session/socket session))
         {:keys [client-event-id]} original-event
@@ -402,6 +404,7 @@
        ::ex/validation-failed)
       (receive-queue/enqueue->receive-q q
                                         {:op :error
+                                         :app-id app-id
                                          :status 400
                                          :client-event-id client-event-id
                                          :original-event (merge original-event
@@ -421,6 +424,7 @@
         (tracer/add-exception! instant-ex {:escaping? false})
         (receive-queue/enqueue->receive-q q
                                           {:op :error
+                                           :app-id app-id
                                            :status 500
                                            :client-event-id client-event-id
                                            :original-event (merge original-event
@@ -430,7 +434,7 @@
                                            :hint hint
                                            :session-id sess-id})))))
 
-(defn- handle-uncaught-err [session original-event root-err debug-info]
+(defn- handle-uncaught-err [session app-id original-event root-err debug-info]
   (let [sess-id (:session/id session)
         q (:receive-q (:session/socket session))
         {:keys [client-event-id]} original-event]
@@ -438,6 +442,7 @@
 
     (receive-queue/enqueue->receive-q q
                                       {:op :error
+                                       :app-id app-id
                                        :client-event-id client-event-id
                                        :status 500
                                        :original-event (merge original-event
@@ -496,13 +501,18 @@
             (tracer/record-info! {:name "caught-throwable"})
             (let [original-event event
                   instant-ex (ex/find-instant-exception e)
-                  root-err (root-cause e)]
+                  root-err (root-cause e)
+                  app-id (some-> (rs/get-auth @store-conn (:session/id session))
+                                 :app
+                                 :id)]
               (cond
                 instant-ex (handle-instant-exception session
+                                                     app-id
                                                      original-event
                                                      instant-ex
                                                      @debug-info)
                 :else (handle-uncaught-err session
+                                           app-id
                                            original-event
                                            root-err
                                            @debug-info))))
