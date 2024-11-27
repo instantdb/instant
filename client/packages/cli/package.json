@@ -23,5 +23,8 @@
     "prettier": "^3.3.3",
     "terminal-link": "^3.0.0",
     "unconfig": "^0.5.5"
+  },
+  "devDependencies": {
+    "@types/json-diff": "^1.0.3"
   }
 }

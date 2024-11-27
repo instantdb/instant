@@ -81,6 +81,10 @@ importers:
       unconfig:
         specifier: ^0.5.5
         version: 0.5.5
+    devDependencies:
+      '@types/json-diff':
+        specifier: ^1.0.3
+        version: 1.0.3
 
   packages/core:
     dependencies:
@@ -7351,6 +7355,10 @@ packages:
       '@types/node': 22.6.1
       '@types/tough-cookie': 4.0.5
       parse5: 7.2.1
+    dev: true
+
+  /@types/json-diff@1.0.3:
+    resolution: {integrity: sha512-Qvxm8fpRMv/1zZR3sQWImeRK2mBYJji20xF51Fq9Gt//Ed18u0x6/FNLogLS1xhfUWTEmDyqveJqn95ltB6Kvw==}
     dev: true
 
   /@types/json-schema@7.0.15:

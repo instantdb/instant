@@ -1,10 +1,10 @@
 // @ts-check
 
 import version from "./src/version.js";
-import { mkdir, writeFile, readFile, stat } from "fs/promises";
+import { mkdir, writeFile, readFile } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
-import jsonDiff, { diff } from "json-diff";
+import jsonDiff from "json-diff";
 import dotenv from "dotenv";
 import chalk from "chalk";
 import { program, Option } from "commander";
