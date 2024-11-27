@@ -435,14 +435,14 @@
         (handler req)))))
 
 (defroutes routes
-  (with-rate-limiting
-    (POST "/admin/query" [] query-post))
-  (with-rate-limiting
-    (POST "/admin/transact" [] transact-post))
-  (with-rate-limiting
-    (POST "/admin/query_perms_check" [] query-perms-check))
-  (with-rate-limiting
-    (POST "/admin/transact_perms_check" [] transact-perms-check))
+  (POST "/admin/query" []
+    (with-rate-limiting query-post))
+  (POST "/admin/transact" []
+    (with-rate-limiting transact-post))
+  (POST "/admin/query_perms_check" []
+    (with-rate-limiting query-perms-check))
+  (POST "/admin/transact_perms_check" []
+    (with-rate-limiting transact-perms-check))
 
   (POST "/admin/sign_out" [] sign-out-post)
   (POST "/admin/refresh_tokens" [] refresh-tokens-post)
@@ -451,15 +451,16 @@
   (GET "/admin/users", [] app-users-get)
   (DELETE "/admin/users", [] app-users-delete)
 
-  (with-rate-limiting
-    (POST "/admin/storage/signed-upload-url" [] signed-upload-url-post))
-  (with-rate-limiting
-    (GET "/admin/storage/signed-download-url", [] signed-download-url-get))
-  (with-rate-limiting
-    (GET "/admin/storage/files" [] files-get))
-  (with-rate-limiting
-    (DELETE "/admin/storage/files" [] file-delete)) ;; single delete
-  (with-rate-limiting
-    (POST "/admin/storage/files/delete" [] files-delete)) ;; bulk delete
+  (POST "/admin/storage/signed-upload-url" []
+    (with-rate-limiting signed-upload-url-post))
+  (GET "/admin/storage/signed-download-url", []
+    (with-rate-limiting signed-download-url-get))
+
+  (GET "/admin/storage/files" []
+    (with-rate-limiting files-get))
+  (DELETE "/admin/storage/files" []
+    (with-rate-limiting file-delete)) ;; single delete
+  (POST "/admin/storage/files/delete" []
+    (with-rate-limiting files-delete)) ;; bulk delete
 
   (GET "/admin/schema" [] schema-get))

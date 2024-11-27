@@ -599,15 +599,12 @@
   (POST "/runtime/auth/send_magic_code" [] send-magic-code-post)
   (POST "/runtime/auth/verify_magic_code" [] verify-magic-code-post)
   (POST "/runtime/auth/verify_refresh_token" [] verify-refresh-token-post)
-  (wrap-cookies
-   (GET "/runtime/oauth/start" [] oauth-start)
-   {:decoder parse-cookie})
-  (wrap-cookies
-   (GET "/runtime/:app_id/oauth/start" [] oauth-start)
-   {:decoder parse-cookie})
-  (wrap-cookies
-   (GET "/runtime/oauth/callback" [] oauth-callback)
-   {:decoder parse-cookie})
+  (GET "/runtime/oauth/start" [] (wrap-cookies oauth-start
+                                               {:decoder parse-cookie}))
+  (GET "/runtime/:app_id/oauth/start" [] (wrap-cookies oauth-start
+                                                       {:decoder parse-cookie}))
+  (GET "/runtime/oauth/callback" [] (wrap-cookies oauth-callback
+                                                  {:decoder parse-cookie}))
 
   (POST "/runtime/oauth/token" [] oauth-token-callback)
   (POST "/runtime/:app_id/oauth/token" [] oauth-token-callback)
