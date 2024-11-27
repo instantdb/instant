@@ -14,7 +14,8 @@
             :test-emails {}
             :hazelcast {}
             :drop-refresh-spam {}
-            :promo-emails {}})
+            :promo-emails {}
+            :rate-limited-apps {}})
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -74,12 +75,17 @@
                                   default-value (get hz-flag "default-value" false)]
                               {:disabled-apps disabled-apps
                                :enabled-apps enabled-apps
-                               :default-value default-value}))]
+                               :default-value default-value}))
+        rate-limited-apps (reduce (fn [acc {:strs [appId]}]
+                                    (conj acc (parse-uuid appId)))
+                                  #{}
+                                  (get result "rate-limited-apps"))]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
      :hazelcast hazelcast
      :promo-code-emails promo-code-emails
-     :drop-refresh-spam drop-refresh-spam}))
+     :drop-refresh-spam drop-refresh-spam
+     :rate-limited-apps rate-limited-apps}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -137,3 +143,7 @@
             :else default-value))
     ;; Default false
     false))
+
+(defn app-rate-limited? [app-id]
+  (contains? (:rate-limited-apps (query-result))
+             app-id))

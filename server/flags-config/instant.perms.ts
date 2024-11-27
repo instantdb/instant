@@ -6,6 +6,14 @@ const rules = {
       create: "false",
     },
   },
+  "rate-limited-apps": {
+    allow: {
+      view: "false",
+      create: "false",
+      delete: "false",
+      update: "false",
+    },
+  },
   "storage-whitelist": {
     allow: {
       view: "false",
