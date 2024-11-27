@@ -1208,11 +1208,9 @@
   (POST "/dash/apps/:app_id/oauth_clients" [] oauth-clients-post)
   (DELETE "/dash/apps/:app_id/oauth_clients/:id" [] oauth-clients-delete)
 
-  (wrap-cookies
-   (GET "/dash/oauth/start" [] oauth-start))
+  (GET "/dash/oauth/start" [] (wrap-cookies oauth-start))
 
-  (wrap-cookies
-   (GET "/dash/oauth/callback" [] oauth-callback))
+  (GET "/dash/oauth/callback" [] (wrap-cookies oauth-callback))
 
   (POST "/dash/oauth/token" [] oauth-token-callback)
 
