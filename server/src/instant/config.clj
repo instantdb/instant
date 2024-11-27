@@ -98,17 +98,15 @@
         :else
         (throw (Exception. "Invalid database connection string. Expected either a JDBC url or a postgres url."))))
 
-(defn get-aurora-config
-  ([] (get-aurora-config {:env (get-env)}))
-  ([{:keys [env]}]
-   (let [application-name (uri/query-encode (format "%s, %s"
-                                                    (get-hostname)
-                                                    @process-id))
-         url (or (System/getenv "DATABASE_URL")
-                 (some-> @config-map :database-url crypt-util/secret-value)
-                 "jdbc:postgresql://localhost:5432/instant")]
-     (assoc (db-url->config url)
-            :ApplicationName application-name))))
+(defn get-aurora-config []
+  (let [application-name (uri/query-encode (format "%s, %s"
+                                                   (get-hostname)
+                                                   @process-id))
+        url (or (System/getenv "DATABASE_URL")
+                (some-> @config-map :database-url crypt-util/secret-value)
+                "jdbc:postgresql://localhost:5432/instant")]
+    (assoc (db-url->config url)
+           :ApplicationName application-name)))
 
 ;; ---
 ;; Stripe
