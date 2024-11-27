@@ -403,12 +403,11 @@ program.parse(process.argv);
 async function handlePush(bag, opts) {
   const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
   if (!pkgAndAuthInfo) return;
-  const { ok, appId, source } = await detectOrCreateAppAndWriteToEnv(
+  const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
     pkgAndAuthInfo,
     opts,
   );
   if (!ok) return;
-  printDotEnvInfo(source, appId);
   await push(bag, appId, opts);
 }
 
