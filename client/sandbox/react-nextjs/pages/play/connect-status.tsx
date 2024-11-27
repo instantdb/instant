@@ -1,4 +1,4 @@
-import { init } from "@instantdb/react";
+import { init, ConnectionStatus } from "@instantdb/react";
 import config from "../../config";
 
 const db = init(config);
@@ -8,7 +8,7 @@ function App() {
 }
 
 function Main() {
-  const status = db.useConnectionStatus();
+  const status: ConnectionStatus = db.useConnectionStatus();
   return (
     <div>
       <div className="p-2">
