@@ -16,9 +16,21 @@ const _schema = i.schema({
   // More in the docs:
   // https://www.instantdb.com/docs/schema#defining-links
   links: {},
-  // If you use presence, you can define a room schema here
-  // https://www.instantdb.com/docs/schema#defining-rooms
-  rooms: {},
+  rooms: {
+    chat: {
+      presence: i.entity({
+        color: i.string(),
+        nickname: i.string(),
+      }),
+      topics: {
+        emote: i.entity({
+          emoji: i.string(),
+          x: i.number(),
+          y: i.number(),
+        }),
+      },
+    },
+  },
 });
 
 // This helps Typescript display nicer intellisense
