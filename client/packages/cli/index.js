@@ -51,6 +51,23 @@ const potentialEnvs = {
   vite: "VITE_INSTANT_APP_ID",
 };
 
+async function detectEnvType({ pkgDir }) {
+  const packageJSON = await getPackageJson(pkgDir);
+  if (!packageJSON) {
+    return "catchall";
+  }
+  if (packageJSON.dependencies?.next) {
+    return "next";
+  }
+  if (packageJSON.devDependencies?.svelte) {
+    return "svelte";
+  }
+  if (packageJSON.devDependencies?.vite) {
+    return "vite";
+  }
+  return "catchall";
+}
+
 const instantDashOrigin = dev
   ? "http://localhost:3000"
   : "https://instantdb.com";
@@ -384,7 +401,12 @@ program.parse(process.argv);
 
 // command actions
 async function handlePush(bag, opts) {
-  const { ok, appId, source } = await detectOrCreateAppWithErrorLogging(opts);
+  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
+  if (!pkgAndAuthInfo) return;
+  const { ok, appId, source } = await detectOrCreateAppAndWriteToEnv(
+    pkgAndAuthInfo,
+    opts,
+  );
   if (!ok) return;
   printDotEnvInfo(source, appId);
   await push(bag, appId, opts);
@@ -400,28 +422,67 @@ async function push(bag, appId, opts) {
   }
 }
 
-function printDotEnvInfo(source, appId) {
-  if (source === "imported" || source === "created") {
-    console.log(`\nPicked app ${chalk.green(appId)}!\n`);
-    console.log(
-      `To use this app automatically from now on, update your ${chalk.green("`.env`")} file:`,
-    );
-    const { catchall, ...rest } = potentialEnvs;
-    console.log(`  ${chalk.green(catchall)}=${appId}`);
-    const otherEnvs = Object.values(rest);
-    otherEnvs.sort();
-    const otherEnvStr = otherEnvs.map((x) => "  " + chalk.green(x)).join("\n");
-    console.log(`Alternative names: \n${otherEnvStr}`);
-    console.log(terminalLink("Dashboard", appDashUrl(appId)));
+function printDotEnvInfo(envType, appId) {
+  console.log(`\nPicked app ${chalk.green(appId)}!\n`);
+  console.log(
+    `To use this app automatically from now on, update your ${chalk.green("`.env`")} file:`,
+  );
+  const picked = potentialEnvs[envType];
+  const rest = { ...potentialEnvs };
+  delete rest[envType];
+  console.log(`  ${chalk.green(picked)}=${appId}`);
+  const otherEnvs = Object.values(rest);
+  otherEnvs.sort();
+  const otherEnvStr = otherEnvs.map((x) => "  " + chalk.green(x)).join("\n");
+  console.log(`Alternative names: \n${otherEnvStr}`);
+  console.log(terminalLink("Dashboard", appDashUrl(appId)));
+}
+
+async function handleEnvFile(pkgAndAuthInfo, appId) {
+  const { pkgDir } = pkgAndAuthInfo;
+  const envType = await detectEnvType(pkgAndAuthInfo);
+  const envName = potentialEnvs[envType];
+
+  const hasEnvFile = await pathExists(join(pkgDir, ".env"));
+  if (hasEnvFile) {
+    printDotEnvInfo(envType, appId);
+    return;
   }
+  console.log(
+    `\nLooks like you don't have a ${chalk.green("`.env`")} file yet.`,
+  );
+  console.log(
+    `If we set ${chalk.green("`" + envName + "`")}, we can remember the app that you chose for all future commands.`,
+  );
+  const ok = await promptOk("Want us to create this env file for you?");
+  if (!ok) {
+    console.log(
+      `No .env file created. You can always set ${chalk.green("`" + envName + "`")} later. \n`,
+    );
+    return;
+  }
+  await writeFile(join(pkgDir, ".env"), `${envName}=${appId}`, "utf-8");
+  console.log(`Created ${chalk.green("`.env`")} file!`);
+}
+
+async function detectOrCreateAppAndWriteToEnv(pkgAndAuthInfo, opts) {
+  const ret = await detectOrCreateAppWithErrorLogging(opts);
+  if (!ret.ok) return ret;
+  const { appId, source } = ret;
+  if (source === "created" || source === "imported") {
+    await handleEnvFile(pkgAndAuthInfo, appId);
+  }
+  return ret;
 }
 
 async function handlePull(bag, opts) {
   const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
   if (!pkgAndAuthInfo) return;
-  const { ok, appId, source } = await detectOrCreateAppWithErrorLogging(opts);
+  const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
+    pkgAndAuthInfo,
+    opts,
+  );
   if (!ok) return;
-  printDotEnvInfo(source, appId);
   await pull(bag, appId, pkgAndAuthInfo);
 }
 
@@ -631,8 +692,12 @@ async function getInstantModuleName(pkgJson) {
   return instantModuleName;
 }
 
+async function getPackageJson(pkgDir) {
+  return await readJsonFile(join(pkgDir, "package.json"));
+}
+
 async function getPackageJSONWithErrorLogging(pkgDir) {
-  const pkgJson = await readJsonFile(join(pkgDir, "package.json"));
+  const pkgJson = await getPackageJson(pkgDir);
   if (!pkgJson) {
     error(`Couldn't find a packge.json file in: ${pkgDir}. Please add one.`);
     return;
@@ -667,24 +732,6 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
   });
 
   if (!pullRes.ok) return;
-
-  const hasEnvFile = await pathExists(join(pkgDir, ".env"));
-  if (!hasEnvFile) {
-    const ok = await promptOk(
-      "No .env file detected, would you like to create one so you can push updates to schema and perms?",
-    );
-
-    if (ok) {
-      await writeFile(join(pkgDir, ".env"), `INSTANT_APP_ID=${appId}`, "utf-8");
-      console.log(
-        `Created .env file with INSTANT_APP_ID=${appId} in ${pkgDir}`,
-      );
-    } else {
-      console.log(
-        "No .env file created. If you plan to push updates, please create one.",
-      );
-    }
-  }
 
   if (
     !countEntities(pullRes.data.schema.refs) &&
@@ -1081,15 +1128,15 @@ async function pushPerms(appId) {
 
   if (!prodPerms.ok) return;
 
-  const diffedStr = jsonDiff.diffString(prodPerms.data.perms, perms)
+  const diffedStr = jsonDiff.diffString(prodPerms.data.perms, perms);
   if (!diffedStr.length) {
     console.log("No perms changes detected. Exiting.");
     return;
   }
-  
+
   console.log("The following changes will be applied to your perms:");
   console.log(diffedStr);
-  
+
   const okPush = await promptOk("OK to proceed?");
   if (!okPush) return;
 
