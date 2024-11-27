@@ -50,6 +50,7 @@ import {
   type InstantConfig,
   type InstantSchemaDef,
   type InstantUnknownSchema,
+  type InstantRules,
 } from "@instantdb/core";
 
 /**
@@ -146,4 +147,5 @@ export {
   type InstantSchemaDef,
   type InstantUnknownSchema,
   type BackwardsCompatibleSchema,
+  type InstantRules,
 };

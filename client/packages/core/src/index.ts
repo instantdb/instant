@@ -834,6 +834,19 @@ function init_experimental<
   return client;
 }
 
+type InstantRules = {
+  [EntityName: string]: {
+    allow: {
+      view?: string;
+      create?: string;
+      update?: string;
+      delete?: string;
+    };
+    bind?: string[];
+  };
+};
+
+
 export {
   // bada bing bada boom
   init,
@@ -915,4 +928,5 @@ export {
   type InstantUnknownSchema,
   type IInstantDatabase,
   type BackwardsCompatibleSchema,
+  type InstantRules,
 };

@@ -720,7 +720,7 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
   return true;
 }
 
-async function pullPerms(appId, { pkgDir }) {
+async function pullPerms(appId, { pkgDir, instantModuleName }) {
   console.log("Pulling perms...");
 
   const pullRes = await fetchJson({
@@ -742,7 +742,7 @@ async function pullPerms(appId, { pkgDir }) {
   const permsPath = join(pkgDir, "instant.perms.ts");
   await writeTypescript(
     permsPath,
-    generatePermsTypescriptFile(pullRes.data.perms || {}),
+    generatePermsTypescriptFile(pullRes.data.perms || {}, instantModuleName),
     "utf-8",
   );
 
@@ -1478,7 +1478,7 @@ function appDashUrl(id) {
   return `${instantDashOrigin}/dash?s=main&t=home&app=${id}`;
 }
 
-function generatePermsTypescriptFile(perms) {
+function generatePermsTypescriptFile(perms, instantModuleName) {
   const rulesTxt = Object.keys(perms).length
     ? JSON.stringify(perms, null, 2)
     : `
@@ -1504,7 +1504,9 @@ function generatePermsTypescriptFile(perms) {
   return `
 // Docs: https://www.instantdb.com/docs/permissions
 
-const rules = ${rulesTxt};
+import { type InstantRules } from "${instantModuleName ?? "@instantdb/core"}";
+
+const rules = ${rulesTxt} satisfies InstantRules;
 
 export default rules;
   `.trim();

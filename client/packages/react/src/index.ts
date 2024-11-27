@@ -37,6 +37,7 @@ import {
   type InstantUnknownSchema,
   type InstantSchemaDef,
   type BackwardsCompatibleSchema,
+  type InstantRules,
 } from "@instantdb/core";
 
 import { InstantReact } from "./InstantReact";
@@ -94,4 +95,5 @@ export {
   type InstantUnknownSchema,
   type InstantSchemaDef,
   type BackwardsCompatibleSchema,
+  type InstantRules,
 };
