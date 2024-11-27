@@ -4,7 +4,7 @@ title: Strong Init (experimental)
 
 What if you could use the types you defined in `instant.schema.ts`, inside `init`? We have a new version of `init` out that lets you do this. It's in beta, but if you use it, `useQuery` and `transact` will automatically get typesafety and intellisense.
 
-Here's how it works
+Here's how it works:
 
 If you want to migrate, swap out `init` with `init_experimental` and pass it your app's schema object.
 
@@ -94,7 +94,7 @@ To declare a query and validate its type against your schema, you can import `In
 const myQuery = { myTable: {} } satisfies InstaQLParams<typeof schema>;
 ```
 
-To obtain the resolved result type of your query, import `InstaQLResult` and provide it your DB and query types
+To obtain the resolved result type of your query, import `InstaQLResult` and provide it your DB and query types:
 
 ```typescript
 type MyQueryResult = InstaQLResult<typeof schema, typeof myQuery>;
@@ -115,4 +115,4 @@ type TodoWithOwner = InstantEntity<
   { owner: {} }>;
 ```
 
-[Here's a full example](https://github.com/instantdb/instant/blob/main/client/sandbox/react-nextjs/pages/play/strong-todos.tsx) demonstranting reusable query types in a React app.
+[Here's a full example](https://github.com/instantdb/instant/blob/main/client/sandbox/react-nextjs/pages/play/strong-todos.tsx) demonstrating reusable query types in a React app.
