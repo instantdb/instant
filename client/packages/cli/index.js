@@ -1083,8 +1083,13 @@ async function pushPerms(appId) {
 
   const diffedStr = jsonDiff.diffString(prodPerms.data.perms, perms)
   if (!diffedStr.length) {
+<<<<<<< Updated upstream
     console.log("There are no changes to apply.");
     return; 
+=======
+    console.log("No perms changes detected. Exiting.");
+    return;
+>>>>>>> Stashed changes
   }
   
   console.log("The following changes will be applied to your perms:");
