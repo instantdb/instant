@@ -6,6 +6,7 @@
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
+   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.model.app-admin-token :as app-admin-token-model]
    [instant.model.app-user :as app-user-model]
@@ -426,11 +427,23 @@
                                   update-keys
                                   (partial string/join "-"))})))
 
+(defn with-rate-limiting [handler]
+  (fn [req]
+    (let [app-id (req->app-id! req)]
+      (if (flags/app-rate-limited? app-id)
+        (ex/throw-rate-limited!)
+        (handler req)))))
+
 (defroutes routes
-  (POST "/admin/query" [] query-post)
-  (POST "/admin/transact" [] transact-post)
-  (POST "/admin/query_perms_check" [] query-perms-check)
-  (POST "/admin/transact_perms_check" [] transact-perms-check)
+  (with-rate-limiting
+    (POST "/admin/query" [] query-post))
+  (with-rate-limiting
+    (POST "/admin/transact" [] transact-post))
+  (with-rate-limiting
+    (POST "/admin/query_perms_check" [] query-perms-check))
+  (with-rate-limiting
+    (POST "/admin/transact_perms_check" [] transact-perms-check))
+
   (POST "/admin/sign_out" [] sign-out-post)
   (POST "/admin/refresh_tokens" [] refresh-tokens-post)
   (POST "/admin/magic_code" [] magic-code-post)
@@ -438,10 +451,15 @@
   (GET "/admin/users", [] app-users-get)
   (DELETE "/admin/users", [] app-users-delete)
 
-  (POST "/admin/storage/signed-upload-url" [] signed-upload-url-post)
-  (GET "/admin/storage/signed-download-url", [] signed-download-url-get)
-  (GET "/admin/storage/files" [] files-get)
-  (DELETE "/admin/storage/files" [] file-delete) ;; single delete
-  (POST "/admin/storage/files/delete" [] files-delete) ;; bulk delete
+  (with-rate-limiting
+    (POST "/admin/storage/signed-upload-url" [] signed-upload-url-post))
+  (with-rate-limiting
+    (GET "/admin/storage/signed-download-url", [] signed-download-url-get))
+  (with-rate-limiting
+    (GET "/admin/storage/files" [] files-get))
+  (with-rate-limiting
+    (DELETE "/admin/storage/files" [] file-delete)) ;; single delete
+  (with-rate-limiting
+    (POST "/admin/storage/files/delete" [] files-delete)) ;; bulk delete
 
   (GET "/admin/schema" [] schema-get))

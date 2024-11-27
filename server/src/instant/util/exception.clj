@@ -32,6 +32,7 @@
 
                 ::validation-failed
                 ::operation-timed-out
+                ::rate-limited
 
                 ::oauth-error
 
@@ -191,6 +192,13 @@
   (throw+ {::type ::operation-timed-out
            ::message (format "Operation timed out: %s" (name operation-name))
            ::hint {:timeout-ms timeout-ms}}))
+
+;; ----------
+;; Rate limit
+
+(defn throw-rate-limited! []
+  (throw+ {::type ::rate-limited
+           ::message "You're making too many requests. Please email support@instantdb.com or ask for help in the Discord."}))
 
 ;; -------
 ;; Sockets

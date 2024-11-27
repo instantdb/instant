@@ -22,6 +22,12 @@
       :test
       :dev)))
 
+(defonce process-id
+  (delay
+    (str (name (get-env))
+         "_"
+         (string/replace (UUID/randomUUID) #"-" "_"))))
+
 (def config-map
   (delay (do
            ;; init-hybrid because we might need it to decrypt the config
@@ -95,9 +101,9 @@
 (defn get-aurora-config
   ([] (get-aurora-config {:env (get-env)}))
   ([{:keys [env]}]
-   (let [application-name (uri/query-encode (format "instant server; host: %s, env: %s"
+   (let [application-name (uri/query-encode (format "%s, %s"
                                                     (get-hostname)
-                                                    (name env)))
+                                                    @process-id))
          url (or (System/getenv "DATABASE_URL")
                  (some-> @config-map :database-url crypt-util/secret-value)
                  "jdbc:postgresql://localhost:5432/instant")]
@@ -158,12 +164,6 @@
    (case env
      :prod "https://instantdb.com"
      "http://localhost:3000")))
-
-(defonce process-id
-  (delay
-    (str (name (get-env))
-         "_"
-         (string/replace (UUID/randomUUID) #"-" "_"))))
 
 (defn get-connection-pool-size []
   (if (= :prod (get-env)) 400 20))
