@@ -1,9 +1,4 @@
-import {
-  Button,
-  Fence,
-  SectionHeading,
-  TextInput,
-} from '@/components/ui';
+import { Button, Fence, SectionHeading, TextInput } from '@/components/ui';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { useState } from 'react';
@@ -11,7 +6,10 @@ import config from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
 import { i } from '@instantdb/core';
 
-async function jsonFetchCatchingErr(input: RequestInfo, init: RequestInit | undefined) {
+async function jsonFetchCatchingErr(
+  input: RequestInfo,
+  init: RequestInit | undefined,
+) {
   try {
     return await jsonFetch(input, init);
   } catch (e) {
@@ -32,7 +30,7 @@ curl -X DELETE "${config.apiURI}/superadmin/apps/$APP_ID/" \\
 const cancelTransferCurl = (
   token: string,
   appId: string,
-  email: string
+  email: string,
 ): string => {
   return `
 export PLATFORM_TOKEN="${token}"
@@ -47,7 +45,7 @@ curl -X POST "${config.apiURI}/superadmin/apps/$APP_ID/transfers/revoke" \\
 const transferEmailCurl = (
   token: string,
   appId: string,
-  email: string
+  email: string,
 ): string => {
   return `
 export PLATFORM_TOKEN="${token}"
@@ -79,8 +77,8 @@ init({appId: "${appId}"}); // 🎉
 const exampleSchemaGen = (appId: string) => {
   return `
 import { i } from '@instantdb/core';
-const g = i.graph(
-  {
+const schema = i.schema({
+  entities: {
     posts: i.entity({
       title: i.string(),
       body: i.string(),
@@ -89,7 +87,7 @@ const g = i.graph(
       body: i.string(),
     }),
   },
-  {
+  links: {
     commentPosts: {
       forward: {
         on: 'comments',
@@ -102,14 +100,15 @@ const g = i.graph(
         label: 'comments',
       },
     },
-  }
-);
-JSON.stringify(g, null, 2) // this is the schema you can push!
+  },
+  rooms: {}, 
+});
+JSON.stringify(schema, null, 2) // this is the schema you can push!
 `.trim();
 };
-const exGraph = (appId: string) => {
-  const g = i.graph(
-    {
+const exSchema = (appId: string) => {
+  const schema = i.schema({
+    entities: {
       posts: i.entity({
         title: i.string(),
         body: i.string(),
@@ -118,7 +117,7 @@ const exGraph = (appId: string) => {
         body: i.string(),
       }),
     },
-    {
+    links: {
       commentPosts: {
         forward: {
           on: 'comments',
@@ -131,9 +130,10 @@ const exGraph = (appId: string) => {
           label: 'comments',
         },
       },
-    }
-  );
-  return g;
+    },
+    rooms: {},
+  });
+  return schema;
 };
 
 const exampleSchemaPushCurl = (token: string, appId: string): string => {
@@ -143,7 +143,7 @@ export APP_ID="${appId}"
 curl -v -X POST "${config.apiURI}/superadmin/apps/$APP_ID/schema/push/apply" \\
   -H "Authorization: Bearer $PLATFORM_TOKEN" \\
   -H "Content-Type: application/json" \\
-  -d '${JSON.stringify({ schema: exGraph(appId) }, null, 2)}'  
+  -d '${JSON.stringify({ schema: exSchema(appId) }, null, 2)}'  
 `.trim();
 };
 
@@ -157,7 +157,7 @@ curl -v -X POST "${config.apiURI}/superadmin/apps/$APP_ID/perms" \\
   -d '${JSON.stringify(
     { code: { posts: { allow: { create: 'false' } } } },
     null,
-    2
+    2,
   )}'  
 `.trim();
 };
@@ -173,7 +173,7 @@ function AppStage({
 }) {
   const [transferEmail, setTransferEmail] = useLocalStorage<string>(
     '__platform_demo_email',
-    'stopa@instantdb.com'
+    'stopa@instantdb.com',
   );
   const [transferResult, setTransferResult] = useState<any>();
   const [cancelTransferResult, setCancelTransferResult] = useState<any>();
@@ -211,7 +211,7 @@ function AppStage({
                     'Content-Type': 'application/json',
                   },
                   body: JSON.stringify({ dest_email: transferEmail }),
-                }
+                },
               );
               setTransferResult(res);
             }}
@@ -251,7 +251,7 @@ function AppStage({
                     'Content-Type': 'application/json',
                   },
                   body: JSON.stringify({ dest_email: transferEmail }),
-                }
+                },
               );
               setCancelTransferResult(res);
             }}
@@ -280,7 +280,9 @@ function AppStage({
       </div>
       <div>
         <h2>5. Push schema</h2>
-        <p>To define a schema, use <code>i.graph</code> like so:</p>
+        <p>
+          To define a schema, use <code>i.schema</code> like so:
+        </p>
         <div className="border h-96 overflow-scroll">
           <Fence code={exampleSchemaGen(app.id)} language="tsx" />
         </div>
@@ -298,8 +300,8 @@ function AppStage({
                   Authorization: `Bearer ${token}`,
                   'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ schema: exGraph(app.id) }),
-              }
+                body: JSON.stringify({ schema: exSchema(app.id) }),
+              },
             );
             setSchemaPushResult(res);
           }}
@@ -334,7 +336,7 @@ function AppStage({
                 body: JSON.stringify({
                   code: { posts: { allow: { create: 'false' } } },
                 }),
-              }
+              },
             );
             setPermsResult(res);
           }}
@@ -366,7 +368,7 @@ function AppStage({
                   Authorization: `Bearer ${token}`,
                   'Content-Type': 'application/json',
                 },
-              }
+              },
             );
             setApp(null);
           }}
@@ -404,14 +406,17 @@ function PlatformTokenStage({ token }: { token: string }) {
           </div>
           <Button
             onClick={async () => {
-              const res = await jsonFetchCatchingErr(`${config.apiURI}/superadmin/apps`, {
-                method: 'POST',
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  'Content-Type': 'application/json',
+              const res = await jsonFetchCatchingErr(
+                `${config.apiURI}/superadmin/apps`,
+                {
+                  method: 'POST',
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ title: 'my cool app' }),
                 },
-                body: JSON.stringify({ title: 'my cool app' }),
-              });
+              );
               setApp(res.app);
             }}
           >
@@ -438,8 +443,10 @@ function PlatformTokenStage({ token }: { token: string }) {
 }
 export default function Page() {
   const isHydrated = useIsHydrated();
-  const [platformToken, setPlatformToken] =
-    useLocalStorage<string>('__platformToken', '');
+  const [platformToken, setPlatformToken] = useLocalStorage<string>(
+    '__platformToken',
+    '',
+  );
   if (!isHydrated) return;
   return (
     <div className="max-w-xl mx-auto p-4">

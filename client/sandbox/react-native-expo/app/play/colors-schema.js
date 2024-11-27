@@ -3,14 +3,15 @@ import { View, Text, Button, StyleSheet } from "react-native";
 
 import config from "../config";
 
-const schema = i.graph(
-  {
+const schema = i.schema({
+  entities: {
     colors: i.entity({
       color: i.string(),
     }),
   },
-  {},
-);
+  links: {},
+  rooms: {},
+});
 
 const { useQuery, transact, tx } = init_experimental({
   appId: config.appId,

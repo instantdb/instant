@@ -65,25 +65,6 @@ const author = firstUser.author[0];
 const author = firstUser.author; // no more array! 🎉
 ```
 
-## Rooms support
-
-Rooms are still expressed in pure TypeScript. You can type rooms with `schema.withRoomSchema<R>`. Here's how it looks:
-
-```ts
-type RoomSchema = {
-  room: {
-    presence: {
-      example: number;
-    };
-  };
-};
-
-const db = init_experimental({
-  appId: '__APP_ID__',
-  schema: schema.withRoomSchema<RoomSchema>(),
-});
-```
-
 ## Reusable types
 
 Sometimes, you'll want to abstract out your query and result types. For example, a query's result might be consumed across multiple React components, each with their own prop types. For such cases, we provide `InstaQLParams` and `InstaQLResult`.
@@ -112,7 +93,8 @@ You can specify links relative to the entity, too:
 type TodoWithOwner = InstantEntity<
   typeof schema, 
   'todos', 
-  { owner: {} }>;
+  { owner: {} }
+>;
 ```
 
 [Here's a full example](https://github.com/instantdb/instant/blob/main/client/sandbox/react-nextjs/pages/play/strong-todos.tsx) demonstrating reusable query types in a React app.
