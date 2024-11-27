@@ -111,6 +111,7 @@ export default class Reactor {
   authCbs = [];
   attrsCbs = [];
   mutationErrorCbs = [];
+  connectionStatusCbs = [];
   config;
   _persister;
   mutationDeferredStore = new Map();
@@ -259,6 +260,7 @@ export default class Reactor {
   _setStatus(status, err) {
     this.status = status;
     this._errorMessage = err;
+    this.notifyConnectionStatusSubs(status);
   }
 
   /**
@@ -1347,6 +1349,14 @@ export default class Reactor {
     };
   }
 
+  subscribeConnectionStatus(cb) {
+    this.connectionStatusCbs.push(cb);
+
+    return () => {
+      this.connectionStatusCbs = this.connectionStatusCbs.filter((x) => x !== cb);
+    };
+  }
+
   subscribeAttrs(cb) {
     this.attrsCbs.push(cb);
 
@@ -1371,6 +1381,10 @@ export default class Reactor {
     if (!this.attrs) return;
     const oas = this.optimisticAttrs();
     this.attrsCbs.forEach((cb) => cb(oas));
+  }
+
+  notifyConnectionStatusSubs(status) {
+    this.connectionStatusCbs.forEach((cb) => cb(status));
   }
 
   async setCurrentUser(user) {
@@ -1476,7 +1490,7 @@ export default class Reactor {
           appId: this.config.appId,
           refreshToken,
         });
-      } catch (e) {}
+      } catch (e) { }
     }
     await this.changeCurrentUser(null);
   }

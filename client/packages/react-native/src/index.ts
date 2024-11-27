@@ -30,6 +30,8 @@ import {
   type InstantSchema,
   type InstantSchemaDatabase,
 
+  type ConnectionStatus,
+
   // schema types
   type AttrsDefs,
   type CardinalityKind,
@@ -120,6 +122,7 @@ export {
   type InstantObject,
   type User,
   type AuthState,
+  type ConnectionStatus,
   type InstantReactNative,
   type InstantQuery,
   type InstantQueryResult,

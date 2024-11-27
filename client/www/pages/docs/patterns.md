@@ -85,3 +85,45 @@ export {
   }
 }
 ```
+
+## Listen to InstantDB connection status.
+
+Sometimes you want to let clients know when they are connected or disconnected
+to the DB. You can use `db.subscribeConnectionStatus` in vanilla JS or
+`db.useConnectionStatus` in React to listen to connection changes
+
+```typescript
+
+// Vanilla JS
+const unsub = db.subscribeConnectionStatus((status) => {
+ const connectionState =
+   status === 'connecting' || status === 'opened'
+     ? 'authenticating'
+   : status === 'authenticated'
+     ? 'connected'
+   : status === 'closed'
+     ? 'closed'
+   : status === 'errored'
+     ? 'errored'
+   : 'unexpected state';
+
+ console.log('Connection status:', connectionState);
+});
+
+// React/React Native
+function App() {
+ const status = db.useConnectionStatus()
+ const connectionState =
+   status === 'connecting' || status === 'opened'
+     ? 'authenticating'
+   : status === 'authenticated'
+     ? 'connected'
+   : status === 'closed'
+     ? 'closed'
+   : status === 'errored'
+     ? 'errored'
+   : 'unexpected state';
+
+ return <div>Connection state: {connectionState}</div>
+}
+```

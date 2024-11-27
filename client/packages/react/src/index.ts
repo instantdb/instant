@@ -19,6 +19,8 @@ import {
   type Config,
   type InstaQLParams,
 
+  type ConnectionStatus,
+
   // schema types
   type AttrsDefs,
   type CardinalityKind,
@@ -69,6 +71,7 @@ export {
   type InstantObject,
   type User,
   type AuthState,
+  type ConnectionStatus,
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
