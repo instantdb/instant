@@ -1,9 +1,10 @@
 // @ts-check
 
 import version from "./src/version.js";
-import { mkdir, writeFile, readFile, stat } from "fs/promises";
+import { mkdir, writeFile, readFile } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
+import jsonDiff from "json-diff";
 import dotenv from "dotenv";
 import chalk from "chalk";
 import { program, Option } from "commander";
@@ -1070,10 +1071,27 @@ async function pushPerms(appId) {
     return;
   }
 
-  const ok = await promptOk(
-    "Pushing permissions rules. This will immediately replace your production rules. OK to proceed?",
-  );
-  if (!ok) return;
+  console.log("Planning...");
+
+  const prodPerms = await fetchJson({
+    path: `/dash/apps/${appId}/perms/pull`,
+    debugName: "Perms pull",
+    errorMessage: "Failed to pull perms.",
+  });
+
+  if (!prodPerms.ok) return;
+
+  const diffedStr = jsonDiff.diffString(prodPerms.data.perms, perms)
+  if (!diffedStr.length) {
+    console.log("No perms changes detected. Exiting.");
+    return;
+  }
+  
+  console.log("The following changes will be applied to your perms:");
+  console.log(diffedStr);
+  
+  const okPush = await promptOk("OK to proceed?");
+  if (!okPush) return;
 
   const permsRes = await fetchJson({
     method: "POST",
