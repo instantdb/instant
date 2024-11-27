@@ -34,7 +34,7 @@ import type {
   InstaQLEntity,
   InstaQLResult,
 } from "./queryTypes";
-import type { AuthState, User, AuthResult } from "./clientTypes";
+import type { AuthState, User, AuthResult, ConnectionStatus } from "./clientTypes";
 import type {
   InstantQuery,
   InstantQueryResult,
@@ -357,6 +357,31 @@ class InstantCore<
    */
   subscribeAuth(cb: (auth: AuthResult) => void): UnsubscribeFn {
     return this._reactor.subscribeAuth(cb);
+  }
+
+  /**
+   * Listen for connection status changes to Instant. This is useful
+   * for building things like connectivity indicators
+   *
+   * @see https://www.instantdb.com/docs/patterns#connection-status
+   * @example
+   *   const unsub = db.subscribeConnectionStatus((status) => {
+   *     const connectionState =
+   *       status === 'connecting' || status === 'opened'
+   *         ? 'authenticating'
+   *       : status === 'authenticated'
+   *         ? 'connected'
+   *       : status === 'closed'
+   *         ? 'closed'
+   *       : status === 'errored'
+   *         ? 'errored'
+   *       : 'unexpected state';
+   *
+   *     console.log('Connection status:', connectionState);
+   *   });
+   */
+  subscribeConnectionStatus(cb: (status: ConnectionStatus) => void): UnsubscribeFn {
+    return this._reactor.subscribeConnectionStatus(cb);
   }
 
   /**
@@ -883,6 +908,7 @@ export {
   type Exactly,
   type TransactionChunk,
   type AuthState,
+  type ConnectionStatus,
   type User,
   type AuthToken,
   type TxChunk,
