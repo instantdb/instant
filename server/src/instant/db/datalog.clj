@@ -643,7 +643,7 @@
    3 :created-at})
 
 (def ^:private component-type->col-name
-  {:e :entity-id :a :attr-id :created-at :created-at})
+  {:e :entity-id :a :attr-id :v :value :created-at :created-at})
 
 (defn- join-cols
   "Given the component types and the index of the dest table,
@@ -1015,21 +1015,33 @@
 
 (defn add-cursor-comparisons
   "Updates the where query to include the constraints from the cursor."
-  [query {:keys [direction sym-triple-idx cursor cursor-type order-col-name]}]
+  [query {:keys [direction sym-triple-idx cursor cursor-type order-col-name order-col-type]}]
   (let [cursor-val (nth cursor sym-triple-idx)
         comparison (case [cursor-type direction]
                      [:before :asc] :<
                      [:before :desc] :>
                      [:after :asc] :>
-                     [:after :desc] :<)]
+                     [:after :desc] :<)
+        order-col (if (= order-col-type :created-at-timestamp)
+                    order-col-name
+                    [(kw :triples_extract_ order-col-type :_value) order-col-name])
+        order-col-val (if (= order-col-type :created-at-timestamp)
+                        [:cast cursor-val :bigint]
+
+                        [(kw :triples_extract_ order-col-type :_value) (if (keyword? cursor-val)
+                                                                         cursor-val
+                                                                         [:cast (->json cursor-val) :jsonb])])]
     (update query :where (fn [where]
-                           [:and
-                            where
-                            [:or
-                             [comparison order-col-name [:cast cursor-val :bigint]]
-                             [:and
-                              [:= order-col-name [:cast cursor-val :bigint]]
-                              [comparison :entity-id [:cast (first cursor) :uuid]]]]]))))
+                           (list* :and
+                                  where
+                                  [:or
+                                   [comparison order-col order-col-val]
+                                   [:and
+                                    [:= order-col order-col-val]
+                                    [comparison :entity-id [:cast (first cursor) :uuid]]]]
+                                  (when (not= order-col-type :created-at-timestamp)
+                                    ;; XXX: Do we need to do the same for the cursor row?
+                                    [[:= :checked_data_type [:cast [:inline (name order-col-type)] :checked_data_type]]]))))))
 
 (defn reverse-direction [direction]
   (case direction
@@ -1050,17 +1062,18 @@
            direction
            named-pattern
            order-sym
+           order-col-type
            before
            after]
     :as _page-info}
    ctes]
+  (tool/def-locals)
   (let [[but-last [table query & opts]] (coll/split-last-vec ctes)
         entity-id-col (kw table :-entity-id)
         sym-component-type (component-type-of-sym named-pattern order-sym)
         sym-triple-idx (get (set/map-invert idx->component-type)
                             sym-component-type)
-        order-col-name (->> sym-component-type
-                            component-type->col-name)
+        order-col-name (component-type->col-name sym-component-type)
 
         ;; If they want the last N items, we need to switch the direction so that
         ;; we get the items from the end of the list.
@@ -1069,7 +1082,9 @@
         order-by-direction (if last?
                              (reverse-direction direction)
                              direction)
-        order-by [[(kw table :- order-col-name)
+        order-by [[(kw table :- (if (= order-col-name :value)
+                                  :value-blob
+                                  order-col-name))
                    order-by-direction]
                   [entity-id-col
                    order-by-direction]]
@@ -1080,11 +1095,13 @@
                       after (add-cursor-comparisons {:direction direction
                                                      :sym-triple-idx sym-triple-idx
                                                      :order-col-name order-col-name
+                                                     :order-col-type order-col-type
                                                      :cursor after
                                                      :cursor-type :after})
                       before (add-cursor-comparisons {:direction direction
                                                       :sym-triple-idx sym-triple-idx
                                                       :order-col-name order-col-name
+                                                      :order-col-type order-col-type
                                                       :cursor before
                                                       :cursor-type :before}))
 
@@ -1092,12 +1109,16 @@
         last-row-table (kw table :-last)
         first-row-cte [first-row-table
                        {:select [[entity-id-col :e]
-                                 [(kw table :- order-col-name) :sym]]
+                                 [(kw table :- (if (= :value order-col-name)
+                                                 :value-blob
+                                                 order-col-name)) :sym]]
                         :from table
                         :limit 1}]
         last-row-cte [last-row-table
                       {:select [[entity-id-col :e]
-                                [(kw table :- order-col-name) :sym]]
+                                [(kw table :- (if (= :value order-col-name)
+                                                :value-blob
+                                                order-col-name)) :sym]]
                        :from [[{:select [(kw table :.*)
                                          ;; trick to get the last row in the cte
                                          [[:raw "ROW_NUMBER() OVER ()"] :sort-id]]
@@ -1117,6 +1138,7 @@
                            (add-cursor-comparisons {:direction direction
                                                     :sym-triple-idx 1
                                                     :order-col-name order-col-name
+                                                    :order-col-type order-col-type
                                                     :cursor [:cursor-row.e
                                                              :cursor-row.sym]
                                                     :cursor-type :after}))
@@ -1133,6 +1155,7 @@
                                (add-cursor-comparisons {:direction direction
                                                         :sym-triple-idx 1
                                                         :order-col-name order-col-name
+                                                        :order-col-type order-col-type
                                                         :cursor [:cursor-row.e
                                                                  :cursor-row.sym]
                                                         :cursor-type :before}))]
@@ -1794,6 +1817,7 @@
    ```"
   [{:keys [app-id missing-attr? db datalog-loader] :as ctx}
    patterns]
+  (tool/def-locals)
   (if (map? patterns)
     (query-nested ctx patterns)
     (let [named-patterns (->named-patterns patterns)]
@@ -1806,7 +1830,7 @@
                 ;; Fall back to regular query if we don't have a loader
                 (apply send-query-single ctx (:conn-pool db) args)
 
-                (let [;; The promise that returns the result for our args
+                (let [ ;; The promise that returns the result for our args
                       this-result (promise)]
                   (when (add-pending! datalog-loader
                                       (:conn-pool db)

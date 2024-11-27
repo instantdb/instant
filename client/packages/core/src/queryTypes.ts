@@ -60,7 +60,7 @@ type Cursor = [string, string, any, number];
 
 type Direction = "asc" | "desc";
 
-type Order = { serverCreatedAt: Direction };
+type Order = { [key: string]: Direction };
 
 type $Option = {
   $?: {

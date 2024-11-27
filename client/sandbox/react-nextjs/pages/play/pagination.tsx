@@ -1,25 +1,44 @@
 import { useEffect, useState } from "react";
 import config from "../../config";
-import { init, tx, id } from "@instantdb/react";
+import { init, tx, id, i } from "@instantdb/react";
 import { useRouter } from "next/router";
+
+const schema = i.graph(
+  {
+    goals: i.entity({
+      number: i.number().indexed(),
+      date: i.date().indexed(),
+      string: i.string().indexed(),
+      boolean: i.boolean().indexed(),
+      title: i.string(),
+    }),
+    $users: i.entity({
+      email: i.string().unique().indexed(),
+    }),
+  },
+  {},
+);
 
 function Example({ appId }: { appId: string }) {
   const router = useRouter();
-  const myConfig = { ...config, appId };
+  const myConfig = { ...config, appId, schema };
   const db = init(myConfig);
 
   const { data } = db.useQuery({ goals: {} });
 
   const [direction, setDirection] = useState<"asc" | "desc">("asc");
   const [limit, setLimit] = useState(5);
+  const [orderField, setOrderField] = useState("serverCreatedAt");
+
+  const order = { [orderField]: direction };
 
   const { data: firstFiveData } = db.useQuery({
-    goals: { $: { limit: limit, order: { serverCreatedAt: direction } } },
+    goals: { $: { limit: limit, order } },
   });
 
   const { data: secondFiveData, pageInfo } = db.useQuery({
     goals: {
-      $: { limit: limit, offset: limit, order: { serverCreatedAt: direction } },
+      $: { limit: limit, offset: limit, order },
     },
   });
 
@@ -28,7 +47,7 @@ function Example({ appId }: { appId: string }) {
       $: {
         limit: limit,
         offset: limit * 2,
-        order: { serverCreatedAt: direction },
+        order,
       },
     },
   });
@@ -41,7 +60,7 @@ function Example({ appId }: { appId: string }) {
       $: {
         limit: limit,
         after: endCursor,
-        order: { serverCreatedAt: direction },
+        order,
       },
     },
   });
@@ -51,7 +70,7 @@ function Example({ appId }: { appId: string }) {
       $: {
         last: limit,
         before: thirdFivePageInfo?.goals?.startCursor,
-        order: { serverCreatedAt: direction },
+        order,
       },
     },
   });
@@ -66,7 +85,13 @@ function Example({ appId }: { appId: string }) {
     for (let i = 0; i < n; i++) {
       const number = startFrom + i;
       await db.transact([
-        tx.goals[id()].update({ number, title: `Goal ${number}` }),
+        tx.goals[id()].update({
+          number,
+          date: number,
+          string: `${number}`,
+          boolean: number % 2 === 0,
+          title: `Goal ${number}`,
+        }),
       ]);
     }
   };
@@ -108,6 +133,16 @@ function Example({ appId }: { appId: string }) {
         </button>
       </div>
       <div className="p-2">
+        <select
+          value={orderField}
+          onChange={(e) => setOrderField(e.target.value)}
+        >
+          <option value="serverCreatedAt">serverCreatedAt</option>
+          <option value="string">string</option>
+          <option value="number">number</option>
+          <option value="date">date</option>
+          <option value="boolean">boolean</option>
+        </select>
         <select
           value={direction}
           onChange={(e) =>

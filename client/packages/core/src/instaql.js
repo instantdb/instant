@@ -371,8 +371,8 @@ function makeWhere(store, etype, level, where) {
 // Find
 // -----------------
 
-function makeFind(makeVar, etype, level) {
-  return [makeVar(etype, level), makeVar("time", level)];
+function makeFind(makeVar, etype, level, sym) {
+  return [makeVar(etype, level), sym || makeVar("time", level)];
 }
 
 // extendObjects
@@ -393,47 +393,55 @@ function makeJoin(makeVar, store, etype, level, label, eid) {
 function extendObjects(makeVar, store, { etype, level, form }, objects) {
   const childQueries = Object.keys(form).filter((c) => c !== "$");
   if (!childQueries.length) {
-    return Object.values(objects);
+    return objects; //Object.values(objects);
   }
-  return Object.entries(objects).map(function extendChildren([eid, parent]) {
-    const childResults = childQueries.map(function getChildResult(label) {
-      const isSingular = Boolean(
-        store.cardinalityInference &&
-          store.linkIndex?.[etype]?.[label]?.isSingular,
-      );
-
-      try {
-        const [nextEtype, nextLevel, join] = makeJoin(
-          makeVar,
-          store,
-          etype,
-          level,
-          label,
-          eid,
+  return /* Object.entries(objects) */ objects.map(
+    function extendChildren(
+      /* [
+    eid,
+    parent,
+  ] */ parent,
+    ) {
+      const eid = parent.id;
+      const childResults = childQueries.map(function getChildResult(label) {
+        const isSingular = Boolean(
+          store.cardinalityInference &&
+            store.linkIndex?.[etype]?.[label]?.isSingular,
         );
 
-        const childrenArray = queryOne(store, {
-          etype: nextEtype,
-          level: nextLevel,
-          form: form[label],
-          join,
-        });
+        try {
+          const [nextEtype, nextLevel, join] = makeJoin(
+            makeVar,
+            store,
+            etype,
+            level,
+            label,
+            eid,
+          );
 
-        const childOrChildren = isSingular ? childrenArray[0] : childrenArray;
+          const childrenArray = queryOne(store, {
+            etype: nextEtype,
+            level: nextLevel,
+            form: form[label],
+            join,
+          });
 
-        return { [label]: childOrChildren };
-      } catch (e) {
-        if (e instanceof AttrNotFoundError) {
-          return { [label]: isSingular ? undefined : [] };
+          const childOrChildren = isSingular ? childrenArray[0] : childrenArray;
+
+          return { [label]: childOrChildren };
+        } catch (e) {
+          if (e instanceof AttrNotFoundError) {
+            return { [label]: isSingular ? undefined : [] };
+          }
+          throw e;
         }
-        throw e;
-      }
-    });
+      });
 
-    return childResults.reduce(function reduceChildren(parent, child) {
-      return { ...parent, ...child };
-    }, parent);
-  });
+      return childResults.reduce(function reduceChildren(parent, child) {
+        return { ...parent, ...child };
+      }, parent);
+    },
+  );
 }
 
 // resolveObjects
@@ -444,55 +452,83 @@ function shouldIgnoreAttr(attrs, id) {
   return attr["value-type"] === "ref" && attr["forward-identity"][2] !== "id";
 }
 
-function cursorCompare(direction, typ) {
-  switch (direction) {
-    case "asc":
-      switch (typ) {
-        case "number":
-          return (x, y) => x < y;
-        case "uuid":
-          return (x, y) => uuidCompare(x, y) === -1;
-      }
-    case "desc":
-      switch (typ) {
-        case "number":
-          return (x, y) => x > y;
-        case "uuid":
-          return (x, y) => uuidCompare(x, y) === 1;
-      }
+function compareOrder([id_a, v_a], [id_b, v_b]) {
+  if (v_a === v_b) {
+    return uuidCompare(id_a, id_b);
   }
+  if (v_a > v_b) {
+    return 1;
+  }
+  return -1;
 }
 
-function isBefore(startCursor, direction, [e, _a, _v, t]) {
+function isBefore(startCursor, orderAttr, direction, idVec) {
+  const [c_e, _c_a, c_v, c_t] = startCursor;
+  const compareVal = direction === "desc" ? 1 : -1;
+  if (orderAttr["forward-identity"]?.[2] === "id") {
+    return compareOrder(idVec, [c_e, c_t]) === compareVal;
+  }
+  const [e, v] = idVec;
   return (
-    cursorCompare(direction, "number")(t, startCursor[3]) ||
-    (t === startCursor[3] &&
-      cursorCompare(direction, "uuid")(e, startCursor[0]))
+    compareOrder(
+      [e, orderAttr["checked-data-type"] === "date" ? new Date(v) : v],
+      [c_e, orderAttr["checked-data-type"] === "date" ? new Date(c_v) : c_v],
+    ) === compareVal
   );
 }
 
+function orderAttrFromCursor(store, cursor) {
+  const cursorAttrId = cursor[1];
+  // XXX: Should we warn or something if we're missing an attr??
+  return store.attrs[cursorAttrId];
+}
+
 function runDataloadAndReturnObjects(store, etype, direction, pageInfo, dq) {
-  const aid = idAttr(store, etype).id;
-  const idVecs = datalogQuery(store, dq).sort(function sortIdVecs(
-    [_, tsA],
-    [__, tsB],
-  ) {
-    return direction === "desc" ? tsB - tsA : tsA - tsB;
+  let idVecs = datalogQuery(store, dq);
+
+  const startCursor = pageInfo?.["start-cursor"];
+  const orderAttr = startCursor
+    ? orderAttrFromCursor(store, startCursor)
+    : null;
+
+  if (orderAttr?.["checked-data-type"] === "date") {
+    // Convert to Date so that we can use <, > on the values
+    idVecs = idVecs.map(([id, v]) => [id, new Date(v)]);
+  }
+
+  idVecs.sort(function compareIdVecs(a, b) {
+    if (direction === "asc") {
+      return compareOrder(a, b);
+    }
+    return compareOrder(b, a);
   });
 
-  let objects = {};
-  const startCursor = pageInfo?.["start-cursor"];
-  for (const [id, time] of idVecs) {
-    if (
-      startCursor &&
-      aid === startCursor[1] &&
-      isBefore(startCursor, direction, [id, aid, id, time])
-    ) {
+  const objects = [];
+  const seen = new Set([]);
+
+  for (const idVec of idVecs) {
+    const [id] = idVec;
+    if (seen.has(id)) {
       continue;
     }
+    seen.add(id);
+    if (
+      startCursor &&
+      orderAttr &&
+      isBefore(startCursor, orderAttr, direction, idVec)
+    ) {
+      console.log(
+        "REJECTED",
+        startCursor,
+        orderAttr["forward-identity"][2],
+        idVec,
+      );
+      continue;
+    }
+
     const obj = s.getAsObject(store, etype, id);
     if (obj) {
-      objects[id] = obj;
+      objects.push(obj);
     }
   }
   return objects;
@@ -505,6 +541,25 @@ function determineOrder(form) {
   }
 
   return orderOpts[Object.keys(orderOpts)[0]] || "asc";
+}
+
+function pageInfoForm(store, makeVar, etype, level, pageInfo) {
+  const startCursor = pageInfo?.["start-cursor"];
+
+  const orderAttr = startCursor
+    ? orderAttrFromCursor(store, startCursor)
+    : null;
+
+  if (!orderAttr || orderAttr["forward-identity"]?.[2] === "id") {
+    return;
+  }
+
+  const sym = makeVar("$order_sym", level);
+
+  return {
+    sym,
+    form: [makeVar(etype, level), orderAttr.id, makeVar("$order_sym", level)],
+  };
 }
 
 /**
@@ -532,7 +587,13 @@ function resolveObjects(store, { etype, level, form, join, pageInfo }) {
   }
   const where = withJoin(makeWhere(store, etype, level, form.$?.where), join);
 
-  const find = makeFind(makeVarImpl, etype, level);
+  const pageForm = pageInfoForm(store, makeVarImpl, etype, level, pageInfo);
+
+  if (pageForm) {
+    where.push(pageForm.form);
+  }
+
+  const find = makeFind(makeVarImpl, etype, level, pageForm?.sym);
 
   const objs = runDataloadAndReturnObjects(
     store,
@@ -543,11 +604,11 @@ function resolveObjects(store, { etype, level, form, join, pageInfo }) {
   );
 
   if (limit != null) {
-    const entries = Object.entries(objs);
+    const entries = objs;
     if (entries.length <= limit) {
       return objs;
     }
-    return Object.fromEntries(entries.slice(0, limit));
+    return objs.slice(0, limit);
   }
   return objs;
 }
@@ -566,7 +627,7 @@ function guardedResolveObjects(store, opts) {
     return resolveObjects(store, opts);
   } catch (e) {
     if (e instanceof AttrNotFoundError) {
-      return {};
+      return [];
     }
     throw e;
   }
