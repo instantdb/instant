@@ -10,12 +10,29 @@ const _schema = i.schema({
     $users: i.entity({
       email: i.string().unique().indexed(),
     }),
+    posts: i.entity({
+      title: i.string(),
+      body: i.string(),
+    }),
   },
   // You can define links here.
   // For example, if `posts` should have many `comments`.
   // More in the docs:
   // https://www.instantdb.com/docs/schema#defining-links
-  links: {},
+  links: {
+    postsOwner: {
+      forward: {
+        on: "posts",
+        has: "one",
+        label: "owner",
+      },
+      reverse: {
+        on: "$users",
+        has: "many",
+        label: "ownedPosts",
+      },
+    },
+  },
   rooms: {
     chat: {
       presence: i.entity({

@@ -44,12 +44,14 @@
                                 (cond
                                   name-id? nil
                                   new-attr? [[:add-attr
-                                              {:value-type :blob
-                                               :cardinality :one
-                                               :id (UUID/randomUUID)
-                                               :forward-identity [(UUID/randomUUID) (name ns-name) (name attr-name)]
-                                               :unique? (:unique? new-attr)
-                                               :index? (:index? new-attr)}]]
+                                              (cond-> {:value-type :blob
+                                                       :cardinality :one
+                                                       :id (UUID/randomUUID)
+                                                       :forward-identity [(UUID/randomUUID) (name ns-name) (name attr-name)]
+                                                       :unique? (:unique? new-attr)
+                                                       :index? (:index? new-attr)}
+                                                (and check-types? (:checked-data-type new-attr))
+                                                (assoc :checked-data-type (:checked-data-type new-attr)))]]
                                   :else (concat (when (and attr-changed?
                                                            (not background-updates?))
                                                   [[:update-attr
