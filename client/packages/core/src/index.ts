@@ -749,6 +749,31 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
   }
 
   /**
+   * Listen for connection status changes to Instant. This is useful
+   * for building things like connectivity indicators
+   *
+   * @see https://www.instantdb.com/docs/patterns#connection-status
+   * @example
+   *   const unsub = db.subscribeConnectionStatus((status) => {
+   *     const connectionState =
+   *       status === 'connecting' || status === 'opened'
+   *         ? 'authenticating'
+   *       : status === 'authenticated'
+   *         ? 'connected'
+   *       : status === 'closed'
+   *         ? 'closed'
+   *       : status === 'errored'
+   *         ? 'errored'
+   *       : 'unexpected state';
+   *
+   *     console.log('Connection status:', connectionState);
+   *   });
+   */
+  subscribeConnectionStatus(cb: (status: ConnectionStatus) => void): UnsubscribeFn {
+    return this._reactor.subscribeConnectionStatus(cb);
+  }
+
+  /**
    * Join a room to publish and subscribe to topics and presence.
    *
    * @see https://instantdb.com/docs/presence-and-topics
