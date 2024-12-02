@@ -54,9 +54,15 @@ make dev
 
 The instant server will run at [localhost:8888](http://localhost:8888) and you can connect to nrepl on port 6005.
 
-### Config
+To run tests:
 
-If you want to make any changes to your configuration, update the `resources/config/override.edn` file that was created when you ran `make docker-compose` or `make bootstrap-oss`. `src/config_edn.clj` has a spec that describes the data for the file, or you can look at `resources/config/dev.edn` for an example.
+```sh
+make test
+```
+
+# Config
+
+If you want to make any changes to your configuration, update the `resources/config/override.edn` file that was created when you ran `make docker-compose` or `make bootstrap-oss`. `src/instant/config_edn.clj` has a spec that describes the data for the file, or you can look at `resources/config/dev.edn` for an example.
 
 # Questions?
 

@@ -87,10 +87,13 @@
     ::config))
 
 (defn valid-config? [prod? config-edn]
-  (s/valid? (config-spec prod?) config-edn))
+  (or
+    (s/valid? (config-spec prod?) config-edn)
+    (s/explain (config-spec prod?) config-edn)))
 
 (defn read-config [env]
-  (let [override (io/resource "config/override.edn")
+  (let [override (when (= :dev env)
+                   (io/resource "config/override.edn"))
         overlay (some-> (io/resource "config/overlay.edn")
                         slurp
                         edn/read-string)]
