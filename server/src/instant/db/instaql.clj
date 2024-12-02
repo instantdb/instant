@@ -136,7 +136,7 @@
          (take (inc i) path))
        (range (count path))))
 
-(defn is-null-ref? [[k v :as c]]
+(defn is-null-ref? [[k v :as _c]]
   (let [path (string/split (name k) #"\.")]
     (and (> (count path) 1)
          (coll? v)
