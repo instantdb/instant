@@ -75,15 +75,15 @@
    the set of topics and triples in the result"
   [pretty-a pretty-b]
   `(do
-    (testing "(topics is-pretty-eq?)"
-      (is (= (set (mapcat :topics ~pretty-a))
-             (set (mapcat :topics ~pretty-b)))))
-    (testing "(triples is-pretty-eq?)"
-      (is (= (set (mapcat :triples ~pretty-a))
-             (set (mapcat :triples ~pretty-b)))))
-    (testing "(aggregate is-pretty-eq?)"
-      (is (= (set (remove nil? (mapcat :aggregate ~pretty-a)))
-             (set (remove nil? (mapcat :aggregate ~pretty-b))))))))
+     (testing "(topics is-pretty-eq?)"
+       (is (= (set (mapcat :topics ~pretty-a))
+              (set (mapcat :topics ~pretty-b)))))
+     (testing "(triples is-pretty-eq?)"
+       (is (= (set (mapcat :triples ~pretty-a))
+              (set (mapcat :triples ~pretty-b)))))
+     (testing "(aggregate is-pretty-eq?)"
+       (is (= (set (remove nil? (mapcat :aggregate ~pretty-a)))
+              (set (remove nil? (mapcat :aggregate ~pretty-b))))))))
 
 (defn- query-pretty
   ([q]
@@ -1489,313 +1489,313 @@
      :clear-links clear-links
      :admin-query admin-query}))
 
-(deftest where-$not-$isNull-with-links-1-to-1
-  (with-empty-app
-    (fn [app]
-      (let [{:keys [r add-links clear-links admin-query]}
-            (add-references-to-app app
-                                   :one
-                                   :one)]
-        (add-links [["eid-fwd-a" "eid-rev-a"
-                     "eid-fwd-b" "eid-rev-null"
-                     "eid-fwd-c" "eid-rev-undefined"]])
+#_(deftest where-$not-$isNull-with-links-1-to-1
+    (with-empty-app
+      (fn [app]
+        (let [{:keys [r add-links clear-links admin-query]}
+              (add-references-to-app app
+                                     :one
+                                     :one)]
+          (add-links [["eid-fwd-a" "eid-rev-a"
+                       "eid-fwd-b" "eid-rev-null"
+                       "eid-fwd-c" "eid-rev-undefined"]])
 
-        (is (= #{"eid-fwd-b"
-                 "eid-fwd-c"
-                 "eid-fwd-d"
-                 "eid-fwd-null"
-                 "eid-fwd-undefined"}
-               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull true}}}}}) %
-                 (get % "fwd")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-fwd-b"
+                   "eid-fwd-c"
+                   "eid-fwd-d"
+                   "eid-fwd-null"
+                   "eid-fwd-undefined"}
+                 (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull true}}}}}) %
+                   (get % "fwd")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-fwd-a"}
-               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull false}}}}}) %
-                 (get % "fwd")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-fwd-a"}
+                 (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull false}}}}}) %
+                   (get % "fwd")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-fwd-b"
-                 "eid-fwd-c"
-                 "eid-fwd-d"
-                 "eid-fwd-null"
-                 "eid-fwd-undefined"}
-               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$not "a"}}}}}) %
-                 (get % "fwd")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-fwd-b"
+                   "eid-fwd-c"
+                   "eid-fwd-d"
+                   "eid-fwd-null"
+                   "eid-fwd-undefined"}
+                 (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$not "a"}}}}}) %
+                   (get % "fwd")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-rev-d"
-                 "eid-rev-c"
-                 "eid-rev-null"
-                 "eid-rev-undefined"
-                 "eid-rev-b"}
-               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$not "a"}}}}}) %
-                 (get % "rev")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-rev-d"
+                   "eid-rev-c"
+                   "eid-rev-null"
+                   "eid-rev-undefined"
+                   "eid-rev-b"}
+                 (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$not "a"}}}}}) %
+                   (get % "rev")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-rev-d"
-                 "eid-rev-c"
-                 "eid-rev-null"
-                 "eid-rev-undefined"
-                 "eid-rev-b"}
-               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
-                 (get % "rev")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-rev-d"
+                   "eid-rev-c"
+                   "eid-rev-null"
+                   "eid-rev-undefined"
+                   "eid-rev-b"}
+                 (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
+                   (get % "rev")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-rev-a"}
-               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull false}}}}}) %
-                 (get % "rev")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-rev-a"}
+                 (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull false}}}}}) %
+                   (get % "rev")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (add-links [["eid-fwd-null" "eid-rev-b"]
-                    ["eid-fwd-undefined" "eid-rev-c"]])
+          (add-links [["eid-fwd-null" "eid-rev-b"]
+                      ["eid-fwd-undefined" "eid-rev-c"]])
 
-        (is (= #{"eid-rev-d"
-                 "eid-rev-c"
-                 "eid-rev-null"
-                 "eid-rev-undefined"
-                 "eid-rev-b"}
-               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
-                 (get % "rev")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))))))
+          (is (= #{"eid-rev-d"
+                   "eid-rev-c"
+                   "eid-rev-null"
+                   "eid-rev-undefined"
+                   "eid-rev-b"}
+                 (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
+                   (get % "rev")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))))))
 
-(deftest where-$not-$isNull-with-links-1-to-many
-  (with-empty-app
-    (fn [app]
-      (let [{:keys [r add-links clear-links admin-query]}
-            (add-references-to-app app
-                                   :one
-                                   :many)]
-        (add-links [["eid-fwd-a" "eid-rev-a"
-                     "eid-fwd-b" "eid-rev-a"
-                     "eid-fwd-b" "eid-rev-null"
-                     "eid-fwd-c" "eid-rev-undefined"]])
+#_(deftest where-$not-$isNull-with-links-1-to-many
+    (with-empty-app
+      (fn [app]
+        (let [{:keys [r add-links clear-links admin-query]}
+              (add-references-to-app app
+                                     :one
+                                     :many)]
+          (add-links [["eid-fwd-a" "eid-rev-a"
+                       "eid-fwd-b" "eid-rev-a"
+                       "eid-fwd-b" "eid-rev-null"
+                       "eid-fwd-c" "eid-rev-undefined"]])
 
-        (is (= #{"eid-fwd-b"
-                 "eid-fwd-c"
-                 "eid-fwd-d"
-                 "eid-fwd-null"
-                 "eid-fwd-undefined"}
-               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull true}}}}}) %
-                 (get % "fwd")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-fwd-b"
+                   "eid-fwd-c"
+                   "eid-fwd-d"
+                   "eid-fwd-null"
+                   "eid-fwd-undefined"}
+                 (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull true}}}}}) %
+                   (get % "fwd")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-fwd-a"}
-               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull false}}}}}) %
-                 (get % "fwd")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-fwd-a"}
+                 (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull false}}}}}) %
+                   (get % "fwd")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-fwd-b"
-                 "eid-fwd-c"
-                 "eid-fwd-d"
-                 "eid-fwd-null"
-                 "eid-fwd-undefined"}
-               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$not "a"}}}}}) %
-                 (get % "fwd")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-fwd-b"
+                   "eid-fwd-c"
+                   "eid-fwd-d"
+                   "eid-fwd-null"
+                   "eid-fwd-undefined"}
+                 (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$not "a"}}}}}) %
+                   (get % "fwd")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-rev-d"
-                 "eid-rev-c"
-                 "eid-rev-null"
-                 "eid-rev-undefined"
-                 "eid-rev-b"}
-               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$not "a"}}}}}) %
-                 (get % "rev")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-rev-d"
+                   "eid-rev-c"
+                   "eid-rev-null"
+                   "eid-rev-undefined"
+                   "eid-rev-b"}
+                 (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$not "a"}}}}}) %
+                   (get % "rev")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-rev-d"
-                 "eid-rev-c"
-                 "eid-rev-null"
-                 "eid-rev-undefined"
-                 "eid-rev-b"}
-               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
-                 (get % "rev")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-rev-d"
+                   "eid-rev-c"
+                   "eid-rev-null"
+                   "eid-rev-undefined"
+                   "eid-rev-b"}
+                 (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
+                   (get % "rev")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-rev-a"}
-               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull false}}}}}) %
-                 (get % "rev")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-rev-a"}
+                 (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull false}}}}}) %
+                   (get % "rev")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (add-links [["eid-fwd-null" "eid-rev-b"]
-                    ["eid-fwd-undefined" "eid-rev-c"]])
+          (add-links [["eid-fwd-null" "eid-rev-b"]
+                      ["eid-fwd-undefined" "eid-rev-c"]])
 
-        (is (= #{"eid-rev-d"
-                 "eid-rev-c"
-                 "eid-rev-null"
-                 "eid-rev-undefined"
-                 "eid-rev-b"}
-               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
-                 (get % "rev")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))))))
+          (is (= #{"eid-rev-d"
+                   "eid-rev-c"
+                   "eid-rev-null"
+                   "eid-rev-undefined"
+                   "eid-rev-b"}
+                 (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
+                   (get % "rev")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))))))
 
-(deftest where-$not-$isNull-with-links-many-to-1
-  (with-empty-app
-    (fn [app]
-      (let [{:keys [r add-links clear-links admin-query]}
-            (add-references-to-app app
-                                   :many
-                                   :one)]
-        (add-links [["eid-fwd-a" "eid-rev-a"
-                     "eid-fwd-b" "eid-rev-b"
-                     "eid-fwd-b" "eid-rev-null"
-                     "eid-fwd-c" "eid-rev-undefined"]])
+#_(deftest where-$not-$isNull-with-links-many-to-1
+    (with-empty-app
+      (fn [app]
+        (let [{:keys [r add-links clear-links admin-query]}
+              (add-references-to-app app
+                                     :many
+                                     :one)]
+          (add-links [["eid-fwd-a" "eid-rev-a"
+                       "eid-fwd-b" "eid-rev-b"
+                       "eid-fwd-b" "eid-rev-null"
+                       "eid-fwd-c" "eid-rev-undefined"]])
 
-        (is (= #{"eid-fwd-b"
-                 "eid-fwd-c"
-                 "eid-fwd-d"
-                 "eid-fwd-null"
-                 "eid-fwd-undefined"}
-               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull true}}}}}) %
-                 (get % "fwd")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-fwd-b"
+                   "eid-fwd-c"
+                   "eid-fwd-d"
+                   "eid-fwd-null"
+                   "eid-fwd-undefined"}
+                 (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull true}}}}}) %
+                   (get % "fwd")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-fwd-a"}
-               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull false}}}}}) %
-                 (get % "fwd")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-fwd-a"}
+                 (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull false}}}}}) %
+                   (get % "fwd")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-fwd-b"
-                 "eid-fwd-c"
-                 "eid-fwd-d"
-                 "eid-fwd-null"
-                 "eid-fwd-undefined"}
-               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$not "a"}}}}}) %
-                 (get % "fwd")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-fwd-b"
+                   "eid-fwd-c"
+                   "eid-fwd-d"
+                   "eid-fwd-null"
+                   "eid-fwd-undefined"}
+                 (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$not "a"}}}}}) %
+                   (get % "fwd")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-rev-d"
-                 "eid-rev-c"
-                 "eid-rev-null"
-                 "eid-rev-undefined"
-                 "eid-rev-b"}
-               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$not "a"}}}}}) %
-                 (get % "rev")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-rev-d"
+                   "eid-rev-c"
+                   "eid-rev-null"
+                   "eid-rev-undefined"
+                   "eid-rev-b"}
+                 (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$not "a"}}}}}) %
+                   (get % "rev")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-rev-d"
-                 "eid-rev-c"
-                 "eid-rev-null"
-                 "eid-rev-undefined"
-                 "eid-rev-b"}
-               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
-                 (get % "rev")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-rev-d"
+                   "eid-rev-c"
+                   "eid-rev-null"
+                   "eid-rev-undefined"
+                   "eid-rev-b"}
+                 (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
+                   (get % "rev")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-rev-a"}
-               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull false}}}}}) %
-                 (get % "rev")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-rev-a"}
+                 (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull false}}}}}) %
+                   (get % "rev")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (add-links [["eid-fwd-null" "eid-rev-b"]
-                    ["eid-fwd-undefined" "eid-rev-c"]])
+          (add-links [["eid-fwd-null" "eid-rev-b"]
+                      ["eid-fwd-undefined" "eid-rev-c"]])
 
-        (is (= #{"eid-rev-d"
-                 "eid-rev-c"
-                 "eid-rev-null"
-                 "eid-rev-undefined"
-                 "eid-rev-b"}
-               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
-                 (get % "rev")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))))))
+          (is (= #{"eid-rev-d"
+                   "eid-rev-c"
+                   "eid-rev-null"
+                   "eid-rev-undefined"
+                   "eid-rev-b"}
+                 (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
+                   (get % "rev")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))))))
 
-(deftest where-$not-$isNull-with-links-many-to-many
-  (with-empty-app
-    (fn [app]
-      (let [{:keys [r add-links clear-links admin-query]}
-            (add-references-to-app app
-                                   :many
-                                   :one)]
-        (add-links [["eid-fwd-a" "eid-rev-a"
-                     "eid-fwd-b" "eid-rev-a"
-                     "eid-fwd-b" "eid-rev-b"
-                     "eid-fwd-b" "eid-rev-null"
-                     "eid-fwd-c" "eid-rev-undefined"]])
+#_(deftest where-$not-$isNull-with-links-many-to-many
+    (with-empty-app
+      (fn [app]
+        (let [{:keys [r add-links clear-links admin-query]}
+              (add-references-to-app app
+                                     :many
+                                     :one)]
+          (add-links [["eid-fwd-a" "eid-rev-a"
+                       "eid-fwd-b" "eid-rev-a"
+                       "eid-fwd-b" "eid-rev-b"
+                       "eid-fwd-b" "eid-rev-null"
+                       "eid-fwd-c" "eid-rev-undefined"]])
 
-        (is (= #{"eid-fwd-b"
-                 "eid-fwd-c"
-                 "eid-fwd-d"
-                 "eid-fwd-null"
-                 "eid-fwd-undefined"}
-               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull true}}}}}) %
-                 (get % "fwd")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-fwd-b"
+                   "eid-fwd-c"
+                   "eid-fwd-d"
+                   "eid-fwd-null"
+                   "eid-fwd-undefined"}
+                 (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull true}}}}}) %
+                   (get % "fwd")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-fwd-a"}
-               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull false}}}}}) %
-                 (get % "fwd")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-fwd-a"}
+                 (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$isNull false}}}}}) %
+                   (get % "fwd")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-fwd-b"
-                 "eid-fwd-c"
-                 "eid-fwd-d"
-                 "eid-fwd-null"
-                 "eid-fwd-undefined"}
-               (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$not "a"}}}}}) %
-                 (get % "fwd")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-fwd-b"
+                   "eid-fwd-c"
+                   "eid-fwd-d"
+                   "eid-fwd-null"
+                   "eid-fwd-undefined"}
+                 (as-> (admin-query {:fwd {:$ {:where {:rev.prop {:$not "a"}}}}}) %
+                   (get % "fwd")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-rev-d"
-                 "eid-rev-c"
-                 "eid-rev-null"
-                 "eid-rev-undefined"
-                 "eid-rev-b"}
-               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$not "a"}}}}}) %
-                 (get % "rev")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-rev-d"
+                   "eid-rev-c"
+                   "eid-rev-null"
+                   "eid-rev-undefined"
+                   "eid-rev-b"}
+                 (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$not "a"}}}}}) %
+                   (get % "rev")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-rev-d"
-                 "eid-rev-c"
-                 "eid-rev-null"
-                 "eid-rev-undefined"
-                 "eid-rev-b"}
-               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
-                 (get % "rev")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-rev-d"
+                   "eid-rev-c"
+                   "eid-rev-null"
+                   "eid-rev-undefined"
+                   "eid-rev-b"}
+                 (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
+                   (get % "rev")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (is (= #{"eid-rev-a"}
-               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull false}}}}}) %
-                 (get % "rev")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))
+          (is (= #{"eid-rev-a"}
+                 (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull false}}}}}) %
+                   (get % "rev")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))
 
-        (add-links [["eid-fwd-null" "eid-rev-b"]
-                    ["eid-fwd-undefined" "eid-rev-c"]])
+          (add-links [["eid-fwd-null" "eid-rev-b"]
+                      ["eid-fwd-undefined" "eid-rev-c"]])
 
-        (is (= #{"eid-rev-d"
-                 "eid-rev-c"
-                 "eid-rev-null"
-                 "eid-rev-undefined"
-                 "eid-rev-b"}
-               (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
-                 (get % "rev")
-                 (map (fn [x] (get x "id")) %)
-                 (set %))))))))
+          (is (= #{"eid-rev-d"
+                   "eid-rev-c"
+                   "eid-rev-null"
+                   "eid-rev-undefined"
+                   "eid-rev-b"}
+                 (as-> (admin-query {:rev {:$ {:where {:fwd.prop {:$isNull true}}}}}) %
+                   (get % "rev")
+                   (map (fn [x] (get x "id")) %)
+                   (set %))))))))
 
 (deftest where-or
   (testing "with no matches"
@@ -2862,9 +2862,9 @@
            (is
             (= ::ex/permission-evaluation-failed
                (::ex/type (instant-ex-data
-                            (pretty-perm-q
-                             {:app-id app-id :current-user {:handle "stopa"}}
-                             {:users {}})))))))))))
+                           (pretty-perm-q
+                            {:app-id app-id :current-user {:handle "stopa"}}
+                            {:users {}})))))))))))
 
 (deftest coarse-topics []
   (let [{:keys [patterns]}

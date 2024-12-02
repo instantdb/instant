@@ -29,9 +29,9 @@
   (or (string? x) (uuid? x) (number? x) (boolean? x)))
 
 (s/def ::$in (s/coll-of where-value-valid?
-                       :kind vector?
-                       :min-count 0
-                       :into #{}))
+                        :kind vector?
+                        :min-count 0
+                        :into #{}))
 ;; Backwards compatibility
 (s/def ::in ::$in)
 
@@ -136,6 +136,12 @@
          (take (inc i) path))
        (range (count path))))
 
+(defn is-null-ref? [[k v :as c]]
+  (let [path (string/split (name k) #"\.")]
+    (and (> (count path) 1)
+         (coll? v)
+         (contains? v :$isNull))))
+
 (defn- coerce-where-cond
   "Splits keys into segments."
   [state [k v :as c]]
@@ -166,7 +172,16 @@
                      :in (conj (:in state) :and)
                      :message "The list of `and` conditions can't be empty."}])))}
 
+        (is-null-ref? c)
+        (ex/throw-validation-err!
+         :query
+         (:root state)
+         [{:expected 'simple-is-null?
+           :in (conj (:in state) k)
+           :message "We've disabled the `isNull` operator with references."}])
+
         (and (map? v) (contains? v :$not))
+
         ;; If the where cond has `not`, then the check will only include
         ;; entities where the entity has a triple with the attr. If the
         ;; attr is missing, then we won't find it. We add an extra
@@ -1632,23 +1647,23 @@
                                       {:program program
                                        :result
                                        (let [em (io/warn-io :instaql/entity-map
-                                                  (entity-map ctx
-                                                              query-cache
-                                                              etype
-                                                              eid))
+                                                            (entity-map ctx
+                                                                        query-cache
+                                                                        etype
+                                                                        eid))
                                              ctx (assoc ctx
                                                         :preloaded-refs preloaded-refs)]
                                          (io/warn-io :instaql/eval-program
-                                           (cel/eval-program!
-                                            program
-                                            {"auth" (cel/->cel-map {:ctx ctx
-                                                                    :type :auth
-                                                                    :etype "$users"}
-                                                                   current-user)
-                                             "data" (cel/->cel-map {:ctx ctx
-                                                                    :etype etype
-                                                                    :type :data}
-                                                                   em)})))})))
+                                                     (cel/eval-program!
+                                                      program
+                                                      {"auth" (cel/->cel-map {:ctx ctx
+                                                                              :type :auth
+                                                                              :etype "$users"}
+                                                                             current-user)
+                                                       "data" (cel/->cel-map {:ctx ctx
+                                                                              :etype etype
+                                                                              :type :data}
+                                                                             em)})))})))
                            acc
                            eids))
                  {}
