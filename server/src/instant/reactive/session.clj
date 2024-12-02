@@ -42,9 +42,9 @@
 ;; Setup
 
 (declare receive-q-stop-signal)
-(def handle-receive-timeout-ms 30000)
+(def handle-receive-timeout-ms 5000)
 
-(def num-receive-workers (* 200 (delay/cpu-count)))
+(def num-receive-workers (* 100 (delay/cpu-count)))
 
 ;; ------
 ;; handlers
@@ -617,21 +617,21 @@
 
 (defn start-receive-worker [store-conn eph-store-atom receive-q stop-signal id]
   (ua/vfut-bg
-   (loop []
-     (if @stop-signal
-       (tracer/record-info! {:name "receive-worker/shutdown-complete"
-                             :attributes {:worker-n id}})
-       (do (grouped-queue/process-polling!
-            receive-q
-            {:reserve-fn receive-worker-reserve-fn
-             :process-fn (fn [group-key batch]
-                           (straight-jacket-process-receive-q-batch store-conn
-                                                                    eph-store-atom
-                                                                    batch
-                                                                    {:worker-n id
-                                                                     :batch-size (count batch)
-                                                                     :group-key group-key}))})
-           (recur))))))
+    (loop []
+      (if @stop-signal
+        (tracer/record-info! {:name "receive-worker/shutdown-complete"
+                              :attributes {:worker-n id}})
+        (do (grouped-queue/process-polling!
+             receive-q
+             {:reserve-fn receive-worker-reserve-fn
+              :process-fn (fn [group-key batch]
+                            (straight-jacket-process-receive-q-batch store-conn
+                                                                     eph-store-atom
+                                                                     batch
+                                                                     {:worker-n id
+                                                                      :batch-size (count batch)
+                                                                      :group-key group-key}))})
+            (recur))))))
 
 (defn start-receive-workers [store-conn eph-store-atom receive-q stop-signal]
   (doseq [n (range num-receive-workers)]
