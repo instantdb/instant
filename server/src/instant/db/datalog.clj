@@ -1697,11 +1697,12 @@
                                                        nested-named-patterns)
           query-hash (hash (first query))
           _ (tracer/add-data! {:attributes {:query-hash query-hash}})
-          query (update query
-                        :with conj
-                        [:qid
-                         {:select [[[:inline app-id]]
-                                   [[:inline query-hash]]]}])
+          query (when query
+                  (update query
+                          :with conj
+                          [:qid
+                           {:select [[[:inline app-id]]
+                                     [[:inline query-hash]]]}]))
 
           sql-query (hsql/format query)
           sql-res (when query ;; we may not have a query if everything is missing attrs
