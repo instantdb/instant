@@ -1,6 +1,7 @@
 (ns instant.stripe-test
   (:require
    [clojure.test :as test :refer [deftest is]]
+   [instant.config :as config]
    [instant.fixtures :refer [with-empty-app]]
    [instant.model.instant-stripe-customer :as instant-stripe-customer-model]
    [instant.model.instant-subscription :as instant-subscription-model]
@@ -13,14 +14,15 @@
                        :user-id user-id}}})
 
 (defn with-stripe-customer [f]
-  (with-empty-app
-    (fn [{app-id :id creator-id :creator_id}]
-      (stripe/init)
-      (let [customer (instant-stripe-customer-model/get-or-create! {:user {:id creator-id}})
-            customer-id (:id customer)]
-        (f (event-data {:app-id app-id
-                        :user-id creator-id
-                        :customer customer-id}))))))
+  (when (config/stripe-secret)
+    (with-empty-app
+      (fn [{app-id :id creator-id :creator_id}]
+        (stripe/init)
+        (let [customer (instant-stripe-customer-model/get-or-create! {:user {:id creator-id}})
+              customer-id (:id customer)]
+          (f (event-data {:app-id app-id
+                          :user-id creator-id
+                          :customer customer-id})))))))
 
 (deftest handle-stripe-events
   (with-stripe-customer
