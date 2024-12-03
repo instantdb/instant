@@ -408,7 +408,7 @@
                                      {:name "wal-worker/shutdown-called-before-startup"
                                       :escaping? false}))))
 
-(defn init-cleanup [conn-pool]
+(defn init-cleanup []
   (def schedule
     (chime-core/chime-at
      (chime-core/periodic-seq (Instant/now) (Duration/ofHours 1))
@@ -417,7 +417,8 @@
        ;; still inactive in 5 minutes. This will prevent dropping slots that
        ;; are still being set up.
        (try
-         (let [inactive-slots (get-inactive-replication-slots conn-pool)]
+         (let [conn-pool (aurora/conn-pool)
+               inactive-slots (get-inactive-replication-slots conn-pool)]
            (when (seq inactive-slots)
              (chime-core/chime-at
               [(.plusSeconds (Instant/now) 300)]
