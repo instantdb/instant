@@ -2730,7 +2730,7 @@
        (fn [{app-id :id :as _app} _r]
          (are [rules result] (= result
                                 (do
-                                  (rule-model/put! aurora/conn-pool {:app-id app-id :code rules})
+                                  (rule-model/put! (aurora/conn-pool) {:app-id app-id :code rules})
                                   (->> (pretty-perm-q {:app-id app-id :current-user nil} {:users {}}) :users (map :handle) set)))
            {:users {:allow {:$default "false"}}}
            #{}
