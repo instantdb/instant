@@ -5,6 +5,7 @@ import {
   txInit,
   _init_internal,
   type AuthState,
+  type ConnectionStatus,
   type TransactionChunk,
   type PresenceOpts,
   type PresenceResponse,
@@ -446,6 +447,53 @@ export default abstract class InstantReactAbstractDatabase<
     );
     return state;
   };
+
+  /**
+   * Listen for connection status changes to Instant. Use this for things like
+   * showing connection state to users
+   *
+   * @see https://www.instantdb.com/docs/patterns#connection-status
+   * @example
+   *  function App() {
+   *    const status = db.useConnectionStatus()
+   *    const connectionState =
+   *      status === 'connecting' || status === 'opened'
+   *        ? 'authenticating'
+   *      : status === 'authenticated'
+   *        ? 'connected'
+   *      : status === 'closed'
+   *        ? 'closed'
+   *      : status === 'errored'
+   *        ? 'errored'
+   *      : 'unexpected state';
+   *
+   *    return <div>Connection state: {connectionState}</div>
+   *  }
+   */
+  useConnectionStatus = (): ConnectionStatus => {
+    const statusRef = useRef<ConnectionStatus>(this._core._reactor.status as ConnectionStatus);
+
+    const subscribe = useCallback((cb: Function) => {
+      const unsubscribe = this._core.subscribeConnectionStatus((newStatus) => {
+        if (newStatus !== statusRef.current) {
+          statusRef.current = newStatus;
+          cb();
+        }
+      });
+
+      return unsubscribe;
+    }, []);
+
+    const status = useSyncExternalStore<ConnectionStatus>(
+      subscribe,
+      () => statusRef.current,
+      // For SSR, always return 'connecting' as the initial state
+      () => 'connecting'
+    );
+
+    return status;
+  }
+
 
   /**
    * Use this for one-off queries.
