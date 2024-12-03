@@ -78,7 +78,11 @@
         expr)))
 
 (defn get-expr [rule etype action]
-  (get-in rule [etype "allow" action]))
+  (or
+    (get-in rule [etype "allow" action])
+    (get-in rule [etype "allow" "$default"])
+    (get-in rule ["$default" "allow" action])
+    (get-in rule ["$default" "allow" "$default"])))
 
 (defn extract [rule etype action]
   (when-let [expr (get-in rule [etype "allow" action])]
