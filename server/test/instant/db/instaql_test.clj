@@ -1,6 +1,6 @@
 (ns instant.db.instaql-test
   (:require
-   [clojure.test :as test :refer [deftest is testing]]
+   [clojure.test :as test :refer [deftest is are testing]]
    [instant.data.bootstrap :as bootstrap]
    [instant.data.constants :refer [zeneca-app-id]]
    [instant.data.resolvers :as resolvers]
@@ -2721,6 +2721,43 @@
                         :admin-token (UUID/randomUUID)}))
   (bootstrap/add-zeneca-to-app! app-id)
   (app-model/delete-by-id! {:id app-id}))
+
+(deftest default-perms
+  (doseq [[app-fn description] [[with-zeneca-app "without checked attrs"]
+                                [with-zeneca-checked-data-app "with checked attrs"]]]
+    (testing description
+      (app-fn
+       (fn [{app-id :id :as _app} _r]
+         (are [rules result] (= result
+                                (do
+                                  (rule-model/put! aurora/conn-pool {:app-id app-id :code rules})
+                                  (->> (pretty-perm-q {:app-id app-id :current-user nil} {:users {}}) :users (map :handle) set)))
+           {:users {:allow {:$default "false"}}}
+           #{}
+
+           {:$default {:allow {:view "false"}}}
+           #{}
+
+           {:$default {:allow {:$default "false"}}}
+           #{}
+
+           {:users {:allow {:$default "false" :view "true"}}}
+           #{"alex" "joe" "stopa" "nicolegf"}
+
+           {:$default {:allow {:view "false"}} :users {:allow {:view "true"}}}
+           #{"alex" "joe" "stopa" "nicolegf"}
+
+           {:$default {:allow {:$default "false"}} :users {:allow {:view "true"}}}
+           #{"alex" "joe" "stopa" "nicolegf"}
+
+           {:$default {:allow {:$default "false"}} :users {:allow {:$default "true"}}}
+           #{"alex" "joe" "stopa" "nicolegf"}
+
+           {:$default {:allow {:view "false"}} :users {:allow {:$default "true"}}}
+           #{"alex" "joe" "stopa" "nicolegf"}
+
+           {:$default {:allow {:$default "false" :view "true"}}}
+           #{"alex" "joe" "stopa" "nicolegf"}))))))
 
 (deftest read-perms
   (doseq [[app-fn description] [[with-zeneca-app "without checked attrs"]
