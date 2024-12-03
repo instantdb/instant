@@ -48,10 +48,13 @@
       (loop [i 0]
         (if-let [row (sql/select-one next-pool ["select * from transactions where app_id = ?::uuid and id = ?::bigint"
                                                 (config/instant-config-app-id)
-                                                (:id tx)])]
-          (when (not= (:app_id row) (config/instant-config-app-id))
-            (println "Got a bad tx row" row)
-            (quit))
+                                                (+ (:id tx) 1000)])]
+          (if (not= (:app_id row) (config/instant-config-app-id))
+            (do
+              (println "Got a bad tx row" row)
+              (quit))
+            (sql/execute! next-pool ["SELECT setval('transactions_id_seq', ?::bigint, true)"
+                                     (:id row)]))
           (do
             (when (> i 600)
               (println "Waited to long for data to sync")
