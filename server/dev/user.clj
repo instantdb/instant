@@ -36,8 +36,11 @@
 (reload/init
  {:dirs ["src" "dev" "test"]})
 
-(def reload
-  reload/reload)
+(defn reload []
+  (let [{:keys [loaded] :as res} (reload/reload)]
+    (when (some #(= 'instant.core %) loaded)
+      (@(requiring-resolve 'instant.core/start)))
+    res))
 
 (defn test-all []
   (reload/reload {:only #"instant\..*-test"})

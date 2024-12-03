@@ -188,3 +188,6 @@
     (analytics/start))
   (start)
   (add-shutdown-hook))
+
+(defn before-ns-unload []
+  (stop))
