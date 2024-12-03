@@ -2,8 +2,7 @@
   (:require [instant.config :as config]
             [instant.db.model.transaction :as transaction-model]
             [instant.jdbc.sql :as sql]
-            [instant.jdbc.aurora :as aurora]
-            [instant.util.tracer :as tracer]))
+            [instant.jdbc.aurora :as aurora]))
 
 (defn start-new-pool [aurora-config]
   (let [conn-pool-size (config/get-connection-pool-size)]
@@ -47,8 +46,9 @@
                  (alter-var-root #'aurora/conn-pool (fn [_] conn-pool-fn-before))
                  (throw (Exception. "Abandoning failover, somehow the writes aren't in sync.")))]
       (loop [i 0]
-        (if-let [row (sql/select-one next-pool ["select * from transactions where app_id = ?::uuid"
-                                                (config/instant-config-app-id)])]
+        (if-let [row (sql/select-one next-pool ["select * from transactions where app_id = ?::uuid and id = ?::bigint"
+                                                (config/instant-config-app-id)
+                                                (:id tx)])]
           (when (not= (:app_id row) (config/instant-config-app-id))
             (println "Got a bad tx row" row)
             (quit))

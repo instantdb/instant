@@ -484,7 +484,7 @@
         (try
           (let [ret (deref event-fut handle-receive-timeout-ms :timeout)]
             (when (= :timeout ret)
-              (let [in-progress @in-progress-stmts
+              (let [in-progress @(:stmts in-progress-stmts)
                     _ (sql/cancel-in-progress in-progress)
                     cancel-res (future-cancel event-fut)]
                 (tracer/add-data! {:attributes
