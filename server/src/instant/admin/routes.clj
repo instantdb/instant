@@ -86,7 +86,7 @@
         inference? (-> req :body :inference? boolean)
         {:keys [app-id] :as perms} (get-perms! req)
         attrs (attr-model/get-by-app-id app-id)
-        ctx (merge {:db {:conn-pool aurora/conn-pool}
+        ctx (merge {:db {:conn-pool (aurora/conn-pool)}
                     :app-id app-id
                     :attrs attrs
                     :datalog-query-fn d/query
@@ -113,7 +113,7 @@
         rules-override (-> req :body :rules-override ->json <-json)
         query (ex/get-param! req [:body :query] #(when (map? %) %))
         attrs (attr-model/get-by-app-id app-id)
-        ctx (merge {:db {:conn-pool aurora/conn-pool}
+        ctx (merge {:db {:conn-pool (aurora/conn-pool)}
                     :app-id app-id
                     :attrs attrs
                     :datalog-query-fn d/query
@@ -146,7 +146,7 @@
                                  [:body :throw-on-missing-attrs?] boolean)
         {:keys [app-id] :as perms} (get-perms! req)
         attrs (attr-model/get-by-app-id app-id)
-        ctx (merge {:db {:conn-pool aurora/conn-pool}
+        ctx (merge {:db {:conn-pool (aurora/conn-pool)}
                     :app-id app-id
                     :attrs attrs
                     :datalog-query-fn d/query
@@ -176,7 +176,7 @@
         rules (if rules-override
                 {:app_id app-id :code rules-override}
                 (rule-model/get-by-app-id {:app-id app-id}))
-        ctx (merge {:db {:conn-pool aurora/conn-pool}
+        ctx (merge {:db {:conn-pool (aurora/conn-pool)}
                     :app-id app-id
                     :attrs attrs
                     :datalog-query-fn d/query

@@ -328,7 +328,7 @@
 (defn start-byop-worker [store-conn wal-chan]
   (tracer/record-info! {:name "invalidation-worker/start-byop"})
   (let [app-id config/instant-on-instant-app-id
-        {:keys [table-info]} (pg-introspect/introspect aurora/conn-pool
+        {:keys [table-info]} (pg-introspect/introspect (aurora/conn-pool)
                                                        "public")]
     (loop []
       (let [wal-record (a/<!! wal-chan)]
@@ -387,7 +387,12 @@
          wal-opts (wal/make-wal-opts {:wal-chan wal-chan
                                       :close-signal-chan close-signal-chan
                                       :ex-handler wal-ex-handler
-                                      :conn-config (config/get-aurora-config)
+                                      :conn-config (or (config/get-next-aurora-config)
+                                                       ;; Use the next db so that we don't
+                                                       ;; have to worry about restarting the
+                                                       ;; invalidator when failing over to a
+                                                       ;; new blue/green deployment
+                                                       (config/get-aurora-config))
                                       :slot-name process-id})]
      (ua/fut-bg
       (wal/start-worker wal-opts))
@@ -410,7 +415,7 @@
   (let [shutdown-future (future (wal/shutdown! wal-opts))]
     (loop []
       (when-not (realized? shutdown-future)
-        (wal/kick-wal aurora/conn-pool)
+        (wal/kick-wal (aurora/conn-pool))
         (Thread/sleep 100)
         (recur))))
   (a/close! (:to wal-opts))

@@ -100,7 +100,7 @@
 
 (defn get-by-id
   ([job-id]
-   (get-by-id aurora/conn-pool job-id))
+   (get-by-id (aurora/conn-pool) job-id))
   ([conn job-id]
    (sql/select-one ::get-by-id
                    conn (hsql/format {:select :*
@@ -178,7 +178,7 @@
 
 (defn get-by-id-for-client
   ([app-id job-id]
-   (get-by-id-for-client aurora/conn-pool app-id job-id))
+   (get-by-id-for-client (aurora/conn-pool) app-id job-id))
   ([conn app-id job-id]
    (let [q (get-for-client-q app-id [:= :id job-id])
          res (sql/select-one ::get-by-id-for-client conn (hsql/format q))]
@@ -186,7 +186,7 @@
 
 (defn get-by-group-id-for-client
   ([app-id group-id]
-   (get-by-group-id-for-client aurora/conn-pool app-id group-id))
+   (get-by-group-id-for-client (aurora/conn-pool) app-id group-id))
   ([conn app-id group-id]
    (let [q (get-for-client-q app-id [:= :group-id group-id])
          jobs (sql/select ::get-by-group-id-for-client conn (hsql/format q))]
@@ -194,7 +194,7 @@
 
 (defn invalid-triples
   ([limit job-id]
-   (invalid-triples aurora/conn-pool limit job-id))
+   (invalid-triples (aurora/conn-pool) limit job-id))
   ([conn limit job-id]
    (sql/select ::invalid-triples
                conn (hsql/format {:select [:t.* [[:jsonb_typeof :value] :json-type]]
@@ -210,7 +210,7 @@
 
 (defn create-job!
   ([params]
-   (create-job! aurora/conn-pool params))
+   (create-job! (aurora/conn-pool) params))
   ([conn {:keys [app-id
                  group-id
                  attr-id
@@ -238,7 +238,7 @@
 
 (defn create-check-data-type-job!
   ([params]
-   (create-check-data-type-job! aurora/conn-pool params))
+   (create-check-data-type-job! (aurora/conn-pool) params))
   ([conn {:keys [app-id
                  group-id
                  attr-id
@@ -254,7 +254,7 @@
 
 (defn create-remove-data-type-job!
   ([params]
-   (create-remove-data-type-job! aurora/conn-pool params))
+   (create-remove-data-type-job! (aurora/conn-pool) params))
   ([conn {:keys [app-id
                  group-id
                  attr-id]}]
@@ -267,7 +267,7 @@
 
 (defn create-index-job!
   ([params]
-   (create-index-job! aurora/conn-pool params))
+   (create-index-job! (aurora/conn-pool) params))
   ([conn {:keys [app-id
                  group-id
                  attr-id]}]
@@ -280,7 +280,7 @@
 
 (defn create-remove-index-job!
   ([params]
-   (create-remove-index-job! aurora/conn-pool params))
+   (create-remove-index-job! (aurora/conn-pool) params))
   ([conn {:keys [app-id
                  group-id
                  attr-id]}]
@@ -293,7 +293,7 @@
 
 (defn create-unique-job!
   ([params]
-   (create-unique-job! aurora/conn-pool params))
+   (create-unique-job! (aurora/conn-pool) params))
   ([conn {:keys [app-id
                  group-id
                  attr-id]}]
@@ -306,7 +306,7 @@
 
 (defn create-remove-unique-job!
   ([params]
-   (create-remove-unique-job! aurora/conn-pool params))
+   (create-remove-unique-job! (aurora/conn-pool) params))
   ([conn {:keys [app-id
                  group-id
                  attr-id]}]
@@ -336,7 +336,7 @@
 
 (defn grab-job!
   ([job-id]
-   (grab-job! aurora/conn-pool job-id))
+   (grab-job! (aurora/conn-pool) job-id))
   ([conn job-id]
    (sql/execute-one! ::grab-job!
                      conn (hsql/format
@@ -356,7 +356,7 @@
 
 (defn update-work-estimate!
   ([job next-stage]
-   (update-work-estimate! aurora/conn-pool next-stage job))
+   (update-work-estimate! (aurora/conn-pool) next-stage job))
   ([conn next-stage job]
    (let [estimate (-> (sql/select-one
                        ::get-work-estimate!
@@ -376,7 +376,7 @@
 
 (defn add-work-completed!
   ([completed-count job]
-   (add-work-completed! aurora/conn-pool completed-count job))
+   (add-work-completed! (aurora/conn-pool) completed-count job))
   ([conn completed-count job]
    (sql/execute-one! ::add-work-completed!
                      conn (hsql/format {:update :indexing-jobs
@@ -388,7 +388,7 @@
                                                completed-count]}}))))
 
 (defn release-job!
-  ([job] (release-job! aurora/conn-pool job))
+  ([job] (release-job! (aurora/conn-pool) job))
   ([conn job]
    (tracer/with-span! (job-span-attrs "release-job" job)
      (sql/execute-one! ::release-job!
@@ -399,7 +399,7 @@
 
 (defn mark-job-completed!
   ([job]
-   (mark-job-completed! aurora/conn-pool job))
+   (mark-job-completed! (aurora/conn-pool) job))
   ([conn job]
    (tracer/with-span! (job-span-attrs "mark-job-completed" job)
      (sql/execute-one! ::mark-job-completed!
@@ -411,7 +411,7 @@
 
 (defn set-next-stage!
   ([stage job]
-   (set-next-stage! aurora/conn-pool stage job))
+   (set-next-stage! (aurora/conn-pool) stage job))
   ([conn stage job]
    (tracer/with-span! (update (job-span-attrs "set-next-stage" job)
                               :attributes assoc :next-stage stage)
@@ -423,7 +423,7 @@
 
 (defn mark-error!
   ([props job]
-   (mark-error! aurora/conn-pool props job))
+   (mark-error! (aurora/conn-pool) props job))
   ([conn props job]
    (tracer/with-span! (merge (job-span-attrs "mark-error" job)
                              props)
@@ -436,7 +436,7 @@
 
 (defn mark-error-from-ex-info!
   ([^clojure.lang.ExceptionInfo e job]
-   (mark-error-from-ex-info! aurora/conn-pool e job))
+   (mark-error-from-ex-info! (aurora/conn-pool) e job))
   ([conn ^clojure.lang.ExceptionInfo e job]
    (let [error-data (ex-data e)
          validation-error (some-> error-data
@@ -474,7 +474,7 @@
 
 (defn check-next-batch!
   ([job]
-   (check-next-batch! aurora/conn-pool job))
+   (check-next-batch! (aurora/conn-pool) job))
   ([conn {:keys [app_id attr_id job_type checked_data_type]}]
    (assert (= "check-data-type" job_type))
    (assert checked_data_type)
@@ -498,7 +498,7 @@
 
 (defn check-batch-and-update-job!
   ([job]
-   (check-batch-and-update-job! aurora/conn-pool job))
+   (check-batch-and-update-job! (aurora/conn-pool) job))
   ([conn job]
    (tracer/with-span! (job-span-attrs "check-batch" job)
      (let [update-count (check-next-batch! conn job)]
@@ -509,7 +509,7 @@
 
 (defn has-invalid-row?
   ([job]
-   (has-invalid-row? aurora/conn-pool job))
+   (has-invalid-row? (aurora/conn-pool) job))
   ([conn {:keys [app_id attr_id checked_data_type]}]
    (->> (hsql/format
          {:select [[[:exists {:select :*
@@ -547,7 +547,7 @@
 
 (defn update-attr-for-check-start!
   ([job]
-   (update-attr-for-check-start! aurora/conn-pool job))
+   (update-attr-for-check-start! (aurora/conn-pool) job))
   ([conn job]
    (if (update-attr! conn {:app-id (:app_id job)
                            :attr-id (:attr_id job)
@@ -558,7 +558,7 @@
 
 (defn update-attr-for-check-done!
   ([job]
-   (update-attr-for-check-done! aurora/conn-pool job))
+   (update-attr-for-check-done! (aurora/conn-pool) job))
   ([conn job]
    (if (update-attr! conn {:app-id (:app_id job)
                            :attr-id (:attr_id job)
@@ -570,7 +570,7 @@
 
 (defn rollback-attr-for-check!
   ([job]
-   (rollback-attr-for-check! aurora/conn-pool job))
+   (rollback-attr-for-check! (aurora/conn-pool) job))
   ([conn job]
    (update-attr! conn {:app-id (:app_id job)
                        :attr-id (:attr_id job)
@@ -581,7 +581,7 @@
 
 (defn validate-check!
   ([next-stage job]
-   (validate-check! aurora/conn-pool next-stage job))
+   (validate-check! (aurora/conn-pool) next-stage job))
   ([conn next-stage job]
    (if (has-invalid-row? conn job)
      (do
@@ -591,7 +591,7 @@
 
 (defn run-next-check-step
   ([job]
-   (run-next-check-step aurora/conn-pool job))
+   (run-next-check-step (aurora/conn-pool) job))
   ([conn job]
    (case (:job_stage job)
      ;; make sure this will work
@@ -608,7 +608,7 @@
 
 (defn update-attr-for-remove-data-type-start!
   ([job]
-   (update-attr-for-remove-data-type-start! aurora/conn-pool job))
+   (update-attr-for-remove-data-type-start! (aurora/conn-pool) job))
   ([conn job]
    (if (update-attr! conn {:app-id (:app_id job)
                            :attr-id (:attr_id job)
@@ -619,7 +619,7 @@
 
 (defn update-attr-for-remove-data-type-done!
   ([job]
-   (update-attr-for-remove-data-type-done! aurora/conn-pool job))
+   (update-attr-for-remove-data-type-done! (aurora/conn-pool) job))
   ([conn job]
    (if (update-attr! conn {:app-id (:app_id job)
                            :attr-id (:attr_id job)
@@ -631,7 +631,7 @@
 
 (defn remove-data-type-next-batch!
   ([job]
-   (remove-data-type-next-batch! aurora/conn-pool job))
+   (remove-data-type-next-batch! (aurora/conn-pool) job))
   ([conn {:keys [app_id attr_id job_type checked_data_type]}]
    (assert (= "remove-data-type" job_type))
    (assert (nil? checked_data_type))
@@ -652,7 +652,7 @@
 
 (defn remove-data-type-batch-and-update-job!
   ([job]
-   (check-batch-and-update-job! aurora/conn-pool job))
+   (check-batch-and-update-job! (aurora/conn-pool) job))
   ([conn job]
    (tracer/with-span! (job-span-attrs "remove-data-type-batch" job)
      (let [update-count (remove-data-type-next-batch! conn job)]
@@ -664,7 +664,7 @@
 
 (defn run-next-remove-data-type-step
   ([job]
-   (run-next-remove-data-type-step aurora/conn-pool job))
+   (run-next-remove-data-type-step (aurora/conn-pool) job))
   ([conn job]
    (case (:job_stage job)
      "update-attr-start" (update-attr-for-remove-data-type-start! conn job)
@@ -674,7 +674,7 @@
 
 (defn update-attr-for-index-start!
   ([job]
-   (update-attr-for-index-start! aurora/conn-pool job))
+   (update-attr-for-index-start! (aurora/conn-pool) job))
   ([conn job]
    (if (update-attr! conn {:app-id (:app_id job)
                            :attr-id (:attr_id job)
@@ -685,7 +685,7 @@
 
 (defn update-attr-for-index-done!
   ([job]
-   (update-attr-for-index-done! aurora/conn-pool job))
+   (update-attr-for-index-done! (aurora/conn-pool) job))
   ([conn job]
    (if (update-attr! conn {:app-id (:app_id job)
                            :attr-id (:attr_id job)
@@ -697,7 +697,7 @@
 
 (defn index-next-batch!
   ([job]
-   (index-next-batch! aurora/conn-pool job))
+   (index-next-batch! (aurora/conn-pool) job))
   ([conn {:keys [app_id attr_id job_type]}]
    (assert (= "index" job_type))
    (let [q {:update :triples
@@ -732,7 +732,7 @@
 
 (defn index-batch-and-update-job!
   ([job]
-   (index-batch-and-update-job! aurora/conn-pool job))
+   (index-batch-and-update-job! (aurora/conn-pool) job))
   ([conn job]
    (tracer/with-span! (job-span-attrs "index" job)
      (try
@@ -747,7 +747,7 @@
 
 (defn run-next-index-step
   ([job]
-   (run-next-index-step aurora/conn-pool job))
+   (run-next-index-step (aurora/conn-pool) job))
   ([conn job]
    (case (:job_stage job)
      "update-attr-start" (update-attr-for-index-start! conn job)
@@ -757,7 +757,7 @@
 
 (defn update-attr-for-remove-index-start!
   ([job]
-   (update-attr-for-remove-index-start! aurora/conn-pool job))
+   (update-attr-for-remove-index-start! (aurora/conn-pool) job))
   ([conn job]
    (if (update-attr! conn {:app-id (:app_id job)
                            :attr-id (:attr_id job)
@@ -768,7 +768,7 @@
 
 (defn update-attr-for-remove-index-done!
   ([job]
-   (update-attr-for-remove-index-done! aurora/conn-pool job))
+   (update-attr-for-remove-index-done! (aurora/conn-pool) job))
   ([conn job]
    (if (update-attr! conn {:app-id (:app_id job)
                            :attr-id (:attr_id job)
@@ -780,7 +780,7 @@
 
 (defn remove-index-next-batch!
   ([job]
-   (remove-index-next-batch! aurora/conn-pool job))
+   (remove-index-next-batch! (aurora/conn-pool) job))
   ([conn {:keys [app_id attr_id job_type]}]
    (assert (= "remove-index" job_type))
    (let [q {:update :triples
@@ -800,7 +800,7 @@
 
 (defn remove-index-batch-and-update-job!
   ([job]
-   (remove-index-batch-and-update-job! aurora/conn-pool job))
+   (remove-index-batch-and-update-job! (aurora/conn-pool) job))
   ([conn job]
    (tracer/with-span! (job-span-attrs "remove-index" job)
      (let [update-count (remove-index-next-batch! conn job)]
@@ -811,7 +811,7 @@
 
 (defn run-next-remove-index-step
   ([job]
-   (run-next-index-step aurora/conn-pool job))
+   (run-next-index-step (aurora/conn-pool) job))
   ([conn job]
    (assert (= "remove-index" (:job_type job)))
    (case (:job_stage job)
@@ -822,7 +822,7 @@
 
 (defn update-attr-for-unique-start!
   ([job]
-   (update-attr-for-unique-start! aurora/conn-pool job))
+   (update-attr-for-unique-start! (aurora/conn-pool) job))
   ([conn job]
    (if (update-attr! conn {:app-id (:app_id job)
                            :attr-id (:attr_id job)
@@ -833,7 +833,7 @@
 
 (defn update-attr-for-unique-done!
   ([job]
-   (update-attr-for-unique-done! aurora/conn-pool job))
+   (update-attr-for-unique-done! (aurora/conn-pool) job))
   ([conn job]
    (if (update-attr! conn {:app-id (:app_id job)
                            :attr-id (:attr_id job)
@@ -845,7 +845,7 @@
 
 (defn unique-next-batch!
   ([job]
-   (unique-next-batch! aurora/conn-pool job))
+   (unique-next-batch! (aurora/conn-pool) job))
   ([conn {:keys [app_id attr_id job_type]}]
    (assert (= "unique" job_type))
    (let [q {:update :triples
@@ -881,7 +881,7 @@
 
 (defn unique-batch-and-update-job!
   ([job]
-   (unique-batch-and-update-job! aurora/conn-pool job))
+   (unique-batch-and-update-job! (aurora/conn-pool) job))
   ([conn job]
    (tracer/with-span! (job-span-attrs "unique" job)
      (try
@@ -896,7 +896,7 @@
 
 (defn run-next-unique-step
   ([job]
-   (run-next-unique-step aurora/conn-pool job))
+   (run-next-unique-step (aurora/conn-pool) job))
   ([conn job]
    (case (:job_stage job)
      "update-attr-start" (update-attr-for-unique-start! conn job)
@@ -906,7 +906,7 @@
 
 (defn update-attr-for-remove-unique-start!
   ([job]
-   (update-attr-for-remove-unique-start! aurora/conn-pool job))
+   (update-attr-for-remove-unique-start! (aurora/conn-pool) job))
   ([conn job]
    (if (update-attr! conn {:app-id (:app_id job)
                            :attr-id (:attr_id job)
@@ -917,7 +917,7 @@
 
 (defn update-attr-for-remove-unique-done!
   ([job]
-   (update-attr-for-remove-unique-done! aurora/conn-pool job))
+   (update-attr-for-remove-unique-done! (aurora/conn-pool) job))
   ([conn job]
    (if (update-attr! conn {:app-id (:app_id job)
                            :attr-id (:attr_id job)
@@ -929,7 +929,7 @@
 
 (defn remove-unique-next-batch!
   ([job]
-   (remove-unique-next-batch! aurora/conn-pool job))
+   (remove-unique-next-batch! (aurora/conn-pool) job))
   ([conn {:keys [app_id attr_id job_type]}]
    (assert (= "remove-unique" job_type))
    (let [q {:update :triples
@@ -949,7 +949,7 @@
 
 (defn remove-unique-batch-and-update-job!
   ([job]
-   (remove-unique-batch-and-update-job! aurora/conn-pool job))
+   (remove-unique-batch-and-update-job! (aurora/conn-pool) job))
   ([conn job]
    (tracer/with-span! (job-span-attrs "remove-unique" job)
      (let [update-count (remove-unique-next-batch! conn job)]
@@ -960,7 +960,7 @@
 
 (defn run-next-remove-unique-step
   ([job]
-   (run-next-unique-step aurora/conn-pool job))
+   (run-next-unique-step (aurora/conn-pool) job))
   ([conn job]
    (assert (= "remove-unique" (:job_type job)))
    (case (:job_stage job)
@@ -971,7 +971,7 @@
 
 (defn run-next-step
   ([job]
-   (run-next-step aurora/conn-pool job))
+   (run-next-step (aurora/conn-pool) job))
   ([conn job]
    (tracer/with-span! (job-span-attrs "run-next-step" job)
      (assert (= "processing" (:job_status job)) (:job_status job))
@@ -993,7 +993,7 @@
 
 (defn process-job
   ([chan job]
-   (process-job aurora/conn-pool chan job))
+   (process-job (aurora/conn-pool) chan job))
   ([conn chan job]
    (let [updated-job (run-next-step conn job)]
      (if (not= "processing" (:job_status updated-job))
@@ -1018,7 +1018,7 @@
                                         :escaping? false
                                         :attributes {:job-id job-id}})
       (sql/execute-one! ::handle-process-error
-                        aurora/conn-pool
+                        (aurora/conn-pool)
                         (hsql/format {:update :indexing-jobs
                                       :where (job-update-wheres
                                               [:= :id job-id])
@@ -1033,7 +1033,7 @@
       (recur))))
 
 (defn grab-forgotten-jobs!
-  ([] (grab-forgotten-jobs! aurora/conn-pool))
+  ([] (grab-forgotten-jobs! (aurora/conn-pool)))
   ([conn]
    (tracer/with-span! {:name "indexing-jobs/grab-forgotten-jobs!"}
      (let [jobs (sql/select ::grab-forgotten-jobs!
@@ -1048,7 +1048,7 @@
        jobs))))
 
 (defn warn-stuck-jobs!
-  ([] (warn-stuck-jobs! aurora/conn-pool))
+  ([] (warn-stuck-jobs! (aurora/conn-pool)))
   ([conn]
    (tracer/with-span! {:name "indexing-jobs/grab-forgotten-jobs!"}
      (let [q {:select :id
@@ -1126,7 +1126,7 @@
     (println (format "Updating attr %s.%s"
                      (attr-model/fwd-etype attr)
                      (attr-model/fwd-label attr)))
-    (update-attr! aurora/conn-pool
+    (update-attr! (aurora/conn-pool)
                   {:app-id system-catalog/system-catalog-app-id
                    :attr-id (:id attr)
                    :set {:checked-data-type [:cast
@@ -1150,6 +1150,6 @@
                                   :checked-data-type
                                   [:cast checked-data-type :checked_data_type]]
                                  [:= :checked-data-type nil]]]}]}
-            res (sql/do-execute! aurora/conn-pool (hsql/format q))]
+            res (sql/do-execute! (aurora/conn-pool) (hsql/format q))]
         (when (<= batch-size (:next.jdbc/update-count (first res)))
           (recur))))))

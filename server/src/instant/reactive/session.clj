@@ -74,7 +74,7 @@
 (defn get-attrs [app]
   (if-let [connection-string (-> app :connection_string)]
     ;; TODO(byop): Separate connection for byop app
-    (pg-introspect/introspect aurora/conn-pool (or (->> connection-string
+    (pg-introspect/introspect (aurora/conn-pool) (or (->> connection-string
                                                         (app-model/decrypt-connection-string (:id app))
                                                         uri/query-map
                                                         :currentSchema)
@@ -129,7 +129,7 @@
             processed-tx-id (rs/get-processed-tx-id @store-conn app-id)
             {:keys [table-info]} (get-attrs app)
             attrs (attr-model/get-by-app-id app-id)
-            ctx {:db {:conn-pool aurora/conn-pool}
+            ctx {:db {:conn-pool (aurora/conn-pool)}
                  :datalog-loader (rs/upsert-datalog-loader! store-conn sess-id d/make-loader)
                  :session-id sess-id
                  :app-id app-id
@@ -151,7 +151,7 @@
 (defn- recompute-instaql-query!
   [{:keys [store-conn current-user app-id sess-id attrs table-info admin?]}
    {:keys [instaql-query/query instaql-query/return-type]}]
-  (let [ctx {:db {:conn-pool aurora/conn-pool}
+  (let [ctx {:db {:conn-pool (aurora/conn-pool)}
              :session-id sess-id
              :app-id app-id
              :attrs attrs
@@ -214,7 +214,7 @@
         _ (tx/validate! coerced)
         {tx-id :id}
         (permissioned-tx/transact!
-         {:db {:conn-pool aurora/conn-pool}
+         {:db {:conn-pool (aurora/conn-pool)}
           :rules (rule-model/get-by-app-id {:app-id app-id})
           :app-id app-id
           :current-user (:user auth)
@@ -467,7 +467,7 @@
     (tracer/with-span! {:name "receive-worker/handle-receive"
                         :attributes (handle-receive-attrs store-conn session event metadata)}
       (let [pending-handlers (:pending-handlers (:session/socket session))
-            in-progress-stmts (atom #{})
+            in-progress-stmts (sql/make-statement-tracker)
             debug-info (atom nil)
             event-fut (binding [sql/*in-progress-stmts* in-progress-stmts]
                         (ua/vfuture (handle-event store-conn
@@ -477,14 +477,14 @@
                                                   debug-info)))
             pending-handler {:future event-fut
                              :op (:op event)
-                             :in-progress-stmts in-progress-stmts
+                             :in-progress-stmts (:stmts in-progress-stmts)
                              :silence-exceptions silence-exceptions}]
         (swap! pending-handlers conj pending-handler)
         (tracer/add-data! {:attributes {:concurrent-handler-count (count @pending-handlers)}})
         (try
           (let [ret (deref event-fut handle-receive-timeout-ms :timeout)]
             (when (= :timeout ret)
-              (let [in-progress @in-progress-stmts
+              (let [in-progress @(:stmts in-progress-stmts)
                     _ (sql/cancel-in-progress in-progress)
                     cancel-res (future-cancel event-fut)]
                 (tracer/add-data! {:attributes

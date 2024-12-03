@@ -108,6 +108,16 @@
     (assoc (db-url->config url)
            :ApplicationName application-name)))
 
+(defn get-next-aurora-config []
+  (let [application-name (uri/query-encode (format "%s, %s"
+                                                   (get-hostname)
+                                                   @process-id))
+        url (or (System/getenv "NEXT_DATABASE_URL")
+                (some-> @config-map :next-database-url crypt-util/secret-value))]
+    (when url
+      (assoc (db-url->config url)
+             :ApplicationName application-name))))
+
 ;; ---
 ;; Stripe
 (defn stripe-secret []

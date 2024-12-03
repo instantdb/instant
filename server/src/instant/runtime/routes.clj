@@ -114,7 +114,7 @@
         app-id (ex/get-param! req [:body :app-id] uuid-util/coerce)
         app (app-model/get-by-id! {:id app-id})
         {user-id :id :as u} (or (app-user-model/get-by-email {:app-id app-id :email email})
-                                (next-jdbc/with-transaction [conn aurora/conn-pool]
+                                (next-jdbc/with-transaction [conn (aurora/conn-pool)]
                                   (let [app (app-user-model/create! conn {:id (random-uuid)
                                                                           :app-id app-id
                                                                           :email email})]

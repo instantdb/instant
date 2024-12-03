@@ -598,9 +598,9 @@
 
 (defn get-by-app-id
   ([app-id]
-   (cache/lookup-or-miss attr-cache app-id (partial get-by-app-id* aurora/conn-pool)))
+   (cache/lookup-or-miss attr-cache app-id (partial get-by-app-id* (aurora/conn-pool))))
   ([conn app-id]
-   (if (= conn aurora/conn-pool)
+   (if (= conn (aurora/conn-pool))
      (get-by-app-id app-id)
      ;; Don't cache if we're using a custom connection
      (get-by-app-id* conn app-id))))
@@ -633,22 +633,22 @@
 ;; play
 
 (comment
-  (delete-by-app-id! aurora/conn-pool empty-app-id)
+  (delete-by-app-id! (aurora/conn-pool) empty-app-id)
   (insert-multi!
-   aurora/conn-pool
+   (aurora/conn-pool)
    empty-app-id
    [(gen/generate (s/gen ::attr))])
   (map (partial s/valid? ::attr)
-       (get-by-app-id aurora/conn-pool empty-app-id))
-  (def a (first (get-by-app-id aurora/conn-pool empty-app-id)))
+       (get-by-app-id (aurora/conn-pool) empty-app-id))
+  (def a (first (get-by-app-id (aurora/conn-pool) empty-app-id)))
   (update-multi!
-   aurora/conn-pool
+   (aurora/conn-pool)
    empty-app-id
    [{:id (:id a)
      :forward-identity
      [(-> a :forward-identity first) "new_etype" "new_label"]
      :index? true}])
   (delete-multi!
-   aurora/conn-pool
+   (aurora/conn-pool)
    empty-app-id
    [(:id a)]))

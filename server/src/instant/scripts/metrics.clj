@@ -43,7 +43,7 @@
 
 (defn get-weekly-stats
   ([]
-   (get-weekly-stats aurora/conn-pool))
+   (get-weekly-stats (aurora/conn-pool)))
   ([conn]
    (sql/select conn
                ["WITH earliest_transaction_per_app AS (
@@ -76,7 +76,7 @@
 
 (defn get-monthly-stats
   ([]
-   (get-monthly-stats aurora/conn-pool))
+   (get-monthly-stats (aurora/conn-pool)))
   ([conn]
    (sql/select conn
                ["WITH earliest_transaction_per_app AS (
