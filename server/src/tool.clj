@@ -171,7 +171,7 @@
   (start-portal!)
   (tap> {:hello [1 2 3]}))
 
-(def p-lock
+(def ^:private p-lock
   (Object.))
 
 (defn p-pos []
@@ -194,5 +194,8 @@
       (println (str position " #p " form " => " (pr-str res))))
     res))
 
-(defn p [form]
+(defn p
+  "Add #p before any form to quickly print its value to output next time
+   it is evaluated. Dev only"
+  [form]
   `(p-impl (p-pos) '~form ~form))

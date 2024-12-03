@@ -7,12 +7,11 @@
 (reload/init
  {:dirs ["src" "dev" "test"]})
 
-(defn reload []
-  (let [{:keys [loaded] :as res} (reload/reload)]
-    (when (some #(= 'instant.core %) loaded)
-      (@(requiring-resolve 'instant.core/start)))
-    res))
+(def reload
+  reload/reload)
 
 (defn test-all []
   (reload/reload {:only #"instant\..*-test"})
-  (eftest/run-tests (eftest/find-tests "test") {:multithread? :namespaces}))
+  (-> (reload/find-namespaces #"instant\..*-test")
+      (eftest/find-tests)
+      (eftest/run-tests {:multithread? :namespaces})))
