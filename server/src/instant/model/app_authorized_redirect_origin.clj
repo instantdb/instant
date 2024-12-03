@@ -12,7 +12,7 @@
    (java.util UUID)))
 
 (defn add!
-  ([params] (add! aurora/conn-pool params))
+  ([params] (add! (aurora/conn-pool) params))
   ([conn {:keys [app-id service params]}]
    (let [id (UUID/randomUUID)]
      (sql/execute-one!
@@ -23,7 +23,7 @@
        id app-id service (with-meta params {:pgtype "text[]"})]))))
 
 (defn delete-by-id!
-  ([params] (delete-by-id! aurora/conn-pool params))
+  ([params] (delete-by-id! (aurora/conn-pool) params))
   ([conn {:keys [id app-id]}]
    (sql/execute-one!
     conn
@@ -36,7 +36,7 @@
     (ex/assert-record! record :app-authorized-redirect-origin {:args args})))
 
 (defn get-all-for-app
-  ([params] (get-all-for-app aurora/conn-pool params))
+  ([params] (get-all-for-app (aurora/conn-pool) params))
   ([conn {:keys [app-id]}]
    (sql/select
     conn

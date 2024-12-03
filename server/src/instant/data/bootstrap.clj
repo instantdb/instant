@@ -116,15 +116,15 @@
    ;; Maybe we clean it up later, but we don't really need to right now.
    ;; One idea for a cleanup, is to create an "exported app" file.
    ;; We can then write a function that works on this kind of file schema.
-   (attr-model/delete-by-app-id! aurora/conn-pool app-id)
+   (attr-model/delete-by-app-id! (aurora/conn-pool) app-id)
    (let [txes (extract-zeneca-txes checked-data?)
          _ (tx/transact!
-            aurora/conn-pool
+            (aurora/conn-pool)
             (attr-model/get-by-app-id app-id)
             app-id
             txes)
          triples (triple-model/fetch
-                  aurora/conn-pool
+                  (aurora/conn-pool)
                   app-id)
          attrs (attr-model/get-by-app-id app-id)
          users (for [[_ group] (group-by first (map :triple triples))
@@ -218,7 +218,7 @@
   ;; Maybe we clean it up later, but we don't really need to right now.
   ;; One idea for a cleanup, is to create an "exported app" file.
   ;; We can then write a function that works on this kind of file schema.
-  (attr-model/delete-by-app-id! aurora/conn-pool app-id)
+  (attr-model/delete-by-app-id! (aurora/conn-pool) app-id)
   (let [json-triples
         (<-json (slurp (io/resource "sample_triples/movie.json")))
         id-triples
@@ -297,12 +297,12 @@
 
     (uspec/conform-throwing ::tx/tx-steps tx-steps)
 
-    (tx/transact! aurora/conn-pool
+    (tx/transact! (aurora/conn-pool)
                   (attr-model/get-by-app-id app-id)
                   app-id
                   tx-steps)
 
     (count (triple-model/fetch
-            aurora/conn-pool
+            (aurora/conn-pool)
             app-id))))
 

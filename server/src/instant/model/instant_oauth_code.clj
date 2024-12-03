@@ -8,7 +8,7 @@
    (java.time.temporal ChronoUnit)))
 
 (defn create!
-  ([params] (create! aurora/conn-pool params))
+  ([params] (create! (aurora/conn-pool) params))
   ([conn {:keys [code user-id redirect-path]}]
    (sql/execute-one! conn
                      ["INSERT INTO instant_oauth_codes (lookup_key, user_id, redirect_path)
@@ -22,7 +22,7 @@
 
 (defn consume!
   "Gets and deletes the oauth-code so that it can be used only once."
-  ([params] (consume! aurora/conn-pool params))
+  ([params] (consume! (aurora/conn-pool) params))
   ([conn {:keys [code] :as params}]
    (let [record  (sql/execute-one! conn
                                    ["DELETE FROM instant_oauth_codes where lookup_key = ?::bytea"

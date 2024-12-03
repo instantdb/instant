@@ -14,7 +14,7 @@
 (deftest in-progress-stmts
   (let [in-progress (atom #{})]
     (binding [sql/*in-progress-stmts* in-progress]
-      (let [query (future (sql/select aurora/conn-pool ["select pg_sleep(3)"]))]
+      (let [query (future (sql/select (aurora/conn-pool) ["select pg_sleep(3)"]))]
         (wait-for (fn []
                     (= 1 (count @in-progress)))
                   1000)
@@ -31,5 +31,5 @@
 (deftest in-progress-removes-itself-on-query-completion
   (let [in-progress (atom #{})]
     (binding [sql/*in-progress-stmts* in-progress]
-      (let [query (sql/select aurora/conn-pool ["select 1"])]
+      (let [query (sql/select (aurora/conn-pool) ["select 1"])]
         (is (= 0 (count @in-progress)))))))

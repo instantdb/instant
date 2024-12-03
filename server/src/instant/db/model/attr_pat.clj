@@ -438,7 +438,7 @@
 
 (comment
   (def attrs (attr-model/get-by-app-id zeneca-app-id))
-  (def ctx {:db {:conn-pool aurora/conn-pool}
+  (def ctx {:db {:conn-pool (aurora/conn-pool)}
             :app-id zeneca-app-id
             :datalog-query-fn #'d/query
             :attrs attrs})

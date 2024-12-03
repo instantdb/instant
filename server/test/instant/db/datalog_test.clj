@@ -22,7 +22,7 @@
   (let [res (resolvers/walk-friendly
              @r
              (d/query
-              {:db {:conn-pool aurora/conn-pool}
+              {:db {:conn-pool (aurora/conn-pool)}
                :app-id movies-app-id
                :datalog-loader (d/make-loader)}
               q))]
@@ -121,7 +121,7 @@
         clojure.lang.ExceptionInfo
         #"Invalid input"
         (d/query
-         {:db {:conn-pool aurora/conn-pool}
+         {:db {:conn-pool (aurora/conn-pool)}
           :app-id movies-app-id}
          [bad-pat])))))
   (testing "throws on unjoinable patterns"
@@ -130,7 +130,7 @@
       java.lang.AssertionError
       #"Pattern is not joinable"
       (d/query
-       {:db {:conn-pool aurora/conn-pool}
+       {:db {:conn-pool (aurora/conn-pool)}
         :app-id movies-app-id}
        '[[:ea ?a ?b ?c]
          [:ea ?d ?e ?f]])))))
@@ -140,7 +140,7 @@
     (testing "query pads with _"
       (is (= #{"Tina Turner" "1939-11-26T00:00:00Z"}
              (->> (d/query
-                   {:db {:conn-pool aurora/conn-pool}
+                   {:db {:conn-pool (aurora/conn-pool)}
                     :app-id  movies-app-id}
                    [[:ea tina-turner-eid]])
                   :join-rows
@@ -148,7 +148,7 @@
                   set))))
     (testing "ref values come back as uuids"
       (let [vs (->> (d/query
-                     {:db {:conn-pool aurora/conn-pool}
+                     {:db {:conn-pool (aurora/conn-pool)}
                       :app-id movies-app-id}
                      [[:eav '?e '?a tina-turner-eid]])
                     :join-rows
@@ -158,7 +158,7 @@
 
 (deftest batching-queries
   (let [app-id movies-app-id
-        ctx {:db {:conn-pool aurora/conn-pool}
+        ctx {:db {:conn-pool (aurora/conn-pool)}
              :app-id app-id}
         movie-title-aid (resolvers/->uuid @r :movie/title)
         movie-director-aid (resolvers/->uuid @r :movie/director)
@@ -184,7 +184,7 @@
                  1708623782646]]}
              (resolvers/walk-friendly
               @r
-              (:join-rows (d/send-query-single ctx aurora/conn-pool app-id named-ps-1)))))
+              (:join-rows (d/send-query-single ctx (aurora/conn-pool) app-id named-ps-1)))))
       (is (= #{[["eid-john-mctiernan" :person/name "John McTiernan" 1708623782646]
                 ["eid-die-hard" :movie/director "eid-john-mctiernan" 1708623782646]
                 ["eid-die-hard" :movie/title "Die Hard" 1708623782646]]
@@ -193,7 +193,7 @@
                 ["eid-predator" :movie/title "Predator" 1708623782646]]}
              (resolvers/walk-friendly
               @r
-              (:join-rows (d/send-query-single ctx aurora/conn-pool app-id named-ps-2))))))
+              (:join-rows (d/send-query-single ctx (aurora/conn-pool) app-id named-ps-2))))))
     (testing "send-query-batched"
       (is (= [#{[["eid-predator" :movie/title "Predator" 1708623782646]
                  ["eid-predator" :movie/director "eid-john-mctiernan" 1708623782646]
@@ -209,7 +209,7 @@
                  ["eid-predator" :movie/title "Predator" 1708623782646]]}]
              (resolvers/walk-friendly
               @r
-              (map :join-rows (d/send-query-batch ctx aurora/conn-pool [[app-id named-ps-1]
+              (map :join-rows (d/send-query-batch ctx (aurora/conn-pool) [[app-id named-ps-1]
                                                                         [app-id named-ps-2]]))))))))
 
 (def ^:dynamic *count-atom* nil)

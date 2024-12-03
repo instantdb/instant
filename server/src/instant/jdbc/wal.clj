@@ -146,7 +146,7 @@
   (def pg-conn (get-pg-replication-conn (config/get-aurora-config)))
   (create-temporary-logical-replication-slot! pg-conn "test_slot" "wal2json")
   (.close pg-conn)
-  (get-all-slots aurora/conn-pool))
+  (get-all-slots (aurora/conn-pool)))
 
 ;; -------------------------
 ;; LSN
@@ -159,7 +159,7 @@
    (sql/select-one conn ["SELECT * FROM pg_current_wal_lsn();"])))
 
 (comment
-  (get-current-wal-lsn aurora/conn-pool))
+  (get-current-wal-lsn (aurora/conn-pool)))
 
 ;; ------
 ;; Stream

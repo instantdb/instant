@@ -116,7 +116,7 @@
   ([] (make-movies-resolver movies-app-id))
   ([app-id]
    (make-resolver
-    {:conn-pool aurora/conn-pool}
+    {:conn-pool (aurora/conn-pool)}
     app-id
     [["movie" "title"]
      ["person" "name"]])))
@@ -125,7 +125,7 @@
   ([] (make-zeneca-resolver zeneca-app-id))
   ([app-id]
    (make-resolver
-    {:conn-pool aurora/conn-pool}
+    {:conn-pool (aurora/conn-pool)}
     app-id
     [["users" "fullName"]
      ["books" "title"]
@@ -182,6 +182,6 @@
   (walk-friendly
    r
    (d/query
-    {:db {:conn-pool aurora/conn-pool}
+    {:db {:conn-pool (aurora/conn-pool)}
      :app-id movies-app-id}
     [[:ea (->uuid r "eid-tina-turner")]])))
