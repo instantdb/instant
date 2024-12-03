@@ -153,13 +153,16 @@
 
 (def ^:dynamic *in-progress-stmts* default-statement-tracker)
 
-(defn make-statement-tracker []
+(defn make-statement-tracker
+  "Creates a statement tracker that allows nesting of statement
+   tracking."
+  []
   (let [{:keys [add remove]} *in-progress-stmts*
         stmts (atom #{})]
     {:add (fn [rw cancelable]
             (swap! stmts conj cancelable)
             (when add (add rw cancelable)))
-     :remove (fn [cancelable rw]
+     :remove (fn [rw cancelable]
                (swap! stmts disj cancelable)
                (when remove (remove rw cancelable)))
      :stmts stmts}))
