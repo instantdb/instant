@@ -133,7 +133,8 @@
 (defn get-inactive-replication-slots [conn]
   (sql/select conn ["select slot_name
                        from pg_replication_slots
-                      where active = false"]))
+                      where active = false
+                        and plugin = 'wal2json'"]))
 
 (defn cleanup-inactive-replication-slots [conn slot-names]
   (sql/select conn ["select slot_name, pg_drop_replication_slot(slot_name)
