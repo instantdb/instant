@@ -33,6 +33,7 @@
 (s/def ::postmark-account-token ::config-value)
 (s/def ::secret-discord-token ::config-value)
 (s/def ::database-url ::config-value)
+(s/def ::next-database-url ::config-value)
 (s/def ::stripe-secret ::config-value)
 (s/def ::stripe-webhook-secret ::config-value)
 (s/def ::honeycomb-api-key ::config-value)
@@ -55,6 +56,7 @@
                                  ::s3-storage-access-key
                                  ::s3-storage-secret-key
                                  ::database-url
+                                 ::next-database-url
                                  ::postmark-token
                                  ::postmark-account-token
                                  ::secret-discord-token
@@ -79,7 +81,8 @@
                                       ::honeycomb-api-key
                                       ::google-oauth-client
                                       ::hybrid-keyset]
-                             :opt-un [::instant-config-app-id]))
+                             :opt-un [::instant-config-app-id
+                                      ::next-database-url]))
 
 (defn config-spec [prod?]
   (if prod?
