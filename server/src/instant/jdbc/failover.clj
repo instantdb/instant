@@ -75,11 +75,3 @@
     (println "NEXT STEPS:")
     (println "  1. Put the old database to sleep so that it doesn't accidentally get written to.")
     (println "  2. Update the config so that old db is now new db and redeploy")))
-
-;; Steps:
-;;  1. Create new pool
-;;  2. Update `conn-pool` in instant.jdbc.aurora to wait on a promise
-;;  3. Wait for transactions to complete
-;;  3. Make a transaction
-;;  4. Wait for that transaction to come through
-;;  5.
