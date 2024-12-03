@@ -467,7 +467,7 @@
     (tracer/with-span! {:name "receive-worker/handle-receive"
                         :attributes (handle-receive-attrs store-conn session event metadata)}
       (let [pending-handlers (:pending-handlers (:session/socket session))
-            in-progress-stmts (atom #{})
+            in-progress-stmts (sql/make-statement-tracker)
             debug-info (atom nil)
             event-fut (binding [sql/*in-progress-stmts* in-progress-stmts]
                         (ua/vfuture (handle-event store-conn
@@ -477,7 +477,7 @@
                                                   debug-info)))
             pending-handler {:future event-fut
                              :op (:op event)
-                             :in-progress-stmts in-progress-stmts
+                             :in-progress-stmts (:stmts in-progress-stmts)
                              :silence-exceptions silence-exceptions}]
         (swap! pending-handlers conj pending-handler)
         (tracer/add-data! {:attributes {:concurrent-handler-count (count @pending-handlers)}})
