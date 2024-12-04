@@ -75,15 +75,15 @@
    the set of topics and triples in the result"
   [pretty-a pretty-b]
   `(do
-    (testing "(topics is-pretty-eq?)"
-      (is (= (set (mapcat :topics ~pretty-a))
-             (set (mapcat :topics ~pretty-b)))))
-    (testing "(triples is-pretty-eq?)"
-      (is (= (set (mapcat :triples ~pretty-a))
-             (set (mapcat :triples ~pretty-b)))))
-    (testing "(aggregate is-pretty-eq?)"
-      (is (= (set (remove nil? (mapcat :aggregate ~pretty-a)))
-             (set (remove nil? (mapcat :aggregate ~pretty-b))))))))
+     (testing "(topics is-pretty-eq?)"
+       (is (= (set (mapcat :topics ~pretty-a))
+              (set (mapcat :topics ~pretty-b)))))
+     (testing "(triples is-pretty-eq?)"
+       (is (= (set (mapcat :triples ~pretty-a))
+              (set (mapcat :triples ~pretty-b)))))
+     (testing "(aggregate is-pretty-eq?)"
+       (is (= (set (remove nil? (mapcat :aggregate ~pretty-a)))
+              (set (remove nil? (mapcat :aggregate ~pretty-b))))))))
 
 (defn- query-pretty
   ([q]
@@ -2094,6 +2094,7 @@
                                      :value-type :blob
                                      :checked-data-type t
                                      :cardinality :one}])
+
                        (mapcat
                         (fn [i]
                           (let [id (random-uuid)]
@@ -2108,6 +2109,8 @@
           (is (= #{"2" "3" "4"} (run-query :string {:etype {:$ {:where {:string {:$gte "2"}}}}})))
           (is (= #{"0" "1"} (run-query :string {:etype {:$ {:where {:string {:$lt "2"}}}}})))
           (is (= #{"0" "1" "2"} (run-query :string {:etype {:$ {:where {:string {:$lte "2"}}}}})))
+          (is (= #{"1"} (run-query :string {:etype {:$ {:where {:string "1"}}}})))
+          (is (= #{"0" "2" "3" "4"} (run-query :string {:etype {:$ {:where {:string {:$not "1"}}}}})))
 
           (testing "uses index"
             (is (= "triples_string_trgm_gist_idx" (run-explain :string "2"))))
@@ -2120,6 +2123,8 @@
           (is (= #{2 3 4} (run-query :number {:etype {:$ {:where {:number {:$gte 2}}}}})))
           (is (= #{0 1} (run-query :number {:etype {:$ {:where {:number {:$lt 2}}}}})))
           (is (= #{0 1 2} (run-query :number {:etype {:$ {:where {:number {:$lte 2}}}}})))
+          (is (= #{1} (run-query :number {:etype {:$ {:where {:number 1}}}})))
+          (is (= #{0 2 3 4} (run-query :number {:etype {:$ {:where {:number {:$not 1}}}}})))
 
           (testing "uses index"
             (is (= "triples_number_type_idx" (run-explain :number 2)))))
@@ -2129,6 +2134,9 @@
           (is (= #{2 3 4} (run-query :date {:etype {:$ {:where {:date {:$gte 2}}}}})))
           (is (= #{0 1} (run-query :date {:etype {:$ {:where {:date {:$lt 2}}}}})))
           (is (= #{0 1 2} (run-query :date {:etype {:$ {:where {:date {:$lte 2}}}}})))
+          (is (= #{1} (run-query :date {:etype {:$ {:where {:date 1}}}})))
+          (is (= #{1} (run-query :date {:etype {:$ {:where {:date (.toString (Instant/ofEpochMilli 1))}}}})))
+          (is (= #{0 2 3 4} (run-query :date {:etype {:$ {:where {:date {:$not 1}}}}})))
 
           (testing "uses index"
             (is (= "triples_date_type_idx" (run-explain :date (Instant/ofEpochMilli 2))))))
@@ -2140,6 +2148,8 @@
           (is (= #{} (run-query :boolean {:etype {:$ {:where {:boolean {:$lt false}}}}})))
           (is (= #{false} (run-query :boolean {:etype {:$ {:where {:boolean {:$lt true}}}}})))
           (is (= #{false true} (run-query :boolean {:etype {:$ {:where {:boolean {:$lte true}}}}})))
+          (is (= #{true} (run-query :boolean {:etype {:$ {:where {:boolean true}}}})))
+          (is (= #{false} (run-query :boolean {:etype {:$ {:where {:boolean {:$not true}}}}})))
 
           (testing "uses index"
             (is (= "triples_boolean_type_idx" (run-explain :boolean true)))))))))
@@ -2899,9 +2909,9 @@
            (is
             (= ::ex/permission-evaluation-failed
                (::ex/type (instant-ex-data
-                            (pretty-perm-q
-                             {:app-id app-id :current-user {:handle "stopa"}}
-                             {:users {}})))))))))))
+                           (pretty-perm-q
+                            {:app-id app-id :current-user {:handle "stopa"}}
+                            {:users {}})))))))))))
 
 (deftest coarse-topics []
   (let [{:keys [patterns]}
