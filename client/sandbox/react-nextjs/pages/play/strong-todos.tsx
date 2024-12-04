@@ -3,13 +3,12 @@ import {
   init_experimental,
   InstaQLEntity,
   type InstaQLParams,
-  type InstaQLResult,
 } from "@instantdb/react";
 
 import config from "../../config";
 
-const schema = i.graph(
-  {
+const _schema = i.schema({
+  entities: {
     todos: i.entity({
       text: i.string(),
       completed: i.boolean(),
@@ -18,7 +17,7 @@ const schema = i.graph(
       name: i.string(),
     }),
   },
-  {
+  links: {
     todosOwner: {
       forward: {
         on: "todos",
@@ -32,11 +31,12 @@ const schema = i.graph(
       },
     },
   },
-);
-type _Schema = typeof schema;
-// This is a little hack that makes
-// Typescript intellisense look a lot cleaner
-interface Schema extends _Schema {}
+  rooms: {},
+});
+// This helps Typescript display nicer intellisense
+type _AppSchema = typeof _schema;
+interface AppSchema extends _AppSchema {}
+const schema: AppSchema = _schema;
 
 const db = init_experimental({
   ...config,
@@ -47,9 +47,9 @@ const todosQuery = {
   todos: {
     owner: {},
   },
-} satisfies InstaQLParams<Schema>;
+} satisfies InstaQLParams<AppSchema>;
 
-export type Todo = InstaQLEntity<Schema, "todos">;
+export type Todo = InstaQLEntity<AppSchema, "todos">;
 
 export default function TodoApp() {
   const result = db.useQuery(todosQuery);

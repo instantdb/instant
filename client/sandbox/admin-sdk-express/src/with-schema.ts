@@ -8,8 +8,8 @@ import fs from "fs";
 
 dotenv.config();
 
-const schema = i.graph(
-  {
+const schema = i.schema({
+  entities: {
     goals: i.entity({
       title: i.string(),
       creatorId: i.string(),
@@ -17,7 +17,7 @@ const schema = i.graph(
     }),
     todos: i.entity({ title: i.string(), creatorId: i.string() }),
   },
-  {
+  links: {
     goalsTodos: {
       forward: {
         on: "goals",
@@ -31,7 +31,8 @@ const schema = i.graph(
       },
     },
   },
-);
+  rooms: {},
+});
 
 const db = init_experimental({
   apiURI: "http://localhost:8888",

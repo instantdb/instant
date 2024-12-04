@@ -6,24 +6,31 @@ title: Schema-as-code
 
 This file lives in the root of your project and will be consumed by [the Instant CLI](/docs/cli). You can apply your schema to the production database with `npx instant-cli push schema`.
 
-The default export of `instant.schema.ts` should always be the result of a call to `i.graph`.
+The default export of `instant.schema.ts` should always be the result of a call to `i.schema`.
 
 ```typescript
 // instant.schema.ts
 
 import { i } from '@instantdb/core';
 
-const graph = i.graph(
-  entitiesMap, // a map of `i.entity` definitions, see "Defining entities" below
-  linksMap // a description of links between your app's entities, see "Defining links" below
+const _schema = i.schema({
+  entities: entitiesMap, // a map of `i.entity` definitions, see "Defining entities" below
+  links: linksMap, // a description of links between your app's entities, see "Defining links" below
+  rooms: roomsMap // If you use presence or cursors, you can define your schema for them here
 );
 
-export default graph;
+// This helps Typescript display nicer intellisense
+type _AppSchema = typeof _schema;
+interface AppSchema extends _AppSchema {}
+const schema: AppSchema = _schema;
+
+export { type AppSchema };
+export default schema;
 ```
 
 ## Defining entities
 
-The first parameter to `i.graph` is a dictionary of entities, where the key represents the entities name, and the value is a call to `i.entity` with a dictionary of attributes.
+The `entities` paramemter in `i.schema` is a dictionary of entities, where the key represents the entities name, and the value is a call to `i.entity` with a dictionary of attributes.
 
 ```typescript
 {
@@ -85,7 +92,7 @@ i.string().unique().indexed();
 
 ## Defining links
 
-Link definitions are used to express relationships in your app's graph model.
+Link definitions are used to express relationships in your app's data model.
 
 Links are bidirectional, and you can specify a name and cardinality for both the forward and reverse direction.
 
@@ -107,6 +114,28 @@ Links are bidirectional, and you can specify a name and cardinality for both the
 }
 ```
 
+## Defining rooms
+
+The `rooms` key let you define a schema for [presence, cursors, and other ephemeral features](./presence-and-topics.md). Here's how this looks:
+
+```typescript
+{
+  // `chat` is the `roomType`
+  chat: {
+    // You can define presence state here
+    presence: i.entity({
+      nickname: i.string(),
+    }),
+    topics: {
+      // You can define payloads for different topics here
+      sendEmoji: i.entity({
+        emoji: i.string(),
+      })
+    }
+  }
+}
+```
+
 ## An example schema file
 
 Below we demonstrate a data model for a blog. First we define our core entities: authors, posts and tags.
@@ -118,31 +147,30 @@ Make sure to set the graph object as your file's default export to that it can b
 ```typescript
 import { i } from '@instantdb/core';
 
-const graph = i.graph(
-  {
-    authors: i.entity({
-      userId: i.string(),
-      name: i.string(),
+const _schema = i.schema({
+  entities: {
+    $users: i.entity({
+      email: i.string().unique().indexed(),
     }),
     posts: i.entity({
-      name: i.string(),
+      title: i.string(),
       content: i.string(),
     }),
     tags: i.entity({
       label: i.string(),
     }),
   },
-  {
-    authorPosts: {
+  links: {
+    postsAuthor: {
       forward: {
-        on: 'authors',
-        has: 'many',
-        label: 'posts',
-      },
-      reverse: {
         on: 'posts',
         has: 'one',
         label: 'author',
+      },
+      reverse: {
+        on: '$users',
+        has: 'many',
+        label: 'authoredPosts',
       },
     },
     postsTags: {
@@ -157,8 +185,26 @@ const graph = i.graph(
         label: 'posts',
       },
     },
-  }
-);
+  },
+  rooms: {
+    chat: {
+      presence: i.entity({
+        nickname: i.string(),
+      }),
+      topics: {
+        sendEmoji: i.entity({
+          emoji: i.string(),
+        }),
+      },
+    },
+  },
+});
 
-export default graph;
+// This helps Typescript display nicer intellisense
+type _AppSchema = typeof _schema;
+interface AppSchema extends _AppSchema {}
+const schema: AppSchema = _schema;
+
+export { type AppSchema };
+export default schema;
 ```

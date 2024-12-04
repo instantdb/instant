@@ -1,7 +1,7 @@
 import { i } from "@instantdb/core";
 
-const graph = i.graph(
-  {
+const schema = i.schema({
+  entities: {
     authors: i.entity({
       name: i.any(),
       userId: i.any(),
@@ -14,7 +14,7 @@ const graph = i.graph(
       label: i.any(),
     }),
   },
-  {
+  links: {
     authorsPosts: {
       forward: {
         on: "authors",
@@ -40,6 +40,7 @@ const graph = i.graph(
       },
     },
   },
-);
+  rooms: {},
+});
 
-export default graph;
+export default schema;

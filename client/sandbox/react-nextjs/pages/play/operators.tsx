@@ -3,8 +3,8 @@ import config from "../../config";
 import { init_experimental, tx, id, i } from "@instantdb/react";
 import { useRouter } from "next/router";
 
-const schema = i.graph(
-  {
+const schema = i.schema({
+  entities: {
     comments: i.entity({
       slug: i.string().unique().indexed(),
       someString: i.string().indexed(),
@@ -16,7 +16,7 @@ const schema = i.graph(
       email: i.string().unique().indexed(),
     }),
   },
-  {
+  links: {
     commentAuthors: {
       forward: {
         on: "comments",
@@ -30,7 +30,8 @@ const schema = i.graph(
       },
     },
   },
-);
+  rooms: {},
+});
 
 function randInt(max: number) {
   return Math.floor(Math.random() * max);

@@ -703,14 +703,14 @@ test("it doesn't create duplicate ref attrs", () => {
 });
 
 test("Schema: uses info in `attrs` and `links`", () => {
-  const schema = i.graph(
-    {
+  const schema = i.schema({
+    entities: {
       comments: i.entity({
         slug: i.string().unique().indexed(),
       }),
       books: i.entity({}),
     },
-    {
+    links: {
       commentBooks: {
         forward: {
           on: "comments",
@@ -724,7 +724,8 @@ test("Schema: uses info in `attrs` and `links`", () => {
         },
       },
     },
-  );
+    rooms: {},
+  });
 
   const commentId = uuid();
   const bookId = uuid();
@@ -794,12 +795,12 @@ test("Schema: uses info in `attrs` and `links`", () => {
 });
 
 test("Schema: doesn't create duplicate ref attrs", () => {
-  const schema = i.graph(
-    {
+  const schema = i.schema({
+    entities: {
       comments: i.entity({}),
       books: i.entity({}),
     },
-    {
+    links: {
       commentBooks: {
         forward: {
           on: "comments",
@@ -813,7 +814,8 @@ test("Schema: doesn't create duplicate ref attrs", () => {
         },
       },
     },
-  );
+    rooms: {},
+  });
 
   const commentId = uuid();
   const bookId = uuid();
@@ -862,14 +864,15 @@ test("Schema: doesn't create duplicate ref attrs", () => {
 });
 
 test("Schema: lookup creates unique attrs for custom lookups", () => {
-  const schema = i.graph(
-    {
+  const schema = i.schema({
+    entities: {
       users: i.entity({
         nickname: i.string().unique().indexed(),
       }),
     },
-    {},
-  );
+    links: {},
+    rooms: {},
+  });
 
   const ops = instatx.tx.users[instatx.lookup("nickname", "stopanator")].update(
     {
@@ -909,14 +912,14 @@ test("Schema: lookup creates unique attrs for custom lookups", () => {
 });
 
 test("Schema: lookup creates unique attrs for lookups in link values", () => {
-  const schema = i.graph(
-    {
+  const schema = i.schema({
+    entities: {
       posts: i.entity({
         slug: i.string().unique().indexed(),
       }),
       users: i.entity({}),
     },
-    {
+    links: {
       postUsers: {
         forward: {
           on: "users",
@@ -930,7 +933,8 @@ test("Schema: lookup creates unique attrs for lookups in link values", () => {
         },
       },
     },
-  );
+    rooms: {},
+  });
 
   const uid = uuid();
   const ops = instatx.tx.users[uid]
@@ -990,14 +994,14 @@ test("Schema: lookup creates unique attrs for lookups in link values", () => {
 });
 
 test("Schema: lookup creates unique attrs for lookups in link values with arrays", () => {
-  const schema = i.graph(
-    {
+  const schema = i.schema({
+    entities: {
       posts: i.entity({
         slug: i.string().unique().indexed(),
       }),
       users: i.entity({}),
     },
-    {
+    links: {
       postUsers: {
         forward: {
           on: "users",
@@ -1011,7 +1015,8 @@ test("Schema: lookup creates unique attrs for lookups in link values with arrays
         },
       },
     },
-  );
+    rooms: {},
+  });
 
   const uid = uuid();
   const ops = instatx.tx.users[uid].update({}).link({
@@ -1084,12 +1089,12 @@ test("Schema: lookup creates unique attrs for lookups in link values with arrays
 });
 
 test("Schema: lookup creates unique ref attrs for ref lookup", () => {
-  const schema = i.graph(
-    {
+  const schema = i.schema({
+    entities: {
       users: i.entity({}),
       user_prefs: i.entity({}),
     },
-    {
+    links: {
       user_user_prefs: {
         forward: {
           on: "user_prefs",
@@ -1103,7 +1108,8 @@ test("Schema: lookup creates unique ref attrs for ref lookup", () => {
         },
       },
     },
-  );
+    rooms: {},
+  });
 
   const uid = uuid();
   const ops = [
@@ -1167,12 +1173,12 @@ test("Schema: lookup creates unique ref attrs for ref lookup", () => {
 });
 
 test("Schema: lookup creates unique ref attrs for ref lookup in link value", () => {
-  const schema = i.graph(
-    {
+  const schema = i.schema({
+    entities: {
       users: i.entity({}),
       user_prefs: i.entity({}),
     },
-    {
+    links: {
       user_user_prefs: {
         forward: {
           on: "users",
@@ -1186,7 +1192,8 @@ test("Schema: lookup creates unique ref attrs for ref lookup in link value", () 
         },
       },
     },
-  );
+    rooms: {},
+  });
   const uid = uuid();
   const ops = [
     instatx.tx.users[uid]
@@ -1239,8 +1246,8 @@ test("Schema: lookup creates unique ref attrs for ref lookup in link value", () 
 });
 
 test("Schema: populates checked-data-type", () => {
-  const schema = i.graph(
-    {
+  const schema = i.schema({
+    entities: {
       comments: i.entity({
         s: i.string(),
         n: i.number(),
@@ -1250,8 +1257,9 @@ test("Schema: populates checked-data-type", () => {
         j: i.json(),
       }),
     },
-    {},
-  );
+    links: {},
+    rooms: {},
+  });
 
   const commentId = uuid();
   const ops = instatx.tx.comments[commentId].update({
