@@ -46,6 +46,8 @@
           0
           friendly-set))
 
+(def checked-data-types #{"number" "string" "boolean" "date"})
+
 ;; ----
 ;; Spec
 
@@ -67,13 +69,24 @@
 
 (s/def ::index? boolean?)
 
+(s/def ::checked-data-type checked-data-types)
+
+(s/def ::indexing? boolean?)
+(s/def ::checking-data-type? boolean?)
+(s/def ::setting-unique? boolean?)
+
 (s/def ::attr-common (s/keys :req-un
                              [::id
                               ::forward-identity
                               ::value-type
                               ::cardinality
                               ::unique?
-                              ::index?]))
+                              ::index?]
+                             :opt-un
+                             [::checked-data-type
+                              ::indexing?
+                              ::checking-data-type?
+                              ::setting-unique?]))
 
 (s/def ::blob-attr ::attr-common)
 
@@ -125,6 +138,11 @@
   "Given an attr, return it's reverse etype or nil"
   (comp second :reverse-identity))
 
+(defn fwd-friendly-name
+  "Given an attr, returns `etype.label`"
+  [attr]
+  (format "%s.%s" (fwd-etype attr) (fwd-label attr)))
+
 ;; -------
 ;; caching
 
@@ -148,6 +166,7 @@
   [conn app-id]
   (with-cache-invalidation app-id
     (sql/do-execute!
+     ::delete-by-app-id!
      conn
      ["DELETE FROM attrs WHERE attrs.app_id = ?::uuid" app-id])))
 
@@ -158,13 +177,15 @@
   "Manual reflection of postgres attr table columns"
   [:id :app-id :value-type
    :cardinality :is-unique :is-indexed
-   :forward-ident :reverse-ident :on-delete])
+   :forward-ident :reverse-ident :on-delete
+   :checked-data-type])
 
 (defn attr-table-values
   "Marshals a collection of attrs into insertable sql attr values"
   [app-id attrs]
   (map (fn [{:keys [id value-type cardinality unique? index?
-                    forward-identity reverse-identity on-delete]}]
+                    forward-identity reverse-identity on-delete
+                    checked-data-type]}]
          [id
           app-id
           [:cast (when value-type (name value-type)) :text]
@@ -173,10 +194,8 @@
           [:cast index? :boolean]
           [:cast (first forward-identity) :uuid]
           [:cast (first reverse-identity) :uuid]
-          [:cast
-           (some-> on-delete
-                   name)
-           :attr_on_delete]])
+          [:cast (some-> on-delete name) :attr_on_delete]
+          [:cast (some-> checked-data-type name) :checked_data_type]])
        attrs))
 
 (def ident-table-cols
@@ -252,6 +271,7 @@
      (validate-on-deletes! attrs))
    (with-cache-invalidation app-id
      (sql/do-execute!
+      ::insert-multi!
       conn
       (hsql/format
        {:with [[[:attr-values
@@ -364,6 +384,7 @@
   (validate-reserved-names! updates)
   (with-cache-invalidation app-id
     (sql/do-execute!
+     ::update-multi!
      conn
      (hsql/format
       {:with (concat
@@ -427,6 +448,7 @@
   [conn app-id ids]
   (with-cache-invalidation app-id
     (sql/do-execute!
+     ::delte-multi!
      conn
      (hsql/format
       {:delete-from :attrs
@@ -451,7 +473,11 @@
            rev_label
            rev_etype
            inferred_types
-           on_delete]}]
+           on_delete
+           checked_data_type
+           checking_data_type
+           indexing
+           setting_unique]}]
   (cond-> {:id id
            :value-type (keyword value_type)
            :cardinality (keyword cardinality)
@@ -464,7 +490,11 @@
                       :system
                       :user)}
     on_delete (assoc :on-delete (keyword on_delete))
-    reverse_ident (assoc :reverse-identity [reverse_ident rev_etype rev_label])))
+    reverse_ident (assoc :reverse-identity [reverse_ident rev_etype rev_label])
+    checked_data_type (assoc :checked-data-type (keyword checked_data_type))
+    checking_data_type (assoc :checking-data-type? true)
+    indexing (assoc :indexing? true)
+    setting_unique (assoc :setting-unique? true)))
 
 (defn index-attrs
   "Groups attrs by common lookup patterns so that we can efficiently look them up."
@@ -551,6 +581,7 @@
   (wrap-attrs
    (map row->attr
         (sql/select
+         ::get-by-app-id*
          conn
          (hsql/format
           {:select [:attrs.*
@@ -563,41 +594,16 @@
            :left-join [[:idents :rev-idents] [:= :attrs.reverse-ident :rev-idents.id]]
            :where [:or
                    [:= :attrs.app-id [:cast app-id :uuid]]
-                   [:and {:select :users-in-triples
-                          :from :apps
-                          :where [:= :id app-id]}
-                    [:= :attrs.app-id [:cast system-catalog-app-id :uuid]]]]})))))
+                   [:= :attrs.app-id [:cast system-catalog-app-id :uuid]]]})))))
 
 (defn get-by-app-id
   ([app-id]
-   (cache/lookup-or-miss attr-cache app-id (partial get-by-app-id* aurora/conn-pool)))
+   (cache/lookup-or-miss attr-cache app-id (partial get-by-app-id* (aurora/conn-pool))))
   ([conn app-id]
-   ;; Don't cache if we're using a custom connection
-   (get-by-app-id* conn app-id)))
-
-(defn get-all-users-shims
-  "Fetching the mapping from app-users table to attributes that we use to
-   create the $users table.
-   Returns a mapping of app_id to {email-attr-id: ?uuid
-                                   id-attr-id: ?uuid}"
-  [conn]
-  (let [query (hsql/format {:select :*
-                            :from :idents
-                            :where [:and
-                                    [:= :etype "$users"]
-                                    [:or
-                                     [:= :label "id"]
-                                     [:= :label "email"]]]})
-        rows (sql/select conn query)]
-    (reduce (fn [acc row]
-              (let [app-id (:app_id row)
-                    field (case (:label row)
-                            "id" :id-attr-id
-                            "email" :email-attr-id)
-                    attr-id (:attr_id row)]
-                (assoc-in acc [(str app-id) field] attr-id)))
-            {}
-            rows)))
+   (if (= conn (aurora/conn-pool))
+     (get-by-app-id app-id)
+     ;; Don't cache if we're using a custom connection
+     (get-by-app-id* conn app-id))))
 
 ;; ------
 ;; seek
@@ -623,60 +629,26 @@
                  (not= "$users" (fwd-etype a))))
           attrs))
 
-;; -------
-;; Helpers
-
-(defn has-$users? [^Attrs attrs]
-  (and (seek-by-fwd-ident-name ["$users" "email"] attrs)
-       (seek-by-fwd-ident-name ["$users" "id"] attrs)))
-
-(defn users-shim-info
-  "Returns the users shim info if the users shim attrs exist"
-  [^Attrs attrs]
-  (let [email-attr (seek-by-fwd-ident-name ["$users" "email"] attrs)
-        id-attr (seek-by-fwd-ident-name ["$users" "id"] attrs)
-        migrated-field (seek-by-fwd-ident-name ["$magicCodes" "id"] attrs)]
-    (when (and email-attr id-attr (not migrated-field))
-      {:email-attr-id (:id email-attr)
-       :id-attr-id (:id id-attr)})))
-
-(defn gen-users-shim-attrs [attrs]
-  (keep identity
-        [(when-not (seek-by-fwd-ident-name ["$users" "id"] attrs)
-           {:id (random-uuid)
-            :forward-identity [(random-uuid) "$users" "id"]
-            :unique? true
-            :index? true
-            :value-type :blob
-            :cardinality :one})
-         (when-not (seek-by-fwd-ident-name ["$users" "email"] attrs)
-           {:id (random-uuid)
-            :forward-identity [(random-uuid) "$users" "email"]
-            :unique? true
-            :index? true
-            :value-type :blob
-            :cardinality :one})]))
-
 ;; ------
 ;; play
 
 (comment
-  (delete-by-app-id! aurora/conn-pool empty-app-id)
+  (delete-by-app-id! (aurora/conn-pool) empty-app-id)
   (insert-multi!
-   aurora/conn-pool
+   (aurora/conn-pool)
    empty-app-id
    [(gen/generate (s/gen ::attr))])
   (map (partial s/valid? ::attr)
-       (get-by-app-id aurora/conn-pool empty-app-id))
-  (def a (first (get-by-app-id aurora/conn-pool empty-app-id)))
+       (get-by-app-id (aurora/conn-pool) empty-app-id))
+  (def a (first (get-by-app-id (aurora/conn-pool) empty-app-id)))
   (update-multi!
-   aurora/conn-pool
+   (aurora/conn-pool)
    empty-app-id
    [{:id (:id a)
      :forward-identity
      [(-> a :forward-identity first) "new_etype" "new_label"]
      :index? true}])
   (delete-multi!
-   aurora/conn-pool
+   (aurora/conn-pool)
    empty-app-id
    [(:id a)]))

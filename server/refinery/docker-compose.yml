@@ -1,0 +1,15 @@
+services:
+  refinery:
+    image: honeycombio/refinery:2.8.4
+    volumes:
+      - ./config.yaml:/etc/refinery/refinery.yaml
+      - ./config-redis.yaml:/etc/refinery/refinery-redis.yaml
+      - ./rules.yaml:/etc/refinery/rules.yaml
+    environment:
+      - REFINERY_HONEYCOMB_API_KEY=${REFINERY_HONEYCOMB_API_KEY}
+      - REFINERY_REDIS_HOST=${REFINERY_REDIS_HOST}
+    env_file:
+      - ./refinery.env
+    network_mode: "host"
+    restart: on-failure
+    stop_grace_period: 30s

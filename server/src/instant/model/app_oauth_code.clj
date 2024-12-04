@@ -1,6 +1,5 @@
 (ns instant.model.app-oauth-code
   (:require [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
             [instant.system-catalog-ops :refer [update-op]]
             [instant.util.crypt :as crypt-util]
             [instant.util.exception :as ex])
@@ -12,7 +11,7 @@
 (def etype "$oauthCodes")
 
 (defn create!
-  ([params] (create! aurora/conn-pool params))
+  ([params] (create! (aurora/conn-pool) params))
   ([conn {:keys [code
                  user-id
                  app-id
@@ -21,28 +20,18 @@
    (update-op
     conn
     {:app-id app-id
-     :etype etype
-     :legacy-op
-     (fn [conn]
-       (sql/execute-one!
-        conn
-        ["INSERT INTO app_oauth_codes (
-            lookup_key, user_id, app_id, code_challenge_method, code_challenge
-          ) VALUES (?::bytea, ?::uuid, ?::uuid, ?, ?)"
-         (crypt-util/uuid->sha256 code) user-id app-id
-         code-challenge-method code-challenge]))
-     :triples-op
-     (fn [{:keys [resolve-id transact! get-entity]}]
-       (let [eid (random-uuid)
-             code-hash (-> code
-                           crypt-util/uuid->sha256
-                           crypt-util/bytes->hex-string)]
-         (transact! [[:add-triple eid (resolve-id :id) eid]
-                     [:add-triple eid (resolve-id :codeHash) code-hash]
-                     [:add-triple eid (resolve-id :$user) user-id]
-                     [:add-triple eid (resolve-id :codeChallengeMethod) code-challenge-method]
-                     [:add-triple eid (resolve-id :codeChallenge) code-challenge]])
-         (get-entity eid)))})))
+     :etype etype}
+    (fn [{:keys [resolve-id transact! get-entity]}]
+      (let [eid (random-uuid)
+            code-hash (-> code
+                          crypt-util/uuid->sha256
+                          crypt-util/bytes->hex-string)]
+        (transact! [[:add-triple eid (resolve-id :id) eid]
+                    [:add-triple eid (resolve-id :codeHash) code-hash]
+                    [:add-triple eid (resolve-id :$user) user-id]
+                    [:add-triple eid (resolve-id :codeChallengeMethod) code-challenge-method]
+                    [:add-triple eid (resolve-id :codeChallenge) code-challenge]])
+        (get-entity eid))))))
 
 (defn verify-pkce!
   "Verifies that the code verifier matches the code challenge, if it was
@@ -97,27 +86,18 @@
 
 (defn consume!
   "Gets and deletes the oauth-code so that it can be used only once."
-  ([params] (consume! aurora/conn-pool params))
+  ([params] (consume! (aurora/conn-pool) params))
   ([conn {:keys [code app-id verifier] :as params}]
    (let [oauth-code
          (update-op
           conn
           {:app-id app-id
-           :etype etype
-           :legacy-op
-           (fn [conn]
-             (sql/execute-one! conn
-                               ["delete from app_oauth_codes
-                                  where lookup_key = ?::bytea
-                                   and app_id = ?::uuid"
-                                (crypt-util/uuid->sha256 code)
-                                app-id]))
-           :triples-op
-           (fn [{:keys [delete-entity! resolve-id]}]
-             (let [code-hash (-> code
-                                 crypt-util/uuid->sha256
-                                 crypt-util/bytes->hex-string)]
-               (delete-entity! [(resolve-id :codeHash) code-hash])))})]
+           :etype etype}
+          (fn [{:keys [delete-entity! resolve-id]}]
+            (let [code-hash (-> code
+                                crypt-util/uuid->sha256
+                                crypt-util/bytes->hex-string)]
+              (delete-entity! [(resolve-id :codeHash) code-hash]))))]
      (ex/assert-record! oauth-code :app-oauth-code {:args [params]})
      (when (expired? oauth-code)
        (ex/throw-expiration-err! :app-oauth-code {:args [params]}))

@@ -26,7 +26,7 @@
 (defn start [group-fn]
   (def receive-q (grouped-queue/create {:group-fn group-fn}))
   (def cleanup-gauge (gauges/add-gauge-metrics-fn
-                      (fn [] (receive-q-metrics receive-q)))))
+                      (fn [_] (receive-q-metrics receive-q)))))
 
 (defn stop []
   (when (bound? #'cleanup-gauge)

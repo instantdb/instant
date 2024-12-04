@@ -1,7 +1,6 @@
 (ns instant.db.instaql-test
   (:require
-   [clojure.test :as test :refer [deftest is testing]]
-   [instant.dash.routes :refer [insert-users-table!]]
+   [clojure.test :as test :refer [deftest is are testing]]
    [instant.data.bootstrap :as bootstrap]
    [instant.data.constants :refer [zeneca-app-id]]
    [instant.data.resolvers :as resolvers]
@@ -10,9 +9,12 @@
    [instant.db.model.attr :as attr-model]
    [instant.db.model.triple :as triple-model]
    [instant.db.transaction :as tx]
-   [instant.fixtures
-    :refer [with-empty-app with-zeneca-app with-zeneca-byop]]
+   [instant.fixtures :refer [with-empty-app
+                             with-zeneca-app
+                             with-zeneca-checked-data-app
+                             with-zeneca-byop]]
    [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.rule :as rule-model]
@@ -21,12 +23,13 @@
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.test :refer [instant-ex-data pretty-perm-q]])
   (:import
+   (java.time Instant)
    (java.util UUID)))
 
 (def ^:private r (delay (resolvers/make-zeneca-resolver)))
 
 (def ^:private ctx
-  (delay {:db {:conn-pool aurora/conn-pool}
+  (delay {:db {:conn-pool (aurora/conn-pool)}
           :app-id zeneca-app-id
           :attrs (attr-model/get-by-app-id zeneca-app-id)}))
 
@@ -57,7 +60,7 @@
      (when (seq aggregates)
        {:aggregate aggregates}))))
 
-(defn- is-pretty-eq?
+(defmacro is-pretty-eq?
   "InstaQL will execute in parallel.
 
    This means that it _is_ possible for nodes
@@ -71,15 +74,16 @@
    This checks equality strictly based on
    the set of topics and triples in the result"
   [pretty-a pretty-b]
-  (testing "(topics is-pretty-eq?)"
-    (is (= (set (mapcat :topics pretty-a))
-           (set (mapcat :topics pretty-b)))))
-  (testing "(triples is-pretty-eq?)"
-    (is (= (set (mapcat :triples pretty-a))
-           (set (mapcat :triples pretty-b)))))
-  (testing "(aggregate is-pretty-eq?)"
-    (is (= (set (remove nil? (mapcat :aggregate pretty-a)))
-           (set (remove nil? (mapcat :aggregate pretty-b)))))))
+  `(do
+     (testing "(topics is-pretty-eq?)"
+       (is (= (set (mapcat :topics ~pretty-a))
+              (set (mapcat :topics ~pretty-b)))))
+     (testing "(triples is-pretty-eq?)"
+       (is (= (set (mapcat :triples ~pretty-a))
+              (set (mapcat :triples ~pretty-b)))))
+     (testing "(aggregate is-pretty-eq?)"
+       (is (= (set (remove nil? (mapcat :aggregate ~pretty-a)))
+              (set (remove nil? (mapcat :aggregate ~pretty-b))))))))
 
 (defn- query-pretty
   ([q]
@@ -123,12 +127,12 @@
              :in [0 :option-map :where-conds 0 1]}
            (validation-err {:users {:$ {:where {:handle {:is "stopa"}}}}})))
     (is (= '{:expected uuid?
-             :in ["users" [:$ :where "bookshelves"]]
+             :in ["users" :$ :where "bookshelves"]
              :message "Expected bookshelves to be a uuid, got \"hello\""}
            (validation-err {:users
                             {:$ {:where {:bookshelves "hello"}}}})))
     (is (= '{:expected uuid?
-             :in ["users" [:$ :where "bookshelves"]]
+             :in ["users" :$ :where "bookshelves"]
              :message "Expected bookshelves to match on a uuid, found \"hello\" in [\"hello\",\"00000000-0000-0000-0000-000000000000\"]"}
            (validation-err {:users
                             {:$ {:where {:bookshelves {:in ["00000000-0000-0000-0000-000000000000"
@@ -195,6 +199,69 @@
                            {:users
                             {:$ {:aggregate :count}
                              :bookshelves {}}})))))
+
+(deftest validations-on-checked-data
+  (with-empty-app
+    (fn [app]
+      (testing "checked-data-types"
+        (tx/transact! (aurora/conn-pool)
+                      (attr-model/get-by-app-id (:id app))
+                      (:id app)
+                      (for [t [:string :number :boolean :date]]
+                        [:add-attr {:id (random-uuid)
+                                    :forward-identity [(random-uuid) "etype" (name t)]
+                                    :unique? false
+                                    :index? true
+                                    :value-type :blob
+                                    :checked-data-type t
+                                    :cardinality :one}]))
+        (let [ctx (let [attrs (attr-model/get-by-app-id (:id app))]
+                    {:db {:conn-pool (aurora/conn-pool)}
+                     :app-id (:id app)
+                     :attrs attrs})]
+          (is (= '{:expected? string?,
+                   :in ["etype" :$ :where "string"],
+                   :message
+                   "The data type of `etype.string` is `string`, but the query got the value `1` of type `number`."}
+                 (validation-err ctx {:etype {:$ {:where {:string 1}}}})))
+          (is (= '{:expected? number?,
+                   :in ["etype" :$ :where "number"],
+                   :message
+                   "The data type of `etype.number` is `number`, but the query got the value `\"hello\"` of type `string`."}
+                 (validation-err ctx {:etype {:$ {:where {:number "hello"}}}})))
+          (is (= '{:expected? boolean?,
+                   :in ["etype" :$ :where "boolean"],
+                   :message
+                   "The data type of `etype.boolean` is `boolean`, but the query got the value `0` of type `number`."}
+                 (validation-err ctx {:etype {:$ {:where {:boolean 0}}}})))
+          (is (= '{:expected? timestamp?,
+                   :in ["etype" :$ :where "date"],
+                   :message
+                   "The data type of `etype.date` is `date`, but the query got value `9999999999999999999999` of type `number`."}
+                 (validation-err ctx {:etype {:$ {:where {:date 9999999999999999999999}}}})))
+          (is (= '{:expected? date-string?,
+                   :in ["etype" :$ :where "date"],
+                   :message
+                   "The data type of `etype.date` is `date`, but the query got value `\"tomorrow\"` of type `string`."}
+                 (validation-err ctx {:etype {:$ {:where {:date "tomorrow"}}}})))
+
+          (is (= '{:expected? string?
+                   :in ["etype" :$ :where "string" :$gt],
+                   :message
+                   "The data type of `etype.string` is `string`, but the query got the value `10` of type `number`."}
+                 (validation-err ctx {:etype {:$ {:where {:string {:$gt 10}}}}})))
+
+          (is (= '{:expected? boolean?
+                   :in ["etype" :$ :where "boolean" :$gt],
+                   :message
+                   "The data type of `etype.boolean` is `boolean`, but the query got the value `1` of type `number`."}
+                 (validation-err ctx {:etype {:$ {:where {:boolean {:$gt 1}}}}})))
+
+          (is (= '{:expected? string?
+                   :in ["etype" :$ :where "string" :$like],
+                   :message
+                   "The $like value for `etype.string` must be a string, but the query got the value `10` of type `number`."}
+                 (validation-err ctx {:etype {:$ {:where {:string {:$like 10}}}}}))))))))
 
 (deftest pagination
   (testing "limit"
@@ -481,11 +548,11 @@
     (fn [{app-id :id :as _app}]
       (let [get-handles-ordered (fn [pagination-params]
                                   (as-> (instaql-nodes->object-tree
-                                         {:db {:conn-pool aurora/conn-pool}
+                                         {:db {:conn-pool (aurora/conn-pool)}
                                           :app-id app-id
                                           :attrs (attr-model/get-by-app-id app-id)}
                                          (iq/query
-                                          {:db {:conn-pool aurora/conn-pool}
+                                          {:db {:conn-pool (aurora/conn-pool)}
                                            :app-id app-id
                                            :attrs (attr-model/get-by-app-id app-id)}
                                           {:users {:$ pagination-params}})) %
@@ -497,7 +564,7 @@
             joe-eid (random-uuid)
             stopa-eid (random-uuid)
             daniel-eid (random-uuid)
-            _ (tx/transact! aurora/conn-pool
+            _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id app-id)
                             app-id
                             [[:add-attr {:id uid-attr-id
@@ -513,19 +580,19 @@
                                          :value-type :blob
                                          :cardinality :one}]])
 
-            _ (tx/transact! aurora/conn-pool
+            _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id app-id)
                             app-id
                             [[:add-triple joe-eid uid-attr-id (str joe-eid)]
                              [:add-triple joe-eid handle-attr-id "joe"]])
 
-            _ (tx/transact! aurora/conn-pool
+            _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id app-id)
                             app-id
                             [[:add-triple stopa-eid uid-attr-id (str stopa-eid)]
                              [:add-triple stopa-eid handle-attr-id "stopa"]])
 
-            _ (tx/transact! aurora/conn-pool
+            _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id app-id)
                             app-id
                             [[:add-triple daniel-eid uid-attr-id (str daniel-eid)]
@@ -927,6 +994,130 @@
                   ("eid-joe-averbukh" :users/email "joe@instantdb.com")
                   ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))}))))
 
+(deftest where-$like
+  (with-zeneca-checked-data-app
+    (fn [app r]
+      (let [ctx {:db {:conn-pool (aurora/conn-pool)}
+                 :app-id (:id app)
+                 :attrs (attr-model/get-by-app-id (:id app))}]
+        (testing "with no matches"
+          (is-pretty-eq?
+           (query-pretty ctx r
+                         {:users {:$ {:where {:handle {:$like "%moop%"}}}}})
+           '({:topics ([:ave _ #{:users/handle} {:$comparator {:op :$like, :value "%moop%", :data-type :string}}])
+              :triples ()})))
+        (testing "with equality"
+          (is-pretty-eq?
+           (query-pretty ctx r
+                         {:users {:$ {:where {:handle {:$like "joe"}}}}})
+           '({:topics
+              ([:ave _ #{:users/handle} {:$comparator {:op :$like, :value "joe", :data-type :string}}]
+               --
+               [:ea
+                #{"eid-joe-averbukh"}
+                #{:users/bookshelves
+                  :users/createdAt
+                  :users/email
+                  :users/id
+                  :users/fullName
+                  :users/handle}
+                _]),
+              :triples
+              (("eid-joe-averbukh" :users/handle "joe")
+               --
+               ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+               ("eid-joe-averbukh" :users/email "joe@instantdb.com")
+               ("eid-joe-averbukh" :users/handle "joe")
+               ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
+               ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))})))
+        (testing "like startsWith"
+          (is-pretty-eq?
+           (query-pretty ctx r
+                         {:users {:$ {:where {:handle {:$like "al%"}}}}})
+           '({:topics
+              ([:ave _ #{:users/handle} {:$comparator {:op :$like, :value "al%", :data-type :string}}]
+               --
+               [:ea
+                #{"eid-alex"}
+                #{:users/bookshelves
+                  :users/createdAt
+                  :users/email
+                  :users/id
+                  :users/fullName
+                  :users/handle}
+                _]),
+              :triples
+              (("eid-alex" :users/handle "alex")
+               --
+               ("eid-alex" :users/id "eid-alex")
+               ("eid-alex" :users/fullName "Alex")
+               ("eid-alex" :users/email "alex@instantdb.com")
+               ("eid-alex" :users/handle "alex")
+               ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689")),
+              :aggregate (nil nil)})))
+        (testing "like endsWith deep"
+          (is-pretty-eq?
+           (query-pretty ctx r
+                         {:users {:$ {:where {:bookshelves.books.title {:$like "%Monte Cristo"}}}}})
+           '({:topics
+              ([:ave _ #{:books/title} {:$comparator
+                                        {:op :$like, :value "%Monte Cristo", :data-type :string}}]
+               [:vae _ #{:bookshelves/books} #{"eid-the-count-of-monte-cristo"}]
+               [:vae
+                _
+                #{:users/bookshelves}
+                #{"eid-the-way-of-the-gentleman" "eid-fiction"}]
+               --
+               [:ea
+                #{"eid-stepan-parunashvili"}
+                #{:users/bookshelves
+                  :users/createdAt
+                  :users/email
+                  :users/id
+                  :users/fullName
+                  :users/handle}
+                _]
+               --
+               [:ea
+                #{"eid-nicole"}
+                #{:users/bookshelves
+                  :users/createdAt
+                  :users/email
+                  :users/id
+                  :users/fullName
+                  :users/handle}
+                _]),
+              :triples
+              (("eid-the-count-of-monte-cristo"
+                :books/title
+                "The Count of Monte Cristo")
+               ("eid-the-count-of-monte-cristo"
+                :books/title
+                "The Count of Monte Cristo")
+               ("eid-nicole" :users/bookshelves "eid-fiction")
+               ("eid-fiction" :bookshelves/books "eid-the-count-of-monte-cristo")
+               ("eid-the-way-of-the-gentleman"
+                :bookshelves/books
+                "eid-the-count-of-monte-cristo")
+               ("eid-stepan-parunashvili"
+                :users/bookshelves
+                "eid-the-way-of-the-gentleman")
+               --
+               ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+               ("eid-stepan-parunashvili"
+                :users/createdAt
+                "2021-01-07 18:50:43.447955")
+               ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+               ("eid-stepan-parunashvili" :users/handle "stopa")
+               ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+               --
+               ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
+               ("eid-nicole" :users/email "nicole@instantdb.com")
+               ("eid-nicole" :users/handle "nicolegf")
+               ("eid-nicole" :users/id "eid-nicole")
+               ("eid-nicole" :users/fullName "Nicole")),
+              :aggregate (nil nil nil)})))))))
+
 (deftest where-$not
   (is-pretty-eq?
    (query-pretty
@@ -974,7 +1165,7 @@
     (fn [app]
       (let [make-ctx (fn []
                        (let [attrs (attr-model/get-by-app-id (:id app))]
-                         {:db {:conn-pool aurora/conn-pool}
+                         {:db {:conn-pool (aurora/conn-pool)}
                           :app-id (:id app)
                           :attrs attrs}))
 
@@ -986,7 +1177,7 @@
             id-2 (random-uuid)
             id-null (random-uuid)
             id-undefined (random-uuid)
-            _ (tx/transact! aurora/conn-pool
+            _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id (:id app))
                             (:id app)
                             [[:add-attr {:id id-aid
@@ -1056,7 +1247,7 @@
     (fn [app]
       (let [make-ctx (fn []
                        (let [attrs (attr-model/get-by-app-id (:id app))]
-                         {:db {:conn-pool aurora/conn-pool}
+                         {:db {:conn-pool (aurora/conn-pool)}
                           :app-id (:id app)
                           :attrs attrs}))
 
@@ -1068,7 +1259,7 @@
             id-2 (random-uuid)
             id-null (random-uuid)
             id-undefined (random-uuid)
-            _ (tx/transact! aurora/conn-pool
+            _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id (:id app))
                             (:id app)
                             [[:add-attr {:id id-aid
@@ -1168,7 +1359,7 @@
         rev-d-id (random-uuid)
         rev-null-id (random-uuid)
         rev-undefined-id (random-uuid)
-        _ (tx/transact! aurora/conn-pool
+        _ (tx/transact! (aurora/conn-pool)
                         (attr-model/get-by-app-id (:id app))
                         (:id app)
                         [[:add-attr {:id fwd-id-aid
@@ -1260,13 +1451,13 @@
                          [:add-triple rev-undefined-id rev-id-aid (str rev-undefined-id)]
                          [:add-triple rev-undefined-id rev-label-aid "rev-undefined"]])
 
-        r (resolvers/make-resolver {:conn-pool aurora/conn-pool}
+        r (resolvers/make-resolver {:conn-pool (aurora/conn-pool)}
                                    (:id app)
                                    [["fwd" "label"]
                                     ["rev" "label"]])
 
         add-links (fn [links]
-                    (tx/transact! aurora/conn-pool
+                    (tx/transact! (aurora/conn-pool)
                                   (attr-model/get-by-app-id (:id app))
                                   (:id app)
                                   (mapv (fn [[fwd-id rev-id]]
@@ -1276,18 +1467,18 @@
                                            (resolvers/->uuid r rev-id)])
                                         links)))
         clear-links (fn []
-                      (def -t (tx/transact! aurora/conn-pool
+                      (def -t (tx/transact! (aurora/conn-pool)
                                             (attr-model/get-by-app-id (:id app))
                                             (:id app)
                                             (mapv (fn [{:keys [triple]}]
                                                     (let [[e a v] triple]
                                                       [:retract-triple e a v]))
-                                                  (triple-model/fetch aurora/conn-pool
+                                                  (triple-model/fetch (aurora/conn-pool)
                                                                       (:id app)
                                                                       [[:= :attr-id link-aid]])))))
         admin-query (fn [q]
                       (let [ctx (let [attrs (attr-model/get-by-app-id (:id app))]
-                                  {:db {:conn-pool aurora/conn-pool}
+                                  {:db {:conn-pool (aurora/conn-pool)}
                                    :app-id (:id app)
                                    :attrs attrs})]
                         (->> (iq/query ctx q)
@@ -1360,7 +1551,6 @@
                  (get % "rev")
                  (map (fn [x] (get x "id")) %)
                  (set %))))
-
 
         (add-links [["eid-fwd-null" "eid-rev-b"]
                     ["eid-fwd-undefined" "eid-rev-c"]])
@@ -1439,7 +1629,6 @@
                  (map (fn [x] (get x "id")) %)
                  (set %))))
 
-
         (add-links [["eid-fwd-null" "eid-rev-b"]
                     ["eid-fwd-undefined" "eid-rev-c"]])
 
@@ -1516,7 +1705,6 @@
                  (get % "rev")
                  (map (fn [x] (get x "id")) %)
                  (set %))))
-
 
         (add-links [["eid-fwd-null" "eid-rev-b"]
                     ["eid-fwd-undefined" "eid-rev-c"]])
@@ -1595,7 +1783,6 @@
                  (get % "rev")
                  (map (fn [x] (get x "id")) %)
                  (set %))))
-
 
         (add-links [["eid-fwd-null" "eid-rev-b"]
                     ["eid-fwd-undefined" "eid-rev-c"]])
@@ -1840,6 +2027,132 @@
                   ("eid-stepan-parunashvili" :users/handle "stopa")
                   ("eid-joe-averbukh" :users/email "joe@instantdb.com")
                   ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))}))))
+
+(deftest comparators
+  (with-empty-app
+    (fn [app]
+      (let [attr-ids {:string (random-uuid)
+                      :number (random-uuid)
+                      :boolean (random-uuid)
+                      :date (random-uuid)}
+            label-attr-id (random-uuid)
+            labels ["a" "b" "c" "d" "e"]
+            make-ctx (fn []
+                       (let [attrs (attr-model/get-by-app-id (:id app))]
+                         {:db {:conn-pool (aurora/conn-pool)}
+                          :app-id (:id app)
+                          :attrs attrs}))
+            run-query (fn [return-field q]
+                        (let [ctx (make-ctx)
+                              r (resolvers/make-resolver {:conn-pool (aurora/conn-pool)}
+                                                         (:id app)
+                                                         [["books" "field"]
+                                                          ["authors" "field"]])]
+                          (->> (iq/permissioned-query ctx q)
+                               (instaql-nodes->object-tree ctx)
+                               (#(get % "etype"))
+                               (map #(get % (name return-field)))
+                               set)))
+            run-explain (fn run-explain
+                          ([data-type value]
+                           (run-explain :$gt data-type value))
+                          ([op data-type value]
+                           (-> (d/explain (make-ctx)
+                                          {:children
+                                           {:pattern-groups
+                                            [{:patterns
+                                              [[{:idx-key :ave, :data-type data-type}
+                                                '?etype-0
+                                                (get attr-ids data-type)
+                                                {:$comparator {:op op, :value value, :data-type data-type}}]]}]}})
+                               (get "QUERY PLAN")
+                               first
+                               (get-in ["Plan" "Plans" 0 "Index Name"]))))]
+        (tx/transact! (aurora/conn-pool)
+                      (attr-model/get-by-app-id (:id app))
+                      (:id app)
+                      (concat
+                       [[:add-attr {:id (random-uuid)
+                                    :forward-identity [(random-uuid) "etype" "id"]
+                                    :unique? true
+                                    :index? true
+                                    :value-type :blob
+                                    :checked-data-type :string
+                                    :cardinality :one}]
+                        [:add-attr {:id label-attr-id
+                                    :forward-identity [(random-uuid) "etype" "label"]
+                                    :unique? true
+                                    :index? true
+                                    :value-type :blob
+                                    :checked-data-type :string
+                                    :cardinality :one}]]
+                       (for [[t attr-id] attr-ids]
+                         [:add-attr {:id attr-id
+                                     :forward-identity [(random-uuid) "etype" (name t)]
+                                     :unique? false
+                                     :index? true
+                                     :value-type :blob
+                                     :checked-data-type t
+                                     :cardinality :one}])
+
+                       (mapcat
+                        (fn [i]
+                          (let [id (random-uuid)]
+                            [[:add-triple id label-attr-id (nth labels i)]
+                             [:add-triple id (:string attr-ids) (str i)]
+                             [:add-triple id (:number attr-ids) i]
+                             [:add-triple id (:date attr-ids) i]
+                             [:add-triple id (:boolean attr-ids) (zero? (mod i 2))]]))
+                        (range (count labels)))))
+        (testing "string"
+          (is (= #{"3" "4"} (run-query :string {:etype {:$ {:where {:string {:$gt "2"}}}}})))
+          (is (= #{"2" "3" "4"} (run-query :string {:etype {:$ {:where {:string {:$gte "2"}}}}})))
+          (is (= #{"0" "1"} (run-query :string {:etype {:$ {:where {:string {:$lt "2"}}}}})))
+          (is (= #{"0" "1" "2"} (run-query :string {:etype {:$ {:where {:string {:$lte "2"}}}}})))
+          (is (= #{"1"} (run-query :string {:etype {:$ {:where {:string "1"}}}})))
+          (is (= #{"0" "2" "3" "4"} (run-query :string {:etype {:$ {:where {:string {:$not "1"}}}}})))
+
+          (testing "uses index"
+            (is (= "triples_string_trgm_gist_idx" (run-explain :string "2"))))
+
+          (testing "like uses index"
+            (is (= "triples_string_trgm_gist_idx" (run-explain :$like :string "%aaa")))))
+
+        (testing "number"
+          (is (= #{3 4} (run-query :number {:etype {:$ {:where {:number {:$gt 2}}}}})))
+          (is (= #{2 3 4} (run-query :number {:etype {:$ {:where {:number {:$gte 2}}}}})))
+          (is (= #{0 1} (run-query :number {:etype {:$ {:where {:number {:$lt 2}}}}})))
+          (is (= #{0 1 2} (run-query :number {:etype {:$ {:where {:number {:$lte 2}}}}})))
+          (is (= #{1} (run-query :number {:etype {:$ {:where {:number 1}}}})))
+          (is (= #{0 2 3 4} (run-query :number {:etype {:$ {:where {:number {:$not 1}}}}})))
+
+          (testing "uses index"
+            (is (= "triples_number_type_idx" (run-explain :number 2)))))
+
+        (testing "date"
+          (is (= #{3 4} (run-query :date {:etype {:$ {:where {:date {:$gt 2}}}}})))
+          (is (= #{2 3 4} (run-query :date {:etype {:$ {:where {:date {:$gte 2}}}}})))
+          (is (= #{0 1} (run-query :date {:etype {:$ {:where {:date {:$lt 2}}}}})))
+          (is (= #{0 1 2} (run-query :date {:etype {:$ {:where {:date {:$lte 2}}}}})))
+          (is (= #{1} (run-query :date {:etype {:$ {:where {:date 1}}}})))
+          (is (= #{1} (run-query :date {:etype {:$ {:where {:date (.toString (Instant/ofEpochMilli 1))}}}})))
+          (is (= #{0 2 3 4} (run-query :date {:etype {:$ {:where {:date {:$not 1}}}}})))
+
+          (testing "uses index"
+            (is (= "triples_date_type_idx" (run-explain :date (Instant/ofEpochMilli 2))))))
+
+        (testing "boolean"
+          (is (= #{} (run-query :boolean {:etype {:$ {:where {:boolean {:$gt true}}}}})))
+          (is (= #{true} (run-query :boolean {:etype {:$ {:where {:boolean {:$gt false}}}}})))
+          (is (= #{true} (run-query :boolean {:etype {:$ {:where {:boolean {:$gte true}}}}})))
+          (is (= #{} (run-query :boolean {:etype {:$ {:where {:boolean {:$lt false}}}}})))
+          (is (= #{false} (run-query :boolean {:etype {:$ {:where {:boolean {:$lt true}}}}})))
+          (is (= #{false true} (run-query :boolean {:etype {:$ {:where {:boolean {:$lte true}}}}})))
+          (is (= #{true} (run-query :boolean {:etype {:$ {:where {:boolean true}}}})))
+          (is (= #{false} (run-query :boolean {:etype {:$ {:where {:boolean {:$not true}}}}})))
+
+          (testing "uses index"
+            (is (= "triples_boolean_type_idx" (run-explain :boolean true)))))))))
 
 (deftest child-forms
   (testing "no child where"
@@ -2152,7 +2465,7 @@
 (deftest same-ids
   (with-zeneca-app
     (fn [app r]
-      (let [ctx {:db {:conn-pool aurora/conn-pool}
+      (let [ctx {:db {:conn-pool (aurora/conn-pool)}
                  :app-id (:id app)
                  :attrs (attr-model/get-by-app-id (:id app))}
             user-id-attr (resolvers/->uuid r :users/id)
@@ -2160,7 +2473,7 @@
             book-id-attr (resolvers/->uuid r :books/id)
             book-title-attr (resolvers/->uuid r :books/title)
             shared-id (random-uuid)]
-        (tx/transact! aurora/conn-pool
+        (tx/transact! (aurora/conn-pool)
                       (attr-model/get-by-app-id (:id app))
                       (:id app)
                       [[:add-triple shared-id user-id-attr shared-id]
@@ -2266,6 +2579,146 @@
          ("eid-nonfiction" :bookshelves/desc "")
          ("eid-nonfiction" :bookshelves/order 1))}))))
 
+(deftest indexing?
+  (testing "queries ignore indexes while still indexing"
+    (with-empty-app
+      (fn [app]
+        (let [make-ctx (fn []
+                         ;; pass in conn-pool to bypass cache
+                         (let [attrs (attr-model/get-by-app-id (aurora/conn-pool) (:id app))]
+                           {:db {:conn-pool (aurora/conn-pool)}
+                            :app-id (:id app)
+                            :attrs attrs}))
+              app-id (:id app)
+
+              uid-attr-id (random-uuid)
+              handle-attr-id (random-uuid)
+              eid (random-uuid)
+
+              _ (tx/transact! (aurora/conn-pool)
+                              (attr-model/get-by-app-id app-id)
+                              app-id
+                              [[:add-attr {:id uid-attr-id
+                                           :forward-identity [(random-uuid) "users" "id"]
+                                           :unique? true
+                                           :index? true
+                                           :value-type :blob
+                                           :cardinality :one}]
+                               [:add-attr {:id handle-attr-id
+                                           :forward-identity [(random-uuid) "users" "handle"]
+                                           :unique? false
+                                           :index? false
+                                           :value-type :blob
+                                           :cardinality :one}]
+                               [:add-triple eid uid-attr-id eid]
+                               [:add-triple eid handle-attr-id "dww"]])
+              r (resolvers/make-resolver (:db (make-ctx)) (:id app) [["users" "handle"]])
+              before-index-result '({:topics
+                                     ([:ea _ #{:users/handle} #{"dww"}]
+                                      --
+                                      [:ea #{"eid-dww"} #{:users/id :users/handle} _]),
+                                     :triples
+                                     (("eid-dww" :users/handle "dww")
+                                      --
+                                      ("eid-dww" :users/id "eid-dww")
+                                      ("eid-dww" :users/handle "dww")),
+                                     :aggregate (nil nil)})]
+          (is-pretty-eq?
+           (query-pretty (make-ctx) r {:users {:$ {:where {:handle "dww"}}}})
+           before-index-result)
+
+          (attr-model/with-cache-invalidation app-id
+            (sql/execute! (aurora/conn-pool)
+                          ["update attrs set is_indexed = true where id = ?"
+                           handle-attr-id]))
+
+          (testing "incorrect indexes would break the query"
+            (is-pretty-eq?
+             (query-pretty (make-ctx) r {:users {:$ {:where {:handle "dww"}}}})
+             '({:topics ([:ave _ #{:users/handle} #{"dww"}]),
+                :triples (),
+                :aggregate (nil)})))
+
+          (attr-model/with-cache-invalidation app-id
+            (sql/execute! (aurora/conn-pool)
+                          ["update attrs set indexing = true where id = ?"
+                           handle-attr-id]))
+
+          (testing "setting in-progress saves the query"
+            (is-pretty-eq?
+             (query-pretty (make-ctx) r {:users {:$ {:where {:handle "dww"}}}})
+             before-index-result)))))))
+
+(deftest uniqueing?
+  (testing "queries ignore unique? while still uniqueing?"
+    (with-empty-app
+      (fn [app]
+        (let [make-ctx (fn []
+                         ;; pass in conn-pool to bypass cache
+                         (let [attrs (attr-model/get-by-app-id (aurora/conn-pool) (:id app))]
+                           {:db {:conn-pool (aurora/conn-pool)}
+                            :app-id (:id app)
+                            :attrs attrs}))
+              app-id (:id app)
+
+              uid-attr-id (random-uuid)
+              handle-attr-id (random-uuid)
+              eid (random-uuid)
+
+              _ (tx/transact! (aurora/conn-pool)
+                              (attr-model/get-by-app-id app-id)
+                              app-id
+                              [[:add-attr {:id uid-attr-id
+                                           :forward-identity [(random-uuid) "users" "id"]
+                                           :unique? true
+                                           :index? true
+                                           :value-type :blob
+                                           :cardinality :one}]
+                               [:add-attr {:id handle-attr-id
+                                           :forward-identity [(random-uuid) "users" "handle"]
+                                           :unique? false
+                                           :index? false
+                                           :value-type :blob
+                                           :cardinality :one}]
+                               [:add-triple eid uid-attr-id eid]
+                               [:add-triple eid handle-attr-id "dww"]])
+              r (resolvers/make-resolver (:db (make-ctx)) (:id app) [["users" "handle"]])
+              before-index-result '({:topics
+                                     ([:ea _ #{:users/handle} #{"dww"}]
+                                      --
+                                      [:ea #{"eid-dww"} #{:users/id :users/handle} _]),
+                                     :triples
+                                     (("eid-dww" :users/handle "dww")
+                                      --
+                                      ("eid-dww" :users/id "eid-dww")
+                                      ("eid-dww" :users/handle "dww")),
+                                     :aggregate (nil nil)})]
+          (is-pretty-eq?
+           (query-pretty (make-ctx) r {:users {:$ {:where {:handle "dww"}}}})
+           before-index-result)
+
+          (attr-model/with-cache-invalidation app-id
+            (sql/execute! (aurora/conn-pool)
+                          ["update attrs set is_unique = true where id = ?"
+                           handle-attr-id]))
+
+          (testing "incorrect indexes would break the query"
+            (is-pretty-eq?
+             (query-pretty (make-ctx) r {:users {:$ {:where {:handle "dww"}}}})
+             '({:topics ([:av _ #{:users/handle} #{"dww"}]),
+                :triples (),
+                :aggregate (nil)})))
+
+          (attr-model/with-cache-invalidation app-id
+            (sql/execute! (aurora/conn-pool)
+                          ["update attrs set setting_unique = true where id = ?"
+                           handle-attr-id]))
+
+          (testing "setting in-progress saves the query"
+            (is-pretty-eq?
+             (query-pretty (make-ctx) r {:users {:$ {:where {:handle "dww"}}}})
+             before-index-result)))))))
+
 ;; -----------
 ;; Permissions
 
@@ -2279,146 +2732,186 @@
   (bootstrap/add-zeneca-to-app! app-id)
   (app-model/delete-by-id! {:id app-id}))
 
+(deftest default-perms
+  (doseq [[app-fn description] [[with-zeneca-app "without checked attrs"]
+                                [with-zeneca-checked-data-app "with checked attrs"]]]
+    (testing description
+      (app-fn
+       (fn [{app-id :id :as _app} _r]
+         (are [rules result] (= result
+                                (do
+                                  (rule-model/put! (aurora/conn-pool) {:app-id app-id :code rules})
+                                  (->> (pretty-perm-q {:app-id app-id :current-user nil} {:users {}}) :users (map :handle) set)))
+           {:users {:allow {:$default "false"}}}
+           #{}
+
+           {:$default {:allow {:view "false"}}}
+           #{}
+
+           {:$default {:allow {:$default "false"}}}
+           #{}
+
+           {:users {:allow {:$default "false" :view "true"}}}
+           #{"alex" "joe" "stopa" "nicolegf"}
+
+           {:$default {:allow {:view "false"}} :users {:allow {:view "true"}}}
+           #{"alex" "joe" "stopa" "nicolegf"}
+
+           {:$default {:allow {:$default "false"}} :users {:allow {:view "true"}}}
+           #{"alex" "joe" "stopa" "nicolegf"}
+
+           {:$default {:allow {:$default "false"}} :users {:allow {:$default "true"}}}
+           #{"alex" "joe" "stopa" "nicolegf"}
+
+           {:$default {:allow {:view "false"}} :users {:allow {:$default "true"}}}
+           #{"alex" "joe" "stopa" "nicolegf"}
+
+           {:$default {:allow {:$default "false" :view "true"}}}
+           #{"alex" "joe" "stopa" "nicolegf"}))))))
+
 (deftest read-perms
-  (with-zeneca-app
-    (fn [{app-id :id :as _app} _r]
-      (testing "no perms returns full"
-        (rule-model/put!
-         aurora/conn-pool
-         {:app-id app-id :code {}})
-        (is
-         (= #{"alex" "joe" "stopa" "nicolegf"}
-            (->>  (pretty-perm-q
-                   {:app-id app-id :current-user nil}
-                   {:users {}})
-                  :users
-                  (map :handle)
-                  set))))
-      (testing "false returns nothing"
-        (rule-model/put!
-         aurora/conn-pool
-         {:app-id app-id :code {:users {:allow {:view "false"}}}})
-        (is
-         (empty?
-          (->>  (pretty-perm-q
-                 {:app-id app-id :current-user nil}
-                 {:users {}})
-                :users
-                (map :handle)
-                set))))
-      (testing "property equality"
-        (rule-model/put!
-         aurora/conn-pool
-         {:app-id app-id :code {:users {:allow {:view "data.handle == 'stopa'"}}}})
-        (is
-         (=
-          #{"stopa"}
-          (->>  (pretty-perm-q
-                 {:app-id app-id :current-user nil}
-                 {:users {}})
-                :users
-                (map :handle)
-                set))))
-      (testing "bind"
-        (rule-model/put!
-         aurora/conn-pool
-         {:app-id app-id :code {:users {:allow {:view "data.handle != handle"}
-                                        :bind ["handle" "'stopa'"]}}})
-        (is
-         (=
-          #{"alex" "joe" "nicolegf"}
-          (->>  (pretty-perm-q
-                 {:app-id app-id :current-user nil}
-                 {:users {}})
-                :users
-                (map :handle)
-                set))))
-      (testing "ref"
-        (rule-model/put!
-         aurora/conn-pool
-         {:app-id app-id :code {:bookshelves {:allow {:view "handle in data.ref('users.handle')"}
-                                              :bind ["handle" "'alex'"]}}})
-        (is
-         (=
-          #{"Short Stories" "Nonfiction"}
-          (->>  (pretty-perm-q
-                 {:app-id app-id :current-user nil}
-                 {:bookshelves {}})
-                :bookshelves
-                (map :name)
-                set))))
-      (testing "auth required"
-        (rule-model/put!
-         aurora/conn-pool
-         {:app-id app-id :code {:users {:allow {:view "auth.id != null"}}}})
-        (is
-         (empty?
-          (->>  (pretty-perm-q
-                 {:app-id app-id :current-user nil}
-                 {:users {}})
-                :users
-                (map :handle)
-                set))))
+  (doseq [[app-fn description] [[with-zeneca-app "without checked attrs"]
+                                [with-zeneca-checked-data-app "with checked attrs"]]]
+    (testing description
+      (app-fn
+       (fn [{app-id :id :as _app} _r]
+         (testing "no perms returns full"
+           (rule-model/put!
+            (aurora/conn-pool)
+            {:app-id app-id :code {}})
+           (is
+            (= #{"alex" "joe" "stopa" "nicolegf"}
+               (->>  (pretty-perm-q
+                      {:app-id app-id :current-user nil}
+                      {:users {}})
+                     :users
+                     (map :handle)
+                     set))))
+         (testing "false returns nothing"
+           (rule-model/put!
+            (aurora/conn-pool)
+            {:app-id app-id :code {:users {:allow {:view "false"}}}})
+           (is
+            (empty?
+             (->>  (pretty-perm-q
+                    {:app-id app-id :current-user nil}
+                    {:users {}})
+                   :users
+                   (map :handle)
+                   set))))
+         (testing "property equality"
+           (rule-model/put!
+            (aurora/conn-pool)
+            {:app-id app-id :code {:users {:allow {:view "data.handle == 'stopa'"}}}})
+           (is
+            (=
+             #{"stopa"}
+             (->>  (pretty-perm-q
+                    {:app-id app-id :current-user nil}
+                    {:users {}})
+                   :users
+                   (map :handle)
+                   set))))
+         (testing "bind"
+           (rule-model/put!
+            (aurora/conn-pool)
+            {:app-id app-id :code {:users {:allow {:view "data.handle != handle"}
+                                           :bind ["handle" "'stopa'"]}}})
+           (is
+            (=
+             #{"alex" "joe" "nicolegf"}
+             (->>  (pretty-perm-q
+                    {:app-id app-id :current-user nil}
+                    {:users {}})
+                   :users
+                   (map :handle)
+                   set))))
+         (testing "ref"
+           (rule-model/put!
+            (aurora/conn-pool)
+            {:app-id app-id :code {:bookshelves {:allow {:view "handle in data.ref('users.handle')"}
+                                                 :bind ["handle" "'alex'"]}}})
+           (is
+            (=
+             #{"Short Stories" "Nonfiction"}
+             (->>  (pretty-perm-q
+                    {:app-id app-id :current-user nil}
+                    {:bookshelves {}})
+                   :bookshelves
+                   (map :name)
+                   set))))
+         (testing "auth required"
+           (rule-model/put!
+            (aurora/conn-pool)
+            {:app-id app-id :code {:users {:allow {:view "auth.id != null"}}}})
+           (is
+            (empty?
+             (->>  (pretty-perm-q
+                    {:app-id app-id :current-user nil}
+                    {:users {}})
+                   :users
+                   (map :handle)
+                   set))))
 
-      (testing "null shouldn't evaluate to true"
-        (rule-model/put!
-         aurora/conn-pool
-         {:app-id app-id :code {:users {:allow {:view "auth.isAdmin"}}}})
-        (is
-         (empty?
-          (->>  (pretty-perm-q
-                 {:app-id app-id :current-user nil}
-                 {:users {}})
-                :users
-                (map :handle)
-                set))))
-      (testing "can only view authed user data"
-        (rule-model/put!
-         aurora/conn-pool
-         {:app-id app-id :code {:users {:allow {:view "auth.handle == data.handle"}}}})
-        (is
-         (= #{"stopa"}
-            (->>  (pretty-perm-q
-                   {:app-id app-id :current-user {:handle "stopa"}}
-                   {:users {}})
-                  :users
-                  (map :handle)
-                  set))))
+         (testing "null shouldn't evaluate to true"
+           (rule-model/put!
+            (aurora/conn-pool)
+            {:app-id app-id :code {:users {:allow {:view "auth.isAdmin"}}}})
+           (is
+            (empty?
+             (->>  (pretty-perm-q
+                    {:app-id app-id :current-user nil}
+                    {:users {}})
+                   :users
+                   (map :handle)
+                   set))))
+         (testing "can only view authed user data"
+           (rule-model/put!
+            (aurora/conn-pool)
+            {:app-id app-id :code {:users {:allow {:view "auth.handle == data.handle"}}}})
+           (is
+            (= #{"stopa"}
+               (->>  (pretty-perm-q
+                      {:app-id app-id :current-user {:handle "stopa"}}
+                      {:users {}})
+                     :users
+                     (map :handle)
+                     set))))
 
-      (testing "page-info is filtered"
-        (is
-         (= {:start-cursor ["eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"],
-             :end-cursor ["eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"]
-             :has-next-page? false,
-             :has-previous-page? false}
-            (let [r (resolvers/make-zeneca-resolver app-id)]
-              (->> (iq/permissioned-query
-                    {:db {:conn-pool aurora/conn-pool}
-                     :app-id app-id
-                     :attrs (attr-model/get-by-app-id app-id)
-                     :datalog-query-fn d/query
-                     :current-user {:handle "stopa"}}
-                    {:users {:$ {:limit 10}}})
-                   first
-                   :data
-                   :datalog-result
-                   :page-info
-                   (resolvers/walk-friendly r)
-                   ;; remove timestamps
-                   (#(update % :start-cursor drop-last))
-                   (#(update % :end-cursor drop-last)))))))
+         (testing "page-info is filtered"
+           (is
+            (= {:start-cursor ["eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"],
+                :end-cursor ["eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"]
+                :has-next-page? false,
+                :has-previous-page? false}
+               (let [r (resolvers/make-zeneca-resolver app-id)]
+                 (->> (iq/permissioned-query
+                       {:db {:conn-pool (aurora/conn-pool)}
+                        :app-id app-id
+                        :attrs (attr-model/get-by-app-id app-id)
+                        :datalog-query-fn d/query
+                        :current-user {:handle "stopa"}}
+                       {:users {:$ {:limit 10}}})
+                      first
+                      :data
+                      :datalog-result
+                      :page-info
+                      (resolvers/walk-friendly r)
+                      ;; remove timestamps
+                      (#(update % :start-cursor drop-last))
+                      (#(update % :end-cursor drop-last)))))))
 
-      (testing "bad rules produce a permission evaluation exception"
-        (rule-model/put!
-         aurora/conn-pool
-         {:app-id app-id :code {:users {:allow {:view "auth.handle in data.nonexistent"}}}})
+         (testing "bad rules produce a permission evaluation exception"
+           (rule-model/put!
+            (aurora/conn-pool)
+            {:app-id app-id :code {:users {:allow {:view "auth.handle in data.nonexistent"}}}})
 
-        (is
-         (= ::ex/permission-evaluation-failed
-            (::ex/type (instant-ex-data
-                        (pretty-perm-q
-                         {:app-id app-id :current-user {:handle "stopa"}}
-                         {:users {}})))))))))
+           (is
+            (= ::ex/permission-evaluation-failed
+               (::ex/type (instant-ex-data
+                           (pretty-perm-q
+                            {:app-id app-id :current-user {:handle "stopa"}}
+                            {:users {}})))))))))))
 
 (deftest coarse-topics []
   (let [{:keys [patterns]}
@@ -2470,6 +2963,68 @@
         :aggregate [{:count 4}
                     {:count 392}]}))))
 
+(deftest namespaces-that-share-eids []
+  (with-empty-app
+    (fn [app]
+      (let [book-id-aid (random-uuid)
+            book-field-aid (random-uuid)
+            author-id-aid (random-uuid)
+            author-field-aid (random-uuid)
+            shared-eid (random-uuid)
+            run-query (fn [{:keys [admin?]} q]
+                        (let [ctx (let [attrs (attr-model/get-by-app-id (:id app))]
+                                    {:db {:conn-pool (aurora/conn-pool)}
+                                     :app-id (:id app)
+                                     :attrs attrs
+                                     :admin? admin?})
+                              r (resolvers/make-resolver {:conn-pool (aurora/conn-pool)}
+                                                         (:id app)
+                                                         [["books" "field"]
+                                                          ["authors" "field"]])]
+                          (->> (iq/permissioned-query ctx q)
+                               (instaql-nodes->object-tree ctx))))]
+        (tx/transact! (aurora/conn-pool)
+                      (attr-model/get-by-app-id (:id app))
+                      (:id app)
+                      [[:add-attr {:id book-id-aid
+                                   :forward-identity [(random-uuid) "books" "id"]
+                                   :unique? true
+                                   :index? true
+                                   :value-type :blob
+                                   :cardinality :one}]
+                       [:add-attr {:id book-field-aid
+                                   :forward-identity [(random-uuid) "books" "field"]
+                                   :unique? false
+                                   :index? false
+                                   :value-type :blob
+                                   :cardinality :one}]
+                       [:add-attr {:id author-id-aid
+                                   :forward-identity [(random-uuid) "authors" "id"]
+                                   :unique? true
+                                   :index? true
+                                   :value-type :blob
+                                   :cardinality :one}]
+                       [:add-attr {:id author-field-aid
+                                   :forward-identity [(random-uuid) "authors" "field"]
+                                   :unique? false
+                                   :index? false
+                                   :value-type :blob
+                                   :cardinality :one}]
+                       [:add-triple shared-eid book-id-aid (str shared-eid)]
+                       [:add-triple shared-eid book-field-aid "book"]
+                       [:add-triple shared-eid author-id-aid (str shared-eid)]
+                       [:add-triple shared-eid author-field-aid "author"]])
+        (rule-model/put! (aurora/conn-pool)
+                         {:app-id (:id app) :code {:books {:allow {:view "false"}}
+                                                   :authors {:allow {:view "true"}}}})
+        (is (= {"books" [{"field" "book", "id" (str shared-eid)}]
+                "authors" [{"field" "author", "id" (str shared-eid)}]}
+               (run-query {:admin? true} {:books {} :authors {}})))
+
+        (is (= {"books" []
+                "authors" [{"field" "author", "id" (str shared-eid)}]}
+               (run-query {:admin? false} {:books {} :authors {}})))))))
+
 ;; -----------
 ;; Users table
 
@@ -2478,7 +3033,7 @@
     (fn [app]
       (let [query-pretty' (fn [q]
                             (let [attrs (attr-model/get-by-app-id (:id app))]
-                              (query-pretty {:db {:conn-pool aurora/conn-pool}
+                              (query-pretty {:db {:conn-pool (aurora/conn-pool)}
                                              :app-id (:id app)
                                              :attrs attrs}
                                             (resolvers/make-movies-resolver (:id app))
@@ -2494,12 +3049,6 @@
                     :app-id (:id app)}]]
         (doseq [user users]
           (app-user-model/create! user))
-
-        (when-not (:users_in_triples app)
-          (is-pretty-eq? (query-pretty' {:$users {}})
-                         '({:topics ([:ea _ _ _] [:eav _ _ _]), :triples ()})))
-
-        (insert-users-table! aurora/conn-pool (:id app))
 
         (is-pretty-eq?
          (query-pretty' {:$users {}})
@@ -2522,7 +3071,7 @@
         (is-pretty-eq?
          (query-pretty' {:$users {:$ {:where {:email "first@example.com"}}}})
          [{:topics
-           [[:av '_ #{:$users/email} #{"first@example.com"}]
+           [[:ave '_ #{:$users/email} #{"first@example.com"}]
             '--
             [:ea #{first-id} #{:$users/email :$users/id} '_]],
            :triples
@@ -2536,7 +3085,7 @@
     (fn [app]
       (let [make-ctx (fn []
                        (let [attrs (attr-model/get-by-app-id (:id app))]
-                         {:db {:conn-pool aurora/conn-pool}
+                         {:db {:conn-pool (aurora/conn-pool)}
                           :app-id (:id app)
                           :attrs attrs}))
             first-id (random-uuid)
@@ -2550,8 +3099,6 @@
                     :app-id (:id app)}]]
         (doseq [user users]
           (app-user-model/create! user))
-
-        (insert-users-table! aurora/conn-pool (:id app))
 
         (testing "default rules let you see no users without auth"
           (is (= (pretty-perm-q (make-ctx) {:$users {}})
@@ -2567,15 +3114,14 @@
 (deftest users-table-references
   (with-zeneca-app
     (fn [app r0]
-      (insert-users-table! aurora/conn-pool (:id app))
       (let [make-ctx (fn []
                        (let [attrs (attr-model/get-by-app-id (:id app))]
-                         {:db {:conn-pool aurora/conn-pool}
+                         {:db {:conn-pool (aurora/conn-pool)}
                           :app-id (:id app)
                           :attrs attrs}))
 
             attr-id (random-uuid)
-            _ (tx/transact! aurora/conn-pool
+            _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id (:id app))
                             (:id app)
                             [[:add-attr {:id attr-id
@@ -2597,7 +3143,7 @@
                          r1
                          {:books {:$ {:where {"$user-creator.email" "alex@instantdb.com"}}}})
            [{:topics
-             [[:av '_ #{:$users/email} #{"alex@instantdb.com"}]
+             [[:ave '_ #{:$users/email} #{"alex@instantdb.com"}]
               [:vae '_ #{:books/$user-creator} #{"eid-alex"}]
               '--
               [:ea
@@ -2631,7 +3177,7 @@
                          r1
                          {:$users {:$ {:where {"books.title" "Sum"}}}})
            [{:topics
-             [[:ea '_ #{:books/title} #{"Sum"}]
+             [[:ave '_ #{:books/title} #{"Sum"}]
               [:eav #{"eid-sum"} #{:books/$user-creator} '_]
               '--
               [:ea #{"eid-alex"} #{:$users/email :$users/id} '_]],
@@ -2645,15 +3191,14 @@
 (deftest users-table-perms-with-references
   (with-zeneca-app
     (fn [app r0]
-      (insert-users-table! aurora/conn-pool (:id app))
       (let [make-ctx (fn []
                        (let [attrs (attr-model/get-by-app-id (:id app))]
-                         {:db {:conn-pool aurora/conn-pool}
+                         {:db {:conn-pool (aurora/conn-pool)}
                           :app-id (:id app)
                           :attrs attrs}))
 
             attr-id (random-uuid)
-            _ (tx/transact! aurora/conn-pool
+            _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id (:id app))
                             (:id app)
                             [[:add-attr {:id attr-id
@@ -2700,15 +3245,14 @@
 (deftest auth-ref-perms
   (with-zeneca-app
     (fn [app r0]
-      (insert-users-table! aurora/conn-pool (:id app))
       (let [make-ctx (fn []
                        (let [attrs (attr-model/get-by-app-id (:id app))]
-                         {:db {:conn-pool aurora/conn-pool}
+                         {:db {:conn-pool (aurora/conn-pool)}
                           :app-id (:id app)
                           :attrs attrs}))
 
             attr-id (random-uuid)
-            _ (tx/transact! aurora/conn-pool
+            _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id (:id app))
                             (:id app)
                             [[:add-attr {:id attr-id
@@ -2725,7 +3269,7 @@
             r1 (resolvers/make-zeneca-resolver (:id app))]
 
         (rule-model/put!
-         aurora/conn-pool
+         (aurora/conn-pool)
          {:app-id (:id app) :code {:books {:allow {:view "'Sum' in auth.ref('$user.books.title')"}}}})
 
         (is (= (-> (pretty-perm-q (assoc (make-ctx)

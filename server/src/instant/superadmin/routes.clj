@@ -2,7 +2,6 @@
   (:require [compojure.core :refer [defroutes POST GET DELETE] :as compojure]
             [ring.util.http-response :as response]
             [clojure.string :as string]
-            [instant.db.model.attr :as attr-model]
             [instant.util.uuid :as uuid-util]
             [instant.model.app :as app-model]
             [instant.model.instant-user :as instant-user-model]
@@ -14,8 +13,7 @@
             [instant.model.app-member-invites :as instant-app-member-invites-model]
             [clojure.walk :as w]
             [instant.model.rule :as rule-model]
-            [instant.model.schema :as schema-model]
-            [instant.jdbc.aurora :as aurora])
+            [instant.model.schema :as schema-model])
 
   (:import
    (java.util UUID)))
@@ -32,8 +30,8 @@
                                                :app-id id})]
     {:user user :app app}))
 
-;; -------- 
-;; App crud 
+;; --------
+;; App crud
 
 (defn apps-list-get [req]
   (let [{user-id :id} (req->superadmin-user! req)
@@ -64,8 +62,8 @@
         app (app-model/delete-by-id! {:id app-id})]
     (response/ok {:app app})))
 
-;; ---------- 
-;; Transfers 
+;; ---------
+;; Transfers
 
 (defn transfer-app-invite-email [inviter-user app invitee-email]
   (let [title "Instant"]
@@ -111,36 +109,45 @@
 
     (response/ok {:count rejected-count})))
 
-;; --------- 
-;; Rules 
+;; -----
+;; Rules
 
 (defn app-rules-get [req]
   (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
-        {:keys [code]} (rule-model/get-by-app-id aurora/conn-pool {:app-id app-id})]
+        {:keys [code]} (rule-model/get-by-app-id {:app-id app-id})]
     (response/ok {:perms code})))
 
 (defn app-rules-post [req]
   (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
-        code (ex/get-param! req [:body :code] w/stringify-keys)
-        attrs (attr-model/get-by-app-id app-id)]
-    (ex/assert-valid! :rule code (rule-model/validation-errors attrs code))
+        code (ex/get-param! req [:body :code] w/stringify-keys)]
+    (ex/assert-valid! :rule code (rule-model/validation-errors code))
     (response/ok {:rules (rule-model/put! {:app-id app-id
                                            :code code})})))
 
-;; --------- 
-;; Schema 
+;; ------
+;; Schema
 
 (defn app-schema-plan-post [req]
   (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
-        client-defs (-> req :body :schema)]
-    (response/ok (schema-model/plan! app-id client-defs))))
+        client-defs (-> req :body :schema)
+        check-types? (-> req :body :check_types)
+        background-updates? (-> req :body :supports_background_updates)]
+    (response/ok (schema-model/plan! {:app-id app-id
+                                      :check-types? check-types?
+                                      :background-updates? background-updates?}
+                                     client-defs))))
 
 (defn app-schema-apply-post [req]
   (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
         client-defs (-> req :body :schema)
-        plan (schema-model/plan! app-id client-defs)]
-    (schema-model/apply-plan! app-id plan)
-    (response/ok plan)))
+        check-types? (-> req :body :check_types)
+        background-updates? (-> req :body :supports_background_updates)
+        plan (schema-model/plan! {:app-id app-id
+                                  :check-types? check-types?
+                                  :background-updates? background-updates?}
+                                 client-defs)
+        plan-result (schema-model/apply-plan! app-id plan)]
+    (response/ok (merge plan plan-result))))
 
 (comment
   (def user (instant-user-model/get-by-email {:email "stepan.p@gmail.com"}))

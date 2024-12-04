@@ -1,6 +1,5 @@
 (ns instant.model.app-user-refresh-token
   (:require [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
             [instant.util.crypt :as crypt-util]
             [instant.model.app :as app-model]
             [instant.system-catalog-ops :refer [query-op update-op]]
@@ -17,82 +16,59 @@
       crypt-util/bytes->hex-string))
 
 (defn get-by-id
-  ([params] (get-by-id aurora/conn-pool params))
+  ([params] (get-by-id (aurora/conn-pool) params))
   ([conn {:keys [app-id id]}]
-   (query-op
-    conn
-    {:app-id app-id
-     :etype etype
-     :legacy-op
-     (fn []
-       (sql/select-one conn
-                       ["SELECT * FROM app_user_refresh_tokens WHERE id = ?::uuid"
-                        id]))
-     :triples-op (fn [{:keys [get-entity-where]}]
-                  (let [res (get-entity-where {:hashedToken (hash-token id)})]
-                    (when res
-                      ;; We're expecting `id` to be the token in the
-                      ;; legacy version, but the triples format only
-                      ;; stores a hash of the token.
-                      (assoc res :id id))))})))
+   (query-op conn
+             {:app-id app-id
+              :etype etype}
+             (fn [{:keys [get-entity-where]}]
+               (let [res (get-entity-where {:hashedToken (hash-token id)})]
+                 (when res
+                   ;; We're expecting `id` to be the token in the
+                   ;; legacy version, but the triples format only
+                   ;; stores a hash of the token.
+                   (assoc res :id id)))))))
 
 (defn create!
-  ([params] (create! aurora/conn-pool params))
+  ([params] (create! (aurora/conn-pool) params))
   ([conn {:keys [id app-id user-id]}]
    (update-op
     conn
     {:app-id app-id
-     :etype etype
-     :legacy-op
-     (fn [conn]
-       (sql/execute-one! conn
-                         ["INSERT INTO app_user_refresh_tokens (id, user_id) VALUES (?::uuid, ?::uuid)"
-                          id user-id]))
-     :triples-op
-     (fn [{:keys [transact! resolve-id get-entity]}]
-       (let [entity-id (random-uuid)]
-         (transact! [[:add-triple entity-id (resolve-id :id) entity-id]
-                     [:add-triple entity-id (resolve-id :hashedToken) (hash-token id)]
-                     [:add-triple entity-id (resolve-id :$user) user-id]])
-         (assoc (get-entity entity-id)
-                ;; backwards compatibility with legacy version that expects
-                ;; token in the id field
-                :id id)))})))
+     :etype etype}
+    (fn [{:keys [transact! resolve-id get-entity]}]
+      (let [entity-id (random-uuid)]
+        (transact! [[:add-triple entity-id (resolve-id :id) entity-id]
+                    [:add-triple entity-id (resolve-id :hashedToken) (hash-token id)]
+                    [:add-triple entity-id (resolve-id :$user) user-id]])
+        (assoc (get-entity entity-id)
+               ;; backwards compatibility with legacy version that expects
+               ;; token in the id field
+               :id id))))))
 
 (defn delete-by-user-id!
-  ([params] (delete-by-user-id! aurora/conn-pool params))
+  ([params] (delete-by-user-id! (aurora/conn-pool) params))
   ([conn {:keys [app-id user-id]}]
    (update-op
     conn
     {:app-id app-id
-     :etype etype
-     :legacy-op
-     (fn [conn]
-       (sql/execute! conn
-                     ["DELETE FROM app_user_refresh_tokens WHERE user_id = ?::uuid"
-                      user-id]))
-     :triples-op
-     (fn [{:keys [transact! get-entities-where]}]
-       (let [ents (get-entities-where {:$user user-id})]
-         (when (seq ents)
-           (transact! (mapv (fn [{:keys [id]}]
-                              [:delete-entity id etype])
-                            ents)))))})))
+     :etype etype}
+    (fn [{:keys [transact! get-entities-where]}]
+      (let [ents (get-entities-where {:$user user-id})]
+        (when (seq ents)
+          (transact! (mapv (fn [{:keys [id]}]
+                             [:delete-entity id etype])
+                           ents))))))))
 
 (defn delete-by-id!
-  ([params] (delete-by-id! aurora/conn-pool params))
+  ([params] (delete-by-id! (aurora/conn-pool) params))
   ([conn {:keys [app-id id]}]
    (update-op
     conn
     {:app-id app-id
-     :etype etype
-     :legacy-op (fn [conn]
-                  (sql/execute-one! conn
-                                    ["DELETE FROM app_user_refresh_tokens WHERE id = ?::uuid"
-                                     id]))
-     :triples-op
-     (fn [{:keys [transact! resolve-id]}]
-       (transact! [[:delete-entity [(resolve-id :hashedToken) (hash-token id)] etype]]))})))
+     :etype etype}
+    (fn [{:keys [transact! resolve-id]}]
+      (transact! [[:delete-entity [(resolve-id :hashedToken) (hash-token id)] etype]])))))
 
 (comment
   (require '[instant.model.instant-user :as instant-user-model])

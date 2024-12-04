@@ -133,7 +133,8 @@
 (defn get-inactive-replication-slots [conn]
   (sql/select conn ["select slot_name
                        from pg_replication_slots
-                      where active = false"]))
+                      where active = false
+                        and plugin = 'wal2json'"]))
 
 (defn cleanup-inactive-replication-slots [conn slot-names]
   (sql/select conn ["select slot_name, pg_drop_replication_slot(slot_name)
@@ -146,7 +147,7 @@
   (def pg-conn (get-pg-replication-conn (config/get-aurora-config)))
   (create-temporary-logical-replication-slot! pg-conn "test_slot" "wal2json")
   (.close pg-conn)
-  (get-all-slots aurora/conn-pool))
+  (get-all-slots (aurora/conn-pool)))
 
 ;; -------------------------
 ;; LSN
@@ -159,7 +160,7 @@
    (sql/select-one conn ["SELECT * FROM pg_current_wal_lsn();"])))
 
 (comment
-  (get-current-wal-lsn aurora/conn-pool))
+  (get-current-wal-lsn (aurora/conn-pool)))
 
 ;; ------
 ;; Stream
@@ -311,6 +312,40 @@
         (format "```\nselect data from pg_logical_slot_peek_changes('%s', null, null, 'format-version', '2', 'include-lsn', 'true');```"
                 slot-name))))
 
+(defn get-reconnect-conn*
+  "Tries to create a new connection and restart the replication stream"
+  [conn-config slot-name]
+  (try
+    (let [conn (get-pg-replication-conn conn-config)]
+      ;; try is double-nested so that we can dispose of the connection
+      ;; if we get an error creating the stream.
+      (try
+        (let [slot (get-logical-replication-slot conn slot-name)
+              stream (create-replication-stream conn slot-name (:lsn slot) 2)]
+          {:conn conn
+           :slot slot
+           :stream stream})
+        (catch Exception e
+          (tracer/record-exception-span! e {:name "wal/get-reconnect-conn*"})
+          (try (close-nicely conn) (catch Exception _e nil))
+          nil)))
+    (catch Exception e
+      (tracer/record-exception-span! e {:name "wal/get-reconnect-conn*"})
+      nil)))
+
+(defn get-reconnect-conn
+  "Repeatedly tries to create a new connection and restart the replication stream,
+   waiting a second between tries."
+  [conn-config slot-name]
+  (loop [i 1]
+    (if-let [res (get-reconnect-conn* conn-config slot-name)]
+      res
+      (do
+        (tracer/record-info! {:name "wal/get-reconnect-conn"
+                              :attributes {:attempt i}})
+        (Thread/sleep 1000)
+        (recur (inc i))))))
+
 (defn start-worker
   "Starts a logical replication stream and pushes records to
    the given `to` channel.
@@ -352,20 +387,18 @@
                                           :escpaing? false})
           (try (close-nicely stream) (catch Exception _e nil))
           (try (close-nicely replication-conn) (catch Exception _e nil))
-          (let [new-conn (get-pg-replication-conn conn-config)
-                slot (get-logical-replication-slot new-conn slot-name)]
-            (if-not slot
+          (let [{new-conn :conn stream :stream} (get-reconnect-conn conn-config slot-name)]
+            (if-not stream
               (ex-handler produce-error)
               (do
                 (tracer/record-info! {:name "wal-worker/reconnect"
                                       :attributes {:slot-name slot-name
                                                    :produce-error produce-error}})
-                (let [stream (create-replication-stream new-conn slot-name (:lsn slot) 2)]
-                  (reset! (:shutdown-fn wal-opts) nil)
-                  (when (< restart-count 3)
-                    ;; If we keep restarting, stop marking ourselves as healthy
-                    (health/mark-wal-healthy-async))
-                  (recur new-conn stream (inc restart-count)))))))))))
+                (reset! (:shutdown-fn wal-opts) nil)
+                (when (< restart-count 3)
+                  ;; If we keep restarting, stop marking ourselves as healthy
+                  (health/mark-wal-healthy-async))
+                (recur new-conn stream (inc restart-count))))))))))
 
 (defn shutdown! [wal-opts]
   (tracer/with-span! {:name "wal-worker/shutdown!"
@@ -376,7 +409,7 @@
                                      {:name "wal-worker/shutdown-called-before-startup"
                                       :escaping? false}))))
 
-(defn init-cleanup [conn-pool]
+(defn init-cleanup []
   (def schedule
     (chime-core/chime-at
      (chime-core/periodic-seq (Instant/now) (Duration/ofHours 1))
@@ -385,17 +418,17 @@
        ;; still inactive in 5 minutes. This will prevent dropping slots that
        ;; are still being set up.
        (try
-         (let [inactive-slots (get-inactive-replication-slots conn-pool)]
+         (let [conn-pool      (aurora/conn-pool)
+               inactive-slots (get-inactive-replication-slots conn-pool)]
            (when (seq inactive-slots)
              (chime-core/chime-at
               [(.plusSeconds (Instant/now) 300)]
               (fn [_time]
                 (tracer/with-span! {:name "wal/cleanup-inactive-slots"}
                   (let [slot-names (map :slot_name inactive-slots)
-                        removed (cleanup-inactive-replication-slots conn-pool
-                                                                    slot-names)
-                        cleaned (set (map :slot_name removed))
-                        uncleaned (remove #(contains? cleaned %) slot-names)]
+                        removed    (cleanup-inactive-replication-slots (aurora/conn-pool) slot-names)
+                        cleaned    (set (map :slot_name removed))
+                        uncleaned  (remove #(contains? cleaned %) slot-names)]
                     (tracer/add-data! {:attributes {:cleaned-slot-names cleaned
                                                     :active-uncleaned-slots uncleaned}})))))))
          (catch Exception e

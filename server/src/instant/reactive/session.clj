@@ -7,35 +7,36 @@
    Each connection has their own `session` worker, that can understand these
    commands."
   (:require
-   [lambdaisland.uri :as uri]
-   [instant.config :as config]
-   [instant.util.async :as ua]
-   [instant.jdbc.aurora :as aurora]
-   [instant.reactive.store :as rs]
-   [instant.reactive.query :as rq]
-   [instant.db.transaction :as tx]
-   [instant.util.tracer :as tracer]
+   [clojure.main :refer [root-cause]]
    [instant.db.datalog :as d]
-   [instant.util.json :refer [<-json]]
-   [instant.util.delay :as delay]
-   [instant.model.app :as app-model]
    [instant.db.model.attr :as attr-model]
+   [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.db.pg-introspect :as pg-introspect]
+   [instant.db.transaction :as tx]
+   [instant.flags :as flags]
+   [instant.grouped-queue :as grouped-queue]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.model.app :as app-model]
+   [instant.model.app-admin-token :as app-admin-token-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.instant-user :as instant-user-model]
-   [instant.model.app-admin-token :as app-admin-token-model]
-   [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.model.rule :as rule-model]
-   [clojure.main :refer [root-cause]]
    [instant.reactive.ephemeral :as eph]
+   [instant.reactive.query :as rq]
+   [instant.reactive.receive-queue :as receive-queue :refer [receive-q]]
+   [instant.reactive.store :as rs]
+   [instant.util.async :as ua]
+   [instant.util.delay :as delay]
    [instant.util.exception :as ex]
+   [instant.util.json :refer [<-json]]
+   [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
-   [instant.grouped-queue :as grouped-queue]
-   [instant.reactive.receive-queue :as receive-queue :refer [receive-q]])
+   [lambdaisland.uri :as uri])
   (:import
+   (java.time Duration Instant)
    (java.util.concurrent CancellationException)
-   (java.util.concurrent.atomic AtomicLong)
-   (java.time Duration Instant)))
+   (java.util.concurrent.atomic AtomicLong)))
 
 ;; ------
 ;; Setup
@@ -73,7 +74,7 @@
 (defn get-attrs [app]
   (if-let [connection-string (-> app :connection_string)]
     ;; TODO(byop): Separate connection for byop app
-    (pg-introspect/introspect aurora/conn-pool (or (->> connection-string
+    (pg-introspect/introspect (aurora/conn-pool) (or (->> connection-string
                                                         (app-model/decrypt-connection-string (:id app))
                                                         uri/query-map
                                                         :currentSchema)
@@ -91,8 +92,7 @@
         user (when refresh-token
                (app-user-model/get-by-refresh-token!
                 {:app-id app-id :refresh-token refresh-token}))
-        creator (instant-user-model/get-by-app-id
-                 aurora/conn-pool {:app-id app-id})
+        creator (instant-user-model/get-by-app-id {:app-id app-id})
         admin? (and __admin-token
                     (boolean
                      (app-admin-token-model/fetch! {:app-id app-id
@@ -102,11 +102,11 @@
     (rs/set-session-props! store-conn sess-id {:auth auth
                                                :creator creator
                                                :versions versions})
-    (rs/send-event! store-conn sess-id {:op :init-ok
-                                        :session-id sess-id
-                                        :client-event-id client-event-id
-                                        :auth auth
-                                        :attrs attrs})))
+    (rs/send-event! store-conn app-id sess-id {:op :init-ok
+                                               :session-id sess-id
+                                               :client-event-id client-event-id
+                                               :auth auth
+                                               :attrs attrs})))
 
 (defn- get-auth! [store-conn sess-id]
   (let [auth (rs/get-auth @store-conn sess-id)]
@@ -120,8 +120,8 @@
 
     (cond
       (contains? instaql-queries q)
-      (rs/send-event! store-conn sess-id {:op :add-query-exists :q q
-                                          :client-event-id client-event-id})
+      (rs/send-event! store-conn (:id app) sess-id {:op :add-query-exists :q q
+                                                    :client-event-id client-event-id})
 
       :else
       (let [return-type (keyword (or return-type "join-rows"))
@@ -129,7 +129,7 @@
             processed-tx-id (rs/get-processed-tx-id @store-conn app-id)
             {:keys [table-info]} (get-attrs app)
             attrs (attr-model/get-by-app-id app-id)
-            ctx {:db {:conn-pool aurora/conn-pool}
+            ctx {:db {:conn-pool (aurora/conn-pool)}
                  :datalog-loader (rs/upsert-datalog-loader! store-conn sess-id d/make-loader)
                  :session-id sess-id
                  :app-id app-id
@@ -138,20 +138,20 @@
                  :admin? admin?
                  :current-user user}
             {:keys [instaql-result]} (rq/instaql-query-reactive! store-conn ctx q return-type)]
-        (rs/send-event! store-conn sess-id {:op :add-query-ok :q q :result instaql-result
-                                            :processed-tx-id processed-tx-id
-                                            :client-event-id client-event-id})))))
+        (rs/send-event! store-conn app-id sess-id {:op :add-query-ok :q q :result instaql-result
+                                                   :processed-tx-id processed-tx-id
+                                                   :client-event-id client-event-id})))))
 
 (defn- handle-remove-query! [store-conn sess-id {:keys [q client-event-id] :as _event}]
   (let [{:keys [app]} (get-auth! store-conn sess-id)]
     (rs/remove-query! store-conn sess-id (:id app) q)
-    (rs/send-event! store-conn sess-id {:op :remove-query-ok :q q
-                                        :client-event-id client-event-id})))
+    (rs/send-event! store-conn (:id app) sess-id {:op :remove-query-ok :q q
+                                                  :client-event-id client-event-id})))
 
 (defn- recompute-instaql-query!
   [{:keys [store-conn current-user app-id sess-id attrs table-info admin?]}
    {:keys [instaql-query/query instaql-query/return-type]}]
-  (let [ctx {:db {:conn-pool aurora/conn-pool}
+  (let [ctx {:db {:conn-pool (aurora/conn-pool)}
              :session-id sess-id
              :app-id app-id
              :attrs attrs
@@ -165,7 +165,7 @@
      :instaql-result instaql-result
      :result-changed? result-changed?}))
 
-(defn- handle-refresh! [store-conn sess-id _event]
+(defn- handle-refresh! [store-conn sess-id _event debug-info]
   (let [auth (get-auth! store-conn sess-id)
         app-id (-> auth :app :id)
         current-user (-> auth :user)
@@ -180,24 +180,28 @@
               :table-info table-info
               :admin? admin?}
         processed-tx-id (rs/get-processed-tx-id @store-conn app-id)
+        _ (reset! debug-info {:processed-tx-id processed-tx-id
+                              :instaql-queries (map :instaql-query/query stale-queries)})
         recompute-results (->> stale-queries
                                (ua/vfuture-pmap (partial recompute-instaql-query! opts)))
         {computations true spam false} (group-by :result-changed? recompute-results)
         num-spam (count spam)
         num-computations (count computations)
         num-recomputations (count recompute-results)
-        computations (if config/drop-refresh-spam?
+        drop-spam? (flags/drop-refresh-spam? app-id)
+        computations (if drop-spam?
                        computations
                        recompute-results)]
     (tracer/with-span! {:name "handle-refresh/send-event!"
                         :attributes {:num-recomputations num-recomputations
                                      :num-spam num-spam
-                                     :num-computations num-computations}}
+                                     :num-computations num-computations
+                                     :dropped-spam? drop-spam?}}
       (when (seq computations)
-        (rs/send-event! store-conn sess-id {:op :refresh-ok
-                                            :processed-tx-id processed-tx-id
-                                            :attrs attrs
-                                            :computations computations})))))
+        (rs/send-event! store-conn app-id sess-id {:op :refresh-ok
+                                                   :processed-tx-id processed-tx-id
+                                                   :attrs attrs
+                                                   :computations computations})))))
 
 ;; -----
 ;; transact
@@ -210,20 +214,39 @@
         _ (tx/validate! coerced)
         {tx-id :id}
         (permissioned-tx/transact!
-         {:db {:conn-pool aurora/conn-pool}
-          :rules  (rule-model/get-by-app-id aurora/conn-pool
-                                            {:app-id app-id})
-
+         {:db {:conn-pool (aurora/conn-pool)}
+          :rules (rule-model/get-by-app-id {:app-id app-id})
           :app-id app-id
           :current-user (:user auth)
           :admin? (:admin? auth)
           :datalog-query-fn d/query
           :attrs (attr-model/get-by-app-id app-id)}
          coerced)]
-    (rs/send-event! store-conn sess-id
+    (rs/send-event! store-conn app-id sess-id
                     {:op :transact-ok
                      :tx-id tx-id
                      :client-event-id client-event-id})))
+
+;; -----
+;; error
+
+(defn handle-error! [store-conn sess-id {:keys [status
+                                                app-id
+                                                client-event-id
+                                                original-event
+                                                type
+                                                message
+                                                hint]}]
+  (rs/send-event! store-conn
+                  app-id
+                  sess-id
+                  {:op :error
+                   :status status
+                   :client-event-id client-event-id
+                   :original-event original-event
+                   :type type
+                   :message message
+                   :hint hint}))
 
 ;; ------
 ;; worker
@@ -263,17 +286,17 @@
         app-id (-> auth :app :id)
         current-user (-> auth :user)]
     (eph/join-room! eph-store-atom app-id sess-id current-user room-id)
-    (rs/send-event! store-conn sess-id {:op :join-room-ok
-                                        :room-id room-id
-                                        :client-event-id client-event-id})))
+    (rs/send-event! store-conn app-id sess-id {:op :join-room-ok
+                                               :room-id room-id
+                                               :client-event-id client-event-id})))
 
 (defn- handle-leave-room! [store-conn eph-store-atom sess-id {:keys [client-event-id room-id] :as _event}]
   (let [auth (get-auth! store-conn sess-id)
         app-id (-> auth :app :id)]
     (eph/leave-room! eph-store-atom app-id sess-id room-id)
-    (rs/send-event! store-conn sess-id {:op :leave-room-ok
-                                        :room-id room-id
-                                        :client-event-id client-event-id})))
+    (rs/send-event! store-conn app-id sess-id {:op :leave-room-ok
+                                               :room-id room-id
+                                               :client-event-id client-event-id})))
 
 (defn assert-in-room! [store-v app-id room-id sess-id]
   (when-not (eph/in-room? store-v app-id room-id sess-id)
@@ -288,9 +311,15 @@
         app-id (-> auth :app :id)
         _ (assert-in-room! @eph-store-atom app-id room-id sess-id)]
     (eph/set-presence! eph-store-atom app-id sess-id room-id data)
-    (rs/send-event! store-conn sess-id {:op :set-presence-ok
-                                        :room-id room-id
-                                        :client-event-id client-event-id})))
+    (rs/send-event! store-conn app-id sess-id {:op :set-presence-ok
+                                               :room-id room-id
+                                               :client-event-id client-event-id})))
+
+(defn- handle-refresh-presence!
+  [store-conn sess-id {:keys [app-id room-id data]}]
+  (rs/send-event! store-conn app-id sess-id {:op :refresh-presence
+                                             :room-id room-id
+                                             :data data}))
 
 (defn- handle-client-broadcast!
   "Broadcasts a client message to other sessions in the room"
@@ -299,26 +328,37 @@
         app-id (-> auth :app :id)
         _ (assert-in-room! @eph-store-atom app-id room-id sess-id)
         current-user (-> auth :user)
-        ids-to-notify (-> (eph/get-room-session-ids @eph-store-atom app-id room-id)
-                          (disj sess-id))
+        {:keys [local-ids remote-ids]} (eph/get-room-session-ids @eph-store-atom app-id room-id)
         base-msg {:room-id room-id
                   :topic topic
                   :data {:peer-id sess-id
                          :user (when current-user
                                  {:id (:id current-user)})
                          :data data}}]
-    (rs/try-broadcast-event! store-conn ids-to-notify (assoc base-msg :op :server-broadcast))
-    (rs/send-event! store-conn sess-id (assoc base-msg
-                                              :op :client-broadcast-ok
-                                              :client-event-id client-event-id))))
 
-(defn- handle-refresh-presence!
-  [store-conn sess-id {:keys [room-id data]}]
-  (rs/send-event! store-conn sess-id {:op :refresh-presence
-                                      :room-id room-id
-                                      :data data}))
+    (doseq [notify-sess-id local-ids
+            :let [q (:receive-q (rs/get-socket @store-conn notify-sess-id))]
+            :when (and q (not= sess-id notify-sess-id))]
+      (receive-queue/enqueue->receive-q q
+                                        (assoc base-msg
+                                               :op :server-broadcast
+                                               :session-id notify-sess-id
+                                               :app-id app-id)))
+    (when (seq remote-ids)
+      (eph/broadcast app-id remote-ids base-msg))
 
-(defn handle-event [store-conn eph-store-atom session event]
+    (rs/send-event! store-conn app-id sess-id (assoc base-msg
+                                                     :op :client-broadcast-ok
+                                                     :client-event-id client-event-id))))
+
+(defn- handle-server-broadcast! [store-conn eph-store-atom sess-id {:keys [app-id room-id topic data]}]
+  (when (eph/in-room? @eph-store-atom app-id room-id sess-id)
+    (rs/send-event! store-conn app-id sess-id {:op :server-broadcast
+                                               :room-id room-id
+                                               :topic topic
+                                               :data data})))
+
+(defn handle-event [store-conn eph-store-atom session event debug-info]
   (tracer/with-span! {:name "receive-worker/handle-event"}
     (let [{:keys [op]} event
           {:keys [session/socket]} session
@@ -328,76 +368,90 @@
         :init (handle-init! store-conn id event)
         :add-query (handle-add-query! store-conn id event)
         :remove-query (handle-remove-query! store-conn id event)
-        :refresh (handle-refresh! store-conn id event)
+        :refresh (handle-refresh! store-conn id event debug-info)
         :transact (handle-transact! store-conn id event)
+        :error (handle-error! store-conn id event)
         ;; -----
         ;; EPH events
         :join-room (handle-join-room! store-conn eph-store-atom id event)
         :leave-room (handle-leave-room! store-conn eph-store-atom id event)
         :set-presence (handle-set-presence! store-conn eph-store-atom id event)
+        :refresh-presence (handle-refresh-presence! store-conn id event)
         :client-broadcast (handle-client-broadcast! store-conn eph-store-atom id event)
-        :refresh-presence (handle-refresh-presence! store-conn id event)))))
+        :server-broadcast (handle-server-broadcast! store-conn eph-store-atom id event)))))
 
 ;; --------------
 ;; Receive Workers
 
-(defn- handle-instant-exception [store-conn session original-event instant-ex]
+(defn- handle-instant-exception [session app-id original-event instant-ex debug-info]
   (let [sess-id (:session/id session)
+        q (:receive-q (:session/socket session))
         {:keys [client-event-id]} original-event
         {:keys [::ex/type ::ex/message ::ex/hint] :as err-data} (ex-data instant-ex)]
     (tracer/add-data! {:attributes {:err-data (pr-str err-data)}})
-    (condp contains? type
-      #{::ex/record-not-found
-        ::ex/record-expired
-        ::ex/record-not-unique
-        ::ex/record-foreign-key-invalid
-        ::ex/record-check-violation
-        ::ex/sql-raise
+    (case type
+      (::ex/record-not-found
+       ::ex/record-expired
+       ::ex/record-not-unique
+       ::ex/record-foreign-key-invalid
+       ::ex/record-check-violation
+       ::ex/sql-raise
 
-        ::ex/permission-denied
-        ::ex/permission-evaluation-failed
+       ::ex/permission-denied
+       ::ex/permission-evaluation-failed
 
-        ::ex/param-missing
-        ::ex/param-malformed
+       ::ex/param-missing
+       ::ex/param-malformed
 
-        ::ex/validation-failed}
-      (rs/try-send-event! store-conn sess-id
-                          {:op :error
-                           :status 400
-                           :client-event-id client-event-id
-                           :original-event original-event
-                           :type (keyword (name type))
-                           :message message
-                           :hint hint})
+       ::ex/validation-failed)
+      (receive-queue/enqueue->receive-q q
+                                        {:op :error
+                                         :app-id app-id
+                                         :status 400
+                                         :client-event-id client-event-id
+                                         :original-event (merge original-event
+                                                                debug-info)
+                                         :type (keyword (name type))
+                                         :message message
+                                         :hint hint
+                                         :session-id sess-id})
 
-      #{::ex/session-missing
-        ::ex/socket-missing
-        ::ex/socket-error}
+      (::ex/session-missing
+       ::ex/socket-missing
+       ::ex/socket-error)
       (tracer/record-exception-span! instant-ex
                                      {:name "receive-worker/socket-unreachable"})
 
       (do
         (tracer/add-exception! instant-ex {:escaping? false})
-        (rs/try-send-event! store-conn sess-id
-                            {:op :error
-                             :status 500
-                             :client-event-id client-event-id
-                             :original-event original-event
-                             :type (keyword (name type))
-                             :message message
-                             :hint hint})))))
+        (receive-queue/enqueue->receive-q q
+                                          {:op :error
+                                           :app-id app-id
+                                           :status 500
+                                           :client-event-id client-event-id
+                                           :original-event (merge original-event
+                                                                  debug-info)
+                                           :type (keyword (name type))
+                                           :message message
+                                           :hint hint
+                                           :session-id sess-id})))))
 
-(defn- handle-uncaught-err [store-conn session original-event root-err]
+(defn- handle-uncaught-err [session app-id original-event root-err debug-info]
   (let [sess-id (:session/id session)
+        q (:receive-q (:session/socket session))
         {:keys [client-event-id]} original-event]
     (tracer/add-exception! root-err {:escaping? false})
-    (rs/try-send-event! store-conn sess-id
-                        {:op :error
-                         :client-event-id client-event-id
-                         :status 500
-                         :original-event original-event
-                         :message (str "Yikes, something broke on our end! Sorry about that."
-                                       " Please ping us (Joe and Stopa) on Discord and let us know!")})))
+
+    (receive-queue/enqueue->receive-q q
+                                      {:op :error
+                                       :app-id app-id
+                                       :client-event-id client-event-id
+                                       :status 500
+                                       :original-event (merge original-event
+                                                              debug-info)
+                                       :message (str "Yikes, something broke on our end! Sorry about that."
+                                                     " Please ping us (Joe and Stopa) on Discord and let us know!")
+                                       :session-id sess-id})))
 
 (defn handle-receive-attrs [store-conn session event metadata]
   (let [{:keys [session/socket]} session
@@ -413,16 +467,32 @@
     (tracer/with-span! {:name "receive-worker/handle-receive"
                         :attributes (handle-receive-attrs store-conn session event metadata)}
       (let [pending-handlers (:pending-handlers (:session/socket session))
-            event-fut (ua/vfuture (handle-event store-conn eph-store-atom session event))
+            in-progress-stmts (sql/make-statement-tracker)
+            debug-info (atom nil)
+            event-fut (binding [sql/*in-progress-stmts* in-progress-stmts]
+                        (ua/vfuture (handle-event store-conn
+                                                  eph-store-atom
+                                                  session
+                                                  event
+                                                  debug-info)))
             pending-handler {:future event-fut
                              :op (:op event)
+                             :in-progress-stmts (:stmts in-progress-stmts)
                              :silence-exceptions silence-exceptions}]
         (swap! pending-handlers conj pending-handler)
         (tracer/add-data! {:attributes {:concurrent-handler-count (count @pending-handlers)}})
         (try
           (let [ret (deref event-fut handle-receive-timeout-ms :timeout)]
             (when (= :timeout ret)
-              (future-cancel event-fut)
+              (let [in-progress @(:stmts in-progress-stmts)
+                    _ (sql/cancel-in-progress in-progress)
+                    cancel-res (future-cancel event-fut)]
+                (tracer/add-data! {:attributes
+                                   {:timedout true
+                                    :in-progress-query-count (count in-progress)
+                                    ;; If false, then canceling the queries let
+                                    ;; the future complete before we could cancel it
+                                    :future-cancel-result cancel-res}}))
               (ex/throw-operation-timeout! :handle-receive handle-receive-timeout-ms)))
 
           (catch CancellationException _e
@@ -433,12 +503,21 @@
             (tracer/record-info! {:name "caught-throwable"})
             (let [original-event event
                   instant-ex (ex/find-instant-exception e)
-                  root-err (root-cause e)]
+                  root-err (root-cause e)
+                  app-id (some-> (rs/get-auth @store-conn (:session/id session))
+                                 :app
+                                 :id)]
               (cond
-                instant-ex (handle-instant-exception
-                            store-conn session original-event instant-ex)
-                :else (handle-uncaught-err
-                       store-conn session original-event root-err))))
+                instant-ex (handle-instant-exception session
+                                                     app-id
+                                                     original-event
+                                                     instant-ex
+                                                     @debug-info)
+                :else (handle-uncaught-err session
+                                           app-id
+                                           original-event
+                                           root-err
+                                           @debug-info))))
           (finally
             (swap! pending-handlers disj pending-handler)))))))
 
@@ -536,24 +615,27 @@
 
     (grouped-queue/inflight-queue-reserve 1 inflight-q)))
 
+(defn start-receive-worker [store-conn eph-store-atom receive-q stop-signal id]
+  (ua/vfut-bg
+    (loop []
+      (if @stop-signal
+        (tracer/record-info! {:name "receive-worker/shutdown-complete"
+                              :attributes {:worker-n id}})
+        (do (grouped-queue/process-polling!
+             receive-q
+             {:reserve-fn receive-worker-reserve-fn
+              :process-fn (fn [group-key batch]
+                            (straight-jacket-process-receive-q-batch store-conn
+                                                                     eph-store-atom
+                                                                     batch
+                                                                     {:worker-n id
+                                                                      :batch-size (count batch)
+                                                                      :group-key group-key}))})
+            (recur))))))
+
 (defn start-receive-workers [store-conn eph-store-atom receive-q stop-signal]
   (doseq [n (range num-receive-workers)]
-    (ua/fut-bg
-      (loop []
-        (if @stop-signal
-          (tracer/record-info! {:name "receive-worker/shutdown-complete"
-                                :attributes {:worker-n n}})
-          (do (grouped-queue/process-polling!
-               receive-q
-               {:reserve-fn receive-worker-reserve-fn
-                :process-fn (fn [group-key batch]
-                              (straight-jacket-process-receive-q-batch store-conn
-                                                                       eph-store-atom
-                                                                       batch
-                                                                       {:worker-n n
-                                                                        :batch-size (count batch)
-                                                                        :group-key group-key}))})
-              (recur)))))))
+    (start-receive-worker store-conn eph-store-atom receive-q stop-signal n)))
 
 ;; -----------------
 ;; Websocket Interop
@@ -578,10 +660,16 @@
 (defn on-close [store-conn eph-store-atom {:keys [id pending-handlers]}]
   (tracer/with-span! {:name "socket/on-close"
                       :attributes {:session-id id}}
-    (doseq [{:keys [future silence-exceptions op]} @pending-handlers]
+    (doseq [{:keys [op
+                    future
+                    silence-exceptions
+                    in-progress-stmts]} @pending-handlers
+            :let [in-progress @in-progress-stmts]]
       (tracer/with-span! {:name "cancel-pending-handler"
-                          :attributes {:op op}}
+                          :attributes {:op op
+                                       :in-progress-query-count (count in-progress)}}
         (silence-exceptions true)
+        (sql/cancel-in-progress in-progress)
         (future-cancel future)))
 
     (let [app-id (-> (rs/get-auth @store-conn id)
@@ -629,7 +717,7 @@
       :transact
       [:transact session-id]
 
-      (:join-room :leave-room :set-presence :client-broadcast)
+      (:join-room :leave-room :set-presence :client-broadcast :server-broadcast)
       [:room session-id room-id]
 
       (:add-query :remove-query)
@@ -641,6 +729,9 @@
 
       :refresh-presence
       [:refresh-presence session-id room-id]
+
+      :error
+      [:error session-id]
 
       nil)))
 

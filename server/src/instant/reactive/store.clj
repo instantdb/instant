@@ -15,10 +15,10 @@
    4. Metadata. Sessions have auth, sockets, and other misc data for handling
       events across the lifetime of a session"
   (:require
+   [clojure.string :as string]
    [datascript.core :as d]
    [instant.util.coll :as ucoll]
    [instant.lib.ring.websocket :as ws]
-   [instant.util.async :as ua]
    [instant.util.tracer :as tracer]
    [instant.util.exception :as ex]))
 
@@ -436,15 +436,33 @@
             false
             small)))
 
+(defn like-match? [text pattern]
+  (let [regex-pattern (-> pattern
+                          (string/replace "_" ".")
+                          (string/replace "%" ".*")
+                          (#(str "^" % "$")))]
+    (re-matches (re-pattern regex-pattern) text)))
+
 (defn- match-topic-part? [iv-part dq-part]
   (cond
     (keyword? iv-part) (= iv-part dq-part)
     (or (symbol? dq-part) (symbol? iv-part)) true
     (set? dq-part) (intersects? iv-part dq-part)
 
-    (and (map? dq-part) (contains? dq-part :not))
-    (let [not-val (:not dq-part)]
-      (some (partial not= not-val) iv-part))))
+    (map? dq-part)
+    (if-let [{:keys [op value]} (:$comparator dq-part)]
+      (let [f (case op
+                :$gt >
+                :$gte >=
+                :$lt <
+                :$lte <=
+                :$like like-match?)]
+        (some (fn [v]
+                (f v value))
+              iv-part))
+      (when (contains? dq-part :$not)
+        (let [not-val (:$not dq-part)]
+          (some (partial not= not-val) iv-part))))))
 
 (defn match-topic?
   [iv-topic dq-topic]
@@ -555,20 +573,20 @@
 ;; -----------------
 ;; Websocket Helpers
 
-(defn send-event! [conn sess-id event]
+(defn send-event! [conn app-id sess-id event]
   (let [{:keys [ws-conn]} (get-socket @conn sess-id)]
     (when-not ws-conn
       (ex/throw-socket-missing! sess-id))
     (try
-      (ws/send-json! event ws-conn)
+      (ws/send-json! app-id event ws-conn)
       (catch java.io.IOException e
         (ex/throw-socket-error! sess-id e)))))
 
 (defn try-send-event!
   "Does a best-effort send. If it fails, we record and swallow the exception"
-  [conn sess-id event]
+  [conn app-id sess-id event]
   (try
-    (send-event! conn sess-id event)
+    (send-event! conn app-id sess-id event)
     (catch Exception e
       (tracer/with-span! {:name "rs/try-send-event-swallowed-err"}
         (tracer/record-exception-span!
@@ -576,13 +594,6 @@
          {:name "rs/try-send-event-err"
           :attributes {:event (str event)
                        :escaping? false}})))))
-
-(defn try-broadcast-event!
-  "Sends an event to multiple sessions"
-  [conn sess-ids event]
-  (ua/vfuture-pmap (fn [sess-id]
-                     (try-send-event! conn sess-id event))
-                   sess-ids))
 
 ;; -----
 ;; start
@@ -600,4 +611,10 @@
 
 (defn restart []
   (stop)
+  (start))
+
+(defn before-ns-unload []
+  (stop))
+
+(defn after-ns-reload []
   (start))

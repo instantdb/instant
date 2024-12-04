@@ -21,8 +21,7 @@
 (defn numeric-date-str [date]
   (fmt-with-pattern numeric-date-pattern date))
 
-(defn first-of-next-month-est
-  []
+(defn first-of-next-month-est ^ZonedDateTime []
   (let [today (est-now)
         first-of-next-month (.with (LocalDate/from today) (TemporalAdjusters/firstDayOfNextMonth))
         start-of-day (.atStartOfDay first-of-next-month est-zone)]

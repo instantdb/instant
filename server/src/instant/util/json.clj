@@ -25,3 +25,17 @@
 (def <-json
   "Converts a JSON string to a Clojure data structure."
   cheshire/parse-string)
+
+(defn json-type-of-clj [v]
+  (cond (string? v)
+        "string"
+        (number? v)
+        "number"
+        (boolean? v)
+        "boolean"
+        (nil? v)
+        "null"
+        (or (vector? v)
+            (list? v))
+        "array"
+        :else "object"))

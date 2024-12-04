@@ -7,14 +7,15 @@
    [instant.db.pg-introspect :as pg-introspect]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
+   [instant.model.app :as app-model]
+   [instant.model.instant-user :as instant-user-model]
+   [instant.model.rule :as rule-model]
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
-   [instant.util.crypt :as crypt-util]
-   [instant.util.json :refer [<-json ->json]]
+   [instant.util.json :refer [<-json]]
    [instant.util.tracer :as tracer])
-  (:import (java.util UUID)
-           (java.sql Timestamp)))
+  (:import (java.util UUID)))
 
 (declare wal-opts)
 
@@ -211,70 +212,6 @@
 ;; ------
 ;; wal record xf
 
-(defn update-users-shims!
-  "Updates our view of the mapping from app-users to the attributes we use to
-   generate the $users table.
-   Only looks at inserts. If the table is disabled, we won't remove them until
-   the server restarts, but the worst that will happen is that we create a bit
-   of extra spam in the invalidator when the app gets a new user."
-  [idents-changes users-shims]
-  (doseq [{:keys [action columns]} idents-changes
-          :when (= action :insert)
-          :let [{:strs [app_id etype label attr_id]} (columns->map columns)]
-          :when (and (= "$users" etype)
-                     (#{"id" "email"} label))]
-    (swap! users-shims
-           assoc-in
-           [app_id (case label
-                     "id" :id-attr-id
-                     "email" :email-attr-id)]
-           attr_id)))
-
-(defn $users-triple-change-for-attr
-  "Coerces the app-user update into the triple format"
-  [app-id app-users-id created-at-ms attr-id attr-value]
-  (let [value (->json attr-value)
-        value-md5 (-> value crypt-util/str->md5 crypt-util/bytes->hex-string)]
-    {:action :update
-     :shmema "public"
-     :table "triples"
-     :columns [{:name "app_id" :type "uuid" :value app-id}
-               {:name "entity_id" :type "uuid" :value app-users-id}
-               {:name "attr_id" :type "uuid" :value attr-id}
-               {:name "value", :type "jsonb", :value value}
-               {:name "value_md5" :type "text" :value value-md5}
-               {:name "ea", :type "boolean", :value true}
-               {:name "eav", :type "boolean", :value false}
-               {:name "av", :type "boolean", :value true}
-               {:name "ave", :type "boolean", :value true}
-               {:name "vae", :type "boolean", :value false}
-               {:name "created_at", :type "bigint", :value created-at-ms}]}))
-
-(defn $users-triples-changes
-  "Converts any changes to the app-users table into triples changes.
-   It's a noop if the app hasn't enabled the users table."
-  [app-users-changes users-shims]
-  (mapcat (fn [{:keys [columns]}]
-            (let [{:strs [app_id id email created_at]} (columns->map columns)
-                  {:keys [id-attr-id email-attr-id]} (get users-shims app_id)]
-              (when (and app_id id email created_at id-attr-id email-attr-id)
-                (let [created-at-ms (.getTime (Timestamp/valueOf created_at))]
-                  [($users-triple-change-for-attr app_id
-                                                  id
-                                                  created-at-ms
-                                                  (str id-attr-id)
-                                                  id)
-                   ($users-triple-change-for-attr app_id
-                                                  id
-                                                  created-at-ms
-                                                  (str email-attr-id)
-                                                  email)]))))
-          app-users-changes))
-
-(defn triple-changes-with-app-users [triple-changes app-user-changes users-shims]
-  (concat triple-changes
-          ($users-triples-changes app-user-changes users-shims)))
-
 (defn app-id-from-columns [columns]
   (some-> columns
           (get-column "app_id")
@@ -284,37 +221,54 @@
   [{:keys [columns] :as _change}]
   (app-id-from-columns columns))
 
+(defn id-from-columns [columns]
+  (some-> columns
+          (get-column "id")
+          (parse-uuid)))
+
+(defn extract-id
+  [{:keys [columns] :as _change}]
+  (id-from-columns columns))
+
 (defn extract-tx-id [{:keys [columns] :as _change}]
   (get-column columns "id"))
 
-(defn transform-wal-record [{:keys [changes] :as _record} users-shims]
-  (let [{:strs [idents triples attrs transactions app_users]}
+(defn transform-wal-record [{:keys [changes] :as _record}]
+  (let [{:strs [idents triples attrs transactions rules apps instant_users]}
         (group-by :table changes)
 
-        triple-changes (triple-changes-with-app-users triples
-                                                      app_users
-                                                      @users-shims)
-
         some-changes (or (seq idents)
-                         (seq triple-changes)
+                         (seq triples)
                          (seq attrs))
         transactions-change (first transactions)
         app-id (extract-app-id transactions-change)]
-    (update-users-shims! idents users-shims)
+    (doseq [attr attrs]
+      (attr-model/evict-app-id-from-cache (or app-id
+                                              (extract-app-id attr))))
+    (doseq [rule rules]
+      (let [app-id (or app-id (extract-app-id rule))]
+        (rule-model/evict-app-id-from-cache app-id)))
+
+    (doseq [app apps]
+      (let [app-id (or app-id (extract-id app))]
+        (app-model/evict-app-id-from-cache app-id)
+        (instant-user-model/evict-app-id-from-cache app-id)))
+
+    (doseq [user instant_users]
+      (let [id (extract-id user)]
+        (instant-user-model/evict-user-id-from-cache id)))
+
     (when (and some-changes app-id)
-      (when (seq attrs)
-        (attr-model/evict-app-id-from-cache app-id))
       {:attr-changes attrs
        :ident-changes idents
-       :triple-changes triple-changes
+       :triple-changes triples
        :app-id app-id
        :tx-id (extract-tx-id transactions-change)})))
 
 (defn wal-record-xf
   "Filters wal records for supported changes. Returns [app-id changes]"
-  [users-shims]
-  (keep (fn [record]
-          (transform-wal-record record users-shims))))
+  []
+  (keep #'transform-wal-record))
 
 (defn transform-byop-wal-record [{:keys [changes nextlsn]}]
   ;; TODO(byop): if change is empty, then there might be changes to the schema
@@ -374,7 +328,7 @@
 (defn start-byop-worker [store-conn wal-chan]
   (tracer/record-info! {:name "invalidation-worker/start-byop"})
   (let [app-id config/instant-on-instant-app-id
-        {:keys [table-info]} (pg-introspect/introspect aurora/conn-pool
+        {:keys [table-info]} (pg-introspect/introspect (aurora/conn-pool)
                                                        "public")]
     (loop []
       (let [wal-record (a/<!! wal-chan)]
@@ -401,28 +355,25 @@
   (wal/shutdown! wal-opts))
 
 (defn create-wal-chans []
-  (let [users-shims (atom {})]
-    (if-not config/instant-on-instant-app-id
-      (let [chan (a/chan 1 (wal-record-xf users-shims))]
-        {:wal-chan chan
-         :close-signal-chan (a/chan)
-         :worker-chan chan
-         :users-shims users-shims})
-      (let [wal-chan (a/chan 1)
-            mult (a/mult wal-chan)
-            worker-chan (a/chan 1 (wal-record-xf users-shims))
-            byop-chan (a/chan 1)]
-        (a/tap mult worker-chan)
-        (a/tap mult byop-chan)
-        {:wal-chan wal-chan
-         ;; Nothing will ever be put on this chan,
-         ;; it will be closed when the wal-chan is closed
-         ;; so that the consumer can know to stop waiting for
-         ;; its puts to complete
-         :close-signal-chan (a/chan)
-         :worker-chan worker-chan
-         :byop-chan byop-chan
-         :users-shims users-shims}))))
+  (if-not config/instant-on-instant-app-id
+    (let [chan (a/chan 1 (wal-record-xf))]
+      {:wal-chan chan
+       :close-signal-chan (a/chan)
+       :worker-chan chan})
+    (let [wal-chan (a/chan 1)
+          mult (a/mult wal-chan)
+          worker-chan (a/chan 1 (wal-record-xf))
+          byop-chan (a/chan 1)]
+      (a/tap mult worker-chan)
+      (a/tap mult byop-chan)
+      {:wal-chan wal-chan
+       ;; Nothing will ever be put on this chan,
+       ;; it will be closed when the wal-chan is closed
+       ;; so that the consumer can know to stop waiting for
+       ;; its puts to complete
+       :close-signal-chan (a/chan)
+       :worker-chan worker-chan
+       :byop-chan byop-chan})))
 
 (defn start
   "Entry point for invalidator. Starts a WAL listener and pipes WAL records to
@@ -430,21 +381,23 @@
   ([]
    (start @config/process-id))
   ([process-id]
-   (let [{:keys [wal-chan worker-chan byop-chan close-signal-chan users-shims]}
+   (let [{:keys [wal-chan worker-chan byop-chan close-signal-chan]}
          (create-wal-chans)
 
          wal-opts (wal/make-wal-opts {:wal-chan wal-chan
                                       :close-signal-chan close-signal-chan
                                       :ex-handler wal-ex-handler
-                                      :conn-config (config/get-aurora-config)
+                                      :conn-config (or (config/get-next-aurora-config)
+                                                       ;; Use the next db so that we don't
+                                                       ;; have to worry about restarting the
+                                                       ;; invalidator when failing over to a
+                                                       ;; new blue/green deployment
+                                                       (config/get-aurora-config))
                                       :slot-name process-id})]
      (ua/fut-bg
       (wal/start-worker wal-opts))
 
      @(:started-promise wal-opts)
-
-     (tracer/with-span! {:name "invalidator/init-users-shims"}
-       (reset! users-shims (attr-model/get-all-users-shims aurora/conn-pool)))
 
      (ua/fut-bg
       (start-worker rs/store-conn worker-chan))
@@ -462,7 +415,7 @@
   (let [shutdown-future (future (wal/shutdown! wal-opts))]
     (loop []
       (when-not (realized? shutdown-future)
-        (wal/kick-wal aurora/conn-pool)
+        (wal/kick-wal (aurora/conn-pool))
         (Thread/sleep 100)
         (recur))))
   (a/close! (:to wal-opts))

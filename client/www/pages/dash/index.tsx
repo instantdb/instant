@@ -97,7 +97,7 @@ const tabs: Tab[] = [
   { id: 'repl', title: 'Query Inspector' },
   { id: 'sandbox', title: 'Sandbox' },
   { id: 'admin', title: 'Admin', minRole: 'admin' },
-  { id: 'billing', title: 'Billing', minRole: 'owner' },
+  { id: 'billing', title: 'Billing' },
   { id: 'docs', title: 'Docs' },
 ];
 
@@ -181,7 +181,7 @@ export default function DashV2() {
               onClick={() => {
                 try {
                   window.close();
-                } catch (error) {}
+                } catch (error) { }
                 cliAuthCompleteDialog.onClose();
               }}
             >
@@ -355,7 +355,7 @@ function Dashboard() {
     return () => {
       db._core.shutdown();
     };
-  }, [router.isReady, app]);
+  }, [router.isReady, app?.id, app?.admin_token]);
 
   function nav(q: { s: string; app?: string; t?: string }) {
     if (q.app) setLocal('dash_app_id', q.app);
@@ -467,7 +467,7 @@ function Dashboard() {
               }}
             />
             <div className="border-b">
-              <div className="flex max-w-xl flex-col gap-2 p-3">
+              <div className="flex max-w-2xl flex-col gap-2 p-3">
                 <h2 className="font-mono text-lg font-bold">{app.title}</h2>
                 <Copyable
                   label="Public App ID"
@@ -484,7 +484,7 @@ function Dashboard() {
                 {tab === 'home' ? (
                   <Home />
                 ) : tab === 'explorer' ? (
-                  <ExplorerTab db={connection.db} />
+                  <ExplorerTab appId={appId} db={connection.db} />
                 ) : tab === 'repl' ? (
                   <QueryInspector
                     className="flex-1 w-full"
@@ -529,7 +529,7 @@ function Dashboard() {
   );
 }
 
-const TabContent = twel('div', 'flex flex-col max-w-xl gap-4 p-4');
+const TabContent = twel('div', 'flex flex-col max-w-2xl gap-4 p-4');
 
 function mergeQueryParams(query: string) {
   const newQuery = new URLSearchParams(query);
@@ -621,7 +621,7 @@ function Invites({
   const invites = dashResponse.data?.invites ?? [];
 
   return (
-    <div className="flex w-full flex-col gap-4 max-w-xl px-4 py-8">
+    <div className="flex w-full flex-col gap-4 max-w-2xl px-4 py-8">
       <div className="mb-2 flex text-4xl">📫</div>
       <SectionHeading>Team Invites</SectionHeading>
       <div className="flex flex-1 flex-col gap-4">
@@ -843,11 +843,11 @@ function Home() {
   );
 }
 
-function ExplorerTab({ db }: { db: InstantReactClient }) {
+function ExplorerTab({ db, appId }: { db: InstantReactClient; appId: string }) {
   return (
     <div className="flex-1 overflow-hidden flex flex-col">
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Explorer db={db} key={db._core._reactor.config.appId} />
+        <Explorer db={db} appId={appId} key={db._core._reactor.config.appId} />
       </div>
     </div>
   );
@@ -1047,18 +1047,10 @@ function Admin({
   const clearDialog = useDialog();
   const deleteDialog = useDialog();
   const inviteDialog = useDialog();
-  const disableUsersDialog = useDialog();
 
   const displayedInvites = app.invites?.filter(
     (invite) => invite.status !== 'accepted',
   );
-
-  const router = useRouter();
-  const { namespaces } = useSchemaQuery(db);
-
-  const usersAttrs =
-    namespaces && namespaces.find((n) => n.name === '$users')?.attrs;
-  const usersRefs = usersAttrs && usersAttrs.filter((a) => a.type === 'ref');
 
   async function onClickReset() {
     if (!dashResponse.data) return;
@@ -1321,129 +1313,6 @@ function Admin({
         label="Secret"
         value={app.admin_token}
       />
-      {isMinRole('collaborator', app.user_app_role) ? (
-        <div className="space-y-2">
-          <SectionHeading>Users namespace</SectionHeading>
-          <Content>
-            The users namespace is a psuedo-namespace named <code>$users</code>.
-            It provides a read-only view into your users on Instant. It allows
-            you to view your users from the Explorer and link to the{' '}
-            <code>$users</code> namespace from other namespaces.
-          </Content>
-          <Content>
-            It comes with a default <code>view</code> rule (
-            <code>auth.id == data.id</code>) that allows the the authenticated
-            user to view their row in the users namespace. The <code>view</code>{' '}
-            rule can be modified from the <code>Permissions</code> page.
-          </Content>
-
-          {usersAttrs?.length ? (
-            <>
-              <Content>
-                <Button
-                  variant="secondary"
-                  onClick={() =>
-                    router.push({
-                      query: { ...router.query, ns: '$users', t: 'explorer' },
-                    })
-                  }
-                >
-                  View <code>$users</code> namespace
-                </Button>
-              </Content>
-              {usersAttrs[0].catalog !== 'system' ? (
-                <Content>
-                  You can disable the users namespace. It won't delete any
-                  users, but any links you created into the namespace will be
-                  permanently deleted.
-                </Content>
-              ) : null}
-            </>
-          ) : null}
-
-          <Content>
-            {!namespaces ? (
-              <ActionButton
-                // Loading state, no visible text to prevent a flash
-                label={<span className="invisible">Disable users table</span>}
-                submitLabel="Loading"
-                errorMessage="Loading"
-                disabled={true}
-                onClick={async () => null}
-              />
-            ) : usersAttrs?.length ? (
-              usersAttrs[0].catalog !== 'system' ? (
-                <ActionButton
-                  label="Disable users table"
-                  submitLabel="Disable users table"
-                  errorMessage="Failed to disable users table"
-                  onClick={disableUsersDialog.onOpen}
-                />
-              ) : null
-            ) : (
-              <ActionButton
-                label="Enable users table"
-                submitLabel="Enable users table"
-                errorMessage="Failed to enable users table"
-                onClick={async () => {
-                  await jsonFetch(
-                    `${config.apiURI}/dash/apps/${app.id}/enable_users_table`,
-                    {
-                      method: 'POST',
-                      headers: {
-                        authorization: `Bearer ${token}`,
-                        'content-type': 'application/json',
-                      },
-                    },
-                  );
-                  // Trigger an update of the rules
-                  await dashResponse.mutate();
-                }}
-              />
-            )}
-          </Content>
-          <Dialog {...disableUsersDialog}>
-            <div className="flex flex-col gap-2">
-              <SubsectionHeading className="text-red-600">
-                Disable users namespace
-              </SubsectionHeading>
-
-              {usersRefs?.length ? (
-                <Content>
-                  Disabling the users namespace will permanently remove any
-                  links you created into the namespace. It will remove{' '}
-                  {usersRefs.map((r) => (
-                    <code key={r.id}>
-                      {r.linkConfig.forward.namespace}.
-                      {r.linkConfig.forward.attr}
-                    </code>
-                  ))}
-                  .
-                </Content>
-              ) : null}
-              <Content>
-                Your users will not be removed. You can re-enable the users
-                table to view them again.
-              </Content>
-              <Button
-                variant="destructive"
-                onClick={async () => {
-                  if (usersAttrs) {
-                    await db._core._reactor.pushOps(
-                      usersAttrs
-                        .filter((x) => x.catalog !== 'system')
-                        .map((a) => ['delete-attr', a.id]),
-                    );
-                  }
-                  disableUsersDialog.onClose();
-                }}
-              >
-                {usersRefs?.length ? 'Delete' : 'Disable'}
-              </Button>
-            </div>
-          </Dialog>
-        </div>
-      ) : null}
       {isMinRole('owner', app.user_app_role) ? (
         // mt-auto pushes the danger zone to the bottom of the page
         <div className="mt-auto space-y-2 pb-4">
@@ -1583,7 +1452,7 @@ function Loading() {
 
 function ErrorMessage({ message }: { message: string }) {
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col gap-4 p-2">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-2">
       <div className="rounded bg-red-100 p-4 text-red-700">{message}</div>
     </div>
   );

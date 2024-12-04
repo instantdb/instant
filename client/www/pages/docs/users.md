@@ -56,10 +56,10 @@ new namespace and link it to `$users`.
 
 ```javascript
 // Use the Instant CLI tool to create an app with this schema!
-import { i } from "@instantdb/react";
+import { i } from '@instantdb/react';
 
-const graph = i.graph(
-  {
+const _schema = i.schema({
+  entities: {
     $users: i.entity({
       email: i.any().unique().indexed(),
     }),
@@ -76,48 +76,55 @@ const graph = i.graph(
       completed: i.boolean(),
     }),
   },
-  {
+  links: {
     // `$users` is in the reverse direction for all these links!
     todoOwner: {
       reverse: {
-        on: "$users",
-        has: "many",
-        label: "todos"
+        on: '$users',
+        has: 'many',
+        label: 'todos',
       },
       forward: {
-        on: "todos",
-        has: "one",
-        label: "owner"
-      }
+        on: 'todos',
+        has: 'one',
+        label: 'owner',
+      },
     },
     userRoles: {
       reverse: {
-        on: "$users",
-        has: "one",
-        label: "role"
+        on: '$users',
+        has: 'one',
+        label: 'role',
       },
       forward: {
-        on: "roles",
-        has: "many",
-        label: "users"
+        on: 'roles',
+        has: 'many',
+        label: 'users',
       },
-    }
+    },
     userProfiles: {
       reverse: {
-        on: "$users",
-        has: "one",
-        label: "profile"
+        on: '$users',
+        has: 'one',
+        label: 'profile',
       },
       forward: {
-        on: "profiles",
-        has: "one",
-        label: "user"
+        on: 'profiles',
+        has: 'one',
+        label: 'user',
       },
-    }
-  }
-);
+    },
+  },
+  rooms: {},
+});
 
-export default graph;
+// This helps Typescript display nicer intellisense
+type _AppSchema = typeof _schema;
+interface AppSchema extends _AppSchema {}
+const schema: AppSchema = _schema;
+
+export { type AppSchema };
+export default schema;
 ```
 
 You can then create links between users on the client side like so:

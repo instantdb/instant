@@ -1,13 +1,19 @@
 (ns instant.util.exception
-  (:require [clojure.spec.alpha :as s]
-            [instant.util.string :refer [safe-name]]
-            [clojure.walk :as w]
-            [instant.jdbc.pgerrors :as pgerrors]
-            [inflections.core :as inflections])
-  (:import [org.postgresql.util PSQLException]))
+  (:require
+   [clojure.spec.alpha :as s]
+   [clojure.string :as string]
+   [clojure.walk :as w]
+   [inflections.core :as inflections]
+   [instant.jdbc.pgerrors :as pgerrors]
+   [instant.util.json :refer [<-json]]
+   [instant.util.string :refer [indexes-of safe-name]]
+   [instant.util.uuid :as uuid-util])
+  (:import
+   (java.io IOException)
+   (org.postgresql.util PSQLException)))
 
-;; -------- 
-;; Spec 
+;; ----
+;; Spec
 
 (s/def ::type #{::record-not-found
                 ::record-expired
@@ -26,6 +32,7 @@
 
                 ::validation-failed
                 ::operation-timed-out
+                ::rate-limited
 
                 ::oauth-error
 
@@ -40,8 +47,8 @@
   (s/explain-data ::instant-exception {::type ::record-not-found
                                        ::message "Record not found"
                                        :extra "extra"}))
-;; -------- 
-;; Try / Catch Mechanism 
+;; ---------------------
+;; Try / Catch Mechanism
 
 (defn throw+
   ([instant-ex] (throw+ instant-ex nil))
@@ -52,8 +59,8 @@
   (throw+ {::type ::record-not-found
            ::message "hey!"}))
 
-;; -------- 
-;; Records 
+;; -------
+;; Records
 
 (defn throw-expiration-err! [record-type hint]
   {::type ::record-expired
@@ -67,16 +74,32 @@
              ::hint (assoc hint :record-type record-type)}))
   record)
 
-(defn throw-record-not-unique!
-  ([record-type] (throw-record-not-unique! record-type nil))
-  ([record-type e]
-   (throw+ {::type ::record-not-unique
-            ::message (format "Record not unique: %s" (name record-type))
-            ::hint {:record-type record-type}}
-           e)))
+(defn extract-unique-triple-data [pg-data]
+  (when (and (= "triples" (:table pg-data))
+             (= "av_index" (:constraint pg-data))
+             (string/starts-with? (:detail pg-data) "Key (app_id, attr_id, value)="))
+    (let [prefix "Key (app_id, attr_id, value)=(00000000-0000-0000-0000-000000000000, "
+          attr-id (-> (subs (:detail pg-data)
+                            (count prefix)
+                            (+ (count prefix) 36))
+                      uuid-util/coerce)
+          value (-> (subs (:detail pg-data)
+                          (+ (count prefix) 36 2)
+                          (string/last-index-of (:detail pg-data) ") already exists.")))]
+      {:attr-id attr-id
+       :value value})))
 
-;; -------- 
-;; Permissions 
+(defn throw-record-not-unique!
+  ([record-type] (throw-record-not-unique! record-type nil nil))
+  ([record-type pg-data e]
+   (let [extra-hint-data (extract-unique-triple-data pg-data)]
+     (throw+ {::type ::record-not-unique
+              ::message (format "Record not unique: %s" (name record-type))
+              ::hint (merge {:record-type record-type} extra-hint-data)}
+             e))))
+
+;; -----------
+;; Permissions
 
 (defn assert-permitted! [perm input pass?]
   (when-not pass?
@@ -86,7 +109,7 @@
                      :expected perm}}))
   pass?)
 
-(defn throw-permission-evaluation-failed! [etype action e]
+(defn throw-permission-evaluation-failed! [etype action ^Exception e]
   (let [cause-data (-> e (.getCause) ex-data)
         cause-message (or (::message cause-data)
                           "You may have a typo")]
@@ -103,7 +126,7 @@
                                       :hint (::hint cause-data)}}))}
             e)))
 
-;; ----------
+;; -----------
 ;; Validations
 
 (defn throw-validation-err! [input-type input errors]
@@ -117,7 +140,7 @@
   (when (seq errors)
     (throw-validation-err! input-type input errors)))
 
-;; ----------
+;; ------
 ;; Params
 
 (defn get-param! [obj ks coercer]
@@ -170,6 +193,13 @@
            ::message (format "Operation timed out: %s" (name operation-name))
            ::hint {:timeout-ms timeout-ms}}))
 
+;; ----------
+;; Rate limit
+
+(defn throw-rate-limited! []
+  (throw+ {::type ::rate-limited
+           ::message "You're making too many requests. Please email support@instantdb.com or ask for help in the Discord."}))
+
 ;; -------
 ;; Sockets
 
@@ -183,17 +213,17 @@
            ::message (format "Socket missing for session: %s" sess-id)
            ::hint {:sess-id sess-id}}))
 
-(defn throw-socket-error! [sess-id io-ex]
+(defn throw-socket-error! [sess-id ^IOException io-ex]
   (throw+ {::type ::socket-missing
            ::message (format "Socket error for session: %s" sess-id)
            ::hint {:sess-id sess-id
                    :exception-message (.getMessage io-ex)}}
           io-ex))
-;; --------- 
-;; Spec 
+;; ----
+;; Spec
 
 (defn- best-problem
-  "Picks the most specific problem. 
+  "Picks the most specific problem.
    We use a heuristic: we sort by `path`, `in` length, and the last element in `in`."
   [explain]
   (->> explain
@@ -207,7 +237,7 @@
   (#{"clojure.core"} (namespace x)))
 
 (defn- walk-pred
-  "explain-data returns a `pred`. To make it a bit cleaner, 
+  "explain-data returns a `pred`. To make it a bit cleaner,
    we walk it and remove the `namespace` part for common symbols and keywords"
   [pred]
   (w/postwalk
@@ -224,8 +254,8 @@
     [{:expected (walk-pred pred)
       :in in}]))
 
-;; ----------------------- 
-;; PSQL Exception Wrappers 
+;; -----------------------
+;; PSQL Exception Wrappers
 
 (defn kw-table-name [str-table]
   (-> (or str-table "unknown")
@@ -237,13 +267,41 @@
 (comment
   (kw-table-name "app_oauth_codes"))
 
+(defn extract-triple-from-constraint [{:keys [table detail]}]
+  (when (and (= table "triples")
+             detail
+             (string/starts-with? detail "Failing row contains"))
+    ;; The error detail looks like "Failing row contains (app_id, entity_id, ...),
+    ;; so we extract all of those values by looking for what's between the commas
+    (let [borders (conj (into [(string/index-of detail "(")]
+                              (indexes-of detail ","))
+                        (string/last-index-of detail ")"))
+          ;; Skip any `,` in the value
+          borders (concat (take 4 borders)
+                          (take-last 9 borders))]
+      (zipmap [:app-id
+               :entity-id
+               :attr-id
+               :value
+               :value-md5
+               :ea
+               :eav
+               :av
+               :ave
+               :vae
+               :created-at
+               :checked-data-type]
+              (map (fn [[start end]]
+                     (string/trim (subs detail (inc start) end)))
+                   (partition 2 1 borders))))))
+
 (defn translate-and-throw-psql-exception!
   [^PSQLException e]
   (let [{:keys [server-message condition table] :as data} (pgerrors/extract-data e)
         hint (select-keys data [:table :condition :constraint])]
-    (condp = condition
+    (case condition
       :unique-violation
-      (throw-record-not-unique! (kw-table-name table) e)
+      (throw-record-not-unique! (kw-table-name table) data e)
 
       :foreign-key-violation
       (throw+ {::type ::record-foreign-key-invalid
@@ -253,10 +311,44 @@
               e)
 
       :check-violation
-      (throw+ {::type ::record-check-violation
-               ::message (format "Check Violation: %s" (name condition))
-               ::hint hint
-               ::pg-error-data data}
+      (if-let [triple (extract-triple-from-constraint data)]
+        (let [value (try
+                      (some-> (:value triple)
+                              <-json)
+                      (catch Exception _e
+                        ;; We may get a truncated value, so just give that back to the user
+                        (:value triple)))]
+          (throw-validation-err!
+           :triple
+           value
+           [{:message (case (:constraint data)
+                        "valid_value_data_type" "Invalid value type for triple."
+
+                        "indexed_values_are_constrained"
+                        (if (= "t" (:av triple))
+                          "Value is too large for a unique attribute."
+                          "Value is too large for an indexed attribute.")
+
+                        (format "Check Violation: %s" (name (:constraint data))))
+             :hint (merge
+                    {:value value
+                     :checked-data-type (:checked-data-type triple)
+                     :attr-id (:attr-id triple)
+                     :entity-id (:entity-id triple)}
+                    (when (= (:constraint data)
+                             "indexed_values_are_constrained")
+                      {:value-too-large? true}))}]))
+        (throw+ {::type ::record-check-violation
+                 ::message (format "Check Violation: %s" (name condition))
+                 ::hint hint
+                 ::pg-error-data data}
+                e))
+
+      ;; This could be other things besides a timeout,
+      ;; but we don't have any way to check :/
+      :query-canceled
+      (throw+ {::type ::timeout
+               ::message "The query took too long to complete."}
               e)
 
       :raise-exception
@@ -272,7 +364,7 @@
                ::pg-error-data data}
               e))))
 
-;; --------
+;; -----
 ;; Oauth
 
 (defn throw-oauth-err!
@@ -283,7 +375,7 @@
             ::message message}
            cause)))
 
-;; -------------
+;; --------
 ;; Wrappers
 
 (defn find-instant-exception [^Exception e]

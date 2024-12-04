@@ -59,15 +59,26 @@
 (s/def ::nil? boolean?)
 (s/def ::$isNull (s/keys :req-un [::attr-id ::nil?]))
 
+(s/def ::op #{:$gt :$gte :$lt :$lte :$like})
+(s/def ::data-type #{:string :number :date :boolean})
+(s/def ::value any?)
+(s/def ::$comparator (s/keys :req-un [::op ::data-type ::value]))
+
 (s/def ::value-pattern-component (s/or :constant (s/coll-of ::triple-model/value
                                                             :kind set?
                                                             :min-count 0)
                                        :any #{'_}
                                        :variable symbol?
-                                       :function (s/keys :req-un [(or ::$not ::$isNull)])))
+                                       :function (s/keys :req-un [(or ::$not ::$isNull ::$comparator)])))
+
+(s/def ::idx-key #{:ea :eav :av :ave :vae})
+(s/def ::data-type #{:string :number :boolean :date})
+(s/def ::index-map (s/keys :req-un [::idx-key ::data-type]))
+(s/def ::index (s/or :keyword ::idx-key
+                     :map ::index-map))
 
 (s/def ::pattern
-  (s/cat :idx ::triple-model/index
+  (s/cat :idx ::index
          :e (pattern-component ::triple-model/lookup)
          :a (pattern-component uuid?)
          :v ::value-pattern-component
@@ -113,11 +124,12 @@
    (map-indexed
     (fn [i c]
       (if (or
-           ;; Don't override not and isnull
+           ;; Don't override function clauses
            (and (= i 2)
                 (map? c)
                 (or (contains? c :$not)
-                    (contains? c :$isNull)))
+                    (contains? c :$isNull)
+                    (contains? c :$comparator)))
            (symbol? c)
            (set? c))
         c
@@ -144,6 +156,12 @@
         (->> p
              (coll/pad 5 '_)
              ensure-set-constants)))
+
+(defn idx-key [idx]
+  (let [[tag v] idx]
+    (case tag
+      :map (:idx-key v)
+      :keyword v)))
 
 (defn untag-e
   "Removes the tag from the entity-id position, where it can be either :entity-id
@@ -207,7 +225,7 @@
   "Given a named pattern, returns a mapping of symbols to their
    binding paths:
 
-   idx [:eav ?a ?b ?c]
+   pattern-idx [:eav ?a ?b ?c]
 
 
    ;=>
@@ -215,15 +233,15 @@
    {?a [[idx 0]],
     ?b [[idx 1]],
     ?c [[idx 2]]}"
-  [idx {:keys [e a v]}]
+  [pattern-idx {:keys [e a v]}]
   (reduce (fn [acc [x path]]
             (if (named-variable? x)
               (update acc (uspec/tagged-unwrap x) (fnil conj []) path)
               acc))
           {}
-          [[e [idx 0]]
-           [a [idx 1]]
-           [v [idx 2]]]))
+          [[e [pattern-idx 0]]
+           [a [pattern-idx 1]]
+           [v [pattern-idx 2]]]))
 
 ;; ----
 ;; join-vals
@@ -331,7 +349,7 @@
       '_
       #{(-> v second :$isNull :attr-id)}
       '_]]
-    [[idx
+    [[(idx-key idx)
       (component->topic-component symbol-values :e e)
       (component->topic-component symbol-values :a a)
       (component->topic-component symbol-values :v v)]]))
@@ -522,7 +540,33 @@
 (defn- value->jsonb [x]
   [:cast (->json x) :jsonb])
 
-(defn- constant->where-part [app-id component-type [_ v]]
+(defn- not-eq-value [idx val]
+  (let [[tag idx-val] idx
+        data-type (case tag
+                    :keyword nil
+                    :map (:data-type idx-val))]
+    (if-not data-type
+      [:not= :value (value->jsonb val)]
+      [:and
+       [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
+       [:not= [(kw :triples_extract_ data-type :_value) :value] val]])))
+
+(defn- in-or-eq-value [idx v-set]
+  (let [[tag idx-val] idx
+        data-type (case tag
+                    :keyword nil
+                    :map (:data-type idx-val))]
+    (if (empty? v-set)
+      [:= 0 1]
+      (if-not data-type
+        (in-or-eq :value (map value->jsonb v-set))
+        (list* :or (map (fn [v]
+                          [:and
+                           [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
+                           [:= [(kw :triples_extract_ data-type :_value) :value] v]])
+                        v-set))))))
+
+(defn- constant->where-part [idx app-id component-type [_ v]]
   (condp = component-type
     :e (list* :or
               (for [lookup v]
@@ -537,13 +581,13 @@
                             [:= :value [:cast (->json (second lookup)) :jsonb]]
                             [:= :attr-id [:cast (first lookup) :uuid]]]}])))
     :a (in-or-eq :attr-id v)
-    :v (in-or-eq :value (map value->jsonb v))))
+    :v (in-or-eq-value idx v)))
 
-(defn- value-function-clauses [[v-tag v-value]]
+(defn- value-function-clauses [idx [v-tag v-value]]
   (case v-tag
     :function (let [[func val] (first v-value)]
                 (case func
-                  :$not [[:not= :value (value->jsonb val)]]
+                  :$not [(not-eq-value idx val)]
                   :$isNull [[(if (:nil? val)
                                :not-in
                                :in)
@@ -556,11 +600,23 @@
                               :where [:and
                                       [:= :t.entity-id :entity-id]
                                       [:= :t.attr-id (:attr-id val)]
-                                      [:not= :t.value [:cast (->json nil) :jsonb]]]}]]))
+                                      [:not= :t.value [:cast (->json nil) :jsonb]]]}]]
+                  :$comparator (let [{:keys [op value data-type]} val]
+                                 [[(case op
+                                     :$gt :>
+                                     :$gte :>=
+                                     :$lt :<
+                                     :$lte :<=
+                                     :$like :like)
+                                   [(kw :triples_extract_ data-type :_value)
+                                    :value]
+                                   value]
+                                  ;; Need this check so that postgres knows it can use the index
+                                  [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]])))
     []))
 
 (defn- function-clauses [named-pattern]
-  (value-function-clauses (:v named-pattern)))
+  (value-function-clauses (:idx named-pattern) (:v named-pattern)))
 
 (defn- where-clause
   "
@@ -577,11 +633,11 @@
   (list*
    :and
    [:= :app-id app-id]
-   [:= idx :true]
+   [:= (idx-key idx) :true]
    (concat (->> named-pattern
                 constant-components
                 (map (fn [[component-type v]]
-                       (constant->where-part app-id component-type v))))
+                       (constant->where-part idx app-id component-type v))))
            (function-clauses named-pattern)
            additional-clauses)))
 
@@ -805,7 +861,7 @@
               (if (named-variable? x)
                 (assoc acc pat-idx {:sym sym
                                     :ref-value? (and (= :v component)
-                                                     (= :eav (:idx named-p)))})
+                                                     (= :eav (idx-key (:idx named-p))))})
                 acc)))
           {}
           [[:e 0] [:a 1] [:v 2]]))
@@ -1174,8 +1230,6 @@
                                (add-page-info page-info (:with query))
                                (:with query))
 
-
-
                         next-acc (cond-> acc
                                    true (assoc :next-idx next-idx)
                                    true (update :ctes into ctes)
@@ -1231,23 +1285,13 @@
          (assoc :children {:pattern-groups (:pattern-groups res)
                            :join-sym (get-in nested-named-patterns [:children :join-sym])})))))
 
-(defn maybe-add-users-shim
-  "Appends the app-users table to triples through a few extra CTEs that coerce
-   the table into the triples format."
-  [ctx app-id ctes]
-  (if-let [{:keys [email-attr-id
-                   id-attr-id]} (:users-shim-info ctx)]
-    (into (triple-model/users-triples-ctes app-id email-attr-id id-attr-id)
-          ctes)
-    ctes))
-
 (defn nested-match-query
   "Generates the hsql `query` and metadata about the query under `children`.
   `children` matches the structure of nested-named-patterns and has all of the
   info we need to collect the data from the sql result, build fully-qualified
   topics (replacing join-sym with the actual value), and fully-qualified datalog
   queries."
-  [ctx prefix app-id nested-named-patterns]
+  [_ctx prefix app-id nested-named-patterns]
   (let [{:keys [ctes result-tables children]}
         (accumulate-nested-match-query prefix app-id nested-named-patterns)
         query (when (seq ctes)
@@ -1258,7 +1302,7 @@
                                ;; If count != 2, then someone higher up set a materialized
                                ;; option, let's not override their wisdom.
                                %)
-                            (maybe-add-users-shim ctx app-id ctes))
+                            ctes)
                  :select [[(into [:json_build_array]
                                  (mapv (fn [tables]
                                          (into [:json_build_object]
@@ -1571,14 +1615,14 @@
                      result (cond-> (sql-result->result rows transformed-pattern-metas true)
                               (:page-info group) (assoc-in [:page-info :has-next-page?]
                                                            (-> sql-res
-                                                             (get (name (has-next-tbl table)))
-                                                             first
-                                                             (get "exists")))
+                                                               (get (name (has-next-tbl table)))
+                                                               first
+                                                               (get "exists")))
                               (:page-info group) (assoc-in [:page-info :has-previous-page?]
                                                            (-> sql-res
-                                                             (get (name (has-prev-tbl table)))
-                                                             first
-                                                             (get "exists"))))
+                                                               (get (name (has-prev-tbl table)))
+                                                               first
+                                                               (get "exists"))))
                      datalog-query (if join-sym
                                      (replace-join-sym-in-datalog-query join-sym
                                                                         join-val
@@ -1666,13 +1710,11 @@
 
 (defn send-query-single
   "Sends a single query, returns the join rows."
-  [ctx conn app-id named-patterns]
+  [_ctx conn app-id named-patterns]
   (tracer/with-span! {:name "datalog/send-query-single"}
     (let [{:keys [query pattern-metas]} (match-query :match-0- app-id named-patterns)
-          sql-query (hsql/format
-                     (update query :with (fn [ctes]
-                                           (maybe-add-users-shim ctx app-id ctes))))
-          sql-res (sql/select-string-keys conn sql-query)]
+          sql-query (hsql/format query)
+          sql-res (sql/select-string-keys ::send-query-single conn sql-query)]
       (sql-result->result sql-res
                           pattern-metas
                           ;; No need to parse uuids because the db driver will
@@ -1911,9 +1953,20 @@
                                                        :match-0-
                                                        app-id
                                                        nested-named-patterns)
+          query-hash (or (:query-hash ctx)
+                         (hash (first (hsql/format query))))
+          _ (tracer/add-data! {:attributes {:query-hash query-hash}})
+
+          query (when query
+                  (update query
+                          :with conj
+                          [:qid
+                           {:select [[[:inline app-id]]
+                                     [[:inline query-hash]]]}]))
+
           sql-query (hsql/format query)
           sql-res (when query ;; we may not have a query if everything is missing attrs
-                    (->> (sql/select-arrays conn sql-query)
+                    (->> (sql/select-arrays ::send-query-nested conn sql-query)
                          ;; remove header row
                          second
                          ;; all results are in one json blob in first result
@@ -1931,7 +1984,7 @@
 (defn send-query-batch
   "Sends a batched query, returns a list of join rows in the same order that
    the args were provided."
-  [ctx conn args-col]
+  [_ctx conn args-col]
   (tracer/with-span! {:name "datalog/send-query-batch"
                       :attributes {:batch-size (count args-col)}}
     (let [batch-data (map-indexed
@@ -1939,11 +1992,8 @@
                         (apply match-query (kw "match-" i "-") args))
                       args-col)
           hsql-query (batch-queries (map :query batch-data))
-          sql-query (hsql/format (update hsql-query
-                                         :with
-                                         (fn [ctes]
-                                           (maybe-add-users-shim ctx (:app-id ctx) ctes))))
-          sql-res (-> (sql/select-arrays conn sql-query)
+          sql-query (hsql/format hsql-query)
+          sql-res (-> (sql/select-arrays ::send-query-batch conn sql-query)
                       second ;; remove header row
                       first ;; all results are in one json blob in first result
                       )]
@@ -1959,6 +2009,24 @@
     (if *use-new*
       (send-pg-nested-query ctx (:conn-pool db) app-id nested-named-patterns)
       (send-query-nested ctx (:conn-pool db) app-id nested-named-patterns))))
+
+(defn explain
+  "Takes nested patterns and returns the explain result from running
+   the postgres query. Useful for testing and debugging."
+  [ctx patterns]
+  (assert (map? patterns) "explain only works with nested patterns.")
+  (let [nested-named-patterns (nested->named-patterns patterns)]
+    (throw-invalid-nested-patterns nested-named-patterns)
+    (let [{:keys [query]} (nested-match-query ctx
+                                              :match-0-
+                                              (:app-id ctx)
+                                              nested-named-patterns)
+          sql-query (update (hsql/format query)
+                            0
+                            (fn [s]
+                              (str "explain (analyze, verbose, buffers, timing, format json) " s)))]
+
+      (first (sql/select-string-keys (-> ctx :db :conn-pool) sql-query)))))
 
 (defn query
   "Executes a Datalog(ish) query over the given aurora `conn`, Instant `app_id`

@@ -53,7 +53,8 @@
                   "host.name"
                   "detailed_query"
                   "detailed_patterns"
-                  "detailed_tx_steps"})
+                  "detailed_tx_steps"
+                  "process_id"})
 
 (defn exclude? [[k]]
   (or (exclude-ks k)
@@ -119,10 +120,14 @@
 (def exclude-span?
   (if (= :prod (config/get-env))
     (fn [span]
-      (let [attrs (.getAttributes span)]
-        (when-let [op (.get attrs op-attr-key)]
-          (or (= op ":set-presence")
-              (= op ":refresh-presence")))))
+      (let [name (.getName span)
+            attrs (.getAttributes span)]
+        (or (= name "ws/send-json!")
+            (when-let [op (.get attrs op-attr-key)]
+              (or (= op ":set-presence")
+                  (= op ":refresh-presence")
+                  (= op ":server-broadcast")
+                  (= op ":client-broadcast"))))))
     (fn [_span]
       false)))
 

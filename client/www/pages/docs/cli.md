@@ -50,25 +50,25 @@ Note, this command will open Instant's dashboard in a browser window and prompt 
 npx instant-cli init
 ```
 
-Similar to `git init`, running `instant-cli init` will generate a new app id and add `instant.schema.ts` and `instant.perms.ts` files if none are present in your project's root directory.
+Running `instant-cli init` will help you generate your `instant.schema.ts` and `instant.perms.ts` files. You can either create a new Instant app, or an import an existing one through this flow.
 
 ### Push schema
 
 ```sh
-npx instant-cli push-schema
+npx instant-cli push schema
 ```
 
-`push-schema` evals your `instant.schema.ts` file and applies it your app's production database. [Read more about schema as code](/docs/schema).
+`push schema` evaluates your `instant.schema.ts` file and applies it your app's production database. [Read more about schema as code](/docs/schema).
 
-Note, to avoid accidental data loss, `push-schema` does not delete entities or fields you've removed from your schema. You can manually delete them in the [Explorer](https://www.instantdb.com/dash?s=main&t=explorer).
+Note, to avoid accidental data loss, `push schema` does not delete entities or fields you've removed from your schema. You can manually delete them in the [Explorer](https://www.instantdb.com/dash?s=main&t=explorer).
 
 Here's an example `instant.schema.ts` file.
 
 ```ts
 import { i } from '@instantdb/core';
 
-const graph = i.graph(
-  {
+const _schema = i.schema({
+  entities: {
     authors: i.entity({
       userId: i.string(),
       name: i.string(),
@@ -78,7 +78,7 @@ const graph = i.graph(
       content: i.string(),
     }),
   },
-  {
+  links: {
     authorPosts: {
       forward: {
         on: 'authors',
@@ -91,27 +91,41 @@ const graph = i.graph(
         label: 'author',
       },
     },
+  },
+  rooms: {
+    chat: { 
+      presence: i.entity({
+        nickname: i.string()
+      })
+    }
   }
 );
 
-export default graph;
+// This helps Typescript display nicer intellisense
+type _AppSchema = typeof _schema;
+interface AppSchema extends _AppSchema {}
+const schema: AppSchema = _schema;
+
+export { type AppSchema };
+export default schema;
 ```
 
 ### Push perms
 
 ```sh
-npx instant-cli push-perms
+npx instant-cli push perms
 ```
 
-`push-perms` evals your `instant.perms.ts` file and applies it your app's production database. `instant.perms.ts` should export an object implementing Instant's standard permissions CEL+JSON format. [Read more about permissions in Instant](/docs/permissions).
+`push perms` evaluates your `instant.perms.ts` file and applies it your app's production database. `instant.perms.ts` should export an object implementing Instant's standard permissions CEL+JSON format. [Read more about permissions in Instant](/docs/permissions).
 
 Here's an example `instant.perms.ts` file.
 
 ```ts
-export default {
+import { type InstantRules } from "@instantdb/react";
+const rules = {
   allow: {
     posts: {
-      bind: ['isAuthor', "auth.id in data.ref('authors.userId')"],
+      bind: ['isAuthor', "auth.id in data.ref('author.id')"],
       allow: {
         view: 'true',
         create: 'isAuthor',
@@ -120,22 +134,24 @@ export default {
       },
     },
   },
-};
+} satisfies InstantRules;
+
+export default rules;
 ```
 
 ### Pull: migrating from the dashboard
 
 If you already created an app in the dashboard and created some schema and
-permissions, you can run `npx instant-cli pull <APP_ID>` to generate an `instant.schema.ts` and `instant.perms.ts` files based on your production configuration.
+permissions, you can run `npx instant-cli pull --app <APP_ID>` to generate an `instant.schema.ts` and `instant.perms.ts` files based on your production configuration.
 
 ```bash
-npx instant-cli pull-schema
-npx instant-cli pull-perms
+npx instant-cli pull schema
+npx instant-cli pull perms
 npx instant-cli pull # pulls both schema and perms
 ```
 
 {% callout type="warning" %}
 
-Note: Strongly typed attributes are under active development. For now, `pull-schema` will default all attribute types to `i.any()`.
+Note: Strongly typed attributes are under active development. For now, `pull schema` will default all attribute types to `i.any()`.
 
 {% /callout %}

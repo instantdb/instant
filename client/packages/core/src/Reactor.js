@@ -111,6 +111,7 @@ export default class Reactor {
   authCbs = [];
   attrsCbs = [];
   mutationErrorCbs = [];
+  connectionStatusCbs = [];
   config;
   _persister;
   mutationDeferredStore = new Map();
@@ -259,6 +260,7 @@ export default class Reactor {
   _setStatus(status, err) {
     this.status = status;
     this._errorMessage = err;
+    this.notifyConnectionStatusSubs(status);
   }
 
   /**
@@ -529,6 +531,10 @@ export default class Reactor {
     const errorMessage = {
       message: msg.message || "Uh-oh, something went wrong. Ping Joe & Stopa.",
     };
+
+    if (msg.hint) {
+      errorMessage.hint = msg.hint;
+    }
 
     if (prevMutation) {
       // This must be a transaction error
@@ -899,7 +905,10 @@ export default class Reactor {
   /** Applies transactions locally and sends transact message to server */
   pushTx = (chunks) => {
     try {
-      const txSteps = instaml.transform(this.optimisticAttrs(), chunks);
+      const txSteps = instaml.transform(
+        { attrs: this.optimisticAttrs(), schema: this.config.schema },
+        chunks,
+      );
       return this.pushOps(txSteps);
     } catch (e) {
       return this.pushOps([], e);
@@ -1340,6 +1349,14 @@ export default class Reactor {
     };
   }
 
+  subscribeConnectionStatus(cb) {
+    this.connectionStatusCbs.push(cb);
+
+    return () => {
+      this.connectionStatusCbs = this.connectionStatusCbs.filter((x) => x !== cb);
+    };
+  }
+
   subscribeAttrs(cb) {
     this.attrsCbs.push(cb);
 
@@ -1364,6 +1381,10 @@ export default class Reactor {
     if (!this.attrs) return;
     const oas = this.optimisticAttrs();
     this.attrsCbs.forEach((cb) => cb(oas));
+  }
+
+  notifyConnectionStatusSubs(status) {
+    this.connectionStatusCbs.forEach((cb) => cb(status));
   }
 
   async setCurrentUser(user) {
@@ -1469,7 +1490,7 @@ export default class Reactor {
           appId: this.config.appId,
           refreshToken,
         });
-      } catch (e) {}
+      } catch (e) { }
     }
     await this.changeCurrentUser(null);
   }
@@ -1535,6 +1556,8 @@ export default class Reactor {
       };
     }
 
+    this._presence[roomId] = this._presence[roomId] || {};
+
     this._tryJoinRoom(roomId);
 
     return () => {
@@ -1564,14 +1587,7 @@ export default class Reactor {
   // --------
   // Presence
 
-  /**
-   * @template {keyof RoomSchema} RoomType
-   * @template {keyof RoomSchema[RoomType]['presence']} Keys
-   * @param {RoomType} roomType
-   * @param {string | number} roomId
-   * @param {import('./presence').PresenceOpts<RoomSchema[RoomType]['presence'], Keys>} opts
-   * @returns {import('./presence').PresenceResponse<RoomSchema[RoomType]['presence'], Keys>}
-   */
+  // TODO: look into typing again
   getPresence(roomType, roomId, opts = {}) {
     const room = this._rooms[roomId];
     const presence = this._presence[roomId];
@@ -1584,12 +1600,7 @@ export default class Reactor {
     };
   }
 
-  /**
-   * @template {keyof RoomSchema} RoomType
-   * @param {RoomType} roomType
-   * @param {string | number} roomId
-   * @param {Partial<RoomSchema[RoomType]['presence']>} partialData
-   */
+  // TODO: look into typing again
   publishPresence(roomType, roomId, partialData) {
     const room = this._rooms[roomId];
     const presence = this._presence[roomId];
@@ -1631,15 +1642,7 @@ export default class Reactor {
     this._trySendAuthed(uuid(), { op: "leave-room", "room-id": roomId });
   }
 
-  /**
-   * @template {keyof RoomSchema} RoomType
-   * @template {keyof RoomSchema[RoomType]['presence']} Keys
-   * @param {RoomType} roomType
-   * @param {string | number} roomId
-   * @param {import('./presence').PresenceOpts<RoomSchema[RoomType]['presence'], Keys>} opts
-   * @param {(slice: import('./presence').PresenceResponse<RoomSchema[RoomType]['presence'], Keys>) => void} cb
-   * @returns {() => void}
-   */
+  // TODO: look into typing again
   subscribePresence(roomType, roomId, opts, cb) {
     const leaveRoom = this.joinRoom(roomId);
 

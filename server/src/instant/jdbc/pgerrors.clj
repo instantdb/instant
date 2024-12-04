@@ -356,4 +356,5 @@
       (assoc
        :table (.getTable server-err)
        :constraint (.getConstraint server-err)
-       :server-message (.getMessage server-err)))))
+       :server-message (.getMessage server-err)
+       :detail (.getDetail server-err)))))

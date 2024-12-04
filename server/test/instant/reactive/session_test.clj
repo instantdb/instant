@@ -15,6 +15,7 @@
    [instant.db.transaction :as tx]
    [instant.db.instaql :as iq]
    [instant.lib.ring.websocket :as ws]
+   [instant.grouped-queue :as grouped-queue]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.query :as rq]
    [instant.reactive.receive-queue :as receive-queue])
@@ -34,7 +35,7 @@
 (defn- with-session [f]
   (let [sess-id (UUID/randomUUID)
         fake-ws-conn (a/chan 1)
-        receive-q (LinkedBlockingQueue.)
+        receive-q (grouped-queue/create {:group-fn session/group-fn})
         room-refresh-ch (a/chan (a/sliding-buffer 1))
         store-conn (rs/init-store)
         eph-store-atom (atom {})
@@ -48,7 +49,8 @@
                        :receive-q receive-q
                        :ping-job (future)
                        :pending-handlers (atom #{})}
-        query-reactive rq/instaql-query-reactive!]
+        query-reactive rq/instaql-query-reactive!
+        stop-signal (atom false)]
     (session/on-open store-conn socket)
     (session/on-open store-conn second-socket)
 
@@ -57,7 +59,7 @@
               *eph-store-atom* eph-store-atom]
       (with-redefs [receive-queue/receive-q receive-q
                     eph/room-refresh-ch room-refresh-ch
-                    ws/send-json! (fn [msg fake-ws-conn]
+                    ws/send-json! (fn [_app-id msg fake-ws-conn]
                                     (a/>!! fake-ws-conn msg))
 
                     rq/instaql-query-reactive!
@@ -65,10 +67,13 @@
                       (let [res (query-reactive store-conn base-ctx instaql-query return-type)]
                         (swap! *instaql-query-results* assoc-in [session-id instaql-query] res)
                         res))]
+        (session/start-receive-worker store-conn eph-store-atom receive-q stop-signal 0)
         (f store-conn eph-store-atom {:socket socket
                                       :second-socket second-socket})
+
         (session/on-close store-conn eph-store-atom socket)
-        (session/on-close store-conn eph-store-atom second-socket)))))
+        (session/on-close store-conn eph-store-atom second-socket)
+        (reset! stop-signal true)))))
 
 (defn- blocking-send-msg [{:keys [ws-conn id]} msg]
   (session/handle-receive *store-conn* *eph-store-atom* (rs/get-session @*store-conn* id) msg {})
@@ -523,7 +528,7 @@
                         pretty-subs)))
 
             ;; do mutation
-            (tx/transact! aurora/conn-pool
+            (tx/transact! (aurora/conn-pool)
                           (attr-model/get-by-app-id app-id)
                           app-id
                           [[:retract-triple

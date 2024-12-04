@@ -4,14 +4,15 @@ import config from "../../config";
 
 const db = init_experimental({
   ...config,
-  schema: i.graph(
-    {
+  schema: i.schema({
+    entities: {
       colors: i.entity({
         color: i.string().indexed(),
       }),
     },
-    {},
-  ),
+    links: {},
+    rooms: {},
+  }),
 });
 
 function App() {

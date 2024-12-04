@@ -26,7 +26,7 @@
     @delayed))
 
 (comment
-  (def ctx {:db {:conn-pool aurora/conn-pool}
+  (def ctx {:db {:conn-pool (aurora/conn-pool)}
             :app-id zeneca-app-id})
   (def instaql-query '[[:ea ?e ?a "joe"]])
   (time
@@ -125,7 +125,7 @@
         (throw e)))))
 
 (comment
-  (def ctx {:db {:conn-pool aurora/conn-pool}
+  (def ctx {:db {:conn-pool (aurora/conn-pool)}
             :attrs (attr-model/get-by-app-id zeneca-app-id)
             :app-id zeneca-app-id
             :current-user nil

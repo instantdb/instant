@@ -114,7 +114,7 @@
         app-id (ex/get-param! req [:body :app-id] uuid-util/coerce)
         app (app-model/get-by-id! {:id app-id})
         {user-id :id :as u} (or (app-user-model/get-by-email {:app-id app-id :email email})
-                                (next-jdbc/with-transaction [conn aurora/conn-pool]
+                                (next-jdbc/with-transaction [conn (aurora/conn-pool)]
                                   (let [app (app-user-model/create! conn {:id (random-uuid)
                                                                           :app-id app-id
                                                                           :email email})]
@@ -226,13 +226,8 @@
 (defn format-cookie [^UUID cookie-uuid]
   (str cookie-value-prefix cookie-uuid))
 (defn parse-cookie [v]
-  (cond (string/starts-with? v cookie-value-prefix)
-        (uuid-util/coerce (subs v (count cookie-value-prefix)))
-
-        ;; TODO(dww): remove this legacy code after old cookies expire
-        (= 36 (count v)) (uuid-util/coerce v)
-
-        :else nil))
+  (when (string/starts-with? v cookie-value-prefix)
+    (uuid-util/coerce (subs v (count cookie-value-prefix)))))
 
 (defn oauth-start [{{:keys [state code_challenge code_challenge_method]} :params :as req}]
   (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
@@ -604,15 +599,12 @@
   (POST "/runtime/auth/send_magic_code" [] send-magic-code-post)
   (POST "/runtime/auth/verify_magic_code" [] verify-magic-code-post)
   (POST "/runtime/auth/verify_refresh_token" [] verify-refresh-token-post)
-  (wrap-cookies
-   (GET "/runtime/oauth/start" [] oauth-start)
-   {:decoder parse-cookie})
-  (wrap-cookies
-   (GET "/runtime/:app_id/oauth/start" [] oauth-start)
-   {:decoder parse-cookie})
-  (wrap-cookies
-   (GET "/runtime/oauth/callback" [] oauth-callback)
-   {:decoder parse-cookie})
+  (GET "/runtime/oauth/start" [] (wrap-cookies oauth-start
+                                               {:decoder parse-cookie}))
+  (GET "/runtime/:app_id/oauth/start" [] (wrap-cookies oauth-start
+                                                       {:decoder parse-cookie}))
+  (GET "/runtime/oauth/callback" [] (wrap-cookies oauth-callback
+                                                  {:decoder parse-cookie}))
 
   (POST "/runtime/oauth/token" [] oauth-token-callback)
   (POST "/runtime/:app_id/oauth/token" [] oauth-token-callback)

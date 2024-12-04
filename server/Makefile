@@ -97,12 +97,12 @@ psql-dump:
 	pg_dump $${DATABASE_URL} -f dump.sql
 
 tail-web:
-	aws logs tail /aws/elasticbeanstalk/Instant-docker-prod-env/var/log/eb-docker/containers/eb-current-app/stdouterr.log --follow
+	aws logs tail /aws/elasticbeanstalk/Instant-docker-prod-env-2/var/log/eb-docker/containers/eb-current-app/stdouterr.log --follow
 
 MINS?=30
 errors:
 	aws logs filter-log-events \
-		--log-group-name "/aws/elasticbeanstalk/Instant-docker-prod-env/var/log/eb-docker/containers/eb-current-app/stdouterr.log" \
+		--log-group-name "/aws/elasticbeanstalk/Instant-docker-prod-env-2/var/log/eb-docker/containers/eb-current-app/stdouterr.log" \
 		--start-time $$(expr `date -v-$(MINS)M +%s` \* 1000) \
 		--filter-pattern "ERROR" \
 	    --output text

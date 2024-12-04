@@ -415,7 +415,7 @@
                   process (inv/start machine-id)
                   uid (random-uuid)]
               (try
-                (tx/transact! aurora/conn-pool
+                (tx/transact! (aurora/conn-pool)
                               (attr-model/get-by-app-id (:id app))
                               (:id app)
                               [[:add-triple uid (resolvers/->uuid r :users/id) uid]
@@ -440,7 +440,8 @@
                             "ea" true,
                             "value" "\"dww\"",
                             "vae" false,
-                            "app_id" (str (:id app))}
+                            "app_id" (str (:id app))
+                            "checked_data_type" nil}
                            {"eav" true,
                             "av" true,
                             "ave" true,
@@ -450,7 +451,8 @@
                             "ea" true,
                             "value" (->json (str uid))
                             "vae" true,
-                            "app_id" (str (:id app))}})))
+                            "app_id" (str (:id app))
+                            "checked_data_type" nil}})))
 
                 (finally
                   (inv/stop process))))))))))

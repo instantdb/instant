@@ -57,7 +57,7 @@
           attrs (attr-model/get-by-app-id config-app-id)
           ctx {:app-id (:id app)
                :attrs attrs
-               :db {:conn-pool aurora/conn-pool}}
+               :db {:conn-pool (aurora/conn-pool)}}
           query->transform (zipmap (map :query queries)
                                    (map :transform queries))
           ws-conn {:websocket-stub (fn [msg] (handle-msg query-results-atom
@@ -109,7 +109,7 @@
           machine-attr-id (resolve-attr-id
                            attrs
                            :app-users-to-triples-migration/processId)]
-      (tx/transact! aurora/conn-pool
+      (tx/transact! (aurora/conn-pool)
                     attrs
                     config-app-id
                     [[:add-triple eid id-attr-id eid]
@@ -125,7 +125,7 @@
                            attrs
                            :app-users-to-triples-migration/processId)
           ctx {:attrs attrs
-               :db {:conn-pool aurora/conn-pool}
+               :db {:conn-pool (aurora/conn-pool)}
                :app-id config-app-id}
           eids (-> (datalog/query ctx [[:ea '?e]
                                        [:ea '?e #{machine-attr-id} #{@config/process-id}]
@@ -133,7 +133,7 @@
                    :symbol-values
                    (get '?e))]
       (when (seq eids)
-        (tx/transact! aurora/conn-pool
+        (tx/transact! (aurora/conn-pool)
                       attrs
                       config-app-id
                       (map (fn [eid]

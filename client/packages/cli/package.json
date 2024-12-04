@@ -1,7 +1,7 @@
 {
   "name": "instant-cli",
   "type": "module",
-  "version": "v0.14.28",
+  "version": "v0.16.3",
   "description": "Instant's CLI",
   "scripts": {
     "publish-package": "npm publish --access public"
@@ -16,8 +16,15 @@
     "dotenv": "^16.3.1",
     "env-paths": "^3.0.0",
     "inquirer": "^10.1.6",
+    "json-diff": "^1.0.6",
     "open": "^10.1.0",
+    "ora": "^8.1.1",
     "pkg-dir": "^8.0.0",
+    "prettier": "^3.3.3",
+    "terminal-link": "^3.0.0",
     "unconfig": "^0.5.5"
+  },
+  "devDependencies": {
+    "@types/json-diff": "^1.0.3"
   }
 }

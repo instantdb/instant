@@ -7,6 +7,7 @@ import {
   _init_internal,
   i,
   type AuthState,
+  type ConnectionStatus,
   type Config,
   type Query,
   type Exactly,
@@ -15,7 +16,7 @@ import {
   type PresenceOpts,
   type PresenceResponse,
   type RoomSchemaShape,
-  type InstaQLQueryParams,
+  type InstaQLParams,
   type ConfigWithSchema,
   type IDatabase,
   type InstantGraph,
@@ -411,7 +412,7 @@ export abstract class InstantReact<
    */
   useQuery = <
     Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
+      ? InstaQLParams<Schema>
       : Exactly<Query, Q>,
   >(
     query: null | Q,
@@ -440,7 +441,6 @@ export abstract class InstantReact<
    *    }
    *    return <Login />
    *  }
-   *
    */
   useAuth = (): AuthState => {
     // We use a ref to store the result of the query.
@@ -472,6 +472,52 @@ export abstract class InstantReact<
   };
 
   /**
+   * Listen for connection status changes to Instant. Use this for things like
+   * showing connection state to users
+   *
+   * @see https://www.instantdb.com/docs/patterns#connection-status
+   * @example
+   *  function App() {
+   *    const status = db.useConnectionStatus()
+   *    const connectionState =
+   *      status === 'connecting' || status === 'opened'
+   *        ? 'authenticating'
+   *      : status === 'authenticated'
+   *        ? 'connected'
+   *      : status === 'closed'
+   *        ? 'closed'
+   *      : status === 'errored'
+   *        ? 'errored'
+   *      : 'unexpected state';
+   *
+   *    return <div>Connection state: {connectionState}</div>
+   *  }
+   */
+  useConnectionStatus = (): ConnectionStatus => {
+    const statusRef = useRef<ConnectionStatus>(this._core._reactor.status as ConnectionStatus);
+
+    const subscribe = useCallback((cb: Function) => {
+      const unsubscribe = this._core.subscribeConnectionStatus((newStatus) => {
+        if (newStatus !== statusRef.current) {
+          statusRef.current = newStatus;
+          cb();
+        }
+      });
+
+      return unsubscribe;
+    }, []);
+
+    const status = useSyncExternalStore<ConnectionStatus>(
+      subscribe,
+      () => statusRef.current,
+      // For SSR, always return 'connecting' as the initial state
+      () => 'connecting'
+    );
+
+    return status;
+  }
+
+  /**
    * Use this for one-off queries.
    * Returns local data if available, otherwise fetches from the server.
    * Because we want to avoid stale data, this method will throw an error
@@ -486,7 +532,7 @@ export abstract class InstantReact<
    */
   queryOnce = <
     Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
+      ? InstaQLParams<Schema>
       : Exactly<Query, Q>,
   >(
     query: Q,

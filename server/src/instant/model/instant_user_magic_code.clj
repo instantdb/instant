@@ -14,7 +14,7 @@
   (rand-num-str 6))
 
 (defn create!
-  ([params] (create! aurora/conn-pool params))
+  ([params] (create! (aurora/conn-pool) params))
   ([conn {:keys [id code user-id]}]
    (sql/execute-one! conn
                      ["INSERT INTO instant_user_magic_codes (id, code, user_id) VALUES (?::uuid, ?, ?::uuid)"
@@ -26,7 +26,7 @@
    (> (.between ChronoUnit/HOURS (.toInstant created-at) now) 24)))
 
 (defn consume!
-  ([params] (consume! aurora/conn-pool params))
+  ([params] (consume! (aurora/conn-pool) params))
   ([conn {:keys [email code] :as params}]
    (let [m (sql/execute-one! conn
                              ["DELETE FROM instant_user_magic_codes

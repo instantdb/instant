@@ -1,52 +1,37 @@
 import {
   EntityDef,
   DataAttrDef,
-  InstantGraph,
+  InstantSchemaDef,
   type EntitiesDef,
   type AttrsDefs,
   type EntitiesWithLinks,
   type LinksDef,
+  type RoomsDef,
+  type UnknownRooms,
 } from "./schemaTypes";
 
 // ==========
 // API
 
 /**
- * Accepts entities and links and merges them into a single graph definition.
+ * @deprecated
+ * `i.graph` is deprecated. Use `i.schema` instead.
  *
- * @see https://instantdb.com/docs/schema#defining-entities
  * @example
- *   export default i.graph(
- *     {
- *       posts: i.entity({
- *         title: i.string(),
- *         body: i.string(),
- *       }),
- *       comments: i.entity({
- *         body: i.string(),
- *       }),
- *     },
- *     {
- *       postsComments: {
- *         forward: {
- *           on: "posts",
- *           has: "many",
- *           label: "comments",
- *         },
- *         reverse: {
- *           on: "comments",
- *           has: "one",
- *           label: "post",
- *         },
- *       },
- *     },
- *   );
+ * // Before
+ * i.graph(entities, links).withRoomSchema<RoomType>();
+ *
+ * // After
+ * i.schema({ entities, links, rooms })
+ *
+ * @see
+ * https://instantdb.com/docs/schema
  */
 function graph<
   EntitiesWithoutLinks extends EntitiesDef,
   const Links extends LinksDef<EntitiesWithoutLinks>,
 >(entities: EntitiesWithoutLinks, links: Links) {
-  return new InstantGraph(
+  return new InstantSchemaDef(
     enrichEntitiesWithLinks<EntitiesWithoutLinks, Links>(entities, links),
     // (XXX): LinksDef<any> stems from TypeScript’s inability to reconcile the
     // type EntitiesWithLinks<EntitiesWithoutLinks, Links> with
@@ -54,6 +39,7 @@ function graph<
     // correctly aligned and does not allow for substituting a type that might
     // be broader or have additional properties.
     links as LinksDef<any>,
+    undefined as UnknownRooms,
   );
 }
 
@@ -91,6 +77,10 @@ function number(): DataAttrDef<number, true> {
 
 function boolean(): DataAttrDef<boolean, true> {
   return new DataAttrDef("boolean", true);
+}
+
+function date(): DataAttrDef<string | number, true> {
+  return new DataAttrDef("date", true);
 }
 
 function json<T = any>(): DataAttrDef<T, true> {
@@ -144,14 +134,58 @@ type LinksIndex = Record<
   Record<string, Record<string, { entityName: string; cardinality: string }>>
 >;
 
+/**
+ * Lets you define a schema for your database.
+ *
+ * You can define entities, links between entities, and if you use
+ * presence, you can define rooms.
+ *
+ * You can push this schema to your database with the CLI,
+ * or use it inside `init_experimental`, to get typesafety and autocompletion.
+ *
+ * @see https://instantdb.com/docs/schema
+ * @example
+ *   i.schema({
+ *     entities: { },
+ *     links: { },
+ *     rooms: { }
+ *   });
+ */
+function schema<
+  EntitiesWithoutLinks extends EntitiesDef,
+  const Links extends LinksDef<EntitiesWithoutLinks>,
+  Rooms extends RoomsDef,
+>({
+  entities,
+  links,
+  rooms,
+}: {
+  entities: EntitiesWithoutLinks;
+  links: Links;
+  rooms: Rooms;
+}) {
+  return new InstantSchemaDef(
+    enrichEntitiesWithLinks<EntitiesWithoutLinks, Links>(entities, links),
+    // (XXX): LinksDef<any> stems from TypeScript’s inability to reconcile the
+    // type EntitiesWithLinks<EntitiesWithoutLinks, Links> with
+    // EntitiesWithoutLinks. TypeScript is strict about ensuring that types are
+    // correctly aligned and does not allow for substituting a type that might
+    // be broader or have additional properties.
+    links as LinksDef<any>,
+    rooms,
+  );
+}
+
 export const i = {
   // constructs
   graph,
+  schema,
   entity,
   // value types
   string,
   number,
   boolean,
+  date,
   json,
   any,
 };

@@ -369,11 +369,13 @@ console.log(data)
 
 ## Pagination
 
-You can limit the number of items returned by adding a `limit` to the option map:
+You can limit the number of items from a top level namespace by adding a `limit` to the option map:
 
 ```javascript
 const query = {
   todos: {
+    // limit is only supported for top-level namespaces right now
+    // and not for nested namespaces.
     $: { limit: 10 },
   },
 };
@@ -381,7 +383,8 @@ const query = {
 const { isLoading, error, data, pageInfo } = db.useQuery(query);
 ```
 
-Instant supports both offset-based and cursor-based pagination.
+Instant supports both offset-based and cursor-based pagination for top-level
+namespaces.
 
 ### Offset
 
@@ -392,6 +395,7 @@ const query = {
   todos: {
     $: {
       limit: 10,
+      // similar to `limit`, `offset` is only supported for top-level namespaces
       offset: 10,
     },
   },
@@ -439,6 +443,7 @@ You can also get the next page with the `endCursor` returned in the `pageInfo` m
 const query = {
   todos: {
     $: {
+      // These also are only supported for top-level namespaces
       first: 10,
       after: pageInfo?.todos?.endCursor,
     },
@@ -498,13 +503,14 @@ const loadPreviousPage = () => {
 
 ### Ordering
 
-The default ordering is by the time the objects were created, in ascending order. You can change the order with the `order` key in the option map:
+The default ordering is by the time the objects were created, in ascending order. You can change the order with the `order` key in the option map for top-level namespaces:
 
 ```javascript
 const query = {
   todos: {
     $: {
       limit: 10,
+      // Similar to limit, order is limited to top-level namespaces right now
       order: {
         serverCreatedAt: 'desc',
       },
@@ -648,8 +654,113 @@ console.log(data)
     {
       "id": reviewPRsId,
       "title": "Review PRs"
-    },
+    }
   ]
+}
+```
+
+### Comparison operators
+
+The `where` clause supports comparison operators on fields that are indexed and have checked types.
+
+{% callout %}
+Add indexes and checked types to your attributes from the [Explorer on the Instant dashboard](/dash?t=explorer) or from the [cli with Schema-as-code](/docs/schema).
+{% /callout %}
+
+| Operator |       Description        | JS equivalent |
+| :------: | :----------------------: | :-----------: |
+|  `$gt`   |       greater than       |      `>`      |
+|  `$lt`   |        less than         |      `<`      |
+|  `$gte`  | greater than or equal to |     `>=`      |
+|  `$lte`  |  less than or equal to   |     `<=`      |
+
+```javascript
+const query = {
+  todos: {
+    $: {
+      where: {
+        timeEstimateHours: { $gt: 24 },
+      },
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data);
+{
+  "todos": [
+    {
+      "id": buildShipId,
+      "title": "Build a starship prototype",
+      "timeEstimateHours": 5000
+    }
+  ]
+}
+```
+
+Dates can be stored as timestamps (milliseconds since the epoch, e.g. `Date.now()`) or as ISO 8601 strings (e.g. `JSON.stringify(new Date())`) and can be queried in the same formats:
+
+```javascript
+const now = '2024-11-26T15:25:00.054Z';
+const query = {
+  todos: {
+    $: { where: { dueDate: { $lte: now } } },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data);
+{
+  "todos": [
+    {
+      "id": slsFlightId,
+      "title": "Space Launch System maiden flight",
+      "dueDate": "2017-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+If you try to use comparison operators on data that isn't indexed and type-checked, you'll get an error:
+
+```javascript
+const query = {
+  todos: {
+    $: { where: { priority: { $gt: 2 } } },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(error);
+{
+  "message": "Validation failed for query",
+  "hint": {
+    "data-type": "query",
+    "errors": [
+      {
+        "expected?": "indexed?",
+        "in": ["priority", "$", "where", "priority"],
+        "message": "The `todos.priority` attribute must be indexed to use comparison operators."
+      }
+    ],
+    "input": {
+      "todos": {
+        "$": {
+          "where": {
+            "priority": {
+              "$gt": 2
+            }
+          }
+        }
+      }
+    }
+  }
 }
 ```
 
@@ -756,6 +867,79 @@ console.log(data)
   ]
 }
 ```
+
+### $like
+
+The `where` clause supports `$like` on fields that are indexed with a checked `string` type.
+
+`$like` queries will return entities that match a **case sensitive** substring of the provided value for the field. Here's how you can do queries like `startsWith`, `endsWith` and `includes`.
+
+| Example                   | Description           | JS equivalent |
+| :-----------------------: | :-------------------: | :-----------: |
+| `{ $like: "Get%" }`       | Starts with 'Get'     | `startsWith`  |
+| `{ $like: "%promoted!" }` | Ends with 'promoted!' | `endsWith`    |
+| `{ $like: "%fit%" }`      | Contains 'fit'        | `includes`    |
+
+
+Here's how you can use `$like` to find all goals that end with the word
+"promoted!"
+
+```javascript
+// Find all goals that end with the word "promoted!"
+const query = {
+  goals: {
+    $: {
+      where: {
+        title: { $like: '%promoted!' },
+      },
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data)
+{
+  "goals": [
+    {
+      "id": workId,
+      "title": "Get promoted!",
+    }
+  ]
+}
+```
+
+You can use `$like` in nested queries as well
+
+```javascript
+// Find goals that have todos with the word "standup" in their title
+const query = {
+  goals: {
+    $: {
+      where: {
+        'todos.title': { $like: '%standup%' },
+      },
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+Returns
+
+```javascript
+console.log(data)
+{
+  "goals": [
+    {
+      "id": workId,
+      "title": "Get promoted!",
+    }
+  ]
+}
+```
+
 
 ## Query once
 

@@ -73,6 +73,8 @@
         ::ex/record-foreign-key-invalid
         ::ex/record-check-violation
         ::ex/sql-raise
+        ::ex/timeout
+        ::ex/rate-limited
 
         ::ex/permission-denied
         ::ex/permission-evaluation-failed
@@ -108,11 +110,23 @@
               bad-request (when instant-ex
                             (instant-ex->bad-request instant-ex))]
           (cond
-            bad-request (if (-> bad-request :hint :args first :auth?)
-                          (do (tracer/record-exception-span! e {:name "instant-ex/unauthorized"})
-                              (response/unauthorized bad-request))
-                          (do (tracer/record-exception-span! e {:name "instant-ex/bad-request"})
-                              (response/bad-request bad-request)))
+            bad-request (cond (-> bad-request :hint :args first :auth?)
+                              (do (tracer/record-exception-span! e {:name "instant-ex/unauthorized"})
+                                  (response/unauthorized bad-request))
+
+                              (= type ::ex/timeout)
+                              (do (tracer/record-exception-span! e {:name "instant-ex/timeout"})
+                                  (response/too-many-requests bad-request))
+
+                              (= type ::ex/rate-limited)
+                              (do
+                                ;; Don't throw an error or we'll overwhelm honeycomb
+                                (tracer/add-data! {:attributes {:rate-limited? true}})
+                                (response/too-many-requests bad-request))
+
+                              :else
+                              (do (tracer/record-exception-span! e {:name "instant-ex/bad-request"})
+                                  (response/bad-request bad-request)))
 
             instant-ex (do (tracer/add-exception! instant-ex {:escaping? false})
                            (response/internal-server-error

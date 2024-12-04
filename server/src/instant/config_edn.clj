@@ -27,6 +27,8 @@
 (s/def ::oauth-client (s/keys :req-un [::client-id
                                        ::client-secret]))
 
+(s/def ::s3-storage-access-key ::config-value)
+(s/def ::s3-storage-secret-key ::config-value)
 (s/def ::postmark-token ::config-value)
 (s/def ::postmark-account-token ::config-value)
 (s/def ::secret-discord-token ::config-value)
@@ -50,6 +52,8 @@
                                         ::public-key-json]))
 
 (s/def ::config (s/keys :opt-un [::instant-config-app-id
+                                 ::s3-storage-access-key
+                                 ::s3-storage-secret-key
                                  ::database-url
                                  ::postmark-token
                                  ::postmark-account-token
@@ -64,6 +68,8 @@
 ;; Prod config is more restrictive because we don't want to accidentally
 ;; forget to set one of these variables in prod
 (s/def ::config-prod (s/keys :req-un [::aead-keyset
+                                      ::s3-storage-access-key
+                                      ::s3-storage-secret-key
                                       ::database-url
                                       ::postmark-token
                                       ::postmark-account-token
@@ -81,10 +87,13 @@
     ::config))
 
 (defn valid-config? [prod? config-edn]
-  (s/valid? (config-spec prod?) config-edn))
+  (or
+    (s/valid? (config-spec prod?) config-edn)
+    (s/explain (config-spec prod?) config-edn)))
 
 (defn read-config [env]
-  (let [override (io/resource "config/override.edn")
+  (let [override (when (= :dev env)
+                   (io/resource "config/override.edn"))
         overlay (some-> (io/resource "config/overlay.edn")
                         slurp
                         edn/read-string)]

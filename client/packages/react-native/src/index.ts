@@ -7,8 +7,11 @@ import version from "./version";
 import {
   // react
   InstantReact,
+  InstantReactAbstractDatabase,
 
   // types
+  type BackwardsCompatibleSchema,
+  type IInstantDatabase,
   type Config,
   type Query,
   type QueryResponse,
@@ -27,6 +30,8 @@ import {
   type InstantSchema,
   type InstantSchemaDatabase,
 
+  type ConnectionStatus,
+
   // schema types
   type AttrsDefs,
   type CardinalityKind,
@@ -41,7 +46,13 @@ import {
   type ResolveAttrs,
   type ValueTypes,
   type InstantEntity,
-  ConfigWithSchema,
+  type ConfigWithSchema,
+  type InstaQLEntity,
+  type InstaQLResult,
+  type InstantConfig,
+  type InstantSchemaDef,
+  type InstantUnknownSchema,
+  type InstantRules,
 } from "@instantdb/core";
 
 /**
@@ -71,21 +82,9 @@ function init<Schema extends {} = {}, RoomSchema extends RoomSchemaShape = {}>(
 }
 
 function init_experimental<
-  Schema extends InstantGraph<any, any, any>,
-  WithCardinalityInference extends boolean = true,
->(
-  config: Config & {
-    schema: Schema;
-    cardinalityInference?: WithCardinalityInference;
-  },
-) {
-  return new InstantReactNative<
-    Schema,
-    Schema extends InstantGraph<any, infer RoomSchema, any>
-      ? RoomSchema
-      : never,
-    WithCardinalityInference
-  >(config);
+  Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
+>(config: InstantConfig<Schema>) {
+  return new InstantReactNativeDatabase<Schema>(config);
 }
 
 class InstantReactNative<
@@ -99,6 +98,13 @@ class InstantReactNative<
   constructor(config: Config | ConfigWithSchema<any>) {
     super(config, { "@instantdb/react-native": version });
   }
+}
+
+class InstantReactNativeDatabase<
+  Schema extends InstantSchemaDef<any, any, any>,
+> extends InstantReactAbstractDatabase<Schema> {
+  static Storage = Storage;
+  static NetworkListener = NetworkListener;
 }
 
 export {
@@ -116,11 +122,13 @@ export {
   type InstantObject,
   type User,
   type AuthState,
+  type ConnectionStatus,
   type InstantReactNative,
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
   type InstantSchemaDatabase,
+  type IInstantDatabase,
   type InstantEntity,
   type RoomSchemaShape,
 
@@ -137,4 +145,10 @@ export {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
+  type InstaQLEntity,
+  type InstaQLResult,
+  type InstantSchemaDef,
+  type InstantUnknownSchema,
+  type BackwardsCompatibleSchema,
+  type InstantRules,
 };

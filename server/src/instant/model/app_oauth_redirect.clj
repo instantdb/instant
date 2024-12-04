@@ -1,6 +1,5 @@
 (ns instant.model.app-oauth-redirect
   (:require [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
             [instant.system-catalog-ops :refer [update-op]]
             [instant.util.crypt :as crypt-util])
   (:import
@@ -15,69 +14,40 @@
       (crypt-util/bytes->hex-string)))
 
 (defn create!
-  ([params] (create! aurora/conn-pool params))
+  ([params] (create! (aurora/conn-pool) params))
   ([conn {:keys [app-id state cookie redirect-url oauth-client-id
                  code-challenge-method code-challenge]}]
    (update-op
     conn
     {:app-id app-id
-     :etype etype
-     :legacy-op
-     (fn [conn]
-       (sql/execute-one!
-        conn
-        ["INSERT INTO app_oauth_redirects (
-          lookup_key,
-           state,
-           cookie,
-           redirect_url,
-           client_id,
-           code_challenge_method,
-           code_challenge
-         ) VALUES (?::bytea, ?::uuid, ?::uuid, ?, ?::uuid, ?, ?)"
-         (crypt-util/uuid->sha256 state)
-         state
-         cookie
-         redirect-url
-         oauth-client-id
-         code-challenge-method
-         code-challenge]))
-     :triples-op
-     (fn [{:keys [transact! resolve-id get-entity]}]
-       (let [eid (random-uuid)]
-         (transact! [[:add-triple eid (resolve-id :id) eid]
-                     [:add-triple eid (resolve-id :stateHash) (hash-uuid state)]
-                     [:add-triple eid (resolve-id :cookieHash) (hash-uuid cookie)]
-                     [:add-triple eid (resolve-id :redirectUrl) redirect-url]
-                     [:add-triple eid (resolve-id :$oauthClient) oauth-client-id]
-                     [:add-triple eid (resolve-id :codeChallengeMethod) code-challenge-method]
-                     [:add-triple eid (resolve-id :codeChallenge) code-challenge]])
-         (get-entity eid)))})))
+     :etype etype}
+    (fn [{:keys [transact! resolve-id get-entity]}]
+      (let [eid (random-uuid)]
+        (transact! [[:add-triple eid (resolve-id :id) eid]
+                    [:add-triple eid (resolve-id :stateHash) (hash-uuid state)]
+                    [:add-triple eid (resolve-id :cookieHash) (hash-uuid cookie)]
+                    [:add-triple eid (resolve-id :redirectUrl) redirect-url]
+                    [:add-triple eid (resolve-id :$oauthClient) oauth-client-id]
+                    [:add-triple eid (resolve-id :codeChallengeMethod) code-challenge-method]
+                    [:add-triple eid (resolve-id :codeChallenge) code-challenge]])
+        (get-entity eid))))))
 
 (defn consume!
   "Gets and deletes the oauth-redirect so that it can be used only once."
-  ([params] (consume! aurora/conn-pool params))
+  ([params] (consume! (aurora/conn-pool) params))
   ([conn {:keys [state app-id]}]
    (update-op
     conn
     {:app-id app-id
-     :etype etype
-     :legacy-op
-     (fn [conn]
-       (when-let [row (sql/execute-one! conn
-                                        ["DELETE FROM app_oauth_redirects where lookup_key = ?::bytea"
-                                         (crypt-util/uuid->sha256 state)])]
-         (assoc row :cookie-hash-bytes (crypt-util/uuid->sha256 (:cookie row)))))
-     :triples-op
-
-     (fn [{:keys [delete-entity! resolve-id]}]
-       (let [state-hash (-> state
-                            (crypt-util/uuid->sha256)
-                            (crypt-util/bytes->hex-string))
-             lookup [(resolve-id :stateHash) state-hash]
-             row (delete-entity! lookup)]
-         (when row
-           (assoc row :cookie-hash-bytes (crypt-util/hex-string->bytes (:cookieHash row))))))})))
+     :etype etype}
+    (fn [{:keys [delete-entity! resolve-id]}]
+      (let [state-hash (-> state
+                           (crypt-util/uuid->sha256)
+                           (crypt-util/bytes->hex-string))
+            lookup [(resolve-id :stateHash) state-hash]
+            row (delete-entity! lookup)]
+        (when row
+          (assoc row :cookie-hash-bytes (crypt-util/hex-string->bytes (:cookieHash row)))))))))
 
 ;; Don't add more get functions. We lookup by state because we can lookup a hashed version
 ;; of state in the db to prevent timing attacks.

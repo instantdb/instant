@@ -1,15 +1,5 @@
 import type { RoomSchemaShape } from "./presence";
 
-export class LinkAttrDef<
-  Cardinality extends CardinalityKind,
-  EntityName extends string,
-> {
-  constructor(
-    public entityName: EntityName,
-    public cardinality: Cardinality,
-  ) {}
-}
-
 export class DataAttrDef<ValueType, IsRequired extends boolean> {
   constructor(
     public valueType: ValueTypes,
@@ -55,28 +45,35 @@ export class DataAttrDef<ValueType, IsRequired extends boolean> {
   // }
 }
 
-export class InstantGraph<
-  Entities extends EntitiesDef,
-  Links extends LinksDef<Entities>,
-  RoomSchema extends RoomSchemaShape = {},
+type ExtractValueType<T> =
+  T extends DataAttrDef<infer ValueType, infer isRequired>
+    ? isRequired extends true
+      ? ValueType
+      : ValueType | undefined
+    : never;
+
+export class LinkAttrDef<
+  Cardinality extends CardinalityKind,
+  EntityName extends string,
 > {
   constructor(
-    public entities: Entities,
-    public links: Links,
+    public cardinality: Cardinality,
+    public entityName: EntityName,
   ) {}
+}
 
-  withRoomSchema<_RoomSchema extends RoomSchemaShape>() {
-    return new InstantGraph<Entities, Links, _RoomSchema>(
-      this.entities,
-      this.links,
-    );
-  }
+export interface IContainEntitiesAndLinks<
+  Entities extends EntitiesDef,
+  Links extends LinksDef<Entities>,
+> {
+  entities: Entities;
+  links: Links;
 }
 
 // ==========
 // base types
 
-export type ValueTypes = "string" | "number" | "boolean" | "json";
+export type ValueTypes = "string" | "number" | "boolean" | "date" | "json";
 
 export type CardinalityKind = "one" | "many";
 
@@ -94,14 +91,7 @@ export class EntityDef<
 
   asType<
     _AsType extends Partial<{
-      [AttrName in keyof Attrs]: Attrs[AttrName] extends DataAttrDef<
-        infer ValueType,
-        infer IsRequired
-      >
-        ? IsRequired extends true
-          ? ValueType
-          : ValueType | undefined
-        : never;
+      [AttrName in keyof Attrs]: ExtractValueType<Attrs[AttrName]>;
     }>,
   >() {
     return new EntityDef<Attrs, Links, _AsType>(this.attrs, this.links);
@@ -241,22 +231,204 @@ type LinksIndexedByEntity<
   };
 };
 
-export type ResolveAttrs<
-  Entities extends EntitiesDef,
-  EntityName extends keyof Entities,
+export type ResolveEntityAttrs<
+  EDef extends EntityDef<any, any, any>,
   ResolvedAttrs = {
-    [AttrName in keyof Entities[EntityName]["attrs"]]: Entities[EntityName]["attrs"][AttrName] extends DataAttrDef<
-      infer ValueType,
-      infer IsRequired
-    >
-      ? IsRequired extends true
-        ? ValueType
-        : ValueType | undefined
-      : never;
+    [AttrName in keyof EDef["attrs"]]: ExtractValueType<
+      EDef["attrs"][AttrName]
+    >;
   },
 > =
-  Entities[EntityName] extends EntityDef<any, any, infer AsType>
+  EDef extends EntityDef<any, any, infer AsType>
     ? AsType extends void
       ? ResolvedAttrs
       : Omit<ResolvedAttrs, keyof AsType> & AsType
     : ResolvedAttrs;
+
+export type ResolveAttrs<
+  Entities extends EntitiesDef,
+  EntityName extends keyof Entities,
+> = ResolveEntityAttrs<Entities[EntityName]>;
+
+export type RoomsFromDef<RDef extends RoomsDef> = {
+  [RoomName in keyof RDef]: {
+    presence: ResolveEntityAttrs<RDef[RoomName]["presence"]>;
+    topics: {
+      [TopicName in keyof RDef[RoomName]["topics"]]: ResolveEntityAttrs<
+        RDef[RoomName]["topics"][TopicName]
+      >;
+    };
+  };
+};
+
+export type RoomsOf<S> =
+  S extends InstantSchemaDef<any, any, infer RDef> ? RoomsFromDef<RDef> : never;
+
+export type PresenceOf<
+  S,
+  RoomType extends keyof RoomsOf<S>,
+> = RoomsOf<S>[RoomType] extends { presence: infer P } ? P : {};
+
+export type TopicsOf<
+  S,
+  RoomType extends keyof RoomsOf<S>,
+> = RoomsOf<S>[RoomType] extends { topics: infer T } ? T : {};
+
+export type TopicOf<
+  S,
+  RoomType extends keyof RoomsOf<S>,
+  TopicType extends keyof TopicsOf<S, RoomType>,
+> = TopicsOf<S, RoomType>[TopicType];
+
+interface RoomDef {
+  presence: EntityDef<any, any, any>;
+  topics?: {
+    [TopicName: string]: EntityDef<any, any, any>;
+  };
+}
+
+export interface RoomsDef {
+  [RoomType: string]: RoomDef;
+}
+
+export class InstantSchemaDef<
+  Entities extends EntitiesDef,
+  Links extends LinksDef<Entities>,
+  Rooms extends RoomsDef,
+> implements IContainEntitiesAndLinks<Entities, Links>
+{
+  constructor(
+    public entities: Entities,
+    public links: Links,
+    public rooms: Rooms,
+  ) {}
+
+  withRoomSchema<_RoomSchema extends RoomSchemaShape>() {
+    type RDef = RoomDefFromShape<_RoomSchema>;
+    return new InstantSchemaDef<Entities, Links, RDef>(
+      this.entities,
+      this.links,
+      {} as RDef,
+    );
+  }
+}
+
+export class InstantGraph<
+  Entities extends EntitiesDef,
+  Links extends LinksDef<Entities>,
+  RoomSchema extends RoomSchemaShape = {},
+> implements IContainEntitiesAndLinks<Entities, Links>
+{
+  constructor(
+    public entities: Entities,
+    public links: Links,
+  ) {}
+
+  withRoomSchema<_RoomSchema extends RoomSchemaShape>() {
+    return new InstantGraph<Entities, Links, _RoomSchema>(
+      this.entities,
+      this.links,
+    );
+  }
+}
+
+type EntityDefFromRoomSlice<Shape extends { [k: string]: any }> = EntityDef<
+  {
+    [AttrName in keyof Shape]: DataAttrDef<
+      Shape[AttrName],
+      Shape[AttrName] extends undefined ? false : true
+    >;
+  },
+  any,
+  void
+>;
+
+type RoomDefFromShape<RoomSchema extends RoomSchemaShape> = {
+  [RoomName in keyof RoomSchema]: {
+    presence: EntityDefFromRoomSlice<RoomSchema[RoomName]["presence"]>;
+    topics: {
+      [TopicName in keyof RoomSchema[RoomName]["topics"]]: EntityDefFromRoomSlice<
+        RoomSchema[RoomName]["topics"][TopicName]
+      >;
+    };
+  };
+};
+
+type EntityDefFromShape<Shape, K extends keyof Shape> = EntityDef<
+  {
+    [AttrName in keyof Shape[K]]: DataAttrDef<
+      Shape[K][AttrName],
+      Shape[K][AttrName] extends undefined ? false : true
+    >;
+  },
+  {
+    [LinkName in keyof Shape]: LinkAttrDef<
+      "many",
+      LinkName extends string ? LinkName : string
+    >;
+  },
+  void
+>;
+
+/**
+ * If you were using the old `schema` types, you can use this to help you
+ * migrate.
+ *
+ * @example
+ * // Before
+ * const db = init<Schema, Rooms>({...})
+ *
+ * // After
+ * const db = init<BackwardsCompatibleSchema<Schema, Rooms>>({...})
+ */
+export type BackwardsCompatibleSchema<
+  Shape extends { [k: string]: any },
+  RoomSchema extends RoomSchemaShape = {},
+> = InstantSchemaDef<
+  { [K in keyof Shape]: EntityDefFromShape<Shape, K> },
+  UnknownLinks<EntitiesDef>,
+  RoomDefFromShape<RoomSchema>
+>;
+
+// ----------
+// InstantUnknownSchema
+
+export type UnknownEntity = EntityDef<
+  {
+    id: DataAttrDef<string, true>;
+    [AttrName: string]: DataAttrDef<unknown, any>;
+  },
+  { [LinkName: string]: LinkAttrDef<"many", string> },
+  void
+>;
+
+export type UnknownEntities = {
+  [EntityName: string]: UnknownEntity;
+};
+
+export interface UnknownLinks<Entities extends EntitiesDef> {
+  [LinkName: string]: LinkDef<
+    Entities,
+    string,
+    string,
+    "many",
+    string,
+    string,
+    "many"
+  >;
+}
+
+export interface UnknownRooms {
+  [RoomName: string]: {
+    presence: EntityDef<any, any, any>;
+    topics: {
+      [TopicName: string]: EntityDef<any, any, any>;
+    };
+  };
+}
+
+export type InstantUnknownSchema = InstantSchemaDef<
+  UnknownEntities,
+  UnknownLinks<UnknownEntities>,
+  UnknownRooms
+>;

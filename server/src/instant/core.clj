@@ -10,6 +10,7 @@
    [instant.config :as config]
    [instant.dash.ephemeral-app :as ephemeral-app]
    [instant.dash.routes :as dash-routes]
+   [instant.db.indexing-jobs :as indexing-jobs]
    [instant.flags :as flags]
    [instant.flags-impl :as flags-impl]
    [instant.gauges :as gauges]
@@ -109,7 +110,7 @@
                           :configurator (fn [^Undertow$Builder builder]
                                           (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}))
   (def stop-gauge (gauges/add-gauge-metrics-fn
-                   (fn []
+                   (fn [_]
                      (let [^Undertow server server
                            ^Undertow$ListenerInfo listener (some-> server
                                                                    (.getListenerInfo)
@@ -143,10 +144,13 @@
                                (tracer/record-info! {:name "shut-down"})
                                (tracer/with-span! {:name "stop-server"}
                                  (stop))
-                               (tracer/with-span! {:name "stop-invalidator"}
-                                 (inv/stop-global))
-                               (tracer/with-span! {:name "stop-ephemeral"}
-                                 (eph/stop))))))
+                               (doseq [fut [(future (tracer/with-span! {:name "stop-invalidator"}
+                                                      (inv/stop-global)))
+                                            (future (tracer/with-span! {:name "stop-ephemeral"}
+                                                      (eph/stop)))
+                                            (future (tracer/with-span! {:name "stop-indexing-jobs"}
+                                                      (indexing-jobs/stop)))]]
+                                 (deref fut))))))
 
 (defn -main [& _args]
   (let [{:keys [aead-keyset]} (config/init)]
@@ -157,11 +161,6 @@
   (tracer/record-info! {:name "uncaught-exception-handler/set"})
   (Thread/setDefaultUncaughtExceptionHandler
    (ua/logging-uncaught-exception-handler))
-
-  (when (= (config/get-env) :dev)
-    (tracer/record-info! {:name "humane-test-output/set"})
-    (require 'pjstadig.humane-test-output)
-    ((resolve 'pjstadig.humane-test-output/activate!)))
 
   (gauges/start)
   (nrepl/start)
@@ -174,7 +173,7 @@
   (stripe/init)
   (session/start)
   (inv/start-global)
-  (wal/init-cleanup aurora/conn-pool)
+  (wal/init-cleanup)
 
   (when-let [config-app-id (config/instant-config-app-id)]
     (flags-impl/init config-app-id
@@ -183,8 +182,15 @@
 
   (ephemeral-app/start)
   (session-counter/start)
+  (indexing-jobs/start)
   (when (= (config/get-env) :prod)
     (log/info "Starting analytics")
     (analytics/start))
   (start)
   (add-shutdown-hook))
+
+(defn before-ns-unload []
+  (stop))
+
+(defn after-ns-reload []
+  (start))

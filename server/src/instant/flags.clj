@@ -12,10 +12,10 @@
             :storage-whitelist {}
             :team-emails {}
             :test-emails {}
-            :view-checks {}
             :hazelcast {}
+            :drop-refresh-spam {}
             :promo-emails {}
-            :app-users-to-triples-migration {}})
+            :rate-limited-apps {}})
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -62,14 +62,30 @@
         promo-code-emails (set (keep (fn [o]
                                        (get o "email"))
                                      (get result "promo-emails")))
-        migrating-app-users-apps (set (map (fn [{:strs [appId]}]
-                                             (parse-uuid appId))
-                                           (get result "app-users-to-triples-migration")))]
+        drop-refresh-spam (when-let [hz-flag (-> (get result "drop-refresh-spam")
+                                                 first)]
+                            (let [disabled-apps (-> hz-flag
+                                                    (get "disabled-apps")
+                                                    (#(map parse-uuid %))
+                                                    set)
+                                  enabled-apps (-> hz-flag
+                                                   (get "enabled-apps")
+                                                   (#(map parse-uuid %))
+                                                   set)
+                                  default-value (get hz-flag "default-value" false)]
+                              {:disabled-apps disabled-apps
+                               :enabled-apps enabled-apps
+                               :default-value default-value}))
+        rate-limited-apps (reduce (fn [acc {:strs [appId]}]
+                                    (conj acc (parse-uuid appId)))
+                                  #{}
+                                  (get result "rate-limited-apps"))]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
      :hazelcast hazelcast
      :promo-code-emails promo-code-emails
-     :migrating-app-users-apps migrating-app-users-apps}))
+     :drop-refresh-spam drop-refresh-spam
+     :rate-limited-apps rate-limited-apps}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -115,6 +131,19 @@
 (defn hazelcast-disabled? []
   (get-in (query-result) [:hazelcast :disabled?] false))
 
-(defn migrating-app-users? [app-id]
-  (contains? (get (query-result) :migrating-app-users-apps)
+(defn drop-refresh-spam? [app-id]
+  (if-let [flag (get (query-result) :drop-refresh-spam)]
+    (let [{:keys [disabled-apps enabled-apps default-value]} flag]
+      (cond (contains? disabled-apps app-id)
+            false
+
+            (contains? enabled-apps app-id)
+            true
+
+            :else default-value))
+    ;; Default false
+    false))
+
+(defn app-rate-limited? [app-id]
+  (contains? (:rate-limited-apps (query-result))
              app-id))

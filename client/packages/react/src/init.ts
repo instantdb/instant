@@ -1,10 +1,14 @@
 import type {
   // types
   Config,
+  InstantConfig,
   InstantGraph,
+  InstantSchemaDef,
   RoomSchemaShape,
+  InstantUnknownSchema,
 } from "@instantdb/core";
 import { InstantReactWeb } from "./InstantReactWeb";
+import InstantReactWebDatabase from "./InstantReactWebDatabase";
 
 /**
  *
@@ -34,19 +38,7 @@ export function init<
 }
 
 export function init_experimental<
-  Schema extends InstantGraph<any, any, any>,
-  WithCardinalityInference extends boolean = true,
->(
-  config: Config & {
-    schema: Schema;
-    cardinalityInference?: WithCardinalityInference;
-  },
-) {
-  return new InstantReactWeb<
-    Schema,
-    Schema extends InstantGraph<any, any, infer RoomSchema>
-      ? RoomSchema
-      : never,
-    WithCardinalityInference
-  >(config);
+  Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
+>(config: InstantConfig<Schema>) {
+  return new InstantReactWebDatabase<Schema>(config);
 }
