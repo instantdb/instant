@@ -739,9 +739,8 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
     console.log("Schema is empty. Skipping.");
     return;
   }
-
-  const hasSchemaFile = await pathExists(join(pkgDir, "instant.schema.ts"));
-  if (hasSchemaFile) {
+  const prevSchema = await readLocalSchemaFile();
+  if (prevSchema) {
     const ok = await promptOk(
       "This will overwrite your local instant.schema file, OK to proceed?",
     );
@@ -752,7 +751,11 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
   const schemaPath = join(pkgDir, "instant.schema.ts");
   await writeTypescript(
     schemaPath,
-    generateSchemaTypescriptFile(pullRes.data.schema, instantModuleName),
+    generateSchemaTypescriptFile(
+      prevSchema,
+      pullRes.data.schema,
+      instantModuleName,
+    ),
     "utf-8",
   );
 
@@ -1281,7 +1284,7 @@ function prettyPrintJSONErr(data) {
 async function promptOk(message) {
   const options = program.opts();
 
-  if (options.y) return true;
+  if (options.yes) return true;
 
   return await confirm({
     message,
@@ -1553,46 +1556,130 @@ export default rules;
   `.trim();
 }
 
-function generateSchemaTypescriptFile(schema, instantModuleName) {
-  const entitiesEntriesCode = sortedEntries(schema.blobs)
-    .map(([name, attrs]) => {
-      // a block of code for each entity
-      return [
-        `  `,
-        `"${name}"`,
-        `: `,
-        `i.entity`,
-        `({`,
-        `\n`,
-        // a line of code for each attribute in the entity
-        sortedEntries(attrs)
-          .filter(([name]) => name !== "id")
-          .map(([name, config]) => {
-            const type = config["checked-data-type"] || "any";
+function schemaBlobToCodeStr(name, attrs) {
+  // a block of code for each entity
+  return [
+    `  `,
+    `"${name}"`,
+    `: `,
+    `i.entity`,
+    `({`,
+    `\n`,
+    // a line of code for each attribute in the entity
+    sortedEntries(attrs)
+      .filter(([name]) => name !== "id")
+      .map(([name, config]) => {
+        const type = config["checked-data-type"] || "any";
 
-            return [
-              `    `,
-              `"${name}"`,
-              `: `,
-              `i.${type}()`,
-              config["unique?"] ? ".unique()" : "",
-              config["index?"] ? ".indexed()" : "",
-              `,`,
-            ].join("");
-          })
-          .join("\n"),
-        `\n`,
-        `  `,
-        `})`,
-        `,`,
-      ].join("");
-    })
+        return [
+          `    `,
+          `"${name}"`,
+          `: `,
+          `i.${type}()`,
+          config["unique?"] ? ".unique()" : "",
+          config["index?"] ? ".indexed()" : "",
+          `,`,
+        ].join("");
+      })
+      .join("\n"),
+    `\n`,
+    `  `,
+    `})`,
+    `,`,
+  ].join("");
+}
+
+/**
+ * Note:
+ * This is _very_ similar to `schemaBlobToCodeStr`.
+ *
+ * Right now, the frontend and backend have slightly different data structures for storing entity info.
+ *
+ * The backend returns {etype: attrs}, where attr keep things like `value-type`
+ * The frontend stores {etype: EntityDef}, where EntityDef has a `valueType` field.
+ *
+ * For now, keeping the two functions separate.
+ */
+function entityDefToCodeStr(name, edef) {
+  // a block of code for each entity
+  return [
+    `  `,
+    `"${name}"`,
+    `: `,
+    `i.entity`,
+    `({`,
+    `\n`,
+    // a line of code for each attribute in the entity
+    sortedEntries(edef.attrs)
+      .map(([name, attr]) => {
+        const type = attr["valueType"] || "any";
+
+        return [
+          `    `,
+          `"${name}"`,
+          `: `,
+          `i.${type}()`,
+          attr?.config["unique"] ? ".unique()" : "",
+          attr?.config["indexed"] ? ".indexed()" : "",
+          `,`,
+        ].join("");
+      })
+      .join("\n"),
+    `\n`,
+    `  `,
+    `})`,
+    `,`,
+  ].join("");
+}
+
+function roomDefToCodeStr(room) {
+  let ret = "{";
+  if (room.presence) {
+    ret += `${entityDefToCodeStr("presence", room.presence)}`;
+  }
+  if (room.topics) {
+    ret += `topics: {`;
+    for (const [topicName, topicConfig] of Object.entries(room.topics)) {
+      ret += entityDefToCodeStr(topicName, topicConfig);
+    }
+    ret += `}`;
+  }
+  ret += "}";
+  return ret;
+}
+
+function roomsCodeStr(rooms) {
+  let ret = "{";
+  for (const [roomType, roomDef] of Object.entries(rooms)) {
+    ret += `"${roomType}": ${roomDefToCodeStr(roomDef)},`;
+  }
+  ret += "}";
+  return ret;
+}
+
+function generateSchemaTypescriptFile(
+  prevSchema,
+  newSchema,
+  instantModuleName,
+) {
+  // entities
+  const entitiesEntriesCode = sortedEntries(newSchema.blobs)
+    .map(([name, attrs]) => schemaBlobToCodeStr(name, attrs))
     .join("\n");
-
   const entitiesObjCode = `{\n${entitiesEntriesCode}\n}`;
+  const etypes = Object.keys(newSchema.blobs);
+  const hasOnlyUserTable = etypes.length === 1 && etypes[0] === "$users";
+  const entitiesComment = hasOnlyUserTable
+    ? `
+// This section lets you define entities: think \`posts\`, \`comments\`, etc
+// Take a look at the docs to learn more:
+// https://www.instantdb.com/docs/schema#defining-entities
+`.trim()
+    : "";
 
+  // links
   const linksEntries = Object.fromEntries(
-    sortedEntries(schema.refs).map(([_name, config]) => {
+    sortedEntries(newSchema.refs).map(([_name, config]) => {
       const [, fe, flabel] = config["forward-identity"];
       const [, re, rlabel] = config["reverse-identity"];
       const [fhas, rhas] = rels[`${config.cardinality}-${config["unique?"]}`];
@@ -1613,17 +1700,7 @@ function generateSchemaTypescriptFile(schema, instantModuleName) {
       ];
     }),
   );
-  const linksEntriesCode = JSON.stringify(linksEntries, null, "  ");
-
-  const etypes = Object.keys(schema.blobs);
-  const hasOnlyUserTable = etypes.length === 1 && etypes[0] === "$users";
-  const entitiesComment = hasOnlyUserTable
-    ? `
-// This section lets you define entities: think \`posts\`, \`comments\`, etc
-// Take a look at the docs to learn more:
-// https://www.instantdb.com/docs/schema#defining-entities
-`.trim()
-    : "";
+  const linksEntriesCode = JSON.stringify(linksEntries, null, "  ").trim();
   const hasNoLinks = Object.keys(linksEntries).length === 0;
   const linksComment = hasNoLinks
     ? `
@@ -1634,10 +1711,25 @@ function generateSchemaTypescriptFile(schema, instantModuleName) {
   `.trim()
     : "";
 
-  const roomsComment = `
+  // rooms
+  const rooms = prevSchema?.rooms || {};
+  const roomsCode = roomsCodeStr(rooms);
+  const roomsComment =
+    Object.keys(rooms).length === 0
+      ? `
 // If you use presence, you can define a room schema here
 // https://www.instantdb.com/docs/schema#defining-rooms
-  `.trim();
+  `.trim()
+      : "";
+
+  const kv = (k, v, comment) => {
+    return comment
+      ? `
+        ${comment}
+        ${k}: ${v}
+      `.trim()
+      : `${k}: ${v}`;
+  };
 
   return `
 // Docs: https://www.instantdb.com/docs/schema
@@ -1645,12 +1737,9 @@ function generateSchemaTypescriptFile(schema, instantModuleName) {
 import { i } from "${instantModuleName ?? "@instantdb/core"}";
 
 const _schema = i.schema({
-  ${entitiesComment}
-  entities: ${entitiesObjCode},
-  ${linksComment}
-  links: ${linksEntriesCode},
-  ${roomsComment}
-  rooms: {}
+  ${kv("entities", entitiesObjCode, entitiesComment)},
+  ${kv("links", linksEntriesCode, linksComment)},
+  ${kv("rooms", roomsCode, roomsComment)}
 });
 
 // This helps Typescript display nicer intellisense
