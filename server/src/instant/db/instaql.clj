@@ -960,17 +960,17 @@
 (defn query-normal
   "Generates and runs a nested datalog query, then collects the results into nodes."
   [ctx o]
-  (tracer/with-span! {:name "instaql/query-nested"
-                      :attributes {:app-id (:app-id ctx)
-                                   :forms o
-                                   :query-hash (forms-hash o)}}
-    (let [datalog-query-fn (or (:datalog-query-fn ctx)
-                               #'d/query)
-          {:keys [patterns forms]} (instaql-query->patterns ctx o)
-          query-hash (forms-hash o)
-          datalog-result (datalog-query-fn (assoc ctx :query-hash query-hash)
-                                           patterns)]
-      (collect-query-results (:data datalog-result) forms))))
+  (let [query-hash (forms-hash o)]
+    (tracer/with-span! {:name "instaql/query-nested"
+                        :attributes {:app-id (:app-id ctx)
+                                     :forms o
+                                     :query-hash query-hash}}
+      (let [datalog-query-fn (or (:datalog-query-fn ctx)
+                                 #'d/query)
+            {:keys [patterns forms]} (instaql-query->patterns ctx o)
+            datalog-result (datalog-query-fn (assoc ctx :query-hash query-hash)
+                                             patterns)]
+        (collect-query-results (:data datalog-result) forms)))))
 
 ;; BYOP InstaQL
 
