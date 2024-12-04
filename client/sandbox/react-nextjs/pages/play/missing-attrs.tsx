@@ -3,8 +3,8 @@ import config from "../../config";
 import { init, init_experimental, tx, id, i } from "@instantdb/react";
 import { useRouter } from "next/router";
 
-const schema = i.graph(
-  {
+const schema = i.schema({
+  entities: {
     comments: i.entity({
       slug: i.string().unique().indexed(),
     }),
@@ -12,7 +12,7 @@ const schema = i.graph(
       email: i.string().unique().indexed(),
     }),
   },
-  {
+  links: {
     commentAuthors: {
       forward: {
         on: "comments",
@@ -26,7 +26,8 @@ const schema = i.graph(
       },
     },
   },
-);
+  rooms: {},
+});
 
 function Example({ appId, useSchema }: { appId: string; useSchema: boolean }) {
   const myConfig = { ...config, appId };

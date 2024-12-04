@@ -467,7 +467,7 @@ function Dashboard() {
               }}
             />
             <div className="border-b">
-              <div className="flex max-w-xl flex-col gap-2 p-3">
+              <div className="flex max-w-2xl flex-col gap-2 p-3">
                 <h2 className="font-mono text-lg font-bold">{app.title}</h2>
                 <Copyable
                   label="Public App ID"
@@ -529,7 +529,7 @@ function Dashboard() {
   );
 }
 
-const TabContent = twel('div', 'flex flex-col max-w-xl gap-4 p-4');
+const TabContent = twel('div', 'flex flex-col max-w-2xl gap-4 p-4');
 
 function mergeQueryParams(query: string) {
   const newQuery = new URLSearchParams(query);
@@ -621,7 +621,7 @@ function Invites({
   const invites = dashResponse.data?.invites ?? [];
 
   return (
-    <div className="flex w-full flex-col gap-4 max-w-xl px-4 py-8">
+    <div className="flex w-full flex-col gap-4 max-w-2xl px-4 py-8">
       <div className="mb-2 flex text-4xl">📫</div>
       <SectionHeading>Team Invites</SectionHeading>
       <div className="flex flex-1 flex-col gap-4">
@@ -1452,7 +1452,7 @@ function Loading() {
 
 function ErrorMessage({ message }: { message: string }) {
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col gap-4 p-2">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-2">
       <div className="rounded bg-red-100 p-4 text-red-700">{message}</div>
     </div>
   );

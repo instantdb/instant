@@ -43,8 +43,8 @@ permissions. Here's an example of limiting a user to creating at most 2 todos.
 // Here we define users, todos, and a link between them.
 import { i } from '@instantdb/core';
 
-const graph = i.graph(
-  {
+const _schema = i.schema({
+  entities: {
     users: i.entity({
       email: i.string(),
     }),
@@ -52,7 +52,7 @@ const graph = i.graph(
       label: i.string(),
     }),
   },
-  {
+  links: {
     userTodos: {
       forward: {
         on: 'users',
@@ -65,25 +65,35 @@ const graph = i.graph(
         label: 'owner',
       },
     },
-  }
+  },
+  rooms: {}
 );
 
-export default graph;
+// This helps Typescript display nicer intellisense
+type _AppSchema = typeof _schema;
+interface AppSchema extends _AppSchema {}
+const schema: AppSchema = _schema;
+
+export { type AppSchema };
+export default schema;
 ```
 
 ```typescript
-// instant.schema.ts
+import { type InstantRules } from "@instantdb/core";
+// instant.perms.ts
 // And now we reference the `owner` link for todos to check the number
 // of todos a user has created.
 // (Note): Make sure the `owner` link is already defined in the schema.
 // before you can reference it in the permissions.
-export {
-  "todos": {
-    "allow": {
-      "create": "size(data.ref('owner.todos.id')) <= 2",
+const rules = {
+  todos: {
+    allow: {
+      create: "size(data.ref('owner.todos.id')) <= 2",
     }
   }
-}
+} satisfies InstantRules;
+
+export default rules;
 ```
 
 ## Listen to InstantDB connection status.

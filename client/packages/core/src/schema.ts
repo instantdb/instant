@@ -13,37 +13,19 @@ import {
 // ==========
 // API
 
-
 /**
- * Accepts entities and links and merges them into a single graph definition.
+ * @deprecated
+ * `i.graph` is deprecated. Use `i.schema` instead.
  *
- * @see https://instantdb.com/docs/schema#defining-entities
  * @example
- *   export default i.graph(
- *     {
- *       posts: i.entity({
- *         title: i.string(),
- *         body: i.string(),
- *       }),
- *       comments: i.entity({
- *         body: i.string(),
- *       }),
- *     },
- *     {
- *       postsComments: {
- *         forward: {
- *           on: "posts",
- *           has: "many",
- *           label: "comments",
- *         },
- *         reverse: {
- *           on: "comments",
- *           has: "one",
- *           label: "post",
- *         },
- *       },
- *     },
- *   );
+ * // Before
+ * i.graph(entities, links).withRoomSchema<RoomType>();
+ *
+ * // After
+ * i.schema({ entities, links, rooms })
+ *
+ * @see
+ * https://instantdb.com/docs/schema
  */
 function graph<
   EntitiesWithoutLinks extends EntitiesDef,
@@ -153,7 +135,21 @@ type LinksIndex = Record<
 >;
 
 /**
- * TODO
+ * Lets you define a schema for your database.
+ *
+ * You can define entities, links between entities, and if you use
+ * presence, you can define rooms.
+ *
+ * You can push this schema to your database with the CLI,
+ * or use it inside `init_experimental`, to get typesafety and autocompletion.
+ *
+ * @see https://instantdb.com/docs/schema
+ * @example
+ *   i.schema({
+ *     entities: { },
+ *     links: { },
+ *     rooms: { }
+ *   });
  */
 function schema<
   EntitiesWithoutLinks extends EntitiesDef,

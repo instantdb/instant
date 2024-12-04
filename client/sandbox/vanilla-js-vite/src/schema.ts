@@ -16,14 +16,15 @@ document.body.appendChild(buttonEl);
 
 const db = init_experimental({
   appId: APP_ID,
-  schema: i.graph(
-    {
+  schema: i.schema({
+    entities: {
       todos: i.entity({
         title: i.string(),
       }),
     },
-    {},
-  ),
+    links: {},
+    rooms: {},
+  }),
 });
 
 db.subscribeQuery(

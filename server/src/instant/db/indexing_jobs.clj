@@ -1153,3 +1153,9 @@
             res (sql/do-execute! (aurora/conn-pool) (hsql/format q))]
         (when (<= batch-size (:next.jdbc/update-count (first res)))
           (recur))))))
+
+(defn before-ns-unload []
+  (stop))
+
+(defn after-ns-reload []
+  (start))

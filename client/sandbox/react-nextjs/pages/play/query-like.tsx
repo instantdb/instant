@@ -3,8 +3,8 @@ import config from "../../config";
 import { init_experimental, tx, id, i } from "@instantdb/react";
 import { useRouter } from "next/router";
 
-const schema = i.graph(
-  {
+const schema = i.schema({
+  entities: {
     items: i.entity({
       val: i.string().indexed(),
     }),
@@ -12,7 +12,7 @@ const schema = i.graph(
       val: i.string().indexed(),
     }),
   },
-  {
+  links: {
     valLink: {
       forward: {
         on: "items",
@@ -26,7 +26,8 @@ const schema = i.graph(
       },
     },
   },
-);
+  rooms: {},
+});
 
 function Example({ appId }: { appId: string }) {
   const router = useRouter();

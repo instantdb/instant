@@ -1,33 +1,59 @@
+// Docs: https://www.instantdb.com/docs/schema
+
 import { i } from "@instantdb/react";
 
-const _graph = i.graph(
-  {
-    messages: i.entity({
-      content: i.string(),
-    }),
+const _schema = i.schema({
+  // This section lets you define entities: think `posts`, `comments`, etc
+  // Take a look at the docs to learn more:
+  // https://www.instantdb.com/docs/schema#defining-entities
+  entities: {
     $users: i.entity({
       email: i.string().unique().indexed(),
     }),
+    posts: i.entity({
+      title: i.string(),
+      body: i.string(),
+    }),
   },
-  {
-    messageCreator: {
+  // You can define links here.
+  // For example, if `posts` should have many `comments`.
+  // More in the docs:
+  // https://www.instantdb.com/docs/schema#defining-links
+  links: {
+    postsOwner: {
       forward: {
-        on: "messages",
+        on: "posts",
         has: "one",
-        label: "creator",
+        label: "owner",
       },
       reverse: {
         on: "$users",
         has: "many",
-        label: "createdMessages",
+        label: "ownedPosts",
       },
     },
   },
-  
-);
+  rooms: {
+    chat: {
+      presence: i.entity({
+        color: i.string(),
+        nickname: i.string(),
+      }),
+      topics: {
+        emote: i.entity({
+          emoji: i.string(),
+          x: i.number(),
+          y: i.number(),
+        }),
+      },
+    },
+  },
+});
 
-type _Graph = typeof _graph;
+// This helps Typescript display nicer intellisense
+type _AppSchema = typeof _schema;
+interface AppSchema extends _AppSchema {}
+const schema: AppSchema = _schema;
 
-export interface Graph extends _Graph {};
-const graph: Graph = _graph;
-export default graph;
+export { type AppSchema };
+export default schema;

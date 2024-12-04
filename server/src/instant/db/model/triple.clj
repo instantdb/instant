@@ -19,8 +19,8 @@
 ;; In the future, we may want to _retract_ the triple if the value is nil
 (defn value? [x]
   (or (string? x) (uuid? x) (number? x) (nil? x) (boolean? x)
-      (sequential? x) (associative? x)))
-
+      (sequential? x) (associative? x)
+      (instance? java.time.Instant x)))
 
 (s/def ::attr-id uuid?)
 (s/def ::entity-id uuid?)
@@ -189,6 +189,7 @@
                                             [:= :app-id app-id]
                                             (list* :or (for [[a v] lookup-refs]
                                                          [:and
+                                                          :av
                                                           [:= :attr-id a]
                                                           [:= :value [:cast (->json v) :jsonb]]]))]}]}]])
                   [[[:input-triples
@@ -323,6 +324,7 @@
                                                 [:= :app-id app-id]
                                                 (list* :or (for [[a v] lookup-refs]
                                                              [:and
+                                                              :av
                                                               [:= :attr-id a]
                                                               [:= :value [:cast (->json v) :jsonb]]]))]}]}]])
                       [[[:input-triples
@@ -356,6 +358,7 @@
                                                                   {:select :entity-id
                                                                    :from :triples
                                                                    :where [:and
+                                                                           :av
                                                                            [:= :app-id app-id]
                                                                            [:= :attr-id (first v)]
                                                                            [:= :value [:cast (->json (second v)) :jsonb]]]}]}
@@ -363,6 +366,7 @@
                                                    [[{:select :entity-id
                                                       :from :triples
                                                       :where [:and
+                                                              :av
                                                               [:= :app-id app-id]
                                                               [:= :attr-id (first v)]
                                                               [:= :value [:cast (->json (second v)) :jsonb]]]}
