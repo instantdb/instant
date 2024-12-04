@@ -413,7 +413,7 @@ async function handlePush(bag, opts) {
 
 async function push(bag, appId, opts) {
   if (bag === "schema" || bag === "all") {
-    const ok = await pushSchema(appId, opts);
+    const { ok } = await pushSchema(appId, opts);
     if (!ok) return;
   }
   if (bag === "perms" || bag === "all") {
@@ -487,7 +487,7 @@ async function handlePull(bag, opts) {
 
 async function pull(bag, appId, pkgAndAuthInfo) {
   if (bag === "schema" || bag === "all") {
-    const ok = await pullSchema(appId, pkgAndAuthInfo);
+    const { ok } = await pullSchema(appId, pkgAndAuthInfo);
     if (!ok) return;
   }
   if (bag === "perms" || bag === "all") {
@@ -730,14 +730,14 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
     errorMessage: "Failed to pull schema.",
   });
 
-  if (!pullRes.ok) return;
+  if (!pullRes.ok) return pullRes;
 
   if (
     !countEntities(pullRes.data.schema.refs) &&
     !countEntities(pullRes.data.schema.blobs)
   ) {
     console.log("Schema is empty. Skipping.");
-    return;
+    return { ok: true };
   }
   const prevSchema = await readLocalSchemaFile();
   if (prevSchema) {
@@ -745,7 +745,7 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
       "This will overwrite your local instant.schema file, OK to proceed?",
     );
 
-    if (!ok) return;
+    if (!ok) return { ok: true };
   }
 
   const schemaPath = join(pkgDir, "instant.schema.ts");
@@ -761,7 +761,7 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
 
   console.log("Wrote schema to instant.schema.ts");
 
-  return true;
+  return { ok: true };
 }
 
 async function pullPerms(appId, { pkgDir, instantModuleName }) {
@@ -994,9 +994,9 @@ async function waitForIndexingJobsToFinish(appId, data) {
 
 async function pushSchema(appId, opts) {
   const schema = await readLocalSchemaFileWithErrorLogging();
-  if (!schema) return;
+  if (!schema) return { ok: false };
 
-  console.log("Planning...");
+  console.log("Planning schema...");
 
   const planRes = await fetchJson({
     method: "POST",
@@ -1010,11 +1010,11 @@ async function pushSchema(appId, opts) {
     },
   });
 
-  if (!planRes.ok) return;
+  if (!planRes.ok) return planRes;
 
   if (!planRes.data.steps.length) {
-    console.log("No schema changes detected. Exiting.");
-    return;
+    console.log("No schema changes detected. Skipping.");
+    return { ok: true };
   }
 
   console.log(
@@ -1084,7 +1084,7 @@ async function pushSchema(appId, opts) {
   }
 
   const okPush = await promptOk("OK to proceed?");
-  if (!okPush) return;
+  if (!okPush) return { ok: true };
 
   const applyRes = await fetchJson({
     method: "POST",
@@ -1098,7 +1098,7 @@ async function pushSchema(appId, opts) {
     },
   });
 
-  if (!applyRes.ok) return;
+  if (!applyRes.ok) return applyRes;
 
   if (applyRes.data["indexing-jobs"]) {
     await waitForIndexingJobsToFinish(appId, applyRes.data["indexing-jobs"]);
@@ -1106,7 +1106,7 @@ async function pushSchema(appId, opts) {
 
   console.log(chalk.green("Schema updated!"));
 
-  return true;
+  return { ok: true };
 }
 
 async function pushPerms(appId) {
@@ -1115,7 +1115,7 @@ async function pushPerms(appId) {
     return;
   }
 
-  console.log("Planning...");
+  console.log("Planning perms...");
 
   const prodPerms = await fetchJson({
     path: `/dash/apps/${appId}/perms/pull`,
