@@ -1931,10 +1931,7 @@
 (defn send-pg-nested-query
   [ctx conn app-id nested-named-patterns]
   (let [{:keys [queries query-meta]} (get-pg-nested-query ctx app-id nested-named-patterns)
-        shims (maybe-add-users-shim ctx app-id [])
-        sql-query (hsql/format (merge {:select [[(list* :json_build_array queries)]]}
-                                      (when (seq shims)
-                                        {:with shims})))
+        sql-query (hsql/format {:select [[(list* :json_build_array queries)]]})
         sql-res (if (every? :missing-attr? query-meta)
                   [["json_build_array" (repeat (count query-meta)
                                                (constantly {"data" "null"}))]]
