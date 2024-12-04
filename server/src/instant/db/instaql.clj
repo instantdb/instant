@@ -1,26 +1,30 @@
 (ns instant.db.instaql
-  (:require [clojure.spec.alpha :as s]
-            [instant.db.datalog :as d]
-            [instant.data.constants :refer [zeneca-app-id]]
-            [instant.db.model.attr :as attr-model]
-            [instant.db.model.triple :as triple-model]
-            [instant.jdbc.sql :as sql]
-            [honey.sql :as hsql]
-            [clojure.set :as set :refer [map-invert]]
-            [clojure.string :as string]
-            [instant.jdbc.aurora :as aurora]
-            [instant.db.model.attr-pat :as attr-pat]
-            [instant.util.json :refer [->json]]
-            [instant.data.resolvers :as resolvers]
-            [instant.util.tracer :as tracer]
-            [instant.util.coll :as ucoll]
-            [instant.model.rule :as rule-model]
-            [instant.db.cel :as cel]
-            [instant.util.exception :as ex]
-            [instant.util.io :as io]
-            [instant.util.uuid :as uuid-util]
-            [instant.db.model.entity :as entity-model])
-  (:import [java.util UUID]))
+  (:require
+   [clojure.set :as set :refer [map-invert]]
+   [clojure.spec.alpha :as s]
+   [clojure.string :as string]
+   [clojure.walk :as walk]
+   [honey.sql :as hsql]
+   [instant.data.constants :refer [zeneca-app-id]]
+   [instant.data.resolvers :as resolvers]
+   [instant.db.cel :as cel]
+   [instant.db.datalog :as d]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.model.attr-pat :as attr-pat]
+   [instant.db.model.entity :as entity-model]
+   [instant.db.model.triple :as triple-model]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.model.rule :as rule-model]
+   [instant.util.coll :as ucoll]
+   [instant.util.exception :as ex]
+   [instant.util.io :as io]
+   [instant.util.json :refer [->json]]
+   [instant.util.tracer :as tracer]
+   [instant.util.uuid :as uuid-util]
+   [medley.core :refer [update-existing-in]])
+  (:import
+   (java.util UUID)))
 
 ;; ----
 ;; Form
@@ -926,16 +930,46 @@
      :forms forms
      :referenced-etypes referenced-etypes}))
 
+(defn clean-where-for-hash [where]
+  (walk/postwalk (fn [x]
+                   (cond (string? x)
+                         :string
+                         (number? x)
+                         :number
+                         (uuid? x)
+                         :uuid
+                         (boolean? x)
+                         :boolean
+                         :else x))
+                 where))
+
+(defn clean-forms-for-hash [forms]
+  (walk/postwalk (fn [v]
+                   (if (and (map? v)
+                            (contains? v :$))
+                     (-> v
+                         (update-existing-in [:$ :where] clean-where-for-hash)
+                         (update-existing-in [:$ :before] (constantly :cursor))
+                         (update-existing-in [:$ :after] (constantly :cursor)))
+                     v))
+                 forms))
+
+(defn forms-hash [forms]
+  (hash (clean-forms-for-hash forms)))
+
 (defn query-normal
   "Generates and runs a nested datalog query, then collects the results into nodes."
-  [base-ctx o]
+  [ctx o]
   (tracer/with-span! {:name "instaql/query-nested"
-                      :attributes {:app-id (:app-id base-ctx)
-                                   :forms o}}
-    (let [ctx (merge {:datalog-query-fn #'d/query}
-                     base-ctx)
+                      :attributes {:app-id (:app-id ctx)
+                                   :forms o
+                                   :query-hash (forms-hash o)}}
+    (let [datalog-query-fn (or (:datalog-query-fn ctx)
+                               #'d/query)
           {:keys [patterns forms]} (instaql-query->patterns ctx o)
-          datalog-result ((:datalog-query-fn ctx) ctx patterns)]
+          query-hash (forms-hash o)
+          datalog-result (datalog-query-fn (assoc ctx :query-hash query-hash)
+                                           patterns)]
       (collect-query-results (:data datalog-result) forms))))
 
 ;; BYOP InstaQL
