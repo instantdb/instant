@@ -1238,7 +1238,7 @@ async function fetchJson({
       data = null;
     }
     if (verbose && data) {
-      console.log(debugName, "json:", JSON.stringify(data));
+      console.log(debugName, "json:", JSON.stringify(data, null, 2));
     }
     if (!res.ok) {
       if (withErrorLogging) {
@@ -1246,10 +1246,6 @@ async function fetchJson({
         prettyPrintJSONErr(data);
       }
       return { ok: false, data };
-    }
-
-    if (verbose) {
-      console.log(debugName, "data:", data);
     }
 
     return { ok: true, data };
@@ -1462,7 +1458,7 @@ function attrFwdName(attr) {
 }
 
 function attrRevName(attr) {
-  if (attr["reverse-entity"]) {
+  if (attr["reverse-identity"]) {
     return `${attrRevEtype(attr)}.${attrRevLabel(attr)}`;
   }
 }
