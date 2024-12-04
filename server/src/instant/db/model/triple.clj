@@ -19,8 +19,8 @@
 ;; In the future, we may want to _retract_ the triple if the value is nil
 (defn value? [x]
   (or (string? x) (uuid? x) (number? x) (nil? x) (boolean? x)
-      (sequential? x) (associative? x)))
-
+      (sequential? x) (associative? x)
+      (instance? java.time.Instant x)))
 
 (s/def ::attr-id uuid?)
 (s/def ::entity-id uuid?)
