@@ -1695,8 +1695,10 @@
                                                        :match-0-
                                                        app-id
                                                        nested-named-patterns)
-          query-hash (hash (first query))
+          query-hash (or (:query-hash ctx)
+                         (hash (first (hsql/format query))))
           _ (tracer/add-data! {:attributes {:query-hash query-hash}})
+
           query (when query
                   (update query
                           :with conj
