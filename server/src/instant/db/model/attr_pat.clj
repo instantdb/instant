@@ -312,7 +312,7 @@
 (defn coerce-v-single! [state attr data-type v]
   (if (and (map? v)
            (contains? v :$not))
-    (update v :$not coerce-value-data-value! state attr data-type)
+    (update v :$not (partial coerce-value-data-value! state attr data-type))
     (coerce-value-data-value! state attr data-type v)))
 
 (defn coerced-value-with-checked-type! [state attr data-type v]

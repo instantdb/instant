@@ -2110,6 +2110,7 @@
           (is (= #{"0" "1"} (run-query :string {:etype {:$ {:where {:string {:$lt "2"}}}}})))
           (is (= #{"0" "1" "2"} (run-query :string {:etype {:$ {:where {:string {:$lte "2"}}}}})))
           (is (= #{"1"} (run-query :string {:etype {:$ {:where {:string "1"}}}})))
+          (is (= #{"0" "2" "3" "4"} (run-query :string {:etype {:$ {:where {:string {:$not "1"}}}}})))
 
           (testing "uses index"
             (is (= "triples_string_trgm_gist_idx" (run-explain :string "2"))))
@@ -2123,6 +2124,7 @@
           (is (= #{0 1} (run-query :number {:etype {:$ {:where {:number {:$lt 2}}}}})))
           (is (= #{0 1 2} (run-query :number {:etype {:$ {:where {:number {:$lte 2}}}}})))
           (is (= #{1} (run-query :number {:etype {:$ {:where {:number 1}}}})))
+          (is (= #{0 2 3 4} (run-query :number {:etype {:$ {:where {:number {:$not 1}}}}})))
 
           (testing "uses index"
             (is (= "triples_number_type_idx" (run-explain :number 2)))))
@@ -2134,6 +2136,7 @@
           (is (= #{0 1 2} (run-query :date {:etype {:$ {:where {:date {:$lte 2}}}}})))
           (is (= #{1} (run-query :date {:etype {:$ {:where {:date 1}}}})))
           (is (= #{1} (run-query :date {:etype {:$ {:where {:date (.toString (Instant/ofEpochMilli 1))}}}})))
+          (is (= #{0 2 3 4} (run-query :date {:etype {:$ {:where {:date {:$not 1}}}}})))
 
           (testing "uses index"
             (is (= "triples_date_type_idx" (run-explain :date (Instant/ofEpochMilli 2))))))
@@ -2146,6 +2149,8 @@
           (is (= #{false} (run-query :boolean {:etype {:$ {:where {:boolean {:$lt true}}}}})))
           (is (= #{false true} (run-query :boolean {:etype {:$ {:where {:boolean {:$lte true}}}}})))
           (is (= #{true} (run-query :boolean {:etype {:$ {:where {:boolean true}}}})))
+          (is (= #{false} (run-query :boolean {:etype {:$ {:where {:boolean {:$not true}}}}})))
+
           (testing "uses index"
             (is (= "triples_boolean_type_idx" (run-explain :boolean true)))))))))
 
