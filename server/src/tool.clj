@@ -9,9 +9,11 @@
      (tool/hsql-pretty ...) and more!"
   (:require
    [clojure.string :as str]
+   [clojure.walk :as walk]
    [honey.sql :as hsql]
    [portal.api :as p])
   (:import
+   (clojure.lang Compiler TaggedLiteral)
    (com.github.vertical_blank.sqlformatter SqlFormatter)
    (java.awt Toolkit)
    (java.awt.datatransfer StringSelection)))
@@ -168,3 +170,32 @@
 (comment
   (start-portal!)
   (tap> {:hello [1 2 3]}))
+
+(def ^:private p-lock
+  (Object.))
+
+(defn p-pos []
+  (let [trace (->> (Thread/currentThread)
+                   (.getStackTrace)
+                   (seq))
+        el    ^StackTraceElement (nth trace 4)]
+    (str "[" (Compiler/demunge (.getClassName el)) " " (.getFileName el) ":" (.getLineNumber el) "]")))
+
+(defn p-impl [position form res]
+  (let [form (walk/postwalk
+              (fn [form]
+                (if (and
+                     (list? form)
+                     (= 'tool/p-impl (first form)))
+                  (TaggedLiteral/create 'p (nth form 3))
+                  form))
+              form)]
+    (locking p-lock
+      (println (str position " #p " form " => " (pr-str res))))
+    res))
+
+(defn p
+  "Add #p before any form to quickly print its value to output next time
+   it is evaluated. Dev only"
+  [form]
+  `(p-impl (p-pos) '~form ~form))

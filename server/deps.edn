@@ -38,7 +38,6 @@
         circleci/circleci.test {:mvn/version "0.5.0"}
         org.clojure/test.check {:mvn/version "1.1.1"}
         com.github.vertical-blank/sql-formatter {:mvn/version "2.0.3"}
-        pjstadig/humane-test-output {:mvn/version "0.11.0"}
         com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.3"}
         org.clj-commons/claypoole {:mvn/version "1.2.2"}
 
@@ -73,12 +72,15 @@
         dev.weavejester/medley {:mvn/version "1.8.1"}
         com.hazelcast/hazelcast {:mvn/version "5.5.0"}}
  :aliases {:dev {:extra-deps {refactor-nrepl/refactor-nrepl {:mvn/version "3.10.0"}
-                              criterium/criterium {:mvn/version "0.4.6"}
-                              spec-provider/spec-provider {:mvn/version "0.4.14"}}
-                 :extra-paths ["test" "dev-resources"]
+                              criterium/criterium           {:mvn/version "0.4.6"}
+                              spec-provider/spec-provider   {:mvn/version "0.4.14"}
+                              io.github.tonsky/clj-reload   {:mvn/version "0.7.1"}
+                              eftest/eftest                 {:mvn/version "0.6.0"}}
+                 :extra-paths ["dev" "test" "dev-resources"]
                  :jvm-opts ["-Djdk.tracePinnedThreads=full"
                             ;; print stack traces instead of "Full report at ..."
-                            "-Dclojure.main.report=stderr"]}
+                            "-Dclojure.main.report=stderr"
+                            "-Dclojure.server.repl={:port 6006 :accept clojure.core.server/repl}"]}
            :storm {:extra-deps {com.github.flow-storm/clojure {:mvn/version "1.11.2-4"}
                                 com.github.flow-storm/flow-storm-dbg {:mvn/version "3.14.0"}}
                    :override-deps {org.clojure/clojure nil}

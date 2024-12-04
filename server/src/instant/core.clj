@@ -162,11 +162,6 @@
   (Thread/setDefaultUncaughtExceptionHandler
    (ua/logging-uncaught-exception-handler))
 
-  (when (= (config/get-env) :dev)
-    (tracer/record-info! {:name "humane-test-output/set"})
-    (require 'pjstadig.humane-test-output)
-    ((resolve 'pjstadig.humane-test-output/activate!)))
-
   (gauges/start)
   (nrepl/start)
   (oauth/start)
@@ -193,3 +188,9 @@
     (analytics/start))
   (start)
   (add-shutdown-hook))
+
+(defn before-ns-unload []
+  (stop))
+
+(defn after-ns-reload []
+  (start))

@@ -418,7 +418,7 @@
        ;; still inactive in 5 minutes. This will prevent dropping slots that
        ;; are still being set up.
        (try
-         (let [conn-pool (aurora/conn-pool)
+         (let [conn-pool      (aurora/conn-pool)
                inactive-slots (get-inactive-replication-slots conn-pool)]
            (when (seq inactive-slots)
              (chime-core/chime-at
@@ -426,10 +426,9 @@
               (fn [_time]
                 (tracer/with-span! {:name "wal/cleanup-inactive-slots"}
                   (let [slot-names (map :slot_name inactive-slots)
-                        removed (cleanup-inactive-replication-slots conn-pool
-                                                                    slot-names)
-                        cleaned (set (map :slot_name removed))
-                        uncleaned (remove #(contains? cleaned %) slot-names)]
+                        removed    (cleanup-inactive-replication-slots (aurora/conn-pool) slot-names)
+                        cleaned    (set (map :slot_name removed))
+                        uncleaned  (remove #(contains? cleaned %) slot-names)]
                     (tracer/add-data! {:attributes {:cleaned-slot-names cleaned
                                                     :active-uncleaned-slots uncleaned}})))))))
          (catch Exception e
