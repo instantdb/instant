@@ -610,10 +610,7 @@
             (let [{:keys [pats referenced-etypes]}
                   (where-cond->patterns (if (zero? i)
                                           ctx
-                                          (assoc ctx :skip-optimize?
-                                                 (if *use-new*
-                                                   true
-                                                   false)))
+                                          (assoc ctx :skip-optimize? true))
                                         form where-cond)]
               (-> acc
                   (update :pats into pats)

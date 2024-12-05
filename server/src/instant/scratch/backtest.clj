@@ -167,5 +167,17 @@
        (remove (fn [{:keys [old-result-error new-result-error]}]
                  (and new-result-error (not old-result-error))))))
 
+(comment
+  ;; to run one: 
+  (def res
+    (binding [sql/*query-timeout-seconds* 10]
+      (with-open [prod-conn (sql/start-pool (assoc (config/db-url->config (prod-conn-str))
+                                                   :maximumPoolSize 1))]
+
+        (compare!
+         prod-conn
+         {:app-id nil
+          :query  nil})))))
+
 
 
