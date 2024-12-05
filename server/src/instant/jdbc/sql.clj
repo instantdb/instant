@@ -204,12 +204,15 @@
        ([~'conn ~'query]
         (~name nil ~'conn ~'query))
        ([~'tag ~'conn ~'query]
+        (~name nil ~'conn ~'query nil))
+       ([~'tag ~'conn ~'query ~'additional-opts]
         (tracer/with-span! {:name ~span-name
                             :attributes (span-attrs ~'conn ~'query ~'tag)}
           (try
             (io/tag-io
               (let [create-connection?# (not (instance? Connection ~'conn))
                     opts# (merge ~opts
+                                 ~'additional-opts
                                  {:timeout *query-timeout-seconds*})
                     ^Connection c# (if create-connection?#
                                      (next-jdbc/get-connection ~'conn)

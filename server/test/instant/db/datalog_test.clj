@@ -219,10 +219,13 @@
      ;; with-redefs rebinds globally, this binding trick will make sure
      ;; anything happening in parallel doesn't affect our count
      (binding [*count-atom* ~count-atom]
-       (with-redefs [sql/select-arrays (fn [tag# conn# query#]
-                                         (when *count-atom*
-                                           (swap! *count-atom* inc))
-                                         (select-arrays# tag# conn# query#))]
+       (with-redefs [sql/select-arrays (fn
+                                         ([tag# conn# query#]
+                                          (sql/select-arrays tag# conn# query# nil))
+                                         ([tag# conn# query# opts#]
+                                          (when *count-atom*
+                                            (swap! *count-atom* inc))
+                                          (select-arrays# tag# conn# query# opts#)))]
          ~@body))))
 
 (deftest queries
