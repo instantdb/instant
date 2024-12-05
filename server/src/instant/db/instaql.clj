@@ -26,6 +26,8 @@
   (:import
    (java.util UUID)))
 
+(def ^:dynamic *use-new* false)
+
 ;; ----
 ;; Form
 
@@ -33,9 +35,9 @@
   (or (string? x) (uuid? x) (number? x) (boolean? x)))
 
 (s/def ::$in (s/coll-of where-value-valid?
-                       :kind vector?
-                       :min-count 0
-                       :into #{}))
+                        :kind vector?
+                        :min-count 0
+                        :into #{}))
 ;; Backwards compatibility
 (s/def ::in ::$in)
 
@@ -604,23 +606,28 @@
 (declare where-cond->patterns)
 
 (defn- where-conds->patterns [ctx form where-conds]
-  (reduce (fn [acc where-cond]
+  (reduce (fn [acc [i where-cond]]
             (let [{:keys [pats referenced-etypes]}
-                  (where-cond->patterns ctx form where-cond)]
+                  (where-cond->patterns (if (zero? i)
+                                          ctx
+                                          (assoc ctx :skip-optimize? true))
+                                        form where-cond)]
               (-> acc
                   (update :pats into pats)
                   (update :referenced-etypes set/union referenced-etypes))))
           {:pats []
            :referenced-etypes #{}}
-          where-conds))
+          (map-indexed vector where-conds)))
 
 (defn- where-cond->patterns [ctx form [tag where-cond]]
   (let [level-sym (or (:level-sym ctx)
                       attr-pat/default-level-sym)]
     (case tag
-      :cond (update (->where-cond-attr-pats ctx form where-cond)
-                    :pats
-                    optimize-attr-pats)
+      :cond
+      (let [ret (->where-cond-attr-pats ctx form where-cond)]
+        (if (:skip-optimize? ctx)
+          ret
+          (update ret :pats optimize-attr-pats)))
       :or (-> (reduce
                (fn [acc [i conds]]
                  (let [level-sym (level-sym-gen level-sym (:etype form) i)]
@@ -676,14 +683,13 @@
        will be (? etype level) "
   [ctx {:keys [option-map join-attr-pat etype level] :as form}]
   (let [{:keys [where-conds]} option-map
-
         {where-cond-patterns :pats
          referenced-etypes :referenced-etypes}
         (if where-conds
-          (where-conds->patterns ctx form where-conds)
+          (where-conds->patterns (assoc ctx
+                                        :skip-optimize? false) form where-conds)
           {:pats nil
            :referenced-etypes #{}})
-
         with-join (cond-> []
                     join-attr-pat (conj join-attr-pat))
         with-where-cond (cond-> with-join
@@ -1666,23 +1672,23 @@
                                       {:program program
                                        :result
                                        (let [em (io/warn-io :instaql/entity-map
-                                                  (entity-map ctx
-                                                              query-cache
-                                                              etype
-                                                              eid))
+                                                            (entity-map ctx
+                                                                        query-cache
+                                                                        etype
+                                                                        eid))
                                              ctx (assoc ctx
                                                         :preloaded-refs preloaded-refs)]
                                          (io/warn-io :instaql/eval-program
-                                           (cel/eval-program!
-                                            program
-                                            {"auth" (cel/->cel-map {:ctx ctx
-                                                                    :type :auth
-                                                                    :etype "$users"}
-                                                                   current-user)
-                                             "data" (cel/->cel-map {:ctx ctx
-                                                                    :etype etype
-                                                                    :type :data}
-                                                                   em)})))})))
+                                                     (cel/eval-program!
+                                                      program
+                                                      {"auth" (cel/->cel-map {:ctx ctx
+                                                                              :type :auth
+                                                                              :etype "$users"}
+                                                                             current-user)
+                                                       "data" (cel/->cel-map {:ctx ctx
+                                                                              :etype etype
+                                                                              :type :data}
+                                                                             em)})))})))
                            acc
                            eids))
                  {}
