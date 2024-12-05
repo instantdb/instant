@@ -104,7 +104,7 @@
   (def t1 (first (period)))
   (def t2 (LocalDate/parse "2024-10-04"))
   (date/numeric-date-str t1)
-  (daily-job! "2024-10-04"))
+  (daily-job! t2))
 
 (defn period []
   (let [now (date/pst-now)
