@@ -90,16 +90,20 @@
                   FROM new_transactions;"])))
 
 (defn daily-job!
-  ([] (daily-job! (date/numeric-date-str (-> (LocalDate/now) (.minusDays 1)))))
-  ([date-str]
-   (grab/run-once!
-    (str "daily-metrics-" date-str)
-    (fn []
-      (insert-new-activity)
-      (let [stats (get-daily-actives date-str)]
-        (send-discord! stats date-str))))))
+  ([] (daily-job! (-> (LocalDate/now) (.minusDays 1))))
+  ([date-obj]
+   (let [date-str (date/numeric-date-str date-obj)]
+     (grab/run-once!
+      (str "daily-metrics-" date-str)
+      (fn []
+        (insert-new-activity)
+        (let [stats (get-daily-actives date-str)]
+          (send-discord! stats date-str)))))))
 
 (comment
+  (def t1 (first (period)))
+  (def t2 (LocalDate/parse "2024-10-04"))
+  (date/numeric-date-str t1)
   (daily-job! "2024-10-04"))
 
 (defn period []
