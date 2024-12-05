@@ -123,7 +123,7 @@
   (def schedule (chime-core/chime-at (period) daily-job!)))
 
 (defn stop []
-  (when schedule
+  (when (bound? #'schedule)
     (.close schedule)))
 
 (defn restart []
