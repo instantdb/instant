@@ -21,7 +21,8 @@
    [clojure.string :as string]
    [instant.jdbc.sql :as sql]
    [instant.db.model.attr :as attr-model]
-   [instant.util.instaql :as iq-util]))
+   [instant.util.instaql :as iq-util]
+   [clojure.pprint :as pprint]))
 
 (defn -main [& _args]
   (let [{:keys [aead-keyset]} (config/init)]
@@ -52,28 +53,46 @@
         _ (println (format "Comparing %s" idx))
 
         start-new (. System (nanoTime))
-        new-result (binding [iq/*use-new* true]
-                     (iq/query ctx query))
+        new-result  (try
+                      (binding [iq/*use-new* true]
+                        (iq/query ctx query))
+                      (catch Exception e
+                        {:error e}))
+
         new-ms (/ (double (- (. System (nanoTime)) start-new)) 1000000.0)
 
         start-old (. System (nanoTime))
-        old-result (binding [iq/*use-new* false]
-                     (iq/query ctx query))
+        old-result (try (binding [iq/*use-new* false]
+                          (iq/query ctx query))
+                        (catch Exception e
+                          {:error e}))
+
         old-ms (/ (double (- (. System (nanoTime)) start-old)) 1000000.0)
 
-        old-tree (iq-util/instaql-nodes->object-tree ctx old-result)
-        new-tree (iq-util/instaql-nodes->object-tree ctx new-result)]
-    {:same? (= old-tree new-tree)
-     :app-id app-id
-     :query query
-     :same-same? (= old-result new-result)
-     :old-result old-result
-     :old-tree old-tree
-     :new-tree new-tree
-     :new-result new-result
-     :old-ms old-ms
-     :new-ms new-ms
-     :improvement (- old-ms new-ms)}))
+        old-tree (when-not (:error old-result)
+                   (iq-util/instaql-nodes->object-tree ctx old-result))
+        new-tree (when-not (:error new-result)
+                   (iq-util/instaql-nodes->object-tree ctx new-result))
+        data {:idx idx
+              :same? (= old-tree new-tree)
+              :app-id app-id
+              :query query
+              :same-same? (= old-result new-result)
+              :old-result old-result
+              :old-tree old-tree
+              :new-tree new-tree
+              :new-result new-result
+              :old-ms old-ms
+              :new-ms new-ms
+              :improvement (- old-ms new-ms)
+              :new-result-error (:error new-result)
+              :old-result-error (:error old-result)}]
+    (pprint/pprint (select-keys data
+                                [:improvement
+                                 :same?
+                                 :same-same?]))
+
+    data))
 
 (defn prod-conn-str []
   (string/trim (:out (shell/sh "./scripts/prod_connection_string.sh"))))
@@ -98,16 +117,55 @@
   (ex-data (ex/find-instant-exception *e))
 
   (def runs
-    (with-open [prod-conn (sql/start-pool (assoc (config/db-url->config (prod-conn-str))
-                                                 :maximumPoolSize 1))]
+    (binding [sql/*query-timeout-seconds* 5]
+      (with-open [prod-conn (sql/start-pool (assoc (config/db-url->config (prod-conn-str))
+                                                   :maximumPoolSize 1))]
 
-      (->> inputs
-           (take 1)
-           (mapv (partial compare! prod-conn)))))
+        (->> inputs
+             (take 100)
+             (mapv (partial compare! prod-conn))))))
 
-  (map :improvement runs)
-  (map :same? runs)
-  (map :same-same? runs))
+  (tool/copy
+   (with-out-str (pprint/pprint
+                  (map (fn [x]
+                         (-> x
+                             (select-keys [:improvement :same? :same-same?])
+                             (assoc :new-result-error? (-> x :new-result-error boolean))
+                             (assoc :old-result-error? (-> x :old-result-error boolean)))) runs))))
+
+  (defn avg [coll]
+    (/ (reduce + coll) (count coll)))
+
+  (defn median [coll]
+    (let [sorted (sort coll)
+          n (count sorted)]
+      (if (even? n)
+        (/ (+ (nth sorted (quot n 2))
+              (nth sorted (dec (quot n 2))))
+           2)
+        (nth sorted (quot n 2)))))
+
+  (avg (map :improvement runs))
+
+  (median (map :improvement runs))
+
+  ;; all properly executed queries should be equal 
+  (->> runs
+       (remove (fn [{:keys [same? old-result-error new-result-error]}]
+                 (or old-result-error
+                     new-result-error
+                     same?))))
+
+  (count (keep :new-result-error runs))
+  (map ex-data (keep :new-result-error runs))
+
+  (count (keep :old-result-error runs))
+  (map ex-data (keep :old-result-error runs))
+
+  ;; new queries should not time out
+  (->> runs
+       (remove (fn [{:keys [old-result-error new-result-error]}]
+                 (and new-result-error (not old-result-error))))))
 
 
 
