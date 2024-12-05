@@ -18,3 +18,4 @@ node_modules
 .idea 
 server.iml
 .babashka-pod-*
+dev-resources/honeycomb-export*

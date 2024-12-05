@@ -1875,60 +1875,63 @@
                            :or [{:bookshelves.books.title "Musashi"
                                  :email "stopa@instantdb.com"}
                                 {:handle "stopa"}]}}}})
-     '({:topics ([:ea _ #{:books/title} #{"The Count of Monte Cristo"}]
-                 [:vae _ #{:bookshelves/books} #{"eid-the-count-of-monte-cristo"}]
-                 [:vae _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]
-                 [:ea _ #{:books/title} #{"Musashi"}]
-                 [:vae _ #{:bookshelves/books} #{"eid-musashi"}]
-                 [:vae
-                  #{"eid-stepan-parunashvili"}
-                  #{:users/bookshelves}
-                  #{"eid-the-way-of-the-gentleman"}]
-                 [:av
-                  #{"eid-stepan-parunashvili"}
-                  #{:users/email}
-                  #{"stopa@instantdb.com"}]
-                 [:av #{"eid-stepan-parunashvili"} #{:users/handle} #{"stopa"}]
-                 --
-                 [:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
-                                                     :users/createdAt
-                                                     :users/email
-                                                     :users/id
-                                                     :users/fullName
-                                                     :users/handle} _]),
-        :triples (("eid-the-count-of-monte-cristo"
-                   :books/title
-                   "The Count of Monte Cristo")
-                  ("eid-the-count-of-monte-cristo"
-                   :books/title
-                   "The Count of Monte Cristo")
-                  ("eid-the-way-of-the-gentleman" :bookshelves/books "eid-musashi")
-                  ("eid-musashi" :books/title "Musashi")
-                  ("eid-the-way-of-the-gentleman"
-                   :bookshelves/books
-                   "eid-the-count-of-monte-cristo")
-                  ("eid-the-way-of-the-gentleman"
-                   :bookshelves/books
-                   "eid-the-count-of-monte-cristo")
-                  ("eid-stepan-parunashvili"
-                   :users/bookshelves
-                   "eid-the-way-of-the-gentleman")
-                  ("eid-stepan-parunashvili"
-                   :users/bookshelves
-                   "eid-the-way-of-the-gentleman")
-                  ("eid-stepan-parunashvili"
-                   :users/bookshelves
-                   "eid-the-way-of-the-gentleman")
-                  ("eid-stepan-parunashvili" :users/handle "stopa")
-                  ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-                  --
-                  ("eid-stepan-parunashvili"
-                   :users/createdAt
-                   "2021-01-07 18:50:43.447955")
-                  ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
-                  ("eid-stepan-parunashvili" :users/handle "stopa")
-                  ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-                  ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))}))))
+     '({:topics
+        ([:ea _ #{:books/title} #{"The Count of Monte Cristo"}]
+         [:vae _ #{:bookshelves/books} #{"eid-the-count-of-monte-cristo"}]
+         [:vae _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]
+         [:eav #{"eid-stepan-parunashvili"} #{:users/bookshelves} _]
+         [:eav _ #{:bookshelves/books} _]
+         [:ea _ #{:books/title} #{"Musashi"}]
+         [:av
+          #{"eid-stepan-parunashvili"}
+          #{:users/email}
+          #{"stopa@instantdb.com"}]
+         [:av #{"eid-stepan-parunashvili"} #{:users/handle} #{"stopa"}]
+         --
+         [:ea
+          #{"eid-stepan-parunashvili"}
+          #{:users/bookshelves
+            :users/createdAt
+            :users/email
+            :users/id
+            :users/fullName
+            :users/handle}
+          _]),
+        :triples
+        (("eid-the-count-of-monte-cristo"
+          :books/title
+          "The Count of Monte Cristo")
+         ("eid-the-count-of-monte-cristo"
+          :books/title
+          "The Count of Monte Cristo")
+         ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+         ("eid-the-way-of-the-gentleman" :bookshelves/books "eid-musashi")
+         ("eid-musashi" :books/title "Musashi")
+         ("eid-the-way-of-the-gentleman"
+          :bookshelves/books
+          "eid-the-count-of-monte-cristo")
+         ("eid-the-way-of-the-gentleman"
+          :bookshelves/books
+          "eid-the-count-of-monte-cristo")
+         ("eid-stepan-parunashvili"
+          :users/bookshelves
+          "eid-the-way-of-the-gentleman")
+         ("eid-stepan-parunashvili"
+          :users/bookshelves
+          "eid-the-way-of-the-gentleman")
+         ("eid-stepan-parunashvili"
+          :users/bookshelves
+          "eid-the-way-of-the-gentleman")
+         ("eid-stepan-parunashvili" :users/handle "stopa")
+         --
+         ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+         ("eid-stepan-parunashvili"
+          :users/createdAt
+          "2021-01-07 18:50:43.447955")
+         ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+         ("eid-stepan-parunashvili" :users/handle "stopa")
+         ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")),
+        :aggregate (nil nil)}))))
 
 (deftest where-and
   (testing "with no matches"
@@ -1939,44 +1942,54 @@
      '({:topics
         ([:av _ #{:users/handle} #{"nobody"}]
          [:av _ #{:users/handle} #{"everybody"}]),
-        :triples ()})))
-
+        :triples (),
+        :aggregate (nil)})))
   (testing "with matches"
-    (let [expected '({:topics ([:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
-                                                                   :users/createdAt
-                                                                   :users/email
-                                                                   :users/id
-                                                                   :users/fullName
-                                                                   :users/handle} _]
-                               [:ea _ #{:books/title} #{"Musashi"}]
-                               [:vae _ #{:bookshelves/books} #{"eid-the-count-of-monte-cristo"}]
-                               --
-                               [:ea _ #{:books/title} #{"The Count of Monte Cristo"}]
-                               [:vae
-                                #{"eid-stepan-parunashvili"}
-                                #{:users/bookshelves}
-                                #{"eid-the-way-of-the-gentleman"}]
-                               [:vae _ #{:bookshelves/books} #{"eid-musashi"}]
-                               [:vae _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]),
-                      :triples (("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-                                ("eid-stepan-parunashvili"
-                                 :users/createdAt
-                                 "2021-01-07 18:50:43.447955")
-                                --
-                                ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
-                                ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
-                                ("eid-musashi" :books/title "Musashi")
-                                ("eid-the-count-of-monte-cristo"
-                                 :books/title
-                                 "The Count of Monte Cristo")
-                                ("eid-stepan-parunashvili" :users/handle "stopa")
-                                ("eid-the-way-of-the-gentleman" :bookshelves/books "eid-musashi")
-                                ("eid-stepan-parunashvili"
-                                 :users/bookshelves
-                                 "eid-the-way-of-the-gentleman")
-                                ("eid-the-way-of-the-gentleman"
-                                 :bookshelves/books
-                                 "eid-the-count-of-monte-cristo"))})]
+    (let [expected '({:topics
+                      ([:ea _ #{:books/title} #{"Musashi"}]
+                       [:vae _ #{:bookshelves/books} #{"eid-musashi"}]
+                       [:vae _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]
+                       [:ea _ #{:books/title} #{"The Count of Monte Cristo"}]
+                       [:vae _ #{:bookshelves/books} #{"eid-the-count-of-monte-cristo"}]
+                       [:vae
+                        #{"eid-stepan-parunashvili"}
+                        #{:users/bookshelves}
+                        #{"eid-the-way-of-the-gentleman"}]
+                       --
+                       [:ea
+                        #{"eid-stepan-parunashvili"}
+                        #{:users/bookshelves
+                          :users/createdAt
+                          :users/email
+                          :users/id
+                          :users/fullName
+                          :users/handle}
+                        _]),
+                      :triples
+                      (("eid-the-count-of-monte-cristo"
+                        :books/title
+                        "The Count of Monte Cristo")
+                       ("eid-the-way-of-the-gentleman" :bookshelves/books "eid-musashi")
+                       ("eid-musashi" :books/title "Musashi")
+                       ("eid-the-way-of-the-gentleman"
+                        :bookshelves/books
+                        "eid-the-count-of-monte-cristo")
+                       ("eid-stepan-parunashvili"
+                        :users/bookshelves
+                        "eid-the-way-of-the-gentleman")
+                       ("eid-stepan-parunashvili"
+                        :users/bookshelves
+                        "eid-the-way-of-the-gentleman")
+                       --
+                       ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+                       ("eid-stepan-parunashvili"
+                        :users/createdAt
+                        "2021-01-07 18:50:43.447955")
+                       ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+                       ("eid-stepan-parunashvili" :users/handle "stopa")
+                       ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")),
+                      :aggregate (nil nil)})
+          expected-triples (map :triples expected)]
       (is-pretty-eq?
        (query-pretty
         {:users {:$ {:where {:and [{:bookshelves.books.title "Musashi"}
@@ -1984,10 +1997,10 @@
        expected)
 
       (is-pretty-eq?
-       (query-pretty
-        {:users {:$ {:where {:bookshelves.books.title "Musashi"
-                             :and [{:bookshelves.books.title "The Count of Monte Cristo"}]}}}})
-       expected)))
+       (map :triples  (query-pretty
+                       {:users {:$ {:where {:bookshelves.books.title "Musashi"
+                                            :and [{:bookshelves.books.title "The Count of Monte Cristo"}]}}}}))
+       expected-triples)))
 
   (testing "with nested ors"
     (is-pretty-eq?
@@ -2921,21 +2934,29 @@
                               :bookshelves.books.title "The Count of Monte Cristo"}}
                   :bookshelves {}}})]
     (is (= '[[:av _ #{:users/handle} #{"stopa" "joe"} _]
-             [:ea _ #{:books/title} #{"The Count of Monte Cristo"} _]
-             [:vae _ #{:bookshelves/books} _ _]
-             [:vae _ #{:users/bookshelves} _ _]
-             [:ea _ #{:users/bookshelves
-                      :users/createdAt
-                      :users/email
-                      :users/id
-                      :users/fullName
-                      :users/handle} _ _]
              [:eav _ #{:users/bookshelves} _ _]
-             [:ea _  #{:bookshelves/desc
-                       :bookshelves/name
-                       :bookshelves/order
-                       :bookshelves/id
-                       :bookshelves/books} _ _]]
+             [:eav _ #{:bookshelves/books} _ _]
+             [:ea _ #{:books/title} #{"The Count of Monte Cristo"} _]
+             [:ea
+              _
+              #{:users/bookshelves
+                :users/createdAt
+                :users/email
+                :users/id
+                :users/fullName
+                :users/handle}
+              _
+              _]
+             [:eav _ #{:users/bookshelves} _ _]
+             [:ea
+              _
+              #{:bookshelves/desc
+                :bookshelves/name
+                :bookshelves/order
+                :bookshelves/id
+                :bookshelves/books}
+              _
+              _]]
            (resolvers/walk-friendly
             @r
             (d/pats->coarse-topics patterns))))))
