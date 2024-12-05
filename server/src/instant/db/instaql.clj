@@ -26,8 +26,6 @@
   (:import
    (java.util UUID)))
 
-(def ^:dynamic *use-new* false)
-
 ;; ----
 ;; Form
 

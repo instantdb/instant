@@ -22,6 +22,7 @@
    [instant.jdbc.sql :as sql]
    [instant.db.model.attr :as attr-model]
    [instant.util.instaql :as iq-util]
+   [instant.scratch.backtest-vars :as backtest-vars]
    [clojure.pprint :as pprint]))
 
 (defn -main [& _args]
@@ -54,7 +55,7 @@
 
         start-new (. System (nanoTime))
         new-result  (try
-                      (binding [iq/*use-new* true]
+                      (binding [backtest-vars/*use-new* true]
                         (iq/query ctx query))
                       (catch Exception e
                         {:error e}))
@@ -62,7 +63,7 @@
         new-ms (/ (double (- (. System (nanoTime)) start-new)) 1000000.0)
 
         start-old (. System (nanoTime))
-        old-result (try (binding [iq/*use-new* false]
+        old-result (try (binding [backtest-vars/*use-new* false]
                           (iq/query ctx query))
                         (catch Exception e
                           {:error e}))
