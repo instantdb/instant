@@ -71,7 +71,7 @@
         _ (println (format  "Export app_id = %s" prod-app-id))
         exported-data (with-open [pool (sql/start-pool (assoc (config/db-url->config prod-db-uri)
                                                               :maximumPoolSize 1))]
-                        (export-app pool #uuid "a749930e-6737-4dcf-b039-60c7f5e4e2e6"))
+                        (export-app pool prod-app-id))
 
         _ (println "Exported")
 
