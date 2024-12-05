@@ -1,7 +1,7 @@
 (ns instant.scripts.metrics
-  "Generate metrics for our updates
+  "Generate metrics for our monthly updates
   Usage:
-    1. Pull latest prod data to your local db or run dev with prod data
+    1. Run `make dev-with-prod` to connect to prod data
     2. Run `generate!` at the bottom generate metrics
     3. Run `open resources/metrics/*-usage.png` in the terminal from the /server directory to view the metrics
   
@@ -46,38 +46,17 @@
    (get-weekly-stats (aurora/conn-pool)))
   ([conn]
    (sql/select conn
-               ["WITH earliest_transaction_per_app AS (
-                  SELECT
-                    app_id,
-                    MIN(created_at) AS earliest_date,
-                    MIN(created_at) + INTERVAL '7 days' AS earliest_date_plus_7
-                  FROM transactions
-                  WHERE
-                    -- Exclude 10/28 since we migrated $users that day
-                    created_at < '2024-10-28' OR created_at >= '2024-10-29'
-                  GROUP BY app_id
-                ),
-                filtered_transactions AS (
-                  SELECT t.*
-                  FROM
-                    transactions t
-                    JOIN earliest_transaction_per_app eta ON t.app_id = eta.app_id
-                  WHERE
-                    t.created_at > eta.earliest_date_plus_7
-                    -- Exclude 10/28 since we migrated $users that day
-                    AND (t.created_at < '2024-10-28' OR t.created_at >= '2024-10-29')
-                )
-                SELECT
-                  TO_CHAR(DATE_TRUNC('week', ft.created_at), 'YYYY-MM-DD') AS date_start,
-                  COUNT(*) AS total_transactions,
+               ["SELECT
+                  TO_CHAR(DATE_TRUNC('week', dat.date), 'YYYY-MM-DD') AS date_start,
+                  COUNT(dat.count) AS total_transactions,
                   COUNT(DISTINCT u.id) AS distinct_users,
                   COUNT(DISTINCT a.id) AS distinct_apps
-                FROM filtered_transactions ft
-                JOIN apps a ON ft.app_id = a.id
+                FROM daily_app_transactions dat
+                JOIN apps a ON dat.app_id = a.id
                 JOIN instant_users u ON a.creator_id = u.id
-                WHERE u.email NOT IN (SELECT unnest(?::text[]))
+                WHERE dat.is_active AND u.email NOT IN (SELECT unnest(?::text[]))
                 GROUP BY 1
-                HAVING COUNT(DISTINCT DATE(ft.created_at)) = 7
+                HAVING COUNT(DISTINCT DATE(dat.date)) = 7
                 ORDER BY 1"
                 (with-meta (excluded-emails) {:pgtype "text[]"})])))
 
@@ -86,39 +65,17 @@
    (get-monthly-stats (aurora/conn-pool)))
   ([conn]
    (sql/select conn
-               ["WITH earliest_transaction_per_app AS (
-                  SELECT
-                    app_id,
-                    MIN(created_at) AS earliest_date,
-                    MIN(created_at) + INTERVAL '7 days' AS earliest_date_plus_7
-                  FROM transactions
-                  WHERE
-                    -- Exclude 10/28 since we migrated $users that day
-                    created_at < '2024-10-28' OR created_at >= '2024-10-29'
-                  GROUP BY
-                    app_id
-                ),
-                filtered_transactions AS (
-                  SELECT t.*
-                  FROM
-                    transactions t
-                    JOIN earliest_transaction_per_app eta ON t.app_id = eta.app_id
-                  WHERE
-                    t.created_at > eta.earliest_date_plus_7
-                    -- Exclude 10/28 since we migrated $users that day
-                    AND (t.created_at < '2024-10-28' OR t.created_at >= '2024-10-29')
-                )
-                SELECT
-                  TO_CHAR(DATE_TRUNC('month', ft.created_at), 'YYYY-MM-DD') AS date_start,
+               ["SELECT
+                  TO_CHAR(DATE_TRUNC('month', dat.date), 'YYYY-MM-DD') AS date_start,
                   COUNT(*) AS total_transactions,
                   COUNT(DISTINCT u.id) AS distinct_users,
                   COUNT(DISTINCT a.id) AS distinct_apps
-                FROM filtered_transactions ft
-                JOIN apps a ON ft.app_id = a.id
+                FROM daily_app_transactions dat
+                JOIN apps a ON dat.app_id = a.id
                 JOIN instant_users u ON a.creator_id = u.id
-                WHERE u.email NOT IN (SELECT unnest(?::text[]))
+                WHERE dat.is_active AND u.email NOT IN (SELECT unnest(?::text[]))
                 GROUP BY 1
-                HAVING COUNT(DISTINCT DATE(ft.created_at)) >= 14
+                HAVING COUNT(DISTINCT DATE(dat.date)) >= 14
                 ORDER BY 1"
                 (with-meta (excluded-emails) {:pgtype "text[]"})])))
 
