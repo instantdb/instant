@@ -6,10 +6,6 @@ dev:
 	@echo "Booting up backend w/ local db..."
 	clojure -M:dev:run
 
-dev-backtest: 
-	@echo "Booting into instant.scratch.backtest..."
-	clojure -M:dev:into-backtest
-
 bootstrap-oss:
 	clojure -X:dev:oss-bootstrap
 
