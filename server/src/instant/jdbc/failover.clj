@@ -232,7 +232,7 @@
 
 (defn recheck-missing [primary-conn
                        replica-conn
-                       {:keys [tbl primary-key] :as config}
+                       {:keys [tbl primary-key]}
                        rows]
   (println (format "Rechecking missing from %s (%d rows)" tbl (count rows)))
   (reduce (fn [acc row]
