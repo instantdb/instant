@@ -7,10 +7,6 @@
    3. We try to find discrepencies or degredations."
   (:require
    [instant.config :as config]
-   [instant.nrepl :as nrepl]
-   [instant.util.async :as ua]
-   [instant.util.crypt :as crypt-util]
-   [instant.util.tracer :as tracer]
    [instant.util.json :refer [<-json]]
    [clojure.java.io :as io]
    [instant.util.uuid :as uuid-util]
@@ -24,18 +20,6 @@
    [instant.util.instaql :as iq-util]
    [instant.scratch.backtest-vars :as backtest-vars]
    [clojure.pprint :as pprint]))
-
-(defn -main [& _args]
-  (let [{:keys [aead-keyset]} (config/init)]
-    (crypt-util/init aead-keyset))
-
-  (tracer/init)
-
-  (tracer/record-info! {:name "uncaught-exception-handler/set"})
-  (Thread/setDefaultUncaughtExceptionHandler
-   (ua/logging-uncaught-exception-handler))
-
-  (nrepl/start))
 
 (defn honeycomb-row->input! [[idx row]]
   (let [app-id (ex/get-param! row ["app_id"] uuid-util/coerce)
