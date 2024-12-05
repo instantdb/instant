@@ -48,7 +48,7 @@
                      ": Active Devs: **" distinct_users
                      "**, Active Apps: **" distinct_apps
                      "**")]
-    (discord/send! config/discord-metrics-channel-id message)))
+    (discord/send! config/discord-teams-channel-id message)))
 
 (defn insert-new-activity
   "Insert new transactions into the daily_app_transactions table.
@@ -102,7 +102,7 @@
 
 (comment
   (def t1 (first (period)))
-  (def t2 (LocalDate/parse "2024-10-04"))
+  (def t2 (LocalDate/parse "2024-10-05"))
   (date/numeric-date-str t1)
   (daily-job! t2))
 
