@@ -234,7 +234,6 @@
                        replica-conn
                        {:keys [tbl primary-key] :as config}
                        rows]
-  (tool/def-locals)
   (println (format "Rechecking missing from %s (%d rows)" tbl (count rows)))
   (reduce (fn [acc row]
             (let [q (hsql/format
@@ -245,7 +244,6 @@
                                            [:= k v])
                                          (select-keys row primary-key)))})
                   primary-row (sql/select-one ::fetch-by-id primary-conn q {:builder-fn row-builder})]
-              (tool/def-locals)
               (if (not= primary-row row)
                 (do
                   (println "Row didn't match on primary" (select-keys row primary-key))
