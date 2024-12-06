@@ -6,7 +6,7 @@
     2. Export content as markdown and save to `www/intern/_emails/markdown/[slug].md`
     3. Preview the styled markdown at `localhost:3000/intern/emails/[slug]`
     4. Once preview looks good, generate html and text versions of the email
-       from `client/Makefile` via `make build-email`
+       from `client/Makefile` via `make build-email slug=[slug] `
        Notes:
         * We want both html and text to maximize delivery
         * We use pandoc to convert markdown to html. If you don't have it,
