@@ -133,7 +133,8 @@
 (defn get-inactive-replication-slots [conn]
   (sql/select conn ["select slot_name
                        from pg_replication_slots
-                      where active = false"]))
+                      where active = false
+                        and plugin = 'wal2json'"]))
 
 (defn cleanup-inactive-replication-slots [conn slot-names]
   (sql/select conn ["select slot_name, pg_drop_replication_slot(slot_name)
@@ -146,7 +147,7 @@
   (def pg-conn (get-pg-replication-conn (config/get-aurora-config)))
   (create-temporary-logical-replication-slot! pg-conn "test_slot" "wal2json")
   (.close pg-conn)
-  (get-all-slots aurora/conn-pool))
+  (get-all-slots (aurora/conn-pool)))
 
 ;; -------------------------
 ;; LSN
@@ -159,7 +160,7 @@
    (sql/select-one conn ["SELECT * FROM pg_current_wal_lsn();"])))
 
 (comment
-  (get-current-wal-lsn aurora/conn-pool))
+  (get-current-wal-lsn (aurora/conn-pool)))
 
 ;; ------
 ;; Stream
@@ -408,7 +409,7 @@
                                      {:name "wal-worker/shutdown-called-before-startup"
                                       :escaping? false}))))
 
-(defn init-cleanup [conn-pool]
+(defn init-cleanup []
   (def schedule
     (chime-core/chime-at
      (chime-core/periodic-seq (Instant/now) (Duration/ofHours 1))
@@ -417,17 +418,17 @@
        ;; still inactive in 5 minutes. This will prevent dropping slots that
        ;; are still being set up.
        (try
-         (let [inactive-slots (get-inactive-replication-slots conn-pool)]
+         (let [conn-pool      (aurora/conn-pool)
+               inactive-slots (get-inactive-replication-slots conn-pool)]
            (when (seq inactive-slots)
              (chime-core/chime-at
               [(.plusSeconds (Instant/now) 300)]
               (fn [_time]
                 (tracer/with-span! {:name "wal/cleanup-inactive-slots"}
                   (let [slot-names (map :slot_name inactive-slots)
-                        removed (cleanup-inactive-replication-slots conn-pool
-                                                                    slot-names)
-                        cleaned (set (map :slot_name removed))
-                        uncleaned (remove #(contains? cleaned %) slot-names)]
+                        removed    (cleanup-inactive-replication-slots (aurora/conn-pool) slot-names)
+                        cleaned    (set (map :slot_name removed))
+                        uncleaned  (remove #(contains? cleaned %) slot-names)]
                     (tracer/add-data! {:attributes {:cleaned-slot-names cleaned
                                                     :active-uncleaned-slots uncleaned}})))))))
          (catch Exception e

@@ -253,15 +253,18 @@
                       (json/->json value)
                       (json/json-type-of-clj value))}]))
 
-(defn throw-on-invalid-value-data-value!
-  "Validates an individual value"
+(defn coerce-value-data-value!
+  "Coerces an individual value"
   [state attr data-type v]
   (case data-type
-    :string (when-not (string? v)
+    :string (if (string? v)
+              v
               (throw-invalid-data-value! state attr data-type v))
-    :number (when-not (number? v)
+    :number (if (number? v)
+              v
               (throw-invalid-data-value! state attr data-type v))
-    :boolean (when-not (boolean? v)
+    :boolean (if (boolean? v)
+               v
                (throw-invalid-data-value! state attr data-type v))
     :date (cond (number? v)
                 (try
@@ -277,7 +280,7 @@
 
                 :else
                 (throw-invalid-data-value! state attr data-type v))
-    nil))
+    v))
 
 (defn assert-like-is-string! [state attr tag value]
   (when (not= tag :string)
@@ -306,14 +309,16 @@
       (throw-invalid-data-value! state attr attr-data-type value)
       value)))
 
-(defn validate-value-type! [state attr data-type v]
-  (doseq [v (if (set? v) v [v])
-          :let [v (if (and (map? v)
-                           (contains? v :$not))
-                    (:$not v)
-                    v)]]
-    (throw-on-invalid-value-data-value! state attr data-type v))
-  v)
+(defn coerce-v-single! [state attr data-type v]
+  (if (and (map? v)
+           (contains? v :$not))
+    (update v :$not (partial coerce-value-data-value! state attr data-type))
+    (coerce-value-data-value! state attr data-type v)))
+
+(defn coerced-value-with-checked-type! [state attr data-type v]
+  (if (set? v)
+    (set (map (partial coerce-v-single! state attr data-type) v))
+    (coerce-v-single! state attr data-type v)))
 
 (defn coerce-value-for-typed-comparison!
   "Coerces the value for a typed comparison, throwing a validation error
@@ -334,13 +339,11 @@
             :value (coerced-type-comparison-value! state attr attr-data-type tag value)
             :data-type attr-data-type}})
 
-
         :else
         (if (and (:checked-data-type attr)
                  (not (:checking-data-type? attr)))
-          (validate-value-type! state attr (:checked-data-type attr) v)
+          (coerced-value-with-checked-type! state attr (:checked-data-type attr) v)
           v)))
-
 
 (defn ->value-attr-pat
   "Take the where-cond:
@@ -438,7 +441,7 @@
 
 (comment
   (def attrs (attr-model/get-by-app-id zeneca-app-id))
-  (def ctx {:db {:conn-pool aurora/conn-pool}
+  (def ctx {:db {:conn-pool (aurora/conn-pool)}
             :app-id zeneca-app-id
             :datalog-query-fn #'d/query
             :attrs attrs})

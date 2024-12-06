@@ -11,7 +11,7 @@
 (def etype "$oauthCodes")
 
 (defn create!
-  ([params] (create! aurora/conn-pool params))
+  ([params] (create! (aurora/conn-pool) params))
   ([conn {:keys [code
                  user-id
                  app-id
@@ -86,7 +86,7 @@
 
 (defn consume!
   "Gets and deletes the oauth-code so that it can be used only once."
-  ([params] (consume! aurora/conn-pool params))
+  ([params] (consume! (aurora/conn-pool) params))
   ([conn {:keys [code app-id verifier] :as params}]
    (let [oauth-code
          (update-op

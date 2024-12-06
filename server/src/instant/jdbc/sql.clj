@@ -136,10 +136,36 @@
 
 (def ^:dynamic *query-timeout-seconds* 30)
 
-(def ^:dynamic *in-progress-stmts* nil)
-
 (defprotocol Cancelable
   (cancel [this]))
+
+;; Tracks write statements so that we can wait for them to
+;; complete or cancel them on failover
+(defonce default-statement-tracker
+  (let [stmts (atom #{})]
+    {:add (fn [rw cancelable]
+            (when (= rw :write)
+              (swap! stmts conj cancelable)))
+     :remove (fn [rw cancelable]
+               (when (= rw :write)
+                 (swap! stmts disj cancelable)))
+     :stmts stmts}))
+
+(def ^:dynamic *in-progress-stmts* default-statement-tracker)
+
+(defn make-statement-tracker
+  "Creates a statement tracker that allows nesting of statement
+   tracking."
+  []
+  (let [{:keys [add remove]} *in-progress-stmts*
+        stmts (atom #{})]
+    {:add (fn [rw cancelable]
+            (swap! stmts conj cancelable)
+            (when add (add rw cancelable)))
+     :remove (fn [rw cancelable]
+               (swap! stmts disj cancelable)
+               (when remove (remove rw cancelable)))
+     :stmts stmts}))
 
 (defn cancel-in-progress [stmts]
   (doseq [stmt stmts]
@@ -150,8 +176,8 @@
   and returns a closeable that will remove the statement from the set at
   the end of the query."
   ^java.lang.AutoCloseable
-  [created-connection? ^Connection conn ^PreparedStatement stmt]
-  (if-let [in-progress *in-progress-stmts*]
+  [created-connection? rw ^Connection conn ^PreparedStatement stmt]
+  (if-let [{:keys [add remove]} *in-progress-stmts*]
     (let [cancelable (reify Cancelable
                        (cancel [_]
                          (.cancel stmt)
@@ -164,33 +190,36 @@
                          ;; rolled back.
                          (when-not created-connection?
                            (.close conn))))]
-      (swap! in-progress conj cancelable)
+      (add rw cancelable)
       (reify java.lang.AutoCloseable
         (close [_]
-          (swap! in-progress disj cancelable))))
+          (remove rw cancelable))))
     (reify java.lang.AutoCloseable
       (close [_]
         nil))))
 
-(defmacro defsql [name query-fn opts]
+(defmacro defsql [name query-fn rw opts]
   (let [span-name (format "sql/%s" name)]
     `(defn ~name
        ([~'conn ~'query]
         (~name nil ~'conn ~'query))
        ([~'tag ~'conn ~'query]
+        (~name nil ~'conn ~'query nil))
+       ([~'tag ~'conn ~'query ~'additional-opts]
         (tracer/with-span! {:name ~span-name
                             :attributes (span-attrs ~'conn ~'query ~'tag)}
           (try
             (io/tag-io
               (let [create-connection?# (not (instance? Connection ~'conn))
                     opts# (merge ~opts
+                                 ~'additional-opts
                                  {:timeout *query-timeout-seconds*})
                     ^Connection c# (if create-connection?#
                                      (next-jdbc/get-connection ~'conn)
                                      ~'conn)]
                 (try
                   (with-open [ps# (next-jdbc/prepare c# ~'query opts#)
-                              _cleanup# (register-in-progress create-connection?# c# ps#)]
+                              _cleanup# (register-in-progress create-connection?# ~rw c# ps#)]
                     (~query-fn ps# nil opts#))
                   (finally
                     ;; Don't close the connection if a java.sql.Connection was
@@ -200,16 +229,16 @@
             (catch PSQLException e#
               (throw (ex/translate-and-throw-psql-exception! e#)))))))))
 
-(defsql select sql/query {:builder-fn rs/as-unqualified-maps})
-(defsql select-qualified sql/query {:builder-fn rs/as-maps})
-(defsql select-arrays sql/query {:builder-fn rs/as-unqualified-arrays})
-(defsql select-string-keys sql/query {:builder-fn as-string-maps})
+(defsql select sql/query :read {:builder-fn rs/as-unqualified-maps})
+(defsql select-qualified sql/query :read {:builder-fn rs/as-maps})
+(defsql select-arrays sql/query :read {:builder-fn rs/as-unqualified-arrays})
+(defsql select-string-keys sql/query :read {:builder-fn as-string-maps})
 (def select-one (comp first select))
-(defsql execute! next-jdbc/execute! {:builder-fn rs/as-unqualified-maps
-                                     :return-keys true})
-(defsql execute-one! next-jdbc/execute-one! {:builder-fn rs/as-unqualified-maps
-                                             :return-keys true})
-(defsql do-execute! next-jdbc/execute! {:return-keys false})
+(defsql execute! next-jdbc/execute! :write {:builder-fn rs/as-unqualified-maps
+                                            :return-keys true})
+(defsql execute-one! next-jdbc/execute-one! :write {:builder-fn rs/as-unqualified-maps
+                                                    :return-keys true})
+(defsql do-execute! next-jdbc/execute! :write {:return-keys false})
 
 (defn patch-hikari []
   ;; Hikari will send an extra query to ensure the connection is valid

@@ -191,7 +191,6 @@ test("Where endsWith deep", () => {
   ).toEqual(["alex", "nicolegf", "stopa"]);
 });
 
-
 test("Where and", () => {
   expect(
     query(
@@ -913,8 +912,8 @@ test("$not", () => {
 });
 
 test("comparators", () => {
-  const schema = i.graph(
-    {
+  const schema = i.schema({
+    entities: {
       tests: i.entity({
         string: i.string().indexed(),
         number: i.number().indexed(),
@@ -922,8 +921,9 @@ test("comparators", () => {
         boolean: i.boolean().indexed(),
       }),
     },
-    {},
-  );
+    links: {},
+    rooms: {},
+  });
 
   const txSteps = [];
   for (let i = 0; i < 5; i++) {

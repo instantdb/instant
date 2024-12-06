@@ -27,7 +27,7 @@
                                            :cardinality :one
                                            :id (UUID/randomUUID)
                                            :forward-identity [(UUID/randomUUID) (name ns-name) "id"]
-                                           :unique? false
+                                           :unique? true
                                            :index? false}])) new-blobs)
         blob-ops (mapcat
                   (fn [[ns-name attrs]]
@@ -44,12 +44,14 @@
                                 (cond
                                   name-id? nil
                                   new-attr? [[:add-attr
-                                              {:value-type :blob
-                                               :cardinality :one
-                                               :id (UUID/randomUUID)
-                                               :forward-identity [(UUID/randomUUID) (name ns-name) (name attr-name)]
-                                               :unique? (:unique? new-attr)
-                                               :index? (:index? new-attr)}]]
+                                              (cond-> {:value-type :blob
+                                                       :cardinality :one
+                                                       :id (UUID/randomUUID)
+                                                       :forward-identity [(UUID/randomUUID) (name ns-name) (name attr-name)]
+                                                       :unique? (:unique? new-attr)
+                                                       :index? (:index? new-attr)}
+                                                (and check-types? (:checked-data-type new-attr))
+                                                (assoc :checked-data-type (:checked-data-type new-attr)))]]
                                   :else (concat (when (and attr-changed?
                                                            (not background-updates?))
                                                   [[:update-attr
@@ -409,7 +411,7 @@
 
 (defn apply-plan! [app-id {:keys [steps] :as _plan}]
   (let [ctx {:admin? true
-             :db {:conn-pool aurora/conn-pool}
+             :db {:conn-pool (aurora/conn-pool)}
              :app-id app-id
              :attrs (attr-model/get-by-app-id app-id)
              :datalog-query-fn d/query

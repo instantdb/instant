@@ -22,6 +22,12 @@
       :test
       :dev)))
 
+(defonce process-id
+  (delay
+    (str (name (get-env))
+         "_"
+         (string/replace (UUID/randomUUID) #"-" "_"))))
+
 (def config-map
   (delay (do
            ;; init-hybrid because we might need it to decrypt the config
@@ -63,6 +69,9 @@
 (def discord-signups-channel-id
   "1235663275144908832")
 
+(def discord-teams-channel-id
+  "1196584090552512592")
+
 (def discord-debug-channel-id
   "1235659966627582014")
 
@@ -92,17 +101,25 @@
         :else
         (throw (Exception. "Invalid database connection string. Expected either a JDBC url or a postgres url."))))
 
-(defn get-aurora-config
-  ([] (get-aurora-config {:env (get-env)}))
-  ([{:keys [env]}]
-   (let [application-name (uri/query-encode (format "instant server; host: %s, env: %s"
-                                                    (get-hostname)
-                                                    (name env)))
-         url (or (System/getenv "DATABASE_URL")
-                 (some-> @config-map :database-url crypt-util/secret-value)
-                 "jdbc:postgresql://localhost:5432/instant")]
-     (assoc (db-url->config url)
-            :ApplicationName application-name))))
+(defn get-aurora-config []
+  (let [application-name (uri/query-encode (format "%s, %s"
+                                                   (get-hostname)
+                                                   @process-id))
+        url (or (System/getenv "DATABASE_URL")
+                (some-> @config-map :database-url crypt-util/secret-value)
+                "jdbc:postgresql://localhost:5432/instant")]
+    (assoc (db-url->config url)
+           :ApplicationName application-name)))
+
+(defn get-next-aurora-config []
+  (let [application-name (uri/query-encode (format "%s, %s"
+                                                   (get-hostname)
+                                                   @process-id))
+        url (or (System/getenv "NEXT_DATABASE_URL")
+                (some-> @config-map :next-database-url crypt-util/secret-value))]
+    (when url
+      (assoc (db-url->config url)
+             :ApplicationName application-name))))
 
 ;; ---
 ;; Stripe
@@ -158,12 +175,6 @@
    (case env
      :prod "https://instantdb.com"
      "http://localhost:3000")))
-
-(defonce process-id
-  (delay
-    (str (name (get-env))
-         "_"
-         (string/replace (UUID/randomUUID) #"-" "_"))))
 
 (defn get-connection-pool-size []
   (if (= :prod (get-env)) 400 20))

@@ -13,7 +13,7 @@
 (def etype "$oauthClients")
 
 (defn create!
-  ([params] (create! aurora/conn-pool params))
+  ([params] (create! (aurora/conn-pool) params))
   ([conn {:keys [app-id
                  provider-id
                  client-name
@@ -61,7 +61,7 @@
         (get-entity id))))))
 
 (defn get-by-id
-  ([params] (get-by-id aurora/conn-pool params))
+  ([params] (get-by-id (aurora/conn-pool) params))
   ([conn {:keys [app-id id]}]
    (query-op conn
              {:app-id app-id
@@ -70,7 +70,7 @@
                (get-entity id)))))
 
 (defn get-by-client-name
-  ([params] (get-by-client-name aurora/conn-pool params))
+  ([params] (get-by-client-name (aurora/conn-pool) params))
   ([conn {:keys [app-id client-name]}]
    (query-op conn
              {:app-id app-id
@@ -82,7 +82,7 @@
   (ex/assert-record! (get-by-client-name params) :app-oauth-client {:args [params]}))
 
 (defn delete-by-id!
-  ([params] (delete-by-id! aurora/conn-pool params))
+  ([params] (delete-by-id! (aurora/conn-pool) params))
   ([conn {:keys [id app-id]}]
    (update-op conn
               {:app-id app-id

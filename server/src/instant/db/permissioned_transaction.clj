@@ -642,7 +642,7 @@
     (def tx-steps [[:add-triple goal-eid goal-id-attr goal-eid]
                    [:add-triple goal-eid goal-creator-id-attr joe-eid]
                    [:add-triple goal-eid goal-title-attr "Get a job"]]))
-  (transact! {:db {:conn-pool aurora/conn-pool}
+  (transact! {:db {:conn-pool (aurora/conn-pool)}
               :app-id colors-app-id
               :attrs app-attrs
               :current-user {:id joe-eid}
@@ -650,7 +650,7 @@
               :datalog-query-fn d/query} tx-steps)
 
   ;; OG transact
-  (tx/transact! aurora/conn-pool
+  (tx/transact! (aurora/conn-pool)
                 (attr-model/get-by-app-id colors-app-id)
                 colors-app-id
                 tx-steps))

@@ -714,7 +714,7 @@
 (deftest lookups-in-links-dont-override-attrs
   (with-empty-app
     (fn [{app-id :id admin-token :admin-token}]
-      (attr-model/insert-multi! aurora/conn-pool
+      (attr-model/insert-multi! (aurora/conn-pool)
                                 app-id
                                 [{:id (random-uuid)
                                   :forward-identity [(random-uuid) "posts" "id"]

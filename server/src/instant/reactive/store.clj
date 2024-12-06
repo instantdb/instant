@@ -612,3 +612,9 @@
 (defn restart []
   (stop)
   (start))
+
+(defn before-ns-unload []
+  (stop))
+
+(defn after-ns-reload []
+  (start))

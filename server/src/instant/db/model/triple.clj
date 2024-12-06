@@ -19,8 +19,8 @@
 ;; In the future, we may want to _retract_ the triple if the value is nil
 (defn value? [x]
   (or (string? x) (uuid? x) (number? x) (nil? x) (boolean? x)
-      (sequential? x) (associative? x)))
-
+      (sequential? x) (associative? x)
+      (instance? java.time.Instant x)))
 
 (s/def ::attr-id uuid?)
 (s/def ::entity-id uuid?)
@@ -189,6 +189,7 @@
                                             [:= :app-id app-id]
                                             (list* :or (for [[a v] lookup-refs]
                                                          [:and
+                                                          :av
                                                           [:= :attr-id a]
                                                           [:= :value [:cast (->json v) :jsonb]]]))]}]}]])
                   [[[:input-triples
@@ -323,6 +324,7 @@
                                                 [:= :app-id app-id]
                                                 (list* :or (for [[a v] lookup-refs]
                                                              [:and
+                                                              :av
                                                               [:= :attr-id a]
                                                               [:= :value [:cast (->json v) :jsonb]]]))]}]}]])
                       [[[:input-triples
@@ -356,6 +358,7 @@
                                                                   {:select :entity-id
                                                                    :from :triples
                                                                    :where [:and
+                                                                           :av
                                                                            [:= :app-id app-id]
                                                                            [:= :attr-id (first v)]
                                                                            [:= :value [:cast (->json (second v)) :jsonb]]]}]}
@@ -363,6 +366,7 @@
                                                    [[{:select :entity-id
                                                       :from :triples
                                                       :where [:and
+                                                              :av
                                                               [:= :app-id app-id]
                                                               [:= :attr-id (first v)]
                                                               [:= :value [:cast (->json (second v)) :jsonb]]]}
@@ -588,10 +592,10 @@
            (concat [:and [:= :app-id app-id]] stmts)})))))
 
 (comment
-  (attr-model/delete-by-app-id! aurora/conn-pool empty-app-id)
+  (attr-model/delete-by-app-id! (aurora/conn-pool) empty-app-id)
   (def name-attr-id #uuid "3c0c37e2-49f7-4912-8808-02ca553cb36d")
   (attr-model/insert-multi!
-   aurora/conn-pool
+   (aurora/conn-pool)
    empty-app-id
    [{:id name-attr-id
      :forward-identity [#uuid "963c3f22-4389-4f5a-beea-87644409e458"
@@ -601,12 +605,12 @@
      :index? false
      :unique? false}])
   (def t [#uuid "83ae4cbf-8b19-42f6-bb8f-3eac7bd6da29" name-attr-id "Stopa"])
-  (insert-multi! aurora/conn-pool
+  (insert-multi! (aurora/conn-pool)
                  (attr-model/get-by-app-id empty-app-id)
                  empty-app-id
                  [t])
-  (fetch aurora/conn-pool empty-app-id)
-  (delete-multi! aurora/conn-pool empty-app-id [t]))
+  (fetch (aurora/conn-pool) empty-app-id)
+  (delete-multi! (aurora/conn-pool) empty-app-id [t]))
 
 ;; Migration for inferred types
 ;; ----------------------------

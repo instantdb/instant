@@ -111,6 +111,7 @@ export default class Reactor {
   authCbs = [];
   attrsCbs = [];
   mutationErrorCbs = [];
+  connectionStatusCbs = [];
   config;
   _persister;
   mutationDeferredStore = new Map();
@@ -259,6 +260,7 @@ export default class Reactor {
   _setStatus(status, err) {
     this.status = status;
     this._errorMessage = err;
+    this.notifyConnectionStatusSubs(status);
   }
 
   /**
@@ -544,17 +546,11 @@ export default class Reactor {
       return;
     }
 
-    const q = msg.q || msg["original-event"]?.q;
-    if (q) {
+    const q = msg["original-event"]?.q;
+    if (q && msg["original-event"]?.op === "add-query") {
       const hash = weakHash(q);
-
-      // This must be a query error
-      this.querySubs.set((prev) => {
-        delete prev[hash];
-        return prev;
-      });
       this.notifyQueryError(weakHash(q), errorMessage);
-      this.notifyQueryOnceError(hash, eventId, errorMessage);
+      this.notifyQueryOnceError(q, hash, eventId, errorMessage);
       return;
     }
 
@@ -589,10 +585,11 @@ export default class Reactor {
     }
   }
 
-  notifyQueryOnceError(hash, eventId, e) {
+  notifyQueryOnceError(q, hash, eventId, e) {
     const r = this.queryOnceDfds[hash]?.find((r) => r.eventId === eventId);
     if (!r) return;
     r.dfd.reject(e);
+    this._completeQueryOnce(q, hash, r.dfd);
   }
 
   _setAttrs(attrs) {
@@ -1347,6 +1344,14 @@ export default class Reactor {
     };
   }
 
+  subscribeConnectionStatus(cb) {
+    this.connectionStatusCbs.push(cb);
+
+    return () => {
+      this.connectionStatusCbs = this.connectionStatusCbs.filter((x) => x !== cb);
+    };
+  }
+
   subscribeAttrs(cb) {
     this.attrsCbs.push(cb);
 
@@ -1371,6 +1376,10 @@ export default class Reactor {
     if (!this.attrs) return;
     const oas = this.optimisticAttrs();
     this.attrsCbs.forEach((cb) => cb(oas));
+  }
+
+  notifyConnectionStatusSubs(status) {
+    this.connectionStatusCbs.forEach((cb) => cb(status));
   }
 
   async setCurrentUser(user) {
@@ -1476,7 +1485,7 @@ export default class Reactor {
           appId: this.config.appId,
           refreshToken,
         });
-      } catch (e) {}
+      } catch (e) { }
     }
     await this.changeCurrentUser(null);
   }

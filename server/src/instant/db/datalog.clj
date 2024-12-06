@@ -537,6 +537,17 @@
 (defn- value->jsonb [x]
   [:cast (->json x) :jsonb])
 
+(defn- not-eq-value [idx val]
+  (let [[tag idx-val] idx
+        data-type (case tag
+                    :keyword nil
+                    :map (:data-type idx-val))]
+    (if-not data-type
+      [:not= :value (value->jsonb val)]
+      [:and
+       [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
+       [:not= [(kw :triples_extract_ data-type :_value) :value] val]])))
+
 (defn- in-or-eq-value [idx v-set]
   (let [[tag idx-val] idx
         data-type (case tag
@@ -569,11 +580,11 @@
     :a (in-or-eq :attr-id v)
     :v (in-or-eq-value idx v)))
 
-(defn- value-function-clauses [[v-tag v-value]]
+(defn- value-function-clauses [idx [v-tag v-value]]
   (case v-tag
     :function (let [[func val] (first v-value)]
                 (case func
-                  :$not [[:not= :value (value->jsonb val)]]
+                  :$not [(not-eq-value idx val)]
                   :$isNull [[(if (:nil? val)
                                :not-in
                                :in)
@@ -602,7 +613,7 @@
     []))
 
 (defn- function-clauses [named-pattern]
-  (value-function-clauses (:v named-pattern)))
+  (value-function-clauses (:idx named-pattern) (:v named-pattern)))
 
 (defn- where-clause
   "
@@ -1594,14 +1605,14 @@
                      result (cond-> (sql-result->result rows transformed-pattern-metas true)
                               (:page-info group) (assoc-in [:page-info :has-next-page?]
                                                            (-> sql-res
-                                                             (get (name (has-next-tbl table)))
-                                                             first
-                                                             (get "exists")))
+                                                               (get (name (has-next-tbl table)))
+                                                               first
+                                                               (get "exists")))
                               (:page-info group) (assoc-in [:page-info :has-previous-page?]
                                                            (-> sql-res
-                                                             (get (name (has-prev-tbl table)))
-                                                             first
-                                                             (get "exists"))))
+                                                               (get (name (has-prev-tbl table)))
+                                                               first
+                                                               (get "exists"))))
                      datalog-query (if join-sym
                                      (replace-join-sym-in-datalog-query join-sym
                                                                         join-val
@@ -1718,6 +1729,17 @@
                                                        :match-0-
                                                        app-id
                                                        nested-named-patterns)
+          query-hash (or (:query-hash ctx)
+                         (hash (first (hsql/format query))))
+          _ (tracer/add-data! {:attributes {:query-hash query-hash}})
+
+          query (when query
+                  (update query
+                          :with conj
+                          [:qid
+                           {:select [[[:inline app-id]]
+                                     [[:inline query-hash]]]}]))
+
           sql-query (hsql/format query)
           sql-res (when query ;; we may not have a query if everything is missing attrs
                     (->> (sql/select-arrays ::send-query-nested conn sql-query)

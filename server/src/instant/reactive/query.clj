@@ -26,7 +26,7 @@
     @delayed))
 
 (comment
-  (def ctx {:db {:conn-pool aurora/conn-pool}
+  (def ctx {:db {:conn-pool (aurora/conn-pool)}
             :app-id zeneca-app-id})
   (def instaql-query '[[:ea ?e ?a "joe"]])
   (time
@@ -74,24 +74,23 @@
   "Filters datalog results to only keys that the client will use and
  dedupes the triples."
   [instaql-results]
-  (tracer/with-span! {:name "collect-instaql-results-for-client"}
-    (let [{:keys [triples page-info aggregate]}
-          (reduce (fn [acc instaql-result]
-                    (let [{:keys [triples page-info aggregate]} (collect-triples instaql-result)]
-                      (-> acc
-                          (update :triples into triples)
-                          (update :page-info merge page-info)
-                          (update :aggregate merge aggregate))))
-                  {:triples #{}
-                   :page-info {}
-                   :aggregate {}}
-                  instaql-results)]
-      [{:data (merge {:datalog-result {:join-rows [triples]}}
-                     (when (seq page-info)
-                       {:page-info page-info})
-                     (when (seq aggregate)
-                       {:aggregate aggregate}))
-        :child-nodes []}])))
+  (let [{:keys [triples page-info aggregate]}
+        (reduce (fn [acc instaql-result]
+                  (let [{:keys [triples page-info aggregate]} (collect-triples instaql-result)]
+                    (-> acc
+                        (update :triples into triples)
+                        (update :page-info merge page-info)
+                        (update :aggregate merge aggregate))))
+                {:triples #{}
+                 :page-info {}
+                 :aggregate {}}
+                instaql-results)]
+    [{:data (merge {:datalog-result {:join-rows [triples]}}
+                   (when (seq page-info)
+                     {:page-info page-info})
+                   (when (seq aggregate)
+                     {:aggregate aggregate}))
+      :child-nodes []}]))
 
 (defn instaql-query-reactive!
   "Returns the result of an instaql query while producing book-keeping side
@@ -125,7 +124,7 @@
         (throw e)))))
 
 (comment
-  (def ctx {:db {:conn-pool aurora/conn-pool}
+  (def ctx {:db {:conn-pool (aurora/conn-pool)}
             :attrs (attr-model/get-by-app-id zeneca-app-id)
             :app-id zeneca-app-id
             :current-user nil

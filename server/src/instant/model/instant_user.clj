@@ -29,7 +29,7 @@
        res#)))
 
 (defn create!
-  ([params] (create! aurora/conn-pool params))
+  ([params] (create! (aurora/conn-pool) params))
   ([conn {:keys [id email google-sub]}]
    (sql/execute-one! ::create!
                      conn
@@ -37,7 +37,7 @@
                       id email google-sub])))
 
 (defn update-email!
-  ([params] (update-email! aurora/conn-pool params))
+  ([params] (update-email! (aurora/conn-pool) params))
   ([conn {:keys [id email]}]
    (with-cache-invalidation id
      (sql/execute-one! ::update-email!
@@ -46,7 +46,7 @@
                         email id]))))
 
 (defn update-google-sub!
-  ([params] (update-google-sub! aurora/conn-pool params))
+  ([params] (update-google-sub! (aurora/conn-pool) params))
   ([conn {:keys [id google-sub]}]
    (with-cache-invalidation id
      (sql/execute-one! ::update-google-sub!
@@ -55,7 +55,7 @@
                         google-sub id]))))
 
 (defn get-by-id
-  ([params] (get-by-id aurora/conn-pool params))
+  ([params] (get-by-id (aurora/conn-pool) params))
   ([conn {:keys [id]}]
    (sql/select-one ::get-by-id
                    conn
@@ -77,13 +77,13 @@
 
 (defn get-by-app-id
   ([{:keys [app-id]}]
-   (cache/lookup-or-miss user-by-app-cache app-id (partial get-by-app-id* aurora/conn-pool)))
+   (cache/lookup-or-miss user-by-app-cache app-id (partial get-by-app-id* (aurora/conn-pool))))
   ([conn {:keys [app-id]}]
    ;; Don't cache if we're using a custom connection
    (get-by-app-id* conn app-id)))
 
 (defn get-by-refresh-token
-  ([params] (get-by-refresh-token aurora/conn-pool params))
+  ([params] (get-by-refresh-token (aurora/conn-pool) params))
   ([conn {:keys [refresh-token]}]
    (sql/select-one
     ::get-by-refresh-token
@@ -98,7 +98,7 @@
   (ex/assert-record! (get-by-refresh-token params) :instant-user {:args [params]}))
 
 (defn get-by-personal-access-token
-  ([params] (get-by-personal-access-token aurora/conn-pool params))
+  ([params] (get-by-personal-access-token (aurora/conn-pool) params))
   ([conn {:keys [personal-access-token]}]
    (sql/select-one
     ::get-by-personal-access-token
@@ -114,7 +114,7 @@
   (ex/assert-record! (get-by-personal-access-token params) :instant-user {:args [params]}))
 
 (defn get-by-email
-  ([params] (get-by-email aurora/conn-pool params))
+  ([params] (get-by-email (aurora/conn-pool) params))
   ([conn {:keys [email]}]
    (sql/select-one ::get-by-email
                    conn
@@ -122,7 +122,7 @@
                     email])))
 
 (defn get-by-email-or-google-sub
-  ([params] (get-by-email-or-google-sub aurora/conn-pool params))
+  ([params] (get-by-email-or-google-sub (aurora/conn-pool) params))
   ([conn {:keys [email google-sub]}]
    (sql/select ::get-by-email-or-google-sub
                conn
@@ -130,7 +130,7 @@
                 email google-sub])))
 
 (defn delete-by-email!
-  ([params] (delete-by-email! aurora/conn-pool params))
+  ([params] (delete-by-email! (aurora/conn-pool) params))
   ([conn {:keys [email]}]
    (let [res (sql/execute-one! ::delete-by-email!
                                conn

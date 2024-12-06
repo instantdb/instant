@@ -28,6 +28,9 @@ const graph = i.graph(
     "promo-emails": i.entity({
       email: i.string(),
     }),
+    "rate-limited-apps": i.entity({
+      appId: i.string().unique()
+    }),
     "storage-whitelist": i.entity({
       appId: i.string().unique().indexed(),
       email: i.string(),

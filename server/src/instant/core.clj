@@ -26,6 +26,7 @@
    [instant.reactive.store :as rs]
    [instant.runtime.routes :as runtime-routes]
    [instant.scripts.analytics :as analytics]
+   [instant.scripts.daily-metrics :as daily-metrics]
    [instant.session-counter :as session-counter]
    [instant.storage.routes :as storage-routes]
    [instant.stripe :as stripe]
@@ -162,11 +163,6 @@
   (Thread/setDefaultUncaughtExceptionHandler
    (ua/logging-uncaught-exception-handler))
 
-  (when (= (config/get-env) :dev)
-    (tracer/record-info! {:name "humane-test-output/set"})
-    (require 'pjstadig.humane-test-output)
-    ((resolve 'pjstadig.humane-test-output/activate!)))
-
   (gauges/start)
   (nrepl/start)
   (oauth/start)
@@ -178,7 +174,7 @@
   (stripe/init)
   (session/start)
   (inv/start-global)
-  (wal/init-cleanup aurora/conn-pool)
+  (wal/init-cleanup)
 
   (when-let [config-app-id (config/instant-config-app-id)]
     (flags-impl/init config-app-id
@@ -191,5 +187,14 @@
   (when (= (config/get-env) :prod)
     (log/info "Starting analytics")
     (analytics/start))
+  (when (= (config/get-env) :prod)
+    (log/info "Starting daily metrics")
+    (daily-metrics/start))
   (start)
   (add-shutdown-hook))
+
+(defn before-ns-unload []
+  (stop))
+
+(defn after-ns-reload []
+  (start))

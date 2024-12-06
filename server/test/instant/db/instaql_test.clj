@@ -1,6 +1,6 @@
 (ns instant.db.instaql-test
   (:require
-   [clojure.test :as test :refer [deftest is testing]]
+   [clojure.test :as test :refer [deftest is are testing]]
    [instant.data.bootstrap :as bootstrap]
    [instant.data.constants :refer [zeneca-app-id]]
    [instant.data.resolvers :as resolvers]
@@ -29,7 +29,7 @@
 (def ^:private r (delay (resolvers/make-zeneca-resolver)))
 
 (def ^:private ctx
-  (delay {:db {:conn-pool aurora/conn-pool}
+  (delay {:db {:conn-pool (aurora/conn-pool)}
           :app-id zeneca-app-id
           :attrs (attr-model/get-by-app-id zeneca-app-id)}))
 
@@ -75,15 +75,15 @@
    the set of topics and triples in the result"
   [pretty-a pretty-b]
   `(do
-    (testing "(topics is-pretty-eq?)"
-      (is (= (set (mapcat :topics ~pretty-a))
-             (set (mapcat :topics ~pretty-b)))))
-    (testing "(triples is-pretty-eq?)"
-      (is (= (set (mapcat :triples ~pretty-a))
-             (set (mapcat :triples ~pretty-b)))))
-    (testing "(aggregate is-pretty-eq?)"
-      (is (= (set (remove nil? (mapcat :aggregate ~pretty-a)))
-             (set (remove nil? (mapcat :aggregate ~pretty-b))))))))
+     (testing "(topics is-pretty-eq?)"
+       (is (= (set (mapcat :topics ~pretty-a))
+              (set (mapcat :topics ~pretty-b)))))
+     (testing "(triples is-pretty-eq?)"
+       (is (= (set (mapcat :triples ~pretty-a))
+              (set (mapcat :triples ~pretty-b)))))
+     (testing "(aggregate is-pretty-eq?)"
+       (is (= (set (remove nil? (mapcat :aggregate ~pretty-a)))
+              (set (remove nil? (mapcat :aggregate ~pretty-b))))))))
 
 (defn- query-pretty
   ([q]
@@ -204,7 +204,7 @@
   (with-empty-app
     (fn [app]
       (testing "checked-data-types"
-        (tx/transact! aurora/conn-pool
+        (tx/transact! (aurora/conn-pool)
                       (attr-model/get-by-app-id (:id app))
                       (:id app)
                       (for [t [:string :number :boolean :date]]
@@ -216,7 +216,7 @@
                                     :checked-data-type t
                                     :cardinality :one}]))
         (let [ctx (let [attrs (attr-model/get-by-app-id (:id app))]
-                    {:db {:conn-pool aurora/conn-pool}
+                    {:db {:conn-pool (aurora/conn-pool)}
                      :app-id (:id app)
                      :attrs attrs})]
           (is (= '{:expected? string?,
@@ -548,11 +548,11 @@
     (fn [{app-id :id :as _app}]
       (let [get-handles-ordered (fn [pagination-params]
                                   (as-> (instaql-nodes->object-tree
-                                         {:db {:conn-pool aurora/conn-pool}
+                                         {:db {:conn-pool (aurora/conn-pool)}
                                           :app-id app-id
                                           :attrs (attr-model/get-by-app-id app-id)}
                                          (iq/query
-                                          {:db {:conn-pool aurora/conn-pool}
+                                          {:db {:conn-pool (aurora/conn-pool)}
                                            :app-id app-id
                                            :attrs (attr-model/get-by-app-id app-id)}
                                           {:users {:$ pagination-params}})) %
@@ -564,7 +564,7 @@
             joe-eid (random-uuid)
             stopa-eid (random-uuid)
             daniel-eid (random-uuid)
-            _ (tx/transact! aurora/conn-pool
+            _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id app-id)
                             app-id
                             [[:add-attr {:id uid-attr-id
@@ -580,19 +580,19 @@
                                          :value-type :blob
                                          :cardinality :one}]])
 
-            _ (tx/transact! aurora/conn-pool
+            _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id app-id)
                             app-id
                             [[:add-triple joe-eid uid-attr-id (str joe-eid)]
                              [:add-triple joe-eid handle-attr-id "joe"]])
 
-            _ (tx/transact! aurora/conn-pool
+            _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id app-id)
                             app-id
                             [[:add-triple stopa-eid uid-attr-id (str stopa-eid)]
                              [:add-triple stopa-eid handle-attr-id "stopa"]])
 
-            _ (tx/transact! aurora/conn-pool
+            _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id app-id)
                             app-id
                             [[:add-triple daniel-eid uid-attr-id (str daniel-eid)]
@@ -997,7 +997,7 @@
 (deftest where-$like
   (with-zeneca-checked-data-app
     (fn [app r]
-      (let [ctx {:db {:conn-pool aurora/conn-pool}
+      (let [ctx {:db {:conn-pool (aurora/conn-pool)}
                  :app-id (:id app)
                  :attrs (attr-model/get-by-app-id (:id app))}]
         (testing "with no matches"
@@ -1165,7 +1165,7 @@
     (fn [app]
       (let [make-ctx (fn []
                        (let [attrs (attr-model/get-by-app-id (:id app))]
-                         {:db {:conn-pool aurora/conn-pool}
+                         {:db {:conn-pool (aurora/conn-pool)}
                           :app-id (:id app)
                           :attrs attrs}))
 
@@ -1177,7 +1177,7 @@
             id-2 (random-uuid)
             id-null (random-uuid)
             id-undefined (random-uuid)
-            _ (tx/transact! aurora/conn-pool
+            _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id (:id app))
                             (:id app)
                             [[:add-attr {:id id-aid
@@ -1247,7 +1247,7 @@
     (fn [app]
       (let [make-ctx (fn []
                        (let [attrs (attr-model/get-by-app-id (:id app))]
-                         {:db {:conn-pool aurora/conn-pool}
+                         {:db {:conn-pool (aurora/conn-pool)}
                           :app-id (:id app)
                           :attrs attrs}))
 
@@ -1259,7 +1259,7 @@
             id-2 (random-uuid)
             id-null (random-uuid)
             id-undefined (random-uuid)
-            _ (tx/transact! aurora/conn-pool
+            _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id (:id app))
                             (:id app)
                             [[:add-attr {:id id-aid
@@ -1359,7 +1359,7 @@
         rev-d-id (random-uuid)
         rev-null-id (random-uuid)
         rev-undefined-id (random-uuid)
-        _ (tx/transact! aurora/conn-pool
+        _ (tx/transact! (aurora/conn-pool)
                         (attr-model/get-by-app-id (:id app))
                         (:id app)
                         [[:add-attr {:id fwd-id-aid
@@ -1451,13 +1451,13 @@
                          [:add-triple rev-undefined-id rev-id-aid (str rev-undefined-id)]
                          [:add-triple rev-undefined-id rev-label-aid "rev-undefined"]])
 
-        r (resolvers/make-resolver {:conn-pool aurora/conn-pool}
+        r (resolvers/make-resolver {:conn-pool (aurora/conn-pool)}
                                    (:id app)
                                    [["fwd" "label"]
                                     ["rev" "label"]])
 
         add-links (fn [links]
-                    (tx/transact! aurora/conn-pool
+                    (tx/transact! (aurora/conn-pool)
                                   (attr-model/get-by-app-id (:id app))
                                   (:id app)
                                   (mapv (fn [[fwd-id rev-id]]
@@ -1467,18 +1467,18 @@
                                            (resolvers/->uuid r rev-id)])
                                         links)))
         clear-links (fn []
-                      (def -t (tx/transact! aurora/conn-pool
+                      (def -t (tx/transact! (aurora/conn-pool)
                                             (attr-model/get-by-app-id (:id app))
                                             (:id app)
                                             (mapv (fn [{:keys [triple]}]
                                                     (let [[e a v] triple]
                                                       [:retract-triple e a v]))
-                                                  (triple-model/fetch aurora/conn-pool
+                                                  (triple-model/fetch (aurora/conn-pool)
                                                                       (:id app)
                                                                       [[:= :attr-id link-aid]])))))
         admin-query (fn [q]
                       (let [ctx (let [attrs (attr-model/get-by-app-id (:id app))]
-                                  {:db {:conn-pool aurora/conn-pool}
+                                  {:db {:conn-pool (aurora/conn-pool)}
                                    :app-id (:id app)
                                    :attrs attrs})]
                         (->> (iq/query ctx q)
@@ -1875,60 +1875,63 @@
                            :or [{:bookshelves.books.title "Musashi"
                                  :email "stopa@instantdb.com"}
                                 {:handle "stopa"}]}}}})
-     '({:topics ([:ea _ #{:books/title} #{"The Count of Monte Cristo"}]
-                 [:vae _ #{:bookshelves/books} #{"eid-the-count-of-monte-cristo"}]
-                 [:vae _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]
-                 [:ea _ #{:books/title} #{"Musashi"}]
-                 [:vae _ #{:bookshelves/books} #{"eid-musashi"}]
-                 [:vae
-                  #{"eid-stepan-parunashvili"}
-                  #{:users/bookshelves}
-                  #{"eid-the-way-of-the-gentleman"}]
-                 [:av
-                  #{"eid-stepan-parunashvili"}
-                  #{:users/email}
-                  #{"stopa@instantdb.com"}]
-                 [:av #{"eid-stepan-parunashvili"} #{:users/handle} #{"stopa"}]
-                 --
-                 [:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
-                                                     :users/createdAt
-                                                     :users/email
-                                                     :users/id
-                                                     :users/fullName
-                                                     :users/handle} _]),
-        :triples (("eid-the-count-of-monte-cristo"
-                   :books/title
-                   "The Count of Monte Cristo")
-                  ("eid-the-count-of-monte-cristo"
-                   :books/title
-                   "The Count of Monte Cristo")
-                  ("eid-the-way-of-the-gentleman" :bookshelves/books "eid-musashi")
-                  ("eid-musashi" :books/title "Musashi")
-                  ("eid-the-way-of-the-gentleman"
-                   :bookshelves/books
-                   "eid-the-count-of-monte-cristo")
-                  ("eid-the-way-of-the-gentleman"
-                   :bookshelves/books
-                   "eid-the-count-of-monte-cristo")
-                  ("eid-stepan-parunashvili"
-                   :users/bookshelves
-                   "eid-the-way-of-the-gentleman")
-                  ("eid-stepan-parunashvili"
-                   :users/bookshelves
-                   "eid-the-way-of-the-gentleman")
-                  ("eid-stepan-parunashvili"
-                   :users/bookshelves
-                   "eid-the-way-of-the-gentleman")
-                  ("eid-stepan-parunashvili" :users/handle "stopa")
-                  ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-                  --
-                  ("eid-stepan-parunashvili"
-                   :users/createdAt
-                   "2021-01-07 18:50:43.447955")
-                  ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
-                  ("eid-stepan-parunashvili" :users/handle "stopa")
-                  ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-                  ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))}))))
+     '({:topics
+        ([:ea _ #{:books/title} #{"The Count of Monte Cristo"}]
+         [:vae _ #{:bookshelves/books} #{"eid-the-count-of-monte-cristo"}]
+         [:vae _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]
+         [:eav #{"eid-stepan-parunashvili"} #{:users/bookshelves} _]
+         [:eav _ #{:bookshelves/books} _]
+         [:ea _ #{:books/title} #{"Musashi"}]
+         [:av
+          #{"eid-stepan-parunashvili"}
+          #{:users/email}
+          #{"stopa@instantdb.com"}]
+         [:av #{"eid-stepan-parunashvili"} #{:users/handle} #{"stopa"}]
+         --
+         [:ea
+          #{"eid-stepan-parunashvili"}
+          #{:users/bookshelves
+            :users/createdAt
+            :users/email
+            :users/id
+            :users/fullName
+            :users/handle}
+          _]),
+        :triples
+        (("eid-the-count-of-monte-cristo"
+          :books/title
+          "The Count of Monte Cristo")
+         ("eid-the-count-of-monte-cristo"
+          :books/title
+          "The Count of Monte Cristo")
+         ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+         ("eid-the-way-of-the-gentleman" :bookshelves/books "eid-musashi")
+         ("eid-musashi" :books/title "Musashi")
+         ("eid-the-way-of-the-gentleman"
+          :bookshelves/books
+          "eid-the-count-of-monte-cristo")
+         ("eid-the-way-of-the-gentleman"
+          :bookshelves/books
+          "eid-the-count-of-monte-cristo")
+         ("eid-stepan-parunashvili"
+          :users/bookshelves
+          "eid-the-way-of-the-gentleman")
+         ("eid-stepan-parunashvili"
+          :users/bookshelves
+          "eid-the-way-of-the-gentleman")
+         ("eid-stepan-parunashvili"
+          :users/bookshelves
+          "eid-the-way-of-the-gentleman")
+         ("eid-stepan-parunashvili" :users/handle "stopa")
+         --
+         ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+         ("eid-stepan-parunashvili"
+          :users/createdAt
+          "2021-01-07 18:50:43.447955")
+         ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+         ("eid-stepan-parunashvili" :users/handle "stopa")
+         ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")),
+        :aggregate (nil nil)}))))
 
 (deftest where-and
   (testing "with no matches"
@@ -1939,44 +1942,54 @@
      '({:topics
         ([:av _ #{:users/handle} #{"nobody"}]
          [:av _ #{:users/handle} #{"everybody"}]),
-        :triples ()})))
-
+        :triples (),
+        :aggregate (nil)})))
   (testing "with matches"
-    (let [expected '({:topics ([:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
-                                                                   :users/createdAt
-                                                                   :users/email
-                                                                   :users/id
-                                                                   :users/fullName
-                                                                   :users/handle} _]
-                               [:ea _ #{:books/title} #{"Musashi"}]
-                               [:vae _ #{:bookshelves/books} #{"eid-the-count-of-monte-cristo"}]
-                               --
-                               [:ea _ #{:books/title} #{"The Count of Monte Cristo"}]
-                               [:vae
-                                #{"eid-stepan-parunashvili"}
-                                #{:users/bookshelves}
-                                #{"eid-the-way-of-the-gentleman"}]
-                               [:vae _ #{:bookshelves/books} #{"eid-musashi"}]
-                               [:vae _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]),
-                      :triples (("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-                                ("eid-stepan-parunashvili"
-                                 :users/createdAt
-                                 "2021-01-07 18:50:43.447955")
-                                --
-                                ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
-                                ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
-                                ("eid-musashi" :books/title "Musashi")
-                                ("eid-the-count-of-monte-cristo"
-                                 :books/title
-                                 "The Count of Monte Cristo")
-                                ("eid-stepan-parunashvili" :users/handle "stopa")
-                                ("eid-the-way-of-the-gentleman" :bookshelves/books "eid-musashi")
-                                ("eid-stepan-parunashvili"
-                                 :users/bookshelves
-                                 "eid-the-way-of-the-gentleman")
-                                ("eid-the-way-of-the-gentleman"
-                                 :bookshelves/books
-                                 "eid-the-count-of-monte-cristo"))})]
+    (let [expected '({:topics
+                      ([:ea _ #{:books/title} #{"Musashi"}]
+                       [:vae _ #{:bookshelves/books} #{"eid-musashi"}]
+                       [:vae _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]
+                       [:ea _ #{:books/title} #{"The Count of Monte Cristo"}]
+                       [:vae _ #{:bookshelves/books} #{"eid-the-count-of-monte-cristo"}]
+                       [:vae
+                        #{"eid-stepan-parunashvili"}
+                        #{:users/bookshelves}
+                        #{"eid-the-way-of-the-gentleman"}]
+                       --
+                       [:ea
+                        #{"eid-stepan-parunashvili"}
+                        #{:users/bookshelves
+                          :users/createdAt
+                          :users/email
+                          :users/id
+                          :users/fullName
+                          :users/handle}
+                        _]),
+                      :triples
+                      (("eid-the-count-of-monte-cristo"
+                        :books/title
+                        "The Count of Monte Cristo")
+                       ("eid-the-way-of-the-gentleman" :bookshelves/books "eid-musashi")
+                       ("eid-musashi" :books/title "Musashi")
+                       ("eid-the-way-of-the-gentleman"
+                        :bookshelves/books
+                        "eid-the-count-of-monte-cristo")
+                       ("eid-stepan-parunashvili"
+                        :users/bookshelves
+                        "eid-the-way-of-the-gentleman")
+                       ("eid-stepan-parunashvili"
+                        :users/bookshelves
+                        "eid-the-way-of-the-gentleman")
+                       --
+                       ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+                       ("eid-stepan-parunashvili"
+                        :users/createdAt
+                        "2021-01-07 18:50:43.447955")
+                       ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+                       ("eid-stepan-parunashvili" :users/handle "stopa")
+                       ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")),
+                      :aggregate (nil nil)})
+          expected-triples (map :triples expected)]
       (is-pretty-eq?
        (query-pretty
         {:users {:$ {:where {:and [{:bookshelves.books.title "Musashi"}
@@ -1984,10 +1997,10 @@
        expected)
 
       (is-pretty-eq?
-       (query-pretty
-        {:users {:$ {:where {:bookshelves.books.title "Musashi"
-                             :and [{:bookshelves.books.title "The Count of Monte Cristo"}]}}}})
-       expected)))
+       (map :triples  (query-pretty
+                       {:users {:$ {:where {:bookshelves.books.title "Musashi"
+                                            :and [{:bookshelves.books.title "The Count of Monte Cristo"}]}}}}))
+       expected-triples)))
 
   (testing "with nested ors"
     (is-pretty-eq?
@@ -2039,12 +2052,12 @@
             labels ["a" "b" "c" "d" "e"]
             make-ctx (fn []
                        (let [attrs (attr-model/get-by-app-id (:id app))]
-                         {:db {:conn-pool aurora/conn-pool}
+                         {:db {:conn-pool (aurora/conn-pool)}
                           :app-id (:id app)
                           :attrs attrs}))
             run-query (fn [return-field q]
                         (let [ctx (make-ctx)
-                              r (resolvers/make-resolver {:conn-pool aurora/conn-pool}
+                              r (resolvers/make-resolver {:conn-pool (aurora/conn-pool)}
                                                          (:id app)
                                                          [["books" "field"]
                                                           ["authors" "field"]])]
@@ -2068,7 +2081,7 @@
                                (get "QUERY PLAN")
                                first
                                (get-in ["Plan" "Plans" 0 "Index Name"]))))]
-        (tx/transact! aurora/conn-pool
+        (tx/transact! (aurora/conn-pool)
                       (attr-model/get-by-app-id (:id app))
                       (:id app)
                       (concat
@@ -2094,6 +2107,7 @@
                                      :value-type :blob
                                      :checked-data-type t
                                      :cardinality :one}])
+
                        (mapcat
                         (fn [i]
                           (let [id (random-uuid)]
@@ -2108,6 +2122,8 @@
           (is (= #{"2" "3" "4"} (run-query :string {:etype {:$ {:where {:string {:$gte "2"}}}}})))
           (is (= #{"0" "1"} (run-query :string {:etype {:$ {:where {:string {:$lt "2"}}}}})))
           (is (= #{"0" "1" "2"} (run-query :string {:etype {:$ {:where {:string {:$lte "2"}}}}})))
+          (is (= #{"1"} (run-query :string {:etype {:$ {:where {:string "1"}}}})))
+          (is (= #{"0" "2" "3" "4"} (run-query :string {:etype {:$ {:where {:string {:$not "1"}}}}})))
 
           (testing "uses index"
             (is (= "triples_string_trgm_gist_idx" (run-explain :string "2"))))
@@ -2120,6 +2136,8 @@
           (is (= #{2 3 4} (run-query :number {:etype {:$ {:where {:number {:$gte 2}}}}})))
           (is (= #{0 1} (run-query :number {:etype {:$ {:where {:number {:$lt 2}}}}})))
           (is (= #{0 1 2} (run-query :number {:etype {:$ {:where {:number {:$lte 2}}}}})))
+          (is (= #{1} (run-query :number {:etype {:$ {:where {:number 1}}}})))
+          (is (= #{0 2 3 4} (run-query :number {:etype {:$ {:where {:number {:$not 1}}}}})))
 
           (testing "uses index"
             (is (= "triples_number_type_idx" (run-explain :number 2)))))
@@ -2129,6 +2147,9 @@
           (is (= #{2 3 4} (run-query :date {:etype {:$ {:where {:date {:$gte 2}}}}})))
           (is (= #{0 1} (run-query :date {:etype {:$ {:where {:date {:$lt 2}}}}})))
           (is (= #{0 1 2} (run-query :date {:etype {:$ {:where {:date {:$lte 2}}}}})))
+          (is (= #{1} (run-query :date {:etype {:$ {:where {:date 1}}}})))
+          (is (= #{1} (run-query :date {:etype {:$ {:where {:date (.toString (Instant/ofEpochMilli 1))}}}})))
+          (is (= #{0 2 3 4} (run-query :date {:etype {:$ {:where {:date {:$not 1}}}}})))
 
           (testing "uses index"
             (is (= "triples_date_type_idx" (run-explain :date (Instant/ofEpochMilli 2))))))
@@ -2140,6 +2161,8 @@
           (is (= #{} (run-query :boolean {:etype {:$ {:where {:boolean {:$lt false}}}}})))
           (is (= #{false} (run-query :boolean {:etype {:$ {:where {:boolean {:$lt true}}}}})))
           (is (= #{false true} (run-query :boolean {:etype {:$ {:where {:boolean {:$lte true}}}}})))
+          (is (= #{true} (run-query :boolean {:etype {:$ {:where {:boolean true}}}})))
+          (is (= #{false} (run-query :boolean {:etype {:$ {:where {:boolean {:$not true}}}}})))
 
           (testing "uses index"
             (is (= "triples_boolean_type_idx" (run-explain :boolean true)))))))))
@@ -2455,7 +2478,7 @@
 (deftest same-ids
   (with-zeneca-app
     (fn [app r]
-      (let [ctx {:db {:conn-pool aurora/conn-pool}
+      (let [ctx {:db {:conn-pool (aurora/conn-pool)}
                  :app-id (:id app)
                  :attrs (attr-model/get-by-app-id (:id app))}
             user-id-attr (resolvers/->uuid r :users/id)
@@ -2463,7 +2486,7 @@
             book-id-attr (resolvers/->uuid r :books/id)
             book-title-attr (resolvers/->uuid r :books/title)
             shared-id (random-uuid)]
-        (tx/transact! aurora/conn-pool
+        (tx/transact! (aurora/conn-pool)
                       (attr-model/get-by-app-id (:id app))
                       (:id app)
                       [[:add-triple shared-id user-id-attr shared-id]
@@ -2575,8 +2598,8 @@
       (fn [app]
         (let [make-ctx (fn []
                          ;; pass in conn-pool to bypass cache
-                         (let [attrs (attr-model/get-by-app-id aurora/conn-pool (:id app))]
-                           {:db {:conn-pool aurora/conn-pool}
+                         (let [attrs (attr-model/get-by-app-id (aurora/conn-pool) (:id app))]
+                           {:db {:conn-pool (aurora/conn-pool)}
                             :app-id (:id app)
                             :attrs attrs}))
               app-id (:id app)
@@ -2585,7 +2608,7 @@
               handle-attr-id (random-uuid)
               eid (random-uuid)
 
-              _ (tx/transact! aurora/conn-pool
+              _ (tx/transact! (aurora/conn-pool)
                               (attr-model/get-by-app-id app-id)
                               app-id
                               [[:add-attr {:id uid-attr-id
@@ -2618,7 +2641,7 @@
            before-index-result)
 
           (attr-model/with-cache-invalidation app-id
-            (sql/execute! aurora/conn-pool
+            (sql/execute! (aurora/conn-pool)
                           ["update attrs set is_indexed = true where id = ?"
                            handle-attr-id]))
 
@@ -2630,7 +2653,7 @@
                 :aggregate (nil)})))
 
           (attr-model/with-cache-invalidation app-id
-            (sql/execute! aurora/conn-pool
+            (sql/execute! (aurora/conn-pool)
                           ["update attrs set indexing = true where id = ?"
                            handle-attr-id]))
 
@@ -2645,8 +2668,8 @@
       (fn [app]
         (let [make-ctx (fn []
                          ;; pass in conn-pool to bypass cache
-                         (let [attrs (attr-model/get-by-app-id aurora/conn-pool (:id app))]
-                           {:db {:conn-pool aurora/conn-pool}
+                         (let [attrs (attr-model/get-by-app-id (aurora/conn-pool) (:id app))]
+                           {:db {:conn-pool (aurora/conn-pool)}
                             :app-id (:id app)
                             :attrs attrs}))
               app-id (:id app)
@@ -2655,7 +2678,7 @@
               handle-attr-id (random-uuid)
               eid (random-uuid)
 
-              _ (tx/transact! aurora/conn-pool
+              _ (tx/transact! (aurora/conn-pool)
                               (attr-model/get-by-app-id app-id)
                               app-id
                               [[:add-attr {:id uid-attr-id
@@ -2688,7 +2711,7 @@
            before-index-result)
 
           (attr-model/with-cache-invalidation app-id
-            (sql/execute! aurora/conn-pool
+            (sql/execute! (aurora/conn-pool)
                           ["update attrs set is_unique = true where id = ?"
                            handle-attr-id]))
 
@@ -2700,7 +2723,7 @@
                 :aggregate (nil)})))
 
           (attr-model/with-cache-invalidation app-id
-            (sql/execute! aurora/conn-pool
+            (sql/execute! (aurora/conn-pool)
                           ["update attrs set setting_unique = true where id = ?"
                            handle-attr-id]))
 
@@ -2722,6 +2745,43 @@
   (bootstrap/add-zeneca-to-app! app-id)
   (app-model/delete-by-id! {:id app-id}))
 
+(deftest default-perms
+  (doseq [[app-fn description] [[with-zeneca-app "without checked attrs"]
+                                [with-zeneca-checked-data-app "with checked attrs"]]]
+    (testing description
+      (app-fn
+       (fn [{app-id :id :as _app} _r]
+         (are [rules result] (= result
+                                (do
+                                  (rule-model/put! (aurora/conn-pool) {:app-id app-id :code rules})
+                                  (->> (pretty-perm-q {:app-id app-id :current-user nil} {:users {}}) :users (map :handle) set)))
+           {:users {:allow {:$default "false"}}}
+           #{}
+
+           {:$default {:allow {:view "false"}}}
+           #{}
+
+           {:$default {:allow {:$default "false"}}}
+           #{}
+
+           {:users {:allow {:$default "false" :view "true"}}}
+           #{"alex" "joe" "stopa" "nicolegf"}
+
+           {:$default {:allow {:view "false"}} :users {:allow {:view "true"}}}
+           #{"alex" "joe" "stopa" "nicolegf"}
+
+           {:$default {:allow {:$default "false"}} :users {:allow {:view "true"}}}
+           #{"alex" "joe" "stopa" "nicolegf"}
+
+           {:$default {:allow {:$default "false"}} :users {:allow {:$default "true"}}}
+           #{"alex" "joe" "stopa" "nicolegf"}
+
+           {:$default {:allow {:view "false"}} :users {:allow {:$default "true"}}}
+           #{"alex" "joe" "stopa" "nicolegf"}
+
+           {:$default {:allow {:$default "false" :view "true"}}}
+           #{"alex" "joe" "stopa" "nicolegf"}))))))
+
 (deftest read-perms
   (doseq [[app-fn description] [[with-zeneca-app "without checked attrs"]
                                 [with-zeneca-checked-data-app "with checked attrs"]]]
@@ -2730,7 +2790,7 @@
        (fn [{app-id :id :as _app} _r]
          (testing "no perms returns full"
            (rule-model/put!
-            aurora/conn-pool
+            (aurora/conn-pool)
             {:app-id app-id :code {}})
            (is
             (= #{"alex" "joe" "stopa" "nicolegf"}
@@ -2742,7 +2802,7 @@
                      set))))
          (testing "false returns nothing"
            (rule-model/put!
-            aurora/conn-pool
+            (aurora/conn-pool)
             {:app-id app-id :code {:users {:allow {:view "false"}}}})
            (is
             (empty?
@@ -2754,7 +2814,7 @@
                    set))))
          (testing "property equality"
            (rule-model/put!
-            aurora/conn-pool
+            (aurora/conn-pool)
             {:app-id app-id :code {:users {:allow {:view "data.handle == 'stopa'"}}}})
            (is
             (=
@@ -2767,7 +2827,7 @@
                    set))))
          (testing "bind"
            (rule-model/put!
-            aurora/conn-pool
+            (aurora/conn-pool)
             {:app-id app-id :code {:users {:allow {:view "data.handle != handle"}
                                            :bind ["handle" "'stopa'"]}}})
            (is
@@ -2781,7 +2841,7 @@
                    set))))
          (testing "ref"
            (rule-model/put!
-            aurora/conn-pool
+            (aurora/conn-pool)
             {:app-id app-id :code {:bookshelves {:allow {:view "handle in data.ref('users.handle')"}
                                                  :bind ["handle" "'alex'"]}}})
            (is
@@ -2795,7 +2855,7 @@
                    set))))
          (testing "auth required"
            (rule-model/put!
-            aurora/conn-pool
+            (aurora/conn-pool)
             {:app-id app-id :code {:users {:allow {:view "auth.id != null"}}}})
            (is
             (empty?
@@ -2808,7 +2868,7 @@
 
          (testing "null shouldn't evaluate to true"
            (rule-model/put!
-            aurora/conn-pool
+            (aurora/conn-pool)
             {:app-id app-id :code {:users {:allow {:view "auth.isAdmin"}}}})
            (is
             (empty?
@@ -2820,7 +2880,7 @@
                    set))))
          (testing "can only view authed user data"
            (rule-model/put!
-            aurora/conn-pool
+            (aurora/conn-pool)
             {:app-id app-id :code {:users {:allow {:view "auth.handle == data.handle"}}}})
            (is
             (= #{"stopa"}
@@ -2839,7 +2899,7 @@
                 :has-previous-page? false}
                (let [r (resolvers/make-zeneca-resolver app-id)]
                  (->> (iq/permissioned-query
-                       {:db {:conn-pool aurora/conn-pool}
+                       {:db {:conn-pool (aurora/conn-pool)}
                         :app-id app-id
                         :attrs (attr-model/get-by-app-id app-id)
                         :datalog-query-fn d/query
@@ -2856,15 +2916,15 @@
 
          (testing "bad rules produce a permission evaluation exception"
            (rule-model/put!
-            aurora/conn-pool
+            (aurora/conn-pool)
             {:app-id app-id :code {:users {:allow {:view "auth.handle in data.nonexistent"}}}})
 
            (is
             (= ::ex/permission-evaluation-failed
                (::ex/type (instant-ex-data
-                            (pretty-perm-q
-                             {:app-id app-id :current-user {:handle "stopa"}}
-                             {:users {}})))))))))))
+                           (pretty-perm-q
+                            {:app-id app-id :current-user {:handle "stopa"}}
+                            {:users {}})))))))))))
 
 (deftest coarse-topics []
   (let [{:keys [patterns]}
@@ -2874,21 +2934,29 @@
                               :bookshelves.books.title "The Count of Monte Cristo"}}
                   :bookshelves {}}})]
     (is (= '[[:av _ #{:users/handle} #{"stopa" "joe"} _]
-             [:ea _ #{:books/title} #{"The Count of Monte Cristo"} _]
-             [:vae _ #{:bookshelves/books} _ _]
-             [:vae _ #{:users/bookshelves} _ _]
-             [:ea _ #{:users/bookshelves
-                      :users/createdAt
-                      :users/email
-                      :users/id
-                      :users/fullName
-                      :users/handle} _ _]
              [:eav _ #{:users/bookshelves} _ _]
-             [:ea _  #{:bookshelves/desc
-                       :bookshelves/name
-                       :bookshelves/order
-                       :bookshelves/id
-                       :bookshelves/books} _ _]]
+             [:eav _ #{:bookshelves/books} _ _]
+             [:ea _ #{:books/title} #{"The Count of Monte Cristo"} _]
+             [:ea
+              _
+              #{:users/bookshelves
+                :users/createdAt
+                :users/email
+                :users/id
+                :users/fullName
+                :users/handle}
+              _
+              _]
+             [:eav _ #{:users/bookshelves} _ _]
+             [:ea
+              _
+              #{:bookshelves/desc
+                :bookshelves/name
+                :bookshelves/order
+                :bookshelves/id
+                :bookshelves/books}
+              _
+              _]]
            (resolvers/walk-friendly
             @r
             (d/pats->coarse-topics patterns))))))
@@ -2926,17 +2994,17 @@
             shared-eid (random-uuid)
             run-query (fn [{:keys [admin?]} q]
                         (let [ctx (let [attrs (attr-model/get-by-app-id (:id app))]
-                                    {:db {:conn-pool aurora/conn-pool}
+                                    {:db {:conn-pool (aurora/conn-pool)}
                                      :app-id (:id app)
                                      :attrs attrs
                                      :admin? admin?})
-                              r (resolvers/make-resolver {:conn-pool aurora/conn-pool}
+                              r (resolvers/make-resolver {:conn-pool (aurora/conn-pool)}
                                                          (:id app)
                                                          [["books" "field"]
                                                           ["authors" "field"]])]
                           (->> (iq/permissioned-query ctx q)
                                (instaql-nodes->object-tree ctx))))]
-        (tx/transact! aurora/conn-pool
+        (tx/transact! (aurora/conn-pool)
                       (attr-model/get-by-app-id (:id app))
                       (:id app)
                       [[:add-attr {:id book-id-aid
@@ -2967,7 +3035,7 @@
                        [:add-triple shared-eid book-field-aid "book"]
                        [:add-triple shared-eid author-id-aid (str shared-eid)]
                        [:add-triple shared-eid author-field-aid "author"]])
-        (rule-model/put! aurora/conn-pool
+        (rule-model/put! (aurora/conn-pool)
                          {:app-id (:id app) :code {:books {:allow {:view "false"}}
                                                    :authors {:allow {:view "true"}}}})
         (is (= {"books" [{"field" "book", "id" (str shared-eid)}]
@@ -2986,7 +3054,7 @@
     (fn [app]
       (let [query-pretty' (fn [q]
                             (let [attrs (attr-model/get-by-app-id (:id app))]
-                              (query-pretty {:db {:conn-pool aurora/conn-pool}
+                              (query-pretty {:db {:conn-pool (aurora/conn-pool)}
                                              :app-id (:id app)
                                              :attrs attrs}
                                             (resolvers/make-movies-resolver (:id app))
@@ -3038,7 +3106,7 @@
     (fn [app]
       (let [make-ctx (fn []
                        (let [attrs (attr-model/get-by-app-id (:id app))]
-                         {:db {:conn-pool aurora/conn-pool}
+                         {:db {:conn-pool (aurora/conn-pool)}
                           :app-id (:id app)
                           :attrs attrs}))
             first-id (random-uuid)
@@ -3069,12 +3137,12 @@
     (fn [app r0]
       (let [make-ctx (fn []
                        (let [attrs (attr-model/get-by-app-id (:id app))]
-                         {:db {:conn-pool aurora/conn-pool}
+                         {:db {:conn-pool (aurora/conn-pool)}
                           :app-id (:id app)
                           :attrs attrs}))
 
             attr-id (random-uuid)
-            _ (tx/transact! aurora/conn-pool
+            _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id (:id app))
                             (:id app)
                             [[:add-attr {:id attr-id
@@ -3146,12 +3214,12 @@
     (fn [app r0]
       (let [make-ctx (fn []
                        (let [attrs (attr-model/get-by-app-id (:id app))]
-                         {:db {:conn-pool aurora/conn-pool}
+                         {:db {:conn-pool (aurora/conn-pool)}
                           :app-id (:id app)
                           :attrs attrs}))
 
             attr-id (random-uuid)
-            _ (tx/transact! aurora/conn-pool
+            _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id (:id app))
                             (:id app)
                             [[:add-attr {:id attr-id
@@ -3200,12 +3268,12 @@
     (fn [app r0]
       (let [make-ctx (fn []
                        (let [attrs (attr-model/get-by-app-id (:id app))]
-                         {:db {:conn-pool aurora/conn-pool}
+                         {:db {:conn-pool (aurora/conn-pool)}
                           :app-id (:id app)
                           :attrs attrs}))
 
             attr-id (random-uuid)
-            _ (tx/transact! aurora/conn-pool
+            _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id (:id app))
                             (:id app)
                             [[:add-attr {:id attr-id
@@ -3222,7 +3290,7 @@
             r1 (resolvers/make-zeneca-resolver (:id app))]
 
         (rule-model/put!
-         aurora/conn-pool
+         (aurora/conn-pool)
          {:app-id (:id app) :code {:books {:allow {:view "'Sum' in auth.ref('$user.books.title')"}}}})
 
         (is (= (-> (pretty-perm-q (assoc (make-ctx)

@@ -415,7 +415,7 @@
                   process (inv/start machine-id)
                   uid (random-uuid)]
               (try
-                (tx/transact! aurora/conn-pool
+                (tx/transact! (aurora/conn-pool)
                               (attr-model/get-by-app-id (:id app))
                               (:id app)
                               [[:add-triple uid (resolvers/->uuid r :users/id) uid]

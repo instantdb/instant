@@ -221,6 +221,7 @@ export function Layout({ children, title, tableOfContents }) {
           <div
             className="overflow-auto px-4 pb-6 pt-4"
             ref={scrollContainerRef}
+            key={router.pathname}
           >
             <AppPicker {...{ apps, selectedAppData, updateSelectedAppId }} />
             <article>

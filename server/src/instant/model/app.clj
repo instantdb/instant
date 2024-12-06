@@ -37,7 +37,7 @@
        res#)))
 
 (defn create!
-  ([params] (create! aurora/conn-pool params))
+  ([params] (create! (aurora/conn-pool) params))
   ([conn {:keys [id title creator-id admin-token]}]
 
    (next-jdbc/with-transaction [tx-conn conn]
@@ -59,21 +59,21 @@
 
 (defn get-by-id
   ([{:keys [id]}]
-   (cache/lookup-or-miss app-cache id (partial get-by-id* aurora/conn-pool)))
+   (cache/lookup-or-miss app-cache id (partial get-by-id* (aurora/conn-pool))))
   ([conn {:keys [id] :as params}]
-   (if (= conn aurora/conn-pool)
+   (if (= conn (aurora/conn-pool))
      (get-by-id params)
      ;; Don't cache if we're using a custom connection
      (get-by-id* conn id))))
 
 (defn get-by-id!
   ([params]
-   (get-by-id! aurora/conn-pool params))
+   (get-by-id! (aurora/conn-pool) params))
   ([conn params]
    (ex/assert-record! (get-by-id conn params) :app {:args [params]})))
 
 (defn list-by-creator-id
-  ([user-id] (list-by-creator-id aurora/conn-pool user-id))
+  ([user-id] (list-by-creator-id (aurora/conn-pool) user-id))
   ([conn user-id]
    (sql/select ::list-by-creator-id
                conn
@@ -87,7 +87,7 @@
   (list-by-creator-id user-id))
 
 (defn get-by-id-and-creator
-  ([params] (get-by-id-and-creator aurora/conn-pool params))
+  ([params] (get-by-id-and-creator (aurora/conn-pool) params))
   ([conn {:keys [user-id app-id]}]
    (sql/select-one ::get-by-id-and-creator
                    conn
@@ -107,7 +107,7 @@
   (get-by-id-and-creator {:user-id user-id :app-id app-id}))
 
 (defn get-app-ids-created-before
-  ([params] (get-app-ids-created-before aurora/conn-pool params))
+  ([params] (get-app-ids-created-before (aurora/conn-pool) params))
   ([conn {:keys [creator-id created-before]}]
    (map :id (sql/select
              ::get-app-ids-created-before
@@ -121,7 +121,7 @@
               creator-id created-before]))))
 
 (defn get-with-creator-by-ids
-  ([params] (get-with-creator-by-ids aurora/conn-pool params))
+  ([params] (get-with-creator-by-ids (aurora/conn-pool) params))
   ([conn app-ids]
    (sql/select ::get-with-creator-by-ids
                conn ["SELECT a.*, u.email AS creator_email
@@ -138,7 +138,7 @@
                             "59aafa92-a900-4b3d-aaf1-45032ee8d415"]))
 
 (defn get-all-for-user
-  ([params] (get-all-for-user aurora/conn-pool params))
+  ([params] (get-all-for-user (aurora/conn-pool) params))
   ([conn {:keys [user-id]}]
    (sql/select ::get-all-for-user
                conn ["WITH s AS (
@@ -248,7 +248,7 @@
                      user-id user-id user-id user-id])))
 
 (defn get-dash-auth-data
-  ([params] (get-dash-auth-data aurora/conn-pool params))
+  ([params] (get-dash-auth-data (aurora/conn-pool) params))
   ([conn {:keys [app-id]}]
    (query-op
     conn
@@ -302,21 +302,21 @@
                 "authorized_redirect_origins" redirect-origins}})))))
 
 (defn delete-by-id!
-  ([params] (delete-by-id! aurora/conn-pool params))
+  ([params] (delete-by-id! (aurora/conn-pool) params))
   ([conn {:keys [id]}]
    (with-cache-invalidation id
      (sql/execute-one! ::delete-by-id!
                        conn ["DELETE FROM apps WHERE id = ?::uuid" id]))))
 
 (defn rename-by-id!
-  ([params] (rename-by-id! aurora/conn-pool params))
+  ([params] (rename-by-id! (aurora/conn-pool) params))
   ([conn {:keys [id title]}]
    (with-cache-invalidation id
      (sql/execute-one! ::rename-by-id!
                        conn ["UPDATE apps SET title = ? WHERE id = ?::uuid " title id]))))
 
 (defn change-creator!
-  ([params] (change-creator! aurora/conn-pool params))
+  ([params] (change-creator! (aurora/conn-pool) params))
   ([conn {:keys [id new-creator-id]}]
    (instant-user-model/with-cache-invalidation id
      (with-cache-invalidation id
@@ -328,7 +328,7 @@
 
 (defn clear-by-id!
   "Deletes attrs, rules, and triples for the specified app_id"
-  ([params] (clear-by-id! aurora/conn-pool params))
+  ([params] (clear-by-id! (aurora/conn-pool) params))
   ([conn {:keys [id]}]
    (next-jdbc/with-transaction [tx-conn conn]
      (attr-model/delete-by-app-id! tx-conn id)
@@ -339,7 +339,7 @@
   (clear-by-id! {:id "9a6d8f38-991d-4264-9801-4a05d8b1eab1"}))
 
 (defn delete-by-ids!
-  ([params] (delete-by-ids! aurora/conn-pool params))
+  ([params] (delete-by-ids! (aurora/conn-pool) params))
   ([conn {:keys [creator-id ids]}]
    (with-cache-invalidation ids
      (sql/execute-one! ::delete-by-ids!
@@ -371,7 +371,7 @@
 
   Multiplying the app_id data size by the overhead factor gives an estimate of
   real usage"
-  ([params] (app-usage aurora/conn-pool params))
+  ([params] (app-usage (aurora/conn-pool) params))
   ([conn {:keys [app-id]}]
    (sql/select-one
     ::app-usage
@@ -390,7 +390,7 @@
       (String. "UTF-8")))
 
 (defn set-connection-string!
-  ([params] (set-connection-string! aurora/conn-pool params))
+  ([params] (set-connection-string! (aurora/conn-pool) params))
   ([conn {:keys [app-id connection-string]}]
    (with-cache-invalidation app-id
      (sql/execute-one! ::set-connection-string!
@@ -401,4 +401,4 @@
                         app-id]))))
 
 (comment
-  (app-usage aurora/conn-pool {:app-id "5cb86bd5-5dfb-4489-a455-78bb86cd3da3"}))
+  (app-usage (aurora/conn-pool) {:app-id "5cb86bd5-5dfb-4489-a455-78bb86cd3da3"}))

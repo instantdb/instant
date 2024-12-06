@@ -843,7 +843,7 @@ function NewNamespaceDialog({
       'forward-identity': [id(), name, 'id'],
       'value-type': 'blob',
       cardinality: 'one',
-      'unique?': false,
+      'unique?': true,
       'index?': false,
     };
 

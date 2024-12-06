@@ -1,26 +1,30 @@
 (ns instant.db.instaql
-  (:require [clojure.spec.alpha :as s]
-            [instant.db.datalog :as d]
-            [instant.data.constants :refer [zeneca-app-id]]
-            [instant.db.model.attr :as attr-model]
-            [instant.db.model.triple :as triple-model]
-            [instant.jdbc.sql :as sql]
-            [honey.sql :as hsql]
-            [clojure.set :as set :refer [map-invert]]
-            [clojure.string :as string]
-            [instant.jdbc.aurora :as aurora]
-            [instant.db.model.attr-pat :as attr-pat]
-            [instant.util.json :refer [->json]]
-            [instant.data.resolvers :as resolvers]
-            [instant.util.tracer :as tracer]
-            [instant.util.coll :as ucoll]
-            [instant.model.rule :as rule-model]
-            [instant.db.cel :as cel]
-            [instant.util.exception :as ex]
-            [instant.util.io :as io]
-            [instant.util.uuid :as uuid-util]
-            [instant.db.model.entity :as entity-model])
-  (:import [java.util UUID]))
+  (:require
+   [clojure.set :as set :refer [map-invert]]
+   [clojure.spec.alpha :as s]
+   [clojure.string :as string]
+   [clojure.walk :as walk]
+   [honey.sql :as hsql]
+   [instant.data.constants :refer [zeneca-app-id]]
+   [instant.data.resolvers :as resolvers]
+   [instant.db.cel :as cel]
+   [instant.db.datalog :as d]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.model.attr-pat :as attr-pat]
+   [instant.db.model.entity :as entity-model]
+   [instant.db.model.triple :as triple-model]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.model.rule :as rule-model]
+   [instant.util.coll :as ucoll]
+   [instant.util.exception :as ex]
+   [instant.util.io :as io]
+   [instant.util.json :refer [->json]]
+   [instant.util.tracer :as tracer]
+   [instant.util.uuid :as uuid-util]
+   [medley.core :refer [update-existing-in]])
+  (:import
+   (java.util UUID)))
 
 ;; ----
 ;; Form
@@ -29,9 +33,9 @@
   (or (string? x) (uuid? x) (number? x) (boolean? x)))
 
 (s/def ::$in (s/coll-of where-value-valid?
-                       :kind vector?
-                       :min-count 0
-                       :into #{}))
+                        :kind vector?
+                        :min-count 0
+                        :into #{}))
 ;; Backwards compatibility
 (s/def ::in ::$in)
 
@@ -600,23 +604,28 @@
 (declare where-cond->patterns)
 
 (defn- where-conds->patterns [ctx form where-conds]
-  (reduce (fn [acc where-cond]
+  (reduce (fn [acc [i where-cond]]
             (let [{:keys [pats referenced-etypes]}
-                  (where-cond->patterns ctx form where-cond)]
+                  (where-cond->patterns (if (zero? i)
+                                          ctx
+                                          (assoc ctx :skip-optimize? true))
+                                        form where-cond)]
               (-> acc
                   (update :pats into pats)
                   (update :referenced-etypes set/union referenced-etypes))))
           {:pats []
            :referenced-etypes #{}}
-          where-conds))
+          (map-indexed vector where-conds)))
 
 (defn- where-cond->patterns [ctx form [tag where-cond]]
   (let [level-sym (or (:level-sym ctx)
                       attr-pat/default-level-sym)]
     (case tag
-      :cond (update (->where-cond-attr-pats ctx form where-cond)
-                    :pats
-                    optimize-attr-pats)
+      :cond
+      (let [ret (->where-cond-attr-pats ctx form where-cond)]
+        (if (:skip-optimize? ctx)
+          ret
+          (update ret :pats optimize-attr-pats)))
       :or (-> (reduce
                (fn [acc [i conds]]
                  (let [level-sym (level-sym-gen level-sym (:etype form) i)]
@@ -672,14 +681,13 @@
        will be (? etype level) "
   [ctx {:keys [option-map join-attr-pat etype level] :as form}]
   (let [{:keys [where-conds]} option-map
-
         {where-cond-patterns :pats
          referenced-etypes :referenced-etypes}
         (if where-conds
-          (where-conds->patterns ctx form where-conds)
+          (where-conds->patterns (assoc ctx
+                                        :skip-optimize? false) form where-conds)
           {:pats nil
            :referenced-etypes #{}})
-
         with-join (cond-> []
                     join-attr-pat (conj join-attr-pat))
         with-where-cond (cond-> with-join
@@ -971,19 +979,49 @@
      :forms forms
      :referenced-etypes referenced-etypes}))
 
+(defn clean-where-for-hash [where]
+  (walk/postwalk (fn [x]
+                   (cond (string? x)
+                         :string
+                         (number? x)
+                         :number
+                         (uuid? x)
+                         :uuid
+                         (boolean? x)
+                         :boolean
+                         :else x))
+                 where))
+
+(defn clean-forms-for-hash [forms]
+  (walk/postwalk (fn [v]
+                   (if (and (map? v)
+                            (contains? v :$))
+                     (-> v
+                         (update-existing-in [:$ :where] clean-where-for-hash)
+                         (update-existing-in [:$ :before] (constantly :cursor))
+                         (update-existing-in [:$ :after] (constantly :cursor)))
+                     v))
+                 forms))
+
+(defn forms-hash [forms]
+  (hash (clean-forms-for-hash forms)))
+
 (defn query-normal
   "Generates and runs a nested datalog query, then collects the results into nodes."
-  [base-ctx o]
+  [ctx o]
   (tool/def-locals)
-  (tracer/with-span! {:name "instaql/query-nested"
-                      :attributes {:app-id (:app-id base-ctx)
-                                   :forms o}}
-    (let [ctx (merge {:datalog-query-fn #'d/query}
-                     base-ctx)
-          {:keys [patterns forms]} (instaql-query->patterns ctx o)
-          datalog-result ((:datalog-query-fn ctx) ctx patterns)]
-      (tool/def-locals)
-      (collect-query-results (:data datalog-result) forms))))
+  (let [query-hash (forms-hash o)]
+    (tracer/with-span! {:name "instaql/query-nested"
+                        :attributes {:app-id (:app-id ctx)
+                                     :forms o
+                                     :query-hash query-hash}}
+      (let [datalog-query-fn (or (:datalog-query-fn ctx)
+                                 #'d/query)
+            {:keys [patterns forms]} (instaql-query->patterns ctx o)
+            datalog-result (datalog-query-fn (assoc ctx :query-hash query-hash)
+                                             patterns)]
+        (tool/def-locals)
+        (collect-query-results (:data datalog-result) forms)))))
 
 ;; BYOP InstaQL
 
@@ -1679,23 +1717,23 @@
                                       {:program program
                                        :result
                                        (let [em (io/warn-io :instaql/entity-map
-                                                  (entity-map ctx
-                                                              query-cache
-                                                              etype
-                                                              eid))
+                                                            (entity-map ctx
+                                                                        query-cache
+                                                                        etype
+                                                                        eid))
                                              ctx (assoc ctx
                                                         :preloaded-refs preloaded-refs)]
                                          (io/warn-io :instaql/eval-program
-                                           (cel/eval-program!
-                                            program
-                                            {"auth" (cel/->cel-map {:ctx ctx
-                                                                    :type :auth
-                                                                    :etype "$users"}
-                                                                   current-user)
-                                             "data" (cel/->cel-map {:ctx ctx
-                                                                    :etype etype
-                                                                    :type :data}
-                                                                   em)})))})))
+                                                     (cel/eval-program!
+                                                      program
+                                                      {"auth" (cel/->cel-map {:ctx ctx
+                                                                              :type :auth
+                                                                              :etype "$users"}
+                                                                             current-user)
+                                                       "data" (cel/->cel-map {:ctx ctx
+                                                                              :etype etype
+                                                                              :type :data}
+                                                                             em)})))})))
                            acc
                            eids))
                  {}
@@ -1753,7 +1791,7 @@
 (comment
   (def r (resolvers/make-zeneca-resolver))
   (def attrs (attr-model/get-by-app-id zeneca-app-id))
-  (def ctx {:db {:conn-pool aurora/conn-pool}
+  (def ctx {:db {:conn-pool (aurora/conn-pool)}
             :app-id zeneca-app-id
             :datalog-query-fn #'d/query
             :attrs attrs})
@@ -1771,7 +1809,7 @@
 
   (def attrs (attr-model/get-by-app-id rec-app-id))
 
-  (def ctx {:db {:conn-pool aurora/conn-pool}
+  (def ctx {:db {:conn-pool (aurora/conn-pool)}
             :app-id rec-app-id
             :attrs attrs})
 
@@ -1784,7 +1822,7 @@
 (comment
   (def r (resolvers/make-zeneca-resolver))
   (def attrs (attr-model/get-by-app-id zeneca-app-id))
-  (def ctx {:db {:conn-pool aurora/conn-pool}
+  (def ctx {:db {:conn-pool (aurora/conn-pool)}
             :app-id zeneca-app-id
             :attrs attrs})
   (resolvers/walk-friendly
@@ -1796,7 +1834,7 @@
 (comment
   (def app-id #uuid "6a0e56c8-f847-4890-8ae9-06bba6249d34")
   (query
-   {:db {:conn-pool aurora/conn-pool}
+   {:db {:conn-pool (aurora/conn-pool)}
     :app-id app-id
     :attrs (attr-model/get-by-app-id app-id)}
    {:tables {:rows {}, :$ {:where {:id "b2f7658d-c5b5-4486-b298-e811098009b9"}}}}))

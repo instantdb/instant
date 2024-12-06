@@ -403,18 +403,17 @@ program.parse(process.argv);
 async function handlePush(bag, opts) {
   const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
   if (!pkgAndAuthInfo) return;
-  const { ok, appId, source } = await detectOrCreateAppAndWriteToEnv(
+  const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
     pkgAndAuthInfo,
     opts,
   );
   if (!ok) return;
-  printDotEnvInfo(source, appId);
   await push(bag, appId, opts);
 }
 
 async function push(bag, appId, opts) {
   if (bag === "schema" || bag === "all") {
-    const ok = await pushSchema(appId, opts);
+    const { ok } = await pushSchema(appId, opts);
     if (!ok) return;
   }
   if (bag === "perms" || bag === "all") {
@@ -488,7 +487,7 @@ async function handlePull(bag, opts) {
 
 async function pull(bag, appId, pkgAndAuthInfo) {
   if (bag === "schema" || bag === "all") {
-    const ok = await pullSchema(appId, pkgAndAuthInfo);
+    const { ok } = await pullSchema(appId, pkgAndAuthInfo);
     if (!ok) return;
   }
   if (bag === "perms" || bag === "all") {
@@ -731,32 +730,30 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
     errorMessage: "Failed to pull schema.",
   });
 
-  if (!pullRes.ok) return;
+  if (!pullRes.ok) return pullRes;
 
   if (
     !countEntities(pullRes.data.schema.refs) &&
     !countEntities(pullRes.data.schema.blobs)
   ) {
     console.log("Schema is empty. Skipping.");
-    return;
+    return { ok: true };
   }
-
-  const hasSchemaFile = await pathExists(join(pkgDir, "instant.schema.ts"));
-  if (hasSchemaFile) {
+  const prevSchema = await readLocalSchemaFile();
+  if (prevSchema) {
     const ok = await promptOk(
       "This will overwrite your local instant.schema file, OK to proceed?",
     );
 
-    if (!ok) return;
+    if (!ok) return { ok: true };
   }
 
   const schemaPath = join(pkgDir, "instant.schema.ts");
   await writeTypescript(
     schemaPath,
     generateSchemaTypescriptFile(
-      appId,
+      prevSchema,
       pullRes.data.schema,
-      pullRes.data["app-title"],
       instantModuleName,
     ),
     "utf-8",
@@ -764,7 +761,7 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
 
   console.log("Wrote schema to instant.schema.ts");
 
-  return true;
+  return { ok: true };
 }
 
 async function pullPerms(appId, { pkgDir, instantModuleName }) {
@@ -997,9 +994,9 @@ async function waitForIndexingJobsToFinish(appId, data) {
 
 async function pushSchema(appId, opts) {
   const schema = await readLocalSchemaFileWithErrorLogging();
-  if (!schema) return;
+  if (!schema) return { ok: false };
 
-  console.log("Planning...");
+  console.log("Planning schema...");
 
   const planRes = await fetchJson({
     method: "POST",
@@ -1013,11 +1010,11 @@ async function pushSchema(appId, opts) {
     },
   });
 
-  if (!planRes.ok) return;
+  if (!planRes.ok) return planRes;
 
   if (!planRes.data.steps.length) {
-    console.log("No schema changes detected. Exiting.");
-    return;
+    console.log("No schema changes detected. Skipping.");
+    return { ok: true };
   }
 
   console.log(
@@ -1087,7 +1084,7 @@ async function pushSchema(appId, opts) {
   }
 
   const okPush = await promptOk("OK to proceed?");
-  if (!okPush) return;
+  if (!okPush) return { ok: true };
 
   const applyRes = await fetchJson({
     method: "POST",
@@ -1101,7 +1098,7 @@ async function pushSchema(appId, opts) {
     },
   });
 
-  if (!applyRes.ok) return;
+  if (!applyRes.ok) return applyRes;
 
   if (applyRes.data["indexing-jobs"]) {
     await waitForIndexingJobsToFinish(appId, applyRes.data["indexing-jobs"]);
@@ -1109,7 +1106,7 @@ async function pushSchema(appId, opts) {
 
   console.log(chalk.green("Schema updated!"));
 
-  return true;
+  return { ok: true };
 }
 
 async function pushPerms(appId) {
@@ -1118,7 +1115,7 @@ async function pushPerms(appId) {
     return;
   }
 
-  console.log("Planning...");
+  console.log("Planning perms...");
 
   const prodPerms = await fetchJson({
     path: `/dash/apps/${appId}/perms/pull`,
@@ -1241,7 +1238,7 @@ async function fetchJson({
       data = null;
     }
     if (verbose && data) {
-      console.log(debugName, "json:", JSON.stringify(data));
+      console.log(debugName, "json:", JSON.stringify(data, null, 2));
     }
     if (!res.ok) {
       if (withErrorLogging) {
@@ -1249,10 +1246,6 @@ async function fetchJson({
         prettyPrintJSONErr(data);
       }
       return { ok: false, data };
-    }
-
-    if (verbose) {
-      console.log(debugName, "data:", data);
     }
 
     return { ok: true, data };
@@ -1287,7 +1280,7 @@ function prettyPrintJSONErr(data) {
 async function promptOk(message) {
   const options = program.opts();
 
-  if (options.y) return true;
+  if (options.yes) return true;
 
   return await confirm({
     message,
@@ -1465,7 +1458,7 @@ function attrFwdName(attr) {
 }
 
 function attrRevName(attr) {
-  if (attr["reverse-entity"]) {
+  if (attr["reverse-identity"]) {
     return `${attrRevEtype(attr)}.${attrRevLabel(attr)}`;
   }
 }
@@ -1530,12 +1523,12 @@ function generatePermsTypescriptFile(perms, instantModuleName) {
     ? JSON.stringify(perms, null, 2)
     : `
 {
-  /** 
+  /**
    * Welcome to Instant's permission system!
    * Right now your rules are empty. To start filling them in, check out the docs:
    * https://www.instantdb.com/docs/permissions
-   * 
-   * Here's an example to give you a feel: 
+   *
+   * Here's an example to give you a feel:
    * posts: {
    *   allow: {
    *     view: "true",
@@ -1559,46 +1552,130 @@ export default rules;
   `.trim();
 }
 
-function generateSchemaTypescriptFile(id, schema, title, instantModuleName) {
-  const entitiesEntriesCode = sortedEntries(schema.blobs)
-    .map(([name, attrs]) => {
-      // a block of code for each entity
-      return [
-        `  `,
-        `"${name}"`,
-        `: `,
-        `i.entity`,
-        `({`,
-        `\n`,
-        // a line of code for each attribute in the entity
-        sortedEntries(attrs)
-          .filter(([name]) => name !== "id")
-          .map(([name, config]) => {
-            const type = config["checked-data-type"] || "any";
+function schemaBlobToCodeStr(name, attrs) {
+  // a block of code for each entity
+  return [
+    `  `,
+    `"${name}"`,
+    `: `,
+    `i.entity`,
+    `({`,
+    `\n`,
+    // a line of code for each attribute in the entity
+    sortedEntries(attrs)
+      .filter(([name]) => name !== "id")
+      .map(([name, config]) => {
+        const type = config["checked-data-type"] || "any";
 
-            return [
-              `    `,
-              `"${name}"`,
-              `: `,
-              `i.${type}()`,
-              config["unique?"] ? ".unique()" : "",
-              config["index?"] ? ".indexed()" : "",
-              `,`,
-            ].join("");
-          })
-          .join("\n"),
-        `\n`,
-        `  `,
-        `})`,
-        `,`,
-      ].join("");
-    })
+        return [
+          `    `,
+          `"${name}"`,
+          `: `,
+          `i.${type}()`,
+          config["unique?"] ? ".unique()" : "",
+          config["index?"] ? ".indexed()" : "",
+          `,`,
+        ].join("");
+      })
+      .join("\n"),
+    `\n`,
+    `  `,
+    `})`,
+    `,`,
+  ].join("");
+}
+
+/**
+ * Note:
+ * This is _very_ similar to `schemaBlobToCodeStr`.
+ *
+ * Right now, the frontend and backend have slightly different data structures for storing entity info.
+ *
+ * The backend returns {etype: attrs}, where attr keep things like `value-type`
+ * The frontend stores {etype: EntityDef}, where EntityDef has a `valueType` field.
+ *
+ * For now, keeping the two functions separate.
+ */
+function entityDefToCodeStr(name, edef) {
+  // a block of code for each entity
+  return [
+    `  `,
+    `"${name}"`,
+    `: `,
+    `i.entity`,
+    `({`,
+    `\n`,
+    // a line of code for each attribute in the entity
+    sortedEntries(edef.attrs)
+      .map(([name, attr]) => {
+        const type = attr["valueType"] || "any";
+
+        return [
+          `    `,
+          `"${name}"`,
+          `: `,
+          `i.${type}()`,
+          attr?.config["unique"] ? ".unique()" : "",
+          attr?.config["indexed"] ? ".indexed()" : "",
+          `,`,
+        ].join("");
+      })
+      .join("\n"),
+    `\n`,
+    `  `,
+    `})`,
+    `,`,
+  ].join("");
+}
+
+function roomDefToCodeStr(room) {
+  let ret = "{";
+  if (room.presence) {
+    ret += `${entityDefToCodeStr("presence", room.presence)}`;
+  }
+  if (room.topics) {
+    ret += `topics: {`;
+    for (const [topicName, topicConfig] of Object.entries(room.topics)) {
+      ret += entityDefToCodeStr(topicName, topicConfig);
+    }
+    ret += `}`;
+  }
+  ret += "}";
+  return ret;
+}
+
+function roomsCodeStr(rooms) {
+  let ret = "{";
+  for (const [roomType, roomDef] of Object.entries(rooms)) {
+    ret += `"${roomType}": ${roomDefToCodeStr(roomDef)},`;
+  }
+  ret += "}";
+  return ret;
+}
+
+function generateSchemaTypescriptFile(
+  prevSchema,
+  newSchema,
+  instantModuleName,
+) {
+  // entities
+  const entitiesEntriesCode = sortedEntries(newSchema.blobs)
+    .map(([name, attrs]) => schemaBlobToCodeStr(name, attrs))
     .join("\n");
-
   const entitiesObjCode = `{\n${entitiesEntriesCode}\n}`;
+  const etypes = Object.keys(newSchema.blobs);
+  const hasOnlyUserTable = etypes.length === 1 && etypes[0] === "$users";
+  const entitiesComment = hasOnlyUserTable
+    ? `
+// This section lets you define entities: think \`posts\`, \`comments\`, etc
+// Take a look at the docs to learn more:
+// https://www.instantdb.com/docs/schema#defining-entities
+`.trim()
+    : "";
 
-  const linksEntriesCode = Object.fromEntries(
-    sortedEntries(schema.refs).map(([_name, config]) => {
+  // links
+  const linksEntries = Object.fromEntries(
+    sortedEntries(newSchema.refs).map(([_name, config]) => {
       const [, fe, flabel] = config["forward-identity"];
       const [, re, rlabel] = config["reverse-identity"];
       const [fhas, rhas] = rels[`${config.cardinality}-${config["unique?"]}`];
@@ -1619,38 +1696,54 @@ function generateSchemaTypescriptFile(id, schema, title, instantModuleName) {
       ];
     }),
   );
+  const linksEntriesCode = JSON.stringify(linksEntries, null, "  ").trim();
+  const hasNoLinks = Object.keys(linksEntries).length === 0;
+  const linksComment = hasNoLinks
+    ? `
+  // You can define links here.
+  // For example, if \`posts\` should have many \`comments\`.
+  // More in the docs:
+  // https://www.instantdb.com/docs/schema#defining-links
+  `.trim()
+    : "";
+
+  // rooms
+  const rooms = prevSchema?.rooms || {};
+  const roomsCode = roomsCodeStr(rooms);
+  const roomsComment =
+    Object.keys(rooms).length === 0
+      ? `
+// If you use presence, you can define a room schema here
+// https://www.instantdb.com/docs/schema#defining-rooms
+  `.trim()
+      : "";
+
+  const kv = (k, v, comment) => {
+    return comment
+      ? `
+        ${comment}
+        ${k}: ${v}
+      `.trim()
+      : `${k}: ${v}`;
+  };
 
   return `
-// ${appDashUrl(id)}
 // Docs: https://www.instantdb.com/docs/schema
 
 import { i } from "${instantModuleName ?? "@instantdb/core"}";
 
-const graph = i.graph(
-${
-  Object.keys(schema.blobs).length === 1 &&
-  Object.keys(schema.blobs)[0] === "$users"
-    ? `
-// This section lets you define entities: think \`posts\`, \`comments\`, etc
-// Take a look at the docs to learn more:
-// https://www.instantdb.com/docs/schema#defining-entities
-`.trim()
-    : ""
-}
-${indentLines(entitiesObjCode, 1)},
-${
-  Object.keys(schema.refs).length === 0
-    ? `
-// You can define links here.
-// For example, if \`posts\` should have many \`comments\`.
-// More in the docs:
-// https://www.instantdb.com/docs/schema#defining-links
-`.trim()
-    : ""
-}
-${indentLines(JSON.stringify(linksEntriesCode, null, "  "), 1)}
-);
+const _schema = i.schema({
+  ${kv("entities", entitiesObjCode, entitiesComment)},
+  ${kv("links", linksEntriesCode, linksComment)},
+  ${kv("rooms", roomsCode, roomsComment)}
+});
 
-export default graph;
+// This helps Typescript display nicer intellisense
+type _AppSchema = typeof _schema;
+interface AppSchema extends _AppSchema {}
+const schema: AppSchema = _schema;
+
+export { type AppSchema }
+export default schema;
 `;
 }

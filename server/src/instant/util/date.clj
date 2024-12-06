@@ -4,7 +4,11 @@
    (java.time.format DateTimeFormatter)
    (java.time.temporal TemporalAdjusters)))
 
+(def ^ZoneRegion pst-zone (ZoneId/of "America/Los_Angeles"))
 (def ^ZoneRegion est-zone (ZoneId/of "America/New_York"))
+
+(defn pst-now ^ZonedDateTime []
+  (ZonedDateTime/now pst-zone))
 
 (defn est-now ^ZonedDateTime []
   (ZonedDateTime/now est-zone))
