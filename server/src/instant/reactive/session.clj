@@ -359,26 +359,25 @@
                                                :data data})))
 
 (defn handle-event [store-conn eph-store-atom session event debug-info]
-  (tracer/with-span! {:name "receive-worker/handle-event"}
-    (let [{:keys [op]} event
-          {:keys [session/socket]} session
-          {:keys [id]} socket]
-      (tracer/add-data! {:attributes (event-attributes store-conn id event)})
-      (case op
-        :init (handle-init! store-conn id event)
-        :add-query (handle-add-query! store-conn id event)
-        :remove-query (handle-remove-query! store-conn id event)
-        :refresh (handle-refresh! store-conn id event debug-info)
-        :transact (handle-transact! store-conn id event)
-        :error (handle-error! store-conn id event)
-        ;; -----
-        ;; EPH events
-        :join-room (handle-join-room! store-conn eph-store-atom id event)
-        :leave-room (handle-leave-room! store-conn eph-store-atom id event)
-        :set-presence (handle-set-presence! store-conn eph-store-atom id event)
-        :refresh-presence (handle-refresh-presence! store-conn id event)
-        :client-broadcast (handle-client-broadcast! store-conn eph-store-atom id event)
-        :server-broadcast (handle-server-broadcast! store-conn eph-store-atom id event)))))
+  (let [{:keys [op]} event
+        {:keys [session/socket]} session
+        {:keys [id]} socket]
+    (tracer/add-data! {:attributes (event-attributes store-conn id event)})
+    (case op
+      :init (handle-init! store-conn id event)
+      :add-query (handle-add-query! store-conn id event)
+      :remove-query (handle-remove-query! store-conn id event)
+      :refresh (handle-refresh! store-conn id event debug-info)
+      :transact (handle-transact! store-conn id event)
+      :error (handle-error! store-conn id event)
+      ;; -----
+      ;; EPH events
+      :join-room (handle-join-room! store-conn eph-store-atom id event)
+      :leave-room (handle-leave-room! store-conn eph-store-atom id event)
+      :set-presence (handle-set-presence! store-conn eph-store-atom id event)
+      :refresh-presence (handle-refresh-presence! store-conn id event)
+      :client-broadcast (handle-client-broadcast! store-conn eph-store-atom id event)
+      :server-broadcast (handle-server-broadcast! store-conn eph-store-atom id event))))
 
 ;; --------------
 ;; Receive Workers
