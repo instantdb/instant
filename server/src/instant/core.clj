@@ -26,6 +26,7 @@
    [instant.reactive.store :as rs]
    [instant.runtime.routes :as runtime-routes]
    [instant.scripts.analytics :as analytics]
+   [instant.scripts.daily-metrics :as daily-metrics]
    [instant.session-counter :as session-counter]
    [instant.storage.routes :as storage-routes]
    [instant.stripe :as stripe]
@@ -186,6 +187,9 @@
   (when (= (config/get-env) :prod)
     (log/info "Starting analytics")
     (analytics/start))
+  (when (= (config/get-env) :prod)
+    (log/info "Starting daily metrics")
+    (daily-metrics/start))
   (start)
   (add-shutdown-hook))
 

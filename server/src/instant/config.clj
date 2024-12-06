@@ -69,6 +69,9 @@
 (def discord-signups-channel-id
   "1235663275144908832")
 
+(def discord-teams-channel-id
+  "1196584090552512592")
+
 (def discord-debug-channel-id
   "1235659966627582014")
 
