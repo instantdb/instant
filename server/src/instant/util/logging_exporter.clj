@@ -120,14 +120,27 @@
 (def exclude-span?
   (if (= :prod (config/get-env))
     (fn [span]
-      (let [name (.getName span)
-            attrs (.getAttributes span)]
-        (or (= name "ws/send-json!")
-            (when-let [op (.get attrs op-attr-key)]
-              (or (= op ":set-presence")
-                  (= op ":refresh-presence")
-                  (= op ":server-broadcast")
-                  (= op ":client-broadcast"))))))
+      (or (case (.getName span)
+            ("ws/send-json!"
+             "handle-refresh/send-event!"
+             "store/record-datalog-query-finish!"
+             "store/record-datalog-query-start!"
+             "store/swap-datalog-cache-delay!"
+             "store/bump-instaql-version!"
+             "store/add-instaql-query!") true
+
+            ("receive-worker/handle-event"
+             "receive-worker/handle-receive")
+            (case (-> (.getAttributes span)
+                      (.get op-attr-key))
+              (":set-presence"
+               ":refresh-presence"
+               ":server-broadcast"
+               ":client-broadcast") true
+
+              false)
+
+            false)))
     (fn [_span]
       false)))
 

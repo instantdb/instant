@@ -74,24 +74,23 @@
   "Filters datalog results to only keys that the client will use and
  dedupes the triples."
   [instaql-results]
-  (tracer/with-span! {:name "collect-instaql-results-for-client"}
-    (let [{:keys [triples page-info aggregate]}
-          (reduce (fn [acc instaql-result]
-                    (let [{:keys [triples page-info aggregate]} (collect-triples instaql-result)]
-                      (-> acc
-                          (update :triples into triples)
-                          (update :page-info merge page-info)
-                          (update :aggregate merge aggregate))))
-                  {:triples #{}
-                   :page-info {}
-                   :aggregate {}}
-                  instaql-results)]
-      [{:data (merge {:datalog-result {:join-rows [triples]}}
-                     (when (seq page-info)
-                       {:page-info page-info})
-                     (when (seq aggregate)
-                       {:aggregate aggregate}))
-        :child-nodes []}])))
+  (let [{:keys [triples page-info aggregate]}
+        (reduce (fn [acc instaql-result]
+                  (let [{:keys [triples page-info aggregate]} (collect-triples instaql-result)]
+                    (-> acc
+                        (update :triples into triples)
+                        (update :page-info merge page-info)
+                        (update :aggregate merge aggregate))))
+                {:triples #{}
+                 :page-info {}
+                 :aggregate {}}
+                instaql-results)]
+    [{:data (merge {:datalog-result {:join-rows [triples]}}
+                   (when (seq page-info)
+                     {:page-info page-info})
+                   (when (seq aggregate)
+                     {:aggregate aggregate}))
+      :child-nodes []}]))
 
 (defn instaql-query-reactive!
   "Returns the result of an instaql query while producing book-keeping side
