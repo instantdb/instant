@@ -89,12 +89,12 @@ prod-psql:
 	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
 	echo "[IMPORTANT] Connecting to prod db -- are you sure you want to do this? [y/N]" && \
 		read ans && [ $$ans = y ] && \
-		psql $${DATABASE_URL}
+		psql "$${DATABASE_URL}"
 
 psql-dump:
 	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
 	echo "Exporting prod db..." && \
-	pg_dump $${DATABASE_URL} -f dump.sql
+	pg_dump "$${DATABASE_URL}" --schema-only -f dump.sql
 
 tail-web:
 	aws logs tail /aws/elasticbeanstalk/Instant-docker-prod-env-2/var/log/eb-docker/containers/eb-current-app/stdouterr.log --follow
