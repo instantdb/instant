@@ -546,17 +546,11 @@ export default class Reactor {
       return;
     }
 
-    const q = msg.q || msg["original-event"]?.q;
-    if (q) {
+    const q = msg["original-event"]?.q;
+    if (q && msg["original-event"]?.op === "add-query") {
       const hash = weakHash(q);
-
-      // This must be a query error
-      this.querySubs.set((prev) => {
-        delete prev[hash];
-        return prev;
-      });
       this.notifyQueryError(weakHash(q), errorMessage);
-      this.notifyQueryOnceError(hash, eventId, errorMessage);
+      this.notifyQueryOnceError(q, hash, eventId, errorMessage);
       return;
     }
 
@@ -591,10 +585,11 @@ export default class Reactor {
     }
   }
 
-  notifyQueryOnceError(hash, eventId, e) {
+  notifyQueryOnceError(q, hash, eventId, e) {
     const r = this.queryOnceDfds[hash]?.find((r) => r.eventId === eventId);
     if (!r) return;
     r.dfd.reject(e);
+    this._completeQueryOnce(q, hash, r.dfd);
   }
 
   _setAttrs(attrs) {
