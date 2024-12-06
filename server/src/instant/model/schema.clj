@@ -27,7 +27,7 @@
                                            :cardinality :one
                                            :id (UUID/randomUUID)
                                            :forward-identity [(UUID/randomUUID) (name ns-name) "id"]
-                                           :unique? false
+                                           :unique? true
                                            :index? false}])) new-blobs)
         blob-ops (mapcat
                   (fn [[ns-name attrs]]
