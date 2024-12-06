@@ -59,7 +59,7 @@
                     ["WITH date_range AS (
                     SELECT
                       COALESCE(MAX(date) + INTERVAL '1 day', '2022-01-01') AS last_seen_date,
-                      CURRENT_DATE - INTERVAL '1 day' AS max_date
+                      CURRENT_DATE AS max_date
                     FROM daily_app_transactions
                   ),
                   earliest_transaction_per_app AS (
@@ -85,8 +85,8 @@
                     WHERE t.created_at > dr.last_seen_date and t.created_at < dr.max_date AND DATE(t.created_at) NOT IN ('2024-10-28')
                     GROUP BY 1, 2, 3, 4
                   )
-                  INSERT INTO daily_app_transactions (date, app_id, is_active, count)
-                  SELECT date, app_id, is_active, count
+                  INSERT INTO daily_app_transactions (date, app_id, active_date, is_active, count)
+                  SELECT date, app_id, active_date, is_active, count
                   FROM new_transactions;"])))
 
 (defn daily-job!
