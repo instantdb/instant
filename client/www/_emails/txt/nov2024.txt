@@ -1,0 +1,36 @@
+
+Hey crew! It’s time for another edition of Instant News 🙂 Here’s a slice of what happened in November!
+
+**Announcing enforced types on the backend**
+
+Previously you could define types for intellisense but there wasn’t a way to strictly enforce them on the backend. You can now define these attributes in [code](https://www.instantdb.com/docs/schema), or in the [dashboard](https://www.instantdb.com/dash) and they will be enforced on the backend.
+
+You can still use Instant without defining a schema up-front. This is great for rapid prototyping. Once you’re ready to start locking down your schema we’ve got you covered :)
+
+C**omparison operators in InstaQL**
+
+With typed attributes, queries get more powerful too. Starting from `v0.16.0` You can use [comparison operators](https://www.instantdb.com/docs/instaql#comparison-operators) in your queries!
+
+In order to use comparison operators, you need to set the type and index an attribute. This makes it so any query you write with comparison operators stays fast as heck (Fun fact, most databases will not tell you to index attributes for comparison, which end up being footguns)
+
+**Fuzzy-search in InstaQL**
+
+With indexing and comparison operators landing, it was a fast-follow to also enable `$like` queries!. When you index your string fields, you can now use things like `startsWith`, `endsWith`, and `includes` in your InstaQL queries!
+
+**Default Permissions**
+
+All user namespaces have default permissions of true. This makes it easy for getting started. Once you want to start locking down your data model, you’ll likely want to add permission rules. With the `$default` keyword it’ll be much easier to apply the same set of rules across actions and namespaces :)
+
+**Instant at Clojure Conj 2024**
+
+In last month’s edition we mentioned that Stopa (CTO of Instant) was giving a talk at Clojure Conj 2024. Super excited to share that the video has now been uploaded!
+
+Following up from [A Graph-Based Firebase](https://www.instantdb.com/essays/next_firebase), Stopa discusses the common schleps developers face when building apps, and how Instant compresses them. [Give this a watch](https://youtu.be/6FikTQf8qho?feature=shared&t=8) if you’re interested in learning more about how Instant works under the hood!
+
+**What’s next?**
+
+We shipped a ton of platform upgrades in November and we’ve got a slew of upgrades coming in December as well. At the end of 2023 we shipped the “mvp” version of Instant and one year later the platform is becoming much more formidable. We’re actively prioritizing common asks so if there’s a feature you want please let us know on our [Discord](https://github.com/instantdb/instant)
+
+**P.S. We’re hiring!**
+
+If you’re interested in working on some of the hardest problems for modern app development drop us a line at founders@instantdb.com with a resume and a side project you’ve worked on (including a Github is a huge plus!)
