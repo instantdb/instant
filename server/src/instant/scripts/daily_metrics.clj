@@ -12,7 +12,7 @@
    [instant.jdbc.sql :as sql]
    [instant.grab :as grab])
   (:import
-   (java.time Period LocalDate)))
+   (java.time Instant Period LocalDate)))
 
 (defn excluded-emails []
   (let [{:keys [test team friend]} (get-emails)]
@@ -90,21 +90,21 @@
                   FROM new_transactions;"])))
 
 (defn daily-job!
-  ([] (daily-job! (-> (LocalDate/now) (.minusDays 1))))
-  ([date-obj]
-   (let [date-str (date/numeric-date-str date-obj)]
-     (grab/run-once!
-      (str "daily-metrics-" date-str)
-      (fn []
-        (insert-new-activity)
-        (let [stats (get-daily-actives date-str)]
-          (send-discord! stats date-str)))))))
+  [^Instant date]
+  (let [date-str (date/numeric-date-str (.atZone date date/pst-zone))]
+    (grab/run-once!
+     (str "daily-metrics-" date-str)
+     (fn []
+       (insert-new-activity)
+       (let [stats (get-daily-actives date-str)]
+         (send-discord! stats date-str))))))
 
 (comment
-  (def t1 (first (period)))
-  (def t2 (LocalDate/parse "2024-10-05"))
-  (date/numeric-date-str t1)
-  (daily-job! t2))
+  (def t1 (-> (LocalDate/parse "2024-10-06")
+              (.atTime 15 38)
+              (.atZone date/pst-zone)
+              .toInstant))
+  (daily-job! t1))
 
 (defn period []
   (let [now (date/pst-now)
