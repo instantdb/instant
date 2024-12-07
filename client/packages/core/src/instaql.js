@@ -469,12 +469,11 @@ function isBefore(startCursor, orderAttr, direction, idVec) {
     return compareOrder(idVec, [c_e, c_t]) === compareVal;
   }
   const [e, v] = idVec;
-  return (
-    compareOrder(
-      [e, orderAttr["checked-data-type"] === "date" ? new Date(v) : v],
-      [c_e, orderAttr["checked-data-type"] === "date" ? new Date(c_v) : c_v],
-    ) === compareVal
-  );
+  const v_new =
+    orderAttr["checked-data-type"] === "date" ? new Date(v).getTime() : v;
+  const c_v_new =
+    orderAttr["checked-data-type"] === "date" ? new Date(c_v).getTime() : c_v;
+  return compareOrder([e, v_new], [c_e, c_v_new]) === compareVal;
 }
 
 function orderAttrFromCursor(store, cursor) {
@@ -493,7 +492,7 @@ function runDataloadAndReturnObjects(store, etype, direction, pageInfo, dq) {
 
   if (orderAttr?.["checked-data-type"] === "date") {
     // Convert to Date so that we can use <, > on the values
-    idVecs = idVecs.map(([id, v]) => [id, new Date(v)]);
+    idVecs = idVecs.map(([id, v]) => [id, new Date(v).getTime(), v]);
   }
 
   idVecs.sort(function compareIdVecs(a, b) {
@@ -517,12 +516,6 @@ function runDataloadAndReturnObjects(store, etype, direction, pageInfo, dq) {
       orderAttr &&
       isBefore(startCursor, orderAttr, direction, idVec)
     ) {
-      console.log(
-        "REJECTED",
-        startCursor,
-        orderAttr["forward-identity"][2],
-        idVec,
-      );
       continue;
     }
 
