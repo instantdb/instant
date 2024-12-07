@@ -325,23 +325,6 @@ export default class Reactor {
     });
   };
 
-  /**
-   * On refresh we clear out pending mutations that we know have been applied
-   * by the server and thus those mutations are applied in the instaql result
-   * returned by the server
-   */
-  _cleanPendingMutations(txId) {
-    this.pendingMutations.set((prev) => {
-      const copy = new Map(prev);
-      [...prev.entries()].forEach(([eventId, mut]) => {
-        if (mut["tx-id"] <= txId) {
-          copy.delete(eventId);
-        }
-      });
-      return copy;
-    });
-  }
-
   _flushEnqueuedRoomData(roomId) {
     const enqueuedUserPresence = this._presence[roomId]?.result?.user;
     const enqueuedBroadcasts = this._broadcastQueue[roomId];
@@ -388,8 +371,7 @@ export default class Reactor {
         this.notifyOneQueryOnce(weakHash(msg.q));
         break;
       case "add-query-ok":
-        const { q, result, "processed-tx-id": addQueryTxId } = msg;
-        this._cleanPendingMutations(addQueryTxId);
+        const { q, result } = msg;
         const hash = weakHash(q);
         const pageInfo = result?.[0]?.data?.["page-info"];
         const aggregate = result?.[0]?.data?.["aggregate"];
@@ -408,8 +390,7 @@ export default class Reactor {
         this.notifyOneQueryOnce(hash);
         break;
       case "refresh-ok":
-        const { computations, attrs, "processed-tx-id": refreshOkTxId } = msg;
-        this._cleanPendingMutations(refreshOkTxId);
+        const { computations, attrs } = msg;
         this._setAttrs(attrs);
         const updates = computations.map((x) => {
           const q = x["instaql-query"];
@@ -447,20 +428,35 @@ export default class Reactor {
           break;
         }
 
-        const mut = { ...prevMutation, "tx-id": txId };
-
+        // Now that this transaction is accepted, 
+        // We can delete it from our queue. 
         this.pendingMutations.set((prev) => {
-          prev.set(eventId, mut);
+          prev.delete(eventId);
           return prev;
         });
-
-        this._finishTransaction("synced", eventId);
+        
+        // We apply this transaction to all our existing queries
+        const txStepsToApply = prevMutation["tx-steps"];
+        this.querySubs.set((prev) => {
+          for (const [hash, sub] of Object.entries(prev)) {
+            const store = sub?.result?.store;
+            if (!store) {
+              continue;
+            }
+            const newStore = s.transact(store, txStepsToApply);
+            prev[hash].result.store = newStore;
+          }
+          return prev;
+        })
 
         const newAttrs = prevMutation["tx-steps"]
           .filter(([action, ..._args]) => action === "add-attr")
           .map(([_action, attr]) => attr)
           .concat(Object.values(this.attrs));
+        
         this._setAttrs(newAttrs);
+        
+        this._finishTransaction("synced", eventId);
         break;
       case "refresh-presence":
         const roomId = msg["room-id"];
@@ -1348,7 +1344,9 @@ export default class Reactor {
     this.connectionStatusCbs.push(cb);
 
     return () => {
-      this.connectionStatusCbs = this.connectionStatusCbs.filter((x) => x !== cb);
+      this.connectionStatusCbs = this.connectionStatusCbs.filter(
+        (x) => x !== cb,
+      );
     };
   }
 
@@ -1485,7 +1483,7 @@ export default class Reactor {
           appId: this.config.appId,
           refreshToken,
         });
-      } catch (e) { }
+      } catch (e) {}
     }
     await this.changeCurrentUser(null);
   }
