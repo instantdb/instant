@@ -43,6 +43,7 @@
 (defn reverse-compare [a b]
   (compare b a))
 
+;; XXX: Needs to sort by the orderby field
 (defn sort-entries [option-map entries]
   (let [{:keys [k direction]} (:order option-map)
         compare-fn (if (and (= k "serverCreatedAt")
