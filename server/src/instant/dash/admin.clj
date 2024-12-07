@@ -62,12 +62,12 @@
                  [(str "SELECT
                           u.email AS user_email,
                           a.title AS app_title,
-                          COUNT(*) AS total_transactions
-                        FROM transactions t
+                          SUM(t.count) AS total_transactions
+                        FROM daily_app_transactions t
                         JOIN apps a ON t.app_id = a.id
                         JOIN instant_users u ON a.creator_id = u.id
                         WHERE u.email NOT IN (SELECT unnest(?::text[]))
-                          AND t.created_at::date BETWEEN NOW() - INTERVAL '" interval "' AND NOW()
+                          AND t.date::date BETWEEN NOW() - INTERVAL '" interval "' AND NOW()
                         GROUP BY u.email, a.title
                         ORDER BY total_transactions DESC;")
                   (with-meta (excluded-emails) {:pgtype "text[]"})]))))
