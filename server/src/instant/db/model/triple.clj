@@ -463,10 +463,7 @@
                                   :av
                                   [:= :attr-id (first id)]
                                   [:=
-                                   :value-md5
-                                   [:md5 [:cast
-                                          [:cast (->json (second id)) :jsonb]
-                                          :text]]]]}
+                                   :value [:cast (->json (second id)) :jsonb]]]}
                          id)]
                    (if etype
                      [[:and
@@ -485,7 +482,7 @@
                       [:and
                        ;; Delete ref triples where we're the value
                        :vae
-                       [:= :value-md5 [:md5 [:cast [:to_jsonb id] :text]]]
+                       [:= :value [:to_jsonb id]]
                        [:in
                         :attr-id
                         {:select :attrs.id
@@ -500,7 +497,7 @@
                      [[:= :entity-id id-lookup]
                       [:and
                        :vae
-                       [:= :value-md5 [:md5 [:cast [:to_jsonb [id-lookup]] :text]]]]])))
+                       [:= :value [:to_jsonb [id-lookup]]]]])))
                id+etypes)
         query {:delete-from :triples
                :where [:and [:= :app-id app-id]
