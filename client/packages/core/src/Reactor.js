@@ -449,13 +449,14 @@ export default class Reactor {
           return prev;
         })
 
-        this._finishTransaction("synced", eventId);
-
         const newAttrs = prevMutation["tx-steps"]
           .filter(([action, ..._args]) => action === "add-attr")
           .map(([_action, attr]) => attr)
           .concat(Object.values(this.attrs));
+        
         this._setAttrs(newAttrs);
+        
+        this._finishTransaction("synced", eventId);
         break;
       case "refresh-presence":
         const roomId = msg["room-id"];
