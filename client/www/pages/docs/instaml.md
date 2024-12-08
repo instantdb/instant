@@ -250,8 +250,9 @@ If your entity has a unique attribute, you can use `lookup` in place of the id t
 ```javascript
 import { lookup } from '@instantdb/core';
 
+// Update the company name from Facebook to Meta without knowing the id
 db.transact([
-  tx.users[lookup('email', 'max@example.com')].update({ name: 'Max' }),
+  tx.companies[lookup('name', 'Facebook')].update({ name: 'Meta' }),
 ]);
 ```
 
@@ -264,10 +265,31 @@ It can be used with `update`, `delete`, `merge`, `link`, and `unlink`.
 When used with links, it can also be used in place of the linked entity's id.
 
 ```javascript
+import { lookup } from '@instantdb/core';
+
+// Link Meta to the the core value 'Move fast and break things' without knowing
+// the id of Meta or the core value
 db.transact([
-  tx.users[lookup('email', 'max@example.com')].link({
-    posts: lookup('number', 15),
+  tx.companies[lookup('name', 'Meta')].link({
+    values: lookup('title', 'Move fast and break things'),
   }),
+]);
+```
+
+## Lookup by unique attribute in linked entity
+
+You can give `lookup` a unique attribute of a linked entity. This only works
+if there is a many-to-one or one-to-one relationship between the two entities.
+
+```javascript
+import { lookup } from '@instantdb/core';
+
+// Update a user's profile information without knowing the user's id
+// This works only if 1) the email is unique and 2) profile is a one-to-one
+// link to the user
+const email = "alyssa_p_hacker@instantdb.com";
+db.transact([
+  tx.profile[lookup('$users.email', email)].update({ favoriteLisp: 'Clojure' }),
 ]);
 ```
 
