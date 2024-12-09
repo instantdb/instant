@@ -12,7 +12,7 @@
    [instant.jdbc.sql :as sql]
    [instant.grab :as grab])
   (:import
-   (java.time Instant Period LocalDate)))
+   (java.time Instant Period LocalDate DayOfWeek)))
 
 (defn excluded-emails []
   (let [{:keys [test team friend]} (get-emails)]
@@ -119,9 +119,14 @@
         periodic-seq (chime-core/periodic-seq
                       nine-am-pst
                       (Period/ofDays 1))]
-
     (->> periodic-seq
-         (filter (fn [x] (.isAfter x now))))))
+         (filter (fn [x] (.isAfter x now)))
+         ;; Only run on weekdays
+         (filter (fn [x]
+                   (let [day-of-week (.getDayOfWeek x)]
+                     (and
+                      (not= day-of-week java.time.DayOfWeek/SATURDAY)
+                      (not= day-of-week java.time.DayOfWeek/SUNDAY))))))))
 
 (defn start []
   (log/info "Starting daily metrics daemon")
