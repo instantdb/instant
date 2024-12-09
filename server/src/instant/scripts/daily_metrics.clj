@@ -125,8 +125,8 @@
          (filter (fn [x]
                    (let [day-of-week (.getDayOfWeek x)]
                      (and
-                      (not= day-of-week java.time.DayOfWeek/SATURDAY)
-                      (not= day-of-week java.time.DayOfWeek/SUNDAY))))))))
+                      (not= day-of-week DayOfWeek/SATURDAY)
+                      (not= day-of-week DayOfWeek/SUNDAY))))))))
 
 (defn start []
   (log/info "Starting daily metrics daemon")
