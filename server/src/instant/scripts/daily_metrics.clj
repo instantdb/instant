@@ -12,7 +12,7 @@
    [instant.jdbc.sql :as sql]
    [instant.grab :as grab])
   (:import
-   (java.time Instant Period LocalDate)))
+   (java.time Instant Period LocalDate DayOfWeek)))
 
 (defn excluded-emails []
   (let [{:keys [test team friend]} (get-emails)]
@@ -26,7 +26,6 @@
    (sql/select-one conn
                    ["SELECT
                   dat.date as date_start,
-                  COUNT(dat.count) AS total_transactions,
                   COUNT(DISTINCT u.id) AS distinct_users,
                   COUNT(DISTINCT a.id) AS distinct_apps
                 FROM daily_app_transactions dat
@@ -91,17 +90,23 @@
 
 (defn daily-job!
   [^Instant date]
-  (let [date-str (date/numeric-date-str (.atZone date date/pst-zone))]
+  (let [date-minus-one (-> date (.minus (Period/ofDays 1)))
+        date-fn (fn [x] (date/numeric-date-str (.atZone x date/pst-zone)))
+        ;; We run this job for a particular day
+        date-str (date-fn date)
+        ;; But report the metrics for the previous day since we don't
+        ;; have the full day's data yet
+        date-minus-one-str (date-fn date-minus-one)]
     (grab/run-once!
      (str "daily-metrics-" date-str)
      (fn []
        (insert-new-activity)
-       (let [stats (get-daily-actives date-str)]
-         (send-discord! stats date-str))))))
+       (let [stats (get-daily-actives date-minus-one-str)]
+         (send-discord! stats date-minus-one-str))))))
 
 (comment
-  (def t1 (-> (LocalDate/parse "2024-10-06")
-              (.atTime 15 38)
+  (def t1 (-> (LocalDate/parse "2024-10-09")
+              (.atTime 9 0)
               (.atZone date/pst-zone)
               .toInstant))
   (daily-job! t1))
@@ -114,9 +119,14 @@
         periodic-seq (chime-core/periodic-seq
                       nine-am-pst
                       (Period/ofDays 1))]
-
     (->> periodic-seq
-         (filter (fn [x] (.isAfter x now))))))
+         (filter (fn [x] (.isAfter x now)))
+         ;; Only run on weekdays
+         (filter (fn [x]
+                   (let [day-of-week (.getDayOfWeek x)]
+                     (and
+                      (not= day-of-week DayOfWeek/SATURDAY)
+                      (not= day-of-week DayOfWeek/SUNDAY))))))))
 
 (defn start []
   (log/info "Starting daily metrics daemon")
