@@ -995,7 +995,6 @@
 (defn query-normal
   "Generates and runs a nested datalog query, then collects the results into nodes."
   [ctx o]
-  (tool/def-locals)
   (let [query-hash (forms-hash o)]
     (tracer/with-span! {:name "instaql/query-nested"
                         :attributes {:app-id (:app-id ctx)
@@ -1006,7 +1005,6 @@
             {:keys [patterns forms]} (instaql-query->patterns ctx o)
             datalog-result (datalog-query-fn (assoc ctx :query-hash query-hash)
                                              patterns)]
-        (tool/def-locals)
         (collect-query-results (:data datalog-result) forms)))))
 
 ;; BYOP InstaQL

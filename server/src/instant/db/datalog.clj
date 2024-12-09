@@ -1078,7 +1078,6 @@
            after]
     :as _page-info}
    ctes]
-  (tool/def-locals)
   (let [[but-last [table query & opts]] (coll/split-last-vec ctes)
         entity-id-col (kw table :-entity-id)
         sym-component-type (component-type-of-sym named-pattern order-sym)
@@ -1839,7 +1838,6 @@
    ```"
   [{:keys [app-id missing-attr? db datalog-loader] :as ctx}
    patterns]
-  (tool/def-locals)
   (if (map? patterns)
     (query-nested ctx patterns)
     (let [named-patterns (->named-patterns patterns)]
