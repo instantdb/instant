@@ -91,17 +91,23 @@
 
 (defn daily-job!
   [^Instant date]
-  (let [date-str (date/numeric-date-str (.atZone date date/pst-zone))]
+  (let [date-minus-one (-> date (.minus (Period/ofDays 1)))
+        date-fn (fn [x] (date/numeric-date-str (.atZone x date/pst-zone)))
+        ;; We run this job for a particular day
+        date-str (date-fn date)
+        ;; But report the metrics for the previous day since we don't
+        ;; have the full day's data yet
+        date-minus-one-str (date-fn date-minus-one)]
     (grab/run-once!
      (str "daily-metrics-" date-str)
      (fn []
        (insert-new-activity)
-       (let [stats (get-daily-actives date-str)]
-         (send-discord! stats date-str))))))
+       (let [stats (get-daily-actives date-minus-one-str)]
+         (send-discord! stats date-minus-one-str))))))
 
 (comment
-  (def t1 (-> (LocalDate/parse "2024-10-06")
-              (.atTime 15 38)
+  (def t1 (-> (LocalDate/parse "2024-10-09")
+              (.atTime 9 0)
               (.atZone date/pst-zone)
               .toInstant))
   (daily-job! t1))
