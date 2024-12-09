@@ -26,7 +26,6 @@
    (sql/select-one conn
                    ["SELECT
                   dat.date as date_start,
-                  COUNT(dat.count) AS total_transactions,
                   COUNT(DISTINCT u.id) AS distinct_users,
                   COUNT(DISTINCT a.id) AS distinct_apps
                 FROM daily_app_transactions dat
