@@ -17,7 +17,7 @@ if [ -z "$instance_id" ]; then
   instance_id=$(
     aws ec2 describe-instances \
       --filter "Name=tag:elasticbeanstalk:environment-name,Values=Instant-docker-prod-env-2" \
-      --query "Reservations[].Instances[?State.Name == 'running'].InstanceId[]" \
+      --query "Reservations[].Instances[?State.Name == 'running'].InstanceId[] | [0]" \
       --output text
   )
 fi
