@@ -152,10 +152,10 @@
              :message "Expected a join row for the cursor, got 10."}
            (validation-err {:users
                             {:$ {:before 10}}})))
-    (is (= '{:expected valid-order?
-             :in ["users" :$ :order "random-field"],
+    (is (= '{:expected supported-order?
+             :in ["users" :$ :order],
              :message
-             "We currently only support \"serverCreatedAt\" as the sort key in the `order` clause. Got \"random-field\"."}
+             "There is no `random-field` attribute for users."}
            (validation-err {:users
                             {:$ {:order {:random-field "desc"}}}})))
     (is (= '{:expected valid-direction?,
@@ -215,6 +215,21 @@
                                     :value-type :blob
                                     :checked-data-type t
                                     :cardinality :one}]))
+        (tx/transact! (aurora/conn-pool)
+                      (attr-model/get-by-app-id (:id app))
+                      (:id app)
+                      [[:add-attr {:id (random-uuid)
+                                   :forward-identity [(random-uuid) "etype" "unchecked"]
+                                   :unique? false
+                                   :index? false
+                                   :value-type :blob
+                                   :cardinality :one}]
+                       [:add-attr {:id (random-uuid)
+                                   :forward-identity [(random-uuid) "etype" "id"]
+                                   :unique? true
+                                   :index? false
+                                   :value-type :blob
+                                   :cardinality :one}]])
         (let [ctx (let [attrs (attr-model/get-by-app-id (:id app))]
                     {:db {:conn-pool (aurora/conn-pool)}
                      :app-id (:id app)
@@ -261,7 +276,13 @@
                    :in ["etype" :$ :where "string" :$like],
                    :message
                    "The $like value for `etype.string` must be a string, but the query got the value `10` of type `number`."}
-                 (validation-err ctx {:etype {:$ {:where {:string {:$like 10}}}}}))))))))
+                 (validation-err ctx {:etype {:$ {:where {:string {:$like 10}}}}})))
+
+          (is (= '{:expected supported-order?,
+                   :in ["etype" :$ :order],
+                   :message
+                   "The `etype.unchecked` attribute is not indexed. Only indexed and type-checked attrs can be used to order by."}
+                 (validation-err ctx {:etype {:$ {:order {:unchecked "desc"}}}}))))))))
 
 (deftest pagination
   (testing "limit"
@@ -543,6 +564,302 @@
                                  :after alex-cursor
                                  :order {:serverCreatedAt "desc"}}))))))))
 
+(deftest pagination-with-checked-fields
+  (with-zeneca-checked-data-app
+    (fn [app r]
+      (let [ctx {:db {:conn-pool (aurora/conn-pool)}
+                 :app-id (:id app)
+                 :attrs (attr-model/get-by-app-id (:id app))}]
+        (testing "limit"
+          (is-pretty-eq? (query-pretty ctx r {:users {:$ {:limit 2
+                                                          :order {:handle :desc}}}})
+                         '({:topics #{[:eav _ #{:users/id} _]
+                                      --
+                                      [:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
+                                                                          :users/createdAt
+                                                                          :users/email
+                                                                          :users/id
+                                                                          :users/fullName
+                                                                          :users/handle} _]
+                                      [:ea #{"eid-nicole"} #{:users/bookshelves
+                                                             :users/createdAt
+                                                             :users/email
+                                                             :users/id
+                                                             :users/fullName
+                                                             :users/handle} _]
+                                      [:ave #{"eid-nicole" "eid-stepan-parunashvili"} #{:users/handle} _]}
+                            :triples #{("eid-nicole" :users/fullName "Nicole")
+                                       ("eid-nicole" :users/id "eid-nicole")
+                                       ("eid-nicole" :users/handle "nicolegf")
+                                       ("eid-nicole" :users/email "nicole@instantdb.com")
+                                       ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
+                                       --
+                                       ("eid-stepan-parunashvili"
+                                        :users/createdAt
+                                        "2021-01-07 18:50:43.447955")
+                                       ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+                                       ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+                                       ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+                                       ("eid-stepan-parunashvili" :users/handle "stopa")}})))
+
+        (testing "limit with where"
+          (is-pretty-eq? (query-pretty ctx r {:users {:$ {:where {:handle {:in ["joe" "stopa" "alex"]}}
+                                                          :limit 2
+                                                          :order {:handle :desc}}}})
+                         '({:topics #{[:ea
+                                       #{"eid-joe-averbukh"}
+                                       #{:users/bookshelves
+                                         :users/createdAt
+                                         :users/email
+                                         :users/id
+                                         :users/fullName
+                                         :users/handle}
+                                       _]
+                                      [:ea
+                                       #{"eid-stepan-parunashvili"}
+                                       #{:users/bookshelves
+                                         :users/createdAt
+                                         :users/email
+                                         :users/id
+                                         :users/fullName
+                                         :users/handle}
+                                       _]
+                                      [:ave
+                                       #{"eid-joe-averbukh" "eid-stepan-parunashvili"}
+                                       #{:users/handle}
+                                       _]
+                                      --
+                                      [:ave _ #{:users/handle} #{"alex" "stopa" "joe"}]}
+                            :triples #{("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+                                       ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
+                                       ("eid-joe-averbukh" :users/handle "joe")
+                                       ("eid-stepan-parunashvili"
+                                        :users/createdAt
+                                        "2021-01-07 18:50:43.447955")
+                                       --
+                                       ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+                                       ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+                                       ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+                                       ("eid-stepan-parunashvili" :users/handle "stopa")
+                                       ("eid-joe-averbukh" :users/email "joe@instantdb.com")
+                                       ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")}})))
+
+        (testing "offset"
+          (is-pretty-eq? (query-pretty ctx r {:users {:$ {:offset 2
+                                                          :order {:handle :desc}}}})
+                         '({:topics #{[:ea
+                                       #{"eid-joe-averbukh"}
+                                       #{:users/bookshelves
+                                         :users/createdAt
+                                         :users/email
+                                         :users/id
+                                         :users/fullName
+                                         :users/handle}
+                                       _]
+                                      [:eav _ #{:users/id} _]
+                                      [:ave #{"eid-joe-averbukh" "eid-alex"} #{:users/handle} _]
+                                      --
+                                      [:ea
+                                       #{"eid-alex"}
+                                       #{:users/bookshelves
+                                         :users/createdAt
+                                         :users/email
+                                         :users/id
+                                         :users/fullName
+                                         :users/handle}
+                                       _]}
+                            :triples #{("eid-alex" :users/email "alex@instantdb.com")
+                                       ("eid-alex" :users/id "eid-alex")
+                                       ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689")
+                                       ("eid-alex" :users/fullName "Alex")
+                                       ("eid-alex" :users/handle "alex")
+                                       --
+                                       ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
+                                       ("eid-joe-averbukh" :users/handle "joe")
+                                       ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+                                       ("eid-joe-averbukh" :users/email "joe@instantdb.com")
+                                       ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")}})))
+
+        (testing "cursors"
+          (let [{:keys [start-cursor end-cursor]}
+                (-> (iq/query ctx {:users {:$ {:limit 1
+                                               :order {:handle :desc}}}})
+                    first
+                    :data
+                    :datalog-result
+                    :page-info)]
+
+            (testing "after"
+              (is-pretty-eq? (query-pretty ctx r {:users {:$ {:limit 1
+                                                              :after end-cursor
+                                                              :order {:handle :desc}}}})
+                             '({:topics #{[:eav _ #{:users/id} _]
+                                          --
+                                          [:ea #{"eid-nicole"} #{:users/bookshelves
+                                                                 :users/createdAt
+                                                                 :users/email
+                                                                 :users/id
+                                                                 :users/fullName
+                                                                 :users/handle} _]
+                                          [:ave #{"eid-nicole"} #{:users/handle} _]}
+                                :triples #{
+                                           ("eid-nicole" :users/id "eid-nicole")
+                                           --
+                                           ("eid-nicole" :users/handle "nicolegf")
+                                           ("eid-nicole" :users/fullName "Nicole")
+                                           ("eid-nicole" :users/email "nicole@instantdb.com")
+                                           ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")}})))
+
+            (testing "before"
+              (is-pretty-eq? (query-pretty ctx r {:users {:$ {:limit 1
+                                                              :before start-cursor
+                                                              :order {:handle :desc}}}})
+                             '({:topics #{[:eav _ #{:users/id} _] [:ave _ #{:users/handle} _]}
+                                :triples #{}}))
+
+              (is-pretty-eq? (query-pretty ctx r {:users {:$ {:limit 1
+                                                              :before start-cursor
+                                                              :order {:handle "asc"}}}})
+                             '({:topics #{[:eav _ #{:users/id} _]
+                                          [:ea #{"eid-alex"} #{:users/bookshelves
+                                                               :users/createdAt
+                                                               :users/email
+                                                               :users/id
+                                                               :users/fullName
+                                                               :users/handle} _]
+                                          --
+                                          [:ave #{"eid-alex"} #{:users/handle} _]}
+                                :triples #{("eid-alex" :users/email "alex@instantdb.com")
+                                           ("eid-alex" :users/id "eid-alex")
+                                           ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689")
+                                           --
+                                           ("eid-alex" :users/fullName "Alex")
+                                           ("eid-alex" :users/handle "alex")}})))
+
+            (testing "last"
+              (is-pretty-eq? (query-pretty ctx r {:users {:$ {:limit 1
+                                                              :before start-cursor
+                                                              :order {:handle :desc}}}})
+                             '({:topics #{[:eav _ #{:users/id} _] [:ave _ #{:users/handle} _]}
+                                :triples #{}}))
+
+              (is-pretty-eq? (query-pretty ctx r {:users {:$ {:last 1
+                                                              :before start-cursor
+                                                              :order {:handle "asc"}}}})
+                             '({:topics #{[:eav _ #{:users/id} _]
+                                          --
+                                          [:ea #{"eid-nicole"} #{:users/bookshelves
+                                                                 :users/createdAt
+                                                                 :users/email
+                                                                 :users/id
+                                                                 :users/fullName
+                                                                 :users/handle} _]
+                                          [:ave #{"eid-nicole"} #{:users/handle} _]}
+                                :triples #{
+                                           ("eid-nicole" :users/id "eid-nicole")
+                                           --
+                                           ("eid-nicole" :users/handle "nicolegf")
+                                           ("eid-nicole" :users/fullName "Nicole")
+                                           ("eid-nicole" :users/email "nicole@instantdb.com")
+                                           ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")}})))
+
+            (let [nicole-cursor (-> (iq/query ctx {:users {:$ {:limit 1
+                                                               :where {:handle "nicolegf"}
+                                                               :order {:handle "desc"}}}})
+                                    first
+                                    :data
+                                    :datalog-result
+                                    :page-info
+                                    :start-cursor)
+                  get-handles (fn [pagination-params]
+                                (as-> (instaql-nodes->object-tree
+                                       ctx
+                                       (iq/query ctx {:users {:$ pagination-params}})) %
+                                  (get % "users")
+                                  (map #(get % "handle") %)
+                                  (set %)))
+                  get-page-info (fn [pagination-params]
+                                  (-> (iq/query ctx {:users {:$ pagination-params}})
+                                      collect-instaql-results-for-client
+                                      first
+                                      :data
+                                      :page-info
+                                      (get "users")
+                                      (select-keys [:has-next-page?
+                                                    :has-previous-page?])))]
+              ;; True order (in order of handle) is alex, joe, nicolegf, stopa
+              (is (= #{"stopa" "nicolegf" "joe" "alex"}
+                     (get-handles {:order {:handle "asc"}})))
+
+              (is (= #{"alex" "joe"}
+                     (get-handles {:limit 2
+                                   :order {:handle "asc"}})))
+
+              (is (= #{"joe" "nicolegf"}
+                     (get-handles {:limit 2
+                                   :offset 1
+                                   :order {:handle "asc"}})))
+
+              (is (= #{"joe"}
+                     (get-handles {:last 1
+                                   :before nicole-cursor
+                                   :order {:handle "asc"}})))
+
+              (is (= #{"alex" "joe"}
+                     (get-handles {:last 2
+                                   :before nicole-cursor
+                                   :order {:handle "asc"}})))
+
+              (is (= #{"stopa"}
+                     (get-handles {:first 1
+                                   :after nicole-cursor
+                                   :order {:handle "asc"}})))
+
+              (is (= #{"joe"}
+                     (get-handles {:first 1
+                                   :after nicole-cursor
+                                   :order {:handle "desc"}})))
+
+              (testing "has-next-page? and has-previous-page?"
+                (is (= {:has-next-page? false
+                        :has-previous-page? false}
+                       (get-page-info {:order {:handle "asc"}})))
+
+                (is (= {:has-next-page? true
+                        :has-previous-page? false}
+                       (get-page-info {:limit 2
+                                       :order {:handle "asc"}})))
+
+                (is (= {:has-next-page? true
+                        :has-previous-page? true}
+                       (get-page-info {:limit 2
+                                       :offset 1
+                                       :order {:handle "asc"}})))
+
+                (is (= {:has-next-page? true
+                        :has-previous-page? true}
+                       (get-page-info {:last 1
+                                       :before nicole-cursor
+                                       :order {:handle "asc"}})))
+
+                (is (= {:has-next-page? true
+                        :has-previous-page? false}
+                       (get-page-info {:last 2
+                                       :before nicole-cursor
+                                       :order {:handle "asc"}})))
+
+                (is (= {:has-next-page? false
+                        :has-previous-page? true}
+                       (get-page-info {:first 1
+                                       :after nicole-cursor
+                                       :order {:handle "asc"}})))
+
+                (is (= {:has-next-page? true
+                        :has-previous-page? true}
+                       (get-page-info {:first 1
+                                       :after nicole-cursor
+                                       :order {:handle "desc"}})))))))))))
+
 (deftest obj-tree-order
   (with-empty-app
     (fn [{app-id :id :as _app}]
@@ -578,7 +895,8 @@
                                          :unique? true
                                          :index? true
                                          :value-type :blob
-                                         :cardinality :one}]])
+                                         :cardinality :one
+                                         :checked-data-type :string}]])
 
             _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id app-id)
@@ -606,13 +924,12 @@
         (testing "reverse works"
           (is (= ["daniel" "stopa" "joe"]
                  (get-handles-ordered {:order {:serverCreatedAt "desc"}}))))
-        ;; This is a sentinel, to remind us to make sure admin queries work with other orders
-        (is (= '{:expected valid-order?
-                 :in ["users" :$ :order "random-field"],
-                 :message
-                 "We currently only support \"serverCreatedAt\" as the sort key in the `order` clause. Got \"random-field\"."}
-               (validation-err {:users
-                                {:$ {:order {:random-field "desc"}}}})))))))
+
+        (testing "checked and indexed fields work"
+          (is (= ["daniel" "joe" "stopa"]
+                 (get-handles-ordered {:order {:handle "asc"}})))
+          (is (= ["stopa" "joe" "daniel"]
+                 (get-handles-ordered {:order {:handle "desc"}}))))))))
 
 (deftest flat-where-byop
   (testing "plain scan"
