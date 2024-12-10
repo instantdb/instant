@@ -69,7 +69,10 @@
         ents-by-sort-keys (reduce (fn [acc ent]
                                     (let [sort-key {:field (transform-sort-value
                                                             (get ent sort-field))
-                                                    :id (get ent "id")}]
+                                                    :id (or (get ent "id")
+                                                            ;; Sometimes tests don't
+                                                            ;; set id fields
+                                                            (random-uuid))}]
                                       (assoc acc sort-key (dissoc ent "$serverCreatedAt"))))
                                   {}
                                   entries)
