@@ -29,6 +29,7 @@ create index triples_boolean_type_idx on triples (
   where ave and checked_data_type = 'boolean';
 drop index triples_boolean_type_no_e_idx;
 
+alter index triples_date_type_idx rename to triples_date_type_no_e_idx;
 create index triples_date_type_idx on triples (
     app_id,
     attr_id,
@@ -36,6 +37,7 @@ create index triples_date_type_idx on triples (
     entity_id
   )
   where ave and checked_data_type = 'date';
+drop index triples_date_type_no_e_idx;
 
 alter index ave_index rename to ave_no_e_idx;
 create index ave_index
