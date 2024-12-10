@@ -327,6 +327,88 @@
                                  ("eid-joe-averbukh" :users/email "joe@instantdb.com")
                                  ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")}})))
 
+  (testing "makes sure we use distinct"
+    (is-pretty-eq? (query-pretty {:users {:$ {:where {:bookshelves {:in
+                                                                    ;; this will cause 
+                                                                    ;; multiple matches for `stopa` 
+                                                                    [(resolvers/->uuid @r "eid-worldview")
+                                                                     (resolvers/->uuid @r "eid-the-way-of-the-gentleman")
+                                                                     (resolvers/->uuid @r "eid-short-stories")
+                                                                     (resolvers/->uuid @r "eid-2018")]}}
+                                              :limit 3
+                                              :order {:serverCreatedAt :asc}}}})
+
+                   '({:topics
+                      ([:vae
+                        _
+                        #{:users/bookshelves}
+                        #{"eid-the-way-of-the-gentleman"
+                          "eid-worldview"
+                          "eid-short-stories"
+                          "eid-2018"}]
+                       [:ea
+                        #{"eid-joe-averbukh" "eid-alex" "eid-stepan-parunashvili"}
+                        #{:users/id}
+                        _]
+                       --
+                       [:ea
+                        #{"eid-stepan-parunashvili"}
+                        #{:users/bookshelves
+                          :users/createdAt
+                          :users/email
+                          :users/id
+                          :users/fullName
+                          :users/handle}
+                        _]
+                       --
+                       [:ea
+                        #{"eid-joe-averbukh"}
+                        #{:users/bookshelves
+                          :users/createdAt
+                          :users/email
+                          :users/id
+                          :users/fullName
+                          :users/handle}
+                        _]
+                       --
+                       [:ea
+                        #{"eid-alex"}
+                        #{:users/bookshelves
+                          :users/createdAt
+                          :users/email
+                          :users/id
+                          :users/fullName
+                          :users/handle}
+                        _]),
+                      :triples
+                      (("eid-joe-averbukh" :users/bookshelves "eid-2018")
+                       ("eid-alex" :users/id "eid-alex")
+                       ("eid-alex" :users/bookshelves "eid-short-stories")
+                       ("eid-stepan-parunashvili" :users/bookshelves "eid-worldview")
+                       ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+                       ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+                       --
+                       ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+                       ("eid-stepan-parunashvili"
+                        :users/createdAt
+                        "2021-01-07 18:50:43.447955")
+                       ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+                       ("eid-stepan-parunashvili" :users/handle "stopa")
+                       ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+                       --
+                       ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+                       ("eid-joe-averbukh" :users/email "joe@instantdb.com")
+                       ("eid-joe-averbukh" :users/handle "joe")
+                       ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
+                       ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")
+                       --
+                       ("eid-alex" :users/id "eid-alex")
+                       ("eid-alex" :users/fullName "Alex")
+                       ("eid-alex" :users/email "alex@instantdb.com")
+                       ("eid-alex" :users/handle "alex")
+                       ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689")),
+                      :aggregate (nil nil nil nil)})))
+
   (testing "offset"
     (is-pretty-eq? (query-pretty {:users {:$ {:offset 2
                                               :order {:serverCreatedAt :desc}}}})
