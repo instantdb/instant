@@ -578,7 +578,8 @@
                                          :unique? true
                                          :index? true
                                          :value-type :blob
-                                         :cardinality :one}]])
+                                         :cardinality :one
+                                         :checked-data-type :string}]])
 
             _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id app-id)
@@ -606,13 +607,12 @@
         (testing "reverse works"
           (is (= ["daniel" "stopa" "joe"]
                  (get-handles-ordered {:order {:serverCreatedAt "desc"}}))))
-        ;; This is a sentinel, to remind us to make sure admin queries work with other orders
-        (is (= '{:expected valid-order?
-                 :in ["users" :$ :order "random-field"],
-                 :message
-                 "We currently only support \"serverCreatedAt\" as the sort key in the `order` clause. Got \"random-field\"."}
-               (validation-err {:users
-                                {:$ {:order {:random-field "desc"}}}})))))))
+
+        (testing "checked and indexed fields work"
+          (is (= ["daniel" "joe" "stopa"]
+                 (get-handles-ordered {:order {:handle "asc"}})))
+          (is (= ["stopa" "joe" "daniel"]
+                 (get-handles-ordered {:order {:handle "desc"}}))))))))
 
 (deftest flat-where-byop
   (testing "plain scan"

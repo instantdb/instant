@@ -40,14 +40,6 @@
     (= :one (-> data :attr :cardinality))
     (-> data :attr :unique?)))
 
-;; We will need to update this when we support more than serverCreatedAt 
-;; as the sort key
-
-(defn reverse-compare [a b]
-  (compare b a))
-
-;; XXX: Check that we order uuids in the same way the database
-;;      orders them
 (defn make-sort-key-compare [direction]
   (fn [{field-a :field id-a :id}
        {field-b :field id-b :id}]
@@ -71,6 +63,7 @@
 
 (defn sort-entries [ctx etype option-map entries]
   (let [{:keys [k direction]} (:order option-map)
+        k (if (= k "serverCreatedAt") "$serverCreatedAt" k)
         sort-field (or k "$serverCreatedAt")
         transform-sort-value (value-transformer-for-sort ctx etype sort-field)
         ents-by-sort-keys (reduce (fn [acc ent]
