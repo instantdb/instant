@@ -111,12 +111,9 @@
              (mapv (partial compare! prod-conn))))))
 
   (tool/copy
-   (with-out-str (pprint/pprint
-                  (map (fn [x]
-                         (-> x
-                             (select-keys [:improvement :same? :same-same?])
-                             (assoc :new-result-error? (-> x :new-result-error boolean))
-                             (assoc :old-result-error? (-> x :old-result-error boolean)))) runs))))
+   (with-out-str (clojure.pprint/print-table
+                  [:same? :improvement :old-ms :new-ms]
+                  runs)))
 
   (defn avg [coll]
     (/ (reduce + coll) (count coll)))
