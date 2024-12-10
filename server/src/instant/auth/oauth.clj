@@ -131,19 +131,24 @@
 
 (defn fetch-discovery [endpoint]
   (let [resp (clj-http/get endpoint {:throw-exceptions false
-                                     :as :json})]
+                                     :as :json
+                                     ;; for https://account.apple.com/.well-known/openid-configuration
+                                     :headers {"User-Agent" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"}})]
     (if (clj-http/success? resp)
       {:date (Instant/now)
        :data (:body resp)}
-      (ex/throw-oauth-err! "Unable to fetch OAuth configuration."))))
+      (ex/throw+ {::ex/type    ::ex/oauth-error
+                  ::ex/message "Unable to fetch OAuth configuration"
+                  :status      (:status resp)
+                  :body        (:body resp)}))))
 
 (defn get-discovery [endpoint]
   (:data (cache/lookup-or-miss discovery-endpoint-cache endpoint fetch-discovery)))
 
 (defn generic-oauth-client-from-discovery-url [{:keys [app-id
                                                        provider-id
-                                                       client-id ^Secret
-                                                       client-secret
+                                                       client-id
+                                                       ^Secret client-secret
                                                        discovery-endpoint]}]
   (let [{:keys [authorization_endpoint
                 token_endpoint
@@ -161,6 +166,9 @@
                               :id-token-signing-alg-values-supported (if (empty? id_token_signing_alg_values_supported)
                                                                        #{"RS256" "HS256"}
                                                                        (set id_token_signing_alg_values_supported))})))
+
+(comment
+  (generic-oauth-client-from-discovery-url {:discovery-endpoint "https://account.apple.com/.well-known/openid-configuration"}))
 
 (def schedule nil)
 

@@ -2,6 +2,7 @@
   (:require
    [instant.auth.oauth :as oauth]
    [instant.jdbc.aurora :as aurora]
+   [instant.model.app-oauth-service-provider :as app-oauth-service-provider-model]
    [instant.system-catalog-ops :refer [query-op update-op]]
    [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
@@ -78,8 +79,17 @@
              (fn [{:keys [get-entity resolve-id]}]
                (get-entity [(resolve-id :name) client-name])))))
 
-(defn get-by-client-name! [params]
-  (ex/assert-record! (get-by-client-name params) :app-oauth-client {:args [params]}))
+(defn get-by-client-name! [{:keys [app-id client-name :as params]}]
+  (if (= "apple" client-name)
+    (let [provider-args {:app-id app-id
+                         :provider-name "apple"}
+          provider      (or
+                          (app-oauth-service-provider-model/get-by-provider-name provider-args)
+                          (app-oauth-service-provider-model/create! provider-args))]
+      {:discovery_endpoint "https://account.apple.com/.well-known/openid-configuration"
+       :app_id             app-id
+       :provider_id        (:id provider)})
+    (ex/assert-record! (get-by-client-name params) :app-oauth-client {:args [params]})))
 
 (defn delete-by-id!
   ([params] (delete-by-id! (aurora/conn-pool) params))

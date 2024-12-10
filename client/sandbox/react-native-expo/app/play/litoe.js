@@ -43,10 +43,7 @@ const _DEBUG_TURN = false;
 
 // Instant
 // --------------------
-const { useQuery, transact } = init({
-  appId: config.appId,
-  websocketURI: "wss://api.instantdb.com/runtime/session",
-});
+const { useQuery, transact } = init(config);
 
 // Game logic
 // --------------------

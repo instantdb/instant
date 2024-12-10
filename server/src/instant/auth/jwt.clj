@@ -144,5 +144,6 @@
 
 (comment
   (get-keys "https://www.googleapis.com/oauth2/v3/certs")
+  (get-keys "https://appleid.apple.com/auth/keys")
   (.getSubject (verify-jwt {:jwks-uri "https://www.facebook.com/.well-known/oauth/openid/jwks/" ;; "https://www.googleapis.com/oauth2/v3/certs";;;;
                             :jwt "YOUR_ID_TOKEN_HERE"})))
