@@ -25,8 +25,9 @@ module.exports = [
       { title: 'Auth', href: '/docs/auth' },
       { title: 'Magic codes', href: '/docs/auth/magic-codes' },
       { title: 'Google OAuth', href: '/docs/auth/google-oauth' },
-      { title: 'Permissions', href: '/docs/permissions' },
+      { title: 'Sign In with Apple', href: '/docs/auth/apple' },
       { title: 'Clerk', href: '/docs/auth/clerk' },
+      { title: 'Permissions', href: '/docs/permissions' },
     ],
   },
   {
