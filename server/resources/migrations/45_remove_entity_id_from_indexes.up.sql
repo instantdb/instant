@@ -35,7 +35,7 @@ create index if not exists triples_date_type_idx_no_e on triples (
 drop index triples_date_type_idx;
 alter index triples_date_type_idx_no_e rename to triples_date_type_idx;
 
-create index ave_index_no_e
+create index if not exists ave_index_no_e
   on triples(app_id, attr_id, value)
   where ave;
 drop index ave_index;
