@@ -14,8 +14,7 @@ const schema = i.schema({
 });
 
 const { useQuery, transact, tx } = init_experimental({
-  appId: config.appId,
-  websocketURI: "wss://api.instantdb.com/runtime/session",
+  ...config,
   schema,
 });
 

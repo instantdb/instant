@@ -3,9 +3,7 @@ import { View, Text, TextInput, Button, Alert, ScrollView } from "react-native";
 import { init, tx, id } from "@instantdb/react-native";
 import config from "../config";
 
-const db = init({
-  appId: config.appId,
-});
+const db = init(config);
 
 function App() {
   const { isLoading, user, error } = db.useAuth();
