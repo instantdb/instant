@@ -79,7 +79,7 @@
              (fn [{:keys [get-entity resolve-id]}]
                (get-entity [(resolve-id :name) client-name])))))
 
-(defn get-by-client-name! [{:keys [app-id client-name :as params]}]
+(defn get-by-client-name! [{:keys [app-id client-name] :as params}]
   (if (= "apple" client-name)
     (let [provider-args {:app-id app-id
                          :provider-name "apple"}
