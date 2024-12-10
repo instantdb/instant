@@ -685,7 +685,11 @@
          referenced-etypes :referenced-etypes}
         (if where-conds
           (where-conds->patterns (assoc ctx
-                                        :skip-optimize? false) form where-conds)
+                                        :skip-optimize?
+                                        (if join-attr-pat
+                                            true
+                                            false))
+                                 form where-conds)
           {:pats nil
            :referenced-etypes #{}})
         with-join (cond-> []
