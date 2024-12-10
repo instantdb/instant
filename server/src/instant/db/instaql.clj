@@ -777,9 +777,9 @@
                :query
                (:root state)
                (map (fn [message]
-                      [{:expected 'supported-order?
-                        :in (apply conj (:in (:state ctx)) [:$ :order])
-                        :message message}])
+                      {:expected 'supported-order?
+                       :in (apply conj (:in (:state ctx)) [:$ :order])
+                       :message message})
                     errors)))))
 
         (when (and before

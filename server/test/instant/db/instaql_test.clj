@@ -152,10 +152,10 @@
              :message "Expected a join row for the cursor, got 10."}
            (validation-err {:users
                             {:$ {:before 10}}})))
-    (is (= '{:expected valid-order?
-             :in ["users" :$ :order "random-field"],
+    (is (= '{:expected supported-order?
+             :in ["users" :$ :order],
              :message
-             "We currently only support \"serverCreatedAt\" as the sort key in the `order` clause. Got \"random-field\"."}
+             "There is no `random-field` attribute for users."}
            (validation-err {:users
                             {:$ {:order {:random-field "desc"}}}})))
     (is (= '{:expected valid-direction?,
@@ -215,6 +215,21 @@
                                     :value-type :blob
                                     :checked-data-type t
                                     :cardinality :one}]))
+        (tx/transact! (aurora/conn-pool)
+                      (attr-model/get-by-app-id (:id app))
+                      (:id app)
+                      [[:add-attr {:id (random-uuid)
+                                   :forward-identity [(random-uuid) "etype" "unchecked"]
+                                   :unique? false
+                                   :index? false
+                                   :value-type :blob
+                                   :cardinality :one}]
+                       [:add-attr {:id (random-uuid)
+                                   :forward-identity [(random-uuid) "etype" "id"]
+                                   :unique? true
+                                   :index? false
+                                   :value-type :blob
+                                   :cardinality :one}]])
         (let [ctx (let [attrs (attr-model/get-by-app-id (:id app))]
                     {:db {:conn-pool (aurora/conn-pool)}
                      :app-id (:id app)
@@ -261,7 +276,13 @@
                    :in ["etype" :$ :where "string" :$like],
                    :message
                    "The $like value for `etype.string` must be a string, but the query got the value `10` of type `number`."}
-                 (validation-err ctx {:etype {:$ {:where {:string {:$like 10}}}}}))))))))
+                 (validation-err ctx {:etype {:$ {:where {:string {:$like 10}}}}})))
+
+          (is (= '{:expected supported-order?,
+                   :in ["etype" :$ :order],
+                   :message
+                   "The `etype.unchecked` attribute is not indexed. Only indexed and type-checked attrs can be used to order by."}
+                 (validation-err ctx {:etype {:$ {:order {:unchecked "desc"}}}}))))))))
 
 (deftest pagination
   (testing "limit"
