@@ -270,7 +270,7 @@ function addMessage(text) {
                   Reading from the database is done via the{' '}
                   <code>useQuery</code> function. In this example we’re
                   subscribing to the <code>messages</code> table. The equivalent
-                  of this in SQL qould be
+                  of this in SQL could be
                 </p>
 
                 <CodeBlock language="sql" code={`SELECT * from messages;`} />

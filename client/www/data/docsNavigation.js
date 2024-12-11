@@ -32,6 +32,7 @@ module.exports = [
   {
     title: 'Platform features',
     links: [
+      { title: 'Managing users', href: '/docs/users' },
       {
         title: 'Presence, Cursors, and Activity',
         href: '/docs/presence-and-topics',

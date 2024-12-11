@@ -9,13 +9,16 @@
    [clojure.core.async :as a]
    [instant.util.async :as ua]
    [instant.data.resolvers :as resolvers]
+   [instant.db.model.attr :as attr-model]
    [instant.db.datalog :as d]
    [instant.jdbc.aurora :as aurora]
    [instant.db.transaction :as tx]
    [instant.db.instaql :as iq]
    [instant.lib.ring.websocket :as ws]
+   [instant.grouped-queue :as grouped-queue]
    [instant.reactive.ephemeral :as eph]
-   [instant.reactive.query :as rq])
+   [instant.reactive.query :as rq]
+   [instant.reactive.receive-queue :as receive-queue])
   (:import
    (java.util UUID)
    (java.util.concurrent LinkedBlockingQueue)))
@@ -32,7 +35,7 @@
 (defn- with-session [f]
   (let [sess-id (UUID/randomUUID)
         fake-ws-conn (a/chan 1)
-        receive-q (LinkedBlockingQueue.)
+        receive-q (grouped-queue/create {:group-fn session/group-fn})
         room-refresh-ch (a/chan (a/sliding-buffer 1))
         store-conn (rs/init-store)
         eph-store-atom (atom {})
@@ -46,30 +49,34 @@
                        :receive-q receive-q
                        :ping-job (future)
                        :pending-handlers (atom #{})}
-        query-reactive rq/instaql-query-reactive!]
+        query-reactive rq/instaql-query-reactive!
+        stop-signal (atom false)]
     (session/on-open store-conn socket)
     (session/on-open store-conn second-socket)
 
     (binding [*store-conn* store-conn
               *instaql-query-results* (atom {})
               *eph-store-atom* eph-store-atom]
-      (with-redefs [session/receive-q receive-q
+      (with-redefs [receive-queue/receive-q receive-q
                     eph/room-refresh-ch room-refresh-ch
-                    ws/send-json! (fn [msg fake-ws-conn]
+                    ws/send-json! (fn [_app-id msg fake-ws-conn]
                                     (a/>!! fake-ws-conn msg))
 
                     rq/instaql-query-reactive!
-                    (fn [store-conn {:keys [session-id] :as base-ctx} instaql-query]
-                      (let [res (query-reactive store-conn base-ctx instaql-query)]
+                    (fn [store-conn {:keys [session-id] :as base-ctx} instaql-query return-type]
+                      (let [res (query-reactive store-conn base-ctx instaql-query return-type)]
                         (swap! *instaql-query-results* assoc-in [session-id instaql-query] res)
                         res))]
+        (session/start-receive-worker store-conn eph-store-atom receive-q stop-signal 0)
         (f store-conn eph-store-atom {:socket socket
                                       :second-socket second-socket})
+
         (session/on-close store-conn eph-store-atom socket)
-        (session/on-close store-conn eph-store-atom second-socket)))))
+        (session/on-close store-conn eph-store-atom second-socket)
+        (reset! stop-signal true)))))
 
 (defn- blocking-send-msg [{:keys [ws-conn id]} msg]
-  (session/handle-receive *store-conn* *eph-store-atom* (rs/get-session @*store-conn* id) msg)
+  (session/handle-receive *store-conn* *eph-store-atom* (rs/get-session @*store-conn* id) msg {})
   (let [ret (ua/<!!-timeout ws-conn)]
     (assert (not= :timeout ret) "Timed out waiting for a response")
     (dissoc ret :client-event-id)))
@@ -245,13 +252,23 @@
                    {:pattern-groups
                     [{:patterns [[:ea ?movie-0 :movie/year 1987]],
                       :children
-                      {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                      {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                    :movie/director
+                                                                    :movie/sequel
+                                                                    :movie/cast
+                                                                    :movie/trivia
+                                                                    :movie/title}]]}],
                        :join-sym ?movie-0}}]}}
                   {:children
                    {:pattern-groups
                     [{:patterns [[:ea ?movie-0 :movie/title "RoboCop"]],
                       :children
-                      {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                      {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                    :movie/director
+                                                                    :movie/sequel
+                                                                    :movie/cast
+                                                                    :movie/trivia
+                                                                    :movie/title}]]}],
                        :join-sym ?movie-0}}]}}}
                (->> (#'rs/get-datalog-cache-for-app @store-conn movies-app-id)
                     (resolvers/walk-friendly @r)
@@ -264,14 +281,24 @@
                     {:pattern-groups
                      [{:patterns [[:ea ?movie-0 :movie/year 1987]],
                        :children
-                       {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                       {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                     :movie/director
+                                                                     :movie/sequel
+                                                                     :movie/cast
+                                                                     :movie/trivia
+                                                                     :movie/title}]]}],
                         :join-sym ?movie-0}}]}}},
                  {:movie {:$ {:where {:title "RoboCop"}}}}
                  #{{:children
                     {:pattern-groups
                      [{:patterns [[:ea ?movie-0 :movie/title "RoboCop"]],
                        :children
-                       {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                       {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                     :movie/director
+                                                                     :movie/sequel
+                                                                     :movie/cast
+                                                                     :movie/trivia
+                                                                     :movie/title}]]}],
                         :join-sym ?movie-0}}]}}}}
                (->> (#'rs/get-subscriptions-for-app-id @store-conn movies-app-id)
                     (resolvers/walk-friendly @r)
@@ -330,7 +357,12 @@
                    {:pattern-groups
                     [{:patterns [[:ea ?movie-0 :movie/title "RoboCop"]],
                       :children
-                      {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                      {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                    :movie/director
+                                                                    :movie/sequel
+                                                                    :movie/cast
+                                                                    :movie/trivia
+                                                                    :movie/title}]]}],
                        :join-sym ?movie-0}}]}}}
                (->> (#'rs/get-datalog-cache-for-app @store-conn movies-app-id)
                     (resolvers/walk-friendly @r)
@@ -343,7 +375,12 @@
                     {:pattern-groups
                      [{:patterns [[:ea ?movie-0 :movie/title "RoboCop"]],
                        :children
-                       {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                       {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                     :movie/director
+                                                                     :movie/sequel
+                                                                     :movie/cast
+                                                                     :movie/trivia
+                                                                     :movie/title}]]}],
                         :join-sym ?movie-0}}]}}}}
                (some->> (#'rs/get-subscriptions-for-app-id @store-conn movies-app-id)
                         seq
@@ -384,7 +421,7 @@
 
             ;; Now we have a stale query
           (is (= [(:kw-q query-1987)]
-                 (rs/get-stale-instaql-queries @store-conn sess-id)))
+                 (map :instaql-query/query (rs/get-stale-instaql-queries @store-conn sess-id))))
 
             ;; We also removed datalog queries from cache
           (is (= '#{}
@@ -427,7 +464,13 @@
                        {:pattern-groups
                         [{:patterns [[:ea ?movie-0 :movie/year 1987]],
                           :children
-                          {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                          {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                        :movie/id
+                                                                        :movie/director
+                                                                        :movie/sequel
+                                                                        :movie/cast
+                                                                        :movie/trivia
+                                                                        :movie/title}]]}],
                            :join-sym ?movie-0}}]}}}
                    (->> (#'rs/get-datalog-cache-for-app @store-conn app-id)
                         (resolvers/walk-friendly r)
@@ -454,7 +497,13 @@
                        {:pattern-groups
                         [{:patterns [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]],
                           :children
-                          {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                          {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                        :movie/id
+                                                                        :movie/director
+                                                                        :movie/sequel
+                                                                        :movie/cast
+                                                                        :movie/trivia
+                                                                        :movie/title}]]}],
                            :join-sym ?movie-0}}]}}}
                    (->> (#'rs/get-datalog-cache-for-app @store-conn app-id)
                         (resolvers/walk-friendly r)
@@ -466,14 +515,21 @@
                          [{:patterns
                            [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]],
                            :children
-                           {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                           {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                         :movie/id
+                                                                         :movie/director
+                                                                         :movie/sequel
+                                                                         :movie/cast
+                                                                         :movie/trivia
+                                                                         :movie/title}]]}],
                             :join-sym ?movie-0}}]}}}}
                    (->> (#'rs/get-subscriptions-for-app-id @store-conn app-id)
                         (resolvers/walk-friendly r)
                         pretty-subs)))
 
             ;; do mutation
-            (tx/transact! aurora/conn-pool
+            (tx/transact! (aurora/conn-pool)
+                          (attr-model/get-by-app-id app-id)
                           app-id
                           [[:retract-triple
                             (resolvers/->uuid r "eid-predator")
@@ -500,7 +556,13 @@
                        {:pattern-groups
                         [{:patterns [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]],
                           :children
-                          {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                          {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                        :movie/id
+                                                                        :movie/director
+                                                                        :movie/sequel
+                                                                        :movie/cast
+                                                                        :movie/trivia
+                                                                        :movie/title}]]}],
                            :join-sym ?movie-0}}]}}}
                    (->> (#'rs/get-datalog-cache-for-app @store-conn app-id)
                         (resolvers/walk-friendly r)
@@ -512,7 +574,13 @@
                          [{:patterns
                            [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]],
                            :children
-                           {:pattern-groups [{:patterns [[:ea ?movie-0]]}],
+                           {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
+                                                                         :movie/id
+                                                                         :movie/director
+                                                                         :movie/sequel
+                                                                         :movie/cast
+                                                                         :movie/trivia
+                                                                         :movie/title}]]}],
                             :join-sym ?movie-0}}]}}}}
                    (->> (#'rs/get-subscriptions-for-app-id @store-conn app-id)
                         (resolvers/walk-friendly r)
@@ -569,7 +637,7 @@
   (with-session
     (fn [_store-conn eph-store-atom {:keys [socket]}]
       (blocking-send-msg socket {:op :init :app-id movies-app-id})
-      (let [rid (UUID/randomUUID)
+      (let [rid (str (UUID/randomUUID))
             sess-id (:id socket)
             {:keys [op room-id]} (blocking-send-msg socket
                                                     {:op :join-room
@@ -588,7 +656,7 @@
   (with-session
     (fn [_store-conn eph-store-atom {:keys [socket]}]
       (blocking-send-msg socket {:op :init :app-id movies-app-id})
-      (let [rid (UUID/randomUUID)
+      (let [rid (str (UUID/randomUUID))
             sess-id (:id socket)]
         (blocking-send-msg socket
                            {:op :join-room :room-id rid})
@@ -615,7 +683,7 @@
     (fn [_store-conn eph-store-atom {:keys [socket second-socket]}]
       (blocking-send-msg socket {:op :init :app-id movies-app-id})
       (blocking-send-msg second-socket {:op :init :app-id movies-app-id})
-      (let [rid (UUID/randomUUID)
+      (let [rid (str (UUID/randomUUID))
             initial-rooms (get-in @eph-store-atom [:rooms])
             join-room (blocking-send-msg socket
                                          {:op :join-room :room-id rid})
@@ -656,7 +724,7 @@
 (deftest set-presence-works
   (with-session
     (fn [_store-conn eph-store-atom {:keys [socket]}]
-      (let [rid (UUID/randomUUID)
+      (let [rid (str (UUID/randomUUID))
             sess-id (:id socket)
             d1 {:hello "world"}
             d2 {:foo "bar"}]
@@ -689,7 +757,7 @@
   (with-session
     (fn [_store-conn _eph-store-atom {:keys [socket]}]
       (blocking-send-msg socket {:op :init :app-id movies-app-id})
-      (let [rid (UUID/randomUUID)
+      (let [rid (str (UUID/randomUUID))
             d1 {:hello "world"}
             {:keys [op status]} (blocking-send-msg socket {:op :set-presence :room-id rid :data d1})]
         (is (= :error op))
@@ -698,7 +766,7 @@
 (deftest broadcast-works
   (with-session
     (fn [_store-conn eph-store-atom {:keys [socket]}]
-      (let [rid (UUID/randomUUID)
+      (let [rid (str (UUID/randomUUID))
             sess-id (:id socket)
             t1 "foo"
             d1 {:hello "world"}]
@@ -727,7 +795,7 @@
   (with-session
     (fn [_store-conn _eph-store-atom {:keys [socket]}]
       (blocking-send-msg socket {:op :init :app-id movies-app-id})
-      (let [rid (UUID/randomUUID)
+      (let [rid (str (UUID/randomUUID))
             t1 "foo"
             d1 {:hello "world"}
             {:keys [op status]} (blocking-send-msg socket {:op :client-broadcast

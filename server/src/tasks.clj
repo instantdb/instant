@@ -1,7 +1,7 @@
 (ns tasks
   (:require [tool]
             [clojure.java.io :as io]
-            [clojure.java.shell :as shell]
+            [clojure.java.process :as process]
             [instant.util.crypt :as crypt-util]
             [instant.config-edn :as config-edn]
             [instant.config :as config]
@@ -75,16 +75,15 @@
   (config/init)
   (let [database-url (-> (config/get-aurora-config)
                          (jdbc-url)
-                         (jdbc-url->postgres-url {:sslmode "disable"}))
-        {:keys [exit out err]} (shell/sh "migrate"
-                                         "-database" database-url
-                                         "-path" "resources/migrations"
-                                         "up")]
-    (when-not (zero? exit)
-      (println-err err)
-      (System/exit exit))
-    (println err)
-    (println out)))
+                         (jdbc-url->postgres-url {:sslmode "disable"}))]
+    (process/exec "migrate"
+                  "-database" database-url
+                  "-path" "resources/migrations"
+                  "up")
+    (process/exec
+     {:env {"DATABASE_URL" database-url}}
+     (or (System/getenv "SHELL") "bash")
+     "dev-resources/import_test_data.sh")))
 
 (defn bootstrap-for-oss
   "Helper to setup everything the server needs for its initial run."

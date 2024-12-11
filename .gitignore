@@ -18,6 +18,7 @@ www/build
 # misc
 .DS_Store
 *.pem
+.idea/
 
 # debug
 npm-debug.log*
@@ -124,6 +125,9 @@ web_modules/
 .env.production.local
 .env.local
 
+!server/flags-config/.env
+!server/refinery/.env
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache
@@ -188,4 +192,5 @@ dump.sql
 # metrics
 server/resources/metrics/*-usage.png
 
-.idea/
+# emails
+server/resources/emails/*

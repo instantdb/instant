@@ -188,7 +188,7 @@ Authenticated users may only upload and view files from their own subdirectory:
       "view": "isOwner",
       "create": "isOwner"
     },
-    "bind": ["isOwner", "data.path.startsWith(auth.id)"]
+    "bind": ["isOwner", "data.path.startsWith(auth.id + '/')"]
   }
 }
 ```

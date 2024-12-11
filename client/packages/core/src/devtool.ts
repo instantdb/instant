@@ -22,7 +22,9 @@ export function createDevtool(appId: string) {
       event.shiftKey && event.ctrlKey && event.key === "0";
     const isEsc = event.key === "Escape" || event.key === "Esc";
 
-    if (isToggleShortcut || isEsc) {
+    if (isToggleShortcut) {
+      toggleView();
+    } else if (isEsc && container.isVisible()) {
       toggleView();
     }
   }
@@ -72,6 +74,7 @@ function createIframe(src: string) {
   const element = document.createElement("iframe");
 
   element.src = src;
+  element.className = "instant-devtool-iframe";
   Object.assign(element.style, {
     width: "100%",
     height: "100%",
@@ -84,13 +87,14 @@ function createIframe(src: string) {
 
 function createToggler(onClick) {
   const logoSVG = `
-    <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="32" height="32" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="512" height="512" fill="black"/>
       <rect x="97.0973" y="91.3297" width="140" height="330" fill="white"/>
     </svg>
   `;
   const element = document.createElement("button");
   element.innerHTML = logoSVG;
+  element.className = "instant-devtool-toggler";
   Object.assign(element.style, {
     // pos
     position: "fixed",
@@ -128,6 +132,7 @@ function createContainer() {
     zIndex: "999990",
   } as Partial<CSSStyleDeclaration>);
   element.style.display = "none";
+  element.className = "instant-devtool-container";
   function isVisible() {
     return element.style.display !== "none";
   }

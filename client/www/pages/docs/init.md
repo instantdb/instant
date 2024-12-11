@@ -41,3 +41,11 @@ const db = init<MyAppSchema>({ appId: APP_ID });
 ```
 
 You'll now be able to use `InstaQL` and `InstalML` throughout your app!
+
+{% callout type="note" %}
+
+**Psst: Schema-as-code and type safety!**
+
+Instant now supports a [CLI-based workflow](/docs/cli), managing your [schema as code](/docs/schema), and [strictly-typed queries and mutations](/docs/strong-init). Give them a whirl and let us know what you think!
+
+{% /callout %}

@@ -1,13 +1,16 @@
 (ns instant.util.date
   (:import
-   (java.time ZoneId ZonedDateTime LocalDate)
+   (java.time ZoneId ZonedDateTime ZoneRegion LocalDate)
    (java.time.format DateTimeFormatter)
    (java.time.temporal TemporalAdjusters)))
 
-(def est-zone (ZoneId/of "America/New_York"))
+(def ^ZoneRegion pst-zone (ZoneId/of "America/Los_Angeles"))
+(def ^ZoneRegion est-zone (ZoneId/of "America/New_York"))
 
-(defn est-now
-  []
+(defn pst-now ^ZonedDateTime []
+  (ZonedDateTime/now pst-zone))
+
+(defn est-now ^ZonedDateTime []
   (ZonedDateTime/now est-zone))
 
 (def numeric-date-pattern
@@ -22,8 +25,7 @@
 (defn numeric-date-str [date]
   (fmt-with-pattern numeric-date-pattern date))
 
-(defn first-of-next-month-est
-  []
+(defn first-of-next-month-est ^ZonedDateTime []
   (let [today (est-now)
         first-of-next-month (.with (LocalDate/from today) (TemporalAdjusters/firstDayOfNextMonth))
         start-of-day (.atStartOfDay first-of-next-month est-zone)]

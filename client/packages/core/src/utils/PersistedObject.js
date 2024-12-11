@@ -13,6 +13,8 @@
 // function to handle the merge of data from storage and memory
 // on load
 export class PersistedObject {
+  _subs = [];
+
   constructor(
     persister,
     key,
@@ -38,6 +40,7 @@ export class PersistedObject {
     this.fromJSON = fromJSON;
     this._saveThrottleMs = saveThrottleMs;
     this._pendingSaveCbs = [];
+    this._version = 0; 
 
     this._load();
   }
@@ -64,6 +67,10 @@ export class PersistedObject {
 
   isLoading() {
     return this._isLoading;
+  }
+  
+  version() { 
+    return this._version;
   }
 
   async waitForSync() {
@@ -106,11 +113,24 @@ export class PersistedObject {
   }
 
   set(f, cb) {
+    this._version++;
     this.currentValue = f(this.currentValue);
     if (this._isLoading) {
       this._loadedCbs.push(() => this._enqueuePersist(cb));
     } else {
       this._enqueuePersist(cb);
+    }
+    for (const sub of this._subs) {
+      sub(this.currentValue);
+    }
+  }
+  
+  subscribe(cb) { 
+    this._subs.push(cb);
+    cb(this.currentValue);
+
+    return () => {
+      this._subs = this._subs.filter((x) => x !== cb);
     }
   }
 }

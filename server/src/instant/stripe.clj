@@ -18,14 +18,14 @@
 (def FREE_SUBSCRIPTION_TYPE 1)
 (def PRO_SUBSCRIPTION_TYPE 2)
 
-
 (defn pro-plan? [{:keys [name]}]
   (= name "Pro"))
 
 (defn ping-js-on-new-customer [user-id]
   (let [{email :email} (instant-user-model/get-by-id {:id user-id})
         message (str "💖 A user subscribed! Say thank you to " "`" email "`")]
-    (discord/send! config/discord-signups-channel-id message)
+    (discord/send! config/discord-signups-channel-id
+                   (str (:instateam discord/mention-constants) " " message))
     (postmark/send!
      {:from "Instant Assistant <hello@pm.instantdb.com>"
       :to "founders@instantdb.com"
@@ -38,7 +38,6 @@
              <p>Woohoo! Send them a ping as a token of appreciation!</p>
            </div>")})))
 
-
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (ping-js-on-new-customer (:id u)))
@@ -46,7 +45,8 @@
 (defn ping-js-on-churned-customer [user-id]
   (let [{email :email} (instant-user-model/get-by-id {:id user-id})
         message (str "🪣  Churned customer! " email)]
-    (discord/send! config/discord-signups-channel-id message)
+    (discord/send! config/discord-signups-channel-id
+                   (str (:instateam discord/mention-constants) " " message))
     (postmark/send!
      {:from "Instant Assistant <hello@pm.instantdb.com>"
       :to "founders@instantdb.com"

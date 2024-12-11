@@ -37,3 +37,27 @@
    string across multiple lines to meet line-width requirements in code."
   [s]
   (string/replace s #"\s+" (fn [_] " ")))
+
+(defn indexes-of [^String s ^String value]
+  (loop [next-idx 0
+         idxes []]
+    (if-let [found-idx (string/index-of s value next-idx)]
+      (recur (inc found-idx)
+             (conj idxes found-idx))
+      idxes)))
+
+(defn join-in-sentence
+  "Joins items in the list in a sentence
+    ['a'] => 'a'
+    ['a', 'b'] => 'a and b'
+    ['a', 'b', 'c'] => 'a, b, and c'"
+  [ls]
+  (case (count ls)
+    0 ""
+    1 (format "%s" (first ls))
+    2 (format "%s and %s"
+              (first ls)
+              (second ls))
+    (format "%s, and %s"
+            (string/join ", " (butlast ls))
+            (last ls))))

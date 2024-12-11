@@ -1,48 +1,85 @@
 (ns instant.model.app
-  (:require [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
-            [instant.model.instant-user :as instant-user-model]
-            [next.jdbc :as next-jdbc]
-            [honey.sql :as hsql]
-            [instant.model.app-admin-token :as app-admin-token-model]
-            [instant.util.crypt :as crypt-util]
-            [instant.util.exception :as ex]
-            [instant.util.uuid :as uuid-util])
+  (:require
+   [clojure.core.cache.wrapped :as cache]
+   [honey.sql :as hsql]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.model.transaction :as transaction-model]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.model.app-admin-token :as app-admin-token-model]
+   [instant.model.instant-user :as instant-user-model]
+   [instant.model.rule :as rule-model]
+   [instant.system-catalog-ops :refer [query-op]]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.exception :as ex]
+   [instant.util.uuid :as uuid-util]
+   [next.jdbc :as next-jdbc])
   (:import
    (java.util UUID)))
 
+(def app-cache (cache/lru-cache-factory {} :threshold 256))
+
+(defn evict-app-id-from-cache [app-id]
+  (cache/evict app-cache app-id))
+
+(defn evict-app-ids-from-cache [app-ids]
+  (doseq [app-id app-ids]
+    (evict-app-id-from-cache app-id)))
+
+(defmacro with-cache-invalidation [app-id-or-ids & body]
+  `(let [input# ~app-id-or-ids
+         ids# (if (coll? input#)
+                input#
+                [input#])]
+     (evict-app-ids-from-cache ids#)
+     (let [res# ~@body]
+       (evict-app-ids-from-cache ids#)
+       res#)))
+
 (defn create!
-  ([params] (create! aurora/conn-pool params))
+  ([params] (create! (aurora/conn-pool) params))
   ([conn {:keys [id title creator-id admin-token]}]
 
    (next-jdbc/with-transaction [tx-conn conn]
      (let [app (sql/execute-one!
+                ::create!
                 tx-conn
-                ["INSERT INTO apps (id, title, creator_id) VALUES (?::uuid, ?, ?::uuid)"
-                 id title creator-id])
+                (hsql/format {:insert-into :apps
+                              :values [{:id id
+                                        :title title
+                                        :creator-id creator-id}]}))
            {:keys [token]} (app-admin-token-model/create! tx-conn {:app-id id
                                                                    :token admin-token})]
        (assoc app :admin-token token)))))
 
-(defn get-by-id
-  ([params] (get-by-id aurora/conn-pool params))
-  ([conn {:keys [id]}]
-   (sql/select-one conn
-                   ["SELECT
-                       a.*
-                     FROM apps a
-                     WHERE a.id = ?::uuid" id])))
+(defn get-by-id* [conn id]
+  (sql/select-one ::get-by-id*
+                  conn
+                  ["SELECT * FROM apps WHERE apps.id = ?::uuid" id]))
 
-(defn get-by-id! [params]
-  (ex/assert-record! (get-by-id params) :app {:args [params]}))
+(defn get-by-id
+  ([{:keys [id]}]
+   (cache/lookup-or-miss app-cache id (partial get-by-id* (aurora/conn-pool))))
+  ([conn {:keys [id] :as params}]
+   (if (= conn (aurora/conn-pool))
+     (get-by-id params)
+     ;; Don't cache if we're using a custom connection
+     (get-by-id* conn id))))
+
+(defn get-by-id!
+  ([params]
+   (get-by-id! (aurora/conn-pool) params))
+  ([conn params]
+   (ex/assert-record! (get-by-id conn params) :app {:args [params]})))
 
 (defn list-by-creator-id
-  ([user-id] (list-by-creator-id aurora/conn-pool user-id))
+  ([user-id] (list-by-creator-id (aurora/conn-pool) user-id))
   ([conn user-id]
-   (sql/select conn
+   (sql/select ::list-by-creator-id
+               conn
                ["SELECT a.*
-                FROM apps a
-                WHERE a.creator_id = ?::uuid"
+                 FROM apps a
+                 WHERE a.creator_id = ?::uuid"
                 user-id])))
 
 (comment
@@ -50,9 +87,10 @@
   (list-by-creator-id user-id))
 
 (defn get-by-id-and-creator
-  ([params] (get-by-id-and-creator aurora/conn-pool params))
+  ([params] (get-by-id-and-creator (aurora/conn-pool) params))
   ([conn {:keys [user-id app-id]}]
-   (sql/select-one conn
+   (sql/select-one ::get-by-id-and-creator
+                   conn
                    ["SELECT a.*
                       FROM apps a
                       WHERE
@@ -69,9 +107,10 @@
   (get-by-id-and-creator {:user-id user-id :app-id app-id}))
 
 (defn get-app-ids-created-before
-  ([params] (get-app-ids-created-before aurora/conn-pool params))
+  ([params] (get-app-ids-created-before (aurora/conn-pool) params))
   ([conn {:keys [creator-id created-before]}]
    (map :id (sql/select
+             ::get-app-ids-created-before
              conn
              ["SELECT
                 a.id
@@ -82,9 +121,10 @@
               creator-id created-before]))))
 
 (defn get-with-creator-by-ids
-  ([params] (get-with-creator-by-ids aurora/conn-pool params))
+  ([params] (get-with-creator-by-ids (aurora/conn-pool) params))
   ([conn app-ids]
-   (sql/select conn ["SELECT a.*, u.email AS creator_email
+   (sql/select ::get-with-creator-by-ids
+               conn ["SELECT a.*, u.email AS creator_email
                       FROM apps a
                       JOIN instant_users u ON a.creator_id = u.id
                       WHERE a.id in (select unnest(?::uuid[]))"
@@ -98,14 +138,15 @@
                             "59aafa92-a900-4b3d-aaf1-45032ee8d415"]))
 
 (defn get-all-for-user
-  ([params] (get-all-for-user aurora/conn-pool params))
+  ([params] (get-all-for-user (aurora/conn-pool) params))
   ([conn {:keys [user-id]}]
-   (sql/select conn ["WITH s AS (
-                        SELECT 
+   (sql/select ::get-all-for-user
+               conn ["WITH s AS (
+                        SELECT
                           app_id,
                           subscription_type_id
                         FROM (
-                          SELECT 
+                          SELECT
                             app_id,
                             subscription_type_id,
                             ROW_NUMBER() OVER (
@@ -207,80 +248,106 @@
                      user-id user-id user-id user-id])))
 
 (defn get-dash-auth-data
-  ([params] (get-dash-auth-data aurora/conn-pool params))
+  ([params] (get-dash-auth-data (aurora/conn-pool) params))
   ([conn {:keys [app-id]}]
-   (sql/select-one
+   (query-op
     conn
-    ["SELECT json_build_object(
-        'oauth_service_providers', (
-          SELECT json_agg(json_build_object(
-            'id', osp.id,
-            'provider_name', osp.provider_name,
-            'created_at', osp.created_at
-          ))
-          FROM (SELECT * FROM app_oauth_service_providers osp
-                  WHERE osp.app_id = a.id
-                  ORDER BY osp.created_at desc)
-          AS osp
-        ),
-        'oauth_clients', (
-          SELECT json_agg(json_build_object(
-            'id', oc.id,
-            'client_name', oc.client_name,
-            'client_id', oc.client_id,
-            'provider_id', oc.provider_id,
-            'created_at', oc.created_at,
-            'meta', oc.meta,
-            'discovery_endpoint', oc.discovery_endpoint
-          ))
-          FROM (SELECT * FROM app_oauth_clients oc
-                 WHERE oc.app_id = a.id
-                 ORDER BY oc.created_at desc)
-          AS oc
-        ),
-        'authorized_redirect_origins', (
-          SELECT json_agg(json_build_object(
-            'id', ro.id,
-            'service', ro.service,
-            'params', ro.params,
-            'created_at', ro.created_at
-          ))
-          FROM (SELECT * from app_authorized_redirect_origins ro
-                 WHERE ro.app_id = a.id
-                 ORDER BY ro.created_at desc)
-          AS ro
-        )
-      ) AS data
-      FROM apps a
-      WHERE a.id = ?::uuid"
-     app-id])))
+    {:app-id app-id}
+    (fn [{:keys [admin-query]}]
+      (let [redirect-origins
+            (-> (sql/select-one
+                 ::get-dash-auth-data
+                 conn
+                 ["SELECT json_build_object(
+                      'authorized_redirect_origins', (
+                        SELECT json_agg(json_build_object(
+                          'id', ro.id,
+                          'service', ro.service,
+                          'params', ro.params,
+                          'created_at', ro.created_at
+                        ))
+                        FROM (SELECT * from app_authorized_redirect_origins ro
+                               WHERE ro.app_id = a.id
+                               ORDER BY ro.created_at desc)
+                        AS ro
+                      )
+                    ) AS data
+                    FROM apps a
+                    WHERE a.id = ?::uuid"
+                  app-id])
+                (get-in [:data "authorized_redirect_origins"]))
+
+            {:strs [$oauthProviders
+                    $oauthClients]}
+            (admin-query {:$oauthProviders {}
+                          :$oauthClients {}})
+
+            providers (map (fn [provider]
+                             {"id" (get provider "id")
+                              "provider_name" (get provider "name")
+                              "created_at" (get provider "$serverCreatedAt")})
+                           $oauthProviders)
+
+            clients (map (fn [client]
+                           {"id" (get client "id")
+                            "client_name" (get client "name")
+                            "client_id" (get client "clientId")
+                            "provider_id" (get client "$oauthProvider")
+                            "meta" (get client "meta")
+                            "discovery_endpoint" (get client "discovery_endpoint")
+                            "created_at" (get client "$serverCreatedAt")})
+                         $oauthClients)]
+        {:data {"oauth_service_providers" providers
+                "oauth_clients" clients
+                "authorized_redirect_origins" redirect-origins}})))))
 
 (defn delete-by-id!
-  ([params] (delete-by-id! aurora/conn-pool params))
+  ([params] (delete-by-id! (aurora/conn-pool) params))
   ([conn {:keys [id]}]
-   (sql/execute-one! conn ["DELETE FROM apps WHERE id = ?::uuid" id])))
+   (with-cache-invalidation id
+     (sql/execute-one! ::delete-by-id!
+                       conn ["DELETE FROM apps WHERE id = ?::uuid" id]))))
 
 (defn rename-by-id!
-  ([params] (rename-by-id! aurora/conn-pool params))
+  ([params] (rename-by-id! (aurora/conn-pool) params))
   ([conn {:keys [id title]}]
-   (sql/execute-one! conn ["UPDATE apps SET title = ? WHERE id = ?::uuid " title id])))
+   (with-cache-invalidation id
+     (sql/execute-one! ::rename-by-id!
+                       conn ["UPDATE apps SET title = ? WHERE id = ?::uuid " title id]))))
 
 (defn change-creator!
-  ([params] (change-creator! aurora/conn-pool params))
+  ([params] (change-creator! (aurora/conn-pool) params))
   ([conn {:keys [id new-creator-id]}]
-   (sql/execute-one! conn ["UPDATE apps a
-                            SET creator_id = ?::uuid
-                            WHERE a.id = ?::uuid"
-                           new-creator-id id])))
+   (instant-user-model/with-cache-invalidation id
+     (with-cache-invalidation id
+       (sql/execute-one! ::change-creator!
+                         conn ["UPDATE apps a
+                                 SET creator_id = ?::uuid
+                                 WHERE a.id = ?::uuid"
+                               new-creator-id id])))))
+
+(defn clear-by-id!
+  "Deletes attrs, rules, and triples for the specified app_id"
+  ([params] (clear-by-id! (aurora/conn-pool) params))
+  ([conn {:keys [id]}]
+   (next-jdbc/with-transaction [tx-conn conn]
+     (attr-model/delete-by-app-id! tx-conn id)
+     (rule-model/delete-by-app-id! tx-conn {:app-id id})
+     (transaction-model/create! tx-conn {:app-id id}))))
+
+(comment
+  (clear-by-id! {:id "9a6d8f38-991d-4264-9801-4a05d8b1eab1"}))
 
 (defn delete-by-ids!
-  ([params] (delete-by-ids! aurora/conn-pool params))
+  ([params] (delete-by-ids! (aurora/conn-pool) params))
   ([conn {:keys [creator-id ids]}]
-   (sql/execute-one! conn
-                     (hsql/format
-                      {:delete-from [:apps]
-                       :where [:and [:= :creator-id [:cast creator-id :uuid]]
-                               [:in :id (mapv (fn [x] [:cast x :uuid]) ids)]]}))))
+   (with-cache-invalidation ids
+     (sql/execute-one! ::delete-by-ids!
+                       conn
+                       (hsql/format
+                        {:delete-from [:apps]
+                         :where [:and [:= :creator-id [:cast creator-id :uuid]]
+                                 [:in :id (mapv (fn [x] [:cast x :uuid]) ids)]]})))))
 
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
@@ -296,17 +363,18 @@
   from the transactions table instead.
 
   Usage is comprised of both raw data and overhead data (indexes, toast tables, etc.).
-  
+
   sum(pg_column_size(t)) calculates the total data size for the specified app_id.
   pg_total_relation_size('triples') / pg_relation_size('triples') calculates
   the ratio of the total table size to the actual data size. This ratio
   represents the overhead factor.
-    
+
   Multiplying the app_id data size by the overhead factor gives an estimate of
   real usage"
-  ([params] (app-usage aurora/conn-pool params))
+  ([params] (app-usage (aurora/conn-pool) params))
   ([conn {:keys [app-id]}]
    (sql/select-one
+    ::app-usage
     conn
     ["SELECT
      (sum(pg_column_size(t)) *
@@ -322,13 +390,15 @@
       (String. "UTF-8")))
 
 (defn set-connection-string!
-  ([params] (set-connection-string! aurora/conn-pool params))
+  ([params] (set-connection-string! (aurora/conn-pool) params))
   ([conn {:keys [app-id connection-string]}]
-   (sql/execute-one! conn
-                     ["update apps set connection_string = ?::bytea where id = ?::uuid"
-                      (crypt-util/aead-encrypt {:plaintext (.getBytes connection-string)
-                                                :associated-data (uuid-util/->bytes app-id)})
-                      app-id])))
+   (with-cache-invalidation app-id
+     (sql/execute-one! ::set-connection-string!
+                       conn
+                       ["update apps set connection_string = ?::bytea where id = ?::uuid"
+                        (crypt-util/aead-encrypt {:plaintext (.getBytes ^String connection-string)
+                                                  :associated-data (uuid-util/->bytes app-id)})
+                        app-id]))))
 
 (comment
-  (app-usage aurora/conn-pool {:app-id "5cb86bd5-5dfb-4489-a455-78bb86cd3da3"}))
+  (app-usage (aurora/conn-pool) {:app-id "5cb86bd5-5dfb-4489-a455-78bb86cd3da3"}))

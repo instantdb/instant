@@ -5,14 +5,49 @@ import {
   i,
   id,
   txInit,
+  version as coreVersion,
   type TransactionChunk,
-  type User,
   type AuthToken,
   type Exactly,
-  type InstaQLQueryParams,
+
+  // core types
+  type User,
   type Query,
+
+  // query types
   type QueryResponse,
+  type InstaQLResponse,
+  type InstaQLParams,
+  type InstantQuery,
+  type InstantQueryResult,
+  type InstantSchema,
+  type InstantSchemaDatabase,
+  type InstantObject,
+  type InstantEntity,
+  type BackwardsCompatibleSchema,
+  type IInstantDatabase,
+
+  // schema types
+  type AttrsDefs,
+  type CardinalityKind,
+  type DataAttrDef,
+  type EntitiesDef,
+  type EntitiesWithLinks,
+  type EntityDef,
+  type InstantGraph,
+  type LinkAttrDef,
+  type LinkDef,
+  type LinksDef,
+  type ResolveAttrs,
+  type ValueTypes,
+  type InstantSchemaDef,
+  type InstantUnknownSchema,
+  type InstaQLEntity,
+  type InstaQLResult,
+  type InstantRules,
 } from "@instantdb/core";
+
+import version from "./version";
 
 type DebugCheckResult = {
   /** The ID of the record. */
@@ -31,6 +66,16 @@ type Config = {
   apiURI?: string;
 };
 
+type InstantConfig<Schema extends InstantSchemaDef<any, any, any>> = {
+  appId: string;
+  adminToken: string;
+  apiURI?: string;
+  schema?: Schema;
+};
+
+type InstantConfigFilled<Schema extends InstantSchemaDef<any, any, any>> =
+  InstantConfig<Schema> & { apiURI: string };
+
 type FilledConfig = Config & { apiURI: string };
 
 type ImpersonationOpts =
@@ -39,6 +84,16 @@ type ImpersonationOpts =
   | { guest: boolean };
 
 function configWithDefaults(config: Config): FilledConfig {
+  const defaultConfig = {
+    apiURI: "https://api.instantdb.com",
+  };
+  const r = { ...defaultConfig, ...config };
+  return r;
+}
+
+function instantConfigWithDefaults<
+  Schema extends InstantSchemaDef<any, any, any>,
+>(config: InstantConfig<Schema>): InstantConfigFilled<Schema> {
   const defaultConfig = {
     apiURI: "https://api.instantdb.com",
   };
@@ -101,7 +156,12 @@ async function jsonFetch(
   input: RequestInfo,
   init: RequestInit | undefined,
 ): Promise<any> {
-  const res = await fetch(input, { ...FETCH_OPTS, ...init });
+  const headers = {
+    ...(init.headers || {}),
+    "Instant-Admin-Version": version,
+    "Instant-Core-Version": coreVersion,
+  };
+  const res = await fetch(input, { ...FETCH_OPTS, ...init, headers });
   const json = await res.json();
   return res.status === 200
     ? Promise.resolve(json)
@@ -128,20 +188,14 @@ async function jsonFetch(
  *  const db = init<Schema>({ appId: "my-app-id" })
  *
  */
-function init<Schema = {}>(config: Config) {
+function init<Schema extends {} = {}>(config: Config) {
   return new InstantAdmin<Schema, false>(config);
 }
 
 function init_experimental<
-  Schema extends i.InstantGraph<any, any, any>,
-  WithCardinalityInference extends boolean = true,
->(
-  config: Config & {
-    schema: Schema;
-    cardinalityInference?: WithCardinalityInference;
-  },
-) {
-  return new InstantAdmin<Schema, WithCardinalityInference>(config);
+  Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
+>(config: InstantConfig<Schema>) {
+  return new InstantAdminDatabase<Schema>(config);
 }
 
 /**
@@ -154,7 +208,7 @@ function init_experimental<
  *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
  */
 class InstantAdmin<
-  Schema extends i.InstantGraph<any, any> | {},
+  Schema extends InstantGraph<any, any> | {},
   WithCardinalityInference extends boolean,
 > {
   config: FilledConfig;
@@ -164,9 +218,7 @@ class InstantAdmin<
 
   public tx =
     txInit<
-      Schema extends i.InstantGraph<any, any>
-        ? Schema
-        : i.InstantGraph<any, any>
+      Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
     >();
 
   constructor(_config: Config) {
@@ -210,8 +262,8 @@ class InstantAdmin<
    *  await db.query({ goals: { todos: {} } })
    */
   query = <
-    Q extends Schema extends i.InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
+    Q extends Schema extends InstantGraph<any, any>
+      ? InstaQLParams<Schema>
       : Exactly<Query, Q>,
   >(
     query: Q,
@@ -354,6 +406,28 @@ class Auth {
   }
 
   /**
+   * Generates a magic code for the user with the given email,  used to sign in on the frontend.
+   * This is useful for writing custom auth flows.
+   *
+   * @example
+   *   try {
+   *     const user = await db.auth.generateMagicCode({ email })
+   *     // send an email to user with magic code
+   *   } catch (err) {
+   *     console.error("Failed to generate magic code:", err.message);
+   *   }
+   *
+   * @see https://instantdb.com/docs/backend#generate-magic-code
+   */
+  generateMagicCode = async (email: string): Promise<{ code: string }> => {
+    return jsonFetch(`${this.config.apiURI}/admin/magic_code`, {
+      method: "POST",
+      headers: authorizedHeaders(this.config),
+      body: JSON.stringify({ email }),
+    });
+  };
+
+  /**
    * Creates a login token for the user with the given email.
    * If that user does not exist, we create one.
    *
@@ -427,7 +501,10 @@ class Auth {
   getUser = async (
     params: { email: string } | { id: string } | { refresh_token: string },
   ): Promise<User> => {
-    const qs = Object.entries(params).map(([k, v]) => `${k}=${v}`);
+    const qs = Object.entries(params)
+      .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+      .join("&");
+
     const response: { user: User } = await jsonFetch(
       `${this.config.apiURI}/admin/users?${qs}`,
       {
@@ -620,6 +697,192 @@ class Storage {
   };
 }
 
+/**
+ *
+ * The first step: init your application!
+ *
+ * Visit https://instantdb.com/dash to get your `appId` and `adminToken` :)
+ *
+ * @example
+ *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
+ */
+class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
+  config: InstantConfigFilled<Schema>;
+  auth: Auth;
+  storage: Storage;
+  impersonationOpts?: ImpersonationOpts;
+
+  public tx = txInit<Schema>();
+
+  constructor(_config: InstantConfig<Schema>) {
+    this.config = instantConfigWithDefaults(_config);
+    this.auth = new Auth(this.config);
+    this.storage = new Storage(this.config);
+  }
+
+  /**
+   * Sometimes you want to scope queries to a specific user.
+   *
+   * You can provide a user's auth token, email, or impersonate a guest.
+   *
+   * @see https://instantdb.com/docs/backend#impersonating-users
+   * @example
+   *  await db.asUser({email: "stopa@instantdb.com"}).query({ goals: {} })
+   */
+  asUser = (opts: ImpersonationOpts): InstantAdminDatabase<Schema> => {
+    const newClient = new InstantAdminDatabase<Schema>({
+      ...this.config,
+    });
+    newClient.impersonationOpts = opts;
+    return newClient;
+  };
+
+  /**
+   * Use this to query your data!
+   *
+   * @see https://instantdb.com/docs/instaql
+   *
+   * @example
+   *  // fetch all goals
+   *  await db.query({ goals: {} })
+   *
+   *  // goals where the title is "Get Fit"
+   *  await db.query({ goals: { $: { where: { title: "Get Fit" } } } })
+   *
+   *  // all goals, _alongside_ their todos
+   *  await db.query({ goals: { todos: {} } })
+   */
+  query = <Q extends InstaQLParams<Schema>>(
+    query: Q,
+  ): Promise<InstaQLResponse<Schema, Q>> => {
+    return jsonFetch(`${this.config.apiURI}/admin/query`, {
+      method: "POST",
+      headers: authorizedHeaders(this.config, this.impersonationOpts),
+      body: JSON.stringify({
+        query: query,
+        "inference?": !!this.config.schema,
+      }),
+    });
+  };
+
+  /**
+   * Use this to write data! You can create, update, delete, and link objects
+   *
+   * @see https://instantdb.com/docs/instaml
+   *
+   * @example
+   *   // Create a new object in the `goals` namespace
+   *   const goalId = id();
+   *   db.transact(tx.goals[goalId].update({title: "Get fit"}))
+   *
+   *   // Update the title
+   *   db.transact(tx.goals[goalId].update({title: "Get super fit"}))
+   *
+   *   // Delete it
+   *   db.transact(tx.goals[goalId].delete())
+   *
+   *   // Or create an association:
+   *   todoId = id();
+   *   db.transact([
+   *    tx.todos[todoId].update({ title: 'Go on a run' }),
+   *    tx.goals[goalId].link({todos: todoId}),
+   *  ])
+   */
+  transact = (
+    inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
+  ) => {
+    const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
+    const steps = chunks.flatMap((tx) => getOps(tx));
+    return jsonFetch(`${this.config.apiURI}/admin/transact`, {
+      method: "POST",
+      headers: authorizedHeaders(this.config, this.impersonationOpts),
+      body: JSON.stringify({
+        steps: steps,
+        "throw-on-missing-attrs?": !!this.config.schema,
+      }),
+    });
+  };
+
+  /**
+   * Like `query`, but returns debugging information
+   * for permissions checks along with the result.
+   * Useful for inspecting the values returned by the permissions checks.
+   * Note, this will return debug information for *all* entities
+   * that match the query's `where` clauses.
+   *
+   * Requires a user/guest context to be set with `asUser`,
+   * since permissions checks are user-specific.
+   *
+   * Accepts an optional configuration object with a `rules` key.
+   * The provided rules will override the rules in the database for the query.
+   *
+   * @see https://instantdb.com/docs/instaql
+   *
+   * @example
+   *  await db.asUser({ guest: true }).debugQuery(
+   *    { goals: {} },
+   *    { rules: { goals: { allow: { read: "auth.id != null" } } }
+   *  )
+   */
+  debugQuery = async <Q extends InstaQLParams<Schema>>(
+    query: Q,
+    opts?: { rules: any },
+  ): Promise<{
+    result: InstaQLResponse<Schema, Q>;
+    checkResults: DebugCheckResult[];
+  }> => {
+    const response = await jsonFetch(
+      `${this.config.apiURI}/admin/query_perms_check`,
+      {
+        method: "POST",
+        headers: authorizedHeaders(this.config, this.impersonationOpts),
+        body: JSON.stringify({ query, "rules-override": opts?.rules }),
+      },
+    );
+
+    return {
+      result: response.result,
+      checkResults: response["check-results"],
+    };
+  };
+
+  /**
+   * Like `transact`, but does not write to the database.
+   * Returns debugging information for permissions checks.
+   * Useful for inspecting the values returned by the permissions checks.
+   *
+   * Requires a user/guest context to be set with `asUser`,
+   * since permissions checks are user-specific.
+   *
+   * Accepts an optional configuration object with a `rules` key.
+   * The provided rules will override the rules in the database for the duration of the transaction.
+   *
+   * @example
+   *   const goalId = id();
+   *   db.asUser({ guest: true }).debugTransact(
+   *      [tx.goals[goalId].update({title: "Get fit"})],
+   *      { rules: { goals: { allow: { update: "auth.id != null" } } }
+   *   )
+   */
+  debugTransact = (
+    inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
+    opts?: { rules?: any },
+  ) => {
+    const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
+    const steps = chunks.flatMap((tx) => getOps(tx));
+    return jsonFetch(`${this.config.apiURI}/admin/transact_perms_check`, {
+      method: "POST",
+      headers: authorizedHeaders(this.config, this.impersonationOpts),
+      body: JSON.stringify({
+        steps: steps,
+        "rules-override": opts?.rules,
+        // @ts-expect-error because we're using a private API (for now)
+        "dangerously-commit-tx": opts?.__dangerouslyCommit,
+      }),
+    });
+  };
+}
+
 export {
   init,
   init_experimental,
@@ -633,4 +896,41 @@ export {
   type ImpersonationOpts,
   type TransactionChunk,
   type DebugCheckResult,
+  type InstantAdmin,
+  type InstantAdminDatabase,
+
+  // core types
+  type User,
+  type InstaQLParams,
+  type Query,
+
+  // query types
+  type QueryResponse,
+  type InstantQuery,
+  type InstantQueryResult,
+  type InstantSchema,
+  type InstantSchemaDatabase,
+  type IInstantDatabase,
+  type InstantObject,
+  type InstantEntity,
+  type BackwardsCompatibleSchema,
+
+  // schema types
+  type AttrsDefs,
+  type CardinalityKind,
+  type DataAttrDef,
+  type EntitiesDef,
+  type EntitiesWithLinks,
+  type EntityDef,
+  type InstantGraph,
+  type LinkAttrDef,
+  type LinkDef,
+  type LinksDef,
+  type ResolveAttrs,
+  type ValueTypes,
+  type InstantSchemaDef,
+  type InstantUnknownSchema,
+  type InstaQLEntity,
+  type InstaQLResult,
+  type InstantRules,
 };

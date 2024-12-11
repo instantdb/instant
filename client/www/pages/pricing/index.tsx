@@ -11,6 +11,9 @@ import { Button } from '@/components/ui';
 const outlineStyle = (isFeatured: boolean) =>
   isFeatured ? 'outline-orange-600/80' : 'outline-gray-600/10';
 
+const opacityStyle = (isDisabled: boolean) =>
+  isDisabled ? 'opacity-40' : 'opacity-100';
+
 const plans = [
   {
     name: 'Free',
@@ -54,7 +57,8 @@ const plans = [
       'Unlimited team members per app',
       'Daily backups for last 30 days',
     ],
-    cta: 'Contact us',
+    ctaDisabled: true,
+    cta: 'Coming soon!',
     ctaLink:
       'mailto:founders@instantdb.com?subject=InstantDB%20Enterprise%20Plan%20Inquiry',
   },
@@ -103,12 +107,13 @@ function Plan({ plan }: { plan: any }) {
     isFeatured,
     cta,
     ctaLink,
+    ctaDisabled,
   } = plan;
   return (
     <div
       className={`box-border rounded-lg bg-white outline outline-2 -outline-offset-1 ${outlineStyle(
         isFeatured
-      )} flex flex-col justify-between gap-4 p-6 h-full`}
+      )} flex flex-col justify-between gap-4 p-6 h-full ${opacityStyle(ctaDisabled)}`}
     >
       <div>
         <div className="flex items-center justify-between my-2">
@@ -141,6 +146,7 @@ function Plan({ plan }: { plan: any }) {
       </div>
       {footer && <div className="text-sm text-gray-500">{footer}</div>}
       <Button
+        disabled={ctaDisabled}
         className="py-2 font-medium"
         type="link"
         variant={name === 'Pro' ? 'cta' : 'secondary'}

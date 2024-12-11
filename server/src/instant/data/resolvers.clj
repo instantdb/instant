@@ -22,6 +22,7 @@
    [instant.jdbc.sql :as sql]
    [instant.data.constants :refer [movies-app-id zeneca-app-id]]
    [instant.db.datalog :as d]
+   [instant.util.uuid :as uuid-util]
    [clojure.string :as string]
    [clojure.set :as clojure-set]
    [clojure.walk :as w]))
@@ -38,7 +39,20 @@
        (string/join "-")
        (str "eid-")))
 
-(defn- make-resolver
+(defn make-attr-resolver
+  [{:keys [conn-pool] :as _db} app-id]
+  (let [attrs (attr-model/get-by-app-id conn-pool app-id)
+        aid->friendly-name (->> attrs
+                                (map (fn [{:keys [id forward-identity]}]
+                                       [id (ident->friendly-name forward-identity)]))
+                                (into {}))]
+
+    {:aid->friendly-name aid->friendly-name
+     :friendly-name->aid (clojure-set/map-invert aid->friendly-name)
+     :eid->friendly-name (constantly nil)
+     :friendly-name->eid (constantly nil)}))
+
+(defn make-resolver
   [{:keys [conn-pool] :as db} app-id eid-fwd-idents]
   (let [attrs (attr-model/get-by-app-id conn-pool app-id)
         aid->friendly-name (->> attrs
@@ -75,7 +89,7 @@
                                 (map (fn [{:keys [id forward-identity]}]
                                        [id (ident->friendly-name forward-identity)]))
                                 (into {}))
-        
+
         eid-fwd-idents-map (into {} eid-fwd-idents)
         eid->friendly-name (reduce (fn [acc [table-name info]]
                                      (let [primary-key (-> info :primary-key :field)
@@ -102,7 +116,7 @@
   ([] (make-movies-resolver movies-app-id))
   ([app-id]
    (make-resolver
-    {:conn-pool aurora/conn-pool}
+    {:conn-pool (aurora/conn-pool)}
     app-id
     [["movie" "title"]
      ["person" "name"]])))
@@ -111,7 +125,7 @@
   ([] (make-zeneca-resolver zeneca-app-id))
   ([app-id]
    (make-resolver
-    {:conn-pool aurora/conn-pool}
+    {:conn-pool (aurora/conn-pool)}
     app-id
     [["users" "fullName"]
      ["books" "title"]
@@ -136,7 +150,9 @@
   ([r x] (->friendly r x nil))
   ([{:keys [aid->friendly-name eid->friendly-name]} x not-found]
    (or (aid->friendly-name x)
+       (aid->friendly-name (uuid-util/coerce x))
        (eid->friendly-name x)
+       (eid->friendly-name (uuid-util/coerce x))
        not-found)))
 
 (comment
@@ -166,6 +182,6 @@
   (walk-friendly
    r
    (d/query
-    {:db {:conn-pool aurora/conn-pool}
+    {:db {:conn-pool (aurora/conn-pool)}
      :app-id movies-app-id}
     [[:ea (->uuid r "eid-tina-turner")]])))

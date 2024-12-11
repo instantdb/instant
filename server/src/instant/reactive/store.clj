@@ -15,11 +15,10 @@
    4. Metadata. Sessions have auth, sockets, and other misc data for handling
       events across the lifetime of a session"
   (:require
+   [clojure.string :as string]
    [datascript.core :as d]
-   [clojure.set :as clojure-set]
    [instant.util.coll :as ucoll]
    [instant.lib.ring.websocket :as ws]
-   [instant.util.async :as ua]
    [instant.util.tracer :as tracer]
    [instant.util.exception :as ex]))
 
@@ -36,13 +35,15 @@
    :session/socket {} ;; socket (from session.clj)
    :session/auth {} ;; {:app app :user user :admin? admin?} (from session.clj)
    :session/creator {} ;; user (from session.clj)
+   :session/versions {} ;; library versions, e.g. {"@instantdb/react": "v0.1.2"}
    :session/datalog-loader {} ;; datalog-loader (from datalog.clj)
 
    :tx-meta/app-id {:db/unique :db.unique/identity}
    :tx-meta/processed-tx-id {:db/type :db.type/integer}
 
    :instaql-query/query {:db/index true}
-   :instaql-query/session-id {:db/type :db.type/uuid}
+   :instaql-query/session-id {:db/type :db.type/uuid
+                              :db/index true}
    :instaql-query/stale? {:db/type :db.type/boolean}
    :instaql-query/version {:db/type :db.type/integer}
    :instaql-query/hash {:db/type :db.type/string}
@@ -50,6 +51,7 @@
    :instaql-query/session-id+query
    {:db/tupleAttrs [:instaql-query/session-id :instaql-query/query]
     :db/unique :db.unique/identity}
+   :instaql-query/return-type {} ;; :join-rows or :tree
 
    :subscription/app-id {:db/type :db.type/integer}
    :subscription/session-id {:db/index true
@@ -135,6 +137,23 @@
              conn
              [[:db/add [:session/id sess-id] :session/creator creator]]))
 
+;; -------------
+;; session props
+
+(defn set-session-props! [conn sess-id {:keys [creator
+                                               auth
+                                               versions]}]
+  (transact! "store/set-session-props"
+             conn
+             (concat
+              [[:db/add [:session/id sess-id] :session/auth auth]
+               [:db/add [:session/id sess-id] :session/creator creator]]
+              (when versions
+                [[:db/add [:session/id sess-id] :session/versions versions]]))))
+
+(defn get-versions [db sess-id]
+  (:session/versions (d/entity db [:session/id sess-id])))
+
 ;; -----
 ;; tx-id
 
@@ -145,20 +164,17 @@
 ;; instaql queries
 
 (defn get-stale-instaql-queries [db sess-id]
-  (->> (d/q '{:find [?q]
-              :in [$ ?session-id]
-              :where [[?e :instaql-query/session-id ?session-id]
-                      [?e :instaql-query/query ?q]
-                      [?e :instaql-query/stale? true]]}
-            db
-            sess-id)
-       (map first)))
+  (->> (d/datoms db :avet :instaql-query/session-id sess-id)
+       (keep (fn [{:keys [e]}]
+               (let [ent (d/entity db e)]
+                 (when (:instaql-query/stale? ent)
+                   ent))))))
 
 (defn bump-instaql-version-tx-data
   "Should be used in a db.fn/call. Returns transactions.
    Bumps the query version and marks query as not stale, creating the query
    if needed."
-  [db lookup-ref session-id instaql-query]
+  [db lookup-ref session-id instaql-query return-type]
   (if-let [existing (d/entity db lookup-ref)]
     [[:db/add
       (:db/id existing)
@@ -170,14 +186,15 @@
     [{:instaql-query/session-id session-id
       :instaql-query/query instaql-query
       :instaql-query/stale? false
-      :instaql-query/version 1}]))
+      :instaql-query/version 1
+      :instaql-query/return-type return-type}]))
 
-(defn bump-instaql-version! [conn sess-id q]
+(defn bump-instaql-version! [conn sess-id q return-type]
   (let [lookup-ref [:instaql-query/session-id+query [sess-id q]]
         {:keys [db-after]}
         (transact! "store/bump-instaql-version!"
                    conn
-                   [[:db.fn/call bump-instaql-version-tx-data lookup-ref sess-id q]])]
+                   [[:db.fn/call bump-instaql-version-tx-data lookup-ref sess-id q return-type]])]
 
     (:instaql-query/version (d/entity db-after lookup-ref))))
 
@@ -405,23 +422,58 @@
 ;; ------
 ;; invalidation
 
-(defn- match-topic-part? [a b]
+(defn intersects?
+  "Like (not (empty? (set/intersection set-a set-b))), but it returns early
+   instead of calculating the full intersection."
+  [set-a set-b]
+  (let [[big small] (if (> (count set-a) (count set-b))
+                      [set-a set-b]
+                      [set-b set-a])]
+    (reduce (fn [_ item]
+              (if (contains? big item)
+                (reduced true)
+                false))
+            false
+            small)))
+
+(defn like-match? [text pattern]
+  (let [regex-pattern (-> pattern
+                          (string/replace "_" ".")
+                          (string/replace "%" ".*")
+                          (#(str "^" % "$")))]
+    (re-matches (re-pattern regex-pattern) text)))
+
+(defn- match-topic-part? [iv-part dq-part]
   (cond
-    (keyword? a) (= a b)
-    (some symbol? [a b]) true
-    (set? a) (seq (clojure-set/intersection a b))))
+    (keyword? iv-part) (= iv-part dq-part)
+    (or (symbol? dq-part) (symbol? iv-part)) true
+    (set? dq-part) (intersects? iv-part dq-part)
+
+    (map? dq-part)
+    (if-let [{:keys [op value]} (:$comparator dq-part)]
+      (let [f (case op
+                :$gt >
+                :$gte >=
+                :$lt <
+                :$lte <=
+                :$like like-match?)]
+        (some (fn [v]
+                (f v value))
+              iv-part))
+      (when (contains? dq-part :$not)
+        (let [not-val (:$not dq-part)]
+          (some (partial not= not-val) iv-part))))))
 
 (defn match-topic?
-  [t1 t2]
-  (let [zipped (ucoll/zip t1 t2)]
-    (every? (partial apply match-topic-part?) zipped)))
+  [iv-topic dq-topic]
+  (ucoll/every?-var-args match-topic-part? iv-topic dq-topic))
 
-(defn contains-matching-topic? [ts t]
-  (some (partial match-topic? t) ts))
+(defn contains-matching-topic? [dq-topics iv-topic]
+  (some (partial match-topic? iv-topic) dq-topics))
 
-(defn matching-topic-intersection? [ts1 ts2]
-  (some (partial contains-matching-topic? ts2)
-        ts1))
+(defn matching-topic-intersection? [iv-topics dq-topics]
+  (some (partial contains-matching-topic? dq-topics)
+        iv-topics))
 
 (defn mark-instaql-queries-stale-tx-data
   "Should be used in a db.fn/call. Returns transactions.
@@ -437,6 +489,15 @@
                       datalog-query-eids)]
     (map (fn [[e]] [:db/add e :instaql-query/stale? true]) iql-eids)))
 
+(defn set-tx-id
+  "Should be used in a db.fn/call. Returns transactions.
+   Sets the processed-tx-id to the max of the given value and current value."
+  [db app-id tx-id]
+  (if-let [current (:tx-meta/processed-tx-id (d/entity db [:tx-meta/app-id app-id]))]
+    [[:db/add [:tx-meta/app-id app-id] :tx-meta/processed-tx-id (max current tx-id)]]
+    [{:tx-meta/app-id app-id
+      :tx-meta/processed-tx-id tx-id}]))
+
 (defn mark-datalog-queries-stale!
   "Stale-ing a datalog query has the following side-effects:
    1. Removes the datalog query from the datalog-cache
@@ -446,18 +507,17 @@
   (transact!
    "store/mark-datalog-queries-stale!"
    conn
-   (list* {:tx-meta/app-id app-id
-           :tx-meta/processed-tx-id tx-id}
+   (list* [:db.fn/call set-tx-id app-id tx-id]
 
           [:db.fn/call mark-instaql-queries-stale-tx-data datalog-query-eids]
 
           (mapv (fn [e] [:db.fn/retractEntity e]) datalog-query-eids))))
 
-(defn get-datalog-queries-for-topics [db app-id topics]
+(defn get-datalog-queries-for-topics [db app-id iv-topics]
   (->> (d/datoms db :avet :datalog-query/app-id app-id)
        (keep (fn [datom]
                (when-let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
-                 (when (matching-topic-intersection? topics dq-topics)
+                 (when (matching-topic-intersection? iv-topics dq-topics)
                    (:e datom)))))))
 
 (defn mark-stale-topics!
@@ -513,20 +573,20 @@
 ;; -----------------
 ;; Websocket Helpers
 
-(defn send-event! [conn sess-id event]
+(defn send-event! [conn app-id sess-id event]
   (let [{:keys [ws-conn]} (get-socket @conn sess-id)]
     (when-not ws-conn
       (ex/throw-socket-missing! sess-id))
     (try
-      (ws/send-json! event ws-conn)
+      (ws/send-json! app-id event ws-conn)
       (catch java.io.IOException e
         (ex/throw-socket-error! sess-id e)))))
 
 (defn try-send-event!
   "Does a best-effort send. If it fails, we record and swallow the exception"
-  [conn sess-id event]
+  [conn app-id sess-id event]
   (try
-    (send-event! conn sess-id event)
+    (send-event! conn app-id sess-id event)
     (catch Exception e
       (tracer/with-span! {:name "rs/try-send-event-swallowed-err"}
         (tracer/record-exception-span!
@@ -534,13 +594,6 @@
          {:name "rs/try-send-event-err"
           :attributes {:event (str event)
                        :escaping? false}})))))
-
-(defn try-broadcast-event!
-  "Sends an event to multiple sessions"
-  [conn sess-ids event]
-  (ua/vfuture-pmap (fn [sess-id]
-                     (try-send-event! conn sess-id event))
-                   sess-ids))
 
 ;; -----
 ;; start
@@ -558,4 +611,10 @@
 
 (defn restart []
   (stop)
+  (start))
+
+(defn before-ns-unload []
+  (stop))
+
+(defn after-ns-reload []
   (start))

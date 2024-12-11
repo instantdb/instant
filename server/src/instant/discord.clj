@@ -37,5 +37,27 @@
                   "Content-Type" "application/json"}
         :body (->json {:content message})}))))
 
+;; Instructions for finding a user id and formatting it for a mention:
+;; https://chatgpt.com/share/67081219-2e0c-8007-9fe0-4c0f6bacf26c
+(def mention-constants
+  {:dww "<@235826349607092224>"
+   :nezaj "<@149718000281452545>"
+   :stopa "<@150691007019614218>"
+   :instateam "<@&1031959593066172477>"})
+
+(def send-agent (agent nil))
+
+(defn send-async! [channel-id message]
+  (send-off send-agent (fn [_]
+                         (send! channel-id message))))
+
+(defn send-error-async! [message]
+  (send-async! (if (= :prod (config/get-env))
+                 config/discord-errors-channel-id
+                 config/discord-debug-channel-id)
+               message))
+
 (comment
-  (send! config/discord-debug-channel-id "test"))
+  (send! config/discord-debug-channel-id "test")
+  (send-async! config/discord-debug-channel-id (format "%s testing user mention"
+                                                       (:dww mention-constants))))

@@ -5,6 +5,9 @@ import {
   type InstantSchema,
   type InstantQuery,
   type InstantQueryResult,
+  type InstantGraph,
+  type InstantEntity,
+  InstantSchemaDatabase,
 } from "@instantdb/react";
 import config from "../../config";
 
@@ -14,11 +17,10 @@ interface Data {
 
 const schema = i
   .graph(
-    "",
     {
       discriminatedUnionExample: i
-        .entity({ x: i.string(), y: i.number() })
-        .asType<{ x: "foo"; y: 1 } | { x: "bar"; y: 2 }>(),
+        .entity({ x: i.string(), y: i.number(), z: i.number() })
+        .asType<{ x: "foo"; y: 1 } | { x: "bar" }>(),
       habits: i.entity({
         name: i.string(),
         enum: i.string<"a" | "b">(),
@@ -72,6 +74,8 @@ const db = init_experimental({
   schema,
 });
 
+type DB = typeof db;
+
 export default function Main() {
   db.room("demo", "demo").useSyncPresence({
     test: Date.now(),
@@ -90,8 +94,9 @@ export default function Main() {
   if (error) return <div>Error: {error.message}</div>;
 
   const du = data.discriminatedUnionExample.at(0);
+
   if (du?.x === "foo") {
-    // this should be constrained to 1
+    // y should be constrained to 1
     du.y;
   }
 
@@ -171,5 +176,16 @@ const deepVal = result.checkins[0].habit?.category?.id;
 
 // types
 type DeepVal = typeof deepVal;
-type Graph = i.InstantGraph<any, any, any>;
+type Graph = InstantGraph<any, any, any>;
 type DBGraph = InstantSchema<typeof db>;
+type DB2 = InstantSchemaDatabase<typeof schema>;
+
+type Checkin = InstantEntity<
+  DB2,
+  "checkins",
+  {
+    habit: {
+      category: {};
+    };
+  }
+>;

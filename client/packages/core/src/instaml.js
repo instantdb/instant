@@ -87,7 +87,9 @@ function lookupIdentToAttr(attrs, etype, identName) {
 
   const fwdName = extractRefLookupFwdName(identName);
 
-  const refAttr = getAttrByFwdIdentName(attrs, etype, fwdName);
+  const refAttr =
+    getAttrByFwdIdentName(attrs, etype, fwdName) ||
+    getAttrByReverseIdentName(attrs, etype, fwdName);
   if (refAttr && refAttr["value-type"] !== "ref") {
     throw new Error(`${identName} does not reference a valid link attribute.`);
   }
@@ -184,7 +186,7 @@ function expandUpdate(attrs, [etype, eid, obj]) {
 
 function expandDelete(attrs, [etype, eid]) {
   const lookup = extractLookup(attrs, etype, eid);
-  return [["delete-entity", lookup]];
+  return [["delete-entity", lookup, etype]];
 }
 
 function expandDeepMerge(attrs, [etype, eid, obj]) {
@@ -205,8 +207,18 @@ function expandDeepMerge(attrs, [etype, eid, obj]) {
   // id first so that we don't clobber updates on the lookup field
   return [idTuple].concat(attrTuples);
 }
+function removeIdFromArgs(step) {
+  const [op, etype, eid, obj] = step;
+  if (!obj) {
+    return step;
+  }
+  const newObj = { ...obj };
+  delete newObj.id;
+  return [op, etype, eid, newObj];
+}
 
-function toTxSteps(attrs, [action, ...args]) {
+function toTxSteps(attrs, step) {
+  const [action, ...args] = removeIdFromArgs(step);
   switch (action) {
     case "merge":
       return expandDeepMerge(attrs, args);
@@ -226,7 +238,38 @@ function toTxSteps(attrs, [action, ...args]) {
 // ---------
 // transform
 
-function createObjectAttr(etype, label, props) {
+function checkedDataTypeOfValueType(valueType) {
+  switch (valueType) {
+    case "string":
+    case "date":
+    case "boolean":
+    case "number":
+      return valueType;
+    default:
+      return undefined;
+  }
+}
+
+function objectPropsFromSchema(schema, etype, label) {
+  const attr = schema.entities[etype]?.attrs?.[label];
+  if (label === "id") return null;
+  if (!attr) {
+    throw new Error(`${etype}.${label} does not exist in your schema`);
+  }
+  const { unique, indexed } = attr?.config;
+  const checkedDataType = checkedDataTypeOfValueType(attr?.valueType);
+
+  return {
+    "index?": indexed,
+    "unique?": unique,
+    "checked-data-type": checkedDataType,
+  };
+}
+
+function createObjectAttr(schema, etype, label, props) {
+  const schemaObjectProps = schema
+    ? objectPropsFromSchema(schema, etype, label)
+    : null;
   const attrId = uuid();
   const fwdIdentId = uuid();
   const fwdIdent = [fwdIdentId, etype, label];
@@ -238,16 +281,42 @@ function createObjectAttr(etype, label, props) {
     "unique?": false,
     "index?": false,
     isUnsynced: true,
+    ...(schemaObjectProps || {}),
     ...(props || {}),
   };
 }
 
-function createRefAttr(etype, label, props) {
+function findSchemaLink(schema, etype, label) {
+  const found = Object.values(schema.links).find((x) => {
+    return (
+      (x.forward.on === etype && x.forward.label === label) ||
+      (x.reverse.on === etype && x.reverse.label === label)
+    );
+  });
+  return found;
+}
+
+function refPropsFromSchema(schema, etype, label) {
+  const found = findSchemaLink(schema, etype, label);
+  if (!found) {
+    throw new Error(`Couldn't find the link ${etype}.${label} in your schema`);
+  }
+  const { forward, reverse } = found;
+  return {
+    "forward-identity": [uuid(), forward.on, forward.label],
+    "reverse-identity": [uuid(), reverse.on, reverse.label],
+    cardinality: forward.has === "one" ? "one" : "many",
+    "unique?": reverse.has === "one",
+  };
+}
+
+function createRefAttr(schema, etype, label, props) {
+  const schemaRefProps = schema
+    ? refPropsFromSchema(schema, etype, label)
+    : null;
   const attrId = uuid();
-  const fwdIdentId = uuid();
-  const revIdentId = uuid();
-  const fwdIdent = [fwdIdentId, etype, label];
-  const revIdent = [revIdentId, label, etype];
+  const fwdIdent = [uuid(), etype, label];
+  const revIdent = [uuid(), label, etype];
   return {
     id: attrId,
     "forward-identity": fwdIdent,
@@ -257,6 +326,7 @@ function createRefAttr(etype, label, props) {
     "unique?": false,
     "index?": false,
     isUnsynced: true,
+    ...(schemaRefProps || {}),
     ...(props || {}),
   };
 }
@@ -276,7 +346,36 @@ const SUPPORTS_LOOKUP_ACTIONS = new Set([
 const lookupProps = { "unique?": true, "index?": true };
 const refLookupProps = { ...lookupProps, cardinality: "one" };
 
-function createMissingAttrs(existingAttrs, ops) {
+function lookupPairsOfOp(op) {
+  const res = [];
+  const [action, etype, eid, obj] = op;
+  if (!SUPPORTS_LOOKUP_ACTIONS.has(action)) {
+    return res;
+  }
+
+  const eidLookupPair = lookupPairOfEid(eid);
+  if (eidLookupPair) {
+    res.push({ etype: etype, lookupPair: eidLookupPair });
+  }
+  if (action === "link") {
+    for (const [label, eidOrEids] of Object.entries(obj)) {
+      const eids = Array.isArray(eidOrEids) ? eidOrEids : [eidOrEids];
+      for (const linkEid of eids) {
+        const linkEidLookupPair = lookupPairOfEid(linkEid);
+        if (linkEidLookupPair) {
+          res.push({
+            etype: etype,
+            lookupPair: linkEidLookupPair,
+            linkLabel: label,
+          });
+        }
+      }
+    }
+  }
+  return res;
+}
+
+function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
   const [addedIds, attrs, addOps] = [new Set(), { ...existingAttrs }, []];
   function addAttr(attr) {
     attrs[attr.id] = attr;
@@ -290,31 +389,58 @@ function createMissingAttrs(existingAttrs, ops) {
     }
   }
 
+  // Adds attrs needed for a ref lookup
+  function addForRef(etype, label) {
+    const fwdAttr = getAttrByFwdIdentName(attrs, etype, label);
+    const revAttr = getAttrByReverseIdentName(attrs, etype, label);
+    addUnsynced(fwdAttr);
+    addUnsynced(revAttr);
+    if (!fwdAttr && !revAttr) {
+      addAttr(createRefAttr(schema, etype, label, refLookupProps));
+    }
+  }
+
   // Create attrs for lookups if we need to
   // Do these first because otherwise we might add a non-unique attr
   // before we get to it
   for (const op of ops) {
-    const [action, etype, eid, obj] = op;
-    if (SUPPORTS_LOOKUP_ACTIONS.has(action)) {
-      const lookupPair = lookupPairOfEid(eid);
-      if (lookupPair) {
-        const identName = lookupPair[0];
-        if (isRefLookupIdent(attrs, etype, identName)) {
-          const label = extractRefLookupFwdName(identName);
-          const fwdAttr = getAttrByFwdIdentName(attrs, etype, label);
-          const revAttr = getAttrByReverseIdentName(attrs, etype, label);
-          if (!fwdAttr && !revAttr) {
-            addAttr(createRefAttr(etype, label, refLookupProps));
-          }
-          addUnsynced(fwdAttr);
-          addUnsynced(revAttr);
+    for (const { etype, lookupPair, linkLabel } of lookupPairsOfOp(op)) {
+      const identName = lookupPair[0];
+      // We got a link eid that's a lookup, linkLabel is the label of the ident,
+      // e.g. `posts` in `link({posts: postIds})`
+      if (linkLabel) {
+        // Add our ref attr, e.g. users.posts
+        addForRef(etype, linkLabel);
+
+        // Figure out the link etype so we can make sure we have the attrs
+        // for the link lookup
+        const fwdAttr = getAttrByFwdIdentName(attrs, etype, linkLabel);
+        const revAttr = getAttrByReverseIdentName(attrs, etype, linkLabel);
+        addUnsynced(fwdAttr);
+        addUnsynced(revAttr);
+        const linkEtype =
+          fwdAttr?.["reverse-identity"]?.[1] ||
+          revAttr?.["forward-identity"]?.[1] ||
+          linkLabel;
+        if (isRefLookupIdent(attrs, linkEtype, identName)) {
+          addForRef(linkEtype, extractRefLookupFwdName(identName));
         } else {
-          const attr = getAttrByFwdIdentName(attrs, etype, identName);
+          const attr = getAttrByFwdIdentName(attrs, linkEtype, identName);
           if (!attr) {
-            addAttr(createObjectAttr(etype, identName, lookupProps));
+            addAttr(
+              createObjectAttr(schema, linkEtype, identName, lookupProps),
+            );
           }
           addUnsynced(attr);
         }
+      } else if (isRefLookupIdent(attrs, etype, identName)) {
+        addForRef(etype, extractRefLookupFwdName(identName));
+      } else {
+        const attr = getAttrByFwdIdentName(attrs, etype, identName);
+        if (!attr) {
+          addAttr(createObjectAttr(schema, etype, identName, lookupProps));
+        }
+        addUnsynced(attr);
       }
     }
   }
@@ -330,13 +456,20 @@ function createMissingAttrs(existingAttrs, ops) {
         addUnsynced(fwdAttr);
         if (UPDATE_ACTIONS.has(action)) {
           if (!fwdAttr) {
-            addAttr(createObjectAttr(etype, label));
+            addAttr(
+              createObjectAttr(
+                schema,
+                etype,
+                label,
+                label === "id" ? { "unique?": true } : null,
+              ),
+            );
           }
         }
         if (REF_ACTIONS.has(action)) {
           const revAttr = getAttrByReverseIdentName(attrs, etype, label);
           if (!fwdAttr && !revAttr) {
-            addAttr(createRefAttr(etype, label));
+            addAttr(createRefAttr(schema, etype, label));
           }
           addUnsynced(revAttr);
         }
@@ -346,10 +479,10 @@ function createMissingAttrs(existingAttrs, ops) {
   return [attrs, addOps];
 }
 
-export function transform(attrs, inputChunks) {
+export function transform(ctx, inputChunks) {
   const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
   const ops = chunks.flatMap((tx) => getOps(tx));
-  const [newAttrs, addAttrTxSteps] = createMissingAttrs(attrs, ops);
+  const [newAttrs, addAttrTxSteps] = createMissingAttrs(ctx, ops);
   const txSteps = ops.flatMap((op) => toTxSteps(newAttrs, op));
   return [...addAttrTxSteps, ...txSteps];
 }

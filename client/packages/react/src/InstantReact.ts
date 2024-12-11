@@ -7,6 +7,7 @@ import {
   _init_internal,
   i,
   type AuthState,
+  type ConnectionStatus,
   type Config,
   type Query,
   type Exactly,
@@ -15,9 +16,12 @@ import {
   type PresenceOpts,
   type PresenceResponse,
   type RoomSchemaShape,
-  type InstaQLQueryParams,
+  type InstaQLParams,
   type ConfigWithSchema,
   type IDatabase,
+  type InstantGraph,
+  type QueryResponse,
+  type PageInfoResponse,
 } from "@instantdb/core";
 import {
   KeyboardEvent,
@@ -30,6 +34,7 @@ import {
 } from "react";
 import { useQuery } from "./useQuery";
 import { useTimeout } from "./useTimeout";
+import version from "./version";
 
 export type PresenceHandle<
   PresenceShape,
@@ -57,7 +62,7 @@ export type TypingIndicatorHandle<PresenceShape> = {
 export const defaultActivityStopTimeout = 1_000;
 
 export class InstantReactRoom<
-  Schema,
+  Schema extends InstantGraph<any, any> | {},
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
 > {
@@ -293,7 +298,7 @@ const defaultAuthState = {
 };
 
 export abstract class InstantReact<
-  Schema extends i.InstantGraph<any, any> | {} = {},
+  Schema extends InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
   WithCardinalityInference extends boolean = false,
 > implements IDatabase<Schema, RoomSchema, WithCardinalityInference>
@@ -301,9 +306,7 @@ export abstract class InstantReact<
   public withCardinalityInference?: WithCardinalityInference;
   public tx =
     txInit<
-      Schema extends i.InstantGraph<any, any>
-        ? Schema
-        : i.InstantGraph<any, any>
+      Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
     >();
 
   public auth: Auth;
@@ -313,13 +316,17 @@ export abstract class InstantReact<
   static Storage?: any;
   static NetworkListener?: any;
 
-  constructor(config: Config | ConfigWithSchema<any>) {
+  constructor(
+    config: Config | ConfigWithSchema<any>,
+    versions?: { [key: string]: string },
+  ) {
     this._core = _init_internal<Schema, RoomSchema, WithCardinalityInference>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.Storage,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.NetworkListener,
+      { ...(versions || {}), "@instantdb/react": version },
     );
     this.auth = this._core.auth;
     this.storage = this._core.storage;
@@ -404,8 +411,8 @@ export abstract class InstantReact<
    *  db.useQuery(auth.user ? { goals: {} } : null)
    */
   useQuery = <
-    Q extends Schema extends i.InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
+    Q extends Schema extends InstantGraph<any, any>
+      ? InstaQLParams<Schema>
       : Exactly<Query, Q>,
   >(
     query: null | Q,
@@ -434,7 +441,6 @@ export abstract class InstantReact<
    *    }
    *    return <Login />
    *  }
-   *
    */
   useAuth = (): AuthState => {
     // We use a ref to store the result of the query.
@@ -463,5 +469,77 @@ export abstract class InstantReact<
       () => defaultAuthState,
     );
     return state;
+  };
+
+  /**
+   * Listen for connection status changes to Instant. Use this for things like
+   * showing connection state to users
+   *
+   * @see https://www.instantdb.com/docs/patterns#connection-status
+   * @example
+   *  function App() {
+   *    const status = db.useConnectionStatus()
+   *    const connectionState =
+   *      status === 'connecting' || status === 'opened'
+   *        ? 'authenticating'
+   *      : status === 'authenticated'
+   *        ? 'connected'
+   *      : status === 'closed'
+   *        ? 'closed'
+   *      : status === 'errored'
+   *        ? 'errored'
+   *      : 'unexpected state';
+   *
+   *    return <div>Connection state: {connectionState}</div>
+   *  }
+   */
+  useConnectionStatus = (): ConnectionStatus => {
+    const statusRef = useRef<ConnectionStatus>(this._core._reactor.status as ConnectionStatus);
+
+    const subscribe = useCallback((cb: Function) => {
+      const unsubscribe = this._core.subscribeConnectionStatus((newStatus) => {
+        if (newStatus !== statusRef.current) {
+          statusRef.current = newStatus;
+          cb();
+        }
+      });
+
+      return unsubscribe;
+    }, []);
+
+    const status = useSyncExternalStore<ConnectionStatus>(
+      subscribe,
+      () => statusRef.current,
+      // For SSR, always return 'connecting' as the initial state
+      () => 'connecting'
+    );
+
+    return status;
+  }
+
+  /**
+   * Use this for one-off queries.
+   * Returns local data if available, otherwise fetches from the server.
+   * Because we want to avoid stale data, this method will throw an error
+   * if the user is offline or there is no active connection to the server.
+   *
+   * @see https://instantdb.com/docs/instaql
+   *
+   * @example
+   *
+   *  const resp = await db.queryOnce({ goals: {} });
+   *  console.log(resp.data.goals)
+   */
+  queryOnce = <
+    Q extends Schema extends InstantGraph<any, any>
+      ? InstaQLParams<Schema>
+      : Exactly<Query, Q>,
+  >(
+    query: Q,
+  ): Promise<{
+    data: QueryResponse<Q, Schema, WithCardinalityInference>;
+    pageInfo: PageInfoResponse<Q>;
+  }> => {
+    return this._core.queryOnce(query);
   };
 }

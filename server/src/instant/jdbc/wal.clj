@@ -23,6 +23,8 @@
   (:require
    [chime.core :as chime-core]
    [instant.config :as config]
+   [instant.discord :as discord]
+   [instant.health :as health]
    [instant.jdbc.sql :as sql]
    [instant.jdbc.aurora :as aurora]
    [instant.util.json :refer [<-json]]
@@ -131,7 +133,8 @@
 (defn get-inactive-replication-slots [conn]
   (sql/select conn ["select slot_name
                        from pg_replication_slots
-                      where active = false"]))
+                      where active = false
+                        and plugin = 'wal2json'"]))
 
 (defn cleanup-inactive-replication-slots [conn slot-names]
   (sql/select conn ["select slot_name, pg_drop_replication_slot(slot_name)
@@ -144,7 +147,7 @@
   (def pg-conn (get-pg-replication-conn (config/get-aurora-config)))
   (create-temporary-logical-replication-slot! pg-conn "test_slot" "wal2json")
   (.close pg-conn)
-  (get-all-slots aurora/conn-pool))
+  (get-all-slots (aurora/conn-pool)))
 
 ;; -------------------------
 ;; LSN
@@ -157,7 +160,7 @@
    (sql/select-one conn ["SELECT * FROM pg_current_wal_lsn();"])))
 
 (comment
-  (get-current-wal-lsn aurora/conn-pool))
+  (get-current-wal-lsn (aurora/conn-pool)))
 
 ;; ------
 ;; Stream
@@ -170,15 +173,29 @@
    a PGConnection with some specific settings. Use `get-pg-replication-conn`
    to get the right kind of PGConnection."
   ^PGReplicationStream
-  [^PGConnection replication-conn slot-name start-lsn]
+  [^PGConnection replication-conn slot-name start-lsn version]
   (-> replication-conn
       (.getReplicationAPI)
       (.replicationStream)
       (.logical)
       (.withSlotName slot-name)
       (.withSlotOption "include-lsn" true)
+      (.withSlotOption "format-version" version)
       (.withStartPosition (LogSequenceNumber/valueOf start-lsn))
       (.start)))
+
+(defn kw-action [action]
+  (case action
+    "B" :begin
+    "I" :insert
+    "U" :update
+    "D" :delete
+    "T" :truncate
+    "M" :message
+    "C" :close
+    (tracer/with-span! {:name "wal/unknown-action"
+                        :attributes {:action action}}
+      action)))
 
 (defn- wal-buffer->record
   "PGReplicationStream returns a ByteBuffer. This
@@ -189,7 +206,7 @@
         record-len (- (count src) offset)
         json-str (String. src offset record-len)
         record (<-json json-str true)]
-    (update record :nextlsn #(LogSequenceNumber/valueOf %))))
+    (update record :action kw-action)))
 
 (comment
   (wal-buffer->record (ByteBuffer/wrap (.getBytes "{\"x\": 1}"))))
@@ -197,28 +214,71 @@
 ;; ------
 ;; Start
 
+(defn unexpected-state [state record next-state]
+  (tracer/with-span! {:name "wal/unexpected-state"
+                      :attributes {:next-action (:next-action state)
+                                   :record record}}
+    next-state))
+
 (defn- produce
   "Repeatedly read from the stream and >!! records to the `to` channel.
 
    We do some book-keeping for the replication stream, by recording the LSN
    for the last record that was pushed to `to`."
   [stream to close-signal-chan]
-  (loop []
-    (let [buffer (.read stream)]
-      (if-not buffer
-        (when-not (.isClosed stream)
-          (recur))
-        (let [last-receive-lsn ^LogSequenceNumber (.getLastReceiveLSN stream)
-              record (wal-buffer->record buffer)
-              put-result (a/alt!! [[to record]] :put
-                                  ;; The close signal chan keeps us from
-                                  ;; waiting to put on a closed `to` channel
-                                  close-signal-chan :closed)]
-          (when (and (= put-result :put)
-                     (not (.isClosed stream)))
-            (.setAppliedLSN stream last-receive-lsn)
-            (.setFlushedLSN stream last-receive-lsn)
-            (recur)))))))
+  ;; :next-action is either:
+  ;;   :begin, we're waiting for a :begin record
+  ;;   :close, we got :begin and we're collecting records until we get :close
+  ;;   :deliver, we got close and we need to proceed to the invalidator
+  (loop [buffer (.read stream)
+         state {:next-action :begin
+                :records []}]
+    (if-not buffer
+      (when-not (.isClosed stream)
+        (recur (.read stream) state))
+      (let [record (wal-buffer->record buffer)
+            next-state (case (:next-action state)
+                         :begin (case (:action record)
+                                  :begin (-> state
+                                             (assoc :next-action :close))
+                                  (unexpected-state state
+                                                    record
+                                                    ;; Let's just reset
+                                                    {:next-action :close
+                                                     :records []}))
+                         :close (case (:action record)
+                                  (:insert :update :delete) (update state :records conj record)
+
+                                  ;; Don't handle truncate or message
+                                  (:truncate :message) state
+
+                                  :close (assoc state :next-action :deliver)
+
+                                  :begin (unexpected-state state
+                                                           record
+                                                           {:next-action :close
+                                                            :records []})
+                                  (unexpected-state state
+                                                    record
+                                                    ;; Just keep going
+                                                    state))
+                         (unexpected-state state record state))]
+        (if (not= :deliver (:next-action next-state))
+          (recur (.read stream) next-state)
+          (let [last-receive-lsn ^LogSequenceNumber (.getLastReceiveLSN stream)
+                msg {:changes (:records state)
+                     :nextlsn (LogSequenceNumber/valueOf (:nextlsn record))
+                     :lsn (LogSequenceNumber/valueOf (:lsn record))}
+                put-result (a/alt!! [[to msg]] :put
+                                    ;; The close signal chan keeps us from
+                                    ;; waiting to put on a closed `to` channel
+                                    close-signal-chan :closed)]
+            (when (and (= put-result :put)
+                       (not (.isClosed stream)))
+              (.setAppliedLSN stream last-receive-lsn)
+              (.setFlushedLSN stream last-receive-lsn)
+              (recur (.read stream) {:next-action :begin
+                                     :records []}))))))))
 
 (defn make-wal-opts [{:keys [wal-chan close-signal-chan
                              ex-handler conn-config slot-name]}]
@@ -227,7 +287,8 @@
    :ex-handler ex-handler
    :conn-config conn-config
    :slot-name slot-name
-   :shutdown-fn (atom nil)})
+   :shutdown-fn (atom nil)
+   :started-promise (promise)})
 
 (defn set-shutdown-fn [wal-opts shutdown-fn]
   (swap! (:shutdown-fn wal-opts)
@@ -242,6 +303,49 @@
       (when-not (.isClosed closeable)
         (throw (ex-info "Unable to close" {} close-error))))))
 
+(defn alert-discord [slot-name]
+  (discord/send-error-async!
+   (str (:instateam discord/mention-constants)
+        " The wal handler threw an exception. Check if it restart automatically."
+        " If it didn't, redeploy the server.\n\nIf you're quick enough you can "
+        "peek at the transaction that caused the error:\n\n"
+        (format "```\nselect data from pg_logical_slot_peek_changes('%s', null, null, 'format-version', '2', 'include-lsn', 'true');```"
+                slot-name))))
+
+(defn get-reconnect-conn*
+  "Tries to create a new connection and restart the replication stream"
+  [conn-config slot-name]
+  (try
+    (let [conn (get-pg-replication-conn conn-config)]
+      ;; try is double-nested so that we can dispose of the connection
+      ;; if we get an error creating the stream.
+      (try
+        (let [slot (get-logical-replication-slot conn slot-name)
+              stream (create-replication-stream conn slot-name (:lsn slot) 2)]
+          {:conn conn
+           :slot slot
+           :stream stream})
+        (catch Exception e
+          (tracer/record-exception-span! e {:name "wal/get-reconnect-conn*"})
+          (try (close-nicely conn) (catch Exception _e nil))
+          nil)))
+    (catch Exception e
+      (tracer/record-exception-span! e {:name "wal/get-reconnect-conn*"})
+      nil)))
+
+(defn get-reconnect-conn
+  "Repeatedly tries to create a new connection and restart the replication stream,
+   waiting a second between tries."
+  [conn-config slot-name]
+  (loop [i 1]
+    (if-let [res (get-reconnect-conn* conn-config slot-name)]
+      res
+      (do
+        (tracer/record-info! {:name "wal/get-reconnect-conn"
+                              :attributes {:attempt i}})
+        (Thread/sleep 1000)
+        (recur (inc i))))))
+
 (defn start-worker
   "Starts a logical replication stream and pushes records to
    the given `to` channel.
@@ -249,21 +353,25 @@
    Note: Blocks the calling thread. Call with fut-bg.
 
    Use `shutdown!` to stop the stream and clean up."
-  [{:keys [conn-config slot-name to ex-handler close-signal-chan] :as wal-opts}]
+  [{:keys [conn-config slot-name to ex-handler close-signal-chan started-promise]
+    :as wal-opts}]
   (let [replication-conn (get-pg-replication-conn conn-config)
         {:keys [lsn]} (create-logical-replication-slot! replication-conn
                                                         slot-name
                                                         "wal2json")
         shutdown? (atom false)]
     (loop [replication-conn replication-conn
-           stream (create-replication-stream replication-conn slot-name lsn)]
+           stream (create-replication-stream replication-conn slot-name lsn 2)
+           restart-count 0]
+      (deliver started-promise true)
       (tracer/record-info! {:name "wal-worker/start"
                             :attributes {:slot-name slot-name}})
       (set-shutdown-fn wal-opts (fn []
                                   (reset! shutdown? true)
                                   (close-nicely stream)
                                   (drop-logical-replication-slot replication-conn slot-name)
-                                  (close-nicely replication-conn)))
+                                  (close-nicely replication-conn)
+                                  (health/mark-wal-healthy-async)))
       (let [produce-error (try
                             (produce stream to close-signal-chan)
                             (catch Exception e
@@ -271,22 +379,26 @@
                                                   :attributes {:exception e}}
                                 e)))]
         (when-not @shutdown?
+          (health/mark-wal-unhealthy-async)
+          (when (= :prod (config/get-env))
+            (alert-discord slot-name))
           (tracer/record-exception-span! (Exception. "Wal handler closed unexpectedly, trying to restart")
                                          {:name "wal-worker/unexpected-reconnect"
                                           :escpaing? false})
           (try (close-nicely stream) (catch Exception _e nil))
           (try (close-nicely replication-conn) (catch Exception _e nil))
-          (let [new-conn (get-pg-replication-conn conn-config)
-                slot (get-logical-replication-slot new-conn slot-name)]
-            (if-not slot
+          (let [{new-conn :conn stream :stream} (get-reconnect-conn conn-config slot-name)]
+            (if-not stream
               (ex-handler produce-error)
               (do
                 (tracer/record-info! {:name "wal-worker/reconnect"
                                       :attributes {:slot-name slot-name
                                                    :produce-error produce-error}})
-                (let [stream (create-replication-stream new-conn slot-name (:lsn slot))]
-                  (reset! (:shutdown-fn wal-opts) nil)
-                  (recur new-conn stream))))))))))
+                (reset! (:shutdown-fn wal-opts) nil)
+                (when (< restart-count 3)
+                  ;; If we keep restarting, stop marking ourselves as healthy
+                  (health/mark-wal-healthy-async))
+                (recur new-conn stream (inc restart-count))))))))))
 
 (defn shutdown! [wal-opts]
   (tracer/with-span! {:name "wal-worker/shutdown!"
@@ -297,7 +409,7 @@
                                      {:name "wal-worker/shutdown-called-before-startup"
                                       :escaping? false}))))
 
-(defn init-cleanup [conn-pool]
+(defn init-cleanup []
   (def schedule
     (chime-core/chime-at
      (chime-core/periodic-seq (Instant/now) (Duration/ofHours 1))
@@ -306,17 +418,17 @@
        ;; still inactive in 5 minutes. This will prevent dropping slots that
        ;; are still being set up.
        (try
-         (let [inactive-slots (get-inactive-replication-slots conn-pool)]
+         (let [conn-pool      (aurora/conn-pool)
+               inactive-slots (get-inactive-replication-slots conn-pool)]
            (when (seq inactive-slots)
              (chime-core/chime-at
               [(.plusSeconds (Instant/now) 300)]
               (fn [_time]
                 (tracer/with-span! {:name "wal/cleanup-inactive-slots"}
                   (let [slot-names (map :slot_name inactive-slots)
-                        removed (cleanup-inactive-replication-slots conn-pool
-                                                                    slot-names)
-                        cleaned (set (map :slot_name removed))
-                        uncleaned (remove #(contains? cleaned %) slot-names)]
+                        removed    (cleanup-inactive-replication-slots (aurora/conn-pool) slot-names)
+                        cleaned    (set (map :slot_name removed))
+                        uncleaned  (remove #(contains? cleaned %) slot-names)]
                     (tracer/add-data! {:attributes {:cleaned-slot-names cleaned
                                                     :active-uncleaned-slots uncleaned}})))))))
          (catch Exception e
@@ -345,4 +457,4 @@
   "A hacky way to trigger the stream reader so that it will close faster.
    Useful to speed up exit in dev where there isn't much activity on the wal."
   [conn]
-  (sql/execute! conn ["select pg_notify('random-channel', 'payload')"]))
+  (sql/execute! conn ["insert into config (k, v) values ('kick-wal', to_jsonb(now())) on conflict (k) do update set v = excluded.v"]))

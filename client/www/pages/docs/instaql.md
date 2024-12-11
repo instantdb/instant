@@ -9,8 +9,8 @@ Instant uses a declarative syntax for querying. It's like GraphQL without the co
 One of the simplest queries you can write is to simply get all entities of a namespace.
 
 ```javascript
-const query = { goals: {} }
-const { isLoading, error, data } = db.useQuery(query)
+const query = { goals: {} };
+const { isLoading, error, data } = db.useQuery(query);
 ```
 
 Inspecting `data`, we'll see:
@@ -34,7 +34,7 @@ console.log(data)
 For comparison, the SQL equivalent of this would be something like:
 
 ```javascript
-const data = { goals: doSQL('SELECT * FROM goals') }
+const data = { goals: doSQL('SELECT * FROM goals') };
 ```
 
 ## Fetch multiple namespaces
@@ -42,8 +42,8 @@ const data = { goals: doSQL('SELECT * FROM goals') }
 You can fetch multiple namespaces at once:
 
 ```javascript
-const query = { goals: {}, todos: {} }
-const { isLoading, error, data } = db.useQuery(query)
+const query = { goals: {}, todos: {} };
+const { isLoading, error, data } = db.useQuery(query);
 ```
 
 We will now see data for both namespaces.
@@ -72,7 +72,7 @@ The equivalent of this in SQL would be to write two separate queries.
 const data = {
   goals: doSQL('SELECT * from goals'),
   todos: doSQL('SELECT * from todos'),
-}
+};
 ```
 
 ## Fetch a specific entity
@@ -88,8 +88,8 @@ const query = {
       },
     },
   },
-}
-const { isLoading, error, data } = db.useQuery(query)
+};
+const { isLoading, error, data } = db.useQuery(query);
 ```
 
 ```javascript
@@ -107,7 +107,7 @@ console.log(data)
 The SQL equivalent would be:
 
 ```javascript
-const data = { goals: doSQL("SELECT * FROM goals WHERE id = 'healthId'") }
+const data = { goals: doSQL("SELECT * FROM goals WHERE id = 'healthId'") };
 ```
 
 ## Fetch associations
@@ -119,8 +119,8 @@ const query = {
   goals: {
     todos: {},
   },
-}
-const { isLoading, error, data } = db.useQuery(query)
+};
+const { isLoading, error, data } = db.useQuery(query);
 ```
 
 `goals` would now include nested `todos`
@@ -178,8 +178,8 @@ const query = {
   goals: {
     todos: {},
   },
-}
-const { isLoading, error, data } = db.useQuery(query)
+};
+const { isLoading, error, data } = db.useQuery(query);
 ```
 
 Modern applications often need to render nested relations, `InstaQL` really starts to shine for these use cases.
@@ -200,8 +200,8 @@ const query = {
     },
     todos: {},
   },
-}
-const { isLoading, error, data } = db.useQuery(query)
+};
+const { isLoading, error, data } = db.useQuery(query);
 ```
 
 Which returns
@@ -246,8 +246,8 @@ const query = {
     },
     todos: {},
   },
-}
-const { isLoading, error, data } = db.useQuery(query)
+};
+const { isLoading, error, data } = db.useQuery(query);
 ```
 
 Returns
@@ -293,8 +293,8 @@ const query = {
       },
     },
   },
-}
-const { isLoading, error, data } = db.useQuery(query)
+};
+const { isLoading, error, data } = db.useQuery(query);
 ```
 
 This will return goals and filtered todos
@@ -344,8 +344,8 @@ const query = {
   todos: {
     goals: {},
   },
-}
-const { isLoading, error, data } = db.useQuery(query)
+};
+const { isLoading, error, data } = db.useQuery(query);
 ```
 
 ```javascript
@@ -369,11 +369,13 @@ console.log(data)
 
 ## Pagination
 
-You can limit the number of items returned by adding a `limit` to the option map:
+You can limit the number of items from a top level namespace by adding a `limit` to the option map:
 
 ```javascript
 const query = {
   todos: {
+    // limit is only supported for top-level namespaces right now
+    // and not for nested namespaces.
     $: { limit: 10 },
   },
 };
@@ -381,7 +383,8 @@ const query = {
 const { isLoading, error, data, pageInfo } = db.useQuery(query);
 ```
 
-Instant supports both offset-based and cursor-based pagination.
+Instant supports both offset-based and cursor-based pagination for top-level
+namespaces.
 
 ### Offset
 
@@ -392,6 +395,7 @@ const query = {
   todos: {
     $: {
       limit: 10,
+      // similar to `limit`, `offset` is only supported for top-level namespaces
       offset: 10,
     },
   },
@@ -439,6 +443,7 @@ You can also get the next page with the `endCursor` returned in the `pageInfo` m
 const query = {
   todos: {
     $: {
+      // These also are only supported for top-level namespaces
       first: 10,
       after: pageInfo?.todos?.endCursor,
     },
@@ -498,13 +503,14 @@ const loadPreviousPage = () => {
 
 ### Ordering
 
-The default ordering is by the time the objects were created, in ascending order. You can change the order with the `order` key in the option map:
+The default ordering is by the time the objects were created, in ascending order. You can change the order with the `order` key in the option map for top-level namespaces:
 
 ```javascript
 const query = {
   todos: {
     $: {
       limit: 10,
+      // Similar to limit, order is limited to top-level namespaces right now
       order: {
         serverCreatedAt: 'desc',
       },
@@ -554,7 +560,9 @@ console.log(data)
 
 **`and` key:**
 
-This query type is useful when querying references, like `todos.title`, where a single entity can have multiple values:
+The `and` key is useful when you want an entity to match multiple conditions.
+In this case we want to find goals that have both `Drink protein` and `Go on a
+run` todos.:
 
 ```javascript
 const query = {
@@ -593,10 +601,7 @@ const query = {
   todos: {
     $: {
       where: {
-        or: [
-          { title: 'Code a bunch' },
-          { title: 'Review PRs' }
-        ],
+        or: [{ title: 'Code a bunch' }, { title: 'Review PRs' }],
       },
     },
   },
@@ -620,16 +625,17 @@ console.log(data);
 }
 ```
 
-### In
+### $in
 
-The `where` clause supports `in` queries that will filter entities that match any of the items in the provided list:
+The `where` clause supports `$in` queries that will filter entities that match any of the items in the provided list.
+You can think of this as a shorthand for `or` on a single key.
 
 ```javascript
 const query = {
   todos: {
     $: {
       where: {
-        title: { in: ['Code a bunch', 'Review PRs'] },
+        title: { $in: ['Code a bunch', 'Review PRs'] },
       },
     },
   },
@@ -648,7 +654,319 @@ console.log(data)
     {
       "id": reviewPRsId,
       "title": "Review PRs"
-    },
+    }
   ]
 }
+```
+
+### Comparison operators
+
+The `where` clause supports comparison operators on fields that are indexed and have checked types.
+
+{% callout %}
+Add indexes and checked types to your attributes from the [Explorer on the Instant dashboard](/dash?t=explorer) or from the [cli with Schema-as-code](/docs/schema).
+{% /callout %}
+
+| Operator |       Description        | JS equivalent |
+| :------: | :----------------------: | :-----------: |
+|  `$gt`   |       greater than       |      `>`      |
+|  `$lt`   |        less than         |      `<`      |
+|  `$gte`  | greater than or equal to |     `>=`      |
+|  `$lte`  |  less than or equal to   |     `<=`      |
+
+```javascript
+const query = {
+  todos: {
+    $: {
+      where: {
+        timeEstimateHours: { $gt: 24 },
+      },
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data);
+{
+  "todos": [
+    {
+      "id": buildShipId,
+      "title": "Build a starship prototype",
+      "timeEstimateHours": 5000
+    }
+  ]
+}
+```
+
+Dates can be stored as timestamps (milliseconds since the epoch, e.g. `Date.now()`) or as ISO 8601 strings (e.g. `JSON.stringify(new Date())`) and can be queried in the same formats:
+
+```javascript
+const now = '2024-11-26T15:25:00.054Z';
+const query = {
+  todos: {
+    $: { where: { dueDate: { $lte: now } } },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data);
+{
+  "todos": [
+    {
+      "id": slsFlightId,
+      "title": "Space Launch System maiden flight",
+      "dueDate": "2017-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+If you try to use comparison operators on data that isn't indexed and type-checked, you'll get an error:
+
+```javascript
+const query = {
+  todos: {
+    $: { where: { priority: { $gt: 2 } } },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(error);
+{
+  "message": "Validation failed for query",
+  "hint": {
+    "data-type": "query",
+    "errors": [
+      {
+        "expected?": "indexed?",
+        "in": ["priority", "$", "where", "priority"],
+        "message": "The `todos.priority` attribute must be indexed to use comparison operators."
+      }
+    ],
+    "input": {
+      "todos": {
+        "$": {
+          "where": {
+            "priority": {
+              "$gt": 2
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### $not
+
+The `where` clause supports `$not` queries that will return entities that don't
+match the provided value for the field, including entities where the field is null or undefined.
+
+```javascript
+const query = {
+  todos: {
+    $: {
+      where: {
+        location: { $not: 'work' },
+      },
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data)
+{
+  "todos": [
+    {
+      "id": cookId,
+      "title": "Cook dinner",
+      "location": "home"
+    },
+    {
+      "id": readId,
+      "title": "Read",
+      "location": null
+    },
+        {
+      "id": napId,
+      "title": "Take a nap"
+    }
+  ]
+}
+```
+
+### $isNull
+
+The `where` clause supports `$isNull` queries that will filters entities by whether the field value is either null or undefined.
+
+Set `$isNull` to `true` to return entities where where the field is null or undefined.
+
+Set `$isNull` to `false` to return entities where the field is not null and not undefined.
+
+```javascript
+const query = {
+  todos: {
+    $: {
+      where: {
+        location: { $isNull: false },
+      },
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data)
+{
+  "todos": [
+    {
+      "id": cookId,
+      "title": "Cook dinner",
+      "location": "home"
+    }
+  ]
+}
+```
+
+```javascript
+const query = {
+  todos: {
+    $: {
+      where: {
+        location: { $isNull: true },
+      },
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data)
+{
+  "todos": [
+    {
+      "id": readId,
+      "title": "Read",
+      "location": null
+    },
+    {
+      "id": napId,
+      "title": "Take a nap"
+    }
+  ]
+}
+```
+
+### $like
+
+The `where` clause supports `$like` on fields that are indexed with a checked `string` type.
+
+`$like` queries will return entities that match a **case sensitive** substring of the provided value for the field. Here's how you can do queries like `startsWith`, `endsWith` and `includes`.
+
+| Example                   | Description           | JS equivalent |
+| :-----------------------: | :-------------------: | :-----------: |
+| `{ $like: "Get%" }`       | Starts with 'Get'     | `startsWith`  |
+| `{ $like: "%promoted!" }` | Ends with 'promoted!' | `endsWith`    |
+| `{ $like: "%fit%" }`      | Contains 'fit'        | `includes`    |
+
+
+Here's how you can use `$like` to find all goals that end with the word
+"promoted!"
+
+```javascript
+// Find all goals that end with the word "promoted!"
+const query = {
+  goals: {
+    $: {
+      where: {
+        title: { $like: '%promoted!' },
+      },
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data)
+{
+  "goals": [
+    {
+      "id": workId,
+      "title": "Get promoted!",
+    }
+  ]
+}
+```
+
+You can use `$like` in nested queries as well
+
+```javascript
+// Find goals that have todos with the word "standup" in their title
+const query = {
+  goals: {
+    $: {
+      where: {
+        'todos.title': { $like: '%standup%' },
+      },
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+Returns
+
+```javascript
+console.log(data)
+{
+  "goals": [
+    {
+      "id": workId,
+      "title": "Get promoted!",
+    }
+  ]
+}
+```
+
+
+## Query once
+
+Sometimes, you don't want a subscription, and just want to fetch data once. For example, you might want to fetch data before rendering a page or check whether a user name is available.
+
+In these cases, you can use `queryOnce` instead of `useQuery`. `queryOnce` returns a promise that resolves with the data once the query is complete.
+
+Unlike `useQuery`, `queryOnce` will throw an error if the user is offline. This is because `queryOnce` is intended for use cases where you need the most up-to-date data.
+
+```javascript
+const query = { todos: {} };
+const { data } = await db.queryOnce(query);
+// returns the same data as useQuery, but without the isLoading and error fields
+```
+
+You can also do pagination with `queryOnce`:
+
+```javascript
+const query = {
+  todos: {
+    $: {
+      limit: 10,
+      offset: 10,
+    },
+  },
+};
+
+const { data, pageInfo } = await db.queryOnce(query);
+// pageInfo behaves the same as with useQuery
 ```

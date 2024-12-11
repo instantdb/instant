@@ -1,28 +1,23 @@
 (ns instant.jdbc.sql
   (:require
-   [next.jdbc :as next-jdbc]
-   [next.jdbc.sql :as sql]
-   [next.jdbc.result-set :as rs]
-   [next.jdbc.prepare :as p]
-   [next.jdbc.connection :as connection]
    [clojure.string :as string]
+   ;; load all pg-ops for hsql
+   [honey.sql.pg-ops]
+   [instant.util.exception :as ex]
    [instant.util.io :as io]
    [instant.util.json :refer [->json <-json]]
    [instant.util.tracer :as tracer]
-   ;; load all pg-ops for hsql
-   [honey.sql.pg-ops]
-   [instant.util.exception :as ex])
-  (:import (org.postgresql.util PGobject PSQLException)
-           (java.sql Array PreparedStatement ResultSet ResultSetMetaData)
-           (com.zaxxer.hikari HikariDataSource)
-           (java.time
-            Instant
-            LocalDate
-            LocalDateTime)
-           (clojure.lang
-            IPersistentList
-            IPersistentVector
-            IPersistentMap)))
+   [next.jdbc :as next-jdbc]
+   [next.jdbc.connection :as connection]
+   [next.jdbc.prepare :as p]
+   [next.jdbc.result-set :as rs]
+   [next.jdbc.sql :as sql])
+  (:import
+   (clojure.lang IPersistentList IPersistentMap IPersistentVector)
+   (com.zaxxer.hikari HikariDataSource)
+   (java.sql Array Connection PreparedStatement ResultSet ResultSetMetaData)
+   (java.time Instant LocalDate LocalDateTime)
+   (org.postgresql.util PGobject PSQLException)))
 
 (defn ->pg-text-array
   "Formats as text[] in pg, i.e. {item-1, item-2, item3}"
@@ -110,7 +105,7 @@
 
 (defn span-attrs-from-conn-pool [conn]
   (when (instance? HikariDataSource conn)
-    (let [mx-bean (.getHikariPoolMXBean conn)
+    (let [mx-bean (.getHikariPoolMXBean ^HikariDataSource conn)
           pending (.getThreadsAwaitingConnection mx-bean)
           active (.getActiveConnections mx-bean)]
       {:idle-connections (.getIdleConnections mx-bean)
@@ -130,80 +125,127 @@
        (with-open [~conn-name (.getConnection ~conn-pool)]
          ~@body))))
 
-(defn- span-attrs [conn query]
+(defn- span-attrs [conn query tag]
   (let [pool-stats (if (instance? HikariDataSource conn)
                      (span-attrs-from-conn-pool conn)
                      *conn-pool-span-stats*)]
     (merge {:detailed-query (pr-str query)}
-           pool-stats)))
+           pool-stats
+           (when tag
+             {:query-tag tag}))))
 
-(defn select
-  [conn query]
-  (tracer/with-span! {:name "sql/select"
-                      :attributes (span-attrs conn query)}
-    (io/tag-io
-      (sql/query conn query {:builder-fn rs/as-unqualified-maps}))))
+(def ^:dynamic *query-timeout-seconds* 30)
 
-(defn select-qualified
-  [conn query]
-  (tracer/with-span! {:name "sql/select-qualified"
-                      :attributes (span-attrs conn query)}
-    (io/tag-io
-      (sql/query conn query {:builder-fn rs/as-maps}))))
+(defprotocol Cancelable
+  (cancel [this]))
 
-(defn select-arrays
-  [conn query]
-  (tracer/with-span! {:name "sql/select-arrays"
-                      :attributes (span-attrs conn query)}
-    (io/tag-io
-      (sql/query conn query {:builder-fn rs/as-unqualified-arrays}))))
+;; Tracks write statements so that we can wait for them to
+;; complete or cancel them on failover
+(defonce default-statement-tracker
+  (let [stmts (atom #{})]
+    {:add (fn [rw cancelable]
+            (when (= rw :write)
+              (swap! stmts conj cancelable)))
+     :remove (fn [rw cancelable]
+               (when (= rw :write)
+                 (swap! stmts disj cancelable)))
+     :stmts stmts}))
 
-(defn select-string-keys
-  [conn query]
-  (tracer/with-span! {:name "sql/select-string-keys"
-                      :attributes (span-attrs conn query)}
-    (io/tag-io
-      (sql/query conn query {:builder-fn as-string-maps}))))
+(def ^:dynamic *in-progress-stmts* default-statement-tracker)
 
+(defn make-statement-tracker
+  "Creates a statement tracker that allows nesting of statement
+   tracking."
+  []
+  (let [{:keys [add remove]} *in-progress-stmts*
+        stmts (atom #{})]
+    {:add (fn [rw cancelable]
+            (swap! stmts conj cancelable)
+            (when add (add rw cancelable)))
+     :remove (fn [rw cancelable]
+               (swap! stmts disj cancelable)
+               (when remove (remove rw cancelable)))
+     :stmts stmts}))
+
+(defn cancel-in-progress [stmts]
+  (doseq [stmt stmts]
+    (cancel stmt)))
+
+(defn register-in-progress
+  "Registers the statement in the in-progress set (if we're tracking it)
+  and returns a closeable that will remove the statement from the set at
+  the end of the query."
+  ^java.lang.AutoCloseable
+  [created-connection? rw ^Connection conn ^PreparedStatement stmt]
+  (if-let [{:keys [add remove]} *in-progress-stmts*]
+    (let [cancelable (reify Cancelable
+                       (cancel [_]
+                         (.cancel stmt)
+                         ;; Don't close the connection we opened b/c
+                         ;; it seems to cause thread pinning when you
+                         ;; close from a different thread and it will
+                         ;; get closed in the `finally` clause
+                         ;; below. We have to close connections we
+                         ;; were passed to make sure transactions are
+                         ;; rolled back.
+                         (when-not created-connection?
+                           (.close conn))))]
+      (add rw cancelable)
+      (reify java.lang.AutoCloseable
+        (close [_]
+          (remove rw cancelable))))
+    (reify java.lang.AutoCloseable
+      (close [_]
+        nil))))
+
+(defmacro defsql [name query-fn rw opts]
+  (let [span-name (format "sql/%s" name)]
+    `(defn ~name
+       ([~'conn ~'query]
+        (~name nil ~'conn ~'query))
+       ([~'tag ~'conn ~'query]
+        (~name nil ~'conn ~'query nil))
+       ([~'tag ~'conn ~'query ~'additional-opts]
+        (tracer/with-span! {:name ~span-name
+                            :attributes (span-attrs ~'conn ~'query ~'tag)}
+          (try
+            (io/tag-io
+              (let [create-connection?# (not (instance? Connection ~'conn))
+                    opts# (merge ~opts
+                                 ~'additional-opts
+                                 {:timeout *query-timeout-seconds*})
+                    ^Connection c# (if create-connection?#
+                                     (next-jdbc/get-connection ~'conn)
+                                     ~'conn)]
+                (try
+                  (with-open [ps# (next-jdbc/prepare c# ~'query opts#)
+                              _cleanup# (register-in-progress create-connection?# ~rw c# ps#)]
+                    (~query-fn ps# nil opts#))
+                  (finally
+                    ;; Don't close the connection if a java.sql.Connection was
+                    ;; passed in, or we'll end transactions before they're done.
+                    (when create-connection?#
+                      (.close c#))))))
+            (catch PSQLException e#
+              (throw (ex/translate-and-throw-psql-exception! e#)))))))))
+
+(defsql select sql/query :read {:builder-fn rs/as-unqualified-maps})
+(defsql select-qualified sql/query :read {:builder-fn rs/as-maps})
+(defsql select-arrays sql/query :read {:builder-fn rs/as-unqualified-arrays})
+(defsql select-string-keys sql/query :read {:builder-fn as-string-maps})
 (def select-one (comp first select))
-
-(defmacro with-translating-psql-exceptions
-  [& body]
-  `(try
-     ~@body
-     (catch PSQLException e#
-       (throw (ex/translate-and-throw-psql-exception! e#)))))
-
-(defn execute!
-  [conn query]
-  (tracer/with-span! {:name  "sql/execute!"
-                      :attributes (span-attrs conn query)}
-    (with-translating-psql-exceptions
-      (io/tag-io
-        (next-jdbc/execute! conn query {:builder-fn rs/as-unqualified-maps
-                                        :return-keys true})))))
-(defn execute-one!
-  [conn query]
-  (tracer/with-span! {:name  "sql/execute-one!"
-                      :attributes (span-attrs conn query)}
-    (with-translating-psql-exceptions
-      (io/tag-io
-        (next-jdbc/execute-one! conn query {:builder-fn rs/as-unqualified-maps
-                                            :return-keys true})))))
-
-(defn do-execute! [conn query]
-  (tracer/with-span! {:name  "sql/do-execute!"
-                      :attributes (span-attrs conn query)}
-    (with-translating-psql-exceptions
-      (io/tag-io
-        (next-jdbc/execute! conn query {:return-keys false})))))
+(defsql execute! next-jdbc/execute! :write {:builder-fn rs/as-unqualified-maps
+                                            :return-keys true})
+(defsql execute-one! next-jdbc/execute-one! :write {:builder-fn rs/as-unqualified-maps
+                                                    :return-keys true})
+(defsql do-execute! next-jdbc/execute! :write {:return-keys false})
 
 (defn patch-hikari []
   ;; Hikari will send an extra query to ensure the connection is valid
   ;; if it has been idle for half a second. This raises the limit so
   ;; that it only checks every minute.
   ;; This shouldn't be necessary at all--the connection should be able
-  ;; to tell when its closed. But even if it can't tell if it's closed,
+  ;; to tell when it's closed. But even if it can't tell if it's closed,
   ;; the connection pool should use the query you want to send as the
   ;; validation check. If it gets a retryable error, like connection_closed,
   ;; then it can try again on another connection.

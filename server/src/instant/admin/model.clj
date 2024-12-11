@@ -23,10 +23,10 @@
    [clojure.string :as string]
    [instant.util.exception :as ex]
    [instant.db.transaction :as tx]
-   [instant.jdbc.aurora :as aurora]
    [instant.util.json :refer [->json <-json]])
   (:import
-   (java.util UUID)))
+   (java.util UUID)
+   (com.fasterxml.jackson.core JsonParseException)))
 
 (defn lookup? [eid]
   (and (string? eid)
@@ -34,7 +34,15 @@
 
 (defn parse-lookup [^String k]
   (let [[_ eid & json-parts] (.split k "__")]
-    [eid (<-json (string/join "__" json-parts))]))
+    (try
+      [eid (<-json (string/join "__" json-parts))]
+      (catch JsonParseException _e
+        (ex/throw-validation-err!
+         :lookup
+         k
+         [{:message "lookup value is invalid"
+           :hint {:attribute eid
+                  :value (string/join "__" json-parts)}}])))))
 
 (defn explode-lookup [eid]
   (if (sequential? eid)
@@ -158,7 +166,7 @@
 
 (defn expand-delete [attrs [etype eid]]
   (let [lookup (extract-lookup attrs etype eid)]
-    [[:delete-entity lookup]]))
+    [[:delete-entity lookup etype]]))
 
 (defn expand-add-attr [_ [attr]]
   [[:add-attr (-> attr
@@ -169,16 +177,20 @@
 (defn expand-delete-attr [_ [id]]
   [[:delete-attr id]])
 
-(defn to-tx-steps [attrs [action & args]]
-  (case action
-    "update" (expand-update attrs args)
-    "merge" (expand-merge attrs args)
-    "link"   (expand-link attrs args)
-    "unlink" (expand-unlink attrs args)
-    "delete" (expand-delete attrs args)
-    "add-attr" (expand-add-attr attrs args)
-    "delete-attr" (expand-delete-attr attrs args)
-    (throw (ex-info (str "unsupported action " action) {}))))
+(defn remove-id-from-step [[op etype eid obj]]
+  [op etype eid (dissoc obj "id")])
+
+(defn to-tx-steps [attrs step]
+  (let [[action & args] (remove-id-from-step step)]
+    (case action
+      "update" (expand-update attrs args)
+      "merge" (expand-merge attrs args)
+      "link"   (expand-link attrs args)
+      "unlink" (expand-unlink attrs args)
+      "delete" (expand-delete attrs args)
+      "add-attr" (expand-add-attr attrs args)
+      "delete-attr" (expand-delete-attr attrs args)
+      (throw (ex-info (str "unsupported action " action) {})))))
 
 (defn create-object-attr
   ([etype label] (create-object-attr etype label nil))
@@ -229,7 +241,10 @@
                                (attr-model/seek-by-rev-ident-name [etype label] attrs))]
                 (cond (and (contains? update-actions action)
                            (not fwd-attr))
-                      (add-attr acc (create-object-attr etype label))
+                      (add-attr acc (create-object-attr etype
+                                                        label
+                                                        (when (= label "id")
+                                                          {:unique? true})))
 
                       (and (contains? ref-actions action)
                            (not fwd-attr)
@@ -240,18 +255,21 @@
             acc
             labels)))
 
+(defn add-attrs-for-ref-lookup [{:keys [attrs] :as acc} label etype]
+  (let [fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
+        rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
+    (if (and (not fwd-attr) (not rev-attr))
+      (add-attr acc (create-ref-attr etype
+                                     label
+                                     {:unique? true
+                                      :index? true
+                                      :cardinality :one}))
+      acc)))
+
 (defn add-attrs-for-lookup [{:keys [attrs] :as acc} lookup etype]
   (if (ref-lookup? attrs etype lookup)
-    (let [label (extract-ref-lookup-fwd-name lookup)
-          fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
-          rev-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
-      (if (and (not fwd-attr) (not rev-attr))
-        (add-attr acc (create-ref-attr etype
-                                       label
-                                       {:unique? true
-                                        :index? true
-                                        :cardinality :one}))
-        acc))
+    (let [label (extract-ref-lookup-fwd-name lookup)]
+      (add-attrs-for-ref-lookup acc label etype))
     (let [[label _value] lookup]
       (if (attr-model/seek-by-fwd-ident-name [etype label]
                                              attrs)
@@ -261,13 +279,39 @@
                                           {:unique? true
                                            :index? true}))))))
 
+(defn add-attrs-for-link-lookup [{:keys [attrs] :as acc} lookup link-label etype]
+  (let [fwd-attr (attr-model/seek-by-fwd-ident-name [etype link-label] attrs)
+        rev-attr (attr-model/seek-by-rev-ident-name [etype link-label] attrs)
+        link-etype (or (some-> fwd-attr
+                               :reverse-identity
+                               second)
+                       (some-> rev-attr
+                               :forward-identity
+                               second)
+                       link-label)]
+    (add-attrs-for-lookup acc lookup link-etype)))
+
+(defn op->lookups [[action etype eid obj]]
+  (when (contains? supports-lookup-actions action)
+    (concat (when-let [lookup-pair (eid->lookup-pair eid)]
+              [{:etype etype :lookup-pair lookup-pair}])
+            (when (= "link" action)
+              (for [[label eid-or-eids] obj
+                    eid (if (coll? eid-or-eids) eid-or-eids [eid-or-eids])
+                    :let [lookup-pair (eid->lookup-pair eid)]
+                    :when lookup-pair]
+                {:etype etype :lookup-pair lookup-pair :link-label label})))))
+
 (defn create-lookup-attrs [acc ops]
   (reduce (fn [acc op]
-            (let [[action etype eid _obj] op]
-              (if-let [lookup (when (contains? supports-lookup-actions action)
-                                (eid->lookup-pair eid))]
-                (add-attrs-for-lookup acc lookup etype)
-                acc)))
+            (reduce (fn [acc {:keys [etype lookup-pair link-label]}]
+                      (if link-label
+                        (-> acc
+                            (add-attrs-for-ref-lookup link-label etype)
+                            (add-attrs-for-link-lookup lookup-pair link-label etype))
+                        (add-attrs-for-lookup acc lookup-pair etype)))
+                    acc
+                    (op->lookups op)))
           acc
           ops))
 
@@ -286,8 +330,20 @@
       (create-lookup-attrs ops)
       (create-attrs-from-objs ops)))
 
-(defn transform [attrs steps]
+(defn transform [{:keys [attrs throw-on-missing-attrs?] :as _ctx} steps]
   (let [{attrs :attrs add-attr-tx-steps :add-ops} (create-missing-attrs attrs steps)
+        _ (when (and throw-on-missing-attrs? (seq add-attr-tx-steps))
+            (let [ident-names (->> add-attr-tx-steps
+                                   (map (comp
+                                         #(string/join "." %1)
+                                         attr-model/ident-name
+                                         :forward-identity
+                                         second)))]
+              (ex/throw-validation-err!
+               :steps
+               steps
+               [{:message "Attributes are missing in your schema"
+                 :hint {:attributes ident-names}}])))
         tx-steps (mapcat (fn [step] (to-tx-steps attrs step)) steps)]
     (concat add-attr-tx-steps tx-steps)))
 
@@ -348,7 +404,7 @@
   (str (UUID/randomUUID)))
 
 (defn ->tx-steps!
-  [attrs steps]
+  [ctx steps]
   (let [coerced-admin-steps (<-json (->json steps) false)
         valid? (s/valid? ::ops coerced-admin-steps)
         _ (when-not valid?
@@ -357,16 +413,16 @@
              steps
              (ex/explain->validation-errors
               (s/explain-data ::ops steps))))
-        tx-steps (transform attrs coerced-admin-steps)
+        tx-steps (transform ctx coerced-admin-steps)
         coerced (tx/coerce! tx-steps)
         _ (tx/validate! coerced)]
     coerced))
 
 (comment
   (def counters-app-id  #uuid "b502cabc-11ed-4534-b340-349d46548642")
-  (def attrs (attr-model/get-by-app-id aurora/conn-pool counters-app-id))
-  (->tx-steps! attrs [["merge" "goals" (str-uuid) {"title" "plop"}]])
-  (->tx-steps! attrs
+  (def attrs (attr-model/get-by-app-id counters-app-id))
+  (->tx-steps! {:attrs attrs} [["merge" "goals" (str-uuid) {"title" "plop"}]])
+  (->tx-steps! {:attrs attrs}
                [["update" "goals" (str-uuid) {"title" "moop"}]
                 ["link" "goals" (str-uuid) {"todos" (str-uuid)}]
                 ["unlink" "goals" (str-uuid) {"todos" (str-uuid)}]

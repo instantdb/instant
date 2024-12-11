@@ -25,12 +25,6 @@ attribute by adding this to your app's [permissions](/dash?t=perms)
 
 This will prevent any new attributes from being created.
 
-## Query all users and add additional attributes.
-
-Right now we don't expose the auth table to the client or the dashboard. This
-will change in the future. For now we recommend you manage you your own user
-namespace. [Here's an example](https://github.com/instantdb/instant/blob/main/client/sandbox/react-nextjs/pages/patterns/manage-users.tsx)
-
 ## Specify attributes you want to query.
 
 When you query a namespace, it will return all the attributes for an entity.
@@ -49,8 +43,8 @@ permissions. Here's an example of limiting a user to creating at most 2 todos.
 // Here we define users, todos, and a link between them.
 import { i } from '@instantdb/core';
 
-const graph = i.graph(
-  {
+const _schema = i.schema({
+  entities: {
     users: i.entity({
       email: i.string(),
     }),
@@ -58,7 +52,7 @@ const graph = i.graph(
       label: i.string(),
     }),
   },
-  {
+  links: {
     userTodos: {
       forward: {
         on: 'users',
@@ -71,23 +65,75 @@ const graph = i.graph(
         label: 'owner',
       },
     },
-  }
+  },
+  rooms: {}
 );
 
-export default graph;
+// This helps Typescript display nicer intellisense
+type _AppSchema = typeof _schema;
+interface AppSchema extends _AppSchema {}
+const schema: AppSchema = _schema;
+
+export { type AppSchema };
+export default schema;
 ```
 
 ```typescript
-// instant.schema.ts
+import { type InstantRules } from "@instantdb/core";
+// instant.perms.ts
 // And now we reference the `owner` link for todos to check the number
 // of todos a user has created.
 // (Note): Make sure the `owner` link is already defined in the schema.
 // before you can reference it in the permissions.
-export {
-  "todos": {
-    "allow": {
-      "create": "size(data.ref('owner.todos.id')) <= 2",
+const rules = {
+  todos: {
+    allow: {
+      create: "size(data.ref('owner.todos.id')) <= 2",
     }
   }
+} satisfies InstantRules;
+
+export default rules;
+```
+
+## Listen to InstantDB connection status.
+
+Sometimes you want to let clients know when they are connected or disconnected
+to the DB. You can use `db.subscribeConnectionStatus` in vanilla JS or
+`db.useConnectionStatus` in React to listen to connection changes
+
+```typescript
+
+// Vanilla JS
+const unsub = db.subscribeConnectionStatus((status) => {
+ const connectionState =
+   status === 'connecting' || status === 'opened'
+     ? 'authenticating'
+   : status === 'authenticated'
+     ? 'connected'
+   : status === 'closed'
+     ? 'closed'
+   : status === 'errored'
+     ? 'errored'
+   : 'unexpected state';
+
+ console.log('Connection status:', connectionState);
+});
+
+// React/React Native
+function App() {
+ const status = db.useConnectionStatus()
+ const connectionState =
+   status === 'connecting' || status === 'opened'
+     ? 'authenticating'
+   : status === 'authenticated'
+     ? 'connected'
+   : status === 'closed'
+     ? 'closed'
+   : status === 'errored'
+     ? 'errored'
+   : 'unexpected state';
+
+ return <div>Connection state: {connectionState}</div>
 }
 ```

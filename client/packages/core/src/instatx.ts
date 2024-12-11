@@ -1,4 +1,4 @@
-import { DataAttrDef, InstantGraph, LinkAttrDef } from "./schema";
+import type { DataAttrDef, IContainEntitiesAndLinks, InstantGraph, LinkAttrDef } from "./schemaTypes";
 
 type Action = "update" | "link" | "unlink" | "delete" | "merge";
 type EType = string;
@@ -9,7 +9,7 @@ type Lookup = string;
 export type Op = [Action, EType, Id | LookupRef, Args];
 
 type UpdateParams<
-  Schema extends InstantGraph<any, any>,
+  Schema extends IContainEntitiesAndLinks<any, any>,
   EntityName extends keyof Schema["entities"],
 > = {
   [AttrName in keyof Schema["entities"][EntityName]["attrs"]]?: Schema["entities"][EntityName]["attrs"][AttrName] extends DataAttrDef<
@@ -20,14 +20,14 @@ type UpdateParams<
       ? ValueType
       : ValueType | null
     : never;
-} & (Schema extends InstantGraph<any, any>
+} & (Schema extends IContainEntitiesAndLinks<any, any>
   ? {}
   : {
       [attribute: string]: any;
     });
 
 type LinkParams<
-  Schema extends InstantGraph<any, any>,
+  Schema extends IContainEntitiesAndLinks<any, any>,
   EntityName extends keyof Schema["entities"],
 > = {
   [LinkName in keyof Schema["entities"][EntityName]["links"]]?: Schema["entities"][EntityName]["links"][LinkName] extends LinkAttrDef<
@@ -41,7 +41,7 @@ type LinkParams<
 } & (Schema extends InstantGraph<any, any> ? {} : { [attribute: string]: any });
 
 export interface TransactionChunk<
-  Schema extends InstantGraph<any, any, any>,
+  Schema extends IContainEntitiesAndLinks<any, any>,
   EntityName extends keyof Schema["entities"],
 > {
   __ops: Op[];
@@ -127,13 +127,13 @@ export interface TransactionChunk<
 }
 
 export interface ETypeChunk<
-  Schema extends InstantGraph<any, any>,
+  Schema extends IContainEntitiesAndLinks<any, any>,
   EntityName extends keyof Schema["entities"],
 > {
   [id: Id]: TransactionChunk<Schema, EntityName>;
 }
 
-export type TxChunk<Schema extends InstantGraph<any, any>> = {
+export type TxChunk<Schema extends IContainEntitiesAndLinks<any, any>> = {
   [EntityName in keyof Schema["entities"]]: ETypeChunk<Schema, EntityName>;
 };
 
@@ -189,7 +189,7 @@ function etypeChunk(etype: EType): ETypeChunk<any, EType> {
 }
 
 export function txInit<
-  Schema extends InstantGraph<any, any>,
+  Schema extends IContainEntitiesAndLinks<any, any>,
 >(): TxChunk<Schema> {
   return new Proxy(
     {},

@@ -1,8 +1,8 @@
 RulesVersion: 2
 Samplers:
     __default__:
-        DeterministicSampler:
-            SampleRate: 1
+      DeterministicSampler:
+          SampleRate: 1
     prod:
       RulesBasedSampler:
         Rules:
@@ -15,7 +15,8 @@ Samplers:
           - Name: default rule
             Sampler:
               EMAThroughputSampler:
-                # With one server, that's about 80MM/month
-                GoalThroughputPerSec: 30
+                GoalThroughputPerSec: 25
+                UseClusterSize: true
                 FieldList:
-                  - name
+                  - root.name
+                  - root.op

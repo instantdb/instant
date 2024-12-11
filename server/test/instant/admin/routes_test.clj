@@ -157,7 +157,6 @@
             (is (number? (-> ret :body :tx-id)))
             (is (seq (attr-model/seek-by-fwd-ident-name ["floopy" "flip"]
                                                         (attr-model/get-by-app-id
-                                                         aurora/conn-pool
                                                          app-id))))))
         (testing "delete-attr works"
           (let [eid (UUID/randomUUID)
@@ -176,8 +175,80 @@
             (is (number? (-> ret :body :tx-id)))
             (is (nil? (attr-model/seek-by-fwd-ident-name ["floopy" "flop"]
                                                          (attr-model/get-by-app-id
-                                                          aurora/conn-pool
                                                           app-id))))))))))
+
+(deftest strong-init-and-inference
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token :as _app}]
+      (let [goal-id (str (UUID/randomUUID))
+            user-id (str (UUID/randomUUID))
+            goal-owner-attr-id (str (UUID/randomUUID))
+
+            add-links [["add-attr"
+                        {:id goal-owner-attr-id
+                         :forward-identity [(UUID/randomUUID) "goals" "owner"]
+                         :reverse-identity [(UUID/randomUUID) "users" "ownedGoals"]
+                         :value-type "ref"
+                         :cardinality "one"
+                         :unique? false
+                         :index? false}]]
+            add-objects [["update" "goals"
+                          goal-id
+                          {"title" "get fit"}]
+                         ["update" "users"
+                          user-id
+                          {"name" "stopa"}]
+                         ["link" "goals"
+                          goal-id
+                          {"owner" user-id}]]
+            _add-links-ret (transact-post
+                            {:body {:steps add-links}
+                             :headers {"app-id" (str app-id)
+                                       "authorization" (str "Bearer " admin-token)}})
+            _add-objects-ret (transact-post
+                              {:body {:steps add-objects}
+                               :headers {"app-id" (str app-id)
+                                         "authorization" (str "Bearer " admin-token)}})]
+        (let [q (query-post
+                 {:body {:query {:goals {:owner {}}}}
+                  :headers {"app-id" (str app-id)
+                            "authorization" (str "Bearer " admin-token)}})
+              goal (-> q :body (get "goals") first)
+              owner-part (get goal "owner")]
+
+          (is (= "get fit" (get goal "title")))
+          (is (= 1 (count owner-part)))
+          (is (= "stopa" (get (first owner-part) "name"))))
+
+        (testing "cardinality inference works"
+          (let [q (query-post
+                   {:body {:query {:goals {:owner {}}}
+                           :inference? true}
+                    :headers {"app-id" (str app-id)
+                              "authorization" (str "Bearer " admin-token)}})
+                goal (-> q :body (get "goals") first)
+                owner (get goal "owner")]
+            (is (= "get fit" (get goal "title")))
+            (is (= "stopa" (get owner "name")))))
+
+        (testing "throw-missing-attrs works"
+          (let [{:keys [status body]} (transact-post
+                                       {:body {:steps [["update" "goals"
+                                                        goal-id
+                                                        {"myFavoriteColor" "purple"}]]
+                                               :throw-on-missing-attrs? true}
+                                        :headers {"app-id" (str app-id)
+                                                  "authorization" (str "Bearer " admin-token)}})]
+
+            (is (= 400 status))
+            (is (= #{"goals.myFavoriteColor"}
+                   (-> body
+                       :hint
+                       :errors
+                       first
+                       :hint
+                       :attributes
+                       set)))))))))
 
 (deftest refresh-tokens-test
   (with-empty-app
@@ -207,7 +278,8 @@
             ;; token is created
             (is (= 200 (:status refresh-ret)))
             (is (some? token))
-            (is (some? (app-user-refresh-token-model/get-by-id {:id token})))
+            (is (some? (app-user-refresh-token-model/get-by-id {:id token
+                                                                :app-id app-id})))
 
             ;; sign-out
             (let [sign-out-ret (sign-out-post
@@ -217,7 +289,8 @@
 
               ;; token is deleted
               (is (= 200 (:status sign-out-ret)))
-              (is (nil? (app-user-refresh-token-model/get-by-id {:id token}))))))))))
+              (is (nil? (app-user-refresh-token-model/get-by-id {:id token
+                                                                 :app-id app-id}))))))))))
 
 (deftest app-users-get-test
   (with-empty-app
@@ -289,8 +362,7 @@
             (is (= 200 (:status refresh-ret)))
             (is (some? token))
 
-
-            ;; retrieve user by refresh token
+;; retrieve user by refresh token
             (let [get-user-ret (app-users-get
                                 {:params {:refresh_token token}
                                  :headers {"app-id" app-id
@@ -370,8 +442,7 @@
             (is (= 200 (:status refresh-ret)))
             (is (some? token))
 
-
-            ;; delete user by refresh token
+;; delete user by refresh token
             (let [delete-user-ret (app-users-delete
                                    {:params {:refresh_token token}
                                     :headers {"app-id" app-id
@@ -380,6 +451,27 @@
               ;; user is deleted
               (is (= 200 (:status delete-user-ret)))
               (is (= email (-> delete-user-ret :body :deleted :email))))))))))
+
+(deftest ignore-id-in-transaction
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token :as _app}]
+      (let [expected-id (UUID/randomUUID)
+            id-to-ignore (UUID/randomUUID)
+            update-step ["update" "items" expected-id {"id" id-to-ignore "name" "book"}]
+            update-tx (transact-post
+                       {:body {:steps [update-step]}
+                        :headers {"app-id" (str app-id)
+                                  "authorization" (str "Bearer " admin-token)}})
+
+            _ (is (= 200 (:status update-tx)))
+
+            items-query (query-post
+                         {:body {:query {:items {}}}
+                          :headers {"app-id" (str app-id)
+                                    "authorization" (str "Bearer " admin-token)}})
+            actual-items (-> (items-query :body) (get "items"))]
+        (is (= 1 (count actual-items)))
+        (is (= expected-id (-> (first actual-items) (get "id") UUID/fromString)))))))
 
 (deftest link-unlink-multi
   (with-empty-app
@@ -594,14 +686,70 @@
                    first
                    (get "pref_b"))))))))
 
+(deftest lookups-in-links-create-attrs
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token}]
+      (testing "update"
+        (is (transact-ok?
+             (transact-post
+              {:body {:steps [["update" "users" ["handle" "stopa"] {"name" "Stepan"}]
+                              ["update" "tasks" ["slug" "task-a"] {}]
+                              ["link" "users" ["handle" "stopa"] {"tasks" {"slug" "task-a"}}]]}
+               :headers {"app-id" (str app-id)
+                         "authorization" (str "Bearer " admin-token)}})))
+        (let [query-result (-> (query-post
+                                {:body {:query {:users {:$ {:where {:handle "stopa"}}
+                                                        :tasks {}}}}
+                                 :headers {"app-id" (str app-id)
+                                           "authorization" (str "Bearer " admin-token)}})
+                               :body)
+              user (-> query-result
+                       (get "users")
+                       first)
+              tasks (-> user
+                        (get "tasks"))]
+          (is (= "Stepan" (get user "name")))
+          (is (= #{"task-a"} (set (map #(get % "slug") tasks)))))))))
+
+(deftest lookups-in-links-dont-override-attrs
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token}]
+      (attr-model/insert-multi! (aurora/conn-pool)
+                                app-id
+                                [{:id (random-uuid)
+                                  :forward-identity [(random-uuid) "posts" "id"]
+                                  :value-type "blob"
+                                  :cardinality "one"
+                                  :unique? true
+                                  :index? false}
+                                 {:id (random-uuid)
+                                  :forward-identity [(random-uuid) "posts" "slug"]
+                                  :value-type "blob"
+                                  :cardinality "one"
+                                  :unique? true
+                                  :index? false}
+                                 {:id (random-uuid)
+                                  :forward-identity [(random-uuid) "posts" "parent"]
+                                  :reverse-identity [(random-uuid) "posts" "child"]
+                                  :value-type "blob"
+                                  :cardinality "one"
+                                  :unique? true
+                                  :index? false}])
+      (is (transact-ok?
+           (transact-post
+            {:body {:steps [["update" "posts" ["slug" "new-post"] {}]
+                            ["link" "posts" ["slug" "new-post"] {"child" {"slug" "new-post"}}]]}
+             :headers {"app-id" (str app-id)
+                       "authorization" (str "Bearer " admin-token)}}))))))
+
 (defn tx-validation-err [attrs steps]
   (try
-    (admin-model/->tx-steps! attrs steps)
+    (admin-model/->tx-steps! {:attrs attrs} steps)
     (catch clojure.lang.ExceptionInfo e
       (-> e ex-data ::ex/hint :errors first))))
 
 (deftest transact-validations
-  (let [attrs (attr-model/get-by-app-id aurora/conn-pool zeneca-app-id)]
+  (let [attrs (attr-model/get-by-app-id zeneca-app-id)]
     (is (= '{:expected string?, :in [0 1]}
            (tx-validation-err
             attrs [["update" 1 (UUID/randomUUID) {"title" "moop"}]])))
@@ -617,6 +765,13 @@
     (is (= {:message "test.isbn is not a valid lookup attribute."}
            (tx-validation-err
             attrs [["update" "books" ["test.isbn" "asdf"] {"title" "test"}]])))
+    (is (= {:message "lookup value is invalid", :hint {:attribute "linkOn"
+                                                       :value "undefined"}}
+           (tx-validation-err
+            attrs [["link"
+                    "spans"
+                    "6fd7b6eb-6fa2-4943-b5a3-2d73c8bd6904"
+                    {:parentSpan "lookup__linkOn__undefined"}]])))
     (is (= {:message "test.isbn is not a unique attribute on books"}
            (tx-validation-err
             (conj attrs {:id (random-uuid)

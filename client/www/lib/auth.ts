@@ -16,7 +16,7 @@ type AuthInfo = { token: string | undefined };
 export type APIResponse<Data> = SWRResponse<Data> & {
   optimisticUpdate: <MutationResponse>(
     mutationPromiseToWaitFor: Promise<MutationResponse>,
-    optimisticDataProducer?: (d: Draft<Data>) => void
+    optimisticDataProducer?: (d: Draft<Data>) => void,
   ) => Promise<MutationResponse>;
 };
 
@@ -56,6 +56,10 @@ function change(newToken: string | undefined) {
   _SUBS.forEach(({ fn }) => fn(_AUTH_INFO.token));
 }
 
+function clearToken() {
+  change(undefined);
+}
+
 // --------
 // Hooks
 
@@ -72,12 +76,13 @@ export function useAuthToken(): string | undefined {
 
 export function useAuthedFetch<Res = any>(path: string) {
   const token = useContext(TokenContext);
-  return useTokenFetch<Res>(path, token);
+  return useTokenFetch<Res>(path, token, clearToken);
 }
 
 export function useTokenFetch<Res>(
   path: string,
-  token?: string
+  token?: string,
+  onUnauthorized?: () => void,
 ): APIResponse<Res> {
   const res = useSwr<Res, any, [string, string] | null>(
     path && token ? [path, token] : null,
@@ -87,25 +92,28 @@ export function useTokenFetch<Res>(
       });
       const jsonRes = await res.json();
       if (!res.ok) {
+        if (res.status === 401 && onUnauthorized) {
+          onUnauthorized();
+        }
         throw new Error(jsonRes?.message);
       }
       return jsonRes;
     },
     {
       keepPreviousData: true,
-    }
+    },
   );
 
   return {
     ...res,
     optimisticUpdate: (
       mutationPromiseToWaitFor,
-      optimisticDataProducer
+      optimisticDataProducer,
     ): any => {
       return optimisticUpdate(
         res,
         mutationPromiseToWaitFor,
-        optimisticDataProducer
+        optimisticDataProducer,
       );
     },
   };
@@ -122,8 +130,9 @@ const friendlyNameFromIn = (inArr: string[]) => {
   return friendlyName(inArr[inArr.length - 1]);
 };
 
+/* Standardize error messages from Instant */
 export const messageFromInstantError = (
-  e: InstantError
+  e: InstantError,
 ): string | undefined => {
   const body = e.body;
   if (!body) return;
@@ -146,6 +155,26 @@ export const messageFromInstantError = (
       return body.message;
   }
 };
+
+/**
+  * Friendly error messages to display to our users
+  * We can add more cases as we encounter them
+*/
+export function friendlyErrorMessage(label: string, message: string) {
+  switch (label) {
+    case 'dash-billing':
+      return friendlyBillingError(message);
+    default:
+      return message;
+  }
+}
+
+function friendlyBillingError(message: string) {
+  if (message.includes('Permission denied')) {
+    return 'Billing management is restricted to the app owner.';
+  }
+  return message;
+}
 
 // --------
 // Auth API
@@ -171,7 +200,7 @@ export async function verifyMagicCode({
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email, code }),
-    }
+    },
   );
   change(res.token);
   return res;
@@ -206,7 +235,7 @@ export async function exchangeOAuthCodeForToken({ code }: { code: string }) {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ code }),
-    }
+    },
   );
   change(res.token);
   return res;
@@ -253,7 +282,7 @@ export async function voidTicket({
 export function optimisticUpdate<T>(
   swrResponse: SWRResponse<T>,
   mutationPromiseToWaitFor: Promise<any>,
-  optimisticDataProducer?: (d: Draft<T>) => any
+  optimisticDataProducer?: (d: Draft<T>) => any,
 ): Promise<T | undefined> {
   return swrResponse.mutate(
     // wait on action, then re-fetch swrResponse
@@ -274,6 +303,6 @@ export function optimisticUpdate<T>(
 
         return currentValue as T;
       },
-    }
+    },
   );
 }

@@ -1,22 +1,30 @@
 import { useRouter } from 'next/router';
 import { TokenContext } from '@/lib/contexts';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
-import { DashResponse } from '@/lib/types';
-import config, { setLocal } from '@/lib/config';
-import { useAuthToken, useTokenFetch } from '@/lib/auth';
+import { successToast } from '@/lib/toast';
+import { DashResponse, InstantApp } from '@/lib/types';
+import config from '@/lib/config';
+import { jsonFetch } from '@/lib/fetch';
+import { APIResponse, useAuthToken, useTokenFetch } from '@/lib/auth';
 import { Sandbox } from '@/components/dash/Sandbox';
 import { Explorer } from '@/components/dash/explorer/Explorer';
 import { init } from '@instantdb/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useContext } from 'react';
 import {
-  Content,
-  ScreenHeading,
+  Button,
+  Checkbox,
+  Dialog,
   SectionHeading,
+  SubsectionHeading,
   Stack,
   TabBar,
+  Content,
   twel,
+  useDialog,
 } from '@/components/ui';
 import Auth from '@/components/dash/Auth';
+import { isMinRole } from '@/pages/dash/index';
+import { TrashIcon } from '@heroicons/react/solid';
 
 type InstantReactClient = ReturnType<typeof init>;
 
@@ -26,7 +34,7 @@ export default function Devtool() {
   const isHydrated = useIsHydrated();
   const dashResponse = useTokenFetch<DashResponse>(
     `${config.apiURI}/dash`,
-    authToken
+    authToken,
   );
   const appId = router.query.appId as string;
   const app = dashResponse.data?.apps?.find((a) => a.id === appId);
@@ -47,14 +55,13 @@ export default function Devtool() {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const isToggleShortcut = e.shiftKey && e.ctrlKey && e.key === '0';
-      const isEsc = e.key === 'Escape' || e.key === 'Esc';
 
-      if (isToggleShortcut || isEsc) {
+      if (isToggleShortcut) {
         parent.postMessage(
           {
             type: 'close',
           },
-          '*'
+          '*',
         );
       }
     }
@@ -69,12 +76,13 @@ export default function Devtool() {
     if (typeof window === 'undefined') return;
 
     try {
-      const db = init<unknown>({
+      const db = init({
         appId,
         apiURI: config.apiURI,
         websocketURI: config.websocketURI,
         // @ts-expect-error
         __adminToken: app?.admin_token,
+        devtool: false,
       });
 
       setConnection({ state: 'ready', db });
@@ -114,10 +122,31 @@ export default function Devtool() {
     );
   }
 
+  if (dashResponse.error) {
+    return (
+      <div className="h-full w-full flex flex-col justify-center items-center gap-2">
+        <div>Error loading app</div>
+        {!isEmptyObj(dashResponse.error) ? (
+          <pre className="p-1 bg-gray-100 max-w-sm w-full overflow-x-auto">
+            {JSON.stringify(dashResponse.error, null, '\t')}{' '}
+          </pre>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (!appId) {
+    return (
+      <div className="h-full w-full flex justify-center items-center">
+        No app ID provided. Are you passing an app ID into <Code>init</Code>?
+      </div>
+    );
+  }
+
   if (!app) {
     return (
       <div className="h-full w-full flex justify-center items-center">
-        Unable to access app
+        Cound not find app. Are you logged in to the correct account?
       </div>
     );
   }
@@ -125,7 +154,7 @@ export default function Devtool() {
   if (connection.state === 'error') {
     return (
       <div className="h-full w-full flex justify-center items-center">
-        Failed to connect
+        Failed to connect to Instant backend.
       </div>
     );
   }
@@ -145,6 +174,22 @@ export default function Devtool() {
           <div className="px-3 py-1 text-xs font-mono bg-gray-100 border-b">
             Instant Devtools {app?.title ? `• ${app?.title}` : ''}
           </div>
+          <div className="flex gap-2 px-3 py-1 text-xs font-mono bg-gray-50 border-b">
+            <span>App ID</span>
+            <code
+              className="bg-white rounded border px-2"
+              onClick={(e) => {
+                const node = e.currentTarget;
+                const selection = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(node);
+                selection?.removeAllRanges();
+                selection?.addRange(range);
+              }}
+            >
+              {app.id ?? <>&nbsp;</>}
+            </code>
+          </div>
           <TabBar
             className="text-sm"
             selectedId={tab}
@@ -158,6 +203,10 @@ export default function Devtool() {
                 label: 'Sandbox',
               },
               {
+                id: 'admin',
+                label: 'Admin',
+              },
+              {
                 id: 'help',
                 label: 'Help',
               },
@@ -168,10 +217,14 @@ export default function Devtool() {
           />
           <div className="flex w-full flex-1 overflow-auto">
             {tab === 'explorer' ? (
-              <Explorer db={connection.db} />
+              <Explorer db={connection.db} appId={appId} />
             ) : tab === 'sandbox' ? (
               <div className="min-w-[960px] w-full">
                 <Sandbox app={app} />
+              </div>
+            ) : tab === 'admin' ? (
+              <div className="min-w-[960px] w-full p-4">
+                <Admin dashResponse={dashResponse} app={app} />
               </div>
             ) : tab === 'help' ? (
               <div className="min-w-[960px] w-full p-4">
@@ -182,6 +235,94 @@ export default function Devtool() {
         </div>
       </TokenContext.Provider>
     </div>
+  );
+}
+
+function Admin({
+  dashResponse,
+  app,
+}: {
+  dashResponse: APIResponse<DashResponse>;
+  app: InstantApp;
+}) {
+  const token = useContext(TokenContext);
+  const [clearAppOk, updateClearAppOk] = useState(false);
+  const clearDialog = useDialog();
+
+  return (
+    <Stack className="gap-2 text-sm max-w-sm">
+      {isMinRole('owner', app.user_app_role) ? (
+        <div className="space-y-2">
+          <SectionHeading>Danger zone</SectionHeading>
+          <Content>
+            These are destructive actions and will irreversibly delete
+            associated data.
+          </Content>
+          <div>
+            <div className="flex flex-col space-y-6">
+              <Button variant="destructive" onClick={clearDialog.onOpen}>
+                <TrashIcon height={'1rem'} /> Clear app
+              </Button>
+            </div>
+          </div>
+          <Dialog {...clearDialog}>
+            <div className="flex flex-col gap-2">
+              <SubsectionHeading className="text-red-600">
+                Clear app
+              </SubsectionHeading>
+              <Content className="space-y-2">
+                <p>
+                  Clearing an app will irreversibly delete all namespaces,
+                  triples, and permissions.
+                </p>
+                <p>
+                  All other data like app id, admin token, users, billing, team
+                  members, etc. will remain.
+                </p>
+                <p>
+                  This is equivalent to deleting all your namespaces in the
+                  explorer and clearing your permissions.
+                </p>
+              </Content>
+              <Checkbox
+                checked={clearAppOk}
+                onChange={(c) => updateClearAppOk(c)}
+                label="I understand and want to clear this app."
+              />
+              <Button
+                disabled={!clearAppOk}
+                variant="destructive"
+                onClick={async () => {
+                  await jsonFetch(
+                    `${config.apiURI}/dash/apps/${app.id}/clear`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        authorization: `Bearer ${token}`,
+                        'content-type': 'application/json',
+                      },
+                    },
+                  );
+
+                  clearDialog.onClose();
+                  dashResponse.mutate();
+                  successToast('App cleared!');
+                }}
+              >
+                Clear data
+              </Button>
+            </div>
+          </Dialog>
+        </div>
+      ) : (
+        <>
+          <SectionHeading>Insufficent Role</SectionHeading>
+          <Content>
+            Only app owners can use admin features in the devtool.
+          </Content>
+        </>
+      )}
+    </Stack>
   );
 }
 
@@ -196,7 +337,7 @@ function Help() {
       </p>
       <p>
         You can toggle this view with the keyboard shortcut
-        <Code>ctrl + shift + 0</Code>, and close it with <Code>Esc</Code>.
+        <Code>ctrl + shift + 0</Code>.
       </p>
       <p>
         It's is only displayed in development (i.e. when the site's hostname
@@ -220,3 +361,7 @@ function Help() {
 }
 
 const Code = twel('code', 'bg-gray-200 px-1 rounded text-xs font-mono');
+
+function isEmptyObj(obj: object) {
+  return Object.keys(obj).length === 0;
+}

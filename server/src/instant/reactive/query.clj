@@ -6,13 +6,14 @@
   queries. See go-datalog-query-reactive! for more details. We also cache datalog
   query results for perf."
   (:require
-   [instant.util.tracer :as tracer]
-   [instant.jdbc.aurora :as aurora]
    [instant.data.constants :refer [zeneca-app-id]]
+   [instant.db.datalog :as d]
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
-   [instant.db.datalog :as d]
-   [instant.reactive.store :as rs])
+   [instant.jdbc.aurora :as aurora]
+   [instant.reactive.store :as rs]
+   [instant.util.instaql :refer [instaql-nodes->object-tree]]
+   [instant.util.tracer :as tracer])
   (:import
    (org.apache.commons.codec.digest DigestUtils)))
 
@@ -25,7 +26,7 @@
     @delayed))
 
 (comment
-  (def ctx {:db {:conn-pool aurora/conn-pool}
+  (def ctx {:db {:conn-pool (aurora/conn-pool)}
             :app-id zeneca-app-id})
   (def instaql-query '[[:ea ?e ?a "joe"]])
   (time
@@ -73,35 +74,34 @@
   "Filters datalog results to only keys that the client will use and
  dedupes the triples."
   [instaql-results]
-  (tracer/with-span! {:name "collect-instaql-results-for-client"}
-    (let [{:keys [triples page-info aggregate]}
-          (reduce (fn [acc instaql-result]
-                    (let [{:keys [triples page-info aggregate]} (collect-triples instaql-result)]
-                      (-> acc
-                          (update :triples into triples)
-                          (update :page-info merge page-info)
-                          (update :aggregate merge aggregate))))
-                  {:triples #{}
-                   :page-info {}
-                   :aggregate {}}
-                  instaql-results)]
-      [{:data (merge {:datalog-result {:join-rows [triples]}}
-                     (when (seq page-info)
-                       {:page-info page-info})
-                     (when (seq aggregate)
-                       {:aggregate aggregate}))
-        :child-nodes []}])))
+  (let [{:keys [triples page-info aggregate]}
+        (reduce (fn [acc instaql-result]
+                  (let [{:keys [triples page-info aggregate]} (collect-triples instaql-result)]
+                    (-> acc
+                        (update :triples into triples)
+                        (update :page-info merge page-info)
+                        (update :aggregate merge aggregate))))
+                {:triples #{}
+                 :page-info {}
+                 :aggregate {}}
+                instaql-results)]
+    [{:data (merge {:datalog-result {:join-rows [triples]}}
+                   (when (seq page-info)
+                     {:page-info page-info})
+                   (when (seq aggregate)
+                     {:aggregate aggregate}))
+      :child-nodes []}]))
 
 (defn instaql-query-reactive!
   "Returns the result of an instaql query while producing book-keeping side
   effects in the store. To be used with session"
-  [store-conn {:keys [session-id app-id] :as base-ctx} instaql-query]
+  [store-conn {:keys [session-id app-id] :as base-ctx} instaql-query return-type]
   (tracer/with-span! {:name "instaql-query-reactive!"
                       :attributes {:session-id session-id
                                    :app-id app-id
                                    :instaql-query instaql-query}}
     (try
-      (let [v (rs/bump-instaql-version! store-conn session-id instaql-query)
+      (let [v (rs/bump-instaql-version! store-conn session-id instaql-query return-type)
             ctx (-> base-ctx
                     (assoc :v v
                            :datalog-query-fn (partial datalog-query-reactive! store-conn)
@@ -114,17 +114,20 @@
             instaql-result (iq/permissioned-query ctx instaql-query)
             result-hash (DigestUtils/md5Hex (pr-str instaql-result))
             {:keys [result-changed?]} (rs/add-instaql-query! store-conn ctx result-hash)]
-        {:instaql-result (collect-instaql-results-for-client instaql-result)
+        {:instaql-result (case return-type
+                           :join-rows (collect-instaql-results-for-client instaql-result)
+                           :tree (instaql-nodes->object-tree ctx instaql-result)
+                           (collect-instaql-results-for-client instaql-result))
          :result-changed? result-changed?})
       (catch Throwable e
         (rs/remove-query! store-conn session-id app-id instaql-query)
         (throw e)))))
 
 (comment
-  (def ctx {:db {:conn-pool aurora/conn-pool}
-            :attrs (attr-model/get-by-app-id aurora/conn-pool zeneca-app-id)
+  (def ctx {:db {:conn-pool (aurora/conn-pool)}
+            :attrs (attr-model/get-by-app-id zeneca-app-id)
             :app-id zeneca-app-id
             :current-user nil
             :session-id "moop"})
   (def instaql-query {"users" {}})
-  (instaql-query-reactive! rs/store-conn ctx instaql-query))
+  (instaql-query-reactive! rs/store-conn ctx instaql-query "join-rows"))

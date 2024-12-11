@@ -8,8 +8,12 @@
                            KeysetHandle
                            ;; Only used for bootstrapping for OSS
                            InsecureSecretKeyAccess)
-   (com.google.crypto.tink.aead AeadConfig PredefinedAeadParameters)
-   (com.google.crypto.tink.hybrid HybridConfig)
+   (com.google.crypto.tink.aead AeadConfig
+                                PredefinedAeadParameters
+                                AeadWrapper$WrappedAead)
+   (com.google.crypto.tink.hybrid HybridConfig
+                                  HybridDecryptWrapper$WrappedHybridDecrypt
+                                  HybridEncryptWrapper$WrappedHybridEncrypt)
    (com.google.crypto.tink.integration.awskms AwsKmsClient)
    (org.apache.commons.codec.binary Hex)))
 
@@ -23,6 +27,16 @@
   [^String s]
   (.digest (MessageDigest/getInstance "SHA-256") (.getBytes s)))
 
+(defn bytes->sha256
+  "Returns the sha256 of a byte array as a byte array"
+  [^bytes b]
+  (.digest (MessageDigest/getInstance "SHA-256") b))
+
+(defn str->md5
+  "Returns the md5 of a string as a byte array"
+  [^String s]
+  (.digest (MessageDigest/getInstance "MD5") (.getBytes s)))
+
 (defn constant-bytes=
   "Constant time comparison to prevent timing attacks"
   [bytes-a bytes-b]
@@ -35,13 +49,13 @@
 
 (defn constant-string=
   "Constant time comparison to prevent timing attacks"
-  [str-a str-b]
+  [^String str-a ^String str-b]
   (MessageDigest/isEqual (.getBytes str-a) (.getBytes str-b)))
 
-(defn bytes->hex-string [b]
+(defn bytes->hex-string [^bytes b]
   (String. (Hex/encodeHex b)))
 
-(defn hex-string->bytes [s]
+(defn hex-string->bytes [^String s]
   (Hex/decodeHex s))
 
 (defonce default-aead (atom nil))
@@ -56,26 +70,27 @@
    https://developers.google.com/tink/encrypt-data#aead"
   ([input]
    (aead-encrypt (assert-default-aead) input))
-  ([aead {:keys [^bytes plaintext ^bytes associated-data] :as _input}]
+  ([^AeadWrapper$WrappedAead aead {:keys [^bytes plaintext ^bytes associated-data] :as _input}]
    (.encrypt aead plaintext associated-data)))
 
 (defn aead-decrypt
   "Decrypts ciphertext encrypted with aead-encrypt"
-  ([input]
+  (^bytes [input]
    (aead-decrypt (assert-default-aead) input))
-  ([aead {:keys [^bytes ciphertext ^bytes associated-data] :as _input}]
+  (^bytes [^AeadWrapper$WrappedAead aead {:keys [^bytes ciphertext ^bytes associated-data] :as _input}]
    (.decrypt aead ciphertext associated-data)))
 
 (defn hybrid-encrypt
   "Encrypts plaintext with associated data:
    https://developers.google.com/tink/exchange-data#hybrid_encryption"
-  [hybrid {:keys [^bytes plaintext ^bytes associated-data] :as _input}]
+  [^HybridEncryptWrapper$WrappedHybridEncrypt hybrid {:keys [^bytes plaintext ^bytes associated-data] :as _input}]
   (.encrypt hybrid plaintext associated-data))
 
 (defn hybrid-decrypt
   "Decrypts ciphertext encrypted with hybrid-encrypt:
   https://developers.google.com/tink/exchange-data#hybrid_encryption"
-  [hybrid {:keys [^bytes ciphertext ^bytes associated-data] :as _input}]
+  [^HybridDecryptWrapper$WrappedHybridDecrypt hybrid
+   {:keys [^bytes ciphertext ^bytes associated-data] :as _input}]
   (.decrypt hybrid ciphertext associated-data))
 
 ;; A type for encapsulating sensitive information. When printed,
@@ -83,6 +98,9 @@
 (deftype Secret [value]
   Object
   (toString [_this] "<secret>"))
+
+(defn secret-value [^Secret secret]
+  (.value secret))
 
 (defn obfuscate
   "Helper function so you don't have to import the Secret type to

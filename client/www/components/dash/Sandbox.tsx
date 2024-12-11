@@ -28,13 +28,13 @@ export function Sandbox({ app }: { app: InstantApp }) {
   const [defaultCollapsed, setDefaultCollapsed] = useState(false);
   const [useAppPerms, setUseAppPerms] = useState(true);
   const [permsValue, setPermsValue] = useState(() =>
-    app.rules ? JSON.stringify(app.rules, null, 2) : ''
+    app.rules ? JSON.stringify(app.rules, null, 2) : '',
   );
   const [output, setOutput] = useState<any[]>([]);
 
   function out(
     type: 'log' | 'error' | 'query' | 'transaction' | 'eval',
-    data: any
+    data: any,
   ) {
     setOutput((o) => o.concat({ type, data }));
   }
@@ -46,7 +46,12 @@ export function Sandbox({ app }: { app: InstantApp }) {
     });
 
     const unsubAttrs = coreDb._reactor.subscribeAttrs((_oAttrs: any) => {
-      setTimeout(unsubAttrs);
+      let unsubImmediately = setInterval(() => {
+        if (unsubAttrs) {
+          unsubAttrs();
+          clearInterval(unsubImmediately);
+        }
+      }, 10);
       if (sandboxCodeValue) return;
       const schema = dbAttrsToExplorerSchema(_oAttrs);
       const ns = schema.at(0);
@@ -103,7 +108,7 @@ export function Sandbox({ app }: { app: InstantApp }) {
 
           out('transaction', { response, rules });
 
-          return response['tx-id'];
+          return { 'tx-id': response['tx-id'] };
         } catch (error) {
           out('error', { message: JSON.stringify(error, null, '  ') });
           throw error;
@@ -146,7 +151,7 @@ export function Sandbox({ app }: { app: InstantApp }) {
           out('error', {
             message: (error as any)?.message || 'Error running code',
           });
-        }
+        },
       );
     } catch (error) {
       console.error(error);
@@ -208,24 +213,24 @@ export function Sandbox({ app }: { app: InstantApp }) {
               onMount={(editor, monaco) => {
                 editor.addCommand(
                   monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
-                  () => execRef.current()
+                  () => execRef.current(),
                 );
 
                 editor.addCommand(
                   monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-                  () => {}
+                  () => {},
                 );
 
                 monaco.languages.typescript.typescriptDefaults.addExtraLib(
                   tsTypes,
-                  'ts:filename/global.d.ts'
+                  'ts:filename/global.d.ts',
                 );
 
                 monaco.languages.typescript.typescriptDefaults.setCompilerOptions(
                   {
                     module: monaco.languages.typescript.ModuleKind.ESNext,
                     target: monaco.languages.typescript.ScriptTarget.ESNext,
-                  }
+                  },
                 );
 
                 monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions(
@@ -234,7 +239,7 @@ export function Sandbox({ app }: { app: InstantApp }) {
                       // top-level await without export
                       1375,
                     ],
-                  }
+                  },
                 );
               }}
             />
@@ -284,7 +289,7 @@ export function Sandbox({ app }: { app: InstantApp }) {
                   onMount={(editor, monaco) => {
                     editor.addCommand(
                       monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
-                      () => execRef.current()
+                      () => execRef.current(),
                     );
                   }}
                 />
@@ -372,7 +377,7 @@ export function Sandbox({ app }: { app: InstantApp }) {
                     'border-red-200': o.type === 'error',
                     'border-teal-200': o.type === 'query',
                     'border-purple-200': o.type === 'transaction',
-                  }
+                  },
                 )}
               >
                 <div
@@ -420,7 +425,7 @@ export function Sandbox({ app }: { app: InstantApp }) {
                             {
                               'border-emerald-200': Boolean(cr.check),
                               'border-rose-200': !Boolean(cr.check),
-                            }
+                            },
                           )}
                         >
                           <div className="flex gap-2">
@@ -444,8 +449,7 @@ export function Sandbox({ app }: { app: InstantApp }) {
                               view
                             </span>
                             <code className="bg-white px-2">
-                              {(o.data.rules &&
-                                o.data.rules[cr.entity]?.allow.view) ?? (
+                              {cr.program?.['display-code'] ?? (
                                 <span className="text-gray-400">none</span>
                               )}
                             </code>
@@ -488,60 +492,56 @@ export function Sandbox({ app }: { app: InstantApp }) {
                     )}
 
                     <div className="">Permissions Check</div>
-                    {o.data.response['check-results']
-                      // (XXX): todo support attr ops
-                      .filter((cr: any) => cr.scope === 'object')
-                      .map((cr: any) => (
-                        <div
-                          key={cr.entity + '-' + cr.id}
-                          className={clsx(
-                            'flex flex-col gap-1 px-2 py-1 bg-gray-100 rounded border',
-                            {
-                              'border-emerald-200': cr['check-pass?'],
-                              'border-rose-200': !cr['check-pass?'],
-                            }
-                          )}
-                        >
-                          <div className="flex gap-2">
-                            {cr['check-pass?'] ? (
-                              <span className="text-emerald-600 border-emerald-300 font-bold border px-1 bg-white">
-                                Pass
-                              </span>
-                            ) : (
-                              <span className="text-rose-600 border-rose-300 font-bold border px-1 bg-white">
-                                Fail
-                              </span>
-                            )}
-                            <strong className="bg-white border text-gray-700 rountded px-1">
-                              {cr.action}
-                            </strong>
-                            <strong>{cr.etype}</strong>
-                            <code>{cr.eid}</code>
-                          </div>
-                          <div>Value</div>
-                          <Data data={cr.data?.updated} collapsed={0} />
-                          <div>Check</div>
-                          <div className="border bg-white">
-                            <span className="px-2 border-r font-bold bg-gray-50">
-                              {cr.action}
+                    {o.data.response['check-results'].map((cr: any) => (
+                      <div
+                        key={cr.entity + '-' + cr.id}
+                        className={clsx(
+                          'flex flex-col gap-1 px-2 py-1 bg-gray-100 rounded border',
+                          {
+                            'border-emerald-200': cr['check-pass?'],
+                            'border-rose-200': !cr['check-pass?'],
+                          },
+                        )}
+                      >
+                        <div className="flex gap-2">
+                          {cr['check-pass?'] ? (
+                            <span className="text-emerald-600 border-emerald-300 font-bold border px-1 bg-white">
+                              Pass
                             </span>
-                            <code className="bg-white px-2">
-                              {(o.data.rules &&
-                                o.data.rules[cr.etype]?.allow[cr.action]) ?? (
-                                <span className="text-gray-400">none</span>
-                              )}
-                            </code>
-                          </div>
-                          <Data
-                            data={cr['check-result']}
-                            collapsed={defaultCollapsed ? 1 : undefined}
-                          />
+                          ) : (
+                            <span className="text-rose-600 border-rose-300 font-bold border px-1 bg-white">
+                              Fail
+                            </span>
+                          )}
+                          <strong className="bg-white border text-gray-700 rountded px-1">
+                            {cr.action}
+                          </strong>
+                          <strong>{cr.etype}</strong>
+                          <code>{cr.eid}</code>
                         </div>
-                      ))}
+                        <div>Value</div>
+                        <Data data={cr.data?.updated} collapsed={0} />
+                        <div>Check</div>
+                        <div className="border bg-white">
+                          <span className="px-2 border-r font-bold bg-gray-50">
+                            {cr.action}
+                          </span>
+                          <code className="bg-white px-2">
+                            {cr.program?.['display-code'] ?? (
+                              <span className="text-gray-400">none</span>
+                            )}
+                          </code>
+                        </div>
+                        <Data
+                          data={cr['check-result']}
+                          collapsed={defaultCollapsed ? 1 : undefined}
+                        />
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-            )
+            ),
           )}
         </div>
       </div>

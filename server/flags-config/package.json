@@ -1,0 +1,16 @@
+{
+  "name": "flags-config",
+  "version": "1.0.0",
+  "scripts": {
+    "login": "instant-cli login",
+    "pull": "instant-cli pull",
+    "push": "instant-cli push",
+    "dev:login": "INSTANT_CLI_DEV=1 instant-cli login",
+    "dev:pull": "INSTANT_CLI_DEV=1 instant-cli pull",
+    "dev:push": "INSTANT_CLI_DEV=1 instant-cli push"
+  },
+  "dependencies": {
+    "@instantdb/core": "^0.14.29",
+    "instant-cli": "^0.14.29"
+  }
+}

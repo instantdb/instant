@@ -26,7 +26,7 @@ You can manage permissions via configuration files or through the Instant dashbo
 
 The permissions definition file is `instant.perms.ts`
 
-This file lives in the root of your project and will be consumed by [the Instant CLI](/docs/cli). You can immediately deploy permission changes to your database with `npx instant-cli push-perms`.
+This file lives in the root of your project and will be consumed by [the Instant CLI](/docs/cli). You can immediately deploy permission changes to your database with `npx instant-cli push perms`.
 These changes will be reflected in the Permissions tab of the Instant dashboard.
 
 The default export of `instant.perms.ts` should be an object of rules as defined
@@ -92,6 +92,67 @@ a user executes, they’ll _only_ see data that they are allowed to see.
 
 Similarly, for each object in a transaction, we make sure to evaluate the respective `create`, `update`, and `delete` rule.
 Transactions will fail if a user does not have adequate permission.
+
+### Default permissions
+
+By default, all permissions are considered to be `"true"`. To change that, use `"$default"` key. This:
+
+```json
+"todos": {
+  "allow": {
+    "$default": "false"
+  }
+}
+```
+
+is equivalent to this:
+
+```json
+"todos": {
+  "allow": {
+    "view": "false",
+    "create": "false",
+    "update": "false",
+    "delete": "false",
+  }
+}
+```
+
+Specific keys can override defaults:
+
+```json
+"todos": {
+  "allow": {
+    "$default": "false",
+    "view": "true"
+  }
+}
+```
+
+You can use `$default` as the namespace:
+
+```json
+"$default": {
+  "allow": {
+    "view": false
+  }
+},
+"todos": {
+  "allow": {
+    "view": "true"
+  }
+}
+```
+
+Finally, the ultimate default:
+
+```json
+"$default": {
+  "allow": {
+    "$default": false
+  }
+}
+```
 
 ## Attrs
 

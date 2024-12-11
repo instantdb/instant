@@ -1,4 +1,5 @@
-(ns instant.util.coll)
+(ns instant.util.coll
+  (:require [medley.core :as medley]))
 
 (defn split-last [coll]
   (list (butlast coll)
@@ -87,6 +88,15 @@
     (dissoc m first-key)
     (update m first-key dissoc-in rest-keys)))
 
+(defn disj-in
+  "Calls dissoc-in to clean up the map when the item at path is empty after
+   calling disj. Useful for cleaning up the room and session maps."
+  [m path item]
+  (let [new-m (update-in m path disj item)]
+    (if (empty? (get-in new-m path))
+      (medley/dissoc-in new-m path)
+      new-m)))
+
 (comment
   (def my-map {:a {:b {:c 3 :d 4}} :e 5})
   (dissoc-in my-map [:a :b :c]))
@@ -139,3 +149,9 @@
             (update acc v (fnil conj #{}) k))
           {}
           m))
+
+(defn every?-var-args [pred & colls]
+  (if (= 1 (count colls))
+    (every? pred (first colls))
+    (every? (fn [args] (apply pred args))
+            (apply map vector colls))))

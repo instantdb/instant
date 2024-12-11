@@ -16,6 +16,12 @@ cp .env.example .env
 # fill in the variables in .env
 ```
 
+Once you do that, call instant-cli commands like so:
+
+```bash
+INSTANT_CLI_DEV=1 pnpm exec instant-cli -h
+```
+
 # Questions?
 
 If you have any questions, feel free to drop us a line on our [Discord](https://discord.com/invite/VU53p7uQcE)!

@@ -1,44 +1,51 @@
 (ns instant.core
+  (:gen-class)
   (:require
-   [instant.config :as config]
+   [tool]
    [clojure.tools.logging :as log]
    [compojure.core :refer [defroutes GET POST routes]]
-   [instant.gauges :as gauges]
-   [instant.lib.ring.undertow :as undertow-adapter]
-   [instant.dash.routes :as dash-routes]
-   [instant.runtime.routes :as runtime-routes]
    [instant.admin.routes :as admin-routes]
-   [instant.superadmin.routes :as superadmin-routes]
+   [instant.auth.jwt :as jwt]
+   [instant.auth.oauth :as oauth]
+   [instant.config :as config]
+   [instant.dash.ephemeral-app :as ephemeral-app]
+   [instant.dash.routes :as dash-routes]
+   [instant.db.indexing-jobs :as indexing-jobs]
+   [instant.flags :as flags]
+   [instant.flags-impl :as flags-impl]
+   [instant.gauges :as gauges]
+   [instant.health :as health]
+   [instant.honeycomb-api :as honeycomb-api]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.wal :as wal]
+   [instant.lib.ring.undertow :as undertow-adapter]
+   [instant.nrepl :as nrepl]
+   [instant.reactive.ephemeral :as eph]
+   [instant.reactive.invalidator :as inv]
+   [instant.reactive.session :as session]
+   [instant.reactive.store :as rs]
+   [instant.runtime.routes :as runtime-routes]
+   [instant.scripts.analytics :as analytics]
+   [instant.scripts.daily-metrics :as daily-metrics]
+   [instant.session-counter :as session-counter]
    [instant.storage.routes :as storage-routes]
+   [instant.stripe :as stripe]
+   [instant.superadmin.routes :as superadmin-routes]
+   [instant.system-catalog-migration :refer [ensure-attrs-on-system-catalog-app]]
+   [instant.util.async :as ua]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.http :as http-util]
+   [instant.util.tracer :as tracer]
    [ring.middleware.cookies :refer [CookieDateTime]]
    [ring.middleware.cors :refer [wrap-cors]]
    [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
    [ring.middleware.keyword-params :refer [wrap-keyword-params]]
    [ring.middleware.multipart-params :refer [wrap-multipart-params]]
-   [ring.middleware.params :refer [wrap-params]]
-   [instant.jdbc.aurora :as aurora]
-   [instant.scripts.analytics :as analytics]
-   [instant.nrepl :as nrepl]
-   [tool]
-   [instant.auth.oauth :as oauth]
-   [instant.auth.jwt :as jwt]
-   [instant.util.async :as ua]
-   [instant.util.tracer :as tracer]
-   [instant.reactive.store :as rs]
-   [instant.reactive.session :as session]
-   [instant.jdbc.wal :as wal]
-   [instant.reactive.invalidator :as inv]
-   [instant.reactive.ephemeral :as eph]
-   [instant.session-counter :as session-counter]
-   [instant.util.crypt :as crypt-util]
-   [instant.dash.ephemeral-app :as ephemeral-app]
-   [instant.stripe :as stripe]
-   [instant.honeycomb-api :as honeycomb-api]
-   [instant.util.http :as http-util])
+   [ring.middleware.params :refer [wrap-params]])
   (:import
-   (java.util Locale TimeZone)
-   (java.text SimpleDateFormat))
-  (:gen-class))
+   (io.undertow Undertow UndertowOptions Undertow$Builder Undertow$ListenerInfo)
+   (java.text SimpleDateFormat)
+   (java.util Locale TimeZone)))
 
 ;; --------
 ;; Wrappers
@@ -80,7 +87,8 @@
                admin-routes/routes
                superadmin-routes/routes
                storage-routes/routes
-               generic-webhook-routes)
+               generic-webhook-routes
+               health/routes)
        http-util/tracer-record-attrs
        wrap-keyword-params
        wrap-params
@@ -96,13 +104,36 @@
 
 (defn start []
   (tracer/record-info! {:name "server/start" :attributes {:port (config/get-server-port)}})
-  (def server (undertow-adapter/run-undertow
-               (handler)
-               {:host "0.0.0.0"
-                :port (config/get-server-port)})))
+  (def server ^Undertow (undertow-adapter/run-undertow
+                         (handler)
+                         {:host "0.0.0.0"
+                          :port (config/get-server-port)
+                          :configurator (fn [^Undertow$Builder builder]
+                                          (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}))
+  (def stop-gauge (gauges/add-gauge-metrics-fn
+                   (fn [_]
+                     (let [^Undertow server server
+                           ^Undertow$ListenerInfo listener (some-> server
+                                                                   (.getListenerInfo)
+                                                                   first)]
+                       (when-let [stats (some-> listener
+                                                (.getConnectorStatistics))]
+                         [{:path "instant.server.active-connections"
+                           :value (.getActiveConnections stats)}
+                          {:path "instant.server.active-requests"
+                           :value (.getActiveRequests stats)}
+                          {:path "instant.server.max-active-connections"
+                           :value (.getMaxActiveConnections stats)}
+                          {:path "instant.server.max-active-requests"
+                           :value (.getMaxActiveRequests stats)}
+                          {:path "instant.server.max-processing-time"
+                           :value (.getMaxProcessingTime stats)}]))))))
 
 (defn stop []
-  (.stop server))
+  (when (bound? #'server)
+    (.stop ^Undertow server))
+  (when (bound? #'stop-gauge)
+    (stop-gauge)))
 
 (defn restart []
   (stop)
@@ -114,16 +145,13 @@
                                (tracer/record-info! {:name "shut-down"})
                                (tracer/with-span! {:name "stop-server"}
                                  (stop))
-                               (tracer/with-span! {:name "stop-invalidator"}
-                                 ;; Hack to get the invalidator to shut down in
-                                 ;; dev. Otherwise the stream takes forever to close.
-                                 (when (= :dev (config/get-env))
-                                   (future
-                                     (loop []
-                                       (wal/kick-wal aurora/conn-pool)
-                                       (Thread/sleep 100)
-                                       (recur))))
-                                 (inv/stop))))))
+                               (doseq [fut [(future (tracer/with-span! {:name "stop-invalidator"}
+                                                      (inv/stop-global)))
+                                            (future (tracer/with-span! {:name "stop-ephemeral"}
+                                                      (eph/stop)))
+                                            (future (tracer/with-span! {:name "stop-indexing-jobs"}
+                                                      (indexing-jobs/stop)))]]
+                                 (deref fut))))))
 
 (defn -main [& _args]
   (let [{:keys [aead-keyset]} (config/init)]
@@ -135,26 +163,38 @@
   (Thread/setDefaultUncaughtExceptionHandler
    (ua/logging-uncaught-exception-handler))
 
-  (when (= (config/get-env) :dev)
-    (tracer/record-info! {:name "humane-test-output/set"})
-    (require 'pjstadig.humane-test-output)
-    ((resolve 'pjstadig.humane-test-output/activate!)))
-
   (gauges/start)
   (nrepl/start)
   (oauth/start)
   (jwt/start)
   (aurora/start)
+  (ensure-attrs-on-system-catalog-app)
   (rs/start)
   (eph/start)
   (stripe/init)
   (session/start)
-  (inv/start)
-  (wal/init-cleanup aurora/conn-pool)
+  (inv/start-global)
+  (wal/init-cleanup)
+
+  (when-let [config-app-id (config/instant-config-app-id)]
+    (flags-impl/init config-app-id
+                     flags/queries
+                     flags/query-results))
+
   (ephemeral-app/start)
   (session-counter/start)
+  (indexing-jobs/start)
   (when (= (config/get-env) :prod)
     (log/info "Starting analytics")
     (analytics/start))
+  (when (= (config/get-env) :prod)
+    (log/info "Starting daily metrics")
+    (daily-metrics/start))
   (start)
   (add-shutdown-hook))
+
+(defn before-ns-unload []
+  (stop))
+
+(defn after-ns-reload []
+  (start))

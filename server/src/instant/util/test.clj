@@ -1,11 +1,14 @@
 (ns instant.util.test
-  (:require [clojure.walk :as w]
-            [instant.admin.routes :as admin-routes]
-            [instant.db.instaql :as iq]
-            [instant.db.model.attr :as attr-model]
-            [instant.jdbc.aurora :as aurora]
-            [instant.util.exception :as ex]
-            [instant.db.datalog :as d]))
+  (:require
+   [clojure.walk :as w]
+   [instant.db.datalog :as d]
+   [instant.db.instaql :as iq]
+   [instant.db.model.attr :as attr-model]
+   [instant.jdbc.aurora :as aurora]
+   [instant.util.exception :as ex]
+   [instant.util.instaql :refer [instaql-nodes->object-tree]])
+  (:import
+   (java.time Duration Instant)))
 
 (defmacro instant-ex-data [& body]
   `(try
@@ -15,15 +18,24 @@
          (ex-data instant-ex#)))))
 
 (defn pretty-perm-q [{:keys [app-id current-user]} q]
-  (let [attrs (attr-model/get-by-app-id aurora/conn-pool app-id)]
+  (let [attrs (attr-model/get-by-app-id app-id)]
     (w/keywordize-keys
-     (admin-routes/instaql-nodes->object-tree
-      {}
-      attrs
+     (instaql-nodes->object-tree
+      {:attrs attrs}
       (iq/permissioned-query
-       {:db {:conn-pool aurora/conn-pool}
+       {:db {:conn-pool (aurora/conn-pool)}
         :app-id app-id
         :attrs attrs
         :datalog-query-fn d/query
         :current-user current-user}
        q)))))
+
+(defn wait-for [wait-fn wait-ms]
+  (let [start (Instant/now)]
+    (loop [res (wait-fn)]
+      (when-not res
+        (if (< wait-ms (.toMillis (Duration/between start (Instant/now))))
+          (throw (Exception. "Timed out in wait-for"))
+          (do
+            (Thread/sleep 100)
+            (recur (wait-fn))))))))

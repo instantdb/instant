@@ -12,7 +12,12 @@ import {
   PropsWithChildren,
 } from 'react';
 import { Editor, OnMount } from '@monaco-editor/react';
-import { Dialog as HeadlessDialog } from '@headlessui/react';
+import {
+  Dialog as HeadlessDialog,
+  Popover,
+  PopoverButton,
+  PopoverPanel,
+} from '@headlessui/react';
 import * as HeadlessToggleGroup from '@radix-ui/react-toggle-group';
 import Highlight, { defaultProps } from 'prism-react-renderer';
 
@@ -20,7 +25,10 @@ import {
   CheckCircleIcon,
   ClipboardCopyIcon,
   XIcon,
+  EyeIcon,
+  EyeOffIcon,
 } from '@heroicons/react/solid';
+import { InformationCircleIcon } from '@heroicons/react/outline';
 import { errorToast, successToast } from '@/lib/toast';
 import CopyToClipboard from 'react-copy-to-clipboard';
 import copy from 'copy-to-clipboard';
@@ -31,10 +39,10 @@ export const Stack = twel('div', 'flex flex-col gap-2');
 export const Group = twel('div', 'flex flex-col gap-2 md:flex-row');
 
 export const Content = twel('div', 'prose');
-export const ScreenHeading = twel('div', 'text-2xl font-mono');
-export const SectionHeading = twel('div', 'text-xl font-mono');
-export const SubsectionHeading = twel('div', 'text-lg font-bold font-mono');
-export const BlockHeading = twel('div', 'text-md font-bold font-mono');
+export const ScreenHeading = twel('div', 'text-2xl font-bold');
+export const SectionHeading = twel('div', 'text-xl font-bold');
+export const SubsectionHeading = twel('div', 'text-lg');
+export const BlockHeading = twel('div', 'text-md font-bold');
 
 export const Hint = twel('div', 'text-sm text-gray-400');
 export const Label = twel('div', 'text-sm font-bold text-gray-700');
@@ -78,7 +86,7 @@ export function ToggleCollection({
               {
                 'bg-gray-200': selectedId === a.id,
               },
-              buttonClassName
+              buttonClassName,
             )}
           >
             {a.label}
@@ -95,12 +103,12 @@ export function ToggleCollection({
               {
                 'bg-gray-200': selectedId === a.id,
               },
-              buttonClassName
+              buttonClassName,
             )}
           >
             {a.label}
           </button>
-        )
+        ),
       )}
     </div>
   );
@@ -162,6 +170,8 @@ export function TextInput({
   placeholder,
   inputMode,
   tabIndex,
+  disabled,
+  title,
 }: {
   value: string;
   type?: 'text' | 'email' | 'sensitive' | 'password';
@@ -174,6 +184,8 @@ export function TextInput({
   autoFocus?: boolean;
   inputMode?: 'numeric' | 'text';
   tabIndex?: number;
+  disabled?: boolean | undefined;
+  title?: string | undefined;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -184,10 +196,12 @@ export function TextInput({
   }, []);
 
   return (
-    <label className="flex flex-col gap-1">
+    <label className="flex flex-col gap-2">
       {label ? <Label>{label}</Label> : null}
       <input
-        type={type === 'sensitive' ? 'password' : type ?? 'text'}
+        disabled={disabled}
+        title={title}
+        type={type === 'sensitive' ? 'password' : (type ?? 'text')}
         // Try to prevent password managers from trying to save
         // sensitive input
         autoComplete={type === 'sensitive' ? 'off' : undefined}
@@ -197,11 +211,11 @@ export function TextInput({
         placeholder={placeholder}
         value={value ?? ''}
         className={cn(
-          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400',
+          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400',
           className,
           {
             'border-red-500': error,
-          }
+          },
         )}
         onChange={(e) => {
           onChange(e.target.value);
@@ -222,6 +236,8 @@ export function Checkbox({
   className,
   labelClassName,
   required,
+  disabled,
+  title,
 }: {
   label?: ReactNode;
   error?: ReactNode;
@@ -230,14 +246,25 @@ export function Checkbox({
   labelClassName?: string;
   onChange: (checked: boolean) => void;
   required?: boolean;
+  disabled?: boolean | undefined;
+  title?: string | undefined;
 }) {
   return (
     <label
-      className={cn('flex cursor-pointer items-center gap-2', labelClassName)}
+      className={cn(
+        'flex cursor-pointer items-center gap-2 disabled:cursor-default',
+        labelClassName,
+      )}
+      title={title}
     >
       <input
+        disabled={disabled}
+        title={title}
         required={required}
-        className={cn('align-middle font-medium text-gray-900', className)}
+        className={cn(
+          'align-middle font-medium text-gray-900 disabled:text-gray-400 disabled:bg-gray-400',
+          className,
+        )}
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
@@ -255,6 +282,7 @@ export function Select({
   disabled,
   emptyLabel,
   tabIndex,
+  title,
 }: {
   value?: string;
   options: { label: string; value: string }[];
@@ -263,15 +291,17 @@ export function Select({
   disabled?: boolean;
   emptyLabel?: string;
   tabIndex?: number;
+  title?: string | undefined;
 }) {
   return (
     <select
+      title={title}
       tabIndex={tabIndex}
       value={value ?? undefined}
       disabled={disabled}
       className={cn(
         'rounded-sm border-gray-300 py-1 disabled:text-gray-400',
-        className
+        className,
       )}
       onChange={(e) => {
         const v = e.target.value;
@@ -313,7 +343,7 @@ export function TabBar({
     <div
       className={clsx(
         'flex flex-row gap-0.5 overflow-x-auto border-b px-2 py-1 no-scrollbar',
-        className
+        className,
       )}
     >
       {tabs.map((t) =>
@@ -327,7 +357,7 @@ export function TabBar({
               'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
               {
                 'bg-gray-200': selectedId === t.id && !disabled,
-              }
+              },
             )}
           >
             {t.label}
@@ -341,12 +371,12 @@ export function TabBar({
               'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
               {
                 'bg-gray-200': selectedId === t.id && !disabled,
-              }
+              },
             )}
           >
             {t.label}
           </button>
-        )
+        ),
       )}
     </div>
   );
@@ -364,6 +394,7 @@ export function Button({
   loading,
   autoFocus,
   tabIndex,
+  title,
 }: PropsWithChildren<{
   variant?: 'primary' | 'secondary' | 'subtle' | 'destructive' | 'cta';
   size?: 'mini' | 'normal' | 'large' | 'xl' | 'nano';
@@ -375,6 +406,7 @@ export function Button({
   loading?: boolean;
   autoFocus?: boolean;
   tabIndex?: number;
+  title?: string | undefined;
 }>) {
   const buttonRef = useRef<any>(null);
   const isATag = type === 'link' || (type === 'link-new' && href);
@@ -424,12 +456,13 @@ export function Button({
       'cursor-not-allowed': disabled,
       'cursor-wait opacity-75': loading, // Apply wait cursor and lower opacity when loading
     },
-    className
+    className,
   );
 
   if (isATag) {
     return (
       <a
+        title={title}
         tabIndex={tabIndex}
         ref={buttonRef}
         className={cls}
@@ -447,6 +480,7 @@ export function Button({
 
   return (
     <button
+      title={title}
       tabIndex={tabIndex}
       ref={buttonRef}
       disabled={loading || disabled}
@@ -533,17 +567,19 @@ export function ActionButton({
   successMessage,
   onClick,
   tabIndex,
+  title,
 }: {
   type?: 'button' | 'submit';
   variant?: 'primary' | 'secondary' | 'destructive';
   disabled?: boolean;
   className?: string;
-  label: string;
+  label: ReactNode;
   submitLabel: string;
   errorMessage: string;
   successMessage?: string;
   onClick: () => any;
   tabIndex?: number;
+  title?: string | undefined;
 }) {
   const [submitting, setSubmitting] = useState(false);
 
@@ -557,7 +593,14 @@ export function ActionButton({
         successToast(successMessage);
       }
     } catch (error) {
-      errorToast(errorMessage);
+      if ((error as any)?.hint) {
+        const msg = `${errorMessage}\n${(error as any).message}\n${
+          (error as any).hint?.errors?.[0]?.message
+        }`;
+        errorToast(msg);
+      } else {
+        errorToast(errorMessage);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -571,6 +614,7 @@ export function ActionButton({
       disabled={disabled || submitting}
       className={className}
       onClick={_onClick}
+      title={title}
     >
       {submitting ? submitLabel : label}
     </Button>
@@ -578,14 +622,26 @@ export function ActionButton({
 }
 // other
 
+function redactedValue(v: string): string {
+  if (v.length === 36 && v.indexOf('-') === 8) {
+    // Probably a uuid, so preserve the dashes
+    return v.replaceAll(/[^-]/g, '*');
+  }
+  return v.replaceAll(/./g, '*');
+}
+
 export function Copyable({
   value,
   label,
   size = 'normal',
+  hideValue,
+  onChangeHideValue,
 }: {
   value: string;
   label: string;
   size?: 'normal' | 'large';
+  hideValue?: boolean;
+  onChangeHideValue?: () => void;
 }) {
   const [copyLabel, setCopyLabel] = useState('Copy');
   const sizeToStyle = {
@@ -611,9 +667,24 @@ export function Copyable({
           selection.selectAllChildren(el);
         }}
       >
-        {value}
+        {hideValue ? redactedValue(value) : value}
       </pre>
-      <div className="px-4">
+      <div className="flex gap-1 px-1">
+        {!!onChangeHideValue && (
+          <button
+            onClick={onChangeHideValue}
+            className={cn(
+              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
+              { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
+            )}
+          >
+            {hideValue ? (
+              <EyeOffIcon className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <EyeIcon className="h-4 w-4" aria-hidden="true" />
+            )}
+          </button>
+        )}
         <CopyToClipboard text={value}>
           <button
             onClick={() => {
@@ -624,7 +695,7 @@ export function Copyable({
             }}
             className={cn(
               'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
-              { 'text-xs': size === 'normal', 'text-sm': size === 'large' }
+              { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
             <ClipboardCopyIcon className="-ml-0.5 h-4 w-4" aria-hidden="true" />
@@ -733,7 +804,7 @@ export function JSONEditor(props: {
           onMount={function handleEditorDidMount(editor, monaco) {
             // cmd+S binding to save
             editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () =>
-              props.onSave(editor.getValue())
+              props.onSave(editor.getValue()),
             );
 
             if (!props.schema) return;
@@ -851,11 +922,36 @@ export const Divider = ({ children }: PropsWithChildren) => (
   </div>
 );
 
+export const InfoTip = ({ children }: PropsWithChildren) => {
+  return (
+    <Popover
+      as="span"
+      className="inline-flex align-middle relative"
+      data-open="true"
+    >
+      <PopoverButton className="inline">
+        <InformationCircleIcon
+          height="1em"
+          width="1em"
+          className="cursor-pointer"
+        />
+      </PopoverButton>
+
+      <PopoverPanel
+        anchor="bottom start"
+        className="bg-white p-2 rounded-lg shadow-lg z-50"
+      >
+        {children}
+      </PopoverPanel>
+    </Popover>
+  );
+};
+
 // utils
 
 export function twel<T = {}>(
   el: string,
-  cls: clsx.ClassValue[] | clsx.ClassValue
+  cls: clsx.ClassValue[] | clsx.ClassValue,
 ) {
   return function (props: { className?: string; children: ReactNode } & T) {
     return createElement(el, {

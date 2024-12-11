@@ -6,7 +6,7 @@
    (java.util UUID)))
 
 (defn create!
-  ([params] (create! aurora/conn-pool params))
+  ([params] (create! (aurora/conn-pool) params))
   ([conn {:keys [id user-id name]}]
    (sql/execute-one! conn
                      ["INSERT INTO instant_personal_access_tokens (id, user_id, name)
@@ -14,7 +14,7 @@
                       id user-id name])))
 
 (defn list-by-user-id!
-  ([params] (list-by-user-id! aurora/conn-pool params))
+  ([params] (list-by-user-id! (aurora/conn-pool) params))
   ([conn {:keys [user-id]}]
    (sql/select conn
                ["select *
@@ -23,7 +23,7 @@
                 user-id])))
 
 (defn delete-by-id!
-  ([params] (delete-by-id! aurora/conn-pool params))
+  ([params] (delete-by-id! (aurora/conn-pool) params))
   ([conn {:keys [id user-id]}]
    (sql/execute-one! conn
                      ["DELETE FROM instant_personal_access_tokens

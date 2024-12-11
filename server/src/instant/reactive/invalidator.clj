@@ -3,23 +3,43 @@
    [clojure.core.async :as a]
    [clojure.set :as clojure-set]
    [instant.config :as config]
+   [instant.db.model.attr :as attr-model]
    [instant.db.pg-introspect :as pg-introspect]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
-   [instant.reactive.session :as session]
+   [instant.model.app :as app-model]
+   [instant.model.instant-user :as instant-user-model]
+   [instant.model.rule :as rule-model]
+   [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
-   [instant.util.coll :as ucoll]
    [instant.util.json :refer [<-json]]
    [instant.util.tracer :as tracer])
   (:import (java.util UUID)))
 
 (declare wal-opts)
 
+(defn columns->map
+  ([columns]
+   (columns->map columns false))
+  ([columns keywordize]
+   (reduce (fn [acc column]
+             (assoc acc
+                    (if keywordize
+                      (keyword (:name column))
+                      (:name column))
+                    (:value column)))
+           {}
+           columns)))
+
+(defn get-column [columns col-name]
+  (first (keep (fn [col]
+                 (when (= col-name (:name col))
+                   (:value col)))
+               columns)))
+
 (defn- topics-for-triple-insert [change]
-  (let [zipped (ucoll/zip (map keyword (:columnnames change))
-                          (:columnvalues change))
-        m (into {} zipped)
+  (let [m (columns->map (:columns change) true)
         e (UUID/fromString (:entity_id m))
         a (UUID/fromString (:attr_id m))
         v-parsed (<-json (:value m))
@@ -34,9 +54,7 @@
 
 (defn- topics-for-triple-update
   [change]
-  (let [zipped (ucoll/zip (map keyword (:columnnames change))
-                          (:columnvalues change))
-        m (into {} zipped)
+  (let [m (columns->map (:columns change) true)
         e (UUID/fromString (:entity_id m))
         a (UUID/fromString (:attr_id m))
         ks (->> #{:ea :eav :av :ave :vae}
@@ -46,10 +64,7 @@
     (map (fn [k] [k #{e} #{a} '_]) ks)))
 
 (defn- topics-for-triple-delete [change]
-  (let [{:keys [oldkeys]} change
-        zipped (ucoll/zip (map keyword (:keynames oldkeys))
-                          (:keyvalues oldkeys))
-        m (into {} zipped)
+  (let [m (columns->map (:identity change) true)
         e (UUID/fromString (:entity_id m))
         a (UUID/fromString (:attr_id m))
         ;; (XXX): The changeset doesn't include the index cols of the triple
@@ -59,13 +74,11 @@
     ;; later on lets think how we can be more specific
     (map (fn [k] [k #{e} #{a} '_]) ks)))
 
-(defn- topics-for-change [{:keys [kind] :as change}]
-  ;; (XXX): We only handle triples atm, later on we should handle things
-  ;; like add/delete attrs and apps
-  (condp = kind
-    "insert" (topics-for-triple-insert change)
-    "update" (topics-for-triple-update change)
-    "delete" (topics-for-triple-delete change)
+(defn- topics-for-change [{:keys [action] :as change}]
+  (case action
+    :insert (topics-for-triple-insert change)
+    :update (topics-for-triple-update change)
+    :delete (topics-for-triple-delete change)
     #{}))
 
 (defn topics-for-triple-changes [changes]
@@ -73,28 +86,28 @@
        (mapcat topics-for-change)
        set))
 
-(defn- topics-for-ident-upsert [{:keys [columnvalues]}]
+(defn- topics-for-ident-upsert [{:keys [columns]}]
   (let [indexes #{:ea :eav :av :ave :vae}
-        attr-id (UUID/fromString (nth columnvalues 2))
+        attr-id (parse-uuid (get-column columns "attr_id"))
         topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
     (set topics)))
 
-(defn- topics-for-attr-upsert [{:keys [columnvalues]}]
+(defn- topics-for-attr-upsert [{:keys [columns]}]
   (let [indexes #{:ea :eav :av :ave :vae}
-        attr-id (UUID/fromString (first columnvalues))
+        attr-id (parse-uuid (get-column columns "id"))
         topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
     (set topics)))
 
-(defn- topics-for-attr-delete [{:keys [oldkeys]}]
-  (let [attr-id (UUID/fromString (first (:keyvalues oldkeys)))
+(defn- topics-for-attr-delete [{:keys [identity]}]
+  (let [attr-id (parse-uuid (get-column identity "id"))
         indexes #{:ea :eav :av :ave :vae}
         topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
     (set topics)))
 
-(defn topics-for-ident-change [{:keys [kind] :as change}]
-  (condp = kind
-    "update" (topics-for-ident-upsert change)
-    "insert" (topics-for-ident-upsert change)
+(defn topics-for-ident-change [{:keys [action] :as change}]
+  (case action
+    :update (topics-for-ident-upsert change)
+    :insert (topics-for-ident-upsert change)
     #{}))
 
 (defn topics-for-ident-changes [changes]
@@ -102,11 +115,11 @@
        (mapcat topics-for-ident-change)
        set))
 
-(defn topics-for-attr-change [{:keys [kind] :as change}]
-  (condp = kind
-    "update" (topics-for-attr-upsert change)
-    "insert" (topics-for-attr-upsert change)
-    "delete" (topics-for-attr-delete change)
+(defn topics-for-attr-change [{:keys [action] :as change}]
+  (case action
+    :update (topics-for-attr-upsert change)
+    :insert (topics-for-attr-upsert change)
+    :delete (topics-for-attr-delete change)
     #{}))
 
 (defn topics-for-attr-changes [changes]
@@ -133,9 +146,7 @@
     sockets))
 
 (defn- topics-for-byop-triple-insert [table-info change]
-  (let [zipped (ucoll/zip (map keyword (:columnnames change))
-                          (:columnvalues change))
-        m (into {} zipped)
+  (let [m (columns->map (:columns change) true)
         id-field (get-in table-info [(:table change) :primary-key :field])
         e (get m id-field)
         ;; just making everything :ea for now
@@ -147,9 +158,7 @@
 
 (defn- topics-for-byop-triple-update
   [table-info change]
-  (let [zipped (ucoll/zip (map keyword (:columnnames change))
-                          (:columnvalues change))
-        m (into {} zipped)
+  (let [m (columns->map (:columns change) true)
         id-field (get-in table-info [(:table change) :primary-key :field])
         e (get m id-field)
         ;; just making everything :ea for now
@@ -162,10 +171,7 @@
       [k #{e} #{a} '_])))
 
 (defn- topics-for-byop-triple-delete [table-info change]
-  (let [{:keys [oldkeys]} change
-        zipped (ucoll/zip (map keyword (:keynames oldkeys))
-                          (:keyvalues oldkeys))
-        m (into {} zipped)
+  (let [m (columns->map (:identity change) true)
         id-field (get-in table-info [(:table change) :primary-key :field])
         e (get m id-field)
         ;; just making everything :ea for now
@@ -177,13 +183,13 @@
           :let [a (get-in table-info [(:table change) :fields (keyword col) :attr-id])]]
       [k #{e} #{a} '_])))
 
-(defn- topics-for-byop-change [table-info {:keys [kind] :as change}]
+(defn- topics-for-byop-change [table-info {:keys [action] :as change}]
   ;; (XXX): We only handle triples atm, later on we should handle things
   ;; like add/delete attrs and apps
-  (case kind
-    "insert" (topics-for-byop-triple-insert table-info change)
-    "update" (topics-for-byop-triple-update table-info change)
-    "delete" (topics-for-byop-triple-delete table-info change)
+  (case action
+    :insert (topics-for-byop-triple-insert table-info change)
+    :update (topics-for-byop-triple-update table-info change)
+    :delete (topics-for-byop-triple-delete table-info change)
     #{}))
 
 (defn topics-for-byop-triple-changes [table-info changes]
@@ -206,39 +212,56 @@
 ;; ------
 ;; wal record xf
 
-(defn ident-changes-only [changes]
-  (filter (comp #{"idents"} :table) changes))
-
-(defn attr-changes-only [changes]
-  (filter (comp #{"attrs"} :table) changes))
-
-(defn triple-changes-only [changes]
-  (filter (comp #{"triples"} :table) changes))
-
-(defn transaction-changes-only [changes]
-  (filter (comp #{"transactions"} :table) changes))
+(defn app-id-from-columns [columns]
+  (some-> columns
+          (get-column "app_id")
+          (parse-uuid)))
 
 (defn extract-app-id
-  [{:keys [columnvalues] :as _change}]
-  (when-let [app-id (second columnvalues)]
-    (UUID/fromString app-id)))
+  [{:keys [columns] :as _change}]
+  (app-id-from-columns columns))
 
-(defn extract-tx-id [{:keys [columnvalues] :as _change}]
-  (first columnvalues))
+(defn id-from-columns [columns]
+  (some-> columns
+          (get-column "id")
+          (parse-uuid)))
 
-(defn transform-wal-record [{:keys [change] :as _record}]
-  (let [ident-changes (ident-changes-only change)
-        triple-changes (triple-changes-only change)
-        attr-changes (attr-changes-only change)
-        some-changes (or (seq ident-changes)
-                         (seq triple-changes)
-                         (seq attr-changes))
-        [transactions-change] (transaction-changes-only change)
+(defn extract-id
+  [{:keys [columns] :as _change}]
+  (id-from-columns columns))
+
+(defn extract-tx-id [{:keys [columns] :as _change}]
+  (get-column columns "id"))
+
+(defn transform-wal-record [{:keys [changes] :as _record}]
+  (let [{:strs [idents triples attrs transactions rules apps instant_users]}
+        (group-by :table changes)
+
+        some-changes (or (seq idents)
+                         (seq triples)
+                         (seq attrs))
+        transactions-change (first transactions)
         app-id (extract-app-id transactions-change)]
-    (when (and some-changes transactions-change app-id)
-      {:attr-changes attr-changes
-       :ident-changes ident-changes
-       :triple-changes triple-changes
+    (doseq [attr attrs]
+      (attr-model/evict-app-id-from-cache (or app-id
+                                              (extract-app-id attr))))
+    (doseq [rule rules]
+      (let [app-id (or app-id (extract-app-id rule))]
+        (rule-model/evict-app-id-from-cache app-id)))
+
+    (doseq [app apps]
+      (let [app-id (or app-id (extract-id app))]
+        (app-model/evict-app-id-from-cache app-id)
+        (instant-user-model/evict-app-id-from-cache app-id)))
+
+    (doseq [user instant_users]
+      (let [id (extract-id user)]
+        (instant-user-model/evict-user-id-from-cache id)))
+
+    (when (and some-changes app-id)
+      {:attr-changes attrs
+       :ident-changes idents
+       :triple-changes triples
        :app-id app-id
        :tx-id (extract-tx-id transactions-change)})))
 
@@ -247,11 +270,11 @@
   []
   (keep #'transform-wal-record))
 
-(defn transform-byop-wal-record [{:keys [change nextlsn]}]
+(defn transform-byop-wal-record [{:keys [changes nextlsn]}]
   ;; TODO(byop): if change is empty, then there might be changes to the schema
   (let [triple-changes (filter (fn [c]
-                                 (#{"update" "insert" "delete"} (:kind c)))
-                               change)]
+                                 (#{:update :insert :delete} (:action c)))
+                               changes)]
     (when triple-changes
       {:triple-changes triple-changes
        :tx-id (.asLong nextlsn)})))
@@ -278,9 +301,9 @@
                 (tracer/add-data! {:attributes {:num-sockets (count sockets)}})
                 (doseq [{:keys [id]} sockets]
                   (tracer/with-span! {:name "invalidator/send-refresh"
-                                      :session-id id}
-                    (session/enqueue->receive-q session/receive-q
-                                                {:op :refresh :session-id id}))))
+                                      :attributes {:session-id id}}
+                    (receive-queue/enqueue->receive-q {:op :refresh
+                                                       :session-id id}))))
               (catch Throwable t
                 (def -wal-record wal-record)
                 (def -store-value @store-conn)
@@ -295,8 +318,8 @@
         (doseq [{:keys [id]} sockets]
           (tracer/with-span! {:name "invalidator/send-refresh"
                               :session-id id}
-            (session/enqueue->receive-q session/receive-q {:op :refresh
-                                                           :session-id id}))))
+            (receive-queue/enqueue->receive-q {:op :refresh
+                                               :session-id id}))))
       (catch Throwable t
         (def -wal-record wal-record)
         (def -store-value @store-conn)
@@ -305,7 +328,7 @@
 (defn start-byop-worker [store-conn wal-chan]
   (tracer/record-info! {:name "invalidation-worker/start-byop"})
   (let [app-id config/instant-on-instant-app-id
-        {:keys [table-info]} (pg-introspect/introspect aurora/conn-pool
+        {:keys [table-info]} (pg-introspect/introspect (aurora/conn-pool)
                                                        "public")]
     (loop []
       (let [wal-record (a/<!! wal-chan)]
@@ -355,33 +378,53 @@
 (defn start
   "Entry point for invalidator. Starts a WAL listener and pipes WAL records to
   our partition router. Partition router dispatches records to app workers who run `go-work`"
-  []
-  (let [{:keys [wal-chan worker-chan byop-chan close-signal-chan]}
-        (create-wal-chans)
+  ([]
+   (start @config/process-id))
+  ([process-id]
+   (let [{:keys [wal-chan worker-chan byop-chan close-signal-chan]}
+         (create-wal-chans)
 
-        wal-opts (wal/make-wal-opts {:wal-chan wal-chan
-                                     :close-signal-chan close-signal-chan
-                                     :ex-handler wal-ex-handler
-                                     :conn-config (config/get-aurora-config)
-                                     :slot-name @config/process-id})]
-
-    (def wal-opts wal-opts)
-
-    (ua/fut-bg
+         wal-opts (wal/make-wal-opts {:wal-chan wal-chan
+                                      :close-signal-chan close-signal-chan
+                                      :ex-handler wal-ex-handler
+                                      :conn-config (or (config/get-next-aurora-config)
+                                                       ;; Use the next db so that we don't
+                                                       ;; have to worry about restarting the
+                                                       ;; invalidator when failing over to a
+                                                       ;; new blue/green deployment
+                                                       (config/get-aurora-config))
+                                      :slot-name process-id})]
+     (ua/fut-bg
       (wal/start-worker wal-opts))
-    (ua/fut-bg
+
+     @(:started-promise wal-opts)
+
+     (ua/fut-bg
       (start-worker rs/store-conn worker-chan))
 
-    (when byop-chan
-      (ua/fut-bg
-        (start-byop-worker rs/store-conn byop-chan)))))
+     (when byop-chan
+       (ua/fut-bg
+        (start-byop-worker rs/store-conn byop-chan)))
 
-(defn stop []
-  (when wal-opts
-    (wal/shutdown! wal-opts)
-    (a/close! (:to wal-opts))
-    (a/close! (:close-signal-chan wal-opts))))
+     wal-opts)))
+
+(defn start-global []
+  (def wal-opts (start)))
+
+(defn stop [wal-opts]
+  (let [shutdown-future (future (wal/shutdown! wal-opts))]
+    (loop []
+      (when-not (realized? shutdown-future)
+        (wal/kick-wal (aurora/conn-pool))
+        (Thread/sleep 100)
+        (recur))))
+  (a/close! (:to wal-opts))
+  (a/close! (:close-signal-chan wal-opts)))
+
+(defn stop-global []
+  (when (bound? #'wal-opts)
+    (stop wal-opts)))
 
 (defn restart []
-  (stop)
-  (start))
+  (stop-global)
+  (start-global))

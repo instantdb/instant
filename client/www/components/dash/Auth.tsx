@@ -122,7 +122,7 @@ function EmailStep(props: {
             })}
           >
             <span className="flex items-center space-x-2">
-              <Image src={googleIconSvg} width={16} />
+              <Image alt="google icon" src={googleIconSvg} width={16} />
               <span>Continue with Google</span>
             </span>
           </Button>

@@ -1,4 +1,4 @@
-import { init } from '@instantdb/react';
+import { init, InstantReactWeb } from '@instantdb/react';
 import { useContext, useEffect, useMemo, useState } from 'react';
 import { v4 } from 'uuid';
 import produce from 'immer';
@@ -20,7 +20,7 @@ import {
   voidTicket,
 } from '@/lib/auth';
 import { TokenContext } from '@/lib/contexts';
-import { DashResponse, InstantApp, InstantMember } from '@/lib/types';
+import { DashResponse, DBAttr, InstantApp, InstantMember } from '@/lib/types';
 
 import { Perms } from '@/components/dash/Perms';
 import Auth from '@/components/dash/Auth';
@@ -55,6 +55,8 @@ import { Sandbox } from '@/components/dash/Sandbox';
 import { StorageTab } from '@/components/dash/Storage';
 import PersonalAccessTokensScreen from '@/components/dash/PersonalAccessTokensScreen';
 import { useForm } from '@/lib/hooks/useForm';
+import { useSchemaQuery } from '@/lib/hooks/explorer';
+import useLocalStorage from '@/lib/hooks/useLocalStorage';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -95,13 +97,13 @@ const tabs: Tab[] = [
   { id: 'repl', title: 'Query Inspector' },
   { id: 'sandbox', title: 'Sandbox' },
   { id: 'admin', title: 'Admin', minRole: 'admin' },
-  { id: 'billing', title: 'Billing', minRole: 'owner' },
+  { id: 'billing', title: 'Billing' },
   { id: 'docs', title: 'Docs' },
 ];
 
 const tabIndex = new Map(tabs.map((t) => [t.id, t]));
 
-function isMinRole(minRole: Role, role: Role) {
+export function isMinRole(minRole: Role, role: Role) {
   return roleOrder.indexOf(role) >= roleOrder.indexOf(minRole);
 }
 
@@ -179,7 +181,7 @@ export default function DashV2() {
               onClick={() => {
                 try {
                   window.close();
-                } catch (error) {}
+                } catch (error) { }
                 cliAuthCompleteDialog.onClose();
               }}
             >
@@ -241,6 +243,9 @@ function Dashboard() {
   const screen = (router.query.s as string) || 'main';
   const _tab = router.query.t as TabId;
   const tab = tabIndex.has(_tab) ? _tab : defaultTab;
+
+  // Local states
+  const [hideAppId, setHideAppId] = useLocalStorage('hide_app_id', false);
 
   const [connection, setConnection] = useState<{
     db: InstantReactClient;
@@ -338,7 +343,7 @@ function Dashboard() {
     if (!app) return;
     if (typeof window === 'undefined') return;
 
-    const db = init<unknown>({
+    const db = init({
       appId,
       apiURI: config.apiURI,
       websocketURI: config.websocketURI,
@@ -350,7 +355,7 @@ function Dashboard() {
     return () => {
       db._core.shutdown();
     };
-  }, [router.isReady, app]);
+  }, [router.isReady, app?.id, app?.admin_token]);
 
   function nav(q: { s: string; app?: string; t?: string }) {
     if (q.app) setLocal('dash_app_id', q.app);
@@ -380,7 +385,7 @@ function Dashboard() {
       }),
       {
         revalidate: false,
-      }
+      },
     );
 
     createApp(token, app).catch((e) => {
@@ -397,7 +402,7 @@ function Dashboard() {
         if (d) {
           d.apps = _apps;
         }
-      })
+      }),
     );
     const _appId = _apps[0]?.id;
     nav({ s: 'main', app: _appId, t: 'hello' });
@@ -462,9 +467,16 @@ function Dashboard() {
               }}
             />
             <div className="border-b">
-              <div className="flex max-w-xl flex-col gap-2 p-3">
+              <div className="flex max-w-2xl flex-col gap-2 p-3">
                 <h2 className="font-mono text-lg font-bold">{app.title}</h2>
-                <Copyable label="App ID" value={app.id} />
+                <Copyable
+                  label="Public App ID"
+                  value={app.id}
+                  hideValue={hideAppId}
+                  onChangeHideValue={() => {
+                    setHideAppId(!hideAppId);
+                  }}
+                />
               </div>
             </div>
             <div className="flex flex-1 flex-col overflow-hidden">
@@ -472,7 +484,7 @@ function Dashboard() {
                 {tab === 'home' ? (
                   <Home />
                 ) : tab === 'explorer' ? (
-                  <ExplorerTab db={connection.db} />
+                  <ExplorerTab appId={appId} db={connection.db} />
                 ) : tab === 'repl' ? (
                   <QueryInspector
                     className="flex-1 w-full"
@@ -502,9 +514,10 @@ function Dashboard() {
                     app={app}
                     onDelete={() => onDeleteApp(app)}
                     nav={nav}
+                    db={connection.db}
                   />
                 ) : tab == 'billing' &&
-                  isMinRole('owner', app.user_app_role) ? (
+                  isMinRole('collaborator', app.user_app_role) ? (
                   <Billing appId={appId} />
                 ) : null}
               </div>
@@ -516,7 +529,7 @@ function Dashboard() {
   );
 }
 
-const TabContent = twel('div', 'flex flex-col max-w-xl gap-4 p-4');
+const TabContent = twel('div', 'flex flex-col max-w-2xl gap-4 p-4');
 
 function mergeQueryParams(query: string) {
   const newQuery = new URLSearchParams(query);
@@ -540,7 +553,7 @@ function formatDashRoute(href: string) {
   const mergedQueryString = Object.entries(mergedQueryParams)
     .map(
       ([key, value]) =>
-        `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
+        `${encodeURIComponent(key)}=${encodeURIComponent(value)}`,
     )
     .join('&');
 
@@ -555,7 +568,7 @@ function formatDocsRoute(href: string) {
   }
 
   const { app: appId } = Object.fromEntries(
-    new URLSearchParams(window.location.search)
+    new URLSearchParams(window.location.search),
   );
 
   if (!appId) {
@@ -585,11 +598,14 @@ export function HomeButton({
   children: React.ReactNode;
 }) {
   return (
-    <NextLink href={formatRouteParams(href)}>
-      <a className="justify-start p-4 border shadow-sm rounded space-y-2 bg-white hover:bg-gray-50 disabled:text-gray-400 cursor-pointer">
+    <NextLink
+      href={formatRouteParams(href)}
+      className="justify-start p-4 border shadow-sm rounded space-y-2 bg-white hover:bg-gray-50 disabled:text-gray-400 cursor-pointer"
+    >
+      <div>
         <div className="font-mono font-bold text-xl">{title}</div>
         <div className="text-gray-500">{children}</div>
-      </a>
+      </div>
     </NextLink>
   );
 }
@@ -605,7 +621,7 @@ function Invites({
   const invites = dashResponse.data?.invites ?? [];
 
   return (
-    <div className="flex w-full flex-col gap-4 max-w-xl px-4 py-8">
+    <div className="flex w-full flex-col gap-4 max-w-2xl px-4 py-8">
       <div className="mb-2 flex text-4xl">📫</div>
       <SectionHeading>Team Invites</SectionHeading>
       <div className="flex flex-1 flex-col gap-4">
@@ -827,11 +843,11 @@ function Home() {
   );
 }
 
-function ExplorerTab({ db }: { db: InstantReactClient }) {
+function ExplorerTab({ db, appId }: { db: InstantReactClient; appId: string }) {
   return (
     <div className="flex-1 overflow-hidden flex flex-col">
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Explorer db={db} key={db._core._reactor.config.appId} />
+        <Explorer db={db} appId={appId} key={db._core._reactor.config.appId} />
       </div>
     </div>
   );
@@ -965,7 +981,7 @@ function InviteTeamMemberDialog({
             sent_at: new Date().toISOString(),
           });
         }
-      }
+      },
     );
   }
 
@@ -1015,20 +1031,25 @@ function Admin({
   app,
   onDelete,
   nav,
+  db,
 }: {
   dashResponse: APIResponse<DashResponse>;
   app: InstantApp;
   onDelete: () => void;
   nav: (p: { s: string; t?: string; app?: string }) => void;
+  db: InstantReactWeb<any, any>;
 }) {
   const token = useContext(TokenContext);
   const [deleteAppOk, updateDeleteAppOk] = useState(false);
+  const [clearAppOk, updateClearAppOk] = useState(false);
   const [editMember, setEditMember] = useState<InstantMember | null>();
+  const [hideAdminToken, setHideAdminToken] = useState(true);
+  const clearDialog = useDialog();
   const deleteDialog = useDialog();
   const inviteDialog = useDialog();
 
   const displayedInvites = app.invites?.filter(
-    (invite) => invite.status !== 'accepted'
+    (invite) => invite.status !== 'accepted',
   );
 
   async function onClickReset() {
@@ -1044,7 +1065,7 @@ function Admin({
       await regenerateAdminToken(token, app.id, newAdminToken);
     } catch (error) {
       errorToast(
-        "Uh oh! We couldn't generate a new admin token. Please ping Joe & Stopa, or try again."
+        "Uh oh! We couldn't generate a new admin token. Please ping Joe & Stopa, or try again.",
       );
 
       return;
@@ -1053,7 +1074,7 @@ function Admin({
     dashResponse.mutate(
       produce(dashResponse.data, (d) => {
         if (d.apps && appIndex) d.apps[appIndex].admin_token = newAdminToken;
-      })
+      }),
     );
   }
 
@@ -1076,7 +1097,7 @@ function Admin({
           if (!_app) return;
 
           _app.title = values.name;
-        }
+        },
       );
 
       successToast('App name updated!');
@@ -1084,7 +1105,7 @@ function Admin({
   });
 
   return (
-    <TabContent>
+    <TabContent className="h-full">
       <Dialog open={inviteDialog.open} onClose={inviteDialog.onClose}>
         <InviteTeamMemberDialog
           app={app}
@@ -1117,7 +1138,7 @@ function Admin({
                       role:
                         editMember.role === 'admin' ? 'collaborator' : 'admin',
                     },
-                  }
+                  },
                 );
 
                 await dashResponse.mutate();
@@ -1141,7 +1162,7 @@ function Admin({
                     body: {
                       id: editMember.id,
                     },
-                  }
+                  },
                 );
 
                 await dashResponse.mutate();
@@ -1228,8 +1249,8 @@ function Admin({
                                   body: {
                                     'invite-id': invite.id,
                                   },
-                                }
-                              )
+                                },
+                              ),
                             );
                           }}
                         />
@@ -1286,23 +1307,78 @@ function Admin({
           </>
         ) : null}
       </Content>
-      <Copyable label="Secret" value={app.admin_token} />
+      <Copyable
+        onChangeHideValue={() => setHideAdminToken(!hideAdminToken)}
+        hideValue={hideAdminToken}
+        label="Secret"
+        value={app.admin_token}
+      />
       {isMinRole('owner', app.user_app_role) ? (
-        <>
+        // mt-auto pushes the danger zone to the bottom of the page
+        <div className="mt-auto space-y-2 pb-4">
           <SectionHeading>Danger zone</SectionHeading>
+          <Content>
+            These are destructive actions and will irreversibly delete
+            associated data.
+          </Content>
           <div>
-            <div className="flex flex-col md:flex-row justify-between gap-2 md:gap-8">
-              <div>
-                <SubsectionHeading>Delete app</SubsectionHeading>
-                <Content>Once you delete this app, you can’t undo it.</Content>
-              </div>
-              <div>
-                <Button variant="destructive" onClick={deleteDialog.onOpen}>
-                  <TrashIcon height={'1rem'} /> Delete app
-                </Button>
-              </div>
+            <div className="flex flex-col space-y-6">
+              <Button variant="destructive" onClick={clearDialog.onOpen}>
+                <TrashIcon height={'1rem'} /> Clear app
+              </Button>
+              <Button variant="destructive" onClick={deleteDialog.onOpen}>
+                <TrashIcon height={'1rem'} /> Delete app
+              </Button>
             </div>
           </div>
+          <Dialog {...clearDialog}>
+            <div className="flex flex-col gap-2">
+              <SubsectionHeading className="text-red-600">
+                Clear app
+              </SubsectionHeading>
+              <Content className="space-y-2">
+                <p>
+                  Clearing an app will irreversibly delete all namespaces,
+                  triples, and permissions.
+                </p>
+                <p>
+                  All other data like app id, admin token, users, billing, team
+                  members, etc. will remain.
+                </p>
+                <p>
+                  This is equivalent to deleting all your namespaces in the
+                  explorer and clearing your permissions.
+                </p>
+              </Content>
+              <Checkbox
+                checked={clearAppOk}
+                onChange={(c) => updateClearAppOk(c)}
+                label="I understand and want to clear this app."
+              />
+              <Button
+                disabled={!clearAppOk}
+                variant="destructive"
+                onClick={async () => {
+                  await jsonFetch(
+                    `${config.apiURI}/dash/apps/${app.id}/clear`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        authorization: `Bearer ${token}`,
+                        'content-type': 'application/json',
+                      },
+                    },
+                  );
+
+                  clearDialog.onClose();
+                  dashResponse.mutate();
+                  successToast('App cleared!');
+                }}
+              >
+                Clear data
+              </Button>
+            </div>
+          </Dialog>
           <Dialog {...deleteDialog}>
             <div className="flex flex-col gap-2">
               <SubsectionHeading className="text-red-600">
@@ -1335,7 +1411,7 @@ function Admin({
               </Button>
             </div>
           </Dialog>
-        </>
+        </div>
       ) : null}
     </TabContent>
   );
@@ -1376,7 +1452,7 @@ function Loading() {
 
 function ErrorMessage({ message }: { message: string }) {
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col gap-4 p-2">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-2">
       <div className="rounded bg-red-100 p-4 text-red-700">{message}</div>
     </div>
   );
@@ -1386,7 +1462,7 @@ function ErrorMessage({ message }: { message: string }) {
 
 function createApp(
   token: string,
-  toCreate: { id: string; title: string; admin_token: string }
+  toCreate: { id: string; title: string; admin_token: string },
 ) {
   return jsonFetch(`${config.apiURI}/dash/apps`, {
     method: 'POST',
@@ -1401,7 +1477,7 @@ function createApp(
 function regenerateAdminToken(
   token: string,
   appId: string,
-  adminToken: string
+  adminToken: string,
 ) {
   return jsonFetch(`${config.apiURI}/dash/apps/${appId}/tokens`, {
     method: 'POST',

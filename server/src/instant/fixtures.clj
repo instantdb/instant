@@ -51,6 +51,13 @@
             r (resolvers/make-zeneca-resolver id)]
         (f app r)))))
 
+(defn with-zeneca-checked-data-app [f]
+  (with-empty-app
+    (fn [{:keys [id] :as app}]
+      (let [_ (bootstrap/add-zeneca-to-app! true id)
+            r (resolvers/make-zeneca-resolver id)]
+        (f app r)))))
+
 (defn with-zeneca-byop [f]
   (with-empty-app
     (fn [{:keys [id] :as app}]
@@ -60,7 +67,7 @@
                                   (uri/assoc-query* {:currentSchema schema})
                                   str)]
         (try
-          (sql/execute! aurora/conn-pool [(format "create schema \"%s\"" schema)])
+          (sql/execute! (aurora/conn-pool) [(format "create schema \"%s\"" schema)])
           (app-model/set-connection-string!
            {:app-id id
             :connection-string connection-string})
@@ -79,7 +86,7 @@
                  app
                  r)))
           (finally
-            (sql/execute! aurora/conn-pool [(format "drop schema \"%s\" cascade" schema)])))))))
+            (sql/execute! (aurora/conn-pool) [(format "drop schema \"%s\" cascade" schema)])))))))
 
 (defn with-pro-app [owner f]
   (let [app-id (UUID/randomUUID)

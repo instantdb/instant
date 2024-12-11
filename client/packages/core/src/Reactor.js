@@ -14,8 +14,8 @@ import { Deferred } from "./utils/Deferred";
 import { PersistedObject } from "./utils/PersistedObject";
 import { extractTriples } from "./model/instaqlResult";
 import { areObjectsDeepEqual } from "./utils/object";
-import { fromJSONWithMaps, toJSONWithMaps } from "./utils/json";
 import { createLinkIndex } from "./utils/linkIndex";
+import version from "./version";
 
 const STATUS = {
   CONNECTING: "connecting",
@@ -25,6 +25,9 @@ const STATUS = {
   ERRORED: "errored",
 };
 
+const QUERY_ONCE_TIMEOUT = 30_000;
+
+const WS_CONNECTING_STATUS = 0;
 const WS_OPEN_STATUS = 1;
 
 const defaultConfig = {
@@ -37,6 +40,14 @@ const OAUTH_REDIRECT_PARAM = "_instant_oauth_redirect";
 
 const currentUserKey = `currentUser`;
 
+let _wsId = 0;
+function createWebSocket(uri) {
+  const ws = new WebSocket(uri);
+  // @ts-ignore
+  ws._id = _wsId++;
+  return ws;
+}
+
 function isClient() {
   const hasWindow = typeof window !== "undefined";
   // this checks if we are running in a chrome extension
@@ -44,6 +55,39 @@ function isClient() {
   const isChrome = typeof chrome !== "undefined";
 
   return hasWindow || isChrome;
+}
+
+const ignoreLogging = {
+  "set-presence": true,
+  "set-presence-ok": true,
+  "refresh-presence": true,
+};
+
+function querySubsFromJSON(str) {
+  const parsed = JSON.parse(str);
+  for (const key in parsed) {
+    const v = parsed[key];
+    if (v?.result?.store) {
+      v.result.store = s.fromJSON(v.result.store);
+    }
+  }
+  return parsed;
+}
+
+function querySubsToJSON(querySubs) {
+  const jsonSubs = {};
+  for (const key in querySubs) {
+    const sub = querySubs[key];
+    const jsonSub = { ...sub };
+    if (sub.result?.store) {
+      jsonSub.result = {
+        ...sub.result,
+        store: s.toJSON(sub.result.store),
+      };
+    }
+    jsonSubs[key] = jsonSub;
+  }
+  return JSON.stringify(jsonSubs);
 }
 
 /**
@@ -60,10 +104,14 @@ export default class Reactor {
   /** @type {PersistedObject} */
   pendingMutations;
 
+  /** @type {Record<string, Array<{ q: any, cb: (data: any) => any }>>} */
   queryCbs = {};
+  /** @type {Record<string, Array<{ q: any, eventId: string, dfd: Deferred }>>} */
+  queryOnceDfds = {};
   authCbs = [];
   attrsCbs = [];
   mutationErrorCbs = [];
+  connectionStatusCbs = [];
   config;
   _persister;
   mutationDeferredStore = new Map();
@@ -90,13 +138,16 @@ export default class Reactor {
   _broadcastSubs = {};
   _currentUserCached = { isLoading: true, error: undefined, user: undefined };
   _beforeUnloadCbs = [];
+  _dataForQueryCache = {};
 
   constructor(
     config,
     Storage = IndexedDBStorage,
     NetworkListener = WindowNetworkListener,
+    versions,
   ) {
     this.config = { ...defaultConfig, ...config };
+    this.versions = { ...(versions || {}), "@instantdb/core": version };
 
     if (this.config.schema) {
       this._linkIndex = createLinkIndex(this.config.schema);
@@ -134,6 +185,7 @@ export default class Reactor {
         if (isOnline === this._isOnline) {
           return;
         }
+        log.info("[network] online =", isOnline);
         this._isOnline = isOnline;
         if (this._isOnline) {
           this._startSocket();
@@ -148,14 +200,14 @@ export default class Reactor {
   }
 
   _initStorage(Storage) {
-    this._persister = new Storage(`instant_${this.config.appId}_4`);
+    this._persister = new Storage(`instant_${this.config.appId}_5`);
     this.querySubs = new PersistedObject(
       this._persister,
       "querySubs",
       {},
       this._onMergeQuerySubs,
-      toJSONWithMaps,
-      fromJSONWithMaps,
+      querySubsToJSON,
+      querySubsFromJSON,
     );
     this.pendingMutations = new PersistedObject(
       this._persister,
@@ -208,6 +260,7 @@ export default class Reactor {
   _setStatus(status, err) {
     this.status = status;
     this._errorMessage = err;
+    this.notifyConnectionStatusSubs(status);
   }
 
   /**
@@ -272,23 +325,6 @@ export default class Reactor {
     });
   };
 
-  /**
-   * On refresh we clear out pending mutations that we know have been applied
-   * by the server and thus those mutations are applied in the instaql result
-   * returned by the server
-   */
-  _cleanPendingMutations(txId) {
-    this.pendingMutations.set((prev) => {
-      const copy = new Map(prev);
-      [...prev.entries()].forEach(([eventId, mut]) => {
-        if (mut["tx-id"] <= txId) {
-          copy.delete(eventId);
-        }
-      });
-      return copy;
-    });
-  }
-
   _flushEnqueuedRoomData(roomId) {
     const enqueuedUserPresence = this._presence[roomId]?.result?.user;
     const enqueuedBroadcasts = this._broadcastQueue[roomId];
@@ -307,14 +343,16 @@ export default class Reactor {
     }
   }
 
-  _handleReceive(msg) {
+  _handleReceive(wsId, msg) {
     // opt-out, enabled by default if schema
     const enableCardinalityInference =
       Boolean(this.config.schema) &&
       ("cardinalityInference" in this.config
         ? Boolean(this.config.cardinalityInference)
         : true);
-
+    if (!ignoreLogging[msg.op]) {
+      log.info("[receive]", wsId, msg.op, msg);
+    }
     switch (msg.op) {
       case "init-ok":
         this._setStatus(STATUS.AUTHENTICATED);
@@ -329,9 +367,11 @@ export default class Reactor {
           this._tryJoinRoom(roomId);
         }
         break;
+      case "add-query-exists":
+        this.notifyOneQueryOnce(weakHash(msg.q));
+        break;
       case "add-query-ok":
-        const { q, result, "processed-tx-id": addQueryTxId } = msg;
-        this._cleanPendingMutations(addQueryTxId);
+        const { q, result } = msg;
         const hash = weakHash(q);
         const pageInfo = result?.[0]?.data?.["page-info"];
         const aggregate = result?.[0]?.data?.["aggregate"];
@@ -347,10 +387,10 @@ export default class Reactor {
           return prev;
         });
         this.notifyOne(hash);
+        this.notifyOneQueryOnce(hash);
         break;
       case "refresh-ok":
-        const { computations, attrs, "processed-tx-id": refreshOkTxId } = msg;
-        this._cleanPendingMutations(refreshOkTxId);
+        const { computations, attrs } = msg;
         this._setAttrs(attrs);
         const updates = computations.map((x) => {
           const q = x["instaql-query"];
@@ -388,20 +428,35 @@ export default class Reactor {
           break;
         }
 
-        const mut = { ...prevMutation, "tx-id": txId };
-
+        // Now that this transaction is accepted, 
+        // We can delete it from our queue. 
         this.pendingMutations.set((prev) => {
-          prev.set(eventId, mut);
+          prev.delete(eventId);
           return prev;
         });
-
-        this._finishTransaction("synced", eventId);
+        
+        // We apply this transaction to all our existing queries
+        const txStepsToApply = prevMutation["tx-steps"];
+        this.querySubs.set((prev) => {
+          for (const [hash, sub] of Object.entries(prev)) {
+            const store = sub?.result?.store;
+            if (!store) {
+              continue;
+            }
+            const newStore = s.transact(store, txStepsToApply);
+            prev[hash].result.store = newStore;
+          }
+          return prev;
+        })
 
         const newAttrs = prevMutation["tx-steps"]
           .filter(([action, ..._args]) => action === "add-attr")
           .map(([_action, attr]) => attr)
           .concat(Object.values(this.attrs));
+        
         this._setAttrs(newAttrs);
+        
+        this._finishTransaction("synced", eventId);
         break;
       case "refresh-presence":
         const roomId = msg["room-id"];
@@ -418,9 +473,9 @@ export default class Reactor {
         const joinedRoom = this._rooms[loadingRoomId];
 
         if (!joinedRoom) {
-          if (this._roomsPendingLeave[roomId]) {
+          if (this._roomsPendingLeave[loadingRoomId]) {
             this._tryLeaveRoom(loadingRoomId);
-            delete this._roomsPendingLeave[roomId];
+            delete this._roomsPendingLeave[loadingRoomId];
           }
 
           break;
@@ -469,6 +524,14 @@ export default class Reactor {
   _handleReceiveError(msg) {
     const eventId = msg["client-event-id"];
     const prevMutation = this.pendingMutations.currentValue.get(eventId);
+    const errorMessage = {
+      message: msg.message || "Uh-oh, something went wrong. Ping Joe & Stopa.",
+    };
+
+    if (msg.hint) {
+      errorMessage.hint = msg.hint;
+    }
+
     if (prevMutation) {
       // This must be a transaction error
       const errDetails = {
@@ -479,18 +542,11 @@ export default class Reactor {
       return;
     }
 
-    const q = msg.q || msg["original-event"]?.q;
-    if (q) {
-      // This must be a query error
-      this.querySubs.set((prev) => {
-        const hash = weakHash(q);
-        delete prev[hash];
-        return prev;
-      });
-      this.notifyQueryError(weakHash(q), {
-        message:
-          msg.message || "Uh-oh, something went wrong. Ping Joe & Stopa.",
-      });
+    const q = msg["original-event"]?.q;
+    if (q && msg["original-event"]?.op === "add-query") {
+      const hash = weakHash(q);
+      this.notifyQueryError(weakHash(q), errorMessage);
+      this.notifyQueryOnceError(q, hash, eventId, errorMessage);
       return;
     }
 
@@ -506,10 +562,7 @@ export default class Reactor {
       }
 
       // We failed to init
-      const errorMessage = {
-        message:
-          msg.message || "Uh-oh, something went wrong. Ping Joe & Stopa.",
-      };
+
       this._setStatus(STATUS.ERRORED, errorMessage);
       this.notifyAll();
       return;
@@ -528,6 +581,13 @@ export default class Reactor {
     }
   }
 
+  notifyQueryOnceError(q, hash, eventId, e) {
+    const r = this.queryOnceDfds[hash]?.find((r) => r.eventId === eventId);
+    if (!r) return;
+    r.dfd.reject(e);
+    this._completeQueryOnce(q, hash, r.dfd);
+  }
+
   _setAttrs(attrs) {
     this.attrs = attrs.reduce((acc, attr) => {
       acc[attr.id] = attr;
@@ -542,14 +602,19 @@ export default class Reactor {
 
   getPreviousResult = (q) => {
     const hash = weakHash(q);
-    const errorMessage = this._errorMessage;
-    const prevResult = this.querySubs?.currentValue?.[hash]?.result;
-    if (errorMessage) {
-      return { error: errorMessage };
-    } else if (prevResult) {
-      return this.dataForResult(q, prevResult);
-    }
+    return this.dataForQuery(hash);
   };
+
+  _startQuerySub(q, hash) {
+    const eventId = uuid();
+    this.querySubs.set((prev) => {
+      prev[hash] = prev[hash] || { q, result: null, eventId };
+      return prev;
+    });
+    this._trySendAuthed(eventId, { op: "add-query", q });
+
+    return eventId;
+  }
 
   /**
    *  When a user subscribes to a query the following side effects occur:
@@ -562,23 +627,85 @@ export default class Reactor {
    *  Returns an unsubscribe function
    */
   subscribeQuery(q, cb) {
-    const eventId = uuid();
     const hash = weakHash(q);
 
-    this.queryCbs[hash] = this.queryCbs[hash] || [];
-    this.queryCbs[hash].push(cb);
-    this.querySubs.set((prev) => {
-      prev[hash] = prev[hash] || { q, result: null, eventId };
-      return prev;
-    });
-    this._trySendAuthed(eventId, { op: "add-query", q });
     const prevResult = this.getPreviousResult(q);
     if (prevResult) {
       cb(prevResult);
     }
+
+    this.queryCbs[hash] = this.queryCbs[hash] ?? [];
+    this.queryCbs[hash].push({ q, cb });
+
+    this._startQuerySub(q, hash);
+
     return () => {
-      this.queryCbs[hash] = this.queryCbs[hash].filter((x) => x !== cb);
+      this._unsubQuery(q, hash, cb);
     };
+  }
+
+  queryOnce(q) {
+    const dfd = new Deferred();
+
+    if (!this._isOnline) {
+      dfd.reject(
+        new Error("We can't run `queryOnce`, because the device is offline."),
+      );
+      return dfd.promise;
+    }
+
+    if (!this.querySubs) {
+      dfd.reject(
+        new Error(
+          "We can't run `queryOnce` on the backend. Use adminAPI.query instead: https://www.instantdb.com/docs/backend#query",
+        ),
+      );
+      return dfd.promise;
+    }
+
+    const hash = weakHash(q);
+
+    const eventId = this._startQuerySub(q, hash);
+
+    this.queryOnceDfds[hash] = this.queryOnceDfds[hash] ?? [];
+    this.queryOnceDfds[hash].push({ q, dfd, eventId });
+
+    setTimeout(
+      () => dfd.reject(new Error("Query timed out")),
+      QUERY_ONCE_TIMEOUT,
+    );
+
+    return dfd.promise;
+  }
+
+  _completeQueryOnce(q, hash, dfd) {
+    if (!this.queryOnceDfds[hash]) return;
+
+    this.queryOnceDfds[hash] = this.queryOnceDfds[hash].filter(
+      (r) => r.dfd !== dfd,
+    );
+
+    this._cleanupQuery(q, hash);
+  }
+
+  _unsubQuery(q, hash, cb) {
+    if (!this.queryCbs[hash]) return;
+
+    this.queryCbs[hash] = this.queryCbs[hash].filter((r) => r.cb !== cb);
+
+    this._cleanupQuery(q, hash);
+  }
+
+  _cleanupQuery(q, hash) {
+    const hasListeners =
+      this.queryCbs[hash]?.length || this.queryOnceDfds[hash]?.length;
+
+    if (hasListeners) return;
+
+    delete this.queryCbs[hash];
+    delete this.queryOnceDfds[hash];
+
+    this._trySendAuthed(uuid(), { op: "remove-query", q });
   }
 
   // When we `pushTx`, it's possible that we don't yet have `this.attrs`
@@ -687,41 +814,71 @@ export default class Reactor {
   }
 
   /** Runs instaql on a query and a store */
-  dataForResult(q, { store, pageInfo, aggregate }) {
-    const muts = this._rewriteMutations(
-      store.attrs,
-      this.pendingMutations.currentValue,
-    );
+  dataForQuery(hash) {
+    const errorMessage = this._errorMessage;
+    if (errorMessage) {
+      return { error: errorMessage };
+    }
+    if (!this.querySubs) return;
+    if (!this.pendingMutations) return;
+    const querySubVersion = this.querySubs.version();
+    const querySubs = this.querySubs.currentValue;
+    const pendingMutationsVersion = this.pendingMutations.version();
+    const pendingMutations = this.pendingMutations.currentValue;
+
+    const { q, result } = querySubs[hash] || {};
+    if (!result) return;
+
+    const cached = this._dataForQueryCache[hash];
+    if (
+      cached &&
+      querySubVersion === cached.querySubVersion &&
+      pendingMutationsVersion === cached.pendingMutationsVersion
+    ) {
+      return cached.data;
+    }
+
+    const { store, pageInfo, aggregate } = result;
+    const muts = this._rewriteMutations(store.attrs, pendingMutations);
+
     const txSteps = [...muts.values()].flatMap((x) => x["tx-steps"]);
     const newStore = s.transact(store, txSteps);
     const resp = instaql({ store: newStore, pageInfo, aggregate }, q);
+
+    this._dataForQueryCache[hash] = {
+      querySubVersion,
+      pendingMutationsVersion,
+      data: resp,
+    };
+
     return resp;
   }
 
   /** Re-run instaql and call all callbacks with new data */
   notifyOne = (hash) => {
-    const cbs = this.queryCbs[hash] || [];
-    if (!cbs) return;
-    const errorMessage = this._errorMessage;
-    if (errorMessage) {
-      cbs.forEach((cb) => cb({ error: errorMessage }));
-      return;
-    }
+    const cbs = this.queryCbs[hash] ?? [];
+    const prevData = this._dataForQueryCache[hash]?.data;
+    const data = this.dataForQuery(hash);
 
-    const { q, result, iqlResult } = this.querySubs.currentValue[hash] || {};
-    if (!result) return; // No store data, no need to notify
+    if (!data) return;
+    if (areObjectsDeepEqual(data, prevData)) return;
 
-    const resp = this.dataForResult(q, result);
-
-    if (areObjectsDeepEqual(resp.data, iqlResult)) return; // No change, no need to notify
-
-    this.querySubs.currentValue[hash].iqlResult = result.data;
-    cbs.forEach((cb) => cb(resp));
+    cbs.forEach((r) => r.cb(data));
   };
 
-  notifyQueryError = (hash, msg) => {
+  notifyOneQueryOnce = (hash) => {
+    const dfds = this.queryOnceDfds[hash] ?? [];
+    const data = this.dataForQuery(hash);
+
+    dfds.forEach((r) => {
+      this._completeQueryOnce(r.q, hash, r.dfd);
+      r.dfd.resolve(data);
+    });
+  };
+
+  notifyQueryError = (hash, error) => {
     const cbs = this.queryCbs[hash] || [];
-    cbs.forEach((cb) => cb({ error: msg }));
+    cbs.forEach((r) => r.cb({ error }));
   };
 
   /** Re-compute all subscriptions */
@@ -733,14 +890,16 @@ export default class Reactor {
 
   loadedNotifyAll() {
     if (this.pendingMutations.isLoading() || this.querySubs.isLoading()) return;
-
     this.notifyAll();
   }
 
   /** Applies transactions locally and sends transact message to server */
   pushTx = (chunks) => {
     try {
-      const txSteps = instaml.transform(this.optimisticAttrs(), chunks);
+      const txSteps = instaml.transform(
+        { attrs: this.optimisticAttrs(), schema: this.config.schema },
+        chunks,
+      );
       return this.pushOps(txSteps);
     } catch (e) {
       return this.pushOps([], e);
@@ -842,6 +1001,13 @@ export default class Reactor {
     safeSubs.forEach(({ eventId, q }) => {
       this._trySendAuthed(eventId, { op: "add-query", q });
     });
+
+    Object.values(this.queryOnceDfds)
+      .flat()
+      .forEach(({ eventId, q }) => {
+        this._trySendAuthed(eventId, { op: "add-query", q });
+      });
+
     const muts = this._rewriteMutations(
       this.attrs,
       this.pendingMutations.currentValue,
@@ -853,28 +1019,41 @@ export default class Reactor {
     });
   }
 
-  _trySendAuthed(eventId, msg) {
+  _trySendAuthed(...args) {
     if (this.status !== STATUS.AUTHENTICATED) {
       return;
     }
-    this._trySend(eventId, msg);
+    this._trySend(...args);
   }
 
-  _trySend(eventId, msg) {
+  _trySend(eventId, msg, opts) {
     if (this._ws.readyState !== WS_OPEN_STATUS) {
       return;
+    }
+    if (!ignoreLogging[msg.op]) {
+      log.info("[send]", this._ws._id, msg.op, msg);
     }
     this._ws.send(JSON.stringify({ "client-event-id": eventId, ...msg }));
   }
 
-  _wsOnOpen = () => {
-    log.info("[socket] connected");
+  _wsOnOpen = (e) => {
+    const targetWs = e.target;
+    if (this._ws !== targetWs) {
+      log.info(
+        "[socket][open]",
+        targetWs._id,
+        "skip; this is no longer the current ws",
+      );
+      return;
+    }
+    log.info("[socket][open]", this._ws._id);
     this._setStatus(STATUS.OPENED);
     this.getCurrentUser().then((resp) => {
       this._trySend(uuid(), {
         op: "init",
         "app-id": this.config.appId,
         "refresh-token": resp.user?.["refresh_token"],
+        versions: this.versions,
         // If an admin token is provided for an app, we will
         // skip all permission checks. This is an advanced feature,
         // to let users write internal tools
@@ -886,14 +1065,44 @@ export default class Reactor {
   };
 
   _wsOnMessage = (e) => {
-    this._handleReceive(JSON.parse(e.data.toString()));
+    const targetWs = e.target;
+    const m = JSON.parse(e.data.toString());
+    if (this._ws !== targetWs) {
+      log.info(
+        "[socket][message]",
+        targetWs._id,
+        m,
+        "skip; this is no longer the current ws",
+      );
+      return;
+    }
+    this._handleReceive(targetWs._id, JSON.parse(e.data.toString()));
   };
 
   _wsOnError = (e) => {
-    log.error("[socket] error: ", e);
+    const targetWs = e.target;
+    if (this._ws !== targetWs) {
+      log.info(
+        "[socket][error]",
+        targetWs._id,
+        "skip; this is no longer the current ws",
+      );
+      return;
+    }
+    log.error("[socket][error]", targetWs._id, e);
   };
 
-  _wsOnClose = () => {
+  _wsOnClose = (e) => {
+    const targetWs = e.target;
+    if (this._ws !== targetWs) {
+      log.info(
+        "[socket][close]",
+        targetWs._id,
+        "skip; this is no longer the current ws",
+      );
+      return;
+    }
+
     this._setStatus(STATUS.CLOSED);
 
     for (const room of Object.values(this._rooms)) {
@@ -902,45 +1111,73 @@ export default class Reactor {
 
     if (this._isShutdown) {
       log.info(
-        "[socket-close] socket has been shut down and will not reconnect",
+        "[socket][close]",
+        targetWs._id,
+        "Reactor has been shut down and will not reconnect",
       );
       return;
     }
-    if (this._isManualClose) {
-      this._isManualClose = false;
-      log.info("[socket-close] manual close, will not reconnect");
-      return;
-    }
-
-    log.info("[socket-close] scheduling reconnect", this._reconnectTimeoutMs);
+    log.info(
+      "[socket][close]",
+      targetWs._id,
+      "schedule reconnect, ms =",
+      this._reconnectTimeoutMs,
+    );
     setTimeout(() => {
       this._reconnectTimeoutMs = Math.min(
         this._reconnectTimeoutMs + 1000,
         10000,
       );
       if (!this._isOnline) {
-        log.info("[socket-close] we are offline, no need to start socket");
+        log.info(
+          "[socket][close]",
+          targetWs._id,
+          "we are offline, no need to start socket",
+        );
         return;
       }
       this._startSocket();
     }, this._reconnectTimeoutMs);
   };
 
-  _ensurePreviousSocketClosed() {
-    if (this._ws && this._ws.readyState === WS_OPEN_STATUS) {
-      this._isManualClose = true;
-      this._ws.close();
-    }
-  }
-
   _startSocket() {
-    this._ensurePreviousSocketClosed();
-    this._ws = new WebSocket(
+    if (this._ws && this._ws.readyState == WS_CONNECTING_STATUS) {
+      // Our current websocket is in a 'connecting' state.
+      // There's no need to start another one, as the socket is
+      // effectively fresh.
+      log.info(
+        "[socket][start]",
+        this._ws._id,
+        "maintained as current ws, we were still in a connecting state",
+      );
+      return;
+    }
+    const prevWs = this._ws;
+    this._ws = createWebSocket(
       `${this.config.websocketURI}?app_id=${this.config.appId}`,
     );
     this._ws.onopen = this._wsOnOpen;
     this._ws.onmessage = this._wsOnMessage;
     this._ws.onclose = this._wsOnClose;
+    this._ws.onerror = this._wsOnError;
+    log.info("[socket][start]", this._ws._id);
+    if (prevWs?.readyState === WS_OPEN_STATUS) {
+      // When the network dies, it doesn't always mean that our
+      // socket connection will fire a close event.
+      //
+      // We _could_ re-use the old socket, if the network drop was a
+      // few seconds. But, to be safe right now we always create a new socket.
+      //
+      // This means that we have to make sure to kill the previous one ourselves.
+      // c.f https://issues.chromium.org/issues/41343684
+      log.info(
+        "[socket][start]",
+        this._ws._id,
+        "close previous ws id = ",
+        prevWs._id,
+      );
+      prevWs.close();
+    }
   }
 
   /**
@@ -1103,6 +1340,16 @@ export default class Reactor {
     };
   }
 
+  subscribeConnectionStatus(cb) {
+    this.connectionStatusCbs.push(cb);
+
+    return () => {
+      this.connectionStatusCbs = this.connectionStatusCbs.filter(
+        (x) => x !== cb,
+      );
+    };
+  }
+
   subscribeAttrs(cb) {
     this.attrsCbs.push(cb);
 
@@ -1127,6 +1374,10 @@ export default class Reactor {
     if (!this.attrs) return;
     const oas = this.optimisticAttrs();
     this.attrsCbs.forEach((cb) => cb(oas));
+  }
+
+  notifyConnectionStatusSubs(status) {
+    this.connectionStatusCbs.forEach((cb) => cb(status));
   }
 
   async setCurrentUser(user) {
@@ -1180,6 +1431,7 @@ export default class Reactor {
   updateUser(newUser) {
     const newV = { error: undefined, user: newUser };
     this._currentUserCached = { isLoading: false, ...newV };
+    this._dataForQueryCache = {};
     this.querySubs.set((prev) => {
       Object.keys(prev).forEach((k) => {
         delete prev[k].result;
@@ -1207,7 +1459,7 @@ export default class Reactor {
       email,
       code,
     });
-    this.changeCurrentUser(res.user);
+    await this.changeCurrentUser(res.user);
     return res;
   }
 
@@ -1217,7 +1469,8 @@ export default class Reactor {
       appId: this.config.appId,
       refreshToken: authToken,
     });
-    this.changeCurrentUser(res.user);
+    await this.changeCurrentUser(res.user);
+    return res;
   }
 
   async signOut() {
@@ -1232,8 +1485,7 @@ export default class Reactor {
         });
       } catch (e) {}
     }
-
-    this.changeCurrentUser(null);
+    await this.changeCurrentUser(null);
   }
 
   /**
@@ -1255,7 +1507,7 @@ export default class Reactor {
       code: code,
       codeVerifier,
     });
-    this.changeCurrentUser(res.user);
+    await this.changeCurrentUser(res.user);
     return res;
   }
 
@@ -1282,7 +1534,7 @@ export default class Reactor {
       nonce,
       refreshToken,
     });
-    this.changeCurrentUser(res.user);
+    await this.changeCurrentUser(res.user);
     return res;
   }
 
@@ -1296,6 +1548,8 @@ export default class Reactor {
         error: undefined,
       };
     }
+
+    this._presence[roomId] = this._presence[roomId] || {};
 
     this._tryJoinRoom(roomId);
 
@@ -1326,32 +1580,20 @@ export default class Reactor {
   // --------
   // Presence
 
-  /**
-   * @template {keyof RoomSchema} RoomType
-   * @template {keyof RoomSchema[RoomType]['presence']} Keys
-   * @param {RoomType} roomType
-   * @param {string | number} roomId
-   * @param {import('./presence').PresenceOpts<RoomSchema[RoomType]['presence'], Keys>} opts
-   * @returns {import('./presence').PresenceResponse<RoomSchema[RoomType]['presence'], Keys>}
-   */
+  // TODO: look into typing again
   getPresence(roomType, roomId, opts = {}) {
     const room = this._rooms[roomId];
     const presence = this._presence[roomId];
     if (!room || !presence || !presence.result) return null;
 
     return {
-      ...buildPresenceSlice(presence.result, opts),
+      ...buildPresenceSlice(presence.result, opts, this._sessionId),
       isLoading: !room.isConnected,
       error: room.error,
     };
   }
 
-  /**
-   * @template {keyof RoomSchema} RoomType
-   * @param {RoomType} roomType
-   * @param {string | number} roomId
-   * @param {Partial<RoomSchema[RoomType]['presence']>} partialData
-   */
+  // TODO: look into typing again
   publishPresence(roomType, roomId, partialData) {
     const room = this._rooms[roomId];
     const presence = this._presence[roomId];
@@ -1393,15 +1635,7 @@ export default class Reactor {
     this._trySendAuthed(uuid(), { op: "leave-room", "room-id": roomId });
   }
 
-  /**
-   * @template {keyof RoomSchema} RoomType
-   * @template {keyof RoomSchema[RoomType]['presence']} Keys
-   * @param {RoomType} roomType
-   * @param {string | number} roomId
-   * @param {import('./presence').PresenceOpts<RoomSchema[RoomType]['presence'], Keys>} opts
-   * @param {(slice: import('./presence').PresenceResponse<RoomSchema[RoomType]['presence'], Keys>) => void} cb
-   * @returns {() => void}
-   */
+  // TODO: look into typing again
   subscribePresence(roomType, roomId, opts, cb) {
     const leaveRoom = this.joinRoom(roomId);
 

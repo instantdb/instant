@@ -11,8 +11,9 @@ import weakHash from "./utils/weakHash";
 import id from "./utils/uuid";
 import IndexedDBStorage from "./IndexedDBStorage";
 import WindowNetworkListener from "./WindowNetworkListener";
-import * as i from "./schema";
+import { i } from "./schema";
 import { createDevtool } from "./devtool";
+import version from "./version";
 
 import type {
   PresenceOpts,
@@ -20,21 +21,48 @@ import type {
   PresenceSlice,
   RoomSchemaShape,
 } from "./presence";
-import type { IDatabase } from "./coreTypes";
+import type { IDatabase, IInstantDatabase } from "./coreTypes";
 import type {
   Query,
   QueryResponse,
+  InstaQLResponse,
   PageInfoResponse,
   Exactly,
   InstantObject,
+  InstaQLParams,
   InstaQLQueryParams,
+  InstaQLEntity,
+  InstaQLResult,
 } from "./queryTypes";
-import type { AuthState, User, AuthResult } from "./clientTypes";
+import type { AuthState, User, AuthResult, ConnectionStatus } from "./clientTypes";
 import type {
   InstantQuery,
   InstantQueryResult,
   InstantSchema,
+  InstantEntity,
+  InstantSchemaDatabase,
 } from "./helperTypes";
+import type {
+  AttrsDefs,
+  CardinalityKind,
+  DataAttrDef,
+  EntitiesDef,
+  EntitiesWithLinks,
+  EntityDef,
+  RoomsDef,
+  InstantSchemaDef,
+  InstantGraph,
+  LinkAttrDef,
+  LinkDef,
+  LinksDef,
+  PresenceOf,
+  ResolveAttrs,
+  RoomsOf,
+  TopicsOf,
+  ValueTypes,
+  InstantUnknownSchema,
+  BackwardsCompatibleSchema,
+} from "./schemaTypes";
 
 const defaultOpenDevtool = true;
 
@@ -47,7 +75,15 @@ export type Config = {
   devtool?: boolean;
 };
 
-export type ConfigWithSchema<S extends i.InstantGraph<any, any>> = Config & {
+export type InstantConfig<S extends InstantSchemaDef<any, any, any>> = {
+  appId: string;
+  websocketURI?: string;
+  apiURI?: string;
+  devtool?: boolean;
+  schema?: S;
+};
+
+export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {
   schema: S;
 };
 
@@ -56,24 +92,36 @@ export type TransactionResult = {
   clientId: string;
 };
 
+export type PublishTopic<TopicsByKey> = <Key extends keyof TopicsByKey>(
+  topic: Key,
+  data: TopicsByKey[Key],
+) => void;
+
+export type SubscribeTopic<PresenceShape, TopicsByKey> = <
+  Key extends keyof TopicsByKey,
+>(
+  topic: Key,
+  onEvent: (event: TopicsByKey[Key], peer: PresenceShape) => void,
+) => () => void;
+
+export type GetPresence<PresenceShape> = <Keys extends keyof PresenceShape>(
+  opts: PresenceOpts<PresenceShape, Keys>,
+) => PresenceResponse<PresenceShape, Keys>;
+
+export type SubscribePresence<PresenceShape> = <
+  Keys extends keyof PresenceShape,
+>(
+  opts: PresenceOpts<PresenceShape, Keys>,
+  onChange: (slice: PresenceResponse<PresenceShape, Keys>) => void,
+) => () => void;
+
 export type RoomHandle<PresenceShape, TopicsByKey> = {
   leaveRoom: () => void;
-  publishTopic: <Key extends keyof TopicsByKey>(
-    topic: Key,
-    data: TopicsByKey[Key],
-  ) => void;
-  subscribeTopic: <Key extends keyof TopicsByKey>(
-    topic: Key,
-    onEvent: (event: TopicsByKey[Key], peer: PresenceShape) => void,
-  ) => () => void;
+  publishTopic: PublishTopic<TopicsByKey>;
+  subscribeTopic: SubscribeTopic<PresenceShape, TopicsByKey>;
   publishPresence: (data: Partial<PresenceShape>) => void;
-  getPresence: <Keys extends keyof PresenceShape>(
-    opts: PresenceOpts<PresenceShape, Keys>,
-  ) => PresenceResponse<PresenceShape, Keys>;
-  subscribePresence: <Keys extends keyof PresenceShape>(
-    opts: PresenceOpts<PresenceShape, Keys>,
-    onChange: (slice: PresenceResponse<PresenceShape, Keys>) => void,
-  ) => () => void;
+  getPresence: GetPresence<PresenceShape>;
+  subscribePresence: SubscribePresence<PresenceShape>;
 };
 
 type AuthToken = string;
@@ -86,11 +134,23 @@ type SubscriptionState<Q, Schema, WithCardinalityInference extends boolean> =
       pageInfo: PageInfoResponse<Q>;
     };
 
+type InstaQLSubscriptionState<Schema, Q> =
+  | { error: { message: string }; data: undefined; pageInfo: undefined }
+  | {
+      error: undefined;
+      data: InstaQLResponse<Schema, Q>;
+      pageInfo: PageInfoResponse<Q>;
+    };
+
 type LifecycleSubscriptionState<
   Q,
   Schema,
   WithCardinalityInference extends boolean,
 > = SubscriptionState<Q, Schema, WithCardinalityInference> & {
+  isLoading: boolean;
+};
+
+type InstaQLLifecycleState<Schema, Q> = InstaQLSubscriptionState<Schema, Q> & {
   isLoading: boolean;
 };
 
@@ -104,43 +164,12 @@ const defaultConfig = {
 };
 
 // hmr
-function initGlobalInstantCoreStore(): Record<
-  string,
-  InstantCore<any, any, any>
-> {
+function initGlobalInstantCoreStore(): Record<string, any> {
   globalThis.__instantDbStore = globalThis.__instantDbStore ?? {};
   return globalThis.__instantDbStore;
 }
 
 const globalInstantCoreStore = initGlobalInstantCoreStore();
-
-function init_experimental<
-  Schema extends i.InstantGraph<any, any, any>,
-  WithCardinalityInference extends boolean = true,
->(
-  config: Config & {
-    schema: Schema;
-    cardinalityInference?: WithCardinalityInference;
-  },
-  Storage?: any,
-  NetworkListener?: any,
-): InstantCore<
-  Schema,
-  Schema extends i.InstantGraph<any, infer RoomSchema, any>
-    ? RoomSchema
-    : never,
-  WithCardinalityInference
-> {
-  return _init_internal<
-    Schema,
-    Schema extends i.InstantGraph<any, infer RoomSchema, any>
-      ? RoomSchema
-      : never,
-    WithCardinalityInference
-  >(config, Storage, NetworkListener);
-}
-
-// main
 
 /**
  *
@@ -162,7 +191,7 @@ function init_experimental<
  *  const db = init<Schema>({ appId: "my-app-id" })
  *
  */
-function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
+function init<Schema extends {} = {}, RoomSchema extends RoomSchemaShape = {}>(
   config: Config,
   Storage?: any,
   NetworkListener?: any,
@@ -171,13 +200,14 @@ function init<Schema = {}, RoomSchema extends RoomSchemaShape = {}>(
 }
 
 function _init_internal<
-  Schema extends {} | i.InstantGraph<any, any, any>,
+  Schema extends {} | InstantGraph<any, any, any>,
   RoomSchema extends RoomSchemaShape,
   WithCardinalityInference extends boolean = false,
 >(
   config: Config,
   Storage?: any,
   NetworkListener?: any,
+  versions?: { [key: string]: string },
 ): InstantCore<Schema, RoomSchema, WithCardinalityInference> {
   const existingClient = globalInstantCoreStore[config.appId] as InstantCore<
     any,
@@ -196,6 +226,7 @@ function _init_internal<
     },
     Storage || IndexedDBStorage,
     NetworkListener || WindowNetworkListener,
+    versions,
   );
 
   const client = new InstantCore<any, RoomSchema, WithCardinalityInference>(
@@ -221,7 +252,7 @@ function _init_internal<
 }
 
 class InstantCore<
-  Schema extends i.InstantGraph<any, any> | {} = {},
+  Schema extends InstantGraph<any, any> | {} = {},
   RoomSchema extends RoomSchemaShape = {},
   WithCardinalityInference extends boolean = false,
 > implements IDatabase<Schema, RoomSchema, WithCardinalityInference>
@@ -233,9 +264,7 @@ class InstantCore<
 
   public tx =
     txInit<
-      Schema extends i.InstantGraph<any, any>
-        ? Schema
-        : i.InstantGraph<any, any>
+      Schema extends InstantGraph<any, any> ? Schema : InstantGraph<any, any>
     >();
 
   constructor(reactor: Reactor<RoomSchema>) {
@@ -302,8 +331,8 @@ class InstantCore<
    *  });
    */
   subscribeQuery<
-    Q extends Schema extends i.InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
+    Q extends Schema extends InstantGraph<any, any>
+      ? InstaQLParams<Schema>
       : Exactly<Query, Q>,
   >(
     query: Q,
@@ -328,6 +357,31 @@ class InstantCore<
    */
   subscribeAuth(cb: (auth: AuthResult) => void): UnsubscribeFn {
     return this._reactor.subscribeAuth(cb);
+  }
+
+  /**
+   * Listen for connection status changes to Instant. This is useful
+   * for building things like connectivity indicators
+   *
+   * @see https://www.instantdb.com/docs/patterns#connection-status
+   * @example
+   *   const unsub = db.subscribeConnectionStatus((status) => {
+   *     const connectionState =
+   *       status === 'connecting' || status === 'opened'
+   *         ? 'authenticating'
+   *       : status === 'authenticated'
+   *         ? 'connected'
+   *       : status === 'closed'
+   *         ? 'closed'
+   *       : status === 'errored'
+   *         ? 'errored'
+   *       : 'unexpected state';
+   *
+   *     console.log('Connection status:', connectionState);
+   *   });
+   */
+  subscribeConnectionStatus(cb: (status: ConnectionStatus) => void): UnsubscribeFn {
+    return this._reactor.subscribeConnectionStatus(cb);
   }
 
   /**
@@ -375,6 +429,32 @@ class InstantCore<
     delete globalInstantCoreStore[this._reactor.config.appId];
     this._reactor.shutdown();
   }
+
+  /**
+   * Use this for one-off queries.
+   * Returns local data if available, otherwise fetches from the server.
+   * Because we want to avoid stale data, this method will throw an error
+   * if the user is offline or there is no active connection to the server.
+   *
+   * @see https://instantdb.com/docs/instaql
+   *
+   * @example
+   *
+   *  const resp = await db.queryOnce({ goals: {} });
+   *  console.log(resp.data.goals)
+   */
+  queryOnce<
+    Q extends Schema extends InstantGraph<any, any>
+      ? InstaQLParams<Schema>
+      : Exactly<Query, Q>,
+  >(
+    query: Q,
+  ): Promise<{
+    data: QueryResponse<Q, Schema, WithCardinalityInference>;
+    pageInfo: PageInfoResponse<Q>;
+  }> {
+    return this._reactor.queryOnce(query);
+  }
 }
 
 /**
@@ -413,7 +493,7 @@ class Auth {
   };
 
   /**
-   * Sign in a user with a refresh toke
+   * Sign in a user with a refresh token
    *
    * @see https://instantdb.com/docs/backend#frontend-auth-sign-in-with-token
    *
@@ -571,7 +651,251 @@ function coerceQuery(o: any) {
   return JSON.parse(JSON.stringify(o));
 }
 
-// dev
+class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
+  implements IInstantDatabase<Schema>
+{
+  public _reactor: Reactor<RoomsOf<Schema>>;
+  public auth: Auth;
+  public storage: Storage;
+
+  public tx = txInit<Schema>();
+
+  constructor(reactor: Reactor<RoomsOf<Schema>>) {
+    this._reactor = reactor;
+    this.auth = new Auth(this._reactor);
+    this.storage = new Storage(this._reactor);
+  }
+
+  /**
+   * Use this to write data! You can create, update, delete, and link objects
+   *
+   * @see https://instantdb.com/docs/instaml
+   *
+   * @example
+   *   // Create a new object in the `goals` namespace
+   *   const goalId = id();
+   *   db.transact(tx.goals[goalId].update({title: "Get fit"}))
+   *
+   *   // Update the title
+   *   db.transact(tx.goals[goalId].update({title: "Get super fit"}))
+   *
+   *   // Delete it
+   *   db.transact(tx.goals[goalId].delete())
+   *
+   *   // Or create an association:
+   *   todoId = id();
+   *   db.transact([
+   *    tx.todos[todoId].update({ title: 'Go on a run' }),
+   *    tx.goals[goalId].link({todos: todoId}),
+   *  ])
+   */
+  transact(
+    chunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
+  ): Promise<TransactionResult> {
+    return this._reactor.pushTx(chunks);
+  }
+
+  getLocalId(name: string): Promise<string> {
+    return this._reactor.getLocalId(name);
+  }
+
+  /**
+   * Use this to query your data!
+   *
+   * @see https://instantdb.com/docs/instaql
+   *
+   * @example
+   *  // listen to all goals
+   *  db.subscribeQuery({ goals: {} }, (resp) => {
+   *    console.log(resp.data.goals)
+   *  })
+   *
+   *  // goals where the title is "Get Fit"
+   *  db.subscribeQuery(
+   *    { goals: { $: { where: { title: "Get Fit" } } } },
+   *    (resp) => {
+   *      console.log(resp.data.goals)
+   *    }
+   *  )
+   *
+   *  // all goals, _alongside_ their todos
+   *  db.subscribeQuery({ goals: { todos: {} } }, (resp) => {
+   *    console.log(resp.data.goals)
+   *  });
+   */
+  subscribeQuery<Q extends InstaQLParams<Schema>>(
+    query: Q,
+    cb: (resp: InstaQLSubscriptionState<Schema, Q>) => void,
+  ) {
+    return this._reactor.subscribeQuery(query, cb);
+  }
+
+  /**
+   * Listen for the logged in state. This is useful
+   * for deciding when to show a login screen.
+   *
+   * @see https://instantdb.com/docs/auth
+   * @example
+   *   const unsub = db.subscribeAuth((auth) => {
+   *     if (auth.user) {
+   *     console.log('logged in as', auth.user.email)
+   *    } else {
+   *      console.log('logged out')
+   *    }
+   *  })
+   */
+  subscribeAuth(cb: (auth: AuthResult) => void): UnsubscribeFn {
+    return this._reactor.subscribeAuth(cb);
+  }
+
+  /**
+   * Listen for connection status changes to Instant. This is useful
+   * for building things like connectivity indicators
+   *
+   * @see https://www.instantdb.com/docs/patterns#connection-status
+   * @example
+   *   const unsub = db.subscribeConnectionStatus((status) => {
+   *     const connectionState =
+   *       status === 'connecting' || status === 'opened'
+   *         ? 'authenticating'
+   *       : status === 'authenticated'
+   *         ? 'connected'
+   *       : status === 'closed'
+   *         ? 'closed'
+   *       : status === 'errored'
+   *         ? 'errored'
+   *       : 'unexpected state';
+   *
+   *     console.log('Connection status:', connectionState);
+   *   });
+   */
+  subscribeConnectionStatus(cb: (status: ConnectionStatus) => void): UnsubscribeFn {
+    return this._reactor.subscribeConnectionStatus(cb);
+  }
+
+  /**
+   * Join a room to publish and subscribe to topics and presence.
+   *
+   * @see https://instantdb.com/docs/presence-and-topics
+   * @example
+   * // init
+   * const db = init();
+   * const room = db.joinRoom(roomType, roomId);
+   * // usage
+   * const unsubscribeTopic = room.subscribeTopic("foo", console.log);
+   * const unsubscribePresence = room.subscribePresence({}, console.log);
+   * room.publishTopic("hello", { message: "hello world!" });
+   * room.publishPresence({ name: "joe" });
+   * // later
+   * unsubscribePresence();
+   * unsubscribeTopic();
+   * room.leaveRoom();
+   */
+  joinRoom<RoomType extends keyof RoomsOf<Schema>>(
+    roomType: RoomType = "_defaultRoomType" as RoomType,
+    roomId: string = "_defaultRoomId",
+  ): RoomHandle<PresenceOf<Schema, RoomType>, TopicsOf<Schema, RoomType>> {
+    const leaveRoom = this._reactor.joinRoom(roomId);
+
+    return {
+      leaveRoom,
+      subscribeTopic: (topic, onEvent) =>
+        this._reactor.subscribeTopic(roomId, topic, onEvent),
+      subscribePresence: (opts, onChange) =>
+        this._reactor.subscribePresence(roomType, roomId, opts, onChange),
+      publishTopic: (topic, data) =>
+        this._reactor.publishTopic({ roomType, roomId, topic, data }),
+      publishPresence: (data) =>
+        this._reactor.publishPresence(roomType, roomId, data),
+      getPresence: (opts) => this._reactor.getPresence(roomType, roomId, opts),
+    };
+  }
+
+  shutdown() {
+    delete globalInstantCoreStore[this._reactor.config.appId];
+    this._reactor.shutdown();
+  }
+
+  /**
+   * Use this for one-off queries.
+   * Returns local data if available, otherwise fetches from the server.
+   * Because we want to avoid stale data, this method will throw an error
+   * if the user is offline or there is no active connection to the server.
+   *
+   * @see https://instantdb.com/docs/instaql
+   *
+   * @example
+   *
+   *  const resp = await db.queryOnce({ goals: {} });
+   *  console.log(resp.data.goals)
+   */
+  queryOnce<Q extends InstaQLParams<Schema>>(
+    query: Q,
+  ): Promise<{
+    data: InstaQLResponse<Schema, Q>;
+    pageInfo: PageInfoResponse<Q>;
+  }> {
+    return this._reactor.queryOnce(query);
+  }
+}
+
+function init_experimental<
+  Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
+>(
+  config: InstantConfig<Schema>,
+  Storage?: any,
+  NetworkListener?: any,
+): InstantCoreDatabase<Schema> {
+  const existingClient = globalInstantCoreStore[
+    config.appId
+  ] as InstantCoreDatabase<any>;
+
+  if (existingClient) {
+    return existingClient;
+  }
+
+  const reactor = new Reactor<RoomsOf<Schema>>(
+    {
+      ...defaultConfig,
+      ...config,
+      cardinalityInference: config.schema ? true : false,
+    },
+    Storage || IndexedDBStorage,
+    NetworkListener || WindowNetworkListener,
+  );
+
+  const client = new InstantCoreDatabase<any>(reactor);
+  globalInstantCoreStore[config.appId] = client;
+
+  if (typeof window !== "undefined" && typeof window.location !== "undefined") {
+    const showDevtool =
+      // show widget by default?
+      ("devtool" in config ? Boolean(config.devtool) : defaultOpenDevtool) &&
+      // only run on localhost (dev env)
+      window.location.hostname === "localhost" &&
+      // used by dash and other internal consumers
+      !Boolean((globalThis as any)._nodevtool);
+
+    if (showDevtool) {
+      createDevtool(config.appId);
+    }
+  }
+
+  return client;
+}
+
+type InstantRules = {
+  [EntityName: string]: {
+    allow: {
+      view?: string;
+      create?: string;
+      update?: string;
+      delete?: string;
+    };
+    bind?: string[];
+  };
+};
+
 
 export {
   // bada bing bada boom
@@ -593,28 +917,67 @@ export {
   IndexedDBStorage,
   WindowNetworkListener,
   InstantCore as InstantClient,
+  InstantCoreDatabase,
   Auth,
   Storage,
+  version,
 
-  // types
+  // og types
   type IDatabase,
   type RoomSchemaShape,
   type Query,
   type QueryResponse,
+  type InstaQLResponse,
+  type PageInfoResponse,
   type InstantObject,
   type Exactly,
   type TransactionChunk,
   type AuthState,
+  type ConnectionStatus,
   type User,
   type AuthToken,
   type TxChunk,
   type SubscriptionState,
+  type InstaQLSubscriptionState,
   type LifecycleSubscriptionState,
+  type InstaQLLifecycleState,
+
+  // presence types
   type PresenceOpts,
   type PresenceSlice,
   type PresenceResponse,
+
+  // new query types
+  type InstaQLParams,
   type InstaQLQueryParams,
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
+  type InstantEntity,
+  type InstantSchemaDatabase,
+
+  // schema types
+  type AttrsDefs,
+  type CardinalityKind,
+  type DataAttrDef,
+  type EntitiesDef,
+  type EntitiesWithLinks,
+  type EntityDef,
+  type RoomsDef,
+  type InstantGraph,
+  type LinkAttrDef,
+  type LinkDef,
+  type LinksDef,
+  type ResolveAttrs,
+  type ValueTypes,
+  type RoomsOf,
+  type PresenceOf,
+  type TopicsOf,
+  type InstaQLEntity,
+  type InstaQLResult,
+  type InstantSchemaDef,
+  type InstantUnknownSchema,
+  type IInstantDatabase,
+  type BackwardsCompatibleSchema,
+  type InstantRules,
 };

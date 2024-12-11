@@ -1,13 +1,14 @@
 (ns instant.db.model.attr-pat
-  (:require [instant.db.datalog :as d]
+  (:require [clojure.spec.alpha :as s]
+            [instant.db.datalog :as d]
             [instant.db.model.attr :as attr-model]
             [instant.util.exception :as ex]
             [instant.util.json :as json]
             [instant.util.uuid :as uuid-util]
             [instant.jdbc.aurora :as aurora]
             [instant.data.constants :refer [zeneca-app-id]]
-            [clojure.spec.alpha :as s]
-            [instant.db.model.triple :as triple-model]))
+            [instant.db.model.triple :as triple-model])
+  (:import (java.time Instant)))
 
 (s/def ::attr-pat
   (s/cat :e (d/pattern-component uuid?)
@@ -24,12 +25,24 @@
 
    [post-owner-attr true] => :vae if ?owner is actualized
    [posts-owner-attr false] => :eav if ?owner isn't actualized"
-  [{:keys [value-type index? unique?]} v-actualized?]
+  [{:keys [value-type
+           index?
+           indexing?
+           unique?
+           setting-unique?
+           checked-data-type
+           checking-data-type?]}
+   v-actualized?]
   (let [ref? (= value-type :ref)
         e-idx (if ref? :eav :ea)
         v-idx (cond
-                unique? :av
-                index? :ave
+                (and index?
+                     (not indexing?)
+                     checked-data-type
+                     (not checking-data-type?)) {:idx-key :ave
+                                                 :data-type checked-data-type}
+                (and unique? (not setting-unique?)) :av
+                (and index? (not indexing?)) :ave
                 ref? :vae
                 :else :ea ;; this means we are searching over an unindexed blob attr
                 )]
@@ -131,14 +144,17 @@
    [[?users bookshelves-attr ?bookshelves]
     [?bookshelves books-attr ?books]]"
   [ctx level-sym etype level refs-path]
-  (let [[last-etype last-level attr-pats]
-        (reduce (fn [[etype level attr-pats] label]
+  (let [[last-etype last-level attr-pats referenced-etypes]
+        (reduce (fn [[etype level attr-pats referenced-etypes] label]
                   (let [[next-etype next-level attr-pat]
                         (->ref-attr-pat ctx level-sym etype level label)]
-                    [next-etype next-level (conj attr-pats attr-pat)]))
-                [etype level []]
+                    [next-etype
+                     next-level
+                     (conj attr-pats attr-pat)
+                     (conj referenced-etypes next-etype)]))
+                [etype level [] #{etype}]
                 refs-path)]
-    (list last-etype last-level attr-pats)))
+    (list last-etype last-level attr-pats referenced-etypes)))
 
 (defn replace-in-attr-pat
   "Handy function to replace a component in an attr-pat with a new value
@@ -150,6 +166,185 @@
        (map (fn [x] (if (= x needle) v x)))
        vec))
 
+(defn coerce-value-uuid [v]
+  (cond (and (map? v)
+             (contains? v :$not))
+        (let [{:keys [$not]} v]
+          (when-let [v-coerced (uuid-util/coerce $not)]
+            {:$not v-coerced}))
+
+        (and (map? v)
+             (contains? v :$isNull))
+        v
+
+        :else (uuid-util/coerce v)))
+
+(defn assert-checked-attr-data-type! [state attr]
+  (cond (:checking-data-type? attr)
+        (ex/throw-validation-err!
+         :query
+         (:root state)
+         [{:expected? 'checked-data-type?
+           :in (:in state)
+           :message (format "The `%s` attribute is still in the process of checking its data type. It must finish before using comparison operators."
+                            (attr-model/fwd-friendly-name attr))}])
+
+        (:indexing? attr)
+        (ex/throw-validation-err!
+         :query
+         (:root state)
+         [{:expected? 'indexed?
+           :in (:in state)
+           :message (format "The `%s` attribute is still in the process of indexing. It must finish before using comparison operators."
+                            (attr-model/fwd-friendly-name attr))}])
+
+        (not (:index? attr))
+        (ex/throw-validation-err!
+         :query
+         (:root state)
+         [{:expected? 'indexed?
+           :in (:in state)
+           :message (format "The `%s` attribute must be indexed to use comparison operators."
+                            (attr-model/fwd-friendly-name attr))}])
+
+        (not (:checked-data-type attr))
+        (ex/throw-validation-err!
+         :query
+         (:root state)
+         [{:expected? 'checked-data-type?
+           :in (:in state)
+           :message (format "The `%s` attribute must have an enforced type to use comparison operators."
+                            (attr-model/fwd-friendly-name attr))}])
+
+        :else (:checked-data-type attr)))
+
+(defn throw-invalid-timestamp! [state attr value]
+  (ex/throw-validation-err!
+   :query
+   (:root state)
+   [{:expected? 'timestamp?
+     :in (:in state)
+     :message (format "The data type of `%s` is `date`, but the query got value `%s` of type `%s`."
+                      (attr-model/fwd-friendly-name attr)
+                      (json/->json value)
+                      (json/json-type-of-clj value))}]))
+
+(defn throw-invalid-date-string! [state attr value]
+  (ex/throw-validation-err!
+   :query
+   (:root state)
+   [{:expected? 'date-string?
+     :in (:in state)
+     :message (format "The data type of `%s` is `date`, but the query got value `%s` of type `%s`."
+                      (attr-model/fwd-friendly-name attr)
+                      (json/->json value)
+                      (json/json-type-of-clj value))}]))
+
+(defn throw-invalid-data-value!
+  [state attr data-type value]
+  (ex/throw-validation-err!
+   :query
+   (:root state)
+   [{:expected? (symbol (format "%s?" (name data-type)))
+     :in (:in state)
+     :message (format "The data type of `%s` is `%s`, but the query got the value `%s` of type `%s`."
+                      (attr-model/fwd-friendly-name attr)
+                      (name data-type)
+                      (json/->json value)
+                      (json/json-type-of-clj value))}]))
+
+(defn coerce-value-data-value!
+  "Coerces an individual value"
+  [state attr data-type v]
+  (case data-type
+    :string (if (string? v)
+              v
+              (throw-invalid-data-value! state attr data-type v))
+    :number (if (number? v)
+              v
+              (throw-invalid-data-value! state attr data-type v))
+    :boolean (if (boolean? v)
+               v
+               (throw-invalid-data-value! state attr data-type v))
+    :date (cond (number? v)
+                (try
+                  (Instant/ofEpochMilli v)
+                  (catch Exception _e
+                    (throw-invalid-timestamp! state attr v)))
+
+                (string? v)
+                (try
+                  (Instant/parse v)
+                  (catch Exception _e
+                    (throw-invalid-date-string! state attr v)))
+
+                :else
+                (throw-invalid-data-value! state attr data-type v))
+    v))
+
+(defn assert-like-is-string! [state attr tag value]
+  (when (not= tag :string)
+    (ex/throw-validation-err!
+     :query
+     (:root state)
+     [{:expected? 'string?
+       :in (:in state)
+       :message (format "The $like value for `%s` must be a string, but the query got the value `%s` of type `%s`."
+                        (attr-model/fwd-friendly-name attr)
+                        (json/->json value)
+                        (json/json-type-of-clj value))}])))
+
+(defn coerced-type-comparison-value! [state attr attr-data-type tag value]
+  (case attr-data-type
+    :date (case tag
+            :number (try
+                      (Instant/ofEpochMilli value)
+                      (catch Exception _e
+                        (throw-invalid-timestamp! state attr value)))
+            :string (try
+                      (Instant/parse value)
+                      (catch Exception _e
+                        (throw-invalid-date-string! state attr value))))
+    (if-not (= tag attr-data-type)
+      (throw-invalid-data-value! state attr attr-data-type value)
+      value)))
+
+(defn coerce-v-single! [state attr data-type v]
+  (if (and (map? v)
+           (contains? v :$not))
+    (update v :$not (partial coerce-value-data-value! state attr data-type))
+    (coerce-value-data-value! state attr data-type v)))
+
+(defn coerced-value-with-checked-type! [state attr data-type v]
+  (if (set? v)
+    (set (map (partial coerce-v-single! state attr data-type) v))
+    (coerce-v-single! state attr data-type v)))
+
+(defn coerce-value-for-typed-comparison!
+  "Coerces the value for a typed comparison, throwing a validation error
+   if the attr doesn't support the comparison."
+  [state attr v]
+  (cond (symbol? v) v
+
+        (and (map? v)
+             (= (count v) 1)
+             (contains? #{:$gt :$gte :$lt :$lte :$like} (ffirst v)))
+        (let [[op [tag value]] (first v)
+              attr-data-type (assert-checked-attr-data-type! state attr)
+              state (update state :in conj op)]
+          (when (= op :$like)
+            (assert-like-is-string! state attr tag value))
+          {:$comparator
+           {:op op
+            :value (coerced-type-comparison-value! state attr attr-data-type tag value)
+            :data-type attr-data-type}})
+
+        :else
+        (if (and (:checked-data-type attr)
+                 (not (:checking-data-type? attr)))
+          (coerced-value-with-checked-type! state attr (:checked-data-type attr) v)
+          v)))
+
 (defn ->value-attr-pat
   "Take the where-cond:
    [\"users\" \"bookshelves\" \"books\" \"title\"] \"Foo\"
@@ -158,39 +353,48 @@
 
    [?books title-attr \"Foo\"]"
   [{:keys [state attrs]} level-sym value-etype value-level value-label v]
-  (let [{:keys [id value-type]}
-        (ex/assert-record!
-         (attr-model/seek-by-fwd-ident-name [value-etype value-label] attrs)
-         :attr
-         {:args [value-etype value-label]})
+  (let [fwd-attr (attr-model/seek-by-fwd-ident-name [value-etype value-label] attrs)
+        rev-attr (attr-model/seek-by-rev-ident-name [value-etype value-label] attrs)
+
+        {:keys [id value-type] :as attr}
+        (ex/assert-record! (or fwd-attr
+                               rev-attr)
+                           :attr
+                           {:args [value-etype value-label]})
         v-coerced (if (not= :ref value-type)
-                    v
+                    (let [state (update state :in conj :$ :where value-label)]
+                      (coerce-value-for-typed-comparison! state
+                                                          attr
+                                                          v))
                     (if (set? v)
                       (set (map (fn [vv]
-                                  (if-let [v-uuid (uuid-util/coerce vv)]
-                                    v-uuid
+                                  (if-let [v-coerced (coerce-value-uuid vv)]
+                                    v-coerced
                                     (ex/throw-validation-err!
                                      :query
                                      (:root state)
                                      [{:expected 'uuid?
-                                       :in (conj (:in state) [:$ :where value-label])
+                                       :in (conj (:in state) :$ :where value-label)
                                        :message (format "Expected %s to match on a uuid, found %s in %s"
                                                         value-label
                                                         (json/->json vv)
                                                         (json/->json v))}])))
                                 v))
 
-                      (if-let [v-uuid (uuid-util/coerce v)]
-                        v-uuid
+                      (if-let [v-coerced (coerce-value-uuid v)]
+                        v-coerced
                         (ex/throw-validation-err!
                          :query
                          (:root state)
                          [{:expected 'uuid?
-                           :in (conj (:in state) [:$ :where value-label])
+                           :in (conj (:in state) :$ :where value-label)
                            :message (format "Expected %s to be a uuid, got %s"
                                             value-label
                                             (json/->json v))}]))))]
-    [(level-sym value-etype value-level) id v-coerced]))
+    (if (and (= :ref value-type)
+             (= attr rev-attr))
+      [v-coerced id (level-sym value-etype value-level)]
+      [(level-sym value-etype value-level) id v-coerced])))
 
 (defn attr-pats->patterns-impl
   "Helper for attr-pats->patterns that allows recursion"
@@ -236,8 +440,8 @@
   (:pats (attr-pats->patterns-impl ctx #{} attr-pats)))
 
 (comment
-  (def attrs (attr-model/get-by-app-id aurora/conn-pool zeneca-app-id))
-  (def ctx {:db {:conn-pool aurora/conn-pool}
+  (def attrs (attr-model/get-by-app-id zeneca-app-id))
+  (def ctx {:db {:conn-pool (aurora/conn-pool)}
             :app-id zeneca-app-id
             :datalog-query-fn #'d/query
             :attrs attrs})

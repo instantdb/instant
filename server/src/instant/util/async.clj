@@ -2,8 +2,19 @@
   (:refer-clojure :exclude [future-call])
   (:require
    [clojure.core.async :as a]
+   [clojure.core.async.impl.buffers]
+   [clojure.core.async.impl.protocols :as a-impl]
+   [instant.gauges :as gauges]
    [instant.util.tracer :as tracer])
-  (:import [java.util.concurrent Executors ExecutorService]))
+  (:import
+   (java.util.concurrent ConcurrentHashMap
+                         Executors
+                         ExecutorService
+                         Future)
+   (clojure.core.async.impl.buffers FixedBuffer
+                                    DroppingBuffer
+                                    SlidingBuffer
+                                    PromiseBuffer)))
 
 (defmacro fut-bg
   "Futures only throw when de-referenced. fut-bg writes a future
@@ -29,8 +40,8 @@
                                          :escaping?   false
                                          :thread-name (.getName thread)}))))
 
-;; --------------- 
-;; virtual-threads 
+;; ---------------
+;; virtual-threads
 
 (def ^ExecutorService default-virtual-thread-executor (Executors/newVirtualThreadPerTaskExecutor))
 
@@ -45,26 +56,48 @@
         (catch java.util.concurrent.TimeoutException _
           timeout-val))))
 
+;; Keeps track of child futures so that we can cancel them if the
+;; parent is canceled.
+(def ^:dynamic *child-vfutures* nil)
+
 (defn future-call
   "Like clojure.core/future-call, but accepts an Executor"
-  [^ExecutorService executor f]
-  (let [f (bound-fn* f)
-        fut (.submit executor ^Callable f)]
-    (reify
-      clojure.lang.IDeref
-      (deref [_] (deref-future fut))
-      clojure.lang.IBlockingDeref
-      (deref
-        [_ timeout-ms timeout-val]
-        (deref-future fut timeout-ms timeout-val))
-      clojure.lang.IPending
-      (isRealized [_] (.isDone fut))
-      java.util.concurrent.Future
-      (get [_] (.get fut))
-      (get [_ timeout unit] (.get fut timeout unit))
-      (isCancelled [_] (.isCancelled fut))
-      (isDone [_] (.isDone fut))
-      (cancel [_ interrupt?] (.cancel fut interrupt?)))))
+  [^ExecutorService executor {:keys [dont-track-immediate-children?]} f]
+  (let [fut-id (Object.)
+        ;; Use a ConcurrentHashMap because it plays more nicely with
+        ;; virtual threads
+        children (ConcurrentHashMap.)
+        ^ConcurrentHashMap parent-vfutures *child-vfutures*
+        f (bound-fn* (^{:once true} fn* []
+                      (if dont-track-immediate-children?
+                        (f)
+                        (binding [*child-vfutures* children]
+                          (let [res (f)]
+                            (when parent-vfutures
+                              (.remove parent-vfutures fut-id))
+                            res)))))
+        fut (.submit executor ^Callable f)
+        wrapped-fut (reify
+                      clojure.lang.IDeref
+                      (deref [_] (deref-future fut))
+                      clojure.lang.IBlockingDeref
+                      (deref
+                          [_ timeout-ms timeout-val]
+                          (deref-future fut timeout-ms timeout-val))
+                      clojure.lang.IPending
+                      (isRealized [_] (.isDone fut))
+                      java.util.concurrent.Future
+                      (get [_] (.get fut))
+                      (get [_ timeout unit] (.get fut timeout unit))
+                      (isCancelled [_] (.isCancelled fut))
+                      (isDone [_] (.isDone fut))
+                      (cancel [_ interrupt?]
+                        (doseq [^Future child (.values children)]
+                          (.cancel child interrupt?))
+                        (.cancel fut interrupt?)))]
+    (when parent-vfutures
+      (.put parent-vfutures fut-id wrapped-fut))
+    wrapped-fut))
 
 (defmacro vfuture
   "Takes a body of expressions and yields a future object that will
@@ -73,7 +106,7 @@
   not yet finished, calls to deref/@ will block, unless the variant of
   deref with timeout is used. See also - realized?."
   [& body]
-  `(future-call default-virtual-thread-executor (^{:once true} fn* [] ~@body)))
+  `(future-call default-virtual-thread-executor nil (^{:once true} fn* [] ~@body)))
 
 (defn vfuture-pmap
   "Like pmap, but uses vfutures to parallelize the work.
@@ -89,6 +122,25 @@
   [f coll]
   (let [futs (mapv #(vfuture (f %)) coll)]
     (mapv deref futs)))
+
+(defmacro vfut-bg
+  "Futures only throw when de-referenced. vfut-bg writes a future with a
+  top-level try-catch, so you can run code asynchronously, without
+  _ever_ de-referencing them"
+  [& forms]
+  `(future-call
+    default-virtual-thread-executor
+    ;; These aren't regularly canceled, so don't incur the
+    ;; overhead of tracking child futures
+    {:dont-track-immediate-children? true}
+    (^{:once true} fn* []
+     (try
+       ~@forms
+       (catch Exception e#
+         (tracer/record-exception-span! e# {:name "vfut-bg"
+                                            :escaping?  true
+                                            :attributes {:forms (pr-str '~forms)}})
+         (throw e#))))))
 
 ;; ----
 ;; core.async
@@ -106,3 +158,51 @@
                 timeout-ch :timeout))))))
 
 
+(defn buf-capacity [buf]
+  (cond (instance? FixedBuffer buf)
+        (.n ^FixedBuffer buf)
+
+        (instance? SlidingBuffer buf)
+        (.n ^SlidingBuffer buf)
+
+        (instance? DroppingBuffer buf)
+        (.n ^DroppingBuffer buf)
+
+        (instance? PromiseBuffer buf)
+        1
+
+        :else -1))
+
+(defn gauged-chan
+  "Creates a channel that will publish its size in gauges.
+   chan-name should be a namespaced keyword, e.g. ::my-channel
+
+   There's a small cost to setting it up and it adds 3 attrs per
+   channel, so should be used sparingling with long-running channels."
+  ([chan-name] (gauged-chan chan-name nil))
+  ([chan-name buf-or-n] (gauged-chan chan-name buf-or-n nil))
+  ([chan-name buf-or-n xform] (gauged-chan chan-name buf-or-n xform nil))
+  ([chan-name buf-or-n xform ex-handler]
+   (assert (keyword? chan-name) "chan-name must be a namespaced keyword")
+   (assert (namespace chan-name) "chan-name must be a namespaced keyword")
+   (when xform (assert buf-or-n "buffer must be supplied when transducer is"))
+   (let [buf-or-n (or buf-or-n 1)
+         buf (if (number? buf-or-n) (a/buffer buf-or-n) buf-or-n)
+         chan (a/chan xform ex-handler)]
+     (gauges/add-gauge-metrics-fn
+      (fn [{:keys [cleanup]}]
+        (if (a-impl/closed? chan)
+          (cleanup)
+          [{:path (format "%s.%s.count"
+                          (namespace chan-name)
+                          (name chan-name))
+            :value (count buf)}
+           {:path (format "%s.%s.capacity"
+                          (namespace chan-name)
+                          (name chan-name))
+            :value (buf-capacity buf)}
+           {:path (format "%s.%s.full"
+                          (namespace chan-name)
+                          (name chan-name))
+            :value (a-impl/full? buf)}])))
+     chan)))

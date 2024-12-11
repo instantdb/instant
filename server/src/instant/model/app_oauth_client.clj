@@ -1,23 +1,24 @@
 (ns instant.model.app-oauth-client
-  (:require [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
-            [instant.util.crypt :as crypt-util]
-            [instant.util.uuid :as uuid-util]
-            [instant.auth.oauth :as oauth]
-            [instant.util.exception :as ex])
+  (:require
+   [instant.auth.oauth :as oauth]
+   [instant.jdbc.aurora :as aurora]
+   [instant.system-catalog-ops :refer [query-op update-op]]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.exception :as ex]
+   [instant.util.uuid :as uuid-util])
   (:import
-   (java.util UUID)
-   (instant.util.crypt Secret)))
+   (instant.util.crypt Secret)
+   (java.util UUID)))
+
+(def etype "$oauthClients")
 
 (defn create!
-  ([params] (create! aurora/conn-pool params))
+  ([params] (create! (aurora/conn-pool) params))
   ([conn {:keys [app-id
                  provider-id
                  client-name
                  client-id
                  client-secret
-                 authorization-endpoint
-                 token-endpoint
                  discovery-endpoint
                  meta]}]
    (when discovery-endpoint
@@ -35,62 +36,59 @@
           :discovery-endpoint
           discovery-endpoint
           [{:message "Could not validate discovery endpoint."}]))))
-   (let [id (UUID/randomUUID)]
-     (sql/execute-one!
+   (let [id (UUID/randomUUID)
+
+         enc-client-secret
+         (when client-secret
+           (crypt-util/aead-encrypt {:plaintext (.getBytes client-secret)
+                                     :associated-data (uuid-util/->bytes id)}))]
+     (update-op
       conn
-      ["INSERT INTO app_oauth_clients
-       (id,
-        app_id,
-        provider_id,
-        client_name,
-        client_id,
-        client_secret,
-        authorization_endpoint,
-        token_endpoint,
-        discovery_endpoint,
-        meta
-       )
-       VALUES (?::uuid, ?::uuid, ?::uuid, ?, ?, ?, ?, ?, ?, ?)"
-       id
-       app-id
-       provider-id
-       client-name
-       client-id
-       (when client-secret
-         (crypt-util/aead-encrypt {:plaintext (.getBytes client-secret)
-                                   :associated-data (uuid-util/->bytes id)}))
-       authorization-endpoint
-       token-endpoint
-       discovery-endpoint
-       meta]))))
+      {:app-id app-id
+       :etype etype}
+      (fn [{:keys [transact! resolve-id get-entity]}]
+        (transact! [[:add-triple id (resolve-id :id) id]
+                    [:add-triple id (resolve-id :$oauthProvider) provider-id]
+                    [:add-triple id (resolve-id :name) client-name]
+                    [:add-triple id (resolve-id :clientId) client-id]
+                    [:add-triple
+                     id
+                     (resolve-id :encryptedClientSecret)
+                     (when enc-client-secret
+                       (crypt-util/bytes->hex-string enc-client-secret))]
+                    [:add-triple id (resolve-id :discoveryEndpoint) discovery-endpoint]
+                    [:add-triple id (resolve-id :meta) meta]])
+        (get-entity id))))))
 
 (defn get-by-id
-  ([params] (get-by-id aurora/conn-pool params))
-  ([conn {:keys [id]}]
-   (sql/select-one
-    conn
-    ["SELECT * from app_oauth_clients where id = ?::uuid"
-     id])))
+  ([params] (get-by-id (aurora/conn-pool) params))
+  ([conn {:keys [app-id id]}]
+   (query-op conn
+             {:app-id app-id
+              :etype etype}
+             (fn [{:keys [get-entity]}]
+               (get-entity id)))))
 
 (defn get-by-client-name
-  ([params] (get-by-client-name aurora/conn-pool params))
+  ([params] (get-by-client-name (aurora/conn-pool) params))
   ([conn {:keys [app-id client-name]}]
-   (sql/select-one
-    conn
-    ["SELECT * from app_oauth_clients
-       where app_id = ?::uuid and client_name = ?"
-     app-id client-name])))
+   (query-op conn
+             {:app-id app-id
+              :etype etype}
+             (fn [{:keys [get-entity resolve-id]}]
+               (get-entity [(resolve-id :name) client-name])))))
 
 (defn get-by-client-name! [params]
   (ex/assert-record! (get-by-client-name params) :app-oauth-client {:args [params]}))
 
 (defn delete-by-id!
-  ([params] (delete-by-id! aurora/conn-pool params))
+  ([params] (delete-by-id! (aurora/conn-pool) params))
   ([conn {:keys [id app-id]}]
-   (sql/execute-one!
-    conn
-    ["DELETE FROM app_oauth_clients WHERE id = ?::uuid AND app_id = ?::uuid"
-     id app-id])))
+   (update-op conn
+              {:app-id app-id
+               :etype etype}
+              (fn [{:keys [delete-entity!]}]
+                (delete-entity! id)))))
 
 (defn delete-by-id-ensure!
   [& args]

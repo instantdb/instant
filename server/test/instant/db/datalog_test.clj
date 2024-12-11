@@ -22,7 +22,7 @@
   (let [res (resolvers/walk-friendly
              @r
              (d/query
-              {:db {:conn-pool aurora/conn-pool}
+              {:db {:conn-pool (aurora/conn-pool)}
                :app-id movies-app-id
                :datalog-loader (d/make-loader)}
               q))]
@@ -30,14 +30,14 @@
 
 (deftest patterns
   (testing "named patterns are verbose raw patterns"
-    (is (= '([:pattern {:idx :eav, :e [:variable ?a], :a [:variable ?b], :v [:variable ?c] :created-at [:any _]}]
-             [:pattern {:idx :ea, :e [:variable ?c], :a [:variable ?d], :v [:variable ?e] :created-at [:any _]}])
+    (is (= '([:pattern {:idx [:keyword :eav], :e [:variable ?a], :a [:variable ?b], :v [:variable ?c] :created-at [:any _]}]
+             [:pattern {:idx [:keyword :ea], :e [:variable ?c], :a [:variable ?d], :v [:variable ?e] :created-at [:any _]}])
            (d/->named-patterns '[[:eav ?a ?b ?c] [:ea ?c ?d ?e]]))))
   (testing "named patterns coerce values into sets"
-    (is (= '([:pattern {:idx :av, :e [:any _], :a [:variable ?a], :v [:constant #{5}] :created-at [:any _]}])
+    (is (= '([:pattern {:idx [:keyword :av], :e [:any _], :a [:variable ?a], :v [:constant #{5}] :created-at [:any _]}])
            (d/->named-patterns '[[:av _ ?a 5]]))))
   (testing "named patterns add wildcards for missing params"
-    (is (= '([:pattern {:idx :vae, :e [:any _], :a [:any _], :v [:any _] :created-at [:any _]}])
+    (is (= '([:pattern {:idx [:keyword :vae], :e [:any _], :a [:any _], :v [:any _] :created-at [:any _]}])
            (d/->named-patterns '[[:vae]])))))
 
 (deftest pats->coarse-topics
@@ -121,7 +121,7 @@
         clojure.lang.ExceptionInfo
         #"Invalid input"
         (d/query
-         {:db {:conn-pool aurora/conn-pool}
+         {:db {:conn-pool (aurora/conn-pool)}
           :app-id movies-app-id}
          [bad-pat])))))
   (testing "throws on unjoinable patterns"
@@ -130,7 +130,7 @@
       java.lang.AssertionError
       #"Pattern is not joinable"
       (d/query
-       {:db {:conn-pool aurora/conn-pool}
+       {:db {:conn-pool (aurora/conn-pool)}
         :app-id movies-app-id}
        '[[:ea ?a ?b ?c]
          [:ea ?d ?e ?f]])))))
@@ -140,7 +140,7 @@
     (testing "query pads with _"
       (is (= #{"Tina Turner" "1939-11-26T00:00:00Z"}
              (->> (d/query
-                   {:db {:conn-pool aurora/conn-pool}
+                   {:db {:conn-pool (aurora/conn-pool)}
                     :app-id  movies-app-id}
                    [[:ea tina-turner-eid]])
                   :join-rows
@@ -148,7 +148,7 @@
                   set))))
     (testing "ref values come back as uuids"
       (let [vs (->> (d/query
-                     {:db {:conn-pool aurora/conn-pool}
+                     {:db {:conn-pool (aurora/conn-pool)}
                       :app-id movies-app-id}
                      [[:eav '?e '?a tina-turner-eid]])
                     :join-rows
@@ -158,6 +158,8 @@
 
 (deftest batching-queries
   (let [app-id movies-app-id
+        ctx {:db {:conn-pool (aurora/conn-pool)}
+             :app-id app-id}
         movie-title-aid (resolvers/->uuid @r :movie/title)
         movie-director-aid (resolvers/->uuid @r :movie/director)
         person-name-aid (resolvers/->uuid @r :person/name)
@@ -168,7 +170,6 @@
         patterns-2 [[:ea '?director person-name-aid "John McTiernan"]
                     [:vae '?movie movie-director-aid '?director]
                     [:ea '?movie movie-title-aid '?title]]
-
 
         named-ps-1 (d/->named-patterns patterns-1)
 
@@ -183,7 +184,7 @@
                  1708623782646]]}
              (resolvers/walk-friendly
               @r
-              (:join-rows (d/send-query-single aurora/conn-pool app-id named-ps-1)))))
+              (:join-rows (d/send-query-single ctx (aurora/conn-pool) app-id named-ps-1)))))
       (is (= #{[["eid-john-mctiernan" :person/name "John McTiernan" 1708623782646]
                 ["eid-die-hard" :movie/director "eid-john-mctiernan" 1708623782646]
                 ["eid-die-hard" :movie/title "Die Hard" 1708623782646]]
@@ -192,7 +193,7 @@
                 ["eid-predator" :movie/title "Predator" 1708623782646]]}
              (resolvers/walk-friendly
               @r
-              (:join-rows (d/send-query-single aurora/conn-pool app-id named-ps-2))))))
+              (:join-rows (d/send-query-single ctx (aurora/conn-pool) app-id named-ps-2))))))
     (testing "send-query-batched"
       (is (= [#{[["eid-predator" :movie/title "Predator" 1708623782646]
                  ["eid-predator" :movie/director "eid-john-mctiernan" 1708623782646]
@@ -208,8 +209,8 @@
                  ["eid-predator" :movie/title "Predator" 1708623782646]]}]
              (resolvers/walk-friendly
               @r
-              (map :join-rows (d/send-query-batch aurora/conn-pool [[app-id named-ps-1]
-                                                                    [app-id named-ps-2]]))))))))
+              (map :join-rows (d/send-query-batch ctx (aurora/conn-pool) [[app-id named-ps-1]
+                                                                        [app-id named-ps-2]]))))))))
 
 (def ^:dynamic *count-atom* nil)
 
@@ -218,10 +219,13 @@
      ;; with-redefs rebinds globally, this binding trick will make sure
      ;; anything happening in parallel doesn't affect our count
      (binding [*count-atom* ~count-atom]
-       (with-redefs [sql/select-arrays (fn [conn# query#]
-                                         (when *count-atom*
-                                           (swap! *count-atom* inc))
-                                         (select-arrays# conn# query#))]
+       (with-redefs [sql/select-arrays (fn
+                                         ([tag# conn# query#]
+                                          (sql/select-arrays tag# conn# query# nil))
+                                         ([tag# conn# query# opts#]
+                                          (when *count-atom*
+                                            (swap! *count-atom* inc))
+                                          (select-arrays# tag# conn# query# opts#)))]
          ~@body))))
 
 (deftest queries
@@ -378,7 +382,6 @@
 
             (testing "we only make a single sql query for both d/query calls"
               (is (= @counts 1)))))))))
-
 
 (comment
   (test/run-tests *ns*))

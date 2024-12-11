@@ -4,10 +4,11 @@
    [clojure.tools.logging :as log]
    [clojure.string :as string]
    [instant.config :as config])
-  (:import [io.opentelemetry.sdk.common CompletableResultCode]
-           [io.opentelemetry.sdk.trace.export SpanExporter]
-           [java.util.concurrent TimeUnit]
-           [java.util.concurrent.atomic AtomicBoolean]))
+  (:import (io.opentelemetry.api.common AttributeKey)
+           (io.opentelemetry.sdk.common CompletableResultCode)
+           (io.opentelemetry.sdk.trace.export SpanExporter)
+           (java.util.concurrent TimeUnit)
+           (java.util.concurrent.atomic AtomicBoolean)))
 
 ;; -------
 ;; Colors 
@@ -52,7 +53,8 @@
                   "host.name"
                   "detailed_query"
                   "detailed_patterns"
-                  "detailed_tx_steps"})
+                  "detailed_tx_steps"
+                  "process_id"})
 
 (defn exclude? [[k]]
   (or (exclude-ks k)
@@ -64,8 +66,7 @@
       ;; every span. This is too noisy for stdout
       (string/starts-with? k "jvm.")
       ;; gauge metrics for a namespace
-      (and (not= :prod (config/get-env))
-           (string/starts-with? k "instant."))))
+      (string/starts-with? k "instant.")))
 
 (defn format-attr-value
   "Formats attr values for logs."
@@ -114,8 +115,38 @@
             (cond-> data-str
               (= :prod (config/get-env)) escape-newlines))))
 
+(def op-attr-key (AttributeKey/stringKey "op"))
+
+(def exclude-span?
+  (if (= :prod (config/get-env))
+    (fn [span]
+      (case (.getName span)
+        ("ws/send-json!"
+         "handle-refresh/send-event!"
+         "store/record-datalog-query-finish!"
+         "store/record-datalog-query-start!"
+         "store/swap-datalog-cache-delay!"
+         "store/bump-instaql-version!"
+         "store/add-instaql-query!") true
+
+        ("receive-worker/handle-event"
+         "receive-worker/handle-receive")
+        (case (-> (.getAttributes span)
+                  (.get op-attr-key))
+          (":set-presence"
+           ":refresh-presence"
+           ":server-broadcast"
+           ":client-broadcast") true
+
+          false)
+
+        false))
+    (fn [_span]
+      false)))
+
 (defn log-spans [spans]
-  (doseq [span spans]
+  (doseq [span spans
+          :when (not (exclude-span? span))]
     (log/info (span-str span))))
 
 (defn export [shutdown? spans]

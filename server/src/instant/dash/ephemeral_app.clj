@@ -48,7 +48,8 @@
   (let [title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
         rules-code (get-in req [:body :rules :code])
         _ (when rules-code
-            (ex/assert-valid! :rule rules-code (rule-model/validation-errors rules-code)))
+            (ex/assert-valid! :rule rules-code (rule-model/validation-errors
+                                                rules-code)))
         app (create! {:title title})]
     (when rules-code
       (rule-model/put! {:app-id (:id app)

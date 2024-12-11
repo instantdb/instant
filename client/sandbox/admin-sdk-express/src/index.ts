@@ -228,6 +228,11 @@ async function testSuperadminAppsFlow() {
   await testSuperadminListApps();
 }
 
+async function generateMagicCode() {
+  const r = await db.auth.generateMagicCode("hi@marky.fyi");
+  console.log(r);
+}
+
 // testSuperadminListApps();
 // testSuperadminCreateApp("Test App");
 // testSuperadminDeleteApp("a3203638-7869-40cb-b21f-bb093342a461");

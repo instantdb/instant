@@ -22,6 +22,12 @@
       :test
       :dev)))
 
+(defonce process-id
+  (delay
+    (str (name (get-env))
+         "_"
+         (string/replace (UUID/randomUUID) #"-" "_"))))
+
 (def config-map
   (delay (do
            ;; init-hybrid because we might need it to decrypt the config
@@ -36,11 +42,17 @@
 (defn instant-config-app-id []
   (-> @config-map :instant-config-app-id))
 
+(defn s3-storage-access-key []
+  (some-> @config-map :s3-storage-access-key crypt-util/secret-value))
+
+(defn s3-storage-secret-key []
+  (some-> @config-map :s3-storage-secret-key crypt-util/secret-value))
+
 (defn postmark-token []
-  (some-> @config-map :postmark-token (.value)))
+  (some-> @config-map :postmark-token crypt-util/secret-value))
 
 (defn postmark-account-token []
-  (some-> @config-map :postmark-account-token (.value)))
+  (some-> @config-map :postmark-account-token crypt-util/secret-value))
 
 (defn postmark-send-enabled? []
   (not (string/blank? (postmark-token))))
@@ -49,13 +61,16 @@
   (not (string/blank? (postmark-account-token))))
 
 (defn secret-discord-token []
-  (some-> @config-map :secret-discord-token (.value)))
+  (some-> @config-map :secret-discord-token crypt-util/secret-value))
 
 (defn discord-enabled? []
   (not (string/blank? (secret-discord-token))))
 
 (def discord-signups-channel-id
   "1235663275144908832")
+
+(def discord-teams-channel-id
+  "1196584090552512592")
 
 (def discord-debug-channel-id
   "1235659966627582014")
@@ -66,8 +81,6 @@
 (def instant-on-instant-app-id
   (when-let [app-id (System/getenv "INSTANT_ON_INSTANT_APP_ID")]
     (parse-uuid app-id)))
-
-(def drop-refresh-spam? (= "true" (System/getenv "DROP_REFRESH_SPAM")))
 
 (defn db-url->config [url]
   (cond (string/starts-with? url "jdbc")
@@ -88,17 +101,25 @@
         :else
         (throw (Exception. "Invalid database connection string. Expected either a JDBC url or a postgres url."))))
 
-(defn get-aurora-config
-  ([] (get-aurora-config {:env (get-env)}))
-  ([{:keys [env]}]
-   (let [application-name (uri/query-encode (format "instant server; host: %s, env: %s"
-                                                    (get-hostname)
-                                                    (name env)))
-         url (or (System/getenv "DATABASE_URL")
-                 (some-> @config-map :database-url (.value))
-                 "jdbc:postgresql://localhost:5432/instant")]
-     (assoc (db-url->config url)
-            :ApplicationName application-name))))
+(defn get-aurora-config []
+  (let [application-name (uri/query-encode (format "%s, %s"
+                                                   (get-hostname)
+                                                   @process-id))
+        url (or (System/getenv "DATABASE_URL")
+                (some-> @config-map :database-url crypt-util/secret-value)
+                "jdbc:postgresql://localhost:5432/instant")]
+    (assoc (db-url->config url)
+           :ApplicationName application-name)))
+
+(defn get-next-aurora-config []
+  (let [application-name (uri/query-encode (format "%s, %s"
+                                                   (get-hostname)
+                                                   @process-id))
+        url (or (System/getenv "NEXT_DATABASE_URL")
+                (some-> @config-map :next-database-url crypt-util/secret-value))]
+    (when url
+      (assoc (db-url->config url)
+             :ApplicationName application-name))))
 
 ;; ---
 ;; Stripe
@@ -106,10 +127,10 @@
   ;; Add an override from the environment because we need
   ;; it for the tests (populated at https://github.com/jsventures/instant/settings/secrets/actions)
   (or (System/getenv "STRIPE_API_KEY")
-      (some-> @config-map :stripe-secret (.value))))
+      (some-> @config-map :stripe-secret crypt-util/secret-value)))
 
 (defn stripe-webhook-secret []
-  (-> @config-map :stripe-webhook-secret (.value)))
+  (-> @config-map :stripe-webhook-secret crypt-util/secret-value))
 
 (defn stripe-success-url
   ([] (stripe-success-url {:env (get-env)}))
@@ -135,7 +156,7 @@
      test-pro-subscription)))
 
 (defn get-honeycomb-api-key []
-  (some-> @config-map :honeycomb-api-key (.value)))
+  (some-> @config-map :honeycomb-api-key crypt-util/secret-value))
 
 (defn get-honeycomb-endpoint []
   (or (System/getenv "HONEYCOMB_ENDPOINT")
@@ -154,12 +175,6 @@
    (case env
      :prod "https://instantdb.com"
      "http://localhost:3000")))
-
-(defonce process-id
-  (delay
-    (str (name (get-env))
-         "_"
-         (string/replace (UUID/randomUUID) #"-" "_"))))
 
 (defn get-connection-pool-size []
   (if (= :prod (get-env)) 400 20))

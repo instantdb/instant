@@ -1,14 +1,15 @@
 import { id } from '@instantdb/core';
 import { InstantReactWeb } from '@instantdb/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/solid';
-import { successToast } from '@/lib/toast';
+import { errorToast, successToast } from '@/lib/toast';
 import {
   ActionButton,
   ActionForm,
   Button,
   Checkbox,
   Content,
+  InfoTip,
   Select,
   TextInput,
   ToggleGroup,
@@ -18,25 +19,44 @@ import {
   relationshipConstraints,
   relationshipConstraintsInverse,
 } from '@/lib/relationships';
-import { DBAttr, SchemaAttr, SchemaNamespace } from '@/lib/types';
+import {
+  CheckedDataType,
+  DBAttr,
+  InstantIndexingJob,
+  InstantIndexingJobInvalidTriple,
+  SchemaAttr,
+  SchemaNamespace,
+} from '@/lib/types';
 import { RelationshipConfigurator } from '@/components/dash/explorer/RelationshipConfigurator';
+import { createJob, jobFetchLoop } from '@/lib/indexingJobs';
+import { useAuthToken } from '@/lib/auth';
+import type { PushNavStack } from './Explorer';
+import { useClose } from '@headlessui/react';
 
 export function EditNamespaceDialog({
   db,
+  appId,
   namespace,
   namespaces,
   onClose,
+  readOnly,
+  isSystemCatalogNs,
+  pushNavStack,
 }: {
   db: InstantReactWeb;
+  appId: string;
   namespace: SchemaNamespace;
   namespaces: SchemaNamespace[];
   onClose: (p?: { ok: boolean }) => void;
+  readOnly: boolean;
+  isSystemCatalogNs: boolean;
+  pushNavStack: PushNavStack;
 }) {
   const [screen, setScreen] = useState<
     | { type: 'main' }
     | { type: 'delete' }
     | { type: 'add' }
-    | { type: 'edit'; attr: SchemaAttr }
+    | { type: 'edit'; attrId: string }
   >({ type: 'main' });
 
   async function deleteNs() {
@@ -44,6 +64,12 @@ export function EditNamespaceDialog({
     await db._core._reactor.pushOps(ops);
     onClose({ ok: true });
   }
+
+  const screenAttrId = screen.type === 'edit' ? screen.attrId : null;
+
+  const screenAttr = useMemo(() => {
+    return namespace.attrs.find((a) => a.id === screenAttrId);
+  }, [screenAttrId, namespace.attrs]);
 
   return (
     <>
@@ -54,6 +80,12 @@ export function EditNamespaceDialog({
               {namespace.name}
             </h5>
             <Button
+              disabled={isSystemCatalogNs}
+              title={
+                isSystemCatalogNs
+                  ? `The ${namespace.name} namespace can't be deleted.`
+                  : undefined
+              }
               size="mini"
               variant="secondary"
               onClick={() => setScreen({ type: 'delete' })}
@@ -75,7 +107,7 @@ export function EditNamespaceDialog({
                     className="px-2"
                     size="mini"
                     variant="subtle"
-                    onClick={() => setScreen({ type: 'edit', attr })}
+                    onClick={() => setScreen({ type: 'edit', attrId: attr.id })}
                   >
                     Edit
                   </Button>
@@ -86,6 +118,12 @@ export function EditNamespaceDialog({
 
           <div>
             <Button
+              disabled={isSystemCatalogNs}
+              title={
+                isSystemCatalogNs
+                  ? `Attributes can't be added to the ${namespace.name} namespace directly. You can still create links to them by adding the links from one of your namespaces.`
+                  : undefined
+              }
               size="mini"
               variant="secondary"
               onClick={() => setScreen({ type: 'add' })}
@@ -108,11 +146,14 @@ export function EditNamespaceDialog({
           onClose={onClose}
           onConfirm={deleteNs}
         />
-      ) : screen.type === 'edit' ? (
+      ) : screen.type === 'edit' && screenAttr ? (
         <EditAttrForm
+          appId={appId}
+          isSystemCatalogNs={isSystemCatalogNs}
           db={db}
-          attr={screen.attr}
+          attr={screenAttr}
           onClose={() => setScreen({ type: 'main' })}
+          pushNavStack={pushNavStack}
         />
       ) : null}
     </>
@@ -178,6 +219,8 @@ function AddAttrForm({
 }) {
   const [isIndex, setIsIndex] = useState(false);
   const [isUniq, setIsUniq] = useState(false);
+  const [checkedDataType, setCheckedDataType] =
+    useState<CheckedDataType | null>(null);
   const [attrType, setAttrType] = useState<'blob' | 'ref'>('blob');
   const [relationship, setRelationship] =
     useState<RelationshipKinds>('many-many');
@@ -218,6 +261,7 @@ function AddAttrForm({
         cardinality: 'one',
         'unique?': isUniq,
         'index?': isIndex,
+        'checked-data-type': checkedDataType ?? undefined,
       };
 
       const ops = [['add-attr', attr]];
@@ -294,6 +338,46 @@ function AddAttrForm({
               />
             </div>
           </div>
+          <div className="flex flex-col gap-2">
+            <h6 className="text-md font-bold">Enforce type</h6>
+            <div className="flex gap-2">
+              <Select
+                value={checkedDataType || 'none'}
+                onChange={(v) => {
+                  if (!v) {
+                    return;
+                  }
+                  const { value } = v;
+                  if (value === 'none') {
+                    setCheckedDataType(null);
+                  }
+                  setCheckedDataType(value as CheckedDataType);
+                }}
+                options={[
+                  {
+                    label: 'Any (not enforced)',
+                    value: '',
+                  },
+                  {
+                    label: 'String',
+                    value: 'string',
+                  },
+                  {
+                    label: 'Number',
+                    value: 'number',
+                  },
+                  {
+                    label: 'Boolean',
+                    value: 'boolean',
+                  },
+                  {
+                    label: 'Date',
+                    value: 'date',
+                  },
+                ]}
+              />
+            </div>
+          </div>
         </>
       ) : attrType === 'ref' ? (
         <>
@@ -352,14 +436,611 @@ function AddAttrForm({
     </ActionForm>
   );
 }
+
+function jobWorkingStatus(job: InstantIndexingJob | null) {
+  if (
+    !job ||
+    (job.job_status !== 'processing' && job.job_status !== 'waiting')
+  ) {
+    return;
+  }
+
+  if (job.job_status === 'waiting') {
+    return 'Waiting for worker...';
+  }
+
+  if (!job.work_estimate) {
+    return 'Estimating work...';
+  }
+
+  const completed = Math.min(job.work_estimate, job.work_completed || 0);
+
+  const percent = Math.floor((completed / job.work_estimate) * 100);
+
+  return `${percent}% complete...`;
+}
+
+function InvalidTriplesSample({
+  job,
+  attr,
+  onClickSample,
+}: {
+  job: InstantIndexingJob | null;
+  attr: SchemaAttr;
+  onClickSample: (triple: InstantIndexingJobInvalidTriple) => void;
+}) {
+  if (!job?.invalid_triples_sample?.length) {
+    return;
+  }
+  return (
+    <div>
+      Here are the first few invalid entities we found:
+      <table className="mx-2 my-2 flex-1 text-left font-mono text-xs text-gray-500">
+        <thead className="bg-white text-gray-700">
+          <tr>
+            <th className="pr-2">id</th>
+            <th className="pr-2 max-w-fit">{attr.name}</th>
+            <th className="pr-2">type</th>
+          </tr>
+        </thead>
+        <tbody>
+          {job.invalid_triples_sample.slice(0, 3).map((t, i) => (
+            <tr
+              key={i}
+              className="cursor-pointer whitespace-nowrap rounded-md px-2 hover:bg-gray-200"
+              onClick={() => onClickSample(t)}
+            >
+              <td className="pr-2">
+                <pre>{t.entity_id}</pre>
+              </td>
+              <td className="pr-2 truncate" style={{ maxWidth: '12rem' }}>
+                {JSON.stringify(t.value)}
+              </td>
+              <td className="pr-2">{t.json_type}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function EditIndexed({
+  appId,
+  attr,
+  isSystemCatalogNs,
+  pushNavStack,
+}: {
+  appId: string;
+  attr: SchemaAttr;
+  isSystemCatalogNs: boolean;
+  pushNavStack: PushNavStack;
+}) {
+  const token = useAuthToken();
+  const [indexChecked, setIndexChecked] = useState(attr.isIndex);
+  const [indexingJob, setIndexingJob] = useState<InstantIndexingJob | null>(
+    null,
+  );
+
+  const stopFetchLoop = useRef<null | (() => void)>(null);
+
+  useEffect(() => {
+    return () => stopFetchLoop.current?.();
+  }, [stopFetchLoop]);
+  const updateIndexed = async () => {
+    if (!token || indexChecked === attr.isIndex) {
+      return;
+    }
+    stopFetchLoop.current?.();
+    const friendlyName = `${attr.namespace}.${attr.name}`;
+    try {
+      const job = await createJob(
+        {
+          appId,
+          attrId: attr.id,
+          jobType: indexChecked ? 'index' : 'remove-index',
+        },
+        token,
+      );
+      setIndexingJob(job);
+      const fetchLoop = jobFetchLoop(appId, job.id, token);
+      stopFetchLoop.current = fetchLoop.stop;
+      const finishedJob = await fetchLoop.start((data, error) => {
+        if (error) {
+          errorToast(`Unexpected error while indexing ${friendlyName}.`);
+        }
+        if (data) {
+          setIndexingJob(data);
+        }
+      });
+      if (finishedJob) {
+        if (finishedJob.job_status === 'completed') {
+          successToast(
+            indexChecked
+              ? `Indexed ${friendlyName}.`
+              : `Removed index from ${friendlyName}.`,
+          );
+          return;
+        }
+        if (finishedJob.job_status === 'canceled') {
+          errorToast('Indexing was canceled.');
+          return;
+        }
+        if (finishedJob.job_status === 'errored') {
+          if (finishedJob.error === 'invalid-triple-error') {
+            errorToast(`Found invalid data while updating ${friendlyName}.`);
+            return;
+          }
+          errorToast(`Encountered an error while updating ${friendlyName}.`);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      errorToast(`Unexpected error while updating ${friendlyName}`);
+    }
+  };
+
+  const valueNotChanged = indexChecked === attr.isIndex;
+
+  const buttonDisabled = isSystemCatalogNs || valueNotChanged;
+
+  const closeDialog = useClose();
+
+  return (
+    <ActionForm className="flex flex-col gap-1">
+      <div className="flex gap-2">
+        <Checkbox
+          disabled={isSystemCatalogNs}
+          title={
+            isSystemCatalogNs
+              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+              : undefined
+          }
+          checked={indexChecked}
+          onChange={(enabled) => setIndexChecked(enabled)}
+          label={
+            <span>
+              <strong>Index this attribute</strong> to improve lookup
+              performance of values
+            </span>
+          }
+        />
+      </div>
+
+      {indexingJob?.error === 'triple-too-large-error' ? (
+        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+          <div>Some of the existing data is too large to index. </div>
+          <InvalidTriplesSample
+            job={indexingJob}
+            attr={attr}
+            onClickSample={(t) => {
+              pushNavStack({
+                namespace: attr.namespace,
+                where: ['id', t.entity_id],
+              });
+              // It would be nice to have a way to minimize the dialog so you could go back
+              closeDialog();
+            }}
+          />
+        </div>
+      ) : null}
+
+      <ActionButton
+        type="submit"
+        label={
+          valueNotChanged
+            ? indexChecked
+              ? 'Indexed'
+              : 'Not indexed'
+            : indexChecked
+              ? 'Index attribute'
+              : 'Remove index'
+        }
+        submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
+        errorMessage="Failed to update attribute"
+        disabled={buttonDisabled}
+        title={
+          isSystemCatalogNs
+            ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+            : undefined
+        }
+        onClick={updateIndexed}
+      />
+    </ActionForm>
+  );
+}
+
+function EditUnique({
+  appId,
+  attr,
+  isSystemCatalogNs,
+  pushNavStack,
+}: {
+  appId: string;
+  attr: SchemaAttr;
+  isSystemCatalogNs: boolean;
+  pushNavStack: PushNavStack;
+}) {
+  const token = useAuthToken();
+  const [uniqueChecked, setUniqueChecked] = useState(attr.isUniq);
+  const [indexingJob, setIndexingJob] = useState<InstantIndexingJob | null>(
+    null,
+  );
+
+  const stopFetchLoop = useRef<null | (() => void)>(null);
+
+  useEffect(() => {
+    return () => stopFetchLoop.current?.();
+  }, [stopFetchLoop]);
+  const updateUniqueness = async () => {
+    if (!token || uniqueChecked === attr.isUniq) {
+      return;
+    }
+    stopFetchLoop.current?.();
+    const friendlyName = `${attr.namespace}.${attr.name}`;
+    try {
+      const job = await createJob(
+        {
+          appId,
+          attrId: attr.id,
+          jobType: uniqueChecked ? 'unique' : 'remove-unique',
+        },
+        token,
+      );
+      setIndexingJob(job);
+      const fetchLoop = jobFetchLoop(appId, job.id, token);
+      stopFetchLoop.current = fetchLoop.stop;
+      const finishedJob = await fetchLoop.start((data, error) => {
+        if (error) {
+          errorToast(`Unexpected error while indexing ${friendlyName}.`);
+        }
+        if (data) {
+          setIndexingJob(data);
+        }
+      });
+      if (finishedJob) {
+        if (finishedJob.job_status === 'completed') {
+          successToast(
+            uniqueChecked
+              ? `Enforced uniqueness constraint for ${friendlyName}.`
+              : `Removed uniqueness constraint from ${friendlyName}.`,
+          );
+          return;
+        }
+        if (finishedJob.job_status === 'canceled') {
+          errorToast('Indexing was canceled.');
+          return;
+        }
+        if (finishedJob.job_status === 'errored') {
+          if (finishedJob.error === 'invalid-triple-error') {
+            errorToast(`Found invalid data while updating ${friendlyName}.`);
+            return;
+          }
+          errorToast(`Encountered an error while updating ${friendlyName}.`);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      errorToast(`Unexpected error while updating ${friendlyName}`);
+    }
+  };
+
+  const valueNotChanged = uniqueChecked === attr.isUniq;
+
+  const buttonDisabled = isSystemCatalogNs || valueNotChanged;
+
+  const closeDialog = useClose();
+
+  return (
+    <ActionForm className="flex flex-col gap-1">
+      <div className="flex gap-2">
+        <Checkbox
+          disabled={isSystemCatalogNs}
+          title={
+            isSystemCatalogNs
+              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+              : undefined
+          }
+          checked={uniqueChecked}
+          onChange={(enabled) => setUniqueChecked(enabled)}
+          label={
+            <span>
+              <strong>Enforce uniqueness</strong> so no two entities can have
+              the same value for this attribute
+            </span>
+          }
+        />
+      </div>
+
+      {indexingJob?.error === 'triple-not-unique-error' ? (
+        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+          <div>Some of the existing data is not unique. </div>
+          {indexingJob.invalid_unique_value != null ? (
+            <div>
+              Found{' '}
+              <span
+                className={
+                  typeof indexingJob.invalid_unique_value === 'object'
+                    ? ''
+                    : 'cursor-pointer underline'
+                }
+                onClick={
+                  typeof indexingJob.invalid_unique_value === 'object'
+                    ? undefined
+                    : () => {
+                        pushNavStack({
+                          namespace: attr.namespace,
+                          where: [attr.name, indexingJob.invalid_unique_value],
+                        });
+                        // It would be nice to have a way to minimize the dialog so you could go back
+                        closeDialog();
+                      }
+                }
+              >
+                multiple entities with value{' '}
+                <code>{JSON.stringify(indexingJob.invalid_unique_value)}</code>
+              </span>
+              .
+            </div>
+          ) : null}
+          <InvalidTriplesSample
+            job={indexingJob}
+            attr={attr}
+            onClickSample={(t) => {
+              pushNavStack({
+                namespace: attr.namespace,
+                where: ['id', t.entity_id],
+              });
+              // It would be nice to have a way to minimize the dialog so you could go back
+              closeDialog();
+            }}
+          />
+        </div>
+      ) : null}
+
+      {indexingJob?.error === 'triple-too-large-error' ? (
+        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+          <div>Some of the existing data is too large to index. </div>
+          <InvalidTriplesSample
+            job={indexingJob}
+            attr={attr}
+            onClickSample={(t) => {
+              pushNavStack({
+                namespace: attr.namespace,
+                where: ['id', t.entity_id],
+              });
+              // It would be nice to have a way to minimize the dialog so you could go back
+              closeDialog();
+            }}
+          />
+        </div>
+      ) : null}
+
+      <ActionButton
+        type="submit"
+        label={
+          valueNotChanged
+            ? uniqueChecked
+              ? 'Unique'
+              : 'Not unique'
+            : uniqueChecked
+              ? 'Add uniqueness constraint'
+              : 'Remove uniqueness constraint'
+        }
+        submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
+        errorMessage="Failed to update attribute"
+        disabled={buttonDisabled}
+        title={
+          isSystemCatalogNs
+            ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+            : undefined
+        }
+        onClick={updateUniqueness}
+      />
+    </ActionForm>
+  );
+}
+
+function EditCheckedDataType({
+  appId,
+  attr,
+  isSystemCatalogNs,
+  pushNavStack,
+}: {
+  appId: string;
+  attr: SchemaAttr;
+  isSystemCatalogNs: boolean;
+  pushNavStack: PushNavStack;
+}) {
+  const token = useAuthToken();
+  const [checkedDataType, setCheckedDataType] = useState<
+    CheckedDataType | 'any'
+  >(attr.checkedDataType || 'any');
+  const [indexingJob, setIndexingJob] = useState<InstantIndexingJob | null>(
+    null,
+  );
+
+  const stopFetchLoop = useRef<null | (() => void)>(null);
+
+  useEffect(() => {
+    return () => stopFetchLoop.current?.();
+  }, [stopFetchLoop]);
+  const updateCheckedType = async () => {
+    if (!token || !checkedDataType) {
+      return;
+    }
+    stopFetchLoop.current?.();
+    const friendlyName = `${attr.namespace}.${attr.name}`;
+    try {
+      const job = await createJob(
+        {
+          appId,
+          attrId: attr.id,
+          jobType:
+            checkedDataType === 'any' ? 'remove-data-type' : 'check-data-type',
+          checkedDataType: checkedDataType === 'any' ? null : checkedDataType,
+        },
+        token,
+      );
+      setIndexingJob(job);
+      const fetchLoop = jobFetchLoop(appId, job.id, token);
+      stopFetchLoop.current = fetchLoop.stop;
+      const finishedJob = await fetchLoop.start((data, error) => {
+        if (error) {
+          errorToast(`Unexpected error while updating ${friendlyName}.`);
+        }
+        if (data) {
+          setIndexingJob(data);
+        }
+      });
+      if (finishedJob) {
+        if (finishedJob.job_status === 'completed') {
+          successToast(
+            checkedDataType === 'any'
+              ? `Removed type for ${friendlyName}.`
+              : `Updated type for ${friendlyName} to ${checkedDataType}.`,
+          );
+          return;
+        }
+        if (finishedJob.job_status === 'canceled') {
+          errorToast('Attribute update was canceled.');
+          return;
+        }
+        if (finishedJob.job_status === 'errored') {
+          if (finishedJob.error === 'invalid-triple-error') {
+            errorToast(`Found invalid data while updating ${friendlyName}.`);
+            return;
+          }
+          errorToast(`Encountered an error while updating ${friendlyName}.`);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      errorToast(`Unexpected error while updating ${friendlyName}`);
+    }
+  };
+
+  const typeNotChanged =
+    checkedDataType === attr.checkedDataType ||
+    ((!checkedDataType || checkedDataType === 'any') &&
+      !attr.checkedDataType) ||
+    (checkedDataType === indexingJob?.checked_data_type &&
+      indexingJob?.job_status === 'completed');
+
+  const buttonDisabled = isSystemCatalogNs || typeNotChanged;
+
+  const buttonLabel = typeNotChanged
+    ? `Type is ${checkedDataType}`
+    : checkedDataType === 'any'
+      ? 'Remove type'
+      : `Set type to ${checkedDataType}`;
+
+  const closeDialog = useClose();
+
+  return (
+    <ActionForm className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2">
+        <h6 className="text-md font-bold">
+          Enforce type{' '}
+          <InfoTip>
+            <div className="text-sm w-48">
+              Checks the type on all existing entities and enforces the type
+              when entities are created or updated.
+            </div>
+          </InfoTip>
+        </h6>
+        <div className="flex gap-2">
+          <Select
+            disabled={isSystemCatalogNs}
+            title={
+              isSystemCatalogNs
+                ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+                : undefined
+            }
+            value={checkedDataType || 'any'}
+            onChange={(v) => {
+              if (!v) {
+                return;
+              }
+              const { value } = v;
+              setCheckedDataType(value as CheckedDataType | 'any');
+            }}
+            options={[
+              {
+                label: 'Any (not enforced)',
+                value: 'any',
+              },
+              {
+                label: 'String',
+                value: 'string',
+              },
+              {
+                label: 'Number',
+                value: 'number',
+              },
+              {
+                label: 'Boolean',
+                value: 'boolean',
+              },
+              {
+                label: 'Date',
+                value: 'date',
+              },
+            ]}
+          />
+        </div>
+      </div>
+      {indexingJob?.error === 'invalid-triple-error' ? (
+        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+          <div>
+            The type can't be set to {indexingJob?.checked_data_type} because
+            some data is the wrong type.
+          </div>
+          <InvalidTriplesSample
+            job={indexingJob}
+            attr={attr}
+            onClickSample={(t) => {
+              pushNavStack({
+                namespace: attr.namespace,
+                where: ['id', t.entity_id],
+              });
+              // It would be nice to have a way to minimize the dialog so you could go back
+              closeDialog();
+            }}
+          />
+        </div>
+      ) : null}
+      <ActionButton
+        type="submit"
+        label={buttonLabel}
+        submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
+        errorMessage="Failed to update attribute"
+        disabled={buttonDisabled}
+        title={
+          isSystemCatalogNs
+            ? `Attributes in the ${attr.namespace} namespace can't be changed.`
+            : undefined
+        }
+        onClick={updateCheckedType}
+      />
+    </ActionForm>
+  );
+}
+
 function EditAttrForm({
   db,
+  appId,
   attr,
   onClose,
+  isSystemCatalogNs,
+  pushNavStack,
 }: {
   db: InstantReactWeb;
+  appId: string;
   attr: SchemaAttr;
   onClose: () => void;
+  isSystemCatalogNs: boolean;
+  pushNavStack: PushNavStack;
 }) {
   const [screen, setScreen] = useState<{ type: 'main' } | { type: 'delete' }>({
     type: 'main',
@@ -367,9 +1048,8 @@ function EditAttrForm({
 
   const [attrName, setAttrName] = useState(attr.linkConfig.forward.attr);
   const [reverseAttrName, setReverseAttrName] = useState(
-    attr.linkConfig.reverse?.attr
+    attr.linkConfig.reverse?.attr,
   );
-  const [attrConfig, setAttrConfig] = useState<SchemaAttr>(attr);
   const [relationship, setRelationship] = useState<RelationshipKinds>(() => {
     const relKey = `${attr.cardinality}-${attr.isUniq}`;
     const relKind = relationshipConstraintsInverse[relKey];
@@ -382,28 +1062,6 @@ function EditAttrForm({
     namespaceName: attr.linkConfig.forward.namespace,
     reverseNamespaceName: attr.linkConfig.reverse?.namespace,
   });
-
-  useEffect(() => {
-    setAttrConfig(attr);
-  }, [attr]);
-
-  async function updateBlob() {
-    const ops = [
-      [
-        'update-attr',
-        {
-          id: attr.id,
-          'index?': attrConfig.isIndex,
-          'unique?': attrConfig.isUniq,
-          cardinality: attrConfig.cardinality,
-        },
-      ],
-    ];
-
-    await db._core._reactor.pushOps(ops);
-
-    successToast('Updated attribute');
-  }
 
   async function updateRef() {
     if (!attr.linkConfig.reverse) {
@@ -477,6 +1135,12 @@ function EditAttrForm({
         </div>
 
         <Button
+          disabled={isSystemCatalogNs && attr.type !== 'ref'}
+          title={
+            isSystemCatalogNs && attr.type !== 'ref'
+              ? `Attributes in the ${attr.namespace} can't be edited`
+              : undefined
+          }
           variant="secondary"
           size="mini"
           onClick={() => setScreen({ type: 'delete' })}
@@ -488,61 +1152,58 @@ function EditAttrForm({
 
       {attr.type === 'blob' ? (
         <>
-          <ActionForm className="flex flex-col gap-2">
-            <div className="flex flex-col gap-2">
-              <h6 className="text-md font-bold">Constraints</h6>
-              <div className="flex gap-2">
-                <Checkbox
-                  checked={attrConfig.isIndex}
-                  onChange={(enabled) =>
-                    setAttrConfig((c) => ({ ...c, isIndex: enabled }))
-                  }
-                  label={
-                    <span>
-                      <strong>Index this attribute</strong> to improve lookup
-                      performance of values
-                    </span>
-                  }
-                />
-              </div>
-              <div className="flex gap-2">
-                <Checkbox
-                  checked={attrConfig.isUniq}
-                  onChange={(enabled) =>
-                    setAttrConfig((c) => ({ ...c, isUniq: enabled }))
-                  }
-                  label={
-                    <span>
-                      <strong>Enforce uniqueness</strong> so no two entities can
-                      have the same value for this attribute
-                    </span>
-                  }
-                />
-              </div>
-              <ActionButton
-                type="submit"
-                label={`Update ${attr.name}`}
-                submitLabel="Updating attribute..."
-                errorMessage="Failed to update attribute"
-                disabled={!attrName}
-                onClick={updateBlob}
-              />
-            </div>
-          </ActionForm>
+          <div className="flex flex-col gap-2">
+            <h6 className="text-md font-bold">Constraints</h6>
+            <EditIndexed
+              appId={appId}
+              attr={attr}
+              isSystemCatalogNs={isSystemCatalogNs}
+              pushNavStack={pushNavStack}
+            />
+            <EditUnique
+              appId={appId}
+              attr={attr}
+              isSystemCatalogNs={isSystemCatalogNs}
+              pushNavStack={pushNavStack}
+            />
+          </div>
+
+          <EditCheckedDataType
+            appId={appId}
+            attr={attr}
+            isSystemCatalogNs={isSystemCatalogNs}
+            pushNavStack={pushNavStack}
+          />
           <ActionForm className="flex flex-col gap-1">
             <h6 className="text-md font-bold">Rename</h6>
             <Content className="text-sm">
               This will immediately rename the attribute. You'll need to{' '}
               <strong>update your code</strong> to the new name.
             </Content>
-            <TextInput value={attrName} onChange={(n) => setAttrName(n)} />
+            <TextInput
+              disabled={isSystemCatalogNs}
+              title={
+                isSystemCatalogNs
+                  ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+                  : undefined
+              }
+              value={attrName}
+              onChange={(n) => setAttrName(n)}
+            />
             <div className="flex flex-col gap-2 rounded py-2">
               <ActionButton
                 type="submit"
                 label={`Rename ${attr.name} → ${attrName}`}
                 submitLabel="Renaming attribute..."
                 errorMessage="Failed to rename attribute"
-                disabled={!attrName || attrName === attr.name}
+                disabled={
+                  isSystemCatalogNs || !attrName || attrName === attr.name
+                }
+                title={
+                  isSystemCatalogNs
+                    ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+                    : undefined
+                }
                 onClick={renameBlobAttr}
               />
             </div>

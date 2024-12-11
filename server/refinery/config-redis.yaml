@@ -1,0 +1,24 @@
+## This is the main config file. There is a fallback file at ./config.yaml
+## in case we need to disable redis. Just remove the REFINERY_REDIS_HOST
+## env var from the eb config to switch to the fallback config.
+General:
+  ConfigurationVersion: 2
+Network:
+  ListenAddr: "0.0.0.0:8080"
+  PeerListenAddr: "0.0.0.0:8081"
+GRPCServerParameters:
+  Enabled: true
+  ListenAddr: "0.0.0.0:8082"
+RefineryTelemetry:
+  AddRuleReasonToTrace: true
+OTelMetrics:
+  Enabled: true
+PeerManagement:
+  Type: redis
+RedisPeerManagement:
+  UseTLS: true
+Logger:
+  Level: warn
+Debugging:
+  # Set to true to see which events would have been filtered
+  DryRun: false

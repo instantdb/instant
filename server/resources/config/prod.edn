@@ -8,6 +8,10 @@
   :json "{\"encryptedKeyset\":\"AQICAHhpp/gyLqbSj/AUco4gftFgpQ99AbOx+UEx1DTG6st//AFoN+9a7FNl1rjvox4RwL97AAABAjCB/wYJKoZIhvcNAQcGoIHxMIHuAgEAMIHoBgkqhkiG9w0BBwEwHgYJYIZIAWUDBAEuMBEEDN1Uv+fy9Ru9r+3mTQIBEICBur72urR4FwbzDJ9IVe3q8Uv/uqpoBRTj3CsQnlHk4U97MjLf1W3oYVE2jdM0WOpLdvWhZfdWTcPhpgonP6CyyoHspFZ8MC8LrSheC8AVX6CRBEQSbNLiJ11Mbcjq6MHgH9pwxZAgmWdY7MJgmOqJw6+VA9otMG2LA4ssnIypuqewdLHWHdhp1EQNmfF5dKxcLe+OL/ee9GLfokI+AP/a91DeBHFo+32Co1ECjEd9CHIK/f3AhCVPtPvF2A==\",\"keysetInfo\":{\"primaryKeyId\":1349240052,\"keyInfo\":[{\"typeUrl\":\"type.googleapis.com/google.crypto.tink.HpkePrivateKey\",\"status\":\"ENABLED\",\"keyId\":1349240052,\"outputPrefixType\":\"TINK\"}]}}"
   :public-key-json "{\"primaryKeyId\":1349240052,\"key\":[{\"keyData\":{\"typeUrl\":\"type.googleapis.com/google.crypto.tink.HpkePublicKey\",\"value\":\"EgYIARABGAIaIML+zPIaSSQvRzuOODD1ZKz/9QWHXj3Y/+A5btFCwxpz\",\"keyMaterialType\":\"ASYMMETRIC_PUBLIC\"},\"status\":\"ENABLED\",\"keyId\":1349240052,\"outputPrefixType\":\"TINK\"}]}"}
 
+ :s3-storage-access-key {:enc "01506bc4f451bbb565bfcb437ae2c305c1a3170c189c29c3e8cceca363a09b0d66dd26c5769b03e7351606075de558a8417b88a39f8640fdd0fd29faf4f3bea6f71646a7e3b138b452"}
+
+ :s3-storage-secret-key {:enc "01506bc4f4972c313c0bf2ec5be9f42a7f7389e4866ada94ae131b2cc5aa3c4ccd8007c876070813e1ce5d63485ee54d86471548322bc3af5162b0c45713cc9047dee6b5aea2c52181a37b323d3438b76266274afaccce01a935d00e62"}
+
  :postmark-token {:enc "01506bc4f4f166d70857fd4d420ef1405c0b2d5a30cabaf073b1aa608d3618f4faca8bc168b7495f9175509e06dfa7d52f48ba76408cd346e562cab0afb1cf1b040caf358a3025fa37a450c6a6a387ddc463049d0f2b41031d"}
 
  :postmark-account-token {:enc "01506bc4f4c67e78161ce519cf3bf14272614d38a7931e5606406e59a488084f42449f2401c89976d49d0d9d8c72745ac1991bb9d9c30f302067514a92491639fedc74aa34fb92508359255853d114a7b5f3f8fb3a3e6355de"}
@@ -23,6 +27,6 @@
  :google-oauth-client {:client-id "785415128641-a5pmq866egf7ti8chk7n7d6d2p4jlugh.apps.googleusercontent.com"
                        :client-secret {:enc "01506bc4f4f8f5f114114ba43d0c359bb6ec7b605bdd393ec5b3c2d0aabbce3766f2bc0b6ebdddac6d6de0cca580bd1384addbe6b2d800a0646c2939a94840f7a072473c4d592ad29b26a316655180f9423c4f7d386223df"}}
 
- :database-url {:enc "01506bc4f4b38095998d845e6a1a2b261db1d23fc439a296f556336afd4066126dd608e77666efcbd018e8d63064e80ce82d53e2826e1efab8388dd8467f7808f7d27183934e49744a2f2740e6fe00fd73af7d834263dba4df41be603afead875c639da200378a5d2bf7c695f803475eb41b1036052335a75f58629d49f6f68505ea8fb5880538349f13cf608c8619b7d59116e7bfaefc14cabe412aa71507ebe8dc22c1f81abd5a5e17e35a36f0bb079e8efee546e99540eb3f8c15882c335843"}
+ :database-url {:enc "01506bc4f46195994d81674682cad9e2a83d54be2121c94a5f77926f2593003cf5a8e36c12bfe9b6b77095265ae250673a20f81496772471c6eaa90d9f4b74991338cd41271e6720a2c10e135e91fec0bc9b3bd52fa500eee02b64ec05c5e7e79fefbe833de84cd8a0fc2b9397c28c2d90311b7fbe10f59bf542957a996802d775e22b26e8d6f53d93facf0ff201a456d9c2532be7be0317db018b4b573ace84b351c7dc71564090336693667ba7aeac3d3f622148c8395ff19d6186dae79d5f53b5c64827d298d03cd116d112"}
 
  :instant-config-app-id #uuid "24a4d71b-7bb2-4630-9aee-01146af26239"}

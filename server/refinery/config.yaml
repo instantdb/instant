@@ -1,3 +1,5 @@
+## This is a fallback file in case we need to disable redis for refinery
+## The main config file is ./config-redis.yaml
 General:
   ConfigurationVersion: 2
 Network:
@@ -12,6 +14,8 @@ OTelMetrics:
   Enabled: true
 PeerManagement:
   Peers: []
+RedisPeerManagement:
+  UseTLS: true
 Logger:
   Level: warn
 Debugging:

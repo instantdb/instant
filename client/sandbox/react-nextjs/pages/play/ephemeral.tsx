@@ -91,7 +91,7 @@ function Demo() {
   inputIndicator.active[0]?.__notInSchema;
 
   useEffect(() => {
-    const user = db._core._reactor.getPresence("demo-room", roomId, {
+    const user = db._core.joinRoom("demo-room", roomId).getPresence({
       keys: ["test"],
     }).user;
 
