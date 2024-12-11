@@ -9,9 +9,7 @@ import {
 
 import config from "../config";
 
-const db = init({
-  appId: config.appId,
-});
+const db = init(config);
 
 function App() {
   const { isLoading, user, error } = db.useAuth();
