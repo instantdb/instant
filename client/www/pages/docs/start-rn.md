@@ -16,16 +16,18 @@ npm i @instantdb/react-native
 npm i @react-native-async-storage/async-storage @react-native-community/netinfo react-native-get-random-values
 ```
 
-Now open up `src/App.js` in your favorite editor and replace the entirety of the file with the following code.
+Now open up `app/(tabs)/index.tsx` in your favorite editor and replace the entirety of the file with the following code.
 
-```javascript {% showCopy=true %}
-import { init, tx } from '@instantdb/react-native';
-import { View, Text, Button, StyleSheet } from 'react-native';
+```typescript {% showCopy=true %}
+import { init, tx } from "@instantdb/react-native";
+import { View, Text, Button, StyleSheet } from "react-native";
 
 // Instant app
 const APP_ID = '__APP_ID__';
 
-const db = init({ appId: APP_ID });
+type Schema = { colors: { color: string } };
+
+const db = init<Schema>({ appId: APP_ID });
 
 function App() {
   const { isLoading, error, data } = db.useQuery({ colors: {} });
@@ -44,21 +46,20 @@ function App() {
     );
   }
 
-  return <Main data={data} />;
+  return <Main colorEntity={data.colors[0]} />;
 }
 
-const selectId = '4d39508b-9ee2-48a3-b70d-8192d9c5a059';
+const selectId = "4d39508b-9ee2-48a3-b70d-8192d9c5a059";
 
-function Main({ data }) {
-  const { colors } = data;
-  const { color } = colors[0] || { color: 'grey' };
+function Main(props: { colorEntity?: { color: string } }) {
+  const { color } = props.colorEntity || { color: "white" };
 
   return (
     <View style={[styles.container, { backgroundColor: color }]}>
-      <View style={styles.spaceY4}>
+      <View style={[styles.contentSection]}>
         <Text style={styles.header}>Hi! pick your favorite color</Text>
         <View style={styles.spaceX4}>
-          {['green', 'blue', 'purple'].map((c) => {
+          {["green", "blue", "purple"].map((c) => {
             return (
               <Button
                 title={c}
@@ -78,20 +79,26 @@ function Main({ data }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   spaceY4: {
     marginVertical: 16,
   },
   spaceX4: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginHorizontal: 16,
+  },
+  contentSection: {
+    backgroundColor: "white",
+    opacity: 0.8,
+    padding: 12,
+    borderRadius: 8,
   },
   header: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 16,
   },
 });
