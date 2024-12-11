@@ -1080,12 +1080,16 @@
         order-by-direction (if last?
                              (reverse-direction direction)
                              direction)
-        order-by [[(kw table :- order-col-name)
-                   order-by-direction]
-                  [entity-id-col
-                   order-by-direction]]
+
+        order-col (kw table :- order-col-name)
+        order-by [[order-col order-by-direction]
+                  [entity-id-col order-by-direction]]
+        order-cols (map first order-by)
         paged-query (cond-> query
                       true (assoc :order-by order-by)
+                      true (dissoc :select)
+                      true (assoc :select-distinct-on (into [order-cols]
+                                                            (:select query)))
                       limit (assoc :limit limit)
                       offset (assoc :offset offset)
                       after (add-cursor-comparisons {:direction direction
