@@ -897,7 +897,49 @@
                  (get-handles {:order {:email "asc"}})))
 
           (is (= ["stopa" "nicolegf" "joe" "alex" "second" "first"]
-                 (get-handles {:order {:email "desc"}}))))))))
+                 (get-handles {:order {:email "desc"}}))))
+
+        (testing "before"
+          (let [handles ["first" "second" "alex" "joe" "nicolegf" "stopa"]]
+            (doseq [order [:asc :desc]
+                    :let [handles (if (= order :desc)
+                                    (reverse handles)
+                                    handles)]]
+              (testing (format "order %s" order)
+
+                (loop [i 0
+                       next-after nil]
+                  (when (> i (count handles))
+                    (throw (Exception. "runaway test")))
+                  (let [qr (iq/query ctx {:users {:$ {:limit 1
+                                                      :order {:email order}
+                                                      :after next-after}}})
+                        handle (-> (instaql-nodes->object-tree ctx qr)
+                                   (get "users")
+                                   first
+                                   (get "handle"))
+                        {:keys [end-cursor]} (-> qr
+                                                 first
+                                                 :data
+                                                 :datalog-result
+                                                 :page-info)]
+                    (testing (format "loop %d gives us handle=`%s`" i (nth handles i))
+                      (println (format "loop %d gives us %s" i (nth handles i)))
+                      (is (= handle (nth handles i))))
+                    (when (not= i (dec (count handles)))
+                      (recur (inc i)
+                             end-cursor)))))))
+          (let [{:keys [end-cursor]} (-> (iq/query ctx
+                                                   {:users {:$ {:limit 1 :order {:email :asc}}}})
+                                         first
+                                         :data
+                                         :datalog-result
+                                         :page-info)]
+
+            (is (= ["second"]
+                   (get-handles {:order {:email :asc}
+                                 :limit 1
+                                 :after end-cursor})))))))))
 
 (deftest obj-tree-order
   (with-empty-app

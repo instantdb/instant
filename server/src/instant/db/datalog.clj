@@ -1029,7 +1029,8 @@
 
 (defn add-cursor-comparisons
   "Updates the where query to include the constraints from the cursor."
-  [query {:keys [direction sym-triple-idx cursor cursor-type order-col-name order-col-type]}]
+  [query {:keys [direction sym-triple-idx cursor cursor-type
+                 order-col-name order-col-type entity-id-col]}]
   (let [cursor-val (nth cursor sym-triple-idx)
         comparison (case [cursor-type direction]
                      [:before :asc] :<
@@ -1046,16 +1047,30 @@
                                                                          cursor-val
                                                                          [:cast (->json cursor-val) :jsonb])])]
     (update query :where (fn [where]
-                           (list* :and
-                                  where
-                                  [:or
-                                   [comparison order-col order-col-val]
-                                   [:and
-                                    [:= order-col order-col-val]
-                                    [comparison :entity-id [:cast (first cursor) :uuid]]]]
-                                  (when (not= order-col-type :created-at-timestamp)
-                                    ;; XXX: Do we need to do the same for the cursor row?
-                                    [[:= :checked_data_type [:cast [:inline (name order-col-type)] :checked_data_type]]]))))))
+                           [:and
+                            where
+                            [:or
+                             [:or [comparison order-col order-col-val]
+                              ;; null > null => null in postgres, so we have to
+                              ;; do some extra work to order nulls first.
+                              ;; n.b. if the user can specify nulls-first or nulls-last
+                              ;; then we need to take that into account here
+                              (case comparison
+                                :> [:and
+                                    [:not= nil order-col]
+                                    [:= nil order-col-val]]
+                                :< [:and
+                                    [:= nil order-col]
+                                    [:not= nil order-col-val]])]
+                             [:and
+                              ;; is not distinct from would be nice here, but not supported
+                              ;; by honeysql
+                              [:or
+                               [:and
+                                [:= order-col nil]
+                                [:= order-col-val nil]]
+                               [:= order-col order-col-val]]
+                              [comparison entity-id-col [:cast (first cursor) :uuid]]]]]))))
 
 (defn reverse-direction [direction]
   (case direction
@@ -1069,8 +1084,11 @@
   (kw table :-has-prev))
 
 ;; XXX: Maybe push some of this complexity back into the cte creator
-(defn fixup-for-nulls [query]
-  (let [{:keys [where from]} query]
+(defn fixup-for-nulls [query order-col-type]
+  (let [{:keys [where from]} query
+        where (concat where
+                      (when (not= order-col-type :created-at-timestamp)
+                        [[:= :checked_data_type [:cast [:inline (name order-col-type)] :checked_data_type]]]))]
     (-> query
         (dissoc :where :from)
         (assoc :from [(last from)])
@@ -1106,7 +1124,7 @@
                              direction)
 
         query (-> query
-                  (fixup-for-nulls)
+                  (fixup-for-nulls order-col-type)
                   (dissoc :select)
                   (assoc :select-distinct-on (list* [:order-val entity-id-col]
                                                     [(if (not= order-col-type :created-at-timestamp)
@@ -1131,13 +1149,15 @@
                                                      :order-col-name order-col-name
                                                      :order-col-type order-col-type
                                                      :cursor after
-                                                     :cursor-type :after})
+                                                     :cursor-type :after
+                                                     :entity-id-col entity-id-col})
                       before (add-cursor-comparisons {:direction direction
                                                       :sym-triple-idx sym-triple-idx
                                                       :order-col-name order-col-name
                                                       :order-col-type order-col-type
                                                       :cursor before
-                                                      :cursor-type :before}))
+                                                      :cursor-type :before
+                                                      :entity-id-col entity-id-col}))
 
         first-row-table (kw table :-first)
         last-row-table (kw table :-last)
@@ -1177,7 +1197,8 @@
                                                     :order-col-type order-col-type
                                                     :cursor [:cursor-row.e
                                                              :cursor-row.sym]
-                                                    :cursor-type :after}))
+                                                    :cursor-type :after
+                                                    :entity-id-col entity-id-col}))
         has-previous-query (-> query
                                (assoc :order-by order-by)
                                (assoc :limit 1)
@@ -1195,7 +1216,8 @@
                                                         :order-col-type order-col-type
                                                         :cursor [:cursor-row.e
                                                                  :cursor-row.sym]
-                                                        :cursor-type :before}))]
+                                                        :cursor-type :before
+                                                        :entity-id-col entity-id-col}))]
     (conj but-last
           (apply conj [table paged-query] opts)
           first-row-cte
