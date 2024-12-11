@@ -1116,7 +1116,9 @@
                                                     (:select query))))
 
         order-by [[:order-val
-                   order-by-direction]
+                   order-by-direction (if (= order-by-direction :desc)
+                                        :nulls-last
+                                        :nulls-first)]
                   [entity-id-col
                    order-by-direction]]
         paged-query (cond-> query
