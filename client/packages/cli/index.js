@@ -457,7 +457,10 @@ async function handleEnvFile(pkgAndAuthInfo, appId) {
   console.log(
     `If we set ${chalk.green("`" + envName + "`")}, we can remember the app that you chose for all future commands.`,
   );
-  const ok = await promptOk("Want us to create this env file for you?");
+  const ok = await promptOk(
+    "Want us to create this env file for you?",
+    /*defaultAnswer=*/ true
+  );
   if (!ok) {
     console.log(
       `No .env file created. You can always set ${chalk.green("`" + envName + "`")} later. \n`,
@@ -514,6 +517,7 @@ async function login(options) {
   console.log("Let's log you in!");
   const ok = await promptOk(
     `This will open instantdb.com in your browser, OK to proceed?`,
+    /*defaultAnswer=*/ true
   );
 
   if (!ok) return;
@@ -628,6 +632,7 @@ async function promptImportAppOrCreateApp() {
   if (!apps.length) {
     const ok = await promptOk(
       "You don't have any apps. Want to create a new one?",
+      /*defaultAnswer=*/ true
     );
     if (!ok) return { ok: false };
     return await promptCreateApp();
@@ -1281,14 +1286,14 @@ function prettyPrintJSONErr(data) {
   }
 }
 
-async function promptOk(message) {
+async function promptOk(message, defaultAnswer = false) {
   const options = program.opts();
 
   if (options.yes) return true;
 
   return await confirm({
     message,
-    default: false,
+    default: defaultAnswer,
   }).catch(() => false);
 }
 
