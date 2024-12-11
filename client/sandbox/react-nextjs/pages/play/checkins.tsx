@@ -1,14 +1,12 @@
 import {
   i,
   id,
-  init_experimental,
-  type InstantSchema,
-  type InstantQuery,
-  type InstantQueryResult,
-  type InstantGraph,
-  type InstantEntity,
-  InstantSchemaDatabase,
+  init,
+  InstaQLParams,
+  InstaQLResult,
+  InstaQLEntity,
 } from "@instantdb/react";
+
 import config from "../../config";
 
 interface Data {
@@ -16,8 +14,8 @@ interface Data {
 }
 
 const schema = i
-  .graph(
-    {
+  .schema({
+    entities: {
       discriminatedUnionExample: i
         .entity({ x: i.string(), y: i.number(), z: i.number() })
         .asType<{ x: "foo"; y: 1 } | { x: "bar" }>(),
@@ -34,7 +32,7 @@ const schema = i
         name: i.string(),
       }),
     },
-    {
+    links: {
       habitCheckins: {
         forward: {
           on: "habits",
@@ -60,16 +58,16 @@ const schema = i
         },
       },
     },
-  )
-  .withRoomSchema<{
-    demo: {
-      presence: {
-        test: number;
-      };
-    };
-  }>();
+    rooms: {
+      demo: {
+        presence: i.entity({
+          test: i.number(),
+        }),
+      },  
+    }
+  });
 
-const db = init_experimental({
+const db = init({
   ...config,
   schema,
 });
@@ -146,9 +144,9 @@ const checkinsQuery = {
       category: {},
     },
   },
-} satisfies InstantQuery<typeof db>;
+} satisfies InstaQLParams<typeof schema>;
 
-type CheckinsQueryResult = InstantQueryResult<typeof db, typeof checkinsQuery>;
+type CheckinsQueryResult = InstaQLResult<typeof schema, typeof checkinsQuery>;
 
 const result: CheckinsQueryResult = {
   checkins: [
@@ -176,12 +174,8 @@ const deepVal = result.checkins[0].habit?.category?.id;
 
 // types
 type DeepVal = typeof deepVal;
-type Graph = InstantGraph<any, any, any>;
-type DBGraph = InstantSchema<typeof db>;
-type DB2 = InstantSchemaDatabase<typeof schema>;
-
-type Checkin = InstantEntity<
-  DB2,
+type Checkin = InstaQLEntity<
+  typeof schema,
   "checkins",
   {
     habit: {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import config from "../../config";
-import { init_experimental, tx, id, i } from "@instantdb/react";
+import { init, tx, id, i } from "@instantdb/react";
 import { useRouter } from "next/router";
 
 const schema = i.schema({
@@ -42,7 +42,7 @@ const d = new Date();
 function Example({ appId }: { appId: string }) {
   const router = useRouter();
   const myConfig = { ...config, appId, schema };
-  const db = init_experimental(myConfig);
+  const db = init(myConfig);
 
   const { data } = db.useQuery({
     comments: {

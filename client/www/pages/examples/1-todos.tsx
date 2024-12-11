@@ -1,13 +1,7 @@
 import config from '@/lib/config'; // hide-line
 import { id, init, tx } from '@instantdb/react';
 
-const db = init<{
-  todos: {
-    id: string;
-    text: string;
-    completed: boolean;
-  };
-}>({
+const db = init({
   ...config, // hide-line
   appId: __getAppId(),
 });

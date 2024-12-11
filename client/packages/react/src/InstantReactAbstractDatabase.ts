@@ -3,7 +3,6 @@ import {
   Auth,
   Storage,
   txInit,
-  _init_internal,
   type AuthState,
   type ConnectionStatus,
   type TransactionChunk,
@@ -14,7 +13,7 @@ import {
   type InstantConfig,
   type PageInfoResponse,
   InstantCoreDatabase,
-  init_experimental,
+  init as core_init,
   InstaQLLifecycleState,
   InstaQLResponse,
   RoomsOf,
@@ -304,13 +303,17 @@ export default abstract class InstantReactAbstractDatabase<
   static Storage?: any;
   static NetworkListener?: any;
 
-  constructor(config: InstantConfig<Schema>) {
-    this._core = init_experimental<Schema>(
+  constructor(
+    config: InstantConfig<Schema>,  
+    versions?: { [key: string]: string }
+  ) {
+    this._core = core_init<Schema>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.Storage,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.NetworkListener,
+      versions,
     );
     this.auth = this._core.auth;
     this.storage = this._core.storage;

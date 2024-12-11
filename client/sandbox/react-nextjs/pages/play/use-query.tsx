@@ -35,7 +35,7 @@ export default function () {
     if (selectedPersonId) {
       return;
     }
-    setSelectedPersonId(peopleRes.data?.people[0].id ?? null);
+    setSelectedPersonId(peopleRes.data?.people[0]?.id ?? null);
   }, [peopleRes.data]);
 
   return (

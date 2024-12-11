@@ -1,6 +1,6 @@
 import {
   i,
-  init_experimental,
+  init,
   InstaQLEntity,
   type InstaQLParams,
 } from "@instantdb/react";
@@ -38,7 +38,7 @@ type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
 
-const db = init_experimental({
+const db = init({
   ...config,
   schema,
 });

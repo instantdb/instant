@@ -168,6 +168,7 @@ async function jsonFetch(
     : Promise.reject({ status: res.status, body: json });
 }
 
+
 /**
  *
  * The first step: init your application!
@@ -179,24 +180,22 @@ async function jsonFetch(
  *
  * // You can also provide a schema for type safety and editor autocomplete!
  *
- *  type Schema = {
- *    goals: {
- *      title: string
- *    }
- *  }
+ * // TODO-now
  *
  *  const db = init<Schema>({ appId: "my-app-id" })
  *
  */
-function init<Schema extends {} = {}>(config: Config) {
-  return new InstantAdmin<Schema, false>(config);
-}
-
-function init_experimental<
+function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
 >(config: InstantConfig<Schema>) {
   return new InstantAdminDatabase<Schema>(config);
 }
+
+/**
+ * @deprecated
+ * TODO-now
+ */
+const init_experimental = init; 
 
 /**
  *

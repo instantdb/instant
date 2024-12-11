@@ -1,5 +1,5 @@
 import { id } from '@instantdb/core';
-import { InstantReactWeb } from '@instantdb/react';
+import { InstantReactWebDatabase } from '@instantdb/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/solid';
 import { errorToast, successToast } from '@/lib/toast';
@@ -43,7 +43,7 @@ export function EditNamespaceDialog({
   isSystemCatalogNs,
   pushNavStack,
 }: {
-  db: InstantReactWeb;
+  db: InstantReactWebDatabase<any>;
   appId: string;
   namespace: SchemaNamespace;
   namespaces: SchemaNamespace[];
@@ -212,7 +212,7 @@ function AddAttrForm({
   namespaces,
   onClose,
 }: {
-  db: InstantReactWeb;
+  db: InstantReactWebDatabase<any>;
   namespace: SchemaNamespace;
   namespaces: SchemaNamespace[];
   onClose: () => void;
@@ -1035,7 +1035,7 @@ function EditAttrForm({
   isSystemCatalogNs,
   pushNavStack,
 }: {
-  db: InstantReactWeb;
+  db: InstantReactWebDatabase<any>;
   appId: string;
   attr: SchemaAttr;
   onClose: () => void;

@@ -1,7 +1,7 @@
-import { id, init_experimental } from "@instantdb/react";
+import { id, init } from "@instantdb/react";
 import schema from "../instant.schema.v2";
 
-const db = init_experimental({
+const db = init({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
   schema,
   apiURI: "http://localhost:8888",

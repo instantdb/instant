@@ -1,16 +1,7 @@
 import config from '@/lib/config'; // hide-line
 import { Cursors, init } from '@instantdb/react';
 
-const db = init<
-  {},
-  {
-    'cursors-example': {
-      presence: {
-        name: string;
-      };
-    };
-  }
->({
+const db = init({
   ...config, // hide-line
   appId: __getAppId(),
 });
@@ -57,7 +48,7 @@ const randomDarkColor =
     .map(() =>
       Math.floor(Math.random() * 200)
         .toString(16)
-        .padStart(2, '0')
+        .padStart(2, '0'),
     )
     .join('');
 

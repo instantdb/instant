@@ -303,6 +303,10 @@ export class InstantSchemaDef<
     public rooms: Rooms,
   ) {}
 
+  /**
+   * @deprecated
+   * TOOD-now
+   */
   withRoomSchema<_RoomSchema extends RoomSchemaShape>() {
     type RDef = RoomDefFromShape<_RoomSchema>;
     return new InstantSchemaDef<Entities, Links, RDef>(
@@ -313,6 +317,10 @@ export class InstantSchemaDef<
   }
 }
 
+/**
+ * @deprecated
+ * TODO-now
+ */
 export class InstantGraph<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
@@ -396,7 +404,7 @@ export type BackwardsCompatibleSchema<
 export type UnknownEntity = EntityDef<
   {
     id: DataAttrDef<string, true>;
-    [AttrName: string]: DataAttrDef<unknown, any>;
+    [AttrName: string]: DataAttrDef<any, any>;
   },
   { [LinkName: string]: LinkAttrDef<"many", string> },
   void

@@ -1,4 +1,4 @@
-import { id, InstantReactWeb, tx } from '@instantdb/react';
+import { id, InstantReactWebDatabase, tx } from '@instantdb/react';
 import { useState } from 'react';
 
 import {
@@ -98,7 +98,7 @@ export function EditRowDialog({
   item,
   onClose,
 }: {
-  db: InstantReactWeb;
+  db: InstantReactWebDatabase<any>;
   namespace: SchemaNamespace;
   item: Record<string, any>;
   onClose: () => void;

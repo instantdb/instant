@@ -9,7 +9,7 @@ import config from '@/lib/config'; // hide-line
 import { init, tx, id } from '@instantdb/react';
 import { useEffect, useState } from 'react';
 
-const db = init<DBSchema, RoomSchema>({
+const db = init({
   ...config, // hide-line
   appId: __getAppId(),
 });
@@ -128,18 +128,6 @@ export default function App() {
     </div>
   );
 }
-
-type DBSchema = {
-  boards: {
-    state: Record<string, string>;
-  };
-};
-
-type RoomSchema = {
-  main: {
-    presence: { color: string };
-  };
-};
 
 const boardSize = 4;
 const whiteColor = '#ffffff';
