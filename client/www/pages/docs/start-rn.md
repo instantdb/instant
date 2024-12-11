@@ -19,15 +19,24 @@ npm i @react-native-async-storage/async-storage @react-native-community/netinfo 
 Now open up `app/(tabs)/index.tsx` in your favorite editor and replace the entirety of the file with the following code.
 
 ```typescript {% showCopy=true %}
-import { init, tx } from "@instantdb/react-native";
+import { init, tx, i } from "@instantdb/react-native";
 import { View, Text, Button, StyleSheet } from "react-native";
 
 // Instant app
 const APP_ID = '__APP_ID__';
 
-type Schema = { colors: { color: string } };
+// Optional: You can declare a schema!
+const schema = i.schema({
+  entities: {
+    colors: i.entity({
+      color: i.string()
+    }),
+  },
+  links: {},
+  rooms: {},
+});
 
-const db = init<Schema>({ appId: APP_ID });
+const db = init({ appId: APP_ID, schema });
 
 function App() {
   const { isLoading, error, data } = db.useQuery({ colors: {} });

@@ -33,7 +33,7 @@ import { tx, id, i, init, InstaQLEntity } from "@instantdb/react";
 // Instant app
 const APP_ID = '__APP_ID__'
 
-// Optional: You can declare a schema!
+// Optional: Declare your schema!
 const schema = i.schema({
   entities: {
     todos: i.entity({
