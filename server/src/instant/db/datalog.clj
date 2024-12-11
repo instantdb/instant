@@ -1104,10 +1104,6 @@
         order-by-direction (if last?
                              (reverse-direction direction)
                              direction)
-        order-by-col (kw table :- (if (= order-col-name :value)
-                                    :value-blob
-                                    order-col-name))
-
 
         query (-> query
                   (fixup-for-nulls)
