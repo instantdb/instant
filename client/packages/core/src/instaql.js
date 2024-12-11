@@ -456,10 +456,23 @@ function compareOrder([id_a, v_a], [id_b, v_b]) {
   if (v_a === v_b) {
     return uuidCompare(id_a, id_b);
   }
+  if (v_b == null) {
+    return 1;
+  }
+  if (v_a == null) {
+    return -1;
+  }
   if (v_a > v_b) {
     return 1;
   }
   return -1;
+}
+
+function comparableDate(x) {
+  if (x == null) {
+    return null;
+  }
+  return new Date(x).getTime();
 }
 
 function isBefore(startCursor, orderAttr, direction, idVec) {
@@ -470,9 +483,9 @@ function isBefore(startCursor, orderAttr, direction, idVec) {
   }
   const [e, v] = idVec;
   const v_new =
-    orderAttr["checked-data-type"] === "date" ? new Date(v).getTime() : v;
+    orderAttr["checked-data-type"] === "date" ? comparableDate(v) : v;
   const c_v_new =
-    orderAttr["checked-data-type"] === "date" ? new Date(c_v).getTime() : c_v;
+    orderAttr["checked-data-type"] === "date" ? comparableDate(c_v) : c_v;
   return compareOrder([e, v_new], [c_e, c_v_new]) === compareVal;
 }
 
@@ -492,15 +505,18 @@ function runDataloadAndReturnObjects(store, etype, direction, pageInfo, dq) {
 
   if (orderAttr?.["checked-data-type"] === "date") {
     // Convert to Date so that we can use <, > on the values
-    idVecs = idVecs.map(([id, v]) => [id, new Date(v).getTime(), v]);
+    idVecs = idVecs.map(([id, v]) => [id, comparableDate(v), v]);
   }
 
-  idVecs.sort(function compareIdVecs(a, b) {
-    if (direction === "asc") {
-      return compareOrder(a, b);
-    }
-    return compareOrder(b, a);
-  });
+  idVecs.sort(
+    direction === "asc"
+      ? function compareIdVecs(a, b) {
+          return compareOrder(a, b);
+        }
+      : function compareIdVecs(a, b) {
+          return compareOrder(b, a);
+        },
+  );
 
   const objects = [];
   const seen = new Set([]);

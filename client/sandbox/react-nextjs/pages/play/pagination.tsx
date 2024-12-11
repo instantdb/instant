@@ -11,6 +11,9 @@ const schema = i.graph(
       string: i.string().indexed(),
       boolean: i.boolean().indexed(),
       title: i.string(),
+      sometimesNull: i.number().indexed(),
+      sometimesNullOrUndefined: i.number().indexed(),
+      sometimesNullDate: i.date().indexed(),
     }),
     $users: i.entity({
       email: i.string().unique().indexed(),
@@ -28,7 +31,7 @@ function Example({ appId }: { appId: string }) {
 
   const [direction, setDirection] = useState<"asc" | "desc">("asc");
   const [limit, setLimit] = useState(5);
-  const [orderField, setOrderField] = useState("serverCreatedAt");
+  const [orderField, setOrderField] = useState("sometimesNull");
 
   const order = { [orderField]: direction };
 
@@ -75,7 +78,7 @@ function Example({ appId }: { appId: string }) {
     },
   });
 
-  let maxNumber = 0;
+  let maxNumber = -10;
   for (const g of data?.goals || []) {
     maxNumber = Math.max(maxNumber, g.number ?? 0);
   }
@@ -91,6 +94,10 @@ function Example({ appId }: { appId: string }) {
           string: `${number}`,
           boolean: number % 2 === 0,
           title: `Goal ${number}`,
+          sometimesNull: number % 2 === 0 ? null : number,
+          sometimesNullDate: number % 2 === 0 ? null : number,
+          sometimesNullOrUndefined:
+            number % 3 === 0 ? undefined : number % 3 === 1 ? null : number,
         }),
       ]);
     }
@@ -99,6 +106,10 @@ function Example({ appId }: { appId: string }) {
   const deleteAll = async () => {
     await db.transact((data?.goals || []).map((g) => tx.goals[g.id].delete()));
   };
+
+  function displayValue(x: any) {
+    return `${x.title}, ${orderField}=${x[orderField]}`;
+  }
   return (
     <div>
       <div>
@@ -142,6 +153,11 @@ function Example({ appId }: { appId: string }) {
           <option value="number">number</option>
           <option value="date">date</option>
           <option value="boolean">boolean</option>
+          <option value="sometimesNull">sometimesNull</option>
+          <option value="sometimesNullOrUndefined">
+            sometimesNullOrUndefined
+          </option>
+          <option value="sometimesNullDate">sometimesNullDate</option>
         </select>
         <select
           value={direction}
@@ -157,7 +173,7 @@ function Example({ appId }: { appId: string }) {
           value={limit}
           onChange={(e) => setLimit(parseInt(e.target.value, 10))}
         >
-          {[...Array(maxNumber + 5)].map((_, i) => (
+          {[...Array(data?.goals.length || 0 + 5)].map((_, i) => (
             <option key={i + 1} value={i + 1}>
               {i + 1}
             </option>
@@ -178,7 +194,7 @@ function Example({ appId }: { appId: string }) {
                 >
                   X
                 </button>{" "}
-                {g.title}
+                {displayValue(g)}
               </div>
             ))}
           </details>
@@ -188,7 +204,9 @@ function Example({ appId }: { appId: string }) {
           <details open>
             <summary>First {limit} goals</summary>
 
-            {firstFiveData?.goals.map((g) => <div key={g.id}>{g.title}</div>)}
+            {firstFiveData?.goals.map((g) => (
+              <div key={g.id}>{displayValue(g)}</div>
+            ))}
           </details>
         </div>
 
@@ -196,7 +214,9 @@ function Example({ appId }: { appId: string }) {
           <details open>
             <summary>Second {limit} goals</summary>
 
-            {secondFiveData?.goals.map((g) => <div key={g.id}>{g.title}</div>)}
+            {secondFiveData?.goals.map((g) => (
+              <div key={g.id}>{displayValue(g)}</div>
+            ))}
           </details>
         </div>
 
@@ -204,7 +224,9 @@ function Example({ appId }: { appId: string }) {
           <details open>
             <summary>Third {limit} goals</summary>
 
-            {thirdFiveData?.goals.map((g) => <div key={g.id}>{g.title}</div>)}
+            {thirdFiveData?.goals.map((g) => (
+              <div key={g.id}>{displayValue(g)}</div>
+            ))}
           </details>
         </div>
 
@@ -214,7 +236,9 @@ function Example({ appId }: { appId: string }) {
 
             {!endCursor
               ? null
-              : afterData?.goals.map((g) => <div key={g.id}>{g.title}</div>)}
+              : afterData?.goals.map((g) => (
+                  <div key={g.id}>{displayValue(g)}</div>
+                ))}
           </details>
         </div>
 
@@ -224,7 +248,9 @@ function Example({ appId }: { appId: string }) {
 
             {!thirdFivePageInfo?.goals?.startCursor
               ? null
-              : beforeData?.goals.map((g) => <div key={g.id}>{g.title}</div>)}
+              : beforeData?.goals.map((g) => (
+                  <div key={g.id}>{displayValue(g)}</div>
+                ))}
           </details>
         </div>
       </div>
