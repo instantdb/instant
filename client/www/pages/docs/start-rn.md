@@ -27,10 +27,7 @@ const APP_ID = '__APP_ID__';
 
 type Schema = { colors: { color: string } };
 
-const db = init<Schema>({
-  appId: APP_ID,
-  websocketURI: "ws://localhost:8080/session/socket",
-});
+const db = init<Schema>({ appId: APP_ID });
 
 function App() {
   const { isLoading, error, data } = db.useQuery({ colors: {} });
