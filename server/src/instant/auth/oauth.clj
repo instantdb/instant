@@ -137,10 +137,13 @@
     (if (clj-http/success? resp)
       {:date (Instant/now)
        :data (:body resp)}
-      (ex/throw+ {::ex/type    ::ex/oauth-error
-                  ::ex/message "Unable to fetch OAuth configuration"
-                  :status      (:status resp)
-                  :body        (:body resp)}))))
+      (do
+        (tracer/record-exception-span! (ex-info "Error fetching discovery"
+                                         {:status   (:status resp)
+                                          :body     (:body resp)
+                                          :endpoint endpoint}
+                                         {:name "oauth/fetch-discovery-error"}))
+        (ex/throw-oauth-err! "Unable to fetch OAuth configuration.")))))
 
 (defn get-discovery [endpoint]
   (:data (cache/lookup-or-miss discovery-endpoint-cache endpoint fetch-discovery)))
