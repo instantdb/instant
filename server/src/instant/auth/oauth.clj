@@ -139,10 +139,10 @@
        :data (:body resp)}
       (do
         (tracer/record-exception-span! (ex-info "Error fetching discovery"
-                                         {:status   (:status resp)
-                                          :body     (:body resp)
-                                          :endpoint endpoint}
-                                         {:name "oauth/fetch-discovery-error"}))
+                                                {:status   (:status resp)
+                                                 :body     (:body resp)
+                                                 :endpoint endpoint})
+                                       {:name "oauth/fetch-discovery-error"})
         (ex/throw-oauth-err! "Unable to fetch OAuth configuration.")))))
 
 (defn get-discovery [endpoint]
