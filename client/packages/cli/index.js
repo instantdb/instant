@@ -49,6 +49,7 @@ const potentialEnvs = {
   next: "NEXT_PUBLIC_INSTANT_APP_ID",
   svelte: "PUBLIC_INSTANT_APP_ID",
   vite: "VITE_INSTANT_APP_ID",
+  expo: "EXPO_PUBLIC_INSTANT_APP_ID",
 };
 
 async function detectEnvType({ pkgDir }) {
@@ -64,6 +65,9 @@ async function detectEnvType({ pkgDir }) {
   }
   if (packageJSON.devDependencies?.vite) {
     return "vite";
+  }
+  if (packageJSON.dependencies?.expo) {
+    return "expo";
   }
   return "catchall";
 }
@@ -433,8 +437,8 @@ function printDotEnvInfo(envType, appId) {
   const otherEnvs = Object.values(rest);
   otherEnvs.sort();
   const otherEnvStr = otherEnvs.map((x) => "  " + chalk.green(x)).join("\n");
-  console.log(`Alternative names: \n${otherEnvStr}`);
-  console.log(terminalLink("Dashboard", appDashUrl(appId)));
+  console.log(`Alternative names: \n${otherEnvStr} \n`);
+  console.log(terminalLink("Dashboard", appDashUrl(appId)) + '\n');
 }
 
 async function handleEnvFile(pkgAndAuthInfo, appId) {
@@ -759,7 +763,7 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
     "utf-8",
   );
 
-  console.log("Wrote schema to instant.schema.ts");
+  console.log("✅ Wrote schema to instant.schema.ts");
 
   return { ok: true };
 }
@@ -777,7 +781,7 @@ async function pullPerms(appId, { pkgDir, instantModuleName }) {
 
   if (await pathExists(join(pkgDir, "instant.perms.ts"))) {
     const ok = await promptOk(
-      "This will ovwerwrite your local instant.perms file, OK to proceed?",
+      "This will overwrite your local instant.perms file, OK to proceed?",
     );
 
     if (!ok) return;
@@ -790,7 +794,7 @@ async function pullPerms(appId, { pkgDir, instantModuleName }) {
     "utf-8",
   );
 
-  console.log("Wrote permissions to instant.perms.ts");
+  console.log("✅ Wrote permissions to instant.perms.ts");
 
   return true;
 }
@@ -1125,7 +1129,7 @@ async function pushPerms(appId) {
 
   if (!prodPerms.ok) return;
 
-  const diffedStr = jsonDiff.diffString(prodPerms.data.perms, perms);
+  const diffedStr = jsonDiff.diffString(prodPerms.data.perms || {}, perms || {});
   if (!diffedStr.length) {
     console.log("No perms changes detected. Exiting.");
     return;
@@ -1288,6 +1292,25 @@ async function promptOk(message) {
   }).catch(() => false);
 }
 
+/**
+ * We need to do a bit of a hack of `@instantdb/react-native`. 
+ * 
+ * If a user writes import { i } from '@instantdb/react-native' 
+ * 
+ * We will fail to evaluate the file. This is because 
+ * `@instantdb/react-native` brings in `react-native`, which 
+ * does not run in a node context. 
+ * 
+ * To bypass this, we have a 'cli' module inside `react-native`, which 
+ * has all the necessary imports
+ */
+function transformImports(code) { 
+  return code.replace(
+    /"@instantdb\/react-native"/g, 
+    '"@instantdb/react-native/dist/cli"'
+  );
+}
+
 async function readLocalPermsFile() {
   const { config, sources } = await loadConfig({
     sources: [
@@ -1295,6 +1318,7 @@ async function readLocalPermsFile() {
       {
         files: "instant.perms",
         extensions: ["ts", "mts", "cts", "js", "mjs", "cjs", "json"],
+        transform: transformImports,
       },
     ],
     // if false, the only the first matched will be loaded
@@ -1326,6 +1350,7 @@ async function readLocalSchemaFile() {
         {
           files: "instant.schema",
           extensions: ["ts", "mts", "cts", "js", "mjs", "cjs"],
+          transform: transformImports,
         },
       ],
       // if false, the only the first matched will be loaded
@@ -1519,9 +1544,10 @@ function appDashUrl(id) {
 }
 
 function generatePermsTypescriptFile(perms, instantModuleName) {
-  const rulesTxt = Object.keys(perms).length
-    ? JSON.stringify(perms, null, 2)
-    : `
+  const rulesTxt =
+    perms && Object.keys(perms).length
+      ? JSON.stringify(perms, null, 2)
+      : `
 {
   /**
    * Welcome to Instant's permission system!
@@ -1539,12 +1565,12 @@ function generatePermsTypescriptFile(perms, instantModuleName) {
    *   bind: ["isOwner", "data.creator == auth.uid"],
    * },
    */
-};
+}
 `.trim();
   return `
 // Docs: https://www.instantdb.com/docs/permissions
 
-import { type InstantRules } from "${instantModuleName ?? "@instantdb/core"}";
+import type { InstantRules } from "${instantModuleName ?? "@instantdb/core"}";
 
 const rules = ${rulesTxt} satisfies InstantRules;
 
@@ -1743,7 +1769,7 @@ type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
 
-export { type AppSchema }
+export type { AppSchema }
 export default schema;
 `;
 }

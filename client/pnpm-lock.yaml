@@ -331,6 +331,9 @@ importers:
       '@babel/core':
         specifier: ^7.20.0
         version: 7.26.0
+      instant-cli:
+        specifier: workspace:*
+        version: link:../../packages/cli
 
   sandbox/react-nextjs:
     dependencies:

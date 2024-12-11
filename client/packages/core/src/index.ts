@@ -891,6 +891,7 @@ type InstantRules = {
       create?: string;
       update?: string;
       delete?: string;
+      $default?: string;
     };
     bind?: string[];
   };
