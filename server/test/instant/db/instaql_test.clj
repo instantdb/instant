@@ -860,6 +860,45 @@
                                        :after nicole-cursor
                                        :order {:handle "desc"}})))))))))))
 
+(deftest pagination-with-null-values
+  (with-zeneca-checked-data-app
+    (fn [app r]
+      (let [uid (UUID. 0 0)
+            uid-2 (UUID. 0 1)
+            _ (tx/transact! (aurora/conn-pool)
+                            (attr-model/get-by-app-id (:id app))
+                            (:id app)
+                            [[:add-triple uid (resolvers/->uuid r :users/id) (str uid)]
+                             [:add-triple uid (resolvers/->uuid r :users/handle) "first"]])
+            ctx {:db {:conn-pool (aurora/conn-pool)}
+                 :app-id (:id app)
+                 :attrs (attr-model/get-by-app-id (:id app))}
+            get-handles (fn [pagination-params]
+                          (as-> (instaql-nodes->object-tree
+                                 ctx
+                                 (iq/query ctx {:users {:$ pagination-params}})) %
+                            (get % "users")
+                            (map #(get % "handle") %)))]
+        (is (= ["first" "alex" "joe" "nicolegf" "stopa"]
+               (get-handles {:order {:email "asc"}})))
+
+        (is (= ["stopa" "nicolegf" "joe" "alex" "first"]
+               (get-handles {:order {:email "desc"}})))
+
+        (testing "null as a value"
+          (tx/transact! (aurora/conn-pool)
+                        (attr-model/get-by-app-id (:id app))
+                        (:id app)
+                        [[:add-triple uid-2 (resolvers/->uuid r :users/id) (str uid-2)]
+                         [:add-triple uid-2 (resolvers/->uuid r :users/handle) "second"]
+                         [:add-triple uid-2 (resolvers/->uuid r :users/email) nil]])
+
+          (is (= ["first" "second" "alex" "joe" "nicolegf" "stopa"]
+                 (get-handles {:order {:email "asc"}})))
+
+          (is (= ["stopa" "nicolegf" "joe" "alex" "second" "first"]
+                 (get-handles {:order {:email "desc"}}))))))))
+
 (deftest obj-tree-order
   (with-empty-app
     (fn [{app-id :id :as _app}]

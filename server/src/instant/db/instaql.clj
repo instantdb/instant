@@ -815,6 +815,7 @@
                      etype-sym
                      (:id order-attr)
                      order-sym])
+         :attr-id (:id order-attr)
          :before before
          :after after}))))
 
