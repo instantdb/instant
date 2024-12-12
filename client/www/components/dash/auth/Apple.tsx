@@ -25,7 +25,7 @@ import Image from 'next/image';
 import {
   messageFromInstantError,
 } from '@/lib/auth';
-import { addProvider, addClient, deleteClient } from './shared';
+import { addProvider, addClient, deleteClient, findName } from './shared';
 import { AppsAuthResponse, InstantApp, InstantError, OAuthClient, OAuthServiceProvider } from '@/lib/types';
 
 export function AppleClient({
@@ -64,7 +64,7 @@ export function AppleClient({
     }
   };
 
-  const appleServiceId = client.meta?.appleServiceId;
+  const appleServicesId = client.client_id;
 
   return (
     <div className="">
@@ -94,7 +94,7 @@ export function AppleClient({
           <div className="p-4 flex flex-col gap-4 border-t">
             <Copyable label="Client Name" value={client.client_name} />
             
-            <Copyable label="Services ID" value={appleServiceId} />
+            <Copyable label="Apple Services ID" value={appleServicesId || ''} />
 
             <div><Button onClick={deleteDialog.onOpen} loading={isLoading} variant="destructive">Delete</Button></div>
           </div>
@@ -138,18 +138,8 @@ export function AddClientExpanded({
 }) {
   const token = useContext(TokenContext);
   
-  const [clientName, setClientName] = useState<string>(() => {
-    if (!usedClientNames.has('apple')) {
-      return 'apple';
-    }
-    for (let i = 2; true; i++) {
-      if (!usedClientNames.has('apple' + i)) {
-        return 'apple' + i;
-      }
-    }
-  });
-
-  const [serviceId, setServiceId] = useState<string>('');
+  const [clientName, setClientName] = useState<string>(() => findName('apple', usedClientNames));
+  const [servicesId, setServicesId] = useState<string>('');
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -160,8 +150,8 @@ export function AddClientExpanded({
     if (usedClientNames.has(clientName)) {
       return `Client name '${clientName}' is already in use.`;
     }
-    if (!serviceId) {
-      return 'Missing Services ID';
+    if (!servicesId) {
+      return 'Missing Apple Services ID';
     }
   };
 
@@ -191,10 +181,10 @@ export function AddClientExpanded({
         appId: app.id,
         providerId: provider.id,
         clientName,
+        clientId: servicesId,
         authorizationEndpoint: 'https://appleid.apple.com/auth/authorize',
         tokenEndpoint: 'https://appleid.apple.com/auth/token',
         discoveryEndpoint: 'https://account.apple.com/.well-known/openid-configuration',
-        meta: { appleServiceId: serviceId },
       });
       onAddClient(resp.client);
     } catch (e) {
@@ -210,7 +200,7 @@ export function AddClientExpanded({
     <form className="flex flex-col gap-2 p-4 rounded border" onSubmit={onSubmit} autoComplete="off" data-lpignore="true">
       <SubsectionHeading>Add Apple Client</SubsectionHeading>
       <TextInput tabIndex={1} value={clientName} onChange={setClientName} label="Client Name" placeholder="e.g. apple" />
-      <TextInput tabIndex={2} value={serviceId} onChange={setServiceId} label="Services ID" placeholder="" />
+      <TextInput tabIndex={2} value={servicesId} onChange={setServicesId} label="Apple Services ID" placeholder="" />
       <Button loading={isLoading} type="submit">Add Apple Client</Button>
       <Button variant="secondary" onClick={onCancel}>Cancel</Button>
     </form>

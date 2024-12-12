@@ -25,7 +25,7 @@ import Image from 'next/image';
 import {
   messageFromInstantError,
 } from '@/lib/auth';
-import { addProvider, addClient, deleteClient } from './shared';
+import { addProvider, addClient, deleteClient, findName } from './shared';
 import { InstantApp, InstantError, OAuthClient, OAuthServiceProvider } from '@/lib/types';
 
 export function AddClerkProviderForm({
@@ -360,9 +360,7 @@ export function AddClerkClientForm({
   usedClientNames: Set<string>;
 }) {
   const token = useContext(TokenContext);
-  const [clientName, setClientName] = useState<string>(
-    usedClientNames.has('clerk') ? '' : 'clerk',
-  );
+  const [clientName, setClientName] = useState<string>(() => findName('clerk', usedClientNames));
   const [publishableKey, setPublishableKey] = useState<string>('');
 
   const [isLoading, setIsLoading] = useState<boolean>(false);

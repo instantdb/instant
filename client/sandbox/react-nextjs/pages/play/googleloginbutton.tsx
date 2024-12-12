@@ -9,10 +9,10 @@ import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
 import { useState } from "react";
 
 // 3. Get your app id
-const { auth, useAuth, transact, useQuery } = init(config);
+const db = init(config);
 
 function App() {
-  const { isLoading, user, error } = useAuth();
+  const { isLoading, user, error } = db.useAuth();
   if (isLoading) {
     return <div>Loading...</div>;
   }
@@ -27,18 +27,21 @@ function App() {
   if (user) {
     return <Main user={user} />;
   }
-  return <Login />;
+  return <div>
+    <LoginPopup />
+    <LoginRedirect />
+  </div>;
 }
 
 // 4. Create the Google button
-function Login() {
+function LoginPopup() {
   const [error, setError] = useState<string | null>(null);
   const [nonce] = useState(crypto.randomUUID());
   return (
     <div className="p-4 w-6">
       <GoogleOAuthProvider
         // 4a. Use your google client id
-        clientId="334689602129-cun7eo9ootvgcgn9dgkb6q6jdsk2hf0j.apps.googleusercontent.com"
+        clientId="292083552505-vvdg13drvp8sn49acmi52lcbd163jk64.apps.googleusercontent.com"
         // 4b. Include the nonce on the provider
         nonce={nonce}
       >
@@ -55,7 +58,7 @@ function Login() {
             auth
               .signInWithIdToken({
                 // Use the name you created when you registered the client
-                clientName: "google-web",
+                clientName: "google",
                 idToken,
                 nonce,
               })
@@ -75,11 +78,19 @@ function Login() {
   );
 }
 
+function LoginRedirect() {
+  const [url, _] = useState(() => db.auth.createAuthorizationURL({
+    clientName: 'google',
+    redirectURL: window.location.href,
+  }));
+  return <a href={url} className="underline">Sign in with Google Redirect</a>;
+}
+
 // 6. Make queries to your heart's content!
 // Checkout InstaQL for examples
 // https://paper.dropbox.com/doc/InstaQL--BgBK88TTiSE9OV3a17iCwDjCAg-yVxntbv98aeAovazd9TNL
 function Main({ user }: { user: User }) {
-  const { isLoading, error, data } = useQuery({ goals: { todos: {} } });
+  const { isLoading, error, data } = db.useQuery({ goals: { todos: {} } });
   if (isLoading) return <div>Loading Query...</div>;
   if (error) return <div>Error: {error.message}</div>;
   return (
@@ -133,7 +144,7 @@ function Main({ user }: { user: User }) {
       <button
         className="px-4 py-2 rounded border-2 my-2"
         onClick={(e) => {
-          auth.signOut();
+          db.auth.signOut();
         }}
       >
         Sign Out

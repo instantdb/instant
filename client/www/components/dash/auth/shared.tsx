@@ -2,6 +2,17 @@ import { jsonFetch } from '@/lib/fetch';
 import config from '@/lib/config';
 import { OAuthServiceProvider, OAuthClient } from '@/lib/types';
 
+export function findName(prefix: string, used: Set<string>): string {
+  if (!used.has(prefix)) {
+    return prefix;
+  }
+  for (let i = 2; true; i++) {
+    if (!used.has(prefix + i)) {
+      return prefix + i;
+    }
+  }
+}
+
 export function addProvider({
   token,
   appId,

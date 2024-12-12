@@ -2,7 +2,7 @@ import { FormEventHandler, useState, useContext } from 'react';
 import { errorToast } from '@/lib/toast';
 import { TokenContext } from '@/lib/contexts';
 import { InstantApp, InstantError, OAuthClient, OAuthServiceProvider } from '@/lib/types';
-import { addProvider, addClient, deleteClient } from './shared';
+import { addProvider, addClient, deleteClient, findName } from './shared';
 import { messageFromInstantError } from '@/lib/auth';
 import { Button, Checkbox, Content, Copyable, Copytext, Dialog, Divider, Fence, SectionHeading, SubsectionHeading, TextInput, useDialog } from '@/components/ui';
 import Image from 'next/image';
@@ -24,7 +24,7 @@ export function AddClientForm({
   usedClientNames: Set<string>;
 }) {
   const token = useContext(TokenContext);
-  const [clientName, setClientName] = useState<string>('');
+  const [clientName, setClientName] = useState<string>(() => findName('google', usedClientNames));
   const [clientId, setClientId] = useState<string>('');
   const [clientSecret, setClientSecret] = useState<string>('');
   const [updatedRedirectURL, setUpdatedRedirectURL] = useState(false);
@@ -89,7 +89,7 @@ export function AddClientForm({
         tabIndex={1}
         value={clientName}
         onChange={setClientName}
-        label="Unique name"
+        label="Client name"
         placeholder="e.g. google-web"
       />
       <TextInput
@@ -281,8 +281,8 @@ const url = db.auth.createAuthorizationURL({
         </Collapsible.Trigger>
         <Collapsible.Content className="">
           <div className="p-4 flex flex-col gap-4 border-t">
-            <Copyable label="Google client ID" value={client.client_id || ''} />
             <Copyable label="Client name" value={client.client_name} />
+            <Copyable label="Google client ID" value={client.client_id || ''} />
             <SubsectionHeading>Setup and usage</SubsectionHeading>
             <Content>
               <strong>1.</strong> Navigate to{' '}
