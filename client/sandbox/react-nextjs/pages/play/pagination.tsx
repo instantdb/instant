@@ -35,17 +35,25 @@ function Example({ appId }: { appId: string }) {
 
   const order = { [orderField]: direction };
 
-  const { data: firstFiveData } = db.useQuery({
+  const { data: firstFiveData, error: firstFiveError } = db.useQuery({
     goals: { $: { limit: limit, order } },
   });
 
-  const { data: secondFiveData, pageInfo } = db.useQuery({
+  const {
+    data: secondFiveData,
+    error: secondFiveError,
+    pageInfo,
+  } = db.useQuery({
     goals: {
       $: { limit: limit, offset: limit, order },
     },
   });
 
-  const { data: thirdFiveData, pageInfo: thirdFivePageInfo } = db.useQuery({
+  const {
+    data: thirdFiveData,
+    error: thirdFiveError,
+    pageInfo: thirdFivePageInfo,
+  } = db.useQuery({
     goals: {
       $: {
         limit: limit,
@@ -58,7 +66,7 @@ function Example({ appId }: { appId: string }) {
   const endCursor = pageInfo?.goals?.endCursor;
   const startCursor = pageInfo?.goals?.startCursor;
 
-  const { data: afterData } = db.useQuery({
+  const { data: afterData, error: afterError } = db.useQuery({
     goals: {
       $: {
         limit: limit,
@@ -68,7 +76,7 @@ function Example({ appId }: { appId: string }) {
     },
   });
 
-  const { data: beforeData } = db.useQuery({
+  const { data: beforeData, error: beforeError } = db.useQuery({
     goals: {
       $: {
         last: limit,
@@ -158,6 +166,7 @@ function Example({ appId }: { appId: string }) {
             sometimesNullOrUndefined
           </option>
           <option value="sometimesNullDate">sometimesNullDate</option>
+          <option value="title">title (not )</option>
         </select>
         <select
           value={direction}
@@ -203,7 +212,9 @@ function Example({ appId }: { appId: string }) {
         <div className="p-2">
           <details open>
             <summary>First {limit} goals</summary>
-
+            {firstFiveError ? (
+              <pre>{JSON.stringify(firstFiveError, null, 2)}</pre>
+            ) : null}
             {firstFiveData?.goals.map((g) => (
               <div key={g.id}>{displayValue(g)}</div>
             ))}
@@ -213,7 +224,9 @@ function Example({ appId }: { appId: string }) {
         <div className="p-2">
           <details open>
             <summary>Second {limit} goals</summary>
-
+            {secondFiveError ? (
+              <pre>{JSON.stringify(secondFiveError, null, 2)}</pre>
+            ) : null}
             {secondFiveData?.goals.map((g) => (
               <div key={g.id}>{displayValue(g)}</div>
             ))}
@@ -223,7 +236,9 @@ function Example({ appId }: { appId: string }) {
         <div className="p-2">
           <details open>
             <summary>Third {limit} goals</summary>
-
+            {thirdFiveError ? (
+              <pre>{JSON.stringify(thirdFiveError, null, 2)}</pre>
+            ) : null}
             {thirdFiveData?.goals.map((g) => (
               <div key={g.id}>{displayValue(g)}</div>
             ))}
@@ -233,7 +248,9 @@ function Example({ appId }: { appId: string }) {
         <div className="p-2">
           <details open>
             <summary>After second goals</summary>
-
+            {afterError ? (
+              <pre>{JSON.stringify(afterError, null, 2)}</pre>
+            ) : null}
             {!endCursor
               ? null
               : afterData?.goals.map((g) => (
@@ -245,7 +262,9 @@ function Example({ appId }: { appId: string }) {
         <div className="p-2">
           <details open>
             <summary>Before third goals</summary>
-
+            {beforeError ? (
+              <pre className="max-w-48">{JSON.stringify(beforeError, null, 2)}</pre>
+            ) : null}
             {!thirdFivePageInfo?.goals?.startCursor
               ? null
               : beforeData?.goals.map((g) => (
