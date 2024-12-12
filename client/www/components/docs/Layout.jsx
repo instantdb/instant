@@ -170,14 +170,10 @@ export function Layout({ children, title, tableOfContents }) {
               {(title || section) && (
                 <header className="mb-6 space-y-1">
                   {section && (
-                    <p className="text-sm font-medium text-sky-500">
-                      {section.title}
-                    </p>
+                    <p className="text-sm font-medium">{section.title}</p>
                   )}
                   {title && (
-                    <h1 className="text-3xl tracking-tight text-slate-900 dark:text-white">
-                      {title}
-                    </h1>
+                    <h1 className="text-3xl  dark:text-white">{title}</h1>
                   )}
                 </header>
               )}
