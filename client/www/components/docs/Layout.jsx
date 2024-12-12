@@ -214,7 +214,7 @@ export function Layout({ children, title, tableOfContents }) {
               )}
             </dl>
           </div>
-          <div className="hidden xl:block px-4 py-4 overflow-y-auto xl:basis-96">
+          <div className="hidden xl:block px-4 py-4 overflow-y-auto w-96">
             <nav aria-labelledby="on-this-page-title">
               {tableOfContents.length > 0 && (
                 <>
@@ -231,9 +231,7 @@ export function Layout({ children, title, tableOfContents }) {
                           <Link
                             href={`#${section.id}`}
                             className={clsx(
-                              isActive(section)
-                                ? 'text-sky-500'
-                                : 'font-normal text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300',
+                              'font-normal text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300',
                             )}
                           >
                             {section.title}
@@ -248,11 +246,7 @@ export function Layout({ children, title, tableOfContents }) {
                               <li key={subSection.id}>
                                 <Link
                                   href={`#${subSection.id}`}
-                                  className={
-                                    isActive(subSection)
-                                      ? 'text-sky-500'
-                                      : 'hover:text-slate-600 dark:hover:text-slate-300'
-                                  }
+                                  className="hover:text-slate-600 dark:hover:text-slate-300"
                                 >
                                   {subSection.title}
                                 </Link>
