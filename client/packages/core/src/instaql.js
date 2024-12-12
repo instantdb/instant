@@ -393,10 +393,9 @@ function makeJoin(makeVar, store, etype, level, label, eid) {
 function extendObjects(makeVar, store, { etype, level, form }, objects) {
   const childQueries = Object.keys(form).filter((c) => c !== "$");
   if (!childQueries.length) {
-    return objects;
+    return Object.values(objects);
   }
-  return objects.map(function extendChildren(parent) {
-    const eid = parent.id;
+  return Object.entries(objects).map(function extendChildren([eid, parent]) {
     const childResults = childQueries.map(function getChildResult(label) {
       const isSingular = Boolean(
         store.cardinalityInference &&
@@ -538,15 +537,13 @@ function runDataloadAndReturnObjects(
         },
   );
 
-  const objects = [];
-  const seen = new Set([]);
+  let objects = {};
 
   for (const idVec of idVecs) {
     const [id] = idVec;
-    if (seen.has(id)) {
+    if (objects[id]) {
       continue;
     }
-    seen.add(id);
     if (
       startCursor &&
       orderAttr &&
@@ -557,7 +554,7 @@ function runDataloadAndReturnObjects(
 
     const obj = s.getAsObject(store, etype, id);
     if (obj) {
-      objects.push(obj);
+      objects[id] = obj;
     }
   }
   return objects;
@@ -610,11 +607,11 @@ function resolveObjects(store, { etype, level, form, join, pageInfo }) {
   );
 
   if (limit != null) {
-    const entries = objs;
+    const entries = Object.entries(objs);
     if (entries.length <= limit) {
       return objs;
     }
-    return objs.slice(0, limit);
+    return Object.fromEntries(entries.slice(0, limit));
   }
   return objs;
 }
@@ -633,7 +630,7 @@ function guardedResolveObjects(store, opts) {
     return resolveObjects(store, opts);
   } catch (e) {
     if (e instanceof AttrNotFoundError) {
-      return [];
+      return {};
     }
     throw e;
   }
