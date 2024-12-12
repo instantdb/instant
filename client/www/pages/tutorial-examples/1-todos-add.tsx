@@ -1,7 +1,7 @@
 'use client';
 
 import config from '@/lib/config'; // hide-line
-import { init, tx, id } from '@instantdb/react';
+import { init, id } from '@instantdb/react';
 
 // Connect to the database
 // ---------
@@ -12,10 +12,10 @@ const db = init({
 
 function addMessage(text: string) {
   db.transact(
-    tx.messages[id()].update({
+    db.tx.messages[id()].update({
       text,
       createdAt: new Date(),
-    })
+    }),
   );
 }
 
@@ -29,7 +29,7 @@ function App() {
   const sortedMessages = messages.sort(
     (a, b) =>
       // @ts-expect-error
-      new Date(a.createdAt) - new Date(b.createdAt)
+      new Date(a.createdAt) - new Date(b.createdAt),
   );
 
   return (

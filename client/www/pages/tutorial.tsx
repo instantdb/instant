@@ -238,7 +238,7 @@ npm run dev
                   code={`
 function addMessage(text) {
   db.transact(
-    tx.messages[id()].update({
+    db.tx.messages[id()].update({
       text,
       createdAt: new Date(),
     }),
@@ -249,7 +249,7 @@ function addMessage(text) {
                 <p>
                   Writing to the database is done via the{' '}
                   <Token>transact</Token> function. In this example you can
-                  think of <Token>tx.messages</Token> as referring to the{' '}
+                  think of <Token>db.tx.messages</Token> as referring to the{' '}
                   <Token>messages</Token> table. The <Token>id</Token> function
                   generates a unique identifier for this new message, and the
                   <Token>update</Token> function does an <Token>insert</Token>{' '}
@@ -411,7 +411,7 @@ function addMessage(text) {
                       language="tsx"
                       code={`
 function deleteMessage(messageId) {
-  db.transact(tx.messages[messageId].delete());
+  db.transact(db.tx.messages[messageId].delete());
 }
 `}
                     />
@@ -419,7 +419,7 @@ function deleteMessage(messageId) {
                       language="tsx"
                       code={`
 function updateMessage(messageId, newText) {
-  db.transact(tx.messages[messageId].update({ text: newText }));
+  db.transact(db.tx.messages[messageId].update({ text: newText }));
 }
 `}
                     />
@@ -471,7 +471,7 @@ function updateMessage(messageId, newText) {
                         // spec changed, we want to include \`updatedAt\` now
 function updateMessage(messageId, newText) {
   db.transact(
-    tx.messages[messageId]
+    db.tx.messages[messageId]
       .update({ text: newText, updatedAt: Date.now() })
   );
 }
