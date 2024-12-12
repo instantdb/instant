@@ -12,7 +12,6 @@ import {
 } from '@/lib/types';
 import {
   Button,
-  Content,
   Divider,
   SectionHeading,
 } from '@/components/ui';
@@ -20,10 +19,10 @@ import {
   APIResponse,
   useAuthedFetch,
 } from '@/lib/auth';
-import { HomeButton } from '@/pages/dash';
 
-import { AddClerkProviderForm, ClerkClients } from './auth/Clerk';
 import { AddGoogleProviderForm, GoogleClients } from './auth/Google';
+import { AddClerkProviderForm, ClerkClients } from './auth/Clerk';
+import { AppleClients } from './auth/Apple';
 import { Email } from './auth/Email';
 import { AuthorizedOrigins } from './auth/Origins';
 
@@ -140,17 +139,9 @@ export function AppAuth({
   return (
     <div className="flex flex-col p-4 gap-6 max-w-xl">
       <div className="flex flex-col gap-4">
-        <SectionHeading>Auth Providers</SectionHeading>
-        <HomeButton
-          href="/docs/auth#log-in-with-google"
-          title="Logging in with Google"
-        >
-          Learn how to add Google OAuth to your app.
-        </HomeButton>
-        <Content>
-          Add an OAuth provider to allow users to log in to your app. We
-          currently support Google and Clerk. More providers are coming soon.
-        </Content>
+        <SectionHeading>Google Clients</SectionHeading>
+        <a className="underline" href="/docs/auth#log-in-with-google">How to add Google OAuth to your app.</a>
+        
         {googleProvider ? (
           <GoogleClients
             // Set key because setLastCreatedProviderId is somehow applied after mutate
@@ -175,6 +166,10 @@ export function AppAuth({
         ) : (
           <AddGoogleProviderForm app={app} onAddProvider={handleAddProvider} />
         )}
+
+        <Divider />
+        <SectionHeading>Clerk Clients</SectionHeading>
+
         {clerkProvider ? (
           <ClerkClients
             // Set key because setLastCreatedProviderId is somehow applied after mutate
@@ -199,10 +194,24 @@ export function AppAuth({
         ) : (
           <AddClerkProviderForm app={app} onAddProvider={handleAddProvider} />
         )}
+
+        <Divider />
+        <SectionHeading>Apple Clients</SectionHeading>
+
+        <AppleClients
+          app={app}
+          data={data}
+          onAddProvider={handleAddProvider}
+          onAddClient={handleAddClient}
+          onDeleteClient={handleDeleteClient}
+          usedClientNames={usedClientNames}
+          lastCreatedClientId={lastCreatedClientId}
+        />
+        
       </div>
 
-      
       <Divider />
+
       <AuthorizedOrigins
         app={app}
         origins={data.authorized_redirect_origins || []}
@@ -211,6 +220,7 @@ export function AppAuth({
       />
       
       <Divider />
+
       <Email app={app} dashResponse={dashResponse} nav={nav} />
     </div>
   );

@@ -524,21 +524,6 @@ export function ClerkClients({
 
   return (
     <div className="flex flex-col gap-2">
-      {showAddClientForm ? (
-        <>
-          <AddClerkClientForm
-            app={app}
-            provider={provider}
-            onAddClient={handleAddClient}
-            onCancel={() => setShowAddClientForm(false)}
-            usedClientNames={usedClientNames}
-          />
-        </>
-      ) : (
-        <Button onClick={() => setShowAddClientForm(true)} variant="secondary">
-          <PlusIcon height={14} /> Add a new Clerk app
-        </Button>
-      )}
       {clients.map((c) => {
         return (
           <ClerkClient
@@ -552,6 +537,23 @@ export function ClerkClients({
           />
         );
       })}
+      
+      {showAddClientForm ? (
+        <>
+          <AddClerkClientForm
+            app={app}
+            provider={provider}
+            onAddClient={handleAddClient}
+            onCancel={() => setShowAddClientForm(false)}
+            usedClientNames={usedClientNames}
+          />
+        </>
+      ) : (
+        <Button onClick={() => setShowAddClientForm(true)} variant="secondary">
+          <PlusIcon height={14} /> Add {clients.length > 0 ? 'another ' : ''}Clerk app
+        </Button>
+      )}
+      
     </div>
   );
 }

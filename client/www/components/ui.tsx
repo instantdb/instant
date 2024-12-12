@@ -654,7 +654,7 @@ export function Copyable({
         'text-base': size === 'large',
       })}
     >
-      <div className="border-r bg-gray-50 px-3 py-1.5">{label}</div>
+      <div className="border-r bg-gray-50 px-3 py-1.5" style={{borderTopLeftRadius: "calc(0.25rem - 1px)", borderBottomLeftRadius: "calc(0.25rem - 1px)"}}>{label}</div>
       <pre
         className="flex-1 truncate px-4 py-1.5"
         title={value}

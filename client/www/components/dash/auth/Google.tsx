@@ -6,7 +6,7 @@ import { addProvider, addClient, deleteClient } from './shared';
 import { messageFromInstantError } from '@/lib/auth';
 import { Button, Checkbox, Content, Copyable, Copytext, Dialog, Divider, Fence, SectionHeading, SubsectionHeading, TextInput, useDialog } from '@/components/ui';
 import Image from 'next/image';
-import googleIconSvg from '../../../public/google_g.svg';
+import googleIconSvg from '../../../public/img/google_g.svg';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { PlusIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/solid';
 
@@ -28,21 +28,6 @@ export function AddClientForm({
   const [clientId, setClientId] = useState<string>('');
   const [clientSecret, setClientSecret] = useState<string>('');
   const [updatedRedirectURL, setUpdatedRedirectURL] = useState(false);
-
-  // We're going to assume Google only for now
-  const [authorizationEndpoint, _setAuthorizationEndpoint] = useState<string>(
-    'https://accounts.google.com/o/oauth2/v2/auth',
-  );
-
-  // We're going to assume Google only for now
-  const [tokenEndpoint, _setTokenEndpoint] = useState<string>(
-    'https://oauth2.googleapis.com/token',
-  );
-
-  // We're going to assume Google only for now
-  const [discoveryEndpoint, _setDiscoveryEndpoint] = useState<string>(
-    'https://accounts.google.com/.well-known/openid-configuration',
-  );
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -77,9 +62,9 @@ export function AddClientForm({
         clientName,
         clientId,
         clientSecret,
-        authorizationEndpoint,
-        tokenEndpoint,
-        discoveryEndpoint,
+        authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
+        tokenEndpoint: 'https://oauth2.googleapis.com/token',
+        discoveryEndpoint: 'https://accounts.google.com/.well-known/openid-configuration',
       });
       onAddClient(resp.client);
     } catch (e) {
@@ -390,21 +375,6 @@ export function GoogleClients({
 
   return (
     <div className="flex flex-col gap-2">
-      {showAddClientForm ? (
-        <>
-          <AddClientForm
-            app={app}
-            provider={provider}
-            onAddClient={handleAddClient}
-            onCancel={() => setShowAddClientForm(false)}
-            usedClientNames={usedClientNames}
-          />
-        </>
-      ) : (
-        <Button onClick={() => setShowAddClientForm(true)} variant="secondary">
-          <PlusIcon height={14} /> Add a new Google client
-        </Button>
-      )}
       {clients.map((c) => {
         return (
           <Client
@@ -418,6 +388,22 @@ export function GoogleClients({
           />
         );
       })}
+
+      {showAddClientForm ? (
+        <>
+          <AddClientForm
+            app={app}
+            provider={provider}
+            onAddClient={handleAddClient}
+            onCancel={() => setShowAddClientForm(false)}
+            usedClientNames={usedClientNames}
+          />
+        </>
+      ) : (
+        <Button onClick={() => setShowAddClientForm(true)} variant="secondary">
+          <PlusIcon height={14} /> Add {clients.length > 0 ? 'another ' : ''}Google client
+        </Button>
+      )}
     </div>
   );
 }

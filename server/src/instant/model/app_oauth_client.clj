@@ -80,16 +80,7 @@
                (get-entity [(resolve-id :name) client-name])))))
 
 (defn get-by-client-name! [{:keys [app-id client-name] :as params}]
-  (if (= "apple" client-name)
-    (let [provider-args {:app-id app-id
-                         :provider-name "apple"}
-          provider      (or
-                          (app-oauth-service-provider-model/get-by-provider-name provider-args)
-                          (app-oauth-service-provider-model/create! provider-args))]
-      {:discovery_endpoint "https://account.apple.com/.well-known/openid-configuration"
-       :app_id             app-id
-       :provider_id        (:id provider)})
-    (ex/assert-record! (get-by-client-name params) :app-oauth-client {:args [params]})))
+  (ex/assert-record! (get-by-client-name params) :app-oauth-client {:args [params]}))
 
 (defn delete-by-id!
   ([params] (delete-by-id! (aurora/conn-pool) params))
