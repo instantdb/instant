@@ -80,7 +80,7 @@ function AppPicker({ apps, selectedAppData, updateSelectedAppId }) {
   }
 
   return (
-    <div className="flex flex-col mb-6 p-4 gap-1 bg-white border rounded">
+    <div className="flex flex-col mb-6 p-4 gap-1 bg-white border">
       <h4 className="font-bold">Pick your app</h4>
       <p className="text-sm">
         The examples below will be updated with your app ID.
@@ -168,12 +168,12 @@ export function Layout({ children, title, tableOfContents }) {
             <AppPicker {...{ apps, selectedAppData, updateSelectedAppId }} />
             <article>
               {(title || section) && (
-                <header className="mb-6 space-y-1">
+                <header className="mb-4 space-y-1">
                   {section && (
-                    <p className="text-sm font-medium">{section.title}</p>
+                    <p className="text-sm text-gray-500 font-medium">{section.title}</p>
                   )}
                   {title && (
-                    <h1 className="text-3xl  dark:text-white">{title}</h1>
+                    <h1 className="text-3xl dark:text-white">{title}</h1>
                   )}
                 </header>
               )}
@@ -205,7 +205,7 @@ export function Layout({ children, title, tableOfContents }) {
                   <dd className="mt-1">
                     <Link
                       href={nextPage.href}
-                      className="text-base font-semibold text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
+                      className="text-base text-blue-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
                     >
                       {nextPage.title} <span aria-hidden="true">&rarr;</span>
                     </Link>

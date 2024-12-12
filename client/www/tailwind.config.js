@@ -37,7 +37,8 @@ module.exports = {
         'monospace',
       ],
     },
-    extend: {},
+    extend: {
+    },
   },
   future: { hoverOnlyWhenSupported: true },
   plugins: [
