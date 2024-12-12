@@ -286,4 +286,4 @@ function submitForm(event: Event) {
 
 Go to `localhost:5173` and follow the final instruction to load the app!
 
-Huzzah 🎉 You've got your first Instant web app running! Check out the [**Explore**](/docs/init) section to learn more about how to use Instant :)
+Huzzah 🎉 You've got your first Instant web app running! Check out the [Working with data](/docs/init) section to learn more about how to use Instant :)

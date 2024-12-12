@@ -13,53 +13,6 @@ import { Select } from '@/components/ui';
 import { MainNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';
 
-function useTableOfContents(tableOfContents, scrollContainerRef) {
-  let [currentSection, setCurrentSection] = useState(tableOfContents[0]?.id);
-
-  useEffect(() => {
-    if (tableOfContents.length === 0) return;
-    let headings = getHeadings(tableOfContents);
-
-    function onScroll() {
-      if (!scrollContainerRef.current) return;
-
-      let top = scrollContainerRef.current.scrollTop;
-      let current = headings[0].id;
-      for (let heading of headings) {
-        if (top >= heading.top) {
-          current = heading.id;
-        } else {
-          break;
-        }
-      }
-
-      setCurrentSection(current);
-    }
-
-    function getHeadings() {
-      return tableOfContents
-        .flatMap((node) => [node.id, ...node.children.map((child) => child.id)])
-        .map((id) => {
-          let el = document.getElementById(id);
-          if (!el) return;
-
-          let top = el.offsetTop;
-          return { id, top };
-        })
-        .filter((_) => _);
-    }
-
-    window.addEventListener('scroll', onScroll, true);
-    onScroll();
-
-    return () => {
-      window.removeEventListener('scroll', onScroll, true);
-    };
-  }, [tableOfContents, scrollContainerRef]);
-
-  return currentSection;
-}
-
 function useSelectedApp(apps = []) {
   const cacheKey = 'docs-appId';
   const router = useRouter();
@@ -176,17 +129,6 @@ export function Layout({ children, title, tableOfContents }) {
   let section = navigation.find((section) =>
     section.links.find((link) => link.href === router.pathname),
   );
-  let currentSection = useTableOfContents(tableOfContents, scrollContainerRef);
-
-  function isActive(section) {
-    if (section.id === currentSection) {
-      return true;
-    }
-    if (!section.children) {
-      return false;
-    }
-    return section.children.findIndex(isActive) > -1;
-  }
 
   const token = useAuthToken();
   const dashResponse = useTokenFetch(`${config.apiURI}/dash`, token);
@@ -219,7 +161,7 @@ export function Layout({ children, title, tableOfContents }) {
             </div>
           </div>
           <div
-            className="overflow-auto px-4 pb-6 pt-4"
+            className="overflow-auto pb-6 pt-4 px-4 leading-relaxed max-w-prose w-full"
             ref={scrollContainerRef}
             key={router.pathname}
           >

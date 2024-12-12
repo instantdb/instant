@@ -125,4 +125,4 @@ npm run start
 
 Scan the QR code with your phone and follow the instructions on the screen :)
 
-Huzzah 🎉 You've got your first React Native Instant app running! Check out the [**Explore**](/docs/init) section to learn more about how to use Instant!
+Huzzah 🎉 You've got your first React Native Instant app running! Check out the [Working with data](/docs/init) section to learn more about how to use Instant!
