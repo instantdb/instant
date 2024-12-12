@@ -79,10 +79,10 @@
 
 (defn get-expr [rule etype action]
   (or
-    (get-in rule [etype "allow" action])
-    (get-in rule [etype "allow" "$default"])
-    (get-in rule ["$default" "allow" action])
-    (get-in rule ["$default" "allow" "$default"])))
+   (get-in rule [etype "allow" action])
+   (get-in rule [etype "allow" "$default"])
+   (get-in rule ["$default" "allow" action])
+   (get-in rule ["$default" "allow" "$default"])))
 
 (defn extract [rule etype action]
   (when-let [expr (get-in rule [etype "allow" action])]
@@ -158,6 +158,7 @@
   [etype action]
   (when (and (not= "$users" etype)
              (not= "$files" etype)
+             (not= "$default" etype)
              (string/starts-with? etype "$"))
     [[etype
       action
