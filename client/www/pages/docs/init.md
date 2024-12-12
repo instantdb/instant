@@ -17,7 +17,12 @@ function App() {
 }
 ```
 
-If you're using TypeScript, `init` accepts a `Schema` generic, which will provide auto-completion and type-safety for `useQuery` results.
+With that, you can call `db` to [write data](/docs/instaml), [make queries](/docs/instaql), [handle auth](/docs/auth), and more! 
+
+## Typesafety
+
+By default, 
+
 
 ```typescript
 import { init } from '@instantdb/react';

@@ -21,12 +21,7 @@ npm run dev
 Now open up `src/main.ts` in your favorite editor and replace the entirety of the file with the following code.
 
 ```javascript {% showCopy=true %}
-import {
-  init,
-  i,
-  id,
-  InstaQLEntity,
-} from "@instantdb/core";
+import { init, i, id, InstaQLEntity } from "@instantdb/core";
 
 // Instant app
 const APP_ID = '__APP_ID__'
@@ -92,7 +87,9 @@ function deleteCompleted(todos: Todo[]) {
 
 function toggleAllTodos(todos: Todo[]) {
   const newVal = !todos.every((todo) => todo.done);
-  db.transact(todos.map((todo) => db.tx.todos[todo.id].update({ done: newVal })));
+  db.transact(
+    todos.map((todo) => db.tx.todos[todo.id].update({ done: newVal }))
+  );
 }
 
 // Styles

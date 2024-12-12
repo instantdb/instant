@@ -17,7 +17,7 @@ And if you're ready, follow the quick start below, to build a live app in less t
 To use Instant in a brand new project fire up your terminal and do the following:
 
 ```shell {% showCopy=true %}
-npx create-next-app -e hello-world instant-demo y
+npx create-next-app -e hello-world instant-demo
 cd instant-demo
 npm i @instantdb/react
 npm run dev

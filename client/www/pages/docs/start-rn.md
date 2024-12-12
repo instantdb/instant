@@ -19,7 +19,7 @@ npm i @react-native-async-storage/async-storage @react-native-community/netinfo 
 Now open up `app/(tabs)/index.tsx` in your favorite editor and replace the entirety of the file with the following code.
 
 ```typescript {% showCopy=true %}
-import { init, i } from "@instantdb/react-native";
+import { init, i, InstaQLEntity } from "@instantdb/react-native";
 import { View, Text, Button, StyleSheet } from "react-native";
 
 // Instant app
@@ -29,12 +29,14 @@ const APP_ID = '__APP_ID__';
 const schema = i.schema({
   entities: {
     colors: i.entity({
-      color: i.string()
+      value: i.string(),
     }),
   },
   links: {},
   rooms: {},
 });
+
+type Color = InstaQLEntity<typeof schema, "colors">;
 
 const db = init({ appId: APP_ID, schema });
 
@@ -55,16 +57,16 @@ function App() {
     );
   }
 
-  return <Main colorEntity={data.colors[0]} />;
+  return <Main color={data.colors[0]} />;
 }
 
 const selectId = "4d39508b-9ee2-48a3-b70d-8192d9c5a059";
 
-function Main(props: { colorEntity?: { color: string } }) {
-  const { color } = props.colorEntity || { color: "white" };
+function Main(props: { color?: Color }) {
+  const { value } = props.color || { value: "lightgray" };
 
   return (
-    <View style={[styles.container, { backgroundColor: color }]}>
+    <View style={[styles.container, { backgroundColor: value  }]}>
       <View style={[styles.contentSection]}>
         <Text style={styles.header}>Hi! pick your favorite color</Text>
         <View style={styles.spaceX4}>
@@ -73,7 +75,7 @@ function Main(props: { colorEntity?: { color: string } }) {
               <Button
                 title={c}
                 onPress={() => {
-                  db.transact(db.tx.colors[selectId].update({ color: c }));
+                  db.transact(db.tx.colors[selectId].update({ value: c }));
                 }}
                 key={c}
               />
