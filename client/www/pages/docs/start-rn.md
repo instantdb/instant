@@ -19,7 +19,7 @@ npm i @react-native-async-storage/async-storage @react-native-community/netinfo 
 Now open up `app/(tabs)/index.tsx` in your favorite editor and replace the entirety of the file with the following code.
 
 ```typescript {% showCopy=true %}
-import { init, tx, i } from "@instantdb/react-native";
+import { init, i } from "@instantdb/react-native";
 import { View, Text, Button, StyleSheet } from "react-native";
 
 // Instant app
@@ -73,7 +73,7 @@ function Main(props: { colorEntity?: { color: string } }) {
               <Button
                 title={c}
                 onPress={() => {
-                  db.transact(tx.colors[selectId].update({ color: c }));
+                  db.transact(db.tx.colors[selectId].update({ color: c }));
                 }}
                 key={c}
               />

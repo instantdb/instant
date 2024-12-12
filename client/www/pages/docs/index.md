@@ -28,7 +28,7 @@ Now open up `app/page.tsx` in your favorite editor and replace the entirety of t
 ```javascript {% showCopy=true %}
 "use client";
 
-import { tx, id, i, init, InstaQLEntity } from "@instantdb/react";
+import { id, i, init, InstaQLEntity } from "@instantdb/react";
 
 // Instant app
 const APP_ID = '__APP_ID__'
@@ -77,7 +77,7 @@ function App() {
 // ---------
 function addTodo(text: string) {
   db.transact(
-    tx.todos[id()].update({
+    db.tx.todos[id()].update({
       text,
       done: false,
       createdAt: Date.now(),
@@ -86,22 +86,22 @@ function addTodo(text: string) {
 }
 
 function deleteTodo(todo: Todo) {
-  db.transact(tx.todos[todo.id].delete());
+  db.transact(db.tx.todos[todo.id].delete());
 }
 
 function toggleDone(todo: Todo) {
-  db.transact(tx.todos[todo.id].update({ done: !todo.done }));
+  db.transact(db.tx.todos[todo.id].update({ done: !todo.done }));
 }
 
 function deleteCompleted(todos: Todo[]) {
   const completed = todos.filter((todo) => todo.done);
-  const txs = completed.map((todo) => tx.todos[todo.id].delete());
+  const txs = completed.map((todo) => db.tx.todos[todo.id].delete());
   db.transact(txs);
 }
 
 function toggleAll(todos: Todo[]) {
   const newVal = !todos.every((todo) => todo.done);
-  db.transact(todos.map((todo) => tx.todos[todo.id].update({ done: newVal })));
+  db.transact(todos.map((todo) => db.tx.todos[todo.id].update({ done: newVal })));
 }
 
 // Components
