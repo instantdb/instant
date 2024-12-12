@@ -537,6 +537,10 @@
 (defn- value->jsonb [x]
   [:cast (->json x) :jsonb])
 
+(defn extract-value-fn [data-type]
+  (assert (contains? #{:date :number :string :boolean} data-type))
+  (kw :triples_extract_ data-type :_value))
+
 (defn- not-eq-value [idx val]
   (let [[tag idx-val] idx
         data-type (case tag
@@ -546,7 +550,7 @@
       [:not= :value (value->jsonb val)]
       [:and
        [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
-       [:not= [(kw :triples_extract_ data-type :_value) :value] val]])))
+       [:not= [(extract-value-fn data-type) :value] val]])))
 
 (defn- in-or-eq-value [idx v-set]
   (let [[tag idx-val] idx
@@ -560,7 +564,7 @@
         (list* :or (map (fn [v]
                           [:and
                            [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
-                           [:= [(kw :triples_extract_ data-type :_value) :value] v]])
+                           [:= [(extract-value-fn data-type) :value] v]])
                         v-set))))))
 
 (defn- constant->where-part [idx app-id component-type [_ v]]
@@ -605,7 +609,7 @@
                                      :$lt :<
                                      :$lte :<=
                                      :$like :like)
-                                   [(kw :triples_extract_ data-type :_value)
+                                   [(extract-value-fn data-type)
                                     :value]
                                    value]
                                   ;; Need this check so that postgres knows it can use the index
@@ -1039,13 +1043,13 @@
                      [:after :desc] :<)
         order-col (if (= order-col-type :created-at-timestamp)
                     order-col-name
-                    [(kw :triples_extract_ order-col-type :_value) order-col-name])
+                    [(extract-value-fn order-col-type) order-col-name])
         order-col-val (if (= order-col-type :created-at-timestamp)
                         [:cast cursor-val :bigint]
 
-                        [(kw :triples_extract_ order-col-type :_value) (if (keyword? cursor-val)
-                                                                         cursor-val
-                                                                         [:cast (->json cursor-val) :jsonb])])]
+                        [(extract-value-fn order-col-type) (if (keyword? cursor-val)
+                                                             cursor-val
+                                                             [:cast (->json cursor-val) :jsonb])])]
     (update query :where (fn [where]
                            [:and
                             where
@@ -1083,17 +1087,6 @@
 (defn has-prev-tbl [table]
   (kw table :-has-prev))
 
-;; XXX: Maybe push some of this complexity back into the cte creator
-(defn fixup-for-nulls [query order-col-type]
-  (let [{:keys [where from]} query
-        where (concat where
-                      (when (not= order-col-type :created-at-timestamp)
-                        [[:= :checked_data_type [:cast [:inline (name order-col-type)] :checked_data_type]]]))]
-    (-> query
-        (dissoc :where :from)
-        (assoc :from [(last from)])
-        (assoc :left-join [(first from) where]))))
-
 (defn add-page-info
   "Updates the cte with pagination constraints."
   [{:keys [next-idx
@@ -1112,7 +1105,7 @@
            order-col-type
            before
            after]
-    :as _page-info}]
+    :as page-info}]
   (let [page-pattern (second named-pattern) ;; remove tag
         [table query] (joining-with prefix
                                     app-id
@@ -1121,7 +1114,8 @@
                                     (dec next-idx)
                                     false
                                     page-pattern)
-        entity-id-col (kw (-> query :from last) :-entity-id)
+        prev-table (kw prefix (dec next-idx))
+        entity-id-col (kw prev-table :-entity-id)
         sym-component-type (component-type-of-sym named-pattern order-sym)
         sym-triple-idx (get (set/map-invert idx->component-type)
                             sym-component-type)
@@ -1135,13 +1129,22 @@
                              (reverse-direction direction)
                              direction)
 
+        type-where (when (not= order-col-type :created-at-timestamp)
+                     [[:= :checked_data_type [:cast [:inline (name order-col-type)] :checked_data_type]]])
+
         query (-> query
-                  (fixup-for-nulls order-col-type)
+                  ;; Move `where` to join conds so that we get the null fields
+                  (dissoc :where :from)
+                  (assoc :from [prev-table])
+                  (assoc :left-join [:triples (concat (:where query)
+                                                      type-where)])
+
+                  ;; Make sure we're getting each entity once
                   (dissoc :select)
                   (assoc :select-distinct-on (list* [:order-val entity-id-col]
                                                     [(if (= order-col-type :created-at-timestamp)
                                                        [:cast order-col-name :bigint]
-                                                       [(kw :triples_extract_ order-col-type :_value) order-col-name])
+                                                       [(extract-value-fn order-col-type) order-col-name])
                                                      :order-val]
                                                     (:select query))))
 
@@ -1249,10 +1252,15 @@
                           {:cte-cols (mapv sql-name (match-table-cols (kw prefix next-idx)))
                            :symbol-fields {}
                            :pattern page-pattern
-                           ;; XXX: Can we work that into cte-cols instead?
-                           :page-info (assoc _page-info
-                                             :backup-pattern-meta
-                                             (last pattern-metas))})}))
+                           :page-info (assoc page-info
+                                             :eid-col (-> pattern-metas
+                                                          last
+                                                          :cte-cols
+                                                          first)
+                                             :created-col (-> pattern-metas
+                                                              last
+                                                              :cte-cols
+                                                              last))})}))
 
 (defn accumulate-nested-match-query
   ([prefix app-id nested-named-patterns]
@@ -1488,14 +1496,12 @@
                                                join-row
                                                ;; We've probably encountered a page row
                                                ;; where the entity is missing a value.
-                                               ;; We'll have to create a fake row with [e a nil nil]
-                                               (let [[eid_col _ _ _ created_at_col] (-> page-info
-                                                                                        :backup-pattern-meta
-                                                                                        :cte-cols)]
-                                                 [(get row eid_col)
+                                               ;; We'll have to create a fake row with [e a nil t]
+                                               (let [{:keys [eid-col created-col]} page-info]
+                                                 [(get row eid-col)
                                                   (:attr-id page-info)
                                                   nil
-                                                  (get row created_at_col)])))]
+                                                  (get row created-col)])))]
 
                          (cond-> acc
                            true (update :join-rows conj join-row)
