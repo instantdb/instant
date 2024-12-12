@@ -15,7 +15,7 @@ Here’s an example ruleset below
       "update": "isOwner",
       "delete": "isOwner"
     },
-    "bind": ["isOwner", "auth.id == data.creatorId"]
+    "bind": ["isOwner", "auth.id != null && auth.id == data.creatorId"]
   }
 }
 ```
