@@ -41,14 +41,18 @@
     (-> data :attr :unique?)))
 
 (defn make-sort-key-compare [direction]
-  (fn [{field-a :field id-a :id}
-       {field-b :field id-b :id}]
-    (let [res (if (= field-a field-b)
-                (uuid-util/pg-compare id-a id-b)
-                (compare field-a field-b))]
-      (if (= direction :desc)
-        (- res)
-        res))))
+  (if (= direction :desc)
+    ;; Switch the order of the arguments if descending
+    (fn [{field-b :field id-b :id}
+         {field-a :field id-a :id}]
+      (if (= field-a field-b)
+        (uuid-util/pg-compare id-a id-b)
+        (compare field-a field-b)))
+    (fn [{field-a :field id-a :id}
+         {field-b :field id-b :id}]
+      (if (= field-a field-b)
+        (uuid-util/pg-compare id-a id-b)
+        (compare field-a field-b)))))
 
 (defn value-transformer-for-sort [{:keys [attrs]} etype field]
   (let [checked-type (-> (attr-model/seek-by-fwd-ident-name [etype field] attrs)

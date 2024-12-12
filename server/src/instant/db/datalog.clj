@@ -1096,7 +1096,14 @@
 
 (defn add-page-info
   "Updates the cte with pagination constraints."
-  [{:keys [limit
+  [{:keys [next-idx
+           pattern-metas
+           symbol-map]
+    :as match-query}
+   prefix
+   app-id
+   additional-joins
+   {:keys [limit
            last?
            offset
            direction
@@ -1105,10 +1112,15 @@
            order-col-type
            before
            after]
-    :as _page-info}
-   ctes]
-  (let [[but-last [table query & opts]] (coll/split-last-vec ctes)
-        ;; XXX: hack
+    :as _page-info}]
+  (let [page-pattern (second named-pattern) ;; remove tag
+        [table query] (joining-with prefix
+                                    app-id
+                                    additional-joins
+                                    symbol-map
+                                    (dec next-idx)
+                                    false
+                                    page-pattern)
         entity-id-col (kw (-> query :from last) :-entity-id)
         sym-component-type (component-type-of-sym named-pattern order-sym)
         sym-triple-idx (get (set/map-invert idx->component-type)
@@ -1127,9 +1139,9 @@
                   (fixup-for-nulls order-col-type)
                   (dissoc :select)
                   (assoc :select-distinct-on (list* [:order-val entity-id-col]
-                                                    [(if (not= order-col-type :created-at-timestamp)
-                                                       [(kw :triples_extract_ order-col-type :_value) order-col-name]
-                                                       order-col-name)
+                                                    [(if (= order-col-type :created-at-timestamp)
+                                                       [:cast order-col-name :bigint]
+                                                       [(kw :triples_extract_ order-col-type :_value) order-col-name])
                                                      :order-val]
                                                     (:select query))))
 
@@ -1218,15 +1230,29 @@
                                                         :cursor [:cursor-row.e
                                                                  :cursor-row.sym]
                                                         :cursor-type :before
-                                                        :entity-id-col entity-id-col}))]
-    (conj but-last
-          (apply conj [table paged-query] opts)
-          first-row-cte
-          last-row-cte
-          [(has-next-tbl table)
-           {:select [[[:exists has-next-query]]]}]
-          [(has-prev-tbl table)
-           {:select [[[:exists has-previous-query]]]}])))
+                                                        :entity-id-col entity-id-col}))
+
+        last-table-name (kw prefix next-idx)]
+    {:next-idx (inc next-idx)
+     :query {:with (conj (:with (:query match-query))
+                         [table paged-query]
+                         first-row-cte
+                         last-row-cte
+                         [(has-next-tbl table)
+                          {:select [[[:exists has-next-query]]]}]
+                         [(has-prev-tbl table)
+                          {:select [[[:exists has-previous-query]]]}])
+             :select (kw last-row-table :.*)
+             :from last-table-name}
+     :symbol-map symbol-map
+     :pattern-metas (conj pattern-metas
+                          {:cte-cols (mapv sql-name (match-table-cols (kw prefix next-idx)))
+                           :symbol-fields {}
+                           :pattern page-pattern
+                           ;; XXX: Can we work that into cte-cols instead?
+                           :page-info (assoc _page-info
+                                             :backup-pattern-meta
+                                             (last pattern-metas))})}))
 
 (defn accumulate-nested-match-query
   ([prefix app-id nested-named-patterns]
@@ -1245,34 +1271,20 @@
                               {:missing-attr? true
                                :patterns (:patterns pattern-group)
                                :datalog-query (:datalog-query pattern-group)}))
-                  (let [page-pattern (get-in pattern-group [:page-info :named-pattern])
-                        patterns (if page-pattern
-                                   (conj (:patterns pattern-group) (update page-pattern 1 (fn [x]
-                                                                                            (with-meta x {:page-pattern true}))))
-                                   (:patterns pattern-group))
-
+                  (let [page-info (:page-info pattern-group)
                         {:keys [next-idx query symbol-map pattern-metas]}
-                        (match-query {:next-idx (:next-idx acc)}
-                                     prefix
-                                     app-id
-                                     additional-joins
-                                     patterns)
+                        (cond-> (match-query {:next-idx (:next-idx acc)}
+                                             prefix
+                                             app-id
+                                             additional-joins
+                                             (:patterns pattern-group))
+                          (:page-info pattern-group) (add-page-info prefix
+                                                                    app-id
+                                                                    additional-joins
+                                                                    page-info))
 
-                        pattern-metas (if page-pattern
-                                        ;; Annotate the page pattern so that we'll know to
-                                        ;; get the start and end cursors when we process the
-                                        ;; results.
-                                        (let [m-idx (dec (count pattern-metas))]
-                                          (update pattern-metas
-                                                  m-idx
-                                                  assoc :page-info (assoc (:page-info pattern-group)
-                                                                          :backup-pattern-meta (nth pattern-metas
-                                                                                                    (dec m-idx)))))
-                                        pattern-metas)
 
-                        ctes (if-let [page-info (:page-info pattern-group)]
-                               (add-page-info page-info (:with query))
-                               (:with query))
+                        ctes (:with query)
 
                         next-acc (cond-> acc
                                    true (assoc :next-idx next-idx)
