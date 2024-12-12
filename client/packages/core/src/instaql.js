@@ -371,8 +371,8 @@ function makeWhere(store, etype, level, where) {
 // Find
 // -----------------
 
-function makeFind(makeVar, etype, level, sym) {
-  return [makeVar(etype, level), sym || makeVar("time", level)];
+function makeFind(makeVar, etype, level) {
+  return [makeVar(etype, level), makeVar("time", level)];
 }
 
 // extendObjects
@@ -393,55 +393,48 @@ function makeJoin(makeVar, store, etype, level, label, eid) {
 function extendObjects(makeVar, store, { etype, level, form }, objects) {
   const childQueries = Object.keys(form).filter((c) => c !== "$");
   if (!childQueries.length) {
-    return objects; //Object.values(objects);
+    return objects;
   }
-  return /* Object.entries(objects) */ objects.map(
-    function extendChildren(
-      /* [
-    eid,
-    parent,
-  ] */ parent,
-    ) {
-      const eid = parent.id;
-      const childResults = childQueries.map(function getChildResult(label) {
-        const isSingular = Boolean(
-          store.cardinalityInference &&
-            store.linkIndex?.[etype]?.[label]?.isSingular,
+  return objects.map(function extendChildren(parent) {
+    const eid = parent.id;
+    const childResults = childQueries.map(function getChildResult(label) {
+      const isSingular = Boolean(
+        store.cardinalityInference &&
+          store.linkIndex?.[etype]?.[label]?.isSingular,
+      );
+
+      try {
+        const [nextEtype, nextLevel, join] = makeJoin(
+          makeVar,
+          store,
+          etype,
+          level,
+          label,
+          eid,
         );
 
-        try {
-          const [nextEtype, nextLevel, join] = makeJoin(
-            makeVar,
-            store,
-            etype,
-            level,
-            label,
-            eid,
-          );
+        const childrenArray = queryOne(store, {
+          etype: nextEtype,
+          level: nextLevel,
+          form: form[label],
+          join,
+        });
 
-          const childrenArray = queryOne(store, {
-            etype: nextEtype,
-            level: nextLevel,
-            form: form[label],
-            join,
-          });
+        const childOrChildren = isSingular ? childrenArray[0] : childrenArray;
 
-          const childOrChildren = isSingular ? childrenArray[0] : childrenArray;
-
-          return { [label]: childOrChildren };
-        } catch (e) {
-          if (e instanceof AttrNotFoundError) {
-            return { [label]: isSingular ? undefined : [] };
-          }
-          throw e;
+        return { [label]: childOrChildren };
+      } catch (e) {
+        if (e instanceof AttrNotFoundError) {
+          return { [label]: isSingular ? undefined : [] };
         }
-      });
+        throw e;
+      }
+    });
 
-      return childResults.reduce(function reduceChildren(parent, child) {
-        return { ...parent, ...child };
-      }, parent);
-    },
-  );
+    return childResults.reduce(function reduceChildren(parent, child) {
+      return { ...parent, ...child };
+    }, parent);
+  });
 }
 
 // resolveObjects
@@ -491,21 +484,48 @@ function isBefore(startCursor, orderAttr, direction, idVec) {
 
 function orderAttrFromCursor(store, cursor) {
   const cursorAttrId = cursor[1];
-  // XXX: Should we warn or something if we're missing an attr??
   return store.attrs[cursorAttrId];
 }
 
-function runDataloadAndReturnObjects(store, etype, direction, pageInfo, dq) {
+function orderAttrFromOrder(store, etype, order) {
+  const label = Object.keys(order)[0];
+  return s.getAttrByFwdIdentName(store, etype, label);
+}
+
+function getOrderAttr(store, etype, cursor, order) {
+  if (cursor) {
+    return orderAttrFromCursor(store, cursor);
+  }
+  if (order) {
+    return orderAttrFromOrder(store, etype, order);
+  }
+}
+
+function runDataloadAndReturnObjects(
+  store,
+  etype,
+  direction,
+  pageInfo,
+  order,
+  dq,
+) {
   let idVecs = datalogQuery(store, dq);
 
   const startCursor = pageInfo?.["start-cursor"];
-  const orderAttr = startCursor
-    ? orderAttrFromCursor(store, startCursor)
-    : null;
+  const orderAttr = getOrderAttr(store, etype, startCursor, order);
 
-  if (orderAttr?.["checked-data-type"] === "date") {
-    // Convert to Date so that we can use <, > on the values
-    idVecs = idVecs.map(([id, v]) => [id, comparableDate(v), v]);
+  if (orderAttr && orderAttr?.["forward-identity"]?.[2] !== "id") {
+    const isDate = orderAttr["checked-data-type"] === "date";
+    const a = orderAttr.id;
+    idVecs = idVecs.map(([id]) => {
+      // order attr is required to be cardinality one, so there will
+      // be at most one value here
+      let v = store.eav.get(id)?.get(a)?.values()?.next()?.value?.[2];
+      if (isDate) {
+        v = comparableDate(v);
+      }
+      return [id, v];
+    });
   }
 
   idVecs.sort(
@@ -552,25 +572,6 @@ function determineOrder(form) {
   return orderOpts[Object.keys(orderOpts)[0]] || "asc";
 }
 
-function pageInfoForm(store, makeVar, etype, level, pageInfo) {
-  const startCursor = pageInfo?.["start-cursor"];
-
-  const orderAttr = startCursor
-    ? orderAttrFromCursor(store, startCursor)
-    : null;
-
-  if (!orderAttr || orderAttr["forward-identity"]?.[2] === "id") {
-    return;
-  }
-
-  const sym = makeVar("$order_sym", level);
-
-  return {
-    sym,
-    form: [makeVar(etype, level), orderAttr.id, makeVar("$order_sym", level)],
-  };
-}
-
 /**
  * Given a query like:
  *
@@ -589,6 +590,7 @@ function resolveObjects(store, { etype, level, form, join, pageInfo }) {
   const offset = form.$?.offset;
   const before = form.$?.before;
   const after = form.$?.after;
+  const order = form.$?.order;
 
   // Wait for server to tell us where we start if we don't start from the beginning
   if ((offset || before || after) && (!pageInfo || !pageInfo["start-cursor"])) {
@@ -596,19 +598,14 @@ function resolveObjects(store, { etype, level, form, join, pageInfo }) {
   }
   const where = withJoin(makeWhere(store, etype, level, form.$?.where), join);
 
-  const pageForm = pageInfoForm(store, makeVarImpl, etype, level, pageInfo);
-
-  if (pageForm) {
-    where.push(pageForm.form);
-  }
-
-  const find = makeFind(makeVarImpl, etype, level, pageForm?.sym);
+  const find = makeFind(makeVarImpl, etype, level);
 
   const objs = runDataloadAndReturnObjects(
     store,
     etype,
     determineOrder(form),
     pageInfo,
+    order,
     { where, find },
   );
 
