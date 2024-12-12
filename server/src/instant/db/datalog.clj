@@ -1143,9 +1143,6 @@
 
         paged-query (cond-> query
                       true (assoc :order-by order-by)
-                      true (dissoc :select)
-                      true (assoc :select-distinct-on (into [order-cols]
-                                                            (:select query)))
                       limit (assoc :limit limit)
                       offset (assoc :offset offset)
                       after (add-cursor-comparisons {:direction direction
