@@ -16,6 +16,9 @@
     "test:ci": {
       "outputs": []
     },
+    "bench:ci": {
+      "outputs": []
+    },
     "dev": {
       "cache": false,
       "persistent": true
