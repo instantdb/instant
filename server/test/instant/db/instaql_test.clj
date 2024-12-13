@@ -2723,7 +2723,6 @@
                                        (:id app)
                                        [["etype" "label"]])]
 
-        (tool/def-locals)
         (testing "string"
 
           (is (= ["0" "1" "2" "3" "4"] (run-query :string {:etype {:$ {:order {:string :asc}}}})))
