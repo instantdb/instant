@@ -284,7 +284,7 @@ delete to only succeed on todos associated with a specific user email.
 {
   todos: {
     allow: {
-      delete: "'admin' in auth.ref('$user.role.name')",
+      delete: "'admin' in auth.ref('$user.role.type')",
     },
   },
 };
