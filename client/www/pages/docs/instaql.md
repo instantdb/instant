@@ -1011,7 +1011,9 @@ export type { AppSchema };
 export default schema;
 ```
 
-Instant will enforce that `posts.dueDate` are actually dates, and you'll get intellisense to boot: 
+Instant will start giving you intellisense for your queries: 
+
+
 
 {% screenshot src="https://paper-attachments.dropboxusercontent.com/s_3D2DA1E694B2F8E030AC1EC0B7C47C6AC1E40485744489E3189C95FCB5181D4A_1734122951978_duedate1.png" /%}
 
