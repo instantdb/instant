@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 const db = init(config);
 
-function loadScript(src, id, callback) {
+function loadScript(src: string, id: string, callback: () => void) {
   if (document.getElementById(id)) {
     if (callback) {
       callback();
@@ -56,23 +56,17 @@ function App() {
 }
 
 async function signInPopup() {
-  let AppleID = window.AppleID;
+  let AppleID = (window as any).AppleID;
   let nonce = crypto.randomUUID();
   let resp = await AppleID.auth.signIn({
     nonce: nonce,
     usePopup: true
   });
-  db.auth.signInWithIdToken({
+  await db.auth.signInWithIdToken({
     clientName: "apple",
     idToken: resp.authorization.id_token,
     nonce: nonce,
-  })
-  .catch((err) => {
-    console.log("Error", err);
- });
-}
-
-function signInRedirect() {
+  });
 }
 
 // 4. Create Login button
@@ -85,13 +79,13 @@ function Login() {
   useEffect(() => {
     const scriptUrl = 'https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js';
     loadScript(scriptUrl, 'appleid_auth', () => {
-      let AppleID = window.AppleID;
+      let AppleID = (window as any).AppleID;
       if (AppleID) {
         AppleID.auth.renderButton();
         AppleID.auth.init({
           clientId : 'com.instantdb.signin.test',
           scope : 'name email',
-          redirectURI: 'https://dev.instantdb.com:4000/play/sign-in-with-apple',
+          redirectURI: window.location.href,
         });
       }
     });
@@ -116,8 +110,7 @@ function Login() {
                    color: "#FFF",
                    padding: "4pt 12pt",
                    borderRadius: "4pt",
-                 }}
-                onClick={signInRedirect}>
+                 }}>
           􀣺 Sign in with redirect
         </a>
     </div>

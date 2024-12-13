@@ -20,7 +20,8 @@ function App() {
     return (
       <div>
         <div>Uh oh! {error.message}</div>
-        <Login />
+        <LoginPopup />
+        <LoginRedirect />
       </div>
     );
   }
@@ -55,8 +56,7 @@ function LoginPopup() {
               setError("Missing id_token.");
               return;
             }
-            auth
-              .signInWithIdToken({
+            db.auth.signInWithIdToken({
                 // Use the name you created when you registered the client
                 clientName: "google",
                 idToken,
@@ -103,7 +103,7 @@ function Main({ user }: { user: User }) {
         onClick={(e) => {
           const todoAId = id();
           const todoBId = id();
-          transact([
+          db.transact([
             tx.todos[todoAId].update({
               title: "Go on a run",
               creatorId: user.id,
@@ -132,7 +132,7 @@ function Main({ user }: { user: User }) {
           const todoIds = data.goals
             .map((g) => g.todos.map((t) => t.id))
             .flat();
-          transact([
+          db.transact([
             ...goalIds.map((id) => tx.goals[id].delete()),
             ...todoIds.map((id) => tx.todos[id].delete()),
           ]);

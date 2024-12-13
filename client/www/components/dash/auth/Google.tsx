@@ -283,7 +283,9 @@ const url = db.auth.createAuthorizationURL({
           <div className="p-4 flex flex-col gap-4 border-t">
             <Copyable label="Client name" value={client.client_name} />
             <Copyable label="Google client ID" value={client.client_id || ''} />
-            <SubsectionHeading>Setup and usage</SubsectionHeading>
+            <SubsectionHeading>
+              <a className="underline" href="/docs/auth/google-auth">Setup and usage</a>
+            </SubsectionHeading>
             <Content>
               <strong>1.</strong> Navigate to{' '}
               <a

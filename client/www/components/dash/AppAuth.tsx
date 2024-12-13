@@ -140,7 +140,6 @@ export function AppAuth({
     <div className="flex flex-col p-4 gap-6 max-w-xl">
       <div className="flex flex-col gap-4">
         <SectionHeading>Google Clients</SectionHeading>
-        <a className="underline" href="/docs/auth#log-in-with-google">How to add Google OAuth to your app.</a>
         
         {googleProvider ? (
           <GoogleClients

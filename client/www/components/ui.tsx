@@ -256,8 +256,8 @@ export function TextArea({
   tabIndex?: number;
   disabled?: boolean | undefined;
   title?: string | undefined;
-  cols: number | undefined;
-  rows: number | undefined
+  cols?: number | undefined;
+  rows?: number | undefined;
 }) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
