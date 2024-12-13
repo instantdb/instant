@@ -52,10 +52,10 @@ function App() {
   // Read Data
   const { isLoading, error, data } = db.useQuery({ todos: {} });
   if (isLoading) {
-    return <div>Fetching data...</div>;
+    return;
   }
   if (error) {
-    return <div>Error fetching data: {error.message}</div>;
+    return <div>Error querying data: {error.message}</div>;
   }
   const { todos } = data;
   return (
@@ -174,7 +174,6 @@ function ActionBar({ todos }: { todos: Todo[] }) {
 const styles: Record<string, React.CSSProperties> = {
   container: {
     boxSizing: "border-box",
-    backgroundColor: "#fafafa",
     fontFamily: "code, monospace",
     height: "100vh",
     display: "flex",
