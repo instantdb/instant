@@ -41,6 +41,7 @@
             [instant.util.json :refer [->json]]
             [instant.util.string :refer [safe-name]])
   (:import (com.zaxxer.hikari HikariDataSource)
+           (java.time Instant)
            (java.util UUID)))
 
 ;; ---
@@ -538,7 +539,7 @@
   [:cast (->json x) :jsonb])
 
 (defn extract-value-fn [data-type]
-  (assert (contains? #{:date :number :string :boolean} data-type))
+  (assert (contains? #{:date :number :string :boolean} data-type) (format "Unsupported type %s" data-type))
   (kw :triples_extract_ data-type :_value))
 
 (defn- not-eq-value [idx val]
@@ -854,10 +855,7 @@
                          prev-idx
                          start-of-group?
                          pattern)
-     :symbol-map (if (:page-pattern (meta pattern))
-                   ;; XXX: Temporary hack
-                   {}
-                   (symbol-map-of-pattern idx pattern))
+     :symbol-map (symbol-map-of-pattern idx pattern)
      :pattern-meta {:cte-cols cte-cols
                     :symbol-fields symbol-fields
                     :pattern pattern}}))
@@ -1044,12 +1042,26 @@
         order-col (if (= order-col-type :created-at-timestamp)
                     order-col-name
                     [(extract-value-fn order-col-type) order-col-name])
-        order-col-val (if (= order-col-type :created-at-timestamp)
-                        [:cast cursor-val :bigint]
+        order-col-val [:cast
+                       (cond (and (keyword? cursor-val)
+                                  (not= order-col-type :created-at-timestamp))
+                             [(extract-value-fn order-col-type) cursor-val]
 
-                        [(extract-value-fn order-col-type) (if (keyword? cursor-val)
-                                                             cursor-val
-                                                             [:cast (->json cursor-val) :jsonb])])]
+                             (= :date order-col-type)
+                             (cond (string? cursor-val)
+                                   (Instant/parse cursor-val)
+                                   (number? cursor-val)
+                                   (Instant/ofEpochMilli cursor-val))
+
+                             :else
+                             cursor-val)
+                       (case order-col-type
+                         :created-at-timestamp :bigint
+                         :boolean :boolean
+                         :string :text
+                         :number :double-precision
+                         :date :timestamp-with-time-zone)]]
+
     (update query :where (fn [where]
                            [:and
                             where

@@ -2661,6 +2661,119 @@
           (testing "uses index"
             (is (= "triples_boolean_type_idx" (run-explain :boolean true)))))))))
 
+(deftest arbitrary-order-by-all-types
+  (with-empty-app
+    (fn [app]
+      (let [attr-ids {:string (random-uuid)
+                      :number (random-uuid)
+                      :boolean (random-uuid)
+                      :date (random-uuid)}
+            id-attr (random-uuid)
+            label-attr-id (random-uuid)
+            labels ["a" "b" "c" "d" "e"]
+            make-ctx (fn []
+                       (let [attrs (attr-model/get-by-app-id (:id app))]
+                         {:db {:conn-pool (aurora/conn-pool)}
+                          :app-id (:id app)
+                          :attrs attrs}))
+            run-query (fn [return-field q]
+                        (let [ctx (make-ctx)]
+                          (->> (iq/query ctx q)
+                               (instaql-nodes->object-tree ctx)
+                               (#(get % "etype"))
+                               (map #(get % (name return-field))))))
+            _ (tx/transact! (aurora/conn-pool)
+                            (attr-model/get-by-app-id (:id app))
+                            (:id app)
+                            (concat
+                             [[:add-attr {:id id-attr
+                                          :forward-identity [(random-uuid) "etype" "id"]
+                                          :unique? true
+                                          :index? true
+                                          :value-type :blob
+                                          :checked-data-type :string
+                                          :cardinality :one}]
+                              [:add-attr {:id label-attr-id
+                                          :forward-identity [(random-uuid) "etype" "label"]
+                                          :unique? true
+                                          :index? true
+                                          :value-type :blob
+                                          :checked-data-type :string
+                                          :cardinality :one}]]
+                             (for [[t attr-id] attr-ids]
+                               [:add-attr {:id attr-id
+                                           :forward-identity [(random-uuid) "etype" (name t)]
+                                           :unique? false
+                                           :index? true
+                                           :value-type :blob
+                                           :checked-data-type t
+                                           :cardinality :one}])
+
+                             (mapcat
+                              (fn [i]
+                                (let [id (random-uuid)]
+                                  [[:add-triple id id-attr (str id)]
+                                   [:add-triple id label-attr-id (nth labels i)]
+                                   [:add-triple id (:string attr-ids) (str i)]
+                                   [:add-triple id (:number attr-ids) i]
+                                   [:add-triple id (:date attr-ids) i]
+                                   [:add-triple id (:boolean attr-ids) (zero? (mod i 2))]]))
+                              (range (count labels)))))
+            r (resolvers/make-resolver {:conn-pool (aurora/conn-pool)}
+                                       (:id app)
+                                       [["etype" "label"]])]
+
+        (tool/def-locals)
+        (testing "string"
+
+          (is (= ["0" "1" "2" "3" "4"] (run-query :string {:etype {:$ {:order {:string :asc}}}})))
+          (is (= ["4" "3" "2" "1" "0"] (run-query :string {:etype {:$ {:order {:string :desc}}}})))
+
+          (is (= ["4" "3" "2"] (run-query :string {:etype {:$ {:where {:string {:$gte "2"}}
+                                                               :order {:string :desc}}}})))
+
+          (is (= ["3" "4"] (run-query :string {:etype {:$ {:order {:string :asc}
+                                                           :after [(resolvers/->uuid r "eid-c")
+                                                                   (resolvers/->uuid r :etype/string)
+                                                                   "2"
+                                                                   0]}}}))))
+
+        (testing "number"
+
+          (is (= [0 1 2 3 4] (run-query :number {:etype {:$ {:order {:number :asc}}}})))
+          (is (= [4 3 2 1 0] (run-query :number {:etype {:$ {:order {:number :desc}}}})))
+
+          (is (= [4 3 2] (run-query :number {:etype {:$ {:where {:number {:$gte 2}}
+                                                         :order {:number :desc}}}})))
+
+          (is (= [3 4] (run-query :number {:etype {:$ {:order {:number :asc}
+                                                       :after [(resolvers/->uuid r "eid-c")
+                                                               (resolvers/->uuid r :etype/number)
+                                                               2
+                                                               0]}}}))))
+
+        (testing "date"
+
+          (is (= [0 1 2 3 4] (run-query :date {:etype {:$ {:order {:date :asc}}}})))
+          (is (= [4 3 2 1 0] (run-query :date {:etype {:$ {:order {:date :desc}}}})))
+
+          (is (= [4 3 2] (run-query :date {:etype {:$ {:where {:date {:$gte 2}}
+                                                       :order {:date :desc}}}})))
+
+          (is (= [3 4] (run-query :date {:etype {:$ {:order {:date :asc}
+                                                     :after [(resolvers/->uuid r "eid-c")
+                                                             (resolvers/->uuid r :etype/date)
+                                                             2
+                                                             0]}}}))))
+
+        (testing "boolean"
+
+          (is (= [false false true true true] (run-query :boolean {:etype {:$ {:order {:boolean :asc}}}})))
+          (is (= [true true true false false] (run-query :boolean {:etype {:$ {:order {:boolean :desc}}}})))
+
+          (is (= [true true true] (run-query :boolean {:etype {:$ {:where {:boolean {:$gte true}}
+                                                                   :order {:boolean :desc}}}}))))))))
+
 (deftest child-forms
   (testing "no child where"
     (is-pretty-eq?
