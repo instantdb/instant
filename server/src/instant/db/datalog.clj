@@ -539,9 +539,11 @@
   [:cast (->json x) :jsonb])
 
 (defn extract-value-fn [data-type]
-  (assert (contains? #{:date :number :string :boolean} data-type)
-          (format "Unsupported type %s" data-type))
-  (kw :triples_extract_ data-type :_value))
+  (case data-type
+    :date :triples_extract_date_value
+    :number :triples_extract_number_value
+    :string :triples_extract_string_value
+    :boolean :triples_extract_boolean_value))
 
 (defn- not-eq-value [idx val]
   (let [[tag idx-val] idx
