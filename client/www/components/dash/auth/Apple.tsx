@@ -12,6 +12,7 @@ import {
   SectionHeading,
   SubsectionHeading,
   TextInput,
+  TextArea,
   useDialog,
 } from '@/components/ui';
 import * as Collapsible from '@radix-ui/react-collapsible';
@@ -64,8 +65,6 @@ export function AppleClient({
     }
   };
 
-  const appleServicesId = client.client_id;
-
   return (
     <div className="">
       <Collapsible.Root
@@ -94,7 +93,11 @@ export function AppleClient({
           <div className="p-4 flex flex-col gap-4 border-t">
             <Copyable label="Client Name" value={client.client_name} />
             
-            <Copyable label="Apple Services ID" value={appleServicesId || ''} />
+            <Copyable label="Services ID" value={client.client_id || ''} />
+            
+            {client.meta?.teamId ? <Copyable label="Team ID" value={client.meta?.teamId} /> : null}
+
+            {client.meta?.keyId ? <Copyable label="Key ID" value={client.meta?.keyId} /> : null}
 
             <div><Button onClick={deleteDialog.onOpen} loading={isLoading} variant="destructive">Delete</Button></div>
           </div>
@@ -140,6 +143,9 @@ export function AddClientExpanded({
   
   const [clientName, setClientName] = useState<string>(() => findName('apple', usedClientNames));
   const [servicesId, setServicesId] = useState<string>('');
+  const [teamId, setTeamId] = useState<string>('');
+  const [keyId, setKeyId] = useState<string>('');
+  const [privateKey, setPrivateKey] = useState<string>('');
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -182,9 +188,14 @@ export function AddClientExpanded({
         providerId: provider.id,
         clientName,
         clientId: servicesId,
+        clientSecret: privateKey,
         authorizationEndpoint: 'https://appleid.apple.com/auth/authorize',
         tokenEndpoint: 'https://appleid.apple.com/auth/token',
         discoveryEndpoint: 'https://account.apple.com/.well-known/openid-configuration',
+        meta: {
+          teamId,
+          keyId
+        }
       });
       onAddClient(resp.client);
     } catch (e) {
@@ -200,7 +211,10 @@ export function AddClientExpanded({
     <form className="flex flex-col gap-2 p-4 rounded border" onSubmit={onSubmit} autoComplete="off" data-lpignore="true">
       <SubsectionHeading>Add Apple Client</SubsectionHeading>
       <TextInput tabIndex={1} value={clientName} onChange={setClientName} label="Client Name" placeholder="e.g. apple" />
-      <TextInput tabIndex={2} value={servicesId} onChange={setServicesId} label="Apple Services ID" placeholder="" />
+      <TextInput tabIndex={2} value={servicesId} onChange={setServicesId} label="Services ID" placeholder="" />
+      <TextInput tabIndex={3} value={teamId} onChange={setTeamId} label="Team ID (optional)" placeholder="" />
+      <TextInput tabIndex={4} value={keyId} onChange={setKeyId} label="Key ID (optional)" placeholder="" />
+      <TextArea tabIndex={5} value={privateKey} onChange={setPrivateKey} label="Private Key (optional)" rows={6} placeholder={'-----BEGIN PRIVATE KEY-----\n-----END PRIVATE KEY-----'} />
       <Button loading={isLoading} type="submit">Add Apple Client</Button>
       <Button variant="secondary" onClick={onCancel}>Cancel</Button>
     </form>

@@ -2,7 +2,6 @@
   (:require
    [instant.auth.oauth :as oauth]
    [instant.jdbc.aurora :as aurora]
-   [instant.model.app-oauth-service-provider :as app-oauth-service-provider-model]
    [instant.system-catalog-ops :refer [query-op update-op]]
    [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
@@ -79,7 +78,7 @@
              (fn [{:keys [get-entity resolve-id]}]
                (get-entity [(resolve-id :name) client-name])))))
 
-(defn get-by-client-name! [{:keys [app-id client-name] :as params}]
+(defn get-by-client-name! [params]
   (ex/assert-record! (get-by-client-name params) :app-oauth-client {:args [params]}))
 
 (defn delete-by-id!
@@ -110,7 +109,8 @@
       :client-id (:client_id oauth-client)
       :client-secret (when (:client_secret oauth-client)
                        (decrypted-client-secret oauth-client))
-      :discovery-endpoint discovery-endpoint})
+      :discovery-endpoint discovery-endpoint
+      :meta (:meta oauth-client)})
     (oauth/map->GenericOAuthClient
      {:app-id (:app_id oauth-client)
       :provider-id (:provider_id oauth-client)
@@ -118,4 +118,5 @@
       :client-secret (when (:client_secret oauth-client)
                        (decrypted-client-secret oauth-client))
       :authorization-endpoint (:authorization_endpoint oauth-client)
-      :token-endpoint (:token_endpoint oauth-client)})))
+      :token-endpoint (:token_endpoint oauth-client)
+      :meta (:meta oauth-client)})))
