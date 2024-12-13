@@ -539,7 +539,8 @@
   [:cast (->json x) :jsonb])
 
 (defn extract-value-fn [data-type]
-  (assert (contains? #{:date :number :string :boolean} data-type) (format "Unsupported type %s" data-type))
+  (assert (contains? #{:date :number :string :boolean} data-type)
+          (format "Unsupported type %s" data-type))
   (kw :triples_extract_ data-type :_value))
 
 (defn- not-eq-value [idx val]
@@ -1454,11 +1455,6 @@
    :symbol-values (empty-symbol-values named-patterns)
    :join-rows #{}})
 
-;; XXX: Still todo
-;;      - Make sure that input cursors can handle nulls
-;;         - We should test what happens when you put a "null" as the value for the cursor
-;;      - Make sure the client can handle nulls in the cursor
-
 (defn- accumulate-results
   "Takes the sql result and the metadata from `match-query` to
    return join-rows, symbol-values, and topics.
@@ -1955,7 +1951,7 @@
                 ;; Fall back to regular query if we don't have a loader
                 (apply send-query-single ctx (:conn-pool db) args)
 
-                (let [ ;; The promise that returns the result for our args
+                (let [;; The promise that returns the result for our args
                       this-result (promise)]
                   (when (add-pending! datalog-loader
                                       (:conn-pool db)
