@@ -9,8 +9,18 @@ Instant uses a declarative syntax for querying. It's like GraphQL without the co
 One of the simplest queries you can write is to simply get all entities of a namespace.
 
 ```javascript
-const query = { goals: {} };
-const { isLoading, error, data } = db.useQuery(query);
+import { init } from '@instantdb/react';
+
+const db = init({
+  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
+});
+
+function App() {
+  // Queries! 🚀
+  const query = { goals: {} };
+  const { isLoading, error, data } = db.useQuery(query);
+  // ...
+}
 ```
 
 Inspecting `data`, we'll see:

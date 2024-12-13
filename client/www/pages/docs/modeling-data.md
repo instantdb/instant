@@ -342,7 +342,7 @@ Say we wanted to rename `posts.createdAt` to `posts.publishedAt`:
 4. Click "Edit Schema"
 5. Click `createdAt`
 
-You'll see modal that you can use to rename the attribute, index it, or delete it:
+You'll see a modal that you can use to rename the attribute, index it, or delete it:
 
 {% screenshot src="https://paper-attachments.dropboxusercontent.com/s_3D2DA1E694B2F8E030AC1EC0B7C47C6AC1E40485744489E3189C95FCB5181D4A_1734057623734_img.png" /%}
 
@@ -373,7 +373,30 @@ Once you push these permissions to production:
 npx instant-cli@latest push perms
 ```
 
+{% ansi %}
+
+```
+Checking for an Instant SDK...
+Found [32m@instantdb/react[39m in your package.json.
+Found [32mNEXT_PUBLIC_INSTANT_APP_ID[39m: *****
+Planning perms...
+The following changes will be applied to your perms:
+[31m-null[39m
+[32m+{[39m
+[32m+  attrs: {[39m
+[32m+    allow: {[39m
+[32m+      $default: "false"[39m
+[32m+    }[39m
+[32m+  }[39m
+[32m+}[39m
+[1mOK to proceed?[22m [36myes[39m[21
+[32mPermissions updated![39m
+```
+
+{% /ansi %}
+
 You'll still be able to make changes in the explorer or with the CLI, but client-side transactions that try to modify your schema will fail. This means your schema is safe from unwanted changes!
+
 
 ---
 
