@@ -1424,7 +1424,7 @@ async function readConfigAuthTokenWithErrorLogging() {
 
 async function readAuthTokenOrLoginWithErrorLogging() {
   const token = await readConfigAuthToken();
-  if (token) return; 
+  if (token) return token; 
   console.log(`Looks like you are no logged in...`);
   console.log(`Let's log in!`);
   return await login({})
