@@ -230,10 +230,10 @@
                                    :index? false
                                    :value-type :blob
                                    :cardinality :one}]])
-        (let [ctx (let [attrs (attr-model/get-by-app-id (:id app))]
-                    {:db {:conn-pool (aurora/conn-pool)}
-                     :app-id (:id app)
-                     :attrs attrs})]
+        (let [attrs (attr-model/get-by-app-id (:id app))
+              ctx {:db {:conn-pool (aurora/conn-pool)}
+                   :app-id (:id app)
+                   :attrs attrs}]
           (is (= '{:expected? string?,
                    :in ["etype" :$ :where "string"],
                    :message
@@ -282,7 +282,21 @@
                    :in ["etype" :$ :order],
                    :message
                    "The `etype.unchecked` attribute is not indexed. Only indexed and type-checked attrs can be used to order by."}
-                 (validation-err ctx {:etype {:$ {:order {:unchecked "desc"}}}}))))))))
+                 (validation-err ctx {:etype {:$ {:order {:unchecked "desc"}}}})))
+
+          (is (= '{:expected valid-cursor?,
+                   :in ["etype" :$ :after],
+                   :message
+                   "Invalid after cursor. The query orders by `string`, but the query that returned the cursor orders by `number`."}
+                 (validation-err ctx {:etype
+                                      {:$
+                                       {:order {:string "desc"}
+                                        :after [(random-uuid)
+                                                (:id (attr-model/seek-by-fwd-ident-name
+                                                      ["etype" "number"]
+                                                      attrs))
+                                                nil
+                                                0]}}}))))))))
 
 (deftest pagination
   (testing "limit"
@@ -350,8 +364,8 @@
 
   (testing "makes sure we use distinct"
     (is-pretty-eq? (query-pretty {:users {:$ {:where {:bookshelves {:in
-                                                                    ;; this will cause 
-                                                                    ;; multiple matches for `stopa` 
+                                                                    ;; this will cause
+                                                                    ;; multiple matches for `stopa`
                                                                     [(resolvers/->uuid @r "eid-worldview")
                                                                      (resolvers/->uuid @r "eid-the-way-of-the-gentleman")
                                                                      (resolvers/->uuid @r "eid-short-stories")

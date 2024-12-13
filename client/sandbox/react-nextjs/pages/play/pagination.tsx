@@ -31,7 +31,7 @@ function Example({ appId }: { appId: string }) {
 
   const [direction, setDirection] = useState<"asc" | "desc">("asc");
   const [limit, setLimit] = useState(5);
-  const [orderField, setOrderField] = useState("sometimesNull");
+  const [orderField, setOrderField] = useState("date");
 
   const order = { [orderField]: direction };
 
@@ -116,6 +116,9 @@ function Example({ appId }: { appId: string }) {
   };
 
   function displayValue(x: any) {
+    if (orderField === "serverCreatedAt") {
+      return x.title;
+    }
     return `${x.title}, ${orderField}=${x[orderField]}`;
   }
   return (
@@ -263,7 +266,9 @@ function Example({ appId }: { appId: string }) {
           <details open>
             <summary>Before third goals</summary>
             {beforeError ? (
-              <pre className="max-w-48">{JSON.stringify(beforeError, null, 2)}</pre>
+              <pre className="max-w-48">
+                {JSON.stringify(beforeError, null, 2)}
+              </pre>
             ) : null}
             {!thirdFivePageInfo?.goals?.startCursor
               ? null

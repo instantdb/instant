@@ -724,6 +724,19 @@
 ;; an order.
 (def default-order {:k "serverCreatedAt" :direction :asc})
 
+(defn wrong-attribute-msg [{:keys [attrs]} order-attr cursor-attr-id]
+  (let [order-label (fn [attr]
+                      (let [lbl (attr-model/fwd-label attr)]
+                        (if (= lbl "id")
+                          "serverCreatedAt"
+                          lbl)))]
+    (if-let [cursor-attr (attr-model/seek-by-id cursor-attr-id attrs)]
+      (format "The query orders by `%s`, but the query that returned the cursor orders by `%s`."
+              (order-label order-attr)
+              (order-label cursor-attr))
+      (format "The query orders by `%s`, but the query that returned the cursor orders by a missing attribute."
+              (order-label order-attr)))))
+
 (defn page-info-of-form [{:keys [state] :as ctx}
                          {:keys [etype level option-map] :as _form}]
   (let [{:keys [order limit first last offset before after]} option-map]
@@ -736,7 +749,6 @@
             etype-sym (attr-pat/default-level-sym etype level)
             order-sym (if (= "serverCreatedAt" k)
                         (symbol (str "?t-" level))
-                        ;; XXX: Will this work??
                         (attr-pat/default-level-sym k level))
             order-attr (if (= "serverCreatedAt" k)
                          (attr-model/seek-by-fwd-ident-name [etype "id"] (:attrs ctx))
@@ -789,7 +801,8 @@
            (:root state)
            [{:expected 'valid-cursor?
              :in (apply conj (:in (:state ctx)) [:$ :before])
-             :message "Invalid before cursor. The join row has the wrong attribute id."}]))
+             :message (format "Invalid before cursor. %s"
+                              (wrong-attribute-msg ctx order-attr (second before)))}]))
 
         (when (and after
                    (not= (:id order-attr) (second after)))
@@ -798,7 +811,8 @@
            (:root state)
            [{:expected 'valid-cursor?
              :in (apply conj (:in (:state ctx)) [:$ :after])
-             :message "Invalid after cursor. The join row has the wrong attribute id."}]))
+             :message (format "Invalid after cursor. %s"
+                              (wrong-attribute-msg ctx order-attr (second after)))}]))
 
         {:limit (or limit first last)
          :last? (not (nil? last))
