@@ -296,7 +296,10 @@ program
   .command("login")
   .description("Log into your account")
   .option("-p --print", "Prints the auth token into the console.")
-  .action(login);
+  .action(async (opts) => {
+    console.log("Let's log you in!");
+    await login(opts);
+  });
 
 program
   .command("init")
@@ -511,7 +514,7 @@ async function login(options) {
   if (!registerRes.ok) return;
 
   const { secret, ticket } = registerRes.data;
-  console.log("Let's log you in!");
+  
   const ok = await promptOk(
     `This will open instantdb.com in your browser, OK to proceed?`,
   );
@@ -534,6 +537,7 @@ async function login(options) {
     await saveConfigAuthToken(token);
     console.log(chalk.green(`Successfully logged in as ${email}!`));
   }
+  return token; 
 }
 
 async function getOrInstallInstantModuleWithErrorLogging(pkgDir) {
@@ -718,7 +722,7 @@ async function resolvePackageAndAuthInfoWithErrorLogging() {
   if (!instantModuleName) {
     return;
   }
-  const authToken = await readConfigAuthTokenWithErrorLogging();
+  const authToken = await readAuthTokenOrLoginWithErrorLogging();
   if (!authToken) {
     return;
   }
@@ -1404,9 +1408,10 @@ async function readConfigAuthToken() {
     getAuthPaths().authConfigFilePath,
     "utf-8",
   ).catch(() => null);
-
+  
   return authToken;
 }
+
 async function readConfigAuthTokenWithErrorLogging() {
   const token = await readConfigAuthToken();
   if (!token) {
@@ -1415,6 +1420,14 @@ async function readConfigAuthTokenWithErrorLogging() {
     );
   }
   return token;
+}
+
+async function readAuthTokenOrLoginWithErrorLogging() {
+  const token = await readConfigAuthToken();
+  if (token) return; 
+  console.log(`Looks like you are no logged in...`);
+  console.log(`Let's log in!`);
+  return await login({})
 }
 
 async function saveConfigAuthToken(authToken) {
