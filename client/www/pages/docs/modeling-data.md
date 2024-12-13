@@ -19,7 +19,7 @@ With Instant you can define your schema and your permissions in code. If you hav
 npx instant-cli@latest init
 ```
 
-The CLI will guide you through picking an Instant app, and generate these files for you.
+The CLI will guide you through picking an Instant app and generate these files for you.
 
 ## instant.schema.ts
 
