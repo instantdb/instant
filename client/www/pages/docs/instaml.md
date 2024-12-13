@@ -258,7 +258,7 @@ db.tx.todos[workoutId].update({
 });
 ```
 
-As your app grows, you may want to start enforcing types. When you're ready, you can start using [schemas](/docs/modeling-data):
+As your app grows, you may want to start enforcing types. When you're ready, you can start using a [schema](/docs/modeling-data):
 
 ```typescript
 import { init } from '@instantdb/react';
@@ -291,7 +291,7 @@ Instant will enforce that `todos.dueDate` are actually dates, and you'll get int
 
 {% screenshot src="https://paper-attachments.dropboxusercontent.com/s_3D2DA1E694B2F8E030AC1EC0B7C47C6AC1E40485744489E3189C95FCB5181D4A_1734122951978_duedate1.png" /%}
 
-To learn more about schemas, check out the [Modeling Data](/docs/modeling-data) section.
+To learn more about writing schemas, check out the [Modeling Data](/docs/modeling-data) section.
 
 ## Batching transactions
 
