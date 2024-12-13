@@ -169,7 +169,7 @@ function Example({ appId }: { appId: string }) {
             sometimesNullOrUndefined
           </option>
           <option value="sometimesNullDate">sometimesNullDate</option>
-          <option value="title">title (not )</option>
+          <option value="title">title (not sortable)</option>
         </select>
         <select
           value={direction}
