@@ -17,7 +17,10 @@ set some default permissions so that only a logged-in user can view their own
 data.
 
 ```javascript
-export default {
+// instant.perms.ts
+import type { InstantRules } from "@instantdb/react";
+
+const rules = {
   $users: {
     allow: {
       view: 'auth.id == data.id',
@@ -26,7 +29,9 @@ export default {
       update: 'false',
     },
   },
-};
+} satisfies InstantRules;
+
+export default rules;
 ```
 
 Right now `$users` is a read-only namespace. You can override the `view`
@@ -123,7 +128,7 @@ type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
 
-export { type AppSchema };
+export type { AppSchema };
 export default schema;
 ```
 

@@ -75,14 +75,14 @@ type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
 
-export { type AppSchema };
+export type { AppSchema };
 export default schema;
 ```
 
 Then the [permissions](/docs/permissions):
 
 ```typescript
-import { type InstantRules } from '@instantdb/core';
+import type { InstantRules } from '@instantdb/core';
 // instant.perms.ts
 // And now we reference the `owner` link for todos to check the number
 // of todos a user has created.

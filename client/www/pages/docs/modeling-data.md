@@ -354,7 +354,7 @@ To prevent changes to your schema on the fly, simply add these permissions to yo
 
 ```typescript
 // instant.perms.ts
-import { type InstantRules } from '@instantdb/react';
+import type { InstantRules } from '@instantdb/react';
 
 const rules = {
   attrs: {

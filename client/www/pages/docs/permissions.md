@@ -8,7 +8,7 @@ Here’s an example ruleset below
 
 ```typescript {% showCopy=true %}
 // instant.perms.ts
-import { type InstantRules } from "@instantdb/react";
+import type { InstantRules } from "@instantdb/react";
 
 const rules = {
   todos: {

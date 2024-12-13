@@ -106,7 +106,7 @@ type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
 
-export { type AppSchema };
+export type { AppSchema };
 export default schema;
 ```
 
@@ -121,7 +121,7 @@ npx instant-cli push perms
 Here's an example `instant.perms.ts` file.
 
 ```ts
-import { type InstantRules } from "@instantdb/react";
+import type { InstantRules } from "@instantdb/react";
 const rules = {
   allow: {
     posts: {
