@@ -35,7 +35,7 @@ import { i } from "@instantdb/core";
 const _schema = i.schema({
   entities: {
     $users: i.entity({
-      email: i.string().unique(),
+      email: i.string().unique().indexed(),
     }),
     profiles: i.entity({
       nickname: i.string(),
@@ -72,19 +72,19 @@ const _schema = i.schema({
       reverse: { on: "tags", has: "many", label: "posts" },
     },
     profileUser: {
-      forward: { on: "profiles" has: "one", label: "$user" },
-      reverse: { on: "users", has: "one", label: "profile" }
-    }
+      forward: { on: "profiles", has: "one", label: "$user" },
+      reverse: { on: "$users", has: "one", label: "profile" },
+    },
   },
-  rooms: {}
+  rooms: {},
 });
 
 // This helps Typescript display better intellisense
-type _AppSchema = typeof schema;
-interface AppSchema extends _AppSchema;
+type _AppSchema = typeof _schema;
+interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
 
-export type { AppSchema }
+export type { AppSchema };
 export default schema;
 ```
 
@@ -97,6 +97,8 @@ Entities are equivelant to "tables" in relational databases or "collections" in 
 They're all defined in the `entities` section:
 
 ```typescript
+// instant.schema.ts
+
 const _schema = i.schema({
   entities: {
     posts: i.entity({
@@ -111,11 +113,18 @@ const _schema = i.schema({
 Attributes are properties associated with entities. These are equivelant to a "column" in relational databases or a "field" in NoSQL. For the `posts` entity, we have the `title`, `body`, and `createdAt` attributes:
 
 ```typescript
-posts: i.entity({
-  title: i.string(),
-  body: i.string(),
-  createdAt: i.date(),
-})
+// instant.schema.ts
+
+const _schema = i.schema({
+  entities: {
+    // ...
+    posts: i.entity({
+      title: i.string(),
+      body: i.string(),
+      createdAt: i.date(),
+    }),
+  },
+});
 ```
 
 ### Typing attributes
@@ -128,64 +137,89 @@ Attributes can be typed as `i.string()`, `i.number()`, `i.boolean()`, `i.date()`
 
 {% /callout %}
 
-Instant will make sure that all data conforms to these attributes, and you'll get the proper typescript hints to boot!
+When you type `posts.title` as a `string`:
+
+```typescript
+// instant.schema.ts
+
+const _schema = i.schema({
+  entities: {
+    // ...
+    posts: i.entity({
+      title: i.string(),
+      // ...
+    }),
+  },
+});
+```
+
+Instant will _make sure_ that all `title` attributes are strings, and you'll get the proper typescript hints to boot!
 
 ### Unique constraints
 
-Sometimes you'll want to introduce a unique constraint. For example, consider `$users.email`:
+Sometimes you'll want to introduce a unique constraint. For example, say we wanted to add friendly URL's to posts. We could introduce a `slug` attribute:
 
 ```typescript
-$users: i.entity({
-  email: i.string().unique(),
-}),
+// instant.schema.ts
+
+const _schema = i.schema({
+  entities: {
+    // ...
+    posts: i.entity({
+      slug: i.string().unique(),
+      // ...
+    }),
+  },
+});
 ```
 
-No two users should have the same email. If we mark `email` as `unique`, Instant will guarantee this constraint for us.
+Since we're going to use post slugs in URLs, we'll want to make sure that no two posts can have the same slug. If we mark `slug` as `unique`, _Instant will guarantee this constraint for us_.
 
-Plus unique attributes come with their own special index, which make queries that use them fast:
+Plus unique attributes come with their own special index. This means that if you use a unique attribute inside a query, we can fetch the object quickly:
 
 ```typescript
 const query = {
-  $users: {
+  posts: {
     $: {
       where: {
-        // Since `email` is unique, this query is 🚀 fast
-        email: 'alyssa_p_hacker@instantdb.com',
+        // Since `slug` is unique, this query is 🚀 fast
+        slug: 'completing_sicp',
       },
     },
   },
 };
 ```
 
-{% callout %}
-You may be wondering, why the strange name for `$users`? It's because `$users` is a special table that Instant creates on your behalf. When you're ready to add [auth](/docs/auth) to your app, `$users` will automatically populate with signups.
-{% /callout %}
-
 ### Indexing attributes
 
-Speaking of fast queries, let's take a look at one: 
+Speaking of fast queries, let's take a look at one:
 
-What if we wanted to query for a post that was published at a particular date? Here's how that query would look:
+What if we wanted to query for a post that was published at a particular date? Here's a query to get posts that were published during SpaceX's chopstick launch:
 
 ```typescript
 const rocketChopsticks = '2024-10-13T00:00:00Z';
 const query = { posts: { $: { where: { createdAt: rocketChopsticks } } } };
 ```
 
-This would work, but the more posts we create, the slower the query would get. 
-
-We'd have to scan every post, and compare the `createdAt` date.
+This would work, but the more posts we create, the slower the query would get. We'd have to scan every post and compare the `createdAt` date.
 
 To make this query faster, we can index `createdAt`:
 
 ```typescript
-posts: i.entity({
-  // ...
-  createdAt: i.date().indexed(), // 🔥,
+// instant.schema.ts
+
+const _schema = i.schema({
+  entities: {
+    // ...
+    posts: i.entity({
+      createdAt: i.date().indexed(), // 🔥,
+      // ...
+    }),
+  },
 });
 ```
 
-As it says on the tin, this command tells Instant to index the `createdAt` field, which makes this query get fast as heck.
+As it says on the tin, this command tells Instant to index the `createdAt` field, which lets us quickly look up entities by this attribute.
 
 ## 3) Links
 
@@ -207,10 +241,18 @@ Since links are defined in both directions, you can query in both directions too
 
 ```typescript
 // This queries all posts with their author
-{ posts: { author: {} } }; 
+const query1 = {
+  posts: {
+    author: {},
+  },
+};
 
 // This queries profiles, with all of their authoredPosts!
-{ profiles: { authoredPosts: {} } }; 
+const query2 = {
+  profiles: {
+    authoredPosts: {},
+  },
+};
 ```
 
 Links can have one of four relationship types: `many-to-many`, `many-to-one`, `one-to-many`, and `one-to-one`
@@ -225,13 +267,45 @@ Our micro-blog example has the following relationship types:
 
 ## Publishing your schema
 
-Now that you have your schema, you can use the CLI to `push` it to your app: 
+Now that you have your schema, you can use the CLI to `push` it to your app:
 
-```bash
+```shell {% showCopy=true %}
 npx instant-cli@latest push schema
 ```
 
-The CLI will look at your app in production, show you the new columns you'd create, and run the changes for you! 
+The CLI will look at your app in production, show you the new columns you'd create, and run the changes for you!
+
+{% ansi %}
+
+```
+Checking for an Instant SDK...
+Found [32m@instantdb/react[39m in your package.json.
+Found [32mNEXT_PUBLIC_INSTANT_APP_ID[39m: *****
+Planning schema...
+The following changes will be applied to your production schema:
+[35mADD ENTITY[39m profiles.id
+[35mADD ENTITY[39m posts.id
+[35mADD ENTITY[39m comments.id
+[35mADD ENTITY[39m tags.id
+[32mADD ATTR[39m profiles.nickname :: unique=false, indexed=false
+[32mADD ATTR[39m profiles.createdAt :: unique=false, indexed=false
+[32mADD ATTR[39m posts.title :: unique=false, indexed=false
+[32mADD ATTR[39m posts.slug :: unique=true, indexed=false
+[32mADD ATTR[39m posts.body :: unique=false, indexed=false
+[32mADD ATTR[39m posts.createdAt :: unique=false, indexed=true
+[32mADD ATTR[39m comments.body :: unique=false, indexed=false
+[32mADD ATTR[39m comments.createdAt :: unique=false, indexed=false
+[32mADD ATTR[39m tags.title :: unique=false, indexed=false
+[32mADD LINK[39m posts.author <=> profiles.authoredPosts
+[32mADD LINK[39m comments.post <=> posts.comments
+[32mADD LINK[39m comments.author <=> profiles.authoredComments
+[32mADD LINK[39m posts.tags <=> tags.posts
+[32mADD LINK[39m profiles.$user <=> $users.profile
+[2K[34m?[39m [1mOK to proceed?[22m [36myes
+[32mSchema updated![39m
+```
+
+{% /ansi %}
 
 ## Use schema for typesafety
 
@@ -242,13 +316,13 @@ import { init } from '@instantdb/react';
 
 import schema from '../instant.schema.ts';
 
-const db = init({ 
-  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!, 
-  schema 
-}); 
+const db = init({
+  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
+  schema,
+});
 ```
 
-When you do this, all [queries](/docs/instaql) and [transactions](/docs/instaql) will come with typesafety out of the box. 
+When you do this, all [queries](/docs/instaql) and [transactions](/docs/instaql) will come with typesafety out of the box.
 
 {% callout %}
 
@@ -265,28 +339,27 @@ Say we wanted to rename `posts.createdAt` to `posts.publishedAt`:
 1. Go to your [Dashboard](https://instantdb.com/dash)
 2. Click "Explorer"
 3. Click "posts"
-4. Click "Edit Schema" 
-5. Click `createdAt` 
+4. Click "Edit Schema"
+5. Click `createdAt`
 
-You'll see modal that you can use to rename the attribute, index it, or delete it: 
-
+You'll see modal that you can use to rename the attribute, index it, or delete it:
 
 {% screenshot src="https://paper-attachments.dropboxusercontent.com/s_3D2DA1E694B2F8E030AC1EC0B7C47C6AC1E40485744489E3189C95FCB5181D4A_1734057623734_img.png" /%}
 
 ## Secure your schema with permissions
 
-In the earlier sections we mentioned that new `entities` and `attributes` can be created on the fly when you call `transact`. This can be useful for development, but you may not want this in production. 
+In the earlier sections we mentioned that new `entities` and `attributes` can be created on the fly when you call `transact`. This can be useful for development, but you may not want this in production.
 
 To prevent changes to your schema on the fly, simply add these permissions to your app.
 
 ```typescript
 // instant.perms.ts
-import { type InstantRules } from "@instantdb/react";
+import { type InstantRules } from '@instantdb/react';
 
 const rules = {
   attrs: {
     allow: {
-      $default: "false",
+      $default: 'false',
     },
   },
 } satisfies InstantRules;
@@ -294,9 +367,9 @@ const rules = {
 export default rules;
 ```
 
-Once you push these permissions to production: 
+Once you push these permissions to production:
 
-```bash 
+```bash
 npx instant-cli@latest push perms
 ```
 
