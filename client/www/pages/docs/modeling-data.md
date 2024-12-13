@@ -4,7 +4,7 @@ title: Modeling data
 
 In this section we’ll learn how to model data using Instant's schema. By the end of this document you’ll know how to:
 
-- Create entities and attributes
+- Create namespaces and attributes
 - Add indexes and unique constraints
 - Model relationships
 - Lock down your schema for production
@@ -88,11 +88,11 @@ export type { AppSchema };
 export default schema;
 ```
 
-Let's unpack what we just wrote. There are three core building blocks to model data with Instant: **Entities**, **Attributes**, and **Links**.
+Let's unpack what we just wrote. There are three core building blocks to model data with Instant: **Namespaces**, **Attributes**, and **Links**.
 
-## 1) Entities
+## 1) Namespaces
 
-Entities are equivelant to "tables" in relational databases or "collections" in NoSQL. In our case, these are: `$users`, `profiles`, `posts`, `comments`, and `tags`.
+Namespaces are equivelant to "tables" in relational databases or "collections" in NoSQL. In our case, these are: `$users`, `profiles`, `posts`, `comments`, and `tags`.
 
 They're all defined in the `entities` section:
 
@@ -110,7 +110,7 @@ const _schema = i.schema({
 
 ## 2) Attributes
 
-Attributes are properties associated with entities. These are equivelant to a "column" in relational databases or a "field" in NoSQL. For the `posts` entity, we have the `title`, `body`, and `createdAt` attributes:
+Attributes are properties associated with namespaces. These are equivelant to a "column" in relational databases or a "field" in NoSQL. For the `posts` entity, we have the `title`, `body`, and `createdAt` attributes:
 
 ```typescript
 // instant.schema.ts
@@ -223,7 +223,7 @@ As it says on the tin, this command tells Instant to index the `createdAt` field
 
 ## 3) Links
 
-Links connect two entities together. When you define a link, you define it both in the 'forward', and the 'reverse' direction. For example:
+Links connect two namespaces together. When you define a link, you define it both in the 'forward', and the 'reverse' direction. For example:
 
 ```typescript
 postAuthor: {

@@ -950,6 +950,74 @@ console.log(data)
 }
 ```
 
+## Typesafety
+
+By default, `db.useQuery` is permissive. You don't have to tell us your schema upfront, and you can write any kind of query:
+
+```typescript
+const query = {
+  goals: {
+    todos: {}
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+As your app grows, you may want to start enforcing types. When you're ready, you can start using a [schema](/docs/modeling-data):
+
+```typescript
+import { init } from '@instantdb/react';
+
+import schema from '../instant.schema.ts';
+
+const db = init({
+  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
+  schema,
+});
+```
+
+If your schema includes a `goals` and `todos` for example:
+
+```typescript
+// instant.schema.ts
+
+import { i } from "@instantdb/core";
+
+const _schema = i.schema({
+  entities: {
+    goals: i.entity({
+      title: i.string(),
+    }),
+    todos: i.entity({
+      title: i.string(),
+      dueDate: i.date(),
+    })
+  },
+  links: {
+    goalsTodos: {
+      forward: { on: 'todos', has: 'many', label: 'goals'},
+      reverse: { on: 'goals', has: 'many', label: 'todos' }
+    }
+  },
+  rooms: {},
+});
+
+// This helps Typescript display better intellisense
+type _AppSchema = typeof _schema;
+interface AppSchema extends _AppSchema {}
+const schema: AppSchema = _schema;
+
+export type { AppSchema };
+export default schema;
+```
+
+Instant will enforce that `posts.dueDate` are actually dates, and you'll get intellisense to boot: 
+
+{% screenshot src="https://paper-attachments.dropboxusercontent.com/s_3D2DA1E694B2F8E030AC1EC0B7C47C6AC1E40485744489E3189C95FCB5181D4A_1734122951978_duedate1.png" /%}
+
+To learn more about schemas, check out the [Modeling Data](/docs/modeling-data) section.
+
+
 
 ## Query once
 

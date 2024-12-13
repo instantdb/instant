@@ -271,14 +271,14 @@ const db = init({
 });
 ```
 
-If your schema includes a `posts.dueDate` for example:
+If your schema includes a `todos.dueDate` for example:
 
 ```typescript
 // instant.schema.ts
 
 const _schema = i.schema({
   entities: {
-    posts: i.entity({
+    todos: i.entity({
       // ...
       dueDate: i.date(),
     }),
@@ -287,7 +287,7 @@ const _schema = i.schema({
 });
 ```
 
-Instant will enforce that `posts.dueDate` are actually dates, and you'll get intellisense to boot: 
+Instant will enforce that `todos.dueDate` are actually dates, and you'll get intellisense to boot: 
 
 {% screenshot src="https://paper-attachments.dropboxusercontent.com/s_3D2DA1E694B2F8E030AC1EC0B7C47C6AC1E40485744489E3189C95FCB5181D4A_1734122951978_duedate1.png" /%}
 
