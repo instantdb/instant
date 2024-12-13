@@ -186,7 +186,7 @@ Your frontend can then use the generated token and sign a user in with `db.auth.
 import React, { useState } from 'react';
 import { init } from '@instantdb/react';
 
-const APP_ID = '__APP_ID__';
+const APP_ID = "__APP_ID__";
 
 const db = init({ appId: APP_ID });
 

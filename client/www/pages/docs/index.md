@@ -29,7 +29,7 @@ Now open up `app/page.tsx` in your favorite editor and replace the entirety of t
 import { id, i, init, InstaQLEntity } from "@instantdb/react";
 
 // Instant app
-const APP_ID = '__APP_ID__'
+const APP_ID = "__APP_ID__";
 
 // Optional: Declare your schema!
 const schema = i.schema({

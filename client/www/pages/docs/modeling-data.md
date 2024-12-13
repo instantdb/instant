@@ -9,13 +9,13 @@ In this section we’ll learn how to model data using Instant's schema. By the e
 - Model relationships
 - Lock down your schema for production
 
-We’ll build a micro-blog to illustrate. Our blog will model authors, posts, comments, and tags.
+We’ll build a micro-blog to illustrate; we'll have authors, posts, comments, and tags.
 
 ## Schema as Code
 
 With Instant you can define your schema and your permissions in code. If you haven't already, use the [CLI](/docs/cli) to generate an `instant.schema.ts`, and a `instant.perms.ts` file:
 
-```bash {% showCopy=true %}
+```shell {% showCopy=true %}
 npx instant-cli@latest init
 ```
 

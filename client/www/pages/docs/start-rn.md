@@ -4,7 +4,7 @@ title: Getting started with React Native
 
 You can use Instant in React Native projects too! Below is an example using Expo. Open up your terminal and do the following:
 
-```shell
+```shell {% showCopy=true %}
 # Create an app with expo
 npx create-expo-app instant-rn-demo
 cd instant-rn-demo
@@ -23,7 +23,7 @@ import { init, i, InstaQLEntity } from "@instantdb/react-native";
 import { View, Text, Button, StyleSheet } from "react-native";
 
 // Instant app
-const APP_ID = '__APP_ID__';
+const APP_ID = "__APP_ID__";
 
 // Optional: You can declare a schema!
 const schema = i.schema({
@@ -40,8 +40,14 @@ type Color = InstaQLEntity<typeof schema, "colors">;
 
 const db = init({ appId: APP_ID, schema });
 
+const selectId = "4d39508b-9ee2-48a3-b70d-8192d9c5a059";
+
 function App() {
-  const { isLoading, error, data } = db.useQuery({ colors: {} });
+  const { isLoading, error, data } = db.useQuery({
+    colors: {
+      $: { where: { id: selectId } },
+    },
+  });
   if (isLoading) {
     return (
       <View>
@@ -59,8 +65,6 @@ function App() {
 
   return <Main color={data.colors[0]} />;
 }
-
-const selectId = "4d39508b-9ee2-48a3-b70d-8192d9c5a059";
 
 function Main(props: { color?: Color }) {
   const { value } = props.color || { value: "lightgray" };

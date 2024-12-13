@@ -6,13 +6,8 @@ You can use Instant with plain ol' Javascript/Typescript too. You may find this 
 
 To use Instant in a brand new project fire up your terminal set up a new project with Vite.
 
-```shell
-npx create-vite@latest -t vanilla-ts instant-vanilla
-```
-
-Now head into your project directory and install the core package:
-
 ```shell {% showCopy=true %}
+npx create-vite@latest -t vanilla-ts instant-vanilla
 cd instant-vanilla
 npm i @instantdb/core
 npm run dev
@@ -24,7 +19,7 @@ Now open up `src/main.ts` in your favorite editor and replace the entirety of th
 import { init, i, id, InstaQLEntity } from "@instantdb/core";
 
 // Instant app
-const APP_ID = '__APP_ID__'
+const APP_ID = "__APP_ID__";
 
 // Optional: Declare your schema!
 const schema = i.schema({
@@ -43,7 +38,6 @@ type Todo = InstaQLEntity<typeof schema, "todos">;
 
 // Initialize the database
 // ---------
-
 const db = init({ appId: APP_ID, schema });
 
 // Subscribe to data

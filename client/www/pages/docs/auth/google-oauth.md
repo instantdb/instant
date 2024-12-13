@@ -85,7 +85,7 @@ import React, { useState } from 'react';
 import { init } from '@instantdb/react';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 
-const APP_ID = '__APP_ID__';
+const APP_ID = "__APP_ID__";
 
 const db = init({ appId: APP_ID });
 
@@ -166,7 +166,7 @@ Simply create an authorization URL via `db.auth.createAuthorizationURL` and then
 import React, { useState } from 'react';
 import { init } from '@instantdb/react';
 
-const APP_ID = '__APP_ID__';
+const APP_ID = "__APP_ID__";
 
 const db = init({ appId: APP_ID });
 
@@ -237,7 +237,7 @@ import {
   useAutoDiscovery,
 } from 'expo-auth-session';
 
-const APP_ID = '__APP_ID__';
+const APP_ID = "__APP_ID__";
 const db = init({ appId: APP_ID });
 
 function App() {

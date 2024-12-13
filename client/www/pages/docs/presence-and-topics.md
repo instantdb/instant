@@ -53,7 +53,7 @@ type RoomSchema = {
   };
 }
 
-const APP_ID = '__APP_ID__';
+const APP_ID = "__APP_ID__";
 
 // db will export all the presence hooks you need!
 const db = init<Schema, RoomSchema>({ appId: APP_ID });
@@ -96,7 +96,7 @@ type RoomSchema = {
   };
 }
 
-const APP_ID = '__APP_ID__'
+const APP_ID = "__APP_ID__";
 const db = init<Schema, RoomSchema>({ appId: APP_ID });
 
 const room = db.room('chat', 'main');
@@ -173,7 +173,7 @@ import { init } from '@instantdb/react';
 import { RefObject, createRef, useRef } from 'react';
 
 // Instant app
-const APP_ID = '__APP_ID__'
+const APP_ID = "__APP_ID__";
 
 // Set up room schema
 const emoji = {
@@ -404,7 +404,7 @@ type RoomSchema = {
   };
 }
 
-const APP_ID = '__APP_ID__';
+const APP_ID = "__APP_ID__";
 const db = init<Schema, RoomSchema>({ appId: APP_ID });
 
 const randomId = Math.random().toString(36).slice(2, 6);
