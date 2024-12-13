@@ -11,9 +11,9 @@ module.exports = [
     title: 'Working with data',
     links: [
       { title: 'Init', href: '/docs/init' },
+      { title: 'Modeling data', href: '/docs/modeling-data' },
       { title: 'Writing data', href: '/docs/instaml' },
       { title: 'Reading data', href: '/docs/instaql' },
-      { title: 'Modeling data', href: '/docs/modeling-data' },
       { title: 'Instant on the backend', href: '/docs/backend' },
       { title: 'Patterns', href: '/docs/patterns' },
       { title: 'Showcase', href: '/docs/showcase' },

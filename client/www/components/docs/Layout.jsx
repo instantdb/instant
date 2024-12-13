@@ -80,7 +80,7 @@ function AppPicker({ apps, selectedAppData, updateSelectedAppId }) {
   }
 
   return (
-    <div className="flex flex-col mb-6 p-4 gap-1 bg-white border">
+    <div className="flex flex-col mb-6 p-4 gap-1 bg-white bg-opacity-40 border">
       <h4 className="font-bold">Pick your app</h4>
       <p className="text-sm">
         The examples below will be updated with your app ID.
@@ -183,13 +183,13 @@ export function Layout({ children, title, tableOfContents }) {
             <dl className="mt-12 flex border-t border-slate-200 pt-6 dark:border-slate-800">
               {previousPage && (
                 <div>
-                  <dt className="text-sm font-medium text-slate-900 dark:text-white">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-white">
                     Previous
                   </dt>
                   <dd className="mt-1">
                     <Link
                       href={previousPage.href}
-                      className="text-base font-semibold text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
+                      className="text-base text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
                     >
                       <span aria-hidden="true">&larr;</span>{' '}
                       {previousPage.title}
@@ -199,13 +199,13 @@ export function Layout({ children, title, tableOfContents }) {
               )}
               {nextPage && (
                 <div className="ml-auto text-right">
-                  <dt className="text-sm font-medium text-slate-900 dark:text-white">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-white">
                     Next
                   </dt>
                   <dd className="mt-1">
                     <Link
                       href={nextPage.href}
-                      className="text-base text-blue-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
+                      className="text-base text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
                     >
                       {nextPage.title} <span aria-hidden="true">&rarr;</span>
                     </Link>

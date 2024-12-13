@@ -17,40 +17,31 @@ function App() {
 }
 ```
 
-With that, you can call `db` to [write data](/docs/instaml), [make queries](/docs/instaql), [handle auth](/docs/auth), and more! 
+With that, you can use `db` to [write data](/docs/instaml), [make queries](/docs/instaql), [handle auth](/docs/auth), and more!
 
 ## Typesafety
 
-By default, 
-
+If you're using typescript, `init` accepts a `schema` argument. Adding a schema provides auto-completion and typesafety for your queries and transactions.
 
 ```typescript
-import { init } from '@instantdb/react';
+import { init, i } from '@instantdb/react';
 
 // Instant app
 const APP_ID = '__APP_ID__';
 
-type MyAppSchema = {
-  metrics: {
-    name: string;
-    description: string;
-  };
-  logs: {
-    date: string;
-    value: number;
-    unit: string;
-  };
-};
+const schema = i.schema({
+  entities: {
+    todos: i.entity({
+      text: i.string(),
+      done: i.boolean(),
+      createdAt: i.number(),
+    }),
+  },
+  links: {},
+  rooms: {},
+});
 
-const db = init<MyAppSchema>({ appId: APP_ID });
+const db = init({ appId: APP_ID, schema });
 ```
 
-You'll now be able to use `InstaQL` and `InstalML` throughout your app!
-
-{% callout type="note" %}
-
-**Psst: Schema-as-code and type safety!**
-
-Instant now supports a [CLI-based workflow](/docs/cli), managing your [schema as code](/docs/schema), and [strictly-typed queries and mutations](/docs/strong-init). Give them a whirl and let us know what you think!
-
-{% /callout %}
+To learn more about writing schemas, head on over to the [Modeling your data](/docs/modeling-data) section. 

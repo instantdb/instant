@@ -8,9 +8,7 @@ Instant is the Modern Firebase. With Instant you can easily build realtime and c
 
 Curious about what it's all about? Try a {% blank-link href="https://instantdb.com/tutorial" label="demo" /%}. Have questions? {% blank-link href="https://discord.com/invite/VU53p7uQcE" label="Join us on discord!" /%}
 
-And if you're ready, follow the quick start below, to build a live app in less than 5 minutes!
-
----
+And if you're ready, **follow the quick start below to build a live app in less than 5 minutes!**
 
 ## Quick start
 

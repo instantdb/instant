@@ -16,7 +16,7 @@ export function Fence({ children, language, showCopy }) {
       '// Instant app',
       app
         ? `// ID for app: ${app.title}`
-        : `// Visit https://instantdb.com/dash to get your APP_ID :)`
+        : `// Visit https://instantdb.com/dash to get your APP_ID :)`,
     )
     .replace('__APP_ID__', app ? app.id : '__APP_ID__');
 
@@ -30,18 +30,16 @@ export function Fence({ children, language, showCopy }) {
       {({ className, style, tokens, getTokenProps }) => (
         <div className="relative text-sm">
           <pre className={className} style={style}>
-            <code>
-              {tokens.map((line, lineIndex) => (
-                <Fragment key={lineIndex}>
-                  {line
-                    .filter((token) => !token.empty)
-                    .map((token, tokenIndex) => (
-                      <span key={tokenIndex} {...getTokenProps({ token })} />
-                    ))}
-                  {'\n'}
-                </Fragment>
-              ))}
-            </code>
+            {tokens.map((line, lineIndex) => (
+              <Fragment key={lineIndex}>
+                {line
+                  .filter((token) => !token.empty)
+                  .map((token, tokenIndex) => (
+                    <span key={tokenIndex} {...getTokenProps({ token })} />
+                  ))}
+                {'\n'}
+              </Fragment>
+            ))}
           </pre>
           {showCopy && (
             <div className="absolute top-0 right-0 m-2">
