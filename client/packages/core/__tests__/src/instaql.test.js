@@ -840,29 +840,50 @@ test("arbitrary ordering with dates", () => {
       tests: i.entity({
         field: i.any(),
         date: i.date().indexed(),
+        num: i.number().indexed(),
       }),
     },
     links: {},
   });
 
   const txSteps = [];
+  let id = 0;
   for (let i = -5; i < 5; i++) {
     txSteps.push(
       tx.tests[randomUUID()].update({
+        field: id++,
         date: i,
+        num: i,
       }),
     );
   }
-  // Add a missing date
-  txSteps.push(
-    // Use predefined uuid so we can predict ordering
-    tx.tests["00000000-0000-0000-0000-000000000000"].update({ field: 1 }),
-  );
   // Add a null date
   txSteps.push(
-    tx.tests["00000000-0000-0000-0000-000000000001"].update({
+    // Use predefined uuid so we can predict ordering
+    tx.tests["00000000-0000-0000-0000-000000000000"].update({
+      field: id++,
       date: null,
-      field: 2,
+      num: null,
+    }),
+  );
+  // Add a missing date
+  txSteps.push(
+    tx.tests["00000000-0000-0000-0000-000000000001"].update({
+      field: id++,
+    }),
+  );
+  // Another null date
+  txSteps.push(
+    tx.tests["00000000-0000-0000-0000-000000000002"].update({
+      date: null,
+      num: null,
+      field: id++,
+    }),
+  );
+  // Another missing date
+  txSteps.push(
+    tx.tests["00000000-0000-0000-0000-000000000003"].update({
+      field: id++,
     }),
   );
 
@@ -876,14 +897,61 @@ test("arbitrary ordering with dates", () => {
     { tests: { $: { order: { date: "desc" } } } },
   ).data.tests.map((x) => x.date);
 
-  expect(descRes).toEqual([4, 3, 2, 1, 0, -1, -2, -3, -4, -5, null, undefined]);
+  const numDescRes = query(
+    { store: newStore },
+    { tests: { $: { order: { num: "desc" } } } },
+  ).data.tests.map((x) => x.num);
+
+  const descExpected = [
+    4,
+    3,
+    2,
+    1,
+    0,
+    -1,
+    -2,
+    -3,
+    -4,
+    -5,
+    undefined,
+    null,
+    undefined,
+    null,
+  ];
+
+  expect(descRes).toEqual(descExpected);
+
+  expect(numDescRes).toEqual(descExpected);
 
   const ascRes = query(
     { store: newStore },
     { tests: { $: { order: { date: "asc" } } } },
   ).data.tests.map((x) => x.date);
 
-  expect(ascRes).toEqual([undefined, null, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4]);
+  const numAscRes = query(
+    { store: newStore },
+    { tests: { $: { order: { num: "asc" } } } },
+  ).data.tests.map((x) => x.num);
+
+  const ascExpected = [
+    null,
+    undefined,
+    null,
+    undefined,
+    -5,
+    -4,
+    -3,
+    -2,
+    -1,
+    0,
+    1,
+    2,
+    3,
+    4,
+  ];
+
+  expect(ascRes).toEqual(ascExpected);
+  expect(numAscRes).toEqual(ascExpected);
 });
 
 test("$isNull", () => {

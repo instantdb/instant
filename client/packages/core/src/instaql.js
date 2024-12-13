@@ -445,9 +445,10 @@ function shouldIgnoreAttr(attrs, id) {
 }
 
 function compareOrder([id_a, v_a], [id_b, v_b]) {
-  if (v_a === v_b) {
+  if (v_a === v_b || (v_a == null && v_b == null)) {
     return uuidCompare(id_a, id_b);
   }
+
   if (v_b == null) {
     return 1;
   }
@@ -462,7 +463,7 @@ function compareOrder([id_a, v_a], [id_b, v_b]) {
 
 function comparableDate(x) {
   if (x == null) {
-    return null;
+    return x;
   }
   return new Date(x).getTime();
 }
