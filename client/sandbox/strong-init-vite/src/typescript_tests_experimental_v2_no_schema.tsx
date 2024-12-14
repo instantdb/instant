@@ -1,19 +1,19 @@
 import {
   id,
-  init_experimental as core_init_experimental,
+  init as core_init,
   InstaQLParams,
   InstaQLEntity,
   InstaQLResult,
   InstantUnknownSchema,
 } from "@instantdb/core";
-import { init_experimental as react_init_experimental } from "@instantdb/react";
-import { init_experimental as react_native_init_experimental } from "@instantdb/react-native";
-import { init_experimental as admin_init_experimental } from "@instantdb/admin";
+import { init as react_init } from "@instantdb/react";
+import { init as react_native_init } from "@instantdb/react-native";
+import { init as admin_init } from "@instantdb/admin";
 
 // ----
 // Core
 
-const coreDB = core_init_experimental({
+const coreDB = core_init({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
 });
 
@@ -46,7 +46,7 @@ coreDB.tx.posts[id()]
 // ----
 // React
 
-const reactDB = react_init_experimental({
+const reactDB = react_init({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
 });
 
@@ -85,7 +85,7 @@ function ReactNormalApp() {
 // ----
 // React-Native
 
-const reactNativeDB = react_native_init_experimental({
+const reactNativeDB = react_native_init({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
 });
 
@@ -117,7 +117,7 @@ function ReactNativeNormalApp() {
 // ----
 // Admin
 
-const adminDB = admin_init_experimental({
+const adminDB = admin_init({
   appId: import.meta.env.VITE_INSTANT_APP_ID!,
   adminToken: import.meta.env.VITE_INSTANT_ADMIN_TOKEN!,
 });

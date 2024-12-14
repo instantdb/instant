@@ -8,10 +8,10 @@ import {
   UserButton,
 } from "@clerk/nextjs";
 
-import { init, tx, id, InstantReactWeb } from "@instantdb/react";
+import { init, InstantReactWebDatabase } from "@instantdb/react";
 import config from "../../config";
 
-function App({ db }: { db: InstantReactWeb<{}, {}> }) {
+function App({ db }: { db: InstantReactWebDatabase<any> }) {
   const { getToken, signOut } = useAuth();
   const signInWithToken = () => {
     getToken().then((jwt) => {

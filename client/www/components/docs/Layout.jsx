@@ -13,53 +13,6 @@ import { Select } from '@/components/ui';
 import { MainNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';
 
-function useTableOfContents(tableOfContents, scrollContainerRef) {
-  let [currentSection, setCurrentSection] = useState(tableOfContents[0]?.id);
-
-  useEffect(() => {
-    if (tableOfContents.length === 0) return;
-    let headings = getHeadings(tableOfContents);
-
-    function onScroll() {
-      if (!scrollContainerRef.current) return;
-
-      let top = scrollContainerRef.current.scrollTop;
-      let current = headings[0].id;
-      for (let heading of headings) {
-        if (top >= heading.top) {
-          current = heading.id;
-        } else {
-          break;
-        }
-      }
-
-      setCurrentSection(current);
-    }
-
-    function getHeadings() {
-      return tableOfContents
-        .flatMap((node) => [node.id, ...node.children.map((child) => child.id)])
-        .map((id) => {
-          let el = document.getElementById(id);
-          if (!el) return;
-
-          let top = el.offsetTop;
-          return { id, top };
-        })
-        .filter((_) => _);
-    }
-
-    window.addEventListener('scroll', onScroll, true);
-    onScroll();
-
-    return () => {
-      window.removeEventListener('scroll', onScroll, true);
-    };
-  }, [tableOfContents, scrollContainerRef]);
-
-  return currentSection;
-}
-
 function useSelectedApp(apps = []) {
   const cacheKey = 'docs-appId';
   const router = useRouter();
@@ -127,7 +80,7 @@ function AppPicker({ apps, selectedAppData, updateSelectedAppId }) {
   }
 
   return (
-    <div className="flex flex-col mb-6 p-4 gap-1 bg-white border rounded">
+    <div className="flex flex-col mb-6 p-4 gap-1 bg-white bg-opacity-40 border">
       <h4 className="font-bold">Pick your app</h4>
       <p className="text-sm">
         The examples below will be updated with your app ID.
@@ -176,17 +129,6 @@ export function Layout({ children, title, tableOfContents }) {
   let section = navigation.find((section) =>
     section.links.find((link) => link.href === router.pathname),
   );
-  let currentSection = useTableOfContents(tableOfContents, scrollContainerRef);
-
-  function isActive(section) {
-    if (section.id === currentSection) {
-      return true;
-    }
-    if (!section.children) {
-      return false;
-    }
-    return section.children.findIndex(isActive) > -1;
-  }
 
   const token = useAuthToken();
   const dashResponse = useTokenFetch(`${config.apiURI}/dash`, token);
@@ -219,23 +161,19 @@ export function Layout({ children, title, tableOfContents }) {
             </div>
           </div>
           <div
-            className="overflow-auto px-4 pb-6 pt-4"
+            className="overflow-auto pb-6 pt-4 px-4 leading-relaxed max-w-prose w-full"
             ref={scrollContainerRef}
             key={router.pathname}
           >
             <AppPicker {...{ apps, selectedAppData, updateSelectedAppId }} />
             <article>
               {(title || section) && (
-                <header className="mb-6 space-y-1">
+                <header className="mb-4 space-y-1">
                   {section && (
-                    <p className="text-sm font-medium text-sky-500">
-                      {section.title}
-                    </p>
+                    <p className="text-sm text-gray-500 font-medium">{section.title}</p>
                   )}
                   {title && (
-                    <h1 className="text-3xl tracking-tight text-slate-900 dark:text-white">
-                      {title}
-                    </h1>
+                    <h1 className="text-3xl dark:text-white">{title}</h1>
                   )}
                 </header>
               )}
@@ -245,13 +183,13 @@ export function Layout({ children, title, tableOfContents }) {
             <dl className="mt-12 flex border-t border-slate-200 pt-6 dark:border-slate-800">
               {previousPage && (
                 <div>
-                  <dt className="text-sm font-medium text-slate-900 dark:text-white">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-white">
                     Previous
                   </dt>
                   <dd className="mt-1">
                     <Link
                       href={previousPage.href}
-                      className="text-base font-semibold text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
+                      className="text-base text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
                     >
                       <span aria-hidden="true">&larr;</span>{' '}
                       {previousPage.title}
@@ -261,13 +199,13 @@ export function Layout({ children, title, tableOfContents }) {
               )}
               {nextPage && (
                 <div className="ml-auto text-right">
-                  <dt className="text-sm font-medium text-slate-900 dark:text-white">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-white">
                     Next
                   </dt>
                   <dd className="mt-1">
                     <Link
                       href={nextPage.href}
-                      className="text-base font-semibold text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
+                      className="text-base text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
                     >
                       {nextPage.title} <span aria-hidden="true">&rarr;</span>
                     </Link>
@@ -276,7 +214,7 @@ export function Layout({ children, title, tableOfContents }) {
               )}
             </dl>
           </div>
-          <div className="hidden xl:block px-4 py-4 overflow-y-auto xl:basis-96">
+          <div className="hidden xl:block px-4 py-4 overflow-y-auto w-96">
             <nav aria-labelledby="on-this-page-title">
               {tableOfContents.length > 0 && (
                 <>
@@ -293,9 +231,7 @@ export function Layout({ children, title, tableOfContents }) {
                           <Link
                             href={`#${section.id}`}
                             className={clsx(
-                              isActive(section)
-                                ? 'text-sky-500'
-                                : 'font-normal text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300',
+                              'font-normal text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300',
                             )}
                           >
                             {section.title}
@@ -310,11 +246,7 @@ export function Layout({ children, title, tableOfContents }) {
                               <li key={subSection.id}>
                                 <Link
                                   href={`#${subSection.id}`}
-                                  className={
-                                    isActive(subSection)
-                                      ? 'text-sky-500'
-                                      : 'hover:text-slate-600 dark:hover:text-slate-300'
-                                  }
+                                  className="hover:text-slate-600 dark:hover:text-slate-300"
                                 >
                                   {subSection.title}
                                 </Link>
