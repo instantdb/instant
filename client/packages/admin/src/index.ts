@@ -168,7 +168,6 @@ async function jsonFetch(
     : Promise.reject({ status: res.status, body: json });
 }
 
-
 /**
  *
  * The first step: init your application!
@@ -176,13 +175,24 @@ async function jsonFetch(
  * Visit https://instantdb.com/dash to get your `appId` :)
  *
  * @example
- *  const db = init({ appId: "my-app-id" })
+ *  import { init } from "@instantdb/admin"
+ *
+ *  const db = init({
+ *    appId: "my-app-id",
+ *    adminToken: process.env.INSTANT_ADMIN_TOKEN
+ * })
  *
  * // You can also provide a schema for type safety and editor autocomplete!
  *
- * // TODO-now
+ *  import { init } from "@instantdb/admin"
+ *  import schema from ""../instant.schema.ts";
  *
- *  const db = init<Schema>({ appId: "my-app-id" })
+ *  const db = init({
+ *    appId: "my-app-id",
+ *    adminToken: process.env.INSTANT_ADMIN_TOKEN,
+ *    schema,
+ * })
+ * To learn more: https://instantdb.com/docs/modeling-data
  *
  */
 function init<
@@ -193,9 +203,19 @@ function init<
 
 /**
  * @deprecated
- * TODO-now
+ * `init_experimental` is deprecated. You can replace it with `init`.
+ * 
+ * @example
+ *
+ * // Before
+ * import { init_experimental } from "@instantdb/admin"
+ * const db = init_experimental({  ...  });
+ *
+ * // After
+ * import { init } from "@instantdb/admin"
+ * const db = init({ ...  });
  */
-const init_experimental = init; 
+const init_experimental = init;
 
 /**
  *

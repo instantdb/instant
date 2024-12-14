@@ -5,7 +5,7 @@ import {
 } from "@instantdb/core";
 import { init as react_init } from "@instantdb/react";
 import { init as react_native_init } from "@instantdb/react-native";
-import { init as admin_init } from "@instantdb/admin";
+import { init as admin_init, init_experimental as _a } from "@instantdb/admin";
 
 type Message = {
   content: string;
