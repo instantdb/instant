@@ -305,7 +305,22 @@ export class InstantSchemaDef<
 
   /**
    * @deprecated
-   * TOOD-now
+   * `withRoomSchema` is deprecated. Define your schema in `rooms` directly: 
+   * 
+   * @example 
+   * // Before: 
+   * const schema = i.schema({ 
+   *   // ...
+   * }).withRoomSchema<RoomSchema>()
+   * 
+   * // After
+   * const schema = i.schema({
+   *  rooms: {
+   *    // ...
+   *  }
+   * })
+   * 
+   * @see https://instantdb.com/docs/presence-and-topics#typesafety
    */
   withRoomSchema<_RoomSchema extends RoomSchemaShape>() {
     type RDef = RoomDefFromShape<_RoomSchema>;
@@ -319,7 +334,9 @@ export class InstantSchemaDef<
 
 /**
  * @deprecated
- * TODO-now
+ * `i.graph` is deprecated. Use `i.schema` instead.
+ * 
+ * @see https://instantdb.com/docs/modeling-data
  */
 export class InstantGraph<
   Entities extends EntitiesDef,
