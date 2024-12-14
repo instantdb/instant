@@ -1,5 +1,10 @@
 import { Callout } from '@/components/docs/Callout';
-import { NavGroup, NavButton, ConditionalContent } from '@/components/docs/NavButton';
+import { Ansi } from '@/components/docs/Ansi';
+import {
+  NavGroup,
+  NavButton,
+  ConditionalContent,
+} from '@/components/docs/NavButton';
 
 const tags = {
   callout: {
@@ -13,6 +18,12 @@ const tags = {
       },
     },
     render: Callout,
+  },
+  ansi: {
+    attributes: {
+      content: {type: String},
+    },
+    render: Ansi,
   },
   screenshot: {
     selfClosing: true,
@@ -49,15 +60,15 @@ const tags = {
       title: { type: String },
       description: { type: String },
       param: { type: String },
-      value: { type: String }
+      value: { type: String },
     },
   },
-  'conditional': {
+  conditional: {
     render: ConditionalContent,
     attributes: {
       param: { type: String, required: true },
-      value: { type: String, required: true }
-    }
+      value: { type: String, required: true },
+    },
   },
   'blank-link': {
     selfClosing: true,
