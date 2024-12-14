@@ -17,7 +17,7 @@ To use Instant in a brand new project, fire up your terminal and run the followi
 ```shell {% showCopy=true %}
 npx create-next-app -e hello-world instant-demo
 cd instant-demo
-npm i @instantdb/react
+npm i @instantdb/react@0.17.0-experimental.3
 npm run dev
 ```
 

@@ -9,7 +9,7 @@ To use Instant in a brand new project fire up your terminal set up a new project
 ```shell {% showCopy=true %}
 npx create-vite@latest -t vanilla-ts instant-vanilla
 cd instant-vanilla
-npm i @instantdb/core
+npm i @instantdb/core@0.17.0-experimental.3
 npm run dev
 ```
 

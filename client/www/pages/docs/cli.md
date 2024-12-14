@@ -9,7 +9,7 @@ The Instant CLI was designed to drive your Instant application entirely from a p
 To get started, head on over to your project's root repository, and write:
 
 ```shell {% showCopy=true %}
-npx instant-cli@latest init
+npx instant-cli@0.17.0-experimental.3 init
 ```
 
 This will guide you through picking an Instant app and generate two files for you:
@@ -24,7 +24,7 @@ To learn how to change `instant.schema.ts`, check our [Modeling Data](/docs/mode
 When you're ready to publish your changes to `instant.schema.ts`, run:
 
 ```shell {% showCopy=true %}
-npx instant-cli@latest push schema
+npx instant-cli@0.17.0-experimental.3 push schema
 ```
 
 This will evaluate your schema, compare it with production, and migrate your data model.
@@ -46,7 +46,7 @@ npx instant-cli push perms
 Sometimes, you change your schema or rules from your Explorer. If you want to `pull` the latest version of schema and perms for production, write: 
 
 ```shell {% showCopy=true %}
-npx instant-cli@latest pull
+npx instant-cli@0.17.0-experimental.3 pull
 ```
 
 This will generate new `instant.schema.ts` and `instant.perms.ts` files, based on your production state.
@@ -56,7 +56,7 @@ This will generate new `instant.schema.ts` and `instant.perms.ts` files, based o
 Whenever you run a CLI command, we look up your app id. You can either provide an app id as an option:
 
 ```shell
-  npx instant-cli@latest init --app $MY_APP_ID
+  npx instant-cli@0.17.0-experimental.3 init --app $MY_APP_ID
 ```
 
 Or store it in your `.env` file:
@@ -81,7 +81,7 @@ In these cases, you can provide a `INSTANT_CLI_AUTH_TOKEN` environment variable.
 To obtain a token for later use, run: 
 
 ```shell {% showCopy=true %}
-npx instant-cli@latest login -p
+npx instant-cli@0.17.0-experimental.3 login -p
 ```
 
 Instead of saving the token to your local device, the CLI will print it to your console. You can copy this token and provide it as `INSTANT_CLI_AUTH_TOKEN` later in your CI tool.

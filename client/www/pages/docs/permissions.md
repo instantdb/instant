@@ -32,13 +32,13 @@ You can manage permissions via configuration files or through the Instant dashbo
 With Instant you can define your permissions in code. If you haven't already, use the [CLI](/docs/cli) to generate an `instant.perms.ts` file:
 
 ```shell {% showCopy=true %}
-npx instant-cli@latest init
+npx instant-cli@0.17.0-experimental.3 init
 ```
 
 The CLI will guide you through picking an Instant app and generate these files for you. Once you've made changes to `instant.perms.ts`, you can use the CLI to push those changes to production: 
 
 ```shell {% showCopy=true %}
-npx instant-cli@latest push perms
+npx instant-cli@0.17.0-experimental.3 push perms
 ```
 
 ## Permissions in the dashboard

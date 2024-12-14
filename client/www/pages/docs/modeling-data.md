@@ -16,7 +16,7 @@ We’ll build a micro-blog to illustrate; we'll have authors, posts, comments, a
 With Instant you can define your schema and your permissions in code. If you haven't already, use the [CLI](/docs/cli) to generate an `instant.schema.ts`, and a `instant.perms.ts` file:
 
 ```shell {% showCopy=true %}
-npx instant-cli@latest init
+npx instant-cli@0.17.0-experimental.3 init
 ```
 
 The CLI will guide you through picking an Instant app and generate these files for you.
@@ -270,7 +270,7 @@ Our micro-blog example has the following relationship types:
 Now that you have your schema, you can use the CLI to `push` it to your app:
 
 ```shell {% showCopy=true %}
-npx instant-cli@latest push schema
+npx instant-cli@0.17.0-experimental.3 push schema
 ```
 
 The CLI will look at your app in production, show you the new columns you'd create, and run the changes for you!
@@ -370,7 +370,7 @@ export default rules;
 Once you push these permissions to production:
 
 ```bash
-npx instant-cli@latest push perms
+npx instant-cli@0.17.0-experimental.3 push perms
 ```
 
 {% ansi %}

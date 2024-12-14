@@ -10,7 +10,7 @@ npx create-expo-app instant-rn-demo
 cd instant-rn-demo
 
 # Install instant
-npm i @instantdb/react-native
+npm i @instantdb/react@0.17.0-experimental.3-native@0.17.0-experimental.3
 
 # Install peer dependencies
 npm i @react-native-async-storage/async-storage @react-native-community/netinfo react-native-get-random-values
