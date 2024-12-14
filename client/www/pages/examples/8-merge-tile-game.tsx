@@ -6,10 +6,10 @@
  * */
 
 import config from '@/lib/config'; // hide-line
-import { init, tx, id } from '@instantdb/react';
+import { init } from '@instantdb/react';
 import { useEffect, useState } from 'react';
 
-const db = init<DBSchema, RoomSchema>({
+const db = init({
   ...config, // hide-line
   appId: __getAppId(),
 });
@@ -37,7 +37,7 @@ export default function App() {
     // If the board doesn't exist, create it
     if (!boardState) {
       transact([
-        tx.boards[boardId].update({
+        db.tx.boards[boardId].update({
           state: makeEmptyBoard(),
         }),
       ]);
@@ -93,14 +93,14 @@ export default function App() {
                   style={{
                     backgroundColor:
                       hoveredSquare === `${r}-${c}`
-                        ? myColor ?? undefined
+                        ? (myColor ?? undefined)
                         : boardState[`${r}-${c}`],
                   }}
                   onMouseEnter={() => setHoveredSquare(`${r}-${c}`)}
                   onMouseLeave={() => setHoveredSquare(null)}
                   onClick={() => {
                     transact([
-                      tx.boards[boardId].merge({
+                      db.tx.boards[boardId].merge({
                         state: {
                           [`${r}-${c}`]: myColor,
                         },
@@ -116,7 +116,7 @@ export default function App() {
           className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-4 rounded my-4"
           onClick={() => {
             transact([
-              tx.boards[boardId].update({
+              db.tx.boards[boardId].update({
                 state: makeEmptyBoard(),
               }),
             ]);
@@ -128,18 +128,6 @@ export default function App() {
     </div>
   );
 }
-
-type DBSchema = {
-  boards: {
-    state: Record<string, string>;
-  };
-};
-
-type RoomSchema = {
-  main: {
-    presence: { color: string };
-  };
-};
 
 const boardSize = 4;
 const whiteColor = '#ffffff';

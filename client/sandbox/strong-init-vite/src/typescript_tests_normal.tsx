@@ -1,4 +1,8 @@
-import { id, init as core_init } from "@instantdb/core";
+import {
+  id,
+  init as core_init,
+  BackwardsCompatibleSchema,
+} from "@instantdb/core";
 import { init as react_init } from "@instantdb/react";
 import { init as react_native_init } from "@instantdb/react-native";
 import { init as admin_init } from "@instantdb/admin";
@@ -37,7 +41,7 @@ type Rooms = {
 // ----
 // Core
 
-const coreDB = core_init<Schema, Rooms>({
+const coreDB = core_init<BackwardsCompatibleSchema<Schema, Rooms>>({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
 });
 
@@ -67,7 +71,7 @@ coreDB.tx.messages[id()]
 // ----
 // React
 
-const reactDB = react_init<Schema, Rooms>({
+const reactDB = react_init<BackwardsCompatibleSchema<Schema, Rooms>>({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
 });
 
@@ -103,7 +107,9 @@ function ReactNormalApp() {
 // ----
 // React-Native
 
-const reactNativeDB = react_native_init<Schema, Rooms>({
+const reactNativeDB = react_native_init<
+  BackwardsCompatibleSchema<Schema, Rooms>
+>({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
 });
 
@@ -133,7 +139,7 @@ function ReactNativeNormalApp() {
 // ----
 // Admin
 
-const adminDB = admin_init<Schema>({
+const adminDB = admin_init<BackwardsCompatibleSchema<Schema>>({
   appId: import.meta.env.VITE_INSTANT_APP_ID!,
   adminToken: import.meta.env.VITE_INSTANT_ADMIN_TOKEN!,
 });

@@ -1,4 +1,4 @@
-import { init, InstantReactWeb } from '@instantdb/react';
+import { init, InstantReactWebDatabase } from '@instantdb/react';
 import { useContext, useEffect, useMemo, useState } from 'react';
 import { v4 } from 'uuid';
 import produce from 'immer';
@@ -1037,7 +1037,7 @@ function Admin({
   app: InstantApp;
   onDelete: () => void;
   nav: (p: { s: string; t?: string; app?: string }) => void;
-  db: InstantReactWeb<any, any>;
+  db: InstantReactWebDatabase<any>;
 }) {
   const token = useContext(TokenContext);
   const [deleteAppOk, updateDeleteAppOk] = useState(false);
