@@ -32,7 +32,7 @@ Go to the Instant dashboard, navigate to the `Auth` tab and add a new clerk app 
 
 ## Usage
 
-Use Clerk's `getToken` helper to get a session JWT for your signed-in user. Then call Instant's `db.auth.signInWithIdToken` with the jwt and the client name you set on the Instant dashboard.
+Use Clerk's `getToken` helper to get a session JWT for your signed-in user. Then call Instant's `db.auth.signInWithIdToken` with the JWT and the client name you set on the Instant dashboard.
 
 When you call `db.auth.signInWithIdToken`, Instant will verify that the JWT was signed by your Clerk app. If verified, Instant use the email in the JWT's claims to lookup your user or create a new one and create a long-lived session. Be sure to call Instant's `db.auth.signOut` when you want to sign the user out.
 
@@ -51,7 +51,8 @@ import {
 import { init } from '@instantdb/react';
 import { useEffect } from 'react';
 
-const APP_ID = '__APP_ID__';
+// Instant app
+const APP_ID = "__APP_ID__";
 
 const db = init({ appId: APP_ID });
 
