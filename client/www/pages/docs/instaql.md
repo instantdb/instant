@@ -674,7 +674,7 @@ console.log(data)
 The `where` clause supports comparison operators on fields that are indexed and have checked types.
 
 {% callout %}
-Add indexes and checked types to your attributes from the [Explorer on the Instant dashboard](/dash?t=explorer) or from the [cli with Schema-as-code](/docs/schema).
+Add indexes and checked types to your attributes from the [Explorer on the Instant dashboard](/dash?t=explorer) or from the [cli with Schema-as-code](/docs/modeling-data).
 {% /callout %}
 
 | Operator |       Description        | JS equivalent |

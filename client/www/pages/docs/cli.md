@@ -35,7 +35,7 @@ This will evaluate your schema, compare it with production, and migrate your dat
 
 {% /callout %}
 
-Similarily, when you change `instant.perms.ts`: 
+Similarily, when you change `instant.perms.ts`, you can run: 
 
 ```shell {% showCopy=true %}
 npx instant-cli push perms

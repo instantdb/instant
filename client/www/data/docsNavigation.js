@@ -37,12 +37,10 @@ module.exports = [
         title: 'Presence, Cursors, and Activity',
         href: '/docs/presence-and-topics',
       },
+      { title: 'Instant CLI', href: '/docs/cli' },
       { title: 'Custom emails', href: '/docs/emails' },
       { title: 'App teams', href: '/docs/teams' },
-      { title: 'Instant CLI', href: '/docs/cli' },
-      { title: 'Schema-as-code', href: '/docs/schema' },
       { title: 'Storage (beta)', href: '/docs/storage' },
-      { title: 'Strong Init (experimental)', href: '/docs/strong-init' },
     ],
   },
 ];
