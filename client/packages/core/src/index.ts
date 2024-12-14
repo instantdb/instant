@@ -553,6 +553,26 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
   }
 }
 
+/**
+ *
+ * The first step: init your application!
+ *
+ * Visit https://instantdb.com/dash to get your `appId` :)
+ *
+ * @example
+ *  import { init } from "@instantdb/core"
+ *
+ *  const db = init({ appId: "my-app-id" })
+ *
+ *  // You can also provide a schema for type safety and editor autocomplete!
+ *
+ *  import { init } from "@instantdb/core"
+ *  import schema from ""../instant.schema.ts";
+ *
+ *  const db = init({ appId: "my-app-id", schema })
+ *  
+ *  // To learn more: https://instantdb.com/docs/modeling-data
+ */
 function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
 >(
@@ -615,7 +635,17 @@ type InstantRules = {
 
 /**
  * @deprecated
- * // TODO-now
+ * `init_experimental` is deprecated. You can replace it with `init`.
+ * 
+ * @example
+ *
+ * // Before
+ * import { init_experimental } from "@instantdb/core"
+ * const db = init_experimental({  ...  });
+ *
+ * // After
+ * import { init } from "@instantdb/core"
+ * const db = init({ ...  });
  */
 const init_experimental = init;
 

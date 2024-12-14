@@ -60,14 +60,18 @@ import {
  * Visit https://instantdb.com/dash to get your `appId` :)
  *
  * @example
+ *  import { init } from "@instantdb/react-native"
+ *
  *  const db = init({ appId: "my-app-id" })
  *
- * // You can also provide a schema for type safety and editor autocomplete!
+ *  // You can also provide a schema for type safety and editor autocomplete!
  *
- * // TODO-now
+ *  import { init } from "@instantdb/react-native"
+ *  import schema from ""../instant.schema.ts";
  *
- * const db = init<Schema>({ appId: "my-app-id" })
- *
+ *  const db = init({ appId: "my-app-id", schema })
+ *  
+ *  // To learn more: https://instantdb.com/docs/modeling-data
  */
 function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
@@ -79,7 +83,17 @@ function init<
 
 /**
  * @deprecated
- * // TODO-now
+ * `init_experimental` is deprecated. You can replace it with `init`.
+ * 
+ * @example
+ *
+ * // Before
+ * import { init_experimental } from "@instantdb/react-native"
+ * const db = init_experimental({  ...  });
+ *
+ * // After
+ * import { init } from "@instantdb/react-native"
+ * const db = init({ ...  });
  */
 const init_experimental = init;
 

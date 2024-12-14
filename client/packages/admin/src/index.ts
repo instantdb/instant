@@ -180,9 +180,9 @@ async function jsonFetch(
  *  const db = init({
  *    appId: "my-app-id",
  *    adminToken: process.env.INSTANT_ADMIN_TOKEN
- * })
+ *  })
  *
- * // You can also provide a schema for type safety and editor autocomplete!
+ *  // You can also provide a schema for type safety and editor autocomplete!
  *
  *  import { init } from "@instantdb/admin"
  *  import schema from ""../instant.schema.ts";
@@ -191,9 +191,8 @@ async function jsonFetch(
  *    appId: "my-app-id",
  *    adminToken: process.env.INSTANT_ADMIN_TOKEN,
  *    schema,
- * })
- * To learn more: https://instantdb.com/docs/modeling-data
- *
+ *  })
+ *  // To learn more: https://instantdb.com/docs/modeling-data
  */
 function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
@@ -204,7 +203,7 @@ function init<
 /**
  * @deprecated
  * `init_experimental` is deprecated. You can replace it with `init`.
- * 
+ *
  * @example
  *
  * // Before

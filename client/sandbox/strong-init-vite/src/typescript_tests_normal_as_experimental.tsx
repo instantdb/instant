@@ -1,11 +1,15 @@
 import {
   id,
   init as core_init,
- BackwardsCompatibleSchema,
+  init_experimental as _a,
+  BackwardsCompatibleSchema,
 } from "@instantdb/core";
-import { init as react_init } from "@instantdb/react";
-import { init as react_native_init } from "@instantdb/react-native";
-import { init as admin_init, init_experimental as _a } from "@instantdb/admin";
+import { init as react_init, init_experimental as _b } from "@instantdb/react";
+import {
+  init as react_native_init,
+  init_experimental as _c,
+} from "@instantdb/react-native";
+import { init as admin_init, init_experimental as _d } from "@instantdb/admin";
 
 type Message = {
   content: string;
