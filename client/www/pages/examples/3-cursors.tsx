@@ -1,12 +1,7 @@
 import config from '@/lib/config'; // hide-line
 import { Cursors, init } from '@instantdb/react';
 
-const db = init<
-  {},
-  {
-    'cursors-example': {};
-  }
->({
+const db = init({
   ...config, // hide-line
   appId: __getAppId(),
 });

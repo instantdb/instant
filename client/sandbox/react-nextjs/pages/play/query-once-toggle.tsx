@@ -8,17 +8,23 @@
  * 
 */
 
-import { init, id, tx } from "@instantdb/react";
+import { init, i } from "@instantdb/react";
 import Head from "next/head";
 import { useEffect, FormEvent, useRef, useState } from "react";
 import config from "../../config";
 
-const db = init<{
-  onceTest: {
-    text: string;
-  };
-}>({
+const schema = i.schema({
+  entities: {
+    onceTest: i.entity({ text: i.string() }),
+    posts: i.entity({ title: i.string() }),
+  },
+  links: {},
+  rooms: {},
+});
+
+const db = init({
   ...config,
+  schema
 });
 
 function useEffectOnce(cb: () => void) {

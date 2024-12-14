@@ -14,6 +14,9 @@ const _schema = i.schema({
       title: i.string(),
       body: i.string(),
     }),
+    messages: i.entity({
+      content: i.string(),
+    }),
   },
   // You can define links here.
   // For example, if `posts` should have many `comments`.
@@ -30,6 +33,18 @@ const _schema = i.schema({
         on: "$users",
         has: "many",
         label: "ownedPosts",
+      },
+    },
+    messageCreator: {
+      forward: {
+        on: "messages",
+        has: "one",
+        label: "creator",
+      },
+      reverse: {
+        on: "$users",
+        has: "many",
+        label: "createdMessages",
       },
     },
   },

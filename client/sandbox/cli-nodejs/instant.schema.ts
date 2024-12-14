@@ -2,45 +2,42 @@ import { i } from "@instantdb/core";
 
 const schema = i.schema({
   entities: {
-    authors: i.entity({
-      name: i.any(),
-      userId: i.any(),
+    profiles: i.entity({
+      handle: i.string().unique(),
+      createdAt: i.date(),
     }),
     posts: i.entity({
-      content: i.any(),
-      name: i.any(),
+      title: i.string(),
+      body: i.string(),
+      createdAt: i.date().indexed(),
     }),
     tags: i.entity({
-      label: i.any(),
+      title: i.string(),
+    }),
+    comments: i.entity({
+      body: i.string(),
+      createdAt: i.date().indexed(),
     }),
   },
   links: {
-    authorsPosts: {
-      forward: {
-        on: "authors",
-        has: "many",
-        label: "posts",
-      },
-      reverse: {
-        on: "posts",
-        has: "one",
-        label: "author",
-      },
+    postAuthor: {
+      forward: { on: "posts", has: "one", label: "owner" },
+      reverse: { on: "profiles", has: "many", label: "posts" },
+    },
+    commentPost: {
+      forward: { on: "comments", has: "one", label: "post" },
+      reverse: { on: "posts", has: "many", label: "comments" },
+    },
+    commentAuthor: {
+      forward: { on: "comments", has: "one", label: "author" },
+      reverse: { on: "profiles", has: "many", label: "comments" },
     },
     postsTags: {
-      forward: {
-        on: "tags",
-        has: "many",
-        label: "posts",
-      },
-      reverse: {
-        on: "posts",
-        has: "many",
-        label: "tags",
-      },
-    },
+      forward: { on: "posts", has: "many", label: "tags" },
+      reverse: { on: "tags", has: "many", label: "posts" },
+    }
   },
-  rooms: {},
+  rooms: {}
 });
 
 export default schema;

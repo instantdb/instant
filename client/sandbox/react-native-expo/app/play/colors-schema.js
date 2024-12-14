@@ -1,4 +1,4 @@
-import { init_experimental, i } from "@instantdb/react-native";
+import { init, i } from "@instantdb/react-native";
 import { View, Text, Button, StyleSheet } from "react-native";
 
 import config from "../config";
@@ -13,7 +13,7 @@ const schema = i.schema({
   rooms: {},
 });
 
-const { useQuery, transact, tx } = init_experimental({
+const { useQuery, transact, tx } = init({
   ...config,
   schema,
 });
