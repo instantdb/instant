@@ -330,7 +330,7 @@ If you haven't used the CLI to push your schema yet, no problem. Any time you wr
 
 {% /callout %}
 
-## Update or Delete Entities and Links
+## Update or Delete attributes
 
 You can always modify or delete attributes after creating them. **You can't use the CLI to do this yet, but you can use the dashboard.**
 
