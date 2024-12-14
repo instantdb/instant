@@ -1,14 +1,11 @@
 import type {
-  // types
-  Config,
   InstantConfig,
-  InstantGraph,
   InstantSchemaDef,
-  RoomSchemaShape,
   InstantUnknownSchema,
 } from "@instantdb/core";
-import { InstantReactWeb } from "./InstantReactWeb";
+
 import InstantReactWebDatabase from "./InstantReactWebDatabase";
+import version from "./version";
 
 /**
  *
@@ -17,28 +14,39 @@ import InstantReactWebDatabase from "./InstantReactWebDatabase";
  * Visit https://instantdb.com/dash to get your `appId` :)
  *
  * @example
+ *  import { init } from "@instantdb/react"
+ *
  *  const db = init({ appId: "my-app-id" })
  *
- * // You can also provide a schema for type safety and editor autocomplete!
+ *  // You can also provide a schema for type safety and editor autocomplete!
  *
- *  type Schema = {
- *    goals: {
- *      title: string
- *    }
- *  }
+ *  import { init } from "@instantdb/react"
+ *  import schema from ""../instant.schema.ts";
  *
- *  const db = init<Schema>({ appId: "my-app-id" })
- *
+ *  const db = init({ appId: "my-app-id", schema })
+ *  
+ *  // To learn more: https://instantdb.com/docs/modeling-data
  */
 export function init<
-  Schema extends {} = {},
-  RoomSchema extends RoomSchemaShape = {},
->(config: Config) {
-  return new InstantReactWeb<Schema, RoomSchema>(config);
-}
-
-export function init_experimental<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
 >(config: InstantConfig<Schema>) {
-  return new InstantReactWebDatabase<Schema>(config);
+  return new InstantReactWebDatabase<Schema>(config, {
+    "@instantdb/react": version,
+  });
 }
+
+/**
+ * @deprecated
+ * `init_experimental` is deprecated. You can replace it with `init`.
+ * 
+ * @example
+ *
+ * // Before
+ * import { init_experimental } from "@instantdb/react"
+ * const db = init_experimental({  ...  });
+ *
+ * // After
+ * import { init } from "@instantdb/react"
+ * const db = init({ ...  });
+ */
+export const init_experimental = init;

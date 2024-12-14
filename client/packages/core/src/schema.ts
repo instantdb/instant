@@ -141,7 +141,7 @@ type LinksIndex = Record<
  * presence, you can define rooms.
  *
  * You can push this schema to your database with the CLI,
- * or use it inside `init_experimental`, to get typesafety and autocompletion.
+ * or use it inside `init`, to get typesafety and autocompletion.
  *
  * @see https://instantdb.com/docs/schema
  * @example

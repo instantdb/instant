@@ -258,7 +258,7 @@ type InstaQLResult<
   Query extends InstaQLParams<Schema>,
 > = Expand<{
   [QueryPropName in keyof Query]: QueryPropName extends keyof Schema["entities"]
-    ? InstaQLEntity<Schema, QueryPropName, Query[QueryPropName]>[]
+    ? InstaQLEntity<Schema, QueryPropName, Remove$<Query[QueryPropName]>>[]
     : never;
 }>;
 
