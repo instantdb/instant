@@ -19,7 +19,8 @@ for an example with vanilla JS, check out this [sandbox](https://github.com/inst
 import React, { useState } from 'react';
 import { init } from '@instantdb/react';
 
-const APP_ID = '__APP_ID__';
+// Instant app
+const APP_ID = "__APP_ID__";
 
 const db = init({ appId: APP_ID });
 

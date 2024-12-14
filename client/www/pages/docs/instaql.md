@@ -9,8 +9,18 @@ Instant uses a declarative syntax for querying. It's like GraphQL without the co
 One of the simplest queries you can write is to simply get all entities of a namespace.
 
 ```javascript
-const query = { goals: {} };
-const { isLoading, error, data } = db.useQuery(query);
+import { init } from '@instantdb/react';
+
+const db = init({
+  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
+});
+
+function App() {
+  // Queries! 🚀
+  const query = { goals: {} };
+  const { isLoading, error, data } = db.useQuery(query);
+  // ...
+}
 ```
 
 Inspecting `data`, we'll see:
@@ -148,17 +158,17 @@ console.log(data)
 The SQL equivalent for this would be something along the lines of:
 
 ```javascript
-const query = "
-SELECT g.*, gt.todos
-FROM goals g
-JOIN (
-    SELECT g.id, json_agg(t.*) as todos
-    FROM goals g
-    LEFT JOIN todos t on g.id = t.goal_id
-    GROUP BY 1
-) gt on g.id = gt.id
-"
-const data = {goals: doSQL(query)}
+const query = `
+  SELECT g.*, gt.todos
+  FROM goals g
+  JOIN (
+      SELECT g.id, json_agg(t.*) as todos
+      FROM goals g
+      LEFT JOIN todos t on g.id = t.goal_id
+      GROUP BY 1
+  ) gt on g.id = gt.id
+`;
+const data = { goals: doSQL(query) };
 ```
 
 Notice the complexity of this SQL query. Although fetching associations in SQL is straightforward via `JOIN`, marshalling the results in a nested structure via SQL is tricky. An alternative approach would be to write two straight-forward queries and then marshall the data on the client.
@@ -687,7 +697,7 @@ console.log(data)
 The `where` clause supports comparison operators on fields that are indexed and have checked types.
 
 {% callout %}
-Add indexes and checked types to your attributes from the [Explorer on the Instant dashboard](/dash?t=explorer) or from the [cli with Schema-as-code](/docs/schema).
+Add indexes and checked types to your attributes from the [Explorer on the Instant dashboard](/dash?t=explorer) or from the [cli with Schema-as-code](/docs/modeling-data).
 {% /callout %}
 
 | Operator |       Description        | JS equivalent |
@@ -901,12 +911,11 @@ For **case insensitive** matching use `$ilike` in place of `$like`.
 
 Here's how you can do queries like `startsWith`, `endsWith` and `includes`.
 
-| Example                   | Description           | JS equivalent |
+|          Example          |      Description      | JS equivalent |
 | :-----------------------: | :-------------------: | :-----------: |
-| `{ $like: "Get%" }`       | Starts with 'Get'     | `startsWith`  |
-| `{ $like: "%promoted!" }` | Ends with 'promoted!' | `endsWith`    |
-| `{ $like: "%fit%" }`      | Contains 'fit'        | `includes`    |
-
+|    `{ $like: "Get%" }`    |   Starts with 'Get'   | `startsWith`  |
+| `{ $like: "%promoted!" }` | Ends with 'promoted!' |  `endsWith`   |
+|   `{ $like: "%fit%" }`    |    Contains 'fit'     |  `includes`   |
 
 Here's how you can use `$like` to find all goals that end with the word
 "promoted!"
@@ -998,6 +1007,118 @@ console.log(data)
 }
 ```
 
+## Typesafety
+
+By default, `db.useQuery` is permissive. You don't have to tell us your schema upfront, and you can write any kind of query:
+
+```typescript
+const query = {
+  goals: {
+    todos: {},
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+As your app grows, you may want to start enforcing types. When you're ready you can write a [schema](/docs/modeling-data):
+
+```typescript
+import { init } from '@instantdb/react';
+
+import schema from '../instant.schema.ts';
+
+const db = init({
+  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
+  schema,
+});
+```
+
+If your schema includes `goals` and `todos` for example:
+
+```typescript
+// instant.schema.ts
+
+import { i } from '@instantdb/core';
+
+const _schema = i.schema({
+  entities: {
+    goals: i.entity({
+      title: i.string(),
+    }),
+    todos: i.entity({
+      title: i.string(),
+      dueDate: i.date(),
+    }),
+  },
+  links: {
+    goalsTodos: {
+      forward: { on: 'todos', has: 'many', label: 'goals' },
+      reverse: { on: 'goals', has: 'many', label: 'todos' },
+    },
+  },
+  rooms: {},
+});
+
+// This helps Typescript display better intellisense
+type _AppSchema = typeof _schema;
+interface AppSchema extends _AppSchema {}
+const schema: AppSchema = _schema;
+
+export type { AppSchema };
+export default schema;
+```
+
+### Intellisense
+
+Instant will start giving you intellisense for your queries. For example, if you're querying for goals, you'll see that only `todos` can be associated:
+
+{% screenshot src="https://paper-attachments.dropboxusercontent.com/s_3D2DA1E694B2F8E030AC1EC0B7C47C6AC1E40485744489E3189C95FCB5181D4A_1734124125680_goals.png" /%}
+
+And if you hover over `data`, you'll see the actual typed output of your query:
+
+{% screenshot src="https://paper-attachments.dropboxusercontent.com/s_3D2DA1E694B2F8E030AC1EC0B7C47C6AC1E40485744489E3189C95FCB5181D4A_1734126726346_data.png" /%}
+
+### Utility Types
+
+Instant also comes with some utility types to help you use your schema in TypeScript.
+
+For example, you could define your `query` upfront:
+
+```typescript
+import { InstaQLParams } from '@instantdb/react';
+import { AppSchema } from '../instant.schema.ts';
+
+// `query` typechecks against our schema!
+const query = {
+  goals: { todos: {} },
+} satisfies InstaQLParams<AppSchema>;
+```
+
+Or you can define your result type: 
+
+```typescript
+import { InstaQLResult } from '@instantdb/react';
+import { AppSchema } from '../instant.schema.ts';
+
+type GoalsTodosResult = InstaQLResult<
+  AppSchema, 
+  { goals: { todos: {} } }
+>;
+```
+
+Or you can extract a particular entity: 
+
+```typescript
+import { InstaQLEntity } from '@instantdb/react';
+import { AppSchema } from '../instant.schema.ts';
+
+type Todo = InstaQLEntity<
+  AppSchema, 
+  'todos'
+>;
+```
+
+To learn more about writing schemas, check out the [Modeling Data](/docs/modeling-data) section.
 
 ## Query once
 
