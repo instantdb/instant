@@ -1,7 +1,7 @@
 'use client';
 
 import config from '@/lib/config'; // hide-line
-import { init, tx, id } from '@instantdb/react';
+import { init, id } from '@instantdb/react';
 
 // Connect to the database
 // ---------
@@ -14,20 +14,20 @@ const db = init({
 // ---------
 function addMessage(text: string) {
   db.transact(
-    tx.messages[id()].update({
+    db.tx.messages[id()].update({
       text,
       createdAt: new Date(),
-    })
+    }),
   );
 }
 
 function deleteMessage(messageId: string) {
-  db.transact(tx.messages[messageId].delete());
+  db.transact(db.tx.messages[messageId].delete());
 }
 
 function updateMessage(messageId: string, newText: string) {
   db.transact(
-    tx.messages[messageId].update({ text: newText, updatedAt: Date.now() })
+    db.tx.messages[messageId].update({ text: newText, updatedAt: Date.now() }),
   );
 }
 
