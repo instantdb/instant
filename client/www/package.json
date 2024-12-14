@@ -25,6 +25,7 @@
     "@stripe/stripe-js": "^3.3.0",
     "@uiw/react-json-view": "2.0.0-alpha.24",
     "algoliasearch": "^4.24.0",
+    "ansi-to-html": "^0.7.2",
     "canvas-confetti": "^1.9.2",
     "clsx": "^2.1.0",
     "copy-to-clipboard": "^3.3.3",
