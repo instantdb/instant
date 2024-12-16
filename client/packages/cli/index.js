@@ -1591,6 +1591,13 @@ export default rules;
   `.trim();
 }
 
+function inferredType(config) {
+  const inferredList = config['inferred-types'];
+  const hasJustOne = inferredList?.length === 1;
+  if (!hasJustOne) return null;
+  return inferredList[0];
+}
+
 function schemaBlobToCodeStr(name, attrs) {
   // a block of code for each entity
   return [
@@ -1604,7 +1611,8 @@ function schemaBlobToCodeStr(name, attrs) {
     sortedEntries(attrs)
       .filter(([name]) => name !== "id")
       .map(([name, config]) => {
-        const type = config["checked-data-type"] || "any";
+        console.log(config);
+        const type = config["checked-data-type"] || inferredType(config) ||  "any";
 
         return [
           `    `,
