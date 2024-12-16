@@ -1305,10 +1305,10 @@
                                              app-id
                                              additional-joins
                                              (:patterns pattern-group))
-                          (:page-info pattern-group) (add-page-info prefix
-                                                                    app-id
-                                                                    additional-joins
-                                                                    page-info))
+                          page-info (add-page-info prefix
+                                                   app-id
+                                                   additional-joins
+                                                   page-info))
 
 
                         ctes (:with query)

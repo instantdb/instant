@@ -94,7 +94,12 @@ prod-psql:
 psql-dump:
 	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
 	echo "Exporting prod db..." && \
-	pg_dump "$${DATABASE_URL}" --schema-only -f dump.sql
+	pg_dump "$${DATABASE_URL}" -f dump.sql
+
+psql-dump-schema:
+	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
+	echo "Exporting prod db..." && \
+	pg_dump "$${DATABASE_URL}" --schema-only -f dump.schema.sql
 
 tail-web:
 	aws logs tail /aws/elasticbeanstalk/Instant-docker-prod-env-2/var/log/eb-docker/containers/eb-current-app/stdouterr.log --follow
