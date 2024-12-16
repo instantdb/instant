@@ -2,6 +2,8 @@
 title: Sign In with Apple
 ---
 
+{% nav-default value="web-popup" %}
+
 Instant supports Sign In with Apple on the Web and in native applications.
 
 {% nav-group %}
@@ -28,12 +30,6 @@ Instant supports Sign In with Apple on the Web and in native applications.
 - _Register a new identifier_ → Select _Services IDs_
 - Fill in _Description_ and _Identifier_. You’ll need this _Identifier_ later
 - Click _Register_
-
-{% conditional param="method" %}
-## Step 3: Configure Services ID
-
-This step depends on a flow—please select above.
-{% /conditional %}
 
 {% conditional param="method" value="web-popup" %}
 ## Step 3: Configure Services ID (Web Popup flow)
@@ -93,12 +89,6 @@ This step is not needed for Expo.
 
 - In Instant Dashboard, Click _Redirect Origins_ → _Add an origin_
 - Add your app’s domain (e.g. `myapp.com`)
-{% /conditional %}
-
-{% conditional param="method" %}
-## Step 5: Add Sign In code to your app
-
-This step depends on a flow—please select above.
 {% /conditional %}
 
 {% conditional param="method" value="web-popup" %}
@@ -325,4 +315,4 @@ const styles = StyleSheet.create({
 ```
 {% /conditional %}
 
-
+{% /nav-default %}
