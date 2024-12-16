@@ -441,7 +441,7 @@ function printDotEnvInfo(envType, appId) {
   otherEnvs.sort();
   const otherEnvStr = otherEnvs.map((x) => "  " + chalk.green(x)).join("\n");
   console.log(`Alternative names: \n${otherEnvStr} \n`);
-  console.log(terminalLink("Dashboard", appDashUrl(appId)) + '\n');
+  console.log(terminalLink("Dashboard", appDashUrl(appId)) + "\n");
 }
 
 async function handleEnvFile(pkgAndAuthInfo, appId) {
@@ -514,7 +514,7 @@ async function login(options) {
   if (!registerRes.ok) return;
 
   const { secret, ticket } = registerRes.data;
-  
+
   const ok = await promptOk(
     `This will open instantdb.com in your browser, OK to proceed?`,
   );
@@ -537,7 +537,7 @@ async function login(options) {
     await saveConfigAuthToken(token);
     console.log(chalk.green(`Successfully logged in as ${email}!`));
   }
-  return token; 
+  return token;
 }
 
 async function getOrInstallInstantModuleWithErrorLogging(pkgDir) {
@@ -1133,7 +1133,10 @@ async function pushPerms(appId) {
 
   if (!prodPerms.ok) return;
 
-  const diffedStr = jsonDiff.diffString(prodPerms.data.perms || {}, perms || {});
+  const diffedStr = jsonDiff.diffString(
+    prodPerms.data.perms || {},
+    perms || {},
+  );
   if (!diffedStr.length) {
     console.log("No perms changes detected. Exiting.");
     return;
@@ -1297,21 +1300,21 @@ async function promptOk(message) {
 }
 
 /**
- * We need to do a bit of a hack of `@instantdb/react-native`. 
- * 
- * If a user writes import { i } from '@instantdb/react-native' 
- * 
- * We will fail to evaluate the file. This is because 
- * `@instantdb/react-native` brings in `react-native`, which 
- * does not run in a node context. 
- * 
- * To bypass this, we have a 'cli' module inside `react-native`, which 
+ * We need to do a bit of a hack of `@instantdb/react-native`.
+ *
+ * If a user writes import { i } from '@instantdb/react-native'
+ *
+ * We will fail to evaluate the file. This is because
+ * `@instantdb/react-native` brings in `react-native`, which
+ * does not run in a node context.
+ *
+ * To bypass this, we have a 'cli' module inside `react-native`, which
  * has all the necessary imports
  */
-function transformImports(code) { 
+function transformImports(code) {
   return code.replace(
-    /"@instantdb\/react-native"/g, 
-    '"@instantdb/react-native/dist/cli"'
+    /"@instantdb\/react-native"/g,
+    '"@instantdb/react-native/dist/cli"',
   );
 }
 
@@ -1408,7 +1411,7 @@ async function readConfigAuthToken() {
     getAuthPaths().authConfigFilePath,
     "utf-8",
   ).catch(() => null);
-  
+
   return authToken;
 }
 
@@ -1424,10 +1427,10 @@ async function readConfigAuthTokenWithErrorLogging() {
 
 async function readAuthTokenOrLoginWithErrorLogging() {
   const token = await readConfigAuthToken();
-  if (token) return token; 
+  if (token) return token;
   console.log(`Looks like you are not logged in...`);
   console.log(`Let's log in!`);
-  return await login({})
+  return await login({});
 }
 
 async function saveConfigAuthToken(authToken) {
@@ -1464,13 +1467,6 @@ function sortedEntries(o) {
 
 function capitalizeFirstLetter(string) {
   return string.charAt(0).toUpperCase() + string.slice(1);
-}
-
-function indentLines(s, n) {
-  return s
-    .split("\n")
-    .map((c) => `${"  ".repeat(n)}${c}`)
-    .join("\n");
 }
 
 // attr helpers
@@ -1592,10 +1588,21 @@ export default rules;
 }
 
 function inferredType(config) {
-  const inferredList = config['inferred-types'];
+  const inferredList = config["inferred-types"];
   const hasJustOne = inferredList?.length === 1;
   if (!hasJustOne) return null;
   return inferredList[0];
+}
+
+function deriveClientType(attr) {
+  if (attr["checked-data-type"]) {
+    return { type: attr["checked-data-type"], origin: "checked" };
+  }
+  const inferred = inferredType(attr);
+  if (inferred) {
+    return { type: inferred, origin: "inferred" };
+  }
+  return { type: "any", origin: "unknown" };
 }
 
 function schemaBlobToCodeStr(name, attrs) {
@@ -1611,8 +1618,7 @@ function schemaBlobToCodeStr(name, attrs) {
     sortedEntries(attrs)
       .filter(([name]) => name !== "id")
       .map(([name, config]) => {
-        console.log(config);
-        const type = config["checked-data-type"] || inferredType(config) ||  "any";
+        const { type } = deriveClientType(config);
 
         return [
           `    `,
@@ -1700,6 +1706,10 @@ function roomsCodeStr(rooms) {
   return ret;
 }
 
+function easyPlural(strn, n) {
+  return n === 1 ? strn : strn + "s";
+}
+
 function generateSchemaTypescriptFile(
   prevSchema,
   newSchema,
@@ -1709,16 +1719,29 @@ function generateSchemaTypescriptFile(
   const entitiesEntriesCode = sortedEntries(newSchema.blobs)
     .map(([name, attrs]) => schemaBlobToCodeStr(name, attrs))
     .join("\n");
+  const inferredAttrs = Object.values(newSchema.blobs)
+    .flatMap(Object.values)
+    .filter(
+      (attr) =>
+        attrFwdLabel(attr) !== "id" &&
+        deriveClientType(attr).origin === "inferred",
+    );
+
   const entitiesObjCode = `{\n${entitiesEntriesCode}\n}`;
   const etypes = Object.keys(newSchema.blobs);
   const hasOnlyUserTable = etypes.length === 1 && etypes[0] === "$users";
-  const entitiesComment = hasOnlyUserTable
-    ? `
+  const entitiesComment =
+    inferredAttrs.length > 0
+      ? `// We inferred ${inferredAttrs.length} ${easyPlural("attribute", inferredAttrs.length)}!
+// Take a look at this schema, and if everything looks good, 
+// run \`push schema\` again to enforce the types.`
+      : hasOnlyUserTable
+        ? `
 // This section lets you define entities: think \`posts\`, \`comments\`, etc
 // Take a look at the docs to learn more:
 // https://www.instantdb.com/docs/schema#defining-entities
 `.trim()
-    : "";
+        : "";
 
   // links
   const linksEntries = Object.fromEntries(
