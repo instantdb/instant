@@ -64,14 +64,13 @@ console.log("New todo entry made for with tx-id", res["tx-id"])
 `transact` is an async function that behaves nearly identical to `transact`
 from `@instantdb/react`. It returns a `tx-id` on success.
 
-## Typesafety
+## Schema
 
-If you're using typescript, `init` accepts a schema argument:
+`init` also accepts a schema argument:
 
 ```typescript
 import { init, id } from '@instantdb/admin';
 import schema from '../instant.schema.ts';
-
 
 const db = init({
   appId: process.env.INSTANT_APP_ID,
@@ -80,7 +79,9 @@ const db = init({
 });
 ```
 
-If you add a schema, `db.query` and `db.transact` will come with autocompletion and typesafety out of the box. To learn more about writing schemas, head on over to the [Modeling your data](/docs/modeling-data) section.
+If you add a schema, `db.query` and `db.transact` will come with autocompletion and typesafety out of the box. The backend will also use your schema to generate missing attributes.
+
+To learn more about writing schemas, head on over to the [Modeling your data](/docs/modeling-data) section.
 
 ## Impersonating users
 
