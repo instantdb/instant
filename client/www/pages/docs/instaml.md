@@ -289,7 +289,7 @@ const _schema = i.schema({
 
 Instant will enforce that `todos.dueDate` are actually dates, and you'll get intellisense to boot: 
 
-{% screenshot src="https://paper-attachments.dropboxusercontent.com/s_3D2DA1E694B2F8E030AC1EC0B7C47C6AC1E40485744489E3189C95FCB5181D4A_1734122951978_duedate1.png" /%}
+{% screenshot src="/img/docs/instaml-due-date.png" /%}
 
 To learn more about writing schemas, check out the [Modeling Data](/docs/modeling-data) section.
 

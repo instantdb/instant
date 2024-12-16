@@ -113,7 +113,7 @@ export default schema;
 
 Once you've updated your schema, you'll start seeing types in your intellisense:
 
-{% screenshot src="https://paper-attachments.dropboxusercontent.com/s_3D2DA1E694B2F8E030AC1EC0B7C47C6AC1E40485744489E3189C95FCB5181D4A_1734131822997_presence.png" /%}
+{% screenshot src="/img/docs/presence-intellisence.png" /%}
 
 ## Presence
 

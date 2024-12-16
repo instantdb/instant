@@ -1014,11 +1014,11 @@ export default schema;
 
 Instant will start giving you intellisense for your queries. For example, if you're querying for goals, you'll see that only `todos` can be associated:
 
-{% screenshot src="https://paper-attachments.dropboxusercontent.com/s_3D2DA1E694B2F8E030AC1EC0B7C47C6AC1E40485744489E3189C95FCB5181D4A_1734124125680_goals.png" /%}
+{% screenshot src="/img/docs/instaql-todos-goals-autocomplete.png" /%}
 
 And if you hover over `data`, you'll see the actual typed output of your query:
 
-{% screenshot src="https://paper-attachments.dropboxusercontent.com/s_3D2DA1E694B2F8E030AC1EC0B7C47C6AC1E40485744489E3189C95FCB5181D4A_1734126726346_data.png" /%}
+{% screenshot src="/img/docs/instaql-data-intellisense.png" /%}
 
 ### Utility Types
 
