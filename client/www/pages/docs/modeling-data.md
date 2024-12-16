@@ -344,7 +344,7 @@ Say we wanted to rename `posts.createdAt` to `posts.publishedAt`:
 
 You'll see a modal that you can use to rename the attribute, index it, or delete it:
 
-{% screenshot src="https://paper-attachments.dropboxusercontent.com/s_3D2DA1E694B2F8E030AC1EC0B7C47C6AC1E40485744489E3189C95FCB5181D4A_1734057623734_img.png" /%}
+{% screenshot src="/img/docs/modeling-data-rename-attr.png" /%}
 
 ## Secure your schema with permissions
 
