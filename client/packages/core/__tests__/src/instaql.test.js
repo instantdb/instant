@@ -813,6 +813,147 @@ test("pagination first", () => {
   expect(books.length).toEqual(10);
 });
 
+test("arbitrary ordering", () => {
+  const books = query(
+    { store },
+    { books: { $: { first: 10, order: { title: "asc" } } } },
+  );
+
+  const titles = books.data.books.map((x) => x.title);
+  expect(titles).toEqual([
+    `"Surely You're Joking, Mr. Feynman!": Adventures of a Curious Character`,
+    '"What Do You Care What Other People Think?": Further Adventures of a Curious Character',
+    "12 Rules for Life",
+    "1984",
+    "21 Lessons for the 21st Century",
+    "A Conflict of Visions",
+    "A Damsel in Distress",
+    "A Guide to the Good Life",
+    "A Hero Of Our Time",
+    "A History of Private Life: From pagan Rome to Byzantium",
+  ]);
+});
+
+test("arbitrary ordering with dates", () => {
+  const schema = i.schema({
+    entities: {
+      tests: i.entity({
+        field: i.any(),
+        date: i.date().indexed(),
+        num: i.number().indexed(),
+      }),
+    },
+    links: {},
+  });
+
+  const txSteps = [];
+  let id = 0;
+  for (let i = -5; i < 5; i++) {
+    txSteps.push(
+      tx.tests[randomUUID()].update({
+        field: id++,
+        date: i,
+        num: i,
+      }),
+    );
+  }
+  // Add a null date
+  txSteps.push(
+    // Use predefined uuid so we can predict ordering
+    tx.tests["00000000-0000-0000-0000-000000000000"].update({
+      field: id++,
+      date: null,
+      num: null,
+    }),
+  );
+  // Add a missing date
+  txSteps.push(
+    tx.tests["00000000-0000-0000-0000-000000000001"].update({
+      field: id++,
+    }),
+  );
+  // Another null date
+  txSteps.push(
+    tx.tests["00000000-0000-0000-0000-000000000002"].update({
+      date: null,
+      num: null,
+      field: id++,
+    }),
+  );
+  // Another missing date
+  txSteps.push(
+    tx.tests["00000000-0000-0000-0000-000000000003"].update({
+      field: id++,
+    }),
+  );
+
+  const newStore = transact(
+    store,
+    instaml.transform({ attrs: store.attrs, schema: schema }, txSteps),
+  );
+
+  const descRes = query(
+    { store: newStore },
+    { tests: { $: { order: { date: "desc" } } } },
+  ).data.tests.map((x) => x.date);
+
+  const numDescRes = query(
+    { store: newStore },
+    { tests: { $: { order: { num: "desc" } } } },
+  ).data.tests.map((x) => x.num);
+
+  const descExpected = [
+    4,
+    3,
+    2,
+    1,
+    0,
+    -1,
+    -2,
+    -3,
+    -4,
+    -5,
+    undefined,
+    null,
+    undefined,
+    null,
+  ];
+
+  expect(descRes).toEqual(descExpected);
+
+  expect(numDescRes).toEqual(descExpected);
+
+  const ascRes = query(
+    { store: newStore },
+    { tests: { $: { order: { date: "asc" } } } },
+  ).data.tests.map((x) => x.date);
+
+  const numAscRes = query(
+    { store: newStore },
+    { tests: { $: { order: { num: "asc" } } } },
+  ).data.tests.map((x) => x.num);
+
+  const ascExpected = [
+    null,
+    undefined,
+    null,
+    undefined,
+    -5,
+    -4,
+    -3,
+    -2,
+    -1,
+    0,
+    1,
+    2,
+    3,
+    4,
+  ];
+
+  expect(ascRes).toEqual(ascExpected);
+  expect(numAscRes).toEqual(ascExpected);
+});
+
 test("$isNull", () => {
   const q = { books: { $: { where: { title: { $isNull: true } } } } };
   expect(query({ store }, q).data.books.length).toEqual(0);

@@ -444,52 +444,115 @@ function shouldIgnoreAttr(attrs, id) {
   return attr["value-type"] === "ref" && attr["forward-identity"][2] !== "id";
 }
 
-function cursorCompare(direction, typ) {
-  switch (direction) {
-    case "asc":
-      switch (typ) {
-        case "number":
-          return (x, y) => x < y;
-        case "uuid":
-          return (x, y) => uuidCompare(x, y) === -1;
-      }
-    case "desc":
-      switch (typ) {
-        case "number":
-          return (x, y) => x > y;
-        case "uuid":
-          return (x, y) => uuidCompare(x, y) === 1;
-      }
+function compareOrder([id_a, v_a], [id_b, v_b]) {
+  if (v_a === v_b || (v_a == null && v_b == null)) {
+    return uuidCompare(id_a, id_b);
+  }
+
+  if (v_b == null) {
+    return 1;
+  }
+  if (v_a == null) {
+    return -1;
+  }
+  if (v_a > v_b) {
+    return 1;
+  }
+  return -1;
+}
+
+function comparableDate(x) {
+  if (x == null) {
+    return x;
+  }
+  return new Date(x).getTime();
+}
+
+function isBefore(startCursor, orderAttr, direction, idVec) {
+  const [c_e, _c_a, c_v, c_t] = startCursor;
+  const compareVal = direction === "desc" ? 1 : -1;
+  if (orderAttr["forward-identity"]?.[2] === "id") {
+    return compareOrder(idVec, [c_e, c_t]) === compareVal;
+  }
+  const [e, v] = idVec;
+  const v_new =
+    orderAttr["checked-data-type"] === "date" ? comparableDate(v) : v;
+  const c_v_new =
+    orderAttr["checked-data-type"] === "date" ? comparableDate(c_v) : c_v;
+  return compareOrder([e, v_new], [c_e, c_v_new]) === compareVal;
+}
+
+function orderAttrFromCursor(store, cursor) {
+  const cursorAttrId = cursor[1];
+  return store.attrs[cursorAttrId];
+}
+
+function orderAttrFromOrder(store, etype, order) {
+  const label = Object.keys(order)[0];
+  return s.getAttrByFwdIdentName(store, etype, label);
+}
+
+function getOrderAttr(store, etype, cursor, order) {
+  if (cursor) {
+    return orderAttrFromCursor(store, cursor);
+  }
+  if (order) {
+    return orderAttrFromOrder(store, etype, order);
   }
 }
 
-function isBefore(startCursor, direction, [e, _a, _v, t]) {
-  return (
-    cursorCompare(direction, "number")(t, startCursor[3]) ||
-    (t === startCursor[3] &&
-      cursorCompare(direction, "uuid")(e, startCursor[0]))
-  );
-}
+function runDataloadAndReturnObjects(
+  store,
+  etype,
+  direction,
+  pageInfo,
+  order,
+  dq,
+) {
+  let idVecs = datalogQuery(store, dq);
 
-function runDataloadAndReturnObjects(store, etype, direction, pageInfo, dq) {
-  const aid = idAttr(store, etype).id;
-  const idVecs = datalogQuery(store, dq).sort(function sortIdVecs(
-    [_, tsA],
-    [__, tsB],
-  ) {
-    return direction === "desc" ? tsB - tsA : tsA - tsB;
-  });
+  const startCursor = pageInfo?.["start-cursor"];
+  const orderAttr = getOrderAttr(store, etype, startCursor, order);
+
+  if (orderAttr && orderAttr?.["forward-identity"]?.[2] !== "id") {
+    const isDate = orderAttr["checked-data-type"] === "date";
+    const a = orderAttr.id;
+    idVecs = idVecs.map(([id]) => {
+      // order attr is required to be cardinality one, so there will
+      // be at most one value here
+      let v = store.eav.get(id)?.get(a)?.values()?.next()?.value?.[2];
+      if (isDate) {
+        v = comparableDate(v);
+      }
+      return [id, v];
+    });
+  }
+
+  idVecs.sort(
+    direction === "asc"
+      ? function compareIdVecs(a, b) {
+          return compareOrder(a, b);
+        }
+      : function compareIdVecs(a, b) {
+          return compareOrder(b, a);
+        },
+  );
 
   let objects = {};
-  const startCursor = pageInfo?.["start-cursor"];
-  for (const [id, time] of idVecs) {
+
+  for (const idVec of idVecs) {
+    const [id] = idVec;
+    if (objects[id]) {
+      continue;
+    }
     if (
       startCursor &&
-      aid === startCursor[1] &&
-      isBefore(startCursor, direction, [id, aid, id, time])
+      orderAttr &&
+      isBefore(startCursor, orderAttr, direction, idVec)
     ) {
       continue;
     }
+
     const obj = s.getAsObject(store, etype, id);
     if (obj) {
       objects[id] = obj;
@@ -525,6 +588,7 @@ function resolveObjects(store, { etype, level, form, join, pageInfo }) {
   const offset = form.$?.offset;
   const before = form.$?.before;
   const after = form.$?.after;
+  const order = form.$?.order;
 
   // Wait for server to tell us where we start if we don't start from the beginning
   if ((offset || before || after) && (!pageInfo || !pageInfo["start-cursor"])) {
@@ -539,6 +603,7 @@ function resolveObjects(store, { etype, level, form, join, pageInfo }) {
     etype,
     determineOrder(form),
     pageInfo,
+    order,
     { where, find },
   );
 

@@ -724,6 +724,19 @@
 ;; an order.
 (def default-order {:k "serverCreatedAt" :direction :asc})
 
+(defn wrong-attribute-msg [{:keys [attrs]} order-attr cursor-attr-id]
+  (let [order-label (fn [attr]
+                      (let [lbl (attr-model/fwd-label attr)]
+                        (if (= lbl "id")
+                          "serverCreatedAt"
+                          lbl)))]
+    (if-let [cursor-attr (attr-model/seek-by-id cursor-attr-id attrs)]
+      (format "The query orders by `%s`, but the query that returned the cursor orders by `%s`."
+              (order-label order-attr)
+              (order-label cursor-attr))
+      (format "The query orders by `%s`, but the query that returned the cursor orders by a missing attribute."
+              (order-label order-attr)))))
+
 (defn page-info-of-form [{:keys [state] :as ctx}
                          {:keys [etype level option-map] :as _form}]
   (let [{:keys [order limit first last offset before after]} option-map]
@@ -734,58 +747,91 @@
     (when (or limit first last offset before after order)
       (let [{:keys [k direction]} (or order default-order)
             etype-sym (attr-pat/default-level-sym etype level)
-            order-sym (symbol (str "?t-" level))]
+            order-sym (if (= "serverCreatedAt" k)
+                        (symbol (str "?t-" level))
+                        (attr-pat/default-level-sym k level))
+            order-attr (if (= "serverCreatedAt" k)
+                         (attr-model/seek-by-fwd-ident-name [etype "id"] (:attrs ctx))
+                         (attr-model/seek-by-fwd-ident-name [etype k] (:attrs ctx)))]
 
-        ;; Only supports serverCreatedAt for the initial release
-        (when (and (not (:table-info ctx)) ;; byop will do its own check for ordering
-                   (not= k "serverCreatedAt"))
+        (when (not order-attr)
           (ex/throw-validation-err!
            :query
            (:root state)
-           [{:expected 'valid-order?
-             :in (apply conj (:in state) [:$ :order k])
-             :message (format "We currently only support \"serverCreatedAt\" as the sort key in the `order` clause. Got %s."
-                              (->json k))}]))
+           [{:expected 'supported-order?
+             :in (apply conj (:in (:state ctx)) [:$ :order])
+             :message (format "There is no `%s` attribute for %s."
+                              (if (= "serverCreatedAt" k)
+                                "id"
+                                k)
+                              etype)}]))
 
-        ;; When we support ordering on attributes, this will be where
-        ;; we validate that the user has indexed the attribute
-        (let [{attr-id :id} (attr-model/seek-by-fwd-ident-name [etype "id"] (:attrs ctx))]
-          (when-not attr-id
-            (ex/throw-validation-err!
-             :query
-             (:root state)
-             [{:expected 'supported-order?
-               :in (apply conj (:in (:state ctx)) [:$ :order])
-               :message (format "There is no id attribute for %s."
-                                etype)}]))
-          (when (and attr-id
-                     before
-                     (not= attr-id (second before)))
-            (ex/throw-validation-err!
-             :query
-             (:root state)
-             [{:expected 'valid-cursor?
-               :in (apply conj (:in (:state ctx)) [:$ :before])
-               :message "Invalid before cursor. The join row has the wrong attribute id."}]))
+        (when (not= "serverCreatedAt" k)
+          (let [errors (keep identity
+                             [(when (:checking-data-type? order-attr)
+                                (format "The `%s` attribute is still in the process of validating its type. It must finish before ordering by the attribute."
+                                        (attr-model/fwd-friendly-name order-attr)))
+                              (when (:indexing? order-attr)
+                                (format "The `%s` attribute is still in the process of indexing. It must finish before ordering by the attribute."
+                                        (attr-model/fwd-friendly-name order-attr)))
+                              (when (not (:index? order-attr))
+                                (format "The `%s` attribute is not indexed. Only indexed and type-checked attrs can be used to order by."
+                                        (attr-model/fwd-friendly-name order-attr)))
+                              (when (not (:checked-data-type order-attr))
+                                (format "The `%s` attribute is not type-checked. Only type-checked and indexed attrs can be used to order by."
+                                        (attr-model/fwd-friendly-name order-attr)))
+                              (when (not= :one (:cardinality order-attr))
+                                (format "The `%s` attribute has cardinality `%s`. Only attrs with cardinality `one` can be used to order by."
+                                        (attr-model/fwd-friendly-name order-attr)
+                                        (name (:cardinality order-attr))))])]
+            (when (seq errors)
+              (ex/throw-validation-err!
+               :query
+               (:root state)
+               (map (fn [message]
+                      {:expected 'supported-order?
+                       :in (apply conj (:in (:state ctx)) [:$ :order])
+                       :message message})
+                    errors)))))
 
-          (when (and attr-id
-                     after
-                     (not= attr-id (second after)))
-            (ex/throw-validation-err!
-             :query
-             (:root state)
-             [{:expected 'valid-cursor?
-               :in (apply conj (:in (:state ctx)) [:$ :after])
-               :message "Invalid after cursor. The join row has the wrong attribute id."}]))
+        (when (and before
+                   (not= (:id order-attr) (second before)))
+          (ex/throw-validation-err!
+           :query
+           (:root state)
+           [{:expected 'valid-cursor?
+             :in (apply conj (:in (:state ctx)) [:$ :before])
+             :message (format "Invalid before cursor. %s"
+                              (wrong-attribute-msg ctx order-attr (second before)))}]))
 
-          {:limit (or limit first last)
-           :last? (not (nil? last))
-           :offset offset
-           :direction direction
-           :order-sym order-sym
-           :pattern [:ea etype-sym attr-id '_ order-sym]
-           :before before
-           :after after})))))
+        (when (and after
+                   (not= (:id order-attr) (second after)))
+          (ex/throw-validation-err!
+           :query
+           (:root state)
+           [{:expected 'valid-cursor?
+             :in (apply conj (:in (:state ctx)) [:$ :after])
+             :message (format "Invalid after cursor. %s"
+                              (wrong-attribute-msg ctx order-attr (second after)))}]))
+
+        {:limit (or limit first last)
+         :last? (not (nil? last))
+         :offset offset
+         :direction direction
+         :order-sym order-sym
+         :order-col-type (if (= k "serverCreatedAt")
+                           :created-at-timestamp
+                           (:checked-data-type order-attr))
+         :pattern (if (= "serverCreatedAt" k)
+                    [:ea etype-sym (:id order-attr) '_ order-sym]
+                    [{:idx-key :ave
+                      :data-type (:checked-data-type order-attr)}
+                     etype-sym
+                     (:id order-attr)
+                     order-sym])
+         :attr-id (:id order-attr)
+         :before before
+         :after after}))))
 
 ;; -----
 ;; query
