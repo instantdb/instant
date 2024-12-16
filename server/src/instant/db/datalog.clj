@@ -878,7 +878,11 @@
                   ;; Include the previous cte if we're not the first
                   [(kw prev-table ".*")])
                 (for [i join-idxes]
-                  (kw prefix i ".*")))
+                  (kw prefix i ".*"))
+                [[(list* :coalesce
+                         (for [i join-idxes]
+                           (kw prefix i :. (kw prefix i :-entity-id))))
+                  (kw prefix idx :-entity-id)]])
        :from (concat
               (when prev-table
                 ;; Include the previous cte if we're not the first
