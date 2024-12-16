@@ -2,6 +2,8 @@
 title: Google OAuth
 ---
 
+{% nav-default value="native" %}
+
 Instant supports logging in your users with their Google account.
 We support flows for Web and React Native. Follow the steps below to get started.
 
@@ -305,3 +307,5 @@ const styles = StyleSheet.create({
 });
 ```
 {% /conditional %}
+
+{% /nav-default %}

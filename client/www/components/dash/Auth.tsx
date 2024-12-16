@@ -9,7 +9,7 @@ import {
   TextInput,
 } from '../ui';
 import config, { isDev } from '@/lib/config';
-import googleIconSvg from '../../public/google_g.svg';
+import googleIconSvg from '../../public/img/google_g.svg';
 import Image from 'next/image';
 import { InstantError } from '@/lib/types';
 import { url } from '@/lib/url';

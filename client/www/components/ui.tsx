@@ -228,6 +228,75 @@ export function TextInput({
   );
 }
 
+export function TextArea({
+  value,
+  autoFocus,
+  className,
+  onChange,
+  onKeyDown,
+  label,
+  error,
+  placeholder,
+  inputMode,
+  tabIndex,
+  disabled,
+  title,
+  cols,
+  rows
+}: {
+  value: string;
+  className?: string;
+  error?: ReactNode;
+  onChange: (value: string) => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  label?: React.ReactNode;
+  placeholder?: string;
+  autoFocus?: boolean;
+  inputMode?: 'numeric' | 'text';
+  tabIndex?: number;
+  disabled?: boolean | undefined;
+  title?: string | undefined;
+  cols?: number | undefined;
+  rows?: number | undefined;
+}) {
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (autoFocus) {
+      inputRef.current?.focus();
+    }
+  }, []);
+
+  return (
+    <label className="flex flex-col gap-2">
+      {label ? <Label>{label}</Label> : null}
+      <textarea
+        disabled={disabled}
+        title={title}
+        ref={inputRef}
+        inputMode={inputMode}
+        placeholder={placeholder}
+        value={value ?? ''}
+        className={cn(
+          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400',
+          className,
+          {
+            'border-red-500': error,
+          },
+        )}
+        onChange={(e) => {
+          onChange(e.target.value);
+        }}
+        onKeyDown={onKeyDown}
+        tabIndex={tabIndex}
+        cols={cols}
+        rows={rows}
+      />
+      {error ? <div className="text-sm text-red-600">{error}</div> : null}
+    </label>
+  );
+}
+
 export function Checkbox({
   label,
   error,
@@ -654,7 +723,7 @@ export function Copyable({
         'text-base': size === 'large',
       })}
     >
-      <div className="border-r bg-gray-50 px-3 py-1.5">{label}</div>
+      <div className="border-r bg-gray-50 px-3 py-1.5" style={{borderTopLeftRadius: "calc(0.25rem - 1px)", borderBottomLeftRadius: "calc(0.25rem - 1px)"}}>{label}</div>
       <pre
         className="flex-1 truncate px-4 py-1.5"
         title={value}

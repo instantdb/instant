@@ -285,9 +285,7 @@
                               :secure (not= :dev (config/get-env))
                               :expires cookie-expires
                               ;; matches everything under the subdirectory
-                              :path "/runtime/oauth"
-                              ;; access cookie on oauth redirect
-                              :same-site :lax}))))
+                              :path "/runtime/oauth"}))))
 
 (defn upsert-oauth-link! [{:keys [email sub app-id provider-id]}]
   (let [users (app-user-model/get-by-email-or-oauth-link-qualified
@@ -605,6 +603,8 @@
                                                        {:decoder parse-cookie}))
   (GET "/runtime/oauth/callback" [] (wrap-cookies oauth-callback
                                                   {:decoder parse-cookie}))
+  (POST "/runtime/oauth/callback" [] (wrap-cookies oauth-callback
+                                                   {:decoder parse-cookie}))
 
   (POST "/runtime/oauth/token" [] oauth-token-callback)
   (POST "/runtime/:app_id/oauth/token" [] oauth-token-callback)

@@ -1,5 +1,5 @@
 import { Callout } from '@/components/docs/Callout';
-import { NavGroup, NavButton, ConditionalContent } from '@/components/docs/NavButton';
+import { NavDefault, NavGroup, NavButton, ConditionalContent } from '@/components/docs/NavButton';
 
 const tags = {
   callout: {
@@ -37,6 +37,12 @@ const tags = {
         <figcaption>{caption}</figcaption>
       </figure>
     ),
+  },
+  'nav-default': {
+    render: NavDefault,
+    attributes: {
+      value: { type: String }
+    }
   },
   'nav-group': {
     render: NavGroup,

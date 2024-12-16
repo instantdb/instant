@@ -1,89 +1,120 @@
-// Now in your App.js
-
-// 1. Import Instant
 import { init, tx, id, User } from "@instantdb/react";
 import config from "../../config";
 import Link from "next/link";
-// 2. Import Google login button
-import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-// 3. Get your app id
 const db = init(config);
+
+function loadScript(src: string, id: string, callback: () => void) {
+  if (document.getElementById(id)) {
+    if (callback) {
+      callback();
+    }
+    return;
+  }
+
+  const script = document.createElement('script');
+  script.src = src;
+  script.id = id;
+  script.type = 'text/javascript';
+  script.async = true;
+
+  script.onload = () => {
+    if (callback) {
+      callback();
+    }
+  };
+
+  script.onerror = () => {
+    console.error(`Failed to load script: ${src}`);
+  };
+
+  document.body.appendChild(script);
+}
 
 function App() {
   const { isLoading, user, error } = db.useAuth();
+
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <div>Loading Instant...</div>;
   }
+
   if (error) {
     return (
       <div>
         <div>Uh oh! {error.message}</div>
-        <LoginPopup />
-        <LoginRedirect />
+        <Login />
       </div>
     );
   }
+
   if (user) {
     return <Main user={user} />;
   }
-  return <div>
-    <LoginPopup />
-    <LoginRedirect />
-  </div>;
+
+  return <Login />;
 }
 
-// 4. Create the Google button
-function LoginPopup() {
-  const [error, setError] = useState<string | null>(null);
-  const [nonce] = useState(crypto.randomUUID());
-  return (
-    <div className="p-4 w-6">
-      <GoogleOAuthProvider
-        // 4a. Use your google client id
-        clientId="292083552505-vvdg13drvp8sn49acmi52lcbd163jk64.apps.googleusercontent.com"
-        // 4b. Include the nonce on the provider
-        nonce={nonce}
-      >
-        <GoogleLogin
-          // 4c. Include the nonce on the button
-          nonce={nonce}
-          onSuccess={(credentialResponse) => {
-            // 5. Log in to instant with the id_token
-            const idToken = credentialResponse.credential;
-            if (!idToken) {
-              setError("Missing id_token.");
-              return;
-            }
-            db.auth.signInWithIdToken({
-                // Use the name you created when you registered the client
-                clientName: "google",
-                idToken,
-                nonce,
-              })
-              .catch((err) => {
-                console.log(err.body);
-                alert("Uh oh: " + err.body?.message);
-              });
-          }}
-          onError={() => {
-            setError("Login failed.");
-          }}
-          type="standard"
-        />
-        {error}
-      </GoogleOAuthProvider>
-    </div>
-  );
+async function signInPopup() {
+  let AppleID = (window as any).AppleID;
+  let nonce = crypto.randomUUID();
+  let resp = await AppleID.auth.signIn({
+    nonce: nonce,
+    usePopup: true
+  });
+  await db.auth.signInWithIdToken({
+    clientName: "apple",
+    idToken: resp.authorization.id_token,
+    nonce: nonce,
+  });
 }
 
-function LoginRedirect() {
-  const [url, _] = useState(() => db.auth.createAuthorizationURL({
-    clientName: 'google',
+// 4. Create Login button
+function Login() {
+  const [redirectUrl] = useState(() => db.auth.createAuthorizationURL({
+    clientName: 'apple',
     redirectURL: window.location.href,
   }));
-  return <a href={url} className="underline">Sign in with Google Redirect</a>;
+
+  useEffect(() => {
+    const scriptUrl = 'https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js';
+    loadScript(scriptUrl, 'appleid_auth', () => {
+      let AppleID = (window as any).AppleID;
+      if (AppleID) {
+        AppleID.auth.renderButton();
+        AppleID.auth.init({
+          clientId : 'com.instantdb.signin.test',
+          scope : 'name email',
+          redirectURI: window.location.href,
+        });
+      }
+    });
+  });
+
+  return (
+    <div className="w-lvw h-screen flex flex-col justify-center items-center gap-4">
+        <button style={{
+                         fontFamily: "SF Pro, -apple-system, BlinkMacSystemFont, sans-serif",
+                         background: "#000",
+                         color: "#FFF",
+                         padding: "4pt 12pt",
+                         borderRadius: "4pt",
+                       }}
+                onClick={signInPopup}>
+          􀣺 Sign in with popup
+        </button>
+        <a href={ redirectUrl }
+           style={{
+                   fontFamily: "SF Pro, -apple-system, BlinkMacSystemFont, sans-serif",
+                   background: "#000",
+                   color: "#FFF",
+                   padding: "4pt 12pt",
+                   borderRadius: "4pt",
+                 }}>
+          􀣺 Sign in with redirect
+        </a>
+    </div>
+  );
 }
 
 // 6. Make queries to your heart's content!

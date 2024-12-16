@@ -109,7 +109,8 @@
       :client-id (:client_id oauth-client)
       :client-secret (when (:client_secret oauth-client)
                        (decrypted-client-secret oauth-client))
-      :discovery-endpoint discovery-endpoint})
+      :discovery-endpoint discovery-endpoint
+      :meta (:meta oauth-client)})
     (oauth/map->GenericOAuthClient
      {:app-id (:app_id oauth-client)
       :provider-id (:provider_id oauth-client)
@@ -117,4 +118,5 @@
       :client-secret (when (:client_secret oauth-client)
                        (decrypted-client-secret oauth-client))
       :authorization-endpoint (:authorization_endpoint oauth-client)
-      :token-endpoint (:token_endpoint oauth-client)})))
+      :token-endpoint (:token_endpoint oauth-client)
+      :meta (:meta oauth-client)})))
