@@ -1,27 +1,27 @@
 (ns instant.reactive.session-test
   (:require
-   [clojure.test :as test :refer [deftest testing is]]
+   [clojure.core.async :as a]
+   [clojure.test :as test :refer [deftest is testing]]
    [datascript.core :as ds]
    [instant.data.constants :refer [movies-app-id zeneca-app-id]]
-   [instant.reactive.session :as session]
-   [instant.reactive.store :as rs]
-   [instant.fixtures :refer [with-empty-app with-movies-app]]
-   [clojure.core.async :as a]
-   [instant.util.async :as ua]
    [instant.data.resolvers :as resolvers]
-   [instant.db.model.attr :as attr-model]
    [instant.db.datalog :as d]
-   [instant.jdbc.aurora :as aurora]
-   [instant.db.transaction :as tx]
    [instant.db.instaql :as iq]
-   [instant.lib.ring.websocket :as ws]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.transaction :as tx]
+   [instant.flags :as flags]
+   [instant.fixtures :refer [with-empty-app with-movies-app]]
    [instant.grouped-queue :as grouped-queue]
+   [instant.jdbc.aurora :as aurora]
+   [instant.lib.ring.websocket :as ws]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.query :as rq]
-   [instant.reactive.receive-queue :as receive-queue])
+   [instant.reactive.receive-queue :as receive-queue]
+   [instant.reactive.session :as session]
+   [instant.reactive.store :as rs]
+   [instant.util.async :as ua])
   (:import
-   (java.util UUID)
-   (java.util.concurrent LinkedBlockingQueue)))
+   (java.util UUID)))
 
 (def ^:private r (delay (resolvers/make-movies-resolver)))
 
@@ -710,13 +710,18 @@
 
         ;; changed rooms should be non-empty when joining
         (blocking-send-msg socket {:op :join-room :room-id rid})
-        (is (seq (eph/get-changed-rooms initial-rooms after-join-rooms)))
+        (let [use-hazelcast? flags/use-hazelcast?]
+          (with-redefs [flags/use-hazelcast? (fn [app-id]
+                                               (if (= app-id movies-app-id)
+                                                 false
+                                                 (use-hazelcast? app-id)))]
+            (is (seq (eph/get-changed-rooms initial-rooms after-join-rooms)))
 
-        ;; changed rooms should be empty after non-room change
-        (is (empty? (eph/get-changed-rooms after-join-rooms after-hello-rooms)))
+            ;; changed rooms should be empty after non-room change
+            (is (empty? (eph/get-changed-rooms after-join-rooms after-hello-rooms)))
 
-        ;; changed rooms should be non-empty when someone leaves (unless it's the last person)
-        (is (seq (eph/get-changed-rooms after-hello-rooms after-leave-rooms)))
+            ;; changed rooms should be non-empty when someone leaves (unless it's the last person)
+            (is (seq (eph/get-changed-rooms after-hello-rooms after-leave-rooms)))))
 
         ;; changed rooms should be empty when the last person leaves
         (is (empty? (eph/get-changed-rooms after-hello-rooms after-room-empty)))))))
