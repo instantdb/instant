@@ -895,7 +895,11 @@ console.log(data)
 
 The `where` clause supports `$like` on fields that are indexed with a checked `string` type.
 
-`$like` queries will return entities that match a **case sensitive** substring of the provided value for the field. Here's how you can do queries like `startsWith`, `endsWith` and `includes`.
+`$like` queries will return entities that match a **case sensitive** substring of the provided value for the field.
+
+For **case insensitive** matching use `$ilike` in place of `$like`.
+
+Here's how you can do queries like `startsWith`, `endsWith` and `includes`.
 
 | Example                   | Description           | JS equivalent |
 | :-----------------------: | :-------------------: | :-----------: |
@@ -956,8 +960,39 @@ console.log(data)
 {
   "goals": [
     {
-      "id": workId,
-      "title": "Get promoted!",
+      "id": standupId,
+      "title": "Perform standup!",
+    }
+  ]
+}
+```
+
+Case-insensitive matching with `$ilike`:
+
+```javascript
+const query = {
+  goals: {
+    $: {
+      where: {
+        'todos.title': { $ilike: '%stand%' },
+      },
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data)
+{
+  "goals": [
+    {
+      "id": standupId,
+      "title": "Perform standup!",
+    },
+    {
+      "id": standId,
+      "title": "Stand up a food truck.",
     }
   ]
 }
