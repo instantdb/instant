@@ -30,6 +30,31 @@ const TextView = ({ textBody }: { textBody: string }) => {
   );
 };
 
+function isPreview() {
+  if (typeof window !== 'undefined') {
+    const host = window.location.host;
+    return !host.startsWith('localhost');
+  }
+}
+
+function isProd() {
+  if (typeof window !== 'undefined') {
+    const host = window.location.host;
+    return host === 'www.instantdb.com';
+  }
+}
+
+function getImgReplaceUrl() {
+  let replaceUrl = 'http://localhost:3000/img/emails';
+  if (typeof window !== 'undefined') {
+    const host = window.location.host;
+    if (!host.startsWith('localhost')) {
+      replaceUrl = `https://${host}/img/emails`;
+    }
+  }
+  return replaceUrl;
+}
+
 const HTMLView = ({
   htmlBody,
   useLocalImages,
@@ -37,11 +62,9 @@ const HTMLView = ({
   htmlBody: String;
   useLocalImages: Boolean;
 }) => {
+  const replaceUrl = getImgReplaceUrl();
   const body = useLocalImages
-    ? htmlBody.replaceAll(
-        'https://www.instantdb.com/img/emails',
-        'http://localhost:3000/img/emails',
-      )
+    ? htmlBody.replaceAll('https://www.instantdb.com/img/emails', replaceUrl)
     : htmlBody;
   return (
     <>
@@ -55,8 +78,8 @@ const HTMLView = ({
       <div className="email-container">
         {useLocalImages ? (
           <div className="warning">
-            WARNING: Using local images, push images to production before
-            sending.
+            WARNING: Using {isPreview() ? 'preview' : 'local'} images, push
+            images to production before sending.
           </div>
         ) : null}
         <div
@@ -130,7 +153,7 @@ const Email = ({
   textBody: string;
 }) => {
   const [viewMode, setViewMode] = useState('html');
-  const [useLocalImages, setUseLocalImages] = useState(true);
+  const [useLocalImages, setUseLocalImages] = useState(!isProd());
 
   const toggleViewMode = () => {
     setViewMode(viewMode === 'text' ? 'html' : 'text');
@@ -157,9 +180,17 @@ const Email = ({
         <div className="email-wrapper">
           <div className="actions">
             <div>
-              <button className="button" onClick={toggleLocalImages}>
-                Switch to {useLocalImages ? 'prod' : 'localhost'} images
-              </button>
+              {isProd() ? null : (
+                <button className="button" onClick={toggleLocalImages}>
+                  Switch to{' '}
+                  {useLocalImages
+                    ? 'prod'
+                    : isPreview()
+                      ? 'preview'
+                      : 'localhost'}{' '}
+                  images
+                </button>
+              )}
               {textBody && (
                 <button className="button" onClick={toggleViewMode}>
                   Switch to {viewMode === 'text' ? 'HTML' : 'Text'} View
