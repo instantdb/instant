@@ -17,7 +17,8 @@ const TextView = ({ textBody }: { textBody: string }) => {
           {textBody}
         </pre>
       </div>
-      <style>{`
+      <style>
+        {`
     .email-container {
       max-width: 800px;
       margin: 0 auto;
@@ -27,10 +28,21 @@ const TextView = ({ textBody }: { textBody: string }) => {
       </style>
     </>
   );
-}
+};
 
-
-const HTMLView = ({ htmlBody }: { htmlBody: String }) => {
+const HTMLView = ({
+  htmlBody,
+  useLocalImages,
+}: {
+  htmlBody: String;
+  useLocalImages: Boolean;
+}) => {
+  const body = useLocalImages
+    ? htmlBody.replaceAll(
+        'https://www.instantdb.com/img/emails',
+        'http://localhost:3000/img/emails',
+      )
+    : htmlBody;
   return (
     <>
       <Head>
@@ -41,15 +53,33 @@ const HTMLView = ({ htmlBody }: { htmlBody: String }) => {
         />
       </Head>
       <div className="email-container">
-        <div className="content desktop-padding" dangerouslySetInnerHTML={{ __html: htmlBody }}></div>
+        {useLocalImages ? (
+          <div className="warning">
+            WARNING: Using local images, push images to production before
+            sending.
+          </div>
+        ) : null}
+        <div
+          className="content desktop-padding"
+          dangerouslySetInnerHTML={{ __html: body }}
+        ></div>
       </div>
       <style>{`
-   body, html {
+    body, html {
       margin: 0;
       padding: 0;
       height: 100%;
       font: 16px/1.5 sans-serif;
       word-wrap: break-word;
+    }
+
+    .warning {
+      position: fixed;
+      top: 70px;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      color: red;
     }
 
     .email-container {
@@ -59,7 +89,7 @@ const HTMLView = ({ htmlBody }: { htmlBody: String }) => {
     }
 
     .content {
-      padding: 40px 30px;
+      padding: 80px 30px;
     }
 
     img {
@@ -92,36 +122,56 @@ const HTMLView = ({ htmlBody }: { htmlBody: String }) => {
   );
 };
 
-const Email = ({ htmlBody, textBody }: { htmlBody: string, textBody: string }) => {
+const Email = ({
+  htmlBody,
+  textBody,
+}: {
+  htmlBody: string;
+  textBody: string;
+}) => {
   const [viewMode, setViewMode] = useState('html');
+  const [useLocalImages, setUseLocalImages] = useState(true);
 
   const toggleViewMode = () => {
     setViewMode(viewMode === 'text' ? 'html' : 'text');
+  };
+
+  const toggleLocalImages = () => {
+    setUseLocalImages(!useLocalImages);
   };
 
   return (
     <>
       <Head>
         <title>Instant Email Previewer</title>
-        <meta name="description" content="Relational Database, on the client." />
+        <meta
+          name="description"
+          content="Relational Database, on the client."
+        />
       </Head>
 
-      {!htmlBody && <h1>Could not find html for this page, check the `_emails` folder!</h1>}
+      {!htmlBody && (
+        <h1>Could not find html for this page, check the `_emails` folder!</h1>
+      )}
       {htmlBody && (
         <div className="email-wrapper">
-          {textBody && (
-            <button
-              className="view-toggle-button"
-              onClick={toggleViewMode}
-            >
-              Switch to {viewMode === 'text' ? 'HTML' : 'Text'} View
-            </button>
-          )}
+          <div className="actions">
+            <div>
+              <button className="button" onClick={toggleLocalImages}>
+                Switch to {useLocalImages ? 'prod' : 'localhost'} images
+              </button>
+              {textBody && (
+                <button className="button" onClick={toggleViewMode}>
+                  Switch to {viewMode === 'text' ? 'HTML' : 'Text'} View
+                </button>
+              )}
+            </div>
+          </div>
 
           {viewMode === 'text' && textBody ? (
             <TextView textBody={textBody} />
           ) : (
-            <HTMLView htmlBody={htmlBody} />
+            <HTMLView htmlBody={htmlBody} useLocalImages={useLocalImages} />
           )}
 
           <style jsx global>{`
@@ -131,12 +181,15 @@ const Email = ({ htmlBody, textBody }: { htmlBody: string, textBody: string }) =
               max-width: 800px;
               margin: 0 auto;
             }
-            .view-toggle-button {
+            .actions {
               position: fixed;
               top: 20px;
               right: 20px;
               z-index: 1000;
+            }
+            .button {
               padding: 5px 10px;
+              margin: 5px;
               background-color: #ff6000;
               color: white;
               border: none;
@@ -145,7 +198,7 @@ const Email = ({ htmlBody, textBody }: { htmlBody: string, textBody: string }) =
               font-size: 16px;
               transition: background-color 0.3s;
             }
-            .view-toggle-button:hover {
+            .button:hover {
               background-color: #e55a2b;
             }
           `}</style>
