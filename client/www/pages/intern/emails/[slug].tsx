@@ -97,9 +97,8 @@ const HTMLView = ({
     }
 
     .warning {
-      position: fixed;
-      top: 70px;
-      left: 0;
+      margin-top: 70px;
+      margin-bottom: -70px;
       width: 100%;
       text-align: center;
       color: red;
