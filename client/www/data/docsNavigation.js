@@ -2,15 +2,29 @@ module.exports = [
   {
     title: 'Introduction',
     links: [
-      { title: 'Getting started w/ React', href: '/docs' },
-      { title: 'Getting started w/ React Native', href: '/docs/start-rn' },
-      { title: 'Getting started w/ Vanilla JS', href: '/docs/start-vanilla' },
+      {
+        title: 'Getting started w/ React',
+        href: '/docs',
+        nextHref: '/docs/init',
+      },
+      {
+        title: 'Getting started w/ React Native',
+        href: '/docs/start-rn',
+        prevHref: null,
+        nextHref: '/docs/init',
+      },
+      {
+        title: 'Getting started w/ Vanilla JS',
+        href: '/docs/start-vanilla',
+        prevHref: null,
+        nextHref: '/docs/init',
+      },
     ],
   },
   {
     title: 'Working with data',
     links: [
-      { title: 'Init', href: '/docs/init' },
+      { title: 'Init', href: '/docs/init', prevHref: '/docs' },
       { title: 'Modeling data', href: '/docs/modeling-data' },
       { title: 'Writing data', href: '/docs/instaml' },
       { title: 'Reading data', href: '/docs/instaql' },
