@@ -667,6 +667,8 @@
                (-> (get-in @eph-store-atom [:rooms movies-app-id rid :session-ids])
                    first)))
 
+        (is (eph/in-room? @eph-store-atom movies-app-id rid sess-id))
+
         (let [{:keys [op room-id]} (blocking-send-msg socket
                                                       {:op :leave-room
                                                        :room-id rid})]
@@ -674,6 +676,7 @@
           (is (= :leave-room-ok op))
           (is (= rid room-id))
           (is (empty? (get-in @eph-store-atom [:rooms movies-app-id rid :session-ids])))
+          (is (not (eph/in-room? @eph-store-atom movies-app-id rid sess-id)))
           (is (empty? (get-in @eph-store-atom [:sessions sess-id :room-ids])))
           (testing "store gets cleaned up"
             (is (= {} @eph-store-atom))))))))
@@ -741,10 +744,18 @@
                (-> (get-in @eph-store-atom [:rooms movies-app-id rid :session-ids])
                    first)))
 
+        (is (eph/in-room? @eph-store-atom movies-app-id rid sess-id))
+
         ;; session data is empty
         (is (= {:peer-id sess-id
                 :user nil
                 :data {}} (get-in @eph-store-atom [:rooms movies-app-id rid :data sess-id])))
+
+        (testing "hazelcast"
+          (is (= {sess-id {:peer-id sess-id
+                           :user nil
+                           :data {}}}
+                 (eph/get-room-data movies-app-id rid))))
 
         ;; session data is now set!
         (blocking-send-msg socket {:op :set-presence :room-id rid :data d1})
@@ -752,11 +763,23 @@
                 :user nil
                 :data d1} (get-in @eph-store-atom [:rooms movies-app-id rid :data sess-id])))
 
+        (testing "hazelcast"
+          (is (= {sess-id {:peer-id sess-id
+                           :user nil
+                           :data d1}}
+                 (eph/get-room-data movies-app-id rid))))
+
         ;; session data is overwritten!
         (blocking-send-msg socket {:op :set-presence :room-id rid :data d2})
         (is (= {:peer-id sess-id
                 :user nil
-                :data  d2} (get-in @eph-store-atom [:rooms movies-app-id rid :data sess-id])))))))
+                :data  d2} (get-in @eph-store-atom [:rooms movies-app-id rid :data sess-id])))
+
+        (testing "hazelcast"
+          (is (= {sess-id {:peer-id sess-id
+                           :user nil
+                           :data d2}}
+                 (eph/get-room-data movies-app-id rid))))))))
 
 (deftest set-presence-fails-when-not-in-room
   (with-session
@@ -794,7 +817,10 @@
                   :data d1} data))
 
           ;; Rooms should be unchanged after broadcast
-          (is (= after-join-rooms (get-in @eph-store-atom [:rooms]))))))))
+          (is (= after-join-rooms (get-in @eph-store-atom [:rooms])))
+          (testing "hazelcast"
+            (is (= (get-in after-join-rooms [movies-app-id rid :data])
+                   (eph/get-room-data movies-app-id rid)))))))))
 
 (deftest broadcast-fails-when-not-in-room
   (with-session
