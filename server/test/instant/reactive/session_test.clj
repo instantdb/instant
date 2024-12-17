@@ -1,27 +1,27 @@
 (ns instant.reactive.session-test
   (:require
-   [clojure.test :as test :refer [deftest testing is]]
+   [clojure.core.async :as a]
+   [clojure.test :as test :refer [deftest is testing]]
    [datascript.core :as ds]
    [instant.data.constants :refer [movies-app-id zeneca-app-id]]
-   [instant.reactive.session :as session]
-   [instant.reactive.store :as rs]
-   [instant.fixtures :refer [with-empty-app with-movies-app]]
-   [clojure.core.async :as a]
-   [instant.util.async :as ua]
    [instant.data.resolvers :as resolvers]
-   [instant.db.model.attr :as attr-model]
    [instant.db.datalog :as d]
-   [instant.jdbc.aurora :as aurora]
-   [instant.db.transaction :as tx]
    [instant.db.instaql :as iq]
-   [instant.lib.ring.websocket :as ws]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.transaction :as tx]
+   [instant.flags :as flags]
+   [instant.fixtures :refer [with-empty-app with-movies-app]]
    [instant.grouped-queue :as grouped-queue]
+   [instant.jdbc.aurora :as aurora]
+   [instant.lib.ring.websocket :as ws]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.query :as rq]
-   [instant.reactive.receive-queue :as receive-queue])
+   [instant.reactive.receive-queue :as receive-queue]
+   [instant.reactive.session :as session]
+   [instant.reactive.store :as rs]
+   [instant.util.async :as ua])
   (:import
-   (java.util UUID)
-   (java.util.concurrent LinkedBlockingQueue)))
+   (java.util UUID)))
 
 (def ^:private r (delay (resolvers/make-movies-resolver)))
 
@@ -667,6 +667,8 @@
                (-> (get-in @eph-store-atom [:rooms movies-app-id rid :session-ids])
                    first)))
 
+        (is (eph/in-room? @eph-store-atom movies-app-id rid sess-id))
+
         (let [{:keys [op room-id]} (blocking-send-msg socket
                                                       {:op :leave-room
                                                        :room-id rid})]
@@ -674,6 +676,7 @@
           (is (= :leave-room-ok op))
           (is (= rid room-id))
           (is (empty? (get-in @eph-store-atom [:rooms movies-app-id rid :session-ids])))
+          (is (not (eph/in-room? @eph-store-atom movies-app-id rid sess-id)))
           (is (empty? (get-in @eph-store-atom [:sessions sess-id :room-ids])))
           (testing "store gets cleaned up"
             (is (= {} @eph-store-atom))))))))
@@ -710,13 +713,18 @@
 
         ;; changed rooms should be non-empty when joining
         (blocking-send-msg socket {:op :join-room :room-id rid})
-        (is (seq (eph/get-changed-rooms initial-rooms after-join-rooms)))
+        (let [use-hazelcast? flags/use-hazelcast?]
+          (with-redefs [flags/use-hazelcast? (fn [app-id]
+                                               (if (= app-id movies-app-id)
+                                                 false
+                                                 (use-hazelcast? app-id)))]
+            (is (seq (eph/get-changed-rooms initial-rooms after-join-rooms)))
 
-        ;; changed rooms should be empty after non-room change
-        (is (empty? (eph/get-changed-rooms after-join-rooms after-hello-rooms)))
+            ;; changed rooms should be empty after non-room change
+            (is (empty? (eph/get-changed-rooms after-join-rooms after-hello-rooms)))
 
-        ;; changed rooms should be non-empty when someone leaves (unless it's the last person)
-        (is (seq (eph/get-changed-rooms after-hello-rooms after-leave-rooms)))
+            ;; changed rooms should be non-empty when someone leaves (unless it's the last person)
+            (is (seq (eph/get-changed-rooms after-hello-rooms after-leave-rooms)))))
 
         ;; changed rooms should be empty when the last person leaves
         (is (empty? (eph/get-changed-rooms after-hello-rooms after-room-empty)))))))
@@ -736,10 +744,18 @@
                (-> (get-in @eph-store-atom [:rooms movies-app-id rid :session-ids])
                    first)))
 
+        (is (eph/in-room? @eph-store-atom movies-app-id rid sess-id))
+
         ;; session data is empty
         (is (= {:peer-id sess-id
                 :user nil
                 :data {}} (get-in @eph-store-atom [:rooms movies-app-id rid :data sess-id])))
+
+        (testing "hazelcast"
+          (is (= {sess-id {:peer-id sess-id
+                           :user nil
+                           :data {}}}
+                 (eph/get-room-data movies-app-id rid))))
 
         ;; session data is now set!
         (blocking-send-msg socket {:op :set-presence :room-id rid :data d1})
@@ -747,11 +763,23 @@
                 :user nil
                 :data d1} (get-in @eph-store-atom [:rooms movies-app-id rid :data sess-id])))
 
+        (testing "hazelcast"
+          (is (= {sess-id {:peer-id sess-id
+                           :user nil
+                           :data d1}}
+                 (eph/get-room-data movies-app-id rid))))
+
         ;; session data is overwritten!
         (blocking-send-msg socket {:op :set-presence :room-id rid :data d2})
         (is (= {:peer-id sess-id
                 :user nil
-                :data  d2} (get-in @eph-store-atom [:rooms movies-app-id rid :data sess-id])))))))
+                :data  d2} (get-in @eph-store-atom [:rooms movies-app-id rid :data sess-id])))
+
+        (testing "hazelcast"
+          (is (= {sess-id {:peer-id sess-id
+                           :user nil
+                           :data d2}}
+                 (eph/get-room-data movies-app-id rid))))))))
 
 (deftest set-presence-fails-when-not-in-room
   (with-session
@@ -789,7 +817,10 @@
                   :data d1} data))
 
           ;; Rooms should be unchanged after broadcast
-          (is (= after-join-rooms (get-in @eph-store-atom [:rooms]))))))))
+          (is (= after-join-rooms (get-in @eph-store-atom [:rooms])))
+          (testing "hazelcast"
+            (is (= (get-in after-join-rooms [movies-app-id rid :data])
+                   (eph/get-room-data movies-app-id rid)))))))))
 
 (deftest broadcast-fails-when-not-in-room
   (with-session
