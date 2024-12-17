@@ -30,7 +30,6 @@ const schema = i.schema({
       },
     },
   },
-  rooms: {},
 });
 
 function randInt(max: number) {

@@ -15,7 +15,6 @@ const name = `user ${Date.now()}`;
 
 const schema = i.schema({
   entities: {},
-  links: {},
   rooms: {
     "demo-room": {
       presence: i.entity({

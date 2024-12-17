@@ -73,7 +73,6 @@ test("runs without exception", () => {
         },
       },
     },
-    rooms: {},
   });
 
   const demoQuery = {

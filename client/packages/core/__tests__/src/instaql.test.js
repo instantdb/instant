@@ -866,7 +866,6 @@ test("arbitrary ordering with dates", () => {
         num: i.number().indexed(),
       }),
     },
-    links: {},
   });
 
   const txSteps = [];
@@ -1085,8 +1084,6 @@ test("comparators", () => {
         boolean: i.boolean().indexed(),
       }),
     },
-    links: {},
-    rooms: {},
   });
 
   const txSteps = [];

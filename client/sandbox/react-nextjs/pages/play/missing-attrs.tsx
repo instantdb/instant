@@ -26,7 +26,6 @@ const schema = i.schema({
       },
     },
   },
-  rooms: {},
 });
 
 function Example({ appId, useSchema }: { appId: string; useSchema: boolean }) {

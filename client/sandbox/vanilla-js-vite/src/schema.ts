@@ -22,8 +22,7 @@ const db = init({
         title: i.string(),
       }),
     },
-    links: {},
-    rooms: {},
+
   }),
 });
 

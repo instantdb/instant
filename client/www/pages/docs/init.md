@@ -8,7 +8,7 @@ The first step to using Instant in your app is to call `init` before rendering y
 import { init } from '@instantdb/react';
 
 // Instant app
-const APP_ID = "__APP_ID__";
+const APP_ID = '__APP_ID__';
 
 const db = init({ appId: APP_ID });
 
@@ -27,7 +27,7 @@ If you're using typescript, `init` accepts a `schema` argument. Adding a schema 
 import { init, i } from '@instantdb/react';
 
 // Instant app
-const APP_ID = "__APP_ID__";
+const APP_ID = '__APP_ID__';
 
 const schema = i.schema({
   entities: {
@@ -37,11 +37,9 @@ const schema = i.schema({
       createdAt: i.number(),
     }),
   },
-  links: {},
-  rooms: {},
 });
 
 const db = init({ appId: APP_ID, schema });
 ```
 
-To learn more about writing schemas, head on over to the [Modeling your data](/docs/modeling-data) section. 
+To learn more about writing schemas, head on over to the [Modeling your data](/docs/modeling-data) section.

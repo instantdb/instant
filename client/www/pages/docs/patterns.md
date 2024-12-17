@@ -67,7 +67,6 @@ const _schema = i.schema({
       },
     },
   },
-  rooms: {},
 });
 
 // This helps Typescript display nicer intellisense

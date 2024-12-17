@@ -40,8 +40,6 @@ const schema = i.schema({
       createdAt: i.number(),
     }),
   },
-  links: {},
-  rooms: {},
 });
 
 type Todo = InstaQLEntity<typeof schema, "todos">;

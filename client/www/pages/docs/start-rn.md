@@ -32,8 +32,6 @@ const schema = i.schema({
       value: i.string(),
     }),
   },
-  links: {},
-  rooms: {},
 });
 
 type Color = InstaQLEntity<typeof schema, "colors">;

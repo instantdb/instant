@@ -9,8 +9,6 @@ const schema = i.schema({
       color: i.string(),
     }),
   },
-  links: {},
-  rooms: {},
 });
 
 const { useQuery, transact, tx } = init({
