@@ -5,16 +5,21 @@
     1. Create email content in Dropbox. Get sign off on the copy.
     2. Export content as markdown and save to `www/intern/_emails/markdown/[slug].md`
     3. Preview the styled markdown at `localhost:3000/intern/emails/[slug]`
-    4. Once preview looks good, generate html and text versions of the email
+    4. Once preview looks good, you can generate images, html and text versions of the email
        from `client/Makefile` via `make build-email slug=[slug] `
        Notes:
         * We want both html and text to maximize delivery
         * We use pandoc to convert markdown to html. If you don't have it,
           you can install it via `brew install pandoc`
+        * We extract dropbox paper image references from the markdown, save
+          the images to 'client/www/public/img/emails/[slug]/', and replace
+          dropbox paper image references with the new image paths
         * If need be, you can edit the ouputs in`client/www/_emails/html/[slug].html`
           and `client/www/_emails/txt/[slug].txt`
     5. Refresh the page at `localhost:3000/intern/emails/[slug]`
        and verify text version looks good via the text view button
+    6. Once everything looks good open a PR with the changes. Make sure to
+       merge the PR before sending the newsletter for images to work
 
     And now go through the comment block at the bottom of this file to send
     out the newsletter. Huzzah!
