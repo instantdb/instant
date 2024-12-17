@@ -521,6 +521,29 @@ const query = {
 
 The `serverCreatedAt` field is a reserved key that orders by the time that the object was first persisted on the Instant backend. It can take the value 'asc' (the default) or 'desc'.
 
+You can also order by any attribute that is indexed and has a checked type.
+
+{% callout %}
+Add indexes and checked types to your attributes from the [Explorer on the Instant dashboard](/dash?t=explorer) or from the [cli with Schema-as-code](/docs/schema).
+{% /callout %}
+
+```javascript
+// Get the todos that are due next
+const query = {
+  todos: {
+    $: {
+      limit: 10,
+      where: {
+        dueDate: { $gt: Date.now() },
+      },
+      order: {
+        dueDate: 'asc',
+      },
+    },
+  },
+};
+```
+
 ## Advanced filtering
 
 ### And
