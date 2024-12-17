@@ -88,11 +88,23 @@ function refAttrPat(makeVar, store, etype, level, label) {
   return [nextEtype, nextLevel, attrPat, attr, isForward];
 }
 
-function matchesLikePattern(value, pattern) {
-  if (typeof value !== "string" || typeof pattern !== "string") return false;
+function makeLikeMatcher(caseSensitive, pattern) {
+  if (typeof pattern !== "string") {
+    return function likeMatcher(_value) {
+      return false;
+    };
+  }
   const regexPattern = pattern.replace(/%/g, ".*").replace(/_/g, ".");
-  const regex = new RegExp(`^${regexPattern}$`);
-  return regex.test(value);
+  const regex = new RegExp(
+    `^${regexPattern}$`,
+    caseSensitive ? undefined : "i",
+  );
+  return function likeMatcher(value) {
+    if (typeof value !== "string") {
+      return false;
+    }
+    return regex.test(value);
+  };
 }
 
 function parseValue(attr, v) {
@@ -157,10 +169,21 @@ function parseValue(attr, v) {
   }
 
   if (v.hasOwnProperty("$like")) {
+    const matcher = makeLikeMatcher(true, v.$like);
     return {
       $comparator: true,
       $op: function like(triple) {
-        return matchesLikePattern(triple[2], v.$like);
+        return matcher(triple[2]);
+      },
+    };
+  }
+
+  if (v.hasOwnProperty("$ilike")) {
+    const matcher = makeLikeMatcher(false, v.$ilike);
+    return {
+      $comparator: true,
+      $op: function ilike(triple) {
+        return matcher(triple[2]);
       },
     };
   }

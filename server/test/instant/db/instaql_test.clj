@@ -278,6 +278,12 @@
                    "The $like value for `etype.string` must be a string, but the query got the value `10` of type `number`."}
                  (validation-err ctx {:etype {:$ {:where {:string {:$like 10}}}}})))
 
+          (is (= '{:expected? string?
+                   :in ["etype" :$ :where "string" :$ilike],
+                   :message
+                   "The $like value for `etype.string` must be a string, but the query got the value `10` of type `number`."}
+                 (validation-err ctx {:etype {:$ {:where {:string {:$ilike 10}}}}})))
+
           (is (= '{:expected supported-order?,
                    :in ["etype" :$ :order],
                    :message
@@ -1611,6 +1617,43 @@
                ("eid-nicole" :users/id "eid-nicole")
                ("eid-nicole" :users/fullName "Nicole")),
               :aggregate (nil nil nil)})))))))
+
+(deftest where-$ilike
+  (with-zeneca-checked-data-app
+    (fn [app r]
+      (let [ctx {:db {:conn-pool (aurora/conn-pool)}
+                 :app-id (:id app)
+                 :attrs (attr-model/get-by-app-id (:id app))}]
+        (testing "with no matches"
+          (is-pretty-eq?
+           (query-pretty ctx r
+                         {:users {:$ {:where {:handle {:$ilike "%moop%"}}}}})
+           '({:topics ([:ave _ #{:users/handle} {:$comparator {:op :$ilike, :value "%moop%", :data-type :string}}])
+              :triples ()})))
+        (testing "with equality"
+          (is-pretty-eq?
+           (query-pretty ctx r
+                         {:users {:$ {:where {:handle {:$ilike "joe"}}}}})
+           '({:topics
+              ([:ave _ #{:users/handle} {:$comparator {:op :$ilike, :value "joe", :data-type :string}}]
+               --
+               [:ea
+                #{"eid-joe-averbukh"}
+                #{:users/bookshelves
+                  :users/createdAt
+                  :users/email
+                  :users/id
+                  :users/fullName
+                  :users/handle}
+                _]),
+              :triples
+              (("eid-joe-averbukh" :users/handle "joe")
+               --
+               ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+               ("eid-joe-averbukh" :users/email "joe@instantdb.com")
+               ("eid-joe-averbukh" :users/handle "joe")
+               ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
+               ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))})))))))
 
 (deftest where-$not
   (is-pretty-eq?
