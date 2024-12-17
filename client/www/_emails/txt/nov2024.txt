@@ -25,7 +25,7 @@ All user namespaces have default permissions of true. This makes it easy for get
 
 In last month’s edition we mentioned that Stopa (CTO of Instant) was giving a talk at Clojure Conj 2024. Super excited to share that the video has now been uploaded!
 
-Following up from [A Graph-Based Firebase](https://www.instantdb.com/essays/next_firebase), Stopa discusses the common schleps developers face when building apps, and how Instant compresses them. [Give this a watch](https://youtu.be/6FikTQf8qho?feature=shared&t=8) if you’re interested in learning more about how Instant works under the hood!
+Following up from [A Graph-Based Firebase](https://www.instantdb.com/essays/next_firebase), Stopa discusses the common schleps developers face when building apps, and how Instant compresses them. [Give this a watch](https://youtu.be/6FikTQf8qho?feature=shared\&t=8) if you’re interested in learning more about how Instant works under the hood!
 
 **What’s next?**
 
