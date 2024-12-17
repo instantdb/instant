@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
-import { writeFile, readFile } from 'node:fs/promises';
+import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import { Readable } from 'node:stream';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
@@ -11,28 +11,29 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 // Resolve relative path
 const relativePath = (path) => resolve(scriptDir, path);
 
-export async function replaceImages(markdown) {
+export async function replaceImages(slug, markdown) {
   const processor = unified()
     .use(remarkParse)
-    .use(imgModifier)
+    .use(imgModifier.bind(null, slug))
     .use(remarkStringify);
 
   const result = await processor.process(markdown);
   return String(result);
 }
 
-async function writeImage(href) {
+async function writeImage(slug, href) {
   const fileName = new URL(href).pathname;
   console.log('downloading image', fileName);
-  const path = relativePath(`../../public/img/emails${fileName}`);
+  const path = relativePath(`../../public/img/emails/${slug}${fileName}`);
   const response = await fetch(href);
   const stream = Readable.fromWeb(response.body);
+  await mkdir(dirname(path), { recursive: true });
   await writeFile(path, stream);
 
-  return `https://www.instantdb.com/img/emails${fileName}`;
+  return `https://www.instantdb.com/img/emails/${slug}${fileName}`;
 }
 
-function imgModifier() {
+function imgModifier(slug) {
   return async (tree) => {
     const visit = async (node) => {
       if (Array.isArray(node.children)) {
@@ -44,7 +45,7 @@ function imgModifier() {
         node.type === 'image' &&
         node.url?.startsWith('https://paper-attachments.dropboxusercontent.com')
       ) {
-        const newUrl = await writeImage(node.url);
+        const newUrl = await writeImage(slug, node.url);
         node.url = newUrl;
       }
     };
@@ -55,7 +56,7 @@ function imgModifier() {
 export async function run(slug) {
   const path = relativePath(`../markdown/${slug}.md`);
   const markdown = await readFile(path);
-  const updatedMarkdown = await replaceImages(markdown);
+  const updatedMarkdown = await replaceImages(slug, markdown);
   await writeFile(path, updatedMarkdown);
 }
 
