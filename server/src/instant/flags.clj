@@ -125,8 +125,8 @@
             true
 
             :else default-value))
-    ;; Default false
-    false))
+    ;; Default true
+    true))
 
 (defn hazelcast-disabled? []
   (get-in (query-result) [:hazelcast :disabled?] false))
