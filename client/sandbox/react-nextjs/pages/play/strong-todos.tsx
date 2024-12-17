@@ -31,7 +31,6 @@ const _schema = i.schema({
       },
     },
   },
-  rooms: {},
 });
 // This helps Typescript display nicer intellisense
 type _AppSchema = typeof _schema;

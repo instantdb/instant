@@ -76,7 +76,6 @@ const _schema = i.schema({
       reverse: { on: "$users", has: "one", label: "profile" },
     },
   },
-  rooms: {},
 });
 
 // This helps Typescript display better intellisense

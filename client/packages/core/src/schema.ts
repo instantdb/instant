@@ -161,18 +161,20 @@ function schema<
   rooms,
 }: {
   entities: EntitiesWithoutLinks;
-  links: Links;
-  rooms: Rooms;
+  links?: Links;
+  rooms?: Rooms;
 }) {
+  const linksDef = links ?? {} as Links;
+  const roomsDef = rooms ?? {} as Rooms;
   return new InstantSchemaDef(
-    enrichEntitiesWithLinks<EntitiesWithoutLinks, Links>(entities, links),
+    enrichEntitiesWithLinks<EntitiesWithoutLinks, Links>(entities, linksDef),
     // (XXX): LinksDef<any> stems from TypeScript’s inability to reconcile the
     // type EntitiesWithLinks<EntitiesWithoutLinks, Links> with
     // EntitiesWithoutLinks. TypeScript is strict about ensuring that types are
     // correctly aligned and does not allow for substituting a type that might
     // be broader or have additional properties.
-    links as LinksDef<any>,
-    rooms,
+    linksDef as LinksDef<any>,
+    roomsDef,
   );
 }
 

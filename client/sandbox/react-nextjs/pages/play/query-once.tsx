@@ -13,9 +13,7 @@ import config from "../../config";
 const schema = i.schema({
   entities: {
     onceTest: i.entity({ text: i.string() }),
-  },
-  links: {},
-  rooms: {},
+  }
 });
 
 const db = init({...config, schema});

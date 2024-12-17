@@ -1056,7 +1056,6 @@ const _schema = i.schema({
       reverse: { on: 'goals', has: 'many', label: 'todos' },
     },
   },
-  rooms: {},
 });
 
 // This helps Typescript display better intellisense

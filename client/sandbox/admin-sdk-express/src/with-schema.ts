@@ -31,7 +31,6 @@ const schema = i.schema({
       },
     },
   },
-  rooms: {},
 });
 
 const db = init({
