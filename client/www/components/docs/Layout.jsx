@@ -118,14 +118,42 @@ function HiddenLLMHelper({ allLinks }) {
   );
 }
 
+function findLink(allLinks, path) {
+  const idx = allLinks.findIndex((link) => link.href === path);
+  return [allLinks[idx], idx];
+}
+
+function getPreviousPage(allLinks, currentPath) {
+  const [link, idx] = findLink(allLinks, currentPath);
+  if (!link) return null;
+  if (link.hasOwnProperty('prevHref')) {
+    if (!link.prevHref) return null;
+    const [prevLink] = findLink(allLinks, link.prevHref);
+    return prevLink;
+  }
+  return allLinks[idx - 1];
+}
+
+function getNextPage(allLinks, currentPath) {
+  const [link, idx] = findLink(allLinks, currentPath);
+  if (!link) return null;
+  if (link.hasOwnProperty('nextHref')) {
+    if (!link.nextHref) return null;
+    const [nextLink] = findLink(allLinks, link.nextHref);
+    return nextLink;
+  }
+  return allLinks[idx - 1];
+}
+
 export function Layout({ children, title, tableOfContents }) {
   let router = useRouter();
   const scrollContainerRef = useRef();
 
   let allLinks = navigation.flatMap((section) => section.links);
-  let linkIndex = allLinks.findIndex((link) => link.href === router.pathname);
-  let previousPage = allLinks[linkIndex - 1];
-  let nextPage = allLinks[linkIndex + 1];
+
+  let previousPage = getPreviousPage(allLinks, router.pathname);
+  let nextPage = getNextPage(allLinks, router.pathname);
+
   let section = navigation.find((section) =>
     section.links.find((link) => link.href === router.pathname),
   );
@@ -170,7 +198,9 @@ export function Layout({ children, title, tableOfContents }) {
               {(title || section) && (
                 <header className="mb-4 space-y-1">
                   {section && (
-                    <p className="text-sm text-gray-500 font-medium">{section.title}</p>
+                    <p className="text-sm text-gray-500 font-medium">
+                      {section.title}
+                    </p>
                   )}
                   {title && (
                     <h1 className="text-3xl dark:text-white">{title}</h1>
