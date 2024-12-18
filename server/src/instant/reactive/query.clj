@@ -13,8 +13,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.reactive.store :as rs]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
-   [instant.util.tracer :as tracer]
-   [taoensso.nippy :as nippy])
+   [instant.util.tracer :as tracer])
   (:import
    (org.apache.commons.codec.digest DigestUtils)))
 
@@ -113,8 +112,8 @@
                                   :record-datalog-query-finish! (partial rs/record-datalog-query-finish! store-conn ctx))))))
 
             instaql-result (iq/permissioned-query ctx instaql-query)
-            result-hash (DigestUtils/md5Hex (nippy/fast-freeze {:instaql-result instaql-result
-                                                                :attrs (attr-model/unwrap attrs)}))
+            result-hash (hash {:instaql-result instaql-result
+                               :attrs (attr-model/unwrap attrs)})
             {:keys [result-changed?]} (rs/add-instaql-query! store-conn ctx result-hash)]
         {:instaql-result (case return-type
                            :join-rows (collect-instaql-results-for-client instaql-result)
