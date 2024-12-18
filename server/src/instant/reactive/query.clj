@@ -13,7 +13,8 @@
    [instant.jdbc.aurora :as aurora]
    [instant.reactive.store :as rs]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
-   [instant.util.tracer :as tracer])
+   [instant.util.tracer :as tracer]
+   [taoensso.nippy :as nippy])
   (:import
    (org.apache.commons.codec.digest DigestUtils)))
 
@@ -95,7 +96,7 @@
 (defn instaql-query-reactive!
   "Returns the result of an instaql query while producing book-keeping side
   effects in the store. To be used with session"
-  [store-conn {:keys [session-id app-id] :as base-ctx} instaql-query return-type]
+  [store-conn {:keys [session-id app-id attrs] :as base-ctx} instaql-query return-type]
   (tracer/with-span! {:name "instaql-query-reactive!"
                       :attributes {:session-id session-id
                                    :app-id app-id
@@ -112,7 +113,8 @@
                                   :record-datalog-query-finish! (partial rs/record-datalog-query-finish! store-conn ctx))))))
 
             instaql-result (iq/permissioned-query ctx instaql-query)
-            result-hash (DigestUtils/md5Hex (pr-str instaql-result))
+            result-hash (DigestUtils/md5Hex (nippy/fast-freeze {:instaql-result instaql-result
+                                                                :attrs (attr-model/unwrap attrs)}))
             {:keys [result-changed?]} (rs/add-instaql-query! store-conn ctx result-hash)]
         {:instaql-result (case return-type
                            :join-rows (collect-instaql-results-for-client instaql-result)
