@@ -13,9 +13,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.reactive.store :as rs]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
-   [instant.util.tracer :as tracer])
-  (:import
-   (org.apache.commons.codec.digest DigestUtils)))
+   [instant.util.tracer :as tracer]))
 
 (defn- datalog-query-cached!
   "Returns the result of a datalog query. Leverages atom and
