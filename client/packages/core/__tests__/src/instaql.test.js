@@ -191,6 +191,29 @@ test("Where endsWith deep", () => {
   ).toEqual(["alex", "nicolegf", "stopa"]);
 });
 
+test("like case sensitivity", () => {
+  function runQuery(where) {
+    return query(
+      { store },
+      {
+        users: {
+          $: {
+            where: {
+              fullName: where,
+            },
+          },
+        },
+      },
+    )
+      .data.users.map((x) => x.fullName)
+      .sort();
+  }
+  expect(runQuery({ $like: "%O%" })).toEqual([]);
+  expect(runQuery({ $ilike: "%O%" })).toEqual(["Joe Averbukh", "Nicole"]);
+  expect(runQuery({ $like: "%j%" })).toEqual([]);
+  expect(runQuery({ $ilike: "%j%" })).toEqual(["Joe Averbukh"]);
+});
+
 test("Where and", () => {
   expect(
     query(

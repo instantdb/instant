@@ -57,7 +57,7 @@
 (s/def ::nil? boolean?)
 (s/def ::$isNull (s/keys :req-un [::attr-id ::nil?]))
 
-(s/def ::op #{:$gt :$gte :$lt :$lte :$like})
+(s/def ::op #{:$gt :$gte :$lt :$lte :$like :$ilike})
 (s/def ::data-type #{:string :number :date :boolean})
 (s/def ::value any?)
 (s/def ::$comparator (s/keys :req-un [::op ::data-type ::value]))
@@ -612,7 +612,8 @@
                                      :$gte :>=
                                      :$lt :<
                                      :$lte :<=
-                                     :$like :like)
+                                     :$like :like
+                                     :$ilike :ilike)
                                    [(extract-value-fn data-type)
                                     :value]
                                    value]

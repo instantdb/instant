@@ -328,11 +328,12 @@
 
         (and (map? v)
              (= (count v) 1)
-             (contains? #{:$gt :$gte :$lt :$lte :$like} (ffirst v)))
+             (contains? #{:$gt :$gte :$lt :$lte :$like :$ilike} (ffirst v)))
         (let [[op [tag value]] (first v)
               attr-data-type (assert-checked-attr-data-type! state attr)
               state (update state :in conj op)]
-          (when (= op :$like)
+          (when (or (= op :$like)
+                    (= op :$ilike))
             (assert-like-is-string! state attr tag value))
           {:$comparator
            {:op op
