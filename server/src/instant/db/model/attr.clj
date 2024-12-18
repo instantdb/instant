@@ -522,7 +522,8 @@
   (seekById [this id])
   (seekByFwdIdentName [this fwd-ident])
   (seekByRevIdentName [this revIdent])
-  (attrIdsForEtype [this etype]))
+  (attrIdsForEtype [this etype])
+  (unwrap [this]))
 
 ;; Creates a wrapper over attrs. Makes them act like a regular list, but
 ;; we can also index them on demand so that our access patterns will be
@@ -570,7 +571,9 @@
   (attrIdsForEtype [_this etype]
     (-> @cache
         :ids-by-etype
-        (get etype #{}))))
+        (get etype #{})))
+  (unwrap [_this]
+    elements))
 
 (defn wrap-attrs [attrs]
   (Attrs. attrs (delay (index-attrs attrs))))

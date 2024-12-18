@@ -46,7 +46,7 @@
                               :db/index true}
    :instaql-query/stale? {:db/type :db.type/boolean}
    :instaql-query/version {:db/type :db.type/integer}
-   :instaql-query/hash {:db/type :db.type/string}
+   :instaql-query/hash {:db/type :db.type/number}
    ;; This would be easier if we had a store per app
    :instaql-query/session-id+query
    {:db/tupleAttrs [:instaql-query/session-id :instaql-query/query]
