@@ -1,7 +1,7 @@
 import { id, tx } from '@instantdb/core';
 import { InstantReactWeb } from '@instantdb/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { isObject } from 'lodash';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { isObject, debounce } from 'lodash';
 import produce from 'immer';
 import Fuse from 'fuse.js';
 import clsx from 'clsx';
@@ -36,12 +36,64 @@ import {
 import { DBAttr, SchemaAttr, SchemaNamespace } from '@/lib/types';
 import { useIsOverflow } from '@/lib/hooks/useIsOverflow';
 import { useClickOutside } from '@/lib/hooks/useClickOutside';
-import { makeAttrComparator } from '@/lib/makeAttrComparator';
 import { isTouchDevice } from '@/lib/config';
 import { useSchemaQuery, useNamespacesQuery } from '@/lib/hooks/explorer';
 import { EditNamespaceDialog } from '@/components/dash/explorer/EditNamespaceDialog';
 import { EditRowDialog } from '@/components/dash/explorer/EditRowDialog';
 import { useRouter } from 'next/router';
+
+function searchWhereFilters(
+  attrs: Array<SchemaAttr>,
+  query: string,
+): [string, string, string][] {
+  if (!query) {
+    return [];
+  }
+  const q = `%${query}%`;
+  // Use case-insensitive if the query is all lower-case
+  const op = query.toLowerCase() === query ? '$ilike' : '$like';
+  const wheres = [];
+  for (const attr of attrs) {
+    if (attr.sortable && attr.checkedDataType === 'string') {
+      const filter: [string, string, string] = [attr.name, op, q];
+      wheres.push(filter);
+    }
+  }
+  return wheres;
+}
+
+function SearchInput({
+  initialValue,
+  onSearchChange,
+  attrs,
+}: {
+  initialValue: string;
+  onSearchChange: (filters: [string, string, string][]) => void;
+  attrs?: SchemaAttr[];
+}) {
+  const [value, setValue] = useState(initialValue);
+
+  const searchDebounce = useCallback(
+    debounce((search) => {
+      if (attrs) {
+        onSearchChange(searchWhereFilters(attrs, search));
+      }
+    }, 80),
+    [attrs],
+  );
+
+  return (
+    <TextInput
+      className="text-content py-0 text-sm flex-1 flex-shrink-0"
+      placeholder="Filter..."
+      value={value}
+      onChange={(v) => {
+        setValue(v);
+        searchDebounce(v);
+      }}
+    />
+  );
+}
 
 export function Explorer({
   db,
@@ -128,49 +180,25 @@ export function Explorer({
 
   const offset = offsets[selectedNamespace?.name ?? ''] || 0;
 
+  const sortAttr = currentNav?.sortAttr || 'serverCreatedAt';
+  const sortAsc = currentNav?.sortAsc ?? true;
+
+  const [searchFilters, setSearchFilters] = useState<
+    [string, string, string][]
+  >([]);
+
   const { itemsRes, allCount } = useNamespacesQuery(
     db,
     selectedNamespace,
     currentNav?.where,
+    searchFilters,
     limit,
     offset,
+    sortAttr,
+    sortAsc,
   );
 
-  const { allItems, fuse } = useMemo(() => {
-    const allItems: Record<string, any>[] =
-      itemsRes.data?.[selectedNamespace?.name ?? '']?.slice() ?? [];
-
-    const fuse = new Fuse(allItems, {
-      threshold: 0.15,
-      shouldSort: false,
-      keys:
-        selectedNamespace?.attrs.map((a) =>
-          a.type === 'ref' ? `${a.name}.id` : a.name,
-        ) ?? [],
-    });
-
-    return { allItems, fuse };
-  }, [itemsRes.data, selectedNamespace]);
-
-  const filteredSortedItems = useMemo(() => {
-    const _items = currentNav?.search
-      ? fuse.search(currentNav.search).map((r) => r.item)
-      : [...allItems];
-
-    const { sortAttr, sortAsc } = currentNav ?? {};
-
-    if (sortAttr) {
-      _items.sort(makeAttrComparator(sortAttr, sortAsc));
-    }
-
-    return _items;
-  }, [
-    allItems,
-    fuse,
-    currentNav?.search,
-    currentNav?.sortAsc,
-    currentNav?.sortAttr,
-  ]);
+  const allItems = itemsRes.data?.[selectedNamespace?.name ?? ''] ?? [];
 
   const numPages = allCount ? Math.ceil(allCount / limit) : 1;
   const currentPage = offset / limit + 1;
@@ -367,10 +395,14 @@ export function Explorer({
         </button>
       </div>
       {selectedNamespace && currentNav && allItems ? (
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex items-center border-b">
+        <div
+          className={clsx('flex flex-1 flex-col overflow-hidden', {
+            cursor: itemsRes.isLoading ? 'wait' : undefined,
+          })}
+        >
+          <div className="flex items-center border-b overflow-hidden">
             <div className="flex flex-1 flex-col justify-between md:flex-row md:items-center">
-              <div className="flex items-center border-b px-2 py-1 md:border-b-0">
+              <div className="flex items-center border-b px-2 py-1 md:border-b-0 overflow-hidden">
                 {showBackButton ? (
                   <ArrowLeftIcon
                     className="mr-4 inline cursor-pointer"
@@ -389,7 +421,7 @@ export function Explorer({
                     }}
                   />
                 ) : null}
-                <div className="truncate whitespace-nowrap font-mono text-xs">
+                <div className="truncate overflow-hidden text-ellipses whitespace-nowrap font-mono text-xs flex-shrink">
                   <strong>{selectedNamespace.name}</strong>{' '}
                   {currentNav.where ? (
                     <>
@@ -399,6 +431,22 @@ export function Explorer({
                         {JSON.stringify(currentNav.where[1])}
                       </em>
                     </>
+                  ) : null}
+                  {searchFilters?.length ? (
+                    <span
+                      title={searchFilters
+                        .map(([attr, op, search]) => `${attr} ${op} ${search}`)
+                        .join(' || ')}
+                    >
+                      {searchFilters.map(([attr, op, search], i) => (
+                        <span key={attr}>
+                          <em className="rounded-sm border bg-white px-1">
+                            {attr} {op} {search}
+                          </em>
+                          {i < searchFilters.length - 1 ? ' || ' : null}
+                        </span>
+                      ))}
+                    </span>
                   ) : null}
                 </div>
               </div>
@@ -412,15 +460,10 @@ export function Explorer({
                 >
                   Edit Schema
                 </Button>
-                <TextInput
-                  className="text-content py-0 text-sm flex-1"
-                  placeholder="Filter..."
-                  value={currentNav?.search ?? ''}
-                  onChange={(v) => {
-                    replaceNavStackTop({
-                      search: v ?? undefined,
-                    });
-                  }}
+                <SearchInput
+                  initialValue=""
+                  onSearchChange={(filters) => setSearchFilters(filters)}
+                  attrs={selectedNamespace?.attrs}
                 />
               </div>
             </div>
@@ -560,21 +603,25 @@ export function Explorer({
                 Delete {rowText}
               </Button>
             </div>
-            <table className="z-0 w-full flex-1 text-left font-mono text-xs text-gray-500">
+            <table
+              className={clsx(
+                'z-0 w-full flex-1 text-left font-mono text-xs text-gray-500',
+                { 'animate-pulse': itemsRes.isLoading },
+              )}
+            >
               <thead className="sticky top-0 z-20 bg-white text-gray-700 shadow">
                 <tr>
                   <th className="px-2 py-2" style={{ width: '48px' }}>
                     <Checkbox
                       checked={
-                        filteredSortedItems.length > 0 &&
-                        Object.keys(checkedIds).length ===
-                          filteredSortedItems.length
+                        allItems.length > 0 &&
+                        Object.keys(checkedIds).length === allItems.length
                       }
                       onChange={(checked) => {
                         if (checked) {
                           setCheckedIds(
                             Object.fromEntries(
-                              filteredSortedItems.map((i) => [i.id, true]),
+                              allItems.map((i) => [i.id, true]),
                             ),
                           );
                         } else {
@@ -587,41 +634,64 @@ export function Explorer({
                     <th
                       key={attr.name}
                       className={clsx(
-                        'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
+                        'z-10 select-none whitespace-nowrap px-4 py-1',
                         {
-                          'bg-gray-200': currentNav.sortAttr === attr.name,
+                          'bg-gray-200':
+                            // Only highlight if one of the columns was clicked,
+                            // not if we're just doing our default sort
+                            currentNav?.sortAttr &&
+                            (sortAttr === attr.name ||
+                              (sortAttr === 'serverCreatedAt' &&
+                                attr.name === 'id')),
+                          'cursor-pointer': attr.sortable || attr.name === 'id',
                         },
                       )}
-                      onClick={() => {
-                        replaceNavStackTop({
-                          sortAttr: attr.name,
-                          sortAsc:
-                            currentNav.sortAttr !== attr.name
-                              ? true
-                              : !currentNav.sortAsc,
-                        });
-                      }}
+                      onClick={
+                        attr.sortable
+                          ? () => {
+                              replaceNavStackTop({
+                                sortAttr: attr.name,
+                                sortAsc:
+                                  sortAttr !== attr.name ? true : !sortAsc,
+                              });
+                            }
+                          : attr.name === 'id'
+                            ? () => {
+                                replaceNavStackTop({
+                                  sortAttr: 'serverCreatedAt',
+                                  sortAsc:
+                                    sortAttr !== 'serverCreatedAt'
+                                      ? true
+                                      : !sortAsc,
+                                });
+                              }
+                            : undefined
+                      }
                     >
                       <div className="flex items-center gap-2">
                         {attr.name}
-                        <span>
-                          {currentNav.sortAttr === attr.name ? (
-                            currentNav.sortAsc ? (
-                              '↓'
+                        {attr.sortable || attr.name === 'id' ? (
+                          <span>
+                            {sortAttr === attr.name ||
+                            (sortAttr === 'serverCreatedAt' &&
+                              attr.name === 'id') ? (
+                              sortAsc ? (
+                                '↓'
+                              ) : (
+                                '↑'
+                              )
                             ) : (
-                              '↑'
-                            )
-                          ) : (
-                            <span className="text-gray-400">↓</span>
-                          )}
-                        </span>
+                              <span className="text-gray-400">↓</span>
+                            )}
+                          </span>
+                        ) : null}
                       </div>
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody className="font-mono">
-                {filteredSortedItems.map((item) => (
+                {allItems.map((item) => (
                   <tr
                     key={item.id as string}
                     className="group border-b bg-white"
@@ -879,7 +949,6 @@ export interface ExplorerNav {
   where?: [string, any];
   sortAttr?: string;
   sortAsc?: boolean;
-  search?: string;
 }
 
 export type PushNavStack = (nav: ExplorerNav) => void;
