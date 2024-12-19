@@ -495,7 +495,6 @@
               :data
               :datalog-result
               :page-info)]
-
       (testing "after"
         (is-pretty-eq? (query-pretty {:users {:$ {:limit 1
                                                   :after end-cursor
@@ -4030,17 +4029,32 @@
 
             ;; Create conversations, messages
             convo-id-aid (random-uuid)
+            group-id-aid (random-uuid)
+            convo-group-aid (random-uuid)
             msg-id-aid (random-uuid)
             msg-time-aid (random-uuid)
             msg-convos-id (random-uuid)
             _ (tx/transact! (aurora/conn-pool)
                             (attr-model/get-by-app-id app-id)
                             app-id
-                            [[:add-attr {:id convo-id-aid
+                            [[:add-attr {:id group-id-aid
+                                         :forward-identity [(random-uuid) "groups" "id"]
+                                         :unique? true
+                                         :index? true
+                                         :value-type :blob
+                                         :cardinality :one}]
+                             [:add-attr {:id convo-id-aid
                                          :forward-identity [(random-uuid) "conversations" "id"]
                                          :unique? true
                                          :index? true
                                          :value-type :blob
+                                         :cardinality :one}]
+                             [:add-attr {:id convo-group-aid
+                                         :forward-identity [(random-uuid) "conversations" "groups"]
+                                         :reverse-identity [(random-uuid) "groups" "conversations"]
+                                         :unique? false
+                                         :index? false
+                                         :value-type :ref
                                          :cardinality :one}]
                              [:add-attr {:id msg-id-aid
                                          :forward-identity [(random-uuid) "messages" "id"]
@@ -4063,10 +4077,10 @@
                                          :value-type :ref
                                          :cardinality :one}]])
 
-            ;; add 3 conversations, with 5 messages each
-
-            add-conversation (fn [c-id]
-                               [[:add-triple c-id convo-id-aid (str c-id)]])
+            ;; add 1 group, 3 conversations, with 5 messages each
+            add-conversation (fn [g-id c-id]
+                               [[:add-triple c-id convo-id-aid (str c-id)]
+                                [:add-triple c-id convo-group-aid (str g-id)]])
 
             add-message (fn [convo-id m-id t]
                           [[:add-triple m-id msg-id-aid m-id]
@@ -4083,9 +4097,10 @@
                                                               :msg-idx i})
                                                            (repeatedly 20 random-uuid))})))
 
+            group-id (random-uuid)
             steps-of-steps (map
                             (fn [{:keys [convo-id convo-idx messages]}]
-                              (concat (add-conversation convo-id)
+                              (concat (add-conversation group-id convo-id)
                                       (mapcat (fn [{:keys [msg-id msg-idx]}]
                                                 (add-message convo-id msg-id (+ convo-idx msg-idx)))
                                               messages)))
@@ -4099,6 +4114,7 @@
                                steps))
 
                steps-of-steps)
+
             ctx (make-ctx)]
         (is (= 3
                (-> (instaql-nodes->object-tree
@@ -4114,6 +4130,16 @@
                     (iq/query ctx
                               {:conversations {:$ {:limit 2
                                                    :where {:messages.time {:$gte 0}}}}}))
+                   (get "conversations")
+                   count)))
+
+        (is (= 2
+               (-> (instaql-nodes->object-tree
+                    ctx
+                    (iq/query ctx
+                              {:conversations {:$ {:limit 2
+                                                   :where {:groups group-id
+                                                           :messages.time {:$gte 0}}}}}))
                    (get "conversations")
                    count)))))))
 
