@@ -1135,7 +1135,9 @@
                                     false
                                     page-pattern)
         prev-table (kw prefix (dec next-idx))
-        entity-id-col (kw prev-table :-entity-id)
+        entity-id-col (if (= order-col-type :created-at-timestamp)
+                        (kw table :-entity-id)
+                        (kw prev-table :-entity-id))
         sym-component-type (component-type-of-sym named-pattern order-sym)
         sym-triple-idx (get (set/map-invert idx->component-type)
                             sym-component-type)
@@ -1172,7 +1174,7 @@
                    (if (= order-by-direction :desc)
                      (kw order-by-direction :-nulls-last)
                      (kw order-by-direction :-nulls-first))
-                   order-by-direction ]
+                   order-by-direction]
                   [entity-id-col
                    order-by-direction]]
 
@@ -1234,7 +1236,7 @@
                                                     :cursor [:cursor-row.e
                                                              :cursor-row.sym]
                                                     :cursor-type :after
-                                                    :entity-id-col entity-id-col}))
+                                                    :entity-id-col :entity-id}))
         has-previous-query (-> query
                                (assoc :order-by order-by)
                                (assoc :limit 1)
@@ -1253,9 +1255,11 @@
                                                         :cursor [:cursor-row.e
                                                                  :cursor-row.sym]
                                                         :cursor-type :before
-                                                        :entity-id-col entity-id-col}))
+                                                        :entity-id-col :entity-id}))
 
         last-table-name (kw prefix next-idx)]
+
+    (tool/def-locals)
     {:next-idx (inc next-idx)
      :query {:with (conj (:with (:query match-query))
                          [table paged-query]
@@ -1310,7 +1314,6 @@
                                                    app-id
                                                    additional-joins
                                                    page-info))
-
 
                         ctes (:with query)
 
@@ -1839,7 +1842,6 @@
           query-hash (or (:query-hash ctx)
                          (hash (first (hsql/format query))))
           _ (tracer/add-data! {:attributes {:query-hash query-hash}})
-
           query (when query
                   (update query
                           :with conj
