@@ -1136,7 +1136,7 @@
                                     page-pattern)
         prev-table (kw prefix (dec next-idx))
         entity-id-col (if (= order-col-type :created-at-timestamp)
-                        (kw table :-entity-id)
+                        (kw :entity-id)
                         (kw prev-table :-entity-id))
         sym-component-type (component-type-of-sym named-pattern order-sym)
         sym-triple-idx (get (set/map-invert idx->component-type)
