@@ -1107,6 +1107,13 @@
 (defn has-prev-tbl [table]
   (kw table :-has-prev))
 
+(defn joins-on-value? [prev-table [_ & conds]]
+  (let [conds-set (set conds)
+        prev-value-uuid (kw prev-table :-value-uuid)]
+    (or
+     (contains? conds-set [:= :entity-id prev-value-uuid])
+     (contains? conds-set [:= prev-value-uuid :entity-id]))))
+
 (defn add-page-info
   "Updates the cte with pagination constraints."
   [{:keys [next-idx
@@ -1135,7 +1142,10 @@
                                     false
                                     page-pattern)
         prev-table (kw prefix (dec next-idx))
-        entity-id-col (kw prev-table :-entity-id)
+        entity-id-col-name (if (joins-on-value? prev-table (:where query))
+                             :-value-uuid
+                             :-entity-id)
+        entity-id-col (kw prev-table entity-id-col-name)
         sym-component-type (component-type-of-sym named-pattern order-sym)
         sym-triple-idx (get (set/map-invert idx->component-type)
                             sym-component-type)
@@ -1172,7 +1182,7 @@
                    (if (= order-by-direction :desc)
                      (kw order-by-direction :-nulls-last)
                      (kw order-by-direction :-nulls-first))
-                   order-by-direction ]
+                   order-by-direction]
                   [entity-id-col
                    order-by-direction]]
 
@@ -1310,7 +1320,6 @@
                                                    app-id
                                                    additional-joins
                                                    page-info))
-
 
                         ctes (:with query)
 
@@ -1839,7 +1848,6 @@
           query-hash (or (:query-hash ctx)
                          (hash (first (hsql/format query))))
           _ (tracer/add-data! {:attributes {:query-hash query-hash}})
-
           query (when query
                   (update query
                           :with conj
