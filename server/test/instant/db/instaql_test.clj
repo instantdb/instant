@@ -4056,7 +4056,7 @@
                                          :value-type :blob
                                          :cardinality :one}]
                              [:add-attr {:id msg-convos-id
-                                         :forward-identity [(random-uuid) "messages" "conversations"]
+                                         :forward-identity [(random-uuid) "messages" "conversation"]
                                          :reverse-identity [(random-uuid) "conversations" "messages"]
                                          :unique? false
                                          :index? false
@@ -4113,7 +4113,6 @@
                     ctx
                     (iq/query ctx
                               {:conversations {:$ {:limit 2
-                                                   :order {:serverCreatedAt :desc}
                                                    :where {:messages.time {:$gte 0}}}}}))
                    (get "conversations")
                    count)))))))
