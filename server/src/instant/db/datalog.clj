@@ -1188,14 +1188,14 @@
                                                      :order-col-type order-col-type
                                                      :cursor after
                                                      :cursor-type :after
-                                                     :entity-id-col entity-id-col})
+                                                     :entity-id-col :entity-id})
                       before (add-cursor-comparisons {:direction direction
                                                       :sym-triple-idx sym-triple-idx
                                                       :order-col-name order-col-name
                                                       :order-col-type order-col-type
                                                       :cursor before
                                                       :cursor-type :before
-                                                      :entity-id-col entity-id-col}))
+                                                      :entity-id-col :entity-id}))
 
         first-row-table (kw table :-first)
         last-row-table (kw table :-last)
