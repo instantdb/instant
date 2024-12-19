@@ -211,7 +211,7 @@ const originalRules = {
     },
   },
   teams: {
-    bind: ["isOwner", "auth.id == data.user_id"],
+    bind: ["isOwner", "auth.id != null && auth.id == data.user_id"],
     allow: {
       view: "auth.id != null",
       create: "isOwner",
@@ -222,7 +222,7 @@ const originalRules = {
   users: {
     bind: [
       "isOwner",
-      "auth.id == data.id",
+      "auth.id != null && auth.id == data.id",
       "isPartOfUniverse",
       "auth.id in data.ref('universes.users.id')",
     ],
