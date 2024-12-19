@@ -233,7 +233,7 @@ postAuthor: {
 
 This links `posts` and `profiles` together:
 
-- `posts.owner` links to _one_ `profiles` entity
+- `posts.author` links to _one_ `profiles` entity
 - `profiles.authoredPosts` links back to _many_ `posts` entities.
 
 Since links are defined in both directions, you can query in both directions too:
