@@ -1301,6 +1301,12 @@ async function promptOk(message, defaultAnswer = false) {
   return await toggle({
     message,
     default: defaultAnswer,
+    theme: {
+      style: {
+        highlight: (x) => chalk.underline.blue(x),
+        answer: (x) => chalk.underline.blue(x),
+      }
+    }
   }).catch(() => false);
 }
 
