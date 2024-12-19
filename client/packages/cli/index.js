@@ -23,6 +23,7 @@ import {
 } from "./src/util/packageManager.js";
 import { pathExists, readJsonFile } from "./src/util/fs.js";
 import prettier from "prettier";
+import toggle from "./src/toggle.js";
 
 const execAsync = promisify(exec);
 
@@ -460,7 +461,10 @@ async function handleEnvFile(pkgAndAuthInfo, appId) {
   console.log(
     `If we set ${chalk.green("`" + envName + "`")}, we can remember the app that you chose for all future commands.`,
   );
-  const ok = await promptOk("Want us to create this env file for you?");
+  const ok = await promptOk(
+    "Want us to create this env file for you?",
+    /*defaultAnswer=*/ true,
+  );
   if (!ok) {
     console.log(
       `No .env file created. You can always set ${chalk.green("`" + envName + "`")} later. \n`,
@@ -517,6 +521,7 @@ async function login(options) {
 
   const ok = await promptOk(
     `This will open instantdb.com in your browser, OK to proceed?`,
+    /*defaultAnswer=*/ true,
   );
 
   if (!ok) return;
@@ -632,6 +637,7 @@ async function promptImportAppOrCreateApp() {
   if (!apps.length) {
     const ok = await promptOk(
       "You don't have any apps. Want to create a new one?",
+      /*defaultAnswer=*/ true,
     );
     if (!ok) return { ok: false };
     return await promptCreateApp();
@@ -1288,14 +1294,19 @@ function prettyPrintJSONErr(data) {
   }
 }
 
-async function promptOk(message) {
+async function promptOk(message, defaultAnswer = false) {
   const options = program.opts();
 
   if (options.yes) return true;
-
-  return await confirm({
+  return await toggle({
     message,
-    default: false,
+    default: defaultAnswer,
+    theme: {
+      style: {
+        highlight: (x) => chalk.underline.blue(x),
+        answer: (x) => chalk.underline.blue(x),
+      }
+    }
   }).catch(() => false);
 }
 
