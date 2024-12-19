@@ -1571,7 +1571,7 @@ function generatePermsTypescriptFile(perms, instantModuleName) {
    *     update: "isOwner",
    *     delete: "isOwner",
    *   },
-   *   bind: ["isOwner", "data.creator == auth.uid"],
+   *   bind: ["isOwner", "auth.id != null && auth.id == data.ownerId"],
    * },
    */
 }
