@@ -1107,6 +1107,13 @@
 (defn has-prev-tbl [table]
   (kw table :-has-prev))
 
+(defn joins-on-value? [prev-table [_ & conds]]
+  (let [conds-set (set conds)
+        prev-value-uuid (kw prev-table :-value-uuid)]
+    (or
+     (contains? conds-set [:= :entity-id prev-value-uuid])
+     (contains? conds-set [:= prev-value-uuid :entity-id]))))
+
 (defn add-page-info
   "Updates the cte with pagination constraints."
   [{:keys [next-idx
@@ -1135,9 +1142,10 @@
                                     false
                                     page-pattern)
         prev-table (kw prefix (dec next-idx))
-        entity-id-col (if (= order-col-type :created-at-timestamp)
-                        (kw :entity-id)
-                        (kw prev-table :-entity-id))
+        entity-id-col-name (if (joins-on-value? prev-table (:where query))
+                             :-value-uuid
+                             :-entity-id)
+        entity-id-col (kw prev-table entity-id-col-name)
         sym-component-type (component-type-of-sym named-pattern order-sym)
         sym-triple-idx (get (set/map-invert idx->component-type)
                             sym-component-type)
@@ -1188,14 +1196,14 @@
                                                      :order-col-type order-col-type
                                                      :cursor after
                                                      :cursor-type :after
-                                                     :entity-id-col :entity-id})
+                                                     :entity-id-col entity-id-col})
                       before (add-cursor-comparisons {:direction direction
                                                       :sym-triple-idx sym-triple-idx
                                                       :order-col-name order-col-name
                                                       :order-col-type order-col-type
                                                       :cursor before
                                                       :cursor-type :before
-                                                      :entity-id-col :entity-id}))
+                                                      :entity-id-col entity-id-col}))
 
         first-row-table (kw table :-first)
         last-row-table (kw table :-last)
@@ -1236,7 +1244,7 @@
                                                     :cursor [:cursor-row.e
                                                              :cursor-row.sym]
                                                     :cursor-type :after
-                                                    :entity-id-col :entity-id}))
+                                                    :entity-id-col entity-id-col}))
         has-previous-query (-> query
                                (assoc :order-by order-by)
                                (assoc :limit 1)
@@ -1255,11 +1263,9 @@
                                                         :cursor [:cursor-row.e
                                                                  :cursor-row.sym]
                                                         :cursor-type :before
-                                                        :entity-id-col :entity-id}))
+                                                        :entity-id-col entity-id-col}))
 
         last-table-name (kw prefix next-idx)]
-
-    (tool/def-locals)
     {:next-idx (inc next-idx)
      :query {:with (conj (:with (:query match-query))
                          [table paged-query]
