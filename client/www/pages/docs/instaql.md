@@ -1117,6 +1117,16 @@ type Todo = InstaQLEntity<
 >;
 ```
 
+You can specify links relative to your entity too:
+
+```typescript 
+type TodoWithGoals = InstaQLEntity<
+  AppSchema, 
+  'todos', 
+  { goals: { } }
+>;
+```
+
 To learn more about writing schemas, check out the [Modeling Data](/docs/modeling-data) section.
 
 ## Query once
