@@ -70,6 +70,7 @@ As a convenience, apart from `INSTANT_APP_ID`, we also check for:
 - `NEXT_PUBLIC_INSTANT_APP_ID` for next apps,
 - `PUBLIC_INSTANT_APP_ID` for svelte apps,
 - `VITE_INSTANT_APP_ID` for vite apps
+- `NUXT_PUBLIC_INSTANT_APP_ID` for nuxt apps
 - `EXPO_PUBLIC_INSTANT_APP_ID` for expo apps
 
 ## Authenticating in CI

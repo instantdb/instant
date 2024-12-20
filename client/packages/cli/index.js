@@ -51,6 +51,7 @@ const potentialEnvs = {
   svelte: "PUBLIC_INSTANT_APP_ID",
   vite: "VITE_INSTANT_APP_ID",
   expo: "EXPO_PUBLIC_INSTANT_APP_ID",
+  nuxt: "NUXT_PUBLIC_INSTANT_APP_ID",
 };
 
 async function detectEnvType({ pkgDir }) {
@@ -69,6 +70,9 @@ async function detectEnvType({ pkgDir }) {
   }
   if (packageJSON.dependencies?.expo) {
     return "expo";
+  }
+  if (packageJSON.dependencies?.nuxt) {
+    return "nuxt";
   }
   return "catchall";
 }
