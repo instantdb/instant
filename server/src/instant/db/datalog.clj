@@ -1107,13 +1107,6 @@
 (defn has-prev-tbl [table]
   (kw table :-has-prev))
 
-(defn joins-on-value? [prev-table [_ & conds]]
-  (let [conds-set (set conds)
-        prev-value-uuid (kw prev-table :-value-uuid)]
-    (or
-     (contains? conds-set [:= :entity-id prev-value-uuid])
-     (contains? conds-set [:= prev-value-uuid :entity-id]))))
-
 (defn add-page-info
   "Updates the cte with pagination constraints."
   [{:keys [next-idx
@@ -1142,10 +1135,14 @@
                                     false
                                     page-pattern)
         prev-table (kw prefix (dec next-idx))
-        entity-id-col-name (if (joins-on-value? prev-table (:where query))
-                             :-value-uuid
-                             :-entity-id)
-        entity-id-col (kw prev-table entity-id-col-name)
+
+        entity-id-col (if (= :created-at-timestamp order-col-type)
+                        :entity-id
+                        (kw prev-table :-entity-id))
+
+        entity-id-col-full-name (if (= :created-at-timestamp order-col-type)
+                                  (kw table :-entity-id)
+                                  (kw prev-table :-entity-id))
         sym-component-type (component-type-of-sym named-pattern order-sym)
         sym-triple-idx (get (set/map-invert idx->component-type)
                             sym-component-type)
@@ -1208,14 +1205,14 @@
         first-row-table (kw table :-first)
         last-row-table (kw table :-last)
         first-row-cte [first-row-table
-                       {:select [[entity-id-col :e]
+                       {:select [[entity-id-col-full-name :e]
                                  [(kw table :- (if (= :value order-col-name)
                                                  :value-blob
                                                  order-col-name)) :sym]]
                         :from table
                         :limit 1}]
         last-row-cte [last-row-table
-                      {:select [[entity-id-col :e]
+                      {:select [[entity-id-col-full-name :e]
                                 [(kw table :- (if (= :value order-col-name)
                                                 :value-blob
                                                 order-col-name)) :sym]]
