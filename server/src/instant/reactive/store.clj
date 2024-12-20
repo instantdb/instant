@@ -360,6 +360,19 @@
 
     (:datalog-query/delayed-call (d/entity db-after lookup-ref))))
 
+(defn remove-datalog-cache-delay! [conn app-id datalog-query]
+  (let [lookup-ref [:datalog-query/app-id+query [app-id datalog-query]]
+        {:keys [db-after]}
+        (transact! "store/remove-datalog-cache-delay!"
+                   conn
+                   [[:db.fn/call (fn [db]
+                                   (if-let [existing (d/entity db lookup-ref)]
+                                     (when (:datalog-query/delayed-call existing)
+                                       [[:db/retract
+                                         (:db/id existing)
+                                         :datalog-query/delayed-call]])))]])]
+    (:datalog-query/delayed-call (d/entity db-after lookup-ref))))
+
 ;; --------------
 ;; datalog loader
 

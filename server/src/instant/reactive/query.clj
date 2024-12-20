@@ -18,15 +18,26 @@
 (defn- datalog-query-cached!
   "Returns the result of a datalog query. Leverages atom and
   delay to ensure queries are only run once in the face of concurrent requests."
-  [store-conn {:keys [app-id] :as ctx} datalog-query]
-  (let [delayed-call (delay (d/query ctx datalog-query))
-        delayed (rs/swap-datalog-cache-delay! store-conn app-id datalog-query delayed-call)]
-    @delayed))
+  ([store-conn ctx datalog-query]
+   (datalog-query-cached! store-conn ctx datalog-query 0))
+  ([store-conn {:keys [app-id] :as ctx} datalog-query retry-count]
+   (let [delayed-call (delay
+                        (d/query ctx datalog-query))
+         delayed (rs/swap-datalog-cache-delay! store-conn app-id datalog-query delayed-call)]
+     (try
+       @delayed
+       (catch Exception e
+         (rs/remove-datalog-cache-delay! store-conn app-id datalog-query)
+         (if (> retry-count 1)
+           (throw e)
+           (datalog-query-cached! store-conn ctx datalog-query
+                                  (inc retry-count))))))))
 
 (comment
   (def ctx {:db {:conn-pool (aurora/conn-pool)}
             :app-id zeneca-app-id})
   (def instaql-query '[[:ea ?e ?a "joe"]])
+  (rs/remove-datalog-cache-delay! rs/store-conn zeneca-app-id instaql-query)
   (time
    (datalog-query-cached! rs/store-conn ctx instaql-query)))
 
