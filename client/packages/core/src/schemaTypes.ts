@@ -305,21 +305,21 @@ export class InstantSchemaDef<
 
   /**
    * @deprecated
-   * `withRoomSchema` is deprecated. Define your schema in `rooms` directly: 
-   * 
-   * @example 
-   * // Before: 
-   * const schema = i.schema({ 
+   * `withRoomSchema` is deprecated. Define your schema in `rooms` directly:
+   *
+   * @example
+   * // Before:
+   * const schema = i.schema({
    *   // ...
    * }).withRoomSchema<RoomSchema>()
-   * 
+   *
    * // After
    * const schema = i.schema({
    *  rooms: {
    *    // ...
    *  }
    * })
-   * 
+   *
    * @see https://instantdb.com/docs/presence-and-topics#typesafety
    */
   withRoomSchema<_RoomSchema extends RoomSchemaShape>() {
@@ -335,7 +335,7 @@ export class InstantSchemaDef<
 /**
  * @deprecated
  * `i.graph` is deprecated. Use `i.schema` instead.
- * 
+ *
  * @see https://instantdb.com/docs/modeling-data
  */
 export class InstantGraph<
@@ -457,3 +457,12 @@ export type InstantUnknownSchema = InstantSchemaDef<
   UnknownLinks<UnknownEntities>,
   UnknownRooms
 >;
+
+export type UpdateParams<
+  Schema extends IContainEntitiesAndLinks<any, any>,
+  EntityName extends keyof Schema["entities"],
+> = {
+  [AttrName in keyof Schema["entities"][EntityName]["attrs"]]?: ExtractValueType<
+    Schema["entities"][EntityName]["attrs"][AttrName]
+  >;
+};
