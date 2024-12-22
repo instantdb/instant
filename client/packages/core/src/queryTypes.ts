@@ -10,11 +10,15 @@ import type {
   ResolveEntityAttrs,
 } from "./schemaTypes";
 
-type Expand<T> = T extends object
-  ? T extends infer O
-    ? { [K in keyof O]: Expand<O[K]> }
-    : never
-  : T;
+type BuiltIn = Date | Function | Error | RegExp;
+
+type Expand<T> = T extends BuiltIn
+  ? T
+  : T extends object
+    ? T extends infer O
+      ? { [K in keyof O]: Expand<O[K]> }
+      : never
+    : T;
 
 // NonEmpty disallows {}, so that you must provide at least one field
 type NonEmpty<T> = {
