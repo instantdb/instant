@@ -28,7 +28,9 @@ import toggle from "./src/toggle.js";
 const execAsync = promisify(exec);
 
 // config
-dotenv.config();
+dotenv.config({
+  path: [".env.local", ".env"],
+});
 
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
@@ -1309,8 +1311,8 @@ async function promptOk(message, defaultAnswer = false) {
       style: {
         highlight: (x) => chalk.underline.blue(x),
         answer: (x) => chalk.underline.blue(x),
-      }
-    }
+      },
+    },
   }).catch(() => false);
 }
 
