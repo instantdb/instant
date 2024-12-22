@@ -1,4 +1,4 @@
-import { i, id, init, InstaQLEntity } from "@instantdb/admin";
+import { i, id, init, InstaQLEntity, UpdateParams } from "@instantdb/admin";
 
 const _schema = i.schema({ entities: { users: i.entity({ email: i.string() }) } });
 type _AppSchema = typeof _schema; 
@@ -13,11 +13,11 @@ const db = init({
 
 type Collection = keyof typeof schema.entities;
 
-type Entity<T extends Collection> = InstaQLEntity<typeof schema, T, {}>;
+type EntityUpdate<T extends Collection> = UpdateParams<typeof schema, T>;
 
 export const newEntity = async <T extends Collection>(
   type: T,
-  props: Omit<Entity<T>, "id">,
+  props: EntityUpdate<T>,
 ) => {
   const theId = id();
   await db.transact(db.tx[type][theId].update(props));
@@ -25,10 +25,15 @@ export const newEntity = async <T extends Collection>(
 };
 
 // seems good
-const alice = await newEntity("users", { email: "alice@gmail.com" });
+const existing_attr_works = await newEntity("users", { email: "alice@gmail.com" });
 
-// Should be a typing error but is not
-const bob = await newEntity("users", { blabla: "bob@gmail.com" });
+// @ts-expect-error
+const non_existing_attr_errors = await newEntity("users", { blabla: "bob@gmail.com" });
 
-// Should be a typing error but is not
-const eve = await newEntity("users", { email: 123 });
+// @ts-expect-error
+const wrong_type_errors = await newEntity("users", { email: 123 });
+
+// to silence ts warnings
+existing_attr_works;
+non_existing_attr_errors;
+wrong_type_errors;

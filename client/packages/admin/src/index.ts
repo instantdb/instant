@@ -45,6 +45,8 @@ import {
   type InstaQLEntity,
   type InstaQLResult,
   type InstantRules,
+  type UpdateParams,
+  type LinkParams,
 } from "@instantdb/core";
 
 import version from "./version";
@@ -951,4 +953,6 @@ export {
   type InstaQLEntity,
   type InstaQLResult,
   type InstantRules,
+  type UpdateParams,
+  type LinkParams,
 };

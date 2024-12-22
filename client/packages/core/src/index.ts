@@ -62,6 +62,8 @@ import type {
   ValueTypes,
   InstantUnknownSchema,
   BackwardsCompatibleSchema,
+  UpdateParams,
+  LinkParams,
 } from "./schemaTypes";
 
 const defaultOpenDevtool = true;
@@ -730,4 +732,6 @@ export {
   type IInstantDatabase,
   type BackwardsCompatibleSchema,
   type InstantRules,
+  type UpdateParams,
+  type LinkParams,
 };

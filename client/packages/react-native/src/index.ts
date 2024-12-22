@@ -51,6 +51,8 @@ import {
   type InstantSchemaDef,
   type InstantUnknownSchema,
   type InstantRules,
+  type UpdateParams,
+  type LinkParams,
 } from "@instantdb/core";
 
 /**
@@ -147,4 +149,6 @@ export {
   type InstantUnknownSchema,
   type BackwardsCompatibleSchema,
   type InstantRules,
+  type UpdateParams,
+  type LinkParams,
 };

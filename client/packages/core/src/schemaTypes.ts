@@ -466,3 +466,17 @@ export type UpdateParams<
     Schema["entities"][EntityName]["attrs"][AttrName]
   >;
 };
+
+export type LinkParams<
+  Schema extends IContainEntitiesAndLinks<any, any>,
+  EntityName extends keyof Schema["entities"],
+> = {
+  [LinkName in keyof Schema["entities"][EntityName]["links"]]?: Schema["entities"][EntityName]["links"][LinkName] extends LinkAttrDef<
+    infer Cardinality,
+    any
+  >
+    ? Cardinality extends "one"
+      ? string
+      : string | string[]
+    : never;
+};
