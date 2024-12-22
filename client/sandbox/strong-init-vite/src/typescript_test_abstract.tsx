@@ -1,4 +1,4 @@
-import { i, id, init, InstaQLEntity, UpdateParams } from "@instantdb/admin";
+import { i, id, init, UpdateParams } from "@instantdb/admin";
 
 const _schema = i.schema({ entities: { users: i.entity({ email: i.string() }) } });
 type _AppSchema = typeof _schema; 
