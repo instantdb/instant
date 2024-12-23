@@ -11,7 +11,7 @@ const db = init({
   schema,
 });
 
-type Collection = keyof typeof schema.entities;
+type Collection = keyof AppSchema['entities'];
 
 type EntityUpdate<T extends Collection> = UpdateParams<typeof schema, T>;
 
