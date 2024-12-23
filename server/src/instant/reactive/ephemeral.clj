@@ -48,6 +48,8 @@
 (declare handle-broadcast-message)
 
 (defn init-hz [store-conn]
+  (-> (java.util.logging.Logger/getLogger "com.hazelcast.system.logo")
+    (.setLevel java.util.logging.Level/WARNING))
   (System/setProperty "hazelcast.shutdownhook.enabled" "false")
   (let [config (Config.)
         network-config (.getNetworkConfig config)
