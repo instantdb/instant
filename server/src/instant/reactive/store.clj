@@ -414,6 +414,7 @@
                                       {:ok false
                                        :result t}))
                            (finally
+                             ;; noop if we already delivered
                              (deliver result-promise
                                       {:ok false
                                        :result
@@ -421,36 +422,35 @@
                              (deliver (:cancel-signal @result-delay)
                                       false)))))
             _cancel-fut (binding [ua/*child-vfutures* nil]
-                         (ua/vfuture
-                           (when @(:cancel-signal @result-delay)
-                             (sql/cancel-in-progress stmt-tracker)
-                             (future-cancel work-fut))))]))
+                          (ua/vfuture
+                            (when @(:cancel-signal @result-delay)
+                              (sql/cancel-in-progress stmt-tracker)
+                              (future-cancel work-fut))))]))
     (try
-      (if-not (realized? (:promise @result-delay))
-        (let [wait-fut
-              ;; This future will get canceled if its parents get canceled
-              (ua/vfuture
-                (try (unwrap-result)
-                     (catch Throwable t
-                       (when (and (not (realized? (:promise @result-delay)))
-                                  (or (instance? InterruptedException t)
-                                      (instance? CancellationException t)))
-                         (let [{:keys [aborted?]}
-                               (swap! result-delay
-                                      (fn [{:keys [watchers] :as state}]
-                                        (println watcher-id "STATE" state)
-                                        (let [new-watchers (disj watchers watcher-id)]
-                                          (cond-> state
-                                            true (assoc :watchers new-watchers)
-                                            (empty? new-watchers) (assoc :aborted? true)))))]
-
-                           (when aborted?
-                             (cancel!))))
-                       (throw t))))]
-          @wait-fut)
-
+      (if (realized? (:promise @result-delay))
         ;; The work is already done, so we don't need to listen for cancellation
-        (unwrap-result))
+        (unwrap-result)
+        ;; Start a tracked future to watch for cancelation
+        (let [wait-fut
+              (ua/vfuture
+                (try
+                  (unwrap-result)
+                  (catch Throwable t
+                    (when (and (not (realized? (:promise @result-delay)))
+                               (or (instance? InterruptedException t)
+                                   (instance? CancellationException t)))
+                      (let [{:keys [aborted?]}
+                            (swap! result-delay
+                                   (fn [{:keys [watchers] :as state}]
+                                     (let [new-watchers (disj watchers watcher-id)]
+                                       (cond-> state
+                                         true (assoc :watchers new-watchers)
+                                         (empty? new-watchers) (assoc :aborted? true)))))]
+
+                        (when aborted?
+                          (cancel!))))
+                    (throw t))))]
+          @wait-fut))
       (finally
         (swap! result-delay update :watchers disj watcher-id)))))
 
