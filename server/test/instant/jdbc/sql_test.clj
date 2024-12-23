@@ -20,7 +20,7 @@
                   1000)
         (is (= 1 (count @(:stmts in-progress))))
         (is (not (future-done? query)))
-        (sql/cancel-in-progress @(:stmts in-progress))
+        (sql/cancel-in-progress in-progress)
         (wait-for (fn []
                     (future-done? query))
                   1000)

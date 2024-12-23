@@ -19,9 +19,7 @@
   "Returns the result of a datalog query. Leverages atom and
   delay to ensure queries are only run once in the face of concurrent requests."
   [store-conn {:keys [app-id] :as ctx} datalog-query]
-  (let [delayed-call (delay (d/query ctx datalog-query))
-        delayed (rs/swap-datalog-cache-delay! store-conn app-id datalog-query delayed-call)]
-    @delayed))
+  (rs/swap-datalog-cache! store-conn app-id d/query ctx datalog-query))
 
 (comment
   (def ctx {:db {:conn-pool (aurora/conn-pool)}
