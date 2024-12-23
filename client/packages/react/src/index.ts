@@ -40,6 +40,8 @@ import {
   type InstantSchemaDef,
   type BackwardsCompatibleSchema,
   type InstantRules,
+  type UpdateParams,
+  type LinkParams,
 } from "@instantdb/core";
 
 import InstantReactAbstractDatabase from "./InstantReactAbstractDatabase";
@@ -95,4 +97,6 @@ export {
   type InstantSchemaDef,
   type BackwardsCompatibleSchema,
   type InstantRules,
+  type UpdateParams,
+  type LinkParams,
 };
