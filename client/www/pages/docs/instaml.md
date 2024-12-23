@@ -285,11 +285,51 @@ const _schema = i.schema({
   },
   // ...
 });
+// ...
 ```
 
-Instant will enforce that `todos.dueDate` are actually dates, and you'll get intellisense to boot: 
+Instant will enforce that `todos.dueDate` are actually dates, and you'll get some nice intellisense to boot:
 
 {% screenshot src="/img/docs/instaml-due-date.png" /%}
+
+Instant also comes with a few utility types, which can help you write abstractions over `transact`. For example, say you wanted to write a custom `update` function:
+
+```typescript
+// Goal
+myCustomUpdate('todos', { dueDate: Date.now() } );
+```
+
+You can use the `UpdateParams` utility to make sure arguments follow the schema: 
+
+```typescript
+import { UpdateParams } from '@instantdb/react';
+import { AppSchema } from '../instant.schema.ts';
+
+type EntityTypes = keyof AppSchema['entities'];
+
+function myCustomUpdate<EType extends EntityTypes>(
+  etype: EType,
+  args: UpdateParams<AppSchema, EType>,
+) {
+  // ..
+}
+```
+
+And the `LinkParams` utility do the same for links: 
+
+```typescript
+import { UpdateParams } from '@instantdb/react';
+import { AppSchema } from '../instant.schema.ts';
+
+type EntityTypes = keyof AppSchema['entities'];
+
+function myCustomLink<EType extends EntityTypes>(
+  etype: EType,
+  args: LinkParams<AppSchema, EType>,
+) {
+  // ..
+}
+```
 
 To learn more about writing schemas, check out the [Modeling Data](/docs/modeling-data) section.
 
