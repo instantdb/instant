@@ -2,6 +2,7 @@
   (:gen-class)
   (:require
    [tool]
+   [clojure.java.io :as io]
    [clojure.tools.logging :as log]
    [compojure.core :refer [defroutes GET POST routes]]
    [instant.admin.routes :as admin-routes]
@@ -106,10 +107,15 @@
   (tracer/record-info! {:name "server/start" :attributes {:port (config/get-server-port)}})
   (def server ^Undertow (undertow-adapter/run-undertow
                          (handler)
-                         {:host "0.0.0.0"
-                          :port (config/get-server-port)
-                          :configurator (fn [^Undertow$Builder builder]
-                                          (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}))
+                         (merge
+                          {:host "0.0.0.0"
+                           :port (config/get-server-port)
+                           :configurator (fn [^Undertow$Builder builder]
+                                           (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}
+                          (when (.exists (io/file "dev-resources/certs/dev.jks"))
+                            {:ssl-port 8889
+                             :keystore "dev-resources/certs/dev.jks"
+                             :key-password "changeit"}))))
   (def stop-gauge (gauges/add-gauge-metrics-fn
                    (fn [_]
                      (let [^Undertow server server
