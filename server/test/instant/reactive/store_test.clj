@@ -72,7 +72,7 @@
                                                    q))]
         @started
         (future-cancel f1)
-        (is (instance? java.lang.InterruptedException @err))))
+        (is (instance? java.lang.InterruptedException (deref err 100 :timeout)))))
 
     (dotimes [x 100]
       (testing "work isn't canceled if there are still listeners"
@@ -98,12 +98,11 @@
                                                      nil
                                                      q))]
           (future-cancel f1)
-          (is (or (instance? java.lang.InterruptedException @err)
-                  (instance? java.util.concurrent.CancellationException @err)))
+          (is (or (instance? java.lang.InterruptedException (deref err 100 :timeout))
+                  (instance? java.util.concurrent.CancellationException (deref err 100 :timeout))))
           (Thread/sleep 10)
           (deliver wait :a)
-          (is (= @f2 :a))
-          @wait)))
+          (is (= (deref f2 100 :timeout) :a)))))
 
     (testing "propagates failures"
       (let [q [[:ea (random-uuid)]]
