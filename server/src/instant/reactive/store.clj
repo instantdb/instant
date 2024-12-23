@@ -17,10 +17,16 @@
   (:require
    [clojure.string :as string]
    [datascript.core :as d]
-   [instant.util.coll :as ucoll]
+   [instant.jdbc.sql :as sql]
    [instant.lib.ring.websocket :as ws]
+   [instant.util.async :as ua]
+   [instant.util.coll :as ucoll]
+   [instant.util.exception :as ex]
    [instant.util.tracer :as tracer]
-   [instant.util.exception :as ex]))
+   [medley.core :refer [dissoc-in]])
+  (:import
+   (java.lang InterruptedException)
+   (java.util.concurrent CancellationException)))
 
 (declare store-conn)
 
@@ -342,23 +348,112 @@
 ;; ------
 ;; datalog cache
 
-(defn swap-datalog-cache-delay! [conn app-id datalog-query delayed-call]
+(defn swap-datalog-cache! [conn app-id datalog-query-fn ctx datalog-query]
   (let [lookup-ref [:datalog-query/app-id+query [app-id datalog-query]]
-
+        watcher-id (Object.)
+        this-result-delay (atom { ;; Promise holds the result of the query
+                                 :promise (promise)
+                                 ;; Watchers keep track of who started listening
+                                 ;; while the query was running, so that we can
+                                 ;; safely cancel the query if all listeners cancel
+                                 :watchers #{watcher-id}
+                                 :cancel-signal (promise)
+                                 :aborted? false})
         {:keys [db-after]}
-        (transact! "store/swap-datalog-cache-delay!"
+        (transact! "store/swap-datalog-cache!"
                    conn
-                   [[:db.fn/call (fn [db]
-                                   (if-let [existing (d/entity db lookup-ref)]
-                                     (when-not (:datalog-query/delayed-call existing)
-                                       [[:db/add
-                                         (:db/id existing)
-                                         :datalog-query/delayed-call delayed-call]])
-                                     [{:datalog-query/app-id app-id
-                                       :datalog-query/query datalog-query
-                                       :datalog-query/delayed-call delayed-call}]))]])]
+                   [[:db.fn/call
+                     (fn [db]
+                       (if-let [existing (d/entity db lookup-ref)]
+                         (if (not (:datalog-query/delayed-call existing))
+                           [[:db/add
+                             (:db/id existing)
+                             :datalog-query/delayed-call this-result-delay]]
+                           (let [{:keys [watchers]}
+                                 (swap! (:datalog-query/delayed-call existing)
+                                        (fn [state]
+                                          (if (:aborted? state)
+                                            state
+                                            (update state :watchers conj watcher-id))))]
+                             (when-not (contains? watchers watcher-id)
+                               [[:db/add
+                                 (:db/id existing)
+                                 :datalog-query/delayed-call this-result-delay]])))
+                         [{:datalog-query/app-id app-id
+                           :datalog-query/query datalog-query
+                           :datalog-query/delayed-call this-result-delay}]))]])
+        result-delay (:datalog-query/delayed-call (d/entity db-after lookup-ref))
+        unwrap-result (fn []
+                        (let [res @(:promise @result-delay)]
+                          (assert (:result res) "Missing result")
+                          (if (:ok res)
+                            (:result res)
+                            (throw (:result res)))))
 
-    (:datalog-query/delayed-call (d/entity db-after lookup-ref))))
+        cancel! (fn []
+                  (tracer/with-span! {:name "store/datalog-query-cancel!"}
+                    (deliver (:cancel-signal @result-delay) true)))]
+
+    (tracer/add-data! {:attributes {:cache-hit (not= this-result-delay result-delay)
+                                    :realized (realized? (:promise @result-delay))}})
+
+    (when (= this-result-delay result-delay)
+      ;; We added it, so we must execute it
+      (let [stmt-tracker (sql/make-top-level-statement-tracker)
+            result-promise (:promise @result-delay)
+            work-fut (binding [ua/*child-vfutures* nil ;; Move future to a new "call-stack"
+                               ;; Don't let our statements get canceled
+                               sql/*in-progress-stmts* stmt-tracker]
+                       (ua/vfuture
+                         (try
+                           (deliver result-promise
+                                    {:ok true
+                                     :result (datalog-query-fn ctx
+                                                               datalog-query)})
+                           (catch Throwable t
+                             (deliver result-promise
+                                      {:ok false
+                                       :result t}))
+                           (finally
+                             (deliver result-promise
+                                      {:ok false
+                                       :result
+                                       (Exception. "Did not deliver promise!")})
+                             (deliver (:cancel-signal @result-delay)
+                                      false)))))
+            cancel-fut (binding [ua/*child-vfutures* nil]
+                         (ua/vfuture
+                           (when @(:cancel-signal @result-delay)
+                             (sql/cancel-in-progress stmt-tracker)
+                             (future-cancel work-fut))))]))
+    (try
+      (if-not (realized? (:promise @result-delay))
+        (let [wait-fut
+              ;; This future will get canceled if its parents get canceled
+              (ua/vfuture
+                (try (unwrap-result)
+                     (catch Throwable t
+                       (when (and (not (realized? (:promise @result-delay)))
+                                  (or (instance? InterruptedException t)
+                                      (instance? CancellationException t)))
+                         (let [{:keys [aborted?]}
+                               (swap! result-delay
+                                      (fn [{:keys [watchers] :as state}]
+                                        (println watcher-id "STATE" state)
+                                        (let [new-watchers (disj watchers watcher-id)]
+                                          (cond-> state
+                                            true (assoc :watchers new-watchers)
+                                            (empty? new-watchers) (assoc :aborted? true)))))]
+
+                           (when aborted?
+                             (cancel!))))
+                       (throw t))))]
+          @wait-fut)
+
+        ;; The work is already done, so we don't need to listen for cancellation
+        (unwrap-result))
+      (finally
+        (swap! result-delay update :watchers disj watcher-id)))))
 
 ;; --------------
 ;; datalog loader

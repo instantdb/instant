@@ -167,8 +167,22 @@
                (when remove (remove rw cancelable)))
      :stmts stmts}))
 
-(defn cancel-in-progress [stmts]
-  (doseq [stmt stmts]
+(defn make-top-level-statement-tracker
+  "Creates a statement tracker that ignores all intermediate trackers, except
+   for the top-level default tracker."
+  []
+  (let [{:keys [add remove]} default-statement-tracker
+        stmts (atom #{})]
+    {:add (fn [rw cancelable]
+            (swap! stmts conj cancelable)
+            (when add (add rw cancelable)))
+     :remove (fn [rw cancelable]
+               (swap! stmts disj cancelable)
+               (when remove (remove rw cancelable)))
+     :stmts stmts}))
+
+(defn cancel-in-progress [{:keys [stmts]}]
+  (doseq [stmt @stmts]
     (cancel stmt)))
 
 (defn register-in-progress

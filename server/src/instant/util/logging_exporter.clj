@@ -125,7 +125,7 @@
          "handle-refresh/send-event!"
          "store/record-datalog-query-finish!"
          "store/record-datalog-query-start!"
-         "store/swap-datalog-cache-delay!"
+         "store/swap-datalog-cache!"
          "store/bump-instaql-version!"
          "store/add-instaql-query!") true
 

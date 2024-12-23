@@ -41,7 +41,7 @@
     (Thread/sleep 2500)
     (println "Canceling in-progress transactions"
              (count @(:stmts sql/default-statement-tracker)))
-    (sql/cancel-in-progress @(:stmts sql/default-statement-tracker))
+    (sql/cancel-in-progress sql/default-statement-tracker)
     ;; Create a transaction we can use as a proxy for everything syncing over to
     ;; the new instance
     (let [tx (transaction-model/create! aurora/-conn-pool
