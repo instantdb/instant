@@ -22,8 +22,7 @@
    [instant.util.async :as ua]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
-   [instant.util.tracer :as tracer]
-   [medley.core :refer [dissoc-in]])
+   [instant.util.tracer :as tracer])
   (:import
    (java.lang InterruptedException)
    (java.util.concurrent CancellationException)))
@@ -421,7 +420,7 @@
                                        (Exception. "Did not deliver promise!")})
                              (deliver (:cancel-signal @result-delay)
                                       false)))))
-            cancel-fut (binding [ua/*child-vfutures* nil]
+            _cancel-fut (binding [ua/*child-vfutures* nil]
                          (ua/vfuture
                            (when @(:cancel-signal @result-delay)
                              (sql/cancel-in-progress stmt-tracker)
