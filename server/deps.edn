@@ -24,6 +24,7 @@
         org.slf4j/slf4j-api {:mvn/version "2.0.13"}
         cider/cider-nrepl {:mvn/version "0.45.0"}
         amazonica/amazonica {:mvn/version "0.3.167"}
+        juji/editscript {:mvn/version "0.6.4"}
 
         org.bouncycastle/bcprov-jdk15on {:mvn/version "1.70"}
         incanter/incanter {:mvn/version "1.9.3"
