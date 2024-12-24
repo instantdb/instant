@@ -4,6 +4,7 @@
    [clojure.core.async :as a]
    [clojure.set :as set]
    [datascript.core :refer [squuid-time-millis]]
+   [editscript.core :as editscript]
    [instant.config :as config]
    [instant.flags :as flags]
    [instant.gauges :as gauges]
@@ -31,7 +32,6 @@
 ;; Setup
 
 (declare room-refresh-ch)
-(defonce refresh-map-ch (a/chan 1024))
 ;; Channel we use to keep the hazelcast maps in sync for
 ;; apps that aren't using hazelcast. This can go away when
 ;; we fully migrate to hazelcast
@@ -49,7 +49,7 @@
 
 (defn init-hz [store-conn]
   (-> (java.util.logging.Logger/getLogger "com.hazelcast.system.logo")
-    (.setLevel java.util.logging.Level/WARNING))
+      (.setLevel java.util.logging.Level/WARNING))
   (System/setProperty "hazelcast.shutdownhook.enabled" "false")
   (let [config (Config.)
         network-config (.getNetworkConfig config)
@@ -176,43 +176,20 @@
 ;; ---------
 ;; Hazelcast
 
-(defn handle-refresh-event [store-conn room-key room-id]
-  (let [room-data (.get (get-hz-rooms-map) room-key)
-        session-ids (filter (fn [sess-id]
-                              (rs/get-session @store-conn sess-id))
-                            (keys room-data))]
-    (doseq [sess-id session-ids
-            :let [q (:receive-q (rs/get-socket @store-conn sess-id))]
-            :when q]
-      (receive-queue/enqueue->receive-q q
-                                        {:op :refresh-presence
-                                         :app-id (:app-id room-key)
-                                         :room-id room-id
-                                         :data room-data
-                                         :session-id sess-id}))))
-
-(defn straight-jacket-refresh-event!
-  [store-conn {:keys [room-key room-id on-sent]}]
-  (try
-    (handle-refresh-event store-conn room-key room-id)
-    (catch Throwable t
-      (tracer/record-exception-span! t {:name "rooms-refresh-map/straight-jacket"}))
-    (finally (on-sent))))
-
-(defn start-refresh-map-worker [store-conn ch]
-  (loop [event (a/<!! ch)]
-    (if (nil? event)
-      (tracer/record-info! {:name "room-refresh-map/closed"})
-      (do
-        (straight-jacket-refresh-event! store-conn event)
-        (recur (a/<!! ch))))))
+(def last-sent-state
+  (atom {}))
 
 (defn handle-event [store-conn ^DataAwareEntryEvent event]
   (let [{:keys [app-id room-id] :as room-key} (.getKey event)]
     (when (flags/use-hazelcast? app-id)
       (when (seq (get-in @room-maps [:rooms room-key :session-ids]))
-        (let [room-data (.get (get-hz-rooms-map) room-key)]
-          (doseq [sess-id (keys room-data)
+        (let [room-data      (.get (get-hz-rooms-map) room-key)
+              prev-room-data (get @last-sent-state room-key)
+              edits          (when prev-room-data
+                               (editscript/get-edits
+                                (editscript/diff prev-room-data room-data {:algo :a-star :str-diff :none})))]
+          (swap! last-sent-state assoc room-key room-data)
+          (doseq [[sess-id _] room-data
                   :let [q (:receive-q (rs/get-socket @store-conn sess-id))]
                   :when q]
             (receive-queue/enqueue->receive-q q
@@ -220,6 +197,7 @@
                                                :app-id app-id
                                                :room-id room-id
                                                :data room-data
+                                               :edits edits
                                                :session-id sess-id})))))))
 
 (defn handle-broadcast-message
@@ -408,7 +386,7 @@
 (defn refresh-rooms! [store-conn old-v new-v]
   (let [old-apps-rooms (get-in old-v [:rooms])
         new-apps-rooms (get-in new-v [:rooms])
-        changed-rooms (get-changed-rooms old-apps-rooms new-apps-rooms)]
+        changed-rooms  (get-changed-rooms old-apps-rooms new-apps-rooms)]
     (when (seq changed-rooms)
       (tracer/with-span! {:name "refresh-rooms"
                           :attributes {:room-ids (pr-str (map first changed-rooms))}}
@@ -470,7 +448,6 @@
 
 (defn stop []
   (a/close! room-refresh-ch)
-  (a/close! refresh-map-ch)
   (when-let [q ^LinkedBlockingQueue @hz-ops-q]
     (.put q close-sentinel))
   (reset! hz-ops-q nil)
@@ -480,4 +457,10 @@
 
 (defn restart []
   (stop)
+  (start))
+
+(defn before-ns-unload []
+  (stop))
+
+(defn after-ns-reload []
   (start))

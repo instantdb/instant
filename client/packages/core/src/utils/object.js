@@ -81,3 +81,21 @@ export function immutableDeepReplace(target, replaceValue, replacementValue) {
 export function isObject(val) {
   return typeof val === "object" && val !== null && !Array.isArray(val);
 }
+
+export function assocIn(obj, path, value) {
+  if (path.length === 0) {
+    return value;
+  }
+
+  let current = obj || {};
+  for (let i = 0; i < path.length - 1; i++) {
+    const key = path[i];
+    if (!(key in current) || typeof current[key] !== 'object') {
+      current[key] = typeof path[i + 1] === 'number' ? [] : {};
+    }
+    current = current[key];
+  }
+
+  current[path[path.length - 1]] = value;
+  return obj;
+}
