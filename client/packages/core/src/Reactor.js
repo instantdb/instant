@@ -13,7 +13,7 @@ import { buildPresenceSlice, hasPresenceResponseChanged } from "./presence";
 import { Deferred } from "./utils/Deferred";
 import { PersistedObject } from "./utils/PersistedObject";
 import { extractTriples } from "./model/instaqlResult";
-import { areObjectsDeepEqual, assocIn } from "./utils/object";
+import { areObjectsDeepEqual, assocIn, dissocIn } from "./utils/object";
 import { createLinkIndex } from "./utils/linkIndex";
 import version from "./version";
 
@@ -1687,11 +1687,12 @@ export default class Reactor {
     );
     sessions[this._sessionId] = {data: this._presence[roomId]?.result?.user};
     for (let [path, op, value] of edits) {
-      console.log('edit', path, op, value);
       if (op === '+' || op === 'r') {
         sessions = assocIn(sessions, path, value);
       }
-      // TODO op === '-'
+      if (op === '-') {
+        sessions = dissocIn(sessions, path);
+      }
     }
 
     this._setPresencePeers(roomId, sessions);

@@ -8,6 +8,7 @@
    commands."
   (:require
    [clojure.main :refer [root-cause]]
+   [editscript.core :as editscript]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
@@ -315,13 +316,21 @@
                                                :room-id room-id
                                                :client-event-id client-event-id})))
 
-(defn- handle-refresh-presence!
-  [store-conn sess-id {:keys [app-id room-id data edits]}]
-  (rs/send-event! store-conn app-id sess-id {:op :refresh-presence
-                                             :room-id room-id
-                                             :data (when (nil? edits)
-                                                     data)
-                                             :edits edits}))
+; {sess-id -> {room-id -> data}}
+(defonce last-sent-presence-data
+  (atom {}))
+
+(defn- handle-refresh-presence! [store-conn sess-id {:keys [app-id room-id data]}]
+  (let [prev-data (get-in @last-sent-presence-data [sess-id room-id])
+        edits     (when prev-data
+                    (editscript/get-edits
+                     (editscript/diff prev-data data {:algo :a-star :str-diff :none})))]
+    (swap! last-sent-presence-data assoc-in [sess-id room-id] data)
+    (rs/send-event! store-conn app-id sess-id {:op      :refresh-presence
+                                               :room-id room-id
+                                               :data    (when (nil? edits)
+                                                          data)
+                                               :edits   edits})))
 
 (defn- handle-client-broadcast!
   "Broadcasts a client message to other sessions in the room"
@@ -659,6 +668,7 @@
                                           :escaping? false})))
 
 (defn on-close [store-conn eph-store-atom {:keys [id pending-handlers]}]
+  (swap! last-sent-presence-data dissoc id)
   (tracer/with-span! {:name "socket/on-close"
                       :attributes {:session-id id}}
     (doseq [{:keys [op

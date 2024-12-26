@@ -4,7 +4,6 @@
    [clojure.core.async :as a]
    [clojure.set :as set]
    [datascript.core :refer [squuid-time-millis]]
-   [editscript.core :as editscript]
    [instant.config :as config]
    [instant.flags :as flags]
    [instant.gauges :as gauges]
@@ -176,19 +175,11 @@
 ;; ---------
 ;; Hazelcast
 
-(def last-sent-state
-  (atom {}))
-
 (defn handle-event [store-conn ^DataAwareEntryEvent event]
   (let [{:keys [app-id room-id] :as room-key} (.getKey event)]
     (when (flags/use-hazelcast? app-id)
       (when (seq (get-in @room-maps [:rooms room-key :session-ids]))
-        (let [room-data      (.get (get-hz-rooms-map) room-key)
-              prev-room-data (get @last-sent-state room-key)
-              edits          (when prev-room-data
-                               (editscript/get-edits
-                                (editscript/diff prev-room-data room-data {:algo :a-star :str-diff :none})))]
-          (swap! last-sent-state assoc room-key room-data)
+        (let [room-data      (.get (get-hz-rooms-map) room-key)]
           (doseq [[sess-id _] room-data
                   :let [q (:receive-q (rs/get-socket @store-conn sess-id))]
                   :when q]
@@ -197,7 +188,6 @@
                                                :app-id app-id
                                                :room-id room-id
                                                :data room-data
-                                               :edits edits
                                                :session-id sess-id})))))))
 
 (defn handle-broadcast-message

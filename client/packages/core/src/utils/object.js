@@ -99,3 +99,33 @@ export function assocIn(obj, path, value) {
   current[path[path.length - 1]] = value;
   return obj;
 }
+
+export function dissocIn(obj, path) {
+  if (path.length === 0) {
+    return undefined;
+  }
+
+  const [key, ...restPath] = path;
+
+  if (!(key in obj)) {
+    return obj;
+  }
+
+  if (restPath.length === 0) {
+    delete obj[key];
+    return isEmpty(obj) ? undefined : obj;
+  }
+
+  const child = dissocIn(obj[key], restPath);
+
+  if (child === undefined) {
+    delete obj[key];
+    return isEmpty(obj) ? undefined : obj;
+  }
+
+  return obj;
+}
+
+function isEmpty(obj) {
+  return obj && Object.keys(obj).length === 0;
+}
