@@ -8,7 +8,6 @@
    commands."
   (:require
    [clojure.main :refer [root-cause]]
-   [editscript.core :as editscript]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
@@ -316,21 +315,12 @@
                                                :room-id room-id
                                                :client-event-id client-event-id})))
 
-; {sess-id -> {room-id -> data}}
-(defonce last-sent-presence-data
-  (atom {}))
-
-(defn- handle-refresh-presence! [store-conn sess-id {:keys [app-id room-id data]}]
-  (let [prev-data (get-in @last-sent-presence-data [sess-id room-id])
-        edits     (when prev-data
-                    (editscript/get-edits
-                     (editscript/diff prev-data data {:algo :a-star :str-diff :none})))]
-    (swap! last-sent-presence-data assoc-in [sess-id room-id] data)
-    (rs/send-event! store-conn app-id sess-id {:op      :refresh-presence
-                                               :room-id room-id
-                                               :data    (when (nil? edits)
-                                                          data)
-                                               :edits   edits})))
+(defn- handle-refresh-presence! [store-conn sess-id {:keys [app-id room-id data edits]}]
+  (rs/send-event! store-conn app-id sess-id
+                  (cond-> {:op      :refresh-presence
+                           :room-id room-id}
+                    (some? edits) (assoc :edits edits)
+                    (nil? edits)  (assoc :data data))))
 
 (defn- handle-client-broadcast!
   "Broadcasts a client message to other sessions in the room"
@@ -566,52 +556,43 @@
                                                            :session-id (:session-id (:item entry))
                                                            :item entry)}))))
 
-(defn drop-consecutive-set-presence [batch]
-  (let [{:keys [entries-to-process last-entry]}
-        (reduce (fn [{:keys [entries-to-process
-                             last-entry]}
-                     entry]
-                  (if (and (= :set-presence
-                              (-> last-entry :item :op))
-                           (= :set-presence
-                              (-> entry :item :op)))
-                    {:entries-to-process entries-to-process
-                     :last-entry (assoc entry
-                                        :skipped-size
-                                        (inc (or (:skipped-size last-entry) 0)))}
-                    {:entries-to-process (conj entries-to-process last-entry)
-                     :last-entry entry}))
-                {:entries-to-process []
-                 :last-entry (first batch)}
-                (rest batch))]
-    (conj entries-to-process last-entry)))
+(defmulti consolidate
+  (fn [type batch]
+    (if (= 1 (count batch))
+      :default
+      type)))
+
+(defmethod consolidate :default [_ batch]
+  batch)
+
+(defmethod consolidate :refresh [_ batch]
+  [(-> (first batch)
+       (assoc :skipped-size (dec (count batch))))])
+
+(defmethod consolidate :refresh-presence [_ batch]
+  [(-> (last batch)
+       (assoc :skipped-size (dec (count batch)))
+       (assoc-in [:item :edits]
+                 (into [] (mapcat #(get-in % [:item :edits])) batch)))])
+
+(defmethod consolidate :room [_ batch]
+  (loop [last-entry (first batch)
+         batch      (next batch)
+         acc        (transient [])]
+    (if (empty? batch)
+      (persistent! (conj! acc last-entry))
+      (let [entry       (first batch)
+            last-entry' (if (and (= :set-presence (-> last-entry :item :op))
+                                 (= :set-presence (-> entry :item :op)))
+                          (assoc entry :skipped-size (inc (:skipped-size last-entry 0)))
+                          entry)]
+        (recur last-entry' (next batch) acc)))))
 
 (defn straight-jacket-process-receive-q-batch [store-conn eph-store-atom batch metadata]
   (try
-    (let [t (-> metadata :group-key first)]
-      (if (= 1 (count batch))
-        (process-receive-q-entry store-conn eph-store-atom (first batch) metadata)
-        (case t
-          :refresh
-          (process-receive-q-entry store-conn
-                                   eph-store-atom
-                                   (assoc (first batch)
-                                          :skipped-size (dec (count batch)))
-                                   metadata)
-
-          :refresh-presence
-          (process-receive-q-entry store-conn
-                                   eph-store-atom
-                                   (assoc (last batch)
-                                          :skipped-size (dec (count batch)))
-                                   metadata)
-
-          :room
-          (doseq [entry (drop-consecutive-set-presence batch)]
-            (process-receive-q-entry store-conn
-                                     eph-store-atom
-                                     entry
-                                     metadata)))))
+    (let [type (-> metadata :group-key first)]
+      (doseq [entry (consolidate type batch)]
+        (process-receive-q-entry store-conn eph-store-atom entry metadata)))
     (catch Throwable e
       (tracer/record-exception-span! e {:name "receive-worker/handle-receive-batch-straight-jacket"
                                         :attributes (assoc metadata
@@ -668,7 +649,6 @@
                                           :escaping? false})))
 
 (defn on-close [store-conn eph-store-atom {:keys [id pending-handlers]}]
-  (swap! last-sent-presence-data dissoc id)
   (tracer/with-span! {:name "socket/on-close"
                       :attributes {:session-id id}}
     (doseq [{:keys [op
@@ -723,7 +703,7 @@
 ;; System
 
 (defn group-fn [{:keys [item] :as _input}]
-  (let [{:keys [session-id op room-id]} item]
+  (let [{:keys [op session-id room-id]} item]
     (case op
       :transact
       [:transact session-id]
