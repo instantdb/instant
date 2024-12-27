@@ -3,7 +3,7 @@
   (:require
    [clojure.core.async :as a]
    [clojure.set :as set]
-   [datascript.core :refer [squuid-time-millis]]
+   [editscript.core :as editscript]
    [instant.config :as config]
    [instant.flags :as flags]
    [instant.gauges :as gauges]
@@ -24,7 +24,6 @@
                                EntryRemovedListener
                                EntryUpdatedListener)
    (com.hazelcast.topic ITopic MessageListener Message)
-   (java.util AbstractMap$SimpleImmutableEntry)
    (java.util.concurrent LinkedBlockingQueue)))
 
 ;; ------
@@ -40,7 +39,8 @@
 ;; on session close) and some info about the rooms we're subscribed to on
 ;; this machine
 ;; {:sessions {<session-id>: #{<room-id>}}
-;;  :rooms {<{app-id: app-id, room-id: room-id}> {:session-ids #{<sess-id>}}}}
+;;  :rooms {<{app-id: app-id, room-id: room-id}> {:session-ids #{<sess-id>}
+;;                                                :last-data <...>}}}
 (defonce room-maps (atom {}))
 
 (declare handle-event)
@@ -176,18 +176,25 @@
 ;; Hazelcast
 
 (defn handle-event [store-conn ^DataAwareEntryEvent event]
-  (let [{:keys [app-id room-id] :as room-key} (.getKey event)]
+  (let [room-key                        (.getKey event)
+        {:keys [app-id room-id]}        room-key
+        {:keys [session-ids last-data]} (get-in @room-maps [:rooms room-key])]
     (when (flags/use-hazelcast? app-id)
-      (when (seq (get-in @room-maps [:rooms room-key :session-ids]))
-        (let [room-data      (.get (get-hz-rooms-map) room-key)]
+      (when (seq session-ids)
+        (let [room-data (.get (get-hz-rooms-map) room-key)
+              edits     (when last-data
+                          (editscript/get-edits
+                           (editscript/diff last-data room-data {:algo :a-star :str-diff :none})))]
+          (swap! room-maps assoc-in [:rooms room-key :last-data] room-data)
           (doseq [[sess-id _] room-data
                   :let [q (:receive-q (rs/get-socket @store-conn sess-id))]
                   :when q]
             (receive-queue/enqueue->receive-q q
-                                              {:op :refresh-presence
-                                               :app-id app-id
-                                               :room-id room-id
-                                               :data room-data
+                                              {:op         :refresh-presence
+                                               :app-id     app-id
+                                               :room-id    room-id
+                                               :data       room-data
+                                               :edits      edits
                                                :session-id sess-id})))))))
 
 (defn handle-broadcast-message
@@ -251,30 +258,6 @@
                                              session-ids)))))
 
     (hz-util/remove-session! (get-hz-rooms-map) room-key sess-id)))
-
-(defn clean-old-sessions []
-  (let [oldest-timestamp (aws-util/oldest-instance-timestamp)
-        hz-map (get-hz-rooms-map)]
-    (when-not oldest-timestamp
-      (throw (Exception. "Could not determine oldest instance timestamp")))
-    (doseq [^AbstractMap$SimpleImmutableEntry entry (.entrySet hz-map)
-            :let [{:keys [app-id room-id]} (.getKey entry)
-                  v (.getValue entry)]
-            :when (and app-id room-id)
-            sess-id (keys v)
-            :let [squuid-timestamp (squuid-time-millis sess-id)]
-            :when (< squuid-timestamp oldest-timestamp)]
-      (tracer/with-span! {:name "clean-old-session"
-                          :attributes {:app-id app-id
-                                       :room-id room-id
-                                       :session-id sess-id
-                                       :squuid-timestamp squuid-timestamp}}
-        (remove-session! app-id room-id sess-id)))
-    (doseq [^AbstractMap$SimpleImmutableEntry entry (.entrySet hz-map)
-            :let [{:keys [app-id room-id]} (.getKey entry)
-                  v (.getValue entry)]
-            :when (and app-id room-id (empty? v))]
-      (remove-session! app-id room-id (random-uuid)))))
 
 ;; ----------
 ;; Public API

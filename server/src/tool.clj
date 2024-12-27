@@ -181,7 +181,7 @@
         el    ^StackTraceElement (nth trace 4)]
     (str "[" (Compiler/demunge (.getClassName el)) " " (.getFileName el) ":" (.getLineNumber el) "]")))
 
-(defn p-impl [position form res]
+(defn p-impl [_position form res]
   (let [form (walk/postwalk
               (fn [form]
                 (if (and
@@ -191,7 +191,7 @@
                   form))
               form)]
     (locking p-lock
-      (println (str position " #p " form " => " (pr-str res))))
+      (println (str #_position "#p " form " => " (pr-str res))))
     res))
 
 (defn p
