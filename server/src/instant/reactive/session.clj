@@ -75,10 +75,10 @@
   (if-let [connection-string (-> app :connection_string)]
     ;; TODO(byop): Separate connection for byop app
     (pg-introspect/introspect (aurora/conn-pool) (or (->> connection-string
-                                                        (app-model/decrypt-connection-string (:id app))
-                                                        uri/query-map
-                                                        :currentSchema)
-                                                   "public"))
+                                                          (app-model/decrypt-connection-string (:id app))
+                                                          uri/query-map
+                                                          :currentSchema)
+                                                     "public"))
     {:attrs (attr-model/get-by-app-id (:id app))}))
 
 (defn- handle-init! [store-conn sess-id
@@ -281,36 +281,36 @@
   (some-> http-req
           (.getRequestHeader "cf-connecting-ip")))
 
-(defn- handle-join-room! [store-conn eph-store-atom sess-id {:keys [client-event-id room-id] :as _event}]
+(defn- handle-join-room! [store-conn sess-id {:keys [client-event-id room-id] :as _event}]
   (let [auth (get-auth! store-conn sess-id)
         app-id (-> auth :app :id)
         current-user (-> auth :user)]
-    (eph/join-room! eph-store-atom app-id sess-id current-user room-id)
+    (eph/join-room! app-id sess-id current-user room-id)
     (rs/send-event! store-conn app-id sess-id {:op :join-room-ok
                                                :room-id room-id
                                                :client-event-id client-event-id})))
 
-(defn- handle-leave-room! [store-conn eph-store-atom sess-id {:keys [client-event-id room-id] :as _event}]
+(defn- handle-leave-room! [store-conn sess-id {:keys [client-event-id room-id] :as _event}]
   (let [auth (get-auth! store-conn sess-id)
         app-id (-> auth :app :id)]
-    (eph/leave-room! eph-store-atom app-id sess-id room-id)
+    (eph/leave-room! app-id sess-id room-id)
     (rs/send-event! store-conn app-id sess-id {:op :leave-room-ok
                                                :room-id room-id
                                                :client-event-id client-event-id})))
 
-(defn assert-in-room! [store-v app-id room-id sess-id]
-  (when-not (eph/in-room? store-v app-id room-id sess-id)
+(defn assert-in-room! [app-id room-id sess-id]
+  (when-not (eph/in-room? app-id room-id sess-id)
     (ex/throw-validation-err!
      :room
      {:app-id app-id :room-id room-id :session-id sess-id}
      [{:message "You have not entered this room yet."}])))
 
 (defn- handle-set-presence!
-  [store-conn eph-store-atom sess-id {:keys [client-event-id room-id data] :as _event}]
+  [store-conn sess-id {:keys [client-event-id room-id data] :as _event}]
   (let [auth (get-auth! store-conn sess-id)
         app-id (-> auth :app :id)
-        _ (assert-in-room! @eph-store-atom app-id room-id sess-id)]
-    (eph/set-presence! eph-store-atom app-id sess-id room-id data)
+        _ (assert-in-room! app-id room-id sess-id)]
+    (eph/set-presence! app-id sess-id room-id data)
     (rs/send-event! store-conn app-id sess-id {:op :set-presence-ok
                                                :room-id room-id
                                                :client-event-id client-event-id})))
@@ -324,12 +324,12 @@
 
 (defn- handle-client-broadcast!
   "Broadcasts a client message to other sessions in the room"
-  [store-conn eph-store-atom sess-id {:keys [client-event-id room-id topic data] :as _event}]
+  [store-conn sess-id {:keys [client-event-id room-id topic data] :as _event}]
   (let [auth (get-auth! store-conn sess-id)
         app-id (-> auth :app :id)
-        _ (assert-in-room! @eph-store-atom app-id room-id sess-id)
+        _ (assert-in-room! app-id room-id sess-id)
         current-user (-> auth :user)
-        {:keys [local-ids remote-ids]} (eph/get-room-session-ids @eph-store-atom app-id room-id)
+        {:keys [local-ids remote-ids]} (eph/get-room-session-ids app-id room-id)
         base-msg {:room-id room-id
                   :topic topic
                   :data {:peer-id sess-id
@@ -352,14 +352,14 @@
                                                      :op :client-broadcast-ok
                                                      :client-event-id client-event-id))))
 
-(defn- handle-server-broadcast! [store-conn eph-store-atom sess-id {:keys [app-id room-id topic data]}]
-  (when (eph/in-room? @eph-store-atom app-id room-id sess-id)
+(defn- handle-server-broadcast! [store-conn sess-id {:keys [app-id room-id topic data]}]
+  (when (eph/in-room? app-id room-id sess-id)
     (rs/send-event! store-conn app-id sess-id {:op :server-broadcast
                                                :room-id room-id
                                                :topic topic
                                                :data data})))
 
-(defn handle-event [store-conn eph-store-atom session event debug-info]
+(defn handle-event [store-conn session event debug-info]
   (let [{:keys [op]} event
         {:keys [session/socket]} session
         {:keys [id]} socket]
@@ -373,12 +373,12 @@
       :error (handle-error! store-conn id event)
       ;; -----
       ;; EPH events
-      :join-room (handle-join-room! store-conn eph-store-atom id event)
-      :leave-room (handle-leave-room! store-conn eph-store-atom id event)
-      :set-presence (handle-set-presence! store-conn eph-store-atom id event)
+      :join-room (handle-join-room! store-conn id event)
+      :leave-room (handle-leave-room! store-conn id event)
+      :set-presence (handle-set-presence! store-conn id event)
       :refresh-presence (handle-refresh-presence! store-conn id event)
-      :client-broadcast (handle-client-broadcast! store-conn eph-store-atom id event)
-      :server-broadcast (handle-server-broadcast! store-conn eph-store-atom id event))))
+      :client-broadcast (handle-client-broadcast! store-conn id event)
+      :server-broadcast (handle-server-broadcast! store-conn id event))))
 
 ;; --------------
 ;; Receive Workers
@@ -462,7 +462,7 @@
            :socket-ip (socket-ip socket)
            :session-id sess-id)))
 
-(defn handle-receive [store-conn eph-store-atom session event metadata]
+(defn handle-receive [store-conn session event metadata]
   (tracer/with-exceptions-silencer [silence-exceptions]
     (tracer/with-span! {:name "receive-worker/handle-receive"
                         :attributes (handle-receive-attrs store-conn session event metadata)}
@@ -471,7 +471,7 @@
             debug-info (atom nil)
             event-fut (binding [sql/*in-progress-stmts* in-progress-stmts]
                         (ua/vfuture (handle-event store-conn
-                                                  eph-store-atom
+
                                                   session
                                                   event
                                                   debug-info)))
@@ -521,7 +521,7 @@
           (finally
             (swap! pending-handlers disj pending-handler)))))))
 
-(defn process-receive-q-entry [store-conn eph-store-atom entry metadata]
+(defn process-receive-q-entry [store-conn entry metadata]
   (let [{:keys [put-at item skipped-size]} entry
         {:keys [session-id] :as event} item
         now (Instant/now)
@@ -535,7 +535,7 @@
       :else
       (handle-receive
        store-conn
-       eph-store-atom
+
        (into {} session)
        (assoc event
               :total-delay-ms
@@ -546,15 +546,6 @@
                       :get-ping-latency-ms
                       (#(%))))
        (assoc metadata :skipped-size skipped-size)))))
-
-(defn straight-jacket-process-receive-q-entry [store-conn eph-store-atom entry metadata]
-  (try
-    (process-receive-q-entry store-conn eph-store-atom entry metadata)
-    (catch Throwable e
-      (tracer/record-exception-span! e {:name "receive-worker/handle-receive-straight-jacket"
-                                        :attributes (assoc metadata
-                                                           :session-id (:session-id (:item entry))
-                                                           :item entry)}))))
 
 (defmulti consolidate
   (fn [type batch]
@@ -588,11 +579,11 @@
                           entry)]
         (recur last-entry' (next batch) acc)))))
 
-(defn straight-jacket-process-receive-q-batch [store-conn eph-store-atom batch metadata]
+(defn straight-jacket-process-receive-q-batch [store-conn batch metadata]
   (try
     (let [type (-> metadata :group-key first)]
       (doseq [entry (consolidate type batch)]
-        (process-receive-q-entry store-conn eph-store-atom entry metadata)))
+        (process-receive-q-entry store-conn entry metadata)))
     (catch Throwable e
       (tracer/record-exception-span! e {:name "receive-worker/handle-receive-batch-straight-jacket"
                                         :attributes (assoc metadata
@@ -606,27 +597,26 @@
 
     (grouped-queue/inflight-queue-reserve 1 inflight-q)))
 
-(defn start-receive-worker [store-conn eph-store-atom receive-q stop-signal id]
+(defn start-receive-worker [store-conn receive-q stop-signal id]
   (ua/vfut-bg
-    (loop []
-      (if @stop-signal
-        (tracer/record-info! {:name "receive-worker/shutdown-complete"
-                              :attributes {:worker-n id}})
-        (do (grouped-queue/process-polling!
-             receive-q
-             {:reserve-fn receive-worker-reserve-fn
-              :process-fn (fn [group-key batch]
-                            (straight-jacket-process-receive-q-batch store-conn
-                                                                     eph-store-atom
-                                                                     batch
-                                                                     {:worker-n id
-                                                                      :batch-size (count batch)
-                                                                      :group-key group-key}))})
-            (recur))))))
+   (loop []
+     (if @stop-signal
+       (tracer/record-info! {:name "receive-worker/shutdown-complete"
+                             :attributes {:worker-n id}})
+       (do (grouped-queue/process-polling!
+            receive-q
+            {:reserve-fn receive-worker-reserve-fn
+             :process-fn (fn [group-key batch]
+                           (straight-jacket-process-receive-q-batch store-conn
+                                                                    batch
+                                                                    {:worker-n id
+                                                                     :batch-size (count batch)
+                                                                     :group-key group-key}))})
+           (recur))))))
 
-(defn start-receive-workers [store-conn eph-store-atom receive-q stop-signal]
+(defn start-receive-workers [store-conn receive-q stop-signal]
   (doseq [n (range num-receive-workers)]
-    (start-receive-worker store-conn eph-store-atom receive-q stop-signal n)))
+    (start-receive-worker store-conn receive-q stop-signal n)))
 
 ;; -----------------
 ;; Websocket Interop
@@ -648,7 +638,7 @@
                                           :attributes {:session-id id}
                                           :escaping? false})))
 
-(defn on-close [store-conn eph-store-atom {:keys [id pending-handlers]}]
+(defn on-close [store-conn {:keys [id pending-handlers]}]
   (tracer/with-span! {:name "socket/on-close"
                       :attributes {:session-id id}}
     (doseq [{:keys [op
@@ -667,10 +657,10 @@
                      :app
                      :id)]
       (rs/remove-session! store-conn id)
-      (eph/leave-by-session-id! eph-store-atom app-id id))))
+      (eph/leave-by-session-id! app-id id))))
 
 (defn undertow-config
-  [store-conn eph-store-atom receive-q {:keys [id]}]
+  [store-conn receive-q {:keys [id]}]
   (let [pending-handlers (atom #{})
         atomic-ping-latency-nanos (AtomicLong. 0)]
     {:undertow/websocket
@@ -695,7 +685,6 @@
                              :error error}))
       :on-close (fn [_]
                   (on-close store-conn
-                            eph-store-atom
                             {:id id
                              :pending-handlers pending-handlers}))}}))
 
@@ -738,7 +727,6 @@
   (ua/fut-bg
    (start-receive-workers
     rs/store-conn
-    eph/ephemeral-store-atom
     receive-q
     receive-q-stop-signal)))
 

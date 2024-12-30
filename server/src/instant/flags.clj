@@ -113,24 +113,6 @@
   (let [app-id (str app-id)]
     (contains? (storage-enabled-whitelist) app-id)))
 
-(defn use-hazelcast? [app-id]
-  (if-let [hz-flag (get (query-result) :hazelcast)]
-    (let [{:keys [disabled-apps enabled-apps default-value disabled?]} hz-flag]
-      (cond disabled? false
-
-            (contains? disabled-apps app-id)
-            false
-
-            (contains? enabled-apps app-id)
-            true
-
-            :else default-value))
-    ;; Default true
-    true))
-
-(defn hazelcast-disabled? []
-  (get-in (query-result) [:hazelcast :disabled?] false))
-
 (defn drop-refresh-spam? [app-id]
   (if-let [flag (get (query-result) :drop-refresh-spam)]
     (let [{:keys [disabled-apps enabled-apps default-value]} flag]
