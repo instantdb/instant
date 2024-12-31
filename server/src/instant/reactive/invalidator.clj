@@ -14,7 +14,8 @@
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
    [instant.util.json :refer [<-json]]
-   [instant.util.tracer :as tracer])
+   [instant.util.tracer :as tracer]
+   [instant.db.model.triple :as triple-model])
   (:import (java.util UUID)))
 
 (declare wal-opts)
@@ -43,10 +44,13 @@
         e (UUID/fromString (:entity_id m))
         a (UUID/fromString (:attr_id m))
         v-parsed (<-json (:value m))
-        v (if (:eav m)
+        v (cond
+            (:eav m)
             (UUID/fromString v-parsed)
+            (= (:checked_data_type m) "date")
+            (triple-model/parse-date-value v-parsed)
+            :else
             v-parsed)
-
         ks (->> #{:ea :eav :av :ave :vae}
                 (filter m))]
     (map (fn [k] [k #{e} #{a} #{v}])
