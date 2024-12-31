@@ -151,6 +151,14 @@ const messagesQuery = {
 } satisfies InstaQLParams<AppSchema>;
 
 type CoreMessage = InstaQLEntity<AppSchema, "messages">;
+const mWithOptionalFieldWorks: CoreMessage = { 
+  id: '1', 
+  content: 'hello',
+};
+
+// to silence ts warnings
+mWithOptionalFieldWorks;
+
 let coreMessage: CoreMessage = 1 as any;
 coreMessage.content;
 
