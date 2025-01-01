@@ -45,13 +45,6 @@ export class DataAttrDef<ValueType, IsRequired extends boolean> {
   // }
 }
 
-type ExtractValueType<T> =
-  T extends DataAttrDef<infer ValueType, infer isRequired>
-    ? isRequired extends true
-      ? ValueType
-      : ValueType | undefined
-    : never;
-
 export class LinkAttrDef<
   Cardinality extends CardinalityKind,
   EntityName extends string,
@@ -90,9 +83,7 @@ export class EntityDef<
   ) {}
 
   asType<
-    _AsType extends Partial<{
-      [AttrName in keyof Attrs]: ExtractValueType<Attrs[AttrName]>;
-    }>,
+    _AsType extends Partial<MappedAttrs<Attrs>>,
   >() {
     return new EntityDef<Attrs, Links, _AsType>(this.attrs, this.links);
   }
@@ -231,13 +222,36 @@ type LinksIndexedByEntity<
   };
 };
 
+type RequiredKeys<Attrs extends AttrsDefs> = {
+  [K in keyof Attrs]: Attrs[K] extends DataAttrDef<any, infer R>
+    ? R extends true
+      ? K
+      : never
+    : never;
+}[keyof Attrs];
+
+type OptionalKeys<Attrs extends AttrsDefs> = {
+  [K in keyof Attrs]: Attrs[K] extends DataAttrDef<any, infer R>
+    ? R extends false
+      ? K
+      : never
+    : never;
+}[keyof Attrs];
+
+/**
+ * MappedAttrs:
+ *   - Required keys => `key: ValueType`
+ *   - Optional keys => `key?: ValueType`
+ */
+type MappedAttrs<Attrs extends AttrsDefs> = {
+  [K in RequiredKeys<Attrs>]: Attrs[K] extends DataAttrDef<infer V, any> ? V : never;
+} & {
+  [K in OptionalKeys<Attrs>]?: Attrs[K] extends DataAttrDef<infer V, any> ? V : never;
+};
+
 export type ResolveEntityAttrs<
   EDef extends EntityDef<any, any, any>,
-  ResolvedAttrs = {
-    [AttrName in keyof EDef["attrs"]]: ExtractValueType<
-      EDef["attrs"][AttrName]
-    >;
-  },
+  ResolvedAttrs = MappedAttrs<EDef["attrs"]>
 > =
   EDef extends EntityDef<any, any, infer AsType>
     ? AsType extends void
