@@ -433,24 +433,24 @@
         ;; Start a tracked future to watch for cancelation
         (let [wait-fut
               (ua/vfuture
-                (try
-                  (unwrap-result)
-                  (catch Throwable t
-                    (when (and (not (realized? (:promise @result-delay)))
-                               (or (instance? InterruptedException t)
-                                   (instance? CancellationException t)))
-                      (let [{:keys [aborted?]}
-                            (swap! result-delay
-                                   (fn [{:keys [watchers] :as state}]
-                                     (let [new-watchers (disj watchers watcher-id)]
-                                       (cond-> state
-                                         true (assoc :watchers new-watchers)
-                                         (empty? new-watchers) (assoc :aborted? true)))))]
+                (unwrap-result))]
+          (try
+            @wait-fut
+            (catch Throwable t
+              (when (and (not (realized? (:promise @result-delay)))
+                         (or (instance? InterruptedException t)
+                             (instance? CancellationException t)))
+                (let [{:keys [aborted?]}
+                      (swap! result-delay
+                             (fn [{:keys [watchers] :as state}]
+                               (let [new-watchers (disj watchers watcher-id)]
+                                 (cond-> state
+                                   true (assoc :watchers new-watchers)
+                                   (empty? new-watchers) (assoc :aborted? true)))))]
 
-                        (when aborted?
-                          (cancel!))))
-                    (throw t))))]
-          @wait-fut))
+                  (when aborted?
+                    (cancel!))))
+              (throw t)))))
       (finally
         (swap! result-delay update :watchers disj watcher-id)))))
 
