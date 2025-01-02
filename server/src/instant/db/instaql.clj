@@ -747,7 +747,7 @@
     ;; ordering on the frontend.
     (when (or limit first last offset before after order)
       (let [{:keys [k direction]} (or order default-order)
-            etype-sym (attr-pat/default-level-sym etype level)
+            eid-sym (attr-pat/default-level-sym etype level)
             order-sym (if (= "serverCreatedAt" k)
                         (symbol (str "?t-" level))
                         (attr-pat/default-level-sym k level))
@@ -820,14 +820,15 @@
          :offset offset
          :direction direction
          :order-sym order-sym
+         :eid-sym eid-sym
          :order-col-type (if (= k "serverCreatedAt")
                            :created-at-timestamp
                            (:checked-data-type order-attr))
          :pattern (if (= "serverCreatedAt" k)
-                    [:ea etype-sym (:id order-attr) '_ order-sym]
+                    [:ea eid-sym (:id order-attr) '_ order-sym]
                     [{:idx-key :ave
                       :data-type (:checked-data-type order-attr)}
-                     etype-sym
+                     eid-sym
                      (:id order-attr)
                      order-sym])
          :attr-id (:id order-attr)
