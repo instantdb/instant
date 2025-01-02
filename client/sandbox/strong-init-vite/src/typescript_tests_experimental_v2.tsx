@@ -53,6 +53,11 @@ const reactDB = react_init({
 });
 
 function ReactNormalApp() {
+  // auth
+  const authInfo = reactDB.useAuth();
+  if (!authInfo.error && !authInfo.isLoading) {
+    const { user } = authInfo; 
+  }
   // rooms
   const reactRoom = reactDB.room("chat");
   const reactPresence = reactRoom.usePresence({ keys: ["name"] });
