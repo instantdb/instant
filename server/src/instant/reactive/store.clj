@@ -431,9 +431,7 @@
         ;; The work is already done, so we don't need to listen for cancellation
         (unwrap-result)
         ;; Start a tracked future to watch for cancelation
-        (let [wait-fut
-              (ua/vfuture
-                (unwrap-result))]
+        (let [wait-fut (ua/vfuture (unwrap-result))]
           (try
             @wait-fut
             (catch Throwable t
