@@ -40,11 +40,11 @@ import {
   type InstantSchemaDef,
   type BackwardsCompatibleSchema,
   type InstantRules,
+  type UpdateParams,
+  type LinkParams,
 } from "@instantdb/core";
 
-import { InstantReact } from "./InstantReact";
 import InstantReactAbstractDatabase from "./InstantReactAbstractDatabase";
-import { InstantReactWeb } from "./InstantReactWeb";
 import InstantReactWebDatabase from "./InstantReactWebDatabase";
 import { init, init_experimental } from "./init";
 import { Cursors } from "./Cursors";
@@ -55,13 +55,11 @@ export {
   lookup,
   init,
   init_experimental,
-  InstantReactWeb,
   InstantReactWebDatabase,
   Cursors,
   i,
 
   // internal
-  InstantReact,
   InstantReactAbstractDatabase,
 
   // types
@@ -99,4 +97,6 @@ export {
   type InstantSchemaDef,
   type BackwardsCompatibleSchema,
   type InstantRules,
+  type UpdateParams,
+  type LinkParams,
 };

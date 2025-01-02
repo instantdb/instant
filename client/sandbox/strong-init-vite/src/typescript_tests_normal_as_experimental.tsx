@@ -1,11 +1,15 @@
 import {
   id,
-  init_experimental as core_init,
- BackwardsCompatibleSchema,
+  init as core_init,
+  init_experimental as _a,
+  BackwardsCompatibleSchema,
 } from "@instantdb/core";
-import { init_experimental as react_init } from "@instantdb/react";
-import { init_experimental as react_native_init } from "@instantdb/react-native";
-import { init_experimental as admin_init } from "@instantdb/admin";
+import { init as react_init, init_experimental as _b } from "@instantdb/react";
+import {
+  init as react_native_init,
+  init_experimental as _c,
+} from "@instantdb/react-native";
+import { init as admin_init, init_experimental as _d } from "@instantdb/admin";
 
 type Message = {
   content: string;
@@ -38,7 +42,8 @@ type Rooms = {
   };
 };
 
-type SchemaDef =BackwardsCompatibleSchema<Schema, Rooms>;
+type SchemaDef = BackwardsCompatibleSchema<Schema, Rooms>;
+
 // ----
 // Core
 

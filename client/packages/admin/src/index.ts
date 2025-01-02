@@ -45,6 +45,8 @@ import {
   type InstaQLEntity,
   type InstaQLResult,
   type InstantRules,
+  type UpdateParams,
+  type LinkParams,
 } from "@instantdb/core";
 
 import version from "./version";
@@ -175,28 +177,46 @@ async function jsonFetch(
  * Visit https://instantdb.com/dash to get your `appId` :)
  *
  * @example
- *  const db = init({ appId: "my-app-id" })
+ *  import { init } from "@instantdb/admin"
  *
- * // You can also provide a schema for type safety and editor autocomplete!
+ *  const db = init({
+ *    appId: "my-app-id",
+ *    adminToken: process.env.INSTANT_ADMIN_TOKEN
+ *  })
  *
- *  type Schema = {
- *    goals: {
- *      title: string
- *    }
- *  }
+ *  // You can also provide a schema for type safety and editor autocomplete!
  *
- *  const db = init<Schema>({ appId: "my-app-id" })
+ *  import { init } from "@instantdb/admin"
+ *  import schema from ""../instant.schema.ts";
  *
+ *  const db = init({
+ *    appId: "my-app-id",
+ *    adminToken: process.env.INSTANT_ADMIN_TOKEN,
+ *    schema,
+ *  })
+ *  // To learn more: https://instantdb.com/docs/modeling-data
  */
-function init<Schema extends {} = {}>(config: Config) {
-  return new InstantAdmin<Schema, false>(config);
-}
-
-function init_experimental<
+function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
 >(config: InstantConfig<Schema>) {
   return new InstantAdminDatabase<Schema>(config);
 }
+
+/**
+ * @deprecated
+ * `init_experimental` is deprecated. You can replace it with `init`.
+ *
+ * @example
+ *
+ * // Before
+ * import { init_experimental } from "@instantdb/admin"
+ * const db = init_experimental({  ...  });
+ *
+ * // After
+ * import { init } from "@instantdb/admin"
+ * const db = init({ ...  });
+ */
+const init_experimental = init;
 
 /**
  *
@@ -933,4 +953,6 @@ export {
   type InstaQLEntity,
   type InstaQLResult,
   type InstantRules,
+  type UpdateParams,
+  type LinkParams,
 };

@@ -42,9 +42,15 @@ importers:
 
   packages/cli:
     dependencies:
+      '@inquirer/core':
+        specifier: 9.0.10
+        version: 9.0.10
       '@inquirer/prompts':
-        specifier: ^5.3.8
+        specifier: 5.3.8
         version: 5.3.8
+      ansi-escapes:
+        specifier: 4.3.2
+        version: 4.3.2
       chalk:
         specifier: ^5.3.0
         version: 5.3.0
@@ -523,6 +529,9 @@ importers:
       algoliasearch:
         specifier: ^4.24.0
         version: 4.24.0
+      ansi-to-html:
+        specifier: ^0.7.2
+        version: 0.7.2
       canvas-confetti:
         specifier: ^1.9.2
         version: 1.9.3
@@ -7962,6 +7971,14 @@ packages:
     resolution: {integrity: sha512-bN798gFfQX+viw3R7yrGWRqnrN2oRkEkUjjl4JNn4E8GxxbjtG3FbrEIIY3l8/hrwUwIeCZvi4QuOTP4MErVug==}
     engines: {node: '>=12'}
 
+  /ansi-to-html@0.7.2:
+    resolution: {integrity: sha512-v6MqmEpNlxF+POuyhKkidusCHWWkaLcGRURzivcU3I9tv7k4JVhFcnukrM5Rlk2rUywdZuzYAZ+kbZqWCnfN3g==}
+    engines: {node: '>=8.0.0'}
+    hasBin: true
+    dependencies:
+      entities: 2.2.0
+    dev: false
+
   /any-promise@1.3.0:
     resolution: {integrity: sha512-7UvmKalWRt1wgjL1RrGxoSJW/0QZFIegpeGvZG9kjp8vrRu55XTHbwnqq2GpXm9uLbcuhxm3IqX9OB4MZR1b2A==}
 
@@ -9608,6 +9625,10 @@ packages:
     resolution: {integrity: sha512-+uw1inIHVPQoaVuHzRyXd21icM+cnt4CzD5rW+NC1wjOUSTOs+Te7FOv7AhN7vS9x/oIyhLP5PR1H+phQAHu5Q==}
     dependencies:
       once: 1.4.0
+    dev: false
+
+  /entities@2.2.0:
+    resolution: {integrity: sha512-p92if5Nz619I0w+akJrLZH0MX0Pb5DX39XOwQTtXSdQQOaYH03S1uIQp4mhOZtAXrxq4ViO67YTiLBo2638o9A==}
     dev: false
 
   /entities@4.5.0:

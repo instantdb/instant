@@ -1,5 +1,5 @@
 import { id, tx } from '@instantdb/core';
-import { InstantReactWeb } from '@instantdb/react';
+import { InstantReactWebDatabase } from '@instantdb/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isObject, debounce } from 'lodash';
 import produce from 'immer';
@@ -99,7 +99,7 @@ export function Explorer({
   db,
   appId,
 }: {
-  db: InstantReactWeb<any, any>;
+  db: InstantReactWebDatabase<any>;
   appId: string;
 }) {
   // DEV
@@ -902,7 +902,7 @@ function NewNamespaceDialog({
   db,
   onClose,
 }: {
-  db: InstantReactWeb;
+  db: InstantReactWebDatabase<any>;
   onClose: (p?: { id: string; name: string }) => void;
 }) {
   const [name, setName] = useState('');
@@ -955,7 +955,7 @@ export type PushNavStack = (nav: ExplorerNav) => void;
 
 // DEV
 
-function _dev(db: InstantReactWeb) {
+function _dev(db: InstantReactWebDatabase<any>) {
   if (typeof window !== 'undefined') {
     const i = {
       db,

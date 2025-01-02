@@ -1,7 +1,7 @@
 import express from "express";
 import bodyParser from "body-parser";
 import cors from "cors"; // Import cors module
-import { id, i, init_experimental } from "@instantdb/admin";
+import { id, i, init } from "@instantdb/admin";
 import { assert } from "console";
 import dotenv from "dotenv";
 import fs from "fs";
@@ -31,10 +31,9 @@ const schema = i.schema({
       },
     },
   },
-  rooms: {},
 });
 
-const db = init_experimental({
+const db = init({
   apiURI: "http://localhost:8888",
   appId: process.env.INSTANT_APP_ID!,
   adminToken: process.env.INSTANT_ADMIN_TOKEN!,

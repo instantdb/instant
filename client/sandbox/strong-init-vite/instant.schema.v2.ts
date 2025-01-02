@@ -4,6 +4,7 @@ const _schema = i.schema({
   entities: {
     messages: i.entity({
       content: i.string(),
+      createdAt: i.date().optional(),
     }),
     $users: i.entity({
       email: i.string().unique().indexed(),

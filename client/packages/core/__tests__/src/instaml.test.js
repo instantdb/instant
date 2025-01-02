@@ -724,7 +724,6 @@ test("Schema: uses info in `attrs` and `links`", () => {
         },
       },
     },
-    rooms: {},
   });
 
   const commentId = uuid();
@@ -814,7 +813,6 @@ test("Schema: doesn't create duplicate ref attrs", () => {
         },
       },
     },
-    rooms: {},
   });
 
   const commentId = uuid();
@@ -870,8 +868,6 @@ test("Schema: lookup creates unique attrs for custom lookups", () => {
         nickname: i.string().unique().indexed(),
       }),
     },
-    links: {},
-    rooms: {},
   });
 
   const ops = instatx.tx.users[instatx.lookup("nickname", "stopanator")].update(
@@ -933,7 +929,6 @@ test("Schema: lookup creates unique attrs for lookups in link values", () => {
         },
       },
     },
-    rooms: {},
   });
 
   const uid = uuid();
@@ -1015,7 +1010,6 @@ test("Schema: lookup creates unique attrs for lookups in link values with arrays
         },
       },
     },
-    rooms: {},
   });
 
   const uid = uuid();
@@ -1108,7 +1102,6 @@ test("Schema: lookup creates unique ref attrs for ref lookup", () => {
         },
       },
     },
-    rooms: {},
   });
 
   const uid = uuid();
@@ -1192,7 +1185,6 @@ test("Schema: lookup creates unique ref attrs for ref lookup in link value", () 
         },
       },
     },
-    rooms: {},
   });
   const uid = uuid();
   const ops = [
@@ -1257,8 +1249,6 @@ test("Schema: populates checked-data-type", () => {
         j: i.json(),
       }),
     },
-    links: {},
-    rooms: {},
   });
 
   const commentId = uuid();

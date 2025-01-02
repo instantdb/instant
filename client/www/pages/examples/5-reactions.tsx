@@ -2,7 +2,7 @@ import config from '@/lib/config'; // hide-line
 import { init } from '@instantdb/react';
 import { RefObject, createRef, useRef } from 'react';
 
-const db = init<{}, RoomSchema>({
+const db = init({
   ...config, // hide-line
   appId: __getAppId(),
 });
@@ -13,10 +13,11 @@ export default function InstantTopics() {
   const publishEmoji = usePublishTopic('emoji');
 
   useTopicEffect('emoji', ({ name, directionAngle, rotationAngle }) => {
-    if (!emoji[name]) return;
+    const emojiName = name as EmojiName;
+    if (!emoji[emojiName]) return;
 
     animateEmoji(
-      { emoji: emoji[name], directionAngle, rotationAngle },
+      { emoji: emoji[emojiName], directionAngle, rotationAngle },
       elRefsRef.current[name].current
     );
   });
@@ -60,18 +61,6 @@ export default function InstantTopics() {
 }
 
 type EmojiName = keyof typeof emoji;
-
-type RoomSchema = {
-  'topics-example': {
-    topics: {
-      emoji: {
-        name: EmojiName;
-        rotationAngle: number;
-        directionAngle: number;
-      };
-    };
-  };
-};
 
 const emoji = {
   fire: '🔥',

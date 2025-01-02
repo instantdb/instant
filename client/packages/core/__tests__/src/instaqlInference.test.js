@@ -16,7 +16,6 @@ test("many-to-many with inference", () => {
         reverse: { on: "tags", has: "many", label: "posts" },
       },
     },
-    rooms: {},
   });
 
   const ids = {
@@ -94,7 +93,6 @@ test("one-to-one with inference", () => {
         reverse: { on: "profiles", has: "one", label: "user" },
       },
     },
-    rooms: {},
   });
 
   const ids = {

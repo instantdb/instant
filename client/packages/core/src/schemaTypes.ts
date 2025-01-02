@@ -45,13 +45,6 @@ export class DataAttrDef<ValueType, IsRequired extends boolean> {
   // }
 }
 
-type ExtractValueType<T> =
-  T extends DataAttrDef<infer ValueType, infer isRequired>
-    ? isRequired extends true
-      ? ValueType
-      : ValueType | undefined
-    : never;
-
 export class LinkAttrDef<
   Cardinality extends CardinalityKind,
   EntityName extends string,
@@ -90,9 +83,7 @@ export class EntityDef<
   ) {}
 
   asType<
-    _AsType extends Partial<{
-      [AttrName in keyof Attrs]: ExtractValueType<Attrs[AttrName]>;
-    }>,
+    _AsType extends Partial<MappedAttrs<Attrs>>,
   >() {
     return new EntityDef<Attrs, Links, _AsType>(this.attrs, this.links);
   }
@@ -231,13 +222,36 @@ type LinksIndexedByEntity<
   };
 };
 
+type RequiredKeys<Attrs extends AttrsDefs> = {
+  [K in keyof Attrs]: Attrs[K] extends DataAttrDef<any, infer R>
+    ? R extends true
+      ? K
+      : never
+    : never;
+}[keyof Attrs];
+
+type OptionalKeys<Attrs extends AttrsDefs> = {
+  [K in keyof Attrs]: Attrs[K] extends DataAttrDef<any, infer R>
+    ? R extends false
+      ? K
+      : never
+    : never;
+}[keyof Attrs];
+
+/**
+ * MappedAttrs:
+ *   - Required keys => `key: ValueType`
+ *   - Optional keys => `key?: ValueType`
+ */
+type MappedAttrs<Attrs extends AttrsDefs> = {
+  [K in RequiredKeys<Attrs>]: Attrs[K] extends DataAttrDef<infer V, any> ? V : never;
+} & {
+  [K in OptionalKeys<Attrs>]?: Attrs[K] extends DataAttrDef<infer V, any> ? V : never;
+};
+
 export type ResolveEntityAttrs<
   EDef extends EntityDef<any, any, any>,
-  ResolvedAttrs = {
-    [AttrName in keyof EDef["attrs"]]: ExtractValueType<
-      EDef["attrs"][AttrName]
-    >;
-  },
+  ResolvedAttrs = MappedAttrs<EDef["attrs"]>
 > =
   EDef extends EntityDef<any, any, infer AsType>
     ? AsType extends void
@@ -303,6 +317,25 @@ export class InstantSchemaDef<
     public rooms: Rooms,
   ) {}
 
+  /**
+   * @deprecated
+   * `withRoomSchema` is deprecated. Define your schema in `rooms` directly:
+   *
+   * @example
+   * // Before:
+   * const schema = i.schema({
+   *   // ...
+   * }).withRoomSchema<RoomSchema>()
+   *
+   * // After
+   * const schema = i.schema({
+   *  rooms: {
+   *    // ...
+   *  }
+   * })
+   *
+   * @see https://instantdb.com/docs/presence-and-topics#typesafety
+   */
   withRoomSchema<_RoomSchema extends RoomSchemaShape>() {
     type RDef = RoomDefFromShape<_RoomSchema>;
     return new InstantSchemaDef<Entities, Links, RDef>(
@@ -313,6 +346,12 @@ export class InstantSchemaDef<
   }
 }
 
+/**
+ * @deprecated
+ * `i.graph` is deprecated. Use `i.schema` instead.
+ *
+ * @see https://instantdb.com/docs/modeling-data
+ */
 export class InstantGraph<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
@@ -396,7 +435,7 @@ export type BackwardsCompatibleSchema<
 export type UnknownEntity = EntityDef<
   {
     id: DataAttrDef<string, true>;
-    [AttrName: string]: DataAttrDef<unknown, any>;
+    [AttrName: string]: DataAttrDef<any, any>;
   },
   { [LinkName: string]: LinkAttrDef<"many", string> },
   void
@@ -432,3 +471,31 @@ export type InstantUnknownSchema = InstantSchemaDef<
   UnknownLinks<UnknownEntities>,
   UnknownRooms
 >;
+
+export type UpdateParams<
+  Schema extends IContainEntitiesAndLinks<any, any>,
+  EntityName extends keyof Schema["entities"],
+> = {
+  [AttrName in keyof Schema["entities"][EntityName]["attrs"]]?: Schema["entities"][EntityName]["attrs"][AttrName] extends DataAttrDef<
+    infer ValueType,
+    infer IsRequired
+  >
+    ? IsRequired extends true
+      ? ValueType
+      : ValueType | null
+    : never;
+};
+
+export type LinkParams<
+  Schema extends IContainEntitiesAndLinks<any, any>,
+  EntityName extends keyof Schema["entities"],
+> = {
+  [LinkName in keyof Schema["entities"][EntityName]["links"]]?: Schema["entities"][EntityName]["links"][LinkName] extends LinkAttrDef<
+    infer Cardinality,
+    any
+  >
+    ? Cardinality extends "one"
+      ? string
+      : string | string[]
+    : never;
+};

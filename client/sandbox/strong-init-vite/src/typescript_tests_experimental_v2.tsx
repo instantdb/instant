@@ -1,19 +1,19 @@
 import {
   id,
-  init_experimental as core_init_experimental,
+  init as core_init,
   InstaQLParams,
   InstaQLEntity,
   InstaQLResult,
 } from "@instantdb/core";
-import { init_experimental as react_init_experimental } from "@instantdb/react";
-import { init_experimental as react_native_init_experimental } from "@instantdb/react-native";
-import { init_experimental as admin_init_experimental } from "@instantdb/admin";
+import { init as react_init } from "@instantdb/react";
+import { init as react_native } from "@instantdb/react-native";
+import { init as admin_init } from "@instantdb/admin";
 import schema, { AppSchema } from "../instant.schema.v2";
 
 // ----
 // Core
 
-const coreDB = core_init_experimental({
+const coreDB = core_init({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
   schema,
 });
@@ -47,12 +47,17 @@ coreDB.tx.messages[id()]
 // ----
 // React
 
-const reactDB = react_init_experimental({
+const reactDB = react_init({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
   schema,
 });
 
 function ReactNormalApp() {
+  // auth
+  const authInfo = reactDB.useAuth();
+  if (!authInfo.error && !authInfo.isLoading) {
+    const { user } = authInfo; 
+  }
   // rooms
   const reactRoom = reactDB.room("chat");
   const reactPresence = reactRoom.usePresence({ keys: ["name"] });
@@ -87,7 +92,7 @@ function ReactNormalApp() {
 // ----
 // React-Native
 
-const reactNativeDB = react_native_init_experimental({
+const reactNativeDB = react_native({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
   schema: schema,
 });
@@ -119,7 +124,7 @@ function ReactNativeNormalApp() {
 // ----
 // Admin
 
-const adminDB = admin_init_experimental({
+const adminDB = admin_init({
   appId: import.meta.env.VITE_INSTANT_APP_ID!,
   adminToken: import.meta.env.VITE_INSTANT_ADMIN_TOKEN!,
   schema,
@@ -151,6 +156,14 @@ const messagesQuery = {
 } satisfies InstaQLParams<AppSchema>;
 
 type CoreMessage = InstaQLEntity<AppSchema, "messages">;
+const mWithOptionalFieldWorks: CoreMessage = { 
+  id: '1', 
+  content: 'hello',
+};
+
+// to silence ts warnings
+mWithOptionalFieldWorks;
+
 let coreMessage: CoreMessage = 1 as any;
 coreMessage.content;
 
@@ -196,6 +209,9 @@ type DeeplyNestedResultWorks = InstaQLResult<
   AppSchema,
   {
     messages: {
+      $: {
+        limit: 10;
+      };
       creator: {
         createdMessages: {
           creator: {};
@@ -214,8 +230,8 @@ type DeeplyNestedResultFailsBadInput = InstaQLResult<
     messages: {
       creator: {
         createdMessages: {
-          // Type '{ foo: {}; }' is not assignable to type 
-          // '$Option | ($Option & InstaQLQuerySubqueryParams<AppSchema, "messages">) 
+          // Type '{ foo: {}; }' is not assignable to type
+          // '$Option | ($Option & InstaQLQuerySubqueryParams<AppSchema, "messages">)
           // | undefined'
           foo: {};
         };

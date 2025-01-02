@@ -19,3 +19,4 @@ node_modules
 server.iml
 .babashka-pod-*
 dev-resources/honeycomb-export*
+dev-resources/certs

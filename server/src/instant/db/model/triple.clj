@@ -13,7 +13,8 @@
    [instant.util.string :refer [multiline->single-line]]
    [instant.util.tracer :as tracer])
   (:import
-   (java.util UUID)))
+   (java.util UUID)
+   (java.time Instant)))
 
 ;; (XXX): Currently we allow value to be nil
 ;; In the future, we may want to _retract_ the triple if the value is nil
@@ -706,3 +707,9 @@
                        (inc i)))))))
       (tracer/add-data! {:attributes {:total-count @row-count}})
       {:row-count @row-count})))
+
+(defn parse-date-value [x]
+  (cond (string? x)
+        (Instant/parse x)
+        (number? x)
+        (Instant/ofEpochMilli x)))

@@ -3,7 +3,7 @@ import Head from "next/head";
 import { init, Cursors } from "@instantdb/react";
 import config from "../../config";
 
-const db = init<{}, any>(config);
+const db = init(config);
 const room = db.room("main", "123");
 
 function App() {

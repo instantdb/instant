@@ -1,4 +1,8 @@
-import type { DataAttrDef, IContainEntitiesAndLinks, InstantGraph, LinkAttrDef } from "./schemaTypes";
+import type {
+  IContainEntitiesAndLinks,
+  LinkParams,
+  UpdateParams,
+} from "./schemaTypes";
 
 type Action = "update" | "link" | "unlink" | "delete" | "merge";
 type EType = string;
@@ -7,38 +11,6 @@ type Args = any;
 type LookupRef = [string, any];
 type Lookup = string;
 export type Op = [Action, EType, Id | LookupRef, Args];
-
-type UpdateParams<
-  Schema extends IContainEntitiesAndLinks<any, any>,
-  EntityName extends keyof Schema["entities"],
-> = {
-  [AttrName in keyof Schema["entities"][EntityName]["attrs"]]?: Schema["entities"][EntityName]["attrs"][AttrName] extends DataAttrDef<
-    infer ValueType,
-    infer IsRequired
-  >
-    ? IsRequired extends true
-      ? ValueType
-      : ValueType | null
-    : never;
-} & (Schema extends IContainEntitiesAndLinks<any, any>
-  ? {}
-  : {
-      [attribute: string]: any;
-    });
-
-type LinkParams<
-  Schema extends IContainEntitiesAndLinks<any, any>,
-  EntityName extends keyof Schema["entities"],
-> = {
-  [LinkName in keyof Schema["entities"][EntityName]["links"]]?: Schema["entities"][EntityName]["links"][LinkName] extends LinkAttrDef<
-    infer Cardinality,
-    any
-  >
-    ? Cardinality extends "one"
-      ? string
-      : string | string[]
-    : never;
-} & (Schema extends InstantGraph<any, any> ? {} : { [attribute: string]: any });
 
 export interface TransactionChunk<
   Schema extends IContainEntitiesAndLinks<any, any>,

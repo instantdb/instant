@@ -8,7 +8,7 @@ import {
 } from 'react';
 import produce from 'immer';
 import clsx from 'clsx';
-import { init } from '@instantdb/react';
+import { i, init } from '@instantdb/react';
 import Head from 'next/head';
 
 import { Tab, Switch as HeadlessSwitch } from '@headlessui/react';
@@ -51,22 +51,26 @@ const refsInit = Object.fromEntries(
 
 const appId = 'fc5a4977-910a-43d9-ac28-39c7837c1eb5';
 
-const db = init<
-  {},
-  {
+const schema = i.schema({
+  entities: {},
+  rooms: {
     landing: {
+      presence: i.entity({}),
       topics: {
-        emoji: {
-          name: EmojiName;
-          rotationAngle: number;
-          directionAngle: number;
-        };
-      };
-    };
-  }
->({
+        emoji: i.entity({
+          name: i.string<EmojiName>(),
+          rotationAngle: i.number(),
+          directionAngle: i.number(),
+        }),
+      },
+    },
+  },
+});
+
+const db = init({
   ...config,
   appId,
+  schema,
 });
 
 const room = db.room('landing', 'landing');

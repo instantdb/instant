@@ -1107,6 +1107,13 @@
 (defn has-prev-tbl [table]
   (kw table :-has-prev))
 
+(defn flatten-symbol-map-values [vs]
+  (mapcat (fn [v]
+            (if (set? v)
+              (mapcat flatten-symbol-map-values v)
+              [v]))
+          vs))
+
 (defn add-page-info
   "Updates the cte with pagination constraints."
   [{:keys [next-idx
@@ -1122,6 +1129,7 @@
            direction
            named-pattern
            order-sym
+           eid-sym
            order-col-type
            before
            after]
@@ -1135,7 +1143,12 @@
                                     false
                                     page-pattern)
         prev-table (kw prefix (dec next-idx))
-        entity-id-col (kw prev-table :-entity-id)
+
+        entity-id-col (list* :coalesce
+                             (map (fn [x]
+                                    (let [[cte-idx pat-idx] x]
+                                      (last (join-cols prefix cte-idx [:e (idx->component-type pat-idx)]))))
+                                  (flatten-symbol-map-values (get symbol-map eid-sym))))
         sym-component-type (component-type-of-sym named-pattern order-sym)
         sym-triple-idx (get (set/map-invert idx->component-type)
                             sym-component-type)
@@ -1161,19 +1174,20 @@
 
                   ;; Make sure we're getting each entity once
                   (dissoc :select)
-                  (assoc :select-distinct-on (list* [:order-val entity-id-col]
+                  (assoc :select-distinct-on (list* [:order-val :order-eid]
                                                     [(if (= order-col-type :created-at-timestamp)
                                                        [:cast order-col-name :bigint]
                                                        [(extract-value-fn order-col-type) order-col-name])
                                                      :order-val]
+                                                    [entity-id-col :order-eid]
                                                     (:select query))))
 
         order-by [[:order-val
                    (if (= order-by-direction :desc)
                      (kw order-by-direction :-nulls-last)
                      (kw order-by-direction :-nulls-first))
-                   order-by-direction ]
-                  [entity-id-col
+                   order-by-direction]
+                  [:order-eid
                    order-by-direction]]
 
         paged-query (cond-> query
@@ -1198,14 +1212,14 @@
         first-row-table (kw table :-first)
         last-row-table (kw table :-last)
         first-row-cte [first-row-table
-                       {:select [[entity-id-col :e]
+                       {:select [[:order-eid :e]
                                  [(kw table :- (if (= :value order-col-name)
                                                  :value-blob
                                                  order-col-name)) :sym]]
                         :from table
                         :limit 1}]
         last-row-cte [last-row-table
-                      {:select [[entity-id-col :e]
+                      {:select [[:order-eid :e]
                                 [(kw table :- (if (= :value order-col-name)
                                                 :value-blob
                                                 order-col-name)) :sym]]
@@ -1310,7 +1324,6 @@
                                                    app-id
                                                    additional-joins
                                                    page-info))
-
 
                         ctes (:with query)
 
@@ -1839,7 +1852,6 @@
           query-hash (or (:query-hash ctx)
                          (hash (first (hsql/format query))))
           _ (tracer/add-data! {:attributes {:query-hash query-hash}})
-
           query (when query
                   (update query
                           :with conj

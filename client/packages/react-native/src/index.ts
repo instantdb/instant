@@ -6,7 +6,6 @@ import version from "./version";
 
 import {
   // react
-  InstantReact,
   InstantReactAbstractDatabase,
 
   // types
@@ -29,7 +28,6 @@ import {
   type InstantQueryResult,
   type InstantSchema,
   type InstantSchemaDatabase,
-
   type ConnectionStatus,
 
   // schema types
@@ -53,6 +51,8 @@ import {
   type InstantSchemaDef,
   type InstantUnknownSchema,
   type InstantRules,
+  type UpdateParams,
+  type LinkParams,
 } from "@instantdb/core";
 
 /**
@@ -62,43 +62,42 @@ import {
  * Visit https://instantdb.com/dash to get your `appId` :)
  *
  * @example
+ *  import { init } from "@instantdb/react-native"
+ *
  *  const db = init({ appId: "my-app-id" })
  *
- * // You can also provide a schema for type safety and editor autocomplete!
+ *  // You can also provide a schema for type safety and editor autocomplete!
  *
- *  type Schema = {
- *    goals: {
- *      title: string
- *    }
- *  }
+ *  import { init } from "@instantdb/react-native"
+ *  import schema from ""../instant.schema.ts";
  *
- *  const db = init<Schema>({ appId: "my-app-id" })
- *
+ *  const db = init({ appId: "my-app-id", schema })
+ *  
+ *  // To learn more: https://instantdb.com/docs/modeling-data
  */
-function init<Schema extends {} = {}, RoomSchema extends RoomSchemaShape = {}>(
-  config: Config,
-) {
-  return new InstantReactNative<Schema, RoomSchema>(config);
-}
-
-function init_experimental<
+function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
 >(config: InstantConfig<Schema>) {
-  return new InstantReactNativeDatabase<Schema>(config);
+  return new InstantReactNativeDatabase<Schema>(config, {
+    "@instantdb/react-native": version,
+  });
 }
 
-class InstantReactNative<
-  Schema extends InstantGraph<any, any, any> | {} = {},
-  RoomSchema extends RoomSchemaShape = {},
-  WithCardinalityInference extends boolean = false,
-> extends InstantReact<Schema, RoomSchema, WithCardinalityInference> {
-  static Storage = Storage;
-  static NetworkListener = NetworkListener;
-
-  constructor(config: Config | ConfigWithSchema<any>) {
-    super(config, { "@instantdb/react-native": version });
-  }
-}
+/**
+ * @deprecated
+ * `init_experimental` is deprecated. You can replace it with `init`.
+ * 
+ * @example
+ *
+ * // Before
+ * import { init_experimental } from "@instantdb/react-native"
+ * const db = init_experimental({  ...  });
+ *
+ * // After
+ * import { init } from "@instantdb/react-native"
+ * const db = init({ ...  });
+ */
+const init_experimental = init;
 
 class InstantReactNativeDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
@@ -123,7 +122,6 @@ export {
   type User,
   type AuthState,
   type ConnectionStatus,
-  type InstantReactNative,
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
@@ -151,4 +149,6 @@ export {
   type InstantUnknownSchema,
   type BackwardsCompatibleSchema,
   type InstantRules,
+  type UpdateParams,
+  type LinkParams,
 };

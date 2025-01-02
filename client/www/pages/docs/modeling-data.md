@@ -2,189 +2,401 @@
 title: Modeling data
 ---
 
-## Overview
-
-In this section we’ll learn how to model data using the Instant Explorer. By the end of this document you’ll know how to:
+In this section we’ll learn how to model data using Instant's schema. By the end of this document you’ll know how to:
 
 - Create namespaces and attributes
-- Add indexes, unique constraints, and relationship-types
+- Add indexes and unique constraints
+- Model relationships
 - Lock down your schema for production
 
-We’ll build a micro-blog to illustrate. Our aim is to create the following data model:
+We’ll build a micro-blog to illustrate; we'll have authors, posts, comments, and tags.
 
-```javascript
-users {
-  id: UUID,
-  email: string :is_unique,
-  handle: string :is_unique :is_indexed,
-  createdAt: number,
-  :has_many posts
-  :has_one pin
-}
+## Schema as Code
 
-posts {
-  id: UUID,
-  text: string,
-  createdAt: number,
-  :has_many comments,
-  :belongs_to author :through users,
-  :has_one pin
-}
+With Instant you can define your schema and your permissions in code. If you haven't already, use the [CLI](/docs/cli) to generate an `instant.schema.ts`, and a `instant.perms.ts` file:
 
-comments {
-  id: UUID,
-  text: string,
-  :belongs_to post,
-  :belongs_to author :through users
-}
+```shell {% showCopy=true %}
+npx instant-cli@latest init
+```
 
-pins {
-  id: UUID,
-  :has_one post,
-  :has_one author :through users
+The CLI will guide you through picking an Instant app and generate these files for you.
+
+## instant.schema.ts
+
+Now we can define the data model for our blog!
+
+Open `instant.schema.ts`, and paste the following:
+
+```typescript {% showCopy=true %}
+// instant.schema.ts
+
+import { i } from "@instantdb/core";
+
+const _schema = i.schema({
+  entities: {
+    $users: i.entity({
+      email: i.string().unique().indexed(),
+    }),
+    profiles: i.entity({
+      nickname: i.string(),
+      createdAt: i.date(),
+    }),
+    posts: i.entity({
+      title: i.string(),
+      body: i.string(),
+      createdAt: i.date(),
+    }),
+    comments: i.entity({
+      body: i.string(),
+      createdAt: i.date(),
+    }),
+    tags: i.entity({
+      title: i.string(),
+    }),
+  },
+  links: {
+    postAuthor: {
+      forward: { on: "posts", has: "one", label: "author" },
+      reverse: { on: "profiles", has: "many", label: "authoredPosts" },
+    },
+    commentPost: {
+      forward: { on: "comments", has: "one", label: "post" },
+      reverse: { on: "posts", has: "many", label: "comments" },
+    },
+    commentAuthor: {
+      forward: { on: "comments", has: "one", label: "author" },
+      reverse: { on: "profiles", has: "many", label: "authoredComments" },
+    },
+    postsTags: {
+      forward: { on: "posts", has: "many", label: "tags" },
+      reverse: { on: "tags", has: "many", label: "posts" },
+    },
+    profileUser: {
+      forward: { on: "profiles", has: "one", label: "$user" },
+      reverse: { on: "$users", has: "one", label: "profile" },
+    },
+  },
+});
+
+// This helps Typescript display better intellisense
+type _AppSchema = typeof _schema;
+interface AppSchema extends _AppSchema {}
+const schema: AppSchema = _schema;
+
+export type { AppSchema };
+export default schema;
+```
+
+Let's unpack what we just wrote. There are three core building blocks to model data with Instant: **Namespaces**, **Attributes**, and **Links**.
+
+## 1) Namespaces
+
+Namespaces are equivelant to "tables" in relational databases or "collections" in NoSQL. In our case, these are: `$users`, `profiles`, `posts`, `comments`, and `tags`.
+
+They're all defined in the `entities` section:
+
+```typescript
+// instant.schema.ts
+
+const _schema = i.schema({
+  entities: {
+    posts: i.entity({
+      // ...
+    }),
+  },
+});
+```
+
+## 2) Attributes
+
+Attributes are properties associated with namespaces. These are equivelant to a "column" in relational databases or a "field" in NoSQL. For the `posts` entity, we have the `title`, `body`, and `createdAt` attributes:
+
+```typescript
+// instant.schema.ts
+
+const _schema = i.schema({
+  entities: {
+    // ...
+    posts: i.entity({
+      title: i.string(),
+      body: i.string(),
+      createdAt: i.date(),
+    }),
+  },
+});
+```
+
+### Typing attributes
+
+Attributes can be typed as `i.string()`, `i.number()`, `i.boolean()`, `i.date()`, `i.json()`, or `i.any()`.
+
+{% callout %}
+
+`i.date()` accepts dates as either a numeric timestamp (in milliseconds) or an ISO 8601 string. `JSON.stringify(new Date())` will return an ISO 8601 string.
+
+{% /callout %}
+
+When you type `posts.title` as a `string`:
+
+```typescript
+// instant.schema.ts
+
+const _schema = i.schema({
+  entities: {
+    // ...
+    posts: i.entity({
+      title: i.string(),
+      // ...
+    }),
+  },
+});
+```
+
+Instant will _make sure_ that all `title` attributes are strings, and you'll get the proper typescript hints to boot!
+
+### Unique constraints
+
+Sometimes you'll want to introduce a unique constraint. For example, say we wanted to add friendly URL's to posts. We could introduce a `slug` attribute:
+
+```typescript
+// instant.schema.ts
+
+const _schema = i.schema({
+  entities: {
+    // ...
+    posts: i.entity({
+      slug: i.string().unique(),
+      // ...
+    }),
+  },
+});
+```
+
+Since we're going to use post slugs in URLs, we'll want to make sure that no two posts can have the same slug. If we mark `slug` as `unique`, _Instant will guarantee this constraint for us_.
+
+Plus unique attributes come with their own special index. This means that if you use a unique attribute inside a query, we can fetch the object quickly:
+
+```typescript
+const query = {
+  posts: {
+    $: {
+      where: {
+        // Since `slug` is unique, this query is 🚀 fast
+        slug: 'completing_sicp',
+      },
+    },
+  },
+};
+```
+
+### Indexing attributes
+
+Speaking of fast queries, let's take a look at one:
+
+What if we wanted to query for a post that was published at a particular date? Here's a query to get posts that were published during SpaceX's chopstick launch:
+
+```typescript
+const rocketChopsticks = '2024-10-13T00:00:00Z';
+const query = { posts: { $: { where: { createdAt: rocketChopsticks } } } };
+```
+
+This would work, but the more posts we create, the slower the query would get. We'd have to scan every post and compare the `createdAt` date.
+
+To make this query faster, we can index `createdAt`:
+
+```typescript
+// instant.schema.ts
+
+const _schema = i.schema({
+  entities: {
+    // ...
+    posts: i.entity({
+      createdAt: i.date().indexed(), // 🔥,
+      // ...
+    }),
+  },
+});
+```
+
+As it says on the tin, this command tells Instant to index the `createdAt` field, which lets us quickly look up entities by this attribute.
+
+## 3) Links
+
+Links connect two namespaces together. When you define a link, you define it both in the 'forward', and the 'reverse' direction. For example:
+
+```typescript
+postAuthor: {
+  forward: { on: "posts", has: "one", label: "author" },
+  reverse: { on: "profiles", has: "many", label: "authoredPosts" },
 }
 ```
 
-## Namespaces, attributes, data, and links.
+This links `posts` and `profiles` together:
 
-There are four core building blocks to modeling data with Instant.
+- `posts.author` links to _one_ `profiles` entity
+- `profiles.authoredPosts` links back to _many_ `posts` entities.
 
-**1) Namespaces**
+Since links are defined in both directions, you can query in both directions too:
 
-Namespaces house entities like `users`, `posts`, `comments`, `pins`. They are equivalent to “tables” in relational databases or “collections” in NoSQL.
+```typescript
+// This queries all posts with their author
+const query1 = {
+  posts: {
+    author: {},
+  },
+};
 
-**2) Attributes**
+// This queries profiles, with all of their authoredPosts!
+const query2 = {
+  profiles: {
+    authoredPosts: {},
+  },
+};
+```
 
-Attributes are properties associated with namespaces like `id`, `email`, `posts` for `users`. Attributes come in two flavors, **data** and **links**. They are equivalent to a “column” in relational databases or a “field” in NoSQL.
-
-**3) Data Attributes**
-
-Data attributes are facts about an entity. In our data model above these would be `id`, `email` , `handle` and `createdAt` for `users`
-
-**4) Link Attributes**
-
-Links connect two namespaces together. When you create a link you define a “name” and a “reverse attribute name.” For example the link between users and posts
-
-- Has a **name** of “posts” connecting **users** to their **posts**
-- Has a **reverse name** of “author” connecting **posts** to their **users**
-
-Links can also have one of four relationship types: `many-to-many`, `many-to-one`, `one-to-many`, and `one-to-one`
+Links can have one of four relationship types: `many-to-many`, `many-to-one`, `one-to-many`, and `one-to-one`
 
 Our micro-blog example has the following relationship types:
 
-- **Many-to-one** between users and posts
-- **One-to-one** between users and pins
-- **Many-to-one** between posts and comments
-- **Many-to-one** between users and comments
-- **One-to-one** between posts and pins
+- **One-to-one** between `profiles` and `$users`
+- **One-to-many** between `posts` and `profiles`
+- **One-to-many** between `comments` and `posts`
+- **One-to-many** between `comments` and `profiles`
+- **Many-to-many** between `posts` and `tags`
 
----
+## Publishing your schema
 
-Now that we’re familiar with namespaces, attributes, data, and links. we can start modeling our data.
+Now that you have your schema, you can use the CLI to `push` it to your app:
 
-## Create Namespaces
+```shell {% showCopy=true %}
+npx instant-cli@latest push schema
+```
 
-This is the most straight forward. After creating a new app in the dashboard you can simply press `+ Create` in the dashboard to add new namespaces.
+The CLI will look at your app in production, show you the new columns you'd create, and run the changes for you!
 
-{% callout type="note" %}
+{% ansi %}
 
-Aside from creating namespace in the explorer, namespaces are also automatically created the first time they are referenced when you call `transact` with `update`
+```
+Checking for an Instant SDK...
+Found [32m@instantdb/react[39m in your package.json.
+Found [32mNEXT_PUBLIC_INSTANT_APP_ID[39m: *****
+Planning schema...
+The following changes will be applied to your production schema:
+[35mADD ENTITY[39m profiles.id
+[35mADD ENTITY[39m posts.id
+[35mADD ENTITY[39m comments.id
+[35mADD ENTITY[39m tags.id
+[32mADD ATTR[39m profiles.nickname :: unique=false, indexed=false
+[32mADD ATTR[39m profiles.createdAt :: unique=false, indexed=false
+[32mADD ATTR[39m posts.title :: unique=false, indexed=false
+[32mADD ATTR[39m posts.slug :: unique=true, indexed=false
+[32mADD ATTR[39m posts.body :: unique=false, indexed=false
+[32mADD ATTR[39m posts.createdAt :: unique=false, indexed=true
+[32mADD ATTR[39m comments.body :: unique=false, indexed=false
+[32mADD ATTR[39m comments.createdAt :: unique=false, indexed=false
+[32mADD ATTR[39m tags.title :: unique=false, indexed=false
+[32mADD LINK[39m posts.author <=> profiles.authoredPosts
+[32mADD LINK[39m comments.post <=> posts.comments
+[32mADD LINK[39m comments.author <=> profiles.authoredComments
+[32mADD LINK[39m posts.tags <=> tags.posts
+[32mADD LINK[39m profiles.$user <=> $users.profile
+[2K[34m?[39m [1mOK to proceed?[22m [36myes
+[32mSchema updated![39m
+```
 
-For example. `transact(tx.hello[id()].update(…)` will make a `hello` namespace if one did not exist already.
+{% /ansi %}
 
-{% /callout %}
+## Use schema for typesafety
 
-## Create Data Attributes
+You can also use your schema inside `init`:
 
-Now that we have our namespaces, we can start adding attributes.
+```typescript
+import { init } from '@instantdb/react';
 
-Let’s start by adding **data attributes** to `users`. You’ll notice an `id` attribute has already been made for you. Let’s create the following:
+import schema from '../instant.schema.ts';
 
-{% callout type="info" %}
-`email` with a **unique constraint** so no two users have the same email
+const db = init({
+  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
+  schema,
+});
+```
 
-`handle` with a **unique constraint** so no two users have the same handle, and also an **index** because our application will use `handle` for fetching posts when browsing user profiles.
+When you do this, all [queries](/docs/instaql) and [transactions](/docs/instaql) will come with typesafety out of the box.
 
-`createdAt` which doesn’t need any constraints or index.
-{% /callout %}
+{% callout %}
 
-Use the explorer in the Dashboard to create these data attributes. Here's the flow
-for creating `handle`.
-
-- 1: Click "Edit Schema" in the `users` namespace.
-- 2: Click "New Attribute"
-- 3: Configure away!
-
-{% screenshot src="https://paper-attachments.dropboxusercontent.com/s_C781CC40E9D454E2FED6451745CECEBF732B63934549185154BCB3DAD0C7B532_1710517344495_Screenshot+2024-03-15+at+11.42.19AM.png" /%}
-
-{% callout type="note" %}
-
-Similar to namespaces, data attributes are automatically created the first time they are referenced when you call `transact` with `update`
-
-For example, `transact(tx.users[id()].update({newAttribute: "hello world!"})` will create `newAttribute` on `users` if `newAttribute` did not exist before.
-
-{% /callout %}
-
-## Create Link Attributes
-
-Next up we’ll create our link attributes on `user`. Specifically we want to
-model:
-
-* `users` can have many `posts` , but `posts` can only have one `users` via the label `author`
-
-* `users` can only have one `pins`, and `pins` can only have one `users` via the label `author`
-
-Again we can use the dashboard to set these up. Creating the `posts` link attribute
-looks like
-
-{% screenshot src="https://paper-attachments.dropboxusercontent.com/s_C781CC40E9D454E2FED6451745CECEBF732B63934549185154BCB3DAD0C7B532_1710784920480_image.png" /%}
-
-And creating the `pins` link attribute looks like
-
-{% screenshot src="https://paper-attachments.dropboxusercontent.com/s_C781CC40E9D454E2FED6451745CECEBF732B63934549185154BCB3DAD0C7B532_1710518041250_image.png" /%}
-
-When creating links, attributes will show up under both namespaces! If you inspect the `posts` and `pins` namespaces in the explorer you should see both have an `author` attribute that links to `users`
-
-{% callout type="note" %}
-A many-to-many link attribute is automatically created the first time two namespaces are referenced when you call `transact` and `link`
-
-For example, `transact(tx.users[id].link({pets: petId})` will create an attribute `pets` on `users` and a `users` attribute on `pets`
+If you haven't used the CLI to push your schema yet, no problem. Any time you write `transact`, we'll automatically create missing entities for you.
 
 {% /callout %}
 
-## Update or Delete Attributes and Namespaces
+## Update or Delete attributes
 
-You can always modify or delete attributes after creating them. In the previous step we created the link attribute `users.pins` but we can rename it to `users.pin` as shown below.
+You can always modify or delete attributes after creating them. **You can't use the CLI to do this yet, but you can use the dashboard.**
 
-{% screenshot src="https://paper-attachments.dropboxusercontent.com/s_C781CC40E9D454E2FED6451745CECEBF732B63934549185154BCB3DAD0C7B532_1710518379429_image.png" /%}
+Say we wanted to rename `posts.createdAt` to `posts.publishedAt`:
 
-Similarly you can delete whole namespaces when editing their schema.
+1. Go to your [Dashboard](https://instantdb.com/dash)
+2. Click "Explorer"
+3. Click "posts"
+4. Click "Edit Schema"
+5. Click `createdAt`
 
-{% callout type="warning" %}
-Be aware that deleting namespaces and attributes are irreversible operations!
-{% /callout %}
+You'll see a modal that you can use to rename the attribute, index it, or delete it:
+
+{% screenshot src="/img/docs/modeling-data-rename-attr.png" /%}
 
 ## Secure your schema with permissions
 
-In the earlier sections we mentioned that new `namespaces` and `attributes` can be created on the fly when you call `transact`. This can be useful for development, but you may not want this in production. To prevent changes to your schema on the fly, simply add these permissions to your app.
+In the earlier sections we mentioned that new `entities` and `attributes` can be created on the fly when you call `transact`. This can be useful for development, but you may not want this in production.
 
-```javascript
-{
-  "attrs": {
-    "allow": {
-      "create": "false",
-      "delete": "false",
-      "update": "false"
-    }
+To prevent changes to your schema on the fly, simply add these permissions to your app.
+
+```typescript
+// instant.perms.ts
+import type { InstantRules } from '@instantdb/react';
+
+const rules = {
+  attrs: {
+    allow: {
+      $default: 'false',
+    },
   },
-  ... // other permissions
-}
+} satisfies InstantRules;
+
+export default rules;
 ```
 
-For our micro-blog example, it would look like this in the dashboard:
+Once you push these permissions to production:
 
-{% screenshot src="https://paper-attachments.dropboxusercontent.com/s_C781CC40E9D454E2FED6451745CECEBF732B63934549185154BCB3DAD0C7B532_1710519419773_image.png" /%}
+```bash
+npx instant-cli@latest push perms
+```
 
-With these permissions set you’ll still be able to make changes in the explorer, but client-side transactions that try to modify your schema will fail. This means your schema is safe from unwanted changes!
+{% ansi %}
+
+```
+Checking for an Instant SDK...
+Found [32m@instantdb/react[39m in your package.json.
+Found [32mNEXT_PUBLIC_INSTANT_APP_ID[39m: *****
+Planning perms...
+The following changes will be applied to your perms:
+[31m-null[39m
+[32m+{[39m
+[32m+  attrs: {[39m
+[32m+    allow: {[39m
+[32m+      $default: "false"[39m
+[32m+    }[39m
+[32m+  }[39m
+[32m+}[39m
+[1mOK to proceed?[22m [36myes[39m[21
+[32mPermissions updated![39m
+```
+
+{% /ansi %}
+
+You'll still be able to make changes in the explorer or with the CLI, but client-side transactions that try to modify your schema will fail. This means your schema is safe from unwanted changes!
+
+
+---
 
 **If you've made it this far, congratulations! You should now be able to fully customize and lock down your data model. Huzzah!**

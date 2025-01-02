@@ -80,8 +80,14 @@
                  :jvm-opts ["-Djdk.tracePinnedThreads=full"
                             ;; print stack traces instead of "Full report at ..."
                             "-Dclojure.main.report=stderr"
-                            "-Dclojure.server.repl={:port 6006 :accept clojure.core.server/repl}"]}
-
+                            "-Dclojure.server.repl={:port 6006 :accept clojure.core.server/repl}"
+                            ;; hazelcast
+                            "--add-modules" "java.se"
+                            "--add-exports" "java.base/jdk.internal.ref=ALL-UNNAMED"
+                            "--add-opens" "java.base/java.lang=ALL-UNNAMED"
+                            "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
+                            "--add-opens" "java.management/sun.management=ALL-UNNAMED"
+                            "--add-opens" "jdk.management/com.sun.management.internal=ALL-UNNAMED"]}
            :storm {:extra-deps {com.github.flow-storm/clojure {:mvn/version "1.11.2-4"}
                                 com.github.flow-storm/flow-storm-dbg {:mvn/version "3.14.0"}}
                    :override-deps {org.clojure/clojure nil}

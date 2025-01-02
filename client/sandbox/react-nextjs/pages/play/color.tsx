@@ -1,8 +1,14 @@
-import { init, tx } from "@instantdb/react";
+import { i, init, tx } from "@instantdb/react";
 import { useEffect } from "react";
 import config from "../../config";
 
-const db = init(config);
+const schema = i.schema({
+  entities: {
+    colors: i.entity({ color: i.string() }),
+  }
+});
+
+const db = init({ ...config, schema });
 
 function App() {
   return <Main />;

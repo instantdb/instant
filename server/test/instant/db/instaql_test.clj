@@ -495,7 +495,6 @@
               :data
               :datalog-result
               :page-info)]
-
       (testing "after"
         (is-pretty-eq? (query-pretty {:users {:$ {:limit 1
                                                   :after end-cursor
@@ -804,8 +803,7 @@
                                                                  :users/fullName
                                                                  :users/handle} _]
                                           [:ave #{"eid-nicole"} #{:users/handle} _]}
-                                :triples #{
-                                           ("eid-nicole" :users/id "eid-nicole")
+                                :triples #{("eid-nicole" :users/id "eid-nicole")
                                            --
                                            ("eid-nicole" :users/handle "nicolegf")
                                            ("eid-nicole" :users/fullName "Nicole")
@@ -857,8 +855,7 @@
                                                                  :users/fullName
                                                                  :users/handle} _]
                                           [:ave #{"eid-nicole"} #{:users/handle} _]}
-                                :triples #{
-                                           ("eid-nicole" :users/id "eid-nicole")
+                                :triples #{("eid-nicole" :users/id "eid-nicole")
                                            --
                                            ("eid-nicole" :users/handle "nicolegf")
                                            ("eid-nicole" :users/fullName "Nicole")
@@ -2847,7 +2844,6 @@
                    (get "bookshelves")
                    (#(map (fn [x] (get x "order")) %)))))))))
 
-
 (deftest order-by-with-ors-and-ands
   (with-zeneca-checked-data-app
     (fn [app r]
@@ -4021,6 +4017,154 @@
                                   {:books {}})
                    :books)
                []))))))
+
+(deftest ordering-with-where-and-limit
+  (with-empty-app
+    (fn [{app-id :id :as _app}]
+      (let [make-ctx (fn []
+                       (let [attrs (attr-model/get-by-app-id app-id)]
+                         {:db {:conn-pool (aurora/conn-pool)}
+                          :app-id app-id
+                          :attrs attrs}))
+
+            ;; Create conversations, messages
+            convo-id-aid (random-uuid)
+            convo-order-aid (random-uuid)
+            group-id-aid (random-uuid)
+            convo-group-aid (random-uuid)
+            msg-id-aid (random-uuid)
+            msg-time-aid (random-uuid)
+            msg-convos-id (random-uuid)
+            _ (tx/transact! (aurora/conn-pool)
+                            (attr-model/get-by-app-id app-id)
+                            app-id
+                            [[:add-attr {:id group-id-aid
+                                         :forward-identity [(random-uuid) "groups" "id"]
+                                         :unique? true
+                                         :index? true
+                                         :value-type :blob
+                                         :cardinality :one}]
+                             [:add-attr {:id convo-id-aid
+                                         :forward-identity [(random-uuid) "conversations" "id"]
+                                         :unique? true
+                                         :index? true
+                                         :value-type :blob
+                                         :cardinality :one}]
+                             [:add-attr {:id convo-order-aid
+                                         :forward-identity [(random-uuid) "conversations" "order"]
+                                         :unique? true
+                                         :index? true
+                                         :value-type :blob
+                                         :checked-data-type :number
+                                         :cardinality :one}]
+                             [:add-attr {:id convo-group-aid
+                                         :forward-identity [(random-uuid) "conversations" "groups"]
+                                         :reverse-identity [(random-uuid) "groups" "conversations"]
+                                         :unique? false
+                                         :index? false
+                                         :value-type :ref
+                                         :cardinality :one}]
+                             [:add-attr {:id msg-id-aid
+                                         :forward-identity [(random-uuid) "messages" "id"]
+                                         :unique? true
+                                         :index? true
+                                         :value-type :blob
+                                         :cardinality :one}]
+                             [:add-attr {:id msg-time-aid
+                                         :forward-identity [(random-uuid) "messages" "time"]
+                                         :unique? false
+                                         :index? true
+                                         :checked-data-type :number
+                                         :value-type :blob
+                                         :cardinality :one}]
+                             [:add-attr {:id msg-convos-id
+                                         :forward-identity [(random-uuid) "messages" "conversation"]
+                                         :reverse-identity [(random-uuid) "conversations" "messages"]
+                                         :unique? false
+                                         :index? false
+                                         :value-type :ref
+                                         :cardinality :one}]])
+
+            order (atom 0)
+
+            ;; add 1 group, 3 conversations, with 5 messages each
+            add-conversation (fn [g-id c-id]
+                               [[:add-triple c-id convo-id-aid (str c-id)]
+                                [:add-triple c-id convo-order-aid (swap! order inc)]
+                                [:add-triple c-id convo-group-aid (str g-id)]])
+
+            add-message (fn [convo-id m-id t]
+                          [[:add-triple m-id msg-id-aid m-id]
+                           [:add-triple m-id msg-time-aid t]
+                           [:add-triple m-id msg-convos-id convo-id]])
+
+            convo-msg-data (->> (repeatedly 3 random-uuid)
+                                (map-indexed (fn [idx c-id]
+                                               {:convo-id c-id
+                                                :convo-idx idx
+                                                :messages (map-indexed
+                                                           (fn [i m-id]
+                                                             {:msg-id m-id
+                                                              :msg-idx i})
+                                                           (repeatedly 20 random-uuid))})))
+
+            group-id (random-uuid)
+            steps-of-steps (map
+                            (fn [{:keys [convo-id convo-idx messages]}]
+                              (concat (add-conversation group-id convo-id)
+                                      (mapcat (fn [{:keys [msg-id msg-idx]}]
+                                                (add-message convo-id msg-id (+ convo-idx msg-idx)))
+                                              messages)))
+
+                            convo-msg-data)
+            _ (mapv
+               (fn [steps]
+                 (tx/transact! (aurora/conn-pool)
+                               (attr-model/get-by-app-id app-id)
+                               app-id
+                               steps))
+
+               steps-of-steps)
+
+            ctx (make-ctx)]
+        (is (= 3
+               (-> (instaql-nodes->object-tree
+                    ctx
+                    (iq/query ctx
+                              {:conversations {:$ {:where {:messages.time {:$gte 0}}}}}))
+                   (get "conversations")
+                   count)))
+
+        (is (= 2
+               (-> (instaql-nodes->object-tree
+                    ctx
+                    (iq/query ctx
+                              {:conversations {:$ {:limit 2
+                                                   :where {:messages.time {:$gte 0}}}}}))
+                   (get "conversations")
+                   count)))
+
+        (is (= 2
+               (-> (instaql-nodes->object-tree
+                    ctx
+                    (iq/query ctx
+                              {:conversations {:$ {:limit 2
+                                                   :where {:groups group-id
+                                                           :messages.time {:$gte 0}}}}}))
+                   (get "conversations")
+                   count)))
+
+        (testing "arbitrary ordering"
+          (is (= 2
+                 (-> (instaql-nodes->object-tree
+                      ctx
+                      (iq/query ctx
+                                {:conversations {:$ {:limit 2
+                                                     :order {:order :desc}
+                                                     :where {:groups group-id
+                                                             :messages.time {:$gte 0}}}}}))
+                     (get "conversations")
+                     count))))))))
 
 (comment
   (test/run-tests *ns*))

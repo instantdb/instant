@@ -16,7 +16,7 @@ const rules = {
    *     update: "isOwner",
    *     delete: "isOwner",
    *   },
-   *   bind: ["isOwner", "data.creator == auth.uid"],
+   *   bind: ["isOwner", "auth.id != null && auth.id == data.creatorId"],
    * },
    */
   $default: {

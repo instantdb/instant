@@ -1,4 +1,4 @@
-import { InstantReactWeb } from '@instantdb/react';
+import { InstantReactWebDatabase } from '@instantdb/react';
 import { useEffect, useState } from 'react';
 import { DBAttr, SchemaNamespace } from '@/lib/types';
 import { dbAttrsToExplorerSchema } from '@/lib/schema';
@@ -21,7 +21,7 @@ function makeWhere(
 
 // HOOKS
 export function useNamespacesQuery(
-  db: InstantReactWeb,
+  db: InstantReactWebDatabase<any>,
   selectedNs?: SchemaNamespace,
   navWhere?: [string, any],
   searchFilters?: [string, string, string][],
@@ -75,7 +75,7 @@ export function useNamespacesQuery(
     allCount,
   };
 }
-export function useSchemaQuery(db: InstantReactWeb) {
+export function useSchemaQuery(db: InstantReactWebDatabase<any>) {
   const [namespaces, setNamespaces] = useState<SchemaNamespace[] | null>(null);
   // (XXX)
   // This is a hack so we can listen to all attr changes

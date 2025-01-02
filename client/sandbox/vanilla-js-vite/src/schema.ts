@@ -1,5 +1,5 @@
 import "./style.css";
-import { init_experimental, i, id } from "@instantdb/core";
+import { init, i, id } from "@instantdb/core";
 
 const APP_ID = import.meta.env.VITE_INSTANT_APP_ID;
 
@@ -14,7 +14,7 @@ buttonEl.onclick = () => {
 };
 document.body.appendChild(buttonEl);
 
-const db = init_experimental({
+const db = init({
   appId: APP_ID,
   schema: i.schema({
     entities: {
@@ -22,8 +22,7 @@ const db = init_experimental({
         title: i.string(),
       }),
     },
-    links: {},
-    rooms: {},
+
   }),
 });
 

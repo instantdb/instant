@@ -17,7 +17,10 @@ set some default permissions so that only a logged-in user can view their own
 data.
 
 ```javascript
-export default {
+// instant.perms.ts
+import type { InstantRules } from "@instantdb/react";
+
+const rules = {
   $users: {
     allow: {
       view: 'auth.id == data.id',
@@ -26,36 +29,23 @@ export default {
       update: 'false',
     },
   },
-};
+} satisfies InstantRules;
+
+export default rules;
 ```
 
 Right now `$users` is a read-only namespace. You can override the `view`
 permission to whatever you like, but `create`, `delete`, and `update`
 are restricted.
 
-## Linking users
+## Adding properties
 
 Although you cannot directly add properties to the `$users` namespace, you can
-create links to other namespaces.
-
-Below is an example of a schema for a todo app that has users, roles, profiles, and
-todos.
-
-We create three links `todoOwner`, `userRoles`, and `userProfiles` to link the `$users`
-namespace to the `todos`, `roles`, and `profiles` namespaces respectively.
-
-Notice that the `$users` namespace is in the reverse direction for all links.
-If you try to create a link with `$users` in the forward direction, you'll get
-an error.
-
-Notice also that the `profiles` namespace has a `nickname` property. You may be
-wondering why we didn't add this directly to the `$users` namespace. This is
-because the `$users` namespace is read-only and we cannot add properties to it.
-If you want to add additional properties to a user, you'll need to create a
-new namespace and link it to `$users`.
+create links to other namespaces. Here is an example of a schema for a todo app that has users,
+roles, profiles, and todos:
 
 ```javascript
-// Use the Instant CLI tool to create an app with this schema!
+// instant.schema.ts
 import { i } from '@instantdb/react';
 
 const _schema = i.schema({
@@ -79,43 +69,18 @@ const _schema = i.schema({
   links: {
     // `$users` is in the reverse direction for all these links!
     todoOwner: {
-      reverse: {
-        on: '$users',
-        has: 'many',
-        label: 'todos',
-      },
-      forward: {
-        on: 'todos',
-        has: 'one',
-        label: 'owner',
-      },
+      forward: { on: 'todos', has: 'one', label: 'owner' },
+      reverse: { on: '$users', has: 'many', label: 'todos'},
     },
     userRoles: {
-      reverse: {
-        on: '$users',
-        has: 'one',
-        label: 'role',
-      },
-      forward: {
-        on: 'roles',
-        has: 'many',
-        label: 'users',
-      },
+      forward: { on: 'roles', has: 'many', label: 'users' },
+      reverse: { on: '$users', has: 'one', label: 'role' },
     },
     userProfiles: {
-      reverse: {
-        on: '$users',
-        has: 'one',
-        label: 'profile',
-      },
-      forward: {
-        on: 'profiles',
-        has: 'one',
-        label: 'user',
-      },
+      forward: { on: 'profiles', has: 'one', label: 'user' },
+      reverse: { on: '$users', has: 'one', label: 'profile' },
     },
   },
-  rooms: {},
 });
 
 // This helps Typescript display nicer intellisense
@@ -123,11 +88,68 @@ type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
 
-export { type AppSchema };
+export type { AppSchema };
 export default schema;
 ```
 
-You can then create links between users on the client side like so:
+### Links
+
+We created three links `todoOwner`, `userRoles`, and `userProfiles` to link the `$users`
+namespace to the `todos`, `roles`, and `profiles` namespaces respectively: 
+
+```typescript
+// instant.schema.ts
+import { i } from '@instantdb/react';
+
+const _schema = i.schema({
+  // ..
+  links: {
+    // `$users` is in the reverse direction for all these links!
+    todoOwner: {
+      forward: { on: 'todos', has: 'one', label: 'owner' },
+      reverse: { on: '$users', has: 'many', label: 'todos' },
+    },
+    userRoles: {
+      forward: { on: 'roles', has: 'many', label: 'users' },
+      reverse: { on: '$users', has: 'one', label: 'role' },
+    },
+    userProfiles: {
+      forward: { on: 'profiles', has: 'one', label: 'user' },
+      reverse: { on: '$users', has: 'one', label: 'profile' },
+    },
+  },
+});
+```
+
+Notice that the `$users` namespace is in the reverse direction for all links. If you try to create a link with `$users` in the forward direction, you'll get an error. 
+
+### Attributes
+
+Now take a look at the `profiles` namespace:
+
+```typescript
+// instant.schema.ts
+import { i } from '@instantdb/react';
+
+const _schema = i.schema({
+  entities: {
+    // ...
+    profiles: i.entity({
+      nickname: i.string(), // We can't add this directly to `$users`
+    }),
+  },
+  // ...
+});
+```
+
+You may be wondering why we didn't add `nickname` directly to the `$users` namespace. This is
+because the `$users` namespace is read-only and we cannot add properties to it.
+If you want to add additional properties to a user, you'll need to create a
+new namespace and link it to `$users`.
+
+--- 
+
+Once done, you can include user information in the client like so:
 
 ```javascript
 // Creates a todo and links the current user as an owner

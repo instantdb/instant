@@ -6,46 +6,50 @@ To secure user data, you can use Instant’s Rule Language. Our rule language
 takes inspiration from Rails’ ActiveRecord, Google’s CEL, and JSON.
 Here’s an example ruleset below
 
-```json {% showCopy=true %}
-{
-  "todos": {
-    "allow": {
-      "view": "auth.id != null",
-      "create": "isOwner",
-      "update": "isOwner",
-      "delete": "isOwner"
+```typescript {% showCopy=true %}
+// instant.perms.ts
+import type { InstantRules } from "@instantdb/react";
+
+const rules = {
+  todos: {
+    allow: {
+      view: "auth.id != null",
+      create: "isOwner",
+      update: "isOwner",
+      delete: "isOwner",
     },
-    "bind": ["isOwner", "auth.id == data.creatorId"]
-  }
-}
+    bind: ["isOwner", "auth.id != null && auth.id == data.creatorId"],
+  },
+} satisfies InstantRules;
+
+export default rules;
 ```
 
 You can manage permissions via configuration files or through the Instant dashboard.
 
 ## Permissions as code
 
-The permissions definition file is `instant.perms.ts`
+With Instant you can define your permissions in code. If you haven't already, use the [CLI](/docs/cli) to generate an `instant.perms.ts` file:
 
-This file lives in the root of your project and will be consumed by [the Instant CLI](/docs/cli). You can immediately deploy permission changes to your database with `npx instant-cli push perms`.
-These changes will be reflected in the Permissions tab of the Instant dashboard.
+```shell {% showCopy=true %}
+npx instant-cli@latest init
+```
 
-The default export of `instant.perms.ts` should be an object of rules as defined
-below.
+The CLI will guide you through picking an Instant app and generate these files for you. Once you've made changes to `instant.perms.ts`, you can use the CLI to push those changes to production: 
+
+```shell {% showCopy=true %}
+npx instant-cli@latest push perms
+```
 
 ## Permissions in the dashboard
 
-For each app in your dashboard, you’ll see a permissions editor. Permissions are expressed
-as JSON. Each top level key represents one of your namespaces — for example
-`goals`, `todos`, and the like. There is also a special top-level key "attrs" for
-defining permissions on creating new types of namespaces and attributes.
+For each app in your dashboard, you’ll see a permissions editor. Permissions are expressed as JSON. Each top level key represents one of your namespaces — for example `goals`, `todos`, and the like. There is also a special top-level key `attrs` for defining permissions on creating new types of namespaces and attributes.
 
 ## Namespaces
 
-For each namespace you can define `allow` rules for `view`, `create`, `update`, `delete`. Rules
-must be boolean expressions.
+For each namespace you can define `allow` rules for `view`, `create`, `update`, `delete`. Rules must be boolean expressions.
 
-If a rule is not set then by default it evaluates to true. The following three
-rulesets are all equivalent
+If a rule is not set then by default it evaluates to true. The following three rulesets are all equivalent
 
 In this example we explicitly set each action for `todos` to true
 
@@ -83,7 +87,7 @@ When you start developing you probably won't worry about permissions. However, o
 
 ### View
 
-`view` rules are evaluated when doing `useQuery`. On the backend every object
+`view` rules are evaluated when doing `db.useQuery`. On the backend every object
 that satisfies a query will run through the `view` rule before being passed back
 to the client. This means as a developer you can ensure that no matter what query
 a user executes, they’ll _only_ see data that they are allowed to see.
@@ -180,13 +184,13 @@ And we have a rules defined as
 Then we could create goals with existing attr types:
 
 ```javascript
-db.transact(tx.goals[id()].update({title: "Hello World"})
+db.transact(db.tx.goals[id()].update({title: "Hello World"})
 ```
 
 But we would not be able to create goals with new attr types:
 
 ```javascript
-db.transact(tx.goals[id()].update({title: "Hello World", priority: "high"})
+db.transact(db.tx.goals[id()].update({title: "Hello World", priority: "high"})
 ```
 
 ## CEL expressions
@@ -226,7 +230,7 @@ In `update`, you'll also have access to `newData`. This refers to the changes th
     "allow": {
       "create": "isOwner"
     },
-    "bind": ["isOwner", "auth.id == data.creatorId"]
+    "bind": ["isOwner", "auth.id != null && auth.id == data.creatorId"]
   }
 }
 ```
@@ -235,7 +239,7 @@ In `update`, you'll also have access to `newData`. This refers to the changes th
 {
   "todos": {
     "allow": {
-      "create": "auth.id == data.creatorId"
+      "create": "auth.id != null && auth.id == data.creatorId"
     }
   }
 }
@@ -251,7 +255,7 @@ In `update`, you'll also have access to `newData`. This refers to the changes th
     },
     "bind": [
       "isOwner",
-      "auth.id == data.creatorId",
+      "auth.id != null && auth.id == data.creatorId",
       "isAdmin",
       "auth.email in ['joe@instantdb.com', 'stopa@instantdb.com']"
     ]
@@ -273,3 +277,17 @@ delete to only succeed on todos associated with a specific user email.
   }
 }
 ```
+
+`ref` works on the `auth` object too. Here's how you could restrict `deletes` to users with the 'admin' role:
+
+```json 
+{
+  todos: {
+    allow: {
+      delete: "'admin' in auth.ref('$user.role.type')",
+    },
+  },
+};
+```
+
+See [managing users](/docs/users) to learn more about that.

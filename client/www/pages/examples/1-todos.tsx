@@ -1,13 +1,7 @@
 import config from '@/lib/config'; // hide-line
-import { id, init, tx } from '@instantdb/react';
+import { id, init } from '@instantdb/react';
 
-const db = init<{
-  todos: {
-    id: string;
-    text: string;
-    completed: boolean;
-  };
-}>({
+const db = init({
   ...config, // hide-line
   appId: __getAppId(),
 });
@@ -36,7 +30,7 @@ export default function InstantTodos() {
           form.reset();
 
           db.transact([
-            tx.todos[id()].update({
+            db.tx.todos[id()].update({
               text,
               completed: false,
             }),
@@ -64,7 +58,7 @@ export default function InstantTodos() {
                   checked={todo.completed}
                   onChange={(e) => {
                     db.transact([
-                      tx.todos[todo.id].update({
+                      db.tx.todos[todo.id].update({
                         completed: e.currentTarget.checked,
                       }),
                     ]);
@@ -80,7 +74,7 @@ export default function InstantTodos() {
               </label>
               <button
                 onClick={(e) => {
-                  db.transact([tx.todos[todo.id].delete()]);
+                  db.transact([db.tx.todos[todo.id].delete()]);
                 }}
               >
                 ×

@@ -476,19 +476,19 @@
                                                   debug-info)))
             pending-handler {:future event-fut
                              :op (:op event)
-                             :in-progress-stmts (:stmts in-progress-stmts)
+                             :in-progress-stmts in-progress-stmts
                              :silence-exceptions silence-exceptions}]
         (swap! pending-handlers conj pending-handler)
         (tracer/add-data! {:attributes {:concurrent-handler-count (count @pending-handlers)}})
         (try
           (let [ret (deref event-fut handle-receive-timeout-ms :timeout)]
             (when (= :timeout ret)
-              (let [in-progress @(:stmts in-progress-stmts)
-                    _ (sql/cancel-in-progress in-progress)
+              (let [in-progress-count (count @(:stmts in-progress-stmts))
+                    _ (sql/cancel-in-progress in-progress-stmts)
                     cancel-res (future-cancel event-fut)]
                 (tracer/add-data! {:attributes
                                    {:timedout true
-                                    :in-progress-query-count (count in-progress)
+                                    :in-progress-query-count in-progress-count
                                     ;; If false, then canceling the queries let
                                     ;; the future complete before we could cancel it
                                     :future-cancel-result cancel-res}}))
@@ -663,12 +663,12 @@
                     future
                     silence-exceptions
                     in-progress-stmts]} @pending-handlers
-            :let [in-progress @in-progress-stmts]]
+            :let [in-progress-count (count @(:stmts in-progress-stmts))]]
       (tracer/with-span! {:name "cancel-pending-handler"
                           :attributes {:op op
-                                       :in-progress-query-count (count in-progress)}}
+                                       :in-progress-query-count in-progress-count}}
         (silence-exceptions true)
-        (sql/cancel-in-progress in-progress)
+        (sql/cancel-in-progress in-progress-stmts)
         (future-cancel future)))
 
     (let [app-id (-> (rs/get-auth @store-conn id)

@@ -2,156 +2,88 @@
 title: Instant CLI
 ---
 
-The Instant CLI was designed to drive your Instant application entirely from a project's codebase. You can create apps as well as define an app's schema and permission rules all from the terminal.
+The Instant CLI was designed to drive your Instant application entirely from a project's codebase. You can create apps, define your data model, and update your permissions, **all through your terminal**.
 
-The CLI is currently optimized for starting new projects that are managed
-entirely from code. See the [migration guide below](#migrating-from-the-dashboard) if you have an existing app.
+## Init
 
-```sh
-npx instant-cli login
+To get started, head on over to your project's root repository, and write:
+
+```shell {% showCopy=true %}
+npx instant-cli@latest init
 ```
 
-You can view all commands and flags with `npx instant-cli -h`.
+This will guide you through picking an Instant app and generate two files for you:
 
-## Configuration as code
+- `instant.schema.ts` defines your application's data model.
+- `instant.perms.ts` defines your permission rules.
 
-Instant CLI relies on the presence of two core config files: `instant.schema.ts`, where you define your application's graph structure, and `instant.perms.ts`, where you define access control rules for all of your graph's constructs.
+To learn how to change `instant.schema.ts`, check our [Modeling Data](/docs/modeling-data). For `instant.perms.ts`, check out the [permissions](/docs/permissions) page.
 
-You can learn more about [schemas here](/docs/schema) here and [permissions here](/docs/permissions).
+## Push
 
-## App ID
+When you're ready to publish your changes to `instant.schema.ts`, run:
 
-The CLI looks for `INSTANT_APP_ID` in `process.env`. As a convenience, it will also check for `NEXT_PUBLIC_INSTANT_APP_ID`, `PUBLIC_INSTANT_APP_ID`, and `VITE_INSTANT_APP_ID`
-
-## Specifying an auth token
-
-In CI or similer environments, you may want to handle authentication without having to go through a web-based validation step each time. In these cases, you can provide a `INSTANT_CLI_AUTH_TOKEN` environment variable.
-
-To obtain a token for later use, run `instant-cli login -p`. Instead of saving the token to your local device, the CLI will print it to your console. You can copy this token and provide it as `INSTANT_CLI_AUTH_TOKEN` later in your CI tool.
-
-**Remember, auth tokens are secret, don't share them!**
-
-## Actions
-
-### Logging in
-
-The first step to using the CLI is to log in with your Instant account.
-
-```sh
-npx instant-cli login
+```shell {% showCopy=true %}
+npx instant-cli@latest push schema
 ```
 
-Note, this command will open Instant's dashboard in a browser window and prompt you to log in.
+This will evaluate your schema, compare it with production, and migrate your data model.
 
-### Initializing a project
+{% callout %}
 
+`push schema` doesn't support _renaming_ or _deleting_ attributes yet. To do this, use the [Explorer](/docs/modeling-data#update-or-delete-attributes)
 
-```sh
-npx instant-cli init
-```
+{% /callout %}
 
-Running `instant-cli init` will help you generate your `instant.schema.ts` and `instant.perms.ts` files. You can either create a new Instant app, or an import an existing one through this flow.
+Similarily, when you change `instant.perms.ts`, you can run: 
 
-### Push schema
-
-```sh
-npx instant-cli push schema
-```
-
-`push schema` evaluates your `instant.schema.ts` file and applies it your app's production database. [Read more about schema as code](/docs/schema).
-
-Note, to avoid accidental data loss, `push schema` does not delete entities or fields you've removed from your schema. You can manually delete them in the [Explorer](https://www.instantdb.com/dash?s=main&t=explorer).
-
-Here's an example `instant.schema.ts` file.
-
-```ts
-import { i } from '@instantdb/core';
-
-const _schema = i.schema({
-  entities: {
-    authors: i.entity({
-      userId: i.string(),
-      name: i.string(),
-    }),
-    posts: i.entity({
-      name: i.string(),
-      content: i.string(),
-    }),
-  },
-  links: {
-    authorPosts: {
-      forward: {
-        on: 'authors',
-        has: 'many',
-        label: 'posts',
-      },
-      reverse: {
-        on: 'posts',
-        has: 'one',
-        label: 'author',
-      },
-    },
-  },
-  rooms: {
-    chat: { 
-      presence: i.entity({
-        nickname: i.string()
-      })
-    }
-  }
-);
-
-// This helps Typescript display nicer intellisense
-type _AppSchema = typeof _schema;
-interface AppSchema extends _AppSchema {}
-const schema: AppSchema = _schema;
-
-export { type AppSchema };
-export default schema;
-```
-
-### Push perms
-
-```sh
+```shell {% showCopy=true %}
 npx instant-cli push perms
 ```
 
-`push perms` evaluates your `instant.perms.ts` file and applies it your app's production database. `instant.perms.ts` should export an object implementing Instant's standard permissions CEL+JSON format. [Read more about permissions in Instant](/docs/permissions).
+## Pull
 
-Here's an example `instant.perms.ts` file.
+Sometimes, you change your schema or rules from your Explorer. If you want to `pull` the latest version of schema and perms for production, write: 
 
-```ts
-import { type InstantRules } from "@instantdb/react";
-const rules = {
-  allow: {
-    posts: {
-      bind: ['isAuthor', "auth.id in data.ref('author.id')"],
-      allow: {
-        view: 'true',
-        create: 'isAuthor',
-        update: 'isAuthor',
-        delete: 'isAuthor',
-      },
-    },
-  },
-} satisfies InstantRules;
-
-export default rules;
+```shell {% showCopy=true %}
+npx instant-cli@latest pull
 ```
 
-### Pull: migrating from the dashboard
+This will generate new `instant.schema.ts` and `instant.perms.ts` files, based on your production state.
 
-If you already created an app in the dashboard and created some schema and
-permissions, you can run `npx instant-cli pull --app <APP_ID>` to generate an `instant.schema.ts` and `instant.perms.ts` files based on your production configuration.
+## App ID
 
-```bash
-npx instant-cli pull schema
-npx instant-cli pull perms
-npx instant-cli pull # pulls both schema and perms
+Whenever you run a CLI command, we look up your app id. You can either provide an app id as an option:
+
+```shell
+  npx instant-cli@latest init --app $MY_APP_ID
 ```
 
-{% callout type="warning" %}
+Or store it in your `.env` file:
 
-Note: Strongly typed attributes are under active development. For now, `pull schema` will default all attribute types to `i.any()`.
+```yaml
+INSTANT_APP_ID=*****
+```
 
-{% /callout %}
+As a convenience, apart from `INSTANT_APP_ID`, we also check for:
+
+- `NEXT_PUBLIC_INSTANT_APP_ID` for next apps,
+- `PUBLIC_INSTANT_APP_ID` for svelte apps,
+- `VITE_INSTANT_APP_ID` for vite apps
+- `NUXT_PUBLIC_INSTANT_APP_ID` for nuxt apps
+- `EXPO_PUBLIC_INSTANT_APP_ID` for expo apps
+
+## Authenticating in CI
+
+In CI or similer environments, you may want to handle authentication without having to go through a web-based validation step each time. 
+
+In these cases, you can provide a `INSTANT_CLI_AUTH_TOKEN` environment variable.
+
+To obtain a token for later use, run: 
+
+```shell {% showCopy=true %}
+npx instant-cli@latest login -p
+```
+
+Instead of saving the token to your local device, the CLI will print it to your console. You can copy this token and provide it as `INSTANT_CLI_AUTH_TOKEN` later in your CI tool.
+
