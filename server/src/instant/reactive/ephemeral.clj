@@ -1,19 +1,13 @@
 (ns instant.reactive.ephemeral
   "Handles our ephemeral data apis for a session (presence, cursors)"
   (:require
-   [clojure.core.async :as a]
-   [clojure.set :as set]
    [editscript.core :as editscript]
    [instant.config :as config]
-   [instant.flags :as flags]
-   [instant.gauges :as gauges]
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
-   [instant.util.async :as ua]
    [instant.util.aws :as aws-util]
    [instant.util.coll :refer [disj-in]]
    [instant.util.hazelcast :as hz-util]
-   [instant.util.tracer :as tracer]
    [medley.core :refer [dissoc-in]])
   (:import
    (com.hazelcast.config Config)
@@ -23,8 +17,7 @@
    (com.hazelcast.map.listener EntryAddedListener
                                EntryRemovedListener
                                EntryUpdatedListener)
-   (com.hazelcast.topic ITopic MessageListener Message)
-   (java.util.concurrent LinkedBlockingQueue)))
+   (com.hazelcast.topic ITopic MessageListener Message)))
 
 ;; ------
 ;; Setup
@@ -44,22 +37,23 @@
 
 (defn init-hz
   ([store-conn]
-   (init-hz {}))
-  ([store-conn {:keys [cluster-name metrics]
-                :or {cluster-name "instant-server"
+   (init-hz store-conn {}))
+  ([store-conn {:keys [instance-name cluster-name metrics]
+                :or {instance-name "instant-hz-v2"
+                     cluster-name "instant-server"
                      metrics true}}]
    (-> (java.util.logging.Logger/getLogger "com.hazelcast.system.logo")
        (.setLevel java.util.logging.Level/WARNING))
    (System/setProperty "hazelcast.shutdownhook.enabled" "false")
    (System/setProperty "hazelcast.phone.home.enabled" "false")
-   (let [config (Config.)
-         network-config (.getNetworkConfig config)
-         join-config (.getJoin network-config)
-         tcp-ip-config (.getTcpIpConfig join-config)
-         aws-config (.getAwsConfig join-config)
+   (let [config               (Config.)
+         network-config       (.getNetworkConfig config)
+         join-config          (.getJoin network-config)
+         tcp-ip-config        (.getTcpIpConfig join-config)
+         aws-config           (.getAwsConfig join-config)
          serialization-config (.getSerializationConfig config)
-         metrics-config (.getMetricsConfig config)]
-     (.setInstanceName config "instant-hz-v2")
+         metrics-config       (.getMetricsConfig config)]
+     (.setInstanceName config instance-name)
      (.setEnabled (.getMulticastConfig join-config) false)
      (if (= :prod (config/get-env))
        (let [ip (aws-util/get-instance-ip)]
@@ -139,7 +133,6 @@
             edits     (when last-data
                         (editscript/get-edits
                          (editscript/diff last-data room-data {:algo :a-star :str-diff :none})))]
-        ;; FIXME handle REMOVED event
         (swap! room-maps assoc-in [:rooms room-key :last-data] room-data)
         (doseq [[sess-id _] room-data
                 :let [q (:receive-q (rs/get-socket @store-conn sess-id))]
@@ -203,7 +196,6 @@
                  (empty? session-ids) (dissoc-in [:rooms room-key])
                  (seq session-ids) (assoc-in [:rooms room-key :session-ids]
                                              session-ids)))))
-
     (hz-util/remove-session! (get-hz-rooms-map) room-key sess-id)))
 
 ;; ----------
