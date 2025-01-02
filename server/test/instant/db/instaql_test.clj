@@ -4029,6 +4029,7 @@
 
             ;; Create conversations, messages
             convo-id-aid (random-uuid)
+            convo-order-aid (random-uuid)
             group-id-aid (random-uuid)
             convo-group-aid (random-uuid)
             msg-id-aid (random-uuid)
@@ -4048,6 +4049,13 @@
                                          :unique? true
                                          :index? true
                                          :value-type :blob
+                                         :cardinality :one}]
+                             [:add-attr {:id convo-order-aid
+                                         :forward-identity [(random-uuid) "conversations" "order"]
+                                         :unique? true
+                                         :index? true
+                                         :value-type :blob
+                                         :checked-data-type :number
                                          :cardinality :one}]
                              [:add-attr {:id convo-group-aid
                                          :forward-identity [(random-uuid) "conversations" "groups"]
@@ -4077,9 +4085,12 @@
                                          :value-type :ref
                                          :cardinality :one}]])
 
+            order (atom 0)
+
             ;; add 1 group, 3 conversations, with 5 messages each
             add-conversation (fn [g-id c-id]
                                [[:add-triple c-id convo-id-aid (str c-id)]
+                                [:add-triple c-id convo-order-aid (swap! order inc)]
                                 [:add-triple c-id convo-group-aid (str g-id)]])
 
             add-message (fn [convo-id m-id t]
@@ -4141,7 +4152,19 @@
                                                    :where {:groups group-id
                                                            :messages.time {:$gte 0}}}}}))
                    (get "conversations")
-                   count)))))))
+                   count)))
+
+        (testing "arbitrary ordering"
+          (is (= 2
+                 (-> (instaql-nodes->object-tree
+                      ctx
+                      (iq/query ctx
+                                {:conversations {:$ {:limit 2
+                                                     :order {:order :desc}
+                                                     :where {:groups group-id
+                                                             :messages.time {:$gte 0}}}}}))
+                     (get "conversations")
+                     count))))))))
 
 (comment
   (test/run-tests *ns*))
