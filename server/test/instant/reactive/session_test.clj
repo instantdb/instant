@@ -41,8 +41,10 @@
         room-refresh-ch (a/chan (a/sliding-buffer 1))
         store-conn      (rs/init-store)
         eph-hz          (delay (eph/init-hz store-conn
-                                            {:cluster-name (str "test-cluster-" (+ 100000 (rand-int 900000)))
-                                             :metrics false}))
+                                            (let [id (+ 100000 (rand-int 900000))]
+                                              {:instance-name (str "test-instance-" id)
+                                               :cluster-name  (str "test-cluster-" id)
+                                               :metrics false})))
         eph-room-maps   (atom {})
         socket          {:id sess-id
                          :ws-conn fake-ws-conn
@@ -84,11 +86,14 @@
             (when (realized? eph-hz)
               (HazelcastInstance/.shutdown (:hz @eph-hz)))))))))
 
-(defn- blocking-send-msg [{:keys [ws-conn id]} msg]
-  (session/handle-receive *store-conn* (rs/get-session @*store-conn* id) msg {})
+(defn read-msg [{:keys [ws-conn id]}]
   (let [ret (ua/<!!-timeout ws-conn)]
     (assert (not= :timeout ret) "Timed out waiting for a response")
     (dissoc ret :client-event-id)))
+
+(defn- blocking-send-msg [{:keys [ws-conn id] :as socket} msg]
+  (session/handle-receive *store-conn* (rs/get-session @*store-conn* id) msg {})
+  (read-msg socket))
 
 (defn- blocking-send-refresh [{:keys [id] :as socket} msg]
   (blocking-send-msg socket (assoc msg :session-id id)))
@@ -667,6 +672,8 @@
                            {:op :join-room
                             :room-id room-id})
 
+        (is (= (:refresh-presence (:op (read-msg socket)))))
+
         (is (eph/in-room? movies-app-id room-id sess-id))
 
         (let [{op :op
@@ -681,107 +688,38 @@
             (is (empty? (:sessions @eph/room-maps)))
             (is (empty? (:rooms @eph/room-maps)))))))))
 
-;; FIXME
-#_(deftest get-changed-rooms-works
-    (with-session
-      (fn [_store-conn {:keys [socket second-socket]}]
+(deftest set-presence-works
+  (with-session
+    (fn [_store-conn {:keys [socket]}]
+      (let [rid (str (UUID/randomUUID))
+            sess-id (:id socket)
+            d1 {:hello "world"}
+            d2 {:foo "bar"}]
         (blocking-send-msg socket {:op :init :app-id movies-app-id})
-        (blocking-send-msg second-socket {:op :init :app-id movies-app-id})
-        (let [rid (str (UUID/randomUUID))
-              initial-rooms (get-in @eph-store-atom [:rooms])
-              join-room (blocking-send-msg socket
-                                           {:op :join-room :room-id rid})
-              _ (is (= :join-room-ok
-                       (:op join-room)))
-              join-room-2 (blocking-send-msg second-socket
-                                             {:op :join-room
-                                              :room-id rid})
-              _ (is (= :join-room-ok
-                       (:op join-room-2)))
-              after-join-rooms (get-in @eph-store-atom [:rooms])
-              _ (swap! eph-store-atom assoc :hello "hello")
-              after-hello-rooms (get-in @eph-store-atom [:rooms])
-              leave-room (blocking-send-msg socket
-                                            {:op :leave-room :room-id rid})
-              _ (is (= :leave-room-ok
-                       (:op leave-room)))
-              after-leave-rooms (get-in @eph-store-atom [:rooms])
-              leave-room-2 (blocking-send-msg second-socket
-                                              {:op :leave-room :room-id rid})
-              _ (is (= :leave-room-ok
-                       (:op leave-room-2)))
-              after-room-empty (get-in @eph-store-atom [:rooms])]
-
-        ;; changed rooms should be non-empty when joining
-          (blocking-send-msg socket {:op :join-room :room-id rid})
-          (let [use-hazelcast? flags/use-hazelcast?]
-            (with-redefs [flags/use-hazelcast? (fn [app-id]
-                                                 (if (= app-id movies-app-id)
-                                                   false
-                                                   (use-hazelcast? app-id)))]
-              (is (seq (eph/get-changed-rooms initial-rooms after-join-rooms)))
-
-            ;; changed rooms should be empty after non-room change
-              (is (empty? (eph/get-changed-rooms after-join-rooms after-hello-rooms)))
-
-            ;; changed rooms should be non-empty when someone leaves (unless it's the last person)
-              (is (seq (eph/get-changed-rooms after-hello-rooms after-leave-rooms)))))
-
-        ;; changed rooms should be empty when the last person leaves
-          (is (empty? (eph/get-changed-rooms after-hello-rooms after-room-empty)))))))
-
-;; FIXME
-#_(deftest set-presence-works
-    (with-session
-      (fn [_store-conn eph-store-atom {:keys [socket]}]
-        (let [rid (str (UUID/randomUUID))
-              sess-id (:id socket)
-              d1 {:hello "world"}
-              d2 {:foo "bar"}]
-          (blocking-send-msg socket {:op :init :app-id movies-app-id})
-          (blocking-send-msg socket {:op :join-room :room-id rid})
+        (blocking-send-msg socket {:op :join-room :room-id rid})
 
         ;; session is in the room
-          (is (= sess-id
-                 (-> (get-in @eph-store-atom [:rooms movies-app-id rid :session-ids])
-                     first)))
-
-          (is (eph/in-room? @eph-store-atom movies-app-id rid sess-id))
+        (is (eph/in-room? movies-app-id rid sess-id))
 
         ;; session data is empty
-          (is (= {:peer-id sess-id
-                  :user nil
-                  :data {}} (get-in @eph-store-atom [:rooms movies-app-id rid :data sess-id])))
-
-          (testing "hazelcast"
-            (is (= {sess-id {:peer-id sess-id
-                             :user nil
-                             :data {}}}
-                   (eph/get-room-data movies-app-id rid))))
+        (is (= {sess-id {:peer-id sess-id
+                         :user nil
+                         :data {}}}
+               (eph/get-room-data movies-app-id rid)))
 
         ;; session data is now set!
-          (blocking-send-msg socket {:op :set-presence :room-id rid :data d1})
-          (is (= {:peer-id sess-id
-                  :user nil
-                  :data d1} (get-in @eph-store-atom [:rooms movies-app-id rid :data sess-id])))
-
-          (testing "hazelcast"
-            (is (= {sess-id {:peer-id sess-id
-                             :user nil
-                             :data d1}}
-                   (eph/get-room-data movies-app-id rid))))
+        (blocking-send-msg socket {:op :set-presence :room-id rid :data d1})
+        (is (= {sess-id {:peer-id sess-id
+                         :user nil
+                         :data d1}}
+               (eph/get-room-data movies-app-id rid)))
 
         ;; session data is overwritten!
-          (blocking-send-msg socket {:op :set-presence :room-id rid :data d2})
-          (is (= {:peer-id sess-id
-                  :user nil
-                  :data  d2} (get-in @eph-store-atom [:rooms movies-app-id rid :data sess-id])))
-
-          (testing "hazelcast"
-            (is (= {sess-id {:peer-id sess-id
-                             :user nil
-                             :data d2}}
-                   (eph/get-room-data movies-app-id rid))))))))
+        (blocking-send-msg socket {:op :set-presence :room-id rid :data d2})
+        (is (= {sess-id {:peer-id sess-id
+                         :user nil
+                         :data d2}}
+               (eph/get-room-data movies-app-id rid)))))))
 
 (deftest set-presence-fails-when-not-in-room
   (with-session
@@ -793,37 +731,36 @@
         (is (= :error op))
         (is (= 400 status))))))
 
-;; FIXME
-#_(deftest broadcast-works
-    (with-session
-      (fn [_store-conn eph-store-atom {:keys [socket]}]
-        (let [rid (str (UUID/randomUUID))
-              sess-id (:id socket)
-              t1 "foo"
-              d1 {:hello "world"}]
-          (blocking-send-msg socket {:op :init :app-id movies-app-id})
-          (blocking-send-msg socket {:op :join-room :room-id rid})
-          (let [after-join-rooms (get-in @eph-store-atom [:rooms])
-                {:keys [op room-id topic data]}
-                (blocking-send-msg socket
-                                   {:op :client-broadcast
-                                    :room-id rid
-                                    :topic t1
-                                    :data d1})]
+(deftest broadcast-works
+  (with-session
+    (fn [_store-conn {:keys [socket]}]
+      (let [rid (str (UUID/randomUUID))
+            sess-id (:id socket)
+            t1 "foo"
+            d1 {:hello "world"}]
+        (blocking-send-msg socket {:op :init :app-id movies-app-id})
+        (blocking-send-msg socket {:op :join-room :room-id rid})
+        (is (= :refresh-presence (:op (read-msg socket))))
+
+        (let [room-data (eph/get-room-data movies-app-id rid)
+              {:keys [op room-id topic data]}
+              (blocking-send-msg socket
+                                 {:op :client-broadcast
+                                  :room-id rid
+                                  :topic t1
+                                  :data d1})]
 
           ;; broadcast is okay
-            (is (= :client-broadcast-ok op))
-            (is (= rid room-id))
-            (is (= t1 topic))
-            (is (= {:peer-id sess-id
-                    :user nil
-                    :data d1} data))
+          (is (= :client-broadcast-ok op))
+          (is (= rid room-id))
+          (is (= t1 topic))
+          (is (= {:peer-id sess-id
+                  :user nil
+                  :data d1} data))
 
           ;; Rooms should be unchanged after broadcast
-            (is (= after-join-rooms (get-in @eph-store-atom [:rooms])))
-            (testing "hazelcast"
-              (is (= (get-in after-join-rooms [movies-app-id rid :data])
-                     (eph/get-room-data movies-app-id rid)))))))))
+          (is (= room-data
+                 (eph/get-room-data movies-app-id rid))))))))
 
 (deftest broadcast-fails-when-not-in-room
   (with-session
