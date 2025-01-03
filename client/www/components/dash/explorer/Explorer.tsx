@@ -73,14 +73,23 @@ function SearchInput({
 }) {
   const [value, setValue] = useState(initialValue);
 
-  const searchDebounce = useCallback(
-    debounce((search) => {
-      if (attrs) {
-        onSearchChange(searchWhereFilters(attrs, search));
-      }
-    }, 80),
+  const filterableAttrs = useMemo(
+    () => attrs?.filter((a) => a.sortable && a.checkedDataType === 'string'),
     [attrs],
   );
+
+  const searchDebounce = useCallback(
+    debounce((search) => {
+      if (filterableAttrs) {
+        onSearchChange(searchWhereFilters(filterableAttrs, search));
+      }
+    }, 80),
+    [filterableAttrs],
+  );
+
+  if (!filterableAttrs?.length) {
+    return null;
+  }
 
   return (
     <TextInput
