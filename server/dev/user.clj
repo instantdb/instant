@@ -14,4 +14,4 @@
   (reload/reload {:only #"instant\..*-test"})
   (-> (reload/find-namespaces #"instant\..*-test")
       (eftest/find-tests)
-      (eftest/run-tests {:multithread? :namespaces})))
+      (eftest/run-tests {:multithread? false})))
