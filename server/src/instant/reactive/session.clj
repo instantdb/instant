@@ -44,7 +44,7 @@
 ;; Setup
 
 (declare receive-q-stop-signal)
-(def handle-receive-timeout-ms 5000)
+(def handle-receive-timeout-ms 10000)
 
 (def num-receive-workers (* 100 (delay/cpu-count)))
 
