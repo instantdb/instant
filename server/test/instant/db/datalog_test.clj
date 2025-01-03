@@ -210,7 +210,7 @@
              (resolvers/walk-friendly
               @r
               (map :join-rows (d/send-query-batch ctx (aurora/conn-pool) [[app-id named-ps-1]
-                                                                        [app-id named-ps-2]]))))))))
+                                                                          [app-id named-ps-2]]))))))))
 
 (def ^:dynamic *count-atom* nil)
 
@@ -382,6 +382,24 @@
 
             (testing "we only make a single sql query for both d/query calls"
               (is (= @counts 1)))))))))
+
+(deftest lookup-refs
+  (testing "e side"
+    (let [person-name-aid (resolvers/->uuid @r :person/name)]
+      (is (= #{"Tina Turner" "1939-11-26T00:00:00Z"}
+             (->> (d/query
+                   {:db {:conn-pool (aurora/conn-pool)}
+                    :app-id  movies-app-id}
+                   [[:ea #{[person-name-aid "Tina Turner"]}]])
+                  :join-rows
+                  (map (comp last drop-last last))
+                  set)))))
+  (testing "v side"
+    (let [person-name-aid (resolvers/->uuid @r :person/name)]
+      (->> (d/query
+            {:db {:conn-pool (aurora/conn-pool)}
+             :app-id  movies-app-id}
+            [[:ea '_ '_ #{[person-name-aid "Tina Turner"]}]])))))
 
 (comment
   (test/run-tests *ns*))
