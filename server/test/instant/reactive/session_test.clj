@@ -651,41 +651,39 @@
     (fn [_store-conn {:keys [socket]}]
       (blocking-send-msg socket {:op :init
                                  :app-id movies-app-id})
-      (let [room-id (str (UUID/randomUUID))
+      (let [rid (str (UUID/randomUUID))
             sess-id (:id socket)
             {:keys [op room-id]} (blocking-send-msg socket
                                                     {:op :join-room
-                                                     :room-id room-id})]
+                                                     :room-id rid})]
 
         (is (= :join-room-ok op))
-        (is (= room-id room-id))
-
-        (eph/in-room? movies-app-id room-id sess-id)))))
+        (is (= rid room-id))
+        (is (eph/in-room? movies-app-id rid sess-id))))))
 
 (deftest leave-room-works
   (with-session
     (fn [_store-conn {:keys [socket]}]
       (blocking-send-msg socket {:op :init
                                  :app-id movies-app-id})
-      (let [room-id (str (UUID/randomUUID))
+      (let [rid (str (UUID/randomUUID))
             sess-id (:id socket)]
         (is (= :join-room-ok
-               (:op (blocking-send-msg socket {:op :join-room, :room-id room-id}))))
+               (:op (blocking-send-msg socket {:op :join-room, :room-id rid}))))
         (is (= :refresh-presence (:op (read-msg socket))))
 
-        (is (eph/in-room? movies-app-id room-id sess-id))
+        (is (eph/in-room? movies-app-id rid sess-id))
 
-        (let [{op :op
-               room-id' :room-id} (blocking-send-msg socket
+        (let [{:keys [op room-id]} (blocking-send-msg socket
                                                      {:op :leave-room
-                                                      :room-id room-id})]
+                                                      :room-id rid})]
           ;; session is no longer in the room
           (is (= :leave-room-ok op))
-          (is (= room-id room-id'))
-          (is (not (eph/in-room? movies-app-id room-id sess-id)))
-          (testing "store gets cleaned up"
-            (is (empty? (:sessions @eph/room-maps)))
-            (is (empty? (:rooms @eph/room-maps)))))))))
+          (is (= rid room-id))
+          (is (not (eph/in-room? movies-app-id rid sess-id)))
+
+          (is (empty? (:sessions @eph/room-maps)))
+          (is (empty? (:rooms @eph/room-maps))))))))
 
 (deftest set-presence-works
   (with-session

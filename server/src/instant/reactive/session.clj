@@ -488,7 +488,6 @@
             debug-info (atom nil)
             event-fut (binding [sql/*in-progress-stmts* in-progress-stmts]
                         (ua/vfuture (handle-event store-conn
-
                                                   session
                                                   event
                                                   debug-info)))
