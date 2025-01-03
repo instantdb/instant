@@ -1287,10 +1287,7 @@
                            :symbol-fields {}
                            :pattern page-pattern
                            :page-info (assoc page-info
-                                             :eid-col (-> pattern-metas
-                                                          last
-                                                          :cte-cols
-                                                          first)
+                                             :eid-col "order_eid"
                                              :created-col (-> pattern-metas
                                                               last
                                                               :cte-cols
