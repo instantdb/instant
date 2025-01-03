@@ -35,92 +35,94 @@
 
 (declare handle-broadcast-message)
 
-(defn init-hz
-  ([store-conn]
-   (init-hz store-conn {}))
-  ([store-conn {:keys [instance-name cluster-name metrics env]
-                :or {instance-name "instant-hz-v2"
-                     cluster-name "instant-server"
-                     metrics true}}]
-   (-> (java.util.logging.Logger/getLogger "com.hazelcast")
-       (.setLevel java.util.logging.Level/WARNING))
-   (System/setProperty "hazelcast.shutdownhook.enabled" "false")
-   (System/setProperty "hazelcast.phone.home.enabled" "false")
-   (let [config               (Config.)
-         network-config       (.getNetworkConfig config)
-         join-config          (.getJoin network-config)
-         tcp-ip-config        (.getTcpIpConfig join-config)
-         aws-config           (.getAwsConfig join-config)
-         serialization-config (.getSerializationConfig config)
-         metrics-config       (.getMetricsConfig config)]
-     (.setInstanceName config instance-name)
-     (.setEnabled (.getMulticastConfig join-config) false)
-     (case (or env (config/get-env))
-       :prod
-       (let [ip (aws-util/get-instance-ip)]
-         (.setPublicAddress network-config ip)
-         (-> aws-config
-             (.setEnabled true)
-             (.setProperty "hz-port" "5701")
-             (.setProperty "tag-key" aws-util/environment-tag-name)
-             (.setProperty "tag-value" (aws-util/get-environment-tag))))
+(defn init-hz [store-conn {:keys [instance-name cluster-name]
+                           :or {instance-name "instant-hz-v2"
+                                cluster-name "instant-server"}}]
+  (-> (java.util.logging.Logger/getLogger "com.hazelcast")
+      (.setLevel java.util.logging.Level/WARNING))
+  (System/setProperty "hazelcast.shutdownhook.enabled" "false")
+  (System/setProperty "hazelcast.phone.home.enabled" "false")
+  (let [env                  (config/get-env)
+        config               (Config.)
+        network-config       (.getNetworkConfig config)
+        join-config          (.getJoin network-config)
+        tcp-ip-config        (.getTcpIpConfig join-config)
+        aws-config           (.getAwsConfig join-config)
+        serialization-config (.getSerializationConfig config)
+        metrics-config       (.getMetricsConfig config)]
+    (.setInstanceName config instance-name)
+    (.setEnabled (.getMulticastConfig join-config) false)
+    (case env
+      :prod
+      (let [ip (aws-util/get-instance-ip)]
+        (.setPublicAddress network-config ip)
+        (doto aws-config
+          (.setEnabled true)
+          (.setProperty "hz-port" "5701")
+          (.setProperty "tag-key" aws-util/environment-tag-name)
+          (.setProperty "tag-value" (aws-util/get-environment-tag)))
+        (.setEnabled metrics-config true))
 
-       :dev
-       (do
-         (.setEnabled tcp-ip-config true)
-         (.setMembers tcp-ip-config (list "127.0.0.1")))
+      :dev
+      (do
+        (.setEnabled tcp-ip-config true)
+        (.setMembers tcp-ip-config (list "127.0.0.1"))
+        (.setEnabled metrics-config false))
 
-       :test
-       (do
-         (.setEnabled tcp-ip-config false)
-         (.setEnabled aws-config false)
-         (.setPort network-config 0)
-         (.setPortAutoIncrement network-config false)))
+      :test
+      (do
+        (.setEnabled aws-config false)
+        (.setEnabled (.getAzureConfig join-config) false)
+        (.setEnabled (.getEurekaConfig join-config) false)
+        (.setEnabled (.getGcpConfig join-config) false)
+        (.setEnabled (.getKubernetesConfig join-config) false)
+        (.setEnabled tcp-ip-config false)
+        (.setPort network-config 0)
+        (.setPortAutoIncrement network-config false)
+        (.setEnabled metrics-config false)))
 
-     (.setClusterName config cluster-name)
+    (.setClusterName config cluster-name)
 
-     (.setSerializerConfigs serialization-config
-                            hz-util/serializer-configs)
+    (.setSerializerConfigs serialization-config
+                           hz-util/serializer-configs)
 
-     (.setGlobalSerializerConfig serialization-config
-                                 hz-util/global-serializer-config)
+    (.setGlobalSerializerConfig serialization-config
+                                hz-util/global-serializer-config)
 
-     (.setEnabled metrics-config metrics)
+    (let [hz                 (Hazelcast/newHazelcastInstance config)
+          local-member       (.getLocalMember (.getCluster hz))
+          hz-rooms-map       (.getMap hz "rooms-v2")
+          hz-broadcast-topic (.getTopic hz "rooms-broadcast")]
+      (.addEntryListener hz-rooms-map
+                         (reify
+                           EntryAddedListener
+                           (entryAdded [_ event]
+                             (handle-event store-conn event))
 
-     (let [hz                 (Hazelcast/newHazelcastInstance config)
-           local-member       (.getLocalMember (.getCluster hz))
-           hz-rooms-map       (.getMap hz "rooms-v2")
-           hz-broadcast-topic (.getTopic hz "rooms-broadcast")]
-       (.addEntryListener hz-rooms-map
-                          (reify
-                            EntryAddedListener
-                            (entryAdded [_ event]
-                              (handle-event store-conn event))
+                           EntryRemovedListener
+                           (entryRemoved [_ event]
+                             (handle-event store-conn event))
 
-                            EntryRemovedListener
-                            (entryRemoved [_ event]
-                              (handle-event store-conn event))
-
-                            EntryUpdatedListener
-                            (entryUpdated [_ event]
-                              (handle-event store-conn event)))
+                           EntryUpdatedListener
+                           (entryUpdated [_ event]
+                             (handle-event store-conn event)))
                          ;; Don't send value, since we may not be
                          ;; interested in this change
-                          false)
-       (.addMessageListener hz-broadcast-topic
-                            (reify
-                              MessageListener
-                              (onMessage [_ message]
+                         false)
+      (.addMessageListener hz-broadcast-topic
+                           (reify
+                             MessageListener
+                             (onMessage [_ message]
                                ;; Don't bother handling messages that we put on the topic
-                                (when (not= local-member (.getPublishingMember message))
-                                  (handle-broadcast-message store-conn message)))))
-       {:hz hz
-        :hz-rooms-map hz-rooms-map
-        :hz-broadcast-topic hz-broadcast-topic}))))
+                               (when (not= local-member (.getPublishingMember message))
+                                 (handle-broadcast-message store-conn message)))))
+      {:hz hz
+       :hz-rooms-map hz-rooms-map
+       :hz-broadcast-topic hz-broadcast-topic})))
 
 (defonce hz
   (delay
-    (init-hz rs/store-conn)))
+    (init-hz rs/store-conn {})))
 
 (defn get-hz ^HazelcastInstance []
   (:hz @hz))
@@ -249,7 +251,7 @@
 (defn start []
   (def hz
     (delay
-      (init-hz rs/store-conn)))
+      (init-hz rs/store-conn {})))
   (-> (future @hz)
       (.get (* 60 1000) java.util.concurrent.TimeUnit/MILLISECONDS)))
 

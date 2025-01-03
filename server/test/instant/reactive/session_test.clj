@@ -3,6 +3,7 @@
    [clojure.core.async :as a]
    [clojure.test :as test :refer [deftest is testing]]
    [datascript.core :as ds]
+   [instant.config :as config]
    [instant.data.constants :refer [movies-app-id zeneca-app-id]]
    [instant.data.resolvers :as resolvers]
    [instant.db.datalog :as d]
@@ -24,6 +25,11 @@
    (com.hazelcast.core Hazelcast HazelcastInstance)
    (java.util UUID)))
 
+(test/use-fixtures :each
+  (fn [f]
+    (binding [config/*env* :test]
+      (f))))
+
 (def ^:private r
   (delay
     (resolvers/make-movies-resolver)))
@@ -40,12 +46,12 @@
         receive-q       (grouped-queue/create {:group-fn session/group-fn})
         room-refresh-ch (a/chan (a/sliding-buffer 1))
         store-conn      (rs/init-store)
-        eph-hz          (delay (eph/init-hz store-conn
-                                            (let [id (+ 100000 (rand-int 900000))]
-                                              {:instance-name (str "test-instance-" id)
-                                               :cluster-name  (str "test-cluster-" id)
-                                               :metrics false
-                                               :env           :test})))
+        eph-hz          (delay
+                          @(future ;; avoid pinning vthread
+                             (eph/init-hz store-conn
+                                          (let [id (+ 100000 (rand-int 900000))]
+                                            {:instance-name (str "test-instance-" id)
+                                             :cluster-name  (str "test-cluster-" id)}))))
         eph-room-maps   (atom {})
         socket          {:id sess-id
                          :ws-conn fake-ws-conn
@@ -85,7 +91,8 @@
           (reset! stop-signal true)
           (finally
             (when (realized? eph-hz)
-              (HazelcastInstance/.shutdown (:hz @eph-hz)))))))))
+              (future
+                (HazelcastInstance/.shutdown (:hz @eph-hz))))))))))
 
 (defn read-msg [{:keys [ws-conn id]}]
   (let [ret (ua/<!!-timeout ws-conn)]
@@ -675,8 +682,8 @@
         (is (eph/in-room? movies-app-id rid sess-id))
 
         (let [{:keys [op room-id]} (blocking-send-msg socket
-                                                     {:op :leave-room
-                                                      :room-id rid})]
+                                                      {:op :leave-room
+                                                       :room-id rid})]
           ;; session is no longer in the room
           (is (= :leave-room-ok op))
           (is (= rid room-id))

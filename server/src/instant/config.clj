@@ -16,12 +16,15 @@
         (log/error "Error getting hostname" e)
         "unknown"))))
 
+(def ^:dynamic *env*
+  nil)
+
 (defn get-env []
-  (if (= "true" (System/getenv "PRODUCTION"))
-    :prod
-    (if (= "true" (System/getenv "TEST"))
-      :test
-      :dev)))
+  (cond
+    (some? *env*)                           *env*
+    (= "true" (System/getenv "PRODUCTION")) :prod
+    (= "true" (System/getenv "TEST"))       :test
+    :else                                   :dev))
 
 (defonce process-id
   (delay
