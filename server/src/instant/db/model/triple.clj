@@ -15,7 +15,7 @@
    [clojure.string :as string])
   (:import
    (java.util UUID)
-   (java.time Instant LocalDate ZoneOffset)))
+   (java.time Instant LocalDate ZonedDateTime ZoneOffset)))
 
 ;; (XXX): Currently we allow value to be nil
 ;; In the future, we may want to _retract_ the triple if the value is nil
@@ -711,7 +711,7 @@
 
 (defn iso8601-date-str->instant [x]
   (if (string/includes? x "T")
-    (Instant/parse x)
+    (.toInstant (ZonedDateTime/parse x))
     (-> (LocalDate/parse x)
         (.atStartOfDay)
         (.toInstant ZoneOffset/UTC))))
@@ -725,4 +725,5 @@
 
 (comment
   (parse-date-value "2025-01-01T00:00:00Z")
-  (parse-date-value "2025-01-01"))
+  (parse-date-value "2025-01-01")
+  (parse-date-value "2025-01-02T00:00:00-08"))
