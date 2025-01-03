@@ -41,7 +41,6 @@
             [instant.util.json :refer [->json]]
             [instant.util.string :refer [safe-name]])
   (:import (com.zaxxer.hikari HikariDataSource)
-           (java.time Instant)
            (java.util UUID)))
 
 ;; ---

@@ -3,9 +3,7 @@
             [instant.db.model.attr-pat :as attr-pat]
             [instant.db.model.entity :as entity-model]
             [instant.util.uuid :as uuid-util]
-            [instant.db.model.triple :as triple-model])
-  (:import
-   (java.time Instant)))
+            [instant.db.model.triple :as triple-model]))
 
 (declare instaql-ref-nodes->object-tree)
 
