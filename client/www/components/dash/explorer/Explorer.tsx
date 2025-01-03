@@ -408,11 +408,7 @@ export function Explorer({
         </button>
       </div>
       {selectedNamespace && currentNav && allItems ? (
-        <div
-          className={clsx('flex flex-1 flex-col overflow-hidden', {
-            cursor: itemsRes.isLoading ? 'wait' : undefined,
-          })}
-        >
+        <div className="flex flex-1 flex-col overflow-hidden">
           <div className="flex items-center border-b overflow-hidden">
             <div className="flex flex-1 flex-col justify-between md:flex-row md:items-center">
               <div className="flex items-center border-b px-2 py-1 md:border-b-0 overflow-hidden">
@@ -616,12 +612,7 @@ export function Explorer({
                 Delete {rowText}
               </Button>
             </div>
-            <table
-              className={clsx(
-                'z-0 w-full flex-1 text-left font-mono text-xs text-gray-500',
-                { 'animate-pulse': itemsRes.isLoading },
-              )}
-            >
+            <table className="z-0 w-full flex-1 text-left font-mono text-xs text-gray-500">
               <thead className="sticky top-0 z-20 bg-white text-gray-700 shadow">
                 <tr>
                   <th className="px-2 py-2" style={{ width: '48px' }}>
