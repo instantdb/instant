@@ -2,7 +2,7 @@ FROM amazoncorretto:22 AS builder
 
 WORKDIR /app
 
-RUN yum -y install tar gzip git unzip
+RUN yum -y install tar gzip git unzip postgresql16
 
 RUN curl -L -O https://github.com/clojure/brew-install/releases/download/1.11.3.1463/linux-install.sh
 
