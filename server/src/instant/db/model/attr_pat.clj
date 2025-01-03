@@ -274,7 +274,7 @@
 
                 (string? v)
                 (try
-                  (Instant/parse v)
+                  (triple-model/iso8601-date-str->instant v)
                   (catch Exception _e
                     (throw-invalid-date-string! state attr v)))
 
@@ -302,7 +302,7 @@
                       (catch Exception _e
                         (throw-invalid-timestamp! state attr value)))
             :string (try
-                      (Instant/parse value)
+                      (triple-model/iso8601-date-str->instant value)
                       (catch Exception _e
                         (throw-invalid-date-string! state attr value))))
     (if-not (= tag attr-data-type)

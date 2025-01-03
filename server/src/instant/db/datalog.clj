@@ -1056,10 +1056,7 @@
                              [(extract-value-fn order-col-type) cursor-val]
 
                              (= :date order-col-type)
-                             (cond (string? cursor-val)
-                                   (Instant/parse cursor-val)
-                                   (number? cursor-val)
-                                   (Instant/ofEpochMilli cursor-val))
+                             (triple-model/parse-date-value cursor-val)
 
                              :else
                              cursor-val)
