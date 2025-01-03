@@ -1526,7 +1526,7 @@
                                                ;; where the entity is missing a value.
                                                ;; We'll have to create a fake row with [e a nil t]
                                                (let [{:keys [eid-col created-col]} page-info]
-                                                 [(get row eid-col)
+                                                 [(get row "order_eid")
                                                   (:attr-id page-info)
                                                   nil
                                                   (get row created-col)])))]
