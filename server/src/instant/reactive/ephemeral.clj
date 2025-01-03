@@ -38,11 +38,11 @@
 (defn init-hz
   ([store-conn]
    (init-hz store-conn {}))
-  ([store-conn {:keys [instance-name cluster-name metrics]
+  ([store-conn {:keys [instance-name cluster-name metrics env]
                 :or {instance-name "instant-hz-v2"
                      cluster-name "instant-server"
                      metrics true}}]
-   (-> (java.util.logging.Logger/getLogger "com.hazelcast.system.logo")
+   (-> (java.util.logging.Logger/getLogger "com.hazelcast")
        (.setLevel java.util.logging.Level/WARNING))
    (System/setProperty "hazelcast.shutdownhook.enabled" "false")
    (System/setProperty "hazelcast.phone.home.enabled" "false")
@@ -55,7 +55,8 @@
          metrics-config       (.getMetricsConfig config)]
      (.setInstanceName config instance-name)
      (.setEnabled (.getMulticastConfig join-config) false)
-     (if (= :prod (config/get-env))
+     (case (or env (config/get-env))
+       :prod
        (let [ip (aws-util/get-instance-ip)]
          (.setPublicAddress network-config ip)
          (-> aws-config
@@ -63,9 +64,18 @@
              (.setProperty "hz-port" "5701")
              (.setProperty "tag-key" aws-util/environment-tag-name)
              (.setProperty "tag-value" (aws-util/get-environment-tag))))
+
+       :dev
        (do
          (.setEnabled tcp-ip-config true)
-         (.setMembers tcp-ip-config (list "127.0.0.1"))))
+         (.setMembers tcp-ip-config (list "127.0.0.1")))
+
+       :test
+       (do
+         (.setEnabled tcp-ip-config false)
+         (.setEnabled aws-config false)
+         (.setPort network-config 0)
+         (.setPortAutoIncrement network-config false)))
 
      (.setClusterName config cluster-name)
 

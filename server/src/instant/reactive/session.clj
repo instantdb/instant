@@ -316,11 +316,15 @@
                                                :client-event-id client-event-id})))
 
 (defn- handle-refresh-presence! [store-conn sess-id {:keys [app-id room-id data edits]}]
-  (rs/send-event! store-conn app-id sess-id
-                  (cond-> {:op      :refresh-presence
-                           :room-id room-id}
-                    (some? edits) (assoc :edits edits)
-                    (nil? edits)  (assoc :data data))))
+  (if (some? edits)
+    (rs/send-event! store-conn app-id sess-id
+                    {:op      :patch-presence
+                     :room-id room-id
+                     :edits   edits})
+    (rs/send-event! store-conn app-id sess-id
+                    {:op      :refresh-presence
+                     :room-id room-id
+                     :data    data})))
 
 (defn- handle-client-broadcast!
   "Broadcasts a client message to other sessions in the room"

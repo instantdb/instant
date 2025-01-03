@@ -61,6 +61,7 @@ const ignoreLogging = {
   "set-presence": true,
   "set-presence-ok": true,
   "refresh-presence": true,
+  "patch-presence": true,
 };
 
 function querySubsFromJSON(str) {
@@ -458,13 +459,14 @@ export default class Reactor {
         
         this._finishTransaction("synced", eventId);
         break;
+      case "patch-presence":
+        const roomId = msg["room-id"];
+        this._patchPresencePeers(roomId, msg["edits"]);
+        this._notifyPresenceSubs(roomId);
+        break;
       case "refresh-presence":
         const roomId = msg["room-id"];
-        if (msg["edits"]) {
-          this._updatePresencePeers(roomId, msg["edits"]);
-        } else {
-          this._setPresencePeers(roomId, msg["data"]);
-        }
+        this._setPresencePeers(roomId, msg["data"]);
         this._notifyPresenceSubs(roomId);
         break;
       case "server-broadcast":
@@ -1680,7 +1682,7 @@ export default class Reactor {
     handler.cb(slice);
   }
 
-  _updatePresencePeers(roomId, edits) {
+  _patchPresencePeers(roomId, edits) {
     const peers = this._presence[roomId]?.result?.peers || {};
     let sessions = Object.fromEntries(
       Object.entries(peers).map(([k, v]) => [k, {data: v}]),

@@ -44,7 +44,8 @@
                                             (let [id (+ 100000 (rand-int 900000))]
                                               {:instance-name (str "test-instance-" id)
                                                :cluster-name  (str "test-cluster-" id)
-                                               :metrics false})))
+                                               :metrics false
+                                               :env           :test})))
         eph-room-maps   (atom {})
         socket          {:id sess-id
                          :ws-conn fake-ws-conn
@@ -668,11 +669,9 @@
                                  :app-id movies-app-id})
       (let [room-id (str (UUID/randomUUID))
             sess-id (:id socket)]
-        (blocking-send-msg socket
-                           {:op :join-room
-                            :room-id room-id})
-
-        (is (= (:refresh-presence (:op (read-msg socket)))))
+        (is (= :join-room-ok
+               (:op (blocking-send-msg socket {:op :join-room, :room-id room-id}))))
+        (is (= :refresh-presence (:op (read-msg socket))))
 
         (is (eph/in-room? movies-app-id room-id sess-id))
 
@@ -739,7 +738,7 @@
             t1 "foo"
             d1 {:hello "world"}]
         (blocking-send-msg socket {:op :init :app-id movies-app-id})
-        (blocking-send-msg socket {:op :join-room :room-id rid})
+        (is (= :join-room-ok (:op (blocking-send-msg socket {:op :join-room, :room-id rid}))))
         (is (= :refresh-presence (:op (read-msg socket))))
 
         (let [room-data (eph/get-room-data movies-app-id rid)
@@ -775,6 +774,3 @@
                                                            :data d1})]
         (is (= :error op))
         (is (= 400 status))))))
-
-(comment
-  (test/run-tests *ns*))
