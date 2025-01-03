@@ -1287,10 +1287,7 @@
                            :symbol-fields {}
                            :pattern page-pattern
                            :page-info (assoc page-info
-                                             :eid-col (-> pattern-metas
-                                                          last
-                                                          :cte-cols
-                                                          first)
+                                             :eid-col "order_eid"
                                              :created-col (-> pattern-metas
                                                               last
                                                               :cte-cols
@@ -1526,7 +1523,7 @@
                                                ;; where the entity is missing a value.
                                                ;; We'll have to create a fake row with [e a nil t]
                                                (let [{:keys [eid-col created-col]} page-info]
-                                                 [(get row "order_eid")
+                                                 [(get row eid-col)
                                                   (:attr-id page-info)
                                                   nil
                                                   (get row created-col)])))]
