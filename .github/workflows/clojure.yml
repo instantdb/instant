@@ -10,34 +10,34 @@ jobs:
     outputs:
       did_change: ${{ steps.detect-change.outputs.did_change }}
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 0 }}
-    - name: Get changed files
-      id: changed-files
-      run: |
-        if ${{ github.event_name == 'pull_request' || github.event.before == '0000000000000000000000000000000000000000' }}; then
-            echo "changed_files=$(git diff --name-only -r HEAD^1 HEAD | xargs)" >> $GITHUB_OUTPUT
-        else
-            echo "changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | xargs)" >> $GITHUB_OUTPUT
-        fi
-    - name: Detect clojure changes
-      id: detect-change
-      run: |
-        changeArr=($(echo ${{ steps.changed-files.outputs.changed_files }}))
-        echo "did_change=False" >> $GITHUB_OUTPUT
-        for file in ${changeArr[*]}
-        do
-          if echo $file | grep -E '^server/' | grep -E -v '^server/refinery/'; then
-            echo "did_change=True" >> $GITHUB_OUTPUT
-            break
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 0 }}
+      - name: Get changed files
+        id: changed-files
+        run: |
+          if ${{ github.event_name == 'pull_request' || github.event.before == '0000000000000000000000000000000000000000' }}; then
+              echo "changed_files=$(git diff --name-only -r HEAD^1 HEAD | xargs)" >> $GITHUB_OUTPUT
+          else
+              echo "changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | xargs)" >> $GITHUB_OUTPUT
           fi
-        done
+      - name: Detect clojure changes
+        id: detect-change
+        run: |
+          changeArr=($(echo ${{ steps.changed-files.outputs.changed_files }}))
+          echo "did_change=False" >> $GITHUB_OUTPUT
+          for file in ${changeArr[*]}
+          do
+            if echo $file | grep -E '^server/' | grep -E -v '^server/refinery/'; then
+              echo "did_change=True" >> $GITHUB_OUTPUT
+              break
+            fi
+          done
 
   clj-check:
     runs-on: ubuntu-latest
-    needs: [ detect_clj ]
+    needs: [detect_clj]
     if: needs.detect_clj.outputs.did_change == 'True'
 
     services:
@@ -51,173 +51,172 @@ jobs:
           POSTGRES_DB: test_db
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Prepare java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'corretto'
-        java-version: '22'
+      - name: Prepare java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "corretto"
+          java-version: "22"
 
-    - name: Prepare database
-      env:
-        DATABASE_URL: "postgres://test_user:test_password@localhost:5432/test_db?sslmode=disable"
-      run: |
-        curl -L "https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz" | tar xvz
-        chmod +x migrate
-        until pg_isready -h localhost -p 5432; do
-          echo "Waiting for postgres to be ready..."
-          sleep 1
-        done
-        ./migrate \
-           -source file://server/resources/migrations \
-           -database $DATABASE_URL \
-           up
-        ./server/dev-resources/import_test_data.sh
+      - name: Prepare database
+        env:
+          DATABASE_URL: "postgres://test_user:test_password@localhost:5432/test_db?sslmode=disable"
+        run: |
+          curl -L "https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz" | tar xvz
+          chmod +x migrate
+          until pg_isready -h localhost -p 5432; do
+            echo "Waiting for postgres to be ready..."
+            sleep 1
+          done
+          ./migrate \
+             -source file://server/resources/migrations \
+             -database $DATABASE_URL \
+             up
 
-    - name: Install clojure tools
-      uses: DeLaGuardo/setup-clojure@10.2
-      with:
-        cli: 1.11.3.1463
+      - name: Install clojure tools
+        uses: DeLaGuardo/setup-clojure@10.2
+        with:
+          cli: 1.11.3.1463
 
-    - name: Cache Clojure Dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.m2/repository
-          ~/.gitlibs
-          ~/.deps.clj
-        key: cljdeps-${{ hashFiles('server/deps.edn') }}
-        restore-keys: cljdeps
+      - name: Cache Clojure Dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+            ~/.deps.clj
+          key: cljdeps-${{ hashFiles('server/deps.edn') }}
+          restore-keys: cljdeps
 
-    - name: Install Clojure dependencies
-      working-directory: server
-      run: clojure -P
+      - name: Install Clojure dependencies
+        working-directory: server
+        run: clojure -P
 
-    - name: Run Clojure tests
-      working-directory: server
-      env:
-        DATABASE_URL: "jdbc:postgresql://localhost:5432/test_db?user=test_user&password=test_password"
-        TEST: "true"
-        STRIPE_API_KEY: ${{ secrets.STRIPE_TEST_KEY }}
-      run: clojure -M:test
+      - name: Run Clojure tests
+        working-directory: server
+        env:
+          DATABASE_URL: "jdbc:postgresql://localhost:5432/test_db?user=test_user&password=test_password"
+          TEST: "true"
+          STRIPE_API_KEY: ${{ secrets.STRIPE_TEST_KEY }}
+        run: clojure -M:test
 
-    - name: Publish Test Report
-      uses: mikepenz/action-junit-report@v4
-      if: success() || failure() # always run even if the previous step fails
-      with:
-        report_paths: '**/server/target/test-results/*.xml'
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v4
+        if: success() || failure() # always run even if the previous step fails
+        with:
+          report_paths: "**/server/target/test-results/*.xml"
 
   clj-build-check:
     runs-on: ubuntu-latest
-    needs: [ detect_clj ]
+    needs: [detect_clj]
     if: needs.detect_clj.outputs.did_change == 'True'
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Prepare java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'corretto'
-        java-version: '22'
+      - name: Prepare java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "corretto"
+          java-version: "22"
 
-    - name: Install clojure tools
-      uses: DeLaGuardo/setup-clojure@10.2
-      with:
-        cli: 1.11.3.1463
+      - name: Install clojure tools
+        uses: DeLaGuardo/setup-clojure@10.2
+        with:
+          cli: 1.11.3.1463
 
-    - name: Cache Clojure Dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.m2/repository
-          ~/.gitlibs
-          ~/.deps.clj
-        key: cljdeps-${{ hashFiles('server/deps.edn') }}
-        restore-keys: cljdeps
+      - name: Cache Clojure Dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+            ~/.deps.clj
+          key: cljdeps-${{ hashFiles('server/deps.edn') }}
+          restore-keys: cljdeps
 
-    - name: Install Clojure dependencies
-      working-directory: server
-      run: clojure -P
+      - name: Install Clojure dependencies
+        working-directory: server
+        run: clojure -P
 
-    - name: Build uberjar
-      working-directory: server
-      run: clojure -T:build uber
+      - name: Build uberjar
+        working-directory: server
+        run: clojure -T:build uber
 
   lint:
     runs-on: ubuntu-latest
-    needs: [ detect_clj ]
+    needs: [detect_clj]
     if: needs.detect_clj.outputs.did_change == 'True'
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Prepare java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'corretto'
-        java-version: '22'
+      - name: Prepare java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "corretto"
+          java-version: "22"
 
-    - name: Install clojure tools
-      uses: DeLaGuardo/setup-clojure@10.2
-      with:
-        cli: 1.11.3.1463
+      - name: Install clojure tools
+        uses: DeLaGuardo/setup-clojure@10.2
+        with:
+          cli: 1.11.3.1463
 
-    - name: Cache Clojure Dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.m2/repository
-          ~/.gitlibs
-          ~/.deps.clj
-        key: cljdeps-${{ hashFiles('server/deps.edn') }}
-        restore-keys: cljdeps
+      - name: Cache Clojure Dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+            ~/.deps.clj
+          key: cljdeps-${{ hashFiles('server/deps.edn') }}
+          restore-keys: cljdeps
 
-    - name: Install Clojure dependencies
-      working-directory: server
-      run: clojure -P -M:lint
+      - name: Install Clojure dependencies
+        working-directory: server
+        run: clojure -P -M:lint
 
-    - name: Lint
-      working-directory: server
-      run: clojure -M:lint "--config" ".clj-kondo/ci-config.edn"
+      - name: Lint
+        working-directory: server
+        run: clojure -M:lint "--config" ".clj-kondo/ci-config.edn"
 
   publish-image:
     runs-on: ubuntu-latest
     if: needs.detect_clj.outputs.did_change == 'True' && github.ref == 'refs/heads/main'
     # Start publish image if we have clj changes
-    needs: [ detect_clj ]
+    needs: [detect_clj]
     permissions:
       id-token: write
       contents: read
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: arn:aws:iam::597134865416:role/aws-credentials-for-github-actions-Role-x0lUbtwJNb7G
-        aws-region: us-east-1
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::597134865416:role/aws-credentials-for-github-actions-Role-x0lUbtwJNb7G
+          aws-region: us-east-1
 
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Build, tag, and push docker image to Amazon ECR
-      working-directory: server
-      env:
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        docker buildx build --push \
-          --cache-to mode=max,image-manifest=true,oci-mediatypes=true,compression=zstd,type=registry,ref=597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:cache \
-          --cache-from type=registry,ref=597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:cache \
-          -t 597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:$IMAGE_TAG .
+      - name: Build, tag, and push docker image to Amazon ECR
+        working-directory: server
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker buildx build --push \
+            --cache-to mode=max,image-manifest=true,oci-mediatypes=true,compression=zstd,type=registry,ref=597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:cache \
+            --cache-from type=registry,ref=597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:cache \
+            -t 597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:$IMAGE_TAG .
 
   publish-eb:
     runs-on: ubuntu-latest
@@ -229,31 +228,31 @@ jobs:
       id-token: write
       contents: read
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: arn:aws:iam::597134865416:role/aws-credentials-for-github-actions-Role-x0lUbtwJNb7G
-        aws-region: us-east-1
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::597134865416:role/aws-credentials-for-github-actions-Role-x0lUbtwJNb7G
+          aws-region: us-east-1
 
-    - name: Update docker-compose.yml
-      working-directory: server
-      env:
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        sed -i "s|IMAGE_REPLACE_ME|597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:${IMAGE_TAG}|g" docker-compose.yml
-        cat docker-compose.yml
+      - name: Update docker-compose.yml
+        working-directory: server
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          sed -i "s|IMAGE_REPLACE_ME|597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:${IMAGE_TAG}|g" docker-compose.yml
+          cat docker-compose.yml
 
-    - name: Create eb application version
-      uses: "./.github/actions/elastic-beanstalk"
-      with:
-        working-directory: "server"
-        files: '["docker-compose.yml", ".ebextensions/resources.config"]'
-        aws-region: "us-east-1"
-        bucket: "elasticbeanstalk-us-east-1-597134865416"
-        application-name: "instant-docker-prod"
+      - name: Create eb application version
+        uses: "./.github/actions/elastic-beanstalk"
+        with:
+          working-directory: "server"
+          files: '["docker-compose.yml", ".ebextensions/resources.config"]'
+          aws-region: "us-east-1"
+          bucket: "elasticbeanstalk-us-east-1-597134865416"
+          application-name: "instant-docker-prod"
 
   detect_refinery:
     runs-on: ubuntu-latest
@@ -261,30 +260,30 @@ jobs:
     outputs:
       did_change: ${{ steps.detect-change.outputs.did_change }}
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 0 }}
-    - name: Get changed files
-      id: changed-files
-      run: |
-        if ${{ github.event_name == 'pull_request' || github.event.before == '0000000000000000000000000000000000000000' }}; then
-            echo "changed_files=$(git diff --name-only -r HEAD^1 HEAD | xargs)" >> $GITHUB_OUTPUT
-        else
-            echo "changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | xargs)" >> $GITHUB_OUTPUT
-        fi
-    - name: Detect refinery changes
-      id: detect-change
-      run: |
-        changeArr=($(echo ${{ steps.changed-files.outputs.changed_files }}))
-        echo "did_change=False" >> $GITHUB_OUTPUT
-        for file in ${changeArr[*]}
-        do
-          if echo $file | grep -E '^server/refinery/'; then
-            echo "did_change=True" >> $GITHUB_OUTPUT
-            break
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 0 }}
+      - name: Get changed files
+        id: changed-files
+        run: |
+          if ${{ github.event_name == 'pull_request' || github.event.before == '0000000000000000000000000000000000000000' }}; then
+              echo "changed_files=$(git diff --name-only -r HEAD^1 HEAD | xargs)" >> $GITHUB_OUTPUT
+          else
+              echo "changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | xargs)" >> $GITHUB_OUTPUT
           fi
-        done
+      - name: Detect refinery changes
+        id: detect-change
+        run: |
+          changeArr=($(echo ${{ steps.changed-files.outputs.changed_files }}))
+          echo "did_change=False" >> $GITHUB_OUTPUT
+          for file in ${changeArr[*]}
+          do
+            if echo $file | grep -E '^server/refinery/'; then
+              echo "did_change=True" >> $GITHUB_OUTPUT
+              break
+            fi
+          done
 
   publish-refinery-eb:
     runs-on: ubuntu-latest
@@ -295,20 +294,20 @@ jobs:
       id-token: write
       contents: read
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: arn:aws:iam::597134865416:role/aws-credentials-for-github-actions-Role-x0lUbtwJNb7G
-        aws-region: us-east-1
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::597134865416:role/aws-credentials-for-github-actions-Role-x0lUbtwJNb7G
+          aws-region: us-east-1
 
-    - name: Create eb application version
-      uses: "./.github/actions/elastic-beanstalk"
-      with:
-        working-directory: "server/refinery/"
-        files: '["docker-compose.yml", "config.yaml", "config-redis.yaml", "rules.yaml", "refinery.env", ".ebextensions/resources.config"]'
-        aws-region: "us-east-1"
-        bucket: "elasticbeanstalk-us-east-1-597134865416"
-        application-name: "refinery"
+      - name: Create eb application version
+        uses: "./.github/actions/elastic-beanstalk"
+        with:
+          working-directory: "server/refinery/"
+          files: '["docker-compose.yml", "config.yaml", "config-redis.yaml", "rules.yaml", "refinery.env", ".ebextensions/resources.config"]'
+          aws-region: "us-east-1"
+          bucket: "elasticbeanstalk-us-east-1-597134865416"
+          application-name: "refinery"
