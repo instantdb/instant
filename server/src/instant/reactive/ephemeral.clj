@@ -140,7 +140,7 @@
   (let [room-key                        (.getKey event)
         {:keys [app-id room-id]}        room-key
         {:keys [session-ids last-data]} (get-in @room-maps [:rooms room-key])]
-    (when (seq session-ids)
+    (when (seq session-ids) ;; if we have sessions in that room locally
       (let [room-data (.get (get-hz-rooms-map) room-key)
             edits     (when last-data
                         (editscript/get-edits

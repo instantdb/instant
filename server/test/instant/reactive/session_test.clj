@@ -695,12 +695,15 @@
 (deftest set-presence-works
   (with-session
     (fn [_store-conn {:keys [socket]}]
-      (let [rid (str (UUID/randomUUID))
+      (let [rid     (str (UUID/randomUUID))
             sess-id (:id socket)
-            d1 {:hello "world"}
-            d2 {:foo "bar"}]
-        (blocking-send-msg socket {:op :init :app-id movies-app-id})
-        (blocking-send-msg socket {:op :join-room :room-id rid})
+            d1      {:a "a" :b "b" :c "c" :d "d" :e "e"}
+            d2      {:a "a" :b "b" :c "c" :e "E" :f "F"}]
+        (blocking-send-msg socket {:op       :init
+                                   :app-id   movies-app-id
+                                   :versions {session/core-version-key "0.17.6"}})
+        (is (= :join-room-ok (:op (blocking-send-msg socket {:op :join-room :room-id rid}))))
+        (is (= :refresh-presence (:op (read-msg socket))))
 
         ;; session is in the room
         (is (eph/in-room? movies-app-id rid sess-id))
@@ -711,18 +714,28 @@
                          :data {}}}
                (eph/get-room-data movies-app-id rid)))
 
-        ;; session data is now set!
-        (blocking-send-msg socket {:op :set-presence :room-id rid :data d1})
+        ;; set session data
+        (is (= :set-presence-ok (:op (blocking-send-msg socket {:op :set-presence :room-id rid :data d1}))))
+        (is (= {:op      :patch-presence
+                :room-id rid
+                :edits   [[[sess-id :data] :r {:a "a" :b "b" :c "c" :d "d" :e "e"}]]}
+               (read-msg socket)))
         (is (= {sess-id {:peer-id sess-id
-                         :user nil
-                         :data d1}}
+                         :user    nil
+                         :data    d1}}
                (eph/get-room-data movies-app-id rid)))
 
-        ;; session data is overwritten!
-        (blocking-send-msg socket {:op :set-presence :room-id rid :data d2})
+        ;; udpate session data
+        (is (= :set-presence-ok (:op (blocking-send-msg socket {:op :set-presence :room-id rid :data d2}))))
+        (is (= {:op      :patch-presence
+                :room-id rid
+                :edits   [[[sess-id :data :d] :-]
+                          [[sess-id :data :e] :r "E"]
+                          [[sess-id :data :f] :+ "F"]]}
+               (read-msg socket)))
         (is (= {sess-id {:peer-id sess-id
-                         :user nil
-                         :data d2}}
+                         :user    nil
+                         :data    d2}}
                (eph/get-room-data movies-app-id rid)))))))
 
 (deftest set-presence-fails-when-not-in-room
