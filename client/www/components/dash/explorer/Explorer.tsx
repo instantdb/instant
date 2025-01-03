@@ -3,7 +3,6 @@ import { InstantReactWebDatabase } from '@instantdb/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isObject, debounce } from 'lodash';
 import produce from 'immer';
-import Fuse from 'fuse.js';
 import clsx from 'clsx';
 import CopyToClipboard from 'react-copy-to-clipboard';
 
@@ -79,11 +78,15 @@ function SearchInput({
   );
 
   const searchDebounce = useCallback(
-    debounce((search) => {
-      if (filterableAttrs) {
-        onSearchChange(searchWhereFilters(filterableAttrs, search));
-      }
-    }, 80),
+    debounce(
+      (search) => {
+        if (filterableAttrs) {
+          onSearchChange(searchWhereFilters(filterableAttrs, search));
+        }
+      },
+      80,
+      { maxWait: 3000 },
+    ),
     [filterableAttrs],
   );
 
@@ -98,6 +101,7 @@ function SearchInput({
       value={value}
       onChange={(v) => {
         setValue(v);
+        searchDebounce.cancel();
         searchDebounce(v);
       }}
     />
