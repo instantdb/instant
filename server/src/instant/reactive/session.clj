@@ -32,7 +32,9 @@
    [instant.util.json :refer [<-json]]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
-   [lambdaisland.uri :as uri])
+   [lambdaisland.uri :as uri]
+   [version-clj.core :as version]
+   [version-clj.qualifiers])
   (:import
    (java.time Duration Instant)
    (java.util.concurrent CancellationException)
@@ -315,16 +317,27 @@
                                                :room-id room-id
                                                :client-event-id client-event-id})))
 
+(def qualifiers
+  (assoc version-clj.qualifiers/default-qualifiers "dev" 7))
+
 (defn- handle-refresh-presence! [store-conn sess-id {:keys [app-id room-id data edits]}]
-  (if (some? edits)
-    (rs/send-event! store-conn app-id sess-id
-                    {:op      :patch-presence
-                     :room-id room-id
-                     :edits   edits})
-    (rs/send-event! store-conn app-id sess-id
-                    {:op      :refresh-presence
-                     :room-id room-id
-                     :data    data})))
+  (let [version (-> (rs/get-versions @store-conn sess-id)
+                    (get core-version-key))]
+    (cond
+      (and edits (empty? edits))
+      :nop
+
+      (and edits (version/newer? version "v0.17.5" {:qualifiers qualifiers}))
+      (rs/send-event! store-conn app-id sess-id
+                      {:op      :patch-presence
+                       :room-id room-id
+                       :edits   edits})
+
+      :else
+      (rs/send-event! store-conn app-id sess-id
+                      {:op      :refresh-presence
+                       :room-id room-id
+                       :data    data}))))
 
 (defn- handle-client-broadcast!
   "Broadcasts a client message to other sessions in the room"

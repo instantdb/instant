@@ -25,6 +25,7 @@
         cider/cider-nrepl {:mvn/version "0.45.0"}
         amazonica/amazonica {:mvn/version "0.3.167"}
         juji/editscript {:mvn/version "0.6.4"}
+        version-clj/version-clj {:mvn/version "2.0.3"}
 
         org.bouncycastle/bcprov-jdk15on {:mvn/version "1.70"}
         incanter/incanter {:mvn/version "1.9.3"

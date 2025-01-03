@@ -459,16 +459,18 @@ export default class Reactor {
         
         this._finishTransaction("synced", eventId);
         break;
-      case "patch-presence":
+      case "patch-presence": {
         const roomId = msg["room-id"];
         this._patchPresencePeers(roomId, msg["edits"]);
         this._notifyPresenceSubs(roomId);
         break;
-      case "refresh-presence":
+      }
+      case "refresh-presence": {
         const roomId = msg["room-id"];
         this._setPresencePeers(roomId, msg["data"]);
         this._notifyPresenceSubs(roomId);
         break;
+      }
       case "server-broadcast":
         const room = msg["room-id"];
         const topic = msg.topic;
