@@ -11,10 +11,11 @@
    [instant.util.json :refer [->json]]
    [instant.util.spec :as uspec]
    [instant.util.string :refer [multiline->single-line]]
-   [instant.util.tracer :as tracer])
+   [instant.util.tracer :as tracer]
+   [clojure.string :as string])
   (:import
    (java.util UUID)
-   (java.time Instant)))
+   (java.time Instant LocalDate ZonedDateTime ZoneOffset)))
 
 ;; (XXX): Currently we allow value to be nil
 ;; In the future, we may want to _retract_ the triple if the value is nil
@@ -708,8 +709,21 @@
       (tracer/add-data! {:attributes {:total-count @row-count}})
       {:row-count @row-count})))
 
+(defn iso8601-date-str->instant [x]
+  (if (string/includes? x "T")
+    (.toInstant (ZonedDateTime/parse x))
+    (-> (LocalDate/parse x)
+        (.atStartOfDay)
+        (.toInstant ZoneOffset/UTC))))
+
 (defn parse-date-value [x]
   (cond (string? x)
-        (Instant/parse x)
+        (iso8601-date-str->instant x)
+
         (number? x)
         (Instant/ofEpochMilli x)))
+
+(comment
+  (parse-date-value "2025-01-01T00:00:00Z")
+  (parse-date-value "2025-01-01")
+  (parse-date-value "2025-01-02T00:00:00-08"))

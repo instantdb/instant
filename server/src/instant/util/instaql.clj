@@ -2,9 +2,8 @@
   (:require [instant.db.model.attr :as attr-model]
             [instant.db.model.attr-pat :as attr-pat]
             [instant.db.model.entity :as entity-model]
-            [instant.util.uuid :as uuid-util])
-  (:import
-   (java.time Instant)))
+            [instant.util.uuid :as uuid-util]
+            [instant.db.model.triple :as triple-model]))
 
 (declare instaql-ref-nodes->object-tree)
 
@@ -59,10 +58,7 @@
                          :checked-data-type)]
     (if (= checked-type :date)
       (fn [v]
-        (cond (string? v)
-              (Instant/parse v)
-              (number? v)
-              (Instant/ofEpochMilli v)))
+        (triple-model/parse-date-value v))
       identity)))
 
 (defn sort-entries [ctx etype option-map entries]
