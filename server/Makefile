@@ -18,6 +18,9 @@ dev-oss:
 docker-compose:
 	$(DC) -f ./docker-compose-dev.yml build && $(DC) -f ./docker-compose-dev.yml up
 
+docker:
+	$(DC) -f ./docker-compose-dev.yml up
+
 dev-up:
 	@echo "Migrating dev db up to latest"
 	migrate -database "postgresql://localhost:5432/instant?sslmode=disable" -path resources/migrations up
