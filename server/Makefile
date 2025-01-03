@@ -36,6 +36,9 @@ dev-storm:
 test:
 	TEST=true clojure -M:test
 
+eftest:
+	TEST=true clojure -X:test instant.test-core/eftest-main
+
 retest:
 	TEST=true clojure -M:retest
 

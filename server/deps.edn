@@ -73,12 +73,12 @@
         djblue/portal {:mvn/version "0.55.1"}
         dev.weavejester/medley {:mvn/version "1.8.1"}
         com.hazelcast/hazelcast {:mvn/version "5.5.0"}}
- :aliases {:dev {:extra-deps {refactor-nrepl/refactor-nrepl {:mvn/version "3.10.0"}
+ :aliases {:dev {:extra-paths ["dev" "test" "dev-resources"]
+                 :extra-deps {refactor-nrepl/refactor-nrepl {:mvn/version "3.10.0"}
                               criterium/criterium           {:mvn/version "0.4.6"}
                               spec-provider/spec-provider   {:mvn/version "0.4.14"}
                               io.github.tonsky/clj-reload   {:mvn/version "0.7.1"}
                               eftest/eftest                 {:mvn/version "0.6.0"}}
-                 :extra-paths ["dev" "test" "dev-resources"]
                  :jvm-opts ["-enableassertions"
                             "-Djdk.tracePinnedThreads=full"
                             ;; print stack traces instead of "Full report at ..."
@@ -100,6 +100,7 @@
                    :ns-default build}
            :run {:main-opts ["-m" "instant.core"]}
            :test {:extra-paths ["test" "dev-resources"]
+                  :extra-deps {eftest/eftest {:mvn/version "0.6.0"}}
                   :main-opts ["-m" "instant.test-core"]
                   :jvm-opts ["-enableassertions"
                              "-Djdk.tracePinnedThreads=full"
