@@ -94,7 +94,7 @@
               (testing "attr is deleted"
                 (is (= #{"name"}
                        (->> (attr-model/get-by-app-id app-id)
-                           (filter #(not= :system (:catalog %)))
+                            (filter #(not= :system (:catalog %)))
                             (map :forward-identity)
                             (map last)
                             set))))
@@ -419,11 +419,11 @@
           (is
            (= ::ex/record-not-unique
               (::ex/type (instant-ex-data
-                           (tx/transact!
-                            (aurora/conn-pool)
-                            (attr-model/get-by-app-id app-id)
-                            app-id
-                            [[:add-triple joe-eid email-attr-id "test2@instantdb.com"]]))))))))))
+                          (tx/transact!
+                           (aurora/conn-pool)
+                           (attr-model/get-by-app-id app-id)
+                           app-id
+                           [[:add-triple joe-eid email-attr-id "test2@instantdb.com"]]))))))))))
 
 (deftest tx-ref-many-to-many
   (with-empty-app
@@ -493,21 +493,21 @@
           (is
            (= :invalid-text-representation
               (->  (instant-ex-data
-                     (tx/transact!
-                      (aurora/conn-pool)
-                      (attr-model/get-by-app-id app-id)
-                      app-id
-                      [[:add-triple stopa-eid tag-attr-id "Foo"]]))
+                    (tx/transact!
+                     (aurora/conn-pool)
+                     (attr-model/get-by-app-id app-id)
+                     app-id
+                     [[:add-triple stopa-eid tag-attr-id "Foo"]]))
                    ::ex/hint
                    :condition)))
           (is
            (= "Check Violation: ref_values_are_uuid"
               (-> (instant-ex-data
-                    (tx/transact!
-                     (aurora/conn-pool)
-                     (attr-model/get-by-app-id app-id)
-                     app-id
-                     [[:add-triple stopa-eid tag-attr-id {:foo "bar"}]]))
+                   (tx/transact!
+                    (aurora/conn-pool)
+                    (attr-model/get-by-app-id app-id)
+                    app-id
+                    [[:add-triple stopa-eid tag-attr-id {:foo "bar"}]]))
                   ::ex/hint
                   :errors
                   first
@@ -722,13 +722,13 @@
                                        ctx
                                        (iq/query ctx {:bookshelves {:$ {:where {:name "Nonfiction"}}
                                                                     :books {:$ {:where {:isbn13 feynman-isbn}}}}}))
-                                    %
-                                    (get % "bookshelves")
-                                    (first %)
-                                    (get % "books")
-                                    (filter (fn [b] (= feynman-isbn (get b "isbn13"))) %)
-                                    (first %)
-                                    (get % "isbn13"))))
+                                      %
+                                  (get % "bookshelves")
+                                  (first %)
+                                  (get % "books")
+                                  (filter (fn [b] (= feynman-isbn (get b "isbn13"))) %)
+                                  (first %)
+                                  (get % "isbn13"))))
 
             ;; check retract
             (tx/transact! (aurora/conn-pool)
@@ -740,10 +740,10 @@
                                ctx
                                (iq/query ctx {:bookshelves {:$ {:where {:name "Nonfiction"}}
                                                             :books {:$ {:where {:isbn13 feynman-isbn}}}}}))
-                            %
-                            (get % "bookshelves")
-                            (first %)
-                            (get % "books"))))
+                              %
+                          (get % "bookshelves")
+                          (first %)
+                          (get % "books"))))
 
             ;; check adding back
             (tx/transact! (aurora/conn-pool)
@@ -755,14 +755,13 @@
                                        ctx
                                        (iq/query ctx {:bookshelves {:$ {:where {:name "Nonfiction"}}
                                                                     :books {:$ {:where {:isbn13 feynman-isbn}}}}}))
-                                    %
-                                    (get % "bookshelves")
-                                    (first %)
-                                    (get % "books")
-                                    (filter (fn [b] (= feynman-isbn (get b "isbn13"))) %)
-                                    (first %)
-                                    (get % "isbn13"))))))
-
+                                      %
+                                  (get % "bookshelves")
+                                  (first %)
+                                  (get % "books")
+                                  (filter (fn [b] (= feynman-isbn (get b "isbn13"))) %)
+                                  (first %)
+                                  (get % "isbn13"))))))
 
         (testing "value lookup refs are ignored for regular attributes"
           (tx/transact! (aurora/conn-pool)
@@ -1013,7 +1012,6 @@
                     (map :handle)
                     set))))))))
 
-
 (deftest write-perms
   (doseq [[title get-lookup] [[" with eid" (fn [r] (resolvers/->uuid r "eid-stepan-parunashvili"))]
                               [" with lookup ref" (fn [r] [(resolvers/->uuid r :users/email) "stopa@instantdb.com"])]]]
@@ -1233,15 +1231,15 @@
              {:app-id app-id :code {:attrs {:allow {:create "false"}}}})
             (is
              (perm-err?
-               (permissioned-tx/transact!
-                (make-ctx)
-                [[:add-attr
-                  {:id (UUID/randomUUID)
-                   :forward-identity [(UUID/randomUUID) "users" "favoriteColor"]
-                   :value-type :blob
-                   :cardinality :one
-                   :unique? false
-                   :index? false}]]))))
+              (permissioned-tx/transact!
+               (make-ctx)
+               [[:add-attr
+                 {:id (UUID/randomUUID)
+                  :forward-identity [(UUID/randomUUID) "users" "favoriteColor"]
+                  :value-type :blob
+                  :cardinality :one
+                  :unique? false
+                  :index? false}]]))))
           (testing (str "attr update/delete blocks unless admin" title)
             (is
              (perm-err?
@@ -1350,9 +1348,9 @@
          {:app-id app-id :code {}})
         (testing "Can't use a lookup attr from one namespace with attrs from another"
           (is (validation-err?
-                (permissioned-tx/transact!
-                 (make-ctx)
-                 [[:add-triple lookup (resolvers/->uuid r :books/title) "Title"]]))))))))
+               (permissioned-tx/transact!
+                (make-ctx)
+                [[:add-triple lookup (resolvers/->uuid r :books/title) "Title"]]))))))))
 
 (defn validation-err [input]
   (try
@@ -1485,10 +1483,10 @@
                                                       :attr-id (str email-attr-id)
                                                       :entity-id (str eid)}}]}}
                    (instant-ex-data
-                     (tx/transact! (aurora/conn-pool)
-                                   (attr-model/get-by-app-id app-id)
-                                   app-id
-                                   [[:add-triple eid email-attr-id 10]]))))))))))
+                    (tx/transact! (aurora/conn-pool)
+                                  (attr-model/get-by-app-id app-id)
+                                  app-id
+                                  [[:add-triple eid email-attr-id 10]]))))))))))
 
 (deftest rejects-large-values-for-indexed-data
   (with-empty-app
@@ -1534,10 +1532,10 @@
                                                       :entity-id (str eid)
                                                       :value-too-large? true}}]}}
                    (instant-ex-data
-                     (tx/transact! (aurora/conn-pool)
-                                   (attr-model/get-by-app-id app-id)
-                                   app-id
-                                   [[:add-triple eid email-attr-id (apply str (repeat 1000000 "a"))]]))))))
+                    (tx/transact! (aurora/conn-pool)
+                                  (attr-model/get-by-app-id app-id)
+                                  app-id
+                                  [[:add-triple eid email-attr-id (apply str (repeat 1000000 "a"))]]))))))
         (testing "returns a friendly error message for unique data"
           (let [eid (random-uuid)]
             (is (= #:instant.util.exception{:type
@@ -1554,10 +1552,10 @@
                                                       :entity-id (str eid)
                                                       :value-too-large? true}}]}}
                    (instant-ex-data
-                     (tx/transact! (aurora/conn-pool)
-                                   (attr-model/get-by-app-id app-id)
-                                   app-id
-                                   [[:add-triple eid unique-attr-id (apply str (repeat 1000000 "a"))]]))))))))))
+                    (tx/transact! (aurora/conn-pool)
+                                  (attr-model/get-by-app-id app-id)
+                                  app-id
+                                  [[:add-triple eid unique-attr-id (apply str (repeat 1000000 "a"))]]))))))))))
 
 (deftest deep-merge-existing-object
   (with-empty-app
@@ -1896,39 +1894,39 @@
 (deftest inferred-types []
   (testing "inferred types update on triple save"
     (are [value inferred-types]
-        (with-empty-app
-          (fn [{app-id :id}]
-            (let [attr-id (random-uuid)
-                  target-eid (random-uuid)]
-              (try (tx/transact!
-                    (aurora/conn-pool)
-                    (attr-model/get-by-app-id app-id)
-                    app-id
-                    [[:add-attr
-                      {:id attr-id
-                       :forward-identity [(random-uuid) "namespace" "field"]
-                       :value-type :blob
-                       :cardinality :one
-                       :unique? false
-                       :index? false}]
-                     [:add-triple target-eid attr-id value]])
-                   (catch Exception e
-                     (is (not e))))
-              (testing (format "(%s -> %s)" value inferred-types)
-                (attr-model/evict-app-id-from-cache app-id)
-                (is (= inferred-types
-                       (->> (attr-model/get-by-app-id app-id)
-                            (attr-model/seek-by-id attr-id)
-                            :inferred-types)))))))
-        1 #{:number}
-        2.0 #{:number}
-        "2" #{:string}
-        "s" #{:string}
-        true #{:boolean}
-        false #{:boolean}
-        (random-uuid) #{:string}
-        {:hello "world"} #{:json}
-        ["array of stuff", 2] #{:json}))
+         (with-empty-app
+           (fn [{app-id :id}]
+             (let [attr-id (random-uuid)
+                   target-eid (random-uuid)]
+               (try (tx/transact!
+                     (aurora/conn-pool)
+                     (attr-model/get-by-app-id app-id)
+                     app-id
+                     [[:add-attr
+                       {:id attr-id
+                        :forward-identity [(random-uuid) "namespace" "field"]
+                        :value-type :blob
+                        :cardinality :one
+                        :unique? false
+                        :index? false}]
+                      [:add-triple target-eid attr-id value]])
+                    (catch Exception e
+                      (is (not e))))
+               (testing (format "(%s -> %s)" value inferred-types)
+                 (attr-model/evict-app-id-from-cache app-id)
+                 (is (= inferred-types
+                        (->> (attr-model/get-by-app-id app-id)
+                             (attr-model/seek-by-id attr-id)
+                             :inferred-types)))))))
+      1 #{:number}
+      2.0 #{:number}
+      "2" #{:string}
+      "s" #{:string}
+      true #{:boolean}
+      false #{:boolean}
+      (random-uuid) #{:string}
+      {:hello "world"} #{:json}
+      ["array of stuff", 2] #{:json}))
 
   (testing "inferred types accumulate"
     (with-empty-app
@@ -1995,16 +1993,15 @@
   (with-empty-app
     (fn [{app-id :id}]
       (validation-err?
-        (tx/transact! (aurora/conn-pool)
-                      (attr-model/get-by-app-id app-id)
-                      app-id
-                      [[:add-attr {:id (random-uuid)
-                                   :forward-identity [(random-uuid) "$users" "id"]
-                                   :value-type :blob
-                                   :cardinality :one
-                                   :unique? false
-                                   :index? false}]])))))
-
+       (tx/transact! (aurora/conn-pool)
+                     (attr-model/get-by-app-id app-id)
+                     app-id
+                     [[:add-attr {:id (random-uuid)
+                                  :forward-identity [(random-uuid) "$users" "id"]
+                                  :value-type :blob
+                                  :cardinality :one
+                                  :unique? false
+                                  :index? false}]])))))
 
 (deftest perms-rejects-writes-to-users-table
   (with-empty-app
@@ -2018,19 +2015,19 @@
                              :rules (rule-model/get-by-app-id (aurora/conn-pool) {:app-id app-id})
                              :current-user nil})]
         (validation-err?
-          (permissioned-tx/transact! (make-ctx)
-                                     [[:add-triple id (resolvers/->uuid r :$users/id) (str id)]]))
+         (permissioned-tx/transact! (make-ctx)
+                                    [[:add-triple id (resolvers/->uuid r :$users/id) (str id)]]))
         (validation-err?
-          (permissioned-tx/transact! (make-ctx)
-                                     [[:retract-triple id (resolvers/->uuid r :$users/id) (str id)]]))
+         (permissioned-tx/transact! (make-ctx)
+                                    [[:retract-triple id (resolvers/->uuid r :$users/id) (str id)]]))
 
         (validation-err?
-          (permissioned-tx/transact! (make-ctx)
-                                     [[:deep-merge-triple id (resolvers/->uuid r :$users/id) {:hello :world}]]))
+         (permissioned-tx/transact! (make-ctx)
+                                    [[:deep-merge-triple id (resolvers/->uuid r :$users/id) {:hello :world}]]))
 
         (validation-err?
-          (permissioned-tx/transact! (make-ctx)
-                                     [[:delete-entity id "$users"]]))))))
+         (permissioned-tx/transact! (make-ctx)
+                                    [[:delete-entity id "$users"]]))))))
 
 (deftest perms-accepts-writes-to-reverse-links-to-users-table
   (with-empty-app
@@ -2062,8 +2059,8 @@
                       [:add-triple book-id book-id-attr-id book-id]
                       [:add-triple book-id book-creator-attr-id user-id]]]
         (app-user-model/create! (aurora/conn-pool) {:app-id app-id
-                                                  :id user-id
-                                                  :email "test@example.com"})
+                                                    :id user-id
+                                                    :email "test@example.com"})
         (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps))
         (is (permissioned-tx/transact! (assoc (make-ctx)
                                               :current-user {:id user-id}) tx-steps))))))
@@ -2109,8 +2106,8 @@
                 [:add-triple book-id book-id-attr-id book-id]
                 [:add-triple book-id book-isbn-attr-id "1234"]])
             _ (app-user-model/create! (aurora/conn-pool) {:app-id app-id
-                                                        :id user-id
-                                                        :email "test@example.com"})
+                                                          :id user-id
+                                                          :email "test@example.com"})
             tx-steps [[:add-triple
                        [book-isbn-attr-id "1234"]
                        book-creator-attr-id
@@ -2154,8 +2151,6 @@
         (is (empty? (app-user-model/get-by-email {:app-id app-id
                                                   :email "test@example.com"})))))))
 
-
-
 (deftest auth-refs-requires-users
   (with-empty-app
     (fn [{app-id :id :as app}]
@@ -2186,8 +2181,8 @@
                              :rules (rule-model/get-by-app-id (aurora/conn-pool) {:app-id app-id})
                              :current-user nil})
             user (app-user-model/create! (aurora/conn-pool) {:app-id app-id
-                                                           :id user-id
-                                                           :email "test@example.com"})
+                                                             :id user-id
+                                                             :email "test@example.com"})
             _ (tx/transact!
                (aurora/conn-pool)
                (attr-model/get-by-app-id app-id)
@@ -2226,11 +2221,11 @@
 
         (let [tx-steps [[:add-triple book-id book-title-attr-id "Free Land"]]]
           (perm-err?
-            (permissioned-tx/transact! (make-ctx)
-                                       tx-steps))
+           (permissioned-tx/transact! (make-ctx)
+                                      tx-steps))
           (perm-err?
-            (permissioned-tx/transact! (assoc (make-ctx) :current-user {:id (random-uuid)})
-                                       tx-steps))
+           (permissioned-tx/transact! (assoc (make-ctx) :current-user {:id (random-uuid)})
+                                      tx-steps))
           (permissioned-tx/transact! (assoc (make-ctx) :current-user user)
                                      tx-steps)
 
@@ -2297,7 +2292,6 @@
                      [:add-triple user-id user-id-attr-id user-id]
                      [:add-triple book-id book-creator-attr-id user-id]])]
 
-
         (testing "setup worked"
           (is (= #{{:triple
                     [book-id
@@ -2341,7 +2335,6 @@
             [:add-triple book-id book-id-attr-id book-id]
             [:add-triple book-id book-creator-attr-id user-id]])
 
-
           (is (= [{:triple
                    [user-id
                     user-id-attr-id
@@ -2367,8 +2360,6 @@
                        (aurora/conn-pool)
                        app-id
                        [[:= :attr-id user-id-attr-id]])))))))))
-
-
 
 (comment
   (test/run-tests *ns*))

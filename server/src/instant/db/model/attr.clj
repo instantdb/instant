@@ -46,7 +46,7 @@
           0
           friendly-set))
 
-(def checked-data-types #{"number" "string" "boolean" "date"})
+(def checked-data-types #{"number" "string" "boolean" "date" "uuid"})
 
 ;; ----
 ;; Spec

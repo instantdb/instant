@@ -5,7 +5,10 @@
             [instant.db.datalog :as d]
             [instant.data.constants :refer [movies-app-id]]
             [instant.data.resolvers :as resolvers]
-            [instant.jdbc.sql :as sql]))
+            [instant.jdbc.sql :as sql]
+            [instant.fixtures :refer [with-empty-app]]
+            [instant.db.transaction :as tx]
+            [instant.db.model.attr :as attr-model]))
 
 (def ^:private r (delay (resolvers/make-movies-resolver)))
 
@@ -210,7 +213,7 @@
              (resolvers/walk-friendly
               @r
               (map :join-rows (d/send-query-batch ctx (aurora/conn-pool) [[app-id named-ps-1]
-                                                                        [app-id named-ps-2]]))))))))
+                                                                          [app-id named-ps-2]]))))))))
 
 (def ^:dynamic *count-atom* nil)
 
@@ -383,5 +386,61 @@
             (testing "we only make a single sql query for both d/query calls"
               (is (= @counts 1)))))))))
 
+(deftest id-attr-jump
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [ctx {:db {:conn-pool (aurora/conn-pool)}
+                 :app-id app-id
+                 :datalog-loader (d/make-loader)}
+            stopa-eid (random-uuid)
+            user-id-aid (random-uuid)
+            user-name-aid (random-uuid)]
+        (tx/transact!
+         (aurora/conn-pool)
+         (attr-model/get-by-app-id app-id)
+         app-id
+         [[:add-attr
+           {:id user-id-aid
+            :forward-identity [(random-uuid) "users" "id"]
+            :value-type :blob
+            :cardinality :one
+            :checked-data-type :uuid
+            :unique? true
+            :index? false}]
+          [:add-attr
+           {:id user-name-aid
+            :forward-identity [(random-uuid) "users" "name"]
+            :value-type :blob
+            :cardinality :one
+            :unique? false
+            :index? false}]
+          [:add-triple stopa-eid user-id-aid stopa-eid]
+          [:add-triple stopa-eid user-name-aid "Stopa"]])
+        #_(testing "can jump from e to e"
+            (is (=
+                 #{"Stopa"}
+                 (-> (d/query
+                      ctx [[:ea '?user-id user-id-aid stopa-eid]
+                           [:ea '?user-id user-name-aid '?user-name]])
+                     :symbol-values
+                     (get '?user-name)))))
+        (testing "can jump from v to e"
+          (is (=
+               #{"Stopa"}
+               (-> (d/query
+                    ctx [[:ea stopa-eid user-id-aid '?user-id]
+                         [:ea '?user-id user-name-aid '?user-name]])
+                   :symbol-values
+                   (get '?user-name)))))
+        #_(testing "can jump from e to v"
+            (is (=
+                 #{"Stopa"}
+                 (-> (d/query
+                      ctx [[:ea '?user-id user-name-aid "Stopa"]
+                           [:ea stopa-eid user-id-aid '?user-id]])
+                     :symbol-values
+                     (get '?user-name)))))))))
+
+*e
 (comment
   (test/run-tests *ns*))
