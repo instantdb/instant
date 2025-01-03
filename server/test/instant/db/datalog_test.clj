@@ -385,21 +385,30 @@
 
 (deftest lookup-refs
   (testing "e side"
-    (let [person-name-aid (resolvers/->uuid @r :person/name)]
-      (is (= #{"Tina Turner" "1939-11-26T00:00:00Z"}
+    (let [movie-cast-aid (resolvers/->uuid @r :movie/cast)
+          movie-title-aid (resolvers/->uuid @r :movie/title)
+          person-name-aid (resolvers/->uuid @r :person/name)]
+      (is (= #{"Mad Max Beyond Thunderdome"}
              (->> (d/query
                    {:db {:conn-pool (aurora/conn-pool)}
                     :app-id  movies-app-id}
-                   [[:ea #{[person-name-aid "Tina Turner"]}]])
+                   [[:ea [movie-title-aid "Predator"]]])
+
                   :join-rows
                   (map (comp last drop-last last))
                   set)))))
   (testing "v side"
-    (let [person-name-aid (resolvers/->uuid @r :person/name)]
-      (->> (d/query
-            {:db {:conn-pool (aurora/conn-pool)}
-             :app-id  movies-app-id}
-            [[:ea '_ '_ #{[person-name-aid "Tina Turner"]}]])))))
-
+    (let [movie-cast-aid (resolvers/->uuid @r :movie/cast)
+          movie-title-aid (resolvers/->uuid @r :movie/title)
+          person-name-aid (resolvers/->uuid @r :person/name)]
+      (is (= #{"Mad Max Beyond Thunderdome"}
+             (->> (d/query
+                   {:db {:conn-pool (aurora/conn-pool)}
+                    :app-id  movies-app-id}
+                   [[:eav '?movie movie-cast-aid #{[person-name-aid "Tina Turner"]}]
+                    [:ea '?movie movie-title-aid '?title]])
+                  :join-rows
+                  (map (comp last drop-last last))
+                  set))))))
 (comment
   (test/run-tests *ns*))

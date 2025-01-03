@@ -556,7 +556,12 @@
        [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
        [:not= [(extract-value-fn data-type) :value] val]])))
 
-(defn- in-or-eq-value [idx v-set]
+(defn- value-lookup? [x]
+  (and (vector? x)
+       (uuid? (first x))
+       (= (count x) 2)))
+
+(defn- in-or-eq-value [idx app-id v-set]
   (let [[tag idx-val] idx
         data-type (case tag
                     :keyword nil
@@ -564,7 +569,18 @@
     (if (empty? v-set)
       [:= 0 1]
       (if-not data-type
-        (in-or-eq :value (map value->jsonb v-set))
+        (list* :or
+               (for [lookup v-set]
+                 (if-not (value-lookup? lookup)
+                   [:= :value lookup]
+                   [:=
+                    :value
+                    {:select [[[:to_jsonb :entity-id]]]
+                     :from :triples
+                     :where [:and
+                             [:= :app-id app-id]
+                             [:= :value [:cast (->json (second lookup)) :jsonb]]
+                             [:= :attr-id [:cast (first lookup) :uuid]]]}])))
         (list* :or (map (fn [v]
                           [:and
                            [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
@@ -586,7 +602,7 @@
                             [:= :value [:cast (->json (second lookup)) :jsonb]]
                             [:= :attr-id [:cast (first lookup) :uuid]]]}])))
     :a (in-or-eq :attr-id v)
-    :v (in-or-eq-value idx v)))
+    :v (in-or-eq-value idx app-id v)))
 
 (defn- value-function-clauses [idx [v-tag v-value]]
   (case v-tag
@@ -1811,12 +1827,14 @@
 ;; -----
 ;; query
 
+(tool/copy  (tool/unsafe-hsql-format --query))
 (defn send-query-single
   "Sends a single query, returns the join rows."
   [_ctx conn app-id named-patterns]
   (tracer/with-span! {:name "datalog/send-query-single"}
     (let [{:keys [query pattern-metas]} (match-query :match-0- app-id named-patterns)
           sql-query (hsql/format query)
+          _ (def --query query)
           sql-res (sql/select-string-keys ::send-query-single conn sql-query)]
       (sql-result->result sql-res
                           pattern-metas
