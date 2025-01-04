@@ -8,7 +8,7 @@
    [instant.jdbc.sql :as sql]
    [instant.system-catalog :refer [system-catalog-app-id]]
    [instant.util.exception :as ex]
-   [instant.util.json :refer [->json]]
+   [instant.util.json :refer [->json <-json]]
    [instant.util.spec :as uspec]
    [instant.util.string :refer [multiline->single-line]]
    [instant.util.tracer :as tracer]
@@ -709,12 +709,21 @@
       (tracer/add-data! {:attributes {:total-count @row-count}})
       {:row-count @row-count})))
 
-(defn iso8601-date-str->instant [x]
+(defn- iso8601-date-str->instant* [x]
   (if (string/includes? x "T")
     (.toInstant (ZonedDateTime/parse x))
     (-> (LocalDate/parse x)
         (.atStartOfDay)
         (.toInstant ZoneOffset/UTC))))
+(defn iso8601-date-str->instant [x]
+  (try
+    (iso8601-date-str->instant* x)
+    (catch Exception e
+      (let [parsed (try
+                     (<-json x)
+                     (catch Exception _
+                       (throw e)))]
+        (iso8601-date-str->instant* parsed)))))
 
 (defn parse-date-value [x]
   (cond (string? x)
@@ -726,4 +735,7 @@
 (comment
   (parse-date-value "2025-01-01T00:00:00Z")
   (parse-date-value "2025-01-01")
-  (parse-date-value "2025-01-02T00:00:00-08"))
+  (parse-date-value "2025-01-02T00:00:00-08")
+  (parse-date-value "\"2025-01-02T00:00:00-08\"")
+  (parse-date-value "2025-01-0")
+  (parse-date-value "\"2025-01-0\""))
