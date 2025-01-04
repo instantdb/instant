@@ -81,3 +81,51 @@ export function immutableDeepReplace(target, replaceValue, replacementValue) {
 export function isObject(val) {
   return typeof val === "object" && val !== null && !Array.isArray(val);
 }
+
+export function assocIn(obj, path, value) {
+  if (path.length === 0) {
+    return value;
+  }
+
+  let current = obj || {};
+  for (let i = 0; i < path.length - 1; i++) {
+    const key = path[i];
+    if (!(key in current) || typeof current[key] !== 'object') {
+      current[key] = typeof path[i + 1] === 'number' ? [] : {};
+    }
+    current = current[key];
+  }
+
+  current[path[path.length - 1]] = value;
+  return obj;
+}
+
+export function dissocIn(obj, path) {
+  if (path.length === 0) {
+    return undefined;
+  }
+
+  const [key, ...restPath] = path;
+
+  if (!(key in obj)) {
+    return obj;
+  }
+
+  if (restPath.length === 0) {
+    delete obj[key];
+    return isEmpty(obj) ? undefined : obj;
+  }
+
+  const child = dissocIn(obj[key], restPath);
+
+  if (child === undefined) {
+    delete obj[key];
+    return isEmpty(obj) ? undefined : obj;
+  }
+
+  return obj;
+}
+
+function isEmpty(obj) {
+  return obj && Object.keys(obj).length === 0;
+}

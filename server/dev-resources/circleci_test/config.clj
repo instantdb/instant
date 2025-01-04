@@ -1,13 +1,9 @@
 (require
-         '[circleci.test.report :as report]
-         '[circleci.test.report.junit :as junit]
-         '[clojure.java.io :as io]
-         '[clojure.test :as test]
-         '[instant.config :as config]
-         '[instant.jdbc.aurora :as aurora]
-         '[instant.system-catalog-migration :as system-catalog-migration]
-         '[instant.util.crypt :as crypt-util]
-         '[instant.util.tracer :as tracer])
+ '[circleci.test.report :as report]
+ '[circleci.test.report.junit :as junit]
+ '[clojure.java.io :as io]
+ '[clojure.test :as test]
+ '[instant.test-core :as test-core])
 
 (defn list-files-recursively [dir]
   (let [files (file-seq (io/file dir))]
@@ -43,21 +39,7 @@
                          files)]
     (->ActionsTestReporter file-map)))
 
-(defn setup-teardown
-  "One-time setup before running our test suite and one-time teardown
-  after the test suite completes. This is useful for expensive tasks like
-  starting up DB connections"
-  [test-suite-fn]
-  (let [{:keys [aead-keyset]} (config/init)]
-    (crypt-util/init aead-keyset))
-  (tracer/init)
-  (aurora/start)
-  (system-catalog-migration/ensure-attrs-on-system-catalog-app)
-  (let [results (test-suite-fn)]
-    (aurora/stop)
-    results))
-
-{:global-fixture setup-teardown
+{:global-fixture test-core/setup-teardown
  :reporters [circleci.test.report/clojure-test-reporter
              actions-reporter
              junit/reporter]

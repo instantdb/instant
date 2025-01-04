@@ -160,44 +160,45 @@
                                  (deref fut))))))
 
 (defn -main [& _args]
-  (let [{:keys [aead-keyset]} (config/init)]
-    (crypt-util/init aead-keyset))
+  (binding [*print-namespace-maps* false]
+    (let [{:keys [aead-keyset]} (config/init)]
+      (crypt-util/init aead-keyset))
 
-  (tracer/init)
+    (tracer/init)
 
-  (tracer/record-info! {:name "uncaught-exception-handler/set"})
-  (Thread/setDefaultUncaughtExceptionHandler
-   (ua/logging-uncaught-exception-handler))
+    (tracer/record-info! {:name "uncaught-exception-handler/set"})
+    (Thread/setDefaultUncaughtExceptionHandler
+     (ua/logging-uncaught-exception-handler))
 
-  (gauges/start)
-  (nrepl/start)
-  (oauth/start)
-  (jwt/start)
-  (aurora/start)
-  (ensure-attrs-on-system-catalog-app)
-  (rs/start)
-  (eph/start)
-  (stripe/init)
-  (session/start)
-  (inv/start-global)
-  (wal/init-cleanup)
+    (gauges/start)
+    (nrepl/start)
+    (oauth/start)
+    (jwt/start)
+    (aurora/start)
+    (ensure-attrs-on-system-catalog-app)
+    (rs/start)
+    (eph/start)
+    (stripe/init)
+    (session/start)
+    (inv/start-global)
+    (wal/init-cleanup)
 
-  (when-let [config-app-id (config/instant-config-app-id)]
-    (flags-impl/init config-app-id
-                     flags/queries
-                     flags/query-results))
+    (when-let [config-app-id (config/instant-config-app-id)]
+      (flags-impl/init config-app-id
+                       flags/queries
+                       flags/query-results))
 
-  (ephemeral-app/start)
-  (session-counter/start)
-  (indexing-jobs/start)
-  (when (= (config/get-env) :prod)
-    (log/info "Starting analytics")
-    (analytics/start))
-  (when (= (config/get-env) :prod)
-    (log/info "Starting daily metrics")
-    (daily-metrics/start))
-  (start)
-  (add-shutdown-hook))
+    (ephemeral-app/start)
+    (session-counter/start)
+    (indexing-jobs/start)
+    (when (= (config/get-env) :prod)
+      (log/info "Starting analytics")
+      (analytics/start))
+    (when (= (config/get-env) :prod)
+      (log/info "Starting daily metrics")
+      (daily-metrics/start))
+    (start)
+    (add-shutdown-hook)))
 
 (defn before-ns-unload []
   (stop))

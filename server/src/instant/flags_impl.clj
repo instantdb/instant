@@ -8,7 +8,6 @@
             [instant.db.transaction :as tx]
             [instant.jdbc.aurora :as aurora]
             [instant.model.app :as app-model]
-            [instant.reactive.ephemeral :as eph]
             [instant.reactive.receive-queue :refer [receive-q]]
             [instant.reactive.session :as session]
             [instant.reactive.store :as store]
@@ -87,9 +86,7 @@
                                             :q query
                                             :return-type "tree"})}))
       (fn []
-        (session/on-close store/store-conn
-                          eph/ephemeral-store-atom
-                          socket)
+        (session/on-close store/store-conn socket)
         nil))))
 
 (defn resolve-attr-id [attrs namespaced-attr]
