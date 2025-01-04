@@ -425,8 +425,10 @@
                       (("eid-joe-averbukh" :users/bookshelves "eid-2018")
                        ("eid-alex" :users/id "eid-alex")
                        ("eid-alex" :users/bookshelves "eid-short-stories")
-                       ("eid-stepan-parunashvili" :users/bookshelves "eid-worldview")
                        ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+                       ("eid-stepan-parunashvili"
+                        :users/bookshelves
+                        "eid-the-way-of-the-gentleman")
                        ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
                        --
                        ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
