@@ -572,7 +572,7 @@
         (list* :or
                (for [lookup v-set]
                  (if-not (value-lookup? lookup)
-                   [:= :value lookup]
+                   [:= :value (value->jsonb lookup)]
                    [:=
                     :value
                     {:select [[[:to_jsonb :entity-id]]]
@@ -580,7 +580,8 @@
                      :where [:and
                              [:= :app-id app-id]
                              [:= :value [:cast (->json (second lookup)) :jsonb]]
-                             [:= :attr-id [:cast (first lookup) :uuid]]]}])))
+                             [:= :attr-id [:cast (first lookup) :uuid]]
+                             :av]}])))
         (list* :or (map (fn [v]
                           [:and
                            [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
@@ -600,7 +601,8 @@
                     :where [:and
                             [:= :app-id app-id]
                             [:= :value [:cast (->json (second lookup)) :jsonb]]
-                            [:= :attr-id [:cast (first lookup) :uuid]]]}])))
+                            [:= :attr-id [:cast (first lookup) :uuid]]
+                            :av]}])))
     :a (in-or-eq :attr-id v)
     :v (in-or-eq-value idx app-id v)))
 
