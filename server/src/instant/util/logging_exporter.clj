@@ -141,8 +141,8 @@
           false)
 
         false))
-    (fn [_span]
-      false)))
+    (fn [span]
+      (= (.getName span) "gc"))))
 
 (defn log-spans [spans]
   (doseq [span spans
