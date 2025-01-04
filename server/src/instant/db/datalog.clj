@@ -580,8 +580,7 @@
                      :where [:and
                              [:= :app-id app-id]
                              [:= :value [:cast (->json (second lookup)) :jsonb]]
-                             [:= :attr-id [:cast (first lookup) :uuid]]
-                             :av]}])))
+                             [:= :attr-id [:cast (first lookup) :uuid]]]}])))
         (list* :or (map (fn [v]
                           [:and
                            [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
@@ -601,8 +600,7 @@
                     :where [:and
                             [:= :app-id app-id]
                             [:= :value [:cast (->json (second lookup)) :jsonb]]
-                            [:= :attr-id [:cast (first lookup) :uuid]]
-                            :av]}])))
+                            [:= :attr-id [:cast (first lookup) :uuid]]]}])))
     :a (in-or-eq :attr-id v)
     :v (in-or-eq-value idx app-id v)))
 
