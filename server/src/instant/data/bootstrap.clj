@@ -110,23 +110,25 @@
 
 (defn add-zeneca-to-app!
   "Bootstraps an app with zeneca data."
-  ([app-id] (add-zeneca-to-app! false app-id))
+  ([app-id] (add-zeneca-to-app! (aurora/conn-pool) false app-id))
   ([checked-data? app-id]
+   (add-zeneca-to-app! (aurora/conn-pool) checked-data? app-id))
+  ([conn checked-data? app-id]
    ;; Note: This is ugly code, but it works.
    ;; Maybe we clean it up later, but we don't really need to right now.
    ;; One idea for a cleanup, is to create an "exported app" file.
    ;; We can then write a function that works on this kind of file schema.
-   (attr-model/delete-by-app-id! (aurora/conn-pool) app-id)
+   (attr-model/delete-by-app-id! conn app-id)
    (let [txes (extract-zeneca-txes checked-data?)
          _ (tx/transact!
-            (aurora/conn-pool)
+            conn
             (attr-model/get-by-app-id app-id)
             app-id
             txes)
          triples (triple-model/fetch
-                  (aurora/conn-pool)
+                  conn
                   app-id)
-         attrs (attr-model/get-by-app-id app-id)
+         attrs (attr-model/get-by-app-id conn app-id)
          users (for [[_ group] (group-by first (map :triple triples))
                      :when (= (attr-model/fwd-etype
                                (attr-model/seek-by-id (second (first group))
@@ -138,7 +140,7 @@
                   :id id
                   :app-id app-id})]
      (doseq [user users]
-       (app-user-model/create! user))
+       (app-user-model/create! conn user))
 
      (count triples))))
 

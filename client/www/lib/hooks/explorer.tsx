@@ -3,14 +3,37 @@ import { useEffect, useState } from 'react';
 import { DBAttr, SchemaNamespace } from '@/lib/types';
 import { dbAttrsToExplorerSchema } from '@/lib/schema';
 
+function makeWhere(
+  navWhere: null | undefined | [string, any],
+  searchFilters: null | undefined | [string, string, string][],
+) {
+  const where: { [key: string]: any } = {};
+  if (navWhere) {
+    where[navWhere[0]] = navWhere[1];
+  }
+  if (searchFilters?.length) {
+    where.or = searchFilters.map(([attr, op, val]) => {
+      return { [attr]: { [op]: val } };
+    });
+  }
+  return where;
+}
+
 // HOOKS
 export function useNamespacesQuery(
   db: InstantReactWebDatabase<any>,
   selectedNs?: SchemaNamespace,
-  where?: [string, any],
+  navWhere?: [string, any],
+  searchFilters?: [string, string, string][],
   limit?: number,
   offset?: number,
+  sortAttr?: string,
+  sortAsc?: boolean,
 ) {
+  const direction: 'asc' | 'desc' = sortAsc ? 'asc' : 'desc';
+
+  const where = makeWhere(navWhere, searchFilters);
+
   const iql = selectedNs
     ? {
         [selectedNs.name]: {
@@ -20,9 +43,10 @@ export function useNamespacesQuery(
               .map((a) => [a.name, {}]),
           ),
           $: {
-            ...(where ? { where: { [where[0]]: where[1] } } : {}),
+            ...(where ? { where: where } : {}),
             ...(limit ? { limit } : {}),
             ...(offset ? { offset } : {}),
+            ...(sortAttr ? { order: { [sortAttr]: direction } } : {}),
           },
         },
       }
@@ -36,7 +60,7 @@ export function useNamespacesQuery(
           [selectedNs.name]: {
             $: {
               aggregate: 'count',
-              ...(where ? { where: { [where[0]]: where[1] } } : {}),
+              ...(where ? { where: where } : {}),
             },
           },
         }

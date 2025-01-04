@@ -183,6 +183,7 @@ export interface SchemaAttr {
   inferredTypes?: Array<'string' | 'number' | 'boolean' | 'json'>;
   catalog?: 'user' | 'system';
   checkedDataType?: CheckedDataType;
+  sortable: boolean;
 }
 
 export type InstantError = {
