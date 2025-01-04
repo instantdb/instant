@@ -5,7 +5,10 @@
    [instant.util.tracer :as tracer]
    [instant.util.delay :as delay])
   (:import
-   (java.lang.management ManagementFactory GarbageCollectorMXBean)))
+   (java.lang.management ManagementFactory GarbageCollectorMXBean)
+   (javax.management NotificationEmitter NotificationListener)
+   (com.sun.management GarbageCollectionNotificationInfo)
+   (javax.management.openmbean CompositeData)))
 
 (defonce gauge-metric-fns (atom {}))
 
@@ -110,18 +113,50 @@
     (catch Throwable t
       (tracer/record-exception-span! t {:name "gauges/straight-jacket-record-gauges"}))))
 
+(defn make-gc-listener []
+  (reify NotificationListener
+    (handleNotification [_ notification _]
+      (when (= (.getType notification)
+               GarbageCollectionNotificationInfo/GARBAGE_COLLECTION_NOTIFICATION)
+        (let [gc-info (GarbageCollectionNotificationInfo/from
+                       ^CompositeData (.getUserData notification))]
+          (tracer/record-info!
+           {:name "gc"
+            :attributes {:name (.getGcName gc-info)
+                         :action (.getGcAction gc-info)
+                         :cause (.getGcCause gc-info)
+                         :duration-ms (.getDuration (.getGcInfo gc-info))}})
+          (straight-jacket-record-gauges))))))
+
+(defn add-gc-listeners []
+  (let [cleanup-fns
+        (doall
+         (for [gc-bean (ManagementFactory/getGarbageCollectorMXBeans)
+               :when (instance? NotificationEmitter gc-bean)]
+           (let [emitter ^NotificationEmitter gc-bean
+                 listener (make-gc-listener)]
+             (.addNotificationListener emitter listener nil nil)
+             (fn []
+               (.removeNotificationListener emitter listener)))))]
+    (fn []
+      (doseq [f cleanup-fns]
+        (f)))))
+
 (defonce delay-pool (delay/make-pool! :thread-count 1))
 
 (defn start []
   (tracer/record-info! {:name "gauges/start"})
   (def record-job (delay/repeat-fn delay-pool
                                    1000
-                                   #'straight-jacket-record-gauges)))
+                                   #'straight-jacket-record-gauges))
+  (def cleanup-gc-listeners (add-gc-listeners)))
 
 (defn stop []
-  (.cancel record-job true))
+  (when (bound? #'record-job)
+    (.cancel record-job true))
+  (when (bound? #'cleanup-gc-listeners)
+    (cleanup-gc-listeners)))
 
 (defn restart []
   (stop)
   (start))
-
