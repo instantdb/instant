@@ -715,6 +715,7 @@
     (-> (LocalDate/parse x)
         (.atStartOfDay)
         (.toInstant ZoneOffset/UTC))))
+
 (defn iso8601-date-str->instant [x]
   (try
     (iso8601-date-str->instant* x)
