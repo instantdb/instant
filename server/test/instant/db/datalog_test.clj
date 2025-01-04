@@ -5,7 +5,9 @@
             [instant.db.datalog :as d]
             [instant.data.constants :refer [movies-app-id]]
             [instant.data.resolvers :as resolvers]
-            [instant.jdbc.sql :as sql]))
+            [instant.jdbc.sql :as sql]
+            [instant.fixtures :refer [with-zeneca-app]]
+            [instant.db.model.attr :as attr-model]))
 
 (def ^:private r (delay (resolvers/make-movies-resolver)))
 
@@ -384,31 +386,31 @@
               (is (= @counts 1)))))))))
 
 (deftest lookup-refs
-  (testing "e side"
-    (let [movie-cast-aid (resolvers/->uuid @r :movie/cast)
-          movie-title-aid (resolvers/->uuid @r :movie/title)
-          person-name-aid (resolvers/->uuid @r :person/name)]
-      (is (= #{"Mad Max Beyond Thunderdome"}
-             (->> (d/query
-                   {:db {:conn-pool (aurora/conn-pool)}
-                    :app-id  movies-app-id}
-                   [[:ea [movie-title-aid "Predator"]]])
-
-                  :join-rows
-                  (map (comp last drop-last last))
-                  set)))))
-  (testing "v side"
-    (let [movie-cast-aid (resolvers/->uuid @r :movie/cast)
-          movie-title-aid (resolvers/->uuid @r :movie/title)
-          person-name-aid (resolvers/->uuid @r :person/name)]
-      (is (= #{"Mad Max Beyond Thunderdome"}
-             (->> (d/query
-                   {:db {:conn-pool (aurora/conn-pool)}
-                    :app-id  movies-app-id}
-                   [[:eav '?movie movie-cast-aid #{[person-name-aid "Tina Turner"]}]
-                    [:ea '?movie movie-title-aid '?title]])
-                  :join-rows
-                  (map (comp last drop-last last))
-                  set))))))
+  (with-zeneca-app
+    (fn [app r]
+      (testing "e side"
+        (let [handle-aid (resolvers/->uuid r :users/handle)
+              name-aid (resolvers/->uuid r :users/fullName)]
+          (is (= #{"Alex"}
+                 (->> (d/query
+                       {:db {:conn-pool (aurora/conn-pool)}
+                        :app-id (:id app)}
+                       [[:ea [handle-aid "alex"] name-aid '?name]])
+                      :join-rows
+                      (map (comp last drop-last last))
+                      set)))))
+      (testing "v side"
+        (let [isbn13-aid (resolvers/->uuid r :books/isbn13)
+              bookshelves-books-aid (resolvers/->uuid r :bookshelves/books)
+              bookshelves-name-aid (resolvers/->uuid r :bookshelves/name)]
+          (is (= #{"Worldview"}
+                 (->> (d/query
+                       {:db {:conn-pool (aurora/conn-pool)}
+                        :app-id (:id app)}
+                       [[:eav '?b  bookshelves-books-aid [isbn13-aid "9780425284636"]]
+                        [:ea '?b bookshelves-name-aid '?title]])
+                      :join-rows
+                      (map (comp last drop-last last))
+                      set))))))))
 (comment
   (test/run-tests *ns*))

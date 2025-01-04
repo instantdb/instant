@@ -580,7 +580,8 @@
                      :where [:and
                              [:= :app-id app-id]
                              [:= :value [:cast (->json (second lookup)) :jsonb]]
-                             [:= :attr-id [:cast (first lookup) :uuid]]]}])))
+                             [:= :attr-id [:cast (first lookup) :uuid]]
+                             :av]}])))
         (list* :or (map (fn [v]
                           [:and
                            [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
@@ -600,7 +601,8 @@
                     :where [:and
                             [:= :app-id app-id]
                             [:= :value [:cast (->json (second lookup)) :jsonb]]
-                            [:= :attr-id [:cast (first lookup) :uuid]]]}])))
+                            [:= :attr-id [:cast (first lookup) :uuid]]
+                            :av]}])))
     :a (in-or-eq :attr-id v)
     :v (in-or-eq-value idx app-id v)))
 
@@ -1827,14 +1829,12 @@
 ;; -----
 ;; query
 
-(tool/copy  (tool/unsafe-hsql-format --query))
 (defn send-query-single
   "Sends a single query, returns the join rows."
   [_ctx conn app-id named-patterns]
   (tracer/with-span! {:name "datalog/send-query-single"}
     (let [{:keys [query pattern-metas]} (match-query :match-0- app-id named-patterns)
           sql-query (hsql/format query)
-          _ (def --query query)
           sql-res (sql/select-string-keys ::send-query-single conn sql-query)]
       (sql-result->result sql-res
                           pattern-metas
