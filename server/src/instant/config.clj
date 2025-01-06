@@ -8,12 +8,13 @@
    (java.net InetAddress)
    (java.util UUID)))
 
-(defn get-hostname []
-  (try
-    (.getHostName (InetAddress/getLocalHost))
-    (catch Exception e
-      (log/error "Error getting hostname" e)
-      "unknown")))
+(defonce hostname
+  (delay
+    (try
+      (.getHostName (InetAddress/getLocalHost))
+      (catch Exception e
+        (log/error "Error getting hostname" e)
+        "unknown"))))
 
 (defn get-env []
   (if (= "true" (System/getenv "PRODUCTION"))
@@ -103,7 +104,7 @@
 
 (defn get-aurora-config []
   (let [application-name (uri/query-encode (format "%s, %s"
-                                                   (get-hostname)
+                                                   @hostname
                                                    @process-id))
         url (or (System/getenv "DATABASE_URL")
                 (some-> @config-map :database-url crypt-util/secret-value)
@@ -113,7 +114,7 @@
 
 (defn get-next-aurora-config []
   (let [application-name (uri/query-encode (format "%s, %s"
-                                                   (get-hostname)
+                                                   @hostname
                                                    @process-id))
         url (or (System/getenv "NEXT_DATABASE_URL")
                 (some-> @config-map :next-database-url crypt-util/secret-value))]
