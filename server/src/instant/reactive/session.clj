@@ -323,7 +323,9 @@
       (and edits (empty? edits))
       :nop
 
-      (and edits (pos? (semver/compare-semver version "v0.17.5")))
+      (and edits
+           (pos? (semver/compare-semver version "v0.17.5"))
+           (flags/use-patch-presence? app-id))
       (rs/send-event! store-conn app-id sess-id
                       {:op      :patch-presence
                        :room-id room-id
