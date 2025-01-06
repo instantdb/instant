@@ -122,7 +122,7 @@
                        ^CompositeData (.getUserData notification))]
           (tracer/record-info!
            {:name "gc"
-            :attributes {:name (.getGcName gc-info)
+            :attributes {:gc-name (.getGcName gc-info)
                          :action (.getGcAction gc-info)
                          :cause (.getGcCause gc-info)
                          :duration-ms (.getDuration (.getGcInfo gc-info))}})
