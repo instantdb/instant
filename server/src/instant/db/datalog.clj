@@ -555,7 +555,12 @@
        [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
        [:not= [(extract-value-fn data-type) :value] val]])))
 
-(defn- in-or-eq-value [idx v-set]
+(defn- value-lookup? [x]
+  (and (vector? x)
+       (uuid? (first x))
+       (= (count x) 2)))
+
+(defn- in-or-eq-value [idx app-id v-set]
   (let [[tag idx-val] idx
         data-type (case tag
                     :keyword nil
@@ -563,7 +568,19 @@
     (if (empty? v-set)
       [:= 0 1]
       (if-not data-type
-        (in-or-eq :value (map value->jsonb v-set))
+        (list* :or
+               (for [lookup v-set]
+                 (if-not (value-lookup? lookup)
+                   [:= :value (value->jsonb lookup)]
+                   [:=
+                    :value
+                    {:select [[[:to_jsonb :entity-id]]]
+                     :from :triples
+                     :where [:and
+                             [:= :app-id app-id]
+                             [:= :value [:cast (->json (second lookup)) :jsonb]]
+                             [:= :attr-id [:cast (first lookup) :uuid]]
+                             :av]}])))
         (list* :or (map (fn [v]
                           [:and
                            [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
@@ -583,9 +600,10 @@
                     :where [:and
                             [:= :app-id app-id]
                             [:= :value [:cast (->json (second lookup)) :jsonb]]
-                            [:= :attr-id [:cast (first lookup) :uuid]]]}])))
+                            [:= :attr-id [:cast (first lookup) :uuid]]
+                            :av]}])))
     :a (in-or-eq :attr-id v)
-    :v (in-or-eq-value idx v)))
+    :v (in-or-eq-value idx app-id v)))
 
 (defn- value-function-clauses [idx [v-tag v-value]]
   (case v-tag
