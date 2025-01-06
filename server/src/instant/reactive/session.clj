@@ -30,11 +30,10 @@
    [instant.util.delay :as delay]
    [instant.util.exception :as ex]
    [instant.util.json :refer [<-json]]
+   [instant.util.semver :as semver]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
-   [lambdaisland.uri :as uri]
-   [version-clj.core :as version]
-   [version-clj.qualifiers])
+   [lambdaisland.uri :as uri])
   (:import
    (java.time Duration Instant)
    (java.util.concurrent CancellationException)
@@ -44,7 +43,7 @@
 ;; Setup
 
 (declare receive-q-stop-signal)
-(def handle-receive-timeout-ms 10000)
+(def handle-receive-timeout-ms 5000)
 
 (def num-receive-workers (* 100 (delay/cpu-count)))
 
@@ -317,9 +316,6 @@
                                                :room-id room-id
                                                :client-event-id client-event-id})))
 
-(def qualifiers
-  (assoc version-clj.qualifiers/default-qualifiers "dev" 7))
-
 (defn- handle-refresh-presence! [store-conn sess-id {:keys [app-id room-id data edits]}]
   (let [version (-> (rs/get-versions @store-conn sess-id)
                     (get core-version-key))]
@@ -327,7 +323,7 @@
       (and edits (empty? edits))
       :nop
 
-      (and edits (version/newer? version "v0.17.5" {:qualifiers qualifiers}))
+      (and edits (pos? (semver/compare-semver version "v0.17.5")))
       (rs/send-event! store-conn app-id sess-id
                       {:op      :patch-presence
                        :room-id room-id

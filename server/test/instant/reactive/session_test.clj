@@ -75,6 +75,7 @@
                     eph/hz eph-hz
                     ws/send-json! (fn [_app-id msg fake-ws-conn]
                                     (a/>!! fake-ws-conn msg))
+                    session/handle-receive-timeout-ms 10000
 
                     rq/instaql-query-reactive!
                     (fn [store-conn {:keys [session-id] :as base-ctx} instaql-query return-type]

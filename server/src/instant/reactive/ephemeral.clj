@@ -1,6 +1,7 @@
 (ns instant.reactive.ephemeral
   "Handles our ephemeral data apis for a session (presence, cursors)"
   (:require
+   [datascript.core :as ds]
    [editscript.core :as editscript]
    [instant.config :as config]
    [instant.reactive.receive-queue :as receive-queue]
@@ -8,6 +9,7 @@
    [instant.util.aws :as aws-util]
    [instant.util.coll :refer [disj-in]]
    [instant.util.hazelcast :as hz-util]
+   [instant.util.tracer :as tracer]
    [medley.core :refer [dissoc-in]])
   (:import
    (com.hazelcast.config Config)
@@ -17,7 +19,8 @@
    (com.hazelcast.map.listener EntryAddedListener
                                EntryRemovedListener
                                EntryUpdatedListener)
-   (com.hazelcast.topic ITopic MessageListener Message)))
+   (com.hazelcast.topic ITopic MessageListener Message)
+   (java.util AbstractMap$SimpleImmutableEntry)))
 
 ;; ------
 ;; Setup
@@ -89,7 +92,7 @@
     (.setGlobalSerializerConfig serialization-config
                                 hz-util/global-serializer-config)
 
-    (let [hz                 (Hazelcast/newHazelcastInstance config)
+    (let [hz                 (Hazelcast/getOrCreateHazelcastInstance config)
           local-member       (.getLocalMember (.getCluster hz))
           hz-rooms-map       (.getMap hz "rooms-v2")
           hz-broadcast-topic (.getTopic hz "rooms-broadcast")]
@@ -209,6 +212,30 @@
                  (seq session-ids) (assoc-in [:rooms room-key :session-ids]
                                              session-ids)))))
     (hz-util/remove-session! (get-hz-rooms-map) room-key sess-id)))
+
+(defn clean-old-sessions []
+  (let [oldest-timestamp (aws-util/oldest-instance-timestamp)
+        hz-map (get-hz-rooms-map)]
+    (when-not oldest-timestamp
+      (throw (Exception. "Could not determine oldest instance timestamp")))
+    (doseq [^AbstractMap$SimpleImmutableEntry entry (.entrySet hz-map)
+            :let [{:keys [app-id room-id]} (.getKey entry)
+                  v (.getValue entry)]
+            :when (and app-id room-id)
+            sess-id (keys v)
+            :let [squuid-timestamp (ds/squuid-time-millis sess-id)]
+            :when (< squuid-timestamp oldest-timestamp)]
+      (tracer/with-span! {:name "clean-old-session"
+                          :attributes {:app-id app-id
+                                       :room-id room-id
+                                       :session-id sess-id
+                                       :squuid-timestamp squuid-timestamp}}
+        (remove-session! app-id room-id sess-id)))
+    (doseq [^AbstractMap$SimpleImmutableEntry entry (.entrySet hz-map)
+            :let [{:keys [app-id room-id]} (.getKey entry)
+                  v (.getValue entry)]
+            :when (and app-id room-id (empty? v))]
+      (remove-session! app-id room-id (random-uuid)))))
 
 ;; ----------
 ;; Public API
