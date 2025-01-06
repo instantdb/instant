@@ -304,10 +304,8 @@
               (let [sockets (invalidate! store-conn wal-record)]
                 (tracer/add-data! {:attributes {:num-sockets (count sockets)}})
                 (doseq [{:keys [id]} sockets]
-                  (tracer/with-span! {:name "invalidator/send-refresh"
-                                      :attributes {:session-id id}}
-                    (receive-queue/enqueue->receive-q {:op :refresh
-                                                       :session-id id}))))
+                  (receive-queue/enqueue->receive-q {:op :refresh
+                                                     :session-id id})))
               (catch Throwable t
                 (def -wal-record wal-record)
                 (def -store-value @store-conn)
@@ -320,10 +318,8 @@
       (let [sockets (invalidate-byop! table-info app-id store-conn record)]
         (tracer/add-data! {:attributes {:num-sockets (count sockets)}})
         (doseq [{:keys [id]} sockets]
-          (tracer/with-span! {:name "invalidator/send-refresh"
-                              :session-id id}
-            (receive-queue/enqueue->receive-q {:op :refresh
-                                               :session-id id}))))
+          (receive-queue/enqueue->receive-q {:op :refresh
+                                             :session-id id})))
       (catch Throwable t
         (def -wal-record wal-record)
         (def -store-value @store-conn)
