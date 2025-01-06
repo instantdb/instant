@@ -114,7 +114,6 @@
 
                      :else (throw (IllegalArgumentException.
                                    "ns-prefix must be a string or keyword")))
-        _         (println ns-str)
         ns-keys (filter #(= (namespace %) ns-str) (keys m))
         remove-ns (fn [[k v]] [(keyword (name k)) v])]
     (into (with-meta {} (meta m))
