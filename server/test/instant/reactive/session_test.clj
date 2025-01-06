@@ -41,10 +41,7 @@
 (def ^:dynamic *instaql-query-results* nil)
 
 (defn- with-session [f]
-  (let [sess-id         (UUID/randomUUID)
-        fake-ws-conn    (a/chan 1)
-        receive-q       (grouped-queue/create {:group-fn session/group-fn})
-        room-refresh-ch (a/chan (a/sliding-buffer 1))
+  (let [receive-q       (grouped-queue/create {:group-fn session/group-fn})
         store-conn      (rs/init-store)
         eph-hz          (delay
                           @(future ;; avoid pinning vthread
@@ -53,28 +50,28 @@
                                             {:instance-name (str "test-instance-" id)
                                              :cluster-name  (str "test-cluster-" id)}))))
         eph-room-maps   (atom {})
-        socket          {:id sess-id
-                         :ws-conn fake-ws-conn
-                         :receive-q receive-q
-                         :ping-job (future)
+        socket          {:id               (random-uuid)
+                         :ws-conn          (a/chan 1)
+                         :receive-q        receive-q
+                         :ping-job         (future)
                          :pending-handlers (atom #{})}
-        second-socket   {:id (random-uuid)
-                         :ws-conn (a/chan 1)
-                         :receive-q receive-q
-                         :ping-job (future)
+        socket-2        {:id               (random-uuid)
+                         :ws-conn          (a/chan 1)
+                         :receive-q        receive-q
+                         :ping-job         (future)
                          :pending-handlers (atom #{})}
         query-reactive  rq/instaql-query-reactive!
         stop-signal     (atom false)]
     (session/on-open store-conn socket)
-    (session/on-open store-conn second-socket)
+    (session/on-open store-conn socket-2)
 
-    (binding [*store-conn* store-conn
+    (binding [*store-conn*            store-conn
               *instaql-query-results* (atom {})]
       (with-redefs [receive-queue/receive-q receive-q
-                    eph/room-maps eph-room-maps
-                    eph/hz eph-hz
-                    ws/send-json! (fn [_app-id msg fake-ws-conn]
-                                    (a/>!! fake-ws-conn msg))
+                    eph/room-maps           eph-room-maps
+                    eph/hz                  eph-hz
+                    ws/send-json!           (fn [_app-id msg fake-ws-conn]
+                                              (a/>!! fake-ws-conn msg))
                     session/handle-receive-timeout-ms 10000
 
                     rq/instaql-query-reactive!
@@ -84,11 +81,11 @@
                         res))]
         (try
           (session/start-receive-worker store-conn receive-q stop-signal 0)
-          (f store-conn {:socket socket
-                         :second-socket second-socket})
+          (f store-conn {:socket   socket
+                         :socket-2 socket-2})
 
           (session/on-close store-conn socket)
-          (session/on-close store-conn second-socket)
+          (session/on-close store-conn socket-2)
           (reset! stop-signal true)
           (finally
             (when (realized? eph-hz)
@@ -693,7 +690,7 @@
           (is (empty? (:sessions @eph/room-maps)))
           (is (empty? (:rooms @eph/room-maps))))))))
 
-(deftest set-presence-works
+(deftest patch-presence-works
   (with-session
     (fn [_store-conn {:keys [socket]}]
       (let [rid     (str (UUID/randomUUID))
@@ -738,6 +735,98 @@
                          :user    nil
                          :data    d2}}
                (eph/get-room-data movies-app-id rid)))))))
+
+(deftest set-presence-two-sessions
+  (with-session
+    (fn [_store-conn {socket-1 :socket
+                      socket-2 :socket-2}]
+      (let [rid       (str (UUID/randomUUID))
+            sess-id-1 (:id socket-1)
+            sess-id-2 (:id socket-2)
+            d1        {:a "a" :b "b" :c "c" :d "d" :e "e"}
+            d2        {:a "a" :b "b" :c "c" :e "E" :f "F"}
+            versions  {session/core-version-key "0.17.6"}]
+        ;; socket-1 joining
+        (blocking-send-msg socket-1 {:op       :init
+                                     :app-id   movies-app-id
+                                     :versions versions})
+        (is (= {:op      :join-room-ok
+                :room-id rid}
+               (blocking-send-msg socket-1 {:op :join-room :room-id rid})))
+        (is (= {:op      :refresh-presence
+                :room-id rid
+                :data    {sess-id-1 {:data    {}
+                                     :peer-id sess-id-1
+                                     :user    nil}}}
+               (read-msg socket-1)))
+        (is (= {:op      :set-presence-ok
+                :room-id rid}
+               (blocking-send-msg socket-1 {:op :set-presence :room-id rid :data d1})))
+        (is (= {:op      :patch-presence
+                :room-id rid
+                :edits   [[[sess-id-1 :data] :r d1]]}
+               (read-msg socket-1)))
+
+        ;; socket-2 joining
+        (blocking-send-msg socket-2 {:op       :init
+                                     :app-id   movies-app-id
+                                     :versions versions})
+        (is (= {:op      :join-room-ok
+                :room-id rid}
+               (blocking-send-msg socket-2 {:op :join-room :room-id rid})))
+        (is (= {:op      :refresh-presence
+                :room-id rid
+                :data    {sess-id-1 {:data    d1
+                                     :peer-id sess-id-1
+                                     :user    nil}
+                          sess-id-2 {:data    {}
+                                     :peer-id sess-id-2
+                                     :user    nil}}}
+               (read-msg socket-2)))
+
+        (is (= {:op      :patch-presence
+                :room-id rid
+                :edits   [[[sess-id-2] :+ {:data {}
+                                           :peer-id sess-id-2
+                                           :user nil}]]}
+               (read-msg socket-1)))
+
+        ;; socket-1 updating
+        (is (= {:op      :set-presence-ok
+                :room-id rid}
+               (blocking-send-msg socket-1 {:op :set-presence :room-id rid :data d2})))
+        (is (= {:op      :patch-presence
+                :room-id rid
+                :edits   [[[sess-id-1 :data :d] :-]
+                          [[sess-id-1 :data :e] :r "E"]
+                          [[sess-id-1 :data :f] :+ "F"]]}
+               (read-msg socket-1)))
+        (is (= {:op      :patch-presence
+                :room-id rid
+                :edits   [[[sess-id-1 :data :d] :-]
+                          [[sess-id-1 :data :e] :r "E"]
+                          [[sess-id-1 :data :f] :+ "F"]]}
+               (read-msg socket-2)))
+
+        ;; socket-2 leaving
+        (is (= {:op      :leave-room-ok
+                :room-id rid}
+               (blocking-send-msg socket-2 {:op :leave-room, :room-id rid})))
+        (is (= {:op      :patch-presence
+                :room-id rid
+                :edits   [[[sess-id-2] :-]]}
+               (read-msg socket-1)))
+
+        ;; socket-1 updating
+        (is (= {:op      :set-presence-ok
+                :room-id rid}
+               (blocking-send-msg socket-1 {:op :set-presence :room-id rid :data d1})))
+        (is (= {:op      :patch-presence
+                :room-id rid
+                :edits   [[[sess-id-1 :data :e] :r "e"]
+                          [[sess-id-1 :data :f] :-]
+                          [[sess-id-1 :data :d] :+ "d"]]}
+               (read-msg socket-1)))))))
 
 (deftest set-presence-fails-when-not-in-room
   (with-session

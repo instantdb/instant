@@ -35,6 +35,7 @@
    [instant.util.uuid :as uuid-util]
    [lambdaisland.uri :as uri])
   (:import
+   (io.undertow.websockets.spi WebSocketHttpExchange)
    (java.time Duration Instant)
    (java.util.concurrent CancellationException)
    (java.util.concurrent.atomic AtomicLong)))
@@ -272,13 +273,13 @@
       :ws-ping-latency-ms ws-ping-latency-ms}
      (auth-and-creator-attrs auth creator versions))))
 
-(defn socket-origin [{:keys [http-req]}]
+(defn socket-origin [{:keys [^WebSocketHttpExchange http-req]}]
   (some-> http-req
           (.getRequestHeaders)
           (.get "origin")
           first))
 
-(defn socket-ip [{:keys [http-req]}]
+(defn socket-ip [{:keys [^WebSocketHttpExchange http-req]}]
   (some-> http-req
           (.getRequestHeader "cf-connecting-ip")))
 
