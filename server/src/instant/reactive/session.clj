@@ -612,6 +612,12 @@
 
     (grouped-queue/inflight-queue-reserve 1 inflight-q)))
 
+(defn process-fn [store-conn group-key batch]
+  (straight-jacket-process-receive-q-batch store-conn
+                                           batch
+                                           {:batch-size (count batch)
+                                            :group-key group-key}))
+
 ;; -----------------
 ;; Websocket Interop
 
@@ -718,12 +724,7 @@
   (receive-queue/start {:max-workers num-receive-workers
                         :group-fn #'group-fn
                         :reserve-fn #'receive-worker-reserve-fn
-                        :process-fn (fn [group-key batch]
-                                      (straight-jacket-process-receive-q-batch
-                                       rs/store-conn
-                                       batch
-                                       {:batch-size (count batch)
-                                        :group-key group-key}))}))
+                        :process-fn (partial process-fn rs/store-conn)}))
 
 (defn stop []
   (receive-queue/stop))
