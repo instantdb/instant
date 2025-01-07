@@ -614,28 +614,6 @@
 
     (grouped-queue/inflight-queue-reserve 1 inflight-q)))
 
-(defn start-receive-worker [store-conn eph-store-atom receive-q stop-signal id]
-  (ua/vfut-bg
-    (loop []
-      (if @stop-signal
-        (tracer/record-info! {:name "receive-worker/shutdown-complete"
-                              :attributes {:worker-n id}})
-        (do (grouped-queue/process-polling!
-             receive-q
-             {:reserve-fn receive-worker-reserve-fn
-              :process-fn (fn [group-key batch]
-                            (straight-jacket-process-receive-q-batch store-conn
-                                                                     eph-store-atom
-                                                                     batch
-                                                                     {:worker-n id
-                                                                      :batch-size (count batch)
-                                                                      :group-key group-key}))})
-            (recur))))))
-
-(defn start-receive-workers [store-conn eph-store-atom receive-q stop-signal]
-  (doseq [n (range num-receive-workers)]
-    (start-receive-worker store-conn eph-store-atom receive-q stop-signal n)))
-
 ;; -----------------
 ;; Websocket Interop
 
@@ -739,19 +717,28 @@
   (group-fn {:item {:session-id 1 :op :leave-room}})
   (group-fn {:item {:session-id 1 :op :add-query :q {:users {}}}}))
 
-(defn start []
-  (receive-queue/start #'group-fn)
-  (def receive-q-stop-signal (atom false))
+(defn process-fn [grouped-q store-conn eph-store-atom receive-q ])
 
-  (ua/fut-bg
-   (start-receive-workers
-    rs/store-conn
-    eph/ephemeral-store-atom
-    receive-q
-    receive-q-stop-signal)))
+(defn start []
+  {:reserve-fn receive-worker-reserve-fn
+   :process-fn (fn [group-key batch]
+                 (straight-jacket-process-receive-q-batch store-conn
+                                                          eph-store-atom
+                                                          batch
+                                                          {:worker-n id
+                                                           :batch-size (count batch)
+                                                           :group-key group-key}))}
+  (receive-queue/start {:max-workers num-receive-workers
+                        :group-fn #'group-fn
+                        :reserve-fn #'receive-worker-reserve-fn
+                        :process-fn (fn [group-key batch]
+                                      (straight-jacket-process-receive-q-batch rs/store-conn
+                                                                               eph/ephemeral-store-atom
+                                                                               batch
+                                                                               {:batch-size (count batch)
+                                                                                :group-key group-key}))}))
 
 (defn stop []
-  (reset! receive-q-stop-signal true)
   (receive-queue/stop))
 
 (defn restart []
