@@ -24,7 +24,7 @@
    [instant.model.rule :as rule-model]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.query :as rq]
-   [instant.reactive.receive-queue :as receive-queue :refer [receive-q]]
+   [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
    [instant.util.delay :as delay]
@@ -613,26 +613,11 @@
 
     (grouped-queue/inflight-queue-reserve 1 inflight-q)))
 
-(defn start-receive-worker [store-conn receive-q stop-signal id]
-  (ua/vfut-bg
-   (loop []
-     (if @stop-signal
-       (tracer/record-info! {:name "receive-worker/shutdown-complete"
-                             :attributes {:worker-n id}})
-       (do (grouped-queue/process-polling!
-            receive-q
-            {:reserve-fn receive-worker-reserve-fn
-             :process-fn (fn [group-key batch]
-                           (straight-jacket-process-receive-q-batch store-conn
-                                                                    batch
-                                                                    {:worker-n id
-                                                                     :batch-size (count batch)
-                                                                     :group-key group-key}))})
-           (recur))))))
-
-(defn start-receive-workers [store-conn receive-q stop-signal]
-  (doseq [n (range num-receive-workers)]
-    (start-receive-worker store-conn receive-q stop-signal n)))
+(defn process-fn [store-conn group-key batch]
+  (straight-jacket-process-receive-q-batch store-conn
+                                           batch
+                                           {:batch-size (count batch)
+                                            :group-key group-key}))
 
 ;; -----------------
 ;; Websocket Interop
@@ -737,17 +722,12 @@
   (group-fn {:item {:session-id 1 :op :add-query :q {:users {}}}}))
 
 (defn start []
-  (receive-queue/start #'group-fn)
-  (def receive-q-stop-signal (atom false))
-
-  (ua/fut-bg
-   (start-receive-workers
-    rs/store-conn
-    receive-q
-    receive-q-stop-signal)))
+  (receive-queue/start {:max-workers num-receive-workers
+                        :group-fn #'group-fn
+                        :reserve-fn #'receive-worker-reserve-fn
+                        :process-fn (partial process-fn rs/store-conn)}))
 
 (defn stop []
-  (reset! receive-q-stop-signal true)
   (receive-queue/stop))
 
 (defn restart []

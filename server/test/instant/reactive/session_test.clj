@@ -41,8 +41,16 @@
 (def ^:dynamic *instaql-query-results* nil)
 
 (defn- with-session [f]
-  (let [receive-q       (grouped-queue/create {:group-fn session/group-fn})
-        store-conn      (rs/init-store)
+  (let [store-conn (rs/init-store)
+
+        {receive-q :grouped-queue}
+        (grouped-queue/start-grouped-queue-with-workers
+         {:max-workers 1
+          :group-fn session/group-fn
+          :reserve-fn session/receive-worker-reserve-fn
+          :process-fn (partial session/process-fn store-conn)})
+
+
         eph-hz          (delay
                           @(future ;; avoid pinning vthread
                              (eph/init-hz store-conn
@@ -60,8 +68,7 @@
                          :receive-q        receive-q
                          :ping-job         (future)
                          :pending-handlers (atom #{})}
-        query-reactive  rq/instaql-query-reactive!
-        stop-signal     (atom false)]
+        query-reactive  rq/instaql-query-reactive!]
     (session/on-open store-conn socket)
     (session/on-open store-conn socket-2)
 
@@ -80,13 +87,11 @@
                         (swap! *instaql-query-results* assoc-in [session-id instaql-query] res)
                         res))]
         (try
-          (session/start-receive-worker store-conn receive-q stop-signal 0)
           (f store-conn {:socket   socket
                          :socket-2 socket-2})
 
           (session/on-close store-conn socket)
           (session/on-close store-conn socket-2)
-          (reset! stop-signal true)
           (finally
             (when (realized? eph-hz)
               (future
