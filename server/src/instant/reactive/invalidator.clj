@@ -16,7 +16,12 @@
    [instant.util.json :refer [<-json]]
    [instant.util.tracer :as tracer]
    [instant.db.model.triple :as triple-model])
-  (:import (java.util UUID)))
+  (:import
+   (java.sql Timestamp)
+   (java.time Instant)
+   (java.time.temporal ChronoUnit)
+   (java.util UUID)
+   (org.postgresql.replication LogSequenceNumber)))
 
 (declare wal-opts)
 
@@ -237,6 +242,10 @@
 (defn extract-tx-id [{:keys [columns] :as _change}]
   (get-column columns "id"))
 
+(defn extract-tx-created-at [{:keys [columns] :as _change}]
+  (when-let [^String created-at (get-column columns "created_at")]
+    (.toInstant (Timestamp/valueOf created-at))))
+
 (defn transform-wal-record [{:keys [changes] :as _record}]
   (let [{:strs [idents triples attrs transactions rules apps instant_users]}
         (group-by :table changes)
@@ -267,6 +276,7 @@
        :ident-changes idents
        :triple-changes triples
        :app-id app-id
+       :tx-created-at (extract-tx-created-at transactions-change)
        :tx-id (extract-tx-id transactions-change)})))
 
 (defn wal-record-xf
@@ -281,7 +291,7 @@
                                changes)]
     (when triple-changes
       {:triple-changes triple-changes
-       :tx-id (.asLong nextlsn)})))
+       :tx-id (LogSequenceNumber/.asLong nextlsn)})))
 
 (defn byop-wal-record-xf
   []
@@ -289,6 +299,10 @@
 
 ;; ------
 ;; invalidator
+
+(defn wal-latency-ms [{:keys [tx-created-at]}]
+  (when tx-created-at
+    (.between ChronoUnit/MILLIS tx-created-at (Instant/now))))
 
 (defn start-worker [store-conn wal-chan]
   (tracer/record-info! {:name "invalidation-worker/start"})
@@ -298,7 +312,9 @@
         (tracer/record-info! {:name "invalidation-worker/shutdown"})
         (let [{:keys [app-id tx-id]} wal-record]
           (tracer/with-span! {:name "invalidator/work"
-                              :attributes {:app-id app-id :tx-id tx-id}}
+                              :attributes {:app-id app-id
+                                           :tx-id tx-id
+                                           :wal-latency-ms (wal-latency-ms wal-record)}}
 
             (try
               (let [sockets (invalidate! store-conn wal-record)]

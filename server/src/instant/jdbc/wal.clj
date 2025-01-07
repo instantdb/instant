@@ -24,6 +24,7 @@
    [chime.core :as chime-core]
    [instant.config :as config]
    [instant.discord :as discord]
+   [instant.gauges :as gauges]
    [instant.health :as health]
    [instant.jdbc.sql :as sql]
    [instant.jdbc.aurora :as aurora]
@@ -117,6 +118,16 @@
                       FROM pg_replication_slots
                      WHERE slot_name = ?"
                    slot-name]))
+
+(defn get-replication-latency-bytes [conn slot-name]
+  (->
+   (sql/select-one
+    conn
+    ["select pg_wal_lsn_diff(pg_current_wal_lsn(), confirmed_flush_lsn) as latency
+        from pg_replication_slots
+       where slot_name = ?"
+     slot-name])
+   :latency))
 
 (defn drop-logical-replication-slot [conn slot-name]
   (sql/execute! conn
@@ -409,8 +420,8 @@
                                      {:name "wal-worker/shutdown-called-before-startup"
                                       :escaping? false}))))
 
-(defn init-cleanup []
-  (def schedule
+(defn init []
+  (def cleanup-slots-schedule
     (chime-core/chime-at
      (chime-core/periodic-seq (Instant/now) (Duration/ofHours 1))
      (fn [_time]
@@ -433,7 +444,22 @@
                                                     :active-uncleaned-slots uncleaned}})))))))
          (catch Exception e
            (tracer/record-exception-span! e {:name "wal/cleanup-error"
-                                             :escaping? false})))))))
+                                             :escaping? false}))))))
+
+  (let [replication-latency-bytes (atom 0)]
+    (def latency-schedule
+      (chime-core/chime-at
+       (rest (chime-core/periodic-seq (Instant/now) (Duration/ofMinutes 1)))
+       (fn [_time]
+         (try
+           (let [latency (get-replication-latency-bytes (aurora/conn-pool) @config/process-id)]
+             (reset! replication-latency-bytes latency))
+           (catch Exception e
+             (tracer/record-exception-span! e {:name "wal/check-latency-error"
+                                               :escaping? false}))))))
+    (def cleanup-gauge (gauges/add-gauge-metrics-fn (fn [_]
+                                                      [{:path "instant.jdb.wal.replication-latency-bytes"
+                                                        :value @replication-latency-bytes}])))))
 
 
 (comment
