@@ -13,7 +13,7 @@ import { buildPresenceSlice, hasPresenceResponseChanged } from "./presence";
 import { Deferred } from "./utils/Deferred";
 import { PersistedObject } from "./utils/PersistedObject";
 import { extractTriples } from "./model/instaqlResult";
-import { areObjectsDeepEqual } from "./utils/object";
+import { areObjectsDeepEqual, assocIn, dissocIn } from "./utils/object";
 import { createLinkIndex } from "./utils/linkIndex";
 import version from "./version";
 
@@ -61,6 +61,7 @@ const ignoreLogging = {
   "set-presence": true,
   "set-presence-ok": true,
   "refresh-presence": true,
+  "patch-presence": true,
 };
 
 function querySubsFromJSON(str) {
@@ -461,11 +462,18 @@ export default class Reactor {
         
         this._finishTransaction("synced", eventId);
         break;
-      case "refresh-presence":
+      case "patch-presence": {
         const roomId = msg["room-id"];
-        this._setPresencePeers(roomId, msg.data);
+        this._patchPresencePeers(roomId, msg["edits"]);
         this._notifyPresenceSubs(roomId);
         break;
+      }
+      case "refresh-presence": {
+        const roomId = msg["room-id"];
+        this._setPresencePeers(roomId, msg["data"]);
+        this._notifyPresenceSubs(roomId);
+        break;
+      }
       case "server-broadcast":
         const room = msg["room-id"];
         const topic = msg.topic;
@@ -1679,6 +1687,24 @@ export default class Reactor {
     handler.cb(slice);
   }
 
+  _patchPresencePeers(roomId, edits) {
+    const peers = this._presence[roomId]?.result?.peers || {};
+    let sessions = Object.fromEntries(
+      Object.entries(peers).map(([k, v]) => [k, {data: v}]),
+    );
+    sessions[this._sessionId] = {data: this._presence[roomId]?.result?.user};
+    for (let [path, op, value] of edits) {
+      if (op === '+' || op === 'r') {
+        sessions = assocIn(sessions, path, value);
+      }
+      if (op === '-') {
+        sessions = dissocIn(sessions, path);
+      }
+    }
+
+    this._setPresencePeers(roomId, sessions);
+  }
+
   _setPresencePeers(roomId, data) {
     const sessions = { ...data };
     // no need to keep track of `user`
@@ -1687,9 +1713,7 @@ export default class Reactor {
       Object.entries(sessions).map(([k, v]) => [k, v.data]),
     );
 
-    this._presence[roomId] = this._presence[roomId] || {};
-    this._presence[roomId].result = this._presence[roomId].result || {};
-    this._presence[roomId].result.peers = peers;
+    this._presence = assocIn(this._presence, [roomId, 'result', 'peers'], peers);
   }
 
   // --------

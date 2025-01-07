@@ -19,7 +19,6 @@
             [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
             [instant.model.instant-user :as instant-user-model]
             [instant.postmark :as postmark]
-            [instant.reactive.ephemeral :as eph]
             [instant.reactive.receive-queue :as receive-queue]
             [instant.reactive.session :as session]
             [instant.reactive.store :as rs]
@@ -42,7 +41,6 @@
 
 (defn session-get [_req]
   (session/undertow-config rs/store-conn
-                           eph/ephemeral-store-atom
                            receive-queue/receive-q
                            {:id (squuid)}))
 

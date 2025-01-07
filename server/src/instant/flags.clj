@@ -12,7 +12,7 @@
             :storage-whitelist {}
             :team-emails {}
             :test-emails {}
-            :hazelcast {}
+            :use-patch-presence {}
             :drop-refresh-spam {}
             :promo-emails {}
             :rate-limited-apps {}})
@@ -43,22 +43,22 @@
                        (get o "appId")))
                    (get result "storage-whitelist")))
 
-        hazelcast (when-let [hz-flag (-> (get result "hazelcast")
-                                         first)]
-                    (let [disabled-apps (-> hz-flag
-                                            (get "disabled-apps")
-                                            (#(map parse-uuid %))
-                                            set)
-                          enabled-apps (-> hz-flag
-                                           (get "enabled-apps")
-                                           (#(map parse-uuid %))
-                                           set)
-                          default-value (get hz-flag "default-value" false)
-                          disabled? (get hz-flag "disabled" false)]
-                      {:disabled-apps disabled-apps
-                       :enabled-apps enabled-apps
-                       :default-value default-value
-                       :disabled? disabled?}))
+        use-patch-presence (when-let [hz-flag (-> (get result "use-patch-presence")
+                                                  first)]
+                             (let [disabled-apps (-> hz-flag
+                                                     (get "disabled-apps")
+                                                     (#(map parse-uuid %))
+                                                     set)
+                                   enabled-apps (-> hz-flag
+                                                    (get "enabled-apps")
+                                                    (#(map parse-uuid %))
+                                                    set)
+                                   default-value (get hz-flag "default-value" false)
+                                   disabled? (get hz-flag "disabled" false)]
+                               {:disabled-apps disabled-apps
+                                :enabled-apps enabled-apps
+                                :default-value default-value
+                                :disabled? disabled?}))
         promo-code-emails (set (keep (fn [o]
                                        (get o "email"))
                                      (get result "promo-emails")))
@@ -82,7 +82,7 @@
                                   (get result "rate-limited-apps"))]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
-     :hazelcast hazelcast
+     :use-patch-presence use-patch-presence
      :promo-code-emails promo-code-emails
      :drop-refresh-spam drop-refresh-spam
      :rate-limited-apps rate-limited-apps}))
@@ -113,23 +113,24 @@
   (let [app-id (str app-id)]
     (contains? (storage-enabled-whitelist) app-id)))
 
-(defn use-hazelcast? [app-id]
-  (if-let [hz-flag (get (query-result) :hazelcast)]
-    (let [{:keys [disabled-apps enabled-apps default-value disabled?]} hz-flag]
-      (cond disabled? false
+(defn use-patch-presence? [app-id]
+  (let [flag (:use-patch-presence (query-result))
+        {:keys [disabled-apps enabled-apps default-value disabled?]} flag]
+    (cond
+      (nil? flag)
+      true
 
-            (contains? disabled-apps app-id)
-            false
+      disabled?
+      false
 
-            (contains? enabled-apps app-id)
-            true
+      (contains? disabled-apps app-id)
+      false
 
-            :else default-value))
-    ;; Default true
-    true))
+      (contains? enabled-apps app-id)
+      true
 
-(defn hazelcast-disabled? []
-  (get-in (query-result) [:hazelcast :disabled?] false))
+      :else
+      default-value)))
 
 (defn drop-refresh-spam? [app-id]
   (if-let [flag (get (query-result) :drop-refresh-spam)]

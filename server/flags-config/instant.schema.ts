@@ -16,7 +16,7 @@ const graph = i.graph(
     "friend-emails": i.entity({
       email: i.string().unique(),
     }),
-    hazelcast: i.entity({
+    "use-patch-presence": i.entity({
       "default-value": i.boolean(),
       disabled: i.boolean(),
       "disabled-apps": i.any(),

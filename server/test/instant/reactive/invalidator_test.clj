@@ -407,7 +407,7 @@
                         (if (and (= (:id app) app-id)
                                  *inside*)
                           (swap! records conj wal-record)
-                          (invalidate! store-conn wal-record))                        )]
+                          (invalidate! store-conn wal-record)))]
           (binding [*inside* true]
             (let [machine-id (string/replace (str "test-" (random-uuid))
                                              #"-"
