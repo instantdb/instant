@@ -189,6 +189,9 @@ export default class Reactor {
         this._isOnline = isOnline;
         if (this._isOnline) {
           this._startSocket();
+        } else {
+          log.info("Changing status from", this.status, "to", STATUS.CLOSED);
+          this._setStatus(STATUS.CLOSED)
         }
       });
     });
