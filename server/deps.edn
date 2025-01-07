@@ -46,7 +46,7 @@
         io.opentelemetry/opentelemetry-sdk {:mvn/version "1.44.1"}
         io.opentelemetry/opentelemetry-exporter-otlp {:mvn/version "1.44.1"}
         io.grpc/grpc-netty-shaded {:mvn/version "1.68.1"}
-        com.github.steffan-westcott/clj-otel-api {:mvn/version "0.2.4-SNAPSHOT"}
+        com.github.steffan-westcott/clj-otel-api {:mvn/version "0.2.4"}
 
         dev.cel/cel {:mvn/version "0.5.2"}
         com.fasterxml.jackson.core/jackson-core {:mvn/version "2.12.6"}
