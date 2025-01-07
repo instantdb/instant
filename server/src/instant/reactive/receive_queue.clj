@@ -3,8 +3,7 @@
    [instant.gauges :as gauges]
    [instant.grouped-queue :as grouped-queue])
   (:import
-   (java.time Duration Instant)
-   (java.util.concurrent.atomic AtomicInteger)))
+   (java.time Duration Instant)))
 
 (declare receive-q)
 
@@ -16,7 +15,7 @@
                        {:item item :put-at (Instant/now)})))
 
 
-(defn receive-q-metrics [{:keys [grouped-queue worker-count]}]
+(defn receive-q-metrics [{:keys [grouped-queue get-worker-count]}]
   [{:path "instant.reactive.session.receive-q.size"
     :value (grouped-queue/size grouped-queue)}
    {:path "instant.reactive.session.receive-q.longest-waiting-ms"
@@ -24,10 +23,10 @@
              (.toMillis (Duration/between put-at (Instant/now)))
              0)}
    {:path "instant.reactive.session.receive-q.worker-count"
-    :value (AtomicInteger/.get worker-count)}])
+    :value (get-worker-count)}])
 
 (defn start [{:keys [group-fn reserve-fn process-fn max-workers]}]
-  (let [{:keys [grouped-queue worker-count] :as queue-with-workers}
+  (let [{:keys [grouped-queue] :as queue-with-workers}
         (grouped-queue/start-grouped-queue-with-workers {:group-fn group-fn
                                                          :reserve-fn reserve-fn
                                                          :process-fn process-fn

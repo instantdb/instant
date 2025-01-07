@@ -1,7 +1,10 @@
 (ns instant.grouped-queue
   (:refer-clojure :exclude [peek])
+  (:require
+   [instant.util.async :as ua]
+   [instant.util.tracer :as tracer])
   (:import
-   (java.util.concurrent TimeUnit ConcurrentLinkedQueue)
+   (java.util.concurrent ConcurrentLinkedQueue)
    (java.util.concurrent.atomic AtomicInteger)
    (clojure.lang PersistentQueue)))
 
@@ -56,10 +59,14 @@
    :dispatch-queue (ConcurrentLinkedQueue.)
    :on-add on-add})
 
-(defn size [{:keys [size] :as _grouped-q}]
+(defn size [{:keys [^AtomicInteger size] :as _grouped-q}]
   (.get size))
 
-(defn put! [{:keys [group-fn dispatch-queue group-key->subqueue size on-add]
+(defn put! [{:keys [group-fn
+                    ^ConcurrentLinkedQueue dispatch-queue
+                    group-key->subqueue
+                    ^AtomicInteger size
+                    on-add]
              :as _grouped-q} item]
   (let [group-key (group-fn item)
         added (if (nil? group-key)
@@ -84,7 +91,8 @@
       (on-add))
     added))
 
-(defn peek [{:keys [dispatch-queue group-key->subqueue] :as _grouped-q}]
+(defn peek [{:keys [^ConcurrentLinkedQueue dispatch-queue
+                    group-key->subqueue] :as _grouped-q}]
   (let [[t arg :as entry] (.peek dispatch-queue)]
     (cond
       (nil? entry) nil
@@ -100,55 +108,13 @@
       (dissoc state group-key)
       (assoc state group-key cleared-subqueue))))
 
-(defn process-polling!
-  [{:keys [dispatch-queue group-key->subqueue size] :as _grouped-q}
-   {:keys [reserve-fn
-           process-fn
-           poll-ms]
-    :or {poll-ms 1000
-         reserve-fn default-reserve-fn}}]
-  (let [[t arg :as entry] (.poll dispatch-queue ;; poll-ms TimeUnit/MILLISECONDS
-                                 )]
-    (cond
-      (nil? entry)
-      (do
-        (Thread/sleep 10)
-        nil)
-
-      (= t :item)
-      (do
-        (process-fn nil [arg])
-        (.decrementAndGet size)
-        true)
-
-      (= t :group-key)
-      (let [group-key arg
-
-            reserved (locking group-key->subqueue
-                       (swap! group-key->subqueue update group-key (partial reserve-fn group-key)))
-
-            reserved-subqueue (get reserved group-key)
-
-            workset (inflight-queue-workset reserved-subqueue)]
-
-        (try
-          (process-fn group-key workset)
-          true
-          (finally
-            (let [cleared (locking group-key->subqueue
-                            (swap! group-key->subqueue clear-subqueue group-key))
-                  cleared-subqueue (get cleared group-key)]
-              (.addAndGet size (- (count workset)))
-              (when (inflight-queue-peek-pending cleared-subqueue)
-                (.add dispatch-queue [:group-key group-key])))))))))
-
 (defn process!
-  [{:keys [dispatch-queue group-key->subqueue size] :as _grouped-q}
+  [{:keys [^ConcurrentLinkedQueue dispatch-queue
+           group-key->subqueue
+           ^AtomicInteger size] :as _grouped-q}
    {:keys [reserve-fn
-           process-fn
-           poll-ms]
-    :or {poll-ms 1000
-         reserve-fn default-reserve-fn}}]
+           process-fn]
+    :or {reserve-fn default-reserve-fn}}]
   (let [[t arg :as entry] (.poll dispatch-queue)]
     (cond
       (nil? entry) nil
@@ -185,32 +151,36 @@
                                                 process-fn
                                                 max-workers]
                                          :or {max-workers 2}}]
-  ;; XXX: How am I going to make sure that my worker doesn't die
-  ;;      while I'm in the middle of an add??????
-  (let [worker-count (AtomicInteger. 0)
+  (let [workers (atom #{})
         grouped-queue (promise)
         on-add (fn []
-                 (println "ON ADD")
-                 (if-not (< (.get worker-count) max-workers)
-                   (println "TOO MANY WORKERS")
-                   (let [worker-id (random-uuid)]
-                     (.incrementAndGet worker-count)
-                     (instant.util.async/vfuture
-                       (try
-                         (loop []
-                           (when (process! @grouped-queue {:reserve-fn reserve-fn
-                                                           :process-fn process-fn})
-                             (recur)))
-                         (catch Throwable t
-                           (println "THROWABLE!!!!!!!!!!!!!!!!!" t))
-                         (finally
-                           (.decrementAndGet worker-count)))))))]
+                 (when (< (count @workers) max-workers)
+                   (ua/vfuture
+                     (loop [worker-id (Object.)]
+                       (when (contains? (swap! workers
+                                               (fn [workers]
+                                                 (if (= (count workers) max-workers)
+                                                   workers
+                                                   (conj workers worker-id))))
+                                        worker-id)
+                         (try
+                           (loop []
+                             (when (process! @grouped-queue {:reserve-fn reserve-fn
+                                                             :process-fn process-fn})
+                               (recur)))
+                           (catch Throwable t
+                             (tracer/record-exception-span! t {:name "grouped-queue/process-error"}))
+                           (finally
+                             (swap! workers disj worker-id)))
+                         ;; One last check to prevent a race where something is added to the queue
+                         ;; while we're removing ourselves from the workers
+                         (when (and (peek @grouped-queue)
+                                    (< (count @workers) max-workers))
+                           (recur worker-id)))))))]
     (deliver grouped-queue (create {:group-fn group-fn
                                     :on-add on-add}))
     {:grouped-queue @grouped-queue
-     :shutdown nil ;; XXX
-     :worker-count worker-count}
-    ))
+     :get-worker-count (fn [] (count @workers))}))
 
 (comment
   (def gq (create {:group-fn :k}))
@@ -222,53 +192,57 @@
   (peek gq)
   gq
   (future
-    (process-polling! gq
-                      {:reserve-fn (fn [group-key inflight-queue]
-                                     (if (= group-key :refresh)
-                                       (inflight-queue-reserve-all inflight-queue)
-                                       (inflight-queue-reserve 1 inflight-queue)))
+    (process! gq
+              {:reserve-fn (fn [group-key inflight-queue]
+                             (if (= group-key :refresh)
+                               (inflight-queue-reserve-all inflight-queue)
+                               (inflight-queue-reserve 1 inflight-queue)))
 
-                       :process-fn (fn [k workset]
-                                     (println "processing..." k workset)
-                                     #_(Thread/sleep 10000)
-                                     (println "done"))})))
+               :process-fn (fn [k workset]
+                             (println "processing..." k workset)
+                             #_(Thread/sleep 10000)
+                             (println "done"))}))
 
-(defn test-grouped-queue []
-  (let [q (create {:group-fn :k})
-        finished (promise)
-        total-items (AtomicInteger. 0)
-        process-total (AtomicInteger. 0)
-        wait (future
-               (let [start (. System (nanoTime))
-                     _ @finished
-                     end (. System (nanoTime))
-                     ms (/ (double (- end start)) 1000000.0)]
-                 (tool/def-locals)
-                 (println (format "Elapsed %.2fms, total %d, %.2f / ms"
-                                  ms
-                                  (.get process-total)
-                                  (/ (.get process-total) ms)))))]
-    (dotimes [x 10000]
-      (dotimes [y 100]
-        (.incrementAndGet total-items)
-        (put! q {:k x :i y})))
-    (tool/def-locals)
-    (dotimes [x 100000]
-      (instant.util.async/vfuture
-        (loop []
-          (when-not (realized? finished)
-            (process-polling! q
-                              {:reserve-fn (fn [k iq]
-                                             (inflight-queue-reserve (max 1 (rand-int 25)) iq))
-                               :process-fn (fn [_ workset]
-                                             #_(dotimes [_ (rand-int 5)]
-                                                 (.incrementAndGet total-items)
-                                                 (put! q {:k (rand-int 10)}))
-                                             (clojure.tools.logging/info "workset" (count workset) (.get total-items))
-                                             (.addAndGet total-items (- (count workset)))
-                                             (.addAndGet process-total (count workset))
-                                             nil)})
-            (when (zero? (.get total-items))
-              (deliver finished true))
-            (recur)))))
-    @wait))
+  (defn test-grouped-queue []
+    (let [finished (promise)
+          started (promise)
+          total-items (AtomicInteger. 0)
+          process-total (AtomicInteger. 0)
+          gq (promise)
+          q (start-grouped-queue-with-workers
+             {:group-fn :k
+              :reserve-fn (fn [_ iq]
+                            (inflight-queue-reserve (max 1 (rand-int 25)) iq))
+              :process-fn (fn [_ workset]
+                            @started
+                            (tracer/record-info! {:name "workset"
+                                                  :attributes {:workset-count (count workset)
+                                                               :total total-items
+                                                               :worker-count ((:get-worker-count @gq))}})
+                            (.addAndGet process-total (count workset))
+                            (when (zero? (.addAndGet total-items (- (count workset))))
+                              (deliver finished true))
+                            nil)
+              :max-workers 100})
+          _ (deliver gq q)
+
+          wait (future
+                 @started
+                 (let [start (. System (nanoTime))
+
+                       _ @finished
+                       end (. System (nanoTime))
+                       ms (/ (double (- end start)) 1000000.0)]
+                   (tool/def-locals)
+                   (println (format "Elapsed %.2fms, total %d, %.2f / ms"
+                                    ms
+                                    (.get process-total)
+                                    (/ (.get process-total) ms)))))]
+      (dotimes [x 100]
+        (dotimes [y 100000]
+          (.incrementAndGet total-items)
+          (put! (:grouped-queue q) {:k y :i x})))
+      (deliver started true)
+      (tool/def-locals)
+      @wait))
+  (test-grouped-queue))

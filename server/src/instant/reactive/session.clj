@@ -24,7 +24,7 @@
    [instant.model.rule :as rule-model]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.query :as rq]
-   [instant.reactive.receive-queue :as receive-queue :refer [receive-q]]
+   [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
    [instant.util.delay :as delay]
@@ -714,25 +714,16 @@
   (group-fn {:item {:session-id 1 :op :leave-room}})
   (group-fn {:item {:session-id 1 :op :add-query :q {:users {}}}}))
 
-(defn process-fn [grouped-q store-conn eph-store-atom receive-q ])
-
 (defn start []
-  {:reserve-fn receive-worker-reserve-fn
-   :process-fn (fn [group-key batch]
-                 (straight-jacket-process-receive-q-batch store-conn
-                                                          eph-store-atom
-                                                          batch
-                                                          {:worker-n id
-                                                           :batch-size (count batch)
-                                                           :group-key group-key}))}
   (receive-queue/start {:max-workers num-receive-workers
                         :group-fn #'group-fn
                         :reserve-fn #'receive-worker-reserve-fn
                         :process-fn (fn [group-key batch]
-                                      (straight-jacket-process-receive-q-batch rs/store-conn
-                                                                               batch
-                                                                               {:batch-size (count batch)
-                                                                                :group-key group-key}))}))
+                                      (straight-jacket-process-receive-q-batch
+                                       rs/store-conn
+                                       batch
+                                       {:batch-size (count batch)
+                                        :group-key group-key}))}))
 
 (defn stop []
   (receive-queue/stop))
