@@ -15,7 +15,8 @@
             [instant.jdbc.sql :as sql]
             [instant.jdbc.aurora :as aurora]
             [lambdaisland.uri :as uri]
-            [next.jdbc.connection :as connection])
+            [next.jdbc.connection :as connection]
+            [instant.dash.ephemeral-app :as ephemeral-app])
   (:import (java.util UUID)))
 
 (defn mock-app-req
@@ -50,6 +51,16 @@
       (let [_ (bootstrap/add-zeneca-to-app! id)
             r (resolvers/make-zeneca-resolver id)]
         (f app r)))))
+
+(defn eph-zeneca-app!
+  "This creates an ephemeral zeneca app. It's useful when you want to 
+   spin up an app for the REPL. Since this is ephemeral, it will 
+   delete itself, even if you forget too."
+  []
+  (let [{:keys [id] :as app} (ephemeral-app/create! {:title "eph-zeneca"})
+        _ (bootstrap/add-zeneca-to-app! id)
+        r (resolvers/make-zeneca-resolver id)]
+    {:app app :r r}))
 
 (defn with-zeneca-checked-data-app [f]
   (with-empty-app

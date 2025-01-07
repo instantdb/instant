@@ -19,7 +19,6 @@
 (def ephemeral-creator-email (if (= (config/get-env) :dev)
                                "hello+ephemeralappsdev@instantdb.com"
                                "hello+ephemeralapps@instantdb.com"))
-
 (def ephemeral-creator
   (delay
     (instant-user-model/get-by-email {:email ephemeral-creator-email})))

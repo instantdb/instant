@@ -14,7 +14,9 @@
    [instant.util.string :as string-util]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
-   [next.jdbc :as next-jdbc]))
+   [next.jdbc :as next-jdbc]
+   [honey.sql :as hsql]
+   [instant.data.resolvers :as resolvers]))
 
 (defn extract-etype [{:keys [attrs]} attr-id]
   (attr-model/fwd-etype (attr-model/seek-by-id attr-id attrs)))
@@ -23,7 +25,7 @@
   (attr-model/rev-etype (attr-model/seek-by-id attr-id attrs)))
 
 ;; --------------
-;; Check Commands
+;; check commands
 
 (defn tx-change-type [[action]]
   (cond
@@ -35,9 +37,9 @@
     (#{:add-triple :deep-merge-triple :retract-triple} action) :update
     (#{:delete-entity} action) :delete))
 
-;; Applies a `merge()` patch to a record
-;; Analogous to immutableDeepMerge in JS
-;; and deep_merge in Postgres
+;; applies a `merge()` patch to a record
+;; analogous to immutabledeepmerge in js
+;; and deep_merge in postgres
 (defn deep-merge-and-delete [orig updates]
   (if (and (map? orig) (map? updates))
     (reduce-kv
@@ -75,10 +77,10 @@
    original
    tx-steps))
 
-;; Why do we have to decide whether something is an update or a create?
-;; When a user makes a transaction, the only option they have currently is to do an `update`:
-;; tx.users[id].update({name: "Joe"})
-;; It's up to use to decide whether this object existed before or not.
+;; why do we have to decide whether something is an update or a create?
+;; when a user makes a transaction, the only option they have currently is to do an `update`:
+;; tx.users[id].update({name: "joe"})
+;; it's up to use to decide whether this object existed before or not.
 (defn object-upsert-check
   [{:keys [attrs rules current-user] :as ctx} etype eid tx-steps triples]
   (let [original (entity-model/triples->map ctx triples)
@@ -104,7 +106,7 @@
                                       :ctx ctx
                                       :etype "$users"}
                                      current-user)
-                      "newData"
+                      "newdata"
                       (cel/->cel-map {} new-data)
                       "data"
                       (cel/->cel-map {:ctx ctx
@@ -125,7 +127,7 @@
                                       :etype etype
                                       :type :data}
                                      original)
-                      "newData"
+                      "newdata"
                       (cel/->cel-map {} new-data)})))}))
 
 (defn object-delete-check [{:keys [rules current-user] :as ctx} etype eid triples]
@@ -193,7 +195,7 @@
    :tx-step
    tx-step
    [{:message (string-util/multiline->single-line
-               "Invalid transaction. The namespace in the lookup attribute is
+               "invalid transaction. the namespace in the lookup attribute is
                 different from the namespace of the attribute that is
                 being set")}]))
 
@@ -202,11 +204,11 @@
    :lookup
    eid
    [{:message
-     "Invalid lookup. Could not determine namespace from lookup attribute."
+     "invalid lookup. could not determine namespace from lookup attribute."
      :tx-step tx-step}]))
 
 (defn extract-lookup-etype! [ctx eid aid-etype tx-step]
-  ;; If it's a lookup ref, use the lookup attr
+  ;; if it's a lookup ref, use the lookup attr
   ;; as the etype
   (let [lookup-etype (extract-etype ctx (first eid))]
     (when (not lookup-etype)
@@ -216,26 +218,26 @@
     lookup-etype))
 
 (defn group-object-tx-steps
-  "Groups tx-steps by etype, eid, and action.
+  "groups tx-steps by etype, eid, and action.
 
-   We take tx-steps like:
+   we take tx-steps like:
    [
-     [:add-triple joe-eid :users/name \"Joe\"]
+     [:add-triple joe-eid :users/name \"joe\"]
      [:add-triple joe-eid :users/age 32]
-     [:add-triple stopa-eid :users/name \"Stopa\"]
+     [:add-triple stopa-eid :users/name \"stopa\"]
      [:add-triple stopa-eid :users/age 30]
    ]
 
-   And we group them by `eid`, `etype`, and `action`.
+   and we group them by `eid`, `etype`, and `action`.
 
    {
      {:eid joe-eid
       :etype \"users\"
-      :action :update} [[:add-triple joe-eid :users/name \"Joe\"]
+      :action :update} [[:add-triple joe-eid :users/name \"joe\"]
                         [:add-triple joe-eid :users/age 32]]
      {:eid stopa-eid
       :etype \"users\"
-      :action :update} [[:add-triple stopa-eid :users/name \"Stopa\"]
+      :action :update} [[:add-triple stopa-eid :users/name \"stopa\"]
                         [:add-triple stopa-eid :users/age 30]]
    }"
   [ctx tx-steps]
@@ -247,7 +249,7 @@
                   etype (if (sequential? eid)
                           (extract-lookup-etype! ctx eid aid-etype tx-step)
                           aid-etype)
-                  ;; If we know the etype from the lookup for delete-entity,
+                  ;; if we know the etype from the lookup for delete-entity,
                   ;; but the client hasn't been updated to provide it, then
                   ;; we can patch the `delete-entity` step to include it
                   patched-step (if (and (= op :delete-entity)
@@ -269,7 +271,7 @@
                                                          (ex/throw-validation-err!
                                                           :eid
                                                           value
-                                                          [{:message "Expected link value to be a uuid."
+                                                          [{:message "expected link value to be a uuid."
                                                             :hint {:tx-step tx-step}}])))]))]
               (cond-> acc
                 true (update {:eid eid
@@ -286,30 +288,30 @@
           tx-steps))
 
 (defn object-checks
-  "Creates check commands for each object in the transaction.
+  "creates check commands for each object in the transaction.
 
-   We take tx-steps like:
+   we take tx-steps like:
    [
-     [:add-triple joe-eid :users/name \"Joe\"]
+     [:add-triple joe-eid :users/name \"joe\"]
      [:add-triple joe-eid :users/age 32]
-     [:add-triple stopa-eid :users/name \"Stopa\"]
+     [:add-triple stopa-eid :users/name \"stopa\"]
      [:add-triple stopa-eid :users/age 30]
    ]
 
-   And we group them by `eid`, `etype`, and `action`.
+   and we group them by `eid`, `etype`, and `action`.
 
    {
      {:eid joe-eid
       :etype \"users\"
-      :action :update} [[:add-triple joe-eid :users/name \"Joe\"]
+      :action :update} [[:add-triple joe-eid :users/name \"joe\"]
                         [:add-triple joe-eid :users/age 32]]
      {:eid stopa-eid
       :etype \"users\"
-      :action :update} [[:add-triple stopa-eid :users/name \"Stopa\"]
+      :action :update} [[:add-triple stopa-eid :users/name \"stopa\"]
                         [:add-triple stopa-eid :users/age 30]]
    }
 
-   With this, we can generate a grouped `check` command for each `eid+etype`."
+   with this, we can generate a grouped `check` command for each `eid+etype`."
   [ctx preloaded-triples]
   (vec (keep (fn [[{:keys [eid etype action]} {:keys [triples tx-steps]}]]
                (object-check ctx etype eid action tx-steps triples))
@@ -370,15 +372,15 @@
 (def create-check? (comp (partial = :create) :action))
 
 (defn optimistic-attrs
-  "Why do we need optimistic attrs?
-   Consider tx-steps like:
+  "why do we need optimistic attrs?
+   consider tx-steps like:
    [
       [:add-attr {:id goal-attr-id
                   :forward-identity [... \"goals\" \"title\"]}]
-      [:add-triple goal-eid goal-attr-id \"Hack\"]
+      [:add-triple goal-eid goal-attr-id \"hack\"]
    ]
-   If user 'creates' an attr in the same transaction,
-   We need to be able to resolve the attr-id for this `add-triple`"
+   if user 'creates' an attr in the same transaction,
+   we need to be able to resolve the attr-id for this `add-triple`"
   [{:keys [attrs]} attr-changes]
   (into attrs (get-new-attrs attr-changes)))
 
@@ -401,16 +403,16 @@
                     check-result)))))))
 
 ;; ------------
-;; Data preload
+;; data preload
 
 (defn preload-triples
-  "Takes the object changes and returns a map with keys:
+  "takes the object changes and returns a map with keys:
      {:eid eid, :etype etype :action action}
    and values
      {:triples [[eavt] [eavt]]
       :tx-steps [step]}
 
-   If the etype isn't provided for deletes, we will resolve it after we
+   if the etype isn't provided for deletes, we will resolve it after we
    fetch the triples."
   [ctx object-changes]
   (let [groups (group-object-tx-steps ctx object-changes)
@@ -429,13 +431,13 @@
                       (ex/throw-validation-err!
                        :tx-steps
                        steps
-                       [{:message "Could not determine the namespace that the transaction belongs to."}])
+                       [{:message "could not determine the namespace that the transaction belongs to."}])
                       (reduce (fn [acc [etype triples]]
                                 (if (not etype)
                                   (ex/throw-validation-err!
                                    :tx-steps
                                    steps
-                                   [{:message "Could not determine the namespace that the transaction belongs to."}])
+                                   [{:message "could not determine the namespace that the transaction belongs to."}])
                                   (assoc acc
                                          {:eid eid
                                           :etype etype
@@ -448,10 +450,19 @@
             {}
             triples-by-eid+etype)))
 
+(defn- get-uuid-eid! [lookup->eid lookup]
+  (if (uuid? lookup)
+    lookup
+    (or (lookup->eid lookup)
+        (ex/throw-validation-err!
+         :lookup
+         lookup
+         [{:message "Could not resolve lookup. TODO write something"}]))))
+
 (defn extract-refs
-  "Extracts a list of refs that can be passed to cel/prefetch-data-refs.
-   Returns: [{:etype string path-str string eids #{uuid}}]"
-  [user-id check-commands]
+  "extracts a list of refs that can be passed to cel/prefetch-data-refs.
+   returns: [{:etype string path-str string eids #{uuid}}]"
+  [user-id check-commands lookup->eid]
   (vals
    (reduce (fn [acc check]
              (if (and (= :object (:scope check))
@@ -468,7 +479,9 @@
                                        (-> (or ref {:etype (name (:etype check))
                                                     :path-str path
                                                     :eids #{}})
-                                           (update :eids conj (:eid check)))))
+                                           (update :eids conj (get-uuid-eid!
+                                                               lookup->eid
+                                                               (:eid check))))))
                              "auth"
                              (update acc
                                      ["$users" path]
@@ -486,18 +499,19 @@
            check-commands)))
 
 (defn preload-refs
-  "Preloads data for data.ref so that we don't have to make a db call in the cel handler"
-  [ctx check-commands]
+  "preloads data for data.ref so that we don't have to make a db call in the cel handler"
+  [ctx check-commands lookup->eid]
   (let [refs (extract-refs (-> ctx
                                :current-user
                                :id)
-                           check-commands)]
+                           check-commands
+                           lookup->eid)]
     (if (seq refs)
       (cel/prefetch-data-refs ctx refs)
       {})))
 
 (defn validate-reserved-names!
-  "Throws a validation error if the users tries to add triples to the $users table"
+  "throws a validation error if the users tries to add triples to the $users table"
   [admin? attrs tx-steps]
   (doseq [tx-step tx-steps
           :let [etype (case (first tx-step)
@@ -517,29 +531,37 @@
     (ex/throw-validation-err!
      :tx-step
      tx-step
-     [{:message (format "The %s namespace is read-only. It can't be modified."
+     [{:message (format "the %s namespace is read-only. it can't be modified."
                         etype)}])))
 
 (defn lock-tx-on! [tx-conn big-int]
-  (sql/execute! tx-conn ["SELECT pg_advisory_xact_lock(?)" big-int]))
+  (sql/execute! tx-conn ["select pg_advisory_xact_lock(?)" big-int]))
+
+(defn lookup->eid-from-preloaded-triples [preloaded-triples]
+  (reduce
+   (fn [acc [{:keys [eid]} {:keys [triples]}]]
+     (if (and (vector? eid) (seq triples))
+       (assoc acc eid (ffirst triples))))
+   {}
+   preloaded-triples))
 
 (defn transact!
-  "Runs transactions alongside permission checks. The overall flow looks like this:
+  "runs transactions alongside permission checks. the overall flow looks like this:
 
-   1. We take a list of tx-steps (add-attr, delete-attr, add-triple, etc)
-   2. We group tx-steps `check` commands.
-     a. Multiple `add-triple` commands for the same `eid` will collect into a single
+   1. we take a list of tx-steps (add-attr, delete-attr, add-triple, etc)
+   2. we group tx-steps `check` commands.
+     a. multiple `add-triple` commands for the same `eid` will collect into a single
         `check` command
-   3. We run queries to get existing data for each `eid` in the transaction.
+   3. we run queries to get existing data for each `eid` in the transaction.
 
-   Here's the order that checks run:
+   here's the order that checks run:
 
-   1. We run all `update` and `delete` checks first.
-   2. Then, we run the actual transaction
-   3. Then, we run all the `create` checks.
+   1. we run all `update` and `delete` checks first.
+   2. then, we run the actual transaction
+   3. then, we run all the `create` checks.
 
-   We run `create` checks _after_ the transaction, so we can query off of the
-   object. For example, if we created a new `post`, we may want a check that says:
+   we run `create` checks _after_ the transaction, so we can query off of the
+   object. for example, if we created a new `post`, we may want a check that says:
    `auth.id in data.ref('creator.id')`"
   [{:keys [db app-id admin? admin-check? admin-dry-run? attrs] :as ctx} tx-steps]
   (tracer/with-span! {:name "permissioned-transaction/transact!"
@@ -547,40 +569,31 @@
     (validate-reserved-names! admin? attrs tx-steps)
     (let [{:keys [conn-pool]} db]
       (next-jdbc/with-transaction [tx-conn conn-pool]
-        ;; transact does read and then a write.
-        ;; We need to protect against a case where a different
-        ;; write happens between our read and write.
-        ;; To protect against this, we ensure writes for an
-        ;; app happen serially. We take an advisory lock on app-id
-        ;; when we start transact and we don't release it until
-        ;; we are done. This ensures that other transactions
-        ;; for this app will wait.
-        #_(lock-tx-on! tx-conn (hash app-id))
         (if admin?
           (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps)
           (let [{:keys [attr-changes object-changes]}
                 (group-by tx-change-type tx-steps)
 
                 optimistic-attrs (into attrs (get-new-attrs attr-changes))
-                ;; Use the db connection we have so that we don't cause a deadlock
-                ;; Also need to be able to read our own writes for the create checks
+                ;; use the db connection we have so that we don't cause a deadlock
+                ;; also need to be able to read our own writes for the create checks
                 ctx (assoc ctx
                            :db {:conn-pool tx-conn}
                            :attrs optimistic-attrs)
 
-                ;; If we were really smart, we would fetch the triples and the
+                ;; if we were really smart, we would fetch the triples and the
                 ;; update-delete data-ref dependencies in one go.
                 preloaded-triples (preload-triples ctx object-changes)
 
                 check-commands
                 (io/warn-io :check-commands
-                  (get-check-commands
-                   ctx
-                   attr-changes
-                   ;; Use preloaded-triples instead of object-changes.
-                   ;; It has all the same data, but the preload will also
-                   ;; resolve etypes for older version of delete-entity
-                   preloaded-triples))
+                            (get-check-commands
+                             ctx
+                             attr-changes
+                             ;; use preloaded-triples instead of object-changes.
+                             ;; it has all the same data, but the preload will also
+                             ;; resolve etypes for older version of delete-entity
+                             preloaded-triples))
 
                 {create-checks :create
                  view-checks :view
@@ -590,32 +603,37 @@
 
                 update-delete-checks (concat update-checks delete-checks)
 
-                preloaded-update-delete-refs (preload-refs ctx (concat update-delete-checks
-                                                                       view-checks))
+                lookup->eid-update-delete (lookup->eid-from-preloaded-triples preloaded-triples)
+
+                preloaded-update-delete-refs (preload-refs ctx
+                                                           (concat update-delete-checks
+                                                                   view-checks)
+
+                                                           lookup->eid-update-delete)
 
                 update-delete-checks-results
                 (io/warn-io :run-check-commands!
-                  (run-check-commands! (assoc ctx
-                                              :preloaded-refs preloaded-update-delete-refs)
-                                       update-delete-checks))
+                            (run-check-commands! (assoc ctx
+                                                        :preloaded-refs preloaded-update-delete-refs)
+                                                 update-delete-checks))
 
                 view-check-results
                 (io/warn-io :run-check-commands!
-                  (run-check-commands!
-                   (merge ctx
-                          {:preloaded-refs preloaded-update-delete-refs})
-                   view-checks))
+                            (run-check-commands!
+                             (merge ctx
+                                    {:preloaded-refs preloaded-update-delete-refs})
+                             view-checks))
 
                 tx-data (tx/transact-without-tx-conn! tx-conn
                                                       (:attrs ctx)
                                                       app-id
                                                       tx-steps)
 
-                preloaded-create-refs (preload-refs ctx create-checks)
+                preloaded-create-refs (preload-refs ctx create-checks {})
                 create-checks-results (io/warn-io :run-create-check-commands!
-                                        (run-check-commands!
-                                         (assoc ctx :preloaded-refs preloaded-create-refs)
-                                         create-checks))
+                                                  (run-check-commands!
+                                                   (assoc ctx :preloaded-refs preloaded-create-refs)
+                                                   create-checks))
                 all-check-results (concat update-delete-checks-results
                                           create-checks-results
                                           view-check-results)
@@ -626,7 +644,10 @@
                         tx-data
                         :check-results all-check-results
                         :all-checks-ok? all-checks-ok?
-                        :committed? (not rollback?))]
+                        :committed? (not rollback?)
+                        :preloaded-create-refs preloaded-create-refs
+                        :preloaded-update-delete-refs preloaded-update-delete-refs
+                        :preloaded-triples preloaded-triples)]
             (when rollback? (.rollback tx-conn))
             result))))))
 
@@ -636,12 +657,12 @@
     (def joe-eid #uuid "3c32701d-f4a2-40e8-b83c-077dd4cb5cec")
     (def app-attrs (attr-model/get-by-app-id colors-app-id))
     (def goal-id-attr (:id (attr-model/seek-by-fwd-ident-name ["goals" "id"] app-attrs)))
-    (def goal-creator-id-attr (:id (attr-model/seek-by-fwd-ident-name ["goals" "creatorId"] app-attrs)))
+    (def goal-creator-id-attr (:id (attr-model/seek-by-fwd-ident-name ["goals" "creatorid"] app-attrs)))
     (def goal-title-attr (:id (attr-model/seek-by-fwd-ident-name ["goals" "title"] app-attrs)))
     (def goal-eid #uuid "5433bb57-a721-4130-9431-9384133b295f")
     (def tx-steps [[:add-triple goal-eid goal-id-attr goal-eid]
                    [:add-triple goal-eid goal-creator-id-attr joe-eid]
-                   [:add-triple goal-eid goal-title-attr "Get a job"]]))
+                   [:add-triple goal-eid goal-title-attr "get a job"]]))
   (transact! {:db {:conn-pool (aurora/conn-pool)}
               :app-id colors-app-id
               :attrs app-attrs
@@ -649,8 +670,22 @@
               :rules (rule-model/get-by-app-id {:app-id colors-app-id})
               :datalog-query-fn d/query} tx-steps)
 
-  ;; OG transact
+  ;; og transact
   (tx/transact! (aurora/conn-pool)
                 (attr-model/get-by-app-id colors-app-id)
                 colors-app-id
                 tx-steps))
+
+(comment
+  (def eph (instant.fixtures/eph-zeneca-app!))
+  (def app (:app eph))
+  (def r (:r eph))
+  (def app-id (:id app))
+  (def attrs (attr-model/get-by-app-id app-id))
+  (def ctx {:db {:conn-pool (aurora/conn-pool)}
+            :app-id app-id
+            :attrs attrs
+            :datalog-query-fn d/query})
+  (def email-attr-id (resolvers/->uuid r :users/email)))
+
+(def tx-steps [])
