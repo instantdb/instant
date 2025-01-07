@@ -317,6 +317,8 @@
                                                :room-id room-id
                                                :client-event-id client-event-id})))
 
+(def patch-presence-min-version (semver/parse "v0.17.5"))
+
 (defn- handle-refresh-presence! [store-conn sess-id {:keys [app-id room-id data edits]}]
   (let [version (-> (rs/get-versions @store-conn sess-id)
                     (get core-version-key))]
@@ -325,8 +327,10 @@
       :nop
 
       (and edits
-           version
-           (pos? (semver/compare-semver version "v0.17.5"))
+           (let [parsed-version (semver/parse version)]
+             (and parsed-version
+                  (pos? (semver/compare-semver parsed-version
+                                               patch-presence-min-version))))
            (flags/use-patch-presence? app-id))
       (rs/send-event! store-conn app-id sess-id
                       {:op      :patch-presence
