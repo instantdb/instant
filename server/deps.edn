@@ -79,7 +79,6 @@
                               io.github.tonsky/clj-reload   {:mvn/version "0.7.1"}
                               eftest/eftest                 {:mvn/version "0.6.0"}
                               com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.5.1"}}
-                 :extra-paths ["dev" "test" "dev-resources"]
                  :jvm-opts ["-enableassertions"
                             ;; Allow clj-async-profiler to attach
                             "-Djdk.attach.allowAttachSelf"
