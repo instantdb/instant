@@ -325,6 +325,7 @@
       :nop
 
       (and edits
+           version
            (pos? (semver/compare-semver version "v0.17.5"))
            (flags/use-patch-presence? app-id))
       (rs/send-event! store-conn app-id sess-id
