@@ -24,7 +24,6 @@ build-email:
 
 replace-email-images:
 	echo "Replacing images..."
-	cd www/_emails/replace-images && pnpm i
 	node www/_emails/replace-images/index.mjs $(slug)
 
 text-email:
