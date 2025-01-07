@@ -547,32 +547,33 @@
    {}
    preloaded-triples))
 
-(defn resolve-lookups [app-id lookups]
-  (let [lookups-set (set lookups)
-        triples (sql/execute!
-                 (aurora/conn-pool)
-                 (hsql/format
-                  {:select :*
-                   :from :triples
-                   :where [:and
-                           [:= :app-id app-id]
-                           :av
-                           (list* :or
-                                  (map
-                                   (fn [[a v]]
-                                     [:and [:= :attr-id a] [:= :value [:cast (->json v) :jsonb]]])
-                                   lookups-set))]}))
-        lookups->eid (->> triples
-                          (map (fn [{:keys [entity_id attr_id value]}]
-                                 [[attr_id value] entity_id]))
-                          (into {}))]
-
-    (when (not= (count lookups) (count lookups->eid))
-      (ex/throw-validation-err!
-       :lookups
-       lookups
-       [{:message "mismatch. todo write something"}]))
-    lookups->eid))
+(defn resolve-lookups [conn app-id lookups]
+  (if-not (seq lookups)
+    {}
+    (let [lookups-set (set lookups)
+          triples (sql/execute!
+                   conn
+                   (hsql/format
+                    {:select :*
+                     :from :triples
+                     :where [:and
+                             [:= :app-id app-id]
+                             :av
+                             (list* :or
+                                    (map
+                                     (fn [[a v]]
+                                       [:and [:= :attr-id a] [:= :value [:cast (->json v) :jsonb]]])
+                                     lookups-set))]}))
+          lookups->eid (->> triples
+                            (map (fn [{:keys [entity_id attr_id value]}]
+                                   [[attr_id value] entity_id]))
+                            (into {}))]
+      (when (not= (count lookups) (count lookups->eid))
+        (ex/throw-validation-err!
+         :lookups
+         lookups
+         [{:message "mismatch. todo write something"}]))
+      lookups->eid)))
 
 (defn transact!
   "runs transactions alongside permission checks. the overall flow looks like this:
@@ -657,14 +658,20 @@
                                                       (:attrs ctx)
                                                       app-id
                                                       tx-steps)
-                lookup->eid-create-refs (resolve-lookups app-id
+                lookup->eid-create-refs (resolve-lookups tx-conn
+                                                         app-id
                                                          (->> create-checks
                                                               (map :eid)
                                                               (filter vector?)))
                 preloaded-create-refs (preload-refs ctx create-checks lookup->eid-create-refs)
+
+                _ (def preloaded-create-refs preloaded-create-refs)
+
                 create-checks-results (io/warn-io :run-create-check-commands!
                                                   (run-check-commands!
-                                                   (assoc ctx :preloaded-refs preloaded-create-refs)
+                                                   (assoc ctx
+                                                          :preloaded-refs preloaded-create-refs
+                                                          :lookup->eid lookup->eid-create-refs)
                                                    create-checks))
                 all-check-results (concat update-delete-checks-results
                                           create-checks-results

@@ -255,7 +255,7 @@
        [{:message "The :on-delete property can't be set on an attribute."}]))))
 
 (defn insert-multi!
-  "Attr data is expressed as one object in clj but is persisted across two tables
+  "Attr data is expressed as one object in clj but is persisted across two tablesdb/transa
    in sql: `attrs` and `idents`.
 
    We extract relevant data for each table and build a CTE to insert into

@@ -191,7 +191,10 @@
                                                                       #"^\$user\."
                                                                       "")
                                               path-str)
-                                   ref-data {:eid (parse-uuid id)
+                                   parsed-id (if (string? id)
+                                               (parse-uuid id)
+                                               ((:lookup->eid ctx) (update id 0 parse-uuid)))
+                                   ref-data {:eid parsed-id
                                              :etype etype
                                              :path-str path-str}]
                                (if-let [preloaded-ref (-> ctx
@@ -391,7 +394,7 @@
                  patterns
                  results))))
 
-(def auth-ref-validator ^CelAstValidator 
+(def auth-ref-validator ^CelAstValidator
   (reify CelAstValidator
     (validate [_this ast _cel issues-factory]
       (doseq [^CelNavigableExpr node (-> ast

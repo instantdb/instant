@@ -37,18 +37,20 @@
 
   (def handle-attr-id (resolvers/->uuid r :users/handle))
 
+  (def user-id-aid (resolvers/->uuid r :users/id))
+
   (def fullname-attr-id (resolvers/->uuid r :users/fullName))
 
-  (permissioned-tx/resolve-lookups
-   app-id
-   [[handle-attr-id "stopa"]])
+  (def user-bookshelves-aid (resolvers/->uuid r :users/bookshelves))
+
+  (def bookshelves-name-aid (resolvers/->uuid r :bookshelves/name))
 
   (rule-model/put!
    (aurora/conn-pool)
    {:app-id app-id
-    :code {:users {:allow {:create "'Musashi' in data.ref('bookshelves.books.title')"
-                           :update "'Musashi' in data.ref('bookshelves.books.title')"
-                           :delete "'Musashi' in data.ref('bookshelves.books.title')"}}}})
+    :code {:users {:allow {:create "'Worldview' in data.ref('bookshelves.name')"
+                           :update "'Worldview' in data.ref('bookshelves.name')"
+                           :delete "'Worldview' in data.ref('bookshelves.name')"}}}})
 
   (-> (permissioned-tx/transact!
        (assoc ctx
@@ -70,17 +72,30 @@
           [handle-attr-id "stopa"]]])
        :preloaded-update-delete-refs)
 
-  (ex-data *e)
-  (->  (permissioned-tx/transact!
-        (assoc ctx
-               :rules (rule-model/get-by-app-id {:app-id app-id})
-               :admin-check? true
-               :admin-dry-run? true)
-        [[:add-triple
-          [handle-attr-id "nobody"]
-          fullname-attr-id
-          " No Bo Di"]])
-       :preloaded-create-refs)
+  (def bid (random-uuid))
+
+  (-> (permissioned-tx/transact!
+       (assoc ctx
+              :rules (rule-model/get-by-app-id {:app-id app-id})
+              :admin-check? true
+              :admin-dry-run? true)
+       [[:add-triple
+         [handle-attr-id "nobody"]
+         fullname-attr-id
+         " No Bo Di"]
+        [:add-triple
+         [handle-attr-id "nobody"]
+         user-id-aid
+         [handle-attr-id "nobody"]]
+        [:add-triple
+         [handle-attr-id "nobody"]
+         user-bookshelves-aid
+         bid]
+        [:add-triple
+         bid
+         bookshelves-name-aid
+         "Moop"]])
+      :preloaded-create-refs)
 
   (permissioned-tx/transact!
    (assoc ctx
