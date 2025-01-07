@@ -152,6 +152,7 @@
                                                 max-workers]
                                          :or {max-workers 2}}]
   (let [workers (atom #{})
+        ;; Use a promise so we can access it in the `on-add` function
         grouped-queue (promise)
         on-add (fn []
                  (when (< (count @workers) max-workers)
@@ -167,6 +168,7 @@
                            (loop []
                              (when (process! @grouped-queue {:reserve-fn reserve-fn
                                                              :process-fn process-fn})
+                               ;; Continue processing items until the queue is empty
                                (recur)))
                            (catch Throwable t
                              (tracer/record-exception-span! t {:name "grouped-queue/process-error"}))

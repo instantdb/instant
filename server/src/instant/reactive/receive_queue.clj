@@ -31,7 +31,6 @@
                                                          :reserve-fn reserve-fn
                                                          :process-fn process-fn
                                                          :max-workers max-workers})]
-    (def -queue-with-workers queue-with-workers)
     (def receive-q grouped-queue)
     (def cleanup-gauge (gauges/add-gauge-metrics-fn
                         (fn [_] (receive-q-metrics queue-with-workers))))))
