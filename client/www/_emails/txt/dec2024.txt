@@ -1,0 +1,29 @@
+
+Hey crew! It’s time for another edition of Instant News 🙂 Here’s a slice of what happened in December!
+
+**Order by attributes**
+
+Previously, you could order by `serverCreatedAt`, but not much else. This is because we didn’t have a way to make `order` queries fast.
+
+Once we introduced type checked attributes, suddenly the path for fast order queries opened up. Starting from `0.17.0`, you can use `order` on type-checked and indexed attributes.
+
+To learn more about how to use order, [check out the docs](https://www.instantdb.com/docs/instaql#ordering).
+
+**Sign in with Apple**
+
+We’ve had sign in with magic codes, Google, Clerk, and custom auth flows via the admin SDK. Well now Instant provides support for signing in with Apple too! We support a popup flow, a web redirect, and a dedicated React Native flow! [Learn more in the docs](https://www.instantdb.com/docs/auth/apple?method=web-popup)
+
+**Type-safe init by default!**
+We launched type enforcement on the backend last month and this month we made type-safe `init` the default. Previously to get type-safety on the frontend you had to use a separate `init_experimental` flow. Now you can just import your schema and pass it to `init`
+
+We made sure to do this in a backwards compatible way, so upgrading to the latest version shouldn’t cause any headaches. To learn more about backwards compatibility check out our announcement on [discord](https://discord.com/channels/1031957483243188235/1148279464132890714/1319055607776546918). And to learn more about how to leverage type-safety [check out our docs.](https://www.instantdb.com/docs/modeling-data)
+
+**What’s next?**
+
+It's been an awesome year for us at Instant, the platform has grown so much thanks to all your feedback. Instant is on completely different level compared to [our mvp from one year ago](https://discord.com/channels/1031957483243188235/1148279464132890714/1187861605959074014). So excited to make another magnitude jump in 2025 and make Instant the new default for folks who want to ship the best applications fast!
+
+Hope you had a wonderful holidays and looking forward to hacking together in 2025!
+
+**P.S. We’re hiring!**
+
+If you’re interested in working on some of the hardest problems for modern app development drop us a line at founders@instantdb.com with a resume and a side project you’ve worked on (including a Github is a huge plus!)
