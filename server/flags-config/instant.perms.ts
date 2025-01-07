@@ -62,7 +62,7 @@ const rules = {
       update: "false",
     },
   },
-  hazelcast: {
+  "use-patch-presence": {
     allow: {
       view: "false",
       create: "false",
