@@ -16,7 +16,8 @@
    [instant.util.uuid :as uuid-util]
    [next.jdbc :as next-jdbc]
    [honey.sql :as hsql]
-   [instant.data.resolvers :as resolvers]))
+   [instant.data.resolvers :as resolvers]
+   [instant.util.json :refer [->json]]))
 
 (defn extract-etype [{:keys [attrs]} attr-id]
   (attr-model/fwd-etype (attr-model/seek-by-id attr-id attrs)))
@@ -279,6 +280,7 @@
                               :action (tx-object-action-type tx-step)}
                              (fnil conj [])
                              patched-step)
+                ;; TODO we will need to make sure we preload this too
                 rev-etype (update {:eid rev-eid
                                    :etype rev-etype
                                    :action :view}
@@ -545,6 +547,33 @@
    {}
    preloaded-triples))
 
+(defn resolve-lookups [app-id lookups]
+  (let [lookups-set (set lookups)
+        triples (sql/execute!
+                 (aurora/conn-pool)
+                 (hsql/format
+                  {:select :*
+                   :from :triples
+                   :where [:and
+                           [:= :app-id app-id]
+                           :av
+                           (list* :or
+                                  (map
+                                   (fn [[a v]]
+                                     [:and [:= :attr-id a] [:= :value [:cast (->json v) :jsonb]]])
+                                   lookups-set))]}))
+        lookups->eid (->> triples
+                          (map (fn [{:keys [entity_id attr_id value]}]
+                                 [[attr_id value] entity_id]))
+                          (into {}))]
+
+    (when (not= (count lookups) (count lookups->eid))
+      (ex/throw-validation-err!
+       :lookups
+       lookups
+       [{:message "mismatch. todo write something"}]))
+    lookups->eid))
+
 (defn transact!
   "runs transactions alongside permission checks. the overall flow looks like this:
 
@@ -628,8 +657,11 @@
                                                       (:attrs ctx)
                                                       app-id
                                                       tx-steps)
-
-                preloaded-create-refs (preload-refs ctx create-checks {})
+                lookup->eid-create-refs (resolve-lookups app-id
+                                                         (->> create-checks
+                                                              (map :eid)
+                                                              (filter vector?)))
+                preloaded-create-refs (preload-refs ctx create-checks lookup->eid-create-refs)
                 create-checks-results (io/warn-io :run-create-check-commands!
                                                   (run-check-commands!
                                                    (assoc ctx :preloaded-refs preloaded-create-refs)

@@ -39,6 +39,10 @@
 
   (def fullname-attr-id (resolvers/->uuid r :users/fullName))
 
+  (permissioned-tx/resolve-lookups
+   app-id
+   [[handle-attr-id "stopa"]])
+
   (rule-model/put!
    (aurora/conn-pool)
    {:app-id app-id
@@ -66,6 +70,7 @@
           [handle-attr-id "stopa"]]])
        :preloaded-update-delete-refs)
 
+  (ex-data *e)
   (->  (permissioned-tx/transact!
         (assoc ctx
                :rules (rule-model/get-by-app-id {:app-id app-id})
@@ -74,7 +79,7 @@
         [[:add-triple
           [handle-attr-id "nobody"]
           fullname-attr-id
-          "No Bo Di"]])
+          " No Bo Di"]])
        :preloaded-create-refs)
 
   (permissioned-tx/transact!
