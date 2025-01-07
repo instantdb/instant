@@ -2,3 +2,4 @@ packages:
   - 'packages/*'
   - 'sandbox/*'
   - 'www'
+  - 'www/_emails/replace-images'
