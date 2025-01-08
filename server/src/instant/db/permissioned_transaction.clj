@@ -14,7 +14,9 @@
    [instant.util.string :as string-util]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
-   [next.jdbc :as next-jdbc]))
+   [next.jdbc :as next-jdbc]
+   [instant.util.coll :as ucoll]
+   [instant.db.model.triple :as triple-model]))
 
 (defn extract-etype [{:keys [attrs]} attr-id]
   (attr-model/fwd-etype (attr-model/seek-by-id attr-id attrs)))
@@ -75,12 +77,89 @@
    original
    tx-steps))
 
+(defn object-upsert-check-fn [{:keys [action program data etype] :as _check}
+                              {:keys [current-user] :as ctx}]
+  (let [etype-str (name etype)
+        {:keys [original updated]} data]
+    (cond (not program)
+          true
+
+          (= :create action)
+          (cel/eval-program!
+           program
+           {"auth"
+            (cel/->cel-map {:type :auth
+                            :ctx ctx
+                            :etype "$users"}
+                           current-user)
+            "newData"
+            (cel/->cel-map {} updated)
+            "data"
+            (cel/->cel-map {:ctx ctx
+                            :etype etype-str
+                            :type :data}
+                           updated)})
+
+          (= :update action)
+          (cel/eval-program!
+           program
+           {"auth"
+            (cel/->cel-map {:type :auth
+                            :ctx ctx
+                            :etype "$users"}
+                           current-user)
+            "data"
+            (cel/->cel-map {:ctx ctx
+                            :etype etype-str
+                            :type :data}
+                           original)
+            "newData"
+            (cel/->cel-map {} updated)}))))
+
+(defn object-delete-check-fn
+  [{:keys [program etype data] :as _check}
+   {:keys [current-user] :as ctx}]
+  (let [{:keys [original]} data
+        etype-str (name etype)]
+    (if-not program
+      true
+      (cel/eval-program!
+       program
+       {"auth"
+        (cel/->cel-map {:type :auth
+                        :ctx ctx
+                        :etype "$users"}
+                       current-user)
+        "data"
+        (cel/->cel-map {:type :data
+                        :ctx ctx
+                        :etype etype-str}
+                       original)}))))
+
+(defn object-view-check-fn [{:keys [etype program data] :as _check}
+                            {:keys [current-user] :as ctx}]
+  (let [{:keys [original]} data]
+    (if-not program
+      true
+      (cel/eval-program!
+       program
+       {"auth"
+        (cel/->cel-map {:type :auth
+                        :ctx ctx
+                        :etype "$users"}
+                       current-user)
+        "data"
+        (cel/->cel-map {:type :data
+                        :ctx ctx
+                        :etype etype}
+                       original)}))))
+
 ;; Why do we have to decide whether something is an update or a create?
 ;; When a user makes a transaction, the only option they have currently is to do an `update`:
 ;; tx.users[id].update({name: "Joe"})
 ;; It's up to use to decide whether this object existed before or not.
 (defn object-upsert-check
-  [{:keys [attrs rules current-user] :as ctx} etype eid tx-steps triples]
+  [{:keys [attrs rules] :as ctx} etype eid tx-steps triples]
   (let [original (entity-model/triples->map ctx triples)
         action (if (seq original) "update" "create")
         program (rule-model/get-program! rules etype action)
@@ -92,43 +171,9 @@
      :eid eid
      :data {:original original
             :updated new-data}
-     :program program
-     :check (fn [ctx]
-              (cond (not program)
-                    true
-                    (= :create action-kw)
-                    (cel/eval-program!
-                     program
-                     {"auth"
-                      (cel/->cel-map {:type :auth
-                                      :ctx ctx
-                                      :etype "$users"}
-                                     current-user)
-                      "newData"
-                      (cel/->cel-map {} new-data)
-                      "data"
-                      (cel/->cel-map {:ctx ctx
-                                      :etype etype
-                                      :type :data}
-                                     new-data)})
+     :program program}))
 
-                    (= :update action-kw)
-                    (cel/eval-program!
-                     program
-                     {"auth"
-                      (cel/->cel-map {:type :auth
-                                      :ctx ctx
-                                      :etype "$users"}
-                                     current-user)
-                      "data"
-                      (cel/->cel-map {:ctx ctx
-                                      :etype etype
-                                      :type :data}
-                                     original)
-                      "newData"
-                      (cel/->cel-map {} new-data)})))}))
-
-(defn object-delete-check [{:keys [rules current-user] :as ctx} etype eid triples]
+(defn object-delete-check [{:keys [rules] :as ctx} etype eid triples]
   (let [original (entity-model/triples->map ctx triples)
         program (when etype
                   (rule-model/get-program! rules etype "delete"))]
@@ -136,25 +181,11 @@
      :etype (keyword etype)
      :action :delete
      :eid eid
-     :program program
-     :check (fn [ctx]
-              (if-not program
-                true
-                (cel/eval-program!
-                 program
-                 {"auth"
-                  (cel/->cel-map {:type :auth
-                                  :ctx ctx
-                                  :etype "$users"}
-                                 current-user)
-                  "data"
-                  (cel/->cel-map {:type :data
-                                  :ctx ctx
-                                  :etype etype}
-                                 original)})))}))
+     :data {:original original}
+     :program program}))
 
 (defn object-view-check
-  [{:keys [rules current-user] :as ctx} etype eid triples]
+  [{:keys [rules] :as ctx} etype eid triples]
   (let [original (entity-model/triples->map ctx triples)
         program (rule-model/get-program! rules etype "view")]
     (when (seq original)
@@ -163,21 +194,7 @@
        :action :view
        :eid eid
        :program program
-       :check (fn [ctx]
-                (if-not program
-                  true
-                  (cel/eval-program!
-                   program
-                   {"auth"
-                    (cel/->cel-map {:type :auth
-                                    :ctx ctx
-                                    :etype "$users"}
-                                   current-user)
-                    "data"
-                    (cel/->cel-map {:type :data
-                                    :ctx ctx
-                                    :etype etype}
-                                   original)})))})))
+       :data {:original original}})))
 
 (defn object-check [ctx etype eid action tx-steps triples]
   (condp = action
@@ -315,39 +332,54 @@
                (object-check ctx etype eid action tx-steps triples))
              preloaded-triples)))
 
-(defn attr-delete-check [{:keys [admin?] :as _ctx} _aid]
+(defn attr-delete-check-fn [_check {:keys [admin?] :as _ctx}]
+  admin?)
+
+(defn attr-update-check-fn [_check {:keys [admin?] :as _ctx}]
+  admin?)
+
+(defn attr-delete-check [_ctx _aid]
   {:scope :attr
    :etype :attrs
-   :action :delete
-   :check (fn [_ctx]
-            admin?)})
+   :action :delete})
 
-(defn attr-update-check [{:keys [admin?] :as _ctx} _aid]
+(defn attr-update-check [_ctx _aid]
   {:scope :attr
    :etype :attrs
-   :action :update
-   :check (fn [_ctx]
-            admin?)})
+   :action :update})
 
-(defn attr-create-check [{:keys [current-user rules] :as ctx} attr]
+(defn attr-create-check-fn [{:keys [program data]} {:keys [current-user] :as ctx}]
+  (let [{:keys [updated]} data]
+    (if-not program
+      true
+      (cel/eval-program!
+       program
+       {"auth" (cel/->cel-map {:type :auth
+                               :ctx ctx
+                               :etype "$users"}
+                              current-user)
+        "data" (cel/->cel-map {:type :data
+                               :ctx ctx}
+                              updated)}))))
+
+(defn check-fn [{:keys [scope action] :as check} ctx]
+  (case [scope action]
+    [:object :create] (object-upsert-check-fn check ctx)
+    [:object :update] (object-upsert-check-fn check ctx)
+    [:object :delete] (object-delete-check-fn check ctx)
+    [:object :view] (object-view-check-fn check ctx)
+
+    [:attr :create] (attr-create-check-fn check ctx)
+    [:attr :delete] (attr-delete-check-fn check ctx)
+    [:attr :update] (attr-update-check-fn check ctx)))
+
+(defn attr-create-check [{:keys [rules] :as _ctx} attr]
   (let [program (rule-model/get-program! rules "attrs" "create")]
     {:scope :attr
      :etype :attrs
      :action :create
      :program program
-     :data {:updated attr}
-     :check (fn [_ctx]
-              (if-not program
-                true
-                (cel/eval-program!
-                 program
-                 {"auth" (cel/->cel-map {:type :auth
-                                         :ctx ctx
-                                         :etype "$users"}
-                                        current-user)
-                  "data" (cel/->cel-map {:type :data
-                                         :ctx ctx}
-                                        attr)})))}))
+     :data {:updated attr}}))
 
 (defn attr-check [ctx [action args]]
   (condp = action
@@ -389,8 +421,8 @@
 
 (defn run-check-commands! [ctx checks]
   (->> checks
-       (mapv (fn [{:keys [etype action check] :as c}]
-               (let [check-result (check ctx)]
+       (mapv (fn [{:keys [etype action] :as c}]
+               (let [check-result (check-fn c ctx)]
                  (if (:admin-check? ctx)
                    (assoc c
                           :check-result check-result
@@ -523,6 +555,39 @@
 (defn lock-tx-on! [tx-conn big-int]
   (sql/execute! tx-conn ["SELECT pg_advisory_xact_lock(?)" big-int]))
 
+(defn lookup->eid-from-preloaded-triples [preloaded-triples]
+  (reduce
+   (fn [acc [{:keys [eid]} {:keys [triples]}]]
+     (if (and (vector? eid) (seq triples))
+       (assoc acc eid (ffirst triples))
+       acc))
+   {}
+   preloaded-triples))
+
+(defn resolve-lookup [lookups->eid {:keys [eid] :as check}]
+  (if-not (sequential? eid)
+    check
+    (let [found-eid (lookups->eid eid)]
+      (when-not found-eid
+        (ex/throw-validation-err!
+         :lookup
+         eid
+         [{:message "Could not find the entity for this lookup"}]))
+      (-> check
+          (assoc :eid found-eid)
+          (ucoll/assoc-in-when [:data :updated "id"] found-eid)))))
+
+(defn resolve-lookups-for-update-delete-checks [checks preloaded-triples]
+  (let [lookups->eid (lookup->eid-from-preloaded-triples preloaded-triples)]
+    (mapv (partial resolve-lookup lookups->eid) checks)))
+
+(defn resolve-lookups-for-create-checks [tx-conn app-id checks]
+  (let [lookups (->> checks
+                     (map :eid)
+                     (filter sequential?))
+        lookups->eid (triple-model/fetch-lookups->eid tx-conn app-id lookups)]
+    (mapv (partial resolve-lookup lookups->eid) checks)))
+
 (defn transact!
   "Runs transactions alongside permission checks. The overall flow looks like this:
 
@@ -574,13 +639,13 @@
 
                 check-commands
                 (io/warn-io :check-commands
-                  (get-check-commands
-                   ctx
-                   attr-changes
-                   ;; Use preloaded-triples instead of object-changes.
-                   ;; It has all the same data, but the preload will also
-                   ;; resolve etypes for older version of delete-entity
-                   preloaded-triples))
+                            (get-check-commands
+                             ctx
+                             attr-changes
+                             ;; Use preloaded-triples instead of object-changes.
+                             ;; It has all the same data, but the preload will also
+                             ;; resolve etypes for older version of delete-entity
+                             preloaded-triples))
 
                 {create-checks :create
                  view-checks :view
@@ -588,34 +653,38 @@
                  delete-checks :delete}
                 (group-by :action check-commands)
 
-                update-delete-checks (concat update-checks delete-checks)
+                update-delete-checks-resolved
+                (resolve-lookups-from-preloaded-triples
+                 (concat update-checks delete-checks)
+                 preloaded-triples)
 
-                preloaded-update-delete-refs (preload-refs ctx (concat update-delete-checks
+                preloaded-update-delete-refs (preload-refs ctx (concat update-delete-checks-resolved
                                                                        view-checks))
 
                 update-delete-checks-results
                 (io/warn-io :run-check-commands!
-                  (run-check-commands! (assoc ctx
-                                              :preloaded-refs preloaded-update-delete-refs)
-                                       update-delete-checks))
+                            (run-check-commands! (assoc ctx
+                                                        :preloaded-refs preloaded-update-delete-refs)
+                                                 update-delete-checks-resolved))
 
                 view-check-results
                 (io/warn-io :run-check-commands!
-                  (run-check-commands!
-                   (merge ctx
-                          {:preloaded-refs preloaded-update-delete-refs})
-                   view-checks))
+                            (run-check-commands!
+                             (merge ctx
+                                    {:preloaded-refs preloaded-update-delete-refs})
+                             view-checks))
 
                 tx-data (tx/transact-without-tx-conn! tx-conn
                                                       (:attrs ctx)
                                                       app-id
                                                       tx-steps)
 
-                preloaded-create-refs (preload-refs ctx create-checks)
+                create-checks-resolved (resolve-lookups-for-create-checks tx-conn app-id create-checks)
+                preloaded-create-refs (preload-refs ctx create-checks-resolved)
                 create-checks-results (io/warn-io :run-create-check-commands!
-                                        (run-check-commands!
-                                         (assoc ctx :preloaded-refs preloaded-create-refs)
-                                         create-checks))
+                                                  (run-check-commands!
+                                                   (assoc ctx :preloaded-refs preloaded-create-refs)
+                                                   create-checks-resolved))
                 all-check-results (concat update-delete-checks-results
                                           create-checks-results
                                           view-check-results)

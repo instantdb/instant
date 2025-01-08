@@ -43,6 +43,29 @@
 (s/def ::enhanced-triple
   (s/keys :req-un [::triple ::index ::md5]))
 
+(defn fetch-lookups->eid [conn app-id lookups]
+  (if-not (seq lookups)
+    {}
+    (let [lookups-set (set lookups)
+          triples (sql/execute!
+                   conn
+                   (hsql/format
+                    {:select :*
+                     :from :triples
+                     :where [:and
+                             [:= :app-id app-id]
+                             :av
+                             (list* :or
+                                    (map
+                                     (fn [[a v]]
+                                       [:and [:= :attr-id a] [:= :value [:cast (->json v) :jsonb]]])
+                                     lookups-set))]}))
+
+          lookups->eid (->> triples
+                            (map (fn [{:keys [entity_id attr_id value]}]
+                                   [[attr_id value] entity_id]))
+                            (into {}))]
+      lookups->eid)))
 ;; ---
 ;; insert-multi!
 
