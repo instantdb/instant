@@ -327,11 +327,10 @@
       :nop
 
       (and edits
-           (let [parsed-version (semver/parse version)]
-             (and parsed-version
-                  (pos? (semver/compare-semver parsed-version
-                                               patch-presence-min-version))))
-           (flags/use-patch-presence? app-id))
+           (flags/use-patch-presence? app-id)
+           (when-let [parsed-version (some-> version (semver/parse))]
+             (pos? (semver/compare-semver parsed-version
+                                          patch-presence-min-version))))
       (rs/send-event! store-conn app-id sess-id
                       {:op      :patch-presence
                        :room-id room-id
