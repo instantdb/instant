@@ -138,7 +138,8 @@
 
 (defn object-view-check-fn [{:keys [etype program data] :as _check}
                             {:keys [current-user] :as ctx}]
-  (let [{:keys [original]} data]
+  (let [{:keys [original]} data
+        etype-str (name etype)]
     (if-not program
       true
       (cel/eval-program!
@@ -151,7 +152,7 @@
         "data"
         (cel/->cel-map {:type :data
                         :ctx ctx
-                        :etype etype}
+                        :etype etype-str}
                        original)}))))
 
 ;; Why do we have to decide whether something is an update or a create?
@@ -636,7 +637,6 @@
                 ;; If we were really smart, we would fetch the triples and the
                 ;; update-delete data-ref dependencies in one go.
                 preloaded-triples (preload-triples ctx object-changes)
-
                 check-commands
                 (io/warn-io :check-commands
                             (get-check-commands
@@ -646,7 +646,6 @@
                              ;; It has all the same data, but the preload will also
                              ;; resolve etypes for older version of delete-entity
                              preloaded-triples))
-
                 {create-checks :create
                  view-checks :view
                  update-checks :update
@@ -658,8 +657,12 @@
                  (concat update-checks delete-checks)
                  preloaded-triples)
 
+                view-checks-resolved
+                (resolve-lookups-for-update-delete-checks
+                 view-checks
+                 preloaded-triples)
                 preloaded-update-delete-refs (preload-refs ctx (concat update-delete-checks-resolved
-                                                                       view-checks))
+                                                                       view-checks-resolved))
 
                 update-delete-checks-results
                 (io/warn-io :run-check-commands!
@@ -672,7 +675,7 @@
                             (run-check-commands!
                              (merge ctx
                                     {:preloaded-refs preloaded-update-delete-refs})
-                             view-checks))
+                             view-checks-resolved))
 
                 tx-data (tx/transact-without-tx-conn! tx-conn
                                                       (:attrs ctx)

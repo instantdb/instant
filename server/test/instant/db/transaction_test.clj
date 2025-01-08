@@ -1332,64 +1332,154 @@
                  (perm-err?
                   (permissioned-tx/transact! (make-ctx)
                                              [[:delete-entity delete-id]])))))))))))
-
 (deftest lookup-perms
-  (with-zeneca-app
-    (fn [{app-id :id} r]
-      (let [attrs (attr-model/get-by-app-id app-id)
-            rule-with-ref "'Worldview' in data.ref('bookshelves.name')"
-            _ (rule-model/put!
-               (aurora/conn-pool)
-               {:app-id app-id
-                :code {:users {:allow
-                               {:create rule-with-ref
-                                :update rule-with-ref
-                                :delete rule-with-ref
-                                :view rule-with-ref}}}})
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [p-id-aid (random-uuid)
+            p-handle-aid (random-uuid)
 
-            rules (rule-model/get-by-app-id {:app-id app-id})
-            ctx {:db {:conn-pool (aurora/conn-pool)}
-                 :app-id app-id
-                 :attrs attrs
-                 :datalog-query-fn d/query
-                 :rules rules}
-            user-id-aid (resolvers/->uuid r :users/id)
-            user-handle-aid (resolvers/->uuid r :users/handle)
-            user-fullname-aid (resolvers/->uuid r :users/fullName)
-            user-bookshelves-aid (resolvers/->uuid r :users/bookshelves)
-            bookshelves-name-aid (resolvers/->uuid r :bookshelves/name)
-            new-bookshelf-id (random-uuid)]
+            p-fullname-aid (random-uuid)
 
-        (testing "Update uses preload-refs"
+            org-id-aid (random-uuid)
+            org-members-aid (random-uuid)
+            org-name-aid (random-uuid)
+
+            stopa-eid (random-uuid)
+            instant-org-eid (random-uuid)
+
+            acme-org-eid (random-uuid)]
+        (tx/transact!
+         (aurora/conn-pool)
+         (attr-model/get-by-app-id app-id)
+         app-id
+         [[:add-attr
+           {:id p-id-aid
+            :forward-identity [(random-uuid) "profiles" "id"]
+            :value-type :blob
+            :cardinality :one
+            :unique? true
+            :index? false}]
+          [:add-attr
+           {:id p-handle-aid
+            :forward-identity [(random-uuid) "profiles" "handle"]
+            :value-type :blob
+            :cardinality :one
+            :unique? true
+            :index? false}]
+          [:add-attr
+           {:id p-fullname-aid
+            :forward-identity [(random-uuid) "profiles" "fullName"]
+            :value-type :blob
+            :cardinality :one
+            :unique? false
+            :index? false}]
+          [:add-attr
+           {:id org-id-aid
+            :forward-identity [(random-uuid) "orgs" "id"]
+            :value-type :blob
+            :cardinality :one
+            :unique? true
+            :index? false}]
+          [:add-attr
+           {:id org-members-aid
+            :forward-identity [(random-uuid) "orgs" "members"]
+            :reverse-identity [(random-uuid) "profiles" "org"]
+            :value-type :ref
+            :cardinality :many
+            :unique? true
+            :index? false}]
+          [:add-attr
+           {:id org-name-aid
+            :forward-identity [(random-uuid) "orgs" "name"]
+            :value-type :blob
+            :cardinality :one
+            :unique? false
+            :index? false}]
+          [:add-triple stopa-eid p-id-aid stopa-eid]
+          [:add-triple stopa-eid p-handle-aid "stopa"]
+          [:add-triple stopa-eid p-fullname-aid "Stepan Parunashvili"]
+          [:add-triple instant-org-eid org-id-aid instant-org-eid]
+          [:add-triple instant-org-eid org-members-aid stopa-eid]
+          [:add-triple instant-org-eid org-name-aid "InstantDB"]
+          [:add-triple acme-org-eid org-id-aid acme-org-eid]
+          [:add-triple acme-org-eid org-name-aid "ACME"]])
+        (let [attrs (attr-model/get-by-app-id app-id)
+              _ (rule-model/put!
+                 (aurora/conn-pool)
+                 {:app-id app-id
+                  :code {:profiles {:allow
+                                    {:create "size(data.ref('org.id')) == 1"
+                                     :update  "size(data.ref('org.id')) == 1"
+                                     :view  "size(data.ref('org.id')) == 1"
+                                     :delete  "size(data.ref('org.id')) == 1"}}}})
+              rules (rule-model/get-by-app-id {:app-id app-id})
+              ctx {:db {:conn-pool (aurora/conn-pool)}
+                   :app-id app-id
+                   :attrs attrs
+                   :datalog-query-fn d/query
+                   :rules rules}]
+          ;; all operations should work with preload-refs
           (with-redefs [cel/get-ref (fn [& _args]
                                       (throw (IllegalAccessError. "Should not be called")))]
 
-            (permissioned-tx/transact!
-             ctx
-             [[:add-triple [user-handle-aid "stopa"] user-fullname-aid "Stopachka"]])
-            (is
-             (perm-err?
+            (testing "Create works"
               (permissioned-tx/transact!
                ctx
-               [[:add-triple [user-handle-aid "alex"] user-fullname-aid "Stopachka"]])))))
+               [[:add-triple [p-handle-aid "alyssa"] p-fullname-aid "Alyssa P Hacker"]
+                [:add-triple [p-handle-aid "alyssa"] p-id-aid [p-handle-aid "alyssa"]]
+                [:add-triple instant-org-eid org-members-aid [p-handle-aid "alyssa"]]])
+              (is (= #{"stopa" "alyssa"}
+                     (->>  (triple-model/fetch (aurora/conn-pool)
+                                               app-id
+                                               [[:= :attr-id p-handle-aid]])
+                           (map (comp last :triple))
+                           set)))
+              (is (perm-err?
+                   (permissioned-tx/transact!
+                    ctx
+                    [[:add-triple [p-handle-aid "ben"] p-fullname-aid "Ben BitDiddle"]
+                     [:add-triple [p-handle-aid "ben"] p-id-aid [p-handle-aid "ben"]]]))))
+            (testing "Delete works"
+              (permissioned-tx/transact!
+               ctx
+               [[:delete-entity [p-handle-aid "alyssa"] "profiles"]])
+              (is (= #{"stopa"}
+                     (->>  (triple-model/fetch (aurora/conn-pool)
+                                               app-id
+                                               [[:= :attr-id p-handle-aid]])
+                           (map (comp last :triple))
+                           set))))
+            (testing "Update works"
+              (permissioned-tx/transact!
+               ctx
+               [[:add-triple [p-handle-aid "stopa"] p-fullname-aid "Stopachka"]])
+              (is
+               (=  "Stopachka"
+                   (->  (triple-model/fetch (aurora/conn-pool)
+                                            app-id
+                                            [[:= :attr-id p-fullname-aid]
+                                             [:= :entity-id stopa-eid]])
 
-        (testing "Create uses preload refs"
-          (with-redefs [cel/get-ref (fn [& _args]
-                                      (throw (IllegalAccessError. "Should not be called")))]
-            (permissioned-tx/transact!
-             ctx
-             [[:add-triple [user-handle-aid "alyssa"] user-fullname-aid "Alyssa P Hacker"]
-              [:add-triple [user-handle-aid "alyssa"] user-id-aid [user-handle-aid "alyssa"]]
-              [:add-triple [user-handle-aid "alyssa"] user-bookshelves-aid new-bookshelf-id]
-              [:add-triple new-bookshelf-id bookshelves-name-aid "Worldview"]])
+                        first
+                        :triple
+                        last))))
 
-            (is (perm-err?
-                 (permissioned-tx/transact!
-                  ctx
-                  [[:add-triple [user-handle-aid "ben"] user-fullname-aid "Ben BitDiddle"]
-                   [:add-triple [user-handle-aid "ben"] user-id-aid [user-handle-aid "ben"]]
-                   [:add-triple [user-handle-aid "ben"] user-bookshelves-aid new-bookshelf-id]
-                   [:add-triple new-bookshelf-id bookshelves-name-aid "Nonfiction"]])))))))))
+            (testing "Update alongside view check works"
+              (permissioned-tx/transact!
+               ctx
+               [[:add-triple [p-handle-aid "stopa"] p-fullname-aid "Stopanado"]
+                [:add-triple [p-handle-aid "stopa"] p-id-aid [p-handle-aid "stopa"]]
+                [:add-triple instant-org-eid org-members-aid [p-handle-aid "stopa"]]])
+              (is
+               (=  "Stopanado"
+                   (->  (triple-model/fetch (aurora/conn-pool)
+                                            app-id
+                                            [[:= :attr-id p-fullname-aid]
+                                             [:= :entity-id stopa-eid]])
+
+                        first
+                        :triple
+                        last))))))))))
 
 (deftest rejects-bad-lookups
   (with-zeneca-app
