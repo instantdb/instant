@@ -654,7 +654,7 @@
                 (group-by :action check-commands)
 
                 update-delete-checks-resolved
-                (resolve-lookups-from-preloaded-triples
+                (resolve-lookups-for-update-delete-checks
                  (concat update-checks delete-checks)
                  preloaded-triples)
 
