@@ -391,7 +391,7 @@
                  patterns
                  results))))
 
-(def auth-ref-validator ^CelAstValidator 
+(def auth-ref-validator ^CelAstValidator
   (reify CelAstValidator
     (validate [_this ast _cel issues-factory]
       (doseq [^CelNavigableExpr node (-> ast
