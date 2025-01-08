@@ -181,7 +181,7 @@
     (stripe/init)
     (session/start)
     (inv/start-global)
-    (wal/init-cleanup)
+    (wal/init)
 
     (when-let [config-app-id (config/instant-config-app-id)]
       (flags-impl/init config-app-id
