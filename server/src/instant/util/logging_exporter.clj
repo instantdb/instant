@@ -54,7 +54,8 @@
                   "detailed_query"
                   "detailed_patterns"
                   "detailed_tx_steps"
-                  "process_id"})
+                  "process_id"
+                  "query"})
 
 (defn exclude? [[k]]
   (or (exclude-ks k)
@@ -127,7 +128,10 @@
          "store/record-datalog-query-start!"
          "store/swap-datalog-cache!"
          "store/bump-instaql-version!"
-         "store/add-instaql-query!") true
+         "store/add-instaql-query!"
+         "instaql/get-eid-check-result!"
+         "extract-permission-helpers"
+         "instaql/map-permissioned-node") true
 
         ("receive-worker/handle-event"
          "receive-worker/handle-receive")
