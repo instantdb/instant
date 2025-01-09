@@ -318,7 +318,7 @@ function myCustomUpdate<EType extends EntityTypes>(
 And the `LinkParams` utility do the same for links: 
 
 ```typescript
-import { UpdateParams } from '@instantdb/react';
+import { LinkParams } from '@instantdb/react';
 import { AppSchema } from '../instant.schema.ts';
 
 type EntityTypes = keyof AppSchema['entities'];
