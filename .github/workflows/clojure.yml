@@ -250,7 +250,7 @@ jobs:
       uses: "./.github/actions/elastic-beanstalk"
       with:
         working-directory: "server"
-        files: '["docker-compose.yml", ".ebextensions/resources.config"]'
+        files: '["docker-compose.yml", ".ebextensions/resources.config", ".ebextensions/alb.config"]'
         aws-region: "us-east-1"
         bucket: "elasticbeanstalk-us-east-1-597134865416"
         application-name: "instant-docker-prod"
