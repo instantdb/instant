@@ -79,8 +79,7 @@
 
 (defn object-upsert-check-fn [{:keys [action program data etype] :as _check}
                               {:keys [current-user] :as ctx}]
-  (let [etype-str (name etype)
-        {:keys [original updated]} data]
+  (let [{:keys [original updated]} data]
     (cond (not program)
           true
 
@@ -96,7 +95,7 @@
             (cel/->cel-map {} updated)
             "data"
             (cel/->cel-map {:ctx ctx
-                            :etype etype-str
+                            :etype etype
                             :type :data}
                            updated)})
 
@@ -110,7 +109,7 @@
                            current-user)
             "data"
             (cel/->cel-map {:ctx ctx
-                            :etype etype-str
+                            :etype etype
                             :type :data}
                            original)
             "newData"
@@ -119,8 +118,7 @@
 (defn object-delete-check-fn
   [{:keys [program etype data] :as _check}
    {:keys [current-user] :as ctx}]
-  (let [{:keys [original]} data
-        etype-str (name etype)]
+  (let [{:keys [original]} data]
     (if-not program
       true
       (cel/eval-program!
@@ -133,13 +131,12 @@
         "data"
         (cel/->cel-map {:type :data
                         :ctx ctx
-                        :etype etype-str}
+                        :etype etype}
                        original)}))))
 
 (defn object-view-check-fn [{:keys [etype program data] :as _check}
                             {:keys [current-user] :as ctx}]
-  (let [{:keys [original]} data
-        etype-str (name etype)]
+  (let [{:keys [original]} data]
     (if-not program
       true
       (cel/eval-program!
@@ -152,7 +149,7 @@
         "data"
         (cel/->cel-map {:type :data
                         :ctx ctx
-                        :etype etype-str}
+                        :etype etype}
                        original)}))))
 
 ;; Why do we have to decide whether something is an update or a create?
@@ -167,7 +164,7 @@
         action-kw (keyword action)
         new-data (apply-tx-steps attrs original tx-steps)]
     {:scope :object
-     :etype (keyword etype)
+     :etype etype
      :action action-kw
      :eid eid
      :data {:original original
@@ -179,7 +176,7 @@
         program (when etype
                   (rule-model/get-program! rules etype "delete"))]
     {:scope :object
-     :etype (keyword etype)
+     :etype etype
      :action :delete
      :eid eid
      :data {:original original}
@@ -191,7 +188,7 @@
         program (rule-model/get-program! rules etype "view")]
     (when (seq original)
       {:scope :object
-       :etype (keyword etype)
+       :etype etype
        :action :view
        :eid eid
        :program program
@@ -341,12 +338,12 @@
 
 (defn attr-delete-check [_ctx _aid]
   {:scope :attr
-   :etype :attrs
+   :etype "attrs"
    :action :delete})
 
 (defn attr-update-check [_ctx _aid]
   {:scope :attr
-   :etype :attrs
+   :etype "attrs"
    :action :update})
 
 (defn attr-create-check-fn [{:keys [program data]} {:keys [current-user] :as ctx}]
@@ -377,7 +374,7 @@
 (defn attr-create-check [{:keys [rules] :as _ctx} attr]
   (let [program (rule-model/get-program! rules "attrs" "create")]
     {:scope :attr
-     :etype :attrs
+     :etype "attrs"
      :action :create
      :program program
      :data {:updated attr}}))
