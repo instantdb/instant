@@ -243,7 +243,7 @@ export default {
     "bind" : [
       "isAdmin", "'admin' in auth.ref('$user.role.type')",
       "isOwner", "data.id in auth.ref('$user.todos.id')"
-    ]
+    ],
     "allow": {
       // We traverse the users links directly from the auth object
       "update": "isAdmin || isOwner",
