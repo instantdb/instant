@@ -468,6 +468,94 @@
                              the unique attribute value already exists.")}])
                (throw e)))))))
 
+(defn resolve-lookup-refs [conn app-id lookups]
+  (let [lookups (map (fn [[a v]] [a (->json v)]) lookups)
+        query   {:with [[[:lookups {:columns [:attr_id :value]}]
+                         {:values lookups}]]
+                 :select [:triples.attr_id :triples.value :triples.entity_id]
+                 :from :triples
+                 :join [:lookups
+                        [:and
+                         [:= :triples.attr_id :lookups.attr_id]
+                         [:= :triples.value [:cast :lookups.value :jsonb]]]]
+                 :where [:= :app_id app-id]}
+        results (sql/do-execute! conn (hsql/format query))]
+
+    (into {}
+          (for [{:triples/keys [attr_id value entity_id]} results]
+            [[attr_id value] entity_id]))))
+
+(comment
+  (resolve-lookup-refs
+   (aurora/conn-pool)
+   #uuid "92cb730c-8b4f-46ef-9925-4fab953694c6"
+   [[#uuid "20b65ea3-faad-4e80-863e-87468ff7792f" "joe@instantdb.com"]
+    [#uuid "6a089759-2a2f-4898-9bb8-a7bc9f6f791a" "stopa"]]))
+
+(defn delete-entity-multi-etypes! [conn app-id id+etypes]
+  (let [lookup-ids (some->> id+etypes
+                            (map first)
+                            (filter eid-lookup-ref?)
+                            not-empty
+                            (resolve-lookup-refs conn app-id))
+        id+etypes  (for [[id etype] id+etypes]
+                     [(or (get lookup-ids id) id) etype])
+        query      {:with [[[:id_etypes {:columns [:entity_id :etype]}]
+                            {:values id+etypes}]
+
+                           [:forward_attrs
+                            {:select :triples.ctid
+                             :from   :triples
+                             :join   [:id_etypes [:= :triples.entity_id :id_etypes.entity_id]
+                                      :attrs     [:= :triples.attr_id :attrs.id]
+                                      :idents    [:= :idents.id :attrs.forward-ident]]
+                             :where  [:and
+                                      [:= :triples.app-id [:param :app-id]]
+                                      [:= :idents.etype :id_etypes.etype]
+                                      [:or
+                                       [:= :idents.app-id [:param :app-id]]
+                                       [:= :idents.app-id [:param :system-catalog-app-id]]]]}]
+
+                           [:reverse_attrs
+                            {:select :triples.ctid
+                             :from   :triples
+                             :join   [:id_etypes [:= :triples.value [:to_jsonb :id_etypes.entity_id]]
+                                      :attrs     [:= :triples.attr_id :attrs.id]
+                                      :idents    [:= :idents.id :attrs.reverse-ident]]
+                             :where  [:and
+                                      :vae
+                                      [:= :triples.app-id [:param :app-id]]
+                                      [:= :idents.etype :id_etypes.etype]
+                                      [:or
+                                       [:= :idents.app-id [:param :app-id]]
+                                       [:= :idents.app-id [:param :system-catalog-app-id]]]]}]]
+                    :delete-from :triples
+                    :where       [:in :ctid
+                                  {:union
+                                   [{:nest {:select :* :from :forward_attrs}}
+                                    {:nest {:select :* :from :reverse_attrs}}]}]
+                    :returning   :*}
+        params     {:app-id app-id
+                    :system-catalog-app-id system-catalog-app-id}]
+    (sql/do-execute! conn (hsql/format query {:params params}))))
+
+(defn delete-entity-multi-no-etypes! [conn app-id ids]
+  (let [lookup-ids (some->> ids
+                            (filter eid-lookup-ref?)
+                            not-empty
+                            (resolve-lookup-refs conn app-id))
+        ids        (map #(or (get lookup-ids %) %) ids)
+        query      {:with [[[:no-etype-ids {:columns [:entity_id]}]
+                            {:values (map vector ids)}]]
+                    :delete-from :triples
+                    :where       [:and
+                                  [:= :triples.app-id app-id]
+                                  [:or
+                                   [:in :triples.entity_id {:select :entity_id :from :no-etype-ids}]
+                                   [:in :triples.value {:select [[[:to_jsonb :entity_id] :value]] :from :no-etype-ids}]]]
+                    :returning   :*}]
+    (sql/do-execute! conn (hsql/format query))))
+
 (defn delete-entity-multi!
   "Deleting an entity does two things:
 
@@ -477,58 +565,14 @@
    2. Deletes all reference triples where this entity is the value:
       [_ _ id]"
   [conn app-id id+etypes]
-  (let [conds (mapcat
-               (fn [[id etype]]
-                 (let [id-lookup
-                       (if (eid-lookup-ref? id)
-                         {:select :entity-id
-                          :from :triples
-                          :where [:and
-                                  [:= :app-id app-id]
-                                  :av
-                                  [:= :attr-id (first id)]
-                                  [:=
-                                   :value [:cast (->json (second id)) :jsonb]]]}
-                         id)]
-                   (if etype
-                     [[:and
-                       [:= :entity-id id-lookup]
-                       ;; Delete object triples and eav references
-                       [:in
-                        :attr-id
-                        {:select :attrs.id
-                         :from :attrs
-                         :join [:idents [:= :idents.id :attrs.forward-ident]]
-                         :where [:and
-                                 [:or
-                                  [:= :idents.app-id app-id]
-                                  [:= :idents.app-id system-catalog-app-id]]
-                                 [:= :idents.etype etype]]}]]
-                      [:and
-                       ;; Delete ref triples where we're the value
-                       :vae
-                       [:= :value [:to_jsonb id]]
-                       [:in
-                        :attr-id
-                        {:select :attrs.id
-                         :from :attrs
-                         :join [:idents [:= :idents.id :attrs.reverse-ident]]
-                         :where [:and
-                                 [:or
-                                  [:= :idents.app-id app-id]
-                                  [:= :idents.app-id system-catalog-app-id]]
-                                 [:= :idents.etype etype]]}]]]
-
-                     [[:= :entity-id id-lookup]
-                      [:and
-                       :vae
-                       [:= :value [:to_jsonb [id-lookup]]]]])))
-               id+etypes)
-        query {:delete-from :triples
-               :where [:and [:= :app-id app-id]
-                       (list* :or conds)]
-               :returning :*}]
-    (sql/do-execute! conn (hsql/format query))))
+  (concat
+   (some->> (filter second id+etypes)
+            not-empty
+            (delete-entity-multi-etypes! conn app-id))
+   (some->> (remove second id+etypes)
+            not-empty
+            (map first)
+            (delete-entity-multi-no-etypes! conn app-id))))
 
 (defn delete-multi!
   "Deletes triples from postgres.
@@ -543,29 +587,28 @@
               {:columns [:app-id :entity-id :attr-id :value]}]
              {:values (mapv
                        (fn [[e a v]]
-                         [app-id
-                          (if (eid-lookup-ref? e)
-                            {:select :entity-id
-                             :from :triples
-                             :where [:and
-                                     [:= :app-id app-id]
-                                     [:= :attr-id (first e)]
-                                     [:= :value [:cast (->json (second e)) :jsonb]]]}
-                            e)
-                          a
-                          (if-not (value-lookup-ref? v)
-                            (->json v)
-                            [[[:case (value-lookupable-sql app-id a)
-                               {:select [[[:cast [:to_jsonb :entity-id] :text]]]
-                                :from [[{:select :entity-id
-                                         :from :triples
-                                         :where [:and
-                                                 [:= :app-id app-id]
-                                                 [:= :attr-id (first v)]
-                                                 [:= :value [:cast (->json (second v)) :jsonb]]]}
-                                        :lookups]]
-                                :limit 1}
-                               :else (->json v)]]])])
+                         (let [e' (if (eid-lookup-ref? e)
+                                    {:select :entity-id
+                                     :from :triples
+                                     :where [:and
+                                             [:= :app-id app-id]
+                                             [:= :attr-id (first e)]
+                                             [:= :value [:cast (->json (second e)) :jsonb]]]}
+                                    e)
+                               v' (if-not (value-lookup-ref? v)
+                                    (->json v)
+                                    [[[:case (value-lookupable-sql app-id a)
+                                       {:select [[[:cast [:to_jsonb :entity-id] :text]]]
+                                        :from [[{:select :entity-id
+                                                 :from :triples
+                                                 :where [:and
+                                                         [:= :app-id app-id]
+                                                         [:= :attr-id (first v)]
+                                                         [:= :value [:cast (->json (second v)) :jsonb]]]}
+                                                :lookups]]
+                                        :limit 1}
+                                       :else (->json v)]]])]
+                           [app-id e' a v']))
                        triples)}]
             [:enhanced-triples
              {:select [:app-id

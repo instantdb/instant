@@ -8,6 +8,7 @@
      (tool/copy) 
      (tool/hsql-pretty ...) and more!"
   (:require
+   [clojure.pprint :as pprint]
    [clojure.string :as str]
    [clojure.walk :as walk]
    [honey.sql :as hsql]
@@ -155,6 +156,14 @@
                                      (assoc-in [~label :avg] avg#))))))
      ret#))
 
+(defmacro time* [msg & body]
+  `(let [msg# ~msg
+         t#   (System/nanoTime)
+         res# (do ~@body)
+         dt#  (-> (System/nanoTime) (- t#) (/ 1000000.0))]
+     (println (format "[ %.3f ms ] %s" dt# msg#))
+     res#))
+
 (defn start-portal!
   "Lets you inspect data using Portal.
 
@@ -182,7 +191,16 @@
         el    ^StackTraceElement (nth trace 4)]
     (str "[" (Compiler/demunge (.getClassName el)) " " (.getFileName el) ":" (.getLineNumber el) "]")))
 
-(defn p-impl [_position form res]
+(defn pprint [o]
+  (->>
+   (binding [pprint/*print-right-margin* 120]
+     (with-out-str (pprint/pprint o)))
+   (str/split-lines)
+   (map #(str "   " %))
+   (str/join "\n")
+   (#(subs % 3))))
+
+(defn p-impl [position form res]
   (let [form (walk/postwalk
               (fn [form]
                 (if (and
@@ -192,7 +210,7 @@
                   form))
               form)]
     (locking p-lock
-      (println (str #_position "#p " form " => " (pr-str res))))
+      (println (str "#p " form " " position "\n=> " (pprint res))))
     res))
 
 (defn p

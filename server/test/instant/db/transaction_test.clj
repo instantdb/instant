@@ -2509,5 +2509,66 @@
                        app-id
                        [[:= :attr-id user-id-attr-id]])))))))))
 
+(deftest on-delete-cascade-perf
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [user-id-attr-id     (random-uuid)
+            user-parent-attr-id (random-uuid)
+            make-ctx            (fn [] {:db {:conn-pool (aurora/conn-pool)}
+                                        :app-id app-id
+                                        :attrs (attr-model/get-by-app-id app-id)
+                                        :datalog-query-fn d/query
+                                        :rules (rule-model/get-by-app-id (aurora/conn-pool) {:app-id app-id})
+                                        :current-user nil})
+            insert-res (attr-model/insert-multi!
+                        (aurora/conn-pool)
+                        app-id
+                        [{:id user-id-attr-id
+                          :forward-identity [(random-uuid) "users" "id"]
+                          :value-type :blob
+                          :cardinality :one
+                          :unique? true
+                          :index? true}
+                         {:id user-parent-attr-id
+                          :forward-identity [(random-uuid) "users" "parent"]
+                          :reverse-identity [(random-uuid) "users" "children"]
+                          :value-type :ref
+                          :cardinality :one
+                          :unique? false
+                          :index? false
+                          :on-delete :cascade}]
+                        {:allow-on-deletes? true})
+            root-user-id (random-uuid)]
+
+        ;; insert root user
+        (tx/transact!
+         (aurora/conn-pool)
+         (attr-model/get-by-app-id app-id)
+         app-id
+         [[:add-triple root-user-id user-id-attr-id root-user-id]])
+
+        ;; insert tree of children
+        (loop [i 0
+               q [root-user-id]]
+          (when (< i 5)
+            (let [tx (for [parent-id q
+                           _         (range 4)
+                           :let [id (random-uuid)]
+                           op   [[:add-triple id user-id-attr-id id]
+                                 [:add-triple id user-parent-attr-id parent-id]]]
+                       op)]
+              (tx/transact! (aurora/conn-pool) (attr-model/get-by-app-id app-id) app-id tx)
+              (recur (inc i) (into #{} (map second tx))))))
+
+        (let [t0 (System/nanoTime)
+              _  (tx/transact! (aurora/conn-pool)
+                               (attr-model/get-by-app-id app-id)
+                               app-id
+                               [[:delete-entity root-user-id "users"]])
+              dt (-> (System/nanoTime) (- t0) (/ 1000000.0))
+              ; _  (println :delete-entity dt "ms")
+              ]
+          (is (< dt 500)))))))
+
 (comment
   (test/run-tests *ns*))
