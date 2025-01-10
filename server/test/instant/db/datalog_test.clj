@@ -398,19 +398,7 @@
                        [[:ea [handle-aid "alex"] name-aid '?name]])
                       :join-rows
                       (map (comp last drop-last last))
-                      set)))))
-      (testing "v side"
-        (let [isbn13-aid (resolvers/->uuid r :books/isbn13)
-              bookshelves-books-aid (resolvers/->uuid r :bookshelves/books)
-              bookshelves-name-aid (resolvers/->uuid r :bookshelves/name)]
-          (is (= #{"Worldview"}
-                 (->> (d/query
-                       {:db {:conn-pool (aurora/conn-pool)}
-                        :app-id (:id app)}
-                       [[:eav '?b  bookshelves-books-aid [isbn13-aid "9780425284636"]]
-                        [:ea '?b bookshelves-name-aid '?title]])
-                      :join-rows
-                      (map (comp last drop-last last))
                       set))))))))
+
 (comment
   (test/run-tests *ns*))
