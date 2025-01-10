@@ -8,10 +8,9 @@ import jsonDiff from "json-diff";
 import dotenv from "dotenv";
 import chalk from "chalk";
 import { program, Option } from "commander";
-import { input, confirm, select } from "@inquirer/prompts";
+import { input, select } from "@inquirer/prompts";
 import envPaths from "env-paths";
 import { loadConfig } from "unconfig";
-import { packageDirectory } from "pkg-dir";
 import openInBrowser from "open";
 import ora from "ora";
 import terminalLink from "terminal-link";
@@ -24,6 +23,7 @@ import {
 import { pathExists, readJsonFile } from "./src/util/fs.js";
 import prettier from "prettier";
 import toggle from "./src/toggle.js";
+import packageDirectory from "./src/util/packageDirectory.js";
 
 const execAsync = promisify(exec);
 
@@ -115,6 +115,15 @@ function convertPushPullToCurrentFormat(cmdName, arg, opts) {
 }
 
 async function packageDirectoryWithErrorLogging() {
+  const pkgDir = await packageDirectory();
+  if (!pkgDir) {
+    error("Couldn't find your root directory. Is there a package.json file?");
+    return;
+  }
+  return pkgDir.dirName;
+}
+
+async function packageDirectoryWithErrorLogging2() {
   const pkgDir = await packageDirectory();
   if (!pkgDir) {
     error("Couldn't find your root directory. Is there a package.json file?");
