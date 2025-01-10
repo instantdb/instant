@@ -142,7 +142,7 @@ function getNextPage(allLinks, currentPath) {
     const [nextLink] = findLink(allLinks, link.nextHref);
     return nextLink;
   }
-  return allLinks[idx - 1];
+  return allLinks[idx + 1];
 }
 
 export function Layout({ children, title, tableOfContents }) {
