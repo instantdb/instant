@@ -3,9 +3,12 @@ import { useEffect, useState } from 'react';
 import { DBAttr, SchemaNamespace } from '@/lib/types';
 import { dbAttrsToExplorerSchema } from '@/lib/schema';
 
+export type SearchFilterOp = '=' | '$ilike' | '$like' | '$gt' | '$lt';
+export type SearchFilter = [string, SearchFilterOp, any];
+
 function makeWhere(
   navWhere: null | undefined | [string, any],
-  searchFilters: null | undefined | [string, string, string][],
+  searchFilters: null | undefined | SearchFilter[],
 ) {
   const where: { [key: string]: any } = {};
   if (navWhere) {
@@ -13,7 +16,12 @@ function makeWhere(
   }
   if (searchFilters?.length) {
     where.or = searchFilters.map(([attr, op, val]) => {
-      return { [attr]: { [op]: val } };
+      switch (op) {
+        case '=':
+          return { [attr]: val };
+        default:
+          return { [attr]: { [op]: val } };
+      }
     });
   }
   return where;
@@ -24,7 +32,7 @@ export function useNamespacesQuery(
   db: InstantReactWebDatabase<any>,
   selectedNs?: SchemaNamespace,
   navWhere?: [string, any],
-  searchFilters?: [string, string, string][],
+  searchFilters?: SearchFilter[],
   limit?: number,
   offset?: number,
   sortAttr?: string,
