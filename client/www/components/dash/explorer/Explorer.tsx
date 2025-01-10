@@ -72,7 +72,6 @@ function parseSearchQuery(s: string): ParsedQueryPart[] {
     }
     if ((OPERATORS as readonly string[]).includes(c)) {
       if (currentPart && valueStart != null) {
-        // XXX: Probably fails if there is no space before?
         currentPart.value = s.substring(valueStart, fieldStart).trim();
         parts.push(currentPart);
       }
