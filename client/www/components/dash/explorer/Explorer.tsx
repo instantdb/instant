@@ -339,7 +339,7 @@ function SearchInput({
           }
         }}
         placeholder="Filter..."
-      ></ComboboxInput>
+      />
       <ComboboxOptions
         anchor="bottom start"
         modal={false}
