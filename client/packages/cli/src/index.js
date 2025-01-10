@@ -8,7 +8,7 @@ import jsonDiff from "json-diff";
 import dotenv from "dotenv";
 import chalk from "chalk";
 import { program, Option } from "commander";
-import { input, confirm, select } from "@inquirer/prompts";
+import { input, select } from "@inquirer/prompts";
 import envPaths from "env-paths";
 import { loadConfig } from "unconfig";
 import { packageDirectory } from "pkg-dir";
@@ -21,9 +21,9 @@ import {
   detectPackageManager,
   getInstallCommand,
 } from "./util/packageManager.js";
-import { pathExists, readJsonFile } from "./util/fs.js";
+import { pathExists, readJsonFile } from "./util/fs";
 import prettier from "prettier";
-import toggle from "./toggle.js";
+import toggle from "./toggle";
 
 const execAsync = promisify(exec);
 
@@ -1309,8 +1309,8 @@ async function promptOk(message, defaultAnswer = false) {
       style: {
         highlight: (x) => chalk.underline.blue(x),
         answer: (x) => chalk.underline.blue(x),
-      }
-    }
+      },
+    },
   }).catch(() => false);
 }
 

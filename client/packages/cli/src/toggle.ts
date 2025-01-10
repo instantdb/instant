@@ -1,5 +1,8 @@
-// From: 
+// From:
 // https://github.com/skarahoda/inquirer-toggle
+import type { Theme } from "@inquirer/core";
+import type { Prompt } from "@inquirer/type";
+
 import {
   isDownKey,
   isUpKey,
@@ -10,6 +13,21 @@ import {
 import { createPrompt, usePrefix, makeTheme } from "@inquirer/core";
 import ansiEscapes from "ansi-escapes";
 
+type InquirerToggleConfig = {
+  message: string;
+  default?: boolean | undefined;
+  theme?: {
+    active?: string;
+    inactive?: string;
+    prefix?: Theme["prefix"];
+    style?: {
+      message?: Theme["style"]["message"];
+      answer?: Theme["style"]["answer"];
+      highlight?: Theme["style"]["highlight"];
+    };
+  };
+};
+
 function isLeftKey(key) {
   return key.name === "left";
 }
@@ -18,7 +36,10 @@ function isRightKey(key) {
   return key.name === "right";
 }
 
-export default createPrompt((config, done) => {
+const prompt: Prompt<boolean, InquirerToggleConfig> = createPrompt<
+  boolean,
+  InquirerToggleConfig
+>((config, done) => {
   const theme = makeTheme({ active: "yes", inactive: "no" }, config.theme);
   const prefix = usePrefix({ theme });
   const [value, setValue] = useState(config.default ?? false);
@@ -51,3 +72,5 @@ export default createPrompt((config, done) => {
     : theme.style.highlight(theme.inactive);
   return `${prefix} ${message} ${inactiveMessage} / ${activeMessage}${ansiEscapes.cursorHide}`;
 });
+
+export default prompt;

@@ -94,6 +94,9 @@ importers:
       '@babel/preset-env':
         specifier: ^7.16.11
         version: 7.25.4(@babel/core@7.26.0)
+      '@inquirer/type':
+        specifier: ^3.0.2
+        version: 3.0.2(@types/node@22.6.1)
       '@types/json-diff':
         specifier: ^1.0.3
         version: 1.0.3
@@ -5137,6 +5140,15 @@ packages:
     dependencies:
       mute-stream: 1.0.0
     dev: false
+
+  /@inquirer/type@3.0.2(@types/node@22.6.1):
+    resolution: {integrity: sha512-ZhQ4TvhwHZF+lGhQ2O/rsjo80XoZR5/5qhOY3t6FJuX5XBg5Be8YzYTvaUGJnc12AUGI2nr4QSUE4PhKSigx7g==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@types/node': '>=18'
+    dependencies:
+      '@types/node': 22.6.1
+    dev: true
 
   /@isaacs/cliui@8.0.2:
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
