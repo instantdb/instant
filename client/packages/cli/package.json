@@ -10,18 +10,19 @@
     "instant-cli": "bin/index.js"
   },
   "dependencies": {
-    "@inquirer/prompts": "5.3.8",
     "@inquirer/core": "9.0.10",
+    "@inquirer/prompts": "5.3.8",
     "ansi-escapes": "4.3.2",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "dotenv": "^16.3.1",
     "env-paths": "^3.0.0",
+    "find-up": "^7.0.0",
     "inquirer": "^10.1.6",
     "json-diff": "^1.0.6",
+    "jsonc-parser": "^3.3.1",
     "open": "^10.1.0",
     "ora": "^8.1.1",
-    "find-up": "^7.0.0",
     "prettier": "^3.3.3",
     "terminal-link": "^3.0.0",
     "unconfig": "^0.5.5"

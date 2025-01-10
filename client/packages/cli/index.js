@@ -23,7 +23,7 @@ import {
 import { pathExists, readJsonFile } from "./src/util/fs.js";
 import prettier from "prettier";
 import toggle from "./src/toggle.js";
-import packageDirectory from "./src/util/packageDirectory.js";
+import repoInfo from "./src/util/packageDirectory.js";
 
 const execAsync = promisify(exec);
 
@@ -115,16 +115,7 @@ function convertPushPullToCurrentFormat(cmdName, arg, opts) {
 }
 
 async function packageDirectoryWithErrorLogging() {
-  const pkgDir = await packageDirectory();
-  if (!pkgDir) {
-    error("Couldn't find your root directory. Is there a package.json file?");
-    return;
-  }
-  return pkgDir.dirName;
-}
-
-async function packageDirectoryWithErrorLogging2() {
-  const pkgDir = await packageDirectory();
+  const pkgDir = await repoInfo();
   if (!pkgDir) {
     error("Couldn't find your root directory. Is there a package.json file?");
     return;
