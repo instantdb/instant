@@ -1,6 +1,6 @@
 // @ts-check
 
-import version from "./src/version.js";
+import version from "./version.js";
 import { mkdir, writeFile, readFile } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
@@ -20,10 +20,10 @@ import { promisify } from "util";
 import {
   detectPackageManager,
   getInstallCommand,
-} from "./src/util/packageManager.js";
-import { pathExists, readJsonFile } from "./src/util/fs.js";
+} from "./util/packageManager.js";
+import { pathExists, readJsonFile } from "./util/fs.js";
 import prettier from "prettier";
-import toggle from "./src/toggle.js";
+import toggle from "./toggle.js";
 
 const execAsync = promisify(exec);
 
