@@ -555,7 +555,7 @@
        [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
        [:not= [(extract-value-fn data-type) :value] val]])))
 
-(defn- in-or-eq-value [idx app-id v-set]
+(defn- in-or-eq-value [idx v-set]
   (let [[tag idx-val] idx
         data-type (case tag
                     :keyword nil
@@ -587,7 +587,7 @@
                             [:= :attr-id [:cast (first lookup) :uuid]]
                             :av]}])))
     :a (in-or-eq :attr-id v)
-    :v (in-or-eq-value idx app-id v)))
+    :v (in-or-eq-value idx v)))
 
 (defn- value-function-clauses [idx [v-tag v-value]]
   (case v-tag
