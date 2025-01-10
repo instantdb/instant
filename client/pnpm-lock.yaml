@@ -88,9 +88,24 @@ importers:
         specifier: ^0.5.5
         version: 0.5.5
     devDependencies:
+      '@babel/core':
+        specifier: ^7.17.9
+        version: 7.26.0
+      '@babel/preset-env':
+        specifier: ^7.16.11
+        version: 7.25.4(@babel/core@7.26.0)
       '@types/json-diff':
         specifier: ^1.0.3
         version: 1.0.3
+      '@types/node':
+        specifier: ^22.6.1
+        version: 22.6.1
+      npm-run-all:
+        specifier: ^4.1.5
+        version: 4.1.5
+      typescript:
+        specifier: ^5.5.4
+        version: 5.5.4
 
   packages/core:
     dependencies:
@@ -1519,6 +1534,7 @@ packages:
     hasBin: true
     dependencies:
       '@babel/types': 7.25.6
+    dev: true
 
   /@babel/parser@7.26.2:
     resolution: {integrity: sha512-DWMCZH9WA4Maitz2q21SRKHo9QXZxkDsbNZoVD62gusNtNBBqDg9i7uOhASfTfIGNzW+O+r7+jAlM8dwphcJKQ==}
@@ -7254,8 +7270,8 @@ packages:
   /@types/babel__core@7.20.5:
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
     dependencies:
-      '@babel/parser': 7.25.6
-      '@babel/types': 7.25.6
+      '@babel/parser': 7.26.2
+      '@babel/types': 7.26.0
       '@types/babel__generator': 7.6.8
       '@types/babel__template': 7.4.4
       '@types/babel__traverse': 7.20.5
