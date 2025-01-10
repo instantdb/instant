@@ -1,3 +1,3 @@
 #!/usr/bin/env node
 
-import "../index.js";
+import "../dist/module/index.js";
