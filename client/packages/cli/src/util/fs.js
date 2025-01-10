@@ -1,4 +1,5 @@
 import { readFile, stat } from "fs/promises";
+import JSONC from 'jsonc-parser';
 
 export async function pathExists(f) {
   try {
@@ -16,7 +17,7 @@ export async function readJsonFile(path) {
 
   try {
     const data = await readFile(path, "utf-8");
-    return JSON.parse(data);
+    return JSONC.parse(data);
   } catch (error) {}
 
   return null;

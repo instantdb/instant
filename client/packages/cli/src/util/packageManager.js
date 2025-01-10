@@ -11,6 +11,7 @@ async function detectPackageManager(destPath) {
     "package-lock.json": "npm",
     "pnpm-lock.yaml": "pnpm",
     "bun.lockb": "bun",
+    "deno.lock": "deno",
   };
 
   for (const dir of traverseUpDirectories(destPath)) {
@@ -32,6 +33,13 @@ async function detectPackageManager(destPath) {
           return corepackPackageManager.packageName;
         }
       }
+    }
+
+    if (
+      (await pathExists(path.join(dir, "deno.json"))) ||
+      (await pathExists(path.join(dir, "deno.jsonc")))
+    ) {
+      return "deno";
     }
 
     if (dir === path.parse(dir).root) {
@@ -69,6 +77,8 @@ function parsePackageManagerField(packageManager) {
 function getInstallCommand(packageManager, moduleName) {
   if (packageManager === "npm") {
     return `npm install ${moduleName}`;
+  } else if (packageManager === "deno") {
+    return `${packageManager} add npm:${moduleName}`;
   } else {
     return `${packageManager} add ${moduleName}`;
   }

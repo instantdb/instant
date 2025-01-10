@@ -23,7 +23,7 @@ import {
 import { pathExists, readJsonFile } from "./src/util/fs.js";
 import prettier from "prettier";
 import toggle from "./src/toggle.js";
-import repoInfo from "./src/util/packageDirectory.js";
+import packageDirectory from "./src/util/packageDirectory.js";
 
 const execAsync = promisify(exec);
 
@@ -55,6 +55,9 @@ const potentialEnvs = {
 };
 
 async function detectEnvType({ pkgDir }) {
+  if (pkgDir.packageType === "deno") {
+    return "catchall";
+  }
   const packageJSON = await getPackageJson(pkgDir);
   if (!packageJSON) {
     return "catchall";
@@ -115,9 +118,9 @@ function convertPushPullToCurrentFormat(cmdName, arg, opts) {
 }
 
 async function packageDirectoryWithErrorLogging() {
-  const pkgDir = await repoInfo();
+  const pkgDir = await packageDirectory();
   if (!pkgDir) {
-    error("Couldn't find your root directory. Is there a package.json file?");
+    error("Couldn't find your root directory. Is there a package.json, or a deno.json file?");
     return;
   }
   return pkgDir;
@@ -454,7 +457,7 @@ async function handleEnvFile(pkgAndAuthInfo, appId) {
   const envType = await detectEnvType(pkgAndAuthInfo);
   const envName = potentialEnvs[envType];
 
-  const hasEnvFile = await pathExists(join(pkgDir, ".env"));
+  const hasEnvFile = await pathExists(join(pkgDir.dirName, ".env"));
   if (hasEnvFile) {
     printDotEnvInfo(envType, appId);
     return;
@@ -475,7 +478,7 @@ async function handleEnvFile(pkgAndAuthInfo, appId) {
     );
     return;
   }
-  await writeFile(join(pkgDir, ".env"), `${envName}=${appId}`, "utf-8");
+  await writeFile(join(pkgDir.dirName, ".env"), `${envName}=${appId}`, "utf-8");
   console.log(`Created ${chalk.green("`.env`")} file!`);
 }
 
@@ -563,7 +566,7 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir) {
     return instantModuleName;
   }
   console.log(
-    "Couldn't find an Instant SDK in your package.json, let's install one!",
+    `Couldn't find an Instant SDK in your ${pkgDir.baseName}, let's install one!`,
   );
   const moduleName = await select({
     message: "Which package would you like to use?",
@@ -575,7 +578,7 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir) {
     ],
   });
 
-  const packageManager = await detectPackageManager(pkgDir);
+  const packageManager = await detectPackageManager(pkgDir.dirName);
   const installCommand = getInstallCommand(packageManager, moduleName);
 
   const spinner = ora(
@@ -710,13 +713,13 @@ async function getInstantModuleName(pkgJson) {
 }
 
 async function getPackageJson(pkgDir) {
-  return await readJsonFile(join(pkgDir, "package.json"));
+  return await readJsonFile(pkgDir.fullPath);
 }
 
 async function getPackageJSONWithErrorLogging(pkgDir) {
   const pkgJson = await getPackageJson(pkgDir);
   if (!pkgJson) {
-    error(`Couldn't find a packge.json file in: ${pkgDir}. Please add one.`);
+    error(`Couldn't find a packge.json file in: ${pkgDir.fullPath}. Please add one.`);
     return;
   }
   return pkgJson;
@@ -736,7 +739,7 @@ async function resolvePackageAndAuthInfoWithErrorLogging() {
   if (!authToken) {
     return;
   }
-  return { pkgDir, instantModuleName, authToken };
+  return { pkgDir: pkgDir.baseName, instantModuleName, authToken };
 }
 
 async function pullSchema(appId, { pkgDir, instantModuleName }) {
