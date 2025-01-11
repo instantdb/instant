@@ -3,15 +3,12 @@
   "type": "module",
   "version": "v0.17.7",
   "description": "Instant's CLI",
-  "scripts": {
-    "publish-package": "npm publish --access public"
-  },
   "bin": {
     "instant-cli": "bin/index.js"
   },
   "dependencies": {
-    "@inquirer/prompts": "5.3.8",
     "@inquirer/core": "9.0.10",
+    "@inquirer/prompts": "5.3.8",
     "ansi-escapes": "4.3.2",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
@@ -26,7 +23,19 @@
     "terminal-link": "^3.0.0",
     "unconfig": "^0.5.5"
   },
+  "scripts": {
+    "test": "vitest",
+    "build": "rm -rf dist; tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json -w --skipLibCheck",
+    "publish-package": "npm publish --access public"
+  },
   "devDependencies": {
-    "@types/json-diff": "^1.0.3"
+    "@babel/core": "^7.17.9",
+    "@babel/preset-env": "^7.16.11",
+    "@inquirer/type": "^3.0.2",
+    "@types/json-diff": "^1.0.3",
+    "@types/node": "^22.6.1",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.5.4"
   }
 }
