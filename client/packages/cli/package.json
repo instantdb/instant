@@ -21,7 +21,7 @@
     "pkg-dir": "^8.0.0",
     "prettier": "^3.3.3",
     "terminal-link": "^3.0.0",
-    "unconfig": "^0.5.5"
+    "unconfig": "^0.6.0"
   },
   "scripts": {
     "test": "vitest",
