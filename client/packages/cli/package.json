@@ -25,12 +25,8 @@
   },
   "scripts": {
     "test": "vitest",
-    "build": "rm -rf dist; npm run build:main && npm run build:module",
-    "dev:main": "tsc -p tsconfig.json -w --skipLibCheck",
-    "dev:module": "tsc -p tsconfig.module.json -w --skipLibCheck",
-    "dev": "run-p dev:main dev:module",
-    "build:main": "tsc -p tsconfig.json",
-    "build:module": "tsc -p tsconfig.module.json",
+    "build": "rm -rf dist; tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json -w --skipLibCheck",
     "publish-package": "npm publish --access public"
   },
   "devDependencies": {

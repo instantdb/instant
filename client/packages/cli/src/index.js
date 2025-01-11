@@ -21,9 +21,9 @@ import {
   detectPackageManager,
   getInstallCommand,
 } from "./util/packageManager.js";
-import { pathExists, readJsonFile } from "./util/fs";
+import { pathExists, readJsonFile } from "./util/fs.js";
 import prettier from "prettier";
-import toggle from "./toggle";
+import toggle from "./toggle.js";
 
 const execAsync = promisify(exec);
 

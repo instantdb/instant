@@ -3,7 +3,9 @@
   "include": ["src"],
   "exclude": ["node_modules", "dist"],
   "compilerOptions": {
+    "module": "Node16",
+    "moduleResolution": "node16",
     "outDir": "dist",
-    "rootDir": "src"
-  }
+    "rootDir": "src"    
+  },
 }
