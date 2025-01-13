@@ -42,8 +42,8 @@
   (config/get-env))
 
 (defn init-hz [store-conn {:keys [instance-name cluster-name]
-                           :or {instance-name "instant-hz-v2"
-                                cluster-name "instant-server"}}]
+                           :or {instance-name "instant-hz-v3"
+                                cluster-name "instant-server-v1"}}]
   (-> (java.util.logging.Logger/getLogger "com.hazelcast")
       (.setLevel java.util.logging.Level/WARNING))
   (System/setProperty "hazelcast.shutdownhook.enabled" "false")
