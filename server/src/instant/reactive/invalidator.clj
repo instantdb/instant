@@ -14,6 +14,7 @@
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
    [instant.util.json :refer [<-json]]
+   [instant.util.e2e-tracer :as e2e-tracer]
    [instant.util.tracer :as tracer]
    [instant.db.model.triple :as triple-model])
   (:import
@@ -272,12 +273,15 @@
         (instant-user-model/evict-user-id-from-cache id)))
 
     (when (and some-changes app-id)
-      {:attr-changes attrs
-       :ident-changes idents
-       :triple-changes triples
-       :app-id app-id
-       :tx-created-at (extract-tx-created-at transactions-change)
-       :tx-id (extract-tx-id transactions-change)})))
+      (let [tx-id (extract-tx-id transactions-change)]
+        (e2e-tracer/invalidator-tracking-step! {:tx-id tx-id
+                                                :name "transform-wal-record"})
+        {:attr-changes attrs
+         :ident-changes idents
+         :triple-changes triples
+         :app-id app-id
+         :tx-created-at (extract-tx-created-at transactions-change)
+         :tx-id (extract-tx-id transactions-change)}))))
 
 (defn wal-record-xf
   "Filters wal records for supported changes. Returns [app-id changes]"
@@ -319,10 +323,14 @@
             (try
               (let [sockets (invalidate! store-conn wal-record)]
                 (tracer/add-data! {:attributes {:num-sockets (count sockets)}})
+                (e2e-tracer/invalidator-tracking-step! {:tx-id tx-id
+                                                        :name "send-refreshes"
+                                                        :attributes {:num-sockets (count sockets)}})
                 (tracer/with-span! {:name "invalidator/send-refreshes"}
                   (doseq [{:keys [id]} sockets]
                     (receive-queue/enqueue->receive-q {:op :refresh
-                                                       :session-id id}))))
+                                                       :session-id id
+                                                       :tx-id tx-id}))))
               (catch Throwable t
                 (def -wal-record wal-record)
                 (def -store-value @store-conn)

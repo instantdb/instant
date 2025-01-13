@@ -10,6 +10,7 @@
    [instant.system-catalog :refer [system-catalog-app-id]]
    [instant.util.coll :as coll]
    [instant.util.exception :as ex]
+   [instant.util.e2e-tracer :as e2e-tracer]
    [instant.util.tracer :as tracer]
    [next.jdbc :as next-jdbc]))
 
@@ -206,6 +207,10 @@
 
            results-with-on-deletes (enforce-on-deletes conn attrs app-id results)
            tx (transaction-model/create! conn {:app-id app-id})]
+       (tool/def-locals)
+       (e2e-tracer/start-invalidator-tracking! {:tx-id (:id tx)})
+       (e2e-tracer/invalidator-tracking-step! {:tx-id (:id tx)
+                                               :name "transact"})
        (assoc tx :results results-with-on-deletes)))))
 
 (defn transact!

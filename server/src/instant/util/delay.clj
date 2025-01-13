@@ -1,5 +1,5 @@
 (ns instant.util.delay
-  (:import [java.util.concurrent ScheduledThreadPoolExecutor TimeUnit]))
+  (:import [java.util.concurrent Callable ScheduledThreadPoolExecutor TimeUnit ScheduledFuture]))
 
 (defn cpu-count []
   (.availableProcessors (Runtime/getRuntime)))
@@ -8,11 +8,11 @@
                      :or {thread-count (+ 2 (cpu-count))}}]
   (ScheduledThreadPoolExecutor. thread-count))
 
-(defn delay-fn [thread-pool delay-ms f]
+(defn delay-fn [^ScheduledThreadPoolExecutor thread-pool ^Long delay-ms ^Callable f]
   (.schedule thread-pool f delay-ms TimeUnit/MILLISECONDS))
 
-(defn repeat-fn [thread-pool delay-ms f]
+(defn repeat-fn [^ScheduledThreadPoolExecutor thread-pool delay-ms f]
   (.scheduleAtFixedRate thread-pool f delay-ms delay-ms TimeUnit/MILLISECONDS))
 
-(defn shutdown-pool! [pool]
+(defn shutdown-pool! [^ScheduledThreadPoolExecutor pool]
   (.shutdown pool))
