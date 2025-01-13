@@ -44,7 +44,7 @@
       (.setLevel java.util.logging.Level/WARNING))
   (System/setProperty "hazelcast.shutdownhook.enabled" "false")
   (System/setProperty "hazelcast.phone.home.enabled" "false")
-  (let [env                  :test #_(config/get-env)
+  (let [env                  (config/get-env)
         config               (Config.)
         network-config       (.getNetworkConfig config)
         join-config          (.getJoin network-config)
