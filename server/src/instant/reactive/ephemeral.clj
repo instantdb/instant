@@ -37,6 +37,10 @@
 
 (declare handle-broadcast-message)
 
+(comment
+  ;; to quiet the lint
+  (config/get-env))
+
 (defn init-hz [store-conn {:keys [instance-name cluster-name]
                            :or {instance-name "instant-hz-v2"
                                 cluster-name "instant-server"}}]
