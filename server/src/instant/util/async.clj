@@ -78,7 +78,8 @@
         (.cancel fut interrupt?)))))
 
 (defmacro worker-vfuture
-  "Creates a "
+  "Creates a vfuture that does not propagate bindings and does not
+   track immediate children. Useful for starting a background worker."
   [^ExecutorService executor & body]
   `(worker-vfuture-call ~executor (^{:once true} fn* [] ~@body)))
 
