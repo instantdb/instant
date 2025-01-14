@@ -617,7 +617,7 @@
 (defn straight-jacket-process-receive-q-batch [store-conn batch metadata]
   (try
     (let [type (-> metadata :group-key first)]
-      (doseq [entry (#'consolidate type batch)]
+      (doseq [entry (consolidate type batch)]
         (process-receive-q-entry store-conn entry metadata)))
     (catch Throwable e
       (tracer/record-exception-span! e {:name "receive-worker/handle-receive-batch-straight-jacket"
