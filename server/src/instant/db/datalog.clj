@@ -95,8 +95,6 @@
 (def variable? (fn [x]
                  (and (symbol? x) (not= x '_))))
 
-(def constant? (comp not symbol?))
-
 (def named-variable? (partial uspec/tagged-as? :variable))
 (def named-constant? (partial uspec/tagged-as? :constant))
 

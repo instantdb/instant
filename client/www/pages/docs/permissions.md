@@ -138,7 +138,7 @@ You can use `$default` as the namespace:
 ```json
 "$default": {
   "allow": {
-    "view": false
+    "view": "false"
   }
 },
 "todos": {
@@ -153,7 +153,7 @@ Finally, the ultimate default:
 ```json
 "$default": {
   "allow": {
-    "$default": false
+    "$default": "false"
   }
 }
 ```

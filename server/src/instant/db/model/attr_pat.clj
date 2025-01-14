@@ -48,6 +48,10 @@
                 )]
     (if v-actualized? v-idx e-idx)))
 
+(defn constant-component? [component]
+  (and (not (symbol? component))
+       (not (:$isNull component))))
+
 (defn component-actualized?
   "A component is actualized if:
    a. It is a constant
@@ -57,7 +61,7 @@
     [?bookshelves books-attr ?books]] ;; ?bookshelves is actualized (it's been bound)
   "
   [seen component]
-  (or (d/constant? component)
+  (or (constant-component? component)
       (seen component)))
 
 (defn attr-by-id
