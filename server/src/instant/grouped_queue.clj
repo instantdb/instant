@@ -151,38 +151,41 @@
                                                 process-fn
                                                 max-workers]
                                          :or {max-workers 2}}]
-  (let [workers (atom #{})
+  (let [executor (ua/make-virtual-thread-executor)
+        workers (atom #{})
         ;; Use a promise so we can access it in the `on-add` function
         grouped-queue (promise)
         on-add (fn []
                  (when (< (count @workers) max-workers)
-                   (ua/vfuture
-                     (loop [worker-id (Object.)]
-                       (when (contains? (swap! workers
-                                               (fn [workers]
-                                                 (if (= (count workers) max-workers)
-                                                   workers
-                                                   (conj workers worker-id))))
-                                        worker-id)
-                         (try
-                           (loop []
-                             (when (process! @grouped-queue {:reserve-fn reserve-fn
-                                                             :process-fn process-fn})
-                               ;; Continue processing items until the queue is empty
-                               (recur)))
-                           (catch Throwable t
-                             (tracer/record-exception-span! t {:name "grouped-queue/process-error"}))
-                           (finally
-                             (swap! workers disj worker-id)))
-                         ;; One last check to prevent a race where something is added to the queue
-                         ;; while we're removing ourselves from the workers
-                         (when (and (peek @grouped-queue)
-                                    (< (count @workers) max-workers))
-                           (recur worker-id)))))))]
+                   (ua/worker-vfuture
+                    executor
+                    (loop [worker-id (Object.)]
+                      (when (contains? (swap! workers
+                                              (fn [workers]
+                                                (if (= (count workers) max-workers)
+                                                  workers
+                                                  (conj workers worker-id))))
+                                       worker-id)
+                        (try
+                          (loop []
+                            (when (process! @grouped-queue {:reserve-fn reserve-fn
+                                                            :process-fn process-fn})
+                              ;; Continue processing items until the queue is empty
+                              (recur)))
+                          (catch Throwable t
+                            (tracer/record-exception-span! t {:name "grouped-queue/process-error"}))
+                          (finally
+                            (swap! workers disj worker-id)))
+                        ;; One last check to prevent a race where something is added to the queue
+                        ;; while we're removing ourselves from the workers
+                        (when (and (peek @grouped-queue)
+                                   (< (count @workers) max-workers))
+                          (recur worker-id)))))))]
     (deliver grouped-queue (create {:group-fn group-fn
                                     :on-add on-add}))
     {:grouped-queue @grouped-queue
-     :get-worker-count (fn [] (count @workers))}))
+     :get-worker-count (fn [] (count @workers))
+     :virtual-thread-executor executor}))
 
 (comment
   (def gq (create {:group-fn :k}))
@@ -205,6 +208,8 @@
                              #_(Thread/sleep 10000)
                              (println "done"))}))
 
+  (require 'clojure.tools.logging)
+
   (defn test-grouped-queue []
     (let [finished (promise)
           started (promise)
@@ -217,15 +222,15 @@
                             (inflight-queue-reserve (max 1 (rand-int 25)) iq))
               :process-fn (fn [_ workset]
                             @started
-                            (tracer/record-info! {:name "workset"
-                                                  :attributes {:workset-count (count workset)
-                                                               :total total-items
-                                                               :worker-count ((:get-worker-count @gq))}})
+                            (clojure.tools.logging/info {:name "workset"
+                                                         :attributes {:workset-count (count workset)
+                                                                      :total total-items
+                                                                      :worker-count ((:get-worker-count @gq))}})
                             (.addAndGet process-total (count workset))
                             (when (zero? (.addAndGet total-items (- (count workset))))
                               (deliver finished true))
                             nil)
-              :max-workers 100})
+              :max-workers 1000})
           _ (deliver gq q)
 
           wait (future
@@ -247,4 +252,5 @@
       (deliver started true)
       (tool/def-locals)
       @wait))
+
   (test-grouped-queue))

@@ -43,7 +43,10 @@
 ;; ---------------
 ;; virtual-threads
 
-(def ^ExecutorService default-virtual-thread-executor (Executors/newVirtualThreadPerTaskExecutor))
+(defn make-virtual-thread-executor ^ExecutorService []
+  (Executors/newVirtualThreadPerTaskExecutor))
+
+(defonce ^ExecutorService default-virtual-thread-executor (make-virtual-thread-executor))
 
 (defn ^:private deref-future
   "Private function copied from clojure.core;
@@ -55,6 +58,29 @@
    (try (.get fut timeout-ms java.util.concurrent.TimeUnit/MILLISECONDS)
         (catch java.util.concurrent.TimeoutException _
           timeout-val))))
+
+(defn worker-vfuture-call [^ExecutorService executor f]
+  (let [fut (.submit executor ^Callable f)]
+    (reify
+      clojure.lang.IDeref
+      (deref [_] (deref-future fut))
+      clojure.lang.IBlockingDeref
+      (deref [_ timeout-ms timeout-val]
+        (deref-future fut timeout-ms timeout-val))
+      clojure.lang.IPending
+      (isRealized [_] (.isDone fut))
+      java.util.concurrent.Future
+      (get [_] (.get fut))
+      (get [_ timeout unit] (.get fut timeout unit))
+      (isCancelled [_] (.isCancelled fut))
+      (isDone [_] (.isDone fut))
+      (cancel [_ interrupt?]
+        (.cancel fut interrupt?)))))
+
+(defmacro worker-vfuture
+  "Creates a "
+  [^ExecutorService executor & body]
+  `(worker-vfuture-call ~executor (^{:once true} fn* [] ~@body)))
 
 ;; Keeps track of child futures so that we can cancel them if the
 ;; parent is canceled.
