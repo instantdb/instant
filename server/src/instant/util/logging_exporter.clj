@@ -70,19 +70,25 @@
     clojure.lang.LazySeq (pr-str v)
     v))
 
-(defn attr-str [attrs]
-  (let [sb (StringBuilder.)]
-    (doseq [[k v] attrs
-            :let [k (str k)]
-            :when (not (exclude? k))]
-      (.append sb k)
+(defn- append-attr [^StringBuilder sb [k v]]
+  (let [k (str k)]
+    (when-not (exclude? k)
+      (.append sb (if (and (= k "exception.message")
+                           (not= :prod (config/get-env)))
+                    (colorize error-color k)
+                    k))
       (.append sb "=")
       (.append sb (format-attr-value v))
-      (.append sb " "))
-    (.toString sb)))
+      (.append sb " "))))
 
-(defn event-str [^SpanData span]
-  (attr-str (.asMap (.getAttributes span))))
+(defn attr-str [^SpanData span]
+  (let [sb (StringBuilder.)]
+    (doseq [attr (.asMap (.getAttributes span))]
+      (append-attr sb attr))
+    (doseq [event (.getEvents span)]
+      (doseq [attr (.asMap (.getAttributes event))]
+        (append-attr sb attr)))
+    (.toString sb)))
 
 (defn friendly-trace [trace-id]
   (if (seq trace-id)
@@ -97,14 +103,14 @@
 (def span-str
   (if (= :prod (config/get-env))
     (fn [^SpanData span]
-      (let [attr-str (attr-str (.getAttributes span))]
+      (let [attr-str (attr-str span)]
         (format "[%s] %sms [%s] %s"
                 (.getTraceId span)
                 (duration-ms span)
                 (.getName span)
                 (escape-newlines attr-str))))
     (fn [^SpanData span]
-      (let [attr-str (attr-str (.getAttributes span))]
+      (let [attr-str (attr-str span)]
         (format "[%s] %sms [%s] %s"
                 (colorize uniq-color (friendly-trace (.getTraceId span)))
                 (duration-ms span)
