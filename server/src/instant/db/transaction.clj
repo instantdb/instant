@@ -207,7 +207,6 @@
 
            results-with-on-deletes (enforce-on-deletes conn attrs app-id results)
            tx (transaction-model/create! conn {:app-id app-id})]
-       (tool/def-locals)
        (e2e-tracer/start-invalidator-tracking! {:tx-id (:id tx)})
        (e2e-tracer/invalidator-tracking-step! {:tx-id (:id tx)
                                                :name "transact"})

@@ -84,7 +84,7 @@
         e2e-logging (when-let [flag (-> (get result "e2e-logging")
                                         first)]
                       {:invalidator-every-n (try (/ 1 (get flag "invalidator-rate"))
-                                                 (catch Exception e
+                                                 (catch Exception _e
                                                    10000))})]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist

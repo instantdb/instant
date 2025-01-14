@@ -59,7 +59,7 @@
                                                       :entropy tx-id})]
       (tracer/end-span! span))))
 
-(defn invalidator-tracking-step! [{:keys [^Long tx-id name] :as span-opts}]
+(defn invalidator-tracking-step! [{:keys [^Long tx-id] :as span-opts}]
   ;; Create a new span with a stable trace-id and span-id for the parent
   (when (flags/e2e-should-honeycomb-publish? tx-id)
     (binding [tracer/*span* (make-invalidator-tracking-span tx-id nil)]
