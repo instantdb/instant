@@ -49,7 +49,7 @@
         sdk-builder (OpenTelemetrySdk/builder)
         log-processor (if (= :prod (config/get-env))
                         (let [builder (BatchSpanProcessor/builder (logging-exporter/create))]
-                          (.setScheduleDelay builder 500 java.util.concurrent.TimeUnit/MILLISECONDS)
+                          (.setScheduleDelay builder 500 TimeUnit/MILLISECONDS)
                           (.build builder))
                         (SimpleSpanProcessor/create (logging-exporter/create)))
         otlp-builder (OtlpGrpcSpanExporter/builder)

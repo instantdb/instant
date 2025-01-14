@@ -60,11 +60,7 @@
      "detailed_tx_steps"
      "process_id"
      "query") true
-    (or
-     ;; `detailed_` columns in our logs are just
-     ;; too noisy. It's still nice to have in honeycomb,
-     ;; but it distracts in stdout.
-     (string/starts-with? k "detailed_"))))
+    false))
 
 (defn format-attr-value
   "Formats attr values for logs."
@@ -86,7 +82,7 @@
     (.toString sb)))
 
 (defn event-str [^SpanData span]
-  (attr-str (.getAttributes span)))
+  (attr-str (.asMap (.getAttributes span))))
 
 (defn friendly-trace [trace-id]
   (if (seq trace-id)
