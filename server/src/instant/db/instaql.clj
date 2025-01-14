@@ -183,14 +183,15 @@
                             (grow-paths path)))})
 
         (and (map? v) (contains? v :$isNull) (= true (:$isNull v)))
-        ;; If the where cond has `$isNull=true`, then we
-        ;; need it should match if any of the intermediate
-        ;; paths are null
-        (let [path (string/split (name k) #"\.")]
-          {:or (concat [[[path v]]]
-                       (map (fn [p]
-                              [[p {:$isNull true}]])
-                            (grow-paths path)))})
+        ;; If the where cond has `$isNull=true`, then we need it to
+        ;; match if any of the intermediate paths are null
+        (let [path (string/split (name k) #"\.")
+              conds (map (fn [p]
+                           [[p {:$isNull true}]])
+                         (grow-paths path))]
+          (if (= 1 (count conds))
+            {:and conds}
+            {:or conds}))
 
         :else [(string/split (name k) #"\.") v]))
 
@@ -568,7 +569,7 @@
    [?e attr-id 5] => 5
    [5 attr-id ?v] => 5"
   [[e _ v :as _attr-pat]]
-  (some d/constant? [e v]))
+  (some attr-pat/constant-component? [e v]))
 
 (defn- optimize-attr-pats
   "Given a list of attr pats, this tries to return a list that will be more
