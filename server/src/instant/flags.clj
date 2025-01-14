@@ -15,7 +15,8 @@
             :use-patch-presence {}
             :drop-refresh-spam {}
             :promo-emails {}
-            :rate-limited-apps {}})
+            :rate-limited-apps {}
+            :e2e-logging {}})
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -79,13 +80,19 @@
         rate-limited-apps (reduce (fn [acc {:strs [appId]}]
                                     (conj acc (parse-uuid appId)))
                                   #{}
-                                  (get result "rate-limited-apps"))]
+                                  (get result "rate-limited-apps"))
+        e2e-logging (when-let [flag (-> (get result "e2e-logging")
+                                        first)]
+                      {:invalidator-every-n (try (/ 1 (get flag "invalidator-rate"))
+                                                 (catch Exception e
+                                                   10000))})]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
      :use-patch-presence use-patch-presence
      :promo-code-emails promo-code-emails
      :drop-refresh-spam drop-refresh-spam
-     :rate-limited-apps rate-limited-apps}))
+     :rate-limited-apps rate-limited-apps
+     :e2e-logging e2e-logging}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -148,3 +155,8 @@
 (defn app-rate-limited? [app-id]
   (contains? (:rate-limited-apps (query-result))
              app-id))
+
+(defn e2e-encourage-honeycomb-publish? [^Long tx-id]
+  (zero? (mod tx-id (or (get-in (query-result)
+                                [:e2e-logging :invalidator-every-n])
+                        10000))))

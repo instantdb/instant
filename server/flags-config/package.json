@@ -10,7 +10,7 @@
     "dev:push": "INSTANT_CLI_DEV=1 instant-cli push"
   },
   "dependencies": {
-    "@instantdb/core": "^0.14.29",
-    "instant-cli": "^0.14.29"
+    "@instantdb/core": "^0.17.7",
+    "instant-cli": "^0.17.7"
   }
 }

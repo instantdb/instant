@@ -1,5 +1,6 @@
 (ns instant.util.e2e-tracer
-  (:require [instant.util.tracer :as tracer])
+  (:require [instant.util.tracer :as tracer]
+            [instant.flags :as flags])
   (:import
    (io.opentelemetry.api.trace SpanContext)
    (io.opentelemetry.sdk.trace SdkSpan)
@@ -37,11 +38,18 @@
 
 (def context-field ^Field (get-field SdkSpan "context"))
 
+(defn encourage-publish-attrs
+  "Attrs that will make honeycomb more likely to skip sampling on this event
+  to give us a better chance of seeing all spans in the trace."
+  [^Long tx-id]
+  (when (flags/e2e-encourage-honeycomb-publish? tx-id)
+    {:entropy tx-id}))
 
 (defn make-invalidator-tracking-span [^Long tx-id attrs]
   (let [span (binding [tracer/*span* nil] ;; make sure this is a top-level span
                (tracer/new-span! {:name "e2e/invalidator/tracking-span"
                                   :attributes (merge {:tx-id tx-id}
+                                                     (encourage-publish-attrs tx-id)
                                                      attrs)}))
         context (.getSpanContext ^SdkSpan span)
         modified-context (SpanContext/create (tx-id->trace-id tx-id)
@@ -61,4 +69,5 @@
                              (update :name (fn [s] (format "e2e/invalidator/%s" s)))
                              (update :attributes (fn [a]
                                                    (merge a
+                                                          (encourage-publish-attrs tx-id)
                                                           {:tx-id tx-id})))))))

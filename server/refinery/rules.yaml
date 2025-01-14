@@ -20,3 +20,4 @@ Samplers:
                 FieldList:
                   - root.name
                   - root.op
+                  - root.entropy
