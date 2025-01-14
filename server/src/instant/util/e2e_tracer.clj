@@ -7,6 +7,7 @@
    (java.nio ByteBuffer)
    (org.apache.commons.codec.binary Hex)))
 
+;; Starts the trace-id with a1 so that it's easy to spot
 (def tx-id-magic-prefix ^byte (byte -95))
 
 (defn tx-id->trace-id
@@ -53,12 +54,11 @@
 (defn start-invalidator-tracking! [{:keys [^Long tx-id app-id]}]
   (tracer/end-span! (make-invalidator-tracking-span tx-id {:app-id app-id})))
 
-;; XXX: Need to do something to prevent ourselves from being removed by refinery
 (defn invalidator-tracking-step! [{:keys [^Long tx-id name] :as span-opts}]
   ;; Create a new span with a stable trace-id and span-id for the parent
   (binding [tracer/*span* (make-invalidator-tracking-span tx-id nil)]
     (tracer/record-info! (-> span-opts
-                             (update :name (fn [s] (format "e2e/invalidator/%s" name)))
+                             (update :name (fn [s] (format "e2e/invalidator/%s" s)))
                              (update :attributes (fn [a]
                                                    (merge a
                                                           {:tx-id tx-id})))))))

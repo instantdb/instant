@@ -192,7 +192,6 @@
 (defn send-json!
   "Serializes `obj` to json, and sends over a websocket."
   [app-id obj {:keys [websocket-stub undertow-websocket ^ReentrantLock send-lock]}]
-  (tool/def-locals)
   ;; Websockets/sendText _should_ be thread-safe
   ;; But, t becomes thread-unsafe when we use per-message-deflate
   ;; Using a `send-lock` to make `send-json!` thread-safe

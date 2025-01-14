@@ -1,5 +1,6 @@
 (ns instant.util.delay
-  (:import [java.util.concurrent Callable ScheduledThreadPoolExecutor TimeUnit ScheduledFuture]))
+  (:import
+   (java.util.concurrent Callable ScheduledThreadPoolExecutor TimeUnit)))
 
 (defn cpu-count []
   (.availableProcessors (Runtime/getRuntime)))
