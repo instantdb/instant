@@ -1,20 +1,20 @@
 (ns instant.util.tracer
   "Span lib for integrating with Honeycomb"
+  (:gen-class)
   (:require
    [clojure.main :as main]
-   [instant.util.logging-exporter :as logging-exporter]
    [instant.config :as config]
+   [instant.util.logging-exporter :as logging-exporter]
    [steffan-westcott.clj-otel.api.attributes :as attr])
   (:import
-   (io.opentelemetry.sdk OpenTelemetrySdk)
-   (io.opentelemetry.api.common Attributes AttributeKey)
+   (io.opentelemetry.api.common AttributeKey Attributes)
    (io.opentelemetry.api.trace Span StatusCode)
    (io.opentelemetry.context Context)
    (io.opentelemetry.exporter.otlp.trace OtlpGrpcSpanExporter)
+   (io.opentelemetry.sdk OpenTelemetrySdk)
    (io.opentelemetry.sdk.resources Resource)
-   (io.opentelemetry.sdk.trace SdkTracerProvider SdkTracer)
-   (io.opentelemetry.sdk.trace.export BatchSpanProcessor SimpleSpanProcessor))
-  (:gen-class))
+   (io.opentelemetry.sdk.trace SdkTracer SdkTracerProvider)
+   (io.opentelemetry.sdk.trace.export BatchSpanProcessor SimpleSpanProcessor)))
 
 (def ^:dynamic *span* nil)
 

@@ -5,6 +5,7 @@
    [clojure.string :as string]
    [instant.config :as config])
   (:import (io.opentelemetry.api.common AttributeKey)
+           (io.opentelemetry.api.trace Span)
            (io.opentelemetry.sdk.common CompletableResultCode)
            (io.opentelemetry.sdk.trace.export SpanExporter)
            (java.util.concurrent TimeUnit)
@@ -120,33 +121,37 @@
 
 (def exclude-span?
   (if (= :prod (config/get-env))
+    (fn [^Span span]
+      (let [n (.getName span)]
+        (case n
+          ("gc"
+           "ws/send-json!"
+           "handle-refresh/send-event!"
+           "store/record-datalog-query-finish!"
+           "store/record-datalog-query-start!"
+           "store/swap-datalog-cache!"
+           "store/bump-instaql-version!"
+           "store/add-instaql-query!"
+           "instaql/get-eid-check-result!"
+           "extract-permission-helpers"
+           "instaql/map-permissioned-node") true
+
+          ("receive-worker/handle-event"
+           "receive-worker/handle-receive")
+          (case (-> (.getAttributes span)
+                    (.get op-attr-key))
+            (":set-presence"
+             ":refresh-presence"
+             ":server-broadcast"
+             ":client-broadcast") true
+
+            false)
+
+          (string/starts-with? n "e2e"))))
     (fn [span]
-      (case (.getName span)
-        ("ws/send-json!"
-         "handle-refresh/send-event!"
-         "store/record-datalog-query-finish!"
-         "store/record-datalog-query-start!"
-         "store/swap-datalog-cache!"
-         "store/bump-instaql-version!"
-         "store/add-instaql-query!"
-         "instaql/get-eid-check-result!"
-         "extract-permission-helpers"
-         "instaql/map-permissioned-node") true
-
-        ("receive-worker/handle-event"
-         "receive-worker/handle-receive")
-        (case (-> (.getAttributes span)
-                  (.get op-attr-key))
-          (":set-presence"
-           ":refresh-presence"
-           ":server-broadcast"
-           ":client-broadcast") true
-
-          false)
-
-        false))
-    (fn [span]
-      (= (.getName span) "gc"))))
+      (let [n (.getName span)]
+        (or (= n "gc")
+            (string/starts-with? n "e2e"))))))
 
 (defn log-spans [spans]
   (doseq [span spans

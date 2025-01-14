@@ -31,6 +31,7 @@
    [instant.util.exception :as ex]
    [instant.util.json :refer [<-json]]
    [instant.util.semver :as semver]
+   [instant.util.e2e-tracer :as e2e-tracer]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
    [lambdaisland.uri :as uri])
@@ -167,7 +168,10 @@
      :instaql-result instaql-result
      :result-changed? result-changed?}))
 
-(defn- handle-refresh! [store-conn sess-id _event debug-info]
+(defn- handle-refresh! [store-conn sess-id event debug-info]
+  (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id event)
+                                          :name "start-refresh"
+                                          :attributes {:session-id sess-id}})
   (let [auth (get-auth! store-conn sess-id)
         app-id (-> auth :app :id)
         current-user (-> auth :user)
@@ -193,17 +197,25 @@
         drop-spam? (flags/drop-refresh-spam? app-id)
         computations (if drop-spam?
                        computations
-                       recompute-results)]
+                       recompute-results)
+        tracer-attrs {:num-recomputations num-recomputations
+                      :num-spam num-spam
+                      :num-computations num-computations
+                      :dropped-spam? drop-spam?}]
+    (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id event)
+                                            :name "finish-refresh-queries"
+                                            :attributes (assoc tracer-attrs
+                                                               :session-id sess-id)})
     (tracer/with-span! {:name "handle-refresh/send-event!"
-                        :attributes {:num-recomputations num-recomputations
-                                     :num-spam num-spam
-                                     :num-computations num-computations
-                                     :dropped-spam? drop-spam?}}
+                        :attributes tracer-attrs}
       (when (seq computations)
-        (rs/send-event! store-conn app-id sess-id {:op :refresh-ok
-                                                   :processed-tx-id processed-tx-id
-                                                   :attrs attrs
-                                                   :computations computations})))))
+        (rs/send-event! store-conn app-id sess-id (with-meta
+                                                    {:op :refresh-ok
+                                                     :processed-tx-id processed-tx-id
+                                                     :attrs attrs
+                                                     :computations computations}
+                                                    {:tx-id (:tx-id event)
+                                                     :session-id sess-id}))))))
 
 ;; -----
 ;; transact
@@ -566,17 +578,21 @@
                       (#(%))))
        (assoc metadata :skipped-size skipped-size)))))
 
-(defmulti consolidate
-  (fn [type batch]
-    (if (= 1 (count batch))
-      :default
-      type)))
+(defn resolve-consolidate [type batch]
+  (if (= 1 (count batch))
+    :default
+    type))
+
+(defmulti consolidate #'resolve-consolidate)
 
 (defmethod consolidate :default [_ batch]
   batch)
 
 (defmethod consolidate :refresh [_ batch]
-  [(-> (first batch)
+  (doseq [{:keys [item]} (drop-last batch)]
+    (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id item)
+                                            :name "skipped-refresh"}))
+  [(-> (last batch)
        (assoc :skipped-size (dec (count batch))))])
 
 (defmethod consolidate :refresh-presence [_ batch]

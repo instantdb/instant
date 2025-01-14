@@ -8,6 +8,9 @@ const graph = i.graph(
     $users: i.entity({
       email: i.string().unique().indexed(),
     }),
+    "e2e-logging": i.entity({
+      "invalidator-rate": i.number(),
+    }),
     "drop-refresh-spam": i.entity({
       "default-value": i.boolean(),
       "disabled-apps": i.any(),
@@ -29,7 +32,7 @@ const graph = i.graph(
       email: i.string(),
     }),
     "rate-limited-apps": i.entity({
-      appId: i.string().unique()
+      appId: i.string().unique(),
     }),
     "storage-whitelist": i.entity({
       appId: i.string().unique().indexed(),
@@ -47,7 +50,7 @@ const graph = i.graph(
   // For example, if `posts` should have many `comments`.
   // More in the docs:
   // https://www.instantdb.com/docs/schema#defining-links
-  {},
+  {}
 );
 
 export default graph;
