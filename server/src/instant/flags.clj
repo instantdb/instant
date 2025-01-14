@@ -157,6 +157,7 @@
              app-id))
 
 (defn e2e-should-honeycomb-publish? [^Long tx-id]
-  (zero? (mod tx-id (or (get-in (query-result)
-                                [:e2e-logging :invalidator-every-n])
-                        10000))))
+  (and tx-id
+       (zero? (mod tx-id (or (get-in (query-result)
+                                     [:e2e-logging :invalidator-every-n])
+                             10000)))))
