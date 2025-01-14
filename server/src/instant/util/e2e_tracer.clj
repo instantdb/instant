@@ -38,18 +38,10 @@
 
 (def context-field ^Field (get-field SdkSpan "context"))
 
-(defn encourage-publish-attrs
-  "Attrs that will make honeycomb more likely to skip sampling on this event
-  to give us a better chance of seeing all spans in the trace."
-  [^Long tx-id]
-  (when (flags/e2e-encourage-honeycomb-publish? tx-id)
-    {:entropy tx-id}))
-
 (defn make-invalidator-tracking-span [^Long tx-id attrs]
   (let [span (binding [tracer/*span* nil] ;; make sure this is a top-level span
                (tracer/new-span! {:name "e2e/invalidator/tracking-span"
                                   :attributes (merge {:tx-id tx-id}
-                                                     (encourage-publish-attrs tx-id)
                                                      attrs)}))
         context (.getSpanContext ^SdkSpan span)
         modified-context (SpanContext/create (tx-id->trace-id tx-id)
@@ -60,14 +52,23 @@
     span))
 
 (defn start-invalidator-tracking! [{:keys [^Long tx-id app-id]}]
-  (tracer/end-span! (make-invalidator-tracking-span tx-id {:app-id app-id})))
+  (when (flags/e2e-should-honeycomb-publish? tx-id)
+    (let [span (make-invalidator-tracking-span tx-id {:app-id app-id
+                                                      ;; encourage honeycomb not
+                                                      ;; to skip this span
+                                                      :entropy tx-id})]
+      (tracer/end-span! span))))
 
 (defn invalidator-tracking-step! [{:keys [^Long tx-id name] :as span-opts}]
   ;; Create a new span with a stable trace-id and span-id for the parent
-  (binding [tracer/*span* (make-invalidator-tracking-span tx-id nil)]
-    (tracer/record-info! (-> span-opts
-                             (update :name (fn [s] (format "e2e/invalidator/%s" s)))
-                             (update :attributes (fn [a]
-                                                   (merge a
-                                                          (encourage-publish-attrs tx-id)
-                                                          {:tx-id tx-id})))))))
+  (when (flags/e2e-should-honeycomb-publish? tx-id)
+    (binding [tracer/*span* (make-invalidator-tracking-span tx-id nil)]
+      (tracer/record-info!
+       (-> span-opts
+           (update :name (fn [s] (format "e2e/invalidator/%s" s)))
+           (update :attributes (fn [a]
+                                 (merge a
+                                        {:tx-id tx-id
+                                         ;; encourage honeycomb not
+                                         ;; to skip this span
+                                         :entropy tx-id}))))))))
