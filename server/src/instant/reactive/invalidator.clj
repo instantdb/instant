@@ -349,7 +349,8 @@
 
       (try
         (let [sockets (invalidate! process-id store-conn wal-record)]
-          (tracer/add-data! {:attributes {:num-sockets (count sockets)}})
+          (tracer/add-data! {:attributes {:num-sockets (count sockets)
+                                          :tx-latency-ms (e2e-tracer/tx-latency-ms tx-created-at)}})
           (e2e-tracer/invalidator-tracking-step! {:tx-id tx-id
                                                   :tx-created-at tx-created-at
                                                   :name "send-refreshes"
