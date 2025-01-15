@@ -1,18 +1,19 @@
 (ns instant.util.logging-exporter
   "Exporter that logs spans to stdout. In development we also colorize the logs"
   (:require
-   [clojure.tools.logging :as log]
    [clojure.string :as string]
+   [clojure.tools.logging :as log]
    [instant.config :as config])
-  (:import (io.opentelemetry.api.common AttributeKey)
-           (io.opentelemetry.api.trace Span)
-           (io.opentelemetry.sdk.common CompletableResultCode)
-           (io.opentelemetry.sdk.trace.export SpanExporter)
-           (java.util.concurrent TimeUnit)
-           (java.util.concurrent.atomic AtomicBoolean)))
+  (:import
+   (io.opentelemetry.api.common AttributeKey)
+   (io.opentelemetry.sdk.common CompletableResultCode)
+   (io.opentelemetry.sdk.trace.data SpanData EventData)
+   (io.opentelemetry.sdk.trace.export SpanExporter)
+   (java.util.concurrent TimeUnit)
+   (java.util.concurrent.atomic AtomicBoolean)))
 
-;; -------
-;; Colors 
+;; ------
+;; Colors
 
 (def colors
   "All ansi color codes that look good against black"
@@ -29,7 +30,7 @@
 (defn- error-color [s]
   (format "\033[1;37;41m%s\033[0m" s))
 
-(defn- uniq-color [s]
+(defn- uniq-color [^String s]
   (let [n (.hashCode s)
         i (mod n (count colors))]
     (format "\033[1;38;5;%dm%s\033[0m" (colors i) s)))
@@ -39,36 +40,27 @@
     s
     (color-f s)))
 
-(defn duration-ms [span]
+(defn duration-ms [^SpanData span]
   (let [start (.getStartEpochNanos span)
         end   (.getEndEpochNanos span)]
     (.toMillis (TimeUnit/NANOSECONDS)
                (- end start))))
 
-(def exclude-ks #{"SampleRate"
-                  "thread.name"
-                  "thread.id"
-                  "code.lineno"
-                  "code.namespace"
-                  "code.filepath"
-                  "host.name"
-                  "detailed_query"
-                  "detailed_patterns"
-                  "detailed_tx_steps"
-                  "process_id"
-                  "query"})
-
-(defn exclude? [[k]]
-  (or (exclude-ks k)
-      ;; `detailed_` columns in our logs are just
-      ;; too noisy. It's still nice to have in honeycomb,
-      ;; but it distracts in stdout.
-      (string/starts-with? k "detailed_")
-      ;; `jvm.` columns are used to associate metrics to
-      ;; every span. This is too noisy for stdout
-      (string/starts-with? k "jvm.")
-      ;; gauge metrics for a namespace
-      (string/starts-with? k "instant.")))
+(defn exclude? [k]
+  (case k
+    ("SampleRate"
+     "thread.name"
+     "thread.id"
+     "code.lineno"
+     "code.namespace"
+     "code.filepath"
+     "host.name"
+     "detailed_query"
+     "detailed_patterns"
+     "detailed_tx_steps"
+     "process_id"
+     "query") true
+    false))
 
 (defn format-attr-value
   "Formats attr values for logs."
@@ -78,21 +70,25 @@
     clojure.lang.LazySeq (pr-str v)
     v))
 
-(defn attr-str [attrs]
-  (->>  attrs
-        (map (fn [[k v]] [(str k) v]))
-        (remove exclude?)
-        (map (fn [[k v]]
-               (format "%s=%s"
-                       (if (= k "exception.message")
-                         (colorize error-color k)
-                         k)
-                       (format-attr-value v))))
-        (interpose " ")
-        string/join))
+(defn- append-attr [^StringBuilder sb [k v]]
+  (let [k (str k)]
+    (when-not (exclude? k)
+      (.append sb (if (and (= k "exception.message")
+                           (not= :prod (config/get-env)))
+                    (colorize error-color k)
+                    k))
+      (.append sb "=")
+      (.append sb (format-attr-value v))
+      (.append sb " "))))
 
-(defn event-str [span-event]
-  (attr-str (.asMap (.getAttributes span-event))))
+(defn attr-str [^SpanData span]
+  (let [sb (StringBuilder.)]
+    (doseq [attr (.asMap (.getAttributes span))]
+      (append-attr sb attr))
+    (doseq [^EventData event (.getEvents span)]
+      (doseq [attr (.asMap (.getAttributes event))]
+        (append-attr sb attr)))
+    (.toString sb)))
 
 (defn friendly-trace [trace-id]
   (if (seq trace-id)
@@ -101,30 +97,35 @@
       (subs trace-id 0 4))
     "unk"))
 
-(defn escape-newlines [s]
-  (string/replace s #"\n" "\\\\n"))
+(defn escape-newlines [^String s]
+  (.replace s "\n" "\\\\n"))
 
-(defn span-str [span]
-  (let [attr-str (attr-str (.getAttributes span))
-        event-strs (map event-str (.getEvents span))
-        data-str (string/join
-                  " "
-                  (into [attr-str] event-strs))]
-    (format "[%s] %sms [%s] %s"
-            (colorize uniq-color (friendly-trace (.getTraceId span)))
-            (duration-ms span)
-            (colorize uniq-color (.getName span))
-            (cond-> data-str
-              (= :prod (config/get-env)) escape-newlines))))
+(def span-str
+  (if (= :prod (config/get-env))
+    (fn [^SpanData span]
+      (let [attr-str (attr-str span)]
+        (format "[%s] %sms [%s] %s"
+                (.getTraceId span)
+                (duration-ms span)
+                (.getName span)
+                (escape-newlines attr-str))))
+    (fn [^SpanData span]
+      (let [attr-str (attr-str span)]
+        (format "[%s] %sms [%s] %s"
+                (colorize uniq-color (friendly-trace (.getTraceId span)))
+                (duration-ms span)
+                (colorize uniq-color (.getName span))
+                attr-str)))))
 
 (def op-attr-key (AttributeKey/stringKey "op"))
 
 (def exclude-span?
   (if (= :prod (config/get-env))
-    (fn [^Span span]
+    (fn [^SpanData span]
       (let [n (.getName span)]
         (case n
           ("gc"
+           "gauges"
            "ws/send-json!"
            "handle-refresh/send-event!"
            "store/record-datalog-query-finish!"
@@ -148,17 +149,20 @@
             false)
 
           (string/starts-with? n "e2e"))))
-    (fn [span]
+    (fn [^SpanData span]
       (let [n (.getName span)]
-        (or (= n "gc")
-            (string/starts-with? n "e2e"))))))
+        (case n
+          ("gc"
+           "gauges") true
+
+          (string/starts-with? n "e2e"))))))
 
 (defn log-spans [spans]
   (doseq [span spans
           :when (not (exclude-span? span))]
     (log/info (span-str span))))
 
-(defn export [shutdown? spans]
+(defn export [^AtomicBoolean shutdown? spans]
   (if (.get shutdown?)
     (CompletableResultCode/ofFailure)
     (do (log-spans spans)

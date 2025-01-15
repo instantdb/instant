@@ -14,7 +14,8 @@
    (io.opentelemetry.sdk OpenTelemetrySdk)
    (io.opentelemetry.sdk.resources Resource)
    (io.opentelemetry.sdk.trace SdkTracer SdkTracerProvider)
-   (io.opentelemetry.sdk.trace.export BatchSpanProcessor SimpleSpanProcessor)))
+   (io.opentelemetry.sdk.trace.export BatchSpanProcessor SimpleSpanProcessor)
+   (java.util.concurrent TimeUnit)))
 
 (def ^:dynamic *span* nil)
 
@@ -46,7 +47,11 @@
   [honeycomb-api-key]
   (let [trace-provider-builder (SdkTracerProvider/builder)
         sdk-builder (OpenTelemetrySdk/builder)
-        log-processor (SimpleSpanProcessor/create (logging-exporter/create))
+        log-processor (if (= :prod (config/get-env))
+                        (let [builder (BatchSpanProcessor/builder (logging-exporter/create))]
+                          (.setScheduleDelay builder 500 TimeUnit/MILLISECONDS)
+                          (.build builder))
+                        (SimpleSpanProcessor/create (logging-exporter/create)))
         otlp-builder (OtlpGrpcSpanExporter/builder)
         resource (.merge (Resource/getDefault)
                          (Resource/create (Attributes/of (AttributeKey/stringKey "service.name")
@@ -73,21 +78,14 @@
               (make-log-only-sdk))]
     (reset! tracer (.getTracer sdk "instant-server"))))
 
-;; Stores metrics calculated by instant.gauges
-;; These metrics are attached to every span.
-;; Note: adding columns to spans are free in Honeycomb.
-;;       Having metrics on each span is a good way to observe changes.
-(defonce last-calculated-metrics (atom {}))
-
 (defn new-span!
   [{span-name :name :keys [attributes source] :as params}]
   (when-not span-name
     (throw (Exception. (format "Expected a map with :name key, got %s." params))))
   (let [thread (Thread/currentThread)
         {:keys [code-ns code-line code-file]} source
-        default-attributes (cond-> @last-calculated-metrics
-                             true (assoc "host.name" @config/hostname
-                                         "process-id" @config/process-id)
+        default-attributes (cond-> {"host.name" @config/hostname
+                                    "process-id" @config/process-id}
                              thread (assoc "thread.name"
                                            (.getName thread)
                                            "thread.id"
@@ -99,10 +97,10 @@
     (-> (get-tracer)
         (.spanBuilder (name span-name))
         (cond->
-         *span* (.setParent (-> (Context/current)
-                                (.with *span*)))
-         :always (.setAllAttributes (attr/->attributes attributes'))
-         (not *span*) .setNoParent)
+            *span* (.setParent (-> (Context/current)
+                                   (.with *span*)))
+            :always (.setAllAttributes (attr/->attributes attributes'))
+            (not *span*) .setNoParent)
         .startSpan)))
 
 (def ^:private keyword->StatusCode
