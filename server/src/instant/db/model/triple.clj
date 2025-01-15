@@ -15,7 +15,8 @@
    [clojure.string :as string])
   (:import
    (java.util UUID)
-   (java.time Instant LocalDate ZonedDateTime ZoneOffset)))
+   (java.time Instant LocalDate LocalDateTime ZonedDateTime ZoneOffset)
+   (java.time.format DateTimeFormatter)))
 
 ;; (XXX): Currently we allow value to be nil
 ;; In the future, we may want to _retract_ the triple if the value is nil
@@ -732,26 +733,54 @@
       (tracer/add-data! {:attributes {:total-count @row-count}})
       {:row-count @row-count})))
 
-(defn- iso8601-date-str->instant* [x]
-  (if (string/includes? x "T")
-    (.toInstant (ZonedDateTime/parse x))
-    (-> (LocalDate/parse x)
-        (.atStartOfDay)
-        (.toInstant ZoneOffset/UTC))))
+(defn zoned-date-time-str->instant [s]
+  (.toInstant (ZonedDateTime/parse s)))
 
-(defn iso8601-date-str->instant [x]
+(defn local-date-time-str->instant [s]
+  (.toInstant (LocalDateTime/parse s)))
+
+(defn local-date-str->instant [s]
+  (-> (LocalDate/parse s)
+      (.atStartOfDay)
+      (.toInstant ZoneOffset/UTC)))
+
+(def offio-date-formatter (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ss"))
+
+(defn offio-date-str->instant [s]
+  (-> s
+      (LocalDateTime/parse offio-date-formatter)
+      (.toInstant ZoneOffset/UTC)))
+
+(def date-parsers [zoned-date-time-str->instant
+                   local-date-time-str->instant
+                   local-date-str->instant
+                   offio-date-str->instant])
+
+(defn try-parse-date-string [parser s]
   (try
-    (iso8601-date-str->instant* x)
-    (catch Exception e
-      (let [parsed (try
-                     (<-json x)
-                     (catch Exception _
-                       (throw e)))]
-        (iso8601-date-str->instant* parsed)))))
+    (parser s)
+    (catch Exception _e
+      nil)))
+
+(defn date-str->instant [s]
+  (loop [parsers date-parsers]
+    (when-let [parser (first parsers)]
+      (if-let [instant (try-parse-date-string parser s)]
+        instant
+        (recur (rest parsers))))))
+
+(defn json-str->instant [maybe-json]
+  (when-let [s (try
+                 (<-json maybe-json)
+                 (catch Throwable _e
+                   nil))]
+    (date-str->instant s)))
 
 (defn parse-date-value [x]
   (cond (string? x)
-        (iso8601-date-str->instant x)
+        (or (date-str->instant x)
+            (json-str->instant x)
+            (throw (Exception. (str "Unable to parse date string " x))))
 
         (number? x)
         (Instant/ofEpochMilli x)))
@@ -761,5 +790,9 @@
   (parse-date-value "2025-01-01")
   (parse-date-value "2025-01-02T00:00:00-08")
   (parse-date-value "\"2025-01-02T00:00:00-08\"")
+  (parse-date-value "2025-01-15 20:53:08")
+  (parse-date-value "\"2025-01-15 20:53:08\"")
+
+  ;; These should throw an exception
   (parse-date-value "2025-01-0")
   (parse-date-value "\"2025-01-0\""))
