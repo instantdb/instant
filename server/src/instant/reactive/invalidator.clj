@@ -278,6 +278,8 @@
       (let [tx-id (extract-tx-id transactions-change)]
         (e2e-tracer/invalidator-tracking-step! {:tx-id tx-id
                                                 :name "transform-wal-record"})
+        ;; n.b. make sure to update combine-wal-records below if new
+        ;;      items are added to this map
         {:attr-changes attrs
          :ident-changes idents
          :triple-changes triples
@@ -290,12 +292,17 @@
   []
   (keep #'transform-wal-record))
 
-(defn combine-wal-records [wal-records]
+(defn combine-wal-records
+  "Combines a list of wal-records into a single wal-record.
+   We combine all of the change lists and advance the tx-id to the
+   latest tx-id in the list."
+  [wal-records]
   (reduce (fn [acc {:keys [attr-changes
                            ident-changes
                            triple-changes
                            app-id
                            tx-id]}]
+            ;; Complain loudly if we accidently mix wal-records from multiple apps
             (assert (= (:app-id acc) app-id) "app-id mismatch in combine-wal-records")
             (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id acc)
                                                     :name "skipped-in-combined-wal-record"})
