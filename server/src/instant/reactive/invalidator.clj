@@ -151,7 +151,8 @@
 (defn- invalidate!
   "Given a collection of changes, stales all relevant queries and returns
   sockets to be refreshed."
-  [store-conn {:keys [app-id tx-id] :as wal-record}]
+  ;; process-id used for tests
+  [_process-id store-conn {:keys [app-id tx-id] :as wal-record}]
   (let [topics (topics-for-changes wal-record)
         [db session-ids] (rs/mark-stale-topics! store-conn app-id tx-id topics)
         sockets (keep (partial rs/get-socket db) session-ids)]
@@ -336,7 +337,7 @@
   (when tx-created-at
     (.between ChronoUnit/MILLIS tx-created-at (Instant/now))))
 
-(defn process-wal-record [store-conn record-count wal-record]
+(defn process-wal-record [process-id store-conn record-count wal-record]
   (let [{:keys [app-id tx-id]} wal-record]
     (tracer/with-span! {:name "invalidator/work"
                         :attributes {:app-id app-id
@@ -345,7 +346,7 @@
                                      :wal-latency-ms (wal-latency-ms wal-record)}}
 
       (try
-        (let [sockets (invalidate! store-conn wal-record)]
+        (let [sockets (invalidate! process-id store-conn wal-record)]
           (tracer/add-data! {:attributes {:num-sockets (count sockets)}})
           (doseq [{:keys [id]} sockets]
             (tracer/with-span! {:name "invalidator/send-refresh"
@@ -367,14 +368,15 @@
    {:path "instant.reactive.invalidator.q.worker-count"
     :value (get-worker-count)}])
 
-(defn start-worker [store-conn wal-chan]
+(defn start-worker [process-id store-conn wal-chan]
   (tracer/record-info! {:name "invalidation-worker/start"})
   (let [queue-with-workers
         (grouped-queue/start-grouped-queue-with-workers
          {:group-fn :app-id
           :reserve-fn (fn [_ q] (grouped-queue/inflight-queue-reserve 100 q))
           :process-fn (fn [_key wal-records]
-                        (process-wal-record store-conn
+                        (process-wal-record process-id
+                                            store-conn
                                             (count wal-records)
                                             (combine-wal-records wal-records)))
           :max-workers 10})
@@ -479,7 +481,7 @@
 
      @(:started-promise wal-opts)
 
-     (start-worker rs/store-conn worker-chan)
+     (start-worker process-id rs/store-conn worker-chan)
 
      (when byop-chan
        (ua/fut-bg
