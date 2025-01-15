@@ -11,8 +11,7 @@
    [instant.util.json :refer [->json <-json]]
    [instant.util.spec :as uspec]
    [instant.util.string :refer [multiline->single-line]]
-   [instant.util.tracer :as tracer]
-   [clojure.string :as string])
+   [instant.util.tracer :as tracer])
   (:import
    (java.util UUID)
    (java.time Instant LocalDate LocalDateTime ZonedDateTime ZoneOffset)

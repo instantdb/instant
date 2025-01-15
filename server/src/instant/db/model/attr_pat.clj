@@ -7,8 +7,7 @@
             [instant.util.uuid :as uuid-util]
             [instant.jdbc.aurora :as aurora]
             [instant.data.constants :refer [zeneca-app-id]]
-            [instant.db.model.triple :as triple-model])
-  (:import (java.time Instant)))
+            [instant.db.model.triple :as triple-model]))
 
 (s/def ::attr-pat
   (s/cat :e (d/pattern-component uuid?)
@@ -272,13 +271,13 @@
                (throw-invalid-data-value! state attr data-type v))
     :date (cond (number? v)
                 (try
-                  (Instant/ofEpochMilli v)
+                  (triple-model/parse-date-value v)
                   (catch Exception _e
                     (throw-invalid-timestamp! state attr v)))
 
                 (string? v)
                 (try
-                  (triple-model/iso8601-date-str->instant v)
+                  (triple-model/parse-date-value v)
                   (catch Exception _e
                     (throw-invalid-date-string! state attr v)))
 
@@ -302,11 +301,11 @@
   (case attr-data-type
     :date (case tag
             :number (try
-                      (Instant/ofEpochMilli value)
+                      (triple-model/parse-date-value value)
                       (catch Exception _e
                         (throw-invalid-timestamp! state attr value)))
             :string (try
-                      (triple-model/iso8601-date-str->instant value)
+                      (triple-model/parse-date-value value)
                       (catch Exception _e
                         (throw-invalid-date-string! state attr value))))
     (if-not (= tag attr-data-type)
