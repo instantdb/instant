@@ -218,6 +218,7 @@
           (when-let [tx-id (-> obj meta :tx-id)]
             (e2e-tracer/invalidator-tracking-step!
              {:tx-id tx-id
+              :tx-created-at (-> obj meta :tx-created-at)
               :name "send-json-delivered"
               :attributes {:session-id (-> obj meta :session-id)}}))
           (when (instance? Throwable ret)

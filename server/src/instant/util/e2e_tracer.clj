@@ -6,6 +6,7 @@
    (io.opentelemetry.sdk.trace SdkSpan)
    (java.lang.reflect Field)
    (java.nio ByteBuffer)
+   (java.time Duration Instant)
    (org.apache.commons.codec.binary Hex)))
 
 ;; Starts the trace-id with a1 so that it's easy to spot
@@ -59,7 +60,7 @@
                                                       :entropy tx-id})]
       (tracer/end-span! span))))
 
-(defn invalidator-tracking-step! [{:keys [^Long tx-id] :as span-opts}]
+(defn invalidator-tracking-step! [{:keys [^Long tx-id tx-created-at] :as span-opts}]
   ;; Create a new span with a stable trace-id and span-id for the parent
   (when (flags/e2e-should-honeycomb-publish? tx-id)
     (binding [tracer/*span* (make-invalidator-tracking-span tx-id nil)]
@@ -71,4 +72,7 @@
                                         {:tx-id tx-id
                                          ;; encourage honeycomb not
                                          ;; to skip this span
-                                         :entropy tx-id}))))))))
+                                         :entropy tx-id}
+                                        (when tx-created-at
+                                          {:latency-ms (.toMillis (Duration/between tx-created-at
+                                                                                    (Instant/now)))})))))))))

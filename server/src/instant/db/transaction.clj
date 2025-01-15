@@ -207,9 +207,12 @@
 
            results-with-on-deletes (enforce-on-deletes conn attrs app-id results)
            tx (transaction-model/create! conn {:app-id app-id})]
-       (e2e-tracer/start-invalidator-tracking! {:tx-id (:id tx)})
-       (e2e-tracer/invalidator-tracking-step! {:tx-id (:id tx)
-                                               :name "transact"})
+       (let [tx-created-at (.toInstant (:created_at tx))]
+         (e2e-tracer/start-invalidator-tracking! {:tx-id (:id tx)
+                                                  :tx-created-at tx-created-at})
+         (e2e-tracer/invalidator-tracking-step! {:tx-id (:id tx)
+                                                 :tx-created-at tx-created-at
+                                                 :name "transact"}))
        (assoc tx :results results-with-on-deletes)))))
 
 (defn transact!

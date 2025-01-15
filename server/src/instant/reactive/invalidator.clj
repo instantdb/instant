@@ -276,8 +276,10 @@
         (instant-user-model/evict-user-id-from-cache id)))
 
     (when (and some-changes app-id)
-      (let [tx-id (extract-tx-id transactions-change)]
+      (let [tx-id (extract-tx-id transactions-change)
+            tx-created-at (extract-tx-created-at transactions-change)]
         (e2e-tracer/invalidator-tracking-step! {:tx-id tx-id
+                                                :tx-created-at tx-created-at
                                                 :name "transform-wal-record"})
         ;; n.b. make sure to update combine-wal-records below if new
         ;;      items are added to this map
@@ -285,8 +287,8 @@
          :ident-changes idents
          :triple-changes triples
          :app-id app-id
-         :tx-created-at (extract-tx-created-at transactions-change)
-         :tx-id (extract-tx-id transactions-change)}))))
+         :tx-created-at tx-created-at
+         :tx-id tx-id}))))
 
 (defn wal-record-xf
   "Filters wal records for supported changes. Returns [app-id changes]"
@@ -338,7 +340,7 @@
     (.between ChronoUnit/MILLIS tx-created-at (Instant/now))))
 
 (defn process-wal-record [process-id store-conn record-count wal-record]
-  (let [{:keys [app-id tx-id]} wal-record]
+  (let [{:keys [app-id tx-id tx-created-at]} wal-record]
     (tracer/with-span! {:name "invalidator/work"
                         :attributes {:app-id app-id
                                      :tx-id tx-id
@@ -349,13 +351,15 @@
         (let [sockets (invalidate! process-id store-conn wal-record)]
           (tracer/add-data! {:attributes {:num-sockets (count sockets)}})
           (e2e-tracer/invalidator-tracking-step! {:tx-id tx-id
+                                                  :tx-created-at tx-created-at
                                                   :name "send-refreshes"
                                                   :attributes {:num-sockets (count sockets)}})
           (tracer/with-span! {:name "invalidator/send-refreshes"}
             (doseq [{:keys [id]} sockets]
               (receive-queue/enqueue->receive-q {:op :refresh
                                                  :session-id id
-                                                 :tx-id tx-id}))))
+                                                 :tx-id tx-id
+                                                 :tx-created-at tx-created-at}))))
         (catch Throwable t
           (def -wal-record wal-record)
           (def -store-value @store-conn)

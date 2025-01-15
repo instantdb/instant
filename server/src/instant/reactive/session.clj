@@ -170,6 +170,7 @@
 
 (defn- handle-refresh! [store-conn sess-id event debug-info]
   (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id event)
+                                          :tx-created-at (:tx-created-at event)
                                           :name "start-refresh"
                                           :attributes {:session-id sess-id}})
   (let [auth (get-auth! store-conn sess-id)
@@ -203,6 +204,7 @@
                       :num-computations num-computations
                       :dropped-spam? drop-spam?}]
     (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id event)
+                                            :tx-created-at (:tx-created-at event)
                                             :name "finish-refresh-queries"
                                             :attributes (assoc tracer-attrs
                                                                :session-id sess-id)})
@@ -215,6 +217,7 @@
                                                      :attrs attrs
                                                      :computations computations}
                                                     {:tx-id (:tx-id event)
+                                                     :tx-created-at (:tx-created-at event)
                                                      :session-id sess-id}))))))
 
 ;; -----
@@ -591,6 +594,7 @@
 (defmethod consolidate :refresh [_ batch]
   (doseq [{:keys [item]} (drop-last batch)]
     (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id item)
+                                            :tx-created-at (:tx-created-at item)
                                             :name "skipped-refresh"}))
   [(-> (last batch)
        (assoc :skipped-size (dec (count batch))))])
