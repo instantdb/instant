@@ -348,10 +348,14 @@
       (try
         (let [sockets (invalidate! process-id store-conn wal-record)]
           (tracer/add-data! {:attributes {:num-sockets (count sockets)}})
+          (e2e-tracer/invalidator-tracking-step! {:tx-id tx-id
+                                                  :name "send-refreshes"
+                                                  :attributes {:num-sockets (count sockets)}})
           (tracer/with-span! {:name "invalidator/send-refreshes"}
             (doseq [{:keys [id]} sockets]
               (receive-queue/enqueue->receive-q {:op :refresh
-                                                 :session-id id}))))
+                                                 :session-id id
+                                                 :tx-id tx-id}))))
         (catch Throwable t
           (def -wal-record wal-record)
           (def -store-value @store-conn)
