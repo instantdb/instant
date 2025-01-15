@@ -5,6 +5,8 @@
    [instant.config :as config]
    [instant.db.model.attr :as attr-model]
    [instant.db.pg-introspect :as pg-introspect]
+   [instant.gauges :as gauges]
+   [instant.grouped-queue :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
    [instant.model.app :as app-model]
@@ -19,7 +21,7 @@
    [instant.db.model.triple :as triple-model])
   (:import
    (java.sql Timestamp)
-   (java.time Instant)
+   (java.time Duration Instant)
    (java.time.temporal ChronoUnit)
    (java.util UUID)
    (org.postgresql.replication LogSequenceNumber)))
@@ -288,6 +290,25 @@
   []
   (keep #'transform-wal-record))
 
+(defn combine-wal-records [wal-records]
+  (reduce (fn [acc {:keys [attr-changes
+                           ident-changes
+                           triple-changes
+                           app-id
+                           tx-id]}]
+            (assert (= (:app-id acc) app-id) "app-id mismatch in combine-wal-records")
+            (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id acc)
+                                                    :name "skipped-in-combined-wal-record"})
+
+            ;; Keep the old tx-created-at so that we see the
+            ;; worst case wal-latency-ms
+            (-> acc
+                (update :attr-changes (fnil into []) attr-changes)
+                (update :ident-changes (fnil into []) ident-changes)
+                (update :triple-changes (fnil into []) triple-changes)
+                (assoc :tx-id tx-id)))
+          wal-records))
+
 (defn transform-byop-wal-record [{:keys [changes nextlsn]}]
   ;; TODO(byop): if change is empty, then there might be changes to the schema
   (let [triple-changes (filter (fn [c]
@@ -308,34 +329,60 @@
   (when tx-created-at
     (.between ChronoUnit/MILLIS tx-created-at (Instant/now))))
 
+(defn process-wal-record [store-conn record-count wal-record]
+  (let [{:keys [app-id tx-id]} wal-record]
+    (tracer/with-span! {:name "invalidator/work"
+                        :attributes {:app-id app-id
+                                     :tx-id tx-id
+                                     :wal-record-count record-count
+                                     :wal-latency-ms (wal-latency-ms wal-record)}}
+
+      (try
+        (let [sockets (invalidate! store-conn wal-record)]
+          (tracer/add-data! {:attributes {:num-sockets (count sockets)}})
+          (doseq [{:keys [id]} sockets]
+            (tracer/with-span! {:name "invalidator/send-refresh"
+                                :attributes {:session-id id}}
+              (receive-queue/enqueue->receive-q {:op :refresh
+                                                 :session-id id}))))
+        (catch Throwable t
+          (def -wal-record wal-record)
+          (def -store-value @store-conn)
+          (tracer/add-exception! t {:escaping? false}))))))
+
+(defn invalidator-q-metrics [{:keys [grouped-queue get-worker-count]}]
+  [{:path "instant.reactive.invalidator.q.size"
+    :value (grouped-queue/size grouped-queue)}
+   {:path "instant.reactive.invalidator.q.longest-waiting-ms"
+    :value (if-let [{:keys [put-at]} (grouped-queue/peek grouped-queue)]
+             (.toMillis (Duration/between put-at (Instant/now)))
+             0)}
+   {:path "instant.reactive.invalidator.q.worker-count"
+    :value (get-worker-count)}])
+
 (defn start-worker [store-conn wal-chan]
   (tracer/record-info! {:name "invalidation-worker/start"})
-  (loop []
-    (let [wal-record (a/<!! wal-chan)]
-      (if-not wal-record
-        (tracer/record-info! {:name "invalidation-worker/shutdown"})
-        (let [{:keys [app-id tx-id]} wal-record]
-          (tracer/with-span! {:name "invalidator/work"
-                              :attributes {:app-id app-id
-                                           :tx-id tx-id
-                                           :wal-latency-ms (wal-latency-ms wal-record)}}
-
-            (try
-              (let [sockets (invalidate! store-conn wal-record)]
-                (tracer/add-data! {:attributes {:num-sockets (count sockets)}})
-                (e2e-tracer/invalidator-tracking-step! {:tx-id tx-id
-                                                        :name "send-refreshes"
-                                                        :attributes {:num-sockets (count sockets)}})
-                (tracer/with-span! {:name "invalidator/send-refreshes"}
-                  (doseq [{:keys [id]} sockets]
-                    (receive-queue/enqueue->receive-q {:op :refresh
-                                                       :session-id id
-                                                       :tx-id tx-id}))))
-              (catch Throwable t
-                (def -wal-record wal-record)
-                (def -store-value @store-conn)
-                (tracer/add-exception! t {:escaping? false}))))
-          (recur))))))
+  (let [queue-with-workers
+        (grouped-queue/start-grouped-queue-with-workers
+         {:group-fn :app-id
+          :reserve-fn (fn [_ q] (grouped-queue/inflight-queue-reserve 100 q))
+          :process-fn (fn [_key wal-records]
+                        (process-wal-record store-conn
+                                            (count wal-records)
+                                            (combine-wal-records wal-records)))
+          :max-workers 10})
+        grouped-queue (:grouped-queue queue-with-workers)
+        cleanup-gauges (gauges/add-gauge-metrics-fn
+                        (fn [_] (invalidator-q-metrics queue-with-workers)))]
+    (a/go
+      (loop []
+        (let [wal-record (a/<! wal-chan)]
+          (if-not wal-record
+            (do
+              (cleanup-gauges)
+              (tracer/record-info! {:name "invalidation-worker/shutdown"}))
+            (do (grouped-queue/put! grouped-queue wal-record)
+                (recur))))))))
 
 (defn handle-byop-record [table-info app-id store-conn wal-record]
   (when-let [record (transform-byop-wal-record wal-record)]
@@ -425,8 +472,7 @@
 
      @(:started-promise wal-opts)
 
-     (ua/fut-bg
-      (start-worker rs/store-conn worker-chan))
+     (start-worker rs/store-conn worker-chan)
 
      (when byop-chan
        (ua/fut-bg
