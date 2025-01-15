@@ -54,8 +54,9 @@
   This is intended to run daily to speed up monthly metrics generation."
   ([] (insert-new-activity (aurora/conn-pool)))
   ([conn]
-   (sql/do-execute! conn
-                    ["WITH date_range AS (
+   (binding [sql/*query-timeout-seconds* 180]
+     (sql/do-execute! conn
+                      ["WITH date_range AS (
                     SELECT
                       COALESCE(MAX(date) + INTERVAL '1 day', '2022-01-01') AS last_seen_date,
                       CURRENT_DATE AS max_date
@@ -86,7 +87,7 @@
                   )
                   INSERT INTO daily_app_transactions (date, app_id, active_date, is_active, count)
                   SELECT date, app_id, active_date, is_active, count
-                  FROM new_transactions;"])))
+                  FROM new_transactions;"]))))
 
 (defn daily-job!
   [^Instant date]
