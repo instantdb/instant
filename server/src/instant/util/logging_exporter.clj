@@ -7,7 +7,7 @@
   (:import
    (io.opentelemetry.api.common AttributeKey)
    (io.opentelemetry.sdk.common CompletableResultCode)
-   (io.opentelemetry.sdk.trace.data SpanData)
+   (io.opentelemetry.sdk.trace.data SpanData EventData)
    (io.opentelemetry.sdk.trace.export SpanExporter)
    (java.util.concurrent TimeUnit)
    (java.util.concurrent.atomic AtomicBoolean)))
@@ -85,7 +85,7 @@
   (let [sb (StringBuilder.)]
     (doseq [attr (.asMap (.getAttributes span))]
       (append-attr sb attr))
-    (doseq [event (.getEvents span)]
+    (doseq [^EventData event (.getEvents span)]
       (doseq [attr (.asMap (.getAttributes event))]
         (append-attr sb attr)))
     (.toString sb)))
