@@ -162,7 +162,7 @@
 (defmacro log-init [operation & body]
   `(do
      (tracer/record-info! {:name (format "init.start.%s" (name ~operation))})
-     (tracer/with-span! {:name (format "init.%s" (name ~operation))}
+     (tracer/with-span! {:name (format "init.finish.%s" (name ~operation))}
        ~@body)))
 
 (defn -main [& _args]
