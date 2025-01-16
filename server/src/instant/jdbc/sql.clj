@@ -212,6 +212,12 @@
       (close [_]
         nil))))
 
+(defn annotate-query-with-debug-info [query]
+  (if-let [{:keys [span-id trace-id]} (tracer/current-span-ids)]
+    (update query 0 (fn [s]
+                      (format "-- trace-id=%s\n-- span-id=%s\n%s" trace-id span-id s)))
+    query))
+
 (defmacro defsql [name query-fn rw opts]
   (let [span-name (format "sql/%s" name)]
     `(defn ~name
@@ -230,7 +236,9 @@
                                  {:timeout *query-timeout-seconds*})
                     ^Connection c# (if create-connection?#
                                      (next-jdbc/get-connection ~'conn)
-                                     ~'conn)]
+                                     ~'conn)
+
+                    query# (annotate-query-with-debug-info ~'query)]
                 (try
                   (with-open [ps# (next-jdbc/prepare c# ~'query opts#)
                               _cleanup# (register-in-progress create-connection?# ~rw c# ps#)]
