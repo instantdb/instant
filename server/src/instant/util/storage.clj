@@ -11,7 +11,6 @@
   (:import
    (java.util UUID)))
 
-
 ;; scopes filename to app-id directory
 (defn ->object-key [app-id filename]
   (str app-id "/" filename))
@@ -32,7 +31,6 @@
   (def program (rule-model/get-program! rules "$files" "create"))
   (cel/eval-program! program {"auth" (cel/->cel-map {} {"id" "alex"})
                               "data" (cel/->cel-map {} {"path" "demo/image.png"})}))
-
 
 (defn assert-storage-permission! [action {:keys [app-id
                                                  filepath
@@ -58,7 +56,6 @@
                            "data" (cel/->cel-map {:type :data
                                                   :ctx ctx}
                                                  {"path" filepath})})))))
-
 
 (defn upload-image-to-s3 [app-id filename image-url]
   (let [object-key (->object-key app-id filename)]
@@ -111,8 +108,7 @@
         prefix (if (string/blank? subdirectory)
                  app-id
                  (str app-id "/" subdirectory))
-        objects-resp (s3-util/list-app-objects prefix)
-        objects (:object-summaries objects-resp)]
+        objects (s3-util/list-app-objects prefix)]
     (map format-object objects)))
 
 ;; Deletes a single file by name/path (e.g. "demo.png", "profiles/me.jpg")
@@ -132,7 +128,6 @@
   (let [keys (mapv (fn [filename] (->object-key app-id filename)) filenames)]
     (storage-beta/assert-storage-enabled! app-id)
     (s3-util/delete-objects keys)))
-
 
 (comment
   (def app-id #uuid "524bc106-1f0d-44a0-b222-923505264c47")
