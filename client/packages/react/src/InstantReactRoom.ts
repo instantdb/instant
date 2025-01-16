@@ -172,12 +172,19 @@ export function usePresence<
     return unsub;
   }, [room.id, opts.user, opts.peers?.join(), opts.keys?.join()]);
 
-  return {
-    ...state,
-    publishPresence: (data) => {
+  const publishPresence = useCallback(
+    (data) => {
       room._core._reactor.publishPresence(room.type, room.id, data);
     },
-  };
+    [room.type, room.id],
+  );
+  const ret = useMemo(() => {
+    return {
+      ...state,
+      publishPresence,
+    };
+  }, [state, publishPresence]);
+  return ret;
 }
 
 /**
@@ -233,7 +240,7 @@ export function useTypingIndicator<
 ): TypingIndicatorHandle<RoomSchema[RoomType]["presence"]> {
   const timeout = useTimeout();
 
-  const onservedPresence = rooms.usePresence(room, {
+  const observedPresence = rooms.usePresence(room, {
     keys: [inputName],
   });
 
@@ -248,41 +255,48 @@ export function useTypingIndicator<
       : Object.values(presenceSnapshot?.peers ?? {}).filter(
           (p) => p[inputName] === true,
         );
-  }, [opts?.writeOnly, onservedPresence]);
+  }, [opts?.writeOnly, observedPresence]);
 
-  const setActive = (isActive: boolean) => {
-    room._core._reactor.publishPresence(room.type, room.id, {
-      [inputName]: isActive,
-    } as unknown as Partial<RoomSchema[RoomType]>);
-
-    if (!isActive) return;
-
-    if (opts?.timeout === null || opts?.timeout === 0) return;
-
-    timeout.set(opts?.timeout ?? defaultActivityStopTimeout, () => {
+  const setActive = useCallback(
+    (isActive: boolean) => {
       room._core._reactor.publishPresence(room.type, room.id, {
-        [inputName]: null,
-      } as Partial<RoomSchema[RoomType]>);
-    });
-  };
+        [inputName]: isActive,
+      } as unknown as Partial<RoomSchema[RoomType]>);
 
-  return {
-    active,
-    setActive: (a: boolean) => {
-      setActive(a);
-    },
-    inputProps: {
-      onKeyDown: (e: KeyboardEvent) => {
-        const isEnter = opts?.stopOnEnter && e.key === "Enter";
-        const isActive = !isEnter;
+      if (!isActive) return;
 
-        setActive(isActive);
-      },
-      onBlur: () => {
-        setActive(false);
-      },
+      if (opts?.timeout === null || opts?.timeout === 0) return;
+
+      timeout.set(opts?.timeout ?? defaultActivityStopTimeout, () => {
+        room._core._reactor.publishPresence(room.type, room.id, {
+          [inputName]: null,
+        } as Partial<RoomSchema[RoomType]>);
+      });
     },
-  };
+    [room.type, room.id, inputName, opts?.timeout, timeout],
+  );
+  const onKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      const isEnter = opts?.stopOnEnter && e.key === "Enter";
+      const isActive = !isEnter;
+
+      setActive(isActive);
+    },
+    [opts.stopOnEnter, setActive],
+  );
+  const onBlur = useCallback(() => {
+    setActive(false);
+  }, [setActive]);
+
+  const ret = useMemo(() => {
+    return {
+      active,
+      setActive,
+      inputProps: { onKeyDown, onBlur },
+    };
+  }, [active, setActive, onKeyDown, onBlur]);
+  
+  return ret;
 }
 
 // --------------
