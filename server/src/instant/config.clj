@@ -3,6 +3,7 @@
             [clojure.tools.logging :as log]
             [instant.config-edn :as config-edn]
             [instant.util.crypt :as crypt-util]
+            [instant.util.aws :as aws-util]
             [lambdaisland.uri :as uri])
   (:import
    (java.net InetAddress)
@@ -26,11 +27,21 @@
     (= "true" (System/getenv "TEST"))       :test
     :else                                   :dev))
 
+(defonce instance-id
+  (delay
+    (when (= :prod (get-env))
+      (aws-util/get-instance-id))))
+
 (defonce process-id
   (delay
-    (str (name (get-env))
-         "_"
-         (string/replace (UUID/randomUUID) #"-" "_"))))
+    (string/replace
+     (string/join "_"
+                  [(name (get-env))
+                   (if (= :prod (get-env))
+                     @instance-id
+                     (crypt-util/random-hex 8))
+                   (crypt-util/random-hex 8)])
+     #"-" "_")))
 
 (def config-map
   (delay (do
