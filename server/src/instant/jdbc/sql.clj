@@ -215,7 +215,7 @@
 (defn annotate-query-with-debug-info [query]
   (if-let [{:keys [span-id trace-id]} (tracer/current-span-ids)]
     (update query 0 (fn [s]
-                      (format "-- trace-id=%s\n-- span-id=%s\n%s" trace-id span-id s)))
+                      (format "-- trace-id=%s, span-id=%s\n%s" trace-id span-id s)))
     query))
 
 (defmacro defsql [name query-fn rw opts]
@@ -240,7 +240,7 @@
 
                     query# (annotate-query-with-debug-info ~'query)]
                 (try
-                  (with-open [ps# (next-jdbc/prepare c# ~'query opts#)
+                  (with-open [ps# (next-jdbc/prepare c# query# opts#)
                               _cleanup# (register-in-progress create-connection?# ~rw c# ps#)]
                     (~query-fn ps# nil opts#))
                   (finally
