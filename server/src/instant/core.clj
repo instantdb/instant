@@ -159,46 +159,73 @@
                                                       (indexing-jobs/stop)))]]
                                  (deref fut))))))
 
+(defmacro log-init [operation & body]
+  `(do
+     (tracer/record-info! {:name (format "init.start.%s" (name ~operation))})
+     (tracer/with-span! {:name (format "init.%s" (name ~operation))}
+       ~@body)))
+
 (defn -main [& _args]
   (binding [*print-namespace-maps* false]
+    (log/info "Starting")
     (let [{:keys [aead-keyset]} (config/init)]
       (crypt-util/init aead-keyset))
 
+    (log/info "Init tracer")
     (tracer/init)
 
-    (tracer/record-info! {:name "uncaught-exception-handler/set"})
-    (Thread/setDefaultUncaughtExceptionHandler
-     (ua/logging-uncaught-exception-handler))
+    (log-init :uncaught-exception-handler
+      (Thread/setDefaultUncaughtExceptionHandler
+       (ua/logging-uncaught-exception-handler)))
 
-    (gauges/start)
-    (nrepl/start)
-    (oauth/start)
-    (jwt/start)
-    (aurora/start)
-    (ensure-attrs-on-system-catalog-app)
-    (rs/start)
-    (eph/start)
-    (stripe/init)
-    (session/start)
-    (inv/start-global)
-    (wal/init)
+    (log-init :gauges
+      (gauges/start))
+    (log-init :nrepl
+      (nrepl/start))
+    (log-init :oauth
+      (oauth/start))
+    (log-init :jwt
+      (jwt/start))
+    (log-init :aurora
+      (aurora/start))
+    (log-init :system-catalog
+      (ensure-attrs-on-system-catalog-app))
+    (log-init :reactive-store
+      (rs/start))
+    (log-init :ephemeral
+      (eph/start))
+    (log-init :stripe
+      (stripe/init))
+    (log-init :session
+      (session/start))
+    (log-init :invalidator
+      (inv/start-global))
+    (log-init :wal
+      (wal/init))
 
     (when-let [config-app-id (config/instant-config-app-id)]
-      (flags-impl/init config-app-id
-                       flags/queries
-                       flags/query-results))
+      (log-init :flags
+        (flags-impl/init config-app-id
+                         flags/queries
+                         flags/query-results)))
 
-    (ephemeral-app/start)
-    (session-counter/start)
-    (indexing-jobs/start)
+    (log-init :ephemeral-app
+      (ephemeral-app/start))
+    (log-init :session-counter
+      (session-counter/start))
+    (log-init :indexing-jobs
+      (indexing-jobs/start))
     (when (= (config/get-env) :prod)
-      (log/info "Starting analytics")
-      (analytics/start))
+      (log-init :analytics
+        (analytics/start)))
     (when (= (config/get-env) :prod)
-      (log/info "Starting daily metrics")
-      (daily-metrics/start))
-    (start)
-    (add-shutdown-hook)))
+      (log-init :daily-metrics
+        (daily-metrics/start)))
+    (log-init :web-server
+      (start))
+    (log-init :shutdown-hook
+      (add-shutdown-hook))
+    (log/info "Finished init")))
 
 (defn before-ns-unload []
   (stop))
