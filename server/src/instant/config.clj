@@ -6,8 +6,7 @@
             [instant.util.aws :as aws-util]
             [lambdaisland.uri :as uri])
   (:import
-   (java.net InetAddress)
-   (java.util UUID)))
+   (java.net InetAddress)))
 
 (defonce hostname
   (delay
