@@ -45,7 +45,16 @@
 (defn list-app-objects
   ([prefix] (list-app-objects default-bucket prefix))
   ([bucket-name prefix]
-   (s3/list-objects-v2 {:bucket-name bucket-name :prefix prefix})))
+   (loop [all-objects []
+          continuation-token nil]
+     (let [opts (cond-> {:bucket-name bucket-name :prefix prefix}
+                  continuation-token
+                  (assoc :continuation-token continuation-token))
+           {:keys [object-summaries next-continuation-token truncated?]}
+           (list-objects-v2 opts)]
+       (if (and truncated? (< (count all-objects) 50000))
+         (recur (into all-objects object-summaries) next-continuation-token)
+         (into all-objects object-summaries))))))
 
 (comment
   (def app-id  #uuid "524bc106-1f0d-44a0-b222-923505264c47")
