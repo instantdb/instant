@@ -7,7 +7,6 @@ export default class NetworkListener {
   }
   static listen(f) {
     return NetInfo.addEventListener((state) => {
-      console.log("connection change", state.isConnected);
       f(state.isConnected);
     });
   }
