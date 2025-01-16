@@ -4,13 +4,16 @@
    [clojure.spec.gen.alpha :as gen]
    [clojure.string :as string]
    [clojure.walk :as w]
+   [honey.sql :as hsql]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as transaction-model]
    [instant.db.model.triple :as triple-model]
+   [instant.jdbc.sql :as sql]
    [instant.system-catalog :refer [system-catalog-app-id]]
    [instant.util.coll :as coll]
    [instant.util.exception :as ex]
    [instant.util.e2e-tracer :as e2e-tracer]
+   [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
    [next.jdbc :as next-jdbc]))
 
@@ -27,7 +30,7 @@
   (s/cat :op #{:add-attr} :attr ::attr-model/attr))
 
 (s/def ::delete-entity-step
-  (s/cat :op #{:delete-entity}
+  (s/cat :op #{:delete-entity :delete-entity-no-cascade}
          :lookup ::triple-model/lookup
          :etype (s/? string?)))
 
@@ -103,23 +106,25 @@
 (defn batch [steps]
   (->> steps
        (partition-by first)
-       (map (fn [steps]
-              (let [[[op]] steps]
-                (condp = op
-                  :add-attr
-                  (into [:add-attr] (map second steps))
-                  :delete-attr
-                  (into [:delete-attr] (map second steps))
-                  :update-attr
-                  (into [:update-attr] (map second steps))
-                  :delete-entity
-                  (into [:delete-entity] (map rest steps))
-                  :add-triple
-                  (into [:add-triple] (map rest steps))
-                  :deep-merge-triple
-                  (into [:deep-merge-triple] (map rest steps))
-                  :retract-triple
-                  (into [:retract-triple] (map rest steps))))))))
+       (mapv (fn [steps]
+               (let [op (ffirst steps)]
+                 (case op
+                   :add-attr
+                   [:add-attr (map second steps)]
+                   :delete-attr
+                   [:delete-attr (map second steps)]
+                   :update-attr
+                   [:update-attr (map second steps)]
+                   :delete-entity
+                   [:delete-entity (map rest steps)]
+                   :delete-entity-no-cascade
+                   [:delete-entity-no-cascade (map rest steps)]
+                   :add-triple
+                   [:add-triple (map rest steps)]
+                   :deep-merge-triple
+                   [:deep-merge-triple (map rest steps)]
+                   :retract-triple
+                   [:retract-triple (map rest steps)]))))))
 
 (comment
   (batch (gen/generate (s/gen ::tx-steps))))
@@ -141,36 +146,119 @@
      app-id
      [{:message (format "You can't make updates to this app.")}])))
 
-(defn enforce-on-deletes
-  "Unoptimized on-delete helper that will delete entities that have
-   on-delete=:cascade. Only used for system attributes right now.
-   Before releasing as a feature, this should probably happen inside of
-   the `delete-multi`.
+(defn resolve-lookups
+  "Given [[attr-id value] [attr-id value] ...],
+   returns {[attr-id value] eid,
+            [attr-id value] eid,
+            ...}"
+  [conn app-id lookups]
+  (if (empty? lookups)
+    {}
+    (let [lookups (map (fn [[a v]] [a (->json v)]) lookups)
+          query   {:with [[[:lookups {:columns [:attr_id :value]}]
+                           {:values lookups}]]
+                   :from :triples
+                   :where [:= :app_id app-id]
+                   :join [:lookups
+                          [:and
+                           [:= :triples.attr_id :lookups.attr_id]
+                           [:= :triples.value [:cast :lookups.value :jsonb]]]]
+                   :select [:triples.attr_id :triples.value :triples.entity_id]}
+          results (tool/time* "resolve execute"
+                              (sql/do-execute! conn (hsql/format query)))]
 
-   This approach is not ideal because there's no bound on the number of
-   times you recur. We probably want to prevent cycles on the on-delete
-   (e.g. if `a` has on-delete for `b`, then `b` can't have on-delete
-   for `a`), so that the delete query can be statically defined in
-   triple-model/delete-multi!"
-  ([conn attrs app-id results]
-   (enforce-on-deletes conn attrs app-id results (:delete-entity results)))
-  ([conn attrs app-id results last-delete-entities]
-   (if-let [deleted-triples (seq last-delete-entities)]
-     (let [deletes (keep (fn [{:keys [triples/attr_id triples/entity_id]}]
-                           (let [attr (attr-model/seek-by-id attr_id attrs)]
-                             (when (and (= :ref (:value-type attr))
-                                        (= :cascade (:on-delete attr)))
-                               [entity_id (attr-model/fwd-etype attr)])))
-                         deleted-triples)]
-       (if (seq deletes)
-         (let [on-delete-results (triple-model/delete-entity-multi! conn app-id deletes)]
-           (recur conn
-                  attrs
-                  app-id
-                  (update results :delete-entity into on-delete-results)
-                  on-delete-results))
-         results))
-     results)))
+      (into {}
+            (for [{:triples/keys [attr_id value entity_id]} results]
+              [[attr_id value] entity_id])))))
+
+(comment
+  (resolve-lookups
+   (instant.jdbc.aurora/conn-pool)
+   #uuid "92cb730c-8b4f-46ef-9925-4fab953694c6"
+   [[#uuid "20b65ea3-faad-4e80-863e-87468ff7792f" "joe@instantdb.com"]
+    [#uuid "6a089759-2a2f-4898-9bb8-a7bc9f6f791a" "stopa"]]))
+
+(defn resolve-etypes
+  "Given [id id id], returns map of {id [etype etype ...], ...}"
+  [conn app-id entity-ids]
+  (if (empty? entity-ids)
+    {}
+    (->>  {:from            :triples
+           :join            [:attrs [:= :triples.attr_id :attrs.id]
+                             :idents [:= :attrs.forward_ident :idents.id]]
+           :where           [:and
+                             [:= :triples.app_id app-id]
+                             [:in :triples.entity_id entity-ids]]
+           :select-distinct [:triples.entity_id :idents.etype]}
+          hsql/format
+          (sql/do-execute! conn)
+          (coll/group-by-to :triples/entity_id :idents/etype))))
+
+(comment
+  (resolve-etypes
+   (instant.jdbc.aurora/conn-pool)
+   #uuid "0e563ace-d25f-44f6-ae00-4e6b9b6d1b2e"
+   [#uuid "4d39508b-9ee2-48a3-b70d-8192d9c5a059"
+    #uuid "005a8767-c0e7-4158-bb9a-62ce1a5858ed"
+    #uuid "005b08a1-4046-4fba-b1d1-a78b0628901c"]))
+
+
+(defn resolve-lookups-for-delete-entity [conn app-id tx-steps]
+  (let [[delete-entity-steps tx-steps'] (coll/split-by #(= :delete-entity (first %)) tx-steps)
+        lookup-refs                     (->> delete-entity-steps
+                                             (map second)
+                                             (filter triple-model/eid-lookup-ref?))
+        resolved                        (resolve-lookups conn app-id lookup-refs)
+        delete-entity-steps'            (for [[op eid etype] delete-entity-steps]
+                                          [op (get resolved eid eid) etype])]
+    (concat delete-entity-steps' tx-steps')))
+
+(defn resolve-etypes-for-delete-entity [conn app-id tx-steps]
+  (let [[delete-entity-steps tx-steps'] (coll/split-by #(= :delete-entity (first %)) tx-steps)
+        untyped-ids                     (->> delete-entity-steps
+                                             (keep (fn [[_ id etype]]
+                                                     (when (nil? etype)
+                                                       id))))
+        resolved                        (resolve-etypes conn app-id untyped-ids)
+        delete-entity-steps'            (for [[op eid etype] delete-entity-steps
+                                              etype'         (if etype
+                                                               [etype]
+                                                               (get resolved eid))]
+                                          [op eid etype'])]
+    (concat delete-entity-steps' tx-steps')))
+
+(defn expand-delete-entity-cascade [conn app-id tx-steps]
+  (let [[delete-entity-steps tx-steps'] (coll/split-by #(= :delete-entity (first %)) tx-steps)]
+    (if (empty? delete-entity-steps)
+      tx-steps
+      (let [ids+etypes           (map next delete-entity-steps)
+            query                (str "WITH RECURSIVE entids (entity_id, etype) AS (
+                                       -- start with entid
+                                         VALUES " (string/join ", " (repeat (count ids+etypes) "(?, ?)")) "
+
+                                       -- recurse all 'cascade' refs
+                                       UNION
+                                         SELECT triples.entity_id , forward_ident.etype
+                                         FROM   triples
+                                         JOIN   attrs                   ON triples.attr_id = attrs.id
+                                         JOIN   idents AS forward_ident ON forward_ident.id = attrs.forward_ident
+                                         JOIN   idents AS reverse_ident ON reverse_ident.id = attrs.reverse_ident
+                                         JOIN   entids                  ON to_jsonb(entids.entity_id) = triples.value
+                                         WHERE  triples.app_id = ?
+                                         AND    attrs.on_delete = 'cascade'
+                                         AND    attrs.value_type = 'ref'
+                                         AND    triples.vae
+                                         AND    entids.etype = reverse_ident.etype
+                                       )
+
+                                       SELECT * FROM entids")
+            args                 (concat (mapcat identity ids+etypes) [app-id])
+            res                  (tool/time* "expand-delete-entity-cascade"
+                                             (sql/execute! conn (cons query args)))
+            ids+etypes'          (map (juxt :entity_id :etype) res)
+            delete-entity-steps' (for [[entity_id etype] (set (concat ids+etypes ids+etypes'))]
+                                   [:delete-entity-no-cascade entity_id etype])]
+        (concat delete-entity-steps' tx-steps')))))
 
 (defn transact-without-tx-conn!
   ([conn attrs app-id tx-steps]
@@ -181,31 +269,42 @@
                                     :num-tx-steps (count tx-steps)
                                     :detailed-tx-steps (pr-str tx-steps)}}
      (prevent-system-catalog-updates! app-id opts)
-     (let [results
+     (let [tx-steps (if (some #(= :delete-entity (first %)) tx-steps)
+                      (->> tx-steps
+                           (resolve-lookups-for-delete-entity conn app-id)
+                           (resolve-etypes-for-delete-entity conn app-id)
+                           (expand-delete-entity-cascade conn app-id))
+                      tx-steps)
+
+           results
            (reduce
-            (fn [acc [op & args]]
+            (fn [acc [op args]]
               (when (#{:add-attr :update-attr} op)
                 (prevent-system-catalog-attrs-updates! op args))
-              (let [res (case op
-                          :add-attr
-                          (attr-model/insert-multi! conn app-id args)
-                          :delete-attr
-                          (attr-model/delete-multi! conn app-id args)
-                          :update-attr
-                          (attr-model/update-multi! conn app-id args)
-                          :delete-entity
-                          (triple-model/delete-entity-multi! conn app-id args)
-                          :add-triple
-                          (triple-model/insert-multi! conn attrs app-id args)
-                          :deep-merge-triple
-                          (triple-model/deep-merge-multi! conn attrs app-id args)
-                          :retract-triple
-                          (triple-model/delete-multi! conn app-id args))]
-                (assoc acc op res)))
+              (case op
+                :add-attr
+                (assoc acc :add-attr (attr-model/insert-multi! conn app-id args))
+
+                :delete-attr
+                (assoc acc :delete-attr (attr-model/delete-multi! conn app-id args))
+
+                :update-attr
+                (assoc acc :update-attr (attr-model/update-multi! conn app-id args))
+
+                :delete-entity-no-cascade
+                (assoc acc :delete-entity (triple-model/delete-entity-multi! conn app-id args))
+
+                :add-triple
+                (assoc acc :add-triple (triple-model/insert-multi! conn attrs app-id args))
+
+                :deep-merge-triple
+                (assoc acc :deep-merge-triple (triple-model/deep-merge-multi! conn attrs app-id args))
+
+                :retract-triple
+                (assoc acc :retract-triple (triple-model/delete-multi! conn app-id args))))
             {}
             (batch tx-steps))
 
-           results-with-on-deletes (enforce-on-deletes conn attrs app-id results)
            tx (transaction-model/create! conn {:app-id app-id})]
        (let [tx-created-at (.toInstant (:created_at tx))]
          (e2e-tracer/start-invalidator-tracking! {:tx-id (:id tx)
@@ -213,7 +312,7 @@
          (e2e-tracer/invalidator-tracking-step! {:tx-id (:id tx)
                                                  :tx-created-at tx-created-at
                                                  :name "transact"}))
-       (assoc tx :results results-with-on-deletes)))))
+       (assoc tx :results results)))))
 
 (defn transact!
   ([conn attrs app-id tx-steps]

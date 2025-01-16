@@ -154,3 +154,26 @@
     (every? pred (first colls))
     (every? (fn [args] (apply pred args))
             (apply map vector colls))))
+
+(defn split-by
+  "Returns [(filter pred xs) (remove pred xs)]"
+  [pred xs]
+  (let [[f r] (reduce
+               (fn [[f r] x]
+                 (if (pred x)
+                   [(conj! f x) r]
+                   [f (conj! r x)]))
+               [(transient []) (transient [])] xs)]
+    [(persistent! f) (persistent! r)]))
+
+(defn group-by-to
+  "Like group-by but applies (val-fn x) to values"
+  [key-fn val-fn xs]
+  (persistent!
+   (reduce
+    (fn [m x]
+      (let [k (key-fn x)
+            v (val-fn x)
+            old-v (get m k [])]
+        (assoc! m k (conj old-v v))))
+    (transient {}) xs)))

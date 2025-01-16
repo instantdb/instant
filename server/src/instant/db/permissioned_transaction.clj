@@ -610,94 +610,104 @@
     (validate-reserved-names! admin? attrs tx-steps)
     (let [{:keys [conn-pool]} db]
       (next-jdbc/with-transaction [tx-conn conn-pool]
-        ;; transact does read and then a write.
-        ;; We need to protect against a case where a different
-        ;; write happens between our read and write.
-        ;; To protect against this, we ensure writes for an
-        ;; app happen serially. We take an advisory lock on app-id
-        ;; when we start transact and we don't release it until
-        ;; we are done. This ensures that other transactions
-        ;; for this app will wait.
-        #_(lock-tx-on! tx-conn (hash app-id))
-        (if admin?
-          (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps)
-          (let [{:keys [attr-changes object-changes]}
-                (group-by tx-change-type tx-steps)
+        (let [tx-steps (->> tx-steps
+                            (tx/resolve-lookups-for-delete-entity tx-conn app-id)
+                            (tx/resolve-etypes-for-delete-entity tx-conn app-id)
+                            (tx/expand-delete-entity-cascade tx-conn app-id))]
 
-                optimistic-attrs (into attrs (get-new-attrs attr-changes))
+          ;; transact does read and then a write.
+          ;; We need to protect against a case where a different
+          ;; write happens between our read and write.
+          ;; To protect against this, we ensure writes for an
+          ;; app happen serially. We take an advisory lock on app-id
+          ;; when we start transact and we don't release it until
+          ;; we are done. This ensures that other transactions
+          ;; for this app will wait.
+          #_(lock-tx-on! tx-conn (hash app-id))
+          (if admin?
+            (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps)
+            (let [{:keys [attr-changes object-changes]}
+                  (group-by tx-change-type tx-steps)
+
+                  optimistic-attrs (into attrs (get-new-attrs attr-changes))
+
                 ;; Use the db connection we have so that we don't cause a deadlock
                 ;; Also need to be able to read our own writes for the create checks
-                ctx (assoc ctx
-                           :db {:conn-pool tx-conn}
-                           :attrs optimistic-attrs)
+                  ctx (assoc ctx
+                             :db {:conn-pool tx-conn}
+                             :attrs optimistic-attrs)
 
                 ;; If we were really smart, we would fetch the triples and the
                 ;; update-delete data-ref dependencies in one go.
-                preloaded-triples (preload-triples ctx object-changes)
-                check-commands
-                (io/warn-io :check-commands
-                            (get-check-commands
-                             ctx
-                             attr-changes
+                  preloaded-triples (preload-triples ctx object-changes)
+
+                  check-commands
+                  (io/warn-io :check-commands
+                              (get-check-commands
+                               ctx
+                               attr-changes
                              ;; Use preloaded-triples instead of object-changes.
                              ;; It has all the same data, but the preload will also
                              ;; resolve etypes for older version of delete-entity
-                             preloaded-triples))
-                {create-checks :create
-                 view-checks :view
-                 update-checks :update
-                 delete-checks :delete}
-                (group-by :action check-commands)
+                               preloaded-triples))
 
-                update-delete-checks-resolved
-                (resolve-lookups-for-update-delete-checks
-                 (concat update-checks delete-checks)
-                 preloaded-triples)
+                  {create-checks :create
+                   view-checks :view
+                   update-checks :update
+                   delete-checks :delete}
+                  (group-by :action check-commands)
 
-                view-checks-resolved
-                (resolve-lookups-for-update-delete-checks
-                 view-checks
-                 preloaded-triples)
-                preloaded-update-delete-refs (preload-refs ctx (concat update-delete-checks-resolved
-                                                                       view-checks-resolved))
+                  update-delete-checks-resolved
+                  (resolve-lookups-for-update-delete-checks
+                      (concat update-checks delete-checks)
+                      preloaded-triples)
 
-                update-delete-checks-results
-                (io/warn-io :run-check-commands!
-                            (run-check-commands! (assoc ctx
-                                                        :preloaded-refs preloaded-update-delete-refs)
-                                                 update-delete-checks-resolved))
+                  view-checks-resolved
+                  (resolve-lookups-for-update-delete-checks
+                   view-checks
+                   preloaded-triples)
 
-                view-check-results
-                (io/warn-io :run-check-commands!
-                            (run-check-commands!
-                             (merge ctx
-                                    {:preloaded-refs preloaded-update-delete-refs})
-                             view-checks-resolved))
+                  preloaded-update-delete-refs
+                  (preload-refs ctx (concat update-delete-checks-resolved
+                                            view-checks-resolved))
 
-                tx-data (tx/transact-without-tx-conn! tx-conn
-                                                      (:attrs ctx)
-                                                      app-id
-                                                      tx-steps)
+                  update-delete-checks-results
+                  (io/warn-io :run-check-commands!
+                              (run-check-commands! (assoc ctx
+                                                          :preloaded-refs preloaded-update-delete-refs)
+                                                   update-delete-checks-resolved))
 
-                create-checks-resolved (resolve-lookups-for-create-checks tx-conn app-id create-checks)
-                preloaded-create-refs (preload-refs ctx create-checks-resolved)
-                create-checks-results (io/warn-io :run-create-check-commands!
-                                                  (run-check-commands!
-                                                   (assoc ctx :preloaded-refs preloaded-create-refs)
-                                                   create-checks-resolved))
-                all-check-results (concat update-delete-checks-results
-                                          create-checks-results
-                                          view-check-results)
-                all-checks-ok? (every? (fn [r] (-> r :check-result)) all-check-results)
-                rollback? (and admin-check?
-                               (or admin-dry-run? (not all-checks-ok?)))
-                result (assoc
-                        tx-data
-                        :check-results all-check-results
-                        :all-checks-ok? all-checks-ok?
-                        :committed? (not rollback?))]
-            (when rollback? (.rollback tx-conn))
-            result))))))
+                  view-check-results
+                  (io/warn-io :run-check-commands!
+                              (run-check-commands!
+                               (merge ctx
+                                      {:preloaded-refs preloaded-update-delete-refs})
+                               view-checks-resolved))
+
+                  tx-data (tx/transact-without-tx-conn! tx-conn
+                                                        (:attrs ctx)
+                                                        app-id
+                                                        tx-steps)
+
+                  create-checks-resolved (resolve-lookups-for-create-checks tx-conn app-id create-checks)
+                  preloaded-create-refs (preload-refs ctx create-checks-resolved)
+                  create-checks-results (io/warn-io :run-create-check-commands!
+                                                    (run-check-commands!
+                                                     (assoc ctx :preloaded-refs preloaded-create-refs)
+                                                     create-checks-resolved))
+                  all-check-results (concat update-delete-checks-results
+                                            create-checks-results
+                                            view-check-results)
+                  all-checks-ok? (every? (fn [r] (-> r :check-result)) all-check-results)
+                  rollback? (and admin-check?
+                                 (or admin-dry-run? (not all-checks-ok?)))
+                  result (assoc
+                          tx-data
+                          :check-results all-check-results
+                          :all-checks-ok? all-checks-ok?
+                          :committed? (not rollback?))]
+              (when rollback? (.rollback tx-conn))
+              result)))))))
 
 (comment
   (do

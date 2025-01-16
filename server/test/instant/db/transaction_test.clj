@@ -2514,12 +2514,6 @@
     (fn [{app-id :id}]
       (let [user-id-attr-id     (random-uuid)
             user-parent-attr-id (random-uuid)
-            make-ctx            (fn [] {:db {:conn-pool (aurora/conn-pool)}
-                                        :app-id app-id
-                                        :attrs (attr-model/get-by-app-id app-id)
-                                        :datalog-query-fn d/query
-                                        :rules (rule-model/get-by-app-id (aurora/conn-pool) {:app-id app-id})
-                                        :current-user nil})
             insert-res (attr-model/insert-multi!
                         (aurora/conn-pool)
                         app-id
@@ -2538,7 +2532,8 @@
                           :index? false
                           :on-delete :cascade}]
                         {:allow-on-deletes? true})
-            root-user-id (random-uuid)]
+            root-user-id (random-uuid)
+            children     (atom 0)]
 
         ;; insert root user
         (tx/transact!
@@ -2558,17 +2553,25 @@
                                  [:add-triple id user-parent-attr-id parent-id]]]
                        op)]
               (tx/transact! (aurora/conn-pool) (attr-model/get-by-app-id app-id) app-id tx)
+              (swap! children + (/ (count tx) 2))
               (recur (inc i) (into #{} (map second tx))))))
 
-        (let [t0 (System/nanoTime)
-              _  (tx/transact! (aurora/conn-pool)
-                               (attr-model/get-by-app-id app-id)
-                               app-id
-                               [[:delete-entity root-user-id "users"]])
-              dt (-> (System/nanoTime) (- t0) (/ 1000000.0))
-              ; _  (println :delete-entity dt "ms")
-              ]
+        (let [t0       (System/nanoTime)
+              ctx      {:db               {:conn-pool (aurora/conn-pool)}
+                        :app-id           app-id
+                        :attrs            (attr-model/get-by-app-id app-id)
+                        :datalog-query-fn d/query
+                        :rules            (rule-model/get-by-app-id (aurora/conn-pool) {:app-id app-id})
+                        :current-user     nil}
+              tx-steps [[:delete-entity root-user-id "users"]]
+              #_#_res  (tx/transact! (aurora/conn-pool) (attr-model/get-by-app-id app-id) app-id tx-steps)
+              res      (permissioned-tx/transact! ctx tx-steps)
+              dt       (-> (System/nanoTime) (- t0) (/ 1000000.0))
+              deleted-triples (count (:delete-entity (:results res)))]
+          (is (= (-> @children (* 2) (+ 1)) deleted-triples))
           (is (< dt 500)))))))
 
 (comment
+  (require 'clj-async-profiler.core)
+  (clj-async-profiler.core/serve-ui 9999)
   (test/run-tests *ns*))

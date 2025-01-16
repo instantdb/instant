@@ -156,13 +156,18 @@
                                      (assoc-in [~label :avg] avg#))))))
      ret#))
 
+(def time-enabled?
+  false)
+
 (defmacro time* [msg & body]
-  `(let [msg# ~msg
-         t#   (System/nanoTime)
-         res# (do ~@body)
-         dt#  (-> (System/nanoTime) (- t#) (/ 1000000.0))]
-     (println (format "[ %.3f ms ] %s" dt# msg#))
-     res#))
+  (if time-enabled?
+    `(let [msg# ~msg
+           t#   (System/nanoTime)
+           res# (do ~@body)
+           dt#  (-> (System/nanoTime) (- t#) (/ 1000000.0))]
+       (println (format "[ %.3f ms ] %s" dt# msg#))
+       res#)
+    (cons 'do body)))
 
 (defn start-portal!
   "Lets you inspect data using Portal.
