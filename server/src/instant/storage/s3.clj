@@ -52,7 +52,7 @@
                   (assoc :continuation-token continuation-token))
            {:keys [object-summaries next-continuation-token truncated?]}
            (list-objects-v2 opts)]
-       (if truncated?
+       (if (and truncated? (< (count all-objects) 50000))
          (recur (into all-objects object-summaries) next-continuation-token)
          (into all-objects object-summaries))))))
 
