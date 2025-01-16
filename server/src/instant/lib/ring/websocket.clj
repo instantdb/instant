@@ -216,9 +216,13 @@
             (.unlock send-lock)))
         (let [ret @p]
           (when-let [tx-id (-> obj meta :tx-id)]
-            (e2e-tracer/invalidator-tracking-step!
-             {:tx-id tx-id
-              :name "send-json-delivered"
-              :attributes {:session-id (-> obj meta :session-id)}}))
+            (let [tx-created-at (-> obj meta :tx-created-at)]
+              (when-let [latency-ms (e2e-tracer/tx-latency-ms tx-created-at)]
+                (tracer/add-data! {:attributes {:tx-latency-ms latency-ms}}))
+              (e2e-tracer/invalidator-tracking-step!
+               {:tx-id tx-id
+                :tx-created-at tx-created-at
+                :name "send-json-delivered"
+                :attributes {:session-id (-> obj meta :session-id)}})))
           (when (instance? Throwable ret)
             (throw ret)))))))
