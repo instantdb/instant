@@ -57,6 +57,195 @@ export type TypingIndicatorHandle<PresenceShape> = {
 
 export const defaultActivityStopTimeout = 1_000;
 
+// ------
+// Topics
+
+function useTopicEffect<
+  RoomSchema extends RoomSchemaShape,
+  RoomType extends keyof RoomSchema,
+  TopicType extends keyof RoomSchema[RoomType]["topics"],
+>(
+  room: InstantReactRoom<any, RoomSchema, RoomType>,
+  topic: TopicType,
+  onEvent: (
+    event: RoomSchema[RoomType]["topics"][TopicType],
+    peer: RoomSchema[RoomType]["presence"],
+  ) => any,
+): void {
+  useEffect(() => {
+    const unsub = room._core._reactor.subscribeTopic(
+      room.id,
+      topic,
+      (event, peer) => {
+        onEvent(event, peer);
+      },
+    );
+
+    return unsub;
+  }, [room.id, topic]);
+}
+
+function usePublishTopic<
+  RoomSchema extends RoomSchemaShape,
+  RoomType extends keyof RoomSchema,
+  TopicType extends keyof RoomSchema[RoomType]["topics"],
+>(
+  room: InstantReactRoom<any, RoomSchema, RoomType>,
+  topic: TopicType,
+): (data: RoomSchema[RoomType]["topics"][TopicType]) => void {
+  useEffect(() => room._core._reactor.joinRoom(room.id), [room.id]);
+
+  const publishTopic = useCallback(
+    (data) => {
+      room._core._reactor.publishTopic({
+        roomType: this.type,
+        roomId: this.id,
+        topic,
+        data,
+      });
+    },
+    [room.id, topic],
+  );
+
+  return publishTopic;
+}
+
+// ---------
+// Presence
+
+function usePresence<
+  RoomSchema extends RoomSchemaShape,
+  RoomType extends keyof RoomSchema,
+  Keys extends keyof RoomSchema[RoomType]["presence"],
+>(
+  room: InstantReactRoom<any, RoomSchema, RoomType>,
+  opts: PresenceOpts<RoomSchema[RoomType]["presence"], Keys> = {},
+): PresenceHandle<RoomSchema[RoomType]["presence"], Keys> {
+  const [state, setState] = useState<
+    PresenceResponse<RoomSchema[RoomType]["presence"], Keys>
+  >(() => {
+    return (
+      room._core._reactor.getPresence(room.type, room.id, opts) ?? {
+        peers: {},
+        isLoading: true,
+      }
+    );
+  });
+
+  useEffect(() => {
+    const unsub = room._core._reactor.subscribePresence(
+      room.type,
+      room.id,
+      opts,
+      (data) => {
+        setState(data);
+      },
+    );
+
+    return unsub;
+  }, [room.id, opts.user, opts.peers?.join(), opts.keys?.join()]);
+
+  return {
+    ...state,
+    publishPresence: (data) => {
+      room._core._reactor.publishPresence(room.type, room.id, data);
+    },
+  };
+}
+
+function useSyncPresence<
+  RoomSchema extends RoomSchemaShape,
+  RoomType extends keyof RoomSchema,
+>(
+  room: InstantReactRoom<any, RoomSchema, RoomType>,
+  data: Partial<RoomSchema[RoomType]["presence"]>,
+  deps?: any[],
+): void {
+  useEffect(() => room._core._reactor.joinRoom(room.id), [room.id]);
+  useEffect(() => {
+    return room._core._reactor.publishPresence(room.type, room.id, data);
+  }, [room.type, room.id, deps ?? JSON.stringify(data)]);
+}
+
+// -----------------
+// Typing Indicator
+
+function useTypingIndicator<
+  RoomSchema extends RoomSchemaShape,
+  RoomType extends keyof RoomSchema,
+>(
+  room: InstantReactRoom<any, RoomSchema, RoomType>,
+  inputName: string,
+  opts: TypingIndicatorOpts = {},
+): TypingIndicatorHandle<RoomSchema[RoomType]["presence"]> {
+  const timeout = useTimeout();
+
+  const onservedPresence = rooms.usePresence(room, {
+    keys: [inputName],
+  });
+
+  const active = useMemo(() => {
+    const presenceSnapshot = room._core._reactor.getPresence(
+      room.type,
+      room.id,
+    );
+
+    return opts?.writeOnly
+      ? []
+      : Object.values(presenceSnapshot?.peers ?? {}).filter(
+          (p) => p[inputName] === true,
+        );
+  }, [opts?.writeOnly, onservedPresence]);
+
+  const setActive = (isActive: boolean) => {
+    room._core._reactor.publishPresence(room.type, room.id, {
+      [inputName]: isActive,
+    } as unknown as Partial<RoomSchema[RoomType]>);
+
+    if (!isActive) return;
+
+    if (opts?.timeout === null || opts?.timeout === 0) return;
+
+    timeout.set(opts?.timeout ?? defaultActivityStopTimeout, () => {
+      room._core._reactor.publishPresence(room.type, room.id, {
+        [inputName]: null,
+      } as Partial<RoomSchema[RoomType]>);
+    });
+  };
+
+  return {
+    active,
+    setActive: (a: boolean) => {
+      setActive(a);
+    },
+    inputProps: {
+      onKeyDown: (e: KeyboardEvent) => {
+        const isEnter = opts?.stopOnEnter && e.key === "Enter";
+        const isActive = !isEnter;
+
+        setActive(isActive);
+      },
+      onBlur: () => {
+        setActive(false);
+      },
+    },
+  };
+}
+
+// --------------
+// Hooks
+
+const rooms = {
+  useTopicEffect,
+  usePublishTopic,
+  usePresence,
+  useSyncPresence,
+  useTypingIndicator,
+};
+
+// ------------
+// Class
+
 export class InstantReactRoom<
   Schema extends InstantSchemaDef<any, any, any>,
   RoomSchema extends RoomSchemaShape,
@@ -92,17 +281,7 @@ export class InstantReactRoom<
       peer: RoomSchema[RoomType]["presence"],
     ) => any,
   ): void => {
-    useEffect(() => {
-      const unsub = this._core._reactor.subscribeTopic(
-        this.id,
-        topic,
-        (event, peer) => {
-          onEvent(event, peer);
-        },
-      );
-
-      return unsub;
-    }, [this.id, topic]);
+    rooms.useTopicEffect(this, topic, onEvent);
   };
 
   /**
@@ -122,21 +301,7 @@ export class InstantReactRoom<
   usePublishTopic = <Topic extends keyof RoomSchema[RoomType]["topics"]>(
     topic: Topic,
   ): ((data: RoomSchema[RoomType]["topics"][Topic]) => void) => {
-    useEffect(() => this._core._reactor.joinRoom(this.id), [this.id]);
-
-    const publishTopic = useCallback(
-      (data) => {
-        this._core._reactor.publishTopic({
-          roomType: this.type,
-          roomId: this.id,
-          topic,
-          data,
-        });
-      },
-      [this.id, topic],
-    );
-
-    return publishTopic;
+    return rooms.usePublishTopic(this, topic);
   };
 
   /**
@@ -156,36 +321,7 @@ export class InstantReactRoom<
   usePresence = <Keys extends keyof RoomSchema[RoomType]["presence"]>(
     opts: PresenceOpts<RoomSchema[RoomType]["presence"], Keys> = {},
   ): PresenceHandle<RoomSchema[RoomType]["presence"], Keys> => {
-    const [state, setState] = useState<
-      PresenceResponse<RoomSchema[RoomType]["presence"], Keys>
-    >(() => {
-      return (
-        this._core._reactor.getPresence(this.type, this.id, opts) ?? {
-          peers: {},
-          isLoading: true,
-        }
-      );
-    });
-
-    useEffect(() => {
-      const unsub = this._core._reactor.subscribePresence(
-        this.type,
-        this.id,
-        opts,
-        (data) => {
-          setState(data);
-        },
-      );
-
-      return unsub;
-    }, [this.id, opts.user, opts.peers?.join(), opts.keys?.join()]);
-
-    return {
-      ...state,
-      publishPresence: (data) => {
-        this._core._reactor.publishPresence(this.type, this.id, data);
-      },
-    };
+    return rooms.usePresence(this, opts);
   };
 
   /**
@@ -203,10 +339,7 @@ export class InstantReactRoom<
     data: Partial<RoomSchema[RoomType]["presence"]>,
     deps?: any[],
   ): void => {
-    useEffect(() => this._core._reactor.joinRoom(this.id), [this.id]);
-    useEffect(() => {
-      return this._core._reactor.publishPresence(this.type, this.id, data);
-    }, [this.type, this.id, deps ?? JSON.stringify(data)]);
+    return rooms.useSyncPresence(this, data, deps);
   };
 
   /**
@@ -228,58 +361,7 @@ export class InstantReactRoom<
     inputName: string,
     opts: TypingIndicatorOpts = {},
   ): TypingIndicatorHandle<RoomSchema[RoomType]["presence"]> => {
-    const timeout = useTimeout();
-
-    const onservedPresence = this.usePresence({
-      keys: [inputName],
-    });
-
-    const active = useMemo(() => {
-      const presenceSnapshot = this._core._reactor.getPresence(
-        this.type,
-        this.id,
-      );
-
-      return opts?.writeOnly
-        ? []
-        : Object.values(presenceSnapshot?.peers ?? {}).filter(
-            (p) => p[inputName] === true,
-          );
-    }, [opts?.writeOnly, onservedPresence]);
-
-    const setActive = (isActive: boolean) => {
-      this._core._reactor.publishPresence(this.type, this.id, {
-        [inputName]: isActive,
-      } as unknown as Partial<RoomSchema[RoomType]>);
-
-      if (!isActive) return;
-
-      if (opts?.timeout === null || opts?.timeout === 0) return;
-
-      timeout.set(opts?.timeout ?? defaultActivityStopTimeout, () => {
-        this._core._reactor.publishPresence(this.type, this.id, {
-          [inputName]: null,
-        } as Partial<RoomSchema[RoomType]>);
-      });
-    };
-
-    return {
-      active,
-      setActive: (a: boolean) => {
-        setActive(a);
-      },
-      inputProps: {
-        onKeyDown: (e: KeyboardEvent) => {
-          const isEnter = opts?.stopOnEnter && e.key === "Enter";
-          const isActive = !isEnter;
-
-          setActive(isActive);
-        },
-        onBlur: () => {
-          setActive(false);
-        },
-      },
-    };
+    return rooms.useTypingIndicator(this, inputName, opts);
   };
 }
 
