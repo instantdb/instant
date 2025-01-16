@@ -34,9 +34,10 @@ export function Fence({ children, language, showCopy }) {
               <Fragment key={lineIndex}>
                 {line
                   .filter((token) => !token.empty)
-                  .map((token, tokenIndex) => (
-                    <span key={tokenIndex} {...getTokenProps({ token })} />
-                  ))}
+                  .map((token, tokenIndex) => {
+                    const { key, ...props } = getTokenProps({ token });
+                    return <span key={key || tokenIndex} {...props} />;
+                  })}
                 {'\n'}
               </Fragment>
             ))}
