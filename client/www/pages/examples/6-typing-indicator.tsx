@@ -25,11 +25,14 @@ const user = {
 const room = db.room('typing-indicator-example', '1234');
 
 export default function InstantTypingIndicator() {
-  room.useSyncPresence(user);
+  db.rooms.useSyncPresence(room, user);
 
-  const presence = room.usePresence();
+  const presence = db.rooms.usePresence(room);
 
-  const { active, inputProps } = room.useTypingIndicator('chat');
+  const { active, inputProps } = db.rooms.useTypingIndicator(
+    room,
+    'chat-input',
+  );
 
   const peers = Object.values(presence.peers).filter((p) => p.id);
   const activeMap = Object.fromEntries(

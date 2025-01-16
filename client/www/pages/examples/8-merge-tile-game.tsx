@@ -14,19 +14,18 @@ const db = init({
   appId: __getAppId(),
 });
 
-const { useQuery, transact } = db;
 const room = db.room('main');
 
 export default function App() {
   const [hoveredSquare, setHoveredSquare] = useState(null as string | null);
   const [myColor, setMyColor] = useState(null as string | null);
-  const { isLoading, error, data } = useQuery({ boards: {} });
+  const { isLoading, error, data } = db.useQuery({ boards: {} });
   const {
     user: myPresence,
     peers,
     publishPresence,
     isLoading: isPresenceLoading,
-  } = room.usePresence();
+  } = db.rooms.usePresence(room);
 
   const boardState = data?.boards.find((b) => b.id === boardId)?.state;
 
@@ -36,7 +35,7 @@ export default function App() {
 
     // If the board doesn't exist, create it
     if (!boardState) {
-      transact([
+      db.transact([
         db.tx.boards[boardId].update({
           state: makeEmptyBoard(),
         }),
@@ -99,7 +98,7 @@ export default function App() {
                   onMouseEnter={() => setHoveredSquare(`${r}-${c}`)}
                   onMouseLeave={() => setHoveredSquare(null)}
                   onClick={() => {
-                    transact([
+                    db.transact([
                       db.tx.boards[boardId].merge({
                         state: {
                           [`${r}-${c}`]: myColor,
@@ -115,7 +114,7 @@ export default function App() {
         <button
           className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-4 rounded my-4"
           onClick={() => {
-            transact([
+            db.transact([
               db.tx.boards[boardId].update({
                 state: makeEmptyBoard(),
               }),

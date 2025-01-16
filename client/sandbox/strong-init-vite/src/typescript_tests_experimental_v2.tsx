@@ -64,6 +64,27 @@ function ReactNormalApp() {
   const _reactPublishEmoji = reactRoom.usePublishTopic("emoji");
   const _reactPresenceUser = reactPresence.user!;
   const _reactPresencePeers = reactPresence.peers!;
+  _reactPresenceUser.name; 
+  _reactPresencePeers[0].name;  
+
+  const reactPresenceNew = reactDB.rooms.usePresence(reactRoom, { keys: ["name"] });
+  const _reactPublishEmojiNew = reactDB.rooms.usePublishTopic(reactRoom, "emoji");
+  const _reactPresenceUserNew = reactPresenceNew.user!;
+  const _reactPresencePeersNew = reactPresenceNew.peers!;
+  _reactPresenceUserNew.name; 
+  _reactPresencePeersNew[0].name;  
+
+  // More room tsts
+  reactDB.rooms.useTopicEffect(reactRoom, "emoji", (emoji) => {
+    emoji.directionAngle;
+  });
+  const publish = reactDB.rooms.usePublishTopic(reactRoom, "emoji");
+  publish({ name: "confetti", rotationAngle: 1, directionAngle: 0 })
+
+  reactDB.rooms.useSyncPresence(reactRoom, { name: 'foo', avatarURI: 'bar' });
+  const typing = reactDB.rooms.useTypingIndicator(reactRoom, 'chatInput');
+  typing;
+  
   // queries
   const { isLoading, error, data } = reactDB.useQuery({
     messages: { creator: {} },
@@ -86,7 +107,10 @@ function ReactNormalApp() {
   // to silence ts warnings
   _reactPublishEmoji;
   _reactPresenceUser;
-  _reactPresencePeers;
+  _reactPresencePeersNew;
+  _reactPublishEmojiNew;
+  _reactPresenceUserNew;
+  _reactPresencePeersNew;
 }
 
 // ----
@@ -104,6 +128,16 @@ function ReactNativeNormalApp() {
   const _reactPublishEmoji = reactRoom.usePublishTopic("emoji");
   const _reactPresenceUser = reactPresence.user!;
   const _reactPresencePeers = reactPresence.peers!;
+  _reactPresenceUser.name; 
+  _reactPresencePeers[0].name;  
+
+  const reactPresenceNew = reactNativeDB.rooms.usePresence(reactRoom, { keys: ["name"] });
+  const _reactPublishEmojiNew = reactNativeDB.rooms.usePublishTopic(reactRoom, "emoji");
+  const _reactPresenceUserNew = reactPresenceNew.user!;
+  const _reactPresencePeersNew = reactPresenceNew.peers!;
+  _reactPresenceUserNew.name; 
+  _reactPresencePeersNew[0].name;  
+
   // queries
   const { isLoading, error, data } = reactNativeDB.useQuery({
     messages: { creator: {} },
@@ -119,6 +153,9 @@ function ReactNativeNormalApp() {
   _reactPublishEmoji;
   _reactPresenceUser;
   _reactPresencePeers;
+  _reactPublishEmojiNew;
+  _reactPresenceUserNew;
+  _reactPresencePeersNew;
 }
 
 // ----

@@ -24,7 +24,7 @@ export default function InstantAvatarStack() {
     user: true,
   });
 
-  room.useSyncPresence({
+  db.rooms.useSyncPresence(room, {
     name: userId,
     color: randomDarkColor,
   });

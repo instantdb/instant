@@ -555,7 +555,7 @@ function LandingParty() {
 
   const publishEmoji = room.usePublishTopic('emoji');
 
-  room.useTopicEffect('emoji', (event) => {
+  db.rooms.useTopicEffect(room, 'emoji', (event) => {
     const { name, directionAngle, rotationAngle } = event;
 
     const el = elRefsRef.current[name]?.current;
