@@ -85,7 +85,8 @@
   (let [thread (Thread/currentThread)
         {:keys [code-ns code-line code-file]} source
         default-attributes (cond-> {"host.name" @config/hostname
-                                    "process-id" @config/process-id}
+                                    "process-id" @config/process-id
+                                    "instance-id" @config/instance-id}
                              thread (assoc "thread.name"
                                            (.getName thread)
                                            "thread.id"
@@ -224,3 +225,12 @@
       dataset-name
       trace-id
       span-id))))
+
+(defn current-span-ids []
+  (when-let [^Span span *span*]
+    {:span-id (-> span
+                  (.getSpanContext)
+                  (.getSpanId))
+     :trace-id (-> span
+                   (.getSpanContext)
+                   (.getTraceId))}))
