@@ -291,6 +291,9 @@ importers:
       '@babel/runtime':
         specifier: ^7.20.0
         version: 7.26.0
+      '@expo/metro-runtime':
+        specifier: ~4.0.0
+        version: 4.0.0(react-native@0.76.1)
       '@expo/vector-icons':
         specifier: ^14.0.3
         version: 14.0.4
@@ -308,7 +311,7 @@ importers:
         version: 11.4.1(react-native@0.76.1)
       expo:
         specifier: 52.0.0-preview.23
-        version: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react-native@0.76.1)(react@18.3.1)
+        version: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(@expo/metro-runtime@4.0.0)(react-native@0.76.1)(react@18.3.1)
       expo-auth-session:
         specifier: ~6.0.0
         version: 6.0.0(expo@52.0.0-preview.23)(react-native@0.76.1)(react@18.3.1)
@@ -336,6 +339,9 @@ importers:
       react:
         specifier: 18.3.1
         version: 18.3.1
+      react-dom:
+        specifier: 18.3.1
+        version: 18.3.1(react@18.3.1)
       react-native:
         specifier: 0.76.1
         version: 0.76.1(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react@18.3.1)
@@ -348,6 +354,9 @@ importers:
       react-native-screens:
         specifier: 4.0.0
         version: 4.0.0(react-native@0.76.1)(react@18.3.1)
+      react-native-web:
+        specifier: ~0.19.13
+        version: 0.19.13(react-dom@18.3.1)(react@18.3.1)
       tailwindcss:
         specifier: 3.3.2
         version: 3.3.2
@@ -4589,6 +4598,14 @@ packages:
       - supports-color
     dev: false
 
+  /@expo/metro-runtime@4.0.0(react-native@0.76.1):
+    resolution: {integrity: sha512-+zgCyuXqIzgZVN8h0g36sursGXBy3xqtJW9han7t/iR2HTTrrbEoep5ftW1a27bdSINU96ng+rSsPLbyHYeBvw==}
+    peerDependencies:
+      react-native: '*'
+    dependencies:
+      react-native: 0.76.1(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react@18.3.1)
+    dev: false
+
   /@expo/metro-runtime@4.0.0-preview.2(react-native@0.76.1):
     resolution: {integrity: sha512-bt0otuZbZ68BMHcqqqIXqYETY9ouAEq9HeoRnhA8QjZcxW65okXQ4O3uDbdwrlvmrT9WkV8zYg51TA7cxLbmEg==}
     peerDependencies:
@@ -6354,7 +6371,7 @@ packages:
       react-native: ^0.0.0-0 || >=0.60 <1.0
     dependencies:
       merge-options: 3.0.4
-      react-native: 0.76.1(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(@types/react@18.3.1)(react@18.3.1)
+      react-native: 0.76.1(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react@18.3.1)
     dev: false
 
   /@react-native-community/cli-clean@15.1.1:
@@ -6527,7 +6544,7 @@ packages:
     peerDependencies:
       react-native: '>=0.59'
     dependencies:
-      react-native: 0.76.1(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(@types/react@18.3.1)(react@18.3.1)
+      react-native: 0.76.1(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react@18.3.1)
     dev: false
 
   /@react-native/assets-registry@0.76.1:
@@ -6697,6 +6714,10 @@ packages:
     transitivePeerDependencies:
       - '@babel/preset-env'
       - supports-color
+    dev: false
+
+  /@react-native/normalize-colors@0.74.88:
+    resolution: {integrity: sha512-He5oTwPBxvXrxJ91dZzpxR7P+VYmc9IkJfhuH8zUiU50ckrt+xWNjtVugPdUv4LuVjmZ36Vk2EX8bl1gVn2dVA==}
     dev: false
 
   /@react-native/normalize-colors@0.76.1:
@@ -9164,6 +9185,12 @@ packages:
     engines: {node: '>=4'}
     dev: false
 
+  /css-in-js-utils@3.1.0:
+    resolution: {integrity: sha512-fJAcud6B3rRu+KHYk+Bwf+WFL2MDCJJ1XG9x137tJQ0xYxor7XziQtuGFbWNdqrvF4Tk26O3H73nfVqXt/fW1A==}
+    dependencies:
+      hyphenate-style-name: 1.1.0
+    dev: false
+
   /css-mediaquery@0.1.2:
     resolution: {integrity: sha512-COtn4EROW5dBGlE/4PiKnh6rZpAPxDeFLaEEwt4i10jpDMFt2EhQGS79QmmrO+iKCHv0PU/HrOWEhijFd1x99Q==}
     dev: false
@@ -10382,7 +10409,7 @@ packages:
     peerDependencies:
       expo: '*'
     dependencies:
-      expo: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react-native@0.76.1)(react@18.3.1)
+      expo: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(@expo/metro-runtime@4.0.0)(react-native@0.76.1)(react@18.3.1)
     dev: false
 
   /expo-asset@11.0.0(expo@52.0.0-preview.23)(react-native@0.76.1)(react@18.3.1):
@@ -10393,7 +10420,7 @@ packages:
       react-native: '*'
     dependencies:
       '@expo/image-utils': 0.6.3
-      expo: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react-native@0.76.1)(react@18.3.1)
+      expo: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(@expo/metro-runtime@4.0.0)(react-native@0.76.1)(react@18.3.1)
       expo-constants: 17.0.2(expo@52.0.0-preview.23)(react-native@0.76.1)
       invariant: 2.2.4
       md5-file: 3.2.3
@@ -10430,7 +10457,7 @@ packages:
     dependencies:
       '@expo/config': 10.0.2
       '@expo/env': 0.4.0
-      expo: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react-native@0.76.1)(react@18.3.1)
+      expo: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(@expo/metro-runtime@4.0.0)(react-native@0.76.1)(react@18.3.1)
       react-native: 0.76.1(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react@18.3.1)
     transitivePeerDependencies:
       - supports-color
@@ -10442,7 +10469,7 @@ packages:
       expo: '*'
     dependencies:
       base64-js: 1.5.1
-      expo: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react-native@0.76.1)(react@18.3.1)
+      expo: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(@expo/metro-runtime@4.0.0)(react-native@0.76.1)(react@18.3.1)
     dev: false
 
   /expo-file-system@18.0.1(expo@52.0.0-preview.23)(react-native@0.76.1):
@@ -10451,7 +10478,7 @@ packages:
       expo: '*'
       react-native: '*'
     dependencies:
-      expo: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react-native@0.76.1)(react@18.3.1)
+      expo: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(@expo/metro-runtime@4.0.0)(react-native@0.76.1)(react@18.3.1)
       react-native: 0.76.1(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react@18.3.1)
     dev: false
 
@@ -10461,7 +10488,7 @@ packages:
       expo: '*'
       react: '*'
     dependencies:
-      expo: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react-native@0.76.1)(react@18.3.1)
+      expo: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(@expo/metro-runtime@4.0.0)(react-native@0.76.1)(react@18.3.1)
       fontfaceobserver: 2.3.0
       react: 18.3.1
     dev: false
@@ -10472,7 +10499,7 @@ packages:
       expo: '*'
       react: '*'
     dependencies:
-      expo: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react-native@0.76.1)(react@18.3.1)
+      expo: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(@expo/metro-runtime@4.0.0)(react-native@0.76.1)(react@18.3.1)
       react: 18.3.1
     dev: false
 
@@ -10537,7 +10564,7 @@ packages:
       '@react-navigation/native': 7.0.0(react-native@0.76.1)(react@18.3.1)
       '@react-navigation/native-stack': 7.0.0(@react-navigation/native@7.0.0)(react-native-safe-area-context@4.12.0)(react-native-screens@4.0.0)(react-native@0.76.1)(react@18.3.1)
       client-only: 0.0.1
-      expo: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react-native@0.76.1)(react@18.3.1)
+      expo: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(@expo/metro-runtime@4.0.0)(react-native@0.76.1)(react@18.3.1)
       expo-constants: 17.0.2(expo@52.0.0-preview.23)(react-native@0.76.1)
       expo-linking: 7.0.2(expo@52.0.0-preview.23)(react-native@0.76.1)(react@18.3.1)
       react-helmet-async: 1.3.0(react-dom@18.3.1)(react@18.3.1)
@@ -10571,11 +10598,11 @@ packages:
       expo: '*'
       react-native: '*'
     dependencies:
-      expo: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react-native@0.76.1)(react@18.3.1)
+      expo: 52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(@expo/metro-runtime@4.0.0)(react-native@0.76.1)(react@18.3.1)
       react-native: 0.76.1(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react@18.3.1)
     dev: false
 
-  /expo@52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react-native@0.76.1)(react@18.3.1):
+  /expo@52.0.0-preview.23(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(@expo/metro-runtime@4.0.0)(react-native@0.76.1)(react@18.3.1):
     resolution: {integrity: sha512-JbED2y6yKaDPQnONU4cwpzlU9tY561cExoXKk4kWarx1b85cl/WcNVHjc9U413ucx078DGrPxBTc1Ohzc3G+MA==}
     hasBin: true
     peerDependencies:
@@ -10598,6 +10625,7 @@ packages:
       '@expo/config-plugins': 9.0.7
       '@expo/fingerprint': 0.11.2
       '@expo/metro-config': 0.19.0-preview.3
+      '@expo/metro-runtime': 4.0.0(react-native@0.76.1)
       '@expo/vector-icons': 14.0.4
       babel-preset-expo: 12.0.0-preview.6(@babel/core@7.26.0)(@babel/preset-env@7.25.4)
       expo-asset: 11.0.0(expo@52.0.0-preview.23)(react-native@0.76.1)(react@18.3.1)
@@ -10721,6 +10749,10 @@ packages:
   /fast-levenshtein@2.0.6:
     resolution: {integrity: sha512-DCXu6Ifhqcks7TZKY3Hxp3y6qphY5SJZmrWMDrKcERSOXWQdMhU9Ig/PYrzyw/ul9jOIyh0N4M0tbC5hodg8dw==}
     dev: true
+
+  /fast-loops@1.1.4:
+    resolution: {integrity: sha512-8dbd3XWoKCTms18ize6JmQF1SFnnfj5s0B7rRry22EofgMu7B6LKHVh+XfFqFGsqnbH54xgeO83PzpKI+ODhlg==}
+    dev: false
 
   /fast-xml-parser@4.5.0:
     resolution: {integrity: sha512-/PlTQCI96+fZMAOLMZK4CWG1ItCbfZ/0jx7UIJFChPNrx7tcEgerUgWbeieCM9MfHInUDyK8DWYZ+YrywDJuTg==}
@@ -11375,6 +11407,10 @@ packages:
     engines: {node: '>=16.17.0'}
     dev: true
 
+  /hyphenate-style-name@1.1.0:
+    resolution: {integrity: sha512-WDC/ui2VVRrz3jOVi+XtjqkDjiVjTtFaAGiW37k6b+ohyQ5wYDOGkvCZa8+H0nx3gyvv0+BST9xuOgIyGQ00gw==}
+    dev: false
+
   /iconv-lite@0.4.24:
     resolution: {integrity: sha512-v3MXnZAcvnywkTUEZomIActle7RXXeedOR31wwl7VlyoXO4Qi9arvSenNQWne1TcRwhCL1HwLI21bEqdpj8/rA==}
     engines: {node: '>=0.10.0'}
@@ -11466,6 +11502,13 @@ packages:
 
   /ini@1.3.8:
     resolution: {integrity: sha512-JV/yugV2uzW5iMRSiZAyDtQd+nxtUnjeLt0acNdw98kKLrvuRVyB80tsREOE7yvGVgalhZ6RNXCmEHkUKBKxew==}
+    dev: false
+
+  /inline-style-prefixer@6.0.4:
+    resolution: {integrity: sha512-FwXmZC2zbeeS7NzGjJ6pAiqRhXR0ugUShSNb6GApMl6da0/XGc4MOJsoWAywia52EEWbXNSy0pzkwz/+Y+swSg==}
+    dependencies:
+      css-in-js-utils: 3.1.0
+      fast-loops: 1.1.4
     dev: false
 
   /inquirer@10.1.8:
@@ -13079,6 +13122,10 @@ packages:
 
   /memoize-one@5.2.1:
     resolution: {integrity: sha512-zYiwtZUcYyXKo/np96AGZAckk+FWWsUdJ3cHGGmld7+AhvcWmQyGCYUh1hc4Q/pkOhb65dQR/pqCyK0cOaHz4Q==}
+    dev: false
+
+  /memoize-one@6.0.0:
+    resolution: {integrity: sha512-rkpe71W0N0c0Xz6QD0eJETuWAJGnJ9afsl1srmwPrI+yBCkge5EycXXbYRyvL29zZVUWQCY7InPRCv3GDXuZNw==}
     dev: false
 
   /memorystream@0.3.1:
@@ -14913,7 +14960,7 @@ packages:
       react-native: '>=0.56'
     dependencies:
       fast-base64-decode: 1.0.0
-      react-native: 0.76.1(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(@types/react@18.3.1)(react@18.3.1)
+      react-native: 0.76.1(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react@18.3.1)
     dev: false
 
   /react-native-helmet-async@2.0.4(react@18.3.1):
@@ -14947,6 +14994,26 @@ packages:
       react-freeze: 1.0.4(react@18.3.1)
       react-native: 0.76.1(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react@18.3.1)
       warn-once: 0.1.1
+    dev: false
+
+  /react-native-web@0.19.13(react-dom@18.3.1)(react@18.3.1):
+    resolution: {integrity: sha512-etv3bN8rJglrRCp/uL4p7l8QvUNUC++QwDbdZ8CB7BvZiMvsxfFIRM1j04vxNldG3uo2puRd6OSWR3ibtmc29A==}
+    peerDependencies:
+      react: ^18.0.0
+      react-dom: ^18.0.0
+    dependencies:
+      '@babel/runtime': 7.26.0
+      '@react-native/normalize-colors': 0.74.88
+      fbjs: 3.0.5
+      inline-style-prefixer: 6.0.4
+      memoize-one: 6.0.0
+      nullthrows: 1.1.1
+      postcss-value-parser: 4.2.0
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+      styleq: 0.1.3
+    transitivePeerDependencies:
+      - encoding
     dev: false
 
   /react-native@0.76.1(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(@types/react@18.3.1)(react@18.3.1):
@@ -16116,6 +16183,10 @@ packages:
       '@babel/core': 7.26.0
       client-only: 0.0.1
       react: 18.3.1
+    dev: false
+
+  /styleq@0.1.3:
+    resolution: {integrity: sha512-3ZUifmCDCQanjeej1f6kyl/BeP/Vae5EYkQ9iJfUm/QwZvlgnZzyflqAsAWYURdtea8Vkvswu2GrC57h3qffcA==}
     dev: false
 
   /sucrase@3.35.0:
