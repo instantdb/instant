@@ -1158,15 +1158,11 @@
                              (reverse-direction direction)
                              direction)
 
-        type-where (when (not= order-col-type :created-at-timestamp)
-                     [[:= :checked_data_type [:cast [:inline (name order-col-type)] :checked_data_type]]])
-
         query (-> query
                   ;; Move `where` to join conds so that we get the null fields
                   (dissoc :where :from)
                   (assoc :from [prev-table])
-                  (assoc :left-join [:triples (concat (:where query)
-                                                      type-where)])
+                  (assoc :left-join [:triples (:where query)])
 
                   ;; Make sure we're getting each entity once
                   (dissoc :select)
