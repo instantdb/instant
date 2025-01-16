@@ -242,7 +242,7 @@ export function TextArea({
   disabled,
   title,
   cols,
-  rows
+  rows,
 }: {
   value: string;
   className?: string;
@@ -723,7 +723,15 @@ export function Copyable({
         'text-base': size === 'large',
       })}
     >
-      <div className="border-r bg-gray-50 px-3 py-1.5" style={{borderTopLeftRadius: "calc(0.25rem - 1px)", borderBottomLeftRadius: "calc(0.25rem - 1px)"}}>{label}</div>
+      <div
+        className="border-r bg-gray-50 px-3 py-1.5"
+        style={{
+          borderTopLeftRadius: 'calc(0.25rem - 1px)',
+          borderBottomLeftRadius: 'calc(0.25rem - 1px)',
+        }}
+      >
+        {label}
+      </div>
       <pre
         className="flex-1 truncate px-4 py-1.5"
         title={value}
@@ -960,9 +968,10 @@ export function Fence({
               <Fragment key={lineIndex}>
                 {line
                   .filter((token) => !token.empty)
-                  .map((token, tokenIndex) => (
-                    <span key={tokenIndex} {...getTokenProps({ token })} />
-                  ))}
+                  .map((token, tokenIndex) => {
+                    const { key, ...props } = getTokenProps({ token });
+                    return <span key={key || tokenIndex} {...props} />;
+                  })}
                 {'\n'}
               </Fragment>
             ))}
