@@ -250,7 +250,7 @@
   (when-let [^String created-at (get-column columns "created_at")]
     (.toInstant (Timestamp/valueOf created-at))))
 
-(defn transform-wal-record [{:keys [changes] :as _record}]
+(defn transform-wal-record [{:keys [changes tx-bytes] :as _record}]
   (let [{:strs [idents triples attrs transactions rules apps instant_users]}
         (group-by :table changes)
 
@@ -286,7 +286,8 @@
          :triple-changes triples
          :app-id app-id
          :tx-created-at (extract-tx-created-at transactions-change)
-         :tx-id (extract-tx-id transactions-change)}))))
+         :tx-id (extract-tx-id transactions-change)
+         :tx-bytes tx-bytes}))))
 
 (defn wal-record-xf
   "Filters wal records for supported changes. Returns [app-id changes]"
@@ -302,7 +303,8 @@
                            ident-changes
                            triple-changes
                            app-id
-                           tx-id]}]
+                           tx-id
+                           tx-bytes]}]
             ;; Complain loudly if we accidently mix wal-records from multiple apps
             (assert (= (:app-id acc) app-id) "app-id mismatch in combine-wal-records")
             (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id acc)
@@ -314,6 +316,7 @@
                 (update :attr-changes (fnil into []) attr-changes)
                 (update :ident-changes (fnil into []) ident-changes)
                 (update :triple-changes (fnil into []) triple-changes)
+                (update :tx-bytes (fnil + 0) tx-bytes)
                 (assoc :tx-id tx-id)))
           wal-records))
 
@@ -338,12 +341,13 @@
     (.between ChronoUnit/MILLIS tx-created-at (Instant/now))))
 
 (defn process-wal-record [process-id store-conn record-count wal-record]
-  (let [{:keys [app-id tx-id]} wal-record]
+  (let [{:keys [app-id tx-id tx-bytes]} wal-record]
     (tracer/with-span! {:name "invalidator/work"
                         :attributes {:app-id app-id
                                      :tx-id tx-id
                                      :wal-record-count record-count
-                                     :wal-latency-ms (wal-latency-ms wal-record)}}
+                                     :wal-latency-ms (wal-latency-ms wal-record)
+                                     :tx-bytes tx-bytes}}
 
       (try
         (let [sockets (invalidate! process-id store-conn wal-record)]
