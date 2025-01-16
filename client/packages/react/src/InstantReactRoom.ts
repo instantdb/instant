@@ -288,15 +288,15 @@ export function useTypingIndicator<
     setActive(false);
   }, [setActive]);
 
-  const ret = useMemo(() => {
-    return {
-      active,
-      setActive,
-      inputProps: { onKeyDown, onBlur },
-    };
-  }, [active, setActive, onKeyDown, onBlur]);
+  const inputProps = useMemo(() => {
+    return { onKeyDown, onBlur };
+  }, [onKeyDown, onBlur]);
   
-  return ret;
+  return {
+    active,
+    setActive,
+    inputProps,
+  };
 }
 
 // --------------
