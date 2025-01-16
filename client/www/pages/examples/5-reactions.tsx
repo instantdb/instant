@@ -7,20 +7,24 @@ const db = init({
   appId: __getAppId(),
 });
 
-const { usePublishTopic, useTopicEffect } = db.room('topics-example', '123');
+const room = db.room('topics-example', '123');
 
 export default function InstantTopics() {
-  const publishEmoji = usePublishTopic('emoji');
+  const publishEmoji = db.rooms.usePublishTopic(room, 'emoji');
 
-  useTopicEffect('emoji', ({ name, directionAngle, rotationAngle }) => {
-    const emojiName = name as EmojiName;
-    if (!emoji[emojiName]) return;
+  db.rooms.useTopicEffect(
+    room,
+    'emoji',
+    ({ name, directionAngle, rotationAngle }) => {
+      const emojiName = name as EmojiName;
+      if (!emoji[emojiName]) return;
 
-    animateEmoji(
-      { emoji: emoji[emojiName], directionAngle, rotationAngle },
-      elRefsRef.current[name].current
-    );
-  });
+      animateEmoji(
+        { emoji: emoji[emojiName], directionAngle, rotationAngle },
+        elRefsRef.current[name].current,
+      );
+    },
+  );
 
   const elRefsRef = useRef<{
     [k: string]: RefObject<HTMLDivElement>;
@@ -45,7 +49,7 @@ export default function InstantTopics() {
                     rotationAngle: params.rotationAngle,
                     directionAngle: params.directionAngle,
                   },
-                  elRefsRef.current[name].current
+                  elRefsRef.current[name].current,
                 );
 
                 publishEmoji(params);
@@ -72,7 +76,7 @@ const emoji = {
 const emojiNames = Object.keys(emoji) as EmojiName[];
 
 const refsInit = Object.fromEntries(
-  emojiNames.map((name) => [name, createRef<HTMLDivElement>()])
+  emojiNames.map((name) => [name, createRef<HTMLDivElement>()]),
 );
 
 const containerClassNames =
@@ -83,7 +87,7 @@ const emojiButtonClassNames =
 
 function animateEmoji(
   config: { emoji: string; directionAngle: number; rotationAngle: number },
-  target: HTMLDivElement | null
+  target: HTMLDivElement | null,
 ) {
   if (!target) return;
 

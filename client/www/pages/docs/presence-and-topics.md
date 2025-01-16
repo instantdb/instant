@@ -71,7 +71,7 @@ const APP_ID = '__APP_ID__';
 const db = init({ appId: APP_ID, schema });
 
 const roomId = 'hacker-chat-room-id';
-// The `room` chat is typed automatically from schema!
+// The `chat` room is typed automatically from schema!
 const room = db.room('chat', roomId);
 ```
 
@@ -128,14 +128,14 @@ import { init } from '@instantdb/react';
 const APP_ID = "__APP_ID__";
 const db = init({ appId: APP_ID });
 
-const room = db.room('chat', 'main');
+const room = db.room('chat', 'hacker-chat-room-id');
 const randomId = Math.random().toString(36).slice(2, 6);
 const user = {
   name: `User#${randomId}`,
 };
 
 function App() {
-  const { user: myPresence, peers, publishPresence } = room.usePresence();
+  const { user: myPresence, peers, publishPresence } = db.rooms.usePresence(room);
 
   // Publish your presence to the room
   useEffect(() => {
@@ -173,7 +173,7 @@ const room = db.room('chat', 'hacker-chat-room-id');
 
 // We only return the `status` value for each peer
 // We will _only_ trigger an update when a user's `status` value changes
-const { user, peers, publishPresence } = room.usePresence({
+const { user, peers, publishPresence } = db.rooms.usePresence(room, {
   keys: ['status'],
 });
 ```
@@ -182,9 +182,9 @@ You may also specify an array of `peers` and a `user` flag to further constrain 
 
 ```typescript
 // Will not trigger re-renders on presence changes
-const room = db.room('chat', 'chatRoomId');
+const room = db.room('chat', 'hacker-chat-room-id');
 
-const { publishPresence } = room.usePresence({
+const { publishPresence } = db.rooms.usePresence(room, {
   peers: [],
   user: false,
 });
@@ -223,11 +223,11 @@ const room = db.room('main');
 
 export default function InstantTopics() {
   // Use publishEmoji to broadcast to peers listening to `emoji` events.
-  const publishEmoji = room.usePublishTopic('emoji');
+  const publishEmoji = db.rooms.usePublishTopic(room, 'emoji');
 
   // Use useTopicEffect to listen for `emoji` events from peers
   // and animate their emojis on the screen.
-  room.useTopicEffect('emoji', ({ name, directionAngle, rotationAngle }) => {
+  db.rooms.useTopicEffect(room, 'emoji', ({ name, directionAngle, rotationAngle }) => {
     if (!emoji[name]) return;
 
     animateEmoji(
@@ -401,12 +401,12 @@ You can render multiple cursor spaces. For instance, imagine you're building a s
 `useTypingIndicator` is a small utility useful for building inputs for chat-style apps. You can use this hook to show things like "<user> is typing..." in your chat app.
 
 ```javascript {% showCopy=true %}
-"use client";
+'use client';
 
-import { init } from "@instantdb/react";
+import { init } from '@instantdb/react';
 
 // Instant app
-const APP_ID = "__APP_ID__";
+const APP_ID = '__APP_ID__';
 
 const db = init({ appId: APP_ID });
 
@@ -415,23 +415,23 @@ const user = {
   name: `User#${randomId}`,
 };
 
-const room = db.room("chat", "main");
+const room = db.room('chat', 'hacker-chat-room-id');
 
 export default function InstantTypingIndicator() {
   // 1. Publish your presence in the room.
-  room.useSyncPresence(user);
+  db.rooms.useSyncPresence(room, user);
 
   // 2. Use the typing indicator hook
-  const typing = room.useTypingIndicator("chat");
+  const typing = db.rooms.useTypingIndicator(room, 'chat');
 
   const onKeyDown = (e) => {
     // 3. Render typing indicator
     typing.inputProps.onKeyDown(e);
 
     // 4. Optionally run your own onKeyDown logic
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      console.log("Message sent:", e.target.value);
+      console.log('Message sent:', e.target.value);
     }
   };
 

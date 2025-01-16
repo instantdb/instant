@@ -22,7 +22,7 @@ function CustomCursor({ color, name }: { color?: string; name: string }) {
 }
 
 export default function InstantCursors() {
-  room.useSyncPresence({
+  db.rooms.useSyncPresence(room, {
     name: userId,
   });
 

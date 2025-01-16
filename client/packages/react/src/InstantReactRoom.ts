@@ -45,7 +45,20 @@ export const defaultActivityStopTimeout = 1_000;
 // ------
 // Topics
 
-function useTopicEffect<
+/**
+ * Listen for broadcasted events given a room and topic.
+ *
+ * @see https://instantdb.com/docs/presence-and-topics
+ * @example
+ *  function App({ roomId }) {
+ *    const room = db.room('chats', roomId);
+ *    db.rooms.useTopicEffect(room, 'emoji', (message, peer) => {
+ *      console.log(peer.name, 'sent', message);
+ *    });
+ *    // ...
+ *  }
+ */
+export function useTopicEffect<
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
   TopicType extends keyof RoomSchema[RoomType]["topics"],
@@ -70,7 +83,22 @@ function useTopicEffect<
   }, [room.id, topic]);
 }
 
-function usePublishTopic<
+/**
+ * Broadcast an event to a room.
+ *
+ * @see https://instantdb.com/docs/presence-and-topics
+ * @example
+ * function App({ roomId }) {
+ *   const room = db.room('chat', roomId);
+ *   const publishTopic = db.rooms.usePublishTopic(room, "emoji");
+ *
+ *   return (
+ *     <button onClick={() => publishTopic({ emoji: "🔥" })}>Send emoji</button>
+ *   );
+ * }
+ *
+ */
+export function usePublishTopic<
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
   TopicType extends keyof RoomSchema[RoomType]["topics"],
@@ -98,7 +126,21 @@ function usePublishTopic<
 // ---------
 // Presence
 
-function usePresence<
+/**
+ * Listen for peer's presence data in a room, and publish the current user's presence.
+ *
+ * @see https://instantdb.com/docs/presence-and-topics
+ * @example
+ *  function App({ roomId }) {
+ *    const {
+ *      peers,
+ *      publishPresence
+ *    } = db.room(roomType, roomId).usePresence({ keys: ["name", "avatar"] });
+ *
+ *    // ...
+ *  }
+ */
+export function usePresence<
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
   Keys extends keyof RoomSchema[RoomType]["presence"],
@@ -138,7 +180,17 @@ function usePresence<
   };
 }
 
-function useSyncPresence<
+/**
+ * Publishes presence data to a room
+ *
+ * @see https://instantdb.com/docs/presence-and-topics
+ * @example
+ *  function App({ roomId, nickname }) {
+ *    const room = db.room('chat', roomId);
+ *    db.rooms.useSyncPresence(room, { nickname });
+ *  }
+ */
+export function useSyncPresence<
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
 >(
@@ -155,7 +207,23 @@ function useSyncPresence<
 // -----------------
 // Typing Indicator
 
-function useTypingIndicator<
+/**
+ * Manage typing indicator state
+ *
+ * @see https://instantdb.com/docs/presence-and-topics
+ * @example
+ *  function App({ roomId }) {
+ *    const room = db.room('chat', roomId);
+ *    const {
+ *      active,
+ *      setActive,
+ *      inputProps,
+ *    } = db.rooms.useTypingIndicator(room, "chat-input");
+ *
+ *    return <input {...inputProps} />;
+ *  }
+ */
+export function useTypingIndicator<
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
 >(
@@ -220,7 +288,7 @@ function useTypingIndicator<
 // --------------
 // Hooks
 
-const rooms = {
+export const rooms = {
   useTopicEffect,
   usePublishTopic,
   usePresence,
@@ -247,17 +315,18 @@ export class InstantReactRoom<
   }
 
   /**
-   * Listen for broadcasted events given a room and topic.
+   * @deprecated
+   * `db.room(...).useTopicEffect` is deprecated. You can replace it with `db.rooms.useTopicEffect`.
    *
-   * @see https://instantdb.com/docs/presence-and-topics
    * @example
-   *  function App({ roomId }) {
-   *    db.room(roomType, roomId).useTopicEffect("chat", (message, peer) => {
-   *      console.log("New message", message, 'from', peer.name);
-   *    });
    *
-   *    // ...
-   *  }
+   * // Before
+   * const room = db.room('chat', 'room-id');
+   * room.useTopicEffect('emoji', (message, peer) => {  });
+   *
+   * // After
+   * const room = db.room('chat', 'room-id');
+   * db.rooms.useTopicEffect(room, 'emoji', (message, peer) => {  });
    */
   useTopicEffect = <TopicType extends keyof RoomSchema[RoomType]["topics"]>(
     topic: TopicType,
@@ -270,18 +339,18 @@ export class InstantReactRoom<
   };
 
   /**
-   * Broadcast an event to a room.
+   * @deprecated
+   * `db.room(...).usePublishTopic` is deprecated. You can replace it with `db.rooms.usePublishTopic`.
    *
-   * @see https://instantdb.com/docs/presence-and-topics
    * @example
-   * function App({ roomId }) {
-   *   const publishTopic = db.room(roomType, roomId).usePublishTopic("clicks");
    *
-   *   return (
-   *     <button onClick={() => publishTopic({ ts: Date.now() })}>Click me</button>
-   *   );
-   * }
+   * // Before
+   * const room = db.room('chat', 'room-id');
+   * const publish = room.usePublishTopic('emoji');
    *
+   * // After
+   * const room = db.room('chat', 'room-id');
+   * const publish = db.rooms.usePublishTopic(room, 'emoji');
    */
   usePublishTopic = <Topic extends keyof RoomSchema[RoomType]["topics"]>(
     topic: Topic,
@@ -290,18 +359,18 @@ export class InstantReactRoom<
   };
 
   /**
-   * Listen for peer's presence data in a room, and publish the current user's presence.
+   * @deprecated
+   * `db.room(...).usePresence` is deprecated. You can replace it with `db.rooms.usePresence`.
    *
-   * @see https://instantdb.com/docs/presence-and-topics
    * @example
-   *  function App({ roomId }) {
-   *    const {
-   *      peers,
-   *      publishPresence
-   *    } = db.room(roomType, roomId).usePresence({ keys: ["name", "avatar"] });
    *
-   *    // ...
-   *  }
+   * // Before
+   * const room = db.room('chat', 'room-id');
+   * const { peers } = room.usePresence({ keys: ["name", "avatar"] });
+   *
+   * // After
+   * const room = db.room('chat', 'room-id');
+   * const { peers } = db.rooms.usePresence(room, { keys: ["name", "avatar"] });
    */
   usePresence = <Keys extends keyof RoomSchema[RoomType]["presence"]>(
     opts: PresenceOpts<RoomSchema[RoomType]["presence"], Keys> = {},
@@ -310,15 +379,18 @@ export class InstantReactRoom<
   };
 
   /**
-   * Publishes presence data to a room
+   * @deprecated
+   * `db.room(...).useSyncPresence` is deprecated. You can replace it with `db.rooms.useSyncPresence`.
    *
-   * @see https://instantdb.com/docs/presence-and-topics
    * @example
-   *  function App({ roomId }) {
-   *    db.room(roomType, roomId).useSyncPresence({ name, avatar, color });
    *
-   *    // ...
-   *  }
+   * // Before
+   * const room = db.room('chat', 'room-id');
+   * room.useSyncPresence(room, { nickname });
+   *
+   * // After
+   * const room = db.room('chat', 'room-id');
+   * db.rooms.useSyncPresence(room, { nickname });
    */
   useSyncPresence = (
     data: Partial<RoomSchema[RoomType]["presence"]>,
@@ -328,19 +400,18 @@ export class InstantReactRoom<
   };
 
   /**
-   * Manage typing indicator state
+   * @deprecated
+   * `db.room(...).useTypingIndicator` is deprecated. You can replace it with `db.rooms.useTypingIndicator`.
    *
-   * @see https://instantdb.com/docs/presence-and-topics
    * @example
-   *  function App({ roomId }) {
-   *    const {
-   *      active,
-   *      setActive,
-   *      inputProps,
-   *    } = db.room(roomType, roomId).useTypingIndicator("chat-input", opts);
    *
-   *    return <input {...inputProps} />;
-   *  }
+   * // Before
+   * const room = db.room('chat', 'room-id');
+   * const typing = room.useTypingIndiactor(room, 'chat-input');
+   *
+   * // After
+   * const room = db.room('chat', 'room-id');
+   * const typing = db.rooms.useTypingIndiactor(room, 'chat-input');
    */
   useTypingIndicator = (
     inputName: string,

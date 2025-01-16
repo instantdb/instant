@@ -31,7 +31,7 @@ import {
 } from "react";
 import { useQueryInternal } from "./useQuery";
 import { useTimeout } from "./useTimeout";
-import { InstantReactRoom } from "./InstantReactRoom";
+import { InstantReactRoom, rooms } from "./InstantReactRoom";
 
 const defaultAuthState = {
   isLoading: true,
@@ -82,12 +82,8 @@ export default abstract class InstantReactAbstractDatabase<
    * @see https://instantdb.com/docs/presence-and-topics
    *
    * @example
-   *  const {
-   *   useTopicEffect,
-   *   usePublishTopic,
-   *   useSyncPresence,
-   *   useTypingIndicator,
-   * } = db.room(roomType, roomId);
+   *  const room = db.room('chat', roomId);
+   *  const { peers } = db.rooms.usePresence(room);
    */
   room<RoomType extends keyof Rooms>(
     type: RoomType = "_defaultRoomType" as RoomType,
@@ -95,6 +91,19 @@ export default abstract class InstantReactAbstractDatabase<
   ) {
     return new InstantReactRoom<Schema, Rooms, RoomType>(this._core, type, id);
   }
+
+  /**
+   * Hooks for working with rooms
+   *
+   * @see https://instantdb.com/docs/presence-and-topics
+   *
+   * @example
+   *  const room = db.room('chat', roomId);
+   *  const { peers } = db.rooms.usePresence(room);
+   *  const publish = db.rooms.usePublishTopic(room, 'emoji');
+   *  // ...
+   */
+  rooms = rooms
 
   /**
    * Use this to write data! You can create, update, delete, and link objects
