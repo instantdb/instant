@@ -47,10 +47,9 @@
   ([bucket-name prefix]
    (loop [all-objects []
           continuation-token nil]
-     (let [with-pagination (fn [opts] (if continuation-token
-                                        (assoc opts :continuation-token continuation-token)
-                                        opts))
-           opts (with-pagination {:bucket-name bucket-name :prefix prefix})
+     (let [opts (cond-> {:bucket-name bucket-name :prefix prefix}
+                  continuation-token
+                  (assoc :continuation-token continuation-token))
            {:keys [object-summaries next-continuation-token truncated?]}
            (list-objects-v2 opts)]
        (if truncated?
