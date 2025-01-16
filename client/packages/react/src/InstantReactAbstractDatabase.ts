@@ -98,8 +98,8 @@ function usePublishTopic<
   const publishTopic = useCallback(
     (data) => {
       room._core._reactor.publishTopic({
-        roomType: this.type,
-        roomId: this.id,
+        roomType: room.type,
+        roomId: room.id,
         topic,
         data,
       });
