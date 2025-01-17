@@ -145,19 +145,21 @@
   (stop)
   (start))
 
+(defn shutdown []
+  (tracer/record-info! {:name "shut-down"})
+  (tracer/with-span! {:name "stop-server"}
+    (stop))
+  (doseq [fut [(future (tracer/with-span! {:name "stop-invalidator"}
+                         (inv/stop-global)))
+               (future (tracer/with-span! {:name "stop-ephemeral"}
+                         (eph/stop)))
+               (future (tracer/with-span! {:name "stop-indexing-jobs"}
+                         (indexing-jobs/stop)))]]
+    (deref fut)))
+
 (defn add-shutdown-hook []
   (.addShutdownHook (Runtime/getRuntime)
-                    (Thread. (fn []
-                               (tracer/record-info! {:name "shut-down"})
-                               (tracer/with-span! {:name "stop-server"}
-                                 (stop))
-                               (doseq [fut [(future (tracer/with-span! {:name "stop-invalidator"}
-                                                      (inv/stop-global)))
-                                            (future (tracer/with-span! {:name "stop-ephemeral"}
-                                                      (eph/stop)))
-                                            (future (tracer/with-span! {:name "stop-indexing-jobs"}
-                                                      (indexing-jobs/stop)))]]
-                                 (deref fut))))))
+                    (Thread. shutdown)))
 
 (defmacro log-init [operation & body]
   `(do
@@ -166,66 +168,71 @@
        ~@body)))
 
 (defn -main [& _args]
-  (binding [*print-namespace-maps* false]
-    (log/info "Starting")
-    (let [{:keys [aead-keyset]} (config/init)]
-      (crypt-util/init aead-keyset))
+  (try
+    (binding [*print-namespace-maps* false]
+      (log/info "Starting")
+      (let [{:keys [aead-keyset]} (config/init)]
+        (crypt-util/init aead-keyset))
 
-    (log/info "Init tracer")
-    (tracer/init)
+      (log/info "Init tracer")
+      (tracer/init)
 
-    (log-init :uncaught-exception-handler
-      (Thread/setDefaultUncaughtExceptionHandler
-       (ua/logging-uncaught-exception-handler)))
+      (log-init :uncaught-exception-handler
+        (Thread/setDefaultUncaughtExceptionHandler
+         (ua/logging-uncaught-exception-handler)))
 
-    (log-init :gauges
-      (gauges/start))
-    (log-init :nrepl
-      (nrepl/start))
-    (log-init :oauth
-      (oauth/start))
-    (log-init :jwt
-      (jwt/start))
-    (log-init :aurora
-      (aurora/start))
-    (log-init :system-catalog
-      (ensure-attrs-on-system-catalog-app))
-    (log-init :reactive-store
-      (rs/start))
-    (log-init :ephemeral
-      (eph/start))
-    (log-init :stripe
-      (stripe/init))
-    (log-init :session
-      (session/start))
-    (log-init :invalidator
-      (inv/start-global))
-    (log-init :wal
-      (wal/init))
+      (log-init :gauges
+        (gauges/start))
+      (log-init :nrepl
+        (nrepl/start))
+      (log-init :oauth
+        (oauth/start))
+      (log-init :jwt
+        (jwt/start))
+      (log-init :aurora
+        (aurora/start))
+      (log-init :system-catalog
+        (ensure-attrs-on-system-catalog-app))
+      (log-init :reactive-store
+        (rs/start))
+      (log-init :ephemeral
+        (eph/start))
+      (log-init :stripe
+        (stripe/init))
+      (log-init :session
+        (session/start))
+      (log-init :invalidator
+        (inv/start-global))
+      (log-init :wal
+        (wal/init))
 
-    (when-let [config-app-id (config/instant-config-app-id)]
-      (log-init :flags
-        (flags-impl/init config-app-id
-                         flags/queries
-                         flags/query-results)))
+      (when-let [config-app-id (config/instant-config-app-id)]
+        (log-init :flags
+          (flags-impl/init config-app-id
+                           flags/queries
+                           flags/query-results)))
 
-    (log-init :ephemeral-app
-      (ephemeral-app/start))
-    (log-init :session-counter
-      (session-counter/start))
-    (log-init :indexing-jobs
-      (indexing-jobs/start))
-    (when (= (config/get-env) :prod)
-      (log-init :analytics
-        (analytics/start)))
-    (when (= (config/get-env) :prod)
-      (log-init :daily-metrics
-        (daily-metrics/start)))
-    (log-init :web-server
-      (start))
-    (log-init :shutdown-hook
-      (add-shutdown-hook))
-    (log/info "Finished init")))
+      (log-init :ephemeral-app
+        (ephemeral-app/start))
+      (log-init :session-counter
+        (session-counter/start))
+      (log-init :indexing-jobs
+        (indexing-jobs/start))
+      (when (= (config/get-env) :prod)
+        (log-init :analytics
+          (analytics/start)))
+      (when (= (config/get-env) :prod)
+        (log-init :daily-metrics
+          (daily-metrics/start)))
+      (log-init :web-server
+        (start))
+      (log-init :shutdown-hook
+        (add-shutdown-hook))
+      (log/info "Finished init"))
+    (catch Exception e
+      (log/error "Error on startup" e)
+      (shutdown)
+      (System/exit 1))))
 
 (defn before-ns-unload []
   (stop))
