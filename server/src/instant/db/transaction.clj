@@ -161,6 +161,7 @@
                    :where [:= :app_id app-id]
                    :join [:lookups
                           [:and
+                           :triples.av
                            [:= :triples.attr_id :lookups.attr_id]
                            [:= :triples.value [:cast :lookups.value :jsonb]]]]
                    :select [:triples.attr_id :triples.value :triples.entity_id]}
@@ -223,7 +224,7 @@
         delete-entity-steps'            (for [[op eid etype] delete-entity-steps
                                               etype'         (if etype
                                                                [etype]
-                                                               (get resolved eid))]
+                                                               (get resolved eid [nil]))]
                                           [op eid etype'])]
     (concat delete-entity-steps' tx-steps')))
 
@@ -232,29 +233,25 @@
     (if (empty? delete-entity-steps)
       tx-steps
       (let [ids+etypes           (map next delete-entity-steps)
-            query                (str "WITH RECURSIVE entids (entity_id, etype) AS (
-                                       -- start with entid
-                                         VALUES " (string/join ", " (repeat (count ids+etypes) "(?, ?)")) "
-
-                                       -- recurse all 'cascade' refs
-                                       UNION
-                                         SELECT triples.entity_id , forward_ident.etype
-                                         FROM   triples
-                                         JOIN   attrs                   ON triples.attr_id = attrs.id
-                                         JOIN   idents AS forward_ident ON forward_ident.id = attrs.forward_ident
-                                         JOIN   idents AS reverse_ident ON reverse_ident.id = attrs.reverse_ident
-                                         JOIN   entids                  ON to_jsonb(entids.entity_id) = triples.value
-                                         WHERE  triples.app_id = ?
-                                         AND    attrs.on_delete = 'cascade'
-                                         AND    attrs.value_type = 'ref'
-                                         AND    triples.vae
-                                         AND    entids.etype = reverse_ident.etype
-                                       )
-
-                                       SELECT * FROM entids")
-            args                 (concat (mapcat identity ids+etypes) [app-id])
+            query+args           (hsql/format
+                                  {:with-recursive [[[:entids {:columns [:entity_id :etype]}]
+                                                     {:union [{:values ids+etypes}
+                                                              {:from   :triples
+                                                               :join   [:attrs [:= :triples.attr_id :attrs.id]
+                                                                        [:idents :forward_ident] [:= :forward_ident.id :attrs.forward_ident]
+                                                                        [:idents :reverse_ident] [:= :reverse_ident.id :attrs.reverse_ident]
+                                                                        :entids [:= [:to_jsonb :entids.entity_id] :triples.value]]
+                                                               :where  [:and
+                                                                        [:= :triples.app_id app-id]
+                                                                        [:= :attrs.on_delete [:cast "cascade" :attr_on_delete]]
+                                                                        [:= :attrs.value_type "ref"]
+                                                                        :triples.vae
+                                                                        [:= :entids.etype :reverse_ident.etype]]
+                                                               :select [:triples.entity_id :forward_ident.etype]}]}]]
+                                   :from   :entids
+                                   :select :*})
             res                  (tool/time* "expand-delete-entity-cascade"
-                                             (sql/execute! conn (cons query args)))
+                                             (sql/execute! conn query+args))
             ids+etypes'          (map (juxt :entity_id :etype) res)
             delete-entity-steps' (for [[entity_id etype] (set (concat ids+etypes ids+etypes'))]
                                    [:delete-entity-no-cascade entity_id etype])]

@@ -2572,6 +2572,4 @@
           (is (< dt 500)))))))
 
 (comment
-  (require 'clj-async-profiler.core)
-  (clj-async-profiler.core/serve-ui 9999)
   (test/run-tests *ns*))

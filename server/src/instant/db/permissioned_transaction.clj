@@ -29,13 +29,13 @@
 
 (defn tx-change-type [[action]]
   (cond
-    (#{:add-triple :deep-merge-triple :retract-triple :delete-entity} action) :object-changes
+    (#{:add-triple :deep-merge-triple :retract-triple :delete-entity :delete-entity-no-cascade} action) :object-changes
     (#{:add-attr :delete-attr :update-attr} action) :attr-changes))
 
 (defn tx-object-action-type [[action]]
   (cond
     (#{:add-triple :deep-merge-triple :retract-triple} action) :update
-    (#{:delete-entity} action) :delete))
+    (#{:delete-entity :delete-entity-no-cascade} action) :delete))
 
 ;; Applies a `merge()` patch to a record
 ;; Analogous to immutableDeepMerge in JS
