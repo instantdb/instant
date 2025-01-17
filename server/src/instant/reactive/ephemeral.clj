@@ -20,7 +20,8 @@
                                EntryRemovedListener
                                EntryUpdatedListener)
    (com.hazelcast.topic ITopic MessageListener Message)
-   (java.util AbstractMap$SimpleImmutableEntry)))
+   (java.util AbstractMap$SimpleImmutableEntry)
+   (java.util.concurrent Future)))
 
 ;; ------
 ;; Setup
@@ -37,19 +38,14 @@
 
 (declare handle-broadcast-message)
 
-(comment
-  ;; to quiet the lint
-  (config/get-env))
-
-(defn init-hz [store-conn {:keys [instance-name cluster-name]
-                           :or {instance-name "instant-hz-v3"
-                                cluster-name "instant-server-v1"}}]
+(defn init-hz [env store-conn {:keys [instance-name cluster-name]
+                               :or {instance-name "instant-hz-v3"
+                                    cluster-name "instant-server-v1"}}]
   (-> (java.util.logging.Logger/getLogger "com.hazelcast")
       (.setLevel java.util.logging.Level/WARNING))
   (System/setProperty "hazelcast.shutdownhook.enabled" "false")
   (System/setProperty "hazelcast.phone.home.enabled" "false")
-  (let [env                  (config/get-env)
-        config               (Config.)
+  (let [config               (Config.)
         network-config       (.getNetworkConfig config)
         join-config          (.getJoin network-config)
         tcp-ip-config        (.getTcpIpConfig join-config)
@@ -77,11 +73,13 @@
 
       :test
       (do
+        (.setEnabled (.getAutoDetectionConfig join-config) false)
         (.setEnabled aws-config false)
         (.setEnabled (.getAzureConfig join-config) false)
         (.setEnabled (.getEurekaConfig join-config) false)
         (.setEnabled (.getGcpConfig join-config) false)
         (.setEnabled (.getKubernetesConfig join-config) false)
+        (.setEnabled (.getMulticastConfig join-config) false)
         (.setEnabled tcp-ip-config false)
         (.setPort network-config 0)
         (.setPortAutoIncrement network-config false)
@@ -127,7 +125,7 @@
 
 (defonce hz
   (delay
-    (init-hz rs/store-conn {})))
+    (init-hz (config/get-env) rs/store-conn {})))
 
 (defn get-hz ^HazelcastInstance []
   (:hz @hz))
@@ -283,9 +281,9 @@
 (defn start []
   (def hz
     (delay
-      (init-hz rs/store-conn {})))
-  (-> (future @hz)
-      (.get (* 60 1000) java.util.concurrent.TimeUnit/MILLISECONDS)))
+      (init-hz (config/get-env) rs/store-conn {})))
+  (let [^Future f (future @hz)]
+    (.get f (* 60 1000) java.util.concurrent.TimeUnit/MILLISECONDS)))
 
 (defn stop []
   (when-let [^HazelcastInstance hz (try (get-hz) (catch Exception _e nil))]

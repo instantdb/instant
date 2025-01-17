@@ -53,7 +53,8 @@
 
         eph-hz          (delay
                           @(future ;; avoid pinning vthread
-                             (eph/init-hz store-conn
+                             (eph/init-hz :test
+                                          store-conn
                                           (let [id (+ 100000 (rand-int 900000))]
                                             {:instance-name (str "test-instance-" id)
                                              :cluster-name  (str "test-cluster-" id)}))))
@@ -79,8 +80,6 @@
                     eph/hz                  eph-hz
                     ws/send-json!           (fn [_app-id msg fake-ws-conn]
                                               (a/>!! fake-ws-conn msg))
-                    session/handle-receive-timeout-ms 10000
-
                     rq/instaql-query-reactive!
                     (fn [store-conn {:keys [session-id] :as base-ctx} instaql-query return-type]
                       (let [res (query-reactive store-conn base-ctx instaql-query return-type)]
