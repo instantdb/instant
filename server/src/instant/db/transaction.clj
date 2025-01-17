@@ -8,6 +8,7 @@
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as transaction-model]
    [instant.db.model.triple :as triple-model]
+   [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.system-catalog :refer [system-catalog-app-id]]
    [instant.util.coll :as coll]
@@ -15,7 +16,8 @@
    [instant.util.e2e-tracer :as e2e-tracer]
    [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
-   [next.jdbc :as next-jdbc]))
+   [next.jdbc :as next-jdbc]
+   [tool]))
 
 (s/def ::add-triple-step
   (s/cat :op #{:add-triple} :triple ::triple-model/triple))
@@ -165,16 +167,15 @@
                            [:= :triples.attr_id :lookups.attr_id]
                            [:= :triples.value [:cast :lookups.value :jsonb]]]]
                    :select [:triples.attr_id :triples.value :triples.entity_id]}
-          results (tool/time* "resolve execute"
+          results (tool/time* "resolve-lookups"
                               (sql/do-execute! conn (hsql/format query)))]
-
       (into {}
             (for [{:triples/keys [attr_id value entity_id]} results]
               [[attr_id value] entity_id])))))
 
 (comment
   (resolve-lookups
-   (instant.jdbc.aurora/conn-pool)
+   (aurora/conn-pool)
    #uuid "92cb730c-8b4f-46ef-9925-4fab953694c6"
    [[#uuid "20b65ea3-faad-4e80-863e-87468ff7792f" "joe@instantdb.com"]
     [#uuid "6a089759-2a2f-4898-9bb8-a7bc9f6f791a" "stopa"]]))
@@ -184,20 +185,20 @@
   [conn app-id entity-ids]
   (if (empty? entity-ids)
     {}
-    (->>  {:from            :triples
-           :join            [:attrs [:= :triples.attr_id :attrs.id]
-                             :idents [:= :attrs.forward_ident :idents.id]]
-           :where           [:and
-                             [:= :triples.app_id app-id]
-                             [:in :triples.entity_id entity-ids]]
-           :select-distinct [:triples.entity_id :idents.etype]}
-          hsql/format
-          (sql/do-execute! conn)
-          (coll/group-by-to :triples/entity_id :idents/etype))))
+    (let [query {:from            :triples
+                 :join            [:attrs [:= :triples.attr_id :attrs.id]
+                                   :idents [:= :attrs.forward_ident :idents.id]]
+                 :where           [:and
+                                   [:= :triples.app_id app-id]
+                                   [:in :triples.entity_id entity-ids]]
+                 :select-distinct [:triples.entity_id :idents.etype]}
+          res (tool/time* "resolve-etypes"
+                          (sql/do-execute! conn (hsql/format query)))]
+      (coll/group-by-to :triples/entity_id :idents/etype res))))
 
 (comment
   (resolve-etypes
-   (instant.jdbc.aurora/conn-pool)
+   (aurora/conn-pool)
    #uuid "0e563ace-d25f-44f6-ae00-4e6b9b6d1b2e"
    [#uuid "4d39508b-9ee2-48a3-b70d-8192d9c5a059"
     #uuid "005a8767-c0e7-4158-bb9a-62ce1a5858ed"
@@ -228,28 +229,35 @@
                                           [op eid etype'])]
     (concat delete-entity-steps' tx-steps')))
 
-(defn expand-delete-entity-cascade [conn app-id tx-steps]
+(defn expand-delete-entity-cascade [conn app-id attrs tx-steps]
   (let [[delete-entity-steps tx-steps'] (coll/split-by #(= :delete-entity (first %)) tx-steps)]
     (if (empty? delete-entity-steps)
       tx-steps
       (let [ids+etypes           (map next delete-entity-steps)
+            attrs+etypes         (->> attrs
+                                      (filter #(= :ref (:value-type %)))
+                                      (filter #(= :cascade (:on-delete %)))
+                                      (mapv #(vector (:id %) (-> % :forward-identity second) (-> % :reverse-identity second))))
             query+args           (hsql/format
                                   {:with-recursive [[[:entids {:columns [:entity_id :etype]}]
                                                      {:union [{:values ids+etypes}
-                                                              {:from   :triples
-                                                               :join   [:attrs [:= :triples.attr_id :attrs.id]
-                                                                        [:idents :forward_ident] [:= :forward_ident.id :attrs.forward_ident]
-                                                                        [:idents :reverse_ident] [:= :reverse_ident.id :attrs.reverse_ident]
-                                                                        :entids [:= [:to_jsonb :entids.entity_id] :triples.value]]
-                                                               :where  [:and
-                                                                        [:= :triples.app_id app-id]
-                                                                        [:= :attrs.on_delete [:cast "cascade" :attr_on_delete]]
-                                                                        [:= :attrs.value_type "ref"]
-                                                                        :triples.vae
-                                                                        [:= :entids.etype :reverse_ident.etype]]
-                                                               :select [:triples.entity_id :forward_ident.etype]}]}]]
+                                                              {:from   :entids
+                                                               :join   [:refs [:and
+                                                                               ;; TODO entity_id/value_ref join instead
+                                                                               [:= [:to_jsonb :entids.entity_id] :refs.value]
+                                                                               [:= :entids.etype :refs.reverse_etype]]]
+                                                               :select [:refs.entity_id :refs.forward_etype]}]}]
+                                                    [[:cascade {:columns [:id :forward_etype :reverse_etype]}]
+                                                     {:values attrs+etypes}]
+                                                    [:refs {:select [:triples.entity_id :triples.value :cascade.forward_etype :cascade.reverse_etype]
+                                                            :from   :triples
+                                                            :join   [:cascade [:= :triples.attr_id :cascade.id]]
+                                                            :where  [:and
+                                                                     :triples.vae
+                                                                     [:= :triples.app_id app-id]]}]]
                                    :from   :entids
                                    :select :*})
+            #__                    #_(println (sql/analyze conn query+args))
             res                  (tool/time* "expand-delete-entity-cascade"
                                              (sql/execute! conn query+args))
             ids+etypes'          (map (juxt :entity_id :etype) res)
@@ -270,7 +278,7 @@
                       (->> tx-steps
                            (resolve-lookups-for-delete-entity conn app-id)
                            (resolve-etypes-for-delete-entity conn app-id)
-                           (expand-delete-entity-cascade conn app-id))
+                           (expand-delete-entity-cascade conn app-id attrs))
                       tx-steps)
 
            results

@@ -1,7 +1,6 @@
 (ns instant.db.model.triple
   (:require
    [clojure.spec.alpha :as s]
-   [clojure.string :as string]
    [honey.sql :as hsql]
    [instant.data.constants :refer [empty-app-id]]
    [instant.db.model.attr :as attr-model]
@@ -12,7 +11,8 @@
    [instant.util.json :refer [->json <-json]]
    [instant.util.spec :as uspec]
    [instant.util.string :refer [multiline->single-line]]
-   [instant.util.tracer :as tracer])
+   [instant.util.tracer :as tracer]
+   [tool])
   (:import
    (java.util UUID)
    (java.time Instant LocalDate LocalDateTime ZonedDateTime ZoneOffset)
@@ -515,7 +515,7 @@
                 :returning   :*}
         params {:app-id app-id
                 :system-catalog-app-id system-catalog-app-id}]
-    (tool/time* "delete-entity!"
+    (tool/time* (str "delete-entity-multi! " (count id+etypes) " entities")
                 (sql/do-execute! conn (hsql/format query {:params params})))))
 
 (defn delete-multi!

@@ -263,6 +263,13 @@
                                                     :return-keys true})
 (defsql do-execute! next-jdbc/execute! :write {:return-keys false})
 
+(defn analyze [conn query]
+  (-> query
+      (update 0 #(str "EXPLAIN ANALYZE " %))
+      (->> (execute! conn)
+           (mapcat vals)
+           (string/join "\n"))))
+
 (defn patch-hikari []
   ;; Hikari will send an extra query to ensure the connection is valid
   ;; if it has been idle for half a second. This raises the limit so

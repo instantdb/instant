@@ -613,7 +613,7 @@
         (let [tx-steps (->> tx-steps
                             (tx/resolve-lookups-for-delete-entity tx-conn app-id)
                             (tx/resolve-etypes-for-delete-entity tx-conn app-id)
-                            (tx/expand-delete-entity-cascade tx-conn app-id))]
+                            (tx/expand-delete-entity-cascade tx-conn app-id attrs))]
 
           ;; transact does read and then a write.
           ;; We need to protect against a case where a different
