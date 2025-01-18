@@ -4,7 +4,7 @@
    [instant.util.async :as ua]
    [instant.util.tracer :as tracer])
   (:import
-   (java.util.concurrent ConcurrentLinkedQueue)
+   (java.util.concurrent ConcurrentLinkedQueue Semaphore)
    (java.util.concurrent.atomic AtomicInteger)
    (clojure.lang PersistentQueue)))
 
@@ -187,6 +187,41 @@
      :get-worker-count (fn [] (count @workers))
      :virtual-thread-executor executor}))
 
+(defn start-grouped-queue-with-cpu-workers [{:keys [group-fn
+                                                    reserve-fn
+                                                    process-fn
+                                                    worker-count]
+                                             :or {worker-count 2}}]
+  (let [executor (ua/make-virtual-thread-executor)
+        semaphore (Semaphore. 0)
+        grouped-queue (create {:group-fn group-fn
+                               :on-add (fn []
+                                         (.release semaphore))})
+        shutdown? (atom false)
+        workers (mapv (fn [_i]
+                        (future
+                          (loop []
+                            (.acquire semaphore)
+                            (when-not @shutdown?
+                              (try
+                                (loop []
+                                  (when (process! grouped-queue {:reserve-fn reserve-fn
+                                                                 :process-fn process-fn})
+                                    (recur)))
+                                (catch Throwable t
+                                  (tracer/record-exception-span! t {:name "grouped-queue-with-cpu-workers/process-error"})))
+                              (recur)))))
+                      (range worker-count))]
+    {:grouped-queue grouped-queue
+     :get-worker-count (fn [] worker-count)
+     :workers workers
+     :shutdown (fn []
+                 (reset! shutdown? true)
+                 (.release semaphore (* 2 worker-count))
+                 (doseq [w workers]
+                   (when (= :timeout (deref w 1000 :timeout))
+                     (future-cancel w))))}))
+
 (comment
   (def gq (create {:group-fn :k}))
   (put! gq {:k :refresh})
@@ -253,4 +288,48 @@
       (tool/def-locals)
       @wait))
 
-  (test-grouped-queue))
+  (test-grouped-queue)
+
+  (defn test-cpu-grouped-queue []
+    (let [finished (promise)
+          started (promise)
+          total-items (AtomicInteger. 0)
+          process-total (AtomicInteger. 0)
+          gq (promise)
+          q (start-grouped-queue-with-cpu-workers
+             {:group-fn :k
+              :reserve-fn (fn [_ iq]
+                            (inflight-queue-reserve (max 1 (rand-int 25)) iq))
+              :process-fn (fn [_ workset]
+                            @started
+                            (clojure.tools.logging/info {:name "workset"
+                                                         :attributes {:workset-count (count workset)
+                                                                      :total total-items
+                                                                      :worker-count ((:get-worker-count @gq))}})
+                            (.addAndGet process-total (count workset))
+                            (when (zero? (.addAndGet total-items (- (count workset))))
+                              (deliver finished true))
+                            nil)
+              :worker-count 8})
+          _ (deliver gq q)
+
+          wait (future
+                 @started
+                 (let [start (. System (nanoTime))
+
+                       _ @finished
+                       end (. System (nanoTime))
+                       ms (/ (double (- end start)) 1000000.0)]
+                   (tool/def-locals)
+                   (println (format "Elapsed %.2fms, total %d, %.2f / ms"
+                                    ms
+                                    (.get process-total)
+                                    (/ (.get process-total) ms)))))]
+      (dotimes [x 100]
+        (dotimes [y 10000]
+          (.incrementAndGet total-items)
+          (put! (:grouped-queue q) {:k y :i x})))
+      (deliver started true)
+      (tool/def-locals)
+      @wait
+      ((:shutdown q)))))
