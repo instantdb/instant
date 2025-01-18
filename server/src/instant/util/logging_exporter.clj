@@ -59,6 +59,7 @@
      "detailed_patterns"
      "detailed_tx_steps"
      "process_id"
+     "instance_id"
      "query") true
     false))
 
@@ -104,8 +105,9 @@
   (if (= :prod (config/get-env))
     (fn [^SpanData span]
       (let [attr-str (attr-str span)]
-        (format "[%s] %sms [%s] %s"
+        (format "[%s/%s] %sms [%s] %s"
                 (.getTraceId span)
+                (.getSpanId span)
                 (duration-ms span)
                 (.getName span)
                 (escape-newlines attr-str))))
