@@ -192,8 +192,7 @@
                                                     process-fn
                                                     worker-count]
                                              :or {worker-count 2}}]
-  (let [executor (ua/make-virtual-thread-executor)
-        semaphore (Semaphore. 0)
+  (let [semaphore (Semaphore. 0)
         grouped-queue (create {:group-fn group-fn
                                :on-add (fn []
                                          (.release semaphore))})
