@@ -383,7 +383,7 @@
 (defn start-worker [process-id store-conn wal-chan]
   (tracer/record-info! {:name "invalidation-worker/start"})
   (let [queue-with-workers
-        (grouped-queue/start-grouped-queue-with-workers
+        (grouped-queue/start-grouped-queue-with-cpu-workers
          {:group-fn :app-id
           :reserve-fn (fn [_ q] (grouped-queue/inflight-queue-reserve 100 q))
           :process-fn (fn [_key wal-records]
@@ -391,7 +391,7 @@
                                             store-conn
                                             (count wal-records)
                                             (combine-wal-records wal-records)))
-          :max-workers 10})
+          :worker-count 8})
         grouped-queue (:grouped-queue queue-with-workers)
         cleanup-gauges (gauges/add-gauge-metrics-fn
                         (fn [_] (invalidator-q-metrics queue-with-workers)))]
@@ -401,6 +401,7 @@
           (if-not wal-record
             (do
               (cleanup-gauges)
+              ((:shutdown queue-with-workers))
               (tracer/record-info! {:name "invalidation-worker/shutdown"}))
             (do (grouped-queue/put! grouped-queue wal-record)
                 (recur))))))))
