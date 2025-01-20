@@ -487,6 +487,20 @@ export function Explorer({
     }
   }, [namespaces === null]);
 
+  useEffect(() =>{
+    function handlePopState(e: PopStateEvent) {
+        if (selectedNamespace && currentNav && allItems && showBackButton) {
+            e.preventDefault();
+            popNavStack();
+        }
+    }
+    
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [selectedNamespace, currentNav, allItems, showBackButton]);
+
   useClickOutside(nsRef, () => {
     setIsNsOpen(false);
   });
