@@ -51,7 +51,9 @@
           :process-fn (partial session/process-fn store-conn)})
 
 
+        realized-eph?   (atom false)
         eph-hz          (delay
+                          (reset! realized-eph? true)
                           @(future ;; avoid pinning vthread
                              (eph/init-hz :test
                                           store-conn
@@ -92,9 +94,8 @@
           (session/on-close store-conn socket)
           (session/on-close store-conn socket-2)
           (finally
-            (when (realized? eph-hz)
-              (future
-                (HazelcastInstance/.shutdown (:hz @eph-hz))))))))))
+            (when @realized-eph?
+              (HazelcastInstance/.shutdown (:hz @eph-hz)))))))))
 
 (defn read-msg [{:keys [ws-conn id]}]
   (let [ret (ua/<!!-timeout ws-conn)]

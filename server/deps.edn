@@ -39,7 +39,7 @@
         circleci/circleci.test {:mvn/version "0.5.0"}
         org.clojure/test.check {:mvn/version "1.1.1"}
         com.github.vertical-blank/sql-formatter {:mvn/version "2.0.3"}
-        com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.3"}
+        com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.5.1"}
         org.clj-commons/claypoole {:mvn/version "1.2.2"}
 
         ;; opentelemetry
@@ -77,8 +77,7 @@
                               criterium/criterium           {:mvn/version "0.4.6"}
                               spec-provider/spec-provider   {:mvn/version "0.4.14"}
                               io.github.tonsky/clj-reload   {:mvn/version "0.7.1"}
-                              eftest/eftest                 {:mvn/version "0.6.0"}
-                              com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.5.1"}}
+                              eftest/eftest                 {:mvn/version "0.6.0"}}
                  :jvm-opts ["-XX:+UseZGC"
                             "-enableassertions"
 
