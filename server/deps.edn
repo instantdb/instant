@@ -39,7 +39,7 @@
         circleci/circleci.test {:mvn/version "0.5.0"}
         org.clojure/test.check {:mvn/version "1.1.1"}
         com.github.vertical-blank/sql-formatter {:mvn/version "2.0.3"}
-        com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.3"}
+        com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.5.1"}
         org.clj-commons/claypoole {:mvn/version "1.2.2"}
 
         ;; opentelemetry
@@ -71,8 +71,7 @@
 
         djblue/portal {:mvn/version "0.55.1"}
         dev.weavejester/medley {:mvn/version "1.8.1"}
-        com.hazelcast/hazelcast {:mvn/version "5.5.0"}
-        com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.5.1"}}
+        com.hazelcast/hazelcast {:mvn/version "5.5.0"}}
  :aliases {:dev {:extra-paths ["dev" "test" "dev-resources"]
                  :extra-deps {refactor-nrepl/refactor-nrepl {:mvn/version "3.10.0"}
                               criterium/criterium           {:mvn/version "0.4.6"}
