@@ -156,16 +156,20 @@
                                      (assoc-in [~label :avg] avg#))))))
      ret#))
 
+(def ^:dynamic *time-indent*
+  "")
+
 (def time-enabled?
-  false)
+  true)
 
 (defmacro time* [msg & body]
   (if time-enabled?
     `(let [msg# ~msg
            t#   (System/nanoTime)
-           res# (do ~@body)
+           res# (binding [*time-indent* (str "┌╴" *time-indent*)]
+                  ~@body)
            dt#  (-> (System/nanoTime) (- t#) (/ 1000000.0))]
-       (println (format "[ %.3f ms ] %s" dt# msg#))
+       (println (format "%s[ %8.3f ms ] %s" *time-indent* dt# msg#))
        res#)
     (cons 'do body)))
 
