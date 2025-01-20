@@ -61,7 +61,8 @@
    :subscription/app-id {:db/type :db.type/integer}
    :subscription/session-id {:db/index true
                              :db/type :db.type/uuid}
-   :subscription/instaql-query {:db/index true} ;; instaql query (from instaql.clj)
+   :subscription/instaql-query {:db/index true
+                                :db/valueType :db.type/ref}
    :subscription/datalog-query {:db/index true
                                 :db/valueType :db.type/ref}
    :subscription/v {:db/type :db.type/integer}
@@ -208,16 +209,14 @@
 
 (defn remove-subscriptions-tx-data
   "Should be used in a db.fn/call. Returns transactions.
-   Retracts subscriptions for the session and instaql query."
+   Retracts the instaql-query and subscriptions for the session and instaql query."
   [db session-id instaql-query]
-  (let [stale-sub-eids (d/q '{:find [?e]
-                              :in [$ ?session-id ?instaql-query]
-                              :where [[?e :subscription/session-id ?session-id]
-                                      [?e :subscription/instaql-query ?instaql-query]]}
-                            db
-                            session-id
-                            instaql-query)]
-    (map (fn [[e]] [:db/retractEntity e]) stale-sub-eids)))
+  (if-let [query-eid (d/entid db [:instaql-query/session-id+query [session-id instaql-query]])]
+    (conj (map (fn [datom]
+                 [:db/retractEntity (:e datom)])
+               (d/datoms db :avet :subscription/instaql-query query-eid))
+          [:db/retractEntity query-eid])
+    []))
 
 ;; TODO: We could do this in the background by listening to transactions
 ;;       and noticing whenever we remove a reference to a datalog entry
@@ -234,8 +233,7 @@
 (defn remove-query! [conn sess-id _app-id q]
   (transact! "store/remove-query!"
              conn
-             [[:db/retractEntity [:instaql-query/session-id+query [sess-id q]]]
-              [:db.fn/call remove-subscriptions-tx-data sess-id q]
+             [[:db.fn/call remove-subscriptions-tx-data sess-id q]
               [:db.fn/call clean-stale-datalog-tx-data]]))
 
 ;; --------------
@@ -244,18 +242,15 @@
 (defn clean-stale-subscriptions-tx-data
   "Should be used in a db.fn/call. Returns transactions.
    Retracts subscriptions for an older version of an instaql query."
-  [db session-id instaql-query version]
-  (let [stale-sub-eids (d/q '{:find [?e]
-                              :in [$ ?session-id ?instaql-query ?current-v]
-                              :where [[?e :subscription/session-id ?session-id]
-                                      [?e :subscription/instaql-query ?instaql-query]
-                                      [?e :subscription/v ?v]
-                                      [(< ?v ?current-v)]]}
-                            db
-                            session-id
-                            instaql-query
-                            version)]
-    (map (fn [[e]] [:db/retractEntity e]) stale-sub-eids)))
+  [db instaql-query-lookup-ref version]
+  (if-let [query-eid (d/entid db instaql-query-lookup-ref)]
+    (keep (fn [datom]
+            (let [sub-version (:v (d/find-datom db :eavt (:e datom) :subscription/v))]
+              (when (or (not sub-version)
+                        (< sub-version version))
+                [:db/retractEntity (:e datom)])))
+          (d/datoms db :avet :subscription/instaql-query query-eid))
+    []))
 
 (defn set-instaql-query-result-tx-data
   "Should be used in a db.fn/call. Returns transactions.
@@ -270,7 +265,7 @@
         {:keys [db-before db-after] :as res}
         (transact! "store/add-instaql-query!"
                    conn
-                   [[:db.fn/call clean-stale-subscriptions-tx-data session-id instaql-query v]
+                   [[:db.fn/call clean-stale-subscriptions-tx-data lookup-ref v]
                     [:db.fn/call clean-stale-datalog-tx-data]
                     [:db.fn/call set-instaql-query-result-tx-data lookup-ref result-hash]])
 
@@ -301,23 +296,15 @@
   "Should be used in a db.fn/call. Returns transactions.
    Retracts queries for the session."
   [db session-id]
-  (let [stale-iql-eids (d/q '{:find [?e]
-                              :in [$ ?session-id]
-                              :where [[?e :instaql-query/session-id ?session-id]]}
-                            db
-                            session-id)]
-    (map (fn [[e]] [:db/retractEntity e]) stale-iql-eids)))
+  (map (fn [{:keys [e]}] [:db/retractEntity e])
+       (d/datoms db :avet :instaql-query/session-id session-id)))
 
 (defn remove-session-subscriptions-tx-data
   "Should be used in a db.fn/call. Returns transactions.
    Retracts subscriptions for the session."
   [db session-id]
-  (let [stale-sub-eids (d/q '{:find [?e]
-                              :in [$ ?session-id]
-                              :where [[?e :subscription/session-id ?session-id]]}
-                            db
-                            session-id)]
-    (map (fn [[e]] [:db/retractEntity e]) stale-sub-eids)))
+  (map (fn [{:keys [e]}] [:db/retractEntity e])
+       (d/datoms db :avet :subscription/session-id session-id)))
 
 (defn remove-session! [conn sess-id]
   (transact! "store/remove-session!"
@@ -491,7 +478,8 @@
                 {:subscription/app-id (:app-id ctx)
                  :subscription/session-id (:session-id ctx)
                  :subscription/v (:v ctx)
-                 :subscription/instaql-query (:instaql-query ctx)
+                 :subscription/instaql-query [:instaql-query/session-id+query [(:session-id ctx)
+                                                                               (:instaql-query ctx)]]
                  :subscription/datalog-query lookup-ref}])))
 
 (defn record-datalog-query-finish! [conn
@@ -580,14 +568,13 @@
    Marks instaql-queries that have subscriptions that reference the datalog
    query stale."
   [db datalog-query-eids]
-  (let [iql-eids (d/q '{:find [?e]
-                        :in [$ [?datalog-query ...]]
-                        :where [[?sub-e :subscription/datalog-query ?datalog-query]
-                                [?sub-e :subscription/instaql-query ?instaql-query]
-                                [?e :instaql-query/query ?instaql-query]]}
-                      db
-                      datalog-query-eids)]
-    (map (fn [[e]] [:db/add e :instaql-query/stale? true]) iql-eids)))
+  (let [txes (transient [])]
+    (doseq [datalog-query-eid datalog-query-eids
+            sub-datom (d/datoms db :avet :subscription/datalog-query datalog-query-eid)
+            :let [instaql-query-eid (:v (d/find-datom db :aevt :subscription/instaql-query (:e sub-datom)))]
+            :when instaql-query-eid]
+      (conj! txes [:db/add instaql-query-eid :instaql-query/stale? true]))
+    (persistent! txes)))
 
 (defn set-tx-id
   "Should be used in a db.fn/call. Returns transactions.
@@ -657,7 +644,7 @@
 (defn- format-subscription [ent]
   {:app-id (:subscription/app-id ent)
    :datalog-query (:datalog-query/query (:subscription/datalog-query ent))
-   :instaql-query (:subscription/instaql-query ent)
+   :instaql-query (:instaql-query/query (:subscription/instaql-query ent))
    :session-id (:subscription/session-id ent)
    :v (:subscription/v ent)})
 
