@@ -11,7 +11,8 @@
    [clojure.string :as str]
    [clojure.walk :as walk]
    [honey.sql :as hsql]
-   [portal.api :as p])
+   [portal.api :as p]
+   [clj-async-profiler.core :as prof])
   (:import
    (clojure.lang Compiler TaggedLiteral)
    (com.github.vertical_blank.sqlformatter SqlFormatter)
@@ -199,3 +200,8 @@
    it is evaluated. Dev only"
   [form]
   `(p-impl (p-pos) '~form ~form))
+
+(defmacro profile [options? & body]
+  `(prof/profile ~options? ~body))
+
+(def prof-serve-ui prof/serve-ui)
