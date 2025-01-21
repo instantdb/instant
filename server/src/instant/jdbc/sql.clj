@@ -67,8 +67,7 @@
 
     ;; A list of condition+action
     (vector? exp)
-    (do (println "vec")
-        exp)
+    exp
 
     :else
     (throw (Exception. "Unknown match clauses for :when-matched/:when-not-matched"))))
