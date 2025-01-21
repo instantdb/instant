@@ -209,7 +209,7 @@
 
 (defn remove-subscriptions-tx-data
   "Should be used in a db.fn/call. Returns transactions.
-   Retracts the instaql-query and subscriptions for the session and instaql query."
+   Retracts the instaql-query and subscriptions for the query."
   [db session-id instaql-query]
   (if-let [query-eid (d/entid db [:instaql-query/session-id+query [session-id instaql-query]])]
     (conj (map (fn [datom]
