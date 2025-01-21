@@ -669,19 +669,17 @@
                                           view-checks-resolved))
 
                 update-delete-checks-results
-                (tool/time* "run-check-commands! update-delete"
-                            (io/warn-io :run-check-commands!
-                                        (run-check-commands! (assoc ctx
-                                                                    :preloaded-refs preloaded-update-delete-refs)
-                                                             update-delete-checks-resolved)))
+                (io/warn-io :run-check-commands!
+                            (run-check-commands! (assoc ctx
+                                                        :preloaded-refs preloaded-update-delete-refs)
+                                                 update-delete-checks-resolved))
 
                 view-check-results
-                (tool/time* "run-check-commands! view"
-                            (io/warn-io :run-check-commands!
-                                        (run-check-commands!
-                                         (merge ctx
-                                                {:preloaded-refs preloaded-update-delete-refs})
-                                         view-checks-resolved)))
+                (io/warn-io :run-check-commands!
+                            (run-check-commands!
+                             (merge ctx
+                                    {:preloaded-refs preloaded-update-delete-refs})
+                             view-checks-resolved))
 
                 tx-data
                 (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id grouped-tx-steps {})
