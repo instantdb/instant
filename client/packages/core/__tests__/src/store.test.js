@@ -264,6 +264,30 @@ test("delete entity", () => {
   checkIndexIntegrity(newStoreTwo);
 });
 
+test("on-delete cascade", () => {
+  const book1 = uuid();
+  const book2 = uuid();
+  const book3 = uuid();
+  const chunk1 = tx.books[book1].update({ title: "book1", description: "series" });
+  const chunk2 = tx.books[book2].update({ title: "book2", description: "series" }).link({ prequel: book1 });
+  const chunk3 = tx.books[book3].update({ title: "book3", description: "series" }).link({ prequel: book2 });
+  const txSteps = instaml.transform({ attrs: store.attrs }, [chunk1, chunk2, chunk3]);
+  const newStore = transact(store, txSteps);
+  checkIndexIntegrity(newStore);
+  expect(
+    query({ store: newStore }, { books: { $: { where: { description: "series" }}}}).data.books.map((x) => x.title)
+  ).toEqual(["book1", "book2", "book3"]);
+
+  const txStepsTwo = instaml.transform(
+    { attrs: newStore.attrs },
+    tx.books[book1].delete(),
+  );
+  const newStoreTwo = transact(newStore, txStepsTwo);
+  expect(
+    query({ store: newStoreTwo }, { books: { $: { where: { description: "series" }}}}).data.books.map((x) => x.title)
+  ).toEqual([]);
+});
+
 test("new attrs", () => {
   const colorId = uuid();
   const userId = uuid();
