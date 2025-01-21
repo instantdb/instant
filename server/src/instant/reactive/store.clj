@@ -769,7 +769,7 @@
                                        [[:ea (-> q :users :$ :where :id)]]
                                        {:topics dummy-coarse-topics})))
 
-      (println "add-datalog-query")
+      (println "add-instaql-query")
       (time
        (doseq [sid session-ids
                q instaql-queries]
@@ -818,7 +818,7 @@
                                        [[:ea (-> q :users :$ :where :id)]]
                                        {:topics dummy-coarse-topics})))
 
-      (println "add-datalog-query")
+      (println "add-instaql-query")
       (time
        (doseq [sid session-ids
                q instaql-queries]
