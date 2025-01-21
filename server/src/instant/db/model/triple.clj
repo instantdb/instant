@@ -269,6 +269,13 @@
            :select :entity-id :from :ea-index-inserts}]
     (sql/do-execute! conn (hsql/format q))))
 
+;; Helper for :when-not-matched in `insert-multi
+(def triple-t-values
+  (zipmap triple-cols
+          (map (fn [col]
+                 (keyword (str "t." (name col))))
+               triple-cols)))
+
 (defn insert-multi!
   "Given a set of raw triples, we enhance each triple with metadata based on
    the triple's underlying attr and then insert these enhanced triples into
@@ -430,13 +437,18 @@
                        [:remaining-triples
                         {:select :* :from :enhanced-triples :where [:not :ea]}]
                        [:ea-index-inserts
-                        {:insert-into [[:triples triple-cols]
-                                       {:select triple-cols
-                                        :from :ea-triples-distinct}]
-                         :on-conflict [:app-id :entity-id :attr-id {:where [:= :ea true]}]
-                         :do-update-set {:value :excluded.value
-                                         :value-md5 :excluded.value-md5}
-                         :returning :entity-id}]
+                        {:merge-into :triples
+                         :using [[:ea-triples-distinct :t]]
+                         :on [:and
+                              [:= :triples.app-id :t.app-id]
+                              [:= :triples.entity-id :t.entity-id]
+                              [:= :triples.attr-id :t.attr-id]]
+                         :when-not-matched {:insert {:values [triple-t-values]}}
+                         :when-matched [[[:= :triples.value-md5 :t.value-md5]
+                                         :do-nothing]
+                                        {:update {:set {:value :t.value
+                                                        :value-md5 :t.value-md5}}}]
+                         :returning :triples.entity-id}]
                        [:remaining-inserts
                         {:insert-into [[:triples triple-cols]
                                        {:select triple-cols
