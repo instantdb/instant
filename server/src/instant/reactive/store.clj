@@ -713,3 +713,119 @@
 
 (defn after-ns-reload []
   (start))
+
+;; ---------
+;; benchmark
+
+(comment
+  (defn run-test []
+    (let [app-id (random-uuid)
+          test-store (d/create-conn schema)
+          session-ids (repeatedly 100 #(random-uuid))
+          instaql-queries (repeatedly 10 (fn []
+                                           {:users {:$ {:where {:id (random-uuid)}}}}))
+          hashes (into {} (map (fn [q]
+                                 [q (hash q)])
+                               instaql-queries))
+          dummy-coarse-topics '[[:ea _ #{#uuid "285a2628-af8f-4ab0-ad79-6ce83722ef2e"} _ _]
+                                [:ea
+                                 _
+                                 #{#uuid "f293d070-687b-4fdb-aa03-3347ba26ff88"
+                                   #uuid "285a2628-af8f-4ab0-ad79-6ce83722ef2e"}
+                                 _
+                                 _]]]
+
+      (tool/def-locals)
+      (println "add sockets")
+      (time (doseq [sid session-ids]
+              (add-socket! test-store sid {})))
+      (println "register instaql-queries")
+      (time
+       (doseq [sid session-ids
+               q instaql-queries]
+         (bump-instaql-version! test-store sid q :join-rows)))
+
+      (println "record-datalog-query-start")
+      (time
+       (doseq [sid session-ids
+               q instaql-queries]
+         (record-datalog-query-start! test-store
+                                      {:session-id sid
+                                       :instaql-query q
+                                       :app-id app-id
+                                       :v 1}
+                                      [[:ea (-> q :users :$ :where :id)]]
+                                      dummy-coarse-topics)))
+
+      (println "record-datalog-query-finish")
+      (time
+       (doseq [sid session-ids
+               q instaql-queries]
+         (record-datalog-query-finish! test-store
+                                       {:session-id sid
+                                        :instaql-query q
+                                        :app-id app-id
+                                        :v 1}
+                                       [[:ea (-> q :users :$ :where :id)]]
+                                       {:topics dummy-coarse-topics})))
+
+      (println "add-datalog-query")
+      (time
+       (doseq [sid session-ids
+               q instaql-queries]
+         (add-instaql-query! test-store
+                             {:session-id sid
+                              :instaql-query q
+                              :v 1}
+                             (get hashes q))))
+
+      (println "mark-stale")
+      (time
+       (mark-stale-topics! test-store app-id 1 dummy-coarse-topics))
+
+      (println "get-stale")
+      (time
+       (doseq [sid session-ids]
+         (get-stale-instaql-queries @test-store sid)))
+
+      (println "register instaql-queries")
+      (time
+       (doseq [sid session-ids
+               q instaql-queries]
+         (bump-instaql-version! test-store sid q :join-rows)))
+
+      (println "record-datalog-query-start")
+      (time
+       (doseq [sid session-ids
+               q instaql-queries]
+         (record-datalog-query-start! test-store
+                                      {:session-id sid
+                                       :instaql-query q
+                                       :app-id app-id
+                                       :v 2}
+                                      [[:ea (-> q :users :$ :where :id)]]
+                                      dummy-coarse-topics)))
+
+      (println "record-datalog-query-finish")
+      (time
+       (doseq [sid session-ids
+               q instaql-queries]
+         (record-datalog-query-finish! test-store
+                                       {:session-id sid
+                                        :instaql-query q
+                                        :app-id app-id
+                                        :v 2}
+                                       [[:ea (-> q :users :$ :where :id)]]
+                                       {:topics dummy-coarse-topics})))
+
+      (println "add-datalog-query")
+      (time
+       (doseq [sid session-ids
+               q instaql-queries]
+         (add-instaql-query! test-store
+                             {:session-id sid
+                              :instaql-query q
+                              :v 2}
+                             (get hashes q))))
+
+      nil)))
