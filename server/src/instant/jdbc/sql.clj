@@ -20,7 +20,13 @@
    (java.time Instant LocalDate LocalDateTime)
    (org.postgresql.util PGobject PSQLException)))
 
-(defn format-match-cond [expr]
+
+;; --------------------
+;; honey.sql extensions
+
+;; :merge-into
+
+(defn format-matched-cond [expr]
   (let [[sql & params] (honey.sql/format-expr expr)]
     (when-not (string/blank? sql)
       (into [(str "AND " sql)] params))))
@@ -69,65 +75,66 @@
 
 (honey.sql/register-clause!
  :when-not-matched
- (fn [clause exp]
-   (let [exprs (matched-cases exp)]
-     (reduce (fn [[sql & params] expr]
-               (if (matched-merge-action? expr)
-                 (let [[expr-sql & expr-params] (format-matched-merge-action expr)]
-                   (into [(str sql " WHEN NOT MATCHED THEN " expr-sql)]
-                         (into params expr-params)))
-                 (do
-                   (assert (and (vector? expr)
-                                (matched-merge-action? (second expr)))
-                           "Invalid match clause for :when-not-matched")
-                   (let [[cond-expr action-expr] expr]
-                     (let [[case-sql & case-params] (format-matched-cond cond-expr)
-                           [expr-sql & expr-params] (format-matched-merge-action action-expr)]
-                       (into [(str sql " WHEN NOT MATCHED " case-sql " THEN " expr-sql)]
-                             (concat params case-params expr-params)))))
+ (fn [_clause exp]
+   (reduce (fn [[sql & params] expr]
+             (if (matched-merge-action? expr)
+               (let [[expr-sql & expr-params] (format-matched-merge-action expr)]
+                 (into [(str sql " WHEN NOT MATCHED THEN " expr-sql)]
+                       (into params expr-params)))
+               (do
+                 (assert (and (vector? expr)
+                              (matched-merge-action? (second expr)))
+                         "Invalid match clause for :when-not-matched")
+                 (let [[cond-expr action-expr] expr
+                       [case-sql & case-params] (format-matched-cond cond-expr)
+                       [expr-sql & expr-params] (format-matched-merge-action action-expr)]
+                   (into [(str sql " WHEN NOT MATCHED " case-sql " THEN " expr-sql)]
+                         (concat params case-params expr-params))))
 
-                 ))
-             [""]
-             exprs)))
+               ))
+           [""]
+           (matched-cases exp)))
  ;; Get behind of :using
  :join-by)
 
 (honey.sql/register-clause!
  :when-matched
- (fn [clause exp]
-   (let [exprs (matched-cases exp)]
-     (reduce (fn [[sql & params] expr]
-               (if (matched-merge-action? expr)
-                 (let [[expr-sql & expr-params] (format-matched-merge-action expr)]
-                   (into [(str sql " WHEN MATCHED THEN " expr-sql)]
-                         (into params expr-params)))
-                 (do
-                   (assert (and (vector? expr)
-                                (matched-merge-action? (second expr)))
-                           "Invalid match clause for :when-matched")
-                   (let [[cond-expr action-expr] expr]
-                     (let [[case-sql & case-params] (format-matched-cond cond-expr)
-                           [expr-sql & expr-params] (format-matched-merge-action action-expr)]
-                       (into [(str sql " WHEN MATCHED " case-sql " THEN " expr-sql)]
-                             (concat params case-params expr-params)))))
+ (fn [_clause exp]
+   (reduce (fn [[sql & params] expr]
+             (if (matched-merge-action? expr)
+               (let [[expr-sql & expr-params] (format-matched-merge-action expr)]
+                 (into [(str sql " WHEN MATCHED THEN " expr-sql)]
+                       (into params expr-params)))
+               (do
+                 (assert (and (vector? expr)
+                              (matched-merge-action? (second expr)))
+                         "Invalid match clause for :when-matched")
+                 (let [[cond-expr action-expr] expr
+                       [case-sql & case-params] (format-matched-cond cond-expr)
+                       [expr-sql & expr-params] (format-matched-merge-action action-expr)]
+                   (into [(str sql " WHEN MATCHED " case-sql " THEN " expr-sql)]
+                         (concat params case-params expr-params))))
 
-                 ))
-             [""]
-             exprs)))
+               ))
+           [""]
+           (matched-cases exp)))
  :when-not-matched)
 
 (honey.sql/register-clause!
  :on
- (fn [clause expr]
+ (fn [_clause expr]
    (let [[sql & params] (honey.sql/format-expr expr)]
      (into [(str "ON " sql)] params)))
  :when-matched)
 
 (honey.sql/register-clause!
  :merge-into
- (fn [clause tbl]
+ (fn [_clause tbl]
    [(str "MERGE INTO " (honey.sql/format-entity tbl))])
  :using)
+
+;; --------------------
+;; next.jdbc extensions
 
 (defn ->pg-text-array
   "Formats as text[] in pg, i.e. {item-1, item-2, item3}"
