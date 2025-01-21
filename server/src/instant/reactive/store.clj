@@ -568,13 +568,21 @@
    Marks instaql-queries that have subscriptions that reference the datalog
    query stale."
   [db datalog-query-eids]
-  (let [txes (transient [])]
-    (doseq [datalog-query-eid datalog-query-eids
-            sub-datom (d/datoms db :avet :subscription/datalog-query datalog-query-eid)
-            :let [instaql-query-eid (:v (d/find-datom db :aevt :subscription/instaql-query (:e sub-datom)))]
-            :when instaql-query-eid]
-      (conj! txes [:db/add instaql-query-eid :instaql-query/stale? true]))
-    (persistent! txes)))
+  (persistent!
+   (reduce
+    (fn [txes datalog-query-eid]
+      (reduce
+       (fn [txes sub-datom]
+         (if-let [instaql-query-eid (:v (d/find-datom db
+                                                      :aevt
+                                                      :subscription/instaql-query
+                                                      (:e sub-datom)))]
+           (conj! txes [:db/add instaql-query-eid :instaql-query/stale? true])
+           txes))
+       txes
+       (d/datoms db :avet :subscription/datalog-query datalog-query-eid)))
+    (transient [])
+    datalog-query-eids)))
 
 (defn set-tx-id
   "Should be used in a db.fn/call. Returns transactions.
