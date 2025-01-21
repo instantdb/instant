@@ -1,9 +1,9 @@
-FROM postgres:13
+FROM postgres:17
 
 RUN apt-get update && \
     apt-get install -y \
       build-essential \
-      postgresql-server-dev-13 \
+      postgresql-server-dev-17 \
       wget && \
     mkdir build && cd build && \
     wget https://github.com/eulerto/wal2json/archive/refs/tags/wal2json_2_6.tar.gz && \
