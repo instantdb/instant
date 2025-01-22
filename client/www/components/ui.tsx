@@ -321,7 +321,8 @@ export function Checkbox({
   return (
     <label
       className={cn(
-        'flex cursor-pointer items-center gap-2 disabled:cursor-default',
+        'flex cursor-pointer items-top gap-2',
+        disabled ? 'text-gray-400 cursor-default' : '',
         labelClassName,
       )}
       title={title}
@@ -331,7 +332,7 @@ export function Checkbox({
         title={title}
         required={required}
         className={cn(
-          'align-middle font-medium text-gray-900 disabled:text-gray-400 disabled:bg-gray-400',
+          'align-middle mt-0.5 font-medium text-gray-900 disabled:border-gray-300 disabled:bg-gray-200',
           className,
         )}
         type="checkbox"

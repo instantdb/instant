@@ -219,11 +219,14 @@ function AddAttrForm({
 }) {
   const [isIndex, setIsIndex] = useState(false);
   const [isUniq, setIsUniq] = useState(false);
+  const [isCascade, setIsCascade] = useState(false);
   const [checkedDataType, setCheckedDataType] =
     useState<CheckedDataType | null>(null);
   const [attrType, setAttrType] = useState<'blob' | 'ref'>('blob');
   const [relationship, setRelationship] =
     useState<RelationshipKinds>('many-many');
+
+  const isCascadeAllowed = relationship === 'one-one' || relationship === 'one-many';
 
   const [reverseNamespace, setReverseNamespace] = useState<
     SchemaNamespace | undefined
@@ -278,6 +281,7 @@ function AddAttrForm({
         'reverse-identity': [id(), reverseNamespace.name, reverseAttrName],
         'value-type': 'ref',
         'index?': false,
+        'on-delete': isCascadeAllowed && isCascade ? 'cascade' : undefined
       };
 
       const ops = [['add-attr', attr]];
@@ -412,6 +416,19 @@ function AddAttrForm({
             setReverseAttrName={setReverseAttrName}
             setRelationship={setRelationship}
           />
+
+          <div className="flex gap-2">
+            <Checkbox
+              checked={isCascadeAllowed && isCascade}
+              disabled={!isCascadeAllowed}
+              onChange={setIsCascade}
+              label={
+                <span>
+                  <strong>Cascade delete</strong> When <strong>{reverseNamespace?.name}</strong> is deleted, all linked <strong>{namespace.name}</strong> will be deleted automatically
+                </span>
+              }
+            />
+          </div>
         </>
       ) : null}
 
@@ -430,7 +447,7 @@ function AddAttrForm({
             Self-links must have different attribute names.
           </span>
         ) : (
-          <>&nbsp;</>
+          null
         )}
       </div>
     </ActionForm>
@@ -1056,6 +1073,9 @@ function EditAttrForm({
     return relKind;
   });
 
+  const [isCascade, setIsCascade] = useState(() => attr.onDelete === 'cascade');
+  const isCascadeAllowed = relationship === 'one-one' || relationship === 'one-many';;
+
   const linkValidation = validateLink({
     attrName,
     reverseAttrName,
@@ -1084,9 +1104,12 @@ function EditAttrForm({
             attr.linkConfig.reverse.namespace,
             reverseAttrName,
           ],
+          'on-delete': isCascade ? 'cascade' : null
         },
       ],
     ];
+
+    console.log('ops', ops);
 
     await db._core._reactor.pushOps(ops);
 
@@ -1221,6 +1244,20 @@ function EditAttrForm({
             setReverseAttrName={setReverseAttrName}
             setRelationship={setRelationship}
           />
+
+          <div className="flex gap-2">
+            <Checkbox
+              checked={isCascadeAllowed && isCascade}
+              disabled={!isCascadeAllowed}
+              onChange={setIsCascade}
+              label={
+                <span>
+                  <strong>Cascade delete</strong> When <strong>{attr.linkConfig.reverse!.namespace}</strong> is deleted, all linked <strong>{attr.linkConfig.forward.namespace}</strong> will be deleted automatically
+                </span>
+              }
+            />
+          </div>
+
           <div className="flex flex-col gap-6">
             <ActionButton
               disabled={!linkValidation.isValidLink}
@@ -1235,7 +1272,7 @@ function EditAttrForm({
                 Self-links must have different attribute names.
               </span>
             ) : (
-              <>&nbsp;</>
+              null
             )}
           </div>
         </ActionForm>

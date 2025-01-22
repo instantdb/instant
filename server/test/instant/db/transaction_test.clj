@@ -2430,7 +2430,7 @@
                           :index? false
                           ;; Delete this book if its creator is deleted
                           :on-delete :cascade}]
-                        {:allow-on-deletes? true})
+                        {})
 
             tx-res (tx/transact!
                     (aurora/conn-pool :write)
@@ -2532,7 +2532,7 @@
                           :unique? false
                           :index? false
                           :on-delete :cascade}]
-                        {:allow-on-deletes? true})
+                        {})
             root-user-id (random-uuid)
             children     (atom 0)]
 

@@ -242,18 +242,6 @@
                      "Namespaces are not allowed to start with a `$`.
                       Those are reserved for system namespaces.")}])))))
 
-(defn validate-on-deletes!
-  "Prevents users from setting on-delete :cascade on attrs. This would
-   be a nice feature to release, but it needs some thought on what
-   restrictions we put in place. The implementation also needs optimization."
-  [attrs]
-  (doseq [attr attrs]
-    (when (:on-delete attr)
-      (ex/throw-validation-err!
-       :attributes
-       attr
-       [{:message "The :on-delete property can't be set on an attribute."}]))))
-
 (defn insert-multi!
   "Attr data is expressed as one object in clj but is persisted across two tables
    in sql: `attrs` and `idents`.
@@ -261,14 +249,10 @@
    We extract relevant data for each table and build a CTE to insert into
    both tables in one statement"
   ([conn app-id attrs]
-   (insert-multi! conn app-id attrs {:allow-reserved-names? false
-                                     :allow-on-deletes? false}))
-  ([conn app-id attrs {:keys [allow-reserved-names?
-                              allow-on-deletes?]}]
+   (insert-multi! conn app-id attrs {:allow-reserved-names? false}))
+  ([conn app-id attrs {:keys [allow-reserved-names?]}]
    (when-not allow-reserved-names?
      (validate-reserved-names! attrs))
-   (when-not allow-on-deletes?
-     (validate-on-deletes! attrs))
    (with-cache-invalidation app-id
      (sql/do-execute!
       ::insert-multi!
@@ -374,7 +358,7 @@
 
 (defn- changes-that-require-attr-model-updates
   [updates]
-  (let [ks #{:cardinality :value-type :unique? :index?}]
+  (let [ks #{:cardinality :value-type :unique? :index? :on-delete}]
     (->> updates
          (filter (fn [x]
                    (some (partial contains? x) ks))))))
@@ -395,10 +379,11 @@
                   {:values (attr-table-values app-id attr-table-updates)}]
                  [:attr-updates
                   {:update :attrs
-                   :set {:value-type (not-null-or :attr-values.value-type :attrs.value-type)
+                   :set {:value-type  (not-null-or :attr-values.value-type :attrs.value-type)
                          :cardinality (not-null-or :attr-values.cardinality :attrs.cardinality)
-                         :is-unique (not-null-or :attr-values.is-unique :attrs.is-unique)
-                         :is-indexed (not-null-or :attr-values.is-indexed :attrs.is-indexed)}
+                         :is-unique   (not-null-or :attr-values.is-unique :attrs.is-unique)
+                         :is-indexed  (not-null-or :attr-values.is-indexed :attrs.is-indexed)
+                         :on-delete   :attr-values.on-delete}
                    :from [:attr-values]
                    :where [:and
                            [:= :attrs.id :attr-values.id]
