@@ -97,12 +97,16 @@
             (when @realized-eph?
               (HazelcastInstance/.shutdown (:hz @eph-hz)))))))))
 
-(defn read-msg [expected-op {:keys [ws-conn id] :as socket}]
-  (let [ret (ua/<!!-timeout ws-conn 5000)]
+(defn read-msg [expected-op {:keys [ws-conn id]}]
+  (let [work (future (loop [ret (a/<!! ws-conn)]
+                       (if (= expected-op (:op ret))
+                         (dissoc ret :client-event-id)
+                         (do (a/put! ws-conn ret)
+                             (Thread/sleep 100)
+                             (a/<!! ws-conn)))))
+        ret (deref work 1000 :timeout)]
     (assert (not= :timeout ret) "Timed out waiting for a response")
-    (if (= expected-op (:op ret))
-      (dissoc ret :client-event-id)
-      (recur expected-op socket))))
+    ret))
 
 (defn- blocking-send-msg [expected-op {:keys [ws-conn id] :as socket} msg]
   (session/handle-receive *store-conn* (rs/get-session @*store-conn* id) msg {})
