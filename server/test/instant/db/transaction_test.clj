@@ -41,7 +41,7 @@
                                                         tx-steps))}
                                 {:test "permissioned-tx/transact!"
                                  :tx-fn (fn [app-id tx-steps]
-                                          (let [ctx {:db {:conn-pool (aurora/conn-pool :read)}
+                                          (let [ctx {:db {:conn-pool (aurora/conn-pool :write)}
                                                      :app-id app-id
                                                      :attrs (attr-model/get-by-app-id app-id)
                                                      :datalog-query-fn d/query
@@ -985,7 +985,7 @@
 (deftest write-perms-merged
   (with-zeneca-app
     (fn [{app-id :id :as _app} r]
-      (let [make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :read)}
+      (let [make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
                              :app-id app-id
                              :attrs (attr-model/get-by-app-id app-id)
                              :datalog-query-fn d/query
@@ -1017,7 +1017,7 @@
                               [" with lookup ref" (fn [r] [(resolvers/->uuid r :users/email) "stopa@instantdb.com"])]]]
     (with-zeneca-app
       (fn [{app-id :id :as _app} r]
-        (let [make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :read)}
+        (let [make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
                                :app-id app-id
                                :attrs (attr-model/get-by-app-id app-id)
                                :datalog-query-fn d/query
@@ -1413,7 +1413,7 @@
                                      :view  "size(data.ref('org.id')) == 1"
                                      :delete  "size(data.ref('org.id')) == 1"}}}})
               rules (rule-model/get-by-app-id {:app-id app-id})
-              ctx {:db {:conn-pool (aurora/conn-pool :read)}
+              ctx {:db {:conn-pool (aurora/conn-pool :write)}
                    :app-id app-id
                    :attrs attrs
                    :datalog-query-fn d/query
@@ -2185,7 +2185,7 @@
             book-creator-attr-id (random-uuid)
             book-id (random-uuid)
             user-id (random-uuid)
-            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :read)}
+            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
                              :app-id app-id
                              :attrs (attr-model/get-by-app-id app-id)
                              :datalog-query-fn d/query
@@ -2222,7 +2222,7 @@
             book-isbn-attr-id (random-uuid)
             book-id (random-uuid)
             user-id (random-uuid)
-            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :read)}
+            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
                              :app-id app-id
                              :attrs (attr-model/get-by-app-id app-id)
                              :datalog-query-fn d/query
@@ -2278,7 +2278,7 @@
     (fn [{app-id :id}]
       (let [r (resolvers/make-movies-resolver app-id)
             id (random-uuid)
-            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :read)}
+            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
                              :app-id app-id
                              :admin? true
                              :attrs (attr-model/get-by-app-id app-id)
@@ -2322,7 +2322,7 @@
             book-title-attr-id (random-uuid)
             book-id (random-uuid)
             user-id (random-uuid)
-            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :read)}
+            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
                              :app-id app-id
                              :attrs (attr-model/get-by-app-id app-id)
                              :datalog-query-fn d/query
