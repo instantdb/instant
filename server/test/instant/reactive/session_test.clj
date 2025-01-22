@@ -103,7 +103,7 @@
                          (dissoc ret :client-event-id)
                          (do (a/put! ws-conn ret)
                              (Thread/sleep 100)
-                             (a/<!! ws-conn)))))
+                             (recur (a/<!! ws-conn))))))
         ret (deref work 1000 :timeout)]
     (assert (not= :timeout ret) "Timed out waiting for a response")
     ret))
