@@ -4,8 +4,7 @@
    [instant.jdbc.sql :as sql]
    [instant.util.tracer :as tracer])
   (:import
-   (com.zaxxer.hikari HikariDataSource)
-   (javax.sql DataSource)))
+   (com.zaxxer.hikari HikariDataSource)))
 
 ;; Stores a single memoized value for the read-only
 ;; connection.
