@@ -13,7 +13,7 @@
 
 (defn mark-wal-unhealthy []
   (sql/execute!
-   (aurora/conn-pool)
+   (aurora/conn-pool :write)
    (hsql/format
     {:insert-into :config
      :values [{:k "wal-errors"
@@ -23,7 +23,7 @@
 
 (defn mark-wal-healthy []
   (sql/execute!
-   (aurora/conn-pool)
+   (aurora/conn-pool :write)
    (hsql/format
     {:update :config
      :set {:v [:- [:cast :v :jsonb] [:cast @config/process-id :text]]}
@@ -48,7 +48,7 @@
                                                              :escpaing? false}))))))
 
 (defn health-get [_req]
-  (let [wal-errors (sql/select-one (aurora/conn-pool) ["select v from config where k = 'wal-errors'"])]
+  (let [wal-errors (sql/select-one (aurora/conn-pool :read) ["select v from config where k = 'wal-errors'"])]
     (if (some-> wal-errors :v seq)
       (response/internal-server-error {:wal :error})
       (response/ok {:wal :ok}))))

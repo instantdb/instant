@@ -25,7 +25,7 @@
        res#)))
 
 (defn put!
-  ([params] (put! (aurora/conn-pool) params))
+  ([params] (put! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id code]}]
    (with-cache-invalidation app-id
      (sql/execute-one!
@@ -36,7 +36,7 @@
        app-id (->json code)]))))
 
 (defn merge!
-  ([params] (merge! (aurora/conn-pool) params))
+  ([params] (merge! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id code]}]
    (with-cache-invalidation app-id
      (sql/execute-one!
@@ -54,13 +54,13 @@
 
 (defn get-by-app-id
   ([{:keys [app-id]}]
-   (cache/lookup-or-miss rule-cache app-id (partial get-by-app-id* (aurora/conn-pool))))
+   (cache/lookup-or-miss rule-cache app-id (partial get-by-app-id* (aurora/conn-pool :read))))
   ([conn {:keys [app-id]}]
    ;; Don't cache if we're using a custom connection
    (get-by-app-id* conn app-id)))
 
 (defn delete-by-app-id!
-  ([params] (delete-by-app-id! (aurora/conn-pool) params))
+  ([params] (delete-by-app-id! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id]}]
    (with-cache-invalidation app-id
      (sql/do-execute!

@@ -411,7 +411,7 @@
 
 (defn apply-plan! [app-id {:keys [steps] :as _plan}]
   (let [ctx {:admin? true
-             :db {:conn-pool (aurora/conn-pool)}
+             :db {:conn-pool (aurora/conn-pool :write)}
              :app-id app-id
              :attrs (attr-model/get-by-app-id app-id)
              :datalog-query-fn d/query

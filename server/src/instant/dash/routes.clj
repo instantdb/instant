@@ -759,7 +759,7 @@
         {:keys [invitee_role status app_id invitee_email]} (instant-app-member-invites-model/get-by-id! {:id invite-id})]
     (ex/assert-permitted! :invitee? invitee_email (= invitee_email user-email))
     (ex/assert-permitted! :acceptable? invite-id (not= status "revoked"))
-    (next-jdbc/with-transaction [tx-conn (aurora/conn-pool)]
+    (next-jdbc/with-transaction [tx-conn (aurora/conn-pool :write)]
       (instant-app-member-invites-model/accept-by-id! tx-conn {:id invite-id})
       (condp = invitee_role
         "creator"
@@ -1105,7 +1105,7 @@
   (let [secret (UUID/randomUUID)
         ticket (UUID/randomUUID)]
     (instant-cli-login-model/create!
-     (aurora/conn-pool)
+     (aurora/conn-pool :write)
      {:secret secret
       :ticket ticket})
     (response/ok {:secret secret :ticket ticket})))
@@ -1113,18 +1113,18 @@
 (defn cli-auth-claim-post [req]
   (let [{user-id :id} (req->auth-user! req)
         ticket (ex/get-param! req [:body :ticket] uuid-util/coerce)]
-    (instant-cli-login-model/claim! (aurora/conn-pool) {:user-id user-id :ticket ticket})
+    (instant-cli-login-model/claim! (aurora/conn-pool :write) {:user-id user-id :ticket ticket})
     (response/ok {:ticket ticket})))
 
 (defn cli-auth-void-post [req]
   (let [_ (req->auth-user! req)
         ticket (ex/get-param! req [:body :ticket] uuid-util/coerce)]
-    (instant-cli-login-model/void! (aurora/conn-pool) {:ticket ticket})
+    (instant-cli-login-model/void! (aurora/conn-pool :write) {:ticket ticket})
     (response/ok {})))
 
 (defn cli-auth-check-post [req]
   (let [secret (ex/get-param! req [:body :secret] uuid-util/coerce)
-        cli-auth (instant-cli-login-model/use! (aurora/conn-pool) {:secret secret})
+        cli-auth (instant-cli-login-model/use! (aurora/conn-pool :write) {:secret secret})
         user-id (:user_id cli-auth)
         refresh-token (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id user-id})
         token (:id refresh-token)

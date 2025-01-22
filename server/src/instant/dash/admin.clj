@@ -18,7 +18,7 @@
 
 (defn get-recent
   ([]
-   (get-recent (aurora/conn-pool)))
+   (get-recent (aurora/conn-pool :read)))
   ([conn]
    (sql/select conn
                ["SELECT
@@ -53,9 +53,9 @@
 (defn get-top-users
   "Fetches the users with their transactions in the last `n` days."
   ([]
-   (get-top-users (aurora/conn-pool) 7))
+   (get-top-users (aurora/conn-pool :read) 7))
    ([n]
-   (get-top-users (aurora/conn-pool) n))
+   (get-top-users (aurora/conn-pool :read) n))
   ([conn n]
    (let [interval (str n " days")]  ;; Create the interval string dynamically
      (sql/select conn
@@ -73,7 +73,7 @@
                   (with-meta (excluded-emails) {:pgtype "text[]"})]))))
 
 (defn get-paid
-  ([] (get-paid (aurora/conn-pool)))
+  ([] (get-paid (aurora/conn-pool :read)))
   ([conn]
    (let [subscriptions (stripe/subscriptions)]
      (sql/select conn

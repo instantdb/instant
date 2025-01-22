@@ -43,7 +43,7 @@
 
 (defn get-weekly-stats
   ([]
-   (get-weekly-stats (aurora/conn-pool)))
+   (get-weekly-stats (aurora/conn-pool :read)))
   ([conn]
    (sql/select conn
                ["SELECT
@@ -62,7 +62,7 @@
 
 (defn get-monthly-stats
   ([]
-   (get-monthly-stats (aurora/conn-pool)))
+   (get-monthly-stats (aurora/conn-pool :read)))
   ([conn]
    (sql/select conn
                ["SELECT

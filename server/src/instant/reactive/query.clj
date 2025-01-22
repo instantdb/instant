@@ -22,7 +22,7 @@
   (rs/swap-datalog-cache! store-conn app-id d/query ctx datalog-query))
 
 (comment
-  (def ctx {:db {:conn-pool (aurora/conn-pool)}
+  (def ctx {:db {:conn-pool (aurora/conn-pool :read)}
             :app-id zeneca-app-id})
   (def instaql-query '[[:ea ?e ?a "joe"]])
   (time
@@ -121,7 +121,7 @@
         (throw e)))))
 
 (comment
-  (def ctx {:db {:conn-pool (aurora/conn-pool)}
+  (def ctx {:db {:conn-pool (aurora/conn-pool :read)}
             :attrs (attr-model/get-by-app-id zeneca-app-id)
             :app-id zeneca-app-id
             :current-user nil

@@ -160,7 +160,7 @@
   (def pg-conn (get-pg-replication-conn (config/get-aurora-config)))
   (create-temporary-logical-replication-slot! pg-conn "test_slot" "wal2json")
   (.close pg-conn)
-  (get-all-slots (aurora/conn-pool)))
+  (get-all-slots (aurora/conn-pool :read)))
 
 ;; -------------------------
 ;; LSN
@@ -173,7 +173,7 @@
    (sql/select-one conn ["SELECT * FROM pg_current_wal_lsn();"])))
 
 (comment
-  (get-current-wal-lsn (aurora/conn-pool)))
+  (get-current-wal-lsn (aurora/conn-pool :read)))
 
 ;; ------
 ;; Stream
@@ -438,7 +438,7 @@
        ;; still inactive in 5 minutes. This will prevent dropping slots that
        ;; are still being set up.
        (try
-         (let [conn-pool      (aurora/conn-pool)
+         (let [conn-pool      (aurora/conn-pool :read)
                inactive-slots (get-inactive-replication-slots conn-pool)]
            (when (seq inactive-slots)
              (chime-core/chime-at
@@ -446,7 +446,7 @@
               (fn [_time]
                 (tracer/with-span! {:name "wal/cleanup-inactive-slots"}
                   (let [slot-names (map :slot_name inactive-slots)
-                        removed    (cleanup-inactive-replication-slots (aurora/conn-pool) slot-names)
+                        removed    (cleanup-inactive-replication-slots (aurora/conn-pool :write) slot-names)
                         cleaned    (set (map :slot_name removed))
                         uncleaned  (remove #(contains? cleaned %) slot-names)]
                     (tracer/add-data! {:attributes {:cleaned-slot-names cleaned
@@ -461,7 +461,7 @@
        (rest (chime-core/periodic-seq (Instant/now) (Duration/ofMinutes 1)))
        (fn [_time]
          (try
-           (let [latency (get-replication-latency-bytes (aurora/conn-pool) @config/process-id)]
+           (let [latency (get-replication-latency-bytes (aurora/conn-pool :read) @config/process-id)]
              (reset! replication-latency-bytes latency))
            (catch Exception e
              (tracer/record-exception-span! e {:name "wal/check-latency-error"

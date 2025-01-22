@@ -21,7 +21,7 @@
 (defn get-daily-actives
   "Returns the number of active devs and apps for a day"
   ([date-str]
-   (get-daily-actives (aurora/conn-pool) date-str))
+   (get-daily-actives (aurora/conn-pool :read) date-str))
   ([conn date-str]
    (sql/select-one conn
                    ["SELECT
@@ -52,7 +52,7 @@
 (defn insert-new-activity
   "Insert new transactions into the daily_app_transactions table.
   This is intended to run daily to speed up monthly metrics generation."
-  ([] (insert-new-activity (aurora/conn-pool)))
+  ([] (insert-new-activity (aurora/conn-pool :write)))
   ([conn]
    (binding [sql/*query-timeout-seconds* 180]
      (sql/do-execute! conn

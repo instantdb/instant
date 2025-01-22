@@ -119,7 +119,7 @@
                :delay-ms 5
                :timeout-ms 5000}))
 (comment
-  (def ctx {:db {:conn-pool (aurora/conn-pool)}
+  (def ctx {:db {:conn-pool (aurora/conn-pool :read)}
             :app-id zeneca-app-id
             :datalog-query-fn d/query
             :attrs (attr-model/get-by-app-id zeneca-app-id)})
@@ -439,7 +439,7 @@
 
 (comment
   (def attrs (attr-model/get-by-app-id zeneca-app-id))
-  (def ctx {:db {:conn-pool (aurora/conn-pool)}
+  (def ctx {:db {:conn-pool (aurora/conn-pool :read)}
             :app-id zeneca-app-id
             :datalog-query-fn d/query
             :attrs attrs})

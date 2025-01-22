@@ -4,7 +4,7 @@
    [instant.jdbc.aurora :as aurora]))
 
 (defn create!
-  ([params] (create! (aurora/conn-pool) params))
+  ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id]}]
    (sql/execute-one! ::create!
                      conn

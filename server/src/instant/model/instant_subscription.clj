@@ -4,7 +4,7 @@
    [instant.jdbc.sql :as sql]))
 
 (defn create!
-  ([params] (create! (aurora/conn-pool) params))
+  ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [user-id app-id subscription-type-id
                  stripe-customer-id stripe-subscription-id stripe-event-id]}]
    (sql/execute-one! conn
@@ -17,14 +17,14 @@
                       stripe-customer-id stripe-subscription-id stripe-event-id])))
 
 (defn get-by-event-id
-  ([params] (get-by-event-id (aurora/conn-pool) params))
+  ([params] (get-by-event-id (aurora/conn-pool :read) params))
   ([conn {:keys [event-id]}]
    (sql/select-one conn
                    ["SELECT * FROM instant_subscriptions WHERE stripe_event_id = ?"
                     event-id])))
 
 (defn get-by-app-id
-  ([params] (get-by-app-id (aurora/conn-pool) params))
+  ([params] (get-by-app-id (aurora/conn-pool :read) params))
   ([conn {:keys [app-id]}]
    (sql/select-one conn
                    ["SELECT s.app_id, s.stripe_subscription_id, t.name

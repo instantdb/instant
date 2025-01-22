@@ -6,7 +6,7 @@
    [instant.model.instant-user :as instant-user-model]))
 
 (defn put!
-  ([params] (put! (aurora/conn-pool) params))
+  ([params] (put! (aurora/conn-pool :write) params))
   ([conn {:keys [user-id meta]}]
    (sql/execute-one!
     conn
@@ -15,7 +15,7 @@
      user-id (->json meta)])))
 
 (defn get-by-user-id
-  ([params] (get-by-user-id (aurora/conn-pool) params))
+  ([params] (get-by-user-id (aurora/conn-pool :read) params))
   ([conn {:keys [user-id]}]
    (sql/select-one conn
                    ["SELECT 
@@ -24,7 +24,7 @@
                      WHERE ip.id = ?::uuid" user-id])))
 
 (defn delete-by-id!
-  ([params] (delete-by-id! (aurora/conn-pool) params))
+  ([params] (delete-by-id! (aurora/conn-pool :write) params))
   ([conn {:keys [id]}]
    (sql/execute-one! conn ["DELETE FROM instant_profiles WHERE id = ?::uuid" id])))
 
