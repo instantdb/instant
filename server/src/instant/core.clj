@@ -163,7 +163,9 @@
   `(do
      (tracer/record-info! {:name (format "init.start.%s" (name ~operation))})
      (tracer/with-span! {:name (format "init.finish.%s" (name ~operation))}
-       ~@body)))
+       ;; Don't let ourselves be the parent of any child spans
+       (binding [tracer/*span* nil]
+         ~@body))))
 
 (defn -main [& _args]
   (binding [*print-namespace-maps* false]
