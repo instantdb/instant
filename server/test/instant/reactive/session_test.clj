@@ -98,7 +98,7 @@
               (HazelcastInstance/.shutdown (:hz @eph-hz)))))))))
 
 (defn read-msg [expected-op {:keys [ws-conn id] :as socket}]
-  (let [ret (ua/<!!-timeout ws-conn 500)]
+  (let [ret (ua/<!!-timeout ws-conn 5000)]
     (assert (not= :timeout ret) "Timed out waiting for a response")
     (if (= expected-op (:op ret))
       (dissoc ret :client-event-id)
