@@ -45,7 +45,7 @@
 
         {receive-q :grouped-queue}
         (grouped-queue/start-grouped-queue-with-workers
-         {:max-workers 1
+         {:max-workers 2
           :group-fn session/group-fn
           :reserve-fn session/receive-worker-reserve-fn
           :process-fn (partial session/process-fn store-conn)})
