@@ -102,9 +102,7 @@
     (assert (not= :timeout ret) "Timed out waiting for a response")
     (if (= expected-op (:op ret))
       (dissoc ret :client-event-id)
-      ;; Put it back if this wasn't our message to take
-      (do (a/put! ws-conn ret)
-          (recur expected-op socket)))))
+      (recur expected-op socket))))
 
 (defn- blocking-send-msg [expected-op {:keys [ws-conn id] :as socket} msg]
   (session/handle-receive *store-conn* (rs/get-session @*store-conn* id) msg {})
