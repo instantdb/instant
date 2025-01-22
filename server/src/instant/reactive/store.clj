@@ -464,23 +464,32 @@
 ;; subscriptions
 
 (defn record-datalog-query-start! [conn ctx datalog-query coarse-topics]
-  (let [lookup-ref [:datalog-query/app-id+query [(:app-id ctx) datalog-query]]]
+  (let [lookup-ref [:datalog-query/app-id+query [(:app-id ctx) datalog-query]]
+        query-lookup-ref [:instaql-query/session-id+query [(:session-id ctx)
+                                                           (:instaql-query ctx)]]]
     (transact! "store/record-datalog-query-start!"
                conn
                [[:db.fn/call
                  (fn [db]
-                   (if-let [existing (d/entity db lookup-ref)]
-                     (when-not (:datalog-query/topics existing)
-                       [[:db/add (:db/id existing) :datalog-query/topics coarse-topics]])
-                     [{:datalog-query/app-id (:app-id ctx)
-                       :datalog-query/query datalog-query
-                       :datalog-query/topics coarse-topics}]))]
-                {:subscription/app-id (:app-id ctx)
-                 :subscription/session-id (:session-id ctx)
-                 :subscription/v (:v ctx)
-                 :subscription/instaql-query [:instaql-query/session-id+query [(:session-id ctx)
-                                                                               (:instaql-query ctx)]]
-                 :subscription/datalog-query lookup-ref}])))
+                   (let [existing-datalog-query (d/entity db lookup-ref)
+                         datalog-query-eid (or (:db/id existing-datalog-query)
+                                               -1)
+                         datalog-query-txes
+                         (if existing-datalog-query
+                           (when-not (:datalog-query/topics existing-datalog-query)
+                             [[:db/add datalog-query-eid :datalog-query/topics coarse-topics]])
+                           [{:db/id datalog-query-eid
+                             :datalog-query/app-id (:app-id ctx)
+                             :datalog-query/query datalog-query
+                             :datalog-query/topics coarse-topics}])
+                         subscription-txes
+                         (when-let [query-eid (d/entid db query-lookup-ref)]
+                           [{:subscription/app-id (:app-id ctx)
+                             :subscription/session-id (:session-id ctx)
+                             :subscription/v (:v ctx)
+                             :subscription/instaql-query query-eid
+                             :subscription/datalog-query datalog-query-eid}])]
+                     (into datalog-query-txes subscription-txes)))]])))
 
 (defn record-datalog-query-finish! [conn
                                     ctx
