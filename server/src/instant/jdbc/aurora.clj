@@ -9,10 +9,10 @@
 
 ;; Stores a single memoized value for the read-only
 ;; connection.
-(defonce read-only-memoize (atom nil))
+(def read-only-memoize (atom nil))
 
 (defn read-only-wrapper [^HikariDataSource pool]
-  (proxy [DataSource] []
+  (proxy [HikariDataSource] []
     (getConnection
       ([]
        (let [conn (.getConnection pool)]
@@ -27,7 +27,9 @@
     (unwrap [iface]
       (.unwrap pool iface))
     (isWrapperFor [iface]
-      (.isWrapperFor pool iface))))
+      (.isWrapperFor pool iface))
+    (getHikariPoolMXBean []
+      (.getHikariPoolMXBean pool))))
 
 (defn memoized-read-only-wrapper [^HikariDataSource pool]
   (if-let [wrapper (when-let [[memo-pool wrapper] @read-only-memoize]

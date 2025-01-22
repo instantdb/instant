@@ -17,6 +17,7 @@
    (com.zaxxer.hikari HikariDataSource)
    (java.sql Array Connection PreparedStatement ResultSet ResultSetMetaData)
    (java.time Instant LocalDate LocalDateTime)
+   (javax.sql DataSource)
    (org.postgresql.util PGobject PSQLException)))
 
 (defn ->pg-text-array
@@ -119,7 +120,7 @@
    the pool (e.g. datalog/query batching).
    Binds *conn-pool-span-stats* at call time to be consistent with calling e.g.
    `select` with the conn-pool directly."
-  [[conn-name ^HikariDataSource conn-pool] & body]
+  [[conn-name ^DataSource conn-pool] & body]
   `(binding [*conn-pool-span-stats* (span-attrs-from-conn-pool ~conn-pool)]
      (io/tag-io
        (with-open [~conn-name (.getConnection ~conn-pool)]
