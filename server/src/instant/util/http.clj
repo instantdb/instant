@@ -4,7 +4,8 @@
    [instant.util.uuid :as uuid-util]
    [instant.util.exception :as ex]
    [instant.util.tracer :as tracer]
-   [ring.util.http-response :as response]))
+   [ring.util.http-response :as response]
+   [ring.middleware.cors :as cors]))
 
 (defn coerce-bearer-token [bearer-token]
   (some-> bearer-token
@@ -30,7 +31,9 @@
 (defn tracer-record-attrs [handler]
   (fn [request]
     (let [{:keys [uri request-method headers body query-params]} request
-          app-id (get headers "app-id")
+          app-id (or (get headers "app-id")
+                     (get query-params "app-id")
+                     (get query-params "app_id"))
           cli-version (get headers "instant-cli-version")
           core-version (get headers "instant-core-version")
           admin-version (get headers "instant-admin-version")
@@ -40,7 +43,6 @@
                  :method request-method
                  :origin origin
                  :app-id app-id
-                 :query-params query-params
                  :cli-version cli-version
                  :core-version core-version
                  :admin-version admin-version}]
@@ -55,17 +57,21 @@
     (when-let [route (-> request
                          :compojure/route
                          second)]
-      (tracer/add-data! {:attributes {:route route}}))
+      (let [app-id (or (:app_id (:params request))
+                       (:app-id (:params request)))]
+        (tracer/add-data! {:attributes (cond-> {:route route}
+                                         app-id (assoc :app-id app-id))})))
     (handler request)))
 
 (defn tracer-wrap-span
   "Wraps standard http requests within a span."
   [handler]
   (fn [request]
-    (if (:websocket? request)
-      ;; We skip websocket requests; 
+    (if (or (:websocket? request)
+            (cors/preflight? request))
+      ;; We skip websocket requests;
       ;; Because websockets are long-lived,
-      ;; a parent-span doesn't make sense. 
+      ;; a parent-span doesn't make sense.
       (handler request)
       (tracer/with-span! {:name "http-req"}
         (let [{:keys [status] :as response}  (handler request)]
