@@ -4,7 +4,7 @@
    [tool]
    [clojure.java.io :as io]
    [clojure.tools.logging :as log]
-   [compojure.core :refer [defroutes GET POST routes]]
+   [compojure.core :refer [defroutes GET POST routes wrap-routes]]
    [instant.admin.routes :as admin-routes]
    [instant.auth.jwt :as jwt]
    [instant.auth.oauth :as oauth]
@@ -90,6 +90,7 @@
                storage-routes/routes
                generic-webhook-routes
                health/routes)
+       (wrap-routes http-util/tracer-record-route)
        http-util/tracer-record-attrs
        wrap-keyword-params
        wrap-params

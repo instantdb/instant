@@ -31,7 +31,6 @@
   (fn [request]
     (let [{:keys [uri request-method headers body query-params]} request
           app-id (get headers "app-id")
-          authorization (get headers "authorization")
           cli-version (get headers "instant-cli-version")
           core-version (get headers "instant-core-version")
           admin-version (get headers "instant-admin-version")
@@ -41,14 +40,23 @@
                  :method request-method
                  :origin origin
                  :app-id app-id
-                 :authorization authorization
                  :query-params query-params
                  :cli-version cli-version
                  :core-version core-version
-                 :admin-version admin-version
-                 :body (when (map? body) body)}]
+                 :admin-version admin-version}]
       (tracer/add-data! {:attributes attrs})
       (handler request))))
+
+(defn tracer-record-route
+  "Use with compojure.core/wrap-routes so that the route is added to the
+   request when we get it."
+  [handler]
+  (fn [request]
+    (when-let [route (-> request
+                         :compojure/route
+                         second)]
+      (tracer/add-data! {:attributes {:route route}}))
+    (handler request)))
 
 (defn tracer-wrap-span
   "Wraps standard http requests within a span."
