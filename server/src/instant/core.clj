@@ -73,28 +73,36 @@
   (POST "/hooks/honeycomb/exceptions" [] honeycomb-api/webhook))
 
 (defn handler []
-  (-> (routes home-routes
-              dash-routes/routes
-              runtime-routes/routes
-              admin-routes/routes
-              superadmin-routes/routes
-              storage-routes/routes
-              generic-webhook-routes
-              stripe-webhook-routes
-              health/routes)
-      (wrap-routes http-util/tracer-record-route)
-      http-util/tracer-record-attrs
-      wrap-keyword-params
-      wrap-params
-      wrap-multipart-params
-      (wrap-json-body {:keywords? true})
+  (routes (-> stripe-webhook-routes
+              (wrap-routes http-util/tracer-record-route)
+              (wrap-routes http-util/wrap-errors)
+              (wrap-routes wrap-json-response)
+              (wrap-routes wrap-cors
+                           :access-control-allow-origin [#".*"]
+                           :access-control-allow-methods [:get :put :post :delete])
+              (wrap-routes http-util/tracer-wrap-span))
+          (-> (routes home-routes
+                      dash-routes/routes
+                      runtime-routes/routes
+                      admin-routes/routes
+                      superadmin-routes/routes
+                      storage-routes/routes
+                      generic-webhook-routes
+                      stripe-webhook-routes
+                      health/routes)
+              (wrap-routes http-util/tracer-record-route)
+              http-util/tracer-record-attrs
+              wrap-keyword-params
+              wrap-params
+              wrap-multipart-params
+              (wrap-json-body {:keywords? true})
 
-      http-util/wrap-errors
+              http-util/wrap-errors
 
-      wrap-json-response
-      (wrap-cors :access-control-allow-origin [#".*"]
-                 :access-control-allow-methods [:get :put :post :delete])
-      http-util/tracer-wrap-span))
+              wrap-json-response
+              (wrap-cors :access-control-allow-origin [#".*"]
+                         :access-control-allow-methods [:get :put :post :delete])
+              (http-util/tracer-wrap-span))))
 
 (defn start []
   (tracer/record-info! {:name "server/start" :attributes {:port (config/get-server-port)}})
