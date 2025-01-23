@@ -77,7 +77,7 @@
 (defn get-attrs [app]
   (if-let [connection-string (-> app :connection_string)]
     ;; TODO(byop): Separate connection for byop app
-    (pg-introspect/introspect (aurora/conn-pool) (or (->> connection-string
+    (pg-introspect/introspect (aurora/conn-pool :read) (or (->> connection-string
                                                           (app-model/decrypt-connection-string (:id app))
                                                           uri/query-map
                                                           :currentSchema)
@@ -132,7 +132,7 @@
             processed-tx-id (rs/get-processed-tx-id @store-conn app-id)
             {:keys [table-info]} (get-attrs app)
             attrs (attr-model/get-by-app-id app-id)
-            ctx {:db {:conn-pool (aurora/conn-pool)}
+            ctx {:db {:conn-pool (aurora/conn-pool :read)}
                  :datalog-loader (rs/upsert-datalog-loader! store-conn sess-id d/make-loader)
                  :session-id sess-id
                  :app-id app-id
@@ -154,7 +154,7 @@
 (defn- recompute-instaql-query!
   [{:keys [store-conn current-user app-id sess-id attrs table-info admin?]}
    {:keys [instaql-query/query instaql-query/return-type]}]
-  (let [ctx {:db {:conn-pool (aurora/conn-pool)}
+  (let [ctx {:db {:conn-pool (aurora/conn-pool :read)}
              :session-id sess-id
              :app-id app-id
              :attrs attrs
@@ -232,7 +232,7 @@
         _ (tx/validate! coerced)
         {tx-id :id}
         (permissioned-tx/transact!
-         {:db {:conn-pool (aurora/conn-pool)}
+         {:db {:conn-pool (aurora/conn-pool :write)}
           :rules (rule-model/get-by-app-id {:app-id app-id})
           :app-id app-id
           :current-user (:user auth)

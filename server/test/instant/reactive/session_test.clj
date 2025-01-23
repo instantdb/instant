@@ -574,7 +574,7 @@
                         pretty-subs)))
 
             ;; do mutation
-            (tx/transact! (aurora/conn-pool)
+            (tx/transact! (aurora/conn-pool :write)
                           (attr-model/get-by-app-id app-id)
                           app-id
                           [[:retract-triple

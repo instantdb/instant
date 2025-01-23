@@ -10,7 +10,7 @@
 (def etype "$oauthProviders")
 
 (defn create!
-  ([params] (create! (aurora/conn-pool) params))
+  ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id provider-name]}]
    (update-op
     conn
@@ -23,7 +23,7 @@
         (get-entity entity-id))))))
 
 (defn get-by-provider-name
-  ([params] (get-by-provider-name (aurora/conn-pool) params))
+  ([params] (get-by-provider-name (aurora/conn-pool :read) params))
   ([conn {:keys [app-id provider-name]}]
    (query-op conn
              {:app-id app-id

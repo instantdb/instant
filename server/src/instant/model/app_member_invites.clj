@@ -7,7 +7,7 @@
    (java.util UUID)))
 
 (defn create!
-  ([params] (create! (aurora/conn-pool) params))
+  ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id inviter-id email role]}]
    (sql/execute-one!
     conn
@@ -20,7 +20,7 @@
      (UUID/randomUUID) app-id inviter-id email role role])))
 
 (defn get-by-id
-  ([params] (get-by-id (aurora/conn-pool) params))
+  ([params] (get-by-id (aurora/conn-pool :read) params))
   ([conn {:keys [id]}]
    (sql/select-one conn
                    ["SELECT * 
@@ -29,7 +29,7 @@
                     id])))
 
 (defn get-by-id!
-  ([params] (get-by-id! (aurora/conn-pool) params))
+  ([params] (get-by-id! (aurora/conn-pool :read) params))
   ([conn params]
    (ex/assert-record!
     (get-by-id conn params)
@@ -37,7 +37,7 @@
     {:args [params]})))
 
 (defn get-pending-for-invitee
-  ([params] (get-pending-for-invitee (aurora/conn-pool) params))
+  ([params] (get-pending-for-invitee (aurora/conn-pool :read) params))
   ([conn {:keys [email]}]
    (sql/select conn
                ["SELECT
@@ -55,7 +55,7 @@
                 email])))
 
 (defn accept-by-id!
-  ([params] (accept-by-id! (aurora/conn-pool) params))
+  ([params] (accept-by-id! (aurora/conn-pool :write) params))
   ([conn {:keys [id] :as params}]
    (ex/assert-record!
     (sql/execute-one! conn
@@ -69,7 +69,7 @@
     {:args [params]})))
 
 (defn reject-by-id
-  ([params] (reject-by-id (aurora/conn-pool) params))
+  ([params] (reject-by-id (aurora/conn-pool :write) params))
   ([conn {:keys [id]}]
    (sql/execute-one! conn
                      ["UPDATE app_member_invites
@@ -79,7 +79,7 @@
                       id])))
 
 (defn reject-by-email-and-role
-  ([params] (reject-by-email-and-role (aurora/conn-pool) params))
+  ([params] (reject-by-email-and-role (aurora/conn-pool :write) params))
   ([conn {:keys [inviter-id app-id invitee-email role]}]
    (sql/execute! conn
                  ["UPDATE app_member_invites
@@ -92,7 +92,7 @@
                   inviter-id app-id invitee-email role])))
 
 (defn delete-by-id!
-  ([params] (delete-by-id! (aurora/conn-pool) params))
+  ([params] (delete-by-id! (aurora/conn-pool :write) params))
   ([conn {:keys [id]}]
    (sql/execute-one! conn
                      ["DELETE FROM app_member_invites WHERE id = ?::uuid" id])))

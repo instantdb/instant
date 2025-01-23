@@ -5,7 +5,7 @@
             [instant.util.exception :as ex]))
 
 (defn fetch
-  ([params] (fetch (aurora/conn-pool) params))
+  ([params] (fetch (aurora/conn-pool :read) params))
   ([conn {:keys [token app-id]}]
    (sql/select-one conn
                    ["SELECT * FROM app_admin_tokens WHERE token = ?::uuid AND app_id = ?::uuid"
@@ -15,21 +15,21 @@
   (ex/assert-record! (fetch params) :app-admin-token {:args [params]}))
 
 (defn create!
-  ([params] (create! (aurora/conn-pool) params))
+  ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [token app-id]}]
    (sql/execute-one! conn
                      ["INSERT INTO app_admin_tokens (token, app_id) VALUES (?::uuid, ?::uuid)"
                       token app-id])))
 
 (defn delete-by-app-id!
-  ([params] (delete-by-app-id! (aurora/conn-pool) params))
+  ([params] (delete-by-app-id! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id]}]
    (sql/execute-one! conn
                      ["DELETE FROM app_admin_tokens WHERE app_id = ?::uuid"
                       app-id])))
 
 (defn recreate!
-  ([params] (recreate! (aurora/conn-pool) params))
+  ([params] (recreate! (aurora/conn-pool :write) params))
   ([conn {:keys [token app-id]}]
    (next-jdbc/with-transaction [tx-conn conn]
      (delete-by-app-id! tx-conn {:app-id app-id})

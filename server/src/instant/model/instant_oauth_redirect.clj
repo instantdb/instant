@@ -7,7 +7,7 @@
    (java.time.temporal ChronoUnit)))
 
 (defn create!
-  ([params] (create! (aurora/conn-pool) params))
+  ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [state cookie service redirect-path redirect-to-dev ticket]}]
    (sql/execute-one!
     conn
@@ -17,7 +17,7 @@
 
 (defn consume!
   "Gets and deletes the oauth-redirect so that it can be used only once."
-  ([params] (consume! (aurora/conn-pool) params))
+  ([params] (consume! (aurora/conn-pool :write) params))
   ([conn {:keys [state]}]
    (sql/execute-one! conn
                      ["DELETE FROM instant_oauth_redirects where lookup_key = ?::bytea"

@@ -5,7 +5,7 @@
 (def etype "$oauthUserLinks")
 
 (defn create!
-  ([params] (create! (aurora/conn-pool) params))
+  ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [id app-id sub provider-id user-id]}]
    (update-op
     conn

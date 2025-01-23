@@ -23,7 +23,7 @@
      (instaql-nodes->object-tree
       {:attrs attrs}
       (iq/permissioned-query
-       {:db {:conn-pool (aurora/conn-pool)}
+       {:db {:conn-pool (aurora/conn-pool :read)}
         :app-id app-id
         :attrs attrs
         :datalog-query-fn d/query

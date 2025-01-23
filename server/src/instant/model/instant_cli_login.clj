@@ -8,7 +8,7 @@
    (java.time.temporal ChronoUnit)))
 
 (defn create!
-  ([params] (create! (aurora/conn-pool) params))
+  ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [ticket secret]}]
    (sql/execute-one!
     conn
@@ -20,7 +20,7 @@
      ticket (crypt-util/uuid->sha256 secret)])))
 
 (defn claim!
-  ([params] (claim! (aurora/conn-pool) params))
+  ([params] (claim! (aurora/conn-pool :write) params))
   ([conn {:keys [ticket user-id]}]
    (sql/execute-one!
     conn
@@ -42,7 +42,7 @@
   (and used? (not user-id)))
 
 (defn use!
-  ([params] (use! (aurora/conn-pool) params))
+  ([params] (use! (aurora/conn-pool :write) params))
   ([conn {:keys [secret]}]
    (let [{user-id :user_id id :id :as login}
          (sql/select-one conn
@@ -82,7 +82,7 @@
      claimed)))
 
 (defn void!
-  ([params] (void! (aurora/conn-pool) params))
+  ([params] (void! (aurora/conn-pool :write) params))
   ([conn {:keys [ticket]}]
    (sql/execute-one!
     conn

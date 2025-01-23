@@ -35,7 +35,10 @@
     ;; Make the connections wait. For a future improvement, we could have the
     ;; caller tell us if they wanted a read-only connection and then we wouldn't
     ;; have to pause reads until after we waited for writes to complete
-    (alter-var-root #'aurora/conn-pool (fn [_] (fn [] @next-pool-promise)))
+    (alter-var-root #'aurora/conn-pool (fn [_] (fn [rw]
+                                                 (if (= :read rw)
+                                                   (aurora/memoized-read-only-wrapper prev-pool)
+                                                   @next-pool-promise))))
     ;; Give transactions half the receive-timeout to complete
     (println "Waiting for 2.5 seconds for transactions to complete")
     (Thread/sleep 2500)
