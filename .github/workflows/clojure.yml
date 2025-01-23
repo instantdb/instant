@@ -308,7 +308,7 @@ jobs:
       uses: "./.github/actions/elastic-beanstalk"
       with:
         working-directory: "server/refinery/"
-        files: '["docker-compose.yml", "config.yaml", "config-redis.yaml", "rules.yaml", "refinery.env", ".ebextensions/resources.config"]'
+        files: '["docker-compose.yml", "config.yaml", "config-redis.yaml", "rules.yaml", "refinery.env", ".ebextensions/resources.config", ".platform/hooks/predeploy/predeploy.sh"]'
         aws-region: "us-east-1"
         bucket: "elasticbeanstalk-us-east-1-597134865416"
         application-name: "refinery"
