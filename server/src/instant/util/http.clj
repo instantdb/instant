@@ -30,7 +30,7 @@
 
 (defn tracer-record-attrs [handler]
   (fn [request]
-    (let [{:keys [uri request-method headers body query-params]} request
+    (let [{:keys [uri request-method headers query-params]} request
           app-id (or (get headers "app-id")
                      (get query-params "app-id")
                      (get query-params "app_id"))
