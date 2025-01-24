@@ -29,6 +29,7 @@ import {
   type InstantSchema,
   type InstantSchemaDatabase,
   type ConnectionStatus,
+  type FileOpts,
 
   // schema types
   type AttrsDefs,
@@ -129,6 +130,7 @@ export {
   type User,
   type AuthState,
   type ConnectionStatus,
+  type FileOpts,
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,

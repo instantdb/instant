@@ -1497,7 +1497,7 @@ export default class Reactor {
           appId: this.config.appId,
           refreshToken,
         });
-      } catch (e) {}
+      } catch (e) { }
     }
     await this.changeCurrentUser(null);
   }
@@ -1796,6 +1796,35 @@ export default class Reactor {
   // --------
   // Storage
 
+  async uploadFile(path, file, opts) {
+    const currentUser = await this.getCurrentUser();
+    const refreshToken = currentUser?.user?.refresh_token;
+    return StorageApi.uploadFile({
+      ...opts,
+      apiURI: this.config.apiURI,
+      appId: this.config.appId,
+      path: path,
+      file,
+      refreshToken: refreshToken,
+    });
+  }
+
+  async deleteFile(path) {
+    const currentUser = await this.getCurrentUser();
+    const refreshToken = currentUser?.user?.refresh_token;
+    const result = await StorageApi.deleteFile({
+      apiURI: this.config.apiURI,
+      appId: this.config.appId,
+      path,
+      refreshToken: refreshToken,
+    });
+
+    return result;
+  }
+
+  // Deprecated Storage API (Jan 2025)
+  // ---------------------------------
+
   async upload(path, file) {
     const currentUser = await this.getCurrentUser();
     const refreshToken = currentUser?.user?.refresh_token;
@@ -1824,16 +1853,4 @@ export default class Reactor {
     return url;
   }
 
-  async deleteFile(path) {
-    const currentUser = await this.getCurrentUser();
-    const refreshToken = currentUser?.user?.refresh_token;
-    const result = await StorageApi.deleteFile({
-      apiURI: this.config.apiURI,
-      appId: this.config.appId,
-      path: path,
-      refreshToken: refreshToken,
-    });
-
-    return result;
-  }
 }

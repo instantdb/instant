@@ -21,6 +21,9 @@ import {
 
   type ConnectionStatus,
 
+  // Storage
+  type FileOpts,
+
   // schema types
   type AttrsDefs,
   type CardinalityKind,
@@ -77,6 +80,7 @@ export {
   type User,
   type AuthState,
   type ConnectionStatus,
+  type FileOpts,
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
