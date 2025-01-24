@@ -878,9 +878,6 @@
 (def compute-triples-handler
   {"$files" compute-$files-triples})
 
-(defn with-computed-triples [current-rows new-triples]
-  (reduce conj current-rows new-triples))
-
 (defn collect-query-results
   "Takes the datalog result from a nested query and the forms to constructs the
    query output.
@@ -889,7 +886,6 @@
   [ctx datalog-result forms]
   (mapv (fn [form child]
           (let [nodes (map (fn [child]
-                             (def child (first (:children child)))
                              (add-children
                               (make-node {:datalog-query (:datalog-query (first child))
                                           :datalog-result (let [result (:result (first child))
