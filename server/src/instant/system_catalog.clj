@@ -35,7 +35,8 @@
    "$oauthUserLinks" "ol"
    "$oauthClients" "oc"
    "$oauthCodes" "co"
-   "$oauthRedirects" "or"})
+   "$oauthRedirects" "or"
+   "$files" "fi"})
 
 (def all-etypes (set (keys etype-shortcodes)))
 
@@ -60,7 +61,11 @@
    "stateHash" "statehash"
    "cookieHash" "cookihash"
    "redirectUrl" "redireurl"
-   "$oauthClient" "oauclient"})
+   "$oauthClient" "oauclient"
+   "path" "path"
+   "url" "url"
+   "status" "status"
+   "metadata" "metadata"})
 
 (def shortcodes-label (map-invert label-shortcodes))
 
@@ -263,6 +268,21 @@
    (make-attr "$oauthRedirects" "codeChallenge"
               :checked-data-type :string)])
 
+(def $files-attrs
+  [(make-attr "$files" "id"
+              :unique? true
+              :index? true)
+   (make-attr "$files" "path"
+              :unique? false
+              :index? true
+              :checked-data-type :string)
+   (make-attr "$files" "url"
+              :unique? false
+              :index? false)
+   (make-attr "$files" "metadata"
+              :unique? false
+              :index? false)])
+
 (def all-attrs (concat $users-attrs
                        $magic-code-attrs
                        $user-refresh-token-attrs
@@ -270,4 +290,5 @@
                        $user-oauth-link-attrs
                        $oauth-client-attrs
                        $oauth-code-attrs
-                       $oauth-redirect-attrs))
+                       $oauth-redirect-attrs
+                       $files-attrs))
