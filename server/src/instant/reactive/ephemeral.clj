@@ -62,9 +62,10 @@
       :prod
       (let [ip (aws-util/get-instance-ip)]
         (.setPublicAddress network-config ip)
+        (.setPort network-config (config/get-hz-port))
         (doto aws-config
           (.setEnabled true)
-          (.setProperty "hz-port" "5701")
+          (.setProperty "hz-port" "5701-5708")
           (.setProperty "tag-key" aws-util/environment-tag-name)
           (.setProperty "tag-value" (aws-util/get-environment-tag)))
         (.setEnabled metrics-config true))

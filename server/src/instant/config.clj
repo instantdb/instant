@@ -194,14 +194,23 @@
   (if (= :prod (get-env)) 400 20))
 
 (defn env-integer [var-name]
-  (when (System/getenv var-name)
-    (Integer/parseInt (System/getenv var-name))))
+  (when-let [envvar (System/getenv var-name)]
+    (Integer/parseInt envvar)))
 
 (defn get-server-port []
   (or (env-integer "PORT") (env-integer "BEANSTALK_PORT") 8888))
 
 (defn get-nrepl-port []
   (or (env-integer "NREPL_PORT") 6005))
+
+(defn get-hz-port []
+  (if-let [env-port (env-integer "HZ_PORT")]
+    (if (<= 5701 env-port 5708)
+      env-port
+      (do
+        (log/error "Invalid HZ_PORT" env-port)
+        5701))
+    5701))
 
 (defn get-nrepl-bind-address []
   (or (System/getenv "NREPL_BIND_ADDRESS")
