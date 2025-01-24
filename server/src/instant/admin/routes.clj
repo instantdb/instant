@@ -18,12 +18,13 @@
    [instant.util.http :as http-util]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.json :refer [->json <-json]]
-   [instant.util.storage :as storage-util]
    [instant.util.string :as string-util]
    [instant.util.uuid :as uuid-util]
    [ring.util.http-response :as response]
    [instant.model.schema :as schema-model]
-   [clojure.string :as string])
+   [clojure.string :as string]
+   [instant.storage.coordinator :as storage-coordinator]
+   [clojure.walk :as w])
   (:import
    (java.util UUID)))
 
@@ -366,37 +367,30 @@
 ;; ---
 ;; Storage
 
-(defn signed-download-url-get [req]
+(defn upload-post [req]
   (let [{app-id :app_id} (req->admin-token! req)
-        filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
-        data (storage-util/create-signed-download-url! app-id filename)]
+        params (w/keywordize-keys (get-in req [:multipart-params]))
+        path (ex/get-param! params [:path] string-util/coerce-non-blank-str)
+        file (ex/get-param! params [:file] identity)
+        content-type (ex/get-optional-param! params [:content-type] string-util/coerce-non-blank-str)
+        data (storage-coordinator/upload-file! {:app-id app-id
+                                                :path path
+                                                :content-type content-type
+                                                :skip-perms-check? true} file)]
     (response/ok {:data data})))
 
-(defn signed-upload-url-post [req]
-  (let [{app-id :app_id} (req->admin-token! req)
-        filename (ex/get-param! req [:body :filename] string-util/coerce-non-blank-str)
-        data (storage-util/create-signed-upload-url! app-id filename)]
-    (response/ok {:data data})))
-
-;; Retrieves all files that have been uploaded via Storage APIs
-(defn files-get [req]
-  (let [{app-id :app_id} (req->admin-token! req)
-        subdirectory (-> req :params :subdirectory)
-        data (storage-util/list-files! app-id subdirectory)]
-    (response/ok {:data data})))
-
-;; Deletes a single file by name/path (e.g. "demo.png", "profiles/me.jpg")
 (defn file-delete [req]
   (let [{app-id :app_id} (req->admin-token! req)
         filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
-        data (storage-util/delete-file! app-id filename)]
+        data (storage-coordinator/delete-files! {:app-id app-id
+                                                 :paths [filename]})]
     (response/ok {:data data})))
 
-;; Deletes a multiple files by name/path (e.g. "demo.png", "profiles/me.jpg")
 (defn files-delete [req]
   (let [{app-id :app_id} (req->admin-token! req)
-        filenames (ex/get-param! req [:body :filenames] seq)
-        data (storage-util/bulk-delete-files! app-id filenames)]
+        filenames (ex/get-param! req [:body :filenames] vec)
+        data (storage-coordinator/delete-files! {:app-id app-id
+                                                 :paths filenames})]
     (response/ok {:data data})))
 
 (comment
@@ -434,6 +428,46 @@
         (ex/throw-rate-limited!)
         (handler req)))))
 
+;; Deprecated storage routes
+;; Leaving in for backwards compatibility (deprecated Jan 2025)
+;; -------------------------
+
+(defn signed-upload-url-post [req]
+  (let [{app-id :app_id} (req->admin-token! req)
+        filename (ex/get-param! req [:body :filename] string-util/coerce-non-blank-str)
+        data (storage-coordinator/create-upload-url {:app-id app-id
+                                                     :path filename
+                                                     :skip-perms-check? true})]
+    (response/ok {:data data})))
+
+(defn signed-download-url-get [req]
+  (let [{app-id :app_id} (req->admin-token! req)
+        filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
+        data (storage-coordinator/create-download-url {:app-id app-id
+                                                       :path filename
+                                                       :skip-perms-check? true})]
+    (response/ok {:data data})))
+
+;; Legacy StorageFile format that was only used by the list() endpoint
+(defn legacy-storage-file-format
+  [app-id object-metadata]
+  {:key (str app-id "/" (:path object-metadata))
+   :name (:path object-metadata)
+   :size (:content-length object-metadata)
+   :etag (:etag object-metadata)
+   :last_modified (:last-modified object-metadata)})
+
+(defn files-get [req]
+  (let [{app-id :app_id} (req->admin-token! req)
+        res (query-post (assoc-in req [:body :query] {:$files {}}))
+        files (get-in res [:body "$files"])
+        data (map (fn [item]
+                    (->> (get item "metadata")
+                         w/keywordize-keys
+                         (legacy-storage-file-format app-id)))
+                  files)]
+    (response/ok {:data data})))
+
 (defroutes routes
   (POST "/admin/query" []
     (with-rate-limiting query-post))
@@ -456,6 +490,8 @@
   (GET "/admin/storage/signed-download-url", []
     (with-rate-limiting signed-download-url-get))
 
+  (POST "/admin/storage/upload" []
+    (with-rate-limiting upload-post))
   (GET "/admin/storage/files" []
     (with-rate-limiting files-get))
   (DELETE "/admin/storage/files" []

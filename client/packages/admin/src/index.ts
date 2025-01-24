@@ -283,8 +283,8 @@ class InstantAdmin<
    */
   query = <
     Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLParams<Schema>
-      : Exactly<Query, Q>,
+    ? InstaQLParams<Schema>
+    : Exactly<Query, Q>,
   >(
     query: Q,
   ): Promise<QueryResponse<Q, Schema, WithCardinalityInference>> => {
@@ -592,7 +592,11 @@ class Auth {
   }
 }
 
-type UploadMetadata = { contentType?: string } & Record<string, any>;
+type UploadMetadata = {
+  contentType?: string
+  contentDisposition?: string
+} & Record<string, any>;
+
 type StorageFile = {
   key: string;
   name: string;
@@ -617,72 +621,31 @@ class Storage {
    * @see https://instantdb.com/docs/storage
    * @example
    *   const buffer = fs.readFileSync('demo.png');
-   *   const isSuccess = await db.storage.upload('photos/demo.png', buffer);
+   *   const isSuccess = await db.storage.uploadFile('photos/demo.png', buffer);
    */
-  upload = async (
-    pathname: string,
+  uploadFile = async (
+    filename: string,
     file: Buffer,
     metadata: UploadMetadata = {},
-  ): Promise<boolean> => {
-    const { data: presignedUrl } = await jsonFetch(
-      `${this.config.apiURI}/admin/storage/signed-upload-url`,
-      {
-        method: "POST",
-        headers: authorizedHeaders(this.config),
-        body: JSON.stringify({
-          app_id: this.config.appId,
-          filename: pathname,
-        }),
-      },
-    );
-    const { ok } = await fetch(presignedUrl, {
-      method: "PUT",
-      body: file,
-      headers: {
-        "Content-Type": metadata.contentType || "application/octet-stream",
-      },
-    });
+  ): Promise<any> => {
+    const formData = new FormData();
+    formData.append('path', filename);
+    formData.append('file', new Blob([file]));
+    formData.append('content-type', metadata.contentType || 'application/octet-stream');
+    if (metadata.contentDisposition) formData.append('content-disposition', metadata.contentDisposition);
 
-    return ok;
-  };
+    const headers = authorizedHeaders(this.config)
+    delete headers["content-type"];
 
-  /**
-   * Retrieves a download URL for the provided path.
-   *
-   * @see https://instantdb.com/docs/storage
-   * @example
-   *   const url = await db.storage.getDownloadUrl('photos/demo.png');
-   */
-  getDownloadUrl = async (pathname: string): Promise<string> => {
-    const { data } = await jsonFetch(
-      `${this.config.apiURI}/admin/storage/signed-download-url?app_id=${this.config.appId}&filename=${encodeURIComponent(pathname)}`,
-      {
-        method: "GET",
-        headers: authorizedHeaders(this.config),
-      },
-    );
+    const data = await jsonFetch(`${this.config.apiURI}/admin/storage/upload`, {
+      method: "POST",
+      headers,
+      body: formData
+    })
 
     return data;
   };
 
-  /**
-   * Retrieves a list of all the files that have been uploaded by this app.
-   *
-   * @see https://instantdb.com/docs/storage
-   * @example
-   *   const files = await db.storage.list();
-   */
-  list = async (): Promise<StorageFile[]> => {
-    const { data } = await jsonFetch(
-      `${this.config.apiURI}/admin/storage/files`,
-      {
-        method: "GET",
-        headers: authorizedHeaders(this.config),
-      },
-    );
-
-    return data;
-  };
 
   /**
    * Deletes a file by its path name (e.g. "photos/demo.png").
@@ -714,6 +677,77 @@ class Storage {
       headers: authorizedHeaders(this.config),
       body: JSON.stringify({ filenames: pathnames }),
     });
+  };
+
+  /**
+   * @deprecated. This method will be removed in the future. Use `uploadFile`
+   * instead
+   */
+  upload = async (
+    pathname: string,
+    file: Buffer,
+    metadata: UploadMetadata = {},
+  ): Promise<boolean> => {
+    const { data: presignedUrl } = await jsonFetch(
+      `${this.config.apiURI}/admin/storage/signed-upload-url`,
+      {
+        method: "POST",
+        headers: authorizedHeaders(this.config),
+        body: JSON.stringify({
+          app_id: this.config.appId,
+          filename: pathname,
+        }),
+      },
+    );
+    const { ok } = await fetch(presignedUrl, {
+      method: "PUT",
+      body: file,
+      headers: {
+        "Content-Type": metadata.contentType || "application/octet-stream",
+      },
+    });
+
+    return ok;
+  };
+
+  /**
+   * @deprecated. This method will be removed in the future. Use `query` instead
+   * @example
+   * const files = await db.query({ $files: {}})
+   */
+  list = async (): Promise<StorageFile[]> => {
+    const { data } = await jsonFetch(
+      `${this.config.apiURI}/admin/storage/files`,
+      {
+        method: "GET",
+        headers: authorizedHeaders(this.config),
+      },
+    );
+
+    return data;
+  };
+
+
+  /**
+  * @deprecated. getDownloadUrl will be removed in the future.
+  * Use `query` instead to query and fetch for valid urls
+  *
+  * Ex: db.query({
+  *   $files: {
+  *     $: {where: {path: "moop.png"}}
+  *   }
+  * })
+   */
+  getDownloadUrl = async (pathname: string): Promise<string> => {
+    const { data } = await jsonFetch(
+      `${this.config.apiURI}/admin/storage/signed-download-url?app_id=${this.config.appId}&filename=${encodeURIComponent(pathname)}`,
+      {
+        method: "GET",
+        headers: authorizedHeaders(this.config),
+      },
+    );
+
+    return data;
   };
 }
 
@@ -918,6 +952,7 @@ export {
   type DebugCheckResult,
   type InstantAdmin,
   type InstantAdminDatabase,
+  type UploadMetadata,
 
   // core types
   type User,

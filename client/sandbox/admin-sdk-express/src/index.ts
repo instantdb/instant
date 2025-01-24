@@ -5,14 +5,22 @@ import { init, tx, id } from "@instantdb/admin";
 import { assert } from "console";
 import dotenv from "dotenv";
 import fs from "fs";
+import path from "path";
 
 dotenv.config();
 
+// const config = {
+//   apiURI: "http://localhost:8888",
+//   appId: process.env.INSTANT_APP_ID!,
+//   adminToken: process.env.INSTANT_ADMIN_TOKEN!,
+// };
+
 const config = {
   apiURI: "http://localhost:8888",
-  appId: process.env.INSTANT_APP_ID!,
-  adminToken: process.env.INSTANT_ADMIN_TOKEN!,
+  appId: "831355ee-6a59-4990-8ef3-9c9fe7c26031",
+  adminToken: "0e91326c-b05a-4c0c-b50a-229ae49f301f",
 };
+
 
 const PERSONAL_ACCESS_TOKEN = process.env.INSTANT_PERSONAL_ACCESS_TOKEN!;
 
@@ -133,6 +141,106 @@ async function testDeleteUser() {
   }
 }
 
+// testCreateToken();
+// testQuery();
+// testTransact();
+// testScoped();
+// testSignOut();
+// testFetchUser();
+// testDeleteUser();
+
+/**
+ * Storage API tests
+ */
+
+async function testUploadFile(
+  src: string,
+  dest: string,
+  contentType?: string,
+) {
+  const buffer = fs.readFileSync(path.join(__dirname, src));
+  const data = await db.storage.uploadFile(dest, buffer, {
+    contentType: contentType,
+  });
+  console.log("Uploaded:", data);
+}
+
+async function testQueryFiles() {
+  const res = await query({ $files: {} });
+  console.log(JSON.stringify(res, null, 2));
+}
+
+async function testDeleteSingleFile(filepath: string) {
+  console.log("Before:", await db.storage.list());
+  await db.storage.delete(filepath);
+  console.log("After:", await db.storage.list());
+}
+
+async function testDeleteBulkFile(filenames: string[]) {
+  console.log("Before:", await db.storage.list());
+  await db.storage.deleteMany(filenames);
+  console.log("After:", await db.storage.list());
+}
+
+async function testUpdateFileFails() {
+  const fileId = "cbda1941-d192-4f7d-b0a7-f9d428e1ca0b"
+  const prefix = "Update on $files"
+  const message = `${prefix} should not be supported`
+  try {
+    await transact(tx.$files[fileId].update({ metadata: { "new": "first" } }))
+    throw new Error(message)
+  } catch (err) {
+    if (err instanceof Error && err.message === message) {
+      throw err
+    } else {
+      console.log(`${prefix} failed as expected!`)
+    }
+  }
+}
+
+async function testMergeFileFails() {
+  const fileId = "cbda1941-d192-4f7d-b0a7-f9d428e1ca0b"
+  const prefix = "Merge on $files"
+  const message = `${prefix} should not be supported`
+  try {
+    await transact(tx.$files[fileId].merge({ metadata: { "new": "second" } }))
+    throw new Error(message)
+  } catch (err) {
+    if (err instanceof Error && err.message === message) {
+      throw err
+    } else {
+      console.log(`${prefix} failed as expected!`)
+    }
+  }
+}
+
+async function testDeleteFileTransactFails() {
+  const prefix = "Delete on $files"
+  const message = `${prefix} should not be supported`
+  try {
+    await transact(tx["$files"][id()].delete())
+    throw new Error(message)
+  } catch (err) {
+    if (err instanceof Error && err.message === message) {
+      throw err
+    } else {
+      console.log(`${prefix} failed as expected!`)
+    }
+  }
+}
+
+// testUploadFile("circle_blue.jpg", "circle_blue.jpg", "image/jpeg");
+// testUploadFile("circle_blue.jpg", "circle_blue2.jpg", "image/jpeg");
+// testQueryFiles()
+// testDeleteSingleFile("circle_blue.jpg");
+// testDeleteBulkFile(["circle_blue.jpg", "circle_blue2.jpg"]);
+// testUpdateFileFails()
+// testMergeFileFails()
+// testDeleteFileTransactFails()
+
+/**
+ * Legacy Storage API tests (deprecated Jan 2025)
+ */
 async function testAdminStorage(
   src: string,
   dest: string,
@@ -167,17 +275,17 @@ async function testAdminStorageBulkDelete(keyword: string) {
   console.log("After:", await db.storage.list());
 }
 
-// testCreateToken();
-// testQuery();
-// testTransact();
-// testScoped();
-// testSignOut();
-// testFetchUser();
-// testDeleteUser();
-// testAdminStorage("src/demo.jpeg", "admin/demo.jpeg", "image/jpeg");
+async function testGetDownloadUrl(filename: string) {
+  const url = await db.storage.getDownloadUrl(filename);
+  console.log("URL:", url);
+}
+
+// testAdminStorage("src/circle_blue.jpg", "admin/demo.jpeg", "image/jpeg");
 // testAdminStorageFiles();
 // testAdminStorageDelete("admin/demo.jpeg");
 // testAdminStorageBulkDelete("admin/demo");
+// testGetDownloadUrl("admin/demo.jpeg");
+
 
 /**
  * Superadmin
