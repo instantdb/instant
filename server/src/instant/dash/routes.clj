@@ -36,7 +36,6 @@
             [instant.util.uuid :as uuid-util]
             [instant.util.string :as string-util]
             [instant.util.number :as number-util]
-            [instant.util.storage :as storage-util]
             [instant.session-counter :as session-counter]
             [ring.middleware.cookies :refer [wrap-cookies]]
             [ring.util.http-response :as response]
@@ -53,12 +52,13 @@
             [instant.lib.ring.websocket :as ws]
             [instant.jdbc.aurora :as aurora]
             [instant.stripe :as stripe]
-            [instant.storage.s3 :as s3-util]
             [instant.storage.beta :as storage-beta]
             [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
             [instant.model.schema :as schema-model]
             [instant.intern.metrics :as metrics]
             [medley.core :as medley])
+            [instant.storage.coordinator :as storage-coordinator]
+            [instant.model.app-file :as app-file-model])
   (:import
    (com.stripe.model.checkout Session)
    (io.undertow.websockets.core WebSocketChannel)
@@ -661,16 +661,6 @@
 
 (def default-subscription "Free")
 
-(defn calculate-storage-usage [app-id]
-  (let [objects-resp (s3-util/list-app-objects app-id)
-        objects (:object-summaries objects-resp)
-        usage (reduce (fn [acc obj] (+ acc (:size obj))) 0 objects)]
-    usage))
-
-(comment
-  (def app-id  #uuid "524bc106-1f0d-44a0-b222-923505264c47")
-  (calculate-storage-usage app-id))
-
 (defn checkout-session-post [req]
   (let [{{app-id :id app-title :title} :app
          {user-id :id user-email :email :as user} :user} (req->app-and-user! req)
@@ -710,7 +700,7 @@
         {subscription-name :name stripe-subscription-id :stripe_subscription_id}
         (instant-subscription-model/get-by-app-id {:app-id app-id})
         {total-app-bytes :num_bytes} (app-model/app-usage {:app-id app-id})
-        total-storage-bytes (calculate-storage-usage app-id)]
+        total-storage-bytes (:total_byte_size (app-file-model/get-app-usage app-id))]
     (response/ok {:subscription-name (or subscription-name default-subscription)
                   :stripe-subscription-id stripe-subscription-id
                   :total-app-bytes total-app-bytes
@@ -944,51 +934,25 @@
 ;; ---
 ;; Storage
 
-(defn signed-download-url-get [req]
-  (let [filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
-        {{app-id :id} :app} (req->app-and-user! :collaborator req)
-        data (storage-util/create-signed-download-url! app-id filename)]
-    (response/ok {:data data})))
-
-(defn signed-upload-url-post [req]
-  (let [filename (ex/get-param! req [:body :filename] string-util/coerce-non-blank-str)
-        {{app-id :id} :app} (req->app-and-user! :collaborator req)
-        data (storage-util/create-signed-upload-url! app-id filename)]
-    (response/ok {:data data})))
-
-;; Retrieves all files that have been uploaded via Storage APIs
-(defn files-get [req]
+(defn upload-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        subdirectory (-> req :params :subdirectory)
-        data (storage-util/list-files! app-id subdirectory)]
+        params (w/keywordize-keys (get-in req [:multipart-params]))
+        path (ex/get-param! params [:path] string-util/coerce-non-blank-str)
+        file (ex/get-param! params [:file] identity)
+        data (storage-coordinator/upload-file!
+              {:app-id app-id
+               :path path
+               :file file
+               :content-type (:content-type file)
+               :skip-perms-check? true} file)]
     (response/ok {:data data})))
 
-;; Deletes a single file by name/path (e.g. "demo.png", "profiles/me.jpg")
-(defn file-delete [req]
-  (let [filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
-        {{app-id :id} :app} (req->app-and-user! :collaborator req)
-        data (storage-util/delete-file! app-id filename)]
-    (response/ok {:data data})))
-
-;; Deletes a multiple files by name/path (e.g. "demo.png", "profiles/me.jpg")
 (defn files-delete [req]
-  (let [filenames (ex/get-param! req [:body :filenames] seq)
+  (let [filenames (ex/get-param! req [:body :filenames] vec)
         {{app-id :id} :app} (req->app-and-user! :collaborator req)
-        data (storage-util/bulk-delete-files! app-id filenames)]
+        data (storage-coordinator/delete-files! {:app-id app-id
+                                                 :paths filenames})]
     (response/ok {:data data})))
-
-(comment
-  (def app-id  #uuid "524bc106-1f0d-44a0-b222-923505264c47")
-  (def user (instant-user-model/get-by-email {:email "alex@instantdb.com"}))
-  (def guest (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
-  (def refresh-token (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id (:id user)}))
-  (def guest-refresh-token (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id (:id guest)}))
-  (files-get {:params {:app_id app-id}
-              :headers {"authorization" (str "Bearer " (:id refresh-token))}})
-  (files-get {:params {:app_id app-id}
-              :headers {"authorization" (str "Bearer " (:id guest-refresh-token))}})
-  (file-delete {:params {:app_id app-id :filename "pika.webp"}
-                :headers {"authorization" (str "Bearer " (:id refresh-token))}}))
 
 ;; ---
 ;; CLI
@@ -1257,11 +1221,9 @@
 
   (POST "/dash/apps/:app_id/rename" [] app-rename-post)
 
-  (POST "/dash/apps/:app_id/storage/signed-upload-url" [] signed-upload-url-post)
-  (GET "/dash/apps/:app_id/storage/signed-download-url", [] signed-download-url-get)
-  (GET "/dash/apps/:app_id/storage/files" [] files-get)
-  (DELETE "/dash/apps/:app_id/storage/files" [] file-delete) ;; single delete
-  (POST "/dash/apps/:app_id/storage/files/delete" [] files-delete) ;; bulk delete
+  ;; Storage
+  (POST "/dash/apps/:app_id/storage/upload", [] upload-post)
+  (POST "/dash/apps/:app_id/storage/files/delete" [] files-delete)
 
   (POST "/dash/apps/:app_id/schema/push/plan" [] schema-push-plan-post)
   (POST "/dash/apps/:app_id/schema/push/apply" [] schema-push-apply-post)
