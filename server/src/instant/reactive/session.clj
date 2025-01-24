@@ -48,7 +48,10 @@
 (declare receive-q-stop-signal)
 (def handle-receive-timeout-ms 5000)
 
-(def num-receive-workers (* 100 (delay/cpu-count)))
+(def num-receive-workers (* (if config/fewer-vfutures?
+                              20
+                              100)
+                            (delay/cpu-count)))
 
 ;; ------
 ;; handlers
