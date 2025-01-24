@@ -1,5 +1,5 @@
 (ns instant.util.async-test
-  (:require [instant.util.async :refer [vfuture vfut-bg]]
+  (:require [instant.util.async :refer [vfuture vfut-bg tracked-future]]
             [clojure.test :refer [is deftest testing]]))
 
 (deftest vfuture-works
@@ -36,6 +36,45 @@
                  @(vfuture
                     @(vfuture
                        @(vfuture @go-ahead (reset! signal :whoops!))))))]
+      (Thread/sleep 50)
+      (future-cancel v)
+      (Thread/sleep 50)
+      (deliver go-ahead true)
+      (Thread/sleep 50)
+      (is (thrown? java.util.concurrent.CancellationException @v))
+      (is (= @signal nil)))))
+
+(deftest child-tracked-futures-are-canceled
+  (testing "demonstrate the problem"
+    (let [signal (atom nil)
+          go-ahead (promise)
+          v (future @(future @go-ahead (reset! signal :whoops!)))]
+      (Thread/sleep 50)
+      (future-cancel v)
+      (Thread/sleep 50)
+      (deliver go-ahead true)
+      (Thread/sleep 50)
+      (is (thrown? java.util.concurrent.CancellationException @v))
+      (is (= :whoops! @signal))))
+  (testing "demonstrate the fix"
+    (let [signal (atom nil)
+          go-ahead (promise)
+          v (tracked-future @(tracked-future @go-ahead (reset! signal :whoops!)))]
+      (Thread/sleep 50)
+      (future-cancel v)
+      (Thread/sleep 50)
+      (deliver go-ahead true)
+      (Thread/sleep 50)
+      (is (thrown? java.util.concurrent.CancellationException @v))
+      (is (= @signal nil))))
+  (testing "works with multiple levels fix"
+    (let [signal (atom nil)
+          go-ahead (promise)
+          v (tracked-future
+              @(tracked-future
+                 @(tracked-future
+                    @(tracked-future
+                       @(tracked-future @go-ahead (reset! signal :whoops!))))))]
       (Thread/sleep 50)
       (future-cancel v)
       (Thread/sleep 50)
