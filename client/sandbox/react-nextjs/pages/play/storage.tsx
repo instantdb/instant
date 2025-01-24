@@ -6,7 +6,8 @@ import { init } from "@instantdb/react";
 import Login from "../../components/Login";
 import config from "../../config";
 
-const DEFAULT_APP_ID = "524bc106-1f0d-44a0-b222-923505264c47";
+// ID for sandbox app
+const DEFAULT_APP_ID = '2d960014-0690-4dc5-b13f-a3c202663241';
 
 const App = ({ appId }: { appId: string }) => {
   const db = init({

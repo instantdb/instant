@@ -5,8 +5,8 @@ import React from 'react'
 import Login from '../../components/Login'
 import config from "../../config";
 
-// ID for app: instant-storage
-const APP_ID = '831355ee-6a59-4990-8ef3-9c9fe7c26031'
+// ID for sandbox app
+const APP_ID = '2d960014-0690-4dc5-b13f-a3c202663241'
 
 // Types
 // ----------
