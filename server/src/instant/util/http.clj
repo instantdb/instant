@@ -4,7 +4,8 @@
    [instant.util.uuid :as uuid-util]
    [instant.util.exception :as ex]
    [instant.util.tracer :as tracer]
-   [ring.util.http-response :as response]))
+   [ring.util.http-response :as response]
+   [ring.middleware.cors :as cors]))
 
 (defn coerce-bearer-token [bearer-token]
   (some-> bearer-token
@@ -29,9 +30,12 @@
 
 (defn tracer-record-attrs [handler]
   (fn [request]
-    (let [{:keys [uri request-method headers body query-params]} request
-          app-id (get headers "app-id")
-          authorization (get headers "authorization")
+    (let [{:keys [uri request-method headers query-params]} request
+          app-id (or (get headers "app-id")
+                     (get query-params "app-id")
+                     (get query-params "app_id")
+                     (get query-params :app-id)
+                     (get query-params :app_id))
           cli-version (get headers "instant-cli-version")
           core-version (get headers "instant-core-version")
           admin-version (get headers "instant-admin-version")
@@ -41,23 +45,35 @@
                  :method request-method
                  :origin origin
                  :app-id app-id
-                 :authorization authorization
-                 :query-params query-params
                  :cli-version cli-version
                  :core-version core-version
-                 :admin-version admin-version
-                 :body (when (map? body) body)}]
+                 :admin-version admin-version}]
       (tracer/add-data! {:attributes attrs})
       (handler request))))
+
+(defn tracer-record-route
+  "Use with compojure.core/wrap-routes so that the route is added to the
+   request when we get it."
+  [handler]
+  (fn [request]
+    (when-let [route (-> request
+                         :compojure/route
+                         second)]
+      (let [app-id (or (:app_id (:params request))
+                       (:app-id (:params request)))]
+        (tracer/add-data! {:attributes (cond-> {:route route}
+                                         app-id (assoc :app-id app-id))})))
+    (handler request)))
 
 (defn tracer-wrap-span
   "Wraps standard http requests within a span."
   [handler]
   (fn [request]
-    (if (:websocket? request)
-      ;; We skip websocket requests; 
+    (if (or (:websocket? request)
+            (cors/preflight? request))
+      ;; We skip websocket requests;
       ;; Because websockets are long-lived,
-      ;; a parent-span doesn't make sense. 
+      ;; a parent-span doesn't make sense.
       (handler request)
       (tracer/with-span! {:name "http-req"}
         (let [{:keys [status] :as response}  (handler request)]
