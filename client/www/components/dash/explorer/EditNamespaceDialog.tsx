@@ -56,7 +56,7 @@ export function EditNamespaceDialog({
     | { type: 'main' }
     | { type: 'delete' }
     | { type: 'add' }
-    | { type: 'edit'; attrId: string }
+    | { type: 'edit'; attrId: string, isForward: boolean }
   >({ type: 'main' });
 
   async function deleteNs() {
@@ -65,11 +65,9 @@ export function EditNamespaceDialog({
     onClose({ ok: true });
   }
 
-  const screenAttrId = screen.type === 'edit' ? screen.attrId : null;
-
   const screenAttr = useMemo(() => {
-    return namespace.attrs.find((a) => a.id === screenAttrId);
-  }, [screenAttrId, namespace.attrs]);
+    return screen.type === 'edit' && namespace.attrs.find((a) => a.id === screen.attrId && a.isForward === screen.isForward);
+  }, [screen.type === 'edit' ? screen.attrId : null, screen.type === 'edit' ? screen.isForward : null, namespace.attrs]);
 
   return (
     <>
@@ -107,7 +105,7 @@ export function EditNamespaceDialog({
                     className="px-2"
                     size="mini"
                     variant="subtle"
-                    onClick={() => setScreen({ type: 'edit', attrId: attr.id })}
+                    onClick={() => setScreen({ type: 'edit', attrId: attr.id, isForward: attr.isForward })}
                   >
                     Edit
                   </Button>
@@ -1074,7 +1072,7 @@ function EditAttrForm({
   });
 
   const [isCascade, setIsCascade] = useState(() => attr.onDelete === 'cascade');
-  const isCascadeAllowed = relationship === 'one-one' || relationship === 'one-many';;
+  const isCascadeAllowed = relationship === 'one-one' || relationship === 'one-many';
 
   const linkValidation = validateLink({
     attrName,
@@ -1108,8 +1106,6 @@ function EditAttrForm({
         },
       ],
     ];
-
-    console.log('ops', ops);
 
     await db._core._reactor.pushOps(ops);
 

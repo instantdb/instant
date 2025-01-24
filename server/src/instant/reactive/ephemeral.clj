@@ -10,7 +10,7 @@
    [instant.util.coll :as coll]
    [instant.util.hazelcast :as hazelcast]
    [instant.util.tracer :as tracer]
-   [tool])
+   [medley.core :as medley])
   (:import
    (com.hazelcast.config Config)
    (com.hazelcast.core Hazelcast HazelcastInstance)

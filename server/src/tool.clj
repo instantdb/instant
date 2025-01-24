@@ -160,7 +160,7 @@
   "")
 
 (def time-enabled?
-  true)
+  false)
 
 (defmacro time* [msg & body]
   (if time-enabled?

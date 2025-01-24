@@ -152,7 +152,7 @@
 
 (comment
   (resolve-lookups
-   (aurora/conn-pool)
+   (aurora/conn-pool :read)
    #uuid "92cb730c-8b4f-46ef-9925-4fab953694c6"
    [[#uuid "20b65ea3-faad-4e80-863e-87468ff7792f" "joe@instantdb.com"]
     [#uuid "6a089759-2a2f-4898-9bb8-a7bc9f6f791a" "stopa"]]))
@@ -175,7 +175,7 @@
 
 (comment
   (resolve-etypes
-   (aurora/conn-pool)
+   (aurora/conn-pool :read)
    #uuid "0e563ace-d25f-44f6-ae00-4e6b9b6d1b2e"
    [#uuid "4d39508b-9ee2-48a3-b70d-8192d9c5a059"
     #uuid "005a8767-c0e7-4158-bb9a-62ce1a5858ed"

@@ -90,7 +90,8 @@
                          new-attr? (not current-attr)
                          unchanged-attr? (and
                                           (= (get new-attr :cardinality) (get current-attr :cardinality))
-                                          (= (get new-attr :unique?) (get current-attr :unique?)))]
+                                          (= (get new-attr :unique?) (get current-attr :unique?))
+                                          (= (get new-attr :on-delete) (get current-attr :on-delete)))]
                      (cond
                        unchanged-attr? nil
                        new-attr? [:add-attr
@@ -100,7 +101,8 @@
                                    :reverse-identity [(UUID/randomUUID) to-ns to-attr]
                                    :cardinality (:cardinality new-attr)
                                    :unique? (:unique? new-attr)
-                                   :index? (:index? new-attr)}]
+                                   :index? (:index? new-attr)
+                                   :on-delete (:on-delete new-attr)}]
                        :else [:update-attr
                               {:value-type :ref
                                :id (:id current-attr)
@@ -108,7 +110,8 @@
                                :reverse-identity (:reverse-identity current-attr)
                                :cardinality (:cardinality new-attr)
                                :unique? (:unique? new-attr)
-                               :index? (:index? new-attr)}])))
+                               :index? (:index? new-attr)
+                               :on-delete (:on-delete new-attr)}])))
                  new-refs)
         steps  (->> (concat eid-ops blob-ops ref-ops)
                     (filter some?)
@@ -135,42 +138,34 @@
                                                  attrs)))))]
     {:refs refs-indexed :blobs blobs-indexed}))
 
-(def relationships->schema-params {[:many :many] {:cardinality :many
-                                                  :unique? false}
-                                   [:one :one] {:cardinality :one
-                                                :unique? true}
-                                   [:many :one] {:cardinality :many
-                                                 :unique? true}
-                                   [:one :many] {:cardinality :one
-                                                 :unique? false}})
-
 (defn defs->schema [defs]
   (let [{entities :entities links :links} defs
-        refs-indexed (into {} (map (fn [[_ {forward :forward reverse :reverse}]]
+        refs-indexed (into {} (map (fn [[_ {:keys [forward reverse]}]]
                                      [[(:on forward) (:label forward) (:on reverse) (:label reverse)]
-                                      (merge
-                                       {:id nil
-                                        :value-type :ref
-                                        :index? false
-                                        :forward-identity [nil (:on forward) (:label forward)]
-                                        :reverse-identity [nil (:on reverse) (:label reverse)]}
-                                       (get relationships->schema-params
-                                            [(keyword (:has forward)) (keyword (:has reverse))]))])
+                                      {:id               nil
+                                       :value-type       :ref
+                                       :index?           false
+                                       :on-delete        (some-> forward :onDelete keyword)
+                                       :forward-identity [nil (:on forward) (:label forward)]
+                                       :reverse-identity [nil (:on reverse) (:label reverse)]
+                                       :cardinality      (keyword (:has forward))
+                                       :unique?          (= "one" (:has reverse))}])
                                    links))
         blobs-indexed (map-map (fn [[ns-name def]]
                                  (map-map (fn [[attr-name attr-def]]
-                                            {:id nil
-                                             :value-type :blob
-                                             :cardinality :one
-                                             :forward-identity [nil (name ns-name) (name attr-name)]
-                                             :unique? (or (-> attr-def :config :unique) false)
-                                             :index? (or (-> attr-def :config :indexed) false)
+                                            {:id                nil
+                                             :value-type        :blob
+                                             :cardinality       :one
+                                             :forward-identity  [nil (name ns-name) (name attr-name)]
+                                             :unique?           (or (-> attr-def :config :unique) false)
+                                             :index?            (or (-> attr-def :config :indexed) false)
                                              :checked-data-type (let [{:keys [valueType]} attr-def]
                                                                   (when (contains? attr-model/checked-data-types valueType)
                                                                     (keyword valueType)))})
                                           (:attrs def)))
                                entities)]
-    {:refs refs-indexed :blobs blobs-indexed}))
+    {:refs refs-indexed
+     :blobs blobs-indexed}))
 
 (defn dup-message [[etype label]]
   (str etype "->" label ": "
@@ -187,6 +182,12 @@
        "We cannot automatically swap the direction of the link. "
        "To fix this, can: a) swap the `forward` and `reverse` parameters for this link in your schema file, or b) delete the existing link in the dashboard."
        "Check your full schema in the dashboard for a link with the same label names: "
+       "https://www.instantdb.com/dash?s=main&t=explorer"))
+
+(defn cascade-message [[etype label]]
+  (str etype "->" label ": "
+       "Cascade delete is only possible on one-to-one and one-to-many attributes. "
+       "Check your full schema in the dashboard: "
        "https://www.instantdb.com/dash?s=main&t=explorer"))
 
 (defn plan-errors [current-attrs steps]
@@ -212,46 +213,48 @@
              (into {}))
 
         errors
-        (->>
-         steps
-         (filter (comp #{:add-attr} first))
-         (map second)
-         (map #(let [fwd-name
-                     (attr-model/fwd-ident-name %)
+        (concat
+         (for [[op attr] steps
+               :when (= :add-attr op)
+               :let [fwd-name (attr-model/fwd-ident-name attr)
+                     rev-name (attr-model/rev-ident-name attr)
+                     message
+                     (cond
+                       ;; link-backwards-conflict?
+                       (= rev-name (get current-links-mapping-rev fwd-name))
+                       (backwards-link-message fwd-name)
 
-                     rev-name
-                     (attr-model/rev-ident-name %)
+                       ;; link-fwd-exists?
+                       (or (contains? current-links-mapping-fwd fwd-name)
+                           (contains? current-links-mapping-rev fwd-name))
+                       (dup-message fwd-name)
 
-                     link-backwards-conflict?
-                     (= rev-name (get current-links-mapping-rev fwd-name))
+                       ;; link-rev-exists?
+                       (or (contains? current-links-mapping-fwd rev-name)
+                           (contains? current-links-mapping-rev rev-name))
+                       (dup-message rev-name)
 
-                     blob-exists?
-                     (contains? current-blob-idents fwd-name)
-
-                     link-fwd-exists?
-                     (or (contains? current-links-mapping-fwd fwd-name)
-                         (contains? current-links-mapping-rev fwd-name))
-
-                     link-rev-exists?
-                     (or (contains? current-links-mapping-fwd rev-name)
-                         (contains? current-links-mapping-rev rev-name))]
-
-                 (cond
-                   link-backwards-conflict?
-                   (backwards-link-message fwd-name)
-
-                   link-fwd-exists?
-                   (dup-message fwd-name)
-
-                   link-rev-exists?
-                   (dup-message rev-name)
-
-                   blob-exists?
-                   (dup-message fwd-name)
-
-                   :else nil)))
-         (filter some?)
-         (map #(hash-map :in [:schema] :message %)))]
+                       ;; blob-exists?
+                       (contains? current-blob-idents fwd-name)
+                       (dup-message fwd-name))]
+               :when message]
+           {:in [:schema]
+            :message message})
+         (for [[op attr] steps
+               :when (#{:add-attr :update-attr} op)
+               :let [fwd-name (attr-model/fwd-ident-name attr)
+                     _ (prn "op" op "attr" attr)
+                     message
+                     (cond
+                       ;; cascade on :cardinality :many
+                       (and
+                        (= :ref (:value-type attr))
+                        (= :many (:cardinality attr))
+                        (= :cascade (:on-delete attr)))
+                       (cascade-message fwd-name))]
+               :when message]
+           {:in [:schema]
+            :message message}))]
     errors))
 
 (comment
