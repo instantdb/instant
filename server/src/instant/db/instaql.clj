@@ -22,7 +22,9 @@
    [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
-   [medley.core :refer [update-existing-in]])
+   [instant.system-catalog :refer [all-attrs] :rename {all-attrs $system-attrs}]
+   [medley.core :refer [update-existing-in]]
+   [instant.storage.s3 :as instant-s3])
   (:import
    (java.util UUID)))
 
@@ -858,18 +860,47 @@
                     (assoc :join-attr-pat join-attr-pat))]
       form')))
 
+(defn find-row-by-ident-name [rows attrs etype label]
+  (let [aid (attr-model/resolve-attr-id attrs etype label)]
+    (->> rows
+         (filter #(= aid (second (first %))))
+         first)))
+
+(defn compute-$files-triples [{:keys [app-id]} join-rows]
+  (when-let [[eid _ _ t] (ffirst join-rows)]
+    (when-let [path-value (some-> (find-row-by-ident-name join-rows $system-attrs "$files" "path")
+                                  first
+                                  (nth 2))]
+      (let [url-aid (attr-model/resolve-attr-id $system-attrs "$files" "url")
+            url (instant-s3/create-signed-download-url! app-id path-value)]
+        [[[eid url-aid url t]]]))))
+
+(def compute-triples-handler
+  {"$files" compute-$files-triples})
+
+(defn with-computed-triples [current-rows new-triples]
+  (reduce conj current-rows new-triples))
+
 (defn collect-query-results
   "Takes the datalog result from a nested query and the forms to constructs the
    query output.
 
    Assumes the structure of the datalog result matches the structure of the forms."
-  [datalog-result forms]
+  [ctx datalog-result forms]
   (mapv (fn [form child]
           (let [nodes (map (fn [child]
+                             (def child (first (:children child)))
                              (add-children
                               (make-node {:datalog-query (:datalog-query (first child))
-                                          :datalog-result (:result (first child))})
-                              (collect-query-results (first (:children (first child)))
+                                          :datalog-result (let [result (:result (first child))
+                                                                compute-fn (get compute-triples-handler (:k form))]
+                                                            (cond-> result
+                                                              ;; Add computed triples 
+                                                              compute-fn
+                                                              (update :join-rows
+                                                                      (fn [rows]
+                                                                        (reduce conj rows (compute-fn ctx rows))))))})
+                              (collect-query-results ctx (first (:children (first child)))
                                                      (:child-forms form))))
                            (:children child))]
             (add-children
@@ -1023,7 +1054,7 @@
             {:keys [patterns forms]} (instaql-query->patterns ctx o)
             datalog-result (datalog-query-fn (assoc ctx :query-hash query-hash)
                                              patterns)]
-        (collect-query-results (:data datalog-result) forms)))))
+        (collect-query-results ctx (:data datalog-result) forms)))))
 
 ;; BYOP InstaQL
 
