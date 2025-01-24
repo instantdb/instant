@@ -1,5 +1,6 @@
 (ns instant.reactive.receive-queue
   (:require
+   [instant.config :as config]
    [instant.gauges :as gauges]
    [instant.grouped-queue :as grouped-queue])
   (:import
@@ -27,10 +28,15 @@
 
 (defn start [{:keys [group-fn reserve-fn process-fn max-workers]}]
   (let [{:keys [grouped-queue] :as queue-with-workers}
-        (grouped-queue/start-grouped-queue-with-workers {:group-fn group-fn
-                                                         :reserve-fn reserve-fn
-                                                         :process-fn process-fn
-                                                         :max-workers max-workers})]
+        (if config/fewer-vfutures?
+          (grouped-queue/start-grouped-queue-with-cpu-workers {:group-fn group-fn
+                                                               :reserve-fn reserve-fn
+                                                               :process-fn process-fn
+                                                               :worker-count max-workers})
+          (grouped-queue/start-grouped-queue-with-workers {:group-fn group-fn
+                                                           :reserve-fn reserve-fn
+                                                           :process-fn process-fn
+                                                           :max-workers max-workers}))]
     (def receive-q grouped-queue)
     (def cleanup-gauge (gauges/add-gauge-metrics-fn
                         (fn [_] (receive-q-metrics queue-with-workers))))))

@@ -222,3 +222,5 @@
   ;; instantiate the config-map so we can fail early if it's not
   ;; valid
   @config-map)
+
+(defonce fewer-vfutures? (= 0 (rand-int 3)))

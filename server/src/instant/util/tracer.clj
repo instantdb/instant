@@ -86,7 +86,8 @@
         {:keys [code-ns code-line code-file]} source
         default-attributes (cond-> {"host.name" @config/hostname
                                     "process-id" @config/process-id
-                                    "instance-id" @config/instance-id}
+                                    "instance-id" @config/instance-id
+                                    "fewer-vfutures" config/fewer-vfutures?}
                              thread (assoc "thread.name"
                                            (.getName thread)
                                            "thread.id"
