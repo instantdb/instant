@@ -5,9 +5,6 @@ import React from 'react'
 import Login from '../../components/Login'
 import config from "../../config";
 
-// ID for sandbox app
-const APP_ID = '2d960014-0690-4dc5-b13f-a3c202663241'
-
 // Types
 // ----------
 export type Image = {
@@ -21,10 +18,7 @@ type Schema = {
   images: Image
 }
 
-export const db = init({
-  ...config,
-  appId: APP_ID,
-})
+export const db = init(config)
 
 function Wrapper() {
   const { isLoading, user, error } = db.useAuth();

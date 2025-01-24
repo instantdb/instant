@@ -6,14 +6,11 @@ import { init } from "@instantdb/react";
 import Login from "../../components/Login";
 import config from "../../config";
 
-// ID for sandbox app
-const DEFAULT_APP_ID = '2d960014-0690-4dc5-b13f-a3c202663241';
-
-const App = ({ appId }: { appId: string }) => {
+const App = ({ appId }: { appId?: string }) => {
   const db = init({
     ...config,
-    appId: appId,
-  });
+    appId: appId || config.appId,
+  })
 
   const { isLoading, error, user } = db.useAuth();
   if (isLoading) { return <div>Loading...</div>; }
@@ -148,7 +145,8 @@ function Main({ db }: { db: any }) {
 
 function Page() {
   const router = useRouter();
-  const [appId, setAppId] = React.useState<string | null>(null);
+  const [ready, setReady] = React.useState<boolean>(false);
+  const [appId, setAppId] = React.useState<string | undefined>(undefined);
 
   React.useEffect(() => {
     if (!router.isReady) {
@@ -159,9 +157,8 @@ function Page() {
 
     if (appId) {
       setAppId(appId);
-    } else {
-      setAppId(DEFAULT_APP_ID);
     }
+    setReady(true)
   }, [router.isReady]);
 
   return (
@@ -173,7 +170,7 @@ function Page() {
           content="Relational Database, on the client."
         />
       </Head>
-      {!!appId && <App appId={appId} />}
+      {ready && <App appId={appId} />}
     </div>
   );
 }
