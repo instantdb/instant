@@ -9,18 +9,11 @@ import path from "path";
 
 dotenv.config();
 
-// const config = {
-//   apiURI: "http://localhost:8888",
-//   appId: process.env.INSTANT_APP_ID!,
-//   adminToken: process.env.INSTANT_ADMIN_TOKEN!,
-// };
-
 const config = {
   apiURI: "http://localhost:8888",
-  appId: "831355ee-6a59-4990-8ef3-9c9fe7c26031",
-  adminToken: "0e91326c-b05a-4c0c-b50a-229ae49f301f",
+  appId: process.env.INSTANT_APP_ID!,
+  adminToken: process.env.INSTANT_ADMIN_TOKEN!,
 };
-
 
 const PERSONAL_ACCESS_TOKEN = process.env.INSTANT_PERSONAL_ACCESS_TOKEN!;
 
