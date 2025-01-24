@@ -889,7 +889,7 @@
                              (add-children
                               (make-node {:datalog-query (:datalog-query (first child))
                                           :datalog-result (let [result (:result (first child))
-                                                                compute-fn (get compute-triples-handler (:k form))]
+                                                                compute-fn (get compute-triples-handler (:etype form))]
                                                             (cond-> result
                                                               ;; Add computed triples 
                                                               compute-fn
@@ -928,11 +928,13 @@
         patterns))
 
 (defn collect-query-one [query-one-results]
-  (reduce (fn [acc {:keys [pattern-group referenced-etypes]}]
+  (reduce (fn [acc {:keys [pattern-group referenced-etypes form]}]
             (-> acc
+                (update :forms conj form)
                 (update :pattern-groups conj pattern-group)
                 (update :referenced-etypes into referenced-etypes)))
-          {:pattern-groups []
+          {:forms []
+           :pattern-groups []
            :referenced-etypes #{}}
           query-one-results))
 
@@ -975,7 +977,8 @@
          :in (apply conj (:in (:state ctx)) [:$ :aggregate])
          :message "You can not combine aggregates with child queries at this time."}]))
 
-    {:referenced-etypes (set/union #{etype}
+    {:form (assoc form :child-forms child-forms)
+     :referenced-etypes (set/union #{etype}
                                    (:referenced-etypes child-patterns)
                                    where-etypes)
      :pattern-group
@@ -997,15 +1000,16 @@
          :children nil}))}))
 
 (defn instaql-query->patterns [ctx o]
-  (let [forms (->> (->forms! o)
+  (let [forms* (->> (->forms! o)
                    ;; at the top-level, `k` _must_ be the etype
-                   (mapv (fn [{:keys [k] :as form}]
-                           (assoc form :etype k :level 0))))
+                    (mapv (fn [{:keys [k] :as form}]
+                            (assoc form :etype k :level 0))))
         {:keys [pattern-groups
-                referenced-etypes]}
+                referenced-etypes
+                forms]}
         (collect-query-one
          (map (partial query-one (assoc ctx :state {:root o :in []}))
-              forms))]
+              forms*))]
     {:patterns {:children {:pattern-groups pattern-groups}}
      :forms forms
      :referenced-etypes referenced-etypes}))
