@@ -40,9 +40,13 @@
 
 (defn init-hz [env store-conn {:keys [instance-name cluster-name]
                                :or {instance-name "instant-hz-v3"
-                                    cluster-name "instant-server-v1"}}]
+                                    cluster-name "instant-server-v2"}}]
   (-> (java.util.logging.Logger/getLogger "com.hazelcast")
-      (.setLevel java.util.logging.Level/WARNING))
+      (.setLevel (if (= env :prod)
+                   java.util.logging.Level/INFO
+                   java.util.logging.Level/WARNING)))
+  (.setLevel (java.util.logging.Logger/getLogger "com.hazelcast.system.logo")
+             java.util.logging.Level/OFF)
   (System/setProperty "hazelcast.shutdownhook.enabled" "false")
   (System/setProperty "hazelcast.phone.home.enabled" "false")
   (let [config               (Config.)
@@ -58,9 +62,10 @@
       :prod
       (let [ip (aws-util/get-instance-ip)]
         (.setPublicAddress network-config ip)
+        (.setPort network-config (config/get-hz-port))
         (doto aws-config
           (.setEnabled true)
-          (.setProperty "hz-port" "5701")
+          (.setProperty "hz-port" "5701-5708")
           (.setProperty "tag-key" aws-util/environment-tag-name)
           (.setProperty "tag-value" (aws-util/get-environment-tag)))
         (.setEnabled metrics-config true))
