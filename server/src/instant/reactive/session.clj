@@ -8,6 +8,7 @@
    commands."
   (:require
    [clojure.main :refer [root-cause]]
+   [instant.config :as config]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
@@ -47,7 +48,10 @@
 (declare receive-q-stop-signal)
 (def handle-receive-timeout-ms 5000)
 
-(def num-receive-workers (* 100 (delay/cpu-count)))
+(def num-receive-workers (* (if config/fewer-vfutures?
+                              20
+                              100)
+                            (delay/cpu-count)))
 
 ;; ------
 ;; handlers
@@ -506,10 +510,15 @@
             in-progress-stmts (sql/make-statement-tracker)
             debug-info (atom nil)
             event-fut (binding [sql/*in-progress-stmts* in-progress-stmts]
-                        (ua/vfuture (handle-event store-conn
-                                                  session
-                                                  event
-                                                  debug-info)))
+                        (if config/fewer-vfutures?
+                          (ua/tracked-future (handle-event store-conn
+                                                           session
+                                                           event
+                                                           debug-info))
+                          (ua/vfuture (handle-event store-conn
+                                                    session
+                                                    event
+                                                    debug-info))))
             pending-handler {:future event-fut
                              :op (:op event)
                              :in-progress-stmts in-progress-stmts

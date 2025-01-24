@@ -126,6 +126,9 @@
       (.put parent-vfutures fut-id wrapped-fut))
     wrapped-fut))
 
+(defmacro tracked-future [& body]
+  `(future-call clojure.lang.Agent/soloExecutor nil (^{:once true} fn* [] ~@body)))
+
 (defmacro vfuture
   "Takes a body of expressions and yields a future object that will
   invoke the body in a **virtual thread**, and will cache the result and

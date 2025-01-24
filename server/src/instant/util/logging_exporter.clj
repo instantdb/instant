@@ -60,7 +60,8 @@
      "detailed_tx_steps"
      "process_id"
      "instance_id"
-     "query") true
+     "query"
+     "fewer_vfutures") true
     false))
 
 (defn format-attr-value
