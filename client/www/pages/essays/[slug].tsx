@@ -21,7 +21,6 @@ function Prose({ html }: { html: string }) {
 
 const Post = ({ post }: { post: Post }) => {
   const { title, date, mdHTML, authors } = post;
-  const author = authors[0];
   return (
     <LandingContainer>
       <Head>
