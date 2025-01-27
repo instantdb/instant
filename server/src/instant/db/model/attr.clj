@@ -114,34 +114,37 @@
 
 (def ident-name
   "Identities contain an id, etype, and label (in that order) but we consider the ident name to simply be the etype and label"
-  (partial drop 1))
+  next)
 
 (defn fwd-ident-name
   "Returns forward etype and label for an attr"
   [attr]
-  (->> attr :forward-identity ident-name))
+  (-> attr :forward-identity ident-name))
 
 (defn rev-ident-name
   "Returns reverse etype and label for an attr. Note: Reverse identity may not exist"
   [attr]
-  (->> attr :reverse-identity ident-name))
+  (-> attr :reverse-identity ident-name))
 
-(def fwd-etype
+(defn fwd-etype
   "Given an attr, return it's forward etype"
-  (comp second :forward-identity))
+  [attr]
+  (-> attr :forward-identity (nth 1)))
 
-(def fwd-label
+(defn fwd-label
   "Given an attr, return it's forward label"
-  (comp last :forward-identity))
+  [attr]
+  (-> attr :forward-identity (nth 2)))
 
-(def rev-etype
+(defn rev-etype
   "Given an attr, return it's reverse etype or nil"
-  (comp second :reverse-identity))
+  [attr]
+  (-> attr :reverse-identity (nth 1)))
 
 (defn fwd-friendly-name
   "Given an attr, returns `etype.label`"
   [attr]
-  (format "%s.%s" (fwd-etype attr) (fwd-label attr)))
+  (str (fwd-etype attr) "." (fwd-label attr)))
 
 ;; -------
 ;; caching
