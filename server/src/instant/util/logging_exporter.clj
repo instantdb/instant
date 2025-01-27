@@ -160,10 +160,14 @@
 
           (string/starts-with? n "e2e"))))))
 
+(def log-spans?
+  (not= "false" (System/getenv "INSTANT_LOG_SPANS")))
+
 (defn log-spans [spans]
-  (doseq [span spans
-          :when (not (exclude-span? span))]
-    (log/info (span-str span))))
+  (when log-spans?
+    (doseq [span spans
+            :when (not (exclude-span? span))]
+      (log/info (span-str span)))))
 
 (defn export [^AtomicBoolean shutdown? spans]
   (if (.get shutdown?)
