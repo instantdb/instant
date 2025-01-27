@@ -58,6 +58,7 @@
   (by-index x :ident [:users :post]))
 
 (def ^:private not-found (Object.))
+
 (defn update-in-when
   "Like update-in, but only updates when `ks` is present"
   [m ks f & args]
@@ -65,6 +66,14 @@
     (if (identical? old-v not-found)
       m
       (assoc-in m ks (apply f old-v args)))))
+
+(defn update-when
+  "Like update-in, but only updates when `ks` is present"
+  [m k f & args]
+  (let [old-v (get m k not-found)]
+    (if (identical? old-v not-found)
+      m
+      (assoc m k (apply f old-v args)))))
 
 (comment
   (update-in-when {:a {:b 1}} [:a :b] + 1)
@@ -154,3 +163,32 @@
     (every? pred (first colls))
     (every? (fn [args] (apply pred args))
             (apply map vector colls))))
+
+(defn split-by
+  "Returns [(filter pred xs) (remove pred xs)]"
+  [pred xs]
+  (let [[f r] (reduce
+               (fn [[f r] x]
+                 (if (pred x)
+                   [(conj! f x) r]
+                   [f (conj! r x)]))
+               [(transient []) (transient [])] xs)]
+    [(persistent! f) (persistent! r)]))
+
+(defn group-by-to
+  "Like group-by but applies (val-fn x) to values"
+  [key-fn val-fn xs]
+  (persistent!
+   (reduce
+    (fn [m x]
+      (let [k (key-fn x)
+            v (val-fn x)
+            old-v (get m k [])]
+        (assoc! m k (conj old-v v))))
+    (transient {}) xs)))
+
+(defn reduce-tr
+  "Like reduce but makes acc transient/persistent automatically"
+  [f init xs]
+  (persistent!
+   (reduce f (transient init) xs)))

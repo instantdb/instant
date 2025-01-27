@@ -26,8 +26,7 @@
                  (attr-model/insert-multi! (aurora/conn-pool :write)
                                            app-id
                                            new-attrs
-                                           {:allow-reserved-names? true
-                                            :allow-on-deletes? true}))
+                                           {:allow-reserved-names? true}))
            json-ids (keep (fn [a]
                             (when (= "meta" (attr-model/fwd-label a))
                               (:id a)))

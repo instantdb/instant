@@ -64,6 +64,7 @@ export function dbAttrsToExplorerSchema(
           catalog: attrDesc.catalog,
           checkedDataType: attrDesc['checked-data-type'],
           sortable: attrDesc['index?'] && !!attrDesc['checked-data-type'],
+          onDelete: attrDesc['on-delete']
         };
       }
     }

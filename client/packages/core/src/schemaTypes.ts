@@ -117,6 +117,7 @@ export type LinkDef<
     on: FwdEntity;
     label: FwdAttr;
     has: FwdCardinality;
+    onDelete?: 'cascade';
   };
   reverse: {
     on: RevEntity;

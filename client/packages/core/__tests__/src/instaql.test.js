@@ -649,7 +649,7 @@ test("objects are created by etype", () => {
     },
   ).data.users[0];
   expect(stopa.email).toEqual("stopa@instantdb.com");
-  const chunk = tx.user[stopa.id].update({
+  const chunk = tx.not_users[stopa.id].update({
     email: "this-should-not-change-users-stopa@gmail.com",
   });
   const txSteps = instaml.transform({ attrs: store.attrs }, chunk);

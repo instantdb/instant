@@ -354,6 +354,9 @@ function deleteEntity(store, args) {
         deleteInMap(store.aev, [a, e, v]);
         deleteInMap(store.vae, [v, a, e]);
       }
+      if (attr && attr['on-delete'] === 'cascade') {
+        deleteEntity(store, [e, attr["forward-identity"]?.[1]]);
+      }
     });
   }
   // Clear out vae index for `id` if we deleted all the reverse attributes
