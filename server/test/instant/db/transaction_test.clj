@@ -2565,6 +2565,66 @@
                (into #{} (map #(-> % :triple first))
                      (triple-model/fetch (aurora/conn-pool :read) app-id [[:= :attr-id user-id-attr-id]]))))))))
 
+(deftest on-delete-cascade-refs
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [user-id-attr-id     (random-uuid)
+            user-email-attr-id  (random-uuid)
+            user-parent-attr-id (random-uuid)
+            insert-res (attr-model/insert-multi!
+                        (aurora/conn-pool :write)
+                        app-id
+                        [{:id user-id-attr-id
+                          :forward-identity [(random-uuid) "users" "id"]
+                          :value-type :blob
+                          :cardinality :one
+                          :unique? true
+                          :index? true}
+                         {:id user-email-attr-id
+                          :forward-identity [(random-uuid) "users" "email"]
+                          :value-type :blob
+                          :cardinality :one
+                          :unique? true
+                          :index? true}
+                         {:id user-parent-attr-id
+                          :forward-identity [(random-uuid) "users" "friend"]
+                          :reverse-identity [(random-uuid) "users" "friends"]
+                          :value-type :ref
+                          :cardinality :one
+                          :unique? false
+                          :index? false
+                          :on-delete :cascade}]
+                        {})
+            user1-id (random-uuid)
+            user2-id (random-uuid)
+            ctx      {:db               {:conn-pool (aurora/conn-pool :write)}
+                      :app-id           app-id
+                      :attrs            (attr-model/get-by-app-id app-id)
+                      :datalog-query-fn d/query
+                      :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                      :current-user     nil}]
+
+        ;; insert
+        (tx/transact!
+         (aurora/conn-pool :write)
+         (attr-model/get-by-app-id app-id)
+         app-id
+         [[:add-triple user1-id user-id-attr-id     user1-id]
+          [:add-triple user1-id user-parent-attr-id user2-id]
+          [:add-triple user1-id user-email-attr-id  "user1@example.com"]
+          [:add-triple user2-id user-id-attr-id     user2-id]
+          [:add-triple user2-id user-parent-attr-id user1-id]
+          [:add-triple user2-id user-email-attr-id  "user2@example.com"]])
+
+        ;; check
+        (is (= #{user1-id user2-id}
+               (into #{} (map #(-> % :triple first))
+                     (triple-model/fetch (aurora/conn-pool :read) app-id [[:= :attr-id user-id-attr-id]]))))
+
+        (testing "you can try to delete a user that doesn't exist with a lookup ref"
+          (let [res (permissioned-tx/transact! ctx [[:delete-entity [user-email-attr-id "user3@example.com"] "users"]])]
+            (is (= 0 (count (:delete-entity (:results res)))))))))))
+
 (deftest on-delete-cascade-perf
   (with-empty-app
     (fn [{app-id :id}]
