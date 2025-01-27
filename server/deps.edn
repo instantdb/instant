@@ -21,6 +21,7 @@
         cider/cider-nrepl {:mvn/version "0.45.0"}
         amazonica/amazonica {:mvn/version "0.3.167"}
         juji/editscript {:mvn/version "0.6.4"}
+        io.github.tonsky/clojure-plus {:git/sha "c9555d72accf55d313b83387015d766b4960803b"}
 
         org.bouncycastle/bcprov-jdk15on {:mvn/version "1.70"}
         incanter/incanter {:mvn/version "1.9.3"
