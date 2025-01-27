@@ -20,7 +20,8 @@ function Prose({ html }: { html: string }) {
 }
 
 const Post = ({ post }: { post: Post }) => {
-  const { title, date, mdHTML, author } = post;
+  const { title, date, mdHTML, authors } = post;
+  const author = authors[0];
   return (
     <LandingContainer>
       <Head>
@@ -35,13 +36,22 @@ const Post = ({ post }: { post: Post }) => {
         <div className="mb-4 space-y-2 border-b border-gray-300 py-4">
           <H3>{title}</H3>
           <div className="flex justify-between text-xs font-bold uppercase text-gray-500">
-            <a
-              className="font-bold uppercase text-blue-500"
-              href={`https://twitter.com/${author.twitterHandle}`}
-              target="_blank"
-            >
-              {author.name}
-            </a>
+            <span className="space-x-2">
+              {authors.map((author, idx) => {
+                return (
+                  <span>
+                    <a
+                      className="font-bold uppercase text-blue-500"
+                      href={`https://x.com/${author.xHandle}`}
+                      target="_blank"
+                    >
+                      {author.name}
+                    </a>
+                    {idx !== authors.length - 1 ? ', ' : ''}
+                  </span>
+                );
+              })}
+            </span>
             {format(parse(date, 'yyyy-MM-dd', new Date()), 'MMM do, yyyy')}
           </div>
         </div>

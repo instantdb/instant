@@ -11,7 +11,7 @@ marked.use({
   renderer: {
     code(code, language) {
       return ReactDOMServer.renderToString(
-        <Fence code={code} language={language}></Fence>
+        <Fence code={code} language={language}></Fence>,
       );
     },
     ...footnotes,
@@ -22,13 +22,25 @@ marked.use({
 const AUTHORS = {
   stopachka: {
     name: 'Stepan Parunashvili',
-    twitterHandle: 'stopachka',
+    xHandle: 'stopachka',
   },
   nezaj: {
     name: 'Joe Averbukh',
-    twitterHandle: 'JoeAverbukh',
+    xHandle: 'JoeAverbukh',
+  },
+  dww: {
+    name: 'Daniel Woelfel',
+    xHandle: 'DanielWoelfel',
   },
 };
+
+function getAuthor(authorStr) {
+  const handles = authorStr
+    .split(',')
+    .map((x) => x.trim())
+    .map((x) => AUTHORS[x]);
+  return handles;
+}
 
 function getPostBySlug(slug) {
   const file = fs.readFileSync(`./_posts/${slug}.md`, 'utf-8');
@@ -36,7 +48,7 @@ function getPostBySlug(slug) {
   return {
     slug,
     ...data,
-    author: AUTHORS[data.author],
+    authors: getAuthor(data.author),
     content,
   };
 }
@@ -50,7 +62,9 @@ const archivedSlugs = ['stroop'];
 
 export function getAllSlugs() {
   const dir = fs.readdirSync('./_posts');
-  return dir.map((mdName) => removeMdExtension(mdName)).filter((slug) => !archivedSlugs.includes(slug));
+  return dir
+    .map((mdName) => removeMdExtension(mdName))
+    .filter((slug) => !archivedSlugs.includes(slug));
 }
 
 export function getHTMLPostBySlug(slug) {

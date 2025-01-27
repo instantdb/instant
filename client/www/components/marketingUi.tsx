@@ -212,13 +212,15 @@ export function LandingFooter() {
   );
 }
 
+export interface Author {
+  name: string;
+  xHandle: string;
+}
+
 export interface Post {
   title: string;
   slug: string;
   date: string;
   mdHTML: string;
-  author: {
-    name: string;
-    twitterHandle: string;
-  };
+  authors: Author[];
 }
