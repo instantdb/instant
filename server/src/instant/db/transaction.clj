@@ -184,8 +184,10 @@
                          (map second)
                          (filter triple-model/eid-lookup-ref?))
         resolved    (resolve-lookups conn app-id lookup-refs)]
-    (for [[op eid etype] tx-steps]
-      [op (get resolved eid eid) etype])))
+    (for [[op eid etype] tx-steps
+          :let [eid' (get resolved eid eid)]
+          :when (uuid? eid')]
+      [op eid' etype])))
 
 (defn resolve-etypes-for-delete-entity [tx-steps conn app-id]
   (let [untyped-ids (->> tx-steps
