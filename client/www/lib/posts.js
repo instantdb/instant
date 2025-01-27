@@ -34,12 +34,10 @@ const AUTHORS = {
   },
 };
 
-function getAuthor(authorStr) {
-  const handles = authorStr
+function getAuthors(authorStr) {
+  return authorStr
     .split(',')
-    .map((x) => x.trim())
-    .map((x) => AUTHORS[x]);
-  return handles;
+    .map((x) => AUTHORS[x.trim()])
 }
 
 function getPostBySlug(slug) {
@@ -48,7 +46,7 @@ function getPostBySlug(slug) {
   return {
     slug,
     ...data,
-    authors: getAuthor(data.author),
+    authors: getAuthors(data.authors),
     content,
   };
 }
