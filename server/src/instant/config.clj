@@ -223,4 +223,4 @@
   ;; valid
   @config-map)
 
-(defonce fewer-vfutures? (= 0 (rand-int 3)))
+(defonce fewer-vfutures? true)
