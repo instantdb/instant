@@ -2622,8 +2622,8 @@
                      (triple-model/fetch (aurora/conn-pool :read) app-id [[:= :attr-id user-id-attr-id]]))))
 
         (testing "you can try to delete a user that doesn't exist with a lookup ref"
-          (let [res (permissioned-tx/transact! ctx [[:delete-entity [user-email-attr-id "user3@example.com"] "users"]])]
-            (is (= 0 (count (:delete-entity (:results res)))))))))))
+          (validation-err?
+           (permissioned-tx/transact! ctx [[:delete-entity [user-email-attr-id "user3@example.com"] "users"]])))))))
 
 (deftest on-delete-cascade-perf
   (with-empty-app
