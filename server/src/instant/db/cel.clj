@@ -2,6 +2,7 @@
   (:require
    [clojure.set :as clojure-set]
    [clojure.string :as clojure-string]
+   [clojure+.walk :as walk]
    [instant.data.constants :refer [zeneca-app-id]]
    [instant.db.dataloader :as dataloader]
    [instant.db.datalog :as d]
@@ -10,7 +11,6 @@
    [instant.jdbc.aurora :as aurora]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
-   [instant.util.json :refer [->json <-json]]
    [instant.util.tracer :as tracer])
   (:import
    (com.google.protobuf NullValue)
@@ -32,7 +32,8 @@
                     CelRuntime$Program
                     CelRuntimeFactory)
    (dev.cel.validator CelAstValidator CelValidatorFactory)
-   (java.util Map Optional)))
+   (java.util Date Map Optional SimpleTimeZone)
+   (java.text SimpleDateFormat)))
 
 ;; ----
 ;; get-ref
@@ -164,8 +165,19 @@
   (getMeta [_]
     metadata))
 
+(defn stringify [form]
+  (cond
+    (keyword? form)       (subs (str form) 1)
+    (symbol? form)        (str form)
+    (uuid? form)          (str form)
+    (sequential? form)    (vec form)
+    (instance? Date form) (doto (SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ss'Z'")
+                            (.setTimeZone (SimpleTimeZone. 0 "UTC"))
+                            (.format ^Date form))
+    :else                 form))
+
 (defn ->cel-map [metadata m]
-  (CelMap. metadata (<-json (->json m))))
+  (CelMap. metadata (walk/postwalk stringify m)))
 
 (def ^MapType type-obj (MapType/create SimpleType/STRING SimpleType/DYN))
 
