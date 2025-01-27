@@ -266,7 +266,7 @@ Our micro-blog example has the following relationship types:
 
 ### Cascade Delete
 
-If forward link has cardinality `one` (`one-to-one` and `one-to-many` relationships), it can have `onDelete: "cascade"`. In that case, when referenced entity is deleted, all its connected entities will be deleted too:
+If forward link is defined with `has: "one"`, it can have `onDelete: "cascade"`. In that case, when referenced entity is deleted, all its connected entities will be deleted too:
 
 ```typescript
 postAuthor: {

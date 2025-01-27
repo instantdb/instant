@@ -19,8 +19,7 @@
    [instant.model.rule :as rule-model]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.exception :as ex]
-   [instant.util.test :refer [instant-ex-data pretty-perm-q]]
-   [tool])
+   [instant.util.test :refer [instant-ex-data pretty-perm-q]])
   (:import
    (java.util UUID)))
 
@@ -2621,9 +2620,7 @@
                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
                         :current-user     nil}
               tx-steps [[:delete-entity root-user-id "users"]]
-              #_#_res  (tx/transact! (aurora/conn-pool :write) (attr-model/get-by-app-id app-id) app-id tx-steps)
-              res      (tool/time* "on-delete-cascade-perf"
-                                   (permissioned-tx/transact! ctx tx-steps))
+              res      (permissioned-tx/transact! ctx tx-steps)
               dt       (-> (System/nanoTime) (- t0) (/ 1000000.0))
               deleted-triples (count (:delete-entity (:results res)))]
           (is (= (-> @children (* 2) (+ 1)) deleted-triples))

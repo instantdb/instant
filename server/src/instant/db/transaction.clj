@@ -16,8 +16,7 @@
    [instant.util.e2e-tracer :as e2e-tracer]
    [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
-   [next.jdbc :as next-jdbc]
-   [tool]))
+   [next.jdbc :as next-jdbc]))
 
 (s/def ::add-triple-step
   (s/cat :op #{:add-triple} :triple ::triple-model/triple))
@@ -144,8 +143,7 @@
                            [:= :triples.attr_id :lookups.attr_id]
                            [:= :triples.value [:cast :lookups.value :jsonb]]]]
                    :select [:triples.attr_id :triples.value :triples.entity_id]}
-          results (tool/time* "resolve-lookups"
-                              (sql/do-execute! conn (hsql/format query)))]
+          results (sql/do-execute! conn (hsql/format query))]
       (into {}
             (for [{:triples/keys [attr_id value entity_id]} results]
               [[attr_id value] entity_id])))))
@@ -169,8 +167,7 @@
                                    [:= :triples.app_id app-id]
                                    [:in :triples.entity_id entity-ids]]
                  :select-distinct [:triples.entity_id :idents.etype]}
-          res (tool/time* "resolve-etypes"
-                          (sql/do-execute! conn (hsql/format query)))]
+          res (sql/do-execute! conn (hsql/format query))]
       (coll/group-by-to :triples/entity_id :idents/etype res))))
 
 (comment
@@ -227,9 +224,7 @@
                                                          [:= :triples.app_id app-id]]}]]
                        :from   :entids
                        :select :*})
-        #__            #_(println (sql/analyze conn query+args))
-        res          (tool/time* "expand-delete-entity-cascade"
-                                 (sql/execute! conn query+args))
+        res          (sql/execute! conn query+args)
         ids+etypes'  (map (juxt :entity_id :etype) res)]
     (for [[entity_id etype] (set (concat ids+etypes ids+etypes'))]
       [:delete-entity entity_id etype])))

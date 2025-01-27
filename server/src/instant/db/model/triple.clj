@@ -11,8 +11,7 @@
    [instant.util.json :refer [->json <-json]]
    [instant.util.spec :as uspec]
    [instant.util.string :refer [multiline->single-line]]
-   [instant.util.tracer :as tracer]
-   [tool])
+   [instant.util.tracer :as tracer])
   (:import
    (java.util UUID)
    (java.time Instant LocalDate LocalDateTime ZonedDateTime ZoneOffset)
@@ -515,8 +514,7 @@
                 :returning   :*}
         params {:app-id app-id
                 :system-catalog-app-id system-catalog-app-id}]
-    (tool/time* (str "delete-entity-multi! " (count id+etypes) " entities")
-                (sql/do-execute! conn (hsql/format query {:params params})))))
+    (sql/do-execute! conn (hsql/format query {:params params}))))
 
 (defn delete-multi!
   "Deletes triples from postgres.
