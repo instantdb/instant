@@ -422,7 +422,8 @@ function AddAttrForm({
               onChange={setIsCascade}
               label={
                 <span>
-                  <strong>Cascade delete</strong> When <strong>{reverseNamespace?.name}</strong> is deleted, all linked <strong>{namespace.name}</strong> will be deleted automatically
+                  <div><strong>Cascade Delete</strong></div>
+                   When <strong>{attrName}</strong> is deleted, all linked <strong>{namespace.name}</strong> will be deleted automatically
                 </span>
               }
             />
