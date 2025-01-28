@@ -192,7 +192,7 @@ export default class Reactor {
           this._startSocket();
         } else {
           log.info("Changing status from", this.status, "to", STATUS.CLOSED);
-          this._setStatus(STATUS.CLOSED)
+          this._setStatus(STATUS.CLOSED);
         }
       });
     });
@@ -432,13 +432,13 @@ export default class Reactor {
           break;
         }
 
-        // Now that this transaction is accepted, 
-        // We can delete it from our queue. 
+        // Now that this transaction is accepted,
+        // We can delete it from our queue.
         this.pendingMutations.set((prev) => {
           prev.delete(eventId);
           return prev;
         });
-        
+
         // We apply this transaction to all our existing queries
         const txStepsToApply = prevMutation["tx-steps"];
         this.querySubs.set((prev) => {
@@ -451,15 +451,15 @@ export default class Reactor {
             prev[hash].result.store = newStore;
           }
           return prev;
-        })
+        });
 
         const newAttrs = prevMutation["tx-steps"]
           .filter(([action, ..._args]) => action === "add-attr")
           .map(([_action, attr]) => attr)
           .concat(Object.values(this.attrs));
-        
+
         this._setAttrs(newAttrs);
-        
+
         this._finishTransaction("synced", eventId);
         break;
       case "patch-presence": {
@@ -553,10 +553,14 @@ export default class Reactor {
       return;
     }
 
-    const q = msg["original-event"]?.q;
-    if (q && msg["original-event"]?.op === "add-query") {
+    if (
+      msg["original-event"]?.hasOwnProperty("q") &&
+      msg["original-event"]?.op === "add-query"
+    ) {
+      const q = msg["original-event"]?.q;
       const hash = weakHash(q);
       this.notifyQueryError(weakHash(q), errorMessage);
+      console.log(q, hash, eventId, errorMessage);
       this.notifyQueryOnceError(q, hash, eventId, errorMessage);
       return;
     }
@@ -1690,14 +1694,14 @@ export default class Reactor {
   _patchPresencePeers(roomId, edits) {
     const peers = this._presence[roomId]?.result?.peers || {};
     let sessions = Object.fromEntries(
-      Object.entries(peers).map(([k, v]) => [k, {data: v}]),
+      Object.entries(peers).map(([k, v]) => [k, { data: v }]),
     );
-    sessions[this._sessionId] = {data: this._presence[roomId]?.result?.user};
+    sessions[this._sessionId] = { data: this._presence[roomId]?.result?.user };
     for (let [path, op, value] of edits) {
-      if (op === '+' || op === 'r') {
+      if (op === "+" || op === "r") {
         sessions = assocIn(sessions, path, value);
       }
-      if (op === '-') {
+      if (op === "-") {
         sessions = dissocIn(sessions, path);
       }
     }
@@ -1713,7 +1717,11 @@ export default class Reactor {
       Object.entries(sessions).map(([k, v]) => [k, v.data]),
     );
 
-    this._presence = assocIn(this._presence, [roomId, 'result', 'peers'], peers);
+    this._presence = assocIn(
+      this._presence,
+      [roomId, "result", "peers"],
+      peers,
+    );
   }
 
   // --------
