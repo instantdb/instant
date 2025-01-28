@@ -53,6 +53,7 @@ import { TokenContext } from '@/lib/contexts';
 import { EditNamespaceDialog } from '@/components/dash/explorer/EditNamespaceDialog';
 import { EditRowDialog } from '@/components/dash/explorer/EditRowDialog';
 import { useRouter } from 'next/router';
+import { formatBytes } from '@/lib/format';
 
 const OPERATORS = [':', '>', '<'] as const;
 type ParsedQueryPart = {
@@ -1147,6 +1148,14 @@ export function Explorer({
   );
 }
 
+function getExplorerItemVal(item: Record<string, any>, attr: SchemaAttr) {
+  if (attr.namespace === '$files' && attr.name === 'size') {
+    return formatBytes(item.size);
+  }
+
+  return (item as any)[attr.name];
+}
+
 function ExplorerItemVal({
   item,
   attr,
@@ -1156,7 +1165,7 @@ function ExplorerItemVal({
   attr: SchemaAttr;
   onClickLink: () => void;
 }) {
-  const val = (item as any)[attr.name];
+  const val = getExplorerItemVal(item, attr);
 
   const [tipOpen, setTipOpen] = useState(false);
   const [showCopy, setShowCopy] = useState(false);
