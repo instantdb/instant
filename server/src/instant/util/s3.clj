@@ -48,14 +48,14 @@
                        :keys object-keys})))
 
 (defn delete-objects-paginated
-  ([object-keys] (delete-objects default-bucket object-keys))
+  ([object-keys] (delete-objects-paginated default-bucket object-keys))
   ([bucket-name object-keys]
    ;; Limited to 1000 keys per request
    (let [chunks (partition-all 1000 object-keys)]
      (->> chunks
           (mapcat #(s3/delete-objects {:bucket-name bucket-name
                                        :quiet true ;; no response
-                                       :keys %}))))))
+                                       :keys (vec %)}))))))
 
 (defn generate-presigned-url
   ([opts]

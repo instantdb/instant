@@ -49,7 +49,7 @@
 
 (defn bulk-delete-files! [app-id filenames]
   (let [keys (mapv (fn [filename] (->object-key app-id filename)) filenames)]
-    (s3-util/delete-objects keys)))
+    (s3-util/delete-objects-paginated keys)))
 
 (defn create-signed-download-url! [app-id filename]
   (let [expiration (+ (System/currentTimeMillis) (* 1000 60 60 24 7)) ;; 7 days
