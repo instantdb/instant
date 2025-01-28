@@ -64,8 +64,10 @@
    "$oauthClient" "oauclient"
    "path" "path"
    "url" "url"
-   "status" "status"
-   "metadata" "metadata"})
+   "size" "size"
+   "content-type" "c-type"
+   "content-disposition" "cdisp"
+   "key-version" "kv"})
 
 (def shortcodes-label (map-invert label-shortcodes))
 
@@ -276,10 +278,23 @@
               :unique? false
               :index? true
               :checked-data-type :string)
-   (make-attr "$files" "url"
+   (make-attr "$files" "size"
               :unique? false
-              :index? false)
-   (make-attr "$files" "metadata"
+              :index? true
+              :checked-data-type :number)
+   (make-attr "$files" "content-type"
+              :unique? false
+              :index? true
+              :checked-data-type :string)
+   (make-attr "$files" "content-disposition"
+              :unique? false
+              :index? true
+              :checked-data-type :string)
+   (make-attr "$files" "key-version"
+              :unique? false
+              :index? false
+              :checked-data-type :number)
+   (make-attr "$files" "url"
               :unique? false
               :index? false)])
 

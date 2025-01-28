@@ -18,11 +18,16 @@
      :etype etype}
     (fn [{:keys [transact! get-entity-where resolve-id get-entity]}]
       (let [{id :id} (or (get-entity-where {:path path})
-                         {:id (random-uuid)})]
-        (transact! [[:add-triple id (resolve-id :id) id]
-                    [:add-triple id (resolve-id :path) path]
-                    [:add-triple id (resolve-id :metadata) metadata]]
-                   {:allow-$files-update? true})
+                         {:id (random-uuid)})
+            {:keys [size content-type content-disposition]} metadata]
+        (transact!
+         [[:add-triple id (resolve-id :id) id]
+          [:add-triple id (resolve-id :path) path]
+          [:add-triple id (resolve-id :size) size]
+          [:add-triple id (resolve-id :content-type) content-type]
+          [:add-triple id (resolve-id :content-disposition) content-disposition]
+          [:add-triple id (resolve-id :key-version) 1]]
+         {:allow-$files-update? true})
         (get-entity id))))))
 
 (defn get-by-path
