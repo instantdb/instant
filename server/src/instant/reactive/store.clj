@@ -541,9 +541,14 @@
 
 (defn- match-topic-part? [iv-part dq-part]
   (cond
-    (keyword? iv-part) (= iv-part dq-part)
-    (or (symbol? dq-part) (symbol? iv-part)) true
-    (set? dq-part) (intersects? iv-part dq-part)
+    (keyword? iv-part)
+    (= iv-part dq-part)
+
+    (or (symbol? dq-part) (symbol? iv-part))
+    true
+
+    (set? dq-part)
+    (intersects? iv-part dq-part)
 
     (map? dq-part)
     (if-some [{:keys [op value]} (:$comparator dq-part)]
@@ -561,31 +566,23 @@
         (let [not-val (:$not dq-part)]
           (ucoll/seek (partial not= not-val) iv-part))))))
 
-(defn match-topic? [iv-topic dq-topic]
-  (loop [iv-topic (seq iv-topic)
-         dq-topic (seq dq-topic)]
-    (cond
-      (nil? iv-topic)
-      true
-
-      (nil? dq-topic)
-      true
-
-      :else
-      (let [iv-part (first iv-topic)
-            dq-part (first dq-topic)]
-        (if (match-topic-part? iv-part dq-part)
-          (recur (next iv-topic) (next dq-topic))
-          false)))))
+(defn match-topic?
+  [[iv-idx iv-e iv-a iv-v]
+   [dq-idx dq-e dq-a dq-v]]
+  (and
+   (match-topic-part? iv-idx dq-idx)
+   (match-topic-part? iv-e   dq-e)
+   (match-topic-part? iv-a   dq-a)
+   (match-topic-part? iv-v   dq-v)))
 
 (defn matching-topic-intersection? [iv-topics dq-topics]
-  (ucoll/seek (fn [iv-topic]
-                (ucoll/seek
-                 (fn [dq-topic]
-                   (match-topic? iv-topic dq-topic))
-                 dq-topics))
-              iv-topics))
-
+  (ucoll/seek
+   (fn [iv-topic]
+     (ucoll/seek
+      (fn [dq-topic]
+        (match-topic? iv-topic dq-topic))
+      dq-topics))
+   iv-topics))
 
 (defn mark-instaql-queries-stale-tx-data
   "Should be used in a db.fn/call. Returns transactions.
