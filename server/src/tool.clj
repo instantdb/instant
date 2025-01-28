@@ -232,3 +232,9 @@
   `(prof/profile ~options? ~body))
 
 (def prof-serve-ui prof/serve-ui)
+
+(defmacro bench [& body]
+  `(do
+     (require 'criterium.core)
+     (criterium.core/quick-bench ~@body)
+     (flush)))

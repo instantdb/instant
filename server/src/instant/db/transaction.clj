@@ -3,7 +3,7 @@
    [clojure.spec.alpha :as s]
    [clojure.spec.gen.alpha :as gen]
    [clojure.string :as string]
-   [clojure.walk :as w]
+   [clojure+.walk :as walk]
    [honey.sql :as hsql]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as transaction-model]
@@ -16,6 +16,7 @@
    [instant.util.e2e-tracer :as e2e-tracer]
    [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
+   [instant.util.uuid :as uuid]
    [next.jdbc :as next-jdbc]))
 
 (s/def ::add-triple-step
@@ -57,7 +58,7 @@
 (defn- walk-uuids
   "Converts string instances of UUIDs to java UUIDs"
   [m]
-  (w/postwalk #(or (and (string? %) (parse-uuid %)) %) m))
+  (walk/postwalk #(or (uuid/parse-uuid %) %) m))
 
 (defn- assert-coll! [{:keys [in root]} x]
   (when-not (coll? x)
