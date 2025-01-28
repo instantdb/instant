@@ -254,6 +254,14 @@
         (is (= 400
                (:status (blocking-send-msg :error socket {:op :add-query :q {:movie "Foo"}}))))))))
 
+(deftest add-nil-query-rejected
+  (with-session
+    (fn [_store-conn {:keys [socket]}]
+      (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
+      (testing "nil queries are rejected"
+        (is (= 400
+               (:status (blocking-send-msg :error socket {:op :add-query :q nil}))))))))
+
 (deftest add-query-works
   (with-session
     (fn [_store-conn {:keys [socket]}]

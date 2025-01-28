@@ -130,6 +130,11 @@
       (rs/send-event! store-conn (:id app) sess-id {:op :add-query-exists :q q
                                                     :client-event-id client-event-id})
 
+      (nil? q)
+      (ex/throw-validation-err! :add-query
+                                {:q q}
+                                [{:message "Query can not be null."}])
+
       :else
       (let [return-type (keyword (or return-type "join-rows"))
             {app-id :id} app
