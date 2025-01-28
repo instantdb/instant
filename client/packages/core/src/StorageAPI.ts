@@ -17,19 +17,20 @@ export async function uploadFile({
   contentType?: string;
   contentDisposition?: string;
 }) {
-  const formData = new FormData();
-  formData.append('app_id', appId);
-  formData.append('path', path);
-  formData.append('file', file);
-  formData.append('content-type', contentType || file.type);
-  if (contentDisposition) formData.append('content-disposition', contentDisposition);
+  const headers = {
+    app_id: appId,
+    path,
+    authorization: `Bearer ${refreshToken}`,
+    "content-type": contentType || file.type,
+  };
+  if (contentDisposition) {
+    headers["content-disposition"] = contentDisposition;
+  }
 
   const data = await jsonFetch(`${apiURI}/storage/upload`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${refreshToken}`,
-    },
-    body: formData,
+    method: "PUT",
+    headers,
+    body: file,
   });
 
   return data;

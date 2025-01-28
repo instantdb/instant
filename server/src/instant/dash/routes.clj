@@ -3,7 +3,7 @@
             [clojure.string :as string]
             [clojure.set :as set]
             [clojure.tools.logging :as log]
-            [compojure.core :refer [defroutes GET POST DELETE] :as compojure]
+            [compojure.core :refer [defroutes GET POST DELETE PUT] :as compojure]
             [instant.dash.admin :as dash-admin]
             [instant.model.app :as app-model]
             [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
@@ -934,11 +934,11 @@
 ;; ---
 ;; Storage
 
-(defn upload-post [req]
+(defn upload-put [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        params (w/keywordize-keys (get-in req [:multipart-params]))
-        path (ex/get-param! params [:path] string-util/coerce-non-blank-str)
-        file (ex/get-param! params [:file] identity)
+        params (:headers req)
+        path (ex/get-param! params ["path"] string-util/coerce-non-blank-str)
+        file (ex/get-param! req [:body] identity)
         data (storage-coordinator/upload-file!
               {:app-id app-id
                :path path
@@ -1222,7 +1222,7 @@
   (POST "/dash/apps/:app_id/rename" [] app-rename-post)
 
   ;; Storage
-  (POST "/dash/apps/:app_id/storage/upload", [] upload-post)
+  (PUT "/dash/apps/:app_id/storage/upload", [] upload-put)
   (POST "/dash/apps/:app_id/storage/files/delete" [] files-delete)
 
   (POST "/dash/apps/:app_id/schema/push/plan" [] schema-push-plan-post)

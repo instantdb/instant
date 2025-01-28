@@ -1,6 +1,6 @@
 (ns instant.admin.routes
   (:require
-   [compojure.core :as compojure :refer [defroutes DELETE GET POST]]
+   [compojure.core :as compojure :refer [defroutes DELETE GET POST PUT]]
    [instant.admin.model :as admin-model]
    [instant.db.datalog :as d]
    [instant.db.instaql :as iq]
@@ -367,11 +367,11 @@
 ;; ---
 ;; Storage
 
-(defn upload-post [req]
+(defn upload-put [req]
   (let [{app-id :app_id} (req->admin-token! req)
-        params (w/keywordize-keys (get-in req [:multipart-params]))
-        path (ex/get-param! params [:path] string-util/coerce-non-blank-str)
-        file (ex/get-param! params [:file] identity)
+        params (:headers req)
+        path (ex/get-param! params ["path"] string-util/coerce-non-blank-str)
+        file (ex/get-param! req [:body] identity)
         content-type (ex/get-optional-param! params [:content-type] string-util/coerce-non-blank-str)
         data (storage-coordinator/upload-file! {:app-id app-id
                                                 :path path
@@ -490,8 +490,8 @@
   (GET "/admin/storage/signed-download-url", []
     (with-rate-limiting signed-download-url-get))
 
-  (POST "/admin/storage/upload" []
-    (with-rate-limiting upload-post))
+  (PUT "/admin/storage/upload" []
+    (with-rate-limiting upload-put))
   (GET "/admin/storage/files" []
     (with-rate-limiting files-get))
   (DELETE "/admin/storage/files" []

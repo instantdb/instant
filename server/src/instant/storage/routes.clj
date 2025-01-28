@@ -21,10 +21,10 @@
      :content-type (ex/get-optional-param! params [:content-type] string-util/coerce-non-blank-str)
      :content-disposition (ex/get-optional-param! params [:content-disposition] string-util/coerce-non-blank-str)}))
 
-(defn upload-post [req]
-  (let [params (w/keywordize-keys (get-in req [:multipart-params]))
+(defn upload-put [req]
+  (let [params (w/keywordize-keys (:headers req))
         ctx (req->app-file! req params)
-        file (ex/get-param! params [:file] identity)
+        file (ex/get-param! req [:body] identity)
         data (storage-coordinator/upload-file! ctx file)]
     (response/ok {:data data})))
 
@@ -63,7 +63,7 @@
     (response/ok {:data data})))
 
 (defroutes routes
-  (POST "/storage/upload" [] upload-post)
+  (PUT "/storage/upload" [] upload-put)
   (DELETE "/storage/files" [] file-delete)
   (POST "/storage/signed-upload-url" [] create-upload-url-post)
   (PUT "/storage/:upload-id/consume-upload-url" [] consume-upload-url-put)

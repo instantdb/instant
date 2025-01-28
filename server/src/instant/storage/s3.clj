@@ -26,15 +26,10 @@
 ;; ----------------------
 
 (defn upload-file-to-s3 [{:keys [app-id path] :as ctx} file]
+  (when (not (instance? java.io.InputStream file))
+    (throw (Exception. "Unsupported file format")))
   (let [ctx* (assoc ctx :object-key (->object-key app-id path))]
-    (cond
-      (instance? java.io.InputStream file)
-      (s3-util/upload-stream-to-s3 ctx* file)
-
-      (:tempfile file)
-      (s3-util/upload-file-to-s3 ctx* (:tempfile file))
-
-      :else (throw (Exception. "Unsupported file format")))))
+    (s3-util/upload-stream-to-s3 ctx* file)))
 
 (defn format-object [{:keys [key object-metadata]}]
   (-> object-metadata

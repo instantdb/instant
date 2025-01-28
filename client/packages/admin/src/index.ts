@@ -593,8 +593,8 @@ class Auth {
 }
 
 type UploadMetadata = {
-  contentType?: string
-  contentDisposition?: string
+  contentType?: string;
+  contentDisposition?: string;
 } & Record<string, any>;
 
 type StorageFile = {
@@ -628,24 +628,23 @@ class Storage {
     file: Buffer,
     metadata: UploadMetadata = {},
   ): Promise<any> => {
-    const formData = new FormData();
-    formData.append('path', filename);
-    formData.append('file', new Blob([file]));
-    formData.append('content-type', metadata.contentType || 'application/octet-stream');
-    if (metadata.contentDisposition) formData.append('content-disposition', metadata.contentDisposition);
-
-    const headers = authorizedHeaders(this.config)
-    delete headers["content-type"];
+    const headers = {
+      ...authorizedHeaders(this.config),
+      path: filename,
+      "content-type": metadata.contentType || "application/octet-stream",
+    };
+    if (metadata.contentDisposition) {
+      headers["content-disposition"] = metadata.contentDisposition;
+    }
 
     const data = await jsonFetch(`${this.config.apiURI}/admin/storage/upload`, {
-      method: "POST",
+      method: "PUT",
       headers,
-      body: formData
-    })
+      body: file,
+    });
 
     return data;
   };
-
 
   /**
    * Deletes a file by its path name (e.g. "photos/demo.png").

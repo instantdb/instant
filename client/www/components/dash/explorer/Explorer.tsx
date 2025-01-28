@@ -1335,21 +1335,22 @@ async function upload(
   token: string,
   appId: string,
   file: File,
-  customFilename: string
+  customFilename: string,
 ): Promise<boolean> {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('path', customFilename || file.name);
+  const headers = {
+    app_id: appId,
+    path: customFilename || file.name,
+    authorization: `Bearer ${token}`,
+    'content-type': file.type,
+  };
 
   const data = await jsonFetch(
     `${config.apiURI}/dash/apps/${appId}/storage/upload`,
     {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${token}`,
-      },
-      body: formData,
-    }
+      method: 'PUT',
+      headers,
+      body: file,
+    },
   );
 
   return data;
