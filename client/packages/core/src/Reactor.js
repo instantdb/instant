@@ -560,7 +560,6 @@ export default class Reactor {
       const q = msg["original-event"]?.q;
       const hash = weakHash(q);
       this.notifyQueryError(weakHash(q), errorMessage);
-      console.log(q, hash, eventId, errorMessage);
       this.notifyQueryOnceError(q, hash, eventId, errorMessage);
       return;
     }
