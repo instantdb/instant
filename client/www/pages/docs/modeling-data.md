@@ -266,7 +266,7 @@ Our micro-blog example has the following relationship types:
 
 ### Cascade Delete
 
-If forward link is defined with `has: "one"`, it can have `onDelete: "cascade"`. In that case, when referenced entity is deleted, all its connected entities will be deleted too:
+Forward links defined with `has: "one"` can set `onDelete: "cascade"`. In this case, when the reverse entity is deleted, all forward entities will be deleted too:
 
 ```typescript
 postAuthor: {
@@ -274,11 +274,11 @@ postAuthor: {
   reverse: { on: "profiles", has: "many", label: "authoredPosts" },
 }
 
-// this will delete profile and all its posts
+// this will delete profile and all linked posts
 db.tx.profiles[user_id].delete();
 ```
 
-Without `onDelete: "cascade"`, when deleting user, posts will just be unlinked from it, but keep existing.
+Without `onDelete: "cascade"`, deleting a user would simply delete the links but not delete the underlying posts.
 
 ## Publishing your schema
 
