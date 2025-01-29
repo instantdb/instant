@@ -18,7 +18,6 @@ import {
   type Query,
   type Config,
   type InstaQLParams,
-
   type ConnectionStatus,
 
   // schema types

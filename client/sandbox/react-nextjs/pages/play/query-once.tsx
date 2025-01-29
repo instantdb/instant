@@ -13,10 +13,10 @@ import config from "../../config";
 const schema = i.schema({
   entities: {
     onceTest: i.entity({ text: i.string() }),
-  }
+  },
 });
 
-const db = init({...config, schema});
+const db = init({ ...config, schema });
 
 function _subsCount() {
   return Object.values(db._core._reactor.queryOnceDfds).flat().length;

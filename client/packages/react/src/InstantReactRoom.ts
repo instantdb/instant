@@ -291,7 +291,7 @@ export function useTypingIndicator<
   const inputProps = useMemo(() => {
     return { onKeyDown, onBlur };
   }, [onKeyDown, onBlur]);
-  
+
   return {
     active,
     setActive,

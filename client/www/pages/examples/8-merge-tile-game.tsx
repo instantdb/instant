@@ -5,16 +5,16 @@
  * overwriting potential changes from other clients.
  * */
 
-import config from '@/lib/config'; // hide-line
-import { init } from '@instantdb/react';
-import { useEffect, useState } from 'react';
+import config from "@/lib/config"; // hide-line
+import { init } from "@instantdb/react";
+import { useEffect, useState } from "react";
 
 const db = init({
   ...config, // hide-line
   appId: __getAppId(),
 });
 
-const room = db.room('main');
+const room = db.room("main");
 
 export default function App() {
   const [hoveredSquare, setHoveredSquare] = useState(null as string | null);
@@ -129,18 +129,18 @@ export default function App() {
 }
 
 const boardSize = 4;
-const whiteColor = '#ffffff';
+const whiteColor = "#ffffff";
 const defaultColor = whiteColor;
 const colors = [
-  '#ff0000', // Red
-  '#00ff00', // Green
-  '#0000ff', // Blue
-  '#ffff00', // Yellow
-  '#ff00ff', // Purple
-  '#ffa500', // Orange
+  "#ff0000", // Red
+  "#00ff00", // Green
+  "#0000ff", // Blue
+  "#ffff00", // Yellow
+  "#ff00ff", // Purple
+  "#ffa500", // Orange
 ];
 // singleton ID
-const boardId = '83c059e2-ed47-42e5-bdd9-6de88d26c521';
+const boardId = "83c059e2-ed47-42e5-bdd9-6de88d26c521";
 
 function makeEmptyBoard() {
   const emptyBoard: Record<string, string> = {};

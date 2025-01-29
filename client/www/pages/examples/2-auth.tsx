@@ -1,6 +1,6 @@
-import config from '@/lib/config'; // hide-line
-import { init } from '@instantdb/react';
-import { useState } from 'react';
+import config from "@/lib/config"; // hide-line
+import { init } from "@instantdb/react";
+import { useState } from "react";
 
 const db = init({
   ...config, // hide-line
@@ -27,10 +27,10 @@ export default function InstantAuth() {
 
 function Login() {
   const [state, setState] = useState({
-    sentEmail: '',
-    email: '',
+    sentEmail: "",
+    email: "",
     error: null,
-    code: '',
+    code: "",
   });
 
   const { sentEmail, email, code, error } = state;
@@ -93,7 +93,7 @@ function Login() {
         className={cls.input}
         type="text"
         placeholder="Magic code"
-        value={code || ''}
+        value={code || ""}
         onChange={(e) =>
           setState({ ...state, code: e.target.value, error: null })
         }
@@ -105,9 +105,9 @@ function Login() {
 }
 
 const cls = {
-  root: 'flex max-w-xs mx-auto flex-col gap-3 items-center h-screen px-2 pt-12',
-  heading: 'text-lg font-bold',
-  input: 'py-1 border-gray-300 rounded w-full',
-  button: 'bg-blue-500 text-white px-3 py-1 rounded w-full',
-  error: 'text-red-700 text-sm bg-red-50 border-red-500 border p-2',
+  root: "flex max-w-xs mx-auto flex-col gap-3 items-center h-screen px-2 pt-12",
+  heading: "text-lg font-bold",
+  input: "py-1 border-gray-300 rounded w-full",
+  button: "bg-blue-500 text-white px-3 py-1 rounded w-full",
+  error: "text-red-700 text-sm bg-red-50 border-red-500 border p-2",
 };

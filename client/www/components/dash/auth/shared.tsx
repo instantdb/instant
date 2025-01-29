@@ -1,6 +1,6 @@
-import { jsonFetch } from '@/lib/fetch';
-import config from '@/lib/config';
-import { OAuthServiceProvider, OAuthClient } from '@/lib/types';
+import { jsonFetch } from "@/lib/fetch";
+import config from "@/lib/config";
+import { OAuthServiceProvider, OAuthClient } from "@/lib/types";
 
 export function findName(prefix: string, used: Set<string>): string {
   if (!used.has(prefix)) {
@@ -25,10 +25,10 @@ export function addProvider({
   return jsonFetch(
     `${config.apiURI}/dash/apps/${appId}/oauth_service_providers`,
     {
-      method: 'POST',
+      method: "POST",
       headers: {
         authorization: `Bearer ${token}`,
-        'content-type': 'application/json',
+        "content-type": "application/json",
       },
       body: JSON.stringify({ provider_name: providerName }),
     },
@@ -59,10 +59,10 @@ export function addClient({
   meta?: any;
 }): Promise<{ client: OAuthClient }> {
   return jsonFetch(`${config.apiURI}/dash/apps/${appId}/oauth_clients`, {
-    method: 'POST',
+    method: "POST",
     headers: {
       authorization: `Bearer ${token}`,
-      'content-type': 'application/json',
+      "content-type": "application/json",
     },
     body: JSON.stringify({
       provider_id: providerId,
@@ -89,10 +89,10 @@ export function deleteClient({
   return jsonFetch(
     `${config.apiURI}/dash/apps/${appId}/oauth_clients/${clientDatabaseId}`,
     {
-      method: 'DELETE',
+      method: "DELETE",
       headers: {
         authorization: `Bearer ${token}`,
-        'content-type': 'application/json',
+        "content-type": "application/json",
       },
       body: JSON.stringify({}),
     },

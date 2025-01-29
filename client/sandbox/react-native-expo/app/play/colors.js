@@ -3,7 +3,7 @@ import { View, Text, Button, StyleSheet } from "react-native";
 
 import config from "../config";
 
-const { useQuery, transact} = init(config);
+const { useQuery, transact } = init(config);
 
 function App() {
   return <Main />;

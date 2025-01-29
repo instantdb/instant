@@ -1,23 +1,23 @@
-import config from '@/lib/config'; // hide-line
-import { init } from '@instantdb/react';
+import config from "@/lib/config"; // hide-line
+import { init } from "@instantdb/react";
 
 const db = init({
   ...config, // hide-line
   appId: __getAppId(),
 });
 
-const room = db.room('avatars-example', 'avatars-example-1234');
+const room = db.room("avatars-example", "avatars-example-1234");
 
 const userId = Math.random().toString(36).slice(2, 6);
 const randomDarkColor =
-  '#' +
+  "#" +
   [0, 0, 0]
     .map(() =>
       Math.floor(Math.random() * 200)
         .toString(16)
-        .padStart(2, '0'),
+        .padStart(2, "0"),
     )
-    .join('');
+    .join("");
 
 export default function InstantAvatarStack() {
   const presence = room.usePresence({
@@ -33,7 +33,7 @@ export default function InstantAvatarStack() {
     <div className="flex h-screen justify-center items-center">
       {presence.user ? (
         <Avatar
-          key={'user'}
+          key={"user"}
           name={presence.user.name}
           color={presence.user.color}
         />
@@ -48,7 +48,7 @@ export default function InstantAvatarStack() {
 function Avatar({ name, color }: { name: string; color: string }) {
   return (
     <div
-      key={'user'}
+      key={"user"}
       className={avatarClassNames}
       style={{
         borderColor: color,
@@ -63,4 +63,4 @@ function Avatar({ name, color }: { name: string; color: string }) {
 }
 
 const avatarClassNames =
-  'group relative select-none h-10 w-10 bg-gray-50 border border-4 border-black user-select rounded-full first:ml-0 flex justify-center items-center -ml-2 first:ml-0 relative';
+  "group relative select-none h-10 w-10 bg-gray-50 border border-4 border-black user-select rounded-full first:ml-0 flex justify-center items-center -ml-2 first:ml-0 relative";

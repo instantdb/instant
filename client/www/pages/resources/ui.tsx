@@ -14,8 +14,8 @@ import {
   TextInput,
   ToggleCollection,
   ToggleGroup,
-} from '@/components/ui';
-import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
+} from "@/components/ui";
+import { useIsHydrated } from "@/lib/hooks/useIsHydrated";
 
 function Example({
   children,
@@ -47,10 +47,10 @@ export default function UI() {
       <GroupName>Info</GroupName>
       <Example label={`Content`}>
         <Content>
-          <strong>Lorem ipsum</strong> dolor sit amet{' '}
+          <strong>Lorem ipsum</strong> dolor sit amet{" "}
           <a href="#">consectetur</a> adipisicing elit. Possimus dolorem libero
           odio, dicta necessitatibus incidunt rem natus. Maxime dolore in porro
-          excepturi autem necessitatibus suscipit, officiis esse sed{' '}
+          excepturi autem necessitatibus suscipit, officiis esse sed{" "}
           <em>exercitationem ratione?</em>
         </Content>
       </Example>
@@ -114,12 +114,12 @@ export default function UI() {
           onSelect={() => {}}
           tabs={[
             {
-              id: 'a',
-              label: 'Tab A',
+              id: "a",
+              label: "Tab A",
             },
             {
-              id: 'b',
-              label: 'Tab B',
+              id: "b",
+              label: "Tab B",
             },
           ]}
         />
@@ -127,7 +127,7 @@ export default function UI() {
       <Example label={`Select`}>
         <Select
           value="a"
-          options={[{ value: 'a', label: 'a' }]}
+          options={[{ value: "a", label: "a" }]}
           onChange={() => {}}
         />
       </Example>
@@ -135,9 +135,9 @@ export default function UI() {
         <ToggleCollection
           selectedId="a"
           items={[
-            { id: 'a', label: 'item a' },
-            { id: 'b', label: 'item b' },
-            { id: 'c', label: 'item c' },
+            { id: "a", label: "item a" },
+            { id: "b", label: "item b" },
+            { id: "c", label: "item c" },
           ]}
           onChange={() => {}}
         />
@@ -146,17 +146,17 @@ export default function UI() {
         <ToggleGroup
           selectedId="a"
           items={[
-            { id: 'a', label: 'item a' },
-            { id: 'b', label: 'item b' },
-            { id: 'c', label: 'item c' },
+            { id: "a", label: "item a" },
+            { id: "b", label: "item b" },
+            { id: "c", label: "item c" },
           ]}
           onChange={() => {}}
         />
       </Example>
       <GroupName>Buttons</GroupName>
-      {(['primary', 'secondary', 'subtle', 'destructive'] as const).map(
+      {(["primary", "secondary", "subtle", "destructive"] as const).map(
         (variant) =>
-          (['normal', 'mini', 'large', 'xl'] as const).map((size) => (
+          (["normal", "mini", "large", "xl"] as const).map((size) => (
             <Example label={`Button: ${variant}/${size}`}>
               <div className="space-y-2">
                 <div>
@@ -171,11 +171,11 @@ export default function UI() {
                 </div>
               </div>
             </Example>
-          ))
+          )),
       )}
       <GroupName>Misc</GroupName>
       <Example label="Copyable">
-        <Copyable label="Copyable" value={Date.now() + ''} />
+        <Copyable label="Copyable" value={Date.now() + ""} />
       </Example>
       <Example label="CodeEditor">
         <div className="h-[30vh]">

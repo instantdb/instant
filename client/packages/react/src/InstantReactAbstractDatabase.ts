@@ -54,8 +54,8 @@ export default abstract class InstantReactAbstractDatabase<
   static NetworkListener?: any;
 
   constructor(
-    config: InstantConfig<Schema>,  
-    versions?: { [key: string]: string }
+    config: InstantConfig<Schema>,
+    versions?: { [key: string]: string },
   ) {
     this._core = core_init<Schema>(
       config,
@@ -103,7 +103,7 @@ export default abstract class InstantReactAbstractDatabase<
    *  const publish = db.rooms.usePublishTopic(room, 'emoji');
    *  // ...
    */
-  rooms = rooms
+  rooms = rooms;
 
   /**
    * Use this to write data! You can create, update, delete, and link objects
@@ -233,7 +233,9 @@ export default abstract class InstantReactAbstractDatabase<
    *  }
    */
   useConnectionStatus = (): ConnectionStatus => {
-    const statusRef = useRef<ConnectionStatus>(this._core._reactor.status as ConnectionStatus);
+    const statusRef = useRef<ConnectionStatus>(
+      this._core._reactor.status as ConnectionStatus,
+    );
 
     const subscribe = useCallback((cb: Function) => {
       const unsubscribe = this._core.subscribeConnectionStatus((newStatus) => {
@@ -250,12 +252,11 @@ export default abstract class InstantReactAbstractDatabase<
       subscribe,
       () => statusRef.current,
       // For SSR, always return 'connecting' as the initial state
-      () => 'connecting'
+      () => "connecting",
     );
 
     return status;
-  }
-
+  };
 
   /**
    * Use this for one-off queries.

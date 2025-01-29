@@ -13,10 +13,10 @@ function loadScript(src: string, id: string, callback: () => void) {
     return;
   }
 
-  const script = document.createElement('script');
+  const script = document.createElement("script");
   script.src = src;
   script.id = id;
-  script.type = 'text/javascript';
+  script.type = "text/javascript";
   script.async = true;
 
   script.onload = () => {
@@ -60,7 +60,7 @@ async function signInPopup() {
   let nonce = crypto.randomUUID();
   let resp = await AppleID.auth.signIn({
     nonce: nonce,
-    usePopup: true
+    usePopup: true,
   });
   await db.auth.signInWithIdToken({
     clientName: "apple",
@@ -71,20 +71,23 @@ async function signInPopup() {
 
 // 4. Create Login button
 function Login() {
-  const [redirectUrl] = useState(() => db.auth.createAuthorizationURL({
-    clientName: 'apple',
-    redirectURL: window.location.href,
-  }));
+  const [redirectUrl] = useState(() =>
+    db.auth.createAuthorizationURL({
+      clientName: "apple",
+      redirectURL: window.location.href,
+    }),
+  );
 
   useEffect(() => {
-    const scriptUrl = 'https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js';
-    loadScript(scriptUrl, 'appleid_auth', () => {
+    const scriptUrl =
+      "https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js";
+    loadScript(scriptUrl, "appleid_auth", () => {
       let AppleID = (window as any).AppleID;
       if (AppleID) {
         AppleID.auth.renderButton();
         AppleID.auth.init({
-          clientId : 'com.instantdb.signin.test',
-          scope : 'name email',
+          clientId: "com.instantdb.signin.test",
+          scope: "name email",
           redirectURI: window.location.href,
         });
       }
@@ -93,26 +96,30 @@ function Login() {
 
   return (
     <div className="w-lvw h-screen flex flex-col justify-center items-center gap-4">
-        <button style={{
-                         fontFamily: "SF Pro, -apple-system, BlinkMacSystemFont, sans-serif",
-                         background: "#000",
-                         color: "#FFF",
-                         padding: "4pt 12pt",
-                         borderRadius: "4pt",
-                       }}
-                onClick={signInPopup}>
-          􀣺 Sign in with popup
-        </button>
-        <a href={ redirectUrl }
-           style={{
-                   fontFamily: "SF Pro, -apple-system, BlinkMacSystemFont, sans-serif",
-                   background: "#000",
-                   color: "#FFF",
-                   padding: "4pt 12pt",
-                   borderRadius: "4pt",
-                 }}>
-          􀣺 Sign in with redirect
-        </a>
+      <button
+        style={{
+          fontFamily: "SF Pro, -apple-system, BlinkMacSystemFont, sans-serif",
+          background: "#000",
+          color: "#FFF",
+          padding: "4pt 12pt",
+          borderRadius: "4pt",
+        }}
+        onClick={signInPopup}
+      >
+        􀣺 Sign in with popup
+      </button>
+      <a
+        href={redirectUrl}
+        style={{
+          fontFamily: "SF Pro, -apple-system, BlinkMacSystemFont, sans-serif",
+          background: "#000",
+          color: "#FFF",
+          padding: "4pt 12pt",
+          borderRadius: "4pt",
+        }}
+      >
+        􀣺 Sign in with redirect
+      </a>
     </div>
   );
 }

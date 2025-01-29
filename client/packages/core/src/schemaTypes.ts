@@ -82,9 +82,7 @@ export class EntityDef<
     public links: Links,
   ) {}
 
-  asType<
-    _AsType extends Partial<MappedAttrs<Attrs>>,
-  >() {
+  asType<_AsType extends Partial<MappedAttrs<Attrs>>>() {
     return new EntityDef<Attrs, Links, _AsType>(this.attrs, this.links);
   }
 }
@@ -117,7 +115,7 @@ export type LinkDef<
     on: FwdEntity;
     label: FwdAttr;
     has: FwdCardinality;
-    onDelete?: 'cascade';
+    onDelete?: "cascade";
   };
   reverse: {
     on: RevEntity;
@@ -245,14 +243,18 @@ type OptionalKeys<Attrs extends AttrsDefs> = {
  *   - Optional keys => `key?: ValueType`
  */
 type MappedAttrs<Attrs extends AttrsDefs> = {
-  [K in RequiredKeys<Attrs>]: Attrs[K] extends DataAttrDef<infer V, any> ? V : never;
+  [K in RequiredKeys<Attrs>]: Attrs[K] extends DataAttrDef<infer V, any>
+    ? V
+    : never;
 } & {
-  [K in OptionalKeys<Attrs>]?: Attrs[K] extends DataAttrDef<infer V, any> ? V : never;
+  [K in OptionalKeys<Attrs>]?: Attrs[K] extends DataAttrDef<infer V, any>
+    ? V
+    : never;
 };
 
 export type ResolveEntityAttrs<
   EDef extends EntityDef<any, any, any>,
-  ResolvedAttrs = MappedAttrs<EDef["attrs"]>
+  ResolvedAttrs = MappedAttrs<EDef["attrs"]>,
 > =
   EDef extends EntityDef<any, any, infer AsType>
     ? AsType extends void

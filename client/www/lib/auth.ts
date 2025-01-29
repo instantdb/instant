@@ -1,12 +1,12 @@
-import Cookies from 'js-cookie';
-import { useContext, useEffect, useState } from 'react';
-import useSwr, { SWRResponse } from 'swr';
-import config from './config';
-import { jsonFetch, jsonMutate } from './fetch';
-import { TokenContext } from '@/lib/contexts';
-import { InstantError } from './types';
-import { capitalize } from 'lodash';
-import produce, { Draft } from 'immer';
+import Cookies from "js-cookie";
+import { useContext, useEffect, useState } from "react";
+import useSwr, { SWRResponse } from "swr";
+import config from "./config";
+import { jsonFetch, jsonMutate } from "./fetch";
+import { TokenContext } from "@/lib/contexts";
+import { InstantError } from "./types";
+import { capitalize } from "lodash";
+import produce, { Draft } from "immer";
 
 // ----------
 // Auth State
@@ -21,13 +21,13 @@ export type APIResponse<Data> = SWRResponse<Data> & {
 };
 
 function recordLoggedInStateInCookie(authInfo: AuthInfo) {
-  Cookies.set('loggedIn', `${authInfo.token ? 1 : 0}`, { expires: 365 });
+  Cookies.set("loggedIn", `${authInfo.token ? 1 : 0}`, { expires: 365 });
 }
 
 function bootstrapAuthInfo(): AuthInfo {
   const empty = { token: undefined };
-  if (typeof window == 'undefined') return empty;
-  const fromStorage = localStorage.getItem('@AUTH');
+  if (typeof window == "undefined") return empty;
+  const fromStorage = localStorage.getItem("@AUTH");
   const res = fromStorage ? JSON.parse(fromStorage) : empty;
   recordLoggedInStateInCookie(res);
   return res;
@@ -35,7 +35,7 @@ function bootstrapAuthInfo(): AuthInfo {
 
 function saveAuthInfo(authInfo: AuthInfo) {
   recordLoggedInStateInCookie(authInfo);
-  localStorage.setItem('@AUTH', JSON.stringify(authInfo));
+  localStorage.setItem("@AUTH", JSON.stringify(authInfo));
 }
 
 const _AUTH_INFO = bootstrapAuthInfo();
@@ -123,7 +123,7 @@ export function useTokenFetch<Res>(
 // Error Messages
 
 const friendlyName = (s: string) => {
-  return s.replaceAll(/[_-]/g, ' ');
+  return s.replaceAll(/[_-]/g, " ");
 };
 
 const friendlyNameFromIn = (inArr: string[]) => {
@@ -137,17 +137,17 @@ export const messageFromInstantError = (
   const body = e.body;
   if (!body) return;
   switch (body.type) {
-    case 'param-missing':
+    case "param-missing":
       return `${capitalize(friendlyNameFromIn(body.hint.in))} is missing.`;
-    case 'param-malformed':
+    case "param-malformed":
       return `${capitalize(friendlyNameFromIn(body.hint.in))} is malformed`;
-    case 'record-not-found':
-      return `We couldn't find this ${friendlyName(body.hint['record-type'])}`;
-    case 'record-not-unique':
-      return `This ${friendlyName(body.hint['record-type'])} already exists`;
-    case 'validation-failed':
+    case "record-not-found":
+      return `We couldn't find this ${friendlyName(body.hint["record-type"])}`;
+    case "record-not-unique":
+      return `This ${friendlyName(body.hint["record-type"])} already exists`;
+    case "validation-failed":
       const error = body.hint.errors?.[0]?.message;
-      if (typeof error === 'string') {
+      if (typeof error === "string") {
         return error;
       }
       return;
@@ -157,12 +157,12 @@ export const messageFromInstantError = (
 };
 
 /**
-  * Friendly error messages to display to our users
-  * We can add more cases as we encounter them
-*/
+ * Friendly error messages to display to our users
+ * We can add more cases as we encounter them
+ */
 export function friendlyErrorMessage(label: string, message: string) {
   switch (label) {
-    case 'dash-billing':
+    case "dash-billing":
       return friendlyBillingError(message);
     default:
       return message;
@@ -170,8 +170,8 @@ export function friendlyErrorMessage(label: string, message: string) {
 }
 
 function friendlyBillingError(message: string) {
-  if (message.includes('Permission denied')) {
-    return 'Billing management is restricted to the app owner.';
+  if (message.includes("Permission denied")) {
+    return "Billing management is restricted to the app owner.";
   }
   return message;
 }
@@ -181,8 +181,8 @@ function friendlyBillingError(message: string) {
 
 export function sendMagicCode({ email }: { email: string }) {
   return jsonFetch(`${config.apiURI}/dash/auth/send_magic_code`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    method: "POST",
+    headers: { "content-type": "application/json" },
     body: JSON.stringify({ email }),
   });
 }
@@ -197,8 +197,8 @@ export async function verifyMagicCode({
   const res: { token: string } = await jsonFetch(
     `${config.apiURI}/dash/auth/verify_magic_code`,
     {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      method: "POST",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({ email, code }),
     },
   );
@@ -211,16 +211,16 @@ export async function signOut() {
     const token = _AUTH_INFO.token;
     if (token) {
       await jsonFetch(`${config.apiURI}/dash/signout`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'content-type': 'application/json',
+          "content-type": "application/json",
           authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({}),
       });
     }
   } catch (e) {
-    console.error('Error signing out', e);
+    console.error("Error signing out", e);
   }
   change(undefined);
 }
@@ -232,8 +232,8 @@ export async function exchangeOAuthCodeForToken({ code }: { code: string }) {
   const res: { token: string; redirect_path: string } = await jsonFetch(
     `${config.apiURI}/dash/oauth/token`,
     {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      method: "POST",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({ code }),
     },
   );

@@ -40,7 +40,7 @@ export class PersistedObject {
     this.fromJSON = fromJSON;
     this._saveThrottleMs = saveThrottleMs;
     this._pendingSaveCbs = [];
-    this._version = 0; 
+    this._version = 0;
 
     this._load();
   }
@@ -68,8 +68,8 @@ export class PersistedObject {
   isLoading() {
     return this._isLoading;
   }
-  
-  version() { 
+
+  version() {
     return this._version;
   }
 
@@ -124,13 +124,13 @@ export class PersistedObject {
       sub(this.currentValue);
     }
   }
-  
-  subscribe(cb) { 
+
+  subscribe(cb) {
     this._subs.push(cb);
     cb(this.currentValue);
 
     return () => {
       this._subs = this._subs.filter((x) => x !== cb);
-    }
+    };
   }
 }

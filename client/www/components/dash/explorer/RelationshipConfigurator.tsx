@@ -1,6 +1,6 @@
-import { Select, TextInput } from '@/components/ui';
-import { RelationshipKinds } from '@/lib/relationships';
-import { ReactNode } from 'react';
+import { Select, TextInput } from "@/components/ui";
+import { RelationshipKinds } from "@/lib/relationships";
+import { ReactNode } from "react";
 
 export function RelationshipConfigurator({
   attrName,
@@ -35,7 +35,7 @@ export function RelationshipConfigurator({
               <>
                 <strong>
                   {namespaceName}.{attrName}
-                </strong>{' '}
+                </strong>{" "}
                 will link to <strong>{reverseNamespaceName}</strong>
               </>
             ) : (
@@ -55,7 +55,7 @@ export function RelationshipConfigurator({
               <>
                 <strong>
                   {reverseNamespaceName}.{reverseAttrName}
-                </strong>{' '}
+                </strong>{" "}
                 will link to <strong>{namespaceName}</strong>
               </>
             ) : (
@@ -74,17 +74,17 @@ export function RelationshipConfigurator({
             setRelationship(v.value);
           }}
           namespace={namespaceName}
-          reverseNamespace={reverseNamespaceName ?? ''}
+          reverseNamespace={reverseNamespaceName ?? ""}
           attr={attrName}
           reverseAttr={reverseAttrName}
         />
-        <div className={'break-words text-xs text-gray-500'}>
+        <div className={"break-words text-xs text-gray-500"}>
           {isFullLink ? (
             relationshipDescriptions[relationship](
               namespaceName,
               reverseNamespaceName,
               attrName,
-              reverseAttrName
+              reverseAttrName,
             )
           ) : (
             <>&nbsp;</>
@@ -123,24 +123,24 @@ export function RelationshipSelect({
       }}
       options={[
         {
-          label: 'Many-to-many',
-          value: 'many-many',
+          label: "Many-to-many",
+          value: "many-many",
         },
         {
-          label: 'One-to-one',
-          value: 'one-one',
+          label: "One-to-one",
+          value: "one-one",
         },
         {
           label: `${namespace} has-many ${
-            attr || '---'
-          } / ${reverseNamespace} has-one ${reverseAttr || '---'}`,
-          value: 'many-one',
+            attr || "---"
+          } / ${reverseNamespace} has-one ${reverseAttr || "---"}`,
+          value: "many-one",
         },
         {
           label: `${namespace} has-one ${
-            attr || '---'
-          } / ${reverseNamespace} has-many ${reverseAttr || '---'}`,
-          value: 'one-many',
+            attr || "---"
+          } / ${reverseNamespace} has-many ${reverseAttr || "---"}`,
+          value: "one-many",
         },
       ]}
     />
@@ -151,29 +151,29 @@ export const relationshipDescriptions: Record<
   RelationshipKinds,
   (f: string, r: string, fa: string, ra: string) => ReactNode
 > = {
-  'many-many': (fn, rn, fa, ra) => (
+  "many-many": (fn, rn, fa, ra) => (
     <>
-      <strong>{fn}</strong> can have many <strong>{fa}</strong>, and{' '}
-      <strong>{rn}</strong> can be associated with more than one{' '}
+      <strong>{fn}</strong> can have many <strong>{fa}</strong>, and{" "}
+      <strong>{rn}</strong> can be associated with more than one{" "}
       <strong>{ra}</strong>
     </>
   ),
-  'one-one': (fn, rn, fa, ra) => (
+  "one-one": (fn, rn, fa, ra) => (
     <>
-      <strong>{fn}</strong> can have only one <strong>{fa}</strong>, and a{' '}
+      <strong>{fn}</strong> can have only one <strong>{fa}</strong>, and a{" "}
       <strong>{rn}</strong> can only have one <strong>{ra}</strong>
     </>
   ),
-  'many-one': (fn, rn, fa, ra) => (
+  "many-one": (fn, rn, fa, ra) => (
     <>
-      <strong>{fn}</strong> can have many <strong>{fa}</strong>, but{' '}
+      <strong>{fn}</strong> can have many <strong>{fa}</strong>, but{" "}
       <strong>{rn}</strong> can only have one <strong>{ra}</strong>
     </>
   ),
-  'one-many': (fn, rn, fa, ra) => (
+  "one-many": (fn, rn, fa, ra) => (
     <>
-      <strong>{fn}</strong> can have only one <strong>{fa}</strong>, but{' '}
-      <strong>{rn}</strong> can be associated with more than one{' '}
+      <strong>{fn}</strong> can have only one <strong>{fa}</strong>, but{" "}
+      <strong>{rn}</strong> can be associated with more than one{" "}
       <strong>{ra}</strong>
     </>
   ),

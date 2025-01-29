@@ -21,9 +21,9 @@ async function upload(files: FileList) {
   // use the file's current name as the path
   await db.storage.upload(file.name, file);
   // or, give the file a custom name
-  await db.storage.upload('demo.png', file);
+  await db.storage.upload("demo.png", file);
   // or, put it in the `images` subdirectory
-  await db.storage.upload('images/demo.png', file);
+  await db.storage.upload("images/demo.png", file);
   // or, put it in a subdirectory for the current user,
   // and restrict access to this file via Storage permissions
   await db.storage.upload(`${currentUser.id}/demo.png`, file);
@@ -61,9 +61,9 @@ const [imageUrl, setImageUrl] = React.useState<string | null>(null);
 
 React.useEffect(() => {
   db.storage
-    .getDownloadUrl('images/demo.png')
+    .getDownloadUrl("images/demo.png")
     .then((signedUrl) => setImageUrl(signedUrl))
-    .catch((err) => console.error('Failed to get file URL', err));
+    .catch((err) => console.error("Failed to get file URL", err));
 }, []);
 
 return <img src={imageUrl} />;
@@ -120,7 +120,7 @@ function ImageViewer({ image }: { image: Schema.Image }) {
             cachedUrl: url,
             // reset expiration to 7 days from now
             expiresAt: expiresAt,
-          })
+          }),
         );
 
         setImageUrl(url);
@@ -223,14 +223,14 @@ Once again, we use the `db.storage.upload(pathname: string, file: Buffer)` funct
 Note that unlike our browser SDK, the `file` argument must be a `Buffer`:
 
 ```tsx
-import fs from 'fs';
+import fs from "fs";
 
 async function upload(filepath: string) {
   const buffer = fs.readFileSync(filepath);
-  await db.storage.upload('images/demo.png', buffer);
+  await db.storage.upload("images/demo.png", buffer);
   // you can also optionally specify the Content-Type header in the metadata
-  await db.storage.upload('images/demo.png', buffer, {
-    contentType: 'image/png',
+  await db.storage.upload("images/demo.png", buffer, {
+    contentType: "image/png",
   });
 }
 ```
@@ -254,7 +254,7 @@ To retrieve a file URL, we use the `db.storage.getDownloadUrl(pathname: string)`
 This works exactly the same as our browser SDK.
 
 ```ts
-const url = await db.storage.getDownloadUrl('images/demo.png');
+const url = await db.storage.getDownloadUrl("images/demo.png");
 ```
 
 ## Listing all your files
@@ -283,9 +283,9 @@ These functions will **permanently delete** files from storage, so use with extr
 {% /callout %}
 
 ```ts
-const filename = 'demo.txt';
+const filename = "demo.txt";
 await db.storage.delete(filename);
 
-const images = ['images/1.png', 'images/2.png', 'images/3.png'];
+const images = ["images/1.png", "images/2.png", "images/3.png"];
 await db.storage.deleteMany(images);
 ```

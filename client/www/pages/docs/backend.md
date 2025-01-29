@@ -14,7 +14,7 @@ tweaks.
 ### init
 
 ```javascript
-import { init, id } from '@instantdb/admin';
+import { init, id } from "@instantdb/admin";
 
 const db = init({
   appId: INSTANT_APP_ID,
@@ -55,10 +55,8 @@ query once and returns a result.
 ### transact
 
 ```javascript
-const res  = await db.transact([
-  db.tx.todos[id()].update({ title: 'Get fit' })
-])
-console.log("New todo entry made for with tx-id", res["tx-id"])
+const res = await db.transact([db.tx.todos[id()].update({ title: "Get fit" })]);
+console.log("New todo entry made for with tx-id", res["tx-id"]);
 ```
 
 `transact` is an async function that behaves nearly identical to `transact`
@@ -69,8 +67,8 @@ from `@instantdb/react`. It returns a `tx-id` on success.
 `init` also accepts a schema argument:
 
 ```typescript
-import { init, id } from '@instantdb/admin';
-import schema from '../instant.schema.ts';
+import { init, id } from "@instantdb/admin";
+import schema from "../instant.schema.ts";
 
 const db = init({
   appId: process.env.INSTANT_APP_ID,
@@ -92,9 +90,9 @@ You can do this with the `db.asUser` function.
 
 ```javascript
 // Scope by their email
-const scopedDb = db.asUser({ email: 'alyssa_p_hacker@instantdb.com' });
+const scopedDb = db.asUser({ email: "alyssa_p_hacker@instantdb.com" });
 // Or with their auth token
-const token = db.auth.createToken('alyssa_p_hacker@instantdb.com');
+const token = db.auth.createToken("alyssa_p_hacker@instantdb.com");
 const scopedDb = db.asUser({ token });
 // Or use the db as a guest!
 const scopedDb = db.asUser({ guest: true });
@@ -107,7 +105,7 @@ await scopedDb.query({ logs: {} });
 As an admin, you can retrieve an app user record by `email`, `id`, or `refresh_token`. You can do this with the `db.auth.getUser` function.
 
 ```javascript
-const user = await db.auth.getUser({ email: 'alyssa_p_hacker@instantdb.com' });
+const user = await db.auth.getUser({ email: "alyssa_p_hacker@instantdb.com" });
 const user = await db.auth.getUser({
   id: userId,
 });
@@ -122,7 +120,7 @@ You can also delete an app user record by `email`, `id`, or `refresh_token`. You
 
 ```javascript
 const deletedUser = await db.auth.deleteUser({
-  email: 'alyssa_p_hacker@instantdb.com',
+  email: "alyssa_p_hacker@instantdb.com",
 });
 const deletedUser = await db.auth.deleteUser({
   id: userId,
@@ -155,25 +153,25 @@ associated with their email. This can be useful when you want to forcibly log ou
 
 ```javascript
 try {
-  await db.auth.signOut('alyssa_p_hacker@instantdb.com');
-  console.log('Successfully signed out');
+  await db.auth.signOut("alyssa_p_hacker@instantdb.com");
+  console.log("Successfully signed out");
 } catch (err) {
-  console.error('Sign out failed:', err.message);
+  console.error("Sign out failed:", err.message);
 }
 ```
 
 ## Custom Auth
 
-You can use the Admin SDK to create your own authentication flows. To implement custom auth flows, you would make one change in your backend, and one change in your frontend. Here's how it would look: 
+You can use the Admin SDK to create your own authentication flows. To implement custom auth flows, you would make one change in your backend, and one change in your frontend. Here's how it would look:
 
 ### 1. Backend: db.auth.createToken
 
-Create a new `sign-in` endpoint in your backend. 
+Create a new `sign-in` endpoint in your backend.
 
 This endpoint will use `db.auth.createToken` to generate an authentication token for the user:
 
 ```javascript
-app.post('/sign-in', async (req, res) => {
+app.post("/sign-in", async (req, res) => {
   // your custom logic for signing users in
   // ...
   // on success, create and return a token
@@ -192,7 +190,7 @@ Right now we require that every user _must_ have an email. If you need to relax 
 
 ### 2. Frontend: db.auth.signInWithToken
 
-Once your frontend calls your `sign-in` endpoint, it can then use the generated token and sign a user in with `db.auth.signInWithToken`. 
+Once your frontend calls your `sign-in` endpoint, it can then use the generated token and sign a user in with `db.auth.signInWithToken`.
 
 Here's a full example:
 
@@ -275,7 +273,7 @@ function Login() {
 We support a [magic code flow](/docs/auth) out of the box. However, if you'd like to use your own email provider to send the code, you can do this with `db.auth.generateMagicCode` function:
 
 ```typescript
-app.post('/custom-send-magic-code', async (req, res) => {
+app.post("/custom-send-magic-code", async (req, res) => {
   const { code } = await db.auth.generateMagicCode(req.body.email);
   // Now you can use your email provider to send magic codes
   await sendMyCustomMagicCodeEmail(req.body.email, code);
@@ -292,8 +290,8 @@ You can also use the admin SDK to authenticate users in your custom endpoints. T
 In your frontend, the `user` object has a `refresh_token` property. You can pass this token to your endpoint:
 
 ```javascript
-// client 
-import { init } from '@instantdb/react'; 
+// client
+import { init } from '@instantdb/react';
 
 const db = init(/* ... */)
 
@@ -311,11 +309,11 @@ function App() {
 You can then use `auth.verifyToken` to verify the `refresh_token` that was passed in.
 
 ```javascript
-app.post('/custom_endpoint', async (req, res) => {
+app.post("/custom_endpoint", async (req, res) => {
   // verify the token this user passed in
-  const user = await db.auth.verifyToken(req.headers['token']);
+  const user = await db.auth.verifyToken(req.headers["token"]);
   if (!user) {
-    return res.status(400).send('Uh oh, you are not authenticated');
+    return res.status(400).send("Uh oh, you are not authenticated");
   }
   // ...
 });

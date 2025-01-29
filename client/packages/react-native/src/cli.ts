@@ -1,1 +1,1 @@
-export * from '@instantdb/core';
+export * from "@instantdb/core";

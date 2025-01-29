@@ -13,59 +13,58 @@ interface Data {
   notes: string;
 }
 
-const schema = i
-  .schema({
-    entities: {
-      discriminatedUnionExample: i
-        .entity({ x: i.string(), y: i.number(), z: i.number() })
-        .asType<{ x: "foo"; y: 1 } | { x: "bar" }>(),
-      habits: i.entity({
-        name: i.string(),
-        enum: i.string<"a" | "b">(),
-      }),
-      checkins: i.entity({
-        date: i.string(),
-        data: i.json<Data>().optional(),
-        meta: i.string().optional(),
-      }),
-      categories: i.entity({
-        name: i.string(),
-      }),
-    },
-    links: {
-      habitCheckins: {
-        forward: {
-          on: "habits",
-          has: "many",
-          label: "checkins",
-        },
-        reverse: {
-          on: "checkins",
-          has: "one",
-          label: "habit",
-        },
+const schema = i.schema({
+  entities: {
+    discriminatedUnionExample: i
+      .entity({ x: i.string(), y: i.number(), z: i.number() })
+      .asType<{ x: "foo"; y: 1 } | { x: "bar" }>(),
+    habits: i.entity({
+      name: i.string(),
+      enum: i.string<"a" | "b">(),
+    }),
+    checkins: i.entity({
+      date: i.string(),
+      data: i.json<Data>().optional(),
+      meta: i.string().optional(),
+    }),
+    categories: i.entity({
+      name: i.string(),
+    }),
+  },
+  links: {
+    habitCheckins: {
+      forward: {
+        on: "habits",
+        has: "many",
+        label: "checkins",
       },
-      habitCategory: {
-        forward: {
-          on: "habits",
-          has: "one",
-          label: "category",
-        },
-        reverse: {
-          on: "categories",
-          has: "many",
-          label: "habits",
-        },
+      reverse: {
+        on: "checkins",
+        has: "one",
+        label: "habit",
       },
     },
-    rooms: {
-      demo: {
-        presence: i.entity({
-          test: i.number(),
-        }),
-      },  
-    }
-  });
+    habitCategory: {
+      forward: {
+        on: "habits",
+        has: "one",
+        label: "category",
+      },
+      reverse: {
+        on: "categories",
+        has: "many",
+        label: "habits",
+      },
+    },
+  },
+  rooms: {
+    demo: {
+      presence: i.entity({
+        test: i.number(),
+      }),
+    },
+  },
+});
 
 const db = init({
   ...config,

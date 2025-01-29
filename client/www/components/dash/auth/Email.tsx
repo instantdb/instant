@@ -1,9 +1,9 @@
-import { useContext, useState } from 'react';
-import config from '@/lib/config';
-import { jsonMutate } from '@/lib/fetch';
-import { APIResponse } from '@/lib/auth';
-import { TokenContext } from '@/lib/contexts';
-import { DashResponse, InstantApp } from '@/lib/types';
+import { useContext, useState } from "react";
+import config from "@/lib/config";
+import { jsonMutate } from "@/lib/fetch";
+import { APIResponse } from "@/lib/auth";
+import { TokenContext } from "@/lib/contexts";
+import { DashResponse, InstantApp } from "@/lib/types";
 import {
   ActionButton,
   BlockHeading,
@@ -14,10 +14,10 @@ import {
   SectionHeading,
   SubsectionHeading,
   TextInput,
-} from '@/components/ui';
-import { displayInstantStandardError, useForm } from '@/lib/hooks/useForm';
-import { errorToast, successToast } from '@/lib/toast';
-import clsx from 'clsx';
+} from "@/components/ui";
+import { displayInstantStandardError, useForm } from "@/lib/hooks/useForm";
+import { errorToast, successToast } from "@/lib/toast";
+import clsx from "clsx";
 
 export type EmailValues = {
   from: string;
@@ -45,27 +45,27 @@ export function Email({
           `${config.apiURI}/dash/apps/${app.id}/email_templates`,
           {
             body: {
-              'email-type': 'magic-code',
+              "email-type": "magic-code",
               subject: values.subject,
               body: values.bodyHtml,
-              'sender-email': values.senderEmail,
-              'sender-name': values.from,
+              "sender-email": values.senderEmail,
+              "sender-name": values.from,
             },
             token,
-          }
-        )
+          },
+        ),
       )
       .then(
         () => {
-          successToast('Email template saved!');
+          successToast("Email template saved!");
         },
         (errorRes) =>
           displayInstantStandardError(errorRes, form, {
-            'sender-email': 'senderEmail',
-            'sender-name': 'from',
-            body: 'bodyHtml',
-            subject: 'subject',
-          })
+            "sender-email": "senderEmail",
+            "sender-name": "from",
+            body: "bodyHtml",
+            subject: "subject",
+          }),
       );
   }
 
@@ -79,8 +79,8 @@ export function Email({
       ? {
           subject: template.subject,
           bodyHtml: template.body,
-          from: template.name ?? '',
-          senderEmail: template.email ?? '',
+          from: template.name ?? "",
+          senderEmail: template.email ?? "",
         }
       : formDefaults,
   });
@@ -106,11 +106,11 @@ export function Email({
           We provide a few dynamic variables for you to use in your email:
           <ul>
             <li>
-              <VariableName>code</VariableName>, the magic code e.g.{' '}
+              <VariableName>code</VariableName>, the magic code e.g.{" "}
               <strong>123456</strong>
             </li>
             <li>
-              <VariableName>app_title</VariableName>, your app's title, i.e.{' '}
+              <VariableName>app_title</VariableName>, your app's title, i.e.{" "}
               <strong>{app.title}</strong>
             </li>
             <li>
@@ -126,13 +126,13 @@ export function Email({
       </div>
 
       <TextInput
-        {...form.inputProps('subject')}
+        {...form.inputProps("subject")}
         label="Subject"
         placeholder="Hey there!  Your code for {app_title} is: {code}"
       />
 
       <TextInput
-        {...form.inputProps('from')}
+        {...form.inputProps("from")}
         label="From"
         placeholder="YourName from YourCo"
       />
@@ -140,15 +140,15 @@ export function Email({
       <div className="flex flex-col gap-1">
         <Label>Body (HTML or plain-text)</Label>
         <div
-          className={clsx('h-64 border rounded', {
-            'border-red-500': form.getError('bodyHtml'),
+          className={clsx("h-64 border rounded", {
+            "border-red-500": form.getError("bodyHtml"),
           })}
         >
-          <CodeEditor language="html" {...form.inputProps('bodyHtml')} />
+          <CodeEditor language="html" {...form.inputProps("bodyHtml")} />
         </div>
-        {form.getError('bodyHtml') ? (
+        {form.getError("bodyHtml") ? (
           <div className="text-sm text-red-600">
-            {form.getError('bodyHtml')}
+            {form.getError("bodyHtml")}
           </div>
         ) : null}
       </div>
@@ -165,7 +165,7 @@ export function Email({
         </Content>
 
         <TextInput
-          {...form.inputProps('senderEmail')}
+          {...form.inputProps("senderEmail")}
           label="Sender email address"
           placeholder="hi@yourdomain.co"
         />
@@ -185,10 +185,10 @@ export function Email({
                 jsonMutate(
                   `${config.apiURI}/dash/apps/${app.id}/email_templates/${template?.id}`,
                   {
-                    method: 'DELETE',
+                    method: "DELETE",
                     token,
-                  }
-                )
+                  },
+                ),
               );
             }
 
@@ -204,9 +204,9 @@ export function Email({
 function VariableName({ children }: { children: React.ReactNode }) {
   return (
     <span className="font-mono text-sm bg-white rounded px-1 border">
-      {'{'}
+      {"{"}
       {children}
-      {'}'}
+      {"}"}
     </span>
   );
 }
@@ -236,15 +236,15 @@ const defaultMagicCodeEmailHtml = /* html */ `<div style="background: #f6f6f6; f
 `;
 
 const formDefaults = {
-  subject: '{code} is your code for {app_title}',
+  subject: "{code} is your code for {app_title}",
   bodyHtml: defaultMagicCodeEmailHtml,
-  from: '',
-  senderEmail: '',
+  from: "",
+  senderEmail: "",
 };
 
 function validateTemplate(v: string) {
-  if (!v.includes('{code}')) {
-    return { error: 'Must include the template variable {code}' };
+  if (!v.includes("{code}")) {
+    return { error: "Must include the template variable {code}" };
   }
 }
 
@@ -252,11 +252,11 @@ function validateHtml(xmlStr: string) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(
     `<body>${xmlStr}</body>`,
-    'application/xml'
+    "application/xml",
   );
-  const errorNode = doc.querySelector('parsererror');
+  const errorNode = doc.querySelector("parsererror");
 
   if (errorNode) {
-    return { error: 'Invalid HTML' };
+    return { error: "Invalid HTML" };
   }
 }

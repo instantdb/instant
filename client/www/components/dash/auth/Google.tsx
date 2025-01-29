@@ -1,14 +1,36 @@
-import { FormEventHandler, useState, useContext } from 'react';
-import { errorToast } from '@/lib/toast';
-import { TokenContext } from '@/lib/contexts';
-import { InstantApp, InstantError, OAuthClient, OAuthServiceProvider } from '@/lib/types';
-import { addProvider, addClient, deleteClient, findName } from './shared';
-import { messageFromInstantError } from '@/lib/auth';
-import { Button, Checkbox, Content, Copyable, Copytext, Dialog, Divider, Fence, SectionHeading, SubsectionHeading, TextInput, useDialog } from '@/components/ui';
-import Image from 'next/image';
-import googleIconSvg from '../../../public/img/google_g.svg';
-import * as Collapsible from '@radix-ui/react-collapsible';
-import { PlusIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/solid';
+import { FormEventHandler, useState, useContext } from "react";
+import { errorToast } from "@/lib/toast";
+import { TokenContext } from "@/lib/contexts";
+import {
+  InstantApp,
+  InstantError,
+  OAuthClient,
+  OAuthServiceProvider,
+} from "@/lib/types";
+import { addProvider, addClient, deleteClient, findName } from "./shared";
+import { messageFromInstantError } from "@/lib/auth";
+import {
+  Button,
+  Checkbox,
+  Content,
+  Copyable,
+  Copytext,
+  Dialog,
+  Divider,
+  Fence,
+  SectionHeading,
+  SubsectionHeading,
+  TextInput,
+  useDialog,
+} from "@/components/ui";
+import Image from "next/image";
+import googleIconSvg from "../../../public/img/google_g.svg";
+import * as Collapsible from "@radix-ui/react-collapsible";
+import {
+  PlusIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+} from "@heroicons/react/solid";
 
 export function AddClientForm({
   app,
@@ -24,25 +46,27 @@ export function AddClientForm({
   usedClientNames: Set<string>;
 }) {
   const token = useContext(TokenContext);
-  const [clientName, setClientName] = useState<string>(() => findName('google', usedClientNames));
-  const [clientId, setClientId] = useState<string>('');
-  const [clientSecret, setClientSecret] = useState<string>('');
+  const [clientName, setClientName] = useState<string>(() =>
+    findName("google", usedClientNames),
+  );
+  const [clientId, setClientId] = useState<string>("");
+  const [clientSecret, setClientSecret] = useState<string>("");
   const [updatedRedirectURL, setUpdatedRedirectURL] = useState(false);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const validationError = () => {
     if (!clientName) {
-      return 'Missing unique name';
+      return "Missing unique name";
     }
     if (usedClientNames.has(clientName)) {
       return `The unique name '${clientName}' is already in use.`;
     }
     if (!clientId) {
-      return 'Missing client id';
+      return "Missing client id";
     }
     if (!clientSecret) {
-      return 'Missing client secret';
+      return "Missing client secret";
     }
   };
 
@@ -62,15 +86,16 @@ export function AddClientForm({
         clientName,
         clientId,
         clientSecret,
-        authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
-        tokenEndpoint: 'https://oauth2.googleapis.com/token',
-        discoveryEndpoint: 'https://accounts.google.com/.well-known/openid-configuration',
+        authorizationEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
+        tokenEndpoint: "https://oauth2.googleapis.com/token",
+        discoveryEndpoint:
+          "https://accounts.google.com/.well-known/openid-configuration",
       });
       onAddClient(resp.client);
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || 'Error creating client.';
+        messageFromInstantError(e as InstantError) || "Error creating client.";
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);
@@ -98,7 +123,7 @@ export function AddClientForm({
         onChange={setClientId}
         label={
           <>
-            Client ID from{' '}
+            Client ID from{" "}
             <a
               className="underline"
               target="_blank"
@@ -118,7 +143,7 @@ export function AddClientForm({
         onChange={setClientSecret}
         label={
           <>
-            Client secret from{' '}
+            Client secret from{" "}
             <a
               className="underline"
               target="_blank"
@@ -132,9 +157,9 @@ export function AddClientForm({
       />
       <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
         <p className="overflow-hidden">
-          Add{' '}
-          <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
-          to the "Authorized redirect URIs" on your{' '}
+          Add{" "}
+          <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{" "}
+          to the "Authorized redirect URIs" on your{" "}
           <a
             className="underline"
             target="_blank"
@@ -142,7 +167,7 @@ export function AddClientForm({
             href={
               clientId
                 ? `https://console.cloud.google.com/apis/credentials/oauthclient/${clientId}`
-                : 'https://console.developers.google.com/apis/credentials'
+                : "https://console.developers.google.com/apis/credentials"
             }
           >
             Google OAuth client
@@ -180,14 +205,14 @@ export function AddGoogleProviderForm({
       const resp = await addProvider({
         token,
         appId: app.id,
-        providerName: 'google',
+        providerName: "google",
       });
       onAddProvider(resp.provider);
     } catch (e) {
       console.error(e);
       const msg =
         messageFromInstantError(e as InstantError) ||
-        'There was an error setting up Google.';
+        "There was an error setting up Google.";
       errorToast(msg, { autoClose: 5000 });
       // report error
     } finally {
@@ -239,7 +264,7 @@ export function Client({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || 'Error deleting client.';
+        messageFromInstantError(e as InstantError) || "Error deleting client.";
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);
@@ -265,10 +290,10 @@ const url = db.auth.createAuthorizationURL({
         <Collapsible.Trigger className="flex p-4 hover:bg-gray-100 bg-gray-50">
           <div className="flex flex-1 justify-between items-center">
             <div className="flex gap-2">
-              {' '}
+              {" "}
               <Image alt="google logo" src={googleIconSvg} />
               <SectionHeading>
-                {client.client_name}{' '}
+                {client.client_name}{" "}
                 <span className="text-gray-400">(Google)</span>
               </SectionHeading>
             </div>
@@ -282,12 +307,14 @@ const url = db.auth.createAuthorizationURL({
         <Collapsible.Content className="">
           <div className="p-4 flex flex-col gap-4 border-t">
             <Copyable label="Client name" value={client.client_name} />
-            <Copyable label="Google client ID" value={client.client_id || ''} />
+            <Copyable label="Google client ID" value={client.client_id || ""} />
             <SubsectionHeading>
-              <a className="underline" href="/docs/auth/google-auth">Setup and usage</a>
+              <a className="underline" href="/docs/auth/google-auth">
+                Setup and usage
+              </a>
             </SubsectionHeading>
             <Content>
-              <strong>1.</strong> Navigate to{' '}
+              <strong>1.</strong> Navigate to{" "}
               <a
                 className="underline"
                 href={`https://console.cloud.google.com/apis/credentials/oauthclient/${client.client_id}`}
@@ -295,7 +322,7 @@ const url = db.auth.createAuthorizationURL({
                 rel="noopener noreferer"
               >
                 Google OAuth client
-              </a>{' '}
+              </a>{" "}
               and add Instant's redirect URL under "Authorized redirect URIs
             </Content>
             <Copyable
@@ -403,7 +430,8 @@ export function GoogleClients({
         </>
       ) : (
         <Button onClick={() => setShowAddClientForm(true)} variant="secondary">
-          <PlusIcon height={14} /> Add {clients.length > 0 ? 'another ' : ''}Google client
+          <PlusIcon height={14} /> Add {clients.length > 0 ? "another " : ""}
+          Google client
         </Button>
       )}
     </div>

@@ -47,7 +47,8 @@ function Main() {
           className="bg-black text-white"
           onClick={() => {
             db.transact(
-              query.data?.stickers.map((x) => db.tx.strickers[x.id].delete()) ?? [],
+              query.data?.stickers.map((x) => db.tx.strickers[x.id].delete()) ??
+                [],
             );
           }}
         >

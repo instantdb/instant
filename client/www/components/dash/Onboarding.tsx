@@ -4,20 +4,20 @@ import React, {
   useContext,
   useEffect,
   useState,
-} from 'react';
+} from "react";
 
-import { v4 } from 'uuid';
+import { v4 } from "uuid";
 
-import config from '@/lib/config';
-import { TokenContext } from '@/lib/contexts';
-import { jsonFetch } from '@/lib/fetch';
+import config from "@/lib/config";
+import { TokenContext } from "@/lib/contexts";
+import { jsonFetch } from "@/lib/fetch";
 import {
   Button,
   Content,
   Label,
   ScreenHeading,
   TextInput,
-} from '@/components/ui';
+} from "@/components/ui";
 
 type ProfileCreateState = { isLoading: boolean; error?: string };
 type AppError = { body: { message: string } | undefined };
@@ -35,20 +35,20 @@ type App = {
 
 function fetchDash(token: string) {
   return jsonFetch(`${config.apiURI}/dash`, {
-    method: 'GET',
+    method: "GET",
     headers: {
       authorization: `Bearer ${token}`,
-      'content-type': 'application/json',
+      "content-type": "application/json",
     },
   });
 }
 
 export function submitProfile(token: string, profile: Profile) {
   return jsonFetch(`${config.apiURI}/dash/profiles`, {
-    method: 'POST',
+    method: "POST",
     headers: {
       authorization: `Bearer ${token}`,
-      'content-type': 'application/json',
+      "content-type": "application/json",
     },
     body: JSON.stringify(profile),
   });
@@ -56,13 +56,13 @@ export function submitProfile(token: string, profile: Profile) {
 
 export function createApp(
   token: string,
-  toCreate: { id: string; title: string; admin_token: string }
+  toCreate: { id: string; title: string; admin_token: string },
 ) {
   return jsonFetch(`${config.apiURI}/dash/apps`, {
-    method: 'POST',
+    method: "POST",
     headers: {
       authorization: `Bearer ${token}`,
-      'content-type': 'application/json',
+      "content-type": "application/json",
     },
     body: JSON.stringify(toCreate),
   });
@@ -96,11 +96,11 @@ export function useDash(): [DashState, Dispatch<SetStateAction<DashState>>] {
           isLoading: false,
           error: err.body
             ? err
-            : { body: { message: err.message || 'Uh oh, we goofed up' } },
+            : { body: { message: err.message || "Uh oh, we goofed up" } },
           apps: undefined,
           profile: undefined,
         });
-      }
+      },
     );
   }, [token]);
 
@@ -140,11 +140,11 @@ function isBlank(str: string | undefined) {
 
 function ProfileScreen(props: {
   profileCreateState: ProfileCreateState;
-  onProfileSubmit: (meta: Profile['meta']) => void;
+  onProfileSubmit: (meta: Profile["meta"]) => void;
 }) {
   const { error, isLoading } = props.profileCreateState;
-  const [heard, setHeard] = useState('');
-  const [build, setBuild] = useState('');
+  const [heard, setHeard] = useState("");
+  const [build, setBuild] = useState("");
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -185,7 +185,7 @@ function ProfileScreen(props: {
           type="submit"
           disabled={isBlank(build) || isBlank(heard) || isLoading}
         >
-          {isLoading ? '...' : 'Onwards!'}
+          {isLoading ? "..." : "Onwards!"}
         </Button>
         {error ? (
           <div className="mb-4 rounded bg-gray-200 p-2 text-orange-500">
@@ -249,19 +249,19 @@ function CreateFirstAppScreen(props: {
 export function OnboardingScreen(props: {
   profile?: Profile;
   profileCreateState: ProfileCreateState;
-  onProfileSubmit: (meta: Profile['meta']) => void;
+  onProfileSubmit: (meta: Profile["meta"]) => void;
   appCreateState: AppCreateState;
   onAppNameChange: (appName: string) => void;
   onAppCreate: () => void;
 }) {
   const { profile, appCreateState, onAppCreate, onAppNameChange } = props;
-  const [step, setStep] = useState('welcome');
+  const [step, setStep] = useState("welcome");
 
-  if (step === 'welcome') {
+  if (step === "welcome") {
     return (
       <WelcomeScreen
         onClick={() => {
-          setStep(profile ? 'create' : 'profile');
+          setStep(profile ? "create" : "profile");
         }}
       />
     );
@@ -291,7 +291,7 @@ export function Onboarding({
   const [dashState, setDashState] = useDash();
   const [appCreateState, setAppCreateState] = useState<AppCreateState>({
     isLoading: false,
-    appName: '',
+    appName: "",
     error: undefined,
   });
   const [profileCreateState, setProfileCreateState] =
@@ -300,13 +300,13 @@ export function Onboarding({
       error: undefined,
     });
   const [selectedPage, setSelectedPage] = useState<
-    'create-app' | 'newbie-create-app' | string | undefined
+    "create-app" | "newbie-create-app" | string | undefined
   >(undefined);
 
   const onAppNameChange = (appName: string) =>
     setAppCreateState((prev) => ({ ...prev, appName }));
 
-  const onProfileSubmit = (meta: Profile['meta']) => {
+  const onProfileSubmit = (meta: Profile["meta"]) => {
     if (dashState.error || dashState.isLoading || profileCreateState.isLoading)
       return;
     const profile = { meta: meta };
@@ -322,13 +322,13 @@ export function Onboarding({
       (e: AppError) => {
         setProfileCreateState({
           isLoading: false,
-          error: e.body?.message || 'Uh oh, we goofed up. Please ping us',
+          error: e.body?.message || "Uh oh, we goofed up. Please ping us",
         });
         setDashState({
           ...dashState,
           profile: undefined,
         });
-      }
+      },
     );
   };
 
@@ -354,14 +354,14 @@ export function Onboarding({
         setAppCreateState((prev) => ({
           ...prev,
           isLoading: false,
-          error: e.body?.message || 'Uh oh, we goofed up. Please ping us',
+          error: e.body?.message || "Uh oh, we goofed up. Please ping us",
         }));
         setDashState({
           ...dashState,
           apps: dashState.apps.filter((x) => x.id !== toCreate.id),
         });
         setSelectedPage(prevSelectedAppId);
-      }
+      },
     );
   };
 

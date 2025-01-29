@@ -34,7 +34,12 @@ import type {
   InstaQLEntity,
   InstaQLResult,
 } from "./queryTypes";
-import type { AuthState, User, AuthResult, ConnectionStatus } from "./clientTypes";
+import type {
+  AuthState,
+  User,
+  AuthResult,
+  ConnectionStatus,
+} from "./clientTypes";
 import type {
   InstantQuery,
   InstantQueryResult,
@@ -485,7 +490,9 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
    *     console.log('Connection status:', connectionState);
    *   });
    */
-  subscribeConnectionStatus(cb: (status: ConnectionStatus) => void): UnsubscribeFn {
+  subscribeConnectionStatus(
+    cb: (status: ConnectionStatus) => void,
+  ): UnsubscribeFn {
     return this._reactor.subscribeConnectionStatus(cb);
   }
 
@@ -572,7 +579,7 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
  *  import schema from ""../instant.schema.ts";
  *
  *  const db = init({ appId: "my-app-id", schema })
- *  
+ *
  *  // To learn more: https://instantdb.com/docs/modeling-data
  */
 function init<
@@ -638,7 +645,7 @@ type InstantRules = {
 /**
  * @deprecated
  * `init_experimental` is deprecated. You can replace it with `init`.
- * 
+ *
  * @example
  *
  * // Before

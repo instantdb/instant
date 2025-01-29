@@ -2,12 +2,12 @@
  * Footnotes extension for marked.js
  * Inspo: https://github.com/markedjs/marked/issues/1562#issuecomment-1213367729
  */
-import { marked } from 'marked';
+import { marked } from "marked";
 
 const footnoteMatch = /^\[\^([^\]]+)\]:([\s\S]*)$/;
 const referenceMatch = /\[\^([^\]]+)\](?!\()/g;
-const referencePrefix = 'marked-fnref';
-const footnotePrefix = 'marked-fn';
+const referencePrefix = "marked-fnref";
+const footnotePrefix = "marked-fn";
 const footnoteTemplate = (ref, text) => {
   return `<a id="${footnotePrefix}-${ref}" href="#${referencePrefix}-${ref}">[${ref}]</a> ${text}`;
 };

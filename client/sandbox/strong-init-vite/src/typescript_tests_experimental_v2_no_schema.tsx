@@ -53,21 +53,26 @@ const reactDB = react_init({
 function ReactNormalApp() {
   // rooms
   const reactRoom = reactDB.room("chat");
-  
+
   const reactPresence = reactRoom.usePresence({ keys: ["name"] });
   const _reactPresenceUser = reactPresence.user!;
   const _reactPresencePeers = reactPresence.peers!;
   _reactPresenceUser.name;
   _reactPresencePeers[0].name;
 
-  const reactPresenceNew = reactDB.rooms.usePresence(reactRoom, {keys: ["name"]});
+  const reactPresenceNew = reactDB.rooms.usePresence(reactRoom, {
+    keys: ["name"],
+  });
   const _reactPresenceUserNew = reactPresenceNew.user!;
   const _reactPresencePeersNew = reactPresenceNew.peers!;
   _reactPresenceUserNew.name;
   _reactPresencePeersNew[0].name;
 
   const _reactPublishEmoji = reactRoom.usePublishTopic("emoji");
-  const _reactPublishEmojiNew = reactDB.rooms.usePublishTopic(reactRoom, "emoji");
+  const _reactPublishEmojiNew = reactDB.rooms.usePublishTopic(
+    reactRoom,
+    "emoji",
+  );
 
   // queries
   const { isLoading, error, data } = reactDB.useQuery({
@@ -112,14 +117,19 @@ function ReactNativeNormalApp() {
   const _reactPresencePeers = reactPresence.peers!;
   _reactPresenceUser.name;
   _reactPresencePeers[0].name;
-  
-  const reactPresenceNew = reactNativeDB.rooms.usePresence(reactRoom, { keys: ["name"] });
+
+  const reactPresenceNew = reactNativeDB.rooms.usePresence(reactRoom, {
+    keys: ["name"],
+  });
   const _reactPresenceUserNew = reactPresenceNew.user!;
   const _reactPresencePeersNew = reactPresenceNew.peers!;
   _reactPresenceUserNew.name;
   _reactPresencePeersNew[0].name;
 
-  const _reactPublishEmoji = reactNativeDB.rooms.usePublishTopic(reactRoom, "emoji");
+  const _reactPublishEmoji = reactNativeDB.rooms.usePublishTopic(
+    reactRoom,
+    "emoji",
+  );
   const _reactPublishEmojiNew = reactRoom.usePublishTopic("emoji");
 
   // queries

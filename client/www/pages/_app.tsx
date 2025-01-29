@@ -1,14 +1,14 @@
-import '../styles/globals.css';
-import '../styles/docs/tailwind.css';
+import "../styles/globals.css";
+import "../styles/docs/tailwind.css";
 
-import type { AppProps } from 'next/app';
-import Script from 'next/script';
-import Head from 'next/head';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { DocsPage } from '@/components/DocsPage';
-import { Button } from '@/components/ui';
-import { isDev } from '@/lib/config';
-import { Dev } from '@/components/Dev';
+import type { AppProps } from "next/app";
+import Script from "next/script";
+import Head from "next/head";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { DocsPage } from "@/components/DocsPage";
+import { Button } from "@/components/ui";
+import { isDev } from "@/lib/config";
+import { Dev } from "@/components/Dev";
 
 declare global {
   function __getAppId(): any;
@@ -18,13 +18,13 @@ declare global {
 
 // hack to pass app ID to examples pages
 globalThis.__getAppId = () =>
-  typeof window !== 'undefined'
-    ? new URL(location.href).searchParams.get('__appId') ??
-    localStorage.getItem('examples-appId')
+  typeof window !== "undefined"
+    ? (new URL(location.href).searchParams.get("__appId") ??
+      localStorage.getItem("examples-appId"))
     : undefined;
 
 function App({ Component, pageProps }: AppProps) {
-  const isDocsPage = 'markdoc' in pageProps;
+  const isDocsPage = "markdoc" in pageProps;
   const mainEl = isDocsPage ? (
     <DocsPage {...{ Component, pageProps }} />
   ) : (
@@ -142,10 +142,7 @@ function AppHead() {
       <meta name="theme-color" content="#ffffff" />
       <meta property="og:type" content="website" />
       <meta property="og:url" content="https://www.instantdb.com" />
-      <meta
-        property="og:title"
-        content="InstantDB: A Modern Firebase"
-      />
+      <meta property="og:title" content="InstantDB: A Modern Firebase" />
       <meta
         property="og:description"
         content="We make you productive by giving your frontend a real-time database."

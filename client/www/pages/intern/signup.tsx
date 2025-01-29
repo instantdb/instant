@@ -1,7 +1,7 @@
-import Head from 'next/head';
-import React from 'react';
-import AdminRoot from '../../components/admin/AdminRoot';
-import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
+import Head from "next/head";
+import React from "react";
+import AdminRoot from "../../components/admin/AdminRoot";
+import { useIsHydrated } from "@/lib/hooks/useIsHydrated";
 
 const AdminIndex = () => {
   const isHydrated = useIsHydrated();

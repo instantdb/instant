@@ -5,15 +5,15 @@ import {
   useEffect,
   useRef,
   useState,
-} from 'react';
-import produce from 'immer';
-import clsx from 'clsx';
-import { i, init } from '@instantdb/react';
-import Head from 'next/head';
+} from "react";
+import produce from "immer";
+import clsx from "clsx";
+import { i, init } from "@instantdb/react";
+import Head from "next/head";
 
-import { Tab, Switch as HeadlessSwitch } from '@headlessui/react';
+import { Tab, Switch as HeadlessSwitch } from "@headlessui/react";
 
-import { Button, Fence } from '@/components/ui';
+import { Button, Fence } from "@/components/ui";
 import {
   H2,
   H3,
@@ -26,21 +26,21 @@ import {
   LandingFooter,
   TextLink,
   Link,
-} from '@/components/marketingUi';
+} from "@/components/marketingUi";
 
-import { ChevronRightIcon } from '@heroicons/react/solid';
-import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
-import config from '@/lib/config';
-import MuxPlayer from '@mux/mux-player-react';
-import * as muxVideos from '@/lib/muxVideos';
+import { ChevronRightIcon } from "@heroicons/react/solid";
+import { useIsHydrated } from "@/lib/hooks/useIsHydrated";
+import config from "@/lib/config";
+import MuxPlayer from "@mux/mux-player-react";
+import * as muxVideos from "@/lib/muxVideos";
 
 type EmojiName = keyof typeof emoji;
 
 const emoji = {
-  fire: '🔥',
-  wave: '👋',
-  confetti: '🎉',
-  heart: '❤️',
+  fire: "🔥",
+  wave: "👋",
+  confetti: "🎉",
+  heart: "❤️",
 } as const;
 
 const emojiNames = Object.keys(emoji) as EmojiName[];
@@ -49,7 +49,7 @@ const refsInit = Object.fromEntries(
   emojiNames.map((a) => [a, createRef<HTMLDivElement>()]),
 );
 
-const appId = 'fc5a4977-910a-43d9-ac28-39c7837c1eb5';
+const appId = "fc5a4977-910a-43d9-ac28-39c7837c1eb5";
 
 const schema = i.schema({
   entities: {},
@@ -73,7 +73,7 @@ const db = init({
   schema,
 });
 
-const room = db.room('landing', 'landing');
+const room = db.room("landing", "landing");
 
 function Switch({
   enabled,
@@ -86,13 +86,13 @@ function Switch({
     <HeadlessSwitch
       checked={enabled}
       onChange={onChange}
-      className={`${enabled ? 'bg-emerald-500' : 'bg-gray-600'}
+      className={`${enabled ? "bg-emerald-500" : "bg-gray-600"}
           relative inline-flex h-[19px] w-[37px] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2  focus-visible:ring-white/75`}
     >
       <span className="sr-only">Use setting</span>
       <span
         aria-hidden="true"
-        className={`${enabled ? 'translate-x-[18px]' : 'translate-x-0'}
+        className={`${enabled ? "translate-x-[18px]" : "translate-x-0"}
             pointer-events-none inline-block h-[15px] w-[15px] transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out`}
       />
     </HeadlessSwitch>
@@ -143,7 +143,7 @@ function LandingHero() {
           <div className="flex flex-1 flex-col items-center justify-center space-y-2">
             <MuxPlayer {...muxVideos.walkthrough} />
             <Link
-              href={'/examples'}
+              href={"/examples"}
               className="flex items-center text-sm rounded-full border bg-white backdrop-blur-lg px-2.5 py-0.5 gap-1 hover:bg-gray-50 shadow"
             >
               See some examples <ChevronRightIcon height="1rem" />
@@ -179,12 +179,12 @@ function LandingProblemStatement() {
                 <strong>
                   Instant solves these problems for you by giving you a database
                   you can subscribe to directly in the browser.
-                </strong>{' '}
+                </strong>{" "}
                 You write relational queries in your app, and we handle the
                 rest.
               </p>
               <p>
-                Want to try it yourself?{' '}
+                Want to try it yourself?{" "}
                 <TextLink href="https://instantdb.com/docs">
                   Build a live app in less than 5 minutes.
                 </TextLink>
@@ -232,9 +232,9 @@ const ThemedTab = ({
     <Tab
       className={({ selected }) =>
         clsx(
-          'relative z-10 translate-x-1 px-5 py-2 last:translate-x-0 outline-none',
+          "relative z-10 translate-x-1 px-5 py-2 last:translate-x-0 outline-none",
           className,
-          selected ? 'z-20 bg-prism-dark' : 'bg-prism',
+          selected ? "z-20 bg-prism-dark" : "bg-prism",
         )
       }
     >
@@ -265,7 +265,7 @@ function LandingCoreFeatures() {
 
               <p>
                 Databases already know how to apply changes and handle
-                rollbacks. With Instant, you write{' '}
+                rollbacks. With Instant, you write{" "}
                 <code className="font-mono text-orange-600">`transact`</code>,
                 and optimistic updates are handled for you.
               </p>
@@ -337,7 +337,7 @@ function LandingCoreFeatures() {
               </p>
               <p>
                 To support this, you need a way to apply changes locally,
-                persist to disk, and reconcile when users come back online.{' '}
+                persist to disk, and reconcile when users come back online.{" "}
               </p>
               <p>
                 Instant comes with this logic baked in: the local database knows
@@ -372,7 +372,7 @@ function LandingRealtimeFeatures() {
               </p>
 
               <p>
-                Instant supports these use cases —{' '}
+                Instant supports these use cases —{" "}
                 <strong>you can add shared cursors in 10 lines.</strong>
               </p>
             </div>
@@ -463,16 +463,16 @@ function LandingTestimonials() {
 }
 
 const angels = [
-  { name: 'James Tamplin', role: 'CEO of Firebase' },
-  { name: 'Paul Graham', role: 'Co-Founder of YCombinator' },
-  { name: 'Karri Saarinen', role: 'CEO of Linear' },
-  { name: 'Amjad Masad', role: 'CEO of Replit' },
-  { name: 'Zach Sims', role: 'CEO of Codecademy' },
-  { name: 'Greg Brockman', role: 'Co-Founder of OpenAI' },
-  { name: 'Jeff Dean', role: 'Chief Scientist of Google DeepMind' },
+  { name: "James Tamplin", role: "CEO of Firebase" },
+  { name: "Paul Graham", role: "Co-Founder of YCombinator" },
+  { name: "Karri Saarinen", role: "CEO of Linear" },
+  { name: "Amjad Masad", role: "CEO of Replit" },
+  { name: "Zach Sims", role: "CEO of Codecademy" },
+  { name: "Greg Brockman", role: "Co-Founder of OpenAI" },
+  { name: "Jeff Dean", role: "Chief Scientist of Google DeepMind" },
   {
-    name: 'And 50+ technical founders',
-    role: 'Sendbird, Panther, Segment and more',
+    name: "And 50+ technical founders",
+    role: "Sendbird, Panther, Segment and more",
   },
 ];
 
@@ -553,9 +553,9 @@ function LandingParty() {
     [k: string]: RefObject<HTMLDivElement>;
   }>(refsInit);
 
-  const publishEmoji = room.usePublishTopic('emoji');
+  const publishEmoji = room.usePublishTopic("emoji");
 
-  db.rooms.useTopicEffect(room, 'emoji', (event) => {
+  db.rooms.useTopicEffect(room, "emoji", (event) => {
     const { name, directionAngle, rotationAngle } = event;
 
     const el = elRefsRef.current[name]?.current;
@@ -577,10 +577,10 @@ function LandingParty() {
       });
     });
 
-    window.addEventListener('keydown', konamiHandler);
+    window.addEventListener("keydown", konamiHandler);
 
     return () => {
-      window.removeEventListener('keydown', konamiHandler);
+      window.removeEventListener("keydown", konamiHandler);
     };
   }, []);
 
@@ -635,10 +635,10 @@ function LandingParty() {
 
 function LandingMultiplayerGraphic() {
   const [items, setItems] = useState([
-    { title: 'Hack', done: false },
-    { title: 'Write tests', done: false },
-    { title: 'Ship', done: false },
-    { title: 'Talk to customers', done: false },
+    { title: "Hack", done: false },
+    { title: "Write tests", done: false },
+    { title: "Ship", done: false },
+    { title: "Talk to customers", done: false },
   ]);
 
   useEffect(() => {
@@ -670,9 +670,9 @@ function LandingMultiplayerGraphic() {
           <div
             key={s}
             className={clsx(
-              'w-1/2 rounded bg-gray-500/10 p-1 shadow-xl',
-              '-translate-x-4 first:translate-x-0',
-              'translate-y-3 first:translate-y-0',
+              "w-1/2 rounded bg-gray-500/10 p-1 shadow-xl",
+              "-translate-x-4 first:translate-x-0",
+              "translate-y-3 first:translate-y-0",
             )}
           >
             <div className="flex h-full w-full flex-col gap-1 overflow-auto rounded bg-white p-4 text-sm text-gray-600">
@@ -691,7 +691,7 @@ function LandingMultiplayerGraphic() {
                   />
                   <span
                     className={clsx(
-                      item.done ? 'text-gray-400 line-through' : undefined,
+                      item.done ? "text-gray-400 line-through" : undefined,
                     )}
                   >
                     {item.title}
@@ -720,7 +720,7 @@ function LandingOfflineGraphic() {
     synced: [],
   });
 
-  function onClick(q: 'queue1' | 'queue2') {
+  function onClick(q: "queue1" | "queue2") {
     setState((s) =>
       produce(s, (d) => {
         const e = { ts: new Date().toISOString() };
@@ -756,22 +756,22 @@ function LandingOfflineGraphic() {
             onChangeOnline(!state.online);
           }}
           className={clsx(
-            'flex w-36 items-center space-x-2 rounded px-2 py-2 shadow-sm transition-colors cursor-pointer',
+            "flex w-36 items-center space-x-2 rounded px-2 py-2 shadow-sm transition-colors cursor-pointer",
             state.online
-              ? 'bg-emerald-500/10 text-emerald-700'
-              : 'bg-gray-500/20 text-gray-900',
+              ? "bg-emerald-500/10 text-emerald-700"
+              : "bg-gray-500/20 text-gray-900",
           )}
         >
           <Switch enabled={state.online} onChange={onChangeOnline} />
-          <span>{state.online ? 'Sync On' : 'Sync Off'}</span>
+          <span>{state.online ? "Sync On" : "Sync Off"}</span>
         </div>
       </div>
       <div className="flex gap-2">
-        {(['queue1', 'queue2'] as const).map((q) => (
+        {(["queue1", "queue2"] as const).map((q) => (
           <div key={q} className="flex flex-1 flex-col gap-3">
             <div
               className={clsx(
-                'w-fullrounded-lg aspect-[16/10] rounded bg-gray-500/10 p-1 shadow-xl',
+                "w-fullrounded-lg aspect-[16/10] rounded bg-gray-500/10 p-1 shadow-xl",
               )}
             >
               <div className="flex h-full flex-col items-center justify-center gap-1 rounded bg-white p-2">
@@ -791,7 +791,7 @@ function LandingOfflineGraphic() {
                 {state[q].slice(-showQueueLength).map((item, i) => (
                   <div
                     className={clsx(
-                      'overflow-hidden rounded-sm border bg-white px-2 py-1 font-mono text-xs shadow-sm transition-transform',
+                      "overflow-hidden rounded-sm border bg-white px-2 py-1 font-mono text-xs shadow-sm transition-transform",
                     )}
                   >
                     {item.ts}
@@ -821,7 +821,7 @@ export default function Landing2024() {
       <GlowBackground>
         <div className="w-full bg-gray-50/80 p-1 text-center">
           <p className="font-mono text-gray-500 text-sm font-semibold">
-            Instant is hiring! Want to build Figma-like tech?{' '}
+            Instant is hiring! Want to build Figma-like tech?{" "}
             <span className="text-orange-600">
               <TextLink href="/hiring">Come work with us!</TextLink>
             </span>
@@ -863,7 +863,7 @@ export function ExampleMultiPreview({
             {appId ? (
               <iframe
                 className="flex-1"
-                src={'/examples/' + pathName + '?__appId=' + appId}
+                src={"/examples/" + pathName + "?__appId=" + appId}
               />
             ) : (
               <div className="flex-1 animate-slow-pulse bg-gray-300"></div>
@@ -880,43 +880,43 @@ export function ExampleMultiPreview({
 const testimonials = [
   {
     blurb: `I wanted to build relational capabilities into Firebase (but it would have required us to build another database and we never got around to it). I'm glad to see Instant is doing it.`,
-    person: 'James Tamplin',
-    role: 'Co-Founder, Firebase',
-    photo: '/img/peeps/james.png',
+    person: "James Tamplin",
+    role: "Co-Founder, Firebase",
+    photo: "/img/peeps/james.png",
   },
   {
     blurb:
-      'Most generic database query tools like react-query etc. are cached at the browser tab level. So if you rename a file, the tab bar can easily become out of sync unless you have a great local first sync provider... and I got it working easily with Instant.',
-    person: 'AJ Nandi',
-    role: 'Co-Founder, Subset.so',
-    photo: '/img/peeps/aj_nandi.jpeg',
+      "Most generic database query tools like react-query etc. are cached at the browser tab level. So if you rename a file, the tab bar can easily become out of sync unless you have a great local first sync provider... and I got it working easily with Instant.",
+    person: "AJ Nandi",
+    role: "Co-Founder, Subset.so",
+    photo: "/img/peeps/aj_nandi.jpeg",
   },
   {
     blurb:
       "Instant takes care of complex data ops so you can focus on building your product. I wouldn't want to use any other db right now.",
-    person: 'Ignacio De Haedo',
-    role: 'Engineer, Meta',
-    photo: '/img/peeps/nacho.jpg',
+    person: "Ignacio De Haedo",
+    role: "Engineer, Meta",
+    photo: "/img/peeps/nacho.jpg",
   },
   {
     blurb:
-      'Deeply nested, GraphQL-like queries that update in realtime are a dream come true.',
-    person: 'Hunter Tinney',
-    role: 'CTO, Palette',
-    photo: '/img/peeps/hunter.jpeg',
+      "Deeply nested, GraphQL-like queries that update in realtime are a dream come true.",
+    person: "Hunter Tinney",
+    role: "CTO, Palette",
+    photo: "/img/peeps/hunter.jpeg",
   },
   {
     blurb: `I built a cross-platform app across mobile and React Native. I copy-pasted my data logic, and it all just worked!`,
-    person: 'Alex Reichert',
-    role: 'Engineer, Stripe',
-    photo: '/img/peeps/alex.png',
+    person: "Alex Reichert",
+    role: "Engineer, Stripe",
+    photo: "/img/peeps/alex.png",
   },
   {
     blurb:
-      'I built an “email inbox” simulation with user auth/login, permissions, multiple folders (inbox /_ sent), and live updates (including sending across user accounts) in ~50 minutes or so. Very impressive stuff, and a lot of fun!',
-    person: 'Sean Grove',
-    role: 'Engineer, OpenAI',
-    photo: '/img/peeps/sean.png',
+      "I built an “email inbox” simulation with user auth/login, permissions, multiple folders (inbox /_ sent), and live updates (including sending across user accounts) in ~50 minutes or so. Very impressive stuff, and a lot of fun!",
+    person: "Sean Grove",
+    role: "Engineer, OpenAI",
+    photo: "/img/peeps/sean.png",
   },
 ];
 
@@ -990,9 +990,9 @@ function animateEmoji(
 ) {
   if (!target) return;
 
-  const rootEl = document.createElement('div');
-  const directionEl = document.createElement('div');
-  const spinEl = document.createElement('div');
+  const rootEl = document.createElement("div");
+  const directionEl = document.createElement("div");
+  const spinEl = document.createElement("div");
 
   spinEl.innerText = config.emoji;
   directionEl.appendChild(spinEl);
@@ -1001,14 +1001,14 @@ function animateEmoji(
 
   style(rootEl, {
     transform: `rotate(${config.directionAngle * 360}deg)`,
-    position: 'absolute',
-    top: '0',
-    left: '0',
-    right: '0',
-    bottom: '0',
-    margin: 'auto',
-    zIndex: '10',
-    pointerEvents: 'none',
+    position: "absolute",
+    top: "0",
+    left: "0",
+    right: "0",
+    bottom: "0",
+    margin: "auto",
+    zIndex: "10",
+    pointerEvents: "none",
   });
 
   style(spinEl, {
@@ -1019,8 +1019,8 @@ function animateEmoji(
   setTimeout(() => {
     style(directionEl, {
       transform: `translateY(20vh) scale(2)`,
-      transition: 'all 400ms',
-      opacity: '0',
+      transition: "all 400ms",
+      opacity: "0",
     });
   }, 20);
 
@@ -1034,7 +1034,7 @@ function style(el: HTMLElement, styles: Partial<CSSStyleDeclaration>) {
 function __konami(callback: (event: KeyboardEvent) => void) {
   let kkeys: number[] = [];
   // up,up,down,down,left,right,left,right,B,A
-  const konami = '38,38,40,40,37,39,37,39,66,65';
+  const konami = "38,38,40,40,37,39,37,39,66,65";
   return (event: KeyboardEvent) => {
     kkeys.push(event.keyCode);
     if (kkeys.toString().indexOf(konami) >= 0) {

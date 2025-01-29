@@ -1,15 +1,15 @@
-import format from 'date-fns/format';
-import parse from 'date-fns/parse';
-import Head from 'next/head';
-import { getAllPosts } from '../../lib/posts';
-import NextLink from 'next/link';
+import format from "date-fns/format";
+import parse from "date-fns/parse";
+import Head from "next/head";
+import { getAllPosts } from "../../lib/posts";
+import NextLink from "next/link";
 import {
   H3,
   LandingContainer,
   LandingFooter,
   MainNav,
   Post,
-} from '@/components/marketingUi';
+} from "@/components/marketingUi";
 
 export async function getStaticProps() {
   return {
@@ -33,7 +33,7 @@ export default function Page({ posts }: { posts: Post[] }) {
                 <div className="mb-2">
                   <div
                     className={`mb-4 space-y-2 py-4 ${
-                      idx !== posts.length - 1 ? 'border-b' : ''
+                      idx !== posts.length - 1 ? "border-b" : ""
                     }`}
                   >
                     <NextLink
@@ -47,13 +47,13 @@ export default function Page({ posts }: { posts: Post[] }) {
                         {authors.map((author, idx) => (
                           <span key={author.name}>
                             {author.name}
-                            {idx !== authors.length - 1 ? ', ' : ''}
+                            {idx !== authors.length - 1 ? ", " : ""}
                           </span>
                         ))}
                       </span>
                       {format(
-                        parse(date, 'yyyy-MM-dd', new Date()),
-                        'MMM do, yyyy',
+                        parse(date, "yyyy-MM-dd", new Date()),
+                        "MMM do, yyyy",
                       )}
                     </div>
                   </div>

@@ -1,8 +1,8 @@
-import { useAuthToken } from '@/lib/auth';
-import { getLocal } from '@/lib/config';
-import { flags } from '@/lib/flags';
-import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
-import { useEffect, useState } from 'react';
+import { useAuthToken } from "@/lib/auth";
+import { getLocal } from "@/lib/config";
+import { flags } from "@/lib/flags";
+import { useIsHydrated } from "@/lib/hooks/useIsHydrated";
+import { useEffect, useState } from "react";
 
 export function Dev() {
   const [authTokens, setAuthTokens] = useState<
@@ -16,25 +16,25 @@ export function Dev() {
   const [open, setOpen] = useState(false);
 
   function toggleOpen(e: KeyboardEvent) {
-    if (e.key === '9' && e.shiftKey && e.metaKey) {
+    if (e.key === "9" && e.shiftKey && e.metaKey) {
       setOpen((_) => !_);
     }
   }
 
   useEffect(() => {
-    setIsDevBackend(Boolean(localStorage.getItem('devBackend')));
-    setAuthTokens(getLocal('__instant__authTokens') ?? []);
+    setIsDevBackend(Boolean(localStorage.getItem("devBackend")));
+    setAuthTokens(getLocal("__instant__authTokens") ?? []);
     setFlagStates(
       Object.fromEntries(
         Object.keys(flags).map((k) => [
           k,
           getLocal(`__instant__flag__${k}`) ?? false,
-        ])
-      )
+        ]),
+      ),
     );
 
-    document.addEventListener('keydown', toggleOpen);
-    return () => document.removeEventListener('keydown', toggleOpen);
+    document.addEventListener("keydown", toggleOpen);
+    return () => document.removeEventListener("keydown", toggleOpen);
   }, []);
 
   if (!isHydrated || !open) return null;
@@ -84,14 +84,14 @@ export function Dev() {
                     const k = `__instant__flag__${name}`;
 
                     if (e.currentTarget.checked) {
-                      localStorage.setItem(k, 'true');
+                      localStorage.setItem(k, "true");
                     } else {
                       localStorage.removeItem(k);
                     }
 
                     location.reload();
                   }}
-                />{' '}
+                />{" "}
                 {name}
               </label>
             </div>
@@ -108,9 +108,9 @@ export function Dev() {
             authTokens.map((p) => (
               <div key={p.name} className="flex justify-between items-center">
                 <div>
-                  {p.name}{' '}
+                  {p.name}{" "}
                   <span className="italic text-gray-400">
-                    ({p.prod ? 'Prod' : 'Dev'})
+                    ({p.prod ? "Prod" : "Dev"})
                   </span>
                 </div>
                 <div className="flex gap-1">
@@ -126,14 +126,14 @@ export function Dev() {
                     className="bg-black text-white py-0.5 px-2"
                     onClick={() => {
                       const nextTokens = authTokens.filter(
-                        (t) => t.token !== p.token
+                        (t) => t.token !== p.token,
                       );
 
                       setAuthTokens(nextTokens);
 
                       localStorage.setItem(
-                        '__instant__authTokens',
-                        JSON.stringify(nextTokens)
+                        "__instant__authTokens",
+                        JSON.stringify(nextTokens),
                       );
                     }}
                   >
@@ -157,7 +157,8 @@ export function Dev() {
               onClick={() => {
                 setToken(undefined);
                 location.reload();
-              }}>
+              }}
+            >
               Clear
             </button>
           </div>
@@ -178,8 +179,8 @@ export function Dev() {
               const token = currentToken;
               if (!token) return;
 
-              const name = fd.get('name') as string;
-              const prod = Boolean(localStorage.getItem('devBackend'));
+              const name = fd.get("name") as string;
+              const prod = Boolean(localStorage.getItem("devBackend"));
 
               const nextTokens = [
                 ...authTokens,
@@ -193,8 +194,8 @@ export function Dev() {
               setAuthTokens(nextTokens);
 
               localStorage.setItem(
-                '__instant__authTokens',
-                JSON.stringify(nextTokens)
+                "__instant__authTokens",
+                JSON.stringify(nextTokens),
               );
             }}
           >
@@ -219,14 +220,14 @@ export function Dev() {
             e.preventDefault();
             const fd = new FormData(e.currentTarget);
 
-            const name = fd.get('name');
-            const token = fd.get('token') as string;
-            const prod = Boolean(fd.get('token') as string);
+            const name = fd.get("name");
+            const token = fd.get("token") as string;
+            const prod = Boolean(fd.get("token") as string);
 
             if (!name || !token) return;
 
             localStorage.setItem(
-              '__instant__authTokens',
+              "__instant__authTokens",
               JSON.stringify([
                 ...authTokens,
                 {
@@ -234,7 +235,7 @@ export function Dev() {
                   token,
                   prod,
                 },
-              ])
+              ]),
             );
 
             setTokenAndReload(token);
@@ -267,13 +268,13 @@ export function Dev() {
 function setToken(token?: string) {
   if (token) {
     localStorage.setItem(
-      '@AUTH',
+      "@AUTH",
       JSON.stringify({
         token,
-      })
+      }),
     );
   } else {
-    localStorage.removeItem('@AUTH');
+    localStorage.removeItem("@AUTH");
   }
 }
 
@@ -281,9 +282,9 @@ function setTokenAndReload(token?: string, prod?: boolean) {
   setToken(token);
 
   if (prod) {
-    localStorage.setItem('devBackend', 'true');
+    localStorage.setItem("devBackend", "true");
   } else {
-    localStorage.removeItem('devBackend');
+    localStorage.removeItem("devBackend");
   }
 
   location.reload();

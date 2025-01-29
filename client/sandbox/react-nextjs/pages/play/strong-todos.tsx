@@ -1,9 +1,4 @@
-import {
-  i,
-  init,
-  InstaQLEntity,
-  type InstaQLParams,
-} from "@instantdb/react";
+import { i, init, InstaQLEntity, type InstaQLParams } from "@instantdb/react";
 
 import config from "../../config";
 

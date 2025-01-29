@@ -1,9 +1,9 @@
-import Head from 'next/head';
+import Head from "next/head";
 import {
   LandingContainer,
   LandingFooter,
   MainNav,
-} from '@/components/marketingUi';
+} from "@/components/marketingUi";
 
 function PrivacyPolicyContent() {
   return (
@@ -40,7 +40,7 @@ function PrivacyPolicyContent() {
         tracking tools — by this Application or by the owners of third-party
         services used by this Application serves the purpose of providing the
         Service required by the User, in addition to any other purposes
-        described in the present document and in the Cookie Policy.{' '}
+        described in the present document and in the Cookie Policy.{" "}
       </p>
       <p>
         Users are responsible for any third-party Personal Data obtained,
@@ -62,12 +62,12 @@ function PrivacyPolicyContent() {
         third-party technical service providers, mail carriers, hosting
         providers, IT companies, communications agencies) appointed, if
         necessary, as Data Processors by the Owner. The updated list of these
-        parties may be requested from the Owner at any time.{' '}
+        parties may be requested from the Owner at any time.{" "}
       </p>
       <h3 id="place">Place</h3>
       <p>
         The Data is processed at the Owner&#39;s operating offices and in any
-        other places where the parties involved in the processing are located.{' '}
+        other places where the parties involved in the processing are located.{" "}
       </p>
       <p>
         Depending on the User&#39;s location, data transfers may involve
@@ -122,21 +122,21 @@ function PrivacyPolicyContent() {
             collected to contextualize and personalize the ads of its own
             advertising network. In Google Analytics 4, IP addresses are used at
             collection time and then discarded before Data is logged in any data
-            center or server. Users can learn more by consulting{' '}
+            center or server. Users can learn more by consulting{" "}
             <a href="https://support.google.com/analytics/answer/12017362?hl=en&ref_topic=2919631">
               Google’s official documentation
             </a>
-            .{' '}
+            .{" "}
           </p>
           <p>
             Personal Data processed: number of Users; session statistics;
             Trackers; Usage Data.
           </p>
           <p>
-            Place of processing: United States –{' '}
-            <a href="https://policies.google.com/privacy">Privacy Policy</a> –{' '}
+            Place of processing: United States –{" "}
+            <a href="https://policies.google.com/privacy">Privacy Policy</a> –{" "}
             <a href="https://tools.google.com/dlpage/gaoptout?hl=en">Opt Out</a>
-            .{' '}
+            .{" "}
           </p>
         </li>
       </ul>
@@ -204,7 +204,7 @@ function PrivacyPolicyContent() {
         whenever the User has given consent to such processing, as long as such
         consent is not withdrawn. Furthermore, the Owner may be obliged to
         retain Personal Data for a longer period whenever required to fulfil a
-        legal obligation or upon order of an authority.{' '}
+        legal obligation or upon order of an authority.{" "}
       </p>
       <p>
         Once the retention period expires, Personal Data shall be deleted.
@@ -255,14 +255,14 @@ function PrivacyPolicyContent() {
         <li>
           <strong>
             Have their Personal Data deleted or otherwise removed.
-          </strong>{' '}
+          </strong>{" "}
           Users have the right to obtain the erasure of their Data from the
           Owner.
         </li>
         <li>
           <strong>
             Receive their Data and have it transferred to another controller.
-          </strong>{' '}
+          </strong>{" "}
           Users have the right to receive their Data in a structured, commonly
           used and machine readable format and, if technically feasible, to have
           it transmitted to another controller without any hindrance.
@@ -324,7 +324,7 @@ function PrivacyPolicyContent() {
         in Court or in the stages leading to possible legal action arising from
         improper use of this Application or the related Services. The User
         declares to be aware that the Owner may be required to reveal personal
-        data upon request of public authorities.{' '}
+        data upon request of public authorities.{" "}
       </p>
       <h3 id="additional-information-about-users-personal-data">
         Additional information about User&#39;s Personal Data
@@ -359,7 +359,7 @@ function PrivacyPolicyContent() {
         Application and/or - as far as technically and legally feasible -
         sending a notice to Users via any contact information available to the
         Owner. It is strongly recommended to check this page often, referring to
-        the date of the last modification listed at the bottom.{' '}
+        the date of the last modification listed at the bottom.{" "}
       </p>
       <p>
         Should the changes affect processing activities performed on the basis

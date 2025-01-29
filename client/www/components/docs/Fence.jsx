@@ -1,24 +1,24 @@
-import { Fragment, useContext } from 'react';
-import { CopyToClipboard } from 'react-copy-to-clipboard';
-import { ClipboardCopyIcon } from '@heroicons/react/outline';
-import Highlight, { defaultProps } from 'prism-react-renderer';
-import { useState } from 'react';
-import { SelectedAppContext } from '@/lib/SelectedAppContext';
+import { Fragment, useContext } from "react";
+import { CopyToClipboard } from "react-copy-to-clipboard";
+import { ClipboardCopyIcon } from "@heroicons/react/outline";
+import Highlight, { defaultProps } from "prism-react-renderer";
+import { useState } from "react";
+import { SelectedAppContext } from "@/lib/SelectedAppContext";
 
 export function Fence({ children, language, showCopy }) {
-  const [copyLabel, setCopyLabel] = useState('Copy');
+  const [copyLabel, setCopyLabel] = useState("Copy");
 
   const app = useContext(SelectedAppContext);
 
   const code = children
     .trimEnd()
     .replace(
-      '// Instant app',
+      "// Instant app",
       app
         ? `// ID for app: ${app.title}`
         : `// Visit https://instantdb.com/dash to get your APP_ID :)`,
     )
-    .replace('__APP_ID__', app ? app.id : '__APP_ID__');
+    .replace("__APP_ID__", app ? app.id : "__APP_ID__");
 
   return (
     <Highlight
@@ -38,7 +38,7 @@ export function Fence({ children, language, showCopy }) {
                     const { key, ...props } = getTokenProps({ token });
                     return <span key={key || tokenIndex} {...props} />;
                   })}
-                {'\n'}
+                {"\n"}
               </Fragment>
             ))}
           </pre>
@@ -47,9 +47,9 @@ export function Fence({ children, language, showCopy }) {
               <CopyToClipboard text={code}>
                 <button
                   onClick={() => {
-                    setCopyLabel('Copied!');
+                    setCopyLabel("Copied!");
                     setTimeout(() => {
-                      setCopyLabel('Copy');
+                      setCopyLabel("Copy");
                     }, 2500);
                   }}
                   className="flex items-center gap-x-1

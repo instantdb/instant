@@ -1,9 +1,9 @@
-import Head from 'next/head';
+import Head from "next/head";
 import {
   LandingContainer,
   LandingFooter,
   MainNav,
-} from '@/components/marketingUi';
+} from "@/components/marketingUi";
 
 function TermsContent() {
   return (
@@ -24,9 +24,8 @@ function TermsContent() {
         Services.
       </p>
       <p>
-        <strong>Privacy</strong>. See our{' '}
-        <a href="/privacy">Privacy Policy</a> for details on how we
-        collect, store, and share user information.
+        <strong>Privacy</strong>. See our <a href="/privacy">Privacy Policy</a>{" "}
+        for details on how we collect, store, and share user information.
       </p>
       <p>
         <strong>Age Restrictions</strong>. The Services are not intended for
@@ -151,7 +150,7 @@ function TermsContent() {
       <p>
         <strong>No Class Actions</strong>. You may resolve disputes with us only
         on an individual basis; you may not bring a claim as a plaintiff or a
-        class member in a class, consolidated, or representative action.{' '}
+        class member in a class, consolidated, or representative action.{" "}
         <strong>
           Class arbitrations, class actions, private attorney general actions,
           and consolidation with other arbitrations are not permitted.

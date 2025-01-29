@@ -1,6 +1,6 @@
 ---
-title: 'Building a Sync Engine in Clojure [Video]'
-date: '2024-10-24'
+title: "Building a Sync Engine in Clojure [Video]"
+date: "2024-10-24"
 authors: nezaj
 ---
 

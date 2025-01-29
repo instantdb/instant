@@ -1,6 +1,6 @@
-import { FormEventHandler, useContext, useState } from 'react';
-import { errorToast } from '@/lib/toast';
-import { TokenContext } from '@/lib/contexts';
+import { FormEventHandler, useContext, useState } from "react";
+import { errorToast } from "@/lib/toast";
+import { TokenContext } from "@/lib/contexts";
 import {
   Button,
   Checkbox,
@@ -13,20 +13,23 @@ import {
   SubsectionHeading,
   TextInput,
   useDialog,
-} from '@/components/ui';
-import * as Collapsible from '@radix-ui/react-collapsible';
+} from "@/components/ui";
+import * as Collapsible from "@radix-ui/react-collapsible";
 import {
   PlusIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-} from '@heroicons/react/solid';
-import clerkLogoSvg from '../../../public/img/clerk_logo_black.svg';
-import Image from 'next/image';
+} from "@heroicons/react/solid";
+import clerkLogoSvg from "../../../public/img/clerk_logo_black.svg";
+import Image from "next/image";
+import { messageFromInstantError } from "@/lib/auth";
+import { addProvider, addClient, deleteClient, findName } from "./shared";
 import {
-  messageFromInstantError,
-} from '@/lib/auth';
-import { addProvider, addClient, deleteClient, findName } from './shared';
-import { InstantApp, InstantError, OAuthClient, OAuthServiceProvider } from '@/lib/types';
+  InstantApp,
+  InstantError,
+  OAuthClient,
+  OAuthServiceProvider,
+} from "@/lib/types";
 
 export function AddClerkProviderForm({
   app,
@@ -43,14 +46,14 @@ export function AddClerkProviderForm({
       const resp = await addProvider({
         token,
         appId: app.id,
-        providerName: 'clerk',
+        providerName: "clerk",
       });
       onAddProvider(resp.provider);
     } catch (e) {
       console.error(e);
       const msg =
         messageFromInstantError(e as InstantError) ||
-        'There was an error setting up Clerk.';
+        "There was an error setting up Clerk.";
       errorToast(msg, { autoClose: 5000 });
       // report error
     } finally {
@@ -80,20 +83,20 @@ export function AddClerkProviderForm({
 // Clerk might support them, so we'll be safe and do both.
 function base64Decode(s: string) {
   try {
-    return Buffer.from(s, 'base64').toString('utf-8');
+    return Buffer.from(s, "base64").toString("utf-8");
   } catch (e) {
-    return Buffer.from(s, 'base64url').toString('utf-8');
+    return Buffer.from(s, "base64url").toString("utf-8");
   }
 }
 
 function domainFromClerkKey(key: string): string | null {
   try {
-    const parts = key.split('_');
+    const parts = key.split("_");
     const domainPartB64 = parts[parts.length - 1];
     const domainPart = base64Decode(domainPartB64);
-    return domainPart.replace('$', '');
+    return domainPart.replace("$", "");
   } catch (e) {
-    console.error('Error getting domain from clerk key', e);
+    console.error("Error getting domain from clerk key", e);
     return null;
   }
 }
@@ -224,7 +227,7 @@ export function ClerkClient({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || 'Error deleting client.';
+        messageFromInstantError(e as InstantError) || "Error deleting client.";
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);
@@ -240,7 +243,7 @@ export function ClerkClient({
   const exampleCode = clerkExampleCode({
     appId: app.id,
     clientName: client.client_name,
-    clerkPublishableKey: clerkPublishableKey || 'YOUR_CLERK_PUBLISHABLE_KEY',
+    clerkPublishableKey: clerkPublishableKey || "YOUR_CLERK_PUBLISHABLE_KEY",
   });
 
   return (
@@ -253,10 +256,10 @@ export function ClerkClient({
         <Collapsible.Trigger className="flex p-4 hover:bg-gray-100 bg-gray-50">
           <div className="flex flex-1 justify-between items-center">
             <div className="flex gap-2">
-              {' '}
+              {" "}
               <Image alt="clerk logo" src={clerkLogoSvg} />
               <SectionHeading>
-                {client.client_name}{' '}
+                {client.client_name}{" "}
                 <span className="text-gray-400">(Clerk)</span>
               </SectionHeading>
             </div>
@@ -280,7 +283,7 @@ export function ClerkClient({
 
             <SubsectionHeading>Setup and usage</SubsectionHeading>
             <Content>
-              <strong>1.</strong> Navigate to your{' '}
+              <strong>1.</strong> Navigate to your{" "}
               <a
                 className="underline"
                 href={`https://dashboard.clerk.com`}
@@ -289,7 +292,7 @@ export function ClerkClient({
               >
                 Clerk dashboard
               </a>
-              . On the <code>Sessions</code> page, click the <code>Edit</code>{' '}
+              . On the <code>Sessions</code> page, click the <code>Edit</code>{" "}
               button in the <code>Customize session token</code> section. Ensure
               your <code>Claims</code> field has the email claim:
               <div className="border rounded text-sm overflow-auto">
@@ -360,8 +363,10 @@ export function AddClerkClientForm({
   usedClientNames: Set<string>;
 }) {
   const token = useContext(TokenContext);
-  const [clientName, setClientName] = useState<string>(() => findName('clerk', usedClientNames));
-  const [publishableKey, setPublishableKey] = useState<string>('');
+  const [clientName, setClientName] = useState<string>(() =>
+    findName("clerk", usedClientNames),
+  );
+  const [publishableKey, setPublishableKey] = useState<string>("");
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -369,16 +374,16 @@ export function AddClerkClientForm({
 
   const validationError = () => {
     if (!clientName) {
-      return 'Missing unique name';
+      return "Missing unique name";
     }
     if (usedClientNames.has(clientName)) {
       return `The unique name '${clientName}' is already in use.`;
     }
     if (!publishableKey) {
-      return 'Missing Clerk publishable key';
+      return "Missing Clerk publishable key";
     }
 
-    if (!publishableKey.startsWith('pk_')) {
+    if (!publishableKey.startsWith("pk_")) {
       return 'Invalid publishable key. It should start with "pk_".';
     }
   };
@@ -393,7 +398,7 @@ export function AddClerkClientForm({
     const domain = domainFromClerkKey(publishableKey);
     if (!domain) {
       errorToast(
-        'Could not determine Clerk domain from key. Ping us in Discord for help.',
+        "Could not determine Clerk domain from key. Ping us in Discord for help.",
         { autoClose: 5000 },
       );
     }
@@ -411,7 +416,7 @@ export function AddClerkClientForm({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || 'Error creating client.';
+        messageFromInstantError(e as InstantError) || "Error creating client.";
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);
@@ -439,7 +444,7 @@ export function AddClerkClientForm({
         onChange={setPublishableKey}
         label={
           <>
-            Clerk publishable key from your{' '}
+            Clerk publishable key from your{" "}
             <a
               className="underline"
               target="_blank"
@@ -454,16 +459,16 @@ export function AddClerkClientForm({
       />
       <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
         <Content>
-          Navigate to your{' '}
+          Navigate to your{" "}
           <a
             className="underline"
-            href={'https://dashboard.clerk.com/last-active?path=sessions'}
+            href={"https://dashboard.clerk.com/last-active?path=sessions"}
             target="_blank"
             rel="noopener noreferer"
           >
             Clerk dashboard
           </a>
-          . On the <code>Sessions</code> page, click the <code>Edit</code>{' '}
+          . On the <code>Sessions</code> page, click the <code>Edit</code>{" "}
           button in the <code>Customize session token</code> section. Ensure
           your <code>Claims</code> field has the email claim:
           <div className="border rounded text-sm overflow-auto">
@@ -535,7 +540,7 @@ export function ClerkClients({
           />
         );
       })}
-      
+
       {showAddClientForm ? (
         <>
           <AddClerkClientForm
@@ -548,10 +553,10 @@ export function ClerkClients({
         </>
       ) : (
         <Button onClick={() => setShowAddClientForm(true)} variant="secondary">
-          <PlusIcon height={14} /> Add {clients.length > 0 ? 'another ' : ''}Clerk app
+          <PlusIcon height={14} /> Add {clients.length > 0 ? "another " : ""}
+          Clerk app
         </Button>
       )}
-      
     </div>
   );
 }

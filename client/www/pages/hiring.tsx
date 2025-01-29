@@ -1,18 +1,18 @@
-import Head from 'next/head';
+import Head from "next/head";
 import {
   LandingContainer,
   LandingFooter,
   MainNav,
-} from '@/components/marketingUi';
-import MuxPlayer from '@mux/mux-player-react';
-import { walkthrough } from '@/lib/muxVideos';
+} from "@/components/marketingUi";
+import MuxPlayer from "@mux/mux-player-react";
+import { walkthrough } from "@/lib/muxVideos";
 
 function HiringContent() {
   return (
     <div className="prose prose-h1:mt-8 prose-h1:mb-4 prose-h2:mt-4 prose-h2:mb-2 prose-pre:bg-gray-100">
       <h1 id="instantdb-founding-engineer">InstantDB Founding Engineer</h1>
       <p>
-        Hey there! <a href="https://www.instantdb.com/">InstantDB (YC S22)</a>{' '}
+        Hey there! <a href="https://www.instantdb.com/">InstantDB (YC S22)</a>{" "}
         is looking to hire our founding engineering team! We think we’re a
         rocket-ship that’s going to power applications of the future 🚀
       </p>
@@ -33,7 +33,7 @@ function HiringContent() {
       <p>What does that actually mean?</p>
       <p>
         Imagine you’re a hacker who loves building apps. You’ve read all the PG
-        essays, came up with an exciting idea, and are ready to{' '}
+        essays, came up with an exciting idea, and are ready to{" "}
         <strong>make something people want.</strong> You want to build an MVP
         fast, that doesn’t completely suck. So how do you do it?
       </p>
@@ -51,7 +51,7 @@ function HiringContent() {
         don’t need to wait for the server. If we want live updates without
         refreshing we either poll or add websockets. And if we want to support
         offline mode, we need to integrate IndexedDB and pending transaction
-        queues.{' '}
+        queues.{" "}
       </p>
       <p>That’s a lot of work!</p>
       <p>
@@ -79,7 +79,7 @@ function HiringContent() {
       </p>
       <p>
         So we built Instant. Instant gives you a database you can use in the
-        client, so you can focus on what’s important:{' '}
+        client, so you can focus on what’s important:{" "}
         <strong>
           building a great UX for your users, and doing it quickly
         </strong>
@@ -89,14 +89,14 @@ function HiringContent() {
       <MuxPlayer {...walkthrough} />
 
       <p>
-        To learn more about our architecture, check out our essay{' '}
+        To learn more about our architecture, check out our essay{" "}
         <a href="https://www.instantdb.com/essays/next_firebase">
           A Graph-Based Firebase
         </a>
       </p>
       <h2 id="who-is-instant-">Who is Instant?</h2>
       <p>
-        We’re <a href="https://linkedin.com/in/joeaverbukh">Joe</a> and{' '}
+        We’re <a href="https://linkedin.com/in/joeaverbukh">Joe</a> and{" "}
         <a href="https://x.com/stopachka">Stopa</a>, engineers, best friends,
         and co-founders. We first met in San Francisco in 2014 and worked
         together as senior and staff engineers at Facebook and Airbnb.
@@ -119,9 +119,9 @@ function HiringContent() {
         original CEO of Firebase.
       </p>
       <p>
-        After being heads down for 2 years, we{' '}
+        After being heads down for 2 years, we{" "}
         <a href="https://github.com/instantdb/instant">open-sourced</a> and had
-        a{' '}
+        a{" "}
         <a href="https://news.ycombinator.com/item?id=41322281">
           massive reception on Hacker News
         </a>
@@ -151,10 +151,10 @@ function HiringContent() {
         <strong>Load testing strategy for our sync engine.</strong> We want to
         build a suite to 1) stress test different scenarios and 2) establish
         metrics to track perf and have visibility on improvements/degradation.
-        Even something akin to the{' '}
+        Even something akin to the{" "}
         <a href="https://www.figma.com/blog/keeping-figma-fast/">
           one-laptop solution
-        </a>{' '}
+        </a>{" "}
         Figma had up to 2020 would be a big win for us for situations like:
       </p>
       <ul>

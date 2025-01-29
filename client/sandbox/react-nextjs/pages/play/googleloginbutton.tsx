@@ -28,10 +28,12 @@ function App() {
   if (user) {
     return <Main user={user} />;
   }
-  return <div>
-    <LoginPopup />
-    <LoginRedirect />
-  </div>;
+  return (
+    <div>
+      <LoginPopup />
+      <LoginRedirect />
+    </div>
+  );
 }
 
 // 4. Create the Google button
@@ -56,7 +58,8 @@ function LoginPopup() {
               setError("Missing id_token.");
               return;
             }
-            db.auth.signInWithIdToken({
+            db.auth
+              .signInWithIdToken({
                 // Use the name you created when you registered the client
                 clientName: "google",
                 idToken,
@@ -79,11 +82,17 @@ function LoginPopup() {
 }
 
 function LoginRedirect() {
-  const [url, _] = useState(() => db.auth.createAuthorizationURL({
-    clientName: 'google',
-    redirectURL: window.location.href,
-  }));
-  return <a href={url} className="underline">Sign in with Google Redirect</a>;
+  const [url, _] = useState(() =>
+    db.auth.createAuthorizationURL({
+      clientName: "google",
+      redirectURL: window.location.href,
+    }),
+  );
+  return (
+    <a href={url} className="underline">
+      Sign in with Google Redirect
+    </a>
+  );
 }
 
 // 6. Make queries to your heart's content!

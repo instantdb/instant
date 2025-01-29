@@ -95,33 +95,33 @@ export default schema;
 ### Links
 
 We created three links `todoOwner`, `userRoles`, and `userProfiles` to link the `$users`
-namespace to the `todos`, `roles`, and `profiles` namespaces respectively: 
+namespace to the `todos`, `roles`, and `profiles` namespaces respectively:
 
 ```typescript
 // instant.schema.ts
-import { i } from '@instantdb/react';
+import { i } from "@instantdb/react";
 
 const _schema = i.schema({
   // ..
   links: {
     // `$users` is in the reverse direction for all these links!
     todoOwner: {
-      forward: { on: 'todos', has: 'one', label: 'owner' },
-      reverse: { on: '$users', has: 'many', label: 'todos' },
+      forward: { on: "todos", has: "one", label: "owner" },
+      reverse: { on: "$users", has: "many", label: "todos" },
     },
     userRoles: {
-      forward: { on: 'roles', has: 'many', label: 'users' },
-      reverse: { on: '$users', has: 'one', label: 'role' },
+      forward: { on: "roles", has: "many", label: "users" },
+      reverse: { on: "$users", has: "one", label: "role" },
     },
     userProfiles: {
-      forward: { on: 'profiles', has: 'one', label: 'user' },
-      reverse: { on: '$users', has: 'one', label: 'profile' },
+      forward: { on: "profiles", has: "one", label: "user" },
+      reverse: { on: "$users", has: "one", label: "profile" },
     },
   },
 });
 ```
 
-Notice that the `$users` namespace is in the reverse direction for all links. If you try to create a link with `$users` in the forward direction, you'll get an error. 
+Notice that the `$users` namespace is in the reverse direction for all links. If you try to create a link with `$users` in the forward direction, you'll get an error.
 
 ### Attributes
 
@@ -129,7 +129,7 @@ Now take a look at the `profiles` namespace:
 
 ```typescript
 // instant.schema.ts
-import { i } from '@instantdb/react';
+import { i } from "@instantdb/react";
 
 const _schema = i.schema({
   entities: {
@@ -147,7 +147,7 @@ because the `$users` namespace is read-only and we cannot add properties to it.
 If you want to add additional properties to a user, you'll need to create a
 new namespace and link it to `$users`.
 
---- 
+---
 
 Once done, you can include user information in the client like so:
 
@@ -166,7 +166,7 @@ const addTodo = (newTodo, currentUser) => {
 // Creates or updates a user profile with a nickname and links it to the
 // current user
 const updateNick = (newNick, currentUser) => {
-  const profileId = lookup('email', currentUser.email);
+  const profileId = lookup("email", currentUser.email);
   db.transact([
     tx.profiles[profileId]
       .update({ userId: currentUser.id, nickname: newNick })
@@ -239,16 +239,17 @@ more complex permission rules.
 ```javascript
 export default {
   // users perms...
-  "todos": {
-    "bind" : [
-      "isAdmin", "'admin' in auth.ref('$user.role.type')",
-      "isOwner", "data.id in auth.ref('$user.todos.id')"
+  todos: {
+    bind: [
+      "isAdmin",
+      "'admin' in auth.ref('$user.role.type')",
+      "isOwner",
+      "data.id in auth.ref('$user.todos.id')",
     ],
-    "allow": {
+    allow: {
       // We traverse the users links directly from the auth object
-      "update": "isAdmin || isOwner",
-    }
-  }
+      update: "isAdmin || isOwner",
+    },
+  },
 };
-
 ```

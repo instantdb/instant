@@ -1,6 +1,6 @@
 ---
-title: 'A Graph-Based Firebase'
-date: '2022-08-25'
+title: "A Graph-Based Firebase"
+date: "2022-08-25"
 authors: stopachka
 ---
 
@@ -181,7 +181,7 @@ If you need relations, document stores explode in complexity. You end up having 
 The second dealbreaker is Firebase’s permission system. [^16] Firebase Realtime has a language that looks like a long boolean expression:
 
 ```javascript
-auth != null && (!data.exists() || data.child('users').hasChild(auth.id));
+auth != null && (!data.exists() || data.child("users").hasChild(auth.id));
 ```
 
 This gets unmaintainable fast [^17]. It improved in Firestore — there’s now a function-like abstraction:
@@ -386,9 +386,7 @@ Task with id 3 has title "Code"
 These sentences translate to lists:
 
 ```javascript
-[1, 'name', 'Joe']
-[2, 'name', 'Awesome Team']
-[3, 'title', 'Code']
+[1, "name", "Joe"][(2, "name", "Awesome Team")][(3, "title", "Code")];
 ```
 
 Then we want a way to describe references. To say:
@@ -401,17 +399,16 @@ Team with id 2 has a "task" reference to Task with id 3
 Well...these translate to lists just as well:
 
 ```javascript
-[3, 'owner', 1]
-[2, 'tasks', 3]
+[3, "owner", 1][(2, "tasks", 3)];
 ```
 
 Put these lists in a table, and you have a triple store! _Triple_ is the name of the list we’ve been writing:
 
 ```javascript
-[1, 'name', 'Joe'];
+[1, "name", "Joe"];
 ```
 
-The first item is always an `id`, the second the `attribute`, and the third, the `value`. Turns out triples are all we need to express a graph. 
+The first item is always an `id`, the second the `attribute`, and the third, the `value`. Turns out triples are all we need to express a graph.
 
 Here’s a more fleshed out example:
 
@@ -456,8 +453,7 @@ This can work well, but we need to be creative about it. Imagine if two of us ch
 How does Figma do this? They store their properties in a special way. They store them as...triples! [^27]
 
 ```javascript
-[1, 'fontSize', 20]
-[1, 'backgroundColor', 'blue'];
+[1, "fontSize", 20][(1, "backgroundColor", "blue")];
 ```
 
 These triples say that the Layer with id 1 has a fontSize 20 and backgroundColor blue. Since they are different rows, there’s no conflict.
@@ -550,11 +546,13 @@ And get back objects:
 
 ```javascript
 {
-  teams: [{
-    id: 1,
-    name: 'Awesome Team',
-    tasks: [{id: 3, title: 'Code', owner: [{id: 1, name: 'Joe'}]}]
-  }]
+  teams: [
+    {
+      id: 1,
+      name: "Awesome Team",
+      tasks: [{ id: 3, title: "Code", owner: [{ id: 1, name: "Joe" }] }],
+    },
+  ];
 }
 ```
 

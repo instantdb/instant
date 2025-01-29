@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import config from '@/lib/config';
-import { Loading, ErrorMessage } from '@/components/dash/shared';
+import { useState } from "react";
+import config from "@/lib/config";
+import { Loading, ErrorMessage } from "@/components/dash/shared";
 
 import {
   InstantApp,
@@ -9,22 +9,15 @@ import {
   OAuthServiceProvider,
   OAuthClient,
   DashResponse,
-} from '@/lib/types';
-import {
-  Button,
-  Divider,
-  SectionHeading,
-} from '@/components/ui';
-import {
-  APIResponse,
-  useAuthedFetch,
-} from '@/lib/auth';
+} from "@/lib/types";
+import { Button, Divider, SectionHeading } from "@/components/ui";
+import { APIResponse, useAuthedFetch } from "@/lib/auth";
 
-import { AddGoogleProviderForm, GoogleClients } from './auth/Google';
-import { AddClerkProviderForm, ClerkClients } from './auth/Clerk';
-import { AppleClients } from './auth/Apple';
-import { Email } from './auth/Email';
-import { AuthorizedOrigins } from './auth/Origins';
+import { AddGoogleProviderForm, GoogleClients } from "./auth/Google";
+import { AddClerkProviderForm, ClerkClients } from "./auth/Clerk";
+import { AppleClients } from "./auth/Apple";
+import { Email } from "./auth/Email";
+import { AuthorizedOrigins } from "./auth/Origins";
 
 export function AppAuth({
   app,
@@ -60,7 +53,7 @@ export function AppAuth({
       <div className="mx-auto flex w-full max-w-xl flex-col gap-4 p-2">
         <ErrorMessage>
           <div className="flex gap-2">
-            There was an error loading the data.{' '}
+            There was an error loading the data.{" "}
             <Button
               variant="subtle"
               size="mini"
@@ -124,11 +117,11 @@ export function AppAuth({
   };
 
   const googleProvider = data.oauth_service_providers?.find(
-    (p) => p.provider_name === 'google',
+    (p) => p.provider_name === "google",
   );
 
   const clerkProvider = data.oauth_service_providers?.find(
-    (p) => p.provider_name === 'clerk',
+    (p) => p.provider_name === "clerk",
   );
 
   const usedClientNames = new Set<string>();
@@ -140,7 +133,7 @@ export function AppAuth({
     <div className="flex flex-col p-4 gap-6 max-w-xl">
       <div className="flex flex-col gap-4">
         <SectionHeading>Google Clients</SectionHeading>
-        
+
         {googleProvider ? (
           <GoogleClients
             // Set key because setLastCreatedProviderId is somehow applied after mutate
@@ -206,7 +199,6 @@ export function AppAuth({
           usedClientNames={usedClientNames}
           lastCreatedClientId={lastCreatedClientId}
         />
-        
       </div>
 
       <Divider />
@@ -217,7 +209,7 @@ export function AppAuth({
         onAddOrigin={handleAddOrigin}
         onRemoveOrigin={handleRemoveOrigin}
       />
-      
+
       <Divider />
 
       <Email app={app} dashResponse={dashResponse} nav={nav} />

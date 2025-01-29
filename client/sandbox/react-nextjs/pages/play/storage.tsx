@@ -15,12 +15,18 @@ const App = ({ appId }: { appId: string }) => {
   });
 
   const { isLoading, error, user } = db.useAuth();
-  if (isLoading) { return <div>Loading...</div>; }
-  if (error) { return <div>Uh oh! {error.message}</div>; }
-  if (!user) { return <Login auth={db.auth} />; }
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+  if (error) {
+    return <div>Uh oh! {error.message}</div>;
+  }
+  if (!user) {
+    return <Login auth={db.auth} />;
+  }
 
   return <Main db={db} />;
-}
+};
 
 function Main({ db }: { db: any }) {
   const [files, setFiles] = React.useState<File[]>([]);
@@ -143,7 +149,7 @@ function Main({ db }: { db: any }) {
       </main>
     </div>
   );
-};
+}
 
 function Page() {
   const router = useRouter();

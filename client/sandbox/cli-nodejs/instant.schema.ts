@@ -35,9 +35,9 @@ const schema = i.schema({
     postsTags: {
       forward: { on: "posts", has: "many", label: "tags" },
       reverse: { on: "tags", has: "many", label: "posts" },
-    }
+    },
   },
-  rooms: {}
+  rooms: {},
 });
 
 export default schema;

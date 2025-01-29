@@ -1,16 +1,16 @@
-import { init, InstantReactWebDatabase } from '@instantdb/react';
-import { useContext, useEffect, useMemo, useState } from 'react';
-import { v4 } from 'uuid';
-import produce from 'immer';
-import Head from 'next/head';
-import NextLink from 'next/link';
-import { useRouter } from 'next/router';
-import { capitalize } from 'lodash';
-import { PlusIcon, TrashIcon } from '@heroicons/react/solid';
+import { init, InstantReactWebDatabase } from "@instantdb/react";
+import { useContext, useEffect, useMemo, useState } from "react";
+import { v4 } from "uuid";
+import produce from "immer";
+import Head from "next/head";
+import NextLink from "next/link";
+import { useRouter } from "next/router";
+import { capitalize } from "lodash";
+import { PlusIcon, TrashIcon } from "@heroicons/react/solid";
 
-import { StyledToastContainer, errorToast, successToast } from '@/lib/toast';
-import config, { cliOauthParamName, getLocal, setLocal } from '@/lib/config';
-import { jsonFetch, jsonMutate } from '@/lib/fetch';
+import { StyledToastContainer, errorToast, successToast } from "@/lib/toast";
+import config, { cliOauthParamName, getLocal, setLocal } from "@/lib/config";
+import { jsonFetch, jsonMutate } from "@/lib/fetch";
 import {
   APIResponse,
   signOut,
@@ -18,14 +18,14 @@ import {
   useAuthedFetch,
   claimTicket,
   voidTicket,
-} from '@/lib/auth';
-import { TokenContext } from '@/lib/contexts';
-import { DashResponse, DBAttr, InstantApp, InstantMember } from '@/lib/types';
+} from "@/lib/auth";
+import { TokenContext } from "@/lib/contexts";
+import { DashResponse, DBAttr, InstantApp, InstantMember } from "@/lib/types";
 
-import { Perms } from '@/components/dash/Perms';
-import Auth from '@/components/dash/Auth';
-import { Explorer } from '@/components/dash/explorer/Explorer';
-import { Onboarding } from '@/components/dash/Onboarding';
+import { Perms } from "@/components/dash/Perms";
+import Auth from "@/components/dash/Auth";
+import { Explorer } from "@/components/dash/explorer/Explorer";
+import { Onboarding } from "@/components/dash/Onboarding";
 
 import {
   ActionButton,
@@ -46,59 +46,59 @@ import {
   ToggleCollection,
   twel,
   useDialog,
-} from '@/components/ui';
-import { AppAuth } from '@/components/dash/AppAuth';
-import Billing from '@/components/dash/Billing';
-import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
-import { QueryInspector } from '@/components/dash/explorer/QueryInspector';
-import { Sandbox } from '@/components/dash/Sandbox';
-import { StorageTab } from '@/components/dash/Storage';
-import PersonalAccessTokensScreen from '@/components/dash/PersonalAccessTokensScreen';
-import { useForm } from '@/lib/hooks/useForm';
-import { useSchemaQuery } from '@/lib/hooks/explorer';
-import useLocalStorage from '@/lib/hooks/useLocalStorage';
+} from "@/components/ui";
+import { AppAuth } from "@/components/dash/AppAuth";
+import Billing from "@/components/dash/Billing";
+import { useIsHydrated } from "@/lib/hooks/useIsHydrated";
+import { QueryInspector } from "@/components/dash/explorer/QueryInspector";
+import { Sandbox } from "@/components/dash/Sandbox";
+import { StorageTab } from "@/components/dash/Storage";
+import PersonalAccessTokensScreen from "@/components/dash/PersonalAccessTokensScreen";
+import { useForm } from "@/lib/hooks/useForm";
+import { useSchemaQuery } from "@/lib/hooks/explorer";
+import useLocalStorage from "@/lib/hooks/useLocalStorage";
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
 
-type Role = 'collaborator' | 'admin' | 'owner';
+type Role = "collaborator" | "admin" | "owner";
 
-const roleOrder = ['collaborator', 'admin', 'owner'] as const;
+const roleOrder = ["collaborator", "admin", "owner"] as const;
 
-const defaultTab: TabId = 'home';
+const defaultTab: TabId = "home";
 
 type TabId =
-  | 'home'
-  | 'explorer'
-  | 'repl'
-  | 'sandbox'
-  | 'perms'
-  | 'auth'
-  | 'email'
-  | 'team'
-  | 'admin'
-  | 'billing'
-  | 'storage'
-  | 'docs';
+  | "home"
+  | "explorer"
+  | "repl"
+  | "sandbox"
+  | "perms"
+  | "auth"
+  | "email"
+  | "team"
+  | "admin"
+  | "billing"
+  | "storage"
+  | "docs";
 
 interface Tab {
   id: TabId;
   title: string;
   icon?: React.ReactNode;
-  minRole?: 'admin' | 'owner';
+  minRole?: "admin" | "owner";
 }
 
 const tabs: Tab[] = [
-  { id: 'home', title: 'Home' },
-  { id: 'explorer', title: 'Explorer' },
-  { id: 'perms', title: 'Permissions' },
-  { id: 'auth', title: 'Auth' },
-  { id: 'storage', title: 'Storage' },
-  { id: 'repl', title: 'Query Inspector' },
-  { id: 'sandbox', title: 'Sandbox' },
-  { id: 'admin', title: 'Admin', minRole: 'admin' },
-  { id: 'billing', title: 'Billing' },
-  { id: 'docs', title: 'Docs' },
+  { id: "home", title: "Home" },
+  { id: "explorer", title: "Explorer" },
+  { id: "perms", title: "Permissions" },
+  { id: "auth", title: "Auth" },
+  { id: "storage", title: "Storage" },
+  { id: "repl", title: "Query Inspector" },
+  { id: "sandbox", title: "Sandbox" },
+  { id: "admin", title: "Admin", minRole: "admin" },
+  { id: "billing", title: "Billing" },
+  { id: "docs", title: "Docs" },
 ];
 
 const tabIndex = new Map(tabs.map((t) => [t.id, t]));
@@ -134,7 +134,7 @@ export default function DashV2() {
       await claimTicket({ ticket, token });
       cliAuthCompleteDialog.onOpen();
     } catch (error) {
-      errorToast('Error completing CLI login.');
+      errorToast("Error completing CLI login.");
     }
   }
 
@@ -181,7 +181,7 @@ export default function DashV2() {
               onClick={() => {
                 try {
                   window.close();
-                } catch (error) { }
+                } catch (error) {}
                 cliAuthCompleteDialog.onClose();
               }}
             >
@@ -240,12 +240,12 @@ function Dashboard() {
   const token = useContext(TokenContext);
   const router = useRouter();
   const appId = router.query.app as string;
-  const screen = (router.query.s as string) || 'main';
+  const screen = (router.query.s as string) || "main";
   const _tab = router.query.t as TabId;
   const tab = tabIndex.has(_tab) ? _tab : defaultTab;
 
   // Local states
-  const [hideAppId, setHideAppId] = useLocalStorage('hide_app_id', false);
+  const [hideAppId, setHideAppId] = useLocalStorage("hide_app_id", false);
 
   const [connection, setConnection] = useState<{
     db: InstantReactClient;
@@ -255,7 +255,7 @@ function Dashboard() {
 
   useEffect(() => {
     if (!token) return;
-    const state = getLocal('__tutorial-interaction-state');
+    const state = getLocal("__tutorial-interaction-state");
     const tutorialAppId = state?.appId;
     const tutorialToken = state?.t;
 
@@ -263,10 +263,10 @@ function Dashboard() {
 
     jsonMutate(`${config.apiURI}/dash/apps/ephemeral/${tutorialAppId}/claim`, {
       token,
-      method: 'POST',
+      method: "POST",
       body: { token: tutorialToken },
     }).then(() => {
-      localStorage.removeItem('__tutorial-interaction-state');
+      localStorage.removeItem("__tutorial-interaction-state");
       return dashResponse.mutate();
     });
   }, [token]);
@@ -288,11 +288,11 @@ function Dashboard() {
   const availableTabs: TabBarTab[] = tabs
     .filter((t) => isTabAvailable(t, app?.user_app_role))
     .map((t) => {
-      if (t.id === 'docs') {
+      if (t.id === "docs") {
         return {
           id: t.id,
           label: t.title,
-          link: app ? `/docs?app=${app.id}` : '/docs',
+          link: app ? `/docs?app=${app.id}` : "/docs",
         };
       }
       return { id: t.id, label: t.title };
@@ -300,16 +300,16 @@ function Dashboard() {
   const showAppOnboarding =
     !dashResponse.data?.apps?.length && !dashResponse.data?.invites?.length;
   const showNav = !showAppOnboarding;
-  const showApp = app && connection && screen === 'main';
+  const showApp = app && connection && screen === "main";
   const hasInvites = Boolean(dashResponse.data?.invites?.length);
   const showInvitesOnboarding = hasInvites && !dashResponse.data?.apps?.length;
 
   useEffect(() => {
     if (!router.isReady) return;
-    if (screen && screen !== 'main') return;
+    if (screen && screen !== "main") return;
     if (hasInvites) {
       nav({
-        s: 'invites',
+        s: "invites",
       });
       return;
     }
@@ -320,7 +320,7 @@ function Dashboard() {
     const firstApp = apps?.[0];
     if (!firstApp) return;
 
-    const _lastAppId = getLocal('dash_app_id');
+    const _lastAppId = getLocal("dash_app_id");
     const lastAppId = Boolean(apps.find((a) => a.id === _lastAppId))
       ? _lastAppId
       : null;
@@ -330,18 +330,18 @@ function Dashboard() {
 
     router.replace({
       query: {
-        s: 'main',
+        s: "main",
         app: defaultAppId,
         t: tab,
       },
     });
 
-    setLocal('dash_app_id', defaultAppId);
+    setLocal("dash_app_id", defaultAppId);
   }, [router.isReady, dashResponse.data]);
 
   useEffect(() => {
     if (!app) return;
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
     const db = init({
       appId,
@@ -358,7 +358,7 @@ function Dashboard() {
   }, [router.isReady, app?.id, app?.admin_token]);
 
   function nav(q: { s: string; app?: string; t?: string }) {
-    if (q.app) setLocal('dash_app_id', q.app);
+    if (q.app) setLocal("dash_app_id", q.app);
 
     router.push({
       query: q,
@@ -375,7 +375,7 @@ function Dashboard() {
       rules: null,
       members: [],
       invites: [],
-      user_app_role: 'owner',
+      user_app_role: "owner",
       magic_code_email_template: null,
     };
 
@@ -389,10 +389,10 @@ function Dashboard() {
     );
 
     createApp(token, app).catch((e) => {
-      errorToast('Error creating app: ' + app.title);
+      errorToast("Error creating app: " + app.title);
     });
 
-    nav({ s: 'main', app: app.id, t: 'home' });
+    nav({ s: "main", app: app.id, t: "home" });
   }
 
   async function onDeleteApp(app: InstantApp) {
@@ -405,9 +405,9 @@ function Dashboard() {
       }),
     );
     const _appId = _apps[0]?.id;
-    nav({ s: 'main', app: _appId, t: 'hello' });
+    nav({ s: "main", app: _appId, t: "hello" });
   }
-  if (screen === 'personal-access-tokens') {
+  if (screen === "personal-access-tokens") {
     return (
       <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
         <Head>
@@ -437,7 +437,7 @@ function Dashboard() {
         />
       ) : null}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {screen === 'new' ? (
+        {screen === "new" ? (
           <CreateApp onDone={onCreateApp} />
         ) : dashResponse.isLoading ? (
           <Loading />
@@ -447,10 +447,10 @@ function Dashboard() {
           <Onboarding
             onCreate={async (p) => {
               await dashResponse.mutate();
-              nav({ s: 'main', app: p.id, t: defaultTab });
+              nav({ s: "main", app: p.id, t: defaultTab });
             }}
           />
-        ) : screen === 'invites' || showInvitesOnboarding ? (
+        ) : screen === "invites" || showInvitesOnboarding ? (
           <Invites nav={nav} dashResponse={dashResponse} />
         ) : showApp ? (
           <div
@@ -463,7 +463,7 @@ function Dashboard() {
               selectedId={tab}
               disabled={!Boolean(appId)}
               onSelect={(t) => {
-                nav({ s: 'main', app: app.id, t: t.id });
+                nav({ s: "main", app: app.id, t: t.id });
               }}
             />
             <div className="border-b">
@@ -481,34 +481,34 @@ function Dashboard() {
             </div>
             <div className="flex flex-1 flex-col overflow-hidden">
               <div className="flex flex-col flex-1 overflow-y-scroll">
-                {tab === 'home' ? (
+                {tab === "home" ? (
                   <Home />
-                ) : tab === 'explorer' ? (
+                ) : tab === "explorer" ? (
                   <ExplorerTab appId={appId} db={connection.db} />
-                ) : tab === 'repl' ? (
+                ) : tab === "repl" ? (
                   <QueryInspector
                     className="flex-1 w-full"
                     appId={appId}
                     db={connection.db}
                   />
-                ) : tab === 'sandbox' ? (
+                ) : tab === "sandbox" ? (
                   <Sandbox key={appId} app={app} />
-                ) : tab === 'perms' ? (
+                ) : tab === "perms" ? (
                   <Perms app={app} dashResponse={dashResponse} />
-                ) : tab === 'auth' ? (
+                ) : tab === "auth" ? (
                   <AppAuth
                     app={app}
                     key={app.id}
                     dashResponse={dashResponse}
                     nav={nav}
                   />
-                ) : tab === 'storage' ? (
+                ) : tab === "storage" ? (
                   <StorageTab
                     key={app.id}
                     app={app}
                     isEnabled={isStorageEnabled}
                   />
-                ) : tab == 'admin' && isMinRole('admin', app.user_app_role) ? (
+                ) : tab == "admin" && isMinRole("admin", app.user_app_role) ? (
                   <Admin
                     dashResponse={dashResponse}
                     app={app}
@@ -516,8 +516,8 @@ function Dashboard() {
                     nav={nav}
                     db={connection.db}
                   />
-                ) : tab == 'billing' &&
-                  isMinRole('collaborator', app.user_app_role) ? (
+                ) : tab == "billing" &&
+                  isMinRole("collaborator", app.user_app_role) ? (
                   <Billing appId={appId} />
                 ) : null}
               </div>
@@ -529,7 +529,7 @@ function Dashboard() {
   );
 }
 
-const TabContent = twel('div', 'flex flex-col max-w-2xl gap-4 p-4');
+const TabContent = twel("div", "flex flex-col max-w-2xl gap-4 p-4");
 
 function mergeQueryParams(query: string) {
   const newQuery = new URLSearchParams(query);
@@ -543,25 +543,25 @@ function mergeQueryParams(query: string) {
 // When navigating dash routes we want to persist query params containing
 // things like the app id
 function formatDashRoute(href: string) {
-  const root = '/dash';
+  const root = "/dash";
   if (!href.startsWith(root)) {
     return href;
   }
 
-  const [pathName, queryString = ''] = href.split('?');
+  const [pathName, queryString = ""] = href.split("?");
   const mergedQueryParams = mergeQueryParams(queryString);
   const mergedQueryString = Object.entries(mergedQueryParams)
     .map(
       ([key, value]) =>
         `${encodeURIComponent(key)}=${encodeURIComponent(value)}`,
     )
-    .join('&');
+    .join("&");
 
   return `${pathName}?${mergedQueryString}`;
 }
 
 function formatDocsRoute(href: string) {
-  const root = '/docs';
+  const root = "/docs";
 
   if (!href.startsWith(root)) {
     return href;
@@ -575,7 +575,7 @@ function formatDocsRoute(href: string) {
     return href;
   }
 
-  const [pathName, hash] = href.split('#');
+  const [pathName, hash] = href.split("#");
 
   if (hash) {
     return `${pathName}?app=${appId}#${hash}`;
@@ -632,8 +632,8 @@ function Invites({
               className="flex flex-col justify-between gap-2"
             >
               <div>
-                <strong>{invite.inviter_email}</strong> invited you to{' '}
-                <strong>{invite.app_title}</strong> as{' '}
+                <strong>{invite.inviter_email}</strong> invited you to{" "}
+                <strong>{invite.app_title}</strong> as{" "}
                 <strong>{invite.invitee_role}</strong>.
               </div>
               <div className="flex gap-1">
@@ -647,14 +647,14 @@ function Invites({
                     await jsonMutate(`${config.apiURI}/dash/invites/accept`, {
                       token,
                       body: {
-                        'invite-id': invite.id,
+                        "invite-id": invite.id,
                       },
                     });
 
                     await dashResponse.mutate();
 
                     if (invites.length === 1) {
-                      nav({ s: 'main', t: 'home', app: invite.app_id });
+                      nav({ s: "main", t: "home", app: invite.app_id });
                     }
                   }}
                 />
@@ -666,7 +666,7 @@ function Invites({
                     await jsonMutate(`${config.apiURI}/dash/invites/decline`, {
                       token,
                       body: {
-                        'invite-id': invite.id,
+                        "invite-id": invite.id,
                       },
                     });
 
@@ -674,7 +674,7 @@ function Invites({
 
                     const firstApp = dashResponse.data?.apps?.[0];
                     if (invites.length === 1 && firstApp) {
-                      nav({ s: 'main', t: 'home', app: firstApp.id });
+                      nav({ s: "main", t: "home", app: firstApp.id });
                     }
                   }}
                 />
@@ -883,19 +883,19 @@ function Nav({
               return;
             }
 
-            nav({ s: 'main', app: app.value, t: tab });
+            nav({ s: "main", app: app.value, t: tab });
           }}
         />
         <div className="flex md:flex-col gap-2">
           <Button
             size="mini"
             variant="secondary"
-            onClick={() => nav({ s: 'new', app: appId })}
+            onClick={() => nav({ s: "new", app: appId })}
           >
             <PlusIcon height={14} /> New app
           </Button>
           {hasInvites ? (
-            <Button size="mini" onClick={() => nav({ s: 'invites' })}>
+            <Button size="mini" onClick={() => nav({ s: "invites" })}>
               Invites
             </Button>
           ) : null}
@@ -905,7 +905,7 @@ function Nav({
         <ToggleCollection
           className="gap-0 text-sm"
           buttonClassName="rounded-none py-2"
-          onChange={(t) => nav({ s: 'main', app: appId, t: t.id })}
+          onChange={(t) => nav({ s: "main", app: appId, t: t.id })}
           selectedId={tab}
           items={availableTabs.map((t) => ({
             ...t,
@@ -923,7 +923,7 @@ function Nav({
           size="mini"
           variant="secondary"
           onClick={() => {
-            router.push('/');
+            router.push("/");
             // delay sign out to allow the router to change the page
             // and avoid a flash of the unauthenticated dashboard
             setTimeout(() => {
@@ -947,8 +947,8 @@ function InviteTeamMemberDialog({
   app: InstantApp;
   dashResponse: APIResponse<DashResponse>;
 }) {
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'admin' | 'collaborator'>('collaborator');
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"admin" | "collaborator">("collaborator");
   const token = useContext(TokenContext);
 
   function onSubmit() {
@@ -958,7 +958,7 @@ function InviteTeamMemberDialog({
       jsonMutate(`${config.apiURI}/dash/apps/${app.id}/invite/send`, {
         token,
         body: {
-          'invitee-email': email,
+          "invitee-email": email,
           role,
         },
       }),
@@ -969,14 +969,14 @@ function InviteTeamMemberDialog({
         const _invite = _app.invites?.find((i) => i.email === email);
 
         if (_invite) {
-          _invite.status = 'pending';
+          _invite.status = "pending";
           _invite.role = role;
         } else {
           _app.invites?.push({
             id: v4(),
             email,
             role,
-            status: 'pending',
+            status: "pending",
             expired: false,
             sent_at: new Date().toISOString(),
           });
@@ -1004,11 +1004,11 @@ function InviteTeamMemberDialog({
           value={role}
           onChange={(o) => {
             if (!o) return;
-            setRole(o.value as 'admin' | 'collaborator');
+            setRole(o.value as "admin" | "collaborator");
           }}
           options={[
-            { value: 'admin', label: 'Admin' },
-            { value: 'collaborator', label: 'Collaborator' },
+            { value: "admin", label: "Admin" },
+            { value: "collaborator", label: "Collaborator" },
           ]}
         />
       </div>
@@ -1049,7 +1049,7 @@ function Admin({
   const inviteDialog = useDialog();
 
   const displayedInvites = app.invites?.filter(
-    (invite) => invite.status !== 'accepted',
+    (invite) => invite.status !== "accepted",
   );
 
   async function onClickReset() {
@@ -1057,7 +1057,7 @@ function Admin({
     const appIndex = dashResponse.data.apps?.findIndex((a) => a.id === app.id);
     const newAdminToken = v4();
     const confirmation =
-      'Are you sure? This will invalidate your previous token.';
+      "Are you sure? This will invalidate your previous token.";
 
     if (!confirm(confirmation)) return;
 
@@ -1081,12 +1081,12 @@ function Admin({
   const appNameForm = useForm<{ name: string }>({
     initial: { name: app.title },
     validators: {
-      name: (n) => (n.length ? undefined : { error: 'Name is required' }),
+      name: (n) => (n.length ? undefined : { error: "Name is required" }),
     },
     onSubmit: async (values) => {
       await dashResponse.optimisticUpdate(
         jsonMutate(`${config.apiURI}/dash/apps/${app.id}/rename`, {
-          method: 'POST',
+          method: "POST",
           token,
           body: {
             title: values.name,
@@ -1100,7 +1100,7 @@ function Admin({
         },
       );
 
-      successToast('App name updated!');
+      successToast("App name updated!");
     },
   });
 
@@ -1121,9 +1121,9 @@ function Admin({
             </h5>
             <ActionButton
               label={
-                editMember.role === 'admin'
-                  ? 'Change to collaborator'
-                  : 'Promote to admin'
+                editMember.role === "admin"
+                  ? "Change to collaborator"
+                  : "Promote to admin"
               }
               submitLabel="Updating role..."
               successMessage="Update team member role."
@@ -1136,7 +1136,7 @@ function Admin({
                     body: {
                       id: editMember.id,
                       role:
-                        editMember.role === 'admin' ? 'collaborator' : 'admin',
+                        editMember.role === "admin" ? "collaborator" : "admin",
                     },
                   },
                 );
@@ -1157,7 +1157,7 @@ function Admin({
                 await jsonMutate(
                   `${config.apiURI}/dash/apps/${app.id}/members/remove`,
                   {
-                    method: 'DELETE',
+                    method: "DELETE",
                     token,
                     body: {
                       id: editMember.id,
@@ -1173,10 +1173,10 @@ function Admin({
           </div>
         ) : null}
       </Dialog>
-      {isMinRole('owner', app.user_app_role) ? (
+      {isMinRole("owner", app.user_app_role) ? (
         <form className="flex flex-col gap-2" {...appNameForm.formProps()}>
           <TextInput
-            {...appNameForm.inputProps('name')}
+            {...appNameForm.inputProps("name")}
             label="App name"
             placeholder="My awesome app"
           />
@@ -1232,7 +1232,7 @@ function Admin({
                       </div>
                     </div>
                     <div className="w-28 flex">
-                      {!invite.expired && invite.status === 'pending' ? (
+                      {!invite.expired && invite.status === "pending" ? (
                         <ActionButton
                           className="w-full"
                           label="Revoke"
@@ -1244,10 +1244,10 @@ function Admin({
                               jsonMutate(
                                 `${config.apiURI}/dash/apps/${app.id}/invite/revoke`,
                                 {
-                                  method: 'DELETE',
+                                  method: "DELETE",
                                   token,
                                   body: {
-                                    'invite-id': invite.id,
+                                    "invite-id": invite.id,
                                   },
                                 },
                               ),
@@ -1257,7 +1257,7 @@ function Admin({
                       ) : (
                         <Button className="w-full" variant="secondary" disabled>
                           {invite.expired
-                            ? 'Expired'
+                            ? "Expired"
                             : capitalize(invite.status)}
                         </Button>
                       )}
@@ -1283,7 +1283,7 @@ function Admin({
                 </Content>
                 <Button
                   onClick={() => {
-                    nav({ s: 'main', app: app.id, t: 'billing' });
+                    nav({ s: "main", app: app.id, t: "billing" });
                   }}
                 >
                   Upgrade to Pro
@@ -1299,10 +1299,10 @@ function Admin({
       </HomeButton>
       <Content>
         Use the admin token below to authenticate with your backend. Keep this
-        token a secret.{' '}
-        {isMinRole('admin', app.user_app_role) ? (
+        token a secret.{" "}
+        {isMinRole("admin", app.user_app_role) ? (
           <>
-            If need be, you can regenerate it by{' '}
+            If need be, you can regenerate it by{" "}
             <a onClick={onClickReset}>clicking here</a>.
           </>
         ) : null}
@@ -1313,7 +1313,7 @@ function Admin({
         label="Secret"
         value={app.admin_token}
       />
-      {isMinRole('owner', app.user_app_role) ? (
+      {isMinRole("owner", app.user_app_role) ? (
         // mt-auto pushes the danger zone to the bottom of the page
         <div className="mt-auto space-y-2 pb-4">
           <SectionHeading>Danger zone</SectionHeading>
@@ -1324,10 +1324,10 @@ function Admin({
           <div>
             <div className="flex flex-col space-y-6">
               <Button variant="destructive" onClick={clearDialog.onOpen}>
-                <TrashIcon height={'1rem'} /> Clear app
+                <TrashIcon height={"1rem"} /> Clear app
               </Button>
               <Button variant="destructive" onClick={deleteDialog.onOpen}>
-                <TrashIcon height={'1rem'} /> Delete app
+                <TrashIcon height={"1rem"} /> Delete app
               </Button>
             </div>
           </div>
@@ -1362,17 +1362,17 @@ function Admin({
                   await jsonFetch(
                     `${config.apiURI}/dash/apps/${app.id}/clear`,
                     {
-                      method: 'POST',
+                      method: "POST",
                       headers: {
                         authorization: `Bearer ${token}`,
-                        'content-type': 'application/json',
+                        "content-type": "application/json",
                       },
                     },
                   );
 
                   clearDialog.onClose();
                   dashResponse.mutate();
-                  successToast('App cleared!');
+                  successToast("App cleared!");
                 }}
               >
                 Clear data
@@ -1397,10 +1397,10 @@ function Admin({
                 variant="destructive"
                 onClick={async () => {
                   await jsonFetch(`${config.apiURI}/dash/apps/${app.id}`, {
-                    method: 'DELETE',
+                    method: "DELETE",
                     headers: {
                       authorization: `Bearer ${token}`,
-                      'content-type': 'application/json',
+                      "content-type": "application/json",
                     },
                   });
 
@@ -1418,7 +1418,7 @@ function Admin({
 }
 
 function CreateApp({ onDone }: { onDone: (o: { name: string }) => void }) {
-  const [name, setName] = useState('');
+  const [name, setName] = useState("");
 
   return (
     <div className="flex flex-1 items-center justify-center">
@@ -1465,10 +1465,10 @@ function createApp(
   toCreate: { id: string; title: string; admin_token: string },
 ) {
   return jsonFetch(`${config.apiURI}/dash/apps`, {
-    method: 'POST',
+    method: "POST",
     headers: {
       authorization: `Bearer ${token}`,
-      'content-type': 'application/json',
+      "content-type": "application/json",
     },
     body: JSON.stringify(toCreate),
   });
@@ -1480,12 +1480,12 @@ function regenerateAdminToken(
   adminToken: string,
 ) {
   return jsonFetch(`${config.apiURI}/dash/apps/${appId}/tokens`, {
-    method: 'POST',
+    method: "POST",
     headers: {
       authorization: `Bearer ${token}`,
-      'content-type': 'application/json',
+      "content-type": "application/json",
     },
-    body: JSON.stringify({ 'admin-token': adminToken }),
+    body: JSON.stringify({ "admin-token": adminToken }),
   });
 }
 
@@ -1505,5 +1505,5 @@ function caComp(a: { created_at: string }, b: { created_at: string }) {
  * We could type the result of our fetches, and write a better error
  */
 function errMessage(e: Error) {
-  return e.message || 'An error occurred.';
+  return e.message || "An error occurred.";
 }

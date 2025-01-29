@@ -24,7 +24,7 @@ import version from "./version";
  *  import schema from ""../instant.schema.ts";
  *
  *  const db = init({ appId: "my-app-id", schema })
- *  
+ *
  *  // To learn more: https://instantdb.com/docs/modeling-data
  */
 export function init<
@@ -38,7 +38,7 @@ export function init<
 /**
  * @deprecated
  * `init_experimental` is deprecated. You can replace it with `init`.
- * 
+ *
  * @example
  *
  * // Before

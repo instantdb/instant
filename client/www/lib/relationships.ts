@@ -1,28 +1,28 @@
 export type RelationshipKinds =
   | `many-many`
-  | 'one-one'
-  | 'one-many'
-  | 'many-one';
+  | "one-one"
+  | "one-many"
+  | "many-one";
 
 export const relationshipConstraints: Record<
   RelationshipKinds,
-  { cardinality: 'one' | 'many'; 'unique?': boolean }
+  { cardinality: "one" | "many"; "unique?": boolean }
 > = {
   /**
    * users has_many tags
    * tags has_many users
    */
-  'many-many': {
-    cardinality: 'many',
-    'unique?': false,
+  "many-many": {
+    cardinality: "many",
+    "unique?": false,
   },
   /**
    * users has_one profile
    * profiles has_one owner
    */
-  'one-one': {
-    cardinality: 'one',
-    'unique?': true,
+  "one-one": {
+    cardinality: "one",
+    "unique?": true,
   },
   /**
    *  users has_many posts
@@ -30,9 +30,9 @@ export const relationshipConstraints: Record<
    *  [?users :users/posts ?posts]
    *          <--------------->  unique!
    */
-  'many-one': {
-    cardinality: 'many',
-    'unique?': true,
+  "many-one": {
+    cardinality: "many",
+    "unique?": true,
   },
 
   /**
@@ -41,16 +41,16 @@ export const relationshipConstraints: Record<
    *  [?posts :posts/user ?users]
    *   <--------------->  unique!
    */
-  'one-many': {
-    cardinality: 'one',
-    'unique?': false,
+  "one-many": {
+    cardinality: "one",
+    "unique?": false,
   },
 };
 
 export const relationshipConstraintsInverse: Record<string, RelationshipKinds> =
   Object.fromEntries(
     Object.entries(relationshipConstraints).map(([k, v]) => [
-      `${v.cardinality}-${v['unique?']}`,
+      `${v.cardinality}-${v["unique?"]}`,
       k as RelationshipKinds,
-    ])
+    ]),
   );

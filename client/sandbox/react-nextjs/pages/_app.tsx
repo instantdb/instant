@@ -6,7 +6,9 @@ function MyApp({ Component, pageProps }: AppProps) {
   if (!config.appId) {
     return (
       <div className="space-y-2 p-10">
-        <h1 className="text-xl font-bold">Welcome to the react-nextjs playground!</h1>
+        <h1 className="text-xl font-bold">
+          Welcome to the react-nextjs playground!
+        </h1>
         <p>
           In order to use the playground, you need to set up a you `.env` file
         </p>

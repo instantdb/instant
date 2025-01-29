@@ -1,4 +1,4 @@
-import { Fence } from '@/components/docs/Fence';
+import { Fence } from "@/components/docs/Fence";
 
 const nodes = {
   document: {
@@ -8,7 +8,7 @@ const nodes = {
     attributes: {
       scope: {
         type: String,
-        default: 'col',
+        default: "col",
       },
     },
     render: (props) => <th {...props} />,

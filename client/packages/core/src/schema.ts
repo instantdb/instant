@@ -164,8 +164,8 @@ function schema<
   links?: Links;
   rooms?: Rooms;
 }) {
-  const linksDef = links ?? {} as Links;
-  const roomsDef = rooms ?? {} as Rooms;
+  const linksDef = links ?? ({} as Links);
+  const roomsDef = rooms ?? ({} as Rooms);
   return new InstantSchemaDef(
     enrichEntitiesWithLinks<EntitiesWithoutLinks, Links>(entities, linksDef),
     // (XXX): LinksDef<any> stems from TypeScript’s inability to reconcile the

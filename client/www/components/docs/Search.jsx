@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { useRouter } from 'next/router';
-import { DocSearchModal, useDocSearchKeyboardEvents } from '@docsearch/react';
-import '@docsearch/css';
+import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { useRouter } from "next/router";
+import { DocSearchModal, useDocSearchKeyboardEvents } from "@docsearch/react";
+import "@docsearch/css";
 
 const docSearchConfig = {
   appId: "98PPX6H1AS",
@@ -40,7 +40,7 @@ export function Search() {
 
   useEffect(() => {
     setModifierKey(
-      /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform) ? '⌘' : 'Ctrl '
+      /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform) ? "⌘" : "Ctrl ",
     );
   }, []);
 
@@ -86,7 +86,7 @@ export function Search() {
               },
             }}
           />,
-          document.body
+          document.body,
         )}
     </>
   );

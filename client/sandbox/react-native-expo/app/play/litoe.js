@@ -4,7 +4,6 @@ import { View, Text, Pressable } from "react-native";
 
 import config from "../config";
 
-
 let currentRoomId = null;
 
 // Consts

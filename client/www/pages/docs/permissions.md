@@ -35,7 +35,7 @@ With Instant you can define your permissions in code. If you haven't already, us
 npx instant-cli@latest init
 ```
 
-The CLI will guide you through picking an Instant app and generate these files for you. Once you've made changes to `instant.perms.ts`, you can use the CLI to push those changes to production: 
+The CLI will guide you through picking an Instant app and generate these files for you. Once you've made changes to `instant.perms.ts`, you can use the CLI to push those changes to production:
 
 ```shell {% showCopy=true %}
 npx instant-cli@latest push perms
@@ -280,7 +280,7 @@ delete to only succeed on todos associated with a specific user email.
 
 `ref` works on the `auth` object too. Here's how you could restrict `deletes` to users with the 'admin' role:
 
-```json 
+```json
 {
   todos: {
     allow: {

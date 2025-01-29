@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { localStorageFlagPrefix } from '../config';
-import { flags } from '../flags';
+import { useEffect, useState } from "react";
+import { localStorageFlagPrefix } from "../config";
+import { flags } from "../flags";
 
 /**
  * Custom hook to determine whether to display a feature.
@@ -19,7 +19,7 @@ export function useFlag(name: keyof typeof flags) {
 
   useEffect(() => {
     const localStorageSavedFlag = Boolean(
-      localStorage.getItem(`${localStorageFlagPrefix}${name}`)
+      localStorage.getItem(`${localStorageFlagPrefix}${name}`),
     );
 
     if (localStorageSavedFlag) {
@@ -31,7 +31,7 @@ export function useFlag(name: keyof typeof flags) {
     const hasFlagParam = url.searchParams.has(`x_${name}`);
 
     if (hasFlagParam) {
-      localStorage.setItem(`${localStorageFlagPrefix}${name}`, 'true');
+      localStorage.setItem(`${localStorageFlagPrefix}${name}`, "true");
       setActive(true);
     }
   }, []);

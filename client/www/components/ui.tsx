@@ -1,5 +1,5 @@
-import clsx from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import clsx from "clsx";
+import { twMerge } from "tailwind-merge";
 
 import {
   MouseEventHandler,
@@ -10,16 +10,16 @@ import {
   useState,
   Fragment,
   PropsWithChildren,
-} from 'react';
-import { Editor, OnMount } from '@monaco-editor/react';
+} from "react";
+import { Editor, OnMount } from "@monaco-editor/react";
 import {
   Dialog as HeadlessDialog,
   Popover,
   PopoverButton,
   PopoverPanel,
-} from '@headlessui/react';
-import * as HeadlessToggleGroup from '@radix-ui/react-toggle-group';
-import Highlight, { defaultProps } from 'prism-react-renderer';
+} from "@headlessui/react";
+import * as HeadlessToggleGroup from "@radix-ui/react-toggle-group";
+import Highlight, { defaultProps } from "prism-react-renderer";
 
 import {
   CheckCircleIcon,
@@ -27,30 +27,30 @@ import {
   XIcon,
   EyeIcon,
   EyeOffIcon,
-} from '@heroicons/react/solid';
-import { InformationCircleIcon } from '@heroicons/react/outline';
-import { errorToast, successToast } from '@/lib/toast';
-import CopyToClipboard from 'react-copy-to-clipboard';
-import copy from 'copy-to-clipboard';
+} from "@heroicons/react/solid";
+import { InformationCircleIcon } from "@heroicons/react/outline";
+import { errorToast, successToast } from "@/lib/toast";
+import CopyToClipboard from "react-copy-to-clipboard";
+import copy from "copy-to-clipboard";
 
 // content
 
-export const Stack = twel('div', 'flex flex-col gap-2');
-export const Group = twel('div', 'flex flex-col gap-2 md:flex-row');
+export const Stack = twel("div", "flex flex-col gap-2");
+export const Group = twel("div", "flex flex-col gap-2 md:flex-row");
 
-export const Content = twel('div', 'prose');
-export const ScreenHeading = twel('div', 'text-2xl font-bold');
-export const SectionHeading = twel('div', 'text-xl font-bold');
-export const SubsectionHeading = twel('div', 'text-lg');
-export const BlockHeading = twel('div', 'text-md font-bold');
+export const Content = twel("div", "prose");
+export const ScreenHeading = twel("div", "text-2xl font-bold");
+export const SectionHeading = twel("div", "text-xl font-bold");
+export const SubsectionHeading = twel("div", "text-lg");
+export const BlockHeading = twel("div", "text-md font-bold");
 
-export const Hint = twel('div', 'text-sm text-gray-400');
-export const Label = twel('div', 'text-sm font-bold text-gray-700');
+export const Hint = twel("div", "text-sm text-gray-400");
+export const Label = twel("div", "text-sm font-bold text-gray-700");
 
-export const LogoIcon = ({ size = 'mini' }: { size?: 'mini' | 'normal' }) => {
+export const LogoIcon = ({ size = "mini" }: { size?: "mini" | "normal" }) => {
   const sizeToClass = {
-    mini: 'h-4 w-4',
-    normal: 'h-6 w-6',
+    mini: "h-4 w-4",
+    normal: "h-6 w-6",
   };
   return <img src="/img/icon/logo-512.svg" className={sizeToClass[size]} />;
 };
@@ -73,7 +73,7 @@ export function ToggleCollection({
   onChange: (tab: { id: string; label: ReactNode; link?: string }) => void;
 }) {
   return (
-    <div className={cn('flex w-full flex-col gap-0.5', className)}>
+    <div className={cn("flex w-full flex-col gap-0.5", className)}>
       {items.map((a) =>
         a.link ? (
           <a
@@ -82,9 +82,9 @@ export function ToggleCollection({
             target="_blank"
             rel="noopener noreferer"
             className={clsx(
-              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400',
+              "block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400",
               {
-                'bg-gray-200': selectedId === a.id,
+                "bg-gray-200": selectedId === a.id,
               },
               buttonClassName,
             )}
@@ -99,9 +99,9 @@ export function ToggleCollection({
               onChange(a);
             }}
             className={clsx(
-              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400',
+              "block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400",
               {
-                'bg-gray-200': selectedId === a.id,
+                "bg-gray-200": selectedId === a.id,
               },
               buttonClassName,
             )}
@@ -148,7 +148,7 @@ export function ToggleGroup({
           value={item.id}
           aria-label={item.label}
           style={{
-            backgroundColor: selectedId === item.id ? 'white' : undefined,
+            backgroundColor: selectedId === item.id ? "white" : undefined,
           }}
         >
           {item.label}
@@ -174,7 +174,7 @@ export function TextInput({
   title,
 }: {
   value: string;
-  type?: 'text' | 'email' | 'sensitive' | 'password';
+  type?: "text" | "email" | "sensitive" | "password";
   className?: string;
   error?: ReactNode;
   onChange: (value: string) => void;
@@ -182,7 +182,7 @@ export function TextInput({
   label?: React.ReactNode;
   placeholder?: string;
   autoFocus?: boolean;
-  inputMode?: 'numeric' | 'text';
+  inputMode?: "numeric" | "text";
   tabIndex?: number;
   disabled?: boolean | undefined;
   title?: string | undefined;
@@ -201,20 +201,20 @@ export function TextInput({
       <input
         disabled={disabled}
         title={title}
-        type={type === 'sensitive' ? 'password' : (type ?? 'text')}
+        type={type === "sensitive" ? "password" : (type ?? "text")}
         // Try to prevent password managers from trying to save
         // sensitive input
-        autoComplete={type === 'sensitive' ? 'off' : undefined}
-        data-lpignore={type === 'sensitive' ? 'true' : undefined}
+        autoComplete={type === "sensitive" ? "off" : undefined}
+        data-lpignore={type === "sensitive" ? "true" : undefined}
         ref={inputRef}
         inputMode={inputMode}
         placeholder={placeholder}
-        value={value ?? ''}
+        value={value ?? ""}
         className={cn(
-          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400',
+          "flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400",
           className,
           {
-            'border-red-500': error,
+            "border-red-500": error,
           },
         )}
         onChange={(e) => {
@@ -252,7 +252,7 @@ export function TextArea({
   label?: React.ReactNode;
   placeholder?: string;
   autoFocus?: boolean;
-  inputMode?: 'numeric' | 'text';
+  inputMode?: "numeric" | "text";
   tabIndex?: number;
   disabled?: boolean | undefined;
   title?: string | undefined;
@@ -276,12 +276,12 @@ export function TextArea({
         ref={inputRef}
         inputMode={inputMode}
         placeholder={placeholder}
-        value={value ?? ''}
+        value={value ?? ""}
         className={cn(
-          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400',
+          "flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400",
           className,
           {
-            'border-red-500': error,
+            "border-red-500": error,
           },
         )}
         onChange={(e) => {
@@ -321,8 +321,8 @@ export function Checkbox({
   return (
     <label
       className={cn(
-        'flex cursor-pointer items-top gap-2',
-        disabled ? 'text-gray-400 cursor-default' : '',
+        "flex cursor-pointer items-top gap-2",
+        disabled ? "text-gray-400 cursor-default" : "",
         labelClassName,
       )}
       title={title}
@@ -332,13 +332,13 @@ export function Checkbox({
         title={title}
         required={required}
         className={cn(
-          'align-middle mt-0.5 font-medium text-gray-900 disabled:border-gray-300 disabled:bg-gray-200',
+          "align-middle mt-0.5 font-medium text-gray-900 disabled:border-gray-300 disabled:bg-gray-200",
           className,
         )}
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-      />{' '}
+      />{" "}
       {label}
       {error ? <div className="text-sm text-red-600">{error}</div> : null}
     </label>
@@ -370,7 +370,7 @@ export function Select({
       value={value ?? undefined}
       disabled={disabled}
       className={cn(
-        'rounded-sm border-gray-300 py-1 disabled:text-gray-400',
+        "rounded-sm border-gray-300 py-1 disabled:text-gray-400",
         className,
       )}
       onChange={(e) => {
@@ -412,7 +412,7 @@ export function TabBar({
   return (
     <div
       className={clsx(
-        'flex flex-row gap-0.5 overflow-x-auto border-b px-2 py-1 no-scrollbar',
+        "flex flex-row gap-0.5 overflow-x-auto border-b px-2 py-1 no-scrollbar",
         className,
       )}
     >
@@ -424,9 +424,9 @@ export function TabBar({
             target="_blank"
             rel="noopener noreferer"
             className={clsx(
-              'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
+              "flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100",
               {
-                'bg-gray-200': selectedId === t.id && !disabled,
+                "bg-gray-200": selectedId === t.id && !disabled,
               },
             )}
           >
@@ -438,9 +438,9 @@ export function TabBar({
             disabled={disabled}
             onClick={() => onSelect(t)}
             className={clsx(
-              'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
+              "flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100",
               {
-                'bg-gray-200': selectedId === t.id && !disabled,
+                "bg-gray-200": selectedId === t.id && !disabled,
               },
             )}
           >
@@ -453,9 +453,9 @@ export function TabBar({
 }
 
 export function Button({
-  variant = 'primary',
-  size = 'normal',
-  type = 'button',
+  variant = "primary",
+  size = "normal",
+  type = "button",
   onClick,
   href,
   className,
@@ -466,9 +466,9 @@ export function Button({
   tabIndex,
   title,
 }: PropsWithChildren<{
-  variant?: 'primary' | 'secondary' | 'subtle' | 'destructive' | 'cta';
-  size?: 'mini' | 'normal' | 'large' | 'xl' | 'nano';
-  type?: 'link' | 'link-new' | 'button' | 'submit';
+  variant?: "primary" | "secondary" | "subtle" | "destructive" | "cta";
+  size?: "mini" | "normal" | "large" | "xl" | "nano";
+  type?: "link" | "link-new" | "button" | "submit";
   onClick?: MouseEventHandler;
   href?: string;
   className?: string;
@@ -479,7 +479,7 @@ export function Button({
   title?: string | undefined;
 }>) {
   const buttonRef = useRef<any>(null);
-  const isATag = type === 'link' || (type === 'link-new' && href);
+  const isATag = type === "link" || (type === "link-new" && href);
 
   useEffect(() => {
     if (autoFocus) {
@@ -491,40 +491,40 @@ export function Button({
     `inline-flex justify-center items-center gap-1 whitespace-nowrap px-8 py-1 font-bold rounded-sm cursor-pointer transition-all disabled:cursor-default`,
     {
       // primary
-      'bg-[#606AF4] text-white ': variant === 'primary',
-      'hover:text-slate-100 hover:bg-[#4543e9]':
-        variant === 'primary' && isATag,
-      'hover:enabled:text-slate-100 hover:enabled:bg-[#4543e9] disabled:bg-[#9197f3]':
-        variant === 'primary' && !isATag,
+      "bg-[#606AF4] text-white ": variant === "primary",
+      "hover:text-slate-100 hover:bg-[#4543e9]":
+        variant === "primary" && isATag,
+      "hover:enabled:text-slate-100 hover:enabled:bg-[#4543e9] disabled:bg-[#9197f3]":
+        variant === "primary" && !isATag,
       // cta
-      'bg-orange-600 text-white ': variant === 'cta',
-      'hover:text-slate-100 hover:bg-orange-500': variant === 'cta' && isATag,
-      'hover:enabled:text-slate-100 hover:enabled:bg-orange-500':
-        variant === 'cta' && !isATag,
+      "bg-orange-600 text-white ": variant === "cta",
+      "hover:text-slate-100 hover:bg-orange-500": variant === "cta" && isATag,
+      "hover:enabled:text-slate-100 hover:enabled:bg-orange-500":
+        variant === "cta" && !isATag,
       // secondary
-      'border text-gray-500 bg-gray-50 shadow-sm ': variant === 'secondary',
-      'hover:text-gray-600 hover:bg-gray-50/30':
-        variant === 'secondary' && isATag,
-      'hover:enabled:text-gray-600 hover:enabled:bg-gray-50/30 disabled:text-gray-400':
-        variant === 'secondary' && !isATag,
+      "border text-gray-500 bg-gray-50 shadow-sm ": variant === "secondary",
+      "hover:text-gray-600 hover:bg-gray-50/30":
+        variant === "secondary" && isATag,
+      "hover:enabled:text-gray-600 hover:enabled:bg-gray-50/30 disabled:text-gray-400":
+        variant === "secondary" && !isATag,
       // subtle
-      'text-gray-500 bg-white font-normal': variant === 'subtle',
-      'hover:text-gray-600 hover:bg-gray-200/30':
-        variant === 'subtle' && isATag,
-      'hover:enabled:text-gray-600 hover:enabled:bg-gray-200/30':
-        variant === 'subtle' && !isATag,
+      "text-gray-500 bg-white font-normal": variant === "subtle",
+      "hover:text-gray-600 hover:bg-gray-200/30":
+        variant === "subtle" && isATag,
+      "hover:enabled:text-gray-600 hover:enabled:bg-gray-200/30":
+        variant === "subtle" && !isATag,
       // destructive
-      'text-red-500 bg-white border border-red-200': variant === 'destructive',
-      'hover:text-red-600 hover:text-red-600 hover:border-red-300':
-        variant === 'destructive' && isATag,
-      'hover:enabled:text-red-600 hover:enabled:text-red-600 hover:enabled:border-red-300 disabled:border-red-50 disabled:text-red-300':
-        variant === 'destructive' && !isATag,
-      'text-lg': size === 'large',
-      'text-xl': size === 'xl',
-      'text-sm px-2 py-0.5': size === 'mini',
-      'text-xs px-2 py-0': size === 'nano',
-      'cursor-not-allowed': disabled,
-      'cursor-wait opacity-75': loading, // Apply wait cursor and lower opacity when loading
+      "text-red-500 bg-white border border-red-200": variant === "destructive",
+      "hover:text-red-600 hover:text-red-600 hover:border-red-300":
+        variant === "destructive" && isATag,
+      "hover:enabled:text-red-600 hover:enabled:text-red-600 hover:enabled:border-red-300 disabled:border-red-50 disabled:text-red-300":
+        variant === "destructive" && !isATag,
+      "text-lg": size === "large",
+      "text-xl": size === "xl",
+      "text-sm px-2 py-0.5": size === "mini",
+      "text-xs px-2 py-0": size === "nano",
+      "cursor-not-allowed": disabled,
+      "cursor-wait opacity-75": loading, // Apply wait cursor and lower opacity when loading
     },
     className,
   );
@@ -536,11 +536,11 @@ export function Button({
         tabIndex={tabIndex}
         ref={buttonRef}
         className={cls}
-        {...(type === 'link-new'
-          ? { target: '_blank', rel: 'noopener noreferrer' }
+        {...(type === "link-new"
+          ? { target: "_blank", rel: "noopener noreferrer" }
           : {})}
         {...(loading || disabled
-          ? { 'aria-disabled': true }
+          ? { "aria-disabled": true }
           : { href, onClick })}
       >
         {children}
@@ -554,7 +554,7 @@ export function Button({
       tabIndex={tabIndex}
       ref={buttonRef}
       disabled={loading || disabled}
-      type={type === 'submit' ? 'submit' : 'button'}
+      type={type === "submit" ? "submit" : "button"}
       className={cls}
       onClick={onClick}
     >
@@ -639,8 +639,8 @@ export function ActionButton({
   tabIndex,
   title,
 }: {
-  type?: 'button' | 'submit';
-  variant?: 'primary' | 'secondary' | 'destructive';
+  type?: "button" | "submit";
+  variant?: "primary" | "secondary" | "destructive";
   disabled?: boolean;
   className?: string;
   label: ReactNode;
@@ -679,7 +679,7 @@ export function ActionButton({
   return (
     <Button
       tabIndex={tabIndex}
-      variant={variant ?? 'secondary'}
+      variant={variant ?? "secondary"}
       type={type}
       disabled={disabled || submitting}
       className={className}
@@ -693,42 +693,42 @@ export function ActionButton({
 // other
 
 function redactedValue(v: string): string {
-  if (v.length === 36 && v.indexOf('-') === 8) {
+  if (v.length === 36 && v.indexOf("-") === 8) {
     // Probably a uuid, so preserve the dashes
-    return v.replaceAll(/[^-]/g, '*');
+    return v.replaceAll(/[^-]/g, "*");
   }
-  return v.replaceAll(/./g, '*');
+  return v.replaceAll(/./g, "*");
 }
 
 export function Copyable({
   value,
   label,
-  size = 'normal',
+  size = "normal",
   hideValue,
   onChangeHideValue,
 }: {
   value: string;
   label: string;
-  size?: 'normal' | 'large';
+  size?: "normal" | "large";
   hideValue?: boolean;
   onChangeHideValue?: () => void;
 }) {
-  const [copyLabel, setCopyLabel] = useState('Copy');
+  const [copyLabel, setCopyLabel] = useState("Copy");
   const sizeToStyle = {
-    normal: { main: 'text-sm', copy: 'text-xs' },
+    normal: { main: "text-sm", copy: "text-xs" },
   };
   return (
     <div
-      className={cn('flex items-center rounded border bg-white font-mono', {
-        'text-sm': size === 'normal',
-        'text-base': size === 'large',
+      className={cn("flex items-center rounded border bg-white font-mono", {
+        "text-sm": size === "normal",
+        "text-base": size === "large",
       })}
     >
       <div
         className="border-r bg-gray-50 px-3 py-1.5"
         style={{
-          borderTopLeftRadius: 'calc(0.25rem - 1px)',
-          borderBottomLeftRadius: 'calc(0.25rem - 1px)',
+          borderTopLeftRadius: "calc(0.25rem - 1px)",
+          borderBottomLeftRadius: "calc(0.25rem - 1px)",
         }}
       >
         {label}
@@ -752,8 +752,8 @@ export function Copyable({
           <button
             onClick={onChangeHideValue}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
-              { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
+              "flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50",
+              { "text-xs": size === "normal", "text-sm": size === "large" },
             )}
           >
             {hideValue ? (
@@ -766,14 +766,14 @@ export function Copyable({
         <CopyToClipboard text={value}>
           <button
             onClick={() => {
-              setCopyLabel('Copied!');
+              setCopyLabel("Copied!");
               setTimeout(() => {
-                setCopyLabel('Copy');
+                setCopyLabel("Copy");
               }, 2500);
             }}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
-              { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
+              "flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50",
+              { "text-xs": size === "normal", "text-sm": size === "large" },
             )}
           >
             <ClipboardCopyIcon className="-ml-0.5 h-4 w-4" aria-hidden="true" />
@@ -815,9 +815,9 @@ export function Copytext({ value }: { value: string }) {
         }}
       >
         {showCopied ? (
-          <CheckCircleIcon className="pl-1" height={'1em'} />
+          <CheckCircleIcon className="pl-1" height={"1em"} />
         ) : (
-          <ClipboardCopyIcon className="cursor-pointer pl-1" height={'1em'} />
+          <ClipboardCopyIcon className="cursor-pointer pl-1" height={"1em"} />
         )}
       </CopyToClipboard>
     </span>
@@ -835,9 +835,9 @@ export function CodeEditor(props: {
 }) {
   return (
     <Editor
-      height={'100%'}
+      height={"100%"}
       language={props.language}
-      value={props.value ?? ''}
+      value={props.value ?? ""}
       defaultPath={props.path}
       options={{
         scrollBeyondLastLine: false,
@@ -848,7 +848,7 @@ export function CodeEditor(props: {
         tabIndex: props.tabIndex,
       }}
       onChange={(value) => {
-        props.onChange(value || '');
+        props.onChange(value || "");
       }}
       onMount={props.onMount}
       beforeMount={(monaco) => {}}
@@ -890,8 +890,8 @@ export function JSONEditor(props: {
               validate: true,
               schemas: [
                 {
-                  uri: 'http://myserver/myJsonTypeSchema', // A URI for your schema (can be a dummy URI)
-                  fileMatch: ['*'], // Associate with your model
+                  uri: "http://myserver/myJsonTypeSchema", // A URI for your schema (can be a dummy URI)
+                  fileMatch: ["*"], // Associate with your model
                   schema: props.schema,
                 },
               ],
@@ -904,13 +904,13 @@ export function JSONEditor(props: {
 }
 
 export type FenceLanguage =
-  | 'jsx'
-  | 'tsx'
-  | 'javascript'
-  | 'typescript'
-  | 'bash'
-  | 'json'
-  | 'sql';
+  | "jsx"
+  | "tsx"
+  | "javascript"
+  | "typescript"
+  | "bash"
+  | "json"
+  | "sql";
 
 export function Fence({
   code,
@@ -925,7 +925,7 @@ export function Fence({
   style?: any;
   copyable?: boolean;
 }) {
-  const [copyLabel, setCopyLabel] = useState('Copy');
+  const [copyLabel, setCopyLabel] = useState("Copy");
   return (
     <Highlight
       {...defaultProps}
@@ -939,7 +939,7 @@ export function Fence({
           style={{
             ...style,
             ..._style,
-            ...(copyable ? { position: 'relative' } : {}),
+            ...(copyable ? { position: "relative" } : {}),
           }}
         >
           {copyable ? (
@@ -947,9 +947,9 @@ export function Fence({
               <button
                 onClick={(e) => {
                   copy(code);
-                  setCopyLabel('Copied!');
+                  setCopyLabel("Copied!");
                   setTimeout(() => {
-                    setCopyLabel('Copy');
+                    setCopyLabel("Copy");
                   }, 2500);
                   e.preventDefault();
                   e.stopPropagation();
@@ -973,7 +973,7 @@ export function Fence({
                     const { key, ...props } = getTokenProps({ token });
                     return <span key={key || tokenIndex} {...props} />;
                   })}
-                {'\n'}
+                {"\n"}
               </Fragment>
             ))}
           </code>

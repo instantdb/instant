@@ -1,15 +1,36 @@
-import { FormEventHandler, useContext, useState } from 'react';
-import { errorToast } from '@/lib/toast';
-import config from '@/lib/config';
-import { AuthorizedOrigin, AuthorizedOriginService, InstantApp, InstantError, OAuthClient, OAuthServiceProvider } from '@/lib/types';
-import { jsonFetch } from '@/lib/fetch';
-import { TokenContext } from '@/lib/contexts';
-import { messageFromInstantError } from '@/lib/auth';
-import { Button, Content, Dialog, Label, SectionHeading, SubsectionHeading, Select, TextInput, useDialog } from '@/components/ui';
-import { InformationCircleIcon, PlusIcon, TrashIcon } from '@heroicons/react/solid'; 
-import { DeviceMobileIcon, GlobeAltIcon } from '@heroicons/react/outline';
-import NetlifyIcon from '../../icons/NetlifyIcon';
-import VercelIcon from '../../icons/VercelIcon';
+import { FormEventHandler, useContext, useState } from "react";
+import { errorToast } from "@/lib/toast";
+import config from "@/lib/config";
+import {
+  AuthorizedOrigin,
+  AuthorizedOriginService,
+  InstantApp,
+  InstantError,
+  OAuthClient,
+  OAuthServiceProvider,
+} from "@/lib/types";
+import { jsonFetch } from "@/lib/fetch";
+import { TokenContext } from "@/lib/contexts";
+import { messageFromInstantError } from "@/lib/auth";
+import {
+  Button,
+  Content,
+  Dialog,
+  Label,
+  SectionHeading,
+  SubsectionHeading,
+  Select,
+  TextInput,
+  useDialog,
+} from "@/components/ui";
+import {
+  InformationCircleIcon,
+  PlusIcon,
+  TrashIcon,
+} from "@heroicons/react/solid";
+import { DeviceMobileIcon, GlobeAltIcon } from "@heroicons/react/outline";
+import NetlifyIcon from "../../icons/NetlifyIcon";
+import VercelIcon from "../../icons/VercelIcon";
 
 export function addAuthorizedOrigin({
   token,
@@ -25,10 +46,10 @@ export function addAuthorizedOrigin({
   return jsonFetch(
     `${config.apiURI}/dash/apps/${appId}/authorized_redirect_origins`,
     {
-      method: 'POST',
+      method: "POST",
       headers: {
         authorization: `Bearer ${token}`,
-        'content-type': 'application/json',
+        "content-type": "application/json",
       },
       body: JSON.stringify({ service, params }),
     },
@@ -47,10 +68,10 @@ export function removeAuthorizedOrigin({
   return jsonFetch(
     `${config.apiURI}/dash/apps/${appId}/authorized_redirect_origins/${originId}`,
     {
-      method: 'DELETE',
+      method: "DELETE",
       headers: {
         authorization: `Bearer ${token}`,
-        'content-type': 'application/json',
+        "content-type": "application/json",
       },
       body: JSON.stringify({}),
     },
@@ -58,10 +79,10 @@ export function removeAuthorizedOrigin({
 }
 
 const serviceOptions: { label: string; value: AuthorizedOriginService }[] = [
-  { label: 'Website', value: 'generic' },
-  { label: 'Vercel previews', value: 'vercel' },
-  { label: 'Netlify previews', value: 'netlify' },
-  { label: 'App scheme', value: 'custom-scheme' },
+  { label: "Website", value: "generic" },
+  { label: "Vercel previews", value: "vercel" },
+  { label: "Netlify previews", value: "netlify" },
+  { label: "App scheme", value: "custom-scheme" },
 ];
 
 // TODO(dww): Parse url to suggest adding a netlify or vercel project
@@ -75,53 +96,53 @@ export function AuthorizedOriginsForm({
   onCancel: () => void;
 }) {
   const token = useContext(TokenContext);
-  const [url, setUrl] = useState<string>('');
+  const [url, setUrl] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
-  const [service, setService] = useState<AuthorizedOriginService>('generic');
+  const [service, setService] = useState<AuthorizedOriginService>("generic");
 
   const validateUrl = (
     originParam: string,
     service: AuthorizedOriginService,
   ):
-    | { type: 'error'; message: string }
-    | { type: 'success'; params: string[] } => {
+    | { type: "error"; message: string }
+    | { type: "success"; params: string[] } => {
     switch (service) {
-      case 'netlify': {
-        return { type: 'success', params: [originParam] };
+      case "netlify": {
+        return { type: "success", params: [originParam] };
       }
-      case 'vercel': {
-        return { type: 'success', params: ['vercel.app', originParam] };
+      case "vercel": {
+        return { type: "success", params: ["vercel.app", originParam] };
       }
-      case 'custom-scheme': {
+      case "custom-scheme": {
         try {
           const url = new URL(originParam);
           // Remove final `:` from protocol to get scheme
           const scheme = url.protocol.slice(0, -1);
-          return { type: 'success', params: [scheme] };
+          return { type: "success", params: [scheme] };
         } catch (e) {
-          return { type: 'error', message: 'Invalid scheme.' };
+          return { type: "error", message: "Invalid scheme." };
         }
       }
-      case 'generic':
+      case "generic":
         try {
           const url = new URL(originParam);
           const host = url.host;
           if (!host) {
-            throw new Error('missing host');
+            throw new Error("missing host");
           }
           // Allows localhost:port, but not just localhost
-          if (host.split('.').length === 1 && !url.port) {
-            throw new Error('invalid url');
+          if (host.split(".").length === 1 && !url.port) {
+            throw new Error("invalid url");
           }
-          return { type: 'success', params: [host] };
+          return { type: "success", params: [host] };
         } catch (e) {
-          if (!originParam.startsWith('http')) {
+          if (!originParam.startsWith("http")) {
             return validateUrl(`http://${originParam}`, service);
           }
-          return { type: 'error', message: 'Invalid URL.' };
+          return { type: "error", message: "Invalid URL." };
         }
       default: {
-        return { type: 'error', message: 'Unknown type' };
+        return { type: "error", message: "Unknown type" };
       }
     }
   };
@@ -130,7 +151,7 @@ export function AuthorizedOriginsForm({
     setIsLoading(true);
     try {
       const validated = validateUrl(url, service);
-      if (validated.type === 'error') {
+      if (validated.type === "error") {
         errorToast(validated.message, { autoClose: 5000 });
         return;
       }
@@ -144,7 +165,7 @@ export function AuthorizedOriginsForm({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || 'Error creating origin.';
+        messageFromInstantError(e as InstantError) || "Error creating origin.";
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);
@@ -187,13 +208,13 @@ export function AuthorizedOriginsForm({
           />
         </div>
       </div>
-      {service === 'vercel' ? (
+      {service === "vercel" ? (
         <TypeHelp text="Vercel preview origins will allow all preview urls for the project." />
       ) : null}
-      {service === 'netlify' ? (
+      {service === "netlify" ? (
         <TypeHelp text="Netlify preview origins will allow all preview urls for the site." />
       ) : null}
-      {service === 'custom-scheme' ? (
+      {service === "custom-scheme" ? (
         <TypeHelp text="Use app scheme if you're implementing the OAuth flow in a native app." />
       ) : null}
       <div className="flex flex-row gap-2">
@@ -210,13 +231,13 @@ export function AuthorizedOriginsForm({
 
 export function originDisplay(origin: AuthorizedOrigin) {
   switch (origin.service) {
-    case 'generic':
+    case "generic":
       return origin.params[0];
-    case 'netlify':
+    case "netlify":
       return origin.params[0];
-    case 'vercel':
+    case "vercel":
       return origin.params[1];
-    case 'custom-scheme':
+    case "custom-scheme":
       return `${origin.params[0]}://`;
     default:
       return origin.params[0];
@@ -225,13 +246,13 @@ export function originDisplay(origin: AuthorizedOrigin) {
 
 export function originIcon(origin: AuthorizedOrigin) {
   switch (origin.service) {
-    case 'generic':
+    case "generic":
       return GlobeAltIcon;
-    case 'netlify':
+    case "netlify":
       return NetlifyIcon;
-    case 'vercel':
+    case "vercel":
       return VercelIcon;
-    case 'custom-scheme':
+    case "custom-scheme":
       return DeviceMobileIcon;
     default:
       return GlobeAltIcon;
@@ -240,49 +261,49 @@ export function originIcon(origin: AuthorizedOrigin) {
 
 export function originSource(origin: AuthorizedOrigin) {
   switch (origin.service) {
-    case 'generic':
-      return 'Website';
-    case 'netlify':
-      return 'Netlify site';
-    case 'vercel':
-      if (origin.params[0] !== 'vercel.app') {
+    case "generic":
+      return "Website";
+    case "netlify":
+      return "Netlify site";
+    case "vercel":
+      if (origin.params[0] !== "vercel.app") {
         return `Vercel project (${origin.params[0]})`;
       }
-      return 'Vercel project';
-    case 'custom-scheme':
-      return 'Native app';
+      return "Vercel project";
+    case "custom-scheme":
+      return "Native app";
     default:
-      return '';
+      return "";
   }
 }
 
 export function originInputLabel(service: AuthorizedOriginService) {
   switch (service) {
-    case 'generic':
-      return 'Origin domain';
-    case 'netlify':
-      return 'Netlify site';
-    case 'vercel':
-      return 'Vercel project';
-    case 'custom-scheme':
-      return 'App scheme';
+    case "generic":
+      return "Origin domain";
+    case "netlify":
+      return "Netlify site";
+    case "vercel":
+      return "Vercel project";
+    case "custom-scheme":
+      return "App scheme";
     default:
-      return '';
+      return "";
   }
 }
 
 export function originInputPlaceholder(service: AuthorizedOriginService) {
   switch (service) {
-    case 'generic':
-      return 'example.com';
-    case 'netlify':
-      return 'netlify-site-name';
-    case 'vercel':
-      return 'vercel-project-name';
-    case 'custom-scheme':
-      return 'app-scheme://';
+    case "generic":
+      return "example.com";
+    case "netlify":
+      return "netlify-site-name";
+    case "vercel":
+      return "vercel-project-name";
+    case "custom-scheme":
+      return "app-scheme://";
     default:
-      return '';
+      return "";
   }
 }
 
@@ -311,7 +332,7 @@ export function AuthorizedOriginRow({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || 'Error removing origin.';
+        messageFromInstantError(e as InstantError) || "Error removing origin.";
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);
@@ -334,7 +355,7 @@ export function AuthorizedOriginRow({
         </div>
       </div>
       <button onClick={deleteDialog.onOpen}>
-        <TrashIcon height={'1rem'} className="" />
+        <TrashIcon height={"1rem"} className="" />
       </button>
       <Dialog {...deleteDialog}>
         <div className="flex flex-col gap-2">

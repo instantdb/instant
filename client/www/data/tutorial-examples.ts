@@ -1,6 +1,6 @@
-import fs from 'fs';
-import { capitalize } from 'lodash';
-import { join } from 'path';
+import fs from "fs";
+import { capitalize } from "lodash";
+import { join } from "path";
 
 export type File = {
   code: string;
@@ -18,7 +18,7 @@ function readDirFiles(dir: string) {
     return {
       fileName,
       filePath,
-      code: fs.readFileSync(filePath, 'utf-8'),
+      code: fs.readFileSync(filePath, "utf-8"),
     };
   });
 }
@@ -26,21 +26,21 @@ function readDirFiles(dir: string) {
 export function getFiles(): Record<string, File> {
   return Object.fromEntries(
     [
-      ...readDirFiles('./pages/tutorial-examples'),
-      ...readDirFiles('./data/tutorial-snippets'),
+      ...readDirFiles("./pages/tutorial-examples"),
+      ...readDirFiles("./data/tutorial-snippets"),
     ].map(({ fileName, code }) => {
-      const pathName = fileName.replace(/\.tsx$/, '');
-      const name = capitalize(pathName.slice(2).split('-').join(' '));
+      const pathName = fileName.replace(/\.tsx$/, "");
+      const name = capitalize(pathName.slice(2).split("-").join(" "));
       const _code = code
-        .split('\n')
+        .split("\n")
         .filter(
           (l) =>
-            l.indexOf('// hide-line') === -1 &&
-            l.indexOf('// @ts-nocheck') === -1
+            l.indexOf("// hide-line") === -1 &&
+            l.indexOf("// @ts-nocheck") === -1,
         )
-        .join('\n');
+        .join("\n");
 
       return [pathName, { fileName, pathName, name, code: _code }];
-    })
+    }),
   );
 }

@@ -1,15 +1,15 @@
-import { useRouter } from 'next/router';
-import { TokenContext } from '@/lib/contexts';
-import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
-import { successToast } from '@/lib/toast';
-import { DashResponse, InstantApp } from '@/lib/types';
-import config from '@/lib/config';
-import { jsonFetch } from '@/lib/fetch';
-import { APIResponse, useAuthToken, useTokenFetch } from '@/lib/auth';
-import { Sandbox } from '@/components/dash/Sandbox';
-import { Explorer } from '@/components/dash/explorer/Explorer';
-import { init } from '@instantdb/react';
-import { useEffect, useState, useContext } from 'react';
+import { useRouter } from "next/router";
+import { TokenContext } from "@/lib/contexts";
+import { useIsHydrated } from "@/lib/hooks/useIsHydrated";
+import { successToast } from "@/lib/toast";
+import { DashResponse, InstantApp } from "@/lib/types";
+import config from "@/lib/config";
+import { jsonFetch } from "@/lib/fetch";
+import { APIResponse, useAuthToken, useTokenFetch } from "@/lib/auth";
+import { Sandbox } from "@/components/dash/Sandbox";
+import { Explorer } from "@/components/dash/explorer/Explorer";
+import { init } from "@instantdb/react";
+import { useEffect, useState, useContext } from "react";
 import {
   Button,
   Checkbox,
@@ -21,10 +21,10 @@ import {
   Content,
   twel,
   useDialog,
-} from '@/components/ui';
-import Auth from '@/components/dash/Auth';
-import { isMinRole } from '@/pages/dash/index';
-import { TrashIcon } from '@heroicons/react/solid';
+} from "@/components/ui";
+import Auth from "@/components/dash/Auth";
+import { isMinRole } from "@/pages/dash/index";
+import { TrashIcon } from "@heroicons/react/solid";
 
 type InstantReactClient = ReturnType<typeof init>;
 
@@ -38,42 +38,42 @@ export default function Devtool() {
   );
   const appId = router.query.appId as string;
   const app = dashResponse.data?.apps?.find((a) => a.id === appId);
-  const [tab, setTab] = useState('explorer');
+  const [tab, setTab] = useState("explorer");
   const [connection, setConnection] = useState<
     | {
-        state: 'pending';
+        state: "pending";
       }
     | {
-        state: 'error';
+        state: "error";
       }
     | {
-        state: 'ready';
+        state: "ready";
         db: InstantReactClient;
       }
-  >({ state: 'pending' });
+  >({ state: "pending" });
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      const isToggleShortcut = e.shiftKey && e.ctrlKey && e.key === '0';
+      const isToggleShortcut = e.shiftKey && e.ctrlKey && e.key === "0";
 
       if (isToggleShortcut) {
         parent.postMessage(
           {
-            type: 'close',
+            type: "close",
           },
-          '*',
+          "*",
         );
       }
     }
 
-    addEventListener('keydown', onKeyDown);
+    addEventListener("keydown", onKeyDown);
 
-    return () => removeEventListener('keydown', onKeyDown);
+    return () => removeEventListener("keydown", onKeyDown);
   }, []);
 
   useEffect(() => {
     if (!app) return;
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
     try {
       const db = init({
@@ -85,13 +85,13 @@ export default function Devtool() {
         devtool: false,
       });
 
-      setConnection({ state: 'ready', db });
+      setConnection({ state: "ready", db });
 
       return () => {
         db._core.shutdown();
       };
     } catch (error) {
-      setConnection({ state: 'error' });
+      setConnection({ state: "error" });
     }
   }, [router.isReady, app]);
 
@@ -128,7 +128,7 @@ export default function Devtool() {
         <div>Error loading app</div>
         {!isEmptyObj(dashResponse.error) ? (
           <pre className="p-1 bg-gray-100 max-w-sm w-full overflow-x-auto">
-            {JSON.stringify(dashResponse.error, null, '\t')}{' '}
+            {JSON.stringify(dashResponse.error, null, "\t")}{" "}
           </pre>
         ) : null}
       </div>
@@ -151,7 +151,7 @@ export default function Devtool() {
     );
   }
 
-  if (connection.state === 'error') {
+  if (connection.state === "error") {
     return (
       <div className="h-full w-full flex justify-center items-center">
         Failed to connect to Instant backend.
@@ -159,7 +159,7 @@ export default function Devtool() {
     );
   }
 
-  if (connection.state === 'pending') {
+  if (connection.state === "pending") {
     return (
       <div className="h-full w-full flex justify-center items-center">
         Connecting...
@@ -172,7 +172,7 @@ export default function Devtool() {
       <TokenContext.Provider value={authToken}>
         <div className="flex flex-col h-full w-full">
           <div className="px-3 py-1 text-xs font-mono bg-gray-100 border-b">
-            Instant Devtools {app?.title ? `• ${app?.title}` : ''}
+            Instant Devtools {app?.title ? `• ${app?.title}` : ""}
           </div>
           <div className="flex gap-2 px-3 py-1 text-xs font-mono bg-gray-50 border-b">
             <span>App ID</span>
@@ -195,20 +195,20 @@ export default function Devtool() {
             selectedId={tab}
             tabs={[
               {
-                id: 'explorer',
-                label: 'Explorer',
+                id: "explorer",
+                label: "Explorer",
               },
               {
-                id: 'sandbox',
-                label: 'Sandbox',
+                id: "sandbox",
+                label: "Sandbox",
               },
               {
-                id: 'admin',
-                label: 'Admin',
+                id: "admin",
+                label: "Admin",
               },
               {
-                id: 'help',
-                label: 'Help',
+                id: "help",
+                label: "Help",
               },
             ]}
             onSelect={(t) => {
@@ -216,17 +216,17 @@ export default function Devtool() {
             }}
           />
           <div className="flex w-full flex-1 overflow-auto">
-            {tab === 'explorer' ? (
+            {tab === "explorer" ? (
               <Explorer db={connection.db} appId={appId} />
-            ) : tab === 'sandbox' ? (
+            ) : tab === "sandbox" ? (
               <div className="min-w-[960px] w-full">
                 <Sandbox app={app} />
               </div>
-            ) : tab === 'admin' ? (
+            ) : tab === "admin" ? (
               <div className="min-w-[960px] w-full p-4">
                 <Admin dashResponse={dashResponse} app={app} />
               </div>
-            ) : tab === 'help' ? (
+            ) : tab === "help" ? (
               <div className="min-w-[960px] w-full p-4">
                 <Help />
               </div>
@@ -251,7 +251,7 @@ function Admin({
 
   return (
     <Stack className="gap-2 text-sm max-w-sm">
-      {isMinRole('owner', app.user_app_role) ? (
+      {isMinRole("owner", app.user_app_role) ? (
         <div className="space-y-2">
           <SectionHeading>Danger zone</SectionHeading>
           <Content>
@@ -261,7 +261,7 @@ function Admin({
           <div>
             <div className="flex flex-col space-y-6">
               <Button variant="destructive" onClick={clearDialog.onOpen}>
-                <TrashIcon height={'1rem'} /> Clear app
+                <TrashIcon height={"1rem"} /> Clear app
               </Button>
             </div>
           </div>
@@ -296,17 +296,17 @@ function Admin({
                   await jsonFetch(
                     `${config.apiURI}/dash/apps/${app.id}/clear`,
                     {
-                      method: 'POST',
+                      method: "POST",
                       headers: {
                         authorization: `Bearer ${token}`,
-                        'content-type': 'application/json',
+                        "content-type": "application/json",
                       },
                     },
                   );
 
                   clearDialog.onClose();
                   dashResponse.mutate();
-                  successToast('App cleared!');
+                  successToast("App cleared!");
                 }}
               >
                 Clear data
@@ -347,7 +347,7 @@ function Help() {
         <Code>init</Code> function with <Code>devtool: false</Code>.
       </p>
       <p>
-        Feedback? Drop us a line on{' '}
+        Feedback? Drop us a line on{" "}
         <a
           className="font-bold text-blue-500"
           href="https://discord.com/invite/VU53p7uQcE"
@@ -360,7 +360,7 @@ function Help() {
   );
 }
 
-const Code = twel('code', 'bg-gray-200 px-1 rounded text-xs font-mono');
+const Code = twel("code", "bg-gray-200 px-1 rounded text-xs font-mono");
 
 function isEmptyObj(obj: object) {
   return Object.keys(obj).length === 0;

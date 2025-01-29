@@ -1,19 +1,23 @@
-import { SectionHeading, Button, Content } from '@/components/ui';
-import { messageFromInstantError, friendlyErrorMessage, useAuthedFetch } from '@/lib/auth';
-import config, { stripeKey } from '@/lib/config';
-import { TokenContext } from '@/lib/contexts';
-import { jsonFetch } from '@/lib/fetch';
+import { SectionHeading, Button, Content } from "@/components/ui";
+import {
+  messageFromInstantError,
+  friendlyErrorMessage,
+  useAuthedFetch,
+} from "@/lib/auth";
+import config, { stripeKey } from "@/lib/config";
+import { TokenContext } from "@/lib/contexts";
+import { jsonFetch } from "@/lib/fetch";
 import {
   AppsSubscriptionResponse,
   InstantError,
   SubscriptionName,
-} from '@/lib/types';
-import { loadStripe } from '@stripe/stripe-js';
-import { useContext, useRef } from 'react';
-import { Loading, ErrorMessage } from '@/components/dash/shared';
-import { errorToast } from '@/lib/toast';
-import clsx from 'clsx';
-import confetti from 'canvas-confetti';
+} from "@/lib/types";
+import { loadStripe } from "@stripe/stripe-js";
+import { useContext, useRef } from "react";
+import { Loading, ErrorMessage } from "@/components/dash/shared";
+import { errorToast } from "@/lib/toast";
+import clsx from "clsx";
+import confetti from "canvas-confetti";
 
 const stripePromise = loadStripe(stripeKey);
 const GB_1 = 1024 * 1024 * 1024;
@@ -35,25 +39,25 @@ async function createCheckoutSession(appId: string, token: string) {
   const sessionPromise = jsonFetch(
     `${config.apiURI}/dash/apps/${appId}/checkout_session`,
     {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-    }
+    },
   );
   Promise.all([stripePromise, sessionPromise])
     .then(([stripe, session]) => {
       if (!stripe || !session) {
-        throw new Error('Failed to create checkout session');
+        throw new Error("Failed to create checkout session");
       }
       stripe.redirectToCheckout({ sessionId: session.id });
     })
     .catch((err) => {
       const message =
         messageFromInstantError(err as InstantError) ||
-        'Failed to connect w/ Stripe! Try again or ping us on Discord if this persists.';
-      const friendlyMessage = friendlyErrorMessage('dash-billing', message);
+        "Failed to connect w/ Stripe! Try again or ping us on Discord if this persists.";
+      const friendlyMessage = friendlyErrorMessage("dash-billing", message);
       errorToast(friendlyMessage);
       console.error(err);
     });
@@ -63,25 +67,25 @@ async function createPortalSession(appId: string, token: string) {
   const sessionPromise = jsonFetch(
     `${config.apiURI}/dash/apps/${appId}/portal_session`,
     {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-    }
+    },
   );
   Promise.all([stripePromise, sessionPromise])
     .then(([stripe, session]) => {
       if (!stripe || !session) {
-        throw new Error('Failed to create portal session');
+        throw new Error("Failed to create portal session");
       }
-      window.open(session.url, '_blank');
+      window.open(session.url, "_blank");
     })
     .catch((err) => {
       const message =
         messageFromInstantError(err as InstantError) ||
-        'Failed to connect w/ Stripe! Try again or ping us on Discord if this persists.';
-      const friendlyMessage = friendlyErrorMessage('dash-billing', message);
+        "Failed to connect w/ Stripe! Try again or ping us on Discord if this persists.";
+      const friendlyMessage = friendlyErrorMessage("dash-billing", message);
       errorToast(friendlyMessage);
       console.error(err);
     });
@@ -103,21 +107,21 @@ export default function Billing({ appId }: { appId: string }) {
   const confettiRef = useRef<HTMLDivElement>(null);
 
   const onUpgrade = async (
-    e: React.MouseEvent<HTMLButtonElement, MouseEvent>
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
   ) => {
     e.preventDefault();
     createCheckoutSession(appId, token);
   };
 
   const onManage = async (
-    e: React.MouseEvent<HTMLButtonElement, MouseEvent>
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
   ) => {
     e.preventDefault();
     createPortalSession(appId, token);
   };
 
   const authResponse = useAuthedFetch<AppsSubscriptionResponse>(
-    `${config.apiURI}/dash/apps/${appId}/billing`
+    `${config.apiURI}/dash/apps/${appId}/billing`,
   );
 
   if (authResponse.isLoading) {
@@ -131,7 +135,7 @@ export default function Billing({ appId }: { appId: string }) {
       <div className="mx-auto flex max-w-xl flex-col gap-4 p-2">
         <ErrorMessage>
           <div className="flex gap-2">
-            There was an error loading the data.{' '}
+            There was an error loading the data.{" "}
             <Button
               variant="subtle"
               size="mini"
@@ -147,10 +151,10 @@ export default function Billing({ appId }: { appId: string }) {
     );
   }
 
-  const subscriptionName = data['subscription-name'];
-  const isFreeTier = subscriptionName === 'Free';
-  const totalAppBytes = data['total-app-bytes'] || 0;
-  const totalStorageBytes = data['total-storage-bytes'] || 0;
+  const subscriptionName = data["subscription-name"];
+  const isFreeTier = subscriptionName === "Free";
+  const totalAppBytes = data["total-app-bytes"] || 0;
+  const totalStorageBytes = data["total-storage-bytes"] || 0;
   const totalUsageBytes = totalAppBytes + totalStorageBytes;
   const progressDen = isFreeTier ? GB_1 : GB_10;
   const progress = Math.round((totalUsageBytes / progressDen) * 100);
@@ -165,7 +169,7 @@ export default function Billing({ appId }: { appId: string }) {
             {subscriptionName}
           </div>
         ) : (
-          <div style={{ animation: 'wiggle 5s infinite' }}>
+          <div style={{ animation: "wiggle 5s infinite" }}>
             <div
               ref={confettiRef}
               className="font-mono font-bold rounded border px-2 py-1 transition-all active:scale-90 translate-y-0 hover:-translate-y-1 border-purple-400 text-purple-800 bg-purple-100 select-none cursor-pointer"
@@ -192,7 +196,7 @@ export default function Billing({ appId }: { appId: string }) {
 
       <div className="flex flex-col gap px-2 pt-1 pb-3 rounded border">
         <h2 className="flex gap-2 p-2 justify-between">
-          <span className="font-bold">Usage</span>{' '}
+          <span className="font-bold">Usage</span>{" "}
           <span className="font-mono text-sm">
             {friendlyUsage(totalUsageBytes)} / {friendlyUsage(progressDen)}
           </span>

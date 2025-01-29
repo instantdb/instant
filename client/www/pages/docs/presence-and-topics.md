@@ -42,10 +42,10 @@ You may be thinking when would I use `transact` vs `presence` vs `topics`? Here'
 To obtain a room reference, call `db.room(roomType, roomId)`
 
 ```typescript
-import { init } from '@instantdb/react';
+import { init } from "@instantdb/react";
 
 // Instant app
-const APP_ID = '__APP_ID__';
+const APP_ID = "__APP_ID__";
 
 // db will export all the presence hooks you need!
 const db = init({ appId: APP_ID });
@@ -53,8 +53,8 @@ const db = init({ appId: APP_ID });
 // Specifying a room type and room id gives you the power to
 // restrict sharing to a specific room. However you can also just use
 // `db.room()` to share presence and topics to an Instant generated default room
-const roomId = 'hacker-chat-room-id';
-const room = db.room('chat', roomId);
+const roomId = "hacker-chat-room-id";
+const room = db.room("chat", roomId);
 ```
 
 ## Typesafety
@@ -62,17 +62,17 @@ const room = db.room('chat', roomId);
 By default rooms accept any kind of data. However, you can enforce typesafety with a schema:
 
 ```typescript
-import { init } from '@instantdb/react';
-import schema from '../instant.schema.ts';
+import { init } from "@instantdb/react";
+import schema from "../instant.schema.ts";
 
 // Instant app
-const APP_ID = '__APP_ID__';
+const APP_ID = "__APP_ID__";
 
 const db = init({ appId: APP_ID, schema });
 
-const roomId = 'hacker-chat-room-id';
+const roomId = "hacker-chat-room-id";
 // The `chat` room is typed automatically from schema!
-const room = db.room('chat', roomId);
+const room = db.room("chat", roomId);
 ```
 
 Here's how we could add typesafety to our `chat` rooms:
@@ -80,7 +80,7 @@ Here's how we could add typesafety to our `chat` rooms:
 ```typescript
 // instant.schema.ts
 
-import { i } from '@instantdb/core';
+import { i } from "@instantdb/core";
 
 const _schema = i.schema({
   // ...
@@ -169,12 +169,12 @@ function App() {
 `usePresence` accepts a second parameter to select specific slices of user's presence object.
 
 ```typescript
-const room = db.room('chat', 'hacker-chat-room-id');
+const room = db.room("chat", "hacker-chat-room-id");
 
 // We only return the `status` value for each peer
 // We will _only_ trigger an update when a user's `status` value changes
 const { user, peers, publishPresence } = db.rooms.usePresence(room, {
-  keys: ['status'],
+  keys: ["status"],
 });
 ```
 
@@ -182,7 +182,7 @@ You may also specify an array of `peers` and a `user` flag to further constrain 
 
 ```typescript
 // Will not trigger re-renders on presence changes
-const room = db.room('chat', 'hacker-chat-room-id');
+const room = db.room("chat", "hacker-chat-room-id");
 
 const { publishPresence } = db.rooms.usePresence(room, {
   peers: [],
@@ -401,12 +401,12 @@ You can render multiple cursor spaces. For instance, imagine you're building a s
 `useTypingIndicator` is a small utility useful for building inputs for chat-style apps. You can use this hook to show things like "<user> is typing..." in your chat app.
 
 ```javascript {% showCopy=true %}
-'use client';
+"use client";
 
-import { init } from '@instantdb/react';
+import { init } from "@instantdb/react";
 
 // Instant app
-const APP_ID = '__APP_ID__';
+const APP_ID = "__APP_ID__";
 
 const db = init({ appId: APP_ID });
 
@@ -415,23 +415,23 @@ const user = {
   name: `User#${randomId}`,
 };
 
-const room = db.room('chat', 'hacker-chat-room-id');
+const room = db.room("chat", "hacker-chat-room-id");
 
 export default function InstantTypingIndicator() {
   // 1. Publish your presence in the room.
   db.rooms.useSyncPresence(room, user);
 
   // 2. Use the typing indicator hook
-  const typing = db.rooms.useTypingIndicator(room, 'chat');
+  const typing = db.rooms.useTypingIndicator(room, "chat");
 
   const onKeyDown = (e) => {
     // 3. Render typing indicator
     typing.inputProps.onKeyDown(e);
 
     // 4. Optionally run your own onKeyDown logic
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      console.log('Message sent:', e.target.value);
+      console.log("Message sent:", e.target.value);
     }
   };
 

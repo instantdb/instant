@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { errorToast } from '../toast';
+import { useState } from "react";
+import { errorToast } from "../toast";
 
 export type FormFieldStates<Schema> = {
   [K in keyof Schema]: {
@@ -24,7 +24,7 @@ export type Form<Schema extends Record<string, any>> = {
     onChange(v: Schema[keyof Schema]): void;
   };
   formProps(): { onSubmit(e: React.FormEvent<HTMLFormElement>): Promise<void> };
-  submitButtonProps(): { type: 'submit'; disabled: boolean; children: string };
+  submitButtonProps(): { type: "submit"; disabled: boolean; children: string };
   reset(values?: Schema): void;
 };
 
@@ -56,23 +56,23 @@ export function useForm<Schema extends Record<string, any>>({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [topLevelErrors, setTopLevelErrors] = useState<string[] | null>(null);
   const [fieldStates, setFieldStates] = useState<FormFieldStates<Schema>>(() =>
-    getInitialFieldStates(initial)
+    getInitialFieldStates(initial),
   );
 
   function getValues() {
     return Object.fromEntries(
-      Object.entries(fieldStates).map(([k, v]) => [k, v.value])
+      Object.entries(fieldStates).map(([k, v]) => [k, v.value]),
     ) as Schema;
   }
 
   function getInitialFieldStates(vs: Schema) {
     return Object.fromEntries(
-      Object.entries(vs).map(([k, value]) => [k, { value, error: null }])
+      Object.entries(vs).map(([k, value]) => [k, { value, error: null }]),
     ) as FormFieldStates<Schema>;
   }
 
   const hasErrors = Boolean(
-    Object.values(fieldStates).filter((s) => s.error).length
+    Object.values(fieldStates).filter((s) => s.error).length,
   );
 
   const isValid =
@@ -103,7 +103,7 @@ export function useForm<Schema extends Record<string, any>>({
     inputProps(name: keyof Schema) {
       return {
         name,
-        value: fieldStates[name].value ?? '',
+        value: fieldStates[name].value ?? "",
         error: fieldStates[name].error ?? undefined,
         onChange(v: Schema[typeof name]) {
           const error = validators?.[name]?.(v)?.error ?? null;
@@ -134,11 +134,11 @@ export function useForm<Schema extends Record<string, any>>({
     },
     submitButtonProps() {
       return {
-        type: 'submit' as const,
+        type: "submit" as const,
         disabled: !isValid,
         children: isSubmitting
-          ? submittingLabel ?? 'Submitting...'
-          : submitLabel ?? 'Submit',
+          ? (submittingLabel ?? "Submitting...")
+          : (submitLabel ?? "Submit"),
       };
     },
   };
@@ -147,18 +147,18 @@ export function useForm<Schema extends Record<string, any>>({
 export function displayInstantStandardError<T extends Record<string, any>>(
   errorRes: any,
   form: Form<T>,
-  apiDataTypeNameToFormFieldName: Record<string, string>
+  apiDataTypeNameToFormFieldName: Record<string, string>,
 ) {
   const body = errorRes?.body;
   const errType = body?.type;
 
   const message = body?.hint?.errors?.[0]?.message;
-  const dtName = body?.hint?.['data-type'];
+  const dtName = body?.hint?.["data-type"];
   const field = apiDataTypeNameToFormFieldName[dtName];
 
-  if (errType === 'validation-failed' && field && message) {
+  if (errType === "validation-failed" && field && message) {
     form.setFieldError(field as keyof T, message);
   } else {
-    errorToast(message ?? 'An error occurred. Please try again.');
+    errorToast(message ?? "An error occurred. Please try again.");
   }
 }

@@ -22,7 +22,6 @@ const db = init({
         title: i.string(),
       }),
     },
-
   }),
 });
 

@@ -1,9 +1,9 @@
-import { InstantReactWebDatabase } from '@instantdb/react';
-import { useEffect, useState } from 'react';
-import { DBAttr, SchemaNamespace } from '@/lib/types';
-import { dbAttrsToExplorerSchema } from '@/lib/schema';
+import { InstantReactWebDatabase } from "@instantdb/react";
+import { useEffect, useState } from "react";
+import { DBAttr, SchemaNamespace } from "@/lib/types";
+import { dbAttrsToExplorerSchema } from "@/lib/schema";
 
-export type SearchFilterOp = '=' | '$ilike' | '$like' | '$gt' | '$lt';
+export type SearchFilterOp = "=" | "$ilike" | "$like" | "$gt" | "$lt";
 export type SearchFilter = [string, SearchFilterOp, any];
 
 function makeWhere(
@@ -17,7 +17,7 @@ function makeWhere(
   if (searchFilters?.length) {
     where.or = searchFilters.map(([attr, op, val]) => {
       switch (op) {
-        case '=':
+        case "=":
           return { [attr]: val };
         default:
           return { [attr]: { [op]: val } };
@@ -38,7 +38,7 @@ export function useNamespacesQuery(
   sortAttr?: string,
   sortAsc?: boolean,
 ) {
-  const direction: 'asc' | 'desc' = sortAsc ? 'asc' : 'desc';
+  const direction: "asc" | "desc" = sortAsc ? "asc" : "desc";
 
   const where = makeWhere(navWhere, searchFilters);
 
@@ -47,7 +47,7 @@ export function useNamespacesQuery(
         [selectedNs.name]: {
           ...Object.fromEntries(
             selectedNs.attrs
-              .filter((a) => a.type === 'ref')
+              .filter((a) => a.type === "ref")
               .map((a) => [a.name, {}]),
           ),
           $: {
@@ -67,7 +67,7 @@ export function useNamespacesQuery(
       ? {
           [selectedNs.name]: {
             $: {
-              aggregate: 'count',
+              aggregate: "count",
               ...(where ? { where: where } : {}),
             },
           },
@@ -76,7 +76,7 @@ export function useNamespacesQuery(
   );
 
   // @ts-expect-error: admin-only feature
-  const allCount = allRes.aggregate?.[selectedNs?.name ?? '']?.count ?? null;
+  const allCount = allRes.aggregate?.[selectedNs?.name ?? ""]?.count ?? null;
 
   return {
     itemsRes,

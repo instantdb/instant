@@ -88,16 +88,21 @@ function ReactNormalApp() {
   const _reactPublishEmoji = reactRoom.usePublishTopic("emoji");
   const _reactPresenceUser = reactPresence.user!;
   const _reactPresencePeers = reactPresence.peers!;
-  _reactPresenceUser.name; 
-  _reactPresencePeers[0].name;  
+  _reactPresenceUser.name;
+  _reactPresencePeers[0].name;
 
-  const reactPresenceNew = reactDB.rooms.usePresence(reactRoom, { keys: ["name"] });
-  const _reactPublishEmojiNew = reactDB.rooms.usePublishTopic(reactRoom, "emoji");
+  const reactPresenceNew = reactDB.rooms.usePresence(reactRoom, {
+    keys: ["name"],
+  });
+  const _reactPublishEmojiNew = reactDB.rooms.usePublishTopic(
+    reactRoom,
+    "emoji",
+  );
   const _reactPresenceUserNew = reactPresenceNew.user!;
   const _reactPresencePeersNew = reactPresenceNew.peers!;
-  _reactPresenceUserNew.name; 
-  _reactPresencePeersNew[0].name;  
-  
+  _reactPresenceUserNew.name;
+  _reactPresencePeersNew[0].name;
+
   // queries
   const { isLoading, error, data } = reactDB.useQuery({ messages: {} });
   if (isLoading || error) {
@@ -136,15 +141,20 @@ function ReactNativeNormalApp() {
   const _reactPublishEmoji = reactRoom.usePublishTopic("emoji");
   const _reactPresenceUser = reactPresence.user!;
   const _reactPresencePeers = reactPresence.peers!;
-  _reactPresenceUser.name; 
-  _reactPresencePeers[0].name;  
+  _reactPresenceUser.name;
+  _reactPresencePeers[0].name;
 
-  const reactPresenceNew = reactNativeDB.rooms.usePresence(reactRoom, { keys: ["name"] });
-  const _reactPublishEmojiNew = reactNativeDB.rooms.usePublishTopic(reactRoom, "emoji");
+  const reactPresenceNew = reactNativeDB.rooms.usePresence(reactRoom, {
+    keys: ["name"],
+  });
+  const _reactPublishEmojiNew = reactNativeDB.rooms.usePublishTopic(
+    reactRoom,
+    "emoji",
+  );
   const _reactPresenceUserNew = reactPresenceNew.user!;
   const _reactPresencePeersNew = reactPresenceNew.peers!;
-  _reactPresenceUserNew.name; 
-  _reactPresencePeersNew[0].name;  
+  _reactPresenceUserNew.name;
+  _reactPresencePeersNew[0].name;
 
   // queries
   const { isLoading, error, data } = reactNativeDB.useQuery({

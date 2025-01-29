@@ -32,8 +32,8 @@ const adminDB = init({
 });
 
 const data = await adminDB.query(
-  { bookshelves: { books: {} } } // wohoo!
-); 
+  { bookshelves: { books: {} } }, // wohoo!
+);
 ```
 
 # Get Started

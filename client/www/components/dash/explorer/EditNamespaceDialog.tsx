@@ -1,8 +1,8 @@
-import { id } from '@instantdb/core';
-import { InstantReactWebDatabase } from '@instantdb/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/solid';
-import { errorToast, successToast } from '@/lib/toast';
+import { id } from "@instantdb/core";
+import { InstantReactWebDatabase } from "@instantdb/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeftIcon, PlusIcon, TrashIcon } from "@heroicons/react/solid";
+import { errorToast, successToast } from "@/lib/toast";
 import {
   ActionButton,
   ActionForm,
@@ -13,12 +13,12 @@ import {
   Select,
   TextInput,
   ToggleGroup,
-} from '@/components/ui';
+} from "@/components/ui";
 import {
   RelationshipKinds,
   relationshipConstraints,
   relationshipConstraintsInverse,
-} from '@/lib/relationships';
+} from "@/lib/relationships";
 import {
   CheckedDataType,
   DBAttr,
@@ -26,12 +26,12 @@ import {
   InstantIndexingJobInvalidTriple,
   SchemaAttr,
   SchemaNamespace,
-} from '@/lib/types';
-import { RelationshipConfigurator } from '@/components/dash/explorer/RelationshipConfigurator';
-import { createJob, jobFetchLoop } from '@/lib/indexingJobs';
-import { useAuthToken } from '@/lib/auth';
-import type { PushNavStack } from './Explorer';
-import { useClose } from '@headlessui/react';
+} from "@/lib/types";
+import { RelationshipConfigurator } from "@/components/dash/explorer/RelationshipConfigurator";
+import { createJob, jobFetchLoop } from "@/lib/indexingJobs";
+import { useAuthToken } from "@/lib/auth";
+import type { PushNavStack } from "./Explorer";
+import { useClose } from "@headlessui/react";
 
 export function EditNamespaceDialog({
   db,
@@ -53,25 +53,34 @@ export function EditNamespaceDialog({
   pushNavStack: PushNavStack;
 }) {
   const [screen, setScreen] = useState<
-    | { type: 'main' }
-    | { type: 'delete' }
-    | { type: 'add' }
-    | { type: 'edit'; attrId: string, isForward: boolean }
-  >({ type: 'main' });
+    | { type: "main" }
+    | { type: "delete" }
+    | { type: "add" }
+    | { type: "edit"; attrId: string; isForward: boolean }
+  >({ type: "main" });
 
   async function deleteNs() {
-    const ops = namespace.attrs.map((attr) => ['delete-attr', attr.id]);
+    const ops = namespace.attrs.map((attr) => ["delete-attr", attr.id]);
     await db._core._reactor.pushOps(ops);
     onClose({ ok: true });
   }
 
   const screenAttr = useMemo(() => {
-    return screen.type === 'edit' && namespace.attrs.find((a) => a.id === screen.attrId && a.isForward === screen.isForward);
-  }, [screen.type === 'edit' ? screen.attrId : null, screen.type === 'edit' ? screen.isForward : null, namespace.attrs]);
+    return (
+      screen.type === "edit" &&
+      namespace.attrs.find(
+        (a) => a.id === screen.attrId && a.isForward === screen.isForward,
+      )
+    );
+  }, [
+    screen.type === "edit" ? screen.attrId : null,
+    screen.type === "edit" ? screen.isForward : null,
+    namespace.attrs,
+  ]);
 
   return (
     <>
-      {screen.type === 'main' ? (
+      {screen.type === "main" ? (
         <div className="flex flex-col gap-4 px-2">
           <div className="mr-8 flex gap-4">
             <h5 className="flex items-center gap-2 text-lg font-bold">
@@ -86,7 +95,7 @@ export function EditNamespaceDialog({
               }
               size="mini"
               variant="secondary"
-              onClick={() => setScreen({ type: 'delete' })}
+              onClick={() => setScreen({ type: "delete" })}
             >
               <TrashIcon className="inline" height="1rem" />
               Delete
@@ -96,16 +105,22 @@ export function EditNamespaceDialog({
           <div className="flex flex-col gap-2">
             {namespace.attrs.map((attr) => (
               <div
-                key={attr.id + '-' + attr.name}
+                key={attr.id + "-" + attr.name}
                 className="flex justify-between"
               >
                 <span className="py-0.5 font-bold">{attr.name}</span>
-                {attr.name !== 'id' ? (
+                {attr.name !== "id" ? (
                   <Button
                     className="px-2"
                     size="mini"
                     variant="subtle"
-                    onClick={() => setScreen({ type: 'edit', attrId: attr.id, isForward: attr.isForward })}
+                    onClick={() =>
+                      setScreen({
+                        type: "edit",
+                        attrId: attr.id,
+                        isForward: attr.isForward,
+                      })
+                    }
                   >
                     Edit
                   </Button>
@@ -124,33 +139,33 @@ export function EditNamespaceDialog({
               }
               size="mini"
               variant="secondary"
-              onClick={() => setScreen({ type: 'add' })}
+              onClick={() => setScreen({ type: "add" })}
             >
               <PlusIcon className="inline" height="12px" />
               New attribute
             </Button>
           </div>
         </div>
-      ) : screen.type === 'add' ? (
+      ) : screen.type === "add" ? (
         <AddAttrForm
           db={db}
           namespace={namespace}
           namespaces={namespaces}
-          onClose={() => setScreen({ type: 'main' })}
+          onClose={() => setScreen({ type: "main" })}
         />
-      ) : screen.type === 'delete' ? (
+      ) : screen.type === "delete" ? (
         <DeleteForm
           name={namespace.name}
           onClose={onClose}
           onConfirm={deleteNs}
         />
-      ) : screen.type === 'edit' && screenAttr ? (
+      ) : screen.type === "edit" && screenAttr ? (
         <EditAttrForm
           appId={appId}
           isSystemCatalogNs={isSystemCatalogNs}
           db={db}
           attr={screenAttr}
-          onClose={() => setScreen({ type: 'main' })}
+          onClose={() => setScreen({ type: "main" })}
           pushNavStack={pushNavStack}
         />
       ) : null}
@@ -181,8 +196,8 @@ function DeleteForm({
 
       <div className="flex flex-col gap-2">
         <p>
-          Deleting is an <strong>irreversible operation</strong> and will{' '}
-          <strong>delete all data</strong> associated with{' '}
+          Deleting is an <strong>irreversible operation</strong> and will{" "}
+          <strong>delete all data</strong> associated with{" "}
           <strong>{name}.</strong>
         </p>
         <p className="flex gap-2">
@@ -220,16 +235,17 @@ function AddAttrForm({
   const [isCascade, setIsCascade] = useState(false);
   const [checkedDataType, setCheckedDataType] =
     useState<CheckedDataType | null>(null);
-  const [attrType, setAttrType] = useState<'blob' | 'ref'>('blob');
+  const [attrType, setAttrType] = useState<"blob" | "ref">("blob");
   const [relationship, setRelationship] =
-    useState<RelationshipKinds>('many-many');
+    useState<RelationshipKinds>("many-many");
 
-  const isCascadeAllowed = relationship === 'one-one' || relationship === 'one-many';
+  const isCascadeAllowed =
+    relationship === "one-one" || relationship === "one-many";
 
   const [reverseNamespace, setReverseNamespace] = useState<
     SchemaNamespace | undefined
   >(() => namespaces.find((n) => n.name !== namespace.name) ?? namespaces[0]);
-  const [attrName, setAttrName] = useState('');
+  const [attrName, setAttrName] = useState("");
   const [reverseAttrName, setReverseAttrName] = useState(namespace.name);
 
   const linkValidation = validateLink({
@@ -239,50 +255,50 @@ function AddAttrForm({
     reverseNamespaceName: reverseNamespace?.name,
   });
 
-  const canSubmit = attrType === 'blob' ? attrName : linkValidation.isValidLink;
+  const canSubmit = attrType === "blob" ? attrName : linkValidation.isValidLink;
 
   useEffect(() => {
-    if (attrType !== 'ref') return;
+    if (attrType !== "ref") return;
     if (!reverseNamespace) return;
 
     const isSelfLink = reverseNamespace.name === namespace.name;
-    setAttrName(isSelfLink ? 'children' : reverseNamespace.name);
-    setReverseAttrName(isSelfLink ? 'parent' : namespace.name);
+    setAttrName(isSelfLink ? "children" : reverseNamespace.name);
+    setReverseAttrName(isSelfLink ? "parent" : namespace.name);
     if (isSelfLink) {
-      setRelationship('many-one');
+      setRelationship("many-one");
     }
   }, [attrType, reverseNamespace]);
 
   async function addAttr() {
-    if (attrType === 'blob') {
+    if (attrType === "blob") {
       const attr: DBAttr = {
         id: id(),
-        'forward-identity': [id(), namespace.name, attrName],
-        'value-type': 'blob',
-        cardinality: 'one',
-        'unique?': isUniq,
-        'index?': isIndex,
-        'checked-data-type': checkedDataType ?? undefined,
+        "forward-identity": [id(), namespace.name, attrName],
+        "value-type": "blob",
+        cardinality: "one",
+        "unique?": isUniq,
+        "index?": isIndex,
+        "checked-data-type": checkedDataType ?? undefined,
       };
 
-      const ops = [['add-attr', attr]];
+      const ops = [["add-attr", attr]];
       await db._core._reactor.pushOps(ops);
       onClose();
     } else {
       // invariants
-      if (!reverseNamespace) throw new Error('No reverse namespace');
+      if (!reverseNamespace) throw new Error("No reverse namespace");
 
       const attr: DBAttr = {
         id: id(),
         ...relationshipConstraints[relationship],
-        'forward-identity': [id(), namespace.name, attrName],
-        'reverse-identity': [id(), reverseNamespace.name, reverseAttrName],
-        'value-type': 'ref',
-        'index?': false,
-        'on-delete': isCascadeAllowed && isCascade ? 'cascade' : undefined
+        "forward-identity": [id(), namespace.name, attrName],
+        "reverse-identity": [id(), reverseNamespace.name, reverseAttrName],
+        "value-type": "ref",
+        "index?": false,
+        "on-delete": isCascadeAllowed && isCascade ? "cascade" : undefined,
       };
 
-      const ops = [['add-attr', attr]];
+      const ops = [["add-attr", attr]];
       await db._core._reactor.pushOps(ops);
       onClose();
     }
@@ -301,13 +317,13 @@ function AddAttrForm({
           ariaLabel="Text alignment"
           selectedId={attrType}
           items={[
-            { id: 'blob', label: 'Data' },
-            { id: 'ref', label: 'Link' },
+            { id: "blob", label: "Data" },
+            { id: "ref", label: "Link" },
           ]}
-          onChange={(item) => setAttrType(item.id as 'blob' | 'ref')}
+          onChange={(item) => setAttrType(item.id as "blob" | "ref")}
         />
       </div>
-      {attrType === 'blob' ? (
+      {attrType === "blob" ? (
         <>
           <div className="flex flex-1 flex-col gap-1">
             <h6 className="text-md font-bold">Name</h6>
@@ -344,44 +360,44 @@ function AddAttrForm({
             <h6 className="text-md font-bold">Enforce type</h6>
             <div className="flex gap-2">
               <Select
-                value={checkedDataType || 'none'}
+                value={checkedDataType || "none"}
                 onChange={(v) => {
                   if (!v) {
                     return;
                   }
                   const { value } = v;
-                  if (value === 'none') {
+                  if (value === "none") {
                     setCheckedDataType(null);
                   }
                   setCheckedDataType(value as CheckedDataType);
                 }}
                 options={[
                   {
-                    label: 'Any (not enforced)',
-                    value: '',
+                    label: "Any (not enforced)",
+                    value: "",
                   },
                   {
-                    label: 'String',
-                    value: 'string',
+                    label: "String",
+                    value: "string",
                   },
                   {
-                    label: 'Number',
-                    value: 'number',
+                    label: "Number",
+                    value: "number",
                   },
                   {
-                    label: 'Boolean',
-                    value: 'boolean',
+                    label: "Boolean",
+                    value: "boolean",
                   },
                   {
-                    label: 'Date',
-                    value: 'date',
+                    label: "Date",
+                    value: "date",
                   },
                 ]}
               />
             </div>
           </div>
         </>
-      ) : attrType === 'ref' ? (
+      ) : attrType === "ref" ? (
         <>
           <div className="flex flex-col gap-1">
             <h6 className="text-md font-bold">Link to namespace</h6>
@@ -389,7 +405,7 @@ function AddAttrForm({
               value={reverseNamespace?.id ?? undefined}
               options={namespaces.map((ns) => {
                 const label =
-                  ns.name + (ns.name === namespace.name ? ' (self-link)' : '');
+                  ns.name + (ns.name === namespace.name ? " (self-link)" : "");
                 return {
                   label,
                   value: ns.id,
@@ -422,8 +438,12 @@ function AddAttrForm({
               onChange={setIsCascade}
               label={
                 <span>
-                  <div><strong>Cascade Delete</strong></div>
-                   When <strong>{attrName}</strong> is deleted, all linked <strong>{namespace.name}</strong> will be deleted automatically
+                  <div>
+                    <strong>Cascade Delete</strong>
+                  </div>
+                  When <strong>{attrName}</strong> is deleted, all linked{" "}
+                  <strong>{namespace.name}</strong> will be deleted
+                  automatically
                 </span>
               }
             />
@@ -445,9 +465,7 @@ function AddAttrForm({
           <span className="text-red-500">
             Self-links must have different attribute names.
           </span>
-        ) : (
-          null
-        )}
+        ) : null}
       </div>
     </ActionForm>
   );
@@ -456,17 +474,17 @@ function AddAttrForm({
 function jobWorkingStatus(job: InstantIndexingJob | null) {
   if (
     !job ||
-    (job.job_status !== 'processing' && job.job_status !== 'waiting')
+    (job.job_status !== "processing" && job.job_status !== "waiting")
   ) {
     return;
   }
 
-  if (job.job_status === 'waiting') {
-    return 'Waiting for worker...';
+  if (job.job_status === "waiting") {
+    return "Waiting for worker...";
   }
 
   if (!job.work_estimate) {
-    return 'Estimating work...';
+    return "Estimating work...";
   }
 
   const completed = Math.min(job.work_estimate, job.work_completed || 0);
@@ -509,7 +527,7 @@ function InvalidTriplesSample({
               <td className="pr-2">
                 <pre>{t.entity_id}</pre>
               </td>
-              <td className="pr-2 truncate" style={{ maxWidth: '12rem' }}>
+              <td className="pr-2 truncate" style={{ maxWidth: "12rem" }}>
                 {JSON.stringify(t.value)}
               </td>
               <td className="pr-2">{t.json_type}</td>
@@ -554,7 +572,7 @@ function EditIndexed({
         {
           appId,
           attrId: attr.id,
-          jobType: indexChecked ? 'index' : 'remove-index',
+          jobType: indexChecked ? "index" : "remove-index",
         },
         token,
       );
@@ -570,7 +588,7 @@ function EditIndexed({
         }
       });
       if (finishedJob) {
-        if (finishedJob.job_status === 'completed') {
+        if (finishedJob.job_status === "completed") {
           successToast(
             indexChecked
               ? `Indexed ${friendlyName}.`
@@ -578,12 +596,12 @@ function EditIndexed({
           );
           return;
         }
-        if (finishedJob.job_status === 'canceled') {
-          errorToast('Indexing was canceled.');
+        if (finishedJob.job_status === "canceled") {
+          errorToast("Indexing was canceled.");
           return;
         }
-        if (finishedJob.job_status === 'errored') {
-          if (finishedJob.error === 'invalid-triple-error') {
+        if (finishedJob.job_status === "errored") {
+          if (finishedJob.error === "invalid-triple-error") {
             errorToast(`Found invalid data while updating ${friendlyName}.`);
             return;
           }
@@ -623,7 +641,7 @@ function EditIndexed({
         />
       </div>
 
-      {indexingJob?.error === 'triple-too-large-error' ? (
+      {indexingJob?.error === "triple-too-large-error" ? (
         <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
           <div>Some of the existing data is too large to index. </div>
           <InvalidTriplesSample
@@ -632,7 +650,7 @@ function EditIndexed({
             onClickSample={(t) => {
               pushNavStack({
                 namespace: attr.namespace,
-                where: ['id', t.entity_id],
+                where: ["id", t.entity_id],
               });
               // It would be nice to have a way to minimize the dialog so you could go back
               closeDialog();
@@ -646,13 +664,13 @@ function EditIndexed({
         label={
           valueNotChanged
             ? indexChecked
-              ? 'Indexed'
-              : 'Not indexed'
+              ? "Indexed"
+              : "Not indexed"
             : indexChecked
-              ? 'Index attribute'
-              : 'Remove index'
+              ? "Index attribute"
+              : "Remove index"
         }
-        submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
+        submitLabel={jobWorkingStatus(indexingJob) || "Updating attribute..."}
         errorMessage="Failed to update attribute"
         disabled={buttonDisabled}
         title={
@@ -699,7 +717,7 @@ function EditUnique({
         {
           appId,
           attrId: attr.id,
-          jobType: uniqueChecked ? 'unique' : 'remove-unique',
+          jobType: uniqueChecked ? "unique" : "remove-unique",
         },
         token,
       );
@@ -715,7 +733,7 @@ function EditUnique({
         }
       });
       if (finishedJob) {
-        if (finishedJob.job_status === 'completed') {
+        if (finishedJob.job_status === "completed") {
           successToast(
             uniqueChecked
               ? `Enforced uniqueness constraint for ${friendlyName}.`
@@ -723,12 +741,12 @@ function EditUnique({
           );
           return;
         }
-        if (finishedJob.job_status === 'canceled') {
-          errorToast('Indexing was canceled.');
+        if (finishedJob.job_status === "canceled") {
+          errorToast("Indexing was canceled.");
           return;
         }
-        if (finishedJob.job_status === 'errored') {
-          if (finishedJob.error === 'invalid-triple-error') {
+        if (finishedJob.job_status === "errored") {
+          if (finishedJob.error === "invalid-triple-error") {
             errorToast(`Found invalid data while updating ${friendlyName}.`);
             return;
           }
@@ -768,20 +786,20 @@ function EditUnique({
         />
       </div>
 
-      {indexingJob?.error === 'triple-not-unique-error' ? (
+      {indexingJob?.error === "triple-not-unique-error" ? (
         <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
           <div>Some of the existing data is not unique. </div>
           {indexingJob.invalid_unique_value != null ? (
             <div>
-              Found{' '}
+              Found{" "}
               <span
                 className={
-                  typeof indexingJob.invalid_unique_value === 'object'
-                    ? ''
-                    : 'cursor-pointer underline'
+                  typeof indexingJob.invalid_unique_value === "object"
+                    ? ""
+                    : "cursor-pointer underline"
                 }
                 onClick={
-                  typeof indexingJob.invalid_unique_value === 'object'
+                  typeof indexingJob.invalid_unique_value === "object"
                     ? undefined
                     : () => {
                         pushNavStack({
@@ -793,7 +811,7 @@ function EditUnique({
                       }
                 }
               >
-                multiple entities with value{' '}
+                multiple entities with value{" "}
                 <code>{JSON.stringify(indexingJob.invalid_unique_value)}</code>
               </span>
               .
@@ -805,7 +823,7 @@ function EditUnique({
             onClickSample={(t) => {
               pushNavStack({
                 namespace: attr.namespace,
-                where: ['id', t.entity_id],
+                where: ["id", t.entity_id],
               });
               // It would be nice to have a way to minimize the dialog so you could go back
               closeDialog();
@@ -814,7 +832,7 @@ function EditUnique({
         </div>
       ) : null}
 
-      {indexingJob?.error === 'triple-too-large-error' ? (
+      {indexingJob?.error === "triple-too-large-error" ? (
         <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
           <div>Some of the existing data is too large to index. </div>
           <InvalidTriplesSample
@@ -823,7 +841,7 @@ function EditUnique({
             onClickSample={(t) => {
               pushNavStack({
                 namespace: attr.namespace,
-                where: ['id', t.entity_id],
+                where: ["id", t.entity_id],
               });
               // It would be nice to have a way to minimize the dialog so you could go back
               closeDialog();
@@ -837,13 +855,13 @@ function EditUnique({
         label={
           valueNotChanged
             ? uniqueChecked
-              ? 'Unique'
-              : 'Not unique'
+              ? "Unique"
+              : "Not unique"
             : uniqueChecked
-              ? 'Add uniqueness constraint'
-              : 'Remove uniqueness constraint'
+              ? "Add uniqueness constraint"
+              : "Remove uniqueness constraint"
         }
-        submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
+        submitLabel={jobWorkingStatus(indexingJob) || "Updating attribute..."}
         errorMessage="Failed to update attribute"
         disabled={buttonDisabled}
         title={
@@ -870,8 +888,8 @@ function EditCheckedDataType({
 }) {
   const token = useAuthToken();
   const [checkedDataType, setCheckedDataType] = useState<
-    CheckedDataType | 'any'
-  >(attr.checkedDataType || 'any');
+    CheckedDataType | "any"
+  >(attr.checkedDataType || "any");
   const [indexingJob, setIndexingJob] = useState<InstantIndexingJob | null>(
     null,
   );
@@ -893,8 +911,8 @@ function EditCheckedDataType({
           appId,
           attrId: attr.id,
           jobType:
-            checkedDataType === 'any' ? 'remove-data-type' : 'check-data-type',
-          checkedDataType: checkedDataType === 'any' ? null : checkedDataType,
+            checkedDataType === "any" ? "remove-data-type" : "check-data-type",
+          checkedDataType: checkedDataType === "any" ? null : checkedDataType,
         },
         token,
       );
@@ -910,20 +928,20 @@ function EditCheckedDataType({
         }
       });
       if (finishedJob) {
-        if (finishedJob.job_status === 'completed') {
+        if (finishedJob.job_status === "completed") {
           successToast(
-            checkedDataType === 'any'
+            checkedDataType === "any"
               ? `Removed type for ${friendlyName}.`
               : `Updated type for ${friendlyName} to ${checkedDataType}.`,
           );
           return;
         }
-        if (finishedJob.job_status === 'canceled') {
-          errorToast('Attribute update was canceled.');
+        if (finishedJob.job_status === "canceled") {
+          errorToast("Attribute update was canceled.");
           return;
         }
-        if (finishedJob.job_status === 'errored') {
-          if (finishedJob.error === 'invalid-triple-error') {
+        if (finishedJob.job_status === "errored") {
+          if (finishedJob.error === "invalid-triple-error") {
             errorToast(`Found invalid data while updating ${friendlyName}.`);
             return;
           }
@@ -938,17 +956,17 @@ function EditCheckedDataType({
 
   const typeNotChanged =
     checkedDataType === attr.checkedDataType ||
-    ((!checkedDataType || checkedDataType === 'any') &&
+    ((!checkedDataType || checkedDataType === "any") &&
       !attr.checkedDataType) ||
     (checkedDataType === indexingJob?.checked_data_type &&
-      indexingJob?.job_status === 'completed');
+      indexingJob?.job_status === "completed");
 
   const buttonDisabled = isSystemCatalogNs || typeNotChanged;
 
   const buttonLabel = typeNotChanged
     ? `Type is ${checkedDataType}`
-    : checkedDataType === 'any'
-      ? 'Remove type'
+    : checkedDataType === "any"
+      ? "Remove type"
       : `Set type to ${checkedDataType}`;
 
   const closeDialog = useClose();
@@ -957,7 +975,7 @@ function EditCheckedDataType({
     <ActionForm className="flex flex-col gap-1">
       <div className="flex flex-col gap-2">
         <h6 className="text-md font-bold">
-          Enforce type{' '}
+          Enforce type{" "}
           <InfoTip>
             <div className="text-sm w-48">
               Checks the type on all existing entities and enforces the type
@@ -973,40 +991,40 @@ function EditCheckedDataType({
                 ? `Attributes in the ${attr.namespace} namespace can't be edited.`
                 : undefined
             }
-            value={checkedDataType || 'any'}
+            value={checkedDataType || "any"}
             onChange={(v) => {
               if (!v) {
                 return;
               }
               const { value } = v;
-              setCheckedDataType(value as CheckedDataType | 'any');
+              setCheckedDataType(value as CheckedDataType | "any");
             }}
             options={[
               {
-                label: 'Any (not enforced)',
-                value: 'any',
+                label: "Any (not enforced)",
+                value: "any",
               },
               {
-                label: 'String',
-                value: 'string',
+                label: "String",
+                value: "string",
               },
               {
-                label: 'Number',
-                value: 'number',
+                label: "Number",
+                value: "number",
               },
               {
-                label: 'Boolean',
-                value: 'boolean',
+                label: "Boolean",
+                value: "boolean",
               },
               {
-                label: 'Date',
-                value: 'date',
+                label: "Date",
+                value: "date",
               },
             ]}
           />
         </div>
       </div>
-      {indexingJob?.error === 'invalid-triple-error' ? (
+      {indexingJob?.error === "invalid-triple-error" ? (
         <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
           <div>
             The type can't be set to {indexingJob?.checked_data_type} because
@@ -1018,7 +1036,7 @@ function EditCheckedDataType({
             onClickSample={(t) => {
               pushNavStack({
                 namespace: attr.namespace,
-                where: ['id', t.entity_id],
+                where: ["id", t.entity_id],
               });
               // It would be nice to have a way to minimize the dialog so you could go back
               closeDialog();
@@ -1029,7 +1047,7 @@ function EditCheckedDataType({
       <ActionButton
         type="submit"
         label={buttonLabel}
-        submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
+        submitLabel={jobWorkingStatus(indexingJob) || "Updating attribute..."}
         errorMessage="Failed to update attribute"
         disabled={buttonDisabled}
         title={
@@ -1058,8 +1076,8 @@ function EditAttrForm({
   isSystemCatalogNs: boolean;
   pushNavStack: PushNavStack;
 }) {
-  const [screen, setScreen] = useState<{ type: 'main' } | { type: 'delete' }>({
-    type: 'main',
+  const [screen, setScreen] = useState<{ type: "main" } | { type: "delete" }>({
+    type: "main",
   });
 
   const [attrName, setAttrName] = useState(attr.linkConfig.forward.attr);
@@ -1072,8 +1090,9 @@ function EditAttrForm({
     return relKind;
   });
 
-  const [isCascade, setIsCascade] = useState(() => attr.onDelete === 'cascade');
-  const isCascadeAllowed = relationship === 'one-one' || relationship === 'one-many';
+  const [isCascade, setIsCascade] = useState(() => attr.onDelete === "cascade");
+  const isCascadeAllowed =
+    relationship === "one-one" || relationship === "one-many";
 
   const linkValidation = validateLink({
     attrName,
@@ -1084,42 +1103,42 @@ function EditAttrForm({
 
   async function updateRef() {
     if (!attr.linkConfig.reverse) {
-      throw new Error('No reverse link config');
+      throw new Error("No reverse link config");
     }
 
     const ops = [
       [
-        'update-attr',
+        "update-attr",
         {
           id: attr.id,
           ...relationshipConstraints[relationship],
-          'forward-identity': [
+          "forward-identity": [
             attr.linkConfig.forward.id,
             attr.linkConfig.forward.namespace,
             attrName,
           ],
-          'reverse-identity': [
+          "reverse-identity": [
             attr.linkConfig.reverse.id,
             attr.linkConfig.reverse.namespace,
             reverseAttrName,
           ],
-          'on-delete': isCascade ? 'cascade' : null
+          "on-delete": isCascade ? "cascade" : null,
         },
       ],
     ];
 
     await db._core._reactor.pushOps(ops);
 
-    successToast('Updated attribute');
+    successToast("Updated attribute");
   }
 
   async function renameBlobAttr() {
     const ops = [
       [
-        'update-attr',
+        "update-attr",
         {
           id: attr.id,
-          'forward-identity': [
+          "forward-identity": [
             attr.linkConfig.forward.id,
             attr.linkConfig.forward.namespace,
             attrName,
@@ -1130,15 +1149,15 @@ function EditAttrForm({
 
     await db._core._reactor.pushOps(ops);
 
-    successToast('Renamed attribute');
+    successToast("Renamed attribute");
   }
 
   async function deleteAttr() {
-    await db._core._reactor.pushOps([['delete-attr', attr.id]]);
+    await db._core._reactor.pushOps([["delete-attr", attr.id]]);
     onClose();
   }
 
-  if (screen.type === 'delete') {
+  if (screen.type === "delete") {
     return (
       <DeleteForm onConfirm={deleteAttr} onClose={onClose} name={attr.name} />
     );
@@ -1155,22 +1174,22 @@ function EditAttrForm({
         </div>
 
         <Button
-          disabled={isSystemCatalogNs && attr.type !== 'ref'}
+          disabled={isSystemCatalogNs && attr.type !== "ref"}
           title={
-            isSystemCatalogNs && attr.type !== 'ref'
+            isSystemCatalogNs && attr.type !== "ref"
               ? `Attributes in the ${attr.namespace} can't be edited`
               : undefined
           }
           variant="secondary"
           size="mini"
-          onClick={() => setScreen({ type: 'delete' })}
+          onClick={() => setScreen({ type: "delete" })}
         >
           <TrashIcon className="inline" height="1rem" />
           Delete
         </Button>
       </div>
 
-      {attr.type === 'blob' ? (
+      {attr.type === "blob" ? (
         <>
           <div className="flex flex-col gap-2">
             <h6 className="text-md font-bold">Constraints</h6>
@@ -1197,7 +1216,7 @@ function EditAttrForm({
           <ActionForm className="flex flex-col gap-1">
             <h6 className="text-md font-bold">Rename</h6>
             <Content className="text-sm">
-              This will immediately rename the attribute. You'll need to{' '}
+              This will immediately rename the attribute. You'll need to{" "}
               <strong>update your code</strong> to the new name.
             </Content>
             <TextInput
@@ -1234,7 +1253,7 @@ function EditAttrForm({
           <RelationshipConfigurator
             relationship={relationship}
             attrName={attrName}
-            reverseAttrName={reverseAttrName ?? ''}
+            reverseAttrName={reverseAttrName ?? ""}
             namespaceName={attr.linkConfig.forward.namespace}
             reverseNamespaceName={attr.linkConfig.reverse!.namespace}
             setAttrName={setAttrName}
@@ -1249,7 +1268,11 @@ function EditAttrForm({
               onChange={setIsCascade}
               label={
                 <span>
-                  <strong>Cascade delete</strong> When <strong>{attr.linkConfig.reverse!.namespace}</strong> is deleted, all linked <strong>{attr.linkConfig.forward.namespace}</strong> will be deleted automatically
+                  <strong>Cascade delete</strong> When{" "}
+                  <strong>{attr.linkConfig.reverse!.namespace}</strong> is
+                  deleted, all linked{" "}
+                  <strong>{attr.linkConfig.forward.namespace}</strong> will be
+                  deleted automatically
                 </span>
               }
             />
@@ -1268,9 +1291,7 @@ function EditAttrForm({
               <span className="text-red-500">
                 Self-links must have different attribute names.
               </span>
-            ) : (
-              null
-            )}
+            ) : null}
           </div>
         </ActionForm>
       )}

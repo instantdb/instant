@@ -1,23 +1,27 @@
-import { Button, Copyable, Fence } from '@/components/ui';
-import { File, getFiles } from '../examples';
-import { InstantApp } from '@/lib/types';
-import config from '@/lib/config';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
-import Head from 'next/head';
-import { useInView } from 'react-intersection-observer';
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/router';
-import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
-import { InstantReactWebDatabase, InstantUnknownSchema, init } from '@instantdb/react';
-import { errorToast } from '@/lib/toast';
-import { ToastContainer } from 'react-toastify';
+import { Button, Copyable, Fence } from "@/components/ui";
+import { File, getFiles } from "../examples";
+import { InstantApp } from "@/lib/types";
+import config from "@/lib/config";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import Head from "next/head";
+import { useInView } from "react-intersection-observer";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/router";
+import { useIsHydrated } from "@/lib/hooks/useIsHydrated";
+import {
+  InstantReactWebDatabase,
+  InstantUnknownSchema,
+  init,
+} from "@instantdb/react";
+import { errorToast } from "@/lib/toast";
+import { ToastContainer } from "react-toastify";
 import {
   H3,
   LandingContainer,
   LandingFooter,
   MainNav,
-} from '@/components/marketingUi';
-import { useAuthToken } from '@/lib/auth';
+} from "@/components/marketingUi";
+import { useAuthToken } from "@/lib/auth";
 
 export async function getStaticProps() {
   const files = getFiles();
@@ -48,7 +52,7 @@ function Main({ files }: { files: File[] }) {
       if (!isHydrated || !router.isReady) return;
 
       if (inView && entry.isIntersecting && entry.intersectionRatio > 0) {
-        location.hash = '';
+        location.hash = "";
       }
     },
   });
@@ -81,7 +85,7 @@ function Main({ files }: { files: File[] }) {
 
   function jumpToExample() {
     if (!examplesContainerElRef.current) return;
-    const filePath = window.location.hash.replace(/^#/, '');
+    const filePath = window.location.hash.replace(/^#/, "");
 
     if (!filePath) return;
 
@@ -170,7 +174,7 @@ function Main({ files }: { files: File[] }) {
               {isHydrated && !isAuthed && (
                 <p>
                   To get rolling, create a free account, grab your app ID, and
-                  install{' '}
+                  install{" "}
                   <code className="text-sm bg-gray-500 text-white px-3 rounded-sm whitespace-nowrap">
                     @instantdb/react
                   </code>
@@ -210,7 +214,7 @@ function Main({ files }: { files: File[] }) {
               </p>
               <Copyable
                 label="URL"
-                value={isHydrated && appId ? examplesUrl(appId) : 'Loading...'}
+                value={isHydrated && appId ? examplesUrl(appId) : "Loading..."}
               />
               <p className="italic text-sm">
                 <strong>Please note:</strong> this app will automatically expire
@@ -286,7 +290,7 @@ function Example({
           </Button>
 
           <span className="text-sm whitespace-nowrap">
-            <span className="bg-white border px-1 rounded-sm">{numViews}</span>{' '}
+            <span className="bg-white border px-1 rounded-sm">{numViews}</span>{" "}
             previews
           </span>
           <Button
@@ -325,8 +329,8 @@ function Example({
                   {appId ? (
                     <iframe
                       className="flex-1"
-                      src={'/examples/' + file.pathName + '?__appId=' + appId}
-                      loading={lazy ? 'lazy' : undefined}
+                      src={"/examples/" + file.pathName + "?__appId=" + appId}
+                      loading={lazy ? "lazy" : undefined}
                     />
                   ) : (
                     <div className="flex-1 animate-slow-pulse bg-gray-300"></div>
@@ -341,7 +345,7 @@ function Example({
 }
 
 function RoomStatus({ db, appId }: { db: InstantDB; appId: string }) {
-  const room = db.room('examples', appId);
+  const room = db.room("examples", appId);
   const presence = room.usePresence();
   const numPeers = Object.keys(presence.peers).length;
 
@@ -354,7 +358,7 @@ function RoomStatus({ db, appId }: { db: InstantDB; appId: string }) {
         key={numPeers}
         className="bg-black/60 py-1 px-4 backdrop-blur text-white rounded-full shadow-lg text-sm"
         style={{
-          animation: 'bounce 0.5s',
+          animation: "bounce 0.5s",
         }}
       >
         Friends on this page: <strong>{numPeers}</strong>
@@ -365,21 +369,21 @@ function RoomStatus({ db, appId }: { db: InstantDB; appId: string }) {
 
 type InstantDB = InstantReactWebDatabase<InstantUnknownSchema>;
 
-const defaultAppTitle = 'Instant Example App';
-const storageKey = 'examples-appId';
+const defaultAppTitle = "Instant Example App";
+const storageKey = "examples-appId";
 
 const provisionErrorMessage =
-  'Oops! Something went wrong when provisioning your app ID. Please reload the page and try again!';
+  "Oops! Something went wrong when provisioning your app ID. Please reload the page and try again!";
 
 function examplesUrl(appId: string) {
-  return 'https://instantdb.com/examples?app=' + appId;
+  return "https://instantdb.com/examples?app=" + appId;
 }
 
 async function provisionEphemeralApp() {
   const r = await fetch(`${config.apiURI}/dash/apps/ephemeral`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       title: defaultAppTitle,
@@ -397,7 +401,7 @@ async function provisionEphemeralApp() {
 async function verifyEphemeralApp({ appId }: { appId: string }) {
   const r = await fetch(`${config.apiURI}/dash/apps/ephemeral/${appId}`, {
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
   });
 

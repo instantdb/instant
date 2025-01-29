@@ -30,7 +30,7 @@ pnpm i
 make dev
 ```
 
-With that, all frontend code should be up and running! 
+With that, all frontend code should be up and running!
 
 ## Dashboard & Docs
 
@@ -50,13 +50,14 @@ Now all requests will go to your local backend at [localhost:8888](http://localh
 
 ### Show client logs
 
-The instant client can show development logs. You can turn this on by writing: 
+The instant client can show development logs. You can turn this on by writing:
 
 ```
 localStorage.setItem("__instantLogging", true);
 ```
 
 ### Running a local app
+
 You can create local apps by following these steps
 
 1. On localhost:3000, click "Sign up" in the upper right corner.
@@ -79,7 +80,7 @@ const db = init({
 
 ## Packages and sandbox
 
-All client SDKs live in `packages/`. 
+All client SDKs live in `packages/`.
 
 To develop against them, we've created a few `sandbox` examples. These examples let you locally test changes to the client SDK. We recommend you create an app in your dev environment and use it in each directories `.env` file
 

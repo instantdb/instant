@@ -148,12 +148,15 @@ function Main({ appIsLoading }: { appIsLoading: boolean | null }) {
           <li>
             <strong>The first time you load this page</strong>
             <ul>
-              <li>App:auth:loading will be `true`</li> (because IDB _has not_ loaded yet)
+              <li>App:auth:loading will be `true`</li> (because IDB _has not_
+              loaded yet)
               <li>
-                Main:auth:loading will be `false` (because IDB has already loaded)
+                Main:auth:loading will be `false` (because IDB has already
+                loaded)
               </li>
               <li>
-                Main:query:loading will be `false` (because IDB has already loaded)
+                Main:query:loading will be `false` (because IDB has already
+                loaded)
               </li>
             </ul>
           </li>
