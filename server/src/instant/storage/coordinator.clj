@@ -50,10 +50,9 @@
   "Deletes multiple files from both Instant and S3."
   [{:keys [app-id paths]}]
   (storage-beta/assert-storage-enabled! app-id)
-  (when (seq paths)
-    (let [ids (app-file-model/delete-by-paths! {:app-id app-id :paths paths})
-          _ (instant-s3/bulk-delete-files! app-id paths)]
-      {:ids ids})))
+  (let [ids (app-file-model/delete-by-paths! {:app-id app-id :paths paths})
+        _ (instant-s3/bulk-delete-files! app-id paths)]
+    {:ids ids}))
 
 (defn delete-file!
   "Deletes a file from both Instant and S3."
@@ -62,10 +61,9 @@
     (assert-storage-permission! "delete" {:app-id app-id
                                           :path path
                                           :current-user current-user}))
-  (when path
-    (let [id (app-file-model/delete-by-path! {:app-id app-id :path path})
-          _ (instant-s3/delete-file! app-id path)]
-      {:id id})))
+  (let [id (app-file-model/delete-by-path! {:app-id app-id :path path})
+        _ (instant-s3/delete-file! app-id path)]
+    {:id id}))
 
 ;; Logic for legacy S3 upload/download URLs
 ;; -------------------------
