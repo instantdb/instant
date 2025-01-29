@@ -42,6 +42,13 @@ import {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
+  
+  type ExchangeCodeForTokenInput, 
+  type SendMagicCodeParams, 
+  type SendMagicCodeResponse, 
+  type SignInWithIdTokenParams, 
+  type VerifyMagicCodeParams, 
+  type VerifyResponse 
 } from "@instantdb/core";
 
 import InstantReactAbstractDatabase from "./InstantReactAbstractDatabase";
@@ -99,4 +106,10 @@ export {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
+  type ExchangeCodeForTokenInput, 
+  type SendMagicCodeParams, 
+  type SendMagicCodeResponse, 
+  type SignInWithIdTokenParams, 
+  type VerifyMagicCodeParams, 
+  type VerifyResponse 
 };

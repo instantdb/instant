@@ -34,7 +34,12 @@ import type {
   InstaQLEntity,
   InstaQLResult,
 } from "./queryTypes";
-import type { AuthState, User, AuthResult, ConnectionStatus } from "./clientTypes";
+import type {
+  AuthState,
+  User,
+  AuthResult,
+  ConnectionStatus,
+} from "./clientTypes";
 import type {
   InstantQuery,
   InstantQueryResult,
@@ -65,7 +70,15 @@ import type {
   UpdateParams,
   LinkParams,
 } from "./schemaTypes";
-import { ExchangeCodeForTokenInput, SendMagicCodeParams, SendMagicCodeResponse, SignInWithIdTokenParams, VerifyMagicCodeParams, VerifyResponse } from "./authAPI";
+
+import type {
+  ExchangeCodeForTokenInput,
+  SendMagicCodeParams,
+  SendMagicCodeResponse,
+  SignInWithIdTokenParams,
+  VerifyMagicCodeParams,
+  VerifyResponse,
+} from "./authAPI";
 
 const defaultOpenDevtool = true;
 
@@ -193,7 +206,9 @@ class Auth {
    *  db.auth.sendMagicCode({email: "example@gmail.com"})
    *    .catch((err) => console.error(err.body?.message))
    */
-  sendMagicCode = (params: SendMagicCodeParams): SendMagicCodeResponse => {
+  sendMagicCode = (
+    params: SendMagicCodeParams,
+  ): Promise<SendMagicCodeResponse> => {
     return this.db.sendMagicCode(params);
   };
 
@@ -206,7 +221,9 @@ class Auth {
    *  db.auth.signInWithMagicCode({email: "example@gmail.com", code: "123456"})
    *       .catch((err) => console.error(err.body?.message))
    */
-  signInWithMagicCode = (params: VerifyMagicCodeParams): VerifyResponse => {
+  signInWithMagicCode = (
+    params: VerifyMagicCodeParams,
+  ): Promise<VerifyResponse> => {
     return this.db.signInWithMagicCode(params);
   };
 
@@ -221,10 +238,9 @@ class Auth {
    *   //Sign in
    *   db.auth.signInWithToken(token);
    */
-  signInWithToken = (token: AuthToken): VerifyResponse => {
+  signInWithToken = (token: AuthToken): Promise<VerifyResponse> => {
     return this.db.signInWithCustomToken(token);
   };
-  
 
   /**
    * Create an authorization url to sign in with an external provider
@@ -241,7 +257,10 @@ class Auth {
    *   // Put it in a sign in link
    *   <a href={url}>Log in with Google</a>
    */
-  createAuthorizationURL = (params: { clientName: string; redirectURL: string }): string => {
+  createAuthorizationURL = (params: {
+    clientName: string;
+    redirectURL: string;
+  }): string => {
     return this.db.createAuthorizationURL(params);
   };
 
@@ -263,7 +282,9 @@ class Auth {
    *  .catch((err) => console.error(err.body?.message));
    *
    */
-  signInWithIdToken = (params: SignInWithIdTokenParams): VerifyResponse => {
+  signInWithIdToken = (
+    params: SignInWithIdTokenParams,
+  ): Promise<VerifyResponse> => {
     return this.db.signInWithIdToken(params);
   };
 
@@ -481,7 +502,9 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
    *     console.log('Connection status:', connectionState);
    *   });
    */
-  subscribeConnectionStatus(cb: (status: ConnectionStatus) => void): UnsubscribeFn {
+  subscribeConnectionStatus(
+    cb: (status: ConnectionStatus) => void,
+  ): UnsubscribeFn {
     return this._reactor.subscribeConnectionStatus(cb);
   }
 
@@ -568,7 +591,7 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
  *  import schema from ""../instant.schema.ts";
  *
  *  const db = init({ appId: "my-app-id", schema })
- *  
+ *
  *  // To learn more: https://instantdb.com/docs/modeling-data
  */
 function init<
@@ -634,7 +657,7 @@ type InstantRules = {
 /**
  * @deprecated
  * `init_experimental` is deprecated. You can replace it with `init`.
- * 
+ *
  * @example
  *
  * // Before
@@ -730,4 +753,12 @@ export {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
+
+  // auth types
+  type ExchangeCodeForTokenInput, 
+  type SendMagicCodeParams, 
+  type SendMagicCodeResponse, 
+  type SignInWithIdTokenParams, 
+  type VerifyMagicCodeParams, 
+  type VerifyResponse 
 };
