@@ -1,6 +1,6 @@
 ---
-title: "Datalog in Javascript"
-date: "2022-04-25"
+title: 'Datalog in Javascript'
+date: '2022-04-25'
 authors: stopachka
 ---
 
@@ -46,7 +46,7 @@ How? Imagine describing a movie to someone:
 Those sentences conveniently translate to triples:
 
 ```javascript
-[200, movie / title, "The Terminator"][(200, movie / year, 1987)];
+[200, movie / title, 'The Terminator'][(200, movie / year, 1987)];
 ```
 
 And those sentences have a general structure; if you can describe a movie this way, you can describe tomatoes or airplanes just as well.
@@ -133,7 +133,7 @@ WHERE movie.title = "The Terminator"
 Which gets us:
 
 ```javascript
-[{ name: "James Cameron" }];
+[{ name: 'James Cameron' }];
 ```
 
 Pretty cool. We used the `JOIN` clause to connect the movie table with the person table, and bam, we got our director’s name.
@@ -186,7 +186,7 @@ And we can now bind `?directorId` to `100`. Time for the third pattern:
 Because `?directorId` has to be `100`, our engine finds us:
 
 ```javascript
-[100, person / name, "James Cameron"];
+[100, person / name, 'James Cameron'];
 ```
 
 And perfecto, the `?directorName` is now bound to `"James Cameron"`! The `find` section would then return `["James Cameron"]`.
@@ -224,8 +224,8 @@ The next thing we’ll need is sample data to play with. There’s a great datal
 ```javascript
 // exampleTriples.js
 export default [
-  [100, "person/name", "James Cameron"],
-  [100, "person/born", "1954-08-16T00:00:00Z"],
+  [100, 'person/name', 'James Cameron'],
+  [100, 'person/born', '1954-08-16T00:00:00Z'],
   // ...
 ];
 ```
@@ -233,7 +233,7 @@ export default [
 Let’s plop this in and require it:
 
 ```javascript
-import exampleTriples from "./exampleTriples";
+import exampleTriples from './exampleTriples';
 ```
 
 Now for our query engine!
@@ -261,16 +261,16 @@ This could be the test we play with:
 ```javascript
 expect(
   matchPattern(
-    ["?movieId", "movie/director", "?directorId"],
-    [200, "movie/director", 100],
-    { "?movieId": 200 },
+    ['?movieId', 'movie/director', '?directorId'],
+    [200, 'movie/director', 100],
+    { '?movieId': 200 },
   ),
-).toEqual({ "?movieId": 200, "?directorId": 100 });
+).toEqual({ '?movieId': 200, '?directorId': 100 });
 expect(
   matchPattern(
-    ["?movieId", "movie/director", "?directorId"],
-    [200, "movie/director", 100],
-    { "?movieId": 202 },
+    ['?movieId', 'movie/director', '?directorId'],
+    [200, 'movie/director', 100],
+    { '?movieId': 202 },
   ),
 ).toEqual(null);
 ```
@@ -316,7 +316,7 @@ Next, we check if we’re looking at a variable. `isVariable` is simple enough:
 
 ```javascript
 function isVariable(x) {
-  return typeof x === "string" && x.startsWith("?");
+  return typeof x === 'string' && x.startsWith('?');
 }
 ```
 
@@ -373,8 +373,8 @@ We’ll have _one_ pattern and a database of triples. We’ll want to return the
 
 ```javascript
 expect(
-  querySingle(["?movieId", "movie/year", 1987], exampleTriples, {}),
-).toEqual([{ "?movieId": 202 }, { "?movieId": 203 }, { "?movieId": 204 }]);
+  querySingle(['?movieId', 'movie/year', 1987], exampleTriples, {}),
+).toEqual([{ '?movieId': 202 }, { '?movieId': 203 }, { '?movieId': 204 }]);
 ```
 
 ## Code
@@ -407,15 +407,15 @@ Here’s the test we can play with:
 expect(
   queryWhere(
     [
-      ["?movieId", "movie/title", "The Terminator"],
-      ["?movieId", "movie/director", "?directorId"],
-      ["?directorId", "person/name", "?directorName"],
+      ['?movieId', 'movie/title', 'The Terminator'],
+      ['?movieId', 'movie/director', '?directorId'],
+      ['?directorId', 'person/name', '?directorName'],
     ],
     exampleTriples,
     {},
   ),
 ).toEqual([
-  { "?movieId": 200, "?directorId": 100, "?directorName": "James Cameron" },
+  { '?movieId': 200, '?directorId': 100, '?directorName': 'James Cameron' },
 ]);
 ```
 
@@ -448,16 +448,16 @@ This could be the test we can play with:
 expect(
   query(
     {
-      find: ["?directorName"],
+      find: ['?directorName'],
       where: [
-        ["?movieId", "movie/title", "The Terminator"],
-        ["?movieId", "movie/director", "?directorId"],
-        ["?directorId", "person/name", "?directorName"],
+        ['?movieId', 'movie/title', 'The Terminator'],
+        ['?movieId', 'movie/director', '?directorId'],
+        ['?directorId', 'person/name', '?directorName'],
       ],
     },
     exampleTriples,
   ),
-).toEqual([["James Cameron"]]);
+).toEqual([['James Cameron']]);
 ```
 
 ## Code
@@ -492,10 +492,10 @@ And voila! We have a query engine. Let’s see what we can do.
 ```javascript
 query(
   {
-    find: ["?year"],
+    find: ['?year'],
     where: [
-      ["?id", "movie/title", "Alien"],
-      ["?id", "movie/year", "?year"],
+      ['?id', 'movie/title', 'Alien'],
+      ['?id', 'movie/year', '?year'],
     ],
   },
   exampleTriples,
@@ -511,8 +511,8 @@ query(
 ```javascript
 query(
   {
-    find: ["?attr", "?value"],
-    where: [[200, "?attr", "?value"]],
+    find: ['?attr', '?value'],
+    where: [[200, '?attr', '?value']],
   },
   exampleTriples,
 );
@@ -520,13 +520,13 @@ query(
 
 ```javascript
 [
-  ["movie/title", "The Terminator"],
-  ["movie/year", 1984],
-  ["movie/director", 100],
-  ["movie/cast", 101],
-  ["movie/cast", 102],
-  ["movie/cast", 103],
-  ["movie/sequel", 207],
+  ['movie/title', 'The Terminator'],
+  ['movie/year', 1984],
+  ['movie/director', 100],
+  ['movie/cast', 101],
+  ['movie/cast', 102],
+  ['movie/cast', 103],
+  ['movie/sequel', 207],
 ];
 ```
 
@@ -537,13 +537,13 @@ And, last by not least…
 ```javascript
 query(
   {
-    find: ["?directorName", "?movieTitle"],
+    find: ['?directorName', '?movieTitle'],
     where: [
-      ["?arnoldId", "person/name", "Arnold Schwarzenegger"],
-      ["?movieId", "movie/cast", "?arnoldId"],
-      ["?movieId", "movie/title", "?movieTitle"],
-      ["?movieId", "movie/director", "?directorId"],
-      ["?directorId", "person/name", "?directorName"],
+      ['?arnoldId', 'person/name', 'Arnold Schwarzenegger'],
+      ['?movieId', 'movie/cast', '?arnoldId'],
+      ['?movieId', 'movie/title', '?movieTitle'],
+      ['?movieId', 'movie/director', '?directorId'],
+      ['?directorId', 'person/name', '?directorName'],
     ],
   },
   exampleTriples,
@@ -554,11 +554,11 @@ query(
 
 ```javascript
 [
-  ["James Cameron", "The Terminator"],
-  ["John McTiernan", "Predator"],
-  ["Mark L. Lester", "Commando"],
-  ["James Cameron", "Terminator 2: Judgment Day"],
-  ["Jonathan Mostow", "Terminator 3: Rise of the Machines"],
+  ['James Cameron', 'The Terminator'],
+  ['John McTiernan', 'Predator'],
+  ['Mark L. Lester', 'Commando'],
+  ['James Cameron', 'Terminator 2: Judgment Day'],
+  ['Jonathan Mostow', 'Terminator 3: Rise of the Machines'],
 ];
 ```
 

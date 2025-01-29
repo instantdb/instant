@@ -44,7 +44,7 @@ console.log(data)
 For comparison, the SQL equivalent of this would be something like:
 
 ```javascript
-const data = { goals: doSQL("SELECT * FROM goals") };
+const data = { goals: doSQL('SELECT * FROM goals') };
 ```
 
 ## Fetch multiple namespaces
@@ -80,8 +80,8 @@ The equivalent of this in SQL would be to write two separate queries.
 
 ```javascript
 const data = {
-  goals: doSQL("SELECT * from goals"),
-  todos: doSQL("SELECT * from todos"),
+  goals: doSQL('SELECT * from goals'),
+  todos: doSQL('SELECT * from todos'),
 };
 ```
 
@@ -251,7 +251,7 @@ const query = {
   goals: {
     $: {
       where: {
-        "todos.title": "Code a bunch",
+        'todos.title': 'Code a bunch',
       },
     },
     todos: {},
@@ -298,7 +298,7 @@ const query = {
     todos: {
       $: {
         where: {
-          "todos.title": "Go on a run",
+          'todos.title': 'Go on a run',
         },
       },
     },
@@ -522,7 +522,7 @@ const query = {
       limit: 10,
       // Similar to limit, order is limited to top-level namespaces right now
       order: {
-        serverCreatedAt: "desc",
+        serverCreatedAt: 'desc',
       },
     },
   },
@@ -547,7 +547,7 @@ const query = {
         dueDate: { $gt: Date.now() },
       },
       order: {
-        dueDate: "asc",
+        dueDate: 'asc',
       },
     },
   },
@@ -570,7 +570,7 @@ const query = {
     $: {
       where: {
         completed: true,
-        "goals.title": "Get promoted!",
+        'goals.title': 'Get promoted!',
       },
     },
   },
@@ -603,8 +603,8 @@ const query = {
     $: {
       where: {
         and: [
-          { "todos.title": "Drink protein" },
-          { "todos.title": "Go on a run" },
+          { 'todos.title': 'Drink protein' },
+          { 'todos.title': 'Go on a run' },
         ],
       },
     },
@@ -634,7 +634,7 @@ const query = {
   todos: {
     $: {
       where: {
-        or: [{ title: "Code a bunch" }, { title: "Review PRs" }],
+        or: [{ title: 'Code a bunch' }, { title: 'Review PRs' }],
       },
     },
   },
@@ -668,7 +668,7 @@ const query = {
   todos: {
     $: {
       where: {
-        title: { $in: ["Code a bunch", "Review PRs"] },
+        title: { $in: ['Code a bunch', 'Review PRs'] },
       },
     },
   },
@@ -736,7 +736,7 @@ console.log(data);
 Dates can be stored as timestamps (milliseconds since the epoch, e.g. `Date.now()`) or as ISO 8601 strings (e.g. `JSON.stringify(new Date())`) and can be queried in the same formats:
 
 ```javascript
-const now = "2024-11-26T15:25:00.054Z";
+const now = '2024-11-26T15:25:00.054Z';
 const query = {
   todos: {
     $: { where: { dueDate: { $lte: now } } },
@@ -807,7 +807,7 @@ const query = {
   todos: {
     $: {
       where: {
-        location: { $not: "work" },
+        location: { $not: 'work' },
       },
     },
   },
@@ -926,7 +926,7 @@ const query = {
   goals: {
     $: {
       where: {
-        title: { $like: "%promoted!" },
+        title: { $like: '%promoted!' },
       },
     },
   },
@@ -954,7 +954,7 @@ const query = {
   goals: {
     $: {
       where: {
-        "todos.title": { $like: "%standup%" },
+        'todos.title': { $like: '%standup%' },
       },
     },
   },
@@ -983,7 +983,7 @@ const query = {
   goals: {
     $: {
       where: {
-        "todos.title": { $ilike: "%stand%" },
+        'todos.title': { $ilike: '%stand%' },
       },
     },
   },
@@ -1023,9 +1023,9 @@ const { isLoading, error, data } = db.useQuery(query);
 As your app grows, you may want to start enforcing types. When you're ready you can write a [schema](/docs/modeling-data):
 
 ```typescript
-import { init } from "@instantdb/react";
+import { init } from '@instantdb/react';
 
-import schema from "../instant.schema.ts";
+import schema from '../instant.schema.ts';
 
 const db = init({
   appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
@@ -1038,7 +1038,7 @@ If your schema includes `goals` and `todos` for example:
 ```typescript
 // instant.schema.ts
 
-import { i } from "@instantdb/core";
+import { i } from '@instantdb/core';
 
 const _schema = i.schema({
   entities: {
@@ -1052,8 +1052,8 @@ const _schema = i.schema({
   },
   links: {
     goalsTodos: {
-      forward: { on: "todos", has: "many", label: "goals" },
-      reverse: { on: "goals", has: "many", label: "todos" },
+      forward: { on: 'todos', has: 'many', label: 'goals' },
+      reverse: { on: 'goals', has: 'many', label: 'todos' },
     },
   },
 });
@@ -1084,8 +1084,8 @@ Instant also comes with some utility types to help you use your schema in TypeSc
 For example, you could define your `query` upfront:
 
 ```typescript
-import { InstaQLParams } from "@instantdb/react";
-import { AppSchema } from "../instant.schema.ts";
+import { InstaQLParams } from '@instantdb/react';
+import { AppSchema } from '../instant.schema.ts';
 
 // `query` typechecks against our schema!
 const query = {
@@ -1096,8 +1096,8 @@ const query = {
 Or you can define your result type:
 
 ```typescript
-import { InstaQLResult } from "@instantdb/react";
-import { AppSchema } from "../instant.schema.ts";
+import { InstaQLResult } from '@instantdb/react';
+import { AppSchema } from '../instant.schema.ts';
 
 type GoalsTodosResult = InstaQLResult<AppSchema, { goals: { todos: {} } }>;
 ```
@@ -1105,16 +1105,16 @@ type GoalsTodosResult = InstaQLResult<AppSchema, { goals: { todos: {} } }>;
 Or you can extract a particular entity:
 
 ```typescript
-import { InstaQLEntity } from "@instantdb/react";
-import { AppSchema } from "../instant.schema.ts";
+import { InstaQLEntity } from '@instantdb/react';
+import { AppSchema } from '../instant.schema.ts';
 
-type Todo = InstaQLEntity<AppSchema, "todos">;
+type Todo = InstaQLEntity<AppSchema, 'todos'>;
 ```
 
 You can specify links relative to your entity too:
 
 ```typescript
-type TodoWithGoals = InstaQLEntity<AppSchema, "todos", { goals: {} }>;
+type TodoWithGoals = InstaQLEntity<AppSchema, 'todos', { goals: {} }>;
 ```
 
 To learn more about writing schemas, check out the [Modeling Data](/docs/modeling-data) section.

@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import config from "../../config";
-import { init, tx, id, i } from "@instantdb/react";
-import { useRouter } from "next/router";
+import { useEffect, useState } from 'react';
+import config from '../../config';
+import { init, tx, id, i } from '@instantdb/react';
+import { useRouter } from 'next/router';
 
 const schema = i.schema({
   entities: {
@@ -15,14 +15,14 @@ const schema = i.schema({
   links: {
     valLink: {
       forward: {
-        on: "items",
-        has: "one",
-        label: "link",
+        on: 'items',
+        has: 'one',
+        label: 'link',
       },
       reverse: {
-        on: "link",
-        has: "many",
-        label: "items",
+        on: 'link',
+        has: 'many',
+        label: 'items',
       },
     },
   },
@@ -36,23 +36,23 @@ function Example({ appId }: { appId: string }) {
   const { data } = db.useQuery({ items: {} });
 
   const { data: isEquality } = db.useQuery({
-    items: { $: { where: { val: { $like: "%Go Team Instant%" } } } },
+    items: { $: { where: { val: { $like: '%Go Team Instant%' } } } },
   });
 
   const { data: isStartsWith } = db.useQuery({
-    items: { $: { where: { val: { $like: "%Go%" } } } },
+    items: { $: { where: { val: { $like: '%Go%' } } } },
   });
 
   const { data: isEndsWith } = db.useQuery({
-    items: { $: { where: { val: { $like: "%Instant%" } } } },
+    items: { $: { where: { val: { $like: '%Instant%' } } } },
   });
 
   const { data: isContains } = db.useQuery({
-    items: { $: { where: { val: { $like: "%Team%" } } } },
+    items: { $: { where: { val: { $like: '%Team%' } } } },
   });
 
   const { data: isContainsLink } = db.useQuery({
-    items: { $: { where: { "link.val": { $like: "%moop%" } } } },
+    items: { $: { where: { 'link.val': { $like: '%moop%' } } } },
   });
 
   console.log({
@@ -69,14 +69,14 @@ function Example({ appId }: { appId: string }) {
         <button
           className="bg-black text-white m-2 p-2"
           onClick={() =>
-            db.transact(tx.items[id()].update({ val: "Go Team Instant" }))
+            db.transact(tx.items[id()].update({ val: 'Go Team Instant' }))
           }
         >
           Create item with val = "Go Team Instant"
         </button>
         <button
           className="bg-black text-white m-2 p-2"
-          onClick={() => db.transact(tx.items[id()].update({ val: "Instant" }))}
+          onClick={() => db.transact(tx.items[id()].update({ val: 'Instant' }))}
         >
           Create item with val = "Instant"
         </button>
@@ -91,7 +91,7 @@ function Example({ appId }: { appId: string }) {
           onClick={() => {
             const linkId = id();
             db.transact([
-              tx.link[linkId].update({ val: "super moop" }),
+              tx.link[linkId].update({ val: 'super moop' }),
               tx.items[id()].update({}).link({ link: linkId }),
             ]);
           }}
@@ -103,7 +103,7 @@ function Example({ appId }: { appId: string }) {
           onClick={() => {
             const linkId = id();
             db.transact([
-              tx.link[linkId].update({ val: "womp" }),
+              tx.link[linkId].update({ val: 'womp' }),
               tx.items[id()].update({}).link({ link: linkId }),
             ]);
           }}
@@ -133,10 +133,10 @@ function Example({ appId }: { appId: string }) {
                   }}
                 >
                   X
-                </button>{" "}
-                val ={" "}
+                </button>{' '}
+                val ={' '}
                 {item.val === undefined
-                  ? "undefined"
+                  ? 'undefined'
                   : JSON.stringify(item.val)}
               </div>
             ))}
@@ -156,10 +156,10 @@ function Example({ appId }: { appId: string }) {
                   }}
                 >
                   X
-                </button>{" "}
-                val ={" "}
+                </button>{' '}
+                val ={' '}
                 {item.val === undefined
-                  ? "undefined"
+                  ? 'undefined'
                   : JSON.stringify(item.val)}
               </div>
             ))}
@@ -179,10 +179,10 @@ function Example({ appId }: { appId: string }) {
                   }}
                 >
                   X
-                </button>{" "}
-                val ={" "}
+                </button>{' '}
+                val ={' '}
                 {item.val === undefined
-                  ? "undefined"
+                  ? 'undefined'
                   : JSON.stringify(item.val)}
               </div>
             ))}
@@ -202,10 +202,10 @@ function Example({ appId }: { appId: string }) {
                   }}
                 >
                   X
-                </button>{" "}
-                val ={" "}
+                </button>{' '}
+                val ={' '}
                 {item.val === undefined
-                  ? "undefined"
+                  ? 'undefined'
                   : JSON.stringify(item.val)}
               </div>
             ))}
@@ -225,10 +225,10 @@ function Example({ appId }: { appId: string }) {
                   }}
                 >
                   X
-                </button>{" "}
-                val ={" "}
+                </button>{' '}
+                val ={' '}
                 {item.val === undefined
-                  ? "undefined"
+                  ? 'undefined'
                   : JSON.stringify(item.val)}
               </div>
             ))}
@@ -241,12 +241,12 @@ function Example({ appId }: { appId: string }) {
 
 async function provisionEphemeralApp() {
   const r = await fetch(`${config.apiURI}/dash/apps/ephemeral`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      title: "Query Like Sandbox",
+      title: 'Query Like Sandbox',
     }),
   });
 
@@ -256,7 +256,7 @@ async function provisionEphemeralApp() {
 async function verifyEphemeralApp({ appId }: { appId: string }) {
   const r = await fetch(`${config.apiURI}/dash/apps/ephemeral/${appId}`, {
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
   });
 
@@ -288,7 +288,7 @@ function App({ urlAppId }: { urlAppId: string | undefined }) {
               setAppId(res.app.id);
             } else {
               console.log(res);
-              setError("Could not create app.");
+              setError('Could not create app.');
             }
           });
         }
@@ -304,7 +304,7 @@ function App({ urlAppId }: { urlAppId: string | undefined }) {
           setAppId(res.app.id);
         } else {
           console.log(res);
-          setError("Could not create app.");
+          setError('Could not create app.');
         }
       });
     }

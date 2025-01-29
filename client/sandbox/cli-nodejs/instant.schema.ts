@@ -1,4 +1,4 @@
-import { i } from "@instantdb/core";
+import { i } from '@instantdb/core';
 
 const schema = i.schema({
   entities: {
@@ -21,20 +21,20 @@ const schema = i.schema({
   },
   links: {
     postAuthor: {
-      forward: { on: "posts", has: "one", label: "owner" },
-      reverse: { on: "profiles", has: "many", label: "posts" },
+      forward: { on: 'posts', has: 'one', label: 'owner' },
+      reverse: { on: 'profiles', has: 'many', label: 'posts' },
     },
     commentPost: {
-      forward: { on: "comments", has: "one", label: "post" },
-      reverse: { on: "posts", has: "many", label: "comments" },
+      forward: { on: 'comments', has: 'one', label: 'post' },
+      reverse: { on: 'posts', has: 'many', label: 'comments' },
     },
     commentAuthor: {
-      forward: { on: "comments", has: "one", label: "author" },
-      reverse: { on: "profiles", has: "many", label: "comments" },
+      forward: { on: 'comments', has: 'one', label: 'author' },
+      reverse: { on: 'profiles', has: 'many', label: 'comments' },
     },
     postsTags: {
-      forward: { on: "posts", has: "many", label: "tags" },
-      reverse: { on: "tags", has: "many", label: "posts" },
+      forward: { on: 'posts', has: 'many', label: 'tags' },
+      reverse: { on: 'tags', has: 'many', label: 'posts' },
     },
   },
   rooms: {},

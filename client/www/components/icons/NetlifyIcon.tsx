@@ -1,8 +1,8 @@
-import React from "react";
+import React from 'react';
 
 const NetlifyIcon = React.forwardRef<
   SVGSVGElement,
-  React.ComponentProps<"svg">
+  React.ComponentProps<'svg'>
 >((props, ref) => (
   <svg
     viewBox="0 0 128 113"

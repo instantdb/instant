@@ -1,5 +1,5 @@
-import { init, ConnectionStatus } from "@instantdb/react";
-import config from "../../config";
+import { init, ConnectionStatus } from '@instantdb/react';
+import config from '../../config';
 
 const db = init(config);
 

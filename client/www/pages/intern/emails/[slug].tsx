@@ -1,6 +1,6 @@
-import { useState } from "react";
-import Head from "next/head";
-import { getAllSlugs, getHTML, getText } from "../../../lib/emails";
+import { useState } from 'react';
+import Head from 'next/head';
+import { getAllSlugs, getHTML, getText } from '../../../lib/emails';
 
 const TextView = ({ textBody }: { textBody: string }) => {
   return (
@@ -13,7 +13,7 @@ const TextView = ({ textBody }: { textBody: string }) => {
         />
       </Head>
       <div className="email-container">
-        <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+        <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
           {textBody}
         </pre>
       </div>
@@ -31,24 +31,24 @@ const TextView = ({ textBody }: { textBody: string }) => {
 };
 
 function isPreview() {
-  if (typeof window !== "undefined") {
+  if (typeof window !== 'undefined') {
     const host = window.location.host;
-    return !host.startsWith("localhost");
+    return !host.startsWith('localhost');
   }
 }
 
 function isProd() {
-  if (typeof window !== "undefined") {
+  if (typeof window !== 'undefined') {
     const host = window.location.host;
-    return host === "www.instantdb.com";
+    return host === 'www.instantdb.com';
   }
 }
 
 function getImgReplaceUrl() {
-  let replaceUrl = "http://localhost:3000/img/emails";
-  if (typeof window !== "undefined") {
+  let replaceUrl = 'http://localhost:3000/img/emails';
+  if (typeof window !== 'undefined') {
     const host = window.location.host;
-    if (!host.startsWith("localhost")) {
+    if (!host.startsWith('localhost')) {
       replaceUrl = `https://${host}/img/emails`;
     }
   }
@@ -64,7 +64,7 @@ const HTMLView = ({
 }) => {
   const replaceUrl = getImgReplaceUrl();
   const body = useLocalImages
-    ? htmlBody.replaceAll("https://www.instantdb.com/img/emails", replaceUrl)
+    ? htmlBody.replaceAll('https://www.instantdb.com/img/emails', replaceUrl)
     : htmlBody;
   return (
     <>
@@ -78,7 +78,7 @@ const HTMLView = ({
       <div className="email-container">
         {useLocalImages ? (
           <div className="warning">
-            WARNING: Using {isPreview() ? "preview" : "local"} images, push
+            WARNING: Using {isPreview() ? 'preview' : 'local'} images, push
             images to production before sending.
           </div>
         ) : null}
@@ -151,11 +151,11 @@ const Email = ({
   htmlBody: string;
   textBody: string;
 }) => {
-  const [viewMode, setViewMode] = useState("html");
+  const [viewMode, setViewMode] = useState('html');
   const [useLocalImages, setUseLocalImages] = useState(!isProd());
 
   const toggleViewMode = () => {
-    setViewMode(viewMode === "text" ? "html" : "text");
+    setViewMode(viewMode === 'text' ? 'html' : 'text');
   };
 
   const toggleLocalImages = () => {
@@ -181,24 +181,24 @@ const Email = ({
             <div>
               {isProd() ? null : (
                 <button className="button" onClick={toggleLocalImages}>
-                  Switch to{" "}
+                  Switch to{' '}
                   {useLocalImages
-                    ? "prod"
+                    ? 'prod'
                     : isPreview()
-                      ? "preview"
-                      : "localhost"}{" "}
+                      ? 'preview'
+                      : 'localhost'}{' '}
                   images
                 </button>
               )}
               {textBody && (
                 <button className="button" onClick={toggleViewMode}>
-                  Switch to {viewMode === "text" ? "HTML" : "Text"} View
+                  Switch to {viewMode === 'text' ? 'HTML' : 'Text'} View
                 </button>
               )}
             </div>
           </div>
 
-          {viewMode === "text" && textBody ? (
+          {viewMode === 'text' && textBody ? (
             <TextView textBody={textBody} />
           ) : (
             <HTMLView htmlBody={htmlBody} useLocalImages={useLocalImages} />

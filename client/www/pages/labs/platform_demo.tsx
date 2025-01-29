@@ -1,10 +1,10 @@
-import { Button, Fence, SectionHeading, TextInput } from "@/components/ui";
-import { useIsHydrated } from "@/lib/hooks/useIsHydrated";
-import useLocalStorage from "@/lib/hooks/useLocalStorage";
-import { useState } from "react";
-import config from "@/lib/config";
-import { jsonFetch } from "@/lib/fetch";
-import { i } from "@instantdb/core";
+import { Button, Fence, SectionHeading, TextInput } from '@/components/ui';
+import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
+import useLocalStorage from '@/lib/hooks/useLocalStorage';
+import { useState } from 'react';
+import config from '@/lib/config';
+import { jsonFetch } from '@/lib/fetch';
+import { i } from '@instantdb/core';
 
 async function jsonFetchCatchingErr(
   input: RequestInfo,
@@ -120,14 +120,14 @@ const exSchema = (appId: string) => {
     links: {
       commentPosts: {
         forward: {
-          on: "comments",
-          has: "one",
-          label: "post",
+          on: 'comments',
+          has: 'one',
+          label: 'post',
         },
         reverse: {
-          on: "posts",
-          has: "many",
-          label: "comments",
+          on: 'posts',
+          has: 'many',
+          label: 'comments',
         },
       },
     },
@@ -155,7 +155,7 @@ curl -v -X POST "${config.apiURI}/superadmin/apps/$APP_ID/perms" \\
   -H "Authorization: Bearer $PLATFORM_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '${JSON.stringify(
-    { code: { posts: { allow: { create: "false" } } } },
+    { code: { posts: { allow: { create: 'false' } } } },
     null,
     2,
   )}'  
@@ -172,8 +172,8 @@ function AppStage({
   setApp: any;
 }) {
   const [transferEmail, setTransferEmail] = useLocalStorage<string>(
-    "__platform_demo_email",
-    "stopa@instantdb.com",
+    '__platform_demo_email',
+    'stopa@instantdb.com',
   );
   const [transferResult, setTransferResult] = useState<any>();
   const [cancelTransferResult, setCancelTransferResult] = useState<any>();
@@ -205,10 +205,10 @@ function AppStage({
               const res = await jsonFetchCatchingErr(
                 `${config.apiURI}/superadmin/apps/${app.id}/transfers/send`,
                 {
-                  method: "POST",
+                  method: 'POST',
                   headers: {
                     Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json",
+                    'Content-Type': 'application/json',
                   },
                   body: JSON.stringify({ dest_email: transferEmail }),
                 },
@@ -245,10 +245,10 @@ function AppStage({
               const res = await jsonFetchCatchingErr(
                 `${config.apiURI}/superadmin/apps/${app.id}/transfers/revoke`,
                 {
-                  method: "POST",
+                  method: 'POST',
                   headers: {
                     Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json",
+                    'Content-Type': 'application/json',
                   },
                   body: JSON.stringify({ dest_email: transferEmail }),
                 },
@@ -295,10 +295,10 @@ function AppStage({
             const res = await jsonFetchCatchingErr(
               `${config.apiURI}/superadmin/apps/${app.id}/schema/push/apply`,
               {
-                method: "POST",
+                method: 'POST',
                 headers: {
                   Authorization: `Bearer ${token}`,
-                  "Content-Type": "application/json",
+                  'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ schema: exSchema(app.id) }),
               },
@@ -328,13 +328,13 @@ function AppStage({
             const res = await jsonFetchCatchingErr(
               `${config.apiURI}/superadmin/apps/${app.id}/perms`,
               {
-                method: "POST",
+                method: 'POST',
                 headers: {
                   Authorization: `Bearer ${token}`,
-                  "Content-Type": "application/json",
+                  'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  code: { posts: { allow: { create: "false" } } },
+                  code: { posts: { allow: { create: 'false' } } },
                 }),
               },
             );
@@ -363,10 +363,10 @@ function AppStage({
             const res = await jsonFetchCatchingErr(
               `${config.apiURI}/superadmin/apps/${app.id}`,
               {
-                method: "DELETE",
+                method: 'DELETE',
                 headers: {
                   Authorization: `Bearer ${token}`,
-                  "Content-Type": "application/json",
+                  'Content-Type': 'application/json',
                 },
               },
             );
@@ -389,7 +389,7 @@ function AppStage({
 }
 
 function PlatformTokenStage({ token }: { token: string }) {
-  const [app, setApp] = useLocalStorage<any>("__platform_demo_app", null);
+  const [app, setApp] = useLocalStorage<any>('__platform_demo_app', null);
   return (
     <div>
       <h2>1. Create Apps</h2>
@@ -409,12 +409,12 @@ function PlatformTokenStage({ token }: { token: string }) {
               const res = await jsonFetchCatchingErr(
                 `${config.apiURI}/superadmin/apps`,
                 {
-                  method: "POST",
+                  method: 'POST',
                   headers: {
                     Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json",
+                    'Content-Type': 'application/json',
                   },
-                  body: JSON.stringify({ title: "my cool app" }),
+                  body: JSON.stringify({ title: 'my cool app' }),
                 },
               );
               setApp(res.app);
@@ -444,8 +444,8 @@ function PlatformTokenStage({ token }: { token: string }) {
 export default function Page() {
   const isHydrated = useIsHydrated();
   const [platformToken, setPlatformToken] = useLocalStorage<string>(
-    "__platformToken",
-    "",
+    '__platformToken',
+    '',
   );
   if (!isHydrated) return;
   return (
@@ -455,7 +455,7 @@ export default function Page() {
           Here's a demo of the Platform Beta!
         </SectionHeading>
         <p>
-          First,{" "}
+          First,{' '}
           <a href="/dash?s=personal-access-tokens" target="_blank">
             <span className="text-blue-500 font-bold cursor-pointer">
               go to this page and get a personal access token

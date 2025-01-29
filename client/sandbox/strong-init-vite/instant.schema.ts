@@ -1,6 +1,6 @@
 // Docs: https://www.instantdb.com/docs/schema
 
-import { i } from "@instantdb/react";
+import { i } from '@instantdb/react';
 
 const _schema = i.schema({
   // This section lets you define entities: think `posts`, `comments`, etc
@@ -25,26 +25,26 @@ const _schema = i.schema({
   links: {
     postsOwner: {
       forward: {
-        on: "posts",
-        has: "one",
-        label: "owner",
+        on: 'posts',
+        has: 'one',
+        label: 'owner',
       },
       reverse: {
-        on: "$users",
-        has: "many",
-        label: "ownedPosts",
+        on: '$users',
+        has: 'many',
+        label: 'ownedPosts',
       },
     },
     messageCreator: {
       forward: {
-        on: "messages",
-        has: "one",
-        label: "creator",
+        on: 'messages',
+        has: 'one',
+        label: 'creator',
       },
       reverse: {
-        on: "$users",
-        has: "many",
-        label: "createdMessages",
+        on: '$users',
+        has: 'many',
+        label: 'createdMessages',
       },
     },
   },

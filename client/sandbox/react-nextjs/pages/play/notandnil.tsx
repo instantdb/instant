@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import config from "../../config";
-import { init, tx, id } from "@instantdb/react";
-import { useRouter } from "next/router";
+import { useEffect, useState } from 'react';
+import config from '../../config';
+import { init, tx, id } from '@instantdb/react';
+import { useRouter } from 'next/router';
 
 function Example({ appId }: { appId: string }) {
   const router = useRouter();
@@ -19,11 +19,11 @@ function Example({ appId }: { appId: string }) {
   });
 
   const { data: notData } = db.useQuery({
-    items: { $: { where: { val: { $not: "a" } } } },
+    items: { $: { where: { val: { $not: 'a' } } } },
   });
 
   const { data: fwdLinkNotData } = db.useQuery({
-    items: { $: { where: { "link.val": { $not: "a" } } } },
+    items: { $: { where: { 'link.val': { $not: 'a' } } } },
   });
 
   return (
@@ -43,13 +43,13 @@ function Example({ appId }: { appId: string }) {
         </button>
         <button
           className="bg-black text-white m-2 p-2"
-          onClick={() => db.transact(tx.items[id()].update({ val: "a" }))}
+          onClick={() => db.transact(tx.items[id()].update({ val: 'a' }))}
         >
           Create item with val = "a"
         </button>
         <button
           className="bg-black text-white m-2 p-2"
-          onClick={() => db.transact(tx.items[id()].update({ val: "b" }))}
+          onClick={() => db.transact(tx.items[id()].update({ val: 'b' }))}
         >
           Create item with val != "a"
         </button>
@@ -58,9 +58,9 @@ function Example({ appId }: { appId: string }) {
           onClick={() => {
             const linkId = id();
             db.transact([
-              tx.link[linkId].update({ val: "b" }),
+              tx.link[linkId].update({ val: 'b' }),
               tx.items[id()]
-                .update({ val: "linked-to-b" })
+                .update({ val: 'linked-to-b' })
                 .link({ link: linkId }),
             ]);
           }}
@@ -72,9 +72,9 @@ function Example({ appId }: { appId: string }) {
           onClick={() => {
             const linkId = id();
             db.transact([
-              tx.link[linkId].update({ val: "a" }),
+              tx.link[linkId].update({ val: 'a' }),
               tx.items[id()]
-                .update({ val: "linked-to-a" })
+                .update({ val: 'linked-to-a' })
                 .link({ link: linkId }),
             ]);
           }}
@@ -104,10 +104,10 @@ function Example({ appId }: { appId: string }) {
                   }}
                 >
                   X
-                </button>{" "}
-                val ={" "}
+                </button>{' '}
+                val ={' '}
                 {item.val === undefined
-                  ? "undefined"
+                  ? 'undefined'
                   : JSON.stringify(item.val)}
               </div>
             ))}
@@ -127,10 +127,10 @@ function Example({ appId }: { appId: string }) {
                   }}
                 >
                   X
-                </button>{" "}
-                val ={" "}
+                </button>{' '}
+                val ={' '}
                 {item.val === undefined
-                  ? "undefined"
+                  ? 'undefined'
                   : JSON.stringify(item.val)}
               </div>
             ))}
@@ -150,10 +150,10 @@ function Example({ appId }: { appId: string }) {
                   }}
                 >
                   X
-                </button>{" "}
-                val ={" "}
+                </button>{' '}
+                val ={' '}
                 {item.val === undefined
-                  ? "undefined"
+                  ? 'undefined'
                   : JSON.stringify(item.val)}
               </div>
             ))}
@@ -171,10 +171,10 @@ function Example({ appId }: { appId: string }) {
                   }}
                 >
                   X
-                </button>{" "}
-                val ={" "}
+                </button>{' '}
+                val ={' '}
                 {item.val === undefined
-                  ? "undefined"
+                  ? 'undefined'
                   : JSON.stringify(item.val)}
               </div>
             ))}
@@ -194,10 +194,10 @@ function Example({ appId }: { appId: string }) {
                   }}
                 >
                   X
-                </button>{" "}
-                val ={" "}
+                </button>{' '}
+                val ={' '}
                 {item.val === undefined
-                  ? "undefined"
+                  ? 'undefined'
                   : JSON.stringify(item.val)}
               </div>
             ))}
@@ -210,12 +210,12 @@ function Example({ appId }: { appId: string }) {
 
 async function provisionEphemeralApp() {
   const r = await fetch(`${config.apiURI}/dash/apps/ephemeral`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      title: "Pagination example",
+      title: 'Pagination example',
       // Uncomment and start a new app to test rules
       /* rules: {
         code: {
@@ -237,7 +237,7 @@ async function provisionEphemeralApp() {
 async function verifyEphemeralApp({ appId }: { appId: string }) {
   const r = await fetch(`${config.apiURI}/dash/apps/ephemeral/${appId}`, {
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
   });
 
@@ -269,7 +269,7 @@ function App({ urlAppId }: { urlAppId: string | undefined }) {
               setAppId(res.app.id);
             } else {
               console.log(res);
-              setError("Could not create app.");
+              setError('Could not create app.');
             }
           });
         }
@@ -285,7 +285,7 @@ function App({ urlAppId }: { urlAppId: string | undefined }) {
           setAppId(res.app.id);
         } else {
           console.log(res);
-          setError("Could not create app.");
+          setError('Could not create app.');
         }
       });
     }

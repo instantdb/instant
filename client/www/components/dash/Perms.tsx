@@ -1,14 +1,14 @@
-import { useContext, useMemo, useState } from "react";
-import { SWRResponse } from "swr";
-import JsonParser from "json5";
+import { useContext, useMemo, useState } from 'react';
+import { SWRResponse } from 'swr';
+import JsonParser from 'json5';
 
-import { errorToast, successToast } from "@/lib/toast";
-import config from "@/lib/config";
-import { jsonFetch } from "@/lib/fetch";
-import { TokenContext } from "@/lib/contexts";
-import { InstantApp, DashResponse } from "@/lib/types";
-import { Button, Content, JSONEditor, SectionHeading } from "@/components/ui";
-import { HomeButton } from "@/pages/dash";
+import { errorToast, successToast } from '@/lib/toast';
+import config from '@/lib/config';
+import { jsonFetch } from '@/lib/fetch';
+import { TokenContext } from '@/lib/contexts';
+import { InstantApp, DashResponse } from '@/lib/types';
+import { Button, Content, JSONEditor, SectionHeading } from '@/components/ui';
+import { HomeButton } from '@/pages/dash';
 
 export function Perms({
   app,
@@ -23,7 +23,7 @@ export function Perms({
   } | null>(null);
   const token = useContext(TokenContext);
   const value = useMemo(() => {
-    return app.rules ? JSON.stringify(app.rules, null, 2) : "";
+    return app.rules ? JSON.stringify(app.rules, null, 2) : '';
   }, [app]);
 
   return (
@@ -50,7 +50,7 @@ export function Perms({
           <div className="bg-red-100 p-4 text-sm">
             <div className="max-w-sm">
               <h4 className="font-bold text-red-700">
-                There was an error in {errorRes.in.join("->")}
+                There was an error in {errorRes.in.join('->')}
               </h4>
               <pre className="whitespace-pre-wrap">{errorRes.message}</pre>
             </div>
@@ -61,10 +61,10 @@ export function Perms({
             <>
               <span
                 className="text-sm font-bold text-yellow-600"
-                style={{ letterSpacing: "4px" }}
+                style={{ letterSpacing: '4px' }}
               >
-                {"{}"}
-              </span>{" "}
+                {'{}'}
+              </span>{' '}
               rules.json
             </>
           }
@@ -101,15 +101,15 @@ async function onEditRules(
     newRulesObj = JsonParser.parse(newRules, (key, value) => {
       // rules.json permissions require that "true" and "false" be strings
       if (value === true) {
-        return "true";
+        return 'true';
       } else if (value === false) {
-        return "false";
+        return 'false';
       } else {
         return value;
       }
     });
   } catch (e) {
-    errorToast("Beep boop. Please use valid JSON", { autoClose: 3000 });
+    errorToast('Beep boop. Please use valid JSON', { autoClose: 3000 });
     return Promise.reject(null);
   }
   const updatedApp = { ...currentApp, rules: newRulesObj };
@@ -124,7 +124,7 @@ async function onEditRules(
   return updateRules(token, appId, newRulesObj)
     .then(() => {
       dashResponse.mutate({ ...dashResponse.data, apps: updatedApps });
-      successToast("Huzzah. Your rules have been updated!");
+      successToast('Huzzah. Your rules have been updated!');
     })
     .catch((e: any) => {
       const validationErr = e.body?.hint?.errors?.[0];
@@ -141,36 +141,36 @@ async function onEditRules(
 
 function updateRules(token: string, appId: string, newRulesObj: object) {
   return jsonFetch(`${config.apiURI}/dash/apps/${appId}/rules`, {
-    method: "POST",
+    method: 'POST',
     headers: {
       authorization: `Bearer ${token}`,
-      "content-type": "application/json",
+      'content-type': 'application/json',
     },
     body: JSON.stringify({ code: newRulesObj }),
   });
 }
 
 export const rulesSchema = {
-  type: "object",
+  type: 'object',
   patternProperties: {
-    "^[$a-zA-Z0-9_\\-]+$": {
-      type: "object",
+    '^[$a-zA-Z0-9_\\-]+$': {
+      type: 'object',
       properties: {
         allow: {
-          type: "object",
+          type: 'object',
           properties: {
-            create: { type: "string" },
-            update: { type: "string" },
-            delete: { type: "string" },
-            view: { type: "string" },
-            $default: { type: "string" },
+            create: { type: 'string' },
+            update: { type: 'string' },
+            delete: { type: 'string' },
+            view: { type: 'string' },
+            $default: { type: 'string' },
           },
           additionalProperties: false,
         },
         bind: {
-          type: "array",
+          type: 'array',
           // Use a combination of "items" and "additionalItems" for validation
-          items: { type: "string" },
+          items: { type: 'string' },
           minItems: 2,
         },
       },

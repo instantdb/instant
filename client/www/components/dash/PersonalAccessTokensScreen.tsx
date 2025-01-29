@@ -4,17 +4,17 @@ import React, {
   useEffect,
   useMemo,
   useState,
-} from "react";
+} from 'react';
 import {
   ChevronRightIcon,
   ClipboardCopyIcon,
   PlusIcon,
-} from "@heroicons/react/outline";
-import format from "date-fns/format";
-import CopyToClipboard from "react-copy-to-clipboard";
+} from '@heroicons/react/outline';
+import format from 'date-fns/format';
+import CopyToClipboard from 'react-copy-to-clipboard';
 
-import config from "@/lib/config";
-import { jsonFetch } from "@/lib/fetch";
+import config from '@/lib/config';
+import { jsonFetch } from '@/lib/fetch';
 import {
   ActionButton,
   ActionForm,
@@ -24,9 +24,9 @@ import {
   Dialog,
   Label,
   SectionHeading,
-} from "@/components/ui";
-import { TokenContext } from "@/lib/contexts";
-import { errorToast, successToast } from "@/lib/toast";
+} from '@/components/ui';
+import { TokenContext } from '@/lib/contexts';
+import { errorToast, successToast } from '@/lib/toast';
 
 type PersonalAccessToken = {
   id: string;
@@ -40,9 +40,9 @@ async function fetchPersonalAccessTokens(
   const { data } = await jsonFetch(
     `${config.apiURI}/dash/personal_access_tokens`,
     {
-      method: "GET",
+      method: 'GET',
       headers: {
-        "content-type": "application/json",
+        'content-type': 'application/json',
         authorization: `Bearer ${token}`,
       },
     },
@@ -58,9 +58,9 @@ async function createPersonalAccessTokens(
   const { data } = await jsonFetch(
     `${config.apiURI}/dash/personal_access_tokens`,
     {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "content-type": "application/json",
+        'content-type': 'application/json',
         authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ name }),
@@ -77,9 +77,9 @@ async function deletePersonalAccessToken(
   const { data } = await jsonFetch(
     `${config.apiURI}/dash/personal_access_tokens/${personalAccessTokenId}`,
     {
-      method: "DELETE",
+      method: 'DELETE',
       headers: {
-        "content-type": "application/json",
+        'content-type': 'application/json',
         authorization: `Bearer ${token}`,
       },
     },
@@ -140,7 +140,7 @@ function CopyButton({ value }: { value: string }) {
         onClick={handleClick}
       >
         {!isCopied && <ClipboardCopyIcon className="-ml-0.5 h-4 w-4" />}
-        {isCopied ? "Copied!" : "Copy"}
+        {isCopied ? 'Copied!' : 'Copy'}
       </Button>
     </CopyToClipboard>
   );
@@ -165,7 +165,7 @@ function CopyText({
   return (
     <CopyToClipboard text={value}>
       <button
-        className={cn(className, isCopied ? "opacity-60" : "")}
+        className={cn(className, isCopied ? 'opacity-60' : '')}
         onClick={handleClick}
       >
         {isCopied ? <span>Copied to clipboard!</span> : <span>{label}</span>}
@@ -188,17 +188,17 @@ export default function PersonalAccessTokensTab({
   ] = usePersonalAccessTokens(token);
   const [isCreatingNewToken, setIsCreatingNewToken] = useState(false);
   const [newPersonalAccessTokenName, setNewPersonalAccessTokenName] =
-    useState("Platform Token");
+    useState('Platform Token');
 
   const handleGenerateNewToken = async () => {
     try {
       await createPersonalAccessTokens(token, newPersonalAccessTokenName);
       await refreshPersonalAccessTokens();
       setIsCreatingNewToken(false);
-      setNewPersonalAccessTokenName("");
+      setNewPersonalAccessTokenName('');
       successToast(`Successfully generated "${newPersonalAccessTokenName}"`);
     } catch (err: any) {
-      console.error("Failed to create token:", err);
+      console.error('Failed to create token:', err);
       errorToast(`Failed to create token: ${err.body.message}`);
     }
   };
@@ -212,13 +212,13 @@ export default function PersonalAccessTokensTab({
       await deletePersonalAccessToken(token, id);
       await refreshPersonalAccessTokens();
     } catch (err: any) {
-      console.error("Failed to delete:", err);
+      console.error('Failed to delete:', err);
       errorToast(`Failed to delete: ${err.body.message}`);
     }
   };
   return (
     <div
-      className={cn("flex-1 flex flex-col p-4 max-w-2xl mx-auto", className)}
+      className={cn('flex-1 flex flex-col p-4 max-w-2xl mx-auto', className)}
     >
       <div className="flex justify-between flex-row items-center">
         <div className="pt-1 pb-4">
@@ -227,11 +227,11 @@ export default function PersonalAccessTokensTab({
               Personal Access Tokens <sup className="text-sm">[BETA]</sup>
             </SectionHeading>
             <p>
-              Welcome to the Platform Beta! You can create{" "}
+              Welcome to the Platform Beta! You can create{' '}
               <code>Personal Access Tokens</code> here. <br />
               <a href="https://paper.dropbox.com/doc/Guide-Platform-Beta--CWdyjOhRfXmwljLmnSVTLTSBAg-YuqzAKxTHU7CMq5gJyD6S">
                 Take a look at this guide
-              </a>{" "}
+              </a>{' '}
               to see how to use the platform API, and create apps on demand!
             </p>
           </div>
@@ -251,28 +251,28 @@ export default function PersonalAccessTokensTab({
             <tr>
               <th
                 className={cn(
-                  "z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1",
+                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
                 )}
               >
                 Name
               </th>
               <th
                 className={cn(
-                  "w-full z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1",
+                  'w-full z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
                 )}
               >
                 Token
               </th>
               <th
                 className={cn(
-                  "z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1 text-right",
+                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1 text-right',
                 )}
               >
                 Created
               </th>
               <th
                 className={cn(
-                  "z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1",
+                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
                 )}
               ></th>
             </tr>
@@ -285,13 +285,13 @@ export default function PersonalAccessTokensTab({
                   <CopyText
                     label={id
                       .slice(0, 4)
-                      .concat("************************")
+                      .concat('************************')
                       .concat(id.slice(-4))}
                     value={id}
                   />
                 </td>
                 <td className="whitespace-nowrap px-4 py-1 text-right">
-                  {format(new Date(created_at), "MMM dd, h:mma")}
+                  {format(new Date(created_at), 'MMM dd, h:mma')}
                 </td>
                 <td className="px-4 py-1" style={{}}>
                   <div className="flex items-center gap-1">
@@ -328,7 +328,7 @@ export default function PersonalAccessTokensTab({
                   <input
                     className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
                     placeholder="My default token"
-                    value={newPersonalAccessTokenName ?? ""}
+                    value={newPersonalAccessTokenName ?? ''}
                     onChange={(e) =>
                       setNewPersonalAccessTokenName(e.target.value)
                     }

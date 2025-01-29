@@ -1,7 +1,7 @@
-import React from "react";
+import React from 'react';
 
-const VercelIcon = React.forwardRef<SVGSVGElement, React.ComponentProps<"svg">>(
-  (props: React.ComponentProps<"svg">, ref) => (
+const VercelIcon = React.forwardRef<SVGSVGElement, React.ComponentProps<'svg'>>(
+  (props: React.ComponentProps<'svg'>, ref) => (
     <svg
       viewBox="0 0 1155 1150"
       fill="none"

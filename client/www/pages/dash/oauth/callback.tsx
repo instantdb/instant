@@ -1,17 +1,17 @@
-import { StyledToastContainer } from "@/lib/toast";
-import { NextRouter, useRouter } from "next/router";
-import Head from "next/head";
-import { useEffect, useState } from "react";
-import { Button, Content, ScreenHeading } from "@/components/ui";
-import { exchangeOAuthCodeForToken, messageFromInstantError } from "@/lib/auth";
-import config, { cliOauthParamName } from "@/lib/config";
-import { InstantError } from "@/lib/types";
+import { StyledToastContainer } from '@/lib/toast';
+import { NextRouter, useRouter } from 'next/router';
+import Head from 'next/head';
+import { useEffect, useState } from 'react';
+import { Button, Content, ScreenHeading } from '@/components/ui';
+import { exchangeOAuthCodeForToken, messageFromInstantError } from '@/lib/auth';
+import config, { cliOauthParamName } from '@/lib/config';
+import { InstantError } from '@/lib/types';
 
 type CallbackState =
-  | { type: "router-loading" }
-  | { type: "exchange-code"; code: string; ticket?: string }
-  | { type: "login" }
-  | { type: "error"; error: string };
+  | { type: 'router-loading' }
+  | { type: 'exchange-code'; code: string; ticket?: string }
+  | { type: 'login' }
+  | { type: 'error'; error: string };
 
 function LoadingScreen() {
   return (
@@ -59,30 +59,30 @@ function LoginScreen() {
 
 function stateFromRouter(router: NextRouter): CallbackState {
   if (!router.isReady) {
-    return { type: "router-loading" };
+    return { type: 'router-loading' };
   }
-  if (typeof router.query.code === "string") {
+  if (typeof router.query.code === 'string') {
     return {
-      type: "exchange-code",
+      type: 'exchange-code',
       code: router.query.code,
       ticket: router.query.ticket as string | undefined,
     };
   }
-  if (typeof router.query.error === "string") {
-    return { type: "error", error: router.query.error };
+  if (typeof router.query.error === 'string') {
+    return { type: 'error', error: router.query.error };
   }
-  return { type: "login" };
+  return { type: 'login' };
 }
 
 const CallbackScreen = ({ state }: { state: CallbackState }) => {
   if (
-    state.type === "router-loading" ||
-    state.type === "exchange-code" ||
-    state.type === "login"
+    state.type === 'router-loading' ||
+    state.type === 'exchange-code' ||
+    state.type === 'login'
   ) {
     return <LoadingScreen />;
   }
-  if (state.type === "error") {
+  if (state.type === 'error') {
     return <ErrorScreen error={state.error} />;
   }
   return <LoginScreen />;
@@ -94,14 +94,14 @@ export default function OAuthCallback() {
   const [state, setState] = useState<CallbackState>(stateFromRouter(router));
 
   useEffect(() => {
-    if (router.isReady && state.type === "router-loading") {
+    if (router.isReady && state.type === 'router-loading') {
       setState(stateFromRouter(router));
     }
   }, [router.isReady, state.type]);
 
   useEffect(() => {
     switch (state.type) {
-      case "exchange-code": {
+      case 'exchange-code': {
         const { code: _, ...queryWithoutCode } = router.query;
         router.replace({
           pathname: router.pathname,
@@ -113,7 +113,7 @@ export default function OAuthCallback() {
         })
           .then(async (res) => {
             const ticket = state.ticket;
-            const path = res.redirect_path || "/dash";
+            const path = res.redirect_path || '/dash';
 
             if (!ticket) {
               router.push(path);
@@ -122,20 +122,20 @@ export default function OAuthCallback() {
 
             const url = new URL(path, window.location.origin);
             url.searchParams.set(cliOauthParamName, ticket);
-            const finalPath = url.href.replace(window.location.origin, "");
+            const finalPath = url.href.replace(window.location.origin, '');
             router.push(finalPath);
           })
           .catch((res) => {
             const error = messageFromInstantError(res as InstantError);
 
             setState({
-              type: "error",
-              error: error || "Error logging in.",
+              type: 'error',
+              error: error || 'Error logging in.',
             });
           });
         break;
       }
-      case "error": {
+      case 'error': {
         if (router.query.error) {
           const { error: _, ...queryWithoutCode } = router.query;
           router.replace({
@@ -145,8 +145,8 @@ export default function OAuthCallback() {
         }
         break;
       }
-      case "login": {
-        router.replace("/dash");
+      case 'login': {
+        router.replace('/dash');
         break;
       }
     }

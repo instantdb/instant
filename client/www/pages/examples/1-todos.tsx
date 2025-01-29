@@ -1,5 +1,5 @@
-import config from "@/lib/config"; // hide-line
-import { id, init } from "@instantdb/react";
+import config from '@/lib/config'; // hide-line
+import { id, init } from '@instantdb/react';
 
 const db = init({
   ...config, // hide-line
@@ -22,7 +22,7 @@ export default function InstantTodos() {
         onSubmit={(e) => {
           e.preventDefault();
           const form = e.currentTarget;
-          const todoInput = form.elements.namedItem("todo") as HTMLInputElement;
+          const todoInput = form.elements.namedItem('todo') as HTMLInputElement;
           const text = todoInput?.value;
 
           if (!text) return;
@@ -63,10 +63,10 @@ export default function InstantTodos() {
                       }),
                     ]);
                   }}
-                />{" "}
+                />{' '}
                 <span
                   className={`align-middle ${
-                    todo.completed ? "line-through text-gray-400" : ""
+                    todo.completed ? 'line-through text-gray-400' : ''
                   }`}
                 >
                   {todo.text}

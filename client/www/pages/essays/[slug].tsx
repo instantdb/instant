@@ -1,14 +1,14 @@
-import format from "date-fns/format";
-import parse from "date-fns/parse";
-import Head from "next/head";
-import { getAllSlugs, getHTMLPostBySlug } from "../../lib/posts";
+import format from 'date-fns/format';
+import parse from 'date-fns/parse';
+import Head from 'next/head';
+import { getAllSlugs, getHTMLPostBySlug } from '../../lib/posts';
 import {
   H3,
   LandingContainer,
   LandingFooter,
   MainNav,
   type Post,
-} from "@/components/marketingUi";
+} from '@/components/marketingUi';
 
 function Prose({ html }: { html: string }) {
   return (
@@ -46,12 +46,12 @@ const Post = ({ post }: { post: Post }) => {
                     >
                       {author.name}
                     </a>
-                    {idx !== authors.length - 1 ? ", " : ""}
+                    {idx !== authors.length - 1 ? ', ' : ''}
                   </span>
                 );
               })}
             </span>
-            {format(parse(date, "yyyy-MM-dd", new Date()), "MMM do, yyyy")}
+            {format(parse(date, 'yyyy-MM-dd', new Date()), 'MMM do, yyyy')}
           </div>
         </div>
         <Prose html={mdHTML} />

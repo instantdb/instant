@@ -42,7 +42,8 @@ Instant supports Sign In with Apple on the Web and in native applications.
 - To _Domains_, add your app domain (e.g. `myapp.com`)
 - To _Return URLs_, add URL of your app where authentication happens (e.g. `https://myapp.com/signin`)
 - Click _Continue_ → _Save_
-  {% /conditional %}
+
+{% /conditional %}
 
 {% conditional param="method" value="web-redirect" %}
 
@@ -65,13 +66,15 @@ Instant supports Sign In with Apple on the Web and in native applications.
 - Configure → select _App ID_ from Step 1
 - _Continue_ → _Register_
 - Download key file
-  {% /conditional %}
+
+{% /conditional %}
 
 {% conditional param="method" value="native" %}
 
 ## Step 3: Configure Services ID (React Native flow)
 
 This step is not needed for Expo.
+
 {% /conditional %}
 
 ## Step 4: Register your OAuth client with Instant
@@ -93,7 +96,8 @@ This step is not needed for Expo.
 
 - In Instant Dashboard, Click _Redirect Origins_ → _Add an origin_
 - Add your app’s domain (e.g. `myapp.com`)
-  {% /conditional %}
+
+{% /conditional %}
 
 {% conditional param="method" value="web-popup" %}
 
@@ -109,8 +113,8 @@ Initialize with `Services ID` from Step 2:
 
 ```javascript {% showCopy=true %}
 AppleID.auth.init({
-  clientId: "<Services ID>",
-  scope: "name email",
+  clientId: '<Services ID>',
+  scope: 'name email',
   redirectURI: window.location.href,
 });
 ```
@@ -129,7 +133,7 @@ async function signInPopup() {
 
   // authenticate with Instant
   await db.auth.signInWithIdToken({
-    clientName: "<clientName>",
+    clientName: '<clientName>',
     idToken: resp.authorization.id_token,
     nonce: nonce,
   });
@@ -164,6 +168,7 @@ Add a link uses `authUrl`:
 ```
 
 That’s it!
+
 {% /conditional %}
 
 {% conditional param="method" value="native" %}
@@ -197,7 +202,7 @@ Add `exp://` for development with Expo.
 Authenticate with Apple and then pass identityToken to Instant along with `clientName` from Step 4:
 
 ```javascript {% showCopy=true %}
-const [nonce] = useState("" + Math.random());
+const [nonce] = useState('' + Math.random());
 try {
   // sign in with Apple
   const credential = await AppleAuthentication.signInAsync({
@@ -211,15 +216,15 @@ try {
   // pass identityToken to Instant
   db.auth
     .signInWithIdToken({
-      clientName: "<clientName>",
+      clientName: '<clientName>',
       idToken: credential.identityToken,
       nonce: nonce,
     })
     .catch((err) => {
-      console.log("Error", err.body?.message, err);
+      console.log('Error', err.body?.message, err);
     });
 } catch (e) {
-  if (e.code === "ERR_REQUEST_CANCELED") {
+  if (e.code === 'ERR_REQUEST_CANCELED') {
     // handle that the user canceled the sign-in flow
   } else {
     // handle other errors
@@ -241,12 +246,12 @@ Sign out code:
 Full example:
 
 ```javascript {% showCopy=true %}
-import React, { useState } from "react";
-import { Button, View, Text, StyleSheet } from "react-native";
-import { init, tx } from "@instantdb/react-native";
-import * as AppleAuthentication from "expo-apple-authentication";
+import React, { useState } from 'react';
+import { Button, View, Text, StyleSheet } from 'react-native';
+import { init, tx } from '@instantdb/react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
 
-const APP_ID = "__APP_ID__";
+const APP_ID = '__APP_ID__';
 const db = init({ appId: APP_ID });
 
 export default function App() {
@@ -282,7 +287,7 @@ export default function App() {
 }
 
 function Login() {
-  const [nonce] = useState("" + Math.random());
+  const [nonce] = useState('' + Math.random());
   return (
     <View style={styles.container}>
       <AppleAuthentication.AppleAuthenticationButton
@@ -302,15 +307,15 @@ function Login() {
             // signed in
             db.auth
               .signInWithIdToken({
-                clientName: "apple",
+                clientName: 'apple',
                 idToken: credential.identityToken,
                 nonce: nonce,
               })
               .catch((err) => {
-                console.log("Error", err.body?.message, err);
+                console.log('Error', err.body?.message, err);
               });
           } catch (e) {
-            if (e.code === "ERR_REQUEST_CANCELED") {
+            if (e.code === 'ERR_REQUEST_CANCELED') {
               // handle that the user canceled the sign-in flow
             } else {
               // handle other errors
@@ -325,8 +330,8 @@ function Login() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   button: {
     width: 200,

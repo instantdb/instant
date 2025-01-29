@@ -1,6 +1,6 @@
-import "../styles/globals.css";
-import type { AppProps } from "next/app";
-import config from "../config";
+import '../styles/globals.css';
+import type { AppProps } from 'next/app';
+import config from '../config';
 
 function MyApp({ Component, pageProps }: AppProps) {
   if (!config.appId) {
@@ -13,13 +13,13 @@ function MyApp({ Component, pageProps }: AppProps) {
           In order to use the playground, you need to set up a you `.env` file
         </p>
         <p>
-          Take a look at the{" "}
+          Take a look at the{' '}
           <a
             href="https://github.com/instantdb/instant/tree/main/client/sandbox/react-nextjs"
             className="text-blue-500 underline"
           >
             <code>sandbox/react-nextjs</code> README
-          </a>{" "}
+          </a>{' '}
           to learn more
         </p>
       </div>

@@ -43,7 +43,7 @@ If you press `cmd + shift + 9`, you'll also see a devtool window pop up. This ca
 Right now all backend requests will go to api.instantdb.com. If you want to develop against your local backend, load [localhost:3000](http://localhost:3000), and set the `devBackend` flag:
 
 ```javascript
-localStorage.setItem("devBackend", true);
+localStorage.setItem('devBackend', true);
 ```
 
 Now all requests will go to your local backend at [localhost:8888](http://localhost:8888). If you haven't set up a local backend, follow the [server README](../server/README.md)

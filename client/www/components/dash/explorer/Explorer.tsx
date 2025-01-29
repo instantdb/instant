@@ -1,18 +1,18 @@
-import { id, tx } from "@instantdb/core";
-import { InstantReactWebDatabase } from "@instantdb/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { isObject, debounce, last } from "lodash";
-import produce from "immer";
-import clsx from "clsx";
-import CopyToClipboard from "react-copy-to-clipboard";
+import { id, tx } from '@instantdb/core';
+import { InstantReactWebDatabase } from '@instantdb/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { isObject, debounce, last } from 'lodash';
+import produce from 'immer';
+import clsx from 'clsx';
+import CopyToClipboard from 'react-copy-to-clipboard';
 import {
   Combobox,
   ComboboxInput,
   ComboboxOption,
   ComboboxOptions,
-} from "@headlessui/react";
+} from '@headlessui/react';
 
-import * as Tooltip from "@radix-ui/react-tooltip";
+import * as Tooltip from '@radix-ui/react-tooltip';
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -20,10 +20,10 @@ import {
   MenuIcon,
   PlusIcon,
   XIcon,
-} from "@heroicons/react/solid";
-import { PencilAltIcon } from "@heroicons/react/outline";
+} from '@heroicons/react/solid';
+import { PencilAltIcon } from '@heroicons/react/outline';
 
-import { errorToast } from "@/lib/toast";
+import { errorToast } from '@/lib/toast';
 import {
   ActionButton,
   ActionForm,
@@ -37,21 +37,21 @@ import {
   TextInput,
   ToggleCollection,
   useDialog,
-} from "@/components/ui";
-import { DBAttr, SchemaAttr, SchemaNamespace } from "@/lib/types";
-import { useIsOverflow } from "@/lib/hooks/useIsOverflow";
-import { useClickOutside } from "@/lib/hooks/useClickOutside";
-import { isTouchDevice } from "@/lib/config";
+} from '@/components/ui';
+import { DBAttr, SchemaAttr, SchemaNamespace } from '@/lib/types';
+import { useIsOverflow } from '@/lib/hooks/useIsOverflow';
+import { useClickOutside } from '@/lib/hooks/useClickOutside';
+import { isTouchDevice } from '@/lib/config';
 import {
   useSchemaQuery,
   useNamespacesQuery,
   SearchFilter,
-} from "@/lib/hooks/explorer";
-import { EditNamespaceDialog } from "@/components/dash/explorer/EditNamespaceDialog";
-import { EditRowDialog } from "@/components/dash/explorer/EditRowDialog";
-import { useRouter } from "next/router";
+} from '@/lib/hooks/explorer';
+import { EditNamespaceDialog } from '@/components/dash/explorer/EditNamespaceDialog';
+import { EditRowDialog } from '@/components/dash/explorer/EditRowDialog';
+import { useRouter } from 'next/router';
 
-const OPERATORS = [":", ">", "<"] as const;
+const OPERATORS = [':', '>', '<'] as const;
 type ParsedQueryPart = {
   field: string;
   operator: (typeof OPERATORS)[number];
@@ -66,7 +66,7 @@ function parseSearchQuery(s: string): ParsedQueryPart[] {
   for (const c of s) {
     i++;
 
-    if (c === " " && !(OPERATORS as readonly string[]).includes(s[i + 1])) {
+    if (c === ' ' && !(OPERATORS as readonly string[]).includes(s[i + 1])) {
       fieldStart = i + 1;
       continue;
     }
@@ -78,7 +78,7 @@ function parseSearchQuery(s: string): ParsedQueryPart[] {
       currentPart = {
         field: s.substring(fieldStart, i).trim(),
         operator: c as (typeof OPERATORS)[number],
-        value: "",
+        value: '',
       };
 
       valueStart = i + 1;
@@ -93,18 +93,18 @@ function parseSearchQuery(s: string): ParsedQueryPart[] {
   return parts;
 }
 
-function opToInstaqlOp(op: ":" | "<" | ">"): "=" | "$gt" | "$lt" {
+function opToInstaqlOp(op: ':' | '<' | '>'): '=' | '$gt' | '$lt' {
   switch (op) {
-    case ":":
+    case ':':
       // Not really an instaql op, but we have special handling in
       // explorer.tsx to turn `=` into {k: v}
-      return "=";
-    case "<":
-      return "$lt";
-    case ">":
-      return "$gt";
+      return '=';
+    case '<':
+      return '$lt';
+    case '>':
+      return '$gt';
     default:
-      throw new Error("what kind of op is this? " + op);
+      throw new Error('what kind of op is this? ' + op);
   }
 }
 
@@ -129,17 +129,17 @@ function queryToFilters({
       }
       const res: SearchFilter[] = [];
       if (attr.checkedDataType && attr.isIndex) {
-        if (attr.checkedDataType === "string") {
+        if (attr.checkedDataType === 'string') {
           const val = part.value;
           return [
             [
               part.field,
-              val === val.toLowerCase() ? "$ilike" : "$like",
+              val === val.toLowerCase() ? '$ilike' : '$like',
               `%${part.value}%`,
             ],
           ];
         }
-        if (attr.checkedDataType === "number") {
+        if (attr.checkedDataType === 'number') {
           try {
             return [
               [
@@ -150,7 +150,7 @@ function queryToFilters({
             ];
           } catch (e) {}
         }
-        if (attr.checkedDataType === "date") {
+        if (attr.checkedDataType === 'date') {
           try {
             return [
               [
@@ -165,10 +165,10 @@ function queryToFilters({
           }
         }
       }
-      for (const inferredType of attr.inferredTypes || ["json"]) {
+      for (const inferredType of attr.inferredTypes || ['json']) {
         switch (inferredType) {
-          case "boolean":
-          case "number": {
+          case 'boolean':
+          case 'number': {
             try {
               res.push([
                 part.field,
@@ -192,7 +192,7 @@ function queryToFilters({
     for (const a of stringIndexed) {
       parts.push([
         a.name,
-        query.toLowerCase() === query ? "$ilike" : "$like",
+        query.toLowerCase() === query ? '$ilike' : '$like',
         `%${query.trim()}%`,
       ]);
     }
@@ -224,7 +224,7 @@ function SearchInput({
   onSearchChange: (filters: SearchFilter[]) => void;
   attrs?: SchemaAttr[];
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
 
   const lastFilters = useRef<[string, string, string][]>([]);
 
@@ -233,7 +233,7 @@ function SearchInput({
     const stringIndexed = [];
     for (const attr of attrs || []) {
       byName[attr.name] = attr;
-      if (attr.isIndex && attr.checkedDataType === "string") {
+      if (attr.isIndex && attr.checkedDataType === 'string') {
         stringIndexed.push(attr);
       }
     }
@@ -252,12 +252,12 @@ function SearchInput({
   );
 
   const lastQuerySegment =
-    query.indexOf(":") !== -1 ? last(query.split(" ")) : query;
+    query.indexOf(':') !== -1 ? last(query.split(' ')) : query;
 
   const comboOptions: { field: string; operator: string; display: string }[] = (
     attrs || []
   ).flatMap((a) => {
-    if (a.type === "ref") {
+    if (a.type === 'ref') {
       return [];
     }
     const ops = [];
@@ -265,19 +265,19 @@ function SearchInput({
     const opCandidates = [];
     opCandidates.push({
       field: a.name,
-      operator: ":",
+      operator: ':',
       display: `${a.name}:`,
     });
     if (
       a.isIndex &&
-      (a.checkedDataType === "number" || a.checkedDataType === "date")
+      (a.checkedDataType === 'number' || a.checkedDataType === 'date')
     ) {
       const base = {
         field: a.name,
         query: null,
       };
-      opCandidates.push({ ...base, operator: "<", display: `${a.name}<` });
-      opCandidates.push({ ...base, operator: ">", display: `${a.name}>` });
+      opCandidates.push({ ...base, operator: '<', display: `${a.name}<` });
+      opCandidates.push({ ...base, operator: '>', display: `${a.name}>` });
     }
 
     for (const op of opCandidates) {
@@ -329,7 +329,7 @@ function SearchInput({
           // Inserting the option doesn't work in our case, because
           // it's just the start of a query, you still need to add
           // the value
-          if (e.key === "Tab" && comboOptions.length) {
+          if (e.key === 'Tab' && comboOptions.length) {
             e.preventDefault();
 
             const active = activeOption.current || comboOptions[0];
@@ -349,7 +349,7 @@ function SearchInput({
           <ComboboxOption
             key={i}
             value={o.display}
-            className={clsx("px-3 py-1 data-[focus]:bg-blue-100", {})}
+            className={clsx('px-3 py-1 data-[focus]:bg-blue-100', {})}
           >
             {({ focus }) => {
               if (focus) {
@@ -443,16 +443,16 @@ export function Explorer({
   const isSystemCatalogNs =
     selectedNamespace != null &&
     selectedNamespace.name != null &&
-    selectedNamespace.name.startsWith("$");
+    selectedNamespace.name.startsWith('$');
 
-  const readOnlyNs = isSystemCatalogNs && selectedNamespace.name !== "$users";
+  const readOnlyNs = isSystemCatalogNs && selectedNamespace.name !== '$users';
 
   const [limit, setLimit] = useState(50);
   const [offsets, setOffsets] = useState<{ [namespace: string]: number }>({});
 
-  const offset = offsets[selectedNamespace?.name ?? ""] || 0;
+  const offset = offsets[selectedNamespace?.name ?? ''] || 0;
 
-  const sortAttr = currentNav?.sortAttr || "serverCreatedAt";
+  const sortAttr = currentNav?.sortAttr || 'serverCreatedAt';
   const sortAsc = currentNav?.sortAsc ?? true;
 
   const { itemsRes, allCount } = useNamespacesQuery(
@@ -466,7 +466,7 @@ export function Explorer({
     sortAsc,
   );
 
-  const allItems = itemsRes.data?.[selectedNamespace?.name ?? ""] ?? [];
+  const allItems = itemsRes.data?.[selectedNamespace?.name ?? ''] ?? [];
 
   const numPages = allCount ? Math.ceil(allCount / limit) : 1;
   const currentPage = offset / limit + 1;
@@ -495,7 +495,7 @@ export function Explorer({
     () => allItems.find((i) => i.id === editableRowId),
     [allItems.length, editableRowId],
   );
-  const rowText = Object.keys(checkedIds).length === 1 ? "row" : "rows";
+  const rowText = Object.keys(checkedIds).length === 1 ? 'row' : 'rows';
 
   return (
     <div className="relative flex w-full flex-1 overflow-hidden">
@@ -603,7 +603,7 @@ export function Explorer({
       <div
         ref={nsRef}
         className={clsx(
-          "absolute top-0 left-0 bottom-0 z-50 flex flex-col gap-1 border-r bg-white p-2 shadow-md md:static md:flex md:shadow-none",
+          'absolute top-0 left-0 bottom-0 z-50 flex flex-col gap-1 border-r bg-white p-2 shadow-md md:static md:flex md:shadow-none',
           {
             hidden: !isNsOpen,
           },
@@ -686,11 +686,11 @@ export function Explorer({
                   />
                 ) : null}
                 <div className="truncate overflow-hidden text-ellipses whitespace-nowrap font-mono text-xs flex-shrink">
-                  <strong>{selectedNamespace.name}</strong>{" "}
+                  <strong>{selectedNamespace.name}</strong>{' '}
                   {currentNav.where ? (
                     <>
-                      {" "}
-                      where <strong>{currentNav.where[0]}</strong> ={" "}
+                      {' '}
+                      where <strong>{currentNav.where[0]}</strong> ={' '}
                       <em className="rounded-sm border bg-white px-1">
                         {JSON.stringify(currentNav.where[1])}
                       </em>
@@ -700,14 +700,14 @@ export function Explorer({
                     <span
                       title={searchFilters
                         .map(([attr, op, search]) => `${attr} ${op} ${search}`)
-                        .join(" || ")}
+                        .join(' || ')}
                     >
                       {searchFilters.map(([attr, op, search], i) => (
                         <span key={attr}>
                           <em className="rounded-sm border bg-white px-1">
                             {attr} {op} {search}
                           </em>
-                          {i < searchFilters.length - 1 ? " || " : null}
+                          {i < searchFilters.length - 1 ? ' || ' : null}
                         </span>
                       ))}
                     </span>
@@ -754,9 +754,9 @@ export function Explorer({
                 onChange={(opt) => opt && setLimit(parseInt(opt.value, 10))}
                 value={`${limit}`}
                 options={[
-                  { label: "25/page", value: "25" },
-                  { label: "50/page", value: "50" },
-                  { label: "100/page", value: "100" },
+                  { label: '25/page', value: '25' },
+                  { label: '50/page', value: '50' },
+                  { label: '100/page', value: '100' },
                 ]}
               />
             </div>
@@ -764,7 +764,7 @@ export function Explorer({
               <div>...</div>
             ) : (
               <div>
-                {(currentPage - 1) * limit + 1} -{" "}
+                {(currentPage - 1) * limit + 1} -{' '}
                 {Math.min(allCount, currentPage * limit)} of {allCount}
               </div>
             )}
@@ -779,8 +779,8 @@ export function Explorer({
               }
             >
               <ArrowLeftIcon
-                className={clsx("inline", {
-                  "opacity-40": currentPage <= 1,
+                className={clsx('inline', {
+                  'opacity-40': currentPage <= 1,
                 })}
                 height="1rem"
               />
@@ -805,10 +805,10 @@ export function Explorer({
                   <button
                     key={page}
                     className={clsx(
-                      "px-3 py-1 text-gray-600 rounded-md",
+                      'px-3 py-1 text-gray-600 rounded-md',
                       page === currentPage
-                        ? "bg-gray-200"
-                        : "hover:bg-gray-100",
+                        ? 'bg-gray-200'
+                        : 'hover:bg-gray-100',
                     )}
                     onClick={() =>
                       setOffsets({
@@ -834,8 +834,8 @@ export function Explorer({
               }
             >
               <ArrowRightIcon
-                className={clsx("inline", {
-                  "opacity-40": currentPage >= numPages,
+                className={clsx('inline', {
+                  'opacity-40': currentPage >= numPages,
                 })}
                 height="1rem"
               />
@@ -844,7 +844,7 @@ export function Explorer({
           <div className="relative flex flex-1 overflow-x-auto overflow-y-scroll">
             <div
               className={clsx(
-                "absolute top-0 right-0 left-[48px] z-30 flex items-center gap-1.5 overflow-hidden bg-white px-4 py-1.5",
+                'absolute top-0 right-0 left-[48px] z-30 flex items-center gap-1.5 overflow-hidden bg-white px-4 py-1.5',
                 {
                   hidden: !Object.keys(checkedIds).length,
                 },
@@ -870,7 +870,7 @@ export function Explorer({
             <table className="z-0 w-full flex-1 text-left font-mono text-xs text-gray-500">
               <thead className="sticky top-0 z-20 bg-white text-gray-700 shadow">
                 <tr>
-                  <th className="px-2 py-2" style={{ width: "48px" }}>
+                  <th className="px-2 py-2" style={{ width: '48px' }}>
                     <Checkbox
                       checked={
                         allItems.length > 0 &&
@@ -893,16 +893,16 @@ export function Explorer({
                     <th
                       key={attr.name}
                       className={clsx(
-                        "z-10 select-none whitespace-nowrap px-4 py-1",
+                        'z-10 select-none whitespace-nowrap px-4 py-1',
                         {
-                          "bg-gray-200":
+                          'bg-gray-200':
                             // Only highlight if one of the columns was clicked,
                             // not if we're just doing our default sort
                             currentNav?.sortAttr &&
                             (sortAttr === attr.name ||
-                              (sortAttr === "serverCreatedAt" &&
-                                attr.name === "id")),
-                          "cursor-pointer": attr.sortable || attr.name === "id",
+                              (sortAttr === 'serverCreatedAt' &&
+                                attr.name === 'id')),
+                          'cursor-pointer': attr.sortable || attr.name === 'id',
                         },
                       )}
                       onClick={
@@ -914,12 +914,12 @@ export function Explorer({
                                   sortAttr !== attr.name ? true : !sortAsc,
                               });
                             }
-                          : attr.name === "id"
+                          : attr.name === 'id'
                             ? () => {
                                 replaceNavStackTop({
-                                  sortAttr: "serverCreatedAt",
+                                  sortAttr: 'serverCreatedAt',
                                   sortAsc:
-                                    sortAttr !== "serverCreatedAt"
+                                    sortAttr !== 'serverCreatedAt'
                                       ? true
                                       : !sortAsc,
                                 });
@@ -929,15 +929,15 @@ export function Explorer({
                     >
                       <div className="flex items-center gap-2">
                         {attr.name}
-                        {attr.sortable || attr.name === "id" ? (
+                        {attr.sortable || attr.name === 'id' ? (
                           <span>
                             {sortAttr === attr.name ||
-                            (sortAttr === "serverCreatedAt" &&
-                              attr.name === "id") ? (
+                            (sortAttr === 'serverCreatedAt' &&
+                              attr.name === 'id') ? (
                               sortAsc ? (
-                                "↓"
+                                '↓'
                               ) : (
-                                "↑"
+                                '↑'
                               )
                             ) : (
                               <span className="text-gray-400">↓</span>
@@ -957,7 +957,7 @@ export function Explorer({
                   >
                     <td
                       className="px-2 py-2 flex gap-2 items-center"
-                      style={{ width: "48px" }}
+                      style={{ width: '48px' }}
                     >
                       <Checkbox
                         checked={checkedIds[item.id as string] ?? false}
@@ -988,9 +988,9 @@ export function Explorer({
                         className="relative px-4 py-1"
                         style={{
                           maxWidth:
-                            attr.name === "id" || attr.type === "ref"
-                              ? "40px"
-                              : "80px",
+                            attr.name === 'id' || attr.type === 'ref'
+                              ? '40px'
+                              : '80px',
                         }}
                       >
                         <ExplorerItemVal
@@ -999,7 +999,7 @@ export function Explorer({
                           onClickLink={() => {
                             const linkConfigDir =
                               attr.linkConfig[
-                                !attr.isForward ? "forward" : "reverse"
+                                !attr.isForward ? 'forward' : 'reverse'
                               ];
                             if (linkConfigDir) {
                               pushNavStack({
@@ -1061,7 +1061,7 @@ function ExplorerItemVal({
   const { ref: overflowRef, isOverflow } = useIsOverflow();
   const shouldShowTooltip = isOverflow || isObject(val);
 
-  if (attr.type === "ref") {
+  if (attr.type === 'ref') {
     const linksLen = (item as any)[attr.name]?.length ?? 0;
 
     if (!linksLen) {
@@ -1075,7 +1075,7 @@ function ExplorerItemVal({
         className="inline-block cursor-pointer whitespace-nowrap rounded-md px-2 hover:bg-gray-200"
         onClick={onClickLink}
       >
-        {linksLen} link{linksLen === 1 ? "" : "s"}
+        {linksLen} link{linksLen === 1 ? '' : 's'}
       </div>
     );
   } else if (val === null || val === undefined) {
@@ -1107,7 +1107,7 @@ function ExplorerItemVal({
                     }, 2500);
                   }}
                 >
-                  <Val data={showCopy ? "Copied!" : val} />
+                  <Val data={showCopy ? 'Copied!' : val} />
                 </span>
               </CopyToClipboard>
             </div>
@@ -1164,19 +1164,19 @@ function NewNamespaceDialog({
   db: InstantReactWebDatabase<any>;
   onClose: (p?: { id: string; name: string }) => void;
 }) {
-  const [name, setName] = useState("");
+  const [name, setName] = useState('');
 
   async function onSubmit() {
     const idAttr: DBAttr = {
       id: id(),
-      "forward-identity": [id(), name, "id"],
-      "value-type": "blob",
-      cardinality: "one",
-      "unique?": true,
-      "index?": false,
+      'forward-identity': [id(), name, 'id'],
+      'value-type': 'blob',
+      cardinality: 'one',
+      'unique?': true,
+      'index?': false,
     };
 
-    const ops = [["add-attr", idAttr]];
+    const ops = [['add-attr', idAttr]];
     await db._core._reactor.pushOps(ops);
     onClose({ id: idAttr.id, name });
   }
@@ -1215,12 +1215,12 @@ export type PushNavStack = (nav: ExplorerNav) => void;
 // DEV
 
 function _dev(db: InstantReactWebDatabase<any>) {
-  if (typeof window !== "undefined") {
+  if (typeof window !== 'undefined') {
     const i = {
       db,
       id,
       tx,
-      dummy: (ns: string = "dummy", o?: any) =>
+      dummy: (ns: string = 'dummy', o?: any) =>
         db.transact([tx[ns][id()].update({ ts: Date.now(), ...o })]),
     };
     (window as any).i = i;

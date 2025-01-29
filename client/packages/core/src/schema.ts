@@ -8,7 +8,7 @@ import {
   type LinksDef,
   type RoomsDef,
   type UnknownRooms,
-} from "./schemaTypes";
+} from './schemaTypes';
 
 // ==========
 // API
@@ -68,27 +68,27 @@ function string<StringEnum extends string = string>(): DataAttrDef<
   StringEnum,
   true
 > {
-  return new DataAttrDef("string", true);
+  return new DataAttrDef('string', true);
 }
 
 function number(): DataAttrDef<number, true> {
-  return new DataAttrDef("number", true);
+  return new DataAttrDef('number', true);
 }
 
 function boolean(): DataAttrDef<boolean, true> {
-  return new DataAttrDef("boolean", true);
+  return new DataAttrDef('boolean', true);
 }
 
 function date(): DataAttrDef<string | number, true> {
-  return new DataAttrDef("date", true);
+  return new DataAttrDef('date', true);
 }
 
 function json<T = any>(): DataAttrDef<T, true> {
-  return new DataAttrDef("json", true);
+  return new DataAttrDef('json', true);
 }
 
 function any(): DataAttrDef<any, true> {
-  return new DataAttrDef("json", true);
+  return new DataAttrDef('json', true);
 }
 
 // ==========
@@ -130,7 +130,7 @@ function enrichEntitiesWithLinks<
 }
 
 type LinksIndex = Record<
-  "fwd" | "rev",
+  'fwd' | 'rev',
   Record<string, Record<string, { entityName: string; cardinality: string }>>
 >;
 

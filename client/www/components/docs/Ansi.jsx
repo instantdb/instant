@@ -1,5 +1,5 @@
-import React from "react";
-import AnsiToHtml from "ansi-to-html";
+import React from 'react';
+import AnsiToHtml from 'ansi-to-html';
 
 const converter = new AnsiToHtml();
 

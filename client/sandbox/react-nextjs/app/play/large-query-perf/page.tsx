@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { init, tx } from "@instantdb/react";
-import { useState, useEffect, useRef } from "react";
-import config from "../../../config";
+import { init, tx } from '@instantdb/react';
+import { useState, useEffect, useRef } from 'react';
+import config from '../../../config';
 
 const APP_ID = process.env.NEXT_PUBLIC_LARGE_QUERY_APP_ID!;
 const db = init({
@@ -141,7 +141,7 @@ export default function Home() {
       },
       $: {
         where: {
-          id: "0a9d191a-6ad3-4356-9277-3da13e40ffab",
+          id: '0a9d191a-6ad3-4356-9277-3da13e40ffab',
           trashed: false,
         },
       },
@@ -152,7 +152,7 @@ export default function Home() {
     category: {
       $: {
         where: {
-          "project.id": "0a9d191a-6ad3-4356-9277-3da13e40ffab",
+          'project.id': '0a9d191a-6ad3-4356-9277-3da13e40ffab',
           trashed: false,
         },
       },
@@ -198,7 +198,7 @@ export default function Home() {
     phase: {
       $: {
         where: {
-          "project.id": "0a9d191a-6ad3-4356-9277-3da13e40ffab",
+          'project.id': '0a9d191a-6ad3-4356-9277-3da13e40ffab',
           trashed: false,
         },
       },
@@ -245,7 +245,7 @@ export default function Home() {
       return;
     }
     const before = performance.now();
-    db.transact(tx["task"][id].update({ updated_at: new Date().getTime() }));
+    db.transact(tx['task'][id].update({ updated_at: new Date().getTime() }));
     const after = performance.now();
     setHowLong(after - before);
   };
@@ -254,7 +254,7 @@ export default function Home() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     let animationFrameId: number;

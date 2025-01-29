@@ -99,23 +99,23 @@ namespace to the `todos`, `roles`, and `profiles` namespaces respectively:
 
 ```typescript
 // instant.schema.ts
-import { i } from "@instantdb/react";
+import { i } from '@instantdb/react';
 
 const _schema = i.schema({
   // ..
   links: {
     // `$users` is in the reverse direction for all these links!
     todoOwner: {
-      forward: { on: "todos", has: "one", label: "owner" },
-      reverse: { on: "$users", has: "many", label: "todos" },
+      forward: { on: 'todos', has: 'one', label: 'owner' },
+      reverse: { on: '$users', has: 'many', label: 'todos' },
     },
     userRoles: {
-      forward: { on: "roles", has: "many", label: "users" },
-      reverse: { on: "$users", has: "one", label: "role" },
+      forward: { on: 'roles', has: 'many', label: 'users' },
+      reverse: { on: '$users', has: 'one', label: 'role' },
     },
     userProfiles: {
-      forward: { on: "profiles", has: "one", label: "user" },
-      reverse: { on: "$users", has: "one", label: "profile" },
+      forward: { on: 'profiles', has: 'one', label: 'user' },
+      reverse: { on: '$users', has: 'one', label: 'profile' },
     },
   },
 });
@@ -129,7 +129,7 @@ Now take a look at the `profiles` namespace:
 
 ```typescript
 // instant.schema.ts
-import { i } from "@instantdb/react";
+import { i } from '@instantdb/react';
 
 const _schema = i.schema({
   entities: {
@@ -166,7 +166,7 @@ const addTodo = (newTodo, currentUser) => {
 // Creates or updates a user profile with a nickname and links it to the
 // current user
 const updateNick = (newNick, currentUser) => {
-  const profileId = lookup("email", currentUser.email);
+  const profileId = lookup('email', currentUser.email);
   db.transact([
     tx.profiles[profileId]
       .update({ userId: currentUser.id, nickname: newNick })
@@ -241,14 +241,14 @@ export default {
   // users perms...
   todos: {
     bind: [
-      "isAdmin",
+      'isAdmin',
       "'admin' in auth.ref('$user.role.type')",
-      "isOwner",
+      'isOwner',
       "data.id in auth.ref('$user.todos.id')",
     ],
     allow: {
       // We traverse the users links directly from the auth object
-      update: "isAdmin || isOwner",
+      update: 'isAdmin || isOwner',
     },
   },
 };

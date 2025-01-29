@@ -1,5 +1,5 @@
-import { id, InstantReactWebDatabase, tx } from "@instantdb/react";
-import { useState } from "react";
+import { id, InstantReactWebDatabase, tx } from '@instantdb/react';
+import { useState } from 'react';
 
 import {
   ActionButton,
@@ -8,24 +8,24 @@ import {
   CodeEditor,
   Label,
   Select,
-} from "@/components/ui";
-import { SchemaAttr, SchemaNamespace } from "@/lib/types";
-import { errorToast, successToast } from "@/lib/toast";
-import { RefreshIcon } from "@heroicons/react/solid";
-import { validate } from "uuid";
+} from '@/components/ui';
+import { SchemaAttr, SchemaNamespace } from '@/lib/types';
+import { errorToast, successToast } from '@/lib/toast';
+import { RefreshIcon } from '@heroicons/react/solid';
+import { validate } from 'uuid';
 
-type FieldType = "string" | "number" | "boolean" | "json";
+type FieldType = 'string' | 'number' | 'boolean' | 'json';
 type FieldTypeOption = { value: FieldType; label: string };
 
 const fieldTypeOptions: FieldTypeOption[] = [
-  { value: "string", label: "string" },
-  { value: "number", label: "number" },
-  { value: "boolean", label: "boolean" },
-  { value: "json", label: "json" },
+  { value: 'string', label: 'string' },
+  { value: 'number', label: 'number' },
+  { value: 'boolean', label: 'boolean' },
+  { value: 'json', label: 'json' },
 ];
 
 // returns true if value is an object or array (but not null)
-const isJsonObject = (value: any) => !!value && typeof value === "object";
+const isJsonObject = (value: any) => !!value && typeof value === 'object';
 
 function isValidJson(value: any) {
   try {
@@ -47,7 +47,7 @@ function tryJsonParse(value: any) {
 function getAppropriateFieldType(attr: SchemaAttr, value: any): FieldType {
   if (value != null) {
     // if object or array, label as "json" for now
-    const t = isJsonObject(value) ? "json" : typeof value;
+    const t = isJsonObject(value) ? 'json' : typeof value;
     // defaults to 'string' type (fieldTypeOptions[0])
     const option = fieldTypeOptions.find((opt) => opt.value === t);
 
@@ -56,8 +56,8 @@ function getAppropriateFieldType(attr: SchemaAttr, value: any): FieldType {
     }
   }
   if (attr.checkedDataType) {
-    if (attr.checkedDataType === "date") {
-      return "string";
+    if (attr.checkedDataType === 'date') {
+      return 'string';
     }
     return attr.checkedDataType;
   }
@@ -72,16 +72,16 @@ function getAppropriateFieldType(attr: SchemaAttr, value: any): FieldType {
 // For now, since all values are stored as type "blob", we try
 // to parse the field value based on the provided field type
 function parseFieldValue(value: any, type: FieldType) {
-  if (type === "number") {
-    const cleaned = String(value).replace(/[^\d.-]/g, "");
-    if (cleaned === "-" || cleaned === "." || cleaned === "-.") return cleaned;
+  if (type === 'number') {
+    const cleaned = String(value).replace(/[^\d.-]/g, '');
+    if (cleaned === '-' || cleaned === '.' || cleaned === '-.') return cleaned;
     const match = cleaned.match(/^(-?\d*\.?\d*)\.?$/);
-    return match ? Number(match[0]) : "";
-  } else if (type === "boolean") {
-    return value === "true";
-  } else if (type === "string") {
+    return match ? Number(match[0]) : '';
+  } else if (type === 'boolean') {
+    return value === 'true';
+  } else if (type === 'string') {
     return isJsonObject(value) ? JSON.stringify(value) : String(value);
-  } else if (type === "json") {
+  } else if (type === 'json') {
     return tryJsonParse(value);
   }
 
@@ -89,7 +89,7 @@ function parseFieldValue(value: any, type: FieldType) {
 }
 
 function uuidValidate(uuid: string): string | null {
-  return validate(uuid) ? null : "Invalid UUID.";
+  return validate(uuid) ? null : 'Invalid UUID.';
 }
 
 export function EditRowDialog({
@@ -103,11 +103,11 @@ export function EditRowDialog({
   item: Record<string, any>;
   onClose: () => void;
 }) {
-  const op: "edit" | "add" = item.id ? "edit" : "add";
+  const op: 'edit' | 'add' = item.id ? 'edit' : 'add';
 
   const editableAttrs = namespace.attrs.filter(
     // ignore the primary "id" field and any "ref" attributes
-    (a) => a.name !== "id" && a.type === "blob",
+    (a) => a.name !== 'id' && a.type === 'blob',
   );
 
   const current = editableAttrs.reduce(
@@ -122,7 +122,7 @@ export function EditRowDialog({
 
   const [updates, setUpdatedValues] = useState<Record<string, any>>({
     ...current,
-    ...(op === "add" ? { id: { type: "string", value: id() } } : {}),
+    ...(op === 'add' ? { id: { type: 'string', value: id() } } : {}),
   });
 
   const [jsonUpdates, setJsonUpdates] = useState<Record<string, any>>({});
@@ -149,7 +149,7 @@ export function EditRowDialog({
   ) => {
     const error = validate ? validate(value) : null;
     setUpdatedValues((prev) => {
-      const type = prev[field]?.type || "string";
+      const type = prev[field]?.type || 'string';
 
       return {
         ...prev,
@@ -167,8 +167,8 @@ export function EditRowDialog({
       return {
         ...prev,
         [field]: isValidJson(value)
-          ? { type: "json", value: JSON.parse(value), error: null }
-          : { ...current, type: "json", error: "Invalid JSON" },
+          ? { type: 'json', value: JSON.parse(value), error: null }
+          : { ...current, type: 'json', error: 'Invalid JSON' },
       };
     });
   };
@@ -189,7 +189,7 @@ export function EditRowDialog({
     try {
       await db.transact(tx[namespace.name][itemId].update(params));
       onClose();
-      successToast("Successfully updated row!");
+      successToast('Successfully updated row!');
     } catch (e: any) {
       const message = e.message;
       if (message) {
@@ -203,10 +203,10 @@ export function EditRowDialog({
   return (
     <ActionForm className="p-4">
       <h5 className="flex text-lg font-bold">
-        {op == "edit" ? "Edit row" : "Add row"}
+        {op == 'edit' ? 'Edit row' : 'Add row'}
       </h5>
       <code className="text-sm font-medium font-mono text-gray-500">
-        {op == "edit" ? (
+        {op == 'edit' ? (
           <>
             {namespace.name}['{item.id}']
           </>
@@ -215,17 +215,17 @@ export function EditRowDialog({
         )}
       </code>
       <div className="flex flex-col gap-4 mt-4">
-        {op === "add" ? (
+        {op === 'add' ? (
           <div key="id" className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <Label className="font-mono">
                 <div className="flex gap-1">
-                  id{" "}
+                  id{' '}
                   <Button
                     type="link"
                     size="mini"
                     variant="subtle"
-                    onClick={() => handleUpdateFieldValue("id", id())}
+                    onClick={() => handleUpdateFieldValue('id', id())}
                   >
                     <RefreshIcon height={14} />
                   </Button>
@@ -235,12 +235,12 @@ export function EditRowDialog({
             <div className="flex gap-1 flex-col">
               <input
                 className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
-                value={updates.id?.value ?? ""}
+                value={updates.id?.value ?? ''}
                 onChange={(e) =>
-                  handleUpdateFieldValue("id", e.target.value, uuidValidate)
+                  handleUpdateFieldValue('id', e.target.value, uuidValidate)
                 }
               />
-            </div>{" "}
+            </div>{' '}
             {updates.id?.error && shouldDisplayErrors && (
               <span className="text-sm text-red-500 font-medium">
                 {updates.id.error}
@@ -251,8 +251,8 @@ export function EditRowDialog({
         {editableAttrs.map((attr, i) => {
           const tabIndex = i + 1;
           const { type, value, error } = updates[attr.name] || {
-            type: "string",
-            value: "",
+            type: 'string',
+            value: '',
           };
           const json = jsonUpdates[attr.name] || JSON.stringify(value, null, 2);
 
@@ -270,7 +270,7 @@ export function EditRowDialog({
                 />
               </div>
               <div className="flex gap-1 flex-col">
-                {type === "json" ? (
+                {type === 'json' ? (
                   <div className="h-32 border rounded w-full">
                     <CodeEditor
                       tabIndex={tabIndex}
@@ -279,25 +279,25 @@ export function EditRowDialog({
                       onChange={(code) => handleUpdateJson(attr.name, code)}
                     />
                   </div>
-                ) : type === "boolean" ? (
+                ) : type === 'boolean' ? (
                   <Select
                     tabIndex={tabIndex}
                     value={value}
                     options={[
-                      { value: "", label: "-" },
-                      { value: "false", label: "false" },
-                      { value: "true", label: "true" },
+                      { value: '', label: '-' },
+                      { value: 'false', label: 'false' },
+                      { value: 'true', label: 'true' },
                     ]}
                     onChange={(option) =>
                       handleUpdateFieldValue(attr.name, option!.value)
                     }
                   />
-                ) : type === "number" ? (
+                ) : type === 'number' ? (
                   <input
                     tabIndex={tabIndex}
                     type="number"
                     className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
-                    value={value ?? ""}
+                    value={value ?? ''}
                     onChange={(num) =>
                       handleUpdateFieldValue(attr.name, num.target.value)
                     }
@@ -306,7 +306,7 @@ export function EditRowDialog({
                   <input
                     tabIndex={tabIndex}
                     className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
-                    value={value ?? ""}
+                    value={value ?? ''}
                     onChange={(e) =>
                       handleUpdateFieldValue(attr.name, e.target.value)
                     }

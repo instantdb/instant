@@ -5,7 +5,7 @@ export type InstantApp = {
   created_at: string;
   admin_token: string;
   rules: object | null;
-  user_app_role: "owner" | "admin" | "collaborator";
+  user_app_role: 'owner' | 'admin' | 'collaborator';
   members: InstantMember[] | null;
   invites: InstantAppInvite | null;
   magic_code_email_template: {
@@ -20,22 +20,22 @@ export type InstantApp = {
 export type InstantMember = {
   id: string;
   email: string;
-  role: "admin" | "collaborator";
+  role: 'admin' | 'collaborator';
 };
 
 export type InstantMemberInvite = {
   id: string;
   app_id: string;
   app_title: string;
-  invitee_role: "admin" | "collaborator";
+  invitee_role: 'admin' | 'collaborator';
   inviter_email: string;
 };
 
 export type InstantAppInvite = {
   id: string;
   email: string;
-  status: "pending" | "accepted" | "revoked";
-  role: "admin" | "collaborator";
+  status: 'pending' | 'accepted' | 'revoked';
+  role: 'admin' | 'collaborator';
   sent_at: string;
   expired: boolean;
 }[];
@@ -43,36 +43,36 @@ export type InstantAppInvite = {
 export type InstantIndexingJobInvalidTriple = {
   entity_id: string;
   value: any;
-  json_type: "string" | "number" | "boolean" | "null" | "object" | "array";
+  json_type: 'string' | 'number' | 'boolean' | 'null' | 'object' | 'array';
 };
 export type InstantIndexingJob = {
   id: string;
   app_id: string;
   attr_id: string;
   job_type:
-    | "remove-data-type"
-    | "check-data-type"
-    | "index"
-    | "remove-index"
-    | "unique"
-    | "remove-unique"
+    | 'remove-data-type'
+    | 'check-data-type'
+    | 'index'
+    | 'remove-index'
+    | 'unique'
+    | 'remove-unique'
     | string;
   job_status:
-    | "completed"
-    | "waiting"
-    | "processing"
-    | "canceled"
-    | "errored"
+    | 'completed'
+    | 'waiting'
+    | 'processing'
+    | 'canceled'
+    | 'errored'
     | string;
   job_stage: string;
   work_estimate: number | null | undefined;
   work_completed: number | null | undefined;
   error:
-    | "invalid-triple-error"
-    | "invalid-attr-state-error"
-    | "triple-not-unique-error"
-    | "triple-too-large-error"
-    | "unexpected-error"
+    | 'invalid-triple-error'
+    | 'invalid-attr-state-error'
+    | 'triple-not-unique-error'
+    | 'triple-too-large-error'
+    | 'unexpected-error'
     | string
     | null
     | undefined;
@@ -99,10 +99,10 @@ export type DashResponse = {
 export type AppError = { body: { message: string } | undefined };
 
 export type AuthorizedOriginService =
-  | "generic"
-  | "vercel"
-  | "netlify"
-  | "custom-scheme";
+  | 'generic'
+  | 'vercel'
+  | 'netlify'
+  | 'custom-scheme';
 
 export type AuthorizedOrigin = {
   id: string;
@@ -132,33 +132,33 @@ export type AppsAuthResponse = {
   oauth_clients: OAuthClient[] | null | undefined;
 };
 
-export type SubscriptionName = "Free" | "Pro";
+export type SubscriptionName = 'Free' | 'Pro';
 
 export type AppsSubscriptionResponse = {
-  "subscription-name": SubscriptionName;
-  "total-app-bytes": number;
-  "total-storage-bytes": number;
+  'subscription-name': SubscriptionName;
+  'total-app-bytes': number;
+  'total-storage-bytes': number;
 };
 
 export type DBIdent =
   | [string, string, string]
   | [string, string, string, boolean];
 
-export type CheckedDataType = "string" | "number" | "boolean" | "date";
+export type CheckedDataType = 'string' | 'number' | 'boolean' | 'date';
 
 export interface DBAttr {
   id: string;
-  "forward-identity": DBIdent;
-  "reverse-identity"?: DBIdent;
-  "index?": boolean;
-  "unique?": boolean;
-  "primary?"?: boolean | undefined;
-  cardinality: "one" | "many";
-  "value-type": "ref" | "blob";
-  "inferred-types"?: Array<"string" | "number" | "boolean" | "json">;
-  catalog?: "user" | "system";
-  "checked-data-type"?: CheckedDataType;
-  "on-delete"?: "cascade";
+  'forward-identity': DBIdent;
+  'reverse-identity'?: DBIdent;
+  'index?': boolean;
+  'unique?': boolean;
+  'primary?'?: boolean | undefined;
+  cardinality: 'one' | 'many';
+  'value-type': 'ref' | 'blob';
+  'inferred-types'?: Array<'string' | 'number' | 'boolean' | 'json'>;
+  catalog?: 'user' | 'system';
+  'checked-data-type'?: CheckedDataType;
+  'on-delete'?: 'cascade';
 }
 
 export interface SchemaNamespace {
@@ -172,45 +172,45 @@ export interface SchemaAttr {
   isForward: boolean;
   namespace: string;
   name: string;
-  type: "ref" | "blob";
+  type: 'ref' | 'blob';
   isIndex: boolean;
   isUniq: boolean;
   isPrimary?: boolean | undefined;
-  cardinality: "one" | "many";
+  cardinality: 'one' | 'many';
   linkConfig: {
     forward: { id: string; namespace: string; attr: string };
     reverse: { id: string; namespace: string; attr: string } | undefined;
   };
-  inferredTypes?: Array<"string" | "number" | "boolean" | "json">;
-  catalog?: "user" | "system";
+  inferredTypes?: Array<'string' | 'number' | 'boolean' | 'json'>;
+  catalog?: 'user' | 'system';
   checkedDataType?: CheckedDataType;
   sortable: boolean;
-  onDelete?: "cascade";
+  onDelete?: 'cascade';
 }
 
 export type InstantError = {
   body:
-    | { type: "param-missing"; message: string; hint: { in: string[] } }
-    | { type: "param-malformed"; message: string; hint: { in: string[] } }
+    | { type: 'param-missing'; message: string; hint: { in: string[] } }
+    | { type: 'param-malformed'; message: string; hint: { in: string[] } }
     | {
-        type: "record-not-found";
+        type: 'record-not-found';
         message: string;
-        hint: { "record-type": string };
+        hint: { 'record-type': string };
       }
     | {
-        type: "record-not-unique";
+        type: 'record-not-unique';
         message: string;
-        hint: { "record-type": string };
+        hint: { 'record-type': string };
       }
     | {
-        type: "validation-failed";
+        type: 'validation-failed';
         message: string;
-        hint: { "data-type": "string"; errors: any[] };
+        hint: { 'data-type': 'string'; errors: any[] };
       }
     | {
-        type: "record-expired";
+        type: 'record-expired';
         message: string;
-        hint: { "record-type": string };
+        hint: { 'record-type': string };
       }
     | { type: undefined; [k: string]: any }
     | undefined;

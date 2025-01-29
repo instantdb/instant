@@ -41,12 +41,12 @@ import {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
-} from "@instantdb/core";
+} from '@instantdb/core';
 
-import InstantReactAbstractDatabase from "./InstantReactAbstractDatabase";
-import InstantReactWebDatabase from "./InstantReactWebDatabase";
-import { init, init_experimental } from "./init";
-import { Cursors } from "./Cursors";
+import InstantReactAbstractDatabase from './InstantReactAbstractDatabase';
+import InstantReactWebDatabase from './InstantReactWebDatabase';
+import { init, init_experimental } from './init';
+import { Cursors } from './Cursors';
 
 export {
   id,

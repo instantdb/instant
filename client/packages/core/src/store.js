@@ -1,16 +1,16 @@
-import { create } from "mutative";
-import { immutableDeepMerge } from "./utils/object";
+import { create } from 'mutative';
+import { immutableDeepMerge } from './utils/object';
 
 function hasEA(attr) {
-  return attr["cardinality"] === "one";
+  return attr['cardinality'] === 'one';
 }
 
 function isRef(attr) {
-  return attr["value-type"] === "ref";
+  return attr['value-type'] === 'ref';
 }
 
 function isBlob(attr) {
-  return attr["value-type"] === "blob";
+  return attr['value-type'] === 'blob';
 }
 
 function getAttr(attrs, attrId) {
@@ -22,7 +22,7 @@ function getInMap(obj, path) {
 }
 
 function deleteInMap(m, path) {
-  if (path.length === 0) throw new Error("path must have at least one element");
+  if (path.length === 0) throw new Error('path must have at least one element');
   if (path.length === 1) {
     m.delete(path[0]);
     return;
@@ -33,7 +33,7 @@ function deleteInMap(m, path) {
 }
 
 function setInMap(m, path, value) {
-  if (path.length === 0) throw new Error("path must have at least one element");
+  if (path.length === 0) throw new Error('path must have at least one element');
   if (path.length === 1) {
     m.set(path[0], value);
     return;
@@ -55,7 +55,7 @@ function createTripleIndexes(attrs, triples) {
     const [eid, aid, v, t] = triple;
     const attr = getAttr(attrs, aid);
     if (!attr) {
-      console.warn("no such attr", eid, attrs);
+      console.warn('no such attr', eid, attrs);
       continue;
     }
 
@@ -75,15 +75,15 @@ function createAttrIndexes(attrs) {
   const forwardIdents = new Map();
   const revIdents = new Map();
   for (const attr of Object.values(attrs)) {
-    const fwdIdent = attr["forward-identity"];
+    const fwdIdent = attr['forward-identity'];
     const [_, fwdEtype, fwdLabel] = fwdIdent;
-    const revIdent = attr["reverse-identity"];
+    const revIdent = attr['reverse-identity'];
 
     setInMap(forwardIdents, [fwdEtype, fwdLabel], attr);
     if (isBlob(attr)) {
       setInMap(blobAttrs, [fwdEtype, fwdLabel], attr);
     }
-    if (attr["primary?"]) {
+    if (attr['primary?']) {
       setInMap(primaryKeys, [fwdEtype], attr);
     }
     if (revIdent) {
@@ -129,7 +129,7 @@ export function createStore(
   store.attrIndexes = createAttrIndexes(attrs);
   store.cardinalityInference = enableCardinalityInference;
   store.linkIndex = linkIndex;
-  store.__type = "store";
+  store.__type = 'store';
 
   return store;
 }
@@ -289,7 +289,7 @@ function mergeTriple(store, rawTriple) {
   if (!attr) return;
 
   if (!isBlob(attr))
-    throw new Error("merge operation is not supported for links");
+    throw new Error('merge operation is not supported for links');
 
   const eavValuesMap = getInMap(store.eav, [eid, aid]);
   if (!eavValuesMap) return;
@@ -330,7 +330,7 @@ function deleteEntity(store, args) {
         // If we don't know about the attr, let's just get rid of it
         !attr ||
         // Make sure it matches the etype
-        attr["forward-identity"]?.[1] === etype
+        attr['forward-identity']?.[1] === etype
       ) {
         deleteInMap(store.aev, [a, id]);
         deleteInMap(store.eav, [id, a]);
@@ -349,13 +349,13 @@ function deleteEntity(store, args) {
     vaeTriples.forEach((triple) => {
       const [e, a, v] = triple;
       const attr = store.attrs[a];
-      if (!etype || !attr || attr["reverse-identity"]?.[1] === etype) {
+      if (!etype || !attr || attr['reverse-identity']?.[1] === etype) {
         deleteInMap(store.eav, [e, a, v]);
         deleteInMap(store.aev, [a, e, v]);
         deleteInMap(store.vae, [v, a, e]);
       }
-      if (attr && attr["on-delete"] === "cascade") {
-        deleteEntity(store, [e, attr["forward-identity"]?.[1]]);
+      if (attr && attr['on-delete'] === 'cascade') {
+        deleteEntity(store, [e, attr['forward-identity']?.[1]]);
       }
     });
   }
@@ -407,25 +407,25 @@ function updateAttr(store, [partialAttr]) {
 function applyTxStep(store, txStep) {
   const [action, ...args] = txStep;
   switch (action) {
-    case "add-triple":
+    case 'add-triple':
       addTriple(store, args);
       break;
-    case "deep-merge-triple":
+    case 'deep-merge-triple':
       mergeTriple(store, args);
       break;
-    case "retract-triple":
+    case 'retract-triple':
       retractTriple(store, args);
       break;
-    case "delete-entity":
+    case 'delete-entity':
       deleteEntity(store, args);
       break;
-    case "add-attr":
+    case 'add-attr':
       addAttr(store, args);
       break;
-    case "delete-attr":
+    case 'delete-attr':
       deleteAttr(store, args);
       break;
-    case "update-attr":
+    case 'update-attr':
       updateAttr(store, args);
       break;
     default:
@@ -455,7 +455,7 @@ export function allMapValues(m, level, res = []) {
 
 function triplesByValue(store, m, v) {
   const res = [];
-  if (v?.hasOwnProperty("$not")) {
+  if (v?.hasOwnProperty('$not')) {
     for (const candidate of m.keys()) {
       if (v.$not !== candidate) {
         res.push(m.get(candidate));
@@ -464,7 +464,7 @@ function triplesByValue(store, m, v) {
     return res;
   }
 
-  if (v?.hasOwnProperty("$isNull")) {
+  if (v?.hasOwnProperty('$isNull')) {
     const { attrId, isNull, reverse } = v.$isNull;
 
     if (reverse) {
@@ -509,15 +509,15 @@ function triplesByValue(store, m, v) {
 // A poor man's pattern matching
 // Returns either eav, ea, ev, av, v, or ''
 function whichIdx(e, a, v) {
-  let res = "";
+  let res = '';
   if (e !== undefined) {
-    res += "e";
+    res += 'e';
   }
   if (a !== undefined) {
-    res += "a";
+    res += 'a';
   }
   if (v !== undefined) {
-    res += "v";
+    res += 'v';
   }
   return res;
 }
@@ -525,22 +525,22 @@ function whichIdx(e, a, v) {
 export function getTriples(store, [e, a, v]) {
   const idx = whichIdx(e, a, v);
   switch (idx) {
-    case "e": {
+    case 'e': {
       const eMap = store.eav.get(e);
       return allMapValues(eMap, 2);
     }
-    case "ea": {
+    case 'ea': {
       const aMap = store.eav.get(e)?.get(a);
       return allMapValues(aMap, 1);
     }
-    case "eav": {
+    case 'eav': {
       const aMap = store.eav.get(e)?.get(a);
       if (!aMap) {
         return [];
       }
       return triplesByValue(store, aMap, v);
     }
-    case "ev": {
+    case 'ev': {
       const eMap = store.eav.get(e);
       if (!eMap) {
         return [];
@@ -551,11 +551,11 @@ export function getTriples(store, [e, a, v]) {
       }
       return res;
     }
-    case "a": {
+    case 'a': {
       const aMap = store.aev.get(a);
       return allMapValues(aMap, 2);
     }
-    case "av": {
+    case 'av': {
       const aMap = store.aev.get(a);
       if (!aMap) {
         return [];
@@ -566,7 +566,7 @@ export function getTriples(store, [e, a, v]) {
       }
       return res;
     }
-    case "v": {
+    case 'v': {
       const res = [];
       for (const eMap of store.eav.values()) {
         for (const aMap of eMap.values()) {
@@ -608,7 +608,7 @@ export function getPrimaryKeyAttr(store, etype) {
   if (fromPrimary) {
     return fromPrimary;
   }
-  return store.attrIndexes.forwardIdents.get(etype)?.get("id");
+  return store.attrIndexes.forwardIdents.get(etype)?.get('id');
 }
 
 export function transact(store, txSteps) {

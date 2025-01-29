@@ -9,8 +9,8 @@ import {
   InstantCoreDatabase,
   InstaQLLifecycleState,
   InstantSchemaDef,
-} from "@instantdb/core";
-import { useCallback, useRef, useSyncExternalStore } from "react";
+} from '@instantdb/core';
+import { useCallback, useRef, useSyncExternalStore } from 'react';
 
 const defaultState = {
   isLoading: true,

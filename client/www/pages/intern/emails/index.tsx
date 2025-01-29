@@ -1,4 +1,4 @@
-import { getAllSlugs } from "../../../lib/emails";
+import { getAllSlugs } from '../../../lib/emails';
 
 export async function getStaticProps() {
   return {

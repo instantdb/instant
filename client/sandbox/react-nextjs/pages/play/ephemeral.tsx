@@ -1,7 +1,7 @@
-import React, { useEffect } from "react";
-import Head from "next/head";
-import { Cursors, i, init } from "@instantdb/react";
-import config from "../../config";
+import React, { useEffect } from 'react';
+import Head from 'next/head';
+import { Cursors, i, init } from '@instantdb/react';
+import config from '../../config';
 
 const DemoFlags = {
   cursor: false,
@@ -9,14 +9,14 @@ const DemoFlags = {
   autoActive: false,
 };
 
-const roomId = "demo-8";
+const roomId = 'demo-8';
 
 const name = `user ${Date.now()}`;
 
 const schema = i.schema({
   entities: {},
   rooms: {
-    "demo-room": {
+    'demo-room': {
       presence: i.entity({
         test: i.number(),
         name: i.string(),
@@ -26,7 +26,7 @@ const schema = i.schema({
         testTopic: i.entity({ test: i.number() }),
       },
     },
-    "demo-room-2": {
+    'demo-room-2': {
       presence: i.entity({
         test: i.number(),
       }),
@@ -36,7 +36,7 @@ const schema = i.schema({
 
 const db = init({ ...config, schema });
 
-const room = db.room("demo-room", roomId);
+const room = db.room('demo-room', roomId);
 const {
   usePresence,
   useSyncPresence,
@@ -50,18 +50,18 @@ function Demo() {
     name,
   });
 
-  useTopicEffect("testTopic", (event, peer) => {
-    console.log("useTopicEffect", event, peer);
+  useTopicEffect('testTopic', (event, peer) => {
+    console.log('useTopicEffect', event, peer);
   });
 
-  const publishTopic = usePublishTopic("testTopic");
+  const publishTopic = usePublishTopic('testTopic');
 
   const presence = usePresence({
-    keys: DemoFlags.cursor ? ["test", "cursor"] : ["test"],
+    keys: DemoFlags.cursor ? ['test', 'cursor'] : ['test'],
   });
 
-  const inputIndicator = useTypingIndicator("input");
-  const textareaIndicator = useTypingIndicator("textarea");
+  const inputIndicator = useTypingIndicator('input');
+  const textareaIndicator = useTypingIndicator('textarea');
 
   useEffect(() => {
     presence.publishPresence({ test: Date.now() });
@@ -93,17 +93,17 @@ function Demo() {
   inputIndicator.active[0]?.__notInSchema;
 
   useEffect(() => {
-    const user = db._core.joinRoom("demo-room", roomId).getPresence({
-      keys: ["test"],
+    const user = db._core.joinRoom('demo-room', roomId).getPresence({
+      keys: ['test'],
     }).user;
 
     user?.test;
     // @ts-expect-error
     user?.__notInSchema;
 
-    const coreRoom = db._core.joinRoom("demo-room", roomId);
+    const coreRoom = db._core.joinRoom('demo-room', roomId);
 
-    coreRoom.subscribePresence({ keys: ["test"] }, (data) => {
+    coreRoom.subscribePresence({ keys: ['test'] }, (data) => {
       data.user?.test;
       // @ts-expect-error
       data.user?.__notInSchema;
@@ -151,8 +151,8 @@ function Demo() {
           value={{
             renderCount,
             presence,
-            "inputIndicator.active": inputIndicator.active,
-            "textareaIndicator.active": textareaIndicator.active,
+            'inputIndicator.active': inputIndicator.active,
+            'textareaIndicator.active': textareaIndicator.active,
           }}
         />
         <input className="p-0.5 text-sm" {...inputIndicator.inputProps} />
@@ -172,8 +172,8 @@ function Demo() {
 }
 
 function Nested() {
-  const presence = db.room("demo-room-2", "demo-room-2").usePresence({
-    keys: ["test"],
+  const presence = db.room('demo-room-2', 'demo-room-2').usePresence({
+    keys: ['test'],
   });
 
   presence.user?.test;

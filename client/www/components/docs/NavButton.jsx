@@ -19,9 +19,9 @@
  *   Content for Bar
  * {% /conditional %}
  */
-import Link from "next/link";
-import { useRouter } from "next/router";
-import { createContext, useContext } from "react";
+import Link from 'next/link';
+import { useRouter } from 'next/router';
+import { createContext, useContext } from 'react';
 
 const DefaultValueContext = createContext(undefined);
 
@@ -69,8 +69,8 @@ export function NavButton({ title, description, param, value, href }) {
     >
       <div
         className={
-          "absolute -inset-px rounded-xl border-2 border-transparent opacity-0 [background:linear-gradient(var(--quick-links-hover-bg,theme(colors.sky.50)),var(--quick-links-hover-bg,theme(colors.sky.50)))_padding-box,linear-gradient(to_top,theme(colors.indigo.400),theme(colors.cyan.400),theme(colors.sky.500))_border-box] group-hover:opacity-100 dark:[--quick-links-hover-bg:theme(colors.slate.800)]" +
-          (selected ? " opacity-100" : "")
+          'absolute -inset-px rounded-xl border-2 border-transparent opacity-0 [background:linear-gradient(var(--quick-links-hover-bg,theme(colors.sky.50)),var(--quick-links-hover-bg,theme(colors.sky.50)))_padding-box,linear-gradient(to_top,theme(colors.indigo.400),theme(colors.cyan.400),theme(colors.sky.500))_border-box] group-hover:opacity-100 dark:[--quick-links-hover-bg:theme(colors.slate.800)]' +
+          (selected ? ' opacity-100' : '')
         }
       />
       <div className="relative overflow-hidden rounded-xl p-6">

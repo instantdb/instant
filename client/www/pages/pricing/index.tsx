@@ -1,66 +1,66 @@
-import Head from "next/head";
+import Head from 'next/head';
 import {
   LandingContainer,
   LandingFooter,
   MainNav,
-} from "@/components/marketingUi";
-import { Button } from "@/components/ui";
+} from '@/components/marketingUi';
+import { Button } from '@/components/ui';
 
 // Helpers
 // ------------------
 const outlineStyle = (isFeatured: boolean) =>
-  isFeatured ? "outline-orange-600/80" : "outline-gray-600/10";
+  isFeatured ? 'outline-orange-600/80' : 'outline-gray-600/10';
 
 const opacityStyle = (isDisabled: boolean) =>
-  isDisabled ? "opacity-40" : "opacity-100";
+  isDisabled ? 'opacity-40' : 'opacity-100';
 
 const plans = [
   {
-    name: "Free",
-    description: "Generous limits to get your app off the ground",
-    price: "$0",
-    featuresDescription: "Includes:",
+    name: 'Free',
+    description: 'Generous limits to get your app off the ground',
+    price: '$0',
+    featuresDescription: 'Includes:',
     features: [
-      "Unlimited API requests",
-      "1GB database space",
-      "Community Support",
-      "1 team member per app",
+      'Unlimited API requests',
+      '1GB database space',
+      'Community Support',
+      '1 team member per app',
     ],
     footer:
-      "No credit card required, free projects are never paused, available for commercial use.",
-    cta: "Get started",
-    ctaLink: "/dash",
+      'No credit card required, free projects are never paused, available for commercial use.',
+    cta: 'Get started',
+    ctaLink: '/dash',
   },
   {
-    name: "Pro",
+    name: 'Pro',
     isFeatured: true,
-    description: "For production apps with the ability to scale",
-    price: "$30",
-    featuresDescription: "Everything in the Free plan, plus:",
+    description: 'For production apps with the ability to scale',
+    price: '$30',
+    featuresDescription: 'Everything in the Free plan, plus:',
     features: [
-      ["10GB database space", "then $0.125 per GB"],
-      "Priority Support",
-      "10 team members per app",
-      "Daily backups for last 7 days",
+      ['10GB database space', 'then $0.125 per GB'],
+      'Priority Support',
+      '10 team members per app',
+      'Daily backups for last 7 days',
     ],
-    cta: "Get started",
-    ctaLink: "/dash?t=billing",
+    cta: 'Get started',
+    ctaLink: '/dash?t=billing',
   },
   {
-    name: "Enterprise",
-    description: "For teams building large-scale applications",
-    price: "Custom",
-    featuresDescription: "Everything in the Pro plan, plus:",
+    name: 'Enterprise',
+    description: 'For teams building large-scale applications',
+    price: 'Custom',
+    featuresDescription: 'Everything in the Pro plan, plus:',
     features: [
-      "Premium Support",
-      "Uptime SLAs",
-      "Unlimited team members per app",
-      "Daily backups for last 30 days",
+      'Premium Support',
+      'Uptime SLAs',
+      'Unlimited team members per app',
+      'Daily backups for last 30 days',
     ],
     ctaDisabled: true,
-    cta: "Coming soon!",
+    cta: 'Coming soon!',
     ctaLink:
-      "mailto:founders@instantdb.com?subject=InstantDB%20Enterprise%20Plan%20Inquiry",
+      'mailto:founders@instantdb.com?subject=InstantDB%20Enterprise%20Plan%20Inquiry',
   },
 ];
 
@@ -84,7 +84,7 @@ function Feature({ feature }: { feature: string | string[] }) {
           clipRule="evenodd"
         />
       </svg>
-      {typeof feature === "object" ? (
+      {typeof feature === 'object' ? (
         <div className="flex flex-col gap-1">
           <span className="text-black">{feature[0]}</span>
           <span className="text-gray-500 text-sm">{feature[1]}</span>
@@ -131,7 +131,7 @@ function Plan({ plan }: { plan: any }) {
           <h3 className="text-black text-3xl sm:text-4xl tracking-tight font-medium leading-none">
             {price}
           </h3>
-          {price !== "Custom" && (
+          {price !== 'Custom' && (
             <span className="text-black leading-none">/month</span>
           )}
         </span>
@@ -149,7 +149,7 @@ function Plan({ plan }: { plan: any }) {
         disabled={ctaDisabled}
         className="py-2 font-medium"
         type="link"
-        variant={name === "Pro" ? "cta" : "secondary"}
+        variant={name === 'Pro' ? 'cta' : 'secondary'}
         href={ctaLink}
       >
         {cta}
@@ -207,7 +207,7 @@ export default function Page() {
       </Head>
       <div className="flex min-h-screen justify-between flex-col">
         <div>
-          {" "}
+          {' '}
           <MainNav />
           <ThreePlanGrid />
         </div>

@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
-import { Listbox } from "@headlessui/react";
-import clsx from "clsx";
+import { useEffect, useState } from 'react';
+import { Listbox } from '@headlessui/react';
+import clsx from 'clsx';
 
 const themes = [
   // { name: 'Light', value: 'light', icon: LightIcon },
-  { name: "Dark", value: "dark", icon: DarkIcon },
+  { name: 'Dark', value: 'dark', icon: DarkIcon },
   // { name: 'System', value: 'system', icon: SystemIcon },
 ];
 
@@ -49,12 +49,12 @@ export function ThemeSelector(props) {
 
   useEffect(() => {
     if (selectedTheme) {
-      document.documentElement.setAttribute("data-theme", selectedTheme.value);
+      document.documentElement.setAttribute('data-theme', selectedTheme.value);
     } else {
       setSelectedTheme(
         themes.find(
           (theme) =>
-            theme.value === document.documentElement.getAttribute("data-theme"),
+            theme.value === document.documentElement.getAttribute('data-theme'),
         ),
       );
     }
@@ -84,12 +84,12 @@ export function ThemeSelector(props) {
             value={theme}
             className={({ active, selected }) =>
               clsx(
-                "flex cursor-pointer select-none items-center rounded-[0.625rem] p-1",
+                'flex cursor-pointer select-none items-center rounded-[0.625rem] p-1',
                 {
-                  "text-sky-500": selected,
-                  "text-slate-900 dark:text-white": active && !selected,
-                  "text-slate-700 dark:text-slate-400": !active && !selected,
-                  "bg-slate-100 dark:bg-slate-900/40": active,
+                  'text-sky-500': selected,
+                  'text-slate-900 dark:text-white': active && !selected,
+                  'text-slate-700 dark:text-slate-400': !active && !selected,
+                  'bg-slate-100 dark:bg-slate-900/40': active,
                 },
               )
             }
@@ -99,10 +99,10 @@ export function ThemeSelector(props) {
                 <div className="rounded-md bg-white p-1 shadow ring-1 ring-slate-900/5 dark:bg-slate-700 dark:ring-inset dark:ring-white/5">
                   <theme.icon
                     className={clsx(
-                      "h-4 w-4",
+                      'h-4 w-4',
                       selected
-                        ? "fill-sky-400 dark:fill-sky-400"
-                        : "fill-slate-400",
+                        ? 'fill-sky-400 dark:fill-sky-400'
+                        : 'fill-slate-400',
                     )}
                   />
                 </div>

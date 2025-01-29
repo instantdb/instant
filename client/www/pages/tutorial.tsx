@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { getFiles, FilesRecord, File } from "@/data/tutorial-examples";
+import { useEffect, useRef, useState } from 'react';
+import { getFiles, FilesRecord, File } from '@/data/tutorial-examples';
 import {
   ActionButton,
   Button,
@@ -7,17 +7,17 @@ import {
   Fence,
   FenceLanguage,
   twel,
-} from "@/components/ui";
-import config, { getLocal, isBrowser, setLocal } from "@/lib/config";
-import tutorialMonacoTheme from "@/data/tutorialMonacoTheme.json";
-import clsx from "clsx";
-import { LandingFooter, MainNav, Section } from "@/components/marketingUi";
-import Head from "next/head";
-import { ToastContainer } from "react-toastify";
-import confetti from "canvas-confetti";
-import { DiffEditor, Monaco } from "@monaco-editor/react";
-import MuxPlayer from "@mux/mux-player-react";
-import * as muxVideos from "@/lib/muxVideos";
+} from '@/components/ui';
+import config, { getLocal, isBrowser, setLocal } from '@/lib/config';
+import tutorialMonacoTheme from '@/data/tutorialMonacoTheme.json';
+import clsx from 'clsx';
+import { LandingFooter, MainNav, Section } from '@/components/marketingUi';
+import Head from 'next/head';
+import { ToastContainer } from 'react-toastify';
+import confetti from 'canvas-confetti';
+import { DiffEditor, Monaco } from '@monaco-editor/react';
+import MuxPlayer from '@mux/mux-player-react';
+import * as muxVideos from '@/lib/muxVideos';
 
 type InteractionState = {
   t: string | null;
@@ -60,8 +60,8 @@ export default function Page({ files }: { files: FilesRecord }) {
 }
 
 const Prose = twel(
-  "div",
-  "prose prose-h1:mt-8 prose-h1:mb-4 prose-h2:mt-4 prose-h2:mb-2 prose-pre:bg-gray-100",
+  'div',
+  'prose prose-h1:mt-8 prose-h1:mb-4 prose-h2:mt-4 prose-h2:mb-2 prose-pre:bg-gray-100',
 );
 
 function Tutorial({ files }: { files: FilesRecord }) {
@@ -78,18 +78,18 @@ function Tutorial({ files }: { files: FilesRecord }) {
 
   function mergeInteractionState(newState: Partial<InteractionState>) {
     const nextState = { ...interactionState, ...newState };
-    setLocal("__tutorial-interaction-state", nextState);
+    setLocal('__tutorial-interaction-state', nextState);
     _setInteractionState(nextState);
   }
 
   useEffect(() => {
-    const state = getLocal("__tutorial-interaction-state");
+    const state = getLocal('__tutorial-interaction-state');
     if (state) mergeInteractionState(state);
   }, []);
 
   const diffEditorOptions = {
-    language: "typescript",
-    className: "h-[600px] border text-xl",
+    language: 'typescript',
+    className: 'h-[600px] border text-xl',
     options: {
       minimap: { enabled: false },
       readOnly: true,
@@ -104,9 +104,9 @@ function Tutorial({ files }: { files: FilesRecord }) {
         jsx: monaco.languages.typescript.JsxEmit.React,
       });
 
-      monaco.editor.defineTheme("tut", tutorialMonacoTheme as any);
+      monaco.editor.defineTheme('tut', tutorialMonacoTheme as any);
 
-      monaco.editor.setTheme("tut");
+      monaco.editor.setTheme('tut');
     },
   };
 
@@ -137,7 +137,7 @@ function Tutorial({ files }: { files: FilesRecord }) {
                   const app = (await provisionEphemeralApp()).json.app;
 
                   const appId = app.id;
-                  const t = app["admin-token"];
+                  const t = app['admin-token'];
                   mergeInteractionState({ appId, t });
                   confetti({
                     angle: randomInRange(55, 125),
@@ -171,12 +171,12 @@ function Tutorial({ files }: { files: FilesRecord }) {
                 storing your data. Now we'll show you how to wire up your db to
                 an app and start adding data.
                 <span className="md:hidden">
-                  {" "}
+                  {' '}
                   Check out the walkthrough below, and the full code example
                   right after.
                 </span>
                 <span className="hidden md:inline">
-                  {" "}
+                  {' '}
                   Check out the walkthrough below on your left with the full
                   code and preview on the right.
                 </span>
@@ -192,7 +192,7 @@ function Tutorial({ files }: { files: FilesRecord }) {
               <Example
                 reloadIdx={interactionState.ex1ReloadIdx}
                 appId={interactionState.appId}
-                file={files["1-todos-add"]}
+                file={files['1-todos-add']}
                 numTabs={interactionState.ex1NumTabs}
               />
             }
@@ -247,12 +247,12 @@ function addMessage(text) {
 `}
                 />
                 <p>
-                  Writing to the database is done via the{" "}
+                  Writing to the database is done via the{' '}
                   <Token>transact</Token> function. In this example you can
-                  think of <Token>db.tx.messages</Token> as referring to the{" "}
+                  think of <Token>db.tx.messages</Token> as referring to the{' '}
                   <Token>messages</Token> table. The <Token>id</Token> function
                   generates a unique identifier for this new message, and the
-                  <Token>update</Token> function does an <Token>insert</Token>{" "}
+                  <Token>update</Token> function does an <Token>insert</Token>{' '}
                   with the specified data. The equivalent of this in SQL would
                   be
                 </p>
@@ -267,7 +267,7 @@ function addMessage(text) {
                 />
 
                 <p>
-                  Reading from the database is done via the{" "}
+                  Reading from the database is done via the{' '}
                   <code>useQuery</code> function. In this example we’re
                   subscribing to the <code>messages</code> table. The equivalent
                   of this in SQL could be
@@ -302,7 +302,7 @@ function addMessage(text) {
                 </p>
                 <div
                   className={clsx(
-                    interactionState.ex1ReloadIdx > 1 ? "block" : "hidden",
+                    interactionState.ex1ReloadIdx > 1 ? 'block' : 'hidden',
                   )}
                 >
                   <p>
@@ -335,7 +335,7 @@ function addMessage(text) {
                 </div>
                 <div
                   className={
-                    interactionState.ex1NumTabs > 1 ? "block" : "hidden"
+                    interactionState.ex1NumTabs > 1 ? 'block' : 'hidden'
                   }
                 >
                   <p>
@@ -358,7 +358,7 @@ function addMessage(text) {
                     If you compare using Instant to React, for less than 10
                     lines of code you got yourself a state management system
                     that persists your data, reacts to changes, and broadcasts
-                    updates across devices.{" "}
+                    updates across devices.{' '}
                     <strong>We call this a sync engine.</strong>
                   </p>
                 </Prose>
@@ -366,8 +366,8 @@ function addMessage(text) {
               <FullBleedContent>
                 <DiffEditor
                   {...diffEditorOptions}
-                  original={files["todos-add-react"].code}
-                  modified={files["1-todos-add"].code}
+                  original={files['todos-add-react'].code}
+                  modified={files['1-todos-add'].code}
                   modifiedModelPath="inmemory://model/todos-add.modifies.tsx"
                   originalModelPath="inmemory://model/todos-add.original.tsx"
                 />
@@ -378,7 +378,7 @@ function addMessage(text) {
                     With <Token>useQuery</Token> and <Token>transact</Token> you
                     can obviate the need for state management libraries like
                     Redux. In fact, because all updates happen instantly, you
-                    don’t even need <Token>useState</Token> or{" "}
+                    don’t even need <Token>useState</Token> or{' '}
                     <Token>setState</Token>, you can use Instant to manage your
                     persisted state and UI state.
                   </p>
@@ -388,7 +388,7 @@ function addMessage(text) {
                 sticky={
                   <Example
                     appId={interactionState.appId}
-                    file={files["2-todos-edit"]}
+                    file={files['2-todos-edit']}
                     numTabs={2}
                   />
                 }
@@ -444,8 +444,8 @@ function updateMessage(messageId, newText) {
               <FullBleedContent>
                 <DiffEditor
                   {...diffEditorOptions}
-                  original={files["todos-update-delete-react"].code}
-                  modified={files["todos-update-delete-instant"].code}
+                  original={files['todos-update-delete-react'].code}
+                  modified={files['todos-update-delete-instant'].code}
                   modifiedModelPath="inmemory://model/todos-update-delete.modifies.tsx"
                   originalModelPath="inmemory://model/todos-update-delete.original.tsx"
                 />
@@ -454,7 +454,7 @@ function updateMessage(messageId, newText) {
                 sticky={
                   <Example
                     appId={interactionState.appId}
-                    file={files["3-todos-attributes"]}
+                    file={files['3-todos-attributes']}
                     numTabs={2}
                   />
                 }
@@ -507,10 +507,10 @@ function updateMessage(messageId, newText) {
                   <h1 className="text-center">Offline Mode</h1>
                   <p>
                     Another benefit of using Instant’s sync engine is the
-                    offline mode capabilities you get for free.{" "}
+                    offline mode capabilities you get for free.{' '}
                     <strong>
                       Apps built with Instant continue to work offline.
-                    </strong>{" "}
+                    </strong>{' '}
                     You can turn off the internet, make some changes, turn the
                     internet back on, and see all your changes get synced. Try
                     making changes in different tabs with different network
@@ -538,45 +538,45 @@ function updateMessage(messageId, newText) {
                     <li>
                       <A href="https://www.instantdb.com/docs/instaml#link-data">
                         Create
-                      </A>{" "}
-                      and{" "}
+                      </A>{' '}
+                      and{' '}
                       <A href="https://www.instantdb.com/docs/instaql#fetch-associations">
                         query
-                      </A>{" "}
+                      </A>{' '}
                       associations in real-time.
                     </li>
                     <li>
-                      Manage your schema and explore your data{" "}
+                      Manage your schema and explore your data{' '}
                       <A href="https://www.instantdb.com/docs/modeling-data#overview">
                         with a GUI
-                      </A>{" "}
-                      or{" "}
+                      </A>{' '}
+                      or{' '}
                       <a href="https://www.instantdb.com/docs/cli">with code</a>
                       .
                     </li>
                     <li>
-                      Manage users via{" "}
+                      Manage users via{' '}
                       <A href="https://www.instantdb.com/docs/auth">
                         auth and OAuth
-                      </A>{" "}
-                      and add authorization rules via{" "}
+                      </A>{' '}
+                      and add authorization rules via{' '}
                       <A href="https://www.instantdb.com/docs/permissions">
                         permissions
                       </A>
                     </li>
                     <li>
-                      Share ephemeral updates like showing{" "}
+                      Share ephemeral updates like showing{' '}
                       <A href="https://www.instantdb.com/docs/presence-and-topics#presence">
                         who’s currently online
-                      </A>{" "}
-                      or{" "}
+                      </A>{' '}
+                      or{' '}
                       <A href="https://www.instantdb.com/examples#5-reactions">
                         live reactions
                       </A>
                     </li>
                   </ul>
                   <p>
-                    When you put this all together, you can{" "}
+                    When you put this all together, you can{' '}
                     <strong>
                       productively build modern applications like Figma, Notion,
                       and Linear
@@ -596,7 +596,7 @@ function updateMessage(messageId, newText) {
                 <Prose>
                   <p>
                     Curious to hack more? Whether you're building a side project
-                    or your next big thing, you can start building with Instant{" "}
+                    or your next big thing, you can start building with Instant{' '}
                     <strong>for free</strong>.
                   </p>
 
@@ -657,7 +657,7 @@ function Example({
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex flex-col md:flex-row flex-1 md:h-full">
           {Array.from({ length: numTabs ?? 1 }).map((_, idx) => (
-            <div key={idx} className={"flex-1 h-full border-r last:border-r-0"}>
+            <div key={idx} className={'flex-1 h-full border-r last:border-r-0'}>
               <PreviewFrame
                 key={idx}
                 appId={appId}
@@ -782,25 +782,25 @@ function useScreenWidth() {
 
   useEffect(() => {
     const handleResize = () => setWidth(window.innerWidth);
-    window.addEventListener("resize", handleResize);
+    window.addEventListener('resize', handleResize);
     handleResize();
-    return () => window.removeEventListener("resize", handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   return width;
 }
 
-const Token = twel("code", "bg-gray-200 px-1 rounded font-mono text-sm");
-const A = twel<{ href: string }>("a", "underline");
+const Token = twel('code', 'bg-gray-200 px-1 rounded font-mono text-sm');
+const A = twel<{ href: string }>('a', 'underline');
 
 async function provisionEphemeralApp() {
   const r = await fetch(`${config.apiURI}/dash/apps/ephemeral`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      title: "Instant Tutorial Todo App",
+      title: 'Instant Tutorial Todo App',
     }),
   });
 
@@ -819,7 +819,7 @@ function randomInRange(min: number, max: number) {
 if (isBrowser) {
   Object.assign(window, {
     __resetTutorial() {
-      setLocal("__tutorial-interaction-state", {});
+      setLocal('__tutorial-interaction-state', {});
     },
   });
 }

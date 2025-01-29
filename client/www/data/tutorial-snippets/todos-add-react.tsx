@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useState } from "react";
+import { useState } from 'react';
 
 function addMessage(setMessages: any, text: string) {
   setMessages((messages: any) => [
@@ -31,7 +31,7 @@ function App() {
         onSubmit={(e: any) => {
           e.preventDefault();
           addMessage(setMessages, e.target[0].value);
-          e.target[0].value = "";
+          e.target[0].value = '';
         }}
       >
         <input placeholder="What needs to be done?" type="text" />

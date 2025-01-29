@@ -1,6 +1,6 @@
-import useSWRSubscription from "swr/subscription";
-import config from "./config";
-import { CheckedDataType, InstantIndexingJob } from "./types";
+import useSWRSubscription from 'swr/subscription';
+import config from './config';
+import { CheckedDataType, InstantIndexingJob } from './types';
 
 export async function createJob(
   {
@@ -11,22 +11,22 @@ export async function createJob(
   }: {
     appId: string;
     attrId: string;
-    jobType: InstantIndexingJob["job_type"];
+    jobType: InstantIndexingJob['job_type'];
     checkedDataType?: CheckedDataType | null | undefined;
   },
   token: string,
 ): Promise<InstantIndexingJob> {
   const res = await fetch(`${config.apiURI}/dash/apps/${appId}/indexing-jobs`, {
-    method: "POST",
+    method: 'POST',
     headers: {
       authorization: `Bearer ${token}`,
-      "content-type": "application/json",
+      'content-type': 'application/json',
     },
     body: JSON.stringify({
-      "app-id": appId,
-      "attr-id": attrId,
-      "job-type": jobType,
-      "checked-data-type": checkedDataType,
+      'app-id': appId,
+      'attr-id': attrId,
+      'job-type': jobType,
+      'checked-data-type': checkedDataType,
     }),
   });
 
@@ -64,7 +64,7 @@ export function jobFetchLoop(appId: string, jobId: string, token: string) {
         const json = JSON.parse(body);
         const job = json.job;
         cb(job);
-        if (job.job_status !== "processing" && job.job_status !== "waiting") {
+        if (job.job_status !== 'processing' && job.job_status !== 'waiting') {
           return job;
         }
         await new Promise((resolve) => setTimeout(resolve, nextWaitMs(body)));
@@ -97,7 +97,7 @@ export function useJobSubscription({
   token: string;
 }) {
   const { data, error } = useSWRSubscription(
-    ["jobs", appId, jobId],
+    ['jobs', appId, jobId],
     ([_, appId, jobId], { next }) => {
       const fetchLoop = jobFetchLoop(appId, jobId, token);
       fetchLoop.start((data, error) => next(error, data));

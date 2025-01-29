@@ -1,8 +1,8 @@
-import "react-native-get-random-values";
+import 'react-native-get-random-values';
 
-import Storage from "./Storage";
-import NetworkListener from "./NetworkListener";
-import version from "./version";
+import Storage from './Storage';
+import NetworkListener from './NetworkListener';
+import version from './version';
 
 import {
   // react
@@ -17,7 +17,7 @@ import {
   type InstantObject,
   type AuthState,
   type User,
-} from "@instantdb/react";
+} from '@instantdb/react';
 import {
   i,
   id,
@@ -53,7 +53,7 @@ import {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
-} from "@instantdb/core";
+} from '@instantdb/core';
 
 /**
  *
@@ -79,7 +79,7 @@ function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
 >(config: InstantConfig<Schema>) {
   return new InstantReactNativeDatabase<Schema>(config, {
-    "@instantdb/react-native": version,
+    '@instantdb/react-native': version,
   });
 }
 

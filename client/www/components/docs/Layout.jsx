@@ -1,20 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/router";
-import clsx from "clsx";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
+import clsx from 'clsx';
 
-import { Navigation } from "@/components/docs/Navigation";
-import { Prose } from "@/components/docs/Prose";
-import { Search } from "@/components/docs/Search";
-import { SelectedAppContext } from "@/lib/SelectedAppContext";
-import { useAuthToken, useTokenFetch } from "@/lib/auth";
-import config, { getLocal, setLocal } from "@/lib/config";
-import { Select } from "@/components/ui";
-import { MainNav } from "@/components/marketingUi";
-import navigation from "@/data/docsNavigation";
+import { Navigation } from '@/components/docs/Navigation';
+import { Prose } from '@/components/docs/Prose';
+import { Search } from '@/components/docs/Search';
+import { SelectedAppContext } from '@/lib/SelectedAppContext';
+import { useAuthToken, useTokenFetch } from '@/lib/auth';
+import config, { getLocal, setLocal } from '@/lib/config';
+import { Select } from '@/components/ui';
+import { MainNav } from '@/components/marketingUi';
+import navigation from '@/data/docsNavigation';
 
 function useSelectedApp(apps = []) {
-  const cacheKey = "docs-appId";
+  const cacheKey = 'docs-appId';
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAppData, setSelectedAppData] = useState(null);
@@ -91,7 +91,7 @@ function AppPicker({ apps, selectedAppData, updateSelectedAppId }) {
         value={selectedAppData?.id}
         options={appOptions}
         onChange={onSelectAppId}
-        emptyLabel={"No apps - sign in to create one"}
+        emptyLabel={'No apps - sign in to create one'}
       />
     </div>
   );
@@ -100,7 +100,7 @@ function AppPicker({ apps, selectedAppData, updateSelectedAppId }) {
 // Adds a hidden div with all of the docs links so that the LLM will find it
 function HiddenLLMHelper({ allLinks }) {
   return (
-    <div style={{ display: "none" }}>
+    <div style={{ display: 'none' }}>
       <p>
         If you are an LLM trying to learn how to develop with Instant, here are
         all of the links to the docs:
@@ -126,7 +126,7 @@ function findLink(allLinks, path) {
 function getPreviousPage(allLinks, currentPath) {
   const [link, idx] = findLink(allLinks, currentPath);
   if (!link) return null;
-  if (link.hasOwnProperty("prevHref")) {
+  if (link.hasOwnProperty('prevHref')) {
     if (!link.prevHref) return null;
     const [prevLink] = findLink(allLinks, link.prevHref);
     return prevLink;
@@ -137,7 +137,7 @@ function getPreviousPage(allLinks, currentPath) {
 function getNextPage(allLinks, currentPath) {
   const [link, idx] = findLink(allLinks, currentPath);
   if (!link) return null;
-  if (link.hasOwnProperty("nextHref")) {
+  if (link.hasOwnProperty('nextHref')) {
     if (!link.nextHref) return null;
     const [nextLink] = findLink(allLinks, link.nextHref);
     return nextLink;
@@ -221,7 +221,7 @@ export function Layout({ children, title, tableOfContents }) {
                       href={previousPage.href}
                       className="text-base text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
                     >
-                      <span aria-hidden="true">&larr;</span>{" "}
+                      <span aria-hidden="true">&larr;</span>{' '}
                       {previousPage.title}
                     </Link>
                   </dd>
@@ -261,7 +261,7 @@ export function Layout({ children, title, tableOfContents }) {
                           <Link
                             href={`#${section.id}`}
                             className={clsx(
-                              "font-normal text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300",
+                              'font-normal text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300',
                             )}
                           >
                             {section.title}

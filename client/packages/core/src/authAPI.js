@@ -1,29 +1,29 @@
-import { jsonFetch } from "./utils/fetch";
+import { jsonFetch } from './utils/fetch';
 
 export function sendMagicCode({ apiURI, appId, email }) {
   return jsonFetch(`${apiURI}/runtime/auth/send_magic_code`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ "app-id": appId, email }),
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ 'app-id': appId, email }),
   });
 }
 
 export async function verifyMagicCode({ apiURI, appId, email, code }) {
   const res = await jsonFetch(`${apiURI}/runtime/auth/verify_magic_code`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ "app-id": appId, email, code }),
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ 'app-id': appId, email, code }),
   });
   return res;
 }
 
 export async function verifyRefreshToken({ apiURI, appId, refreshToken }) {
   const res = await jsonFetch(`${apiURI}/runtime/auth/verify_refresh_token`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      "app-id": appId,
-      "refresh-token": refreshToken,
+      'app-id': appId,
+      'refresh-token': refreshToken,
     }),
   });
   return res;
@@ -43,8 +43,8 @@ export async function exchangeCodeForToken({
   codeVerifier,
 }) {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/token`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       app_id: appId,
       code: code,
@@ -72,8 +72,8 @@ export async function signInWithIdToken({
   refreshToken,
 }) {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/id_token`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       app_id: appId,
       nonce,
@@ -93,9 +93,9 @@ export async function signInWithIdToken({
  */
 export async function signOut({ apiURI, appId, refreshToken }) {
   const res = await jsonFetch(`${apiURI}/runtime/signout`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "content-type": "application/json",
+      'content-type': 'application/json',
     },
     body: JSON.stringify({
       app_id: appId,

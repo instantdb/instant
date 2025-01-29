@@ -81,21 +81,21 @@ Include the button and use `db.auth.signInWithIdToken` to complete sign in.
 Here's a full example
 
 ```javascript {% showCopy=true %}
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { init } from "@instantdb/react";
-import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
+import React, { useState } from 'react';
+import { init } from '@instantdb/react';
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 
-const APP_ID = "__APP_ID__";
+const APP_ID = '__APP_ID__';
 
 const db = init({ appId: APP_ID });
 
 // e.g. 89602129-cuf0j.apps.googleusercontent.com
-const GOOGLE_CLIENT_ID = "REPLACE_ME";
+const GOOGLE_CLIENT_ID = 'REPLACE_ME';
 
 // Use the google client name in the Instant dashboard auth tab
-const GOOGLE_CLIENT_NAME = "REPLACE_ME";
+const GOOGLE_CLIENT_NAME = 'REPLACE_ME';
 
 function App() {
   const { isLoading, user, error } = db.useAuth();
@@ -119,7 +119,7 @@ function Login() {
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <GoogleLogin
         nonce={nonce}
-        onError={() => alert("Login failed")}
+        onError={() => alert('Login failed')}
         onSuccess={({ credential }) => {
           db.auth
             .signInWithIdToken({
@@ -130,7 +130,7 @@ function Login() {
               nonce,
             })
             .catch((err) => {
-              alert("Uh oh: " + err.body?.message);
+              alert('Uh oh: ' + err.body?.message);
             });
         }}
       />
@@ -145,10 +145,10 @@ If you're not using React or prefer to embed the button yourself, refer to [Goog
 async function handleSignInWithGoogle(response) {
   await db.auth.signInWithIdToken({
     // Use the google client name in the Instant dashboard auth tab
-    clientName: "REPLACE_ME",
+    clientName: 'REPLACE_ME',
     idToken: response.credential,
     // make sure this is the same nonce you set in data-nonce
-    nonce: "REPLACE_ME",
+    nonce: 'REPLACE_ME',
   });
 }
 ```
@@ -164,18 +164,18 @@ If you don't want to use the google styled buttons, you can use the redirect flo
 Simply create an authorization URL via `db.auth.createAuthorizationURL` and then use the url to create a link. Here's a full example:
 
 ```javascript {% showCopy=true %}
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { init } from "@instantdb/react";
+import React, { useState } from 'react';
+import { init } from '@instantdb/react';
 
-const APP_ID = "__APP_ID__";
+const APP_ID = '__APP_ID__';
 
 const db = init({ appId: APP_ID });
 
 const url = db.auth.createAuthorizationURL({
   // Use the google client name in the Instant dashboard auth tab
-  clientName: "REPLACE_ME",
+  clientName: 'REPLACE_ME',
   redirectURL: window.location.href,
 });
 
@@ -230,15 +230,15 @@ From the Auth tab on the Instant dashboard, add a redirect origin of type "App s
 Now you're ready to add a login button to your expo app. Here's a full example
 
 ```javascript {% showCopy=true %}
-import { View, Text, Button, StyleSheet } from "react-native";
-import { init } from "@instantdb/react-native";
+import { View, Text, Button, StyleSheet } from 'react-native';
+import { init } from '@instantdb/react-native';
 import {
   makeRedirectUri,
   useAuthRequest,
   useAutoDiscovery,
-} from "expo-auth-session";
+} from 'expo-auth-session';
 
-const APP_ID = "__APP_ID__";
+const APP_ID = '__APP_ID__';
 const db = init({ appId: APP_ID });
 
 function App() {
@@ -264,7 +264,7 @@ function Login() {
     {
       // The unique name you gave the OAuth client when you
       // registered it on the Instant dashboard
-      clientId: "YOUR_INSTANT_AUTH_CLIENT_NAME",
+      clientId: 'YOUR_INSTANT_AUTH_CLIENT_NAME',
       redirectUri: makeRedirectUri(),
     },
     discovery,
@@ -277,16 +277,16 @@ function Login() {
       onPress={async () => {
         try {
           const res = await promptAsync();
-          if (res.type === "error") {
-            alert(res.error || "Something went wrong");
+          if (res.type === 'error') {
+            alert(res.error || 'Something went wrong');
           }
-          if (res.type === "success") {
+          if (res.type === 'success') {
             await db.auth
               .exchangeOAuthCode({
                 code: res.params.code,
                 codeVerifier: request.codeVerifier,
               })
-              .catch((e) => alert(e.body?.message || "Something went wrong"));
+              .catch((e) => alert(e.body?.message || 'Something went wrong'));
           } else {
           }
         } catch (e) {
@@ -300,8 +300,8 @@ function Login() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 ```

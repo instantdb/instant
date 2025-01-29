@@ -4,16 +4,16 @@ import React, {
   useEffect,
   useMemo,
   useState,
-} from "react";
-import { ChevronRightIcon } from "@heroicons/react/outline";
-import format from "date-fns/format";
+} from 'react';
+import { ChevronRightIcon } from '@heroicons/react/outline';
+import format from 'date-fns/format';
 
-import config from "@/lib/config";
-import { InstantApp } from "@/lib/types";
-import { jsonFetch } from "@/lib/fetch";
-import { Button, Checkbox, cn, SectionHeading } from "@/components/ui";
-import { TokenContext } from "@/lib/contexts";
-import { errorToast, successToast } from "@/lib/toast";
+import config from '@/lib/config';
+import { InstantApp } from '@/lib/types';
+import { jsonFetch } from '@/lib/fetch';
+import { Button, Checkbox, cn, SectionHeading } from '@/components/ui';
+import { TokenContext } from '@/lib/contexts';
+import { errorToast, successToast } from '@/lib/toast';
 
 type StorageObject = {
   key: string;
@@ -45,13 +45,13 @@ async function fetchStorageFiles(
   appId: string,
   subdirectory?: string,
 ): Promise<StorageObject[]> {
-  const qs = subdirectory ? `?subdirectory=${subdirectory}` : "";
+  const qs = subdirectory ? `?subdirectory=${subdirectory}` : '';
   const { data } = await jsonFetch(
     `${config.apiURI}/dash/apps/${appId}/storage/files${qs}`,
     {
-      method: "GET",
+      method: 'GET',
       headers: {
-        "content-type": "application/json",
+        'content-type': 'application/json',
         authorization: `Bearer ${token}`,
       },
     },
@@ -72,9 +72,9 @@ async function deleteStorageFile(
       filename,
     )}`,
     {
-      method: "DELETE",
+      method: 'DELETE',
       headers: {
-        "content-type": "application/json",
+        'content-type': 'application/json',
         authorization: `Bearer ${token}`,
       },
     },
@@ -91,9 +91,9 @@ async function bulkDeleteFiles(
   const { data } = await jsonFetch(
     `${config.apiURI}/dash/apps/${appId}/storage/files/delete`,
     {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "content-type": "application/json",
+        'content-type': 'application/json',
         authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ filenames }),
@@ -115,9 +115,9 @@ async function fetchDownloadUrl(
       filename,
     )}`,
     {
-      method: "GET",
+      method: 'GET',
       headers: {
-        "content-type": "application/json",
+        'content-type': 'application/json',
         authorization: `Bearer ${token}`,
       },
     },
@@ -135,9 +135,9 @@ async function upload(
   const { data: presignedUrl } = await jsonFetch(
     `${config.apiURI}/dash/apps/${appId}/storage/signed-upload-url`,
     {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "content-type": "application/json",
+        'content-type': 'application/json',
         authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ app_id: appId, filename: fileName }),
@@ -145,10 +145,10 @@ async function upload(
   );
 
   const response = await fetch(presignedUrl, {
-    method: "PUT",
+    method: 'PUT',
     body: file,
     headers: {
-      "Content-Type": file.type,
+      'Content-Type': file.type,
     },
   });
 
@@ -156,7 +156,7 @@ async function upload(
 }
 
 const formatObjectKey = (file: StorageFile) =>
-  [file.path, file.name].filter((str) => !!str).join("/");
+  [file.path, file.name].filter((str) => !!str).join('/');
 
 function formatFileSize(size: number) {
   const kb = 1000;
@@ -177,7 +177,7 @@ function formatFileSize(size: number) {
 function useStorageFiles(
   token: string,
   appId: string,
-  subdirectory: string = "",
+  subdirectory: string = '',
 ): [StorageFile[], StorageDirectory[], boolean, any, () => Promise<void>] {
   const [isLoading, setIsLoading] = useState(true);
   const [files, setFiles] = useState<StorageFile[]>([]);
@@ -194,13 +194,13 @@ function useStorageFiles(
 
       const files = await fetchStorageFiles(token, appId, subdirectory);
       const formatted = files.map((f) => {
-        const [appId, ...keys] = f.key.split("/");
+        const [appId, ...keys] = f.key.split('/');
         const name = keys[keys.length - 1];
 
         return {
           id: f.key,
           key: f.key,
-          path: keys.slice(0, -1).join("/"),
+          path: keys.slice(0, -1).join('/'),
           name: name,
           etag: f.etag,
           size: f.size,
@@ -232,11 +232,11 @@ function useStorageFiles(
           (acc, f) => {
             // check if the file is in a subdirectory --
             // if yes, group by that directory; if no, group with `$current` directory
-            const [directory = ""] = f.path
-              .replace(subdirectory, "")
-              .split("/")
+            const [directory = ''] = f.path
+              .replace(subdirectory, '')
+              .split('/')
               .filter((str) => str.length > 0);
-            const key = directory.trim().length === 0 ? "$current" : directory;
+            const key = directory.trim().length === 0 ? '$current' : directory;
 
             return { ...acc, [key]: (acc[key] || []).concat(f) };
           },
@@ -246,7 +246,7 @@ function useStorageFiles(
   );
   const directories = useMemo(() => {
     return Object.entries(filesByDirectory)
-      .filter(([key]) => key !== "$current")
+      .filter(([key]) => key !== '$current')
       .map(([name, files]) => {
         return {
           name,
@@ -266,10 +266,10 @@ function useStorageFiles(
 
 type SelectedRow =
   | {
-      type: "all";
+      type: 'all';
     }
-  | { type: "directory"; value: StorageDirectory }
-  | { type: "file"; value: StorageFile };
+  | { type: 'directory'; value: StorageDirectory }
+  | { type: 'file'; value: StorageFile };
 
 export function StorageEnabledTab({
   className,
@@ -283,7 +283,7 @@ export function StorageEnabledTab({
   const [selectedRows, setSelectedRows] = useState<Record<string, SelectedRow>>(
     {},
   );
-  const [subdirectoryPrefix, setSubdirectoryPrefix] = useState<string>("");
+  const [subdirectoryPrefix, setSubdirectoryPrefix] = useState<string>('');
   const [
     files = [],
     directories = [],
@@ -292,8 +292,8 @@ export function StorageEnabledTab({
     refreshFiles,
   ] = useStorageFiles(token, app.id, subdirectoryPrefix);
   const breadcrumbs = [
-    "/[root]",
-    ...subdirectoryPrefix.split("/").filter((str) => !!str),
+    '/[root]',
+    ...subdirectoryPrefix.split('/').filter((str) => !!str),
   ];
   const hasSelectedRows = Object.keys(selectedRows).length > 0;
 
@@ -314,9 +314,9 @@ export function StorageEnabledTab({
       }
 
       await refreshFiles();
-      successToast("Successfully uploaded!");
+      successToast('Successfully uploaded!');
     } catch (err: any) {
-      console.error("Failed to upload:", err);
+      console.error('Failed to upload:', err);
       errorToast(`('Failed to upload: ${err.body.message}`);
     } finally {
       setUploadingFile(false);
@@ -328,9 +328,9 @@ export function StorageEnabledTab({
       const key = formatObjectKey(file);
       const url = await fetchDownloadUrl(token, app.id, key);
       console.debug(url);
-      window.open(url, "_blank");
+      window.open(url, '_blank');
     } catch (err: any) {
-      console.error("Failed to download file:", err);
+      console.error('Failed to download file:', err);
       errorToast(`Failed to download file: ${err.body.message}`);
     }
   };
@@ -346,7 +346,7 @@ export function StorageEnabledTab({
       await deleteStorageFile(token, app.id, key);
       await refreshFiles();
     } catch (err: any) {
-      console.error("Failed to delete file:", err);
+      console.error('Failed to delete file:', err);
       errorToast(`Failed to delete file: ${err.body.message}`);
     }
   };
@@ -366,7 +366,7 @@ export function StorageEnabledTab({
       await bulkDeleteFiles(token, app.id, keys);
       await refreshFiles();
     } catch (err: any) {
-      console.error("Failed to delete directory:", err);
+      console.error('Failed to delete directory:', err);
       errorToast(`Failed to delete directory: ${err.body.message}`);
     }
   };
@@ -396,7 +396,7 @@ export function StorageEnabledTab({
     if (
       !confirm(
         `Are you sure you want to permanently delete ${keys.length} ${
-          keys.length === 1 ? "file" : "files"
+          keys.length === 1 ? 'file' : 'files'
         }?`,
       )
     ) {
@@ -409,13 +409,13 @@ export function StorageEnabledTab({
 
       setSelectedRows({});
     } catch (err: any) {
-      console.error("Failed to bulk delete:", err);
+      console.error('Failed to bulk delete:', err);
       errorToast(`Failed to bulk files: ${err.body.message}`);
     }
   };
 
   return (
-    <div className={cn("flex-1 flex flex-col", className)}>
+    <div className={cn('flex-1 flex flex-col', className)}>
       <div className="flex justify-between flex-row items-center border-b ">
         <div className="px-2 pt-1 pb-1">
           <SectionHeading>Storage</SectionHeading>
@@ -429,11 +429,11 @@ export function StorageEnabledTab({
                   <button
                     className={cn(
                       i === arr.length - 1
-                        ? "font-semibold text-gray-700"
-                        : "font-medium text-gray-600 underline",
+                        ? 'font-semibold text-gray-700'
+                        : 'font-medium text-gray-600 underline',
                     )}
                     onClick={() => {
-                      const prefix = breadcrumbs.slice(1, i + 1).join("/");
+                      const prefix = breadcrumbs.slice(1, i + 1).join('/');
 
                       return setSubdirectoryPrefix(prefix);
                     }}
@@ -467,13 +467,13 @@ export function StorageEnabledTab({
       <table className="z-0 w-full flex-1 text-left font-mono text-xs text-gray-500">
         <thead className="sticky top-0 z-20 bg-white text-gray-700 shadow">
           <tr>
-            <th className="px-2 py-2" style={{ width: "48px" }}>
+            <th className="px-2 py-2" style={{ width: '48px' }}>
               <Checkbox
                 checked={!!selectedRows.all}
                 onChange={(checked) =>
                   setSelectedRows((current) => {
                     if (checked) {
-                      return { ...current, all: { type: "all" } };
+                      return { ...current, all: { type: 'all' } };
                     } else {
                       const { all, ...updated } = current;
 
@@ -497,21 +497,21 @@ export function StorageEnabledTab({
               <>
                 <th
                   className={cn(
-                    "w-full z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1",
+                    'w-full z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
                   )}
                 >
                   Name
                 </th>
                 <th
                   className={cn(
-                    "z-10 cursor-pointer select-none text-right whitespace-nowrap px-4 py-1",
+                    'z-10 cursor-pointer select-none text-right whitespace-nowrap px-4 py-1',
                   )}
                 >
                   Size
                 </th>
                 <th
                   className={cn(
-                    "z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1",
+                    'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
                   )}
                 >
                   Last modified
@@ -520,7 +520,7 @@ export function StorageEnabledTab({
             )}
             <th
               className={cn(
-                "z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1",
+                'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
               )}
             ></th>
           </tr>
@@ -531,7 +531,7 @@ export function StorageEnabledTab({
               <tr key={directory.name} className="group border-b bg-white">
                 <td
                   className="px-2 py-2 flex gap-2 items-center"
-                  style={{ width: "48px" }}
+                  style={{ width: '48px' }}
                 >
                   <Checkbox
                     checked={
@@ -543,7 +543,7 @@ export function StorageEnabledTab({
                           return {
                             ...current,
                             [directory.name]: {
-                              type: "directory",
+                              type: 'directory',
                               value: directory,
                             },
                           };
@@ -563,18 +563,18 @@ export function StorageEnabledTab({
                       setSubdirectoryPrefix((current) =>
                         [current, directory.name]
                           .filter((str) => !!str)
-                          .join("/"),
+                          .join('/'),
                       )
                     }
                   >
-                    {directory.name.concat("/")}
+                    {directory.name.concat('/')}
                   </button>
                 </td>
                 <td className="relative px-4 py-1 text-right">
                   {formatFileSize(directory.size)}
                 </td>
                 <td className="relative px-4 py-1">
-                  {format(new Date(directory.lastModified), "MMM dd, h:mma")}
+                  {format(new Date(directory.lastModified), 'MMM dd, h:mma')}
                 </td>
                 <td className="relative px-4 py-1">
                   <div className="flex items-center gap-1">
@@ -585,7 +585,7 @@ export function StorageEnabledTab({
                         setSubdirectoryPrefix((current) =>
                           [current, directory.name]
                             .filter((str) => !!str)
-                            .join("/"),
+                            .join('/'),
                         )
                       }
                     >
@@ -607,7 +607,7 @@ export function StorageEnabledTab({
             <tr key={file.key} className="group border-b bg-white">
               <td
                 className="px-2 py-2 flex gap-2 items-center"
-                style={{ width: "48px" }}
+                style={{ width: '48px' }}
               >
                 <Checkbox
                   checked={!!selectedRows[file.key] || !!selectedRows.all}
@@ -616,7 +616,7 @@ export function StorageEnabledTab({
                       if (checked) {
                         return {
                           ...current,
-                          [file.key]: { type: "file", value: file },
+                          [file.key]: { type: 'file', value: file },
                         };
                       } else {
                         delete current[file.key];
@@ -632,7 +632,7 @@ export function StorageEnabledTab({
                 {formatFileSize(file.size)}
               </td>
               <td className="relative whitespace-nowrap px-4 py-1">
-                {format(new Date(file.lastModified), "MMM dd, h:mma")}
+                {format(new Date(file.lastModified), 'MMM dd, h:mma')}
               </td>
               <td className="relative px-4 py-1" style={{}}>
                 <div className="flex items-center gap-1">
@@ -669,7 +669,7 @@ function StorageDisabledTab({
   app: InstantApp;
 }) {
   return (
-    <div className={cn("flex-1 flex flex-col", className)}>
+    <div className={cn('flex-1 flex flex-col', className)}>
       <div className="flex-1 flex flex-col items-center justify-center">
         <h2 className="text-center text-xl font-medium text-gray-900">
           Storage is not enabled for this app yet!

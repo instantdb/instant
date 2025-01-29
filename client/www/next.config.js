@@ -1,32 +1,32 @@
-const withMarkdoc = require("@markdoc/next.js");
+const withMarkdoc = require('@markdoc/next.js');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  pageExtensions: ["js", "jsx", "ts", "tsx", "md"],
+  pageExtensions: ['js', 'jsx', 'ts', 'tsx', 'md'],
   async redirects() {
     return [
       {
         permanent: false,
-        source: "/",
+        source: '/',
         has: [
           {
-            type: "host",
-            value: "docs.instantdb.com",
+            type: 'host',
+            value: 'docs.instantdb.com',
           },
         ],
-        destination: "https://instantdb.com/docs/",
+        destination: 'https://instantdb.com/docs/',
       },
       {
         permanent: false,
-        source: "/:path*",
+        source: '/:path*',
         has: [
           {
-            type: "host",
-            value: "docs.instantdb.com",
+            type: 'host',
+            value: 'docs.instantdb.com',
           },
         ],
-        destination: "https://instantdb.com/:path*",
+        destination: 'https://instantdb.com/:path*',
       },
     ];
   },

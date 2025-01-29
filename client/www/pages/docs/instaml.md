@@ -9,14 +9,14 @@ Instant uses a **Firebase-inspired** interface for mutations. We call our mutati
 We use the `update` action to create entities.
 
 ```typescript
-import { init } from "@instantdb/react";
+import { init } from '@instantdb/react';
 
 const db = init({
   appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
 });
 
 // transact! 🔥
-db.transact(db.tx.goals[id()].update({ title: "eat" }));
+db.transact(db.tx.goals[id()].update({ title: 'eat' }));
 ```
 
 This creates a new `goal` with the following properties:
@@ -29,11 +29,11 @@ Similar to NoSQL, you don't need to use the same schema for each entity in a nam
 ```javascript
 db.transact(
   db.tx.goals[id()].update({
-    priority: "none",
+    priority: 'none',
     isSecret: true,
     value: 10,
     aList: [1, 2, 3],
-    anObject: { foo: "bar" },
+    anObject: { foo: 'bar' },
   }),
 );
 ```
@@ -43,7 +43,7 @@ You can store `strings`, `numbers`, `booleans`, `arrays`, and `objects` as value
 ```javascript
 db.transact(
   db.tx.goals[id()].update({
-    title: ["eat", "sleep", "hack", "repeat"][Math.floor(Math.random() * 4)],
+    title: ['eat', 'sleep', 'hack', 'repeat'][Math.floor(Math.random() * 4)],
   }),
 );
 ```
@@ -55,14 +55,14 @@ The `update` action is also used for updating entities. Suppose we had created t
 ```javascript
 const eatId = id();
 db.transact(
-  db.tx.goals[eatId].update({ priority: "top", lastTimeEaten: "Yesterday" }),
+  db.tx.goals[eatId].update({ priority: 'top', lastTimeEaten: 'Yesterday' }),
 );
 ```
 
 We eat some food and decide to update the goal. We can do that like so:
 
 ```javascript
-db.transact(db.tx.goals[eatId].update({ lastTimeEaten: "Today" }));
+db.transact(db.tx.goals[eatId].update({ lastTimeEaten: 'Today' }));
 ```
 
 This will only update the value of the `lastTimeEaten` attribute for entity `eat`.
@@ -80,10 +80,10 @@ For example, imagine we had a `game` entity, that stored a `state` of favorite c
 
 ```javascript
 // User 1 saves {'0-0': 'red'}
-db.transact(db.tx.games[gameId].update({ state: { "0-0": "red" } }));
+db.transact(db.tx.games[gameId].update({ state: { '0-0': 'red' } }));
 
 // User 2 saves {'0-1': 'blue'}
-db.transact(db.tx.games[gameId].update({ state: { "0-1": "blue" } }));
+db.transact(db.tx.games[gameId].update({ state: { '0-1': 'blue' } }));
 
 // 🤔 Uh oh! User 2 overwrite User 1:
 // Final State: {'0-1': 'blue' }
@@ -95,10 +95,10 @@ Similar to [lodash's `merge` function](https://lodash.com/docs/4.17.15#merge),
 
 ```javascript
 // User 1 saves {'0-0': 'red'}
-db.transact(db.tx.games[gameId].merge({ state: { "0-0": "red" } }));
+db.transact(db.tx.games[gameId].merge({ state: { '0-0': 'red' } }));
 
 // User 2 saves {'0-1': 'blue'}
-db.transact(db.tx.games[gameId].merge({ state: { "0-1": "blue" } }));
+db.transact(db.tx.games[gameId].merge({ state: { '0-1': 'blue' } }));
 
 // ✅ Wohoo! Both states are merged!
 // Final State: {'0-0': 'red', '0-0': 'blue' }
@@ -110,7 +110,7 @@ Sometimes you may want to remove keys from a nested object. You can do so by cal
 
 ```javascript
 // State: {'0-0': 'red', '0-0': 'blue' }
-db.transact(db.tx.games[gameId].merge({ state: { "0-1": null } }));
+db.transact(db.tx.games[gameId].merge({ state: { '0-1': null } }));
 // New State! {'0-0': 'red' }
 ```
 
@@ -142,8 +142,8 @@ Suppose we create a `goal` and a `todo`.
 
 ```javascript
 db.transact([
-  db.tx.todos[workoutId].update({ title: "Go on a run" }),
-  db.tx.goals[healthId].update({ title: "Get fit!" }),
+  db.tx.todos[workoutId].update({ title: 'Go on a run' }),
+  db.tx.goals[healthId].update({ title: 'Get fit!' }),
 ]);
 ```
 
@@ -157,8 +157,8 @@ We could have done all this in one `transact` too via chaining transaction chunk
 
 ```javascript
 db.transact([
-  tx.todos[workoutId].update({ title: "Go on a run" }),
-  tx.goals[healthId].update({ title: "Get fit!" }).link({ todos: workoutId }),
+  tx.todos[workoutId].update({ title: 'Go on a run' }),
+  tx.goals[healthId].update({ title: 'Get fit!' }).link({ todos: workoutId }),
 ]);
 ```
 
@@ -166,11 +166,11 @@ You can specify multiple ids in one `link` as well:
 
 ```javascript
 db.transact([
-  db.tx.todos[workoutId].update({ title: "Go on a run" }),
-  db.tx.todos[proteinId].update({ title: "Drink protein" }),
-  db.tx.todos[sleepId].update({ title: "Go to bed early" }),
+  db.tx.todos[workoutId].update({ title: 'Go on a run' }),
+  db.tx.todos[proteinId].update({ title: 'Drink protein' }),
+  db.tx.todos[sleepId].update({ title: 'Go to bed early' }),
   db.tx.goals[healthId]
-    .update({ title: "Get fit!" })
+    .update({ title: 'Get fit!' })
     .link({ todos: [workoutId, proteinId, sleepId] }),
 ]);
 ```
@@ -190,8 +190,8 @@ const { isLoading, error, data } = db.useQuery({
 });
 
 const { goals, todos } = data;
-console.log("goals with nested todos", goals);
-console.log("todos with nested goals", todos);
+console.log('goals with nested todos', goals);
+console.log('todos with nested goals', todos);
 ```
 
 ## Unlink data
@@ -222,11 +222,11 @@ db.transact([
 If your entity has a unique attribute, you can use `lookup` in place of the id to perform updates.
 
 ```javascript
-import { lookup } from "@instantdb/react";
+import { lookup } from '@instantdb/react';
 
 db.transact(
-  db.tx.profiles[lookup("email", "eva_lu_ator@instantdb.com")].update({
-    name: "Eva Lu Ator",
+  db.tx.profiles[lookup('email', 'eva_lu_ator@instantdb.com')].update({
+    name: 'Eva Lu Ator',
   }),
 );
 ```
@@ -241,8 +241,8 @@ When used with links, it can also be used in place of the linked entity's id.
 
 ```javascript
 db.transact(
-  tx.users[lookup("email", "eva_lu_ator@instantdb.com")].link({
-    posts: lookup("number", 15),
+  tx.users[lookup('email', 'eva_lu_ator@instantdb.com')].link({
+    posts: lookup('number', 15),
   }),
 );
 ```
@@ -261,9 +261,9 @@ db.tx.todos[workoutId].update({
 As your app grows, you may want to start enforcing types. When you're ready, you can start using a [schema](/docs/modeling-data):
 
 ```typescript
-import { init } from "@instantdb/react";
+import { init } from '@instantdb/react';
 
-import schema from "../instant.schema.ts";
+import schema from '../instant.schema.ts';
 
 const db = init({
   appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
@@ -296,16 +296,16 @@ Instant also comes with a few utility types, which can help you write abstractio
 
 ```typescript
 // Goal
-myCustomUpdate("todos", { dueDate: Date.now() });
+myCustomUpdate('todos', { dueDate: Date.now() });
 ```
 
 You can use the `UpdateParams` utility to make sure arguments follow the schema:
 
 ```typescript
-import { UpdateParams } from "@instantdb/react";
-import { AppSchema } from "../instant.schema.ts";
+import { UpdateParams } from '@instantdb/react';
+import { AppSchema } from '../instant.schema.ts';
 
-type EntityTypes = keyof AppSchema["entities"];
+type EntityTypes = keyof AppSchema['entities'];
 
 function myCustomUpdate<EType extends EntityTypes>(
   etype: EType,
@@ -318,10 +318,10 @@ function myCustomUpdate<EType extends EntityTypes>(
 And the `LinkParams` utility do the same for links:
 
 ```typescript
-import { LinkParams } from "@instantdb/react";
-import { AppSchema } from "../instant.schema.ts";
+import { LinkParams } from '@instantdb/react';
+import { AppSchema } from '../instant.schema.ts';
 
-type EntityTypes = keyof AppSchema["entities"];
+type EntityTypes = keyof AppSchema['entities'];
 
 function myCustomLink<EType extends EntityTypes>(
   etype: EType,

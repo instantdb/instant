@@ -1,5 +1,5 @@
-import config from "@/lib/config"; // hide-line
-import { init } from "@instantdb/react";
+import config from '@/lib/config'; // hide-line
+import { init } from '@instantdb/react';
 
 const db = init({
   ...config, // hide-line
@@ -8,21 +8,21 @@ const db = init({
 
 const userId = Math.random().toString(36).slice(2, 6);
 const randomDarkColor =
-  "#" +
+  '#' +
   [0, 0, 0]
     .map(() =>
       Math.floor(Math.random() * 200)
         .toString(16)
-        .padStart(2, "0"),
+        .padStart(2, '0'),
     )
-    .join("");
+    .join('');
 const user = {
   id: userId,
   name: `${userId}`,
   color: randomDarkColor,
 };
 
-const room = db.room("typing-indicator-example", "1234");
+const room = db.room('typing-indicator-example', '1234');
 
 export default function InstantTypingIndicator() {
   db.rooms.useSyncPresence(room, user);
@@ -31,7 +31,7 @@ export default function InstantTypingIndicator() {
 
   const { active, inputProps } = db.rooms.useTypingIndicator(
     room,
-    "chat-input",
+    'chat-input',
   );
 
   const peers = Object.values(presence.peers).filter((p) => p.id);

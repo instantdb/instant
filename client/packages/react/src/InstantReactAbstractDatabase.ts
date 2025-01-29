@@ -19,7 +19,7 @@ import {
   RoomsOf,
   InstantSchemaDef,
   IInstantDatabase,
-} from "@instantdb/core";
+} from '@instantdb/core';
 import {
   KeyboardEvent,
   useCallback,
@@ -28,10 +28,10 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
-} from "react";
-import { useQueryInternal } from "./useQuery";
-import { useTimeout } from "./useTimeout";
-import { InstantReactRoom, rooms } from "./InstantReactRoom";
+} from 'react';
+import { useQueryInternal } from './useQuery';
+import { useTimeout } from './useTimeout';
+import { InstantReactRoom, rooms } from './InstantReactRoom';
 
 const defaultAuthState = {
   isLoading: true,
@@ -86,8 +86,8 @@ export default abstract class InstantReactAbstractDatabase<
    *  const { peers } = db.rooms.usePresence(room);
    */
   room<RoomType extends keyof Rooms>(
-    type: RoomType = "_defaultRoomType" as RoomType,
-    id: string = "_defaultRoomId",
+    type: RoomType = '_defaultRoomType' as RoomType,
+    id: string = '_defaultRoomId',
   ) {
     return new InstantReactRoom<Schema, Rooms, RoomType>(this._core, type, id);
   }
@@ -252,7 +252,7 @@ export default abstract class InstantReactAbstractDatabase<
       subscribe,
       () => statusRef.current,
       // For SSR, always return 'connecting' as the initial state
-      () => "connecting",
+      () => 'connecting',
     );
 
     return status;

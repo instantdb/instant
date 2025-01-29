@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/router";
-import { Dialog } from "@headlessui/react";
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
+import { Dialog } from '@headlessui/react';
 
-import { Logo } from "@/components/docs/Logo";
-import { Navigation } from "@/components/docs/Navigation";
+import { Logo } from '@/components/docs/Logo';
+import { Navigation } from '@/components/docs/Navigation';
 
 function MenuIcon(props) {
   return (
@@ -47,12 +47,12 @@ export function MobileNavigation({ navigation }) {
       setIsOpen(false);
     }
 
-    router.events.on("routeChangeComplete", onRouteChange);
-    router.events.on("routeChangeError", onRouteChange);
+    router.events.on('routeChangeComplete', onRouteChange);
+    router.events.on('routeChangeError', onRouteChange);
 
     return () => {
-      router.events.off("routeChangeComplete", onRouteChange);
-      router.events.off("routeChangeError", onRouteChange);
+      router.events.off('routeChangeComplete', onRouteChange);
+      router.events.off('routeChangeError', onRouteChange);
     };
   }, [router, isOpen]);
 

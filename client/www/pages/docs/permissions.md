@@ -8,17 +8,17 @@ Here’s an example ruleset below
 
 ```typescript {% showCopy=true %}
 // instant.perms.ts
-import type { InstantRules } from "@instantdb/react";
+import type { InstantRules } from '@instantdb/react';
 
 const rules = {
   todos: {
     allow: {
-      view: "auth.id != null",
-      create: "isOwner",
-      update: "isOwner",
-      delete: "isOwner",
+      view: 'auth.id != null',
+      create: 'isOwner',
+      update: 'isOwner',
+      delete: 'isOwner',
     },
-    bind: ["isOwner", "auth.id != null && auth.id == data.creatorId"],
+    bind: ['isOwner', 'auth.id != null && auth.id == data.creatorId'],
   },
 } satisfies InstantRules;
 

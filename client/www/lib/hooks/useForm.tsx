@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { errorToast } from "../toast";
+import { useState } from 'react';
+import { errorToast } from '../toast';
 
 export type FormFieldStates<Schema> = {
   [K in keyof Schema]: {
@@ -24,7 +24,7 @@ export type Form<Schema extends Record<string, any>> = {
     onChange(v: Schema[keyof Schema]): void;
   };
   formProps(): { onSubmit(e: React.FormEvent<HTMLFormElement>): Promise<void> };
-  submitButtonProps(): { type: "submit"; disabled: boolean; children: string };
+  submitButtonProps(): { type: 'submit'; disabled: boolean; children: string };
   reset(values?: Schema): void;
 };
 
@@ -103,7 +103,7 @@ export function useForm<Schema extends Record<string, any>>({
     inputProps(name: keyof Schema) {
       return {
         name,
-        value: fieldStates[name].value ?? "",
+        value: fieldStates[name].value ?? '',
         error: fieldStates[name].error ?? undefined,
         onChange(v: Schema[typeof name]) {
           const error = validators?.[name]?.(v)?.error ?? null;
@@ -134,11 +134,11 @@ export function useForm<Schema extends Record<string, any>>({
     },
     submitButtonProps() {
       return {
-        type: "submit" as const,
+        type: 'submit' as const,
         disabled: !isValid,
         children: isSubmitting
-          ? (submittingLabel ?? "Submitting...")
-          : (submitLabel ?? "Submit"),
+          ? (submittingLabel ?? 'Submitting...')
+          : (submitLabel ?? 'Submit'),
       };
     },
   };
@@ -153,12 +153,12 @@ export function displayInstantStandardError<T extends Record<string, any>>(
   const errType = body?.type;
 
   const message = body?.hint?.errors?.[0]?.message;
-  const dtName = body?.hint?.["data-type"];
+  const dtName = body?.hint?.['data-type'];
   const field = apiDataTypeNameToFormFieldName[dtName];
 
-  if (errType === "validation-failed" && field && message) {
+  if (errType === 'validation-failed' && field && message) {
     form.setFieldError(field as keyof T, message);
   } else {
-    errorToast(message ?? "An error occurred. Please try again.");
+    errorToast(message ?? 'An error occurred. Please try again.');
   }
 }

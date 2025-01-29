@@ -12,16 +12,16 @@
  */
 export default function weakHash(input: any): string {
   // Handle primitives without JSON stringify for better performance
-  if (typeof input === "number") {
+  if (typeof input === 'number') {
     // Use a larger number space for numeric values
     return (Math.abs(input * 2654435761) >>> 0).toString(16);
   }
-  if (typeof input === "boolean") return input ? "1" : "0";
-  if (input === null) return "null";
-  if (input === undefined) return "undefined";
+  if (typeof input === 'boolean') return input ? '1' : '0';
+  if (input === null) return 'null';
+  if (input === undefined) return 'undefined';
 
   // For strings, use FNV-1a algorithm
-  if (typeof input === "string") {
+  if (typeof input === 'string') {
     let hash = 0x811c9dc5; // FNV offset basis (32 bit)
     for (let i = 0; i < input.length; i++) {
       hash ^= input.charCodeAt(i);
@@ -51,7 +51,7 @@ export default function weakHash(input: any): string {
   }
 
   // For objects, hash keys and values
-  if (typeof input === "object") {
+  if (typeof input === 'object') {
     let hash = 0x811c9dc5;
     const keys = Object.keys(input).sort(); // Sort for consistency
 

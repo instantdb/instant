@@ -2,10 +2,10 @@ import type {
   InstantConfig,
   InstantSchemaDef,
   InstantUnknownSchema,
-} from "@instantdb/core";
+} from '@instantdb/core';
 
-import InstantReactWebDatabase from "./InstantReactWebDatabase";
-import version from "./version";
+import InstantReactWebDatabase from './InstantReactWebDatabase';
+import version from './version';
 
 /**
  *
@@ -31,7 +31,7 @@ export function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
 >(config: InstantConfig<Schema>) {
   return new InstantReactWebDatabase<Schema>(config, {
-    "@instantdb/react": version,
+    '@instantdb/react': version,
   });
 }
 

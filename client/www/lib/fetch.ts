@@ -15,13 +15,13 @@ export async function jsonMutate<T>(
     token,
     body,
     method,
-  }: { token: string; body?: any; method?: "POST" | "DELETE" },
+  }: { token: string; body?: any; method?: 'POST' | 'DELETE' },
 ): Promise<T> {
   return jsonFetch(input, {
-    method: method ?? "POST",
+    method: method ?? 'POST',
     headers: {
       authorization: `Bearer ${token}`,
-      "content-type": "application/json",
+      'content-type': 'application/json',
     },
     body: body ? JSON.stringify(body) : undefined,
   });

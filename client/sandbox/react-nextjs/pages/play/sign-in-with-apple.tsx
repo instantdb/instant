@@ -1,7 +1,7 @@
-import { init, tx, id, User } from "@instantdb/react";
-import config from "../../config";
-import Link from "next/link";
-import { useEffect, useState } from "react";
+import { init, tx, id, User } from '@instantdb/react';
+import config from '../../config';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 const db = init(config);
 
@@ -13,10 +13,10 @@ function loadScript(src: string, id: string, callback: () => void) {
     return;
   }
 
-  const script = document.createElement("script");
+  const script = document.createElement('script');
   script.src = src;
   script.id = id;
-  script.type = "text/javascript";
+  script.type = 'text/javascript';
   script.async = true;
 
   script.onload = () => {
@@ -63,7 +63,7 @@ async function signInPopup() {
     usePopup: true,
   });
   await db.auth.signInWithIdToken({
-    clientName: "apple",
+    clientName: 'apple',
     idToken: resp.authorization.id_token,
     nonce: nonce,
   });
@@ -73,21 +73,21 @@ async function signInPopup() {
 function Login() {
   const [redirectUrl] = useState(() =>
     db.auth.createAuthorizationURL({
-      clientName: "apple",
+      clientName: 'apple',
       redirectURL: window.location.href,
     }),
   );
 
   useEffect(() => {
     const scriptUrl =
-      "https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js";
-    loadScript(scriptUrl, "appleid_auth", () => {
+      'https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js';
+    loadScript(scriptUrl, 'appleid_auth', () => {
       let AppleID = (window as any).AppleID;
       if (AppleID) {
         AppleID.auth.renderButton();
         AppleID.auth.init({
-          clientId: "com.instantdb.signin.test",
-          scope: "name email",
+          clientId: 'com.instantdb.signin.test',
+          scope: 'name email',
           redirectURI: window.location.href,
         });
       }
@@ -98,11 +98,11 @@ function Login() {
     <div className="w-lvw h-screen flex flex-col justify-center items-center gap-4">
       <button
         style={{
-          fontFamily: "SF Pro, -apple-system, BlinkMacSystemFont, sans-serif",
-          background: "#000",
-          color: "#FFF",
-          padding: "4pt 12pt",
-          borderRadius: "4pt",
+          fontFamily: 'SF Pro, -apple-system, BlinkMacSystemFont, sans-serif',
+          background: '#000',
+          color: '#FFF',
+          padding: '4pt 12pt',
+          borderRadius: '4pt',
         }}
         onClick={signInPopup}
       >
@@ -111,11 +111,11 @@ function Login() {
       <a
         href={redirectUrl}
         style={{
-          fontFamily: "SF Pro, -apple-system, BlinkMacSystemFont, sans-serif",
-          background: "#000",
-          color: "#FFF",
-          padding: "4pt 12pt",
-          borderRadius: "4pt",
+          fontFamily: 'SF Pro, -apple-system, BlinkMacSystemFont, sans-serif',
+          background: '#000',
+          color: '#FFF',
+          padding: '4pt 12pt',
+          borderRadius: '4pt',
         }}
       >
         􀣺 Sign in with redirect
@@ -133,7 +133,7 @@ function Main({ user }: { user: User }) {
   if (error) return <div>Error: {error.message}</div>;
   return (
     <div className="p-4">
-      <Link href="/">{"<-"} Home</Link>
+      <Link href="/">{'<-'} Home</Link>
       <h1>Hi {user.email}!</h1>
       <h2>id: {user.id}</h2>
       <button
@@ -143,16 +143,16 @@ function Main({ user }: { user: User }) {
           const todoBId = id();
           db.transact([
             tx.todos[todoAId].update({
-              title: "Go on a run",
+              title: 'Go on a run',
               creatorId: user.id,
             }),
             tx.todos[todoBId].update({
-              title: "Drink a protein shake",
+              title: 'Drink a protein shake',
               creatorId: user.id,
             }),
             tx.goals[id()]
               .update({
-                title: "Get six pack abs",
+                title: 'Get six pack abs',
                 priority6: 1,
                 creatorId: user.id,
               })

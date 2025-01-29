@@ -5,20 +5,20 @@
  * [!video](https://www.youtube.com/watch?v=video-id "Video Title")
  * [!video](https://stream.mux.com/video-id "Video Title")
  */
-import { marked } from "marked";
+import { marked } from 'marked';
 
-const containerClass = "md-video-container";
+const containerClass = 'md-video-container';
 const youtubePattern =
   /(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
 const muxPattern = /stream\.mux\.com\/([A-Za-z0-9]+)/;
 
 const youtubeParams = [
-  "rel=0", // Don't show related videos
-  "modestbranding=1", // Reduce YouTube branding
-  "playsinline=1", // Play inline on mobile
-  "autoplay=0", // Don't autoplay
-  "cc_load_policy=1", // Show closed captions if available
-].join("&");
+  'rel=0', // Don't show related videos
+  'modestbranding=1', // Reduce YouTube branding
+  'playsinline=1', // Play inline on mobile
+  'autoplay=0', // Don't autoplay
+  'cc_load_policy=1', // Show closed captions if available
+].join('&');
 
 const videoTemplate = {
   youtube: (id, title) => `
@@ -45,7 +45,7 @@ const videoTemplate = {
 
 const videos = {
   link(href, title, text) {
-    if (text !== "!video") {
+    if (text !== '!video') {
       return marked.Renderer.prototype.link.call(this, href, title, text);
     }
 

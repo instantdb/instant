@@ -1,10 +1,10 @@
 ---
-title: "Building a Sync Engine in Clojure [Video]"
-date: "2024-10-24"
+title: 'Building a Sync Engine in Clojure [Video]'
+date: '2024-10-24'
 authors: nezaj
 ---
 
-[!video](https://www.youtube.com/watch?v=6FikTQf8qho "Building a Sync Engine in Clojure")
+[!video](https://www.youtube.com/watch?v=6FikTQf8qho 'Building a Sync Engine in Clojure')
 
 Following up from [A Graph-Based
 Firebase](https://www.instantdb.com/essays/next_firebase), Stopa (CTO of

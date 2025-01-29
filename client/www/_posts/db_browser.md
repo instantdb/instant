@@ -1,6 +1,6 @@
 ---
-title: "Database in the Browser, a Spec"
-date: "2021-04-29"
+title: 'Database in the Browser, a Spec'
+date: '2021-04-29'
 authors: stopachka
 ---
 
@@ -153,11 +153,11 @@ Much of backend development ends up being a sort of glue between the database an
 ```javascript
 // db.js
 function getRelevantPostsFor(userId) {
-  db.exec("SELECT * FROM posts WHERE ...");
+  db.exec('SELECT * FROM posts WHERE ...');
 }
 
 // api.js
-app.get("relevantPosts", (req, res) => {
+app.get('relevantPosts', (req, res) => {
   res.status(200).send(getRelevantPosts(req.userId));
 });
 ```
@@ -206,8 +206,8 @@ To solve this, we’d evolve our data model. Instead of a single friendship rela
 
 ```javascript
 [
-  { status: "friends", friend_one_id: 1, friend_two_id: 2, at: 1000 },
-  { status: "disconnected", friend_one_id: 1, friend_two_id: 2, at: 10001 },
+  { status: 'friends', friend_one_id: 1, friend_two_id: 2, at: 1000 },
+  { status: 'disconnected', friend_one_id: 1, friend_two_id: 2, at: 10001 },
 ];
 ```
 
@@ -329,8 +329,8 @@ Their realtime option allows you to subscribe to row-level updates. For example,
 
 ```javascript
 const friendsChange = supabase
-  .from("friendships:friend_one_id=eq.200")
-  .on("*", handleFriendshipChange)
+  .from('friendships:friend_one_id=eq.200')
+  .on('*', handleFriendshipChange)
   .subscribe();
 ```
 
@@ -377,7 +377,7 @@ From the browser, this abstraction would have to be like firebase, _but with a s
 You should be able to query your local data, and it should be as powerful as SQL. Your queries should be reactive, and update automatically if there are changes. It should handle optimistic updates for you too.
 
 ```javascript
-user = useQuery("SELECT * FROM users WHERE id = ?", 10);
+user = useQuery('SELECT * FROM users WHERE id = ?', 10);
 ```
 
 ### 2) A real permission language

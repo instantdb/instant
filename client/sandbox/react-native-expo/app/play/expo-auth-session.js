@@ -1,13 +1,13 @@
-import React from "react";
-import { View, Text, Button, ScrollView } from "react-native";
-import { init, tx, id } from "@instantdb/react-native";
+import React from 'react';
+import { View, Text, Button, ScrollView } from 'react-native';
+import { init, tx, id } from '@instantdb/react-native';
 import {
   makeRedirectUri,
   useAuthRequest,
   useAutoDiscovery,
-} from "expo-auth-session";
+} from 'expo-auth-session';
 
-import config from "../config";
+import config from '../config';
 
 const db = init(config);
 
@@ -29,7 +29,7 @@ function Login() {
   const discovery = useAutoDiscovery(db.auth.issuerURI());
   const [request, _response, promptAsync] = useAuthRequest(
     {
-      clientId: "google-web",
+      clientId: 'google-web',
       redirectUri: makeRedirectUri(),
     },
     discovery,
@@ -42,24 +42,24 @@ function Login() {
         onPress={async () => {
           try {
             const res = await promptAsync();
-            if (res.type === "dismiss") {
-              alert("Auth request was dismissed");
+            if (res.type === 'dismiss') {
+              alert('Auth request was dismissed');
               return;
             }
-            if (res.type === "cancel") {
-              alert("Auth request was canceled");
+            if (res.type === 'cancel') {
+              alert('Auth request was canceled');
               return;
             }
-            if (res.type === "error") {
-              alert(res.error || "Something went wrong");
+            if (res.type === 'error') {
+              alert(res.error || 'Something went wrong');
             }
-            if (res.type === "success") {
+            if (res.type === 'success') {
               await db.auth
                 .exchangeOAuthCode({
                   code: res.params.code,
                   codeVerifier: request.codeVerifier,
                 })
-                .catch((e) => alert(e.body?.message || "Something went wrong"));
+                .catch((e) => alert(e.body?.message || 'Something went wrong'));
             } else {
             }
           } catch (e) {
@@ -86,15 +86,15 @@ function DemoData({ user, db }) {
           const todoBId = id();
           transact([
             tx.todos[todoAId].update({
-              title: "Go on a run",
+              title: 'Go on a run',
               creatorId: user.id,
             }),
             tx.todos[todoBId].update({
-              title: "Drink a protein shake",
+              title: 'Drink a protein shake',
               creatorId: user.id,
             }),
             tx.goals[id()]
-              .update({ title: "Get six pack abs", creatorId: user.id })
+              .update({ title: 'Get six pack abs', creatorId: user.id })
               .link({ todos: todoAId })
               .link({ todos: todoBId }),
           ]);

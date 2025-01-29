@@ -1,5 +1,5 @@
-import { ReactNode, useState } from "react";
-import { sendMagicCode, verifyMagicCode } from "../../lib/auth";
+import { ReactNode, useState } from 'react';
+import { sendMagicCode, verifyMagicCode } from '../../lib/auth';
 import {
   Button,
   Content,
@@ -7,12 +7,12 @@ import {
   LogoIcon,
   ScreenHeading,
   TextInput,
-} from "../ui";
-import config, { isDev } from "@/lib/config";
-import googleIconSvg from "../../public/img/google_g.svg";
-import Image from "next/image";
-import { InstantError } from "@/lib/types";
-import { url } from "@/lib/url";
+} from '../ui';
+import config, { isDev } from '@/lib/config';
+import googleIconSvg from '../../public/img/google_g.svg';
+import Image from 'next/image';
+import { InstantError } from '@/lib/types';
+import { url } from '@/lib/url';
 
 type State = {
   sentEmail: string | undefined;
@@ -118,7 +118,7 @@ function EmailStep(props: {
             type="link"
             href={url(config.apiURI, `/dash/oauth/start`, {
               ticket: props.ticket,
-              redirect_to_dev: isDev ? "true" : undefined,
+              redirect_to_dev: isDev ? 'true' : undefined,
             })}
           >
             <span className="flex items-center space-x-2">
@@ -140,10 +140,10 @@ export default function Auth(props: {
 }) {
   const [{ sentEmail, email, code, error, isLoading }, setState] =
     useState<State>({
-      sentEmail: "",
-      email: "",
-      code: "",
-      error: "",
+      sentEmail: '',
+      email: '',
+      code: '',
+      error: '',
       isLoading: false,
     });
 
@@ -195,7 +195,7 @@ export default function Auth(props: {
     setState((prev) => ({
       ...prev,
       sentEmail: undefined,
-      code: "",
+      code: '',
       error: undefined,
     }));
   };
@@ -243,29 +243,29 @@ export default function Auth(props: {
 function errorFromVerifyMagicCode(res: InstantError): string {
   const errorType = res.body?.type;
   switch (errorType) {
-    case "param-missing":
-      return "Please enter your code";
-    case "param-malformed":
+    case 'param-missing':
+      return 'Please enter your code';
+    case 'param-malformed':
       return "Is there a typo with your code? We couldn't recognize it.";
-    case "record-not-found":
+    case 'record-not-found':
       return "This code isn't valid. Please check your email for the latest code.";
-    case "record-expired":
-      return "This code has expired. Please request a new code.";
+    case 'record-expired':
+      return 'This code has expired. Please request a new code.';
     default:
-      return "Uh oh, something went wrong sending you a magic code, please ping us!";
+      return 'Uh oh, something went wrong sending you a magic code, please ping us!';
   }
 }
 
 function errorFromSendMagicCode(res: InstantError): string {
   const errorType = res.body?.type;
   const defaultMsg =
-    "Uh oh, something went wrong sending you a magic code, please ping us!";
+    'Uh oh, something went wrong sending you a magic code, please ping us!';
   switch (errorType) {
-    case "param-missing":
-      return "Please enter your email address.";
-    case "param-malformed":
+    case 'param-missing':
+      return 'Please enter your email address.';
+    case 'param-malformed':
       return "Is there a typo with your email? We couldn't recognize it.";
-    case "validation-failed":
+    case 'validation-failed':
       const hintMsg = res.body?.hint?.errors?.[0]?.message;
       return hintMsg || defaultMsg;
     default:

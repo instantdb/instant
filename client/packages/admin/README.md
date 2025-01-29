@@ -24,10 +24,10 @@
 Welcome to [Instant's](http://instantdb.com) admin SDK.
 
 ```javascript
-import { init, tx, id } from "@instantdb/admin";
+import { init, tx, id } from '@instantdb/admin';
 
 const adminDB = init({
-  appId: "my-instant-app-id",
+  appId: 'my-instant-app-id',
   adminToken: process.env.INSTANT_APP_ADMIN_TOKEN,
 });
 

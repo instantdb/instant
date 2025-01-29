@@ -1,17 +1,17 @@
-import Head from "next/head";
-import React, { useEffect, useState } from "react";
-import { useIsHydrated } from "@/lib/hooks/useIsHydrated";
-import { useAuthToken } from "@/lib/auth";
-import { jsonFetch } from "@/lib/fetch";
-import config from "@/lib/config";
-import { formatDistanceToNow } from "date-fns";
+import Head from 'next/head';
+import React, { useEffect, useState } from 'react';
+import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
+import { useAuthToken } from '@/lib/auth';
+import { jsonFetch } from '@/lib/fetch';
+import config from '@/lib/config';
+import { formatDistanceToNow } from 'date-fns';
 
 function fetchPaidData(token: string | undefined) {
   return jsonFetch(`${config.apiURI}/dash/paid`, {
-    method: "GET",
+    method: 'GET',
     headers: {
       authorization: `Bearer ${token}`,
-      "content-type": "application/json",
+      'content-type': 'application/json',
     },
   });
 }
@@ -40,7 +40,7 @@ function usePaidData(token: string | undefined) {
           isLoading: false,
           error: err.body
             ? err
-            : { body: { message: err.message || "Uh oh, we goofed up" } },
+            : { body: { message: err.message || 'Uh oh, we goofed up' } },
           data: undefined,
         });
       },
@@ -53,9 +53,9 @@ function usePaidData(token: string | undefined) {
 function formatMoney(cents: number) {
   const dollars = cents / 100;
   // Format as currency (you can customize the locale and currency)
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
   }).format(dollars);
 }
 
@@ -64,17 +64,17 @@ function formatStartTimestamp(ts: number) {
 }
 
 function humanBytes(bytes: number) {
-  const units = ["bytes", "kb", "mb", "gb", "tb", "pb", "eb", "zb", "yb"];
+  const units = ['bytes', 'kb', 'mb', 'gb', 'tb', 'pb', 'eb', 'zb', 'yb'];
   let index = 0;
 
-  if (bytes === 0) return "0 bytes";
+  if (bytes === 0) return '0 bytes';
 
   while (bytes >= 1024 && index < units.length - 1) {
     bytes /= 1024;
     index++;
   }
 
-  return bytes.toFixed(2) + " " + units[index];
+  return bytes.toFixed(2) + ' ' + units[index];
 }
 
 function PaidTable({ data }: { data: any }) {

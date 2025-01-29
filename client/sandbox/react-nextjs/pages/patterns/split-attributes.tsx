@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState } from 'react';
 
-import { init, tx, id } from "@instantdb/react";
-import config from "../../config";
+import { init, tx, id } from '@instantdb/react';
+import config from '../../config';
 
 const { transact, useQuery } = init(config);
 
@@ -24,8 +24,8 @@ function deleteItems(items: any) {
 
 function App() {
   const { isLoading, error, data } = useQuery({ items: { privateItems: {} } });
-  const [field, setField] = useState("");
-  const [privateField, setPrivateField] = useState("");
+  const [field, setField] = useState('');
+  const [privateField, setPrivateField] = useState('');
   if (isLoading) {
     return <div>Loading...</div>;
   }

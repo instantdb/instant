@@ -1,16 +1,16 @@
-import JsonParser from "json5";
-import { useEffect, useState } from "react";
-import * as Tooltip from "@radix-ui/react-tooltip";
-import { StarIcon, TrashIcon } from "@heroicons/react/outline";
-import { ArrowSmRightIcon } from "@heroicons/react/solid";
+import JsonParser from 'json5';
+import { useEffect, useState } from 'react';
+import * as Tooltip from '@radix-ui/react-tooltip';
+import { StarIcon, TrashIcon } from '@heroicons/react/outline';
+import { ArrowSmRightIcon } from '@heroicons/react/solid';
 
-import { Button, CodeEditor, cn } from "@/components/ui";
-import { useSchemaQuery } from "@/lib/hooks/explorer";
-import { errorToast, infoToast } from "@/lib/toast";
-import { InstantReactWebDatabase } from "@instantdb/react";
+import { Button, CodeEditor, cn } from '@/components/ui';
+import { useSchemaQuery } from '@/lib/hooks/explorer';
+import { errorToast, infoToast } from '@/lib/toast';
+import { InstantReactWebDatabase } from '@instantdb/react';
 
-const SAVED_QUERIES_CACHE_KEY = "__instant:explorer-saved-queries";
-const QUERY_HISTORY_CACHE_KEY = "__instant:explorer-query-history";
+const SAVED_QUERIES_CACHE_KEY = '__instant:explorer-saved-queries';
+const QUERY_HISTORY_CACHE_KEY = '__instant:explorer-query-history';
 
 type CachedQueryItem = {
   ts: number;
@@ -65,7 +65,7 @@ export function QueryInspector({
 }) {
   const cache = new QueryInspectorCache(appId);
   const [query, setQuery] = useState<Record<string, any>>({});
-  const [draft, setQueryDraft] = useState("{}");
+  const [draft, setQueryDraft] = useState('{}');
   const [history, setQueryHistory] = useState<CachedQueryItem[]>([]);
   const [saved, setSavedQueries] = useState<CachedQueryItem[]>([]);
   const { namespaces } = useSchemaQuery(db);
@@ -83,7 +83,7 @@ export function QueryInspector({
       setQueryDraft(stringified);
     } else {
       setQuery({});
-      setQueryDraft("{}");
+      setQueryDraft('{}');
     }
 
     setSavedQueries(saved);
@@ -110,7 +110,7 @@ export function QueryInspector({
 
   const handleClearQuery = () => {
     setQuery({});
-    setQueryDraft("{}");
+    setQueryDraft('{}');
   };
 
   const run = (val: string) => {
@@ -133,7 +133,7 @@ export function QueryInspector({
         return history;
       });
     } catch (e) {
-      errorToast("Unable to run query: Invalid JSON");
+      errorToast('Unable to run query: Invalid JSON');
     }
   };
 
@@ -157,7 +157,7 @@ export function QueryInspector({
         }
       });
     } catch (e) {
-      errorToast("Unable to save query: Invalid JSON");
+      errorToast('Unable to save query: Invalid JSON');
     }
   };
 
@@ -180,7 +180,7 @@ export function QueryInspector({
   };
 
   return (
-    <div className={cn("flex-1 flex", className)}>
+    <div className={cn('flex-1 flex', className)}>
       <div className="max-w-lg flex flex-col flex-1">
         <h2 className="px-3 text-sm font-semibold mt-4 mb-1">InstaQL query</h2>
 

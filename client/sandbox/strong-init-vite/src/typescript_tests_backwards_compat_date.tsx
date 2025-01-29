@@ -1,4 +1,4 @@
-import { init, BackwardsCompatibleSchema } from "@instantdb/react";
+import { init, BackwardsCompatibleSchema } from '@instantdb/react';
 
 type Message = {
   content: string;
@@ -14,7 +14,7 @@ type Schema = {
   creator: User;
 };
 
-type EmojiName = "fire" | "wave" | "confetti" | "heart";
+type EmojiName = 'fire' | 'wave' | 'confetti' | 'heart';
 
 type Rooms = {
   chat: {

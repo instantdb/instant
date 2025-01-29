@@ -1,22 +1,22 @@
-import Head from "next/head";
-import React, { useEffect, useState } from "react";
-import { useIsHydrated } from "@/lib/hooks/useIsHydrated";
-import { useAuthToken } from "@/lib/auth";
-import { jsonFetch } from "@/lib/fetch";
-import { getQueryParam } from "@/lib/url";
-import config from "@/lib/config";
+import Head from 'next/head';
+import React, { useEffect, useState } from 'react';
+import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
+import { useAuthToken } from '@/lib/auth';
+import { jsonFetch } from '@/lib/fetch';
+import { getQueryParam } from '@/lib/url';
+import config from '@/lib/config';
 
 function getDays() {
-  return getQueryParam("n") || 7;
+  return getQueryParam('n') || 7;
 }
 
 function fetchTopData(token) {
   const n = getDays();
   return jsonFetch(`${config.apiURI}/dash/top?n=${n}`, {
-    method: "GET",
+    method: 'GET',
     headers: {
       authorization: `Bearer ${token}`,
-      "content-type": "application/json",
+      'content-type': 'application/json',
     },
   });
 }
@@ -39,7 +39,7 @@ function useTopData(token) {
           isLoading: false,
           error: err.body
             ? err
-            : { body: { message: err.message || "Uh oh, we goofed up" } },
+            : { body: { message: err.message || 'Uh oh, we goofed up' } },
           data: undefined,
         });
       },
@@ -50,22 +50,22 @@ function useTopData(token) {
 }
 
 function formatNumber(num) {
-  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
 function TopUsersTable({ data }) {
   const [sortConfig, setSortConfig] = useState({
-    key: "total_transactions",
-    direction: "desc",
+    key: 'total_transactions',
+    direction: 'desc',
   });
   const topData = data.users;
 
   const sortedData = topData.sort((a, b) => {
     if (a[sortConfig.key] < b[sortConfig.key]) {
-      return sortConfig.direction === "asc" ? -1 : 1;
+      return sortConfig.direction === 'asc' ? -1 : 1;
     }
     if (a[sortConfig.key] > b[sortConfig.key]) {
-      return sortConfig.direction === "asc" ? 1 : -1;
+      return sortConfig.direction === 'asc' ? 1 : -1;
     }
     return 0;
   });
@@ -77,9 +77,9 @@ function TopUsersTable({ data }) {
   );
 
   const handleSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
     }
     setSortConfig({ key, direction });
   };
@@ -91,27 +91,27 @@ function TopUsersTable({ data }) {
           <tr>
             <th
               className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer"
-              onClick={() => handleSort("user_email")}
+              onClick={() => handleSort('user_email')}
             >
-              User Email ({totalApps}){" "}
-              {sortConfig.key === "user_email" &&
-                (sortConfig.direction === "asc" ? "↑" : "↓")}
+              User Email ({totalApps}){' '}
+              {sortConfig.key === 'user_email' &&
+                (sortConfig.direction === 'asc' ? '↑' : '↓')}
             </th>
             <th
               className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer"
-              onClick={() => handleSort("app_title")}
+              onClick={() => handleSort('app_title')}
             >
-              App Title{" "}
-              {sortConfig.key === "app_title" &&
-                (sortConfig.direction === "asc" ? "↑" : "↓")}
+              App Title{' '}
+              {sortConfig.key === 'app_title' &&
+                (sortConfig.direction === 'asc' ? '↑' : '↓')}
             </th>
             <th
               className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer"
-              onClick={() => handleSort("total_transactions")}
+              onClick={() => handleSort('total_transactions')}
             >
-              Transactions ({formatNumber(totalTransactions)}){" "}
-              {sortConfig.key === "total_transactions" &&
-                (sortConfig.direction === "asc" ? "↑" : "↓")}
+              Transactions ({formatNumber(totalTransactions)}){' '}
+              {sortConfig.key === 'total_transactions' &&
+                (sortConfig.direction === 'asc' ? '↑' : '↓')}
             </th>
           </tr>
         </thead>

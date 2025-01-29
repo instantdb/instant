@@ -1,4 +1,4 @@
-import type { RoomSchemaShape } from "./presence";
+import type { RoomSchemaShape } from './presence';
 
 export class DataAttrDef<ValueType, IsRequired extends boolean> {
   constructor(
@@ -66,9 +66,9 @@ export interface IContainEntitiesAndLinks<
 // ==========
 // base types
 
-export type ValueTypes = "string" | "number" | "boolean" | "date" | "json";
+export type ValueTypes = 'string' | 'number' | 'boolean' | 'date' | 'json';
 
-export type CardinalityKind = "one" | "many";
+export type CardinalityKind = 'one' | 'many';
 
 export type AttrsDefs = Record<string, DataAttrDef<any, any>>;
 
@@ -115,7 +115,7 @@ export type LinkDef<
     on: FwdEntity;
     label: FwdAttr;
     has: FwdCardinality;
-    onDelete?: "cascade";
+    onDelete?: 'cascade';
   };
   reverse: {
     on: RevEntity;
@@ -132,7 +132,7 @@ export type EntitiesWithLinks<
   Links extends LinksDef<Entities>,
 > = {
   [EntityName in keyof Entities]: EntityDef<
-    Entities[EntityName]["attrs"],
+    Entities[EntityName]['attrs'],
     EntityForwardLinksMap<EntityName, Entities, Links> &
       EntityReverseLinksMap<EntityName, Entities, Links>,
     Entities[EntityName] extends EntityDef<any, any, infer O>
@@ -147,7 +147,7 @@ type EntityForwardLinksMap<
   EntityName extends keyof Entities,
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
-  LinkIndexFwd = LinksIndexedByEntity<Entities, Links, "reverse">,
+  LinkIndexFwd = LinksIndexedByEntity<Entities, Links, 'reverse'>,
 > = EntityName extends keyof LinkIndexFwd
   ? {
       [LinkName in keyof LinkIndexFwd[EntityName]]: LinkIndexFwd[EntityName][LinkName] extends LinkDef<
@@ -171,7 +171,7 @@ type EntityReverseLinksMap<
   EntityName extends keyof Entities,
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
-  RevLinkIndex = LinksIndexedByEntity<Entities, Links, "forward">,
+  RevLinkIndex = LinksIndexedByEntity<Entities, Links, 'forward'>,
 > = EntityName extends keyof RevLinkIndex
   ? {
       [LinkName in keyof RevLinkIndex[EntityName]]: RevLinkIndex[EntityName][LinkName] extends LinkDef<
@@ -194,11 +194,11 @@ type EntityReverseLinksMap<
 type LinksIndexedByEntity<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
-  Direction extends "forward" | "reverse",
+  Direction extends 'forward' | 'reverse',
 > = {
   [FwdEntity in keyof Entities]: {
-    [LinkName in keyof Links as Links[LinkName][Direction]["on"] extends FwdEntity
-      ? Links[LinkName][Direction]["label"]
+    [LinkName in keyof Links as Links[LinkName][Direction]['on'] extends FwdEntity
+      ? Links[LinkName][Direction]['label']
       : never]: Links[LinkName] extends LinkDef<
       Entities,
       infer FwdEntity,
@@ -254,7 +254,7 @@ type MappedAttrs<Attrs extends AttrsDefs> = {
 
 export type ResolveEntityAttrs<
   EDef extends EntityDef<any, any, any>,
-  ResolvedAttrs = MappedAttrs<EDef["attrs"]>,
+  ResolvedAttrs = MappedAttrs<EDef['attrs']>,
 > =
   EDef extends EntityDef<any, any, infer AsType>
     ? AsType extends void
@@ -269,10 +269,10 @@ export type ResolveAttrs<
 
 export type RoomsFromDef<RDef extends RoomsDef> = {
   [RoomName in keyof RDef]: {
-    presence: ResolveEntityAttrs<RDef[RoomName]["presence"]>;
+    presence: ResolveEntityAttrs<RDef[RoomName]['presence']>;
     topics: {
-      [TopicName in keyof RDef[RoomName]["topics"]]: ResolveEntityAttrs<
-        RDef[RoomName]["topics"][TopicName]
+      [TopicName in keyof RDef[RoomName]['topics']]: ResolveEntityAttrs<
+        RDef[RoomName]['topics'][TopicName]
       >;
     };
   };
@@ -387,10 +387,10 @@ type EntityDefFromRoomSlice<Shape extends { [k: string]: any }> = EntityDef<
 
 type RoomDefFromShape<RoomSchema extends RoomSchemaShape> = {
   [RoomName in keyof RoomSchema]: {
-    presence: EntityDefFromRoomSlice<RoomSchema[RoomName]["presence"]>;
+    presence: EntityDefFromRoomSlice<RoomSchema[RoomName]['presence']>;
     topics: {
-      [TopicName in keyof RoomSchema[RoomName]["topics"]]: EntityDefFromRoomSlice<
-        RoomSchema[RoomName]["topics"][TopicName]
+      [TopicName in keyof RoomSchema[RoomName]['topics']]: EntityDefFromRoomSlice<
+        RoomSchema[RoomName]['topics'][TopicName]
       >;
     };
   };
@@ -405,7 +405,7 @@ type EntityDefFromShape<Shape, K extends keyof Shape> = EntityDef<
   },
   {
     [LinkName in keyof Shape]: LinkAttrDef<
-      "many",
+      'many',
       LinkName extends string ? LinkName : string
     >;
   },
@@ -440,7 +440,7 @@ export type UnknownEntity = EntityDef<
     id: DataAttrDef<string, true>;
     [AttrName: string]: DataAttrDef<any, any>;
   },
-  { [LinkName: string]: LinkAttrDef<"many", string> },
+  { [LinkName: string]: LinkAttrDef<'many', string> },
   void
 >;
 
@@ -453,10 +453,10 @@ export interface UnknownLinks<Entities extends EntitiesDef> {
     Entities,
     string,
     string,
-    "many",
+    'many',
     string,
     string,
-    "many"
+    'many'
   >;
 }
 
@@ -477,9 +477,9 @@ export type InstantUnknownSchema = InstantSchemaDef<
 
 export type UpdateParams<
   Schema extends IContainEntitiesAndLinks<any, any>,
-  EntityName extends keyof Schema["entities"],
+  EntityName extends keyof Schema['entities'],
 > = {
-  [AttrName in keyof Schema["entities"][EntityName]["attrs"]]?: Schema["entities"][EntityName]["attrs"][AttrName] extends DataAttrDef<
+  [AttrName in keyof Schema['entities'][EntityName]['attrs']]?: Schema['entities'][EntityName]['attrs'][AttrName] extends DataAttrDef<
     infer ValueType,
     infer IsRequired
   >
@@ -491,13 +491,13 @@ export type UpdateParams<
 
 export type LinkParams<
   Schema extends IContainEntitiesAndLinks<any, any>,
-  EntityName extends keyof Schema["entities"],
+  EntityName extends keyof Schema['entities'],
 > = {
-  [LinkName in keyof Schema["entities"][EntityName]["links"]]?: Schema["entities"][EntityName]["links"][LinkName] extends LinkAttrDef<
+  [LinkName in keyof Schema['entities'][EntityName]['links']]?: Schema['entities'][EntityName]['links'][LinkName] extends LinkAttrDef<
     infer Cardinality,
     any
   >
-    ? Cardinality extends "one"
+    ? Cardinality extends 'one'
       ? string
       : string | string[]
     : never;

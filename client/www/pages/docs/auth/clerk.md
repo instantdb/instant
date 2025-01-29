@@ -39,7 +39,7 @@ When you call `db.auth.signInWithIdToken`, Instant will verify that the JWT was 
 Here is a full example using clerk's next.js library:
 
 ```javascript {% showCopy=true %}
-"use client";
+'use client';
 
 import {
   useAuth,
@@ -47,17 +47,17 @@ import {
   SignInButton,
   SignedIn,
   SignedOut,
-} from "@clerk/nextjs";
-import { init } from "@instantdb/react";
-import { useEffect } from "react";
+} from '@clerk/nextjs';
+import { init } from '@instantdb/react';
+import { useEffect } from 'react';
 
 // Instant app
-const APP_ID = "__APP_ID__";
+const APP_ID = '__APP_ID__';
 
 const db = init({ appId: APP_ID });
 
 // Use the clerk client name you set in the Instant dashboard auth tab
-const CLERK_CLIENT_NAME = "REPLACE_ME";
+const CLERK_CLIENT_NAME = 'REPLACE_ME';
 
 function ClerkSignedInComponent() {
   const { getToken, signOut } = useAuth();
@@ -95,7 +95,7 @@ function ClerkSignedInComponent() {
   if (user) {
     return (
       <div>
-        <p>Signed in with Instant through Clerk!</p>{" "}
+        <p>Signed in with Instant through Clerk!</p>{' '}
         <button
           onClick={() => {
             // First sign out of Instant to clear the Instant session.

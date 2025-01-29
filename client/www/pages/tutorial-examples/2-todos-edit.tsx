@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import config from "@/lib/config"; // hide-line
-import { init, id } from "@instantdb/react";
+import config from '@/lib/config'; // hide-line
+import { init, id } from '@instantdb/react';
 
 // Connect to the database
 // ---------
@@ -30,7 +30,7 @@ function updateMessage(messageId: string, newText: string) {
 }
 
 function toggleEdit(messageId: string) {
-  const newText = prompt("Edit your message:");
+  const newText = prompt('Edit your message:');
   if (newText) {
     updateMessage(messageId, newText);
   }
@@ -59,7 +59,7 @@ function App() {
         onSubmit={(e: any) => {
           e.preventDefault();
           addMessage(e.target[0].value);
-          e.target[0].value = "";
+          e.target[0].value = '';
         }}
       >
         <input placeholder="What needs to be done?" type="text" />

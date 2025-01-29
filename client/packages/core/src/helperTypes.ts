@@ -3,9 +3,9 @@ import type {
   InstaQLResult,
   InstaQLParams,
   Remove$,
-} from "./queryTypes";
-import type { IContainEntitiesAndLinks, InstantSchemaDef } from "./schemaTypes";
-import type { IInstantDatabase } from "./coreTypes";
+} from './queryTypes';
+import type { IContainEntitiesAndLinks, InstantSchemaDef } from './schemaTypes';
+import type { IInstantDatabase } from './coreTypes';
 
 /**
  * @deprecated
@@ -81,7 +81,7 @@ export type InstantEntity<
     | (DB extends IInstantDatabase<infer Schema>
         ? Schema extends IContainEntitiesAndLinks<infer Entities, any>
           ? {
-              [QueryPropName in keyof Entities[EntityName]["links"]]?: any;
+              [QueryPropName in keyof Entities[EntityName]['links']]?: any;
             }
           : never
         : never)

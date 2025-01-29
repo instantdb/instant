@@ -1,4 +1,4 @@
-import { Component, PropsWithChildren } from "react";
+import { Component, PropsWithChildren } from 'react';
 
 export class ErrorBoundary extends Component<
   PropsWithChildren<{

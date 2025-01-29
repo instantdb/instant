@@ -1,11 +1,11 @@
-import { Callout } from "@/components/docs/Callout";
-import { Ansi } from "@/components/docs/Ansi";
+import { Callout } from '@/components/docs/Callout';
+import { Ansi } from '@/components/docs/Ansi';
 import {
   NavDefault,
   NavGroup,
   NavButton,
   ConditionalContent,
-} from "@/components/docs/NavButton";
+} from '@/components/docs/NavButton';
 
 const tags = {
   callout: {
@@ -13,9 +13,9 @@ const tags = {
       title: { type: String },
       type: {
         type: String,
-        default: "note",
-        matches: ["info", "note", "warning"],
-        errorLevel: "critical",
+        default: 'note',
+        matches: ['info', 'note', 'warning'],
+        errorLevel: 'critical',
       },
     },
     render: Callout,
@@ -42,7 +42,7 @@ const tags = {
       alt: { type: String },
       caption: { type: String },
     },
-    render: ({ src, alt = "", caption }) => (
+    render: ({ src, alt = '', caption }) => (
       <figure>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt={alt} />
@@ -50,16 +50,16 @@ const tags = {
       </figure>
     ),
   },
-  "nav-default": {
+  'nav-default': {
     render: NavDefault,
     attributes: {
       value: { type: String },
     },
   },
-  "nav-group": {
+  'nav-group': {
     render: NavGroup,
   },
-  "nav-button": {
+  'nav-button': {
     selfClosing: true,
     render: NavButton,
     attributes: {
@@ -77,7 +77,7 @@ const tags = {
       value: { type: String, required: true },
     },
   },
-  "blank-link": {
+  'blank-link': {
     selfClosing: true,
     attributes: {
       href: { type: String },

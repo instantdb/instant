@@ -1,17 +1,17 @@
-import Head from "next/head";
-import React, { useEffect, useState } from "react";
+import Head from 'next/head';
+import React, { useEffect, useState } from 'react';
 
-import { useIsHydrated } from "@/lib/hooks/useIsHydrated";
-import { useAuthToken } from "@/lib/auth";
-import { jsonFetch } from "@/lib/fetch";
-import config from "@/lib/config";
+import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
+import { useAuthToken } from '@/lib/auth';
+import { jsonFetch } from '@/lib/fetch';
+import config from '@/lib/config';
 
 function fetchStorageMetrics(token: string | undefined) {
   return jsonFetch(`${config.apiURI}/dash/storage`, {
-    method: "GET",
+    method: 'GET',
     headers: {
       authorization: `Bearer ${token}`,
-      "content-type": "application/json",
+      'content-type': 'application/json',
     },
   });
 }
@@ -42,17 +42,17 @@ function useStorageMetrics(token: string | undefined) {
 }
 
 function formatBytes(bytes: number) {
-  const units = ["bytes", "kb", "mb", "gb", "tb", "pb", "eb", "zb", "yb"];
+  const units = ['bytes', 'kb', 'mb', 'gb', 'tb', 'pb', 'eb', 'zb', 'yb'];
   let index = 0;
 
-  if (bytes === 0) return "0 bytes";
+  if (bytes === 0) return '0 bytes';
 
   while (bytes >= 1024 && index < units.length - 1) {
     bytes /= 1024;
     index++;
   }
 
-  return bytes.toFixed(2) + " " + units[index];
+  return bytes.toFixed(2) + ' ' + units[index];
 }
 
 function StorageMetricsTable({ data }: { data: any }) {
@@ -79,10 +79,10 @@ function StorageMetricsTable({ data }: { data: any }) {
           {data.map((row: any, index: number) => (
             <tr key={index}>
               <td className="py-2 px-4 border-b border-gray-200">
-                {row.creator_email || "-"}
+                {row.creator_email || '-'}
               </td>
               <td className="py-2 px-4 border-b border-gray-200">
-                {row.title || "-"}
+                {row.title || '-'}
               </td>
               <td className="py-2 px-4 border-b border-gray-200 text-right">
                 {row.total_file_count || 0}

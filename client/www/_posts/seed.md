@@ -1,6 +1,6 @@
 ---
-title: "Instant raises $3.4M seed to build a modern Firebase"
-date: "2024-10-01"
+title: 'Instant raises $3.4M seed to build a modern Firebase'
+date: '2024-10-01'
 authors: nezaj
 ---
 

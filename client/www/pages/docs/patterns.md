@@ -42,7 +42,7 @@ First the [schema](/docs/modeling-data):
 ```typescript
 // instant.schema.ts
 // Here we define users, todos, and a link between them.
-import { i } from "@instantdb/core";
+import { i } from '@instantdb/core';
 
 const _schema = i.schema({
   entities: {
@@ -56,14 +56,14 @@ const _schema = i.schema({
   links: {
     userTodos: {
       forward: {
-        on: "todos",
-        has: "one",
-        label: "owner",
+        on: 'todos',
+        has: 'one',
+        label: 'owner',
       },
       reverse: {
-        on: "$users",
-        has: "many",
-        label: "ownedTodos",
+        on: '$users',
+        has: 'many',
+        label: 'ownedTodos',
       },
     },
   },
@@ -81,7 +81,7 @@ export default schema;
 Then the [permissions](/docs/permissions):
 
 ```typescript
-import type { InstantRules } from "@instantdb/core";
+import type { InstantRules } from '@instantdb/core';
 // instant.perms.ts
 // And now we reference the `owner` link for todos to check the number
 // of todos a user has created.

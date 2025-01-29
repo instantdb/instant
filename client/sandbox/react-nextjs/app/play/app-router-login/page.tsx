@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { init, User } from "@instantdb/react";
-import Link from "next/link";
-import config from "../../../config";
+import { init, User } from '@instantdb/react';
+import Link from 'next/link';
+import config from '../../../config';
 
-const APP_ID = "51a157e3-3ec6-4fbf-aca7-4ab9ac6ee350";
+const APP_ID = '51a157e3-3ec6-4fbf-aca7-4ab9ac6ee350';
 
 function App() {
   const { auth, useAuth } = init({
@@ -31,7 +31,7 @@ function App() {
 
 function Login({ auth }: { auth: any }) {
   const loginURL = auth.createAuthorizationURL({
-    clientName: "google-web",
+    clientName: 'google-web',
     redirectURL: window.location.href,
   });
 
@@ -45,7 +45,7 @@ function Login({ auth }: { auth: any }) {
 function Main({ user, auth }: { user: User; auth: any }) {
   return (
     <div className="p-4">
-      <Link href="/">{"<-"} Home</Link>
+      <Link href="/">{'<-'} Home</Link>
       <h1>Hi {user.email}!</h1>
       <h2>id: {user.id}</h2>
       <button

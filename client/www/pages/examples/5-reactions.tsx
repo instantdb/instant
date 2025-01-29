@@ -1,20 +1,20 @@
-import config from "@/lib/config"; // hide-line
-import { init } from "@instantdb/react";
-import { RefObject, createRef, useRef } from "react";
+import config from '@/lib/config'; // hide-line
+import { init } from '@instantdb/react';
+import { RefObject, createRef, useRef } from 'react';
 
 const db = init({
   ...config, // hide-line
   appId: __getAppId(),
 });
 
-const room = db.room("topics-example", "123");
+const room = db.room('topics-example', '123');
 
 export default function InstantTopics() {
-  const publishEmoji = db.rooms.usePublishTopic(room, "emoji");
+  const publishEmoji = db.rooms.usePublishTopic(room, 'emoji');
 
   db.rooms.useTopicEffect(
     room,
-    "emoji",
+    'emoji',
     ({ name, directionAngle, rotationAngle }) => {
       const emojiName = name as EmojiName;
       if (!emoji[emojiName]) return;
@@ -67,10 +67,10 @@ export default function InstantTopics() {
 type EmojiName = keyof typeof emoji;
 
 const emoji = {
-  fire: "🔥",
-  wave: "👋",
-  confetti: "🎉",
-  heart: "❤️",
+  fire: '🔥',
+  wave: '👋',
+  confetti: '🎉',
+  heart: '❤️',
 } as const;
 
 const emojiNames = Object.keys(emoji) as EmojiName[];
@@ -80,10 +80,10 @@ const refsInit = Object.fromEntries(
 );
 
 const containerClassNames =
-  "flex h-screen w-screen items-center justify-center overflow-hidden bg-gray-200 select-none";
+  'flex h-screen w-screen items-center justify-center overflow-hidden bg-gray-200 select-none';
 
 const emojiButtonClassNames =
-  "rounded-lg bg-white p-3 text-3xl shadow-lg transition duration-200 ease-in-out hover:-translate-y-1 hover:shadow-xl";
+  'rounded-lg bg-white p-3 text-3xl shadow-lg transition duration-200 ease-in-out hover:-translate-y-1 hover:shadow-xl';
 
 function animateEmoji(
   config: { emoji: string; directionAngle: number; rotationAngle: number },
@@ -91,9 +91,9 @@ function animateEmoji(
 ) {
   if (!target) return;
 
-  const rootEl = document.createElement("div");
-  const directionEl = document.createElement("div");
-  const spinEl = document.createElement("div");
+  const rootEl = document.createElement('div');
+  const directionEl = document.createElement('div');
+  const spinEl = document.createElement('div');
 
   spinEl.innerText = config.emoji;
   directionEl.appendChild(spinEl);
@@ -102,14 +102,14 @@ function animateEmoji(
 
   style(rootEl, {
     transform: `rotate(${config.directionAngle * 360}deg)`,
-    position: "absolute",
-    top: "0",
-    left: "0",
-    right: "0",
-    bottom: "0",
-    margin: "auto",
-    zIndex: "9999",
-    pointerEvents: "none",
+    position: 'absolute',
+    top: '0',
+    left: '0',
+    right: '0',
+    bottom: '0',
+    margin: 'auto',
+    zIndex: '9999',
+    pointerEvents: 'none',
   });
 
   style(spinEl, {
@@ -120,8 +120,8 @@ function animateEmoji(
   setTimeout(() => {
     style(directionEl, {
       transform: `translateY(40vh) scale(2)`,
-      transition: "all 400ms",
-      opacity: "0",
+      transition: 'all 400ms',
+      opacity: '0',
     });
   }, 20);
 

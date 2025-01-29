@@ -30,7 +30,7 @@ Open `instant.schema.ts`, and paste the following:
 ```typescript {% showCopy=true %}
 // instant.schema.ts
 
-import { i } from "@instantdb/core";
+import { i } from '@instantdb/core';
 
 const _schema = i.schema({
   entities: {
@@ -56,24 +56,24 @@ const _schema = i.schema({
   },
   links: {
     postAuthor: {
-      forward: { on: "posts", has: "one", label: "author" },
-      reverse: { on: "profiles", has: "many", label: "authoredPosts" },
+      forward: { on: 'posts', has: 'one', label: 'author' },
+      reverse: { on: 'profiles', has: 'many', label: 'authoredPosts' },
     },
     commentPost: {
-      forward: { on: "comments", has: "one", label: "post" },
-      reverse: { on: "posts", has: "many", label: "comments" },
+      forward: { on: 'comments', has: 'one', label: 'post' },
+      reverse: { on: 'posts', has: 'many', label: 'comments' },
     },
     commentAuthor: {
-      forward: { on: "comments", has: "one", label: "author" },
-      reverse: { on: "profiles", has: "many", label: "authoredComments" },
+      forward: { on: 'comments', has: 'one', label: 'author' },
+      reverse: { on: 'profiles', has: 'many', label: 'authoredComments' },
     },
     postsTags: {
-      forward: { on: "posts", has: "many", label: "tags" },
-      reverse: { on: "tags", has: "many", label: "posts" },
+      forward: { on: 'posts', has: 'many', label: 'tags' },
+      reverse: { on: 'tags', has: 'many', label: 'posts' },
     },
     profileUser: {
-      forward: { on: "profiles", has: "one", label: "$user" },
-      reverse: { on: "$users", has: "one", label: "profile" },
+      forward: { on: 'profiles', has: 'one', label: '$user' },
+      reverse: { on: '$users', has: 'one', label: 'profile' },
     },
   },
 });
@@ -182,7 +182,7 @@ const query = {
     $: {
       where: {
         // Since `slug` is unique, this query is 🚀 fast
-        slug: "completing_sicp",
+        slug: 'completing_sicp',
       },
     },
   },
@@ -196,7 +196,7 @@ Speaking of fast queries, let's take a look at one:
 What if we wanted to query for a post that was published at a particular date? Here's a query to get posts that were published during SpaceX's chopstick launch:
 
 ```typescript
-const rocketChopsticks = "2024-10-13T00:00:00Z";
+const rocketChopsticks = '2024-10-13T00:00:00Z';
 const query = { posts: { $: { where: { createdAt: rocketChopsticks } } } };
 ```
 
@@ -327,9 +327,9 @@ The following changes will be applied to your production schema:
 You can also use your schema inside `init`:
 
 ```typescript
-import { init } from "@instantdb/react";
+import { init } from '@instantdb/react';
 
-import schema from "../instant.schema.ts";
+import schema from '../instant.schema.ts';
 
 const db = init({
   appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
@@ -369,12 +369,12 @@ To prevent changes to your schema on the fly, simply add these permissions to yo
 
 ```typescript
 // instant.perms.ts
-import type { InstantRules } from "@instantdb/react";
+import type { InstantRules } from '@instantdb/react';
 
 const rules = {
   attrs: {
     allow: {
-      $default: "false",
+      $default: 'false',
     },
   },
 } satisfies InstantRules;

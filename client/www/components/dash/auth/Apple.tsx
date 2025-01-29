@@ -1,6 +1,6 @@
-import { FormEventHandler, useContext, useState } from "react";
-import { errorToast } from "@/lib/toast";
-import { TokenContext } from "@/lib/contexts";
+import { FormEventHandler, useContext, useState } from 'react';
+import { errorToast } from '@/lib/toast';
+import { TokenContext } from '@/lib/contexts';
 import {
   Button,
   Content,
@@ -11,24 +11,24 @@ import {
   TextInput,
   TextArea,
   useDialog,
-} from "@/components/ui";
-import * as Collapsible from "@radix-ui/react-collapsible";
+} from '@/components/ui';
+import * as Collapsible from '@radix-ui/react-collapsible';
 import {
   PlusIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-} from "@heroicons/react/solid";
-import logo from "../../../public/img/apple_logo_black.svg";
-import Image from "next/image";
-import { messageFromInstantError } from "@/lib/auth";
-import { addProvider, addClient, deleteClient, findName } from "./shared";
+} from '@heroicons/react/solid';
+import logo from '../../../public/img/apple_logo_black.svg';
+import Image from 'next/image';
+import { messageFromInstantError } from '@/lib/auth';
+import { addProvider, addClient, deleteClient, findName } from './shared';
 import {
   AppsAuthResponse,
   InstantApp,
   InstantError,
   OAuthClient,
   OAuthServiceProvider,
-} from "@/lib/types";
+} from '@/lib/types';
 
 export function AppleClient({
   app,
@@ -59,7 +59,7 @@ export function AppleClient({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || "Error deleting client.";
+        messageFromInstantError(e as InstantError) || 'Error deleting client.';
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);
@@ -76,10 +76,10 @@ export function AppleClient({
         <Collapsible.Trigger className="flex p-4 hover:bg-gray-100 bg-gray-50">
           <div className="flex flex-1 justify-between items-center">
             <div className="flex gap-2">
-              {" "}
+              {' '}
               <Image alt="apple logo" src={logo} />
               <SectionHeading>
-                {client.client_name}{" "}
+                {client.client_name}{' '}
                 <span className="text-gray-400">(Apple)</span>
               </SectionHeading>
             </div>
@@ -94,7 +94,7 @@ export function AppleClient({
           <div className="p-4 flex flex-col gap-4 border-t">
             <Copyable label="Client Name" value={client.client_name} />
 
-            <Copyable label="Services ID" value={client.client_id || ""} />
+            <Copyable label="Services ID" value={client.client_id || ''} />
 
             {client.meta?.teamId ? (
               <Copyable label="Team ID" value={client.meta?.teamId} />
@@ -164,28 +164,28 @@ export function AddClientExpanded({
   const token = useContext(TokenContext);
 
   const [clientName, setClientName] = useState<string>(() =>
-    findName("apple", usedClientNames),
+    findName('apple', usedClientNames),
   );
-  const [servicesId, setServicesId] = useState<string>("");
-  const [teamId, setTeamId] = useState<string>("");
-  const [keyId, setKeyId] = useState<string>("");
-  const [privateKey, setPrivateKey] = useState<string>("");
+  const [servicesId, setServicesId] = useState<string>('');
+  const [teamId, setTeamId] = useState<string>('');
+  const [keyId, setKeyId] = useState<string>('');
+  const [privateKey, setPrivateKey] = useState<string>('');
   const [redirectOpen, setRedirectOpen] = useState(false);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const validationError = () => {
     if (!clientName) {
-      return "Missing client name";
+      return 'Missing client name';
     }
     if (usedClientNames.has(clientName)) {
       return `Client name '${clientName}' is already in use.`;
     }
     if (!servicesId) {
-      return "Missing Apple Services ID";
+      return 'Missing Apple Services ID';
     }
     if ((teamId || keyId || privateKey) && !(teamId && keyId && privateKey)) {
-      return "All of Team ID, Key ID, and Private Key are required for Web redirect flow.";
+      return 'All of Team ID, Key ID, and Private Key are required for Web redirect flow.';
     }
   };
 
@@ -204,7 +204,7 @@ export function AddClientExpanded({
         const resp = await addProvider({
           token,
           appId: app.id,
-          providerName: "apple",
+          providerName: 'apple',
         });
         provider = resp.provider;
         onAddProvider(resp.provider);
@@ -217,10 +217,10 @@ export function AddClientExpanded({
         clientName,
         clientId: servicesId,
         clientSecret: privateKey || undefined,
-        authorizationEndpoint: "https://appleid.apple.com/auth/authorize",
-        tokenEndpoint: "https://appleid.apple.com/auth/token",
+        authorizationEndpoint: 'https://appleid.apple.com/auth/authorize',
+        tokenEndpoint: 'https://appleid.apple.com/auth/token',
         discoveryEndpoint:
-          "https://account.apple.com/.well-known/openid-configuration",
+          'https://account.apple.com/.well-known/openid-configuration',
         meta: {
           teamId,
           keyId,
@@ -230,7 +230,7 @@ export function AddClientExpanded({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || "Error creating client.";
+        messageFromInstantError(e as InstantError) || 'Error creating client.';
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);
@@ -258,7 +258,7 @@ export function AddClientExpanded({
         onChange={setServicesId}
         label={
           <>
-            Services ID from{" "}
+            Services ID from{' '}
             <a
               className="underline"
               target="_blank"
@@ -294,7 +294,7 @@ export function AddClientExpanded({
               onChange={setTeamId}
               label={
                 <>
-                  Team ID from{" "}
+                  Team ID from{' '}
                   <a
                     className="underline"
                     target="_blank"
@@ -313,7 +313,7 @@ export function AddClientExpanded({
               onChange={setKeyId}
               label={
                 <>
-                  Key ID from{" "}
+                  Key ID from{' '}
                   <a
                     className="underline"
                     target="_blank"
@@ -333,7 +333,7 @@ export function AddClientExpanded({
               label="Private Key"
               rows={6}
               placeholder={
-                "-----BEGIN PRIVATE KEY-----\n-----END PRIVATE KEY-----"
+                '-----BEGIN PRIVATE KEY-----\n-----END PRIVATE KEY-----'
               }
             />
           </div>
@@ -369,7 +369,7 @@ function AddClient({
   if (!expanded) {
     return (
       <Button onClick={() => setExpanded(true)} variant="secondary">
-        <PlusIcon height={14} /> Add {clients.length > 0 ? "another " : ""}Apple
+        <PlusIcon height={14} /> Add {clients.length > 0 ? 'another ' : ''}Apple
         Client
       </Button>
     );
@@ -408,7 +408,7 @@ export function AppleClients({
   lastCreatedClientId: string | null;
 }) {
   const provider = data.oauth_service_providers?.find(
-    (p) => p.provider_name === "apple",
+    (p) => p.provider_name === 'apple',
   );
   const clients =
     data.oauth_clients?.filter((c) => c.provider_id === provider?.id) || [];
