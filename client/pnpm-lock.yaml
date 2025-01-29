@@ -527,8 +527,8 @@ importers:
         specifier: workspace:*
         version: link:../packages/react
       '@markdoc/next.js':
-        specifier: ^0.1.5
-        version: 0.1.10(@markdoc/markdoc@0.1.13)(next@15.0.3)(react@18.3.1)
+        specifier: ^0.3.7
+        version: 0.3.7(@markdoc/markdoc@0.1.13)(next@15.0.3)(react@18.3.1)
       '@monaco-editor/react':
         specifier: ^4.6.0
         version: 4.6.0(monaco-editor@0.52.0)(react-dom@18.3.1)(react@18.3.1)
@@ -5543,10 +5543,10 @@ packages:
       '@types/react': 18.3.1
     dev: false
 
-  /@markdoc/next.js@0.1.10(@markdoc/markdoc@0.1.13)(next@15.0.3)(react@18.3.1):
-    resolution: {integrity: sha512-ncxQcxDtimRT1h5Xw4VXqLY9OSrOav6hHEkfV6Vq4pKUM3QOsb/RnNo8E1rNIj9hRDH/SvQEQzggTCsQYmAr0g==}
+  /@markdoc/next.js@0.3.7(@markdoc/markdoc@0.1.13)(next@15.0.3)(react@18.3.1):
+    resolution: {integrity: sha512-lp/J0Lfx8YPWes82HOMSDvXBfIkJxPKfEwgzGTwfFBJUGBNM1TBvchaaAzDP2X+HRORP4jNcGbJrZoXSdon0BQ==}
     peerDependencies:
-      '@markdoc/markdoc': ^0.1.4
+      '@markdoc/markdoc': '*'
       next: '*'
       react: '*'
     dependencies:
@@ -6371,7 +6371,7 @@ packages:
       react-native: ^0.0.0-0 || >=0.60 <1.0
     dependencies:
       merge-options: 3.0.4
-      react-native: 0.76.1(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react@18.3.1)
+      react-native: 0.76.1(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(@types/react@18.3.1)(react@18.3.1)
     dev: false
 
   /@react-native-community/cli-clean@15.1.1:
@@ -6544,7 +6544,7 @@ packages:
     peerDependencies:
       react-native: '>=0.59'
     dependencies:
-      react-native: 0.76.1(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react@18.3.1)
+      react-native: 0.76.1(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(@types/react@18.3.1)(react@18.3.1)
     dev: false
 
   /@react-native/assets-registry@0.76.1:
@@ -14960,7 +14960,7 @@ packages:
       react-native: '>=0.56'
     dependencies:
       fast-base64-decode: 1.0.0
-      react-native: 0.76.1(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(react@18.3.1)
+      react-native: 0.76.1(@babel/core@7.26.0)(@babel/preset-env@7.25.4)(@types/react@18.3.1)(react@18.3.1)
     dev: false
 
   /react-native-helmet-async@2.0.4(react@18.3.1):
