@@ -376,7 +376,8 @@
         data (storage-coordinator/upload-file! {:app-id app-id
                                                 :path path
                                                 :content-type content-type
-                                                :skip-perms-check? true} file)]
+                                                :skip-perms-check? true}
+                                                file)]
     (response/ok {:data data})))
 
 (defn file-delete [req]
