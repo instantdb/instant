@@ -410,9 +410,11 @@ If you’re curious, here’s how the actual failover [function](https://github.
 
 ### Running in Prod
 
-Now that we had a good practice run, we got ourselves ready, had our sparkling waters in hand, and began to ran our steps in production. There was certainly bated breath, but we ran the failover function, 20 seconds later we had a new Postgres instance serving requests! [^13]
+Now that we had a good practice run, we got ourselves ready, had our sparkling waters in hand, and began to ran our steps in production. 
 
-And best of all, nobody noticed.
+After about a 3.5 second pause (2.5 seconds to let active queries complete, and 1 second for the replica to catch up), the failover function ran smoothly! 
+
+We had a new Postgres instance serving requests, and best of all, nobody noticed. [^13]
 
 ### Future Improvements
 
