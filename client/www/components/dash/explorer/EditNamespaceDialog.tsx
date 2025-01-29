@@ -56,7 +56,7 @@ export function EditNamespaceDialog({
     | { type: 'main' }
     | { type: 'delete' }
     | { type: 'add' }
-    | { type: 'edit'; attrId: string, isForward: boolean }
+    | { type: 'edit'; attrId: string; isForward: boolean }
   >({ type: 'main' });
 
   async function deleteNs() {
@@ -66,8 +66,17 @@ export function EditNamespaceDialog({
   }
 
   const screenAttr = useMemo(() => {
-    return screen.type === 'edit' && namespace.attrs.find((a) => a.id === screen.attrId && a.isForward === screen.isForward);
-  }, [screen.type === 'edit' ? screen.attrId : null, screen.type === 'edit' ? screen.isForward : null, namespace.attrs]);
+    return (
+      screen.type === 'edit' &&
+      namespace.attrs.find(
+        (a) => a.id === screen.attrId && a.isForward === screen.isForward,
+      )
+    );
+  }, [
+    screen.type === 'edit' ? screen.attrId : null,
+    screen.type === 'edit' ? screen.isForward : null,
+    namespace.attrs,
+  ]);
 
   return (
     <>
@@ -105,7 +114,13 @@ export function EditNamespaceDialog({
                     className="px-2"
                     size="mini"
                     variant="subtle"
-                    onClick={() => setScreen({ type: 'edit', attrId: attr.id, isForward: attr.isForward })}
+                    onClick={() =>
+                      setScreen({
+                        type: 'edit',
+                        attrId: attr.id,
+                        isForward: attr.isForward,
+                      })
+                    }
                   >
                     Edit
                   </Button>
@@ -224,7 +239,8 @@ function AddAttrForm({
   const [relationship, setRelationship] =
     useState<RelationshipKinds>('many-many');
 
-  const isCascadeAllowed = relationship === 'one-one' || relationship === 'one-many';
+  const isCascadeAllowed =
+    relationship === 'one-one' || relationship === 'one-many';
 
   const [reverseNamespace, setReverseNamespace] = useState<
     SchemaNamespace | undefined
@@ -279,7 +295,7 @@ function AddAttrForm({
         'reverse-identity': [id(), reverseNamespace.name, reverseAttrName],
         'value-type': 'ref',
         'index?': false,
-        'on-delete': isCascadeAllowed && isCascade ? 'cascade' : undefined
+        'on-delete': isCascadeAllowed && isCascade ? 'cascade' : undefined,
       };
 
       const ops = [['add-attr', attr]];
@@ -422,8 +438,12 @@ function AddAttrForm({
               onChange={setIsCascade}
               label={
                 <span>
-                  <div><strong>Cascade Delete</strong></div>
-                   When <strong>{attrName}</strong> is deleted, all linked <strong>{namespace.name}</strong> will be deleted automatically
+                  <div>
+                    <strong>Cascade Delete</strong>
+                  </div>
+                  When a <strong>{reverseNamespace?.name}</strong> entity is
+                  deleted, all linked <strong>{namespace.name}</strong> will be
+                  deleted automatically
                 </span>
               }
             />
@@ -445,9 +465,7 @@ function AddAttrForm({
           <span className="text-red-500">
             Self-links must have different attribute names.
           </span>
-        ) : (
-          null
-        )}
+        ) : null}
       </div>
     </ActionForm>
   );
@@ -1073,7 +1091,8 @@ function EditAttrForm({
   });
 
   const [isCascade, setIsCascade] = useState(() => attr.onDelete === 'cascade');
-  const isCascadeAllowed = relationship === 'one-one' || relationship === 'one-many';
+  const isCascadeAllowed =
+    relationship === 'one-one' || relationship === 'one-many';
 
   const linkValidation = validateLink({
     attrName,
@@ -1103,7 +1122,7 @@ function EditAttrForm({
             attr.linkConfig.reverse.namespace,
             reverseAttrName,
           ],
-          'on-delete': isCascade ? 'cascade' : null
+          'on-delete': isCascade ? 'cascade' : null,
         },
       ],
     ];
@@ -1249,7 +1268,13 @@ function EditAttrForm({
               onChange={setIsCascade}
               label={
                 <span>
-                  <strong>Cascade delete</strong> When <strong>{attr.linkConfig.reverse!.namespace}</strong> is deleted, all linked <strong>{attr.linkConfig.forward.namespace}</strong> will be deleted automatically
+                  <div>
+                    <strong>Cascade Delete</strong>
+                  </div>
+                  When a <strong>{attr.linkConfig.reverse!.namespace}</strong>{' '}
+                  entity is deleted, all linked{' '}
+                  <strong>{attr.linkConfig.forward.namespace}</strong> will be
+                  deleted automatically
                 </span>
               }
             />
@@ -1268,9 +1293,7 @@ function EditAttrForm({
               <span className="text-red-500">
                 Self-links must have different attribute names.
               </span>
-            ) : (
-              null
-            )}
+            ) : null}
           </div>
         </ActionForm>
       )}
