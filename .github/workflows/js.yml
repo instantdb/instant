@@ -56,6 +56,43 @@ jobs:
         working-directory: client
         run: pnpm run bench
 
+  check_formatting:
+    name: Check formatting
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Cache turbo build setup
+        uses: actions/cache@v4
+        with:
+          path: client/.turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      - name: Enable corepack
+        working-directory: client
+        run: corepack enable
+
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: client
+
+      - name: Install dependencies
+        working-directory: client
+        run: pnpm i
+
+      - name: Check prettier formatting
+        working-directory: client
+        run: pnpm run check-format
+
   detect_docs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
