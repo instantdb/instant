@@ -75,13 +75,6 @@
                            ents)
                      {:allow-$files-update? true})))))))
 
-(comment
-  (delete-by-ids! {:app-id #uuid "831355ee-6a59-4990-8ef3-9c9fe7c26031"
-                   :ids [#uuid "cbda1941-d192-4f7d-b0a7-f9d428e1ca0b"]})
-  (let [{app-id :app_id path :path} (get-by-path {:app-id #uuid "831355ee-6a59-4990-8ef3-9c9fe7c26031"
-                                                  :path "circle_red.jpg"})]
-    (delete-by-path! {:app-id app-id :path path})))
-
 (defn get-all-apps-usage
   ([] (get-all-apps-usage (aurora/conn-pool :read)))
   ([conn]
