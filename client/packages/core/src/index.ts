@@ -298,14 +298,14 @@ class Auth {
    *     db.auth.issuerURI()
    *   );
    */
-  issuerURI = () => {
+  issuerURI = (): string => {
     return this.db.issuerURI();
   };
 
   /**
    * Sign out the current user
    */
-  signOut = () => {
+  signOut = (): Promise<void> => {
     return this.db.signOut();
   };
 }
