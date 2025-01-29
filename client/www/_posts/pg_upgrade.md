@@ -121,7 +121,7 @@ When we turned on replication, we saw this error:
 That’s weird. We _did_ have a custom Postgres function called `is_jsonb_valid_timestamp`. And the function existed on both machines; if we logged in with PSQL, we could write queries:
 
 ```sql
-SELECT is_jsonb_valid_timestamp('1724344362000'::jsonb);
+select is_jsonb_valid_timestamp('1724344362000'::jsonb);
 ```
 
 ```text
@@ -139,7 +139,7 @@ We thought maybe there was an error with our WAL level, or maybe some input work
 So we went down a rabbit hole investigating and searching in [PG’s mailing list.](https://www.postgresql.org/message-id/flat/D2B9F2A20670C84685EF7D183F2949E2373D64%40gigant.nidsa.net#8132cc2fa455dd1f1bb02c63cdd04678) Finally, we discovered the problem was [search paths](https://www.postgresql.org/docs/current/ddl-schemas.html#DDL-SCHEMAS-PATH). [^7]
 
 ```sql
-SHOW search_path;
+show search_path;
 ```
 
 ```text
@@ -152,9 +152,9 @@ Postgres stores custom functions in a [schema](https://www.postgresql.org/docs/c
 
 ```sql
 -- Before:
-CREATE OR REPLACE FUNCTION is_jsonb_valid_timestamp(value jsonb)
+create or replace function is_jsonb_valid_timestamp(value jsonb)
 -- After:                   👇
-CREATE OR REPLACE FUNCTION public.is_jsonb_valid_timestamp(value jsonb)
+create or replace function public.is_jsonb_valid_timestamp(value jsonb)
 ```
 
 Note to us: make sure to use `public` in all our function definitions. [^8]
@@ -183,12 +183,12 @@ Since we never modify rows, we could also use the `transactions` table for quick
 
 ```sql
 -- On 13
-SELECT MAX(id) FROM transactions;
-SELECT COUNT(*) FROM transactions WHERE id < :max-id;
+select max(id) from transactions;
+select count(*) from transactions where id < :max-id;
 
 -- Wait for :max-id to replicate ...
 -- On 16
-SELECT COUNT(*) FROM transactions WHERE id < :max-id;
+select COUNT(*) from transactions where id < :max-id;
 ```
 
 To our surprise...we found 13 missing transactions! That definitely stumped us. We weren’t quite sure where the data loss came from [^10]
@@ -232,17 +232,17 @@ So we created a checklist and ended up with 7 steps:
 4. **13: Create a publication**
    
    ```sql
-   CREATE PUBLICATION pub_all_table FOR ALL TABLES;
+   create publication pub_all_table for all tables;
    ```
 
 
 1. **16: Create a subscription with copy_data = true**
    
    ```sql
-   CREATE SUBSCRIPTION pub_from_scratch 
-   CONNECTION 'host=CLUSTER_HOST_HERE dbname=DB_NAME_HERE port=5432 user=USER_NAME_HERE password=PASSWORD_HERE'
-   PUBLICATION pub_from_scratch
-   WITH ( 
+   create subscription pub_from_scratch 
+   connection 'host=host_here dbname=name_here port=5432 user=user_here password=password_here'
+   publication pub_from_scratch
+   with ( 
      copy_data = true, create_slot = true, enabled = true, 
      connect = true, 
      slot_name = 'pub_from_scratch'
@@ -253,18 +253,18 @@ So we created a checklist and ended up with 7 steps:
    
    ```sql
     -- On 13
-    SELECT MAX(id) FROM transactions;
-    SELECT COUNT(*) FROM transactions WHERE id < :max-id;
+    select max(id) FROM transactions;
+    select count(*) FROM transactions where id < :max-id;
 
     -- Wait for :max-id to replicate ...
     -- On 16
-    SELECT COUNT(*) FROM transactions WHERE id < :max-id;
+    select count(*) FROM transactions where id < :max-id;
     ```
 
 1. **16: Run vaccum analyze**
    
    ```sql
-    VACUUM (VERBOSE, ANALYZE, FULL);
+    vacuum (verbose, analyze, full);
    ```
 
 </div>
@@ -400,7 +400,7 @@ To fix it, we incremented our sequences in the failover function:
 ```diff
 -           (println "we are caught up!")
 +           (sql/execute! next-pool
-+                         ["SELECT setval('transactions_id_seq', ?::bigint, true)"
++                         ["select setval('transactions_id_seq', ?::bigint, true)"
 +                         (+ (:id row) 1000)])
 ```
 
