@@ -595,7 +595,7 @@ class Auth {
 type UploadMetadata = {
   contentType?: string;
   contentDisposition?: string;
-} & Record<string, any>;
+};
 
 type StorageFile = {
   key: string;

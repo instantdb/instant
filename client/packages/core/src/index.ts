@@ -334,7 +334,7 @@ class Auth {
 export type FileOpts = {
   contentType?: string;
   contentDisposition?: string;
-} & Record<string, any>;
+};
 
 /**
  * Functions to manage file storage.
