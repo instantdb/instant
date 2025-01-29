@@ -17,8 +17,7 @@
     "test": "turbo run test:ci",
     "bench": "turbo run bench:ci",
     "format": "prettier --write --ignore-path ../.gitignore --config ./.prettierrc \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "check-format-2": "prettier --check --ignore-path ../.gitignore --config ./.prettierrc \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "check-format": "turbo run check-format --filter=\"./www\"",
+    "check-format": "prettier --check --ignore-path ../.gitignore --config ./.prettierrc \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "publish-packages": "turbo run publish-package --filter=\"./packages/*\"",
     "build-packages": "turbo run build --filter=\"./packages/*\" --cache-dir=.turbo",
     "build-sandbox": "turbo run build --filter=\"./sandbox/*\" --cache-dir=.turbo"
