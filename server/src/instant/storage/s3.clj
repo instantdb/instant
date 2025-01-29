@@ -4,23 +4,35 @@
 
 ;; S3 path manipulation
 ;; ----------------------
+(defn filename->bin
+  ^long [^String filename]
+  (mod (Math/abs (.hashCode filename)) 10))
 
 (defn ->object-key
-  "Combine app-id and filename to provide a full S3 object key"
+  "We prefix objects with an app id and bin. Combined with a filename
+  this gives us our key for each object."
   [app-id filename]
-  (if (string/starts-with? filename "/")
-    (str app-id filename)
-    (str app-id "/" filename)))
+  (let [bin (filename->bin filename)
+        fname (if (string/starts-with? filename "/")
+                (subs filename 1)
+                filename)]
+    (str app-id "/" bin "/" fname)))
 
 (defn object-key->app-id
   "Extract app-id from our S3 object keys"
   [object-key]
   (first (string/split object-key #"/")))
 
+(defn object-key->bin
+  "Extract bin from our S3 object keys"
+  [object-key]
+  (second (string/split object-key #"/")))
+
 (defn object-key->path
   "Extract path from our S3 object keys"
   [object-key]
-  (string/join "/" (rest (string/split object-key #"/"))))
+  (let [[_app-id _bin & path] (string/split object-key #"/")]
+    (string/join "/" path)))
 
 ;; Instant <> S3 integration
 ;; ----------------------
