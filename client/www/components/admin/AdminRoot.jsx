@@ -35,7 +35,7 @@ function useAdminData(token) {
             : { body: { message: err.message || 'Uh oh, we goofed up' } },
           data: undefined,
         });
-      }
+      },
     );
   }, [token]);
 
@@ -54,11 +54,11 @@ export default function AdminPage() {
     return <div>Error: {error.body.message}</div>;
   }
 
-  const sortedUsers = data.users.sort(
-    (a, b) => new Date(b.user_created_at) - new Date(a.user_created_at)
-  ).slice(0, 50);
+  const sortedUsers = data.users
+    .sort((a, b) => new Date(b.user_created_at) - new Date(a.user_created_at))
+    .slice(0, 50);
 
-  window.data = sortedUsers
+  window.data = sortedUsers;
   return (
     <div className="flex flex-col space-y-4">
       {sortedUsers.map((user, idx) => {
@@ -78,9 +78,9 @@ export default function AdminPage() {
               <span className="font-normal">
                 {user.profile_created_at
                   ? formatDistance(
-                    new Date(user.profile_created_at),
-                    new Date(user.user_created_at)
-                  )
+                      new Date(user.profile_created_at),
+                      new Date(user.user_created_at),
+                    )
                   : ''}
               </span>
             </p>
@@ -89,9 +89,9 @@ export default function AdminPage() {
               <span className="font-normal">
                 {user.app_created_at && user.profile_created_at
                   ? formatDistance(
-                    new Date(user.app_created_at),
-                    new Date(user.profile_created_at)
-                  )
+                      new Date(user.app_created_at),
+                      new Date(user.profile_created_at),
+                    )
                   : ''}
               </span>
             </p>

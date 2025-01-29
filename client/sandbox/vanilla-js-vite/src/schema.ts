@@ -1,13 +1,13 @@
-import "./style.css";
-import { init, i, id } from "@instantdb/core";
+import './style.css';
+import { init, i, id } from '@instantdb/core';
 
 const APP_ID = import.meta.env.VITE_INSTANT_APP_ID;
 
-const preEl = document.createElement("pre");
+const preEl = document.createElement('pre');
 document.body.appendChild(preEl);
 
-const buttonEl = document.createElement("button");
-buttonEl.innerText = "Add";
+const buttonEl = document.createElement('button');
+buttonEl.innerText = 'Add';
 buttonEl.onclick = () => {
   console.log(1);
   addTodo(`Todo ${Date.now()}`);
@@ -22,7 +22,6 @@ const db = init({
         title: i.string(),
       }),
     },
-
   }),
 });
 
@@ -31,7 +30,7 @@ db.subscribeQuery(
     todos: {},
   },
   (r) => {
-    preEl.innerText = JSON.stringify({ r }, null, "  ");
+    preEl.innerText = JSON.stringify({ r }, null, '  ');
   },
 );
 

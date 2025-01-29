@@ -112,7 +112,7 @@ function Plan({ plan }: { plan: any }) {
   return (
     <div
       className={`box-border rounded-lg bg-white outline outline-2 -outline-offset-1 ${outlineStyle(
-        isFeatured
+        isFeatured,
       )} flex flex-col justify-between gap-4 p-6 h-full ${opacityStyle(ctaDisabled)}`}
     >
       <div>

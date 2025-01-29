@@ -1,9 +1,9 @@
-import { test } from "vitest";
+import { test } from 'vitest';
 
-import { i } from "../../src";
-import type { InstaQLQueryResult, InstaQLResult } from "../../src/queryTypes";
+import { i } from '../../src';
+import type { InstaQLQueryResult, InstaQLResult } from '../../src/queryTypes';
 
-test("runs without exception", () => {
+test('runs without exception', () => {
   const schema = i.schema({
     entities: {
       users: i.entity({
@@ -26,50 +26,50 @@ test("runs without exception", () => {
     links: {
       usersPosts: {
         forward: {
-          on: "users",
-          has: "many",
-          label: "posts",
+          on: 'users',
+          has: 'many',
+          label: 'posts',
         },
         reverse: {
-          on: "posts",
-          has: "one",
-          label: "author",
+          on: 'posts',
+          has: 'one',
+          label: 'author',
         },
       },
       postsComments: {
         forward: {
-          on: "posts",
-          has: "many",
-          label: "comments",
+          on: 'posts',
+          has: 'many',
+          label: 'comments',
         },
         reverse: {
-          on: "comments",
-          has: "one",
-          label: "post",
+          on: 'comments',
+          has: 'one',
+          label: 'post',
         },
       },
       friendships: {
         forward: {
-          on: "users",
-          has: "many",
-          label: "friends",
+          on: 'users',
+          has: 'many',
+          label: 'friends',
         },
         reverse: {
-          on: "users",
-          has: "many",
-          label: "_friends",
+          on: 'users',
+          has: 'many',
+          label: '_friends',
         },
       },
       referrals: {
         forward: {
-          on: "users",
-          has: "many",
-          label: "referred",
+          on: 'users',
+          has: 'many',
+          label: 'referred',
         },
         reverse: {
-          on: "users",
-          has: "one",
-          label: "referrer",
+          on: 'users',
+          has: 'one',
+          label: 'referrer',
         },
       },
     },
@@ -91,8 +91,8 @@ test("runs without exception", () => {
   type Schema = typeof schema;
 
   // Explore derived types
-  type Test1 = Schema["entities"]["users"]["links"]["_friends"]["entityName"];
-  type Test2 = Schema["entities"]["users"]["links"]["_friends"]["cardinality"];
+  type Test1 = Schema['entities']['users']['links']['_friends']['entityName'];
+  type Test2 = Schema['entities']['users']['links']['_friends']['cardinality'];
 
   // Demo time!!!  Notice:
   // - everything is typed

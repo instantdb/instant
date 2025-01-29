@@ -1,5 +1,9 @@
 import { SectionHeading, Button, Content } from '@/components/ui';
-import { messageFromInstantError, friendlyErrorMessage, useAuthedFetch } from '@/lib/auth';
+import {
+  messageFromInstantError,
+  friendlyErrorMessage,
+  useAuthedFetch,
+} from '@/lib/auth';
 import config, { stripeKey } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
@@ -40,7 +44,7 @@ async function createCheckoutSession(appId: string, token: string) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-    }
+    },
   );
   Promise.all([stripePromise, sessionPromise])
     .then(([stripe, session]) => {
@@ -68,7 +72,7 @@ async function createPortalSession(appId: string, token: string) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-    }
+    },
   );
   Promise.all([stripePromise, sessionPromise])
     .then(([stripe, session]) => {
@@ -103,21 +107,21 @@ export default function Billing({ appId }: { appId: string }) {
   const confettiRef = useRef<HTMLDivElement>(null);
 
   const onUpgrade = async (
-    e: React.MouseEvent<HTMLButtonElement, MouseEvent>
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
   ) => {
     e.preventDefault();
     createCheckoutSession(appId, token);
   };
 
   const onManage = async (
-    e: React.MouseEvent<HTMLButtonElement, MouseEvent>
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
   ) => {
     e.preventDefault();
     createPortalSession(appId, token);
   };
 
   const authResponse = useAuthedFetch<AppsSubscriptionResponse>(
-    `${config.apiURI}/dash/apps/${appId}/billing`
+    `${config.apiURI}/dash/apps/${appId}/billing`,
   );
 
   if (authResponse.isLoading) {

@@ -181,7 +181,7 @@ export default function DashV2() {
               onClick={() => {
                 try {
                   window.close();
-                } catch (error) { }
+                } catch (error) {}
                 cliAuthCompleteDialog.onClose();
               }}
             >

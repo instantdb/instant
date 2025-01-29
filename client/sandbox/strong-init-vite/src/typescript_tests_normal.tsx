@@ -2,10 +2,10 @@ import {
   id,
   init as core_init,
   BackwardsCompatibleSchema,
-} from "@instantdb/core";
-import { init as react_init } from "@instantdb/react";
-import { init as react_native_init } from "@instantdb/react-native";
-import { init as admin_init } from "@instantdb/admin";
+} from '@instantdb/core';
+import { init as react_init } from '@instantdb/react';
+import { init as react_native_init } from '@instantdb/react-native';
+import { init as admin_init } from '@instantdb/admin';
 
 type Message = {
   content: string;
@@ -20,7 +20,7 @@ type Schema = {
   creator: User;
 };
 
-type EmojiName = "fire" | "wave" | "confetti" | "heart";
+type EmojiName = 'fire' | 'wave' | 'confetti' | 'heart';
 
 type Rooms = {
   chat: {
@@ -46,10 +46,10 @@ const coreDB = core_init<BackwardsCompatibleSchema<Schema, Rooms>>({
 });
 
 // rooms
-const coreRoom = coreDB.joinRoom("chat");
+const coreRoom = coreDB.joinRoom('chat');
 coreRoom.getPresence({});
-coreRoom.publishTopic("emoji", {
-  name: "confetti",
+coreRoom.publishTopic('emoji', {
+  name: 'confetti',
   rotationAngle: 0,
   directionAngle: 0,
 });
@@ -65,8 +65,8 @@ coreDB.subscribeQuery({ messages: { creator: {} } }, (result) => {
 
 // transactions
 coreDB.tx.messages[id()]
-  .update({ content: "Hello world" })
-  .link({ creator: "foo" });
+  .update({ content: 'Hello world' })
+  .link({ creator: 'foo' });
 
 // ----
 // React
@@ -77,9 +77,9 @@ const reactDB = react_init<BackwardsCompatibleSchema<Schema, Rooms>>({
 
 function ReactNormalApp() {
   // rooms
-  const reactRoom = reactDB.room("chat");
-  const reactPresence = reactRoom.usePresence({ keys: ["name"] });
-  const _reactPublishEmoji = reactRoom.usePublishTopic("emoji");
+  const reactRoom = reactDB.room('chat');
+  const reactPresence = reactRoom.usePresence({ keys: ['name'] });
+  const _reactPublishEmoji = reactRoom.usePublishTopic('emoji');
   const _reactPresenceUser = reactPresence.user!;
   const _reactPresencePeers = reactPresence.peers!;
   // queries
@@ -93,8 +93,8 @@ function ReactNormalApp() {
   // transactions
   reactDB.transact(
     reactDB.tx.messages[id()]
-      .update({ content: "Hello world" })
-      .link({ creator: "foo" }),
+      .update({ content: 'Hello world' })
+      .link({ creator: 'foo' }),
   );
 
   // to silence ts warnings
@@ -115,9 +115,9 @@ const reactNativeDB = react_native_init<
 
 function ReactNativeNormalApp() {
   // rooms
-  const reactRoom = reactNativeDB.room("chat");
-  const reactPresence = reactRoom.usePresence({ keys: ["name"] });
-  const _reactPublishEmoji = reactRoom.usePublishTopic("emoji");
+  const reactRoom = reactNativeDB.room('chat');
+  const reactPresence = reactRoom.usePresence({ keys: ['name'] });
+  const _reactPublishEmoji = reactRoom.usePublishTopic('emoji');
   const _reactPresenceUser = reactPresence.user!;
   const _reactPresencePeers = reactPresence.peers!;
   // queries
@@ -151,8 +151,8 @@ adminQueryResult.messages[0].content;
 // transacts
 await adminDB.transact(
   adminDB.tx.messages[id()]
-    .update({ content: "Hello world" })
-    .link({ creator: "foo" }),
+    .update({ content: 'Hello world' })
+    .link({ creator: 'foo' }),
 );
 
 // to silence ts warnings

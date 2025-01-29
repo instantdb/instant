@@ -17,8 +17,8 @@ export function areObjectsShallowEqual(obj1, obj2) {
 
 export function areObjectsDeepEqual(obj1, obj2) {
   if (
-    typeof obj1 !== "object" ||
-    typeof obj2 !== "object" ||
+    typeof obj1 !== 'object' ||
+    typeof obj2 !== 'object' ||
     obj1 === null ||
     obj2 === null
   ) {
@@ -79,7 +79,7 @@ export function immutableDeepReplace(target, replaceValue, replacementValue) {
 }
 
 export function isObject(val) {
-  return typeof val === "object" && val !== null && !Array.isArray(val);
+  return typeof val === 'object' && val !== null && !Array.isArray(val);
 }
 
 export function assocIn(obj, path, value) {

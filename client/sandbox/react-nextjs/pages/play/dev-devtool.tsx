@@ -1,12 +1,12 @@
-import { init } from "@instantdb/react";
-import config from "../../config";
+import { init } from '@instantdb/react';
+import config from '../../config';
 
 let appId = config.appId;
 
-if (typeof window !== "undefined") {
+if (typeof window !== 'undefined') {
   (window as any).DEV_DEVTOOL = true;
 
-  const appIdParam = new URLSearchParams(location.search).get("app_id");
+  const appIdParam = new URLSearchParams(location.search).get('app_id');
   if (appIdParam) {
     appId = appIdParam;
   }

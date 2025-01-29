@@ -34,7 +34,7 @@ function useStorageMetrics(token: string | undefined) {
       },
       (err) => {
         setState({ isLoading: false, error: err, data: undefined });
-      }
+      },
     );
   }, [token]);
 

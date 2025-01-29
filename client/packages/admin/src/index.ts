@@ -47,9 +47,9 @@ import {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
-} from "@instantdb/core";
+} from '@instantdb/core';
 
-import version from "./version";
+import version from './version';
 
 type DebugCheckResult = {
   /** The ID of the record. */
@@ -87,7 +87,7 @@ type ImpersonationOpts =
 
 function configWithDefaults(config: Config): FilledConfig {
   const defaultConfig = {
-    apiURI: "https://api.instantdb.com",
+    apiURI: 'https://api.instantdb.com',
   };
   const r = { ...defaultConfig, ...config };
   return r;
@@ -97,7 +97,7 @@ function instantConfigWithDefaults<
   Schema extends InstantSchemaDef<any, any, any>,
 >(config: InstantConfig<Schema>): InstantConfigFilled<Schema> {
   const defaultConfig = {
-    apiURI: "https://api.instantdb.com",
+    apiURI: 'https://api.instantdb.com',
   };
   const r = { ...defaultConfig, ...config };
   return r;
@@ -107,12 +107,12 @@ function withImpersonation(
   headers: { [key: string]: string },
   opts: ImpersonationOpts,
 ) {
-  if ("email" in opts) {
-    headers["as-email"] = opts.email;
-  } else if ("token" in opts) {
-    headers["as-token"] = opts.token;
-  } else if ("guest" in opts) {
-    headers["as-guest"] = "true";
+  if ('email' in opts) {
+    headers['as-email'] = opts.email;
+  } else if ('token' in opts) {
+    headers['as-token'] = opts.token;
+  } else if ('guest' in opts) {
+    headers['as-guest'] = 'true';
   }
   return headers;
 }
@@ -123,9 +123,9 @@ function authorizedHeaders(
 ) {
   const { adminToken, appId } = config;
   const headers = {
-    "content-type": "application/json",
+    'content-type': 'application/json',
     authorization: `Bearer ${adminToken}`,
-    "app-id": appId,
+    'app-id': appId,
   };
   return impersonationOpts
     ? withImpersonation(headers, impersonationOpts)
@@ -135,12 +135,12 @@ function authorizedHeaders(
 function isCloudflareWorkerRuntime() {
   return (
     // @ts-ignore
-    typeof WebSocketPair !== "undefined" ||
+    typeof WebSocketPair !== 'undefined' ||
     // @ts-ignore
-    (typeof navigator !== "undefined" &&
-      navigator.userAgent === "Cloudflare-Workers") ||
+    (typeof navigator !== 'undefined' &&
+      navigator.userAgent === 'Cloudflare-Workers') ||
     // @ts-ignore
-    (typeof EdgeRuntime !== "undefined" && EdgeRuntime === "vercel")
+    (typeof EdgeRuntime !== 'undefined' && EdgeRuntime === 'vercel')
   );
 }
 
@@ -152,7 +152,7 @@ function isCloudflareWorkerRuntime() {
 
 const FETCH_OPTS: RequestInit = isCloudflareWorkerRuntime()
   ? {}
-  : { cache: "no-store" };
+  : { cache: 'no-store' };
 
 async function jsonFetch(
   input: RequestInfo,
@@ -160,8 +160,8 @@ async function jsonFetch(
 ): Promise<any> {
   const headers = {
     ...(init.headers || {}),
-    "Instant-Admin-Version": version,
-    "Instant-Core-Version": coreVersion,
+    'Instant-Admin-Version': version,
+    'Instant-Core-Version': coreVersion,
   };
   const res = await fetch(input, { ...FETCH_OPTS, ...init, headers });
   const json = await res.json();
@@ -289,16 +289,16 @@ class InstantAdmin<
     query: Q,
   ): Promise<QueryResponse<Q, Schema, WithCardinalityInference>> => {
     const withInference =
-      "cardinalityInference" in this.config
+      'cardinalityInference' in this.config
         ? Boolean(this.config.cardinalityInference)
         : true;
 
     return jsonFetch(`${this.config.apiURI}/admin/query`, {
-      method: "POST",
+      method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({
         query: query,
-        "inference?": withInference,
+        'inference?': withInference,
       }),
     });
   };
@@ -332,7 +332,7 @@ class InstantAdmin<
     const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
     const steps = chunks.flatMap((tx) => getOps(tx));
     return jsonFetch(`${this.config.apiURI}/admin/transact`, {
-      method: "POST",
+      method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({ steps: steps }),
     });
@@ -369,15 +369,15 @@ class InstantAdmin<
     const response = await jsonFetch(
       `${this.config.apiURI}/admin/query_perms_check`,
       {
-        method: "POST",
+        method: 'POST',
         headers: authorizedHeaders(this.config, this.impersonationOpts),
-        body: JSON.stringify({ query, "rules-override": opts?.rules }),
+        body: JSON.stringify({ query, 'rules-override': opts?.rules }),
       },
     );
 
     return {
       result: response.result,
-      checkResults: response["check-results"],
+      checkResults: response['check-results'],
     };
   };
 
@@ -406,13 +406,13 @@ class InstantAdmin<
     const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
     const steps = chunks.flatMap((tx) => getOps(tx));
     return jsonFetch(`${this.config.apiURI}/admin/transact_perms_check`, {
-      method: "POST",
+      method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({
         steps: steps,
-        "rules-override": opts?.rules,
+        'rules-override': opts?.rules,
         // @ts-expect-error because we're using a private API (for now)
-        "dangerously-commit-tx": opts?.__dangerouslyCommit,
+        'dangerously-commit-tx': opts?.__dangerouslyCommit,
       }),
     });
   };
@@ -441,7 +441,7 @@ class Auth {
    */
   generateMagicCode = async (email: string): Promise<{ code: string }> => {
     return jsonFetch(`${this.config.apiURI}/admin/magic_code`, {
-      method: "POST",
+      method: 'POST',
       headers: authorizedHeaders(this.config),
       body: JSON.stringify({ email }),
     });
@@ -466,7 +466,7 @@ class Auth {
     const ret: { user: { refresh_token: string } } = await jsonFetch(
       `${this.config.apiURI}/admin/refresh_tokens`,
       {
-        method: "POST",
+        method: 'POST',
         headers: authorizedHeaders(this.config),
         body: JSON.stringify({ email }),
       },
@@ -494,11 +494,11 @@ class Auth {
     const res = await jsonFetch(
       `${this.config.apiURI}/runtime/auth/verify_refresh_token`,
       {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          "app-id": this.config.appId,
-          "refresh-token": token,
+          'app-id': this.config.appId,
+          'refresh-token': token,
         }),
       },
     );
@@ -523,12 +523,12 @@ class Auth {
   ): Promise<User> => {
     const qs = Object.entries(params)
       .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
-      .join("&");
+      .join('&');
 
     const response: { user: User } = await jsonFetch(
       `${this.config.apiURI}/admin/users?${qs}`,
       {
-        method: "GET",
+        method: 'GET',
         headers: authorizedHeaders(this.config),
       },
     );
@@ -559,7 +559,7 @@ class Auth {
     const response: { deleted: User } = await jsonFetch(
       `${this.config.apiURI}/admin/users?${qs}`,
       {
-        method: "DELETE",
+        method: 'DELETE',
         headers: authorizedHeaders(this.config),
       },
     );
@@ -585,7 +585,7 @@ class Auth {
   async signOut(email: string): Promise<void> {
     const config = this.config;
     await jsonFetch(`${config.apiURI}/admin/sign_out`, {
-      method: "POST",
+      method: 'POST',
       headers: authorizedHeaders(config),
       body: JSON.stringify({ email }),
     });
@@ -627,7 +627,7 @@ class Storage {
     const { data: presignedUrl } = await jsonFetch(
       `${this.config.apiURI}/admin/storage/signed-upload-url`,
       {
-        method: "POST",
+        method: 'POST',
         headers: authorizedHeaders(this.config),
         body: JSON.stringify({
           app_id: this.config.appId,
@@ -636,10 +636,10 @@ class Storage {
       },
     );
     const { ok } = await fetch(presignedUrl, {
-      method: "PUT",
+      method: 'PUT',
       body: file,
       headers: {
-        "Content-Type": metadata.contentType || "application/octet-stream",
+        'Content-Type': metadata.contentType || 'application/octet-stream',
       },
     });
 
@@ -657,7 +657,7 @@ class Storage {
     const { data } = await jsonFetch(
       `${this.config.apiURI}/admin/storage/signed-download-url?app_id=${this.config.appId}&filename=${encodeURIComponent(pathname)}`,
       {
-        method: "GET",
+        method: 'GET',
         headers: authorizedHeaders(this.config),
       },
     );
@@ -676,7 +676,7 @@ class Storage {
     const { data } = await jsonFetch(
       `${this.config.apiURI}/admin/storage/files`,
       {
-        method: "GET",
+        method: 'GET',
         headers: authorizedHeaders(this.config),
       },
     );
@@ -695,7 +695,7 @@ class Storage {
     await jsonFetch(
       `${this.config.apiURI}/admin/storage/files?filename=${encodeURIComponent(pathname)}`,
       {
-        method: "DELETE",
+        method: 'DELETE',
         headers: authorizedHeaders(this.config),
       },
     );
@@ -710,7 +710,7 @@ class Storage {
    */
   deleteMany = async (pathnames: string[]): Promise<void> => {
     await jsonFetch(`${this.config.apiURI}/admin/storage/files/delete`, {
-      method: "POST",
+      method: 'POST',
       headers: authorizedHeaders(this.config),
       body: JSON.stringify({ filenames: pathnames }),
     });
@@ -776,11 +776,11 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
     query: Q,
   ): Promise<InstaQLResponse<Schema, Q>> => {
     return jsonFetch(`${this.config.apiURI}/admin/query`, {
-      method: "POST",
+      method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({
         query: query,
-        "inference?": !!this.config.schema,
+        'inference?': !!this.config.schema,
       }),
     });
   };
@@ -814,11 +814,11 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
     const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
     const steps = chunks.flatMap((tx) => getOps(tx));
     return jsonFetch(`${this.config.apiURI}/admin/transact`, {
-      method: "POST",
+      method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({
         steps: steps,
-        "throw-on-missing-attrs?": !!this.config.schema,
+        'throw-on-missing-attrs?': !!this.config.schema,
       }),
     });
   };
@@ -854,15 +854,15 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
     const response = await jsonFetch(
       `${this.config.apiURI}/admin/query_perms_check`,
       {
-        method: "POST",
+        method: 'POST',
         headers: authorizedHeaders(this.config, this.impersonationOpts),
-        body: JSON.stringify({ query, "rules-override": opts?.rules }),
+        body: JSON.stringify({ query, 'rules-override': opts?.rules }),
       },
     );
 
     return {
       result: response.result,
-      checkResults: response["check-results"],
+      checkResults: response['check-results'],
     };
   };
 
@@ -891,13 +891,13 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
     const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
     const steps = chunks.flatMap((tx) => getOps(tx));
     return jsonFetch(`${this.config.apiURI}/admin/transact_perms_check`, {
-      method: "POST",
+      method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({
         steps: steps,
-        "rules-override": opts?.rules,
+        'rules-override': opts?.rules,
         // @ts-expect-error because we're using a private API (for now)
-        "dangerously-commit-tx": opts?.__dangerouslyCommit,
+        'dangerously-commit-tx': opts?.__dangerouslyCommit,
       }),
     });
   };

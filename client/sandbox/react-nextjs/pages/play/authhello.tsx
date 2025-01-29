@@ -1,9 +1,9 @@
 // Now in your App.js
-import { useState } from "react";
+import { useState } from 'react';
 
 // 1. Import Instant
-import { init, tx, id } from "@instantdb/react";
-import config from "../../config";
+import { init, tx, id } from '@instantdb/react';
+import config from '../../config';
 
 // 2. Get your app id
 const { auth, useAuth, transact, useQuery } = init(config);
@@ -25,9 +25,9 @@ function App() {
 // 4. Log users in!
 function Login() {
   const [state, setState] = useState({
-    sentEmail: "",
-    email: "",
-    code: "",
+    sentEmail: '',
+    email: '',
+    code: '',
   });
   const { sentEmail, email, code } = state;
   return (
@@ -49,8 +49,8 @@ function Login() {
                 onClick={() => {
                   setState({ ...state, sentEmail: email });
                   auth.sendMagicCode({ email }).catch((err) => {
-                    alert("Uh oh :" + err.body?.message);
-                    setState({ ...state, sentEmail: "" });
+                    alert('Uh oh :' + err.body?.message);
+                    setState({ ...state, sentEmail: '' });
                   });
                 }}
               >
@@ -65,7 +65,7 @@ function Login() {
               <input
                 type="text"
                 placeholder="Code plz"
-                value={code || ""}
+                value={code || ''}
                 onChange={(e) => setState({ ...state, code: e.target.value })}
               />
             </div>
@@ -74,8 +74,8 @@ function Login() {
                 auth
                   .signInWithMagicCode({ email: sentEmail, code })
                   .catch((err) => {
-                    alert("Uh oh :" + err.body?.message);
-                    setState({ ...state, code: "" });
+                    alert('Uh oh :' + err.body?.message);
+                    setState({ ...state, code: '' });
                   });
               }}
             >
@@ -106,16 +106,16 @@ function Main({ user }: { user: { id: string; email: string } }) {
           const todoBId = id();
           transact([
             tx.todos[todoAId].update({
-              title: "Go on a run",
+              title: 'Go on a run',
               creatorId: user.id,
             }),
             tx.todos[todoBId].update({
-              title: "Drink a protein shake",
+              title: 'Drink a protein shake',
               creatorId: user.id,
             }),
             tx.goals[id()]
               .update({
-                title: "Get six pack abs",
+                title: 'Get six pack abs',
                 priority6: 1,
                 creatorId: user.id,
               })

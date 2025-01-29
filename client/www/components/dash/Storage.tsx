@@ -43,7 +43,7 @@ type StorageDirectory = {
 async function fetchStorageFiles(
   token: string,
   appId: string,
-  subdirectory?: string
+  subdirectory?: string,
 ): Promise<StorageObject[]> {
   const qs = subdirectory ? `?subdirectory=${subdirectory}` : '';
   const { data } = await jsonFetch(
@@ -54,7 +54,7 @@ async function fetchStorageFiles(
         'content-type': 'application/json',
         authorization: `Bearer ${token}`,
       },
-    }
+    },
   );
 
   return data;
@@ -63,13 +63,13 @@ async function fetchStorageFiles(
 async function deleteStorageFile(
   token: string,
   appId: string,
-  filename: string
+  filename: string,
 ): Promise<any> {
   const { data } = await jsonFetch(
     `${
       config.apiURI
     }/dash/apps/${appId}/storage/files?filename=${encodeURIComponent(
-      filename
+      filename,
     )}`,
     {
       method: 'DELETE',
@@ -77,7 +77,7 @@ async function deleteStorageFile(
         'content-type': 'application/json',
         authorization: `Bearer ${token}`,
       },
-    }
+    },
   );
 
   return data;
@@ -86,7 +86,7 @@ async function deleteStorageFile(
 async function bulkDeleteFiles(
   token: string,
   appId: string,
-  filenames: string[]
+  filenames: string[],
 ): Promise<any> {
   const { data } = await jsonFetch(
     `${config.apiURI}/dash/apps/${appId}/storage/files/delete`,
@@ -97,7 +97,7 @@ async function bulkDeleteFiles(
         authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ filenames }),
-    }
+    },
   );
 
   return data;
@@ -106,13 +106,13 @@ async function bulkDeleteFiles(
 async function fetchDownloadUrl(
   token: string,
   appId: string,
-  filename: string
+  filename: string,
 ): Promise<string> {
   const { data } = await jsonFetch(
     `${
       config.apiURI
     }/dash/apps/${appId}/storage/signed-download-url?filename=${encodeURIComponent(
-      filename
+      filename,
     )}`,
     {
       method: 'GET',
@@ -120,7 +120,7 @@ async function fetchDownloadUrl(
         'content-type': 'application/json',
         authorization: `Bearer ${token}`,
       },
-    }
+    },
   );
 
   return data;
@@ -129,7 +129,7 @@ async function fetchDownloadUrl(
 async function upload(
   token: string,
   appId: string,
-  file: File
+  file: File,
 ): Promise<boolean> {
   const fileName = file.name;
   const { data: presignedUrl } = await jsonFetch(
@@ -141,7 +141,7 @@ async function upload(
         authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ app_id: appId, filename: fileName }),
-    }
+    },
   );
 
   const response = await fetch(presignedUrl, {
@@ -177,7 +177,7 @@ function formatFileSize(size: number) {
 function useStorageFiles(
   token: string,
   appId: string,
-  subdirectory: string = ''
+  subdirectory: string = '',
 ): [StorageFile[], StorageDirectory[], boolean, any, () => Promise<void>] {
   const [isLoading, setIsLoading] = useState(true);
   const [files, setFiles] = useState<StorageFile[]>([]);
@@ -228,18 +228,21 @@ function useStorageFiles(
     () =>
       files
         .filter((f) => f.path.startsWith(subdirectory))
-        .reduce((acc, f) => {
-          // check if the file is in a subdirectory --
-          // if yes, group by that directory; if no, group with `$current` directory
-          const [directory = ''] = f.path
-            .replace(subdirectory, '')
-            .split('/')
-            .filter((str) => str.length > 0);
-          const key = directory.trim().length === 0 ? '$current' : directory;
+        .reduce(
+          (acc, f) => {
+            // check if the file is in a subdirectory --
+            // if yes, group by that directory; if no, group with `$current` directory
+            const [directory = ''] = f.path
+              .replace(subdirectory, '')
+              .split('/')
+              .filter((str) => str.length > 0);
+            const key = directory.trim().length === 0 ? '$current' : directory;
 
-          return { ...acc, [key]: (acc[key] || []).concat(f) };
-        }, {} as Record<string, StorageFile[]>),
-    [files, subdirectory]
+            return { ...acc, [key]: (acc[key] || []).concat(f) };
+          },
+          {} as Record<string, StorageFile[]>,
+        ),
+    [files, subdirectory],
   );
   const directories = useMemo(() => {
     return Object.entries(filesByDirectory)
@@ -255,7 +258,7 @@ function useStorageFiles(
       .sort((a, b) => b.lastModified - a.lastModified);
   }, [filesByDirectory]);
   const currentFiles = (filesByDirectory.$current || []).sort(
-    (a, b) => b.lastModified - a.lastModified
+    (a, b) => b.lastModified - a.lastModified,
   );
 
   return [currentFiles, directories, isLoading, error, refresh];
@@ -278,7 +281,7 @@ export function StorageEnabledTab({
   const token = useContext(TokenContext);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [selectedRows, setSelectedRows] = useState<Record<string, SelectedRow>>(
-    {}
+    {},
   );
   const [subdirectoryPrefix, setSubdirectoryPrefix] = useState<string>('');
   const [
@@ -353,7 +356,7 @@ export function StorageEnabledTab({
 
     if (
       !confirm(
-        `Are you sure you want to permanently delete ${keys.length} files from ${directory.name}?`
+        `Are you sure you want to permanently delete ${keys.length} files from ${directory.name}?`,
       )
     ) {
       return;
@@ -377,7 +380,7 @@ export function StorageEnabledTab({
     } else {
       const selectedFiles = files.filter((file) => !!selectedRows[file.key]);
       const selectedDirectories = directories.filter(
-        (dir) => !!selectedRows[dir.name]
+        (dir) => !!selectedRows[dir.name],
       );
 
       return selectedDirectories
@@ -394,7 +397,7 @@ export function StorageEnabledTab({
       !confirm(
         `Are you sure you want to permanently delete ${keys.length} ${
           keys.length === 1 ? 'file' : 'files'
-        }?`
+        }?`,
       )
     ) {
       return;
@@ -427,7 +430,7 @@ export function StorageEnabledTab({
                     className={cn(
                       i === arr.length - 1
                         ? 'font-semibold text-gray-700'
-                        : 'font-medium text-gray-600 underline'
+                        : 'font-medium text-gray-600 underline',
                     )}
                     onClick={() => {
                       const prefix = breadcrumbs.slice(1, i + 1).join('/');
@@ -494,21 +497,21 @@ export function StorageEnabledTab({
               <>
                 <th
                   className={cn(
-                    'w-full z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1'
+                    'w-full z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
                   )}
                 >
                   Name
                 </th>
                 <th
                   className={cn(
-                    'z-10 cursor-pointer select-none text-right whitespace-nowrap px-4 py-1'
+                    'z-10 cursor-pointer select-none text-right whitespace-nowrap px-4 py-1',
                   )}
                 >
                   Size
                 </th>
                 <th
                   className={cn(
-                    'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1'
+                    'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
                   )}
                 >
                   Last modified
@@ -517,7 +520,7 @@ export function StorageEnabledTab({
             )}
             <th
               className={cn(
-                'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1'
+                'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
               )}
             ></th>
           </tr>
@@ -560,7 +563,7 @@ export function StorageEnabledTab({
                       setSubdirectoryPrefix((current) =>
                         [current, directory.name]
                           .filter((str) => !!str)
-                          .join('/')
+                          .join('/'),
                       )
                     }
                   >
@@ -582,7 +585,7 @@ export function StorageEnabledTab({
                         setSubdirectoryPrefix((current) =>
                           [current, directory.name]
                             .filter((str) => !!str)
-                            .join('/')
+                            .join('/'),
                         )
                       }
                     >

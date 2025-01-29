@@ -1,11 +1,6 @@
-import {
-  i,
-  init,
-  InstaQLEntity,
-  type InstaQLParams,
-} from "@instantdb/react";
+import { i, init, InstaQLEntity, type InstaQLParams } from '@instantdb/react';
 
-import config from "../../config";
+import config from '../../config';
 
 const _schema = i.schema({
   entities: {
@@ -20,14 +15,14 @@ const _schema = i.schema({
   links: {
     todosOwner: {
       forward: {
-        on: "todos",
-        has: "one",
-        label: "owner",
+        on: 'todos',
+        has: 'one',
+        label: 'owner',
       },
       reverse: {
-        on: "owner",
-        has: "many",
-        label: "ownedTodos",
+        on: 'owner',
+        has: 'many',
+        label: 'ownedTodos',
       },
     },
   },
@@ -48,7 +43,7 @@ const todosQuery = {
   },
 } satisfies InstaQLParams<AppSchema>;
 
-export type Todo = InstaQLEntity<AppSchema, "todos">;
+export type Todo = InstaQLEntity<AppSchema, 'todos'>;
 
 export default function TodoApp() {
   const result = db.useQuery(todosQuery);
@@ -61,5 +56,5 @@ export default function TodoApp() {
 // a react component using `Todos`
 function TodoList({ todos }: { todos: Todo[] }) {
   // render todos...
-  return "Number of todos: " + todos.length;
+  return 'Number of todos: ' + todos.length;
 }

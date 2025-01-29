@@ -1,6 +1,6 @@
-import { init } from "@instantdb/react";
-import { useEffect, useMemo, useState } from "react";
-import config from "../../config";
+import { init } from '@instantdb/react';
+import { useEffect, useMemo, useState } from 'react';
+import config from '../../config';
 
 const db = init(config);
 
@@ -23,7 +23,7 @@ export default function () {
           cats: {
             $: {
               where: {
-                "people.id": person.id,
+                'people.id': person.id,
               },
             },
           },

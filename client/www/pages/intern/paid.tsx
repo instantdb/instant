@@ -43,7 +43,7 @@ function usePaidData(token: string | undefined) {
             : { body: { message: err.message || 'Uh oh, we goofed up' } },
           data: undefined,
         });
-      }
+      },
     );
   }, [token]);
 

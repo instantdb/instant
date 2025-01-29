@@ -5,9 +5,9 @@ import { DocSearchModal, useDocSearchKeyboardEvents } from '@docsearch/react';
 import '@docsearch/css';
 
 const docSearchConfig = {
-  appId: "98PPX6H1AS",
-  apiKey: "ee52f4bc250c519ea97596da07560d82", // search only API key
-  indexName: "docs",
+  appId: '98PPX6H1AS',
+  apiKey: 'ee52f4bc250c519ea97596da07560d82', // search only API key
+  indexName: 'docs',
 };
 
 function SearchIcon(props) {
@@ -40,7 +40,7 @@ export function Search() {
 
   useEffect(() => {
     setModifierKey(
-      /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform) ? '⌘' : 'Ctrl '
+      /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform) ? '⌘' : 'Ctrl ',
     );
   }, []);
 
@@ -86,7 +86,7 @@ export function Search() {
               },
             }}
           />,
-          document.body
+          document.body,
         )}
     </>
   );

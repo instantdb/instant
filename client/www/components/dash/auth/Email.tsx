@@ -52,8 +52,8 @@ export function Email({
               'sender-name': values.from,
             },
             token,
-          }
-        )
+          },
+        ),
       )
       .then(
         () => {
@@ -65,7 +65,7 @@ export function Email({
             'sender-name': 'from',
             body: 'bodyHtml',
             subject: 'subject',
-          })
+          }),
       );
   }
 
@@ -187,8 +187,8 @@ export function Email({
                   {
                     method: 'DELETE',
                     token,
-                  }
-                )
+                  },
+                ),
               );
             }
 
@@ -252,7 +252,7 @@ function validateHtml(xmlStr: string) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(
     `<body>${xmlStr}</body>`,
-    'application/xml'
+    'application/xml',
   );
   const errorNode = doc.querySelector('parsererror');
 

@@ -56,7 +56,7 @@ export function submitProfile(token: string, profile: Profile) {
 
 export function createApp(
   token: string,
-  toCreate: { id: string; title: string; admin_token: string }
+  toCreate: { id: string; title: string; admin_token: string },
 ) {
   return jsonFetch(`${config.apiURI}/dash/apps`, {
     method: 'POST',
@@ -100,7 +100,7 @@ export function useDash(): [DashState, Dispatch<SetStateAction<DashState>>] {
           apps: undefined,
           profile: undefined,
         });
-      }
+      },
     );
   }, [token]);
 
@@ -328,7 +328,7 @@ export function Onboarding({
           ...dashState,
           profile: undefined,
         });
-      }
+      },
     );
   };
 
@@ -361,7 +361,7 @@ export function Onboarding({
           apps: dashState.apps.filter((x) => x.id !== toCreate.id),
         });
         setSelectedPage(prevSelectedAppId);
-      }
+      },
     );
   };
 

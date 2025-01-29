@@ -1,14 +1,14 @@
-import { init, tx } from "@instantdb/react";
-import { useEffect } from "react";
-import config from "../../config";
+import { init, tx } from '@instantdb/react';
+import { useEffect } from 'react';
+import config from '../../config';
 
 const db = init(config);
 
 function App() {
   return <Main />;
 }
-const todoId = "ae29562e-11cc-4024-917f-2b0397d5a3bb";
-const profileId = "b3141bb5-34e1-4c44-8872-92fac4018b84";
+const todoId = 'ae29562e-11cc-4024-917f-2b0397d5a3bb';
+const profileId = 'b3141bb5-34e1-4c44-8872-92fac4018b84';
 let count = 0;
 
 function Main() {
@@ -35,7 +35,7 @@ function Main() {
             onClick={() => {
               db.transact(
                 tx.todos[todoId].update({
-                  title: "Updated at " + ++count,
+                  title: 'Updated at ' + ++count,
                 }),
               );
             }}
@@ -47,7 +47,7 @@ function Main() {
             onClick={() => {
               db.transact(
                 tx.profiles[profileId].update({
-                  name: "Updated at " + ++count,
+                  name: 'Updated at ' + ++count,
                 }),
               );
             }}
@@ -58,10 +58,10 @@ function Main() {
         <div className="max-w-md">
           <p>
             Here's how you can trigger the invalidator to send multiple
-            refreshes:{" "}
+            refreshes:{' '}
           </p>
           <p>
-            1. Update `handle-refresh`, and add a{" "}
+            1. Update `handle-refresh`, and add a{' '}
             <code>(Thread/sleep 1000)</code>
           </p>
           <p>2. Load this page</p>

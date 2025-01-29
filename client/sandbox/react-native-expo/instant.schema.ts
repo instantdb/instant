@@ -1,6 +1,6 @@
 // Docs: https://www.instantdb.com/docs/schema
 
-import { i } from "@instantdb/react-native";
+import { i } from '@instantdb/react-native';
 
 const _schema = i.schema({
   // This section lets you define entities: think `posts`, `comments`, etc

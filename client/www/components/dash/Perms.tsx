@@ -72,7 +72,7 @@ export function Perms({
           schema={rulesSchema}
           onSave={async (r) => {
             const er = await onEditRules(dashResponse, app.id, r, token).catch(
-              (error) => error
+              (error) => error,
             );
             setErrorRes(er);
           }}
@@ -86,7 +86,7 @@ async function onEditRules(
   dashResponse: SWRResponse<any, any, any>,
   appId: string,
   newRules: string,
-  token: string
+  token: string,
 ): Promise<void> {
   if (dashResponse.error || dashResponse.isLoading) {
     return Promise.reject(null);
@@ -133,7 +133,7 @@ async function onEditRules(
       }
       errorToast(
         "Oh no, we weren't able to save these rules. Please try again or ping us on Discord if you're stuck!",
-        { autoClose: 3000 }
+        { autoClose: 3000 },
       );
       return Promise.reject();
     });

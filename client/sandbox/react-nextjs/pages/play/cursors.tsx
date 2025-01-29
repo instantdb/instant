@@ -1,10 +1,10 @@
-import React from "react";
-import Head from "next/head";
-import { init, Cursors } from "@instantdb/react";
-import config from "../../config";
+import React from 'react';
+import Head from 'next/head';
+import { init, Cursors } from '@instantdb/react';
+import config from '../../config';
 
 const db = init(config);
-const room = db.room("main", "123");
+const room = db.room('main', '123');
 
 function App() {
   return (

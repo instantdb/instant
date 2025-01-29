@@ -2,9 +2,9 @@ import type {
   IContainEntitiesAndLinks,
   LinkParams,
   UpdateParams,
-} from "./schemaTypes";
+} from './schemaTypes';
 
-type Action = "update" | "link" | "unlink" | "delete" | "merge";
+type Action = 'update' | 'link' | 'unlink' | 'delete' | 'merge';
 type EType = string;
 type Id = string;
 type Args = any;
@@ -14,7 +14,7 @@ export type Op = [Action, EType, Id | LookupRef, Args];
 
 export interface TransactionChunk<
   Schema extends IContainEntitiesAndLinks<any, any>,
-  EntityName extends keyof Schema["entities"],
+  EntityName extends keyof Schema['entities'],
 > {
   __ops: Op[];
   /**
@@ -100,13 +100,13 @@ export interface TransactionChunk<
 
 export interface ETypeChunk<
   Schema extends IContainEntitiesAndLinks<any, any>,
-  EntityName extends keyof Schema["entities"],
+  EntityName extends keyof Schema['entities'],
 > {
   [id: Id]: TransactionChunk<Schema, EntityName>;
 }
 
 export type TxChunk<Schema extends IContainEntitiesAndLinks<any, any>> = {
-  [EntityName in keyof Schema["entities"]]: ETypeChunk<Schema, EntityName>;
+  [EntityName in keyof Schema['entities']]: ETypeChunk<Schema, EntityName>;
 };
 
 function transactionChunk(
@@ -116,7 +116,7 @@ function transactionChunk(
 ): TransactionChunk<any, any> {
   return new Proxy({} as TransactionChunk<any, any>, {
     get: (_target, cmd: keyof TransactionChunk<any, any>) => {
-      if (cmd === "__ops") return prevOps;
+      if (cmd === '__ops') return prevOps;
       return (args: Args) => {
         return transactionChunk(etype, id, [
           ...prevOps,
@@ -138,12 +138,12 @@ export function lookup(attribute: string, value: any): Lookup {
 }
 
 export function isLookup(k: string): boolean {
-  return k.startsWith("lookup__");
+  return k.startsWith('lookup__');
 }
 
 export function parseLookup(k: string): LookupRef {
-  const [_, attribute, ...vJSON] = k.split("__");
-  return [attribute, JSON.parse(vJSON.join("__"))];
+  const [_, attribute, ...vJSON] = k.split('__');
+  return [attribute, JSON.parse(vJSON.join('__'))];
 }
 
 function etypeChunk(etype: EType): ETypeChunk<any, EType> {

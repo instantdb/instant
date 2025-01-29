@@ -1,7 +1,7 @@
 export default class IndexedDBStorage {
   constructor(dbName) {
     this.dbName = dbName;
-    this._storeName = "kv";
+    this._storeName = 'kv';
     this._dbPromise = this._init();
   }
 
@@ -27,7 +27,7 @@ export default class IndexedDBStorage {
   async getItem(k) {
     const db = await this._dbPromise;
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([this._storeName], "readonly");
+      const transaction = db.transaction([this._storeName], 'readonly');
       const objectStore = transaction.objectStore(this._storeName);
       const request = objectStore.get(k);
       request.onerror = (event) => {
@@ -46,7 +46,7 @@ export default class IndexedDBStorage {
   async setItem(k, v) {
     const db = await this._dbPromise;
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([this._storeName], "readwrite");
+      const transaction = db.transaction([this._storeName], 'readwrite');
       const objectStore = transaction.objectStore(this._storeName);
       const request = objectStore.put(v, k);
 

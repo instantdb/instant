@@ -35,9 +35,7 @@ const AUTHORS = {
 };
 
 function getAuthors(authorStr) {
-  return authorStr
-    .split(',')
-    .map((x) => AUTHORS[x.trim()])
+  return authorStr.split(',').map((x) => AUTHORS[x.trim()]);
 }
 
 function getPostBySlug(slug) {

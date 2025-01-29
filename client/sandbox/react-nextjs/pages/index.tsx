@@ -1,4 +1,4 @@
-import { File, getAppRouterFiles, getPageRouterFiles } from "../lib/files";
+import { File, getAppRouterFiles, getPageRouterFiles } from '../lib/files';
 
 export async function getStaticProps() {
   const pageRouterFiles = getPageRouterFiles();

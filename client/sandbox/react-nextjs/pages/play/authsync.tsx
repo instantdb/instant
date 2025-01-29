@@ -1,16 +1,16 @@
 // 1. Import Instant
-import { init, tx, id } from "@instantdb/react";
-import config from "../../config";
-import { useEffect, useState } from "react";
+import { init, tx, id } from '@instantdb/react';
+import config from '../../config';
+import { useEffect, useState } from 'react';
 
 // 2. Get your app id
 const db = init(config);
 
 async function getToken() {
-  const res = await fetch("http://localhost:3005/signin", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: "stopa@instantdb.com" }),
+  const res = await fetch('http://localhost:3005/signin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'stopa@instantdb.com' }),
   });
   return await res.json();
 }

@@ -1,4 +1,4 @@
-'use client'; 
+'use client';
 
 import { useState } from 'react';
 
@@ -21,7 +21,7 @@ function App() {
   const sortedMessages = messages.sort(
     (a, b) =>
       // @ts-expect-error
-      new Date(a.createdAt) - new Date(b.createdAt)
+      new Date(a.createdAt) - new Date(b.createdAt),
   );
 
   return (

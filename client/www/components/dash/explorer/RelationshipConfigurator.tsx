@@ -84,7 +84,7 @@ export function RelationshipConfigurator({
               namespaceName,
               reverseNamespaceName,
               attrName,
-              reverseAttrName
+              reverseAttrName,
             )
           ) : (
             <>&nbsp;</>

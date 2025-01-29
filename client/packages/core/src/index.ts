@@ -1,4 +1,4 @@
-import Reactor from "./Reactor";
+import Reactor from './Reactor';
 import {
   tx,
   txInit,
@@ -6,22 +6,22 @@ import {
   getOps,
   type TxChunk,
   type TransactionChunk,
-} from "./instatx";
-import weakHash from "./utils/weakHash";
-import id from "./utils/uuid";
-import IndexedDBStorage from "./IndexedDBStorage";
-import WindowNetworkListener from "./WindowNetworkListener";
-import { i } from "./schema";
-import { createDevtool } from "./devtool";
-import version from "./version";
+} from './instatx';
+import weakHash from './utils/weakHash';
+import id from './utils/uuid';
+import IndexedDBStorage from './IndexedDBStorage';
+import WindowNetworkListener from './WindowNetworkListener';
+import { i } from './schema';
+import { createDevtool } from './devtool';
+import version from './version';
 
 import type {
   PresenceOpts,
   PresenceResponse,
   PresenceSlice,
   RoomSchemaShape,
-} from "./presence";
-import type { IDatabase, IInstantDatabase } from "./coreTypes";
+} from './presence';
+import type { IDatabase, IInstantDatabase } from './coreTypes';
 import type {
   Query,
   QueryResponse,
@@ -33,15 +33,20 @@ import type {
   InstaQLQueryParams,
   InstaQLEntity,
   InstaQLResult,
-} from "./queryTypes";
-import type { AuthState, User, AuthResult, ConnectionStatus } from "./clientTypes";
+} from './queryTypes';
+import type {
+  AuthState,
+  User,
+  AuthResult,
+  ConnectionStatus,
+} from './clientTypes';
 import type {
   InstantQuery,
   InstantQueryResult,
   InstantSchema,
   InstantEntity,
   InstantSchemaDatabase,
-} from "./helperTypes";
+} from './helperTypes';
 import type {
   AttrsDefs,
   CardinalityKind,
@@ -64,7 +69,7 @@ import type {
   BackwardsCompatibleSchema,
   UpdateParams,
   LinkParams,
-} from "./schemaTypes";
+} from './schemaTypes';
 
 const defaultOpenDevtool = true;
 
@@ -90,7 +95,7 @@ export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {
 };
 
 export type TransactionResult = {
-  status: "synced" | "enqueued";
+  status: 'synced' | 'enqueued';
   clientId: string;
 };
 
@@ -161,8 +166,8 @@ type UnsubscribeFn = () => void;
 // consts
 
 const defaultConfig = {
-  apiURI: "https://api.instantdb.com",
-  websocketURI: "wss://api.instantdb.com/runtime/session",
+  apiURI: 'https://api.instantdb.com',
+  websocketURI: 'wss://api.instantdb.com/runtime/session',
 };
 
 // hmr
@@ -485,7 +490,9 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
    *     console.log('Connection status:', connectionState);
    *   });
    */
-  subscribeConnectionStatus(cb: (status: ConnectionStatus) => void): UnsubscribeFn {
+  subscribeConnectionStatus(
+    cb: (status: ConnectionStatus) => void,
+  ): UnsubscribeFn {
     return this._reactor.subscribeConnectionStatus(cb);
   }
 
@@ -508,8 +515,8 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
    * room.leaveRoom();
    */
   joinRoom<RoomType extends keyof RoomsOf<Schema>>(
-    roomType: RoomType = "_defaultRoomType" as RoomType,
-    roomId: string = "_defaultRoomId",
+    roomType: RoomType = '_defaultRoomType' as RoomType,
+    roomId: string = '_defaultRoomId',
   ): RoomHandle<PresenceOf<Schema, RoomType>, TopicsOf<Schema, RoomType>> {
     const leaveRoom = this._reactor.joinRoom(roomId);
 
@@ -572,7 +579,7 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
  *  import schema from ""../instant.schema.ts";
  *
  *  const db = init({ appId: "my-app-id", schema })
- *  
+ *
  *  // To learn more: https://instantdb.com/docs/modeling-data
  */
 function init<
@@ -599,18 +606,18 @@ function init<
     },
     Storage || IndexedDBStorage,
     NetworkListener || WindowNetworkListener,
-    { ...(versions || {}), "@instantdb/core": version },
+    { ...(versions || {}), '@instantdb/core': version },
   );
 
   const client = new InstantCoreDatabase<any>(reactor);
   globalInstantCoreStore[config.appId] = client;
 
-  if (typeof window !== "undefined" && typeof window.location !== "undefined") {
+  if (typeof window !== 'undefined' && typeof window.location !== 'undefined') {
     const showDevtool =
       // show widget by default?
-      ("devtool" in config ? Boolean(config.devtool) : defaultOpenDevtool) &&
+      ('devtool' in config ? Boolean(config.devtool) : defaultOpenDevtool) &&
       // only run on localhost (dev env)
-      window.location.hostname === "localhost" &&
+      window.location.hostname === 'localhost' &&
       // used by dash and other internal consumers
       !Boolean((globalThis as any)._nodevtool);
 
@@ -638,7 +645,7 @@ type InstantRules = {
 /**
  * @deprecated
  * `init_experimental` is deprecated. You can replace it with `init`.
- * 
+ *
  * @example
  *
  * // Before

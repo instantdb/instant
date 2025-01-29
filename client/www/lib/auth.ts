@@ -157,9 +157,9 @@ export const messageFromInstantError = (
 };
 
 /**
-  * Friendly error messages to display to our users
-  * We can add more cases as we encounter them
-*/
+ * Friendly error messages to display to our users
+ * We can add more cases as we encounter them
+ */
 export function friendlyErrorMessage(label: string, message: string) {
   switch (label) {
     case 'dash-billing':

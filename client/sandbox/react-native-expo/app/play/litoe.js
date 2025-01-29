@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
-import { tx, id, init } from "@instantdb/react-native";
-import { View, Text, Pressable } from "react-native";
+import { useState, useEffect } from 'react';
+import { tx, id, init } from '@instantdb/react-native';
+import { View, Text, Pressable } from 'react-native';
 
-import config from "../config";
-
+import config from '../config';
 
 let currentRoomId = null;
 
@@ -11,29 +10,29 @@ let currentRoomId = null;
 // --------------------
 
 const adjectives = [
-  "happy",
-  "sad",
-  "angry",
-  "funny",
-  "serious",
-  "colorful",
-  "boring",
-  "fast",
-  "slow",
-  "loud",
+  'happy',
+  'sad',
+  'angry',
+  'funny',
+  'serious',
+  'colorful',
+  'boring',
+  'fast',
+  'slow',
+  'loud',
 ].map(capitalize);
 
 const nouns = [
-  "dog",
-  "cat",
-  "bird",
-  "fish",
-  "lion",
-  "tiger",
-  "bear",
-  "elephant",
-  "giraffe",
-  "whale",
+  'dog',
+  'cat',
+  'bird',
+  'fish',
+  'lion',
+  'tiger',
+  'bear',
+  'elephant',
+  'giraffe',
+  'whale',
 ].map(capitalize);
 
 const PLAYER_ID = generateRandomString();
@@ -93,13 +92,13 @@ function updateOutcome(newBoard, currentPlayer, mark) {
   }
 
   if (isFull(newBoard)) {
-    return "draw";
+    return 'draw';
   }
 }
 
 // State Management
 // --------------------
-const MARKER = { 0: "x", 1: "o" };
+const MARKER = { 0: 'x', 1: 'o' };
 function getMarker(idx) {
   return MARKER[idx];
 }
@@ -170,7 +169,7 @@ function findGame(games, roomId) {
 function getOpponentId(players, playerId) {
   if (isObserver(players, playerId)) {
     console.warn(
-      "[getOpponent] should only called be called with a valid player",
+      '[getOpponent] should only called be called with a valid player',
     );
     return;
   }
@@ -263,8 +262,8 @@ function Button({ onPress, children, disabled }) {
     <Pressable
       className={`p-4 border border-solid w-32 ${
         disabled
-          ? "text-gray-300 border-gray-300"
-          : "border-black hover:bg-slate-200"
+          ? 'text-gray-300 border-gray-300'
+          : 'border-black hover:bg-slate-200'
       }`}
       onPress={onPress}
       disabled={disabled}
@@ -341,7 +340,7 @@ const Drawer = ({ defaultOpen, children }) => {
         onPress={toggleDrawer}
         className="py-2 px-4 absolute top-0 right-0 z-50"
       >
-        <Text>{isOpen ? "-" : "+"}</Text>
+        <Text>{isOpen ? '-' : '+'}</Text>
       </Pressable>
       <View className="drawer absolute top-0 right-0 h-screen w-32 overflow-auto bg-slate-200 bg-opacity-30">
         {children}
@@ -359,7 +358,7 @@ function gameHeaderText({ players, outcome, turn }) {
     return <Text>`Turn: ${players[turn]}`</Text>;
   }
 
-  return outcome === "draw" ? (
+  return outcome === 'draw' ? (
     <Text>"Draw!"</Text>
   ) : (
     <Text>`${outcome} wins!`</Text>
@@ -514,7 +513,7 @@ function Main({ data }) {
                 }
               >
                 <Text>
-                  {isRematch(game) ? "Rematch offered" : "Offer rematch"}
+                  {isRematch(game) ? 'Rematch offered' : 'Offer rematch'}
                 </Text>
               </Button>
             )}
@@ -528,10 +527,10 @@ function Main({ data }) {
           </Text>
           <View
             className={`w-full border border-2 ${
-              turn === 0 && !outcome && "border-green-600"
+              turn === 0 && !outcome && 'border-green-600'
             }`}
           ></View>
-          <Text className={players[0] === outcome ? "bg-slate-200 py-4" : ""}>
+          <Text className={players[0] === outcome ? 'bg-slate-200 py-4' : ''}>
             {players[0] && `${players[0]} -- ${getMarker(0)}`}
           </Text>
         </View>
@@ -562,12 +561,12 @@ function Main({ data }) {
 
         {/* Player 2 and Clock Info */}
         <View>
-          <Text className={players[1] === outcome ? "bg-slate-200 py-4" : ""}>
+          <Text className={players[1] === outcome ? 'bg-slate-200 py-4' : ''}>
             {players[1] && `${players[1]} -- ${getMarker(1)}`}
           </Text>
           <View
             className={`w-full border border-2 ${
-              turn === 1 && !outcome && "border-green-600"
+              turn === 1 && !outcome && 'border-green-600'
             }`}
           ></View>
           <Text className="text-2xl">
@@ -580,8 +579,8 @@ function Main({ data }) {
 }
 
 function capitalize(str) {
-  if (!str || typeof str !== "string") {
-    return "";
+  if (!str || typeof str !== 'string') {
+    return '';
   }
 
   return str.charAt(0).toUpperCase() + str.slice(1);
@@ -594,7 +593,7 @@ function capitalize(str) {
 function convertSecondsToMinutesAndSeconds(totalSeconds) {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds < 10 ? "0" + seconds : seconds}`;
+  return `${minutes}:${seconds < 10 ? '0' + seconds : seconds}`;
 }
 
 function getRandomElement(array) {
