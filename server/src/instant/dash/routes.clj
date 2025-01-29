@@ -944,7 +944,8 @@
                :path path
                :file file
                :content-type (:content-type file)
-               :skip-perms-check? true} file)]
+               :skip-perms-check? true}
+               file)]
     (response/ok {:data data})))
 
 (defn files-delete [req]
