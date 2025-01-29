@@ -421,8 +421,6 @@ Our `do-failover-to-new-db` worked at our scale, but will probably fail us in a 
 1. We paused _both_ writes and reads. But technically we don’t need to pause reads. Daniel pushed [up a PR](https://github.com/instantdb/instant/pull/743) to be explicit about read-only connections. In the future we can skip pausing them.
 2. In December we were able to scale down to one big machine. We’re approaching the limits to one big machine today. [^14] We’re going to try to evolve this into a kind of `two-phase-commit`, where each machine reports their stage, and a coordinator progresses when all machines hit the same stage.
 
-If stuff like this is interesting to you, [we are hiring](https://www.instantdb.com/essays/next_firebase).
-
 # Fin
 
 Aand that’s our story of how did our major version upgrade. We wanted to finish up with a summary of learnings, in the hopes that’s easier for you to get back to this essay when you’re considering an upgrade. Here’s what we wish we knew when we started:
