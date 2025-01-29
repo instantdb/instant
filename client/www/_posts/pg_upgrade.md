@@ -410,16 +410,16 @@ If you’re curious, here’s how the actual failover [function](https://github.
 
 ### Running in Prod
 
-Now that we had a good practice run, we got ourselves ready, had our sparkling waters in hand, and began to ran our steps in production. There was certainly bated breath, but we ran the failover function, 20 seconds later we had a new Postgres instance serving requests! [^13]
+Now that we had a good practice run, we got ourselves ready, had our sparkling waters in hand, and began to ran our steps in production. 
 
-And best of all, nobody noticed.
+After about a 3.5 second pause [^13], the failover function completed smoothly! We had a new Postgres instance serving requests, and best of all, nobody noticed. [^14]
 
 ### Future Improvements
 
 Our `do-failover-to-new-db` worked at our scale, but will probably fail us in a few months. There are two improvements we plan to make:
 
 1. We paused _both_ writes and reads. But technically we don’t need to pause reads. Daniel pushed [up a PR](https://github.com/instantdb/instant/pull/743) to be explicit about read-only connections. In the future we can skip pausing them.
-2. In December we were able to scale down to one big machine. We’re approaching the limits to one big machine today. [^14] We’re going to try to evolve this into a kind of `two-phase-commit`, where each machine reports their stage, and a coordinator progresses when all machines hit the same stage.
+2. In December we were able to scale down to one big machine. We’re approaching the limits to one big machine today. [^15] We’re going to try to evolve this into a kind of `two-phase-commit`, where each machine reports their stage, and a coordinator progresses when all machines hit the same stage.
 
 # Fin
 
@@ -466,7 +466,8 @@ _Thanks to Nikita Prokopov, Joe Averbukh, Martin Raison, Irakli Safareli, Ian Si
 
 [^12]: You may be wondering — sure, the transactions table was okay, but what if there was data loss in other tables? We wrote a [more involved script](https://github.com/instantdb/instant/blob/main/server/src/instant/jdbc/failover.clj#L258) to check for every table too. We really wanted to make sure there was no data loss.
 
+[^13]: About 2.5 seconds to let active queries complete, and about 1 second for the replica to catch up
 
-[^13]: You may be wondering, how did we run the function? Where’s the feature flag? That’s one more Clojure win: we could SSH into production, and execute this function in our REPL!
+[^14]: You may be wondering, how did we run the function? Where’s the feature flag? That’s one more Clojure win: we could SSH into production, and execute this function in our REPL!
 
-[^14]: The big bottleneck is all the active connections — it slows down the sync engine too much. If we improve perf, perhaps we can get to one big machine again!
+[^15]: The big bottleneck is all the active connections — it slows down the sync engine too much. If we improve perf, perhaps we can get to one big machine again!
