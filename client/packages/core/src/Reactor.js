@@ -1514,6 +1514,11 @@ export default class Reactor {
     return `${apiURI}/runtime/oauth/start?app_id=${appId}&client_name=${clientName}&redirect_uri=${redirectURL}`;
   }
 
+  /**
+   * @param {Object} params 
+   * @param {string} params.code - The code received from the OAuth service. 
+   * @param {string} [params.codeVerifier] - The code verifier used to generate the code challenge.
+   */
   async exchangeCodeForToken({ code, codeVerifier }) {
     const res = await authAPI.exchangeCodeForToken({
       apiURI: this.config.apiURI,

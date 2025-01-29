@@ -65,6 +65,7 @@ import type {
   UpdateParams,
   LinkParams,
 } from "./schemaTypes";
+import { ExchangeCodeForTokenInput, SendMagicCodeParams, SendMagicCodeResponse, SignInWithIdTokenParams, VerifyMagicCodeParams, VerifyResponse } from "./authAPI";
 
 const defaultOpenDevtool = true;
 
@@ -192,9 +193,10 @@ class Auth {
    *  db.auth.sendMagicCode({email: "example@gmail.com"})
    *    .catch((err) => console.error(err.body?.message))
    */
-  sendMagicCode = (params: { email: string }) => {
+  sendMagicCode = (params: SendMagicCodeParams): SendMagicCodeResponse => {
     return this.db.sendMagicCode(params);
   };
+
   /**
    * Verify a magic code that was sent to the user's email address.
    *
@@ -204,7 +206,7 @@ class Auth {
    *  db.auth.signInWithMagicCode({email: "example@gmail.com", code: "123456"})
    *       .catch((err) => console.error(err.body?.message))
    */
-  signInWithMagicCode = (params: { email: string; code: string }) => {
+  signInWithMagicCode = (params: VerifyMagicCodeParams): VerifyResponse => {
     return this.db.signInWithMagicCode(params);
   };
 
@@ -219,9 +221,10 @@ class Auth {
    *   //Sign in
    *   db.auth.signInWithToken(token);
    */
-  signInWithToken = (token: AuthToken) => {
+  signInWithToken = (token: AuthToken): VerifyResponse => {
     return this.db.signInWithCustomToken(token);
   };
+  
 
   /**
    * Create an authorization url to sign in with an external provider
@@ -238,7 +241,7 @@ class Auth {
    *   // Put it in a sign in link
    *   <a href={url}>Log in with Google</a>
    */
-  createAuthorizationURL = (params: { clientName: string; redirectURL }) => {
+  createAuthorizationURL = (params: { clientName: string; redirectURL: string }): string => {
     return this.db.createAuthorizationURL(params);
   };
 
@@ -260,11 +263,7 @@ class Auth {
    *  .catch((err) => console.error(err.body?.message));
    *
    */
-  signInWithIdToken = (params: {
-    idToken: string;
-    clientName: string;
-    nonce?: string | undefined | null;
-  }) => {
+  signInWithIdToken = (params: SignInWithIdTokenParams): VerifyResponse => {
     return this.db.signInWithIdToken(params);
   };
 
@@ -284,10 +283,7 @@ class Auth {
    *  .catch((err) => console.error(err.body?.message));
    *
    */
-  exchangeOAuthCode = (params: {
-    code: string;
-    codeVerifier: string | undefined | null;
-  }) => {
+  exchangeOAuthCode = (params: ExchangeCodeForTokenInput) => {
     return this.db.exchangeCodeForToken(params);
   };
 

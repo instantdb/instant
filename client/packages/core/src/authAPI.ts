@@ -1,6 +1,20 @@
+import { User } from "./clientTypes";
 import { jsonFetch } from "./utils/fetch";
 
-export function sendMagicCode({ apiURI, appId, email }) {
+type SharedInput = {
+  apiURI: string;
+  appId: string;
+};
+
+export type SendMagicCodeParams = { email: string };
+export type SendMagicCodeResponse = Promise<{
+  sent: true;
+}>;
+export function sendMagicCode({
+  apiURI,
+  appId,
+  email,
+}: SharedInput & SendMagicCodeParams): SendMagicCodeResponse {
   return jsonFetch(`${apiURI}/runtime/auth/send_magic_code`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -8,7 +22,16 @@ export function sendMagicCode({ apiURI, appId, email }) {
   });
 }
 
-export async function verifyMagicCode({ apiURI, appId, email, code }) {
+export type VerifyMagicCodeParams = { email: string; code: string };
+export type VerifyResponse = Promise<{
+  user: User;
+}>;
+export async function verifyMagicCode({
+  apiURI,
+  appId,
+  email,
+  code,
+}: SharedInput & VerifyMagicCodeParams): VerifyResponse {
   const res = await jsonFetch(`${apiURI}/runtime/auth/verify_magic_code`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -17,7 +40,12 @@ export async function verifyMagicCode({ apiURI, appId, email, code }) {
   return res;
 }
 
-export async function verifyRefreshToken({ apiURI, appId, refreshToken }) {
+export type VerifyRefreshTokenInput = { refreshToken: string };
+export async function verifyRefreshToken({
+  apiURI,
+  appId,
+  refreshToken,
+}: SharedInput & VerifyRefreshTokenInput): VerifyResponse {
   const res = await jsonFetch(`${apiURI}/runtime/auth/verify_refresh_token`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -29,19 +57,17 @@ export async function verifyRefreshToken({ apiURI, appId, refreshToken }) {
   return res;
 }
 
-/**
- * @param {Object} params
- * @param {string} params.apiURI
- * @param {string} params.appId
- * @param {string} params.code
- * @param {string | null | undefined} [params.codeVerifier]
- */
+export type ExchangeCodeForTokenInput = {
+  code: string;
+  codeVerifier?: string;
+};
+
 export async function exchangeCodeForToken({
   apiURI,
   appId,
   code,
   codeVerifier,
-}) {
+}: SharedInput & ExchangeCodeForTokenInput): VerifyResponse {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/token`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -54,15 +80,14 @@ export async function exchangeCodeForToken({
   return res;
 }
 
-/**
- * @param {Object} params
- * @param {string} params.apiURI
- * @param {string} params.appId
- * @param {string} params.clientName
- * @param {string} params.idToken
- * @param {string | null | undefined} [params.refreshToken]
- * @param {string | null | undefined} [params.nonce]
- */
+
+export type SignInWithIdTokenParams = { 
+  nonce?: string;
+  idToken: string;
+  clientName: string;
+  refreshToken?: string;
+};
+
 export async function signInWithIdToken({
   apiURI,
   appId,
@@ -70,7 +95,7 @@ export async function signInWithIdToken({
   idToken,
   clientName,
   refreshToken,
-}) {
+}: SharedInput & SignInWithIdTokenParams): VerifyResponse {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/id_token`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -85,13 +110,8 @@ export async function signInWithIdToken({
   return res;
 }
 
-/**
- * @param {Object} params
- * @param {string} params.apiURI
- * @param {string} params.appId
- * @param {string} params.refreshToken
- */
-export async function signOut({ apiURI, appId, refreshToken }) {
+export type SignoutParams = { refreshToken: string };
+export async function signOut({ apiURI, appId, refreshToken }: SharedInput & SignoutParams): Promise<{}> {
   const res = await jsonFetch(`${apiURI}/runtime/signout`, {
     method: "POST",
     headers: {
