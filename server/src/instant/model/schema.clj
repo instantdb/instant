@@ -218,10 +218,13 @@
                :when (= :add-attr op)
                :let [fwd-name (attr-model/fwd-ident-name attr)
                      rev-name (attr-model/rev-ident-name attr)
+                     current-rev-name (get current-links-mapping-rev fwd-name)
                      message
                      (cond
                        ;; link-backwards-conflict?
-                       (= rev-name (get current-links-mapping-rev fwd-name))
+                       (and (not (and (nil? rev-name)
+                                      (nil? current-rev-name)))
+                            (= rev-name current-rev-name))
                        (backwards-link-message fwd-name)
 
                        ;; link-fwd-exists?
