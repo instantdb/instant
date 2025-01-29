@@ -54,7 +54,7 @@ import {
   type UpdateParams,
   type LinkParams,
 
-  type ExchangeCodeForTokenInput, 
+  type ExchangeCodeForTokenParams, 
   type SendMagicCodeParams, 
   type SendMagicCodeResponse, 
   type SignInWithIdTokenParams, 
@@ -159,7 +159,7 @@ export {
   type UpdateParams,
   type LinkParams,
 
-  type ExchangeCodeForTokenInput, 
+  type ExchangeCodeForTokenParams, 
   type SendMagicCodeParams, 
   type SendMagicCodeResponse, 
   type SignInWithIdTokenParams, 

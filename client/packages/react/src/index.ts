@@ -43,7 +43,7 @@ import {
   type UpdateParams,
   type LinkParams,
   
-  type ExchangeCodeForTokenInput, 
+  type ExchangeCodeForTokenParams, 
   type SendMagicCodeParams, 
   type SendMagicCodeResponse, 
   type SignInWithIdTokenParams, 
@@ -106,7 +106,7 @@ export {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
-  type ExchangeCodeForTokenInput, 
+  type ExchangeCodeForTokenParams, 
   type SendMagicCodeParams, 
   type SendMagicCodeResponse, 
   type SignInWithIdTokenParams, 

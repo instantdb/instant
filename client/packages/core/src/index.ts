@@ -72,7 +72,7 @@ import type {
 } from "./schemaTypes";
 
 import type {
-  ExchangeCodeForTokenInput,
+  ExchangeCodeForTokenParams,
   SendMagicCodeParams,
   SendMagicCodeResponse,
   SignInWithIdTokenParams,
@@ -304,7 +304,7 @@ class Auth {
    *  .catch((err) => console.error(err.body?.message));
    *
    */
-  exchangeOAuthCode = (params: ExchangeCodeForTokenInput) => {
+  exchangeOAuthCode = (params: ExchangeCodeForTokenParams) => {
     return this.db.exchangeCodeForToken(params);
   };
 
@@ -755,7 +755,7 @@ export {
   type LinkParams,
 
   // auth types
-  type ExchangeCodeForTokenInput, 
+  type ExchangeCodeForTokenParams, 
   type SendMagicCodeParams, 
   type SendMagicCodeResponse, 
   type SignInWithIdTokenParams, 

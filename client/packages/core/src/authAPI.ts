@@ -41,12 +41,12 @@ export async function verifyMagicCode({
   return res;
 }
 
-export type VerifyRefreshTokenInput = { refreshToken: string };
+export type VerifyRefreshTokenParams = { refreshToken: string };
 export async function verifyRefreshToken({
   apiURI,
   appId,
   refreshToken,
-}: SharedInput & VerifyRefreshTokenInput): Promise<VerifyResponse> {
+}: SharedInput & VerifyRefreshTokenParams): Promise<VerifyResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/auth/verify_refresh_token`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -58,7 +58,7 @@ export async function verifyRefreshToken({
   return res;
 }
 
-export type ExchangeCodeForTokenInput = {
+export type ExchangeCodeForTokenParams = {
   code: string;
   codeVerifier?: string;
 };
@@ -68,7 +68,7 @@ export async function exchangeCodeForToken({
   appId,
   code,
   codeVerifier,
-}: SharedInput & ExchangeCodeForTokenInput): Promise<VerifyResponse> {
+}: SharedInput & ExchangeCodeForTokenParams): Promise<VerifyResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/token`, {
     method: "POST",
     headers: { "content-type": "application/json" },
