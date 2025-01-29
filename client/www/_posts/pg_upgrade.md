@@ -351,7 +351,7 @@ Sounds good in theory, but it can be hard to pull off. Unless of course you run 
 
 Our switching algorithm hinges on being able to control all active connections. If you have tons of machines, how could you control all active connections?
 
-Well, since our throughput was still modest, we could temporarily scale our sync servers down to just one giant machine. Clojure and java came handy here too. We had threads and the JVM is efficient, so we could take full advantage of the [m6a.16xlarge](https://instances.vantage.sh/aws/ec2/m6a.16xlarge?region=us-east-1&os=linux&cost_duration=monthly&reserved_term=Standard.noUpfront) sync server we moved too for the switch.
+Well, since our throughput was still modest, we could temporarily scale our sync servers down to just one giant machine. Clojure and java came handy here too. We had threads and the JVM is efficient, so we could take full advantage of the [m6a.16xlarge](https://instances.vantage.sh/aws/ec2/m6a.16xlarge?region=us-east-1&os=linux&cost_duration=monthly&reserved_term=Standard.noUpfront) sync server we moved to for the switch.
 
 ### Writing out a failover function
 
