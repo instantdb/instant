@@ -5,7 +5,8 @@
    [instant.system-catalog :refer [all-attrs] :rename {all-attrs $system-attrs}]
    [instant.system-catalog-ops :refer [update-op query-op]]
    [instant.jdbc.sql :as sql]
-   [honey.sql :as hsql]))
+   [honey.sql :as hsql]
+   [instant.util.exception :as ex]))
 
 (def etype "$files")
 
@@ -81,31 +82,40 @@
                                                   :path "circle_red.jpg"})]
     (delete-by-path! {:app-id app-id :path path})))
 
-(defn get-usage* [conn app-id]
-  {:pre [(or (nil? app-id) (uuid? app-id))]}
-  (let [fm-attr (attr-model/resolve-attr-id $system-attrs "$files" "metadata")
-        where (if app-id
-                [:and
-                 [:= :t.attr_id fm-attr]
-                 [:= :t.app_id app-id]]
-                [:= :t.attr_id fm-attr])]
-    (sql/select conn
-                (hsql/format
-                 {:select [:t.app_id :a.title
-                           [:u.email :creator_email]
-                           [[:sum [[:cast [:-> :t.value "size"] :bigint]]] :total_byte_size]
-                           [[:count :t.*] :total_file_count]]
-                  :from [[:triples :t]]
-                  :join [[:apps :a] [:= :t.app_id :a.id]
-                         [:instant_users :u] [:= :a.creator_id :u.id]]
-                  :where where
-                  :group-by [:t.app_id :a.title :u.email]
-                  :order-by [[:total_byte_size :desc]]}))))
-
 (defn get-all-apps-usage
   ([] (get-all-apps-usage (aurora/conn-pool :read)))
-  ([conn] (get-usage* conn nil)))
+  ([conn]
+   (let [fm-attr (attr-model/resolve-attr-id $system-attrs "$files" "size")]
+     (sql/select
+      conn
+      (hsql/format
+       {:select [:t.app_id :a.title
+                 [:u.email :creator_email]
+                 [[:sum [[:triples_extract_number_value :t.value]]] :total_byte_size]
+                 [[:count :t.*] :total_file_count]]
+        :from [[:triples :t]]
+        :join [[:apps :a] [:= :t.app_id :a.id]
+               [:instant_users :u] [:= :a.creator_id :u.id]]
+        :where [:and
+                [:= :t.attr_id fm-attr]
+                [:= :t.checked-data-type [:cast "number" :checked_data_type]]
+                :t.ave]
+        :group-by [:t.app_id :a.title :u.email]
+        :order-by [[:total_byte_size :desc]]})))))
 
 (defn get-app-usage
   ([app-id] (get-app-usage (aurora/conn-pool :read) app-id))
-  ([conn app-id] (first (get-usage* conn app-id))))
+  ([conn app-id]
+   (when (not (uuid? app-id))
+     (ex/throw-validation-err! :app-id app-id "app-id must be a uuid"))
+   (let [fm-attr (attr-model/resolve-attr-id $system-attrs "$files" "size")]
+     (sql/select-one
+      conn
+      (hsql/format
+       {:select [[[:sum [[:triples_extract_number_value :t.value]]] :total_byte_size]]
+        :from [[:triples :t]]
+        :where [:and
+                [:= :t.app_id app-id]
+                [:= :t.attr_id fm-attr]
+                [:= :t.checked-data-type [:cast "number" :checked_data_type]]
+                :t.ave]})))))
