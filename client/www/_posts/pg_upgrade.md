@@ -253,12 +253,12 @@ So we created a checklist and ended up with 7 steps:
    
    ```sql
     -- On 13
-    select max(id) FROM transactions;
-    select count(*) FROM transactions where id < :max-id;
+    select max(id) from transactions;
+    select count(*) from transactions where id < :max-id;
 
     -- Wait for :max-id to replicate ...
     -- On 16
-    select count(*) FROM transactions where id < :max-id;
+    select count(*) from transactions where id < :max-id;
     ```
 
 1. **16: Run vaccum analyze**
