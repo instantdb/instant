@@ -18,11 +18,7 @@ import {
   type Query,
   type Config,
   type InstaQLParams,
-
   type ConnectionStatus,
-
-  // Storage
-  type FileOpts,
 
   // schema types
   type AttrsDefs,
@@ -45,13 +41,17 @@ import {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
-  
-  type ExchangeCodeForTokenParams, 
-  type SendMagicCodeParams, 
-  type SendMagicCodeResponse, 
-  type SignInWithIdTokenParams, 
-  type VerifyMagicCodeParams, 
-  type VerifyResponse 
+  type ExchangeCodeForTokenParams,
+  type SendMagicCodeParams,
+  type SendMagicCodeResponse,
+  type SignInWithIdTokenParams,
+  type VerifyMagicCodeParams,
+  type VerifyResponse,
+
+  // storage types
+  type FileOpts,
+  type UploadFileResponse,
+  type DeleteFileResponse,
 } from "@instantdb/core";
 
 import InstantReactAbstractDatabase from "./InstantReactAbstractDatabase";
@@ -80,7 +80,6 @@ export {
   type User,
   type AuthState,
   type ConnectionStatus,
-  type FileOpts,
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
@@ -110,10 +109,15 @@ export {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
-  type ExchangeCodeForTokenParams, 
-  type SendMagicCodeParams, 
-  type SendMagicCodeResponse, 
-  type SignInWithIdTokenParams, 
-  type VerifyMagicCodeParams, 
-  type VerifyResponse 
+  type ExchangeCodeForTokenParams,
+  type SendMagicCodeParams,
+  type SendMagicCodeResponse,
+  type SignInWithIdTokenParams,
+  type VerifyMagicCodeParams,
+  type VerifyResponse,
+
+  // storage types
+  type FileOpts,
+  type UploadFileResponse,
+  type DeleteFileResponse,
 };

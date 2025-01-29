@@ -54,6 +54,10 @@
   (let [object-key (->object-key app-id path)]
     (format-object (s3-util/get-object object-key))))
 
+(defn delete-file! [app-id filename]
+  (let [object-key (->object-key app-id filename)]
+    (s3-util/delete-object object-key)))
+
 (defn bulk-delete-files! [app-id filenames]
   (let [keys (mapv (fn [filename] (->object-key app-id filename)) filenames)]
     (s3-util/delete-objects-paginated keys)))

@@ -1,5 +1,17 @@
 import { jsonFetch } from "./utils/fetch";
 
+export type UploadFileResponse = {
+  data: {
+    id: string;
+  };
+};
+
+export type DeleteFileResponse = {
+  data: {
+    id: string | null;
+  };
+};
+
 export async function uploadFile({
   apiURI,
   appId,
@@ -16,7 +28,7 @@ export async function uploadFile({
   refreshToken?: string;
   contentType?: string;
   contentDisposition?: string;
-}) {
+}): Promise<UploadFileResponse> {
   const headers = {
     app_id: appId,
     path,
@@ -36,31 +48,6 @@ export async function uploadFile({
   return data;
 }
 
-export async function getDownloadUrl({
-  apiURI,
-  appId,
-  path,
-  refreshToken,
-}: {
-  apiURI: string;
-  appId: string;
-  path: string;
-  refreshToken?: string;
-}) {
-  const { data } = await jsonFetch(
-    `${apiURI}/storage/signed-download-url?app_id=${appId}&filename=${encodeURIComponent(path)}`,
-    {
-      method: "GET",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${refreshToken}`,
-      },
-    },
-  );
-
-  return data;
-}
-
 export async function deleteFile({
   apiURI,
   appId,
@@ -71,7 +58,7 @@ export async function deleteFile({
   appId: string;
   path: string;
   refreshToken?: string;
-}) {
+}): Promise<DeleteFileResponse> {
   const { data } = await jsonFetch(
     `${apiURI}/storage/files?app_id=${appId}&filename=${encodeURIComponent(path)}`,
     {
@@ -128,4 +115,31 @@ export async function upload(presignedUrl, file) {
   });
 
   return response.ok;
+}
+
+export async function getDownloadUrl({
+  apiURI,
+  appId,
+  path,
+  refreshToken,
+}: {
+  apiURI: string;
+  appId: string;
+  path: string;
+  refreshToken?: string;
+}) {
+  const { data } = await jsonFetch(
+    `${apiURI}/storage/signed-download-url?app_id=${appId}&filename=${encodeURIComponent(
+      path,
+    )}`,
+    {
+      method: "GET",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${refreshToken}`,
+      },
+    },
+  );
+
+  return data;
 }

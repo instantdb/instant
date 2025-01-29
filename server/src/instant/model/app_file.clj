@@ -17,7 +17,7 @@
     conn
     {:app-id app-id
      :etype etype}
-    (fn [{:keys [transact! get-entity-where resolve-id get-entity]}]
+    (fn [{:keys [transact! get-entity-where resolve-id]}]
       (let [{id :id} (or (get-entity-where {:path path})
                          {:id (random-uuid)})
             {:keys [size content-type content-disposition]} metadata]
@@ -29,7 +29,7 @@
           [:add-triple id (resolve-id :content-disposition) content-disposition]
           [:add-triple id (resolve-id :key-version) 1]]
          {:allow-$files-update? true})
-        (get-entity id))))))
+        {:id id})))))
 
 (defn get-by-path
   ([params] (get-by-path (aurora/conn-pool :read) params))
@@ -53,12 +53,13 @@
           (transact! (mapv (fn [{:keys [id]}]
                              [:delete-entity id etype])
                            ents)
-                     {:allow-$files-update? true})))))))
+                     {:allow-$files-update? true})
+          (map :id ents)))))))
 
 (defn delete-by-path!
   ([params] (delete-by-path! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id path]}]
-   (delete-by-paths! conn {:app-id app-id :paths [path]})))
+   (first (delete-by-paths! conn {:app-id app-id :paths [path]}))))
 
 (defn delete-by-ids!
   ([params] (delete-by-ids! (aurora/conn-pool :write) params))
@@ -73,7 +74,8 @@
           (transact! (mapv (fn [{:keys [id]}]
                              [:delete-entity id etype])
                            ents)
-                     {:allow-$files-update? true})))))))
+                     {:allow-$files-update? true})
+          ids))))))
 
 (defn get-all-apps-usage
   ([] (get-all-apps-usage (aurora/conn-pool :read)))

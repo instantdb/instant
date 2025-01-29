@@ -377,14 +377,15 @@
                                                 :path path
                                                 :content-type content-type
                                                 :skip-perms-check? true}
-                                                file)]
+                                               file)]
     (response/ok {:data data})))
 
 (defn file-delete [req]
   (let [{app-id :app_id} (req->admin-token! req)
         filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
-        data (storage-coordinator/delete-files! {:app-id app-id
-                                                 :paths [filename]})]
+        data (storage-coordinator/delete-file! {:app-id app-id
+                                                :path filename
+                                                :skip-perms-check? true})]
     (response/ok {:data data})))
 
 (defn files-delete [req]
@@ -436,9 +437,9 @@
 (defn signed-upload-url-post [req]
   (let [{app-id :app_id} (req->admin-token! req)
         filename (ex/get-param! req [:body :filename] string-util/coerce-non-blank-str)
-        data (storage-coordinator/create-upload-url {:app-id app-id
-                                                     :path filename
-                                                     :skip-perms-check? true})]
+        data (storage-coordinator/create-upload-url! {:app-id app-id
+                                                      :path filename
+                                                      :skip-perms-check? true})]
     (response/ok {:data data})))
 
 (defn signed-download-url-get [req]

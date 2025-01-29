@@ -47,6 +47,11 @@ import {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
+
+  // storage types
+  type FileOpts,
+  type UploadFileResponse,
+  type DeleteFileResponse,
 } from "@instantdb/core";
 
 import version from "./version";
@@ -592,17 +597,18 @@ class Auth {
   }
 }
 
-type UploadMetadata = {
-  contentType?: string;
-  contentDisposition?: string;
-};
-
 type StorageFile = {
   key: string;
   name: string;
   size: number;
   etag: string;
   last_modified: number;
+};
+
+type DeleteManyFileResponse = {
+  data: {
+    ids: string[] | null;
+  };
 };
 
 /**
@@ -624,13 +630,13 @@ class Storage {
    *   const isSuccess = await db.storage.uploadFile('photos/demo.png', buffer);
    */
   uploadFile = async (
-    filename: string,
+    path: string,
     file: Buffer,
-    metadata: UploadMetadata = {},
-  ): Promise<any> => {
+    metadata: FileOpts = {},
+  ): Promise<UploadFileResponse> => {
     const headers = {
       ...authorizedHeaders(this.config),
-      path: filename,
+      path,
       "content-type": metadata.contentType || "application/octet-stream",
     };
     if (metadata.contentDisposition) {
@@ -653,9 +659,11 @@ class Storage {
    * @example
    *   await db.storage.delete("photos/demo.png");
    */
-  delete = async (pathname: string): Promise<void> => {
-    await jsonFetch(
-      `${this.config.apiURI}/admin/storage/files?filename=${encodeURIComponent(pathname)}`,
+  delete = async (pathname: string): Promise<DeleteFileResponse> => {
+    return jsonFetch(
+      `${this.config.apiURI}/admin/storage/files?filename=${encodeURIComponent(
+        pathname,
+      )}`,
       {
         method: "DELETE",
         headers: authorizedHeaders(this.config),
@@ -670,8 +678,8 @@ class Storage {
    * @example
    *   await db.storage.deleteMany(["images/1.png", "images/2.png", "images/3.png"]);
    */
-  deleteMany = async (pathnames: string[]): Promise<void> => {
-    await jsonFetch(`${this.config.apiURI}/admin/storage/files/delete`, {
+  deleteMany = async (pathnames: string[]): Promise<DeleteManyFileResponse> => {
+    return jsonFetch(`${this.config.apiURI}/admin/storage/files/delete`, {
       method: "POST",
       headers: authorizedHeaders(this.config),
       body: JSON.stringify({ filenames: pathnames }),
@@ -685,7 +693,7 @@ class Storage {
   upload = async (
     pathname: string,
     file: Buffer,
-    metadata: UploadMetadata = {},
+    metadata: FileOpts = {},
   ): Promise<boolean> => {
     const { data: presignedUrl } = await jsonFetch(
       `${this.config.apiURI}/admin/storage/signed-upload-url`,
@@ -728,14 +736,18 @@ class Storage {
 
 
   /**
-  * @deprecated. getDownloadUrl will be removed in the future.
-  * Use `query` instead to query and fetch for valid urls
-  *
-  * Ex: db.query({
-  *   $files: {
-  *     $: {where: {path: "moop.png"}}
-  *   }
-  * })
+   * @deprecated. getDownloadUrl will be removed in the future.
+   * Use `query` instead to query and fetch for valid urls
+   *
+   * db.useQuery({
+   *   $files: {
+   *     $: {
+   *       where: {
+   *         path: "moop.png"
+   *       }
+   *     }
+   *   }
+   * })
    */
   getDownloadUrl = async (pathname: string): Promise<string> => {
     const { data } = await jsonFetch(
@@ -951,7 +963,6 @@ export {
   type DebugCheckResult,
   type InstantAdmin,
   type InstantAdminDatabase,
-  type UploadMetadata,
 
   // core types
   type User,
@@ -989,4 +1000,10 @@ export {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
+
+  // storage types
+  type FileOpts,
+  type UploadFileResponse,
+  type DeleteFileResponse,
+  type DeleteManyFileResponse,
 };

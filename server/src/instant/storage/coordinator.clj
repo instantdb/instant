@@ -35,7 +35,7 @@
                                                  {"path" path})})))))
 
 (defn upload-file!
-  "Uploads a file to S3 and tracks it in Instant."
+  "Uploads a file to S3 and tracks it in Instant. Returns a file id"
   [{:keys [app-id path skip-perms-check? current-user] :as ctx} file]
   (storage-beta/assert-storage-enabled! app-id)
   (when (not skip-perms-check?)
@@ -47,32 +47,31 @@
     (app-file-model/create! {:app-id app-id :path path :metadata metadata})))
 
 (defn delete-files!
-  "Deletes multiple files from both Instant and S3.
-  Returns a set of deleted entity IDs."
+  "Deletes multiple files from both Instant and S3."
   [{:keys [app-id paths]}]
   (storage-beta/assert-storage-enabled! app-id)
   (when (seq paths)
-    (let [tx-res (app-file-model/delete-by-paths! {:app-id app-id :paths paths})
+    (let [ids (app-file-model/delete-by-paths! {:app-id app-id :paths paths})
           _ (instant-s3/bulk-delete-files! app-id paths)]
-      (-> tx-res
-          :results
-          :delete-entity
-          (->> (map :triples/entity_id)
-               set)))))
+      {:ids ids})))
 
 (defn delete-file!
-  "Deletes a file from both Instant and S3. Returns a deleted entity ID."
-  [{:keys [app-id path current-user]}]
-  (assert-storage-permission! "delete" {:app-id app-id
-                                        :path path
-                                        :current-user current-user})
-  (first (delete-files! {:app-id app-id :paths [path]})))
+  "Deletes a file from both Instant and S3."
+  [{:keys [app-id path current-user skip-perms-check?]}]
+  (when (not skip-perms-check?)
+    (assert-storage-permission! "delete" {:app-id app-id
+                                          :path path
+                                          :current-user current-user}))
+  (when path
+    (let [id (app-file-model/delete-by-path! {:app-id app-id :path path})
+          _ (instant-s3/delete-file! app-id path)]
+      {:id id})))
 
 ;; Logic for legacy S3 upload/download URLs
 ;; -------------------------
 
-(defn create-upload-url
-  "Returns a temporary url for uploading a file to Instant"
+(defn create-upload-url!
+  "Creates a limited time url for uploading a file to Instant"
   [{:keys [app-id path skip-perms-check? current-user]}]
   (storage-beta/assert-storage-enabled! app-id)
   (when (not skip-perms-check?)

@@ -38,6 +38,7 @@
   ([object-key] (delete-object default-bucket object-key))
   ([bucket-name object-key]
    (s3/delete-object {:bucket-name bucket-name
+                      :quiet true ;; no response
                       :key object-key})))
 
 (defn delete-objects

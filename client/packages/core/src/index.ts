@@ -70,6 +70,7 @@ import type {
   UpdateParams,
   LinkParams,
 } from "./schemaTypes";
+import type { UploadFileResponse, DeleteFileResponse } from "./StorageAPI";
 
 import type {
   ExchangeCodeForTokenParams,
@@ -331,7 +332,7 @@ class Auth {
   };
 }
 
-export type FileOpts = {
+type FileOpts = {
   contentType?: string;
   contentDisposition?: string;
 };
@@ -342,7 +343,6 @@ export type FileOpts = {
 class Storage {
   constructor(private db: Reactor) {}
 
-
   /**
    * Uploads file at the provided path.
    *
@@ -351,8 +351,12 @@ class Storage {
    *   const [file] = e.target.files; // result of file input
    *   const data = await db.storage.uploadFile('photos/demo.png', file);
    */
-  uploadFile = (pathname: string, file: File, opts?: FileOpts) => {
-    return this.db.uploadFile(pathname, file, opts);
+  uploadFile = (
+    path: string,
+    file: File,
+    opts: FileOpts = {},
+  ): Promise<UploadFileResponse> => {
+    return this.db.uploadFile(path, file, opts);
   };
 
   /**
@@ -370,8 +374,8 @@ class Storage {
   // ---------------------------------
 
   /**
-  * @deprecated. Use `db.storage.uploadFile` instead
-  * remove in the future.
+   * @deprecated. Use `db.storage.uploadFile` instead
+   * remove in the future.
    */
   upload = (pathname: string, file: File) => {
     return this.db.upload(pathname, file);
@@ -383,18 +387,22 @@ class Storage {
   put = this.upload;
 
   /**
-  * @deprecated. getDownloadUrl will be removed in the future.
-  * Use `useQuery` instead to query and fetch for valid urls
-  *
-  * Ex: db.useQuery({
-  *   $files: {
-  *     $: {where: {path: "moop.png"}}
-  * }})
+   * @deprecated. getDownloadUrl will be removed in the future.
+   * Use `useQuery` instead to query and fetch for valid urls
+   *
+   * db.useQuery({
+   *   $files: {
+   *     $: {
+   *       where: {
+   *         path: "moop.png"
+   *       }
+   *     }
+   *   }
+   * })
    */
   getDownloadUrl = (pathname: string) => {
     return this.db.getDownloadUrl(pathname);
   };
-
 }
 
 // util
@@ -775,10 +783,15 @@ export {
   type LinkParams,
 
   // auth types
-  type ExchangeCodeForTokenParams, 
-  type SendMagicCodeParams, 
-  type SendMagicCodeResponse, 
-  type SignInWithIdTokenParams, 
-  type VerifyMagicCodeParams, 
-  type VerifyResponse 
+  type ExchangeCodeForTokenParams,
+  type SendMagicCodeParams,
+  type SendMagicCodeResponse,
+  type SignInWithIdTokenParams,
+  type VerifyMagicCodeParams,
+  type VerifyResponse,
+
+  // storage types
+  type FileOpts,
+  type UploadFileResponse,
+  type DeleteFileResponse,
 };

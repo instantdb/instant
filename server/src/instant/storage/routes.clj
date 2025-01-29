@@ -41,9 +41,9 @@
 
 (defn create-upload-url-post [req]
   (let [{:keys [app-id path current-user]} (req->app-file! req (:body req))
-        data (storage-coordinator/create-upload-url {:app-id app-id
-                                                     :path path
-                                                     :current-user current-user})]
+        data (storage-coordinator/create-upload-url! {:app-id app-id
+                                                      :path path
+                                                      :current-user current-user})]
     (response/ok {:data data})))
 
 (defn consume-upload-url-put [req]
