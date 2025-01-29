@@ -391,7 +391,7 @@ So we went forward and translated our zero-downtime algorithm into code. Here’
 
 We spun up staging again, ran our failover function...buut transactions failed again. We were getting unique constraint violations on our transactions table.
 
-**Don’t forget sequences**
+### Don’t forget sequences
 
 This time the fix was easy to catch: sequences. Postgres does not [replicate sequence](https://www.postgresql.org/docs/current/logical-replication-restrictions.html) data. This meant that when a new `transaction` row was created, we were using ids that already existed.
 
