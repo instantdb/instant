@@ -21,7 +21,7 @@
                                    ^GetSecretValueRequest request)
 
                   (.secretString)
-                  (#(<-json % true)))]
+                  (<-json true))]
     (assert (:username creds) "missing username")
     (assert (:password creds) "missing password")
     creds))
