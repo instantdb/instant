@@ -12,16 +12,29 @@
   (:import
    (java.time Period DayOfWeek)))
 
-(defn find-new-users
-  ([] (find-new-users (aurora/conn-pool :read)))
+;; Find recent users and set the welcome-email flag to ensure
+;; we don't send multiple emails to the same user.
+(def set-welcome-users-query
+  ["WITH recent_users AS (
+      SELECT id, email
+      FROM instant_users u
+      WHERE u.created_at BETWEEN (CURRENT_TIMESTAMP - INTERVAL '2 days')
+                          AND (CURRENT_TIMESTAMP - INTERVAL '1 day')
+    )
+    INSERT INTO user_flags (id, user_id, flag_name)
+    SELECT
+      gen_random_uuid(),
+      ru.id,
+      'welcome-email'
+    FROM recent_users ru
+    ON CONFLICT (user_id, flag_name) DO NOTHING
+    RETURNING
+      (SELECT email FROM recent_users WHERE id = user_flags.user_id) as email"])
+
+(defn find-welcome-users
+  ([] (find-welcome-users (aurora/conn-pool :write)))
   ([conn]
-   (sql/select
-    :welcome-email-users
-    conn
-    ["SELECT email
-     FROM instant_users
-     WHERE created_at BETWEEN (CURRENT_TIMESTAMP - INTERVAL '2 days')
-                          AND (CURRENT_TIMESTAMP - INTERVAL '1 day')"])))
+   (sql/select :welcome-email-users conn set-welcome-users-query)))
 
 (def html-body
   "<p>Hey there! Welcome to Instant! Full disclosure: this is an automated
@@ -44,7 +57,7 @@ How's your experience with Instant been so far? Any feedback to share?")
       (grab/run-once!
        (str "welcome-email-" date-str)
        (fn []
-         (let [emails (map :email (find-new-users))
+         (let [emails (map :email (find-welcome-users))
                shuffled (cond->> (shuffle emails)
                           limit (take limit))]
            (run! (fn [to]
