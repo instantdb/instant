@@ -107,7 +107,7 @@
            :dbname (if (string/starts-with? path "/")
                      (subs path 1)
                      path)
-           :username user
+           :user user
            :password password
            :host host
            :port (when port

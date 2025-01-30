@@ -49,7 +49,7 @@
 ;; Connection
 
 (defn jdbc-username ^String [db-spec]
-  (or (:username db-spec)
+  (or (:user db-spec)
       (:user (uri/query-map (jdbc-url db-spec)))))
 
 (defn jdbc-password ^String [db-spec]
@@ -74,7 +74,7 @@
               (.set PGProperty/ASSUME_MIN_SERVER_VERSION props "9.4")
               (.set PGProperty/PREFER_QUERY_MODE props "simple"))
         conn (DriverManager/getConnection (jdbc-url (-> db-spec
-                                                        (dissoc :username :password)))
+                                                        (dissoc :user :password)))
                                           props)]
     (.unwrap conn PGConnection)))
 
