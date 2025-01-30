@@ -73,7 +73,9 @@
               (.set PGProperty/REPLICATION props "database")
               (.set PGProperty/ASSUME_MIN_SERVER_VERSION props "9.4")
               (.set PGProperty/PREFER_QUERY_MODE props "simple"))
-        conn (DriverManager/getConnection (jdbc-url db-spec) props)]
+        conn (DriverManager/getConnection (jdbc-url (-> db-spec
+                                                        (dissoc :username :password)))
+                                          props)]
     (.unwrap conn PGConnection)))
 
 (comment
