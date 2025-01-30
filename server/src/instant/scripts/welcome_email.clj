@@ -7,7 +7,6 @@
    [clojure.tools.logging :as log]
    [instant.grab :as grab]
    [instant.jdbc.aurora :as aurora]
-
    [instant.jdbc.sql :as sql]
    [instant.flags :as flags])
   (:import
@@ -56,12 +55,10 @@ How's your experience with Instant been so far? Any feedback to share?")
                                     :html html-body
                                     :text text-body})) shuffled)))))))
 
-(comment)
-
 (defn period []
   (let [now (date/pst-now)
         send-at-pst (-> (date/pst-now)
-                        (.withHour 8) ;; send at 8am
+                        (.withHour 8) ;; send at 8am pst
                         (.withMinute 0))
         periodic-seq (chime-core/periodic-seq
                       send-at-pst
