@@ -28,6 +28,7 @@
    [instant.runtime.routes :as runtime-routes]
    [instant.scripts.analytics :as analytics]
    [instant.scripts.daily-metrics :as daily-metrics]
+   [instant.scripts.welcome-email :as welcome-email]
    [instant.session-counter :as session-counter]
    [instant.storage.routes :as storage-routes]
    [instant.stripe :as stripe]
@@ -224,6 +225,9 @@
     (when (= (config/get-env) :prod)
       (log-init :daily-metrics
         (daily-metrics/start)))
+    (when (= (config/get-env) :prod)
+      (log-init :welcome-email
+        (welcome-email/start)))
     (log-init :web-server
       (start))
     (log-init :shutdown-hook
