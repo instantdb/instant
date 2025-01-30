@@ -1,7 +1,9 @@
 ;; The flags are populated and kept up to date by instant.flag-impl
 ;; We separate the namespaces so that this namespace has no dependencies
 ;; and can be required from anywhere.
-(ns instant.flags)
+(ns instant.flags 
+  (:require
+    [clojure.walk :as w]))
 
 ;; Map of query to {:result {result-tree}
 ;;                  :tx-id int}
@@ -16,6 +18,7 @@
             :drop-refresh-spam {}
             :promo-emails {}
             :rate-limited-apps {}
+            :welcome-email-config {}
             :e2e-logging {}})
 
 (defn transform-query-result
@@ -85,14 +88,16 @@
                                         first)]
                       {:invalidator-every-n (try (/ 1 (get flag "invalidator-rate"))
                                                  (catch Exception _e
-                                                   10000))})]
+                                                   10000))})
+        welcome-email-config (-> result (get "welcome-email-config") first w/keywordize-keys)]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
      :use-patch-presence use-patch-presence
      :promo-code-emails promo-code-emails
      :drop-refresh-spam drop-refresh-spam
      :rate-limited-apps rate-limited-apps
-     :e2e-logging e2e-logging}))
+     :e2e-logging e2e-logging
+     :welcome-email-config welcome-email-config}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -111,6 +116,9 @@
 
 (defn promo-code-emails []
   (get (query-result) :promo-code-emails))
+
+(defn welcome-email-config []
+  (get (query-result) :welcome-email-config))
 
 (defn promo-code-email? [email]
   (contains? (promo-code-emails)
