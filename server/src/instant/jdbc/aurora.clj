@@ -113,9 +113,10 @@
                   conn (try (next-jdbc/get-connection aurora-config username password)
                             (catch Exception e
                               (let [throwing? (>= attempt 3)]
-                                (tracer/record-exception-span! e {:name "aurora/get-conn"
-                                                                  :attempt attempt
-                                                                  :throwing? throwing?})
+                                (tracer/record-info! {:name "aurora/get-conn-error"
+                                                      :attributes {:attempt attempt
+                                                                   :throwing? throwing?
+                                                                   :err (.getMessage e)}})
                                 (when throwing?
                                   (throw e)))))]
               (if conn
