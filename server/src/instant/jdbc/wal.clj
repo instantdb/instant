@@ -63,7 +63,9 @@
    (e.g REPLICATION, ASSUME_MIN_SERVER_VERSION, PREFER_QUERY_MODE)"
   ^PGConnection [db-spec]
   (let [db-spec (if-let [secret-arn (:secret-arn db-spec)]
-                  (merge db-spec (aurora-config/secret-arn->db-creds secret-arn))
+                  (-> db-spec
+                      (dissoc db-spec :secret-arn)
+                      (merge (aurora-config/secret-arn->db-creds secret-arn)))
                   db-spec)
         props (Properties.)
         _ (do (.set PGProperty/USER props (jdbc-username db-spec))
@@ -71,7 +73,9 @@
               (.set PGProperty/REPLICATION props "database")
               (.set PGProperty/ASSUME_MIN_SERVER_VERSION props "9.4")
               (.set PGProperty/PREFER_QUERY_MODE props "simple"))
-        conn (DriverManager/getConnection (jdbc-url db-spec) props)]
+        conn (DriverManager/getConnection (jdbc-url (-> db-spec
+                                                        (dissoc :username :password)))
+                                          props)]
     (.unwrap conn PGConnection)))
 
 (comment
