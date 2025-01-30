@@ -63,7 +63,9 @@
    (e.g REPLICATION, ASSUME_MIN_SERVER_VERSION, PREFER_QUERY_MODE)"
   ^PGConnection [db-spec]
   (let [db-spec (if-let [secret-arn (:secret-arn db-spec)]
-                  (merge db-spec (aurora-config/secret-arn->db-creds secret-arn))
+                  (-> db-spec
+                      (dissoc db-spec :secret-arn)
+                      (merge (aurora-config/secret-arn->db-creds secret-arn)))
                   db-spec)
         props (Properties.)
         _ (do (.set PGProperty/USER props (jdbc-username db-spec))
