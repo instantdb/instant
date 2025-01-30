@@ -120,11 +120,11 @@ function Plan({ plan }: { plan: any }) {
           <h5 className="font-mono text-black text-2xl font-medium tracking-tight mr-2">
             {name}
           </h5>
-          {isFeatured && (
+          {/* {isFeatured && (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-md font-medium bg-orange-200/20 text-orange-600">
               Most popular
             </span>
-          )}
+          )} */}
         </div>
         <div className="text-black opacity-70">{description}</div>
         <span className="text-black inline-flex gap-1 items-baseline my-4">
