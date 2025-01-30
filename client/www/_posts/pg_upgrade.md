@@ -470,4 +470,4 @@ _Thanks to Nikita Prokopov, Joe Averbukh, Martin Raison, Irakli Safareli, Ian Si
 
 [^14]: You may be wondering, how did we run the function? Where’s the feature flag? That’s one more Clojure win: we could SSH into production, and execute this function in our REPL!
 
-[^15]: The big bottleneck is all the active connections — it slows down the sync engine too much. If we improve perf, perhaps we can get to one big machine again!
+[^15]: The big bottleneck is all the active websocket connections on one machine — it slows down the sync engine too much. If we improve perf, perhaps we can get to one big machine again!
