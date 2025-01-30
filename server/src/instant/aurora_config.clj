@@ -1,15 +1,11 @@
 (ns instant.aurora-config
   (:require
-   [clojure.set]
    [instant.util.json :refer [<-json]])
   (:import
-   (software.amazon.awssdk.services.secretsmanager SecretsManagerClient)
-   (software.amazon.awssdk.services.secretsmanager.model GetSecretValueRequest
-                                                         GetSecretValueResponse)
    (software.amazon.awssdk.services.rds RdsClient)
-   (software.amazon.awssdk.services.rds.model DBCluster
-                                              DescribeDbClustersRequest
-                                              DescribeDbClustersResponse)))
+   (software.amazon.awssdk.services.rds.model DBCluster DescribeDbClustersRequest)
+   (software.amazon.awssdk.services.secretsmanager SecretsManagerClient)
+   (software.amazon.awssdk.services.secretsmanager.model GetSecretValueRequest)))
 
 (set! *warn-on-reflection* true)
 
@@ -40,9 +36,7 @@
                                           ^DescribeDbClustersRequest request)
                      (.dbClusters))
 
-        _ (tool/def-locals)
         _ (assert (= 1 (count clusters))
-
                   (format "Could not determine db cluster, found %d clusters."
                           (count clusters)))
         ^DBCluster cluster (first clusters)
@@ -54,7 +48,6 @@
     (assert port "missing port")
     (assert dbname "missing dbname")
     (assert secret-arn "missing secret-arn")
-    (tool/def-locals)
     {:dbtype "postgres"
      :dbname dbname
      :host endpoint

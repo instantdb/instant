@@ -1,12 +1,10 @@
 (ns instant.jdbc.aurora
   (:require
-   [instant.config :as config]
-   [instant.jdbc.sql :as sql]
-   [instant.util.tracer :as tracer]
    [instant.aurora-config :refer [secret-arn->db-creds]]
+   [instant.config :as config]
    [instant.util.tracer :as tracer]
-   [next.jdbc.connection :as connection]
-   [next.jdbc :as next-jdbc])
+   [next.jdbc :as next-jdbc]
+   [next.jdbc.connection :as connection])
   (:import
    (com.zaxxer.hikari HikariConfig HikariDataSource)
    (javax.sql DataSource)))
@@ -59,28 +57,29 @@
                                  (let [res @p]
                                    (if (:ok res)
                                      (:result res)
-                                     (throw (:result res)))))]
-            (let [our-p (promise)
-                  next-p (swap! secret-value
-                                (fn [existing]
-                                  (if (or (not existing)
-                                          ;; retries on error
-                                          (and (realized? existing)
-                                               (or (not (:ok @existing))
-                                                   ;; retry on failed credentials
-                                                   ;; this catches secret rotation
-                                                   (= (:result @existing)
-                                                      failed-credentials))))
-                                    our-p
-                                    existing)))]
-              (when (= our-p next-p)
-                (try
-                  (deliver our-p {:ok true
-                                  :result (secret-arn->db-creds secret-arn)})
-                  (catch Throwable t
-                    (deliver our-p {:ok false
-                                    :result t}))))
-              (unwrap-promise next-p))))]
+                                     (throw (:result res)))))
+                our-p (promise)
+                next-p (swap! secret-value
+                              (fn [existing]
+                                (if (or (not existing)
+                                        ;; retries on error
+                                        (and (realized? existing)
+                                             (or (not (:ok @existing))
+                                                 ;; retry on failed credentials
+                                                 ;; this catches secret rotation
+                                                 (= (:result @existing)
+                                                    failed-credentials))))
+                                  our-p
+                                  existing)))]
+
+            (when (= our-p next-p)
+              (try
+                (deliver our-p {:ok true
+                                :result (secret-arn->db-creds secret-arn)})
+                (catch Throwable t
+                  (deliver our-p {:ok false
+                                  :result t}))))
+            (unwrap-promise next-p)))]
 
     ;; Try 3 times in case of some networking error
     (fn [{:keys [failed-credentials
