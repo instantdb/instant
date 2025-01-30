@@ -85,7 +85,7 @@ How's your experience with Instant been so far? Any feedback to share?")
                      (not (contains? #{DayOfWeek/SATURDAY DayOfWeek/SUNDAY}
                                      day-of-week))))))))
 
-(def schedule (atom nil))
+(defonce schedule (atom nil))
 
 (defn start []
   (log/info "Starting welcome email daemon")
