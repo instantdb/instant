@@ -2,6 +2,16 @@
 
 set -euo pipefail
 
+output="text"
+
+while [[ "$#" -gt 0 ]]; do
+  case $1 in
+    --output) output="$2"; shift ;;
+    *) echo "Unknown parameter passed: $1"; exit 1 ;;
+  esac
+  shift
+done
+
 cluster_id='instant-aurora-8'
 
 cluster_info=$(aws rds describe-db-clusters --db-cluster-identifier $cluster_id --query 'DBClusters[0].{host: Endpoint, port: Port, secretArn: MasterUserSecret.SecretArn, dbname: DatabaseName}')
@@ -14,6 +24,13 @@ dbname=$(jq -r '.dbname' <<< $cluster_info)
 secret_info=$(aws secretsmanager get-secret-value --secret-id $secret_arn --query 'SecretString' --output text)
 
 username=$(jq -r '.username' <<< $secret_info)
-password=$(jq -r '.password | @uri' <<< $secret_info)
 
-echo "postgresql://$username:$password@$host:$port/$dbname"
+if [[ "$output" == "json" ]]; then
+  password=$(jq -r '.password' <<< $secret_info)
+  echo "{\"host\": \"$host\", \"port\": $port, \"dbname\": \"$dbname\", \"user\": \"$username\", \"password\": \"$password\"}"
+fi
+
+if [[ "$output" == "text" ]]; then
+  password=$(jq -r '.password | @uri' <<< $secret_info)
+  echo "postgresql://$username:$password@$host:$port/$dbname"
+fi
