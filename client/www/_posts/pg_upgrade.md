@@ -419,7 +419,7 @@ After about a 3.5 second pause [^13], the failover function completed smoothly! 
 Our `do-failover-to-new-db` worked at our scale, but will probably fail us in a few months. There are two improvements we plan to make:
 
 1. We paused _both_ writes and reads. But technically we don’t need to pause reads. Daniel pushed [up a PR](https://github.com/instantdb/instant/pull/743) to be explicit about read-only connections. In the future we can skip pausing them.
-2. In December we were able to scale down to one big machine. We’re approaching the limits to one big machine today. [^15] We’re going to try to evolve this into a kind of `two-phase-commit`, where each machine reports their stage, and a coordinator progresses when all machines hit the same stage.
+2. In December we were able to scale down to one big machine. We’re approaching the limits to one big machine today. [^15] We’re going to try to evolve this into a kind of `two-phase-commit`, where each machine reports their stage, and a coordinator progresses when all machines hit the same stage. [^16]
 
 # Fin
 
@@ -471,3 +471,5 @@ _Thanks to Nikita Prokopov, Joe Averbukh, Martin Raison, Irakli Safareli, Ian Si
 [^14]: You may be wondering, how did we run the function? Where’s the feature flag? That’s one more Clojure win: we could SSH into production, and execute this function in our REPL!
 
 [^15]: The big bottleneck is all the active websocket connections on one machine — it slows down the sync engine too much. If we improve perf, perhaps we can get to one big machine again!
+
+[^16]: Another option would be to add PGBouncer as a connection pooler. This way instead of multiple machines changing their in-process connection pools, the failover script will only need to control PGBouncer. Right now we don't want to add the extra infra for a separate connection pooler, and prefer in-process ones.
