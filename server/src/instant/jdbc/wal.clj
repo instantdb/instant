@@ -23,6 +23,7 @@
   (:require
    [chime.core :as chime-core]
    [clojure.core.async :as a]
+   [instant.aurora-config :as aurora-config]
    [instant.config :as config]
    [instant.discord :as discord]
    [instant.gauges :as gauges]
@@ -61,7 +62,10 @@
    This PG connection has a few special settings to support replication
    (e.g REPLICATION, ASSUME_MIN_SERVER_VERSION, PREFER_QUERY_MODE)"
   ^PGConnection [db-spec]
-  (let [props (Properties.)
+  (let [db-spec (if-let [secret-arn (:secret-arn db-spec)]
+                  (merge db-spec (aurora-config/secret-arn->db-creds secret-arn))
+                  db-spec)
+        props (Properties.)
         _ (do (.set PGProperty/USER props (jdbc-username db-spec))
               (.set PGProperty/PASSWORD props (jdbc-password db-spec))
               (.set PGProperty/REPLICATION props "database")

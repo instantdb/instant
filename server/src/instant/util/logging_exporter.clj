@@ -127,7 +127,8 @@
     (fn [^SpanData span]
       (let [n (.getName span)]
         (case n
-          ("gc"
+          ("aurora/get-connection"
+           "gc"
            "gauges"
            "ws/send-json!"
            "handle-refresh/send-event!"
