@@ -325,9 +325,9 @@ So, how could we follow these rules?
 
 The simplest way to switch writes would have been to stop the world:
 
-1. Turn off all writes.
-1. Wait for 16 to catch up
-1. Enable writes again — this time they all go to 16
+1. Use a feature flag turn off all writes.
+2. Wait a few seconds, and execute a query that makes sure 16 is caught up
+3. Use a feature flag to enable writes again — this time they all go to 16
 
 If we went with the ‘stop the world approach’, we’d have about the same kind of downtime as blue-green deployments: a minute or so.
 
