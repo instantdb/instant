@@ -5,7 +5,8 @@
             [instant.util.crypt :as crypt-util]
             [instant.util.aws :as aws-util]
             [instant.aurora-config :as aurora-config]
-            [lambdaisland.uri :as uri])
+            [lambdaisland.uri :as uri]
+            [lambdaisland.uri.normalize :as normalize])
   (:import
    (java.net InetAddress)))
 
@@ -108,7 +109,7 @@
                      (subs path 1)
                      path)
            :user user
-           :password password
+           :password (normalize/percent-decode password)
            :host host
            :port (when port
                    (Integer/parseInt port))})

@@ -162,7 +162,11 @@
                         (.setMaximumPoolSize pool-size))
         _ (if-let [secret-arn (:secret-arn aurora-config)]
             (.setDataSource hikari-config (datasource-with-secretsmanager secret-arn config))
-            (.setJdbcUrl hikari-config (connection/jdbc-url config)))
+            (doto hikari-config
+              (.setUsername (:user config))
+              (.setPassword (:password config))
+              (.setJdbcUrl (connection/jdbc-url (dissoc config
+                                                        :user :password)))))
 
         pool (HikariDataSource. hikari-config)]
     ;; Check that the pool is working
