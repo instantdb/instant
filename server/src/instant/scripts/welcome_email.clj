@@ -66,7 +66,8 @@ How's your experience with Instant been so far? Any feedback to share?")
                                     :reply-to "founders@instantdb.com"
                                     :subject "Welcome to Instant!"
                                     :html html-body
-                                    :text text-body})) shuffled)))))))
+                                    :text text-body}))
+                                    shuffled)))))))
 
 (defn period []
   (let [now (date/pst-now)
