@@ -329,9 +329,7 @@ The simplest way to switch writes would have been to stop the world:
 1. Wait for 16 to catch up
 1. Enable writes again — this time they all go to 16
 
-If we went with the ‘stop the world approach’, we’d have about the same kind of downtime as blue-green deployments: a minute or so.
-
-We were okay with a minute of downtime. But we had already spent a day setting up our manual method, could we do better?
+If we manually executed each step in ‘stop the world', we’d have about a minute of downtime. We could write a function which did these steps for us, and get to only a few seconds of downtime. But we had already spent a day setting up our manual method, could we do better?
 
 Since we were switching manually we had finer control over our connections. We realized that with just a little bit more work...we could have no downtime at all!
 
