@@ -472,4 +472,4 @@ _Thanks to Nikita Prokopov, Joe Averbukh, Martin Raison, Irakli Safareli, Ian Si
 
 [^15]: The big bottleneck is all the active websocket connections on one machine — it slows down the sync engine too much. If we improve perf, perhaps we can get to one big machine again!
 
-[^16]: Another option would be to add PGBouncer as a connection pooler. This way instead of multiple machines changing their in-process connection pools, the failover script will only need to control PGBouncer. Right now we don't want to add the extra infra for a separate connection pooler, and prefer in-process ones.
+[^16]: Another option would be to add PGBouncer as a connection pooler. This way instead of multiple machines changing their in-process connection pools, the failover function only controls PGBouncer. Right now we don't want to add the extra infra for a separate connection pooler though.
