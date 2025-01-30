@@ -270,19 +270,7 @@
            (mapcat vals)
            (string/join "\n"))))
 
-(defn patch-hikari []
-  ;; Hikari will send an extra query to ensure the connection is valid
-  ;; if it has been idle for half a second. This raises the limit so
-  ;; that it only checks every minute.
-  ;; This shouldn't be necessary at all--the connection should be able
-  ;; to tell when it's closed. But even if it can't tell if it's closed,
-  ;; the connection pool should use the query you want to send as the
-  ;; validation check. If it gets a retryable error, like connection_closed,
-  ;; then it can try again on another connection.
-  (System/setProperty "com.zaxxer.hikari.aliveBypassWindowMs" "60000"))
-
 (defn start-pool [config]
-  (patch-hikari)
   (let [url (connection/jdbc-url config)
         pool (connection/->pool HikariDataSource (assoc config :jdbcUrl url))]
     (.close (next-jdbc/get-connection pool))
