@@ -1,0 +1,4 @@
+Hey there! Welcome to Instant! Full disclosure: this is an automated email, but
+if you respond, a real human (likely Joe or Stopa, the founders) will read it and get back to you.
+
+How's your experience with Instant been so far? Any feedback to share?
