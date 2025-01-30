@@ -26,18 +26,19 @@
      (-> e ex-data :body :ErrorCode)))
 ;; -------- 
 ;; API
-(defn send! [{:keys [from to cc bcc subject html
+(defn send! [{:keys [from to cc bcc subject html text
                      reply-to]
               :or {reply-to "hello@instantdb.com"}}]
-  (let [body {:From from
-              :To to
-              :Cc cc
-              :Bcc bcc
-              :ReplyTo reply-to
-              :Subject subject
-              :MessageStream "outbound"
-              :HTMLBody
-              html}]
+  (let [body (cond-> {:From from
+                      :To to
+                      :Cc cc
+                      :Bcc bcc
+                      :ReplyTo reply-to
+                      :Subject subject
+                      :MessageStream "outbound"
+                      :HTMLBody
+                      html}
+               text (assoc :TextBody text))]
     (if-not (config/postmark-send-enabled?)
       (tracer/with-span! {:name "postmark/send-disabled"
                           :attributes body}
