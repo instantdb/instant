@@ -125,9 +125,73 @@
 (comment
   (tool/with-prod-conn [conn]
     (rolling-actives conn
-                     {:start-date "2025-01-01"
-                      :end-date "2025-01-30"
+                     {:start-date (LocalDate/parse "2025-01-01")
+                      :end-date (LocalDate/parse "2025-01-30")
                       :window-days 30})))
+
+(defn month-start-actives
+  "Given the month in `month-date`: 
+   
+   For each `day` of the month: 
+     Calculates active users from `start-of-month` to the `day` (inclusive)"
+  [conn {:keys [month-date]}]
+  (let [start-of-month (.withDayOfMonth month-date 1)
+        end-of-month   (.withDayOfMonth month-date (.lengthOfMonth month-date))
+        query {:with [[:date_series
+                       {:select [[[:cast [:generate_series
+                                          [:date_trunc "day" [:cast start-of-month :date]]
+                                          [:date_trunc "day" [:cast end-of-month :date]]
+                                          [:interval "1 day"]]
+                                   :date]
+                                  :analysis_date]]}]
+                      [[:excluded_emails {:columns [:email]}]
+                       {:values (map (fn [x] [x]) (excluded-emails))}]
+                      [:rolling_metrics
+                       {:select [[:ds.analysis_date :analysis_date]
+                                 [[:count [:distinct :a.id]] :distinct_apps]
+                                 [[:count [:distinct :u.id]] :distinct_users]
+                                 [[:count :*] :total_transactions]]
+                        :from [[:date_series :ds]]
+                        :left-join [[:daily_app_transactions :dat]
+                                    [:and [:between :dat.date
+                                           [:date_trunc "month" :ds.analysis_date]
+                                           :ds.analysis_date]
+                                     :dat.is_active]
+                                    [:apps :a] [:= :dat.app_id :a.id]
+                                    [:instant_users :u] [:= :a.creator_id :u.id]]
+                        :where [:not-in :u.email {:select :email :from :excluded_emails}]
+                        :group-by [:ds.analysis_date]}]]
+               :select :*
+               :from :rolling_metrics
+               :order-by :analysis_date}]
+    (sql/select conn (hsql/format query))))
+
+(comment
+  (tool/with-prod-conn [conn]
+    (month-start-actives conn
+                         {:month-date (LocalDate/parse "2025-01-01")})))
+
+(defn calendar-monthly-actives-for-month
+  [conn {:keys [month-date]}]
+  (first  (sql/select conn
+                      ["SELECT
+                  DATE_TRUNC('month', dat.date) AS analysis_date,
+                  COUNT(DISTINCT u.id) AS distinct_users,
+                  COUNT(DISTINCT a.id) AS distinct_apps
+                FROM daily_app_transactions dat
+                JOIN apps a ON dat.app_id = a.id
+                JOIN instant_users u ON a.creator_id = u.id
+                WHERE dat.is_active AND u.email NOT IN (SELECT unnest(?::text[]))
+                      AND DATE_TRUNC('month', ?::date) = DATE_TRUNC('month', dat.date) 
+                GROUP BY 1"
+                       (with-meta (excluded-emails) {:pgtype "text[]"})
+                       month-date])))
+
+(comment
+  (tool/with-prod-conn [conn]
+    (calendar-monthly-actives-for-month
+     conn
+     {:month-date (LocalDate/parse "2025-01-01")})))
 
 (defn generate-bar-chart [metrics x-key y1-key title]
   (let [x-values (map x-key metrics)
@@ -227,6 +291,40 @@
 
     chart))
 
+(defn add-goal-line
+  "Given an existing line chart for (metrics, x-key, y-key), overlays a goal line computed 
+   as a linear interpolation from the first day’s value to a value growth-percent
+   higher on the final day."
+  [chart metrics x-key y-key end-goal]
+  (let [x-values (map x-key metrics)
+        y-values (map y-key metrics)
+        n (count x-values)
+        baseline (first y-values)
+        goal-values (map-indexed
+                     (fn [i _]
+                       (+ baseline (* (- end-goal baseline) (/ i (dec n)))))
+                     x-values)]
+    (charts/add-categories chart x-values goal-values :series-label "Goal")
+    chart))
+
+(comment
+  (def date (LocalDate/parse "2025-01-01"))
+  (def prev-month-date (.minusMonths date 1))
+  (def prev-month-stats (tool/with-prod-conn [conn]
+                          (calendar-monthly-actives-for-month
+                           conn
+                           {:month-date  prev-month-date})))
+
+  (def stats (tool/with-prod-conn [conn]
+               (month-start-actives conn {:month-date (LocalDate/parse "2025-01-01")})))
+
+  (save-chart-into-file! (->  (generate-line-chart stats :analysis_date :distinct_apps "test")
+                              (add-goal-line stats :analysis_date :distinct_apps (* 1.2
+                                                                                    (:distinct_apps prev-month-stats))))
+                         (str "resources/metrics/"  "test.png"))
+
+  (shell/sh "open" "resources/metrics/test.png"))
+
 (defn mom-growth [stats k]
   (let [[prev-m curr-m] (take-last 2 stats)
         [prev-v curr-v] (map k [prev-m curr-m])
@@ -238,18 +336,29 @@
 
 (defn overview-metrics [conn end-date]
   (let [start-date (.minusDays end-date 30)
-        monthly-stats (rolling-actives conn
-                                       {:start-date start-date
-                                        :end-date end-date
-                                        :window-days 30})
-        _ (ex/assert-valid! :stats monthly-stats (when (empty? monthly-stats)
-                                                   [{:message "No data found for stats"}]))
-        rolling-monthly-active-apps (generate-line-chart  monthly-stats
-                                                          :analysis_date :distinct_apps
-                                                          "Rolling Monthly Active Apps >= 1 tx")]
+        rolling-monthly-stats (rolling-actives conn
+                                               {:start-date start-date
+                                                :end-date end-date
+                                                :window-days 30})
+        month-start-stats (month-start-actives conn {:month-date end-date})
 
-    {:data-points {:monthly-active-apps rolling-monthly-active-apps}
-     :charts {:rolling-monthly-active-apps rolling-monthly-active-apps}}))
+        _ (ex/assert-valid! :stats rolling-monthly-stats (when (or (empty? rolling-monthly-stats)
+                                                                   (empty? month-start-stats))
+                                                           [{:message "No data found for stats"}]))
+
+        rolling-monthly-active-apps (generate-line-chart  rolling-monthly-stats
+                                                          :analysis_date :distinct_apps
+                                                          "Rolling Monthly Active Apps >= 1 tx")
+
+        month-start-active-apps (->  (generate-line-chart-with-goal month-start-stats
+                                                                    :analysis_date
+                                                                    :distinct_apps
+                                                                    0.2
+                                                                    "Month Start Active Apps >= 1 tx"))]
+
+    {:data-points {:rolling-monthly-active-apps rolling-monthly-active-apps}
+     :charts {:rolling-monthly-active-apps rolling-monthly-active-apps
+              :month-start-active-apps month-start-active-apps}}))
 
 (comment
   (def overview-metrics (tool/with-prod-conn [conn]
