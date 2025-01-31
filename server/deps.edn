@@ -128,7 +128,9 @@
                              "--add-opens" "java.base/java.lang=ALL-UNNAMED"
                              "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
                              "--add-opens" "java.management/sun.management=ALL-UNNAMED"
-                             "--add-opens" "jdk.management/com.sun.management.internal=ALL-UNNAMED"]}
+                             "--add-opens" "jdk.management/com.sun.management.internal=ALL-UNNAMED"
+                             ;; headless charts 
+                             "-Djava.awt.headless=true"]}
            :retest {:extra-paths ["test" "dev-resources"]
                     :main-opts ["-m" "circleci.test.retest"]}
            :repl-connect {:main-opts ["-m" "nrepl.cmdline" "--connect" "--host" "localhost" "--port" "6005"]}
