@@ -23,6 +23,7 @@
   (:require
    [chime.core :as chime-core]
    [clojure.core.async :as a]
+   [instant.aurora-config :as aurora-config]
    [instant.config :as config]
    [instant.discord :as discord]
    [instant.gauges :as gauges]
@@ -48,7 +49,7 @@
 ;; Connection
 
 (defn jdbc-username ^String [db-spec]
-  (or (:username db-spec)
+  (or (:user db-spec)
       (:user (uri/query-map (jdbc-url db-spec)))))
 
 (defn jdbc-password ^String [db-spec]
@@ -61,13 +62,20 @@
    This PG connection has a few special settings to support replication
    (e.g REPLICATION, ASSUME_MIN_SERVER_VERSION, PREFER_QUERY_MODE)"
   ^PGConnection [db-spec]
-  (let [props (Properties.)
+  (let [db-spec (if-let [secret-arn (:secret-arn db-spec)]
+                  (-> db-spec
+                      (dissoc db-spec :secret-arn)
+                      (merge (aurora-config/secret-arn->db-creds secret-arn)))
+                  db-spec)
+        props (Properties.)
         _ (do (.set PGProperty/USER props (jdbc-username db-spec))
               (.set PGProperty/PASSWORD props (jdbc-password db-spec))
               (.set PGProperty/REPLICATION props "database")
               (.set PGProperty/ASSUME_MIN_SERVER_VERSION props "9.4")
               (.set PGProperty/PREFER_QUERY_MODE props "simple"))
-        conn (DriverManager/getConnection (jdbc-url db-spec) props)]
+        conn (DriverManager/getConnection (jdbc-url (-> db-spec
+                                                        (dissoc :user :password)))
+                                          props)]
     (.unwrap conn PGConnection)))
 
 (comment
@@ -160,7 +168,7 @@
   (def pg-conn (get-pg-replication-conn (config/get-aurora-config)))
   (create-temporary-logical-replication-slot! pg-conn "test_slot" "wal2json")
   (.close pg-conn)
-  (get-all-slots (aurora/conn-pool)))
+  (get-all-slots (aurora/conn-pool :read)))
 
 ;; -------------------------
 ;; LSN
@@ -173,7 +181,7 @@
    (sql/select-one conn ["SELECT * FROM pg_current_wal_lsn();"])))
 
 (comment
-  (get-current-wal-lsn (aurora/conn-pool)))
+  (get-current-wal-lsn (aurora/conn-pool :read)))
 
 ;; ------
 ;; Stream
@@ -438,7 +446,7 @@
        ;; still inactive in 5 minutes. This will prevent dropping slots that
        ;; are still being set up.
        (try
-         (let [conn-pool      (aurora/conn-pool)
+         (let [conn-pool      (aurora/conn-pool :read)
                inactive-slots (get-inactive-replication-slots conn-pool)]
            (when (seq inactive-slots)
              (chime-core/chime-at
@@ -446,7 +454,7 @@
               (fn [_time]
                 (tracer/with-span! {:name "wal/cleanup-inactive-slots"}
                   (let [slot-names (map :slot_name inactive-slots)
-                        removed    (cleanup-inactive-replication-slots (aurora/conn-pool) slot-names)
+                        removed    (cleanup-inactive-replication-slots (aurora/conn-pool :write) slot-names)
                         cleaned    (set (map :slot_name removed))
                         uncleaned  (remove #(contains? cleaned %) slot-names)]
                     (tracer/add-data! {:attributes {:cleaned-slot-names cleaned
@@ -461,7 +469,7 @@
        (rest (chime-core/periodic-seq (Instant/now) (Duration/ofMinutes 1)))
        (fn [_time]
          (try
-           (let [latency (get-replication-latency-bytes (aurora/conn-pool) @config/process-id)]
+           (let [latency (get-replication-latency-bytes (aurora/conn-pool :read) @config/process-id)]
              (reset! replication-latency-bytes latency))
            (catch Exception e
              (tracer/record-exception-span! e {:name "wal/check-latency-error"

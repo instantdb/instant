@@ -26,18 +26,19 @@
      (-> e ex-data :body :ErrorCode)))
 ;; -------- 
 ;; API
-(defn send! [{:keys [from to cc bcc subject html
+(defn send! [{:keys [from to cc bcc subject html text
                      reply-to]
               :or {reply-to "hello@instantdb.com"}}]
-  (let [body {:From from
-              :To to
-              :Cc cc
-              :Bcc bcc
-              :ReplyTo reply-to
-              :Subject subject
-              :MessageStream "outbound"
-              :HTMLBody
-              html}]
+  (let [body (cond-> {:From from
+                      :To to
+                      :Cc cc
+                      :Bcc bcc
+                      :ReplyTo reply-to
+                      :Subject subject
+                      :MessageStream "outbound"
+                      :HTMLBody
+                      html}
+               text (assoc :TextBody text))]
     (if-not (config/postmark-send-enabled?)
       (tracer/with-span! {:name "postmark/send-disabled"
                           :attributes body}
@@ -132,7 +133,7 @@
 ;; https://postmarkapp.com/developer/api/signatures-api#list-sender-signatures
 (defn list-senders! [count offset]
   (clj-http/get
-   (str "https://api.postmarkapp.com/senders/")
+   "https://api.postmarkapp.com/senders/"
    {:coerce :always
     :as :json
     :query-params {:count count

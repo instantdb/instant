@@ -1,9 +1,17 @@
 (ns instant.util.uuid
+  (:refer-clojure :exclude [parse-uuid])
   (:import
    (java.util UUID)
    (java.nio ByteBuffer))
   (:require
    [clojure.string :as string]))
+
+(defn parse-uuid [s]
+  (when (and (string? s) (= 36 (.length ^String s)))
+    (try
+      (UUID/fromString s)
+      (catch IllegalArgumentException _
+        nil))))
 
 (defn coerce [x]
   (cond (uuid? x) x

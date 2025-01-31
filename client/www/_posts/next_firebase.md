@@ -1,7 +1,7 @@
 ---
 title: 'A Graph-Based Firebase'
 date: '2022-08-25'
-author: stopachka
+authors: stopachka
 ---
 
 In [A Database in the Browser](/essays/db_browser), I wrote that the schleps we face as UI engineers are actually database problems in disguise [^1]. This begged the question: would a database-looking solution solve them?

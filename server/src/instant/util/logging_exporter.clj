@@ -43,7 +43,7 @@
 (defn duration-ms [^SpanData span]
   (let [start (.getStartEpochNanos span)
         end   (.getEndEpochNanos span)]
-    (.toMillis (TimeUnit/NANOSECONDS)
+    (.toMillis TimeUnit/NANOSECONDS
                (- end start))))
 
 (defn exclude? [k]
@@ -60,7 +60,8 @@
      "detailed_tx_steps"
      "process_id"
      "instance_id"
-     "query") true
+     "query"
+     "fewer_vfutures") true
     false))
 
 (defn format-attr-value
@@ -126,7 +127,8 @@
     (fn [^SpanData span]
       (let [n (.getName span)]
         (case n
-          ("gc"
+          ("aurora/get-connection"
+           "gc"
            "gauges"
            "ws/send-json!"
            "handle-refresh/send-event!"
@@ -159,10 +161,14 @@
 
           (string/starts-with? n "e2e"))))))
 
+(def log-spans?
+  (not= "false" (System/getenv "INSTANT_LOG_SPANS")))
+
 (defn log-spans [spans]
-  (doseq [span spans
-          :when (not (exclude-span? span))]
-    (log/info (span-str span))))
+  (when log-spans?
+    (doseq [span spans
+            :when (not (exclude-span? span))]
+      (log/info (span-str span)))))
 
 (defn export [^AtomicBoolean shutdown? spans]
   (if (.get shutdown?)

@@ -93,13 +93,23 @@
       (throw exinfo))))
 
 (defn transact! [span-name conn tx-data]
-  (tracer/with-span! {:name span-name}
-    (try
-      (let [ret (d/transact! conn tx-data)]
-        (tracer/add-data! {:attributes {:changed-datoms-count (count (:tx-data ret))}})
-        ret)
-      (catch clojure.lang.ExceptionInfo e
-        (translate-datascript-exceptions e)))))
+  (let [t0 (System/nanoTime)]
+    (tracer/with-span! {:name span-name}
+      (let [t1 (System/nanoTime)]
+        (try
+          (locking conn      
+            (let [t2  (System/nanoTime)
+                  ret (d/transact! conn tx-data)
+                  t3  (System/nanoTime)]
+              (tracer/add-data! {:attributes {:changed-datoms-count (count (:tx-data ret))
+                                              :span-time-ms         (-> t1 (- t0) (/ 1000000) double)
+                                              :lock-time-ms         (-> t2 (- t1) (/ 1000000) double)
+                                              :tx-time-ms           (-> t3 (- t2) (/ 1000000) double)
+                                              :db-before-size       (count (:db-before ret))
+                                              :db-after-size        (count (:db-after ret))}})
+              ret))
+          (catch clojure.lang.ExceptionInfo e
+            (translate-datascript-exceptions e)))))))
 
 ;; -----
 ;; reports
@@ -464,23 +474,32 @@
 ;; subscriptions
 
 (defn record-datalog-query-start! [conn ctx datalog-query coarse-topics]
-  (let [lookup-ref [:datalog-query/app-id+query [(:app-id ctx) datalog-query]]]
+  (let [lookup-ref [:datalog-query/app-id+query [(:app-id ctx) datalog-query]]
+        query-lookup-ref [:instaql-query/session-id+query [(:session-id ctx)
+                                                           (:instaql-query ctx)]]]
     (transact! "store/record-datalog-query-start!"
                conn
                [[:db.fn/call
                  (fn [db]
-                   (if-let [existing (d/entity db lookup-ref)]
-                     (when-not (:datalog-query/topics existing)
-                       [[:db/add (:db/id existing) :datalog-query/topics coarse-topics]])
-                     [{:datalog-query/app-id (:app-id ctx)
-                       :datalog-query/query datalog-query
-                       :datalog-query/topics coarse-topics}]))]
-                {:subscription/app-id (:app-id ctx)
-                 :subscription/session-id (:session-id ctx)
-                 :subscription/v (:v ctx)
-                 :subscription/instaql-query [:instaql-query/session-id+query [(:session-id ctx)
-                                                                               (:instaql-query ctx)]]
-                 :subscription/datalog-query lookup-ref}])))
+                   (let [existing-datalog-query (d/entity db lookup-ref)
+                         datalog-query-eid (or (:db/id existing-datalog-query)
+                                               -1)
+                         datalog-query-txes
+                         (if existing-datalog-query
+                           (when-not (:datalog-query/topics existing-datalog-query)
+                             [[:db/add datalog-query-eid :datalog-query/topics coarse-topics]])
+                           [{:db/id datalog-query-eid
+                             :datalog-query/app-id (:app-id ctx)
+                             :datalog-query/query datalog-query
+                             :datalog-query/topics coarse-topics}])
+                         subscription-txes
+                         (when-let [query-eid (d/entid db query-lookup-ref)]
+                           [{:subscription/app-id (:app-id ctx)
+                             :subscription/session-id (:session-id ctx)
+                             :subscription/v (:v ctx)
+                             :subscription/instaql-query query-eid
+                             :subscription/datalog-query datalog-query-eid}])]
+                     (into datalog-query-txes subscription-txes)))]])))
 
 (defn record-datalog-query-finish! [conn
                                     ctx
@@ -532,12 +551,17 @@
 
 (defn- match-topic-part? [iv-part dq-part]
   (cond
-    (keyword? iv-part) (= iv-part dq-part)
-    (or (symbol? dq-part) (symbol? iv-part)) true
-    (set? dq-part) (intersects? iv-part dq-part)
+    (keyword? iv-part)
+    (= iv-part dq-part)
+
+    (or (symbol? dq-part) (symbol? iv-part))
+    true
+
+    (set? dq-part)
+    (intersects? iv-part dq-part)
 
     (map? dq-part)
-    (if-let [{:keys [op value]} (:$comparator dq-part)]
+    (if-some [{:keys [op value]} (:$comparator dq-part)]
       (let [f (case op
                 :$gt >
                 :$gte >=
@@ -545,23 +569,30 @@
                 :$lte <=
                 :$like like-match?
                 :$ilike ilike-match?)]
-        (some (fn [v]
-                (f v value))
-              iv-part))
+        (ucoll/seek (fn [v]
+                      (f v value))
+                    iv-part))
       (when (contains? dq-part :$not)
         (let [not-val (:$not dq-part)]
-          (some (partial not= not-val) iv-part))))))
+          (ucoll/seek (partial not= not-val) iv-part))))))
 
 (defn match-topic?
-  [iv-topic dq-topic]
-  (ucoll/every?-var-args match-topic-part? iv-topic dq-topic))
-
-(defn contains-matching-topic? [dq-topics iv-topic]
-  (some (partial match-topic? iv-topic) dq-topics))
+  [[iv-idx iv-e iv-a iv-v]
+   [dq-idx dq-e dq-a dq-v]]
+  (and
+   (match-topic-part? iv-idx dq-idx)
+   (match-topic-part? iv-e   dq-e)
+   (match-topic-part? iv-a   dq-a)
+   (match-topic-part? iv-v   dq-v)))
 
 (defn matching-topic-intersection? [iv-topics dq-topics]
-  (some (partial contains-matching-topic? dq-topics)
-        iv-topics))
+  (ucoll/seek
+   (fn [iv-topic]
+     (ucoll/seek
+      (fn [dq-topic]
+        (match-topic? iv-topic dq-topic))
+      dq-topics))
+   iv-topics))
 
 (defn mark-instaql-queries-stale-tx-data
   "Should be used in a db.fn/call. Returns transactions.

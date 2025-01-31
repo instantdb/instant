@@ -6,7 +6,7 @@
   (:import (java.util UUID)))
 
 (defn get-by-email
-  ([params] (get-by-email (aurora/conn-pool) params))
+  ([params] (get-by-email (aurora/conn-pool :read) params))
   ([conn {:keys [email]}]
    (sql/select-one conn
                    ["SELECT *
@@ -15,7 +15,7 @@
                     email])))
 
 (defn put!
-  ([params] (put! (aurora/conn-pool) params))
+  ([params] (put! (aurora/conn-pool :write) params))
   ([conn {:keys [email name user-id postmark-id]}]
    (sql/execute-one!
     conn

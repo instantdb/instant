@@ -20,14 +20,13 @@
    (ensure-attrs-on-system-catalog-app system-catalog/system-catalog-app-id))
   ([app-id]
    (tracer/with-span! {:name "system-catalog/ensure-attrs-on-system-catalog-app"}
-     (let [existing-attrs (attr-model/get-by-app-id (aurora/conn-pool) app-id)
+     (let [existing-attrs (attr-model/get-by-app-id (aurora/conn-pool :read) app-id)
            new-attrs (missing-attrs existing-attrs)
            ids (when (seq new-attrs)
-                 (attr-model/insert-multi! (aurora/conn-pool)
+                 (attr-model/insert-multi! (aurora/conn-pool :write)
                                            app-id
                                            new-attrs
-                                           {:allow-reserved-names? true
-                                            :allow-on-deletes? true}))
+                                           {:allow-reserved-names? true}))
            json-ids (keep (fn [a]
                             (when (= "meta" (attr-model/fwd-label a))
                               (:id a)))
@@ -38,7 +37,7 @@
                             new-attrs)]
        (when (seq json-ids)
          (sql/execute!
-          (aurora/conn-pool)
+          (aurora/conn-pool :write)
           (hsql/format {:update :attrs
                         :where [:in :id json-ids]
                         :set {:inferred-types [:cast
@@ -47,7 +46,7 @@
                                                [:bit :32]]}})))
        (when (seq string-ids)
          (sql/execute!
-          (aurora/conn-pool)
+          (aurora/conn-pool :write)
           (hsql/format {:update :attrs
                         :where [:in :id string-ids]
                         :set {:inferred-types [:cast

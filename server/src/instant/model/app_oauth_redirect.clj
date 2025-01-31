@@ -14,7 +14,7 @@
       (crypt-util/bytes->hex-string)))
 
 (defn create!
-  ([params] (create! (aurora/conn-pool) params))
+  ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id state cookie redirect-url oauth-client-id
                  code-challenge-method code-challenge]}]
    (update-op
@@ -34,7 +34,7 @@
 
 (defn consume!
   "Gets and deletes the oauth-redirect so that it can be used only once."
-  ([params] (consume! (aurora/conn-pool) params))
+  ([params] (consume! (aurora/conn-pool :write) params))
   ([conn {:keys [state app-id]}]
    (update-op
     conn

@@ -40,7 +40,7 @@
             [instant.jdbc.sql :as sql]
             [instant.util.json :refer [->json]]
             [instant.util.string :refer [safe-name]])
-  (:import (com.zaxxer.hikari HikariDataSource)
+  (:import (javax.sql DataSource)
            (java.util UUID)))
 
 ;; ---
@@ -1970,7 +1970,7 @@
                     ;; other threads will add additional items to our batch.
                     ;; Be careful not to do additional blocking code while we
                     ;; have the connection checked out.
-                    (sql/with-connection [conn ^HikariDataSource (:conn-pool db)]
+                    (sql/with-connection [conn ^DataSource (:conn-pool db)]
                       (let [items (take-batch! datalog-loader (:conn-pool db) max-items)]
                         (try
                           (if (= 1 (count items))

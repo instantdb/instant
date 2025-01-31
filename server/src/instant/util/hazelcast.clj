@@ -226,7 +226,7 @@
 
 (def global-serializer-config (-> (GlobalSerializerConfig.)
                                   (.setImplementation global-serializer)
-                                  (.setOverrideJavaSerialization true)))
+                                  (.setOverrideJavaSerialization false)))
 
 (def serializer-configs
   [remove-session-config

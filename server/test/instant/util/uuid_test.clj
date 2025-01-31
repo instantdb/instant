@@ -10,7 +10,7 @@
   (let [ids (repeatedly 10000 #(random-uuid))]
     (is (= (sort uuid-util/pg-compare ids)
            (map :id
-                (sql/select (aurora/conn-pool)
+                (sql/select (aurora/conn-pool :read)
                             (hsql/format {:select :id
 
                                           :from [[[:unnest [:array
@@ -19,7 +19,7 @@
                                           :order-by [[:id :asc]]})))))
     (is (= (reverse (sort uuid-util/pg-compare ids))
            (map :id
-                (sql/select (aurora/conn-pool)
+                (sql/select (aurora/conn-pool :read)
                             (hsql/format {:select :id
 
                                           :from [[[:unnest [:array

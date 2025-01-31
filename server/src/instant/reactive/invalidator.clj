@@ -423,7 +423,7 @@
 (defn start-byop-worker [store-conn wal-chan]
   (tracer/record-info! {:name "invalidation-worker/start-byop"})
   (let [app-id config/instant-on-instant-app-id
-        {:keys [table-info]} (pg-introspect/introspect (aurora/conn-pool)
+        {:keys [table-info]} (pg-introspect/introspect (aurora/conn-pool :read)
                                                        "public")]
     (loop []
       (let [wal-record (a/<!! wal-chan)]
@@ -509,7 +509,7 @@
   (let [shutdown-future (future (wal/shutdown! wal-opts))]
     (loop []
       (when-not (realized? shutdown-future)
-        (wal/kick-wal (aurora/conn-pool))
+        (wal/kick-wal (aurora/conn-pool :write))
         (Thread/sleep 100)
         (recur))))
   (a/close! (:to wal-opts))

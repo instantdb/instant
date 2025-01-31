@@ -6,7 +6,7 @@
    (java.util UUID)))
 
 (defn put!
-  ([params] (put! (aurora/conn-pool) params))
+  ([params] (put! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id sender-id email-type subject name body]}]
    (sql/execute-one!
     conn
@@ -25,7 +25,7 @@
      (UUID/randomUUID) app-id sender-id email-type subject name body])))
 
 (defn get-by-app-id-and-email-type
-  ([params] (get-by-app-id-and-email-type (aurora/conn-pool) params))
+  ([params] (get-by-app-id-and-email-type (aurora/conn-pool :read) params))
   ([conn {:keys [app-id email-type]}]
    (sql/select-one conn
                    ["SELECT
@@ -45,6 +45,6 @@
                     app-id email-type])))
 
 (defn delete-by-id!
-  ([params] (delete-by-id! (aurora/conn-pool) params))
+  ([params] (delete-by-id! (aurora/conn-pool :write) params))
   ([conn {:keys [id app-id]}]
    (sql/execute-one! conn ["DELETE FROM app_email_templates WHERE id = ?::uuid AND app_id = ?::uuid" id app-id])))

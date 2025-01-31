@@ -81,7 +81,7 @@
                     eph/room-maps           eph-room-maps
                     eph/hz                  eph-hz
                     ws/send-json!           (fn [_app-id msg fake-ws-conn]
-                                              (a/>!! fake-ws-conn msg))
+                                              (a/put! fake-ws-conn msg))
                     rq/instaql-query-reactive!
                     (fn [store-conn {:keys [session-id] :as base-ctx} instaql-query return-type]
                       (let [res (query-reactive store-conn base-ctx instaql-query return-type)]
@@ -97,17 +97,23 @@
             (when @realized-eph?
               (HazelcastInstance/.shutdown (:hz @eph-hz)))))))))
 
-(defn read-msg [{:keys [ws-conn id]}]
-  (let [ret (ua/<!!-timeout ws-conn)]
+(defn read-msg [expected-op {:keys [ws-conn id]}]
+  (let [work (future (loop [ret (a/<!! ws-conn)]
+                       (if (= expected-op (:op ret))
+                         (dissoc ret :client-event-id)
+                         (do (a/put! ws-conn ret)
+                             (Thread/sleep 100)
+                             (recur (a/<!! ws-conn))))))
+        ret (deref work 1000 :timeout)]
     (assert (not= :timeout ret) "Timed out waiting for a response")
-    (dissoc ret :client-event-id)))
+    ret))
 
-(defn- blocking-send-msg [{:keys [ws-conn id] :as socket} msg]
+(defn- blocking-send-msg [expected-op {:keys [ws-conn id] :as socket} msg]
   (session/handle-receive *store-conn* (rs/get-session @*store-conn* id) msg {})
-  (read-msg socket))
+  (read-msg expected-op socket))
 
 (defn- blocking-send-refresh [{:keys [id] :as socket} msg]
-  (blocking-send-msg socket (assoc msg :session-id id)))
+  (blocking-send-msg :refresh-ok socket (assoc msg :session-id id)))
 
 (defn- pretty-auth [{:keys [app user] :as _auth}]
   [(:title app) (:email user)])
@@ -119,10 +125,11 @@
       (testing "non-existent app"
         (is (= 400
                (:status (blocking-send-msg
+                         :error
                          socket
                          {:op :init :app-id non-existent-app-id})))))
       (testing "existing app"
-        (let [{op :op event-auth :auth} (blocking-send-msg socket {:op :init :app-id zeneca-app-id})
+        (let [{op :op event-auth :auth} (blocking-send-msg :init-ok socket {:op :init :app-id zeneca-app-id})
               store-auth (rs/get-auth @store-conn id)]
           (is (= :init-ok op))
           (is (= ["Zeneca-ex" nil] (pretty-auth event-auth)))
@@ -130,7 +137,7 @@
 
       (testing "already authed"
         (is (= 400
-               (:status (blocking-send-msg socket {:op :init :app-id movies-app-id}))))))))
+               (:status (blocking-send-msg :error socket {:op :init :app-id movies-app-id}))))))))
 
 (def ^:private query-1987
   {:kw-q  {:movie {:$ {:where {:year 1987}}}}
@@ -236,23 +243,33 @@
     (fn [_store-conn {:keys [socket]}]
       (is (= 400
              (:status (blocking-send-msg
+                       :error
                        socket {:op :add-query :q (:kw-q query-1987)})))))))
 
 (deftest add-malformed-query-rejected
   (with-session
     (fn [_store-conn {:keys [socket]}]
-      (blocking-send-msg socket {:op :init :app-id movies-app-id})
+      (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
       (testing "malformed query are rejected"
         (is (= 400
-               (:status (blocking-send-msg socket {:op :add-query :q {:movie "Foo"}}))))))))
+               (:status (blocking-send-msg :error socket {:op :add-query :q {:movie "Foo"}}))))))))
+
+(deftest add-nil-query-rejected
+  (with-session
+    (fn [_store-conn {:keys [socket]}]
+      (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
+      (testing "nil queries are rejected"
+        (is (= 400
+               (:status (blocking-send-msg :error socket {:op :add-query :q nil}))))))))
 
 (deftest add-query-works
   (with-session
     (fn [_store-conn {:keys [socket]}]
-      (blocking-send-msg socket {:op :init :app-id movies-app-id})
+      (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
 
       (testing "add query: movies in 1987"
-        (let [{:keys [op q result]} (blocking-send-msg socket
+        (let [{:keys [op q result]} (blocking-send-msg :add-query-ok
+                                                       socket
                                                        {:op :add-query
                                                         :q (:kw-q query-1987)})]
           (is (= op :add-query-ok))
@@ -264,11 +281,13 @@
   (with-session
     (fn [store-conn {:keys [socket]
                      {:keys [id]} :socket}]
-      (blocking-send-msg socket {:op :init :app-id movies-app-id})
-      (blocking-send-msg socket
+      (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
+      (blocking-send-msg :add-query-ok
+                         socket
                          {:op :add-query
                           :q (:kw-q query-1987)})
-      (blocking-send-msg socket
+      (blocking-send-msg :add-query-ok
+                         socket
                          {:op :add-query
                           :q (:kw-q query-robocop)})
 
@@ -338,44 +357,50 @@
 (deftest add-duplicate-query-returns-query-exists
   (with-session
     (fn [_store-conn {:keys [socket]}]
-      (blocking-send-msg socket {:op :init :app-id movies-app-id})
-      (blocking-send-msg socket {:op :add-query :q (:kw-q query-robocop)})
+      (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
+      (blocking-send-msg :add-query-ok socket {:op :add-query :q (:kw-q query-robocop)})
       (is (= {:op :add-query-exists,
               :q (:kw-q query-robocop)}
-             (blocking-send-msg socket {:op :add-query
-                                        :q (:kw-q query-robocop)}))))))
+             (blocking-send-msg :add-query-exists socket {:op :add-query
+                                                          :q (:kw-q query-robocop)}))))))
 
 (deftest remove-query-works
   (with-session
     (fn [_store-conn {:keys [socket]}]
-      (blocking-send-msg socket {:op :init :app-id movies-app-id})
-      (blocking-send-msg socket
+      (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
+      (blocking-send-msg :add-query-ok
+                         socket
                          {:op :add-query
                           :q (:kw-q query-1987)})
 
       (is (= {:op :remove-query-ok,
               :q (:kw-q query-1987)}
-             (blocking-send-msg socket {:op :remove-query
+             (blocking-send-msg :remove-query-ok
+                                socket {:op :remove-query
                                         :q (:kw-q query-1987)}))))))
 
 (deftest remove-query-updates-store
   (with-session
     (fn [store-conn {:keys [socket]}]
-      (blocking-send-msg socket {:op :init :app-id movies-app-id})
+      (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
 
-      (blocking-send-msg socket
+      (blocking-send-msg :add-query-ok
+                         socket
                          {:op :add-query
                           :q (:kw-q query-1987)})
 
-      (blocking-send-msg socket
+      (blocking-send-msg :add-query-ok
+                         socket
                          {:op :add-query
                           :q (:kw-q query-robocop)})
 
       ;; okay, let's delete the first query
       (is (= {:op :remove-query-ok,
               :q (:kw-q query-1987)}
-             (blocking-send-msg socket {:op :remove-query
-                                        :q (:kw-q query-1987)})))
+             (blocking-send-msg :remove-query-ok
+                                socket
+                                {:op :remove-query
+                                 :q (:kw-q query-1987)})))
 
       (testing "stray datalog queries are removed"
         (is (= '#{{:children
@@ -415,8 +440,10 @@
       ;; okay, now for the second query
       (is (= {:op :remove-query-ok,
               :q (:kw-q query-robocop)}
-             (blocking-send-msg socket {:op :remove-query
-                                        :q (:kw-q query-robocop)})))
+             (blocking-send-msg :remove-query-ok
+                                socket
+                                {:op :remove-query
+                                 :q (:kw-q query-robocop)})))
 
       (testing "all subs are gone"
         (is (empty? (#'rs/get-subscriptions-for-app-id @store-conn movies-app-id))))
@@ -429,8 +456,8 @@
     (fn [{app-id :id :as _app} r]
       (with-session
         (fn [store-conn {{sess-id :id :as socket} :socket}]
-          (blocking-send-msg socket {:op :init :app-id app-id})
-          (blocking-send-msg socket
+          (blocking-send-msg :init-ok socket {:op :init :app-id app-id})
+          (blocking-send-msg :add-query-ok socket
                              {:op :add-query
                               :q (:kw-q query-1987)})
 
@@ -463,8 +490,9 @@
     (fn [{app-id :id :as _app} r]
       (with-session
         (fn [store-conn {{sess-id :id :as socket} :socket}]
-          (blocking-send-msg socket {:op :init :app-id app-id})
-          (blocking-send-msg socket
+          (blocking-send-msg :init-ok socket {:op :init :app-id app-id})
+          (blocking-send-msg :add-query-ok
+                             socket
                              {:op :add-query
                               :q (:kw-q query-1987)})
           (rs/mark-stale-topics! store-conn
@@ -507,11 +535,12 @@
     (fn [{app-id :id :as _app} r]
       (with-session
         (fn [store-conn {{sess-id :id :as socket} :socket}]
-          (blocking-send-msg socket {:op :init :app-id app-id})
+          (blocking-send-msg :init-ok socket {:op :init :app-id app-id})
           (let [john-uuid (resolvers/->uuid r "eid-john-mctiernan")
                 ted-uuid (resolvers/->uuid r "eid-ted-kotcheff")
                 kw-q {:movie {:$ {:where {:director john-uuid}}}}]
-            (blocking-send-msg socket
+            (blocking-send-msg :add-query-ok
+                               socket
                                {:op :add-query
                                 :q kw-q})
 
@@ -553,7 +582,7 @@
                         pretty-subs)))
 
             ;; do mutation
-            (tx/transact! (aurora/conn-pool)
+            (tx/transact! (aurora/conn-pool :write)
                           (attr-model/get-by-app-id app-id)
                           app-id
                           [[:retract-triple
@@ -616,6 +645,7 @@
     (fn [_store-conn {:keys [socket]}]
       (is (= 400
              (:status (blocking-send-msg
+                       :error
                        socket {:op :transact :tx-steps []})))))))
 
 (deftest transact-rejects-malformed
@@ -623,9 +653,10 @@
     (fn [{app-id :id}]
       (with-session
         (fn [_store-conn {:keys [socket]}]
-          (blocking-send-msg socket {:op :init :app-id app-id})
+          (blocking-send-msg :init-ok socket {:op :init :app-id app-id})
           (is (= 400
                  (:status (blocking-send-msg
+                           :error
                            socket {:op :transact
                                    :tx-steps [["moop" 1 2 3]]})))))))))
 
@@ -634,15 +665,17 @@
     (fn [{app-id :id :as _app} r]
       (with-session
         (fn [_store-conn {:keys [socket]}]
-          (blocking-send-msg socket {:op :init :app-id app-id})
+          (blocking-send-msg :init-ok socket {:op :init :app-id app-id})
           (let [robocop-eid (resolvers/->uuid r "eid-robocop")
                 name-attr-id (resolvers/->uuid r :movie/title)]
             (is (= :transact-ok
                    (:op (blocking-send-msg
+                         :transact-ok
                          socket {:op :transact
                                  :tx-steps
                                  [["add-triple" robocop-eid name-attr-id "RoboDrizzle"]]}))))
-            (let [resp (blocking-send-msg socket {:op :add-query
+            (let [resp (blocking-send-msg :add-query-ok
+                                          socket {:op :add-query
                                                   :q (:kw-q query-1987)})]
               (is (contains? (->> resp
                                   :result
@@ -659,11 +692,12 @@
 (deftest join-room-works
   (with-session
     (fn [_store-conn {:keys [socket]}]
-      (blocking-send-msg socket {:op :init
-                                 :app-id movies-app-id})
+      (blocking-send-msg :init-ok socket {:op :init
+                                          :app-id movies-app-id})
       (let [rid (str (UUID/randomUUID))
             sess-id (:id socket)
-            {:keys [op room-id]} (blocking-send-msg socket
+            {:keys [op room-id]} (blocking-send-msg :join-room-ok
+                                                    socket
                                                     {:op :join-room
                                                      :room-id rid})]
 
@@ -674,17 +708,18 @@
 (deftest leave-room-works
   (with-session
     (fn [_store-conn {:keys [socket]}]
-      (blocking-send-msg socket {:op :init
-                                 :app-id movies-app-id})
+      (blocking-send-msg :init-ok socket {:op :init
+                                          :app-id movies-app-id})
       (let [rid (str (UUID/randomUUID))
             sess-id (:id socket)]
         (is (= :join-room-ok
-               (:op (blocking-send-msg socket {:op :join-room, :room-id rid}))))
-        (is (= :refresh-presence (:op (read-msg socket))))
+               (:op (blocking-send-msg :join-room-ok socket {:op :join-room, :room-id rid}))))
+        (is (= :refresh-presence (:op (read-msg :refresh-presence socket))))
 
         (is (eph/in-room? movies-app-id rid sess-id))
 
-        (let [{:keys [op room-id]} (blocking-send-msg socket
+        (let [{:keys [op room-id]} (blocking-send-msg :leave-room-ok
+                                                      socket
                                                       {:op :leave-room
                                                        :room-id rid})]
           ;; session is no longer in the room
@@ -702,11 +737,11 @@
             sess-id (:id socket)
             d1      {:a "a" :b "b" :c "c" :d "d" :e "e"}
             d2      {:a "a" :b "b" :c "c" :e "E" :f "F"}]
-        (blocking-send-msg socket {:op       :init
-                                   :app-id   movies-app-id
-                                   :versions {session/core-version-key "0.17.6"}})
-        (is (= :join-room-ok (:op (blocking-send-msg socket {:op :join-room :room-id rid}))))
-        (is (= :refresh-presence (:op (read-msg socket))))
+        (blocking-send-msg :init-ok socket {:op       :init
+                                            :app-id   movies-app-id
+                                            :versions {session/core-version-key "0.17.6"}})
+        (is (= :join-room-ok (:op (blocking-send-msg :join-room-ok socket {:op :join-room :room-id rid}))))
+        (is (= :refresh-presence (:op (read-msg :refresh-presence socket))))
 
         ;; session is in the room
         (is (eph/in-room? movies-app-id rid sess-id))
@@ -718,24 +753,24 @@
                (eph/get-room-data movies-app-id rid)))
 
         ;; set session data
-        (is (= :set-presence-ok (:op (blocking-send-msg socket {:op :set-presence :room-id rid :data d1}))))
+        (is (= :set-presence-ok (:op (blocking-send-msg :set-presence-ok socket {:op :set-presence :room-id rid :data d1}))))
         (is (= {:op      :patch-presence
                 :room-id rid
                 :edits   [[[sess-id :data] :r {:a "a" :b "b" :c "c" :d "d" :e "e"}]]}
-               (read-msg socket)))
+               (read-msg :patch-presence socket)))
         (is (= {sess-id {:peer-id sess-id
                          :user    nil
                          :data    d1}}
                (eph/get-room-data movies-app-id rid)))
 
         ;; udpate session data
-        (is (= :set-presence-ok (:op (blocking-send-msg socket {:op :set-presence :room-id rid :data d2}))))
+        (is (= :set-presence-ok (:op (blocking-send-msg :set-presence-ok socket {:op :set-presence :room-id rid :data d2}))))
         (is (= {:op      :patch-presence
                 :room-id rid
                 :edits   [[[sess-id :data :d] :-]
                           [[sess-id :data :e] :r "E"]
                           [[sess-id :data :f] :+ "F"]]}
-               (read-msg socket)))
+               (read-msg :patch-presence socket)))
         (is (= {sess-id {:peer-id sess-id
                          :user    nil
                          :data    d2}}
@@ -752,33 +787,33 @@
             d2        {:a "a" :b "b" :c "c" :e "E" :f "F"}
             versions  {session/core-version-key "0.17.6"}]
         ;; socket-1 joining
-        (blocking-send-msg socket-1 {:op       :init
-                                     :app-id   movies-app-id
-                                     :versions versions})
+        (blocking-send-msg :init-ok socket-1 {:op       :init
+                                              :app-id   movies-app-id
+                                              :versions versions})
         (is (= {:op      :join-room-ok
                 :room-id rid}
-               (blocking-send-msg socket-1 {:op :join-room :room-id rid})))
+               (blocking-send-msg :join-room-ok socket-1 {:op :join-room :room-id rid})))
         (is (= {:op      :refresh-presence
                 :room-id rid
                 :data    {sess-id-1 {:data    {}
                                      :peer-id sess-id-1
                                      :user    nil}}}
-               (read-msg socket-1)))
+               (read-msg :refresh-presence socket-1)))
         (is (= {:op      :set-presence-ok
                 :room-id rid}
-               (blocking-send-msg socket-1 {:op :set-presence :room-id rid :data d1})))
+               (blocking-send-msg :set-presence-ok socket-1 {:op :set-presence :room-id rid :data d1})))
         (is (= {:op      :patch-presence
                 :room-id rid
                 :edits   [[[sess-id-1 :data] :r d1]]}
-               (read-msg socket-1)))
+               (read-msg :patch-presence socket-1)))
 
         ;; socket-2 joining
-        (blocking-send-msg socket-2 {:op       :init
-                                     :app-id   movies-app-id
-                                     :versions versions})
+        (blocking-send-msg :init-ok socket-2 {:op       :init
+                                              :app-id   movies-app-id
+                                              :versions versions})
         (is (= {:op      :join-room-ok
                 :room-id rid}
-               (blocking-send-msg socket-2 {:op :join-room :room-id rid})))
+               (blocking-send-msg :join-room-ok socket-2 {:op :join-room :room-id rid})))
         (is (= {:op      :refresh-presence
                 :room-id rid
                 :data    {sess-id-1 {:data    d1
@@ -787,59 +822,59 @@
                           sess-id-2 {:data    {}
                                      :peer-id sess-id-2
                                      :user    nil}}}
-               (read-msg socket-2)))
+               (read-msg :refresh-presence socket-2)))
 
         (is (= {:op      :patch-presence
                 :room-id rid
                 :edits   [[[sess-id-2] :+ {:data {}
                                            :peer-id sess-id-2
                                            :user nil}]]}
-               (read-msg socket-1)))
+               (read-msg :patch-presence socket-1)))
 
         ;; socket-1 updating
         (is (= {:op      :set-presence-ok
                 :room-id rid}
-               (blocking-send-msg socket-1 {:op :set-presence :room-id rid :data d2})))
+               (blocking-send-msg :set-presence-ok socket-1 {:op :set-presence :room-id rid :data d2})))
         (is (= {:op      :patch-presence
                 :room-id rid
                 :edits   [[[sess-id-1 :data :d] :-]
                           [[sess-id-1 :data :e] :r "E"]
                           [[sess-id-1 :data :f] :+ "F"]]}
-               (read-msg socket-1)))
+               (read-msg :patch-presence socket-1)))
         (is (= {:op      :patch-presence
                 :room-id rid
                 :edits   [[[sess-id-1 :data :d] :-]
                           [[sess-id-1 :data :e] :r "E"]
                           [[sess-id-1 :data :f] :+ "F"]]}
-               (read-msg socket-2)))
+               (read-msg :patch-presence socket-2)))
 
         ;; socket-2 leaving
         (is (= {:op      :leave-room-ok
                 :room-id rid}
-               (blocking-send-msg socket-2 {:op :leave-room, :room-id rid})))
+               (blocking-send-msg :leave-room-ok socket-2 {:op :leave-room, :room-id rid})))
         (is (= {:op      :patch-presence
                 :room-id rid
                 :edits   [[[sess-id-2] :-]]}
-               (read-msg socket-1)))
+               (read-msg :patch-presence socket-1)))
 
         ;; socket-1 updating
         (is (= {:op      :set-presence-ok
                 :room-id rid}
-               (blocking-send-msg socket-1 {:op :set-presence :room-id rid :data d1})))
+               (blocking-send-msg :set-presence-ok socket-1 {:op :set-presence :room-id rid :data d1})))
         (is (= {:op      :patch-presence
                 :room-id rid
                 :edits   [[[sess-id-1 :data :e] :r "e"]
                           [[sess-id-1 :data :f] :-]
                           [[sess-id-1 :data :d] :+ "d"]]}
-               (read-msg socket-1)))))))
+               (read-msg :patch-presence socket-1)))))))
 
 (deftest set-presence-fails-when-not-in-room
   (with-session
     (fn [_store-conn {:keys [socket]}]
-      (blocking-send-msg socket {:op :init :app-id movies-app-id})
+      (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
       (let [rid (str (UUID/randomUUID))
             d1 {:hello "world"}
-            {:keys [op status]} (blocking-send-msg socket {:op :set-presence :room-id rid :data d1})]
+            {:keys [op status]} (blocking-send-msg :error socket {:op :set-presence :room-id rid :data d1})]
         (is (= :error op))
         (is (= 400 status))))))
 
@@ -850,13 +885,14 @@
             sess-id (:id socket)
             t1 "foo"
             d1 {:hello "world"}]
-        (blocking-send-msg socket {:op :init :app-id movies-app-id})
-        (is (= :join-room-ok (:op (blocking-send-msg socket {:op :join-room, :room-id rid}))))
-        (is (= :refresh-presence (:op (read-msg socket))))
+        (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
+        (is (= :join-room-ok (:op (blocking-send-msg :join-room-ok socket {:op :join-room, :room-id rid}))))
+        (is (= :refresh-presence (:op (read-msg :refresh-presence socket))))
 
         (let [room-data (eph/get-room-data movies-app-id rid)
               {:keys [op room-id topic data]}
-              (blocking-send-msg socket
+              (blocking-send-msg :client-broadcast-ok
+                                 socket
                                  {:op :client-broadcast
                                   :room-id rid
                                   :topic t1
@@ -877,13 +913,13 @@
 (deftest broadcast-fails-when-not-in-room
   (with-session
     (fn [_store-conn {:keys [socket]}]
-      (blocking-send-msg socket {:op :init :app-id movies-app-id})
+      (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
       (let [rid (str (UUID/randomUUID))
             t1 "foo"
             d1 {:hello "world"}
-            {:keys [op status]} (blocking-send-msg socket {:op :client-broadcast
-                                                           :room-id rid
-                                                           :topic t1
-                                                           :data d1})]
+            {:keys [op status]} (blocking-send-msg :error socket {:op :client-broadcast
+                                                                  :room-id rid
+                                                                  :topic t1
+                                                                  :data d1})]
         (is (= :error op))
         (is (= 400 status))))))

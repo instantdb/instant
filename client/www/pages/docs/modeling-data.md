@@ -264,6 +264,22 @@ Our micro-blog example has the following relationship types:
 - **One-to-many** between `comments` and `profiles`
 - **Many-to-many** between `posts` and `tags`
 
+### Cascade Delete
+
+Forward links defined with `has: "one"` can set `onDelete: "cascade"`. In this case, when the reverse entity is deleted, all forward entities will be deleted too:
+
+```typescript
+postAuthor: {
+  forward: { on: "posts", has: "one", label: "author", onDelete: "cascade" },
+  reverse: { on: "profiles", has: "many", label: "authoredPosts" },
+}
+
+// this will delete profile and all linked posts
+db.tx.profiles[user_id].delete();
+```
+
+Without `onDelete: "cascade"`, deleting a user would simply delete the links but not delete the underlying posts.
+
 ## Publishing your schema
 
 Now that you have your schema, you can use the CLI to `push` it to your app:

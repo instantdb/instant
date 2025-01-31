@@ -5,18 +5,18 @@
    [instant.model.instant-user :as instant-user-model]))
 
 (defn create!
-  ([params] (create! (aurora/conn-pool) params))
+  ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [user-id]}]
    (sql/execute-one! conn
                     ["INSERT INTO instant_user_outreaches (user_id) VALUES (?::uuid)"
                      user-id])))
 (defn get-by-user-id
-  ([params] (get-by-user-id (aurora/conn-pool) params))
+  ([params] (get-by-user-id (aurora/conn-pool :read) params))
   ([conn {:keys [user-id]}]
    (sql/select-one conn ["SELECT * FROM instant_user_outreaches WHERE user_id = ?" user-id])))
 
 (defn delete-by-user-id!
-  ([params] (delete-by-user-id! (aurora/conn-pool) params))
+  ([params] (delete-by-user-id! (aurora/conn-pool :write) params))
   ([conn {:keys [user-id]}]
    (sql/execute-one! conn
                     ["DELETE FROM instant_user_outreaches WHERE user_id = ?::uuid"

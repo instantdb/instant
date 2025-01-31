@@ -76,13 +76,13 @@
         _ (println "Exported")
 
         _ (println (format "Fetch user by email = %s" local-user-email))
-        {user-id :id} (instant-user-model/get-by-email (aurora/conn-pool)
+        {user-id :id} (instant-user-model/get-by-email (aurora/conn-pool :write)
                                                        {:email local-user-email})
         _ (assert user-id (format "User with email %s not found" local-user-email))
         _ (println (format "Fetched user id = %s" user-id))
 
         _ (println (format  "Importing app_id = %s to user-email = %s" prod-app-id local-user-email))
-        _ (import-app (aurora/conn-pool) user-id exported-data)
+        _ (import-app (aurora/conn-pool :write) user-id exported-data)
         _ (println "Done!")]))
 
 (comment

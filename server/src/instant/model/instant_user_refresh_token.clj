@@ -6,14 +6,14 @@
    (java.util UUID)))
 
 (defn create!
-  ([params] (create! (aurora/conn-pool) params))
+  ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [id user-id]}]
    (sql/execute-one! conn
                      ["INSERT INTO instant_user_refresh_tokens (id, user_id) VALUES (?::uuid, ?::uuid)"
                       id user-id])))
 
 (defn delete-by-id!
-  ([params] (delete-by-id! (aurora/conn-pool) params))
+  ([params] (delete-by-id! (aurora/conn-pool :write) params))
   ([conn {:keys [id]}]
    (sql/execute-one! conn
                      ["DELETE FROM instant_user_refresh_tokens WHERE id = ?::uuid"

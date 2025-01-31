@@ -1,12 +1,13 @@
-(ns instant.scripts.metrics
+(ns instant.intern.metrics
   "Generate metrics for our monthly updates
-  Usage:
-    1. Run `make dev-with-prod` to connect to prod data
-    2. Run `generate!` at the bottom generate metrics
-    3. Run `open resources/metrics/*-usage.png` in the terminal from the /server directory to view the metrics
+  
+  Usage: 
+   Most of the time you can load: http://instantdb.com/intern/graphs
+  
+   You can also change up the queries locally and run the `save-pngs` comment below.
   
   We define active users as someone who:
-
+  
   * Has made at least 1 transaction in the time period.
   * Transaction happened at least one week after the users very first transaction
     (this is a heuristic to remove people who try us out once and then quit)
@@ -18,13 +19,17 @@
    [instant.jdbc.aurora :as aurora]
    [instant.flags :refer [get-emails]]
    [incanter.core :as i]
-   [incanter.charts :as charts])
+   [incanter.charts :as charts]
+   [instant.util.exception :as ex]
+   [clojure.java.shell :as shell])
   (:import [org.jfree.chart.renderer.category BarRenderer]
            [org.jfree.chart.labels StandardCategoryItemLabelGenerator]
            [org.jfree.chart.axis CategoryLabelPositions]
            [org.jfree.ui RectangleInsets]
-           [java.io File]
-           [java.awt Color]))
+           [java.io File ByteArrayOutputStream]
+           [java.awt Color]
+           [javax.imageio ImageIO]
+           [java.util Base64]))
 
 (defn excluded-emails []
   (let [{:keys [test team friend]} (get-emails)]
@@ -36,14 +41,9 @@
     (when (and parent-dir (not (.exists parent-dir)))
       (.mkdirs parent-dir))))
 
-(def dir-path "resources/metrics")
-
-(defn output-file [filename]
-  (str dir-path "/" filename))
-
 (defn get-weekly-stats
   ([]
-   (get-weekly-stats (aurora/conn-pool)))
+   (get-weekly-stats (aurora/conn-pool :read)))
   ([conn]
    (sql/select conn
                ["SELECT
@@ -62,7 +62,7 @@
 
 (defn get-monthly-stats
   ([]
-   (get-monthly-stats (aurora/conn-pool)))
+   (get-monthly-stats (aurora/conn-pool :read)))
   ([conn]
    (sql/select conn
                ["SELECT
@@ -79,7 +79,7 @@
                 ORDER BY 1"
                 (with-meta (excluded-emails) {:pgtype "text[]"})])))
 
-(defn generate-bar-chart [metrics x-key y1-key title filename]
+(defn generate-bar-chart [metrics x-key y1-key title]
   (let [x-values (map x-key metrics)
         y-values (map y1-key metrics)
         chart (charts/bar-chart x-values y-values
@@ -126,10 +126,23 @@
     (.setShadowVisible renderer false)
     (.setBackgroundPaint chart (Color. 255 255 255))
 
-    (ensure-directory-exists filename)
-    (i/save chart filename)))
+    chart))
 
-(defn generate-line-chart [metrics x-key y1-key title filename]
+(defn save-chart-into-file! [chart filename]
+  (ensure-directory-exists filename)
+  (i/save chart filename))
+
+(defn chart->base64-png [chart width height]
+  (let [buf-img (.createBufferedImage chart width height)
+        baos (ByteArrayOutputStream.)
+        _ (ImageIO/write buf-img, "png", baos)
+        img-bytes (.toByteArray baos)
+        encoder (Base64/getEncoder)
+        b64 (.encodeToString encoder img-bytes)
+        s (str "data:image/png;base64, " b64)]
+    s))
+
+(defn generate-line-chart [metrics x-key y1-key title]
   (let [x-values (map x-key metrics)
         y-values (map y1-key metrics)
         chart (charts/line-chart x-values y-values
@@ -162,8 +175,7 @@
     (.setBackgroundPaint plot (Color. 255 255 255))
     (.setBackgroundPaint chart (Color. 255 255 255))
 
-    (ensure-directory-exists filename)
-    (i/save chart filename)))
+    chart))
 
 (defn mom-growth [stats k]
   (let [[prev-m curr-m] (take-last 2 stats)
@@ -171,28 +183,40 @@
         growth (* (/ (- curr-v prev-v) (* prev-v 1.0)) 100)]
     growth))
 
-(defn generate! []
-  (let [weekly-stats  (get-weekly-stats)
-        monthly-stats (get-monthly-stats)]
-    (generate-line-chart weekly-stats
-                         :date_start :distinct_users
-                         "Weekly Active Devs >= 1 tx"
-                         (output-file "wau-usage.png"))
-    (generate-bar-chart monthly-stats
-                        :date_start :distinct_users
-                        "Monthly Active Devs >= 1 tx"
-                        (output-file "mau-usage.png"))
-    (generate-line-chart weekly-stats
-                         :date_start :distinct_apps
-                         "Weekly Active Apps >= 1 tx"
-                         (output-file "wap-usage.png"))
-    (generate-bar-chart monthly-stats
-                        :date_start :distinct_apps
-                        "Monthly Active Apps >= 1 tx"
-                        (output-file "map-usage.png"))
-    {:images-dir dir-path
+;; ---------------- 
+;; Investor Update Metrics 
+
+(defn investor-update-metrics [conn]
+  (let [weekly-stats  (get-weekly-stats conn)
+        monthly-stats (get-monthly-stats conn)
+        _ (ex/assert-valid! :stats [weekly-stats monthly-stats] (when (or (empty? weekly-stats)
+                                                                          (empty? monthly-stats))
+                                                                  [{:message "No data found for stats"}]))
+        weekly-active-devs (generate-line-chart weekly-stats
+                                                :date_start :distinct_users
+                                                "Weekly Active Devs >= 1 tx")
+        monthly-active-devs (generate-bar-chart monthly-stats
+                                                :date_start :distinct_users
+                                                "Monthly Active Devs >= 1 tx")
+        weekly-active-apps (generate-line-chart weekly-stats
+                                                :date_start :distinct_apps
+                                                "Weekly Active Apps >= 1 tx")
+        monthly-active-apps (generate-bar-chart monthly-stats
+                                                :date_start :distinct_apps
+                                                "Monthly Active Apps >= 1 tx")]
+    {:charts {:weekly-active-devs weekly-active-devs
+              :monthly-active-devs monthly-active-devs
+              :weekly-active-apps weekly-active-apps
+              :monthly-active-apps monthly-active-apps}
      :monthly-active-apps-mom (mom-growth monthly-stats :distinct_apps)
      :monthly-active-devs-mom (mom-growth monthly-stats :distinct_users)}))
 
+;; save-pngs
 (comment
-  (generate!))
+  (def metrics (tool/with-prod-conn [conn]
+                 (investor-update-metrics conn)))
+
+  (doseq [[k chart] (:charts metrics)]
+    (save-chart-into-file! chart (str "resources/metrics/" (name k) ".png")))
+
+  (shell/sh "open" "resources/metrics"))

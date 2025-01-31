@@ -20,7 +20,7 @@
                        DO NOTHING RETURNING id" k]))))
 
 (defn run-once! [k f]
-  (if (try-grab! (aurora/conn-pool) k)
+  (if (try-grab! (aurora/conn-pool :write) k)
     (f)
     :no-op))
 

@@ -27,16 +27,6 @@
 ;; --------------
 ;; Check Commands
 
-(defn tx-change-type [[action]]
-  (cond
-    (#{:add-triple :deep-merge-triple :retract-triple :delete-entity} action) :object-changes
-    (#{:add-attr :delete-attr :update-attr} action) :attr-changes))
-
-(defn tx-object-action-type [[action]]
-  (cond
-    (#{:add-triple :deep-merge-triple :retract-triple} action) :update
-    (#{:delete-entity} action) :delete))
-
 ;; Applies a `merge()` patch to a record
 ;; Analogous to immutableDeepMerge in JS
 ;; and deep_merge in Postgres
@@ -256,7 +246,7 @@
   [ctx tx-steps]
   (reduce (fn [acc tx-step]
             (let [[op eid aid value] tx-step
-                  aid-etype (if (= op :delete-entity)
+                  aid-etype (if (= :delete-entity op)
                               aid
                               (extract-etype ctx aid))
                   etype (if (sequential? eid)
@@ -271,7 +261,7 @@
                                  [op eid etype]
                                  tx-step)
 
-                  [rev-etype rev-eid] (if (= :op "delete-entity")
+                  [rev-etype rev-eid] (if (= "delete-entity" op)
                                         nil
                                         (when-let [rev-etype (extract-rev-etype ctx aid)]
                                           (when (sequential? value)
@@ -289,7 +279,9 @@
               (cond-> acc
                 true (update {:eid eid
                               :etype etype
-                              :action (tx-object-action-type tx-step)}
+                              :action (case (first tx-step)
+                                        (:add-triple :deep-merge-triple :retract-triple) :update
+                                        :delete-entity :delete)}
                              (fnil conj [])
                              patched-step)
                 rev-etype (update {:eid rev-eid
@@ -610,21 +602,32 @@
     (validate-reserved-names! admin? attrs tx-steps)
     (let [{:keys [conn-pool]} db]
       (next-jdbc/with-transaction [tx-conn conn-pool]
-        ;; transact does read and then a write.
-        ;; We need to protect against a case where a different
-        ;; write happens between our read and write.
-        ;; To protect against this, we ensure writes for an
-        ;; app happen serially. We take an advisory lock on app-id
-        ;; when we start transact and we don't release it until
-        ;; we are done. This ensures that other transactions
-        ;; for this app will wait.
+          ;; transact does read and then a write.
+          ;; We need to protect against a case where a different
+          ;; write happens between our read and write.
+          ;; To protect against this, we ensure writes for an
+          ;; app happen serially. We take an advisory lock on app-id
+          ;; when we start transact and we don't release it until
+          ;; we are done. This ensures that other transactions
+          ;; for this app will wait.
         #_(lock-tx-on! tx-conn (hash app-id))
         (if admin?
           (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps)
-          (let [{:keys [attr-changes object-changes]}
-                (group-by tx-change-type tx-steps)
+          (let [grouped-tx-steps (tx/preprocess-tx-steps tx-conn attrs app-id tx-steps)
 
-                optimistic-attrs (into attrs (get-new-attrs attr-changes))
+                attr-changes     (concat
+                                  (:add-attr grouped-tx-steps)
+                                  (:delete-attr grouped-tx-steps)
+                                  (:update-attr grouped-tx-steps))
+
+                object-changes   (concat
+                                  (:add-triple grouped-tx-steps)
+                                  (:deep-merge-triple grouped-tx-steps)
+                                  (:retract-triple grouped-tx-steps)
+                                  (:delete-entity grouped-tx-steps))
+
+                optimistic-attrs (into attrs (map second) (:add-attr grouped-tx-steps))
+
                 ;; Use the db connection we have so that we don't cause a deadlock
                 ;; Also need to be able to read our own writes for the create checks
                 ctx (assoc ctx
@@ -634,6 +637,7 @@
                 ;; If we were really smart, we would fetch the triples and the
                 ;; update-delete data-ref dependencies in one go.
                 preloaded-triples (preload-triples ctx object-changes)
+
                 check-commands
                 (io/warn-io :check-commands
                             (get-check-commands
@@ -643,6 +647,7 @@
                              ;; It has all the same data, but the preload will also
                              ;; resolve etypes for older version of delete-entity
                              preloaded-triples))
+
                 {create-checks :create
                  view-checks :view
                  update-checks :update
@@ -658,8 +663,10 @@
                 (resolve-lookups-for-update-delete-checks
                  view-checks
                  preloaded-triples)
-                preloaded-update-delete-refs (preload-refs ctx (concat update-delete-checks-resolved
-                                                                       view-checks-resolved))
+
+                preloaded-update-delete-refs
+                (preload-refs ctx (concat update-delete-checks-resolved
+                                          view-checks-resolved))
 
                 update-delete-checks-results
                 (io/warn-io :run-check-commands!
@@ -674,10 +681,8 @@
                                     {:preloaded-refs preloaded-update-delete-refs})
                              view-checks-resolved))
 
-                tx-data (tx/transact-without-tx-conn! tx-conn
-                                                      (:attrs ctx)
-                                                      app-id
-                                                      tx-steps)
+                tx-data
+                (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id grouped-tx-steps {})
 
                 create-checks-resolved (resolve-lookups-for-create-checks tx-conn app-id create-checks)
                 preloaded-create-refs (preload-refs ctx create-checks-resolved)
@@ -711,7 +716,7 @@
     (def tx-steps [[:add-triple goal-eid goal-id-attr goal-eid]
                    [:add-triple goal-eid goal-creator-id-attr joe-eid]
                    [:add-triple goal-eid goal-title-attr "Get a job"]]))
-  (transact! {:db {:conn-pool (aurora/conn-pool)}
+  (transact! {:db {:conn-pool (aurora/conn-pool :write)}
               :app-id colors-app-id
               :attrs app-attrs
               :current-user {:id joe-eid}
@@ -719,7 +724,7 @@
               :datalog-query-fn d/query} tx-steps)
 
   ;; OG transact
-  (tx/transact! (aurora/conn-pool)
+  (tx/transact! (aurora/conn-pool :write)
                 (attr-model/get-by-app-id colors-app-id)
                 colors-app-id
                 tx-steps))

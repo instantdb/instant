@@ -56,7 +56,9 @@
             [instant.storage.s3 :as s3-util]
             [instant.storage.beta :as storage-beta]
             [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
-            [instant.model.schema :as schema-model])
+            [instant.model.schema :as schema-model]
+            [instant.intern.metrics :as metrics]
+            [medley.core :as medley])
   (:import
    (com.stripe.model.checkout Session)
    (io.undertow.websockets.core WebSocketChannel)
@@ -271,6 +273,17 @@
         n-val (number-util/parse-int n 7)]
     (assert-admin-email! email)
     (response/ok {:users (dash-admin/get-top-users n-val)})))
+
+(defn admin-investor-updates-get [req]
+  (let [{:keys [email]} (req->auth-user! req)
+        _ (assert-admin-email! email)
+        conn (aurora/conn-pool :read)
+        metrics (metrics/investor-update-metrics conn)
+        metrics-with-b64-charts
+        (update metrics :charts (partial medley/map-vals
+                                         (fn [chart] (metrics/chart->base64-png chart
+                                                                                500 400))))]
+    (response/ok {:metrics metrics-with-b64-charts})))
 
 (defn admin-paid-get [req]
   (let [{:keys [email]} (req->auth-user! req)]
@@ -759,7 +772,7 @@
         {:keys [invitee_role status app_id invitee_email]} (instant-app-member-invites-model/get-by-id! {:id invite-id})]
     (ex/assert-permitted! :invitee? invitee_email (= invitee_email user-email))
     (ex/assert-permitted! :acceptable? invite-id (not= status "revoked"))
-    (next-jdbc/with-transaction [tx-conn (aurora/conn-pool)]
+    (next-jdbc/with-transaction [tx-conn (aurora/conn-pool :write)]
       (instant-app-member-invites-model/accept-by-id! tx-conn {:id invite-id})
       (condp = invitee_role
         "creator"
@@ -1105,7 +1118,7 @@
   (let [secret (UUID/randomUUID)
         ticket (UUID/randomUUID)]
     (instant-cli-login-model/create!
-     (aurora/conn-pool)
+     (aurora/conn-pool :write)
      {:secret secret
       :ticket ticket})
     (response/ok {:secret secret :ticket ticket})))
@@ -1113,18 +1126,18 @@
 (defn cli-auth-claim-post [req]
   (let [{user-id :id} (req->auth-user! req)
         ticket (ex/get-param! req [:body :ticket] uuid-util/coerce)]
-    (instant-cli-login-model/claim! (aurora/conn-pool) {:user-id user-id :ticket ticket})
+    (instant-cli-login-model/claim! (aurora/conn-pool :write) {:user-id user-id :ticket ticket})
     (response/ok {:ticket ticket})))
 
 (defn cli-auth-void-post [req]
   (let [_ (req->auth-user! req)
         ticket (ex/get-param! req [:body :ticket] uuid-util/coerce)]
-    (instant-cli-login-model/void! (aurora/conn-pool) {:ticket ticket})
+    (instant-cli-login-model/void! (aurora/conn-pool :write) {:ticket ticket})
     (response/ok {})))
 
 (defn cli-auth-check-post [req]
   (let [secret (ex/get-param! req [:body :secret] uuid-util/coerce)
-        cli-auth (instant-cli-login-model/use! (aurora/conn-pool) {:secret secret})
+        cli-auth (instant-cli-login-model/use! (aurora/conn-pool :write) {:secret secret})
         user-id (:user_id cli-auth)
         refresh-token (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id user-id})
         token (:id refresh-token)
@@ -1186,6 +1199,7 @@
   (GET "/dash/top" [] admin-top-get)
   (GET "/dash/paid" [] admin-paid-get)
   (GET "/dash/storage" [] admin-storage-get)
+  (GET "/dash/investor_updates" [] admin-investor-updates-get)
 
   (GET "/dash" [] dash-get)
   (POST "/dash/apps" [] apps-post)

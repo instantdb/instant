@@ -16,7 +16,7 @@
       crypt-util/bytes->hex-string))
 
 (defn get-by-id
-  ([params] (get-by-id (aurora/conn-pool) params))
+  ([params] (get-by-id (aurora/conn-pool :read) params))
   ([conn {:keys [app-id id]}]
    (query-op conn
              {:app-id app-id
@@ -30,7 +30,7 @@
                    (assoc res :id id)))))))
 
 (defn create!
-  ([params] (create! (aurora/conn-pool) params))
+  ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [id app-id user-id]}]
    (update-op
     conn
@@ -47,7 +47,7 @@
                :id id))))))
 
 (defn delete-by-user-id!
-  ([params] (delete-by-user-id! (aurora/conn-pool) params))
+  ([params] (delete-by-user-id! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id user-id]}]
    (update-op
     conn
@@ -61,7 +61,7 @@
                            ents))))))))
 
 (defn delete-by-id!
-  ([params] (delete-by-id! (aurora/conn-pool) params))
+  ([params] (delete-by-id! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id id]}]
    (update-op
     conn

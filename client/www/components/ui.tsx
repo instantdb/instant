@@ -19,7 +19,15 @@ import {
   PopoverPanel,
 } from '@headlessui/react';
 import * as HeadlessToggleGroup from '@radix-ui/react-toggle-group';
-import Highlight, { defaultProps } from 'prism-react-renderer';
+import Highlight, { defaultProps , Prism } from 'prism-react-renderer';
+
+if (typeof global !== "undefined") { 
+  (global as any).Prism = Prism;
+} else {
+  (window as any).Prism = Prism;
+}
+
+require("prismjs/components/prism-clojure");
 
 import {
   CheckCircleIcon,
@@ -321,7 +329,8 @@ export function Checkbox({
   return (
     <label
       className={cn(
-        'flex cursor-pointer items-center gap-2 disabled:cursor-default',
+        'flex cursor-pointer items-top gap-2',
+        disabled ? 'text-gray-400 cursor-default' : '',
         labelClassName,
       )}
       title={title}
@@ -331,7 +340,7 @@ export function Checkbox({
         title={title}
         required={required}
         className={cn(
-          'align-middle font-medium text-gray-900 disabled:text-gray-400 disabled:bg-gray-400',
+          'align-middle mt-0.5 font-medium text-gray-900 disabled:border-gray-300 disabled:bg-gray-200',
           className,
         )}
         type="checkbox"

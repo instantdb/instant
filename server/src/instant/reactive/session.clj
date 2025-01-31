@@ -8,6 +8,7 @@
    commands."
   (:require
    [clojure.main :refer [root-cause]]
+   [instant.config :as config]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
@@ -47,7 +48,10 @@
 (declare receive-q-stop-signal)
 (def handle-receive-timeout-ms 5000)
 
-(def num-receive-workers (* 100 (delay/cpu-count)))
+(def num-receive-workers (* (if config/fewer-vfutures?
+                              20
+                              100)
+                            (delay/cpu-count)))
 
 ;; ------
 ;; handlers
@@ -77,7 +81,7 @@
 (defn get-attrs [app]
   (if-let [connection-string (-> app :connection_string)]
     ;; TODO(byop): Separate connection for byop app
-    (pg-introspect/introspect (aurora/conn-pool) (or (->> connection-string
+    (pg-introspect/introspect (aurora/conn-pool :read) (or (->> connection-string
                                                           (app-model/decrypt-connection-string (:id app))
                                                           uri/query-map
                                                           :currentSchema)
@@ -126,13 +130,18 @@
       (rs/send-event! store-conn (:id app) sess-id {:op :add-query-exists :q q
                                                     :client-event-id client-event-id})
 
+      (nil? q)
+      (ex/throw-validation-err! :add-query
+                                {:q q}
+                                [{:message "Query can not be null."}])
+
       :else
       (let [return-type (keyword (or return-type "join-rows"))
             {app-id :id} app
             processed-tx-id (rs/get-processed-tx-id @store-conn app-id)
             {:keys [table-info]} (get-attrs app)
             attrs (attr-model/get-by-app-id app-id)
-            ctx {:db {:conn-pool (aurora/conn-pool)}
+            ctx {:db {:conn-pool (aurora/conn-pool :read)}
                  :datalog-loader (rs/upsert-datalog-loader! store-conn sess-id d/make-loader)
                  :session-id sess-id
                  :app-id app-id
@@ -141,7 +150,9 @@
                  :admin? admin?
                  :current-user user}
             {:keys [instaql-result]} (rq/instaql-query-reactive! store-conn ctx q return-type)]
-        (rs/send-event! store-conn app-id sess-id {:op :add-query-ok :q q :result instaql-result
+        (rs/send-event! store-conn app-id sess-id {:op :add-query-ok
+                                                   :q q
+                                                   :result instaql-result
                                                    :processed-tx-id processed-tx-id
                                                    :client-event-id client-event-id})))))
 
@@ -154,7 +165,7 @@
 (defn- recompute-instaql-query!
   [{:keys [store-conn current-user app-id sess-id attrs table-info admin?]}
    {:keys [instaql-query/query instaql-query/return-type]}]
-  (let [ctx {:db {:conn-pool (aurora/conn-pool)}
+  (let [ctx {:db {:conn-pool (aurora/conn-pool :read)}
              :session-id sess-id
              :app-id app-id
              :attrs attrs
@@ -190,7 +201,7 @@
         _ (reset! debug-info {:processed-tx-id processed-tx-id
                               :instaql-queries (map :instaql-query/query stale-queries)})
         recompute-results (->> stale-queries
-                               (ua/vfuture-pmap (partial recompute-instaql-query! opts)))
+                               (ua/pmap (partial recompute-instaql-query! opts)))
         {computations true spam false} (group-by :result-changed? recompute-results)
         num-spam (count spam)
         num-computations (count computations)
@@ -232,7 +243,7 @@
         _ (tx/validate! coerced)
         {tx-id :id}
         (permissioned-tx/transact!
-         {:db {:conn-pool (aurora/conn-pool)}
+         {:db {:conn-pool (aurora/conn-pool :write)}
           :rules (rule-model/get-by-app-id {:app-id app-id})
           :app-id app-id
           :current-user (:user auth)
@@ -506,10 +517,15 @@
             in-progress-stmts (sql/make-statement-tracker)
             debug-info (atom nil)
             event-fut (binding [sql/*in-progress-stmts* in-progress-stmts]
-                        (ua/vfuture (handle-event store-conn
-                                                  session
-                                                  event
-                                                  debug-info)))
+                        (if config/fewer-vfutures?
+                          (ua/tracked-future (handle-event store-conn
+                                                           session
+                                                           event
+                                                           debug-info))
+                          (ua/vfuture (handle-event store-conn
+                                                    session
+                                                    event
+                                                    debug-info))))
             pending-handler {:future event-fut
                              :op (:op event)
                              :in-progress-stmts in-progress-stmts
