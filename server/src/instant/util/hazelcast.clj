@@ -125,7 +125,6 @@
                        :data {}}}
           (->JoinRoomMergeV1 session-id user-id)))
 
-
 (def ^ByteArraySerializer join-room-serializer
   (reify ByteArraySerializer
     ;; Must be unique within the project
@@ -234,3 +233,13 @@
    join-room-config
    set-presence-config
    room-key-config])
+
+;; --------------- 
+;; Executor Helpers 
+
+(deftype Task [fun]
+  java.io.Serializable
+
+  Callable
+  (call [_] (fun)))
+

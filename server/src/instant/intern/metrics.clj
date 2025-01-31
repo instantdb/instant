@@ -47,7 +47,7 @@
    (sql/select conn
                ["SELECT
                   TO_CHAR(DATE_TRUNC('week', dat.date), 'YYYY-MM-DD') AS date_start,
-                  COUNT(dat.count) AS total_transactions,
+                  SUM(dat.count) AS total_transactions,
                   COUNT(DISTINCT u.id) AS distinct_users,
                   COUNT(DISTINCT a.id) AS distinct_apps
                 FROM daily_app_transactions dat
@@ -66,7 +66,7 @@
    (sql/select conn
                ["SELECT
                   TO_CHAR(DATE_TRUNC('month', dat.date), 'YYYY-MM-DD') AS date_start,
-                  COUNT(dat.count) AS total_transactions,
+                  SUM(dat.count) AS total_transactions,
                   COUNT(DISTINCT u.id) AS distinct_users,
                   COUNT(DISTINCT a.id) AS distinct_apps
                 FROM daily_app_transactions dat
