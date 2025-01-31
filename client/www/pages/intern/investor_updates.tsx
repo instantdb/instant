@@ -6,7 +6,7 @@ import { jsonFetch } from '@/lib/fetch';
 import config from '@/lib/config';
 
 function fetchGraphData(token: string | undefined) {
-  return jsonFetch(`${config.apiURI}/dash/graphs`, {
+  return jsonFetch(`${config.apiURI}/dash/investor_updates`, {
     method: 'GET',
     headers: {
       authorization: `Bearer ${token}`,
@@ -39,7 +39,12 @@ function useGraphData(token: string | undefined) {
           isLoading: false,
           error: err.body
             ? err
-            : { body: { message: err.message || 'Uh oh, we goofed up' , hint: err.hint} },
+            : {
+                body: {
+                  message: err.message || 'Uh oh, we goofed up',
+                  hint: err.hint,
+                },
+              },
           data: undefined,
         });
       },
@@ -47,6 +52,10 @@ function useGraphData(token: string | undefined) {
   }, [token]);
 
   return state;
+}
+
+function round(num: number, precision = 2) { 
+  return Math.round(num * Math.pow(10, precision)) / Math.pow(10, precision);
 }
 
 function Page() {
@@ -61,19 +70,28 @@ function Page() {
   }
 
   if (error) {
-    return <div>Error: <pre>{JSON.stringify(error.body, null, 2)}</pre></div>;
+    return (
+      <div>
+        Error: <pre>{JSON.stringify(error.body, null, 2)}</pre>
+      </div>
+    );
   }
+
   return (
     <div>
       <Head>
-        <title>Instant Metrics</title>
+        <title>Instant Investor Update Metrics</title>
         <meta name="description" content="Welcome to Instant." />
       </Head>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 justify-items-center">
-      <img src={data.metrics.charts['weekly-active-apps']} />
-      <img src={data.metrics.charts['monthly-active-apps']} />
-        <img src={data.metrics.charts['weekly-active-devs']} />
-        <img src={data.metrics.charts['monthly-active-devs']} />
+      <div className="p-4">
+        <div>Monthly Active Apps M/M Growth: {round(data.metrics['monthly-active-apps-mom'])}%</div>
+        <div>Monthly Active Devs M/M Growth: {round(data.metrics['monthly-active-devs-mom'])}%</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 justify-items-center">
+          <img src={data.metrics.charts['weekly-active-apps']} />
+          <img src={data.metrics.charts['monthly-active-apps']} />
+          <img src={data.metrics.charts['weekly-active-devs']} />
+          <img src={data.metrics.charts['monthly-active-devs']} />
+        </div>
       </div>
     </div>
   );

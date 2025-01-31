@@ -45,6 +45,10 @@ const graph = i.graph(
     "test-emails": i.entity({
       email: i.string(),
     }),
+    "welcome-email-config": i.entity({
+      'enabled?': i.boolean(),
+      limit: i.number()
+    }),
     "threading": i.entity({
       "use-vfutures": i.boolean()
     })
