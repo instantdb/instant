@@ -20,3 +20,4 @@ server.iml
 .babashka-pod-*
 dev-resources/honeycomb-export*
 dev-resources/certs
+resources/metrics

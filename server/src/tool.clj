@@ -238,3 +238,19 @@
      (require 'criterium.core)
      (criterium.core/quick-bench ~@body)
      (flush)))
+
+(defmacro with-prod-conn
+  "Usage: (with-prod-conn [my-conn]
+            (sql/select my-conn [\"select 1\"]))"
+  [[conn-name] & body]
+  `(let [cluster-id# (-> (clojure.java.io/resource "config/prod.edn")
+                         slurp
+                         clojure.edn/read-string
+                         :database-cluster-id)
+         rds-cluster-id->db-config# (requiring-resolve 'instant.aurora-config/rds-cluster-id->db-config)
+         start-pool# (requiring-resolve 'instant.jdbc.aurora/start-pool)]
+     (with-open [~conn-name (start-pool# 1 (rds-cluster-id->db-config# cluster-id#))]
+       ~@body)))
+
+
+

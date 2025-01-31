@@ -56,7 +56,9 @@
             [instant.storage.s3 :as s3-util]
             [instant.storage.beta :as storage-beta]
             [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
-            [instant.model.schema :as schema-model])
+            [instant.model.schema :as schema-model]
+            [instant.intern.metrics :as metrics]
+            [medley.core :as medley])
   (:import
    (com.stripe.model.checkout Session)
    (io.undertow.websockets.core WebSocketChannel)
@@ -271,6 +273,17 @@
         n-val (number-util/parse-int n 7)]
     (assert-admin-email! email)
     (response/ok {:users (dash-admin/get-top-users n-val)})))
+
+(defn admin-graphs-get [req]
+  (let [{:keys [email]} (req->auth-user! req)
+        _ (assert-admin-email! email)
+        conn (aurora/conn-pool :read)
+        metrics (metrics/generate conn)
+        metrics-with-b64-charts
+        (update metrics :charts (partial medley/map-vals
+                                         (fn [chart] (metrics/chart->base64-png chart
+                                                                                500 400))))]
+    (response/ok {:metrics metrics-with-b64-charts})))
 
 (defn admin-paid-get [req]
   (let [{:keys [email]} (req->auth-user! req)]
@@ -1186,6 +1199,7 @@
   (GET "/dash/top" [] admin-top-get)
   (GET "/dash/paid" [] admin-paid-get)
   (GET "/dash/storage" [] admin-storage-get)
+  (GET "/dash/graphs" [] admin-graphs-get)
 
   (GET "/dash" [] dash-get)
   (POST "/dash/apps" [] apps-post)
