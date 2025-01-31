@@ -45,6 +45,9 @@ const graph = i.graph(
     "test-emails": i.entity({
       email: i.string(),
     }),
+    "threading": i.entity({
+      "use-vfutures": i.boolean()
+    })
   },
   // You can define links here.
   // For example, if `posts` should have many `comments`.

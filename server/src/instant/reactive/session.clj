@@ -201,7 +201,7 @@
         _ (reset! debug-info {:processed-tx-id processed-tx-id
                               :instaql-queries (map :instaql-query/query stale-queries)})
         recompute-results (->> stale-queries
-                               (ua/pmap-all (partial recompute-instaql-query! opts)))
+                               (ua/pmap (partial recompute-instaql-query! opts)))
         {computations true spam false} (group-by :result-changed? recompute-results)
         num-spam (count spam)
         num-computations (count computations)

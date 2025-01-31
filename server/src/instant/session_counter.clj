@@ -52,7 +52,7 @@
             (tracer/add-data! {:attributes
                                {:ws-count (count ws-channels)
                                 :report-count (count report)}})
-            (ua/pmap-all
+            (ua/pmap
              (fn [ws-conn] (send-report! report ws-conn))
              ws-channels))
           (catch Throwable e
