@@ -153,6 +153,11 @@
   (let [futs (mapv #(vfuture (f %)) coll)]
     (mapv deref futs)))
 
+(defn pmap-all [f coll]
+  (->> coll
+    (mapv #(future (f %))) ;; force whole seq
+    (mapv deref)))
+
 (defmacro vfut-bg
   "Futures only throw when de-referenced. vfut-bg writes a future with a
   top-level try-catch, so you can run code asynchronously, without
