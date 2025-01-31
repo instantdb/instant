@@ -340,21 +340,25 @@
                                                {:start-date start-date
                                                 :end-date end-date
                                                 :window-days 30})
+        prev-month-stats (calendar-monthly-actives-for-month conn
+                                                             {:month-date (.minusMonths end-date 1)})
+
         month-start-stats (month-start-actives conn {:month-date end-date})
 
         _ (ex/assert-valid! :stats rolling-monthly-stats (when (or (empty? rolling-monthly-stats)
-                                                                   (empty? month-start-stats))
+                                                                   (empty? month-start-stats)
+                                                                   (nil? prev-month-stats))
                                                            [{:message "No data found for stats"}]))
 
         rolling-monthly-active-apps (generate-line-chart  rolling-monthly-stats
                                                           :analysis_date :distinct_apps
                                                           "Rolling Monthly Active Apps >= 1 tx")
 
-        month-start-active-apps (->  (generate-line-chart-with-goal month-start-stats
-                                                                    :analysis_date
-                                                                    :distinct_apps
-                                                                    0.2
-                                                                    "Month Start Active Apps >= 1 tx"))]
+        month-start-active-apps (->  (generate-line-chart month-start-stats
+                                                          :analysis_date
+                                                          :distinct_apps
+                                                          "Month Start Active Apps >= 1 tx")
+                                     (add-goal-line month-start-stats :analysis_date :distinct_apps (* 1.2 (:distinct_apps prev-month-stats))))]
 
     {:data-points {:rolling-monthly-active-apps rolling-monthly-active-apps}
      :charts {:rolling-monthly-active-apps rolling-monthly-active-apps
