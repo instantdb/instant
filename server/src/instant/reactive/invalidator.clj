@@ -138,8 +138,8 @@
   sockets to be refreshed."
   [store-conn {:keys [app-id tx-id] :as wal-record}]
   (let [topics (topics-for-changes wal-record)
-        [db session-ids] (rs/mark-stale-topics! store-conn app-id tx-id topics)
-        sockets (keep (partial rs/get-socket db) session-ids)]
+        [_ session-ids] (rs/mark-stale-topics! store-conn app-id tx-id topics)
+        sockets (keep (partial rs/get-socket store-conn app-id) session-ids)]
     sockets))
 
 (defn- topics-for-byop-triple-insert [table-info change]
@@ -202,8 +202,8 @@
   sockets to be refreshed."
   [table-info app-id store-conn {:keys [tx-id] :as record}]
   (let [topics (topics-for-byop-changes table-info record)
-        [db session-ids] (rs/mark-stale-topics! store-conn app-id tx-id topics)
-        sockets (keep (partial rs/get-socket db) session-ids)]
+        [_ session-ids] (rs/mark-stale-topics! store-conn app-id tx-id topics)
+        sockets (keep (partial rs/get-socket store-conn app-id) session-ids)]
     sockets))
 
 ;; ------
@@ -277,7 +277,8 @@
                 (doseq [{:keys [id]} sockets]
                   (tracer/with-span! {:name "invalidator/send-refresh"
                                       :attributes {:session-id id}}
-                    (receive-queue/enqueue->receive-q {:op :refresh
+                    (receive-queue/enqueue->receive-q app-id
+                                                      {:op :refresh
                                                        :session-id id}))))
               (catch Throwable t
                 (def -wal-record wal-record)
@@ -293,7 +294,8 @@
         (doseq [{:keys [id]} sockets]
           (tracer/with-span! {:name "invalidator/send-refresh"
                               :session-id id}
-            (receive-queue/enqueue->receive-q {:op :refresh
+            (receive-queue/enqueue->receive-q app-id
+                                              {:op :refresh
                                                :session-id id}))))
       (catch Throwable t
         (def -wal-record wal-record)

@@ -184,11 +184,12 @@
 
 (defn handle-refresh-event [store-conn room-key room-id]
   (let [room-data (.get (get-hz-rooms-map) room-key)
+        app-id (:app-id room-key)
         session-ids (filter (fn [sess-id]
-                              (rs/get-session @store-conn sess-id))
+                              (rs/get-session store-conn app-id sess-id))
                             (keys room-data))]
     (doseq [sess-id session-ids
-            :let [q (:receive-q (rs/get-socket @store-conn sess-id))]
+            :let [q (:receive-q (rs/get-socket store-conn app-id sess-id))]
             :when q]
       (receive-queue/enqueue->receive-q q
                                         {:op :refresh-presence
@@ -218,9 +219,10 @@
       (when (seq (get-in @room-maps [:rooms room-key :session-ids]))
         (let [room-data (.get (get-hz-rooms-map) room-key)]
           (doseq [sess-id (keys room-data)
-                  :let [q (:receive-q (rs/get-socket @store-conn sess-id))]
+                  :let [q (:receive-q (rs/get-socket store-conn app-id sess-id))]
                   :when q]
             (receive-queue/enqueue->receive-q q
+                                              app-id
                                               {:op :refresh-presence
                                                :room-id room-id
                                                :data room-data
@@ -234,7 +236,7 @@
   (let [{:keys [app-id session-ids base-msg]} (.getMessageObject m)]
     (when (flags/use-hazelcast? app-id)
       (doseq [sess-id session-ids
-              :let [q (:receive-q (rs/get-socket @store-conn sess-id))]
+              :let [q (:receive-q (rs/get-socket store-conn app-id sess-id))]
               :when q]
         (receive-queue/enqueue->receive-q q
                                           (assoc base-msg
@@ -326,7 +328,7 @@
                       new-app-rooms (get new-rooms app-id {})]
                   (reduce-kv (fn [acc room-id data]
                                (if (not= (get old-app-rooms room-id) data)
-                                 (conj acc [room-id data])
+                                 (conj acc [app-id room-id data])
                                  acc))
                              acc
                              new-app-rooms))))
@@ -415,12 +417,13 @@
         changed-rooms (get-changed-rooms old-apps-rooms new-apps-rooms)]
     (when (seq changed-rooms)
       (tracer/with-span! {:name "refresh-rooms"
-                          :attributes {:room-ids (pr-str (map first changed-rooms))}}
-        (doseq [[room-id {:keys [data session-ids]}] changed-rooms
+                          :attributes {:room-ids (pr-str (map second changed-rooms))}}
+        (doseq [[app-id room-id {:keys [data session-ids]}] changed-rooms
                 sess-id session-ids
-                :let [q (:receive-q (rs/get-socket @store-conn sess-id))]
+                :let [q (:receive-q (rs/get-socket store-conn app-id sess-id))]
                 :when q]
           (receive-queue/enqueue->receive-q q
+                                            app-id
                                             {:op :refresh-presence
                                              :room-id room-id
                                              :data data

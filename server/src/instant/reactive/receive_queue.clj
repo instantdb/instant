@@ -8,11 +8,13 @@
 (declare receive-q)
 
 (defn enqueue->receive-q
-  ([item]
-   (enqueue->receive-q receive-q item))
-  ([q item]
+  ([app-id item]
+   (enqueue->receive-q receive-q app-id item))
+  ([q app-id item]
    (grouped-queue/put! q
-                       {:item item :put-at (Instant/now)})))
+                       {:app-id app-id
+                        :item item
+                        :put-at (Instant/now)})))
 
 
 (defn receive-q-metrics [receive-q]

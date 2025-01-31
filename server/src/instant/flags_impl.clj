@@ -75,13 +75,16 @@
                     result (instaql-nodes->object-tree ctx data)]]
         (swap-result! query-results-atom query transform result 0))
 
-      (session/on-open store/store-conn socket)
-      (store/set-auth! store/store-conn
-                       socket-id
-                       {:app app
-                        :admin? true})
+      (session/on-open store/store-conn (:id app) socket)
+      (store/set-session-props! store/store-conn
+                                (:id app)
+                                socket-id
+                                {:creator {}
+                                 :auth {:app app
+                                        :admin? true}})
       (doseq [{:keys [query]} queries]
         (session/on-message {:id socket-id
+                             :app-id (:id app)
                              :receive-q receive-q
                              :data (->json {:op :add-query
                                             :q query

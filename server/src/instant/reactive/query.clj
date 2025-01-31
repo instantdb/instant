@@ -43,9 +43,12 @@
   (tracer/with-span! {:name "datalog-query-reactive!"
                       :attributes {:query (pr-str datalog-query)}}
     (let [coarse-topics (d/pats->coarse-topics datalog-query)
-          _ (rs/record-datalog-query-start! store-conn ctx datalog-query coarse-topics)
+          _ (rs/record-datalog-query-start! store-conn (:app-id ctx) ctx datalog-query coarse-topics)
           datalog-result (datalog-query-cached! store-conn ctx datalog-query)]
-      (rs/record-datalog-query-finish! store-conn ctx datalog-query datalog-result)
+      (rs/record-datalog-query-finish! store-conn
+                                       (:app-id ctx)
+                                       datalog-query
+                                       (:topics datalog-result))
       datalog-result)))
 
 (defn collect-triples [instaql-result]
@@ -102,19 +105,19 @@
                                    :app-id app-id
                                    :instaql-query instaql-query}}
     (try
-      (let [v (rs/bump-instaql-version! store-conn session-id instaql-query return-type)
+      (let [v (rs/bump-instaql-version! store-conn app-id session-id instaql-query return-type)
             ctx (-> base-ctx
                     (assoc :v v
                            :datalog-query-fn (partial datalog-query-reactive! store-conn)
                            :instaql-query instaql-query)
                     ((fn [ctx]
                        (-> ctx
-                           (assoc :record-datalog-query-start! (partial rs/record-datalog-query-start! store-conn ctx)
-                                  :record-datalog-query-finish! (partial rs/record-datalog-query-finish! store-conn ctx))))))
+                           (assoc :record-datalog-query-start! (partial rs/record-datalog-query-start! store-conn (:app-id ctx) ctx)
+                                  :record-datalog-query-finish! (partial rs/record-datalog-query-finish! store-conn (:app-id ctx)))))))
 
             instaql-result (iq/permissioned-query ctx instaql-query)
             result-hash (DigestUtils/md5Hex (pr-str instaql-result))
-            {:keys [result-changed?]} (rs/add-instaql-query! store-conn ctx result-hash)]
+            {:keys [result-changed?]} (rs/add-instaql-query! store-conn app-id ctx result-hash)]
         {:instaql-result (case return-type
                            :join-rows (collect-instaql-results-for-client instaql-result)
                            :tree (instaql-nodes->object-tree ctx instaql-result)

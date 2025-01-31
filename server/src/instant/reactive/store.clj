@@ -20,9 +20,15 @@
    [instant.lib.ring.websocket :as ws]
    [instant.util.async :as ua]
    [instant.util.tracer :as tracer]
-   [instant.util.exception :as ex]))
+   [instant.util.exception :as ex]
+   [medley.core :refer [dissoc-in]]))
 
 (declare store-conn)
+
+;; See (deftype Store) at bottom for implementation
+;; XXX: move defprotocol here
+
+(def tx-meta-lookup 0)
 
 (def
   ^{:doc
@@ -38,8 +44,11 @@
    :session/versions {} ;; library versions, e.g. {"@instantdb/react": "v0.1.2"}
    :session/datalog-loader {} ;; datalog-loader (from datalog.clj)
 
-   :tx-meta/app-id {:db/unique :db.unique/identity}
+   ;; XXX: There are probably some lookups in here that I need to fix with db/unique
    :tx-meta/processed-tx-id {:db/type :db.type/integer}
+   ;; unique key so that we can ensure there's only a single row
+   :tx-meta/lookup {:db/type :db.type/integer
+                    :db/unique :db.unique/identity}
 
    :instaql-query/query {:db/index true}
    :instaql-query/session-id {:db/type :db.type/uuid
@@ -53,7 +62,6 @@
     :db/unique :db.unique/identity}
    :instaql-query/return-type {} ;; :join-rows or :tree
 
-   :subscription/app-id {:db/type :db.type/integer}
    :subscription/session-id {:db/index true
                              :db/type :db.type/uuid}
    :subscription/instaql-query {:db/index true} ;; instaql query (from instaql.clj)
@@ -61,13 +69,7 @@
                                 :db/valueType :db.type/ref}
    :subscription/v {:db/type :db.type/integer}
 
-   :datalog-query/app-id {:db/index true
-                          :db/type :db.type/integer}
-   :datalog-query/query {} ;; datalog patterns (from datalog.clj)
-
-   :datalog-query/app-id+query
-   {:db/tupleAttrs [:datalog-query/app-id :datalog-query/query]
-    :db/unique :db.unique/identity}
+   :datalog-query/query {:db/index true} ;; datalog patterns (from datalog.clj)
 
    :datalog-query/delayed-call {} ;; delay with datalog result (from query.clj)
    :datalog-query/topics {:db/type :db.type/list-of-topics}})
@@ -98,6 +100,7 @@
 ;; -----
 ;; reports
 
+;; XXX: reports
 (defn auth-and-creator-attrs [auth creator]
   {:app-title (-> auth :app :title)
    :app-id (-> auth :app :id)
@@ -118,31 +121,21 @@
 ;; -----
 ;; auth
 
-(defn get-auth [db sess-id]
+(defn- -get-auth [db sess-id]
   (:session/auth (d/entity db [:session/id sess-id])))
-
-(defn set-auth! [conn sess-id auth]
-  (transact! "store/set-auth!"
-             conn
-             [[:db/add [:session/id sess-id] :session/auth auth]]))
 
 ;; ------
 ;; creator
 
-(defn get-creator [db sess-id]
+(defn- -get-creator [db sess-id]
   (:session/creator (d/entity db [:session/id sess-id])))
-
-(defn set-creator! [conn sess-id creator]
-  (transact! "store/set-creator!"
-             conn
-             [[:db/add [:session/id sess-id] :session/creator creator]]))
 
 ;; -------------
 ;; session props
 
-(defn set-session-props! [conn sess-id {:keys [creator
-                                               auth
-                                               versions]}]
+(defn- -set-session-props! [conn sess-id {:keys [creator
+                                                 auth
+                                                 versions]}]
   (transact! "store/set-session-props"
              conn
              (concat
@@ -151,26 +144,26 @@
               (when versions
                 [[:db/add [:session/id sess-id] :session/versions versions]]))))
 
-(defn get-versions [db sess-id]
+(defn- -get-versions [db sess-id]
   (:session/versions (d/entity db [:session/id sess-id])))
 
 ;; -----
 ;; tx-id
 
-(defn get-processed-tx-id [db app-id]
-  (:tx-meta/processed-tx-id (d/entity db [:tx-meta/app-id app-id])))
+(defn- -get-processed-tx-id [db]
+  (:tx-meta/processed-tx-id (d/entity db [:tx-meta/lookup tx-meta-lookup])))
 
 ;; ------
 ;; instaql queries
 
-(defn get-stale-instaql-queries [db sess-id]
+(defn- -get-stale-instaql-queries [db sess-id]
   (->> (d/datoms db :avet :instaql-query/session-id sess-id)
        (keep (fn [{:keys [e]}]
                (let [ent (d/entity db e)]
                  (when (:instaql-query/stale? ent)
                    ent))))))
 
-(defn bump-instaql-version-tx-data
+(defn- bump-instaql-version-tx-data
   "Should be used in a db.fn/call. Returns transactions.
    Bumps the query version and marks query as not stale, creating the query
    if needed."
@@ -189,7 +182,7 @@
       :instaql-query/version 1
       :instaql-query/return-type return-type}]))
 
-(defn bump-instaql-version! [conn sess-id q return-type]
+(defn- -bump-instaql-version! [conn sess-id q return-type]
   (let [lookup-ref [:instaql-query/session-id+query [sess-id q]]
         {:keys [db-after]}
         (transact! "store/bump-instaql-version!"
@@ -201,7 +194,7 @@
 ;; ----
 ;; remove instaql queries
 
-(defn remove-subscriptions-tx-data
+(defn- remove-subscriptions-tx-data
   "Should be used in a db.fn/call. Returns transactions.
    Retracts subscriptions for the session and instaql query."
   [db session-id instaql-query]
@@ -216,7 +209,7 @@
 
 ;; TODO: We could do this in the background by listening to transactions
 ;;       and noticing whenever we remove a reference to a datalog entry
-(defn clean-stale-datalog-tx-data
+(defn- clean-stale-datalog-tx-data
   "Should be used in a db.fn/call. Returns transactions.
    Retracts datalog queries that are no longer referenced in any subscriptions."
   [db]
@@ -226,7 +219,7 @@
                                    datalog-eids)]
     (map (fn [[e]] [:db/retractEntity e]) stale-datalog-eids)))
 
-(defn remove-query! [conn sess-id _app-id q]
+(defn- -remove-query! [conn sess-id q]
   (transact! "store/remove-query!"
              conn
              [[:db/retractEntity [:instaql-query/session-id+query [sess-id q]]]
@@ -236,7 +229,7 @@
 ;; --------------
 ;; adding queries
 
-(defn clean-stale-subscriptions-tx-data
+(defn- clean-stale-subscriptions-tx-data
   "Should be used in a db.fn/call. Returns transactions.
    Retracts subscriptions for an older version of an instaql query."
   [db session-id instaql-query version]
@@ -252,7 +245,7 @@
                             version)]
     (map (fn [[e]] [:db/retractEntity e]) stale-sub-eids)))
 
-(defn set-instaql-query-result-tx-data
+(defn- set-instaql-query-result-tx-data
   "Should be used in a db.fn/call. Returns transactions.
    Sets the hash for the query result."
   [db lookup-ref result-hash]
@@ -260,7 +253,7 @@
     [[:db/add e :instaql-query/hash result-hash]]
     []))
 
-(defn add-instaql-query! [conn {:keys [session-id instaql-query v] :as _ctx} result-hash]
+(defn- -add-instaql-query! [conn {:keys [session-id instaql-query v] :as _ctx} result-hash]
   (let [lookup-ref [:instaql-query/session-id+query [session-id instaql-query]]
         {:keys [db-before db-after] :as res}
         (transact! "store/add-instaql-query!"
@@ -279,10 +272,10 @@
 ;; ------
 ;; session
 
-(defn get-session [db sess-id]
+(defn- -get-session [db sess-id]
   (d/entity db [:session/id sess-id]))
 
-(defn get-session-instaql-queries [db sess-id]
+(defn- -get-session-instaql-queries [db sess-id]
   (->> (d/q '{:find [?q]
               :in [$ ?session-id]
               :where [[?e :instaql-query/session-id ?session-id]
@@ -292,7 +285,7 @@
        (map first)
        set))
 
-(defn remove-session-queries-tx-data
+(defn- remove-session-queries-tx-data
   "Should be used in a db.fn/call. Returns transactions.
    Retracts queries for the session."
   [db session-id]
@@ -303,7 +296,7 @@
                             session-id)]
     (map (fn [[e]] [:db/retractEntity e]) stale-iql-eids)))
 
-(defn remove-session-subscriptions-tx-data
+(defn- remove-session-subscriptions-tx-data
   "Should be used in a db.fn/call. Returns transactions.
    Retracts subscriptions for the session."
   [db session-id]
@@ -314,7 +307,7 @@
                             session-id)]
     (map (fn [[e]] [:db/retractEntity e]) stale-sub-eids)))
 
-(defn remove-session! [conn sess-id]
+(defn- -remove-session! [conn sess-id]
   (transact! "store/remove-session!"
              conn
              [[:db.fn/retractEntity [:session/id sess-id]]
@@ -329,11 +322,11 @@
 ;; ------
 ;; socket
 
-(defn get-socket [db sess-id]
+(defn -get-socket [db sess-id]
   (-> (d/entity db [:session/id sess-id])
       :session/socket))
 
-(defn add-socket! [conn sess-id socket]
+(defn -add-socket! [conn sess-id socket]
   (transact! "store/add-socket!"
              conn
              [{:session/id sess-id
@@ -342,8 +335,8 @@
 ;; ------
 ;; datalog cache
 
-(defn swap-datalog-cache-delay! [conn app-id datalog-query delayed-call]
-  (let [lookup-ref [:datalog-query/app-id+query [app-id datalog-query]]
+(defn- -swap-datalog-cache-delay! [conn datalog-query delayed-call]
+  (let [lookup-ref [:datalog-query/query datalog-query]
 
         {:keys [db-after]}
         (transact! "store/swap-datalog-cache-delay!"
@@ -354,8 +347,7 @@
                                        [[:db/add
                                          (:db/id existing)
                                          :datalog-query/delayed-call delayed-call]])
-                                     [{:datalog-query/app-id app-id
-                                       :datalog-query/query datalog-query
+                                     [{:datalog-query/query datalog-query
                                        :datalog-query/delayed-call delayed-call}]))]])]
 
     (:datalog-query/delayed-call (d/entity db-after lookup-ref))))
@@ -363,7 +355,7 @@
 ;; --------------
 ;; datalog loader
 
-(defn upsert-datalog-loader! [conn sess-id make-loader-fn]
+(defn- -upsert-datalog-loader! [conn sess-id make-loader-fn]
   (if-let [loader (:session/datalog-loader (d/entity @conn [:session/id sess-id]))]
     loader
     (let [{:keys [db-after]}
@@ -384,8 +376,8 @@
 ;; ------
 ;; subscriptions
 
-(defn record-datalog-query-start! [conn ctx datalog-query coarse-topics]
-  (let [lookup-ref [:datalog-query/app-id+query [(:app-id ctx) datalog-query]]]
+(defn- -record-datalog-query-start! [conn ctx datalog-query coarse-topics]
+  (let [lookup-ref [:datalog-query/query datalog-query]]
     (transact! "store/record-datalog-query-start!"
                conn
                [[:db.fn/call
@@ -393,21 +385,16 @@
                    (if-let [existing (d/entity db lookup-ref)]
                      (when-not (:datalog-query/topics existing)
                        [[:db/add (:db/id existing) :datalog-query/topics coarse-topics]])
-                     [{:datalog-query/app-id (:app-id ctx)
-                       :datalog-query/query datalog-query
+                     [{:datalog-query/query datalog-query
                        :datalog-query/topics coarse-topics}]))]
-                {:subscription/app-id (:app-id ctx)
-                 :subscription/session-id (:session-id ctx)
+                {:subscription/session-id (:session-id ctx)
                  :subscription/v (:v ctx)
                  :subscription/instaql-query (:instaql-query ctx)
                  :subscription/datalog-query lookup-ref}])))
 
-(defn record-datalog-query-finish! [conn
-                                    ctx
-                                    datalog-query
-                                    {:keys [topics] :as _result}]
-
-  (let [lookup-ref [:datalog-query/app-id+query [(:app-id ctx) datalog-query]]]
+(defn- -record-datalog-query-finish!
+  [conn datalog-query topics]
+  (let [lookup-ref [:datalog-query/query datalog-query]]
     (transact!
      "store/record-datalog-query-finish!"
      conn
@@ -415,8 +402,7 @@
        (fn [db]
          (if-let [existing (d/entity db lookup-ref)]
            [[:db/add (:db/id existing) :datalog-query/topics topics]]
-           [{:datalog-query/app-id (:app-id ctx)
-             :datalog-query/query datalog-query
+           [{:datalog-query/query datalog-query
              :datalog-query/topics topics}]))]])))
 
 ;; ------
@@ -450,14 +436,14 @@
   [iv-topic dq-topic]
   (ucoll/every?-var-args match-topic-part? iv-topic dq-topic))
 
-(defn contains-matching-topic? [dq-topics iv-topic]
+(defn- contains-matching-topic? [dq-topics iv-topic]
   (some (partial match-topic? iv-topic) dq-topics))
 
-(defn matching-topic-intersection? [iv-topics dq-topics]
+(defn- matching-topic-intersection? [iv-topics dq-topics]
   (some (partial contains-matching-topic? dq-topics)
         iv-topics))
 
-(defn mark-instaql-queries-stale-tx-data
+(defn- mark-instaql-queries-stale-tx-data
   "Should be used in a db.fn/call. Returns transactions.
    Marks instaql-queries that have subscriptions that reference the datalog
    query stale."
@@ -471,47 +457,47 @@
                       datalog-query-eids)]
     (map (fn [[e]] [:db/add e :instaql-query/stale? true]) iql-eids)))
 
-(defn set-tx-id
+(defn- set-tx-id
   "Should be used in a db.fn/call. Returns transactions.
    Sets the processed-tx-id to the max of the given value and current value."
-  [db app-id tx-id]
-  (if-let [current (:tx-meta/processed-tx-id (d/entity db [:tx-meta/app-id app-id]))]
-    [[:db/add [:tx-meta/app-id app-id] :tx-meta/processed-tx-id (max current tx-id)]]
-    [{:tx-meta/app-id app-id
-      :tx-meta/processed-tx-id tx-id}]))
+  [db tx-id]
+  (let [lookup [:tx-meta/lookup tx-meta-lookup]]
+    (if-let [current (:tx-meta/processed-tx-id (d/entity db lookup))]
+      [[:db/add lookup :tx-meta/processed-tx-id (max current tx-id)]]
+      [{:tx-meta/lookup tx-meta-lookup
+        :tx-meta/processed-tx-id tx-id}])))
 
-(defn mark-datalog-queries-stale!
+(defn- mark-datalog-queries-stale!
   "Stale-ing a datalog query has the following side-effects:
    1. Removes the datalog query from the datalog-cache
    2. Marks associated instaql entries as stale
    3. Updates store's latest processed tx-id for the app-id"
-  [conn app-id tx-id datalog-query-eids]
+  [conn tx-id datalog-query-eids]
   (transact!
    "store/mark-datalog-queries-stale!"
    conn
-   (list* [:db.fn/call set-tx-id app-id tx-id]
+   (list* [:db.fn/call set-tx-id tx-id]
 
           [:db.fn/call mark-instaql-queries-stale-tx-data datalog-query-eids]
 
           (mapv (fn [e] [:db.fn/retractEntity e]) datalog-query-eids))))
 
-(defn get-datalog-queries-for-topics [db app-id iv-topics]
-  (->> (d/datoms db :avet :datalog-query/app-id app-id)
+(defn- get-datalog-queries-for-topics [db iv-topics]
+  (->> (d/datoms db :avet :datalog-query/topics)
        (keep (fn [datom]
-               (when-let [dq-topics (:datalog-query/topics (d/entity db (:e datom)))]
+               (when-let [dq-topics (:v datom)]
                  (when (matching-topic-intersection? iv-topics dq-topics)
                    (:e datom)))))))
 
-(defn mark-stale-topics!
+(defn- -mark-stale-topics!
   "Given topics, invalidates all relevant datalog qs and associated instaql queries.
 
   Returns affected session-ids"
-  [conn app-id tx-id topics]
-  (let [datalog-query-eids (get-datalog-queries-for-topics @conn app-id topics)
+  [conn tx-id topics]
+  (let [datalog-query-eids (get-datalog-queries-for-topics @conn topics)
 
         {:keys [db-before db-after]}
         (mark-datalog-queries-stale! conn
-                                     app-id
                                      tx-id
                                      datalog-query-eids)
 
@@ -555,8 +541,8 @@
 ;; -----------------
 ;; Websocket Helpers
 
-(defn send-event! [conn sess-id event]
-  (let [{:keys [ws-conn]} (get-socket @conn sess-id)]
+(defn send-event! [conn app-id sess-id event]
+  (let [{:keys [ws-conn]} (get-socket conn app-id sess-id)]
     (when-not ws-conn
       (ex/throw-socket-missing! sess-id))
     (try
@@ -601,3 +587,119 @@
 (defn restart []
   (stop)
   (start))
+
+;; -------------
+;; Configuration
+
+;; XXX: Figure out some way to remove apps
+(defn- -conn-for-app [state app-id]
+  (if-let [conn (get @state app-id)]
+    conn
+    (let [new-conn (d/create-conn schema)
+          new-state (swap! state update app-id (fn [conn] (or conn new-conn)))]
+      (get new-state app-id))))
+
+(defprotocol IStore
+  (conn-for-app! [this app-id])
+  (app-id-for-session [this sess-id]
+    "Used when you have a session id, but no app id.
+     Can be deprecated when all clients are above 0.11.4")
+  (get-session [this app-id sess-id])
+  (remove-session! [this app-id sess-id])
+  (get-socket [this app-id sess-id])
+  (add-socket! [this app-id sess-id socket])
+  (get-auth [this app-id sess-id])
+  (get-creator [this app-id sess-id])
+  (set-session-props! [this app-id sess-id props])
+  (get-versions [this app-id sess-id])
+  (get-processed-tx-id [this app-id])
+  (get-stale-instaql-queries [this app-id sess-id])
+  (bump-instaql-version! [this app-id sess-id q return-type])
+  (remove-query! [this app-id sess-id q])
+  (add-instaql-query! [this app-id ctx result-hash])
+  (get-session-instaql-queries [this app-id sess-id])
+  (swap-datalog-cache-delay! [this app-id datalog-query delayed-call])
+  (upsert-datalog-loader! [this app-id sess-id make-loader-fn])
+  (record-datalog-query-start! [this app-id ctx datalog-query coarse-topics])
+  (record-datalog-query-finish! [this app-id datalog-query topics])
+  (mark-stale-topics! [this app-id tx-id topics]))
+
+(deftype Store [state]
+  IStore
+  (conn-for-app! [_this app-id]
+    (assert app-id)
+    (-conn-for-app state app-id))
+  (app-id-for-session [_this sess-id]
+    (get-in @state [:session-id->app-id sess-id]))
+  (get-session [this app-id sess-id]
+    (-get-session @(conn-for-app! this app-id) sess-id))
+  (remove-session! [this app-id sess-id]
+    (swap! state (fn [s]
+                   (-> s
+                       (dissoc-in [:sockets-without-apps sess-id])
+                       (dissoc-in [:session-id->app-id sess-id]))))
+    (when app-id
+      (-remove-session! (conn-for-app! this app-id) sess-id)))
+  (get-socket [this app-id sess-id]
+    (let [conn (conn-for-app! this app-id)]
+      (if-let [socket-without-app (get-in @state [:sockets-without-apps sess-id])]
+        (do
+          ;; Not super great because things can get out of sync, but it should be ok?
+          (-add-socket! conn sess-id socket-without-app)
+          (swap! state (fn [s]
+                         (-> s
+                             (dissoc-in [:sockets-without-apps sess-id])
+                             ;; session->app keeps track of the app-id in case
+                             ;; we need to look it up later. Might be a better
+                             ;; way to do this?
+                             (assoc-in [:session-id->app-id sess-id] app-id))))
+          socket-without-app)
+        (-get-socket conn sess-id))))
+  (add-socket! [this app-id sess-id socket]
+    (if app-id
+      (-add-socket! (conn-for-app! this app-id) sess-id socket)
+      (swap! state assoc-in [:sockets-without-apps sess-id] socket))
+    ;; Don't rely on return value, since it will be different depending on
+    ;; if there's an app-id
+    nil)
+  (get-auth [this app-id sess-id]
+    (-get-auth @(conn-for-app! this app-id) sess-id))
+  (get-creator [this app-id sess-id]
+    (-get-creator @(conn-for-app! this app-id) sess-id))
+  (set-session-props! [this app-id sess-id props]
+    (-set-session-props! (conn-for-app! this app-id) sess-id props))
+  (get-versions [this app-id sess-id]
+    (-get-versions @(conn-for-app! this app-id) sess-id))
+  (get-processed-tx-id [this app-id]
+    (-get-processed-tx-id @(conn-for-app! this app-id)))
+  (get-stale-instaql-queries [this app-id sess-id]
+    (-get-stale-instaql-queries @(conn-for-app! this app-id) sess-id))
+  (bump-instaql-version! [this app-id sess-id q return-type]
+    (-bump-instaql-version! (conn-for-app! this app-id) sess-id q return-type))
+  (remove-query! [this app-id sess-id q]
+    (-remove-query! (conn-for-app! this app-id) sess-id q))
+  (get-session-instaql-queries [this app-id sess-id]
+    (-get-session-instaql-queries @(conn-for-app! this app-id) sess-id))
+  (add-instaql-query! [this app-id ctx result-hash]
+    (-add-instaql-query! (conn-for-app! this app-id) ctx result-hash))
+  (swap-datalog-cache-delay! [this app-id datalog-query delayed-call]
+    (-swap-datalog-cache-delay! (conn-for-app! this app-id)
+                                datalog-query
+                                delayed-call))
+  (upsert-datalog-loader! [this app-id sess-id make-loader-fn]
+    (-upsert-datalog-loader! (conn-for-app! this app-id) sess-id make-loader-fn))
+  (record-datalog-query-start! [this app-id ctx datalog-query coarse-topics]
+    (-record-datalog-query-start! (conn-for-app! this app-id)
+                                  ctx
+                                  datalog-query
+                                  coarse-topics))
+  (record-datalog-query-finish! [this app-id datalog-query topics]
+    ;; XXX: Pull app-id out of store so we don't have to pass it
+    (-record-datalog-query-finish! (conn-for-app! this app-id)
+                                   datalog-query
+                                   topics))
+  (mark-stale-topics! [this app-id tx-id topics]
+    (-mark-stale-topics! (conn-for-app! this app-id) tx-id topics)))
+
+(defn create-store []
+  (Store. (atom {})))

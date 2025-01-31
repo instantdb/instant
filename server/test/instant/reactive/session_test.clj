@@ -71,6 +71,7 @@
         (session/on-close store-conn eph-store-atom second-socket)))))
 
 (defn- blocking-send-msg [{:keys [ws-conn id]} msg]
+  ;; XXX update get-session
   (session/handle-receive *store-conn* *eph-store-atom* (rs/get-session @*store-conn* id) msg {})
   (let [ret (ua/<!!-timeout ws-conn)]
     (assert (not= :timeout ret) "Timed out waiting for a response")
@@ -93,7 +94,7 @@
                          {:op :init :app-id non-existent-app-id})))))
       (testing "existing app"
         (let [{op :op event-auth :auth} (blocking-send-msg socket {:op :init :app-id zeneca-app-id})
-              store-auth (rs/get-auth @store-conn id)]
+              store-auth (rs/get-auth store-conn zeneca-app-id id)]
           (is (= :init-ok op))
           (is (= ["Zeneca-ex" nil] (pretty-auth event-auth)))
           (is (= ["Zeneca-ex" nil] (pretty-auth store-auth)))))
@@ -426,7 +427,7 @@
                       set)))
 
             ;; we also recorded the tx-id that was processed
-          (is (= 5 (rs/get-processed-tx-id @store-conn app-id))))))))
+          (is (= 5 (rs/get-processed-tx-id store-conn app-id))))))))
 
 (deftest refresh-populates-cache
   (with-movies-app

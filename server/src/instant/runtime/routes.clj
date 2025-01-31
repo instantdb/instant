@@ -40,11 +40,17 @@
 ;; ----
 ;; ws
 
-(defn session-get [_req]
-  (session/undertow-config rs/store-conn
-                           eph/ephemeral-store-atom
-                           receive-queue/receive-q
-                           {:id (squuid)}))
+(defn session-get [req]
+  ;; XXX: Handle missing app-id
+  (let [app-id (-> req
+                   :params
+                   :app_id
+                   uuid-util/coerce)]
+    (session/undertow-config rs/store-conn
+                             eph/ephemeral-store-atom
+                             receive-queue/receive-q
+                             {:id (squuid)
+                              :app-id app-id})))
 
 ;; -----------
 ;; Magic codes

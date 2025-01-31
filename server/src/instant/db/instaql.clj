@@ -1444,8 +1444,8 @@
                                         (get "json_build_array")))]
 
     (when-let [record-topics (:record-datalog-query-finish! ctx)]
-      (record-topics topics-id {:topics (concat (collect-topics result)
-                                                topics)}))
+      (record-topics topics-id (concat (collect-topics result)
+                                       topics)))
     result))
 
 (defn query [ctx o]
