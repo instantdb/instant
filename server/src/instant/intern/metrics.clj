@@ -66,7 +66,7 @@
    (sql/select conn
                ["SELECT
                   TO_CHAR(DATE_TRUNC('month', dat.date), 'YYYY-MM-DD') AS date_start,
-                  COUNT(*) AS total_transactions,
+                  COUNT(dat.count) AS total_transactions,
                   COUNT(DISTINCT u.id) AS distinct_users,
                   COUNT(DISTINCT a.id) AS distinct_apps
                 FROM daily_app_transactions dat
@@ -102,8 +102,7 @@
                       [:rolling_metrics
                        {:select [[:ds.analysis_date :analysis_date]
                                  [[:count [:distinct :a.id]] :distinct_apps]
-                                 [[:count [:distinct :u.id]] :distinct_users]
-                                 [[:count :*] :total_transactions]]
+                                 [[:count [:distinct :u.id]] :distinct_users]]
                         :from [[:date_series :ds]]
                         :left-join [[:daily_app_transactions :dat] [:and [:between :dat.date
                                                                           [:- :ds.analysis_date [:interval (str window-days " days")]]
@@ -144,8 +143,7 @@
                       [:rolling_metrics
                        {:select [[:ds.analysis_date :analysis_date]
                                  [[:count [:distinct :a.id]] :distinct_apps]
-                                 [[:count [:distinct :u.id]] :distinct_users]
-                                 [[:count :*] :total_transactions]]
+                                 [[:count [:distinct :u.id]] :distinct_users]]
                         :from [[:date_series :ds]]
                         :left-join [[:daily_app_transactions :dat]
                                     [:and [:between :dat.date
@@ -154,7 +152,9 @@
                                      :dat.is_active]
                                     [:apps :a] [:= :dat.app_id :a.id]
                                     [:instant_users :u] [:= :a.creator_id :u.id]]
-                        :where [:not-in :u.email {:select :email :from :excluded_emails}]
+                        :where [:or
+                                [:not-in :u.email {:select :email :from :excluded_emails}]
+                                [:= :u.email nil]]
                         :group-by [:ds.analysis_date]}]]
                :select :*
                :from :rolling_metrics
@@ -164,7 +164,7 @@
 (comment
   (tool/with-prod-conn [conn]
     (month-to-date-actives conn
-                           {:month-date (LocalDate/parse "2025-01-01")})))
+                           {:target-month (LocalDate/parse "2025-02-01")})))
 
 (defn monthly-active-summary
   [conn {:keys [target-month]}]
@@ -342,7 +342,9 @@
                                                       :analysis_date
                                                       :distinct_apps
                                                       (* 1.2 (:distinct_apps prev-month-stats))))]
-    {:charts {:rolling-monthly-active-apps rolling-monthly-active-apps
+    {:data-points {:rolling-monthly-active-apps rolling-monthly-active-apps
+                   :month-to-date-active-apps month-to-date-active-apps}
+     :charts {:rolling-monthly-active-apps rolling-monthly-active-apps
               :month-to-date-active-apps month-to-date-active-apps}}))
 
 (comment
