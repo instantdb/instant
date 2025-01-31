@@ -338,9 +338,9 @@
                                                             :analysis_date
                                                             :distinct_apps
                                                             "Month To Date Active Apps >= 1 tx")
-                                       (add-goal-line month-to-date-stats 
-                                                      :analysis_date 
-                                                      :distinct_apps 
+                                       (add-goal-line month-to-date-stats
+                                                      :analysis_date
+                                                      :distinct_apps
                                                       (* 1.2 (:distinct_apps prev-month-stats))))]
     {:charts {:rolling-monthly-active-apps rolling-monthly-active-apps
               :month-to-date-active-apps month-to-date-active-apps}}))
