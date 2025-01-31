@@ -21,7 +21,8 @@
    [incanter.core :as i]
    [incanter.charts :as charts]
    [instant.util.exception :as ex]
-   [clojure.java.shell :as shell])
+   [clojure.java.shell :as shell]
+   [honey.sql :as hsql])
   (:import [org.jfree.chart.renderer.category BarRenderer]
            [org.jfree.chart.labels StandardCategoryItemLabelGenerator]
            [org.jfree.chart.axis CategoryLabelPositions]
@@ -29,7 +30,8 @@
            [java.io File ByteArrayOutputStream]
            [java.awt Color]
            [javax.imageio ImageIO]
-           [java.util Base64]))
+           [java.util Base64]
+           [java.time LocalDate]))
 
 (defn excluded-emails []
   (let [{:keys [test team friend]} (get-emails)]
@@ -41,9 +43,9 @@
     (when (and parent-dir (not (.exists parent-dir)))
       (.mkdirs parent-dir))))
 
-(defn get-weekly-stats
+(defn calendar-weekly-actives
   ([]
-   (get-weekly-stats (aurora/conn-pool :read)))
+   (calendar-weekly-actives (aurora/conn-pool :read)))
   ([conn]
    (sql/select conn
                ["SELECT
@@ -60,9 +62,9 @@
                 ORDER BY 1"
                 (with-meta (excluded-emails) {:pgtype "text[]"})])))
 
-(defn get-monthly-stats
+(defn calendar-monthly-actives
   ([]
-   (get-monthly-stats (aurora/conn-pool :read)))
+   (calendar-monthly-actives (aurora/conn-pool :read)))
   ([conn]
    (sql/select conn
                ["SELECT
@@ -78,6 +80,54 @@
                 HAVING COUNT(DISTINCT DATE(dat.date)) >= 14
                 ORDER BY 1"
                 (with-meta (excluded-emails) {:pgtype "text[]"})])))
+
+(defn rolling-actives
+  "Given 
+     start-date (inclusive)
+     end-date (inclusive) 
+   
+   For each day in the range, we calculate active metrics within the previous `window-days`. 
+
+   If `window-days` is 30, each analysis date reports ~ Monthly Actives 
+   If `window-days` is 7, each analysis date reports Weekly Actives"
+  [conn {:keys [start-date
+                end-date
+                window-days]}]
+  (let [query {:with [[:date_series
+                       {:select [[[:cast [:generate_series
+                                          [:date_trunc "day" [:cast start-date :date]]
+                                          [:date_trunc "day" [:cast end-date :date]]
+                                          [:interval "1 day"]]
+                                   :date]
+                                  :analysis_date]]}]
+                      [[:excluded_emails {:columns [:email]}]
+                       {:values (map (fn [x] [x]) (excluded-emails))}]
+                      [:rolling_metrics
+                       {:select [[:ds.analysis_date :analysis_date]
+                                 [[:count [:distinct :a.id]] :distinct_apps]
+                                 [[:count [:distinct :u.id]] :distinct_users]
+                                 [[:count :*] :total_transactions]]
+                        :from [[:date_series :ds]]
+                        :left-join [[:daily_app_transactions :dat] [:and [:between :dat.date
+                                                                          [:- :ds.analysis_date [:interval (str window-days " days")]]
+                                                                          :ds.analysis_date]
+                                                                    :dat.is_active]
+
+                                    [:apps :a] [:= :dat.app_id :a.id]
+                                    [:instant_users :u] [:= :a.creator_id :u.id]]
+                        :where [:not-in :u.email {:select :email :from :excluded_emails}]
+                        :group-by [:ds.analysis_date]}]]
+               :select :*
+               :from :rolling_metrics
+               :order-by :analysis_date}]
+    (sql/select conn (hsql/format query))))
+
+(comment
+  (tool/with-prod-conn [conn]
+    (rolling-actives conn
+                     {:start-date "2025-01-01"
+                      :end-date "2025-01-30"
+                      :window-days 30})))
 
 (defn generate-bar-chart [metrics x-key y1-key title]
   (let [x-values (map x-key metrics)
@@ -184,11 +234,38 @@
     growth))
 
 ;; ---------------- 
+;; Overview Metrics 
+
+(defn overview-metrics [conn end-date]
+  (let [start-date (.minusDays end-date 30)
+        monthly-stats (rolling-actives conn
+                                       {:start-date start-date
+                                        :end-date end-date
+                                        :window-days 30})
+        _ (ex/assert-valid! :stats monthly-stats (when (empty? monthly-stats)
+                                                   [{:message "No data found for stats"}]))
+        rolling-monthly-active-apps (generate-line-chart  monthly-stats
+                                                          :analysis_date :distinct_apps
+                                                          "Rolling Monthly Active Apps >= 1 tx")]
+
+    {:data-points {:monthly-active-apps rolling-monthly-active-apps}
+     :charts {:rolling-monthly-active-apps rolling-monthly-active-apps}}))
+
+(comment
+  (def overview-metrics (tool/with-prod-conn [conn]
+                          (overview-metrics conn (.minusDays (LocalDate/now) 1))))
+
+  (doseq [[k chart] (:charts overview-metrics)]
+    (save-chart-into-file! chart (str "resources/metrics/" (name k) ".png")))
+
+  (shell/sh "open" "resources/metrics"))
+
+;; ---------------- 
 ;; Investor Update Metrics 
 
 (defn investor-update-metrics [conn]
-  (let [weekly-stats  (get-weekly-stats conn)
-        monthly-stats (get-monthly-stats conn)
+  (let [weekly-stats  (calendar-weekly-actives conn)
+        monthly-stats (calendar-monthly-actives conn)
         _ (ex/assert-valid! :stats [weekly-stats monthly-stats] (when (or (empty? weekly-stats)
                                                                           (empty? monthly-stats))
                                                                   [{:message "No data found for stats"}]))
