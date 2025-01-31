@@ -251,6 +251,3 @@
          start-pool# (requiring-resolve 'instant.jdbc.aurora/start-pool)]
      (with-open [~conn-name (start-pool# 1 (rds-cluster-id->db-config# cluster-id#))]
        ~@body)))
-
-
-
