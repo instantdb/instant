@@ -274,11 +274,11 @@
     (assert-admin-email! email)
     (response/ok {:users (dash-admin/get-top-users n-val)})))
 
-(defn admin-graphs-get [req]
+(defn admin-investor-updates-get [req]
   (let [{:keys [email]} (req->auth-user! req)
         _ (assert-admin-email! email)
         conn (aurora/conn-pool :read)
-        metrics (metrics/generate conn)
+        metrics (metrics/investor-update-metrics conn)
         metrics-with-b64-charts
         (update metrics :charts (partial medley/map-vals
                                          (fn [chart] (metrics/chart->base64-png chart
@@ -1199,7 +1199,7 @@
   (GET "/dash/top" [] admin-top-get)
   (GET "/dash/paid" [] admin-paid-get)
   (GET "/dash/storage" [] admin-storage-get)
-  (GET "/dash/graphs" [] admin-graphs-get)
+  (GET "/dash/investor_updates" [] admin-investor-updates-get)
 
   (GET "/dash" [] dash-get)
   (POST "/dash/apps" [] apps-post)
