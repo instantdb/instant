@@ -21,10 +21,12 @@
                                    ^GetSecretValueRequest request)
 
                   (.secretString)
-                  (<-json true))]
-    (assert (:username creds) "missing username")
-    (assert (:password creds) "missing password")
-    creds))
+                  (<-json true))
+        {:keys [username password]} creds]
+    (assert username "missing username")
+    (assert password "missing password")
+    {:user username
+     :password password}))
 
 (defn rds-cluster-id->db-config [cluster-id]
   (let [rds-client (-> (RdsClient/builder)

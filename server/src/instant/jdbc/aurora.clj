@@ -107,10 +107,10 @@
         (tracer/with-span! {:name "aurora/get-connection"}
           (loop [attempt 1
                  failed-credentials nil]
-            (let [{:keys [username password] :as creds}
+            (let [{:keys [user password] :as creds}
                   (get-creds {:failed-credentials failed-credentials
                               :attempts 3})
-                  conn (try (next-jdbc/get-connection aurora-config username password)
+                  conn (try (next-jdbc/get-connection aurora-config user password)
                             (catch Exception e
                               (let [throwing? (>= attempt 3)]
                                 (tracer/record-info! {:name "aurora/get-conn-error"
@@ -162,7 +162,11 @@
                         (.setMaximumPoolSize pool-size))
         _ (if-let [secret-arn (:secret-arn aurora-config)]
             (.setDataSource hikari-config (datasource-with-secretsmanager secret-arn config))
-            (.setJdbcUrl hikari-config (connection/jdbc-url config)))
+            (doto hikari-config
+              (.setUsername (:user config))
+              (.setPassword (:password config))
+              (.setJdbcUrl (connection/jdbc-url (dissoc config
+                                                        :user :password)))))
 
         pool (HikariDataSource. hikari-config)]
     ;; Check that the pool is working
