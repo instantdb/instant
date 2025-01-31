@@ -45,13 +45,6 @@ export class DataAttrDef<ValueType, IsRequired extends boolean> {
   // }
 }
 
-type ExtractValueType<T> =
-  T extends DataAttrDef<infer ValueType, infer isRequired>
-    ? isRequired extends true
-      ? ValueType
-      : ValueType | undefined
-    : never;
-
 export class LinkAttrDef<
   Cardinality extends CardinalityKind,
   EntityName extends string,
@@ -62,31 +55,12 @@ export class LinkAttrDef<
   ) {}
 }
 
-export interface IInstantDataSchema<
+export interface IContainEntitiesAndLinks<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
 > {
   entities: Entities;
   links: Links;
-}
-
-export class InstantGraph<
-  Entities extends EntitiesDef,
-  Links extends LinksDef<Entities>,
-  RoomSchema extends RoomSchemaShape = {},
-> implements IInstantDataSchema<Entities, Links>
-{
-  constructor(
-    public entities: Entities,
-    public links: Links,
-  ) {}
-
-  withRoomSchema<_RoomSchema extends RoomSchemaShape>() {
-    return new InstantGraph<Entities, Links, _RoomSchema>(
-      this.entities,
-      this.links,
-    );
-  }
 }
 
 // ==========
@@ -109,9 +83,7 @@ export class EntityDef<
   ) {}
 
   asType<
-    _AsType extends Partial<{
-      [AttrName in keyof Attrs]: ExtractValueType<Attrs[AttrName]>;
-    }>,
+    _AsType extends Partial<MappedAttrs<Attrs>>,
   >() {
     return new EntityDef<Attrs, Links, _AsType>(this.attrs, this.links);
   }
@@ -145,6 +117,7 @@ export type LinkDef<
     on: FwdEntity;
     label: FwdAttr;
     has: FwdCardinality;
+    onDelete?: 'cascade';
   };
   reverse: {
     on: RevEntity;
@@ -250,13 +223,36 @@ type LinksIndexedByEntity<
   };
 };
 
+type RequiredKeys<Attrs extends AttrsDefs> = {
+  [K in keyof Attrs]: Attrs[K] extends DataAttrDef<any, infer R>
+    ? R extends true
+      ? K
+      : never
+    : never;
+}[keyof Attrs];
+
+type OptionalKeys<Attrs extends AttrsDefs> = {
+  [K in keyof Attrs]: Attrs[K] extends DataAttrDef<any, infer R>
+    ? R extends false
+      ? K
+      : never
+    : never;
+}[keyof Attrs];
+
+/**
+ * MappedAttrs:
+ *   - Required keys => `key: ValueType`
+ *   - Optional keys => `key?: ValueType`
+ */
+type MappedAttrs<Attrs extends AttrsDefs> = {
+  [K in RequiredKeys<Attrs>]: Attrs[K] extends DataAttrDef<infer V, any> ? V : never;
+} & {
+  [K in OptionalKeys<Attrs>]?: Attrs[K] extends DataAttrDef<infer V, any> ? V : never;
+};
+
 export type ResolveEntityAttrs<
   EDef extends EntityDef<any, any, any>,
-  ResolvedAttrs = {
-    [AttrName in keyof EDef["attrs"]]: ExtractValueType<
-      EDef["attrs"][AttrName]
-    >;
-  },
+  ResolvedAttrs = MappedAttrs<EDef["attrs"]>
 > =
   EDef extends EntityDef<any, any, infer AsType>
     ? AsType extends void
@@ -281,13 +277,7 @@ export type RoomsFromDef<RDef extends RoomsDef> = {
 };
 
 export type RoomsOf<S> =
-  S extends InstantGraph<any, any, infer R>
-    ? R extends RoomSchemaShape
-      ? R
-      : never
-    : S extends DoNotUseInstantSchema<any, any, infer RDef>
-      ? RoomsFromDef<RDef>
-      : never;
+  S extends InstantSchemaDef<any, any, infer RDef> ? RoomsFromDef<RDef> : never;
 
 export type PresenceOf<
   S,
@@ -316,33 +306,147 @@ export interface RoomsDef {
   [RoomType: string]: RoomDef;
 }
 
-export class DoNotUseInstantSchema<
+export class InstantSchemaDef<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
   Rooms extends RoomsDef,
-> implements IInstantDataSchema<Entities, Links>
+> implements IContainEntitiesAndLinks<Entities, Links>
 {
   constructor(
     public entities: Entities,
     public links: Links,
     public rooms: Rooms,
   ) {}
+
+  /**
+   * @deprecated
+   * `withRoomSchema` is deprecated. Define your schema in `rooms` directly:
+   *
+   * @example
+   * // Before:
+   * const schema = i.schema({
+   *   // ...
+   * }).withRoomSchema<RoomSchema>()
+   *
+   * // After
+   * const schema = i.schema({
+   *  rooms: {
+   *    // ...
+   *  }
+   * })
+   *
+   * @see https://instantdb.com/docs/presence-and-topics#typesafety
+   */
+  withRoomSchema<_RoomSchema extends RoomSchemaShape>() {
+    type RDef = RoomDefFromShape<_RoomSchema>;
+    return new InstantSchemaDef<Entities, Links, RDef>(
+      this.entities,
+      this.links,
+      {} as RDef,
+    );
+  }
 }
+
+/**
+ * @deprecated
+ * `i.graph` is deprecated. Use `i.schema` instead.
+ *
+ * @see https://instantdb.com/docs/modeling-data
+ */
+export class InstantGraph<
+  Entities extends EntitiesDef,
+  Links extends LinksDef<Entities>,
+  RoomSchema extends RoomSchemaShape = {},
+> implements IContainEntitiesAndLinks<Entities, Links>
+{
+  constructor(
+    public entities: Entities,
+    public links: Links,
+  ) {}
+
+  withRoomSchema<_RoomSchema extends RoomSchemaShape>() {
+    return new InstantGraph<Entities, Links, _RoomSchema>(
+      this.entities,
+      this.links,
+    );
+  }
+}
+
+type EntityDefFromRoomSlice<Shape extends { [k: string]: any }> = EntityDef<
+  {
+    [AttrName in keyof Shape]: DataAttrDef<
+      Shape[AttrName],
+      Shape[AttrName] extends undefined ? false : true
+    >;
+  },
+  any,
+  void
+>;
+
+type RoomDefFromShape<RoomSchema extends RoomSchemaShape> = {
+  [RoomName in keyof RoomSchema]: {
+    presence: EntityDefFromRoomSlice<RoomSchema[RoomName]["presence"]>;
+    topics: {
+      [TopicName in keyof RoomSchema[RoomName]["topics"]]: EntityDefFromRoomSlice<
+        RoomSchema[RoomName]["topics"][TopicName]
+      >;
+    };
+  };
+};
+
+type EntityDefFromShape<Shape, K extends keyof Shape> = EntityDef<
+  {
+    [AttrName in keyof Shape[K]]: DataAttrDef<
+      Shape[K][AttrName],
+      Shape[K][AttrName] extends undefined ? false : true
+    >;
+  },
+  {
+    [LinkName in keyof Shape]: LinkAttrDef<
+      "many",
+      LinkName extends string ? LinkName : string
+    >;
+  },
+  void
+>;
+
+/**
+ * If you were using the old `schema` types, you can use this to help you
+ * migrate.
+ *
+ * @example
+ * // Before
+ * const db = init<Schema, Rooms>({...})
+ *
+ * // After
+ * const db = init<BackwardsCompatibleSchema<Schema, Rooms>>({...})
+ */
+export type BackwardsCompatibleSchema<
+  Shape extends { [k: string]: any },
+  RoomSchema extends RoomSchemaShape = {},
+> = InstantSchemaDef<
+  { [K in keyof Shape]: EntityDefFromShape<Shape, K> },
+  UnknownLinks<EntitiesDef>,
+  RoomDefFromShape<RoomSchema>
+>;
+
+// ----------
+// InstantUnknownSchema
 
 export type UnknownEntity = EntityDef<
   {
     id: DataAttrDef<string, true>;
-    [AttrName: string]: DataAttrDef<unknown, any>;
+    [AttrName: string]: DataAttrDef<any, any>;
   },
   { [LinkName: string]: LinkAttrDef<"many", string> },
   void
 >;
 
-export type DoNotUseUnknownEntities = {
+export type UnknownEntities = {
   [EntityName: string]: UnknownEntity;
 };
 
-export type DoNotUseUnknownLinks<Entities extends EntitiesDef> = {
+export interface UnknownLinks<Entities extends EntitiesDef> {
   [LinkName: string]: LinkDef<
     Entities,
     string,
@@ -352,19 +456,47 @@ export type DoNotUseUnknownLinks<Entities extends EntitiesDef> = {
     string,
     "many"
   >;
-};
+}
 
-export type DoNotUseUnknownRooms = {
+export interface UnknownRooms {
   [RoomName: string]: {
     presence: EntityDef<any, any, any>;
     topics: {
       [TopicName: string]: EntityDef<any, any, any>;
     };
   };
+}
+
+export type InstantUnknownSchema = InstantSchemaDef<
+  UnknownEntities,
+  UnknownLinks<UnknownEntities>,
+  UnknownRooms
+>;
+
+export type UpdateParams<
+  Schema extends IContainEntitiesAndLinks<any, any>,
+  EntityName extends keyof Schema["entities"],
+> = {
+  [AttrName in keyof Schema["entities"][EntityName]["attrs"]]?: Schema["entities"][EntityName]["attrs"][AttrName] extends DataAttrDef<
+    infer ValueType,
+    infer IsRequired
+  >
+    ? IsRequired extends true
+      ? ValueType
+      : ValueType | null
+    : never;
 };
 
-export type DoNotUseUnknownSchema = DoNotUseInstantSchema<
-  DoNotUseUnknownEntities,
-  DoNotUseUnknownLinks<DoNotUseUnknownEntities>,
-  DoNotUseUnknownRooms
->;
+export type LinkParams<
+  Schema extends IContainEntitiesAndLinks<any, any>,
+  EntityName extends keyof Schema["entities"],
+> = {
+  [LinkName in keyof Schema["entities"][EntityName]["links"]]?: Schema["entities"][EntityName]["links"][LinkName] extends LinkAttrDef<
+    infer Cardinality,
+    any
+  >
+    ? Cardinality extends "one"
+      ? string
+      : string | string[]
+    : never;
+};

@@ -1,0 +1,1 @@
+DROP INDEX transactions_created_at_idx;

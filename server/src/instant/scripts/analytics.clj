@@ -14,32 +14,32 @@
 (defn get-num-users
   "Total number of users, -2 for stopa, joe, and testuser"
   []
-  (:count (sql/select-one aurora/conn-pool ["SELECT COUNT(*) - 3 as count FROM instant_users"])))
+  (:count (sql/select-one (aurora/conn-pool :read) ["SELECT COUNT(*) - 3 as count FROM instant_users"])))
 
 (defn get-num-users-yday
   "Number of users who signed up yesterday"
   []
-  (:count (sql/select-one aurora/conn-pool ["SELECT COUNT(*) as count
+  (:count (sql/select-one (aurora/conn-pool :read) ["SELECT COUNT(*) as count
                                             FROM instant_users
                                             WHERE created_at::date >= (current_date - 1)"])))
 
 (defn get-num-apps []
   (:count (sql/select-one
-           aurora/conn-pool
+           (aurora/conn-pool :read)
            ["select count(*)
               from apps a join instant_users u on a.creator_id = u.id
               where u.email not in ('joe@instantdb.com', 'stopa@instantdb.com', 'testuser@instantdb.com')"])))
 
 (defn get-num-apps-yday []
   (:count (sql/select-one
-           aurora/conn-pool
+           (aurora/conn-pool :read)
            ["select count(*) from apps a join instant_users u on a.creator_id = u.id
               where u.email not in ('joe@instantdb.com', 'stopa@instantdb.com', 'testuser@instantdb.com')
               and a.created_at::date >= current_date - 1;"])))
 
 (defn get-email-app-creators-yday []
   (sql/select
-   aurora/conn-pool
+   (aurora/conn-pool :read)
    ["SELECT distinct(u.email) from apps a join instant_users u on a.creator_id = u.id
       where a.created_at::date >= current_date - 1;"]))
 
@@ -49,7 +49,7 @@
 
 (defn top-recent-users []
   (sql/select
-   aurora/conn-pool
+   (aurora/conn-pool :read)
    ["WITH app_counts AS (
      SELECT app_id, COUNT(*) as app_count
        FROM triples t
@@ -67,7 +67,7 @@
 
 (defn get-num-triples []
   (:count
-   (sql/select-one aurora/conn-pool
+   (sql/select-one (aurora/conn-pool :read)
                    ["WITH filtered_users AS (
                        SELECT id FROM instant_users
                        WHERE email NOT IN ('joe@instantdb.com', 'stopa@instantdb.com', 'testuser@instantdb.com')

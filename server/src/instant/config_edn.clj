@@ -27,10 +27,15 @@
 (s/def ::oauth-client (s/keys :req-un [::client-id
                                        ::client-secret]))
 
+(s/def ::s3-storage-access-key ::config-value)
+(s/def ::s3-storage-secret-key ::config-value)
 (s/def ::postmark-token ::config-value)
 (s/def ::postmark-account-token ::config-value)
 (s/def ::secret-discord-token ::config-value)
 (s/def ::database-url ::config-value)
+(s/def ::next-database-url ::config-value)
+(s/def ::database-cluster-id string?)
+(s/def ::next-database-cluster-id string?)
 (s/def ::stripe-secret ::config-value)
 (s/def ::stripe-webhook-secret ::config-value)
 (s/def ::honeycomb-api-key ::config-value)
@@ -50,7 +55,10 @@
                                         ::public-key-json]))
 
 (s/def ::config (s/keys :opt-un [::instant-config-app-id
+                                 ::s3-storage-access-key
+                                 ::s3-storage-secret-key
                                  ::database-url
+                                 ::next-database-cluster-id
                                  ::postmark-token
                                  ::postmark-account-token
                                  ::secret-discord-token
@@ -64,7 +72,9 @@
 ;; Prod config is more restrictive because we don't want to accidentally
 ;; forget to set one of these variables in prod
 (s/def ::config-prod (s/keys :req-un [::aead-keyset
-                                      ::database-url
+                                      ::s3-storage-access-key
+                                      ::s3-storage-secret-key
+                                      ::database-cluster-id
                                       ::postmark-token
                                       ::postmark-account-token
                                       ::secret-discord-token
@@ -73,7 +83,8 @@
                                       ::honeycomb-api-key
                                       ::google-oauth-client
                                       ::hybrid-keyset]
-                             :opt-un [::instant-config-app-id]))
+                             :opt-un [::instant-config-app-id
+                                      ::next-database-cluster-id]))
 
 (defn config-spec [prod?]
   (if prod?
@@ -81,10 +92,13 @@
     ::config))
 
 (defn valid-config? [prod? config-edn]
-  (s/valid? (config-spec prod?) config-edn))
+  (or
+    (s/valid? (config-spec prod?) config-edn)
+    (s/explain (config-spec prod?) config-edn)))
 
 (defn read-config [env]
-  (let [override (io/resource "config/override.edn")
+  (let [override (when (= :dev env)
+                   (io/resource "config/override.edn"))
         overlay (some-> (io/resource "config/overlay.edn")
                         slurp
                         edn/read-string)]

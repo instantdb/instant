@@ -4,7 +4,7 @@
    [clj-http.client :as clj-http]
    [clojure.core.cache.wrapped :as cache]
    [clojure.string :as string]
-   [instant.auth.jwt :refer [verify-jwt]]
+   [instant.auth.jwt :as jwt]
    [instant.util.crypt]
    [instant.util.exception :as ex]
    [instant.util.json :as json]
@@ -29,23 +29,35 @@
                                token-endpoint
                                jwks-uri
                                issuer
-                               ^PersistentHashSet id-token-signing-alg-values-supported]
+                               ^PersistentHashSet id-token-signing-alg-values-supported
+                               meta]
   OAuthClient
-  (create-authorization-url [this state redirect-url]
+  (create-authorization-url [_ state redirect-url]
     (let [params {:scope "email"
                   :response_type "code"
+                  :response_mode "form_post"
                   :state state
                   :redirect_uri redirect-url
-                  :client_id (:client-id this)}]
-      (url/add-query-params (:authorization-endpoint this) params)))
+                  :client_id client-id}]
+      (url/add-query-params authorization-endpoint params)))
 
-  (get-user-info [this code redirect-url]
-    (let [resp (clj-http/post (:token-endpoint this)
+  (get-user-info [_ code redirect-url]
+    (let [secret (case issuer
+                   "https://appleid.apple.com"
+                   (jwt/apple-client-secret
+                    {:client-id   client-id
+                     :team-id     (get meta "teamId")
+                     :key-id      (get meta "keyId")
+                     :private-key (.value client-secret)})
+
+                   #_else
+                   (.value client-secret))
+          resp (clj-http/post token-endpoint
                               {:throw-exceptions false
                                :as :json
                                :coerce :always
-                               :form-params {:client_id (:client-id this)
-                                             :client_secret (.value (:client-secret this))
+                               :form-params {:client_id client-id
+                                             :client_secret secret
                                              :code code
                                              :grant_type "authorization_code"
                                              :redirect_uri redirect-url}})]
@@ -73,26 +85,27 @@
                 (tracer/with-span! {:name "oauth/missing-user-info"
                                     :attributes {:id_token id-token}}
                   {:type :error :message "Missing user info."}))))))))
-  (get-user-info-from-id-token [this nonce jwt {:keys [allow-unverified-email?
+
+  (get-user-info-from-id-token [_ nonce jwt {:keys [allow-unverified-email?
                                                        ignore-audience?]}]
-    (if (or (string/blank? (:jwks-uri this))
-            (string/blank? (:issuer this))
-            (empty? (:id-token-signing-alg-values-supported this)))
+    (if (or (string/blank? jwks-uri)
+            (string/blank? issuer)
+            (empty? id-token-signing-alg-values-supported))
       {:type :error :message "OAuth client does not support id_token."}
 
-      (let [verified-jwt (verify-jwt {:jwks-uri (:jwks-uri this)
-                                      :jwt jwt})
+      (let [verified-jwt (jwt/verify-jwt {:jwks-uri jwks-uri
+                                          :jwt jwt})
             ;; verify lets us know that the jwk was issued by
             ;; e.g. google but we still need to make sure it was
             ;; issued by our client and has all of the fields we need
             ;; https://developers.google.com/identity/sign-in/ios/backend-auth#verify-the-integrity-of-the-id-token
             issuer-mismatch (not= (.getIssuer verified-jwt)
-                                  (:issuer this))
-            unsupported-alg (not (contains? (:id-token-signing-alg-values-supported this)
+                                  issuer)
+            unsupported-alg (not (contains? id-token-signing-alg-values-supported
                                             (.getAlgorithm verified-jwt)))
             client-id-mismatch (and (not ignore-audience?)
                                     (not (contains? (set (.getAudience verified-jwt))
-                                                    (:client-id this))))
+                                                    client-id)))
             sub (.getSubject verified-jwt)
             email-verified (.asBoolean (.getClaim verified-jwt "email_verified"))
             email (.asString (.getClaim verified-jwt "email"))
@@ -113,7 +126,7 @@
 
             error (cond
                     nonce-error nonce-error
-                    issuer-mismatch (str "The id_token wasn't issued by " (:issuer this))
+                    issuer-mismatch (str "The id_token wasn't issued by " issuer)
                     unsupported-alg "The id_token used an unsupported algorithm."
                     client-id-mismatch "The id_token was generated for the wrong OAuth client."
                     (and (not allow-unverified-email?)
@@ -131,20 +144,29 @@
 
 (defn fetch-discovery [endpoint]
   (let [resp (clj-http/get endpoint {:throw-exceptions false
-                                     :as :json})]
+                                     :as :json
+                                     ;; for https://account.apple.com/.well-known/openid-configuration
+                                     :headers {"User-Agent" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"}})]
     (if (clj-http/success? resp)
       {:date (Instant/now)
        :data (:body resp)}
-      (ex/throw-oauth-err! "Unable to fetch OAuth configuration."))))
+      (do
+        (tracer/record-exception-span! (ex-info "Error fetching discovery"
+                                                {:status   (:status resp)
+                                                 :body     (:body resp)
+                                                 :endpoint endpoint})
+                                       {:name "oauth/fetch-discovery-error"})
+        (ex/throw-oauth-err! "Unable to fetch OAuth configuration.")))))
 
 (defn get-discovery [endpoint]
   (:data (cache/lookup-or-miss discovery-endpoint-cache endpoint fetch-discovery)))
 
 (defn generic-oauth-client-from-discovery-url [{:keys [app-id
                                                        provider-id
-                                                       client-id ^Secret
-                                                       client-secret
-                                                       discovery-endpoint]}]
+                                                       client-id
+                                                       ^Secret client-secret
+                                                       discovery-endpoint
+                                                       meta]}]
   (let [{:keys [authorization_endpoint
                 token_endpoint
                 jwks_uri
@@ -160,7 +182,11 @@
                               :issuer issuer
                               :id-token-signing-alg-values-supported (if (empty? id_token_signing_alg_values_supported)
                                                                        #{"RS256" "HS256"}
-                                                                       (set id_token_signing_alg_values_supported))})))
+                                                                       (set id_token_signing_alg_values_supported))
+                              :meta meta})))
+
+(comment
+  (generic-oauth-client-from-discovery-url {:discovery-endpoint "https://account.apple.com/.well-known/openid-configuration"}))
 
 (def schedule nil)
 

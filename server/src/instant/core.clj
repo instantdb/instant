@@ -2,8 +2,9 @@
   (:gen-class)
   (:require
    [tool]
+   [clojure.java.io :as io]
    [clojure.tools.logging :as log]
-   [compojure.core :refer [defroutes GET POST routes]]
+   [compojure.core :refer [defroutes GET POST routes wrap-routes]]
    [instant.admin.routes :as admin-routes]
    [instant.auth.jwt :as jwt]
    [instant.auth.oauth :as oauth]
@@ -26,6 +27,8 @@
    [instant.reactive.store :as rs]
    [instant.runtime.routes :as runtime-routes]
    [instant.scripts.analytics :as analytics]
+   [instant.scripts.daily-metrics :as daily-metrics]
+   [instant.scripts.welcome-email :as welcome-email]
    [instant.session-counter :as session-counter]
    [instant.storage.routes :as storage-routes]
    [instant.stripe :as stripe]
@@ -71,44 +74,50 @@
   (POST "/hooks/honeycomb/exceptions" [] honeycomb-api/webhook))
 
 (defn handler []
-  (routes
-   (-> stripe-webhook-routes
+  (routes (-> stripe-webhook-routes
+              (wrap-routes http-util/tracer-record-route)
+              (wrap-routes http-util/wrap-errors)
+              (wrap-routes wrap-json-response)
+              (wrap-routes wrap-cors
+                           :access-control-allow-origin [#".*"]
+                           :access-control-allow-methods [:get :put :post :delete])
+              (wrap-routes http-util/tracer-wrap-span))
+          (-> (routes home-routes
+                      dash-routes/routes
+                      runtime-routes/routes
+                      admin-routes/routes
+                      superadmin-routes/routes
+                      storage-routes/routes
+                      generic-webhook-routes
+                      stripe-webhook-routes
+                      health/routes)
+              (wrap-routes http-util/tracer-record-route)
+              http-util/tracer-record-attrs
+              wrap-keyword-params
+              wrap-params
+              wrap-multipart-params
+              (wrap-json-body {:keywords? true})
 
-       http-util/wrap-errors
+              http-util/wrap-errors
 
-       wrap-json-response
-       (wrap-cors :access-control-allow-origin [#".*"]
-                  :access-control-allow-methods [:get :put :post :delete])
-       http-util/tracer-wrap-span)
-   (-> (routes home-routes
-               dash-routes/routes
-               runtime-routes/routes
-               admin-routes/routes
-               superadmin-routes/routes
-               storage-routes/routes
-               generic-webhook-routes
-               health/routes)
-       http-util/tracer-record-attrs
-       wrap-keyword-params
-       wrap-params
-       wrap-multipart-params
-       (wrap-json-body {:keywords? true})
-
-       http-util/wrap-errors
-
-       wrap-json-response
-       (wrap-cors :access-control-allow-origin [#".*"]
-                  :access-control-allow-methods [:get :put :post :delete])
-       http-util/tracer-wrap-span)))
+              wrap-json-response
+              (wrap-cors :access-control-allow-origin [#".*"]
+                         :access-control-allow-methods [:get :put :post :delete])
+              (http-util/tracer-wrap-span))))
 
 (defn start []
   (tracer/record-info! {:name "server/start" :attributes {:port (config/get-server-port)}})
   (def server ^Undertow (undertow-adapter/run-undertow
                          (handler)
-                         {:host "0.0.0.0"
-                          :port (config/get-server-port)
-                          :configurator (fn [^Undertow$Builder builder]
-                                          (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}))
+                         (merge
+                          {:host "0.0.0.0"
+                           :port (config/get-server-port)
+                           :configurator (fn [^Undertow$Builder builder]
+                                           (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}
+                          (when (.exists (io/file "dev-resources/certs/dev.jks"))
+                            {:ssl-port 8889
+                             :keystore "dev-resources/certs/dev.jks"
+                             :key-password "changeit"}))))
   (def stop-gauge (gauges/add-gauge-metrics-fn
                    (fn [_]
                      (let [^Undertow server server
@@ -152,44 +161,81 @@
                                                       (indexing-jobs/stop)))]]
                                  (deref fut))))))
 
+(defmacro with-log-init [operation & body]
+  `(do
+     (tracer/record-info! {:name (format "init.start.%s" (name ~operation))})
+     (tracer/with-span! {:name (format "init.finish.%s" (name ~operation))}
+       ;; Don't let ourselves be the parent of any child spans
+       (binding [tracer/*span* nil]
+         ~@body))))
+
 (defn -main [& _args]
-  (let [{:keys [aead-keyset]} (config/init)]
-    (crypt-util/init aead-keyset))
+  (binding [*print-namespace-maps* false]
+    (log/info "Starting")
+    (let [{:keys [aead-keyset]} (config/init)]
+      (crypt-util/init aead-keyset))
 
-  (tracer/init)
+    (log/info "Init tracer")
+    (tracer/init)
 
-  (tracer/record-info! {:name "uncaught-exception-handler/set"})
-  (Thread/setDefaultUncaughtExceptionHandler
-   (ua/logging-uncaught-exception-handler))
+    (with-log-init :uncaught-exception-handler
+      (Thread/setDefaultUncaughtExceptionHandler
+       (ua/logging-uncaught-exception-handler)))
 
-  (when (= (config/get-env) :dev)
-    (tracer/record-info! {:name "humane-test-output/set"})
-    (require 'pjstadig.humane-test-output)
-    ((resolve 'pjstadig.humane-test-output/activate!)))
+    (with-log-init :gauges
+      (gauges/start))
+    (with-log-init :nrepl
+      (nrepl/start))
+    (with-log-init :oauth
+      (oauth/start))
+    (with-log-init :jwt
+      (jwt/start))
+    (with-log-init :aurora
+      (aurora/start))
+    (with-log-init :system-catalog
+      (ensure-attrs-on-system-catalog-app))
+    (with-log-init :reactive-store
+      (rs/start))
+    (with-log-init :ephemeral
+      (eph/start))
+    (with-log-init :stripe
+      (stripe/init))
+    (with-log-init :session
+      (session/start))
+    (with-log-init :invalidator
+      (inv/start-global))
+    (with-log-init :wal
+      (wal/init))
 
-  (gauges/start)
-  (nrepl/start)
-  (oauth/start)
-  (jwt/start)
-  (aurora/start)
-  (ensure-attrs-on-system-catalog-app)
-  (rs/start)
-  (eph/start)
-  (stripe/init)
-  (session/start)
-  (inv/start-global)
-  (wal/init-cleanup aurora/conn-pool)
+    (when-let [config-app-id (config/instant-config-app-id)]
+      (with-log-init :flags
+        (flags-impl/init config-app-id
+                         flags/queries
+                         flags/query-results)))
 
-  (when-let [config-app-id (config/instant-config-app-id)]
-    (flags-impl/init config-app-id
-                     flags/queries
-                     flags/query-results))
+    (with-log-init :ephemeral-app
+      (ephemeral-app/start))
+    (with-log-init :session-counter
+      (session-counter/start))
+    (with-log-init :indexing-jobs
+      (indexing-jobs/start))
+    (when (= (config/get-env) :prod)
+      (with-log-init :analytics
+        (analytics/start)))
+    (when (= (config/get-env) :prod)
+      (with-log-init :daily-metrics
+        (daily-metrics/start)))
+    (when (= (config/get-env) :prod)
+      (with-log-init :welcome-email
+        (welcome-email/start)))
+    (with-log-init :web-server
+      (start))
+    (with-log-init :shutdown-hook
+      (add-shutdown-hook))
+    (log/info "Finished init")))
 
-  (ephemeral-app/start)
-  (session-counter/start)
-  (indexing-jobs/start)
-  (when (= (config/get-env) :prod)
-    (log/info "Starting analytics")
-    (analytics/start))
-  (start)
-  (add-shutdown-hook))
+(defn before-ns-unload []
+  (stop))
+
+(defn after-ns-reload []
+  (start))

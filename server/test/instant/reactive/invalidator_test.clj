@@ -384,11 +384,6 @@
            (inv/topics-for-changes {:ident-changes delete-ident-changes
                                     :attr-changes delete-attr-changes})))))
 
-;; Use this to distinguish calls to `invalidate!` from our invalidator
-;; in the with-redefs. Without this, we might get changes from the
-;; global invalidator process.
-(def ^:dynamic *inside* nil)
-
 (defn ->md5 [s]
   (-> s
       crypt-util/str->md5
@@ -401,61 +396,59 @@
   (with-zeneca-app
     (fn [app r]
       (let [invalidate! (var-get #'inv/invalidate!)
-            records (atom [])]
+            records (atom [])
+            machine-id (string/replace (str "test-" (random-uuid))
+                                       #"-"
+                                       "_")]
         (with-redefs [inv/invalidate!
-                      (fn [store-conn {:keys [app-id tx-id] :as wal-record}]
-                        (if (and (= (:id app) app-id)
-                                 *inside*)
+                      (fn [process-id store-conn {:keys [app-id tx-id] :as wal-record}]
+                        (if (and (= machine-id process-id) (= (:id app) app-id))
                           (swap! records conj wal-record)
-                          (invalidate! store-conn wal-record))                        )]
-          (binding [*inside* true]
-            (let [machine-id (string/replace (str "test-" (random-uuid))
-                                             #"-"
-                                             "_")
-                  process (inv/start machine-id)
-                  uid (random-uuid)]
-              (try
-                (tx/transact! aurora/conn-pool
-                              (attr-model/get-by-app-id (:id app))
-                              (:id app)
-                              [[:add-triple uid (resolvers/->uuid r :users/id) uid]
-                               [:add-triple uid (resolvers/->uuid r :users/handle) "dww"]])
-                (wait-for (fn []
-                            (< 0 (count @records)))
-                          1000)
-                (is (= 1 (count @records)))
-                (let [rec (first @records)]
-                  (is (pos? (:tx-id rec)))
-                  (is (= (set (map (fn [change]
-                                     (-> change
-                                         xform-change
-                                         (dissoc "created_at")))
-                                   (:triple-changes rec)))
-                         #{{"eav" false,
-                            "av" true,
-                            "ave" true,
-                            "value_md5" "057a88732b390295a8623cfd3cb799d9",
-                            "entity_id" (str uid)
-                            "attr_id" (str (resolvers/->uuid r :users/handle))
-                            "ea" true,
-                            "value" "\"dww\"",
-                            "vae" false,
-                            "app_id" (str (:id app))
-                            "checked_data_type" nil}
-                           {"eav" true,
-                            "av" true,
-                            "ave" true,
-                            "value_md5" (->md5 (->json (str uid)))
-                            "entity_id" (str uid)
-                            "attr_id" (str (resolvers/->uuid r :users/id))
-                            "ea" true,
-                            "value" (->json (str uid))
-                            "vae" true,
-                            "app_id" (str (:id app))
-                            "checked_data_type" nil}})))
+                          (invalidate! store-conn wal-record)))]
+          (let [process (inv/start machine-id)
+                uid (random-uuid)]
+            (try
+              (tx/transact! (aurora/conn-pool :write)
+                            (attr-model/get-by-app-id (:id app))
+                            (:id app)
+                            [[:add-triple uid (resolvers/->uuid r :users/id) uid]
+                             [:add-triple uid (resolvers/->uuid r :users/handle) "dww"]])
+              (wait-for (fn []
+                          (< 0 (count @records)))
+                        1000)
+              (is (= 1 (count @records)))
+              (let [rec (first @records)]
+                (is (pos? (:tx-id rec)))
+                (is (= (set (map (fn [change]
+                                   (-> change
+                                       xform-change
+                                       (dissoc "created_at")))
+                                 (:triple-changes rec)))
+                       #{{"eav" false,
+                          "av" true,
+                          "ave" true,
+                          "value_md5" "057a88732b390295a8623cfd3cb799d9",
+                          "entity_id" (str uid)
+                          "attr_id" (str (resolvers/->uuid r :users/handle))
+                          "ea" true,
+                          "value" "\"dww\"",
+                          "vae" false,
+                          "app_id" (str (:id app))
+                          "checked_data_type" nil}
+                         {"eav" true,
+                          "av" true,
+                          "ave" true,
+                          "value_md5" (->md5 (->json (str uid)))
+                          "entity_id" (str uid)
+                          "attr_id" (str (resolvers/->uuid r :users/id))
+                          "ea" true,
+                          "value" (->json (str uid))
+                          "vae" true,
+                          "app_id" (str (:id app))
+                          "checked_data_type" nil}})))
 
-                (finally
-                  (inv/stop process))))))))))
+              (finally
+                (inv/stop process)))))))))
 
 (comment
   (test/run-tests *ns*))

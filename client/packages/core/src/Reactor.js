@@ -13,7 +13,7 @@ import { buildPresenceSlice, hasPresenceResponseChanged } from "./presence";
 import { Deferred } from "./utils/Deferred";
 import { PersistedObject } from "./utils/PersistedObject";
 import { extractTriples } from "./model/instaqlResult";
-import { areObjectsDeepEqual } from "./utils/object";
+import { areObjectsDeepEqual, assocIn, dissocIn } from "./utils/object";
 import { createLinkIndex } from "./utils/linkIndex";
 import version from "./version";
 
@@ -61,6 +61,7 @@ const ignoreLogging = {
   "set-presence": true,
   "set-presence-ok": true,
   "refresh-presence": true,
+  "patch-presence": true,
 };
 
 function querySubsFromJSON(str) {
@@ -111,6 +112,7 @@ export default class Reactor {
   authCbs = [];
   attrsCbs = [];
   mutationErrorCbs = [];
+  connectionStatusCbs = [];
   config;
   _persister;
   mutationDeferredStore = new Map();
@@ -188,6 +190,9 @@ export default class Reactor {
         this._isOnline = isOnline;
         if (this._isOnline) {
           this._startSocket();
+        } else {
+          log.info("Changing status from", this.status, "to", STATUS.CLOSED);
+          this._setStatus(STATUS.CLOSED);
         }
       });
     });
@@ -259,6 +264,7 @@ export default class Reactor {
   _setStatus(status, err) {
     this.status = status;
     this._errorMessage = err;
+    this.notifyConnectionStatusSubs(status);
   }
 
   /**
@@ -323,23 +329,6 @@ export default class Reactor {
     });
   };
 
-  /**
-   * On refresh we clear out pending mutations that we know have been applied
-   * by the server and thus those mutations are applied in the instaql result
-   * returned by the server
-   */
-  _cleanPendingMutations(txId) {
-    this.pendingMutations.set((prev) => {
-      const copy = new Map(prev);
-      [...prev.entries()].forEach(([eventId, mut]) => {
-        if (mut["tx-id"] <= txId) {
-          copy.delete(eventId);
-        }
-      });
-      return copy;
-    });
-  }
-
   _flushEnqueuedRoomData(roomId) {
     const enqueuedUserPresence = this._presence[roomId]?.result?.user;
     const enqueuedBroadcasts = this._broadcastQueue[roomId];
@@ -386,8 +375,7 @@ export default class Reactor {
         this.notifyOneQueryOnce(weakHash(msg.q));
         break;
       case "add-query-ok":
-        const { q, result, "processed-tx-id": addQueryTxId } = msg;
-        this._cleanPendingMutations(addQueryTxId);
+        const { q, result } = msg;
         const hash = weakHash(q);
         const pageInfo = result?.[0]?.data?.["page-info"];
         const aggregate = result?.[0]?.data?.["aggregate"];
@@ -406,8 +394,7 @@ export default class Reactor {
         this.notifyOneQueryOnce(hash);
         break;
       case "refresh-ok":
-        const { computations, attrs, "processed-tx-id": refreshOkTxId } = msg;
-        this._cleanPendingMutations(refreshOkTxId);
+        const { computations, attrs } = msg;
         this._setAttrs(attrs);
         const updates = computations.map((x) => {
           const q = x["instaql-query"];
@@ -445,26 +432,48 @@ export default class Reactor {
           break;
         }
 
-        const mut = { ...prevMutation, "tx-id": txId };
-
+        // Now that this transaction is accepted,
+        // We can delete it from our queue.
         this.pendingMutations.set((prev) => {
-          prev.set(eventId, mut);
+          prev.delete(eventId);
           return prev;
         });
 
-        this._finishTransaction("synced", eventId);
+        // We apply this transaction to all our existing queries
+        const txStepsToApply = prevMutation["tx-steps"];
+        this.querySubs.set((prev) => {
+          for (const [hash, sub] of Object.entries(prev)) {
+            const store = sub?.result?.store;
+            if (!store) {
+              continue;
+            }
+            const newStore = s.transact(store, txStepsToApply);
+            prev[hash].result.store = newStore;
+          }
+          return prev;
+        });
 
         const newAttrs = prevMutation["tx-steps"]
           .filter(([action, ..._args]) => action === "add-attr")
           .map(([_action, attr]) => attr)
           .concat(Object.values(this.attrs));
+
         this._setAttrs(newAttrs);
+
+        this._finishTransaction("synced", eventId);
         break;
-      case "refresh-presence":
+      case "patch-presence": {
         const roomId = msg["room-id"];
-        this._setPresencePeers(roomId, msg.data);
+        this._patchPresencePeers(roomId, msg["edits"]);
         this._notifyPresenceSubs(roomId);
         break;
+      }
+      case "refresh-presence": {
+        const roomId = msg["room-id"];
+        this._setPresencePeers(roomId, msg["data"]);
+        this._notifyPresenceSubs(roomId);
+        break;
+      }
       case "server-broadcast":
         const room = msg["room-id"];
         const topic = msg.topic;
@@ -530,6 +539,10 @@ export default class Reactor {
       message: msg.message || "Uh-oh, something went wrong. Ping Joe & Stopa.",
     };
 
+    if (msg.hint) {
+      errorMessage.hint = msg.hint;
+    }
+
     if (prevMutation) {
       // This must be a transaction error
       const errDetails = {
@@ -540,17 +553,14 @@ export default class Reactor {
       return;
     }
 
-    const q = msg.q || msg["original-event"]?.q;
-    if (q) {
+    if (
+      msg["original-event"]?.hasOwnProperty("q") &&
+      msg["original-event"]?.op === "add-query"
+    ) {
+      const q = msg["original-event"]?.q;
       const hash = weakHash(q);
-
-      // This must be a query error
-      this.querySubs.set((prev) => {
-        delete prev[hash];
-        return prev;
-      });
       this.notifyQueryError(weakHash(q), errorMessage);
-      this.notifyQueryOnceError(hash, eventId, errorMessage);
+      this.notifyQueryOnceError(q, hash, eventId, errorMessage);
       return;
     }
 
@@ -585,10 +595,11 @@ export default class Reactor {
     }
   }
 
-  notifyQueryOnceError(hash, eventId, e) {
+  notifyQueryOnceError(q, hash, eventId, e) {
     const r = this.queryOnceDfds[hash]?.find((r) => r.eventId === eventId);
     if (!r) return;
     r.dfd.reject(e);
+    this._completeQueryOnce(q, hash, r.dfd);
   }
 
   _setAttrs(attrs) {
@@ -899,7 +910,10 @@ export default class Reactor {
   /** Applies transactions locally and sends transact message to server */
   pushTx = (chunks) => {
     try {
-      const txSteps = instaml.transform(this.optimisticAttrs(), chunks);
+      const txSteps = instaml.transform(
+        { attrs: this.optimisticAttrs(), schema: this.config.schema },
+        chunks,
+      );
       return this.pushOps(txSteps);
     } catch (e) {
       return this.pushOps([], e);
@@ -1340,6 +1354,16 @@ export default class Reactor {
     };
   }
 
+  subscribeConnectionStatus(cb) {
+    this.connectionStatusCbs.push(cb);
+
+    return () => {
+      this.connectionStatusCbs = this.connectionStatusCbs.filter(
+        (x) => x !== cb,
+      );
+    };
+  }
+
   subscribeAttrs(cb) {
     this.attrsCbs.push(cb);
 
@@ -1364,6 +1388,10 @@ export default class Reactor {
     if (!this.attrs) return;
     const oas = this.optimisticAttrs();
     this.attrsCbs.forEach((cb) => cb(oas));
+  }
+
+  notifyConnectionStatusSubs(status) {
+    this.connectionStatusCbs.forEach((cb) => cb(status));
   }
 
   async setCurrentUser(user) {
@@ -1486,6 +1514,11 @@ export default class Reactor {
     return `${apiURI}/runtime/oauth/start?app_id=${appId}&client_name=${clientName}&redirect_uri=${redirectURL}`;
   }
 
+  /**
+   * @param {Object} params 
+   * @param {string} params.code - The code received from the OAuth service. 
+   * @param {string} [params.codeVerifier] - The code verifier used to generate the code challenge.
+   */
   async exchangeCodeForToken({ code, codeVerifier }) {
     const res = await authAPI.exchangeCodeForToken({
       apiURI: this.config.apiURI,
@@ -1534,6 +1567,8 @@ export default class Reactor {
         error: undefined,
       };
     }
+
+    this._presence[roomId] = this._presence[roomId] || {};
 
     this._tryJoinRoom(roomId);
 
@@ -1660,6 +1695,24 @@ export default class Reactor {
     handler.cb(slice);
   }
 
+  _patchPresencePeers(roomId, edits) {
+    const peers = this._presence[roomId]?.result?.peers || {};
+    let sessions = Object.fromEntries(
+      Object.entries(peers).map(([k, v]) => [k, { data: v }]),
+    );
+    sessions[this._sessionId] = { data: this._presence[roomId]?.result?.user };
+    for (let [path, op, value] of edits) {
+      if (op === "+" || op === "r") {
+        sessions = assocIn(sessions, path, value);
+      }
+      if (op === "-") {
+        sessions = dissocIn(sessions, path);
+      }
+    }
+
+    this._setPresencePeers(roomId, sessions);
+  }
+
   _setPresencePeers(roomId, data) {
     const sessions = { ...data };
     // no need to keep track of `user`
@@ -1668,9 +1721,11 @@ export default class Reactor {
       Object.entries(sessions).map(([k, v]) => [k, v.data]),
     );
 
-    this._presence[roomId] = this._presence[roomId] || {};
-    this._presence[roomId].result = this._presence[roomId].result || {};
-    this._presence[roomId].result.peers = peers;
+    this._presence = assocIn(
+      this._presence,
+      [roomId, "result", "peers"],
+      peers,
+    );
   }
 
   // --------

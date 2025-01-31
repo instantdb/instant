@@ -6,15 +6,8 @@ You can use Instant with plain ol' Javascript/Typescript too. You may find this 
 
 To use Instant in a brand new project fire up your terminal set up a new project with Vite.
 
-```shell
-npm create vite@latest instant-vanilla
-# Choose Vanilla
-# Choose Typescript
-```
-
-Now head into your project directory and install the core package:
-
 ```shell {% showCopy=true %}
+npx create-vite@latest -t vanilla-ts instant-vanilla
 cd instant-vanilla
 npm i @instantdb/core
 npm run dev
@@ -23,26 +16,27 @@ npm run dev
 Now open up `src/main.ts` in your favorite editor and replace the entirety of the file with the following code.
 
 ```javascript {% showCopy=true %}
-import { init, tx, id } from '@instantdb/core';
+import { init, i, id, InstaQLEntity } from "@instantdb/core";
 
 // Instant app
-const APP_ID = '__APP_ID__'
+const APP_ID = "__APP_ID__";
 
-// Optional: Declare your schema for intellisense!
-interface Todo {
-  id: string;
-  text: string;
-  done: boolean;
-  createdAt: number;
-}
+// Optional: Declare your schema!
+const schema = i.schema({
+  entities: {
+    todos: i.entity({
+      text: i.string(),
+      done: i.boolean(),
+      createdAt: i.date(),
+    }),
+  },
+});
 
-type Schema = {
-  todos: Todo;
-};
+type Todo = InstaQLEntity<typeof schema, "todos">;
 
 // Initialize the database
 // ---------
-const db = init<Schema>({ appId: APP_ID });
+const db = init({ appId: APP_ID, schema });
 
 // Subscribe to data
 // ---------
@@ -60,7 +54,7 @@ db.subscribeQuery({ todos: {} }, (resp) => {
 // ---------
 function addTodo(text: string) {
   db.transact(
-    tx.todos[id()].update({
+    db.tx.todos[id()].update({
       text,
       done: false,
       createdAt: Date.now(),
@@ -70,22 +64,24 @@ function addTodo(text: string) {
 }
 
 function deleteTodoItem(todo: Todo) {
-  db.transact(tx.todos[todo.id].delete());
+  db.transact(db.tx.todos[todo.id].delete());
 }
 
 function toggleDone(todo: Todo) {
-  db.transact(tx.todos[todo.id].update({ done: !todo.done }));
+  db.transact(db.tx.todos[todo.id].update({ done: !todo.done }));
 }
 
 function deleteCompleted(todos: Todo[]) {
   const completed = todos.filter((todo) => todo.done);
-  const txs = completed.map((todo) => tx.todos[todo.id].delete());
+  const txs = completed.map((todo) => db.tx.todos[todo.id].delete());
   db.transact(txs);
 }
 
 function toggleAllTodos(todos: Todo[]) {
   const newVal = !todos.every((todo) => todo.done);
-  db.transact(todos.map((todo) => tx.todos[todo.id].update({ done: newVal })));
+  db.transact(
+    todos.map((todo) => db.tx.todos[todo.id].update({ done: newVal }))
+  );
 }
 
 // Styles
@@ -171,11 +167,11 @@ const styles: Record<string, string> = {
 
 // Render
 // ---------
-const app = document.getElementById('app')!;
+const app = document.getElementById("app")!;
 app.style.cssText = styles.container;
 
 function render(data: { todos: Todo[] }) {
-  app.innerHTML = '';
+  app.innerHTML = "";
 
   const { todos } = data;
 
@@ -185,20 +181,30 @@ function render(data: { todos: Todo[] }) {
       ${TodoForm()}
       ${TodoList(todos)}
       ${ActionBar(todos)}
-      <div style="${styles.footer}">Open another tab to see todos update in realtime!</div>
+      <div style="${
+        styles.footer
+      }">Open another tab to see todos update in realtime!</div>
     </div>
   `;
 
   app.innerHTML = containerHTML;
 
   // Attach event listeners
-  document.querySelector('.toggle-all')?.addEventListener('click', () => toggleAllTodos(todos));
-  document.querySelector('form')?.addEventListener('submit', submitForm);
-  todos.forEach(todo => {
-    document.getElementById(`toggle-${todo.id}`)?.addEventListener('change', () => toggleDone(todo));
-    document.getElementById(`delete-${todo.id}`)?.addEventListener('click', () => deleteTodoItem(todo));
+  document
+    .querySelector(".toggle-all")
+    ?.addEventListener("click", () => toggleAllTodos(todos));
+  document.querySelector("form")?.addEventListener("submit", submitForm);
+  todos.forEach((todo) => {
+    document
+      .getElementById(`toggle-${todo.id}`)
+      ?.addEventListener("change", () => toggleDone(todo));
+    document
+      .getElementById(`delete-${todo.id}`)
+      ?.addEventListener("click", () => deleteTodoItem(todo));
   });
-  document.querySelector('.delete-completed')?.addEventListener('click', () => deleteCompleted(todos));
+  document
+    .querySelector(".delete-completed")
+    ?.addEventListener("click", () => deleteCompleted(todos));
 }
 
 function renderError(errorMessage: string) {
@@ -206,7 +212,6 @@ function renderError(errorMessage: string) {
     <div>${errorMessage}</div>
   `;
 }
-
 
 function TodoForm() {
   return `
@@ -222,15 +227,25 @@ function TodoForm() {
 function TodoList(todos: Todo[]) {
   return `
     <div style="${styles.todoList}">
-      ${todos.map(todo => `
+      ${todos
+        .map(
+          (todo) => `
         <div style="${styles.todo}">
-          <input id="toggle-${todo.id}" type="checkbox" style="${styles.checkbox}" ${todo.done ? 'checked' : ''}>
+          <input id="toggle-${todo.id}" type="checkbox" style="${
+            styles.checkbox
+          }" ${todo.done ? "checked" : ""}>
           <div style="${styles.todoText}">
-            ${todo.done ? `<span style="text-decoration: line-through;">${todo.text}</span>` : `<span>${todo.text}</span>`}
+            ${
+              todo.done
+                ? `<span style="text-decoration: line-through;">${todo.text}</span>`
+                : `<span>${todo.text}</span>`
+            }
           </div>
           <span id="delete-${todo.id}" style="${styles.delete}">𝘟</span>
         </div>
-      `).join('')}
+      `
+        )
+        .join("")}
     </div>
   `;
 }
@@ -238,7 +253,7 @@ function TodoList(todos: Todo[]) {
 function ActionBar(todos: Todo[]) {
   return `
     <div style="${styles.actionBar}">
-      <div>Remaining todos: ${todos.filter(todo => !todo.done).length}</div>
+      <div>Remaining todos: ${todos.filter((todo) => !todo.done).length}</div>
       <div class="delete-completed" style="cursor: pointer;">Delete Completed</div>
     </div>
   `;
@@ -253,14 +268,14 @@ function focusInput() {
 
 function submitForm(event: Event) {
   event.preventDefault();
-  const input = (event.target as HTMLFormElement).querySelector('input');
+  const input = (event.target as HTMLFormElement).querySelector("input");
   if (input && input.value.trim()) {
     addTodo(input.value);
-    input.value = '';
+    input.value = "";
   }
 }
 ```
 
 Go to `localhost:5173` and follow the final instruction to load the app!
 
-Huzzah 🎉 You've got your first Instant web app running! Check out the [**Explore**](/docs/init) section to learn more about how to use Instant :)
+Huzzah 🎉 You've got your first Instant web app running! Check out the [Working with data](/docs/init) section to learn more about how to use Instant :)

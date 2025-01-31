@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/core",
-  "version": "v0.14.30",
+  "version": "v0.17.12",
   "description": "Instant's core local abstraction",
   "main": "dist/index.js",
   "module": "dist/module/index.js",
@@ -8,7 +8,9 @@
   "unpkg": "standalone/index.umd.js",
   "scripts": {
     "test": "vitest",
+    "bench": "vitest bench",
     "test:ci": "vitest run",
+    "bench:ci": "vitest bench --run",
     "check": "tsc --noEmit",
     "build": "rm -rf dist; npm run build:main && npm run build:module && npm run build:standalone",
     "dev:main": "tsc -p tsconfig.json -w --skipLibCheck",

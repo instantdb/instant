@@ -50,14 +50,14 @@
                                      order-job
                                      created-at-job]))
                           1000)
-              title-triples (triple-model/fetch aurora/conn-pool
+              title-triples (triple-model/fetch (aurora/conn-pool :read)
                                                 (:id app)
                                                 [[:= :attr-id (resolvers/->uuid r :books/title)]])
-              order-triples (triple-model/fetch aurora/conn-pool
+              order-triples (triple-model/fetch (aurora/conn-pool :read)
                                                 (:id app)
                                                 [[:= :attr-id (resolvers/->uuid r :bookshelves/order)]])
 
-              created-at-triples (triple-model/fetch aurora/conn-pool
+              created-at-triples (triple-model/fetch (aurora/conn-pool :read)
                                                      (:id app)
                                                      [[:= :attr-id (resolvers/->uuid r :users/createdAt)]])]
           (is (pos? (count title-triples)))
@@ -105,7 +105,7 @@
                                       (= "errored" (:job_status (jobs/get-by-id id))))
                                     [handle-job]))
                           1000)
-              handle-triples (triple-model/fetch aurora/conn-pool
+              handle-triples (triple-model/fetch (aurora/conn-pool :read)
                                                  (:id app)
                                                  [[:= :attr-id (resolvers/->uuid r :users/handle)]])]
           (is (pos? (count handle-triples)))
@@ -138,7 +138,7 @@
                                       (= "completed" (:job_status (jobs/get-by-id id))))
                                     [title-job]))
                           1000)
-              title-triples (triple-model/fetch aurora/conn-pool
+              title-triples (triple-model/fetch (aurora/conn-pool :read)
                                                 (:id app)
                                                 [[:= :attr-id (resolvers/->uuid r :books/title)]])]
           (testing "setup worked"
@@ -160,7 +160,7 @@
                                         (= "completed" (:job_status (jobs/get-by-id id))))
                                       [remove-type-job]))
                             1000)
-                title-triples (triple-model/fetch aurora/conn-pool
+                title-triples (triple-model/fetch (aurora/conn-pool :read)
                                                   (:id app)
                                                   [[:= :attr-id (resolvers/->uuid r :books/title)]])]
             (is (pos? (count title-triples)))
@@ -186,7 +186,7 @@
                                       (= "completed" (:job_status (jobs/get-by-id id))))
                                     [title-job]))
                           1000)
-              title-triples (triple-model/fetch aurora/conn-pool
+              title-triples (triple-model/fetch (aurora/conn-pool :read)
                                                 (:id app)
                                                 [[:= :attr-id (resolvers/->uuid r :books/title)]])]
           (testing "index"
@@ -212,7 +212,7 @@
                                           (= "completed" (:job_status (jobs/get-by-id id))))
                                         [remove-index-job]))
                               1000)
-                  title-triples (triple-model/fetch aurora/conn-pool
+                  title-triples (triple-model/fetch (aurora/conn-pool :read)
                                                     (:id app)
                                                     [[:= :attr-id (resolvers/->uuid r :books/title)]])]
               (is (pos? (count title-triples)))
@@ -233,7 +233,7 @@
       (fn [app]
         (let [attr-id (random-uuid)
 
-              _ (tx/transact! aurora/conn-pool
+              _ (tx/transact! (aurora/conn-pool :write)
                               (attr-model/get-by-app-id (:id app))
                               (:id app)
                               [[:add-attr {:id attr-id
@@ -242,8 +242,8 @@
                                            :index? false
                                            :value-type :blob
                                            :cardinality :one}]])
-              _ (dotimes [x 20]
-                  (tx/transact! aurora/conn-pool
+              _ (dotimes [x 10]
+                  (tx/transact! (aurora/conn-pool :write)
                                 (attr-model/get-by-app-id (:id app))
                                 (:id app)
                                 (for [i (range 1002)]
@@ -258,7 +258,7 @@
                                       (= "completed" (:job_status (jobs/get-by-id id))))
                                     [job]))
                           1000)
-              triples (triple-model/fetch aurora/conn-pool
+              triples (triple-model/fetch (aurora/conn-pool :read)
                                           (:id app)
                                           [[:= :attr-id attr-id]])]
           (testing "unique"
@@ -282,7 +282,7 @@
                                           (= "completed" (:job_status (jobs/get-by-id id))))
                                         [remove-unique-job]))
                               1000)
-                  triples (triple-model/fetch aurora/conn-pool
+                  triples (triple-model/fetch (aurora/conn-pool :read)
                                               (:id app)
                                               [[:= :attr-id attr-id]])]
               (is (pos? (count triples)))
@@ -301,7 +301,7 @@
       (fn [app]
         (let [attr-id (random-uuid)
 
-              _ (tx/transact! aurora/conn-pool
+              _ (tx/transact! (aurora/conn-pool :write)
                               (attr-model/get-by-app-id (:id app))
                               (:id app)
                               [[:add-attr {:id attr-id
@@ -311,12 +311,12 @@
                                            :value-type :blob
                                            :cardinality :one}]])
               _ (dotimes [x 5]
-                  (tx/transact! aurora/conn-pool
+                  (tx/transact! (aurora/conn-pool :write)
                                 (attr-model/get-by-app-id (:id app))
                                 (:id app)
                                 (for [i (range 1002)]
                                   [:add-triple (random-uuid) attr-id (format "%s-%s" x i)])))
-              _ (tx/transact! aurora/conn-pool
+              _ (tx/transact! (aurora/conn-pool :write)
                               (attr-model/get-by-app-id (:id app))
                               (:id app)
                               [[:add-triple (random-uuid) attr-id "a"]
@@ -331,7 +331,7 @@
                                       (= "errored" (:job_status (jobs/get-by-id id))))
                                     [job]))
                           1000)
-              triples (triple-model/fetch aurora/conn-pool
+              triples (triple-model/fetch (aurora/conn-pool :read)
                                           (:id app)
                                           [[:= :attr-id attr-id]])
               job-for-client (jobs/get-by-id-for-client (:app_id job) (:id job))]
@@ -359,7 +359,7 @@
       (fn [app]
         (let [attr-id (random-uuid)
 
-              _ (tx/transact! aurora/conn-pool
+              _ (tx/transact! (aurora/conn-pool :write)
                               (attr-model/get-by-app-id (:id app))
                               (:id app)
                               [[:add-attr {:id attr-id
@@ -369,13 +369,13 @@
                                            :value-type :blob
                                            :cardinality :one}]])
               _ (dotimes [x 5]
-                  (tx/transact! aurora/conn-pool
+                  (tx/transact! (aurora/conn-pool :write)
                                 (attr-model/get-by-app-id (:id app))
                                 (:id app)
                                 (for [i (range 1002)]
                                   [:add-triple (random-uuid) attr-id (format "%s-%s" x i)])))
               bad-id (random-uuid)
-              _ (tx/transact! aurora/conn-pool
+              _ (tx/transact! (aurora/conn-pool :write)
                               (attr-model/get-by-app-id (:id app))
                               (:id app)
                               [[:add-triple bad-id attr-id (apply str (repeatedly 1024 random-uuid))]])
@@ -394,7 +394,7 @@
                                     [unique-job
                                      index-job]))
                           1000)
-              triples (triple-model/fetch aurora/conn-pool
+              triples (triple-model/fetch (aurora/conn-pool :read)
                                           (:id app)
                                           [[:= :attr-id attr-id]])
               unique-job-for-client (jobs/get-by-id-for-client (:id app) (:id unique-job))

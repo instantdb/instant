@@ -8,19 +8,21 @@
    [instant.jdbc.sql :as sql]
    [instant.system-catalog :refer [system-catalog-app-id]]
    [instant.util.exception :as ex]
-   [instant.util.json :refer [->json]]
+   [instant.util.json :refer [->json <-json]]
    [instant.util.spec :as uspec]
    [instant.util.string :refer [multiline->single-line]]
    [instant.util.tracer :as tracer])
   (:import
-   (java.util UUID)))
+   (java.util UUID)
+   (java.time Instant LocalDate LocalDateTime ZonedDateTime ZoneOffset)
+   (java.time.format DateTimeFormatter)))
 
 ;; (XXX): Currently we allow value to be nil
 ;; In the future, we may want to _retract_ the triple if the value is nil
 (defn value? [x]
   (or (string? x) (uuid? x) (number? x) (nil? x) (boolean? x)
-      (sequential? x) (associative? x)))
-
+      (sequential? x) (associative? x)
+      (instance? java.time.Instant x)))
 
 (s/def ::attr-id uuid?)
 (s/def ::entity-id uuid?)
@@ -41,6 +43,29 @@
 (s/def ::enhanced-triple
   (s/keys :req-un [::triple ::index ::md5]))
 
+(defn fetch-lookups->eid [conn app-id lookups]
+  (if-not (seq lookups)
+    {}
+    (let [lookups-set (set lookups)
+          triples (sql/execute!
+                   conn
+                   (hsql/format
+                    {:select :*
+                     :from :triples
+                     :where [:and
+                             [:= :app-id app-id]
+                             :av
+                             (list* :or
+                                    (map
+                                     (fn [[a v]]
+                                       [:and [:= :attr-id a] [:= :value [:cast (->json v) :jsonb]]])
+                                     lookups-set))]}))
+
+          lookups->eid (->> triples
+                            (map (fn [{:keys [entity_id attr_id value]}]
+                                   [[attr_id value] entity_id]))
+                            (into {}))]
+      lookups->eid)))
 ;; ---
 ;; insert-multi!
 
@@ -189,6 +214,7 @@
                                             [:= :app-id app-id]
                                             (list* :or (for [[a v] lookup-refs]
                                                          [:and
+                                                          :av
                                                           [:= :attr-id a]
                                                           [:= :value [:cast (->json v) :jsonb]]]))]}]}]])
                   [[[:input-triples
@@ -323,6 +349,7 @@
                                                 [:= :app-id app-id]
                                                 (list* :or (for [[a v] lookup-refs]
                                                              [:and
+                                                              :av
                                                               [:= :attr-id a]
                                                               [:= :value [:cast (->json v) :jsonb]]]))]}]}]])
                       [[[:input-triples
@@ -356,6 +383,7 @@
                                                                   {:select :entity-id
                                                                    :from :triples
                                                                    :where [:and
+                                                                           :av
                                                                            [:= :app-id app-id]
                                                                            [:= :attr-id (first v)]
                                                                            [:= :value [:cast (->json (second v)) :jsonb]]]}]}
@@ -363,6 +391,7 @@
                                                    [[{:select :entity-id
                                                       :from :triples
                                                       :where [:and
+                                                              :av
                                                               [:= :app-id app-id]
                                                               [:= :attr-id (first v)]
                                                               [:= :value [:cast (->json (second v)) :jsonb]]]}
@@ -448,61 +477,44 @@
    2. Deletes all reference triples where this entity is the value:
       [_ _ id]"
   [conn app-id id+etypes]
-  (let [conds (mapcat
-               (fn [[id etype]]
-                 (let [id-lookup
-                       (if (eid-lookup-ref? id)
-                         {:select :entity-id
-                          :from :triples
-                          :where [:and
-                                  [:= :app-id app-id]
-                                  :av
-                                  [:= :attr-id (first id)]
-                                  [:=
-                                   :value-md5
-                                   [:md5 [:cast
-                                          [:cast (->json (second id)) :jsonb]
-                                          :text]]]]}
-                         id)]
-                   (if etype
-                     [[:and
-                       [:= :entity-id id-lookup]
-                       ;; Delete object triples and eav references
-                       [:in
-                        :attr-id
-                        {:select :attrs.id
-                         :from :attrs
-                         :join [:idents [:= :idents.id :attrs.forward-ident]]
-                         :where [:and
-                                 [:or
-                                  [:= :idents.app-id app-id]
-                                  [:= :idents.app-id system-catalog-app-id]]
-                                 [:= :idents.etype etype]]}]]
-                      [:and
-                       ;; Delete ref triples where we're the value
-                       :vae
-                       [:= :value-md5 [:md5 [:cast [:to_jsonb id] :text]]]
-                       [:in
-                        :attr-id
-                        {:select :attrs.id
-                         :from :attrs
-                         :join [:idents [:= :idents.id :attrs.reverse-ident]]
-                         :where [:and
-                                 [:or
-                                  [:= :idents.app-id app-id]
-                                  [:= :idents.app-id system-catalog-app-id]]
-                                 [:= :idents.etype etype]]}]]]
+  (let [query  {:with [[[:id_etypes {:columns [:entity_id :etype]}]
+                        {:values id+etypes}]
 
-                     [[:= :entity-id id-lookup]
-                      [:and
-                       :vae
-                       [:= :value-md5 [:md5 [:cast [:to_jsonb [id-lookup]] :text]]]]])))
-               id+etypes)
-        query {:delete-from :triples
-               :where [:and [:= :app-id app-id]
-                       (list* :or conds)]
-               :returning :*}]
-    (sql/do-execute! conn (hsql/format query))))
+                       [:forward_attrs
+                        {:select :triples.ctid
+                         :from   :triples
+                         :join   [:id_etypes [:= :triples.entity_id :id_etypes.entity_id]
+                                  :attrs     [:= :triples.attr_id :attrs.id]
+                                  :idents    [:= :idents.id :attrs.forward-ident]]
+                         :where  [:and
+                                  [:= :triples.app-id [:param :app-id]]
+                                  [:= :idents.etype :id_etypes.etype]
+                                  [:or
+                                   [:= :idents.app-id [:param :app-id]]
+                                   [:= :idents.app-id [:param :system-catalog-app-id]]]]}]
+
+                       [:reverse_attrs
+                        {:select :triples.ctid
+                         :from   :triples
+                         :join   [:id_etypes [:= :triples.value [:to_jsonb :id_etypes.entity_id]]
+                                  :attrs     [:= :triples.attr_id :attrs.id]
+                                  :idents    [:= :idents.id :attrs.reverse-ident]]
+                         :where  [:and
+                                  :vae
+                                  [:= :triples.app-id [:param :app-id]]
+                                  [:= :idents.etype :id_etypes.etype]
+                                  [:or
+                                   [:= :idents.app-id [:param :app-id]]
+                                   [:= :idents.app-id [:param :system-catalog-app-id]]]]}]]
+                :delete-from :triples
+                :where       [:in :ctid
+                              {:union
+                               [{:nest {:select :* :from :forward_attrs}}
+                                {:nest {:select :* :from :reverse_attrs}}]}]
+                :returning   :*}
+        params {:app-id app-id
+                :system-catalog-app-id system-catalog-app-id}]
+    (sql/do-execute! conn (hsql/format query {:params params}))))
 
 (defn delete-multi!
   "Deletes triples from postgres.
@@ -517,29 +529,28 @@
               {:columns [:app-id :entity-id :attr-id :value]}]
              {:values (mapv
                        (fn [[e a v]]
-                         [app-id
-                          (if (eid-lookup-ref? e)
-                            {:select :entity-id
-                             :from :triples
-                             :where [:and
-                                     [:= :app-id app-id]
-                                     [:= :attr-id (first e)]
-                                     [:= :value [:cast (->json (second e)) :jsonb]]]}
-                            e)
-                          a
-                          (if-not (value-lookup-ref? v)
-                            (->json v)
-                            [[[:case (value-lookupable-sql app-id a)
-                               {:select [[[:cast [:to_jsonb :entity-id] :text]]]
-                                :from [[{:select :entity-id
-                                         :from :triples
-                                         :where [:and
-                                                 [:= :app-id app-id]
-                                                 [:= :attr-id (first v)]
-                                                 [:= :value [:cast (->json (second v)) :jsonb]]]}
-                                        :lookups]]
-                                :limit 1}
-                               :else (->json v)]]])])
+                         (let [e' (if (eid-lookup-ref? e)
+                                    {:select :entity-id
+                                     :from :triples
+                                     :where [:and
+                                             [:= :app-id app-id]
+                                             [:= :attr-id (first e)]
+                                             [:= :value [:cast (->json (second e)) :jsonb]]]}
+                                    e)
+                               v' (if-not (value-lookup-ref? v)
+                                    (->json v)
+                                    [[[:case (value-lookupable-sql app-id a)
+                                       {:select [[[:cast [:to_jsonb :entity-id] :text]]]
+                                        :from [[{:select :entity-id
+                                                 :from :triples
+                                                 :where [:and
+                                                         [:= :app-id app-id]
+                                                         [:= :attr-id (first v)]
+                                                         [:= :value [:cast (->json (second v)) :jsonb]]]}
+                                                :lookups]]
+                                        :limit 1}
+                                       :else (->json v)]]])]
+                           [app-id e' a v']))
                        triples)}]
             [:enhanced-triples
              {:select [:app-id
@@ -588,10 +599,10 @@
            (concat [:and [:= :app-id app-id]] stmts)})))))
 
 (comment
-  (attr-model/delete-by-app-id! aurora/conn-pool empty-app-id)
+  (attr-model/delete-by-app-id! (aurora/conn-pool :write) empty-app-id)
   (def name-attr-id #uuid "3c0c37e2-49f7-4912-8808-02ca553cb36d")
   (attr-model/insert-multi!
-   aurora/conn-pool
+   (aurora/conn-pool :write)
    empty-app-id
    [{:id name-attr-id
      :forward-identity [#uuid "963c3f22-4389-4f5a-beea-87644409e458"
@@ -601,12 +612,12 @@
      :index? false
      :unique? false}])
   (def t [#uuid "83ae4cbf-8b19-42f6-bb8f-3eac7bd6da29" name-attr-id "Stopa"])
-  (insert-multi! aurora/conn-pool
+  (insert-multi! (aurora/conn-pool :write)
                  (attr-model/get-by-app-id empty-app-id)
                  empty-app-id
                  [t])
-  (fetch aurora/conn-pool empty-app-id)
-  (delete-multi! aurora/conn-pool empty-app-id [t]))
+  (fetch (aurora/conn-pool :read) empty-app-id)
+  (delete-multi! (aurora/conn-pool :write) empty-app-id [t]))
 
 ;; Migration for inferred types
 ;; ----------------------------
@@ -705,3 +716,67 @@
                        (inc i)))))))
       (tracer/add-data! {:attributes {:total-count @row-count}})
       {:row-count @row-count})))
+
+(defn zoned-date-time-str->instant [s]
+  (.toInstant (ZonedDateTime/parse s)))
+
+(defn local-date-time-str->instant [s]
+  (.toInstant (LocalDateTime/parse s)))
+
+(defn local-date-str->instant [s]
+  (-> (LocalDate/parse s)
+      (.atStartOfDay)
+      (.toInstant ZoneOffset/UTC)))
+
+(def offio-date-formatter (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ss"))
+
+(defn offio-date-str->instant [s]
+  (-> s
+      (LocalDateTime/parse offio-date-formatter)
+      (.toInstant ZoneOffset/UTC)))
+
+(def date-parsers [zoned-date-time-str->instant
+                   local-date-time-str->instant
+                   local-date-str->instant
+                   offio-date-str->instant])
+
+(defn try-parse-date-string [parser s]
+  (try
+    (parser s)
+    (catch Exception _e
+      nil)))
+
+(defn date-str->instant [s]
+  (loop [parsers date-parsers]
+    (when-let [parser (first parsers)]
+      (if-let [instant (try-parse-date-string parser s)]
+        instant
+        (recur (rest parsers))))))
+
+(defn json-str->instant [maybe-json]
+  (when-let [s (try
+                 (<-json maybe-json)
+                 (catch Throwable _e
+                   nil))]
+    (date-str->instant s)))
+
+(defn parse-date-value [x]
+  (cond (string? x)
+        (or (date-str->instant x)
+            (json-str->instant x)
+            (throw (Exception. (str "Unable to parse date string " x))))
+
+        (number? x)
+        (Instant/ofEpochMilli x)))
+
+(comment
+  (parse-date-value "2025-01-01T00:00:00Z")
+  (parse-date-value "2025-01-01")
+  (parse-date-value "2025-01-02T00:00:00-08")
+  (parse-date-value "\"2025-01-02T00:00:00-08\"")
+  (parse-date-value "2025-01-15 20:53:08")
+  (parse-date-value "\"2025-01-15 20:53:08\"")
+
+  ;; These should throw an exception
+  (parse-date-value "2025-01-0")
+  (parse-date-value "\"2025-01-0\""))

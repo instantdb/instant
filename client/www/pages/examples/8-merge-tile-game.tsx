@@ -6,27 +6,26 @@
  * */
 
 import config from '@/lib/config'; // hide-line
-import { init, tx, id } from '@instantdb/react';
+import { init } from '@instantdb/react';
 import { useEffect, useState } from 'react';
 
-const db = init<DBSchema, RoomSchema>({
+const db = init({
   ...config, // hide-line
   appId: __getAppId(),
 });
 
-const { useQuery, transact } = db;
 const room = db.room('main');
 
 export default function App() {
   const [hoveredSquare, setHoveredSquare] = useState(null as string | null);
   const [myColor, setMyColor] = useState(null as string | null);
-  const { isLoading, error, data } = useQuery({ boards: {} });
+  const { isLoading, error, data } = db.useQuery({ boards: {} });
   const {
     user: myPresence,
     peers,
     publishPresence,
     isLoading: isPresenceLoading,
-  } = room.usePresence();
+  } = db.rooms.usePresence(room);
 
   const boardState = data?.boards.find((b) => b.id === boardId)?.state;
 
@@ -36,8 +35,8 @@ export default function App() {
 
     // If the board doesn't exist, create it
     if (!boardState) {
-      transact([
-        tx.boards[boardId].update({
+      db.transact([
+        db.tx.boards[boardId].update({
           state: makeEmptyBoard(),
         }),
       ]);
@@ -93,14 +92,14 @@ export default function App() {
                   style={{
                     backgroundColor:
                       hoveredSquare === `${r}-${c}`
-                        ? myColor ?? undefined
+                        ? (myColor ?? undefined)
                         : boardState[`${r}-${c}`],
                   }}
                   onMouseEnter={() => setHoveredSquare(`${r}-${c}`)}
                   onMouseLeave={() => setHoveredSquare(null)}
                   onClick={() => {
-                    transact([
-                      tx.boards[boardId].merge({
+                    db.transact([
+                      db.tx.boards[boardId].merge({
                         state: {
                           [`${r}-${c}`]: myColor,
                         },
@@ -115,8 +114,8 @@ export default function App() {
         <button
           className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-4 rounded my-4"
           onClick={() => {
-            transact([
-              tx.boards[boardId].update({
+            db.transact([
+              db.tx.boards[boardId].update({
                 state: makeEmptyBoard(),
               }),
             ]);
@@ -128,18 +127,6 @@ export default function App() {
     </div>
   );
 }
-
-type DBSchema = {
-  boards: {
-    state: Record<string, string>;
-  };
-};
-
-type RoomSchema = {
-  main: {
-    presence: { color: string };
-  };
-};
 
 const boardSize = 4;
 const whiteColor = '#ffffff';

@@ -19,7 +19,7 @@
   (rand-num-str 6))
 
 (defn create!
-  ([params] (create! aurora/conn-pool params))
+  ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id id code user-id]}]
    (update-op
     conn
@@ -40,7 +40,7 @@
    (> (.between ChronoUnit/HOURS (.toInstant created-at) now) 24)))
 
 (defn consume!
-  ([params] (consume! aurora/conn-pool params))
+  ([params] (consume! (aurora/conn-pool :write) params))
   ([conn {:keys [email code app-id] :as params}]
    (update-op
     conn

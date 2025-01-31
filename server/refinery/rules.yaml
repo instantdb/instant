@@ -11,10 +11,13 @@ Samplers:
             Conditions:
               - Field: error
                 Operator: exists
+
           - Name: default rule
             Sampler:
               EMAThroughputSampler:
-                # With one server, that's about 65MM/month
                 GoalThroughputPerSec: 25
+                UseClusterSize: true
                 FieldList:
-                  - name
+                  - root.name
+                  - root.op
+                  - root.entropy

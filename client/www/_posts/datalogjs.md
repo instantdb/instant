@@ -1,7 +1,7 @@
 ---
 title: 'Datalog in Javascript'
 date: '2022-04-25'
-author: stopachka
+authors: stopachka
 ---
 
 Query engines make me feel like a wizard. I cast my incantation: “Give me all the directors and the movies where Arnold Schwarzenegger was a cast member”. Then charges zip through wires, algorithms churn on CPUs, and voila, an answer bubbles up.

@@ -8,7 +8,6 @@
             [instant.db.transaction :as tx]
             [instant.jdbc.aurora :as aurora]
             [instant.model.app :as app-model]
-            [instant.reactive.ephemeral :as eph]
             [instant.reactive.receive-queue :refer [receive-q]]
             [instant.reactive.session :as session]
             [instant.reactive.store :as store]
@@ -57,7 +56,7 @@
           attrs (attr-model/get-by-app-id config-app-id)
           ctx {:app-id (:id app)
                :attrs attrs
-               :db {:conn-pool aurora/conn-pool}}
+               :db {:conn-pool (aurora/conn-pool :read)}}
           query->transform (zipmap (map :query queries)
                                    (map :transform queries))
           ws-conn {:websocket-stub (fn [msg] (handle-msg query-results-atom
@@ -90,9 +89,7 @@
                                             :q query
                                             :return-type "tree"})}))
       (fn []
-        (session/on-close store/store-conn
-                          eph/ephemeral-store-atom
-                          socket)
+        (session/on-close store/store-conn socket)
         nil))))
 
 (defn resolve-attr-id [attrs namespaced-attr]
@@ -112,7 +109,7 @@
           machine-attr-id (resolve-attr-id
                            attrs
                            :app-users-to-triples-migration/processId)]
-      (tx/transact! aurora/conn-pool
+      (tx/transact! (aurora/conn-pool :write)
                     attrs
                     config-app-id
                     [[:add-triple eid id-attr-id eid]
@@ -128,7 +125,7 @@
                            attrs
                            :app-users-to-triples-migration/processId)
           ctx {:attrs attrs
-               :db {:conn-pool aurora/conn-pool}
+               :db {:conn-pool (aurora/conn-pool :read)}
                :app-id config-app-id}
           eids (-> (datalog/query ctx [[:ea '?e]
                                        [:ea '?e #{machine-attr-id} #{@config/process-id}]
@@ -136,7 +133,7 @@
                    :symbol-values
                    (get '?e))]
       (when (seq eids)
-        (tx/transact! aurora/conn-pool
+        (tx/transact! (aurora/conn-pool :write)
                       attrs
                       config-app-id
                       (map (fn [eid]

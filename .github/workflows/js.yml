@@ -52,6 +52,10 @@ jobs:
         working-directory: client
         run: pnpm run test
 
+      - name: Run benchmarks
+        working-directory: client
+        run: pnpm run bench
+
   detect_docs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'

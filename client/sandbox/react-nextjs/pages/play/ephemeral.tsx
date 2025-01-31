@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import Head from "next/head";
-import { Cursors, init } from "@instantdb/react";
+import { Cursors, i, init } from "@instantdb/react";
 import config from "../../config";
 
 const DemoFlags = {
@@ -13,26 +13,28 @@ const roomId = "demo-8";
 
 const name = `user ${Date.now()}`;
 
-const db = init<
-  {},
-  {
+const schema = i.schema({
+  entities: {},
+  rooms: {
     "demo-room": {
-      presence: {
-        test: number;
-        name: string;
-        cursor?: { x: number; y: number };
-      };
+      presence: i.entity({
+        test: i.number(),
+        name: i.string(),
+        cursor: i.json<{ x: number; y: number }>(),
+      }),
       topics: {
-        testTopic: { test: number };
-      };
-    };
+        testTopic: i.entity({ test: i.number() }),
+      },
+    },
     "demo-room-2": {
-      presence: {
-        test: number;
-      };
-    };
-  }
->(config);
+      presence: i.entity({
+        test: i.number(),
+      }),
+    },
+  },
+});
+
+const db = init({ ...config, schema });
 
 const room = db.room("demo-room", roomId);
 const {

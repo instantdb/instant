@@ -1,16 +1,47 @@
-import { InstantReactWeb } from '@instantdb/react';
+import { InstantReactWebDatabase } from '@instantdb/react';
 import { useEffect, useState } from 'react';
 import { DBAttr, SchemaNamespace } from '@/lib/types';
 import { dbAttrsToExplorerSchema } from '@/lib/schema';
 
+export type SearchFilterOp = '=' | '$ilike' | '$like' | '$gt' | '$lt';
+export type SearchFilter = [string, SearchFilterOp, any];
+
+function makeWhere(
+  navWhere: null | undefined | [string, any],
+  searchFilters: null | undefined | SearchFilter[],
+) {
+  const where: { [key: string]: any } = {};
+  if (navWhere) {
+    where[navWhere[0]] = navWhere[1];
+  }
+  if (searchFilters?.length) {
+    where.or = searchFilters.map(([attr, op, val]) => {
+      switch (op) {
+        case '=':
+          return { [attr]: val };
+        default:
+          return { [attr]: { [op]: val } };
+      }
+    });
+  }
+  return where;
+}
+
 // HOOKS
 export function useNamespacesQuery(
-  db: InstantReactWeb,
+  db: InstantReactWebDatabase<any>,
   selectedNs?: SchemaNamespace,
-  where?: [string, any],
+  navWhere?: [string, any],
+  searchFilters?: SearchFilter[],
   limit?: number,
   offset?: number,
+  sortAttr?: string,
+  sortAsc?: boolean,
 ) {
+  const direction: 'asc' | 'desc' = sortAsc ? 'asc' : 'desc';
+
+  const where = makeWhere(navWhere, searchFilters);
+
   const iql = selectedNs
     ? {
         [selectedNs.name]: {
@@ -20,9 +51,10 @@ export function useNamespacesQuery(
               .map((a) => [a.name, {}]),
           ),
           $: {
-            ...(where ? { where: { [where[0]]: where[1] } } : {}),
+            ...(where ? { where: where } : {}),
             ...(limit ? { limit } : {}),
             ...(offset ? { offset } : {}),
+            ...(sortAttr ? { order: { [sortAttr]: direction } } : {}),
           },
         },
       }
@@ -36,7 +68,7 @@ export function useNamespacesQuery(
           [selectedNs.name]: {
             $: {
               aggregate: 'count',
-              ...(where ? { where: { [where[0]]: where[1] } } : {}),
+              ...(where ? { where: where } : {}),
             },
           },
         }
@@ -51,7 +83,7 @@ export function useNamespacesQuery(
     allCount,
   };
 }
-export function useSchemaQuery(db: InstantReactWeb) {
+export function useSchemaQuery(db: InstantReactWebDatabase<any>) {
   const [namespaces, setNamespaces] = useState<SchemaNamespace[] | null>(null);
   // (XXX)
   // This is a hack so we can listen to all attr changes

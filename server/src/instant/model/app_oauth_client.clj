@@ -13,7 +13,7 @@
 (def etype "$oauthClients")
 
 (defn create!
-  ([params] (create! aurora/conn-pool params))
+  ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id
                  provider-id
                  client-name
@@ -61,7 +61,7 @@
         (get-entity id))))))
 
 (defn get-by-id
-  ([params] (get-by-id aurora/conn-pool params))
+  ([params] (get-by-id (aurora/conn-pool :read) params))
   ([conn {:keys [app-id id]}]
    (query-op conn
              {:app-id app-id
@@ -70,7 +70,7 @@
                (get-entity id)))))
 
 (defn get-by-client-name
-  ([params] (get-by-client-name aurora/conn-pool params))
+  ([params] (get-by-client-name (aurora/conn-pool :read) params))
   ([conn {:keys [app-id client-name]}]
    (query-op conn
              {:app-id app-id
@@ -82,7 +82,7 @@
   (ex/assert-record! (get-by-client-name params) :app-oauth-client {:args [params]}))
 
 (defn delete-by-id!
-  ([params] (delete-by-id! aurora/conn-pool params))
+  ([params] (delete-by-id! (aurora/conn-pool :write) params))
   ([conn {:keys [id app-id]}]
    (update-op conn
               {:app-id app-id
@@ -109,7 +109,8 @@
       :client-id (:client_id oauth-client)
       :client-secret (when (:client_secret oauth-client)
                        (decrypted-client-secret oauth-client))
-      :discovery-endpoint discovery-endpoint})
+      :discovery-endpoint discovery-endpoint
+      :meta (:meta oauth-client)})
     (oauth/map->GenericOAuthClient
      {:app-id (:app_id oauth-client)
       :provider-id (:provider_id oauth-client)
@@ -117,4 +118,5 @@
       :client-secret (when (:client_secret oauth-client)
                        (decrypted-client-secret oauth-client))
       :authorization-endpoint (:authorization_endpoint oauth-client)
-      :token-endpoint (:token_endpoint oauth-client)})))
+      :token-endpoint (:token_endpoint oauth-client)
+      :meta (:meta oauth-client)})))

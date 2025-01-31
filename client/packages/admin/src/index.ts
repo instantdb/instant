@@ -16,14 +16,16 @@ import {
 
   // query types
   type QueryResponse,
-  type DoNotUseQueryResponse,
-  type InstaQLQueryParams,
+  type InstaQLResponse,
+  type InstaQLParams,
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
   type InstantSchemaDatabase,
   type InstantObject,
   type InstantEntity,
+  type BackwardsCompatibleSchema,
+  type IInstantDatabase,
 
   // schema types
   type AttrsDefs,
@@ -38,8 +40,13 @@ import {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
-  type DoNotUseInstantSchema,
-  type DoNotUseUnknownSchema,
+  type InstantSchemaDef,
+  type InstantUnknownSchema,
+  type InstaQLEntity,
+  type InstaQLResult,
+  type InstantRules,
+  type UpdateParams,
+  type LinkParams,
 } from "@instantdb/core";
 
 import version from "./version";
@@ -61,15 +68,15 @@ type Config = {
   apiURI?: string;
 };
 
-type DoNotUseConfig<Schema extends DoNotUseInstantSchema<any, any, any>> = {
+type InstantConfig<Schema extends InstantSchemaDef<any, any, any>> = {
   appId: string;
   adminToken: string;
   apiURI?: string;
   schema?: Schema;
 };
 
-type DoNotUseFilledConfig<Schema extends DoNotUseInstantSchema<any, any, any>> =
-  DoNotUseConfig<Schema> & { apiURI: string };
+type InstantConfigFilled<Schema extends InstantSchemaDef<any, any, any>> =
+  InstantConfig<Schema> & { apiURI: string };
 
 type FilledConfig = Config & { apiURI: string };
 
@@ -86,9 +93,9 @@ function configWithDefaults(config: Config): FilledConfig {
   return r;
 }
 
-function doNotUseConfigWithDefaults<
-  Schema extends DoNotUseInstantSchema<any, any, any>,
->(config: DoNotUseConfig<Schema>): DoNotUseFilledConfig<Schema> {
+function instantConfigWithDefaults<
+  Schema extends InstantSchemaDef<any, any, any>,
+>(config: InstantConfig<Schema>): InstantConfigFilled<Schema> {
   const defaultConfig = {
     apiURI: "https://api.instantdb.com",
   };
@@ -170,40 +177,46 @@ async function jsonFetch(
  * Visit https://instantdb.com/dash to get your `appId` :)
  *
  * @example
- *  const db = init({ appId: "my-app-id" })
+ *  import { init } from "@instantdb/admin"
  *
- * // You can also provide a schema for type safety and editor autocomplete!
+ *  const db = init({
+ *    appId: "my-app-id",
+ *    adminToken: process.env.INSTANT_ADMIN_TOKEN
+ *  })
  *
- *  type Schema = {
- *    goals: {
- *      title: string
- *    }
- *  }
+ *  // You can also provide a schema for type safety and editor autocomplete!
  *
- *  const db = init<Schema>({ appId: "my-app-id" })
+ *  import { init } from "@instantdb/admin"
+ *  import schema from ""../instant.schema.ts";
  *
+ *  const db = init({
+ *    appId: "my-app-id",
+ *    adminToken: process.env.INSTANT_ADMIN_TOKEN,
+ *    schema,
+ *  })
+ *  // To learn more: https://instantdb.com/docs/modeling-data
  */
-function init<Schema extends {} = {}>(config: Config) {
-  return new InstantAdmin<Schema, false>(config);
+function init<
+  Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
+>(config: InstantConfig<Schema>) {
+  return new InstantAdminDatabase<Schema>(config);
 }
 
-function init_experimental<
-  Schema extends InstantGraph<any, any, any>,
-  WithCardinalityInference extends boolean = true,
->(
-  config: Config & {
-    schema: Schema;
-    cardinalityInference?: WithCardinalityInference;
-  },
-) {
-  return new InstantAdmin<Schema, WithCardinalityInference>(config);
-}
-
-function do_not_use_init_experimental<
-  Schema extends DoNotUseInstantSchema<any, any, any> = DoNotUseUnknownSchema,
->(config: DoNotUseConfig<Schema>) {
-  return new DoNotUseInstantAdmin<Schema>(config);
-}
+/**
+ * @deprecated
+ * `init_experimental` is deprecated. You can replace it with `init`.
+ *
+ * @example
+ *
+ * // Before
+ * import { init_experimental } from "@instantdb/admin"
+ * const db = init_experimental({  ...  });
+ *
+ * // After
+ * import { init } from "@instantdb/admin"
+ * const db = init({ ...  });
+ */
+const init_experimental = init;
 
 /**
  *
@@ -270,7 +283,7 @@ class InstantAdmin<
    */
   query = <
     Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLQueryParams<Schema>
+      ? InstaQLParams<Schema>
       : Exactly<Query, Q>,
   >(
     query: Q,
@@ -713,18 +726,16 @@ class Storage {
  * @example
  *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
  */
-class DoNotUseInstantAdmin<
-  Schema extends DoNotUseInstantSchema<any, any, any>,
-> {
-  config: DoNotUseFilledConfig<Schema>;
+class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
+  config: InstantConfigFilled<Schema>;
   auth: Auth;
   storage: Storage;
   impersonationOpts?: ImpersonationOpts;
 
   public tx = txInit<Schema>();
 
-  constructor(_config: DoNotUseConfig<Schema>) {
-    this.config = doNotUseConfigWithDefaults(_config);
+  constructor(_config: InstantConfig<Schema>) {
+    this.config = instantConfigWithDefaults(_config);
     this.auth = new Auth(this.config);
     this.storage = new Storage(this.config);
   }
@@ -738,8 +749,8 @@ class DoNotUseInstantAdmin<
    * @example
    *  await db.asUser({email: "stopa@instantdb.com"}).query({ goals: {} })
    */
-  asUser = (opts: ImpersonationOpts): DoNotUseInstantAdmin<Schema> => {
-    const newClient = new DoNotUseInstantAdmin<Schema>({
+  asUser = (opts: ImpersonationOpts): InstantAdminDatabase<Schema> => {
+    const newClient = new InstantAdminDatabase<Schema>({
       ...this.config,
     });
     newClient.impersonationOpts = opts;
@@ -761,15 +772,15 @@ class DoNotUseInstantAdmin<
    *  // all goals, _alongside_ their todos
    *  await db.query({ goals: { todos: {} } })
    */
-  query = <Q extends InstaQLQueryParams<Schema>>(
+  query = <Q extends InstaQLParams<Schema>>(
     query: Q,
-  ): Promise<DoNotUseQueryResponse<Q, Schema>> => {
+  ): Promise<InstaQLResponse<Schema, Q>> => {
     return jsonFetch(`${this.config.apiURI}/admin/query`, {
       method: "POST",
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({
         query: query,
-        "inference?": true,
+        "inference?": !!this.config.schema,
       }),
     });
   };
@@ -805,7 +816,10 @@ class DoNotUseInstantAdmin<
     return jsonFetch(`${this.config.apiURI}/admin/transact`, {
       method: "POST",
       headers: authorizedHeaders(this.config, this.impersonationOpts),
-      body: JSON.stringify({ steps: steps }),
+      body: JSON.stringify({
+        steps: steps,
+        "throw-on-missing-attrs?": !!this.config.schema,
+      }),
     });
   };
 
@@ -830,11 +844,11 @@ class DoNotUseInstantAdmin<
    *    { rules: { goals: { allow: { read: "auth.id != null" } } }
    *  )
    */
-  debugQuery = async <Q extends InstaQLQueryParams<Schema>>(
+  debugQuery = async <Q extends InstaQLParams<Schema>>(
     query: Q,
     opts?: { rules: any },
   ): Promise<{
-    result: DoNotUseQueryResponse<Q, Schema>;
+    result: InstaQLResponse<Schema, Q>;
     checkResults: DebugCheckResult[];
   }> => {
     const response = await jsonFetch(
@@ -892,7 +906,6 @@ class DoNotUseInstantAdmin<
 export {
   init,
   init_experimental,
-  do_not_use_init_experimental,
   id,
   tx,
   lookup,
@@ -904,10 +917,11 @@ export {
   type TransactionChunk,
   type DebugCheckResult,
   type InstantAdmin,
+  type InstantAdminDatabase,
 
   // core types
   type User,
-  type InstaQLQueryParams,
+  type InstaQLParams,
   type Query,
 
   // query types
@@ -916,8 +930,10 @@ export {
   type InstantQueryResult,
   type InstantSchema,
   type InstantSchemaDatabase,
+  type IInstantDatabase,
   type InstantObject,
   type InstantEntity,
+  type BackwardsCompatibleSchema,
 
   // schema types
   type AttrsDefs,
@@ -932,6 +948,11 @@ export {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
-  type DoNotUseInstantSchema,
-  type DoNotUseUnknownSchema,
+  type InstantSchemaDef,
+  type InstantUnknownSchema,
+  type InstaQLEntity,
+  type InstaQLResult,
+  type InstantRules,
+  type UpdateParams,
+  type LinkParams,
 };

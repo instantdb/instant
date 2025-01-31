@@ -1,14 +1,11 @@
 import type {
-  // types
-  Config,
-  DoNotUseConfig,
-  InstantGraph,
-  DoNotUseInstantSchema,
-  RoomSchemaShape,
-  DoNotUseUnknownSchema,
+  InstantConfig,
+  InstantSchemaDef,
+  InstantUnknownSchema,
 } from "@instantdb/core";
-import { InstantReactWeb } from "./InstantReactWeb";
-import { DoNotUseInstantReactWeb } from "./DoNotUseInstantReactWeb";
+
+import InstantReactWebDatabase from "./InstantReactWebDatabase";
+import version from "./version";
 
 /**
  *
@@ -17,46 +14,39 @@ import { DoNotUseInstantReactWeb } from "./DoNotUseInstantReactWeb";
  * Visit https://instantdb.com/dash to get your `appId` :)
  *
  * @example
+ *  import { init } from "@instantdb/react"
+ *
  *  const db = init({ appId: "my-app-id" })
  *
- * // You can also provide a schema for type safety and editor autocomplete!
+ *  // You can also provide a schema for type safety and editor autocomplete!
  *
- *  type Schema = {
- *    goals: {
- *      title: string
- *    }
- *  }
+ *  import { init } from "@instantdb/react"
+ *  import schema from ""../instant.schema.ts";
  *
- *  const db = init<Schema>({ appId: "my-app-id" })
- *
+ *  const db = init({ appId: "my-app-id", schema })
+ *  
+ *  // To learn more: https://instantdb.com/docs/modeling-data
  */
 export function init<
-  Schema extends {} = {},
-  RoomSchema extends RoomSchemaShape = {},
->(config: Config) {
-  return new InstantReactWeb<Schema, RoomSchema>(config);
+  Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
+>(config: InstantConfig<Schema>) {
+  return new InstantReactWebDatabase<Schema>(config, {
+    "@instantdb/react": version,
+  });
 }
 
-export function init_experimental<
-  Schema extends InstantGraph<any, any, any>,
-  WithCardinalityInference extends boolean = true,
->(
-  config: Config & {
-    schema: Schema;
-    cardinalityInference?: WithCardinalityInference;
-  },
-) {
-  return new InstantReactWeb<
-    Schema,
-    Schema extends InstantGraph<any, any, infer RoomSchema>
-      ? RoomSchema
-      : never,
-    WithCardinalityInference
-  >(config);
-}
-
-export function do_not_use_init_experimental<
-  Schema extends DoNotUseInstantSchema<any, any, any> = DoNotUseUnknownSchema,
->(config: DoNotUseConfig<Schema>) {
-  return new DoNotUseInstantReactWeb<Schema>(config);
-}
+/**
+ * @deprecated
+ * `init_experimental` is deprecated. You can replace it with `init`.
+ * 
+ * @example
+ *
+ * // Before
+ * import { init_experimental } from "@instantdb/react"
+ * const db = init_experimental({  ...  });
+ *
+ * // After
+ * import { init } from "@instantdb/react"
+ * const db = init({ ...  });
+ */
+export const init_experimental = init;

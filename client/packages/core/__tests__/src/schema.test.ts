@@ -1,11 +1,11 @@
 import { test } from "vitest";
 
 import { i } from "../../src";
-import type { InstaQLQueryResult } from "../../src/queryTypes";
+import type { InstaQLQueryResult, InstaQLResult } from "../../src/queryTypes";
 
 test("runs without exception", () => {
-  const graph = i.graph(
-    {
+  const schema = i.schema({
+    entities: {
       users: i.entity({
         name: i.string(),
         email: i.string().indexed().unique(),
@@ -23,7 +23,7 @@ test("runs without exception", () => {
         body: i.string(),
       }),
     },
-    {
+    links: {
       usersPosts: {
         forward: {
           on: "users",
@@ -73,7 +73,7 @@ test("runs without exception", () => {
         },
       },
     },
-  );
+  });
 
   const demoQuery = {
     users: {
@@ -88,11 +88,11 @@ test("runs without exception", () => {
     },
   };
 
-  type Graph = typeof graph;
+  type Schema = typeof schema;
 
   // Explore derived types
-  type Test1 = Graph["entities"]["users"]["links"]["_friends"]["entityName"];
-  type Test2 = Graph["entities"]["users"]["links"]["_friends"]["cardinality"];
+  type Test1 = Schema["entities"]["users"]["links"]["_friends"]["entityName"];
+  type Test2 = Schema["entities"]["users"]["links"]["_friends"]["cardinality"];
 
   // Demo time!!!  Notice:
   // - everything is typed
@@ -103,11 +103,7 @@ test("runs without exception", () => {
   // - referrer is NOT an array (because cardinality is 'one')
   // - posts is not an array (because `$first`)
   const queryResult: DemoQueryResult = null as any;
-  type DemoQueryResult = InstaQLQueryResult<
-    Graph["entities"],
-    typeof demoQuery,
-    true
-  >;
+  type DemoQueryResult = InstaQLResult<Schema, typeof demoQuery>;
   queryResult?.users[0].friends[0]._friends[0].bio;
   queryResult?.users[0].posts[0].author?.junk;
 });

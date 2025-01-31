@@ -1,13 +1,15 @@
 import {
   id,
-  init_experimental as core_init_experimental,
+  init as core_init,
   InstantQuery,
   InstantEntity,
   InstantQueryResult,
+  InstantSchema,
+  InstantSchemaDatabase,
 } from "@instantdb/core";
-import { init_experimental as react_init_experimental } from "@instantdb/react";
-import { init_experimental as react_native_init_experimental } from "@instantdb/react-native";
-import { init_experimental as admin_init_experimental } from "@instantdb/admin";
+import { init as react_init } from "@instantdb/react";
+import { init as react_native_init } from "@instantdb/react-native";
+import { init as admin_init } from "@instantdb/admin";
 import graph from "../instant.schema";
 
 type EmojiName = "fire" | "wave" | "confetti" | "heart";
@@ -31,10 +33,12 @@ type Rooms = {
 // ----
 // Core
 
-const coreDB = core_init_experimental({
+const coreDB = core_init({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
   schema: graph.withRoomSchema<Rooms>(),
 });
+type CoreSchema = InstantSchema<typeof coreDB>;
+const coreSchema: CoreSchema = graph.withRoomSchema<Rooms>();
 
 // rooms
 const coreRoom = coreDB.joinRoom("chat");
@@ -62,6 +66,10 @@ coreDB.tx.messages[id()]
 
 // type helpers
 type CoreDB = typeof coreDB;
+const s = graph.withRoomSchema<Rooms>();
+type FromSchemaDatabase = InstantSchemaDatabase<typeof s>;
+const fromSchemaDBWorks: FromSchemaDatabase = coreDB;
+
 const coreMessagesQuery = {
   messages: {
     creator: {},
@@ -89,6 +97,7 @@ function subMessagesWithCreator(
 ) {
   coreDB.subscribeQuery(coreMessagesQuery, (result) => {
     if (result.data) {
+      result.data.messages[0].creator?.email;
       resultCB(result.data);
     }
   });
@@ -97,11 +106,13 @@ function subMessagesWithCreator(
 // to silence ts warnings
 coreMessagesQuery;
 subMessagesWithCreator;
+coreSchema;
+fromSchemaDBWorks;
 
-// ----
-// React
+// // ----
+// // React
 
-const reactDB = react_init_experimental({
+const reactDB = react_init({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
   schema: graph.withRoomSchema<Rooms>(),
 });
@@ -137,6 +148,9 @@ function ReactNormalApp() {
 
 // type helpers
 type ReactDB = typeof reactDB;
+type ReactSchema = InstantSchema<typeof reactDB>;
+const reactSchema: ReactSchema = graph.withRoomSchema<Rooms>();
+
 const reactMessagesQuery = {
   messages: {
     creator: {},
@@ -167,11 +181,12 @@ function useMessagesWithCreator(): ReactMessageCreatorResult | undefined {
 // to silence ts warnings
 reactMessagesQuery;
 useMessagesWithCreator;
+reactSchema;
 
 // ----
 // React-Native
 
-const reactNativeDB = react_native_init_experimental({
+const reactNativeDB = react_native_init({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
   schema: graph.withRoomSchema<Rooms>(),
 });
@@ -203,6 +218,9 @@ function ReactNativeNormalApp() {
 
 // type helpers
 type ReactNativeDB = typeof reactNativeDB;
+type ReactNativeSchema = InstantSchema<typeof reactNativeDB>;
+const rnSchema: ReactNativeSchema = graph.withRoomSchema<Rooms>();
+
 const reactNativeMessagesQuery = {
   messages: {
     creator: {},
@@ -235,11 +253,12 @@ function useMessagesWithCreatorRN():
 // to silence ts warnings
 reactNativeMessagesQuery;
 useMessagesWithCreatorRN;
+rnSchema;
 
 // ----
 // Admin
 
-const adminDB = admin_init_experimental({
+const adminDB = admin_init({
   appId: import.meta.env.VITE_INSTANT_APP_ID!,
   adminToken: import.meta.env.VITE_INSTANT_ADMIN_TOKEN!,
   schema: graph,
@@ -287,8 +306,7 @@ async function getMessagesWithCreator(): Promise<AdminMessageCreatorResult> {
 }
 
 // to silence ts warnings
-adminMessagesQuery;
-getMessagesWithCreator;
+((..._args) => {})(adminMessagesQuery, getMessagesWithCreator);
 
 // to silence ts warnings
 export { ReactNormalApp, ReactNativeNormalApp };

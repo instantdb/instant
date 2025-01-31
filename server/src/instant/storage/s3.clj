@@ -1,7 +1,8 @@
 (ns instant.storage.s3
   (:require [clojure.java.io :as io]
             [clj-http.client :as clj-http]
-            [amazonica.aws.s3 :as s3]))
+            [amazonica.aws.s3 :as s3]
+            [instant.config :as config]))
 
 (def default-bucket "instant-storage")
 
@@ -44,29 +45,49 @@
 (defn list-app-objects
   ([prefix] (list-app-objects default-bucket prefix))
   ([bucket-name prefix]
-   (s3/list-objects-v2 {:bucket-name bucket-name :prefix prefix})))
+   (loop [all-objects []
+          continuation-token nil]
+     (let [opts (cond-> {:bucket-name bucket-name :prefix prefix}
+                  continuation-token
+                  (assoc :continuation-token continuation-token))
+           {:keys [object-summaries next-continuation-token truncated?]}
+           (list-objects-v2 opts)]
+       (if (and truncated? (< (count all-objects) 50000))
+         (recur (into all-objects object-summaries) next-continuation-token)
+         (into all-objects object-summaries))))))
 
 (comment
   (def app-id  #uuid "524bc106-1f0d-44a0-b222-923505264c47")
   (list-app-objects default-bucket app-id)
   (list-app-objects app-id))
 
+(defn generate-presigned-url
+  ([opts]
+   (let [access-key (config/s3-storage-access-key)
+         secret-key (config/s3-storage-secret-key)]
+     (if (and access-key secret-key)
+       (s3/generate-presigned-url {:access-key access-key
+                                   :secret-key secret-key} opts)
+       ;; For OSS developers, use the default credentials provider chain
+       ;; so they don't need to set up separate storage credentials
+       (s3/generate-presigned-url opts)))))
+
 (defn signed-upload-url
   ([object-key] (signed-upload-url default-bucket object-key))
   ([bucket-name object-key]
-   (s3/generate-presigned-url {:method :put
-                               :bucket-name bucket-name
-                               :key object-key})))
+   (generate-presigned-url {:method :put
+                            :bucket-name bucket-name
+                            :key object-key})))
 
 (defn signed-download-url
   ([object-key] (let [expiration (+ (System/currentTimeMillis) (* 1000 60 60 24 7))] ;; 7 days
                   (signed-download-url default-bucket object-key expiration)))
   ([object-key expiration] (signed-download-url default-bucket object-key expiration))
   ([bucket-name object-key expiration]
-   (s3/generate-presigned-url {:method :get
-                               :bucket-name bucket-name
-                               :key object-key
-                               :expiration expiration})))
+   (generate-presigned-url {:method :get
+                            :bucket-name bucket-name
+                            :key object-key
+                            :expiration expiration})))
 
 (defn upload-image-to-s3
   ([object-key image-url] (upload-image-to-s3 default-bucket object-key image-url))

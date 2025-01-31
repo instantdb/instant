@@ -14,10 +14,10 @@ tweaks.
 ### init
 
 ```javascript
-import { init, tx, id } from '@instantdb/admin';
+import { init, id } from '@instantdb/admin';
 
 const db = init({
-  appId: 'my-instant-app-id',
+  appId: INSTANT_APP_ID,
   adminToken: process.env.INSTANT_APP_ADMIN_TOKEN,
 });
 ```
@@ -42,8 +42,8 @@ if it accidentally leaks.
 ### query
 
 ```javascript
-const data = await db.query({ books: {}, users: {} });
-const { books, users } = data;
+const data = await db.query({ goals: {}, todos: {} });
+const { goals, todos } = data;
 ```
 
 In react we export `useQuery` to enable "live queries", queries that will
@@ -55,22 +55,40 @@ query once and returns a result.
 ### transact
 
 ```javascript
-const today = format(new Date(), 'MM-dd-yyyy');
 const res  = await db.transact([
-  tx.logs[id()].update({ date: today })
+  db.tx.todos[id()].update({ title: 'Get fit' })
 ])
-console.log("New log entry made for" today, "with tx-id", res["tx-id"])
+console.log("New todo entry made for with tx-id", res["tx-id"])
 ```
 
 `transact` is an async function that behaves nearly identical to `transact`
 from `@instantdb/react`. It returns a `tx-id` on success.
+
+## Schema
+
+`init` also accepts a schema argument:
+
+```typescript
+import { init, id } from '@instantdb/admin';
+import schema from '../instant.schema.ts';
+
+const db = init({
+  appId: process.env.INSTANT_APP_ID,
+  adminToken: process.env.INSTANT_APP_ADMIN_TOKEN,
+  schema,
+});
+```
+
+If you add a schema, `db.query` and `db.transact` will come with autocompletion and typesafety out of the box. The backend will also use your schema to generate missing attributes.
+
+To learn more about writing schemas, head on over to the [Modeling your data](/docs/modeling-data) section.
 
 ## Impersonating users
 
 When you use the admin SDK, you can make _any_ query or transaction. As an admin, you bypass permissions.
 But, sometimes you want to make queries on behalf of your users, and would like to respect permissions.
 
-You can do this with the `asUser` function.
+You can do this with the `db.asUser` function.
 
 ```javascript
 // Scope by their email
@@ -86,9 +104,7 @@ await scopedDb.query({ logs: {} });
 
 ## Retrieve a user
 
-As an admin, you can retrieve an app user record by `email`, `id`, or `refresh_token`.
-
-You can do this with the `auth.getUser` function.
+As an admin, you can retrieve an app user record by `email`, `id`, or `refresh_token`. You can do this with the `db.auth.getUser` function.
 
 ```javascript
 const user = await db.auth.getUser({ email: 'alyssa_p_hacker@instantdb.com' });
@@ -102,9 +118,7 @@ const user = await db.auth.getUser({
 
 ## Delete a user
 
-You can also delete an app user record by `email`, `id`, or `refresh_token`.
-
-You can do this with the `auth.deleteUser` function.
+You can also delete an app user record by `email`, `id`, or `refresh_token`. You can do this with the `db.auth.deleteUser` function.
 
 ```javascript
 const deletedUser = await db.auth.deleteUser({
@@ -118,21 +132,17 @@ const deletedUser = await db.auth.deleteUser({
 });
 ```
 
-Note that this _only_ deletes the user record. It does not delete all user data.
-
-If you want to delete all of a user's data, you'll need to do it manually:
+Note that this _only_ deletes the user record. It does not delete all user data. If you want to delete all of a user's data, you'll need to do it manually:
 
 ```javascript
-const { foo, bar, baz } = await db.query({
-  foo: { $: { where: { creatorId: userId } } },
-  bar: { $: { where: { creatorId: userId } } },
-  baz: { $: { where: { creatorId: userId } } },
+const { goals, todos } = await db.query({
+  goals: { $: { where: { creator: userId } } },
+  todos: { $: { where: { creator: userId } } },
 });
 
 await db.transact([
-  ...foo.map((item) => tx.foo[item.id].delete()),
-  ...bar.map((item) => tx.bar[item.id].delete()),
-  ...baz.map((item) => tx.baz[item.id].delete()),
+  ...goals.map((item) => db.tx.goals[item.id].delete()),
+  ...todos.map((item) => tx.todos[item.id].delete()),
 ]);
 // Now we can delete the user
 await db.auth.deleteUser({ id: userId });
@@ -140,8 +150,8 @@ await db.auth.deleteUser({ id: userId });
 
 ## Sign Out
 
-The `auth.signOut` method allows you to log out a user by invalidating any tokens
-associated with their email. This can be useful when you want to forcibly log out a user from your application.
+The `db.auth.signOut` method allows you to log out a user by invalidating any tokens
+associated with their email. This can be useful when you want to forcibly log out a user from your application:
 
 ```javascript
 try {
@@ -154,11 +164,13 @@ try {
 
 ## Custom Auth
 
-You can use the Admin SDK to create your own authentication flows. You can initiate a sign in flow from your frontend and generate an authentication token on your backend.
+You can use the Admin SDK to create your own authentication flows. To implement custom auth flows, you would make one change in your backend, and one change in your frontend. Here's how it would look: 
 
-### Backend: db.auth.createToken
+### 1. Backend: db.auth.createToken
 
-On the backend, you can have an endpoint use `db.auth.createToken` to generate an authentication token for a user.
+Create a new `sign-in` endpoint in your backend. 
+
+This endpoint will use `db.auth.createToken` to generate an authentication token for the user:
 
 ```javascript
 app.post('/sign-in', async (req, res) => {
@@ -178,15 +190,17 @@ Right now we require that every user _must_ have an email. If you need to relax 
 
 {% /callout %}
 
-### Frontend: db.auth.signInWithToken
+### 2. Frontend: db.auth.signInWithToken
 
-Your frontend can then use the generated token and sign a user in with `db.auth.signInWithToken`. Here's a full example:
+Once your frontend calls your `sign-in` endpoint, it can then use the generated token and sign a user in with `db.auth.signInWithToken`. 
+
+Here's a full example:
 
 ```javascript
 import React, { useState } from 'react';
 import { init } from '@instantdb/react';
 
-const APP_ID = '__APP_ID__';
+const APP_ID = "__APP_ID__";
 
 const db = init({ appId: APP_ID });
 
@@ -194,7 +208,7 @@ async function customSignIn(
   email: string,
   password: string
 ): Promise<{ token: string }> {
-  const response = await fetch('...', {
+  const response = await fetch('your-website.com/api/sign-in', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -256,19 +270,31 @@ function Login() {
 }
 ```
 
-## Magic code delivery: db.auth.generateMagicCode
+## Generating magic codes
 
-If you'd like to send your own sign-in emails, you can use the `db.auth.generateMagicCode` function to generate a magic code for a given email. You'll be responsible for delivering this code to the user, and they can then use it to sign in on the frontend.
+We support a [magic code flow](/docs/auth) out of the box. However, if you'd like to use your own email provider to send the code, you can do this with `db.auth.generateMagicCode` function:
+
+```typescript
+app.post('/custom-send-magic-code', async (req, res) => {
+  const { code } = await db.auth.generateMagicCode(req.body.email);
+  // Now you can use your email provider to send magic codes
+  await sendMyCustomMagicCodeEmail(req.body.email, code);
+  return res.status(200).send({ token });
+});
+```
 
 ## Authenticated Endpoints
 
-You can use the admin SDK to authenticate users in your custom endpoints.
+You can also use the admin SDK to authenticate users in your custom endpoints. This would have two steps:
 
-### Frontend: user.refresh_token
+### 1. Frontend: user.refresh_token
 
 In your frontend, the `user` object has a `refresh_token` property. You can pass this token to your endpoint:
 
 ```javascript
+// client 
+import { init } from '@instantdb/react'; 
+
 const db = init(/* ... */)
 
 function App() {
@@ -280,9 +306,9 @@ function App() {
 }
 ```
 
-### Backend: auth.verifyToken
+### 2. Backend: auth.verifyToken
 
-You can then use `auth.verifyToken` to get the associated user.
+You can then use `auth.verifyToken` to verify the `refresh_token` that was passed in.
 
 ```javascript
 app.post('/custom_endpoint', async (req, res) => {

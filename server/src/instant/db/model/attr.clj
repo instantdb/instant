@@ -114,29 +114,37 @@
 
 (def ident-name
   "Identities contain an id, etype, and label (in that order) but we consider the ident name to simply be the etype and label"
-  (partial drop 1))
+  next)
 
 (defn fwd-ident-name
   "Returns forward etype and label for an attr"
   [attr]
-  (->> attr :forward-identity ident-name))
+  (-> attr :forward-identity ident-name))
 
 (defn rev-ident-name
   "Returns reverse etype and label for an attr. Note: Reverse identity may not exist"
   [attr]
-  (->> attr :reverse-identity ident-name))
+  (-> attr :reverse-identity ident-name))
 
-(def fwd-etype
+(defn fwd-etype
   "Given an attr, return it's forward etype"
-  (comp second :forward-identity))
+  [attr]
+  (-> attr :forward-identity (nth 1)))
 
-(def fwd-label
+(defn fwd-label
   "Given an attr, return it's forward label"
-  (comp last :forward-identity))
+  [attr]
+  (-> attr :forward-identity (nth 2)))
 
-(def rev-etype
+(defn rev-etype
   "Given an attr, return it's reverse etype or nil"
-  (comp second :reverse-identity))
+  [attr]
+  (-> attr :reverse-identity (nth 1)))
+
+(defn fwd-friendly-name
+  "Given an attr, returns `etype.label`"
+  [attr]
+  (str (fwd-etype attr) "." (fwd-label attr)))
 
 ;; -------
 ;; caching
@@ -161,6 +169,7 @@
   [conn app-id]
   (with-cache-invalidation app-id
     (sql/do-execute!
+     ::delete-by-app-id!
      conn
      ["DELETE FROM attrs WHERE attrs.app_id = ?::uuid" app-id])))
 
@@ -236,18 +245,6 @@
                      "Namespaces are not allowed to start with a `$`.
                       Those are reserved for system namespaces.")}])))))
 
-(defn validate-on-deletes!
-  "Prevents users from setting on-delete :cascade on attrs. This would
-   be a nice feature to release, but it needs some thought on what
-   restrictions we put in place. The implementation also needs optimization."
-  [attrs]
-  (doseq [attr attrs]
-    (when (:on-delete attr)
-      (ex/throw-validation-err!
-       :attributes
-       attr
-       [{:message "The :on-delete property can't be set on an attribute."}]))))
-
 (defn insert-multi!
   "Attr data is expressed as one object in clj but is persisted across two tables
    in sql: `attrs` and `idents`.
@@ -255,16 +252,13 @@
    We extract relevant data for each table and build a CTE to insert into
    both tables in one statement"
   ([conn app-id attrs]
-   (insert-multi! conn app-id attrs {:allow-reserved-names? false
-                                     :allow-on-deletes? false}))
-  ([conn app-id attrs {:keys [allow-reserved-names?
-                              allow-on-deletes?]}]
+   (insert-multi! conn app-id attrs {:allow-reserved-names? false}))
+  ([conn app-id attrs {:keys [allow-reserved-names?]}]
    (when-not allow-reserved-names?
      (validate-reserved-names! attrs))
-   (when-not allow-on-deletes?
-     (validate-on-deletes! attrs))
    (with-cache-invalidation app-id
      (sql/do-execute!
+      ::insert-multi!
       conn
       (hsql/format
        {:with [[[:attr-values
@@ -367,7 +361,7 @@
 
 (defn- changes-that-require-attr-model-updates
   [updates]
-  (let [ks #{:cardinality :value-type :unique? :index?}]
+  (let [ks #{:cardinality :value-type :unique? :index? :on-delete}]
     (->> updates
          (filter (fn [x]
                    (some (partial contains? x) ks))))))
@@ -377,6 +371,7 @@
   (validate-reserved-names! updates)
   (with-cache-invalidation app-id
     (sql/do-execute!
+     ::update-multi!
      conn
      (hsql/format
       {:with (concat
@@ -387,10 +382,11 @@
                   {:values (attr-table-values app-id attr-table-updates)}]
                  [:attr-updates
                   {:update :attrs
-                   :set {:value-type (not-null-or :attr-values.value-type :attrs.value-type)
+                   :set {:value-type  (not-null-or :attr-values.value-type :attrs.value-type)
                          :cardinality (not-null-or :attr-values.cardinality :attrs.cardinality)
-                         :is-unique (not-null-or :attr-values.is-unique :attrs.is-unique)
-                         :is-indexed (not-null-or :attr-values.is-indexed :attrs.is-indexed)}
+                         :is-unique   (not-null-or :attr-values.is-unique :attrs.is-unique)
+                         :is-indexed  (not-null-or :attr-values.is-indexed :attrs.is-indexed)
+                         :on-delete   :attr-values.on-delete}
                    :from [:attr-values]
                    :where [:and
                            [:= :attrs.id :attr-values.id]
@@ -440,6 +436,7 @@
   [conn app-id ids]
   (with-cache-invalidation app-id
     (sql/do-execute!
+     ::delte-multi!
      conn
      (hsql/format
       {:delete-from :attrs
@@ -513,7 +510,8 @@
   (seekById [this id])
   (seekByFwdIdentName [this fwd-ident])
   (seekByRevIdentName [this revIdent])
-  (attrIdsForEtype [this etype]))
+  (attrIdsForEtype [this etype])
+  (unwrap [this]))
 
 ;; Creates a wrapper over attrs. Makes them act like a regular list, but
 ;; we can also index them on demand so that our access patterns will be
@@ -561,7 +559,9 @@
   (attrIdsForEtype [_this etype]
     (-> @cache
         :ids-by-etype
-        (get etype #{}))))
+        (get etype #{})))
+  (unwrap [_this]
+    elements))
 
 (defn wrap-attrs [attrs]
   (Attrs. attrs (delay (index-attrs attrs))))
@@ -572,6 +572,7 @@
   (wrap-attrs
    (map row->attr
         (sql/select
+         ::get-by-app-id*
          conn
          (hsql/format
           {:select [:attrs.*
@@ -588,10 +589,12 @@
 
 (defn get-by-app-id
   ([app-id]
-   (cache/lookup-or-miss attr-cache app-id (partial get-by-app-id* aurora/conn-pool)))
+   (cache/lookup-or-miss attr-cache app-id (partial get-by-app-id* (aurora/conn-pool :read))))
   ([conn app-id]
-   ;; Don't cache if we're using a custom connection
-   (get-by-app-id* conn app-id)))
+   (if (= conn (aurora/conn-pool :read))
+     (get-by-app-id app-id)
+     ;; Don't cache if we're using a custom connection
+     (get-by-app-id* conn app-id))))
 
 ;; ------
 ;; seek
@@ -621,22 +624,22 @@
 ;; play
 
 (comment
-  (delete-by-app-id! aurora/conn-pool empty-app-id)
+  (delete-by-app-id! (aurora/conn-pool :write) empty-app-id)
   (insert-multi!
-   aurora/conn-pool
+   (aurora/conn-pool :write)
    empty-app-id
    [(gen/generate (s/gen ::attr))])
   (map (partial s/valid? ::attr)
-       (get-by-app-id aurora/conn-pool empty-app-id))
-  (def a (first (get-by-app-id aurora/conn-pool empty-app-id)))
+       (get-by-app-id (aurora/conn-pool :read) empty-app-id))
+  (def a (first (get-by-app-id (aurora/conn-pool :read) empty-app-id)))
   (update-multi!
-   aurora/conn-pool
+   (aurora/conn-pool :write)
    empty-app-id
    [{:id (:id a)
      :forward-identity
      [(-> a :forward-identity first) "new_etype" "new_label"]
      :index? true}])
   (delete-multi!
-   aurora/conn-pool
+   (aurora/conn-pool :write)
    empty-app-id
    [(:id a)]))

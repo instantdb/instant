@@ -63,6 +63,8 @@ export function dbAttrsToExplorerSchema(
           inferredTypes: attrDesc['inferred-types'],
           catalog: attrDesc.catalog,
           checkedDataType: attrDesc['checked-data-type'],
+          sortable: attrDesc['index?'] && !!attrDesc['checked-data-type'],
+          onDelete: attrDesc['on-delete']
         };
       }
     }
@@ -86,6 +88,7 @@ export function dbAttrsToExplorerSchema(
         isUniq: attrDesc['unique?'],
         cardinality: attrDesc.cardinality,
         linkConfig,
+        sortable: attrDesc['index?'] && !!attrDesc['checked-data-type'],
       };
     }
   }

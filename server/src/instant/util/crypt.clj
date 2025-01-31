@@ -15,6 +15,7 @@
                                   HybridDecryptWrapper$WrappedHybridDecrypt
                                   HybridEncryptWrapper$WrappedHybridEncrypt)
    (com.google.crypto.tink.integration.awskms AwsKmsClient)
+   (com.google.crypto.tink.subtle Random)
    (org.apache.commons.codec.binary Hex)))
 
 (defn uuid->sha256
@@ -57,6 +58,12 @@
 
 (defn hex-string->bytes [^String s]
   (Hex/decodeHex s))
+
+(defn random-bytes [^Long size]
+  (Random/randBytes size))
+
+(defn random-hex [^Long size]
+  (bytes->hex-string (Random/randBytes size)))
 
 (defonce default-aead (atom nil))
 

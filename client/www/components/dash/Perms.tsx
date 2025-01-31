@@ -163,6 +163,7 @@ export const rulesSchema = {
             update: { type: 'string' },
             delete: { type: 'string' },
             view: { type: 'string' },
+            $default: { type: 'string' },
           },
           additionalProperties: false,
         },

@@ -177,6 +177,79 @@
                                                          (attr-model/get-by-app-id
                                                           app-id))))))))))
 
+(deftest strong-init-and-inference
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token :as _app}]
+      (let [goal-id (str (UUID/randomUUID))
+            user-id (str (UUID/randomUUID))
+            goal-owner-attr-id (str (UUID/randomUUID))
+
+            add-links [["add-attr"
+                        {:id goal-owner-attr-id
+                         :forward-identity [(UUID/randomUUID) "goals" "owner"]
+                         :reverse-identity [(UUID/randomUUID) "users" "ownedGoals"]
+                         :value-type "ref"
+                         :cardinality "one"
+                         :unique? false
+                         :index? false}]]
+            add-objects [["update" "goals"
+                          goal-id
+                          {"title" "get fit"}]
+                         ["update" "users"
+                          user-id
+                          {"name" "stopa"}]
+                         ["link" "goals"
+                          goal-id
+                          {"owner" user-id}]]
+            _add-links-ret (transact-post
+                            {:body {:steps add-links}
+                             :headers {"app-id" (str app-id)
+                                       "authorization" (str "Bearer " admin-token)}})
+            _add-objects-ret (transact-post
+                              {:body {:steps add-objects}
+                               :headers {"app-id" (str app-id)
+                                         "authorization" (str "Bearer " admin-token)}})]
+        (let [q (query-post
+                 {:body {:query {:goals {:owner {}}}}
+                  :headers {"app-id" (str app-id)
+                            "authorization" (str "Bearer " admin-token)}})
+              goal (-> q :body (get "goals") first)
+              owner-part (get goal "owner")]
+
+          (is (= "get fit" (get goal "title")))
+          (is (= 1 (count owner-part)))
+          (is (= "stopa" (get (first owner-part) "name"))))
+
+        (testing "cardinality inference works"
+          (let [q (query-post
+                   {:body {:query {:goals {:owner {}}}
+                           :inference? true}
+                    :headers {"app-id" (str app-id)
+                              "authorization" (str "Bearer " admin-token)}})
+                goal (-> q :body (get "goals") first)
+                owner (get goal "owner")]
+            (is (= "get fit" (get goal "title")))
+            (is (= "stopa" (get owner "name")))))
+
+        (testing "throw-missing-attrs works"
+          (let [{:keys [status body]} (transact-post
+                                       {:body {:steps [["update" "goals"
+                                                        goal-id
+                                                        {"myFavoriteColor" "purple"}]]
+                                               :throw-on-missing-attrs? true}
+                                        :headers {"app-id" (str app-id)
+                                                  "authorization" (str "Bearer " admin-token)}})]
+
+            (is (= 400 status))
+            (is (= #{"goals.myFavoriteColor"}
+                   (-> body
+                       :hint
+                       :errors
+                       first
+                       :hint
+                       :attributes
+                       set)))))))))
+
 (deftest refresh-tokens-test
   (with-empty-app
     (let [email "stopa@instantdb.com"]
@@ -289,8 +362,7 @@
             (is (= 200 (:status refresh-ret)))
             (is (some? token))
 
-
-            ;; retrieve user by refresh token
+;; retrieve user by refresh token
             (let [get-user-ret (app-users-get
                                 {:params {:refresh_token token}
                                  :headers {"app-id" app-id
@@ -370,8 +442,7 @@
             (is (= 200 (:status refresh-ret)))
             (is (some? token))
 
-
-            ;; delete user by refresh token
+;; delete user by refresh token
             (let [delete-user-ret (app-users-delete
                                    {:params {:refresh_token token}
                                     :headers {"app-id" app-id
@@ -633,8 +704,8 @@
                                            "authorization" (str "Bearer " admin-token)}})
                                :body)
               user (-> query-result
-                     (get "users")
-                     first)
+                       (get "users")
+                       first)
               tasks (-> user
                         (get "tasks"))]
           (is (= "Stepan" (get user "name")))
@@ -643,7 +714,7 @@
 (deftest lookups-in-links-dont-override-attrs
   (with-empty-app
     (fn [{app-id :id admin-token :admin-token}]
-      (attr-model/insert-multi! aurora/conn-pool
+      (attr-model/insert-multi! (aurora/conn-pool :write)
                                 app-id
                                 [{:id (random-uuid)
                                   :forward-identity [(random-uuid) "posts" "id"]
@@ -673,7 +744,7 @@
 
 (defn tx-validation-err [attrs steps]
   (try
-    (admin-model/->tx-steps! attrs steps)
+    (admin-model/->tx-steps! {:attrs attrs} steps)
     (catch clojure.lang.ExceptionInfo e
       (-> e ex-data ::ex/hint :errors first))))
 

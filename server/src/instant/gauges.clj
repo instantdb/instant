@@ -2,10 +2,15 @@
   "Repeatedly saves metric information in `tracer/last-calculated-metrics`."
   (:require
    [clojure.string :as str]
-   [instant.util.tracer :as tracer]
-   [instant.util.delay :as delay])
+   [instant.config :as config]
+   [instant.util.delay :as delay]
+   [instant.util.tracer :as tracer])
   (:import
-   (java.lang.management ManagementFactory GarbageCollectorMXBean)))
+   (com.sun.management GarbageCollectionNotificationInfo)
+   (java.lang.management GarbageCollectorMXBean ManagementFactory ThreadInfo)
+   (java.util.concurrent ScheduledFuture ThreadPoolExecutor)
+   (javax.management NotificationEmitter NotificationListener)
+   (javax.management.openmbean CompositeData)))
 
 (defonce gauge-metric-fns (atom {}))
 
@@ -68,13 +73,15 @@
                    :value (-> thread .getThreadCount)}
                   {:path "jvm.thread.daemon.count"
                    :value (-> thread .getDaemonThreadCount)}
-                  (for [thread-state (Thread$State/values)]
-                    {:path (str "jvm.thread." (-> thread-state str str/lower-case) ".count")
-                     :value (count
-                             (filter #(and % (= thread-state (.getThreadState %)))
-                                     (.getThreadInfo thread
-                                                     (-> thread .getAllThreadIds))))})
-                  (for [[executor description]
+                  (let [thread-groups (group-by (fn [^ThreadInfo thread-info]
+                                                  (when thread-info
+                                                    (.getThreadState thread-info)))
+                                                (.getThreadInfo thread
+                                                                (.getAllThreadIds thread)))]
+                    (for [thread-state (Thread$State/values)]
+                      {:path (str "jvm.thread." (-> thread-state str str/lower-case) ".count")
+                       :value (count (get thread-groups thread-state))}))
+                  (for [[^ThreadPoolExecutor executor description]
                         [[solo-executor "agent-pool.send-off"]
                          [pooled-executor "agent-pool.send"]]]
                     [{:path (str "jvm." description ".queue-depth")
@@ -106,22 +113,59 @@
 
 (defn straight-jacket-record-gauges []
   (try
-    (reset! tracer/last-calculated-metrics (gauges))
+    (if (= :prod (config/get-env))
+      (tracer/record-info! {:name "gauges"
+                            :attributes (gauges)})
+      ;; Run them in dev so any issues will bubble up, but don't bother
+      ;; sending anything to honeycomb
+      (gauges))
     (catch Throwable t
       (tracer/record-exception-span! t {:name "gauges/straight-jacket-record-gauges"}))))
+
+(defn make-gc-listener []
+  (reify NotificationListener
+    (handleNotification [_ notification _]
+      (when (= (.getType notification)
+               GarbageCollectionNotificationInfo/GARBAGE_COLLECTION_NOTIFICATION)
+        (let [gc-info (GarbageCollectionNotificationInfo/from
+                       ^CompositeData (.getUserData notification))]
+          (tracer/record-info!
+           {:name "gc"
+            :attributes {:gc-name (.getGcName gc-info)
+                         :action (.getGcAction gc-info)
+                         :cause (.getGcCause gc-info)
+                         :duration-ms (.getDuration (.getGcInfo gc-info))}})
+          (straight-jacket-record-gauges))))))
+
+(defn add-gc-listeners []
+  (let [cleanup-fns
+        (doall
+         (for [gc-bean (ManagementFactory/getGarbageCollectorMXBeans)
+               :when (instance? NotificationEmitter gc-bean)]
+           (let [emitter ^NotificationEmitter gc-bean
+                 listener (make-gc-listener)]
+             (.addNotificationListener emitter listener nil nil)
+             (fn []
+               (.removeNotificationListener emitter listener)))))]
+    (fn []
+      (doseq [f cleanup-fns]
+        (f)))))
 
 (defonce delay-pool (delay/make-pool! :thread-count 1))
 
 (defn start []
   (tracer/record-info! {:name "gauges/start"})
   (def record-job (delay/repeat-fn delay-pool
-                                   1000
-                                   #'straight-jacket-record-gauges)))
+                                   30000 ;; 30 seconds
+                                   #'straight-jacket-record-gauges))
+  (def cleanup-gc-listeners (add-gc-listeners)))
 
 (defn stop []
-  (.cancel record-job true))
+  (when (bound? #'record-job)
+    (.cancel ^ScheduledFuture record-job true))
+  (when (bound? #'cleanup-gc-listeners)
+    (cleanup-gc-listeners)))
 
 (defn restart []
   (stop)
   (start))
-

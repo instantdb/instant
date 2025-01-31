@@ -27,7 +27,7 @@ export default function Page({ posts }: { posts: Post[] }) {
       <div className="flex min-h-screen flex-col justify-between">
         <MainNav />
         <div className="mx-auto mt-6 max-w-4xl flex-1 space-y-4 p-4">
-          {posts.map(({ title, slug, date, author }, idx) => {
+          {posts.map(({ title, slug, date, authors }, idx) => {
             return (
               <div key={slug}>
                 <div className="mb-2">
@@ -43,7 +43,14 @@ export default function Page({ posts }: { posts: Post[] }) {
                       <H3>{title}</H3>
                     </NextLink>
                     <div className="flex justify-between text-xs font-bold uppercase text-gray-500">
-                      <span className="font-bold uppercase">{author.name}</span>
+                      <span className="space-x-1">
+                        {authors.map((author, idx) => (
+                          <span key={author.name}>
+                            {author.name}
+                            {idx !== authors.length - 1 ? ', ' : ''}
+                          </span>
+                        ))}
+                      </span>
                       {format(
                         parse(date, 'yyyy-MM-dd', new Date()),
                         'MMM do, yyyy',

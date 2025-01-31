@@ -5,6 +5,7 @@ import zenecaTriples from "./data/zeneca/triples.json";
 import { createStore, transact } from "../../src/store";
 import query from "../../src/instaql";
 import { tx } from "../../src/instatx";
+import { i } from "../../src/index";
 import * as instaml from "../../src/instaml";
 import { randomUUID } from "crypto";
 
@@ -112,6 +113,105 @@ test("Where in", () => {
       .data.users.map((x) => x.handle)
       .sort(),
   ).toEqual(["joe", "stopa"]);
+});
+
+test("Where %like%", () => {
+  expect(
+    query(
+      { store },
+      {
+        users: {
+          $: {
+            where: {
+              handle: { $like: "%o%" },
+            },
+          },
+        },
+      },
+    )
+      .data.users.map((x) => x.handle)
+      .sort(),
+  ).toEqual(["joe", "nicolegf", "stopa"]);
+});
+
+test("Where like equality", () => {
+  expect(
+    query(
+      { store },
+      {
+        users: {
+          $: {
+            where: {
+              handle: { $like: "joe" },
+            },
+          },
+        },
+      },
+    )
+      .data.users.map((x) => x.handle)
+      .sort(),
+  ).toEqual(["joe"]);
+});
+
+test("Where startsWith deep", () => {
+  expect(
+    query(
+      { store },
+      {
+        users: {
+          $: {
+            where: {
+              "bookshelves.books.title": { $like: "%Monte Cristo" },
+            },
+          },
+        },
+      },
+    )
+      .data.users.map((x) => x.handle)
+      .sort(),
+  ).toEqual(["nicolegf", "stopa"]);
+});
+
+test("Where endsWith deep", () => {
+  expect(
+    query(
+      { store },
+      {
+        users: {
+          $: {
+            where: {
+              "bookshelves.books.title": { $like: "Anti%" },
+            },
+          },
+        },
+      },
+    )
+      .data.users.map((x) => x.handle)
+      .sort(),
+  ).toEqual(["alex", "nicolegf", "stopa"]);
+});
+
+test("like case sensitivity", () => {
+  function runQuery(where) {
+    return query(
+      { store },
+      {
+        users: {
+          $: {
+            where: {
+              fullName: where,
+            },
+          },
+        },
+      },
+    )
+      .data.users.map((x) => x.fullName)
+      .sort();
+  }
+  expect(runQuery({ $like: "%O%" })).toEqual([]);
+  expect(runQuery({ $ilike: "%O%" })).toEqual(["Joe Averbukh", "Nicole"]);
+  expect(runQuery({ $like: "%j%" })).toEqual([]);
+  expect(runQuery({ $ilike: "%j%" })).toEqual(["Joe Averbukh"]);
 });
 
 test("Where and", () => {
@@ -464,6 +564,81 @@ test("multiple connections", () => {
   ]);
 });
 
+test("query forward references work with and without id", () => {
+  const bookshelf = query(
+    { store },
+    {
+      bookshelves: {
+        $: { where: { "users.handle": "stopa" } },
+      },
+    },
+  ).data.bookshelves[0];
+
+  const usersByBookshelfId = query(
+    { store },
+    {
+      users: {
+        $: { where: { "bookshelves.id": bookshelf.id } },
+      },
+    },
+  ).data.users.map((x) => x.handle);
+
+  const usersByBookshelfLinkFIeld = query(
+    { store },
+    {
+      users: {
+        $: { where: { bookshelves: bookshelf.id } },
+      },
+    },
+  ).data.users.map((x) => x.handle);
+
+  expect(usersByBookshelfId).toEqual(["stopa"]);
+  expect(usersByBookshelfLinkFIeld).toEqual(["stopa"]);
+});
+
+test("query reverse references work with and without id", () => {
+  const stopa = query(
+    { store },
+    {
+      users: {
+        $: { where: { handle: "stopa" } },
+      },
+    },
+  ).data.users[0];
+
+  const stopaBookshelvesByHandle = query(
+    { store },
+    {
+      bookshelves: {
+        $: { where: { "users.handle": "stopa" } },
+      },
+    },
+  ).data.bookshelves;
+
+  const stopaBookshelvesById = query(
+    { store },
+    {
+      bookshelves: {
+        $: { where: { "users.id": stopa.id } },
+      },
+    },
+  ).data.bookshelves;
+
+  const stopaBookshelvesByLinkField = query(
+    { store },
+    {
+      bookshelves: {
+        $: { where: { users: stopa.id } },
+      },
+    },
+  ).data.bookshelves;
+
+  expect(stopaBookshelvesByHandle.length).toBe(16);
+
+  expect(stopaBookshelvesByHandle).toEqual(stopaBookshelvesById);
+  expect(stopaBookshelvesByHandle).toEqual(stopaBookshelvesByLinkField);
+});
+
 test("objects are created by etype", () => {
   const stopa = query(
     { store },
@@ -474,10 +649,10 @@ test("objects are created by etype", () => {
     },
   ).data.users[0];
   expect(stopa.email).toEqual("stopa@instantdb.com");
-  const chunk = tx.user[stopa.id].update({
+  const chunk = tx.not_users[stopa.id].update({
     email: "this-should-not-change-users-stopa@gmail.com",
   });
-  const txSteps = instaml.transform(store.attrs, chunk);
+  const txSteps = instaml.transform({ attrs: store.attrs }, chunk);
   const newStore = transact(store, txSteps);
   const newStopa = query(
     { store: newStore },
@@ -504,7 +679,7 @@ test("object values", () => {
     jsonField: { hello: "world" },
     otherJsonField: { world: "hello" },
   });
-  const txSteps = instaml.transform(store.attrs, chunk);
+  const txSteps = instaml.transform({ attrs: store.attrs }, chunk);
   const newStore = transact(store, txSteps);
   const newStopa = query(
     { store: newStore },
@@ -661,6 +836,146 @@ test("pagination first", () => {
   expect(books.length).toEqual(10);
 });
 
+test("arbitrary ordering", () => {
+  const books = query(
+    { store },
+    { books: { $: { first: 10, order: { title: "asc" } } } },
+  );
+
+  const titles = books.data.books.map((x) => x.title);
+  expect(titles).toEqual([
+    `"Surely You're Joking, Mr. Feynman!": Adventures of a Curious Character`,
+    '"What Do You Care What Other People Think?": Further Adventures of a Curious Character',
+    "12 Rules for Life",
+    "1984",
+    "21 Lessons for the 21st Century",
+    "A Conflict of Visions",
+    "A Damsel in Distress",
+    "A Guide to the Good Life",
+    "A Hero Of Our Time",
+    "A History of Private Life: From pagan Rome to Byzantium",
+  ]);
+});
+
+test("arbitrary ordering with dates", () => {
+  const schema = i.schema({
+    entities: {
+      tests: i.entity({
+        field: i.any(),
+        date: i.date().indexed(),
+        num: i.number().indexed(),
+      }),
+    },
+  });
+
+  const txSteps = [];
+  let id = 0;
+  for (let i = -5; i < 5; i++) {
+    txSteps.push(
+      tx.tests[randomUUID()].update({
+        field: id++,
+        date: i,
+        num: i,
+      }),
+    );
+  }
+  // Add a null date
+  txSteps.push(
+    // Use predefined uuid so we can predict ordering
+    tx.tests["00000000-0000-0000-0000-000000000000"].update({
+      field: id++,
+      date: null,
+      num: null,
+    }),
+  );
+  // Add a missing date
+  txSteps.push(
+    tx.tests["00000000-0000-0000-0000-000000000001"].update({
+      field: id++,
+    }),
+  );
+  // Another null date
+  txSteps.push(
+    tx.tests["00000000-0000-0000-0000-000000000002"].update({
+      date: null,
+      num: null,
+      field: id++,
+    }),
+  );
+  // Another missing date
+  txSteps.push(
+    tx.tests["00000000-0000-0000-0000-000000000003"].update({
+      field: id++,
+    }),
+  );
+
+  const newStore = transact(
+    store,
+    instaml.transform({ attrs: store.attrs, schema: schema }, txSteps),
+  );
+
+  const descRes = query(
+    { store: newStore },
+    { tests: { $: { order: { date: "desc" } } } },
+  ).data.tests.map((x) => x.date);
+
+  const numDescRes = query(
+    { store: newStore },
+    { tests: { $: { order: { num: "desc" } } } },
+  ).data.tests.map((x) => x.num);
+
+  const descExpected = [
+    4,
+    3,
+    2,
+    1,
+    0,
+    -1,
+    -2,
+    -3,
+    -4,
+    -5,
+    undefined,
+    null,
+    undefined,
+    null,
+  ];
+
+  expect(descRes).toEqual(descExpected);
+
+  expect(numDescRes).toEqual(descExpected);
+
+  const ascRes = query(
+    { store: newStore },
+    { tests: { $: { order: { date: "asc" } } } },
+  ).data.tests.map((x) => x.date);
+
+  const numAscRes = query(
+    { store: newStore },
+    { tests: { $: { order: { num: "asc" } } } },
+  ).data.tests.map((x) => x.num);
+
+  const ascExpected = [
+    null,
+    undefined,
+    null,
+    undefined,
+    -5,
+    -4,
+    -3,
+    -2,
+    -1,
+    0,
+    1,
+    2,
+    3,
+    4,
+  ];
+
+  expect(ascRes).toEqual(ascExpected);
+  expect(numAscRes).toEqual(ascExpected);
+});
+
 test("$isNull", () => {
   const q = { books: { $: { where: { title: { $isNull: true } } } } };
   expect(query({ store }, q).data.books.length).toEqual(0);
@@ -668,7 +983,7 @@ test("$isNull", () => {
     tx.books[randomUUID()].update({ title: null }),
     tx.books[randomUUID()].update({ pageCount: 20 }),
   ];
-  const txSteps = instaml.transform(store.attrs, chunks);
+  const txSteps = instaml.transform({ attrs: store.attrs }, chunks);
   const newStore = transact(store, txSteps);
   expect(query({ store: newStore }, q).data.books.map((x) => x.title)).toEqual([
     null,
@@ -680,7 +995,7 @@ test("$isNull with relations", () => {
   const q = { users: { $: { where: { bookshelves: { $isNull: true } } } } };
   expect(query({ store }, q).data.users.length).toEqual(0);
   const chunks = [tx.users[randomUUID()].update({ handle: "dww" })];
-  const txSteps = instaml.transform(store.attrs, chunks);
+  const txSteps = instaml.transform({ attrs: store.attrs }, chunks);
   const newStore = transact(store, txSteps);
   expect(query({ store: newStore }, q).data.users.map((x) => x.handle)).toEqual(
     ["dww"],
@@ -704,7 +1019,7 @@ test("$isNull with relations", () => {
 
   const storeWithNullTitle = transact(
     newStore,
-    instaml.transform(newStore.attrs, [
+    instaml.transform({ attrs: newStore.attrs }, [
       tx.books[bookId].update({ title: null }),
     ]),
   );
@@ -723,6 +1038,22 @@ test("$isNull with relations", () => {
   expect(usersWithNullTitle).toEqual([...usersWithBook, "dww"]);
 });
 
+test("$isNull with reverse relations", () => {
+  const q = {
+    bookshelves: { $: { where: { "users.id": { $isNull: true } } }, users: {} },
+  };
+  expect(query({ store }, q).data.bookshelves.length).toBe(0);
+
+  const chunks = [
+    tx.bookshelves[randomUUID()].update({ name: "Lonely shelf" }),
+  ];
+  const txSteps = instaml.transform({ attrs: store.attrs }, chunks);
+  const newStore = transact(store, txSteps);
+  expect(
+    query({ store: newStore }, q).data.bookshelves.map((x) => x.name),
+  ).toEqual(["Lonely shelf"]);
+});
+
 test("$not", () => {
   const q = { tests: { $: { where: { val: { $not: "a" } } } } };
   expect(query({ store }, q).data.tests.length).toEqual(0);
@@ -733,12 +1064,88 @@ test("$not", () => {
     tx.tests[randomUUID()].update({ val: null }),
     tx.tests[randomUUID()].update({ undefinedVal: "d" }),
   ];
-  const txSteps = instaml.transform(store.attrs, chunks);
+  const txSteps = instaml.transform({ attrs: store.attrs }, chunks);
   const newStore = transact(store, txSteps);
   expect(query({ store: newStore }, q).data.tests.map((x) => x.val)).toEqual([
     "b",
     "c",
     null,
     undefined,
+  ]);
+});
+
+test("comparators", () => {
+  const schema = i.schema({
+    entities: {
+      tests: i.entity({
+        string: i.string().indexed(),
+        number: i.number().indexed(),
+        date: i.date().indexed(),
+        boolean: i.boolean().indexed(),
+      }),
+    },
+  });
+
+  const txSteps = [];
+  for (let i = 0; i < 5; i++) {
+    txSteps.push(
+      tx.tests[randomUUID()].update({
+        string: `${i}`,
+        number: i,
+        date: i,
+        boolean: i % 2 === 0,
+      }),
+    );
+  }
+
+  const newStore = transact(
+    store,
+    instaml.transform({ attrs: store.attrs, schema: schema }, txSteps),
+  );
+
+  function runQuery(dataType, op, value) {
+    const res = query(
+      { store: newStore },
+      {
+        tests: {
+          $: { where: { [dataType]: { [op]: value } } },
+        },
+      },
+    );
+    return res.data.tests.map((x) => x[dataType]);
+  }
+
+  expect(runQuery("string", "$gt", "2")).toEqual(["3", "4"]);
+  expect(runQuery("string", "$gte", "2")).toEqual(["2", "3", "4"]);
+  expect(runQuery("string", "$lt", "2")).toEqual(["0", "1"]);
+  expect(runQuery("string", "$lte", "2")).toEqual(["0", "1", "2"]);
+
+  expect(runQuery("number", "$gt", 2)).toEqual([3, 4]);
+  expect(runQuery("number", "$gte", 2)).toEqual([2, 3, 4]);
+  expect(runQuery("number", "$lt", 2)).toEqual([0, 1]);
+  expect(runQuery("number", "$lte", 2)).toEqual([0, 1, 2]);
+
+  expect(runQuery("date", "$gt", 2)).toEqual([3, 4]);
+  expect(runQuery("date", "$gte", 2)).toEqual([2, 3, 4]);
+  expect(runQuery("date", "$lt", 2)).toEqual([0, 1]);
+  expect(runQuery("date", "$lte", 2)).toEqual([0, 1, 2]);
+
+  // Accepts string dates
+  expect(
+    runQuery("date", "$lt", JSON.parse(JSON.stringify(new Date()))),
+  ).toEqual([0, 1, 2, 3, 4]);
+  expect(
+    runQuery("date", "$gt", JSON.parse(JSON.stringify(new Date()))),
+  ).toEqual([]);
+
+  expect(runQuery("boolean", "$gt", true)).toEqual([]);
+  expect(runQuery("boolean", "$gte", true)).toEqual([true, true, true]);
+  expect(runQuery("boolean", "$lt", true)).toEqual([false, false]);
+  expect(runQuery("boolean", "$lte", true)).toEqual([
+    true,
+    false,
+    true,
+    false,
+    true,
   ]);
 });

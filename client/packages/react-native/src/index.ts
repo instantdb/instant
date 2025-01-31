@@ -6,10 +6,11 @@ import version from "./version";
 
 import {
   // react
-  InstantReact,
-  DoNotUseInstantReact,
+  InstantReactAbstractDatabase,
 
   // types
+  type BackwardsCompatibleSchema,
+  type IInstantDatabase,
   type Config,
   type Query,
   type QueryResponse,
@@ -27,6 +28,7 @@ import {
   type InstantQueryResult,
   type InstantSchema,
   type InstantSchemaDatabase,
+  type ConnectionStatus,
 
   // schema types
   type AttrsDefs,
@@ -43,11 +45,21 @@ import {
   type ValueTypes,
   type InstantEntity,
   type ConfigWithSchema,
-  type DoNotUseInstantEntity,
-  type DoNotUseInstaQLQueryResult,
-  type DoNotUseConfig,
-  type DoNotUseInstantSchema,
-  type DoNotUseUnknownSchema,
+  type InstaQLEntity,
+  type InstaQLResult,
+  type InstantConfig,
+  type InstantSchemaDef,
+  type InstantUnknownSchema,
+  type InstantRules,
+  type UpdateParams,
+  type LinkParams,
+
+  type ExchangeCodeForTokenParams, 
+  type SendMagicCodeParams, 
+  type SendMagicCodeResponse, 
+  type SignInWithIdTokenParams, 
+  type VerifyMagicCodeParams, 
+  type VerifyResponse 
 } from "@instantdb/core";
 
 /**
@@ -57,65 +69,46 @@ import {
  * Visit https://instantdb.com/dash to get your `appId` :)
  *
  * @example
+ *  import { init } from "@instantdb/react-native"
+ *
  *  const db = init({ appId: "my-app-id" })
  *
- * // You can also provide a schema for type safety and editor autocomplete!
+ *  // You can also provide a schema for type safety and editor autocomplete!
  *
- *  type Schema = {
- *    goals: {
- *      title: string
- *    }
- *  }
+ *  import { init } from "@instantdb/react-native"
+ *  import schema from ""../instant.schema.ts";
  *
- *  const db = init<Schema>({ appId: "my-app-id" })
- *
+ *  const db = init({ appId: "my-app-id", schema })
+ *  
+ *  // To learn more: https://instantdb.com/docs/modeling-data
  */
-function init<Schema extends {} = {}, RoomSchema extends RoomSchemaShape = {}>(
-  config: Config,
-) {
-  return new InstantReactNative<Schema, RoomSchema>(config);
+function init<
+  Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
+>(config: InstantConfig<Schema>) {
+  return new InstantReactNativeDatabase<Schema>(config, {
+    "@instantdb/react-native": version,
+  });
 }
 
-function init_experimental<
-  Schema extends InstantGraph<any, any, any>,
-  WithCardinalityInference extends boolean = true,
->(
-  config: Config & {
-    schema: Schema;
-    cardinalityInference?: WithCardinalityInference;
-  },
-) {
-  return new InstantReactNative<
-    Schema,
-    Schema extends InstantGraph<any, any, infer RoomSchema>
-      ? RoomSchema
-      : never,
-    WithCardinalityInference
-  >(config);
-}
+/**
+ * @deprecated
+ * `init_experimental` is deprecated. You can replace it with `init`.
+ * 
+ * @example
+ *
+ * // Before
+ * import { init_experimental } from "@instantdb/react-native"
+ * const db = init_experimental({  ...  });
+ *
+ * // After
+ * import { init } from "@instantdb/react-native"
+ * const db = init({ ...  });
+ */
+const init_experimental = init;
 
-function do_not_use_init_experimental<
-  Schema extends DoNotUseInstantSchema<any, any, any> = DoNotUseUnknownSchema,
->(config: DoNotUseConfig<Schema>) {
-  return new DoNotUseInstantReactNative<Schema>(config);
-}
-
-class InstantReactNative<
-  Schema extends InstantGraph<any, any, any> | {} = {},
-  RoomSchema extends RoomSchemaShape = {},
-  WithCardinalityInference extends boolean = false,
-> extends InstantReact<Schema, RoomSchema, WithCardinalityInference> {
-  static Storage = Storage;
-  static NetworkListener = NetworkListener;
-
-  constructor(config: Config | ConfigWithSchema<any>) {
-    super(config, { "@instantdb/react-native": version });
-  }
-}
-
-class DoNotUseInstantReactNative<
-  Schema extends DoNotUseInstantSchema<any, any, any>,
-> extends DoNotUseInstantReact<Schema> {
+class InstantReactNativeDatabase<
+  Schema extends InstantSchemaDef<any, any, any>,
+> extends InstantReactAbstractDatabase<Schema> {
   static Storage = Storage;
   static NetworkListener = NetworkListener;
 }
@@ -123,7 +116,6 @@ class DoNotUseInstantReactNative<
 export {
   init,
   init_experimental,
-  do_not_use_init_experimental,
   id,
   tx,
   lookup,
@@ -136,11 +128,12 @@ export {
   type InstantObject,
   type User,
   type AuthState,
-  type InstantReactNative,
+  type ConnectionStatus,
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
   type InstantSchemaDatabase,
+  type IInstantDatabase,
   type InstantEntity,
   type RoomSchemaShape,
 
@@ -157,8 +150,19 @@ export {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
-  type DoNotUseInstantEntity,
-  type DoNotUseInstaQLQueryResult,
-  type DoNotUseInstantSchema,
-  type DoNotUseUnknownSchema,
+  type InstaQLEntity,
+  type InstaQLResult,
+  type InstantSchemaDef,
+  type InstantUnknownSchema,
+  type BackwardsCompatibleSchema,
+  type InstantRules,
+  type UpdateParams,
+  type LinkParams,
+
+  type ExchangeCodeForTokenParams, 
+  type SendMagicCodeParams, 
+  type SendMagicCodeResponse, 
+  type SignInWithIdTokenParams, 
+  type VerifyMagicCodeParams, 
+  type VerifyResponse 
 };

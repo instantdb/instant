@@ -1,15 +1,15 @@
 import express from "express";
 import bodyParser from "body-parser";
 import cors from "cors"; // Import cors module
-import { id, i, init_experimental } from "@instantdb/admin";
+import { id, i, init } from "@instantdb/admin";
 import { assert } from "console";
 import dotenv from "dotenv";
 import fs from "fs";
 
 dotenv.config();
 
-const schema = i.graph(
-  {
+const schema = i.schema({
+  entities: {
     goals: i.entity({
       title: i.string(),
       creatorId: i.string(),
@@ -17,7 +17,7 @@ const schema = i.graph(
     }),
     todos: i.entity({ title: i.string(), creatorId: i.string() }),
   },
-  {
+  links: {
     goalsTodos: {
       forward: {
         on: "goals",
@@ -31,9 +31,9 @@ const schema = i.graph(
       },
     },
   },
-);
+});
 
-const db = init_experimental({
+const db = init({
   apiURI: "http://localhost:8888",
   appId: process.env.INSTANT_APP_ID!,
   adminToken: process.env.INSTANT_ADMIN_TOKEN!,

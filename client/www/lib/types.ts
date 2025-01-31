@@ -158,6 +158,7 @@ export interface DBAttr {
   'inferred-types'?: Array<'string' | 'number' | 'boolean' | 'json'>;
   catalog?: 'user' | 'system';
   'checked-data-type'?: CheckedDataType;
+  'on-delete'?: 'cascade';
 }
 
 export interface SchemaNamespace {
@@ -183,6 +184,8 @@ export interface SchemaAttr {
   inferredTypes?: Array<'string' | 'number' | 'boolean' | 'json'>;
   catalog?: 'user' | 'system';
   checkedDataType?: CheckedDataType;
+  sortable: boolean;
+  onDelete?: 'cascade';
 }
 
 export type InstantError = {

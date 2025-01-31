@@ -6,6 +6,7 @@
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
+   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.model.app-admin-token :as app-admin-token-model]
    [instant.model.app-user :as app-user-model]
@@ -85,7 +86,7 @@
         inference? (-> req :body :inference? boolean)
         {:keys [app-id] :as perms} (get-perms! req)
         attrs (attr-model/get-by-app-id app-id)
-        ctx (merge {:db {:conn-pool aurora/conn-pool}
+        ctx (merge {:db {:conn-pool (aurora/conn-pool :read)}
                     :app-id app-id
                     :attrs attrs
                     :datalog-query-fn d/query
@@ -112,7 +113,7 @@
         rules-override (-> req :body :rules-override ->json <-json)
         query (ex/get-param! req [:body :query] #(when (map? %) %))
         attrs (attr-model/get-by-app-id app-id)
-        ctx (merge {:db {:conn-pool aurora/conn-pool}
+        ctx (merge {:db {:conn-pool (aurora/conn-pool :read)}
                     :app-id app-id
                     :attrs attrs
                     :datalog-query-fn d/query
@@ -140,16 +141,20 @@
 
 (defn transact-post [req]
   (let [steps (ex/get-param! req [:body :steps] #(when (coll? %) %))
+        throw-on-missing-attrs? (ex/get-optional-param!
+                                 req
+                                 [:body :throw-on-missing-attrs?] boolean)
         {:keys [app-id] :as perms} (get-perms! req)
         attrs (attr-model/get-by-app-id app-id)
-        ctx (merge {:db {:conn-pool aurora/conn-pool}
+        ctx (merge {:db {:conn-pool (aurora/conn-pool :write)}
                     :app-id app-id
                     :attrs attrs
                     :datalog-query-fn d/query
-                    :rules (rule-model/get-by-app-id aurora/conn-pool
-                                                     {:app-id app-id})}
+                    :rules (rule-model/get-by-app-id {:app-id app-id})}
                    perms)
-        tx-steps (admin-model/->tx-steps! attrs steps)
+        tx-steps (admin-model/->tx-steps! {:attrs attrs
+                                           :throw-on-missing-attrs? throw-on-missing-attrs?}
+                                          steps)
         {tx-id :id} (permissioned-tx/transact! ctx tx-steps)]
     (cond
       :else
@@ -164,13 +169,14 @@
         commit-tx (-> req :body :dangerously-commit-tx)
         dry-run (not commit-tx)
         steps (ex/get-param! req [:body :steps] #(when (coll? %) %))
+        throw-on-missing-attrs? (ex/get-optional-param!
+                                 req
+                                 [:body :throw-on-missing-attrs?] boolean)
         attrs (attr-model/get-by-app-id app-id)
         rules (if rules-override
                 {:app_id app-id :code rules-override}
-                (rule-model/get-by-app-id
-                 aurora/conn-pool
-                 {:app-id app-id}))
-        ctx (merge {:db {:conn-pool aurora/conn-pool}
+                (rule-model/get-by-app-id {:app-id app-id}))
+        ctx (merge {:db {:conn-pool (aurora/conn-pool :write)}
                     :app-id app-id
                     :attrs attrs
                     :datalog-query-fn d/query
@@ -178,7 +184,9 @@
                     :admin-check? true
                     :admin-dry-run? dry-run}
                    perms)
-        tx-steps (admin-model/->tx-steps! attrs steps)
+        tx-steps (admin-model/->tx-steps! {:attrs attrs
+                                           :throw-on-missing-attrs? throw-on-missing-attrs?}
+                                          steps)
         result (permissioned-tx/transact! ctx tx-steps)
         cleaned-result {:tx-id (:id result)
                         :all-checks-ok? (:all-checks-ok? result)
@@ -209,7 +217,7 @@
                                    "authorization" (str "Bearer " admin-token)
                                    "as-guest" "true"}}))
 
-;; -------- 
+;; --------
 ;; Refresh tokens
 
 (defn refresh-tokens-post [req]
@@ -419,11 +427,23 @@
                                   update-keys
                                   (partial string/join "-"))})))
 
+(defn with-rate-limiting [handler]
+  (fn [req]
+    (let [app-id (req->app-id! req)]
+      (if (flags/app-rate-limited? app-id)
+        (ex/throw-rate-limited!)
+        (handler req)))))
+
 (defroutes routes
-  (POST "/admin/query" [] query-post)
-  (POST "/admin/transact" [] transact-post)
-  (POST "/admin/query_perms_check" [] query-perms-check)
-  (POST "/admin/transact_perms_check" [] transact-perms-check)
+  (POST "/admin/query" []
+    (with-rate-limiting query-post))
+  (POST "/admin/transact" []
+    (with-rate-limiting transact-post))
+  (POST "/admin/query_perms_check" []
+    (with-rate-limiting query-perms-check))
+  (POST "/admin/transact_perms_check" []
+    (with-rate-limiting transact-perms-check))
+
   (POST "/admin/sign_out" [] sign-out-post)
   (POST "/admin/refresh_tokens" [] refresh-tokens-post)
   (POST "/admin/magic_code" [] magic-code-post)
@@ -431,10 +451,16 @@
   (GET "/admin/users", [] app-users-get)
   (DELETE "/admin/users", [] app-users-delete)
 
-  (POST "/admin/storage/signed-upload-url" [] signed-upload-url-post)
-  (GET "/admin/storage/signed-download-url", [] signed-download-url-get)
-  (GET "/admin/storage/files" [] files-get)
-  (DELETE "/admin/storage/files" [] file-delete) ;; single delete
-  (POST "/admin/storage/files/delete" [] files-delete) ;; bulk delete
+  (POST "/admin/storage/signed-upload-url" []
+    (with-rate-limiting signed-upload-url-post))
+  (GET "/admin/storage/signed-download-url", []
+    (with-rate-limiting signed-download-url-get))
+
+  (GET "/admin/storage/files" []
+    (with-rate-limiting files-get))
+  (DELETE "/admin/storage/files" []
+    (with-rate-limiting file-delete)) ;; single delete
+  (POST "/admin/storage/files/delete" []
+    (with-rate-limiting files-delete)) ;; bulk delete
 
   (GET "/admin/schema" [] schema-get))

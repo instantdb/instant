@@ -2,6 +2,8 @@
 title: Google OAuth
 ---
 
+{% nav-default value="native" %}
+
 Instant supports logging in your users with their Google account.
 We support flows for Web and React Native. Follow the steps below to get started.
 
@@ -85,7 +87,7 @@ import React, { useState } from 'react';
 import { init } from '@instantdb/react';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 
-const APP_ID = '__APP_ID__';
+const APP_ID = "__APP_ID__";
 
 const db = init({ appId: APP_ID });
 
@@ -166,7 +168,7 @@ Simply create an authorization URL via `db.auth.createAuthorizationURL` and then
 import React, { useState } from 'react';
 import { init } from '@instantdb/react';
 
-const APP_ID = '__APP_ID__';
+const APP_ID = "__APP_ID__";
 
 const db = init({ appId: APP_ID });
 
@@ -237,7 +239,7 @@ import {
   useAutoDiscovery,
 } from 'expo-auth-session';
 
-const APP_ID = '__APP_ID__';
+const APP_ID = "__APP_ID__";
 const db = init({ appId: APP_ID });
 
 function App() {
@@ -305,3 +307,5 @@ const styles = StyleSheet.create({
 });
 ```
 {% /conditional %}
+
+{% /nav-default %}

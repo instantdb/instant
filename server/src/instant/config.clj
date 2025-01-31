@@ -3,24 +3,46 @@
             [clojure.tools.logging :as log]
             [instant.config-edn :as config-edn]
             [instant.util.crypt :as crypt-util]
-            [lambdaisland.uri :as uri])
+            [instant.util.aws :as aws-util]
+            [instant.aurora-config :as aurora-config]
+            [lambdaisland.uri :as uri]
+            [lambdaisland.uri.normalize :as normalize])
   (:import
-   (java.net InetAddress)
-   (java.util UUID)))
+   (java.net InetAddress)))
 
-(defn get-hostname []
-  (try
-    (.getHostName (InetAddress/getLocalHost))
-    (catch Exception e
-      (log/error "Error getting hostname" e)
-      "unknown")))
+(defonce hostname
+  (delay
+    (try
+      (.getHostName (InetAddress/getLocalHost))
+      (catch Exception e
+        (log/error "Error getting hostname" e)
+        "unknown"))))
+
+(def ^:dynamic *env*
+  nil)
 
 (defn get-env []
-  (if (= "true" (System/getenv "PRODUCTION"))
-    :prod
-    (if (= "true" (System/getenv "TEST"))
-      :test
-      :dev)))
+  (cond
+    (some? *env*)                           *env*
+    (= "true" (System/getenv "PRODUCTION")) :prod
+    (= "true" (System/getenv "TEST"))       :test
+    :else                                   :dev))
+
+(defonce instance-id
+  (delay
+    (when (= :prod (get-env))
+      (aws-util/get-instance-id))))
+
+(defonce process-id
+  (delay
+    (string/replace
+     (string/join "_"
+                  [(name (get-env))
+                   (if (= :prod (get-env))
+                     @instance-id
+                     (crypt-util/random-hex 8))
+                   (crypt-util/random-hex 8)])
+     #"-" "_")))
 
 (def config-map
   (delay (do
@@ -35,6 +57,12 @@
 
 (defn instant-config-app-id []
   (-> @config-map :instant-config-app-id))
+
+(defn s3-storage-access-key []
+  (some-> @config-map :s3-storage-access-key crypt-util/secret-value))
+
+(defn s3-storage-secret-key []
+  (some-> @config-map :s3-storage-secret-key crypt-util/secret-value))
 
 (defn postmark-token []
   (some-> @config-map :postmark-token crypt-util/secret-value))
@@ -57,6 +85,9 @@
 (def discord-signups-channel-id
   "1235663275144908832")
 
+(def discord-teams-channel-id
+  "1196584090552512592")
+
 (def discord-debug-channel-id
   "1235659966627582014")
 
@@ -66,8 +97,6 @@
 (def instant-on-instant-app-id
   (when-let [app-id (System/getenv "INSTANT_ON_INSTANT_APP_ID")]
     (parse-uuid app-id)))
-
-(def drop-refresh-spam? (= "true" (System/getenv "DROP_REFRESH_SPAM")))
 
 (defn db-url->config [url]
   (cond (string/starts-with? url "jdbc")
@@ -79,8 +108,8 @@
            :dbname (if (string/starts-with? path "/")
                      (subs path 1)
                      path)
-           :username user
-           :password password
+           :user user
+           :password (normalize/percent-decode password)
            :host host
            :port (when port
                    (Integer/parseInt port))})
@@ -88,17 +117,33 @@
         :else
         (throw (Exception. "Invalid database connection string. Expected either a JDBC url or a postgres url."))))
 
-(defn get-aurora-config
-  ([] (get-aurora-config {:env (get-env)}))
-  ([{:keys [env]}]
-   (let [application-name (uri/query-encode (format "instant server; host: %s, env: %s"
-                                                    (get-hostname)
-                                                    (name env)))
-         url (or (System/getenv "DATABASE_URL")
-                 (some-> @config-map :database-url crypt-util/secret-value)
-                 "jdbc:postgresql://localhost:5432/instant")]
-     (assoc (db-url->config url)
-            :ApplicationName application-name))))
+(defn aurora-config-from-database-url []
+  (let [url (or (System/getenv "DATABASE_URL")
+                (some-> @config-map :database-url crypt-util/secret-value)
+                "jdbc:postgresql://localhost:5432/instant")]
+    (db-url->config url)))
+
+(defn aurora-config-from-cluster-id []
+  (when-let [cluster-id (or (System/getenv "DATABASE_CLUSTER_ID")
+                            (some-> @config-map :database-cluster-id))]
+    (aurora-config/rds-cluster-id->db-config cluster-id)))
+
+(defn get-aurora-config []
+  (let [application-name (uri/query-encode (format "%s, %s"
+                                                   @hostname
+                                                   @process-id))
+        config (or (aurora-config-from-cluster-id)
+                   (aurora-config-from-database-url))]
+    (assoc config
+           :ApplicationName application-name)))
+
+(defn get-next-aurora-config []
+  (when-let [cluster-id (or (System/getenv "NEXT_DATABASE_CLUSTER_ID")
+                            (some-> @config-map :next-database-cluster-id))]
+    (assoc (aurora-config/rds-cluster-id->db-config cluster-id)
+           :ApplicationName (uri/query-encode (format "%s, %s"
+                                                      @hostname
+                                                      @process-id)))))
 
 ;; ---
 ;; Stripe
@@ -155,24 +200,27 @@
      :prod "https://instantdb.com"
      "http://localhost:3000")))
 
-(defonce process-id
-  (delay
-    (str (name (get-env))
-         "_"
-         (string/replace (UUID/randomUUID) #"-" "_"))))
-
 (defn get-connection-pool-size []
   (if (= :prod (get-env)) 400 20))
 
 (defn env-integer [var-name]
-  (when (System/getenv var-name)
-    (Integer/parseInt (System/getenv var-name))))
+  (when-let [envvar (System/getenv var-name)]
+    (Integer/parseInt envvar)))
 
 (defn get-server-port []
   (or (env-integer "PORT") (env-integer "BEANSTALK_PORT") 8888))
 
 (defn get-nrepl-port []
   (or (env-integer "NREPL_PORT") 6005))
+
+(defn get-hz-port []
+  (if-let [env-port (env-integer "HZ_PORT")]
+    (if (<= 5701 env-port 5708)
+      env-port
+      (do
+        (log/error "Invalid HZ_PORT" env-port)
+        5701))
+    5701))
 
 (defn get-nrepl-bind-address []
   (or (System/getenv "NREPL_BIND_ADDRESS")
@@ -184,3 +232,5 @@
   ;; instantiate the config-map so we can fail early if it's not
   ;; valid
   @config-map)
+
+(defonce fewer-vfutures? true)

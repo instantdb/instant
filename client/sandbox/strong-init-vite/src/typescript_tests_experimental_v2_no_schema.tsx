@@ -1,19 +1,19 @@
 import {
   id,
-  do_not_use_init_experimental as core_init_experimental,
-  InstaQLQueryParams,
-  DoNotUseInstantEntity,
-  DoNotUseInstaQLQueryResult,
-  DoNotUseUnknownSchema,
+  init as core_init,
+  InstaQLParams,
+  InstaQLEntity,
+  InstaQLResult,
+  InstantUnknownSchema,
 } from "@instantdb/core";
-import { do_not_use_init_experimental as react_init_experimental } from "@instantdb/react";
-import { do_not_use_init_experimental as react_native_init_experimental } from "@instantdb/react-native";
-import { do_not_use_init_experimental as admin_init_experimental } from "@instantdb/admin";
+import { init as react_init } from "@instantdb/react";
+import { init as react_native_init } from "@instantdb/react-native";
+import { init as admin_init } from "@instantdb/admin";
 
 // ----
 // Core
 
-const coreDB = core_init_experimental({
+const coreDB = core_init({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
 });
 
@@ -46,17 +46,29 @@ coreDB.tx.posts[id()]
 // ----
 // React
 
-const reactDB = react_init_experimental({
+const reactDB = react_init({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
 });
 
 function ReactNormalApp() {
   // rooms
   const reactRoom = reactDB.room("chat");
+  
   const reactPresence = reactRoom.usePresence({ keys: ["name"] });
-  const _reactPublishEmoji = reactRoom.usePublishTopic("emoji");
   const _reactPresenceUser = reactPresence.user!;
   const _reactPresencePeers = reactPresence.peers!;
+  _reactPresenceUser.name;
+  _reactPresencePeers[0].name;
+
+  const reactPresenceNew = reactDB.rooms.usePresence(reactRoom, {keys: ["name"]});
+  const _reactPresenceUserNew = reactPresenceNew.user!;
+  const _reactPresencePeersNew = reactPresenceNew.peers!;
+  _reactPresenceUserNew.name;
+  _reactPresencePeersNew[0].name;
+
+  const _reactPublishEmoji = reactRoom.usePublishTopic("emoji");
+  const _reactPublishEmojiNew = reactDB.rooms.usePublishTopic(reactRoom, "emoji");
+
   // queries
   const { isLoading, error, data } = reactDB.useQuery({
     posts: { comments: {} },
@@ -80,12 +92,15 @@ function ReactNormalApp() {
   _reactPublishEmoji;
   _reactPresenceUser;
   _reactPresencePeers;
+  _reactPublishEmojiNew;
+  _reactPresenceUserNew;
+  _reactPresencePeersNew;
 }
 
 // ----
 // React-Native
 
-const reactNativeDB = react_native_init_experimental({
+const reactNativeDB = react_native_init({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
 });
 
@@ -93,9 +108,20 @@ function ReactNativeNormalApp() {
   // rooms
   const reactRoom = reactNativeDB.room("chat");
   const reactPresence = reactRoom.usePresence({ keys: ["name"] });
-  const _reactPublishEmoji = reactRoom.usePublishTopic("emoji");
   const _reactPresenceUser = reactPresence.user!;
   const _reactPresencePeers = reactPresence.peers!;
+  _reactPresenceUser.name;
+  _reactPresencePeers[0].name;
+  
+  const reactPresenceNew = reactNativeDB.rooms.usePresence(reactRoom, { keys: ["name"] });
+  const _reactPresenceUserNew = reactPresenceNew.user!;
+  const _reactPresencePeersNew = reactPresenceNew.peers!;
+  _reactPresenceUserNew.name;
+  _reactPresencePeersNew[0].name;
+
+  const _reactPublishEmoji = reactNativeDB.rooms.usePublishTopic(reactRoom, "emoji");
+  const _reactPublishEmojiNew = reactRoom.usePublishTopic("emoji");
+
   // queries
   const { isLoading, error, data } = reactNativeDB.useQuery({
     posts: { comments: {} },
@@ -112,12 +138,15 @@ function ReactNativeNormalApp() {
   _reactPublishEmoji;
   _reactPresenceUser;
   _reactPresencePeers;
+  _reactPublishEmojiNew;
+  _reactPresenceUserNew;
+  _reactPresencePeersNew;
 }
 
 // ----
 // Admin
 
-const adminDB = admin_init_experimental({
+const adminDB = admin_init({
   appId: import.meta.env.VITE_INSTANT_APP_ID!,
   adminToken: import.meta.env.VITE_INSTANT_ADMIN_TOKEN!,
 });
@@ -143,22 +172,22 @@ const postsQuery = {
   posts: {
     comments: {},
   },
-} satisfies InstaQLQueryParams<DoNotUseUnknownSchema>;
+} satisfies InstaQLParams<InstantUnknownSchema>;
 
-type CorePost = DoNotUseInstantEntity<DoNotUseUnknownSchema, "messages">;
+type CorePost = InstaQLEntity<InstantUnknownSchema, "messages">;
 let coreMessage: CorePost = 1 as any;
 coreMessage.id;
 
-type CorePostWithCreator = DoNotUseInstantEntity<
-  DoNotUseUnknownSchema,
+type CorePostWithCreator = InstaQLEntity<
+  InstantUnknownSchema,
   "messages",
   { creator: {} }
 >;
 let coreMessageWithCreator: CorePostWithCreator = 1 as any;
 coreMessageWithCreator.creator[0].id;
 
-type MessageCreatorResult = DoNotUseInstaQLQueryResult<
-  DoNotUseUnknownSchema,
+type MessageCreatorResult = InstaQLResult<
+  InstantUnknownSchema,
   typeof postsQuery
 >;
 

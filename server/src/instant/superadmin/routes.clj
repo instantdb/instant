@@ -13,8 +13,7 @@
             [instant.model.app-member-invites :as instant-app-member-invites-model]
             [clojure.walk :as w]
             [instant.model.rule :as rule-model]
-            [instant.model.schema :as schema-model]
-            [instant.jdbc.aurora :as aurora])
+            [instant.model.schema :as schema-model])
 
   (:import
    (java.util UUID)))
@@ -115,7 +114,7 @@
 
 (defn app-rules-get [req]
   (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
-        {:keys [code]} (rule-model/get-by-app-id aurora/conn-pool {:app-id app-id})]
+        {:keys [code]} (rule-model/get-by-app-id {:app-id app-id})]
     (response/ok {:perms code})))
 
 (defn app-rules-post [req]

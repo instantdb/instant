@@ -1,34 +1,64 @@
 import { useEffect, useState } from "react";
 import config from "../../config";
-import { init, tx, id } from "@instantdb/react";
+import { init, tx, id, i } from "@instantdb/react";
 import { useRouter } from "next/router";
+
+const schema = i.graph(
+  {
+    goals: i.entity({
+      number: i.number().indexed(),
+      date: i.date().indexed(),
+      string: i.string().indexed(),
+      boolean: i.boolean().indexed(),
+      title: i.string(),
+      sometimesNull: i.number().indexed(),
+      sometimesNullOrUndefined: i.number().indexed(),
+      sometimesNullDate: i.date().indexed(),
+    }),
+    $users: i.entity({
+      email: i.string().unique().indexed(),
+    }),
+  },
+  {},
+);
 
 function Example({ appId }: { appId: string }) {
   const router = useRouter();
-  const myConfig = { ...config, appId };
+  const myConfig = { ...config, appId, schema };
   const db = init(myConfig);
 
   const { data } = db.useQuery({ goals: {} });
 
   const [direction, setDirection] = useState<"asc" | "desc">("asc");
   const [limit, setLimit] = useState(5);
+  const [orderField, setOrderField] = useState("date");
 
-  const { data: firstFiveData } = db.useQuery({
-    goals: { $: { limit: limit, order: { serverCreatedAt: direction } } },
+  const order = { [orderField]: direction };
+
+  const { data: firstFiveData, error: firstFiveError } = db.useQuery({
+    goals: { $: { limit: limit, order } },
   });
 
-  const { data: secondFiveData, pageInfo } = db.useQuery({
+  const {
+    data: secondFiveData,
+    error: secondFiveError,
+    pageInfo,
+  } = db.useQuery({
     goals: {
-      $: { limit: limit, offset: limit, order: { serverCreatedAt: direction } },
+      $: { limit: limit, offset: limit, order },
     },
   });
 
-  const { data: thirdFiveData, pageInfo: thirdFivePageInfo } = db.useQuery({
+  const {
+    data: thirdFiveData,
+    error: thirdFiveError,
+    pageInfo: thirdFivePageInfo,
+  } = db.useQuery({
     goals: {
       $: {
         limit: limit,
         offset: limit * 2,
-        order: { serverCreatedAt: direction },
+        order,
       },
     },
   });
@@ -36,27 +66,27 @@ function Example({ appId }: { appId: string }) {
   const endCursor = pageInfo?.goals?.endCursor;
   const startCursor = pageInfo?.goals?.startCursor;
 
-  const { data: afterData } = db.useQuery({
+  const { data: afterData, error: afterError } = db.useQuery({
     goals: {
       $: {
         limit: limit,
         after: endCursor,
-        order: { serverCreatedAt: direction },
+        order,
       },
     },
   });
 
-  const { data: beforeData } = db.useQuery({
+  const { data: beforeData, error: beforeError } = db.useQuery({
     goals: {
       $: {
         last: limit,
         before: thirdFivePageInfo?.goals?.startCursor,
-        order: { serverCreatedAt: direction },
+        order,
       },
     },
   });
 
-  let maxNumber = 0;
+  let maxNumber = -10;
   for (const g of data?.goals || []) {
     maxNumber = Math.max(maxNumber, g.number ?? 0);
   }
@@ -66,7 +96,17 @@ function Example({ appId }: { appId: string }) {
     for (let i = 0; i < n; i++) {
       const number = startFrom + i;
       await db.transact([
-        tx.goals[id()].update({ number, title: `Goal ${number}` }),
+        tx.goals[id()].update({
+          number,
+          date: number,
+          string: `${number}`,
+          boolean: number % 2 === 0,
+          title: `Goal ${number}`,
+          sometimesNull: number % 2 === 0 ? null : number,
+          sometimesNullDate: number % 2 === 0 ? null : number,
+          sometimesNullOrUndefined:
+            number % 3 === 0 ? undefined : number % 3 === 1 ? null : number,
+        }),
       ]);
     }
   };
@@ -74,6 +114,13 @@ function Example({ appId }: { appId: string }) {
   const deleteAll = async () => {
     await db.transact((data?.goals || []).map((g) => tx.goals[g.id].delete()));
   };
+
+  function displayValue(x: any) {
+    if (orderField === "serverCreatedAt") {
+      return x.title;
+    }
+    return `${x.title}, ${orderField}=${x[orderField]}`;
+  }
   return (
     <div>
       <div>
@@ -109,6 +156,22 @@ function Example({ appId }: { appId: string }) {
       </div>
       <div className="p-2">
         <select
+          value={orderField}
+          onChange={(e) => setOrderField(e.target.value)}
+        >
+          <option value="serverCreatedAt">serverCreatedAt</option>
+          <option value="string">string</option>
+          <option value="number">number</option>
+          <option value="date">date</option>
+          <option value="boolean">boolean</option>
+          <option value="sometimesNull">sometimesNull</option>
+          <option value="sometimesNullOrUndefined">
+            sometimesNullOrUndefined
+          </option>
+          <option value="sometimesNullDate">sometimesNullDate</option>
+          <option value="title">title (not sortable)</option>
+        </select>
+        <select
           value={direction}
           onChange={(e) =>
             // @ts-expect-error
@@ -122,7 +185,7 @@ function Example({ appId }: { appId: string }) {
           value={limit}
           onChange={(e) => setLimit(parseInt(e.target.value, 10))}
         >
-          {[...Array(maxNumber + 5)].map((_, i) => (
+          {[...Array(data?.goals.length || 0 + 5)].map((_, i) => (
             <option key={i + 1} value={i + 1}>
               {i + 1}
             </option>
@@ -143,7 +206,7 @@ function Example({ appId }: { appId: string }) {
                 >
                   X
                 </button>{" "}
-                {g.title}
+                {displayValue(g)}
               </div>
             ))}
           </details>
@@ -152,44 +215,66 @@ function Example({ appId }: { appId: string }) {
         <div className="p-2">
           <details open>
             <summary>First {limit} goals</summary>
-
-            {firstFiveData?.goals.map((g) => <div key={g.id}>{g.title}</div>)}
+            {firstFiveError ? (
+              <pre>{JSON.stringify(firstFiveError, null, 2)}</pre>
+            ) : null}
+            {firstFiveData?.goals.map((g) => (
+              <div key={g.id}>{displayValue(g)}</div>
+            ))}
           </details>
         </div>
 
         <div className="p-2">
           <details open>
             <summary>Second {limit} goals</summary>
-
-            {secondFiveData?.goals.map((g) => <div key={g.id}>{g.title}</div>)}
+            {secondFiveError ? (
+              <pre>{JSON.stringify(secondFiveError, null, 2)}</pre>
+            ) : null}
+            {secondFiveData?.goals.map((g) => (
+              <div key={g.id}>{displayValue(g)}</div>
+            ))}
           </details>
         </div>
 
         <div className="p-2">
           <details open>
             <summary>Third {limit} goals</summary>
-
-            {thirdFiveData?.goals.map((g) => <div key={g.id}>{g.title}</div>)}
+            {thirdFiveError ? (
+              <pre>{JSON.stringify(thirdFiveError, null, 2)}</pre>
+            ) : null}
+            {thirdFiveData?.goals.map((g) => (
+              <div key={g.id}>{displayValue(g)}</div>
+            ))}
           </details>
         </div>
 
         <div className="p-2">
           <details open>
             <summary>After second goals</summary>
-
+            {afterError ? (
+              <pre>{JSON.stringify(afterError, null, 2)}</pre>
+            ) : null}
             {!endCursor
               ? null
-              : afterData?.goals.map((g) => <div key={g.id}>{g.title}</div>)}
+              : afterData?.goals.map((g) => (
+                  <div key={g.id}>{displayValue(g)}</div>
+                ))}
           </details>
         </div>
 
         <div className="p-2">
           <details open>
             <summary>Before third goals</summary>
-
+            {beforeError ? (
+              <pre className="max-w-48">
+                {JSON.stringify(beforeError, null, 2)}
+              </pre>
+            ) : null}
             {!thirdFivePageInfo?.goals?.startCursor
               ? null
-              : beforeData?.goals.map((g) => <div key={g.id}>{g.title}</div>)}
+              : beforeData?.goals.map((g) => (
+                  <div key={g.id}>{displayValue(g)}</div>
+                ))}
           </details>
         </div>
       </div>

@@ -1,24 +1,21 @@
 import config from '@/lib/config'; // hide-line
 import { init } from '@instantdb/react';
 
-const db = init<
-  {},
-  {
-    'typing-indicator-example': {
-      presence: {
-        id: string;
-        name: string;
-        color: string;
-      };
-    };
-  }
->({
+const db = init({
   ...config, // hide-line
   appId: __getAppId(),
 });
 
 const userId = Math.random().toString(36).slice(2, 6);
-const randomDarkColor = '#' + [0, 0, 0].map(() => Math.floor(Math.random() * 200).toString(16).padStart(2, '0')).join('');
+const randomDarkColor =
+  '#' +
+  [0, 0, 0]
+    .map(() =>
+      Math.floor(Math.random() * 200)
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('');
 const user = {
   id: userId,
   name: `${userId}`,
@@ -28,15 +25,18 @@ const user = {
 const room = db.room('typing-indicator-example', '1234');
 
 export default function InstantTypingIndicator() {
-  room.useSyncPresence(user);
+  db.rooms.useSyncPresence(room, user);
 
-  const presence = room.usePresence();
+  const presence = db.rooms.usePresence(room);
 
-  const { active, inputProps } = room.useTypingIndicator('chat');
+  const { active, inputProps } = db.rooms.useTypingIndicator(
+    room,
+    'chat-input',
+  );
 
   const peers = Object.values(presence.peers).filter((p) => p.id);
   const activeMap = Object.fromEntries(
-    active.map((activePeer) => [activePeer.id, activePeer])
+    active.map((activePeer) => [activePeer.id, activePeer]),
   );
 
   return (

@@ -19,7 +19,6 @@
             [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
             [instant.model.instant-user :as instant-user-model]
             [instant.postmark :as postmark]
-            [instant.reactive.ephemeral :as eph]
             [instant.reactive.receive-queue :as receive-queue]
             [instant.reactive.session :as session]
             [instant.reactive.store :as rs]
@@ -47,7 +46,6 @@
                    :app_id
                    uuid-util/coerce)]
     (session/undertow-config rs/store-conn
-                             eph/ephemeral-store-atom
                              receive-queue/receive-q
                              {:id (squuid)
                               :app-id app-id})))
@@ -120,7 +118,7 @@
         app-id (ex/get-param! req [:body :app-id] uuid-util/coerce)
         app (app-model/get-by-id! {:id app-id})
         {user-id :id :as u} (or (app-user-model/get-by-email {:app-id app-id :email email})
-                                (next-jdbc/with-transaction [conn aurora/conn-pool]
+                                (next-jdbc/with-transaction [conn (aurora/conn-pool :write)]
                                   (let [app (app-user-model/create! conn {:id (random-uuid)
                                                                           :app-id app-id
                                                                           :email email})]
@@ -291,9 +289,7 @@
                               :secure (not= :dev (config/get-env))
                               :expires cookie-expires
                               ;; matches everything under the subdirectory
-                              :path "/runtime/oauth"
-                              ;; access cookie on oauth redirect
-                              :same-site :lax}))))
+                              :path "/runtime/oauth"}))))
 
 (defn upsert-oauth-link! [{:keys [email sub app-id provider-id]}]
   (let [users (app-user-model/get-by-email-or-oauth-link-qualified
@@ -605,15 +601,14 @@
   (POST "/runtime/auth/send_magic_code" [] send-magic-code-post)
   (POST "/runtime/auth/verify_magic_code" [] verify-magic-code-post)
   (POST "/runtime/auth/verify_refresh_token" [] verify-refresh-token-post)
-  (wrap-cookies
-   (GET "/runtime/oauth/start" [] oauth-start)
-   {:decoder parse-cookie})
-  (wrap-cookies
-   (GET "/runtime/:app_id/oauth/start" [] oauth-start)
-   {:decoder parse-cookie})
-  (wrap-cookies
-   (GET "/runtime/oauth/callback" [] oauth-callback)
-   {:decoder parse-cookie})
+  (GET "/runtime/oauth/start" [] (wrap-cookies oauth-start
+                                               {:decoder parse-cookie}))
+  (GET "/runtime/:app_id/oauth/start" [] (wrap-cookies oauth-start
+                                                       {:decoder parse-cookie}))
+  (GET "/runtime/oauth/callback" [] (wrap-cookies oauth-callback
+                                                  {:decoder parse-cookie}))
+  (POST "/runtime/oauth/callback" [] (wrap-cookies oauth-callback
+                                                   {:decoder parse-cookie}))
 
   (POST "/runtime/oauth/token" [] oauth-token-callback)
   (POST "/runtime/:app_id/oauth/token" [] oauth-token-callback)

@@ -19,7 +19,7 @@ attribute by adding this to your app's [permissions](/dash?t=perms)
 
 ```json
 {
-  "attrs": { "allow": { "create": "false" } }
+  "attrs": { "allow": { "$default": "false" } }
 }
 ```
 
@@ -28,60 +28,114 @@ This will prevent any new attributes from being created.
 ## Specify attributes you want to query.
 
 When you query a namespace, it will return all the attributes for an entity.
-We don't currently support specifying which attributes you want to query. This
-means if you have private data in an entity, or some larger data you want to
-fetch sometimes, you'll want to split the entity into multiple namespaces.
-[Here's an example](https://github.com/instantdb/instant/blob/main/client/sandbox/react-nextjs/pages/patterns/split-attributes.tsx)
+We don't currently support specifying which attributes you want to query.
+
+This means if you have private data in an entity, or some larger data you want to fetch sometimes, you'll want to split the entity into multiple namespaces. [Here's an example](https://github.com/instantdb/instant/blob/main/client/sandbox/react-nextjs/pages/patterns/split-attributes.tsx)
 
 ## Setting limits via permissions.
 
 If you want to limit the number of entities a user can create, you can do so via
 permissions. Here's an example of limiting a user to creating at most 2 todos.
 
+First the [schema](/docs/modeling-data):
+
 ```typescript
 // instant.schema.ts
 // Here we define users, todos, and a link between them.
-import { i } from '@instantdb/core';
+import { i } from "@instantdb/core";
 
-const graph = i.graph(
-  {
-    users: i.entity({
-      email: i.string(),
+const _schema = i.schema({
+  entities: {
+    $users: i.entity({
+      email: i.string().unique().indexed(),
     }),
     todos: i.entity({
       label: i.string(),
     }),
   },
-  {
+  links: {
     userTodos: {
       forward: {
-        on: 'users',
-        has: 'many',
-        label: 'todos',
+        on: "todos",
+        has: "one",
+        label: "owner",
       },
       reverse: {
-        on: 'todos',
-        has: 'one',
-        label: 'owner',
+        on: "$users",
+        has: "many",
+        label: "ownedTodos",
       },
     },
-  }
-);
+  },
+});
 
-export default graph;
+// This helps Typescript display nicer intellisense
+type _AppSchema = typeof _schema;
+interface AppSchema extends _AppSchema {}
+const schema: AppSchema = _schema;
+
+export type { AppSchema };
+export default schema;
 ```
 
+Then the [permissions](/docs/permissions):
+
 ```typescript
-// instant.schema.ts
+import type { InstantRules } from '@instantdb/core';
+// instant.perms.ts
 // And now we reference the `owner` link for todos to check the number
 // of todos a user has created.
 // (Note): Make sure the `owner` link is already defined in the schema.
 // before you can reference it in the permissions.
-export {
-  "todos": {
-    "allow": {
-      "create": "size(data.ref('owner.todos.id')) <= 2",
-    }
-  }
+const rules = {
+  todos: {
+    allow: {
+      create: "size(data.ref('owner.todos.id')) <= 2",
+    },
+  },
+} satisfies InstantRules;
+
+export default rules;
+```
+
+## Listen to InstantDB connection status.
+
+Sometimes you want to let clients know when they are connected or disconnected
+to the DB. You can use `db.subscribeConnectionStatus` in vanilla JS or
+`db.useConnectionStatus` in React to listen to connection changes
+
+```typescript
+
+// Vanilla JS
+const unsub = db.subscribeConnectionStatus((status) => {
+ const connectionState =
+   status === 'connecting' || status === 'opened'
+     ? 'authenticating'
+   : status === 'authenticated'
+     ? 'connected'
+   : status === 'closed'
+     ? 'closed'
+   : status === 'errored'
+     ? 'errored'
+   : 'unexpected state';
+
+ console.log('Connection status:', connectionState);
+});
+
+// React/React Native
+function App() {
+ const status = db.useConnectionStatus()
+ const connectionState =
+   status === 'connecting' || status === 'opened'
+     ? 'authenticating'
+   : status === 'authenticated'
+     ? 'connected'
+   : status === 'closed'
+     ? 'closed'
+   : status === 'errored'
+     ? 'errored'
+   : 'unexpected state';
+
+ return <div>Connection state: {connectionState}</div>
 }
 ```

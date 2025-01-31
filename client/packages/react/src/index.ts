@@ -12,11 +12,14 @@ import {
   type InstantObject,
   type InstantEntity,
   type InstantSchemaDatabase,
+  type IInstantDatabase,
   type User,
   type AuthState,
   type Query,
   type Config,
-  type InstaQLQueryParams,
+  type InstaQLParams,
+
+  type ConnectionStatus,
 
   // schema types
   type AttrsDefs,
@@ -31,17 +34,26 @@ import {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
-  type DoNotUseInstantEntity,
-  type DoNotUseInstaQLQueryResult,
-  type DoNotUseUnknownSchema,
-  type DoNotUseInstantSchema,
+  type InstaQLEntity,
+  type InstaQLResult,
+  type InstantUnknownSchema,
+  type InstantSchemaDef,
+  type BackwardsCompatibleSchema,
+  type InstantRules,
+  type UpdateParams,
+  type LinkParams,
+  
+  type ExchangeCodeForTokenParams, 
+  type SendMagicCodeParams, 
+  type SendMagicCodeResponse, 
+  type SignInWithIdTokenParams, 
+  type VerifyMagicCodeParams, 
+  type VerifyResponse 
 } from "@instantdb/core";
 
-import { InstantReact } from "./InstantReact";
-import { DoNotUseInstantReact } from "./DoNotUseInstantReact";
-import { InstantReactWeb } from "./InstantReactWeb";
-import { DoNotUseInstantReactWeb } from "./DoNotUseInstantReactWeb";
-import { init, init_experimental, do_not_use_init_experimental } from "./init";
+import InstantReactAbstractDatabase from "./InstantReactAbstractDatabase";
+import InstantReactWebDatabase from "./InstantReactWebDatabase";
+import { init, init_experimental } from "./init";
 import { Cursors } from "./Cursors";
 
 export {
@@ -50,15 +62,12 @@ export {
   lookup,
   init,
   init_experimental,
-  do_not_use_init_experimental,
-  InstantReactWeb,
-  DoNotUseInstantReactWeb,
+  InstantReactWebDatabase,
   Cursors,
   i,
 
   // internal
-  InstantReact,
-  DoNotUseInstantReact,
+  InstantReactAbstractDatabase,
 
   // types
   type Config,
@@ -67,12 +76,14 @@ export {
   type InstantObject,
   type User,
   type AuthState,
+  type ConnectionStatus,
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
   type InstantEntity,
   type InstantSchemaDatabase,
-  type InstaQLQueryParams,
+  type IInstantDatabase,
+  type InstaQLParams,
 
   // schema types
   type AttrsDefs,
@@ -87,8 +98,18 @@ export {
   type LinksDef,
   type ResolveAttrs,
   type ValueTypes,
-  type DoNotUseInstantEntity,
-  type DoNotUseInstaQLQueryResult,
-  type DoNotUseUnknownSchema,
-  type DoNotUseInstantSchema,
+  type InstaQLEntity,
+  type InstaQLResult,
+  type InstantUnknownSchema,
+  type InstantSchemaDef,
+  type BackwardsCompatibleSchema,
+  type InstantRules,
+  type UpdateParams,
+  type LinkParams,
+  type ExchangeCodeForTokenParams, 
+  type SendMagicCodeParams, 
+  type SendMagicCodeResponse, 
+  type SignInWithIdTokenParams, 
+  type VerifyMagicCodeParams, 
+  type VerifyResponse 
 };

@@ -15,13 +15,17 @@
    4. Metadata. Sessions have auth, sockets, and other misc data for handling
       events across the lifetime of a session"
   (:require
+   [clojure.string :as string]
    [datascript.core :as d]
-   [instant.util.coll :as ucoll]
+   [instant.jdbc.sql :as sql]
    [instant.lib.ring.websocket :as ws]
    [instant.util.async :as ua]
-   [instant.util.tracer :as tracer]
+   [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
-   [medley.core :refer [dissoc-in]]))
+   [instant.util.tracer :as tracer])
+  (:import
+   (java.lang InterruptedException)
+   (java.util.concurrent CancellationException)))
 
 (declare store-conn)
 
@@ -55,7 +59,7 @@
                               :db/index true}
    :instaql-query/stale? {:db/type :db.type/boolean}
    :instaql-query/version {:db/type :db.type/integer}
-   :instaql-query/hash {:db/type :db.type/string}
+   :instaql-query/hash {:db/type :db.type/number}
    ;; This would be easier if we had a store per app
    :instaql-query/session-id+query
    {:db/tupleAttrs [:instaql-query/session-id :instaql-query/query]
@@ -64,7 +68,8 @@
 
    :subscription/session-id {:db/index true
                              :db/type :db.type/uuid}
-   :subscription/instaql-query {:db/index true} ;; instaql query (from instaql.clj)
+   :subscription/instaql-query {:db/index true
+                                :db/valueType :db.type/ref}
    :subscription/datalog-query {:db/index true
                                 :db/valueType :db.type/ref}
    :subscription/v {:db/type :db.type/integer}
@@ -89,13 +94,23 @@
       (throw exinfo))))
 
 (defn transact! [span-name conn tx-data]
-  (tracer/with-span! {:name span-name}
-    (try
-      (let [ret (d/transact! conn tx-data)]
-        (tracer/add-data! {:attributes {:changed-datoms-count (count (:tx-data ret))}})
-        ret)
-      (catch clojure.lang.ExceptionInfo e
-        (translate-datascript-exceptions e)))))
+  (let [t0 (System/nanoTime)]
+    (tracer/with-span! {:name span-name}
+      (let [t1 (System/nanoTime)]
+        (try
+          (locking conn
+            (let [t2  (System/nanoTime)
+                  ret (d/transact! conn tx-data)
+                  t3  (System/nanoTime)]
+              (tracer/add-data! {:attributes {:changed-datoms-count (count (:tx-data ret))
+                                              :span-time-ms         (-> t1 (- t0) (/ 1000000) double)
+                                              :lock-time-ms         (-> t2 (- t1) (/ 1000000) double)
+                                              :tx-time-ms           (-> t3 (- t2) (/ 1000000) double)
+                                              :db-before-size       (count (:db-before ret))
+                                              :db-after-size        (count (:db-after ret))}})
+              ret))
+          (catch clojure.lang.ExceptionInfo e
+            (translate-datascript-exceptions e)))))))
 
 ;; -----
 ;; reports
@@ -196,16 +211,14 @@
 
 (defn- remove-subscriptions-tx-data
   "Should be used in a db.fn/call. Returns transactions.
-   Retracts subscriptions for the session and instaql query."
+   Retracts the instaql-query and subscriptions for the query."
   [db session-id instaql-query]
-  (let [stale-sub-eids (d/q '{:find [?e]
-                              :in [$ ?session-id ?instaql-query]
-                              :where [[?e :subscription/session-id ?session-id]
-                                      [?e :subscription/instaql-query ?instaql-query]]}
-                            db
-                            session-id
-                            instaql-query)]
-    (map (fn [[e]] [:db/retractEntity e]) stale-sub-eids)))
+  (if-let [query-eid (d/entid db [:instaql-query/session-id+query [session-id instaql-query]])]
+    (conj (map (fn [datom]
+                 [:db/retractEntity (:e datom)])
+               (d/datoms db :avet :subscription/instaql-query query-eid))
+          [:db/retractEntity query-eid])
+    []))
 
 ;; TODO: We could do this in the background by listening to transactions
 ;;       and noticing whenever we remove a reference to a datalog entry
@@ -222,8 +235,7 @@
 (defn- -remove-query! [conn sess-id q]
   (transact! "store/remove-query!"
              conn
-             [[:db/retractEntity [:instaql-query/session-id+query [sess-id q]]]
-              [:db.fn/call remove-subscriptions-tx-data sess-id q]
+             [[:db.fn/call remove-subscriptions-tx-data sess-id q]
               [:db.fn/call clean-stale-datalog-tx-data]]))
 
 ;; --------------
@@ -232,18 +244,15 @@
 (defn- clean-stale-subscriptions-tx-data
   "Should be used in a db.fn/call. Returns transactions.
    Retracts subscriptions for an older version of an instaql query."
-  [db session-id instaql-query version]
-  (let [stale-sub-eids (d/q '{:find [?e]
-                              :in [$ ?session-id ?instaql-query ?current-v]
-                              :where [[?e :subscription/session-id ?session-id]
-                                      [?e :subscription/instaql-query ?instaql-query]
-                                      [?e :subscription/v ?v]
-                                      [(< ?v ?current-v)]]}
-                            db
-                            session-id
-                            instaql-query
-                            version)]
-    (map (fn [[e]] [:db/retractEntity e]) stale-sub-eids)))
+  [db instaql-query-lookup-ref version]
+  (if-let [query-eid (d/entid db instaql-query-lookup-ref)]
+    (keep (fn [datom]
+            (let [sub-version (:v (d/find-datom db :eavt (:e datom) :subscription/v))]
+              (when (or (not sub-version)
+                        (< sub-version version))
+                [:db/retractEntity (:e datom)])))
+          (d/datoms db :avet :subscription/instaql-query query-eid))
+    []))
 
 (defn- set-instaql-query-result-tx-data
   "Should be used in a db.fn/call. Returns transactions.
@@ -258,7 +267,7 @@
         {:keys [db-before db-after] :as res}
         (transact! "store/add-instaql-query!"
                    conn
-                   [[:db.fn/call clean-stale-subscriptions-tx-data session-id instaql-query v]
+                   [[:db.fn/call clean-stale-subscriptions-tx-data lookup-ref v]
                     [:db.fn/call clean-stale-datalog-tx-data]
                     [:db.fn/call set-instaql-query-result-tx-data lookup-ref result-hash]])
 
@@ -289,23 +298,15 @@
   "Should be used in a db.fn/call. Returns transactions.
    Retracts queries for the session."
   [db session-id]
-  (let [stale-iql-eids (d/q '{:find [?e]
-                              :in [$ ?session-id]
-                              :where [[?e :instaql-query/session-id ?session-id]]}
-                            db
-                            session-id)]
-    (map (fn [[e]] [:db/retractEntity e]) stale-iql-eids)))
+  (map (fn [{:keys [e]}] [:db/retractEntity e])
+       (d/datoms db :avet :instaql-query/session-id session-id)))
 
 (defn- remove-session-subscriptions-tx-data
   "Should be used in a db.fn/call. Returns transactions.
    Retracts subscriptions for the session."
   [db session-id]
-  (let [stale-sub-eids (d/q '{:find [?e]
-                              :in [$ ?session-id]
-                              :where [[?e :subscription/session-id ?session-id]]}
-                            db
-                            session-id)]
-    (map (fn [[e]] [:db/retractEntity e]) stale-sub-eids)))
+  (map (fn [{:keys [e]}] [:db/retractEntity e])
+       (d/datoms db :avet :subscription/session-id session-id)))
 
 (defn- -remove-session! [conn sess-id]
   (transact! "store/remove-session!"
@@ -335,22 +336,110 @@
 ;; ------
 ;; datalog cache
 
-(defn- -swap-datalog-cache-delay! [conn datalog-query delayed-call]
-  (let [lookup-ref [:datalog-query/query datalog-query]
-
+;; XXX: FIX
+(defn swap-datalog-cache! [conn app-id datalog-query-fn ctx datalog-query]
+  (let [lookup-ref [:datalog-query/app-id+query [app-id datalog-query]]
+        watcher-id (Object.)
+        this-result-delay (atom { ;; Promise holds the result of the query
+                                 :promise (promise)
+                                 ;; Watchers keep track of who started listening
+                                 ;; while the query was running, so that we can
+                                 ;; safely cancel the query if all listeners cancel
+                                 :watchers #{watcher-id}
+                                 :cancel-signal (promise)
+                                 :aborted? false})
         {:keys [db-after]}
-        (transact! "store/swap-datalog-cache-delay!"
+        (transact! "store/swap-datalog-cache!"
                    conn
-                   [[:db.fn/call (fn [db]
-                                   (if-let [existing (d/entity db lookup-ref)]
-                                     (when-not (:datalog-query/delayed-call existing)
-                                       [[:db/add
-                                         (:db/id existing)
-                                         :datalog-query/delayed-call delayed-call]])
-                                     [{:datalog-query/query datalog-query
-                                       :datalog-query/delayed-call delayed-call}]))]])]
+                   [[:db.fn/call
+                     (fn [db]
+                       (if-let [existing (d/entity db lookup-ref)]
+                         (if (not (:datalog-query/delayed-call existing))
+                           [[:db/add
+                             (:db/id existing)
+                             :datalog-query/delayed-call this-result-delay]]
+                           (let [{:keys [watchers]}
+                                 (swap! (:datalog-query/delayed-call existing)
+                                        (fn [state]
+                                          (if (:aborted? state)
+                                            state
+                                            (update state :watchers conj watcher-id))))]
+                             (when-not (contains? watchers watcher-id)
+                               [[:db/add
+                                 (:db/id existing)
+                                 :datalog-query/delayed-call this-result-delay]])))
+                         [{:datalog-query/app-id app-id
+                           :datalog-query/query datalog-query
+                           :datalog-query/delayed-call this-result-delay}]))]])
+        result-delay (:datalog-query/delayed-call (d/entity db-after lookup-ref))
+        unwrap-result (fn []
+                        (let [res @(:promise @result-delay)]
+                          (assert (:result res) "Missing result")
+                          (if (:ok res)
+                            (:result res)
+                            (throw (:result res)))))
+        cancel! (fn []
+                  (tracer/with-span! {:name "store/datalog-query-cancel!"}
+                    (deliver (:cancel-signal @result-delay) true)))]
 
-    (:datalog-query/delayed-call (d/entity db-after lookup-ref))))
+    (tracer/add-data! {:attributes {:cache-hit (not= this-result-delay result-delay)
+                                    :realized (realized? (:promise @result-delay))}})
+
+    (when (= this-result-delay result-delay)
+      ;; We added it, so we must execute it
+      (let [stmt-tracker (sql/make-top-level-statement-tracker)
+            result-promise (:promise @result-delay)
+            work-fut (binding [ua/*child-vfutures* nil ;; Move future to a new "call-stack"
+                               ;; Don't let our statements get canceled
+                               sql/*in-progress-stmts* stmt-tracker]
+                       (ua/vfuture
+                         (try
+                           (deliver result-promise
+                                    {:ok true
+                                     :result (datalog-query-fn ctx
+                                                               datalog-query)})
+                           (catch Throwable t
+                             (deliver result-promise
+                                      {:ok false
+                                       :result t}))
+                           (finally
+                             ;; noop if we already delivered
+                             (deliver result-promise
+                                      {:ok false
+                                       :result
+                                       (Exception. "Did not deliver promise!")})
+                             (deliver (:cancel-signal @result-delay)
+                                      false)))))
+            _cancel-fut (binding [ua/*child-vfutures* nil]
+                          (ua/vfuture
+                            (when @(:cancel-signal @result-delay)
+                              (sql/cancel-in-progress stmt-tracker)
+                              (future-cancel work-fut))))]))
+    (try
+      (if (realized? (:promise @result-delay))
+        ;; The work is already done, so we don't need to listen for cancellation
+        (unwrap-result)
+        ;; Start a tracked future to watch for cancelation
+        (let [wait-fut (ua/vfuture (unwrap-result))]
+          (try
+            @wait-fut
+            (catch Throwable t
+              (when (and (not (realized? (:promise @result-delay)))
+                         (or (instance? InterruptedException t)
+                             (instance? CancellationException t)))
+                (let [{:keys [aborted?]}
+                      (swap! result-delay
+                             (fn [{:keys [watchers] :as state}]
+                               (let [new-watchers (disj watchers watcher-id)]
+                                 (cond-> state
+                                   true (assoc :watchers new-watchers)
+                                   (empty? new-watchers) (assoc :aborted? true)))))]
+
+                  (when aborted?
+                    (cancel!))))
+              (throw t)))))
+      (finally
+        (swap! result-delay update :watchers disj watcher-id)))))
 
 ;; --------------
 ;; datalog loader
@@ -376,21 +465,34 @@
 ;; ------
 ;; subscriptions
 
-(defn- -record-datalog-query-start! [conn ctx datalog-query coarse-topics]
-  (let [lookup-ref [:datalog-query/query datalog-query]]
+;; XXX: fix
+(defn record-datalog-query-start! [conn ctx datalog-query coarse-topics]
+  (let [lookup-ref [:datalog-query/app-id+query [(:app-id ctx) datalog-query]]
+        query-lookup-ref [:instaql-query/session-id+query [(:session-id ctx)
+                                                           (:instaql-query ctx)]]]
     (transact! "store/record-datalog-query-start!"
                conn
                [[:db.fn/call
                  (fn [db]
-                   (if-let [existing (d/entity db lookup-ref)]
-                     (when-not (:datalog-query/topics existing)
-                       [[:db/add (:db/id existing) :datalog-query/topics coarse-topics]])
-                     [{:datalog-query/query datalog-query
-                       :datalog-query/topics coarse-topics}]))]
-                {:subscription/session-id (:session-id ctx)
-                 :subscription/v (:v ctx)
-                 :subscription/instaql-query (:instaql-query ctx)
-                 :subscription/datalog-query lookup-ref}])))
+                   (let [existing-datalog-query (d/entity db lookup-ref)
+                         datalog-query-eid (or (:db/id existing-datalog-query)
+                                               -1)
+                         datalog-query-txes
+                         (if existing-datalog-query
+                           (when-not (:datalog-query/topics existing-datalog-query)
+                             [[:db/add datalog-query-eid :datalog-query/topics coarse-topics]])
+                           [{:db/id datalog-query-eid
+                             :datalog-query/app-id (:app-id ctx)
+                             :datalog-query/query datalog-query
+                             :datalog-query/topics coarse-topics}])
+                         subscription-txes
+                         (when-let [query-eid (d/entid db query-lookup-ref)]
+                           [{:subscription/app-id (:app-id ctx)
+                             :subscription/session-id (:session-id ctx)
+                             :subscription/v (:v ctx)
+                             :subscription/instaql-query query-eid
+                             :subscription/datalog-query datalog-query-eid}])]
+                     (into datalog-query-txes subscription-txes)))]])))
 
 (defn- -record-datalog-query-finish!
   [conn datalog-query topics]
@@ -422,40 +524,85 @@
             false
             small)))
 
+(defn make-like-match? [case-insensitive? text pattern]
+  (let [regex-pattern (-> pattern
+                          (string/replace "_" ".")
+                          (string/replace "%" ".*")
+                          (#(str (when case-insensitive?
+                                   "(?i)")
+                                 "^"
+                                 %
+                                 "$")))]
+    (re-matches (re-pattern regex-pattern) text)))
+
+(def like-match? (partial make-like-match? false))
+(def ilike-match? (partial make-like-match? true))
+
 (defn- match-topic-part? [iv-part dq-part]
   (cond
-    (keyword? iv-part) (= iv-part dq-part)
-    (or (symbol? dq-part) (symbol? iv-part)) true
-    (set? dq-part) (intersects? iv-part dq-part)
+    (keyword? iv-part)
+    (= iv-part dq-part)
 
-    (and (map? dq-part) (contains? dq-part :not))
-    (let [not-val (:not dq-part)]
-      (some (partial not= not-val) iv-part))))
+    (or (symbol? dq-part) (symbol? iv-part))
+    true
+
+    (set? dq-part)
+    (intersects? iv-part dq-part)
+
+    (map? dq-part)
+    (if-some [{:keys [op value]} (:$comparator dq-part)]
+      (let [f (case op
+                :$gt >
+                :$gte >=
+                :$lt <
+                :$lte <=
+                :$like like-match?
+                :$ilike ilike-match?)]
+        (ucoll/seek (fn [v]
+                      (f v value))
+                    iv-part))
+      (when (contains? dq-part :$not)
+        (let [not-val (:$not dq-part)]
+          (ucoll/seek (partial not= not-val) iv-part))))))
 
 (defn match-topic?
-  [iv-topic dq-topic]
-  (ucoll/every?-var-args match-topic-part? iv-topic dq-topic))
+  [[iv-idx iv-e iv-a iv-v]
+   [dq-idx dq-e dq-a dq-v]]
+  (and
+   (match-topic-part? iv-idx dq-idx)
+   (match-topic-part? iv-e   dq-e)
+   (match-topic-part? iv-a   dq-a)
+   (match-topic-part? iv-v   dq-v)))
 
-(defn- contains-matching-topic? [dq-topics iv-topic]
-  (some (partial match-topic? iv-topic) dq-topics))
-
-(defn- matching-topic-intersection? [iv-topics dq-topics]
-  (some (partial contains-matching-topic? dq-topics)
-        iv-topics))
+(defn matching-topic-intersection? [iv-topics dq-topics]
+  (ucoll/seek
+   (fn [iv-topic]
+     (ucoll/seek
+      (fn [dq-topic]
+        (match-topic? iv-topic dq-topic))
+      dq-topics))
+   iv-topics))
 
 (defn- mark-instaql-queries-stale-tx-data
   "Should be used in a db.fn/call. Returns transactions.
    Marks instaql-queries that have subscriptions that reference the datalog
    query stale."
   [db datalog-query-eids]
-  (let [iql-eids (d/q '{:find [?e]
-                        :in [$ [?datalog-query ...]]
-                        :where [[?sub-e :subscription/datalog-query ?datalog-query]
-                                [?sub-e :subscription/instaql-query ?instaql-query]
-                                [?e :instaql-query/query ?instaql-query]]}
-                      db
-                      datalog-query-eids)]
-    (map (fn [[e]] [:db/add e :instaql-query/stale? true]) iql-eids)))
+  (persistent!
+   (reduce
+    (fn [txes datalog-query-eid]
+      (reduce
+       (fn [txes sub-datom]
+         (if-let [instaql-query-eid (:v (d/find-datom db
+                                                      :aevt
+                                                      :subscription/instaql-query
+                                                      (:e sub-datom)))]
+           (conj! txes [:db/add instaql-query-eid :instaql-query/stale? true])
+           txes))
+       txes
+       (d/datoms db :avet :subscription/datalog-query datalog-query-eid)))
+    (transient [])
+    datalog-query-eids)))
 
 (defn- set-tx-id
   "Should be used in a db.fn/call. Returns transactions.
@@ -525,7 +672,7 @@
 (defn- format-subscription [ent]
   {:app-id (:subscription/app-id ent)
    :datalog-query (:datalog-query/query (:subscription/datalog-query ent))
-   :instaql-query (:subscription/instaql-query ent)
+   :instaql-query (:instaql-query/query (:subscription/instaql-query ent))
    :session-id (:subscription/session-id ent)
    :v (:subscription/v ent)})
 
@@ -546,15 +693,15 @@
     (when-not ws-conn
       (ex/throw-socket-missing! sess-id))
     (try
-      (ws/send-json! event ws-conn)
+      (ws/send-json! app-id event ws-conn)
       (catch java.io.IOException e
         (ex/throw-socket-error! sess-id e)))))
 
 (defn try-send-event!
   "Does a best-effort send. If it fails, we record and swallow the exception"
-  [conn sess-id event]
+  [conn app-id sess-id event]
   (try
-    (send-event! conn sess-id event)
+    (send-event! conn app-id sess-id event)
     (catch Exception e
       (tracer/with-span! {:name "rs/try-send-event-swallowed-err"}
         (tracer/record-exception-span!
@@ -562,13 +709,6 @@
          {:name "rs/try-send-event-err"
           :attributes {:event (str event)
                        :escaping? false}})))))
-
-(defn try-broadcast-event!
-  "Sends an event to multiple sessions"
-  [conn sess-ids event]
-  (ua/vfuture-pmap (fn [sess-id]
-                     (try-send-event! conn sess-id event))
-                   sess-ids))
 
 ;; -----
 ;; start
@@ -703,3 +843,125 @@
 
 (defn create-store []
   (Store. (atom {})))
+
+(defn before-ns-unload []
+  (stop))
+
+(defn after-ns-reload []
+  (start))
+
+;; ---------
+;; benchmark
+
+(comment
+  (defn run-test []
+    (let [app-id (random-uuid)
+          test-store (d/create-conn schema)
+          session-ids (repeatedly 100 #(random-uuid))
+          instaql-queries (repeatedly 10 (fn []
+                                           {:users {:$ {:where {:id (random-uuid)}}}}))
+          hashes (into {} (map (fn [q]
+                                 [q (hash q)])
+                               instaql-queries))
+          dummy-coarse-topics '[[:ea _ #{#uuid "285a2628-af8f-4ab0-ad79-6ce83722ef2e"} _ _]
+                                [:ea
+                                 _
+                                 #{#uuid "f293d070-687b-4fdb-aa03-3347ba26ff88"
+                                   #uuid "285a2628-af8f-4ab0-ad79-6ce83722ef2e"}
+                                 _
+                                 _]]]
+
+      (tool/def-locals)
+      (println "add sockets")
+      (time (doseq [sid session-ids]
+              (add-socket! test-store sid {})))
+      (println "register instaql-queries")
+      (time
+       (doseq [sid session-ids
+               q instaql-queries]
+         (bump-instaql-version! test-store sid q :join-rows)))
+
+      (println "record-datalog-query-start")
+      (time
+       (doseq [sid session-ids
+               q instaql-queries]
+         (record-datalog-query-start! test-store
+                                      {:session-id sid
+                                       :instaql-query q
+                                       :app-id app-id
+                                       :v 1}
+                                      [[:ea (-> q :users :$ :where :id)]]
+                                      dummy-coarse-topics)))
+
+      (println "record-datalog-query-finish")
+      (time
+       (doseq [sid session-ids
+               q instaql-queries]
+         (record-datalog-query-finish! test-store
+                                       {:session-id sid
+                                        :instaql-query q
+                                        :app-id app-id
+                                        :v 1}
+                                       [[:ea (-> q :users :$ :where :id)]]
+                                       {:topics dummy-coarse-topics})))
+
+      (println "add-instaql-query")
+      (time
+       (doseq [sid session-ids
+               q instaql-queries]
+         (add-instaql-query! test-store
+                             {:session-id sid
+                              :instaql-query q
+                              :v 1}
+                             (get hashes q))))
+
+      (println "mark-stale")
+      (time
+       (mark-stale-topics! test-store app-id 1 dummy-coarse-topics))
+
+      (println "get-stale")
+      (time
+       (doseq [sid session-ids]
+         (get-stale-instaql-queries @test-store sid)))
+
+      (println "register instaql-queries")
+      (time
+       (doseq [sid session-ids
+               q instaql-queries]
+         (bump-instaql-version! test-store sid q :join-rows)))
+
+      (println "record-datalog-query-start")
+      (time
+       (doseq [sid session-ids
+               q instaql-queries]
+         (record-datalog-query-start! test-store
+                                      {:session-id sid
+                                       :instaql-query q
+                                       :app-id app-id
+                                       :v 2}
+                                      [[:ea (-> q :users :$ :where :id)]]
+                                      dummy-coarse-topics)))
+
+      (println "record-datalog-query-finish")
+      (time
+       (doseq [sid session-ids
+               q instaql-queries]
+         (record-datalog-query-finish! test-store
+                                       {:session-id sid
+                                        :instaql-query q
+                                        :app-id app-id
+                                        :v 2}
+                                       [[:ea (-> q :users :$ :where :id)]]
+                                       {:topics dummy-coarse-topics})))
+
+      (println "add-instaql-query")
+      (time
+       (doseq [sid session-ids
+               q instaql-queries]
+         (add-instaql-query! test-store
+                             {:session-id sid
+                              :instaql-query q
+                              :v 2}
+                             (get hashes q))))
+
+      nil)))

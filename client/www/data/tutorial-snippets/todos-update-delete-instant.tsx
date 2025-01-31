@@ -1,8 +1,8 @@
 // @ts-nocheck
 function deleteMessage(setMessages, messageId: string) {
-  db.transact(tx.messages[messageId].delete());
+  db.transact(db.tx.messages[messageId].delete());
 }
 
 function updateMessage(messageId: string, newText: string) {
-  db.transact(tx.messages[messageId].update({ text: newText }));
+  db.transact(db.tx.messages[messageId].update({ text: newText }));
 }

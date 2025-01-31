@@ -18,8 +18,13 @@ publish-experimental:
 	./scripts/publish_packages.clj experimental
 
 build-email:
+	$(MAKE) replace-email-images
 	$(MAKE) text-email
 	$(MAKE) html-email
+
+replace-email-images:
+	echo "Replacing images..."
+	node www/_emails/replace-images/index.mjs $(slug)
 
 text-email:
 	echo "Generating text verison of email..."

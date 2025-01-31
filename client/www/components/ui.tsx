@@ -19,7 +19,15 @@ import {
   PopoverPanel,
 } from '@headlessui/react';
 import * as HeadlessToggleGroup from '@radix-ui/react-toggle-group';
-import Highlight, { defaultProps } from 'prism-react-renderer';
+import Highlight, { defaultProps , Prism } from 'prism-react-renderer';
+
+if (typeof global !== "undefined") { 
+  (global as any).Prism = Prism;
+} else {
+  (window as any).Prism = Prism;
+}
+
+require("prismjs/components/prism-clojure");
 
 import {
   CheckCircleIcon,
@@ -228,6 +236,75 @@ export function TextInput({
   );
 }
 
+export function TextArea({
+  value,
+  autoFocus,
+  className,
+  onChange,
+  onKeyDown,
+  label,
+  error,
+  placeholder,
+  inputMode,
+  tabIndex,
+  disabled,
+  title,
+  cols,
+  rows,
+}: {
+  value: string;
+  className?: string;
+  error?: ReactNode;
+  onChange: (value: string) => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  label?: React.ReactNode;
+  placeholder?: string;
+  autoFocus?: boolean;
+  inputMode?: 'numeric' | 'text';
+  tabIndex?: number;
+  disabled?: boolean | undefined;
+  title?: string | undefined;
+  cols?: number | undefined;
+  rows?: number | undefined;
+}) {
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (autoFocus) {
+      inputRef.current?.focus();
+    }
+  }, []);
+
+  return (
+    <label className="flex flex-col gap-2">
+      {label ? <Label>{label}</Label> : null}
+      <textarea
+        disabled={disabled}
+        title={title}
+        ref={inputRef}
+        inputMode={inputMode}
+        placeholder={placeholder}
+        value={value ?? ''}
+        className={cn(
+          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400',
+          className,
+          {
+            'border-red-500': error,
+          },
+        )}
+        onChange={(e) => {
+          onChange(e.target.value);
+        }}
+        onKeyDown={onKeyDown}
+        tabIndex={tabIndex}
+        cols={cols}
+        rows={rows}
+      />
+      {error ? <div className="text-sm text-red-600">{error}</div> : null}
+    </label>
+  );
+}
+
 export function Checkbox({
   label,
   error,
@@ -252,7 +329,8 @@ export function Checkbox({
   return (
     <label
       className={cn(
-        'flex cursor-pointer items-center gap-2 disabled:cursor-default',
+        'flex cursor-pointer items-top gap-2',
+        disabled ? 'text-gray-400 cursor-default' : '',
         labelClassName,
       )}
       title={title}
@@ -262,7 +340,7 @@ export function Checkbox({
         title={title}
         required={required}
         className={cn(
-          'align-middle font-medium text-gray-900 disabled:text-gray-400 disabled:bg-gray-400',
+          'align-middle mt-0.5 font-medium text-gray-900 disabled:border-gray-300 disabled:bg-gray-200',
           className,
         )}
         type="checkbox"
@@ -282,6 +360,7 @@ export function Select({
   disabled,
   emptyLabel,
   tabIndex,
+  title,
 }: {
   value?: string;
   options: { label: string; value: string }[];
@@ -290,9 +369,11 @@ export function Select({
   disabled?: boolean;
   emptyLabel?: string;
   tabIndex?: number;
+  title?: string | undefined;
 }) {
   return (
     <select
+      title={title}
       tabIndex={tabIndex}
       value={value ?? undefined}
       disabled={disabled}
@@ -651,7 +732,15 @@ export function Copyable({
         'text-base': size === 'large',
       })}
     >
-      <div className="border-r bg-gray-50 px-3 py-1.5">{label}</div>
+      <div
+        className="border-r bg-gray-50 px-3 py-1.5"
+        style={{
+          borderTopLeftRadius: 'calc(0.25rem - 1px)',
+          borderBottomLeftRadius: 'calc(0.25rem - 1px)',
+        }}
+      >
+        {label}
+      </div>
       <pre
         className="flex-1 truncate px-4 py-1.5"
         title={value}
@@ -888,9 +977,10 @@ export function Fence({
               <Fragment key={lineIndex}>
                 {line
                   .filter((token) => !token.empty)
-                  .map((token, tokenIndex) => (
-                    <span key={tokenIndex} {...getTokenProps({ token })} />
-                  ))}
+                  .map((token, tokenIndex) => {
+                    const { key, ...props } = getTokenProps({ token });
+                    return <span key={key || tokenIndex} {...props} />;
+                  })}
                 {'\n'}
               </Fragment>
             ))}

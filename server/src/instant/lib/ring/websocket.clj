@@ -10,6 +10,7 @@
   (:refer-clojure :exclude [send])
   (:require [ring.adapter.undertow.headers :refer [set-headers]]
             [instant.util.json :refer [->json]]
+            [instant.util.e2e-tracer :as e2e-tracer]
             [instant.util.tracer :as tracer]
             [instant.util.delay :as delay])
   (:import
@@ -30,6 +31,7 @@
    [ring.adapter.undertow Util]
    [clojure.lang IPersistentMap]
    [io.undertow.websockets.extensions PerMessageDeflateHandshake]
+   [java.util.concurrent ScheduledFuture]
    [java.util.concurrent.locks ReentrantLock]
    [java.util.concurrent.atomic AtomicLong]
    [java.io IOException]
@@ -43,7 +45,9 @@
 
    See `ws-callback` for more details."
   [{:keys [on-message on-close-message on-error channel-wrapper
-           atomic-last-received-at atomic-last-ping-at set-ping-latency-nanos]}]
+           ^AtomicLong atomic-last-received-at
+           ^AtomicLong atomic-last-ping-at
+           set-ping-latency-nanos]}]
   (let [on-message       (or on-message (constantly nil))
         on-error         (or on-error (constantly nil))
         on-close-message (or on-close-message (constantly nil))]
@@ -76,7 +80,7 @@
 
 (defn try-send-ping-blocking
   "Tries to send a ping-message. Ignores closed channel exceptions."
-  [channel]
+  [^WebSocketChannel channel]
   (try
     (WebSockets/sendPingBlocking
      (ByteBuffer/allocate 0)
@@ -158,25 +162,25 @@
 
     (reify WebSocketConnectionCallback
       (^void onConnect [_ ^WebSocketHttpExchange exchange ^WebSocketChannel channel]
-        (let [ping-job (delay/repeat-fn
-                        ping-pool
-                        ping-interval-ms
-                        (fn []
-                          (straight-jacket-run-ping-job channel
-                                                        atomic-last-received-at
-                                                        atomic-last-ping-at
-                                                        idle-timeout-ms)))
+       (let [^ScheduledFuture ping-job (delay/repeat-fn
+                                        ping-pool
+                                        ping-interval-ms
+                                        (fn []
+                                          (straight-jacket-run-ping-job channel
+                                                                        atomic-last-received-at
+                                                                        atomic-last-ping-at
+                                                                        idle-timeout-ms)))
 
-              close-task (reify ChannelListener
-                           (handleEvent [_this channel]
-                             (.cancel ping-job false)
-                             (on-close (channel-wrapper channel))))]
-          (.set atomic-last-received-at (System/currentTimeMillis))
-          (on-open {:exchange exchange
-                    :channel (channel-wrapper channel)})
-          (.addCloseTask channel close-task)
-          (.set (.getReceiveSetter channel) listener)
-          (.resumeReceives channel))))))
+             close-task (reify ChannelListener
+                          (handleEvent [_this channel]
+                            (.cancel ping-job false)
+                            (on-close (channel-wrapper channel))))]
+         (.set atomic-last-received-at (System/currentTimeMillis))
+         (on-open {:exchange exchange
+                   :channel (channel-wrapper channel)})
+         (.addCloseTask channel close-task)
+         (.set (.getReceiveSetter channel) listener)
+         (.resumeReceives channel))))))
 
 (defn ws-request [^HttpServerExchange exchange ^IPersistentMap headers ^WebSocketConnectionCallback callback]
   (let [handler (->  (WebSocketProtocolHandshakeHandler. callback)
@@ -187,31 +191,38 @@
 
 (defn send-json!
   "Serializes `obj` to json, and sends over a websocket."
-  [obj {:keys [websocket-stub undertow-websocket send-lock]}]
+  [app-id obj {:keys [websocket-stub undertow-websocket ^ReentrantLock send-lock]}]
   ;; Websockets/sendText _should_ be thread-safe
   ;; But, t becomes thread-unsafe when we use per-message-deflate
   ;; Using a `send-lock` to make `send-json!` thread-safe
   (if websocket-stub
     (websocket-stub obj)
     (let [obj-json (->json obj)
-          p (promise)
-          _ (try
-              (tracer/add-data!
-               {:attributes
-                {:send-lock.queue-length (.getQueueLength send-lock)
-                 :send-lock.is-locked (.isLocked send-lock)
-                 :send-lock.held-by-current-thread (.isHeldByCurrentThread send-lock)}})
-              (.lock send-lock)
-              (WebSockets/sendText
-               ^String obj-json
-               ^WebSocketChannel undertow-websocket
-               (proxy [WebSocketCallback] []
-                 (complete [ws-conn context]
-                   (deliver p nil))
-                 (onError [ws-conn context throwable]
-                   (deliver p throwable))))
-              (finally
-                (.unlock send-lock)))
-          ret @p]
-      (when (instance? Throwable ret)
-        (throw ret)))))
+          p (promise)]
+      (tracer/with-span! {:name "ws/send-json!"
+                          :attributes {:app-id app-id
+                                       :size (count obj-json)}}
+        (try
+          (.lock send-lock)
+          (WebSockets/sendText
+           ^String obj-json
+           ^WebSocketChannel undertow-websocket
+           (proxy [WebSocketCallback] []
+             (complete [ws-conn context]
+               (deliver p nil))
+             (onError [ws-conn context throwable]
+               (deliver p throwable))))
+          (finally
+            (.unlock send-lock)))
+        (let [ret @p]
+          (when-let [tx-id (-> obj meta :tx-id)]
+            (let [tx-created-at (-> obj meta :tx-created-at)]
+              (when-let [latency-ms (e2e-tracer/tx-latency-ms tx-created-at)]
+                (tracer/add-data! {:attributes {:tx-latency-ms latency-ms}}))
+              (e2e-tracer/invalidator-tracking-step!
+               {:tx-id tx-id
+                :tx-created-at tx-created-at
+                :name "send-json-delivered"
+                :attributes {:session-id (-> obj meta :session-id)}})))
+          (when (instance? Throwable ret)
+            (throw ret)))))))

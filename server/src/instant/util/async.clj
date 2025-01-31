@@ -1,13 +1,17 @@
 (ns instant.util.async
-  (:refer-clojure :exclude [future-call])
+  (:refer-clojure :exclude [future-call pmap])
   (:require
    [clojure.core.async :as a]
    [clojure.core.async.impl.buffers]
    [clojure.core.async.impl.protocols :as a-impl]
+   [instant.flags :as flags]
    [instant.gauges :as gauges]
    [instant.util.tracer :as tracer])
   (:import
-   (java.util.concurrent Executors ExecutorService)
+   (java.util.concurrent ConcurrentHashMap
+                         Executors
+                         ExecutorService
+                         Future)
    (clojure.core.async.impl.buffers FixedBuffer
                                     DroppingBuffer
                                     SlidingBuffer
@@ -37,10 +41,13 @@
                                          :escaping?   false
                                          :thread-name (.getName thread)}))))
 
-;; --------------- 
-;; virtual-threads 
+;; ---------------
+;; virtual-threads
 
-(def ^ExecutorService default-virtual-thread-executor (Executors/newVirtualThreadPerTaskExecutor))
+(defn make-virtual-thread-executor ^ExecutorService []
+  (Executors/newVirtualThreadPerTaskExecutor))
+
+(defonce ^ExecutorService default-virtual-thread-executor (make-virtual-thread-executor))
 
 (defn ^:private deref-future
   "Private function copied from clojure.core;
@@ -53,17 +60,13 @@
         (catch java.util.concurrent.TimeoutException _
           timeout-val))))
 
-(defn future-call
-  "Like clojure.core/future-call, but accepts an Executor"
-  [^ExecutorService executor f]
-  (let [f (bound-fn* f)
-        fut (.submit executor ^Callable f)]
+(defn worker-vfuture-call [^ExecutorService executor f]
+  (let [fut (.submit executor ^Callable f)]
     (reify
       clojure.lang.IDeref
       (deref [_] (deref-future fut))
       clojure.lang.IBlockingDeref
-      (deref
-        [_ timeout-ms timeout-val]
+      (deref [_ timeout-ms timeout-val]
         (deref-future fut timeout-ms timeout-val))
       clojure.lang.IPending
       (isRealized [_] (.isDone fut))
@@ -72,7 +75,60 @@
       (get [_ timeout unit] (.get fut timeout unit))
       (isCancelled [_] (.isCancelled fut))
       (isDone [_] (.isDone fut))
-      (cancel [_ interrupt?] (.cancel fut interrupt?)))))
+      (cancel [_ interrupt?]
+        (.cancel fut interrupt?)))))
+
+(defmacro worker-vfuture
+  "Creates a vfuture that does not propagate bindings and does not
+   track immediate children. Useful for starting a background worker."
+  [^ExecutorService executor & body]
+  `(worker-vfuture-call ~executor (^{:once true} fn* [] ~@body)))
+
+;; Keeps track of child futures so that we can cancel them if the
+;; parent is canceled.
+(def ^:dynamic *child-vfutures* nil)
+
+(defn future-call
+  "Like clojure.core/future-call, but accepts an Executor"
+  [^ExecutorService executor {:keys [dont-track-immediate-children?]} f]
+  (let [fut-id (Object.)
+        ;; Use a ConcurrentHashMap because it plays more nicely with
+        ;; virtual threads
+        children (ConcurrentHashMap.)
+        ^ConcurrentHashMap parent-vfutures *child-vfutures*
+        f (bound-fn* (^{:once true} fn* []
+                      (if dont-track-immediate-children?
+                        (f)
+                        (binding [*child-vfutures* children]
+                          (let [res (f)]
+                            (when parent-vfutures
+                              (.remove parent-vfutures fut-id))
+                            res)))))
+        fut (.submit executor ^Callable f)
+        wrapped-fut (reify
+                      clojure.lang.IDeref
+                      (deref [_] (deref-future fut))
+                      clojure.lang.IBlockingDeref
+                      (deref
+                          [_ timeout-ms timeout-val]
+                          (deref-future fut timeout-ms timeout-val))
+                      clojure.lang.IPending
+                      (isRealized [_] (.isDone fut))
+                      java.util.concurrent.Future
+                      (get [_] (.get fut))
+                      (get [_ timeout unit] (.get fut timeout unit))
+                      (isCancelled [_] (.isCancelled fut))
+                      (isDone [_] (.isDone fut))
+                      (cancel [_ interrupt?]
+                        (doseq [^Future child (.values children)]
+                          (.cancel child interrupt?))
+                        (.cancel fut interrupt?)))]
+    (when parent-vfutures
+      (.put parent-vfutures fut-id wrapped-fut))
+    wrapped-fut))
+
+(defmacro tracked-future [& body]
+  `(future-call clojure.lang.Agent/soloExecutor nil (^{:once true} fn* [] ~@body)))
 
 (defmacro vfuture
   "Takes a body of expressions and yields a future object that will
@@ -81,9 +137,9 @@
   not yet finished, calls to deref/@ will block, unless the variant of
   deref with timeout is used. See also - realized?."
   [& body]
-  `(future-call default-virtual-thread-executor (^{:once true} fn* [] ~@body)))
+  `(future-call default-virtual-thread-executor nil (^{:once true} fn* [] ~@body)))
 
-(defn vfuture-pmap
+(defn pmap
   "Like pmap, but uses vfutures to parallelize the work.
 
   Why would you want to use this instead of pmap?
@@ -95,22 +151,31 @@
   This executor is unbounded, so even if you have a recursive function, 
   you won't deadlock."
   [f coll]
-  (let [futs (mapv #(vfuture (f %)) coll)]
-    (mapv deref futs)))
+  (->> coll
+       ;; mapv to force entire seq
+       (mapv #(if (flags/use-vfutures?)
+                (vfuture (f %))
+                (tracked-future (f %))))
+       (mapv deref)))
 
 (defmacro vfut-bg
   "Futures only throw when de-referenced. vfut-bg writes a future with a
   top-level try-catch, so you can run code asynchronously, without
   _ever_ de-referencing them"
   [& forms]
-  `(vfuture
+  `(future-call
+    default-virtual-thread-executor
+    ;; These aren't regularly canceled, so don't incur the
+    ;; overhead of tracking child futures
+    {:dont-track-immediate-children? true}
+    (^{:once true} fn* []
      (try
        ~@forms
        (catch Exception e#
          (tracer/record-exception-span! e# {:name "vfut-bg"
                                             :escaping?  true
                                             :attributes {:forms (pr-str '~forms)}})
-         (throw e#)))))
+         (throw e#))))))
 
 ;; ----
 ;; core.async

@@ -1,5 +1,6 @@
 (ns instant.model.rule
   (:require
+   [clojure.core.cache.wrapped :as cache]
    [clojure.string :as string]
    [honey.sql :as hsql]
    [instant.db.cel :as cel]
@@ -11,37 +12,61 @@
   (:import
    (dev.cel.common CelIssue CelValidationException)))
 
+(def rule-cache (cache/lru-cache-factory {} :threshold 256))
+
+(defn evict-app-id-from-cache [app-id]
+  (cache/evict rule-cache app-id))
+
+(defmacro with-cache-invalidation [app-id & body]
+  `(do
+     (evict-app-id-from-cache ~app-id)
+     (let [res# ~@body]
+       (evict-app-id-from-cache ~app-id)
+       res#)))
+
 (defn put!
-  ([params] (put! aurora/conn-pool params))
+  ([params] (put! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id code]}]
-   (sql/execute-one!
-    conn
-    ["INSERT INTO rules (app_id, code) VALUES (?::uuid, ?::jsonb)
-     ON CONFLICT (app_id) DO UPDATE SET code = excluded.code"
-     app-id (->json code)])))
+   (with-cache-invalidation app-id
+     (sql/execute-one!
+      ::put!
+      conn
+      ["INSERT INTO rules (app_id, code) VALUES (?::uuid, ?::jsonb)
+          ON CONFLICT (app_id) DO UPDATE SET code = excluded.code"
+       app-id (->json code)]))))
 
 (defn merge!
-  ([params] (merge! aurora/conn-pool params))
+  ([params] (merge! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id code]}]
-   (sql/execute-one!
-    conn
-    (hsql/format {:insert-into :rules
-                  :values [{:app-id app-id
-                            :code [:cast (->json code) :jsonb]}]
-                  :on-conflict :app-id
-                  :do-update-set {:code [:|| :rules.code :excluded.code]}}))))
+   (with-cache-invalidation app-id
+     (sql/execute-one!
+      ::merge!
+      conn
+      (hsql/format {:insert-into :rules
+                    :values [{:app-id app-id
+                              :code [:cast (->json code) :jsonb]}]
+                    :on-conflict :app-id
+                    :do-update-set {:code [:|| :rules.code :excluded.code]}})))))
+
+(defn get-by-app-id* [conn app-id]
+  (sql/select-one ::get-by-app-id*
+                  conn ["SELECT * FROM rules WHERE app_id = ?::uuid" app-id]))
 
 (defn get-by-app-id
-  ([params] (get-by-app-id aurora/conn-pool params))
+  ([{:keys [app-id]}]
+   (cache/lookup-or-miss rule-cache app-id (partial get-by-app-id* (aurora/conn-pool :read))))
   ([conn {:keys [app-id]}]
-   (sql/select-one conn ["SELECT * FROM rules WHERE app_id = ?::uuid" app-id])))
+   ;; Don't cache if we're using a custom connection
+   (get-by-app-id* conn app-id)))
 
 (defn delete-by-app-id!
-  ([params] (delete-by-app-id! aurora/conn-pool params))
+  ([params] (delete-by-app-id! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id]}]
-   (sql/do-execute!
-    conn
-    ["DELETE FROM rules WHERE app_id = ?::uuid" app-id])))
+   (with-cache-invalidation app-id
+     (sql/do-execute!
+      ::delete-by-app-id!
+      conn
+      ["DELETE FROM rules WHERE app_id = ?::uuid" app-id]))))
 
 (defn with-binds [rule etype expr]
   (->> (get-in rule [etype "bind"])
@@ -53,7 +78,11 @@
         expr)))
 
 (defn get-expr [rule etype action]
-  (get-in rule [etype "allow" action]))
+  (or
+   (get-in rule [etype "allow" action])
+   (get-in rule [etype "allow" "$default"])
+   (get-in rule ["$default" "allow" action])
+   (get-in rule ["$default" "allow" "$default"])))
 
 (defn extract [rule etype action]
   (when-let [expr (get-in rule [etype "allow" action])]
@@ -129,6 +158,7 @@
   [etype action]
   (when (and (not= "$users" etype)
              (not= "$files" etype)
+             (not= "$default" etype)
              (string/starts-with? etype "$"))
     [[etype
       action

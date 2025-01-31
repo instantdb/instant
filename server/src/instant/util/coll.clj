@@ -1,4 +1,5 @@
-(ns instant.util.coll)
+(ns instant.util.coll
+  (:require [medley.core :as medley]))
 
 (defn split-last [coll]
   (list (butlast coll)
@@ -57,6 +58,7 @@
   (by-index x :ident [:users :post]))
 
 (def ^:private not-found (Object.))
+
 (defn update-in-when
   "Like update-in, but only updates when `ks` is present"
   [m ks f & args]
@@ -64,6 +66,14 @@
     (if (identical? old-v not-found)
       m
       (assoc-in m ks (apply f old-v args)))))
+
+(defn update-when
+  "Like update-in, but only updates when `ks` is present"
+  [m k f & args]
+  (let [old-v (get m k not-found)]
+    (if (identical? old-v not-found)
+      m
+      (assoc m k (apply f old-v args)))))
 
 (comment
   (update-in-when {:a {:b 1}} [:a :b] + 1)
@@ -87,6 +97,15 @@
     (dissoc m first-key)
     (update m first-key dissoc-in rest-keys)))
 
+(defn disj-in
+  "Calls dissoc-in to clean up the map when the item at path is empty after
+   calling disj. Useful for cleaning up the room and session maps."
+  [m path item]
+  (let [new-m (update-in m path disj item)]
+    (if (empty? (get-in new-m path))
+      (medley/dissoc-in new-m path)
+      new-m)))
+
 (comment
   (def my-map {:a {:b {:c 3 :d 4}} :e 5})
   (dissoc-in my-map [:a :b :c]))
@@ -104,7 +123,6 @@
 
                      :else (throw (IllegalArgumentException.
                                    "ns-prefix must be a string or keyword")))
-        _         (println ns-str)
         ns-keys (filter #(= (namespace %) ns-str) (keys m))
         remove-ns (fn [[k v]] [(keyword (name k)) v])]
     (into (with-meta {} (meta m))
@@ -145,3 +163,32 @@
     (every? pred (first colls))
     (every? (fn [args] (apply pred args))
             (apply map vector colls))))
+
+(defn split-by
+  "Returns [(filter pred xs) (remove pred xs)]"
+  [pred xs]
+  (let [[f r] (reduce
+               (fn [[f r] x]
+                 (if (pred x)
+                   [(conj! f x) r]
+                   [f (conj! r x)]))
+               [(transient []) (transient [])] xs)]
+    [(persistent! f) (persistent! r)]))
+
+(defn group-by-to
+  "Like group-by but applies (val-fn x) to values"
+  [key-fn val-fn xs]
+  (persistent!
+   (reduce
+    (fn [m x]
+      (let [k (key-fn x)
+            v (val-fn x)
+            old-v (get m k [])]
+        (assoc! m k (conj old-v v))))
+    (transient {}) xs)))
+
+(defn reduce-tr
+  "Like reduce but makes acc transient/persistent automatically"
+  [f init xs]
+  (persistent!
+   (reduce f (transient init) xs)))

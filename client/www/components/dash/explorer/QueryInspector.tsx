@@ -1,6 +1,5 @@
-import { InstantReactWeb } from '@instantdb/react';
 import JsonParser from 'json5';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { StarIcon, TrashIcon } from '@heroicons/react/outline';
 import { ArrowSmRightIcon } from '@heroicons/react/solid';
@@ -8,6 +7,7 @@ import { ArrowSmRightIcon } from '@heroicons/react/solid';
 import { Button, CodeEditor, cn } from '@/components/ui';
 import { useSchemaQuery } from '@/lib/hooks/explorer';
 import { errorToast, infoToast } from '@/lib/toast';
+import { InstantReactWebDatabase } from '@instantdb/react';
 
 const SAVED_QUERIES_CACHE_KEY = '__instant:explorer-saved-queries';
 const QUERY_HISTORY_CACHE_KEY = '__instant:explorer-query-history';
@@ -61,7 +61,7 @@ export function QueryInspector({
 }: {
   className?: string;
   appId: string;
-  db: InstantReactWeb<any, any>;
+  db: InstantReactWebDatabase<any>;
 }) {
   const cache = new QueryInspectorCache(appId);
   const [query, setQuery] = useState<Record<string, any>>({});
@@ -193,11 +193,11 @@ export function QueryInspector({
               // cmd+S/cmd+Enter bindings to run query
               editor.addCommand(
                 monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-                () => run(editor.getValue())
+                () => run(editor.getValue()),
               );
               editor.addCommand(
                 monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
-                () => run(editor.getValue())
+                () => run(editor.getValue()),
               );
             }}
           />

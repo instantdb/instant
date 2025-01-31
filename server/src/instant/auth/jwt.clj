@@ -11,9 +11,12 @@
    (com.auth0.jwt.algorithms Algorithm)
    (com.auth0.jwt.exceptions AlgorithmMismatchException JWTDecodeException SignatureVerificationException TokenExpiredException)
    (com.auth0.jwt.interfaces ECDSAKeyProvider RSAKeyProvider)
+   (java.security KeyFactory)
+   (java.security.spec PKCS8EncodedKeySpec)
    (java.text SimpleDateFormat)
    (java.time Duration Instant)
-   (java.time.temporal ChronoUnit)))
+   (java.time.temporal ChronoUnit)
+   (org.bouncycastle.util.io.pem PemReader)))
 
 (def rfc822-format (SimpleDateFormat. "EEE, dd MMM yyyy HH:mm:ss Z" java.util.Locale/US))
 
@@ -112,6 +115,26 @@
       (ex/throw-oauth-err! "Invalid JWT."
                            e))))
 
+(defn apple-client-secret [{:keys [client-id team-id key-id private-key]}]
+  (let [pk (-> (java.io.StringReader. private-key)
+               (PemReader.)
+               (.readPemObject)
+               (.getContent)
+               (PKCS8EncodedKeySpec.)
+               (->> (.generatePrivate (KeyFactory/getInstance "EC"))))
+        algorithm (Algorithm/ECDSA256 nil pk)]
+    (-> (JWT/create)
+        ;; payload
+        (.withIssuer team-id)
+        (.withIssuedAt (java.time.Instant/now))
+        (.withExpiresAt (.plusSeconds (java.time.Instant/now) 120))
+        (.withAudience (into-array String ["https://appleid.apple.com"]))
+        (.withSubject client-id)
+        ;; header
+        (.withKeyId key-id)
+        ;; sign
+        (.sign algorithm))))
+
 (def schedule nil)
 
 (defn start []
@@ -144,5 +167,6 @@
 
 (comment
   (get-keys "https://www.googleapis.com/oauth2/v3/certs")
+  (get-keys "https://appleid.apple.com/auth/keys")
   (.getSubject (verify-jwt {:jwks-uri "https://www.facebook.com/.well-known/oauth/openid/jwks/" ;; "https://www.googleapis.com/oauth2/v3/certs";;;;
                             :jwt "YOUR_ID_TOKEN_HERE"})))

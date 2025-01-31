@@ -2,24 +2,29 @@ import config from '@/lib/config'; // hide-line
 import { init } from '@instantdb/react';
 import { RefObject, createRef, useRef } from 'react';
 
-const db = init<{}, RoomSchema>({
+const db = init({
   ...config, // hide-line
   appId: __getAppId(),
 });
 
-const { usePublishTopic, useTopicEffect } = db.room('topics-example', '123');
+const room = db.room('topics-example', '123');
 
 export default function InstantTopics() {
-  const publishEmoji = usePublishTopic('emoji');
+  const publishEmoji = db.rooms.usePublishTopic(room, 'emoji');
 
-  useTopicEffect('emoji', ({ name, directionAngle, rotationAngle }) => {
-    if (!emoji[name]) return;
+  db.rooms.useTopicEffect(
+    room,
+    'emoji',
+    ({ name, directionAngle, rotationAngle }) => {
+      const emojiName = name as EmojiName;
+      if (!emoji[emojiName]) return;
 
-    animateEmoji(
-      { emoji: emoji[name], directionAngle, rotationAngle },
-      elRefsRef.current[name].current
-    );
-  });
+      animateEmoji(
+        { emoji: emoji[emojiName], directionAngle, rotationAngle },
+        elRefsRef.current[name].current,
+      );
+    },
+  );
 
   const elRefsRef = useRef<{
     [k: string]: RefObject<HTMLDivElement>;
@@ -44,7 +49,7 @@ export default function InstantTopics() {
                     rotationAngle: params.rotationAngle,
                     directionAngle: params.directionAngle,
                   },
-                  elRefsRef.current[name].current
+                  elRefsRef.current[name].current,
                 );
 
                 publishEmoji(params);
@@ -61,18 +66,6 @@ export default function InstantTopics() {
 
 type EmojiName = keyof typeof emoji;
 
-type RoomSchema = {
-  'topics-example': {
-    topics: {
-      emoji: {
-        name: EmojiName;
-        rotationAngle: number;
-        directionAngle: number;
-      };
-    };
-  };
-};
-
 const emoji = {
   fire: '🔥',
   wave: '👋',
@@ -83,7 +76,7 @@ const emoji = {
 const emojiNames = Object.keys(emoji) as EmojiName[];
 
 const refsInit = Object.fromEntries(
-  emojiNames.map((name) => [name, createRef<HTMLDivElement>()])
+  emojiNames.map((name) => [name, createRef<HTMLDivElement>()]),
 );
 
 const containerClassNames =
@@ -94,7 +87,7 @@ const emojiButtonClassNames =
 
 function animateEmoji(
   config: { emoji: string; directionAngle: number; rotationAngle: number },
-  target: HTMLDivElement | null
+  target: HTMLDivElement | null,
 ) {
   if (!target) return;
 

@@ -1,7 +1,9 @@
 ;; The flags are populated and kept up to date by instant.flag-impl
 ;; We separate the namespaces so that this namespace has no dependencies
 ;; and can be required from anywhere.
-(ns instant.flags)
+(ns instant.flags 
+  (:require
+    [clojure.walk :as w]))
 
 ;; Map of query to {:result {result-tree}
 ;;                  :tx-id int}
@@ -12,9 +14,13 @@
             :storage-whitelist {}
             :team-emails {}
             :test-emails {}
-            :view-checks {}
-            :hazelcast {}
-            :promo-emails {}})
+            :use-patch-presence {}
+            :drop-refresh-spam {}
+            :promo-emails {}
+            :rate-limited-apps {}
+            :welcome-email-config {}
+            :e2e-logging {}
+            :threading {}})
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -42,29 +48,60 @@
                        (get o "appId")))
                    (get result "storage-whitelist")))
 
-        hazelcast (when-let [hz-flag (-> (get result "hazelcast")
-                                         first)]
-                    (let [disabled-apps (-> hz-flag
-                                            (get "disabled-apps")
-                                            (#(map parse-uuid %))
-                                            set)
-                          enabled-apps (-> hz-flag
-                                           (get "enabled-apps")
-                                           (#(map parse-uuid %))
-                                           set)
-                          default-value (get hz-flag "default-value" false)
-                          disabled? (get hz-flag "disabled" false)]
-                      {:disabled-apps disabled-apps
-                       :enabled-apps enabled-apps
-                       :default-value default-value
-                       :disabled? disabled?}))
+        use-patch-presence (when-let [hz-flag (-> (get result "use-patch-presence")
+                                                  first)]
+                             (let [disabled-apps (-> hz-flag
+                                                     (get "disabled-apps")
+                                                     (#(map parse-uuid %))
+                                                     set)
+                                   enabled-apps (-> hz-flag
+                                                    (get "enabled-apps")
+                                                    (#(map parse-uuid %))
+                                                    set)
+                                   default-value (get hz-flag "default-value" false)
+                                   disabled? (get hz-flag "disabled" false)]
+                               {:disabled-apps disabled-apps
+                                :enabled-apps enabled-apps
+                                :default-value default-value
+                                :disabled? disabled?}))
         promo-code-emails (set (keep (fn [o]
                                        (get o "email"))
-                                     (get result "promo-emails")))]
+                                     (get result "promo-emails")))
+        drop-refresh-spam (when-let [hz-flag (-> (get result "drop-refresh-spam")
+                                                 first)]
+                            (let [disabled-apps (-> hz-flag
+                                                    (get "disabled-apps")
+                                                    (#(map parse-uuid %))
+                                                    set)
+                                  enabled-apps (-> hz-flag
+                                                   (get "enabled-apps")
+                                                   (#(map parse-uuid %))
+                                                   set)
+                                  default-value (get hz-flag "default-value" false)]
+                              {:disabled-apps disabled-apps
+                               :enabled-apps enabled-apps
+                               :default-value default-value}))
+        rate-limited-apps (reduce (fn [acc {:strs [appId]}]
+                                    (conj acc (parse-uuid appId)))
+                                  #{}
+                                  (get result "rate-limited-apps"))
+        e2e-logging (when-let [flag (-> (get result "e2e-logging")
+                                        first)]
+                      {:invalidator-every-n (try (/ 1 (get flag "invalidator-rate"))
+                                                 (catch Exception _e
+                                                   10000))})
+        welcome-email-config (-> result (get "welcome-email-config") first w/keywordize-keys)
+        threading (let [flag (first (get result "threading"))]
+                    {:use-vfutures? (get flag "use-vfutures" true)})]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
-     :hazelcast hazelcast
-     :promo-code-emails promo-code-emails}))
+     :use-patch-presence use-patch-presence
+     :promo-code-emails promo-code-emails
+     :drop-refresh-spam drop-refresh-spam
+     :rate-limited-apps rate-limited-apps
+     :e2e-logging e2e-logging
+     :welcome-email-config welcome-email-config
+     :threading threading}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -84,6 +121,9 @@
 (defn promo-code-emails []
   (get (query-result) :promo-code-emails))
 
+(defn welcome-email-config []
+  (get (query-result) :welcome-email-config))
+
 (defn promo-code-email? [email]
   (contains? (promo-code-emails)
              email))
@@ -92,12 +132,29 @@
   (let [app-id (str app-id)]
     (contains? (storage-enabled-whitelist) app-id)))
 
-(defn use-hazelcast? [app-id]
-  (if-let [hz-flag (get (query-result) :hazelcast)]
-    (let [{:keys [disabled-apps enabled-apps default-value disabled?]} hz-flag]
-      (cond disabled? false
+(defn use-patch-presence? [app-id]
+  (let [flag (:use-patch-presence (query-result))
+        {:keys [disabled-apps enabled-apps default-value disabled?]} flag]
+    (cond
+      (nil? flag)
+      true
 
-            (contains? disabled-apps app-id)
+      disabled?
+      false
+
+      (contains? disabled-apps app-id)
+      false
+
+      (contains? enabled-apps app-id)
+      true
+
+      :else
+      default-value)))
+
+(defn drop-refresh-spam? [app-id]
+  (if-let [flag (get (query-result) :drop-refresh-spam)]
+    (let [{:keys [disabled-apps enabled-apps default-value]} flag]
+      (cond (contains? disabled-apps app-id)
             false
 
             (contains? enabled-apps app-id)
@@ -107,5 +164,17 @@
     ;; Default false
     false))
 
-(defn hazelcast-disabled? []
-  (get-in (query-result) [:hazelcast :disabled?] false))
+(defn app-rate-limited? [app-id]
+  (contains? (:rate-limited-apps (query-result))
+             app-id))
+
+(defn e2e-should-honeycomb-publish? [^Long tx-id]
+  (and tx-id
+       (zero? (mod tx-id (or (get-in (query-result)
+                                     [:e2e-logging :invalidator-every-n])
+                             10000)))))
+
+(defn use-vfutures? []
+  (-> (query-result)
+      :threading
+      (:use-vfutures? true)))

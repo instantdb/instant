@@ -1,11 +1,16 @@
 import { id, tx } from '@instantdb/core';
-import { InstantReactWeb } from '@instantdb/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { isObject } from 'lodash';
+import { InstantReactWebDatabase } from '@instantdb/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { isObject, debounce, last } from 'lodash';
 import produce from 'immer';
-import Fuse from 'fuse.js';
 import clsx from 'clsx';
 import CopyToClipboard from 'react-copy-to-clipboard';
+import {
+  Combobox,
+  ComboboxInput,
+  ComboboxOption,
+  ComboboxOptions,
+} from '@headlessui/react';
 
 import * as Tooltip from '@radix-ui/react-tooltip';
 import {
@@ -36,18 +41,334 @@ import {
 import { DBAttr, SchemaAttr, SchemaNamespace } from '@/lib/types';
 import { useIsOverflow } from '@/lib/hooks/useIsOverflow';
 import { useClickOutside } from '@/lib/hooks/useClickOutside';
-import { makeAttrComparator } from '@/lib/makeAttrComparator';
 import { isTouchDevice } from '@/lib/config';
-import { useSchemaQuery, useNamespacesQuery } from '@/lib/hooks/explorer';
+import {
+  useSchemaQuery,
+  useNamespacesQuery,
+  SearchFilter,
+} from '@/lib/hooks/explorer';
 import { EditNamespaceDialog } from '@/components/dash/explorer/EditNamespaceDialog';
 import { EditRowDialog } from '@/components/dash/explorer/EditRowDialog';
 import { useRouter } from 'next/router';
+
+const OPERATORS = [':', '>', '<'] as const;
+type ParsedQueryPart = {
+  field: string;
+  operator: (typeof OPERATORS)[number];
+  value: string;
+};
+function parseSearchQuery(s: string): ParsedQueryPart[] {
+  let fieldStart = 0;
+  let currentPart: ParsedQueryPart | undefined;
+  let valueStart;
+  const parts: ParsedQueryPart[] = [];
+  let i = -1;
+  for (const c of s) {
+    i++;
+
+    if (c === ' ' && !(OPERATORS as readonly string[]).includes(s[i + 1])) {
+      fieldStart = i + 1;
+      continue;
+    }
+    if ((OPERATORS as readonly string[]).includes(c)) {
+      if (currentPart && valueStart != null) {
+        currentPart.value = s.substring(valueStart, fieldStart).trim();
+        parts.push(currentPart);
+      }
+      currentPart = {
+        field: s.substring(fieldStart, i).trim(),
+        operator: c as (typeof OPERATORS)[number],
+        value: '',
+      };
+
+      valueStart = i + 1;
+      continue;
+    }
+  }
+  if (currentPart && valueStart != null) {
+    currentPart.value = s.substring(valueStart).trim();
+    // Might push twice here...
+    parts.push(currentPart);
+  }
+  return parts;
+}
+
+function opToInstaqlOp(op: ':' | '<' | '>'): '=' | '$gt' | '$lt' {
+  switch (op) {
+    case ':':
+      // Not really an instaql op, but we have special handling in
+      // explorer.tsx to turn `=` into {k: v}
+      return '=';
+    case '<':
+      return '$lt';
+    case '>':
+      return '$gt';
+    default:
+      throw new Error('what kind of op is this? ' + op);
+  }
+}
+
+function queryToFilters({
+  query,
+  attrsByName,
+  stringIndexed,
+}: {
+  query: string;
+  attrsByName: { [key: string]: SchemaAttr };
+  stringIndexed: SchemaAttr[];
+}): SearchFilter[] {
+  if (!query.trim()) {
+    return [];
+  }
+  const parsed = parseSearchQuery(query);
+  const parts: SearchFilter[] = parsed.flatMap(
+    (part: ParsedQueryPart): SearchFilter[] => {
+      const attr = attrsByName[part.field];
+      if (!attr || !part.value) {
+        return [];
+      }
+      const res: SearchFilter[] = [];
+      if (attr.checkedDataType && attr.isIndex) {
+        if (attr.checkedDataType === 'string') {
+          const val = part.value;
+          return [
+            [
+              part.field,
+              val === val.toLowerCase() ? '$ilike' : '$like',
+              `%${part.value}%`,
+            ],
+          ];
+        }
+        if (attr.checkedDataType === 'number') {
+          try {
+            return [
+              [
+                part.field,
+                opToInstaqlOp(part.operator),
+                JSON.parse(part.value),
+              ],
+            ];
+          } catch (e) {}
+        }
+        if (attr.checkedDataType === 'date') {
+          try {
+            return [
+              [
+                part.field,
+                opToInstaqlOp(part.operator),
+                JSON.parse(part.value),
+              ],
+            ];
+          } catch (e) {
+            // Might be a string date
+            return [[part.field, opToInstaqlOp(part.operator), part.value]];
+          }
+        }
+      }
+      for (const inferredType of attr.inferredTypes || ['json']) {
+        switch (inferredType) {
+          case 'boolean':
+          case 'number': {
+            try {
+              res.push([
+                part.field,
+                opToInstaqlOp(part.operator),
+                JSON.parse(part.value),
+              ]);
+            } catch (e) {}
+            break;
+          }
+          default: {
+            res.push([part.field, opToInstaqlOp(part.operator), part.value]);
+            break;
+          }
+        }
+      }
+      return res;
+    },
+  );
+
+  if (!parsed.length && query.trim() && stringIndexed.length) {
+    for (const a of stringIndexed) {
+      parts.push([
+        a.name,
+        query.toLowerCase() === query ? '$ilike' : '$like',
+        `%${query.trim()}%`,
+      ]);
+    }
+  }
+  return parts;
+}
+
+function sameFilters(
+  oldFilters: [string, string, string][],
+  newFilters: [string, string, string][],
+): boolean {
+  if (newFilters.length === oldFilters.length) {
+    for (let i = 0; i < newFilters.length; i++) {
+      for (let j = 0; j < 3; j++) {
+        if (newFilters[i][j] !== oldFilters[i][j]) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+function SearchInput({
+  onSearchChange,
+  attrs,
+}: {
+  onSearchChange: (filters: SearchFilter[]) => void;
+  attrs?: SchemaAttr[];
+}) {
+  const [query, setQuery] = useState('');
+
+  const lastFilters = useRef<[string, string, string][]>([]);
+
+  const { attrsByName, stringIndexed } = useMemo(() => {
+    const byName: { [key: string]: SchemaAttr } = {};
+    const stringIndexed = [];
+    for (const attr of attrs || []) {
+      byName[attr.name] = attr;
+      if (attr.isIndex && attr.checkedDataType === 'string') {
+        stringIndexed.push(attr);
+      }
+    }
+    return { attrsByName: byName, stringIndexed };
+  }, [attrs]);
+
+  const searchDebounce = useCallback(
+    debounce((query) => {
+      const filters = queryToFilters({ query, attrsByName, stringIndexed });
+      if (!sameFilters(lastFilters.current, filters)) {
+        lastFilters.current = filters;
+        onSearchChange(filters);
+      }
+    }, 80),
+    [attrsByName, stringIndexed, lastFilters],
+  );
+
+  const lastQuerySegment =
+    query.indexOf(':') !== -1 ? last(query.split(' ')) : query;
+
+  const comboOptions: { field: string; operator: string; display: string }[] = (
+    attrs || []
+  ).flatMap((a) => {
+    if (a.type === 'ref') {
+      return [];
+    }
+    const ops = [];
+
+    const opCandidates = [];
+    opCandidates.push({
+      field: a.name,
+      operator: ':',
+      display: `${a.name}:`,
+    });
+    if (
+      a.isIndex &&
+      (a.checkedDataType === 'number' || a.checkedDataType === 'date')
+    ) {
+      const base = {
+        field: a.name,
+        query: null,
+      };
+      opCandidates.push({ ...base, operator: '<', display: `${a.name}<` });
+      opCandidates.push({ ...base, operator: '>', display: `${a.name}>` });
+    }
+
+    for (const op of opCandidates) {
+      if (
+        !lastQuerySegment ||
+        (op.display.startsWith(lastQuerySegment) &&
+          op.display !== lastQuerySegment)
+      ) {
+        ops.push(op);
+      }
+    }
+    return ops;
+  });
+
+  const activeOption = useRef<(typeof comboOptions)[0] | null>(null);
+
+  function completeQuery(optionDisplay: string) {
+    let q;
+    if (lastQuerySegment && optionDisplay.startsWith(lastQuerySegment)) {
+      q = `${query}${optionDisplay.substring(lastQuerySegment.length)}`;
+    } else {
+      q = `${query.trim()} ${optionDisplay}`;
+    }
+    setQuery(q);
+    searchDebounce(q);
+  }
+
+  return (
+    <Combobox
+      value={query}
+      onChange={(option) => {
+        if (option) {
+          completeQuery(option);
+        }
+      }}
+      immediate={true}
+    >
+      <ComboboxInput
+        size={32}
+        className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          searchDebounce(e.target.value);
+        }}
+        onKeyDown={(e) => {
+          // Prevent the combobox's default action that inserts
+          // the active option and tabs out of the input.
+          // Inserting the option doesn't work in our case, because
+          // it's just the start of a query, you still need to add
+          // the value
+          if (e.key === 'Tab' && comboOptions.length) {
+            e.preventDefault();
+
+            const active = activeOption.current || comboOptions[0];
+            if (active) {
+              completeQuery(active.display);
+            }
+          }
+        }}
+        placeholder="Filter..."
+      />
+      <ComboboxOptions
+        anchor="bottom start"
+        modal={false}
+        className="mt-1 w-[var(--input-width)] overflow-auto rounded-md bg-white shadow-lg z-10 border border-gray-300 divide-y"
+      >
+        {comboOptions.map((o, i) => (
+          <ComboboxOption
+            key={i}
+            value={o.display}
+            className={clsx('px-3 py-1 data-[focus]:bg-blue-100', {})}
+          >
+            {({ focus }) => {
+              if (focus) {
+                activeOption.current = o;
+              }
+              return <span>{o.display}</span>;
+            }}
+          </ComboboxOption>
+        ))}
+      </ComboboxOptions>
+    </Combobox>
+  );
+}
 
 export function Explorer({
   db,
   appId,
 }: {
-  db: InstantReactWeb<any, any>;
+  db: InstantReactWebDatabase<any>;
   appId: string;
 }) {
   // DEV
@@ -62,6 +383,8 @@ export function Explorer({
   const [editableRowId, setEditableRowId] = useState<string | null>(null);
   const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
   const nsRef = useRef<HTMLDivElement>(null);
+
+  const [searchFilters, setSearchFilters] = useState<SearchFilter[]>([]);
 
   // nav
   const router = useRouter();
@@ -78,6 +401,7 @@ export function Explorer({
   function nav(s: ExplorerNav[]) {
     _setNavStack(s);
     setCheckedIds({});
+    setSearchFilters([]);
 
     const current = s[s.length - 1];
     const ns = current.namespace;
@@ -116,56 +440,33 @@ export function Explorer({
     [namespaces, currentNav?.namespace],
   );
 
-  const readOnlyNs = selectedNamespace && selectedNamespace.name === '$users';
+  const isSystemCatalogNs =
+    selectedNamespace != null &&
+    selectedNamespace.name != null &&
+    selectedNamespace.name.startsWith('$');
+
+  const readOnlyNs = isSystemCatalogNs && selectedNamespace.name !== '$users';
 
   const [limit, setLimit] = useState(50);
   const [offsets, setOffsets] = useState<{ [namespace: string]: number }>({});
 
   const offset = offsets[selectedNamespace?.name ?? ''] || 0;
 
+  const sortAttr = currentNav?.sortAttr || 'serverCreatedAt';
+  const sortAsc = currentNav?.sortAsc ?? true;
+
   const { itemsRes, allCount } = useNamespacesQuery(
     db,
     selectedNamespace,
     currentNav?.where,
+    searchFilters,
     limit,
     offset,
+    sortAttr,
+    sortAsc,
   );
 
-  const { allItems, fuse } = useMemo(() => {
-    const allItems: Record<string, any>[] =
-      itemsRes.data?.[selectedNamespace?.name ?? '']?.slice() ?? [];
-
-    const fuse = new Fuse(allItems, {
-      threshold: 0.15,
-      shouldSort: false,
-      keys:
-        selectedNamespace?.attrs.map((a) =>
-          a.type === 'ref' ? `${a.name}.id` : a.name,
-        ) ?? [],
-    });
-
-    return { allItems, fuse };
-  }, [itemsRes.data, selectedNamespace]);
-
-  const filteredSortedItems = useMemo(() => {
-    const _items = currentNav?.search
-      ? fuse.search(currentNav.search).map((r) => r.item)
-      : [...allItems];
-
-    const { sortAttr, sortAsc } = currentNav ?? {};
-
-    if (sortAttr) {
-      _items.sort(makeAttrComparator(sortAttr, sortAsc));
-    }
-
-    return _items;
-  }, [
-    allItems,
-    fuse,
-    currentNav?.search,
-    currentNav?.sortAsc,
-    currentNav?.sortAttr,
-  ]);
+  const allItems = itemsRes.data?.[selectedNamespace?.name ?? ''] ?? [];
 
   const numPages = allCount ? Math.ceil(allCount / limit) : 1;
   const currentPage = offset / limit + 1;
@@ -244,7 +545,8 @@ export function Explorer({
       <Dialog open={Boolean(editNs)} onClose={() => setEditNs(null)}>
         {selectedNamespace ? (
           <EditNamespaceDialog
-            readOnly={!!readOnlyNs}
+            readOnly={readOnlyNs}
+            isSystemCatalogNs={isSystemCatalogNs}
             appId={appId}
             db={db}
             namespace={selectedNamespace}
@@ -362,9 +664,9 @@ export function Explorer({
       </div>
       {selectedNamespace && currentNav && allItems ? (
         <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex items-center border-b">
+          <div className="flex items-center border-b overflow-hidden">
             <div className="flex flex-1 flex-col justify-between md:flex-row md:items-center">
-              <div className="flex items-center border-b px-2 py-1 md:border-b-0">
+              <div className="flex items-center border-b px-2 py-1 md:border-b-0 overflow-hidden">
                 {showBackButton ? (
                   <ArrowLeftIcon
                     className="mr-4 inline cursor-pointer"
@@ -383,7 +685,7 @@ export function Explorer({
                     }}
                   />
                 ) : null}
-                <div className="truncate whitespace-nowrap font-mono text-xs">
+                <div className="truncate overflow-hidden text-ellipses whitespace-nowrap font-mono text-xs flex-shrink">
                   <strong>{selectedNamespace.name}</strong>{' '}
                   {currentNav.where ? (
                     <>
@@ -393,6 +695,22 @@ export function Explorer({
                         {JSON.stringify(currentNav.where[1])}
                       </em>
                     </>
+                  ) : null}
+                  {searchFilters?.length ? (
+                    <span
+                      title={searchFilters
+                        .map(([attr, op, search]) => `${attr} ${op} ${search}`)
+                        .join(' || ')}
+                    >
+                      {searchFilters.map(([attr, op, search], i) => (
+                        <span key={attr}>
+                          <em className="rounded-sm border bg-white px-1">
+                            {attr} {op} {search}
+                          </em>
+                          {i < searchFilters.length - 1 ? ' || ' : null}
+                        </span>
+                      ))}
+                    </span>
                   ) : null}
                 </div>
               </div>
@@ -406,15 +724,10 @@ export function Explorer({
                 >
                   Edit Schema
                 </Button>
-                <TextInput
-                  className="text-content py-0 text-sm flex-1"
-                  placeholder="Filter..."
-                  value={currentNav?.search ?? ''}
-                  onChange={(v) => {
-                    replaceNavStackTop({
-                      search: v ?? undefined,
-                    });
-                  }}
+                <SearchInput
+                  key={selectedNamespaceId}
+                  onSearchChange={(filters) => setSearchFilters(filters)}
+                  attrs={selectedNamespace?.attrs}
                 />
               </div>
             </div>
@@ -560,15 +873,14 @@ export function Explorer({
                   <th className="px-2 py-2" style={{ width: '48px' }}>
                     <Checkbox
                       checked={
-                        filteredSortedItems.length > 0 &&
-                        Object.keys(checkedIds).length ===
-                          filteredSortedItems.length
+                        allItems.length > 0 &&
+                        Object.keys(checkedIds).length === allItems.length
                       }
                       onChange={(checked) => {
                         if (checked) {
                           setCheckedIds(
                             Object.fromEntries(
-                              filteredSortedItems.map((i) => [i.id, true]),
+                              allItems.map((i) => [i.id, true]),
                             ),
                           );
                         } else {
@@ -581,41 +893,64 @@ export function Explorer({
                     <th
                       key={attr.name}
                       className={clsx(
-                        'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
+                        'z-10 select-none whitespace-nowrap px-4 py-1',
                         {
-                          'bg-gray-200': currentNav.sortAttr === attr.name,
+                          'bg-gray-200':
+                            // Only highlight if one of the columns was clicked,
+                            // not if we're just doing our default sort
+                            currentNav?.sortAttr &&
+                            (sortAttr === attr.name ||
+                              (sortAttr === 'serverCreatedAt' &&
+                                attr.name === 'id')),
+                          'cursor-pointer': attr.sortable || attr.name === 'id',
                         },
                       )}
-                      onClick={() => {
-                        replaceNavStackTop({
-                          sortAttr: attr.name,
-                          sortAsc:
-                            currentNav.sortAttr !== attr.name
-                              ? true
-                              : !currentNav.sortAsc,
-                        });
-                      }}
+                      onClick={
+                        attr.sortable
+                          ? () => {
+                              replaceNavStackTop({
+                                sortAttr: attr.name,
+                                sortAsc:
+                                  sortAttr !== attr.name ? true : !sortAsc,
+                              });
+                            }
+                          : attr.name === 'id'
+                            ? () => {
+                                replaceNavStackTop({
+                                  sortAttr: 'serverCreatedAt',
+                                  sortAsc:
+                                    sortAttr !== 'serverCreatedAt'
+                                      ? true
+                                      : !sortAsc,
+                                });
+                              }
+                            : undefined
+                      }
                     >
                       <div className="flex items-center gap-2">
                         {attr.name}
-                        <span>
-                          {currentNav.sortAttr === attr.name ? (
-                            currentNav.sortAsc ? (
-                              '↓'
+                        {attr.sortable || attr.name === 'id' ? (
+                          <span>
+                            {sortAttr === attr.name ||
+                            (sortAttr === 'serverCreatedAt' &&
+                              attr.name === 'id') ? (
+                              sortAsc ? (
+                                '↓'
+                              ) : (
+                                '↑'
+                              )
                             ) : (
-                              '↑'
-                            )
-                          ) : (
-                            <span className="text-gray-400">↓</span>
-                          )}
-                        </span>
+                              <span className="text-gray-400">↓</span>
+                            )}
+                          </span>
+                        ) : null}
                       </div>
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody className="font-mono">
-                {filteredSortedItems.map((item) => (
+                {allItems.map((item) => (
                   <tr
                     key={item.id as string}
                     className="group border-b bg-white"
@@ -826,7 +1161,7 @@ function NewNamespaceDialog({
   db,
   onClose,
 }: {
-  db: InstantReactWeb;
+  db: InstantReactWebDatabase<any>;
   onClose: (p?: { id: string; name: string }) => void;
 }) {
   const [name, setName] = useState('');
@@ -837,7 +1172,7 @@ function NewNamespaceDialog({
       'forward-identity': [id(), name, 'id'],
       'value-type': 'blob',
       cardinality: 'one',
-      'unique?': false,
+      'unique?': true,
       'index?': false,
     };
 
@@ -873,14 +1208,13 @@ export interface ExplorerNav {
   where?: [string, any];
   sortAttr?: string;
   sortAsc?: boolean;
-  search?: string;
 }
 
 export type PushNavStack = (nav: ExplorerNav) => void;
 
 // DEV
 
-function _dev(db: InstantReactWeb) {
+function _dev(db: InstantReactWebDatabase<any>) {
   if (typeof window !== 'undefined') {
     const i = {
       db,

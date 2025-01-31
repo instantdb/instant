@@ -27,4 +27,4 @@ aws s3api put-object --region us-east-1 --bucket "$bucket" --key "$key" --body $
 
 aws elasticbeanstalk create-application-version --region us-east-1 --application-name instant-docker-prod --version-label "$application_version" --description "Manual deploy from $(hostname)" --source-bundle "S3Bucket=$bucket,S3Key=$key"
 
-eb deploy instant-docker-prod-env --version "$application_version"
+eb deploy Instant-docker-prod-env-2 --version "$application_version"

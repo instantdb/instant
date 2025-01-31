@@ -1,7 +1,7 @@
 ---
 title: 'Database in the Browser, a Spec'
 date: '2021-04-29'
-author: stopachka
+authors: stopachka
 ---
 
 How will we build web applications in the future?

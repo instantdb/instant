@@ -5,18 +5,18 @@ import { i, id } from "../../src";
 import { createLinkIndex } from "../../src/utils/linkIndex";
 
 test("many-to-many with inference", () => {
-  const schema = i.graph(
-    {
+  const schema = i.schema({
+    entities: {
       posts: i.entity({}),
       tags: i.entity({}),
     },
-    {
+    links: {
       postsTags: {
         forward: { on: "posts", has: "many", label: "tags" },
         reverse: { on: "tags", has: "many", label: "posts" },
       },
     },
-  );
+  });
 
   const ids = {
     postsTagsLink: id(),
@@ -82,18 +82,18 @@ test("many-to-many with inference", () => {
 });
 
 test("one-to-one with inference", () => {
-  const schema = i.graph(
-    {
+  const schema = i.schema({
+    entities: {
       users: i.entity({}),
       profiles: i.entity({}),
     },
-    {
+    links: {
       postsTags: {
         forward: { on: "users", has: "one", label: "profile" },
         reverse: { on: "profiles", has: "one", label: "user" },
       },
     },
-  );
+  });
 
   const ids = {
     usersProfilesLink: id(),

@@ -8,10 +8,14 @@
      (tool/copy) 
      (tool/hsql-pretty ...) and more!"
   (:require
+   [clojure.pprint :as pprint]
    [clojure.string :as str]
+   [clojure.walk :as walk]
    [honey.sql :as hsql]
-   [portal.api :as p])
+   [portal.api :as p]
+   [clj-async-profiler.core :as prof])
   (:import
+   (clojure.lang Compiler TaggedLiteral)
    (com.github.vertical_blank.sqlformatter SqlFormatter)
    (java.awt Toolkit)
    (java.awt.datatransfer StringSelection)))
@@ -152,6 +156,23 @@
                                      (assoc-in [~label :avg] avg#))))))
      ret#))
 
+(def ^:dynamic *time-indent*
+  "")
+
+(def time-enabled?
+  false)
+
+(defmacro time* [msg & body]
+  (if time-enabled?
+    `(let [msg# ~msg
+           t#   (System/nanoTime)
+           res# (binding [*time-indent* (str "┌╴" *time-indent*)]
+                  ~@body)
+           dt#  (-> (System/nanoTime) (- t#) (/ 1000000.0))]
+       (println (format "%s[ %8.3f ms ] %s" *time-indent* dt# msg#))
+       res#)
+    (cons 'do body)))
+
 (defn start-portal!
   "Lets you inspect data using Portal.
 
@@ -168,3 +189,65 @@
 (comment
   (start-portal!)
   (tap> {:hello [1 2 3]}))
+
+(def ^:private p-lock
+  (Object.))
+
+(defn p-pos []
+  (let [trace (->> (Thread/currentThread)
+                   (.getStackTrace)
+                   (seq))
+        el    ^StackTraceElement (nth trace 4)]
+    (str "[" (Compiler/demunge (.getClassName el)) " " (.getFileName el) ":" (.getLineNumber el) "]")))
+
+(defn pprint [o]
+  (->>
+   (binding [pprint/*print-right-margin* 120]
+     (with-out-str (pprint/pprint o)))
+   (str/split-lines)
+   (map #(str "   " %))
+   (str/join "\n")
+   (#(subs % 3))))
+
+(defn p-impl [position form res]
+  (let [form (walk/postwalk
+              (fn [form]
+                (if (and
+                     (list? form)
+                     (= 'tool/p-impl (first form)))
+                  (TaggedLiteral/create 'p (nth form 3))
+                  form))
+              form)]
+    (locking p-lock
+      (println (str "#p " form " " position "\n=> " (pprint res))))
+    res))
+
+(defn p
+  "Add #p before any form to quickly print its value to output next time
+   it is evaluated. Dev only"
+  [form]
+  `(p-impl (p-pos) '~form ~form))
+
+(defmacro profile [options? & body]
+  `(prof/profile ~options? ~body))
+
+(def prof-serve-ui prof/serve-ui)
+
+(defmacro bench [& body]
+  `(do
+     (require 'criterium.core)
+     (criterium.core/quick-bench ~@body)
+     (flush)))
+
+(defmacro with-prod-conn
+  "Usage: (with-prod-conn [my-conn]
+            (sql/select my-conn [\"select 1\"]))"
+  [[conn-name] & body]
+  `(let [cluster-id# (-> (clojure.java.io/resource "config/prod.edn")
+                         slurp
+                         clojure.edn/read-string
+                         :database-cluster-id)
+         rds-cluster-id->db-config# (requiring-resolve 'instant.aurora-config/rds-cluster-id->db-config)
+         start-pool# (requiring-resolve 'instant.jdbc.aurora/start-pool)]
+     (with-open [~conn-name (start-pool# 1 (rds-cluster-id->db-config# cluster-id#))]
+       ~@body)))

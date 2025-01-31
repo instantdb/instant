@@ -1,19 +1,21 @@
 (ns instant.util.tracer
   "Span lib for integrating with Honeycomb"
+  (:gen-class)
   (:require
    [clojure.main :as main]
-   [instant.util.logging-exporter :as logging-exporter]
    [instant.config :as config]
+   [instant.util.logging-exporter :as logging-exporter]
    [steffan-westcott.clj-otel.api.attributes :as attr])
   (:import
-   (io.honeycomb.opentelemetry OpenTelemetryConfiguration)
-   (io.opentelemetry.sdk OpenTelemetrySdk)
+   (io.opentelemetry.api.common AttributeKey Attributes)
    (io.opentelemetry.api.trace Span StatusCode)
    (io.opentelemetry.context Context)
-   (io.opentelemetry.sdk.trace SdkTracerProvider)
-   (io.opentelemetry.semconv.trace.attributes SemanticAttributes)
-   (io.opentelemetry.sdk.trace.export SimpleSpanProcessor))
-  (:gen-class))
+   (io.opentelemetry.exporter.otlp.trace OtlpGrpcSpanExporter)
+   (io.opentelemetry.sdk OpenTelemetrySdk)
+   (io.opentelemetry.sdk.resources Resource)
+   (io.opentelemetry.sdk.trace SdkTracer SdkTracerProvider)
+   (io.opentelemetry.sdk.trace.export BatchSpanProcessor SimpleSpanProcessor)
+   (java.util.concurrent TimeUnit)))
 
 (def ^:dynamic *span* nil)
 
@@ -22,7 +24,7 @@
 (def ^:dynamic *silence-exceptions?* nil)
 
 (defonce tracer (atom nil))
-(defn get-tracer []
+(defn get-tracer ^SdkTracer []
   (if-let [t @tracer]
     t
     (throw (Exception. "Call to trace before initialization."))))
@@ -30,6 +32,7 @@
 (defn make-log-only-sdk
   "Creates an opentelemetry sdk that logs to the console for use in tests
   and for Open Source when no Honeycomb API key is available."
+  ^OpenTelemetrySdk
   []
   (let [trace-provider-builder (SdkTracerProvider/builder)
         sdk-builder (OpenTelemetrySdk/builder)
@@ -39,16 +42,35 @@
         (.setTracerProvider (.build trace-provider-builder))
         (.build))))
 
-(defn make-honeycomb-sdk [honeycomb-api-key]
-  (let [builder (OpenTelemetryConfiguration/builder)
-        log-processor (SimpleSpanProcessor/create (logging-exporter/create))]
-    (-> builder
-        (.setApiKey honeycomb-api-key)
-        (.setEndpoint (config/get-honeycomb-endpoint))
-        (.setDataset "metrics")
-        (.setServiceName "instant-server")
-        (.addSpanProcessor log-processor)
-        (.buildAndRegisterGlobal))))
+(defn make-honeycomb-sdk
+  ^OpenTelemetrySdk
+  [honeycomb-api-key]
+  (let [trace-provider-builder (SdkTracerProvider/builder)
+        sdk-builder (OpenTelemetrySdk/builder)
+        log-processor (if (= :prod (config/get-env))
+                        (let [builder (BatchSpanProcessor/builder (logging-exporter/create))]
+                          (.setScheduleDelay builder 500 TimeUnit/MILLISECONDS)
+                          (.build builder))
+                        (SimpleSpanProcessor/create (logging-exporter/create)))
+        otlp-builder (OtlpGrpcSpanExporter/builder)
+        resource (.merge (Resource/getDefault)
+                         (Resource/create (Attributes/of (AttributeKey/stringKey "service.name")
+                                                         "instant-server")))]
+
+    (.setResource trace-provider-builder resource)
+    (.setCompression otlp-builder "gzip")
+
+    (.setEndpoint otlp-builder (config/get-honeycomb-endpoint))
+    (.addHeader otlp-builder "x-honeycomb-team" honeycomb-api-key)
+
+    (.addSpanProcessor trace-provider-builder
+                       (.build (BatchSpanProcessor/builder (.build otlp-builder))))
+
+    (.addSpanProcessor trace-provider-builder log-processor)
+
+    (-> sdk-builder
+        (.setTracerProvider (.build trace-provider-builder))
+        (.build))))
 
 (defn init []
   (let [sdk (if-let [honeycomb-api-key (config/get-honeycomb-api-key)]
@@ -56,36 +78,31 @@
               (make-log-only-sdk))]
     (reset! tracer (.getTracer sdk "instant-server"))))
 
-;; Stores metrics calculated by instant.gauges
-;; These metrics are attached to every span.
-;; Note: adding columns to spans are free in Honeycomb.
-;;       Having metrics on each span is a good way to observe changes.
-(defonce last-calculated-metrics (atom {}))
-
 (defn new-span!
   [{span-name :name :keys [attributes source] :as params}]
   (when-not span-name
     (throw (Exception. (format "Expected a map with :name key, got %s." params))))
   (let [thread (Thread/currentThread)
         {:keys [code-ns code-line code-file]} source
-        default-attributes (cond-> @last-calculated-metrics
-                             true (assoc "host.name" (config/get-hostname)
-                                         "process-id" @config/process-id)
-                             thread (assoc SemanticAttributes/THREAD_NAME
+        default-attributes (cond-> {"host.name" @config/hostname
+                                    "process-id" @config/process-id
+                                    "instance-id" @config/instance-id
+                                    "fewer-vfutures" config/fewer-vfutures?}
+                             thread (assoc "thread.name"
                                            (.getName thread)
-                                           SemanticAttributes/THREAD_ID
+                                           "thread.id"
                                            (.getId thread))
-                             code-ns     (assoc SemanticAttributes/CODE_NAMESPACE code-ns)
-                             code-line   (assoc SemanticAttributes/CODE_LINENO code-line)
-                             code-file   (assoc SemanticAttributes/CODE_FILEPATH code-file))
+                             code-ns     (assoc "code.namespace" code-ns)
+                             code-line   (assoc "code.lineno" code-line)
+                             code-file   (assoc "code.filepath" code-file))
         attributes'  (merge default-attributes attributes)]
     (-> (get-tracer)
         (.spanBuilder (name span-name))
         (cond->
-         *span* (.setParent (-> (Context/current)
-                                (.with *span*)))
-         :always (.setAllAttributes (attr/->attributes attributes'))
-         (not *span*) .setNoParent)
+            *span* (.setParent (-> (Context/current)
+                                   (.with *span*)))
+            :always (.setAllAttributes (attr/->attributes attributes'))
+            (not *span*) .setNoParent)
         .startSpan)))
 
 (def ^:private keyword->StatusCode
@@ -98,7 +115,7 @@
    {:keys [exception escaping? attributes]
     :or   {attributes {}}}]
   (let [attrs (cond-> attributes
-                escaping? (assoc SemanticAttributes/EXCEPTION_ESCAPED (boolean escaping?)))]
+                escaping? (assoc "exception.escaped" (boolean escaping?)))]
     (.recordException span exception (attr/->attributes attrs))))
 
 (defn add-data!
@@ -198,7 +215,7 @@
   ([]
    (when *span*
      (span-uri *span*)))
-  ([span]
+  ([^Span span]
    (let [ctx (.getSpanContext span)
          trace-id (.getTraceId ctx)
          span-id (.getSpanId ctx)]
@@ -209,3 +226,12 @@
       dataset-name
       trace-id
       span-id))))
+
+(defn current-span-ids []
+  (when-let [^Span span *span*]
+    {:span-id (-> span
+                  (.getSpanContext)
+                  (.getSpanId))
+     :trace-id (-> span
+                   (.getSpanContext)
+                   (.getTraceId))}))

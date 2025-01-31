@@ -8,7 +8,7 @@ import { useInView } from 'react-intersection-observer';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
-import { InstantReactWeb, init } from '@instantdb/react';
+import { InstantReactWebDatabase, InstantUnknownSchema, init } from '@instantdb/react';
 import { errorToast } from '@/lib/toast';
 import { ToastContainer } from 'react-toastify';
 import {
@@ -363,12 +363,7 @@ function RoomStatus({ db, appId }: { db: InstantDB; appId: string }) {
   );
 }
 
-type InstantDB = InstantReactWeb<
-  {},
-  {
-    examples: {};
-  }
->;
+type InstantDB = InstantReactWebDatabase<InstantUnknownSchema>;
 
 const defaultAppTitle = 'Instant Example App';
 const storageKey = 'examples-appId';
