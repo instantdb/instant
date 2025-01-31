@@ -1,12 +1,12 @@
 (ns instant.intern.metrics
-  "Generate metrics for our monthly updates
+  "Generate metrics for our KPIs
   
-  Usage: 
-   Most of the time you can load: http://instantdb.com/intern/graphs
+  To use for Investor Updates: 
+   Most of the time you can load: http://instantdb.com/intern/investor_updates
   
    You can also change up the queries locally and run the `save-pngs` comment below.
   
-  We define active users as someone who:
+  We define active devs as someone who:
   
   * Has made at least 1 transaction in the time period.
   * Transaction happened at least one week after the users very first transaction
@@ -33,15 +33,12 @@
            [java.util Base64]
            [java.time LocalDate]))
 
+;; ---------- 
+;; Queries 
+
 (defn excluded-emails []
   (let [{:keys [test team friend]} (get-emails)]
     (vec (concat test team friend))))
-
-(defn ensure-directory-exists [filepath]
-  (let [file (File. filepath)
-        parent-dir (.getParentFile file)]
-    (when (and parent-dir (not (.exists parent-dir)))
-      (.mkdirs parent-dir))))
 
 (defn calendar-weekly-actives
   ([]
@@ -129,14 +126,12 @@
                       :end-date (LocalDate/parse "2025-01-30")
                       :window-days 30})))
 
-(defn month-start-actives
-  "Given the month in `month-date`: 
-   
-   For each `day` of the month: 
-     Calculates active users from `start-of-month` to the `day` (inclusive)"
-  [conn {:keys [month-date]}]
-  (let [start-of-month (.withDayOfMonth month-date 1)
-        end-of-month   (.withDayOfMonth month-date (.lengthOfMonth month-date))
+(defn month-to-date-actives
+  "Given the `target-month`
+   For each `day` in the month, calculates month-to-date active metrics"
+  [conn {:keys [target-month]}]
+  (let [start-of-month (.withDayOfMonth target-month 1)
+        end-of-month   (.withDayOfMonth target-month (.lengthOfMonth target-month))
         query {:with [[:date_series
                        {:select [[[:cast [:generate_series
                                           [:date_trunc "day" [:cast start-of-month :date]]
@@ -168,13 +163,14 @@
 
 (comment
   (tool/with-prod-conn [conn]
-    (month-start-actives conn
-                         {:month-date (LocalDate/parse "2025-01-01")})))
+    (month-to-date-actives conn
+                           {:month-date (LocalDate/parse "2025-01-01")})))
 
-(defn calendar-monthly-actives-for-month
-  [conn {:keys [month-date]}]
-  (first  (sql/select conn
-                      ["SELECT
+(defn monthly-active-summary
+  [conn {:keys [target-month]}]
+  (first
+   (sql/select conn
+               ["SELECT
                   DATE_TRUNC('month', dat.date) AS analysis_date,
                   COUNT(DISTINCT u.id) AS distinct_users,
                   COUNT(DISTINCT a.id) AS distinct_apps
@@ -184,14 +180,37 @@
                 WHERE dat.is_active AND u.email NOT IN (SELECT unnest(?::text[]))
                       AND DATE_TRUNC('month', ?::date) = DATE_TRUNC('month', dat.date) 
                 GROUP BY 1"
-                       (with-meta (excluded-emails) {:pgtype "text[]"})
-                       month-date])))
+                (with-meta (excluded-emails) {:pgtype "text[]"})
+                target-month])))
 
 (comment
   (tool/with-prod-conn [conn]
-    (calendar-monthly-actives-for-month
+    (monthly-active-summary
      conn
      {:month-date (LocalDate/parse "2025-01-01")})))
+
+;; ----------------- 
+;; Charts 
+
+(defn ensure-directory-exists [filepath]
+  (let [file (File. filepath)
+        parent-dir (.getParentFile file)]
+    (when (and parent-dir (not (.exists parent-dir)))
+      (.mkdirs parent-dir))))
+
+(defn save-chart-into-file! [chart filename]
+  (ensure-directory-exists filename)
+  (i/save chart filename))
+
+(defn chart->base64-png [chart width height]
+  (let [buf-img (.createBufferedImage chart width height)
+        baos (ByteArrayOutputStream.)
+        _ (ImageIO/write buf-img, "png", baos)
+        img-bytes (.toByteArray baos)
+        encoder (Base64/getEncoder)
+        b64 (.encodeToString encoder img-bytes)
+        s (str "data:image/png;base64, " b64)]
+    s))
 
 (defn generate-bar-chart [metrics x-key y1-key title]
   (let [x-values (map x-key metrics)
@@ -242,20 +261,6 @@
 
     chart))
 
-(defn save-chart-into-file! [chart filename]
-  (ensure-directory-exists filename)
-  (i/save chart filename))
-
-(defn chart->base64-png [chart width height]
-  (let [buf-img (.createBufferedImage chart width height)
-        baos (ByteArrayOutputStream.)
-        _ (ImageIO/write buf-img, "png", baos)
-        img-bytes (.toByteArray baos)
-        encoder (Base64/getEncoder)
-        b64 (.encodeToString encoder img-bytes)
-        s (str "data:image/png;base64, " b64)]
-    s))
-
 (defn generate-line-chart [metrics x-key y1-key title]
   (let [x-values (map x-key metrics)
         y-values (map y1-key metrics)
@@ -292,9 +297,8 @@
     chart))
 
 (defn add-goal-line
-  "Given an existing line chart for (metrics, x-key, y-key), overlays a goal line computed 
-   as a linear interpolation from the first day’s value to a value growth-percent
-   higher on the final day."
+  "Given an existing line chart for (metrics, x-key, y-key): 
+   Overlays a `goal-line`, which goes linearily towards `end-goal`"
   [chart metrics x-key y-key end-goal]
   (let [x-values (map x-key metrics)
         y-values (map y-key metrics)
@@ -307,46 +311,22 @@
     (charts/add-categories chart x-values goal-values :series-label "Goal")
     chart))
 
-(comment
-  (def date (LocalDate/parse "2025-01-01"))
-  (def prev-month-date (.minusMonths date 1))
-  (def prev-month-stats (tool/with-prod-conn [conn]
-                          (calendar-monthly-actives-for-month
-                           conn
-                           {:month-date  prev-month-date})))
-
-  (def stats (tool/with-prod-conn [conn]
-               (month-start-actives conn {:month-date (LocalDate/parse "2025-01-01")})))
-
-  (save-chart-into-file! (->  (generate-line-chart stats :analysis_date :distinct_apps "test")
-                              (add-goal-line stats :analysis_date :distinct_apps (* 1.2
-                                                                                    (:distinct_apps prev-month-stats))))
-                         (str "resources/metrics/"  "test.png"))
-
-  (shell/sh "open" "resources/metrics/test.png"))
-
-(defn mom-growth [stats k]
-  (let [[prev-m curr-m] (take-last 2 stats)
-        [prev-v curr-v] (map k [prev-m curr-m])
-        growth (* (/ (- curr-v prev-v) (* prev-v 1.0)) 100)]
-    growth))
-
 ;; ---------------- 
 ;; Overview Metrics 
 
-(defn overview-metrics [conn end-date]
-  (let [start-date (.minusDays end-date 30)
+(defn overview-metrics [conn target-date]
+  (let [days-ago-30 (.minusDays target-date 30)
         rolling-monthly-stats (rolling-actives conn
-                                               {:start-date start-date
-                                                :end-date end-date
+                                               {:start-date days-ago-30
+                                                :end-date target-date
                                                 :window-days 30})
-        prev-month-stats (calendar-monthly-actives-for-month conn
-                                                             {:month-date (.minusMonths end-date 1)})
 
-        month-start-stats (month-start-actives conn {:month-date end-date})
+        prev-month (.minusMonths target-date 1)
+        prev-month-stats (monthly-active-summary conn {:target-month prev-month})
+        month-to-date-stats (month-to-date-actives conn {:target-month target-date})
 
         _ (ex/assert-valid! :stats rolling-monthly-stats (when (or (empty? rolling-monthly-stats)
-                                                                   (empty? month-start-stats)
+                                                                   (empty? month-to-date-stats)
                                                                    (nil? prev-month-stats))
                                                            [{:message "No data found for stats"}]))
 
@@ -354,15 +334,16 @@
                                                           :analysis_date :distinct_apps
                                                           "Rolling Monthly Active Apps >= 1 tx")
 
-        month-start-active-apps (->  (generate-line-chart month-start-stats
-                                                          :analysis_date
-                                                          :distinct_apps
-                                                          "Month Start Active Apps >= 1 tx")
-                                     (add-goal-line month-start-stats :analysis_date :distinct_apps (* 1.2 (:distinct_apps prev-month-stats))))]
-
-    {:data-points {:rolling-monthly-active-apps rolling-monthly-active-apps}
-     :charts {:rolling-monthly-active-apps rolling-monthly-active-apps
-              :month-start-active-apps month-start-active-apps}}))
+        month-to-date-active-apps (->  (generate-line-chart month-to-date-stats
+                                                            :analysis_date
+                                                            :distinct_apps
+                                                            "Month To Date Active Apps >= 1 tx")
+                                       (add-goal-line month-to-date-stats 
+                                                      :analysis_date 
+                                                      :distinct_apps 
+                                                      (* 1.2 (:distinct_apps prev-month-stats))))]
+    {:charts {:rolling-monthly-active-apps rolling-monthly-active-apps
+              :month-to-date-active-apps month-to-date-active-apps}}))
 
 (comment
   (def overview-metrics (tool/with-prod-conn [conn]
@@ -375,6 +356,12 @@
 
 ;; ---------------- 
 ;; Investor Update Metrics 
+
+(defn mom-growth [stats k]
+  (let [[prev-m curr-m] (take-last 2 stats)
+        [prev-v curr-v] (map k [prev-m curr-m])
+        growth (* (/ (- curr-v prev-v) (* prev-v 1.0)) 100)]
+    growth))
 
 (defn investor-update-metrics [conn]
   (let [weekly-stats  (calendar-weekly-actives conn)
