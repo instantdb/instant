@@ -19,7 +19,8 @@
             :promo-emails {}
             :rate-limited-apps {}
             :welcome-email-config {}
-            :e2e-logging {}})
+            :e2e-logging {}
+            :threading {}})
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -89,7 +90,9 @@
                       {:invalidator-every-n (try (/ 1 (get flag "invalidator-rate"))
                                                  (catch Exception _e
                                                    10000))})
-        welcome-email-config (-> result (get "welcome-email-config") first w/keywordize-keys)]
+        welcome-email-config (-> result (get "welcome-email-config") first w/keywordize-keys)
+        threading (let [flag (first (get result "threading"))]
+                    {:use-vfutures? (get flag "use-vfutures" true)})]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
      :use-patch-presence use-patch-presence
@@ -97,7 +100,8 @@
      :drop-refresh-spam drop-refresh-spam
      :rate-limited-apps rate-limited-apps
      :e2e-logging e2e-logging
-     :welcome-email-config welcome-email-config}))
+     :welcome-email-config welcome-email-config
+     :threading threading}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -169,3 +173,8 @@
        (zero? (mod tx-id (or (get-in (query-result)
                                      [:e2e-logging :invalidator-every-n])
                              10000)))))
+
+(defn use-vfutures? []
+  (-> (query-result)
+      :threading
+      (:use-vfutures? true)))

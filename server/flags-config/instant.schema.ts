@@ -49,6 +49,9 @@ const graph = i.graph(
       'enabled?': i.boolean(),
       limit: i.number()
     }),
+    "threading": i.entity({
+      "use-vfutures": i.boolean()
+    })
   },
   // You can define links here.
   // For example, if `posts` should have many `comments`.
