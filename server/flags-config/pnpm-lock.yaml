@@ -6,11 +6,11 @@ settings:
 
 dependencies:
   '@instantdb/core':
-    specifier: ^0.17.7
-    version: 0.17.7
+    specifier: ^0.17.12
+    version: 0.17.12
   instant-cli:
-    specifier: ^0.17.7
-    version: 0.17.7
+    specifier: ^0.17.12
+    version: 0.17.12
 
 packages:
 
@@ -420,8 +420,8 @@ packages:
       mute-stream: 1.0.0
     dev: false
 
-  /@instantdb/core@0.17.7:
-    resolution: {integrity: sha512-5JaBEryf9MFCwoRFX5vNu850n93nbbW+urPc85hpUFZR4M4pU9f7d1qxnvlrDreqNobdzN8VvP+8Yv9uFT7/4Q==}
+  /@instantdb/core@0.17.12:
+    resolution: {integrity: sha512-YBcuTn+OoFIcnFam3HwsKffk1kvpLRSbdGMasrersRDpaG4dDr8N0a6jeVYRUhjSL734zm/hVkv/yG0pevVT3A==}
     dependencies:
       mutative: 1.0.11
       uuid: 9.0.1
@@ -706,8 +706,8 @@ packages:
       rxjs: 7.8.1
     dev: false
 
-  /instant-cli@0.17.7:
-    resolution: {integrity: sha512-USNFUD4tK49dqqjBUpIJObyBsYad6ElMUr9V0pZA+QIM8kwbo2By7MJwLXLLWSxpgy0NOXeAlZtPQI77DRB/3A==}
+  /instant-cli@0.17.12:
+    resolution: {integrity: sha512-HHAHjdX3CTDyqdRLRVVzrBMyH+9rY66bhWJCchhRntSNhqkn9iWWXK6CliA9djwhPz7Apa0crrLP/URLnMMmBg==}
     hasBin: true
     dependencies:
       '@inquirer/core': 9.0.10
