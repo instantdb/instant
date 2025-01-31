@@ -62,12 +62,12 @@
                                              :cluster-name  (str "test-cluster-" id)}))))
         eph-room-maps   (atom {})
         socket          {:id               (random-uuid)
-                         :ws-conn          (a/chan 100)
+                         :ws-conn          (a/chan 1)
                          :receive-q        receive-q
                          :ping-job         (future)
                          :pending-handlers (atom #{})}
         socket-2        {:id               (random-uuid)
-                         :ws-conn          (a/chan 100)
+                         :ws-conn          (a/chan 1)
                          :receive-q        receive-q
                          :ping-job         (future)
                          :pending-handlers (atom #{})}
@@ -98,15 +98,15 @@
               (HazelcastInstance/.shutdown (:hz @eph-hz)))))))))
 
 (defn read-msg [expected-op {:keys [ws-conn id]}]
-  (loop []
-    (let [ret (ua/<!!-timeout ws-conn)]
-      (when (= :timeout ret)
-        (throw (ex-info "Timed out waiting for a response" {:expected-op expected-op :id id})))
-      (if (not= expected-op (:op ret))
-        (do
-          (println (str "Expected " expected-op ", got " ret ", skipping"))
-          (recur))
-        (dissoc ret :client-event-id)))))
+  (let [work (future (loop [ret (a/<!! ws-conn)]
+                       (if (= expected-op (:op ret))
+                         (dissoc ret :client-event-id)
+                         (do (a/put! ws-conn ret)
+                             (Thread/sleep 100)
+                             (recur (a/<!! ws-conn))))))
+        ret (deref work 1000 :timeout)]
+    (assert (not= :timeout ret) "Timed out waiting for a response")
+    ret))
 
 (defn- blocking-send-msg [expected-op {:keys [ws-conn id] :as socket} msg]
   (session/handle-receive *store-conn* (rs/get-session @*store-conn* id) msg {})
