@@ -97,23 +97,23 @@
             (when @realized-eph?
               (HazelcastInstance/.shutdown (:hz @eph-hz)))))))))
 
-(defn read-msg [expected-op {:keys [ws-conn id]}]
-  (loop []
-    (let [ret (ua/<!!-timeout ws-conn)]
-      (when (= :timeout ret)
-        (throw (ex-info "Timed out waiting for a response" {:expected-op expected-op :id id})))
-      (if (not= expected-op (:op ret))
-        (do
-          (println (str "Expected " expected-op ", got " ret ", skipping"))
-          (recur))
-        (dissoc ret :client-event-id)))))
+(defn read-msg [{:keys [ws-conn id]}]
+  (let [ret (ua/<!!-timeout ws-conn)]
+    (if (= :timeout ret)
+      (throw (ex-info "Timed out waiting for a response" {:id id})))
+      (dissoc ret :client-event-id)))
 
-(defn- blocking-send-msg [expected-op {:keys [ws-conn id] :as socket} msg]
-  (session/handle-receive *store-conn* (rs/get-session @*store-conn* id) msg {})
-  (read-msg expected-op socket))
+(defn- read-msgs [n socket]
+  (set (repeatedly n #(read-msg socket))))
 
-(defn- blocking-send-refresh [{:keys [id] :as socket} msg]
-  (blocking-send-msg :refresh-ok socket (assoc msg :session-id id)))
+(defn- send-msg [{:keys [ws-conn id] :as socket} msg]
+  (session/handle-receive *store-conn* (rs/get-session @*store-conn* id) msg {}))
+
+(defn- blocking-send-msg [expected-op socket msg]
+  (send-msg socket msg)
+  (let [ret (read-msg socket)]
+    (is (= expected-op (:op ret)))
+    ret))
 
 (defn- pretty-auth [{:keys [app user] :as _auth}]
   [(:title app) (:email user)])
@@ -507,7 +507,8 @@
             (ds/transact! store-conn [[:db/retract
                                        [:instaql-query/session-id+query [sess-id (:kw-q query-1987)]]
                                        :instaql-query/hash]])
-            (blocking-send-refresh socket {:op :refresh})
+            (blocking-send-msg :refresh-ok socket {:session-id (:id socket)
+                                                   :op :refresh})
 
             ;; After refresh there should be no more stale queries
             (is (empty? (rs/get-stale-instaql-queries @store-conn sess-id)))
@@ -602,7 +603,8 @@
                                      [:vae '_ '_ john-uuid])])
 
             ;; send refresh
-            (blocking-send-refresh socket {:op :refresh})
+            (blocking-send-msg :refresh-ok socket {:session-id (:id socket)
+                                                   :op :refresh})
 
             ;; data is cleaned
             (is (empty? (rs/get-stale-instaql-queries @store-conn sess-id)))
@@ -708,13 +710,15 @@
 (deftest leave-room-works
   (with-session
     (fn [_store-conn {:keys [socket]}]
-      (blocking-send-msg :init-ok socket {:op :init
-                                          :app-id movies-app-id})
+      (send-msg socket {:op :init
+                        :app-id movies-app-id})
+      (is (= :init-ok (:op (read-msg socket))))
+
       (let [rid (str (UUID/randomUUID))
             sess-id (:id socket)]
-        (is (= :join-room-ok
-               (:op (blocking-send-msg :join-room-ok socket {:op :join-room, :room-id rid}))))
-        (is (= :refresh-presence (:op (read-msg :refresh-presence socket))))
+        (send-msg socket {:op :join-room, :room-id rid})
+        (is (= #{:join-room-ok :refresh-presence}
+               (->> (read-msgs 2 socket) (map :op) set)))
 
         (is (eph/in-room? movies-app-id rid sess-id))
 
@@ -737,11 +741,14 @@
             sess-id (:id socket)
             d1      {:a "a" :b "b" :c "c" :d "d" :e "e"}
             d2      {:a "a" :b "b" :c "c" :e "E" :f "F"}]
-        (blocking-send-msg :init-ok socket {:op       :init
-                                            :app-id   movies-app-id
-                                            :versions {session/core-version-key "0.17.6"}})
-        (is (= :join-room-ok (:op (blocking-send-msg :join-room-ok socket {:op :join-room :room-id rid}))))
-        (is (= :refresh-presence (:op (read-msg :refresh-presence socket))))
+        (send-msg socket {:op       :init
+                          :app-id   movies-app-id
+                          :versions {session/core-version-key "0.17.6"}})
+        (is (= :init-ok (:op (read-msg socket))))
+
+        (send-msg socket {:op :join-room :room-id rid})
+        (is (= #{:join-room-ok :refresh-presence}
+               (->> (read-msgs 2 socket) (map :op) set)))
 
         ;; session is in the room
         (is (eph/in-room? movies-app-id rid sess-id))
@@ -753,24 +760,27 @@
                (eph/get-room-data movies-app-id rid)))
 
         ;; set session data
-        (is (= :set-presence-ok (:op (blocking-send-msg :set-presence-ok socket {:op :set-presence :room-id rid :data d1}))))
-        (is (= {:op      :patch-presence
-                :room-id rid
-                :edits   [[[sess-id :data] :r {:a "a" :b "b" :c "c" :d "d" :e "e"}]]}
-               (read-msg :patch-presence socket)))
+        (send-msg socket {:op :set-presence, :room-id rid, :data d1})
+
+        (is (= #{{:op :set-presence-ok, :room-id rid}
+                 {:op      :patch-presence
+                  :room-id rid
+                  :edits   [[[sess-id :data] :r {:a "a" :b "b" :c "c" :d "d" :e "e"}]]}}
+               (read-msgs 2 socket)))
         (is (= {sess-id {:peer-id sess-id
                          :user    nil
                          :data    d1}}
                (eph/get-room-data movies-app-id rid)))
 
         ;; udpate session data
-        (is (= :set-presence-ok (:op (blocking-send-msg :set-presence-ok socket {:op :set-presence :room-id rid :data d2}))))
-        (is (= {:op      :patch-presence
-                :room-id rid
-                :edits   [[[sess-id :data :d] :-]
-                          [[sess-id :data :e] :r "E"]
-                          [[sess-id :data :f] :+ "F"]]}
-               (read-msg :patch-presence socket)))
+        (send-msg socket {:op :set-presence, :room-id rid, :data d2})
+        (is (= #{{:op :set-presence-ok, :room-id rid}
+                 {:op      :patch-presence
+                  :room-id rid
+                  :edits   [[[sess-id :data :d] :-]
+                            [[sess-id :data :e] :r "E"]
+                            [[sess-id :data :f] :+ "F"]]}}
+               (read-msgs 2 socket)))
         (is (= {sess-id {:peer-id sess-id
                          :user    nil
                          :data    d2}}
@@ -787,86 +797,78 @@
             d2        {:a "a" :b "b" :c "c" :e "E" :f "F"}
             versions  {session/core-version-key "0.17.6"}]
         ;; socket-1 joining
-        (blocking-send-msg :init-ok socket-1 {:op       :init
-                                              :app-id   movies-app-id
-                                              :versions versions})
-        (is (= {:op      :join-room-ok
-                :room-id rid}
-               (blocking-send-msg :join-room-ok socket-1 {:op :join-room :room-id rid})))
-        (is (= {:op      :refresh-presence
-                :room-id rid
-                :data    {sess-id-1 {:data    {}
-                                     :peer-id sess-id-1
-                                     :user    nil}}}
-               (read-msg :refresh-presence socket-1)))
-        (is (= {:op      :set-presence-ok
-                :room-id rid}
-               (blocking-send-msg :set-presence-ok socket-1 {:op :set-presence :room-id rid :data d1})))
-        (is (= {:op      :patch-presence
-                :room-id rid
-                :edits   [[[sess-id-1 :data] :r d1]]}
-               (read-msg :patch-presence socket-1)))
+        (send-msg socket-1 {:op :init, :app-id movies-app-id, :versions versions})
+        (is (= :init-ok (:op (read-msg socket-1))))
+
+        (send-msg socket-1 {:op :join-room, :room-id rid})
+        (is (= #{{:op :join-room-ok, :room-id rid}
+                 {:op :refresh-presence, :room-id rid, :data {sess-id-1 {:data {}, :peer-id sess-id-1, :user nil}}}}
+               (read-msgs 2 socket-1)))
+
+        (send-msg socket-1 {:op :set-presence, :room-id rid, :data d1})
+        (is (= #{{:op :set-presence-ok, :room-id rid}
+                 {:op :patch-presence, :room-id rid, :edits [[[sess-id-1 :data] :r d1]]}}
+               (read-msgs 2 socket-1)))
 
         ;; socket-2 joining
-        (blocking-send-msg :init-ok socket-2 {:op       :init
-                                              :app-id   movies-app-id
-                                              :versions versions})
-        (is (= {:op      :join-room-ok
-                :room-id rid}
-               (blocking-send-msg :join-room-ok socket-2 {:op :join-room :room-id rid})))
-        (is (= {:op      :refresh-presence
-                :room-id rid
-                :data    {sess-id-1 {:data    d1
-                                     :peer-id sess-id-1
-                                     :user    nil}
-                          sess-id-2 {:data    {}
-                                     :peer-id sess-id-2
-                                     :user    nil}}}
-               (read-msg :refresh-presence socket-2)))
+        (send-msg socket-2 {:op :init, :app-id movies-app-id, :versions versions})
+        (is (= :init-ok (:op (read-msg socket-2))))
 
+        (send-msg socket-2 {:op :join-room, :room-id rid})
+        (is (= #{{:op :join-room-ok, :room-id rid}
+                 {:op      :refresh-presence
+                  :room-id rid
+                  :data    {sess-id-1 {:data    d1
+                                       :peer-id sess-id-1
+                                       :user    nil}
+                            sess-id-2 {:data    {}
+                                       :peer-id sess-id-2
+                                       :user    nil}}}}
+               (read-msgs 2 socket-2)))
         (is (= {:op      :patch-presence
                 :room-id rid
                 :edits   [[[sess-id-2] :+ {:data {}
                                            :peer-id sess-id-2
                                            :user nil}]]}
-               (read-msg :patch-presence socket-1)))
+               (read-msg socket-1)))
 
         ;; socket-1 updating
-        (is (= {:op      :set-presence-ok
-                :room-id rid}
-               (blocking-send-msg :set-presence-ok socket-1 {:op :set-presence :room-id rid :data d2})))
+        (send-msg socket-1 {:op :set-presence, :room-id rid, :data d2})
+        (is (= #{{:op      :set-presence-ok
+                  :room-id rid}
+                 {:op      :patch-presence
+                  :room-id rid
+                  :edits   [[[sess-id-1 :data :d] :-]
+                            [[sess-id-1 :data :e] :r "E"]
+                            [[sess-id-1 :data :f] :+ "F"]]}}
+               (read-msgs 2 socket-1)))
         (is (= {:op      :patch-presence
                 :room-id rid
                 :edits   [[[sess-id-1 :data :d] :-]
                           [[sess-id-1 :data :e] :r "E"]
                           [[sess-id-1 :data :f] :+ "F"]]}
-               (read-msg :patch-presence socket-1)))
-        (is (= {:op      :patch-presence
-                :room-id rid
-                :edits   [[[sess-id-1 :data :d] :-]
-                          [[sess-id-1 :data :e] :r "E"]
-                          [[sess-id-1 :data :f] :+ "F"]]}
-               (read-msg :patch-presence socket-2)))
+               (read-msg socket-2)))
 
         ;; socket-2 leaving
+        (send-msg socket-2 {:op :leave-room, :room-id rid})
         (is (= {:op      :leave-room-ok
                 :room-id rid}
-               (blocking-send-msg :leave-room-ok socket-2 {:op :leave-room, :room-id rid})))
+               (read-msg socket-2)))
         (is (= {:op      :patch-presence
                 :room-id rid
                 :edits   [[[sess-id-2] :-]]}
-               (read-msg :patch-presence socket-1)))
+               (read-msg socket-1)))
 
         ;; socket-1 updating
-        (is (= {:op      :set-presence-ok
-                :room-id rid}
-               (blocking-send-msg :set-presence-ok socket-1 {:op :set-presence :room-id rid :data d1})))
-        (is (= {:op      :patch-presence
-                :room-id rid
-                :edits   [[[sess-id-1 :data :e] :r "e"]
-                          [[sess-id-1 :data :f] :-]
-                          [[sess-id-1 :data :d] :+ "d"]]}
-               (read-msg :patch-presence socket-1)))))))
+        (send-msg socket-1 {:op :set-presence, :room-id rid, :data d1})
+        (is (= #{{:op      :set-presence-ok
+                  :room-id rid}
+                 {:op      :patch-presence
+                  :room-id rid
+                  :edits   [[[sess-id-1 :data :e] :r "e"]
+                            [[sess-id-1 :data :f] :-]
+                            [[sess-id-1 :data :d] :+ "d"]]}}
+               (read-msgs 2 socket-1)))))))
 
 (deftest set-presence-fails-when-not-in-room
   (with-session
@@ -887,7 +889,7 @@
             d1 {:hello "world"}]
         (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
         (is (= :join-room-ok (:op (blocking-send-msg :join-room-ok socket {:op :join-room, :room-id rid}))))
-        (is (= :refresh-presence (:op (read-msg :refresh-presence socket))))
+        (is (= :refresh-presence (:op (read-msg socket))))
 
         (let [room-data (eph/get-room-data movies-app-id rid)
               {:keys [op room-id topic data]}
