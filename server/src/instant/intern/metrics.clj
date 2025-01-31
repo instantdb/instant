@@ -183,7 +183,10 @@
         growth (* (/ (- curr-v prev-v) (* prev-v 1.0)) 100)]
     growth))
 
-(defn generate [conn]
+;; ---------------- 
+;; Investor Update Metrics 
+
+(defn investor-update-metrics [conn]
   (let [weekly-stats  (get-weekly-stats conn)
         monthly-stats (get-monthly-stats conn)
         _ (ex/assert-valid! :stats [weekly-stats monthly-stats] (when (or (empty? weekly-stats)
@@ -211,7 +214,7 @@
 ;; save-pngs
 (comment
   (def metrics (tool/with-prod-conn [conn]
-                 (generate conn)))
+                 (investor-update-metrics conn)))
 
   (doseq [[k chart] (:charts metrics)]
     (save-chart-into-file! chart (str "resources/metrics/" (name k) ".png")))
