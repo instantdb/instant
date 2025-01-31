@@ -133,7 +133,7 @@
 ;; https://postmarkapp.com/developer/api/signatures-api#list-sender-signatures
 (defn list-senders! [count offset]
   (clj-http/get
-   (str "https://api.postmarkapp.com/senders/")
+   "https://api.postmarkapp.com/senders/"
    {:coerce :always
     :as :json
     :query-params {:count count

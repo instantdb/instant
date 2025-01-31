@@ -134,7 +134,6 @@
            :oss-bootstrap {:extra-deps {org.clojure/tools.cli {:mvn/version "1.1.230"}}
                            :exec-fn tasks/bootstrap-for-oss
                            :jvm-opts ["-Dclojure.main.report=stderr"]}
-           :lint {:extra-deps {clj-kondo/clj-kondo {:git/url "https://github.com/clj-kondo/clj-kondo.git"
-                                                    :sha "c0ccff5e9c87c46f85fe705450fce9a49b0ce5e0"}}
+           :lint {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2025.01.16"}}
                   :main-opts ["-m" "clj-kondo.main" "--lint" "src"]}}
  :main-opts ["-m" "instant.core"]}
