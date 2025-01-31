@@ -43,7 +43,7 @@
 (defn duration-ms [^SpanData span]
   (let [start (.getStartEpochNanos span)
         end   (.getEndEpochNanos span)]
-    (.toMillis (TimeUnit/NANOSECONDS)
+    (.toMillis TimeUnit/NANOSECONDS
                (- end start))))
 
 (defn exclude? [k]

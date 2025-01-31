@@ -106,7 +106,7 @@
                           "Custom scheme should be a string.")
                         (when (contains? reserved-uri-schemes (first params))
                           (str "The scheme `" (first params) "` is not allowed.")))
-    (str "Unrecognized service ")))
+    (str "Unrecognized service " service)))
 
 (comment
   (add! {:app-id (UUID/fromString "3cc5c5c8-07df-42b2-afdc-6a04cbf0c40a")
