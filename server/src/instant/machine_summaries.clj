@@ -22,7 +22,7 @@
 
 (defn get-all-session-reports [hz]
   (let [executor (.getExecutorService hz "session-report-executor")
-        futures  (.submitToAllMembers executor (hz/Task. session-report-task))]
+        futures  (.submitToAllMembers executor (hz/->Task #'session-report-task))]
     (into {} (for [[member fut] futures]
                [(str member) @fut]))))
 
