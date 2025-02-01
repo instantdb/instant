@@ -236,6 +236,14 @@ function isTabAvailable(tab: Tab, role?: Role) {
   return tab.minRole ? role && isMinRole(tab.minRole, role) : true;
 }
 
+function WatchNamespaces({ db }: { db: InstantReactWebDatabase<any> }) {
+  // (XXX)
+  // Hack to ensure that the namespaces in the Explorer tab are always
+  // kept up-to-date.
+  useSchemaQuery(db);
+  return null;
+}
+
 function Dashboard() {
   const token = useContext(TokenContext);
   const router = useRouter();
@@ -414,6 +422,14 @@ function Dashboard() {
           <title>Instant - {tabIndex.get(tab)?.title}</title>
           <meta name="description" content="Welcome to Instant." />
         </Head>
+
+        {showApp ? (
+          <WatchNamespaces
+            key={connection.db._core._reactor.config.appId}
+            db={connection.db}
+          />
+        ) : null}
+
         <StyledToastContainer />
         <PersonalAccessTokensScreen />
       </div>
