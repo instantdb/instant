@@ -20,6 +20,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
    [instant.lib.ring.undertow :as undertow-adapter]
+   [instant.machine-summaries]
    [instant.nrepl :as nrepl]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.invalidator :as inv]
