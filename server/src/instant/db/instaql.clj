@@ -5,6 +5,7 @@
    [clojure.string :as string]
    [clojure.walk :as walk]
    [honey.sql :as hsql]
+   [instant.flags :as flag]
    [instant.data.constants :refer [zeneca-app-id]]
    [instant.data.resolvers :as resolvers]
    [instant.db.cel :as cel]
@@ -24,7 +25,8 @@
    [instant.util.uuid :as uuid-util]
    [instant.system-catalog :refer [all-attrs] :rename {all-attrs $system-attrs}]
    [medley.core :refer [update-existing-in]]
-   [instant.storage.s3 :as instant-s3])
+   [instant.storage.s3 :as instant-s3]
+   [instant.flags :as flags])
   (:import
    (java.util UUID)))
 
@@ -872,7 +874,10 @@
                                   first
                                   (nth 2))]
       (let [url-aid (attr-model/resolve-attr-id $system-attrs "$files" "url")
-            url (instant-s3/create-signed-download-url! app-id path-value)]
+            {:keys [disableLegacy?]} (flags/storage-migration)
+            url (if disableLegacy?
+                  (instant-s3/create-signed-download-url! app-id path-value)
+                  (instant-s3/create-legacy-signed-download-url! app-id path-value))]
         [[[eid url-aid url t]]]))))
 
 (def compute-triples-handler

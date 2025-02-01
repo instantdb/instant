@@ -1,6 +1,18 @@
 (ns instant.storage.s3
   (:require [clojure.string :as string]
-            [instant.util.s3 :as s3-util]))
+            [instant.util.s3 :as s3-util]
+            [instant.flags :as flags]))
+
+;; Legacy S3 migration helpers
+;; ------------------
+(defn ->legacy-object-key [app-id filename]
+  (str app-id "/" filename))
+
+(defn legacy-object-key->path
+  "Extract path from our S3 object keys"
+  [object-key]
+  (let [[_app-id & path] (string/split object-key #"/")]
+    (string/join "/" path)))
 
 ;; S3 path manipulation
 ;; ----------------------
@@ -40,7 +52,11 @@
 (defn upload-file-to-s3 [{:keys [app-id path] :as ctx} file]
   (when (not (instance? java.io.InputStream file))
     (throw (Exception. "Unsupported file format")))
-  (let [ctx* (assoc ctx :object-key (->object-key app-id path))]
+  (let [ctx* (assoc ctx :object-key (->object-key app-id path))
+        ctx-legacy* (assoc ctx :object-key (->legacy-object-key app-id path))
+        upload-twice? (-> (flags/storage-migration) :disableLegacy? not)]
+    (when upload-twice?
+      (s3-util/upload-stream-to-s3 ctx-legacy* file))
     (s3-util/upload-stream-to-s3 ctx* file)))
 
 (defn format-object [{:keys [key object-metadata]}]
@@ -50,9 +66,11 @@
              :last-modified (-> object-metadata :last-modified .getMillis)
              :path (object-key->path key))))
 
-(defn get-object-metadata [app-id path]
-  (let [object-key (->object-key app-id path)]
-    (format-object (s3-util/get-object object-key))))
+(defn get-object-metadata
+  ([app-id path] (get-object-metadata s3-util/default-bucket app-id path))
+  ([bucket-name app-id path]
+   (let [object-key (->object-key app-id path)]
+     (format-object (s3-util/get-object bucket-name object-key)))))
 
 (defn delete-file! [app-id filename]
   (let [object-key (->object-key app-id filename)]
@@ -61,6 +79,15 @@
 (defn bulk-delete-files! [app-id filenames]
   (let [keys (mapv (fn [filename] (->object-key app-id filename)) filenames)]
     (s3-util/delete-objects-paginated keys)))
+
+(defn create-legacy-signed-download-url! [app-id filename]
+  (let [expiration (+ (System/currentTimeMillis) (* 1000 60 60 24 7)) ;; 7 days
+        object-key (->legacy-object-key app-id filename)]
+    (str (s3-util/generate-presigned-url
+          {:method :get
+           :bucket-name s3-util/default-bucket
+           :key object-key
+           :expiration expiration}))))
 
 (defn create-signed-download-url! [app-id filename]
   (let [expiration (+ (System/currentTimeMillis) (* 1000 60 60 24 7)) ;; 7 days
