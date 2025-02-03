@@ -1,8 +1,8 @@
 (ns instant.db.cel
   (:require
+   [clojure+.walk :as walk]
    [clojure.set :as clojure-set]
    [clojure.string :as clojure-string]
-   [clojure+.walk :as walk]
    [instant.data.constants :refer [zeneca-app-id]]
    [instant.db.dataloader :as dataloader]
    [instant.db.datalog :as d]
@@ -13,32 +13,54 @@
    [instant.util.exception :as ex]
    [instant.util.tracer :as tracer])
   (:import
+   (com.google.common.collect ImmutableList)
    (com.google.protobuf NullValue)
-   (dev.cel.common CelAbstractSyntaxTree CelFunctionDecl CelOverloadDecl)
+   (dev.cel.common CelAbstractSyntaxTree
+                   CelFunctionDecl
+                   CelMutableAst
+                   CelOptions
+                   CelOverloadDecl)
    (dev.cel.common.ast CelExpr
                        CelExpr$CelCall
                        CelExpr$CelComprehension
                        CelExpr$ExprKind$Kind
                        Expression$Map$Entry)
-   (dev.cel.common.navigation CelNavigableExpr)
-   (dev.cel.common.types CelType ListType MapType SimpleType)
-   (dev.cel.compiler CelCompiler CelCompilerFactory CelCompilerLibrary)
+   (dev.cel.common.navigation CelNavigableExpr
+                              CelNavigableMutableAst
+                              CelNavigableMutableExpr)
+   (dev.cel.common.types CelType
+                         ListType
+                         MapType
+                         SimpleType)
+   (dev.cel.compiler CelCompiler
+                     CelCompilerFactory
+                     CelCompilerLibrary)
    (dev.cel.extensions CelExtensions)
-   (dev.cel.parser CelStandardMacro)
+   (dev.cel.optimizer AstMutator
+                      CelAstOptimizer
+                      CelAstOptimizer$OptimizationResult
+                      CelOptimizer
+                      CelOptimizerFactory)
+   (dev.cel.parser CelStandardMacro
+                   CelUnparserFactory
+                   Operator)
    (dev.cel.runtime CelEvaluationException
                     CelFunctionOverload$Binary
                     CelRuntime
                     CelRuntime$CelFunctionBinding
                     CelRuntime$Program
                     CelRuntimeFactory)
-   (dev.cel.validator CelAstValidator CelValidatorFactory)
-   (java.util Date Map Optional SimpleTimeZone)
-   (java.text SimpleDateFormat)))
+   (dev.cel.validator CelAstValidator
+                      CelValidatorFactory)
+   (java.text SimpleDateFormat)
+   (java.util Date Map Optional SimpleTimeZone)))
+
+;;(set! *warn-on-reflection* true)
 
 ;; ----
 ;; get-ref
 
-;; this is used inside `build-query` and `find-val-path`, 
+;; this is used inside `build-query` and `find-val-path`,
 ;; so we can extract the values that `data.ref` needs.
 
 (def ^:private value-sym (attr-pat/default-level-sym "_value" 0))
@@ -176,6 +198,25 @@
                             (.format ^Date form))
     :else                 form))
 
+(defrecord DataKey [key])
+
+;; XXX How do we handle `data.title.test`?
+;;     It's not something you can do right now
+;;     we'd have to return a cel-map if it's json
+
+;; XXX: Should take attrs and reject anything with an invalid attr?
+(deftype CelHelperMap []
+  java.util.Map
+  (get [_ k]
+    ;; Needs to look up attrs here and check that the ns has the attr
+    (DataKey. k))
+
+  (containsKey [_ _k]
+    true)
+
+  (entrySet [_]
+    (set (seq {}))))
+
 (defn ->cel-map [metadata m]
   (CelMap. metadata (walk/postwalk stringify m)))
 
@@ -217,9 +258,56 @@
                String
                impl))})
 
-(def custom-fns [ref-fn])
+(def ^:dynamic *where-clauses* nil)
+
+(def data-compare-fn
+  {:decl (CelFunctionDecl/newFunctionDeclaration
+          "_instant_data_compare"
+          (ImmutableList/of
+           (CelOverloadDecl/newGlobalOverload
+            "_instant_data_compare"
+            SimpleType/BOOL
+            (ImmutableList/of SimpleType/DYN SimpleType/DYN))))
+   :runtime (let [impl (reify CelFunctionOverload$Binary
+                         (apply [_ x y]
+                           (tool/def-locals)
+                           ;; Probably should log here
+                           (cond (nil? *where-clauses*)
+                                 (throw (Exception. "Called data-compare without *where-clauses*"))
+
+                                 (and (instance? DataKey x)
+                                      ;; Can't have someone doing data.a == data.b
+                                      (not (instance? DataKey y)))
+
+                                 (do (swap! *where-clauses* conj [:cond {:path [(:key x)]
+                                                                         :v [:value y]}])
+                                     true)
+
+                                 (and (instance? DataKey y)
+                                      (not (instance? DataKey x)))
+                                 (do (swap! *where-clauses* conj [:cond {:path [(:key y)]
+                                                                         :v [:value x]}])
+                                     true)
+
+                                 (and (instance? DataKey y)
+                                      (instance? DataKey x))
+                                 (throw (Exception. "Can't represent data.key1 == data.key2"))
+
+                                 :else
+                                 (= x y))))]
+              (CelRuntime$CelFunctionBinding/from
+               "_instant_data_compare"
+               Object
+               Object
+               impl))})
+
+(def custom-fns [ref-fn data-compare-fn])
 (def custom-fn-decls (mapv :decl custom-fns))
 (def custom-fn-bindings (mapv :runtime custom-fns))
+
+(def cel-options (-> (CelOptions/current)
+                     (.populateMacroCalls true)
+                     (.build)))
 
 (def ^:private ^CelCompiler cel-compiler
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
@@ -227,6 +315,7 @@
       (.addVar "auth" type-obj)
       (.addVar "newData" type-obj)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-fn-decls))
+      (.setOptions cel-options)
       (.setStandardMacros (CelStandardMacro/STANDARD_MACROS))
       (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings) (CelExtensions/strings)]))
       (.build)))
@@ -235,6 +324,62 @@
   (-> (CelRuntimeFactory/standardCelRuntimeBuilder)
       (.addLibraries [(CelExtensions/strings)])
       (.addFunctionBindings (ucoll/array-of CelRuntime$CelFunctionBinding custom-fn-bindings))
+      (.setOptions cel-options)
+      (.build)))
+
+(def operators
+  {:= (.getFunction Operator/EQUALS)})
+
+(defn get-expr [^CelNavigableExpr node]
+  ;; Not sure why this is necessary, but can't call
+  ;; .expr on the node without manually making it
+  ;; accessible. It's what they do in the example,
+  ;; so not sure why it's a problem here
+  ;; https://tinyurl.com/46zbw98p
+  (let [clazz (.getClass node)
+        method (.getDeclaredMethod clazz "expr" (into-array Class []))
+        _ (.setAccessible method true)
+        ^CelExpr expr (.invoke method node (object-array 0))]
+    expr))
+
+(defn can-optimize-node? [^CelNavigableMutableExpr node]
+  (tool/def-locals)
+  (boolean
+   (and (= CelExpr$ExprKind$Kind/CALL (.getKind node))
+        (= (:= operators) (.function (.call (get-expr node)))))))
+
+(deftype MyOptimizer []
+  CelAstOptimizer
+  (optimize [_this ast _cel]
+    (let [mutable-ast (CelMutableAst/fromCelAst ast)
+          ast-mutator (AstMutator/newInstance 1000
+                                              ;; XXX: What should be the iteration limit?
+                                              )
+          nodes (-> (CelNavigableMutableAst/fromAst mutable-ast)
+                    (.getRoot)
+                    (.allNodes)
+                    ;; Would be nice to have a predicate helper?
+                    (.filter can-optimize-node?)
+                    (.collect (ImmutableList/toImmutableList)))]
+      (tool/def-locals)
+      (loop [mutable-ast mutable-ast
+             [node & rest-nodes] nodes]
+        (if-not node
+          (CelAstOptimizer$OptimizationResult/create
+           (.toParsedAst (.renumberIdsConsecutively ast-mutator
+                                                    mutable-ast)))
+          (let [expr (get-expr node)
+                _ (.setFunction (.call expr) "_instant_data_compare")]
+            (recur (.replaceSubtree ast-mutator
+                                    mutable-ast
+                                    expr
+                                    (.id (get-expr node)))
+                   rest-nodes)))))))
+
+;; TODO: Do the optimize compile, validate, and optimize steps at save time and store the ast
+(def ^CelOptimizer cel-optimizer
+  (-> (CelOptimizerFactory/standardCelOptimizerBuilder cel-compiler cel-runtime)
+      (.addAstOptimizers (ImmutableList/of (MyOptimizer.)))
       (.build)))
 
 (defn ->ast [expr-str] (.getAst (.compile cel-compiler expr-str)))
@@ -402,6 +547,12 @@
                  refs
                  patterns
                  results))))
+
+(def unparser (CelUnparserFactory/newUnparser))
+
+;; XXX: do a warn-on-reflection pass
+(defn unparse [ast]
+  (.unparse unparser ast))
 
 (def auth-ref-validator ^CelAstValidator
   (reify CelAstValidator
