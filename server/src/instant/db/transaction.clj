@@ -125,6 +125,42 @@
      app-id
      [{:message (format "You can't make updates to this app.")}])))
 
+(defn prevent-$files-add-retract! [op attrs triples]
+  (doseq [t triples
+          :let [etype (let [[_eid aid] t]
+                        (-> (attr-model/seek-by-id aid attrs)
+                            attr-model/fwd-etype))]
+          :when (= etype "$files")]
+    (ex/throw-validation-err!
+     :tx-step
+     [op t]
+     [{:message (format "update or merge is not allowed on $files in transact.")}])))
+
+(defn prevent-$files-deletes! [op triples]
+  (doseq [t triples
+          :let [[_eid etype] t]
+          :when (= etype "$files")]
+    (ex/throw-validation-err!
+     :tx-step
+     [op t]
+     [{:message (format "delete is not allowed on $files in transact.")}])))
+
+(defn prevent-$files-updates
+  "With the exception of linking/unlinking, we prevent most updates unless it's
+  gone through an explicitly allowed code path"
+  [attrs grouped-tx-steps opts]
+  (when (not (:allow-$files-update? opts))
+    (doseq [batch grouped-tx-steps
+            :let [[op & triples] batch]]
+      (case op
+        (:add-triple :deep-merge-triple :retract-triple)
+        (prevent-$files-add-retract! op attrs triples)
+
+        :delete-entity
+        (prevent-$files-deletes! op triples)
+
+        nil))))
+
 (defn resolve-lookups
   "Given [[attr-id value] [attr-id value] ...],
    returns {[attr-id value] eid,
@@ -178,7 +214,6 @@
    [#uuid "4d39508b-9ee2-48a3-b70d-8192d9c5a059"
     #uuid "005a8767-c0e7-4158-bb9a-62ce1a5858ed"
     #uuid "005b08a1-4046-4fba-b1d1-a78b0628901c"]))
-
 
 (defn resolve-lookups-for-delete-entity [tx-steps conn app-id]
   (let [lookup-refs (->> tx-steps
@@ -244,6 +279,7 @@
                                      :num-tx-steps (count tx-steps)
                                      :detailed-tx-steps (pr-str tx-steps)}}
       (prevent-system-catalog-updates! app-id opts)
+      (prevent-$files-updates attrs grouped-tx-steps opts)
       (let [results
             (reduce-kv
              (fn [acc op tx-steps]

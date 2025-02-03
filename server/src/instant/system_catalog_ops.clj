@@ -96,12 +96,6 @@
            acc
            iql-res)))
 
-(defn resolve-attr-id [attrs etype label]
-  {:post [(uuid? %)]}
-  (let [n [(name etype) (name label)]]
-    (:id (or (attr-model/seek-by-fwd-ident-name n attrs)
-             (attr-model/seek-by-rev-ident-name n attrs)))))
-
 (defn get-entity [conn app-id attrs etype eid]
   (let [triples (entity-model/get-triples {:app-id app-id
                                            :attrs attrs
@@ -161,11 +155,14 @@
     (let [attrs (attr-model/get-by-app-id tx-conn app-id)]
       (op
        {:resolve-id
-        (fn [label] (resolve-attr-id attrs etype label))
+        (fn [label] (attr-model/resolve-attr-id attrs etype label))
 
         :transact!
-        (fn [tx-steps]
-          (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps))
+        (fn
+          ([tx-steps]
+           (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps))
+          ([tx-steps opts]
+           (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps opts)))
 
         :delete-entity!
         (fn [lookup]
@@ -187,7 +184,7 @@
                 op]
   (let [attrs (attr-model/get-by-app-id conn-pool app-id)]
     (op {:resolve-id
-         (fn [label] (resolve-attr-id attrs etype label))
+         (fn [label] (attr-model/resolve-attr-id attrs etype label))
 
          :get-entity
          (fn [eid] (get-entity conn-pool app-id attrs etype eid))

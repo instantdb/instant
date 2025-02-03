@@ -535,7 +535,10 @@
                         nil)]
           :when (and etype
                      (string/starts-with? etype "$")
-                     (not (and admin? (= etype "$users"))))]
+                     (not (and admin? (= etype "$users")))
+                     ;; checking admin? is not enough for $files so we handle
+                     ;; validations later
+                     (not (string/starts-with? etype "$files")))]
     (ex/throw-validation-err!
      :tx-step
      tx-step

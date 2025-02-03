@@ -70,6 +70,7 @@ import type {
   UpdateParams,
   LinkParams,
 } from "./schemaTypes";
+import type { UploadFileResponse, DeleteFileResponse } from "./StorageAPI";
 
 import type {
   ExchangeCodeForTokenParams,
@@ -331,6 +332,11 @@ class Auth {
   };
 }
 
+type FileOpts = {
+  contentType?: string;
+  contentDisposition?: string;
+};
+
 /**
  * Functions to manage file storage.
  */
@@ -343,26 +349,14 @@ class Storage {
    * @see https://instantdb.com/docs/storage
    * @example
    *   const [file] = e.target.files; // result of file input
-   *   const isSuccess = await db.storage.upload('photos/demo.png', file);
+   *   const data = await db.storage.uploadFile('photos/demo.png', file);
    */
-  upload = (pathname: string, file: File) => {
-    return this.db.upload(pathname, file);
-  };
-
-  /**
-   * @deprecated Use `db.storage.upload` instead
-   */
-  put = this.upload;
-
-  /**
-   * Retrieves a download URL for the provided path.
-   *
-   * @see https://instantdb.com/docs/storage
-   * @example
-   *   const url = await db.storage.getDownloadUrl('photos/demo.png');
-   */
-  getDownloadUrl = (pathname: string) => {
-    return this.db.getDownloadUrl(pathname);
+  uploadFile = (
+    path: string,
+    file: File,
+    opts: FileOpts = {},
+  ): Promise<UploadFileResponse> => {
+    return this.db.uploadFile(path, file, opts);
   };
 
   /**
@@ -374,6 +368,40 @@ class Storage {
    */
   delete = (pathname: string) => {
     return this.db.deleteFile(pathname);
+  };
+
+  // Deprecated Storage API (Jan 2025)
+  // ---------------------------------
+
+  /**
+   * @deprecated. Use `db.storage.uploadFile` instead
+   * remove in the future.
+   */
+  upload = (pathname: string, file: File) => {
+    return this.db.upload(pathname, file);
+  };
+
+  /**
+   * @deprecated Use `db.storage.uploadFile` instead
+   */
+  put = this.upload;
+
+  /**
+   * @deprecated. getDownloadUrl will be removed in the future.
+   * Use `useQuery` instead to query and fetch for valid urls
+   *
+   * db.useQuery({
+   *   $files: {
+   *     $: {
+   *       where: {
+   *         path: "moop.png"
+   *       }
+   *     }
+   *   }
+   * })
+   */
+  getDownloadUrl = (pathname: string) => {
+    return this.db.getDownloadUrl(pathname);
   };
 }
 
@@ -755,10 +783,15 @@ export {
   type LinkParams,
 
   // auth types
-  type ExchangeCodeForTokenParams, 
-  type SendMagicCodeParams, 
-  type SendMagicCodeResponse, 
-  type SignInWithIdTokenParams, 
-  type VerifyMagicCodeParams, 
-  type VerifyResponse 
+  type ExchangeCodeForTokenParams,
+  type SendMagicCodeParams,
+  type SendMagicCodeResponse,
+  type SignInWithIdTokenParams,
+  type VerifyMagicCodeParams,
+  type VerifyResponse,
+
+  // storage types
+  type FileOpts,
+  type UploadFileResponse,
+  type DeleteFileResponse,
 };

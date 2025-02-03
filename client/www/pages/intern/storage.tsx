@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { useAuthToken } from '@/lib/auth';
 import { jsonFetch } from '@/lib/fetch';
+import { formatBytes } from '@/lib/format';
 import config from '@/lib/config';
 
 function fetchStorageMetrics(token: string | undefined) {
@@ -34,25 +35,11 @@ function useStorageMetrics(token: string | undefined) {
       },
       (err) => {
         setState({ isLoading: false, error: err, data: undefined });
-      }
+      },
     );
   }, [token]);
 
   return state;
-}
-
-function formatBytes(bytes: number) {
-  const units = ['bytes', 'kb', 'mb', 'gb', 'tb', 'pb', 'eb', 'zb', 'yb'];
-  let index = 0;
-
-  if (bytes === 0) return '0 bytes';
-
-  while (bytes >= 1024 && index < units.length - 1) {
-    bytes /= 1024;
-    index++;
-  }
-
-  return bytes.toFixed(2) + ' ' + units[index];
 }
 
 function StorageMetricsTable({ data }: { data: any }) {
