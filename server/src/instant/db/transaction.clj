@@ -125,9 +125,9 @@
      app-id
      [{:message (format "You can't make updates to this app.")}])))
 
-(defn prevent-$files-add-retract! [op attrs triples]
-  (doseq [t triples
-          :let [etype (let [[_eid aid] t]
+(defn prevent-$files-add-retract! [op attrs tx-steps]
+  (doseq [t tx-steps
+          :let [etype (let [[_op _eid aid] t]
                         (-> (attr-model/seek-by-id aid attrs)
                             attr-model/fwd-etype))]
           :when (= etype "$files")]
@@ -136,9 +136,9 @@
      [op t]
      [{:message (format "update or merge is not allowed on $files in transact.")}])))
 
-(defn prevent-$files-deletes! [op triples]
-  (doseq [t triples
-          :let [[_eid etype] t]
+(defn prevent-$files-deletes! [op tx-steps]
+  (doseq [t tx-steps
+          :let [[_op _eid etype] t]
           :when (= etype "$files")]
     (ex/throw-validation-err!
      :tx-step
@@ -151,13 +151,13 @@
   [attrs grouped-tx-steps opts]
   (when (not (:allow-$files-update? opts))
     (doseq [batch grouped-tx-steps
-            :let [[op & triples] batch]]
+            :let [[op tx-steps] batch]]
       (case op
         (:add-triple :deep-merge-triple :retract-triple)
-        (prevent-$files-add-retract! op attrs triples)
+        (prevent-$files-add-retract! op attrs tx-steps)
 
         :delete-entity
-        (prevent-$files-deletes! op triples)
+        (prevent-$files-deletes! op tx-steps)
 
         nil))))
 
