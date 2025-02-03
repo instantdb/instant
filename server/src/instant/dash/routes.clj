@@ -57,6 +57,8 @@
             [instant.model.schema :as schema-model]
             [instant.intern.metrics :as metrics]
             [medley.core :as medley]
+            [instant.reactive.ephemeral :as eph]
+            [instant.machine-summaries :as machine-summaries]
             [instant.storage.coordinator :as storage-coordinator]
             [instant.model.app-file :as app-file-model])
   (:import
@@ -284,6 +286,26 @@
                                          (fn [chart] (metrics/chart->base64-png chart
                                                                                 500 400))))]
     (response/ok {:metrics metrics-with-b64-charts})))
+
+(defn admin-overview-daily-get [req]
+  (let [{:keys [email]} (req->auth-user! req)
+          _ (assert-admin-email! email)
+          conn (aurora/conn-pool :read)
+          overview (metrics/overview-metrics conn)
+          overview-with-b64-charts
+          (update overview :charts (partial medley/map-vals
+                                            (fn [chart] (metrics/chart->base64-png chart
+                                                                                   500 400))))]
+
+      (response/ok overview-with-b64-charts)))
+
+(defn admin-overview-minute-get [req]
+  (let [{:keys [email]} (req->auth-user! req)
+        _ (assert-admin-email! email)
+        hz (eph/get-hz)
+        session-reports (machine-summaries/get-all-session-reports hz)]
+    (response/ok
+     {:session-reports session-reports})))
 
 (defn admin-paid-get [req]
   (let [{:keys [email]} (req->auth-user! req)]
@@ -945,7 +967,7 @@
                :file file
                :content-type (:content-type file)
                :skip-perms-check? true}
-               file)]
+              file)]
     (response/ok {:data data})))
 
 (defn files-delete [req]
@@ -1165,6 +1187,8 @@
   (GET "/dash/paid" [] admin-paid-get)
   (GET "/dash/storage" [] admin-storage-get)
   (GET "/dash/investor_updates" [] admin-investor-updates-get)
+  (GET "/dash/overview/daily" [] admin-overview-daily-get)
+  (GET "/dash/overview/minute" [] admin-overview-minute-get)
 
   (GET "/dash" [] dash-get)
   (POST "/dash/apps" [] apps-post)

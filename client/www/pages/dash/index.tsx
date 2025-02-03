@@ -35,6 +35,7 @@ import {
   Content,
   Copyable,
   Dialog,
+  FullscreenLoading,
   Label,
   ScreenHeading,
   SectionHeading,
@@ -440,9 +441,9 @@ function Dashboard() {
         {screen === 'new' ? (
           <CreateApp onDone={onCreateApp} />
         ) : dashResponse.isLoading ? (
-          <Loading />
+          <FullscreenLoading />
         ) : dashResponse.error ? (
-          <ErrorMessage message={errMessage(dashResponse.error)} />
+          <FullscreenErrorMessage message={errMessage(dashResponse.error)} />
         ) : showAppOnboarding ? (
           <Onboarding
             onCreate={async (p) => {
@@ -1444,13 +1445,7 @@ function CreateApp({ onDone }: { onDone: (o: { name: string }) => void }) {
   );
 }
 
-function Loading() {
-  return (
-    <div className="animate-slow-pulse flex w-full flex-1 flex-col bg-gray-300"></div>
-  );
-}
-
-function ErrorMessage({ message }: { message: string }) {
+function FullscreenErrorMessage({ message }: { message: string }) {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-2">
       <div className="rounded bg-red-100 p-4 text-red-700">{message}</div>
