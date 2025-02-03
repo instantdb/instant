@@ -31,6 +31,40 @@
          {:allow-$files-update? true})
         {:id id})))))
 
+(defn bulk-create!
+  ([params] (bulk-create! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id data]}]
+   (update-op
+    conn
+    {:app-id app-id
+     :etype etype}
+    (fn [{:keys [transact! resolve-id]}]
+      ;; Insert in chunks to avoid exceeding max prepared statement size
+      (doseq [chunk (partition-all 1000 data)]
+        (let [triples
+              (mapcat (fn [{:keys [file-id path metadata]}]
+                        (let [{:keys [size content-type content-disposition]}
+                              metadata]
+                          [[:add-triple file-id (resolve-id :id) file-id]
+                           [:add-triple file-id (resolve-id :path) path]
+                           [:add-triple file-id (resolve-id :size) size]
+                           [:add-triple file-id (resolve-id :content-type) content-type]
+                           [:add-triple file-id (resolve-id :content-disposition) content-disposition]
+                           [:add-triple file-id (resolve-id :key-version) 1]]))
+                      chunk)]
+          (transact! triples {:allow-$files-update? true})))
+      {:ids (map :file-id data)}))))
+
+(defn get-all-ids
+  ([params] (get-all-ids (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id]}]
+   (query-op conn
+             {:app-id app-id
+              :etype etype}
+             (fn [{:keys [get-entities-where]}]
+               (let [ents (get-entities-where {})]
+                 {:ids (mapv :id ents)})))))
+
 (defn get-by-path
   ([params] (get-by-path (aurora/conn-pool :read) params))
   ([conn {:keys [app-id path]}]
@@ -40,26 +74,23 @@
              (fn [{:keys [get-entity-where]}]
                (get-entity-where {:path path})))))
 
-(defn delete-by-paths!
-  ([params] (delete-by-paths! (aurora/conn-pool :write) params))
+(defn get-by-paths
+  ([params] (get-by-paths (aurora/conn-pool :read) params))
   ([conn {:keys [app-id paths]}]
-   (update-op
-    conn
-    {:app-id app-id
-     :etype etype}
-    (fn [{:keys [transact! get-entities-where]}]
-      (let [ents (get-entities-where {:path {:$in paths}})]
-        (when (seq ents)
-          (transact! (mapv (fn [{:keys [id]}]
-                             [:delete-entity id etype])
-                           ents)
-                     {:allow-$files-update? true})
-          (map :id ents)))))))
+   (query-op conn
+             {:app-id app-id
+              :etype etype}
+             (fn [{:keys [get-entities-where]}]
+               (->> (partition-all 1000 paths)
+                    (mapcat #(get-entities-where {:path {:$in (vec %)}})))))))
 
-(defn delete-by-path!
-  ([params] (delete-by-path! (aurora/conn-pool :write) params))
-  ([conn {:keys [app-id path]}]
-   (first (delete-by-paths! conn {:app-id app-id :paths [path]}))))
+(defn delete-by-ids!* [transact! etype ids]
+  (let [res (transact! (mapv (fn [id]
+                               [:delete-entity id etype])
+                             ids)
+                       {:allow-$files-update? true})]
+    (->> (get-in res [:results :delete-entity])
+         (map :triples/entity_id))))
 
 (defn delete-by-ids!
   ([params] (delete-by-ids! (aurora/conn-pool :write) params))
@@ -68,14 +99,32 @@
     conn
     {:app-id app-id
      :etype etype}
-    (fn [{:keys [transact! get-entities-where]}]
-      (let [ents (get-entities-where {:id {:$in ids}})]
-        (when (seq ents)
-          (transact! (mapv (fn [{:keys [id]}]
-                             [:delete-entity id etype])
-                           ents)
-                     {:allow-$files-update? true})
-          ids))))))
+    (fn [{:keys [transact!]}]
+      (let [deleted-ids (mapcat #(delete-by-ids!* transact! etype %)
+                                (partition-all 1000 ids))]
+        {:ids deleted-ids})))))
+
+(defn delete-by-paths!
+  ([params] (delete-by-paths! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id paths]}]
+   (let [ents (get-by-paths conn {:app-id app-id :paths paths})]
+     (delete-by-ids! conn {:app-id app-id :ids (map :id ents)}))))
+
+(defn delete-by-path!
+  ([params] (delete-by-path! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id path]}]
+   (update-op
+    conn
+    {:app-id app-id
+     :etype etype}
+    (fn [{:keys [transact! get-entity-where]}]
+      (let [ent (get-entity-where {:path path})]
+        (when (seq ent)
+          (-> (transact! [[:delete-entity (:id ent) etype]]
+                         {:allow-$files-update? true})
+              (get-in [:results :delete-entity])
+              first
+              :triples/entity_id)))))))
 
 (defn get-all-apps-usage
   ([] (get-all-apps-usage (aurora/conn-pool :read)))
@@ -107,7 +156,8 @@
      (sql/select-one
       conn
       (hsql/format
-       {:select [[[:sum [[:triples_extract_number_value :t.value]]] :total_byte_size]]
+       {:select [[[:count :t.*] :total_file_count]
+                 [[:sum [[:triples_extract_number_value :t.value]]] :total_byte_size]]
         :from [[:triples :t]]
         :where [:and
                 [:= :t.app_id app-id]
