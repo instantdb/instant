@@ -107,13 +107,13 @@
        (insert-new-activity)
        (let [stats (get-daily-actives date-minus-one-str)
              conn (aurora/conn-pool :read)
-             charts (->> (metrics/investor-update-metrics conn)
+             charts (->> (metrics/overview-metrics conn (.minusDays (LocalDate/now) 1))
                          :charts
                          (map (fn [[k chart]]
                                 {:name (format "%s.png" (name k))
                                  :content-type "image/png"
                                  :content (metrics/chart->png-bytes chart
-                                                                    600 400)})))]
+                                                                    400 400)})))]
          (send-discord! charts stats date-minus-one-str))))))
 
 (comment
