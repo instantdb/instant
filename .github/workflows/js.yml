@@ -27,7 +27,7 @@ jobs:
 
       - name: Enable corepack
         working-directory: client
-        run: corepack enable
+        run: npm i -g corepack && corepack enable
 
       - name: Setup Node.js environment
         uses: actions/setup-node@v4
@@ -104,7 +104,7 @@ jobs:
           ${{ runner.os }}-turbo-
     - name: Enable corepack
       working-directory: client
-      run: corepack enable
+      run: npm i -g corepack && corepack enable
     - name: Setup Node.js environment
       uses: actions/setup-node@v4
       with:
@@ -139,7 +139,7 @@ jobs:
           ${{ runner.os }}-turbo-
     - name: Enable corepack
       working-directory: client
-      run: corepack enable
+      run: npm i -g corepack && corepack enable
     - name: Setup Node.js environment
       uses: actions/setup-node@v4
       with:
@@ -219,7 +219,7 @@ jobs:
           ${{ runner.os }}-turbo-
     - name: Enable corepack
       working-directory: client
-      run: corepack enable
+      run: npm i -g corepack && corepack enable
     - name: Setup Node.js environment
       uses: actions/setup-node@v4
       with:
