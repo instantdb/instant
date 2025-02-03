@@ -127,7 +127,7 @@
 
 (defn prevent-$files-add-retract! [op attrs triples]
   (doseq [t triples
-          :let [etype (let [[_eid aid] t]
+          :let [etype (let [[_op _eid aid] t]
                         (-> (attr-model/seek-by-id aid attrs)
                             attr-model/fwd-etype))]
           :when (= etype "$files")]
@@ -138,7 +138,7 @@
 
 (defn prevent-$files-deletes! [op triples]
   (doseq [t triples
-          :let [[_eid etype] t]
+          :let [[_op _eid etype] t]
           :when (= etype "$files")]
     (ex/throw-validation-err!
      :tx-step
@@ -151,7 +151,7 @@
   [attrs grouped-tx-steps opts]
   (when (not (:allow-$files-update? opts))
     (doseq [batch grouped-tx-steps
-            :let [[op & triples] batch]]
+            :let [[op triples] batch]]
       (case op
         (:add-triple :deep-merge-triple :retract-triple)
         (prevent-$files-add-retract! op attrs triples)
