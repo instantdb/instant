@@ -1,5 +1,6 @@
 (ns instant.storage.s3
   (:require [clojure.string :as string]
+            [clojure.java.io :as io]
             [instant.util.s3 :as s3-util]
             [instant.flags :as flags]))
 
@@ -48,16 +49,21 @@
 
 ;; Instant <> S3 integration
 ;; ----------------------
-
 (defn upload-file-to-s3 [{:keys [app-id path] :as ctx} file]
   (when (not (instance? java.io.InputStream file))
     (throw (Exception. "Unsupported file format")))
-  (let [ctx* (assoc ctx :object-key (->object-key app-id path))
-        ctx-legacy* (assoc ctx :object-key (->legacy-object-key app-id path))
-        upload-twice? (-> (flags/storage-migration) :disableLegacy? not)]
-    (when upload-twice?
-      (s3-util/upload-stream-to-s3 ctx-legacy* file))
-    (s3-util/upload-stream-to-s3 ctx* file)))
+  (let [migration? (-> (flags/storage-migration) :disableLegacy? not)]
+    (if migration?
+      (let [baos (java.io.ByteArrayOutputStream.)
+            bytes (with-open [in file]
+                    (io/copy in baos)
+                    (.toByteArray baos))
+            ctx* (assoc ctx :object-key (->object-key app-id path))
+            ctx-legacy* (assoc ctx :object-key (->legacy-object-key app-id path))]
+        (s3-util/upload-stream-to-s3 ctx-legacy* (io/input-stream bytes))
+        (s3-util/upload-stream-to-s3 ctx* (io/input-stream bytes)))
+      (let [ctx* (assoc ctx :object-key (->object-key app-id path))]
+        (s3-util/upload-stream-to-s3 ctx* (io/input-stream bytes))))))
 
 (defn format-object [{:keys [key object-metadata]}]
   (-> object-metadata
