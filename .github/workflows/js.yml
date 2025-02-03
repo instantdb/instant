@@ -29,12 +29,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 23
-          cache: 'pnpm'
-          cache-dependency-path: client
 
       - name: Enable corepack
         working-directory: client
         run: corepack enable
+
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 23
+          cache: 'pnpm'
+          cache-dependency-path: client
 
       - name: Install dependencies
         working-directory: client
