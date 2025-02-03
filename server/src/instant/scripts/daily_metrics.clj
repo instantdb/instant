@@ -10,7 +10,8 @@
    [instant.flags :refer [get-emails]]
    [instant.config :as config]
    [instant.jdbc.sql :as sql]
-   [instant.grab :as grab])
+   [instant.grab :as grab]
+   [instant.intern.metrics :as metrics])
   (:import
    (java.time Instant Period LocalDate DayOfWeek)))
 
@@ -41,13 +42,15 @@
 
 (defn send-discord!
   "Ping the discord channel with the metrics for a specific date"
-  [stats date-str]
+  [charts stats date-str]
   (let [{:keys [distinct_users distinct_apps]} stats
         message (str "🎯 Daily metrics for " date-str
                      ": Active Devs: **" distinct_users
                      "**, Active Apps: **" distinct_apps
                      "**")]
-    (discord/send! config/discord-teams-channel-id message)))
+    (discord/send-with-files! config/discord-teams-channel-id
+                              charts
+                              message)))
 
 (defn insert-new-activity
   "Insert new transactions into the daily_app_transactions table.
@@ -102,8 +105,16 @@
      (str "daily-metrics-" date-str)
      (fn []
        (insert-new-activity)
-       (let [stats (get-daily-actives date-minus-one-str)]
-         (send-discord! stats date-minus-one-str))))))
+       (let [stats (get-daily-actives date-minus-one-str)
+             conn (aurora/conn-pool :read)
+             charts (->> (metrics/investor-update-metrics conn)
+                         :charts
+                         (map (fn [[k chart]]
+                                {:name (format "%s.png" (name k))
+                                 :content-type "image/png"
+                                 :content (metrics/chart->png-bytes chart
+                                                                    600 400)})))]
+         (send-discord! charts stats date-minus-one-str))))))
 
 (comment
   (def t1 (-> (LocalDate/parse "2024-10-09")

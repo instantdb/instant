@@ -202,11 +202,14 @@
   (ensure-directory-exists filename)
   (i/save chart filename))
 
-(defn chart->base64-png [chart width height]
+(defn chart->png-bytes [chart width height]
   (let [buf-img (.createBufferedImage chart width height)
         baos (ByteArrayOutputStream.)
-        _ (ImageIO/write buf-img, "png", baos)
-        img-bytes (.toByteArray baos)
+        _ (ImageIO/write buf-img, "png", baos)]
+    (.toByteArray baos)))
+
+(defn chart->base64-png [chart width height]
+  (let [img-bytes (chart->png-bytes chart width height)
         encoder (Base64/getEncoder)
         b64 (.encodeToString encoder img-bytes)
         s (str "data:image/png;base64, " b64)]
