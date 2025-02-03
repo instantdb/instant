@@ -5,7 +5,7 @@
    [clojure.string :as string]
    [clojure.walk :as walk]
    [honey.sql :as hsql]
-   [instant.flags :as flag]
+   [instant.flags :as flags]
    [instant.data.constants :refer [zeneca-app-id]]
    [instant.data.resolvers :as resolvers]
    [instant.db.cel :as cel]
@@ -25,8 +25,7 @@
    [instant.util.uuid :as uuid-util]
    [instant.system-catalog :refer [all-attrs] :rename {all-attrs $system-attrs}]
    [medley.core :refer [update-existing-in]]
-   [instant.storage.s3 :as instant-s3]
-   [instant.flags :as flags])
+   [instant.storage.s3 :as instant-s3])
   (:import
    (java.util UUID)))
 
