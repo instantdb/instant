@@ -56,7 +56,7 @@
             [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
             [instant.model.schema :as schema-model]
             [instant.intern.metrics :as metrics]
-            [medley.core :as medley])
+            [medley.core :as medley]
             [instant.storage.coordinator :as storage-coordinator]
             [instant.model.app-file :as app-file-model])
   (:import

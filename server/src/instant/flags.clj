@@ -93,7 +93,7 @@
                                                    10000))})
         welcome-email-config (-> result (get "welcome-email-config") first w/keywordize-keys)
         threading (let [flag (first (get result "threading"))]
-                    {:use-vfutures? (get flag "use-vfutures" true)})]
+                    {:use-vfutures? (get flag "use-vfutures" true)})
         storage-migration (-> result (get "storage-migration") first w/keywordize-keys)]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
