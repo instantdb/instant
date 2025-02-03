@@ -27,12 +27,12 @@ jobs:
 
       - name: Enable corepack
         working-directory: client
-        run: npm i -g --force corepack && corepack enable
+        run: corepack enable
 
       - name: Setup Node.js environment
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 23
           cache: 'pnpm'
           cache-dependency-path: client
 
@@ -104,11 +104,11 @@ jobs:
           ${{ runner.os }}-turbo-
     - name: Enable corepack
       working-directory: client
-      run: npm i -g --force corepack && corepack enable
+      run: corepack enable
     - name: Setup Node.js environment
       uses: actions/setup-node@v4
       with:
-        node-version: 20
+        node-version: 23
         cache: 'pnpm'
         cache-dependency-path: client
     - name: Install dependencies
@@ -139,11 +139,11 @@ jobs:
           ${{ runner.os }}-turbo-
     - name: Enable corepack
       working-directory: client
-      run: npm i -g --force corepack && corepack enable
+      run: corepack enable
     - name: Setup Node.js environment
       uses: actions/setup-node@v4
       with:
-        node-version: 20
+        node-version: 23
         cache: 'pnpm'
         cache-dependency-path: client
     - name: Install Vercel CLI
@@ -219,11 +219,11 @@ jobs:
           ${{ runner.os }}-turbo-
     - name: Enable corepack
       working-directory: client
-      run: npm i -g --force corepack && corepack enable
+      run: corepack enable
     - name: Setup Node.js environment
       uses: actions/setup-node@v4
       with:
-        node-version: 20
+        node-version: 23
         cache: 'pnpm'
         cache-dependency-path: client
     - name: Install Vercel CLI
