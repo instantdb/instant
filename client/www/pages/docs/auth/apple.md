@@ -41,6 +41,7 @@ Instant supports Sign In with Apple on the Web and in native applications.
 - To _Domains_, add your app domain (e.g. `myapp.com`)
 - To _Return URLs_, add URL of your app where authentication happens (e.g. `https://myapp.com/signin`)
 - Click _Continue_ → _Save_
+
 {% /conditional %}
 
 {% conditional param="method" value="web-redirect" %}
@@ -63,6 +64,7 @@ Instant supports Sign In with Apple on the Web and in native applications.
 - Configure → select _App ID_ from Step 1
 - _Continue_ → _Register_
 - Download key file
+
 {% /conditional %}
 
 {% conditional param="method" value="native" %}
@@ -77,11 +79,11 @@ This step is not needed for Expo.
 - Select _Add Apple Client_
 - Select unique _clientName_ (`apple` by default, will be used in `db.auth` calls)
 - Fill in _Services ID_ from Step 2
-{% conditional param="method" value="web-redirect" %}
+<!-- prettier-ignore -->{% conditional param="method" value="web-redirect" %}
 - Fill in _Team ID_ from [Membership details](https://developer.apple.com/account#MembershipDetailsCard)
 - Fill in _Key ID_ from Step 3.5
 - Fill in _Private Key_ by copying file content from Step 3.5
-{% /conditional %}
+<!-- prettier-ignore -->{% /conditional %}
 - Click `Add Apple Client`
 
 {% conditional param="method" value="web-redirect" %}
@@ -89,6 +91,7 @@ This step is not needed for Expo.
 
 - In Instant Dashboard, Click _Redirect Origins_ → _Add an origin_
 - Add your app’s domain (e.g. `myapp.com`)
+
 {% /conditional %}
 
 {% conditional param="method" value="web-popup" %}
