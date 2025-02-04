@@ -25,7 +25,7 @@ async function fetchMinuteOverview(token: string) {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${token}`,
-      'content-type': 'application/json',
+      'content-type': "application/json",
     },
   });
 }
