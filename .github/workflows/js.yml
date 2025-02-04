@@ -74,20 +74,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      - name: Enable corepack
-        working-directory: client
-        run: corepack enable
+      - uses: pnpm/action-setup@v2
+        with:
+          version: '10.2.0'
 
       - name: Setup Node.js environment
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 23
           cache: 'pnpm'
-          cache-dependency-path: client
+          cache-dependency-path: client/pnpm-lock.yaml
 
       - name: Install dependencies
         working-directory: client
-        run: pnpm i
+        run: pnpm i --frozen-lockfile
 
       - name: Check prettier formatting
         working-directory: client
