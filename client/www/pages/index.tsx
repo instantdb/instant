@@ -113,34 +113,37 @@ const GlowBackground = ({ children }: PropsWithChildren) => (
 );
 
 const ActiveSessionsCallout = () => {
-  const { isLoading, error, data } = useTotalSessionsCount({
-    refreshSeconds: 5,
-  });
-  if (isLoading || error || data <= 0) {
-    return (
-      <div className='h-8'></div>
-    );
-  }
+  // TODO: activate once backend is deployed
+  return null;
 
-  const digits = data.toString().split('');
+  // const { isLoading, error, data } = useTotalSessionsCount({
+  //   refreshSeconds: 5,
+  // });
+  // if (isLoading || error || data <= 0) {
+  //   return (
+  //     <div className='h-8'></div>
+  //   );
+  // }
 
-  return (
-    <div className='inline-flex items-center space-x-2 h-8'>
-      <div className="inline-flex gap-1">
-        {digits.map((d, i) => {
-          return (
-            <div
-              key={i}
-              className="text-2xl font-mono w-7 h-8 border border-black leading-none flex items-center justify-center"
-            >
-              <span>{d}</span>
-            </div>
-          );
-        })}
-      </div>
-      <div>sessions are connected on Instant right now</div>
-    </div>
-  );
+  // const digits = data.toString().split('');
+
+  // return (
+  //   <div className='inline-flex items-center space-x-2 h-8'>
+  //     <div className="inline-flex gap-1">
+  //       {digits.map((d, i) => {
+  //         return (
+  //           <div
+  //             key={i}
+  //             className="text-2xl font-mono w-7 h-8 border border-black leading-none flex items-center justify-center"
+  //           >
+  //             <span>{d}</span>
+  //           </div>
+  //         );
+  //       })}
+  //     </div>
+  //     <div>sessions are connected on Instant right now</div>
+  //   </div>
+  // );
 };
 
 function LandingHero() {
