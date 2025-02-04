@@ -27,7 +27,7 @@ jobs:
 
       - uses: pnpm/action-setup@v2
         with:
-          version: '8.15.6'
+          version: '10.2.0'
 
       - name: Setup Node.js environment
         uses: actions/setup-node@v4
@@ -141,7 +141,7 @@ jobs:
           ${{ runner.os }}-turbo-
     - uses: pnpm/action-setup@v2
       with:
-        version: '8.15.6'
+        version: '10.2.0'
     - name: Setup Node.js environment
       uses: actions/setup-node@v4
       with:
@@ -176,7 +176,7 @@ jobs:
           ${{ runner.os }}-turbo-
     - uses: pnpm/action-setup@v2
       with:
-        version: '8.15.6'
+        version: '10.2.0'
     - name: Setup Node.js environment
       uses: actions/setup-node@v4
       with:
@@ -256,7 +256,7 @@ jobs:
           ${{ runner.os }}-turbo-
     - uses: pnpm/action-setup@v2
       with:
-        version: '8.15.6'
+        version: '10.2.0'
     - name: Setup Node.js environment
       uses: actions/setup-node@v4
       with:
