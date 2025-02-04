@@ -396,6 +396,7 @@ function Dashboard() {
   }
 
   async function onDeleteApp(app: InstantApp) {
+    successToast(`${app.title} was deleted!`);
     const _apps = apps.filter((a) => a.id !== app.id);
     dashResponse.mutate((data) =>
       produce(data, (d) => {
@@ -1041,7 +1042,9 @@ function Admin({
 }) {
   const token = useContext(TokenContext);
   const [deleteAppOk, updateDeleteAppOk] = useState(false);
+  const [isDeletingApp, setIsDeletingApp] = useState(false);
   const [clearAppOk, updateClearAppOk] = useState(false);
+  const [isClearingApp, setIsClearingApp] = useState(false);
   const [editMember, setEditMember] = useState<InstantMember | null>();
   const [hideAdminToken, setHideAdminToken] = useState(true);
   const clearDialog = useDialog();
@@ -1356,9 +1359,10 @@ function Admin({
                 label="I understand and want to clear this app."
               />
               <Button
-                disabled={!clearAppOk}
+                disabled={!clearAppOk || isClearingApp}
                 variant="destructive"
                 onClick={async () => {
+                  setIsClearingApp(true);
                   await jsonFetch(
                     `${config.apiURI}/dash/apps/${app.id}/clear`,
                     {
@@ -1370,12 +1374,13 @@ function Admin({
                     },
                   );
 
+                  setIsClearingApp(false);
                   clearDialog.onClose();
                   dashResponse.mutate();
                   successToast('App cleared!');
                 }}
               >
-                Clear data
+                {isClearingApp ? 'Clearing data...' : 'Clear data'}
               </Button>
             </div>
           </Dialog>
@@ -1393,9 +1398,10 @@ function Admin({
                 label="I understand and want to delete this app."
               />
               <Button
-                disabled={!deleteAppOk}
+                disabled={!deleteAppOk || isDeletingApp}
                 variant="destructive"
                 onClick={async () => {
+                  setIsDeletingApp(true);
                   await jsonFetch(`${config.apiURI}/dash/apps/${app.id}`, {
                     method: 'DELETE',
                     headers: {
@@ -1403,11 +1409,11 @@ function Admin({
                       'content-type': 'application/json',
                     },
                   });
-
+                  setIsDeletingApp(false);
                   onDelete();
                 }}
               >
-                Delete
+                {isDeletingApp ? 'Deleting...' : 'Delete'}
               </Button>
             </div>
           </Dialog>
