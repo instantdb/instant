@@ -126,6 +126,7 @@ export function Main() {
     0,
   );
   const dateAnalyzed = parse(daily.data.date, 'yyyy-MM-dd', new Date());
+  const totalApps = Object.keys(sessions).length;
   return (
     <div className="flex flex-col font-mono min-h-0">
       <div className="p-4 space-x-4 flex items-center border-b">
@@ -165,11 +166,19 @@ export function Main() {
         {/* I want this part to scroll */}
         <div className="flex-1 p-4 space-y-2 flex flex-col min-h-0">
           <h3 className="text-lg">{format(minute.sentAt, 'hh:mma')}</h3>
-          <div className="inline-flex items-baseline space-x-4">
-            <h1 className="leading-none" style={{ fontSize: 120 }}>
-              {totalSessions}
-            </h1>
-            <div className="font-bold leading-none">Active Connections</div>
+          <div className='flex justify-between items-baseline'>
+            <div className="inline-flex items-baseline space-x-4 justify-between">
+              <h1 className="leading-none" style={{ fontSize: 120 }}>
+                {totalApps}
+              </h1>
+              <div className="font-bold leading-none">Active Connections</div>
+            </div>
+            <div className="inline-flex items-baseline space-x-4">
+              <h1 className="leading-none" style={{ fontSize: 20 }}>
+                {totalApps}
+              </h1>
+              <div className="font-bold leading-none">Active Apps</div>
+            </div>
           </div>
           <div className="mt-4 border overflow-y-scroll">
             <table className="w-full">
