@@ -617,8 +617,17 @@
   [^Attrs attrs]
   (remove (fn [a]
             (and (= :system (:catalog a))
-                 (not= "$users" (fwd-etype a))))
+                 (not (#{"$users" "$files"} (fwd-etype a)))))
           attrs))
+
+(defn resolve-attr-id [attrs etype label]
+  {:post [(uuid? %)]}
+  (let [wrapped-attrs (if (instance? Attrs attrs)
+                        attrs
+                        (wrap-attrs attrs))
+        n [(name etype) (name label)]]
+    (:id (or (seek-by-fwd-ident-name n wrapped-attrs)
+             (seek-by-rev-ident-name n wrapped-attrs)))))
 
 ;; ------
 ;; play

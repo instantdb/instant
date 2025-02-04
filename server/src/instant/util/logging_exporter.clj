@@ -43,7 +43,7 @@
 (defn duration-ms [^SpanData span]
   (let [start (.getStartEpochNanos span)
         end   (.getEndEpochNanos span)]
-    (.toMillis (TimeUnit/NANOSECONDS)
+    (.toMillis TimeUnit/NANOSECONDS
                (- end start))))
 
 (defn exclude? [k]
@@ -127,7 +127,8 @@
     (fn [^SpanData span]
       (let [n (.getName span)]
         (case n
-          ("gc"
+          ("aurora/get-connection"
+           "gc"
            "gauges"
            "ws/send-json!"
            "handle-refresh/send-event!"

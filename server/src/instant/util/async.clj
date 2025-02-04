@@ -1,9 +1,10 @@
 (ns instant.util.async
-  (:refer-clojure :exclude [future-call])
+  (:refer-clojure :exclude [future-call pmap])
   (:require
    [clojure.core.async :as a]
    [clojure.core.async.impl.buffers]
    [clojure.core.async.impl.protocols :as a-impl]
+   [instant.flags :as flags]
    [instant.gauges :as gauges]
    [instant.util.tracer :as tracer])
   (:import
@@ -138,7 +139,7 @@
   [& body]
   `(future-call default-virtual-thread-executor nil (^{:once true} fn* [] ~@body)))
 
-(defn vfuture-pmap
+(defn pmap
   "Like pmap, but uses vfutures to parallelize the work.
 
   Why would you want to use this instead of pmap?
@@ -150,8 +151,12 @@
   This executor is unbounded, so even if you have a recursive function, 
   you won't deadlock."
   [f coll]
-  (let [futs (mapv #(vfuture (f %)) coll)]
-    (mapv deref futs)))
+  (->> coll
+       ;; mapv to force entire seq
+       (mapv #(if (flags/use-vfutures?)
+                (vfuture (f %))
+                (tracked-future (f %))))
+       (mapv deref)))
 
 (defmacro vfut-bg
   "Futures only throw when de-referenced. vfut-bg writes a future with a

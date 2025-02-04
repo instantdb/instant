@@ -122,7 +122,7 @@ function Plan({ plan }: { plan: any }) {
           </h5>
           {isFeatured && (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-md font-medium bg-orange-200/20 text-orange-600">
-              Most popular
+              For teams
             </span>
           )}
         </div>

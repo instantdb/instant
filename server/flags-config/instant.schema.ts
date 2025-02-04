@@ -45,6 +45,16 @@ const graph = i.graph(
     "test-emails": i.entity({
       email: i.string(),
     }),
+    "welcome-email-config": i.entity({
+      'enabled?': i.boolean(),
+      limit: i.number()
+    }),
+    "threading": i.entity({
+      "use-vfutures": i.boolean()
+    }),
+    "storage-migration": i.entity({
+      "disableLegacy?": i.boolean(),
+    }),
   },
   // You can define links here.
   // For example, if `posts` should have many `comments`.

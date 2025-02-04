@@ -125,7 +125,6 @@
                        :data {}}}
           (->JoinRoomMergeV1 session-id user-id)))
 
-
 (def ^ByteArraySerializer join-room-serializer
   (reify ByteArraySerializer
     ;; Must be unique within the project
@@ -211,6 +210,30 @@
   (make-serializer-config RoomBroadcastV1
                           room-broadcast-serializer))
 
+;; ---------------
+;; Executor Helpers
+
+;; Expects a var that takes no arguments
+(defrecord Task [^clojure.lang.Var v]
+  Callable
+  (call [_]
+    (v)))
+
+(def ^ByteArraySerializer task-serializer
+  (reify ByteArraySerializer
+    ;; Must be unique within the project
+    (getTypeId [_] 7)
+    (write ^bytes [_ {:keys [v]}]
+      (assert (var? v) "Expected Task to get a resolved var.")
+      (nippy/fast-freeze (str (symbol v))))
+    (read [_ ^bytes in]
+      (->Task (resolve (symbol (nippy/fast-thaw in)))))
+    (destroy [_])))
+
+(def task-config
+  (make-serializer-config Task
+                          task-serializer))
+
 ;; -----------------
 ;; Global serializer
 
@@ -233,4 +256,5 @@
    room-broadcast-config
    join-room-config
    set-presence-config
-   room-key-config])
+   room-key-config
+   task-config])

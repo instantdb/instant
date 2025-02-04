@@ -150,7 +150,9 @@
                  :admin? admin?
                  :current-user user}
             {:keys [instaql-result]} (rq/instaql-query-reactive! store-conn ctx q return-type)]
-        (rs/send-event! store-conn app-id sess-id {:op :add-query-ok :q q :result instaql-result
+        (rs/send-event! store-conn app-id sess-id {:op :add-query-ok
+                                                   :q q
+                                                   :result instaql-result
                                                    :processed-tx-id processed-tx-id
                                                    :client-event-id client-event-id})))))
 
@@ -199,7 +201,7 @@
         _ (reset! debug-info {:processed-tx-id processed-tx-id
                               :instaql-queries (map :instaql-query/query stale-queries)})
         recompute-results (->> stale-queries
-                               (ua/vfuture-pmap (partial recompute-instaql-query! opts)))
+                               (ua/pmap (partial recompute-instaql-query! opts)))
         {computations true spam false} (group-by :result-changed? recompute-results)
         num-spam (count spam)
         num-computations (count computations)

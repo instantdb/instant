@@ -20,6 +20,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
    [instant.lib.ring.undertow :as undertow-adapter]
+   [instant.machine-summaries]
    [instant.nrepl :as nrepl]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.invalidator :as inv]
@@ -28,6 +29,7 @@
    [instant.runtime.routes :as runtime-routes]
    [instant.scripts.analytics :as analytics]
    [instant.scripts.daily-metrics :as daily-metrics]
+   [instant.scripts.welcome-email :as welcome-email]
    [instant.session-counter :as session-counter]
    [instant.storage.routes :as storage-routes]
    [instant.stripe :as stripe]
@@ -160,7 +162,7 @@
                                                       (indexing-jobs/stop)))]]
                                  (deref fut))))))
 
-(defmacro log-init [operation & body]
+(defmacro with-log-init [operation & body]
   `(do
      (tracer/record-info! {:name (format "init.start.%s" (name ~operation))})
      (tracer/with-span! {:name (format "init.finish.%s" (name ~operation))}
@@ -177,56 +179,59 @@
     (log/info "Init tracer")
     (tracer/init)
 
-    (log-init :uncaught-exception-handler
+    (with-log-init :uncaught-exception-handler
       (Thread/setDefaultUncaughtExceptionHandler
        (ua/logging-uncaught-exception-handler)))
 
-    (log-init :gauges
+    (with-log-init :gauges
       (gauges/start))
-    (log-init :nrepl
+    (with-log-init :nrepl
       (nrepl/start))
-    (log-init :oauth
+    (with-log-init :oauth
       (oauth/start))
-    (log-init :jwt
+    (with-log-init :jwt
       (jwt/start))
-    (log-init :aurora
+    (with-log-init :aurora
       (aurora/start))
-    (log-init :system-catalog
+    (with-log-init :system-catalog
       (ensure-attrs-on-system-catalog-app))
-    (log-init :reactive-store
+    (with-log-init :reactive-store
       (rs/start))
-    (log-init :ephemeral
+    (with-log-init :ephemeral
       (eph/start))
-    (log-init :stripe
+    (with-log-init :stripe
       (stripe/init))
-    (log-init :session
+    (with-log-init :session
       (session/start))
-    (log-init :invalidator
+    (with-log-init :invalidator
       (inv/start-global))
-    (log-init :wal
+    (with-log-init :wal
       (wal/init))
 
     (when-let [config-app-id (config/instant-config-app-id)]
-      (log-init :flags
+      (with-log-init :flags
         (flags-impl/init config-app-id
                          flags/queries
                          flags/query-results)))
 
-    (log-init :ephemeral-app
+    (with-log-init :ephemeral-app
       (ephemeral-app/start))
-    (log-init :session-counter
+    (with-log-init :session-counter
       (session-counter/start))
-    (log-init :indexing-jobs
+    (with-log-init :indexing-jobs
       (indexing-jobs/start))
     (when (= (config/get-env) :prod)
-      (log-init :analytics
+      (with-log-init :analytics
         (analytics/start)))
     (when (= (config/get-env) :prod)
-      (log-init :daily-metrics
+      (with-log-init :daily-metrics
         (daily-metrics/start)))
-    (log-init :web-server
+    (when (= (config/get-env) :prod)
+      (with-log-init :welcome-email
+        (welcome-email/start)))
+    (with-log-init :web-server
       (start))
-    (log-init :shutdown-hook
+    (with-log-init :shutdown-hook
       (add-shutdown-hook))
     (log/info "Finished init")))
 

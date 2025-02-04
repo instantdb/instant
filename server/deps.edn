@@ -19,9 +19,12 @@
         ch.qos.logback/logback-classic {:mvn/version "1.5.6"}
         org.slf4j/slf4j-api {:mvn/version "2.0.13"}
         cider/cider-nrepl {:mvn/version "0.45.0"}
+
         amazonica/amazonica {:mvn/version "0.3.167"}
+        software.amazon.awssdk/rds {:mvn/version "2.30.7"}
+        software.amazon.awssdk/secretsmanager {:mvn/version "2.30.7"}
         juji/editscript {:mvn/version "0.6.4"}
-        io.github.tonsky/clojure-plus {:git/sha "c9555d72accf55d313b83387015d766b4960803b"}
+        io.github.tonsky/clojure-plus {:mvn/version "1.0.0"}
 
         org.bouncycastle/bcprov-jdk15on {:mvn/version "1.70"}
         incanter/incanter {:mvn/version "1.9.3"
@@ -92,14 +95,17 @@
                             ;; print stack traces instead of "Full report at ..."
                             "-Dclojure.main.report=stderr"
                             "-Dclojure.server.repl={:port 6006 :accept clojure.core.server/repl}"
-                            
+
                             ;; hazelcast
                             "--add-modules" "java.se"
                             "--add-exports" "java.base/jdk.internal.ref=ALL-UNNAMED"
                             "--add-opens" "java.base/java.lang=ALL-UNNAMED"
                             "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
                             "--add-opens" "java.management/sun.management=ALL-UNNAMED"
-                            "--add-opens" "jdk.management/com.sun.management.internal=ALL-UNNAMED"]}
+                            "--add-opens" "jdk.management/com.sun.management.internal=ALL-UNNAMED"
+
+                            ;; headless charts 
+                            "-Djava.awt.headless=true"]}
            :storm {:extra-deps {com.github.flow-storm/clojure {:mvn/version "1.11.2-4"}
                                 com.github.flow-storm/flow-storm-dbg {:mvn/version "3.14.0"}}
                    :override-deps {org.clojure/clojure nil}
@@ -122,7 +128,9 @@
                              "--add-opens" "java.base/java.lang=ALL-UNNAMED"
                              "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
                              "--add-opens" "java.management/sun.management=ALL-UNNAMED"
-                             "--add-opens" "jdk.management/com.sun.management.internal=ALL-UNNAMED"]}
+                             "--add-opens" "jdk.management/com.sun.management.internal=ALL-UNNAMED"
+                             ;; headless charts 
+                             "-Djava.awt.headless=true"]}
            :retest {:extra-paths ["test" "dev-resources"]
                     :main-opts ["-m" "circleci.test.retest"]}
            :repl-connect {:main-opts ["-m" "nrepl.cmdline" "--connect" "--host" "localhost" "--port" "6005"]}
@@ -131,7 +139,6 @@
            :oss-bootstrap {:extra-deps {org.clojure/tools.cli {:mvn/version "1.1.230"}}
                            :exec-fn tasks/bootstrap-for-oss
                            :jvm-opts ["-Dclojure.main.report=stderr"]}
-           :lint {:extra-deps {clj-kondo/clj-kondo {:git/url "https://github.com/clj-kondo/clj-kondo.git"
-                                                    :sha "c0ccff5e9c87c46f85fe705450fce9a49b0ce5e0"}}
+           :lint {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2025.01.16"}}
                   :main-opts ["-m" "clj-kondo.main" "--lint" "src"]}}
  :main-opts ["-m" "instant.core"]}

@@ -34,7 +34,12 @@ import type {
   InstaQLEntity,
   InstaQLResult,
 } from "./queryTypes";
-import type { AuthState, User, AuthResult, ConnectionStatus } from "./clientTypes";
+import type {
+  AuthState,
+  User,
+  AuthResult,
+  ConnectionStatus,
+} from "./clientTypes";
 import type {
   InstantQuery,
   InstantQueryResult,
@@ -65,6 +70,16 @@ import type {
   UpdateParams,
   LinkParams,
 } from "./schemaTypes";
+import type { UploadFileResponse, DeleteFileResponse } from "./StorageAPI";
+
+import type {
+  ExchangeCodeForTokenParams,
+  SendMagicCodeParams,
+  SendMagicCodeResponse,
+  SignInWithIdTokenParams,
+  VerifyMagicCodeParams,
+  VerifyResponse,
+} from "./authAPI";
 
 const defaultOpenDevtool = true;
 
@@ -192,9 +207,12 @@ class Auth {
    *  db.auth.sendMagicCode({email: "example@gmail.com"})
    *    .catch((err) => console.error(err.body?.message))
    */
-  sendMagicCode = (params: { email: string }) => {
+  sendMagicCode = (
+    params: SendMagicCodeParams,
+  ): Promise<SendMagicCodeResponse> => {
     return this.db.sendMagicCode(params);
   };
+
   /**
    * Verify a magic code that was sent to the user's email address.
    *
@@ -204,7 +222,9 @@ class Auth {
    *  db.auth.signInWithMagicCode({email: "example@gmail.com", code: "123456"})
    *       .catch((err) => console.error(err.body?.message))
    */
-  signInWithMagicCode = (params: { email: string; code: string }) => {
+  signInWithMagicCode = (
+    params: VerifyMagicCodeParams,
+  ): Promise<VerifyResponse> => {
     return this.db.signInWithMagicCode(params);
   };
 
@@ -219,7 +239,7 @@ class Auth {
    *   //Sign in
    *   db.auth.signInWithToken(token);
    */
-  signInWithToken = (token: AuthToken) => {
+  signInWithToken = (token: AuthToken): Promise<VerifyResponse> => {
     return this.db.signInWithCustomToken(token);
   };
 
@@ -238,7 +258,10 @@ class Auth {
    *   // Put it in a sign in link
    *   <a href={url}>Log in with Google</a>
    */
-  createAuthorizationURL = (params: { clientName: string; redirectURL }) => {
+  createAuthorizationURL = (params: {
+    clientName: string;
+    redirectURL: string;
+  }): string => {
     return this.db.createAuthorizationURL(params);
   };
 
@@ -260,11 +283,9 @@ class Auth {
    *  .catch((err) => console.error(err.body?.message));
    *
    */
-  signInWithIdToken = (params: {
-    idToken: string;
-    clientName: string;
-    nonce?: string | undefined | null;
-  }) => {
+  signInWithIdToken = (
+    params: SignInWithIdTokenParams,
+  ): Promise<VerifyResponse> => {
     return this.db.signInWithIdToken(params);
   };
 
@@ -284,10 +305,7 @@ class Auth {
    *  .catch((err) => console.error(err.body?.message));
    *
    */
-  exchangeOAuthCode = (params: {
-    code: string;
-    codeVerifier: string | undefined | null;
-  }) => {
+  exchangeOAuthCode = (params: ExchangeCodeForTokenParams) => {
     return this.db.exchangeCodeForToken(params);
   };
 
@@ -302,17 +320,22 @@ class Auth {
    *     db.auth.issuerURI()
    *   );
    */
-  issuerURI = () => {
+  issuerURI = (): string => {
     return this.db.issuerURI();
   };
 
   /**
    * Sign out the current user
    */
-  signOut = () => {
+  signOut = (): Promise<void> => {
     return this.db.signOut();
   };
 }
+
+type FileOpts = {
+  contentType?: string;
+  contentDisposition?: string;
+};
 
 /**
  * Functions to manage file storage.
@@ -326,26 +349,14 @@ class Storage {
    * @see https://instantdb.com/docs/storage
    * @example
    *   const [file] = e.target.files; // result of file input
-   *   const isSuccess = await db.storage.upload('photos/demo.png', file);
+   *   const data = await db.storage.uploadFile('photos/demo.png', file);
    */
-  upload = (pathname: string, file: File) => {
-    return this.db.upload(pathname, file);
-  };
-
-  /**
-   * @deprecated Use `db.storage.upload` instead
-   */
-  put = this.upload;
-
-  /**
-   * Retrieves a download URL for the provided path.
-   *
-   * @see https://instantdb.com/docs/storage
-   * @example
-   *   const url = await db.storage.getDownloadUrl('photos/demo.png');
-   */
-  getDownloadUrl = (pathname: string) => {
-    return this.db.getDownloadUrl(pathname);
+  uploadFile = (
+    path: string,
+    file: File,
+    opts: FileOpts = {},
+  ): Promise<UploadFileResponse> => {
+    return this.db.uploadFile(path, file, opts);
   };
 
   /**
@@ -357,6 +368,40 @@ class Storage {
    */
   delete = (pathname: string) => {
     return this.db.deleteFile(pathname);
+  };
+
+  // Deprecated Storage API (Jan 2025)
+  // ---------------------------------
+
+  /**
+   * @deprecated. Use `db.storage.uploadFile` instead
+   * remove in the future.
+   */
+  upload = (pathname: string, file: File) => {
+    return this.db.upload(pathname, file);
+  };
+
+  /**
+   * @deprecated Use `db.storage.uploadFile` instead
+   */
+  put = this.upload;
+
+  /**
+   * @deprecated. getDownloadUrl will be removed in the future.
+   * Use `useQuery` instead to query and fetch for valid urls
+   *
+   * db.useQuery({
+   *   $files: {
+   *     $: {
+   *       where: {
+   *         path: "moop.png"
+   *       }
+   *     }
+   *   }
+   * })
+   */
+  getDownloadUrl = (pathname: string) => {
+    return this.db.getDownloadUrl(pathname);
   };
 }
 
@@ -485,7 +530,9 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
    *     console.log('Connection status:', connectionState);
    *   });
    */
-  subscribeConnectionStatus(cb: (status: ConnectionStatus) => void): UnsubscribeFn {
+  subscribeConnectionStatus(
+    cb: (status: ConnectionStatus) => void,
+  ): UnsubscribeFn {
     return this._reactor.subscribeConnectionStatus(cb);
   }
 
@@ -572,7 +619,7 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
  *  import schema from ""../instant.schema.ts";
  *
  *  const db = init({ appId: "my-app-id", schema })
- *  
+ *
  *  // To learn more: https://instantdb.com/docs/modeling-data
  */
 function init<
@@ -638,7 +685,7 @@ type InstantRules = {
 /**
  * @deprecated
  * `init_experimental` is deprecated. You can replace it with `init`.
- * 
+ *
  * @example
  *
  * // Before
@@ -734,4 +781,17 @@ export {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
+
+  // auth types
+  type ExchangeCodeForTokenParams,
+  type SendMagicCodeParams,
+  type SendMagicCodeResponse,
+  type SignInWithIdTokenParams,
+  type VerifyMagicCodeParams,
+  type VerifyResponse,
+
+  // storage types
+  type FileOpts,
+  type UploadFileResponse,
+  type DeleteFileResponse,
 };

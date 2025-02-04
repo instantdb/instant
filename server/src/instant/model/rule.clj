@@ -148,17 +148,30 @@
                      "false"))
       [["$users"
         action
-        (format "The $users namespace is read-only. Set `$users.allow.%s` to `\"false\"`."
-                action)]])
+        (format "The %s namespace is read-only. Set `%s.allow.%s` to `\"false\"`."
+                "$users" "$users" action)]])
 
     "view" nil))
 
+(defn $files-validation-errors
+  "Restrict users from changing the `update` rules for $files."
+  [rules action]
+  (case action
+    "update"
+    (when (and (not (nil? (get-in rules ["$files" "allow" action])))
+               (not= (get-in rules ["$files" "allow" action])
+                     "false"))
+      [["$files"
+        action
+        (format "The %s namespace does not allow `update` prmissions. Set `%s.allow.%s` to `\"false\"`."
+                "$files" "$files" action)]])
+
+    ("view" "create" "delete") nil))
+
 (defn system-attribute-validation-errors
-  "Don't allow users to change rules for system attrs."
+  "Don't allow users to change rules for restricted system namespaces."
   [etype action]
-  (when (and (not= "$users" etype)
-             (not= "$files" etype)
-             (not= "$default" etype)
+  (when (and (not (#{"$users" "$files" "$default"} etype))
              (string/starts-with? etype "$"))
     [[etype
       action
@@ -171,6 +184,8 @@
        (mapcat (fn [[etype action]]
                  (or (and (= etype "$users")
                           ($users-validation-errors rules action))
+                     (and (= etype "$files")
+                          ($files-validation-errors rules action))
                      (system-attribute-validation-errors etype action)
                      (try
                        (when-let [expr (extract rules etype action)]

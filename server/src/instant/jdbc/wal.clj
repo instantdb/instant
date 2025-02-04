@@ -23,6 +23,7 @@
   (:require
    [chime.core :as chime-core]
    [clojure.core.async :as a]
+   [instant.aurora-config :as aurora-config]
    [instant.config :as config]
    [instant.discord :as discord]
    [instant.gauges :as gauges]
@@ -48,7 +49,7 @@
 ;; Connection
 
 (defn jdbc-username ^String [db-spec]
-  (or (:username db-spec)
+  (or (:user db-spec)
       (:user (uri/query-map (jdbc-url db-spec)))))
 
 (defn jdbc-password ^String [db-spec]
@@ -61,13 +62,20 @@
    This PG connection has a few special settings to support replication
    (e.g REPLICATION, ASSUME_MIN_SERVER_VERSION, PREFER_QUERY_MODE)"
   ^PGConnection [db-spec]
-  (let [props (Properties.)
+  (let [db-spec (if-let [secret-arn (:secret-arn db-spec)]
+                  (-> db-spec
+                      (dissoc db-spec :secret-arn)
+                      (merge (aurora-config/secret-arn->db-creds secret-arn)))
+                  db-spec)
+        props (Properties.)
         _ (do (.set PGProperty/USER props (jdbc-username db-spec))
               (.set PGProperty/PASSWORD props (jdbc-password db-spec))
               (.set PGProperty/REPLICATION props "database")
               (.set PGProperty/ASSUME_MIN_SERVER_VERSION props "9.4")
               (.set PGProperty/PREFER_QUERY_MODE props "simple"))
-        conn (DriverManager/getConnection (jdbc-url db-spec) props)]
+        conn (DriverManager/getConnection (jdbc-url (-> db-spec
+                                                        (dissoc :user :password)))
+                                          props)]
     (.unwrap conn PGConnection)))
 
 (comment

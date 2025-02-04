@@ -47,6 +47,11 @@ import {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
+
+  // storage types
+  type FileOpts,
+  type UploadFileResponse,
+  type DeleteFileResponse,
 } from "@instantdb/core";
 
 import version from "./version";
@@ -283,8 +288,8 @@ class InstantAdmin<
    */
   query = <
     Q extends Schema extends InstantGraph<any, any>
-      ? InstaQLParams<Schema>
-      : Exactly<Query, Q>,
+    ? InstaQLParams<Schema>
+    : Exactly<Query, Q>,
   >(
     query: Q,
   ): Promise<QueryResponse<Q, Schema, WithCardinalityInference>> => {
@@ -592,13 +597,18 @@ class Auth {
   }
 }
 
-type UploadMetadata = { contentType?: string } & Record<string, any>;
 type StorageFile = {
   key: string;
   name: string;
   size: number;
   etag: string;
   last_modified: number;
+};
+
+type DeleteManyFileResponse = {
+  data: {
+    ids: string[] | null;
+  };
 };
 
 /**
@@ -617,12 +627,73 @@ class Storage {
    * @see https://instantdb.com/docs/storage
    * @example
    *   const buffer = fs.readFileSync('demo.png');
-   *   const isSuccess = await db.storage.upload('photos/demo.png', buffer);
+   *   const isSuccess = await db.storage.uploadFile('photos/demo.png', buffer);
+   */
+  uploadFile = async (
+    path: string,
+    file: Buffer,
+    metadata: FileOpts = {},
+  ): Promise<UploadFileResponse> => {
+    const headers = {
+      ...authorizedHeaders(this.config),
+      path,
+      "content-type": metadata.contentType || "application/octet-stream",
+    };
+    if (metadata.contentDisposition) {
+      headers["content-disposition"] = metadata.contentDisposition;
+    }
+
+    const data = await jsonFetch(`${this.config.apiURI}/admin/storage/upload`, {
+      method: "PUT",
+      headers,
+      body: file,
+    });
+
+    return data;
+  };
+
+  /**
+   * Deletes a file by its path name (e.g. "photos/demo.png").
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   await db.storage.delete("photos/demo.png");
+   */
+  delete = async (pathname: string): Promise<DeleteFileResponse> => {
+    return jsonFetch(
+      `${this.config.apiURI}/admin/storage/files?filename=${encodeURIComponent(
+        pathname,
+      )}`,
+      {
+        method: "DELETE",
+        headers: authorizedHeaders(this.config),
+      },
+    );
+  };
+
+  /**
+   * Deletes multiple files by their path names (e.g. "photos/demo.png", "essays/demo.txt").
+   *
+   * @see https://instantdb.com/docs/storage
+   * @example
+   *   await db.storage.deleteMany(["images/1.png", "images/2.png", "images/3.png"]);
+   */
+  deleteMany = async (pathnames: string[]): Promise<DeleteManyFileResponse> => {
+    return jsonFetch(`${this.config.apiURI}/admin/storage/files/delete`, {
+      method: "POST",
+      headers: authorizedHeaders(this.config),
+      body: JSON.stringify({ filenames: pathnames }),
+    });
+  };
+
+  /**
+   * @deprecated. This method will be removed in the future. Use `uploadFile`
+   * instead
    */
   upload = async (
     pathname: string,
     file: Buffer,
-    metadata: UploadMetadata = {},
+    metadata: FileOpts = {},
   ): Promise<boolean> => {
     const { data: presignedUrl } = await jsonFetch(
       `${this.config.apiURI}/admin/storage/signed-upload-url`,
@@ -647,30 +718,9 @@ class Storage {
   };
 
   /**
-   * Retrieves a download URL for the provided path.
-   *
-   * @see https://instantdb.com/docs/storage
+   * @deprecated. This method will be removed in the future. Use `query` instead
    * @example
-   *   const url = await db.storage.getDownloadUrl('photos/demo.png');
-   */
-  getDownloadUrl = async (pathname: string): Promise<string> => {
-    const { data } = await jsonFetch(
-      `${this.config.apiURI}/admin/storage/signed-download-url?app_id=${this.config.appId}&filename=${encodeURIComponent(pathname)}`,
-      {
-        method: "GET",
-        headers: authorizedHeaders(this.config),
-      },
-    );
-
-    return data;
-  };
-
-  /**
-   * Retrieves a list of all the files that have been uploaded by this app.
-   *
-   * @see https://instantdb.com/docs/storage
-   * @example
-   *   const files = await db.storage.list();
+   * const files = await db.query({ $files: {}})
    */
   list = async (): Promise<StorageFile[]> => {
     const { data } = await jsonFetch(
@@ -684,36 +734,31 @@ class Storage {
     return data;
   };
 
+
   /**
-   * Deletes a file by its path name (e.g. "photos/demo.png").
+   * @deprecated. getDownloadUrl will be removed in the future.
+   * Use `query` instead to query and fetch for valid urls
    *
-   * @see https://instantdb.com/docs/storage
-   * @example
-   *   await db.storage.delete("photos/demo.png");
+   * db.useQuery({
+   *   $files: {
+   *     $: {
+   *       where: {
+   *         path: "moop.png"
+   *       }
+   *     }
+   *   }
+   * })
    */
-  delete = async (pathname: string): Promise<void> => {
-    await jsonFetch(
-      `${this.config.apiURI}/admin/storage/files?filename=${encodeURIComponent(pathname)}`,
+  getDownloadUrl = async (pathname: string): Promise<string> => {
+    const { data } = await jsonFetch(
+      `${this.config.apiURI}/admin/storage/signed-download-url?app_id=${this.config.appId}&filename=${encodeURIComponent(pathname)}`,
       {
-        method: "DELETE",
+        method: "GET",
         headers: authorizedHeaders(this.config),
       },
     );
-  };
 
-  /**
-   * Deletes multiple files by their path names (e.g. "photos/demo.png", "essays/demo.txt").
-   *
-   * @see https://instantdb.com/docs/storage
-   * @example
-   *   await db.storage.deleteMany(["images/1.png", "images/2.png", "images/3.png"]);
-   */
-  deleteMany = async (pathnames: string[]): Promise<void> => {
-    await jsonFetch(`${this.config.apiURI}/admin/storage/files/delete`, {
-      method: "POST",
-      headers: authorizedHeaders(this.config),
-      body: JSON.stringify({ filenames: pathnames }),
-    });
+    return data;
   };
 }
 
@@ -955,4 +1000,10 @@ export {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
+
+  // storage types
+  type FileOpts,
+  type UploadFileResponse,
+  type DeleteFileResponse,
+  type DeleteManyFileResponse,
 };

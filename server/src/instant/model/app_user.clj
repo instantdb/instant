@@ -35,12 +35,13 @@
 (defn get-by-refresh-token
   ([params] (get-by-refresh-token (aurora/conn-pool :read) params))
   ([conn {:keys [app-id refresh-token]}]
-   (query-op
-    conn
-    {:app-id app-id
-     :etype etype}
-    (fn [{:keys [get-entity-where]}]
-      (get-entity-where {:$userRefreshTokens.hashedToken (hash-token refresh-token)})))))
+   (when refresh-token
+     (query-op
+      conn
+      {:app-id app-id
+       :etype etype}
+      (fn [{:keys [get-entity-where]}]
+        (get-entity-where {:$userRefreshTokens.hashedToken (hash-token refresh-token)}))))))
 
 (defn get-by-refresh-token! [params]
   (ex/assert-record! (get-by-refresh-token params) :app-user {:args [params]}))
@@ -87,7 +88,6 @@
      :etype etype}
     (fn [{:keys [delete-entity!]}]
       (delete-entity! id)))))
-
 
 (defn get-by-email-or-oauth-link-qualified
   ([params] (get-by-email-or-oauth-link-qualified (aurora/conn-pool :read) params))

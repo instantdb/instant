@@ -13,11 +13,7 @@
 
 (defn start-new-pool [aurora-config]
   (let [conn-pool-size (config/get-connection-pool-size)]
-    (sql/start-pool
-     (assoc aurora-config
-            :maxLifetime (* 10 60 1000)
-            :maximumPoolSize conn-pool-size
-            :targetServerType "primary"))))
+    (aurora/start-pool conn-pool-size aurora-config)))
 
 ;; Keep this here just in case
 (declare previous-conn-pool)
