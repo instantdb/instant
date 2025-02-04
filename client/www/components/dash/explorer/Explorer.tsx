@@ -482,6 +482,8 @@ export function Explorer({
   const numPages = allCount ? Math.ceil(allCount / limit) : 1;
   const currentPage = offset / limit + 1;
 
+  const userNamespaces = namespaces?.filter((x) => !x.name.startsWith('$'));
+
   useEffect(() => {
     const isFirstLoad = namespaces?.length && !navStack.length;
     const urlWhere = router.query.where
@@ -489,9 +491,10 @@ export function Explorer({
       : null;
 
     if (isFirstLoad) {
+      const userNamespaces = namespaces?.filter((x) => !x.name.startsWith('$'));
       nav([
         {
-          namespace: selectedNamespaceId || namespaces[0].id,
+          namespace: selectedNamespaceId || userNamespaces?.[0]?.id,
           where: urlWhere,
         },
       ]);
@@ -1121,11 +1124,11 @@ export function Explorer({
             </table>
           </div>
         </div>
-      ) : namespaces?.length ? (
+      ) : userNamespaces?.length ? (
         <div className="px-4 py-2 text-sm italic text-gray-500">
           Select a namespace
         </div>
-      ) : namespaces?.length === 0 ? (
+      ) : userNamespaces?.length === 0 ? (
         <div className="flex flex-1 flex-col md:items-center md:justify-center">
           <div className="flex flex-1 flex-col gap-4 bg-gray-100 p-6 md:max-w-[320px] md:flex-none md:border">
             <SectionHeading>This is your Data Explorer</SectionHeading>
