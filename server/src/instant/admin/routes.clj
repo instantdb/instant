@@ -376,6 +376,7 @@
         data (storage-coordinator/upload-file! {:app-id app-id
                                                 :path path
                                                 :content-type content-type
+                                                :content-length (:content-length req)
                                                 :skip-perms-check? true}
                                                file)]
     (response/ok {:data data})))

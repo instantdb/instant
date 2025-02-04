@@ -1,52 +1,131 @@
 (ns instant.util.s3
   (:require
    [instant.config :as config]
-   [amazonica.aws.s3 :as s3]))
+   [instant.util.async :refer [default-virtual-thread-executor]])
+  (:import
+   (java.time Duration)
+   (software.amazon.awssdk.auth.credentials AwsBasicCredentials
+                                            StaticCredentialsProvider)
+   (software.amazon.awssdk.core.async AsyncRequestBody
+                                      BlockingInputStreamAsyncRequestBody)
+   (software.amazon.awssdk.http.async SdkAsyncHttpClient)
+
+   (software.amazon.awssdk.http.nio.netty NettyNioAsyncHttpClient)
+   (software.amazon.awssdk.services.s3 S3AsyncClient
+                                       S3Client)
+   (software.amazon.awssdk.services.s3.model Delete
+                                             DeleteObjectRequest
+                                             DeleteObjectsRequest
+                                             GetObjectRequest
+                                             HeadObjectRequest
+                                             HeadObjectResponse
+                                             ListObjectsV2Request
+                                             ListObjectsV2Response
+                                             ObjectIdentifier
+                                             PutObjectRequest
+                                             S3Object)
+   (software.amazon.awssdk.services.s3.presigner S3Presigner)
+   (software.amazon.awssdk.services.s3.presigner.model GetObjectPresignRequest)))
+
+(set! *warn-on-reflection* true)
 
 (def default-bucket "instant-storage")
 (def default-content-type "application/octet-stream")
 (def default-content-disposition "inline")
 
-(defn list-buckets []
-  (s3/list-buckets))
+(def ^S3Client default-s3-client (.build (S3Client/builder)))
+(def ^SdkAsyncHttpClient default-s3-async-http-client
+  (-> (NettyNioAsyncHttpClient/builder)
+      (.maxConcurrency (int 2048))
+      (.build)))
+(def ^S3AsyncClient default-s3-async-client (-> (S3AsyncClient/crtBuilder)
+                                                (.targetThroughputInGbps 20.0)
+                                                (.build)))
+
+(def signer-s3-client*
+  (delay
+    (let [access-key (config/s3-storage-access-key)
+          secret-key (config/s3-storage-secret-key)]
+      (if (and access-key secret-key)
+        (-> (S3Client/builder)
+            (.credentialsProvider (StaticCredentialsProvider/create
+                                   (AwsBasicCredentials/create access-key secret-key)))
+            (.build))
+        ;; For OSS developers, use the default credentials provider chain
+        ;; so they don't need to set up separate storage credentials
+        default-s3-client))))
+
+(def presigner* (delay (-> (S3Presigner/builder)
+                          (.s3Client @signer-s3-client*)
+                          (.build))))
+
+(defn presigner ^S3Presigner []
+  @presigner*)
 
 (defn list-objects
   ([opts] (list-objects default-bucket opts))
-  ([bucket-name opts]
-   (s3/list-objects-v2 (merge {:bucket-name bucket-name} opts))))
+  ([bucket-name {:keys [continuation-token]}]
+   (let [^ListObjectsV2Request req (cond-> (ListObjectsV2Request/builder)
+                                     true (.bucket bucket-name)
+                                     continuation-token (.continuationToken continuation-token)
+                                     true (.build))
+         ^ListObjectsV2Response resp (.listObjectsV2 default-s3-client req)]
+     {:key-count (.keyCount resp)
+      :truncated? (.isTruncated resp)
+      :bucket-name (.name resp)
+      :max-keys (.maxKeys resp)
+      :object-summaries (mapv (fn [^S3Object s3-obj]
+                                {:key (.key s3-obj)
+                                 :size (.size s3-obj)
+                                 :last-modified (.lastModified s3-obj)
+                                 :bucket-name (.name resp)
+                                 :etag (.eTag s3-obj)})
+                              (.contents resp))
+      :next-continuation-token (.nextContinuationToken resp)})))
 
-(defn list-objects-paginated
-  ([opts] (list-objects-paginated default-bucket opts))
-  ([bucket-name opts]
-   (loop [all-objects []
-          continuation-token nil]
-     (let [request (if continuation-token
-                     (assoc opts :continuation-token continuation-token)
-                     opts)
-           {:keys [object-summaries next-continuation-token truncated?]}
-           (list-objects bucket-name request)]
-       (if truncated?
-         (recur (into all-objects object-summaries) next-continuation-token)
-         (into all-objects object-summaries))))))
-
-(defn get-object
-  ([object-key] (get-object default-bucket object-key))
+(defn head-object
+  ([object-key] (head-object default-bucket object-key))
   ([bucket-name object-key]
-   (s3/get-object {:bucket-name bucket-name :key object-key})))
+   (let [^HeadObjectRequest req (-> (HeadObjectRequest/builder)
+                                    (.bucket bucket-name)
+                                    (.key object-key)
+                                    (.build))
+         ^HeadObjectResponse resp (.headObject default-s3-client req)]
+     {:bucket-name bucket-name
+      :key object-key
+      :object-metadata {:content-disposition (.contentDisposition resp)
+                        :content-type (.contentType resp)
+                        :content-length (.contentLength resp)
+                        :etag (.eTag resp)
+                        :last-modified (.lastModified resp)}})))
 
 (defn delete-object
   ([object-key] (delete-object default-bucket object-key))
   ([bucket-name object-key]
-   (s3/delete-object {:bucket-name bucket-name
-                      :quiet true ;; no response
-                      :key object-key})))
+   (let [^DeleteObjectRequest req (-> (DeleteObjectRequest/builder)
+                                      (.bucket bucket-name)
+                                      (.key object-key)
+                                      (.build))
+         _resp (.deleteObject default-s3-client req)]
+     nil)))
 
 (defn delete-objects
   ([object-keys] (delete-objects default-bucket object-keys))
   ([bucket-name object-keys]
-   (s3/delete-objects {:bucket-name bucket-name
-                       :quiet true ;; no response
-                       :keys object-keys})))
+   (let [^java.util.Collection objects (mapv (fn [k]
+                                               (-> (ObjectIdentifier/builder)
+                                                   (.key k)
+                                                   (.build)))
+                                             object-keys)
+         ^Delete delete (-> (Delete/builder)
+                            (.objects objects)
+                            (.build))
+         ^DeleteObjectsRequest req (-> (DeleteObjectsRequest/builder)
+                                       (.bucket bucket-name)
+                                       (.delete delete)
+                                       (.build))
+         _resp (.deleteObjects default-s3-client req)]
+     nil)))
 
 (defn delete-objects-paginated
   ([object-keys] (delete-objects-paginated default-bucket object-keys))
@@ -54,20 +133,24 @@
    ;; Limited to 1000 keys per request
    (let [chunks (partition-all 1000 object-keys)]
      (->> chunks
-          (mapcat #(s3/delete-objects {:bucket-name bucket-name
-                                       :quiet true ;; no response
-                                       :keys (vec %)}))))))
+          (mapcat #(delete-objects bucket-name (vec %)))))))
 
 (defn generate-presigned-url
-  ([opts]
-   (let [access-key (config/s3-storage-access-key)
-         secret-key (config/s3-storage-secret-key)]
-     (if (and access-key secret-key)
-       (s3/generate-presigned-url {:access-key access-key
-                                   :secret-key secret-key} opts)
-       ;; For OSS developers, use the default credentials provider chain
-       ;; so they don't need to set up separate storage credentials
-       (s3/generate-presigned-url opts)))))
+  ([{:keys [method bucket-name key ^Duration duration]}]
+   (assert (= :get method)
+           "presigned urls are only implemented for :get requests")
+   (let [^GetObjectRequest obj-request (-> (GetObjectRequest/builder)
+                                           (.bucket bucket-name)
+                                           (.key key)
+                                           (.build))
+         ^GetObjectPresignRequest signer-request (-> (GetObjectPresignRequest/builder)
+                                                     (.signatureDuration duration)
+                                                     (.getObjectRequest obj-request)
+                                                     (.build))]
+     (-> (presigner)
+         (.presignGetObject signer-request)
+         (.url)
+         (.toExternalForm)))))
 
 (defn- make-s3-put-opts
   [bucket-name {:keys [object-key content-type content-disposition]} file-opts]
@@ -78,12 +161,23 @@
                :content-disposition (or content-disposition default-content-disposition)}}
    file-opts))
 
-(defn upload-file-to-s3
-  ([ctx file] (upload-file-to-s3 default-bucket ctx file))
-  ([bucket-name ctx file]
-   (s3/put-object (make-s3-put-opts bucket-name ctx {:file file}))))
-
 (defn upload-stream-to-s3
   ([ctx stream] (upload-stream-to-s3 default-bucket ctx stream))
   ([bucket-name ctx stream]
-   (s3/put-object (make-s3-put-opts bucket-name ctx {:input-stream stream}))))
+   (let [opts (make-s3-put-opts bucket-name ctx {})
+         content-length (:content-length ctx)
+         ^PutObjectRequest req (cond-> (PutObjectRequest/builder)
+                                 true (.bucket (:bucket-name opts))
+                                 true (.key (:key opts))
+                                 true (.contentType (:content-type (:metadata opts)))
+                                 true (.contentDisposition (:content-disposition (:metadata opts)))
+                                 content-length (.contentLength content-length)
+                                 true (.build))]
+     (if content-length
+       (let [body (AsyncRequestBody/fromInputStream stream content-length default-virtual-thread-executor)]
+         (-> (.putObject default-s3-async-client req body)
+             deref))
+       (let [^BlockingInputStreamAsyncRequestBody body (AsyncRequestBody/forBlockingInputStream nil)
+             resp (.putObject default-s3-async-client req body)]
+         (.writeInputStream body stream)
+         (deref resp))))))
