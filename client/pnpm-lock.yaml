@@ -527,8 +527,8 @@ importers:
         specifier: workspace:*
         version: link:../packages/react
       '@markdoc/next.js':
-        specifier: ^0.1.5
-        version: 0.1.10(@markdoc/markdoc@0.1.13(@types/markdown-it@14.1.2)(@types/react@18.3.1))(next@15.1.6(@babel/core@7.26.7)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
+        specifier: ^0.3.7
+        version: 0.3.7(@markdoc/markdoc@0.1.13(@types/markdown-it@14.1.2)(@types/react@18.3.1))(next@15.1.6(@babel/core@7.26.7)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
       '@monaco-editor/react':
         specifier: ^4.6.0
         version: 4.6.0(monaco-editor@0.52.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -1972,7 +1972,7 @@ packages:
 
   '@expo/bunyan@4.0.1':
     resolution: {integrity: sha512-+Lla7nYSiHZirgK+U/uYzsLv/X+HaJienbD5AKX1UQZHYfWaP+9uuQluRB4GrEVWF0GZ7vEVp/jzaOT9k/SQlg==}
-    engines: {node: '>=0.10.0'}
+    engines: {'0': node >=0.10.0}
 
   '@expo/cli@0.20.3':
     resolution: {integrity: sha512-+nL2f6ZPV6e4yXS0P02jChstSJePihfFluapqnRM8+4pH4wsBOL1GoOc7hVFfwsP0vRE3HDqn5EEzrO+ZaCbpQ==}
@@ -2436,10 +2436,10 @@ packages:
       '@types/markdown-it': '*'
       '@types/react': '*'
 
-  '@markdoc/next.js@0.1.10':
-    resolution: {integrity: sha512-ncxQcxDtimRT1h5Xw4VXqLY9OSrOav6hHEkfV6Vq4pKUM3QOsb/RnNo8E1rNIj9hRDH/SvQEQzggTCsQYmAr0g==}
+  '@markdoc/next.js@0.3.7':
+    resolution: {integrity: sha512-lp/J0Lfx8YPWes82HOMSDvXBfIkJxPKfEwgzGTwfFBJUGBNM1TBvchaaAzDP2X+HRORP4jNcGbJrZoXSdon0BQ==}
     peerDependencies:
-      '@markdoc/markdoc': ^0.1.4
+      '@markdoc/markdoc': '*'
       next: '*'
       react: '*'
 
@@ -10941,7 +10941,7 @@ snapshots:
       '@types/markdown-it': 14.1.2
       '@types/react': 18.3.1
 
-  '@markdoc/next.js@0.1.10(@markdoc/markdoc@0.1.13(@types/markdown-it@14.1.2)(@types/react@18.3.1))(next@15.1.6(@babel/core@7.26.7)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)':
+  '@markdoc/next.js@0.3.7(@markdoc/markdoc@0.1.13(@types/markdown-it@14.1.2)(@types/react@18.3.1))(next@15.1.6(@babel/core@7.26.7)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@markdoc/markdoc': 0.1.13(@types/markdown-it@14.1.2)(@types/react@18.3.1)
       js-yaml: 4.1.0
