@@ -484,7 +484,11 @@ function Dashboard() {
                 {tab === 'home' ? (
                   <Home />
                 ) : tab === 'explorer' ? (
-                  <ExplorerTab appId={appId} db={connection.db} />
+                  <ExplorerTab
+                    appId={appId}
+                    db={connection.db}
+                    isStorageEnabled={isStorageEnabled}
+                  />
                 ) : tab === 'repl' ? (
                   <QueryInspector
                     className="flex-1 w-full"
@@ -843,11 +847,24 @@ function Home() {
   );
 }
 
-function ExplorerTab({ db, appId }: { db: InstantReactClient; appId: string }) {
+function ExplorerTab({
+  db,
+  appId,
+  isStorageEnabled,
+}: {
+  db: InstantReactClient;
+  appId: string;
+  isStorageEnabled: boolean;
+}) {
   return (
     <div className="flex-1 overflow-hidden flex flex-col">
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Explorer db={db} appId={appId} key={db._core._reactor.config.appId} />
+        <Explorer
+          db={db}
+          appId={appId}
+          isStorageEnabled={isStorageEnabled}
+          key={db._core._reactor.config.appId}
+        />
       </div>
     </div>
   );
