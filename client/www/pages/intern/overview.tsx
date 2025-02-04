@@ -8,6 +8,7 @@ import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { FullscreenLoading, LogoIcon } from '@/components/ui';
 import Head from 'next/head';
 import { format, parse, subDays } from 'date-fns';
+import useCurrentDate from '@/lib/hooks/useCurrentDate';
 
 async function fetchDailyOverview(token: string) {
   return jsonFetch(`${config.apiURI}/dash/overview/daily`, {
@@ -27,18 +28,6 @@ async function fetchMinuteOverview(token: string) {
       'content-type': 'application/json',
     },
   });
-}
-
-function useCurrentDate({ refreshSeconds }: { refreshSeconds: number }) {
-  const [date, setDate] = useState(new Date());
-  const refreshMs = refreshSeconds * 1000;
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setDate(new Date());
-    }, refreshMs);
-    return () => clearInterval(interval);
-  }, [refreshMs]);
-  return date;
 }
 
 function useDailyOverview(token: string) {

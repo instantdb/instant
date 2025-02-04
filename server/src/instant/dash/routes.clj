@@ -60,7 +60,8 @@
             [instant.reactive.ephemeral :as eph]
             [instant.machine-summaries :as machine-summaries]
             [instant.storage.coordinator :as storage-coordinator]
-            [instant.model.app-file :as app-file-model])
+            [instant.model.app-file :as app-file-model]
+            [clojure.core.cache.wrapped :as cache])
   (:import
    (com.stripe.model.checkout Session)
    (io.undertow.websockets.core WebSocketChannel)
@@ -289,15 +290,15 @@
 
 (defn admin-overview-daily-get [req]
   (let [{:keys [email]} (req->auth-user! req)
-          _ (assert-admin-email! email)
-          conn (aurora/conn-pool :read)
-          overview (metrics/overview-metrics conn)
-          overview-with-b64-charts
-          (update overview :charts (partial medley/map-vals
-                                            (fn [chart] (metrics/chart->base64-png chart
-                                                                                   500 400))))]
+        _ (assert-admin-email! email)
+        conn (aurora/conn-pool :read)
+        overview (metrics/overview-metrics conn)
+        overview-with-b64-charts
+        (update overview :charts (partial medley/map-vals
+                                          (fn [chart] (metrics/chart->base64-png chart
+                                                                                 500 400))))]
 
-      (response/ok overview-with-b64-charts)))
+    (response/ok overview-with-b64-charts)))
 
 (defn admin-overview-minute-get [req]
   (let [{:keys [email]} (req->auth-user! req)
@@ -1177,6 +1178,19 @@
     (instant-user-refresh-token-model/delete-by-id! {:id token})
     (response/ok {})))
 
+(def active-session-cache (cache/ttl-cache-factory {} :ttl 5000))
+
+(defn get-total-count-cached []
+  (cache/lookup-or-miss active-session-cache
+                        :total-count
+                        (fn [_]
+                          (->> (machine-summaries/get-all-num-sessions (eph/get-hz))
+                               vals
+                               (reduce +)))))
+
+(defn active-sessions-get [_]
+  (response/ok {:total-count (get-total-count-cached)}))
+
 (defroutes routes
   (POST "/dash/auth/send_magic_code" [] send-magic-code-post)
   (POST "/dash/auth/verify_magic_code" [] verify-magic-code-post)
@@ -1261,4 +1275,6 @@
 
   (GET "/dash/ws_playground" [] ws-playground-get)
 
-  (POST "/dash/signout" [] signout))
+  (POST "/dash/signout" [] signout)
+
+  (GET "/dash/stats/active_sessions" [] active-sessions-get))

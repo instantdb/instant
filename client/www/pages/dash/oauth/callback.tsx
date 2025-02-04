@@ -3,7 +3,8 @@ import { NextRouter, useRouter } from 'next/router';
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { Button, Content, ScreenHeading } from '@/components/ui';
-import { exchangeOAuthCodeForToken, messageFromInstantError } from '@/lib/auth';
+import { exchangeOAuthCodeForToken } from '@/lib/auth';
+import { messageFromInstantError } from '@/lib/errors';
 import config, { cliOauthParamName } from '@/lib/config';
 import { InstantError } from '@/lib/types';
 

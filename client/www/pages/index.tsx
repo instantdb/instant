@@ -33,6 +33,7 @@ import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import config from '@/lib/config';
 import MuxPlayer from '@mux/mux-player-react';
 import * as muxVideos from '@/lib/muxVideos';
+import useTotalSessionsCount from '@/lib/hooks/useTotalSessionsCount';
 
 type EmojiName = keyof typeof emoji;
 
@@ -111,13 +112,47 @@ const GlowBackground = ({ children }: PropsWithChildren) => (
   </div>
 );
 
+const ActiveSessionsCallout = () => {
+  // TODO: activate once backend is deployed
+  return null;
+
+  // const { isLoading, error, data } = useTotalSessionsCount({
+  //   refreshSeconds: 5,
+  // });
+  // if (isLoading || error || data <= 0) {
+  //   return (
+  //     <div className='h-8'></div>
+  //   );
+  // }
+
+  // const digits = data.toString().split('');
+
+  // return (
+  //   <div className='inline-flex items-center space-x-2 h-8'>
+  //     <div className="inline-flex gap-1">
+  //       {digits.map((d, i) => {
+  //         return (
+  //           <div
+  //             key={i}
+  //             className="text-2xl font-mono w-7 h-8 border border-black leading-none flex items-center justify-center"
+  //           >
+  //             <span>{d}</span>
+  //           </div>
+  //         );
+  //       })}
+  //     </div>
+  //     <div>sessions are connected on Instant right now</div>
+  //   </div>
+  // );
+};
+
 function LandingHero() {
   return (
     <div className="pb-16 pt-8">
       <SectionWide>
         <TwoColResponsive>
           <div className="flex flex-1 flex-col gap-8">
-            <H2>Build modern applications today</H2>
+            <H2>Build live apps today</H2>
             <p>
               Instant is a modern Firebase. We make you productive by giving
               your frontend a real-time database.
@@ -139,6 +174,7 @@ function LandingHero() {
               <img src="/img/yc_logo.png" className="inline h-4 w-4" />
               <span className="text-sm">Backed by Y Combinator</span>
             </div>
+            <ActiveSessionsCallout />
           </div>
           <div className="flex flex-1 flex-col items-center justify-center space-y-2">
             <MuxPlayer {...muxVideos.walkthrough} />
