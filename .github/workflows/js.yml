@@ -94,12 +94,11 @@ jobs:
         run: |
           set -o pipefail
           pnpm run check-format 2>&1 | tee prettier-errors.out
+          exit_code=${PIPESTATUS[0]}  # Capture exit code of pnpm
 
-      - name: Generate messages
-        working-directory: client
-        run:
           grep "\[warn\]" prettier-errors.out | sed -E 's|\[warn\] (.+)|::error file=client/\1|'
 
+          exit $exit_code
 
   detect_docs:
     runs-on: ubuntu-latest
