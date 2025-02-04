@@ -91,12 +91,12 @@ jobs:
 
       - name: Check prettier formatting
         working-directory: client
-        run: pnpm run check-format >2 >(tee prettier-errors.out)
+        run: pnpm run check-format 2>&1 | tee prettier-errors.out
 
       - name: Generate messages
         working-directory: client
         run:
-          sed -E 's|\[warn\] (.+)|::error file=client/\1|' prettier-errors.out
+          grep "\[warn\]" prettier-errors.out | sed -E 's|\[warn\] (.+)|::error file=client/\1|'
 
 
   detect_docs:
