@@ -30,7 +30,7 @@ Open `instant.schema.ts`, and paste the following:
 ```typescript {% showCopy=true %}
 // instant.schema.ts
 
-import { i } from "@instantdb/core";
+import { i } from '@instantdb/core';
 
 const _schema = i.schema({
   entities: {
@@ -56,24 +56,24 @@ const _schema = i.schema({
   },
   links: {
     postAuthor: {
-      forward: { on: "posts", has: "one", label: "author" },
-      reverse: { on: "profiles", has: "many", label: "authoredPosts" },
+      forward: { on: 'posts', has: 'one', label: 'author' },
+      reverse: { on: 'profiles', has: 'many', label: 'authoredPosts' },
     },
     commentPost: {
-      forward: { on: "comments", has: "one", label: "post" },
-      reverse: { on: "posts", has: "many", label: "comments" },
+      forward: { on: 'comments', has: 'one', label: 'post' },
+      reverse: { on: 'posts', has: 'many', label: 'comments' },
     },
     commentAuthor: {
-      forward: { on: "comments", has: "one", label: "author" },
-      reverse: { on: "profiles", has: "many", label: "authoredComments" },
+      forward: { on: 'comments', has: 'one', label: 'author' },
+      reverse: { on: 'profiles', has: 'many', label: 'authoredComments' },
     },
     postsTags: {
-      forward: { on: "posts", has: "many", label: "tags" },
-      reverse: { on: "tags", has: "many", label: "posts" },
+      forward: { on: 'posts', has: 'many', label: 'tags' },
+      reverse: { on: 'tags', has: 'many', label: 'posts' },
     },
     profileUser: {
-      forward: { on: "profiles", has: "one", label: "$user" },
-      reverse: { on: "$users", has: "one", label: "profile" },
+      forward: { on: 'profiles', has: 'one', label: '$user' },
+      reverse: { on: '$users', has: 'one', label: 'profile' },
     },
   },
 });
@@ -411,7 +411,6 @@ The following changes will be applied to your perms:
 {% /ansi %}
 
 You'll still be able to make changes in the explorer or with the CLI, but client-side transactions that try to modify your schema will fail. This means your schema is safe from unwanted changes!
-
 
 ---
 

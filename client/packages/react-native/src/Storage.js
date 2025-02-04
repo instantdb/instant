@@ -1,3 +1,3 @@
-import { IndexedDBStorage } from "@instantdb/core";
+import { IndexedDBStorage } from '@instantdb/core';
 
 export default IndexedDBStorage;

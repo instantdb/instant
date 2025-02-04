@@ -172,7 +172,7 @@ Thankfully, we had a special `transactions` table — it’s an immutable table 
 ```text
 instant=> \d transactions;
 
-   Column   |            Type             | -- ... 
+   Column   |            Type             | -- ...
 ------------+-----------------------------+
  id         | bigint                      |
  app_id     | uuid                        |
@@ -211,46 +211,45 @@ So we created a checklist and ended up with 7 steps:
 
 <h3 class="font-bold font-mono text-center bg-gray-100 p-2 mt-0">Checklist: Create an upgraded Replica</h3>
 
-<div class="mr-2"> 
+<div class="mr-2">
 
 1. **16: Create a new Postgres Aurora Database on Postgres 16.**
 
-    Make sure to set `wal_level = logical`
+   Make sure to set `wal_level = logical`
 
 2. **13: Extract the schema**
-   
+
    ```bash
    pg_dump ${DATABASE_URL} --schema-only -f dump.schema.sql
    ```
 
 3. **16: Import the schema into 16**
-   
+
    ```bash
    psql ${NEW_DATABASE_URL} -f dump.schema.sql
    ```
 
 4. **13: Create a publication**
-   
+
    ```sql
    create publication pub_all_table for all tables;
    ```
 
+5. **16: Create a subscription with copy_data = true**
 
-1. **16: Create a subscription with copy_data = true**
-   
    ```sql
-   create subscription pub_from_scratch 
+   create subscription pub_from_scratch
    connection 'host=host_here dbname=name_here port=5432 user=user_here password=password_here'
    publication pub_from_scratch
-   with ( 
-     copy_data = true, create_slot = true, enabled = true, 
-     connect = true, 
+   with (
+     copy_data = true, create_slot = true, enabled = true,
+     connect = true,
      slot_name = 'pub_from_scratch'
    );
    ```
 
-1. **Confirm that there’s no data loss**
-   
+6. **Confirm that there’s no data loss**
+
    ```sql
     -- On 13
     select max(id) from transactions;
@@ -259,10 +258,10 @@ So we created a checklist and ended up with 7 steps:
     -- Wait for :max-id to replicate ...
     -- On 16
     select count(*) from transactions where id < :max-id;
-    ```
+   ```
 
-1. **16: Run vaccum analyze**
-   
+7. **16: Run vaccum analyze**
+
    ```sql
     vacuum (verbose, analyze, full);
    ```
@@ -270,7 +269,6 @@ So we created a checklist and ended up with 7 steps:
 </div>
 
 </div>
-
 
 We ran step 6 with bated breath...and it all turned out well! [^12] Now we had a replica running Postgres 16.
 
@@ -312,12 +310,12 @@ Now to worry about writes:
 Ultimately, we needed to click some button and trigger a switch. To make the switch work, we’d need to follow two rules:
 
 1. **16 must be caught up**
-    
-    If there are _any_ writes in 13 that haven’t replicated to 16 yet, we can’t turn on writes to 16. Otherwise transactions would come in the wrong order
+
+   If there are _any_ writes in 13 that haven’t replicated to 16 yet, we can’t turn on writes to 16. Otherwise transactions would come in the wrong order
 
 1. **Once caught up, all new writes must go to 16**
-    
-    If _any_ write accidentally goes to 13, we could lose data.
+
+   If _any_ write accidentally goes to 13, we could lose data.
 
 So, how could we follow these rules?
 
@@ -408,7 +406,7 @@ If you’re curious, here’s how the actual failover [function](https://github.
 
 ### Running in Prod
 
-Now that we had a good practice run, we got ourselves ready, had our sparkling waters in hand, and began to ran our steps in production. 
+Now that we had a good practice run, we got ourselves ready, had our sparkling waters in hand, and began to ran our steps in production.
 
 After about a 3.5 second pause [^13], the failover function completed smoothly! We had a new Postgres instance serving requests, and best of all, nobody noticed. [^14]
 
@@ -438,7 +436,6 @@ Aand that’s our story of how did our major version upgrade. We wanted to finis
 Hopefully, this was a fun read for you :)
 
 _Thanks to Nikita Prokopov, Joe Averbukh, Martin Raison, Irakli Safareli, Ian Sinnott for reviewing drafts of this essay_
-
 
 [^1]: Our sync strategy was inspired by Figma’s LiveGraph and Asana’s Luna. The LiveGraph team wrote a [great essay](https://www.figma.com/blog/livegraph-real-time-data-fetching-at-figma/) that explains the sync strategy. You can read our original [design essay](https://www.instantdb.com/essays/next_firebase) to learn more about Instant
 

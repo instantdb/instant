@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import config from "../../config";
-import { init, tx, id, i } from "@instantdb/react";
-import { useRouter } from "next/router";
+import { useEffect, useState } from 'react';
+import config from '../../config';
+import { init, tx, id, i } from '@instantdb/react';
+import { useRouter } from 'next/router';
 
 const schema = i.graph(
   {
@@ -29,9 +29,9 @@ function Example({ appId }: { appId: string }) {
 
   const { data } = db.useQuery({ goals: {} });
 
-  const [direction, setDirection] = useState<"asc" | "desc">("asc");
+  const [direction, setDirection] = useState<'asc' | 'desc'>('asc');
   const [limit, setLimit] = useState(5);
-  const [orderField, setOrderField] = useState("date");
+  const [orderField, setOrderField] = useState('date');
 
   const order = { [orderField]: direction };
 
@@ -116,7 +116,7 @@ function Example({ appId }: { appId: string }) {
   };
 
   function displayValue(x: any) {
-    if (orderField === "serverCreatedAt") {
+    if (orderField === 'serverCreatedAt') {
       return x.title;
     }
     return `${x.title}, ${orderField}=${x[orderField]}`;
@@ -205,7 +205,7 @@ function Example({ appId }: { appId: string }) {
                   }}
                 >
                   X
-                </button>{" "}
+                </button>{' '}
                 {displayValue(g)}
               </div>
             ))}
@@ -284,12 +284,12 @@ function Example({ appId }: { appId: string }) {
 
 async function provisionEphemeralApp() {
   const r = await fetch(`${config.apiURI}/dash/apps/ephemeral`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      title: "Pagination example",
+      title: 'Pagination example',
       // Uncomment and start a new app to test rules
       /* rules: {
         code: {
@@ -311,7 +311,7 @@ async function provisionEphemeralApp() {
 async function verifyEphemeralApp({ appId }: { appId: string }) {
   const r = await fetch(`${config.apiURI}/dash/apps/ephemeral/${appId}`, {
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
   });
 
@@ -343,7 +343,7 @@ function App({ urlAppId }: { urlAppId: string | undefined }) {
               setAppId(res.app.id);
             } else {
               console.log(res);
-              setError("Could not create app.");
+              setError('Could not create app.');
             }
           });
         }
@@ -359,7 +359,7 @@ function App({ urlAppId }: { urlAppId: string | undefined }) {
           setAppId(res.app.id);
         } else {
           console.log(res);
-          setError("Could not create app.");
+          setError('Could not create app.');
         }
       });
     }

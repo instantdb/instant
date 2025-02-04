@@ -2,15 +2,15 @@
 // Extracted the main logic for `detectPackageManager` from:
 // https://github.com/vercel/vercel/blob/eb7fe8a9266563cfeaf275cd77cd9fad3f17c92b/packages/build-utils/src/fs/run-user-scripts.ts
 
-import { pathExists, readJsonFile } from "./fs.js";
-import path from "path";
+import { pathExists, readJsonFile } from './fs.js';
+import path from 'path';
 
 async function detectPackageManager(destPath) {
   const lockfileNames = {
-    "yarn.lock": "yarn",
-    "package-lock.json": "npm",
-    "pnpm-lock.yaml": "pnpm",
-    "bun.lockb": "bun",
+    'yarn.lock': 'yarn',
+    'package-lock.json': 'npm',
+    'pnpm-lock.yaml': 'pnpm',
+    'bun.lockb': 'bun',
   };
 
   for (const dir of traverseUpDirectories(destPath)) {
@@ -21,7 +21,7 @@ async function detectPackageManager(destPath) {
       }
     }
 
-    const packageJsonPath = path.join(dir, "package.json");
+    const packageJsonPath = path.join(dir, 'package.json');
     if (await pathExists(packageJsonPath)) {
       const packageJson = await readJsonFile(packageJsonPath);
       if (packageJson.packageManager) {
@@ -39,7 +39,7 @@ async function detectPackageManager(destPath) {
     }
   }
 
-  return "npm";
+  return 'npm';
 }
 
 function* traverseUpDirectories(start) {
@@ -56,7 +56,7 @@ function* traverseUpDirectories(start) {
 
 function parsePackageManagerField(packageManager) {
   if (!packageManager) return null;
-  const atIndex = packageManager.lastIndexOf("@");
+  const atIndex = packageManager.lastIndexOf('@');
   if (atIndex <= 0) return null; // '@' at position 0 is invalid
   const packageName = packageManager.slice(0, atIndex);
   const packageVersion = packageManager.slice(atIndex + 1);
@@ -67,7 +67,7 @@ function parsePackageManagerField(packageManager) {
 }
 
 function getInstallCommand(packageManager, moduleName) {
-  if (packageManager === "npm") {
+  if (packageManager === 'npm') {
     return `npm install ${moduleName}`;
   } else {
     return `${packageManager} add ${moduleName}`;

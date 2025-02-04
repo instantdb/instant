@@ -1,5 +1,5 @@
-import { User } from "./clientTypes";
-import { jsonFetch } from "./utils/fetch";
+import { User } from './clientTypes';
+import { jsonFetch } from './utils/fetch';
 
 type SharedInput = {
   apiURI: string;
@@ -17,9 +17,9 @@ export function sendMagicCode({
   email,
 }: SharedInput & SendMagicCodeParams): Promise<SendMagicCodeResponse> {
   return jsonFetch(`${apiURI}/runtime/auth/send_magic_code`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ "app-id": appId, email }),
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ 'app-id': appId, email }),
   });
 }
 
@@ -34,9 +34,9 @@ export async function verifyMagicCode({
   code,
 }: SharedInput & VerifyMagicCodeParams): Promise<VerifyResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/auth/verify_magic_code`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ "app-id": appId, email, code }),
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ 'app-id': appId, email, code }),
   });
   return res;
 }
@@ -48,11 +48,11 @@ export async function verifyRefreshToken({
   refreshToken,
 }: SharedInput & VerifyRefreshTokenParams): Promise<VerifyResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/auth/verify_refresh_token`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      "app-id": appId,
-      "refresh-token": refreshToken,
+      'app-id': appId,
+      'refresh-token': refreshToken,
     }),
   });
   return res;
@@ -70,8 +70,8 @@ export async function exchangeCodeForToken({
   codeVerifier,
 }: SharedInput & ExchangeCodeForTokenParams): Promise<VerifyResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/token`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       app_id: appId,
       code: code,
@@ -97,8 +97,8 @@ export async function signInWithIdToken({
   refreshToken,
 }: SharedInput & SignInWithIdTokenParams): Promise<VerifyResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/id_token`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       app_id: appId,
       nonce,
@@ -117,9 +117,9 @@ export async function signOut({
   refreshToken,
 }: SharedInput & SignoutParams): Promise<{}> {
   const res = await jsonFetch(`${apiURI}/runtime/signout`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "content-type": "application/json",
+      'content-type': 'application/json',
     },
     body: JSON.stringify({
       app_id: appId,

@@ -1,24 +1,24 @@
-'use client'
+'use client';
 
-import { init } from '@instantdb/react'
-import React from 'react'
-import Login from '../../components/Login'
-import config from "../../config";
+import { init } from '@instantdb/react';
+import React from 'react';
+import Login from '../../components/Login';
+import config from '../../config';
 
 // Types
 // ----------
 export type Image = {
-  id: string
-  path: string
-  url: string
-}
+  id: string;
+  path: string;
+  url: string;
+};
 
 // Optional: Declare your schema for intellisense!
 type Schema = {
-  images: Image
-}
+  images: Image;
+};
 
-export const db = init(config)
+export const db = init(config);
 
 function Wrapper() {
   const { isLoading, user, error } = db.useAuth();
@@ -38,67 +38,70 @@ function App() {
   const { isLoading, error, data } = db.useQuery({
     $files: {
       $: {
-        order: { serverCreatedAt: "asc" }
-      }
-    }
-  })
+        order: { serverCreatedAt: 'asc' },
+      },
+    },
+  });
   if (isLoading) {
-    return <div>Fetching data...</div>
+    return <div>Fetching data...</div>;
   }
   if (error) {
-    return <div>Error fetching data: {error.message}</div>
+    return <div>Error fetching data: {error.message}</div>;
   }
-  const { $files: images } = data as { $files: Image[] }
+  const { $files: images } = data as { $files: Image[] };
   return (
     <div style={styles.container}>
       <div style={styles.header}>Image Feed</div>
       <ImageUpload />
       <ImageGrid images={images} />
     </div>
-  )
+  );
 }
 
 async function uploadImage(file: File) {
   try {
     const opts = {
-      "contentType": file.type,
-      "contentDisposition": 'attachment; filename="moop.jpg"',
-    }
-    const res = await db.storage.uploadFile(file.name, file, opts)
-    console.log('Upload response:', res)
+      contentType: file.type,
+      contentDisposition: 'attachment; filename="moop.jpg"',
+    };
+    const res = await db.storage.uploadFile(file.name, file, opts);
+    console.log('Upload response:', res);
   } catch (error) {
-    console.error('Error uploading image:', error)
+    console.error('Error uploading image:', error);
   }
 }
 
 async function deleteImage(image: Image) {
-  const val = await db.storage.delete(image.path)
-  console.log(val)
+  const val = await db.storage.delete(image.path);
+  console.log(val);
 }
 
 interface SelectedFile {
-  file: File, previewURL: string
+  file: File;
+  previewURL: string;
 }
 
 function ImageUpload() {
-  const [selectedFile, setSelectedFile] = React.useState<SelectedFile | null>(null)
-  const { previewURL } = selectedFile || {}
+  const [selectedFile, setSelectedFile] = React.useState<SelectedFile | null>(
+    null,
+  );
+  const { previewURL } = selectedFile || {};
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const file = e.target.files?.[0];
     if (file) {
-      const previewURL = URL.createObjectURL(file)
-      setSelectedFile({ file, previewURL })
+      const previewURL = URL.createObjectURL(file);
+      setSelectedFile({ file, previewURL });
     }
-  }
+  };
 
   const handleUpload = () => {
     if (selectedFile) {
-      uploadImage(selectedFile.file)
-      URL.revokeObjectURL(selectedFile.previewURL)
-      setSelectedFile(null)
+      uploadImage(selectedFile.file);
+      URL.revokeObjectURL(selectedFile.previewURL);
+      setSelectedFile(null);
     }
-  }
+  };
 
   return (
     <div style={styles.uploadContainer}>
@@ -117,7 +120,7 @@ function ImageUpload() {
         </div>
       )}
     </div>
-  )
+  );
 }
 
 function ImageGrid({ images }: { images: Image[] }) {
@@ -135,7 +138,7 @@ function ImageGrid({ images }: { images: Image[] }) {
         </div>
       ))}
     </div>
-  )
+  );
 }
 
 // Styles
@@ -216,6 +219,6 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'lightgray',
     padding: '0 5px',
   },
-}
+};
 
-export default Wrapper
+export default Wrapper;

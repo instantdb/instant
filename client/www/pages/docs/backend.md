@@ -55,10 +55,8 @@ query once and returns a result.
 ### transact
 
 ```javascript
-const res  = await db.transact([
-  db.tx.todos[id()].update({ title: 'Get fit' })
-])
-console.log("New todo entry made for with tx-id", res["tx-id"])
+const res = await db.transact([db.tx.todos[id()].update({ title: 'Get fit' })]);
+console.log('New todo entry made for with tx-id', res['tx-id']);
 ```
 
 `transact` is an async function that behaves nearly identical to `transact`
@@ -164,11 +162,11 @@ try {
 
 ## Custom Auth
 
-You can use the Admin SDK to create your own authentication flows. To implement custom auth flows, you would make one change in your backend, and one change in your frontend. Here's how it would look: 
+You can use the Admin SDK to create your own authentication flows. To implement custom auth flows, you would make one change in your backend, and one change in your frontend. Here's how it would look:
 
 ### 1. Backend: db.auth.createToken
 
-Create a new `sign-in` endpoint in your backend. 
+Create a new `sign-in` endpoint in your backend.
 
 This endpoint will use `db.auth.createToken` to generate an authentication token for the user:
 
@@ -192,7 +190,7 @@ Right now we require that every user _must_ have an email. If you need to relax 
 
 ### 2. Frontend: db.auth.signInWithToken
 
-Once your frontend calls your `sign-in` endpoint, it can then use the generated token and sign a user in with `db.auth.signInWithToken`. 
+Once your frontend calls your `sign-in` endpoint, it can then use the generated token and sign a user in with `db.auth.signInWithToken`.
 
 Here's a full example:
 
@@ -292,8 +290,8 @@ You can also use the admin SDK to authenticate users in your custom endpoints. T
 In your frontend, the `user` object has a `refresh_token` property. You can pass this token to your endpoint:
 
 ```javascript
-// client 
-import { init } from '@instantdb/react'; 
+// client
+import { init } from '@instantdb/react';
 
 const db = init(/* ... */)
 

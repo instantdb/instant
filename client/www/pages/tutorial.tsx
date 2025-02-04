@@ -61,7 +61,7 @@ export default function Page({ files }: { files: FilesRecord }) {
 
 const Prose = twel(
   'div',
-  'prose prose-h1:mt-8 prose-h1:mb-4 prose-h2:mt-4 prose-h2:mb-2 prose-pre:bg-gray-100'
+  'prose prose-h1:mt-8 prose-h1:mb-4 prose-h2:mt-4 prose-h2:mb-2 prose-pre:bg-gray-100',
 );
 
 function Tutorial({ files }: { files: FilesRecord }) {
@@ -302,7 +302,7 @@ function addMessage(text) {
                 </p>
                 <div
                   className={clsx(
-                    interactionState.ex1ReloadIdx > 1 ? 'block' : 'hidden'
+                    interactionState.ex1ReloadIdx > 1 ? 'block' : 'hidden',
                   )}
                 >
                   <p>
@@ -318,7 +318,7 @@ function addMessage(text) {
                         mergeInteractionState({
                           ex1NumTabs: Math.min(
                             maxNumTabs,
-                            interactionState.ex1NumTabs + 1
+                            interactionState.ex1NumTabs + 1,
                           ),
                           hasAddedTab: true,
                         });

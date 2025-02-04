@@ -56,23 +56,23 @@ export function useForm<Schema extends Record<string, any>>({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [topLevelErrors, setTopLevelErrors] = useState<string[] | null>(null);
   const [fieldStates, setFieldStates] = useState<FormFieldStates<Schema>>(() =>
-    getInitialFieldStates(initial)
+    getInitialFieldStates(initial),
   );
 
   function getValues() {
     return Object.fromEntries(
-      Object.entries(fieldStates).map(([k, v]) => [k, v.value])
+      Object.entries(fieldStates).map(([k, v]) => [k, v.value]),
     ) as Schema;
   }
 
   function getInitialFieldStates(vs: Schema) {
     return Object.fromEntries(
-      Object.entries(vs).map(([k, value]) => [k, { value, error: null }])
+      Object.entries(vs).map(([k, value]) => [k, { value, error: null }]),
     ) as FormFieldStates<Schema>;
   }
 
   const hasErrors = Boolean(
-    Object.values(fieldStates).filter((s) => s.error).length
+    Object.values(fieldStates).filter((s) => s.error).length,
   );
 
   const isValid =
@@ -137,8 +137,8 @@ export function useForm<Schema extends Record<string, any>>({
         type: 'submit' as const,
         disabled: !isValid,
         children: isSubmitting
-          ? submittingLabel ?? 'Submitting...'
-          : submitLabel ?? 'Submit',
+          ? (submittingLabel ?? 'Submitting...')
+          : (submitLabel ?? 'Submit'),
       };
     },
   };
@@ -147,7 +147,7 @@ export function useForm<Schema extends Record<string, any>>({
 export function displayInstantStandardError<T extends Record<string, any>>(
   errorRes: any,
   form: Form<T>,
-  apiDataTypeNameToFormFieldName: Record<string, string>
+  apiDataTypeNameToFormFieldName: Record<string, string>,
 ) {
   const body = errorRes?.body;
   const errType = body?.type;

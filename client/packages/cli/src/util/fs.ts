@@ -1,5 +1,5 @@
-import { PathLike } from "fs";
-import { readFile, stat } from "fs/promises";
+import { PathLike } from 'fs';
+import { readFile, stat } from 'fs/promises';
 
 export async function pathExists(p: PathLike): Promise<boolean> {
   try {
@@ -18,7 +18,7 @@ export async function readJsonFile<T = Record<string, any>>(
   }
 
   try {
-    const data = await readFile(p, "utf-8");
+    const data = await readFile(p, 'utf-8');
     return JSON.parse(data);
   } catch (error) {}
 

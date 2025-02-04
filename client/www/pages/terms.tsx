@@ -24,9 +24,8 @@ function TermsContent() {
         Services.
       </p>
       <p>
-        <strong>Privacy</strong>. See our{' '}
-        <a href="/privacy">Privacy Policy</a> for details on how we
-        collect, store, and share user information.
+        <strong>Privacy</strong>. See our <a href="/privacy">Privacy Policy</a>{' '}
+        for details on how we collect, store, and share user information.
       </p>
       <p>
         <strong>Age Restrictions</strong>. The Services are not intended for

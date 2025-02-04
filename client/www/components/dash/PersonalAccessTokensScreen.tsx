@@ -35,7 +35,7 @@ type PersonalAccessToken = {
 };
 
 async function fetchPersonalAccessTokens(
-  token: string
+  token: string,
 ): Promise<PersonalAccessToken[]> {
   const { data } = await jsonFetch(
     `${config.apiURI}/dash/personal_access_tokens`,
@@ -45,7 +45,7 @@ async function fetchPersonalAccessTokens(
         'content-type': 'application/json',
         authorization: `Bearer ${token}`,
       },
-    }
+    },
   );
 
   return data;
@@ -53,7 +53,7 @@ async function fetchPersonalAccessTokens(
 
 async function createPersonalAccessTokens(
   token: string,
-  name: string
+  name: string,
 ): Promise<PersonalAccessToken[]> {
   const { data } = await jsonFetch(
     `${config.apiURI}/dash/personal_access_tokens`,
@@ -64,7 +64,7 @@ async function createPersonalAccessTokens(
         authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ name }),
-    }
+    },
   );
 
   return data;
@@ -72,7 +72,7 @@ async function createPersonalAccessTokens(
 
 async function deletePersonalAccessToken(
   token: string,
-  personalAccessTokenId: string
+  personalAccessTokenId: string,
 ): Promise<any> {
   const { data } = await jsonFetch(
     `${config.apiURI}/dash/personal_access_tokens/${personalAccessTokenId}`,
@@ -82,14 +82,14 @@ async function deletePersonalAccessToken(
         'content-type': 'application/json',
         authorization: `Bearer ${token}`,
       },
-    }
+    },
   );
 
   return data;
 }
 
 function usePersonalAccessTokens(
-  token: string
+  token: string,
 ): [PersonalAccessToken[], boolean, any, () => Promise<void>] {
   const [isLoading, setIsLoading] = useState(true);
   const [personalAccessTokens, setPersonalAccessTokens] = useState<
@@ -251,28 +251,28 @@ export default function PersonalAccessTokensTab({
             <tr>
               <th
                 className={cn(
-                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1'
+                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
                 )}
               >
                 Name
               </th>
               <th
                 className={cn(
-                  'w-full z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1'
+                  'w-full z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
                 )}
               >
                 Token
               </th>
               <th
                 className={cn(
-                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1 text-right'
+                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1 text-right',
                 )}
               >
                 Created
               </th>
               <th
                 className={cn(
-                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1'
+                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
                 )}
               ></th>
             </tr>

@@ -3,7 +3,11 @@ import { DBAttr, SchemaAttr, SchemaNamespace } from '@/lib/types';
 // We show most attrs in the explorer except for some system attrs
 function isVisibleAttr(attr: DBAttr) {
   const [, namespace, _] = attr['forward-identity'];
-  return attr.catalog !== 'system' || namespace === '$users' || namespace === '$files';
+  return (
+    attr.catalog !== 'system' ||
+    namespace === '$users' ||
+    namespace === '$files'
+  );
 }
 
 export function dbAttrsToExplorerSchema(
@@ -68,7 +72,7 @@ export function dbAttrsToExplorerSchema(
           catalog: attrDesc.catalog,
           checkedDataType: attrDesc['checked-data-type'],
           sortable: attrDesc['index?'] && !!attrDesc['checked-data-type'],
-          onDelete: attrDesc['on-delete']
+          onDelete: attrDesc['on-delete'],
         };
       }
     }

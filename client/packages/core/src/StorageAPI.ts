@@ -1,4 +1,4 @@
-import { jsonFetch } from "./utils/fetch";
+import { jsonFetch } from './utils/fetch';
 
 export type UploadFileResponse = {
   data: {
@@ -33,14 +33,14 @@ export async function uploadFile({
     app_id: appId,
     path,
     authorization: `Bearer ${refreshToken}`,
-    "content-type": contentType || file.type,
+    'content-type': contentType || file.type,
   };
   if (contentDisposition) {
-    headers["content-disposition"] = contentDisposition;
+    headers['content-disposition'] = contentDisposition;
   }
 
   const data = await jsonFetch(`${apiURI}/storage/upload`, {
-    method: "PUT",
+    method: 'PUT',
     headers,
     body: file,
   });
@@ -62,9 +62,9 @@ export async function deleteFile({
   const { data } = await jsonFetch(
     `${apiURI}/storage/files?app_id=${appId}&filename=${encodeURIComponent(path)}`,
     {
-      method: "DELETE",
+      method: 'DELETE',
       headers: {
-        "content-type": "application/json",
+        'content-type': 'application/json',
         authorization: `Bearer ${refreshToken}`,
       },
     },
@@ -90,9 +90,9 @@ export async function getSignedUploadUrl({
   metadata?: Record<string, any>;
 }) {
   const { data } = await jsonFetch(`${apiURI}/storage/signed-upload-url`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "content-type": "application/json",
+      'content-type': 'application/json',
       authorization: `Bearer ${refreshToken}`,
     },
     body: JSON.stringify({
@@ -105,12 +105,12 @@ export async function getSignedUploadUrl({
 }
 
 export async function upload(presignedUrl, file) {
-  console.log("presignedUrl", presignedUrl);
+  console.log('presignedUrl', presignedUrl);
   const response = await fetch(presignedUrl, {
-    method: "PUT",
+    method: 'PUT',
     body: file,
     headers: {
-      "Content-Type": file.type,
+      'Content-Type': file.type,
     },
   });
 
@@ -133,9 +133,9 @@ export async function getDownloadUrl({
       path,
     )}`,
     {
-      method: "GET",
+      method: 'GET',
       headers: {
-        "content-type": "application/json",
+        'content-type': 'application/json',
         authorization: `Bearer ${refreshToken}`,
       },
     },

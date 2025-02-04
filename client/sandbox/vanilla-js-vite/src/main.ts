@@ -1,12 +1,12 @@
-import "./style.css";
-import { User, init } from "@instantdb/core";
+import './style.css';
+import { User, init } from '@instantdb/core';
 
 const APP_ID = import.meta.env.VITE_INSTANT_APP_ID;
 const db = init({
   appId: APP_ID,
 });
 
-const appEl = document.querySelector<HTMLDivElement>("#app")!;
+const appEl = document.querySelector<HTMLDivElement>('#app')!;
 
 function renderLoading() {
   appEl.innerHTML = `<div>Loading...</div>`;
@@ -24,15 +24,15 @@ function renderLoggedInPage(user: User) {
     </div>
   `;
   const signOutBtn =
-    document.querySelector<HTMLButtonElement>("#sign-out-button")!;
-  signOutBtn.addEventListener("click", () => {
+    document.querySelector<HTMLButtonElement>('#sign-out-button')!;
+  signOutBtn.addEventListener('click', () => {
     db.auth.signOut();
   });
 }
 
 function renderSignInPage() {
   const googAuthURI = db.auth.createAuthorizationURL({
-    clientName: "google-web",
+    clientName: 'google-web',
     redirectURL: window.location.href,
   });
   appEl.innerHTML = `
@@ -56,9 +56,9 @@ function renderSignInPage() {
       </div>
     </div>
   `;
-  const formEl = document.querySelector<HTMLFormElement>("#email-input-form")!;
+  const formEl = document.querySelector<HTMLFormElement>('#email-input-form')!;
   formEl.email.focus();
-  formEl.addEventListener("submit", async (e) => {
+  formEl.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = formEl.email.value;
     try {
@@ -71,22 +71,22 @@ function renderSignInPage() {
   const nonce = crypto.randomUUID();
   window.google.accounts.id.initialize({
     client_id:
-      "873926401300-t33oit5b8j5n0gl1nkk9fee6lvuiaia0.apps.googleusercontent.com",
+      '873926401300-t33oit5b8j5n0gl1nkk9fee6lvuiaia0.apps.googleusercontent.com',
     callback: (response: any) => {
       db.auth.signInWithIdToken({
         idToken: response.credential,
-        clientName: "google-web",
+        clientName: 'google-web',
         nonce: nonce,
       });
     },
     nonce: nonce,
   });
   window.google.accounts.id.renderButton(
-    document.getElementById("google-one-tap")!,
+    document.getElementById('google-one-tap')!,
     {
-      theme: "outline",
-      size: "large",
-      type: "standard",
+      theme: 'outline',
+      size: 'large',
+      type: 'standard',
       width: 300,
     },
   );
@@ -105,9 +105,9 @@ function renderMagicCodePage(email: string) {
       </form>
     </div>
   `;
-  const formEl = document.querySelector<HTMLFormElement>("#magic-code-form")!;
+  const formEl = document.querySelector<HTMLFormElement>('#magic-code-form')!;
   formEl.code.focus();
-  formEl.addEventListener("submit", async (e) => {
+  formEl.addEventListener('submit', async (e) => {
     e.preventDefault();
     const code = formEl.code.value;
     try {

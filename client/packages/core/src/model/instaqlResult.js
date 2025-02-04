@@ -1,14 +1,14 @@
 function _extractTriplesHelper(idNodes, acc = []) {
   idNodes.forEach((idNode) => {
     const { data } = idNode;
-    const { "datalog-result": datalogResult } = data;
-    const { "join-rows": joinRows } = datalogResult;
+    const { 'datalog-result': datalogResult } = data;
+    const { 'join-rows': joinRows } = datalogResult;
     for (const rows of joinRows) {
       for (const triple of rows) {
         acc.push(triple);
       }
     }
-    _extractTriplesHelper(idNode["child-nodes"], acc);
+    _extractTriplesHelper(idNode['child-nodes'], acc);
   });
 }
 

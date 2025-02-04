@@ -1,7 +1,7 @@
-import { v4 } from "uuid";
+import { v4 } from 'uuid';
 
 function uuidToByteArray(uuid: string) {
-  const hex = uuid.replace(/-/g, "");
+  const hex = uuid.replace(/-/g, '');
   const bytes = [];
   for (let i = 0; i < hex.length; i += 2) {
     bytes.push(parseInt(hex.substring(i, i + 2), 16));

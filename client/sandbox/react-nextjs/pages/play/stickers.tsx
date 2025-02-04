@@ -7,10 +7,10 @@
  * But when we have a permission check that requires looking up references
  * the query becomes very slow.
  * */
-import React, { useEffect, useState } from "react";
-import { init, tx, id } from "@instantdb/react";
-import Login from "../../components/Login";
-import config from "../../config";
+import React, { useEffect, useState } from 'react';
+import { init, tx, id } from '@instantdb/react';
+import Login from '../../components/Login';
+import config from '../../config';
 
 const { auth, useAuth, transact, useQuery } = init(config);
 
@@ -23,10 +23,10 @@ function App() {
     if (!user) {
       return;
     }
-    const getUniverseId = () => window.localStorage.getItem("__universeId");
+    const getUniverseId = () => window.localStorage.getItem('__universeId');
     if (!getUniverseId()) {
       const _id = id();
-      window.localStorage.setItem("__universeId", _id);
+      window.localStorage.setItem('__universeId', _id);
       transact([
         tx.users[user.id].update({}).link({ universes: _id }),
         tx.universes[_id].update({}),
@@ -66,7 +66,7 @@ function Main({ universeId }: { universeId: string }) {
     },
     stickers: {
       $: {
-        where: { "universes.id": universeId },
+        where: { 'universes.id': universeId },
         limit,
       },
     },
@@ -104,7 +104,7 @@ function Main({ universeId }: { universeId: string }) {
     for (let i = 0; i < total; i++) {
       const sticker = {
         created_at: created_at,
-        type: "shape",
+        type: 'shape',
         x: 50 + ((200 * i) % 2000),
         y: 50 + Math.floor((200 * i) / 2000) * size,
         width: size,
@@ -123,7 +123,7 @@ function Main({ universeId }: { universeId: string }) {
 
     setStartTime(new Date().toISOString());
     for (const batch of batches) {
-      console.log("transacting batch of", batch.length);
+      console.log('transacting batch of', batch.length);
       await transact(batch);
     }
   };
@@ -150,7 +150,7 @@ function Main({ universeId }: { universeId: string }) {
         <pre>{JSON.stringify(q, null, 2)}</pre>
         <div>Universes: {universes.length}</div>
         <div>
-          Stickers: {stickers.length}{" "}
+          Stickers: {stickers.length}{' '}
           <span className="text-xs">(limit {limit})</span>
         </div>
         <div>Time to load: {elapsedTime}ms</div>
@@ -205,64 +205,64 @@ export default App;
 const originalRules = {
   attrs: {
     allow: {
-      create: "true",
-      delete: "true",
-      update: "true",
+      create: 'true',
+      delete: 'true',
+      update: 'true',
     },
   },
   teams: {
-    bind: ["isOwner", "auth.id != null && auth.id == data.user_id"],
+    bind: ['isOwner', 'auth.id != null && auth.id == data.user_id'],
     allow: {
-      view: "auth.id != null",
-      create: "isOwner",
-      delete: "isOwner",
-      update: "isOwner",
+      view: 'auth.id != null',
+      create: 'isOwner',
+      delete: 'isOwner',
+      update: 'isOwner',
     },
   },
   users: {
     bind: [
-      "isOwner",
-      "auth.id != null && auth.id == data.id",
-      "isPartOfUniverse",
+      'isOwner',
+      'auth.id != null && auth.id == data.id',
+      'isPartOfUniverse',
       "auth.id in data.ref('universes.users.id')",
     ],
     allow: {
-      view: "auth.id != null",
-      create: "isOwner",
-      delete: "isOwner",
-      update: "isOwner",
+      view: 'auth.id != null',
+      create: 'isOwner',
+      delete: 'isOwner',
+      update: 'isOwner',
     },
   },
   stickers: {
-    bind: ["isUniverseOwner", "auth.id in data.ref('universes.users.id')"],
+    bind: ['isUniverseOwner', "auth.id in data.ref('universes.users.id')"],
     allow: {
-      view: "isUniverseOwner", // setting this to true makes the queries very fast
-      create: "isUniverseOwner",
-      delete: "isUniverseOwner",
-      update: "isUniverseOwner",
+      view: 'isUniverseOwner', // setting this to true makes the queries very fast
+      create: 'isUniverseOwner',
+      delete: 'isUniverseOwner',
+      update: 'isUniverseOwner',
     },
   },
   universes: {
-    bind: ["isOwner", "auth.id in data.ref('users.id')"],
+    bind: ['isOwner', "auth.id in data.ref('users.id')"],
     allow: {
-      view: "isOwner",
-      create: "isOwner",
-      delete: "isOwner",
-      update: "isOwner",
+      view: 'isOwner',
+      create: 'isOwner',
+      delete: 'isOwner',
+      update: 'isOwner',
     },
   },
   universe_invite: {
     bind: [
-      "isSender",
+      'isSender',
       "auth.id in data.ref('sender.id')",
-      "isReceiver",
+      'isReceiver',
       "auth.id in data.ref('receiver.id')",
     ],
     allow: {
-      view: "isSender || isReceiver",
-      create: "isSender",
-      delete: "isSender || isReceiver",
-      update: "isSender",
+      view: 'isSender || isReceiver',
+      create: 'isSender',
+      delete: 'isSender || isReceiver',
+      update: 'isSender',
     },
   },
 };

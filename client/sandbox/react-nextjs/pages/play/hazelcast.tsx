@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import Head from "next/head";
-import config from "../../config";
+import React, { useState } from 'react';
+import Head from 'next/head';
+import config from '../../config';
 
 let __id = 0;
 function nextId() {
@@ -47,14 +47,20 @@ function Page() {
           </button>
           <div>
             <div>
-              1. Comment out{" "}
-              <a href="https://github.com/instantdb/instant/blob/main/server/deps.edn#L97" className="underline">
+              1. Comment out{' '}
+              <a
+                href="https://github.com/instantdb/instant/blob/main/server/deps.edn#L97"
+                className="underline"
+              >
                 -Dclojure.server.repl
-              </a>{" "}
+              </a>{' '}
               in deps.edn
             </div>
             <div>
-              2. Run <code className="bg-gray-200">make dev</code> and <code className="bg-gray-200">PORT=8889 NREPL_PORT=6007 make dev</code>
+              2. Run <code className="bg-gray-200">make dev</code> and{' '}
+              <code className="bg-gray-200">
+                PORT=8889 NREPL_PORT=6007 make dev
+              </code>
             </div>
           </div>
         </div>

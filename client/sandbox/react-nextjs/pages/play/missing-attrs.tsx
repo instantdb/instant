@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import config from "../../config";
-import { init, tx, id, i } from "@instantdb/react";
-import { useRouter } from "next/router";
+import { useEffect, useState } from 'react';
+import config from '../../config';
+import { init, tx, id, i } from '@instantdb/react';
+import { useRouter } from 'next/router';
 
 const schema = i.schema({
   entities: {
@@ -15,14 +15,14 @@ const schema = i.schema({
   links: {
     commentAuthors: {
       forward: {
-        on: "comments",
-        has: "one",
-        label: "author",
+        on: 'comments',
+        has: 'one',
+        label: 'author',
       },
       reverse: {
-        on: "$users",
-        has: "many",
-        label: "authoredComments",
+        on: '$users',
+        has: 'many',
+        label: 'authoredComments',
       },
     },
   },
@@ -49,7 +49,7 @@ function Example({ appId, useSchema }: { appId: string; useSchema: boolean }) {
           className="bg-black text-white m-2 p-2"
           onClick={() =>
             db.transact(
-              tx.comments[id()].update({ slug: "oi" }).link({ author: id() }),
+              tx.comments[id()].update({ slug: 'oi' }).link({ author: id() }),
             )
           }
         >
@@ -58,7 +58,7 @@ function Example({ appId, useSchema }: { appId: string; useSchema: boolean }) {
         <button
           className="bg-black text-white m-2 p-2"
           onClick={() =>
-            db.transact(tx.profiles[id()].update({ name: "stonado" }))
+            db.transact(tx.profiles[id()].update({ name: 'stonado' }))
           }
         >
           Create something that isnt' in schema
@@ -71,7 +71,7 @@ function Example({ appId, useSchema }: { appId: string; useSchema: boolean }) {
         <pre>
           {JSON.stringify(
             Object.values(attrs || {}).filter(
-              (x: any) => x.catalog !== "system",
+              (x: any) => x.catalog !== 'system',
             ),
             null,
             2,
@@ -85,12 +85,12 @@ function Example({ appId, useSchema }: { appId: string; useSchema: boolean }) {
 
 async function provisionEphemeralApp() {
   const r = await fetch(`${config.apiURI}/dash/apps/ephemeral`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      title: "Pagination example",
+      title: 'Pagination example',
       // Uncomment and start a new app to test rules
       /* rules: {
         code: {
@@ -112,7 +112,7 @@ async function provisionEphemeralApp() {
 async function verifyEphemeralApp({ appId }: { appId: string }) {
   const r = await fetch(`${config.apiURI}/dash/apps/ephemeral/${appId}`, {
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
   });
 
@@ -150,7 +150,7 @@ function App({
               setAppId(res.app.id);
             } else {
               console.log(res);
-              setError("Could not create app.");
+              setError('Could not create app.');
             }
           });
         }
@@ -166,7 +166,7 @@ function App({
           setAppId(res.app.id);
         } else {
           console.log(res);
-          setError("Could not create app.");
+          setError('Could not create app.');
         }
       });
     }
@@ -194,7 +194,7 @@ function Page() {
     return (
       <App
         urlAppId={router.query.app as string}
-        useSchema={router.query.schema === "true"}
+        useSchema={router.query.schema === 'true'}
       />
     );
   } else {

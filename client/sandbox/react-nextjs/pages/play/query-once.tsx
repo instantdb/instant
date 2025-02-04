@@ -5,26 +5,26 @@
  * to validate if the item already exists.
  * */
 
-import { init, id, tx, i } from "@instantdb/react";
-import Head from "next/head";
-import { useEffect, FormEvent } from "react";
-import config from "../../config";
+import { init, id, tx, i } from '@instantdb/react';
+import Head from 'next/head';
+import { useEffect, FormEvent } from 'react';
+import config from '../../config';
 
 const schema = i.schema({
   entities: {
     onceTest: i.entity({ text: i.string() }),
-  }
+  },
 });
 
-const db = init({...config, schema});
+const db = init({ ...config, schema });
 
 function _subsCount() {
   return Object.values(db._core._reactor.queryOnceDfds).flat().length;
 }
 
 async function queryOnceDemo(newItem: string) {
-  console.log("dfs count before:", _subsCount());
-  console.log("newItem", newItem);
+  console.log('dfs count before:', _subsCount());
+  console.log('newItem', newItem);
 
   // since we have an existing subscription to this query
   // this will result in an `add-query-exists`
@@ -36,16 +36,16 @@ async function queryOnceDemo(newItem: string) {
     onceTest: { $: { where: { text: newItem } } },
   });
 
-  console.log("dfs count when pending:", _subsCount());
+  console.log('dfs count when pending:', _subsCount());
 
   const [checkRes, existingQueryRes] = await Promise.all([
     checkP,
     existingQueryP,
   ]);
 
-  console.log("res", checkRes);
-  console.log("existing onceTest", existingQueryRes);
-  console.log("dfs count after:", _subsCount());
+  console.log('res', checkRes);
+  console.log('existing onceTest', existingQueryRes);
+  console.log('dfs count after:', _subsCount());
 
   return checkRes.data.onceTest.length > 0;
 }
@@ -65,14 +65,14 @@ const TodoForm: React.FC<FormProps> = ({ addOnce }) => {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const input = e.currentTarget.elements.namedItem(
-      "todoInput",
+      'todoInput',
     ) as HTMLInputElement;
     if (input && input.value.trim()) {
       if (await queryOnceDemo(input.value)) {
-        alert("Item already exists");
+        alert('Item already exists');
       } else {
         addOnce(input.value);
-        input.value = "";
+        input.value = '';
       }
     }
   };

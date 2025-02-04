@@ -1,11 +1,11 @@
-import { id, init } from "@instantdb/react";
-import schema from "../instant.schema.v2";
+import { id, init } from '@instantdb/react';
+import schema from '../instant.schema.v2';
 
 const db = init({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
   schema,
-  apiURI: "http://localhost:8888",
-  websocketURI: "ws://localhost:8888/runtime/session",
+  apiURI: 'http://localhost:8888',
+  websocketURI: 'ws://localhost:8888/runtime/session',
 });
 
 function App() {
@@ -23,7 +23,7 @@ function App() {
       <button
         onClick={() => {
           db.transact(
-            db.tx.messages[id()].update({ content: "Hello, world!" }),
+            db.tx.messages[id()].update({ content: 'Hello, world!' }),
           );
         }}
       >

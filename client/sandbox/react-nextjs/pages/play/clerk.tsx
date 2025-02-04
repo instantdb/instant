@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import {
   ClerkProvider,
   useAuth,
@@ -6,19 +6,19 @@ import {
   SignedOut,
   SignInButton,
   UserButton,
-} from "@clerk/nextjs";
+} from '@clerk/nextjs';
 
-import { init, InstantReactWebDatabase } from "@instantdb/react";
-import config from "../../config";
+import { init, InstantReactWebDatabase } from '@instantdb/react';
+import config from '../../config';
 
 function App({ db }: { db: InstantReactWebDatabase<any> }) {
   const { getToken, signOut } = useAuth();
   const signInWithToken = () => {
     getToken().then((jwt) => {
       if (!jwt) {
-        throw new Error("no jwt");
+        throw new Error('no jwt');
       }
-      db.auth.signInWithIdToken({ idToken: jwt, clientName: "clerk" });
+      db.auth.signInWithIdToken({ idToken: jwt, clientName: 'clerk' });
     });
   };
   useEffect(() => {
@@ -107,7 +107,7 @@ function Wrapper() {
     <div style={{ margin: 40 }}>
       <ClerkProvider
         publishableKey={clerkPublishableKey}
-        afterSignOutUrl={"/play/clerk"}
+        afterSignOutUrl={'/play/clerk'}
       >
         <SignedOut>
           <SignInButton />

@@ -1,10 +1,10 @@
-import { test, expect } from "vitest";
-import { createStore } from "../../src/store";
-import query from "../../src/instaql";
-import { i, id } from "../../src";
-import { createLinkIndex } from "../../src/utils/linkIndex";
+import { test, expect } from 'vitest';
+import { createStore } from '../../src/store';
+import query from '../../src/instaql';
+import { i, id } from '../../src';
+import { createLinkIndex } from '../../src/utils/linkIndex';
 
-test("many-to-many with inference", () => {
+test('many-to-many with inference', () => {
   const schema = i.schema({
     entities: {
       posts: i.entity({}),
@@ -12,8 +12,8 @@ test("many-to-many with inference", () => {
     },
     links: {
       postsTags: {
-        forward: { on: "posts", has: "many", label: "tags" },
-        reverse: { on: "tags", has: "many", label: "posts" },
+        forward: { on: 'posts', has: 'many', label: 'tags' },
+        reverse: { on: 'tags', has: 'many', label: 'posts' },
       },
     },
   });
@@ -31,28 +31,28 @@ test("many-to-many with inference", () => {
     [
       {
         id: ids.postsTagsLink,
-        "value-type": "ref",
-        cardinality: "many",
-        "forward-identity": [id(), "posts", "tags"],
-        "unique?": false,
-        "index?": false,
-        "reverse-identity": [id(), "tags", "posts"],
+        'value-type': 'ref',
+        cardinality: 'many',
+        'forward-identity': [id(), 'posts', 'tags'],
+        'unique?': false,
+        'index?': false,
+        'reverse-identity': [id(), 'tags', 'posts'],
       },
       {
         id: ids.postsEntity,
-        "value-type": "blob",
-        cardinality: "one",
-        "forward-identity": [id(), "posts", "id"],
-        "unique?": true,
-        "index?": true,
+        'value-type': 'blob',
+        cardinality: 'one',
+        'forward-identity': [id(), 'posts', 'id'],
+        'unique?': true,
+        'index?': true,
       },
       {
         id: ids.tagsEntity,
-        "value-type": "blob",
-        cardinality: "one",
-        "forward-identity": [id(), "tags", "id"],
-        "unique?": true,
-        "index?": true,
+        'value-type': 'blob',
+        cardinality: 'one',
+        'forward-identity': [id(), 'tags', 'id'],
+        'unique?': true,
+        'index?': true,
       },
     ],
     [
@@ -81,7 +81,7 @@ test("many-to-many with inference", () => {
   expect(result.data.tags.at(0).posts.at(0).id).toBe(ids.post1);
 });
 
-test("one-to-one with inference", () => {
+test('one-to-one with inference', () => {
   const schema = i.schema({
     entities: {
       users: i.entity({}),
@@ -89,8 +89,8 @@ test("one-to-one with inference", () => {
     },
     links: {
       postsTags: {
-        forward: { on: "users", has: "one", label: "profile" },
-        reverse: { on: "profiles", has: "one", label: "user" },
+        forward: { on: 'users', has: 'one', label: 'profile' },
+        reverse: { on: 'profiles', has: 'one', label: 'user' },
       },
     },
   });
@@ -108,28 +108,28 @@ test("one-to-one with inference", () => {
     [
       {
         id: ids.usersProfilesLink,
-        "value-type": "ref",
-        cardinality: "one",
-        "forward-identity": [id(), "users", "profile"],
-        "unique?": true,
-        "index?": false,
-        "reverse-identity": [id(), "profiles", "user"],
+        'value-type': 'ref',
+        cardinality: 'one',
+        'forward-identity': [id(), 'users', 'profile'],
+        'unique?': true,
+        'index?': false,
+        'reverse-identity': [id(), 'profiles', 'user'],
       },
       {
         id: ids.usersEntity,
-        "value-type": "blob",
-        cardinality: "one",
-        "forward-identity": [id(), "users", "id"],
-        "unique?": true,
-        "index?": true,
+        'value-type': 'blob',
+        cardinality: 'one',
+        'forward-identity': [id(), 'users', 'id'],
+        'unique?': true,
+        'index?': true,
       },
       {
         id: ids.profilesEntity,
-        "value-type": "blob",
-        cardinality: "one",
-        "forward-identity": [id(), "profiles", "id"],
-        "unique?": true,
-        "index?": true,
+        'value-type': 'blob',
+        cardinality: 'one',
+        'forward-identity': [id(), 'profiles', 'id'],
+        'unique?': true,
+        'index?': true,
       },
     ],
     [
@@ -158,7 +158,7 @@ test("one-to-one with inference", () => {
   expect(result.data.profiles.at(0).user).toMatchObject({ id: ids.user1 });
 });
 
-test("one-to-one without inference", () => {
+test('one-to-one without inference', () => {
   const ids = {
     usersProfilesLink: id(),
     usersEntity: id(),
@@ -172,28 +172,28 @@ test("one-to-one without inference", () => {
     [
       {
         id: ids.usersProfilesLink,
-        "value-type": "ref",
-        cardinality: "one",
-        "forward-identity": [id(), "users", "profile"],
-        "unique?": true,
-        "index?": false,
-        "reverse-identity": [id(), "profiles", "user"],
+        'value-type': 'ref',
+        cardinality: 'one',
+        'forward-identity': [id(), 'users', 'profile'],
+        'unique?': true,
+        'index?': false,
+        'reverse-identity': [id(), 'profiles', 'user'],
       },
       {
         id: ids.usersEntity,
-        "value-type": "blob",
-        cardinality: "one",
-        "forward-identity": [id(), "users", "id"],
-        "unique?": true,
-        "index?": true,
+        'value-type': 'blob',
+        cardinality: 'one',
+        'forward-identity': [id(), 'users', 'id'],
+        'unique?': true,
+        'index?': true,
       },
       {
         id: ids.profilesEntity,
-        "value-type": "blob",
-        cardinality: "one",
-        "forward-identity": [id(), "profiles", "id"],
-        "unique?": true,
-        "index?": true,
+        'value-type': 'blob',
+        cardinality: 'one',
+        'forward-identity': [id(), 'profiles', 'id'],
+        'unique?': true,
+        'index?': true,
       },
     ],
     [

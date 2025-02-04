@@ -14,7 +14,7 @@ marked.use({
   renderer: {
     code(code, language) {
       return ReactDOMServer.renderToString(
-        <Fence code={code} language={language}></Fence>
+        <Fence code={code} language={language}></Fence>,
       );
     },
     ...footnotes,
@@ -42,5 +42,7 @@ export function getText(slug) {
 
 export function getAllSlugs() {
   const dir = fs.readdirSync(`./_emails/markdown`);
-  return dir.filter(f => f.endsWith('.md')).map((mdName) => removeMdExtension(mdName));
+  return dir
+    .filter((f) => f.endsWith('.md'))
+    .map((mdName) => removeMdExtension(mdName));
 }
