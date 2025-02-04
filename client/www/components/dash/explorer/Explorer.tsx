@@ -453,8 +453,9 @@ export function Explorer({
   const { namespaces: _namespaces } = useSchemaQuery(db);
   // (TODO): When fully launching storage we can remove this check
   const namespaces = isStorageEnabled
-    ? _namespaces && _namespaces.filter((ns) => ns.name !== '$files')
-    : _namespaces;
+    ? _namespaces
+    : _namespaces && _namespaces.filter((ns) => ns.name !== '$files');
+  console.log('namespaces', namespaces);
   const { selectedNamespace } = useMemo(
     () => ({
       selectedNamespace: namespaces?.find(
