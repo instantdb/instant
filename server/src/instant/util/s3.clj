@@ -8,9 +8,6 @@
                                             StaticCredentialsProvider)
    (software.amazon.awssdk.core.async AsyncRequestBody
                                       BlockingInputStreamAsyncRequestBody)
-   (software.amazon.awssdk.http.async SdkAsyncHttpClient)
-
-   (software.amazon.awssdk.http.nio.netty NettyNioAsyncHttpClient)
    (software.amazon.awssdk.services.s3 S3AsyncClient
                                        S3Client)
    (software.amazon.awssdk.services.s3.model Delete
@@ -34,10 +31,6 @@
 (def default-content-disposition "inline")
 
 (def ^S3Client default-s3-client (.build (S3Client/builder)))
-(def ^SdkAsyncHttpClient default-s3-async-http-client
-  (-> (NettyNioAsyncHttpClient/builder)
-      (.maxConcurrency (int 2048))
-      (.build)))
 (def ^S3AsyncClient default-s3-async-client (-> (S3AsyncClient/crtBuilder)
                                                 (.targetThroughputInGbps 20.0)
                                                 (.build)))
