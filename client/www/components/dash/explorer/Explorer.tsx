@@ -2,8 +2,7 @@ import { id, tx } from '@instantdb/core';
 import { InstantReactWebDatabase } from '@instantdb/react';
 import { isObject, debounce, last } from 'lodash';
 import {
-  useCallback,
-  useEffect,
+  useCallback,  useEffect,
   useMemo,
   useRef,
   useState,
