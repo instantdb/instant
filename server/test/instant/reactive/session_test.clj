@@ -698,11 +698,8 @@
       (blocking-send-msg :init-ok socket {:op :init
                                           :app-id movies-app-id})
       (let [rid (str (UUID/randomUUID))
-            sess-id (:id socket)
-            {:keys [op room-id]} (blocking-send-msg :join-room-ok
-                                                    socket
-                                                    {:op :join-room
-                                                     :room-id rid})]
+            sess-id (:id socket)]
+
         (send-msg socket
                   {:op :join-room
                    :room-id rid})
