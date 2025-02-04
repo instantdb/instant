@@ -3,7 +3,7 @@ import useCurrentDate from './useCurrentDate';
 
 import config from '@/lib/config';
 import { jsonFetch } from '../fetch';
-import { messageFromInstantError } from '../errors';
+import { messageFromInstantError } from '@/lib/errors';
 import { InstantError } from '../types';
 
 async function fetchTotalSessionsCount() {
