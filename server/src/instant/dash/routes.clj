@@ -1275,4 +1275,6 @@
 
   (GET "/dash/ws_playground" [] ws-playground-get)
 
-  (POST "/dash/signout" [] signout))
+  (POST "/dash/signout" [] signout)
+
+  (GET "/dash/stats/active_sessions" [] active-sessions-get))

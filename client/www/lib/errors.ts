@@ -12,7 +12,7 @@ const friendlyNameFromIn = (inArr: string[]) => {
 
 /* Standardize error messages from Instant */
 export const messageFromInstantError = (
-  e: InstantError,
+  e: InstantError,  
 ): string | undefined => {
   const body = e.body;
   if (!body) return;

@@ -33,6 +33,7 @@ import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import config from '@/lib/config';
 import MuxPlayer from '@mux/mux-player-react';
 import * as muxVideos from '@/lib/muxVideos';
+import useTotalSessionsCount from '@/lib/hooks/useTotalSessionsCount';
 
 type EmojiName = keyof typeof emoji;
 
@@ -148,7 +149,7 @@ function LandingHero() {
       <SectionWide>
         <TwoColResponsive>
           <div className="flex flex-1 flex-col gap-8">
-            <H2>Build modern applications today</H2>
+            <H2>Build live apps today</H2>
             <p>
               Instant is a modern Firebase. We make you productive by giving
               your frontend a real-time database.
@@ -170,6 +171,7 @@ function LandingHero() {
               <img src="/img/yc_logo.png" className="inline h-4 w-4" />
               <span className="text-sm">Backed by Y Combinator</span>
             </div>
+            <ActiveSessionsCallout />
           </div>
           <div className="flex flex-1 flex-col items-center justify-center space-y-2">
             <MuxPlayer {...muxVideos.walkthrough} />
