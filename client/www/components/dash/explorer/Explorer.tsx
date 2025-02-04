@@ -1,7 +1,14 @@
 import { id, tx } from '@instantdb/core';
 import { InstantReactWebDatabase } from '@instantdb/react';
 import { isObject, debounce, last } from 'lodash';
-import { useCallback, useEffect, useMemo, useRef, useState, useContext } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useContext,
+} from 'react';
 import { jsonFetch } from '@/lib/fetch';
 import config from '@/lib/config';
 import produce from 'immer';
@@ -378,9 +385,11 @@ function SearchInput({
 export function Explorer({
   db,
   appId,
+  isStorageEnabled,
 }: {
   db: InstantReactWebDatabase<any>;
   appId: string;
+  isStorageEnabled: boolean;
 }) {
   // DEV
   _dev(db);
@@ -441,7 +450,11 @@ export function Explorer({
   }
 
   // data
-  const { namespaces } = useSchemaQuery(db);
+  const { namespaces: _namespaces } = useSchemaQuery(db);
+  // (TODO): When fully launching storage we can remove this check
+  const namespaces = isStorageEnabled
+    ? _namespaces && _namespaces.filter((ns) => ns.name !== '$files')
+    : _namespaces;
   const { selectedNamespace } = useMemo(
     () => ({
       selectedNamespace: namespaces?.find(
