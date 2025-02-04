@@ -21,8 +21,11 @@
         cider/cider-nrepl {:mvn/version "0.45.0"}
 
         amazonica/amazonica {:mvn/version "0.3.167"}
-        software.amazon.awssdk/rds {:mvn/version "2.30.7"}
-        software.amazon.awssdk/secretsmanager {:mvn/version "2.30.7"}
+        software.amazon.awssdk/rds {:mvn/version "2.30.11"}
+        software.amazon.awssdk/secretsmanager {:mvn/version "2.30.11"}
+        software.amazon.awssdk/s3 {:mvn/version "2.30.11"}
+        software.amazon.awssdk.crt/aws-crt {:mvn/version "0.33.11"}
+
         juji/editscript {:mvn/version "0.6.4"}
         io.github.tonsky/clojure-plus {:mvn/version "1.0.0"}
 

@@ -966,7 +966,8 @@
               {:app-id app-id
                :path path
                :file file
-               :content-type (:content-type file)
+               :content-type (:content-type req)
+               :content-length (:content-length req)
                :skip-perms-check? true}
               file)]
     (response/ok {:data data})))
