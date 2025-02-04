@@ -114,7 +114,7 @@ const GlowBackground = ({ children }: PropsWithChildren) => (
 
 const ActiveSessionsCallout = () => {
   const { isLoading, error, data } = useTotalSessionsCount({
-    refreshSeconds: 5,
+    refreshSeconds: 3,
   });
   if (isLoading || error || data <= 0) {
     return <div className="h-8"></div>;
