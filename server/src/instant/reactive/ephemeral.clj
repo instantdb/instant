@@ -128,9 +128,6 @@
        :hz-rooms-map hz-rooms-map
        :hz-broadcast-topic hz-broadcast-topic})))
 
-(let [x 1]
-  0)
-
 (defonce hz
   (delay
     (init-hz (config/get-env) rs/store-conn {})))

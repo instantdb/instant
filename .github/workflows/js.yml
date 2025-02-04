@@ -95,11 +95,11 @@ jobs:
           pnpm run check-format 2>&1 | tee prettier-errors.out
           exit_code=${PIPESTATUS[0]}  # Capture exit code of pnpm
 
-          grep "\[warn\]" prettier-errors.out | sed -E 's|\[warn\] (.+)|::error file=client/\1,title=Formatting::Formatting error, run `pnpm run format`|'
+          grep "\[warn\]" prettier-errors.out | sed -E 's|\[warn\] (.+)|::error file=client/\1,line=28,title=Formatting::Formatting error, run `pnpm run format`|'
 
-          grep "\[warn\]" prettier-errors.out | sed -E 's|\[warn\] (.+)|::error file=\1,title=Formatting::Formatting error, run `pnpm run format`|'
+          # grep "\[warn\]" prettier-errors.out | sed -E 's|\[warn\] (.+)|::error file=\1,title=Formatting::Formatting error, run `pnpm run format`|'
 
-          grep "\[warn\]" prettier-errors.out | sed -E 's|\[warn\] (.+)|::error file=/\1,title=Formatting::Formatting error, run `pnpm run format`|'
+          # grep "\[warn\]" prettier-errors.out | sed -E 's|\[warn\] (.+)|::error file=/\1,title=Formatting::Formatting error, run `pnpm run format`|'
 
           if [[ $exit_code -ne 0 ]]; then
             exit $exit_code
