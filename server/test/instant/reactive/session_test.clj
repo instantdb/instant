@@ -20,7 +20,8 @@
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.session :as session]
    [instant.reactive.store :as rs]
-   [instant.util.async :as ua])
+   [instant.util.async :as ua]
+   [instant.util.coll :as ucoll])
   (:import
    (com.hazelcast.core Hazelcast HazelcastInstance)
    (java.util UUID)))
@@ -702,10 +703,18 @@
                                                     socket
                                                     {:op :join-room
                                                      :room-id rid})]
+        (send-msg socket
+                  {:op :join-room
+                   :room-id rid})
 
-        (is (= :join-room-ok op))
-        (is (= rid room-id))
-        (is (eph/in-room? movies-app-id rid sess-id))))))
+        (let [msgs (read-msgs 2 socket)
+              join-room-ok (ucoll/seek (fn [msg] (= :join-room-ok (:op msg))) msgs)
+              rid (:room-id join-room-ok)]
+
+          (is join-room-ok)
+
+          (is (= rid room-id))
+          (is (eph/in-room? movies-app-id rid sess-id)))))))
 
 (deftest leave-room-works
   (with-session
