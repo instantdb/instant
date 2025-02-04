@@ -97,7 +97,7 @@
     (tracer/with-span! {:name span-name}
       (let [t1 (System/nanoTime)]
         (try
-          (locking conn      
+          (locking conn
             (let [t2  (System/nanoTime)
                   ret (d/transact! conn tx-data)
                   t3  (System/nanoTime)]
@@ -130,6 +130,9 @@
 
 (comment
   (report-active-sessions @store-conn))
+
+(defn num-sessions [db]
+  (count (d/datoms db :aevt :session/id)))
 
 ;; -----
 ;; auth
@@ -347,7 +350,7 @@
 (defn swap-datalog-cache! [conn app-id datalog-query-fn ctx datalog-query]
   (let [lookup-ref [:datalog-query/app-id+query [app-id datalog-query]]
         watcher-id (Object.)
-        this-result-delay (atom { ;; Promise holds the result of the query
+        this-result-delay (atom {;; Promise holds the result of the query
                                  :promise (promise)
                                  ;; Watchers keep track of who started listening
                                  ;; while the query was running, so that we can
@@ -401,28 +404,28 @@
                                ;; Don't let our statements get canceled
                                sql/*in-progress-stmts* stmt-tracker]
                        (ua/vfuture
-                         (try
-                           (deliver result-promise
-                                    {:ok true
-                                     :result (datalog-query-fn ctx
-                                                               datalog-query)})
-                           (catch Throwable t
-                             (deliver result-promise
-                                      {:ok false
-                                       :result t}))
-                           (finally
+                        (try
+                          (deliver result-promise
+                                   {:ok true
+                                    :result (datalog-query-fn ctx
+                                                              datalog-query)})
+                          (catch Throwable t
+                            (deliver result-promise
+                                     {:ok false
+                                      :result t}))
+                          (finally
                              ;; noop if we already delivered
-                             (deliver result-promise
-                                      {:ok false
-                                       :result
-                                       (Exception. "Did not deliver promise!")})
-                             (deliver (:cancel-signal @result-delay)
-                                      false)))))
+                            (deliver result-promise
+                                     {:ok false
+                                      :result
+                                      (Exception. "Did not deliver promise!")})
+                            (deliver (:cancel-signal @result-delay)
+                                     false)))))
             _cancel-fut (binding [ua/*child-vfutures* nil]
                           (ua/vfuture
-                            (when @(:cancel-signal @result-delay)
-                              (sql/cancel-in-progress stmt-tracker)
-                              (future-cancel work-fut))))]))
+                           (when @(:cancel-signal @result-delay)
+                             (sql/cancel-in-progress stmt-tracker)
+                             (future-cancel work-fut))))]))
     (try
       (if (realized? (:promise @result-delay))
         ;; The work is already done, so we don't need to listen for cancellation

@@ -290,15 +290,15 @@
 
 (defn admin-overview-daily-get [req]
   (let [{:keys [email]} (req->auth-user! req)
-          _ (assert-admin-email! email)
-          conn (aurora/conn-pool :read)
-          overview (metrics/overview-metrics conn)
-          overview-with-b64-charts
-          (update overview :charts (partial medley/map-vals
-                                            (fn [chart] (metrics/chart->base64-png chart
-                                                                                   500 400))))]
+        _ (assert-admin-email! email)
+        conn (aurora/conn-pool :read)
+        overview (metrics/overview-metrics conn)
+        overview-with-b64-charts
+        (update overview :charts (partial medley/map-vals
+                                          (fn [chart] (metrics/chart->base64-png chart
+                                                                                 500 400))))]
 
-      (response/ok overview-with-b64-charts)))
+    (response/ok overview-with-b64-charts)))
 
 (defn admin-overview-minute-get [req]
   (let [{:keys [email]} (req->auth-user! req)

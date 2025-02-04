@@ -28,3 +28,16 @@
 
 (comment
   (get-all-session-reports (eph/get-hz)))
+
+(defn num-sessions-task
+  []
+  (rs/num-sessions @rs/store-conn))
+
+(defn get-all-num-sessions [hz]
+  (let [executor (.getExecutorService hz "session-nums-executor")
+        futures  (.submitToAllMembers executor (hz/->Task #'num-sessions-task))]
+    (into {} (for [[member fut] futures]
+               [(str member) @fut]))))
+
+(comment
+  (get-all-num-sessions (eph/get-hz)))
