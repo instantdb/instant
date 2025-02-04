@@ -11,12 +11,12 @@ This is sandbox app to play with [@instantdb/admin](../../packages/admin/).
 
 First, let's set up your environment. Create an Instant app, either on your local backend or prod, and fill out the token info in your `.env` file.
 
-```bash 
+```bash
 cp .env.example .env
 # fill in the variables in .env
 ```
 
-With this, you can load [localhost:3005](http://localhost:3005) to see the admin server. 
+With this, you can load [localhost:3005](http://localhost:3005) to see the admin server.
 
 # Questions?
 

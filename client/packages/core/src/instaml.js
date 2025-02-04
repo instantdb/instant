@@ -1,6 +1,6 @@
-import { getOps, isLookup, parseLookup } from "./instatx";
-import { immutableDeepReplace } from "./utils/object";
-import uuid from "./utils/uuid";
+import { getOps, isLookup, parseLookup } from './instatx';
+import { immutableDeepReplace } from './utils/object';
+import uuid from './utils/uuid';
 
 // Rewrites optimistic attrs with the attrs we get back from the server.
 export function rewriteStep(attrMapping, txStep) {
@@ -22,7 +22,7 @@ export function rewriteStep(attrMapping, txStep) {
   }
   const [action] = txStep;
   if (
-    (action === "add-triple" || action === "retract-triple") &&
+    (action === 'add-triple' || action === 'retract-triple') &&
     refSwapAttrIds.has(txStep[2])
   ) {
     // Reverse links if the optimistic link attr is backwards
@@ -35,14 +35,14 @@ export function rewriteStep(attrMapping, txStep) {
 
 export function getAttrByFwdIdentName(attrs, inputEtype, inputIdentName) {
   return Object.values(attrs).find((attr) => {
-    const [_id, etype, label] = attr["forward-identity"];
+    const [_id, etype, label] = attr['forward-identity'];
     return etype === inputEtype && label === inputIdentName;
   });
 }
 
 export function getAttrByReverseIdentName(attrs, inputEtype, inputIdentName) {
   return Object.values(attrs).find((attr) => {
-    const revIdent = attr["reverse-identity"];
+    const revIdent = attr['reverse-identity'];
     if (!revIdent) return false;
     const [_id, etype, label] = revIdent;
     return etype === inputEtype && label === inputIdentName;
@@ -56,7 +56,7 @@ function explodeLookupRef(eid) {
   const entries = Object.entries(eid);
   if (entries.length !== 1) {
     throw new Error(
-      "lookup must be an object with a single unique attr and value.",
+      'lookup must be an object with a single unique attr and value.',
     );
   }
   return entries[0];
@@ -64,7 +64,7 @@ function explodeLookupRef(eid) {
 
 function isRefLookupIdent(attrs, etype, identName) {
   return (
-    identName.indexOf(".") !== -1 &&
+    identName.indexOf('.') !== -1 &&
     // attr names can have `.` in them, so use the attr we find with a `.`
     // before assuming it's a ref lookup.
     !getAttrByFwdIdentName(attrs, etype, identName)
@@ -72,8 +72,8 @@ function isRefLookupIdent(attrs, etype, identName) {
 }
 
 function extractRefLookupFwdName(identName) {
-  const [fwdName, idIdent, ...rest] = identName.split(".");
-  if (rest.length > 0 || idIdent !== "id") {
+  const [fwdName, idIdent, ...rest] = identName.split('.');
+  if (rest.length > 0 || idIdent !== 'id') {
     throw new Error(`${identName} is not a valid lookup attribute.`);
   }
 
@@ -90,7 +90,7 @@ function lookupIdentToAttr(attrs, etype, identName) {
   const refAttr =
     getAttrByFwdIdentName(attrs, etype, fwdName) ||
     getAttrByReverseIdentName(attrs, etype, fwdName);
-  if (refAttr && refAttr["value-type"] !== "ref") {
+  if (refAttr && refAttr['value-type'] !== 'ref') {
     throw new Error(`${identName} does not reference a valid link attribute.`);
   }
   return refAttr;
@@ -99,10 +99,10 @@ function lookupIdentToAttr(attrs, etype, identName) {
 // Returns [attr, value] for the eid if the eid is a lookup.
 // If it's a regular eid, returns null
 function lookupPairOfEid(eid) {
-  if (typeof eid === "string" && !isLookup(eid)) {
+  if (typeof eid === 'string' && !isLookup(eid)) {
     return null;
   }
-  return typeof eid === "string" && isLookup(eid)
+  return typeof eid === 'string' && isLookup(eid)
     ? parseLookup(eid)
     : explodeLookupRef(eid);
 }
@@ -116,7 +116,7 @@ function extractLookup(attrs, etype, eid) {
 
   const [identName, value] = lookupPair;
   const attr = lookupIdentToAttr(attrs, etype, identName);
-  if (!attr || !attr["unique?"]) {
+  if (!attr || !attr['unique?']) {
     throw new Error(`${identName} is not a unique attribute.`);
   }
   return [attr.id, value];
@@ -130,14 +130,14 @@ function expandLink(attrs, [etype, eidA, obj]) {
     return eids.map((eidB) => {
       const txStep = fwdAttr
         ? [
-            "add-triple",
+            'add-triple',
             extractLookup(attrs, etype, eidA),
             fwdAttr.id,
-            extractLookup(attrs, fwdAttr["reverse-identity"][1], eidB),
+            extractLookup(attrs, fwdAttr['reverse-identity'][1], eidB),
           ]
         : [
-            "add-triple",
-            extractLookup(attrs, revAttr["forward-identity"][1], eidB),
+            'add-triple',
+            extractLookup(attrs, revAttr['forward-identity'][1], eidB),
             revAttr.id,
             extractLookup(attrs, etype, eidA),
           ];
@@ -155,14 +155,14 @@ function expandUnlink(attrs, [etype, eidA, obj]) {
     return eids.map((eidB) => {
       const txStep = fwdAttr
         ? [
-            "retract-triple",
+            'retract-triple',
             extractLookup(attrs, etype, eidA),
             fwdAttr.id,
-            extractLookup(attrs, fwdAttr["reverse-identity"][1], eidB),
+            extractLookup(attrs, fwdAttr['reverse-identity'][1], eidB),
           ]
         : [
-            "retract-triple",
-            extractLookup(attrs, revAttr["forward-identity"][1], eidB),
+            'retract-triple',
+            extractLookup(attrs, revAttr['forward-identity'][1], eidB),
             revAttr.id,
             extractLookup(attrs, etype, eidA),
           ];
@@ -175,18 +175,18 @@ function expandUnlink(attrs, [etype, eidA, obj]) {
 function expandUpdate(attrs, [etype, eid, obj]) {
   const lookup = extractLookup(attrs, etype, eid);
   // id first so that we don't clobber updates on the lookup field
-  const attrTuples = [["id", extractLookup(attrs, etype, eid)]]
+  const attrTuples = [['id', extractLookup(attrs, etype, eid)]]
     .concat(Object.entries(obj))
     .map(([identName, value]) => {
       const attr = getAttrByFwdIdentName(attrs, etype, identName);
-      return ["add-triple", lookup, attr.id, value];
+      return ['add-triple', lookup, attr.id, value];
     });
   return attrTuples;
 }
 
 function expandDelete(attrs, [etype, eid]) {
   const lookup = extractLookup(attrs, etype, eid);
-  return [["delete-entity", lookup, etype]];
+  return [['delete-entity', lookup, etype]];
 }
 
 function expandDeepMerge(attrs, [etype, eid, obj]) {
@@ -194,13 +194,13 @@ function expandDeepMerge(attrs, [etype, eid, obj]) {
   const attrTuples = Object.entries(obj).map(([identName, value]) => {
     const attr = getAttrByFwdIdentName(attrs, etype, identName);
     const coercedValue = immutableDeepReplace(value, undefined, null);
-    return ["deep-merge-triple", lookup, attr.id, coercedValue];
+    return ['deep-merge-triple', lookup, attr.id, coercedValue];
   });
 
   const idTuple = [
-    "add-triple",
+    'add-triple',
     lookup,
-    getAttrByFwdIdentName(attrs, etype, "id").id,
+    getAttrByFwdIdentName(attrs, etype, 'id').id,
     lookup,
   ];
 
@@ -220,15 +220,15 @@ function removeIdFromArgs(step) {
 function toTxSteps(attrs, step) {
   const [action, ...args] = removeIdFromArgs(step);
   switch (action) {
-    case "merge":
+    case 'merge':
       return expandDeepMerge(attrs, args);
-    case "update":
+    case 'update':
       return expandUpdate(attrs, args);
-    case "link":
+    case 'link':
       return expandLink(attrs, args);
-    case "unlink":
+    case 'unlink':
       return expandUnlink(attrs, args);
-    case "delete":
+    case 'delete':
       return expandDelete(attrs, args);
     default:
       throw new Error(`unsupported action ${action}`);
@@ -240,10 +240,10 @@ function toTxSteps(attrs, step) {
 
 function checkedDataTypeOfValueType(valueType) {
   switch (valueType) {
-    case "string":
-    case "date":
-    case "boolean":
-    case "number":
+    case 'string':
+    case 'date':
+    case 'boolean':
+    case 'number':
       return valueType;
     default:
       return undefined;
@@ -252,7 +252,7 @@ function checkedDataTypeOfValueType(valueType) {
 
 function objectPropsFromSchema(schema, etype, label) {
   const attr = schema.entities[etype]?.attrs?.[label];
-  if (label === "id") return null;
+  if (label === 'id') return null;
   if (!attr) {
     throw new Error(`${etype}.${label} does not exist in your schema`);
   }
@@ -260,9 +260,9 @@ function objectPropsFromSchema(schema, etype, label) {
   const checkedDataType = checkedDataTypeOfValueType(attr?.valueType);
 
   return {
-    "index?": indexed,
-    "unique?": unique,
-    "checked-data-type": checkedDataType,
+    'index?': indexed,
+    'unique?': unique,
+    'checked-data-type': checkedDataType,
   };
 }
 
@@ -275,11 +275,11 @@ function createObjectAttr(schema, etype, label, props) {
   const fwdIdent = [fwdIdentId, etype, label];
   return {
     id: attrId,
-    "forward-identity": fwdIdent,
-    "value-type": "blob",
-    cardinality: "one",
-    "unique?": false,
-    "index?": false,
+    'forward-identity': fwdIdent,
+    'value-type': 'blob',
+    cardinality: 'one',
+    'unique?': false,
+    'index?': false,
     isUnsynced: true,
     ...(schemaObjectProps || {}),
     ...(props || {}),
@@ -303,10 +303,10 @@ function refPropsFromSchema(schema, etype, label) {
   }
   const { forward, reverse } = found;
   return {
-    "forward-identity": [uuid(), forward.on, forward.label],
-    "reverse-identity": [uuid(), reverse.on, reverse.label],
-    cardinality: forward.has === "one" ? "one" : "many",
-    "unique?": reverse.has === "one",
+    'forward-identity': [uuid(), forward.on, forward.label],
+    'reverse-identity': [uuid(), reverse.on, reverse.label],
+    cardinality: forward.has === 'one' ? 'one' : 'many',
+    'unique?': reverse.has === 'one',
   };
 }
 
@@ -319,12 +319,12 @@ function createRefAttr(schema, etype, label, props) {
   const revIdent = [uuid(), label, etype];
   return {
     id: attrId,
-    "forward-identity": fwdIdent,
-    "reverse-identity": revIdent,
-    "value-type": "ref",
-    cardinality: "many",
-    "unique?": false,
-    "index?": false,
+    'forward-identity': fwdIdent,
+    'reverse-identity': revIdent,
+    'value-type': 'ref',
+    cardinality: 'many',
+    'unique?': false,
+    'index?': false,
     isUnsynced: true,
     ...(schemaRefProps || {}),
     ...(props || {}),
@@ -332,19 +332,19 @@ function createRefAttr(schema, etype, label, props) {
 }
 
 // Actions that have an object, e.g. not delete
-const OBJ_ACTIONS = new Set(["update", "merge", "link", "unlink"]);
-const REF_ACTIONS = new Set(["link", "unlink"]);
-const UPDATE_ACTIONS = new Set(["update", "merge"]);
+const OBJ_ACTIONS = new Set(['update', 'merge', 'link', 'unlink']);
+const REF_ACTIONS = new Set(['link', 'unlink']);
+const UPDATE_ACTIONS = new Set(['update', 'merge']);
 const SUPPORTS_LOOKUP_ACTIONS = new Set([
-  "link",
-  "unlink",
-  "update",
-  "merge",
-  "delete",
+  'link',
+  'unlink',
+  'update',
+  'merge',
+  'delete',
 ]);
 
-const lookupProps = { "unique?": true, "index?": true };
-const refLookupProps = { ...lookupProps, cardinality: "one" };
+const lookupProps = { 'unique?': true, 'index?': true };
+const refLookupProps = { ...lookupProps, cardinality: 'one' };
 
 function lookupPairsOfOp(op) {
   const res = [];
@@ -357,7 +357,7 @@ function lookupPairsOfOp(op) {
   if (eidLookupPair) {
     res.push({ etype: etype, lookupPair: eidLookupPair });
   }
-  if (action === "link") {
+  if (action === 'link') {
     for (const [label, eidOrEids] of Object.entries(obj)) {
       const eids = Array.isArray(eidOrEids) ? eidOrEids : [eidOrEids];
       for (const linkEid of eids) {
@@ -379,12 +379,12 @@ function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
   const [addedIds, attrs, addOps] = [new Set(), { ...existingAttrs }, []];
   function addAttr(attr) {
     attrs[attr.id] = attr;
-    addOps.push(["add-attr", attr]);
+    addOps.push(['add-attr', attr]);
     addedIds.add(attr.id);
   }
   function addUnsynced(attr) {
     if (attr?.isUnsynced && !addedIds.has(attr.id)) {
-      addOps.push(["add-attr", attr]);
+      addOps.push(['add-attr', attr]);
       addedIds.add(attr.id);
     }
   }
@@ -419,8 +419,8 @@ function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
         addUnsynced(fwdAttr);
         addUnsynced(revAttr);
         const linkEtype =
-          fwdAttr?.["reverse-identity"]?.[1] ||
-          revAttr?.["forward-identity"]?.[1] ||
+          fwdAttr?.['reverse-identity']?.[1] ||
+          revAttr?.['forward-identity']?.[1] ||
           linkLabel;
         if (isRefLookupIdent(attrs, linkEtype, identName)) {
           addForRef(linkEtype, extractRefLookupFwdName(identName));
@@ -450,7 +450,7 @@ function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
     const [action, etype, eid, obj] = op;
     if (OBJ_ACTIONS.has(action)) {
       const labels = Object.keys(obj);
-      labels.push("id");
+      labels.push('id');
       for (const label of labels) {
         const fwdAttr = getAttrByFwdIdentName(attrs, etype, label);
         addUnsynced(fwdAttr);
@@ -461,7 +461,7 @@ function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
                 schema,
                 etype,
                 label,
-                label === "id" ? { "unique?": true } : null,
+                label === 'id' ? { 'unique?': true } : null,
               ),
             );
           }

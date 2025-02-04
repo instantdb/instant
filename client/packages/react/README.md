@@ -38,10 +38,10 @@ function Chat() {
   // 2. Write
   const addMessage = (message) => {
     transact(tx.messages[id()].update(message));
-  }
+  };
 
   // 3. Render!
-  return <UI data={data} onAdd={addMessage} />
+  return <UI data={data} onAdd={addMessage} />;
 }
 ```
 

@@ -1,12 +1,12 @@
-"use client";
+'use client';
 // Now in your App.js
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
 
 // 1. Import Instant
-import { init, tx, id } from "@instantdb/react";
-import config from "../../../../config";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { init, tx, id } from '@instantdb/react';
+import config from '../../../../config';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 // 2. Get your app id
 const { auth, useAuth, transact, useQuery } = init(config);
@@ -34,9 +34,9 @@ function App() {
 // 4. Log users in!
 function Login() {
   const [state, setState] = useState({
-    sentEmail: "",
-    email: "",
-    code: "",
+    sentEmail: '',
+    email: '',
+    code: '',
   });
   const { sentEmail, email, code } = state;
   return (
@@ -58,8 +58,8 @@ function Login() {
                 onClick={() => {
                   setState({ ...state, sentEmail: email });
                   auth.sendMagicCode({ email }).catch((err) => {
-                    alert("Uh oh :" + err.body?.message);
-                    setState({ ...state, sentEmail: "" });
+                    alert('Uh oh :' + err.body?.message);
+                    setState({ ...state, sentEmail: '' });
                   });
                 }}
               >
@@ -74,7 +74,7 @@ function Login() {
               <input
                 type="text"
                 placeholder="Code plz"
-                value={code || ""}
+                value={code || ''}
                 onChange={(e) => setState({ ...state, code: e.target.value })}
               />
             </div>
@@ -83,8 +83,8 @@ function Login() {
                 auth
                   .signInWithMagicCode({ email: sentEmail, code })
                   .catch((err) => {
-                    alert("Uh oh :" + err.body?.message);
-                    setState({ ...state, code: "" });
+                    alert('Uh oh :' + err.body?.message);
+                    setState({ ...state, code: '' });
                   });
               }}
             >
@@ -102,14 +102,14 @@ function colorize(k: string, isLoading: boolean | null | undefined) {
     <span
       style={{
         color:
-          typeof isLoading === "boolean"
+          typeof isLoading === 'boolean'
             ? isLoading
-              ? "red"
-              : "green"
-            : "green",
+              ? 'red'
+              : 'green'
+            : 'green',
       }}
     >
-      {k}: {typeof isLoading === "boolean" ? isLoading.toString() : "..."}
+      {k}: {typeof isLoading === 'boolean' ? isLoading.toString() : '...'}
     </span>
   );
 }
@@ -138,9 +138,9 @@ function Main({ appIsLoading }: { appIsLoading: boolean | null }) {
       </div>
       <div>
         <p>Mounted State: {pathname}</p>
-        <p>{colorize("App:auth:loading", appIsLoading)}</p>
-        <p>{colorize("Main:auth:loading", mountedState.authLoading)}</p>
-        <p>{colorize("Main:query:loading", mountedState.queryLoading)}</p>
+        <p>{colorize('App:auth:loading', appIsLoading)}</p>
+        <p>{colorize('Main:auth:loading', mountedState.authLoading)}</p>
+        <p>{colorize('Main:query:loading', mountedState.queryLoading)}</p>
       </div>
       <div>Here's what is expected.</div>
       <div>
@@ -148,12 +148,15 @@ function Main({ appIsLoading }: { appIsLoading: boolean | null }) {
           <li>
             <strong>The first time you load this page</strong>
             <ul>
-              <li>App:auth:loading will be `true`</li> (because IDB _has not_ loaded yet)
+              <li>App:auth:loading will be `true`</li> (because IDB _has not_
+              loaded yet)
               <li>
-                Main:auth:loading will be `false` (because IDB has already loaded)
+                Main:auth:loading will be `false` (because IDB has already
+                loaded)
               </li>
               <li>
-                Main:query:loading will be `false` (because IDB has already loaded)
+                Main:query:loading will be `false` (because IDB has already
+                loaded)
               </li>
             </ul>
           </li>

@@ -19,15 +19,15 @@ import {
   PopoverPanel,
 } from '@headlessui/react';
 import * as HeadlessToggleGroup from '@radix-ui/react-toggle-group';
-import Highlight, { defaultProps , Prism } from 'prism-react-renderer';
+import Highlight, { defaultProps, Prism } from 'prism-react-renderer';
 
-if (typeof global !== "undefined") { 
+if (typeof global !== 'undefined') {
   (global as any).Prism = Prism;
 } else {
   (window as any).Prism = Prism;
 }
 
-require("prismjs/components/prism-clojure");
+require('prismjs/components/prism-clojure');
 
 import {
   CheckCircleIcon,

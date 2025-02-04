@@ -35,7 +35,7 @@ This will evaluate your schema, compare it with production, and migrate your dat
 
 {% /callout %}
 
-Similarily, when you change `instant.perms.ts`, you can run: 
+Similarily, when you change `instant.perms.ts`, you can run:
 
 ```shell {% showCopy=true %}
 npx instant-cli push perms
@@ -43,7 +43,7 @@ npx instant-cli push perms
 
 ## Pull
 
-Sometimes, you change your schema or rules from your Explorer. If you want to `pull` the latest version of schema and perms for production, write: 
+Sometimes, you change your schema or rules from your Explorer. If you want to `pull` the latest version of schema and perms for production, write:
 
 ```shell {% showCopy=true %}
 npx instant-cli@latest pull
@@ -75,15 +75,14 @@ As a convenience, apart from `INSTANT_APP_ID`, we also check for:
 
 ## Authenticating in CI
 
-In CI or similer environments, you may want to handle authentication without having to go through a web-based validation step each time. 
+In CI or similer environments, you may want to handle authentication without having to go through a web-based validation step each time.
 
 In these cases, you can provide a `INSTANT_CLI_AUTH_TOKEN` environment variable.
 
-To obtain a token for later use, run: 
+To obtain a token for later use, run:
 
 ```shell {% showCopy=true %}
 npx instant-cli@latest login -p
 ```
 
 Instead of saving the token to your local device, the CLI will print it to your console. You can copy this token and provide it as `INSTANT_CLI_AUTH_TOKEN` later in your CI tool.
-

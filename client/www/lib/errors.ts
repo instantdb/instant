@@ -1,6 +1,6 @@
 import { capitalize } from 'lodash';
 
-import { InstantError } from "./types";
+import { InstantError } from './types';
 
 const friendlyName = (s: string) => {
   return s.replaceAll(/[_-]/g, ' ');
@@ -12,7 +12,7 @@ const friendlyNameFromIn = (inArr: string[]) => {
 
 /* Standardize error messages from Instant */
 export const messageFromInstantError = (
-  e: InstantError,  
+  e: InstantError,
 ): string | undefined => {
   const body = e.body;
   if (!body) return;

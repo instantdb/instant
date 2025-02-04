@@ -42,5 +42,3 @@ Follow the [getting started in vanilla Javascript](https://www.instantdb.com/doc
 # Questions?
 
 If you have any questions, feel free to drop us a line on our [Discord](https://discord.com/invite/VU53p7uQcE)
-
-

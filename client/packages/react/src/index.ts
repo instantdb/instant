@@ -52,12 +52,12 @@ import {
   type FileOpts,
   type UploadFileResponse,
   type DeleteFileResponse,
-} from "@instantdb/core";
+} from '@instantdb/core';
 
-import InstantReactAbstractDatabase from "./InstantReactAbstractDatabase";
-import InstantReactWebDatabase from "./InstantReactWebDatabase";
-import { init, init_experimental } from "./init";
-import { Cursors } from "./Cursors";
+import InstantReactAbstractDatabase from './InstantReactAbstractDatabase';
+import InstantReactWebDatabase from './InstantReactWebDatabase';
+import { init, init_experimental } from './init';
+import { Cursors } from './Cursors';
 
 export {
   id,

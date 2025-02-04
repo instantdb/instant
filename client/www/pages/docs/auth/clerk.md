@@ -52,7 +52,7 @@ import { init } from '@instantdb/react';
 import { useEffect } from 'react';
 
 // Instant app
-const APP_ID = "__APP_ID__";
+const APP_ID = '__APP_ID__';
 
 const db = init({ appId: APP_ID });
 

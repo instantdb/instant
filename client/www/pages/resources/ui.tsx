@@ -171,7 +171,7 @@ export default function UI() {
                 </div>
               </div>
             </Example>
-          ))
+          )),
       )}
       <GroupName>Misc</GroupName>
       <Example label="Copyable">

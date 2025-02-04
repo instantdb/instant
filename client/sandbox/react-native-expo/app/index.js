@@ -1,6 +1,6 @@
-import { Linking, StyleSheet, Text, View } from "react-native";
-import { Link } from "expo-router";
-import config from "./config";
+import { Linking, StyleSheet, Text, View } from 'react-native';
+import { Link } from 'expo-router';
+import config from './config';
 
 export default function Page() {
   if (!config.appId) {

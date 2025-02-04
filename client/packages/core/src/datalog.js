@@ -1,8 +1,8 @@
 // 1. patternMatch
-import { getTriples } from "./store.js";
+import { getTriples } from './store.js';
 
 function isVariable(x) {
-  return typeof x === "string" && x.startsWith("?");
+  return typeof x === 'string' && x.startsWith('?');
 }
 
 function matchVariable(variable, triplePart, context) {
@@ -19,19 +19,19 @@ function matchExact(patternPart, triplePart, context) {
 
 function matcherForPatternPart(patternPart) {
   switch (typeof patternPart) {
-    case "string":
-      return patternPart.startsWith("?") ? matchVariable : matchExact;
+    case 'string':
+      return patternPart.startsWith('?') ? matchVariable : matchExact;
     default:
       return matchExact;
   }
 }
 
 const validArgMapProps = [
-  "in",
-  "$in",
-  "$not",
-  "$isNull",
-  "$comparator", // covers all of $gt, $lt, etc.
+  'in',
+  '$in',
+  '$not',
+  '$isNull',
+  '$comparator', // covers all of $gt, $lt, etc.
 ];
 
 // Checks if an object is an args map
@@ -46,7 +46,7 @@ function isArgsMap(patternPart) {
 
 function matchPart(patternPart, triplePart, context) {
   if (!context) return null;
-  if (typeof patternPart === "object") {
+  if (typeof patternPart === 'object') {
     // This is an args map, so we'll have already fitered the triples
     // in `getRelevantTriples`
     if (isArgsMap(patternPart)) {

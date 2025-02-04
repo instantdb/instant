@@ -17,7 +17,6 @@ export function Prose({ as: Component = 'div', className, ...props }) {
         'dark:prose-hr:border-slate-800 prose-hr:mt-4 prose-hr:mb-4',
         // code
         'before:prose-code:content-none after:prose-code:content-none prose-code:bg-white prose-code:bg-opacity-50 prose-code:p-0.5',
-        
       )}
       {...props}
     />

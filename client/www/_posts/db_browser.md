@@ -22,31 +22,31 @@ The first job we have is to fetch information and display it in different places
 
 The problem we face, is that all components need to see consistent information. If one component sees different data for friends, it’s possible that you’ll get the wrong "count" showing up, or a different nickname in one view versus another.
 
-To solve for this, we need to have a central source of truth. So, whenever we fetch anything, we normalize it and plop it in one place (often a *store*). Then, each component reads and transforms the data it needs (using a *selector*), It’s not uncommon to see something like:
+To solve for this, we need to have a central source of truth. So, whenever we fetch anything, we normalize it and plop it in one place (often a _store_). Then, each component reads and transforms the data it needs (using a _selector_), It’s not uncommon to see something like:
 
 ```javascript
 // normalise [posts] -> {[id]: post}
-fetchRelevantPostsFor(user).then(posts => {
-  posts.forEach(post => {
+fetchRelevantPostsFor(user).then((posts) => {
+  posts.forEach((post) => {
     store.addPost(post);
-  })
-})
+  });
+});
 
 // see all posts by author:
 store.posts.values().reduce((res, post) => {
   res[post.authorId] = res[post.authorId] || [];
   res[post.authorId].push(post);
   return res;
-}, {})
+}, {});
 ```
 
-The question here is, *why* should we need to do all this work? We write custom code to massage this data, while databases have solved this problem for a long time now. We should be able to *query* for our data. Why can’t we just do:
+The question here is, _why_ should we need to do all this work? We write custom code to massage this data, while databases have solved this problem for a long time now. We should be able to _query_ for our data. Why can’t we just do:
 
 ```SQL
 SELECT posts WHERE post.author_id = ?;
 ```
 
-on the information that we have *inside* the browser?
+on the information that we have _inside_ the browser?
 
 ## B. Change
 
@@ -55,10 +55,10 @@ The next problem is keeping data up to date. Say we remove a friend — what sho
 We send an API request, wait for it to complete, and write some logic to "remove" all the information we have about that friend. Something like this:
 
 ```javascript
-deleteFriend(user, friend.id).then(res => {
+deleteFriend(user, friend.id).then((res) => {
   userStore.remove(friend.id);
   postStore.removeUserPosts(friend.id);
-})
+});
 ```
 
 But, this can get hairy to deal with quick: we have to remember every place in our store that could possibly be affected by this change. It’s like playing garbage collector in our heads. Our heads are not good at this.
@@ -66,10 +66,10 @@ But, this can get hairy to deal with quick: we have to remember every place in o
 One way folks avoid it, is to skip the problem and just re-fetch the whole world:
 
 ```javascript
-deleteFriend(user, id).then(res => {
+deleteFriend(user, id).then((res) => {
   fetchFriends(user);
   fetchPostsRelevantToTheUser(user);
-})
+});
 ```
 
 Neither solutions are very good. In both cases, there are implicit invariants we need to be aware of (based on this change, what other changes do we need to be aware of?) and we introduce lag in our application.
@@ -83,7 +83,7 @@ DELETE FROM friendships WHERE friend_one_id = ? AND friend_two_id = ?
 
 ## C. Optimistic Updates
 
-The problem you may have noticed with B., was that we had to *wait* for friendship removal to update our browser state.
+The problem you may have noticed with B., was that we had to _wait_ for friendship removal to update our browser state.
 
 In most cases, we can make the experience snappier with an optimistic update — after all, we know that the call will likely be a success. To do this, we do something like:
 
@@ -91,14 +91,14 @@ In most cases, we can make the experience snappier with an optimistic update —
 friendPosts = userStore.getFriendPosts(friend);
 userStore.remove(friend.id);
 postStore.removeUserPosts(friend.id);
-deleteFriend(user, id).catch(e => {
+deleteFriend(user, id).catch((e) => {
   // undo
   userStore.addFriend(friend);
   postStore.addPosts(friendPosts);
-})
+});
 ```
 
-This is even more annoying. Now we need to manually update the success operation, *and* the failure operation.
+This is even more annoying. Now we need to manually update the success operation, _and_ the failure operation.
 
 Why is that? On the backend, a database is able to do optimistic updates [^1] — why can’t we do that in the browser?
 
@@ -134,7 +134,7 @@ Now, you’ll see a flicker. The optimistic update will come in to `blue`, a rea
 
 Solving stuff like this has you dealing with consistency issues, scouring literature on…databases.
 
-It doesn’t have to be that way though. What if each query was *reactive*?
+It doesn’t have to be that way though. What if each query was _reactive_?
 
 ```SQL
 SELECT friends.* FROM users as friends JOIN friendships on friendship.user_one_id ...
@@ -153,13 +153,13 @@ Much of backend development ends up being a sort of glue between the database an
 ```javascript
 // db.js
 function getRelevantPostsFor(userId) {
-  db.exec("SELECT * FROM posts WHERE ...")
+  db.exec('SELECT * FROM posts WHERE ...');
 }
 
 // api.js
-app.get("relevantPosts", (req, res) => {
+app.get('relevantPosts', (req, res) => {
   res.status(200).send(getRelevantPosts(req.userId));
-})
+});
 ```
 
 This is so repetitive that we end up creating scripts to generate these files. But why do we need to do this at all? They are often coupled very closely to the client anyways. Why can’t we just expose the database to the client?
@@ -176,7 +176,7 @@ app.put("user", auth, (req, res) => {
 
 But, this ends up getting more and more confusing. What about websockets? New code changes sometimes introduce ways to update database objects that you didn’t expect. All of a sudden, you’re in trouble.
 
-The question to ask here, is why is authentication at the API level? Ideally, we should have something *very close* to the database, making sure any data access passes permission checks. There’s row-level security on databases like Postgres, but that can get hairy quick [^3]. What if you could "describe" entities near the database?
+The question to ask here, is why is authentication at the API level? Ideally, we should have something _very close_ to the database, making sure any data access passes permission checks. There’s row-level security on databases like Postgres, but that can get hairy quick [^3]. What if you could "describe" entities near the database?
 
 ```javascript
 User {
@@ -192,7 +192,7 @@ User {
 }
 ```
 
-Here we compose authentication rules, and make sure that *any* way you try to write too and update a user entity, you are guaranteed to that you are permitted. All of a sudden, instead of most code changes affecting permissions, only a few do.
+Here we compose authentication rules, and make sure that _any_ way you try to write too and update a user entity, you are guaranteed to that you are permitted. All of a sudden, instead of most code changes affecting permissions, only a few do.
 
 ## G. Audits, Undo / Redo
 
@@ -206,14 +206,14 @@ To solve this, we’d evolve our data model. Instead of a single friendship rela
 
 ```javascript
 [
-  {status: "friends", friend_one_id: 1, friend_two_id: 2, at: 1000},
-  {status: "disconnected", friend_one_id: 1, friend_two_id: 2, at: 10001},
-]
+  { status: 'friends', friend_one_id: 1, friend_two_id: 2, at: 1000 },
+  { status: 'disconnected', friend_one_id: 1, friend_two_id: 2, at: 10001 },
+];
 ```
 
 Then the "latest fact" would represent whether there is a friendship or not.
 
-This works, but most databases weren’t designed for it: the queries don’t work as we expect, optimizations are harder than we expect. We end up having to be *very* careful about how we do updates, in case we end up accidentally deleting records.
+This works, but most databases weren’t designed for it: the queries don’t work as we expect, optimizations are harder than we expect. We end up having to be _very_ careful about how we do updates, in case we end up accidentally deleting records.
 
 All of a sudden, we become "sort of database engineers", devouring literature on query optimization.
 
@@ -221,13 +221,13 @@ This kind of requirement seems unique, but it’s getting more common. If you de
 
 And god forbid an error happens and we accidentally delete data. In a world of facts there would be no such thing — you can just undo the deletions. But alas, this is not the world most of us live in.
 
-There *are* models that treat facts as a first class citizen (Datomic, which we’ll talk about soon), but right now they’re so foreign that it’s rarely what engineers reach too. What if it wasn't so foreign?
+There _are_ models that treat facts as a first class citizen (Datomic, which we’ll talk about soon), but right now they’re so foreign that it’s rarely what engineers reach too. What if it wasn't so foreign?
 
 ## H. Offline Mode
 
 There’s more examples of difficulty. What about offline mode? Many apps are long-running and can go for periods without internet connection. How can we support this?
 
-We would have to evolve our data model again, but this time *really* keep just about everything as a "fact", and have a client-side database that evolve it’s internal state based on them. Once a connection is made, we should be able to reconcile changes.
+We would have to evolve our data model again, but this time _really_ keep just about everything as a "fact", and have a client-side database that evolve it’s internal state based on them. Once a connection is made, we should be able to reconcile changes.
 
 This gets extremely hard to do. In essence, anyone who implements this becomes a database engineer full-stop. But, if we had a database in the browser, and it acted like a "node" in a distributed database, wouldn’t this just happen automatically for us?
 
@@ -237,7 +237,7 @@ Imagine…offline mode off the bat. What would the most applications feel like a
 
 ## I. Reactivity
 
-We talked about reactivity from the client. On the server it’s worrying too. We have to ensure that *all* the relevant clients are updated when data changes. For example, if a "post" is added, we *need* to make sure that all possible subscriptions related to this post are notified.
+We talked about reactivity from the client. On the server it’s worrying too. We have to ensure that _all_ the relevant clients are updated when data changes. For example, if a "post" is added, we _need_ to make sure that all possible subscriptions related to this post are notified.
 
 ```javascript
 function addPost(post) {
@@ -246,9 +246,9 @@ function addPost(post) {
 }
 ```
 
-This can get hairy.  It’s hard to know *all* the topics that could be related. It could also be easy to miss: if a database is updated with a query outside of `addPost`, we’d never know. This work is up to the developer to figure out. It starts off easy, but gets ever more complex.
+This can get hairy. It’s hard to know _all_ the topics that could be related. It could also be easy to miss: if a database is updated with a query outside of `addPost`, we’d never know. This work is up to the developer to figure out. It starts off easy, but gets ever more complex.
 
-Yet, the database *could* be aware of all these subscriptions too, and *could* just handle updating the relevant queries. But most don’t. RethinkDB is the shining example that did this well. What if this was possible with the query language of your choice?
+Yet, the database _could_ be aware of all these subscriptions too, and _could_ just handle updating the relevant queries. But most don’t. RethinkDB is the shining example that did this well. What if this was possible with the query language of your choice?
 
 ## J. Derived Data
 
@@ -263,9 +263,9 @@ CREATE INDEX ...
 Why can’t we do that, for other services? Martin Kleppman, in his Data Intensive Applications, suggests a language like this:
 
 ```javascript
-db |> ElasticSearch
-db |> Analytics
-db.user |> Redis
+db |> ElasticSearch;
+db |> Analytics;
+db.user |> Redis;
 // Bam, we've connected elastic search, analytics, and redis to our db
 ```
 
@@ -281,7 +281,7 @@ Before, it was a matter of `index.html` and FTP. Now, it’s webpack, typescript
 
 This can seem like a problem only inexperienced people need to contend with, and if they just spent some time they’ll get faster. I think it’s more important than that. Most projects live on the fringe — they aren’t stuff you do as a day job. This means that even a few minutes delay in prototyping could kill a magnitude more projects.
 
-Making this step easier would dramatically increase the number of applications we get to use. What if it was *easier* than `index.html` and `FTP`?
+Making this step easier would dramatically increase the number of applications we get to use. What if it was _easier_ than `index.html` and `FTP`?
 
 # Current Solutions
 
@@ -293,19 +293,15 @@ I think Firebase has done some of the most innovative work in moving web applica
 
 With firebase, you query your data the same way you would on the server. By creating this abstraction, they solved **A-E.** Firebase handles optimistic updates, and is reactive by default. It obviates the need for endpoints by providing support for permissions.
 
-They’re strength also stems for **K:** I think it still has the *best* time-to-prototype in the market. You can just start with index.html!
+They’re strength also stems for **K:** I think it still has the _best_ time-to-prototype in the market. You can just start with index.html!
 
 However, it has two problems:
 
 First, query strength. Firebase’s choice of a document model makes the abstraction simpler to manage, but it destroys your query capability. Very often you’ll fall into a place where you have to de-normalize data, or querying for it becomes tricky. For example, to record a many-to-many relationship like a friendship, you’d need to do something like this:
 
 ```javascript
-userA:
-  friends:
-    userBId: true
-userB:
-  friends:
-    userAId: true
+userA: friends: userBId: true;
+userB: friends: userAId: true;
 ```
 
 You de-normalize friendships across two different paths (userA/friends/userBId) and (userB/friends/userAId). Grabbing the full data requires you to manually replicate a join:
@@ -319,7 +315,7 @@ These kind of relationships sprout up very quickly in your application. It would
 
 Second, permissions. Firebase lets you write permissions using a limited language. In practice, these rules get hairy quickly — to the point that folks resort to writing some higher-level language themselves and compiling down to Firebase rules.
 
-We experimented a lot on this at Facebook, and came to the conclusion that you need a *real language* to express permissions. If Firebase had that, it would be much more powerful.
+We experimented a lot on this at Facebook, and came to the conclusion that you need a _real language_ to express permissions. If Firebase had that, it would be much more powerful.
 
 With the remaining items (audits, Undo / Redo, Derived Data) — Firebase hasn’t tackled them yet.
 
@@ -335,7 +331,7 @@ Their realtime option allows you to subscribe to row-level updates. For example,
 const friendsChange = supabase
   .from('friendships:friend_one_id=eq.200')
   .on('*', handleFriendshipChange)
-  .subscribe()
+  .subscribe();
 ```
 
 This in practice can get you far. It can get hairy though. For example, if a friend is created, we may not have the user information and we’d have to fetch it.
@@ -374,14 +370,14 @@ If we wanted to make an app like that, what would an ideal abstraction for data 
 
 ## Requirements
 
-### 1) A database on the client, with a *powerful* query language
+### 1) A database on the client, with a _powerful_ query language
 
-From the browser, this abstraction would have to be like firebase, *but with a strong query language.*
+From the browser, this abstraction would have to be like firebase, _but with a strong query language._
 
 You should be able to query your local data, and it should be as powerful as SQL. Your queries should be reactive, and update automatically if there are changes. It should handle optimistic updates for you too.
 
 ```javascript
-user = useQuery("SELECT * FROM users WHERE id = ?", 10);
+user = useQuery('SELECT * FROM users WHERE id = ?', 10);
 ```
 
 ### 2) A real permission language
@@ -413,7 +409,7 @@ Whatever abstraction we choose, it should give us the ability to run writes whil
 Finally, we should be able to express data dependencies without having to spin anything up. With a simple
 
 ```javascript
-db.user |> Redis
+db.user |> Redis;
 ```
 
 all queries to users would magically be cached by Redis.
@@ -424,9 +420,9 @@ Okay, those requirements sound magical. What would an implementation look like t
 
 ### Datomic & Datascript
 
-In the Clojure world, folks have long been fans of Datomic, a facts-based database that lets you "see every change over time". Nikita Tonsky also implemented datascript, *a client-side database and query engine* with the same semantics as Datomic!
+In the Clojure world, folks have long been fans of Datomic, a facts-based database that lets you "see every change over time". Nikita Tonsky also implemented datascript, _a client-side database and query engine_ with the same semantics as Datomic!
 
-They’ve been used to build offline-enabled applications like Roam, or collaborative applications like Precursor. If we were to package up a Datomic-like database on the backend, and datascript-like database on the frontend, it *could* become "database on the client with a powerful query language"!
+They’ve been used to build offline-enabled applications like Roam, or collaborative applications like Precursor. If we were to package up a Datomic-like database on the backend, and datascript-like database on the frontend, it _could_ become "database on the client with a powerful query language"!
 
 ### Reactivity
 
@@ -468,9 +464,9 @@ Though it will be hard, I think we should aim to be as close to "easy" as possib
 
 ### Datalog would be hard to make reactive
 
-A big problem with both SQL and Datalog, is that based on some new change, it’s hard to figure out *which* queries need to be updated.
+A big problem with both SQL and Datalog, is that based on some new change, it’s hard to figure out _which_ queries need to be updated.
 
-I don’t think it’s impossible though. Hasura does polling and it scaled [^4]. We *could* try having a specific language for subscriptions as well, similar to Supabase. If we can prove certain queries can only change by some subset of facts, we can move them out of polling.
+I don’t think it’s impossible though. Hasura does polling and it scaled [^4]. We _could_ try having a specific language for subscriptions as well, similar to Supabase. If we can prove certain queries can only change by some subset of facts, we can move them out of polling.
 
 This is a hard problem, but I think it’s a tractable one.
 
@@ -496,7 +492,7 @@ Large companies start as side-projects. Older engineers may look at Firebase lik
 
 ### The Market is very competitive
 
-The market is competitive and the users are fickle. Slava’s [Why RethinkDB Failed](https://www.defmacro.org/2017/01/18/why-rethinkdb-failed.html) paints a picture for how hard it is to win in the developer tools market. I don’t think he is wrong. Doing this would require a compelling answer to how you’ll build a moat, and expand towards *The Next AWS*.
+The market is competitive and the users are fickle. Slava’s [Why RethinkDB Failed](https://www.defmacro.org/2017/01/18/why-rethinkdb-failed.html) paints a picture for how hard it is to win in the developer tools market. I don’t think he is wrong. Doing this would require a compelling answer to how you’ll build a moat, and expand towards _The Next AWS_.
 
 # Fin
 
@@ -510,9 +506,9 @@ It may require some iteration to figure out the interface, but the there’s an 
 
 ## Next Up
 
-I’m toying with some ideas in this direction. The big problem to solve here, is how important this is for people, and whether a good abstraction can work. To solve the first, I wrote this essay. Is this a hair-on-fire problem that you’re facing? If it is, to the point that you’re actively looking for solutions, please reach out to me on [Twitter](https://twitter.com/stopachka)! I’d love to learn your use case 🙂.  As I create applications, I’ll certainly keep this back of mind — who knows, maybe a good abstraction can be pulled out.
+I’m toying with some ideas in this direction. The big problem to solve here, is how important this is for people, and whether a good abstraction can work. To solve the first, I wrote this essay. Is this a hair-on-fire problem that you’re facing? If it is, to the point that you’re actively looking for solutions, please reach out to me on [Twitter](https://twitter.com/stopachka)! I’d love to learn your use case 🙂. As I create applications, I’ll certainly keep this back of mind — who knows, maybe a good abstraction can be pulled out.
 
-*Thanks Joe Averbukh, Sean Grove, Ian Sinnott, Daniel Woelfel, Dennis Heihoff, Mark Shlick, Alex Reichert, Alex Kotliarskyi, Thomas Schranz, for reviewing drafts of this essay*
+_Thanks Joe Averbukh, Sean Grove, Ian Sinnott, Daniel Woelfel, Dennis Heihoff, Mark Shlick, Alex Reichert, Alex Kotliarskyi, Thomas Schranz, for reviewing drafts of this essay_
 
 [^1]: You may not notice this as Postgres gives a consistency guarantee. However, for them to support multiple concurrent transactions, they in effect need to be able to keep "temporary alterations"
 

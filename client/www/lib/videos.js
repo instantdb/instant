@@ -8,15 +8,16 @@
 import { marked } from 'marked';
 
 const containerClass = 'md-video-container';
-const youtubePattern = /(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+const youtubePattern =
+  /(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
 const muxPattern = /stream\.mux\.com\/([A-Za-z0-9]+)/;
 
 const youtubeParams = [
-  'rel=0',            // Don't show related videos
+  'rel=0', // Don't show related videos
   'modestbranding=1', // Reduce YouTube branding
-  'playsinline=1',    // Play inline on mobile
-  'autoplay=0',       // Don't autoplay
-  'cc_load_policy=1'  // Show closed captions if available
+  'playsinline=1', // Play inline on mobile
+  'autoplay=0', // Don't autoplay
+  'cc_load_policy=1', // Show closed captions if available
 ].join('&');
 
 const videoTemplate = {
@@ -39,7 +40,7 @@ const videoTemplate = {
         title="${title}"
         allowfullscreen>
       </iframe>
-    </div>`
+    </div>`,
 };
 
 const videos = {
@@ -59,7 +60,7 @@ const videos = {
     }
 
     return marked.Renderer.prototype.link.call(this, href, title, text);
-  }
+  },
 };
 
 export default videos;

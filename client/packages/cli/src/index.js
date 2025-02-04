@@ -1,29 +1,29 @@
 // @ts-check
 
-import version from "./version.js";
-import { mkdir, writeFile, readFile } from "fs/promises";
-import { join } from "path";
-import { randomUUID } from "crypto";
-import jsonDiff from "json-diff";
-import dotenv from "dotenv";
-import chalk from "chalk";
-import { program, Option } from "commander";
-import { input, select } from "@inquirer/prompts";
-import envPaths from "env-paths";
-import { loadConfig } from "unconfig";
-import { packageDirectory } from "pkg-dir";
-import openInBrowser from "open";
-import ora from "ora";
-import terminalLink from "terminal-link";
-import { exec } from "child_process";
-import { promisify } from "util";
+import version from './version.js';
+import { mkdir, writeFile, readFile } from 'fs/promises';
+import { join } from 'path';
+import { randomUUID } from 'crypto';
+import jsonDiff from 'json-diff';
+import dotenv from 'dotenv';
+import chalk from 'chalk';
+import { program, Option } from 'commander';
+import { input, select } from '@inquirer/prompts';
+import envPaths from 'env-paths';
+import { loadConfig } from 'unconfig';
+import { packageDirectory } from 'pkg-dir';
+import openInBrowser from 'open';
+import ora from 'ora';
+import terminalLink from 'terminal-link';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import {
   detectPackageManager,
   getInstallCommand,
-} from "./util/packageManager.js";
-import { pathExists, readJsonFile } from "./util/fs.js";
-import prettier from "prettier";
-import toggle from "./toggle.js";
+} from './util/packageManager.js';
+import { pathExists, readJsonFile } from './util/fs.js';
+import prettier from 'prettier';
+import toggle from './toggle.js';
 
 const execAsync = promisify(exec);
 
@@ -36,65 +36,65 @@ const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
 // logs
 
 function warn(firstArg, ...rest) {
-  console.warn(chalk.yellow("[warning]") + " " + firstArg, ...rest);
+  console.warn(chalk.yellow('[warning]') + ' ' + firstArg, ...rest);
 }
 
 function error(firstArg, ...rest) {
-  console.error(chalk.red("[error]") + " " + firstArg, ...rest);
+  console.error(chalk.red('[error]') + ' ' + firstArg, ...rest);
 }
 
 // consts
 
 const potentialEnvs = {
-  catchall: "INSTANT_APP_ID",
-  next: "NEXT_PUBLIC_INSTANT_APP_ID",
-  svelte: "PUBLIC_INSTANT_APP_ID",
-  vite: "VITE_INSTANT_APP_ID",
-  expo: "EXPO_PUBLIC_INSTANT_APP_ID",
-  nuxt: "NUXT_PUBLIC_INSTANT_APP_ID",
+  catchall: 'INSTANT_APP_ID',
+  next: 'NEXT_PUBLIC_INSTANT_APP_ID',
+  svelte: 'PUBLIC_INSTANT_APP_ID',
+  vite: 'VITE_INSTANT_APP_ID',
+  expo: 'EXPO_PUBLIC_INSTANT_APP_ID',
+  nuxt: 'NUXT_PUBLIC_INSTANT_APP_ID',
 };
 
 async function detectEnvType({ pkgDir }) {
   const packageJSON = await getPackageJson(pkgDir);
   if (!packageJSON) {
-    return "catchall";
+    return 'catchall';
   }
   if (packageJSON.dependencies?.next) {
-    return "next";
+    return 'next';
   }
   if (packageJSON.devDependencies?.svelte) {
-    return "svelte";
+    return 'svelte';
   }
   if (packageJSON.devDependencies?.vite) {
-    return "vite";
+    return 'vite';
   }
   if (packageJSON.dependencies?.expo) {
-    return "expo";
+    return 'expo';
   }
   if (packageJSON.dependencies?.nuxt) {
-    return "nuxt";
+    return 'nuxt';
   }
-  return "catchall";
+  return 'catchall';
 }
 
 const instantDashOrigin = dev
-  ? "http://localhost:3000"
-  : "https://instantdb.com";
+  ? 'http://localhost:3000'
+  : 'https://instantdb.com';
 
 const instantBackendOrigin =
   process.env.INSTANT_CLI_API_URI ||
-  (dev ? "http://localhost:8888" : "https://api.instantdb.com");
+  (dev ? 'http://localhost:8888' : 'https://api.instantdb.com');
 
-const PUSH_PULL_OPTIONS = new Set(["schema", "perms", "all"]);
+const PUSH_PULL_OPTIONS = new Set(['schema', 'perms', 'all']);
 
 function convertArgToBagWithErrorLogging(arg) {
   if (!arg) {
-    return { ok: true, bag: "all" };
+    return { ok: true, bag: 'all' };
   } else if (PUSH_PULL_OPTIONS.has(arg.trim().toLowerCase())) {
     return { ok: true, bag: arg };
   } else {
     error(
-      `${chalk.red(arg)} must be one of ${chalk.green(Array.from(PUSH_PULL_OPTIONS).join(", "))}`,
+      `${chalk.red(arg)} must be one of ${chalk.green(Array.from(PUSH_PULL_OPTIONS).join(', '))}`,
     );
     return { ok: false };
   }
@@ -107,7 +107,7 @@ function convertArgToBagWithErrorLogging(arg) {
 function convertPushPullToCurrentFormat(cmdName, arg, opts) {
   if (arg && !PUSH_PULL_OPTIONS.has(arg) && !opts.app) {
     warnDeprecation(`${cmdName} ${arg}`, `${cmdName} --app ${arg}`);
-    return { ok: true, bag: "all", opts: { ...opts, app: arg } };
+    return { ok: true, bag: 'all', opts: { ...opts, app: arg } };
   }
   const { ok, bag } = convertArgToBagWithErrorLogging(arg);
   if (!ok) return { ok: false };
@@ -126,22 +126,22 @@ async function packageDirectoryWithErrorLogging() {
 // cli
 
 // Header -- this shows up in every command
-const logoChalk = chalk.bold("instant-cli");
+const logoChalk = chalk.bold('instant-cli');
 const versionChalk = chalk.dim(`${version.trim()}`);
-const headerChalk = `${logoChalk} ${versionChalk} ` + "\n";
+const headerChalk = `${logoChalk} ${versionChalk} ` + '\n';
 
 // Help Footer -- this only shows up in help commands
 const helpFooterChalk =
-  "\n" +
-  chalk.dim.bold("Want to learn more?") +
-  "\n" +
-  `Check out the docs: ${chalk.blueBright.underline("https://instantdb.com/docs")}
-Join the Discord:   ${chalk.blueBright.underline("https://discord.com/invite/VU53p7uQcE")}
+  '\n' +
+  chalk.dim.bold('Want to learn more?') +
+  '\n' +
+  `Check out the docs: ${chalk.blueBright.underline('https://instantdb.com/docs')}
+Join the Discord:   ${chalk.blueBright.underline('https://discord.com/invite/VU53p7uQcE')}
 `.trim();
 
-program.addHelpText("after", helpFooterChalk);
+program.addHelpText('after', helpFooterChalk);
 
-program.addHelpText("beforeAll", headerChalk);
+program.addHelpText('beforeAll', headerChalk);
 
 function getLocalAndGlobalOptions(cmd, helper) {
   const mixOfLocalAndGlobal = helper.visibleOptions(cmd);
@@ -175,16 +175,16 @@ function formatHelp(cmd, helper) {
     return term;
   }
   function formatList(textArray) {
-    return textArray.join("\n").replace(/^/gm, " ".repeat(itemIndentWidth));
+    return textArray.join('\n').replace(/^/gm, ' '.repeat(itemIndentWidth));
   }
 
   // Usage
-  let output = [`${helper.commandUsage(cmd)}`, ""];
+  let output = [`${helper.commandUsage(cmd)}`, ''];
 
   // Description
   const commandDescription = helper.commandDescription(cmd);
   if (commandDescription.length > 0) {
-    output = output.concat([helper.wrap(commandDescription, helpWidth, 0), ""]);
+    output = output.concat([helper.wrap(commandDescription, helpWidth, 0), '']);
   }
 
   // Arguments
@@ -196,9 +196,9 @@ function formatHelp(cmd, helper) {
   });
   if (argumentList.length > 0) {
     output = output.concat([
-      chalk.dim.bold("Arguments"),
+      chalk.dim.bold('Arguments'),
       formatList(argumentList),
-      "",
+      '',
     ]);
   }
   const [visibleOptions, visibleGlobalOptions] = getLocalAndGlobalOptions(
@@ -215,9 +215,9 @@ function formatHelp(cmd, helper) {
   });
   if (optionList.length > 0) {
     output = output.concat([
-      chalk.dim.bold("Options"),
+      chalk.dim.bold('Options'),
       formatList(optionList),
-      "",
+      '',
     ]);
   }
   // Commands
@@ -229,9 +229,9 @@ function formatHelp(cmd, helper) {
   });
   if (commandList.length > 0) {
     output = output.concat([
-      chalk.dim.bold("Commands"),
+      chalk.dim.bold('Commands'),
       formatList(commandList),
-      "",
+      '',
     ]);
   }
 
@@ -244,14 +244,14 @@ function formatHelp(cmd, helper) {
     });
     if (globalOptionList.length > 0) {
       output = output.concat([
-        chalk.dim.bold("Global Options"),
+        chalk.dim.bold('Global Options'),
         formatList(globalOptionList),
-        "",
+        '',
       ]);
     }
   }
 
-  return output.join("\n");
+  return output.join('\n');
 }
 
 program.configureHelp({
@@ -276,92 +276,92 @@ function globalOption(flags, description, argParser) {
 
 function warnDeprecation(oldCmd, newCmd) {
   warn(
-    chalk.yellow("`instant-cli " + oldCmd + "` is deprecated.") +
-      " Use " +
-      chalk.green("`instant-cli " + newCmd + "`") +
-      " instead." +
-      "\n",
+    chalk.yellow('`instant-cli ' + oldCmd + '` is deprecated.') +
+      ' Use ' +
+      chalk.green('`instant-cli ' + newCmd + '`') +
+      ' instead.' +
+      '\n',
   );
 }
 
 program
-  .name("instant-cli")
-  .addOption(globalOption("-t --token <token>", "Auth token override"))
-  .addOption(globalOption("-y --yes", "Answer 'yes' to all prompts"))
+  .name('instant-cli')
+  .addOption(globalOption('-t --token <token>', 'Auth token override'))
+  .addOption(globalOption('-y --yes', "Answer 'yes' to all prompts"))
   .addOption(
-    globalOption("-v --version", "Print the version number", () => {
+    globalOption('-v --version', 'Print the version number', () => {
       console.log(version);
       process.exit(0);
     }),
   )
-  .addHelpOption(globalOption("-h --help", "Print the help text for a command"))
-  .usage(`<command> ${chalk.dim("[options] [args]")}`);
+  .addHelpOption(globalOption('-h --help', 'Print the help text for a command'))
+  .usage(`<command> ${chalk.dim('[options] [args]')}`);
 
 program
-  .command("login")
-  .description("Log into your account")
-  .option("-p --print", "Prints the auth token into the console.")
+  .command('login')
+  .description('Log into your account')
+  .option('-p --print', 'Prints the auth token into the console.')
   .action(async (opts) => {
     console.log("Let's log you in!");
     await login(opts);
   });
 
 program
-  .command("init")
-  .description("Set up a new project.")
+  .command('init')
+  .description('Set up a new project.')
   .option(
-    "-a --app <app-id>",
-    "If you have an existing app ID, we can pull schema and perms from there.",
+    '-a --app <app-id>',
+    'If you have an existing app ID, we can pull schema and perms from there.',
   )
   .action(async function (opts) {
-    await handlePull("all", opts);
+    await handlePull('all', opts);
   });
 
 // Note: Nov 20, 2024
 // We can eventually delete this,
 // once we know most people use the new pull and push commands
 program
-  .command("push-schema", { hidden: true })
-  .argument("[app-id]")
-  .description("Push schema to production.")
+  .command('push-schema', { hidden: true })
+  .argument('[app-id]')
+  .description('Push schema to production.')
   .option(
-    "--skip-check-types",
+    '--skip-check-types',
     "Don't check types on the server when pushing schema",
   )
   .action(async (appIdOrName, opts) => {
-    warnDeprecation("push-schema", "push schema");
-    await handlePush("schema", { app: appIdOrName, ...opts });
+    warnDeprecation('push-schema', 'push schema');
+    await handlePush('schema', { app: appIdOrName, ...opts });
   });
 
 // Note: Nov 20, 2024
 // We can eventually delete this,
 // once we know most people use the new pull and push commands
 program
-  .command("push-perms", { hidden: true })
-  .argument("[app-id]")
-  .description("Push perms to production.")
+  .command('push-perms', { hidden: true })
+  .argument('[app-id]')
+  .description('Push perms to production.')
   .action(async (appIdOrName) => {
-    warnDeprecation("push-perms", "push perms");
-    await handlePush("perms", { app: appIdOrName });
+    warnDeprecation('push-perms', 'push perms');
+    await handlePush('perms', { app: appIdOrName });
   });
 
 program
-  .command("push")
+  .command('push')
   .argument(
-    "[schema|perms|all]",
-    "Which configuration to push. Defaults to `all`",
+    '[schema|perms|all]',
+    'Which configuration to push. Defaults to `all`',
   )
   .option(
-    "-a --app <app-id>",
-    "App ID to push too. Defaults to *_INSTANT_APP_ID in .env",
+    '-a --app <app-id>',
+    'App ID to push too. Defaults to *_INSTANT_APP_ID in .env',
   )
   .option(
-    "--skip-check-types",
+    '--skip-check-types',
     "Don't check types on the server when pushing schema",
   )
-  .description("Push schema and perm files to production.")
+  .description('Push schema and perm files to production.')
   .action(async function (arg, inputOpts) {
-    const ret = convertPushPullToCurrentFormat("push", arg, inputOpts);
+    const ret = convertPushPullToCurrentFormat('push', arg, inputOpts);
     if (!ret.ok) return;
     const { bag, opts } = ret;
     await handlePush(bag, opts);
@@ -371,39 +371,39 @@ program
 // We can eventually delete this,
 // once we know most people use the new pull and push commands
 program
-  .command("pull-schema", { hidden: true })
-  .argument("[app-id]")
-  .description("Generate instant.schema.ts from production")
+  .command('pull-schema', { hidden: true })
+  .argument('[app-id]')
+  .description('Generate instant.schema.ts from production')
   .action(async (appIdOrName) => {
-    warnDeprecation("pull-schema", "pull schema");
-    await handlePull("schema", { app: appIdOrName });
+    warnDeprecation('pull-schema', 'pull schema');
+    await handlePull('schema', { app: appIdOrName });
   });
 
 // Note: Nov 20, 2024
 // We can eventually delete this,
 // once we know most people use the new pull and push commands
 program
-  .command("pull-perms", { hidden: true })
-  .argument("[app-id]")
-  .description("Generate instant.perms.ts from production.")
+  .command('pull-perms', { hidden: true })
+  .argument('[app-id]')
+  .description('Generate instant.perms.ts from production.')
   .action(async (appIdOrName) => {
-    warnDeprecation("pull-perms", "pull perms");
-    await handlePull("perms", { app: appIdOrName });
+    warnDeprecation('pull-perms', 'pull perms');
+    await handlePull('perms', { app: appIdOrName });
   });
 
 program
-  .command("pull")
+  .command('pull')
   .argument(
-    "[schema|perms|all]",
-    "Which configuration to push. Defaults to `all`",
+    '[schema|perms|all]',
+    'Which configuration to push. Defaults to `all`',
   )
   .option(
-    "-a --app <app-id>",
-    "App ID to push to. Defaults to *_INSTANT_APP_ID in .env",
+    '-a --app <app-id>',
+    'App ID to push to. Defaults to *_INSTANT_APP_ID in .env',
   )
-  .description("Pull schema and perm files from production.")
+  .description('Pull schema and perm files from production.')
   .action(async function (arg, inputOpts) {
-    const ret = convertPushPullToCurrentFormat("pull", arg, inputOpts);
+    const ret = convertPushPullToCurrentFormat('pull', arg, inputOpts);
     if (!ret.ok) return;
     const { bag, opts } = ret;
     await handlePull(bag, opts);
@@ -424,11 +424,11 @@ async function handlePush(bag, opts) {
 }
 
 async function push(bag, appId, opts) {
-  if (bag === "schema" || bag === "all") {
+  if (bag === 'schema' || bag === 'all') {
     const { ok } = await pushSchema(appId, opts);
     if (!ok) return;
   }
-  if (bag === "perms" || bag === "all") {
+  if (bag === 'perms' || bag === 'all') {
     await pushPerms(appId);
   }
 }
@@ -436,7 +436,7 @@ async function push(bag, appId, opts) {
 function printDotEnvInfo(envType, appId) {
   console.log(`\nPicked app ${chalk.green(appId)}!\n`);
   console.log(
-    `To use this app automatically from now on, update your ${chalk.green("`.env`")} file:`,
+    `To use this app automatically from now on, update your ${chalk.green('`.env`')} file:`,
   );
   const picked = potentialEnvs[envType];
   const rest = { ...potentialEnvs };
@@ -444,9 +444,9 @@ function printDotEnvInfo(envType, appId) {
   console.log(`  ${chalk.green(picked)}=${appId}`);
   const otherEnvs = Object.values(rest);
   otherEnvs.sort();
-  const otherEnvStr = otherEnvs.map((x) => "  " + chalk.green(x)).join("\n");
+  const otherEnvStr = otherEnvs.map((x) => '  ' + chalk.green(x)).join('\n');
   console.log(`Alternative names: \n${otherEnvStr} \n`);
-  console.log(terminalLink("Dashboard", appDashUrl(appId)) + "\n");
+  console.log(terminalLink('Dashboard', appDashUrl(appId)) + '\n');
 }
 
 async function handleEnvFile(pkgAndAuthInfo, appId) {
@@ -454,36 +454,36 @@ async function handleEnvFile(pkgAndAuthInfo, appId) {
   const envType = await detectEnvType(pkgAndAuthInfo);
   const envName = potentialEnvs[envType];
 
-  const hasEnvFile = await pathExists(join(pkgDir, ".env"));
+  const hasEnvFile = await pathExists(join(pkgDir, '.env'));
   if (hasEnvFile) {
     printDotEnvInfo(envType, appId);
     return;
   }
   console.log(
-    `\nLooks like you don't have a ${chalk.green("`.env`")} file yet.`,
+    `\nLooks like you don't have a ${chalk.green('`.env`')} file yet.`,
   );
   console.log(
-    `If we set ${chalk.green("`" + envName + "`")}, we can remember the app that you chose for all future commands.`,
+    `If we set ${chalk.green('`' + envName + '`')}, we can remember the app that you chose for all future commands.`,
   );
   const ok = await promptOk(
-    "Want us to create this env file for you?",
+    'Want us to create this env file for you?',
     /*defaultAnswer=*/ true,
   );
   if (!ok) {
     console.log(
-      `No .env file created. You can always set ${chalk.green("`" + envName + "`")} later. \n`,
+      `No .env file created. You can always set ${chalk.green('`' + envName + '`')} later. \n`,
     );
     return;
   }
-  await writeFile(join(pkgDir, ".env"), `${envName}=${appId}`, "utf-8");
-  console.log(`Created ${chalk.green("`.env`")} file!`);
+  await writeFile(join(pkgDir, '.env'), `${envName}=${appId}`, 'utf-8');
+  console.log(`Created ${chalk.green('`.env`')} file!`);
 }
 
 async function detectOrCreateAppAndWriteToEnv(pkgAndAuthInfo, opts) {
   const ret = await detectOrCreateAppWithErrorLogging(opts);
   if (!ret.ok) return ret;
   const { appId, source } = ret;
-  if (source === "created" || source === "imported") {
+  if (source === 'created' || source === 'imported') {
     await handleEnvFile(pkgAndAuthInfo, appId);
   }
   return ret;
@@ -501,21 +501,21 @@ async function handlePull(bag, opts) {
 }
 
 async function pull(bag, appId, pkgAndAuthInfo) {
-  if (bag === "schema" || bag === "all") {
+  if (bag === 'schema' || bag === 'all') {
     const { ok } = await pullSchema(appId, pkgAndAuthInfo);
     if (!ok) return;
   }
-  if (bag === "perms" || bag === "all") {
+  if (bag === 'perms' || bag === 'all') {
     await pullPerms(appId, pkgAndAuthInfo);
   }
 }
 
 async function login(options) {
   const registerRes = await fetchJson({
-    method: "POST",
-    path: "/dash/cli/auth/register",
-    debugName: "Login register",
-    errorMessage: "Failed to register login.",
+    method: 'POST',
+    path: '/dash/cli/auth/register',
+    debugName: 'Login register',
+    errorMessage: 'Failed to register login.',
     noAuth: true,
   });
 
@@ -532,7 +532,7 @@ async function login(options) {
 
   openInBrowser(`${instantDashOrigin}/dash?ticket=${ticket}`);
 
-  console.log("Waiting for authentication...");
+  console.log('Waiting for authentication...');
   const authTokenRes = await waitForAuthToken({ secret });
   if (!authTokenRes) {
     return;
@@ -541,7 +541,7 @@ async function login(options) {
   const { token, email } = authTokenRes;
 
   if (options.print) {
-    console.log(chalk.red("[Do not share] Your Instant auth token:", token));
+    console.log(chalk.red('[Do not share] Your Instant auth token:', token));
   } else {
     await saveConfigAuthToken(token);
     console.log(chalk.green(`Successfully logged in as ${email}!`));
@@ -554,7 +554,7 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir) {
   if (!pkgJson) {
     return;
   }
-  console.log("Checking for an Instant SDK...");
+  console.log('Checking for an Instant SDK...');
   const instantModuleName = await getInstantModuleName(pkgJson);
   if (instantModuleName) {
     console.log(
@@ -566,12 +566,12 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir) {
     "Couldn't find an Instant SDK in your package.json, let's install one!",
   );
   const moduleName = await select({
-    message: "Which package would you like to use?",
+    message: 'Which package would you like to use?',
     choices: [
-      { name: "@instantdb/react", value: "@instantdb/react" },
-      { name: "@instantdb/react-native", value: "@instantdb/react-native" },
-      { name: "@instantdb/core", value: "@instantdb/core" },
-      { name: "@instantdb/admin", value: "@instantdb/admin" },
+      { name: '@instantdb/react', value: '@instantdb/react' },
+      { name: '@instantdb/react-native', value: '@instantdb/react-native' },
+      { name: '@instantdb/core', value: '@instantdb/core' },
+      { name: '@instantdb/admin', value: '@instantdb/admin' },
     ],
   });
 
@@ -598,23 +598,23 @@ async function promptCreateApp() {
   const id = randomUUID();
   const token = randomUUID();
   const _title = await input({
-    message: "What would you like to call it?",
-    default: "My cool app",
+    message: 'What would you like to call it?',
+    default: 'My cool app',
     required: true,
   }).catch(() => null);
 
   const title = _title?.trim();
 
   if (!title) {
-    error("No name provided. Exiting.");
+    error('No name provided. Exiting.');
     return { ok: false };
   }
   const app = { id, title, admin_token: token };
   const appRes = await fetchJson({
-    method: "POST",
-    path: "/dash/apps",
-    debugName: "App create",
-    errorMessage: "Failed to create app.",
+    method: 'POST',
+    path: '/dash/apps',
+    debugName: 'App create',
+    errorMessage: 'Failed to create app.',
     body: app,
   });
 
@@ -623,16 +623,16 @@ async function promptCreateApp() {
     ok: true,
     appId: id,
     appTitle: title,
-    source: "created",
+    source: 'created',
   };
 }
 
 async function promptImportAppOrCreateApp() {
   const res = await fetchJson({
-    debugName: "Fetching apps",
-    method: "GET",
-    path: "/dash",
-    errorMessage: "Failed to fetch apps.",
+    debugName: 'Fetching apps',
+    method: 'GET',
+    path: '/dash',
+    errorMessage: 'Failed to fetch apps.',
   });
   if (!res.ok) {
     return { ok: false };
@@ -650,20 +650,20 @@ async function promptImportAppOrCreateApp() {
   apps.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
 
   const choice = await select({
-    message: "Which app would you like to import?",
+    message: 'Which app would you like to import?',
     choices: res.data.apps.map((app) => {
       return { name: `${app.title} (${app.id})`, value: app.id };
     }),
   }).catch(() => null);
   if (!choice) return { ok: false };
-  return { ok: true, appId: choice, source: "imported" };
+  return { ok: true, appId: choice, source: 'imported' };
 }
 
 async function detectOrCreateAppWithErrorLogging(opts) {
   const fromOpts = await detectAppIdFromOptsWithErrorLogging(opts);
   if (!fromOpts.ok) return fromOpts;
   if (fromOpts.appId) {
-    return { ok: true, appId: fromOpts.appId, source: "opts" };
+    return { ok: true, appId: fromOpts.appId, source: 'opts' };
   }
 
   const fromEnv = detectAppIdFromEnvWithErrorLogging();
@@ -671,18 +671,18 @@ async function detectOrCreateAppWithErrorLogging(opts) {
   if (fromEnv.found) {
     const { envName, value } = fromEnv.found;
     console.log(`Found ${chalk.green(envName)}: ${value}`);
-    return { ok: true, appId: value, source: "env" };
+    return { ok: true, appId: value, source: 'env' };
   }
 
   const action = await select({
-    message: "What would you like to do?",
+    message: 'What would you like to do?',
     choices: [
-      { name: "Create a new app", value: "create" },
-      { name: "Import an existing app", value: "import" },
+      { name: 'Create a new app', value: 'create' },
+      { name: 'Import an existing app', value: 'import' },
     ],
   }).catch(() => null);
 
-  if (action === "create") {
+  if (action === 'create') {
     return await promptCreateApp();
   }
 
@@ -693,7 +693,7 @@ async function writeTypescript(path, content, encoding) {
   const prettierConfig = await prettier.resolveConfig(path);
   const formattedCode = await prettier.format(content, {
     ...prettierConfig,
-    parser: "typescript",
+    parser: 'typescript',
   });
   return await writeFile(path, formattedCode, encoding);
 }
@@ -701,16 +701,16 @@ async function writeTypescript(path, content, encoding) {
 async function getInstantModuleName(pkgJson) {
   const deps = pkgJson.dependencies || {};
   const instantModuleName = [
-    "@instantdb/react",
-    "@instantdb/react-native",
-    "@instantdb/core",
-    "@instantdb/admin",
+    '@instantdb/react',
+    '@instantdb/react-native',
+    '@instantdb/core',
+    '@instantdb/admin',
   ].find((name) => deps[name]);
   return instantModuleName;
 }
 
 async function getPackageJson(pkgDir) {
-  return await readJsonFile(join(pkgDir, "package.json"));
+  return await readJsonFile(join(pkgDir, 'package.json'));
 }
 
 async function getPackageJSONWithErrorLogging(pkgDir) {
@@ -740,12 +740,12 @@ async function resolvePackageAndAuthInfoWithErrorLogging() {
 }
 
 async function pullSchema(appId, { pkgDir, instantModuleName }) {
-  console.log("Pulling schema...");
+  console.log('Pulling schema...');
 
   const pullRes = await fetchJson({
     path: `/dash/apps/${appId}/schema/pull`,
-    debugName: "Schema pull",
-    errorMessage: "Failed to pull schema.",
+    debugName: 'Schema pull',
+    errorMessage: 'Failed to pull schema.',
   });
 
   if (!pullRes.ok) return pullRes;
@@ -754,19 +754,19 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
     !countEntities(pullRes.data.schema.refs) &&
     !countEntities(pullRes.data.schema.blobs)
   ) {
-    console.log("Schema is empty. Skipping.");
+    console.log('Schema is empty. Skipping.');
     return { ok: true };
   }
   const prevSchema = await readLocalSchemaFile();
   if (prevSchema) {
     const ok = await promptOk(
-      "This will overwrite your local instant.schema file, OK to proceed?",
+      'This will overwrite your local instant.schema file, OK to proceed?',
     );
 
     if (!ok) return { ok: true };
   }
 
-  const schemaPath = join(pkgDir, "instant.schema.ts");
+  const schemaPath = join(pkgDir, 'instant.schema.ts');
   await writeTypescript(
     schemaPath,
     generateSchemaTypescriptFile(
@@ -774,62 +774,62 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
       pullRes.data.schema,
       instantModuleName,
     ),
-    "utf-8",
+    'utf-8',
   );
 
-  console.log("✅ Wrote schema to instant.schema.ts");
+  console.log('✅ Wrote schema to instant.schema.ts');
 
   return { ok: true };
 }
 
 async function pullPerms(appId, { pkgDir, instantModuleName }) {
-  console.log("Pulling perms...");
+  console.log('Pulling perms...');
 
   const pullRes = await fetchJson({
     path: `/dash/apps/${appId}/perms/pull`,
-    debugName: "Perms pull",
-    errorMessage: "Failed to pull perms.",
+    debugName: 'Perms pull',
+    errorMessage: 'Failed to pull perms.',
   });
 
   if (!pullRes.ok) return;
 
-  if (await pathExists(join(pkgDir, "instant.perms.ts"))) {
+  if (await pathExists(join(pkgDir, 'instant.perms.ts'))) {
     const ok = await promptOk(
-      "This will overwrite your local instant.perms file, OK to proceed?",
+      'This will overwrite your local instant.perms file, OK to proceed?',
     );
 
     if (!ok) return;
   }
 
-  const permsPath = join(pkgDir, "instant.perms.ts");
+  const permsPath = join(pkgDir, 'instant.perms.ts');
   await writeTypescript(
     permsPath,
     generatePermsTypescriptFile(pullRes.data.perms || {}, instantModuleName),
-    "utf-8",
+    'utf-8',
   );
 
-  console.log("✅ Wrote permissions to instant.perms.ts");
+  console.log('✅ Wrote permissions to instant.perms.ts');
 
   return true;
 }
 
 function indexingJobCompletedActionMessage(job) {
-  if (job.job_type === "check-data-type") {
+  if (job.job_type === 'check-data-type') {
     return `setting type of ${job.attr_name} to ${job.checked_data_type}`;
   }
-  if (job.job_type === "remove-data-type") {
+  if (job.job_type === 'remove-data-type') {
     return `removing type from ${job.attr_name}`;
   }
-  if (job.job_type === "index") {
+  if (job.job_type === 'index') {
     return `adding index to ${job.attr_name}`;
   }
-  if (job.job_type === "remove-index") {
+  if (job.job_type === 'remove-index') {
     return `removing index from ${job.attr_name}`;
   }
-  if (job.job_type === "unique") {
+  if (job.job_type === 'unique') {
     return `adding uniqueness constraint to ${job.attr_name}`;
   }
-  if (job.job_type === "remove-unique") {
+  if (job.job_type === 'remove-unique') {
     return `removing uniqueness constraint from ${job.attr_name}`;
   }
 }
@@ -849,15 +849,15 @@ function formatSamples(triples_samples) {
 
 function indexingJobCompletedMessage(job) {
   const actionMessage = indexingJobCompletedActionMessage(job);
-  if (job.job_status === "canceled") {
+  if (job.job_status === 'canceled') {
     return `Canceled ${actionMessage} before it could finish.`;
   }
-  if (job.job_status === "completed") {
+  if (job.job_status === 'completed') {
     return `Finished ${actionMessage}.`;
   }
-  if (job.job_status === "errored") {
+  if (job.job_status === 'errored') {
     if (job.invalid_triples_sample?.length) {
-      const [etype, label] = job.attr_name.split(".");
+      const [etype, label] = job.attr_name.split('.');
       const samples = formatSamples(job.invalid_triples_sample);
       const longestValue = samples.reduce(
         (acc, { value }) => Math.max(acc, value.length),
@@ -865,32 +865,32 @@ function indexingJobCompletedMessage(job) {
         label.length,
       );
 
-      let msg = `${chalk.red("INVALID DATA")} ${actionMessage}.\n`;
+      let msg = `${chalk.red('INVALID DATA')} ${actionMessage}.\n`;
       if (job.invalid_unique_value) {
         msg += `  Found multiple entities with value ${truncate(JSON.stringify(job.invalid_unique_value), 64)}.\n`;
       }
-      if (job.error === "triple-too-large-error") {
+      if (job.error === 'triple-too-large-error') {
         msg += `  Some of the existing data is too large to index.\n`;
       }
       msg += `  First few examples:\n`;
-      msg += `  ${chalk.bold("id")}${" ".repeat(35)}| ${chalk.bold(label)}${" ".repeat(longestValue - label.length)} | ${chalk.bold("type")}\n`;
-      msg += `  ${"-".repeat(37)}|${"-".repeat(longestValue + 2)}|--------\n`;
+      msg += `  ${chalk.bold('id')}${' '.repeat(35)}| ${chalk.bold(label)}${' '.repeat(longestValue - label.length)} | ${chalk.bold('type')}\n`;
+      msg += `  ${'-'.repeat(37)}|${'-'.repeat(longestValue + 2)}|--------\n`;
       for (const triple of samples) {
         const urlParams = new URLSearchParams({
-          s: "main",
+          s: 'main',
           app: job.app_id,
-          t: "explorer",
+          t: 'explorer',
           ns: etype,
-          where: JSON.stringify(["id", triple.entity_id]),
+          where: JSON.stringify(['id', triple.entity_id]),
         });
         const url = new URL(instantDashOrigin);
-        url.pathname = "/dash";
+        url.pathname = '/dash';
         url.search = urlParams.toString();
 
         const link = terminalLink(triple.entity_id, url.toString(), {
           fallback: () => triple.entity_id,
         });
-        msg += `  ${link} | ${triple.value}${" ".repeat(longestValue - triple.value.length)} | ${triple.json_type}\n`;
+        msg += `  ${link} | ${triple.value}${' '.repeat(longestValue - triple.value.length)} | ${triple.json_type}\n`;
       }
       return msg;
     }
@@ -900,7 +900,7 @@ function indexingJobCompletedMessage(job) {
 
 function joinInSentence(items) {
   if (items.length === 0) {
-    return "";
+    return '';
   }
   if (items.length === 1) {
     return items[0];
@@ -908,30 +908,30 @@ function joinInSentence(items) {
   if (items.length === 2) {
     return `${items[0]} and ${items[1]}`;
   }
-  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
 }
 
 function jobGroupDescription(jobs) {
   const actions = new Set();
   const jobActions = {
-    "check-data-type": "updating types",
-    "remove-data-type": "updating types",
-    index: "updating indexes",
-    "remove-index": "updating indexes",
-    unique: "updating uniqueness constraints",
-    "remove-unique": "updating uniqueness constraints",
+    'check-data-type': 'updating types',
+    'remove-data-type': 'updating types',
+    index: 'updating indexes',
+    'remove-index': 'updating indexes',
+    unique: 'updating uniqueness constraints',
+    'remove-unique': 'updating uniqueness constraints',
   };
   for (const job of jobs) {
     actions.add(jobActions[job.job_type]);
   }
-  return joinInSentence([...actions].sort()) || "updating schema";
+  return joinInSentence([...actions].sort()) || 'updating schema';
 }
 
 async function waitForIndexingJobsToFinish(appId, data) {
   const spinner = ora({
-    text: "checking data types",
+    text: 'checking data types',
   }).start();
-  const groupId = data["group-id"];
+  const groupId = data['group-id'];
   let jobs = data.jobs;
   let waitMs = 20;
   let lastUpdatedAt = new Date(0);
@@ -953,7 +953,7 @@ async function waitForIndexingJobsToFinish(appId, data) {
         updated = true;
         lastUpdatedAt = updatedAt;
       }
-      if (job.job_status === "waiting" || job.job_status === "processing") {
+      if (job.job_status === 'waiting' || job.job_status === 'processing') {
         stillRunning = true;
         // Default estimate to high value to prevent % from jumping around
         workEstimateTotal += job.work_estimate ?? 50000;
@@ -962,7 +962,7 @@ async function waitForIndexingJobsToFinish(appId, data) {
         if (!completedIds.has(job.id)) {
           completedIds.add(job.id);
           const msg = indexingJobCompletedMessage(job);
-          if (job.job_status === "errored") {
+          if (job.job_status === 'errored') {
             errorMessages.push(msg);
           } else {
             completedMessages.push(msg);
@@ -980,15 +980,15 @@ async function waitForIndexingJobsToFinish(appId, data) {
       spinner.text = `${jobGroupDescription(jobs)} ${percent}%`;
     }
     if (completedMessages.length) {
-      spinner.prefixText = completedMessages.join("\n") + "\n";
+      spinner.prefixText = completedMessages.join('\n') + '\n';
     }
     waitMs = updated ? 1 : Math.min(10000, waitMs * 2);
     await sleep(waitMs);
     const res = await fetchJson({
-      debugName: "Check indexing status",
-      method: "GET",
+      debugName: 'Check indexing status',
+      method: 'GET',
       path: `/dash/apps/${appId}/indexing-jobs/group/${groupId}`,
-      errorMessage: "Failed to check indexing status.",
+      errorMessage: 'Failed to check indexing status.',
     });
     if (!res.ok) {
       break;
@@ -996,8 +996,8 @@ async function waitForIndexingJobsToFinish(appId, data) {
     jobs = res.data.jobs;
   }
   spinner.stopAndPersist({
-    text: "",
-    prefixText: completedMessages.join("\n"),
+    text: '',
+    prefixText: completedMessages.join('\n'),
   });
 
   // Log errors at the end so that they're easier to see.
@@ -1005,7 +1005,7 @@ async function waitForIndexingJobsToFinish(appId, data) {
     for (const msg of errorMessages) {
       console.log(msg);
     }
-    console.log(chalk.red("Some steps failed while updating schema."));
+    console.log(chalk.red('Some steps failed while updating schema.'));
     process.exit(1);
   }
 }
@@ -1014,13 +1014,13 @@ async function pushSchema(appId, opts) {
   const schema = await readLocalSchemaFileWithErrorLogging();
   if (!schema) return { ok: false };
 
-  console.log("Planning schema...");
+  console.log('Planning schema...');
 
   const planRes = await fetchJson({
-    method: "POST",
+    method: 'POST',
     path: `/dash/apps/${appId}/schema/push/plan`,
-    debugName: "Schema plan",
-    errorMessage: "Failed to update schema.",
+    debugName: 'Schema plan',
+    errorMessage: 'Failed to update schema.',
     body: {
       schema,
       check_types: !opts?.skipCheckTypes,
@@ -1031,69 +1031,69 @@ async function pushSchema(appId, opts) {
   if (!planRes.ok) return planRes;
 
   if (!planRes.data.steps.length) {
-    console.log("No schema changes detected. Skipping.");
+    console.log('No schema changes detected. Skipping.');
     return { ok: true };
   }
 
   console.log(
-    "The following changes will be applied to your production schema:",
+    'The following changes will be applied to your production schema:',
   );
 
   for (const [action, attr] of planRes.data.steps) {
     switch (action) {
-      case "add-attr":
-      case "update-attr": {
-        const valueType = attr["value-type"];
-        const isAdd = action === "add-attr";
-        if (valueType === "blob" && attrFwdLabel(attr) === "id") {
+      case 'add-attr':
+      case 'update-attr': {
+        const valueType = attr['value-type'];
+        const isAdd = action === 'add-attr';
+        if (valueType === 'blob' && attrFwdLabel(attr) === 'id') {
           console.log(
-            `${isAdd ? chalk.magenta("ADD ENTITY") : chalk.magenta("UPDATE ENTITY")} ${attrFwdName(attr)}`,
+            `${isAdd ? chalk.magenta('ADD ENTITY') : chalk.magenta('UPDATE ENTITY')} ${attrFwdName(attr)}`,
           );
           break;
         }
 
-        if (valueType === "blob") {
+        if (valueType === 'blob') {
           console.log(
-            `${isAdd ? chalk.green("ADD ATTR") : chalk.blue("UPDATE ATTR")} ${attrFwdName(attr)} :: unique=${attr["unique?"]}, indexed=${attr["index?"]}`,
+            `${isAdd ? chalk.green('ADD ATTR') : chalk.blue('UPDATE ATTR')} ${attrFwdName(attr)} :: unique=${attr['unique?']}, indexed=${attr['index?']}`,
           );
           break;
         }
 
         console.log(
-          `${isAdd ? chalk.green("ADD LINK") : chalk.blue("UPDATE LINK")} ${attrFwdName(attr)} <=> ${attrRevName(attr)}`,
+          `${isAdd ? chalk.green('ADD LINK') : chalk.blue('UPDATE LINK')} ${attrFwdName(attr)} <=> ${attrRevName(attr)}`,
         );
         break;
       }
-      case "check-data-type": {
+      case 'check-data-type': {
         console.log(
-          `${chalk.green("CHECK TYPE")} ${attrFwdName(attr)} => ${attr["checked-data-type"]}`,
+          `${chalk.green('CHECK TYPE')} ${attrFwdName(attr)} => ${attr['checked-data-type']}`,
         );
         break;
       }
-      case "remove-data-type": {
-        console.log(`${chalk.red("REMOVE TYPE")} ${attrFwdName(attr)} => any`);
+      case 'remove-data-type': {
+        console.log(`${chalk.red('REMOVE TYPE')} ${attrFwdName(attr)} => any`);
         break;
       }
-      case "index": {
-        console.log("%s on %s", chalk.green("ADD INDEX"), attrFwdName(attr));
+      case 'index': {
+        console.log('%s on %s', chalk.green('ADD INDEX'), attrFwdName(attr));
         break;
       }
-      case "remove-index": {
-        console.log("%s on %s", chalk.red("REMOVE INDEX"), attrFwdName(attr));
+      case 'remove-index': {
+        console.log('%s on %s', chalk.red('REMOVE INDEX'), attrFwdName(attr));
         break;
       }
-      case "unique": {
+      case 'unique': {
         console.log(
-          "%s to %s",
-          chalk.green("ADD UNIQUE CONSTRAINT"),
+          '%s to %s',
+          chalk.green('ADD UNIQUE CONSTRAINT'),
           attrFwdName(attr),
         );
         break;
       }
-      case "remove-unique": {
+      case 'remove-unique': {
         console.log(
-          "%s from %s",
-          chalk.red("REMOVE UNIQUE CONSTRAINT"),
+          '%s from %s',
+          chalk.red('REMOVE UNIQUE CONSTRAINT'),
           attrFwdName(attr),
         );
         break;
@@ -1101,14 +1101,14 @@ async function pushSchema(appId, opts) {
     }
   }
 
-  const okPush = await promptOk("OK to proceed?");
+  const okPush = await promptOk('OK to proceed?');
   if (!okPush) return { ok: true };
 
   const applyRes = await fetchJson({
-    method: "POST",
+    method: 'POST',
     path: `/dash/apps/${appId}/schema/push/apply`,
-    debugName: "Schema apply",
-    errorMessage: "Failed to update schema.",
+    debugName: 'Schema apply',
+    errorMessage: 'Failed to update schema.',
     body: {
       schema,
       check_types: !opts?.skipCheckTypes,
@@ -1118,11 +1118,11 @@ async function pushSchema(appId, opts) {
 
   if (!applyRes.ok) return applyRes;
 
-  if (applyRes.data["indexing-jobs"]) {
-    await waitForIndexingJobsToFinish(appId, applyRes.data["indexing-jobs"]);
+  if (applyRes.data['indexing-jobs']) {
+    await waitForIndexingJobsToFinish(appId, applyRes.data['indexing-jobs']);
   }
 
-  console.log(chalk.green("Schema updated!"));
+  console.log(chalk.green('Schema updated!'));
 
   return { ok: true };
 }
@@ -1133,12 +1133,12 @@ async function pushPerms(appId) {
     return;
   }
 
-  console.log("Planning perms...");
+  console.log('Planning perms...');
 
   const prodPerms = await fetchJson({
     path: `/dash/apps/${appId}/perms/pull`,
-    debugName: "Perms pull",
-    errorMessage: "Failed to pull perms.",
+    debugName: 'Perms pull',
+    errorMessage: 'Failed to pull perms.',
   });
 
   if (!prodPerms.ok) return;
@@ -1148,21 +1148,21 @@ async function pushPerms(appId) {
     perms || {},
   );
   if (!diffedStr.length) {
-    console.log("No perms changes detected. Exiting.");
+    console.log('No perms changes detected. Exiting.');
     return;
   }
 
-  console.log("The following changes will be applied to your perms:");
+  console.log('The following changes will be applied to your perms:');
   console.log(diffedStr);
 
-  const okPush = await promptOk("OK to proceed?");
+  const okPush = await promptOk('OK to proceed?');
   if (!okPush) return;
 
   const permsRes = await fetchJson({
-    method: "POST",
+    method: 'POST',
     path: `/dash/apps/${appId}/rules`,
-    debugName: "Schema apply",
-    errorMessage: "Failed to update schema.",
+    debugName: 'Schema apply',
+    errorMessage: 'Failed to update schema.',
     body: {
       code: perms,
     },
@@ -1170,7 +1170,7 @@ async function pushPerms(appId) {
 
   if (!permsRes.ok) return;
 
-  console.log(chalk.green("Permissions updated!"));
+  console.log(chalk.green('Permissions updated!'));
 
   return true;
 }
@@ -1179,10 +1179,10 @@ async function waitForAuthToken({ secret }) {
   for (let i = 1; i <= 120; i++) {
     await sleep(1000);
     const authCheckRes = await fetchJson({
-      method: "POST",
-      debugName: "Auth check",
-      errorMessage: "Failed to check auth status.",
-      path: "/dash/cli/auth/check",
+      method: 'POST',
+      debugName: 'Auth check',
+      errorMessage: 'Failed to check auth status.',
+      path: '/dash/cli/auth/check',
       body: { secret },
       noAuth: true,
       noLogError: true,
@@ -1190,14 +1190,14 @@ async function waitForAuthToken({ secret }) {
     if (authCheckRes.ok) {
       return authCheckRes.data;
     }
-    if (authCheckRes.data?.hint.errors?.[0]?.issue === "waiting-for-user") {
+    if (authCheckRes.data?.hint.errors?.[0]?.issue === 'waiting-for-user') {
       continue;
     }
-    error("Failed to authenticate ");
+    error('Failed to authenticate ');
     prettyPrintJSONErr(authCheckRes.data);
     return;
   }
-  error("Timed out waiting for authentication");
+  error('Timed out waiting for authentication');
   return null;
 }
 
@@ -1238,18 +1238,18 @@ async function fetchJson({
 
   try {
     const res = await fetch(`${instantBackendOrigin}${path}`, {
-      method: method ?? "GET",
+      method: method ?? 'GET',
       headers: {
         ...(withAuth ? { Authorization: `Bearer ${authToken}` } : {}),
-        "Content-Type": "application/json",
-        "Instant-CLI-Version": version,
+        'Content-Type': 'application/json',
+        'Instant-CLI-Version': version,
       },
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(timeoutMs),
     });
 
     if (verbose) {
-      console.log(debugName, "response:", res.status, res.statusText);
+      console.log(debugName, 'response:', res.status, res.statusText);
     }
 
     let data;
@@ -1259,7 +1259,7 @@ async function fetchJson({
       data = null;
     }
     if (verbose && data) {
-      console.log(debugName, "json:", JSON.stringify(data, null, 2));
+      console.log(debugName, 'json:', JSON.stringify(data, null, 2));
     }
     if (!res.ok) {
       if (withErrorLogging) {
@@ -1272,7 +1272,7 @@ async function fetchJson({
     return { ok: true, data };
   } catch (err) {
     if (withErrorLogging) {
-      if (err.name === "AbortError") {
+      if (err.name === 'AbortError') {
         error(
           `Timeout: It took more than ${timeoutMs / 60000} minutes to get the result.`,
         );
@@ -1290,11 +1290,11 @@ function prettyPrintJSONErr(data) {
   }
   if (Array.isArray(data?.hint?.errors)) {
     for (const err of data.hint.errors) {
-      error(`${err.in ? err.in.join("->") + ": " : ""}${err.message}`);
+      error(`${err.in ? err.in.join('->') + ': ' : ''}${err.message}`);
     }
   }
   if (!data) {
-    error("Failed to parse error response");
+    error('Failed to parse error response');
   }
 }
 
@@ -1338,8 +1338,8 @@ async function readLocalPermsFile() {
     sources: [
       // load from `instant.perms.xx`
       {
-        files: "instant.perms",
-        extensions: ["ts", "mts", "cts", "js", "mjs", "cjs", "json"],
+        files: 'instant.perms',
+        extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs', 'json'],
         transform: transformImports,
       },
     ],
@@ -1358,7 +1358,7 @@ async function readLocalPermsFileWithErrorLogging() {
   const { perms } = await readLocalPermsFile();
   if (!perms) {
     error(
-      `We couldn't find your ${chalk.yellow("`instant.perms.ts`")} file. Make sure it's in the root directory.`,
+      `We couldn't find your ${chalk.yellow('`instant.perms.ts`')} file. Make sure it's in the root directory.`,
     );
   }
   return perms;
@@ -1370,8 +1370,8 @@ async function readLocalSchemaFile() {
       sources: [
         // load from `instant.config.xx`
         {
-          files: "instant.schema",
-          extensions: ["ts", "mts", "cts", "js", "mjs", "cjs"],
+          files: 'instant.schema',
+          extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
           transform: transformImports,
         },
       ],
@@ -1388,8 +1388,8 @@ async function readInstantConfigFile() {
       sources: [
         // load from `instant.config.xx`
         {
-          files: "instant.config",
-          extensions: ["ts", "mts", "cts", "js", "mjs", "cjs", "json"],
+          files: 'instant.config',
+          extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs', 'json'],
         },
       ],
       // if false, the only the first matched will be loaded
@@ -1404,7 +1404,7 @@ async function readLocalSchemaFileWithErrorLogging() {
 
   if (!schema) {
     error(
-      `We couldn't find your ${chalk.yellow("`instant.schema.ts`")} file. Make sure it's in the root directory.`,
+      `We couldn't find your ${chalk.yellow('`instant.schema.ts`')} file. Make sure it's in the root directory.`,
     );
     return;
   }
@@ -1424,7 +1424,7 @@ async function readConfigAuthToken() {
 
   const authToken = await readFile(
     getAuthPaths().authConfigFilePath,
-    "utf-8",
+    'utf-8',
   ).catch(() => null);
 
   return authToken;
@@ -1434,7 +1434,7 @@ async function readConfigAuthTokenWithErrorLogging() {
   const token = await readConfigAuthToken();
   if (!token) {
     error(
-      `Looks like you are not logged in. Please log in with ${chalk.green("`instant-cli login`")}`,
+      `Looks like you are not logged in. Please log in with ${chalk.green('`instant-cli login`')}`,
     );
   }
   return token;
@@ -1455,13 +1455,13 @@ async function saveConfigAuthToken(authToken) {
     recursive: true,
   });
 
-  return writeFile(authPaths.authConfigFilePath, authToken, "utf-8");
+  return writeFile(authPaths.authConfigFilePath, authToken, 'utf-8');
 }
 
 function getAuthPaths() {
-  const key = `instantdb-${dev ? "dev" : "prod"}`;
+  const key = `instantdb-${dev ? 'dev' : 'prod'}`;
   const { config: appConfigDirPath } = envPaths(key);
-  const authConfigFilePath = join(appConfigDirPath, "a");
+  const authConfigFilePath = join(appConfigDirPath, 'a');
 
   return { authConfigFilePath, appConfigDirPath };
 }
@@ -1487,19 +1487,19 @@ function capitalizeFirstLetter(string) {
 // attr helpers
 
 function attrFwdLabel(attr) {
-  return attr["forward-identity"]?.[2];
+  return attr['forward-identity']?.[2];
 }
 
 function attrFwdEtype(attr) {
-  return attr["forward-identity"]?.[1];
+  return attr['forward-identity']?.[1];
 }
 
 function attrRevLabel(attr) {
-  return attr["reverse-identity"]?.[2];
+  return attr['reverse-identity']?.[2];
 }
 
 function attrRevEtype(attr) {
-  return attr["reverse-identity"]?.[1];
+  return attr['reverse-identity']?.[1];
 }
 
 function attrFwdName(attr) {
@@ -1507,7 +1507,7 @@ function attrFwdName(attr) {
 }
 
 function attrRevName(attr) {
-  if (attr["reverse-identity"]) {
+  if (attr['reverse-identity']) {
     return `${attrRevEtype(attr)}.${attrRevLabel(attr)}`;
   }
 }
@@ -1515,10 +1515,10 @@ function attrRevName(attr) {
 // templates and constants
 
 export const rels = {
-  "many-false": ["many", "many"],
-  "one-true": ["one", "one"],
-  "many-true": ["many", "one"],
-  "one-false": ["one", "many"],
+  'many-false': ['many', 'many'],
+  'one-true': ['one', 'one'],
+  'many-true': ['many', 'one'],
+  'one-false': ['one', 'many'],
 };
 
 const uuidRegex =
@@ -1556,7 +1556,7 @@ function detectAppIdFromEnvWithErrorLogging() {
     .find(({ value }) => !!value);
   if (found && !isUUID(found.value)) {
     error(
-      `Found ${chalk.green("`" + found.envName + "`")} but it's not a valid UUID.`,
+      `Found ${chalk.green('`' + found.envName + '`')} but it's not a valid UUID.`,
     );
     return { ok: false, found };
   }
@@ -1594,7 +1594,7 @@ function generatePermsTypescriptFile(perms, instantModuleName) {
   return `
 // Docs: https://www.instantdb.com/docs/permissions
 
-import type { InstantRules } from "${instantModuleName ?? "@instantdb/core"}";
+import type { InstantRules } from "${instantModuleName ?? '@instantdb/core'}";
 
 const rules = ${rulesTxt} satisfies InstantRules;
 
@@ -1603,21 +1603,21 @@ export default rules;
 }
 
 function inferredType(config) {
-  const inferredList = config["inferred-types"];
+  const inferredList = config['inferred-types'];
   const hasJustOne = inferredList?.length === 1;
   if (!hasJustOne) return null;
   return inferredList[0];
 }
 
 function deriveClientType(attr) {
-  if (attr["checked-data-type"]) {
-    return { type: attr["checked-data-type"], origin: "checked" };
+  if (attr['checked-data-type']) {
+    return { type: attr['checked-data-type'], origin: 'checked' };
   }
   const inferred = inferredType(attr);
   if (inferred) {
-    return { type: inferred, origin: "inferred" };
+    return { type: inferred, origin: 'inferred' };
   }
-  return { type: "any", origin: "unknown" };
+  return { type: 'any', origin: 'unknown' };
 }
 
 function schemaBlobToCodeStr(name, attrs) {
@@ -1631,7 +1631,7 @@ function schemaBlobToCodeStr(name, attrs) {
     `\n`,
     // a line of code for each attribute in the entity
     sortedEntries(attrs)
-      .filter(([name]) => name !== "id")
+      .filter(([name]) => name !== 'id')
       .map(([name, config]) => {
         const { type } = deriveClientType(config);
 
@@ -1640,17 +1640,17 @@ function schemaBlobToCodeStr(name, attrs) {
           `"${name}"`,
           `: `,
           `i.${type}()`,
-          config["unique?"] ? ".unique()" : "",
-          config["index?"] ? ".indexed()" : "",
+          config['unique?'] ? '.unique()' : '',
+          config['index?'] ? '.indexed()' : '',
           `,`,
-        ].join("");
+        ].join('');
       })
-      .join("\n"),
+      .join('\n'),
     `\n`,
     `  `,
     `})`,
     `,`,
-  ].join("");
+  ].join('');
 }
 
 /**
@@ -1676,30 +1676,30 @@ function entityDefToCodeStr(name, edef) {
     // a line of code for each attribute in the entity
     sortedEntries(edef.attrs)
       .map(([name, attr]) => {
-        const type = attr["valueType"] || "any";
+        const type = attr['valueType'] || 'any';
 
         return [
           `    `,
           `"${name}"`,
           `: `,
           `i.${type}()`,
-          attr?.config["unique"] ? ".unique()" : "",
-          attr?.config["indexed"] ? ".indexed()" : "",
+          attr?.config['unique'] ? '.unique()' : '',
+          attr?.config['indexed'] ? '.indexed()' : '',
           `,`,
-        ].join("");
+        ].join('');
       })
-      .join("\n"),
+      .join('\n'),
     `\n`,
     `  `,
     `})`,
     `,`,
-  ].join("");
+  ].join('');
 }
 
 function roomDefToCodeStr(room) {
-  let ret = "{";
+  let ret = '{';
   if (room.presence) {
-    ret += `${entityDefToCodeStr("presence", room.presence)}`;
+    ret += `${entityDefToCodeStr('presence', room.presence)}`;
   }
   if (room.topics) {
     ret += `topics: {`;
@@ -1708,21 +1708,21 @@ function roomDefToCodeStr(room) {
     }
     ret += `}`;
   }
-  ret += "}";
+  ret += '}';
   return ret;
 }
 
 function roomsCodeStr(rooms) {
-  let ret = "{";
+  let ret = '{';
   for (const [roomType, roomDef] of Object.entries(rooms)) {
     ret += `"${roomType}": ${roomDefToCodeStr(roomDef)},`;
   }
-  ret += "}";
+  ret += '}';
   return ret;
 }
 
 function easyPlural(strn, n) {
-  return n === 1 ? strn : strn + "s";
+  return n === 1 ? strn : strn + 's';
 }
 
 function generateSchemaTypescriptFile(
@@ -1733,21 +1733,21 @@ function generateSchemaTypescriptFile(
   // entities
   const entitiesEntriesCode = sortedEntries(newSchema.blobs)
     .map(([name, attrs]) => schemaBlobToCodeStr(name, attrs))
-    .join("\n");
+    .join('\n');
   const inferredAttrs = Object.values(newSchema.blobs)
     .flatMap(Object.values)
     .filter(
       (attr) =>
-        attrFwdLabel(attr) !== "id" &&
-        deriveClientType(attr).origin === "inferred",
+        attrFwdLabel(attr) !== 'id' &&
+        deriveClientType(attr).origin === 'inferred',
     );
 
   const entitiesObjCode = `{\n${entitiesEntriesCode}\n}`;
   const etypes = Object.keys(newSchema.blobs);
-  const hasOnlyUserTable = etypes.length === 1 && etypes[0] === "$users";
+  const hasOnlyUserTable = etypes.length === 1 && etypes[0] === '$users';
   const entitiesComment =
     inferredAttrs.length > 0
-      ? `// We inferred ${inferredAttrs.length} ${easyPlural("attribute", inferredAttrs.length)}!
+      ? `// We inferred ${inferredAttrs.length} ${easyPlural('attribute', inferredAttrs.length)}!
 // Take a look at this schema, and if everything looks good,
 // run \`push schema\` again to enforce the types.`
       : hasOnlyUserTable
@@ -1756,14 +1756,14 @@ function generateSchemaTypescriptFile(
 // Take a look at the docs to learn more:
 // https://www.instantdb.com/docs/modeling-data#2-attributes
 `.trim()
-        : "";
+        : '';
 
   // links
   const linksEntries = Object.fromEntries(
     sortedEntries(newSchema.refs).map(([_name, config]) => {
-      const [, fe, flabel] = config["forward-identity"];
-      const [, re, rlabel] = config["reverse-identity"];
-      const [fhas, rhas] = rels[`${config.cardinality}-${config["unique?"]}`];
+      const [, fe, flabel] = config['forward-identity'];
+      const [, re, rlabel] = config['reverse-identity'];
+      const [fhas, rhas] = rels[`${config.cardinality}-${config['unique?']}`];
       return [
         `${fe}${capitalizeFirstLetter(flabel)}`,
         {
@@ -1781,7 +1781,7 @@ function generateSchemaTypescriptFile(
       ];
     }),
   );
-  const linksEntriesCode = JSON.stringify(linksEntries, null, "  ").trim();
+  const linksEntriesCode = JSON.stringify(linksEntries, null, '  ').trim();
   const hasNoLinks = Object.keys(linksEntries).length === 0;
   const linksComment = hasNoLinks
     ? `
@@ -1790,7 +1790,7 @@ function generateSchemaTypescriptFile(
   // More in the docs:
   // https://www.instantdb.com/docs/modeling-data#3-links
   `.trim()
-    : "";
+    : '';
 
   // rooms
   const rooms = prevSchema?.rooms || {};
@@ -1801,7 +1801,7 @@ function generateSchemaTypescriptFile(
 // If you use presence, you can define a room schema here
 // https://www.instantdb.com/docs/presence-and-topics#typesafety
   `.trim()
-      : "";
+      : '';
 
   const kv = (k, v, comment) => {
     return comment
@@ -1813,12 +1813,12 @@ function generateSchemaTypescriptFile(
   };
 
   return `
-import { i } from "${instantModuleName ?? "@instantdb/core"}";
+import { i } from "${instantModuleName ?? '@instantdb/core'}";
 
 const _schema = i.schema({
-  ${kv("entities", entitiesObjCode, entitiesComment)},
-  ${kv("links", linksEntriesCode, linksComment)},
-  ${kv("rooms", roomsCode, roomsComment)}
+  ${kv('entities', entitiesObjCode, entitiesComment)},
+  ${kv('links', linksEntriesCode, linksComment)},
+  ${kv('rooms', roomsCode, roomsComment)}
 });
 
 // This helps Typescript display nicer intellisense

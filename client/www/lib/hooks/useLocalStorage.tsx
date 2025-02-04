@@ -6,7 +6,7 @@ function getSnapshot<T>(k: string): T | undefined {
   if (!v) return;
   try {
     return JSON.parse(v);
-  } catch (e) { }
+  } catch (e) {}
 }
 
 function setItem<T>(k: string, v: T | undefined) {
@@ -17,12 +17,12 @@ function setItem<T>(k: string, v: T | undefined) {
   window.localStorage.setItem(k, stringified);
   // localStorage.setItem does not dispatch events to the current
   window.dispatchEvent(
-    new StorageEvent('storage', { key: k, newValue: stringified })
+    new StorageEvent('storage', { key: k, newValue: stringified }),
   );
 }
 
 export default function useLocalStorage<T>(
-  k: string, 
+  k: string,
   defaultValue: T,
 ): [T, (v: T | undefined) => void] {
   const snapshotRef = useRef<T>(getSnapshot<T>(k) || defaultValue);
@@ -39,7 +39,7 @@ export default function useLocalStorage<T>(
   const state = useSyncExternalStore<T>(
     subscribe,
     () => snapshotRef.current,
-    () => defaultValue
+    () => defaultValue,
   );
   return [state, (v: T | undefined) => setItem<T>(k, v)];
 }

@@ -10,15 +10,8 @@ import {
   OAuthClient,
   DashResponse,
 } from '@/lib/types';
-import {
-  Button,
-  Divider,
-  SectionHeading,
-} from '@/components/ui';
-import {
-  APIResponse,
-  useAuthedFetch,
-} from '@/lib/auth';
+import { Button, Divider, SectionHeading } from '@/components/ui';
+import { APIResponse, useAuthedFetch } from '@/lib/auth';
 
 import { AddGoogleProviderForm, GoogleClients } from './auth/Google';
 import { AddClerkProviderForm, ClerkClients } from './auth/Clerk';
@@ -140,7 +133,7 @@ export function AppAuth({
     <div className="flex flex-col p-4 gap-6 max-w-xl">
       <div className="flex flex-col gap-4">
         <SectionHeading>Google Clients</SectionHeading>
-        
+
         {googleProvider ? (
           <GoogleClients
             // Set key because setLastCreatedProviderId is somehow applied after mutate
@@ -206,7 +199,6 @@ export function AppAuth({
           usedClientNames={usedClientNames}
           lastCreatedClientId={lastCreatedClientId}
         />
-        
       </div>
 
       <Divider />
@@ -217,7 +209,7 @@ export function AppAuth({
         onAddOrigin={handleAddOrigin}
         onRemoveOrigin={handleRemoveOrigin}
       />
-      
+
       <Divider />
 
       <Email app={app} dashResponse={dashResponse} nav={nav} />

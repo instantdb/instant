@@ -1,13 +1,13 @@
 export default {
   apps: {
     main: {
-      id: "...",
+      id: '...',
     },
     test: {
-      id: "...",
+      id: '...',
     },
     staging: {
-      id: "...",
+      id: '...',
     },
   },
 };

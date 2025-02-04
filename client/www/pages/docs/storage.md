@@ -120,7 +120,7 @@ function ImageViewer({ image }: { image: Schema.Image }) {
             cachedUrl: url,
             // reset expiration to 7 days from now
             expiresAt: expiresAt,
-          })
+          }),
         );
 
         setImageUrl(url);
