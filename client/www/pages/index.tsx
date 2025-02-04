@@ -113,37 +113,32 @@ const GlowBackground = ({ children }: PropsWithChildren) => (
 );
 
 const ActiveSessionsCallout = () => {
-  // TODO: activate once backend is deployed
-  return null;
+  const { isLoading, error, data } = useTotalSessionsCount({
+    refreshSeconds: 3,
+  });
+  if (isLoading || error || data <= 0) {
+    return <div className="h-8"></div>;
+  }
 
-  // const { isLoading, error, data } = useTotalSessionsCount({
-  //   refreshSeconds: 5,
-  // });
-  // if (isLoading || error || data <= 0) {
-  //   return (
-  //     <div className='h-8'></div>
-  //   );
-  // }
+  const digits = data.toString().split('');
 
-  // const digits = data.toString().split('');
-
-  // return (
-  //   <div className='inline-flex items-center space-x-2 h-8'>
-  //     <div className="inline-flex gap-1">
-  //       {digits.map((d, i) => {
-  //         return (
-  //           <div
-  //             key={i}
-  //             className="text-2xl font-mono w-7 h-8 border border-black leading-none flex items-center justify-center"
-  //           >
-  //             <span>{d}</span>
-  //           </div>
-  //         );
-  //       })}
-  //     </div>
-  //     <div>sessions are connected on Instant right now</div>
-  //   </div>
-  // );
+  return (
+    <div className="inline-flex items-center space-x-2 h-8">
+      <div className="inline-flex gap-1">
+        {digits.map((d, i) => {
+          return (
+            <div
+              key={i}
+              className="text-2xl font-mono w-7 h-8 border border-black leading-none flex items-center justify-center"
+            >
+              <span>{d}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div>sessions are connected on Instant right now</div>
+    </div>
+  );
 };
 
 function LandingHero() {
@@ -855,7 +850,6 @@ export default function Landing2024() {
         <meta name="description" content="A Graph Database on the Client" />
       </Head>
       <GlowBackground>
-        
         {/* 
           hiring-page
         <div className="w-full bg-gray-50/80 p-1 text-center">
