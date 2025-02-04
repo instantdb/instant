@@ -37,7 +37,6 @@
                                           (.instanceIds instance-ids)
                                           (.build))
         ^DescribeInstancesResponse resp (.describeInstances client req)]
-    (tool/def-locals)
     (some->> resp
              (.reservations)
              first
