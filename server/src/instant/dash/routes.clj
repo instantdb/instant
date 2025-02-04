@@ -60,7 +60,8 @@
             [instant.reactive.ephemeral :as eph]
             [instant.machine-summaries :as machine-summaries]
             [instant.storage.coordinator :as storage-coordinator]
-            [instant.model.app-file :as app-file-model])
+            [instant.model.app-file :as app-file-model]
+            [clojure.core.cache.wrapped :as cache])
   (:import
    (com.stripe.model.checkout Session)
    (io.undertow.websockets.core WebSocketChannel)
@@ -1176,6 +1177,19 @@
         token (http-util/req->bearer-token! req)]
     (instant-user-refresh-token-model/delete-by-id! {:id token})
     (response/ok {})))
+
+(def active-session-cache (cache/ttl-cache-factory {} :ttl 5000))
+
+(defn get-total-count-cached []
+  (cache/lookup-or-miss active-session-cache
+                        :total-count
+                        (fn [_]
+                          (->> (machine-summaries/get-all-num-sessions (eph/get-hz))
+                               vals
+                               (reduce +)))))
+
+(defn active-sessions-get [_]
+  (response/ok {:total-count (get-total-count-cached)}))
 
 (defroutes routes
   (POST "/dash/auth/send_magic_code" [] send-magic-code-post)
