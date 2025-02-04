@@ -20,7 +20,7 @@
         org.slf4j/slf4j-api {:mvn/version "2.0.13"}
         cider/cider-nrepl {:mvn/version "0.45.0"}
 
-        amazonica/amazonica {:mvn/version "0.3.167"}
+        software.amazon.awssdk/ec2 {:mvn/version "2.30.11"}
         software.amazon.awssdk/rds {:mvn/version "2.30.11"}
         software.amazon.awssdk/secretsmanager {:mvn/version "2.30.11"}
         software.amazon.awssdk/s3 {:mvn/version "2.30.11"}
