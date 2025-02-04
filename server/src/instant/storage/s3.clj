@@ -55,15 +55,14 @@
   (let [migration? (-> (flags/storage-migration) :disableLegacy? not)]
     (if migration?
       (let [baos (java.io.ByteArrayOutputStream.)
-            bytes (with-open [in file]
-                    (io/copy in baos)
-                    (.toByteArray baos))
+            _ (io/copy file baos)
+            bytes (.toByteArray baos)
             ctx* (assoc ctx :object-key (->object-key app-id path))
             ctx-legacy* (assoc ctx :object-key (->legacy-object-key app-id path))]
         (s3-util/upload-stream-to-s3 ctx-legacy* (io/input-stream bytes))
         (s3-util/upload-stream-to-s3 ctx* (io/input-stream bytes)))
       (let [ctx* (assoc ctx :object-key (->object-key app-id path))]
-        (s3-util/upload-stream-to-s3 ctx* (io/input-stream bytes))))))
+        (s3-util/upload-stream-to-s3 ctx* file)))))
 
 (defn format-object [{:keys [key object-metadata]}]
   (-> object-metadata
