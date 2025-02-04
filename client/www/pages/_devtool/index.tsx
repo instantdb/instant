@@ -9,7 +9,7 @@ import { APIResponse, useAuthToken, useTokenFetch } from '@/lib/auth';
 import { Sandbox } from '@/components/dash/Sandbox';
 import { Explorer } from '@/components/dash/explorer/Explorer';
 import { init } from '@instantdb/react';
-import { useEffect, useState, useContext } from 'react';
+import { useEffect, useState, useContext, useMemo } from 'react';
 import {
   Button,
   Checkbox,
@@ -51,6 +51,13 @@ export default function Devtool() {
         db: InstantReactClient;
       }
   >({ state: 'pending' });
+
+  const isStorageEnabled = useMemo(() => {
+    const storageEnabledAppIds =
+      dashResponse.data?.flags?.storage_enabled_apps ?? [];
+
+    return storageEnabledAppIds.includes(appId);
+  }, [appId, dashResponse.data?.flags?.storage_enabled_apps]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -217,7 +224,11 @@ export default function Devtool() {
           />
           <div className="flex w-full flex-1 overflow-auto">
             {tab === 'explorer' ? (
-              <Explorer db={connection.db} appId={appId} />
+              <Explorer
+                db={connection.db}
+                appId={appId}
+                isStorageEnabled={isStorageEnabled}
+              />
             ) : tab === 'sandbox' ? (
               <div className="min-w-[960px] w-full">
                 <Sandbox app={app} />
