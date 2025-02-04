@@ -30,10 +30,16 @@
 (def default-content-type "application/octet-stream")
 (def default-content-disposition "inline")
 
-(def ^S3Client default-s3-client (.build (S3Client/builder)))
-(def ^S3AsyncClient default-s3-async-client (-> (S3AsyncClient/crtBuilder)
-                                                (.targetThroughputInGbps 20.0)
-                                                (.build)))
+(def default-s3-client* (delay (.build (S3Client/builder))))
+(defn default-s3-client ^S3Client []
+  @default-s3-client*)
+
+(def default-s3-async-client* (delay (-> (S3AsyncClient/crtBuilder)
+                                         (.targetThroughputInGbps 20.0)
+                                         (.build))))
+
+(defn default-s3-async-client ^S3AsyncClient []
+  @default-s3-async-client*)
 
 (def signer-s3-client*
   (delay
@@ -46,7 +52,7 @@
             (.build))
         ;; For OSS developers, use the default credentials provider chain
         ;; so they don't need to set up separate storage credentials
-        default-s3-client))))
+        (default-s3-client)))))
 
 (def presigner* (delay (-> (S3Presigner/builder)
                           (.s3Client @signer-s3-client*)
@@ -62,7 +68,7 @@
                                      true (.bucket bucket-name)
                                      continuation-token (.continuationToken continuation-token)
                                      true (.build))
-         ^ListObjectsV2Response resp (.listObjectsV2 default-s3-client req)]
+         ^ListObjectsV2Response resp (.listObjectsV2 (default-s3-client) req)]
      {:key-count (.keyCount resp)
       :truncated? (.isTruncated resp)
       :bucket-name (.name resp)
@@ -83,7 +89,7 @@
                                     (.bucket bucket-name)
                                     (.key object-key)
                                     (.build))
-         ^HeadObjectResponse resp (.headObject default-s3-client req)]
+         ^HeadObjectResponse resp (.headObject (default-s3-client) req)]
      {:bucket-name bucket-name
       :key object-key
       :object-metadata {:content-disposition (.contentDisposition resp)
@@ -99,7 +105,7 @@
                                       (.bucket bucket-name)
                                       (.key object-key)
                                       (.build))
-         _resp (.deleteObject default-s3-client req)]
+         _resp (.deleteObject (default-s3-client) req)]
      nil)))
 
 (defn delete-objects
@@ -117,7 +123,7 @@
                                        (.bucket bucket-name)
                                        (.delete delete)
                                        (.build))
-         _resp (.deleteObjects default-s3-client req)]
+         _resp (.deleteObjects (default-s3-client) req)]
      nil)))
 
 (defn delete-objects-paginated
@@ -168,9 +174,9 @@
                                  true (.build))]
      (if content-length
        (let [body (AsyncRequestBody/fromInputStream stream content-length default-virtual-thread-executor)]
-         (-> (.putObject default-s3-async-client req body)
+         (-> (.putObject (default-s3-async-client) req body)
              deref))
        (let [^BlockingInputStreamAsyncRequestBody body (AsyncRequestBody/forBlockingInputStream nil)
-             resp (.putObject default-s3-async-client req body)]
+             resp (.putObject (default-s3-async-client) req body)]
          (.writeInputStream body stream)
          (deref resp))))))
