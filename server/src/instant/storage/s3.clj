@@ -2,7 +2,8 @@
   (:require [clojure.string :as string]
             [clojure.java.io :as io]
             [instant.util.s3 :as s3-util]
-            [instant.flags :as flags]))
+            [instant.flags :as flags])
+  (:import [java.time Duration]))
 
 ;; Legacy S3 migration helpers
 ;; ------------------
@@ -55,28 +56,27 @@
   (let [migration? (-> (flags/storage-migration) :disableLegacy? not)]
     (if migration?
       (let [baos (java.io.ByteArrayOutputStream.)
-            bytes (with-open [in file]
-                    (io/copy in baos)
-                    (.toByteArray baos))
+            _ (io/copy file baos)
+            bytes (.toByteArray baos)
             ctx* (assoc ctx :object-key (->object-key app-id path))
             ctx-legacy* (assoc ctx :object-key (->legacy-object-key app-id path))]
         (s3-util/upload-stream-to-s3 ctx-legacy* (io/input-stream bytes))
         (s3-util/upload-stream-to-s3 ctx* (io/input-stream bytes)))
       (let [ctx* (assoc ctx :object-key (->object-key app-id path))]
-        (s3-util/upload-stream-to-s3 ctx* (io/input-stream bytes))))))
+        (s3-util/upload-stream-to-s3 ctx* file)))))
 
 (defn format-object [{:keys [key object-metadata]}]
   (-> object-metadata
       (select-keys [:content-disposition :content-type :content-length :etag])
       (assoc :size (:content-length object-metadata)
-             :last-modified (-> object-metadata :last-modified .getMillis)
+             :last-modified (-> object-metadata :last-modified .toEpochMilli)
              :path (object-key->path key))))
 
 (defn get-object-metadata
   ([app-id path] (get-object-metadata s3-util/default-bucket app-id path))
   ([bucket-name app-id path]
    (let [object-key (->object-key app-id path)]
-     (format-object (s3-util/get-object bucket-name object-key)))))
+     (format-object (s3-util/head-object bucket-name object-key)))))
 
 (defn delete-file! [app-id filename]
   (let [object-key (->object-key app-id filename)]
@@ -87,22 +87,22 @@
     (s3-util/delete-objects-paginated keys)))
 
 (defn create-legacy-signed-download-url! [app-id filename]
-  (let [expiration (+ (System/currentTimeMillis) (* 1000 60 60 24 7)) ;; 7 days
+  (let [duration (Duration/ofDays 7)
         object-key (->legacy-object-key app-id filename)]
     (str (s3-util/generate-presigned-url
           {:method :get
            :bucket-name s3-util/default-bucket
            :key object-key
-           :expiration expiration}))))
+           :duration duration}))))
 
 (defn create-signed-download-url! [app-id filename]
-  (let [expiration (+ (System/currentTimeMillis) (* 1000 60 60 24 7)) ;; 7 days
+  (let [duration (Duration/ofDays 7)
         object-key (->object-key app-id filename)]
     (str (s3-util/generate-presigned-url
           {:method :get
            :bucket-name s3-util/default-bucket
            :key object-key
-           :expiration expiration}))))
+           :duration duration}))))
 
 ;; S3 Usage Metrics
 ;; These functions calculate usage by talking to S3 directly. We can use these

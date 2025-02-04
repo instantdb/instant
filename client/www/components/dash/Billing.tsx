@@ -1,12 +1,12 @@
 import { SectionHeading, Button, Content } from '@/components/ui';
-import { messageFromInstantError, friendlyErrorMessage, useAuthedFetch } from '@/lib/auth';
+import { friendlyErrorMessage, useAuthedFetch } from '@/lib/auth';
+import { messageFromInstantError } from '@/lib/errors';
 import config, { stripeKey } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
 import {
   AppsSubscriptionResponse,
   InstantError,
-  SubscriptionName,
 } from '@/lib/types';
 import { loadStripe } from '@stripe/stripe-js';
 import { useContext, useRef } from 'react';

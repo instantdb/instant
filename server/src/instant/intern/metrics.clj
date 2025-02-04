@@ -22,7 +22,8 @@
    [incanter.charts :as charts]
    [instant.util.exception :as ex]
    [clojure.java.shell :as shell]
-   [honey.sql :as hsql])
+   [honey.sql :as hsql]
+   [instant.util.date :as date])
   (:import [org.jfree.chart.renderer.category BarRenderer]
            [org.jfree.chart.labels StandardCategoryItemLabelGenerator]
            [org.jfree.chart.axis CategoryLabelPositions]
@@ -39,6 +40,15 @@
 (defn excluded-emails []
   (let [{:keys [test team friend]} (get-emails)]
     (vec (concat test team friend))))
+
+(defn get-latest-daily-tx-date [conn]
+  (.toLocalDate
+   (:date
+    (sql/select-one conn ["SELECT MAX(date) AS date FROM daily_app_transactions"]))))
+
+(comment
+  (tool/with-prod-conn [conn]
+    (get-latest-daily-tx-date conn)))
 
 (defn calendar-weekly-actives
   ([]
@@ -126,15 +136,14 @@
                       :window-days 30})))
 
 (defn month-to-date-actives
-  "Given the `target-month`
-   For each `day` in the month, calculates month-to-date active metrics"
-  [conn {:keys [target-month]}]
-  (let [start-of-month (.withDayOfMonth target-month 1)
-        end-of-month   (.withDayOfMonth target-month (.lengthOfMonth target-month))
+  "Given the `end-date`
+   For each `day` in the month, calculates month-to-date active metrics until end-date (inclusive)"
+  [conn {:keys [end-date]}]
+  (let [start-of-month (.withDayOfMonth end-date 1)
         query {:with [[:date_series
                        {:select [[[:cast [:generate_series
                                           [:date_trunc "day" [:cast start-of-month :date]]
-                                          [:date_trunc "day" [:cast end-of-month :date]]
+                                          [:date_trunc "day" [:cast end-date :date]]
                                           [:interval "1 day"]]
                                    :date]
                                   :analysis_date]]}]
@@ -164,7 +173,7 @@
 (comment
   (tool/with-prod-conn [conn]
     (month-to-date-actives conn
-                           {:target-month (LocalDate/parse "2025-02-01")})))
+                           {:end-date (LocalDate/parse "2025-02-03")})))
 
 (defn monthly-active-summary
   [conn {:keys [target-month]}]
@@ -264,22 +273,22 @@
 
     chart))
 
-(defn generate-line-chart [metrics x-key y1-key title]
-  (let [x-values (map x-key metrics)
-        y-values (map y1-key metrics)
-        chart (charts/line-chart x-values y-values
-                                 :title title
-                                 :x-label ""
-                                 :y-label "")
-        plot (.getPlot chart)
-        renderer (.getRenderer plot)
-        x-axis (.getDomainAxis plot)
-        y-axis (.getRangeAxis plot)
-        chart-title (.getTitle chart)
-        max-x-ticks (Math/ceil (/ (count x-values) 6))
-        y-tick-unit (Math/ceil (/ (apply max y-values) 8))]
+(defn cleanup-line-chart!
+  [chart]
+  (let [plot         (.getPlot chart)
+        renderer     (.getRenderer plot)
+        x-axis       (.getDomainAxis plot)
+        y-axis       (.getRangeAxis plot)
+        chart-title  (.getTitle chart)
 
-    ;; Add padding
+        dataset      (.getDataset plot)
+        x-values     (.getColumnKeys dataset)
+        num-cats     (count x-values)
+        max-x-ticks  (if (pos? num-cats)
+                       (Math/ceil (/ num-cats 6))
+                       1)
+        y-tick-unit  (Math/ceil (/ (.getUpperBound y-axis) 8))]
+    ;; Add padding 
     (.setPadding chart-title (RectangleInsets. 20 0 20 0))
     (.setInsets plot (RectangleInsets. 0 0 0 50))
     (.setTickLabelInsets y-axis (RectangleInsets. 0 10 0 20))
@@ -288,10 +297,16 @@
     ;; Adjust ticks
     (.setTickUnit y-axis (org.jfree.chart.axis.NumberTickUnit. y-tick-unit))
     (.setCategoryLabelPositions x-axis CategoryLabelPositions/DOWN_45)
-    (doseq [i (range (count x-values))]
-      (when (not (zero? (mod i max-x-ticks)))
-        (.setTickLabelPaint x-axis (nth x-values i) (Color. 255 255 255 0))))
 
+    ;; First, reset all tick labels to the default color (black).
+    (doseq [cat x-values]
+      (.setTickLabelPaint x-axis cat Color/black))
+
+    ;; Then hide intermediate tick labels.
+    (doseq [i (range num-cats)]
+      (when (not (zero? (mod i max-x-ticks)))
+        (.setTickLabelPaint x-axis (nth x-values i)
+                            (Color. 255 255 255 0))))
     ;; Remove distracting background colors
     (.setSeriesPaint renderer 0 (Color. 0 0 0))
     (.setBackgroundPaint plot (Color. 255 255 255))
@@ -299,11 +314,25 @@
 
     chart))
 
-(defn add-goal-line
+(defn generate-line-chart [metrics x-key y1-key title]
+  (let [x-values (map x-key metrics)
+        y-values (map y1-key metrics)
+        chart (charts/line-chart x-values y-values
+                                 :title title
+                                 :x-label ""
+                                 :y-label "")]
+    (cleanup-line-chart! chart)
+    chart))
+
+(defn add-goal-line!
   "Given an existing line chart for (metrics, x-key, y-key): 
    Overlays a `goal-line`, which goes linearily towards `end-goal`"
-  [chart metrics x-key y-key end-goal]
-  (let [x-values (map x-key metrics)
+  [chart metrics y-key end-goal target-date]
+  (let [start-of-month (.withDayOfMonth target-date 1)
+        end-of-month (.withDayOfMonth target-date (.lengthOfMonth target-date))
+        x-values (->> (iterate #(.plusDays % 1) start-of-month)
+                      (take-while #(not (.isAfter % end-of-month)))
+                      (into []))
         y-values (map y-key metrics)
         n (count x-values)
         baseline (first y-values)
@@ -317,8 +346,12 @@
 ;; ---------------- 
 ;; Overview Metrics 
 
-(defn overview-metrics [conn target-date]
-  (let [days-ago-30 (.minusDays target-date 30)
+(defn local-analysis-date [x]
+  (.toLocalDate (:analysis_date x)))
+
+(defn overview-metrics [conn]
+  (let [target-date (get-latest-daily-tx-date conn)
+        days-ago-30 (.minusDays target-date 30)
         rolling-monthly-stats (rolling-actives conn
                                                {:start-date days-ago-30
                                                 :end-date target-date
@@ -326,33 +359,36 @@
 
         prev-month (.minusMonths target-date 1)
         prev-month-stats (monthly-active-summary conn {:target-month prev-month})
-        month-to-date-stats (month-to-date-actives conn {:target-month target-date})
+        month-to-date-stats (month-to-date-actives conn {:end-date target-date})
 
         _ (ex/assert-valid! :stats rolling-monthly-stats (when (or (empty? rolling-monthly-stats)
                                                                    (empty? month-to-date-stats)
                                                                    (nil? prev-month-stats))
                                                            [{:message "No data found for stats"}]))
 
-        rolling-monthly-active-apps (generate-line-chart  rolling-monthly-stats
-                                                          :analysis_date :distinct_apps
-                                                          "Rolling Monthly Active Apps >= 1 tx")
+        rolling-monthly-active-apps (generate-line-chart rolling-monthly-stats
+                                                         :analysis_date
+                                                         :distinct_apps
+                                                         "Rolling Monthly Active Apps >= 1 tx")
 
         month-to-date-active-apps (->  (generate-line-chart month-to-date-stats
-                                                            :analysis_date
+                                                            local-analysis-date
                                                             :distinct_apps
                                                             "Month To Date Active Apps >= 1 tx")
-                                       (add-goal-line month-to-date-stats
-                                                      :analysis_date
-                                                      :distinct_apps
-                                                      (* 1.2 (:distinct_apps prev-month-stats))))]
-    {:data-points {:rolling-monthly-active-apps rolling-monthly-active-apps
-                   :month-to-date-active-apps month-to-date-active-apps}
+                                       (add-goal-line! month-to-date-stats
+                                                       :distinct_apps
+                                                       (* 1.2 (:distinct_apps prev-month-stats))
+                                                       target-date)
+
+                                       cleanup-line-chart!)]
+    {:date (date/numeric-date-str target-date)
+     :data-points {:rolling-monthly-stats rolling-monthly-stats}
      :charts {:rolling-monthly-active-apps rolling-monthly-active-apps
               :month-to-date-active-apps month-to-date-active-apps}}))
 
 (comment
   (def overview-metrics (tool/with-prod-conn [conn]
-                          (overview-metrics conn (.minusDays (LocalDate/now) 1))))
+                          (overview-metrics conn)))
 
   (doseq [[k chart] (:charts overview-metrics)]
     (save-chart-into-file! chart (str "resources/metrics/" (name k) ".png")))

@@ -1051,3 +1051,9 @@ export function twel<T = {}>(
 export function cn(...inputs: clsx.ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+export function FullscreenLoading() {
+  return (
+    <div className="animate-slow-pulse flex w-full flex-1 flex-col bg-gray-300"></div>
+  );
+}

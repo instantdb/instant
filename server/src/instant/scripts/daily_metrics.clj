@@ -107,7 +107,7 @@
        (insert-new-activity)
        (let [stats (get-daily-actives date-minus-one-str)
              conn (aurora/conn-pool :read)
-             charts (->> (metrics/overview-metrics conn (.minusDays (LocalDate/now) 1))
+             charts (->> (metrics/overview-metrics conn)
                          :charts
                          (map (fn [[k chart]]
                                 {:name (format "%s.png" (name k))

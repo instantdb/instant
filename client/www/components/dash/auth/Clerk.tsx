@@ -22,11 +22,14 @@ import {
 } from '@heroicons/react/solid';
 import clerkLogoSvg from '../../../public/img/clerk_logo_black.svg';
 import Image from 'next/image';
-import {
-  messageFromInstantError,
-} from '@/lib/auth';
+import { messageFromInstantError } from '@/lib/errors';
 import { addProvider, addClient, deleteClient, findName } from './shared';
-import { InstantApp, InstantError, OAuthClient, OAuthServiceProvider } from '@/lib/types';
+import {
+  InstantApp,
+  InstantError,
+  OAuthClient,
+  OAuthServiceProvider,
+} from '@/lib/types';
 
 export function AddClerkProviderForm({
   app,
@@ -360,7 +363,9 @@ export function AddClerkClientForm({
   usedClientNames: Set<string>;
 }) {
   const token = useContext(TokenContext);
-  const [clientName, setClientName] = useState<string>(() => findName('clerk', usedClientNames));
+  const [clientName, setClientName] = useState<string>(() =>
+    findName('clerk', usedClientNames),
+  );
   const [publishableKey, setPublishableKey] = useState<string>('');
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -535,7 +540,7 @@ export function ClerkClients({
           />
         );
       })}
-      
+
       {showAddClientForm ? (
         <>
           <AddClerkClientForm
@@ -548,10 +553,10 @@ export function ClerkClients({
         </>
       ) : (
         <Button onClick={() => setShowAddClientForm(true)} variant="secondary">
-          <PlusIcon height={14} /> Add {clients.length > 0 ? 'another ' : ''}Clerk app
+          <PlusIcon height={14} /> Add {clients.length > 0 ? 'another ' : ''}
+          Clerk app
         </Button>
       )}
-      
     </div>
   );
 }
