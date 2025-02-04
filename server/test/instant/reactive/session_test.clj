@@ -706,14 +706,14 @@
 
         (let [msgs (read-msgs 2 socket)
               join-room-ok (ucoll/seek (fn [msg] (= :join-room-ok (:op msg))) msgs)
-              rid (:room-id join-room-ok)]
+              room-id (:room-id join-room-ok)]
 
-          (is (= #{:join-room-ok :refresh-presence}
-                 (set (map :op msgs))))
+          (is (= [:join-room-ok :refresh-presence]
+                 (sort (map :op msgs))))
 
           (is join-room-ok)
 
-          (is (= rid room-id))
+          (is (= room-id room-id))
           (is (eph/in-room? movies-app-id rid sess-id)))))))
 
 (deftest leave-room-works
