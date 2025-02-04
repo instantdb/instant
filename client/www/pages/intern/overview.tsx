@@ -120,7 +120,7 @@ export function Main() {
   const charts = daily.data['charts'];
   const sessions = flattenedSessionReports(
     minute.data['session-reports'],
-  ).toSorted((a: any, b: any) => a.count - b.count);
+  ).toSorted((a: any, b: any) => b.count - a.count);
   const totalSessions = sessions.reduce(
     (acc: number, x: any) => acc + x.count,
     0,
