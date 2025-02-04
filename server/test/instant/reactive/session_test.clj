@@ -711,6 +711,9 @@
               join-room-ok (ucoll/seek (fn [msg] (= :join-room-ok (:op msg))) msgs)
               rid (:room-id join-room-ok)]
 
+          (is (= #{:join-room-ok :refresh-presence}
+                 (set (map :op msgs))))
+
           (is join-room-ok)
 
           (is (= rid room-id))
