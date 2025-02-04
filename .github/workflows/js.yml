@@ -91,7 +91,9 @@ jobs:
 
       - name: Check prettier formatting
         working-directory: client
-        run: pnpm run check-format 2>&1 | tee prettier-errors.out
+        run: |
+          set -o pipefail
+          pnpm run check-format 2>&1 | tee prettier-errors.out
 
       - name: Generate messages
         working-directory: client
