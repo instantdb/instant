@@ -25,7 +25,8 @@
    [instant.util.tracer :as tracer])
   (:import
    (java.lang InterruptedException)
-   (java.util.concurrent CancellationException)))
+   (java.util.concurrent CancellationException)
+   (io.undertow.websockets.spi WebSocketHttpExchange)))
 
 (declare store-conn)
 
@@ -114,6 +115,16 @@
 ;; -----
 ;; reports
 
+(defn socket-origin [{:keys [^WebSocketHttpExchange http-req]}]
+  (some-> http-req
+          (.getRequestHeaders)
+          (.get "origin")
+          first))
+
+(defn socket-ip [{:keys [^WebSocketHttpExchange http-req]}]
+  (some-> http-req
+          (.getRequestHeader "cf-connecting-ip")))
+
 (defn auth-and-creator-attrs [auth creator]
   {:app-title (-> auth :app :title)
    :app-id (-> auth :app :id)
@@ -126,7 +137,10 @@
               (let [ent (d/entity db e)]
                 (assoc (auth-and-creator-attrs (:session/auth ent)
                                                (:session/creator ent))
-                       :session-id (:session/id ent)))))))
+                       :session-id (:session/id ent)
+                       :socket-origin (some-> ent
+                                              :session/socket
+                                              socket-origin)))))))
 
 (comment
   (report-active-sessions @store-conn))

@@ -9,6 +9,7 @@ import { FullscreenLoading, LogoIcon } from '@/components/ui';
 import Head from 'next/head';
 import { format, parse, subDays } from 'date-fns';
 import useCurrentDate from '@/lib/hooks/useCurrentDate';
+import produce from 'immer';
 
 async function fetchDailyOverview(token: string) {
   return jsonFetch(`${config.apiURI}/dash/overview/daily`, {
@@ -86,22 +87,68 @@ function useMinuteOverview(token: string) {
   return { ...state, sentAt };
 }
 
+function mergeOrigins(originsA: any, originsB: any) {
+  const ret = { ...originsA };
+  for (const origin in originsB) {
+    if (origin in ret) {
+      ret[origin] += originsB[origin];
+    } else {
+      ret[origin] = originsB[origin];
+    }
+  }
+  return ret;
+}
+
+function mergeSessions(sessA: any, sessB: any) {
+  const ret = { ...sessA };
+  ret.count += sessB.count;
+  ret.origins = mergeOrigins(sessA.origins, sessB.origins);
+
+  return ret;
+}
+
 function flattenedSessionReports(machineToReport: any) {
-  const merged: any = {};
+  const res: any = {};
   for (const memberId in machineToReport) {
     const memberReports = machineToReport[memberId];
     for (const sessionId in memberReports) {
-      const session = memberReports[sessionId];
-      if (merged[sessionId]) {
-        merged[sessionId].count = merged[sessionId].count + session.count;
-      } else {
-        merged[sessionId] = { ...session };
-      }
+      const curr = memberReports[sessionId];
+      const prev = res[sessionId];
+      res[sessionId] = prev ? mergeSessions(prev, curr) : curr;
     }
   }
-  const items = Object.values(merged);
+  const items = Object.values(res);
   return items;
 }
+
+const OriginColumn = ({ origins }: { origins: any }) => {
+  if (!origins || Object.keys(origins).length === 0) return '-';
+
+  const originEntries = Object.entries(origins).toSorted(
+    (a: any, b: any) => b[1] - a[1],
+  );
+  const [mostFrequentOrigin] = originEntries[0];
+  const otherCount = originEntries.length - 1;
+
+  const isLocalhost = mostFrequentOrigin.includes('localhost');
+  return (
+    <span>
+      {isLocalhost ? (
+        mostFrequentOrigin
+      ) : (
+        <a href={mostFrequentOrigin} target="_blank" rel="noreferrer">
+          {mostFrequentOrigin}
+        </a>
+      )}
+      {otherCount > 0 && (
+        <span className="text-sm text-gray-500">
+          {' '}
+          (+{otherCount} other{otherCount > 1 ? 's' : ''})
+        </span>
+      )}
+    </span>
+  );
+};
 
 export function Main() {
   const token = useAuthToken();
@@ -163,7 +210,6 @@ export function Main() {
             </div>
           </div>
         </div>
-        {/* I want this part to scroll */}
         <div className="flex-1 p-4 space-y-2 flex flex-col min-h-0">
           <h3 className="text-lg">{format(minute.sentAt, 'hh:mma')}</h3>
           <div className="flex justify-between items-baseline">
@@ -188,6 +234,9 @@ export function Main() {
                     <td className="px-4 py-2">{session['app-title']}</td>
                     <td className="px-4 py-2">
                       {session['creator-email'] || '-'}
+                    </td>
+                    <td className="px-4 py-2">
+                      <OriginColumn origins={session['origins']} />
                     </td>
                     <td className="px-4 py-2 text-right">{session.count}</td>
                   </tr>
