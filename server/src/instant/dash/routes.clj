@@ -293,12 +293,14 @@
         _ (assert-admin-email! email)
         conn (aurora/conn-pool :read)
         overview (metrics/overview-metrics conn)
+        rev-subs (dash-admin/get-revenue-generating-subscriptions)
         overview-with-b64-charts
         (update overview :charts (partial medley/map-vals
                                           (fn [chart] (metrics/chart->base64-png chart
                                                                                  500 400))))]
 
-    (response/ok overview-with-b64-charts)))
+    (response/ok (assoc overview-with-b64-charts
+                        :num-rev-subs (count rev-subs)))))
 
 (defn admin-overview-minute-get [req]
   (let [{:keys [email]} (req->auth-user! req)

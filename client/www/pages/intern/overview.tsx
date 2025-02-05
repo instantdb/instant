@@ -209,7 +209,7 @@ export function Main() {
             </div>
           </div>
         </div>
-        <div className="flex-1 p-4 space-y-2 flex flex-col min-h-0">
+        <div className="flex-1 p-4 space-y-2 flex flex-col min-h-0 w-1/2">
           <h3 className="text-lg">{format(minute.sentAt, 'hh:mma')}</h3>
           <div className="flex justify-between items-baseline">
             <div className="inline-flex items-baseline space-x-4 justify-between">

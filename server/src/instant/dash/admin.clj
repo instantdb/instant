@@ -53,7 +53,7 @@
   "Fetches the users with their transactions in the last `n` days."
   ([]
    (get-top-users (aurora/conn-pool :read) 7))
-   ([n]
+  ([n]
    (get-top-users (aurora/conn-pool :read) n))
   ([conn n]
    (let [interval (str n " days")]  ;; Create the interval string dynamically
@@ -71,22 +71,26 @@
                         ORDER BY total_transactions DESC;")
                   (with-meta (excluded-emails) {:pgtype "text[]"})]))))
 
+(defn get-revenue-generating-subscriptions
+  []
+  (filter (fn [s] (pos? (:monthly-revenue s)))
+          (stripe/subscriptions)))
+
 (defn get-paid
   ([] (get-paid (aurora/conn-pool :read)))
   ([conn]
-   (let [subscriptions (stripe/subscriptions)]
+   (let [subscriptions (get-revenue-generating-subscriptions)]
      (sql/select conn
                  (hsql/format
                   {:with [[[:stripe-subs
                             {:columns [:subscription-id
                                        :monthly-revenue
                                        :start-timestamp]}]
-                           {:values (keep (fn [s]
-                                            (when (pos? (:monthly-revenue s))
-                                              [(:subscription-id s)
-                                               (:monthly-revenue s)
-                                               (:start-timestamp s)]))
-                                          subscriptions)}]]
+                           {:values (map (fn [s]
+                                           [(:subscription-id s)
+                                            (:monthly-revenue s)
+                                            (:start-timestamp s)])
+                                         subscriptions)}]]
                    :select [[:apps.title :app_title]
                             [:i_users.email :user_email]
                             :monthly-revenue
