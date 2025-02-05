@@ -40,7 +40,7 @@
 ;; ws
 
 (defn session-get [_req]
-  (session/undertow-config rs/store-conn
+  (session/undertow-config rs/store
                            receive-queue/receive-q
                            {:id (squuid)}))
 
