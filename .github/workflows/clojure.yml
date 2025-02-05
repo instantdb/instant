@@ -77,7 +77,7 @@ jobs:
         ./server/dev-resources/import_test_data.sh
 
     - name: Install clojure tools
-      uses: DeLaGuardo/setup-clojure@10.2
+      uses: DeLaGuardo/setup-clojure@13.1
       with:
         cli: 1.11.3.1463
 
@@ -124,7 +124,7 @@ jobs:
         java-version: '22'
 
     - name: Install clojure tools
-      uses: DeLaGuardo/setup-clojure@10.2
+      uses: DeLaGuardo/setup-clojure@13.1
       with:
         cli: 1.11.3.1463
 
@@ -162,7 +162,7 @@ jobs:
         java-version: '22'
 
     - name: Install clojure tools
-      uses: DeLaGuardo/setup-clojure@10.2
+      uses: DeLaGuardo/setup-clojure@13.1
       with:
         cli: 1.11.3.1463
 
