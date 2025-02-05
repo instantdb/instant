@@ -16,9 +16,7 @@
    [clj-async-profiler.core :as prof])
   (:import
    (clojure.lang Compiler TaggedLiteral)
-   (com.github.vertical_blank.sqlformatter SqlFormatter)
-   (java.awt Toolkit)
-   (java.awt.datatransfer StringSelection)))
+   (com.github.vertical_blank.sqlformatter SqlFormatter)))
 
 (defmacro def-locals*
   [prefix]
@@ -130,12 +128,15 @@
          " -d \"" param-str "\"")))
 
 (defn copy
-  "Stringifies the argument and copies it to the clipboard."
+  "Stringifies the argument and copies it to the clipboard"
   [x]
-  (.. Toolkit
-      (getDefaultToolkit)
-      (getSystemClipboard)
-      (setContents (StringSelection. (str x)) nil)))
+  (let [pb (ProcessBuilder. ["pbcopy"])
+        p (.start pb)
+        os (.getOutputStream p)]
+    (.write os (.getBytes (str x)))
+    (.close os)
+    (.waitFor p)
+    x))
 
 (def ^:dynamic *time-tracker* nil)
 
