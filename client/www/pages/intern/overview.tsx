@@ -124,12 +124,22 @@ const OriginColumn = ({ origins }: { origins: any }) => {
   if (!origins || Object.keys(origins).length === 0) return '-';
 
   const originEntries = Object.entries(origins).toSorted(
-    (a: any, b: any) => b[1] - a[1],
+    (a: any, b: any) => b[1] - a[1]
   );
-  const [mostFrequentOrigin] = originEntries[0];
-  const otherCount = originEntries.length - 1;
+
+  const [mostFrequentOrigin, ...extraOrigins] = originEntries.map(x => x[0]);
+  
+  const extraCount = extraOrigins.length;
+
+  // Cap the tooltip list to a maximum of 5 origins
+  const maxDisplay = 5;
+  const displayedExtraOrigins = extraOrigins.slice(0, maxDisplay);
+  const extraOriginsTitle =
+    displayedExtraOrigins.join(', ') +
+    (extraCount > maxDisplay ? ', ...' : '');
 
   const isLocalhost = mostFrequentOrigin.includes('localhost');
+
   return (
     <span>
       {isLocalhost ? (
@@ -139,10 +149,13 @@ const OriginColumn = ({ origins }: { origins: any }) => {
           {mostFrequentOrigin}
         </a>
       )}
-      {otherCount > 0 && (
-        <span className="text-sm text-gray-500">
+      {extraCount > 0 && (
+        <span
+          className="text-sm text-gray-500"
+          title={extraOriginsTitle} // Tooltip shows extra origins on hover
+        >
           {' '}
-          (+{otherCount} other{otherCount > 1 ? 's' : ''})
+          (+{extraCount} other{extraCount > 1 ? 's' : ''})
         </span>
       )}
     </span>
