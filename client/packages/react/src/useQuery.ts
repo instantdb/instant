@@ -9,8 +9,8 @@ import {
   InstantCoreDatabase,
   InstaQLLifecycleState,
   InstantSchemaDef,
-} from "@instantdb/core";
-import { useCallback, useRef, useSyncExternalStore } from "react";
+} from '@instantdb/core';
+import { useCallback, useRef, useSyncExternalStore } from 'react';
 
 const defaultState = {
   isLoading: true,
@@ -47,9 +47,9 @@ export function useQueryInternal<
   // to compare the previous and next state.
   // If we don't use a ref, the state will always be considered different, so
   // the component will always re-render.
-  const resultCacheRef = useRef<
-    InstaQLLifecycleState<Schema, Q>
-  >(stateForResult(_core._reactor.getPreviousResult(query)));
+  const resultCacheRef = useRef<InstaQLLifecycleState<Schema, Q>>(
+    stateForResult(_core._reactor.getPreviousResult(query)),
+  );
 
   // Similar to `resultCacheRef`, `useSyncExternalStore` will unsubscribe
   // if `subscribe` changes, so we use `useCallback` to memoize the function.
@@ -79,9 +79,7 @@ export function useQueryInternal<
     [queryHash],
   );
 
-  const state = useSyncExternalStore<
-    InstaQLLifecycleState<Schema, Q>
-  >(
+  const state = useSyncExternalStore<InstaQLLifecycleState<Schema, Q>>(
     subscribe,
     () => resultCacheRef.current,
     () => defaultState,

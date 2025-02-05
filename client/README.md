@@ -30,7 +30,7 @@ pnpm i
 make dev
 ```
 
-With that, all frontend code should be up and running! 
+With that, all frontend code should be up and running!
 
 ## Dashboard & Docs
 
@@ -43,20 +43,21 @@ If you press `cmd + shift + 9`, you'll also see a devtool window pop up. This ca
 Right now all backend requests will go to api.instantdb.com. If you want to develop against your local backend, load [localhost:3000](http://localhost:3000), and set the `devBackend` flag:
 
 ```javascript
-localStorage.setItem("devBackend", true);
+localStorage.setItem('devBackend', true);
 ```
 
 Now all requests will go to your local backend at [localhost:8888](http://localhost:8888). If you haven't set up a local backend, follow the [server README](../server/README.md)
 
 ### Show client logs
 
-The instant client can show development logs. You can turn this on by writing: 
+The instant client can show development logs. You can turn this on by writing:
 
 ```
 localStorage.setItem("__instantLogging", true);
 ```
 
 ### Running a local app
+
 You can create local apps by following these steps
 
 1. On localhost:3000, click "Sign up" in the upper right corner.
@@ -79,7 +80,7 @@ const db = init({
 
 ## Packages and sandbox
 
-All client SDKs live in `packages/`. 
+All client SDKs live in `packages/`.
 
 To develop against them, we've created a few `sandbox` examples. These examples let you locally test changes to the client SDK. We recommend you create an app in your dev environment and use it in each directories `.env` file
 

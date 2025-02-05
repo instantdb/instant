@@ -27,7 +27,7 @@ jobs:
 
       - uses: pnpm/action-setup@v2
         with:
-          version: '8.15.6'
+          version: '10.2.0'
 
       - name: Setup Node.js environment
         uses: actions/setup-node@v4
@@ -55,6 +55,43 @@ jobs:
       - name: Run benchmarks
         working-directory: client
         run: pnpm run bench
+
+  check_formatting:
+    name: Check formatting
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Cache turbo build setup
+        uses: actions/cache@v4
+        with:
+          path: client/.turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: '10.2.0'
+
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 23
+          cache: 'pnpm'
+          cache-dependency-path: client/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: client
+        run: pnpm i --frozen-lockfile
+
+      - name: Check prettier formatting
+        working-directory: client
+        run: pnpm run check-format
 
   detect_docs:
     runs-on: ubuntu-latest
@@ -104,7 +141,7 @@ jobs:
           ${{ runner.os }}-turbo-
     - uses: pnpm/action-setup@v2
       with:
-        version: '8.15.6'
+        version: '10.2.0'
     - name: Setup Node.js environment
       uses: actions/setup-node@v4
       with:
@@ -139,7 +176,7 @@ jobs:
           ${{ runner.os }}-turbo-
     - uses: pnpm/action-setup@v2
       with:
-        version: '8.15.6'
+        version: '10.2.0'
     - name: Setup Node.js environment
       uses: actions/setup-node@v4
       with:
@@ -219,7 +256,7 @@ jobs:
           ${{ runner.os }}-turbo-
     - uses: pnpm/action-setup@v2
       with:
-        version: '8.15.6'
+        version: '10.2.0'
     - name: Setup Node.js environment
       uses: actions/setup-node@v4
       with:

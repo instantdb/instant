@@ -3,7 +3,7 @@
             [clojure.string :as string]
             [clojure.set :as set]
             [clojure.tools.logging :as log]
-            [compojure.core :refer [defroutes GET POST DELETE] :as compojure]
+            [compojure.core :refer [defroutes GET POST DELETE PUT] :as compojure]
             [instant.dash.admin :as dash-admin]
             [instant.model.app :as app-model]
             [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
@@ -36,7 +36,6 @@
             [instant.util.uuid :as uuid-util]
             [instant.util.string :as string-util]
             [instant.util.number :as number-util]
-            [instant.util.storage :as storage-util]
             [instant.session-counter :as session-counter]
             [ring.middleware.cookies :refer [wrap-cookies]]
             [ring.util.http-response :as response]
@@ -53,12 +52,16 @@
             [instant.lib.ring.websocket :as ws]
             [instant.jdbc.aurora :as aurora]
             [instant.stripe :as stripe]
-            [instant.storage.s3 :as s3-util]
             [instant.storage.beta :as storage-beta]
             [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
             [instant.model.schema :as schema-model]
             [instant.intern.metrics :as metrics]
-            [medley.core :as medley])
+            [medley.core :as medley]
+            [instant.reactive.ephemeral :as eph]
+            [instant.machine-summaries :as machine-summaries]
+            [instant.storage.coordinator :as storage-coordinator]
+            [instant.model.app-file :as app-file-model]
+            [clojure.core.cache.wrapped :as cache])
   (:import
    (com.stripe.model.checkout Session)
    (io.undertow.websockets.core WebSocketChannel)
@@ -284,6 +287,26 @@
                                          (fn [chart] (metrics/chart->base64-png chart
                                                                                 500 400))))]
     (response/ok {:metrics metrics-with-b64-charts})))
+
+(defn admin-overview-daily-get [req]
+  (let [{:keys [email]} (req->auth-user! req)
+        _ (assert-admin-email! email)
+        conn (aurora/conn-pool :read)
+        overview (metrics/overview-metrics conn)
+        overview-with-b64-charts
+        (update overview :charts (partial medley/map-vals
+                                          (fn [chart] (metrics/chart->base64-png chart
+                                                                                 500 400))))]
+
+    (response/ok overview-with-b64-charts)))
+
+(defn admin-overview-minute-get [req]
+  (let [{:keys [email]} (req->auth-user! req)
+        _ (assert-admin-email! email)
+        hz (eph/get-hz)
+        session-reports (machine-summaries/get-all-session-reports hz)]
+    (response/ok
+     {:session-reports session-reports})))
 
 (defn admin-paid-get [req]
   (let [{:keys [email]} (req->auth-user! req)]
@@ -661,16 +684,6 @@
 
 (def default-subscription "Free")
 
-(defn calculate-storage-usage [app-id]
-  (let [objects-resp (s3-util/list-app-objects app-id)
-        objects (:object-summaries objects-resp)
-        usage (reduce (fn [acc obj] (+ acc (:size obj))) 0 objects)]
-    usage))
-
-(comment
-  (def app-id  #uuid "524bc106-1f0d-44a0-b222-923505264c47")
-  (calculate-storage-usage app-id))
-
 (defn checkout-session-post [req]
   (let [{{app-id :id app-title :title} :app
          {user-id :id user-email :email :as user} :user} (req->app-and-user! req)
@@ -710,7 +723,7 @@
         {subscription-name :name stripe-subscription-id :stripe_subscription_id}
         (instant-subscription-model/get-by-app-id {:app-id app-id})
         {total-app-bytes :num_bytes} (app-model/app-usage {:app-id app-id})
-        total-storage-bytes (calculate-storage-usage app-id)]
+        total-storage-bytes (:total_byte_size (app-file-model/get-app-usage app-id))]
     (response/ok {:subscription-name (or subscription-name default-subscription)
                   :stripe-subscription-id stripe-subscription-id
                   :total-app-bytes total-app-bytes
@@ -944,51 +957,27 @@
 ;; ---
 ;; Storage
 
-(defn signed-download-url-get [req]
-  (let [filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
-        {{app-id :id} :app} (req->app-and-user! :collaborator req)
-        data (storage-util/create-signed-download-url! app-id filename)]
-    (response/ok {:data data})))
-
-(defn signed-upload-url-post [req]
-  (let [filename (ex/get-param! req [:body :filename] string-util/coerce-non-blank-str)
-        {{app-id :id} :app} (req->app-and-user! :collaborator req)
-        data (storage-util/create-signed-upload-url! app-id filename)]
-    (response/ok {:data data})))
-
-;; Retrieves all files that have been uploaded via Storage APIs
-(defn files-get [req]
+(defn upload-put [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        subdirectory (-> req :params :subdirectory)
-        data (storage-util/list-files! app-id subdirectory)]
+        params (:headers req)
+        path (ex/get-param! params ["path"] string-util/coerce-non-blank-str)
+        file (ex/get-param! req [:body] identity)
+        data (storage-coordinator/upload-file!
+              {:app-id app-id
+               :path path
+               :file file
+               :content-type (:content-type req)
+               :content-length (:content-length req)
+               :skip-perms-check? true}
+              file)]
     (response/ok {:data data})))
 
-;; Deletes a single file by name/path (e.g. "demo.png", "profiles/me.jpg")
-(defn file-delete [req]
-  (let [filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
-        {{app-id :id} :app} (req->app-and-user! :collaborator req)
-        data (storage-util/delete-file! app-id filename)]
-    (response/ok {:data data})))
-
-;; Deletes a multiple files by name/path (e.g. "demo.png", "profiles/me.jpg")
 (defn files-delete [req]
-  (let [filenames (ex/get-param! req [:body :filenames] seq)
+  (let [filenames (ex/get-param! req [:body :filenames] vec)
         {{app-id :id} :app} (req->app-and-user! :collaborator req)
-        data (storage-util/bulk-delete-files! app-id filenames)]
+        data (storage-coordinator/delete-files! {:app-id app-id
+                                                 :paths filenames})]
     (response/ok {:data data})))
-
-(comment
-  (def app-id  #uuid "524bc106-1f0d-44a0-b222-923505264c47")
-  (def user (instant-user-model/get-by-email {:email "alex@instantdb.com"}))
-  (def guest (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
-  (def refresh-token (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id (:id user)}))
-  (def guest-refresh-token (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id (:id guest)}))
-  (files-get {:params {:app_id app-id}
-              :headers {"authorization" (str "Bearer " (:id refresh-token))}})
-  (files-get {:params {:app_id app-id}
-              :headers {"authorization" (str "Bearer " (:id guest-refresh-token))}})
-  (file-delete {:params {:app_id app-id :filename "pika.webp"}
-                :headers {"authorization" (str "Bearer " (:id refresh-token))}}))
 
 ;; ---
 ;; CLI
@@ -1190,6 +1179,19 @@
     (instant-user-refresh-token-model/delete-by-id! {:id token})
     (response/ok {})))
 
+(def active-session-cache (cache/ttl-cache-factory {} :ttl 5000))
+
+(defn get-total-count-cached []
+  (cache/lookup-or-miss active-session-cache
+                        :total-count
+                        (fn [_]
+                          (->> (machine-summaries/get-all-num-sessions (eph/get-hz))
+                               vals
+                               (reduce +)))))
+
+(defn active-sessions-get [_]
+  (response/ok {:total-count (get-total-count-cached)}))
+
 (defroutes routes
   (POST "/dash/auth/send_magic_code" [] send-magic-code-post)
   (POST "/dash/auth/verify_magic_code" [] verify-magic-code-post)
@@ -1200,6 +1202,8 @@
   (GET "/dash/paid" [] admin-paid-get)
   (GET "/dash/storage" [] admin-storage-get)
   (GET "/dash/investor_updates" [] admin-investor-updates-get)
+  (GET "/dash/overview/daily" [] admin-overview-daily-get)
+  (GET "/dash/overview/minute" [] admin-overview-minute-get)
 
   (GET "/dash" [] dash-get)
   (POST "/dash/apps" [] apps-post)
@@ -1257,11 +1261,9 @@
 
   (POST "/dash/apps/:app_id/rename" [] app-rename-post)
 
-  (POST "/dash/apps/:app_id/storage/signed-upload-url" [] signed-upload-url-post)
-  (GET "/dash/apps/:app_id/storage/signed-download-url", [] signed-download-url-get)
-  (GET "/dash/apps/:app_id/storage/files" [] files-get)
-  (DELETE "/dash/apps/:app_id/storage/files" [] file-delete) ;; single delete
-  (POST "/dash/apps/:app_id/storage/files/delete" [] files-delete) ;; bulk delete
+  ;; Storage
+  (PUT "/dash/apps/:app_id/storage/upload", [] upload-put)
+  (POST "/dash/apps/:app_id/storage/files/delete" [] files-delete)
 
   (POST "/dash/apps/:app_id/schema/push/plan" [] schema-push-plan-post)
   (POST "/dash/apps/:app_id/schema/push/apply" [] schema-push-apply-post)
@@ -1274,4 +1276,6 @@
 
   (GET "/dash/ws_playground" [] ws-playground-get)
 
-  (POST "/dash/signout" [] signout))
+  (POST "/dash/signout" [] signout)
+
+  (GET "/dash/stats/active_sessions" [] active-sessions-get))

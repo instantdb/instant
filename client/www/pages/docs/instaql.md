@@ -1093,38 +1093,28 @@ const query = {
 } satisfies InstaQLParams<AppSchema>;
 ```
 
-Or you can define your result type: 
+Or you can define your result type:
 
 ```typescript
 import { InstaQLResult } from '@instantdb/react';
 import { AppSchema } from '../instant.schema.ts';
 
-type GoalsTodosResult = InstaQLResult<
-  AppSchema, 
-  { goals: { todos: {} } }
->;
+type GoalsTodosResult = InstaQLResult<AppSchema, { goals: { todos: {} } }>;
 ```
 
-Or you can extract a particular entity: 
+Or you can extract a particular entity:
 
 ```typescript
 import { InstaQLEntity } from '@instantdb/react';
 import { AppSchema } from '../instant.schema.ts';
 
-type Todo = InstaQLEntity<
-  AppSchema, 
-  'todos'
->;
+type Todo = InstaQLEntity<AppSchema, 'todos'>;
 ```
 
 You can specify links relative to your entity too:
 
-```typescript 
-type TodoWithGoals = InstaQLEntity<
-  AppSchema, 
-  'todos', 
-  { goals: { } }
->;
+```typescript
+type TodoWithGoals = InstaQLEntity<AppSchema, 'todos', { goals: {} }>;
 ```
 
 To learn more about writing schemas, check out the [Modeling Data](/docs/modeling-data) section.

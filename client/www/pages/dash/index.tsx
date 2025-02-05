@@ -35,6 +35,7 @@ import {
   Content,
   Copyable,
   Dialog,
+  FullscreenLoading,
   Label,
   ScreenHeading,
   SectionHeading,
@@ -181,7 +182,7 @@ export default function DashV2() {
               onClick={() => {
                 try {
                   window.close();
-                } catch (error) { }
+                } catch (error) {}
                 cliAuthCompleteDialog.onClose();
               }}
             >
@@ -396,6 +397,7 @@ function Dashboard() {
   }
 
   async function onDeleteApp(app: InstantApp) {
+    successToast(`${app.title} was deleted!`);
     const _apps = apps.filter((a) => a.id !== app.id);
     dashResponse.mutate((data) =>
       produce(data, (d) => {
@@ -440,9 +442,9 @@ function Dashboard() {
         {screen === 'new' ? (
           <CreateApp onDone={onCreateApp} />
         ) : dashResponse.isLoading ? (
-          <Loading />
+          <FullscreenLoading />
         ) : dashResponse.error ? (
-          <ErrorMessage message={errMessage(dashResponse.error)} />
+          <FullscreenErrorMessage message={errMessage(dashResponse.error)} />
         ) : showAppOnboarding ? (
           <Onboarding
             onCreate={async (p) => {
@@ -484,7 +486,11 @@ function Dashboard() {
                 {tab === 'home' ? (
                   <Home />
                 ) : tab === 'explorer' ? (
-                  <ExplorerTab appId={appId} db={connection.db} />
+                  <ExplorerTab
+                    appId={appId}
+                    db={connection.db}
+                    isStorageEnabled={isStorageEnabled}
+                  />
                 ) : tab === 'repl' ? (
                   <QueryInspector
                     className="flex-1 w-full"
@@ -843,11 +849,24 @@ function Home() {
   );
 }
 
-function ExplorerTab({ db, appId }: { db: InstantReactClient; appId: string }) {
+function ExplorerTab({
+  db,
+  appId,
+  isStorageEnabled,
+}: {
+  db: InstantReactClient;
+  appId: string;
+  isStorageEnabled: boolean;
+}) {
   return (
     <div className="flex-1 overflow-hidden flex flex-col">
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Explorer db={db} appId={appId} key={db._core._reactor.config.appId} />
+        <Explorer
+          db={db}
+          appId={appId}
+          isStorageEnabled={isStorageEnabled}
+          key={db._core._reactor.config.appId}
+        />
       </div>
     </div>
   );
@@ -1041,7 +1060,9 @@ function Admin({
 }) {
   const token = useContext(TokenContext);
   const [deleteAppOk, updateDeleteAppOk] = useState(false);
+  const [isDeletingApp, setIsDeletingApp] = useState(false);
   const [clearAppOk, updateClearAppOk] = useState(false);
+  const [isClearingApp, setIsClearingApp] = useState(false);
   const [editMember, setEditMember] = useState<InstantMember | null>();
   const [hideAdminToken, setHideAdminToken] = useState(true);
   const clearDialog = useDialog();
@@ -1356,9 +1377,10 @@ function Admin({
                 label="I understand and want to clear this app."
               />
               <Button
-                disabled={!clearAppOk}
+                disabled={!clearAppOk || isClearingApp}
                 variant="destructive"
                 onClick={async () => {
+                  setIsClearingApp(true);
                   await jsonFetch(
                     `${config.apiURI}/dash/apps/${app.id}/clear`,
                     {
@@ -1370,12 +1392,13 @@ function Admin({
                     },
                   );
 
+                  setIsClearingApp(false);
                   clearDialog.onClose();
                   dashResponse.mutate();
                   successToast('App cleared!');
                 }}
               >
-                Clear data
+                {isClearingApp ? 'Clearing data...' : 'Clear data'}
               </Button>
             </div>
           </Dialog>
@@ -1393,9 +1416,10 @@ function Admin({
                 label="I understand and want to delete this app."
               />
               <Button
-                disabled={!deleteAppOk}
+                disabled={!deleteAppOk || isDeletingApp}
                 variant="destructive"
                 onClick={async () => {
+                  setIsDeletingApp(true);
                   await jsonFetch(`${config.apiURI}/dash/apps/${app.id}`, {
                     method: 'DELETE',
                     headers: {
@@ -1403,11 +1427,11 @@ function Admin({
                       'content-type': 'application/json',
                     },
                   });
-
+                  setIsDeletingApp(false);
                   onDelete();
                 }}
               >
-                Delete
+                {isDeletingApp ? 'Deleting...' : 'Delete'}
               </Button>
             </div>
           </Dialog>
@@ -1444,13 +1468,7 @@ function CreateApp({ onDone }: { onDone: (o: { name: string }) => void }) {
   );
 }
 
-function Loading() {
-  return (
-    <div className="animate-slow-pulse flex w-full flex-1 flex-col bg-gray-300"></div>
-  );
-}
-
-function ErrorMessage({ message }: { message: string }) {
+function FullscreenErrorMessage({ message }: { message: string }) {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-2">
       <div className="rounded bg-red-100 p-4 text-red-700">{message}</div>

@@ -4,8 +4,6 @@ import useSwr, { SWRResponse } from 'swr';
 import config from './config';
 import { jsonFetch, jsonMutate } from './fetch';
 import { TokenContext } from '@/lib/contexts';
-import { InstantError } from './types';
-import { capitalize } from 'lodash';
 import produce, { Draft } from 'immer';
 
 // ----------
@@ -119,47 +117,10 @@ export function useTokenFetch<Res>(
   };
 }
 
-// --------
-// Error Messages
-
-const friendlyName = (s: string) => {
-  return s.replaceAll(/[_-]/g, ' ');
-};
-
-const friendlyNameFromIn = (inArr: string[]) => {
-  return friendlyName(inArr[inArr.length - 1]);
-};
-
-/* Standardize error messages from Instant */
-export const messageFromInstantError = (
-  e: InstantError,
-): string | undefined => {
-  const body = e.body;
-  if (!body) return;
-  switch (body.type) {
-    case 'param-missing':
-      return `${capitalize(friendlyNameFromIn(body.hint.in))} is missing.`;
-    case 'param-malformed':
-      return `${capitalize(friendlyNameFromIn(body.hint.in))} is malformed`;
-    case 'record-not-found':
-      return `We couldn't find this ${friendlyName(body.hint['record-type'])}`;
-    case 'record-not-unique':
-      return `This ${friendlyName(body.hint['record-type'])} already exists`;
-    case 'validation-failed':
-      const error = body.hint.errors?.[0]?.message;
-      if (typeof error === 'string') {
-        return error;
-      }
-      return;
-    default:
-      return body.message;
-  }
-};
-
 /**
-  * Friendly error messages to display to our users
-  * We can add more cases as we encounter them
-*/
+ * Friendly error messages to display to our users
+ * We can add more cases as we encounter them
+ */
 export function friendlyErrorMessage(label: string, message: string) {
   switch (label) {
     case 'dash-billing':

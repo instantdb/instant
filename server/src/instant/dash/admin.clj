@@ -6,8 +6,7 @@
    [clojure.core :as c]
    [instant.flags :refer [get-emails]]
    [instant.stripe :as stripe]
-   [instant.model.app :as app-model]
-   [instant.util.storage :as storage-util]))
+   [instant.model.app-file :as app-file-model]))
 
 ;; Fetch our last 50 sign-ups. We want to
 ;; see whether people are finishing sign-up and
@@ -112,24 +111,10 @@
                           [:instant_users :i_users] [:= :i_subs.user_id :i_users.id]]
                    :order-by [[:start-timestamp :desc]]})))))
 
-(defn format-app-storage-usage [{:keys [app-id app metrics]}]
-  (merge app {:app_id app-id
-              :total_byte_size (:total-byte-size metrics)
-              :total_file_count (:total-file-count metrics)}))
-
-(defn get-storage-metrics []
-  (let [metrics-by-app-id (storage-util/calculate-app-metrics)
-        app-ids (keys metrics-by-app-id)
-        apps (app-model/get-with-creator-by-ids app-ids)
-        apps-by-id (into {} (map (fn [app] [(str (:id app)) app]) apps))]
-    (->> app-ids
-         (map #(format-app-storage-usage
-                {:app-id %
-                 :app (apps-by-id %)
-                 :metrics (metrics-by-app-id %)}))
-         (sort-by :total_byte_size >))))
+(def get-storage-metrics app-file-model/get-all-apps-usage)
 
 (comment
+  (get-recent)
   (get-top-users)
   (get-paid)
   (get-storage-metrics))

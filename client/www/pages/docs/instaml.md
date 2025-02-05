@@ -296,10 +296,10 @@ Instant also comes with a few utility types, which can help you write abstractio
 
 ```typescript
 // Goal
-myCustomUpdate('todos', { dueDate: Date.now() } );
+myCustomUpdate('todos', { dueDate: Date.now() });
 ```
 
-You can use the `UpdateParams` utility to make sure arguments follow the schema: 
+You can use the `UpdateParams` utility to make sure arguments follow the schema:
 
 ```typescript
 import { UpdateParams } from '@instantdb/react';
@@ -315,7 +315,7 @@ function myCustomUpdate<EType extends EntityTypes>(
 }
 ```
 
-And the `LinkParams` utility do the same for links: 
+And the `LinkParams` utility do the same for links:
 
 ```typescript
 import { LinkParams } from '@instantdb/react';

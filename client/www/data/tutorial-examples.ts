@@ -36,11 +36,11 @@ export function getFiles(): Record<string, File> {
         .filter(
           (l) =>
             l.indexOf('// hide-line') === -1 &&
-            l.indexOf('// @ts-nocheck') === -1
+            l.indexOf('// @ts-nocheck') === -1,
         )
         .join('\n');
 
       return [pathName, { fileName, pathName, name, code: _code }];
-    })
+    }),
   );
 }

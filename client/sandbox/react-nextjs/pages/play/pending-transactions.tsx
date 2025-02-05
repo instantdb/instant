@@ -1,6 +1,6 @@
-import { init, id } from "@instantdb/react";
-import { useEffect, useState } from "react";
-import config from "../../config";
+import { init, id } from '@instantdb/react';
+import { useEffect, useState } from 'react';
+import config from '../../config';
 
 const db = init(config);
 
@@ -20,14 +20,14 @@ function Main() {
     return unsub;
   }, []);
   const pendingTxToPrint = [...(pendingTxs?.values() || [])].map((x) => {
-    return x["tx-steps"][1][3];
+    return x['tx-steps'][1][3];
   });
   return (
     <div>
       <ul>
         <li> Add a `(Thread/sleep (rand-int 5000))` to handle-transact </li>
         <li>
-          {" "}
+          {' '}
           Click `transact`, and make sure that we in fact _are_ processing
           transactions in order
         </li>
@@ -47,7 +47,8 @@ function Main() {
           className="bg-black text-white"
           onClick={() => {
             db.transact(
-              query.data?.stickers.map((x) => db.tx.strickers[x.id].delete()) ?? [],
+              query.data?.stickers.map((x) => db.tx.strickers[x.id].delete()) ??
+                [],
             );
           }}
         >

@@ -1,8 +1,8 @@
-import "react-native-get-random-values";
+import 'react-native-get-random-values';
 
-import Storage from "./Storage";
-import NetworkListener from "./NetworkListener";
-import version from "./version";
+import Storage from './Storage';
+import NetworkListener from './NetworkListener';
+import version from './version';
 
 import {
   // react
@@ -17,7 +17,7 @@ import {
   type InstantObject,
   type AuthState,
   type User,
-} from "@instantdb/react";
+} from '@instantdb/react';
 import {
   i,
   id,
@@ -53,14 +53,18 @@ import {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
+  type ExchangeCodeForTokenParams,
+  type SendMagicCodeParams,
+  type SendMagicCodeResponse,
+  type SignInWithIdTokenParams,
+  type VerifyMagicCodeParams,
+  type VerifyResponse,
 
-  type ExchangeCodeForTokenParams, 
-  type SendMagicCodeParams, 
-  type SendMagicCodeResponse, 
-  type SignInWithIdTokenParams, 
-  type VerifyMagicCodeParams, 
-  type VerifyResponse 
-} from "@instantdb/core";
+  // storage types
+  type FileOpts,
+  type UploadFileResponse,
+  type DeleteFileResponse,
+} from '@instantdb/core';
 
 /**
  *
@@ -79,21 +83,21 @@ import {
  *  import schema from ""../instant.schema.ts";
  *
  *  const db = init({ appId: "my-app-id", schema })
- *  
+ *
  *  // To learn more: https://instantdb.com/docs/modeling-data
  */
 function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
 >(config: InstantConfig<Schema>) {
   return new InstantReactNativeDatabase<Schema>(config, {
-    "@instantdb/react-native": version,
+    '@instantdb/react-native': version,
   });
 }
 
 /**
  * @deprecated
  * `init_experimental` is deprecated. You can replace it with `init`.
- * 
+ *
  * @example
  *
  * // Before
@@ -158,11 +162,15 @@ export {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
+  type ExchangeCodeForTokenParams,
+  type SendMagicCodeParams,
+  type SendMagicCodeResponse,
+  type SignInWithIdTokenParams,
+  type VerifyMagicCodeParams,
+  type VerifyResponse,
 
-  type ExchangeCodeForTokenParams, 
-  type SendMagicCodeParams, 
-  type SendMagicCodeResponse, 
-  type SignInWithIdTokenParams, 
-  type VerifyMagicCodeParams, 
-  type VerifyResponse 
+  // storage types
+  type FileOpts,
+  type UploadFileResponse,
+  type DeleteFileResponse,
 };

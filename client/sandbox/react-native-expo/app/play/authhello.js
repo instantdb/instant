@@ -1,7 +1,7 @@
-import React, { useState } from "react";
-import { View, Text, TextInput, Button, Alert, ScrollView } from "react-native";
-import { init, tx, id } from "@instantdb/react-native";
-import config from "../config";
+import React, { useState } from 'react';
+import { View, Text, TextInput, Button, Alert, ScrollView } from 'react-native';
+import { init, tx, id } from '@instantdb/react-native';
+import config from '../config';
 
 const db = init(config);
 
@@ -21,9 +21,9 @@ function App() {
 
 function Login() {
   const [state, setState] = useState({
-    sentEmail: "",
-    email: "",
-    code: "",
+    sentEmail: '',
+    email: '',
+    code: '',
   });
   const { sentEmail, email, code } = state;
 
@@ -42,8 +42,8 @@ function Login() {
             onPress={() => {
               setState({ ...state, sentEmail: email });
               db.auth.sendMagicCode({ email }).catch((err) => {
-                Alert.alert("Uh oh: " + err.body?.message);
-                setState({ ...state, sentEmail: "" });
+                Alert.alert('Uh oh: ' + err.body?.message);
+                setState({ ...state, sentEmail: '' });
               });
             }}
           />
@@ -62,8 +62,8 @@ function Login() {
               db.auth
                 .signInWithMagicCode({ email: sentEmail, code })
                 .catch((err) => {
-                  Alert.alert("Uh oh: " + err.body?.message);
-                  setState({ ...state, code: "" });
+                  Alert.alert('Uh oh: ' + err.body?.message);
+                  setState({ ...state, code: '' });
                 });
             }}
           />
@@ -88,15 +88,15 @@ function DemoData({ user, db }) {
           const todoBId = id();
           transact([
             tx.todos[todoAId].update({
-              title: "Go on a run",
+              title: 'Go on a run',
               creatorId: user.id,
             }),
             tx.todos[todoBId].update({
-              title: "Drink a protein shake",
+              title: 'Drink a protein shake',
               creatorId: user.id,
             }),
             tx.goals[id()]
-              .update({ title: "Get six pack abs", creatorId: user.id })
+              .update({ title: 'Get six pack abs', creatorId: user.id })
               .link({ todos: todoAId })
               .link({ todos: todoBId }),
           ]);

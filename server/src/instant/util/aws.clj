@@ -1,10 +1,21 @@
 (ns instant.util.aws
   (:require [clj-http.client :as clj-http]
-            [amazonica.aws.ec2 :as ec2]))
+            [instant.util.coll :as ucoll])
+  (:import
+   (java.time Instant)
+   (software.amazon.awssdk.services.ec2 Ec2Client)
+   (software.amazon.awssdk.services.ec2.model DescribeInstancesRequest
+                                              DescribeInstancesResponse
+                                              Filter
+                                              Instance
+                                              Reservation
+                                              Tag)))
+
+(set! *warn-on-reflection* true)
 
 (def environment-tag-name "elasticbeanstalk:environment-name")
 
-(defn get-instance-id []
+(defn get-instance-id ^String []
   (let [token (-> (clj-http/put
 
                    "http://169.254.169.254/latest/api/token"
@@ -20,16 +31,22 @@
    https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
    Then fetches the instance info from the aws api to get the tags."
   [tag-name]
-  (let [instance-id (get-instance-id)]
-    (->> (ec2/describe-instances {:instance-ids [instance-id]})
-         :reservations
-         first
-         :instances
-         first
-         :tags
-         (filter (fn [t] (= (:key t) tag-name)))
-         first
-         :value)))
+  (let [^java.util.Collection instance-ids [(get-instance-id)]
+        ^Ec2Client client (.build (Ec2Client/builder))
+        ^DescribeInstancesRequest req (-> (DescribeInstancesRequest/builder)
+                                          (.instanceIds instance-ids)
+                                          (.build))
+        ^DescribeInstancesResponse resp (.describeInstances client req)]
+    (some->> resp
+             (.reservations)
+             first
+             (#(.instances ^Reservation % ))
+             first
+             (#(.tags ^Instance %))
+             (filter (fn [^Tag t]
+                       (= (.key t) tag-name)))
+             first
+             (#(.value ^Tag %)))))
 
 (defn get-environment-tag []
   (get-tag environment-tag-name))
@@ -50,13 +67,20 @@
 (defn oldest-instance-timestamp
   ([]
    (oldest-instance-timestamp (get-environment-tag)))
-  ([env-tag-value]
-   (some->> (ec2/describe-instances
-             {:filters [{:Name (str "tag:" environment-tag-name)
-                         :Values [env-tag-value]}]})
-            :reservations
-            (mapcat :instances)
-            (map :launch-time)
-            sort
-            first
-            (.getMillis))))
+  ([^String env-tag-value]
+   (let [^Ec2Client client (.build (Ec2Client/builder))
+         filters (ucoll/array-of Filter [(-> (Filter/builder)
+                                             (.name (str "tag:" environment-tag-name))
+                                             (.values (ucoll/array-of String [env-tag-value]))
+                                             (.build))])
+         ^DescribeInstancesRequest req (-> (DescribeInstancesRequest/builder)
+                                           (.filters filters)
+                                           (.build))
+         ^DescribeInstancesResponse resp (.describeInstances client req)]
+     (some->> resp
+              (.reservations)
+              (mapcat (fn [^Reservation r] (.instances r)))
+              (map (fn [^Instance i] (.launchTime i)))
+              sort
+              first
+              (#(.toEpochMilli ^Instant %))))))

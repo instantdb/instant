@@ -5,7 +5,7 @@ import {
   type RoomSchemaShape,
   InstantCoreDatabase,
   InstantSchemaDef,
-} from "@instantdb/core";
+} from '@instantdb/core';
 
 import {
   KeyboardEvent,
@@ -13,9 +13,9 @@ import {
   useEffect,
   useMemo,
   useState,
-} from "react";
+} from 'react';
 
-import { useTimeout } from "./useTimeout";
+import { useTimeout } from './useTimeout';
 
 export type PresenceHandle<
   PresenceShape,
@@ -61,13 +61,13 @@ export const defaultActivityStopTimeout = 1_000;
 export function useTopicEffect<
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
-  TopicType extends keyof RoomSchema[RoomType]["topics"],
+  TopicType extends keyof RoomSchema[RoomType]['topics'],
 >(
   room: InstantReactRoom<any, RoomSchema, RoomType>,
   topic: TopicType,
   onEvent: (
-    event: RoomSchema[RoomType]["topics"][TopicType],
-    peer: RoomSchema[RoomType]["presence"],
+    event: RoomSchema[RoomType]['topics'][TopicType],
+    peer: RoomSchema[RoomType]['presence'],
   ) => any,
 ): void {
   useEffect(() => {
@@ -101,11 +101,11 @@ export function useTopicEffect<
 export function usePublishTopic<
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
-  TopicType extends keyof RoomSchema[RoomType]["topics"],
+  TopicType extends keyof RoomSchema[RoomType]['topics'],
 >(
   room: InstantReactRoom<any, RoomSchema, RoomType>,
   topic: TopicType,
-): (data: RoomSchema[RoomType]["topics"][TopicType]) => void {
+): (data: RoomSchema[RoomType]['topics'][TopicType]) => void {
   useEffect(() => room._core._reactor.joinRoom(room.id), [room.id]);
 
   const publishTopic = useCallback(
@@ -143,13 +143,13 @@ export function usePublishTopic<
 export function usePresence<
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
-  Keys extends keyof RoomSchema[RoomType]["presence"],
+  Keys extends keyof RoomSchema[RoomType]['presence'],
 >(
   room: InstantReactRoom<any, RoomSchema, RoomType>,
-  opts: PresenceOpts<RoomSchema[RoomType]["presence"], Keys> = {},
-): PresenceHandle<RoomSchema[RoomType]["presence"], Keys> {
+  opts: PresenceOpts<RoomSchema[RoomType]['presence'], Keys> = {},
+): PresenceHandle<RoomSchema[RoomType]['presence'], Keys> {
   const [state, setState] = useState<
-    PresenceResponse<RoomSchema[RoomType]["presence"], Keys>
+    PresenceResponse<RoomSchema[RoomType]['presence'], Keys>
   >(() => {
     return (
       room._core._reactor.getPresence(room.type, room.id, opts) ?? {
@@ -202,7 +202,7 @@ export function useSyncPresence<
   RoomType extends keyof RoomSchema,
 >(
   room: InstantReactRoom<any, RoomSchema, RoomType>,
-  data: Partial<RoomSchema[RoomType]["presence"]>,
+  data: Partial<RoomSchema[RoomType]['presence']>,
   deps?: any[],
 ): void {
   useEffect(() => room._core._reactor.joinRoom(room.id), [room.id]);
@@ -237,7 +237,7 @@ export function useTypingIndicator<
   room: InstantReactRoom<any, RoomSchema, RoomType>,
   inputName: string,
   opts: TypingIndicatorOpts = {},
-): TypingIndicatorHandle<RoomSchema[RoomType]["presence"]> {
+): TypingIndicatorHandle<RoomSchema[RoomType]['presence']> {
   const timeout = useTimeout();
 
   const observedPresence = rooms.usePresence(room, {
@@ -277,7 +277,7 @@ export function useTypingIndicator<
   );
   const onKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      const isEnter = opts?.stopOnEnter && e.key === "Enter";
+      const isEnter = opts?.stopOnEnter && e.key === 'Enter';
       const isActive = !isEnter;
 
       setActive(isActive);
@@ -291,7 +291,7 @@ export function useTypingIndicator<
   const inputProps = useMemo(() => {
     return { onKeyDown, onBlur };
   }, [onKeyDown, onBlur]);
-  
+
   return {
     active,
     setActive,
@@ -342,11 +342,11 @@ export class InstantReactRoom<
    * const room = db.room('chat', 'room-id');
    * db.rooms.useTopicEffect(room, 'emoji', (message, peer) => {  });
    */
-  useTopicEffect = <TopicType extends keyof RoomSchema[RoomType]["topics"]>(
+  useTopicEffect = <TopicType extends keyof RoomSchema[RoomType]['topics']>(
     topic: TopicType,
     onEvent: (
-      event: RoomSchema[RoomType]["topics"][TopicType],
-      peer: RoomSchema[RoomType]["presence"],
+      event: RoomSchema[RoomType]['topics'][TopicType],
+      peer: RoomSchema[RoomType]['presence'],
     ) => any,
   ): void => {
     rooms.useTopicEffect(this, topic, onEvent);
@@ -366,9 +366,9 @@ export class InstantReactRoom<
    * const room = db.room('chat', 'room-id');
    * const publish = db.rooms.usePublishTopic(room, 'emoji');
    */
-  usePublishTopic = <Topic extends keyof RoomSchema[RoomType]["topics"]>(
+  usePublishTopic = <Topic extends keyof RoomSchema[RoomType]['topics']>(
     topic: Topic,
-  ): ((data: RoomSchema[RoomType]["topics"][Topic]) => void) => {
+  ): ((data: RoomSchema[RoomType]['topics'][Topic]) => void) => {
     return rooms.usePublishTopic(this, topic);
   };
 
@@ -386,9 +386,9 @@ export class InstantReactRoom<
    * const room = db.room('chat', 'room-id');
    * const { peers } = db.rooms.usePresence(room, { keys: ["name", "avatar"] });
    */
-  usePresence = <Keys extends keyof RoomSchema[RoomType]["presence"]>(
-    opts: PresenceOpts<RoomSchema[RoomType]["presence"], Keys> = {},
-  ): PresenceHandle<RoomSchema[RoomType]["presence"], Keys> => {
+  usePresence = <Keys extends keyof RoomSchema[RoomType]['presence']>(
+    opts: PresenceOpts<RoomSchema[RoomType]['presence'], Keys> = {},
+  ): PresenceHandle<RoomSchema[RoomType]['presence'], Keys> => {
     return rooms.usePresence(this, opts);
   };
 
@@ -407,7 +407,7 @@ export class InstantReactRoom<
    * db.rooms.useSyncPresence(room, { nickname });
    */
   useSyncPresence = (
-    data: Partial<RoomSchema[RoomType]["presence"]>,
+    data: Partial<RoomSchema[RoomType]['presence']>,
     deps?: any[],
   ): void => {
     return rooms.useSyncPresence(this, data, deps);
@@ -430,7 +430,7 @@ export class InstantReactRoom<
   useTypingIndicator = (
     inputName: string,
     opts: TypingIndicatorOpts = {},
-  ): TypingIndicatorHandle<RoomSchema[RoomType]["presence"]> => {
+  ): TypingIndicatorHandle<RoomSchema[RoomType]['presence']> => {
     return rooms.useTypingIndicator(this, inputName, opts);
   };
 }

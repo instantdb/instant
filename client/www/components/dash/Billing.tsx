@@ -1,13 +1,10 @@
 import { SectionHeading, Button, Content } from '@/components/ui';
-import { messageFromInstantError, friendlyErrorMessage, useAuthedFetch } from '@/lib/auth';
+import { friendlyErrorMessage, useAuthedFetch } from '@/lib/auth';
+import { messageFromInstantError } from '@/lib/errors';
 import config, { stripeKey } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
-import {
-  AppsSubscriptionResponse,
-  InstantError,
-  SubscriptionName,
-} from '@/lib/types';
+import { AppsSubscriptionResponse, InstantError } from '@/lib/types';
 import { loadStripe } from '@stripe/stripe-js';
 import { useContext, useRef } from 'react';
 import { Loading, ErrorMessage } from '@/components/dash/shared';
@@ -40,7 +37,7 @@ async function createCheckoutSession(appId: string, token: string) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-    }
+    },
   );
   Promise.all([stripePromise, sessionPromise])
     .then(([stripe, session]) => {
@@ -68,7 +65,7 @@ async function createPortalSession(appId: string, token: string) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-    }
+    },
   );
   Promise.all([stripePromise, sessionPromise])
     .then(([stripe, session]) => {
@@ -103,21 +100,21 @@ export default function Billing({ appId }: { appId: string }) {
   const confettiRef = useRef<HTMLDivElement>(null);
 
   const onUpgrade = async (
-    e: React.MouseEvent<HTMLButtonElement, MouseEvent>
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
   ) => {
     e.preventDefault();
     createCheckoutSession(appId, token);
   };
 
   const onManage = async (
-    e: React.MouseEvent<HTMLButtonElement, MouseEvent>
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
   ) => {
     e.preventDefault();
     createPortalSession(appId, token);
   };
 
   const authResponse = useAuthedFetch<AppsSubscriptionResponse>(
-    `${config.apiURI}/dash/apps/${appId}/billing`
+    `${config.apiURI}/dash/apps/${appId}/billing`,
   );
 
   if (authResponse.isLoading) {
@@ -198,6 +195,18 @@ export default function Billing({ appId }: { appId: string }) {
           </span>
         </h2>
         <ProgressBar width={progress} />
+        <div className="flex justify-start text-sm pt-3 space-x-2 pl-2">
+          {totalAppBytes > 0 && (
+            <span className="text-sm font-mono text-gray-500">
+              DB ({friendlyUsage(totalAppBytes)})
+            </span>
+          )}
+          {totalStorageBytes > 0 && (
+            <span className="text-sm font-mono text-gray-500">
+              Storage ({friendlyUsage(totalStorageBytes)})
+            </span>
+          )}
+        </div>
       </div>
       {isFreeTier ? (
         <div className="flex flex-col space-y-4">

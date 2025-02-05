@@ -1,33 +1,37 @@
-import React from "react";
-import Head from "next/head";
-import { useRouter } from "next/router";
-import { init } from "@instantdb/react";
+import React from 'react';
+import Head from 'next/head';
+import { useRouter } from 'next/router';
+import { init } from '@instantdb/react';
 
-import Login from "../../components/Login";
-import config from "../../config";
+import Login from '../../components/Login';
+import config from '../../config';
 
-const DEFAULT_APP_ID = "524bc106-1f0d-44a0-b222-923505264c47";
-
-const App = ({ appId }: { appId: string }) => {
+const App = ({ appId }: { appId?: string }) => {
   const db = init({
     ...config,
-    appId: appId,
+    appId: appId || config.appId,
   });
 
   const { isLoading, error, user } = db.useAuth();
-  if (isLoading) { return <div>Loading...</div>; }
-  if (error) { return <div>Uh oh! {error.message}</div>; }
-  if (!user) { return <Login auth={db.auth} />; }
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+  if (error) {
+    return <div>Uh oh! {error.message}</div>;
+  }
+  if (!user) {
+    return <Login auth={db.auth} />;
+  }
 
   return <Main db={db} />;
-}
+};
 
 function Main({ db }: { db: any }) {
   const [files, setFiles] = React.useState<File[]>([]);
   const [imageUrl, setImageUrl] = React.useState<string | null>(null);
   const [imageStatus, setImageStatus] = React.useState<
-    "pending" | "success" | "error"
-  >("pending");
+    'pending' | 'success' | 'error'
+  >('pending');
 
   const handleTryDownloadUrl = async () => {
     if (files.length === 0) return;
@@ -35,17 +39,17 @@ function Main({ db }: { db: any }) {
     const [file] = files;
     const { name: fileName, type: fileType } = file;
 
-    if (!fileType.startsWith("image/")) {
+    if (!fileType.startsWith('image/')) {
       return;
     }
 
     try {
       const url = await db.storage.getDownloadUrl(fileName);
-      console.log("Download URL:", url);
+      console.log('Download URL:', url);
       setImageUrl(url);
-      setImageStatus("pending");
+      setImageStatus('pending');
     } catch (error) {
-      console.error("Error downloading file:", error);
+      console.error('Error downloading file:', error);
     }
   };
 
@@ -58,13 +62,13 @@ function Main({ db }: { db: any }) {
     try {
       await db.storage.upload(fileName, file);
       const url = await db.storage.getDownloadUrl(fileName);
-      console.log("Download URL:", url);
-      if (fileType.startsWith("image/")) {
+      console.log('Download URL:', url);
+      if (fileType.startsWith('image/')) {
         setImageUrl(url);
-        setImageStatus("pending");
+        setImageStatus('pending');
       }
     } catch (error) {
-      console.error("Error uploading file:", error);
+      console.error('Error uploading file:', error);
     }
   };
 
@@ -81,9 +85,9 @@ function Main({ db }: { db: any }) {
     try {
       await db.storage.delete(fileName);
       setImageUrl(null);
-      setImageStatus("pending");
+      setImageStatus('pending');
     } catch (error) {
-      console.error("Error deleting file:", error);
+      console.error('Error deleting file:', error);
     }
   };
 
@@ -119,15 +123,15 @@ function Main({ db }: { db: any }) {
 
               {!!imageUrl && (
                 <div className="w-full">
-                  {imageStatus !== "error" && (
+                  {imageStatus !== 'error' && (
                     <img
                       src={imageUrl}
-                      onError={() => setImageStatus("error")}
-                      onLoad={() => setImageStatus("success")}
+                      onError={() => setImageStatus('error')}
+                      onLoad={() => setImageStatus('success')}
                       className="mt-4 w-full rounded-md"
                     />
                   )}
-                  {imageStatus === "success" && (
+                  {imageStatus === 'success' && (
                     <button
                       className="w-full items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-700 disabled:pointer-events-none disabled:opacity-50 bg-red-600 text-red-50 shadow hover:bg-red-600/90 h-9 px-4 py-2"
                       onClick={handleDelete}
@@ -143,11 +147,12 @@ function Main({ db }: { db: any }) {
       </main>
     </div>
   );
-};
+}
 
 function Page() {
   const router = useRouter();
-  const [appId, setAppId] = React.useState<string | null>(null);
+  const [ready, setReady] = React.useState<boolean>(false);
+  const [appId, setAppId] = React.useState<string | undefined>(undefined);
 
   React.useEffect(() => {
     if (!router.isReady) {
@@ -158,9 +163,8 @@ function Page() {
 
     if (appId) {
       setAppId(appId);
-    } else {
-      setAppId(DEFAULT_APP_ID);
     }
+    setReady(true);
   }, [router.isReady]);
 
   return (
@@ -172,7 +176,7 @@ function Page() {
           content="Relational Database, on the client."
         />
       </Head>
-      {!!appId && <App appId={appId} />}
+      {ready && <App appId={appId} />}
     </div>
   );
 }

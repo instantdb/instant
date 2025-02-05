@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import config from "../../config";
-import { init, tx, id, i } from "@instantdb/react";
-import { useRouter } from "next/router";
+import { useEffect, useState } from 'react';
+import config from '../../config';
+import { init, tx, id, i } from '@instantdb/react';
+import { useRouter } from 'next/router';
 
 const schema = i.schema({
   entities: {
@@ -19,14 +19,14 @@ const schema = i.schema({
   links: {
     commentAuthors: {
       forward: {
-        on: "comments",
-        has: "one",
-        label: "author",
+        on: 'comments',
+        has: 'one',
+        label: 'author',
       },
       reverse: {
-        on: "$users",
-        has: "many",
-        label: "authoredComments",
+        on: '$users',
+        has: 'many',
+        label: 'authoredComments',
       },
     },
   },
@@ -59,7 +59,7 @@ function Example({ appId }: { appId: string }) {
               tx.comments[id()].update({
                 order: randInt(100),
                 date: new Date(),
-                someString: "a".repeat(randInt(20)),
+                someString: 'a'.repeat(randInt(20)),
                 bool: randInt(2) === 1,
               }),
             )
@@ -102,7 +102,7 @@ function Example({ appId }: { appId: string }) {
                   }}
                 >
                   X
-                </button>{" "}
+                </button>{' '}
                 order = {item.order}
               </div>
             ))}
@@ -115,12 +115,12 @@ function Example({ appId }: { appId: string }) {
 
 async function provisionEphemeralApp() {
   const r = await fetch(`${config.apiURI}/dash/apps/ephemeral`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      title: "Comparisons example",
+      title: 'Comparisons example',
     }),
   });
 
@@ -130,7 +130,7 @@ async function provisionEphemeralApp() {
 async function verifyEphemeralApp({ appId }: { appId: string }) {
   const r = await fetch(`${config.apiURI}/dash/apps/ephemeral/${appId}`, {
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
   });
 
@@ -162,7 +162,7 @@ function App({ urlAppId }: { urlAppId: string | undefined }) {
               setAppId(res.app.id);
             } else {
               console.log(res);
-              setError("Could not create app.");
+              setError('Could not create app.');
             }
           });
         }
@@ -178,7 +178,7 @@ function App({ urlAppId }: { urlAppId: string | undefined }) {
           setAppId(res.app.id);
         } else {
           console.log(res);
-          setError("Could not create app.");
+          setError('Could not create app.');
         }
       });
     }

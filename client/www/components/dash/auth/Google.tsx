@@ -1,14 +1,36 @@
 import { FormEventHandler, useState, useContext } from 'react';
 import { errorToast } from '@/lib/toast';
 import { TokenContext } from '@/lib/contexts';
-import { InstantApp, InstantError, OAuthClient, OAuthServiceProvider } from '@/lib/types';
+import {
+  InstantApp,
+  InstantError,
+  OAuthClient,
+  OAuthServiceProvider,
+} from '@/lib/types';
 import { addProvider, addClient, deleteClient, findName } from './shared';
-import { messageFromInstantError } from '@/lib/auth';
-import { Button, Checkbox, Content, Copyable, Copytext, Dialog, Divider, Fence, SectionHeading, SubsectionHeading, TextInput, useDialog } from '@/components/ui';
+import { messageFromInstantError } from '@/lib/errors';
+import {
+  Button,
+  Checkbox,
+  Content,
+  Copyable,
+  Copytext,
+  Dialog,
+  Divider,
+  Fence,
+  SectionHeading,
+  SubsectionHeading,
+  TextInput,
+  useDialog,
+} from '@/components/ui';
 import Image from 'next/image';
 import googleIconSvg from '../../../public/img/google_g.svg';
 import * as Collapsible from '@radix-ui/react-collapsible';
-import { PlusIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/solid';
+import {
+  PlusIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+} from '@heroicons/react/solid';
 
 export function AddClientForm({
   app,
@@ -24,7 +46,9 @@ export function AddClientForm({
   usedClientNames: Set<string>;
 }) {
   const token = useContext(TokenContext);
-  const [clientName, setClientName] = useState<string>(() => findName('google', usedClientNames));
+  const [clientName, setClientName] = useState<string>(() =>
+    findName('google', usedClientNames),
+  );
   const [clientId, setClientId] = useState<string>('');
   const [clientSecret, setClientSecret] = useState<string>('');
   const [updatedRedirectURL, setUpdatedRedirectURL] = useState(false);
@@ -64,7 +88,8 @@ export function AddClientForm({
         clientSecret,
         authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
         tokenEndpoint: 'https://oauth2.googleapis.com/token',
-        discoveryEndpoint: 'https://accounts.google.com/.well-known/openid-configuration',
+        discoveryEndpoint:
+          'https://accounts.google.com/.well-known/openid-configuration',
       });
       onAddClient(resp.client);
     } catch (e) {
@@ -284,7 +309,9 @@ const url = db.auth.createAuthorizationURL({
             <Copyable label="Client name" value={client.client_name} />
             <Copyable label="Google client ID" value={client.client_id || ''} />
             <SubsectionHeading>
-              <a className="underline" href="/docs/auth/google-auth">Setup and usage</a>
+              <a className="underline" href="/docs/auth/google-auth">
+                Setup and usage
+              </a>
             </SubsectionHeading>
             <Content>
               <strong>1.</strong> Navigate to{' '}
@@ -403,7 +430,8 @@ export function GoogleClients({
         </>
       ) : (
         <Button onClick={() => setShowAddClientForm(true)} variant="secondary">
-          <PlusIcon height={14} /> Add {clients.length > 0 ? 'another ' : ''}Google client
+          <PlusIcon height={14} /> Add {clients.length > 0 ? 'another ' : ''}
+          Google client
         </Button>
       )}
     </div>

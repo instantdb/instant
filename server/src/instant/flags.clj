@@ -12,6 +12,7 @@
 (def query {:friend-emails {}
             :power-user-emails {}
             :storage-whitelist {}
+            :storage-migration {}
             :team-emails {}
             :test-emails {}
             :use-patch-presence {}
@@ -92,7 +93,8 @@
                                                    10000))})
         welcome-email-config (-> result (get "welcome-email-config") first w/keywordize-keys)
         threading (let [flag (first (get result "threading"))]
-                    {:use-vfutures? (get flag "use-vfutures" true)})]
+                    {:use-vfutures? (get flag "use-vfutures" true)})
+        storage-migration (-> result (get "storage-migration") first w/keywordize-keys)]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
      :use-patch-presence use-patch-presence
@@ -101,7 +103,8 @@
      :rate-limited-apps rate-limited-apps
      :e2e-logging e2e-logging
      :welcome-email-config welcome-email-config
-     :threading threading}))
+     :threading threading
+     :storage-migration storage-migration}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -123,6 +126,9 @@
 
 (defn welcome-email-config []
   (get (query-result) :welcome-email-config))
+
+(defn storage-migration []
+  (get (query-result) :storage-migration))
 
 (defn promo-code-email? [email]
   (contains? (promo-code-emails)

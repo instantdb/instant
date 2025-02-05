@@ -48,15 +48,15 @@ For production, add your website's domain.
 The next sections will show you how to use your configured OAuth client with Instant.
 
 {% nav-group %}
-  {% nav-button param="method" value="native"
+{% nav-button param="method" value="native"
             title="Native Button (Web)"
             description="Use Google's pre-styled button to sign in. Using this method you can render your custom app name in the consent screen (Recommended)"
             /%}
-  {% nav-button param="method" value="redirect"
+{% nav-button param="method" value="redirect"
             title="Redirect flow (Web)"
             description="Easier to integrate, but doesn't let you render your custom app name."
             /%}
-  {% nav-button param="method" value="rn-webflow"
+{% nav-button param="method" value="rn-webflow"
             title="React Native"
             description="Add Google OAuth to your RN app with our webflow integration."
             /%}
@@ -87,7 +87,7 @@ import React, { useState } from 'react';
 import { init } from '@instantdb/react';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 
-const APP_ID = "__APP_ID__";
+const APP_ID = '__APP_ID__';
 
 const db = init({ appId: APP_ID });
 
@@ -156,6 +156,7 @@ async function handleSignInWithGoogle(response) {
 {% /conditional %}
 
 {% conditional param="method" value="redirect" %}
+
 ## Redirect flow for Web
 
 If you don't want to use the google styled buttons, you can use the redirect flow instead.
@@ -168,7 +169,7 @@ Simply create an authorization URL via `db.auth.createAuthorizationURL` and then
 import React, { useState } from 'react';
 import { init } from '@instantdb/react';
 
-const APP_ID = "__APP_ID__";
+const APP_ID = '__APP_ID__';
 
 const db = init({ appId: APP_ID });
 
@@ -194,9 +195,7 @@ function App() {
 }
 
 function Login() {
-  return (
-    <a href={url}>Log in with Google</a>
-  );
+  return <a href={url}>Log in with Google</a>;
 }
 ```
 
@@ -204,8 +203,8 @@ When your users clicks on the link, they'll be redirected to Google to start the
 
 {% /conditional %}
 
-
 {% conditional param="method" value="rn-webflow" %}
+
 ## Webview flow on React Native
 
 Instant comes with support for Expo's AuthSession library. If you haven't already, follow the AuthSession [installation instructions from the Expo docs](https://docs.expo.dev/versions/latest/sdk/auth-session/).
@@ -239,7 +238,7 @@ import {
   useAutoDiscovery,
 } from 'expo-auth-session';
 
-const APP_ID = "__APP_ID__";
+const APP_ID = '__APP_ID__';
 const db = init({ appId: APP_ID });
 
 function App() {
@@ -268,7 +267,7 @@ function Login() {
       clientId: 'YOUR_INSTANT_AUTH_CLIENT_NAME',
       redirectUri: makeRedirectUri(),
     },
-    discovery
+    discovery,
   );
 
   return (
@@ -306,6 +305,7 @@ const styles = StyleSheet.create({
   },
 });
 ```
+
 {% /conditional %}
 
 {% /nav-default %}

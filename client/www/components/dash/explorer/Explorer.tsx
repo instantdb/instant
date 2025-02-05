@@ -1,7 +1,16 @@
 import { id, tx } from '@instantdb/core';
 import { InstantReactWebDatabase } from '@instantdb/react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isObject, debounce, last } from 'lodash';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useContext,
+} from 'react';
+import { jsonFetch } from '@/lib/fetch';
+import config from '@/lib/config';
 import produce from 'immer';
 import clsx from 'clsx';
 import CopyToClipboard from 'react-copy-to-clipboard';
@@ -23,7 +32,7 @@ import {
 } from '@heroicons/react/solid';
 import { PencilAltIcon } from '@heroicons/react/outline';
 
-import { errorToast } from '@/lib/toast';
+import { successToast, errorToast } from '@/lib/toast';
 import {
   ActionButton,
   ActionForm,
@@ -47,9 +56,11 @@ import {
   useNamespacesQuery,
   SearchFilter,
 } from '@/lib/hooks/explorer';
+import { TokenContext } from '@/lib/contexts';
 import { EditNamespaceDialog } from '@/components/dash/explorer/EditNamespaceDialog';
 import { EditRowDialog } from '@/components/dash/explorer/EditRowDialog';
 import { useRouter } from 'next/router';
+import { formatBytes } from '@/lib/format';
 
 const OPERATORS = [':', '>', '<'] as const;
 type ParsedQueryPart = {
@@ -217,6 +228,11 @@ function sameFilters(
   return false;
 }
 
+const excludedSearchAttrs: [string, string][] = [
+  // Exclude computed fields
+  ['$files', 'url'],
+];
+
 function SearchInput({
   onSearchChange,
   attrs,
@@ -257,9 +273,13 @@ function SearchInput({
   const comboOptions: { field: string; operator: string; display: string }[] = (
     attrs || []
   ).flatMap((a) => {
-    if (a.type === 'ref') {
+    const isExcluded = excludedSearchAttrs.some(
+      ([ns, name]) => ns === a.namespace && name === a.name,
+    );
+    if (a.type === 'ref' || isExcluded) {
       return [];
     }
+
     const ops = [];
 
     const opCandidates = [];
@@ -367,9 +387,11 @@ function SearchInput({
 export function Explorer({
   db,
   appId,
+  isStorageEnabled,
 }: {
   db: InstantReactWebDatabase<any>;
   appId: string;
+  isStorageEnabled: boolean;
 }) {
   // DEV
   _dev(db);
@@ -430,7 +452,11 @@ export function Explorer({
   }
 
   // data
-  const { namespaces } = useSchemaQuery(db);
+  const { namespaces: _namespaces } = useSchemaQuery(db);
+  // (TODO): When fully launching storage we can remove this check
+  const namespaces = isStorageEnabled
+    ? _namespaces
+    : _namespaces && _namespaces.filter((ns) => ns.name !== '$files');
   const { selectedNamespace } = useMemo(
     () => ({
       selectedNamespace: namespaces?.find(
@@ -440,17 +466,18 @@ export function Explorer({
     [namespaces, currentNav?.namespace],
   );
 
-  const isSystemCatalogNs =
-    selectedNamespace != null &&
-    selectedNamespace.name != null &&
-    selectedNamespace.name.startsWith('$');
+  // auth
+  const token = useContext(TokenContext);
 
-  const readOnlyNs = isSystemCatalogNs && selectedNamespace.name !== '$users';
+  const isSystemCatalogNs = selectedNamespace?.name?.startsWith('$') ?? false;
+  const sanitizedNsName = selectedNamespace?.name ?? '';
+  const readOnlyNs =
+    isSystemCatalogNs && !['$users', '$files'].includes(sanitizedNsName);
 
   const [limit, setLimit] = useState(50);
   const [offsets, setOffsets] = useState<{ [namespace: string]: number }>({});
 
-  const offset = offsets[selectedNamespace?.name ?? ''] || 0;
+  const offset = offsets[sanitizedNsName] || 0;
 
   const sortAttr = currentNav?.sortAttr || 'serverCreatedAt';
   const sortAsc = currentNav?.sortAsc ?? true;
@@ -471,6 +498,8 @@ export function Explorer({
   const numPages = allCount ? Math.ceil(allCount / limit) : 1;
   const currentPage = offset / limit + 1;
 
+  const userNamespaces = namespaces?.filter((x) => !x.name.startsWith('$'));
+
   useEffect(() => {
     const isFirstLoad = namespaces?.length && !navStack.length;
     const urlWhere = router.query.where
@@ -478,9 +507,10 @@ export function Explorer({
       : null;
 
     if (isFirstLoad) {
+      const userNamespaces = namespaces?.filter((x) => !x.name.startsWith('$'));
       nav([
         {
-          namespace: selectedNamespaceId || namespaces[0].id,
+          namespace: selectedNamespaceId || userNamespaces?.[0]?.id,
           where: urlWhere,
         },
       ]);
@@ -495,7 +525,46 @@ export function Explorer({
     () => allItems.find((i) => i.id === editableRowId),
     [allItems.length, editableRowId],
   );
-  const rowText = Object.keys(checkedIds).length === 1 ? 'row' : 'rows';
+  const rowText =
+    sanitizedNsName === '$files'
+      ? Object.keys(checkedIds).length === 1
+        ? 'file'
+        : 'files'
+      : Object.keys(checkedIds).length === 1
+        ? 'row'
+        : 'rows';
+
+  // Storage
+
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [customPath, setCustomPath] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const handleUploadFile = async () => {
+    try {
+      setUploadingFile(true);
+      if (selectedFiles.length === 0) {
+        return;
+      }
+
+      const [file] = selectedFiles;
+      const success = await upload(token, appId, file, customPath);
+
+      if (success) {
+        setSelectedFiles([]);
+        setCustomPath('');
+        fileInputRef.current && (fileInputRef.current.value = '');
+      }
+
+      // await refreshFiles();
+      successToast('Successfully uploaded!');
+    } catch (err: any) {
+      console.error('Failed to upload:', err);
+      errorToast(`('Failed to upload: ${err.body.message}`);
+    } finally {
+      setUploadingFile(false);
+    }
+  };
 
   return (
     <div className="relative flex w-full flex-1 overflow-hidden">
@@ -525,11 +594,18 @@ export function Explorer({
               }
               onClick={async () => {
                 try {
-                  await db.transact(
-                    Object.keys(checkedIds).map((id) =>
-                      tx[selectedNamespace.name][id].delete(),
-                    ),
-                  );
+                  if (selectedNamespace.name === '$files') {
+                    const filenames = allItems
+                      .filter((i) => i.id in checkedIds)
+                      .map((i) => i.path as string);
+                    await bulkDeleteFiles(token, appId, filenames);
+                  } else {
+                    await db.transact(
+                      Object.keys(checkedIds).map((id) =>
+                        tx[selectedNamespace.name][id].delete(),
+                      ),
+                    );
+                  }
                 } catch (error) {
                   errorToast(`Failed to delete ${rowText}`);
                   return;
@@ -732,22 +808,65 @@ export function Explorer({
               </div>
             </div>
           </div>
+          {selectedNamespace.name === '$files' ? (
+            <div className="flex py-2 px-2 gap-2">
+              <div className="flex gap-2 w-full">
+                <div className="flex gap-2 flex-shrink-0">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="flex rounded-sm border border-zinc-200 bg-transparent px-1 py-1 text-sm shadow-sm transition-colors file:text-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+                    onChange={(e: React.ChangeEvent<any>) => {
+                      const files = e.target.files;
+                      setSelectedFiles(files);
+                      if (files?.[0]) {
+                        setCustomPath(files[0].name);
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="primary"
+                    disabled={selectedFiles.length === 0}
+                    size="mini"
+                    loading={uploadingFile}
+                    onClick={handleUploadFile}
+                  >
+                    {uploadingFile ? 'Uploading...' : 'Upload file'}
+                  </Button>
+                </div>
+                <div className="relative flex flex-1 max-w-[67vw] min-w-0">
+                  <span className="absolute inset-y-0 left-0 flex items-center px-3 text-sm text-zinc-500 bg-gray-100 rounded-l-md ">
+                    File Path:
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Enter a custom path (optional)"
+                    value={customPath}
+                    onChange={(e) => setCustomPath(e.target.value)}
+                    className="w-full h-9 rounded-md bg-transparent pl-24 pr-3 py-1 text-sm placeholder:text-zinc-500 outline outline-1 outline-zinc-200 focus:ring-2 focus:ring-blue-700 border-0"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : null}
           <div className="flex items-center justify-start space-x-2 p-1 text-xs border-b">
-            <Button
-              disabled={readOnlyNs}
-              title={
-                readOnlyNs
-                  ? `The ${selectedNamespace?.name} namespace is read-only.`
-                  : undefined
-              }
-              size="mini"
-              variant="secondary"
-              onClick={() => {
-                setAddItemDialogOpen(true);
-              }}
-            >
-              Add row
-            </Button>
+            {selectedNamespace.name !== '$files' ? (
+              <Button
+                disabled={readOnlyNs}
+                title={
+                  readOnlyNs
+                    ? `The ${selectedNamespace?.name} namespace is read-only.`
+                    : undefined
+                }
+                size="mini"
+                variant="secondary"
+                onClick={() => {
+                  setAddItemDialogOpen(true);
+                }}
+              >
+                Add row
+              </Button>
+            ) : null}
             <div>
               <Select
                 className="text-xs"
@@ -928,7 +1047,10 @@ export function Explorer({
                       }
                     >
                       <div className="flex items-center gap-2">
-                        {attr.name}
+                        {selectedNamespace.name === '$files' &&
+                        attr.name === 'url'
+                          ? ''
+                          : attr.name}
                         {attr.sortable || attr.name === 'id' ? (
                           <span>
                             {sortAttr === attr.name ||
@@ -973,7 +1095,7 @@ export function Explorer({
                           );
                         }}
                       />
-                      {readOnlyNs ? null : (
+                      {readOnlyNs || sanitizedNsName === '$files' ? null : (
                         <button
                           className="opacity-0 group-hover:opacity-100 transition-opacity"
                           onClick={() => setEditableRowId(item.id)}
@@ -993,22 +1115,35 @@ export function Explorer({
                               : '80px',
                         }}
                       >
-                        <ExplorerItemVal
-                          item={item}
-                          attr={attr}
-                          onClickLink={() => {
-                            const linkConfigDir =
-                              attr.linkConfig[
-                                !attr.isForward ? 'forward' : 'reverse'
-                              ];
-                            if (linkConfigDir) {
-                              pushNavStack({
-                                namespace: linkConfigDir.namespace,
-                                where: [`${linkConfigDir.attr}.id`, item.id],
-                              });
-                            }
-                          }}
-                        />
+                        {selectedNamespace.name === '$files' &&
+                        attr.name === 'url' ? (
+                          <Button
+                            variant="secondary"
+                            size="mini"
+                            onClick={() => {
+                              window.open(item.url as string, '_blank');
+                            }}
+                          >
+                            View File
+                          </Button>
+                        ) : (
+                          <ExplorerItemVal
+                            item={item}
+                            attr={attr}
+                            onClickLink={() => {
+                              const linkConfigDir =
+                                attr.linkConfig[
+                                  !attr.isForward ? 'forward' : 'reverse'
+                                ];
+                              if (linkConfigDir) {
+                                pushNavStack({
+                                  namespace: linkConfigDir.namespace,
+                                  where: [`${linkConfigDir.attr}.id`, item.id],
+                                });
+                              }
+                            }}
+                          />
+                        )}
                       </td>
                     ))}
                   </tr>
@@ -1018,11 +1153,11 @@ export function Explorer({
             </table>
           </div>
         </div>
-      ) : namespaces?.length ? (
+      ) : userNamespaces?.length ? (
         <div className="px-4 py-2 text-sm italic text-gray-500">
           Select a namespace
         </div>
-      ) : namespaces?.length === 0 ? (
+      ) : userNamespaces?.length === 0 ? (
         <div className="flex flex-1 flex-col md:items-center md:justify-center">
           <div className="flex flex-1 flex-col gap-4 bg-gray-100 p-6 md:max-w-[320px] md:flex-none md:border">
             <SectionHeading>This is your Data Explorer</SectionHeading>
@@ -1045,6 +1180,14 @@ export function Explorer({
   );
 }
 
+function getExplorerItemVal(item: Record<string, any>, attr: SchemaAttr) {
+  if (attr.namespace === '$files' && attr.name === 'size') {
+    return formatBytes(item.size);
+  }
+
+  return (item as any)[attr.name];
+}
+
 function ExplorerItemVal({
   item,
   attr,
@@ -1054,7 +1197,7 @@ function ExplorerItemVal({
   attr: SchemaAttr;
   onClickLink: () => void;
 }) {
-  const val = (item as any)[attr.name];
+  const val = getExplorerItemVal(item, attr);
 
   const [tipOpen, setTipOpen] = useState(false);
   const [showCopy, setShowCopy] = useState(false);
@@ -1225,4 +1368,51 @@ function _dev(db: InstantReactWebDatabase<any>) {
     };
     (window as any).i = i;
   }
+}
+
+// Storage
+
+async function upload(
+  token: string,
+  appId: string,
+  file: File,
+  customFilename: string,
+): Promise<boolean> {
+  const headers = {
+    app_id: appId,
+    path: customFilename || file.name,
+    authorization: `Bearer ${token}`,
+    'content-type': file.type,
+  };
+
+  const data = await jsonFetch(
+    `${config.apiURI}/dash/apps/${appId}/storage/upload`,
+    {
+      method: 'PUT',
+      headers,
+      body: file,
+    },
+  );
+
+  return data;
+}
+
+async function bulkDeleteFiles(
+  token: string,
+  appId: string,
+  filenames: string[],
+): Promise<any> {
+  const { data } = await jsonFetch(
+    `${config.apiURI}/dash/apps/${appId}/storage/files/delete`,
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ filenames }),
+    },
+  );
+
+  return data;
 }

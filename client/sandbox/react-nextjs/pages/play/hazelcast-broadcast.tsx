@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import Head from "next/head";
-import config from "../../config";
+import React, { useState } from 'react';
+import Head from 'next/head';
+import config from '../../config';
 
 let __id = 0;
 function nextId() {

@@ -10,8 +10,8 @@ export type AuthState =
   | { isLoading: false; error: undefined; user: User | null };
 
 export type ConnectionStatus =
-  | "connecting"
-  | "opened"
-  | "authenticated"
-  | "closed"
-  | "errored";
+  | 'connecting'
+  | 'opened'
+  | 'authenticated'
+  | 'closed'
+  | 'errored';

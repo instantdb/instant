@@ -181,7 +181,7 @@ export default function Auth(props: {
           isLoading: false,
           error: errorFromVerifyMagicCode(err),
         }));
-      }
+      },
     );
   };
 

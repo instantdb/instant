@@ -8,7 +8,7 @@
  * 3) Paste the output into the dashboard query inspector
  * */
 
-import { useState } from "react";
+import { useState } from 'react';
 
 type JsonObject = { [key: string]: any };
 
@@ -32,8 +32,8 @@ function convertToJson(inputStr: string): JsonObject {
 }
 
 const ConvertPage: React.FC = () => {
-  const [input, setInput] = useState<string>("");
-  const [output, setOutput] = useState<string>("");
+  const [input, setInput] = useState<string>('');
+  const [output, setOutput] = useState<string>('');
 
   console.log(input, output);
 
@@ -42,7 +42,7 @@ const ConvertPage: React.FC = () => {
       const converted = convertToJson(input);
       setOutput(JSON.stringify(converted, null, 2));
     } catch (e) {
-      setOutput("Invalid Clojure-like input");
+      setOutput('Invalid Clojure-like input');
     }
   };
 
@@ -50,7 +50,7 @@ const ConvertPage: React.FC = () => {
     <div className="p-4">
       <div className="mb-4 space-y-2">
         <p>
-          Use this tool for running <b>clojure queries from honeycomb</b> in the{" "}
+          Use this tool for running <b>clojure queries from honeycomb</b> in the{' '}
           <b>JSON dashboard query inspector</b>
         </p>
         <div>

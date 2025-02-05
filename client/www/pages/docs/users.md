@@ -95,7 +95,7 @@ export default schema;
 ### Links
 
 We created three links `todoOwner`, `userRoles`, and `userProfiles` to link the `$users`
-namespace to the `todos`, `roles`, and `profiles` namespaces respectively: 
+namespace to the `todos`, `roles`, and `profiles` namespaces respectively:
 
 ```typescript
 // instant.schema.ts
@@ -121,7 +121,7 @@ const _schema = i.schema({
 });
 ```
 
-Notice that the `$users` namespace is in the reverse direction for all links. If you try to create a link with `$users` in the forward direction, you'll get an error. 
+Notice that the `$users` namespace is in the reverse direction for all links. If you try to create a link with `$users` in the forward direction, you'll get an error.
 
 ### Attributes
 
@@ -147,7 +147,7 @@ because the `$users` namespace is read-only and we cannot add properties to it.
 If you want to add additional properties to a user, you'll need to create a
 new namespace and link it to `$users`.
 
---- 
+---
 
 Once done, you can include user information in the client like so:
 
@@ -239,16 +239,17 @@ more complex permission rules.
 ```javascript
 export default {
   // users perms...
-  "todos": {
-    "bind" : [
-      "isAdmin", "'admin' in auth.ref('$user.role.type')",
-      "isOwner", "data.id in auth.ref('$user.todos.id')"
+  todos: {
+    bind: [
+      'isAdmin',
+      "'admin' in auth.ref('$user.role.type')",
+      'isOwner',
+      "data.id in auth.ref('$user.todos.id')",
     ],
-    "allow": {
+    allow: {
       // We traverse the users links directly from the auth object
-      "update": "isAdmin || isOwner",
-    }
-  }
+      update: 'isAdmin || isOwner',
+    },
+  },
 };
-
 ```

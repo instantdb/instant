@@ -1,5 +1,5 @@
-import { pick } from "./utils/pick";
-import { areObjectsShallowEqual, areObjectKeysEqual } from "./utils/object";
+import { pick } from './utils/pick';
+import { areObjectsShallowEqual, areObjectKeysEqual } from './utils/object';
 
 export type RoomSchemaShape = {
   [k: string]: {
@@ -55,7 +55,7 @@ export function buildPresenceSlice<
     peers: {},
   };
 
-  const includeUser = opts && "user" in opts ? opts.user : true;
+  const includeUser = opts && 'user' in opts ? opts.user : true;
 
   if (includeUser) {
     const user = pick(data.user ?? {}, opts?.keys);

@@ -1,5 +1,15 @@
 import { DBAttr, SchemaAttr, SchemaNamespace } from '@/lib/types';
 
+// We show most attrs in the explorer except for some system attrs
+function isVisibleAttr(attr: DBAttr) {
+  const [, namespace, _] = attr['forward-identity'];
+  return (
+    attr.catalog !== 'system' ||
+    namespace === '$users' ||
+    namespace === '$files'
+  );
+}
+
 export function dbAttrsToExplorerSchema(
   rawAttrs: Record<string, DBAttr>,
 ): SchemaNamespace[] {
@@ -9,10 +19,8 @@ export function dbAttrsToExplorerSchema(
   > = {};
 
   const oAttrs: Record<string, DBAttr> = {};
-  // Filter out the system catalog attrs, except for $user.id and $user.email
   for (const [id, attrDesc] of Object.entries(rawAttrs)) {
-    const [, namespace, label] = attrDesc['forward-identity'];
-    if (attrDesc.catalog === 'system' && namespace !== '$users') {
+    if (!isVisibleAttr(attrDesc)) {
       continue;
     }
     oAttrs[id] = attrDesc;
@@ -64,7 +72,7 @@ export function dbAttrsToExplorerSchema(
           catalog: attrDesc.catalog,
           checkedDataType: attrDesc['checked-data-type'],
           sortable: attrDesc['index?'] && !!attrDesc['checked-data-type'],
-          onDelete: attrDesc['on-delete']
+          onDelete: attrDesc['on-delete'],
         };
       }
     }

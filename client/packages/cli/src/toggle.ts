@@ -1,7 +1,7 @@
 // From:
 // https://github.com/skarahoda/inquirer-toggle
-import type { Theme } from "@inquirer/core";
-import type { Prompt } from "@inquirer/type";
+import type { Theme } from '@inquirer/core';
+import type { Prompt } from '@inquirer/type';
 
 import {
   isDownKey,
@@ -9,9 +9,9 @@ import {
   useKeypress,
   useState,
   isEnterKey,
-} from "@inquirer/core";
-import { createPrompt, usePrefix, makeTheme } from "@inquirer/core";
-import ansiEscapes from "ansi-escapes";
+} from '@inquirer/core';
+import { createPrompt, usePrefix, makeTheme } from '@inquirer/core';
+import ansiEscapes from 'ansi-escapes';
 
 type InquirerToggleConfig = {
   message: string;
@@ -19,28 +19,28 @@ type InquirerToggleConfig = {
   theme?: {
     active?: string;
     inactive?: string;
-    prefix?: Theme["prefix"];
+    prefix?: Theme['prefix'];
     style?: {
-      message?: Theme["style"]["message"];
-      answer?: Theme["style"]["answer"];
-      highlight?: Theme["style"]["highlight"];
+      message?: Theme['style']['message'];
+      answer?: Theme['style']['answer'];
+      highlight?: Theme['style']['highlight'];
     };
   };
 };
 
 function isLeftKey(key) {
-  return key.name === "left";
+  return key.name === 'left';
 }
 
 function isRightKey(key) {
-  return key.name === "right";
+  return key.name === 'right';
 }
 
 const prompt: Prompt<boolean, InquirerToggleConfig> = createPrompt<
   boolean,
   InquirerToggleConfig
 >((config, done) => {
-  const theme = makeTheme({ active: "yes", inactive: "no" }, config.theme);
+  const theme = makeTheme({ active: 'yes', inactive: 'no' }, config.theme);
   const prefix = usePrefix({ theme });
   const [value, setValue] = useState(config.default ?? false);
   const [isDone, setIsDone] = useState(false);
