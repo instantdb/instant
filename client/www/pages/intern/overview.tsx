@@ -173,6 +173,7 @@ export function Main() {
   );
   const dateAnalyzed = parse(daily.data.date, 'yyyy-MM-dd', new Date());
   const totalApps = Object.keys(sessions).length;
+  const subInfo = daily.data?.['subscription-info'];
   return (
     <div className="flex flex-col font-mono min-h-0">
       <div className="p-4 space-x-4 flex items-center border-b">
@@ -200,16 +201,28 @@ export function Main() {
               </div>
             </div>
           </div>
-          <div className="flex space-x-4">
+          <div className="flex space-x-8">
             <div>
               <h3 className="font-bold" style={{ fontSize: 30 }}>
                 {latestRolling['distinct_users']}
               </h3>
               <div>Monthly Active Devs</div>
             </div>
+            <div>
+              <h3 className="font-bold" style={{ fontSize: 30 }}>
+                {subInfo?.['num-subs']}
+              </h3>
+              <div>Pro Subscriptions</div>
+            </div>
+            <div>
+              <h3 className="font-bold" style={{ fontSize: 30 }}>
+                ${Math.round(subInfo?.['total-monthly-revenue'] / 100)}
+              </h3>
+              <div>Monthly Revenue</div>
+            </div>
           </div>
         </div>
-        <div className="flex-1 p-4 space-y-2 flex flex-col min-h-0">
+        <div className="flex-1 p-4 space-y-2 flex flex-col min-h-0 w-1/2">
           <h3 className="text-lg">{format(minute.sentAt, 'hh:mma')}</h3>
           <div className="flex justify-between items-baseline">
             <div className="inline-flex items-baseline space-x-4 justify-between">
