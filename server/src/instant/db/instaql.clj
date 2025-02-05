@@ -1777,10 +1777,10 @@
                                          wheres @clauses]
                                      (tool/def-locals)
                                      (assoc acc etype {:evaluation-result evaluation-result
-                                                       :wheres wheres})))
-                                 (catch Exception e
-                                   (clojure.tools.logging/info "ERROR" e)
-                                   acc)))
+                                                       :wheres wheres}))
+                                   (catch Exception e
+                                     (clojure.tools.logging/info "ERROR" e)
+                                     acc))))
                              acc))
                          {}
                          referenced-etypes)]
