@@ -25,10 +25,21 @@
    [instant.util.tracer :as tracer])
   (:import
    (java.lang InterruptedException)
-   (java.util.concurrent CancellationException)
+   (java.util Map)
+   (java.util.concurrent ConcurrentHashMap CancellationException)
    (io.undertow.websockets.spi WebSocketHttpExchange)))
 
-(declare store-conn)
+(defrecord ReactiveStore [sessions ^Map conns])
+
+(declare store)
+
+(def sessions-schema
+  {:session/id             {:db/unique :db.unique/identity}
+   :session/socket         {}   ;; socket (from session.clj)
+   :session/auth           {}   ;; {:app app :user user :admin? admin?} (from session.clj)
+   :session/creator        {}   ;; user (from session.clj)
+   :session/versions       {}   ;; library versions, e.g. {"@instantdb/react": "v0.1.2"}
+   :session/datalog-loader {}}) ;; datalog-loader (from datalog.clj)
 
 (def
   ^{:doc
@@ -37,14 +48,7 @@
      :db/cardinality, and :db/tupleAttrs. There may be added fields.
      The :db/type field is purely cosmetic."}
   schema
-  {:session/id {:db/unique :db.unique/identity}
-   :session/socket {} ;; socket (from session.clj)
-   :session/auth {} ;; {:app app :user user :admin? admin?} (from session.clj)
-   :session/creator {} ;; user (from session.clj)
-   :session/versions {} ;; library versions, e.g. {"@instantdb/react": "v0.1.2"}
-   :session/datalog-loader {} ;; datalog-loader (from datalog.clj)
-
-   :tx-meta/app-id {:db/unique :db.unique/identity}
+  {:tx-meta/app-id {:db/unique :db.unique/identity}
    :tx-meta/processed-tx-id {:db/type :db.type/integer}
 
    :instaql-query/query {:db/index true}
@@ -79,17 +83,17 @@
    :datalog-query/delayed-call {} ;; delay with datalog result (from query.clj)
    :datalog-query/topics {:db/type :db.type/list-of-topics}})
 
+(defn app-conn [store app-id]
+  (Map/.get (:conns store) app-id))
+
 ;; -----
 ;; misc
 
-(defn missing-session? [{:keys [error entity-id]}]
-  (and (= :entity-id/missing error)
-       (coll? entity-id)
-       (= :session/id (first entity-id))))
-
 (defn translate-datascript-exceptions [exinfo]
-  (let [{:keys [entity-id] :as data} (ex-data exinfo)]
-    (if (missing-session? data)
+  (let [{:keys [error entity-id]} (ex-data exinfo)]
+    (if (and (= :entity-id/missing error)
+             (coll? entity-id)
+             (= :session/id (first entity-id)))
       (ex/throw-session-missing! (last entity-id))
       (throw exinfo))))
 
@@ -125,83 +129,60 @@
   (some-> http-req
           (.getRequestHeader "cf-connecting-ip")))
 
-(defn auth-and-creator-attrs [auth creator]
-  {:app-title (-> auth :app :title)
-   :app-id (-> auth :app :id)
-   :app-user-email (-> auth :user :email)
-   :creator-email (-> creator :email)})
-
-(defn report-active-sessions [db]
-  (->> (d/datoms db :aevt :session/id)
-       (map (fn [{:keys [e]}]
-              (let [ent (d/entity db e)]
-                (assoc (auth-and-creator-attrs (:session/auth ent)
-                                               (:session/creator ent))
-                       :session-id (:session/id ent)
-                       :socket-origin (some-> ent
-                                              :session/socket
-                                              socket-origin)))))))
+(defn report-active-sessions [store]
+  (for [conn  (-> store :conns Map/.values)
+        :let  [db @conn]
+        datom (d/datoms db :aevt :session/id)
+        :let  [ent (d/entity db (:e datom))
+               {:session/keys [auth creator]} ent]]
+    {:app-title      (-> auth :app :title)
+     :app-id         (-> auth :app :id)
+     :app-user-email (-> auth :user :email)
+     :creator-email  (-> creator :email)
+     :session-id     (:session/id ent)
+     :socket-origin  (some-> ent
+                             :session/socket
+                             socket-origin)}))
 
 (comment
-  (report-active-sessions @store-conn))
+  (report-active-sessions store))
 
-(defn num-sessions [db]
-  (count (d/datoms db :aevt :session/id)))
+(defn num-sessions [store]
+  (count
+   (for [conn  (-> store :conns Map/.values)
+         datom (d/datoms @conn :aevt :session/id)]
+     datom)))
 
-;; -----
-;; auth
+;; --------
+;; sessions
 
-(defn get-auth [db sess-id]
-  (:session/auth (d/entity db [:session/id sess-id])))
+(defn session [store sess-id]
+  (let [db @(:sessions store)]
+    (d/entity db [:session/id sess-id])))
 
-(defn set-auth! [conn sess-id auth]
-  (transact! "store/set-auth!"
-             conn
-             [[:db/add [:session/id sess-id] :session/auth auth]]))
-
-;; ------
-;; creator
-
-(defn get-creator [db sess-id]
-  (:session/creator (d/entity db [:session/id sess-id])))
-
-(defn set-creator! [conn sess-id creator]
-  (transact! "store/set-creator!"
-             conn
-             [[:db/add [:session/id sess-id] :session/creator creator]]))
-
-;; -------------
-;; session props
-
-(defn set-session-props! [conn sess-id {:keys [creator
-                                               auth
-                                               versions]}]
-  (transact! "store/set-session-props"
-             conn
-             (concat
-              [[:db/add [:session/id sess-id] :session/auth auth]
-               [:db/add [:session/id sess-id] :session/creator creator]]
-              (when versions
-                [[:db/add [:session/id sess-id] :session/versions versions]]))))
-
-(defn get-versions [db sess-id]
-  (:session/versions (d/entity db [:session/id sess-id])))
+(defn assoc-session! [store sess-id & kvs]
+  (let [conn   @(:sessions store)
+        entity (apply assoc {:session/id sess-id} kvs)]
+    (transact! "store/assoc-session!" conn [entity])))
 
 ;; -----
 ;; tx-id
 
-(defn get-processed-tx-id [db app-id]
-  (:tx-meta/processed-tx-id (d/entity db [:tx-meta/app-id app-id])))
+(defn get-processed-tx-id [store app-id]
+  (let [db  @(app-conn store app-id)
+        ent (d/entity db [:tx-meta/app-id app-id])]
+    (:tx-meta/processed-tx-id ent)))
 
 ;; ------
 ;; instaql queries
 
-(defn get-stale-instaql-queries [db sess-id]
-  (->> (d/datoms db :avet :instaql-query/session-id sess-id)
-       (keep (fn [{:keys [e]}]
-               (let [ent (d/entity db e)]
-                 (when (:instaql-query/stale? ent)
-                   ent))))))
+(defn get-stale-instaql-queries [store app-id sess-id]
+  (let [db @(app-conn store app-id)]
+    (->> (d/datoms db :avet :instaql-query/session-id sess-id)
+         (keep (fn [{:keys [e]}]
+                 (let [ent (d/entity db e)]
+                   (when (:instaql-query/stale? ent)
+                     ent)))))))
 
 (defn bump-instaql-version-tx-data
   "Should be used in a db.fn/call. Returns transactions.
@@ -209,57 +190,51 @@
    if needed."
   [db lookup-ref session-id instaql-query return-type]
   (if-let [existing (d/entity db lookup-ref)]
-    [[:db/add
-      (:db/id existing)
-      :instaql-query/version
-      (inc (or (:instaql-query/version existing)
-               0))]
-     [:db/add (:db/id existing) :instaql-query/stale? false]]
-
+    (let [v  (:instaql-query/version existing)
+          v' (inc (or v 0))]
+      [{:db/id (:db/id existing)
+        :instaql-query/version v'
+        :instaql-query/stale? false}])
     [{:instaql-query/session-id session-id
       :instaql-query/query instaql-query
       :instaql-query/stale? false
       :instaql-query/version 1
       :instaql-query/return-type return-type}]))
 
-(defn bump-instaql-version! [conn sess-id q return-type]
+(defn bump-instaql-version! [store app-id sess-id q return-type]
   (let [lookup-ref [:instaql-query/session-id+query [sess-id q]]
-        {:keys [db-after]}
-        (transact! "store/bump-instaql-version!"
-                   conn
-                   [[:db.fn/call bump-instaql-version-tx-data lookup-ref sess-id q return-type]])]
-
-    (:instaql-query/version (d/entity db-after lookup-ref))))
+        conn       (app-conn store app-id)
+        tx         [[:db.fn/call bump-instaql-version-tx-data lookup-ref sess-id q return-type]]
+        report     (transact! "store/bump-instaql-version!" conn tx)]
+    (:instaql-query/version (d/entity (:db-after report) lookup-ref))))
 
 ;; ----
 ;; remove instaql queries
 
-(defn remove-subscriptions-tx-data
+(defn- remove-subscriptions-tx-data
   "Should be used in a db.fn/call. Returns transactions.
    Retracts the instaql-query and subscriptions for the query."
   [db session-id instaql-query]
-  (if-let [query-eid (d/entid db [:instaql-query/session-id+query [session-id instaql-query]])]
-    (conj (map (fn [datom]
-                 [:db/retractEntity (:e datom)])
-               (d/datoms db :avet :subscription/instaql-query query-eid))
-          [:db/retractEntity query-eid])
+  (if-some [query-eid (d/entid db [:instaql-query/session-id+query [session-id instaql-query]])]
+    (concat
+     (for [datom (d/datoms db :avet :subscription/instaql-query query-eid)]
+       [:db/retractEntity (:e datom)])
+     [[:db/retractEntity query-eid]])
     []))
 
 ;; TODO: We could do this in the background by listening to transactions
 ;;       and noticing whenever we remove a reference to a datalog entry
-(defn clean-stale-datalog-tx-data
+(defn- clean-stale-datalog-tx-data
   "Should be used in a db.fn/call. Returns transactions.
    Retracts datalog queries that are no longer referenced in any subscriptions."
   [db]
-  (let [datalog-eids (d/datoms db :aevt :datalog-query/app-id)
-        stale-datalog-eids (remove (fn [{:keys [e]}]
-                                     (d/datoms db :avet :subscription/datalog-query e))
-                                   datalog-eids)]
-    (map (fn [[e]] [:db/retractEntity e]) stale-datalog-eids)))
+  (for [datom (d/datoms db :aevt :datalog-query/app-id)
+        :when (nil? (d/datoms db :avet :subscription/datalog-query (:e datom)))]
+    [:db/retractEntity (:e datom)]))
 
-(defn remove-query! [conn sess-id _app-id q]
+(defn remove-query! [store app-id sess-id q]
   (transact! "store/remove-query!"
-             conn
+             (app-conn store app-id)
              [[:db.fn/call remove-subscriptions-tx-data sess-id q]
               [:db.fn/call clean-stale-datalog-tx-data]]))
 
@@ -345,18 +320,6 @@
               ;; remove datalog-queries that are no longer in use
               [:db.fn/call clean-stale-datalog-tx-data]]))
 
-;; ------
-;; socket
-
-(defn get-socket [db sess-id]
-  (-> (d/entity db [:session/id sess-id])
-      :session/socket))
-
-(defn add-socket! [conn sess-id socket]
-  (transact! "store/add-socket!"
-             conn
-             [{:session/id sess-id
-               :session/socket socket}]))
 
 ;; ------
 ;; datalog cache
@@ -716,8 +679,8 @@
 ;; -----------------
 ;; Websocket Helpers
 
-(defn send-event! [conn app-id sess-id event]
-  (let [{:keys [ws-conn]} (get-socket @conn sess-id)]
+(defn send-event! [store app-id sess-id event]
+  (let [ws-conn (-> (session store sess-id) :session/socket :ws-conn)]
     (when-not ws-conn
       (ex/throw-socket-missing! sess-id))
     (try
@@ -741,16 +704,18 @@
 ;; -----
 ;; start
 
-(defn init-store []
-  (d/create-conn schema))
+(defn init []
+  (->ReactiveStore
+   (d/create-conn sessions-schema)
+   (ConcurrentHashMap.)))
 
 (defn start []
   (tracer/record-info! {:name "store/start"})
-  (def store-conn (init-store)))
+  (def store (init)))
 
 (defn stop []
   (tracer/record-info! {:name "store/reset"})
-  (d/reset-conn! store-conn @(d/create-conn schema)))
+  (def store nil))
 
 (defn restart []
   (stop)

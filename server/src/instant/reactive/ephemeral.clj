@@ -38,7 +38,7 @@
 
 (declare handle-broadcast-message)
 
-(defn init-hz [env store-conn {:keys [instance-name cluster-name]
+(defn init-hz [env store {:keys [instance-name cluster-name]
                                :or {instance-name "instant-hz-v3"
                                     cluster-name "instant-server-v2"}}]
   (-> (java.util.logging.Logger/getLogger "com.hazelcast")
@@ -106,15 +106,15 @@
                          (reify
                            EntryAddedListener
                            (entryAdded [_ event]
-                             (handle-event store-conn event))
+                             (handle-event store event))
 
                            EntryRemovedListener
                            (entryRemoved [_ event]
-                             (handle-event store-conn event))
+                             (handle-event store event))
 
                            EntryUpdatedListener
                            (entryUpdated [_ event]
-                             (handle-event store-conn event)))
+                             (handle-event store event)))
 
                          true)
       (.addMessageListener hz-broadcast-topic
@@ -123,14 +123,14 @@
                              (onMessage [_ message]
                                ;; Don't bother handling messages that we put on the topic
                                (when (not= local-member (.getPublishingMember message))
-                                 (handle-broadcast-message store-conn message)))))
+                                 (handle-broadcast-message store message)))))
       {:hz hz
        :hz-rooms-map hz-rooms-map
        :hz-broadcast-topic hz-broadcast-topic})))
 
 (defonce hz
   (delay
-    (init-hz (config/get-env) rs/store-conn {})))
+    (init-hz (config/get-env) rs/store {})))
 
 (defn get-hz ^HazelcastInstance []
   (:hz @hz))
@@ -144,7 +144,7 @@
 ;; ---------
 ;; Hazelcast
 
-(defn handle-event [store-conn ^DataAwareEntryEvent event]
+(defn handle-event [store ^DataAwareEntryEvent event]
   (let [room-key                 (.getKey event)
         {:keys [app-id room-id]} room-key
         {:keys [session-ids]}    (get-in @room-maps [:rooms room-key])]
@@ -155,7 +155,7 @@
                         (editscript/get-edits
                          (editscript/diff last-data room-data {:algo :a-star :str-diff :none})))]
         (doseq [[sess-id _] room-data
-                :let [q (:receive-q (rs/get-socket @store-conn sess-id))]
+                :let [q (-> (rs/session store sess-id) :session/socket :receive-q)]
                 :when q
                 :let [just-joined? (and (contains? room-data sess-id)
                                         (not (contains? last-data sess-id)))]]
@@ -172,10 +172,10 @@
   "Handles the message on the topic we use to broadcast a client-broadcast
    message to sessions that are in the room, but live on a different physical
    machine."
-  [store-conn ^Message m]
+  [store ^Message m]
   (let [{:keys [app-id session-ids base-msg]} (.getMessageObject m)]
     (doseq [sess-id session-ids
-            :let [q (:receive-q (rs/get-socket @store-conn sess-id))]
+            :let [q (-> (rs/session store sess-id) :session/socket :receive-q)]
             :when q]
       (receive-queue/enqueue->receive-q q
                                         (assoc base-msg
@@ -286,7 +286,7 @@
 (defn start []
   (def hz
     (delay
-      (init-hz (config/get-env) rs/store-conn {})))
+      (init-hz (config/get-env) rs/store {})))
   (let [^Future f (future @hz)]
     (.get f (* 60 1000) java.util.concurrent.TimeUnit/MILLISECONDS)))
 

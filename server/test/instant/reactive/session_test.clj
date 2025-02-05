@@ -131,7 +131,7 @@
                          {:op :init :app-id non-existent-app-id})))))
       (testing "existing app"
         (let [{op :op event-auth :auth} (blocking-send-msg :init-ok socket {:op :init :app-id zeneca-app-id})
-              store-auth (rs/get-auth @store-conn id)]
+              store-auth (-> (rs/session store-conn id) :session/auth)]
           (is (= :init-ok op))
           (is (= ["Zeneca-ex" nil] (pretty-auth event-auth)))
           (is (= ["Zeneca-ex" nil] (pretty-auth store-auth)))))
@@ -463,7 +463,7 @@
                               :q (:kw-q query-1987)})
 
           ;; No stale queries at first
-          (is (empty? (rs/get-stale-instaql-queries @store-conn sess-id)))
+          (is (empty? (rs/get-stale-instaql-queries@store-conn app-id sess-id)))
 
           (rs/mark-stale-topics! store-conn
                                  app-id
@@ -474,7 +474,7 @@
 
             ;; Now we have a stale query
           (is (= [(:kw-q query-1987)]
-                 (map :instaql-query/query (rs/get-stale-instaql-queries @store-conn sess-id))))
+                 (map :instaql-query/query (rs/get-stale-instaql-queries store-conn app-id sess-id))))
 
             ;; We also removed datalog queries from cache
           (is (= '#{}
@@ -484,7 +484,7 @@
                       set)))
 
             ;; we also recorded the tx-id that was processed
-          (is (= 5 (rs/get-processed-tx-id @store-conn app-id))))))))
+          (is (= 5 (rs/get-processed-tx-id store-conn app-id))))))))
 
 (deftest refresh-populates-cache
   (with-movies-app
@@ -512,7 +512,7 @@
                                                    :op :refresh})
 
             ;; After refresh there should be no more stale queries
-            (is (empty? (rs/get-stale-instaql-queries @store-conn sess-id)))
+            (is (empty? (rs/get-stale-instaql-queries store-conn app-id sess-id)))
 
             ;; Datalog cache now has more things
             (is (= '#{{:children
@@ -548,7 +548,7 @@
 
             ;; No stale queries at first
             ;; datalog-cache, subs, instaql look good
-            (is (empty? (rs/get-stale-instaql-queries @store-conn sess-id)))
+            (is (empty? (rs/get-stale-instaql-queries store-conn app-id sess-id)))
             (is (= '#{{:children
                        {:pattern-groups
                         [{:patterns [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]],
@@ -608,7 +608,7 @@
                                                    :op :refresh})
 
             ;; data is cleaned
-            (is (empty? (rs/get-stale-instaql-queries @store-conn sess-id)))
+            (is (empty? (rs/get-stale-instaql-queries store-conn app-id sess-id)))
             (is (= '#{{:children
                        {:pattern-groups
                         [{:patterns [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]],
