@@ -56,7 +56,7 @@ The easiest choice would have been to run an in-place upgrade. Put the database 
 
 The big problem is the downtime. Your DB is in maintenance mode for the entirety of the upgrade. The Lyft team said an in-place upgrade would have caused them a [30 minute](https://eng.lyft.com/postgres-aurora-db-major-version-upgrade-with-minimal-downtime-4e26178f07a0#4831) outage.
 
-We wanted to test this for ourselves though, in a case smaller database upgraded more quickly. So we cloned our production database and tested an in-place upgrade. Even with our smaller size, it took about 15 minutes for the clone to come back online.
+We wanted to test this for ourselves though, in case a smaller database upgraded more quickly. So we cloned our production database and tested an in-place upgrade. Even with our smaller size, it took about 15 minutes for the clone to come back online.
 
 Crunch or not, a 15-minute outage was off the table for us. Since launch we had folks sign up across the U.S, Europe and Asia; traffic ebbed and flowed, but there wasn’t a period where 15 minutes of downtime felt tolerable.
 
@@ -280,7 +280,7 @@ Next step, to switch subscriptions. Let’s remind ourselves what we’re lookin
 
 We’d need to get our sync servers to create replication slots in 16, rather than 13.
 
-To do this, we added a `next-database-url` variable to our sync servers. During startup, if `next-database-url` was set, sync servers would subscribe from from there:
+To do this, we added a `next-database-url` variable to our sync servers. During startup, if `next-database-url` was set, sync servers would subscribe from there:
 
 ```clojure
 ;; invalidator.clj
