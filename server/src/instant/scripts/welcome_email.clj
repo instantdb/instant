@@ -10,6 +10,7 @@
    [instant.jdbc.sql :as sql]
    [instant.flags :as flags])
   (:import
+   (java.lang AutoCloseable)
    (java.time Period DayOfWeek)))
 
 ;; Find recent users and set the welcome-email flag to ensure
@@ -89,11 +90,17 @@ How's your experience with Instant been so far? Any feedback to share?")
 
 (defn start []
   (log/info "Starting welcome email daemon")
-  (reset! schedule (chime-core/chime-at (period) send-welcome-email!)))
+  (swap! schedule (fn [curr-schedule]
+                    (if curr-schedule
+                      curr-schedule
+                      (chime-core/chime-at
+                       (period)
+                       (fn [_time]
+                         (send-welcome-email!)))))))
 
 (defn stop []
-  (when @schedule
-    (.close @schedule)
+  (when-let [curr-schedule @schedule]
+    (.close ^AutoCloseable curr-schedule)
     (reset! schedule nil)))
 
 (defn restart []
