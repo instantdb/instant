@@ -4,16 +4,22 @@
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.store :as rs]))
 
+(defn app-sessions->report [app-sessions]
+  (let [[{:keys [app-id app-title creator-email]}] app-sessions
+        cnt (count app-sessions)
+        origins (frequencies (keep :socket-origin app-sessions))]
+    {:app-id app-id
+     :app-title app-title
+     :creator-email creator-email
+     :count cnt
+     :origins origins}))
+
 (defn store->session-report [db]
   (->> (rs/report-active-sessions db)
        (filter :app-id)
-       (map (juxt :app-id :app-title :creator-email))
-       frequencies
-       (map (fn [[[app-id app-title creator-email] cnt]]
-              [app-id
-               {:app-title app-title
-                :creator-email creator-email
-                :count cnt}]))
+       (group-by :app-id)
+       (map (fn [[app-id app-sessions]]
+              [app-id (app-sessions->report app-sessions)]))
        (into {})))
 
 (defn session-report-task

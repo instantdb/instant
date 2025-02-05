@@ -37,7 +37,6 @@
    [instant.util.uuid :as uuid-util]
    [lambdaisland.uri :as uri])
   (:import
-   (io.undertow.websockets.spi WebSocketHttpExchange)
    (java.time Duration Instant)
    (java.util.concurrent CancellationException)
    (java.util.concurrent.atomic AtomicLong)))
@@ -82,10 +81,10 @@
   (if-let [connection-string (-> app :connection_string)]
     ;; TODO(byop): Separate connection for byop app
     (pg-introspect/introspect (aurora/conn-pool :read) (or (->> connection-string
-                                                          (app-model/decrypt-connection-string (:id app))
-                                                          uri/query-map
-                                                          :currentSchema)
-                                                     "public"))
+                                                                (app-model/decrypt-connection-string (:id app))
+                                                                uri/query-map
+                                                                :currentSchema)
+                                                           "public"))
     {:attrs (attr-model/get-by-app-id (:id app))}))
 
 (defn- handle-init! [store-conn sess-id
@@ -300,16 +299,6 @@
       :ws-ping-latency-ms ws-ping-latency-ms}
      (auth-and-creator-attrs auth creator versions))))
 
-(defn socket-origin [{:keys [^WebSocketHttpExchange http-req]}]
-  (some-> http-req
-          (.getRequestHeaders)
-          (.get "origin")
-          first))
-
-(defn socket-ip [{:keys [^WebSocketHttpExchange http-req]}]
-  (some-> http-req
-          (.getRequestHeader "cf-connecting-ip")))
-
 (defn- handle-join-room! [store-conn sess-id {:keys [client-event-id room-id] :as _event}]
   (let [auth (get-auth! store-conn sess-id)
         app-id (-> auth :app :id)
@@ -505,8 +494,8 @@
         sess-id (:session/id session)
         event-attrs (event-attributes store-conn sess-id event)]
     (assoc (merge metadata event-attrs)
-           :socket-origin (socket-origin socket)
-           :socket-ip (socket-ip socket)
+           :socket-origin (rs/socket-origin socket)
+           :socket-ip (rs/socket-ip socket)
            :session-id sess-id)))
 
 (defn handle-receive [store-conn session event metadata]
