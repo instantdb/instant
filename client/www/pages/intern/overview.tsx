@@ -200,12 +200,18 @@ export function Main() {
               </div>
             </div>
           </div>
-          <div className="flex space-x-4">
+          <div className="flex space-x-8">
             <div>
               <h3 className="font-bold" style={{ fontSize: 30 }}>
                 {latestRolling['distinct_users']}
               </h3>
               <div>Monthly Active Devs</div>
+            </div>
+            <div>
+              <h3 className="font-bold" style={{ fontSize: 30 }}>
+                {daily.data['num-rev-subs']}
+              </h3>
+              <div>Pro Subscriptions</div>
             </div>
           </div>
         </div>
