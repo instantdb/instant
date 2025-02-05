@@ -173,6 +173,7 @@ export function Main() {
   );
   const dateAnalyzed = parse(daily.data.date, 'yyyy-MM-dd', new Date());
   const totalApps = Object.keys(sessions).length;
+  const subInfo = daily.data?.['subscription-info'];
   return (
     <div className="flex flex-col font-mono min-h-0">
       <div className="p-4 space-x-4 flex items-center border-b">
@@ -209,9 +210,15 @@ export function Main() {
             </div>
             <div>
               <h3 className="font-bold" style={{ fontSize: 30 }}>
-                {daily.data['num-rev-subs']}
+                {subInfo?.['num-subs']}
               </h3>
               <div>Pro Subscriptions</div>
+            </div>
+            <div>
+              <h3 className="font-bold" style={{ fontSize: 30 }}>
+                ${Math.round(subInfo?.['total-monthly-revenue'] / 100)}
+              </h3>
+              <div>Monthly Revenue</div>
             </div>
           </div>
         </div>

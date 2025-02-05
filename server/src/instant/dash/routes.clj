@@ -290,17 +290,19 @@
 
 (defn admin-overview-daily-get [req]
   (let [{:keys [email]} (req->auth-user! req)
-        _ (assert-admin-email! email)
-        conn (aurora/conn-pool :read)
-        overview (metrics/overview-metrics conn)
-        rev-subs (dash-admin/get-revenue-generating-subscriptions)
-        overview-with-b64-charts
-        (update overview :charts (partial medley/map-vals
-                                          (fn [chart] (metrics/chart->base64-png chart
-                                                                                 500 400))))]
+          _ (assert-admin-email! email)
+          conn (aurora/conn-pool :read)
+          overview (metrics/overview-metrics conn)
+          rev-subs (dash-admin/get-revenue-generating-subscriptions)
+          overview-with-b64-charts
+          (update overview :charts (partial medley/map-vals
+                                            (fn [chart] (metrics/chart->base64-png chart
+                                                                                   500 400))))
+          subscription-info {:num-subs (count rev-subs)
+                             :total-monthly-revenue (reduce + (map :monthly-revenue rev-subs))}]
 
-    (response/ok (assoc overview-with-b64-charts
-                        :num-rev-subs (count rev-subs)))))
+      (response/ok (assoc overview-with-b64-charts
+                          :subscription-info subscription-info))))
 
 (defn admin-overview-minute-get [req]
   (let [{:keys [email]} (req->auth-user! req)
