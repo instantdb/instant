@@ -10,6 +10,7 @@
    [instant.auth.oauth :as oauth]
    [instant.config :as config]
    [instant.dash.ephemeral-app :as ephemeral-app]
+   [instant.storage.sweeper :as storage-sweeper]
    [instant.dash.routes :as dash-routes]
    [instant.db.indexing-jobs :as indexing-jobs]
    [instant.flags :as flags]
@@ -220,6 +221,8 @@
       (session-counter/start))
     (with-log-init :indexing-jobs
       (indexing-jobs/start))
+    (with-log-init :storage-sweeper
+      (storage-sweeper/start))
     (when (= (config/get-env) :prod)
       (with-log-init :analytics
         (analytics/start)))
