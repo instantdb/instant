@@ -1,4 +1,4 @@
-import React, { use, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { useAuthToken } from '@/lib/auth';
 import { jsonFetch } from '@/lib/fetch';
@@ -7,9 +7,8 @@ import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 
 import { FullscreenLoading, LogoIcon } from '@/components/ui';
 import Head from 'next/head';
-import { format, parse, subDays } from 'date-fns';
+import { format, parse } from 'date-fns';
 import useCurrentDate from '@/lib/hooks/useCurrentDate';
-import produce from 'immer';
 
 async function fetchDailyOverview(token: string) {
   return jsonFetch(`${config.apiURI}/dash/overview/daily`, {
