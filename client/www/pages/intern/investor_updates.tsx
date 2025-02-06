@@ -86,17 +86,17 @@ function Page() {
       <div className="p-4">
         <div>
           Monthly Active Apps M/M Growth:{' '}
-          {round(data.metrics['monthly-active-apps-mom'])}%
+          {round(data.metrics['monthly-active-apps-mom'], /* precision = */ 1)}%
         </div>
         <div>
           Monthly Active Devs M/M Growth:{' '}
-          {round(data.metrics['monthly-active-devs-mom'])}%
+          {round(data.metrics['monthly-active-devs-mom'], /* precision = */ 1)}%
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 justify-items-center">
-          <img src={data.metrics.charts['weekly-active-apps']} />
           <img src={data.metrics.charts['monthly-active-apps']} />
-          <img src={data.metrics.charts['weekly-active-devs']} />
           <img src={data.metrics.charts['monthly-active-devs']} />
+          <img src={data.metrics.charts['weekly-active-apps']} />
+          <img src={data.metrics.charts['weekly-active-devs']} />
         </div>
       </div>
     </div>
