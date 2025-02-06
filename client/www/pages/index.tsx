@@ -118,12 +118,10 @@ const ActiveSessionsCallout = () => {
     refreshSeconds: 3,
   });
   const height = 38;
-  
+
   if (isLoading || error || data <= 0) {
     return <div style={{ height }}></div>;
   }
-
-  const digits = data.toString().split('');
 
   return (
     <div className="inline-flex items-center space-x-2" style={{ height }}>
