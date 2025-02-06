@@ -166,10 +166,11 @@ export function Main() {
   const daily = useDailyOverview(token!);
   const minute = useMinuteOverview(token!);
   if (daily.isLoading || minute.isLoading) return <FullscreenLoading />;
-  if (daily.error || minute.error) {
+  const error = daily.error || minute.error;
+  if (error) {
     return (
       <div>
-        Error: <pre>{JSON.stringify(daily.error.body, null, 2)}</pre>
+        Error: <pre>{JSON.stringify(error.body, null, 2)}</pre>
       </div>
     );
   }
