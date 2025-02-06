@@ -32,7 +32,12 @@
         org.bouncycastle/bcprov-jdk15on {:mvn/version "1.70"}
         incanter/incanter {:mvn/version "1.9.3"
                            :exclusions [bouncycastle/bctsp-jdk14
-                                        postgresql/postgresql]}
+                                        postgresql/postgresql
+                                        net.mikera/vectorz-clj]}
+        net.mikera/core.matrix {:mvn/version "0.63.0"}
+        ;; https://github.com/mikera/vectorz-clj/pull/75
+        io.github.tonsky/vectorz-clj {:mvn/version "0.48.1"}
+        net.mikera/vectorz {:mvn/version "0.67.0"}
         com.taoensso/nippy {:mvn/version "3.4.2"}
 
         nrepl/nrepl {:mvn/version "0.9.0"}
