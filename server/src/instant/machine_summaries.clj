@@ -37,7 +37,7 @@
 
 (defn num-sessions-task
   []
-  (rs/num-sessions @rs/store))
+  (rs/num-sessions rs/store))
 
 (defn get-all-num-sessions [hz]
   (let [executor (.getExecutorService hz "session-nums-executor")

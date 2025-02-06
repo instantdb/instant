@@ -8,7 +8,6 @@
    commands."
   (:require
    [clojure.main :refer [root-cause]]
-   [datascript.core :as ds]
    [instant.config :as config]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
@@ -120,19 +119,19 @@
                                           :attrs           attrs})))
 
 (defn- get-auth! [store sess-id]
-  (let [{:session/keys [auth]} (rs/sesison store sess-id)]
+  (let [{:session/keys [auth]} (rs/session store sess-id)]
     (when-not (:app auth)
       (ex/throw-validation-err! :init {:sess-id sess-id} [{:message "`init` has not run for this session."}]))
     auth))
 
 (defn- handle-add-query! [store sess-id {:keys [q client-event-id return-type] :as _event}]
-  (let [instaql-queries (rs/get-session-instaql-queries @store sess-id)
-        {:keys [app user admin?]} (get-auth! store sess-id)]
-
+  (let [{:keys [app user admin?]} (get-auth! store sess-id)
+        {app-id :id}    app
+        instaql-queries (rs/session-instaql-queries store app-id sess-id)]
     (cond
       (contains? instaql-queries q)
-      (rs/send-event! store (:id app) sess-id {:op :add-query-exists :q q
-                                                    :client-event-id client-event-id})
+      (rs/send-event! store app-id sess-id {:op :add-query-exists :q q
+                                            :client-event-id client-event-id})
 
       (nil? q)
       (ex/throw-validation-err! :add-query
@@ -141,24 +140,23 @@
 
       :else
       (let [return-type (keyword (or return-type "join-rows"))
-            {app-id :id} app
             processed-tx-id (rs/get-processed-tx-id store app-id)
             {:keys [table-info]} (get-attrs app)
             attrs (attr-model/get-by-app-id app-id)
-            ctx {:db {:conn-pool (aurora/conn-pool :read)}
+            ctx {:db             {:conn-pool (aurora/conn-pool :read)}
                  :datalog-loader (rs/upsert-datalog-loader! store sess-id d/make-loader)
-                 :session-id sess-id
-                 :app-id app-id
-                 :attrs attrs
-                 :table-info table-info
-                 :admin? admin?
-                 :current-user user}
+                 :session-id     sess-id
+                 :app-id         app-id
+                 :attrs          attrs
+                 :table-info     table-info
+                 :admin?         admin?
+                 :current-user   user}
             {:keys [instaql-result]} (rq/instaql-query-reactive! store ctx q return-type)]
         (rs/send-event! store app-id sess-id {:op :add-query-ok
-                                                   :q q
-                                                   :result instaql-result
-                                                   :processed-tx-id processed-tx-id
-                                                   :client-event-id client-event-id})))))
+                                              :q q
+                                              :result instaql-result
+                                              :processed-tx-id processed-tx-id
+                                              :client-event-id client-event-id})))))
 
 (defn- handle-remove-query! [store sess-id {:keys [q client-event-id] :as _event}]
   (let [{:keys [app]} (get-auth! store sess-id)]
@@ -403,7 +401,7 @@
         {:keys [id]} socket]
     (tracer/add-data! {:attributes (event-attributes store id event)})
     (case op
-      :init         (handle-init! id event)
+      :init         (handle-init! store id event)
       :add-query    (handle-add-query! store id event)
       :remove-query (handle-remove-query! store id event)
       :refresh      (handle-refresh! store id event debug-info)
@@ -565,10 +563,10 @@
             (swap! pending-handlers disj pending-handler)))))))
 
 (defn process-receive-q-entry [store entry metadata]
-  (let [{:keys [put-at item app-id skipped-size]} entry
+  (let [{:keys [put-at item skipped-size]} entry
         {:keys [session-id] :as event} item
         now        (Instant/now)
-        session    (rs/get-session store session-id)]
+        session    (rs/session store session-id)]
     (cond
       (not session)
       (tracer/record-info! {:name "receive-worker/session-not-found"
@@ -689,7 +687,7 @@
                      :session/auth
                      :app
                      :id)]
-      (rs/remove-session! store id)
+      (rs/remove-session! store app-id id)
       (eph/leave-by-session-id! app-id id))))
 
 (defn undertow-config

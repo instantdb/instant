@@ -152,10 +152,10 @@
   "Given a collection of changes, stales all relevant queries and returns
   sockets to be refreshed."
   ;; process-id used for tests
-  [_process-id store-conn {:keys [app-id tx-id] :as wal-record}]
-  (let [topics (topics-for-changes wal-record)
-        [db session-ids] (rs/mark-stale-topics! store-conn app-id tx-id topics)
-        sockets (keep #(:session/socket (rs/session db %)) session-ids)]
+  [_process-id store {:keys [app-id tx-id] :as wal-record}]
+  (let [topics      (topics-for-changes wal-record)
+        session-ids (rs/mark-stale-topics! store app-id tx-id topics)
+        sockets     (keep #(:session/socket (rs/session store %)) session-ids)]
     sockets))
 
 (defn- topics-for-byop-triple-insert [table-info change]
@@ -216,10 +216,10 @@
 (defn- invalidate-byop!
   "Given a collection of changes, stales all relevant queries and returns
   sockets to be refreshed."
-  [table-info app-id store-conn {:keys [tx-id] :as record}]
-  (let [topics (topics-for-byop-changes table-info record)
-        [db session-ids] (rs/mark-stale-topics! store-conn app-id tx-id topics)
-        sockets (keep #(:session/socket (rs/session db %)) session-ids)]
+  [table-info app-id store {:keys [tx-id] :as record}]
+  (let [topics      (topics-for-byop-changes table-info record)
+        session-ids (rs/mark-stale-topics! store app-id tx-id topics)
+        sockets     (keep #(:session/socket (rs/session store %)) session-ids)]
     sockets))
 
 ;; ------
@@ -342,7 +342,7 @@
   (when tx-created-at
     (.between ChronoUnit/MILLIS tx-created-at (Instant/now))))
 
-(defn process-wal-record [process-id store-conn record-count wal-record]
+(defn process-wal-record [process-id store record-count wal-record]
   (let [{:keys [app-id tx-id tx-created-at tx-bytes]} wal-record]
     (tracer/with-span! {:name "invalidator/work"
                         :attributes {:app-id app-id
@@ -352,7 +352,7 @@
                                      :tx-bytes tx-bytes}}
 
       (try
-        (let [sockets (invalidate! process-id store-conn wal-record)]
+        (let [sockets (invalidate! process-id store wal-record)]
           (tracer/add-data! {:attributes {:num-sockets (count sockets)
                                           :tx-latency-ms (e2e-tracer/tx-latency-ms tx-created-at)}})
           (e2e-tracer/invalidator-tracking-step! {:tx-id tx-id
@@ -367,7 +367,7 @@
                                                  :tx-created-at tx-created-at}))))
         (catch Throwable t
           (def -wal-record wal-record)
-          (def -store-value @store-conn)
+          (def -store-value store)
           (tracer/add-exception! t {:escaping? false}))))))
 
 (defn invalidator-q-metrics [{:keys [grouped-queue get-worker-count]}]
@@ -380,7 +380,7 @@
    {:path "instant.reactive.invalidator.q.worker-count"
     :value (get-worker-count)}])
 
-(defn start-worker [process-id store-conn wal-chan]
+(defn start-worker [process-id store wal-chan]
   (tracer/record-info! {:name "invalidation-worker/start"})
   (let [queue-with-workers
         (grouped-queue/start-grouped-queue-with-cpu-workers
@@ -388,7 +388,7 @@
           :reserve-fn (fn [_ q] (grouped-queue/inflight-queue-reserve 100 q))
           :process-fn (fn [_key wal-records]
                         (process-wal-record process-id
-                                            store-conn
+                                            store
                                             (count wal-records)
                                             (combine-wal-records wal-records)))
           :worker-count 8})
@@ -406,10 +406,10 @@
             (do (grouped-queue/put! grouped-queue wal-record)
                 (recur))))))))
 
-(defn handle-byop-record [table-info app-id store-conn wal-record]
+(defn handle-byop-record [table-info app-id store wal-record]
   (when-let [record (transform-byop-wal-record wal-record)]
     (try
-      (let [sockets (invalidate-byop! table-info app-id store-conn record)]
+      (let [sockets (invalidate-byop! table-info app-id store record)]
         (tracer/add-data! {:attributes {:num-sockets (count sockets)}})
         (tracer/with-span! {:name "invalidator/send-refreshes"}
           (doseq [{:keys [id]} sockets]
@@ -417,10 +417,10 @@
                                                :session-id id}))))
       (catch Throwable t
         (def -wal-record wal-record)
-        (def -store-value @store-conn)
+        (def -store-value store)
         (tracer/add-exception! t {:escaping? false})))))
 
-(defn start-byop-worker [store-conn wal-chan]
+(defn start-byop-worker [store wal-chan]
   (tracer/record-info! {:name "invalidation-worker/start-byop"})
   (let [app-id config/instant-on-instant-app-id
         {:keys [table-info]} (pg-introspect/introspect (aurora/conn-pool :read)
@@ -433,11 +433,11 @@
             (try
               (handle-byop-record app-id
                                   table-info
-                                  store-conn
+                                  store
                                   wal-record)
               (catch Throwable t
                 (def -wal-record wal-record)
-                (def -store-value @store-conn)
+                (def -store-value store)
                 (tracer/add-exception! t {:escaping? false})))
             (recur)))))))
 
@@ -494,11 +494,11 @@
 
      @(:started-promise wal-opts)
 
-     (start-worker process-id rs/store-conn worker-chan)
+     (start-worker process-id rs/store worker-chan)
 
      (when byop-chan
        (ua/fut-bg
-        (start-byop-worker rs/store-conn byop-chan)))
+        (start-byop-worker rs/store byop-chan)))
 
      wal-opts)))
 
