@@ -543,7 +543,7 @@
 
               (= value-label "$entityIdStartsWith")
               (let [id-attr (attr-model/seek-by-fwd-ident-name [last-etype "id"] attrs)]
-                [[{:$entityIdStartsWith v} (:id id-attr) (level-sym last-etype last-level)]])
+                [[(level-sym last-etype last-level) (:id id-attr) {:$entityIdStartsWith v}]])
 
               :else
               [(attr-pat/->value-attr-pat ctx

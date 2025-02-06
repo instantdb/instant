@@ -48,7 +48,6 @@
 ;; Pattern
 
 (s/def ::$entityIdStartsWith string?)
-(s/def ::$eid-match (s/keys :req-un [::$entityIdStartsWith]))
 
 (defn pattern-component [v-type]
   (s/or :constant (s/coll-of v-type :kind set? :min-count 0)
@@ -70,7 +69,7 @@
                                                             :min-count 0)
                                        :any #{'_}
                                        :variable symbol?
-                                       :function (s/keys :req-un [(or ::$not ::$isNull ::$comparator)])))
+                                       :function (s/keys :req-un [(or ::$not ::$isNull ::$comparator ::$entityIdStartsWith)])))
 
 (s/def ::idx-key #{:ea :eav :av :ave :vae})
 (s/def ::data-type #{:string :number :boolean :date})
@@ -80,8 +79,7 @@
 
 (s/def ::pattern
   (s/cat :idx ::index
-         :e (pattern-component (s/or :lookup ::triple-model/lookup
-                                     :eid-match ::$eid-match))
+         :e (pattern-component ::triple-model/lookup)
          :a (pattern-component uuid?)
          :v ::value-pattern-component
          :created-at (pattern-component number?)))
@@ -129,7 +127,8 @@
                 (map? c)
                 (or (contains? c :$not)
                     (contains? c :$isNull)
-                    (contains? c :$comparator)))
+                    (contains? c :$comparator)
+                    (contains? c :$entityIdStartsWith)))
            (symbol? c)
            (set? c))
         c
@@ -519,9 +518,9 @@
 
 (defn- match-table-select
   "This generates the select portion of the match table. "
-  [force-uuid? table-name]
+  [table-name]
   (map vector [:entity-id :attr-id :value
-               [:case (if force-uuid? true :eav) [:cast [:->> :value :0] :uuid] :else :null]
+               [:case :eav [:cast [:->> :value :0] :uuid] :else :null]
                :created-at]
        (match-table-cols table-name)))
 
@@ -574,6 +573,24 @@
                            [:= [(extract-value-fn data-type) :value] v]])
                         v-set))))))
 
+(defn- constant->where-part [idx app-id component-type [_ v]]
+  (condp = component-type
+    :e (list* :or
+              (for [lookup v]
+                (if (uuid? lookup)
+                  [:= :entity-id lookup]
+                  [:=
+                   :entity-id
+                   {:select :entity-id
+                    :from :triples
+                    :where [:and
+                            [:= :app-id app-id]
+                            [:= :value [:cast (->json (second lookup)) :jsonb]]
+                            [:= :attr-id [:cast (first lookup) :uuid]]
+                            :av]}])))
+    :a (in-or-eq :attr-id v)
+    :v (in-or-eq-value idx v)))
+
 (def all-zeroes-uuid "00000000-0000-0000-0000-000000000000")
 (defn prefix->uuid-start [s]
   (if (<= 36 (count s))
@@ -585,31 +602,6 @@
   (if (<= 36 (count s))
     (uuid-util/coerce s)
     (uuid-util/coerce (str s (subs all-fs-uuid (count s))))))
-
-(defn- constant->where-part [idx app-id component-type [_ v]]
-  (condp = component-type
-    :e (list* :or
-              (for [lookup v]
-                (cond (uuid? lookup)
-                      [:= :entity-id lookup]
-                      (vector? lookup)
-                      [:=
-                       :entity-id
-                       {:select :entity-id
-                        :from :triples
-                        :where [:and
-                                [:= :app-id app-id]
-                                [:= :value [:cast (->json (second lookup)) :jsonb]]
-                                [:= :attr-id [:cast (first lookup) :uuid]]
-                                :av]}]
-                      (and (map? lookup)
-                           (:$entityIdStartsWith lookup))
-                      (let [prefix (:$entityIdStartsWith lookup)]
-                        [:and
-                         [:>= :entity-id (prefix->uuid-start prefix)]
-                         [:<= :entity-id (prefix->uuid-end prefix)]]))))
-    :a (in-or-eq :attr-id v)
-    :v (in-or-eq-value idx v)))
 
 (defn- value-function-clauses [idx [v-tag v-value]]
   (case v-tag
@@ -641,7 +633,12 @@
                                     :value]
                                    value]
                                   ;; Need this check so that postgres knows it can use the index
-                                  [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]])))
+                                  [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]])
+                  :$entityIdStartsWith
+                  (let [prefix val]
+                    [[:and
+                      [:>= :entity-id (prefix->uuid-start prefix)]
+                      [:<= :entity-id (prefix->uuid-end prefix)]]])))
     []))
 
 (defn- function-clauses [named-pattern]
@@ -837,15 +834,7 @@
     [cur-table
      {:select (concat (when prev-table
                         [(kw prev-table :.*)])
-                      (match-table-select (and
-                                           (= :constant (-> named-p :e first))
-                                           (-> named-p
-                                               :e
-                                               second
-                                               first
-                                               :$entityIdStartsWith
-                                               string?))
-                                          cur-table))
+                      (match-table-select cur-table))
       :from (concat (list* :triples (when prev-table
                                       [prev-table]))
                     parent-froms)
