@@ -39,12 +39,16 @@
             [honey.sql :as hsql]
             [instant.jdbc.sql :as sql]
             [instant.util.json :refer [->json]]
-            [instant.util.string :refer [safe-name]])
+            [instant.util.string :refer [safe-name]]
+            [instant.util.uuid :as uuid-util])
   (:import (javax.sql DataSource)
            (java.util UUID)))
 
 ;; ---
 ;; Pattern
+
+(s/def ::$entityIdStartsWith string?)
+(s/def ::$eid-match (s/keys :req-un [::$entityIdStartsWith]))
 
 (defn pattern-component [v-type]
   (s/or :constant (s/coll-of v-type :kind set? :min-count 0)
@@ -76,7 +80,8 @@
 
 (s/def ::pattern
   (s/cat :idx ::index
-         :e (pattern-component ::triple-model/lookup)
+         :e (pattern-component (s/or :lookup ::triple-model/lookup
+                                     :eid-match ::$eid-match))
          :a (pattern-component uuid?)
          :v ::value-pattern-component
          :created-at (pattern-component number?)))
@@ -514,9 +519,9 @@
 
 (defn- match-table-select
   "This generates the select portion of the match table. "
-  [table-name]
+  [force-uuid? table-name]
   (map vector [:entity-id :attr-id :value
-               [:case :eav [:cast [:->> :value :0] :uuid] :else :null]
+               [:case (if force-uuid? true :eav) [:cast [:->> :value :0] :uuid] :else :null]
                :created-at]
        (match-table-cols table-name)))
 
@@ -569,21 +574,40 @@
                            [:= [(extract-value-fn data-type) :value] v]])
                         v-set))))))
 
+(def all-zeroes-uuid "00000000-0000-0000-0000-000000000000")
+(defn prefix->uuid-start [s]
+  (if (<= 36 (count s))
+    (uuid-util/coerce s)
+    (uuid-util/coerce (str s (subs all-zeroes-uuid (count s))))))
+
+(def all-fs-uuid "ffffffff-ffff-ffff-ffff-ffffffffffff")
+(defn prefix->uuid-end [^String s]
+  (if (<= 36 (count s))
+    (uuid-util/coerce s)
+    (uuid-util/coerce (str s (subs all-fs-uuid (count s))))))
+
 (defn- constant->where-part [idx app-id component-type [_ v]]
   (condp = component-type
     :e (list* :or
               (for [lookup v]
-                (if (uuid? lookup)
-                  [:= :entity-id lookup]
-                  [:=
-                   :entity-id
-                   {:select :entity-id
-                    :from :triples
-                    :where [:and
-                            [:= :app-id app-id]
-                            [:= :value [:cast (->json (second lookup)) :jsonb]]
-                            [:= :attr-id [:cast (first lookup) :uuid]]
-                            :av]}])))
+                (cond (uuid? lookup)
+                      [:= :entity-id lookup]
+                      (vector? lookup)
+                      [:=
+                       :entity-id
+                       {:select :entity-id
+                        :from :triples
+                        :where [:and
+                                [:= :app-id app-id]
+                                [:= :value [:cast (->json (second lookup)) :jsonb]]
+                                [:= :attr-id [:cast (first lookup) :uuid]]
+                                :av]}]
+                      (and (map? lookup)
+                           (:$entityIdStartsWith lookup))
+                      (let [prefix (:$entityIdStartsWith lookup)]
+                        [:and
+                         [:>= :entity-id (prefix->uuid-start prefix)]
+                         [:<= :entity-id (prefix->uuid-end prefix)]]))))
     :a (in-or-eq :attr-id v)
     :v (in-or-eq-value idx v)))
 
@@ -813,7 +837,15 @@
     [cur-table
      {:select (concat (when prev-table
                         [(kw prev-table :.*)])
-                      (match-table-select cur-table))
+                      (match-table-select (and
+                                           (= :constant (-> named-p :e first))
+                                           (-> named-p
+                                               :e
+                                               second
+                                               first
+                                               :$entityIdStartsWith
+                                               string?))
+                                          cur-table))
       :from (concat (list* :triples (when prev-table
                                       [prev-table]))
                     parent-froms)
