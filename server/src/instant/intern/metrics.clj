@@ -27,7 +27,7 @@
   (:import [org.jfree.chart.renderer.category BarRenderer]
            [org.jfree.chart.labels StandardCategoryItemLabelGenerator]
            [org.jfree.chart.axis CategoryLabelPositions]
-           [org.jfree.ui RectangleInsets]
+           [org.jfree.chart.ui RectangleInsets]
            [java.io File ByteArrayOutputStream]
            [java.awt Color]
            [javax.imageio ImageIO]
@@ -253,7 +253,7 @@
     (.setBasePositiveItemLabelPosition renderer
                                        (org.jfree.chart.labels.ItemLabelPosition.
                                         org.jfree.chart.labels.ItemLabelAnchor/OUTSIDE12
-                                        org.jfree.ui.TextAnchor/BOTTOM_CENTER))
+                                        org.jfree.chart.ui.TextAnchor/BOTTOM_CENTER))
 
     ;; Set bar background to white and border to black
     (.setRenderer plot renderer)
