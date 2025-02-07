@@ -1,8 +1,8 @@
 import JsonParser from 'json5';
 import { useEffect, useState } from 'react';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import { StarIcon, TrashIcon } from '@heroicons/react/outline';
-import { ArrowSmRightIcon } from '@heroicons/react/solid';
+import { StarIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ArrowRightIcon } from '@heroicons/react/24/solid';
 
 import { Button, CodeEditor, cn } from '@/components/ui';
 import { useSchemaQuery } from '@/lib/hooks/explorer';
@@ -275,7 +275,7 @@ export function QueryInspector({
                         size="mini"
                         onClick={() => run(item.query)}
                       >
-                        <ArrowSmRightIcon className="w-4 h-4 -rotate-45" />
+                        <ArrowRightIcon className="w-4 h-4 -rotate-45" />
                       </Button>
                     </div>
                   </div>
@@ -334,7 +334,7 @@ export function QueryInspector({
                         size="mini"
                         onClick={() => run(item.query)}
                       >
-                        <ArrowSmRightIcon className="w-4 h-4 -rotate-45" />
+                        <ArrowRightIcon className="w-4 h-4 -rotate-45" />
                       </Button>
                     </div>
                   </div>

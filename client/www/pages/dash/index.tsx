@@ -6,7 +6,7 @@ import Head from 'next/head';
 import NextLink from 'next/link';
 import { useRouter } from 'next/router';
 import { capitalize } from 'lodash';
-import { PlusIcon, TrashIcon } from '@heroicons/react/solid';
+import { PlusIcon, TrashIcon } from '@heroicons/react/24/solid';
 
 import { StyledToastContainer, errorToast, successToast } from '@/lib/toast';
 import config, { cliOauthParamName, getLocal, setLocal } from '@/lib/config';

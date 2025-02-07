@@ -26,11 +26,11 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   ChevronLeftIcon,
-  MenuIcon,
+  Bars3Icon,
   PlusIcon,
-  XIcon,
-} from '@heroicons/react/solid';
-import { PencilAltIcon } from '@heroicons/react/outline';
+  XMarkIcon,
+} from '@heroicons/react/24/solid';
+import { PencilSquareIcon } from '@heroicons/react/24/outline';
 
 import { successToast, errorToast } from '@/lib/toast';
 import {
@@ -735,7 +735,7 @@ export function Explorer({
             setIsNsOpen(true);
           }}
         >
-          <MenuIcon height="1rem" />
+          <Bars3Icon height="1rem" />
         </button>
       </div>
       {selectedNamespace && currentNav && allItems ? (
@@ -751,7 +751,7 @@ export function Explorer({
                   />
                 ) : null}
                 {currentNav?.where ? (
-                  <XIcon
+                  <XMarkIcon
                     className="mr-4 inline cursor-pointer"
                     height="1rem"
                     onClick={() => {
@@ -1100,7 +1100,7 @@ export function Explorer({
                           className="opacity-0 group-hover:opacity-100 transition-opacity"
                           onClick={() => setEditableRowId(item.id)}
                         >
-                          <PencilAltIcon className="h-4 w-4 text-gray-500" />
+                          <PencilSquareIcon className="h-4 w-4 text-gray-500" />
                         </button>
                       )}
                     </td>

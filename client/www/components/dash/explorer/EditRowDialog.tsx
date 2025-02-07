@@ -11,7 +11,7 @@ import {
 } from '@/components/ui';
 import { SchemaAttr, SchemaNamespace } from '@/lib/types';
 import { errorToast, successToast } from '@/lib/toast';
-import { RefreshIcon } from '@heroicons/react/solid';
+import { ArrowPathIcon } from '@heroicons/react/24/solid';
 import { validate } from 'uuid';
 
 type FieldType = 'string' | 'number' | 'boolean' | 'json';
@@ -227,7 +227,7 @@ export function EditRowDialog({
                     variant="subtle"
                     onClick={() => handleUpdateFieldValue('id', id())}
                   >
-                    <RefreshIcon height={14} />
+                    <ArrowPathIcon height={14} />
                   </Button>
                 </div>
               </Label>

@@ -1,6 +1,6 @@
 import { useAuthToken } from '@/lib/auth';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
-import { MenuIcon, XIcon } from '@heroicons/react/solid';
+import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/solid';
 import clsx from 'clsx';
 import NextLink from 'next/link';
 import { PropsWithChildren, useEffect, useState } from 'react';
@@ -130,7 +130,7 @@ export function MainNav({ children }: PropsWithChildren) {
         <div className="flex justify-between items-center flex-row gap-4 text-lg md:text-base">
           <LogoType />
           <button className="md:hidden" onClick={() => setIsOpen(true)}>
-            <MenuIcon height={'1em'} />
+            <Bars3Icon height={'1em'} />
           </button>
           <div
             onClick={() => setIsOpen(false)}
@@ -155,7 +155,7 @@ export function MainNav({ children }: PropsWithChildren) {
             <div className="md:hidden flex self-stretch justify-between">
               <LogoType />
               <button className="z-50 mt-0.5" onClick={() => setIsOpen(false)}>
-                <XIcon height="1em" />
+                <XMarkIcon height="1em" />
               </button>
             </div>
 
