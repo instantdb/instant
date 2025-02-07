@@ -152,11 +152,7 @@ function CodeStep({ sentEmail }: { sentEmail: string }) {
 export default App;
 ```
 
-Go to `localhost:3000`, aand huzzah 🎉 You've got auth. 
-
-## Diving Deeper 
-
-This creates a `Login` component to handle our auth flow. Of note is `auth.sendMagicCode`
+We created a `Login` component to handle our auth flow. Of note is `auth.sendMagicCode`
 and `auth.signInWithMagicCode`.
 
 On successful validation, Instant's backend will return a user object with a refresh token.
