@@ -42,12 +42,14 @@ export function dbAttrsToExplorerSchema(
         id: attrDesc['forward-identity'][0],
         namespace: attrDesc['forward-identity'][1],
         attr: attrDesc['forward-identity'][2],
+        nsMap: nsMap[attrDesc['forward-identity'][1]],
       },
       reverse: attrDesc['reverse-identity']
         ? {
             id: attrDesc['reverse-identity'][0],
             namespace: attrDesc['reverse-identity'][1],
             attr: attrDesc['reverse-identity'][2],
+            nsMap: nsMap[attrDesc['reverse-identity'][1]],
           }
         : undefined,
     };
