@@ -15,13 +15,13 @@ And if you're ready, follow the quick start below to **build a live app in less 
 To use Instant in a brand new project, fire up your terminal and run the following:
 
 ```shell {% showCopy=true %}
- npx create-next-app instant-demo --tailwind --yes
+npx create-next-app instant-demo --tailwind --yes
 cd instant-demo
 npm i @instantdb/react
 npm run dev
 ```
 
-Now open up `app/page.tsx` in your favorite editor and replace the entirety of the file with the following code.
+Now open up `app/src/page.tsx` in your favorite editor and replace the entirety of the file with the following code.
 
 ```javascript {% showCopy=true %}
 "use client";
