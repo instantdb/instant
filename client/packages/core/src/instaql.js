@@ -336,6 +336,11 @@ function parseWhere(makeVar, store, etype, level, where) {
       return parseWhereClauses(makeVar, 'and', store, etype, level, v);
     }
 
+    // Temporary hack until we have support for a uuid index on `id`
+    if (k === '$entityIdStartsWith') {
+      return [];
+    }
+
     const path = k.split('.');
 
     if (v?.hasOwnProperty('$not')) {

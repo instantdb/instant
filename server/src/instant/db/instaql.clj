@@ -54,17 +54,21 @@
 (s/def ::$lte ::comparator)
 (s/def ::$like ::comparator)
 (s/def ::$ilike ::comparator)
+;; Temporary hack used by the dashboard until we have support for uuid index on id
+(s/def ::$entityIdStartsWith string?)
 
 (defn where-value-valid-keys? [m]
   (every? #{:in :$in
             :$not :$isNull
             :$gt :$gte :$lt :$lte
-            :$like :$ilike}
+            :$like :$ilike
+            :$entityId}
           (keys m)))
 
 (s/def ::where-args-map (s/and
                          (s/keys :opt-un [::in ::$in ::$not ::$isNull
-                                          ::$gt ::$gte ::$lt ::$lte ::$like ::$ilike])
+                                          ::$gt ::$gte ::$lt ::$lte ::$like ::$ilike
+                                          ::$entityIdStartsWith])
                          where-value-valid-keys?))
 
 (s/def ::where-v
@@ -518,29 +522,37 @@
         [last-etype last-level ref-attr-pats referenced-etypes]
         (attr-pat/->ref-attr-pats ctx level-sym etype level refs-path)
 
-        value-attr-pats (if (and (map? v) (contains? v :$isNull))
-                          (let [id-attr (attr-model/seek-by-fwd-ident-name [last-etype "id"] attrs)
-                                fwd-attr (attr-model/seek-by-fwd-ident-name [last-etype value-label] attrs)
-                                rev-attr (attr-model/seek-by-rev-ident-name [last-etype value-label] attrs)
-                                value-attr (or fwd-attr
-                                               rev-attr)]
-                            (ex/assert-record!
-                             id-attr :attr {:args [last-etype "id"]})
-                            (ex/assert-record!
-                             value-attr :attr {:args [last-etype value-label]})
+        value-attr-pats
+        (cond (and (map? v) (contains? v :$isNull))
+              (let [id-attr (attr-model/seek-by-fwd-ident-name [last-etype "id"] attrs)
+                    fwd-attr (attr-model/seek-by-fwd-ident-name [last-etype value-label] attrs)
+                    rev-attr (attr-model/seek-by-rev-ident-name [last-etype value-label] attrs)
+                    value-attr (or fwd-attr
+                                   rev-attr)]
+                (ex/assert-record!
+                 id-attr :attr {:args [last-etype "id"]})
+                (ex/assert-record!
+                 value-attr :attr {:args [last-etype value-label]})
 
-                            [[(level-sym last-etype last-level)
-                              (:id id-attr)
-                              {:$isNull {:attr-id (:id value-attr)
-                                         :nil? (:$isNull v)
-                                         :ref? (= :ref (:value-type value-attr))
-                                         :reverse? (= value-attr rev-attr)}}]])
-                          [(attr-pat/->value-attr-pat ctx
-                                                      level-sym
-                                                      last-etype
-                                                      last-level
-                                                      value-label
-                                                      v)])]
+                [[(level-sym last-etype last-level)
+                  (:id id-attr)
+                  {:$isNull {:attr-id (:id value-attr)
+                             :nil? (:$isNull v)
+                             :ref? (= :ref (:value-type value-attr))
+                             :reverse? (= value-attr rev-attr)}}]])
+
+              (= value-label "$entityIdStartsWith")
+              (let [id-attr (attr-model/seek-by-fwd-ident-name [last-etype "id"] attrs)]
+                [[(level-sym last-etype last-level) (:id id-attr) {:$entityIdStartsWith v}]])
+
+              :else
+              [(attr-pat/->value-attr-pat ctx
+                                          level-sym
+                                          last-etype
+                                          last-level
+                                          value-label
+                                          v)])]
+
     {:pats (concat ref-attr-pats value-attr-pats)
      :referenced-etypes (conj referenced-etypes
                               etype)}))
@@ -895,7 +907,7 @@
                                           :datalog-result (let [result (:result (first child))
                                                                 compute-fn (get compute-triples-handler (:etype form))]
                                                             (cond-> result
-                                                              ;; Add computed triples 
+                                                              ;; Add computed triples
                                                               compute-fn
                                                               (update :join-rows
                                                                       (fn [rows]

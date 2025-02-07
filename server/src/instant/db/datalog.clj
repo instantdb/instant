@@ -39,12 +39,15 @@
             [honey.sql :as hsql]
             [instant.jdbc.sql :as sql]
             [instant.util.json :refer [->json]]
-            [instant.util.string :refer [safe-name]])
+            [instant.util.string :refer [safe-name]]
+            [instant.util.uuid :as uuid-util])
   (:import (javax.sql DataSource)
            (java.util UUID)))
 
 ;; ---
 ;; Pattern
+
+(s/def ::$entityIdStartsWith string?)
 
 (defn pattern-component [v-type]
   (s/or :constant (s/coll-of v-type :kind set? :min-count 0)
@@ -66,7 +69,7 @@
                                                             :min-count 0)
                                        :any #{'_}
                                        :variable symbol?
-                                       :function (s/keys :req-un [(or ::$not ::$isNull ::$comparator)])))
+                                       :function (s/keys :req-un [(or ::$not ::$isNull ::$comparator ::$entityIdStartsWith)])))
 
 (s/def ::idx-key #{:ea :eav :av :ave :vae})
 (s/def ::data-type #{:string :number :boolean :date})
@@ -124,7 +127,8 @@
                 (map? c)
                 (or (contains? c :$not)
                     (contains? c :$isNull)
-                    (contains? c :$comparator)))
+                    (contains? c :$comparator)
+                    (contains? c :$entityIdStartsWith)))
            (symbol? c)
            (set? c))
         c
@@ -587,6 +591,18 @@
     :a (in-or-eq :attr-id v)
     :v (in-or-eq-value idx v)))
 
+(def all-zeroes-uuid "00000000-0000-0000-0000-000000000000")
+(defn prefix->uuid-start [s]
+  (if (<= 36 (count s))
+    (uuid-util/coerce s)
+    (uuid-util/coerce (str s (subs all-zeroes-uuid (count s))))))
+
+(def all-fs-uuid "ffffffff-ffff-ffff-ffff-ffffffffffff")
+(defn prefix->uuid-end [^String s]
+  (if (<= 36 (count s))
+    (uuid-util/coerce s)
+    (uuid-util/coerce (str s (subs all-fs-uuid (count s))))))
+
 (defn- value-function-clauses [idx [v-tag v-value]]
   (case v-tag
     :function (let [[func val] (first v-value)]
@@ -617,7 +633,12 @@
                                     :value]
                                    value]
                                   ;; Need this check so that postgres knows it can use the index
-                                  [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]])))
+                                  [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]])
+                  :$entityIdStartsWith
+                  (let [prefix val]
+                    [[:and
+                      [:>= :entity-id (prefix->uuid-start prefix)]
+                      [:<= :entity-id (prefix->uuid-end prefix)]]])))
     []))
 
 (defn- function-clauses [named-pattern]
