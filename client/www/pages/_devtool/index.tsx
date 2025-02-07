@@ -24,7 +24,7 @@ import {
 } from '@/components/ui';
 import Auth from '@/components/dash/Auth';
 import { isMinRole } from '@/pages/dash/index';
-import { TrashIcon } from '@heroicons/react/24/solid';
+import { TrashIcon, XMarkIcon } from '@heroicons/react/24/solid';
 
 type InstantReactClient = ReturnType<typeof init>;
 
@@ -178,8 +178,22 @@ export default function Devtool() {
     <div className="h-full w-full">
       <TokenContext.Provider value={authToken}>
         <div className="flex flex-col h-full w-full">
-          <div className="px-3 py-1 text-xs font-mono bg-gray-100 border-b">
-            Instant Devtools {app?.title ? `• ${app?.title}` : ''}
+          <div>
+            <div className="px-3 py-1 text-xs font-mono bg-gray-100 border-b">
+              Instant Devtools {app?.title ? `• ${app?.title}` : ''}
+            </div>
+            <XMarkIcon
+              className="cursor-pointer"
+              height="1rem"
+              onClick={() => {
+                parent.postMessage(
+                  {
+                    type: 'close',
+                  },
+                  '*',
+                );
+              }}
+            />
           </div>
           <div className="flex gap-2 px-3 py-1 text-xs font-mono bg-gray-50 border-b">
             <span>App ID</span>

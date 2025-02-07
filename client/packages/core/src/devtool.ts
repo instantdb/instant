@@ -1,3 +1,5 @@
+import * as flags from './utils/flags';
+
 type Devtool = { dispose: () => void };
 
 let currentDevtool: Devtool | undefined;
@@ -64,9 +66,7 @@ export function createDevtool(appId: string) {
 }
 
 function getSrc(appId: string) {
-  const isDev = (window as any).DEV_DEVTOOL;
-
-  const src = `${isDev ? 'http://localhost:3000' : 'https://instantdb.com'}/_devtool?appId=${appId}`;
+  const src = `${flags.localDevtoolIframe ? 'http://localhost:3000' : 'https://instantdb.com'}/_devtool?appId=${appId}`;
   return src;
 }
 
