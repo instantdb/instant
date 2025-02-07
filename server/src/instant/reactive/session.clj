@@ -284,8 +284,7 @@
    session-id
    {:keys [op
            client-event-id
-           receive-q-delay-ms
-           worker-delay-ms
+           total-delay-ms
            ws-ping-latency-ms] :as _event}]
   (let [auth (rs/get-auth @store-conn session-id)
         creator (rs/get-creator @store-conn session-id)
@@ -294,8 +293,7 @@
      {:op op
       :client-event-id client-event-id
       :session-id session-id
-      :worker-delay-ms worker-delay-ms
-      :receive-q-delay-ms receive-q-delay-ms
+      :total-delay-ms total-delay-ms
       :ws-ping-latency-ms ws-ping-latency-ms}
      (auth-and-creator-attrs auth creator versions))))
 
