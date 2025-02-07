@@ -1,6 +1,6 @@
 let devBackend = false;
 let instantLogs = false;
-let localDevtoolIframe = false;
+let devtoolLocalDashboard = false;
 
 if (
   typeof window !== 'undefined' &&
@@ -8,7 +8,7 @@ if (
 ) {
   devBackend = !!window.localStorage.getItem('devBackend');
   instantLogs = !!window.localStorage.getItem('__instantLogging');
-  localDevtoolIframe = !!window.localStorage.getItem('__localDevtoolIframe');
+  devtoolLocalDashboard = !!window.localStorage.getItem('__devtoolLocalDash');
 }
 
-export { devBackend, instantLogs, localDevtoolIframe };
+export { devBackend, instantLogs, devtoolLocalDashboard };

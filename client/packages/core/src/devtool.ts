@@ -66,7 +66,8 @@ export function createDevtool(appId: string) {
 }
 
 function getSrc(appId: string) {
-  const src = `${flags.localDevtoolIframe ? 'http://localhost:3000' : 'https://instantdb.com'}/_devtool?appId=${appId}`;
+  const useLocalDashboard = flags.devBackend || flags.devtoolLocalDashboard;
+  const src = `${useLocalDashboard ? 'http://localhost:3000' : 'https://instantdb.com'}/_devtool?appId=${appId}`;
   return src;
 }
 
