@@ -161,7 +161,7 @@ export default App;
 
 Go to `localhost:3000`, aand huzzah 🎉 You've got auth.
 
---- 
+---
 
 **Let's dig deeper.**
 
@@ -175,7 +175,6 @@ When doing `useQuery` or `transact`, the refresh token will be used to hydrate `
 on the backend during permission checks.
 
 On the client, `useAuth` will set `isLoading` to `false` and populate `user` -- huzzah!
-
 
 ## useAuth
 
