@@ -7,9 +7,9 @@ import React, {
 } from 'react';
 import {
   ChevronRightIcon,
-  ClipboardCopyIcon,
+  ClipboardDocumentIcon,
   PlusIcon,
-} from '@heroicons/react/outline';
+} from '@heroicons/react/24/outline';
 import format from 'date-fns/format';
 import CopyToClipboard from 'react-copy-to-clipboard';
 
@@ -139,7 +139,7 @@ function CopyButton({ value }: { value: string }) {
         size="mini"
         onClick={handleClick}
       >
-        {!isCopied && <ClipboardCopyIcon className="-ml-0.5 h-4 w-4" />}
+        {!isCopied && <ClipboardDocumentIcon className="-ml-0.5 h-4 w-4" />}
         {isCopied ? 'Copied!' : 'Copy'}
       </Button>
     </CopyToClipboard>

@@ -1,7 +1,7 @@
 import { ToastContainer, toast, Flip } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { InformationCircleIcon } from '@heroicons/react/outline';
-import { ExclamationCircleIcon, CheckCircleIcon } from '@heroicons/react/solid';
+import { InformationCircleIcon } from '@heroicons/react/24/outline';
+import { ExclamationCircleIcon, CheckCircleIcon } from '@heroicons/react/24/solid';
 
 export function infoToast(text, options) {
   toast.info(text, {

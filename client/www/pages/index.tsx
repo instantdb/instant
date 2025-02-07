@@ -28,7 +28,7 @@ import {
   Link,
 } from '@/components/marketingUi';
 
-import { ChevronRightIcon } from '@heroicons/react/solid';
+import { ChevronRightIcon } from '@heroicons/react/24/solid';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import config from '@/lib/config';
 import MuxPlayer from '@mux/mux-player-react';

@@ -27,8 +27,8 @@ import {
   InformationCircleIcon,
   PlusIcon,
   TrashIcon,
-} from '@heroicons/react/solid';
-import { DeviceMobileIcon, GlobeAltIcon } from '@heroicons/react/outline';
+} from '@heroicons/react/24/solid';
+import { DevicePhoneMobileIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
 import NetlifyIcon from '../../icons/NetlifyIcon';
 import VercelIcon from '../../icons/VercelIcon';
 
@@ -253,7 +253,7 @@ export function originIcon(origin: AuthorizedOrigin) {
     case 'vercel':
       return VercelIcon;
     case 'custom-scheme':
-      return DeviceMobileIcon;
+      return DevicePhoneMobileIcon;
     default:
       return GlobeAltIcon;
   }
