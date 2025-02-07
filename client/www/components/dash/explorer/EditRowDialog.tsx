@@ -232,10 +232,6 @@ function LinkCombobox({
 }) {
   const [q, setq] = useState('');
 
-  if (!namespace) {
-    debugger;
-  }
-
   const { uniqueAttrs, filterableAttrs } = useMemo(() => {
     const uniqueAttrs: SchemaAttr[] = [];
     const filterableAttrs: SchemaAttr[] = [];
