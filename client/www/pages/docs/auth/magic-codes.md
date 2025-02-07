@@ -14,145 +14,145 @@ for an example with vanilla JS, check out this [sandbox](https://github.com/inst
 {% /callout %}
 
 ```javascript {% showCopy=true %}
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { init } from '@instantdb/react';
+import React, { useState } from "react";
+import { init } from "@instantdb/react";
 
 // Instant app
 const APP_ID = "__APP_ID__";
-
 const db = init({ appId: APP_ID });
 
 function App() {
   const { isLoading, user, error } = db.useAuth();
+
   if (isLoading) {
-    return <div>Loading...</div>;
+    return;
   }
+
   if (error) {
-    return <div>Uh oh! {error.message}</div>;
+    return <div className="p-4 text-red-500">Uh oh! {error.message}</div>;
   }
+
   if (user) {
-    return <h1>Hello {user.email}!</h1>;
+    return (
+      <div className="p-4 space-y-4">
+        <h1 className="text-2xl font-bold">Hello {user.email}!</h1>
+        <button
+          onClick={() => db.auth.signOut()}
+          className="px-3 py-1 bg-blue-600 text-white font-bold hover:bg-blue-700"
+        >
+          Sign out
+        </button>
+      </div>
+    );
   }
+
   return <Login />;
 }
 
 function Login() {
-  const [sentEmail, setSentEmail] = useState('');
+  const [sentEmail, setSentEmail] = useState("");
+
   return (
-    <div style={authStyles.container}>
-      {!sentEmail ? (
-        <Email setSentEmail={setSentEmail} />
-      ) : (
-        <MagicCode sentEmail={sentEmail} />
-      )}
+    <div className="flex justify-center items-center min-h-screen">
+      <div className="max-w-sm">
+        {!sentEmail ? (
+          <EmailStep onSendEmail={setSentEmail} />
+        ) : (
+          <CodeStep sentEmail={sentEmail} />
+        )}
+      </div>
     </div>
   );
 }
 
-function Email({ setSentEmail }) {
-  const [email, setEmail] = useState('');
-
+function EmailStep({ onSendEmail }: { onSendEmail: (email: string) => void }) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!email) return;
-    setSentEmail(email);
+    const inputEl = inputRef.current!;
+    const email = inputEl.value;
+    onSendEmail(email);
     db.auth.sendMagicCode({ email }).catch((err) => {
-      alert('Uh oh :' + err.body?.message);
-      setSentEmail('');
+      alert("Uh oh :" + err.body?.message);
+      onSendEmail("");
     });
   };
-
   return (
-    <form onSubmit={handleSubmit} style={authStyles.form}>
-      <h2 style={{ color: '#333', marginBottom: '20px' }}>Let's log you in!</h2>
-      <div>
-        <input
-          style={authStyles.input}
-          placeholder="Enter your email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-      </div>
-      <div>
-        <button type="submit" style={authStyles.button}>
-          Send Code
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function MagicCode({ sentEmail }) {
-  const [code, setCode] = useState('');
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    db.auth.signInWithMagicCode({ email: sentEmail, code }).catch((err) => {
-      alert('Uh oh :' + err.body?.message);
-      setCode('');
-    });
-  };
-
-  return (
-    <form onSubmit={handleSubmit} style={authStyles.form}>
-      <h2 style={{ color: '#333', marginBottom: '20px' }}>
-        Okay, we sent you an email! What was the code?
-      </h2>
-      <div>
-        <input
-          style={authStyles.input}
-          type="text"
-          placeholder="123456..."
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-        />
-      </div>
-      <button type="submit" style={authStyles.button}>
-        Verify
+    <form
+      key="email"
+      onSubmit={handleSubmit}
+      className="flex flex-col space-y-4"
+    >
+      <h2 className="text-xl font-bold">Let's log you in</h2>
+      <p className="text-gray-700">
+        Enter your email, and we'll send you a verification code. We'll create
+        an account for you too if you don't already have one.
+      </p>
+      <input
+        ref={inputRef}
+        type="email"
+        className="border border-gray-300 px-3 py-1  w-full"
+        placeholder="Enter your email"
+        required
+        autoFocus
+      />
+      <button
+        type="submit"
+        className="px-3 py-1 bg-blue-600 text-white font-bold hover:bg-blue-700 w-full"
+      >
+        Send Code
       </button>
     </form>
   );
 }
 
-const authStyles: Record<string, React.CSSProperties> = {
-  container: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '100vh',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100vh',
-    fontFamily: 'Arial, sans-serif',
-  },
-  input: {
-    padding: '10px',
-    marginBottom: '15px',
-    border: '1px solid #ddd',
-    borderRadius: '5px',
-    width: '300px',
-  },
-  button: {
-    padding: '10px 20px',
-    backgroundColor: '#007bff',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-};
+function CodeStep({ sentEmail }: { sentEmail: string }) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const inputEl = inputRef.current!;
+    const code = inputEl.value;
+    db.auth.signInWithMagicCode({ email: sentEmail, code }).catch((err) => {
+      inputEl.value = "";
+      alert("Uh oh :" + err.body?.message);
+    });
+  };
+
+  return (
+    <form
+      key="code"
+      onSubmit={handleSubmit}
+      className="flex flex-col space-y-4"
+    >
+      <h2 className="text-xl font-bold">Enter your code</h2>
+      <p className="text-gray-700">
+        We sent an email to <strong>{sentEmail}</strong>. Check your email, and
+        paste the code you see.
+      </p>
+      <input
+        ref={inputRef}
+        type="text"
+        className="border border-gray-300 px-3 py-1  w-full"
+        placeholder="123456..."
+        required
+        autoFocus
+      />
+      <button
+        type="submit"
+        className="px-3 py-1 bg-blue-600 text-white font-bold hover:bg-blue-700 w-full"
+      >
+        Verify Code
+      </button>
+    </form>
+  );
+}
 
 export default App;
 ```
 
-This creates a `Login` component to handle our auth flow. Of note is `auth.sendMagicCode`
+We created a `Login` component to handle our auth flow. Of note is `auth.sendMagicCode`
 and `auth.signInWithMagicCode`.
 
 On successful validation, Instant's backend will return a user object with a refresh token.
@@ -170,7 +170,7 @@ On the client, `useAuth` will set `isLoading` to `false` and populate `user` -- 
 ```javascript
 db.auth.sendMagicCode({ email }).catch((err) => {
   alert('Uh oh :' + err.body?.message);
-  setState({ ...state, sentEmail: '' });
+  onSendEmail('');
 });
 ```
 
@@ -180,8 +180,8 @@ Use `auth.sendMagicCode` to generate a magic code on instant's backend and email
 
 ```javascript
 db.auth.signInWithMagicCode({ email: sentEmail, code }).catch((err) => {
+  inputEl.value = '';
   alert('Uh oh :' + err.body?.message);
-  setState({ ...state, code: '' });
 });
 ```
 

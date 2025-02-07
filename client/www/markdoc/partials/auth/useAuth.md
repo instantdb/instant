@@ -4,10 +4,10 @@
 function App() {
   const { isLoading, user, error } = db.useAuth();
   if (isLoading) {
-    return <div>Loading...</div>;
+    return;
   }
   if (error) {
-    return <div>Uh oh! {error.message}</div>;
+    return <div className="p-4 text-red-500">Uh oh! {error.message}</div>;
   }
   if (user) {
     return <Main />;
