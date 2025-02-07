@@ -387,7 +387,7 @@
   [{:path "instant.reactive.invalidator.q.size"
     :value (grouped-queue/size grouped-queue)}
    {:path "instant.reactive.invalidator.q.longest-waiting-ms"
-    :value (if-let [{:keys [put-at]} (grouped-queue/peek grouped-queue)]
+    :value (if-let [{:keys [put-at]} (grouped-queue/peek grouped-queue)] ;; FIXME
              (.toMillis (Duration/between put-at (Instant/now)))
              0)}
    {:path "instant.reactive.invalidator.q.worker-count"
