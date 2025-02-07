@@ -178,8 +178,8 @@ export default function Devtool() {
     <div className="h-full w-full">
       <TokenContext.Provider value={authToken}>
         <div className="flex flex-col h-full w-full">
-          <div>
-            <div className="px-3 py-1 text-xs font-mono bg-gray-100 border-b">
+          <div className='flex p-2 text-xs bg-gray-100 border-b'>
+            <div className="flex-1 font-mono">
               Instant Devtools {app?.title ? `• ${app?.title}` : ''}
             </div>
             <XMarkIcon
@@ -195,7 +195,7 @@ export default function Devtool() {
               }}
             />
           </div>
-          <div className="flex gap-2 px-3 py-1 text-xs font-mono bg-gray-50 border-b">
+          <div className="flex gap-2 px-2 py-1 text-xs font-mono bg-gray-50 border-b">
             <span>App ID</span>
             <code
               className="bg-white rounded border px-2"
