@@ -178,7 +178,7 @@ export default function Devtool() {
     <div className="h-full w-full">
       <TokenContext.Provider value={authToken}>
         <div className="flex flex-col h-full w-full">
-          <div className='flex p-2 text-xs bg-gray-100 border-b'>
+          <div className="flex p-2 text-xs bg-gray-100 border-b">
             <div className="flex-1 font-mono">
               Instant Devtools {app?.title ? `• ${app?.title}` : ''}
             </div>
