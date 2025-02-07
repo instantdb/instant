@@ -19,8 +19,8 @@ for an example with vanilla JS, check out this [sandbox](https://github.com/inst
 import React, { useState } from "react";
 import { init } from "@instantdb/react";
 
-// ID for app: Test
-const APP_ID = "0860e7d4-0911-412f-aaf4-fb048ddea100";
+// Instant app
+const APP_ID = "__APP_ID__";
 const db = init({ appId: APP_ID });
 
 function App() {
@@ -151,6 +151,8 @@ function CodeStep({ sentEmail }: { sentEmail: string }) {
 
 export default App;
 ```
+
+Go to `localhost:3000`, aand huzzah 🎉 You've got auth. 
 
 ## Diving Deeper 
 
