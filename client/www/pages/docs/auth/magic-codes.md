@@ -14,7 +14,7 @@ for an example with vanilla JS, check out this [sandbox](https://github.com/inst
 {% /callout %}
 
 ```javascript {% showCopy=true %}
-"use client";
+'use client';
 
 import React, { useState } from "react";
 import { init } from "@instantdb/react";
@@ -72,9 +72,7 @@ function EmailStep({ onSendEmail }: { onSendEmail: (email: string) => void }) {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const inputEl = inputRef.current;
-    const email = inputEl?.value;
-    if (!email) return;
-    inputEl.value = "";
+    const email = inputEl!.value;
     onSendEmail(email);
     db.auth.sendMagicCode({ email }).catch((err) => {
       alert("Uh oh :" + err.body?.message);
@@ -94,6 +92,7 @@ function EmailStep({ onSendEmail }: { onSendEmail: (email: string) => void }) {
       </p>
       <input
         ref={inputRef}
+        required
         autoFocus
         className="border border-gray-300 px-3 py-1  w-full"
         placeholder="Enter your email"
@@ -114,8 +113,7 @@ function CodeStep({ sentEmail }: { sentEmail: string }) {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const inputEl = inputRef.current;
-    const code = inputEl?.value;
-    if (!code) return;
+    const code = inputEl!.value;
     db.auth.signInWithMagicCode({ email: sentEmail, code }).catch((err) => {
       inputEl.value = "";
       alert("Uh oh :" + err.body?.message);
