@@ -203,6 +203,4 @@ function ActionBar({ todos }: { todos: Todo[] }) {
 export default App;
 ```
 
-Go to `localhost:3000` and follow the final instruction to load the app!
-
-Huzzah 🎉 You've got your first Instant web app running! Check out the [Working with data](/docs/init) section to learn more about how to use Instant :)
+Go to `localhost:3000`, aand huzzah 🎉 You've got your first Instant web app running! Check out the [Working with data](/docs/init) section to learn more about how to use Instant :)

@@ -14,7 +14,7 @@ for an example with vanilla JS, check out this [sandbox](https://github.com/inst
 {% /callout %}
 
 ```javascript {% showCopy=true %}
-'use client';
+"use client";
 
 import React, { useState } from "react";
 import { init } from "@instantdb/react";
@@ -71,8 +71,8 @@ function EmailStep({ onSendEmail }: { onSendEmail: (email: string) => void }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const inputEl = inputRef.current;
-    const email = inputEl!.value;
+    const inputEl = inputRef.current!;
+    const email = inputEl.value;
     onSendEmail(email);
     db.auth.sendMagicCode({ email }).catch((err) => {
       alert("Uh oh :" + err.body?.message);
@@ -92,11 +92,11 @@ function EmailStep({ onSendEmail }: { onSendEmail: (email: string) => void }) {
       </p>
       <input
         ref={inputRef}
-        required
-        autoFocus
+        type="email"
         className="border border-gray-300 px-3 py-1  w-full"
         placeholder="Enter your email"
-        type="email"
+        required
+        autoFocus
       />
       <button
         type="submit"
@@ -112,8 +112,8 @@ function CodeStep({ sentEmail }: { sentEmail: string }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const inputEl = inputRef.current;
-    const code = inputEl!.value;
+    const inputEl = inputRef.current!;
+    const code = inputEl.value;
     db.auth.signInWithMagicCode({ email: sentEmail, code }).catch((err) => {
       inputEl.value = "";
       alert("Uh oh :" + err.body?.message);
@@ -133,9 +133,10 @@ function CodeStep({ sentEmail }: { sentEmail: string }) {
       </p>
       <input
         ref={inputRef}
-        className="border border-gray-300 px-3 py-1  w-full"
         type="text"
+        className="border border-gray-300 px-3 py-1  w-full"
         placeholder="123456..."
+        required
         autoFocus
       />
       <button
@@ -150,6 +151,8 @@ function CodeStep({ sentEmail }: { sentEmail: string }) {
 
 export default App;
 ```
+
+## Diving Deeper 
 
 This creates a `Login` component to handle our auth flow. Of note is `auth.sendMagicCode`
 and `auth.signInWithMagicCode`.
@@ -168,8 +171,8 @@ On the client, `useAuth` will set `isLoading` to `false` and populate `user` -- 
 
 ```javascript
 db.auth.sendMagicCode({ email }).catch((err) => {
-  alert('Uh oh :' + err.body?.message);
-  setState({ ...state, sentEmail: '' });
+  alert("Uh oh :" + err.body?.message);
+  onSendEmail("");
 });
 ```
 
@@ -179,8 +182,8 @@ Use `auth.sendMagicCode` to generate a magic code on instant's backend and email
 
 ```javascript
 db.auth.signInWithMagicCode({ email: sentEmail, code }).catch((err) => {
-  alert('Uh oh :' + err.body?.message);
-  setState({ ...state, code: '' });
+  inputEl.value = "";
+  alert("Uh oh :" + err.body?.message);
 });
 ```
 
