@@ -24,7 +24,7 @@ import {
 } from '@/components/ui';
 import Auth from '@/components/dash/Auth';
 import { isMinRole } from '@/pages/dash/index';
-import { TrashIcon } from '@heroicons/react/solid';
+import { TrashIcon } from '@heroicons/react/24/solid';
 
 type InstantReactClient = ReturnType<typeof init>;
 

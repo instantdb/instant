@@ -24,11 +24,11 @@ import {
   ComboboxOptions,
 } from '@headlessui/react';
 import {
-  RewindIcon,
-  RefreshIcon,
+  ArrowUturnLeftIcon,
+  ArrowPathIcon,
   TrashIcon,
   InformationCircleIcon,
-} from '@heroicons/react/solid';
+} from '@heroicons/react/24/solid';
 import { validate } from 'uuid';
 import clsx from 'clsx';
 
@@ -400,7 +400,7 @@ function RefItem({
               }
             >
               {markedForUnlink ? (
-                <RewindIcon height={14} />
+                <ArrowUturnLeftIcon height={14} />
               ) : (
                 <TrashIcon height={14} />
               )}
@@ -675,7 +675,7 @@ export function EditRowDialog({
                     variant="subtle"
                     onClick={() => handleUpdateFieldValue('id', id())}
                   >
-                    <RefreshIcon height={14} />
+                    <ArrowPathIcon height={14} />
                   </Button>
                 </div>
               </Label>

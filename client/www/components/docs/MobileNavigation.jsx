@@ -6,7 +6,7 @@ import { Dialog } from '@headlessui/react';
 import { Logo } from '@/components/docs/Logo';
 import { Navigation } from '@/components/docs/Navigation';
 
-function MenuIcon(props) {
+function Bars3Icon(props) {
   return (
     <svg
       aria-hidden="true"
@@ -64,7 +64,7 @@ export function MobileNavigation({ navigation }) {
         className="relative"
         aria-label="Open navigation"
       >
-        <MenuIcon className="h-6 w-6 stroke-slate-500" />
+        <Bars3Icon className="h-6 w-6 stroke-slate-500" />
       </button>
       <Dialog
         open={isOpen}

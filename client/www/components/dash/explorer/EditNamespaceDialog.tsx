@@ -1,7 +1,7 @@
 import { id } from '@instantdb/core';
 import { InstantReactWebDatabase } from '@instantdb/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/solid';
+import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/solid';
 import { errorToast, successToast } from '@/lib/toast';
 import {
   ActionButton,
