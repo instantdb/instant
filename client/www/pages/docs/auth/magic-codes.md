@@ -6,7 +6,7 @@ Instant supports a "magic-code" flow for auth. Users provide their email, we sen
 them a login code on your behalf, and they authenticate with your app. Here's
 how you can do it with react.
 
-## Full Example
+## Full Magic Code Example
 
 {% callout %}
 The example below shows how to use magic codes in a React app. If you're looking
@@ -161,7 +161,9 @@ export default App;
 
 Go to `localhost:3000`, aand huzzah 🎉 You've got auth.
 
-## Digging Deeper
+--- 
+
+**Let's dig deeper.**
 
 We created a `Login` component to handle our auth flow. Of note is `auth.sendMagicCode`
 and `auth.signInWithMagicCode`.
@@ -174,7 +176,8 @@ on the backend during permission checks.
 
 On the client, `useAuth` will set `isLoading` to `false` and populate `user` -- huzzah!
 
-### useAuth
+
+## useAuth
 
 ```javascript
 function App() {
@@ -195,7 +198,7 @@ function App() {
 Use `useAuth` to fetch the current user. Here we guard against loading
 our `Main` component until a user is logged in
 
-### Send a Magic Code
+## Send a Magic Code
 
 ```javascript
 db.auth.sendMagicCode({ email }).catch((err) => {
@@ -206,7 +209,7 @@ db.auth.sendMagicCode({ email }).catch((err) => {
 
 Use `auth.sendMagicCode` to generate a magic code on instant's backend and email it to the user.
 
-### Sign in with Magic Code
+## Sign in with Magic Code
 
 ```javascript
 db.auth.signInWithMagicCode({ email: sentEmail, code }).catch((err) => {
@@ -217,7 +220,7 @@ db.auth.signInWithMagicCode({ email: sentEmail, code }).catch((err) => {
 
 You can then use `auth.signInWithMagicCode` to authenticate the user with the magic code they provided.
 
-### Sign out
+## Sign out
 
 ```javascript
 db.auth.signOut();
