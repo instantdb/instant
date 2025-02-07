@@ -2,6 +2,7 @@
   (:require
    [clojure.core.async :as a]
    [clojure.set :as clojure-set]
+   [datascript.core :as ds]
    [instant.config :as config]
    [instant.db.model.attr :as attr-model]
    [instant.db.pg-introspect :as pg-introspect]
@@ -23,7 +24,8 @@
    (java.sql Timestamp)
    (java.time Duration Instant)
    (java.time.temporal ChronoUnit)
-   (java.util UUID)
+   (java.util Map UUID)
+   (java.util.concurrent ConcurrentHashMap)
    (org.postgresql.replication LogSequenceNumber)))
 
 (declare wal-opts)
@@ -338,6 +340,11 @@
 ;; ------
 ;; invalidator
 
+(defn- store-snapshot [store app-id]
+  (rs/->ReactiveStore
+   (ds/conn-from-db @(:sessions store))
+   (ConcurrentHashMap. {app-id (-> store :conns (Map/.get app-id) deref ds/conn-from-db)})))
+
 (defn wal-latency-ms [{:keys [tx-created-at]}]
   (when tx-created-at
     (.between ChronoUnit/MILLIS tx-created-at (Instant/now))))
@@ -367,7 +374,7 @@
                                                  :tx-created-at tx-created-at}))))
         (catch Throwable t
           (def -wal-record wal-record)
-          (def -store-value store)
+          (def -store-value (store-snapshot store app-id))
           (tracer/add-exception! t {:escaping? false}))))))
 
 (defn invalidator-q-metrics [{:keys [grouped-queue get-worker-count]}]
@@ -417,7 +424,7 @@
                                                :session-id id}))))
       (catch Throwable t
         (def -wal-record wal-record)
-        (def -store-value store)
+        (def -store-value (store-snapshot store app-id))
         (tracer/add-exception! t {:escaping? false})))))
 
 (defn start-byop-worker [store wal-chan]
