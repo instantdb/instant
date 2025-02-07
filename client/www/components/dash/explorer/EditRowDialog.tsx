@@ -624,16 +624,26 @@ export function EditRowDialog({
     const itemId = item.id || params.id || id();
     delete params.id;
     try {
-      let chunks = tx[namespace.name][itemId].update(params);
+      let chunks = tx[namespace.name][itemId];
+      const unlinks = [];
+      const links = [];
       for (const [attrName, v] of Object.entries(refUpdates)) {
         for (const [id, { action }] of Object.entries(v)) {
           if (action === 'link') {
-            chunks = chunks.link({ [attrName]: id });
+            links.push({ [attrName]: id });
           }
           if (action === 'unlink') {
-            chunks = chunks.unlink({ [attrName]: id });
+            unlinks.push({ [attrName]: id });
           }
         }
+      }
+      // Do unlinks first
+      for (const unlink of unlinks) {
+        chunks = chunks.unlink(unlink);
+      }
+      chunks = chunks.update(params);
+      for (const link of links) {
+        chunks = chunks.link(link);
       }
       await db.transact(chunks);
       onClose();
