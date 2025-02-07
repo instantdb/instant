@@ -28,7 +28,10 @@ import {
   PlusIcon,
   TrashIcon,
 } from '@heroicons/react/24/solid';
-import { DevicePhoneMobileIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
+import {
+  DevicePhoneMobileIcon,
+  GlobeAltIcon,
+} from '@heroicons/react/24/outline';
 import NetlifyIcon from '../../icons/NetlifyIcon';
 import VercelIcon from '../../icons/VercelIcon';
 
