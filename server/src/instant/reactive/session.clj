@@ -15,7 +15,6 @@
    [instant.db.pg-introspect :as pg-introspect]
    [instant.db.transaction :as tx]
    [instant.flags :as flags]
-   [instant.grouped-queue :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
@@ -44,7 +43,6 @@
 ;; ------
 ;; Setup
 
-(declare receive-q-stop-signal)
 (def handle-receive-timeout-ms 5000)
 
 (def num-receive-workers (* (if config/fewer-vfutures?
@@ -587,66 +585,15 @@
                       (#(%))))
        (assoc metadata :skipped-size skipped-size)))))
 
-(defn resolve-consolidate [type batch]
-  (if (= 1 (count batch))
-    :default
-    type))
-
-(defmulti consolidate #'resolve-consolidate)
-
-(defmethod consolidate :default [_ batch]
-  batch)
-
-(defmethod consolidate :refresh [_ batch]
-  (doseq [{:keys [item]} (drop-last batch)]
-    (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id item)
-                                            :tx-created-at (:tx-created-at item)
-                                            :name "skipped-refresh"}))
-  [(-> (last batch)
-       (assoc :skipped-size (dec (count batch))))])
-
-(defmethod consolidate :refresh-presence [_ batch]
-  [(-> (last batch)
-       (assoc :skipped-size (dec (count batch)))
-       (assoc-in [:item :edits]
-                 (into [] (mapcat #(get-in % [:item :edits])) batch)))])
-
-(defmethod consolidate :room [_ batch]
-  (loop [last-entry (first batch)
-         batch      (next batch)
-         acc        (transient [])]
-    (if (empty? batch)
-      (persistent! (conj! acc last-entry))
-      (let [entry       (first batch)
-            last-entry' (if (and (= :set-presence (-> last-entry :item :op))
-                                 (= :set-presence (-> entry :item :op)))
-                          (assoc entry :skipped-size (inc (:skipped-size last-entry 0)))
-                          entry)]
-        (recur last-entry' (next batch) acc)))))
-
-(defn straight-jacket-process-receive-q-batch [store batch metadata]
-  (try
-    (let [type (-> metadata :group-key first)]
-      (doseq [entry (consolidate type batch)]
-        (process-receive-q-entry store entry metadata)))
-    (catch Throwable e
-      (tracer/record-exception-span! e {:name "receive-worker/handle-receive-batch-straight-jacket"
-                                        :attributes (assoc metadata
-                                                           :session-id (:session-id (:item (first batch)))
-                                                           :items batch)}))))
-
-(defn receive-worker-reserve-fn [[t] inflight-q]
-  (case t
-    (:refresh :room :refresh-presence)
-    (grouped-queue/inflight-queue-reserve-all inflight-q)
-
-    (grouped-queue/inflight-queue-reserve 1 inflight-q)))
-
-(defn process-fn [store group-key batch]
-  (straight-jacket-process-receive-q-batch store
-                                           batch
-                                           {:batch-size (count batch)
-                                            :group-key group-key}))
+(defn straight-jacket-process-receive-q-entry [store-conn group-key entry]
+  (let [metadata {:group-key group-key}]
+    (try
+      (process-receive-q-entry store-conn entry metadata)
+      (catch Throwable e
+        (tracer/record-exception-span! e {:name "receive-worker/handle-receive-batch-straight-jacket"
+                                          :attributes (assoc metadata
+                                                             :session-id (:session-id (:item entry))
+                                                             :items [entry])})))))
 
 ;; -----------------
 ;; Websocket Interop
@@ -722,7 +669,7 @@
 ;; ------
 ;; System
 
-(defn group-fn [{:keys [item] :as _input}]
+(defn group [{:keys [item] :as _input}]
   (let [{:keys [op session-id room-id]} item]
     (case op
       :transact
@@ -746,16 +693,39 @@
 
       nil)))
 
-(comment
-  (group-fn {:item {:session-id 1 :op :transact}})
-  (group-fn {:item {:session-id 1 :op :leave-room}})
-  (group-fn {:item {:session-id 1 :op :add-query :q {:users {}}}}))
+(defmulti compress
+  (fn [entry1 entry2]
+    (let [op1 (-> entry1 :item :op)
+          op2 (-> entry2 :item :op)]
+      (if (= op1 op2)
+        op1
+        :default))))
+
+(defmethod compress :default [_ _]
+  nil)
+
+(defmethod compress :refresh [entry1 entry2]
+  (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id (:item entry1))
+                                          :tx-created-at (:tx-created-at (:item entry1))
+                                          :name "skipped-refresh"})
+  (assoc entry2 :skipped-size (inc (:skipped-size entry1 0))))
+
+(defmethod compress :refresh-presence [entry1 entry2]
+  (-> entry2
+      (assoc :skipped-size (inc (:skipped-size entry1 0)))
+      (assoc-in [:item :edits] (concat (-> entry1 :item :edits) (-> entry2 :item :edits)))))
+
+(defmethod compress :set-presence [entry1 entry2]
+  (assoc entry2 :skipped-size (inc (:skipped-size entry1 0))))
+
+(defn process [group-key entry]
+  (straight-jacket-process-receive-q-entry rs/store group-key entry))
 
 (defn start []
-  (receive-queue/start {:max-workers num-receive-workers
-                        :group-fn #'group-fn
-                        :reserve-fn #'receive-worker-reserve-fn
-                        :process-fn (partial process-fn rs/store)}))
+  (receive-queue/start {:group-fn    #'group
+                        :compress-fn #'compress
+                        :process-fn  #'process
+                        :max-workers num-receive-workers}))
 
 (defn stop []
   (receive-queue/stop))
