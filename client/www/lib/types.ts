@@ -167,6 +167,12 @@ export interface SchemaNamespace {
   attrs: SchemaAttr[];
 }
 
+export interface SchemaNamespaceMap {
+  id: string;
+  name: string;
+  attrs: Record<string, SchemaAttr>;
+}
+
 export interface SchemaAttr {
   id: string;
   isForward: boolean;
@@ -178,8 +184,20 @@ export interface SchemaAttr {
   isPrimary?: boolean | undefined;
   cardinality: 'one' | 'many';
   linkConfig: {
-    forward: { id: string; namespace: string; attr: string };
-    reverse: { id: string; namespace: string; attr: string } | undefined;
+    forward: {
+      id: string;
+      namespace: string;
+      attr: string;
+      nsMap: SchemaNamespaceMap;
+    };
+    reverse:
+      | {
+          id: string;
+          namespace: string;
+          attr: string;
+          nsMap: SchemaNamespaceMap;
+        }
+      | undefined;
   };
   inferredTypes?: Array<'string' | 'number' | 'boolean' | 'json'>;
   catalog?: 'user' | 'system';
