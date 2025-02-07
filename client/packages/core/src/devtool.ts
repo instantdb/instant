@@ -1,3 +1,5 @@
+import * as flags from './utils/flags';
+
 type Devtool = { dispose: () => void };
 
 let currentDevtool: Devtool | undefined;
@@ -64,9 +66,8 @@ export function createDevtool(appId: string) {
 }
 
 function getSrc(appId: string) {
-  const isDev = (window as any).DEV_DEVTOOL;
-
-  const src = `${isDev ? 'http://localhost:3000' : 'https://instantdb.com'}/_devtool?appId=${appId}`;
+  const useLocalDashboard = flags.devBackend || flags.devtoolLocalDashboard;
+  const src = `${useLocalDashboard ? 'http://localhost:3000' : 'https://instantdb.com'}/_devtool?appId=${appId}`;
   return src;
 }
 
@@ -78,7 +79,6 @@ function createIframe(src: string) {
   Object.assign(element.style, {
     width: '100%',
     height: '100%',
-    borderRadius: '4px',
     backgroundColor: 'white',
     border: 'none',
   } as Partial<CSSStyleDeclaration>);

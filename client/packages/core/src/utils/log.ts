@@ -1,12 +1,6 @@
-let isEnabled = false;
-if (
-  typeof window !== 'undefined' &&
-  typeof window.localStorage !== 'undefined'
-) {
-  isEnabled =
-    !!window.localStorage.getItem('devBackend') ||
-    !!window.localStorage.getItem('__instantLogging');
-}
+import * as flags from './flags';
+
+const isEnabled = flags.devBackend || flags.instantLogs;
 
 const log = {
   info: isEnabled ? console.info.bind(console) : () => {},
