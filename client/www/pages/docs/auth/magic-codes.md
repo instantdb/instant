@@ -169,8 +169,8 @@ On the client, `useAuth` will set `isLoading` to `false` and populate `user` -- 
 
 ```javascript
 db.auth.sendMagicCode({ email }).catch((err) => {
-  alert("Uh oh :" + err.body?.message);
-  onSendEmail("");
+  alert('Uh oh :' + err.body?.message);
+  onSendEmail('');
 });
 ```
 
@@ -180,8 +180,8 @@ Use `auth.sendMagicCode` to generate a magic code on instant's backend and email
 
 ```javascript
 db.auth.signInWithMagicCode({ email: sentEmail, code }).catch((err) => {
-  inputEl.value = "";
-  alert("Uh oh :" + err.body?.message);
+  inputEl.value = '';
+  alert('Uh oh :' + err.body?.message);
 });
 ```
 
