@@ -34,6 +34,7 @@ import config from '@/lib/config';
 import MuxPlayer from '@mux/mux-player-react';
 import * as muxVideos from '@/lib/muxVideos';
 import useTotalSessionsCount from '@/lib/hooks/useTotalSessionsCount';
+import AnimatedCounter from '@/components/AnimatedCounter';
 
 type EmojiName = keyof typeof emoji;
 
@@ -116,31 +117,19 @@ const ActiveSessionsCallout = () => {
   const { isLoading, error, data } = useTotalSessionsCount({
     refreshSeconds: 3,
   });
+  const height = 38;
+
   if (isLoading || error || data <= 0) {
-    return <div className="h-8"></div>;
+    return <div style={{ height }}></div>;
   }
 
-  const digits = data.toString().split('');
-
   return (
-    <div className="inline-flex items-center space-x-2 h-8">
-      <div className="inline-flex gap-1">
-        {digits.map((d, i) => {
-          return (
-            <div
-              key={i}
-              className="text-2xl font-mono w-7 h-8 border border-black leading-none flex items-center justify-center"
-            >
-              <span>{d}</span>
-            </div>
-          );
-        })}
-      </div>
-      <div>sessions are connected on Instant right now</div>
+    <div className="inline-flex items-center space-x-2" style={{ height }}>
+      <AnimatedCounter number={data} height={38} />
+      <div className="flex-1">sessions are connected on Instant right now</div>
     </div>
   );
 };
-
 function LandingHero() {
   return (
     <div className="pb-16 pt-8">
