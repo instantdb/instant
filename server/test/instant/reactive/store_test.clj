@@ -23,7 +23,7 @@
         '[:eav #{1} #{2} #{3}]))))
 
 (deftest swap-datalog-cache!
-  (let [store (rs/init-store)
+  (let [store  (rs/init)
         app-id (random-uuid)]
     (testing "store returns cached data"
       (let [q [[:ea (random-uuid)]]]

@@ -38,26 +38,28 @@
 (def ^:private non-existent-app-id
   #uuid "39b33777-3324-42dd-8f47-ce41d246c5a6")
 
-(def ^:dynamic *store-conn* nil)
-(def ^:dynamic *instaql-query-results* nil)
+(def ^:dynamic *store*
+  nil)
+
+(def ^:dynamic *instaql-query-results*
+  nil)
 
 (defn- with-session [f]
-  (let [store-conn (rs/init-store)
+  (let [store (rs/init)
 
         {receive-q :grouped-queue}
         (grouped-queue/start-grouped-queue-with-workers
          {:max-workers 1
           :group-fn session/group-fn
           :reserve-fn session/receive-worker-reserve-fn
-          :process-fn (partial session/process-fn store-conn)})
-
+          :process-fn (partial session/process-fn store)})
 
         realized-eph?   (atom false)
         eph-hz          (delay
                           (reset! realized-eph? true)
                           @(future ;; avoid pinning vthread
                              (eph/init-hz :test
-                                          store-conn
+                                          store
                                           (let [id (+ 100000 (rand-int 900000))]
                                             {:instance-name (str "test-instance-" id)
                                              :cluster-name  (str "test-cluster-" id)}))))
@@ -73,10 +75,10 @@
                          :ping-job         (future)
                          :pending-handlers (atom #{})}
         query-reactive  rq/instaql-query-reactive!]
-    (session/on-open store-conn socket)
-    (session/on-open store-conn socket-2)
+    (session/on-open store socket)
+    (session/on-open store socket-2)
 
-    (binding [*store-conn*            store-conn
+    (binding [*store*                 store
               *instaql-query-results* (atom {})]
       (with-redefs [receive-queue/receive-q receive-q
                     eph/room-maps           eph-room-maps
@@ -84,16 +86,15 @@
                     ws/send-json!           (fn [_app-id msg fake-ws-conn]
                                               (a/put! fake-ws-conn msg))
                     rq/instaql-query-reactive!
-                    (fn [store-conn {:keys [session-id] :as base-ctx} instaql-query return-type]
-                      (let [res (query-reactive store-conn base-ctx instaql-query return-type)]
+                    (fn [store {:keys [session-id] :as base-ctx} instaql-query return-type]
+                      (let [res (query-reactive store base-ctx instaql-query return-type)]
                         (swap! *instaql-query-results* assoc-in [session-id instaql-query] res)
                         res))]
         (try
-          (f store-conn {:socket   socket
-                         :socket-2 socket-2})
-
-          (session/on-close store-conn socket)
-          (session/on-close store-conn socket-2)
+          (f store {:socket   socket
+                    :socket-2 socket-2})
+          (session/on-close store socket)
+          (session/on-close store socket-2)
           (finally
             (when @realized-eph?
               (HazelcastInstance/.shutdown (:hz @eph-hz)))))))))
@@ -108,7 +109,7 @@
   (set (repeatedly n #(read-msg socket))))
 
 (defn- send-msg [{:keys [ws-conn id] :as socket} msg]
-  (session/handle-receive *store-conn* (rs/get-session @*store-conn* id) msg {}))
+  (session/handle-receive *store* (rs/session *store* id) msg {}))
 
 (defn- blocking-send-msg [expected-op socket msg]
   (send-msg socket msg)
@@ -121,7 +122,7 @@
 
 (deftest anon-auth
   (with-session
-    (fn [store-conn {:keys [socket]
+    (fn [store {:keys [socket]
                      {:keys [id]} :socket}]
       (testing "non-existent app"
         (is (= 400
@@ -131,7 +132,7 @@
                          {:op :init :app-id non-existent-app-id})))))
       (testing "existing app"
         (let [{op :op event-auth :auth} (blocking-send-msg :init-ok socket {:op :init :app-id zeneca-app-id})
-              store-auth (rs/get-auth @store-conn id)]
+              store-auth (-> (rs/session store id) :session/auth)]
           (is (= :init-ok op))
           (is (= ["Zeneca-ex" nil] (pretty-auth event-auth)))
           (is (= ["Zeneca-ex" nil] (pretty-auth store-auth)))))
@@ -231,7 +232,7 @@
       (update-in [:data :datalog-result] drop-join-rows-created-at)
       (update :child-nodes (partial map remove-created-at))))
 
-(defn- pretty-query [_db session-id q]
+(defn- pretty-query [session-id q]
   (let [res (->> *instaql-query-results*
                  deref
                  (#(get-in % [session-id q]))
@@ -241,7 +242,7 @@
 
 (deftest add-query-requires-auth
   (with-session
-    (fn [_store-conn {:keys [socket]}]
+    (fn [_store {:keys [socket]}]
       (is (= 400
              (:status (blocking-send-msg
                        :error
@@ -249,7 +250,7 @@
 
 (deftest add-malformed-query-rejected
   (with-session
-    (fn [_store-conn {:keys [socket]}]
+    (fn [_store {:keys [socket]}]
       (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
       (testing "malformed query are rejected"
         (is (= 400
@@ -257,7 +258,7 @@
 
 (deftest add-nil-query-rejected
   (with-session
-    (fn [_store-conn {:keys [socket]}]
+    (fn [_store {:keys [socket]}]
       (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
       (testing "nil queries are rejected"
         (is (= 400
@@ -265,7 +266,7 @@
 
 (deftest add-query-works
   (with-session
-    (fn [_store-conn {:keys [socket]}]
+    (fn [_store {:keys [socket]}]
       (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
 
       (testing "add query: movies in 1987"
@@ -278,9 +279,31 @@
           (is (= (:client-resp query-1987)
                  (resolvers/walk-friendly @r (map remove-created-at result)))))))))
 
+(defn- get-datalog-cache-for-app [store app-id]
+  (let [db  @(rs/app-conn store app-id)]
+    (->> (ds/q '{:find [?query ?result]
+                 :in [$ ?app-id]
+                 :where [[?e :datalog-query/app-id ?app-id]
+                         [?e :datalog-query/query ?query]
+                         [?e :datalog-query/delayed-call ?result]]}
+               db
+               app-id)
+         (into {}))))
+
+(defn- get-subscriptions-for-app-id [store app-id]
+  (let [db  @(rs/app-conn store app-id)]
+    (for [datom (ds/datoms db :aevt :subscription/app-id)
+          :when (= app-id (:v datom))
+          :let  [ent (ds/entity db (:e datom))]]
+      {:app-id        (:subscription/app-id ent)
+       :datalog-query (:datalog-query/query (:subscription/datalog-query ent))
+       :instaql-query (:instaql-query/query (:subscription/instaql-query ent))
+       :session-id    (:subscription/session-id ent)
+       :v             (:subscription/v ent)})))
+
 (deftest add-query-sets-store
   (with-session
-    (fn [store-conn {:keys [socket]
+    (fn [store {:keys [socket]
                      {:keys [id]} :socket}]
       (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
       (blocking-send-msg :add-query-ok
@@ -315,7 +338,7 @@
                                                                     :movie/trivia
                                                                     :movie/title}]]}],
                        :join-sym ?movie-0}}]}}}
-               (->> (#'rs/get-datalog-cache-for-app @store-conn movies-app-id)
+               (->> (get-datalog-cache-for-app store movies-app-id)
                     (resolvers/walk-friendly @r)
                     keys
                     set))))
@@ -345,19 +368,19 @@
                                                                      :movie/trivia
                                                                      :movie/title}]]}],
                         :join-sym ?movie-0}}]}}}}
-               (->> (#'rs/get-subscriptions-for-app-id @store-conn movies-app-id)
+               (->> (get-subscriptions-for-app-id store movies-app-id)
                     (resolvers/walk-friendly @r)
                     pretty-subs))))
 
       (testing "instaql-queries are set"
         (is (= (:client-resp query-1987)
-               (pretty-query @store-conn id (:kw-q query-1987))))
+               (pretty-query id (:kw-q query-1987))))
         (is (= (:client-resp query-robocop)
-               (pretty-query @store-conn id (:kw-q query-robocop))))))))
+               (pretty-query id (:kw-q query-robocop))))))))
 
 (deftest add-duplicate-query-returns-query-exists
   (with-session
-    (fn [_store-conn {:keys [socket]}]
+    (fn [_store {:keys [socket]}]
       (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
       (blocking-send-msg :add-query-ok socket {:op :add-query :q (:kw-q query-robocop)})
       (is (= {:op :add-query-exists,
@@ -367,7 +390,7 @@
 
 (deftest remove-query-works
   (with-session
-    (fn [_store-conn {:keys [socket]}]
+    (fn [_store {:keys [socket]}]
       (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
       (blocking-send-msg :add-query-ok
                          socket
@@ -382,7 +405,7 @@
 
 (deftest remove-query-updates-store
   (with-session
-    (fn [store-conn {:keys [socket]}]
+    (fn [store {:keys [socket]}]
       (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
 
       (blocking-send-msg :add-query-ok
@@ -415,7 +438,7 @@
                                                                     :movie/trivia
                                                                     :movie/title}]]}],
                        :join-sym ?movie-0}}]}}}
-               (->> (#'rs/get-datalog-cache-for-app @store-conn movies-app-id)
+               (->> (get-datalog-cache-for-app store movies-app-id)
                     (resolvers/walk-friendly @r)
                     keys
                     set))))
@@ -433,7 +456,7 @@
                                                                      :movie/trivia
                                                                      :movie/title}]]}],
                         :join-sym ?movie-0}}]}}}}
-               (some->> (#'rs/get-subscriptions-for-app-id @store-conn movies-app-id)
+               (some->> (get-subscriptions-for-app-id store movies-app-id)
                         seq
                         (resolvers/walk-friendly @r)
                         pretty-subs))))
@@ -447,25 +470,25 @@
                                  :q (:kw-q query-robocop)})))
 
       (testing "all subs are gone"
-        (is (empty? (#'rs/get-subscriptions-for-app-id @store-conn movies-app-id))))
+        (is (empty? (get-subscriptions-for-app-id store movies-app-id))))
 
       (testing "datalog-cache is cleaned"
-        (is (empty? (#'rs/get-datalog-cache-for-app @store-conn movies-app-id)))))))
+        (is (empty? (get-datalog-cache-for-app store movies-app-id)))))))
 
 (deftest mark-stale-topics-works
   (with-movies-app
     (fn [{app-id :id :as _app} r]
       (with-session
-        (fn [store-conn {{sess-id :id :as socket} :socket}]
+        (fn [store {{sess-id :id :as socket} :socket}]
           (blocking-send-msg :init-ok socket {:op :init :app-id app-id})
           (blocking-send-msg :add-query-ok socket
                              {:op :add-query
                               :q (:kw-q query-1987)})
 
           ;; No stale queries at first
-          (is (empty? (rs/get-stale-instaql-queries @store-conn sess-id)))
+          (is (empty? (rs/get-stale-instaql-queries store app-id sess-id)))
 
-          (rs/mark-stale-topics! store-conn
+          (rs/mark-stale-topics! store
                                  app-id
                                  5
                                  [(d/pat->coarse-topic
@@ -474,29 +497,29 @@
 
             ;; Now we have a stale query
           (is (= [(:kw-q query-1987)]
-                 (map :instaql-query/query (rs/get-stale-instaql-queries @store-conn sess-id))))
+                 (map :instaql-query/query (rs/get-stale-instaql-queries store app-id sess-id))))
 
             ;; We also removed datalog queries from cache
           (is (= '#{}
-                 (->> (#'rs/get-datalog-cache-for-app @store-conn app-id)
+                 (->> (get-datalog-cache-for-app store app-id)
                       (resolvers/walk-friendly r)
                       keys
                       set)))
 
             ;; we also recorded the tx-id that was processed
-          (is (= 5 (rs/get-processed-tx-id @store-conn app-id))))))))
+          (is (= 5 (rs/get-processed-tx-id store app-id))))))))
 
 (deftest refresh-populates-cache
   (with-movies-app
     (fn [{app-id :id :as _app} r]
       (with-session
-        (fn [store-conn {{sess-id :id :as socket} :socket}]
+        (fn [store {{sess-id :id :as socket} :socket}]
           (blocking-send-msg :init-ok socket {:op :init :app-id app-id})
           (blocking-send-msg :add-query-ok
                              socket
                              {:op :add-query
                               :q (:kw-q query-1987)})
-          (rs/mark-stale-topics! store-conn
+          (rs/mark-stale-topics! store
                                  app-id
                                  0
                                  [(d/pat->coarse-topic
@@ -505,14 +528,13 @@
 
           (testing "send refresh"
             ;; clear the query hash so that the refresh will trigger a send
-            (ds/transact! store-conn [[:db/retract
-                                       [:instaql-query/session-id+query [sess-id (:kw-q query-1987)]]
-                                       :instaql-query/hash]])
+            (ds/transact! (rs/app-conn store app-id)
+                          [[:db/retract [:instaql-query/session-id+query [sess-id (:kw-q query-1987)]] :instaql-query/hash]])
             (blocking-send-msg :refresh-ok socket {:session-id (:id socket)
                                                    :op :refresh})
 
             ;; After refresh there should be no more stale queries
-            (is (empty? (rs/get-stale-instaql-queries @store-conn sess-id)))
+            (is (empty? (rs/get-stale-instaql-queries store app-id sess-id)))
 
             ;; Datalog cache now has more things
             (is (= '#{{:children
@@ -527,7 +549,7 @@
                                                                         :movie/trivia
                                                                         :movie/title}]]}],
                            :join-sym ?movie-0}}]}}}
-                   (->> (#'rs/get-datalog-cache-for-app @store-conn app-id)
+                   (->> (get-datalog-cache-for-app store app-id)
                         (resolvers/walk-friendly r)
                         keys
                         set)))))))))
@@ -536,7 +558,7 @@
   (with-movies-app
     (fn [{app-id :id :as _app} r]
       (with-session
-        (fn [store-conn {{sess-id :id :as socket} :socket}]
+        (fn [store {{sess-id :id :as socket} :socket}]
           (blocking-send-msg :init-ok socket {:op :init :app-id app-id})
           (let [john-uuid (resolvers/->uuid r "eid-john-mctiernan")
                 ted-uuid (resolvers/->uuid r "eid-ted-kotcheff")
@@ -548,7 +570,7 @@
 
             ;; No stale queries at first
             ;; datalog-cache, subs, instaql look good
-            (is (empty? (rs/get-stale-instaql-queries @store-conn sess-id)))
+            (is (empty? (rs/get-stale-instaql-queries store app-id sess-id)))
             (is (= '#{{:children
                        {:pattern-groups
                         [{:patterns [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]],
@@ -561,7 +583,7 @@
                                                                         :movie/trivia
                                                                         :movie/title}]]}],
                            :join-sym ?movie-0}}]}}}
-                   (->> (#'rs/get-datalog-cache-for-app @store-conn app-id)
+                   (->> (get-datalog-cache-for-app store app-id)
                         (resolvers/walk-friendly r)
                         keys
                         set)))
@@ -579,7 +601,7 @@
                                                                          :movie/trivia
                                                                          :movie/title}]]}],
                             :join-sym ?movie-0}}]}}}}
-                   (->> (#'rs/get-subscriptions-for-app-id @store-conn app-id)
+                   (->> (get-subscriptions-for-app-id store app-id)
                         (resolvers/walk-friendly r)
                         pretty-subs)))
 
@@ -597,7 +619,7 @@
                             ted-uuid]])
 
             ;; mark topic as stale
-            (rs/mark-stale-topics! store-conn
+            (rs/mark-stale-topics! store
                                    app-id
                                    0
                                    [(d/pat->coarse-topic
@@ -608,7 +630,7 @@
                                                    :op :refresh})
 
             ;; data is cleaned
-            (is (empty? (rs/get-stale-instaql-queries @store-conn sess-id)))
+            (is (empty? (rs/get-stale-instaql-queries store app-id sess-id)))
             (is (= '#{{:children
                        {:pattern-groups
                         [{:patterns [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]],
@@ -621,7 +643,7 @@
                                                                         :movie/trivia
                                                                         :movie/title}]]}],
                            :join-sym ?movie-0}}]}}}
-                   (->> (#'rs/get-datalog-cache-for-app @store-conn app-id)
+                   (->> (get-datalog-cache-for-app store app-id)
                         (resolvers/walk-friendly r)
                         keys
                         set)))
@@ -639,13 +661,13 @@
                                                                          :movie/trivia
                                                                          :movie/title}]]}],
                             :join-sym ?movie-0}}]}}}}
-                   (->> (#'rs/get-subscriptions-for-app-id @store-conn app-id)
+                   (->> (get-subscriptions-for-app-id store app-id)
                         (resolvers/walk-friendly r)
                         pretty-subs)))))))))
 
 (deftest transact-requires-auth
   (with-session
-    (fn [_store-conn {:keys [socket]}]
+    (fn [_store {:keys [socket]}]
       (is (= 400
              (:status (blocking-send-msg
                        :error
@@ -655,7 +677,7 @@
   (with-empty-app
     (fn [{app-id :id}]
       (with-session
-        (fn [_store-conn {:keys [socket]}]
+        (fn [_store {:keys [socket]}]
           (blocking-send-msg :init-ok socket {:op :init :app-id app-id})
           (is (= 400
                  (:status (blocking-send-msg
@@ -667,7 +689,7 @@
   (with-movies-app
     (fn [{app-id :id :as _app} r]
       (with-session
-        (fn [_store-conn {:keys [socket]}]
+        (fn [_store {:keys [socket]}]
           (blocking-send-msg :init-ok socket {:op :init :app-id app-id})
           (let [robocop-eid (resolvers/->uuid r "eid-robocop")
                 name-attr-id (resolvers/->uuid r :movie/title)]
@@ -694,7 +716,7 @@
 
 (deftest join-room-works
   (with-session
-    (fn [_store-conn {:keys [socket]}]
+    (fn [_store {:keys [socket]}]
       (blocking-send-msg :init-ok socket {:op :init
                                           :app-id movies-app-id})
       (let [rid (str (UUID/randomUUID))
@@ -717,7 +739,7 @@
 
 (deftest leave-room-works
   (with-session
-    (fn [_store-conn {:keys [socket]}]
+    (fn [_store {:keys [socket]}]
       (send-msg socket {:op :init
                         :app-id movies-app-id})
       (is (= :init-ok (:op (read-msg socket))))
@@ -744,7 +766,7 @@
 
 (deftest patch-presence-works
   (with-session
-    (fn [_store-conn {:keys [socket]}]
+    (fn [_store {:keys [socket]}]
       (let [rid     (str (UUID/randomUUID))
             sess-id (:id socket)
             d1      {:a "a" :b "b" :c "c" :d "d" :e "e"}
@@ -796,7 +818,7 @@
 
 (deftest set-presence-two-sessions
   (with-session
-    (fn [_store-conn {socket-1 :socket
+    (fn [_store {socket-1 :socket
                       socket-2 :socket-2}]
       (let [rid       (str (UUID/randomUUID))
             sess-id-1 (:id socket-1)
@@ -880,7 +902,7 @@
 
 (deftest set-presence-fails-when-not-in-room
   (with-session
-    (fn [_store-conn {:keys [socket]}]
+    (fn [_store {:keys [socket]}]
       (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
       (let [rid (str (UUID/randomUUID))
             d1 {:hello "world"}
@@ -890,7 +912,7 @@
 
 (deftest broadcast-works
   (with-session
-    (fn [_store-conn {:keys [socket]}]
+    (fn [_store {:keys [socket]}]
       (let [rid (str (UUID/randomUUID))
             sess-id (:id socket)
             t1 "foo"
@@ -922,7 +944,7 @@
 
 (deftest broadcast-fails-when-not-in-room
   (with-session
-    (fn [_store-conn {:keys [socket]}]
+    (fn [_store {:keys [socket]}]
       (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
       (let [rid (str (UUID/randomUUID))
             t1 "foo"
