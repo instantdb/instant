@@ -218,14 +218,40 @@ async function testDeleteFileTransactFails() {
   }
 }
 
-// testUploadFile("circle_blue.jpg", "circle_blue.jpg", "image/jpeg");
+async function testDeleteAllowedInTx(
+  src: string,
+  dest: string,
+  contentType?: string,
+) {
+  const buffer = fs.readFileSync(path.join(__dirname, src));
+  const { data } = await db.storage.uploadFile(dest, buffer, {
+    contentType: contentType,
+  });
+  const fileId = data.id;
+  const q = {
+    $files: {
+      $: {
+        where: { id: fileId },
+      },
+    },
+  };
+  const before = await query(q);
+  console.log('Before', JSON.stringify(before, null, 2));
+
+  await transact(tx['$files'][fileId].delete());
+
+  const after = await query(q);
+  console.log('After', JSON.stringify(after, null, 2));
+}
+
+// testUploadFile('circle_blue.jpg', 'circle_blue.jpg', 'image/jpeg');
 // testUploadFile("circle_blue.jpg", "circle_blue2.jpg", "image/jpeg");
 // testQueryFiles()
 // testDeleteSingleFile("circle_blue.jpg");
 // testDeleteBulkFile(["circle_blue.jpg", "circle_blue2.jpg"]);
 // testUpdateFileFails()
 // testMergeFileFails()
-// testDeleteFileTransactFails()
+// testDeleteAllowedInTx('circle_blue.jpg', 'circle_blue.jpg', 'image/jpeg');
 
 /**
  * Legacy Storage API tests (deprecated Jan 2025)
