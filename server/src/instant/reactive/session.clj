@@ -15,7 +15,7 @@
    [instant.db.pg-introspect :as pg-introspect]
    [instant.db.transaction :as tx]
    [instant.flags :as flags]
-   [instant.grouped-queue :as grouped-queue]
+   [instant.grouped-queue-2 :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
@@ -717,10 +717,13 @@
   (straight-jacket-process-receive-q-entry rs/store group-key entry))
 
 (defn start []
-  (receive-queue/start {:group-key-fn #'group-key
-                        :combine-fn   #'combine
-                        :process-fn   #'process
-                        :max-workers  num-receive-workers}))
+  (receive-queue/start
+    (grouped-queue/start
+     {:group-key-fn #'group-key
+      :combine-fn   #'combine
+      :process-fn   #'process
+      :max-workers  num-receive-workers
+      :metrics-path "instant.reactive.session.receive-q"})))
 
 (defn stop []
   (receive-queue/stop))

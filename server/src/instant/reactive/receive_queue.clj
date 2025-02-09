@@ -4,24 +4,18 @@
   (:import
    (java.time Duration Instant)))
 
-(declare receive-q)
+(def receive-q)
 
 (defn enqueue->receive-q
   ([item]
-   (enqueue->receive-q receive-q item))
+   (grouped-queue/put! receive-q item))
   ([q item]
-   (grouped-queue/put! q {:item item
-                          :put-at (Instant/now)})))
+   (grouped-queue/put! q item)))
 
-(defn start [{:keys [group-key-fn combine-fn process-fn max-workers]}]
-  (def receive-q
-    (grouped-queue/start
-     {:group-key-fn group-key-fn
-      :combine-fn   combine-fn
-      :process-fn   process-fn
-      :max-workers  max-workers
-      :metrics-path "instant.reactive.session.receive-q"})))
+(defn start [q]
+  (.bindRoot #'receive-q q))
 
 (defn stop []
   (when (bound? #'receive-q)
-    ((:shutdown-fn receive-q))))
+    (grouped-queue/stop receive-q)
+    (.unbindRoot #'receive-q)))
