@@ -693,7 +693,7 @@
 
       nil)))
 
-(defmulti compress
+(defmulti combine
   (fn [entry1 entry2]
     (let [op1 (-> entry1 :item :op)
           op2 (-> entry2 :item :op)]
@@ -701,21 +701,21 @@
         op1
         :default))))
 
-(defmethod compress :default [_ _]
+(defmethod combine :default [_ _]
   nil)
 
-(defmethod compress :refresh [entry1 entry2]
+(defmethod combine :refresh [entry1 entry2]
   (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id (:item entry1))
                                           :tx-created-at (:tx-created-at (:item entry1))
                                           :name "skipped-refresh"})
   (assoc entry2 :skipped-size (inc (:skipped-size entry1 0))))
 
-(defmethod compress :refresh-presence [entry1 entry2]
+(defmethod combine :refresh-presence [entry1 entry2]
   (-> entry2
       (assoc :skipped-size (inc (:skipped-size entry1 0)))
       (assoc-in [:item :edits] (concat (-> entry1 :item :edits) (-> entry2 :item :edits)))))
 
-(defmethod compress :set-presence [entry1 entry2]
+(defmethod combine :set-presence [entry1 entry2]
   (assoc entry2 :skipped-size (inc (:skipped-size entry1 0))))
 
 (defn process [group-key entry]
@@ -723,7 +723,7 @@
 
 (defn start []
   (receive-queue/start {:group-fn    #'group
-                        :compress-fn #'compress
+                        :combine-fn  #'combine
                         :process-fn  #'process
                         :max-workers num-receive-workers}))
 
