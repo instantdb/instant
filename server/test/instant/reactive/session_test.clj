@@ -12,7 +12,7 @@
    [instant.db.transaction :as tx]
    [instant.flags :as flags]
    [instant.fixtures :refer [with-empty-app with-movies-app]]
-   [instant.grouped-queue :as grouped-queue]
+   [instant.grouped-queue-2 :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.lib.ring.websocket :as ws]
    [instant.reactive.ephemeral :as eph]
@@ -47,12 +47,11 @@
 (defn- with-session [f]
   (let [store (rs/init)
 
-        {receive-q :grouped-queue}
-        (grouped-queue/start-grouped-queue-with-workers
-         {:max-workers 1
-          :group-fn session/group-fn
-          :reserve-fn session/receive-worker-reserve-fn
-          :process-fn (partial session/process-fn store)})
+        receive-q
+        (grouped-queue/start {:group-fn    session/group
+                              :combine-fn  session/combine
+                              :process-fn  #(session/straight-jacket-process-receive-q-entry store %1 %2)
+                              :max-workers 1})
 
         realized-eph?   (atom false)
         eph-hz          (delay
