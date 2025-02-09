@@ -396,7 +396,7 @@
         (when-some [wal-record (a/<! wal-chan)]
           (grouped-queue/put! queue wal-record)
           (recur)))
-      ((::shutdown-fn queue))
+      (grouped-queue/stop queue)
       (tracer/record-info! {:name "invalidation-worker/shutdown"}))
     queue))
 

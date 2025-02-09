@@ -135,3 +135,6 @@
      :workers      workers
      :executor     executor
      :shutdown-fn  shutdown-fn}))
+
+(defn stop [{:keys [shutdown-fn]}]
+  (shutdown-fn))
