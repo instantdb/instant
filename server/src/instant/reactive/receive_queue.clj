@@ -4,8 +4,7 @@
    [instant.gauges :as gauges]
    [instant.grouped-queue-2 :as grouped-queue])
   (:import
-   (java.time Duration Instant)
-   (java.util.concurrent Executors)))
+   (java.time Duration Instant)))
 
 (declare receive-q)
 
@@ -25,7 +24,7 @@
      {:path "instant.reactive.session.receive-q.worker-count"
       :value (get-worker-count)}])
 
-(defn start [{:keys [group-fn compress-fn #_reserve-fn process-fn max-workers]}]
+(defn start [{:keys [group-fn combine-fn #_reserve-fn process-fn max-workers]}]
   (let [#_{:keys [grouped-queue] :as queue-with-workers}
         #_(if config/fewer-vfutures?
             (grouped-queue/start-grouped-queue-with-cpu-workers {:group-fn group-fn
@@ -39,9 +38,9 @@
         grouped-queue
         (grouped-queue/start
          {:group-fn    group-fn
-          :compress-fn compress-fn
+          :combine-fn  combine-fn
           :process-fn  process-fn
-          :executor    (Executors/newFixedThreadPool max-workers)})]
+          :max-workers max-workers})]
     (def receive-q grouped-queue)
     #_(def cleanup-gauge (gauges/add-gauge-metrics-fn
                           (fn [_] (receive-q-metrics queue-with-workers))))))
