@@ -15,6 +15,7 @@
    [instant.db.pg-introspect :as pg-introspect]
    [instant.db.transaction :as tx]
    [instant.flags :as flags]
+   [instant.grouped-queue :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
@@ -561,7 +562,7 @@
             (swap! pending-handlers disj pending-handler)))))))
 
 (defn process-receive-q-entry [store entry metadata]
-  (let [{:keys [put-at item skipped-size]} entry
+  (let [{:keys [put-at item]} entry
         {:keys [session-id] :as event} item
         now        (Instant/now)
         session    (rs/session store session-id)]
@@ -583,7 +584,7 @@
                       :session/socket
                       :get-ping-latency-ms
                       (#(%))))
-       (assoc metadata :skipped-size skipped-size)))))
+       (assoc metadata :skipped-size (dec (::grouped-queue/combined entry 1)))))))
 
 (defn straight-jacket-process-receive-q-entry [store-conn group-key entry]
   (let [metadata {:group-key group-key}]
@@ -695,28 +696,22 @@
 
 (defmulti combine
   (fn [entry1 entry2]
-    (let [op1 (-> entry1 :item :op)
-          op2 (-> entry2 :item :op)]
-      (if (= op1 op2)
-        op1
-        :default))))
+    [(-> entry1 :item :op) (-> entry2 :item :op)]))
 
 (defmethod combine :default [_ _]
   nil)
 
-(defmethod combine :refresh [entry1 entry2]
+(defmethod combine [:refresh :refresh] [entry1 entry2]
   (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id (:item entry1))
                                           :tx-created-at (:tx-created-at (:item entry1))
                                           :name "skipped-refresh"})
-  (assoc entry2 :skipped-size (inc (:skipped-size entry1 0))))
+  entry2)
 
-(defmethod combine :refresh-presence [entry1 entry2]
-  (-> entry2
-      (assoc :skipped-size (inc (:skipped-size entry1 0)))
-      (assoc-in [:item :edits] (concat (-> entry1 :item :edits) (-> entry2 :item :edits)))))
+(defmethod combine [:refresh-presence :refresh-presence] [entry1 entry2]
+  (update-in entry2 [:item :edits] #(concat (-> entry1 :item :edits) %)))
 
-(defmethod combine :set-presence [entry1 entry2]
-  (assoc entry2 :skipped-size (inc (:skipped-size entry1 0))))
+(defmethod combine [:set-presence :set-presence] [entry1 entry2]
+  entry2)
 
 (defn process [group-key entry]
   (straight-jacket-process-receive-q-entry rs/store group-key entry))

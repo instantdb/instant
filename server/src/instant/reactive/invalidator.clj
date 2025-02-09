@@ -6,7 +6,6 @@
    [instant.config :as config]
    [instant.db.model.attr :as attr-model]
    [instant.db.pg-introspect :as pg-introspect]
-   [instant.gauges :as gauges]
    [instant.grouped-queue-2 :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
@@ -29,6 +28,8 @@
    (org.postgresql.replication LogSequenceNumber)))
 
 (declare wal-opts)
+
+(declare invalidator-q)
 
 (defn columns->map
   ([columns]
@@ -303,7 +304,7 @@
    We combine all of the change lists and advance the tx-id to the
    latest tx-id in the list."
   [r1 r2]
-  (when (< (:skipped-size r1 0) 100)
+  (when (< (::grouped-queue/combined r1 1) 100)
     ;; Complain loudly if we accidently mix wal-records from multiple apps
     (when (not= (:app-id r1) (:app-id r2))
       (throw (ex-info "app-id mismatch in combine-wal-records" {:r1 r1 :r2 r2})))
@@ -316,7 +317,6 @@
         (update :ident-changes  (fnil into []) (:ident-changes r2))
         (update :triple-changes (fnil into []) (:triple-changes r2))
         (update :tx-bytes       (fnil + 0) (:tx-bytes r2))
-        (update :skipped-size   (fnil inc 0))
         (assoc :tx-id           (:tx-id r2)))))
 
 (defn transform-byop-wal-record [{:keys [changes nextlsn]}]
@@ -378,38 +378,27 @@
           (def -store-value (store-snapshot store app-id))
           (tracer/add-exception! t {:escaping? false}))))))
 
-#_(defn invalidator-q-metrics [{:keys [grouped-queue get-worker-count]}]
-  [{:path "instant.reactive.invalidator.q.size"
-    :value (grouped-queue/size grouped-queue)}
-   {:path "instant.reactive.invalidator.q.longest-waiting-ms"
-    :value (if-let [{:keys [put-at]} (grouped-queue/peek grouped-queue)] ;; FIXME
-             (.toMillis (Duration/between put-at (Instant/now)))
-             0)}
-   {:path "instant.reactive.invalidator.q.worker-count"
-    :value (get-worker-count)}])
-
 (defn start-worker [process-id store wal-chan]
   (tracer/record-info! {:name "invalidation-worker/start"})
   (let [queue
         (grouped-queue/start
-         {:group-fn    :app-id
-          :combine-fn  combine-wal-records
-          :process-fn  (fn [_key wal-record]
+         {:group-fn     :app-id
+          :combine-fn   combine-wal-records
+          :process-fn   (fn [_key wal-record]
                          (process-wal-record process-id
                                              store
-                                             (inc (:skipped-size wal-record 0))
+                                             (::grouped-queue/combined wal-record 1)
                                              wal-record))
-          :max-workers 8})
-        #_#_cleanup-gauges (gauges/add-gauge-metrics-fn
-                            (fn [_] (invalidator-q-metrics queue-with-workers)))]
+          :metrics-path "instant.reactive.invalidator.q"
+          :max-workers  8})]
     (a/go
       (loop []
         (when-some [wal-record (a/<! wal-chan)]
           (grouped-queue/put! queue wal-record)
           (recur)))
-      #_(cleanup-gauges)
       ((::shutdown-fn queue))
-      (tracer/record-info! {:name "invalidation-worker/shutdown"}))))
+      (tracer/record-info! {:name "invalidation-worker/shutdown"}))
+    queue))
 
 (defn handle-byop-record [table-info app-id store wal-record]
   (when-let [record (transform-byop-wal-record wal-record)]
@@ -499,7 +488,8 @@
 
      @(:started-promise wal-opts)
 
-     (start-worker process-id rs/store worker-chan)
+     (def invalidator-q
+       (start-worker process-id rs/store worker-chan))
 
      (when byop-chan
        (ua/fut-bg
