@@ -670,7 +670,7 @@
 ;; ------
 ;; System
 
-(defn group [{:keys [item] :as _input}]
+(defn group-key [{:keys [item] :as _input}]
   (let [{:keys [op session-id room-id]} item]
     (case op
       :transact
@@ -717,10 +717,10 @@
   (straight-jacket-process-receive-q-entry rs/store group-key entry))
 
 (defn start []
-  (receive-queue/start {:group-fn    #'group
-                        :combine-fn  #'combine
-                        :process-fn  #'process
-                        :max-workers num-receive-workers}))
+  (receive-queue/start {:group-key-fn #'group-key
+                        :combine-fn   #'combine
+                        :process-fn   #'process
+                        :max-workers  num-receive-workers}))
 
 (defn stop []
   (receive-queue/stop))

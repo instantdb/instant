@@ -9,7 +9,10 @@
    (java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue Executors ExecutorService LinkedBlockingQueue ThreadPoolExecutor TimeUnit)
    (java.util.concurrent.atomic AtomicInteger)))
 
-(defn- poll [group combine-fn]
+(defn- poll
+  "Gets 0..∞ items from group, fetching as many combinable items as possible in a row.
+   Returns 1 (possibly combined) item or nil"
+  [group combine-fn]
   (loop [item1 (Queue/.poll group)]
     (clojure+/cond+
      (nil? item1) nil
@@ -21,7 +24,9 @@
              (Queue/.remove group) ;; remove item2
              (recur (update item12 ::combined (fnil inc 1)))))))
 
-(defn- process [{:keys [groups process-fn combine-fn workers items running?] :as q} key group]
+(defn- process
+  "Main worker process fn"
+  [{:keys [groups process-fn combine-fn workers items running?] :as q} key group]
   (AtomicInteger/.incrementAndGet workers)
   (loop []
     (when @running?
@@ -40,10 +45,12 @@
           (recur)))))
   (AtomicInteger/.decrementAndGet workers))
 
-(defn put! [{:keys [executor groups group-fn items running?] :as q} item]
+(defn put!
+  "Schedule item for execution on q"
+  [{:keys [executor groups group-key-fn items running?] :as q} item]
   (when @running?
     (let [item (assoc item ::put-at (System/currentTimeMillis))
-          key  (or (group-fn item) ::default)]
+          key  (or (group-key-fn item) ::default)]
       (locking q
         (if-some [group (Map/.get groups key)]
           (Queue/.offer group item)
@@ -52,14 +59,42 @@
             (ExecutorService/.submit executor ^Runnable #(process q key group))))
         (AtomicInteger/.incrementAndGet items)))))
 
-(defn- wait-time [groups]
+(defn- longest-wait-time [groups]
   (when-some [items (->> groups
                          (Map/.values)
                          (keep Queue/.peek)
                          not-empty)]
     (- (System/currentTimeMillis) (transduce (map ::put-at) min items))))
 
-(defn start [{:keys [group-fn combine-fn process-fn executor metrics-path max-workers]}]
+(defn start
+  "Options:
+
+     :group-key-fn :: (fn [item]) -> Any
+
+   A function to determine to which “track” to send item for processing.
+   All tracks are processed in parallel, items inside one track are processed sequentially.
+
+     :combine-fn   :: (fn [item1 item2]) -> item | nil
+
+   A function that can optionally combine two items into one before processing.
+   Return nil if items shouldn’t be combined.
+
+     :process-fn   :: (fn [group-key item])
+
+   Main processing function. Item passed to it might have additional ::combined and ::put-at keys.
+
+     :executor     :: ExecutorService | nil
+
+   An exectutor to use to run worker threads. Should support unbounded task queue.
+
+     :max-workers  :: long | nil
+
+   If exectutor is not provided, ~ cached thread pool will be created with at most this many threads.
+
+     :metrics-path :: String | nil
+
+   A string to report gauge metrics to. If skipped, no reporting"
+  [{:keys [group-key-fn combine-fn process-fn executor max-workers metrics-path]}]
   (let [groups      (ConcurrentHashMap.)
         running?    (atom true)
         items       (AtomicInteger. 0)
@@ -78,7 +113,7 @@
                        (fn [_]
                          [{:path  (str metrics-path ".size")
                            :value (AtomicInteger/.get items)}
-                          (when-some [t (wait-time groups)]
+                          (when-some [t (longest-wait-time groups)]
                             {:path  (str metrics-path ".longest-waiting-ms")
                              :value t})
                           {:path (str metrics-path ".worker-count")
@@ -91,12 +126,12 @@
                       (when-not (ExecutorService/.awaitTermination executor 1 TimeUnit/SECONDS)
                         (ExecutorService/.shutdownNow executor)
                         (ExecutorService/.awaitTermination executor 1 TimeUnit/SECONDS)))]
-    {:group-fn    (or group-fn identity)
-     :combine-fn  (or combine-fn (fn [_ _] nil))
-     :process-fn  process-fn
-     :groups      groups
-     :running?    running?
-     :items       items
-     :workers     workers
-     :executor    executor
-     :shutdown-fn shutdown-fn}))
+    {:group-key-fn (or group-key-fn identity)
+     :combine-fn   (or combine-fn (fn [_ _] nil))
+     :process-fn   process-fn
+     :groups       groups
+     :running?     running?
+     :items        items
+     :workers      workers
+     :executor     executor
+     :shutdown-fn  shutdown-fn}))
