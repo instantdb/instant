@@ -1,10 +1,11 @@
 (ns instant.grouped-queue-2
   (:require
    [clojure+.core :as clojure+]
-   [instant.config :as config])
+   [instant.config :as config]
+   [instant.util.tracer :as tracer])
   (:import
    (java.util Map Queue)
-   (java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue Executors ExecutorService SynchronousQueue ThreadPoolExecutor TimeUnit)))
+   (java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue Executors ExecutorService LinkedBlockingQueue ThreadPoolExecutor TimeUnit)))
 
 (defn- poll [group combine-fn]
   (loop [item1 (Queue/.poll group)]
@@ -23,7 +24,10 @@
     (when @running?
       (if-some [item (poll group combine-fn)]
         (do
-          (process-fn key item)
+          (try
+            (process-fn key item)
+            (catch Throwable t
+              (tracer/record-exception-span! t {:name "grouped-queue/process-error"})))
           (recur))
         (when (= ::loop (locking q
                           (if (some? (Queue/.peek group))
@@ -35,7 +39,7 @@
   (when @running?
     (let [key (or (group-fn item) ::default)]
       (locking q
-        (if-some [group (.get groups key)]
+        (if-some [group (Map/.get groups key)]
           (Queue/.offer group item)
           (let [group (ConcurrentLinkedQueue. [item])]
             (Map/.put groups key group)
@@ -49,16 +53,16 @@
                       executor
 
                       config/fewer-vfutures?
-                      (ThreadPoolExecutor. 0 (or max-workers 2) 60 TimeUnit/SECONDS (SynchronousQueue.))
+                      (ThreadPoolExecutor. 0 (or max-workers 2) 1 TimeUnit/SECONDS (LinkedBlockingQueue.))
 
                       :else
                       (Executors/newVirtualThreadPerTaskExecutor))
         shutdown-fn (fn []
                       (reset! running? false)
                       (ExecutorService/.shutdown executor)
-                      (when-not (ExecutorService/.awaitTermination 1 TimeUnit/SECONDS)
+                      (when-not (ExecutorService/.awaitTermination executor 1 TimeUnit/SECONDS)
                         (ExecutorService/.shutdownNow executor)
-                        (ExecutorService/.awaitTermination 1 TimeUnit/SECONDS)))]
+                        (ExecutorService/.awaitTermination executor 1 TimeUnit/SECONDS)))]
     {:group-fn    (or group-fn identity)
      :combine-fn  (or combine-fn (fn [_ _] nil))
      :process-fn  process-fn
