@@ -382,7 +382,7 @@
   (tracer/record-info! {:name "invalidation-worker/start"})
   (let [queue
         (grouped-queue/start
-         {:group-fn     :app-id
+         {:group-key-fn :app-id
           :combine-fn   combine-wal-records
           :process-fn   (fn [_key wal-record]
                          (process-wal-record process-id

@@ -13,10 +13,10 @@
    (grouped-queue/put! q {:item item
                           :put-at (Instant/now)})))
 
-(defn start [{:keys [group-fn combine-fn process-fn max-workers]}]
+(defn start [{:keys [group-key-fn combine-fn process-fn max-workers]}]
   (def receive-q
     (grouped-queue/start
-     {:group-fn     group-fn
+     {:group-key-fn group-key-fn
       :combine-fn   combine-fn
       :process-fn   process-fn
       :max-workers  max-workers

@@ -48,10 +48,10 @@
   (let [store (rs/init)
 
         receive-q
-        (grouped-queue/start {:group-fn    session/group
-                              :combine-fn  session/combine
-                              :process-fn  #(session/straight-jacket-process-receive-q-entry store %1 %2)
-                              :max-workers 1})
+        (grouped-queue/start {:group-key-fn session/group-key
+                              :combine-fn   session/combine
+                              :process-fn   #(session/straight-jacket-process-receive-q-entry store %1 %2)
+                              :max-workers  1})
 
         realized-eph?   (atom false)
         eph-hz          (delay
