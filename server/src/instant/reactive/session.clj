@@ -561,40 +561,33 @@
           (finally
             (swap! pending-handlers disj pending-handler)))))))
 
-(defn process-receive-q-entry [store entry metadata]
-  (let [{:keys [put-at item]} entry
-        {:keys [session-id] :as event} item
-        now        (Instant/now)
-        session    (rs/session store session-id)]
-    (cond
-      (not session)
+(defn process-receive-q-event [store event metadata]
+  (let [{:keys [session-id]
+         ::grouped-queue/keys [put-at]} event]
+    (if-some [session (rs/session store session-id)]
+      (let [session            (into {} session)
+            total-delay-ms     (- (System/currentTimeMillis) put-at)
+            ws-ping-latency-ms (some-> session
+                                       :session/socket
+                                       :get-ping-latency-ms
+                                       (#(%)))
+            event              (assoc event
+                                      :total-delay-ms total-delay-ms
+                                      :ws-ping-latency-ms ws-ping-latency-ms)
+            metadata           (assoc metadata :skipped-size (dec (::grouped-queue/combined event 1)))]
+        (handle-receive store-conn session event metadata))
       (tracer/record-info! {:name "receive-worker/session-not-found"
-                            :attributes (assoc metadata
-                                               :session-id session-id)})
+                            :attributes (assoc metadata :session-id session-id)}))))
 
-      :else
-      (handle-receive
-       store
-       (into {} session)
-       (assoc event
-              :total-delay-ms
-              (.toMillis (Duration/between put-at now))
-              :ws-ping-latency-ms
-              (some-> session
-                      :session/socket
-                      :get-ping-latency-ms
-                      (#(%))))
-       (assoc metadata :skipped-size (dec (::grouped-queue/combined entry 1)))))))
-
-(defn straight-jacket-process-receive-q-entry [store-conn group-key entry]
+(defn straight-jacket-process-receive-q-event [store group-key event]
   (let [metadata {:group-key group-key}]
     (try
-      (process-receive-q-entry store-conn entry metadata)
+      (process-receive-q-event store-conn event metadata)
       (catch Throwable e
-        (tracer/record-exception-span! e {:name "receive-worker/handle-receive-batch-straight-jacket"
+        (tracer/record-exception-span! e {:name "receive-worker/straight-jacket-process-receive-q-event"
                                           :attributes (assoc metadata
-                                                             :session-id (:session-id (:item entry))
-                                                             :items [entry])})))))
+                                                             :session-id (:session-id event)
+                                                             :event event)})))))
 
 ;; -----------------
 ;; Websocket Interop
@@ -670,51 +663,50 @@
 ;; ------
 ;; System
 
-(defn group-key [{:keys [item] :as _input}]
-  (let [{:keys [op session-id room-id]} item]
-    (case op
-      :transact
-      [:transact session-id]
+(defn group-key [{:keys [op session-id room-id q]}]
+  (case op
+    :transact
+    [:transact session-id]
 
-      (:join-room :leave-room :set-presence :client-broadcast :server-broadcast)
-      [:room session-id room-id]
+    (:join-room :leave-room :set-presence :client-broadcast :server-broadcast)
+    [:room session-id room-id]
 
-      (:add-query :remove-query)
-      (let [{:keys [q]} item]
-        [:query session-id q])
+    (:add-query :remove-query)
+    [:query session-id q]
 
-      :refresh
-      [:refresh session-id]
+    :refresh
+    [:refresh session-id]
 
-      :refresh-presence
-      [:refresh-presence session-id room-id]
+    :refresh-presence
+    [:refresh-presence session-id room-id]
 
-      :error
-      [:error session-id]
+    :error
+    [:error session-id]
 
-      nil)))
+    nil))
 
 (defmulti combine
-  (fn [entry1 entry2]
-    [(-> entry1 :item :op) (-> entry2 :item :op)]))
+  (fn [event1 event2]
+    [(:op event1) (:op event2)]))
 
 (defmethod combine :default [_ _]
   nil)
 
-(defmethod combine [:refresh :refresh] [entry1 entry2]
-  (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id (:item entry1))
-                                          :tx-created-at (:tx-created-at (:item entry1))
-                                          :name "skipped-refresh"})
-  entry2)
+(defmethod combine [:refresh :refresh] [event1 event2]
+  (e2e-tracer/invalidator-tracking-step!
+   {:name          "skipped-refresh"
+    :tx-id         (:tx-id event1)
+    :tx-created-at (:tx-created-at event1)})
+  event2)
 
-(defmethod combine [:refresh-presence :refresh-presence] [entry1 entry2]
-  (update-in entry2 [:item :edits] #(concat (-> entry1 :item :edits) %)))
+(defmethod combine [:refresh-presence :refresh-presence] [event1 event2]
+  (update event2 :edits #(concat (:edits event1) %)))
 
-(defmethod combine [:set-presence :set-presence] [entry1 entry2]
-  entry2)
+(defmethod combine [:set-presence :set-presence] [event1 event2]
+  event2)
 
-(defn process [group-key entry]
-  (straight-jacket-process-receive-q-entry rs/store group-key entry))
+(defn process [group-key event]
+  (straight-jacket-process-receive-q-event rs/store group-key event))
 
 (defn start []
   (receive-queue/start
@@ -730,4 +722,10 @@
 
 (defn restart []
   (stop)
+  (start))
+
+(defn before-ns-unload []
+  (stop))
+
+(defn after-ns-reload []
   (start))
