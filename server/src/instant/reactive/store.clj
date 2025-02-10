@@ -133,28 +133,26 @@
           (.getRequestHeader "cf-connecting-ip")))
 
 (defn report-active-sessions [store]
-  (for [conn  (-> store :conns Map/.values)
-        :let  [db @conn]
-        datom (d/datoms db :aevt :session/id)
-        :let  [ent (d/entity db (:e datom))
-               {:session/keys [auth creator]} ent]]
-    {:app-title      (-> auth :app :title)
-     :app-id         (-> auth :app :id)
-     :app-user-email (-> auth :user :email)
-     :creator-email  (-> creator :email)
-     :session-id     (:session/id ent)
-     :socket-origin  (some-> ent
-                             :session/socket
-                             socket-origin)}))
+  (let [db @(:sessions store)]
+    (for [datom (d/datoms db :aevt :session/id)
+          :let [ent (d/entity db (:e datom))
+                {:session/keys [auth creator]} ent]]
+      {:app-title      (-> auth :app :title)
+       :app-id         (-> auth :app :id)
+       :app-user-email (-> auth :user :email)
+       :creator-email  (-> creator :email)
+       :session-id     (:session/id ent)
+       :socket-origin  (some-> ent
+                               :session/socket
+                               socket-origin)})))
 
 (comment
   (report-active-sessions store))
 
 (defn num-sessions [store]
-  (count
-   (for [conn  (-> store :conns Map/.values)
-         datom (d/datoms @conn :aevt :session/id)]
-     datom)))
+  (let [db @(:sessions store)]
+    (count
+     (d/datoms db :aevt :session/id))))
 
 ;; --------
 ;; sessions
