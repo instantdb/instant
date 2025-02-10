@@ -375,11 +375,11 @@
     (doseq [notify-sess-id local-ids
             :let [q (-> (rs/session store notify-sess-id) :session/socket :receive-q)]
             :when (and q (not= sess-id notify-sess-id))]
-      (receive-queue/enqueue->receive-q q
-                                        (assoc base-msg
-                                               :op :server-broadcast
-                                               :session-id notify-sess-id
-                                               :app-id app-id)))
+      (receive-queue/put! q
+                          (assoc base-msg
+                                 :op :server-broadcast
+                                 :session-id notify-sess-id
+                                 :app-id app-id)))
     (when (seq remote-ids)
       (eph/broadcast app-id remote-ids base-msg))
 
@@ -439,17 +439,17 @@
        ::ex/param-malformed
 
        ::ex/validation-failed)
-      (receive-queue/enqueue->receive-q q
-                                        {:op :error
-                                         :app-id app-id
-                                         :status 400
-                                         :client-event-id client-event-id
-                                         :original-event (merge original-event
-                                                                debug-info)
-                                         :type (keyword (name type))
-                                         :message message
-                                         :hint hint
-                                         :session-id sess-id})
+      (receive-queue/put! q
+                          {:op :error
+                           :app-id app-id
+                           :status 400
+                           :client-event-id client-event-id
+                           :original-event (merge original-event
+                                                  debug-info)
+                           :type (keyword (name type))
+                           :message message
+                           :hint hint
+                           :session-id sess-id})
 
       (::ex/session-missing
        ::ex/socket-missing
@@ -459,17 +459,17 @@
 
       (do
         (tracer/add-exception! instant-ex {:escaping? false})
-        (receive-queue/enqueue->receive-q q
-                                          {:op :error
-                                           :app-id app-id
-                                           :status 500
-                                           :client-event-id client-event-id
-                                           :original-event (merge original-event
-                                                                  debug-info)
-                                           :type (keyword (name type))
-                                           :message message
-                                           :hint hint
-                                           :session-id sess-id})))))
+        (receive-queue/put! q
+                            {:op :error
+                             :app-id app-id
+                             :status 500
+                             :client-event-id client-event-id
+                             :original-event (merge original-event
+                                                    debug-info)
+                             :type (keyword (name type))
+                             :message message
+                             :hint hint
+                             :session-id sess-id})))))
 
 (defn- handle-uncaught-err [session app-id original-event root-err debug-info]
   (let [sess-id (:session/id session)
@@ -477,16 +477,16 @@
         {:keys [client-event-id]} original-event]
     (tracer/add-exception! root-err {:escaping? false})
 
-    (receive-queue/enqueue->receive-q q
-                                      {:op :error
-                                       :app-id app-id
-                                       :client-event-id client-event-id
-                                       :status 500
-                                       :original-event (merge original-event
-                                                              debug-info)
-                                       :message (str "Yikes, something broke on our end! Sorry about that."
-                                                     " Please ping us (Joe and Stopa) on Discord and let us know!")
-                                       :session-id sess-id})))
+    (receive-queue/put! q
+                        {:op :error
+                         :app-id app-id
+                         :client-event-id client-event-id
+                         :status 500
+                         :original-event (merge original-event
+                                                debug-info)
+                         :message (str "Yikes, something broke on our end! Sorry about that."
+                                       " Please ping us (Joe and Stopa) on Discord and let us know!")
+                         :session-id sess-id})))
 
 (defn handle-receive-attrs [store session event metadata]
   (let [{:keys [session/socket]} session
@@ -598,9 +598,9 @@
     (rs/assoc-session! store sess-id :session/socket socket)))
 
 (defn on-message [{:keys [id receive-q data]}]
-  (receive-queue/enqueue->receive-q receive-q (-> (<-json data true)
-                                                  (update :op keyword)
-                                                  (assoc :session-id id))))
+  (receive-queue/put! receive-q (-> (<-json data true)
+                                    (update :op keyword)
+                                    (assoc :session-id id))))
 
 (defn on-error [{:keys [id error]}]
   (condp instance? error
