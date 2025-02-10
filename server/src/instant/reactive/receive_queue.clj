@@ -2,7 +2,7 @@
   (:require
    [instant.grouped-queue :as grouped-queue]))
 
-(def receive-q)
+(declare receive-q)
 
 (defn put!
   ([item]
