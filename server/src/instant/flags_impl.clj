@@ -74,11 +74,11 @@
                     result (instaql-nodes->object-tree ctx data)]]
         (swap-result! query-results-atom query transform result 0))
 
-      (session/on-open store/store-conn socket)
-      (store/set-auth! store/store-conn
-                       socket-id
-                       {:app app
-                        :admin? true})
+      (session/on-open store/store socket)
+      (store/assoc-session! store/store
+                            socket-id
+                            :app app
+                            :admin? true)
       (doseq [{:keys [query]} queries]
         (session/on-message {:id socket-id
                              :receive-q receive-q
@@ -86,7 +86,7 @@
                                             :q query
                                             :return-type "tree"})}))
       (fn []
-        (session/on-close store/store-conn socket)
+        (session/on-close store/store socket)
         nil))))
 
 (defn resolve-attr-id [attrs namespaced-attr]
