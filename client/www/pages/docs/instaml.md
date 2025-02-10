@@ -9,7 +9,7 @@ Instant uses a **Firebase-inspired** interface for mutations. We call our mutati
 We use the `update` action to create entities.
 
 ```typescript
-import { init } from '@instantdb/react';
+import { init, id } from '@instantdb/react';
 
 const db = init({
   appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
