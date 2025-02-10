@@ -21,7 +21,7 @@
    [instant.db.model.triple :as triple-model])
   (:import
    (java.sql Timestamp)
-   (java.time Duration Instant)
+   (java.time Instant)
    (java.time.temporal ChronoUnit)
    (java.util Map UUID)
    (java.util.concurrent ConcurrentHashMap)

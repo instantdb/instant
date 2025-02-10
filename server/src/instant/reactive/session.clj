@@ -37,7 +37,6 @@
    [instant.util.uuid :as uuid-util]
    [lambdaisland.uri :as uri])
   (:import
-   (java.time Duration Instant)
    (java.util.concurrent CancellationException)
    (java.util.concurrent.atomic AtomicLong)))
 
@@ -702,7 +701,7 @@
 (defmethod combine [:refresh-presence :refresh-presence] [event1 event2]
   (update event2 :edits #(concat (:edits event1) %)))
 
-(defmethod combine [:set-presence :set-presence] [event1 event2]
+(defmethod combine [:set-presence :set-presence] [_event1 event2]
   event2)
 
 (defn process [group-key event]

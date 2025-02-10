@@ -4,8 +4,7 @@
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.store :as rs])
   (:import
-   (com.hazelcast.core HazelcastInstance IExecutorService)
-   (java.util.concurrent ExecutorService)))
+   (com.hazelcast.core HazelcastInstance IExecutorService)))
 
 (defn app-sessions->report [app-sessions]
   (let [[{:keys [app-id app-title creator-email]}] app-sessions
