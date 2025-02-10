@@ -50,7 +50,7 @@
         receive-q
         (grouped-queue/start {:group-key-fn session/group-key
                               :combine-fn   session/combine
-                              :process-fn   #(session/straight-jacket-process-receive-q-entry store %1 %2)
+                              :process-fn   #(session/straight-jacket-process-receive-q-event store %1 %2)
                               :max-workers  1})
 
         realized-eph?   (atom false)
