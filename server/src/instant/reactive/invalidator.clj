@@ -6,7 +6,7 @@
    [instant.config :as config]
    [instant.db.model.attr :as attr-model]
    [instant.db.pg-introspect :as pg-introspect]
-   [instant.grouped-queue-2 :as grouped-queue]
+   [instant.grouped-queue :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
    [instant.model.app :as app-model]

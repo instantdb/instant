@@ -15,7 +15,7 @@
    [instant.db.pg-introspect :as pg-introspect]
    [instant.db.transaction :as tx]
    [instant.flags :as flags]
-   [instant.grouped-queue-2 :as grouped-queue]
+   [instant.grouped-queue :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]

@@ -12,7 +12,7 @@
    [instant.db.transaction :as tx]
    [instant.flags :as flags]
    [instant.fixtures :refer [with-empty-app with-movies-app]]
-   [instant.grouped-queue-2 :as grouped-queue]
+   [instant.grouped-queue :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.lib.ring.websocket :as ws]
    [instant.reactive.ephemeral :as eph]

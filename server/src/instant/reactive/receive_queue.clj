@@ -1,8 +1,6 @@
 (ns instant.reactive.receive-queue
   (:require
-   [instant.grouped-queue-2 :as grouped-queue])
-  (:import
-   (java.time Duration Instant)))
+   [instant.grouped-queue :as grouped-queue]))
 
 (def receive-q)
 
