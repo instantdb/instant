@@ -574,14 +574,14 @@
                                       :total-delay-ms total-delay-ms
                                       :ws-ping-latency-ms ws-ping-latency-ms)
             metadata           (assoc metadata :skipped-size (dec (::grouped-queue/combined event 1)))]
-        (handle-receive store-conn session event metadata))
+        (handle-receive store session event metadata))
       (tracer/record-info! {:name "receive-worker/session-not-found"
                             :attributes (assoc metadata :session-id session-id)}))))
 
 (defn straight-jacket-process-receive-q-event [store group-key event]
   (let [metadata {:group-key group-key}]
     (try
-      (process-receive-q-event store-conn event metadata)
+      (process-receive-q-event store event metadata)
       (catch Throwable e
         (tracer/record-exception-span! e {:name "receive-worker/straight-jacket-process-receive-q-event"
                                           :attributes (assoc metadata
