@@ -6,7 +6,7 @@
 
 (def receive-q)
 
-(defn enqueue->receive-q
+(defn put!
   ([item]
    (grouped-queue/put! receive-q item))
   ([q item]

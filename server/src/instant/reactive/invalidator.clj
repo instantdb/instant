@@ -369,10 +369,10 @@
                                                   :attributes {:num-sockets (count sockets)}})
           (tracer/with-span! {:name "invalidator/send-refreshes"}
             (doseq [{:keys [id]} sockets]
-              (receive-queue/enqueue->receive-q {:op :refresh
-                                                 :session-id id
-                                                 :tx-id tx-id
-                                                 :tx-created-at tx-created-at}))))
+              (receive-queue/put! {:op :refresh
+                                   :session-id id
+                                   :tx-id tx-id
+                                   :tx-created-at tx-created-at}))))
         (catch Throwable t
           (def -wal-record wal-record)
           (def -store-value (store-snapshot store app-id))
@@ -407,8 +407,8 @@
         (tracer/add-data! {:attributes {:num-sockets (count sockets)}})
         (tracer/with-span! {:name "invalidator/send-refreshes"}
           (doseq [{:keys [id]} sockets]
-            (receive-queue/enqueue->receive-q {:op :refresh
-                                               :session-id id}))))
+            (receive-queue/put! {:op :refresh
+                                 :session-id id}))))
       (catch Throwable t
         (def -wal-record wal-record)
         (def -store-value (store-snapshot store app-id))
