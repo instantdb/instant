@@ -150,10 +150,8 @@
   (report-active-sessions store))
 
 (defn num-sessions [store]
-  (count
-   (for [conn  (-> store :conns Map/.values)
-         datom (d/datoms @conn :aevt :session/id)]
-     datom)))
+  (let [db @(:sessions store)]
+    (count (d/datoms @(:sessions store) :aevt :session/id))))
 
 ;; --------
 ;; sessions
