@@ -22,14 +22,14 @@
      (nil? item12) item1
      :else (do
              (Queue/.remove group) ;; remove item2
-             (recur (update item12 ::combined (fnil inc 1)))))))
+             (recur (assoc item12 ::combined (inc (::combined item1 1))))))))
 
 (defn- process
   "Main worker process fn"
-  [{:keys [groups process-fn combine-fn workers items running?] :as q} key group]
+  [{:keys [groups process-fn combine-fn workers items processing?] :as q} key group]
   (AtomicInteger/.incrementAndGet workers)
   (loop []
-    (when @running?
+    (when @processing?
       (if-some [item (poll group combine-fn)]
         (do
           (try
@@ -47,8 +47,8 @@
 
 (defn put!
   "Schedule item for execution on q"
-  [{:keys [executor groups group-key-fn items running?] :as q} item]
-  (when @running?
+  [{:keys [executor groups group-key-fn items accepting?] :as q} item]
+  (when @accepting?
     (let [item (assoc item ::put-at (System/currentTimeMillis))
           key  (or (group-key-fn item) ::default)]
       (locking q
@@ -96,7 +96,8 @@
    A string to report gauge metrics to. If skipped, no reporting"
   [{:keys [group-key-fn combine-fn process-fn executor max-workers metrics-path]}]
   (let [groups      (ConcurrentHashMap.)
-        running?    (atom true)
+        accepting?  (atom true)
+        processing? (atom true)
         items       (AtomicInteger. 0)
         workers     (AtomicInteger. 0)
         executor    (cond
@@ -118,23 +119,44 @@
                              :value t})
                           {:path (str metrics-path ".worker-count")
                            :value (AtomicInteger/.get workers)}])))
-        shutdown-fn (fn []
+        shutdown-fn (fn [{:keys [timeout-ms]
+                          :or {timeout-ms 1000}}]
                       (when cleanup-fn
                         (cleanup-fn))
-                      (reset! running? false)
+                      (reset! accepting? false)
                       (ExecutorService/.shutdown executor)
-                      (when-not (ExecutorService/.awaitTermination executor 1 TimeUnit/SECONDS)
-                        (ExecutorService/.shutdownNow executor)
-                        (ExecutorService/.awaitTermination executor 1 TimeUnit/SECONDS)))]
+                      (if (ExecutorService/.awaitTermination executor timeout-ms TimeUnit/MILLISECONDS)
+                        :shutdown
+                        (do
+                          (reset! processing? false)
+                          (if (ExecutorService/.awaitTermination executor timeout-ms TimeUnit/MILLISECONDS)
+                            :shutdown
+                            (do
+                              (ExecutorService/.shutdownNow executor)
+                              :terminated)))))]
     {:group-key-fn (or group-key-fn identity)
      :combine-fn   (or combine-fn (fn [_ _] nil))
      :process-fn   process-fn
      :groups       groups
-     :running?     running?
+     :accepting?   accepting?
+     :processing?  processing?
      :items        items
      :workers      workers
      :executor     executor
      :shutdown-fn  shutdown-fn}))
 
-(defn stop [{:keys [shutdown-fn]}]
-  (shutdown-fn))
+(defn stop
+  "Stops grouped queue. Shuts executor down. Possible options:
+
+     :timeout-ms :: long
+
+   How long to wait for existing tasks to finish processing before interrupting."
+  ([q]
+   ((:shutdown-fn q) {}))
+  ([q opts]
+   ((:shutdown-fn q) opts)))
+
+(defn size
+  "~ Amount of items currently in all queues"
+  [q]
+  (AtomicInteger/.get (:items q)))
