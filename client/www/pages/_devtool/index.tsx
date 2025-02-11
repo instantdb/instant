@@ -132,7 +132,7 @@ export default function Devtool() {
   }
 
   if (dashResponse.error) {
-    const message = dashResponse.error?.message;
+    const message = dashResponse.error.message;
     return (
       <DevtoolWindow>
         <div className="h-full w-full flex justify-center items-center">
