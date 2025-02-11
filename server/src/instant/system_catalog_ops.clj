@@ -80,6 +80,27 @@
                       :triples/created_at))
            (triples->db-format app-id attrs etype)))
 
+(defn delete-entities!
+  "Deletes and returns entities that were deleted."
+  [tx-conn attrs app-id etype lookups opts]
+  (some->> (tx/transact-without-tx-conn! tx-conn
+                                         attrs
+                                         app-id
+                                         (mapv (fn [lookup]
+                                                 [:delete-entity lookup etype])
+                                               lookups)
+                                         opts)
+           :results
+           :delete-entity
+           seq
+           (map (juxt :triples/entity_id
+                      :triples/attr_id
+                      :triples/value
+                      :triples/created_at))
+           (group-by first)
+           vals
+           (map #(triples->db-format app-id attrs etype %))))
+
 (defn collect-iql-result
   ([iql-res]
    (collect-iql-result {:symbol-values {}
@@ -166,8 +187,18 @@
            (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps opts)))
 
         :delete-entity!
-        (fn [lookup]
-          (delete-entity! tx-conn attrs app-id etype lookup))
+        (fn
+          ([lookup]
+           (delete-entity! tx-conn attrs app-id etype lookup {}))
+          ([lookup opts]
+           (delete-entity! tx-conn attrs app-id etype lookup opts)))
+
+        :delete-entities!
+        (fn
+          ([lookups]
+           (delete-entities! tx-conn attrs app-id etype lookups {}))
+          ([lookups opts]
+           (delete-entities! tx-conn attrs app-id etype lookups opts)))
 
         :get-entity
         (fn [eid] (get-entity tx-conn app-id attrs etype eid))
