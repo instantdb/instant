@@ -43,7 +43,8 @@
 ;; S3 path manipulation
 ;; ----------------------
 (defn location-id->bin
-  "We add a bin to the location id to scale S3 performance"
+  "We add a bin to the location id to scale S3 performance
+   See: https://docs.aws.amazon.com/AmazonS3/latest/userguide/optimizing-performance.html"
   ^long [^String location-id]
   (mod (Math/abs (.hashCode location-id)) 10))
 

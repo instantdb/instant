@@ -86,8 +86,8 @@
                               (.contents resp))
       :next-continuation-token (.nextContinuationToken resp)})))
 
-(defn list-objects-paginated
-  ([opts] (list-objects-paginated default-bucket opts))
+(defn list-all-objects
+  ([opts] (list-all-objects default-bucket opts))
   ([bucket-name opts]
    (loop [all-objects []
           continuation-token nil]

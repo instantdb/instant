@@ -137,7 +137,7 @@
      [{:message (format "update or merge is not allowed on $files in transact.")}])))
 
 (defn prevent-$files-updates
-  "Similar to $users, we don't allow updates to $files"
+  "Files support delete, link/unlink, but not update or merge"
   [attrs grouped-tx-steps opts]
   (when (not (:allow-$files-update? opts))
     (doseq [batch grouped-tx-steps
