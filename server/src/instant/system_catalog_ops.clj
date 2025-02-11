@@ -182,7 +182,7 @@
         :transact!
         (fn
           ([tx-steps]
-           (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps))
+           (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps {}))
           ([tx-steps opts]
            (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps opts)))
 
