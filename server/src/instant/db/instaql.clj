@@ -5,7 +5,6 @@
    [clojure.string :as string]
    [clojure.walk :as walk]
    [honey.sql :as hsql]
-   [instant.flags :as flags]
    [instant.data.constants :refer [zeneca-app-id]]
    [instant.data.resolvers :as resolvers]
    [instant.db.cel :as cel]
@@ -881,15 +880,23 @@
 
 (defn compute-$files-triples [{:keys [app-id]} join-rows]
   (when-let [[eid _ _ t] (ffirst join-rows)]
-    (when-let [path-value (some-> (find-row-by-ident-name join-rows $system-attrs "$files" "path")
-                                  first
-                                  (nth 2))]
-      (let [url-aid (attr-model/resolve-attr-id $system-attrs "$files" "url")
-            {:keys [disableLegacy?]} (flags/storage-migration)
-            url (if disableLegacy?
-                  (instant-s3/create-signed-download-url! app-id path-value)
-                  (instant-s3/create-legacy-signed-download-url! app-id path-value))]
-        [[[eid url-aid url t]]]))))
+    (let [path (some-> (find-row-by-ident-name
+                        join-rows
+                        $system-attrs
+                        "$files"
+                        "path")
+                       first
+                       (nth 2))
+          location-id (some-> (find-row-by-ident-name
+                               join-rows
+                               $system-attrs
+                               "$files"
+                               "location-id")
+                              first
+                              (nth 2))
+          url-aid (attr-model/resolve-attr-id $system-attrs "$files" "url")
+          url (instant-s3/create-signed-download-url! app-id path location-id)]
+      [[[eid url-aid url t]]])))
 
 (def compute-triples-handler
   {"$files" compute-$files-triples})

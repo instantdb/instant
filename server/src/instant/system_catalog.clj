@@ -67,6 +67,7 @@
    "size" "size"
    "content-type" "c-type"
    "content-disposition" "cdisp"
+   "location-id" "lid"
    "key-version" "kv"})
 
 (def shortcodes-label (map-invert label-shortcodes))
@@ -288,6 +289,10 @@
               :checked-data-type :string)
    (make-attr "$files" "content-disposition"
               :unique? false
+              :index? true
+              :checked-data-type :string)
+   (make-attr "$files" "location-id"
+              :unique? true
               :index? true
               :checked-data-type :string)
    (make-attr "$files" "key-version"
