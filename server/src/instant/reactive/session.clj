@@ -699,7 +699,7 @@
   event2)
 
 (defmethod combine [:refresh-presence :refresh-presence] [event1 event2]
-  (update event2 :edits #(concat (:edits event1) %)))
+  (update event2 :edits #(into (vec (:edits event1)) %)))
 
 (defmethod combine [:set-presence :set-presence] [_event1 event2]
   event2)
