@@ -130,7 +130,7 @@ export default function Devtool() {
       </div>
     );
   }
-  
+
   if (dashResponse.error) {
     const message = dashResponse.error.message;
     return (
@@ -236,7 +236,9 @@ export default function Devtool() {
       <DevtoolWindow>
         <div className="h-full w-full flex justify-center items-center">
           <div className="max-w-md mx-auto space-y-4">
-            <ScreenHeading>🤕 Failed connect to Instant's backend</ScreenHeading>
+            <ScreenHeading>
+              🤕 Failed connect to Instant's backend
+            </ScreenHeading>
             {message ? (
               <div className="mx-auto flex w-full max-w-2xl flex-col">
                 <div className="rounded bg-red-100 p-4 text-red-700">
@@ -246,8 +248,8 @@ export default function Devtool() {
             ) : null}
             <AppIdLabel appId={appId} />
             <p>
-              We had some trouble connect to Instant's backend. Please ping us on discord
-              with details.
+              We had some trouble connect to Instant's backend. Please ping us
+              on discord with details.
             </p>
             <Button
               className="w-full"
