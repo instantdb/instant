@@ -132,7 +132,7 @@ export default function Devtool() {
   }
 
   if (dashResponse.error) {
-    const message = dashResponse.error.message;
+    const message = dashResponse.error?.message;
     return (
       <DevtoolWindow>
         <div className="h-full w-full flex justify-center items-center">
@@ -146,7 +146,14 @@ export default function Devtool() {
               </div>
             ) : null}
             <p>
-              We had some trouble loading your app. Please ping us on discord
+              We had some trouble loading your app. Please ping us on{' '}
+              <a
+                className="font-bold text-blue-500"
+                href="https://discord.com/invite/VU53p7uQcE"
+                target="_blank"
+              >
+                discord
+              </a>{' '}
               with details.
             </p>
             <Button
@@ -249,7 +256,15 @@ export default function Devtool() {
             <AppIdLabel appId={appId} />
             <p>
               We had some trouble connect to Instant's backend. Please ping us
-              on discord with details.
+              on{' '}
+              <a
+                className="font-bold text-blue-500"
+                href="https://discord.com/invite/VU53p7uQcE"
+                target="_blank"
+              >
+                discord
+              </a>{' '}
+              with details.
             </p>
             <Button
               className="w-full"
@@ -510,6 +525,7 @@ function Help() {
         <a
           className="font-bold text-blue-500"
           href="https://discord.com/invite/VU53p7uQcE"
+          target="_blank"
         >
           Discord
         </a>
