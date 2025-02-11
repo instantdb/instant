@@ -2495,7 +2495,7 @@
                           :reverse-identity [(random-uuid) "users" "books"]
                           :value-type :ref
                           :cardinality :one
-                          :unique? true
+                          :unique? false
                           :index? false
                           ;; Delete this book if its creator is deleted
                           :on-delete :cascade}]
@@ -2578,6 +2578,94 @@
                        (aurora/conn-pool :read)
                        app-id
                        [[:= :attr-id user-id-attr-id]])))))))))
+
+(deftest on-delete-reverse-cascade
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [r (resolvers/make-movies-resolver app-id)
+            user-id-attr-id (random-uuid)
+            book-id-attr-id (random-uuid)
+            user-books-attr-id (random-uuid)
+            book-id (random-uuid)
+            other-book-id (random-uuid)
+            user-id (random-uuid)
+            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :read)}
+                             :app-id app-id
+                             :attrs (attr-model/get-by-app-id app-id)
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                             :current-user nil})
+            insert-res (attr-model/insert-multi!
+                        (aurora/conn-pool :write)
+                        app-id
+                        [{:id user-id-attr-id
+                          :forward-identity [(random-uuid) "users" "id"]
+                          :value-type :blob
+                          :cardinality :one
+                          :unique? true
+                          :index? true}
+                         {:id book-id-attr-id
+                          :forward-identity [(random-uuid) "books" "id"]
+                          :value-type :blob
+                          :cardinality :one
+                          :unique? true
+                          :index? false}
+                         {:id user-books-attr-id
+                          :forward-identity [(random-uuid) "users" "books"]
+                          :reverse-identity [(random-uuid) "books" "creator"]
+                          :value-type :ref
+                          :cardinality :many
+                          :unique? true
+                          :index? false
+                          ;; Delete books if its creator is deleted
+                          :on-delete-reverse :cascade}]
+                        {})
+
+            tx-res (tx/transact!
+                    (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id app-id)
+                    app-id
+                    [[:add-triple book-id book-id-attr-id book-id]
+                     [:add-triple other-book-id book-id-attr-id other-book-id]
+                     [:add-triple user-id user-id-attr-id user-id]
+                     [:add-triple user-id user-books-attr-id book-id]
+                     #_[:add-triple user-id user-books-attr-id other-book-id]])]
+
+        (testing "setup worked"
+          (is (= #{{:triple [book-id book-id-attr-id (str book-id)], :index #{:ea :av}}
+                   {:triple [other-book-id book-id-attr-id (str other-book-id)], :index #{:ea :av}}}
+                 (set (map #(dissoc % :md5) (triple-model/fetch (aurora/conn-pool :read) app-id [[:= :attr-id book-id-attr-id]]))))))
+
+        (testing "deleting the user deletes the book"
+          (tx/transact! (aurora/conn-pool :write)
+                        (attr-model/get-by-app-id app-id)
+                        app-id
+                        [[:delete-entity user-id "users"]])
+
+          (is (= [{:triple [other-book-id book-id-attr-id (str other-book-id)], :index #{:ea :av}}]
+                 (map #(dissoc % :md5) (triple-model/fetch (aurora/conn-pool :read) app-id [[:= :attr-id book-id-attr-id]])))))
+
+        (testing "deleting the book doesn't delete the user"
+          (tx/transact!
+           (aurora/conn-pool :write)
+           (attr-model/get-by-app-id app-id)
+           app-id
+           [[:add-triple user-id user-id-attr-id user-id]
+            [:add-triple book-id book-id-attr-id book-id]
+            [:add-triple user-id user-books-attr-id book-id]])
+
+          (is (= [{:triple
+                   [user-id user-id-attr-id (str user-id)], :index #{:ea :av :ave}}]
+                 (map #(dissoc % :md5) (triple-model/fetch (aurora/conn-pool :read) app-id [[:= :attr-id user-id-attr-id]]))))
+
+          (tx/transact! (aurora/conn-pool :write)
+                        (attr-model/get-by-app-id app-id)
+                        app-id
+                        [[:delete-entity book-id "books"]])
+          
+          (is (= [{:triple
+                   [user-id user-id-attr-id (str user-id)], :index #{:ea :av :ave}}]
+                 (map #(dissoc % :md5) (triple-model/fetch (aurora/conn-pool :read) app-id [[:= :attr-id user-id-attr-id]])))))))))
 
 (deftest on-delete-cascade-cycle
   (with-empty-app
