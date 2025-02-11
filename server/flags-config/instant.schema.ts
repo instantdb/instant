@@ -54,6 +54,7 @@ const graph = i.graph(
     }),
     "storage-migration": i.entity({
       "disableLegacy?": i.boolean(),
+      "useLocationId?": i.boolean(),
     }),
   },
   // You can define links here.

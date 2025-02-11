@@ -10,7 +10,9 @@
                                       BlockingInputStreamAsyncRequestBody)
    (software.amazon.awssdk.services.s3 S3AsyncClient
                                        S3Client)
-   (software.amazon.awssdk.services.s3.model Delete
+   (software.amazon.awssdk.services.s3.model CopyObjectRequest
+                                             CopyObjectResponse
+                                             Delete
                                              DeleteObjectRequest
                                              DeleteObjectsRequest
                                              GetObjectRequest
@@ -22,7 +24,8 @@
                                              PutObjectRequest
                                              S3Object)
    (software.amazon.awssdk.services.s3.presigner S3Presigner)
-   (software.amazon.awssdk.services.s3.presigner.model GetObjectPresignRequest)))
+   (software.amazon.awssdk.services.s3.presigner.model GetObjectPresignRequest
+                                                       PutObjectPresignRequest)))
 
 (set! *warn-on-reflection* true)
 
@@ -55,17 +58,18 @@
         (default-s3-client)))))
 
 (def presigner* (delay (-> (S3Presigner/builder)
-                          (.s3Client @signer-s3-client*)
-                          (.build))))
+                           (.s3Client @signer-s3-client*)
+                           (.build))))
 
 (defn presigner ^S3Presigner []
   @presigner*)
 
 (defn list-objects
   ([opts] (list-objects default-bucket opts))
-  ([bucket-name {:keys [continuation-token]}]
+  ([bucket-name {:keys [continuation-token prefix]}]
    (let [^ListObjectsV2Request req (cond-> (ListObjectsV2Request/builder)
                                      true (.bucket bucket-name)
+                                     prefix (.prefix prefix)
                                      continuation-token (.continuationToken continuation-token)
                                      true (.build))
          ^ListObjectsV2Response resp (.listObjectsV2 (default-s3-client) req)]
@@ -82,6 +86,19 @@
                               (.contents resp))
       :next-continuation-token (.nextContinuationToken resp)})))
 
+(defn list-all-objects
+  ([opts] (list-all-objects default-bucket opts))
+  ([bucket-name opts]
+   (loop [all-objects []
+          continuation-token nil]
+     (let [page-opts (cond-> opts
+                       continuation-token (assoc :continuation-token continuation-token))
+           {:keys [object-summaries next-continuation-token truncated?]}
+           (list-objects bucket-name page-opts)]
+       (if truncated?
+         (recur (into all-objects object-summaries) next-continuation-token)
+         (into all-objects object-summaries))))))
+
 (defn head-object
   ([object-key] (head-object default-bucket object-key))
   ([bucket-name object-key]
@@ -95,8 +112,23 @@
       :object-metadata {:content-disposition (.contentDisposition resp)
                         :content-type (.contentType resp)
                         :content-length (.contentLength resp)
+                        :version-id (.versionId resp)
                         :etag (.eTag resp)
                         :last-modified (.lastModified resp)}})))
+
+(defn copy-object
+  [{:keys [source-bucket-name
+           destination-bucket-name
+           source-key
+           destination-key]}]
+  (let [^CopyObjectRequest req (-> (CopyObjectRequest/builder)
+                                   (.sourceBucket source-bucket-name)
+                                   (.sourceKey source-key)
+                                   (.destinationBucket destination-bucket-name)
+                                   (.destinationKey destination-key)
+                                   (.build))
+        ^CopyObjectResponse resp (.copyObject (default-s3-client) req)]
+    resp))
 
 (defn delete-object
   ([object-key] (delete-object default-bucket object-key))
@@ -134,10 +166,10 @@
      (->> chunks
           (mapcat #(delete-objects bucket-name (vec %)))))))
 
-(defn generate-presigned-url
+(defn generate-presigned-url-get
   ([{:keys [method bucket-name key ^Duration duration]}]
    (assert (= :get method)
-           "presigned urls are only implemented for :get requests")
+           "get presigned urls are only implemented for :get requests")
    (let [^GetObjectRequest obj-request (-> (GetObjectRequest/builder)
                                            (.bucket bucket-name)
                                            (.key key)
@@ -150,6 +182,30 @@
          (.presignGetObject signer-request)
          (.url)
          (.toExternalForm)))))
+
+(defn generate-presigned-url-put
+  ([{:keys [method bucket-name key ^Duration duration]}]
+   (assert (= :put method)
+           "put presigned urls are only implemented for :put requests")
+   (let [^PutObjectRequest obj-request (-> (PutObjectRequest/builder)
+                                           (.bucket bucket-name)
+                                           (.key key)
+                                           (.build))
+         ^PutObjectPresignRequest signer-request (-> (PutObjectPresignRequest/builder)
+                                                     (.signatureDuration duration)
+                                                     (.putObjectRequest obj-request)
+                                                     (.build))]
+     (-> (presigner)
+         (.presignPutObject signer-request)
+         (.url)
+         (.toExternalForm)))))
+
+(defn generate-presigned-url
+  ([{:keys [method] :as opts}]
+   (case method
+     :get (generate-presigned-url-get opts)
+     :put (generate-presigned-url-put opts)
+     (throw (ex-info "Unsupported method for presigned url" {:method method})))))
 
 (defn- make-s3-put-opts
   [bucket-name {:keys [object-key content-type content-disposition]} file-opts]

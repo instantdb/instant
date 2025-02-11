@@ -136,18 +136,8 @@
      [op t]
      [{:message (format "update or merge is not allowed on $files in transact.")}])))
 
-(defn prevent-$files-deletes! [op tx-steps]
-  (doseq [t tx-steps
-          :let [[_op _eid etype] t]
-          :when (= etype "$files")]
-    (ex/throw-validation-err!
-     :tx-step
-     [op t]
-     [{:message (format "delete is not allowed on $files in transact.")}])))
-
 (defn prevent-$files-updates
-  "With the exception of linking/unlinking, we prevent most updates unless it's
-  gone through an explicitly allowed code path"
+  "Files support delete, link/unlink, but not update or merge"
   [attrs grouped-tx-steps opts]
   (when (not (:allow-$files-update? opts))
     (doseq [batch grouped-tx-steps
@@ -155,9 +145,6 @@
       (case op
         (:add-triple :deep-merge-triple :retract-triple)
         (prevent-$files-add-retract! op attrs tx-steps)
-
-        :delete-entity
-        (prevent-$files-deletes! op tx-steps)
 
         nil))))
 
