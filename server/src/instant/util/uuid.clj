@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [parse-uuid])
   (:import
    (java.util UUID)
+   (java.security MessageDigest)
    (java.nio ByteBuffer))
   (:require
    [clojure.string :as string]))
@@ -17,6 +18,13 @@
   (cond (uuid? x) x
         (string? x) (parse-uuid (string/trim x))
         :else nil))
+
+(defn str->uuid
+  "Convert a string to a deterministic UUID using SHA-256"
+  [^String s]
+  (let [md (MessageDigest/getInstance "SHA-256")
+        bytes (.digest md (.getBytes s))]
+    (UUID/nameUUIDFromBytes bytes)))
 
 (defn ->bytes
   "Converts a java.util.UUID into a byte array"
