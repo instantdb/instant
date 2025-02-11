@@ -26,8 +26,8 @@
 
 (defn- process
   "Main worker process fn"
-  [{:keys [groups process-fn combine-fn workers items processing?] :as q} key group]
-  (AtomicInteger/.incrementAndGet workers)
+  [{:keys [groups process-fn combine-fn num-workers num-items processing?] :as q} key group]
+  (AtomicInteger/.incrementAndGet num-workers)
   (loop []
     (when @processing?
       (if-some [item (poll group combine-fn)]
@@ -36,18 +36,18 @@
             (process-fn key item)
             (catch Throwable t
               (tracer/record-exception-span! t {:name "grouped-queue/process-error"})))
-          (AtomicInteger/.addAndGet items (- (::combined item 1)))
+          (AtomicInteger/.addAndGet num-items (- (::combined item 1)))
           (recur))
         (when (= ::loop (locking q
                           (if (some? (Queue/.peek group))
                             ::loop
                             (Map/.remove groups key))))
           (recur)))))
-  (AtomicInteger/.decrementAndGet workers))
+  (AtomicInteger/.decrementAndGet num-workers))
 
 (defn put!
   "Schedule item for execution on q"
-  [{:keys [executor groups group-key-fn items accepting?] :as q} item]
+  [{:keys [executor groups group-key-fn num-items accepting?] :as q} item]
   (when @accepting?
     (let [item (assoc item ::put-at (System/currentTimeMillis))
           key  (or (group-key-fn item) ::default)]
@@ -57,7 +57,7 @@
           (let [group (ConcurrentLinkedQueue. [item])]
             (Map/.put groups key group)
             (ExecutorService/.submit executor ^Runnable #(process q key group))))
-        (AtomicInteger/.incrementAndGet items)))))
+        (AtomicInteger/.incrementAndGet num-items)))))
 
 (defn- longest-wait-time [groups]
   (when-some [items (->> groups
@@ -98,8 +98,8 @@
   (let [groups      (ConcurrentHashMap.)
         accepting?  (atom true)
         processing? (atom true)
-        items       (AtomicInteger. 0)
-        workers     (AtomicInteger. 0)
+        num-items   (AtomicInteger. 0)
+        num-workers (AtomicInteger. 0)
         executor    (cond
                       (some? executor)
                       executor
@@ -113,12 +113,12 @@
                       (gauges/add-gauge-metrics-fn
                        (fn [_]
                          [{:path  (str metrics-path ".size")
-                           :value (AtomicInteger/.get items)}
+                           :value (AtomicInteger/.get num-items)}
                           (when-some [t (longest-wait-time groups)]
                             {:path  (str metrics-path ".longest-waiting-ms")
                              :value t})
                           {:path (str metrics-path ".worker-count")
-                           :value (AtomicInteger/.get workers)}])))
+                           :value (AtomicInteger/.get num-workers)}])))
         shutdown-fn (fn [{:keys [timeout-ms]
                           :or {timeout-ms 1000}}]
                       (when cleanup-fn
@@ -140,8 +140,8 @@
      :groups       groups
      :accepting?   accepting?
      :processing?  processing?
-     :items        items
-     :workers      workers
+     :num-items    num-items
+     :num-workers  num-workers
      :executor     executor
      :shutdown-fn  shutdown-fn}))
 
@@ -156,7 +156,7 @@
   ([q opts]
    ((:shutdown-fn q) opts)))
 
-(defn size
+(defn num-items
   "~ Amount of items currently in all queues"
   [q]
-  (AtomicInteger/.get (:items q)))
+  (AtomicInteger/.get (:num-items q)))
