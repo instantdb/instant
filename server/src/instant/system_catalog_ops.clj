@@ -65,11 +65,12 @@
 
 (defn delete-entity!
   "Deletes and returns the deleted entity (if it was deleted)."
-  [tx-conn attrs app-id etype lookup]
+  [tx-conn attrs app-id etype lookup opts]
   (some->> (tx/transact-without-tx-conn! tx-conn
                                          attrs
                                          app-id
-                                         [[:delete-entity lookup etype]])
+                                         [[:delete-entity lookup etype]]
+                                         opts)
            :results
            :delete-entity
            seq

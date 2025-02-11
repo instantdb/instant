@@ -275,7 +275,7 @@
               :unique? true
               :index? true)
    (make-attr "$files" "path"
-              :unique? false
+              :unique? true
               :index? true
               :checked-data-type :string)
    (make-attr "$files" "size"
