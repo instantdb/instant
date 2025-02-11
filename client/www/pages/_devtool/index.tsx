@@ -5,7 +5,7 @@ import { successToast } from '@/lib/toast';
 import { DashResponse, InstantApp } from '@/lib/types';
 import config from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
-import { APIResponse, useAuthToken, useTokenFetch } from '@/lib/auth';
+import { APIResponse, signOut, useAuthToken, useTokenFetch } from '@/lib/auth';
 import { Sandbox } from '@/components/dash/Sandbox';
 import { Explorer } from '@/components/dash/explorer/Explorer';
 import { init } from '@instantdb/react';
@@ -21,6 +21,7 @@ import {
   Content,
   twel,
   useDialog,
+  ScreenHeading,
 } from '@/components/ui';
 import Auth from '@/components/dash/Auth';
 import { isMinRole } from '@/pages/dash/index';
@@ -45,6 +46,7 @@ export default function Devtool() {
       }
     | {
         state: 'error';
+        errorMessage: string | undefined;
       }
     | {
         state: 'ready';
@@ -91,14 +93,14 @@ export default function Devtool() {
         __adminToken: app?.admin_token,
         devtool: false,
       });
-
       setConnection({ state: 'ready', db });
 
       return () => {
         db._core.shutdown();
       };
     } catch (error) {
-      setConnection({ state: 'error' });
+      const message = (error as Error).message;
+      setConnection({ state: 'error', errorMessage: message });
     }
   }, [router.isReady, app]);
 
@@ -108,7 +110,7 @@ export default function Devtool() {
 
   if (!authToken) {
     return (
-      <>
+      <DevtoolWindow>
         <Auth
           emailOnly
           info={
@@ -117,7 +119,7 @@ export default function Devtool() {
             </div>
           }
         />
-      </>
+      </DevtoolWindow>
     );
   }
 
@@ -128,41 +130,138 @@ export default function Devtool() {
       </div>
     );
   }
-
+  
   if (dashResponse.error) {
+    const message = dashResponse.error.message;
     return (
-      <div className="h-full w-full flex flex-col justify-center items-center gap-2">
-        <div>Error loading app</div>
-        {!isEmptyObj(dashResponse.error) ? (
-          <pre className="p-1 bg-gray-100 max-w-sm w-full overflow-x-auto">
-            {JSON.stringify(dashResponse.error, null, '\t')}{' '}
-          </pre>
-        ) : null}
-      </div>
+      <DevtoolWindow>
+        <div className="h-full w-full flex justify-center items-center">
+          <div className="max-w-md mx-auto space-y-4">
+            <ScreenHeading>🤕 Failed to load your app</ScreenHeading>
+            {message ? (
+              <div className="mx-auto flex w-full max-w-2xl flex-col">
+                <div className="rounded bg-red-100 p-4 text-red-700">
+                  {message}
+                </div>
+              </div>
+            ) : null}
+            <p>
+              We had some trouble loading your app. Please ping us on discord
+              with details.
+            </p>
+            <Button
+              className="w-full"
+              size="mini"
+              variant="secondary"
+              onClick={() => {
+                signOut();
+              }}
+            >
+              Sign out
+            </Button>
+          </div>
+        </div>
+      </DevtoolWindow>
     );
   }
 
   if (!appId) {
     return (
-      <div className="h-full w-full flex justify-center items-center">
-        No app ID provided. Are you passing an app ID into <Code>init</Code>?
-      </div>
+      <DevtoolWindow>
+        <div className="h-full w-full flex justify-center items-center">
+          <div className="max-w-md mx-auto space-y-4">
+            <ScreenHeading>No app id provided</ScreenHeading>
+            <p>
+              We didn't receive an app ID. Double check that you passed an{' '}
+              <Code>appId</Code> paramater in your <Code>init</Code>. If you
+              continue experiencing issues, ping us on Discord.
+            </p>
+            <Button
+              className="w-full"
+              size="mini"
+              variant="secondary"
+              onClick={() => {
+                signOut();
+              }}
+            >
+              Sign out
+            </Button>
+          </div>
+        </div>
+      </DevtoolWindow>
     );
   }
 
   if (!app) {
+    const user = dashResponse.data?.user;
     return (
-      <div className="h-full w-full flex justify-center items-center">
-        Cound not find app. Are you logged in to the correct account?
-      </div>
+      <DevtoolWindow>
+        <div className="h-full w-full flex justify-center items-center">
+          <div className="max-w-md mx-auto space-y-4">
+            <ScreenHeading>🔎 We couldn't find your app</ScreenHeading>
+            <p>
+              {user ? (
+                <>
+                  You're logged in as <strong>{user.email}</strong>.{' '}
+                </>
+              ) : null}
+              We tried to access your app but couldn't.
+            </p>
+            <div className="bg-gray-50 p-2">
+              <AppIdLabel appId={appId} />
+            </div>
+            <p>
+              Are you sure you have access? Contact the app owner, or sign out
+              and log into a different account:
+            </p>
+            <Button
+              className="w-full"
+              size="mini"
+              variant="secondary"
+              onClick={() => {
+                signOut();
+              }}
+            >
+              Sign out
+            </Button>
+          </div>
+        </div>
+      </DevtoolWindow>
     );
   }
 
   if (connection.state === 'error') {
+    const message = connection.errorMessage;
     return (
-      <div className="h-full w-full flex justify-center items-center">
-        Failed to connect to Instant backend.
-      </div>
+      <DevtoolWindow>
+        <div className="h-full w-full flex justify-center items-center">
+          <div className="max-w-md mx-auto space-y-4">
+            <ScreenHeading>🤕 Failed connect to Instant's backend</ScreenHeading>
+            {message ? (
+              <div className="mx-auto flex w-full max-w-2xl flex-col">
+                <div className="rounded bg-red-100 p-4 text-red-700">
+                  {message}
+                </div>
+              </div>
+            ) : null}
+            <AppIdLabel appId={appId} />
+            <p>
+              We had some trouble connect to Instant's backend. Please ping us on discord
+              with details.
+            </p>
+            <Button
+              className="w-full"
+              size="mini"
+              variant="secondary"
+              onClick={() => {
+                signOut();
+              }}
+            >
+              Sign out
+            </Button>
+          </div>
+        </div>
+      </DevtoolWindow>
     );
   }
 
@@ -175,41 +274,11 @@ export default function Devtool() {
   }
 
   return (
-    <div className="h-full w-full">
+    <DevtoolWindow app={app}>
       <TokenContext.Provider value={authToken}>
         <div className="flex flex-col h-full w-full">
-          <div className="flex p-2 text-xs bg-gray-100 border-b">
-            <div className="flex-1 font-mono">
-              Instant Devtools {app?.title ? `• ${app?.title}` : ''}
-            </div>
-            <XMarkIcon
-              className="cursor-pointer"
-              height="1rem"
-              onClick={() => {
-                parent.postMessage(
-                  {
-                    type: 'close',
-                  },
-                  '*',
-                );
-              }}
-            />
-          </div>
-          <div className="flex gap-2 px-2 py-1 text-xs font-mono bg-gray-50 border-b">
-            <span>App ID</span>
-            <code
-              className="bg-white rounded border px-2"
-              onClick={(e) => {
-                const node = e.currentTarget;
-                const selection = window.getSelection();
-                const range = document.createRange();
-                range.selectNodeContents(node);
-                selection?.removeAllRanges();
-                selection?.addRange(range);
-              }}
-            >
-              {app.id ?? <>&nbsp;</>}
-            </code>
+          <div className="bg-gray-50 border-b">
+            <AppIdLabel appId={app.id} />
           </div>
           <TabBar
             className="text-sm"
@@ -252,13 +321,76 @@ export default function Devtool() {
                 <Admin dashResponse={dashResponse} app={app} />
               </div>
             ) : tab === 'help' ? (
-              <div className="min-w-[960px] w-full p-4">
+              <div className="min-w-[960px] w-full p-4 space-y-2">
                 <Help />
+                <Button
+                  size="mini"
+                  variant="secondary"
+                  onClick={() => {
+                    signOut();
+                  }}
+                >
+                  Sign out
+                </Button>
               </div>
             ) : null}
           </div>
         </div>
       </TokenContext.Provider>
+    </DevtoolWindow>
+  );
+}
+
+function DevtoolWindow({
+  app,
+  children,
+}: {
+  app?: InstantApp;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="h-full w-full">
+      <div className="flex flex-col h-full w-full">
+        <div className="flex p-2 text-xs bg-gray-100 border-b">
+          <div className="flex-1 font-mono">
+            Instant Devtools {app?.title ? `• ${app?.title}` : ''}
+          </div>
+          <XMarkIcon
+            className="cursor-pointer"
+            height="1rem"
+            onClick={() => {
+              parent.postMessage(
+                {
+                  type: 'close',
+                },
+                '*',
+              );
+            }}
+          />
+        </div>
+        <div className="flex-1">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function AppIdLabel({ appId }: { appId: string }) {
+  return (
+    <div className="flex gap-2 px-2 py-1 text-xs font-mono">
+      <span>App ID</span>
+      <code
+        className="bg-white rounded border px-2"
+        onClick={(e) => {
+          const node = e.currentTarget;
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+        }}
+      >
+        {appId}
+      </code>
     </div>
   );
 }
