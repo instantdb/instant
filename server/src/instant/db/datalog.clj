@@ -839,7 +839,7 @@
                                       [prev-table]))
                     parent-froms)
       :where (where-clause app-id named-p all-joins)}
-     :materialized]))
+     :not-materialized]))
 
 (defn symbol-fields-of-pattern
   "Keeps track of which idx in the triple maps to which variable.
@@ -919,7 +919,8 @@
                                                     symbol-map
                                                     group-symbol-maps
                                                     join-sym)]
-          {:where wheres})))]))
+          {:where wheres})))
+     :not-materialized]))
 
 (defn accumulate-ctes
   "Walks the patterns to generate the list of CTEs. Also generates the metadata
@@ -1141,7 +1142,7 @@
    app-id
    additional-joins
    {:keys [limit
-           last?
+           last? ;; XXX: something special with last?
            offset
            direction
            named-pattern
@@ -1181,31 +1182,49 @@
 
         query (-> query
                   ;; Move `where` to join conds so that we get the null fields
-                  (dissoc :where :from)
-                  (assoc :from [prev-table])
-                  (assoc :left-join [:triples (:where query)])
+                  ;;(dissoc :where :from)
+                  ;;(assoc :from [prev-table])
+                  ;;(assoc :left-join [:triples (:where query)])
 
                   ;; Make sure we're getting each entity once
-                  (dissoc :select)
-                  (assoc :select-distinct-on (list* [:order-val :order-eid]
-                                                    [(if (= order-col-type :created-at-timestamp)
-                                                       [:cast order-col-name :bigint]
-                                                       [(extract-value-fn order-col-type) order-col-name])
-                                                     :order-val]
-                                                    [entity-id-col :order-eid]
-                                                    (:select query))))
+                  ;;(dissoc :select)
+                  (update :where (fn [wheres]
+                                   (if (= order-col-type :created-at-timestamp)
+                                     wheres
+                                     (list :and [:= :checked_data_type
+                                                 [:cast [:inline (name order-col-type)] :checked_data_type]]
+                                           wheres))))
+                  (update :select (fn [select]
+                                    (list*
+                                     [(if (= order-col-type :created-at-timestamp)
+                                        [:cast order-col-name :bigint]
+                                        [(extract-value-fn order-col-type) order-col-name])
+                                      :order-val]
+                                     [entity-id-col :order-eid]
+                                     select)))
+                  #_(assoc :select-distinct-on (list* [:order-val :order-eid]
+                                                      [(if (= order-col-type :created-at-timestamp)
+                                                         [:cast order-col-name :bigint]
+                                                         [(extract-value-fn order-col-type) order-col-name])
+                                                       :order-val]
+                                                      [entity-id-col :order-eid]
+                                                      (:select query))))
+
+        _ (tool/def-locals)
 
         order-by [[:order-val
-                   (if (= order-by-direction :desc)
-                     (kw order-by-direction :-nulls-last)
-                     (kw order-by-direction :-nulls-first))
+                   (if (= order-col-type :created-at-timestamp)
+                     order-by-direction
+                     (if (= order-by-direction :desc)
+                       (kw order-by-direction :-nulls-last)
+                       (kw order-by-direction :-nulls-first)))
                    order-by-direction]
                   [:order-eid
                    order-by-direction]]
 
         paged-query (cond-> query
                       true (assoc :order-by order-by)
-                      limit (assoc :limit limit)
+                      limit (assoc :limit (inc limit))
                       offset (assoc :offset offset)
                       after (add-cursor-comparisons {:direction direction
                                                      :sym-triple-idx sym-triple-idx
@@ -1230,7 +1249,8 @@
                                                  :value-blob
                                                  order-col-name)) :sym]]
                         :from table
-                        :limit 1}]
+                        :limit 1}
+                       :not-materialized]
         last-row-cte [last-row-table
                       {:select [[:order-eid :e]
                                 [(kw table :- (if (= :value order-col-name)
@@ -1242,56 +1262,86 @@
                                 :from table}
                                :subquery]]
                        :order-by [[:sort-id :desc]]
-                       :limit 1}]
+                       :limit 1}
+                      :not-materialized]
 
-        has-next-query (-> query
-                           (assoc :order-by order-by)
-                           (assoc :limit 1)
-                           (update :from (fn [from]
-                                           (concat [[(if last?
-                                                       ;; reverse direction when last?
-                                                       first-row-table
-                                                       last-row-table) :cursor-row]]
-                                                   from)))
-                           ;; Use the last row as the cursor to check has next page
-                           (add-cursor-comparisons {:direction direction
-                                                    :sym-triple-idx 1
-                                                    :order-col-name order-col-name
-                                                    :order-col-type order-col-type
-                                                    :cursor [:cursor-row.e
-                                                             :cursor-row.sym]
-                                                    :cursor-type :after
-                                                    :entity-id-col entity-id-col}))
-        has-previous-query (-> query
-                               (assoc :order-by order-by)
-                               (assoc :limit 1)
-                               (update :from
-                                       (fn [from]
-                                         (concat [[(if last?
-                                                     ;; reverse direction when last?
-                                                     last-row-table
-                                                     first-row-table) :cursor-row]]
-                                                 from)))
-                               ;; Use the first row as the cursor to check has prev page
-                               (add-cursor-comparisons {:direction direction
-                                                        :sym-triple-idx 1
-                                                        :order-col-name order-col-name
-                                                        :order-col-type order-col-type
-                                                        :cursor [:cursor-row.e
-                                                                 :cursor-row.sym]
-                                                        :cursor-type :before
-                                                        :entity-id-col entity-id-col}))
+        has-next-query (cond
+                         ;; XXX: is this right?
+                         (not limit)
+                         {:select 1 :where false}
+
+
+                         :else
+                         {:select :*
+                          :from (kw table :-with-next)
+                          :offset limit}
+                         #_(-> query
+                             (assoc :order-by order-by)
+                             (assoc :limit 1)
+                             (update :from (fn [from]
+                                             (concat [[(if last?
+                                                         ;; reverse direction when last?
+                                                         first-row-table
+                                                         last-row-table) :cursor-row]]
+                                                     from)))
+                             ;; Use the last row as the cursor to check has next page
+                             (add-cursor-comparisons {:direction direction
+                                                      :sym-triple-idx 1
+                                                      :order-col-name order-col-name
+                                                      :order-col-type order-col-type
+                                                      :cursor [:cursor-row.e
+                                                               :cursor-row.sym]
+                                                      :cursor-type :after
+                                                      :entity-id-col entity-id-col})))
+        has-previous-query (cond (and (not before)
+                                      (not offset))
+                                 {:select 1 :where false}
+
+                                 (pos? offset)
+                                 ;; XXX: last?
+                                 ;; XXX: Is this right??
+                                 {:select :* :from first-row-table}
+
+                                 :else
+                                 (-> query
+                                     (assoc :order-by order-by)
+                                     (assoc :limit 1)
+                                     (update :from
+                                             (fn [from]
+                                               (concat [[(if last?
+                                                           ;; reverse direction when last?
+                                                           last-row-table
+                                                           first-row-table) :cursor-row]]
+                                                       from)))
+                                     ;; Use the first row as the cursor to check has prev page
+                                     (add-cursor-comparisons {:direction direction
+                                                              :sym-triple-idx 1
+                                                              :order-col-name order-col-name
+                                                              :order-col-type order-col-type
+                                                              :cursor [:cursor-row.e
+                                                                       :cursor-row.sym]
+                                                              :cursor-type :before
+                                                              :entity-id-col entity-id-col})))
 
         last-table-name (kw prefix next-idx)]
     {:next-idx (inc next-idx)
      :query {:with (conj (:with (:query match-query))
-                         [table paged-query]
+                         [(kw table :-with-next) paged-query :not-materialized]
+                         [table
+                          ;; XXX: Remove when there's no need to check has-next
+                          (merge {:select :*
+                                  :from (kw table :-with-next)}
+                                 (when limit
+                                   {:limit limit}))
+                          :not-materialized]
                          first-row-cte
                          last-row-cte
                          [(has-next-tbl table)
-                          {:select [[[:exists has-next-query]]]}]
+                          {:select [[[:exists has-next-query]]]}
+                          :not-materialized]
                          [(has-prev-tbl table)
-                          {:select [[[:exists has-previous-query]]]}])
+                          {:select [[[:exists has-previous-query]]]}
+                          :not-materialized])
              :select (kw last-row-table :.*)
              :from last-table-name}
      :symbol-map symbol-map
@@ -1367,7 +1417,8 @@
                                                      [:= :app-id app-id]
                                                      (join-conds prefix
                                                                  symbol-map
-                                                                 {:e [:variable join-sym]}))}]
+                                                                 {:e [:variable join-sym]}))}
+                                      :materialized]
                             child-res (accumulate-nested-match-query (-> next-acc
                                                                          (update :ctes conj join-cte)
                                                                          (update :next-idx inc)
@@ -1883,6 +1934,7 @@
           grouped-rows (group-rows-by-join-sym sql-res children)
           result (nested-sql-result->result sql-res grouped-rows children)
           topics (collect-all-topics result)]
+      (tool/def-locals)
       {:data result
        :topics topics})))
 
