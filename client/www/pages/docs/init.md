@@ -27,8 +27,8 @@ With that, you can use `db` to [write data](/docs/instaml), [make queries](/docs
 Instant maintains a single connection regardless of where or how many times you
 call `init` with the same app ID. This means you can safely call `init` multiple
 times without worrying about creating multiple connections or
-performance overhead. So you can call `init` in multiple files or export
-a reference to `db` from a utility file. Here's an example
+performance overhead. However we do recommend the pattern of exporting a
+reference from a utility file like so:
 
 ```javascript
 // util/instant.js
