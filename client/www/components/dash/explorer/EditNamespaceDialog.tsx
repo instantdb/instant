@@ -300,7 +300,8 @@ function AddAttrForm({
         'value-type': 'ref',
         'index?': false,
         'on-delete': isCascadeAllowed && isCascade ? 'cascade' : undefined,
-        'on-delete-reverse': isCascadeReverseAllowed && isCascadeReverse ? 'cascade' : undefined,
+        'on-delete-reverse':
+          isCascadeReverseAllowed && isCascadeReverse ? 'cascade' : undefined,
       };
 
       const ops = [['add-attr', attr]];
@@ -444,7 +445,9 @@ function AddAttrForm({
               label={
                 <span>
                   <div>
-                    <strong>Cascade Delete {reverseNamespace?.name} → {namespace.name}</strong>
+                    <strong>
+                      Cascade Delete {reverseNamespace?.name} → {namespace.name}
+                    </strong>
                   </div>
                   When a <strong>{reverseNamespace?.name}</strong> entity is
                   deleted, all linked <strong>{namespace.name}</strong> will be
@@ -462,10 +465,12 @@ function AddAttrForm({
               label={
                 <span>
                   <div>
-                    <strong>Cascade Delete {namespace.name} → {reverseNamespace?.name}</strong>
+                    <strong>
+                      Cascade Delete {namespace.name} → {reverseNamespace?.name}
+                    </strong>
                   </div>
-                  When a <strong>{namespace.name}</strong> entity is
-                  deleted, all linked <strong>{reverseNamespace?.name}</strong> will be
+                  When a <strong>{namespace.name}</strong> entity is deleted,
+                  all linked <strong>{reverseNamespace?.name}</strong> will be
                   deleted automatically
                 </span>
               }
@@ -1117,7 +1122,9 @@ function EditAttrForm({
   const isCascadeAllowed =
     relationship === 'one-one' || relationship === 'one-many';
 
-  const [isCascadeReverse, setIsCascadeReverse] = useState(() => attr.onDeleteReverse === 'cascade');
+  const [isCascadeReverse, setIsCascadeReverse] = useState(
+    () => attr.onDeleteReverse === 'cascade',
+  );
   const isCascadeReverseAllowed =
     relationship === 'one-one' || relationship === 'many-one';
 
@@ -1297,7 +1304,10 @@ function EditAttrForm({
               label={
                 <span>
                   <div>
-                    <strong>Cascade Delete {attr.linkConfig.reverse!.namespace} → {attr.linkConfig.forward.namespace}</strong>
+                    <strong>
+                      Cascade Delete {attr.linkConfig.reverse!.namespace} →{' '}
+                      {attr.linkConfig.forward.namespace}
+                    </strong>
                   </div>
                   When a <strong>{attr.linkConfig.reverse!.namespace}</strong>{' '}
                   entity is deleted, all linked{' '}
@@ -1316,7 +1326,10 @@ function EditAttrForm({
               label={
                 <span>
                   <div>
-                    <strong>Cascade Delete {attr.linkConfig.forward.namespace} → {attr.linkConfig.reverse!.namespace}</strong>
+                    <strong>
+                      Cascade Delete {attr.linkConfig.forward.namespace} →{' '}
+                      {attr.linkConfig.reverse!.namespace}
+                    </strong>
                   </div>
                   When a <strong>{attr.linkConfig.forward.namespace}</strong>{' '}
                   entity is deleted, all linked{' '}

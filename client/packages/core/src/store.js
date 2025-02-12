@@ -323,11 +323,11 @@ function deleteEntity(store, args) {
   if (eMap) {
     for (const a of eMap.keys()) {
       const attr = store.attrs[a];
-      
+
       // delete cascade refs
       if (attr && attr['on-delete-reverse'] === 'cascade') {
         allMapValues(eMap.get(a), 1).forEach(([e, a, v]) =>
-          deleteEntity(store, [v, attr['reverse-identity']?.[1]])
+          deleteEntity(store, [v, attr['reverse-identity']?.[1]]),
         );
       }
 
