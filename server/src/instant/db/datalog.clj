@@ -585,7 +585,7 @@
                     :from :triples
                     :where [:and
                             [:= :app-id app-id]
-                            [:= :value [:cast (->json (second lookup)) :jsonb]]
+                            [:= [:json_null_to_null :value] [:cast (->json (second lookup)) :jsonb]]
                             [:= :attr-id [:cast (first lookup) :uuid]]
                             :av]}])))
     :a (in-or-eq :attr-id v)
