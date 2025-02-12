@@ -554,6 +554,7 @@
     (if-not data-type
       [:not=
        (if (= idx-val :av)
+         ;; Make sure it uses the av_index
          [:json_null_to_null :value]
          :value)
        (value->jsonb val)]
@@ -570,6 +571,7 @@
       [:= 0 1]
       (if-not data-type
         (in-or-eq (if (= idx-val :av)
+                    ;; Make sure it uses the av_index
                     [:json_null_to_null :value]
                     :value)
                   (map value->jsonb v-set))
@@ -592,7 +594,11 @@
                     :from :triples
                     :where [:and
                             [:= :app-id app-id]
-                            [:= [:json_null_to_null :value] [:cast (->json (second lookup)) :jsonb]]
+
+                            [:=
+                             ;; Make sure it uses the av_index
+                             [:json_null_to_null :value]
+                             [:cast (->json (second lookup)) :jsonb]]
                             [:= :attr-id [:cast (first lookup) :uuid]]
                             :av]}])))
     :a (in-or-eq :attr-id v)
