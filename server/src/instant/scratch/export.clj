@@ -2,12 +2,9 @@
   (:require [honey.sql :as hsql]
             [instant.jdbc.sql :as sql]
             [instant.util.json :as json]
-            [instant.config :as config]
             [next.jdbc :as next-jdbc]
             [instant.model.instant-user :as instant-user-model]
-            [clojure.java.shell :as shell]
-            [instant.jdbc.aurora :as aurora]
-            [clojure.string :as string]))
+            [instant.jdbc.aurora :as aurora]))
 
 (defn export-app [conn app-id]
   {:app (sql/select-one conn (hsql/format {:select :*
