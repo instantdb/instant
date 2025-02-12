@@ -1,6 +1,4 @@
-import { useRouter } from 'next/router';
 import { TokenContext } from '@/lib/contexts';
-import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { successToast } from '@/lib/toast';
 import { DashResponse, InstantApp } from '@/lib/types';
 import config from '@/lib/config';
@@ -22,92 +20,23 @@ import {
   twel,
   useDialog,
   ScreenHeading,
+  FullscreenLoading,
 } from '@/components/ui';
 import Auth from '@/components/dash/Auth';
 import { isMinRole } from '@/pages/dash/index';
 import { TrashIcon, XMarkIcon } from '@heroicons/react/24/solid';
+import { CachedAPIResponse, useDashFetch } from '@/lib/hooks/useDashFetch';
+import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
 
 type InstantReactClient = ReturnType<typeof init>;
 
-export default function Devtool() {
-  const router = useRouter();
+const Devtool = asClientOnlyPage(DevtoolComp);
+
+export default Devtool;
+
+function DevtoolComp() {
+  const router = useReadyRouter();
   const authToken = useAuthToken();
-  const isHydrated = useIsHydrated();
-  const dashResponse = useTokenFetch<DashResponse>(
-    `${config.apiURI}/dash`,
-    authToken,
-  );
-  const appId = router.query.appId as string;
-  const app = dashResponse.data?.apps?.find((a) => a.id === appId);
-  const [tab, setTab] = useState('explorer');
-  const [connection, setConnection] = useState<
-    | {
-        state: 'pending';
-      }
-    | {
-        state: 'error';
-        errorMessage: string | undefined;
-      }
-    | {
-        state: 'ready';
-        db: InstantReactClient;
-      }
-  >({ state: 'pending' });
-
-  const isStorageEnabled = useMemo(() => {
-    const storageEnabledAppIds =
-      dashResponse.data?.flags?.storage_enabled_apps ?? [];
-
-    return storageEnabledAppIds.includes(appId);
-  }, [appId, dashResponse.data?.flags?.storage_enabled_apps]);
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      const isToggleShortcut = e.shiftKey && e.ctrlKey && e.key === '0';
-
-      if (isToggleShortcut) {
-        parent.postMessage(
-          {
-            type: 'close',
-          },
-          '*',
-        );
-      }
-    }
-
-    addEventListener('keydown', onKeyDown);
-
-    return () => removeEventListener('keydown', onKeyDown);
-  }, []);
-
-  useEffect(() => {
-    if (!app) return;
-    if (typeof window === 'undefined') return;
-
-    try {
-      const db = init({
-        appId,
-        apiURI: config.apiURI,
-        websocketURI: config.websocketURI,
-        // @ts-expect-error
-        __adminToken: app?.admin_token,
-        devtool: false,
-      });
-      setConnection({ state: 'ready', db });
-
-      return () => {
-        db._core.shutdown();
-      };
-    } catch (error) {
-      const message = (error as Error).message;
-      setConnection({ state: 'error', errorMessage: message });
-    }
-  }, [router.isReady, app]);
-
-  if (!isHydrated) {
-    return null;
-  }
-
   if (!authToken) {
     return (
       <DevtoolWindow>
@@ -123,12 +52,47 @@ export default function Devtool() {
     );
   }
 
-  if (dashResponse.isLoading) {
+  const appId = router.query.appId as string | undefined;
+
+  if (!appId) {
     return (
-      <div className="h-full w-full flex justify-center items-center">
-        Loading...
-      </div>
+      <DevtoolWindow>
+        <div className="h-full w-full flex justify-center items-center">
+          <div className="max-w-md mx-auto space-y-4">
+            <ScreenHeading>No app id provided</ScreenHeading>
+            <p>
+              We didn't receive an app ID. Double check that you passed an{' '}
+              <Code>appId</Code> paramater in your <Code>init</Code>. If you
+              continue experiencing issues, ping us on Discord.
+            </p>
+            <Button
+              className="w-full"
+              size="mini"
+              variant="secondary"
+              onClick={() => {
+                signOut();
+              }}
+            >
+              Sign out
+            </Button>
+          </div>
+        </div>
+      </DevtoolWindow>
     );
+  }
+
+  return (
+    <TokenContext.Provider value={authToken}>
+      <DevtoolAuthorized appId={appId} />
+    </TokenContext.Provider>
+  );
+}
+
+function DevtoolAuthorized({ appId }: { appId: string }) {
+  const dashResponse = useDashFetch();
+
+  if (dashResponse.isLoading) {
+    return <FullscreenLoading />;
   }
 
   if (dashResponse.error) {
@@ -172,31 +136,89 @@ export default function Devtool() {
     );
   }
 
-  if (!appId) {
-    return (
-      <DevtoolWindow>
-        <div className="h-full w-full flex justify-center items-center">
-          <div className="max-w-md mx-auto space-y-4">
-            <ScreenHeading>No app id provided</ScreenHeading>
-            <p>
-              We didn't receive an app ID. Double check that you passed an{' '}
-              <Code>appId</Code> paramater in your <Code>init</Code>. If you
-              continue experiencing issues, ping us on Discord.
-            </p>
-            <Button
-              className="w-full"
-              size="mini"
-              variant="secondary"
-              onClick={() => {
-                signOut();
-              }}
-            >
-              Sign out
-            </Button>
-          </div>
-        </div>
-      </DevtoolWindow>
-    );
+  return <DevtoolWithData dashResponse={dashResponse} appId={appId} />;
+}
+
+function DevtoolWithData({
+  dashResponse,
+  appId,
+}: {
+  dashResponse: CachedAPIResponse<DashResponse>;
+  appId: string;
+}) {
+  const app = dashResponse.data?.apps?.find((a) => a.id === appId);
+  const [tab, setTab] = useState('explorer');
+  const [connection, setConnection] = useState<
+    | {
+        state: 'pending';
+      }
+    | {
+        state: 'error';
+        errorMessage: string | undefined;
+      }
+    | {
+        state: 'ready';
+        db: InstantReactClient;
+      }
+  >({ state: 'pending' });
+
+  const isStorageEnabled = useMemo(() => {
+    const storageEnabledAppIds =
+      dashResponse.data?.flags?.storage_enabled_apps ?? [];
+
+    return storageEnabledAppIds.includes(appId);
+  }, [appId, dashResponse.data?.flags?.storage_enabled_apps]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const isToggleShortcut = e.shiftKey && e.ctrlKey && e.key === '0';
+
+      if (isToggleShortcut) {
+        parent.postMessage(
+          {
+            type: 'close',
+          },
+          '*',
+        );
+      }
+    }
+
+    addEventListener('keydown', onKeyDown);
+
+    return () => removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  const adminToken = app?.admin_token;
+
+  useEffect(() => {
+    if (!appId || !adminToken) return;
+    if (typeof window === 'undefined') return;
+
+    try {
+      const db = init({
+        appId,
+        apiURI: config.apiURI,
+        websocketURI: config.websocketURI,
+        // @ts-expect-error
+        __adminToken: adminToken,
+        devtool: false,
+      });
+
+      setConnection({ state: 'ready', db });
+
+      return () => {
+        db._core.shutdown();
+      };
+    } catch (error) {
+      const message = (error as Error).message;
+      setConnection({ state: 'error', errorMessage: message });
+    }
+  }, [appId, adminToken]);
+
+  if (!app && dashResponse.fromCache) {
+    // We couldn't find this app. Perhaps the cache is stale. Let's
+    // wait for fresh data.
+    return <FullscreenLoading />;
   }
 
   if (!app) {
@@ -255,8 +277,8 @@ export default function Devtool() {
             ) : null}
             <AppIdLabel appId={appId} />
             <p>
-              We had some trouble connect to Instant's backend. Please ping us
-              on{' '}
+              We had some trouble connecting to Instant's backend. Please ping
+              us on{' '}
               <a
                 className="font-bold text-blue-500"
                 href="https://discord.com/invite/VU53p7uQcE"
@@ -292,68 +314,66 @@ export default function Devtool() {
 
   return (
     <DevtoolWindow app={app}>
-      <TokenContext.Provider value={authToken}>
-        <div className="flex flex-col h-full w-full">
-          <div className="bg-gray-50 border-b">
-            <AppIdLabel appId={app.id} />
-          </div>
-          <TabBar
-            className="text-sm"
-            selectedId={tab}
-            tabs={[
-              {
-                id: 'explorer',
-                label: 'Explorer',
-              },
-              {
-                id: 'sandbox',
-                label: 'Sandbox',
-              },
-              {
-                id: 'admin',
-                label: 'Admin',
-              },
-              {
-                id: 'help',
-                label: 'Help',
-              },
-            ]}
-            onSelect={(t) => {
-              setTab(t.id);
-            }}
-          />
-          <div className="flex w-full flex-1 overflow-auto">
-            {tab === 'explorer' ? (
-              <Explorer
-                db={connection.db}
-                appId={appId}
-                isStorageEnabled={isStorageEnabled}
-              />
-            ) : tab === 'sandbox' ? (
-              <div className="min-w-[960px] w-full">
-                <Sandbox app={app} />
-              </div>
-            ) : tab === 'admin' ? (
-              <div className="min-w-[960px] w-full p-4">
-                <Admin dashResponse={dashResponse} app={app} />
-              </div>
-            ) : tab === 'help' ? (
-              <div className="min-w-[960px] w-full p-4 space-y-2">
-                <Help />
-                <Button
-                  size="mini"
-                  variant="secondary"
-                  onClick={() => {
-                    signOut();
-                  }}
-                >
-                  Sign out
-                </Button>
-              </div>
-            ) : null}
-          </div>
+      <div className="flex flex-col h-full w-full">
+        <div className="bg-gray-50 border-b">
+          <AppIdLabel appId={app.id} />
         </div>
-      </TokenContext.Provider>
+        <TabBar
+          className="text-sm"
+          selectedId={tab}
+          tabs={[
+            {
+              id: 'explorer',
+              label: 'Explorer',
+            },
+            {
+              id: 'sandbox',
+              label: 'Sandbox',
+            },
+            {
+              id: 'admin',
+              label: 'Admin',
+            },
+            {
+              id: 'help',
+              label: 'Help',
+            },
+          ]}
+          onSelect={(t) => {
+            setTab(t.id);
+          }}
+        />
+        <div className="flex w-full flex-1 overflow-auto">
+          {tab === 'explorer' ? (
+            <Explorer
+              db={connection.db}
+              appId={appId}
+              isStorageEnabled={isStorageEnabled}
+            />
+          ) : tab === 'sandbox' ? (
+            <div className="min-w-[960px] w-full">
+              <Sandbox app={app} />
+            </div>
+          ) : tab === 'admin' ? (
+            <div className="min-w-[960px] w-full p-4">
+              <Admin dashResponse={dashResponse} app={app} />
+            </div>
+          ) : tab === 'help' ? (
+            <div className="min-w-[960px] w-full p-4 space-y-2">
+              <Help />
+              <Button
+                size="mini"
+                variant="secondary"
+                onClick={() => {
+                  signOut();
+                }}
+              >
+                Sign out
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </div>
     </DevtoolWindow>
   );
 }

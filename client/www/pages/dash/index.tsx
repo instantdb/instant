@@ -15,7 +15,6 @@ import {
   APIResponse,
   signOut,
   useAuthToken,
-  useAuthedFetch,
   claimTicket,
   voidTicket,
 } from '@/lib/auth';
@@ -56,8 +55,9 @@ import { Sandbox } from '@/components/dash/Sandbox';
 import { StorageTab } from '@/components/dash/Storage';
 import PersonalAccessTokensScreen from '@/components/dash/PersonalAccessTokensScreen';
 import { useForm } from '@/lib/hooks/useForm';
-import { useSchemaQuery } from '@/lib/hooks/explorer';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
+import { useDashFetch } from '@/lib/hooks/useDashFetch';
+import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -110,15 +110,20 @@ export function isMinRole(minRole: Role, role: Role) {
 
 // COMPONENTS
 
-export default function DashV2() {
+const Dash = asClientOnlyPage(DashV2);
+
+export default Dash;
+
+function DashV2() {
   const token = useAuthToken();
-  const isHydrated = useIsHydrated();
-  const router = useRouter();
+  const readyRouter = useRouter();
   const cliAuthCompleteDialog = useDialog();
   const [loginTicket, setLoginTicket] = useState<string | undefined>();
 
-  const cliNormalTicket = router.query.ticket as string | undefined;
-  const cliOauthTicket = router.query[cliOauthParamName] as string | undefined;
+  const cliNormalTicket = readyRouter.query.ticket as string | undefined;
+  const cliOauthTicket = readyRouter.query[cliOauthParamName] as
+    | string
+    | undefined;
   const cliTicket = cliNormalTicket || cliOauthTicket;
   useEffect(() => {
     if (cliTicket) setLoginTicket(cliTicket);
@@ -137,10 +142,6 @@ export default function DashV2() {
     } catch (error) {
       errorToast('Error completing CLI login.');
     }
-  }
-
-  if (!isHydrated) {
-    return null;
   }
 
   if (!token) {
@@ -239,7 +240,7 @@ function isTabAvailable(tab: Tab, role?: Role) {
 
 function Dashboard() {
   const token = useContext(TokenContext);
-  const router = useRouter();
+  const router = useReadyRouter();
   const appId = router.query.app as string;
   const screen = (router.query.s as string) || 'main';
   const _tab = router.query.t as TabId;
@@ -252,7 +253,7 @@ function Dashboard() {
     db: InstantReactClient;
   } | null>(null);
 
-  const dashResponse = useAuthedFetch<DashResponse>(`${config.apiURI}/dash`);
+  const dashResponse = useDashFetch();
 
   useEffect(() => {
     if (!token) return;
@@ -279,6 +280,8 @@ function Dashboard() {
   }, [dashResponse.data?.apps]);
   const app = apps?.find((a) => a.id === appId);
   const isStorageEnabled = useMemo(() => {
+    if (!appId) return false;
+
     const storageEnabledAppIds =
       dashResponse.data?.flags?.storage_enabled_apps ?? [];
 
@@ -306,7 +309,6 @@ function Dashboard() {
   const showInvitesOnboarding = hasInvites && !dashResponse.data?.apps?.length;
 
   useEffect(() => {
-    if (!router.isReady) return;
     if (screen && screen !== 'main') return;
     if (hasInvites) {
       nav({
@@ -338,14 +340,14 @@ function Dashboard() {
     });
 
     setLocal('dash_app_id', defaultAppId);
-  }, [router.isReady, dashResponse.data]);
+  }, [dashResponse.data]);
 
   useEffect(() => {
     if (!app) return;
     if (typeof window === 'undefined') return;
 
     const db = init({
-      appId,
+      appId: app.id,
       apiURI: config.apiURI,
       websocketURI: config.websocketURI,
       // @ts-expect-error
@@ -356,7 +358,7 @@ function Dashboard() {
     return () => {
       db._core.shutdown();
     };
-  }, [router.isReady, app?.id, app?.admin_token]);
+  }, [app?.id, app?.admin_token]);
 
   function nav(q: { s: string; app?: string; t?: string }) {
     if (q.app) setLocal('dash_app_id', q.app);
