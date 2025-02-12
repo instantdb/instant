@@ -309,15 +309,21 @@ test('on-delete-reverse cascade', () => {
   const book1 = uuid();
   const book2 = uuid();
   const book3 = uuid();
-  
-  const chunk2 = tx.books[book2]
-    .update({ title: 'book2', description: 'series' });
-  const chunk3 = tx.books[book3]
-    .update({ title: 'book3', description: 'series' });
-  const chunk1 = tx.books[book1].update({
-    title: 'book1',
+
+  const chunk2 = tx.books[book2].update({
+    title: 'book2',
     description: 'series',
-  }).link({ next: [book2, book3] });
+  });
+  const chunk3 = tx.books[book3].update({
+    title: 'book3',
+    description: 'series',
+  });
+  const chunk1 = tx.books[book1]
+    .update({
+      title: 'book1',
+      description: 'series',
+    })
+    .link({ next: [book2, book3] });
   const txSteps = instaml.transform({ attrs: store.attrs }, [
     chunk2,
     chunk3,
