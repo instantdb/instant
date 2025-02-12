@@ -201,7 +201,7 @@
                       {:insert-into [[:triples triple-cols]
                                      {:select triple-cols
                                       :from :enhanced-lookup-refs}]
-                       :on-conflict [:app-id :attr-id :value {:where :av}]
+                       :on-conflict [:app-id :attr-id [:json_null_to_null :value] {:where :av}]
                        :do-nothing true
                        :returning :*}]
 
@@ -331,7 +331,7 @@
                           {:insert-into [[:triples triple-cols]
                                          {:select triple-cols
                                           :from :enhanced-lookup-refs}]
-                           :on-conflict [:app-id :attr-id :value {:where :av}]
+                           :on-conflict [:app-id :attr-id [:json_null_to_null :value] {:where :av}]
                            :do-nothing true
                            :returning :*}]
 
