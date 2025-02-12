@@ -948,7 +948,7 @@ export default class Reactor {
 
   shutdown() {
     this._isShutdown = true;
-    this._ws.close();
+    this._ws?.close();
   }
 
   /**
