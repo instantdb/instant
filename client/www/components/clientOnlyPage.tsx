@@ -5,7 +5,7 @@ export function useReadyRouter(): Omit<NextRouter, 'isReady'> {
   const router = useRouter();
   if (!router.isReady) {
     throw new Error(
-      'Router wasn not ready. Make sure to call this hook somewhere inside an `asClientOnlyPage` component',
+      'Router was not ready. Make sure to call this hook somewhere inside an `asClientOnlyPage` component',
     );
   }
   return router;
