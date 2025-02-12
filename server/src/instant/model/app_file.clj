@@ -19,16 +19,20 @@
      :etype etype}
     (fn [{:keys [transact! resolve-id]}]
       (let [lookup [(resolve-id :path) path]
-            {:keys [size content-type content-disposition]} metadata]
-        (transact!
-         [[:add-triple lookup (resolve-id :id) lookup]
-          [:add-triple lookup (resolve-id :size) size]
-          [:add-triple lookup (resolve-id :content-type) content-type]
-          [:add-triple lookup (resolve-id :content-disposition) content-disposition]
-          [:add-triple lookup (resolve-id :location-id) location-id]
-          [:add-triple lookup (resolve-id :key-version) 1]]
-         {:allow-$files-update? true})
-        {:id lookup})))))
+            {:keys [size content-type content-disposition]} metadata
+
+            res
+            (transact!
+             [[:add-triple lookup (resolve-id :id) lookup]
+              [:add-triple lookup (resolve-id :size) size]
+              [:add-triple lookup (resolve-id :content-type) content-type]
+              [:add-triple lookup (resolve-id :content-disposition) content-disposition]
+              [:add-triple lookup (resolve-id :location-id) location-id]
+              [:add-triple lookup (resolve-id :key-version) 1]]
+             {:allow-$files-update? true})]
+        {:id (->> (get-in res [:results :add-triple])
+                  (map :entity_id)
+                  first)})))))
 
 (comment
   (create! {:app-id #uuid "2d960014-0690-4dc5-b13f-a3c202663241"
