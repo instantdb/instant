@@ -1,6 +1,4 @@
-import { useRouter } from 'next/router';
 import { TokenContext } from '@/lib/contexts';
-import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { successToast } from '@/lib/toast';
 import { DashResponse, InstantApp } from '@/lib/types';
 import config from '@/lib/config';
@@ -22,6 +20,7 @@ import {
   twel,
   useDialog,
   ScreenHeading,
+  FullscreenLoading,
 } from '@/components/ui';
 import Auth from '@/components/dash/Auth';
 import { isMinRole } from '@/pages/dash/index';
@@ -32,6 +31,7 @@ import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
 type InstantReactClient = ReturnType<typeof init>;
 
 const Devtool = asClientOnlyPage(DevtoolComp);
+
 export default Devtool;
 
 function DevtoolComp() {
@@ -92,7 +92,7 @@ function DevtoolAuthorized({ appId }: { appId: string }) {
   const dashResponse = useDashFetch();
 
   if (dashResponse.isLoading) {
-    return null;
+    return <FullscreenLoading />;
   }
 
   if (dashResponse.error) {
@@ -217,8 +217,8 @@ function DevtoolWithData({
 
   if (!app && dashResponse.fromCache) {
     // We couldn't find this app. Perhaps the cache is stale. Let's
-    // wait for the fresh data.
-    return null;
+    // wait for fresh data.
+    return <FullscreenLoading />;
   }
 
   if (!app) {

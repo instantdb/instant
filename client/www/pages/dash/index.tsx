@@ -280,6 +280,8 @@ function Dashboard() {
   }, [dashResponse.data?.apps]);
   const app = apps?.find((a) => a.id === appId);
   const isStorageEnabled = useMemo(() => {
+    if (!appId) return false;
+
     const storageEnabledAppIds =
       dashResponse.data?.flags?.storage_enabled_apps ?? [];
 
@@ -345,7 +347,7 @@ function Dashboard() {
     if (typeof window === 'undefined') return;
 
     const db = init({
-      appId,
+      appId: app.id,
       apiURI: config.apiURI,
       websocketURI: config.websocketURI,
       // @ts-expect-error
