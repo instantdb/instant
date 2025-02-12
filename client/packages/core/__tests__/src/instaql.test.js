@@ -4,7 +4,7 @@ import zenecaAttrs from './data/zeneca/attrs.json';
 import zenecaTriples from './data/zeneca/triples.json';
 import { createStore, transact } from '../../src/store';
 import query from '../../src/instaql';
-import { tx } from '../../src/instatx';
+import { tx, lookup } from '../../src/instatx';
 import { i } from '../../src/index';
 import * as instaml from '../../src/instaml';
 import { randomUUID } from 'crypto';
@@ -212,6 +212,47 @@ test('like case sensitivity', () => {
   expect(runQuery({ $ilike: '%O%' })).toEqual(['Joe Averbukh', 'Nicole']);
   expect(runQuery({ $like: '%j%' })).toEqual([]);
   expect(runQuery({ $ilike: '%j%' })).toEqual(['Joe Averbukh']);
+});
+
+test('like special regex characters', () => {
+  // Special characters that need escaping in regex
+  const specialChars = [
+    ['(', 'Stopa (The Hacker)'],
+    [')', 'The Hacker (Stopa)'],
+    ['[', 'Stopa [Hacker]'],
+    [']', '[Hacker] Stopa'],
+    ['{', 'Stopa {Hacker}'],
+    ['}', '{Hacker} Stopa'],
+    ['*', 'Stopa * Hacker'],
+    ['+', 'Stopa + Hacker'],
+    ['?', 'Stopa? Yes!'],
+    ['^', 'Stopa ^ Hacker'],
+    ['$', 'Stopa $ Hacker'],
+    ['|', 'Stopa | Hacker'],
+    ['\\', 'Stopa \\ Hacker'],
+    ['.', 'Mr. Stopa'],
+  ];
+
+  function renameStopa(store, newName) {
+    const chunk = tx.users[lookup('handle', 'stopa')].update({
+      fullName: newName,
+    });
+    const txSteps = instaml.transform({ attrs: store.attrs }, chunk);
+    return transact(store, txSteps);
+  }
+
+  for (const [char, newName] of specialChars) {
+    const newStore = renameStopa(store, newName);
+    const res = query(
+      { store: newStore },
+      {
+        users: {
+          $: { where: { fullName: { $like: `%${char}%` } } },
+        },
+      },
+    ).data.users;
+    expect(res[0]?.fullName).toBe(newName);
+  }
 });
 
 test('Where and', () => {

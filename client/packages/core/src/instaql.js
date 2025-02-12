@@ -94,11 +94,15 @@ function makeLikeMatcher(caseSensitive, pattern) {
       return false;
     };
   }
-  const regexPattern = pattern.replace(/%/g, '.*').replace(/_/g, '.');
+
+  const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regexPattern = escapedPattern.replace(/%/g, '.*').replace(/_/g, '.');
+
   const regex = new RegExp(
     `^${regexPattern}$`,
     caseSensitive ? undefined : 'i',
   );
+
   return function likeMatcher(value) {
     if (typeof value !== 'string') {
       return false;
