@@ -305,6 +305,46 @@ test('on-delete cascade', () => {
   ).toEqual([]);
 });
 
+test('on-delete-reverse cascade', () => {
+  const book1 = uuid();
+  const book2 = uuid();
+  const book3 = uuid();
+  
+  const chunk2 = tx.books[book2]
+    .update({ title: 'book2', description: 'series' });
+  const chunk3 = tx.books[book3]
+    .update({ title: 'book3', description: 'series' });
+  const chunk1 = tx.books[book1].update({
+    title: 'book1',
+    description: 'series',
+  }).link({ next: [book2, book3] });
+  const txSteps = instaml.transform({ attrs: store.attrs }, [
+    chunk2,
+    chunk3,
+    chunk1,
+  ]);
+  const newStore = transact(store, txSteps);
+  checkIndexIntegrity(newStore);
+  expect(
+    query(
+      { store: newStore },
+      { books: { $: { where: { description: 'series' } } } },
+    ).data.books.map((x) => x.title),
+  ).toEqual(['book2', 'book3', 'book1']);
+
+  const txStepsTwo = instaml.transform(
+    { attrs: newStore.attrs },
+    tx.books[book1].delete(),
+  );
+  const newStoreTwo = transact(newStore, txStepsTwo);
+  expect(
+    query(
+      { store: newStoreTwo },
+      { books: { $: { where: { description: 'series' } } } },
+    ).data.books.map((x) => x.title),
+  ).toEqual([]);
+});
+
 test('new attrs', () => {
   const colorId = uuid();
   const userId = uuid();

@@ -323,6 +323,14 @@ function deleteEntity(store, args) {
   if (eMap) {
     for (const a of eMap.keys()) {
       const attr = store.attrs[a];
+      
+      // delete cascade refs
+      if (attr && attr['on-delete-reverse'] === 'cascade') {
+        allMapValues(eMap.get(a), 1).forEach(([e, a, v]) =>
+          deleteEntity(store, [v, attr['reverse-identity']?.[1]])
+        );
+      }
+
       if (
         // Fall back to deleting everything if we've rehydrated tx-steps from
         // the store that didn't set `etype` in deleteEntity
