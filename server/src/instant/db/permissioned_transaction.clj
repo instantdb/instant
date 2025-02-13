@@ -54,16 +54,30 @@
   (deep-merge-and-delete {:a {:b 1} :c 2} nil)
   (deep-merge-and-delete {:a {:b 0}} {:a {:b nil} :c 2}))
 
+(defn apply-lookup-value [obj attrs [action e]]
+  (case action
+    (:deep-merge-triple :add-triple)
+    (if-not (vector? e)
+      obj
+      (let [[attr-id val] e
+            label (-> (attr-model/seek-by-id attr-id attrs)
+                      :forward-identity
+                      last)]
+        (assoc obj label val)))
+    obj))
+
 (defn apply-tx-steps [attrs original tx-steps]
   (reduce
-   (fn [acc [action _e a v]]
+   (fn [acc [action _e a v :as tx-step]]
      (let [label (-> (attr-model/seek-by-id a attrs) :forward-identity
                      last)
-           val (condp = action
+           val (case action
                  :deep-merge-triple (deep-merge-and-delete (get acc label) v)
                  :add-triple v
                  :retract-triple nil)]
-       (assoc acc label val)))
+       (-> acc
+           (apply-lookup-value attrs tx-step)
+           (assoc label val))))
    original
    tx-steps))
 
