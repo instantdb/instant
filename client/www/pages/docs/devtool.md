@@ -18,7 +18,7 @@ Or the `Sandbox` to try out different queries and transactions:
 
 ## Changing Positions
 
-You can choose where your devtool is position. Pass in the `devtool` configuration in `init`:
+You can choose where your devtool is positioned. Pass in the `devtool` configuration in `init`:
 
 ```typescript
 import { init } from '@instantdb/react';
