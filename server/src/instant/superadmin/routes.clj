@@ -1,7 +1,6 @@
 (ns instant.superadmin.routes
   (:require [compojure.core :refer [defroutes POST GET DELETE] :as compojure]
             [ring.util.http-response :as response]
-            [clojure.string :as string]
             [instant.util.uuid :as uuid-util]
             [instant.model.app :as app-model]
             [instant.model.instant-user :as instant-user-model]
