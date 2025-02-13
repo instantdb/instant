@@ -2,6 +2,7 @@
   (:require [circleci.test]
             [eftest.runner :as eftest]
             [instant.config :as config]
+            [instant.db.indexing-jobs :as indexing-jobs]
             [instant.jdbc.aurora :as aurora]
             [instant.system-catalog-migration :as system-catalog-migration]
             [instant.util.crypt :as crypt-util]
@@ -16,6 +17,7 @@
   (tracer/init)
   (aurora/start)
   (system-catalog-migration/ensure-attrs-on-system-catalog-app)
+  (indexing-jobs/start)
   (let [results (test-suite-fn)]
     (aurora/stop)
     results))
