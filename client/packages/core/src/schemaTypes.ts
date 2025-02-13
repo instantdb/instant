@@ -121,6 +121,7 @@ export type LinkDef<
     on: RevEntity;
     label: RevAttr;
     has: RevCardinality;
+    onDelete?: 'cascade';
   };
 };
 
