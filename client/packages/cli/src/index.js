@@ -793,16 +793,16 @@ async function pullPerms(appId, { pkgDir, instantModuleName }) {
   });
 
   if (!pullRes.ok) return;
-
-  if (await pathExists(join(pkgDir, 'instant.perms.ts'))) {
+  const prev = await readLocalPermsFile();
+  if (prev) {
     const ok = await promptOk(
       'This will overwrite your local instant.perms file, OK to proceed?',
     );
 
-    if (!ok) return;
+    if (!ok) return { ok: true };
   }
 
-  const permsPath = join(pkgDir, 'instant.perms.ts');
+  const permsPath = join(pkgDir, getPermsPathToWrite(prev.path));
   await writeTypescript(
     permsPath,
     generatePermsTypescriptFile(pullRes.data.perms || {}, instantModuleName),
@@ -1129,8 +1129,8 @@ async function pushSchema(appId, opts) {
 }
 
 async function pushPerms(appId) {
-  const perms = await readLocalPermsFileWithErrorLogging();
-  if (!perms) {
+  const res = await readLocalPermsFileWithErrorLogging();
+  if (!res) {
     return;
   }
 
@@ -1146,7 +1146,7 @@ async function pushPerms(appId) {
 
   const diffedStr = jsonDiff.diffString(
     prodPerms.data.perms || {},
-    perms || {},
+    res.perms || {},
   );
   if (!diffedStr.length) {
     console.log('No perms changes detected. Exiting.');
@@ -1165,7 +1165,7 @@ async function pushPerms(appId) {
     debugName: 'Schema apply',
     errorMessage: 'Failed to update schema.',
     body: {
-      code: perms,
+      code: res.perms,
     },
   });
 
@@ -1334,35 +1334,65 @@ function transformImports(code) {
   );
 }
 
+function getEnvPermsPathWithLogging() {
+  const path = process.env.INSTANT_PERMS_FILE_PATH;
+  if (path) {
+    console.log(
+      `Using INSTANT_PERMS_FILE_PATH=${chalk.green(process.env.INSTANT_PERMS_FILE_PATH)}`,
+    );
+  }
+  return path;
+}
+
+function getPermsReadCandidates() {
+  const existing = getEnvPermsPathWithLogging();
+  if (existing) return [{ files: existing, transform: transformImports }];
+  return [
+    {
+      files: 'instant.schema',
+      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
+      transform: transformImports,
+    },
+    {
+      files: 'src/instant.schema',
+      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
+      transform: transformImports,
+    },
+    {
+      files: 'app/instant.schema',
+      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
+      transform: transformImports,
+    },
+  ];
+}
+
+function getPermsPathToWrite(existingPath) {
+  if (existingPath) return existingPath;
+  if (process.env.INSTANT_PERMS_FILE_PATH) {
+    return process.env.INSTANT_PERMS_FILE_PATH;
+  }
+  return 'instant.perms.ts';
+}
+
 async function readLocalPermsFile() {
-  const { config, sources } = await loadConfig({
-    sources: [
-      // load from `instant.perms.xx`
-      {
-        files: 'instant.perms',
-        extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs', 'json'],
-        transform: transformImports,
-      },
-    ],
-    // if false, the only the first matched will be loaded
-    // if true, all matched will be loaded and deep merged
+  const readCandidates = getPermsReadCandidates();
+  const res = await loadConfig({
+    sources: readCandidates,
     merge: false,
   });
-
-  return {
-    perms: config,
-    path: sources.at(0),
-  };
+  if (!res.config) return;
+  const relativePath = path.relative(process.cwd(), res.sources[0]);
+  return { path: relativePath, perms: res.config };
 }
 
 async function readLocalPermsFileWithErrorLogging() {
-  const { perms } = await readLocalPermsFile();
-  if (!perms) {
+  const res = await readLocalPermsFile();
+  if (!res) {
     error(
       `We couldn't find your ${chalk.yellow('`instant.perms.ts`')} file. Make sure it's in the root directory.`,
     );
   }
-  return perms;
+  return res;
 }
 
 function getEnvSchemaPathWithLogging() {
