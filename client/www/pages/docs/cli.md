@@ -81,12 +81,13 @@ By default, Instant will search for your `instant.schema.ts` and `instant.perms.
 2. The `src` directory: `./src`
 3. The `app` directory: `./app`
 
-If you'd like to save them in a custom directory, you use the following environment variables:
+If you'd like to save them in a custom location, you can set the following environment variables:
 
 - `INSTANT_SCHEMA_FILE_PATH` sets the location for your `instant.schema.ts` file.
 - `INSTANT_RULES_FILE_PATH` sets the location for your `instant.perms.ts` file.
 
 ```yaml
+# in your .env file
 INSTANT_SCHEMA_FILE_PATH=./src/db/instant.schema.ts
 INSTANT_PERMS_FILE_PATH=./src/db/instant.perms.ts
 ```
