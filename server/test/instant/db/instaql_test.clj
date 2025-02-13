@@ -2675,6 +2675,7 @@
                                     (make-ctx)
                                     {:user {:$ {:where {:handle "a"}}}})
                 explain (d/explain (make-ctx) patterns)
+                _ (println "UNIQUE" (instant.util.json/->json explain {:pretty true}))
                 plan (-> explain
                          (get "QUERY PLAN")
                          first
@@ -2693,6 +2694,7 @@
                                                {:pattern-groups
                                                 [{:patterns
                                                   [[:ea [(:handle attr-ids) "a"]]]}]}})
+                _ (println "LOOKUP" (instant.util.json/->json explain {:pretty true}))
                 plan (-> explain
                          (get "QUERY PLAN")
                          first
