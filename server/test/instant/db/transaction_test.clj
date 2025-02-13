@@ -1481,6 +1481,76 @@
                         :triple
                         last))))))))))
 
+(deftest perms-rejects-updates-to-lookups
+  (with-empty-app
+    (fn [app]
+      (let [id-attr-id (random-uuid)
+            handle-attr-id (random-uuid)
+            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
+                             :app-id (:id app)
+                             :attrs (attr-model/get-by-app-id (:id app))
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id (:id app)})
+                             :current-user nil})
+            existing-id (random-uuid)]
+        (tx/transact!
+         (aurora/conn-pool :write)
+         (attr-model/get-by-app-id (:id app))
+         (:id app)
+         [[:add-attr
+           {:id id-attr-id
+            :forward-identity [(random-uuid) "profiles" "id"]
+            :value-type :blob
+            :cardinality :one
+            :unique? true
+            :index? false}]
+          [:add-attr
+           {:id handle-attr-id
+            :forward-identity [(random-uuid) "profiles" "handle"]
+            :value-type :blob
+            :cardinality :one
+            :unique? true
+            :index? false}]
+          [:add-triple existing-id id-attr-id (str existing-id)]
+          [:add-triple existing-id handle-attr-id "c"]])
+
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id (:id app)
+          :code {:profiles {:allow
+                            {:create "data.handle != 'a'"
+                             :update "newData.handle != 'b'"}}}})
+
+        (testing "non-lookups-fail"
+          (testing "create"
+            (let [id (random-uuid)]
+              (is (perm-err?
+                    (permissioned-tx/transact! (make-ctx)
+                                               [[:add-triple id id-attr-id (str id)]
+                                                [:add-triple id handle-attr-id "a"]])))))
+
+          (testing "update"
+            (is (perm-err?
+                  (permissioned-tx/transact! (make-ctx)
+                                             [[:add-triple existing-id handle-attr-id "b"]])))))
+
+        (testing "lookup fail"
+          (testing "create"
+            (is (perm-err?
+                  (permissioned-tx/transact! (make-ctx)
+                                             [[:add-triple [handle-attr-id "a"] id-attr-id [handle-attr-id "a"]]])))
+
+            ;; n.b. if this validation-err? is fixed, make sure that this is still a permisison error
+            ;;      right now you can't edit a lookup attr in the same transaction you create the lookup attr
+            (is (validation-err?
+                  (permissioned-tx/transact! (make-ctx)
+                                             [[:add-triple [handle-attr-id "a"] id-attr-id [handle-attr-id "a"]]
+                                              [:add-triple [handle-attr-id "a"] handle-attr-id "c"]]))))
+          (testing "update"
+            (is (perm-err?
+                  (permissioned-tx/transact! (make-ctx)
+                                             [[:add-triple [handle-attr-id "c"] handle-attr-id "b"]])))))))))
+
 (deftest rejects-bad-lookups
   (with-zeneca-app
     (fn [{app-id :id :as _app} r]
