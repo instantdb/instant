@@ -5,7 +5,8 @@
    (java.security MessageDigest)
    (java.nio ByteBuffer))
   (:require
-   [clojure.string :as string]))
+   [clojure.string :as string]
+   [clojure+.walk :as walk]))
 
 (defn parse-uuid [s]
   (when (and (string? s) (= 36 (.length ^String s)))
@@ -56,3 +57,8 @@
             0
             ;; starting indexes of each hex-pair
             [0 2 4 6 9 11 14 16 19 21 24 26 28 30 32 34])))
+
+(defn walk-uuids
+  "Converts string instances of UUIDs to java UUIDs"
+  [m]
+  (walk/postwalk #(or (parse-uuid %) %) m))

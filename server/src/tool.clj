@@ -105,9 +105,11 @@
                              (fn [_] (let [i @idx
                                            v (nth params i)]
                                        (swap! idx inc)
-                                       (str (if (int? v)
-                                              (format "%s" v)
-                                              (format "'%s'" v))
+                                       (str (cond
+                                              (int? v) (format "%s" v)
+                                              (string? v) (format "'%s'" (-> v
+                                                                             (.replace "'" "''")))
+                                              :else (format "'%s'" v))
                                             (if (uuid? v)
                                               "::uuid"
                                               ""))))))))

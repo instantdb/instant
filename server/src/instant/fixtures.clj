@@ -51,10 +51,21 @@
             r (resolvers/make-zeneca-resolver id)]
         (f app r)))))
 
+(defn with-zeneca-app-no-indexing [f]
+  (with-empty-app
+    (fn [{:keys [id] :as app}]
+      (let [_ (bootstrap/add-zeneca-to-app! {:checked-data? false
+                                             :indexed-data? false}
+                                            id)
+            r (resolvers/make-zeneca-resolver id)]
+        (f app r)))))
+
 (defn with-zeneca-checked-data-app [f]
   (with-empty-app
     (fn [{:keys [id] :as app}]
-      (let [_ (bootstrap/add-zeneca-to-app! true id)
+      (let [_ (bootstrap/add-zeneca-to-app! {:checked-data? true
+                                             :indexed-data? true}
+                                            id)
             r (resolvers/make-zeneca-resolver id)]
         (f app r)))))
 
