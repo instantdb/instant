@@ -37,8 +37,8 @@ jobs:
 
   clj-check:
     runs-on: ubuntu-latest
-    # needs: [ detect_clj ]
-    # if: needs.detect_clj.outputs.did_change == 'True'
+    needs: [ detect_clj ]
+    if: needs.detect_clj.outputs.did_change == 'True'
 
     services:
       postgres:
