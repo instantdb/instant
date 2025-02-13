@@ -502,12 +502,19 @@
   (with-queue job-queue
     (with-empty-app
       (fn [app]
-        (let [attr-id (random-uuid)
+        (let [id-attr-id (random-uuid)
+              attr-id (random-uuid)
 
               _ (tx/transact! (aurora/conn-pool :write)
                               (attr-model/get-by-app-id (:id app))
                               (:id app)
-                              [[:add-attr {:id attr-id
+                              [[:add-attr {:id id-attr-id
+                                           :forward-identity [(random-uuid) "etype" "id"]
+                                           :unique? true
+                                           :index? false
+                                           :value-type :blob
+                                           :cardinality :one}]
+                               [:add-attr {:id attr-id
                                            :forward-identity [(random-uuid) "etype" "label"]
                                            :unique? false
                                            :index? false

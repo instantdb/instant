@@ -3,7 +3,6 @@
    [clojure.spec.alpha :as s]
    [clojure.spec.gen.alpha :as gen]
    [clojure.string :as string]
-   [clojure+.walk :as walk]
    [honey.sql :as hsql]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as transaction-model]

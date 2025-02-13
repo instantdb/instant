@@ -466,16 +466,14 @@
                                   [:needs-null-attr.is_unique :av]
                                   [:needs-null-attr.is_indexed :ave]
                                   [[:= :needs-null-attr.value_type [:inline "ref"]] :vae]
-                                  [:needs-null-attr.checked-data-type :checked-data-type]
-                                  [:updated-attr.id :ua-id]
-                                  [:id-ident.etype :id-ident-etype]
-                                  [:id-ident.label :id-ident-label]
-                                  [:needs-null-attr.id :nn-id]
-                                  ]
-                         :from [[{:union [{:select [:entity-id :attr_id]
-                                           :from :ea-index-inserts}
-                                          {:select [:entity-id :attr_id]
-                                           :from :remaining-inserts}]}
+                                  [:needs-null-attr.checked-data-type :checked-data-type]]
+                         :from [[{:union (into [{:select [:entity-id :attr_id]
+                                                 :from :ea-index-inserts}
+                                                {:select [:entity-id :attr_id]
+                                                 :from :remaining-inserts}]
+                                               (when (seq lookup-refs)
+                                                 [{:select [:entity-id :attr_id]
+                                                   :from :lookup-ref-inserts}]))}
                                  :new-entities]]
                          :join [[:attrs :updated-attr]
                                 [:= :updated-attr.id :new-entities.attr-id]
@@ -506,7 +504,8 @@
                          ;; Make sure we didn't insert a null value
                          ;; for the attr if this transaction is
                          ;; inserting a value for the attr
-                         :where [:and
+                         :where (list*
+                                 :and
                                  [:not
                                   [:exists
                                    {:select :*
@@ -520,7 +519,15 @@
                                     :from :remaining-inserts
                                     :where [:and
                                             [:= :remaining-inserts.entity-id :new-entities.entity-id]
-                                            [:= :remaining-inserts.attr-id :needs-null-attr.id]]}]]]}]
+                                            [:= :remaining-inserts.attr-id :needs-null-attr.id]]}]]
+                                 (when (seq lookup-refs)
+                                   [[:not
+                                     [:exists
+                                      {:select :*
+                                       :from :lookup-ref-inserts
+                                       :where [:and
+                                               [:= :lookup-ref-inserts.entity-id :new-entities.entity-id]
+                                               [:= :lookup-ref-inserts.attr-id :needs-null-attr.id]]}]]]))}]
                        [:index-null-inserts
                         {:insert-into [[:triples triple-cols]
                                        {:select triple-cols
