@@ -242,7 +242,7 @@
 
 (defn verify-magic-code-post [req]
   (let [email (ex/get-param! req [:body :email] email/coerce)
-        code (ex/get-param! req [:body :code] string-util/ensure-non-blank-str)
+        code (ex/get-param! req [:body :code] string-util/safe-trim)
         {user-id :user_id} (instant-user-magic-code-model/consume!
                             {:code code :email email})
         {refresh-token-id :id} (instant-user-refresh-token-model/create!

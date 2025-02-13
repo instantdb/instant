@@ -163,7 +163,7 @@
 
 (defn verify-magic-code-post [req]
   (let [email (ex/get-param! req [:body :email] email/coerce)
-        code (ex/get-param! req [:body :code] string-util/ensure-non-blank-str)
+        code (ex/get-param! req [:body :code] string-util/safe-trim)
 
         app-id (ex/get-param! req [:body :app-id] uuid-util/coerce)
         m (app-user-magic-code-model/consume!

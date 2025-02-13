@@ -24,7 +24,7 @@
     (.update ^CRC32 crc bytes)
     (.getValue ^CRC32 crc)))
 
-(defn ensure-non-blank-str [s]
+(defn safe-trim [s]
   (and (string? s)
        (string/trim s)))
 
