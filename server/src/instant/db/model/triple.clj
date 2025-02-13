@@ -58,7 +58,7 @@
                              (list* :or
                                     (map
                                      (fn [[a v]]
-                                       [:and [:= :attr-id a] [:= :value [:cast (->json v) :jsonb]]])
+                                       [:and [:= :attr-id a] [:= [:json_null_to_null :value] [:cast (->json v) :jsonb]]])
                                      lookups-set))]}))
 
           lookups->eid (->> triples
@@ -201,7 +201,7 @@
                       {:insert-into [[:triples triple-cols]
                                      {:select triple-cols
                                       :from :enhanced-lookup-refs}]
-                       :on-conflict [:app-id :attr-id :value {:where :av}]
+                       :on-conflict [:app-id :attr-id [:json_null_to_null :value] {:where :av}]
                        :do-nothing true
                        :returning :*}]
 
@@ -216,7 +216,7 @@
                                                          [:and
                                                           :av
                                                           [:= :attr-id a]
-                                                          [:= :value [:cast (->json v) :jsonb]]]))]}]}]])
+                                                          [:= [:json_null_to_null :value] [:cast (->json v) :jsonb]]]))]}]}]])
                   [[[:input-triples
                      {:columns [:idx :app-id :entity-id :attr-id :value]}]
                     {:values input-triples-values}
@@ -331,7 +331,7 @@
                           {:insert-into [[:triples triple-cols]
                                          {:select triple-cols
                                           :from :enhanced-lookup-refs}]
-                           :on-conflict [:app-id :attr-id :value {:where :av}]
+                           :on-conflict [:app-id :attr-id [:json_null_to_null :value] {:where :av}]
                            :do-nothing true
                            :returning :*}]
 
@@ -351,7 +351,10 @@
                                                              [:and
                                                               :av
                                                               [:= :attr-id a]
-                                                              [:= :value [:cast (->json v) :jsonb]]]))]}]}]])
+                                                              [:=
+                                                               ;; Make sure it can lookup just from the av_index
+                                                               [:json_null_to_null :value]
+                                                               [:cast (->json v) :jsonb]]]))]}]}]])
                       [[[:input-triples
                          {:columns [:idx :app-id :entity-id :attr-id :value]}]
                         {:values (map-indexed
@@ -386,7 +389,10 @@
                                                                            :av
                                                                            [:= :app-id app-id]
                                                                            [:= :attr-id (first v)]
-                                                                           [:= :value [:cast (->json (second v)) :jsonb]]]}]}
+                                                                           [:=
+                                                                            ;; Make sure it can lookup just from the av_index
+                                                                            [:json_null_to_null :value]
+                                                                            [:cast (->json (second v)) :jsonb]]]}]}
                                                      :lookups]]
                                                    [[{:select :entity-id
                                                       :from :triples
@@ -394,7 +400,10 @@
                                                               :av
                                                               [:= :app-id app-id]
                                                               [:= :attr-id (first v)]
-                                                              [:= :value [:cast (->json (second v)) :jsonb]]]}
+                                                              [:=
+                                                               ;; Make sure it can lookup just from the av_index
+                                                               [:json_null_to_null :value]
+                                                               [:cast (->json (second v)) :jsonb]]]}
                                                      :lookups]])
                                            :limit 1}
                                           :else (->json v)]]])])

@@ -552,7 +552,12 @@
                     :keyword nil
                     :map (:data-type idx-val))]
     (if-not data-type
-      [:not= :value (value->jsonb val)]
+      [:not=
+       (if (= idx-val :av)
+         ;; Make sure it uses the av_index
+         [:json_null_to_null :value]
+         :value)
+       (value->jsonb val)]
       [:and
        [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
        [:not= [(extract-value-fn data-type) :value] val]])))
@@ -565,7 +570,11 @@
     (if (empty? v-set)
       [:= 0 1]
       (if-not data-type
-        (in-or-eq :value (map value->jsonb v-set))
+        (in-or-eq (if (= idx-val :av)
+                    ;; Make sure it uses the av_index
+                    [:json_null_to_null :value]
+                    :value)
+                  (map value->jsonb v-set))
 
         (list* :or (map (fn [v]
                           [:and
@@ -585,7 +594,11 @@
                     :from :triples
                     :where [:and
                             [:= :app-id app-id]
-                            [:= :value [:cast (->json (second lookup)) :jsonb]]
+
+                            [:=
+                             ;; Make sure it uses the av_index
+                             [:json_null_to_null :value]
+                             [:cast (->json (second lookup)) :jsonb]]
                             [:= :attr-id [:cast (first lookup) :uuid]]
                             :av]}])))
     :a (in-or-eq :attr-id v)
