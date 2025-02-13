@@ -2670,6 +2670,7 @@
                                     (let [id (random-uuid)]
                                       [[:add-triple id (:id attr-ids) (str id)]
                                        [:add-triple id (:handle attr-ids) (str "b")]])))]
+        (sql/select (aurora/conn-pool :write) ["ANALYZE triples"])
         (testing "query on unique attr"
           (let [{:keys [patterns]} (iq/instaql-query->patterns
                                     (make-ctx)
