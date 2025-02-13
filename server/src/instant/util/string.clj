@@ -25,7 +25,7 @@
     (.getValue ^CRC32 crc)))
 
 (defn safe-trim [s]
-  (and (string? s)
+  (when (string? s)
        (string/trim s)))
 
 (defn coerce-non-blank-str [s]
