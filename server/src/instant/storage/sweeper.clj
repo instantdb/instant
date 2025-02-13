@@ -36,7 +36,7 @@
    [:is :process-id nil]
    [:and
     [:is-not :process-id nil]
-    [:< :created-at
+    [:< :updated-at
      [:- :%now [:raw "interval '5 minutes'"]]]]])
 
 (defn claim-files!
@@ -58,7 +58,8 @@
                             :for "UPDATE SKIP LOCKED"
                             :limit limit}]]
                    :update :app-files-to-sweep
-                   :set {:process-id @config/process-id}
+                   :set {:process-id @config/process-id
+                         :updated-at :%now}
                    :where [:in :id {:select [:id]
                                     :from :to-update}]
                    :returning [:*]}))))
