@@ -14,6 +14,8 @@
    [instant.util.spec :as uspec]
    [instant.util.string :as string-util]))
 
+(set! *warn-on-reflection* true)
+
 (def types
   [:number
    :string
@@ -499,11 +501,15 @@
               (update :by-rev-ident assoc (rev-ident-name attr) attr)
 
               true
-              (update :ids-by-etype update (fwd-etype attr) (fnil conj #{}) (:id attr))))
+              (update :ids-by-etype update (fwd-etype attr) (fnil conj #{}) (:id attr))
+
+              (= :blob (:value-type attr))
+              (update :blob-ids-by-etype update (fwd-etype attr) (fnil conj #{}) (:id attr))))
           {:by-id {}
            :by-fwd-ident {}
            :by-rev-ident {}
-           :ids-by-etype {}}
+           :ids-by-etype {}
+           :blob-ids-by-etype {}}
           attrs))
 
 (defprotocol AttrsExtension
@@ -511,6 +517,7 @@
   (seekByFwdIdentName [this fwd-ident])
   (seekByRevIdentName [this revIdent])
   (attrIdsForEtype [this etype])
+  (blobIdsForEtype [this etype])
   (unwrap [this]))
 
 ;; Creates a wrapper over attrs. Makes them act like a regular list, but
@@ -560,6 +567,10 @@
     (-> @cache
         :ids-by-etype
         (get etype #{})))
+  (blobIdsForEtype [_this etype]
+    (-> @cache
+        :blob-ids-by-etype
+        (get etype #{})))
   (unwrap [_this]
     elements))
 
@@ -601,16 +612,19 @@
 
 (defn seek-by-id
   [id ^Attrs attrs]
-  (.seekById attrs id))
+  (seekById attrs id))
 
 (defn seek-by-fwd-ident-name [n ^Attrs attrs]
-  (.seekByFwdIdentName attrs n))
+  (seekByFwdIdentName attrs n))
 
 (defn seek-by-rev-ident-name [n ^Attrs attrs]
-  (.seekByRevIdentName attrs n))
+  (seekByRevIdentName attrs n))
 
 (defn attr-ids-for-etype [etype ^Attrs attrs]
-  (.attrIdsForEtype attrs etype))
+  (attrIdsForEtype attrs etype))
+
+(defn blob-ids-for-etype [etype ^Attrs attrs]
+  (blobIdsForEtype attrs etype))
 
 (defn remove-hidden
   "Removes the system attrs that might be confusing for the users."
