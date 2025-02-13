@@ -8,7 +8,7 @@ When you load your app in development, you'll notice a little "Instant" Icon sho
 
 This is your handy `devtool` shortcut. Once you click it, you'll see a widget that lets you make changes to your app.
 
-Use the handy `Explorer` to make changes to your data and schema:
+Use the `Explorer` to make changes to your data and schema:
 
 {% screenshot src="/img/docs/devtool-explorer.png" /%}
 
