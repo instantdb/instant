@@ -1,7 +1,6 @@
 (ns instant.superadmin.routes
   (:require [compojure.core :refer [defroutes POST GET DELETE] :as compojure]
             [ring.util.http-response :as response]
-            [clojure.string :as string]
             [instant.util.uuid :as uuid-util]
             [instant.model.app :as app-model]
             [instant.model.instant-user :as instant-user-model]
@@ -13,7 +12,8 @@
             [instant.model.app-member-invites :as instant-app-member-invites-model]
             [clojure.walk :as w]
             [instant.model.rule :as rule-model]
-            [instant.model.schema :as schema-model])
+            [instant.model.schema :as schema-model]
+            [instant.util.string :as string-util])
 
   (:import
    (java.util UUID)))
@@ -40,7 +40,7 @@
 
 (defn apps-create-post [req]
   (let [{user-id :id} (req->superadmin-user! req)
-        title (ex/get-param! req [:body :title] string/trim)
+        title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
         app (app-model/create! {:id (UUID/randomUUID)
                                 :title title
                                 :creator-id user-id
@@ -53,7 +53,7 @@
 
 (defn app-update-post [req]
   (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
-        title (ex/get-param! req [:body :title] string/trim)
+        title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
         app (app-model/rename-by-id! {:id app-id :title title})]
     (response/ok {:app app})))
 

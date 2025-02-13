@@ -163,7 +163,8 @@
 
 (defn verify-magic-code-post [req]
   (let [email (ex/get-param! req [:body :email] email/coerce)
-        code (ex/get-param! req [:body :code] string/trim)
+        code (ex/get-param! req [:body :code] string-util/safe-trim)
+
         app-id (ex/get-param! req [:body :app-id] uuid-util/coerce)
         m (app-user-magic-code-model/consume!
            {:app-id app-id
@@ -354,16 +355,16 @@
   {:status 200
    :headers {"content-type" "text/html"}
    :body (str (h/html (h/raw "<!DOCTYPE html>")
-                [:html {:lang "en"}
-                 [:head
-                  [:meta {:charset "UTF-8"}]
-                  [:meta {:name "viewport"
-                          :content "width=device-width, initial-scale=1.0"}]
-                  [:meta {:http-equiv "refresh"
-                          :content (format "0; url=%s" redirect-url)}]
+                      [:html {:lang "en"}
+                       [:head
+                        [:meta {:charset "UTF-8"}]
+                        [:meta {:name "viewport"
+                                :content "width=device-width, initial-scale=1.0"}]
+                        [:meta {:http-equiv "refresh"
+                                :content (format "0; url=%s" redirect-url)}]
 
-                  [:title "Finish Sign In"]
-                  [:style "
+                        [:title "Finish Sign In"]
+                        [:style "
                            body {
                              margin: 0;
                              height: 100vh;
@@ -404,17 +405,17 @@
                                background-color: black;
                              }
                            }"]]
-                 [:body
-                  [:p "Logged in as " email]
-                  [:p
-                   [:a {:class "button"
-                        :href redirect-url}
-                    "Open app"]]
-                  [:p [:a {:onclick "(function() { window.close();})()"} "Close"]]
-                  [:script {:type "text/javascript"
-                            :id "redirect-script"
-                            :data-redirect-uri redirect-url}
-                   (h/raw "window.open(document.getElementById('redirect-script').getAttribute('data-redirect-uri'), '_self')")]]]))})
+                       [:body
+                        [:p "Logged in as " email]
+                        [:p
+                         [:a {:class "button"
+                              :href redirect-url}
+                          "Open app"]]
+                        [:p [:a {:onclick "(function() { window.close();})()"} "Close"]]
+                        [:script {:type "text/javascript"
+                                  :id "redirect-script"
+                                  :data-redirect-uri redirect-url}
+                         (h/raw "window.open(document.getElementById('redirect-script').getAttribute('data-redirect-uri'), '_self')")]]]))})
 
 (defn oauth-callback [{:keys [params] :as req}]
   (try

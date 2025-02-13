@@ -242,7 +242,7 @@
 
 (defn verify-magic-code-post [req]
   (let [email (ex/get-param! req [:body :email] email/coerce)
-        code (ex/get-param! req [:body :code] string/trim)
+        code (ex/get-param! req [:body :code] string-util/safe-trim)
         {user-id :user_id} (instant-user-magic-code-model/consume!
                             {:code code :email email})
         {refresh-token-id :id} (instant-user-refresh-token-model/create!
@@ -290,19 +290,19 @@
 
 (defn admin-overview-daily-get [req]
   (let [{:keys [email]} (req->auth-user! req)
-          _ (assert-admin-email! email)
-          conn (aurora/conn-pool :read)
-          overview (metrics/overview-metrics conn)
-          rev-subs (dash-admin/get-revenue-generating-subscriptions)
-          overview-with-b64-charts
-          (update overview :charts (partial medley/map-vals
-                                            (fn [chart] (metrics/chart->base64-png chart
-                                                                                   500 400))))
-          subscription-info {:num-subs (count rev-subs)
-                             :total-monthly-revenue (reduce + (map :monthly-revenue rev-subs))}]
+        _ (assert-admin-email! email)
+        conn (aurora/conn-pool :read)
+        overview (metrics/overview-metrics conn)
+        rev-subs (dash-admin/get-revenue-generating-subscriptions)
+        overview-with-b64-charts
+        (update overview :charts (partial medley/map-vals
+                                          (fn [chart] (metrics/chart->base64-png chart
+                                                                                 500 400))))
+        subscription-info {:num-subs (count rev-subs)
+                           :total-monthly-revenue (reduce + (map :monthly-revenue rev-subs))}]
 
-      (response/ok (assoc overview-with-b64-charts
-                          :subscription-info subscription-info))))
+    (response/ok (assoc overview-with-b64-charts
+                        :subscription-info subscription-info))))
 
 (defn admin-overview-minute-get [req]
   (let [{:keys [email]} (req->auth-user! req)
@@ -355,7 +355,7 @@
     (response/ok {:profile profile})))
 
 (defn apps-post [req]
-  (let [title (ex/get-param! req [:body :title] string/trim)
+  (let [title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
         id (ex/get-param! req [:body :id] uuid-util/coerce)
         token (ex/get-param! req [:body :admin_token] uuid-util/coerce)
         {creator-id :id} (req->auth-user! req)
