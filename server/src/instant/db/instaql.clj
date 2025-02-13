@@ -797,13 +797,13 @@
                                 (format "The `%s` attribute is still in the process of indexing. It must finish before ordering by the attribute."
                                         (attr-model/fwd-friendly-name order-attr)))
                               (when (not (:index? order-attr))
-                                (format "The `%s` attribute is not indexed. Only indexed and type-checked attrs can be used to order by."
+                                (format "The `%s` attribute is not indexed. Only indexed and typed attributes can be used to order by."
                                         (attr-model/fwd-friendly-name order-attr)))
                               (when (not (:checked-data-type order-attr))
-                                (format "The `%s` attribute is not type-checked. Only type-checked and indexed attrs can be used to order by."
+                                (format "The `%s` attribute is not typed. Only typed and indexed attributes can be used to order by."
                                         (attr-model/fwd-friendly-name order-attr)))
                               (when (not= :one (:cardinality order-attr))
-                                (format "The `%s` attribute has cardinality `%s`. Only attrs with cardinality `one` can be used to order by."
+                                (format "The `%s` attribute has cardinality `%s`. Only attributes with cardinality `one` can be used to order by."
                                         (attr-model/fwd-friendly-name order-attr)
                                         (name (:cardinality order-attr))))])]
             (when (seq errors)
