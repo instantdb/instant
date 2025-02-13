@@ -100,7 +100,7 @@
                              :start-ms start-ms
                              :limit limit
                              :app-id app-id})})
-  {:warn false})
+  {:warn true})
 
 (defn handle-sweep!
   ([params] (handle-sweep! (aurora/conn-pool :write) params))
