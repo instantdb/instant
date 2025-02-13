@@ -644,7 +644,7 @@
           (update ret :pats optimize-attr-pats)))
       :or (-> (reduce
                (fn [acc [i conds]]
-                 (let [join-sym (attr-pat/default-level-sym
+                 (let [join-sym (level-sym
                                  (:etype form)
                                  (:level form))
                        level-sym (level-sym-gen level-sym join-sym i)]
@@ -664,7 +664,7 @@
 
       :and (-> (reduce
                 (fn [acc [i conds]]
-                  (let [join-sym (attr-pat/default-level-sym
+                  (let [join-sym (level-sym
                                   (:etype form)
                                   (:level form))
                         level-sym (level-sym-gen level-sym join-sym i)]
