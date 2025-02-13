@@ -288,12 +288,13 @@ function isAndClauses([k, v]) {
 
 // Creates a makeVar that will namespace symbols for or clauses
 // to prevent conflicts, except for the base etype
-function genMakeVar(baseMakeVar, etype, orIdx) {
+function genMakeVar(baseMakeVar, joinSym, orIdx) {
   return (x, lvl) => {
-    if (x == etype) {
-      return baseMakeVar(x, lvl);
+    const base = baseMakeVar(x, lvl);
+    if (joinSym == base) {
+      return base;
     }
-    return `${baseMakeVar(x, lvl)}-${orIdx}`;
+    return `${base}-${orIdx}`;
   };
 }
 
@@ -305,11 +306,11 @@ function parseWhereClauses(
   level,
   whereValue,
 ) {
+  const joinSym = makeVar(etype, level);
   const patterns = whereValue.map((w, i) => {
-    const makeNamespacedVar = genMakeVar(makeVar, etype, i);
+    const makeNamespacedVar = genMakeVar(makeVar, joinSym, i);
     return parseWhere(makeNamespacedVar, store, etype, level, w);
   });
-  const joinSym = makeVar(etype, level);
   return { [clauseType]: { patterns, joinSym } };
 }
 
