@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/admin",
-  "version": "v0.17.13",
+  "version": "v0.17.14",
   "description": "Admin SDK for Instant DB",
   "main": "dist/index.js",
   "module": "dist/module/index.js",
@@ -25,6 +25,6 @@
     "vitest": "^0.21.0"
   },
   "dependencies": {
-    "@instantdb/core": "workspace:*"
+    "@instantdb/core": "v0.17.14"
   }
 }

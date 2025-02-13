@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/react-native",
-  "version": "v0.17.13",
+  "version": "v0.17.14",
   "description": "Instant DB for React Native",
   "main": "dist/index.js",
   "module": "dist/module/index.js",
@@ -33,7 +33,7 @@
     "react-native-get-random-values": ">=1.5"
   },
   "dependencies": {
-    "@instantdb/core": "workspace:*",
-    "@instantdb/react": "workspace:*"
+    "@instantdb/core": "v0.17.14",
+    "@instantdb/react": "v0.17.14"
   }
 }
