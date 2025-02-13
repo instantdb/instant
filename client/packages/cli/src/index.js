@@ -2,7 +2,7 @@
 
 import version from './version.js';
 import { mkdir, writeFile, readFile } from 'fs/promises';
-import { join } from 'path';
+import path, { join } from 'path';
 import { randomUUID } from 'crypto';
 import jsonDiff from 'json-diff';
 import dotenv from 'dotenv';
@@ -757,8 +757,8 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
     console.log('Schema is empty. Skipping.');
     return { ok: true };
   }
-  const prevSchema = await readLocalSchemaFile();
-  if (prevSchema) {
+  const prev = await readLocalSchemaFile();
+  if (prev) {
     const ok = await promptOk(
       'This will overwrite your local instant.schema file, OK to proceed?',
     );
@@ -766,11 +766,12 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
     if (!ok) return { ok: true };
   }
 
-  const schemaPath = join(pkgDir, 'instant.schema.ts');
+  const schemaPath = join(pkgDir, getSchemaPathToWrite(prev.path));
+
   await writeTypescript(
     schemaPath,
     generateSchemaTypescriptFile(
-      prevSchema,
+      prev.schema,
       pullRes.data.schema,
       instantModuleName,
     ),
@@ -1011,9 +1012,9 @@ async function waitForIndexingJobsToFinish(appId, data) {
 }
 
 async function pushSchema(appId, opts) {
-  const schema = await readLocalSchemaFileWithErrorLogging();
-  if (!schema) return { ok: false };
-
+  const res = await readLocalSchemaFileWithErrorLogging();
+  if (!res) return { ok: false };
+  const { schema } = res;
   console.log('Planning schema...');
 
   const planRes = await fetchJson({
@@ -1364,22 +1365,55 @@ async function readLocalPermsFileWithErrorLogging() {
   return perms;
 }
 
+function getEnvSchemaPathWithLogging() {
+  const path = process.env.INSTANT_SCHEMA_FILE_PATH;
+  if (path) {
+    console.log(
+      `Using INSTANT_SCHEMA_FILE_PATH=${chalk.green(process.env.INSTANT_SCHEMA_FILE_PATH)}`,
+    );
+  }
+  return path;
+}
+
+function getSchemaReadCandidates() {
+  const existing = getEnvSchemaPathWithLogging();
+  if (existing) return [{ files: existing, transform: transformImports }];
+  return [
+    {
+      files: 'instant.schema',
+      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
+      transform: transformImports,
+    },
+    {
+      files: 'src/instant.schema',
+      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
+      transform: transformImports,
+    },
+    {
+      files: 'app/instant.schema',
+      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
+      transform: transformImports,
+    },
+  ];
+}
+
+function getSchemaPathToWrite(existingPath) {
+  if (existingPath) return existingPath;
+  if (process.env.INSTANT_SCHEMA_FILE_PATH) {
+    return process.env.INSTANT_SCHEMA_FILE_PATH;
+  }
+  return 'instant.schema.ts';
+}
+
 async function readLocalSchemaFile() {
-  return (
-    await loadConfig({
-      sources: [
-        // load from `instant.config.xx`
-        {
-          files: 'instant.schema',
-          extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
-          transform: transformImports,
-        },
-      ],
-      // if false, the only the first matched will be loaded
-      // if true, all matched will be loaded and deep merged
-      merge: false,
-    })
-  ).config;
+  const readCandidates = getSchemaReadCandidates();
+  const res = await loadConfig({
+    sources: readCandidates,
+    merge: false,
+  });
+  if (!res.config) return;
+  const relativePath = path.relative(process.cwd(), res.sources[0]);
+  return { path: relativePath, schema: res.config };
 }
 
 async function readInstantConfigFile() {
@@ -1400,16 +1434,16 @@ async function readInstantConfigFile() {
 }
 
 async function readLocalSchemaFileWithErrorLogging() {
-  const schema = await readLocalSchemaFile();
+  const res = await readLocalSchemaFile();
 
-  if (!schema) {
+  if (!res) {
     error(
       `We couldn't find your ${chalk.yellow('`instant.schema.ts`')} file. Make sure it's in the root directory.`,
     );
     return;
   }
 
-  if (schema?.constructor?.name !== 'InstantSchemaDef') {
+  if (res.schema?.constructor?.name !== 'InstantSchemaDef') {
     error("We couldn't find your schema export.");
     error(
       'In your ' +
@@ -1420,7 +1454,7 @@ async function readLocalSchemaFileWithErrorLogging() {
     return;
   }
 
-  return schema;
+  return res;
 }
 
 async function readConfigAuthToken() {
