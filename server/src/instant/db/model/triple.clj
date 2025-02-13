@@ -496,7 +496,7 @@
                                                       :where [:= :idents.id :needs-null-attr.forward-ident]}]
                                  ;; No existing triple for this attr
                                  [:not [:exists {:select :*
-                                                 :from [:triples :ea-index-inserts :remaining-inserts]
+                                                 :from :triples
                                                  :where [:and
                                                          [:= :triples.app-id app-id]
                                                          [:= :triples.attr-id :needs-null-attr.id]
@@ -528,7 +528,7 @@
                                        :where [:and
                                                [:= :lookup-ref-inserts.entity-id :new-entities.entity-id]
                                                [:= :lookup-ref-inserts.attr-id :needs-null-attr.id]]}]]]))}]
-                       [:index-null-inserts
+                       [:indexed-null-inserts
                         {:insert-into [[:triples triple-cols]
                                        {:select triple-cols
                                         :from :indexed-null-triples}]
@@ -539,7 +539,7 @@
                         [attr-inferred-types]))
                :union-all [{:select :entity-id :from :ea-index-inserts}
                            {:select :entity-id :from :remaining-inserts}
-                           {:select :entity-id :from :index-null-inserts}]}]
+                           {:select :entity-id :from :indexed-null-inserts}]}]
     (try
       (sql/do-execute! conn (hsql/format query))
       (catch Exception e
