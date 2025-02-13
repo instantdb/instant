@@ -21,7 +21,7 @@ import type {
   PresenceSlice,
   RoomSchemaShape,
 } from './presence';
-import type { IDatabase, IInstantDatabase } from './coreTypes';
+import type { DevtoolConfig, IDatabase, IInstantDatabase } from './coreTypes';
 import type {
   Query,
   QueryResponse,
@@ -89,14 +89,14 @@ export type Config = {
   appId: string;
   websocketURI?: string;
   apiURI?: string;
-  devtool?: boolean;
+  devtool?: boolean | DevtoolConfig;
 };
 
 export type InstantConfig<S extends InstantSchemaDef<any, any, any>> = {
   appId: string;
   websocketURI?: string;
   apiURI?: string;
-  devtool?: boolean;
+  devtool?: boolean | DevtoolConfig;
   schema?: S;
 };
 
@@ -662,7 +662,11 @@ function init<
       !Boolean((globalThis as any)._nodevtool);
 
     if (showDevtool) {
-      createDevtool(config.appId);
+      const devtoolOptions =
+        typeof config.devtool === 'object'
+          ? config.devtool
+          : { position: 'bottom-right' as const };
+      createDevtool(config.appId, devtoolOptions);
     }
   }
 
