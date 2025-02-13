@@ -73,6 +73,24 @@ As a convenience, apart from `INSTANT_APP_ID`, we also check for:
 - `NUXT_PUBLIC_INSTANT_APP_ID` for nuxt apps
 - `EXPO_PUBLIC_INSTANT_APP_ID` for expo apps
 
+## Where to save files
+
+By default, Instant will search for your `instant.schema.ts` and `instant.perms.ts` file in:
+
+1. The `root` directory: `./`
+2. The `src` directory: `./src`
+3. The `app` directory: `./app`
+
+If you'd like to save them in a custom directory, you use the following environment variables:
+
+- `INSTANT_SCHEMA_FILE_PATH` sets the location for your `instant.schema.ts` file.
+- `INSTANT_RULES_FILE_PATH` sets the location for your `instant.perms.ts` file.
+
+```yaml
+INSTANT_SCHEMA_FILE_PATH=./src/db/instant.schema.ts
+INSTANT_PERMS_FILE_PATH=./src/db/instant.perms.ts
+```
+
 ## Authenticating in CI
 
 In CI or similer environments, you may want to handle authentication without having to go through a web-based validation step each time.
