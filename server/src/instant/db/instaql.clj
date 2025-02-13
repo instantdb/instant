@@ -487,10 +487,10 @@
 
 (defn- level-sym-gen
   "Generates a level-sym function that will namespace all but the join variable."
-  [base-level-sym etype idx]
+  [base-level-sym join-sym idx]
   (fn level-sym [x level]
     (let [base (base-level-sym x level)]
-      (if (= x etype)
+      (if (= join-sym base)
         base
         (symbol (str base "-" idx))))))
 
@@ -644,7 +644,10 @@
           (update ret :pats optimize-attr-pats)))
       :or (-> (reduce
                (fn [acc [i conds]]
-                 (let [level-sym (level-sym-gen level-sym (:etype form) i)]
+                 (let [join-sym (attr-pat/default-level-sym
+                                 (:etype form)
+                                 (:level form))
+                       level-sym (level-sym-gen level-sym join-sym i)]
                    (as-> (where-conds->patterns (assoc ctx :level-sym level-sym)
                                                 form
                                                 conds) %
@@ -661,7 +664,10 @@
 
       :and (-> (reduce
                 (fn [acc [i conds]]
-                  (let [level-sym (level-sym-gen level-sym (:etype form) i)]
+                  (let [join-sym (attr-pat/default-level-sym
+                                  (:etype form)
+                                  (:level form))
+                        level-sym (level-sym-gen level-sym join-sym i)]
                     (as-> (where-conds->patterns (assoc ctx :level-sym level-sym)
                                                  form
                                                  conds) %
