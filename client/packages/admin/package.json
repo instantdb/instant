@@ -25,6 +25,6 @@
     "vitest": "^0.21.0"
   },
   "dependencies": {
-    "@instantdb/core": "v0.17.14"
+    "@instantdb/core": "*"
   }
 }
