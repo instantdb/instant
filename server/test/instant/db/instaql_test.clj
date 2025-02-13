@@ -3232,7 +3232,8 @@
            [[shared-id :users/id shared-id]
             '--
             [shared-id :users/handle "handle"]
-            [shared-id :users/id shared-id]]}])
+            [shared-id :users/id shared-id]
+            [shared-id :users/email nil]]}])
         (is-pretty-eq?
          (query-pretty ctx r {:books {:$ {:where {:id shared-id}}}})
          [{:topics
