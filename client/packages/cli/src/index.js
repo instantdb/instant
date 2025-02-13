@@ -1409,6 +1409,17 @@ async function readLocalSchemaFileWithErrorLogging() {
     return;
   }
 
+  if (schema?.constructor?.name !== 'InstantSchemaDef') {
+    error("We couldn't find your schema export.");
+    error(
+      'In your ' +
+        chalk.green('`instant.schema.ts`') +
+        ' file, make sure you ' +
+        chalk.green('`export default schema`'),
+    );
+    return;
+  }
+
   return schema;
 }
 
