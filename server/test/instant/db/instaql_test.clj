@@ -287,7 +287,7 @@
           (is (= '{:expected supported-order?,
                    :in ["etype" :$ :order],
                    :message
-                   "The `etype.unchecked` attribute is not indexed. Only indexed and type-checked attrs can be used to order by."}
+                   "The `etype.unchecked` attribute is not indexed. Only indexed and typed attributes can be used to order by."}
                  (validation-err ctx {:etype {:$ {:order {:unchecked "desc"}}}})))
 
           (is (= '{:expected valid-cursor?,
