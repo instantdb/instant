@@ -395,7 +395,7 @@ function DevtoolWindow({
       <div className="flex flex-col h-full w-full">
         <div className="flex p-2 text-xs bg-gray-100 border-b">
           <div className="flex-1 font-mono">
-            Instant Devtools {app?.title ? `• My App` : ''}
+            Instant Devtools {app?.title ? `• ${app?.title}` : ''}
             {isLocalHost ? ' • localhost' : ''}
           </div>
           <XMarkIcon
