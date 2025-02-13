@@ -1,11 +1,18 @@
 (ns instant.storage.sweeper-test
-  (:require [clojure.test :as test :refer [deftest testing is]]
+  (:require [clojure.test :as test :refer [deftest testing is use-fixtures]]
             [instant.model.app-file :as app-file]
             [instant.storage.sweeper :as sweeper]
             [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
             [instant.fixtures :refer [with-empty-app]]
-            [honey.sql :as hsql]))
+            [honey.sql :as hsql]
+            [instant.util.s3 :as s3-util]))
+
+(defn with-s3-mock [f]
+  (with-redefs [s3-util/delete-objects (constantly nil)]
+    (f)))
+
+(use-fixtures :each with-s3-mock)
 
 (defn delete-sweep-files!
   [conn app-id]
