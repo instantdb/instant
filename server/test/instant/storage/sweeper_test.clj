@@ -4,9 +4,7 @@
             [instant.storage.sweeper :as sweeper]
             [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
-            [instant.util.test :refer [wait-for]]
             [instant.fixtures :refer [with-empty-app]]
-            [clojure.core.async :as a]
             [honey.sql :as hsql]))
 
 (defn delete-sweep-files!
@@ -26,16 +24,6 @@
                         :from :app-files-to-sweep
                         :where [:= :app-id app-id]}))
       :count))
-
-(defn with-queue [f]
-  (let [chan (a/chan 10)
-        process (future (sweeper/start-process chan))]
-    (try
-      (f chan)
-      (finally
-        (a/close! chan)
-        (when (= :timeout (deref process 1000 :timeout))
-          (throw (Exception. "Timeout in with-queue")))))))
 
 (deftest test-sweeper-basic-operations
   (with-empty-app
@@ -110,111 +98,100 @@
           (is (= 2 (count-files-to-sweep conn app-id)))
           (delete-sweep-files! conn app-id))))))
 
-(deftest test-single-sweeper-job
-  (with-queue
-    (fn [job-queue]
-      (with-empty-app
-        (fn [app]
-          (let [app-id (:id app)
-                conn (aurora/conn-pool :write)
-                files (for [i (range 500)] ;; Generate 500 files
-                        {:file-id (random-uuid)
-                         :path (format "file-%d.jpg" i)
-                         :location-id (format "loc-%d" i)
-                         :metadata {:size 100
-                                    :content-type "image/jpeg"
-                                    :content-disposition "inline"}})
-                file-ids (app-file/bulk-create! conn
-                                                {:app-id app-id
-                                                 :data files})]
-            ;; Verify no sweep entries yet
-            (is (zero? (count-files-to-sweep conn app-id)))
+(deftest single-loop-sweep
+  (with-empty-app
+    (fn [app]
+      (let [app-id (:id app)
+            conn (aurora/conn-pool :write)
+            files (for [i (range 800)] ;; Generate < 1000 files
+                    {:file-id (random-uuid)
+                     :path (format "file-%d.jpg" i)
+                     :location-id (format "loc-%d" i)
+                     :metadata {:size 100
+                                :content-type "image/jpeg"
+                                :content-disposition "inline"}})
+            file-ids (app-file/bulk-create! conn {:app-id app-id
+                                                  :data files})
+            _ (app-file/delete-by-ids! conn
+                                       {:app-id app-id
+                                        :ids file-ids})]
 
-            ;; Delete all files
-            (app-file/delete-by-ids! conn
-                                     {:app-id app-id
-                                      :ids file-ids})
+        ;; 800 files should be marked for sweep
+        (is (= 800 (count-files-to-sweep conn app-id)))
 
-            ;; Verify sweep entries created
-            (is (= 500 (count-files-to-sweep conn app-id)))
+        (sweeper/handle-sweep! conn {:app-id app-id
+                                     :limit 1000})
 
-            (let [jobs (sweeper/create-jobs! conn app-id)
-                  job (first jobs)]
+        ;; All files should now be swept
+        (is (= 0 (count-files-to-sweep conn app-id)))))))
 
-              ;; Only one job should be created since there are <=1000 files
-              (is (= 1 (count jobs)))
-              (is (= "waiting" (:job_status job)))
+(deftest mulit-loop-sweep
+  (with-empty-app
+    (fn [app]
+      (let [app-id (:id app)
+            conn (aurora/conn-pool :write)
+            files (for [i (range 2500)]
+                    {:file-id (random-uuid)
+                     :path (format "file-%d.jpg" i)
+                     :location-id (format "loc-%d" i)
+                     :metadata {:size 100
+                                :content-type "image/jpeg"
+                                :content-disposition "inline"}})
+            chunks (partition-all 1000 files)
+            file-ids (mapcat #(app-file/bulk-create! conn
+                                                     {:app-id app-id
+                                                      :data %}) chunks)
+            delete-chunks (partition-all 1000 file-ids)
+            _ (doseq [chunk delete-chunks]
+                (app-file/delete-by-ids! conn
+                                         {:app-id app-id
+                                          :ids chunk}))]
 
-              (sweeper/enqueue-job job-queue job)
-              (wait-for #(= "completed"
-                            (:job_status (sweeper/get-job-by-id (:id job))))
-                        100)
+        ;; 2500 files should be marked for sweep
+        (is (= 2500 (count-files-to-sweep conn app-id)))
 
-              ;; Verify job completed successfully
-              (let [completed-job (sweeper/get-job-by-id (:id job))]
-                (is (= 500 (:num_files_claimed completed-job)))
-                (is (nil? (:error completed-job)))
-                (is (some? (:done_at completed-job))))
+        (sweeper/handle-sweep! conn {:app-id app-id
+                                     :limit 1000})
 
-              ;; Verify all sweep entries deleted
-              (is (= 0 (count-files-to-sweep conn app-id))))))))))
+        ;; All files should now be swept
+        (is (= 0 (count-files-to-sweep conn app-id)))))))
 
-(deftest test-mulitple-sweeper-jobs
-  (with-queue
-    (fn [job-queue]
-      (with-empty-app
-        (fn [app]
-          (let [app-id (:id app)
-                conn (aurora/conn-pool :write)
-                files (for [i (range 2500)] ;; Generate 2500 files
-                        {:file-id (random-uuid)
-                         :path (format "file-%d.jpg" i)
-                         :location-id (format "loc-%d" i)
-                         :metadata {:size 100
-                                    :content-type "image/jpeg"
-                                    :content-disposition "inline"}})
-                chunks (partition-all 1000 files)
-                file-ids (mapcat #(app-file/bulk-create! conn
-                                                         {:app-id app-id
-                                                          :data %}) chunks)
-                delete-chunks (partition-all 1000 file-ids)
-                _ (doseq [chunk delete-chunks]
-                    (app-file/delete-by-ids! conn
-                                             {:app-id app-id
-                                              :ids chunk}))
-                jobs (sweeper/create-jobs! conn app-id)]
+(deftest warn-too-many-loops
+  (with-empty-app
+    (fn [app]
+      (let [app-id (:id app)
+            conn (aurora/conn-pool :write)
+            files (for [i (range 5)] ;; Generate < 5 files
+                    {:file-id (random-uuid)
+                     :path (format "file-%d.jpg" i)
+                     :location-id (format "loc-%d" i)
+                     :metadata {:size 100
+                                :content-type "image/jpeg"
+                                :content-disposition "inline"}})
+            file-ids (app-file/bulk-create! conn {:app-id app-id
+                                                  :data files})
+            _ (app-file/delete-by-ids! conn
+                                       {:app-id app-id
+                                        :ids file-ids})]
 
-            ;; Verify 2500 sweep entries created
-            (is (= 2500 (count-files-to-sweep conn app-id)))
+        ;; 5 files should be marked for sweep
+        (is (= 5 (count-files-to-sweep conn app-id)))
 
-            ;; Verify 3 jobs created (each job processes at most 1000 files)
-            (is (= 3 (count jobs)))
+        ;; Warn should be triggered
+        (is (:warn (sweeper/handle-sweep! conn {:app-id app-id
+                                                :limit 1
+                                                :max-loops 3})))
 
-            ;; Verify all jobs are in waiting state
-            (doseq [job jobs]
-              (is (= "waiting" (:job_status job)))
-              (is (nil? (:error job)))
-              (is (nil? (:done_at job))))
+        ;; 2 files should remain
+        (is (= 2 (count-files-to-sweep conn app-id)))
 
-            ;; Enqueue jobs
-            (doseq [job jobs]
-              (sweeper/enqueue-job job-queue job))
+        ;; Should be able to run again without issue
+        (sweeper/handle-sweep! conn {:app-id app-id
+                                     :limit 1
+                                     :max-loops 2})
 
-            (wait-for
-             (fn []
-               (every? #(= "completed" (:job_status %))
-                       (mapv sweeper/get-job-by-id (map :id jobs))))
-             1000)
-
-            ;; Verify all jobs completed successfully and processed
-            ;; correct number of files
-            (let [completed-jobs (mapv sweeper/get-job-by-id (map :id jobs))]
-              (is (= 2500 (reduce + (map :num_files_claimed completed-jobs))))
-              (is (every? nil? (map :error completed-jobs)))
-              (is (every? some? (map :done_at completed-jobs))))
-
-            ;; Verify all sweep entries deleted
-            (is (= 0 (count-files-to-sweep conn app-id)))))))))
+        ;; All files should now be swept
+        (is (= 0 (count-files-to-sweep conn app-id)))))))
 
 (comment
   (test/run-tests *ns*))
