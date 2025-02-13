@@ -226,68 +226,79 @@
 
 (defn expand-delete-entity-cascade [tx-steps conn app-id attrs]
   (let [ids+etypes (->> (map next tx-steps)
-                     (filter (fn [[id etype]]
-                               (and (uuid? id) (some? etype)))))]
+                        (filter (fn [[id etype]]
+                                  (and (uuid? id) (some? etype)))))]
     (if (empty? ids+etypes)
       tx-steps
       (let [attrs+etypes
             (->> attrs
-              (filter #(= :ref (:value-type %)))
-              (filter #(= :cascade (:on-delete %)))
-              (mapv #(vector (:id %) (-> % :forward-identity second) (-> % :reverse-identity second))))
-            
+                 (filter #(= :ref (:value-type %)))
+                 (filter #(= :cascade (:on-delete %)))
+                 (mapv #(vector (:id %) (-> % :forward-identity second) (-> % :reverse-identity second))))
+
             reverse-attrs+etypes
             (->> attrs
-              (filter #(= :ref (:value-type %)))
-              (filter #(= :cascade (:on-delete-reverse %)))
-              (mapv #(vector (:id %) (-> % :forward-identity second) (-> % :reverse-identity second))))
-            
+                 (filter #(= :ref (:value-type %)))
+                 (filter #(= :cascade (:on-delete-reverse %)))
+                 (mapv #(vector (:id %) (-> % :forward-identity second) (-> % :reverse-identity second))))
+
             query+args
             (hsql/format
-              {:with-recursive [[[:entids_forward {:columns [:entity_id :etype]}]
-                                 {:union [{:values ids+etypes}
-                                          {:from   :entids_forward
-                                           :join   [:refs_forward [:and
-                                                                   ;; TODO entity_id/value_ref join instead
-                                                                   [:= [:to_jsonb :entids_forward.entity_id] :refs_forward.value]
-                                                                   [:= :entids_forward.etype :refs_forward.reverse_etype]]]
-                                           :select [:refs_forward.entity_id :refs_forward.forward_etype]}]}]
-                                
-                                [[:entids_reverse {:columns [:entity_id :etype]}]
-                                 {:union [{:from :entids_forward
-                                           :select [:entity_id :etype]}
-                                          {:from   :entids_reverse
-                                           :join   [:refs_reverse [:and
-                                                                   [:= :entids_reverse.entity_id :refs_reverse.entity_id]
-                                                                   [:= :entids_reverse.etype :refs_reverse.forward_etype]]]
-                                           ;; TODO value -> value_ref
-                                           :select [[[:cast [:->> :refs_reverse.value :0] :uuid]] :refs_reverse.reverse_etype]}]}]
-                                
-                                [[:attrs_forward {:columns [:id :forward_etype :reverse_etype]}]
-                                 (if (empty? attrs+etypes)
-                                   {:select [[[:cast nil :uuid]] nil nil] :where false}
-                                   {:values attrs+etypes})]
-                                
-                                [:refs_forward {:select [:triples.entity_id :triples.value :attrs_forward.forward_etype :attrs_forward.reverse_etype]
-                                                :from   :triples
-                                                :join   [:attrs_forward [:= :triples.attr_id :attrs_forward.id]]
-                                                :where  [:and
-                                                         :triples.vae
-                                                         [:= :triples.app_id app-id]]}]
-                                
-                                [[:attrs_reverse {:columns [:id :forward_etype :reverse_etype]}]
-                                 (if (empty? reverse-attrs+etypes)
-                                   {:select [[[:cast nil :uuid]] nil nil] :where false}
-                                   {:values reverse-attrs+etypes})]
-                                
-                                [:refs_reverse {:select [:triples.entity_id :triples.value :attrs_reverse.forward_etype :attrs_reverse.reverse_etype]
-                                                :from   :triples
-                                                :join   [:attrs_reverse [:= :triples.attr_id :attrs_reverse.id]]
-                                                :where  [:and
-                                                         :triples.vae
-                                                         [:= :triples.app_id app-id]]}]]
-               :from   :entids_reverse
-               :select :*})
+             {:with-recursive
+              [;; endids
+               [[:entids {:columns [:entity_id :etype]}]
+                {:union [{:values ids+etypes}
+                         ;; can’t reference entids twice, but can bind it to entids_inner and then it’s okay
+                         {:select :*
+                          :from {:with
+                                 [[[:entids_inner]
+                                   {:select :* :from :entids}]]
+                                 :union
+                                 [;; follow forward refs → entid
+                                  {:from   :entids_inner
+                                   :join   [:refs_forward [:and
+                                                           ;; TODO entity_id/value_ref join instead
+                                                           [:= [:to_jsonb :entids_inner.entity_id] :refs_forward.value]
+                                                           [:= :entids_inner.etype :refs_forward.reverse_etype]]]
+                                   :select [:refs_forward.entity_id :refs_forward.forward_etype]}
+                                  ;; follow entid → reverse refs
+                                  {:from   :entids_inner
+                                   :join   [:refs_reverse [:and
+                                                           [:= :entids_inner.entity_id :refs_reverse.entity_id]
+                                                           [:= :entids_inner.etype :refs_reverse.forward_etype]]]
+                                   ;; TODO value -> value_ref
+                                   :select [[[:cast [:->> :refs_reverse.value :0] :uuid]] :refs_reverse.reverse_etype]}]}}]}]
+
+               ;; attrs_forward
+               [[:attrs_forward {:columns [:id :forward_etype :reverse_etype]}]
+                (if (empty? attrs+etypes)
+                  {:select [[[:cast nil :uuid]] nil nil] :where false}
+                  {:values attrs+etypes})]
+
+               ;; refs_forward
+               [:refs_forward {:select [:triples.entity_id :triples.value :attrs_forward.forward_etype :attrs_forward.reverse_etype]
+                               :from   :triples
+                               :join   [:attrs_forward [:= :triples.attr_id :attrs_forward.id]]
+                               :where  [:and
+                                        :triples.vae
+                                        [:= :triples.app_id app-id]]}]
+
+               ;; attrs_reverse
+               [[:attrs_reverse {:columns [:id :forward_etype :reverse_etype]}]
+                (if (empty? reverse-attrs+etypes)
+                  {:select [[[:cast nil :uuid]] nil nil] :where false}
+                  {:values reverse-attrs+etypes})]
+
+               ;; refs_reverse
+               [:refs_reverse {:select [:triples.entity_id :triples.value :attrs_reverse.forward_etype :attrs_reverse.reverse_etype]
+                               :from   :triples
+                               :join   [:attrs_reverse [:= :triples.attr_id :attrs_reverse.id]]
+                               :where  [:and
+                                        :triples.vae
+                                        [:= :triples.app_id app-id]]}]]
+              ;; final select
+              :from   :entids
+              :select :*})
             res         (sql/execute! conn query+args)
             ids+etypes' (map (juxt :entity_id :etype) res)]
         (for [[entity_id etype] (set (concat ids+etypes ids+etypes'))]
