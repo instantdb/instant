@@ -190,7 +190,7 @@
 
 (defn cascade-message [[etype label]]
   (str etype "->" label ": "
-       "Cascade delete is only possible on cardinality: one attributes. "
+       "Cascade delete is only possible on links with `has: 'one'`. "
        "Check your full schema in the dashboard: "
        "https://www.instantdb.com/dash?s=main&t=explorer"))
 
