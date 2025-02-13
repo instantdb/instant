@@ -359,7 +359,7 @@ function DevtoolWithData({
               <Admin dashResponse={dashResponse} app={app} />
             </div>
           ) : tab === 'help' ? (
-            <div className="min-w-[960px] w-full p-4 space-y-2">
+            <div className="min-w-[960px] w-full p-4 space-y-4">
               <Help />
               <Button
                 size="mini"
@@ -537,25 +537,14 @@ function Help() {
       </p>
       <p>
         You can toggle this view with the keyboard shortcut
-        <Code>ctrl + shift + 0</Code>.
-      </p>
-      <p>
-        It's is only displayed in development (i.e. when the site's hostname
-        equals
-        <Code>localhost</Code>). You can disable it entirely by calling
-        Instant's
-        <Code>init</Code> function with <Code>devtool: false</Code>.
-      </p>
-      <p>
-        Feedback? Drop us a line on{' '}
+        <Code>ctrl + shift + 0</Code>. To learn more, check out the{' '}
         <a
           className="font-bold text-blue-500"
-          href="https://discord.com/invite/VU53p7uQcE"
+          href="https://instantdb.com/docs/devtool"
           target="_blank"
         >
-          Discord
+          docs.
         </a>
-        .
       </p>
     </Stack>
   );
