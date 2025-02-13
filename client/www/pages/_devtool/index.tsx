@@ -386,14 +386,16 @@ function DevtoolWindow({
   children: React.ReactNode;
 }) {
   const isLocalHost =
-    typeof window !== 'undefined' && window.location.hostname === 'localhost';
+    typeof window !== 'undefined' &&
+    window.location.hostname === 'localhost' &&
+    false;
 
   return (
     <div className="h-full w-full">
       <div className="flex flex-col h-full w-full">
         <div className="flex p-2 text-xs bg-gray-100 border-b">
           <div className="flex-1 font-mono">
-            Instant Devtools {app?.title ? `• ${app?.title}` : ''}
+            Instant Devtools {app?.title ? `• My App` : ''}
             {isLocalHost ? ' • localhost' : ''}
           </div>
           <XMarkIcon
