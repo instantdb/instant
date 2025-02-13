@@ -38,7 +38,7 @@ You can set `bottom-left`, `top-left`, `top-right`, `bottom-right`.
 
 ## Disabling the Devtool
 
-If you would like to hide the devtool, you can add `devtool: false` to in `init`:
+If you would like to hide the devtool, you can add `devtool: false` in `init`:
 
 ```typescript
 import { init } from '@instantdb/react';
