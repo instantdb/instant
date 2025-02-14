@@ -29,7 +29,7 @@
 
 (set! *warn-on-reflection* true)
 
-(def default-bucket "instant-storage")
+(def default-bucket config/s3-bucket-name)
 (def default-content-type "application/octet-stream")
 (def default-content-disposition "inline")
 
