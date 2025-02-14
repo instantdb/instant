@@ -2515,6 +2515,8 @@
 
 (deftest comparators
   (with-zeneca-checked-data-app
+    ;; We don't use the zeneca app here, but we need its triples
+    ;; to make postgres choose a good index
     (fn [_ _]
       (with-empty-app
         (fn [app]
@@ -2644,6 +2646,8 @@
 
 (deftest lookup-unique-uses-the-av-index
   (with-zeneca-app
+    ;; We don't use the zeneca app here, but we need its triples
+    ;; to make postgres choose a good index
     (fn [_ _]
       (with-empty-app
         (fn [app]
