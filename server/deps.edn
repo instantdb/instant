@@ -47,7 +47,7 @@
         circleci/circleci.test {:mvn/version "0.5.0"}
         org.clojure/test.check {:mvn/version "1.1.1"}
         com.github.vertical-blank/sql-formatter {:mvn/version "2.0.3"}
-        com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.5.1"}
+        com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.6.1"}
         org.clj-commons/claypoole {:mvn/version "1.2.2"}
 
         ;; opentelemetry
