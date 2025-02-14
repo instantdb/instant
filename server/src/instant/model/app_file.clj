@@ -88,6 +88,26 @@
                   :id #uuid "0036438b-e510-47bf-b62f-835a1cefb392"
                   :location-id "circle_red.jpg"}))
 
+(defn bulk-update-metadata!
+  ([params] (bulk-update-metadata! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id metadatas-map]}]
+   (update-op
+    conn
+    {:app-id app-id
+     :etype etype}
+    (fn [{:keys [transact! resolve-id]}]
+      (let [content-type-attr-id (resolve-id :content-type)
+            content-disposition-attr-id (resolve-id :content-disposition)
+            triples (mapcat (fn [{:keys [id content-type content-disposition]}]
+                              (cond-> []
+                                content-type
+                                (conj [:add-triple id content-type-attr-id content-type])
+
+                                content-disposition
+                                (conj [:add-triple id content-disposition-attr-id content-disposition])))
+                            metadatas-map)]
+        (transact! triples {:allow-$files-update? true}))))))
+
 (defn bulk-create!
   ([params] (bulk-create! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id data]}]
