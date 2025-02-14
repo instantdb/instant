@@ -389,7 +389,7 @@
                             (every? (fn [{:keys [id]}]
                                       (= "completed" (:job_status (jobs/get-by-id id))))
                                     [job]))
-                          1000)
+                          5000)
               triples (triple-model/fetch (aurora/conn-pool :read)
                                           (:id app)
                                           [[:= :attr-id attr-id]])]
