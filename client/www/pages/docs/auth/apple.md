@@ -236,7 +236,7 @@ Sign out code:
 <Button
   title="Sign Out"
   onPress={async () => {
-    await db.auth.signOut(user.email);
+    await db.auth.signOut();
   }}
 />
 ```
@@ -275,7 +275,7 @@ export default function App() {
         <Button
           title="Sign Out"
           onPress={async () => {
-            await db.auth.signOut(user.email);
+            await db.auth.signOut();
           }}
         />
       </View>

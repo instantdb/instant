@@ -53,6 +53,7 @@ module.exports = [
         href: '/docs/presence-and-topics',
       },
       { title: 'Instant CLI', href: '/docs/cli' },
+      { title: 'Devtool', href: '/docs/devtool' },
       { title: 'Custom emails', href: '/docs/emails' },
       { title: 'App teams', href: '/docs/teams' },
       { title: 'Storage (beta)', href: '/docs/storage' },

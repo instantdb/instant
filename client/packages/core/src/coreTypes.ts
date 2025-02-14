@@ -21,3 +21,13 @@ export interface IInstantDatabase<
 > {
   tx: TxChunk<Schema>;
 }
+
+export type DevtoolPosition =
+  | 'bottom-left'
+  | 'bottom-right'
+  | 'top-right'
+  | 'top-left';
+
+export type DevtoolConfig = {
+  position: DevtoolPosition;
+};
