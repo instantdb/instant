@@ -4,6 +4,7 @@
    [honey.sql :as hsql]
    [instant.data.constants :refer [empty-app-id]]
    [instant.db.model.attr :as attr-model]
+   [instant.db.model.triple-cols :as triple-cols-ns]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.system-catalog :refer [system-catalog-app-id]]
@@ -70,8 +71,7 @@
 ;; ---
 ;; insert-multi!
 
-(def triple-cols
-  [:app-id :entity-id :attr-id :value :value-md5 :ea :eav :av :ave :vae :checked-data-type])
+(def triple-cols triple-cols-ns/triple-cols)
 
 (defn eid-lookup-ref?
   "Takes the eid part of a triple and returns true if it is a lookup ref ([a v])."

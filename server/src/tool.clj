@@ -1,11 +1,11 @@
 (ns tool
-  "Handy functions to use when you're in the REPL. 
-   
-   This is required in the `core` namespace, so you can use it anywhere. 
+  "Handy functions to use when you're in the REPL.
 
-   The most popular: 
+   This is required in the `core` namespace, so you can use it anywhere.
+
+   The most popular:
      (tool/def-locals)
-     (tool/copy) 
+     (tool/copy)
      (tool/hsql-pretty ...) and more!"
   (:require
    [clojure.pprint :as pprint]
@@ -99,20 +99,22 @@
    Useful for running queries in psql"
   [[q & params]]
   (let [idx (atom 0)]
-    (sql-pretty
-     (clojure.string/replace q
-                             #"\?"
-                             (fn [_] (let [i @idx
-                                           v (nth params i)]
-                                       (swap! idx inc)
-                                       (str (cond
-                                              (int? v) (format "%s" v)
-                                              (string? v) (format "'%s'" (-> v
-                                                                             (.replace "'" "''")))
-                                              :else (format "'%s'" v))
-                                            (if (uuid? v)
-                                              "::uuid"
-                                              ""))))))))
+    (-> q
+        (clojure.string/replace #"\?"
+                                (fn [_] (let [i @idx
+                                              v (nth params i)]
+                                          (swap! idx inc)
+                                          (str (cond
+                                                 (int? v) (format "%s" v)
+                                                 (string? v) (format "'%s'" (-> v
+                                                                                (.replace "'" "''")))
+                                                 :else (format "'%s'" v))
+                                               (if (uuid? v)
+                                                 "::uuid"
+                                                 "")))))
+        sql-pretty
+        ;; Fix a bug with the pretty printer where the || operator gets a space
+        (.replace "| |" "||"))))
 
 (defn unsafe-hsql-format
   "Use with caution: this inlines parameters in the query, so it could

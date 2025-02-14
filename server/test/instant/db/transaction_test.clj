@@ -15,8 +15,7 @@
    [instant.db.indexing-jobs :as indexing-jobs]
    [instant.fixtures :refer [with-empty-app
                              with-zeneca-app
-                             with-zeneca-app-no-indexing
-                             with-indexing-job-queue]]
+                             with-zeneca-app-no-indexing]]
    [instant.jdbc.aurora :as aurora]
    [instant.model.app :as app-model]
    [instant.model.app-user :as app-user-model]
@@ -1533,49 +1532,29 @@
                              (-> h :triple (nth 2)))
                            handles-after)))))))))
 
-(def ^:dynamic *inside* false)
-
 (deftest new-indexed-blobs-get-nulls
-  (with-indexing-job-queue job-queue
-    (with-zeneca-app
-      (fn [app r]
-        (let [make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
-                               :app-id (:id app)
-                               :attrs (attr-model/get-by-app-id (:id app))
-                               :datalog-query-fn d/query
-                               :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id (:id app)})
-                               :current-user nil})
-              enqueue indexing-jobs/enqueue-job
-              waiting-job-ids (atom #{})
-              attr-id (random-uuid)]
-          (with-redefs [indexing-jobs/enqueue-job (fn
-                                                    ([job]
-                                                     (if *inside*
-                                                       (do (swap! waiting-job-ids conj (:id job))
-                                                           (enqueue job-queue job))
-                                                       (enqueue job)))
-                                                    ([chan job]
-                                                     (enqueue chan job)))]
-            (binding [*inside* true]
-              (permissioned-tx/transact! (make-ctx)
-                                         [[:add-attr {:id attr-id
-                                                      :forward-identity [(random-uuid) "users" "new-attr"]
-                                                      :value-type :blob
-                                                      :cardinality :one
-                                                      :unique? false
-                                                      :index? true}]])
-              (is (pos? (count @waiting-job-ids)))
-              (wait-for (fn []
-                          (every? (fn [id]
-                                    (not (contains? #{"processing" "waiting"}
-                                                    (:job_status (indexing-jobs/get-by-id id)))))
-                                  @waiting-job-ids))
-                        1000)
-              (let [new-attr-triples (triple-model/fetch (aurora/conn-pool :read)
-                                                         (:id app)
-                                                         [[:= :attr-id attr-id]])]
-                (is (= [nil nil nil nil] (map (fn [r] (-> r :triple (nth 2)))
-                                              new-attr-triples)))))))))))
+  (with-zeneca-app
+    (fn [app r]
+      (let [make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
+                             :app-id (:id app)
+                             :attrs (attr-model/get-by-app-id (:id app))
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id (:id app)})
+                             :current-user nil})
+            attr-id (random-uuid)]
+        (permissioned-tx/transact! (make-ctx)
+                                   [[:add-attr {:id attr-id
+                                                :forward-identity [(random-uuid) "users" "new-attr"]
+                                                :value-type :blob
+                                                :cardinality :one
+                                                :unique? false
+                                                :index? true}]])
+        (let [new-attr-triples (triple-model/fetch (aurora/conn-pool :read)
+                                                   (:id app)
+                                                   [[:= :attr-id attr-id]])]
+          (is (= [nil nil nil nil] (map (fn [r] (-> r :triple (nth 2)))
+                                        new-attr-triples))))))))
+
 (deftest perms-rejects-updates-to-lookups
   (with-empty-app
     (fn [app]

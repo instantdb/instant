@@ -39,8 +39,6 @@
          (when (= :timeout (deref process# 1000 :timeout))
            (throw (Exception. "Timeout in with-queue")))))))
 
-(def ^:dynamic *indexing-job-queue* nil)
-
 (defn with-empty-app [f]
   (let [app-id (UUID/randomUUID)
         app (app-model/create! {:title "test app"
@@ -48,17 +46,7 @@
                                 :id app-id
                                 :admin-token (UUID/randomUUID)})]
     (try
-      (with-indexing-job-queue job-queue
-        (let [enqueue indexing-jobs/enqueue-job]
-          (with-redefs [indexing-jobs/enqueue-job (fn
-                                                    ([job]
-                                                     (if *indexing-job-queue*
-                                                       (enqueue *indexing-job-queue* job)
-                                                       (enqueue job)))
-                                                    ([chan job]
-                                                     (enqueue chan job)))]
-            (binding [*indexing-job-queue* job-queue]
-              (f app)))))
+      (f app)
       (finally
         (app-model/delete-by-id! {:id app-id})))))
 
