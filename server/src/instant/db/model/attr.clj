@@ -404,38 +404,32 @@
                            :returning :entity-id}]]
                   :select [[[:json_build_object
                              "idents" [:coalesce
-                                       {:select [[[:json_agg [:row_to_json :ident-inserts]]]]
+                                       {:select [[[:json_agg :id]]]
                                         :from :ident-inserts}
                                        [:cast [:inline "[]"] :json]]
                              "attrs" [:coalesce
-                                      {:select [[[:json_agg [:row_to_json :attr-inserts]]]]
+                                      {:select [[[:json_agg :id]]]
                                        :from :attr-inserts}
                                       [:cast [:inline "[]"] :json]]
                              "triples" [:coalesce
-                                        {:select [[[:json_agg [:row_to_json :indexed-null-inserts]]]]
+                                        {:select [[[:json_agg :entity-id]]]
                                          :from :indexed-null-inserts}
                                         [:cast [:inline "[]"] :json]]]]]}
            result (sql/execute-one! ::insert-multi! conn (hsql/format query))]
        {:attrs (-> result
                    (get-in [:json_build_object "attrs"])
-                   (#(map (fn [a]
-                            (-> a
-                                w/keywordize-keys
-                                uuid/walk-uuids))
+                   (#(map (fn [id]
+                            {:id (uuid/parse-uuid id)})
                           %)))
         :idents (-> result
                     (get-in [:json_build_object "idents"])
-                    (#(map (fn [a]
-                             (-> a
-                                 w/keywordize-keys
-                                 uuid/walk-uuids))
+                    (#(map (fn [id]
+                             {:id (uuid/parse-uuid id)})
                            %)))
         :triples (-> result
                      (get-in [:json_build_object "triples"])
-                     (#(map (fn [a]
-                              (-> a
-                                  w/keywordize-keys
-                                  uuid/walk-uuids))
+                     (#(map (fn [id]
+                              {:entity_id (uuid/parse-uuid id)})
                             %)))}))))
 
 (defn- not-null-or [check fallback]
