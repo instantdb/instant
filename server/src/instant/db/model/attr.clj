@@ -415,7 +415,6 @@
                                         {:select [[[:json_agg [:row_to_json :indexed-null-inserts]]]]
                                          :from :indexed-null-inserts}
                                         [:cast [:inline "[]"] :json]]]]]}
-           _ (tool/def-locals)
            result (sql/execute-one! ::insert-multi! conn (hsql/format query))]
        {:attrs (-> result
                    (get-in [:json_build_object "attrs"])
