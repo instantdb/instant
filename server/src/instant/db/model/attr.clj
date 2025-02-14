@@ -5,7 +5,6 @@
    [clojure.spec.alpha :as s]
    [clojure.spec.gen.alpha :as gen]
    [clojure.string :as string]
-   [clojure+.walk :as w]
    [honey.sql :as hsql]
    [instant.data.constants :refer [empty-app-id]]
    [instant.db.model.triple-cols :refer [triple-cols]]
