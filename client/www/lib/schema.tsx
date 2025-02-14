@@ -75,6 +75,7 @@ export function dbAttrsToExplorerSchema(
           checkedDataType: attrDesc['checked-data-type'],
           sortable: attrDesc['index?'] && !!attrDesc['checked-data-type'],
           onDelete: attrDesc['on-delete'],
+          onDeleteReverse: attrDesc['on-delete-reverse'],
         };
       }
     }
@@ -99,6 +100,8 @@ export function dbAttrsToExplorerSchema(
         cardinality: attrDesc.cardinality,
         linkConfig,
         sortable: attrDesc['index?'] && !!attrDesc['checked-data-type'],
+        onDelete: attrDesc['on-delete'],
+        onDeleteReverse: attrDesc['on-delete-reverse'],
       };
     }
   }

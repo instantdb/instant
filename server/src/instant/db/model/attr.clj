@@ -180,14 +180,14 @@
   "Manual reflection of postgres attr table columns"
   [:id :app-id :value-type
    :cardinality :is-unique :is-indexed
-   :forward-ident :reverse-ident :on-delete
+   :forward-ident :reverse-ident :on-delete :on-delete-reverse
    :checked-data-type])
 
 (defn attr-table-values
   "Marshals a collection of attrs into insertable sql attr values"
   [app-id attrs]
   (map (fn [{:keys [id value-type cardinality unique? index?
-                    forward-identity reverse-identity on-delete
+                    forward-identity reverse-identity on-delete on-delete-reverse
                     checked-data-type]}]
          [id
           app-id
@@ -198,6 +198,7 @@
           [:cast (first forward-identity) :uuid]
           [:cast (first reverse-identity) :uuid]
           [:cast (some-> on-delete name) :attr_on_delete]
+          [:cast (some-> on-delete-reverse name) :attr_on_delete]
           [:cast (some-> checked-data-type name) :checked_data_type]])
        attrs))
 
@@ -361,7 +362,7 @@
 
 (defn- changes-that-require-attr-model-updates
   [updates]
-  (let [ks #{:cardinality :value-type :unique? :index? :on-delete}]
+  (let [ks #{:cardinality :value-type :unique? :index? :on-delete :on-delete-reverse}]
     (->> updates
          (filter (fn [x]
                    (some (partial contains? x) ks))))))
@@ -382,11 +383,12 @@
                   {:values (attr-table-values app-id attr-table-updates)}]
                  [:attr-updates
                   {:update :attrs
-                   :set {:value-type  (not-null-or :attr-values.value-type :attrs.value-type)
-                         :cardinality (not-null-or :attr-values.cardinality :attrs.cardinality)
-                         :is-unique   (not-null-or :attr-values.is-unique :attrs.is-unique)
-                         :is-indexed  (not-null-or :attr-values.is-indexed :attrs.is-indexed)
-                         :on-delete   :attr-values.on-delete}
+                   :set {:value-type        (not-null-or :attr-values.value-type :attrs.value-type)
+                         :cardinality       (not-null-or :attr-values.cardinality :attrs.cardinality)
+                         :is-unique         (not-null-or :attr-values.is-unique :attrs.is-unique)
+                         :is-indexed        (not-null-or :attr-values.is-indexed :attrs.is-indexed)
+                         :on-delete         :attr-values.on-delete
+                         :on-delete-reverse :attr-values.on-delete-reverse}
                    :from [:attr-values]
                    :where [:and
                            [:= :attrs.id :attr-values.id]
@@ -462,6 +464,7 @@
            rev_etype
            inferred_types
            on_delete
+           on_delete_reverse
            checked_data_type
            checking_data_type
            indexing
@@ -478,6 +481,7 @@
                       :system
                       :user)}
     on_delete (assoc :on-delete (keyword on_delete))
+    on_delete_reverse (assoc :on-delete-reverse (keyword on_delete_reverse))
     reverse_ident (assoc :reverse-identity [reverse_ident rev_etype rev_label])
     checked_data_type (assoc :checked-data-type (keyword checked_data_type))
     checking_data_type (assoc :checking-data-type? true)
