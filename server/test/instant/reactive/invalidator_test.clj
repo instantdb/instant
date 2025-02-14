@@ -445,7 +445,20 @@
                           "value" (->json (str uid))
                           "vae" true,
                           "app_id" (str (:id app))
-                          "checked_data_type" nil}})))
+                          "checked_data_type" nil}
+                         ;; null that is automatically inserted for the
+                         ;; indexed blob attr
+                         {"eav" false,
+                          "av" true,
+                          "ave" true,
+                          "value_md5" "37a6259cc0c1dae299a7866489dff0bd",
+                          "entity_id" (str uid)
+                          "attr_id" (str (resolvers/->uuid r :users/email))
+                          "ea" true,
+                          "value" "null",
+                          "checked_data_type" nil,
+                          "vae" false,
+                          "app_id" (str (:id app))}})))
 
               (finally
                 (inv/stop process)))))))))

@@ -6,11 +6,13 @@
    [honey.sql :as hsql]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as transaction-model]
+   [instant.db.model.triple :as triple-model]
    [instant.discord :as discord]
    [instant.config :as config]
    [instant.jdbc.aurora :as aurora]
    [instant.system-catalog :as system-catalog]
    [instant.util.async :as ua]
+   [instant.util.crypt :refer [json-null-md5]]
    [instant.util.exception :as ex]
    [instant.util.tracer :as tracer]
    [instant.jdbc.sql :as sql]
@@ -55,6 +57,7 @@
 (def index-stages ["update-attr-start"
                    "estimate-work"
                    "update-triples"
+                   "insert-nulls"
                    "update-attr-done"])
 
 (def remove-index-stages ["update-attr-start"
@@ -354,18 +357,47 @@
          [:= :job-status "processing"]
          additional-clauses))
 
+(defn missing-null-triple-wheres
+  "Where clauses that return the id triples that are missing a value for the
+   indexed attr."
+  [{:keys [app_id attr_id]}]
+  (let [attrs (attr-model/get-by-app-id app_id)
+        etype (attr-model/fwd-etype (attr-model/seek-by-id attr_id attrs))
+        _ (assert etype "Attribute has no etype")
+        id-attr-id (:id (attr-model/seek-by-fwd-ident-name [etype "id"] attrs))
+        _ (assert id-attr-id (str etype " has no id attribute"))
+        indexed-attr (attr-model/seek-by-id attr_id attrs)
+        _ (assert indexed-attr (str "no attr found with id " attr_id))]
+    (if (not= (:value-type indexed-attr) :blob)
+      ;; Just return false if it's not a blob
+      [:= [:inline 1] [:inline 0]]
+      [:and
+       [:= :triples.app-id app_id]
+       [:= :triples.attr-id id-attr-id]
+       [:not [:exists {:select :*
+                       :from [[:triples :attr-triples]]
+                       :where [:and
+                               [:= :attr-triples.app-id app_id]
+                               [:= :attr-triples.attr-id attr_id]
+                               [:= :attr-triples.entity-id :triples.entity-id]]}]]])))
+
 (defn update-work-estimate!
   ([job next-stage]
    (update-work-estimate! (aurora/conn-pool :write) next-stage job))
   ([conn next-stage job]
-   (let [estimate (-> (sql/select-one
+   (let [default-where [:and
+                        [:= :app-id (:app_id job)]
+                        [:= :attr-id (:attr_id job)]]
+         estimate (-> (sql/select-one
                        ::get-work-estimate!
                        conn
                        (hsql/format {:select :%count.*
                                      :from :triples
-                                     :where [:and
-                                             [:= :app-id (:app_id job)]
-                                             [:= :attr-id (:attr_id job)]]}))
+                                     :where (if (= "index" (:job_type job))
+                                              [:or
+                                               default-where
+                                               (missing-null-triple-wheres job)]
+                                              default-where)}))
                       :count)]
      (sql/execute-one! ::estimate-work-estimate!
                        conn (hsql/format {:update :indexing-jobs
@@ -714,6 +746,45 @@
          res (sql/do-execute! ::index-next-batch! conn (hsql/format q))]
      (:next.jdbc/update-count (first res)))))
 
+(defn insert-nulls-next-batch!
+  "Inserts nulls for indexed blob attrs so that we can efficiently scan the
+   index with pagination queries."
+  ([job]
+   (insert-nulls-next-batch! (aurora/conn-pool :write) job))
+  ([conn {:keys [attr_id job_type] :as job}]
+   (assert (= "index" job_type))
+   (let [q {:insert-into [[:triples triple-model/triple-cols]
+                          {:select [[:app_id :app_id]
+                                    [:entity_id :entity_id]
+                                    [attr_id :attr_id]
+                                    [[:cast "null" :jsonb] :value]
+                                    [[:inline json-null-md5] :value_md5]
+                                    [[:= :cardinality [:inline "one"]] :ea]
+                                    [[:= :value_type [:inline "ref"]] :eav]
+                                    [:is_unique :av]
+                                    [:is_indexed :ave]
+                                    [[:= :value_type [:inline "ref"]] :vae]
+                                    :checked_data_type]
+                           :from {:select [:triples.app_id
+                                           :triples.entity_id
+                                           :attrs.cardinality
+                                           :attrs.value_type
+                                           :attrs.is_unique
+                                           :attrs.is_indexed
+                                           :attrs.checked_data_type]
+                                  ;; The `for update` should prevent a concurrent
+                                  ;; query from deleting the entity while we're
+                                  ;; doing our insert
+                                  :for :update
+                                  :from :triples
+                                  :join [:attrs [:and
+                                                 [:= :triples.app_id :attrs.app_id]
+                                                 [:= :attrs.id attr_id]]]
+                                  :limit batch-size
+                                  :where (missing-null-triple-wheres job)}}]}
+         res (sql/do-execute! ::insert-nulls-next-batch! conn (hsql/format q))]
+     (:next.jdbc/update-count (first res)))))
+
 (defn abort-index! [conn job]
   (update-attr! conn {:app-id (:app_id job)
                       :attr-id (:attr_id job)
@@ -723,12 +794,14 @@
                             :is-indexed false}})
   ;; It would be better to do this in a batch or even to
   ;; create a new job to undo the update
-  (sql/do-execute! ::abort-index! conn (hsql/format {:update :triples
-                                      :set {:ave false}
-                                      :where [:and
-                                              [:= :app-id (:app_id job)]
-                                              [:= :attr-id (:attr_id job)]
-                                              :ave]})))
+  (sql/do-execute! ::abort-index!
+                   conn
+                   (hsql/format {:update :triples
+                                 :set {:ave false}
+                                 :where [:and
+                                         [:= :app-id (:app_id job)]
+                                         [:= :attr-id (:attr_id job)]
+                                         :ave]})))
 
 (defn index-batch-and-update-job!
   ([job]
@@ -740,7 +813,22 @@
          (tracer/add-data! {:attributes {:update-count update-count}})
          (cond->> job
            (not (zero? update-count)) (add-work-completed! conn update-count)
-           (< update-count batch-size) (set-next-stage! conn "update-attr-done")))
+           (zero? update-count) (set-next-stage! conn "insert-nulls")))
+       (catch clojure.lang.ExceptionInfo e
+         (abort-index! conn job)
+         (mark-error-from-ex-info! conn e job))))))
+
+(defn insert-nulls-batch-and-update-job!
+  ([job]
+   (insert-nulls-batch-and-update-job! (aurora/conn-pool :write) job))
+  ([conn job]
+   (tracer/with-span! (job-span-attrs "insert-nulls" job)
+     (try
+       (let [update-count (insert-nulls-next-batch! conn job)]
+         (tracer/add-data! {:attributes {:update-count update-count}})
+         (cond->> job
+           (not (zero? update-count)) (add-work-completed! conn update-count)
+           (zero? update-count) (set-next-stage! conn "update-attr-done")))
        (catch clojure.lang.ExceptionInfo e
          (abort-index! conn job)
          (mark-error-from-ex-info! conn e job))))))
@@ -753,6 +841,7 @@
      "update-attr-start" (update-attr-for-index-start! conn job)
      "estimate-work" (update-work-estimate! conn "update-triples" job)
      "update-triples" (index-batch-and-update-job! conn job)
+     "insert-nulls" (insert-nulls-batch-and-update-job! conn job)
      "update-attr-done" (update-attr-for-index-done! conn job))))
 
 (defn update-attr-for-remove-index-start!
@@ -1117,8 +1206,14 @@
   (stop)
   (start))
 
-;; ----------------------
-;; Migrate system catalog
+(defn before-ns-unload []
+  (stop))
+
+(defn after-ns-reload []
+  (start))
+
+;; ----------
+;; Migrations
 
 (defn migrate-system-catalog []
   (doseq [{:keys [checked-data-type] :as attr} system-catalog/all-attrs
@@ -1154,8 +1249,21 @@
         (when (<= batch-size (:next.jdbc/update-count (first res)))
           (recur))))))
 
-(defn before-ns-unload []
-  (stop))
-
-(defn after-ns-reload []
-  (start))
+(defn insert-nulls-for-existing-indexed-blob-attrs
+  "Inserts nulls for existing attrs. Should be run after
+   https://github.com/instantdb/instant/pull/869 is fully deployed"
+  []
+  (let [attrs (sql/select (aurora/conn-pool :read)
+                          (hsql/format {:select :*
+                                        :from :attrs
+                                        :where [:and
+                                                :is_indexed
+                                                [:not :indexing]]}))]
+    (doseq [attr attrs]
+      (loop [total 0]
+        (let [update-count (insert-nulls-next-batch! {:attr_id (:id attr)
+                                                      :app_id (:app_id attr)
+                                                      :job_type "index"})]
+          (println "Updated" (+ total update-count) "for" (str "app_id=" (:app_id attr)) (str "attr_id=" (:id attr)))
+          (when (pos? update-count)
+            (recur (+ total update-count))))))))

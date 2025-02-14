@@ -68,8 +68,6 @@ prod-connect:
 
 prod-version:
 	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
-	echo "Checking prod db version... [y/N]" && \
-		read ans && [ $$ans = y ] && \
 	migrate -database "$${DATABASE_URL}" -path resources/migrations version
 
 prod-up:
