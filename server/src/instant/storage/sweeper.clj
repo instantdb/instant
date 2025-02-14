@@ -68,12 +68,12 @@
   ([params]
    (delete-files! (aurora/conn-pool :write) params))
   ([conn {:keys [ids]}]
-   (sql/execute!
-    conn
-    (hsql/format
-     {:delete-from :app-files-to-sweep
-      :where [:in :id ids]
-      :returning [:id]}))))
+   (sql/execute! ::delete-files!
+                 conn
+                 (hsql/format
+                  {:delete-from :app-files-to-sweep
+                   :where [:in :id ids]
+                   :returning [:id]}))))
 
 (defn process-sweep!
   ([params]
