@@ -2514,7 +2514,7 @@
                   ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))}))))
 
 (deftest comparators
-  (with-zeneca-app
+  (with-zeneca-checked-data-app
     (fn [_ _]
       (with-empty-app
         (fn [app]
