@@ -38,6 +38,10 @@
   [^String s]
   (.digest (MessageDigest/getInstance "MD5") (.getBytes s)))
 
+;; The md5 of json null in postgres
+;; select md5('null') or (-> "null" str->md5 bytes->hex-string)
+(def json-null-md5 "37a6259cc0c1dae299a7866489dff0bd")
+
 (defn constant-bytes=
   "Constant time comparison to prevent timing attacks"
   [bytes-a bytes-b]

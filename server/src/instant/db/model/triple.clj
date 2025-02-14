@@ -7,6 +7,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.system-catalog :refer [system-catalog-app-id]]
+   [instant.util.crypt :refer [json-null-md5]]
    [instant.util.exception :as ex]
    [instant.util.json :refer [->json <-json]]
    [instant.util.spec :as uspec]
@@ -458,9 +459,7 @@
                                   [:new-entities.entity-id :entity-id]
                                   [:needs-null-attr.id :attr-id]
                                   [[:cast "null" :jsonb] :value]
-                                  ;; md5 of json null
-                                  ;; XXX: Put this somewhere common
-                                  [[:inline "37a6259cc0c1dae299a7866489dff0bd"] :value-md5]
+                                  [[:inline json-null-md5] :value-md5]
                                   [[:= :needs-null-attr.cardinality [:inline "one"]] :ea]
                                   [[:= :needs-null-attr.value_type [:inline "ref"]] :eav]
                                   [:needs-null-attr.is_unique :av]
