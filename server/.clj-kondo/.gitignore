@@ -4,4 +4,5 @@
 !ci-config.edn
 !hooks/defsql.clj
 !hooks/with_prod_conn.clj
+!hooks/with_indexing_job_queue.clj
 !hooks

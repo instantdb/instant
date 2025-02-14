@@ -6,4 +6,4 @@ ecr-login:
 
 build-and-push-image:
 	docker buildx build --platform linux/amd64,linux/arm64 --push \
-		-t public.ecr.aws/z9j8u5b3/instant-public:postgres-16 .
+		-t public.ecr.aws/z9j8u5b3/instant-public:postgresql-16 .

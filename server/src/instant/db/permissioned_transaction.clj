@@ -619,15 +619,6 @@
     (validate-reserved-names! admin? attrs tx-steps)
     (let [{:keys [conn-pool]} db]
       (next-jdbc/with-transaction [tx-conn conn-pool]
-          ;; transact does read and then a write.
-          ;; We need to protect against a case where a different
-          ;; write happens between our read and write.
-          ;; To protect against this, we ensure writes for an
-          ;; app happen serially. We take an advisory lock on app-id
-          ;; when we start transact and we don't release it until
-          ;; we are done. This ensures that other transactions
-          ;; for this app will wait.
-        #_(lock-tx-on! tx-conn (hash app-id))
         (if admin?
           (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps)
           (let [grouped-tx-steps (tx/preprocess-tx-steps tx-conn attrs app-id tx-steps)
@@ -657,13 +648,13 @@
 
                 check-commands
                 (io/warn-io :check-commands
-                            (get-check-commands
-                             ctx
-                             attr-changes
-                             ;; Use preloaded-triples instead of object-changes.
-                             ;; It has all the same data, but the preload will also
-                             ;; resolve etypes for older version of delete-entity
-                             preloaded-triples))
+                  (get-check-commands
+                   ctx
+                   attr-changes
+                   ;; Use preloaded-triples instead of object-changes.
+                   ;; It has all the same data, but the preload will also
+                   ;; resolve etypes for older version of delete-entity
+                   preloaded-triples))
 
                 {create-checks :create
                  view-checks :view
@@ -687,16 +678,16 @@
 
                 update-delete-checks-results
                 (io/warn-io :run-check-commands!
-                            (run-check-commands! (assoc ctx
-                                                        :preloaded-refs preloaded-update-delete-refs)
-                                                 update-delete-checks-resolved))
+                  (run-check-commands! (assoc ctx
+                                              :preloaded-refs preloaded-update-delete-refs)
+                                       update-delete-checks-resolved))
 
                 view-check-results
                 (io/warn-io :run-check-commands!
-                            (run-check-commands!
-                             (merge ctx
-                                    {:preloaded-refs preloaded-update-delete-refs})
-                             view-checks-resolved))
+                  (run-check-commands!
+                   (merge ctx
+                          {:preloaded-refs preloaded-update-delete-refs})
+                   view-checks-resolved))
 
                 tx-data
                 (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id grouped-tx-steps {})
@@ -704,9 +695,9 @@
                 create-checks-resolved (resolve-lookups-for-create-checks tx-conn app-id create-checks)
                 preloaded-create-refs (preload-refs ctx create-checks-resolved)
                 create-checks-results (io/warn-io :run-create-check-commands!
-                                                  (run-check-commands!
-                                                   (assoc ctx :preloaded-refs preloaded-create-refs)
-                                                   create-checks-resolved))
+                                        (run-check-commands!
+                                         (assoc ctx :preloaded-refs preloaded-create-refs)
+                                         create-checks-resolved))
                 all-check-results (concat update-delete-checks-results
                                           create-checks-results
                                           view-check-results)
