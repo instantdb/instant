@@ -5,7 +5,6 @@
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.entity :as entity-model]
-   [instant.db.indexing-jobs :as indexing-jobs]
    [instant.db.transaction :as tx]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
