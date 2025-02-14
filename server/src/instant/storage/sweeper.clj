@@ -16,8 +16,8 @@
    (java.lang AutoCloseable)
    (java.time.temporal ChronoUnit)))
 
-(defonce max-loops 10) ;; max loops per sweep job
-(defonce batch-size 1000) ;; max number of files to process in one loop
+(def max-loops 10) ;; max loops per sweep job
+(def batch-size 1000) ;; max number of files to process in one loop
 
 (defn ms-between [^Instant start ^Instant end]
   (.between ChronoUnit/MILLIS start end))
