@@ -130,6 +130,39 @@
         ^CopyObjectResponse resp (.copyObject (default-s3-client) req)]
     resp))
 
+(def user-controlled-metadata-keys
+  #{:content-type :content-disposition})
+
+(defn update-object-metadata
+  [{:keys [source-bucket-name
+           destination-bucket-name
+           source-key
+           destination-key
+           content-type
+           content-disposition]}]
+  (let [current-metadata (-> (head-object source-bucket-name source-key)
+                             :object-metadata
+                             (select-keys user-controlled-metadata-keys))
+        new-metadata (cond-> current-metadata
+                       content-type
+                       (assoc :content-type content-type)
+
+                       content-disposition
+                       (assoc :content-disposition content-disposition))
+        ^CopyObjectRequest req
+        (-> (CopyObjectRequest/builder)
+            (.sourceBucket source-bucket-name)
+            (.sourceKey source-key)
+            (.destinationBucket destination-bucket-name)
+            (.destinationKey destination-key)
+            (.contentType (:content-type new-metadata))
+            (.contentDisposition (:content-disposition new-metadata))
+            (.metadataDirective "REPLACE") ;; this will replace all metadata
+            (.build))
+        ^CopyObjectResponse resp
+        (.copyObject (default-s3-client) req)]
+    resp))
+
 (defn delete-object
   ([object-key] (delete-object default-bucket object-key))
   ([bucket-name object-key]

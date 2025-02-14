@@ -96,6 +96,19 @@
    (let [object-key (->object-key app-id location-id)]
      (format-object (s3-util/head-object bucket-name object-key)))))
 
+(defn update-object-metadata!
+  ([app-id location-id params]
+   (update-object-metadata! s3-util/default-bucket app-id location-id params))
+  ([bucket-name app-id location-id {:keys [content-type content-disposition]}]
+   (let [object-key (->object-key app-id location-id)]
+     (s3-util/update-object-metadata
+      {:source-bucket-name bucket-name
+       :destination-bucket-name bucket-name
+       :source-key object-key
+       :destination-key object-key
+       :content-type content-type
+       :content-disposition content-disposition}))))
+
 (defn delete-file! [app-id path location-id]
   (when (migrating?)
     (s3-util/delete-object (->path-object-key app-id path)))
