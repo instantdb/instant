@@ -759,11 +759,11 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
   }
   const prev = await readLocalSchemaFile();
   if (prev) {
-    const ok = await promptOk(
+    const shouldContinue = await promptOk(
       'This will overwrite your local instant.schema file, OK to proceed?',
     );
 
-    if (!ok) return { ok: true };
+    if (!shouldContinue) return { ok: true };
   }
 
   const schemaPath = join(pkgDir, getSchemaPathToWrite(prev.path));
@@ -795,11 +795,11 @@ async function pullPerms(appId, { pkgDir, instantModuleName }) {
   if (!pullRes.ok) return;
   const prev = await readLocalPermsFile();
   if (prev) {
-    const ok = await promptOk(
+    const shouldContinue = await promptOk(
       'This will overwrite your local instant.perms file, OK to proceed?',
     );
 
-    if (!ok) return { ok: true };
+    if (!shouldContinue) return { ok: true };
   }
 
   const permsPath = join(pkgDir, getPermsPathToWrite(prev.path));
