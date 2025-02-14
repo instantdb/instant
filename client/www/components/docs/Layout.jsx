@@ -333,9 +333,11 @@ export function Layout() {
         <div className="h-full px-4 flex items-center">Menu</div>
       </div>
 
-      <div className={clsx('flex', adjustments.topPadding)}>
+      <div
+        className={clsx('grid grid-cols-[20rem_1fr]', adjustments.topPadding)}
+      >
         {/* Sidebar */}
-        <div className="relative w-[20rem]">
+        <div className="relative">
           <div className="absolute inset-0">
             <div
               className={clsx(
@@ -348,10 +350,10 @@ export function Layout() {
           </div>
         </div>
 
-        <div className="flex-1 flex justify-center ">
+        <div className="grid grid-cols-[1fr_2rem]">
           {/* Content */}
-          <main className="bg-blue-500 max-w-prose">
-            <div className="bg-blue-50">{genContentText(5)}</div>
+          <main className="bg-blue-500">
+            <div className="bg-blue-50">{genContentText(500)}</div>
           </main>
 
           {/* On This Page */}
