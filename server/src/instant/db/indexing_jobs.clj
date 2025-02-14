@@ -360,9 +360,8 @@
 (defn missing-null-triple-wheres
   "Where clauses that return the id triples that are missing a value for the
    indexed attr."
-  [job]
-  (let [{:keys [app_id attr_id]} job
-        attrs (attr-model/get-by-app-id app_id)
+  [{:keys [app_id attr_id]}]
+  (let [attrs (attr-model/get-by-app-id app_id)
         etype (attr-model/fwd-etype (attr-model/seek-by-id attr_id attrs))
         _ (assert etype "Attribute has no etype")
         id-attr-id (:id (attr-model/seek-by-fwd-ident-name [etype "id"] attrs))
@@ -814,7 +813,7 @@
          (tracer/add-data! {:attributes {:update-count update-count}})
          (cond->> job
            (not (zero? update-count)) (add-work-completed! conn update-count)
-           (< update-count batch-size) (set-next-stage! conn "insert-nulls")))
+           (zero? update-count) (set-next-stage! conn "insert-nulls")))
        (catch clojure.lang.ExceptionInfo e
          (abort-index! conn job)
          (mark-error-from-ex-info! conn e job))))))
@@ -829,7 +828,7 @@
          (tracer/add-data! {:attributes {:update-count update-count}})
          (cond->> job
            (not (zero? update-count)) (add-work-completed! conn update-count)
-           (< update-count batch-size) (set-next-stage! conn "update-attr-done")))
+           (zero? update-count) (set-next-stage! conn "update-attr-done")))
        (catch clojure.lang.ExceptionInfo e
          (abort-index! conn job)
          (mark-error-from-ex-info! conn e job))))))
@@ -1207,8 +1206,14 @@
   (stop)
   (start))
 
-;; ----------------------
-;; Migrate system catalog
+(defn before-ns-unload []
+  (stop))
+
+(defn after-ns-reload []
+  (start))
+
+;; ----------
+;; Migrations
 
 (defn migrate-system-catalog []
   (doseq [{:keys [checked-data-type] :as attr} system-catalog/all-attrs
@@ -1244,8 +1249,21 @@
         (when (<= batch-size (:next.jdbc/update-count (first res)))
           (recur))))))
 
-(defn before-ns-unload []
-  (stop))
-
-(defn after-ns-reload []
-  (start))
+(defn insert-nulls-for-existing-indexed-blob-attrs
+  "Inserts nulls for existing attrs. Should be run after
+   https://github.com/instantdb/instant/pull/869 is fully deployed"
+  []
+  (let [attrs (sql/select (aurora/conn-pool :read)
+                          (hsql/format {:select :*
+                                        :from :attrs
+                                        :where [:and
+                                                :is_indexed
+                                                [:not :indexing]]}))]
+    (doseq [attr attrs]
+      (loop [total 0]
+        (let [update-count (insert-nulls-next-batch! {:attr_id (:id attr)
+                                                      :app_id (:app_id attr)
+                                                      :job_type "index"})]
+          (println "Updated" (+ total update-count) "for" (str "app_id=" (:app_id attr)) (str "attr_id=" (:id attr)))
+          (when (pos? update-count)
+            (recur (+ total update-count))))))))
