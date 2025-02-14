@@ -666,7 +666,8 @@
     (map (fn [clause]
            (if (and (vector? clause)
                     (= (nth clause 1) :value))
-             (update clause 1 (fn [v] [:json_null_to_null v]))))
+             (update clause 1 (fn [v] [:json_null_to_null v]))
+             clause))
          clauses)))
 
 (defn- where-clause
