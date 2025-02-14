@@ -12,7 +12,7 @@
    [instant.db.model.triple :as triple-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.db.transaction :as tx]
-   [instant.db.indexing-jobs-test :as jobs-test]
+   [instant.db.indexing-jobs :as indexing-jobs]
    [instant.fixtures :refer [with-empty-app
                              with-zeneca-app
                              with-zeneca-app-no-indexing
