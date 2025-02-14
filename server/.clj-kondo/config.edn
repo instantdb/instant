@@ -4,7 +4,8 @@
                                       amazonica.aws.s3]}}
  :ignore [:inline-def]
  :hooks {:analyze-call {instant.jdbc.sql/defsql hooks.defsql/defsql
-                        tool/with-prod-conn hooks.with-prod-conn/with-prod-conn}}
+                        tool/with-prod-conn hooks.with-prod-conn/with-prod-conn
+                        instant.fixtures/with-indexing-job-queue hooks.with-indexing-job-queue/with-indexing-job-queue}}
  :lint-as {instant.jdbc.sql/with-connection clojure.core/let
            instant.util.tracer/with-exceptions-silencer clojure.core/fn
            clojure.core.cache/defcache clojure.core/defrecord}}
