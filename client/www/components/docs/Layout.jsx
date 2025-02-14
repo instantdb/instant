@@ -145,7 +145,7 @@ function getNextPage(allLinks, currentPath) {
   return allLinks[idx + 1];
 }
 
-export function Layout({ children, title, tableOfContents }) {
+function LayoutOld({ children, title, tableOfContents }) {
   let router = useRouter();
   const scrollContainerRef = useRef();
 
@@ -293,6 +293,82 @@ export function Layout({ children, title, tableOfContents }) {
           </div>
         </div>
       </SelectedAppContext.Provider>
+    </div>
+  );
+}
+
+function genSidebarText(length) {
+  return Array.from({ length }, (_, i) => (
+    <div key={i} className="p-4">
+      Sidebar item {i + 1}
+    </div>
+  ));
+}
+
+function genContentText(length) {
+  return Array.from({ length }, (_, i) => (
+    <p key={i} className="p-4">
+      Content item Content item Content item Content item Content item Content
+      item Content item Content item Content item {i + 1}
+    </p>
+  ));
+}
+
+const adjustments = {
+  headerHeight: 'h-14',
+  topPadding: 'pt-14',
+  heightWithoutHeader: 'h-[calc(100dvh-3.5rem)]',
+};
+
+export function Layout() {
+  return (
+    <div className="min-h-[100dvh] bg-slate-400">
+      {/* Header */}
+      <div
+        className={clsx(
+          'fixed inset-x-0 top-0 bg-orange-100',
+          adjustments.headerHeight,
+        )}
+      >
+        <div className="h-full px-4 flex items-center">Menu</div>
+      </div>
+
+      <div className={clsx('flex', adjustments.topPadding)}>
+        {/* Sidebar */}
+        <div className="relative w-[20rem]">
+          <div className="absolute inset-0">
+            <div
+              className={clsx(
+                'sticky overflow-y-auto bg-purple-600 text-white',
+                adjustments.heightWithoutHeader,
+              )}
+            >
+              {genSidebarText(5)}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 flex justify-center ">
+          {/* Content */}
+          <main className="bg-blue-500 max-w-prose">
+            <div className="bg-blue-50">{genContentText(5)}</div>
+          </main>
+
+          {/* On This Page */}
+          <div className="relative w-[20rem]">
+            <div className="absolute inset-0">
+              <div
+                className={clsx(
+                  'sticky overflow-y-auto bg-blue-200',
+                  adjustments.heightWithoutHeader,
+                )}
+              >
+                {genSidebarText(100)}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
