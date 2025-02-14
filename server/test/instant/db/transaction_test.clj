@@ -12,9 +12,11 @@
    [instant.db.model.triple :as triple-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.db.transaction :as tx]
-   [instant.db.indexing-jobs :as indexing-jobs]
    [instant.db.indexing-jobs-test :as jobs-test]
-   [instant.fixtures :refer [with-empty-app with-zeneca-app with-zeneca-app-no-indexing]]
+   [instant.fixtures :refer [with-empty-app
+                             with-zeneca-app
+                             with-zeneca-app-no-indexing
+                             with-indexing-job-queue]]
    [instant.jdbc.aurora :as aurora]
    [instant.model.app :as app-model]
    [instant.model.app-user :as app-user-model]
@@ -1534,7 +1536,7 @@
 (def ^:dynamic *inside* false)
 
 (deftest new-indexed-blobs-get-nulls
-  (jobs-test/with-queue job-queue
+  (with-indexing-job-queue job-queue
     (with-zeneca-app
       (fn [app r]
         (let [make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}

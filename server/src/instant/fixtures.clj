@@ -1,8 +1,10 @@
 (ns instant.fixtures
-  (:require [instant.config :as config]
+  (:require [clojure.core.async :as a]
+            [instant.config :as config]
             [instant.data.bootstrap :as bootstrap]
             [instant.data.constants :refer [test-user-id]]
             [instant.data.resolvers :as resolvers]
+            [instant.db.indexing-jobs :as indexing-jobs]
             [instant.model.app :as app-model]
             [instant.model.app-member-invites :as instant-app-member-invites]
             [instant.model.app-members :as instant-app-members]
@@ -26,6 +28,19 @@
       :params {:app_id (:id a)}
       :body {}})))
 
+(defmacro with-indexing-job-queue [job-queue & body]
+  `(let [chan# (a/chan 1024)
+         process# (future (indexing-jobs/start-process chan#))
+         ~job-queue chan#]
+     (try
+       ~@body
+       (finally
+         (a/close! chan#)
+         (when (= :timeout (deref process# 1000 :timeout))
+           (throw (Exception. "Timeout in with-queue")))))))
+
+(def ^:dynamic *indexing-job-queue* nil)
+
 (defn with-empty-app [f]
   (let [app-id (UUID/randomUUID)
         app (app-model/create! {:title "test app"
@@ -33,7 +48,17 @@
                                 :id app-id
                                 :admin-token (UUID/randomUUID)})]
     (try
-      (f app)
+      (with-indexing-job-queue job-queue
+        (let [enqueue indexing-jobs/enqueue-job]
+          (with-redefs [indexing-jobs/enqueue-job (fn
+                                                    ([job]
+                                                     (if *indexing-job-queue*
+                                                       (enqueue *indexing-job-queue* job)
+                                                       (enqueue job)))
+                                                    ([chan job]
+                                                     (enqueue chan job)))]
+            (binding [*indexing-job-queue* job-queue]
+              (f app)))))
       (finally
         (app-model/delete-by-id! {:id app-id})))))
 
