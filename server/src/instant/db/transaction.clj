@@ -250,7 +250,7 @@
                 {:union [{:values ids+etypes}
                          ;; can’t reference entids twice, but can bind it to entids_inner and then it’s okay
                          {:select :*
-                          :from {:with
+                          :from [[{:with
                                  [[[:entids_inner]
                                    {:select :* :from :entids}]]
                                  :union
@@ -267,7 +267,9 @@
                                                            [:= :entids_inner.entity_id :refs_reverse.entity_id]
                                                            [:= :entids_inner.etype :refs_reverse.forward_etype]]]
                                    ;; TODO value -> value_ref
-                                   :select [[[:cast [:->> :refs_reverse.value :0] :uuid]] :refs_reverse.reverse_etype]}]}}]}]
+                                   :select [[[:cast [:->> :refs_reverse.value :0] :uuid]] :refs_reverse.reverse_etype]}]}
+                                  ;; :alias required for postgres 13
+                                  :alias]]}]}]
 
                ;; attrs_forward
                [[:attrs_forward {:columns [:id :forward_etype :reverse_etype]}]
