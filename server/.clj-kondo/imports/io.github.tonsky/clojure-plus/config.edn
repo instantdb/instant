@@ -1,0 +1,5 @@
+{:hooks
+ {:analyze-call
+  {clojure+.core/if+   hooks.core/ifplus-hook
+   clojure+.core/when+ hooks.core/whenplus-hook
+   clojure+.core/cond+ hooks.core/condplus-hook}}}
