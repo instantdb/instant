@@ -10,7 +10,7 @@ import { SelectedAppContext } from '@/lib/SelectedAppContext';
 import { useAuthToken, useTokenFetch } from '@/lib/auth';
 import config, { getLocal, setLocal } from '@/lib/config';
 import { Select } from '@/components/ui';
-import { MainNav, BareNav } from '@/components/marketingUi';
+import { MainNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';
 
 function useSelectedApp(apps = []) {
@@ -145,122 +145,6 @@ function getNextPage(allLinks, currentPath) {
   return allLinks[idx + 1];
 }
 
-function PageContent({ title, sectionTitle, allLinks, children }) {
-  return (
-    <article>
-      {(title || sectionTitle) && (
-        <header className="mb-4 space-y-1">
-          {sectionTitle && (
-            <p className="text-sm text-gray-500 font-medium">{sectionTitle}</p>
-          )}
-          {title && <h1 className="text-3xl dark:text-white">{title}</h1>}
-        </header>
-      )}
-      <Prose>{children}</Prose>
-      <HiddenLLMHelper allLinks={allLinks} />
-    </article>
-  );
-}
-
-function PageNav({ previousPage, nextPage }) {
-  return (
-    <dl className="mt-12 flex border-t border-slate-200 pt-6 dark:border-slate-800">
-      {previousPage && (
-        <div>
-          <dt className="text-sm font-medium text-gray-500 dark:text-white">
-            Previous
-          </dt>
-          <dd className="mt-1">
-            <Link
-              href={previousPage.href}
-              className="text-base text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
-            >
-              <span aria-hidden="true">&larr;</span> {previousPage.title}
-            </Link>
-          </dd>
-        </div>
-      )}
-      {nextPage && (
-        <div className="ml-auto text-right">
-          <dt className="text-sm font-medium text-gray-500 dark:text-white">
-            Next
-          </dt>
-          <dd className="mt-1">
-            <Link
-              href={nextPage.href}
-              className="text-base text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
-            >
-              {nextPage.title} <span aria-hidden="true">&rarr;</span>
-            </Link>
-          </dd>
-        </div>
-      )}
-    </dl>
-  );
-}
-
-function OnThisPage({ tableOfContents }) {
-  return (
-    <nav aria-labelledby="on-this-page-title" className="p-4">
-      {tableOfContents.length > 0 && (
-        <>
-          <h2 id="on-this-page-title" className="font-medium text-slate-900">
-            On this page
-          </h2>
-          <ol role="list" className="mt-2 space-y-2 text-sm">
-            {tableOfContents.map((section) => (
-              <li key={section.id}>
-                <h3>
-                  <Link
-                    href={`#${section.id}`}
-                    className={clsx(
-                      'font-normal text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300',
-                    )}
-                  >
-                    {section.title}
-                  </Link>
-                </h3>
-                {section.children.length > 0 && (
-                  <ol
-                    role="list"
-                    className="mt-2 space-y-3 pl-5 text-slate-500 dark:text-slate-400"
-                  >
-                    {section.children.map((subSection) => (
-                      <li key={subSection.id}>
-                        <Link
-                          href={`#${subSection.id}`}
-                          className="hover:text-slate-600 dark:hover:text-slate-300"
-                        >
-                          {subSection.title}
-                        </Link>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </li>
-            ))}
-          </ol>
-        </>
-      )}
-    </nav>
-  );
-}
-
-/**
- * We had a fixed header. This means that we need to adjust other
- * elements to account for the header height. For example, to
- * add top position to the sidebar, or to set it's height.
- *
- * Keeping all the variables together, so in the case that we change
- * header height, we can adjust everything in one place.
- */
-const adj = {
-  hHeader: 'h-14',
-  ptHeader: 'pt-14',
-  topHeader: 'top-14',
-  hWithoutHeader: 'h-[calc(100dvh-3.5rem)]',
-};
-
 export function Layout({ children, title, tableOfContents }) {
   let router = useRouter();
   const scrollContainerRef = useRef();
@@ -281,82 +165,134 @@ export function Layout({ children, title, tableOfContents }) {
     useSelectedApp(apps);
 
   return (
-    <SelectedAppContext.Provider value={selectedAppData}>
-      <div className="min-h-[100dvh] bg-[#F8F9FA]">
-        {/* Header */}
-        <div
-          className={clsx(
-            'fixed inset-x-0 top-0 bg-[#F8F9FA] z-10',
-            adj.hHeader,
-          )}
-        >
-          <div className="grid h-full w-full px-4 border-b">
-            <BareNav>
-              <div className="flex flex-col md:hidden">
-                <Search />
-                <Navigation
-                  navigation={navigation}
-                  className="w-64 pr-8 xl:w-72 xl:pr-16 md:hidden"
-                />
-              </div>
-            </BareNav>
-          </div>
+    <div className="bg-[#F8F9FA] flex flex-col overflow-hidden h-full w-full">
+      <SelectedAppContext.Provider value={selectedAppData}>
+        <div className="bg-[#F8F9FA] border-b">
+          <MainNav>
+            <div className="flex flex-col md:hidden">
+              <Search />
+              <Navigation
+                navigation={navigation}
+                className="w-64 pr-8 xl:w-72 xl:pr-16 md:hidden"
+              />
+            </div>
+          </MainNav>
         </div>
-        {/* Body */}
-        <div className={clsx('flex', adj.ptHeader)}>
-          {/* Left sidebar */}
-          <div className="hidden md:block relative min-w-[20rem] w-[20rem] border-r">
-            <div className="absolute inset-0">
-              <div
-                className={clsx(
-                  'sticky overflow-y-auto px-4',
-                  adj.topHeader,
-                  adj.hWithoutHeader,
-                )}
-              >
-                <Search />
-                <Navigation
-                  navigation={navigation}
-                  className="w-64 pr-8 xl:w-72 xl:pr-16 ml-1"
-                />
-              </div>
+        <div className="xl:mx-auto flex flex-1 overflow-hidden h-full max-w-7xl justify-center">
+          <div className="hidden md:block md:flex-none overflow-auto pl-8 pr-2 pb-8">
+            <Search />
+            <div>
+              <Navigation
+                navigation={navigation}
+                className="w-64 pr-8 xl:w-72 xl:pr-16 ml-1"
+              />
             </div>
           </div>
-          <div className="flex justify-center flex-1">
-            {/* Main content */}
-            <main
-              ref={scrollContainerRef}
-              key={router.pathname}
-              className="max-w-prose flex-1 p-4"
-            >
-              <AppPicker {...{ apps, selectedAppData, updateSelectedAppId }} />
-              <PageContent
-                title={title}
-                sectionTitle={section?.title}
-                allLinks={allLinks}
-              >
-                {children}
-              </PageContent>
-              <PageNav previousPage={previousPage} nextPage={nextPage} />
-            </main>
-
-            {/* Right sidebar */}
-            <div className="hidden xl:block relative min-w-[16rem] w-[16rem]">
-              <div className="absolute inset-0">
-                <div
-                  className={clsx(
-                    'sticky overflow-y-auto p-4',
-                    adj.topHeader,
-                    adj.hWithoutHeader,
+          <div
+            className="overflow-auto pb-6 pt-4 px-4 leading-relaxed max-w-prose w-full"
+            ref={scrollContainerRef}
+            key={router.pathname}
+          >
+            <AppPicker {...{ apps, selectedAppData, updateSelectedAppId }} />
+            <article>
+              {(title || section) && (
+                <header className="mb-4 space-y-1">
+                  {section && (
+                    <p className="text-sm text-gray-500 font-medium">
+                      {section.title}
+                    </p>
                   )}
-                >
-                  <OnThisPage tableOfContents={tableOfContents} />
+                  {title && (
+                    <h1 className="text-3xl dark:text-white">{title}</h1>
+                  )}
+                </header>
+              )}
+              <Prose>{children}</Prose>
+              <HiddenLLMHelper allLinks={allLinks} />
+            </article>
+            <dl className="mt-12 flex border-t border-slate-200 pt-6 dark:border-slate-800">
+              {previousPage && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-white">
+                    Previous
+                  </dt>
+                  <dd className="mt-1">
+                    <Link
+                      href={previousPage.href}
+                      className="text-base text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
+                    >
+                      <span aria-hidden="true">&larr;</span>{' '}
+                      {previousPage.title}
+                    </Link>
+                  </dd>
                 </div>
-              </div>
-            </div>
+              )}
+              {nextPage && (
+                <div className="ml-auto text-right">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-white">
+                    Next
+                  </dt>
+                  <dd className="mt-1">
+                    <Link
+                      href={nextPage.href}
+                      className="text-base text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
+                    >
+                      {nextPage.title} <span aria-hidden="true">&rarr;</span>
+                    </Link>
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </div>
+          <div className="hidden xl:block px-4 py-4 overflow-y-auto w-96">
+            <nav aria-labelledby="on-this-page-title">
+              {tableOfContents.length > 0 && (
+                <>
+                  <h2
+                    id="on-this-page-title"
+                    className="font-medium text-slate-900"
+                  >
+                    On this page
+                  </h2>
+                  <ol role="list" className="mt-2 space-y-2 text-sm">
+                    {tableOfContents.map((section) => (
+                      <li key={section.id}>
+                        <h3>
+                          <Link
+                            href={`#${section.id}`}
+                            className={clsx(
+                              'font-normal text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300',
+                            )}
+                          >
+                            {section.title}
+                          </Link>
+                        </h3>
+                        {section.children.length > 0 && (
+                          <ol
+                            role="list"
+                            className="mt-2 space-y-3 pl-5 text-slate-500 dark:text-slate-400"
+                          >
+                            {section.children.map((subSection) => (
+                              <li key={subSection.id}>
+                                <Link
+                                  href={`#${subSection.id}`}
+                                  className="hover:text-slate-600 dark:hover:text-slate-300"
+                                >
+                                  {subSection.title}
+                                </Link>
+                              </li>
+                            ))}
+                          </ol>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              )}
+            </nav>
           </div>
         </div>
-      </div>
-    </SelectedAppContext.Provider>
+      </SelectedAppContext.Provider>
+    </div>
   );
 }
