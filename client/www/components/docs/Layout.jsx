@@ -246,6 +246,14 @@ function OnThisPage({ tableOfContents }) {
   );
 }
 
+/**
+ * We had a fixed header. This means that we need to adjust other
+ * elements to account for the header height. For example, to
+ * add top position to the sidebar, or to set it's height.
+ *
+ * Keeping all the variables together, so in the case that we change
+ * header height, we can adjust everything in one place.
+ */
 const adj = {
   hHeader: 'h-14',
   ptHeader: 'pt-14',
