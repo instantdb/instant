@@ -1,7 +1,7 @@
 {
   "name": "instant-cli",
   "type": "module",
-  "version": "v0.17.17",
+  "version": "v0.17.18",
   "description": "Instant's CLI",
   "bin": {
     "instant-cli": "bin/index.js"
@@ -27,7 +27,7 @@
     "test": "vitest",
     "build": "rm -rf dist; tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json -w --skipLibCheck",
-    "publish-package": "npm publish --access public"
+    "publish-package": "pnpm publish --access public --no-git-checks"
   },
   "devDependencies": {
     "@babel/core": "^7.17.9",
