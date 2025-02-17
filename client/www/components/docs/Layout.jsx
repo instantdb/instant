@@ -322,12 +322,12 @@ export function Layout({ children, title, tableOfContents }) {
               </div>
             </div>
           </div>
-          <div className="flex justify-center flex-1">
+          <div className="flex justify-center flex-1 overflow-x-auto">
             {/* Main content */}
             <main
               ref={scrollContainerRef}
               key={router.pathname}
-              className="max-w-prose flex-1 p-4"
+              className="max-w-prose flex-1 p-4 min-w-0"
             >
               <AppPicker {...{ apps, selectedAppData, updateSelectedAppId }} />
               <PageContent
@@ -337,6 +337,7 @@ export function Layout({ children, title, tableOfContents }) {
               >
                 {children}
               </PageContent>
+
               <PageNav previousPage={previousPage} nextPage={nextPage} />
             </main>
 
