@@ -46,31 +46,6 @@ export default version;
     (spit (format "%s/src/version.js" path)
           (version-js-body v))))
 
-(defn set-dep-versions!
-  "Some packages depend on @instantdb/*.
-
-   In a monorepo, we use \"workspace:*\" to refer to the
-   local version. Buut, we can't publish packages this way.
-
-   Before we publish, we need to change worspace:* to the
-   actual version.
-
-   This function replaces deps that require `@instantdb/*`
-   with the given version."
-  [v]
-  (doseq [[pkg path] (dissoc PACKAGE_PATHS :core)
-          [dep-pkg _path] (dissoc PACKAGE_PATHS pkg)
-          :when (has-dependency? (package-json-path path)
-                                 (str "@instantdb/" (name dep-pkg)))]
-    (println (format "[%s] set @instantdb/%s = %s"
-                     (name pkg)
-                     (name dep-pkg)
-                     v))
-    (jq-set! (package-json-path path)
-             (format ".dependencies[\"@instantdb/%s\"]"
-                     (name dep-pkg))
-             v)))
-
 (defn publish-packages! [tag]
   (println "[publish] pnpm publish-packages")
   (if tag
@@ -91,10 +66,8 @@ export default version;
                          version))
         (System/exit 1)))
     (set-package-versions! version)
-    (set-dep-versions! version)
     (set-version-js! version)
     (publish-packages! tag)
-    (set-dep-versions! "workspace:*")
     (set-version-js! (str version "-dev"))))
 
 (when (= *file* (System/getProperty "babashka.file"))
