@@ -25,7 +25,7 @@
              (recur (assoc item12 ::combined (inc (::combined item1 1))))))))
 
 (defn- process
-  "Main worker process fn"
+  "Main worker process function"
   [{:keys [groups process-fn combine-fn num-workers num-items processing?] :as q} key group]
   (AtomicInteger/.incrementAndGet num-workers)
   (loop []
