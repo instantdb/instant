@@ -1,2 +1,0 @@
-{:lint-as {hiccup.def/defhtml clojure.core/defn}
- :hooks {:analyze-call {hiccup.def/defelem hiccup.hooks/defelem}}}

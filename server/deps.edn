@@ -27,7 +27,7 @@
         software.amazon.awssdk.crt/aws-crt {:mvn/version "0.33.11"}
 
         juji/editscript {:mvn/version "0.6.4"}
-        io.github.tonsky/clojure-plus {:mvn/version "1.0.1"}
+        io.github.tonsky/clojure-plus {:mvn/version "1.0.0"}
 
         org.bouncycastle/bcprov-jdk15on {:mvn/version "1.70"}
 
@@ -148,5 +148,5 @@
                            :exec-fn tasks/bootstrap-for-oss
                            :jvm-opts ["-Dclojure.main.report=stderr"]}
            :lint {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2025.01.16"}}
-           :main-opts ["-m" "clj-kondo.main" "--lint" "src"]}}
+                  :main-opts ["-m" "clj-kondo.main" "--lint" "src"]}}
  :main-opts ["-m" "instant.core"]}
