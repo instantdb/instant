@@ -29,5 +29,20 @@ export type DevtoolPosition =
   | 'top-left';
 
 export type DevtoolConfig = {
+  /**
+   * Position of the devtool panel on the screen
+   * @default 'bottom-right'
+   */
+  position?: DevtoolPosition;
+
+  /**
+   * Hosts where the devtool should be shown
+   * @default ['localhost']
+   */
+  allowedHosts?: string[];
+};
+
+export type StrictDevtoolConfig = {
   position: DevtoolPosition;
+  allowedHosts: string[];
 };

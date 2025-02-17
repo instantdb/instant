@@ -21,7 +21,12 @@ import type {
   PresenceSlice,
   RoomSchemaShape,
 } from './presence';
-import type { DevtoolConfig, IDatabase, IInstantDatabase } from './coreTypes';
+import type {
+  DevtoolConfig,
+  IDatabase,
+  IInstantDatabase,
+  StrictDevtoolConfig,
+} from './coreTypes';
 import type {
   Query,
   QueryResponse,
@@ -652,25 +657,31 @@ function init<
   const client = new InstantCoreDatabase<any>(reactor);
   globalInstantCoreStore[config.appId] = client;
 
-  if (typeof window !== 'undefined' && typeof window.location !== 'undefined') {
-    const showDevtool =
-      // show widget by default?
-      ('devtool' in config ? Boolean(config.devtool) : defaultOpenDevtool) &&
-      // only run on localhost (dev env)
-      window.location.hostname === 'localhost' &&
-      // used by dash and other internal consumers
-      !Boolean((globalThis as any)._nodevtool);
-
-    if (showDevtool) {
-      const devtoolOptions =
-        typeof config.devtool === 'object'
-          ? config.devtool
-          : { position: 'bottom-right' as const };
-      createDevtool(config.appId, devtoolOptions);
-    }
-  }
+  handleDevtool(config.appId, config.devtool);
 
   return client;
+}
+
+function handleDevtool(appId: string, devtool: boolean | DevtoolConfig) {
+  if (typeof window === 'undefined' || typeof window.location === 'undefined') {
+    return;
+  }
+
+  if (typeof devtool === 'boolean' && !devtool) {
+    return;
+  }
+
+  const config: StrictDevtoolConfig = {
+    position: 'bottom-right' as const,
+    allowedHosts: ['localhost'],
+    ...(typeof devtool === 'object' ? devtool : {}),
+  };
+
+  if (!config.allowedHosts.includes(window.location.hostname)) {
+    return;
+  }
+
+  createDevtool(appId, config);
 }
 
 type InstantRules = {
