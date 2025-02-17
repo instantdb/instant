@@ -159,14 +159,14 @@
                 :when q
                 :let [just-joined? (and (contains? room-data sess-id)
                                         (not (contains? last-data sess-id)))]]
-          (receive-queue/put! q
-                              {:op         :refresh-presence
-                               :app-id     app-id
-                               :room-id    room-id
-                               :data       room-data
-                               :edits      (when-not just-joined?
-                                             edits)
-                               :session-id sess-id}))))))
+          (receive-queue/enqueue->receive-q q
+                                            {:op         :refresh-presence
+                                             :app-id     app-id
+                                             :room-id    room-id
+                                             :data       room-data
+                                             :edits      (when-not just-joined?
+                                                           edits)
+                                             :session-id sess-id}))))))
 
 (defn handle-broadcast-message
   "Handles the message on the topic we use to broadcast a client-broadcast
@@ -177,11 +177,11 @@
     (doseq [sess-id session-ids
             :let [q (-> (rs/session store sess-id) :session/socket :receive-q)]
             :when q]
-      (receive-queue/put! q
-                          (assoc base-msg
-                                 :op :server-broadcast
-                                 :session-id sess-id
-                                 :app-id app-id)))))
+      (receive-queue/enqueue->receive-q q
+                                        (assoc base-msg
+                                               :op :server-broadcast
+                                               :session-id sess-id
+                                               :app-id app-id)))))
 
 (defn broadcast [app-id session-ids base-msg]
   (.publish (get-hz-broadcast-topic)
