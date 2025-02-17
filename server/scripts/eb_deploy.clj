@@ -24,7 +24,6 @@
           first
           (get "VersionLabel")))))
 
-
 (defn get-application-versions []
   (let [{:keys [out err exit]}
         (apply shell
@@ -75,12 +74,35 @@
          (str "eb deploy Instant-docker-prod-env-2 --version " (get version "VersionLabel"))
          *command-line-args*))
 
+(defn check-db [version]
+  (let [[_ sha]        (re-matches #".*-([0-9a-fA-F]{40})$" (get version "VersionLabel"))
+        last-migration (->> (shell {:out :string} "git" "ls-tree" "-r" "--name-only" sha "resources/migrations")
+                            :out
+                            str/trim
+                            str/split-lines
+                            (keep #(second (re-matches #"resources/migrations/(\d+)_.*\.up\.sql" %)))
+                            (map parse-long)
+                            (reduce max 0))
+        _              (println "Getting db URL...")
+        db-url         (-> (shell {:out :string} "./scripts/prod_connection_string.sh")
+                           :out
+                           str/trim)
+        _              (println "Checking prod db version...")
+        db-version     (-> (shell {:err :string} "migrate" "-database" db-url "-path" "resources/migrations" "version")
+                           :err
+                           str/trim
+                           parse-long)]
+    (when (> last-migration db-version)
+      (println "[ERROR] Looks like you need to run DB migrations first")
+      (println "  Current prod version:" db-version)
+      (println "      Latest migration:" last-migration)
+      (System/exit 1))))
+
 (defn main-loop []
   (sun.misc.Signal/handle
    (sun.misc.Signal. "INT")
    (reify sun.misc.SignalHandler (handle [_ _]
                                    (System/exit 1))))
-
 
   (println "Fetching application versions...")
   (let [current-version-future (future (get-current-version))
@@ -108,14 +130,15 @@
         \q (do (terminal/stop term)
                (System/exit 0))
 
-        :enter (do (terminal/stop term)
-                   (deploy (nth versions @selected-idx))
-                   (System/exit 0))
+        :enter (let [version (nth versions @selected-idx)]
+                 (terminal/stop term)
+                 (check-db version)
+                 (deploy version)
+                 (System/exit 0))
 
         nil)
       (render)
       (recur (terminal/get-key-blocking term)))
-
 
     (terminal/stop term)))
 
