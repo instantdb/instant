@@ -608,7 +608,7 @@
                 :system-catalog-app-id system-catalog-app-id}]
     (sql/do-execute! conn (hsql/format query {:params params}))))
 
-;; n.b. if we ever use `:retract-attr` for blob attrs (it's currently
+;; n.b. if we ever use `:retract-triple` for blob attrs (it's currently
 ;;      just links), we'll need to add code in `delete-multi!` to
 ;;      insert nulls for indexed blob attrs
 (defn delete-multi!
