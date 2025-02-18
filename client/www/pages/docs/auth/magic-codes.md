@@ -232,7 +232,7 @@ server](/docs/backend#sign-out).
 ## Get auth
 
 ```javascript
-const user = db.getAuth();
+const user = await db.getAuth();
 console.log('logged in as', user.email);
 ```
 
