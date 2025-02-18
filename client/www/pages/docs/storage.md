@@ -5,46 +5,265 @@ title: Storage
 Instant Storage makes it simple to upload and serve files for your app.
 You can use Storage to store images, videos, documents, and any other file type.
 
-{% callout %}
+## Storage quick start
 
-Storage is still in **beta**, but you can request access [here](https://docs.google.com/forms/d/e/1FAIpQLSdzInffrNrsYaamtH_BUe917EOpcOq2k8RWcGM19XepJR6ivQ/viewform?usp=sf_link)!
+Here's a quick example of how to upload and display a grid of images using
+Storage. You can start a brand new project
 
-{% /callout %}
-
-## Uploading files
-
-We use the `db.storage.upload(pathname: string, file: File)` function to upload a file.
-
-```tsx
-async function upload(files: FileList) {
-  const file = files[0];
-  // use the file's current name as the path
-  await db.storage.upload(file.name, file);
-  // or, give the file a custom name
-  await db.storage.upload('demo.png', file);
-  // or, put it in the `images` subdirectory
-  await db.storage.upload('images/demo.png', file);
-  // or, put it in a subdirectory for the current user,
-  // and restrict access to this file via Storage permissions
-  await db.storage.upload(`${currentUser.id}/demo.png`, file);
-}
-
-return <input type="file" onChange={(e) => upload(e.target.files)} />;
+```shell {% showCopy=true %}
+npx create-next-app instant-storage --tailwind --yes
+cd instant-storage
+npm i @instantdb/react
+npm run dev
 ```
 
-The `pathname` determines where the file will be stored, and can be used with permissions to restrict access to certain files.
+And then replace the contents of `app/src/page.tsx` with the following code:
+
+```javascript {% showCopy=true %}
+'use client';
+
+import { init } from '@instantdb/react';
+import React from 'react';
+
+// Types
+// ----------
+export type Image = {
+  id: string;
+  path: string;
+  url: string;
+};
+
+// Instant app
+const APP_ID = '__APP_ID__';
+
+// Optional: Declare your schema for intellisense!
+type Schema = {
+  images: Image;
+};
+
+const db = init({ appId: APP_ID });
+
+// `uploadFile` is what we use to do the actual upload!
+// the `$files` will automatically update once the upload is complete
+async function uploadImage(file: File) {
+  try {
+    // Optional metadata you can set for uploads
+    const opts = {
+      // See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type
+      // Default: 'application/octet-stream'
+      contentType: file.type,
+      // See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Disposition
+      // Default: 'inline'
+      contentDisposition: 'attachment; filename="moop.jpg"',
+    };
+    await db.storage.uploadFile(file.name, file, opts);
+  } catch (error) {
+    console.error('Error uploading image:', error);
+  }
+}
+
+// `delete` is what we use to delete a file from storage
+// `$files` will automatically update once the delete is complete
+async function deleteImage(image: Image) {
+  await db.storage.delete(image.path);
+}
+
+function App() {
+  // $files is the special namespace for querying storage data
+  const { isLoading, error, data } = db.useQuery({
+    $files: {
+      $: {
+        order: { serverCreatedAt: 'asc' },
+      },
+    },
+  });
+
+  if (isLoading) {
+    return <div>Fetching data...</div>;
+  }
+
+  if (error) {
+    return <div>Error fetching data: {error.message}</div>;
+  }
+
+  // The result of a $files query will contain objects with
+  // metadata and a download URL you can use for serving files!
+  const { $files: images } = data as { $files: Image[] };
+  return (
+    <div className="box-border bg-gray-50 font-mono min-h-screen p-5 flex items-center flex-col">
+      <div className="tracking-wider text-5xl text-gray-300 mb-8">
+        Image Feed
+      </div>
+      {/* Helper component to upload images */}
+      <ImageUpload />
+      {/* Helper component to display images */}
+      <ImageGrid images={images} />
+    </div>
+  );
+}
+
+interface SelectedFile {
+  file: File;
+  previewURL: string;
+}
+
+function ImageUpload() {
+  const [selectedFile, setSelectedFile] = React.useState<SelectedFile | null>(null);
+  const { previewURL } = selectedFile || {};
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const previewURL = URL.createObjectURL(file);
+      setSelectedFile({ file, previewURL });
+    }
+  };
+
+  const handleUpload = () => {
+    if (selectedFile) {
+      uploadImage(selectedFile.file);
+      URL.revokeObjectURL(selectedFile.previewURL);
+      setSelectedFile(null);
+    }
+  };
+
+  return (
+    <div className="mb-8 p-5 border-2 border-dashed border-gray-300 rounded-lg">
+      <input
+        type="file"
+        accept="image/*"
+        onChange={handleFileSelect}
+        className="font-mono"
+      />
+      {previewURL && (
+        <div className="mt-5 flex flex-col items-center gap-3">
+          <img src={previewURL} alt="Preview" className="max-w-xs max-h-xs object-contain" />
+          <button onClick={handleUpload} className="py-2 px-4 bg-green-500 text-white border-none rounded cursor-pointer font-mono">
+            Upload Image
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ImageGrid({ images }: { images: Image[] }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 w-full max-w-6xl">
+      {images.map((image, idx) => (
+        <div key={image.id} className="border border-gray-300 rounded-lg overflow-hidden">
+          <img src={image.url} alt={image.path} className="w-full h-64 object-cover" />
+          <div className="p-3 flex justify-between items-center bg-white">
+            <span>{image.path}</span>
+            <span onClick={() => deleteImage(image)} className="cursor-pointer text-gray-300 px-1">
+              𝘟
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default App;
+```
+
+Go to `localhost:3000`, and you should see a simple image feed where you can
+upload and delete images! 📸
+
+## Storage API
+
+Below you'll find a more detailed guide on how to use the Storage API.
+
+### db.storage.uploadFile
+
+Use `db.storage.uploadFile(path, file, opts?)` to upload a file.
+
+The `path` determines where the file will be stored, and can be used with permissions to restrict access to certain files.
 
 The `file` should be a [`File`](https://developer.mozilla.org/en-US/docs/Web/API/File) type, which will likely come from a [file-type input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/file).
 
-{% callout type="warning" %}
+The `opts` object is optional and can be used to set the `contentType` and
+`contentDisposition` headers for the file.
 
-Note that if the `pathname` already exists in your storage directory, it will be overwritten!
+```javascript
+// use the file's current name as the path
+await db.storage.uploadFile(file.name, file);
 
-You may want to include some kind of unique identifier or timestamp in your `pathname` to ensure this doesn't happen.
+// or, give the file a custom name
+await db.storage.uploadFile('demo.png', file);
+
+// or, set the content type and content disposition
+await db.storage.uploadFile('images/demo.png', file, {
+  contentType: 'image/png',
+  contentDisposition: 'attachment; filename="demo.png"',
+});
+```
+
+{% callout type="note" %}
+
+If the `path` already exists in your storage directory, it will be overwritten!
+
+```javascript
+// This will upload a file to the path 'demo.png'
+await db.storage.uploadFile('demo.png', file);
+
+// Calling this again will overwrite the file at 'demo.png'
+await db.storage.uploadFile('demo.png', file);
+```
+
+If you don't want to overwrite files, you'll need to ensure that each file has a unique path.
 
 {% /callout %}
 
-## Retrieving files
+### Retrieving files
+
+To retrieve a file you can get it's download url by querying the `$files`
+namespace.
+
+```javascript
+// This will fetch all files in storage from earliest to latest upload
+const query = {
+  $files: {
+    $: {
+      order: { serverCreatedAt: 'asc' },
+    },
+  },
+});
+const { isLoading, error, data } = query;
+```
+
+```javascript
+console.log(data)
+{
+  "$files": [
+    {
+      "id": fileId,
+      "path": "demo.png"
+      "url": "https://instant-storage.s3.amazonaws.com/...",
+      "contentType": "image/png",
+      "contentDisposition": "attachment; filename=\"demo.png\"",
+    },
+    // ...
+  ]
+}
+```
+
+You can use query filters and associations as you would with any other namespace
+to filter and sort your files.
+
+```javascript
+const { isLoading, user, error } = db.useAuth();
+const query = {
+  profiles: {
+    $: {
+      where: {"$user.id": user.id}
+    },
+    $files: {},
+  },
+});
+const { isLoading, error, data } = query;
+```
 
 To retrieve a file URL, we use the `db.storage.getDownloadUrl(pathname: string)` function.
 
