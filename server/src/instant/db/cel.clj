@@ -157,7 +157,11 @@
 (deftype CelList [xs]
   java.util.List
   (get [_ i]
-    (stringify (nth xs i))))
+    (stringify (nth xs i)))
+
+  ;; for printing
+  (iterator [_]
+    (java.util.List/.iterator xs)))
 
 (defn ->cel-list [xs]
   (CelList. xs))
@@ -174,6 +178,10 @@
   ;; we always return true when checking for key presence.
   (containsKey [_ _k]
     true)
+
+  ;; for printing
+  (entrySet [_]
+    (set (seq (or m {}))))
 
   CelMapExtension
   (getMeta [_]
