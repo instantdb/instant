@@ -7,7 +7,7 @@ export function Navigation({ navigation, className }) {
 
   return (
     <nav className={clsx('text-sm', className)}>
-      <ul role="list" className="space-y-9">
+      <ul role="list" className="space-y-6">
         {navigation.map((section) => (
           <li key={section.title}>
             <h2 className="font-medium text-slate-900 dark:text-white">

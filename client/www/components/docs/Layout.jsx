@@ -309,7 +309,7 @@ export function Layout({ children, title, tableOfContents }) {
             <div className="absolute inset-0">
               <div
                 className={clsx(
-                  'sticky overflow-y-auto px-4',
+                  'sticky overflow-y-auto px-4 pb-4',
                   adj.topHeader,
                   adj.hWithoutHeader,
                 )}
