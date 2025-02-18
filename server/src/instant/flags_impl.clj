@@ -77,8 +77,8 @@
       (session/on-open store/store socket)
       (store/assoc-session! store/store
                             socket-id
-                            :app app
-                            :admin? true)
+                            :session/auth {:app app
+                                           :admin? true})
       (doseq [{:keys [query]} queries]
         (session/on-message {:id socket-id
                              :receive-q receive-q
