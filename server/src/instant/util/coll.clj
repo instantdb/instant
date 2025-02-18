@@ -24,6 +24,15 @@
                not-found))
            not-found coll)))
 
+(defn exists?
+  "Returns true if any item in the coll matches (pred item), otherwise false."
+  [pred coll]
+  (reduce (fn [acc x]
+            (if (pred x)
+              (reduced true)
+              acc))
+          false coll))
+
 (defn pad [n val coll]
   (let [cnt (- n (count coll))]
     (concat coll (repeat cnt val))))

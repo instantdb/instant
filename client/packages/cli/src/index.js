@@ -766,12 +766,12 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
     if (!shouldContinue) return { ok: true };
   }
 
-  const schemaPath = join(pkgDir, getSchemaPathToWrite(prev.path));
+  const schemaPath = join(pkgDir, getSchemaPathToWrite(prev?.path));
 
   await writeTypescript(
     schemaPath,
     generateSchemaTypescriptFile(
-      prev.schema,
+      prev?.schema,
       pullRes.data.schema,
       instantModuleName,
     ),
@@ -802,7 +802,7 @@ async function pullPerms(appId, { pkgDir, instantModuleName }) {
     if (!shouldContinue) return { ok: true };
   }
 
-  const permsPath = join(pkgDir, getPermsPathToWrite(prev.path));
+  const permsPath = join(pkgDir, getPermsPathToWrite(prev?.path));
   await writeTypescript(
     permsPath,
     generatePermsTypescriptFile(pullRes.data.perms || {}, instantModuleName),
@@ -1349,17 +1349,17 @@ function getPermsReadCandidates() {
   if (existing) return [{ files: existing, transform: transformImports }];
   return [
     {
-      files: 'instant.schema',
+      files: 'instant.rules',
       extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
       transform: transformImports,
     },
     {
-      files: 'src/instant.schema',
+      files: 'src/instant.rules',
       extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
       transform: transformImports,
     },
     {
-      files: 'app/instant.schema',
+      files: 'app/instant.rules',
       extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
       transform: transformImports,
     },

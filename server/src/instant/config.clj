@@ -193,6 +193,11 @@
                      :prod "https://api.instantdb.com"
                      "http://localhost:8888"))
 
+(def s3-bucket-name
+  (case (get-env)
+    :prod "instant-storage"
+    "instantdb-test-bucket"))
+
 (defn dashboard-origin
   ([] (dashboard-origin {:env (get-env)}))
   ([{:keys [env]}]

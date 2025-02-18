@@ -91,7 +91,8 @@
                          unchanged-attr? (and
                                           (= (get new-attr :cardinality) (get current-attr :cardinality))
                                           (= (get new-attr :unique?) (get current-attr :unique?))
-                                          (= (get new-attr :on-delete) (get current-attr :on-delete)))]
+                                          (= (get new-attr :on-delete) (get current-attr :on-delete))
+                                          (= (get new-attr :on-delete-reverse) (get current-attr :on-delete-reverse)))]
                      (cond
                        unchanged-attr? nil
                        new-attr? [:add-attr
@@ -102,7 +103,8 @@
                                    :cardinality (:cardinality new-attr)
                                    :unique? (:unique? new-attr)
                                    :index? (:index? new-attr)
-                                   :on-delete (:on-delete new-attr)}]
+                                   :on-delete (:on-delete new-attr)
+                                   :on-delete-reverse (:on-delete-reverse new-attr)}]
                        :else [:update-attr
                               {:value-type :ref
                                :id (:id current-attr)
@@ -111,7 +113,8 @@
                                :cardinality (:cardinality new-attr)
                                :unique? (:unique? new-attr)
                                :index? (:index? new-attr)
-                               :on-delete (:on-delete new-attr)}])))
+                               :on-delete (:on-delete new-attr)
+                               :on-delete-reverse (:on-delete-reverse new-attr)}])))
                  new-refs)
         steps  (->> (concat eid-ops blob-ops ref-ops)
                     (filter some?)
@@ -142,14 +145,15 @@
   (let [{entities :entities links :links} defs
         refs-indexed (into {} (map (fn [[_ {:keys [forward reverse]}]]
                                      [[(:on forward) (:label forward) (:on reverse) (:label reverse)]
-                                      {:id               nil
-                                       :value-type       :ref
-                                       :index?           false
-                                       :on-delete        (some-> forward :onDelete keyword)
-                                       :forward-identity [nil (:on forward) (:label forward)]
-                                       :reverse-identity [nil (:on reverse) (:label reverse)]
-                                       :cardinality      (keyword (:has forward))
-                                       :unique?          (= "one" (:has reverse))}])
+                                      {:id                nil
+                                       :value-type        :ref
+                                       :index?            false
+                                       :on-delete         (some-> forward :onDelete keyword)
+                                       :on-delete-reverse (some-> reverse :onDelete keyword)
+                                       :forward-identity  [nil (:on forward) (:label forward)]
+                                       :reverse-identity  [nil (:on reverse) (:label reverse)]
+                                       :cardinality       (keyword (:has forward))
+                                       :unique?           (= "one" (:has reverse))}])
                                    links))
         blobs-indexed (map-map (fn [[ns-name def]]
                                  (map-map (fn [[attr-name attr-def]]
@@ -186,7 +190,7 @@
 
 (defn cascade-message [[etype label]]
   (str etype "->" label ": "
-       "Cascade delete is only possible on one-to-one and one-to-many attributes. "
+       "Cascade delete is only possible on links with `has: 'one'`. "
        "Check your full schema in the dashboard: "
        "https://www.instantdb.com/dash?s=main&t=explorer"))
 
@@ -246,7 +250,7 @@
          (for [[op attr] steps
                :when (#{:add-attr :update-attr} op)
                :let [fwd-name (attr-model/fwd-ident-name attr)
-                     _ (prn "op" op "attr" attr)
+                     rev-name (attr-model/rev-ident-name attr)
                      message
                      (cond
                        ;; cascade on :cardinality :many
@@ -254,7 +258,13 @@
                         (= :ref (:value-type attr))
                         (= :many (:cardinality attr))
                         (= :cascade (:on-delete attr)))
-                       (cascade-message fwd-name))]
+                       (cascade-message fwd-name)
+
+                       (and
+                        (= :ref (:value-type attr))
+                        (not (:unique? attr))
+                        (= :cascade (:on-delete-reverse attr)))
+                       (cascade-message rev-name))]
                :when message]
            {:in [:schema]
             :message message}))]

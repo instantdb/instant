@@ -657,6 +657,19 @@
 (defn- function-clauses [named-pattern]
   (value-function-clauses (:idx named-pattern) (:v named-pattern)))
 
+(defn patch-values-for-av-index
+  "Make sure we wrap :value in [:json_null_to_null :value] when using :av
+   or postgres won't use the index."
+  [idx-key clauses]
+  (if-not (= idx-key :av)
+    clauses
+    (map (fn [clause]
+           (if (and (vector? clause)
+                    (= (nth clause 1) :value))
+             (update clause 1 (fn [v] [:json_null_to_null v]))
+             clause))
+         clauses)))
+
 (defn- where-clause
   "
     Given a named pattern, return a where clause with the constants:
@@ -678,7 +691,7 @@
                 (map (fn [[component-type v]]
                        (constant->where-part idx app-id component-type v))))
            (function-clauses named-pattern)
-           additional-clauses)))
+           (patch-values-for-av-index (idx-key idx) additional-clauses))))
 
 (comment
   (where-clause

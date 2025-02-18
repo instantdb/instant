@@ -15,6 +15,10 @@ dev-oss:
 	@echo "Starting server..."
 	clojure -M:dev:run
 
+install-hooks:
+	@echo "Installing .git/hooks/pre-commit..."
+	ln -f -s ../../server/dev-resources/hooks/pre-commit ../.git/hooks/pre-commit
+
 docker-compose:
 	$(DC) -f ./docker-compose-dev.yml build && $(DC) -f ./docker-compose-dev.yml up
 

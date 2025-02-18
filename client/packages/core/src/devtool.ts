@@ -1,11 +1,15 @@
-import { DevtoolConfig, DevtoolPosition } from './coreTypes';
+import {
+  DevtoolConfig,
+  DevtoolPosition,
+  StrictDevtoolConfig,
+} from './coreTypes';
 import * as flags from './utils/flags';
 
 type Devtool = { dispose: () => void };
 
 let currentDevtool: Devtool | undefined;
 
-export function createDevtool(appId: string, config: DevtoolConfig) {
+export function createDevtool(appId: string, config: StrictDevtoolConfig) {
   currentDevtool?.dispose();
 
   const iframeContrainer = createIframeContainer(config);

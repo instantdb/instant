@@ -12,6 +12,7 @@
    [instant.dash.ephemeral-app :as ephemeral-app]
    [instant.dash.routes :as dash-routes]
    [instant.db.indexing-jobs :as indexing-jobs]
+   [instant.storage.sweeper :as storage-sweeper]
    [instant.flags :as flags]
    [instant.flags-impl :as flags-impl]
    [instant.gauges :as gauges]
@@ -220,6 +221,8 @@
       (session-counter/start))
     (with-log-init :indexing-jobs
       (indexing-jobs/start))
+    (with-log-init :storage-sweeper
+      (storage-sweeper/start))
     (when (= (config/get-env) :prod)
       (with-log-init :analytics
         (analytics/start)))
