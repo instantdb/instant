@@ -1,5 +1,6 @@
 (ns instant.db.indexing-jobs-test
   (:require [honey.sql :as hsql]
+            [instant.config :as config]
             [instant.data.resolvers :as resolvers]
             [instant.db.indexing-jobs :as jobs]
             [instant.db.model.attr :as attr-model]
@@ -13,6 +14,10 @@
             [instant.util.json :refer [->json]]
             [instant.util.test :refer [wait-for]]
             [clojure.test :refer [deftest testing is]]))
+
+(def wait-timeout (if (= :test (config/get-env))
+                    5000
+                    1000))
 
 (defmacro check-estimate [job]
   `(let [finished-job# (jobs/get-by-id (:id ~job))]
@@ -49,7 +54,7 @@
                                     [title-job
                                      order-job
                                      created-at-job]))
-                          1000)
+                          wait-timeout)
               title-triples (triple-model/fetch (aurora/conn-pool :read)
                                                 (:id app)
                                                 [[:= :attr-id (resolvers/->uuid r :books/title)]])
@@ -108,7 +113,7 @@
                             (every? (fn [{:keys [id]}]
                                       (= "errored" (:job_status (jobs/get-by-id id))))
                                     [handle-job]))
-                          1000)
+                          wait-timeout)
               handle-triples (triple-model/fetch (aurora/conn-pool :read)
                                                  (:id app)
                                                  [[:= :attr-id (resolvers/->uuid r :users/handle)]])]
@@ -141,7 +146,7 @@
                             (every? (fn [{:keys [id]}]
                                       (= "completed" (:job_status (jobs/get-by-id id))))
                                     [title-job]))
-                          1000)
+                          wait-timeout)
               title-triples (triple-model/fetch (aurora/conn-pool :read)
                                                 (:id app)
                                                 [[:= :attr-id (resolvers/->uuid r :books/title)]])]
@@ -163,7 +168,7 @@
                               (every? (fn [{:keys [id]}]
                                         (= "completed" (:job_status (jobs/get-by-id id))))
                                       [remove-type-job]))
-                            1000)
+                            wait-timeout)
                 title-triples (triple-model/fetch (aurora/conn-pool :read)
                                                   (:id app)
                                                   [[:= :attr-id (resolvers/->uuid r :books/title)]])]
@@ -194,7 +199,7 @@
                             (every? (fn [{:keys [id]}]
                                       (= "completed" (:job_status (jobs/get-by-id id))))
                                     [title-job]))
-                          1000)
+                          wait-timeout)
               title-triples (triple-model/fetch (aurora/conn-pool :read)
                                                 (:id app)
                                                 [[:= :attr-id (resolvers/->uuid r :books/title)]])]
@@ -222,7 +227,7 @@
                                 (every? (fn [{:keys [id]}]
                                           (= "completed" (:job_status (jobs/get-by-id id))))
                                         [remove-index-job]))
-                              1000)
+                              wait-timeout)
                   title-triples (triple-model/fetch (aurora/conn-pool :read)
                                                     (:id app)
                                                     [[:= :attr-id (resolvers/->uuid r :books/title)]])]
@@ -272,7 +277,7 @@
                               (every? (fn [{:keys [id]}]
                                         (= "completed" (:job_status (jobs/get-by-id id))))
                                       [title-job]))
-                            1000)
+                            wait-timeout)
                 title-triples-after (triple-model/fetch (aurora/conn-pool :read)
                                                         (:id app)
                                                         [[:= :attr-id (resolvers/->uuid r :books/title)]])]
@@ -331,7 +336,7 @@
                               (every? (fn [{:keys [id]}]
                                         (= "completed" (:job_status (jobs/get-by-id id))))
                                       [job]))
-                            1000)
+                            wait-timeout)
                 triples-after (triple-model/fetch (aurora/conn-pool :read)
                                                   (:id app)
                                                   [[:= :attr-id (resolvers/->uuid r :users/bookshelves)]])]
@@ -389,7 +394,7 @@
                             (every? (fn [{:keys [id]}]
                                       (= "completed" (:job_status (jobs/get-by-id id))))
                                     [job]))
-                          5000)
+                          wait-timeout)
               triples (triple-model/fetch (aurora/conn-pool :read)
                                           (:id app)
                                           [[:= :attr-id attr-id]])]
@@ -414,7 +419,7 @@
                                 (every? (fn [{:keys [id]}]
                                           (= "completed" (:job_status (jobs/get-by-id id))))
                                         [remove-unique-job]))
-                              1000)
+                              wait-timeout)
                   triples (triple-model/fetch (aurora/conn-pool :read)
                                               (:id app)
                                               [[:= :attr-id attr-id]])]
@@ -465,7 +470,7 @@
                             (every? (fn [{:keys [id]}]
                                       (= "errored" (:job_status (jobs/get-by-id id))))
                                     [job]))
-                          1000)
+                          wait-timeout)
               triples (triple-model/fetch (aurora/conn-pool :read)
                                           (:id app)
                                           [[:= :attr-id attr-id]])
@@ -535,7 +540,7 @@
                                       (not (contains? #{"processing" "waiting"} (:job_status (jobs/get-by-id id)))))
                                     [unique-job
                                      index-job]))
-                          1000)
+                          wait-timeout)
               triples (triple-model/fetch (aurora/conn-pool :read)
                                           (:id app)
                                           [[:= :attr-id attr-id]])
