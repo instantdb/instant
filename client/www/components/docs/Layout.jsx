@@ -346,7 +346,7 @@ export function Layout({ children, title, tableOfContents }) {
               <div className="absolute inset-0">
                 <div
                   className={clsx(
-                    'sticky overflow-y-auto p-4',
+                    'fixed overflow-y-auto p-4 w-[16rem]',
                     adj.topHeader,
                     adj.hWithoutHeader,
                   )}
