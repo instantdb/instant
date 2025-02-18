@@ -25,9 +25,12 @@
    [instant.util.tracer :as tracer])
   (:import
    (java.lang InterruptedException)
+   (java.time Instant)
    (java.util Map)
    (java.util.concurrent ConcurrentHashMap CancellationException)
    (io.undertow.websockets.spi WebSocketHttpExchange)))
+
+(set! *warn-on-reflection* true)
 
 (defrecord ReactiveStore [sessions ^Map conns])
 
@@ -525,6 +528,44 @@
 (def ilike-match?
   (partial make-like-match? true))
 
+(defn instant-gt [^Instant a ^Instant b]
+  (.isAfter a b))
+
+(defn instant-gte [^Instant a ^Instant b]
+  (or (.equals a b)
+      (.isAfter a b)))
+
+(defn instant-lt [^Instant a ^Instant b]
+  (.isBefore a b))
+
+(defn instant-lte [^Instant a ^Instant b]
+  (or (.equals a b)
+      (.isBefore a b)))
+
+(defn string-gt [^String a ^String b]
+  (pos? (.compareTo a b)))
+
+(defn string-gte [^String a ^String b]
+  (<= 0 (.compareTo a b)))
+
+(defn string-lt [^String a ^String b]
+  (neg? (.compareTo a b)))
+
+(defn string-lte [^String a ^String b]
+  (>= 0 (.compareTo a b)))
+
+(defn bool-gt [^Boolean a ^Boolean b]
+  (pos? (.compareTo a b)))
+
+(defn bool-gte [^Boolean a ^Boolean b]
+  (<= 0 (.compareTo a b)))
+
+(defn bool-lt [^Boolean a ^Boolean b]
+  (neg? (.compareTo a b)))
+
+(defn bool-lte [^Boolean a ^Boolean b]
+  (>= 0 (.compareTo a b)))
+
 (defn- match-topic-part? [iv-part dq-part]
   (cond
     (keyword? iv-part)
@@ -537,17 +578,33 @@
     (intersects? iv-part dq-part)
 
     (map? dq-part)
-    (if-some [{:keys [op value]} (:$comparator dq-part)]
-      (let [f (case op
-                :$gt >
-                :$gte >=
-                :$lt <
-                :$lte <=
-                :$like like-match?
-                :$ilike ilike-match?)]
-        (ucoll/seek (fn [v]
-                      (f v value))
-                    iv-part))
+    (if-some [{:keys [op value data-type]} (:$comparator dq-part)]
+      (let [f (case data-type
+                :number (case op
+                          :$gt >
+                          :$gte >=
+                          :$lt <
+                          :$lte <=)
+                :boolean (case op
+                           :$gt bool-gt
+                           :$gte bool-gte
+                           :$lt bool-lt
+                           :$lte bool-lte)
+                :string (case op
+                          :$gt string-gt
+                          :$gte string-gte
+                          :$lt string-lt
+                          :$lte string-lte
+                          :$like like-match?
+                          :$ilike ilike-match?)
+                :date (case op
+                        :$gt instant-gt
+                        :$gte instant-gte
+                        :$lt instant-lt
+                        :$lte instant-lte))]
+        (not (nil? (ucoll/seek (fn [v]
+                                 (f v value))
+                               iv-part))))
       (when (contains? dq-part :$not)
         (let [not-val (:$not dq-part)]
           (ucoll/seek (partial not= not-val) iv-part))))))
