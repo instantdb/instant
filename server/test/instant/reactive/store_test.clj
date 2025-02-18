@@ -1,6 +1,6 @@
 (ns instant.reactive.store-test
   (:require
-   [clojure.test :as test :refer [deftest are is testing]]
+   [clojure.test :as test :refer [deftest is testing]]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua])
   (:import
@@ -266,7 +266,11 @@
 
     (is-match-topic-part #{nil} {:$comparator {:op :$ilike
                                                :value "hi%"
-                                               :data-type :string}} false)))
+                                               :data-type :string}} false))
+
+  (testing "$not"
+    (is-match-topic-part #{1} {:$not 2} true)
+    (is-match-topic-part #{1} {:$not 1} false)))
 
 (comment
   (test/run-tests *ns*))

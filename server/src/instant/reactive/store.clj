@@ -569,7 +569,6 @@
 (defn match-nil
   "nil is always the smallest value and the comparator value can't be nil"
   [op]
-  (println "NIL!" op)
   (case op
     :$gt false
     :$gte false
@@ -621,7 +620,7 @@
                        iv-part))
       (when (contains? dq-part :$not)
         (let [not-val (:$not dq-part)]
-          (ucoll/seek (partial not= not-val) iv-part))))))
+          (ucoll/exists? (partial not= not-val) iv-part))))))
 
 (defn match-topic?
   [[iv-idx iv-e iv-a iv-v]
