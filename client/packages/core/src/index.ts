@@ -510,6 +510,20 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
   }
 
   /**
+   * One time query for the logged in state. This is useful
+   * for scenarios where you want to know the current auth
+   * state without subscribing to changes.
+   *
+   * @see https://instantdb.com/docs/auth
+   * @example
+   *   const user = await db.getAuth();
+   *   console.log('logged in as', user.email)
+   */
+  getAuth(): Promise<User> {
+    return this._reactor.getAuth();
+  }
+
+  /**
    * Listen for connection status changes to Instant. This is useful
    * for building things like connectivity indicators
    *

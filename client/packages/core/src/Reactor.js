@@ -1354,6 +1354,14 @@ export default class Reactor {
     };
   }
 
+  async getAuth() {
+    const {user, error} = await this.getCurrentUser();
+    if (error) {
+      throw new Error(error);
+    }
+    return user;
+  }
+
   subscribeConnectionStatus(cb) {
     this.connectionStatusCbs.push(cb);
 

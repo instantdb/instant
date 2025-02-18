@@ -228,3 +228,13 @@ db.auth.signOut();
 Use `auth.signOut` from the client to invalidate the user's refresh token and
 sign them out.You can also use the admin SDK to sign out the user [from the
 server](/docs/backend#sign-out).
+
+## Get auth
+
+```javascript
+const user = db.getAuth();
+console.log('logged in as', user.email);
+```
+
+For scenarios where you want to know the current auth state without subscribing
+to changes, you can use `getAuth`.
