@@ -566,6 +566,18 @@
 (defn bool-lte [^Boolean a ^Boolean b]
   (>= 0 (.compareTo a b)))
 
+(defn match-nil
+  "nil is always the smallest value and the comparator value can't be nil"
+  [op]
+  (println "NIL!" op)
+  (case op
+    :$gt false
+    :$gte false
+    :$lt true
+    :$lte true
+    :$like false
+    :$ilike false))
+
 (defn- match-topic-part? [iv-part dq-part]
   (cond
     (keyword? iv-part)
@@ -602,9 +614,11 @@
                         :$gte instant-gte
                         :$lt instant-lt
                         :$lte instant-lte))]
-        (not (nil? (ucoll/seek (fn [v]
-                                 (f v value))
-                               iv-part))))
+        (ucoll/exists? (fn [v]
+                         (if (nil? v)
+                           (match-nil op)
+                           (f v value)))
+                       iv-part))
       (when (contains? dq-part :$not)
         (let [not-val (:$not dq-part)]
           (ucoll/seek (partial not= not-val) iv-part))))))

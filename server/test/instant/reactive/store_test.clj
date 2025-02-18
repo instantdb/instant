@@ -138,6 +138,7 @@
   (is-match-topic-part :av :ave false)
   (is-match-topic-part #{1} #{1} true)
   (is-match-topic-part #{1} #{0} false)
+
   (is-match-topic-part #{1} {:$comparator {:op :$gte
                                            :value 1
                                            :data-type :number}} true)
@@ -240,7 +241,32 @@
                        {:$comparator {:op :$lte
                                       :value (Instant/parse "2025-02-17T02:00:00Z")
                                       :data-type :date}}
-                       false))
+                       false)
+
+  (testing "nils"
+    (is-match-topic-part #{nil} {:$comparator {:op :$lte
+                                               :value 1
+                                               :data-type :number}} true)
+
+    (is-match-topic-part #{nil} {:$comparator {:op :$lt
+                                               :value 1
+                                               :data-type :number}} true)
+
+    (is-match-topic-part #{nil} {:$comparator {:op :$gte
+                                               :value 1
+                                               :data-type :number}} false)
+
+    (is-match-topic-part #{nil} {:$comparator {:op :$gt
+                                               :value 1
+                                               :data-type :number}} false)
+
+    (is-match-topic-part #{nil} {:$comparator {:op :$like
+                                               :value "hi%"
+                                               :data-type :string}} false)
+
+    (is-match-topic-part #{nil} {:$comparator {:op :$ilike
+                                               :value "hi%"
+                                               :data-type :string}} false)))
 
 (comment
   (test/run-tests *ns*))
