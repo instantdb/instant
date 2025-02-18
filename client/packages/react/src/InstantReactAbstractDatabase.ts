@@ -4,6 +4,7 @@ import {
   Storage,
   txInit,
   type AuthState,
+  type User,
   type ConnectionStatus,
   type TransactionChunk,
   type PresenceOpts,
@@ -209,6 +210,20 @@ export default abstract class InstantReactAbstractDatabase<
     );
     return state;
   };
+
+  /**
+   * One time query for the logged in state. This is useful
+   * for scenarios where you want to know the current auth
+   * state without subscribing to changes.
+   *
+   * @see https://instantdb.com/docs/auth
+   * @example
+   *   const user = await db.getAuth();
+   *   console.log('logged in as', user.email)
+   */
+  getAuth(): Promise<User> {
+    return this._core.getAuth();
+  }
 
   /**
    * Listen for connection status changes to Instant. Use this for things like
