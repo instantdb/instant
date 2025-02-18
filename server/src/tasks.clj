@@ -7,9 +7,7 @@
             [instant.config :as config]
             [lambdaisland.uri :as uri]
             [next.jdbc.connection :refer [jdbc-url]])
-  (:import (java.nio.file FileAlreadyExistsException Files Path)
-           (java.nio.file.attribute FileAttribute)
-           (java.io BufferedReader InputStreamReader)
+  (:import (java.io BufferedReader InputStreamReader)
            (sun.misc Signal SignalHandler)))
 
 (defn read-input []
@@ -73,14 +71,6 @@
            {:aead-keyset {:encrypted? false
                           :json (crypt-util/generate-unencrypted-aead-keyset)}}))))
 
-(defn copy-hooks []
-  (println "Installing git hooks")
-  (let [src (Path/of "../../server/dev-resources/hooks/pre-commit" (make-array String 0))
-        tgt (Path/of "../.git/hooks/pre-commit" (make-array String 0))]
-    (try
-      (Files/createSymbolicLink tgt src (make-array FileAttribute 0))
-      (catch FileAlreadyExistsException _e #_ignore))))
-
 (defn migrate-database []
   (config/init)
   (let [database-url (-> (config/get-aurora-config)
@@ -99,6 +89,5 @@
   "Helper to setup everything the server needs for its initial run."
   [_args]
   (ensure-override-config)
-  (copy-hooks)
   (println "Migrating database")
   (migrate-database))
