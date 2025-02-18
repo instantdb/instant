@@ -7,12 +7,15 @@
    [clojure.string :as string]
    [honey.sql :as hsql]
    [instant.data.constants :refer [empty-app-id]]
+   [instant.db.model.triple-cols :refer [triple-cols]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.system-catalog :refer [system-catalog-app-id]]
+   [instant.util.crypt :refer [json-null-md5]]
    [instant.util.exception :as ex]
    [instant.util.spec :as uspec]
-   [instant.util.string :as string-util]))
+   [instant.util.string :as string-util]
+   [instant.util.uuid :as uuid]))
 
 (def types
   [:number
@@ -258,104 +261,176 @@
    (when-not allow-reserved-names?
      (validate-reserved-names! attrs))
    (with-cache-invalidation app-id
-     (sql/do-execute!
-      ::insert-multi!
-      conn
-      (hsql/format
-       {:with [[[:attr-values
-                 {:columns attr-table-cols}]
-                {:values (distinct (attr-table-values app-id attrs))}]
-               [[:ident-values
-                 {:columns ident-table-cols}]
-                {:values (distinct (ident-table-values app-id attrs))}]
-               [:ident-inserts
-                {:insert-into
-                 [[:idents ident-table-cols]
-                  {:select (qualify-cols :ident-values ident-table-cols)
-                   :from :ident-values
-                   ;; Filter out idents we've already saved
-                   :where [:not [:exists
-                                 {:select :1
-                                  :from :idents
-                                  :where (list* :and
-                                                (map (fn [col]
-                                                       [:=
-                                                        (qualify-col :ident-values col)
-                                                        (qualify-col :idents col)])
-                                                     ident-table-cols))}]]}]
-                 ;; This can still conflict on (app_id, etype, label),
-                 ;; but you can only handle a single constraint.
-                 ;; MERGE in postgres > 15 may fix this issue
-                 :on-conflict {:on-constraint :idents_pkey}
-                 :do-update-set {:etype [:case
-                                         (list* :and
-                                                (map (fn [col]
-                                                       [:=
-                                                        (qualify-col :idents col)
-                                                        (qualify-col :EXCLUDED col)])
-                                                     ident-table-cols))
-                                         :EXCLUDED.etype
-                                         ;; raise_exception_message is typed to return
-                                         ;; a boolean, so we cast it to text so that it
-                                         ;; can throw its exception
-                                         :else [:cast
-                                                [:raise_exception_message
-                                                 [:||
-                                                  "Another attribute for "
-                                                  :EXCLUDED.etype  "." :EXCLUDED.label
-                                                  " exists with different properties."]]
-                                                :text]]}
-                 :returning [:id]}]
-               [:ident-ids
-                {:union-all
-                 [{:select :id :from :ident-inserts}
-                  {:select :id
-                   :from :idents
-                   :where [:in :id {:select :id
-                                    :from :attr-values}]}]}]
-               [:attr-inserts
-                {:insert-into
-                 [[:attrs attr-table-cols]
-                  {:select (qualify-cols :attr-values attr-table-cols)
-                   :from [:attr-values]
-                   ;; Filter out attrs we've already saved
-                   :where [:not [:exists
-                                 {:select :1
-                                  :from :attrs
-                                  :where (list* :and
-                                                (map (fn [col]
-                                                       [:=
-                                                        (qualify-col :attr-values col)
-                                                        (qualify-col :attrs col)])
-                                                     attr-table-cols))}]]
-                   :join [:ident-ids
-                          [:= :attr-values.forward-ident :ident-ids.id]]}]
-                 :on-conflict {:on-constraint :attrs_pkey}
-                 :do-update-set {:value_type [:case
-                                              (list* :and
-                                                     (map (fn [col]
-                                                            ;; Some fields can be null, so we need to
-                                                            ;; use "distinct from" instead of "="
-                                                            [:raw [[:inline (qualify-col :attrs col)]
-                                                                   " is not distinct from "
-                                                                   [:inline (qualify-col :EXCLUDED col)]]])
-                                                          attr-table-cols))
-                                              :EXCLUDED.value_type
-                                              ;; raise_exception_message is typed to return
-                                              ;; a boolean, so we cast it to text so that it
-                                              ;; can throw its exception
-                                              :else [:cast
-                                                     [:raise_exception_message
-                                                      [:||
-                                                       "The attribute with id "
-                                                       [:cast :EXCLUDED.id :text]
-                                                       " conflicts with an existing attribute with id "
-                                                       [:cast :attrs.id :text] "."]]
-                                                     :text]]}
-                 :returning [:id]}]]
-        :union-all
-        [{:select :id :from :ident-inserts}
-         {:select :id :from :attr-inserts}]})))))
+     (let [query {:with [[[:attr-values
+                           {:columns attr-table-cols}]
+                          {:values (distinct (attr-table-values app-id attrs))}]
+                         [[:ident-values
+                           {:columns ident-table-cols}]
+                          {:values (distinct (ident-table-values app-id attrs))}]
+                         [:ident-inserts
+                          {:insert-into
+                           [[:idents ident-table-cols]
+                            {:select (qualify-cols :ident-values ident-table-cols)
+                             :from :ident-values
+                             ;; Filter out idents we've already saved
+                             :where [:not [:exists
+                                           {:select :1
+                                            :from :idents
+                                            :where (list* :and
+                                                          (map (fn [col]
+                                                                 [:=
+                                                                  (qualify-col :ident-values col)
+                                                                  (qualify-col :idents col)])
+                                                               ident-table-cols))}]]}]
+                           ;; This can still conflict on (app_id, etype, label),
+                           ;; but you can only handle a single constraint.
+                           ;; MERGE in postgres > 17 may fix this issue
+                           :on-conflict {:on-constraint :idents_pkey}
+                           :do-update-set {:etype [:case
+                                                   (list* :and
+                                                          (map (fn [col]
+                                                                 [:=
+                                                                  (qualify-col :idents col)
+                                                                  (qualify-col :EXCLUDED col)])
+                                                               ident-table-cols))
+                                                   :EXCLUDED.etype
+                                                   ;; raise_exception_message is typed to return
+                                                   ;; a boolean, so we cast it to text so that it
+                                                   ;; can throw its exception
+                                                   :else [:cast
+                                                          [:raise_exception_message
+                                                           [:||
+                                                            "Another attribute for "
+                                                            :EXCLUDED.etype  "." :EXCLUDED.label
+                                                            " exists with different properties."]]
+                                                          :text]]}
+                           :returning :*}]
+                         [:attr-idents
+                          {:union
+                           [{:select :* :from :ident-inserts}
+                            {:select :*
+                             :from :idents
+                             :where [:in :id {:select :id
+                                              :from :attr-values}]}]}]
+                         [:attr-inserts
+                          {:insert-into
+                           [[:attrs attr-table-cols]
+                            {:select (qualify-cols :attr-values attr-table-cols)
+                             :from [:attr-values]
+                             ;; Filter out attrs we've already saved
+                             :where [:not [:exists
+                                           {:select :1
+                                            :from :attrs
+                                            :where (list* :and
+                                                          (map (fn [col]
+                                                                 [:=
+                                                                  (qualify-col :attr-values col)
+                                                                  (qualify-col :attrs col)])
+                                                               attr-table-cols))}]]
+                             :join [:attr-idents
+                                    [:= :attr-values.forward-ident :attr-idents.id]]}]
+                           :on-conflict {:on-constraint :attrs_pkey}
+                           :do-update-set {:value_type [:case
+                                                        (list* :and
+                                                               (map (fn [col]
+                                                                      ;; Some fields can be null, so we need to
+                                                                      ;; use "distinct from" instead of "="
+                                                                      [:raw [[:inline (qualify-col :attrs col)]
+                                                                             " is not distinct from "
+                                                                             [:inline (qualify-col :EXCLUDED col)]]])
+                                                                    attr-table-cols))
+                                                        :EXCLUDED.value_type
+                                                        ;; raise_exception_message is typed to return
+                                                        ;; a boolean, so we cast it to text so that it
+                                                        ;; can throw its exception
+                                                        :else [:cast
+                                                               [:raise_exception_message
+                                                                [:||
+                                                                 "The attribute with id "
+                                                                 [:cast :EXCLUDED.id :text]
+                                                                 " conflicts with an existing attribute with id "
+                                                                 [:cast :attrs.id :text] "."]]
+                                                               :text]]}
+                           :returning :*}]
+
+                         [:indexed-null-triples
+                          {:select [[:attr-inserts.app-id :app-id]
+                                    [:needs-null-triple.entity-id :entity-id]
+                                    [:attr-inserts.id :attr-id]
+                                    [[:cast "null" :jsonb] :value]
+                                    [[:inline json-null-md5] :value-md5]
+                                    [[:= :attr-inserts.cardinality [:inline "one"]] :ea]
+                                    [[:= :attr-inserts.value_type [:inline "ref"]] :eav]
+                                    [:attr-inserts.is_unique :av]
+                                    [:attr-inserts.is_indexed :ave]
+                                    [[:= :attr-inserts.value_type [:inline "ref"]] :vae]
+                                    [:attr-inserts.checked-data-type :checked-data-type]]
+                           :from :attr-inserts
+                           :where [:and
+                                   [:= :attr-inserts.value-type [:inline "blob"]]
+                                   :attr-inserts.is-indexed]
+                           :join [[:attr-idents :ident]
+                                  [:= :attr-inserts.forward-ident :ident.id]
+
+                                  [:idents :id-ident]
+                                  [:and
+                                   [:= :id-ident.app-id app-id]
+                                   [:= :id-ident.label [:inline "id"]]
+                                   [:= :id-ident.etype :ident.etype]]
+
+                                  [:attrs :id-attr]
+                                  [:and
+                                   [:= :id-attr.app-id app-id]
+                                   [:= :id-attr.forward-ident :id-ident.id]]
+
+                                  [:triples :needs-null-triple]
+                                  [:and
+                                   [:= :needs-null-triple.app-id app-id]
+                                   [:= :needs-null-triple.attr-id :id-attr.id]
+                                   ;; No existing triple for this attr
+                                   ;; This should always be null here, but just in case...
+                                   [:not [:exists {:select :*
+                                                   :from :triples
+                                                   :where [:and
+                                                           [:= :triples.app-id app-id]
+                                                           [:= :triples.attr-id :attr-inserts.id]
+                                                           [:= :triples.entity-id :needs-null-triple.entity-id]]}]]]]}]
+                         [:indexed-null-inserts
+                          {:insert-into [[:triples triple-cols]
+                                         {:select triple-cols
+                                          :from :indexed-null-triples}]
+                           :on-conflict [:app-id :entity-id :attr-id :value-md5]
+                           :do-nothing true
+                           :returning :entity-id}]]
+                  :select [[[:json_build_object
+                             "idents" [:coalesce
+                                       {:select [[[:json_agg :id]]]
+                                        :from :ident-inserts}
+                                       [:cast [:inline "[]"] :json]]
+                             "attrs" [:coalesce
+                                      {:select [[[:json_agg :id]]]
+                                       :from :attr-inserts}
+                                      [:cast [:inline "[]"] :json]]
+                             "triples" [:coalesce
+                                        {:select [[[:json_agg :entity-id]]]
+                                         :from :indexed-null-inserts}
+                                        [:cast [:inline "[]"] :json]]]]]}
+           result (sql/execute-one! ::insert-multi! conn (hsql/format query))]
+       {:attrs (-> result
+                   (get-in [:json_build_object "attrs"])
+                   (#(map (fn [id]
+                            {:id (uuid/parse-uuid id)})
+                          %)))
+        :idents (-> result
+                    (get-in [:json_build_object "idents"])
+                    (#(map (fn [id]
+                             {:id (uuid/parse-uuid id)})
+                           %)))
+        :triples (-> result
+                     (get-in [:json_build_object "triples"])
+                     (#(map (fn [id]
+                              {:entity_id (uuid/parse-uuid id)})
+                            %)))}))))
 
 (defn- not-null-or [check fallback]
   [:case [:not= check nil] check :else fallback])

@@ -13,7 +13,10 @@
    [instant.db.model.triple :as triple-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.db.transaction :as tx]
-   [instant.fixtures :refer [with-empty-app with-zeneca-app]]
+   [instant.db.indexing-jobs :as indexing-jobs]
+   [instant.fixtures :refer [with-empty-app
+                             with-zeneca-app
+                             with-zeneca-app-no-indexing]]
    [instant.jdbc.aurora :as aurora]
    [instant.model.app :as app-model]
    [instant.model.app-user :as app-user-model]
@@ -1482,6 +1485,77 @@
                         first
                         :triple
                         last))))))))))
+
+(deftest indexed-attrs-get-nulls
+  (testing "no nulls for unindexed attrs"
+    (with-zeneca-app-no-indexing
+      (fn [app r]
+        (let [handles-before (triple-model/fetch (aurora/conn-pool :read)
+                                                 (:id app)
+                                                 [[:= :attr_id (resolvers/->uuid r :users/handle)]])
+              id (random-uuid)
+              _ (tx/transact! (aurora/conn-pool :write)
+                              (attr-model/get-by-app-id (:id app))
+                              (:id app)
+                              [[:add-triple id (resolvers/->uuid r :users/id) (str id)]
+                               [:add-triple id (resolvers/->uuid r :users/email) "test@example.com"]])
+              handles-after (triple-model/fetch (aurora/conn-pool :read)
+                                                (:id app)
+                                                [[:= :attr_id (resolvers/->uuid r :users/handle)]])]
+          (is (pos? (count handles-before)))
+          (is (= handles-before
+                 handles-after))
+          (is (= #{"alex" "stopa" "joe" "nicolegf"}
+                 (set (map (fn [h]
+                             (-> h :triple (nth 2)))
+                           handles-after))))))))
+  (testing "nulls for indexed attrs"
+    ;; handles are indexed in zeneca-app
+    (with-zeneca-app
+      (fn [app r]
+        (let [handles-before (triple-model/fetch (aurora/conn-pool :read)
+                                                 (:id app)
+                                                 [[:= :attr_id (resolvers/->uuid r :users/handle)]])
+              id (random-uuid)
+              _ (tx/transact! (aurora/conn-pool :write)
+                              (attr-model/get-by-app-id (:id app))
+                              (:id app)
+                              [[:add-triple id (resolvers/->uuid r :users/id) (str id)]
+                               [:add-triple id (resolvers/->uuid r :users/email) "test@example.com"]])
+              handles-after (triple-model/fetch (aurora/conn-pool :read)
+                                                (:id app)
+                                                [[:= :attr_id (resolvers/->uuid r :users/handle)]])]
+          (is (pos? (count handles-before)))
+          (is (= (inc (count handles-before))
+                 (count handles-after))
+              "created a single handle")
+          (is (= #{nil "alex" "stopa" "joe" "nicolegf"}
+                 (set (map (fn [h]
+                             (-> h :triple (nth 2)))
+                           handles-after)))))))))
+
+(deftest new-indexed-blobs-get-nulls
+  (with-zeneca-app
+    (fn [app r]
+      (let [make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
+                             :app-id (:id app)
+                             :attrs (attr-model/get-by-app-id (:id app))
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id (:id app)})
+                             :current-user nil})
+            attr-id (random-uuid)]
+        (permissioned-tx/transact! (make-ctx)
+                                   [[:add-attr {:id attr-id
+                                                :forward-identity [(random-uuid) "users" "new-attr"]
+                                                :value-type :blob
+                                                :cardinality :one
+                                                :unique? false
+                                                :index? true}]])
+        (let [new-attr-triples (triple-model/fetch (aurora/conn-pool :read)
+                                                   (:id app)
+                                                   [[:= :attr-id attr-id]])]
+          (is (= [nil nil nil nil] (map (fn [r] (-> r :triple (nth 2)))
+                                        new-attr-triples))))))))
 
 (deftest perms-rejects-updates-to-lookups
   (with-empty-app

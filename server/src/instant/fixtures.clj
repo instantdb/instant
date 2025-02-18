@@ -1,8 +1,10 @@
 (ns instant.fixtures
-  (:require [instant.config :as config]
+  (:require [clojure.core.async :as a]
+            [instant.config :as config]
             [instant.data.bootstrap :as bootstrap]
             [instant.data.constants :refer [test-user-id]]
             [instant.data.resolvers :as resolvers]
+            [instant.db.indexing-jobs :as indexing-jobs]
             [instant.model.app :as app-model]
             [instant.model.app-member-invites :as instant-app-member-invites]
             [instant.model.app-members :as instant-app-members]
@@ -25,6 +27,17 @@
      {:headers {"authorization" (str "Bearer " (:id r))}
       :params {:app_id (:id a)}
       :body {}})))
+
+(defmacro with-indexing-job-queue [job-queue & body]
+  `(let [chan# (a/chan 1024)
+         process# (future (indexing-jobs/start-process chan#))
+         ~job-queue chan#]
+     (try
+       ~@body
+       (finally
+         (a/close! chan#)
+         (when (= :timeout (deref process# 1000 :timeout))
+           (throw (Exception. "Timeout in with-queue")))))))
 
 (defn with-empty-app [f]
   (let [app-id (UUID/randomUUID)
@@ -51,10 +64,21 @@
             r (resolvers/make-zeneca-resolver id)]
         (f app r)))))
 
+(defn with-zeneca-app-no-indexing [f]
+  (with-empty-app
+    (fn [{:keys [id] :as app}]
+      (let [_ (bootstrap/add-zeneca-to-app! {:checked-data? false
+                                             :indexed-data? false}
+                                            id)
+            r (resolvers/make-zeneca-resolver id)]
+        (f app r)))))
+
 (defn with-zeneca-checked-data-app [f]
   (with-empty-app
     (fn [{:keys [id] :as app}]
-      (let [_ (bootstrap/add-zeneca-to-app! true id)
+      (let [_ (bootstrap/add-zeneca-to-app! {:checked-data? true
+                                             :indexed-data? true}
+                                            id)
             r (resolvers/make-zeneca-resolver id)]
         (f app r)))))
 

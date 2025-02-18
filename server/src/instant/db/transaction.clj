@@ -3,7 +3,6 @@
    [clojure.spec.alpha :as s]
    [clojure.spec.gen.alpha :as gen]
    [clojure.string :as string]
-   [clojure+.walk :as walk]
    [honey.sql :as hsql]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as transaction-model]
@@ -55,11 +54,6 @@
 ;; ----
 ;; coerce
 
-(defn- walk-uuids
-  "Converts string instances of UUIDs to java UUIDs"
-  [m]
-  (walk/postwalk #(or (uuid/parse-uuid %) %) m))
-
 (defn- assert-coll! [{:keys [in root]} x]
   (when-not (coll? x)
     (ex/throw-validation-err!
@@ -91,7 +85,7 @@
                           (coll/update-in-when [:value-type] keyword)
                           (coll/update-in-when [:cardinality] keyword))]
               tx-step)))
-         walk-uuids)))
+         uuid/walk-uuids)))
 
 (defn validate! [tx-steps]
   (let [valid? (s/valid? ::tx-steps tx-steps)]
