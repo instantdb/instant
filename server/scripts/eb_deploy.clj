@@ -47,7 +47,7 @@
         i (atom -1)
         offset (+ (count versions) 2)]
     (terminal/put-string term
-                         (str "Choose version to deploy (enter to select, q to quit):")
+                         "Choose version to deploy (enter to select, q to quit):"
                          0 (- height offset))
     (doseq [{:strs [Description VersionLabel]} versions
             :let [idx (swap! i inc)
@@ -76,27 +76,44 @@
 
 (defn check-db [version]
   (let [[_ sha]        (re-matches #".*-([0-9a-fA-F]{40})$" (get version "VersionLabel"))
+        _              (println "Fetching latest commits...")
+        _              (shell "git" "fetch" "-q" "origin" "main")
         last-migration (->> (shell {:out :string} "git" "ls-tree" "-r" "--name-only" sha "resources/migrations")
                             :out
-                            str/trim
-                            str/split-lines
+                            string/trim
+                            string/split-lines
                             (keep #(second (re-matches #"resources/migrations/(\d+)_.*\.up\.sql" %)))
                             (map parse-long)
                             (reduce max 0))
         _              (println "Getting db URL...")
         db-url         (-> (shell {:out :string} "./scripts/prod_connection_string.sh")
                            :out
-                           str/trim)
+                           string/trim)
         _              (println "Checking prod db version...")
         db-version     (-> (shell {:err :string} "migrate" "-database" db-url "-path" "resources/migrations" "version")
                            :err
-                           str/trim
+                           string/trim
                            parse-long)]
     (when (> last-migration db-version)
-      (println "[ERROR] Looks like you need to run DB migrations first")
+      (println "Looks like you need to run DB migrations first")
       (println "  Current prod version:" db-version)
       (println "      Latest migration:" last-migration)
-      (System/exit 1))))
+      (loop []
+        (print "Abort [a] / Continue [c]: ")
+        (flush)
+        (let [ch     (.read System/in)
+              eof    -1
+              ctrl-c 3
+              ctrl-d 4]
+          (println (char ch))
+          (condp contains? ch
+            #{(int \c) (int \C)}
+            :continue
+
+            #{(int \a) (int \A) eof ctrl-c ctrl-d}
+            (System/exit 1)
+
+            (recur)))))))
 
 (defn main-loop []
   (sun.misc.Signal/handle
