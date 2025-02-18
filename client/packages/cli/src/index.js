@@ -1349,17 +1349,17 @@ function getPermsReadCandidates() {
   if (existing) return [{ files: existing, transform: transformImports }];
   return [
     {
-      files: 'instant.rules',
+      files: 'instant.perms',
       extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
       transform: transformImports,
     },
     {
-      files: 'src/instant.rules',
+      files: 'src/instant.perms',
       extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
       transform: transformImports,
     },
     {
-      files: 'app/instant.rules',
+      files: 'app/instant.perms',
       extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
       transform: transformImports,
     },
