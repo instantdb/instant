@@ -2,7 +2,6 @@
   (:require
    [clojure.set :as clojure-set]
    [clojure.string :as clojure-string]
-   [clojure+.walk :as walk]
    [instant.data.constants :refer [zeneca-app-id]]
    [instant.db.dataloader :as dataloader]
    [instant.db.datalog :as d]
@@ -135,21 +134,43 @@
 (defprotocol CelMapExtension
   (getMeta [this]))
 
+(declare ->cel-list ->cel-map)
+
+(defn stringify [x]
+  (cond
+    (nil? x)           NullValue/NULL_VALUE
+    ;; For some reason, cel-java only supports longs when determining
+    ;; type. We convert ints to longs to prevent type(data.param) from
+    ;; throwing a NPE
+    ;; https://github.com/google/cel-java/blob/dae82c6d10114bb1da643203569f90a757c6c5e6/runtime/src/main/java/dev/cel/runtime/StandardTypeResolver.java#L73
+    (int? x)           (long x)
+    (keyword? x)       (subs (str x) 1)
+    (symbol? x)        (str x)
+    (uuid? x)          (str x)
+    (sequential? x)    (->cel-list x)
+    (associative? x)   (->cel-map nil x)
+    (instance? Date x) (doto (SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ss'Z'")
+                         (.setTimeZone (SimpleTimeZone. 0 "UTC"))
+                         (.format ^Date x))
+    :else              x))
+
+(deftype CelList [xs]
+  java.util.List
+  (get [_ i]
+    (stringify (nth xs i)))
+
+  ;; for printing
+  (iterator [_]
+    (java.util.List/.iterator xs)))
+
+(defn ->cel-list [xs]
+  (CelList. xs))
+
 (deftype CelMap [metadata m]
   java.util.Map
   (get [_ k]
-    (let [res (get m k NullValue/NULL_VALUE)]
-      (cond (nil? res)
-            NullValue/NULL_VALUE
-
-            ;; For some reason, cel-java only supports longs when determining
-            ;; type. We convert ints to longs to prevent type(data.param) from
-            ;; throwing a NPE
-            ;; https://github.com/google/cel-java/blob/dae82c6d10114bb1da643203569f90a757c6c5e6/runtime/src/main/java/dev/cel/runtime/StandardTypeResolver.java#L73
-            (int? res)
-            (long res)
-
-            :else res)))
+    (stringify
+     (or (get m k) (get m (keyword k)))))
 
   ;; CEL throws if a key doesn't exist. We don't want this
   ;; behavior -- we'd rather just return null when a key is
@@ -158,6 +179,7 @@
   (containsKey [_ _k]
     true)
 
+  ;; for printing
   (entrySet [_]
     (set (seq (or m {}))))
 
@@ -165,19 +187,8 @@
   (getMeta [_]
     metadata))
 
-(defn stringify [form]
-  (cond
-    (keyword? form)       (subs (str form) 1)
-    (symbol? form)        (str form)
-    (uuid? form)          (str form)
-    (sequential? form)    (vec form)
-    (instance? Date form) (doto (SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ss'Z'")
-                            (.setTimeZone (SimpleTimeZone. 0 "UTC"))
-                            (.format ^Date form))
-    :else                 form))
-
 (defn ->cel-map [metadata m]
-  (CelMap. metadata (walk/postwalk stringify m)))
+  (CelMap. metadata m))
 
 (def ^MapType type-obj (MapType/create SimpleType/STRING SimpleType/DYN))
 
