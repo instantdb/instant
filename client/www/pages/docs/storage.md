@@ -7,8 +7,7 @@ You can use Storage to store images, videos, documents, and any other file type.
 
 ## Storage quick start
 
-Here's a quick example of how to upload and display a grid of images using
-Storage in a brand new Next.js app.
+Here's a full example of how to upload and display a grid of images
 
 ```shell {% showCopy=true %}
 npx create-next-app instant-storage --tailwind --yes
@@ -16,15 +15,16 @@ cd instant-storage
 npm i @instantdb/react
 ```
 
-Initialize your schema and permissions via the [cli tool](/docs/cli):
+Initialize your schema and permissions via the [cli tool](/docs/cli)
 
 ```
 npx instant-cli@latest init
 ```
 
-Now open `instant.perms.ts` and add the following permissions:
+Now open `instant.perms.ts` and add the following permissions
 
 ```javascript {% showCopy=true %}
+// Note:
 // For production apps you should use more restrictive permissions
 // But for this quick start example we'll allow anyone to view, upload,
 // and delete files
@@ -39,7 +39,7 @@ Now open `instant.perms.ts` and add the following permissions:
 }
 ```
 
-And then replace the contents of `app/src/page.tsx` with the following code:
+And then replace the contents of `app/src/page.tsx` with the following code
 
 ```javascript {% showCopy=true %}
 'use client';
@@ -112,9 +112,7 @@ function App() {
       <div className="tracking-wider text-5xl text-gray-300 mb-8">
         Image Feed
       </div>
-      {/* Helper component to upload images */}
       <ImageUpload />
-      {/* Helper component to display images */}
       <ImageGrid images={images} />
     </div>
   );
@@ -170,6 +168,7 @@ function ImageGrid({ images }: { images: Image[] }) {
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 w-full max-w-6xl">
       {images.map((image, idx) => (
         <div key={image.id} className="border border-gray-300 rounded-lg overflow-hidden">
+          {/* $files entities come with a `url` property */}
           <img src={image.url} alt={image.path} className="w-full h-64 object-cover" />
           <div className="p-3 flex justify-between items-center bg-white">
             <span>{image.path}</span>
@@ -186,14 +185,14 @@ function ImageGrid({ images }: { images: Image[] }) {
 export default App;
 ```
 
-With your permissions set and your code in place, you can now run your app:
+With your permissions set and your code in place, you can now run your app
 
 ```shell {% showCopy=true %}
 npm run dev
 ```
 
 Go to `localhost:3000`, and you should see a simple image feed where you can
-upload and delete images! 📸
+upload and delete images!
 
 ## Storage Client SDK
 
@@ -204,50 +203,47 @@ react.
 
 Use `db.storage.uploadFile(path, file, opts?)` to upload a file.
 
-The `path` determines where the file will be stored, and can be used with permissions to restrict access to certain files.
-
-The `file` should be a [`File`](https://developer.mozilla.org/en-US/docs/Web/API/File) type, which will likely come from a [file-type input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/file).
-
-The `opts` object is optional and can be used to set the `contentType` and
-`contentDisposition` headers for the file.
+- `path` determines where the file will be stored, and can be used with permissions to restrict access to certain files.
+- `file` should be a [`File`](https://developer.mozilla.org/en-US/docs/Web/API/File) type, which will likely come from a [file-type input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/file).
+- `opts` is optional and can be used to set the `contentType` and
+  `contentDisposition` headers for the file.
 
 ```javascript
 // use the file's current name as the path
 await db.storage.uploadFile(file.name, file);
 
 // or, give the file a custom name
-await db.storage.uploadFile('demo.png', file);
+const path = `${user.id}/avatar.png`;
+await db.storage.uploadFile(path, file);
 
 // or, set the content type and content disposition
-await db.storage.uploadFile('images/demo.png', file, {
-  contentType: 'image/png',
-  contentDisposition: 'attachment; filename="demo.png"',
+const path = `${user.id}/orders/${orderId}.pdf`;
+await db.storage.uploadFile(path, file, {
+  contentType: 'application/pdf',
+  contentDisposition: 'attachment; filename="confirmation.pdf"',
 });
 ```
 
-{% callout type="note" %}
+### Overwriting files
 
 If the `path` already exists in your storage directory, it will be overwritten!
 
 ```javascript
-// This will upload a file to the path 'demo.png'
+// Uploads a file to 'demo.png'
 await db.storage.uploadFile('demo.png', file);
 
-// Calling this again will overwrite the file at 'demo.png'
+// Overwrites the file at 'demo.png'
 await db.storage.uploadFile('demo.png', file);
 ```
 
 If you don't want to overwrite files, you'll need to ensure that each file has a unique path.
 
-{% /callout %}
+### View files
 
-### Query files
-
-To retrieve a file you can get fetch it's metadata by querying the `$files`
-namespace.
+You can retrieve files by querying the `$files` namespace.
 
 ```javascript
-// This will fetch all files in storage from earliest to latest upload
+// Fetch all files from earliest to latest upload
 const query = {
   $files: {
     $: {
@@ -280,7 +276,7 @@ to filter and sort your files.
 
 ```javascript
 // instant.schema.ts
-// Suppose you have a schema like this
+// ---------------
 import { i } from "@instantdb/core";
 const _schema = i.schema({
   entities: {
@@ -310,8 +306,9 @@ const _schema = i.schema({
 
 
 // app/src/page.tsx
-// Here's how you can query files associated with a user
-const { isLoading, user, error } = db.useAuth();
+// ---------------
+// Find files associated with a profile
+const { user } = db.useAuth();
 const query = {
   profiles: {
     $: {
@@ -321,7 +318,7 @@ const query = {
   },
 });
 // Defer until we've fetched the user and then query associated files
-const { isLoading: isLoadingFiles, error: filesError, data } = db.useQuery(user ? query : null);
+const { isLoading, error, data } = db.useQuery(user ? query : null);
 ```
 
 ### Delete files
@@ -335,14 +332,13 @@ await db.storage.delete('demo.png');
 
 ### Link files
 
-A common use case is to associate files with other entities in your schema.
-You can do this by creating a link between your file entity and another entity.
+Use links to associate files with other entities in your schema.
 
 ```javascript
 async function uploadImage(file: File) {
   try {
     // Create an explicit upload path
-    const path = `avatars/${profileId}/avatar`;
+    const path = `${user.id}/avatar`;
     // Upload the file
     const { data } = await db.storage.uploadFile(path, file);
     // Link it to a profile
@@ -407,13 +403,13 @@ const _schema = i.schema({
 {
   "$files": {
     "allow": {
-      "view": "isLoggedIn",
+      "view": "true",
       "create": "isLoggedIn && isOwner",
       "delete": "isLoggedIn && isOwner"
     },
     "bind": [
       "isLoggedIn", "auth.id != null",
-      "isOwner", "data.path.startsWith('avatars/' + auth.id + '/')"
+      "isOwner", "data.path.startsWith(auth.id + '/')"
     ]
   }
 }
@@ -433,9 +429,8 @@ const APP_ID = '__APP_ID__';
 
 const db = init({ appId: APP_ID, schema });
 
-// This is where we'll handle displaying and uploading avatars!
+// The meat and potatoes
 function AvatarUpload() {
-  const [isUploading, setIsUploading] = useState(false);
   const { user } = db.useAuth();
   const {
     isLoading: isLoadingAvatar,
@@ -453,6 +448,8 @@ function AvatarUpload() {
         }
       : null,
   );
+  const [isUploading, setIsUploading] = useState(false);
+
   if (isLoadingAvatar) return <div>Loading...</div>;
   if (avatarError) return <div>Error: {avatarError.message}</div>;
 
@@ -465,18 +462,15 @@ function AvatarUpload() {
 
     try {
       setIsUploading(true);
-      // We set an explicit path to make sure that when users change
-      // their avatar we upload to the same path. This way we keep
-      // the same URL for the avatar.
+      // Set an explicit path to make sure that when users change
+      // their avatar we upload to the same path.
       //
-      // We use the user id in the path for permission checks. This
-      // way we can leverage a check to ensure that only the user can
-      // upload to their own profile.
-      const path = `avatars/${user.id}/avatar`;
+      // Setting user id in the path is useful for enabling permission checks
+      // to ensure that only the user can upload to their own profile.
+      const path = `${user.id}/avatar`;
 
       const { data } = await db.storage.uploadFile(path, file);
 
-      // Link the file to the profile
       await db.transact(tx.profiles[profileId].link({ avatar: data.id }));
     } catch (error) {
       console.error('Error uploading avatar:', error);
