@@ -13,7 +13,7 @@ The example below shows how to use magic codes in a React app. If you're looking
 for an example with vanilla JS, check out this [sandbox](https://github.com/instantdb/instant/blob/main/client/sandbox/vanilla-js-vite/src/main.ts).
 {% /callout %}
 
-Open up your `app/src/page.tsx` file, and replace the entirety of it with the following code:
+Open up your `app/page.tsx` file, and replace the entirety of it with the following code:
 
 ```javascript {% showCopy=true %}
 "use client";
