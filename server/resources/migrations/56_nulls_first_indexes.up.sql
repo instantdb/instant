@@ -1,10 +1,3 @@
--- TODO: Add concurrently first
--- XXX: Try adding e back to the index?
--- XXX: What should we do with strings? We can't use the gist index to order them (gin also doesn't work)
---      1. could add a new btree index
---      2. could add a way for users to tell us that they want the string to be used for sorting
---         and add another ave-sorted field. Mostly you don't sort by strings, so this seems like a better approach?
-
 create index if not exists triples_number_type_idx_nulls_first on triples (
     app_id,
     attr_id,
