@@ -141,6 +141,16 @@
                                                  attrs)))))]
     {:refs refs-indexed :blobs blobs-indexed}))
 
+(defn filter-indexed-blobs
+  [coll-name attrs-map]
+  (let [attrs-seq (for [[_attr-name attr-def] attrs-map]
+                    (assoc attr-def
+                           :catalog (if (.startsWith (name coll-name) "$") :system :user)))
+        filtered-seq (attr-model/remove-hidden (attr-model/wrap-attrs attrs-seq))]
+    (into {}
+          (for [attr filtered-seq]
+            [(-> attr :forward-identity (nth 2) keyword) (dissoc attr :catalog)]))))
+
 (defn defs->schema [defs]
   (let [{entities :entities links :links} defs
         refs-indexed (into {} (map (fn [[_ {:keys [forward reverse]}]]
@@ -167,9 +177,14 @@
                                                                   (when (contains? attr-model/checked-data-types valueType)
                                                                     (keyword valueType)))})
                                           (:attrs def)))
-                               entities)]
+                               entities)
+        blobs-filtered (into {}
+                             (for [[coll-name attrs-map] blobs-indexed
+                                   :let [filtered-attrs (filter-indexed-blobs coll-name attrs-map)]
+                                   :when (seq filtered-attrs)]
+                               [coll-name filtered-attrs]))]
     {:refs refs-indexed
-     :blobs blobs-indexed}))
+     :blobs blobs-filtered}))
 
 (defn dup-message [[etype label]]
   (str etype "->" label ": "
