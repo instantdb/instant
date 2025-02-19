@@ -1191,7 +1191,6 @@
            direction
            named-pattern
            order-sym
-           eid-sym
            order-col-type
            before
            after]
@@ -1204,8 +1203,6 @@
                                     (dec next-idx)
                                     false
                                     page-pattern)
-        prev-table (kw prefix (dec next-idx))
-
         entity-id-col :entity-id
         sym-component-type (component-type-of-sym named-pattern order-sym)
         sym-triple-idx (get (set/map-invert idx->component-type)
