@@ -536,6 +536,17 @@
     1 [:= k (first v-set)]
     [:in k v-set]))
 
+(defn- in-or-eq-with-or
+  "If the set has only one element,
+   return an = clause. Otherwise, return a set of OR clauses."
+  [k v-set]
+  (case (count v-set)
+    0 [:= 0 1]
+    1 [:= k (first v-set)]
+    (list* :or (map (fn [v]
+                      [:= k v])
+                    v-set))))
+
 (defn- value->jsonb [x]
   [:cast (->json x) :jsonb])
 
@@ -601,7 +612,7 @@
                              [:cast (->json (second lookup)) :jsonb]]
                             [:= :attr-id [:cast (first lookup) :uuid]]
                             :av]}])))
-    :a (in-or-eq :attr-id v)
+    :a (in-or-eq-with-or :attr-id v)
     :v (in-or-eq-value idx v)))
 
 (def all-zeroes-uuid "00000000-0000-0000-0000-000000000000")
