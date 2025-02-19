@@ -149,7 +149,7 @@
         filtered-seq (attr-model/remove-hidden (attr-model/wrap-attrs attrs-seq))]
     (into {}
           (for [attr filtered-seq]
-            [(-> attr :forward-identity (nth 2) keyword) (dissoc attr :catalog)]))))
+            [(keyword (attr-model/fwd-label attr)) attr]))))
 
 (defn defs->schema [defs]
   (let [{entities :entities links :links} defs
