@@ -17,6 +17,8 @@
    [instant.util.string :as string-util]
    [instant.util.uuid :as uuid]))
 
+(set! *warn-on-reflection* true)
+
 (def types
   [:number
    :string
@@ -578,11 +580,16 @@
               (update :by-rev-ident assoc (rev-ident-name attr) attr)
 
               true
-              (update :ids-by-etype update (fwd-etype attr) (fnil conj #{}) (:id attr))))
+              (update :ids-by-etype update (fwd-etype attr) (fnil conj #{}) (:id attr))
+
+
+                            (= :blob (:value-type attr))
+              (update :blob-ids-by-etype update (fwd-etype attr) (fnil conj #{}) (:id attr))))
           {:by-id {}
            :by-fwd-ident {}
            :by-rev-ident {}
-           :ids-by-etype {}}
+           :ids-by-etype {}
+           :blob-ids-by-etype {}}
           attrs))
 
 (defprotocol AttrsExtension
@@ -590,6 +597,7 @@
   (seekByFwdIdentName [this fwd-ident])
   (seekByRevIdentName [this revIdent])
   (attrIdsForEtype [this etype])
+  (blobIdsForEtype [this etype])
   (unwrap [this]))
 
 ;; Creates a wrapper over attrs. Makes them act like a regular list, but
@@ -640,7 +648,11 @@
         :ids-by-etype
         (get etype #{})))
   (unwrap [_this]
-    elements))
+    elements)
+  (blobIdsForEtype [_this etype]
+    (-> @cache
+        :blob-ids-by-etype
+        (get etype #{}))))
 
 (defn wrap-attrs [attrs]
   (Attrs. attrs (delay (index-attrs attrs))))
@@ -690,6 +702,9 @@
 
 (defn attr-ids-for-etype [etype ^Attrs attrs]
   (.attrIdsForEtype attrs etype))
+
+(defn blob-ids-for-etype [etype ^Attrs attrs]
+  (.blobIdsForEtype attrs etype))
 
 (defn remove-hidden
   "Removes the system attrs that might be confusing for the users."
