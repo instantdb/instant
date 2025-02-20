@@ -94,7 +94,8 @@
      :metrics-path :: String | nil
 
    A string to report gauge metrics to. If skipped, no reporting"
-  [{:keys [group-key-fn combine-fn process-fn executor max-workers metrics-path]}]
+  [{:keys [group-key-fn combine-fn process-fn executor max-workers metrics-path]
+    :or {max-workers 2}}]
   (let [groups      (ConcurrentHashMap.)
         accepting?  (atom true)
         processing? (atom true)
@@ -105,7 +106,8 @@
                       executor
 
                       config/fewer-vfutures?
-                      (ThreadPoolExecutor. 0 (or max-workers 2) 1 TimeUnit/SECONDS (LinkedBlockingQueue.))
+                      (doto (ThreadPoolExecutor. max-workers max-workers 1 TimeUnit/SECONDS (LinkedBlockingQueue.))
+                        (.allowCoreThreadTimeOut true))
 
                       :else
                       (Executors/newVirtualThreadPerTaskExecutor))
@@ -160,3 +162,8 @@
   "~ Amount of items currently in all queues"
   [q]
   (AtomicInteger/.get (:num-items q)))
+
+(defn num-workers
+  "~ Amount of workers currently in all queues"
+  [q]
+  (AtomicInteger/.get (:num-workers q)))

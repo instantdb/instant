@@ -3,7 +3,7 @@
    [clojure.test :refer [deftest testing is]]
    [instant.grouped-queue :as grouped-queue])
   (:import
-   (java.util.concurrent Executors)))
+   (java.util.concurrent CountDownLatch Executors)))
 
 (def groups
   "abcdefghijklmnopqrstuvwxyz")
@@ -69,6 +69,28 @@
             (println group (count ids) processed filtered))
           (testing group
             (is (= (count ids) processed))))))))
+
+(deftest thread-pool-size-test
+  (let [input (for [group [1 2 3 4 5]
+                    id    (range 100)]
+                {:group group :id id})
+        latch (CountDownLatch. 500)
+        q     (grouped-queue/start
+                {:group-key-fn :group
+                 :max-workers  10
+                 :process-fn   (fn [_group item]
+                                 (Thread/sleep 10)
+                                 (.countDown latch))})
+        t0    (System/currentTimeMillis)]
+    (doseq [item input]
+      (grouped-queue/put! q item))
+    (testing "Adding not blocked by executing"
+      (is (< (- (System/currentTimeMillis) t0) 1000)))
+    (testing "More than 1 thread swapned, but no more than 1 per group"
+      (is (<= 2 (grouped-queue/num-workers q) 5)))
+    (.await latch)
+    (testing "Total exec time more than 10 threads but less than 1 threads"
+      (is (< 1000 (- (System/currentTimeMillis) t0) 5000)))))
 
 (comment
   (dotimes [_ 100]
