@@ -695,8 +695,12 @@
   "Removes the system attrs that might be confusing for the users."
   [^Attrs attrs]
   (remove (fn [a]
-            (and (= :system (:catalog a))
-                 (not (#{"$users" "$files"} (fwd-etype a)))))
+            (or
+             (and (= :system (:catalog a))
+                  (not (#{"$users" "$files"} (fwd-etype a))))
+             (and (= "$files" (fwd-etype a))
+                  (#{"content-type" "content-disposition" "size"
+                     "location-id" "key-version"} (fwd-label a)))))
           attrs))
 
 (defn resolve-attr-id [attrs etype label]
