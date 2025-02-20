@@ -876,7 +876,10 @@
                                       [prev-table]))
                     parent-froms)
       :where (where-clause app-id named-p all-joins)}
-     :not-materialized]))
+     (if (and (= :ave (idx-key (:idx named-p)))
+              (named-constant? (:v named-p)))
+       :materialized
+       :not-materialized)]))
 
 (defn symbol-fields-of-pattern
   "Keeps track of which idx in the triple maps to which variable.
