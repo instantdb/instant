@@ -1,6 +1,5 @@
 (ns instant.db.transaction-test
   (:require
-   [clojure.set :as set]
    [clojure.string :as string]
    [clojure.test :as test :refer [are deftest is testing]]
    [instant.db.cel :as cel]
@@ -13,7 +12,6 @@
    [instant.db.model.triple :as triple-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.db.transaction :as tx]
-   [instant.db.indexing-jobs :as indexing-jobs]
    [instant.fixtures :refer [with-empty-app
                              with-zeneca-app
                              with-zeneca-app-no-indexing]]
@@ -21,7 +19,6 @@
    [instant.model.app :as app-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.rule :as rule-model]
-   [instant.util.coll :as coll]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.exception :as ex]
    [instant.util.test :as test-util :refer [suid]])
@@ -1536,7 +1533,7 @@
 
 (deftest new-indexed-blobs-get-nulls
   (with-zeneca-app
-    (fn [app r]
+    (fn [app _r]
       (let [make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
                              :app-id (:id app)
                              :attrs (attr-model/get-by-app-id (:id app))
@@ -2326,8 +2323,7 @@
 (deftest perms-accepts-writes-to-reverse-links-to-users-table
   (with-empty-app
     (fn [{app-id :id}]
-      (let [r (resolvers/make-movies-resolver app-id)
-            book-id-attr-id (random-uuid)
+      (let [book-id-attr-id (random-uuid)
             book-creator-attr-id (random-uuid)
             book-id (random-uuid)
             user-id (random-uuid)
@@ -2447,7 +2443,7 @@
 
 (deftest auth-refs-requires-users
   (with-empty-app
-    (fn [{app-id :id :as app}]
+    (fn [_app]
       (testing "auth.ref requires $users namespace"
         (is (= []
                (rule-model/validation-errors
@@ -2461,8 +2457,7 @@
 (deftest users-write-perms
   (with-empty-app
     (fn [{app-id :id}]
-      (let [r (resolvers/make-movies-resolver app-id)
-            book-id-attr-id (random-uuid)
+      (let [book-id-attr-id (random-uuid)
             book-creator-attr-id (random-uuid)
             book-isbn-attr-id (random-uuid)
             book-title-attr-id (random-uuid)
@@ -2703,8 +2698,7 @@
                         [[:users/email :unique? :index?]
                          [[:users/friend :users/friend-of] :unique? :on-delete]])
             ids        #{(suid "1") (suid "2")}
-            ctx        (test-util/make-ctx app-id {:rw :write})
-            attr-model (attr-model/get-by-app-id app-id)]
+            ctx        (test-util/make-ctx app-id {:rw :write})]
 
         (test-util/insert-entities
          app-id attr->id
@@ -2722,24 +2716,24 @@
     (fn [{app-id :id}]
       (let [user-id-attr-id     (random-uuid)
             user-parent-attr-id (random-uuid)
-            insert-res (attr-model/insert-multi!
-                        (aurora/conn-pool :write)
-                        app-id
-                        [{:id user-id-attr-id
-                          :forward-identity [(random-uuid) "users" "id"]
-                          :value-type :blob
-                          :cardinality :one
-                          :unique? true
-                          :index? true}
-                         {:id user-parent-attr-id
-                          :forward-identity [(random-uuid) "users" "parent"]
-                          :reverse-identity [(random-uuid) "users" "children"]
-                          :value-type :ref
-                          :cardinality :one
-                          :unique? false
-                          :index? false
-                          :on-delete :cascade}]
-                        {})
+            _ (attr-model/insert-multi!
+               (aurora/conn-pool :write)
+               app-id
+               [{:id user-id-attr-id
+                 :forward-identity [(random-uuid) "users" "id"]
+                 :value-type :blob
+                 :cardinality :one
+                 :unique? true
+                 :index? true}
+                {:id user-parent-attr-id
+                 :forward-identity [(random-uuid) "users" "parent"]
+                 :reverse-identity [(random-uuid) "users" "children"]
+                 :value-type :ref
+                 :cardinality :one
+                 :unique? false
+                 :index? false
+                 :on-delete :cascade}]
+               {})
             root-user-id (random-uuid)
             children     (atom 0)]
 
@@ -2764,8 +2758,7 @@
               (swap! children + (/ (count tx) 2))
               (recur (inc i) (into #{} (map second tx))))))
 
-        (let [t0       (System/nanoTime)
-              ctx      {:db               {:conn-pool (aurora/conn-pool :write)}
+        (let [ctx      {:db               {:conn-pool (aurora/conn-pool :write)}
                         :app-id           app-id
                         :attrs            (attr-model/get-by-app-id app-id)
                         :datalog-query-fn d/query
@@ -2773,9 +2766,5 @@
                         :current-user     nil}
               tx-steps [[:delete-entity root-user-id "users"]]
               res      (permissioned-tx/transact! ctx tx-steps)
-              dt       (-> (System/nanoTime) (- t0) (/ 1000000.0))
               deleted-triples (count (:delete-entity (:results res)))]
-          (is (= (-> @children (* 2) (+ 1)) deleted-triples))
-          #_(is (< dt 500)))))))
-(comment
-  (test/run-tests *ns*))
+          (is (= (-> @children (* 2) (+ 1)) deleted-triples)))))))

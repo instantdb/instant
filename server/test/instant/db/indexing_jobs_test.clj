@@ -81,7 +81,7 @@
                              (= checked-data-type "number")))
                       order-triples))
 
-          (is (every? (fn [{:keys [triple checked-data-type]}]
+          (is (every? (fn [{:keys [checked-data-type]}]
                         (= checked-data-type "date"))
                       created-at-triples))
 
@@ -186,11 +186,7 @@
   (with-indexing-job-queue job-queue
     (with-zeneca-app-no-indexing
       (fn [app r]
-        (let [title-triples-before (triple-model/fetch (aurora/conn-pool :read)
-                                                       (:id app)
-                                                       [[:= :attr-id (resolvers/->uuid r :books/title)]])
-
-              title-job (jobs/create-index-job!
+        (let [title-job (jobs/create-index-job!
                          {:app-id (:id app)
                           :attr-id (resolvers/->uuid r :books/title)})
 
