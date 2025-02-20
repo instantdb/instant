@@ -78,20 +78,18 @@
         q     (grouped-queue/start
                 {:group-key-fn :group
                  :max-workers  10
-                 :process-fn   (fn [_group item]
+                 :process-fn   (fn [_group _item]
                                  (Thread/sleep 10)
                                  (.countDown latch))})
         t0    (System/currentTimeMillis)]
     (doseq [item input]
       (grouped-queue/put! q item))
-    (testing "Adding not blocked by executing"
-      (is (< (- (System/currentTimeMillis) t0) 1000)))
-    (testing "More than 1 thread swapned, but no more than 1 per group"
+    (testing "put! is not blocked by execution"
+      (is (< (- (System/currentTimeMillis) t0) 250)))
+    ;; give threads a chance to start
+    (Thread/sleep (- 500 (- (System/currentTimeMillis) t0)))
+    (testing "More than 1 thread spawned, but no more than 1 per group"
       (is (<= 2 (grouped-queue/num-workers q) 5)))
     (.await latch)
     (testing "Total exec time more than 10 threads but less than 1 threads"
       (is (< 1000 (- (System/currentTimeMillis) t0) 5000)))))
-
-(comment
-  (dotimes [_ 100]
-    (clojure.test/run-tests *ns*)))
