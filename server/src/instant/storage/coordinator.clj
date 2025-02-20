@@ -57,7 +57,7 @@
   (let [deleted (app-file-model/delete-by-paths! {:app-id app-id :paths paths})
         locations (mapv :location-id deleted)
         ids (mapv :id deleted)
-        _ (instant-s3/bulk-delete-files! app-id paths locations)]
+        _ (instant-s3/bulk-delete-files! app-id locations)]
     {:ids ids}))
 
 (defn delete-file!
@@ -68,7 +68,7 @@
                                           :path path
                                           :current-user current-user}))
   (let [{:keys [id location-id]} (app-file-model/delete-by-path! {:app-id app-id :path path})
-        _ (instant-s3/delete-file! app-id path location-id)]
+        _ (instant-s3/delete-file! app-id location-id)]
     {:id id}))
 
 ;; Logic for legacy S3 upload/download URLs
@@ -111,4 +111,4 @@
                                         :path path
                                         :current-user current-user}))
   (let [{:keys [location-id]} (app-file-model/get-by-path {:app-id app-id :path path})]
-    (instant-s3/create-signed-download-url! app-id path location-id)))
+    (instant-s3/create-signed-download-url! app-id location-id)))

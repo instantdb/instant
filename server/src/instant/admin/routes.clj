@@ -457,9 +457,7 @@
 ;; Legacy StorageFile format that was only used by the list() endpoint
 (defn legacy-storage-file-format
   [app-id file]
-  (let [object-key (if (instant-s3/migrating?)
-                     (instant-s3/->path-object-key app-id (:path file))
-                     (instant-s3/->object-key app-id (:location-id file)))]
+  (let [object-key (instant-s3/->object-key app-id (:location-id file))]
     {:key object-key
      :name (:path file)
      :size (:size file)

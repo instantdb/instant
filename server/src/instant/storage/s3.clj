@@ -1,44 +1,8 @@
 (ns instant.storage.s3
   (:require [clojure.string :as string]
-            [clojure.java.io :as io]
-            [instant.util.s3 :as s3-util]
-            [instant.flags :as flags])
+            [instant.util.s3 :as s3-util])
   (:import
    [java.time Duration]))
-
-;; Legacy S3 migration helpers
-;; ------------------
-(defn migrating? []
-  (-> (flags/storage-migration) :useLocationId? not))
-
-(defn ->legacy-object-key [app-id filename]
-  (str app-id "/" filename))
-
-(defn legacy-object-key->path
-  "Extract path from our S3 object keys"
-  [object-key]
-  (let [[_app-id & path] (string/split object-key #"/")]
-    (string/join "/" path)))
-
-(defn filename->bin
-  ^long [^String filename]
-  (mod (Math/abs (.hashCode filename)) 10))
-
-(defn ->path-object-key
-  "We prefix objects with an app id and bin. Combined with a filename
-  this gives us our key for each object."
-  [app-id filename]
-  (let [bin (filename->bin filename)
-        fname (if (string/starts-with? filename "/")
-                (subs filename 1)
-                filename)]
-    (str app-id "/" bin "/" fname)))
-
-(defn path-object-key->path
-  "Extract path from our S3 object keys"
-  [object-key]
-  (let [[_app-id _bin & path] (string/split object-key #"/")]
-    (string/join "/" path)))
 
 ;; S3 path manipulation
 ;; ----------------------
@@ -73,16 +37,8 @@
 (defn upload-file-to-s3 [{:keys [app-id path location-id] :as ctx} file]
   (when (not (instance? java.io.InputStream file))
     (throw (Exception. "Unsupported file format")))
-  (if (migrating?)
-    (let [baos (java.io.ByteArrayOutputStream.)
-          _ (io/copy file baos)
-          bytes (.toByteArray baos)
-          ctx* (assoc ctx :object-key (->object-key app-id location-id))
-          ctx-legacy* (assoc ctx :object-key (->path-object-key app-id path))]
-      (s3-util/upload-stream-to-s3 ctx-legacy* (io/input-stream bytes))
-      (s3-util/upload-stream-to-s3 ctx* (io/input-stream bytes)))
-    (let [ctx* (assoc ctx :object-key (->object-key app-id location-id))]
-      (s3-util/upload-stream-to-s3 ctx* file))))
+  (let [ctx* (assoc ctx :object-key (->object-key app-id location-id))]
+    (s3-util/upload-stream-to-s3 ctx* file)))
 
 (defn format-object [{:keys [object-metadata]}]
   (-> object-metadata
@@ -109,31 +65,15 @@
        :content-type content-type
        :content-disposition content-disposition}))))
 
-(defn delete-file! [app-id path location-id]
-  (when (migrating?)
-    (s3-util/delete-object (->path-object-key app-id path)))
+(defn delete-file! [app-id location-id]
   (when location-id
     (s3-util/delete-object (->object-key app-id location-id))))
 
-(defn bulk-delete-files! [app-id paths location-ids]
-  (when (migrating?)
-    (let [path-keys (mapv
-                     (fn [path] (->path-object-key app-id path))
-                     paths)]
-      (s3-util/delete-objects-paginated path-keys)))
+(defn bulk-delete-files! [app-id location-ids]
   (let [location-keys (mapv
                        (fn [location-id] (->object-key app-id location-id))
                        location-ids)]
     (s3-util/delete-objects-paginated location-keys)))
-
-(defn path-url [app-id filename]
-  (let [duration (Duration/ofDays 7)
-        object-key (->path-object-key app-id filename)]
-    (str (s3-util/generate-presigned-url
-          {:method :get
-           :bucket-name s3-util/default-bucket
-           :key object-key
-           :duration duration}))))
 
 (defn location-id-url [app-id location-id]
   (let [duration (Duration/ofDays 7)
@@ -144,11 +84,9 @@
            :key object-key
            :duration duration}))))
 
-(defn create-signed-download-url! [app-id path location-id]
-  (if (migrating?)
-    (path-url app-id path)
-    (when location-id
-      (location-id-url app-id location-id))))
+(defn create-signed-download-url! [app-id location-id]
+  (when location-id
+    (location-id-url app-id location-id)))
 
 ;; S3 Usage Metrics
 ;; These functions calculate usage by talking to S3 directly. We can use these
