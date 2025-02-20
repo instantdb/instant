@@ -21,7 +21,7 @@ npm i @instantdb/react
 npm run dev
 ```
 
-Now open up `app/src/page.tsx` in your favorite editor and replace the entirety of the file with the following code.
+Now open up `app/page.tsx` in your favorite editor and replace the entirety of the file with the following code.
 
 ```javascript {% showCopy=true %}
 "use client";
