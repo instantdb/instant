@@ -1,6 +1,5 @@
 (ns instant.reactive.invalidator-test
   (:require
-   [clojure.core.async :as a]
    [clojure.string :as string]
    [clojure.test :as test :refer [deftest testing is]]
    [instant.data.resolvers :as resolvers]
@@ -401,7 +400,7 @@
                                        #"-"
                                        "_")]
         (with-redefs [inv/invalidate!
-                      (fn [process-id store-conn {:keys [app-id tx-id] :as wal-record}]
+                      (fn [process-id store-conn {:keys [app-id] :as wal-record}]
                         (if (and (= machine-id process-id) (= (:id app) app-id))
                           (swap! records conj wal-record)
                           (invalidate! store-conn wal-record)))]

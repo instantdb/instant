@@ -6,8 +6,7 @@
             [instant.data.constants :refer [movies-app-id]]
             [instant.data.resolvers :as resolvers]
             [instant.jdbc.sql :as sql]
-            [instant.fixtures :refer [with-zeneca-app]]
-            [instant.db.model.attr :as attr-model]))
+            [instant.fixtures :refer [with-zeneca-app]]))
 
 (def ^:private r (delay (resolvers/make-movies-resolver)))
 

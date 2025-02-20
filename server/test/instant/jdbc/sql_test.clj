@@ -31,8 +31,8 @@
 (deftest in-progress-removes-itself-on-query-completion
   (let [in-progress (sql/make-statement-tracker)]
     (binding [sql/*in-progress-stmts* in-progress]
-      (let [query (sql/select (aurora/conn-pool :read) ["select 1"])]
-        (is (= 0 (count @(:stmts in-progress))))))))
+      (sql/select (aurora/conn-pool :read) ["select 1"])
+      (is (= 0 (count @(:stmts in-progress)))))))
 
 (deftest cant-write-on-a-readonly-connection
   (is (thrown-with-msg? clojure.lang.ExceptionInfo
