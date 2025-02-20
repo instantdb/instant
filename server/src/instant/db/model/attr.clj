@@ -389,9 +389,10 @@
                                    [:= :needs-null-triple.attr-id :id-attr.id]
                                    ;; No existing triple for this attr
                                    ;; This should always be null here, but just in case...
-                                   [:not [:exists {:select :*
+                                   [:not [:exists {:select :1
                                                    :from :triples
                                                    :where [:and
+                                                           :triples.ave
                                                            [:= :triples.app-id app-id]
                                                            [:= :triples.attr-id :attr-inserts.id]
                                                            [:= :triples.entity-id :needs-null-triple.entity-id]]}]]]]}]
