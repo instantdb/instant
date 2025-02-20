@@ -46,12 +46,11 @@
 (defn- with-session [f]
   (let [store (rs/init)
 
-        {receive-q :grouped-queue}
-        (grouped-queue/start-grouped-queue-with-workers
-         {:max-workers 1
-          :group-fn session/group-fn
-          :reserve-fn session/receive-worker-reserve-fn
-          :process-fn (partial session/process-fn store)})
+        receive-q
+        (grouped-queue/start {:group-key-fn session/group-key
+                              :combine-fn   session/combine
+                              :process-fn   #(session/straight-jacket-process-receive-q-event store %1 %2)
+                              :max-workers  1})
 
         realized-eph?   (atom false)
         eph-hz          (delay
