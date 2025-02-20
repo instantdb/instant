@@ -8,7 +8,7 @@
             [instant.db.transaction :as tx]
             [instant.jdbc.aurora :as aurora]
             [instant.model.app :as app-model]
-            [instant.reactive.receive-queue :as receive-queue]
+            [instant.reactive.receive-queue :refer [receive-q]]
             [instant.reactive.session :as session]
             [instant.reactive.store :as store]
             [instant.util.instaql :refer [instaql-nodes->object-tree]]
@@ -65,7 +65,7 @@
           socket {:id socket-id
                   :http-req nil
                   :ws-conn ws-conn
-                  :receive-q receive-queue/receive-q
+                  :receive-q receive-q
                   :pending-handlers (atom #{})}]
 
       ;; Get results in foreground so that flags are initialized before we return
@@ -81,7 +81,7 @@
                                            :admin? true})
       (doseq [{:keys [query]} queries]
         (session/on-message {:id socket-id
-                             :receive-q receive-queue/receive-q
+                             :receive-q receive-q
                              :data (->json {:op :add-query
                                             :q query
                                             :return-type "tree"})}))

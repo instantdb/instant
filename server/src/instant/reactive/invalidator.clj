@@ -6,6 +6,7 @@
    [instant.config :as config]
    [instant.db.model.attr :as attr-model]
    [instant.db.pg-introspect :as pg-introspect]
+   [instant.gauges :as gauges]
    [instant.grouped-queue :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
@@ -21,15 +22,13 @@
    [instant.db.model.triple :as triple-model])
   (:import
    (java.sql Timestamp)
-   (java.time Instant)
+   (java.time Duration Instant)
    (java.time.temporal ChronoUnit)
    (java.util Map UUID)
    (java.util.concurrent ConcurrentHashMap)
    (org.postgresql.replication LogSequenceNumber)))
 
 (declare wal-opts)
-
-(declare invalidator-q)
 
 (defn columns->map
   ([columns]
@@ -303,21 +302,27 @@
   "Combines a list of wal-records into a single wal-record.
    We combine all of the change lists and advance the tx-id to the
    latest tx-id in the list."
-  [r1 r2]
-  (when (< (::grouped-queue/combined r1 1) 100)
-    ;; Complain loudly if we accidently mix wal-records from multiple apps
-    (when (not= (:app-id r1) (:app-id r2))
-      (throw (ex-info "app-id mismatch in combine-wal-records" {:r1 r1 :r2 r2})))
-    (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id r1)
-                                            :name "skipped-in-combined-wal-record"})
+  [wal-records]
+  (reduce (fn [acc {:keys [attr-changes
+                           ident-changes
+                           triple-changes
+                           app-id
+                           tx-id
+                           tx-bytes]}]
+            ;; Complain loudly if we accidently mix wal-records from multiple apps
+            (assert (= (:app-id acc) app-id) "app-id mismatch in combine-wal-records")
+            (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id acc)
+                                                    :name "skipped-in-combined-wal-record"})
 
-    ;; Keep the old tx-created-at so that we see the worst case wal-latency-ms
-    (-> r1
-        (update :attr-changes   (fnil into []) (:attr-changes r2))
-        (update :ident-changes  (fnil into []) (:ident-changes r2))
-        (update :triple-changes (fnil into []) (:triple-changes r2))
-        (update :tx-bytes       (fnil + 0) (:tx-bytes r2))
-        (assoc :tx-id           (:tx-id r2)))))
+            ;; Keep the old tx-created-at so that we see the
+            ;; worst case wal-latency-ms
+            (-> acc
+                (update :attr-changes (fnil into []) attr-changes)
+                (update :ident-changes (fnil into []) ident-changes)
+                (update :triple-changes (fnil into []) triple-changes)
+                (update :tx-bytes (fnil + 0) tx-bytes)
+                (assoc :tx-id tx-id)))
+          wal-records))
 
 (defn transform-byop-wal-record [{:keys [changes nextlsn]}]
   ;; TODO(byop): if change is empty, then there might be changes to the schema
@@ -369,36 +374,50 @@
                                                   :attributes {:num-sockets (count sockets)}})
           (tracer/with-span! {:name "invalidator/send-refreshes"}
             (doseq [{:keys [id]} sockets]
-              (receive-queue/put! {:op :refresh
-                                   :session-id id
-                                   :tx-id tx-id
-                                   :tx-created-at tx-created-at}))))
+              (receive-queue/enqueue->receive-q {:op :refresh
+                                                 :session-id id
+                                                 :tx-id tx-id
+                                                 :tx-created-at tx-created-at}))))
         (catch Throwable t
           (def -wal-record wal-record)
           (def -store-value (store-snapshot store app-id))
           (tracer/add-exception! t {:escaping? false}))))))
 
+(defn invalidator-q-metrics [{:keys [grouped-queue get-worker-count]}]
+  [{:path "instant.reactive.invalidator.q.size"
+    :value (grouped-queue/size grouped-queue)}
+   {:path "instant.reactive.invalidator.q.longest-waiting-ms"
+    :value (if-let [{:keys [put-at]} (grouped-queue/peek grouped-queue)]
+             (.toMillis (Duration/between put-at (Instant/now)))
+             0)}
+   {:path "instant.reactive.invalidator.q.worker-count"
+    :value (get-worker-count)}])
+
 (defn start-worker [process-id store wal-chan]
   (tracer/record-info! {:name "invalidation-worker/start"})
-  (let [queue
-        (grouped-queue/start
-         {:group-key-fn :app-id
-          :combine-fn   combine-wal-records
-          :process-fn   (fn [_key wal-record]
-                         (process-wal-record process-id
-                                             store
-                                             (::grouped-queue/combined wal-record 1)
-                                             wal-record))
-          :metrics-path "instant.reactive.invalidator.q"
-          :max-workers  8})]
+  (let [queue-with-workers
+        (grouped-queue/start-grouped-queue-with-cpu-workers
+         {:group-fn :app-id
+          :reserve-fn (fn [_ q] (grouped-queue/inflight-queue-reserve 100 q))
+          :process-fn (fn [_key wal-records]
+                        (process-wal-record process-id
+                                            store
+                                            (count wal-records)
+                                            (combine-wal-records wal-records)))
+          :worker-count 8})
+        grouped-queue (:grouped-queue queue-with-workers)
+        cleanup-gauges (gauges/add-gauge-metrics-fn
+                        (fn [_] (invalidator-q-metrics queue-with-workers)))]
     (a/go
       (loop []
-        (when-some [wal-record (a/<! wal-chan)]
-          (grouped-queue/put! queue wal-record)
-          (recur)))
-      (grouped-queue/stop queue)
-      (tracer/record-info! {:name "invalidation-worker/shutdown"}))
-    queue))
+        (let [wal-record (a/<! wal-chan)]
+          (if-not wal-record
+            (do
+              (cleanup-gauges)
+              ((:shutdown queue-with-workers))
+              (tracer/record-info! {:name "invalidation-worker/shutdown"}))
+            (do (grouped-queue/put! grouped-queue wal-record)
+                (recur))))))))
 
 (defn handle-byop-record [table-info app-id store wal-record]
   (when-let [record (transform-byop-wal-record wal-record)]
@@ -407,8 +426,8 @@
         (tracer/add-data! {:attributes {:num-sockets (count sockets)}})
         (tracer/with-span! {:name "invalidator/send-refreshes"}
           (doseq [{:keys [id]} sockets]
-            (receive-queue/put! {:op :refresh
-                                 :session-id id}))))
+            (receive-queue/enqueue->receive-q {:op :refresh
+                                               :session-id id}))))
       (catch Throwable t
         (def -wal-record wal-record)
         (def -store-value (store-snapshot store app-id))
@@ -488,8 +507,7 @@
 
      @(:started-promise wal-opts)
 
-     (def invalidator-q
-       (start-worker process-id rs/store worker-chan))
+     (start-worker process-id rs/store worker-chan)
 
      (when byop-chan
        (ua/fut-bg
