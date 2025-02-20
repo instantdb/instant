@@ -76,7 +76,7 @@
         (future-cancel f1)
         (is (instance? java.lang.InterruptedException (deref err 100 :timeout)))))
 
-    (dotimes [x 100]
+    (dotimes [_ 100]
       (testing "work isn't canceled if there are still listeners"
         (let [q [[:ea (random-uuid)]]
               err (promise)

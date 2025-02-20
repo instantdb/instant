@@ -148,5 +148,5 @@
                            :exec-fn tasks/bootstrap-for-oss
                            :jvm-opts ["-Dclojure.main.report=stderr"]}
            :lint {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2025.01.16"}}
-           :main-opts ["-m" "clj-kondo.main" "--lint" "src"]}}
+           :main-opts ["-m" "clj-kondo.main" "--lint" "src" "test"]}}
  :main-opts ["-m" "instant.core"]}

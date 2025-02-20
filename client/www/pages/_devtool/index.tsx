@@ -162,13 +162,6 @@ function DevtoolWithData({
       }
   >({ state: 'pending' });
 
-  const isStorageEnabled = useMemo(() => {
-    const storageEnabledAppIds =
-      dashResponse.data?.flags?.storage_enabled_apps ?? [];
-
-    return storageEnabledAppIds.includes(appId);
-  }, [appId, dashResponse.data?.flags?.storage_enabled_apps]);
-
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const isToggleShortcut = e.shiftKey && e.ctrlKey && e.key === '0';
@@ -345,11 +338,7 @@ function DevtoolWithData({
         />
         <div className="flex w-full flex-1 overflow-auto">
           {tab === 'explorer' ? (
-            <Explorer
-              db={connection.db}
-              appId={appId}
-              isStorageEnabled={isStorageEnabled}
-            />
+            <Explorer db={connection.db} appId={appId} />
           ) : tab === 'sandbox' ? (
             <div className="min-w-[960px] w-full">
               <Sandbox app={app} />

@@ -387,11 +387,9 @@ function SearchInput({
 export function Explorer({
   db,
   appId,
-  isStorageEnabled,
 }: {
   db: InstantReactWebDatabase<any>;
   appId: string;
-  isStorageEnabled: boolean;
 }) {
   // DEV
   _dev(db);
@@ -452,11 +450,7 @@ export function Explorer({
   }
 
   // data
-  const { namespaces: _namespaces } = useSchemaQuery(db);
-  // (TODO): When fully launching storage we can remove this check
-  const namespaces = isStorageEnabled
-    ? _namespaces
-    : _namespaces && _namespaces.filter((ns) => ns.name !== '$files');
+  const { namespaces } = useSchemaQuery(db);
   const { selectedNamespace } = useMemo(
     () => ({
       selectedNamespace: namespaces?.find(
