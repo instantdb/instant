@@ -778,6 +778,9 @@
                                            :attrs.is_indexed
                                            :attrs.checked_data_type]
                                   :from :triples
+                                  ;; The `for update` should prevent a concurrent
+                                  ;; query from deleting the entity while we're
+                                  ;; doing our insert
                                   :for :update
                                   :join [:attrs [:and
                                                  [:= :triples.app_id :attrs.app_id]
