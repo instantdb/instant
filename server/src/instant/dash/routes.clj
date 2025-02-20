@@ -329,16 +329,11 @@
   (let [{:keys [id email]} (req->auth-user! req)
         apps (app-model/get-all-for-user {:user-id id})
         profile (instant-profile-model/get-by-user-id {:user-id id})
-        invites (instant-app-member-invites-model/get-pending-for-invitee {:email email})
-        whitelist (storage-beta/whitelist)
-        storage-enabled-app-ids (->> apps
-                                     (map :id)
-                                     (filter #(contains? whitelist (str %))))]
+        invites (instant-app-member-invites-model/get-pending-for-invitee {:email email})]
     (response/ok {:apps apps
                   :profile profile
                   :invites invites
-                  :user {:id id :email email}
-                  :flags {:storage_enabled_apps storage-enabled-app-ids}})))
+                  :user {:id id :email email}})))
 
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
