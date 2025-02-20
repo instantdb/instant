@@ -183,7 +183,7 @@
 
    (start-portal!)
    ;; all tap> calls will be sent to portal
-   (tap> @instant.reactive.store/store)
+   (tap> @instant.reactive.store/store-conn)
 
    For a guide, see:
    https://www.youtube.com/watch?v=Tj-iyDo3bq0"
