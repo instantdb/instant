@@ -3,12 +3,11 @@ title: Storage
 ---
 
 Instant Storage makes it simple to upload and serve files for your app.
-You can use Storage to store images, videos, documents, and any other file type.
+You can store images, videos, documents, and any other file type.
 
 ## Storage quick start
 
-Let's use a fresh Next JS app to build a full example of how to upload and
-display a grid of images
+Let's build a full example of how to upload and display a grid of images
 
 ```shell {% showCopy=true %}
 npx create-next-app instant-storage --tailwind --yes
@@ -22,21 +21,15 @@ Initialize your schema and permissions via the [cli tool](/docs/cli)
 npx instant-cli@latest init
 ```
 
-Now open `instant.perms.ts` and add the following permissions
+Now open `instant.shema.ts` and replace the contents with the following code.
 
 ```javascript {% showCopy=true %}
-import type { InstantRules } from "@instantdb/react";
 import { i } from "@instantdb/react";
 
 const _schema = i.schema({
   entities: {
     $files: i.entity({
-      "content-disposition": i.string().indexed(),
-      "content-type": i.string().indexed(),
-      "key-version": i.number(),
-      "location-id": i.string().unique().indexed(),
       path: i.string().unique().indexed(),
-      size: i.number().indexed(),
       url: i.string(),
     }),
     $users: i.entity({
@@ -56,7 +49,27 @@ export type { AppSchema };
 export default schema;
 ```
 
-Push up these permissions to your Instant app with the following command
+Similarly open `instant.perms.ts` and replace the contents with the following
+
+```javascript {% showCopy=true %}
+import type { InstantRules } from "@instantdb/react";
+
+// Not recommended for production since this allows anyone to
+// upload/delete, but good for getting started
+const rules = {
+  "$files": {
+    "allow": {
+      "view": "true",
+      "create": "true",
+      "delete": "true"
+    }
+  }
+} satisfies InstantRules;
+
+export default rules;
+```
+
+Push up both the schema and permissions to your Instant app with the following command
 
 ```shell {% showCopy=true %}
 npx instant-cli@latest push
@@ -73,7 +86,9 @@ import React from 'react';
 
 type InstantFile = InstaQLEntity<AppSchema, '$files'>
 
-const db = init({ appId: "REPLACE ME", schema });
+const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID;
+
+const db = init({ appId: APP_ID, schema });
 
 // `uploadFile` is what we use to do the actual upload!
 // the `$files` will automatically update once the upload is complete
@@ -86,7 +101,7 @@ async function uploadImage(file: File) {
       contentType: file.type,
       // See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Disposition
       // Default: 'inline'
-      contentDisposition: 'attachment; filename="moop.jpg"',
+      contentDisposition: 'attachment',
     };
     await db.storage.uploadFile(file.name, file, opts);
   } catch (error) {
@@ -240,13 +255,7 @@ function ImageGrid({ images }: { images: InstantFile[] }) {
 export default App;
 ```
 
-Make sure to update this line with the app id in your `.env` file.
-
-```javascript
-const db = init({ appId: 'REPLACE ME', schema });
-```
-
-With your permissions set and your code in place, you can now run your app!
+With your schema, permissions, and application code set, you can now run your app!
 
 ```shell {% showCopy=true %}
 npm run dev
@@ -281,7 +290,7 @@ await db.storage.uploadFile(path, file);
 const path = `${user.id}/orders/${orderId}.pdf`;
 await db.storage.uploadFile(path, file, {
   contentType: 'application/pdf',
-  contentDisposition: 'attachment; filename="confirmation.pdf"',
+  contentDisporition: `attachment; filename="${orderId}-confirmation.pdf"`,
 });
 ```
 
@@ -335,10 +344,10 @@ console.log(data)
 You can use query filters and associations as you would with any other namespace
 to filter and sort your files.
 
-```javascript
+```javascript {% showCopy=true %}
 // instant.schema.ts
 // ---------------
-import { i } from "@instantdb/core";
+import { i } from '@instantdb/core';
 const _schema = i.schema({
   entities: {
     $files: i.entity({
@@ -364,8 +373,9 @@ const _schema = i.schema({
     },
   },
 });
+```
 
-
+```javascript {% showCopy=true %}
 // app/page.tsx
 // ---------------
 // Find files associated with a profile
@@ -461,178 +471,8 @@ const _schema = i.schema({
 });
 ```
 
-Here's a more detailed example showing how you may implement an avatar upload feature:
-
-```javascript
-// instant.schema.ts
-// ---------------
-// Same as above
-
-// instant.perms.ts (make sure to push changes for them to take effect)
-// ---------------
-"$files": {
-  "allow": {
-    "view": "true",
-    "create": "isLoggedIn && isOwner",
-    "delete": "isLoggedIn && isOwner"
-  },
-  "bind": [
-    "isLoggedIn", "auth.id != null",
-    "isOwner", "data.path.startsWith(auth.id + '/')"
-  ]
-}
-
-// app/page.tsx
-// ---------------
-'use client';
-
-import { tx, id } from '@instantdb/react';
-import React, { useState, useEffect } from 'react';
-import Login from './Login';
-import { db } from './db';
-
-// The meat and potatoes
-function AvatarUpload() {
-  const { user } = db.useAuth();
-  const {
-    isLoading,
-    data,
-    error
-  } = db.useQuery(
-    user
-      ? {
-        profiles: {
-          $: {
-            where: { '$user.id': user.id },
-          },
-          avatar: {},
-        },
-      }
-      : null,
-  );
-  const [isUploading, setIsUploading] = useState(false);
-
-  // Create and link a profile if it does not exist!
-  useEffect(() => {
-    if (!user || isLoading) return;
-
-    const profile = data?.profiles?.[0];
-
-    if (!profile) {
-      db.transact([
-        tx.profiles[id()].update({
-          createdAt: new Date(),
-        }).link({ $user: user.id })
-      ]);
-    }
-  }, [data, user, isLoading]);
-
-  if (isLoading) return null;
-  if (error) return <div>Error: {error.message}</div>;
-
-  const profile = data?.profiles?.[0];
-  const avatar = profile?.avatar;
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!user || !file || !profile) return;
-
-    try {
-      setIsUploading(true);
-      // Set an explicit path to make sure that when users change
-      // their avatar we upload to the same path.
-      //
-      // Setting user id in the path is useful for enabling permission checks
-      // to ensure that only the user can upload to their own profile.
-      const path = `${user.id}/avatar`;
-
-      const { data } = await db.storage.uploadFile(path, file);
-      await db.transact([
-        tx.profiles[profile.id].link({ avatar: data.id })
-      ]);
-    } catch (error) {
-      console.error('Error uploading avatar:', error);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  return (
-    <div className="flex flex-col items-center gap-4">
-      <div className="relative">
-        <div style={{ width: 96, height: 96 }}>
-          {avatar ? (
-            <img src={avatar.url} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full bg-gray-400" />
-          )}
-        </div>
-
-        {isUploading && (
-          <div className="absolute inset-0 bg-black bg-opacity-40 rounded-full flex items-center justify-center">
-            <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
-          </div>
-        )}
-      </div>
-
-      <label className="cursor-pointer">
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleFileSelect}
-          className="hidden"
-        />
-        <span className="py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm transition-colors">
-          {avatar ? 'Change Avatar' : 'Upload Avatar'}
-        </span>
-      </label>
-    </div>
-  );
-}
-
-function ProfilePage() {
-  return (
-    <div className="box-border bg-gray-50 font-mono min-h-screen p-5 flex items-center flex-col">
-      <div className="tracking-wider text-3xl text-gray-700 mb-8">
-        Profile Settings
-      </div>
-
-      <div className="bg-white rounded-lg shadow-md p-8 max-w-2xl w-full">
-        <h2 className="text-xl mb-6 pb-2 border-b border-gray-200">
-          Profile Picture
-        </h2>
-
-        <div className="flex justify-center">
-          <AvatarUpload />
-        </div>
-      </div>
-      <button
-        className="text-sm text-gray-500 mt-2"
-        onClick={() => db.auth.signOut()}
-      >
-        {' '}
-        Sign out
-      </button>
-    </div>
-  );
-}
-
-function App() {
-  const { isLoading, user, error } = db.useAuth();
-  if (isLoading) {
-    return null;
-  }
-  if (error) {
-    return <div>Uh oh! {error.message}</div>;
-  }
-  if (user) {
-    return <ProfilePage />;
-  }
-  return <Login />;
-}
-
-export default App;
-```
+[Check out this repo](https://github.com/jsventures/instant-storage-avatar-example)
+for a more detailed example showing how you may leverage links to implement an avatar upload feature
 
 ## Storage admin SDK
 

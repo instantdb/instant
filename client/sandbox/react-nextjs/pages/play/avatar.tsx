@@ -123,7 +123,7 @@ function ProfilePage() {
   );
 }
 
-function Wrapper() {
+function Page() {
   const { isLoading, user, error } = db.useAuth();
   if (isLoading) {
     return <div>Loading...</div>;
@@ -137,4 +137,4 @@ function Wrapper() {
   return <Login auth={db.auth} />;
 }
 
-export default Wrapper;
+export default Page;
