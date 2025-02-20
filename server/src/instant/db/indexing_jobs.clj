@@ -778,6 +778,7 @@
                                            :attrs.is_indexed
                                            :attrs.checked_data_type]
                                   :from :triples
+                                  :for :update
                                   :join [:attrs [:and
                                                  [:= :triples.app_id :attrs.app_id]
                                                  [:= :attrs.id attr_id]]]
