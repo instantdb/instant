@@ -7,7 +7,8 @@ You can use Storage to store images, videos, documents, and any other file type.
 
 ## Storage quick start
 
-Here's a full example of how to upload and display a grid of images
+Let's use a fresh Next JS app to build a full example of how to upload and
+display a grid of images
 
 ```shell {% showCopy=true %}
 npx create-next-app instant-storage --tailwind --yes
@@ -24,42 +25,55 @@ npx instant-cli@latest init
 Now open `instant.perms.ts` and add the following permissions
 
 ```javascript {% showCopy=true %}
-// Note:
-// For production apps you should use more restrictive permissions
-// But for this quick start example we'll allow anyone to view, upload,
-// and delete files
-{
-  "$files": {
-    "allow": {
-      "view": "true",
-      "create": "true",
-      "delete": "true"
-    }
-  }
-}
+import type { InstantRules } from "@instantdb/react";
+import { i } from "@instantdb/react";
+
+const _schema = i.schema({
+  entities: {
+    $files: i.entity({
+      "content-disposition": i.string().indexed(),
+      "content-type": i.string().indexed(),
+      "key-version": i.number(),
+      "location-id": i.string().unique().indexed(),
+      path: i.string().unique().indexed(),
+      size: i.number().indexed(),
+      url: i.string(),
+    }),
+    $users: i.entity({
+      email: i.string().unique().indexed(),
+    }),
+  },
+  links: {},
+  rooms: {},
+});
+
+// This helps Typescript display nicer intellisense
+type _AppSchema = typeof _schema;
+interface AppSchema extends _AppSchema {}
+const schema: AppSchema = _schema;
+
+export type { AppSchema };
+export default schema;
 ```
 
-And then replace the contents of `app/src/page.tsx` with the following code
+Push up these permissions to your Instant app with the following command
+
+```shell {% showCopy=true %}
+npx instant-cli@latest push
+```
+
+And then replace the contents of `app/page.tsx` with the following code.
 
 ```javascript {% showCopy=true %}
 'use client';
 
-import { init } from '@instantdb/react';
-import schema from '../instant.schema';
+import { init, InstaQLEntity } from '@instantdb/react';
+import schema, { AppSchema } from '../instant.schema';
 import React from 'react';
 
-// Types
-// ----------
-export type Image = {
-  id: string;
-  path: string;
-  url: string;
-};
+type InstantFile = InstaQLEntity<AppSchema, '$files'>
 
-// Instant app
-const APP_ID = '__APP_ID__';
-
-const db = init({ appId: APP_ID, schema });
+const db = init({ appId: "REPLACE ME", schema });
 
 // `uploadFile` is what we use to do the actual upload!
 // the `$files` will automatically update once the upload is complete
@@ -82,7 +96,7 @@ async function uploadImage(file: File) {
 
 // `delete` is what we use to delete a file from storage
 // `$files` will automatically update once the delete is complete
-async function deleteImage(image: Image) {
+async function deleteImage(image: InstantFile) {
   await db.storage.delete(image.path);
 }
 
@@ -97,7 +111,7 @@ function App() {
   });
 
   if (isLoading) {
-    return <div>Fetching data...</div>;
+    return null;
   }
 
   if (error) {
@@ -106,13 +120,17 @@ function App() {
 
   // The result of a $files query will contain objects with
   // metadata and a download URL you can use for serving files!
-  const { $files: images } = data as { $files: Image[] };
+  const { $files: images } = data
   return (
     <div className="box-border bg-gray-50 font-mono min-h-screen p-5 flex items-center flex-col">
       <div className="tracking-wider text-5xl text-gray-300 mb-8">
         Image Feed
       </div>
       <ImageUpload />
+      <div className="text-xs text-center py-4">
+        Upload some images and they will appear below! Open another tab and see
+        the changes in real-time!
+      </div>
       <ImageGrid images={images} />
     </div>
   );
@@ -125,6 +143,8 @@ interface SelectedFile {
 
 function ImageUpload() {
   const [selectedFile, setSelectedFile] = React.useState<SelectedFile | null>(null);
+  const [isUploading, setIsUploading] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { previewURL } = selectedFile || {};
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -135,23 +155,34 @@ function ImageUpload() {
     }
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (selectedFile) {
-      uploadImage(selectedFile.file);
+      setIsUploading(true);
+
+      await uploadImage(selectedFile.file);
+
       URL.revokeObjectURL(selectedFile.previewURL);
       setSelectedFile(null);
+      fileInputRef.current?.value && (fileInputRef.current.value = '');
+      setIsUploading(false);
     }
   };
 
   return (
     <div className="mb-8 p-5 border-2 border-dashed border-gray-300 rounded-lg">
       <input
+        ref={fileInputRef}
         type="file"
         accept="image/*"
         onChange={handleFileSelect}
         className="font-mono"
       />
-      {previewURL && (
+      {isUploading ? (
+        <div className="mt-5 flex flex-col items-center">
+          <div className="w-8 h-8 border-2 border-t-2 border-gray-200 border-t-green-500 rounded-full animate-spin"></div>
+          <p className="mt-2 text-sm text-gray-600">Uploading...</p>
+        </div>
+      ) : previewURL && (
         <div className="mt-5 flex flex-col items-center gap-3">
           <img src={previewURL} alt="Preview" className="max-w-xs max-h-xs object-contain" />
           <button onClick={handleUpload} className="py-2 px-4 bg-green-500 text-white border-none rounded cursor-pointer font-mono">
@@ -163,21 +194,45 @@ function ImageUpload() {
   );
 }
 
-function ImageGrid({ images }: { images: Image[] }) {
+function ImageGrid({ images }: { images: InstantFile[] }) {
+  const [deletingIds, setDeletingIds] = React.useState<Set<string>>(new Set());
+
+  const handleDelete = async (image: InstantFile) => {
+    setDeletingIds((prev) => new Set([...prev, image.id]));
+
+    await deleteImage(image);
+
+    setDeletingIds((prev) => {
+      prev.delete(image.id);
+      return prev;
+    });
+  }
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 w-full max-w-6xl">
-      {images.map((image, idx) => (
-        <div key={image.id} className="border border-gray-300 rounded-lg overflow-hidden">
-          {/* $files entities come with a `url` property */}
-          <img src={image.url} alt={image.path} className="w-full h-64 object-cover" />
-          <div className="p-3 flex justify-between items-center bg-white">
-            <span>{image.path}</span>
-            <span onClick={() => deleteImage(image)} className="cursor-pointer text-gray-300 px-1">
-              𝘟
-            </span>
+      {images.map((image) => {
+        const isDeleting = deletingIds.has(image.id);
+        return (
+          <div key={image.id} className="border border-gray-300 rounded-lg overflow-hidden">
+            <div className="relative">
+              {/* $files entities come with a `url` property */}
+              <img src={image.url} alt={image.path} className="w-full h-64 object-cover" />
+              {isDeleting && (
+                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                  <div className="w-8 h-8 border-2 border-t-2 border-gray-200 border-t-white rounded-full animate-spin"></div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 flex justify-between items-center bg-white">
+              <span>{image.path}</span>
+              <span onClick={() => handleDelete(image)} className="cursor-pointer text-gray-300 px-1">
+                𝘟
+              </span>
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   );
 }
@@ -185,7 +240,13 @@ function ImageGrid({ images }: { images: Image[] }) {
 export default App;
 ```
 
-With your permissions set and your code in place, you can now run your app
+Make sure to update this line with the app id in your `.env` file.
+
+```javascript
+const db = init({ appId: 'REPLACE ME', schema });
+```
+
+With your permissions set and your code in place, you can now run your app!
 
 ```shell {% showCopy=true %}
 npm run dev
@@ -194,7 +255,7 @@ npm run dev
 Go to `localhost:3000`, and you should see a simple image feed where you can
 upload and delete images!
 
-## Storage Client SDK
+## Storage client SDK
 
 Below you'll find a more detailed guide on how to use the Storage API from
 react.
@@ -224,7 +285,7 @@ await db.storage.uploadFile(path, file, {
 });
 ```
 
-### Overwriting files
+### Overwrite files
 
 If the `path` already exists in your storage directory, it will be overwritten!
 
@@ -305,7 +366,7 @@ const _schema = i.schema({
 });
 
 
-// app/src/page.tsx
+// app/page.tsx
 // ---------------
 // Find files associated with a profile
 const { user } = db.useAuth();
@@ -349,11 +410,12 @@ async function uploadImage(file: File) {
 }
 ```
 
-Here's a more detailed example showing how you may implement an avatar upload feature:
+Similar to `$users`, links on `$files` can only be created in the **reverse
+direction.**
 
 ```javascript
 // instant.schema.ts
-// ---------------
+// simplfied version
 const _schema = i.schema({
   entities: {
     $files: i.entity({
@@ -371,94 +433,109 @@ const _schema = i.schema({
   links: {
     profiles$user: {
       forward: {
-        on: "profiles",
-        has: "one",
-        label: "$user",
+        on: 'profiles',
+        has: 'one',
+        label: '$user',
       },
       reverse: {
-        on: "$users",
-        has: "one",
-        label: "profile",
+        on: '$users',
+        has: 'one',
+        label: 'profile',
       },
     },
     profilesAvatar: {
       forward: {
-        on: "profiles",
-        has: "one",
-        label: "avatar",
+        on: 'profiles',
+        has: 'one',
+        label: 'avatar',
       },
+      // Notice that $files is on the reverse side
       reverse: {
-        on: "$files",
-        has: "one",
-        label: "profile",
+        on: '$files',
+        has: 'one',
+        label: 'profile',
       },
-    },
     },
   },
   rooms: {},
 });
+```
 
-// instant.perms.ts
+Here's a more detailed example showing how you may implement an avatar upload feature:
+
+```javascript
+// instant.schema.ts
 // ---------------
-{
-  "$files": {
-    "allow": {
-      "view": "true",
-      "create": "isLoggedIn && isOwner",
-      "delete": "isLoggedIn && isOwner"
-    },
-    "bind": [
-      "isLoggedIn", "auth.id != null",
-      "isOwner", "data.path.startsWith(auth.id + '/')"
-    ]
-  }
+// Same as above
+
+// instant.perms.ts (make sure to push changes for them to take effect)
+// ---------------
+"$files": {
+  "allow": {
+    "view": "true",
+    "create": "isLoggedIn && isOwner",
+    "delete": "isLoggedIn && isOwner"
+  },
+  "bind": [
+    "isLoggedIn", "auth.id != null",
+    "isOwner", "data.path.startsWith(auth.id + '/')"
+  ]
 }
 
-// app/src/page.tsx
+// app/page.tsx
 // ---------------
 'use client';
 
-import { init, tx } from '@instantdb/react';
-import schema from '../instant.schema';
+import { tx, id } from '@instantdb/react';
 import React, { useState, useEffect } from 'react';
-import Login from '../../components/Login';
-import config from '../../config';
-
-// Instant app
-const APP_ID = '__APP_ID__';
-
-const db = init({ appId: APP_ID, schema });
+import Login from './Login';
+import { db } from './db';
 
 // The meat and potatoes
 function AvatarUpload() {
   const { user } = db.useAuth();
   const {
-    isLoading: isLoadingAvatar,
+    isLoading,
     data,
-    error: avatarError,
+    error
   } = db.useQuery(
     user
       ? {
-          profiles: {
-            $: {
-              where: { '$user.id': user.id },
-            },
-            avatar: {},
+        profiles: {
+          $: {
+            where: { '$user.id': user.id },
           },
-        }
+          avatar: {},
+        },
+      }
       : null,
   );
   const [isUploading, setIsUploading] = useState(false);
 
-  if (isLoadingAvatar) return <div>Loading...</div>;
-  if (avatarError) return <div>Error: {avatarError.message}</div>;
+  // Create and link a profile if it does not exist!
+  useEffect(() => {
+    if (!user || isLoading) return;
 
-  const profile = data.profiles[0];
-  const { avatar } = profile;
+    const profile = data?.profiles?.[0];
+
+    if (!profile) {
+      db.transact([
+        tx.profiles[id()].update({
+          createdAt: new Date(),
+        }).link({ $user: user.id })
+      ]);
+    }
+  }, [data, user, isLoading]);
+
+  if (isLoading) return null;
+  if (error) return <div>Error: {error.message}</div>;
+
+  const profile = data?.profiles?.[0];
+  const avatar = profile?.avatar;
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!user || !file || !profile) return;
 
     try {
       setIsUploading(true);
@@ -470,8 +547,9 @@ function AvatarUpload() {
       const path = `${user.id}/avatar`;
 
       const { data } = await db.storage.uploadFile(path, file);
-
-      await db.transact(tx.profiles[profileId].link({ avatar: data.id }));
+      await db.transact([
+        tx.profiles[profile.id].link({ avatar: data.id })
+      ]);
     } catch (error) {
       console.error('Error uploading avatar:', error);
     } finally {
@@ -525,7 +603,7 @@ function ProfilePage() {
         </h2>
 
         <div className="flex justify-center">
-          <AvatarUpload defaultSize={120} />
+          <AvatarUpload />
         </div>
       </div>
       <button
@@ -539,10 +617,10 @@ function ProfilePage() {
   );
 }
 
-function Wrapper() {
+function App() {
   const { isLoading, user, error } = db.useAuth();
   if (isLoading) {
-    return <div>Loading...</div>;
+    return null;
   }
   if (error) {
     return <div>Uh oh! {error.message}</div>;
@@ -550,31 +628,84 @@ function Wrapper() {
   if (user) {
     return <ProfilePage />;
   }
-  return <Login auth={db.auth} />;
+  return <Login />;
 }
 
-export default Wrapper;
+export default App;
+```
+
+## Storage admin SDK
+
+The Admin SDK offers a similar API for managing storage on the server. Permission
+checks are not enforced when using the Admin SDK, so you can use it to manage
+files without worrying about authentication.
+
+### Uploading files
+
+Once again, we use the `db.storage.uploadFile(path, file, opts?)` function to upload a file on the backend.
+
+Note that unlike our browser SDK, the `file` argument must be a `Buffer`. In
+this case you'll likely want to at least specify the `contentType` in the
+options otherwise the default content-type will be `application/octet-stream`.
+
+```tsx
+import fs from 'fs';
+
+async function upload(filepath: string) {
+  const buffer = fs.readFileSync(filepath);
+  await db.storage.upload('images/demo.png', buffer, {
+    contentType: 'image/png',
+  }
+}
+```
+
+### View Files
+
+Retrieving files is similar to the client SDK, but we use `db.query()` instead
+of `db.useQuery()`.
+
+```ts
+const query = {
+  $files: {
+    $: {
+      order: { serverCreatedAt: 'asc' },
+    },
+  },
+});
+const data = db.query(query);
+```
+
+### Delete files
+
+There are two ways to delete files with the admin SDK:
+
+- `db.storage.delete(pathname: string)`
+- `db.storage.deleteMany(pathnames: string[])`
+
+These allow you to either delete a single file, or bulk delete multiple files at a time.
+
+```ts
+const filename = 'demo.txt';
+await db.storage.delete(filename);
+
+const images = ['images/1.png', 'images/2.png', 'images/3.png'];
+await db.storage.deleteMany(images);
 ```
 
 ## Permissions
 
-At the moment, Storage permissions are handled in the same JSON settings as [data permissions](/docs/permissions), using the special `$files` keyword.
-
-To handle permissions for **uploading** files, we use the `create` action.
-
-For **downloading** or **viewing** files, we use the `view` action.
-
-{% callout %}
-
 By default, Storage permissions are disabled. This means that until you explicitly set permissions, no uploads or downloads will be possible.
 
-{% /callout %}
+- _create_ permissions enable uploading `$files`
+- _view_ permissions enable viewing `$files`
+- _delete_ permissions enable deleting `$files`
+- _view_ permissions on `$files` and _update_ permisssions on the forward entity enabling linking and unlinking `$files`
 
 In your permissions rules, you can use `auth` to access the currently authenticated user, and `data` to access the file metadata.
 
 At the moment, the only available file metadata is `data.path`, which represents the file's path in Storage. Here are some example permissions
 
-Allow anyone to upload and retrieve files (not recommended):
+Allow anyone to upload and retrieve files (easy to play with but not recommended for production):
 
 ```json
 {
@@ -610,87 +741,7 @@ Authenticated users may only upload and view files from their own subdirectory:
       "view": "isOwner",
       "create": "isOwner"
     },
-    "bind": ["isOwner", "data.path.startsWith('uploads/' + auth.id + '/')"]
+    "bind": ["isOwner", "data.path.startsWith(auth.id + '/')"]
   }
 }
-```
-
----
-
-## Admin SDK
-
-The Admin SDK offers the same API for managing storage on the server, plus a few extra convenience methods for scripting.
-
-### Uploading
-
-Once again, we use the `db.storage.upload(pathname: string, file: Buffer)` function to upload a file on the backend.
-
-Note that unlike our browser SDK, the `file` argument must be a `Buffer`:
-
-```tsx
-import fs from 'fs';
-
-async function upload(filepath: string) {
-  const buffer = fs.readFileSync(filepath);
-  await db.storage.upload('images/demo.png', buffer);
-  // you can also optionally specify the Content-Type header in the metadata
-  await db.storage.upload('images/demo.png', buffer, {
-    contentType: 'image/png',
-  });
-}
-```
-
-The `pathname` determines where the file will be stored, and can be used with permissions to restrict access to certain files.
-
-The `file` should be a [`Buffer`](https://nodejs.org/api/buffer.html) type.
-
-{% callout type="warning" %}
-
-Note that if the `pathname` already exists in your storage directory, it will be overwritten!
-
-You may want to include some kind of unique identifier or timestamp in your `pathname` to ensure this doesn't happen.
-
-{% /callout %}
-
-## Retrieving a file URL
-
-To retrieve a file URL, we use the `db.storage.getDownloadUrl(pathname: string)` function.
-
-This works exactly the same as our browser SDK.
-
-```ts
-const url = await db.storage.getDownloadUrl('images/demo.png');
-```
-
-## Listing all your files
-
-We also offer the `db.storage.list()` function to retrieve a list of all your files in storage.
-
-This can be useful for scripting, if you'd like to manage your files programmatically.
-
-```ts
-const files = await db.storage.list();
-```
-
-## Deleting files
-
-There are two ways to delete files:
-
-- `db.storage.delete(pathname: string)`
-- `db.storage.deleteMany(pathnames: string[])`
-
-These allow you to either delete a single file, or bulk delete multiple files at a time.
-
-{% callout type="warning" %}
-
-These functions will **permanently delete** files from storage, so use with extreme caution!
-
-{% /callout %}
-
-```ts
-const filename = 'demo.txt';
-await db.storage.delete(filename);
-
-const images = ['images/1.png', 'images/2.png', 'images/3.png'];
-await db.storage.deleteMany(images);
 ```
