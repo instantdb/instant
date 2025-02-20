@@ -52,7 +52,6 @@ import Billing from '@/components/dash/Billing';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { QueryInspector } from '@/components/dash/explorer/QueryInspector';
 import { Sandbox } from '@/components/dash/Sandbox';
-import { StorageTab } from '@/components/dash/Storage';
 import PersonalAccessTokensScreen from '@/components/dash/PersonalAccessTokensScreen';
 import { useForm } from '@/lib/hooks/useForm';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
@@ -79,7 +78,6 @@ type TabId =
   | 'team'
   | 'admin'
   | 'billing'
-  | 'storage'
   | 'docs';
 
 interface Tab {
@@ -94,7 +92,6 @@ const tabs: Tab[] = [
   { id: 'explorer', title: 'Explorer' },
   { id: 'perms', title: 'Permissions' },
   { id: 'auth', title: 'Auth' },
-  { id: 'storage', title: 'Storage' },
   { id: 'repl', title: 'Query Inspector' },
   { id: 'sandbox', title: 'Sandbox' },
   { id: 'admin', title: 'Admin', minRole: 'admin' },
@@ -279,14 +276,6 @@ function Dashboard() {
     return apps;
   }, [dashResponse.data?.apps]);
   const app = apps?.find((a) => a.id === appId);
-  const isStorageEnabled = useMemo(() => {
-    if (!appId) return false;
-
-    const storageEnabledAppIds =
-      dashResponse.data?.flags?.storage_enabled_apps ?? [];
-
-    return storageEnabledAppIds.includes(appId);
-  }, [appId, dashResponse.data?.flags?.storage_enabled_apps]);
 
   // ui
   const availableTabs: TabBarTab[] = tabs
@@ -491,7 +480,6 @@ function Dashboard() {
                   <ExplorerTab
                     appId={appId}
                     db={connection.db}
-                    isStorageEnabled={isStorageEnabled}
                   />
                 ) : tab === 'repl' ? (
                   <QueryInspector
@@ -509,12 +497,6 @@ function Dashboard() {
                     key={app.id}
                     dashResponse={dashResponse}
                     nav={nav}
-                  />
-                ) : tab === 'storage' ? (
-                  <StorageTab
-                    key={app.id}
-                    app={app}
-                    isEnabled={isStorageEnabled}
                   />
                 ) : tab == 'admin' && isMinRole('admin', app.user_app_role) ? (
                   <Admin
@@ -854,11 +836,9 @@ function Home() {
 function ExplorerTab({
   db,
   appId,
-  isStorageEnabled,
 }: {
   db: InstantReactClient;
   appId: string;
-  isStorageEnabled: boolean;
 }) {
   return (
     <div className="flex-1 overflow-hidden flex flex-col">
@@ -866,7 +846,6 @@ function ExplorerTab({
         <Explorer
           db={db}
           appId={appId}
-          isStorageEnabled={isStorageEnabled}
           key={db._core._reactor.config.appId}
         />
       </div>
