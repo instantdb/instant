@@ -389,9 +389,10 @@
                                    [:= :needs-null-triple.attr-id :id-attr.id]
                                    ;; No existing triple for this attr
                                    ;; This should always be null here, but just in case...
-                                   [:not [:exists {:select :*
+                                   [:not [:exists {:select :1
                                                    :from :triples
                                                    :where [:and
+                                                           :triples.ave
                                                            [:= :triples.app-id app-id]
                                                            [:= :triples.attr-id :attr-inserts.id]
                                                            [:= :triples.entity-id :needs-null-triple.entity-id]]}]]]]}]
@@ -695,8 +696,12 @@
   "Removes the system attrs that might be confusing for the users."
   [^Attrs attrs]
   (remove (fn [a]
-            (and (= :system (:catalog a))
-                 (not (#{"$users" "$files"} (fwd-etype a)))))
+            (or
+             (and (= :system (:catalog a))
+                  (not (#{"$users" "$files"} (fwd-etype a))))
+             (and (= "$files" (fwd-etype a))
+                  (#{"content-type" "content-disposition" "size"
+                     "location-id" "key-version"} (fwd-label a)))))
           attrs))
 
 (defn resolve-attr-id [attrs etype label]
