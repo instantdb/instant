@@ -34,7 +34,7 @@
 
 ;; Instant <> S3 integration
 ;; ----------------------
-(defn upload-file-to-s3 [{:keys [app-id path location-id] :as ctx} file]
+(defn upload-file-to-s3 [{:keys [app-id location-id] :as ctx} file]
   (when (not (instance? java.io.InputStream file))
     (throw (Exception. "Unsupported file format")))
   (let [ctx* (assoc ctx :object-key (->object-key app-id location-id))]
