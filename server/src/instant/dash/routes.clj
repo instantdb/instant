@@ -52,7 +52,6 @@
             [instant.lib.ring.websocket :as ws]
             [instant.jdbc.aurora :as aurora]
             [instant.stripe :as stripe]
-            [instant.storage.beta :as storage-beta]
             [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
             [instant.model.schema :as schema-model]
             [instant.intern.metrics :as metrics]
