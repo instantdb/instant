@@ -12,6 +12,7 @@
 (def query {:friend-emails {}
             :power-user-emails {}
             :storage-whitelist {}
+            :storage-block-list {}
             :storage-migration {}
             :team-emails {}
             :test-emails {}
@@ -48,6 +49,12 @@
                      (when (get o "isEnabled")
                        (get o "appId")))
                    (get result "storage-whitelist")))
+
+        storage-block-list
+        (set (keep (fn [o]
+                     (when (get o "isDisabled")
+                       (get o "appId")))
+                   (get result "storage-block-list")))
 
         use-patch-presence (when-let [hz-flag (-> (get result "use-patch-presence")
                                                   first)]
@@ -97,6 +104,7 @@
         storage-migration (-> result (get "storage-migration") first w/keywordize-keys)]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
+     :storage-block-list storage-block-list
      :use-patch-presence use-patch-presence
      :promo-code-emails promo-code-emails
      :drop-refresh-spam drop-refresh-spam
@@ -118,8 +126,12 @@
   (contains? (:team (get-emails))
              email))
 
+;; (TODO) After storage is public for awhile we can remove this
 (defn storage-enabled-whitelist []
   (get (query-result) :storage-enabled-whitelist))
+
+(defn storage-block-list []
+  (get (query-result) :storage-block-list))
 
 (defn promo-code-emails []
   (get (query-result) :promo-code-emails))
@@ -134,9 +146,9 @@
   (contains? (promo-code-emails)
              email))
 
-(defn storage-enabled? [app-id]
+(defn storage-disabled? [app-id]
   (let [app-id (str app-id)]
-    (contains? (storage-enabled-whitelist) app-id)))
+    (contains? (storage-block-list) app-id)))
 
 (defn use-patch-presence? [app-id]
   (let [flag (:use-patch-presence (query-result))
