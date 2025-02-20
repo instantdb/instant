@@ -866,6 +866,7 @@ export function CodeEditor(props: {
       }}
       onMount={props.onMount}
       beforeMount={(monaco) => {}}
+      loading={<FullscreenLoading />}
     />
   );
 }
@@ -883,12 +884,12 @@ export function JSONEditor(props: {
   }, [props.value]);
 
   return (
-    <div className="flex flex-col gap-2 h-full">
+    <div className="flex flex-col gap-2 h-full min-h-0">
       <div className="flex items-center gap-4 border-b px-4 py-2">
         <div className="font-mono">{props.label}</div>
         <Button onClick={() => props.onSave(draft)}>Save</Button>
       </div>
-      <div className="flex-grow">
+      <div className="flex-grow min-h-0">
         <CodeEditor
           language="json"
           value={props.value}
