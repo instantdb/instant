@@ -6,7 +6,7 @@
    [instant.util.tracer :as tracer])
   (:import
    (java.util Map Queue)
-   (java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue Executors ExecutorService LinkedBlockingQueue ThreadPoolExecutor TimeUnit)
+   (java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue Executors ExecutorService TimeUnit)
    (java.util.concurrent.atomic AtomicInteger)))
 
 (defn- poll
@@ -47,17 +47,22 @@
 
 (defn put!
   "Schedule item for execution on q"
-  [{:keys [executor groups group-key-fn num-items accepting?] :as q} item]
+  [{:keys [executor groups group-key-fn num-items num-puts accepting?] :as q} item]
   (when @accepting?
-    (let [item (assoc item ::put-at (System/currentTimeMillis))
-          key  (or (group-key-fn item) ::default)]
-      (locking q
-        (if-some [group (Map/.get groups key)]
-          (Queue/.offer group item)
-          (let [group (ConcurrentLinkedQueue. [item])]
-            (Map/.put groups key group)
-            (ExecutorService/.submit executor ^Runnable #(process q key group))))
-        (AtomicInteger/.incrementAndGet num-items)))))
+    (let [item   (assoc item ::put-at (System/currentTimeMillis))
+          key    (or (group-key-fn item) ::default)
+          run-fn (locking q
+                   (if-some [group (Map/.get groups key)]
+                     (do
+                       (Queue/.offer group item)
+                       nil)
+                     (let [group (ConcurrentLinkedQueue. [item])]
+                       (Map/.put groups key group)
+                       #(process q key group))))]
+      (when (fn? run-fn)
+        (ExecutorService/.submit executor ^Runnable run-fn))
+      (AtomicInteger/.incrementAndGet num-items)
+      (AtomicInteger/.incrementAndGet num-puts))))
 
 (defn- longest-wait-time [groups]
   (when-some [items (->> groups
@@ -96,46 +101,52 @@
    A string to report gauge metrics to. If skipped, no reporting"
   [{:keys [group-key-fn combine-fn process-fn executor max-workers metrics-path]
     :or {max-workers 2}}]
-  (let [groups      (ConcurrentHashMap.)
-        accepting?  (atom true)
-        processing? (atom true)
-        num-items   (AtomicInteger. 0)
-        num-workers (AtomicInteger. 0)
-        executor    (cond
-                      (some? executor)
-                      executor
+  (let [groups       (ConcurrentHashMap.)
+        accepting?   (atom true)
+        processing?  (atom true)
+        num-items    (AtomicInteger. 0)
+        num-puts     (AtomicInteger. 0)
+        num-workers  (AtomicInteger. 0)
+        executor     (cond
+                       (some? executor)
+                       executor
 
-                      config/fewer-vfutures?
-                      (doto (ThreadPoolExecutor. max-workers max-workers 1 TimeUnit/SECONDS (LinkedBlockingQueue.))
-                        (.allowCoreThreadTimeOut true))
+                       config/fewer-vfutures?
+                       (Executors/newFixedThreadPool max-workers)
+                       #_(doto (ThreadPoolExecutor. max-workers max-workers 60 TimeUnit/SECONDS (LinkedBlockingQueue.))
+                           (.allowCoreThreadTimeOut true))
 
-                      :else
-                      (Executors/newVirtualThreadPerTaskExecutor))
-        cleanup-fn  (when metrics-path
-                      (gauges/add-gauge-metrics-fn
-                       (fn [_]
-                         [{:path  (str metrics-path ".size")
-                           :value (AtomicInteger/.get num-items)}
-                          (when-some [t (longest-wait-time groups)]
-                            {:path  (str metrics-path ".longest-waiting-ms")
-                             :value t})
-                          {:path (str metrics-path ".worker-count")
-                           :value (AtomicInteger/.get num-workers)}])))
-        shutdown-fn (fn [{:keys [timeout-ms]
-                          :or {timeout-ms 1000}}]
-                      (when cleanup-fn
-                        (cleanup-fn))
-                      (reset! accepting? false)
-                      (ExecutorService/.shutdown executor)
-                      (if (ExecutorService/.awaitTermination executor timeout-ms TimeUnit/MILLISECONDS)
-                        :shutdown
-                        (do
-                          (reset! processing? false)
-                          (if (ExecutorService/.awaitTermination executor timeout-ms TimeUnit/MILLISECONDS)
-                            :shutdown
-                            (do
-                              (ExecutorService/.shutdownNow executor)
-                              :terminated)))))]
+                       :else
+                       (Executors/newVirtualThreadPerTaskExecutor))
+        cleanup-fn   (when metrics-path
+                       (gauges/add-gauge-metrics-fn
+                        (fn [_]
+                          [{:path  (str metrics-path ".size")
+                            :value (AtomicInteger/.get num-items)}
+                           (when-some [t (longest-wait-time groups)]
+                             {:path  (str metrics-path ".longest-waiting-ms")
+                              :value t})
+                           {:path (str metrics-path ".worker-count")
+                            :value (AtomicInteger/.get num-workers)}
+                           #_{:path (str metrics-path ".pool-size")
+                              :value (ThreadPoolExecutor/.getPoolSize executor)}
+                           {:path (str metrics-path ".num-puts")
+                            :value (AtomicInteger/.getAndSet num-puts 0)}])))
+        shutdown-fn  (fn [{:keys [timeout-ms]
+                           :or {timeout-ms 1000}}]
+                       (when cleanup-fn
+                         (cleanup-fn))
+                       (reset! accepting? false)
+                       (ExecutorService/.shutdown executor)
+                       (if (ExecutorService/.awaitTermination executor timeout-ms TimeUnit/MILLISECONDS)
+                         :shutdown
+                         (do
+                           (reset! processing? false)
+                           (if (ExecutorService/.awaitTermination executor timeout-ms TimeUnit/MILLISECONDS)
+                             :shutdown
+                             (do
+                               (ExecutorService/.shutdownNow executor)
+                               :terminated)))))]
     {:group-key-fn (or group-key-fn identity)
      :combine-fn   (or combine-fn (fn [_ _] nil))
      :process-fn   process-fn
@@ -143,6 +154,7 @@
      :accepting?   accepting?
      :processing?  processing?
      :num-items    num-items
+     :num-puts     num-puts
      :num-workers  num-workers
      :executor     executor
      :shutdown-fn  shutdown-fn}))
