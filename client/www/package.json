@@ -16,6 +16,7 @@
     "@instantdb/core": "workspace:*",
     "@instantdb/react": "workspace:*",
     "@markdoc/next.js": "^0.3.7",
+    "@markdoc/markdoc": "0.1.13",
     "@monaco-editor/react": "^4.6.0",
     "@mux/mux-player-react": "^2.9.1",
     "@radix-ui/react-collapsible": "^1.0.3",
