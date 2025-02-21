@@ -32,6 +32,26 @@ We don't currently support specifying which attributes you want to query.
 
 This means if you have private data in an entity, or some larger data you want to fetch sometimes, you'll want to split the entity into multiple namespaces. [Here's an example](https://github.com/instantdb/instant/blob/main/client/sandbox/react-nextjs/pages/patterns/split-attributes.tsx)
 
+## Find entities with no links.
+
+If you want to find entities that have no links, you can use the `$isNull`
+query filter. For example, if you want to find all posts that are not linked to
+an author you can do
+
+```javascript
+db.useQuery({
+  posts: {
+    $: {
+      where: {
+        'author.id': {
+          $isNull: true,
+        },
+      },
+    },
+  },
+});
+```
+
 ## Setting limits via permissions.
 
 If you want to limit the number of entities a user can create, you can do so via
