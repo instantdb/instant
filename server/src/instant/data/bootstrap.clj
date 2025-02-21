@@ -74,7 +74,7 @@
                       :cardinality :one
                       :value-type :blob
                       :unique? true
-                      :index? true}
+                      :index? false}
                      :else
                      (merge
                       {:id uuid

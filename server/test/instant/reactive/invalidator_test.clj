@@ -435,15 +435,15 @@
                           "vae" false,
                           "app_id" (str (:id app))
                           "checked_data_type" nil}
-                         {"eav" true,
+                         {"eav" false,
                           "av" true,
-                          "ave" true,
+                          "ave" false,
                           "value_md5" (->md5 (->json (str uid)))
                           "entity_id" (str uid)
                           "attr_id" (str (resolvers/->uuid r :users/id))
                           "ea" true,
                           "value" (->json (str uid))
-                          "vae" true,
+                          "vae" false,
                           "app_id" (str (:id app))
                           "checked_data_type" nil}
                          ;; null that is automatically inserted for the

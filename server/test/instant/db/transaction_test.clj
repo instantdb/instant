@@ -700,7 +700,7 @@
                 user (-> res (get "users") first)]
             (is (= {"handle" "id-test", "email" "id-test@example.com"}
                    (select-keys user ["handle" "email"])))
-            (is (uuid? (get user "id")))))
+            (is (uuid? (parse-uuid (get user "id"))))))
 
         (testing "retractions work"
           (tx/transact! (aurora/conn-pool :write)

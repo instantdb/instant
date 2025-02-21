@@ -612,7 +612,7 @@
         (testing "limit"
           (is-pretty-eq? (query-pretty ctx r {:users {:$ {:limit 2
                                                           :order {:handle :desc}}}})
-                         '({:topics #{[:eav _ #{:users/id} _]
+                         '({:topics #{[:ea _ #{:users/id} _]
                                       --
                                       [:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
                                                                           :users/createdAt
@@ -695,7 +695,7 @@
                                          :users/fullName
                                          :users/handle}
                                        _]
-                                      [:eav _ #{:users/id} _]
+                                      [:ea _ #{:users/id} _]
                                       [:ave #{"eid-joe-averbukh" "eid-alex"} #{:users/handle} _]
                                       --
                                       [:ea
@@ -732,7 +732,7 @@
               (is-pretty-eq? (query-pretty ctx r {:users {:$ {:limit 1
                                                               :after end-cursor
                                                               :order {:handle :desc}}}})
-                             '({:topics #{[:eav _ #{:users/id} _]
+                             '({:topics #{[:ea _ #{:users/id} _]
                                           --
                                           [:ea #{"eid-nicole"} #{:users/bookshelves
                                                                  :users/createdAt
@@ -752,13 +752,13 @@
               (is-pretty-eq? (query-pretty ctx r {:users {:$ {:limit 1
                                                               :before start-cursor
                                                               :order {:handle :desc}}}})
-                             '({:topics #{[:eav _ #{:users/id} _] [:ave _ #{:users/handle} _]}
+                             '({:topics #{[:ea _ #{:users/id} _] [:ave _ #{:users/handle} _]}
                                 :triples #{}}))
 
               (is-pretty-eq? (query-pretty ctx r {:users {:$ {:limit 1
                                                               :before start-cursor
                                                               :order {:handle "asc"}}}})
-                             '({:topics #{[:eav _ #{:users/id} _]
+                             '({:topics #{[:ea _ #{:users/id} _]
                                           [:ea #{"eid-alex"} #{:users/bookshelves
                                                                :users/createdAt
                                                                :users/email
@@ -778,13 +778,13 @@
               (is-pretty-eq? (query-pretty ctx r {:users {:$ {:limit 1
                                                               :before start-cursor
                                                               :order {:handle :desc}}}})
-                             '({:topics #{[:eav _ #{:users/id} _] [:ave _ #{:users/handle} _]}
+                             '({:topics #{[:ea _ #{:users/id} _] [:ave _ #{:users/handle} _]}
                                 :triples #{}}))
 
               (is-pretty-eq? (query-pretty ctx r {:users {:$ {:last 1
                                                               :before start-cursor
                                                               :order {:handle "asc"}}}})
-                             '({:topics #{[:eav _ #{:users/id} _]
+                             '({:topics #{[:ea _ #{:users/id} _]
                                           --
                                           [:ea #{"eid-nicole"} #{:users/bookshelves
                                                                  :users/createdAt
@@ -3237,10 +3237,9 @@
                :users/handle}
              '_]],
            :triples
-           [[shared-id :users/id shared-id]
+           [[shared-id :users/handle "handle"]
+            [shared-id :users/id (str shared-id)]
             '--
-            [shared-id :users/handle "handle"]
-            [shared-id :users/id shared-id]
             [shared-id :users/email nil]]}])
         (is-pretty-eq?
          (query-pretty ctx r {:books {:$ {:where {:id shared-id}}}})
@@ -3254,10 +3253,9 @@
                                 :books/thumbnail
                                 :books/title} '_]],
            :triples
-           [[shared-id :books/id shared-id]
-            '--
+           ['--
             [shared-id :books/title "title"]
-            [shared-id :books/id shared-id]]}])))))
+            [shared-id :books/id (str shared-id)]]}])))))
 
 (deftest eid-relations
   (testing "forward works on link name"
