@@ -68,7 +68,7 @@ function toAlgoliaObjects(pages) {
   const objects = pages.flatMap(({ groupTitle, pageTitle, href, sections }) => {
     const [rootSection, ...restSections] = sections;
     const rootObject = {
-      content: rootSection.content.join('/n'),
+      content: rootSection.content.join('\n'),
       hierarchy: {
         lvl0: groupTitle,
         lvl1: pageTitle,
@@ -81,7 +81,7 @@ function toAlgoliaObjects(pages) {
       ({ title: subHeading, hash, content }) => {
         const url = `${href}#${hash}`;
         return {
-          content: content.join('/n'),
+          content: content.join('\n'),
           type: 'lvl1',
           hierarchy: {
             lvl0: pageTitle,
