@@ -110,9 +110,9 @@
               wrap-keyword-params
               wrap-params
               wrap-multipart-params
-              (wrap-json-body-except #{[:put "/dash/apps/.*/storage/upload"]
-                                       [:put "/storage/upload"]
-                                       [:put "/admin/storage/upload"]})
+              (wrap-json-body-except #{[:put #"/dash/apps/.*/storage/upload"]
+                                       [:put #"/storage/upload"]
+                                       [:put #"/admin/storage/upload"]})
 
               http-util/wrap-errors
 
