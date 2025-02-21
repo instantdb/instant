@@ -21,8 +21,7 @@ const slugify = slugifyWithCounter();
 const CONFIG = {
   ALGOLIA_API_KEY: process.env.ALGOLIA_API_KEY,
   ALGOLIA_APP_ID: '98PPX6H1AS',
-  // TODO: replace before landing
-  ALGOLIA_INDEX_NAME: 'docs_dev',
+  ALGOLIA_INDEX_NAME: 'docs',
   FILE_PATH: path.join(__dirname, 'algolia-objects.json'),
 };
 
