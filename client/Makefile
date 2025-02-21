@@ -7,11 +7,11 @@ dev:
 
 index-docs-dry-run:
 	@echo "Dry run..."
-	pnpm exec tsx ./www/scripts/index-docs.mjs --dry-run
+	pnpm exec tsx ./www/scripts/index-docs.ts --dry-run
 
 index-docs-manual:
 	@echo "Manual indexing..."
-	pnpm exec tsx ./www/scripts/index-docs.mjs
+	pnpm exec tsx ./www/scripts/index-docs.ts
 
 publish:
 	@echo "Building + Publishing Packages..."

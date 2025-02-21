@@ -155,7 +155,7 @@ jobs:
       env:
         ALGOLIA_API_KEY: ${{ secrets.ALGOLIA_API_KEY }}
       working-directory: 'client'
-      run: node ./www/scripts/index-docs.mjs
+      run: pnpm exec tsx ./www/scripts/index-docs.ts
 
   vercel-preview:
     name: Deploy to vercel preview
