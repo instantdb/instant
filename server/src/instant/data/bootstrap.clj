@@ -71,11 +71,10 @@
                      (= "id" idn)
                      {:id uuid
                       :forward-identity [(java.util.UUID/randomUUID) nsp "id"]
-                      :reverse-identity [(java.util.UUID/randomUUID) nsp "_id"]
                       :cardinality :one
-                      :value-type :ref
+                      :value-type :blob
                       :unique? true
-                      :index? true}
+                      :index? false}
                      :else
                      (merge
                       {:id uuid
@@ -145,7 +144,7 @@
                      :let [{:strs [email id]}
                            (entity-model/triples->map {:attrs attrs} group)]]
                  {:email email
-                  :id id
+                  :id (parse-uuid id)
                   :app-id app-id})]
      (doseq [user users]
        (app-user-model/create! conn user))
