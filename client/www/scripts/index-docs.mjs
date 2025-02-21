@@ -107,11 +107,7 @@ function extractPages() {
       const fileContents = fs.readFileSync(page, 'utf8');
       const ast = Markdoc.parse(fileContents);
 
-      const sections = extractSections(ast, {
-        title: pageTitle,
-        hash: null,
-        content: [],
-      });
+      const sections = extractSections(ast, pageTitle);
 
       return {
         groupTitle,
@@ -123,8 +119,14 @@ function extractPages() {
   });
 }
 
-function extractSections(ast, rootSection) {
+function extractSections(ast, pageTitle) {
   slugify.reset();
+
+  const rootSection = {
+    title: pageTitle,
+    hash: null,
+    content: [],
+  };
 
   const sections = [rootSection];
 
