@@ -7,6 +7,7 @@ import '@docsearch/css';
 const docSearchConfig = {
   appId: '98PPX6H1AS',
   apiKey: 'ee52f4bc250c519ea97596da07560d82', // search only API key
+  // TODO: replace before landing
   indexName: 'docs_dev',
 };
 
