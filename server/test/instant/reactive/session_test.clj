@@ -91,9 +91,10 @@
         (try
           (f store {:socket   socket
                     :socket-2 socket-2})
-          (session/on-close store socket)
-          (session/on-close store socket-2)
           (finally
+            (session/on-close store socket)
+            (session/on-close store socket-2)
+            (grouped-queue/stop receive-q)
             (when @realized-eph?
               (HazelcastInstance/.shutdown (:hz @eph-hz)))))))))
 
