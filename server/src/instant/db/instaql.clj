@@ -977,12 +977,12 @@
         sym-placeholder (or (get-in ctx [:sym-placeholders sym])
                             (random-uuid))
         ctx (assoc-in ctx [:sym-placeholders sym] sym-placeholder)
-        child-forms (form->child-forms ctx form sym-placeholder)
         aggregate (get-in form [:option-map :aggregate])
         etype-attr-ids (attr-model/attr-ids-for-etype etype (:attrs ctx))
         child-patterns (collect-query-one
                         (mapv (partial query-one ctx)
-                              child-forms))]
+                              (form->child-forms ctx form sym-placeholder)))
+        child-forms (:forms child-patterns)]
     (when (and aggregate (not (:admin? ctx)))
       (ex/throw-validation-err!
        :query
