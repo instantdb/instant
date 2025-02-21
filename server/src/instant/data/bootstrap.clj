@@ -74,7 +74,7 @@
                       :cardinality :one
                       :value-type :blob
                       :unique? true
-                      :index? true}
+                      :index? false}
                      :else
                      (merge
                       {:id uuid
@@ -144,7 +144,7 @@
                      :let [{:strs [email id]}
                            (entity-model/triples->map {:attrs attrs} group)]]
                  {:email email
-                  :id id
+                  :id (parse-uuid id)
                   :app-id app-id})]
      (doseq [user users]
        (app-user-model/create! conn user))
