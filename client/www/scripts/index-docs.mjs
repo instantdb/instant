@@ -71,10 +71,9 @@ function toAlgoliaObjects(pages) {
     const rootObject = {
       content: rootSection.content.join('/n'),
       hierarchy: {
-        lvl0: groupTitle,
-        lvl1: pageTitle,
+        lvl0: pageTitle,
       },
-      type: 'lvl1',
+      type: 'lvl0',
       objectID: href,
       url: href,
     };
@@ -83,11 +82,10 @@ function toAlgoliaObjects(pages) {
         const url = `${href}#${hash}`;
         return {
           content: content.join('/n'),
-          type: 'lvl2',
+          type: 'lvl1',
           hierarchy: {
-            lvl0: groupTitle,
-            lvl1: pageTitle,
-            lvl2: subHeading,
+            lvl0: pageTitle,
+            lvl1: subHeading,
           },
           url,
           objectID: url,
