@@ -71,9 +71,8 @@
                      (= "id" idn)
                      {:id uuid
                       :forward-identity [(java.util.UUID/randomUUID) nsp "id"]
-                      :reverse-identity [(java.util.UUID/randomUUID) nsp "_id"]
                       :cardinality :one
-                      :value-type :ref
+                      :value-type :blob
                       :unique? true
                       :index? true}
                      :else
