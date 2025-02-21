@@ -52,6 +52,18 @@
    (java.util Locale TimeZone)))
 
 ;; --------
+;; Middleware
+
+(defn wrap-json-body-except [handler method-paths]
+  (fn [request]
+    (if (some (fn [[method pattern]]
+                (and (= method (:request-method request))
+                     (re-matches pattern (:uri request))))
+              method-paths)
+      (handler request)
+      ((wrap-json-body handler {:keywords? true}) request))))
+
+;; --------
 ;; Wrappers
 
 (defn get-index [& _args]
@@ -98,7 +110,9 @@
               wrap-keyword-params
               wrap-params
               wrap-multipart-params
-              (wrap-json-body {:keywords? true})
+              (wrap-json-body-except #{[:put #"/dash/apps/.*/storage/upload"]
+                                       [:put #"/storage/upload"]
+                                       [:put #"/admin/storage/upload"]})
 
               http-util/wrap-errors
 

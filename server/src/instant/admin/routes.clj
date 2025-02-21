@@ -373,10 +373,12 @@
         params (:headers req)
         path (ex/get-param! params ["path"] string-util/coerce-non-blank-str)
         file (ex/get-param! req [:body] identity)
-        content-type (ex/get-optional-param! params [:content-type] string-util/coerce-non-blank-str)
+        content-type (ex/get-optional-param! params ["content-type"] string-util/coerce-non-blank-str)
+        content-disposition (ex/get-optional-param! params ["content-disposition"] string-util/coerce-non-blank-str)
         data (storage-coordinator/upload-file! {:app-id app-id
                                                 :path path
                                                 :content-type content-type
+                                                :content-disposition content-disposition
                                                 :content-length (:content-length req)
                                                 :skip-perms-check? true}
                                                file)]
@@ -455,9 +457,7 @@
 ;; Legacy StorageFile format that was only used by the list() endpoint
 (defn legacy-storage-file-format
   [app-id file]
-  (let [object-key (if (instant-s3/migrating?)
-                     (instant-s3/->path-object-key app-id (:path file))
-                     (instant-s3/->object-key app-id (:location-id file)))]
+  (let [object-key (instant-s3/->object-key app-id (:location-id file))]
     {:key object-key
      :name (:path file)
      :size (:size file)

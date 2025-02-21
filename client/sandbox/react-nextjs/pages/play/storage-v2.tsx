@@ -50,8 +50,10 @@ function App() {
   }
   const { $files: images } = data as { $files: Image[] };
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>Image Feed</div>
+    <div className="box-border bg-gray-50 font-mono min-h-screen p-5 flex items-center flex-col">
+      <div className="tracking-wider text-5xl text-gray-300 mb-8">
+        Image Feed
+      </div>
       <ImageUpload />
       <ImageGrid images={images} />
     </div>
@@ -104,17 +106,24 @@ function ImageUpload() {
   };
 
   return (
-    <div style={styles.uploadContainer}>
+    <div className="mb-8 p-5 border-2 border-dashed border-gray-300 rounded-lg">
       <input
         type="file"
         accept="image/*"
         onChange={handleFileSelect}
-        style={styles.fileInput}
+        className="font-mono"
       />
       {previewURL && (
-        <div style={styles.previewContainer}>
-          <img src={previewURL} alt="Preview" style={styles.previewImage} />
-          <button onClick={handleUpload} style={styles.uploadButton}>
+        <div className="mt-5 flex flex-col items-center gap-3">
+          <img
+            src={previewURL}
+            alt="Preview"
+            className="max-w-xs max-h-xs object-contain"
+          />
+          <button
+            onClick={handleUpload}
+            className="py-2 px-4 bg-green-500 text-white border-none rounded cursor-pointer font-mono"
+          >
             Upload Image
           </button>
         </div>
@@ -125,13 +134,23 @@ function ImageUpload() {
 
 function ImageGrid({ images }: { images: Image[] }) {
   return (
-    <div style={styles.imageGrid}>
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 w-full max-w-6xl">
       {images.map((image, idx) => (
-        <div key={image.id} style={styles.imageContainer}>
-          <img src={image.url} alt={image.path} style={styles.image} />
-          <div style={styles.imageCaption}>
+        <div
+          key={image.id}
+          className="border border-gray-300 rounded-lg overflow-hidden"
+        >
+          <img
+            src={image.url}
+            alt={image.path}
+            className="w-full h-64 object-cover"
+          />
+          <div className="p-3 flex justify-between items-center bg-white">
             <span>{image.path}</span>
-            <span onClick={() => deleteImage(image)} style={styles.delete}>
+            <span
+              onClick={() => deleteImage(image)}
+              className="cursor-pointer text-gray-300 px-1"
+            >
               𝘟
             </span>
           </div>
@@ -140,85 +159,5 @@ function ImageGrid({ images }: { images: Image[] }) {
     </div>
   );
 }
-
-// Styles
-// ----------
-const styles: Record<string, React.CSSProperties> = {
-  previewContainer: {
-    marginTop: '20px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '10px',
-  },
-  previewImage: {
-    maxWidth: '200px',
-    maxHeight: '200px',
-    objectFit: 'contain',
-  },
-  uploadButton: {
-    padding: '8px 16px',
-    backgroundColor: '#4CAF50',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontFamily: 'code, monospace',
-  },
-  container: {
-    boxSizing: 'border-box',
-    backgroundColor: '#fafafa',
-    fontFamily: 'code, monospace',
-    minHeight: '100vh',
-    padding: '20px',
-    display: 'flex',
-    alignItems: 'center',
-    flexDirection: 'column',
-  },
-  header: {
-    letterSpacing: '2px',
-    fontSize: '50px',
-    color: 'lightgray',
-    marginBottom: '30px',
-  },
-  uploadContainer: {
-    marginBottom: '30px',
-    padding: '20px',
-    border: '2px dashed lightgray',
-    borderRadius: '8px',
-  },
-  fileInput: {
-    fontFamily: 'code, monospace',
-  },
-  imageGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-    gap: '20px',
-    width: '100%',
-    maxWidth: '1200px',
-  },
-  imageContainer: {
-    border: '1px solid lightgray',
-    borderRadius: '8px',
-    overflow: 'hidden',
-  },
-  image: {
-    width: '100%',
-    height: '300px',
-    objectFit: 'cover',
-  },
-  imageCaption: {
-    padding: '10px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: 'white',
-  },
-  delete: {
-    cursor: 'pointer',
-    color: 'lightgray',
-    padding: '0 5px',
-  },
-};
 
 export default Wrapper;

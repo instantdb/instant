@@ -360,8 +360,8 @@
 (defn missing-null-triple-wheres
   "Where clauses that return the id triples that are missing a value for the
    indexed attr."
-  [{:keys [app_id attr_id]}]
-  (let [attrs (attr-model/get-by-app-id app_id)
+  [conn stage {:keys [app_id attr_id]}]
+  (let [attrs (attr-model/get-by-app-id conn app_id)
         etype (attr-model/fwd-etype (attr-model/seek-by-id attr_id attrs))
         _ (assert etype "Attribute has no etype")
         id-attr-id (:id (attr-model/seek-by-fwd-ident-name [etype "id"] attrs))
@@ -374,9 +374,14 @@
       [:and
        [:= :triples.app-id app_id]
        [:= :triples.attr-id id-attr-id]
-       [:not [:exists {:select :*
+       [:not [:exists {:select :1
                        :from [[:triples :attr-triples]]
                        :where [:and
+                               (if (= stage :estimate)
+                                 ;; If we're estimating, then the triples won't
+                                 ;; be ave yet
+                                 true
+                                 :attr-triples.ave)
                                [:= :attr-triples.app-id app_id]
                                [:= :attr-triples.attr-id attr_id]
                                [:= :attr-triples.entity-id :triples.entity-id]]}]]])))
@@ -396,7 +401,7 @@
                                      :where (if (= "index" (:job_type job))
                                               [:or
                                                default-where
-                                               (missing-null-triple-wheres job)]
+                                               (missing-null-triple-wheres conn :estimate job)]
                                               default-where)}))
                       :count)]
      (sql/execute-one! ::estimate-work-estimate!
@@ -772,16 +777,16 @@
                                            :attrs.is_unique
                                            :attrs.is_indexed
                                            :attrs.checked_data_type]
+                                  :from :triples
                                   ;; The `for update` should prevent a concurrent
                                   ;; query from deleting the entity while we're
                                   ;; doing our insert
                                   :for :update
-                                  :from :triples
                                   :join [:attrs [:and
                                                  [:= :triples.app_id :attrs.app_id]
                                                  [:= :attrs.id attr_id]]]
-                                  :limit batch-size
-                                  :where (missing-null-triple-wheres job)}}]}
+                                  :where (missing-null-triple-wheres conn :update job)
+                                  :limit batch-size}}]}
          res (sql/do-execute! ::insert-nulls-next-batch! conn (hsql/format q))]
      (:next.jdbc/update-count (first res)))))
 
@@ -1261,9 +1266,10 @@
                                                 [:not :indexing]]}))]
     (doseq [attr attrs]
       (loop [total 0]
-        (let [update-count (insert-nulls-next-batch! {:attr_id (:id attr)
-                                                      :app_id (:app_id attr)
-                                                      :job_type "index"})]
+        (println "Starting" (str "app_id=" (:app_id attr)) (str "attr_id=" (:id attr)))
+        (let [update-count (time (insert-nulls-next-batch! {:attr_id (:id attr)
+                                                            :app_id (:app_id attr)
+                                                            :job_type "index"}))]
           (println "Updated" (+ total update-count) "for" (str "app_id=" (:app_id attr)) (str "attr_id=" (:id attr)))
           (when (pos? update-count)
             (recur (+ total update-count))))))))

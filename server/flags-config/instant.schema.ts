@@ -56,6 +56,10 @@ const graph = i.graph(
       "disableLegacy?": i.boolean(),
       "useLocationId?": i.boolean(),
     }),
+    "storage-block-list": i.entity({
+      appId: i.string().unique().indexed(),
+      isDisabled: i.boolean(),
+    }),
   },
   // You can define links here.
   // For example, if `posts` should have many `comments`.

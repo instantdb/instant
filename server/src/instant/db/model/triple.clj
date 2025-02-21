@@ -494,9 +494,10 @@
                                                       :from :idents
                                                       :where [:= :idents.id :needs-null-attr.forward-ident]}]
                                  ;; No existing triple for this attr
-                                 [:not [:exists {:select :*
+                                 [:not [:exists {:select :1
                                                  :from :triples
                                                  :where [:and
+                                                         :triples.ave
                                                          [:= :triples.app-id app-id]
                                                          [:= :triples.attr-id :needs-null-attr.id]
                                                          [:= :triples.entity-id :new-entities.entity-id]]}]]]]

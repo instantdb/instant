@@ -197,3 +197,6 @@ server/resources/metrics/*-usage.png
 
 # emails
 server/resources/emails/*
+
+# algolia 
+client/www/scripts/algolia-objects.json

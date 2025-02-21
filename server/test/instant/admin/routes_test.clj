@@ -659,8 +659,7 @@
                    first
                    (get "name")))))
       (testing "create link attrs"
-        (let [pref-id (str (random-uuid))
-              stopa-id (-> (query-post
+        (let [stopa-id (-> (query-post
                             {:body {:query {:users {:$ {:where {:handle "stopa"}}}}}
                              :headers {"app-id" (str app-id)
                                        "authorization" (str "Bearer " admin-token)}})

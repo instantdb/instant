@@ -10,7 +10,6 @@
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
    [instant.db.transaction :as tx]
-   [instant.flags :as flags]
    [instant.fixtures :refer [with-empty-app with-movies-app]]
    [instant.grouped-queue :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
@@ -23,7 +22,7 @@
    [instant.util.async :as ua]
    [instant.util.coll :as ucoll])
   (:import
-   (com.hazelcast.core Hazelcast HazelcastInstance)
+   (com.hazelcast.core HazelcastInstance)
    (java.util UUID)))
 
 (test/use-fixtures :each
@@ -47,12 +46,11 @@
 (defn- with-session [f]
   (let [store (rs/init)
 
-        {receive-q :grouped-queue}
-        (grouped-queue/start-grouped-queue-with-workers
-         {:max-workers 1
-          :group-fn session/group-fn
-          :reserve-fn session/receive-worker-reserve-fn
-          :process-fn (partial session/process-fn store)})
+        receive-q
+        (grouped-queue/start {:group-key-fn session/group-key
+                              :combine-fn   session/combine
+                              :process-fn   #(session/straight-jacket-process-receive-q-event store %1 %2)
+                              :max-workers  1})
 
         realized-eph?   (atom false)
         eph-hz          (delay
@@ -102,14 +100,14 @@
 (defn read-msg [{:keys [ws-conn id]}]
   (let [ret (ua/<!!-timeout ws-conn)]
     (if (= :timeout ret)
-      (throw (ex-info "Timed out waiting for a response" {:id id})))
-      (dissoc ret :client-event-id)))
+      (throw (ex-info "Timed out waiting for a response" {:id id}))
+      (dissoc ret :client-event-id))))
 
 (defn- read-msgs [n socket]
   (set (repeatedly n #(read-msg socket))))
 
-(defn- send-msg [{:keys [ws-conn id] :as socket} msg]
-  (session/handle-receive *store* (rs/session *store* id) msg {}))
+(defn- send-msg [socket msg]
+  (session/handle-receive *store* (rs/session *store* (:id socket)) msg {}))
 
 (defn- blocking-send-msg [expected-op socket msg]
   (send-msg socket msg)

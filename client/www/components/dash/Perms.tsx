@@ -27,8 +27,8 @@ export function Perms({
   }, [app]);
 
   return (
-    <div className="flex flex-1 flex-col md:flex-row">
-      <div className="flex flex-col gap-4 border-r p-4 text-sm md:basis-96 md:text-base">
+    <div className="flex flex-1 flex-col md:flex-row min-h-0">
+      <div className="flex flex-col gap-4 border-r p-4 text-sm md:basis-96 md:text-base min-h-0">
         <SectionHeading>Permissions</SectionHeading>
         <Content>
           <p>

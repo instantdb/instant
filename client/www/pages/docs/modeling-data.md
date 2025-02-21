@@ -346,7 +346,7 @@ const db = init({
 });
 ```
 
-When you do this, all [queries](/docs/instaql) and [transactions](/docs/instaql) will come with typesafety out of the box.
+When you do this, all [queries](/docs/instaql) and [transactions](/docs/instaml) will come with typesafety out of the box.
 
 {% callout %}
 

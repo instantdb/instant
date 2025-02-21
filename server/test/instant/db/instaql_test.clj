@@ -1964,7 +1964,7 @@
 (deftest where-$not-$isNull-with-links-1-to-1
   (with-empty-app
     (fn [app]
-      (let [{:keys [r add-links clear-links admin-query]}
+      (let [{:keys [add-links admin-query]}
             (add-references-to-app app
                                    :one
                                    :one)]
@@ -2040,7 +2040,7 @@
 (deftest where-$not-$isNull-with-links-1-to-many
   (with-empty-app
     (fn [app]
-      (let [{:keys [r add-links clear-links admin-query]}
+      (let [{:keys [add-links admin-query]}
             (add-references-to-app app
                                    :one
                                    :many)]
@@ -2117,7 +2117,7 @@
 (deftest where-$not-$isNull-with-links-many-to-1
   (with-empty-app
     (fn [app]
-      (let [{:keys [r add-links clear-links admin-query]}
+      (let [{:keys [add-links admin-query]}
             (add-references-to-app app
                                    :many
                                    :one)]
@@ -2194,7 +2194,7 @@
 (deftest where-$not-$isNull-with-links-many-to-many
   (with-empty-app
     (fn [app]
-      (let [{:keys [r add-links clear-links admin-query]}
+      (let [{:keys [add-links admin-query]}
             (add-references-to-app app
                                    :many
                                    :one)]
@@ -2532,11 +2532,7 @@
                               :app-id (:id app)
                               :attrs attrs}))
                 run-query (fn [return-field q]
-                            (let [ctx (make-ctx)
-                                  r (resolvers/make-resolver {:conn-pool (aurora/conn-pool :read)}
-                                                             (:id app)
-                                                             [["books" "field"]
-                                                              ["authors" "field"]])]
+                            (let [ctx (make-ctx)]
                               (->> (iq/permissioned-query ctx q)
                                    (instaql-nodes->object-tree ctx)
                                    (#(get % "etype"))
@@ -2547,17 +2543,19 @@
                               ([data-type value]
                                (run-explain :$gt data-type value))
                               ([op data-type value]
-                               (-> (d/explain (make-ctx)
-                                              {:children
-                                               {:pattern-groups
-                                                [{:patterns
-                                                  [[{:idx-key :ave, :data-type data-type}
-                                                    '?etype-0
-                                                    (get attr-ids data-type)
-                                                    {:$comparator {:op op, :value value, :data-type data-type}}]]}]}})
-                                   (get "QUERY PLAN")
-                                   first
-                                   (get-in ["Plan" "Plans" 0 "Index Name"]))))]
+                               (let [explain
+                                     (d/explain (make-ctx)
+                                                {:children
+                                                 {:pattern-groups
+                                                  [{:patterns
+                                                    [[{:idx-key :ave, :data-type data-type}
+                                                      '?etype-0
+                                                      (get attr-ids data-type)
+                                                      {:$comparator {:op op, :value value, :data-type data-type}}]]}]}})]
+                                 (-> explain
+                                     (get "QUERY PLAN")
+                                     first
+                                     (get-in ["Plan" "Plans" 0 "Plans" 0 "Index Name"])))))]
             (tx/transact! (aurora/conn-pool :write)
                           (attr-model/get-by-app-id (:id app))
                           (:id app)
@@ -2675,10 +2673,10 @@
                                                      :cardinality :one}]]
                                         (let [id (random-uuid)]
                                           [[:add-triple id (:id attr-ids) (str id)]
-                                           [:add-triple id (:handle attr-ids) (str "a")]])
+                                           [:add-triple id (:handle attr-ids) "a"]])
                                         (let [id (random-uuid)]
                                           [[:add-triple id (:id attr-ids) (str id)]
-                                           [:add-triple id (:handle attr-ids) (str "b")]])))]
+                                           [:add-triple id (:handle attr-ids) "b"]])))]
             (sql/select (aurora/conn-pool :write) ["ANALYZE triples"])
             (testing "query on unique attr"
               (let [{:keys [patterns]} (iq/instaql-query->patterns
@@ -2688,13 +2686,11 @@
                     plan (-> explain
                              (get "QUERY PLAN")
                              first
-                             (get-in ["Plan" "Plans"])
-                             first)
+                             (get-in ["Plan" "Plans" 0 "Plans" 0 "Plans" 0 "Plans" 0]))
                     ;; Make sure it's using the full index
-                    expected-index-cond (format "((triples.app_id = '%s'::uuid) AND (triples.attr_id = '%s'::uuid) AND (CASE WHEN (triples.value = 'null'::jsonb) THEN NULL::jsonb ELSE triples.value END = '\"a\"'::jsonb))"
+                    expected-index-cond (format "((triples_1.app_id = '%s'::uuid) AND (triples_1.attr_id = '%s'::uuid) AND (CASE WHEN (triples_1.value = 'null'::jsonb) THEN NULL::jsonb ELSE triples_1.value END = '\"a\"'::jsonb))"
                                                 (:id app)
                                                 (:handle attr-ids))]
-
                 (is (= expected-index-cond (get plan "Index Cond")))
                 (is (= "av_index" (get plan "Index Name")))))
 
@@ -2832,7 +2828,7 @@
 
 (deftest nested-order-by
   (with-zeneca-checked-data-app
-    (fn [app r]
+    (fn [app _r]
       (let [ctx {:db {:conn-pool (aurora/conn-pool :read)}
                  :app-id (:id app)
                  :attrs (attr-model/get-by-app-id (:id app))}]
@@ -2863,7 +2859,7 @@
 
 (deftest order-by-with-ors-and-ands
   (with-zeneca-checked-data-app
-    (fn [app r]
+    (fn [app _r]
       (let [ctx {:db {:conn-pool (aurora/conn-pool :read)}
                  :app-id (:id app)
                  :attrs (attr-model/get-by-app-id (:id app))}]
@@ -3727,11 +3723,7 @@
                                     {:db {:conn-pool (aurora/conn-pool :read)}
                                      :app-id (:id app)
                                      :attrs attrs
-                                     :admin? admin?})
-                              r (resolvers/make-resolver {:conn-pool (aurora/conn-pool :read)}
-                                                         (:id app)
-                                                         [["books" "field"]
-                                                          ["authors" "field"]])]
+                                     :admin? admin?})]
                           (->> (iq/permissioned-query ctx q)
                                (instaql-nodes->object-tree ctx))))]
         (tx/transact! (aurora/conn-pool :write)

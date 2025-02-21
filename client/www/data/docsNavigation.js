@@ -56,7 +56,7 @@ module.exports = [
       { title: 'Devtool', href: '/docs/devtool' },
       { title: 'Custom emails', href: '/docs/emails' },
       { title: 'App teams', href: '/docs/teams' },
-      { title: 'Storage (beta)', href: '/docs/storage' },
+      { title: 'Storage', href: '/docs/storage' },
     ],
   },
 ];

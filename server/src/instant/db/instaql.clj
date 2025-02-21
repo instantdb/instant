@@ -886,14 +886,7 @@
 
 (defn compute-$files-triples [{:keys [app-id]} join-rows]
   (when-let [[eid _ _ t] (ffirst join-rows)]
-    (let [path (some-> (find-row-by-ident-name
-                        join-rows
-                        $system-attrs
-                        "$files"
-                        "path")
-                       first
-                       (nth 2))
-          location-id (some-> (find-row-by-ident-name
+    (let [location-id (some-> (find-row-by-ident-name
                                join-rows
                                $system-attrs
                                "$files"
@@ -901,7 +894,7 @@
                               first
                               (nth 2))
           url-aid (attr-model/resolve-attr-id $system-attrs "$files" "url")
-          url (instant-s3/create-signed-download-url! app-id path location-id)]
+          url (instant-s3/create-signed-download-url! app-id location-id)]
       [[[eid url-aid url t]]])))
 
 (def compute-triples-handler
@@ -984,12 +977,12 @@
         sym-placeholder (or (get-in ctx [:sym-placeholders sym])
                             (random-uuid))
         ctx (assoc-in ctx [:sym-placeholders sym] sym-placeholder)
-        child-forms (form->child-forms ctx form sym-placeholder)
         aggregate (get-in form [:option-map :aggregate])
         etype-attr-ids (attr-model/blob-ids-for-etype etype (:attrs ctx))
         child-patterns (collect-query-one
                         (mapv (partial query-one ctx)
-                              child-forms))]
+                              (form->child-forms ctx form sym-placeholder)))
+        child-forms (:forms child-patterns)]
     (when (and aggregate (not (:admin? ctx)))
       (ex/throw-validation-err!
        :query
