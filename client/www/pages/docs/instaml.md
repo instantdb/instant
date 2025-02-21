@@ -237,12 +237,14 @@ When it is used in a transaction, the updates will be applied to the entity that
 
 It can be used with `update`, `delete`, `merge`, `link`, and `unlink`.
 
+## Lookups in links
+
 When used with links, it can also be used in place of the linked entity's id.
 
 ```javascript
 db.transact(
   tx.users[lookup('email', 'eva_lu_ator@instantdb.com')].link({
-    posts: lookup('number', 15),
+    posts: lookup('number', 15), // using a lookup in place of the id
   }),
 );
 ```
