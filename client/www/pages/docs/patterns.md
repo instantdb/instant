@@ -124,38 +124,33 @@ Sometimes you want to let clients know when they are connected or disconnected
 to the DB. You can use `db.subscribeConnectionStatus` in vanilla JS or
 `db.useConnectionStatus` in React to listen to connection changes
 
-```typescript
-
+```javascript
 // Vanilla JS
 const unsub = db.subscribeConnectionStatus((status) => {
- const connectionState =
-   status === 'connecting' || status === 'opened'
-     ? 'authenticating'
-   : status === 'authenticated'
-     ? 'connected'
-   : status === 'closed'
-     ? 'closed'
-   : status === 'errored'
-     ? 'errored'
-   : 'unexpected state';
+  const statusMap = {
+    connecting: 'authenticating',
+    opened: 'authenticating',
+    authenticated: 'connected',
+    closed: 'closed',
+    errored: 'errored',
+  };
 
- console.log('Connection status:', connectionState);
+  const connectionState = statusMap[status] || 'unexpected state';
+  console.log('Connection status:', connectionState);
 });
 
 // React/React Native
 function App() {
- const status = db.useConnectionStatus()
- const connectionState =
-   status === 'connecting' || status === 'opened'
-     ? 'authenticating'
-   : status === 'authenticated'
-     ? 'connected'
-   : status === 'closed'
-     ? 'closed'
-   : status === 'errored'
-     ? 'errored'
-   : 'unexpected state';
+  const statusMap = {
+    connecting: 'authenticating',
+    opened: 'authenticating',
+    authenticated: 'connected',
+    closed: 'closed',
+    errored: 'errored',
+  };
+  const status = db.useConnectionStatus();
 
- return <div>Connection state: {connectionState}</div>
+  const connectionState = statusMap[status] || 'unexpected state';
+  return <div>Connection state: {connectionState}</div>;
 }
 ```
