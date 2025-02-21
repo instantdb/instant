@@ -69,6 +69,7 @@ async function saveToAlgolia(objects: AlgoliaObject[]) {
   if (!CONFIG.ALGOLIA_API_KEY) {
     throw new Error('Export ALGOLIA_API_KEY to run the script.');
   }
+
   const client = algoliasearch(CONFIG.ALGOLIA_APP_ID, CONFIG.ALGOLIA_API_KEY);
   const index = client.initIndex(CONFIG.ALGOLIA_INDEX_NAME);
 
@@ -103,7 +104,7 @@ function toAlgoliaObjects(pages: PageInfo[]): AlgoliaObject[] {
     } satisfies AlgoliaObject;
     const restObjects = restSections.map(
       ({ title: subHeading, hash, content }) => {
-        const url = `${href}#${hash}`;
+        const url = `${href}#${hash || ''}`;
         const obj = {
           content: content.join('\n'),
           type: 'lvl1',

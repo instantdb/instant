@@ -5,9 +5,13 @@ dev:
 	@echo "Booting up frontend..."
 	pnpm run dev
 
-index-docs:
-	@echo "Indexing docs..."
-	node ./www/scripts/index-docs.mjs
+index-docs-dry-run:
+	@echo "Dry run..."
+	pnpm exec tsx ./www/scripts/index-docs.mjs --dry-run
+
+index-docs-manual:
+	@echo "Manual indexing..."
+	pnpm exec tsx ./www/scripts/index-docs.mjs
 
 publish:
 	@echo "Building + Publishing Packages..."
