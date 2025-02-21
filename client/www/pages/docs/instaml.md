@@ -249,6 +249,11 @@ db.transact(
 );
 ```
 
+## Transacts are atomic
+
+When you call `db.transact`, all the transactions are committed atomically. If
+any of the transactions fail, none of them will be committed.
+
 ## Typesafety
 
 By default, `db.transact` is permissive. When you save data, we'll create missing attributes for you:
