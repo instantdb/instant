@@ -170,7 +170,9 @@
   java.util.Map
   (get [_ k]
     (stringify
-     (or (get m k) (get m (keyword k)))))
+     (if (contains? m k)
+       (get m k)
+       (get m (keyword k)))))
 
   ;; CEL throws if a key doesn't exist. We don't want this
   ;; behavior -- we'd rather just return null when a key is
