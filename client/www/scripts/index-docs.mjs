@@ -1,6 +1,7 @@
 /*
  * Script for indexing documentation pages to Algolia
- * Usage: node index-docs.mjs
+ * Usage: node index-docs.mjs --dry-run (saves objects to a file)
+ * Usage: node index-docs.mjs (indexes objects to Algolia)
  * */
 
 import path from 'path';
