@@ -105,6 +105,7 @@
 (s/def ::before ::cursor)
 (s/def ::after ::cursor)
 (s/def ::aggregate #{:count})
+(s/def ::attributes (s/coll-of string?))
 
 (s/def ::option-map (s/keys :opt-un [::where-conds
                                      ::order
@@ -114,7 +115,8 @@
                                      ::offset
                                      ::before
                                      ::after
-                                     ::aggregate]))
+                                     ::aggregate
+                                     ::attributes]))
 
 (s/def ::forms (s/coll-of ::form))
 (s/def ::child-forms ::forms)
@@ -349,7 +351,9 @@
         aggregate (when-let [aggregate (:aggregate x)]
                     (coerce-aggregate! state aggregate))
 
-        x (dissoc x :where :order :limit :first :last :offset :before :after :aggregate)]
+        attributes (:attributes x)
+
+        x (dissoc x :where :order :limit :first :last :offset :before :after :aggregate :attributes)]
 
     (when (seq x)
       (ex/throw-validation-err!
@@ -388,7 +392,8 @@
       offset (assoc :offset offset)
       after (assoc :after after)
       before (assoc :before before)
-      aggregate (assoc :aggregate aggregate))))
+      aggregate (assoc :aggregate aggregate)
+      attributes (assoc :attributes attributes))))
 
 (defn- coerce-forms!
   "Converts our InstaQL object into a list of forms."
@@ -960,6 +965,19 @@
            :referenced-etypes #{}}
           query-one-results))
 
+(defn etype-attr-ids [{:keys [attrs]} etype selected-attrs]
+  (if selected-attrs
+    (reduce (fn [acc attr-name]
+              (let [attr (attr-model/seek-by-fwd-ident-name
+                          [etype attr-name]
+                          attrs)]
+                (if (= :blob (:value-type attr))
+                  (conj acc (:id attr))
+                  acc)))
+            #{}
+            selected-attrs)
+    (attr-model/blob-ids-for-etype etype attrs)))
+
 (defn- query-one
   "Generates nested datalog query that combines all datalog queries into a
    single sql query."
@@ -978,7 +996,7 @@
                             (random-uuid))
         ctx (assoc-in ctx [:sym-placeholders sym] sym-placeholder)
         aggregate (get-in form [:option-map :aggregate])
-        etype-attr-ids (attr-model/attr-ids-for-etype etype (:attrs ctx))
+        attr-ids (etype-attr-ids ctx etype (:attributes (:option-map form)))
         child-patterns (collect-query-one
                         (mapv (partial query-one ctx)
                               (form->child-forms ctx form sym-placeholder)))
@@ -1008,7 +1026,7 @@
       {:patterns (replace-sym-placeholders (map-invert (:sym-placeholders ctx))
                                            patterns)
        :children {:pattern-groups
-                  [(merge {:patterns [[:ea sym etype-attr-ids]]}
+                  [(merge {:patterns [[:ea sym attr-ids]]}
                           (when (seq child-forms)
                             {:children {:pattern-groups (:pattern-groups child-patterns)
                                         :join-sym sym}}))]
