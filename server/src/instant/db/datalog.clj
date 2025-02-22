@@ -876,8 +876,12 @@
                                       [prev-table]))
                     parent-froms)
       :where (where-clause app-id named-p all-joins)}
-     (if (and (= :ave (idx-key (:idx named-p)))
-              (named-constant? (:v named-p)))
+     (if (or (and (= :ave (idx-key (:idx named-p)))
+                  (named-constant? (:v named-p)))
+             ;; (XXX): Temporary hack to unblock user
+             (contains? #{#uuid "ba991579-05d2-4587-82da-3d8d0fc821c0"
+                          #uuid "3db06bfc-a536-4a9c-bad3-da58a3e7d488"
+                          #uuid "e46bf297-8255-475f-a8a2-a58c72086df1"} app-id))
        :materialized
        :not-materialized)]))
 
