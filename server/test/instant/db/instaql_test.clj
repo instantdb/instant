@@ -2552,7 +2552,6 @@
                                                       '?etype-0
                                                       (get attr-ids data-type)
                                                       {:$comparator {:op op, :value value, :data-type data-type}}]]}]}})]
-                                 (tool/def-locals)
                                  (-> explain
                                      (get "QUERY PLAN")
                                      first
@@ -2684,7 +2683,6 @@
                                         (make-ctx)
                                         {:user {:$ {:where {:handle "a"}}}})
                     explain (d/explain (make-ctx) patterns)
-                    _ (tool/def-locals)
                     plan (-> explain
                              (get "QUERY PLAN")
                              first
