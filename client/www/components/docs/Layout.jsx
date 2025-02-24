@@ -12,6 +12,7 @@ import config, { getLocal, setLocal } from '@/lib/config';
 import { Select } from '@/components/ui';
 import { MainNav, BareNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';
+import { createdAtComparator } from '@/lib/app';
 
 function useSelectedApp(apps = []) {
   const cacheKey = 'docs-appId';
@@ -276,7 +277,7 @@ export function Layout({ children, title, tableOfContents }) {
 
   const token = useAuthToken();
   const dashResponse = useTokenFetch(`${config.apiURI}/dash`, token);
-  const apps = dashResponse.data?.apps ?? [];
+  const apps = (dashResponse.data?.apps ?? []).toSorted(createdAtComparator);
   const { data: selectedAppData, update: updateSelectedAppId } =
     useSelectedApp(apps);
 
