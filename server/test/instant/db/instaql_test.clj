@@ -2555,7 +2555,7 @@
                                  (-> explain
                                      (get "QUERY PLAN")
                                      first
-                                     (get-in ["Plan" "Plans" 0 "Plans" 0 "Index Name"])))))]
+                                     (get-in ["Plan" "Plans" 0 "Index Name"])))))]
             (tx/transact! (aurora/conn-pool :write)
                           (attr-model/get-by-app-id (:id app))
                           (:id app)
@@ -2686,9 +2686,9 @@
                     plan (-> explain
                              (get "QUERY PLAN")
                              first
-                             (get-in ["Plan" "Plans" 0 "Plans" 0 "Plans" 0 "Plans" 0]))
+                             (get-in ["Plan" "Plans" 0]))
                     ;; Make sure it's using the full index
-                    expected-index-cond (format "((triples_1.app_id = '%s'::uuid) AND (triples_1.attr_id = '%s'::uuid) AND (CASE WHEN (triples_1.value = 'null'::jsonb) THEN NULL::jsonb ELSE triples_1.value END = '\"a\"'::jsonb))"
+                    expected-index-cond (format "((triples.app_id = '%s'::uuid) AND (triples.attr_id = '%s'::uuid) AND (CASE WHEN (triples.value = 'null'::jsonb) THEN NULL::jsonb ELSE triples.value END = '\"a\"'::jsonb))"
                                                 (:id app)
                                                 (:handle attr-ids))]
                 (is (= expected-index-cond (get plan "Index Cond")))

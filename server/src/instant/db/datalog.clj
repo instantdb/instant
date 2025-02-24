@@ -849,7 +849,7 @@
    start of a new AND/OR clause.
    additional-joins is a map from symbol to path. It allows us to connect the
    cte to the parent cte if this is a child pattern in a nested query."
-  [prefix app-id additional-joins symbol-map prev-idx start-of-group? named-p]
+  [prefix app-id additional-joins symbol-map prev-idx start-of-group? named-p {:keys [page-info]}]
   (let [cur-idx (inc prev-idx)
         cur-table (kw prefix cur-idx)
         prev-table (when-not (or start-of-group? (neg? prev-idx))
@@ -876,12 +876,12 @@
                                       [prev-table]))
                     parent-froms)
       :where (where-clause app-id named-p all-joins)}
-     (if (or (and (= :ave (idx-key (:idx named-p)))
-                  (named-constant? (:v named-p)))
-             ;; (XXX): Temporary hack to unblock user
-             (contains? #{#uuid "ba991579-05d2-4587-82da-3d8d0fc821c0"
-                          #uuid "3db06bfc-a536-4a9c-bad3-da58a3e7d488"
-                          #uuid "e46bf297-8255-475f-a8a2-a58c72086df1"} app-id))
+     (if (or
+          ;; only use `not materialized` when we're in the middle of an ordered
+          ;; query
+          (not page-info)
+          (and (= :ave (idx-key (:idx named-p)))
+               (named-constant? (:v named-p))))
        :materialized
        :not-materialized)]))
 
@@ -911,7 +911,7 @@
 (defn cte-for-pattern
   "Generates cte for a pattern. Also generates the symbol map and pattern
    metadata that will be used to generate the query result from the sql data."
-  [prefix app-id additional-joins {:keys [idx symbol-map group-idx]} pattern]
+  [prefix app-id additional-joins {:keys [idx symbol-map group-idx]} pattern opts]
   (let [start-of-group? (zero? group-idx)
         cte-cols (mapv sql-name (match-table-cols (kw prefix idx)))
         symbol-fields (symbol-fields-of-pattern pattern)
@@ -922,7 +922,8 @@
                          symbol-map
                          prev-idx
                          start-of-group?
-                         pattern)
+                         pattern
+                         opts)
      :symbol-map (symbol-map-of-pattern idx pattern)
      :pattern-meta {:cte-cols cte-cols
                     :symbol-fields symbol-fields
@@ -969,7 +970,7 @@
 (defn accumulate-ctes
   "Walks the patterns to generate the list of CTEs. Also generates the metadata
    that will be used to transform the sql result into the query result."
-  [prefix app-id additional-joins acc [tag pattern]]
+  [prefix app-id additional-joins acc [tag pattern] opts]
   (case tag
     :pattern (let [{:keys [ctes symbol-map pattern-meta]}
                    (cte-for-pattern prefix
@@ -978,7 +979,8 @@
                                     {:idx (:next-idx acc)
                                      :group-idx (:group-idx acc)
                                      :symbol-map (:symbol-map acc)}
-                                    pattern)]
+                                    pattern
+                                    opts)]
                (-> acc
                    (update :ctes conj ctes)
                    (update :next-idx inc)
@@ -987,14 +989,14 @@
                    (update :pattern-metas conj pattern-meta)))
 
     :and (reduce (fn [acc pat]
-                   (accumulate-ctes prefix app-id additional-joins acc pat))
+                   (accumulate-ctes prefix app-id additional-joins acc pat opts))
                  acc
                  (:and pattern))
 
     :or (let [{:keys [patterns join-sym]} (:or pattern)
               {:keys [group-acc]}
               (reduce (fn [{:keys [acc group-acc]} pat]
-                        (let [res (accumulate-ctes prefix app-id additional-joins acc pat)]
+                        (let [res (accumulate-ctes prefix app-id additional-joins acc pat opts)]
                           {:acc {:next-idx (:next-idx res)
                                  :group-idx 0
                                  :ctes []
@@ -1062,12 +1064,12 @@
   "Generates honeysql data structure to produce sql that joins named patterns,
    and the metadata that will be used to transform the sql result into the query
    result."
-  ([prefix app-id named-patterns]
-   (match-query {} prefix app-id {} named-patterns))
-  ([acc prefix app-id additional-joins named-patterns]
+  ([prefix app-id named-patterns opts]
+   (match-query {} prefix app-id {} named-patterns opts))
+  ([acc prefix app-id additional-joins named-patterns opts]
    (let [{:keys [ctes pattern-metas symbol-map next-idx]}
          (reduce (fn [acc pattern]
-                   (accumulate-ctes prefix app-id additional-joins acc pattern))
+                   (accumulate-ctes prefix app-id additional-joins acc pattern opts))
                  (merge {:next-idx 0
                          ;; Used to determine the start of an or/and clause
                          :group-idx 0
@@ -1209,7 +1211,8 @@
                                     symbol-map
                                     (dec next-idx)
                                     false
-                                    page-pattern)
+                                    page-pattern
+                                    {:page-info page-info})
         entity-id-col :entity-id
         sym-component-type (component-type-of-sym named-pattern order-sym)
         sym-triple-idx (get (set/map-invert idx->component-type)
@@ -1425,7 +1428,8 @@
                                              prefix
                                              app-id
                                              additional-joins
-                                             (:patterns pattern-group))
+                                             (:patterns pattern-group)
+                                             {:page-info page-info})
                           page-info (add-page-info prefix
                                                    app-id
                                                    additional-joins
@@ -1929,7 +1933,7 @@
   "Sends a single query, returns the join rows."
   [_ctx conn app-id named-patterns]
   (tracer/with-span! {:name "datalog/send-query-single"}
-    (let [{:keys [query pattern-metas]} (match-query :match-0- app-id named-patterns)
+    (let [{:keys [query pattern-metas]} (match-query :match-0- app-id named-patterns {})
           sql-query (hsql/format query)
           sql-res (sql/select-string-keys ::send-query-single conn sql-query)]
       (sql-result->result sql-res
@@ -1990,8 +1994,8 @@
   (tracer/with-span! {:name "datalog/send-query-batch"
                       :attributes {:batch-size (count args-col)}}
     (let [batch-data (map-indexed
-                      (fn [i args]
-                        (apply match-query (kw "match-" i "-") args))
+                      (fn [i [app-id named-patterns]]
+                        (match-query (kw "match-" i "-") app-id named-patterns {}))
                       args-col)
           hsql-query (batch-queries (map :query batch-data))
           sql-query (hsql/format hsql-query)
