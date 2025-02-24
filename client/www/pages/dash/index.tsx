@@ -57,6 +57,7 @@ import { useForm } from '@/lib/hooks/useForm';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { useDashFetch } from '@/lib/hooks/useDashFetch';
 import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
+import { createdAtComparator } from '@/lib/app';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -270,11 +271,8 @@ function Dashboard() {
     });
   }, [token]);
 
-  const apps = useMemo(() => {
-    const apps = [...(dashResponse.data?.apps ?? [])];
-    apps.sort(caComp);
-    return apps;
-  }, [dashResponse.data?.apps]);
+  const apps = (dashResponse.data?.apps ?? []).toSorted(createdAtComparator);
+
   const app = apps?.find((a) => a.id === appId);
 
   // ui
@@ -290,12 +288,11 @@ function Dashboard() {
       }
       return { id: t.id, label: t.title };
     });
-  const showAppOnboarding =
-    !dashResponse.data?.apps?.length && !dashResponse.data?.invites?.length;
+  const showAppOnboarding = !apps.length && !dashResponse.data?.invites?.length;
   const showNav = !showAppOnboarding;
   const showApp = app && connection && screen === 'main';
   const hasInvites = Boolean(dashResponse.data?.invites?.length);
-  const showInvitesOnboarding = hasInvites && !dashResponse.data?.apps?.length;
+  const showInvitesOnboarding = hasInvites && !apps?.length;
 
   useEffect(() => {
     if (screen && screen !== 'main') return;
@@ -1473,17 +1470,6 @@ function regenerateAdminToken(
     },
     body: JSON.stringify({ 'admin-token': adminToken }),
   });
-}
-
-function caComp(a: { created_at: string }, b: { created_at: string }) {
-  if (a.created_at < b.created_at) {
-    return 1;
-  }
-
-  if (a.created_at > b.created_at) {
-    return -1;
-  }
-  return 0;
 }
 
 /**
