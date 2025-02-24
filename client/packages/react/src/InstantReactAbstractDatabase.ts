@@ -221,7 +221,7 @@ export default abstract class InstantReactAbstractDatabase<
    *   const user = await db.getAuth();
    *   console.log('logged in as', user.email)
    */
-  getAuth(): Promise<User> {
+  getAuth(): Promise<User | null> {
     return this._core.getAuth();
   }
 
