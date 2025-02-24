@@ -627,7 +627,7 @@
     (uuid-util/coerce s)
     (uuid-util/coerce (str s (subs all-fs-uuid (count s))))))
 
-(defn- value-function-clauses [idx [v-tag v-value]]
+(defn- value-function-clauses [app-id idx [v-tag v-value]]
   (case v-tag
     :function (let [[func val] (first v-value)]
                 (case func
@@ -666,8 +666,8 @@
                       [:<= :entity-id (prefix->uuid-end prefix)]]])))
     []))
 
-(defn- function-clauses [named-pattern]
-  (value-function-clauses (:idx named-pattern) (:v named-pattern)))
+(defn- function-clauses [app-id named-pattern]
+  (value-function-clauses app-id (:idx named-pattern) (:v named-pattern)))
 
 (defn patch-values-for-av-index
   "Make sure we wrap :value in [:json_null_to_null :value] when using :av
@@ -702,7 +702,7 @@
                 constant-components
                 (map (fn [[component-type v]]
                        (constant->where-part idx app-id component-type v))))
-           (function-clauses named-pattern)
+           (function-clauses app-id named-pattern)
            (patch-values-for-av-index (idx-key idx) additional-clauses))))
 
 (comment
