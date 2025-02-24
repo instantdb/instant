@@ -1379,7 +1379,7 @@
                                   :from (kw table :-with-next)}
                                  (when limit
                                    {:limit limit}))
-                          :not-materialized]
+                          :materialized]
                          first-row-cte
                          last-row-cte
                          [(has-next-tbl table)
