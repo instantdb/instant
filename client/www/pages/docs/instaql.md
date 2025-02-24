@@ -384,13 +384,13 @@ need to wait for some data to be available before you can run your query. Here's
 an example of deferring a fetch for todos until a user is logged in.
 
 ```javascript
-const { isLoading, user, error } = useAuth();
+const { isLoading, user, error } = db.useAuth();
 
 const {
   isLoading: isLoadingTodos,
   error,
   data,
-} = useQuery(
+} = db.useQuery(
   user
     ? {
         // The query will run once user is populated
