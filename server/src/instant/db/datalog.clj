@@ -642,6 +642,7 @@
                                         :t.entity-id)
                               :from [[:triples :t]]
                               :where [:and
+                                      [:= :t.app-id app-id]
                                       [:= :t.entity-id :entity-id]
                                       [:= :t.attr-id (:attr-id val)]
                                       [:not= :t.value [:cast (->json nil) :jsonb]]]}]]
