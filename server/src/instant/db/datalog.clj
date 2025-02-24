@@ -1994,8 +1994,8 @@
   (tracer/with-span! {:name "datalog/send-query-batch"
                       :attributes {:batch-size (count args-col)}}
     (let [batch-data (map-indexed
-                      (fn [i args]
-                        (apply match-query (kw "match-" i "-") args))
+                      (fn [i [app-id named-patterns]]
+                        (match-query (kw "match-" i "-") app-id named-patterns {}))
                       args-col)
           hsql-query (batch-queries (map :query batch-data))
           sql-query (hsql/format hsql-query)
