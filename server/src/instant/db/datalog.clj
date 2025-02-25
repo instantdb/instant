@@ -881,6 +881,14 @@
           ;; only use `not materialized` when we're in the middle of an ordered
           ;; query
           (not page-info)
+
+          ;; skip isNull because it's unlikely to generate a good plan
+          (and (uspec/tagged-as? :function (:v named-p))
+               (:$isNull (uspec/tagged-unwrap (:v named-p))))
+
+          ;; skip indexed with constant value because it's likely
+          ;; to return a small set of elements and we'll spend forever
+          ;; looping through the sorted elements
           (and (= :ave (idx-key (:idx named-p)))
                (named-constant? (:v named-p))))
        :materialized
