@@ -109,7 +109,7 @@ db.transact(db.tx.games[gameId].merge({ state: { '0-1': 'blue' } }));
 Sometimes you may want to remove keys from a nested object. You can do so by calling `merge` with a key set to `null` or `undefined`. This will remove the corresponding property from the object.
 
 ```javascript
-// State: {'0-0': 'red', '0-0': 'blue' }
+// State: {'0-0': 'red', '0-1': 'blue' }
 db.transact(db.tx.games[gameId].merge({ state: { '0-1': null } }));
 // New State! {'0-0': 'red' }
 ```
