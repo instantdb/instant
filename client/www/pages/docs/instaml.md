@@ -101,7 +101,7 @@ db.transact(db.tx.games[gameId].merge({ state: { '0-0': 'red' } }));
 db.transact(db.tx.games[gameId].merge({ state: { '0-1': 'blue' } }));
 
 // ✅ Wohoo! Both states are merged!
-// Final State: {'0-0': 'red', '0-0': 'blue' }
+// Final State: {'0-0': 'red', '0-1': 'blue' }
 ```
 
 `merge` only merges objects. Calling `merge` on **arrays, numbers, or booleans** will overwrite the values.
