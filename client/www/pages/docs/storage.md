@@ -21,7 +21,7 @@ Initialize your schema and permissions via the [cli tool](/docs/cli)
 npx instant-cli@latest init
 ```
 
-Now open `instant.shema.ts` and replace the contents with the following code.
+Now open `instant.schema.ts` and replace the contents with the following code.
 
 ```javascript {% showCopy=true %}
 import { i } from "@instantdb/react";
