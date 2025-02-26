@@ -144,14 +144,13 @@
   "Converts {:or [{:a 1} {:a 2}] -> {:or [{:a {:in [1 2]}}]}"
   [conds]
   (let [{:keys [uncombined optimized]}
-        (reduce (fn [acc cond]
-                  (if-not (and (= (count cond) 1)
-                               (where-value-valid? (second (first cond))))
-                    (update acc :uncombined conj cond)
-                    (let [[k v] (first cond)
+        (reduce (fn [acc c]
+                  (if-not (and (= (count c) 1)
+                               (where-value-valid? (second (first c))))
+                    (update acc :uncombined conj c)
+                    (let [[k v] (first c)
                           existing (get-in acc [:optimized k] sentinel)]
                       (if (= existing sentinel)
-                        ;; XXX: Need to do something about values that we can't combine
                         (assoc-in acc [:optimized k] {:in [v]})
                         (update-in acc [:optimized k :in] conj v)))))
 
