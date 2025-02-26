@@ -642,20 +642,33 @@ export function Explorer({
 
   const userNamespaces = namespaces?.filter((x) => !x.name.startsWith('$'));
 
+  // Handle initial load
   useEffect(() => {
-    const isFirstLoad = namespaces?.length && !navStack.length;
-    const urlWhere = router.query.where
-      ? JSON.parse(router.query.where as string)
-      : null;
-
-    if (isFirstLoad) {
+    if (namespaces?.length && !navStack.length) {
       const userNamespaces = namespaces?.filter((x) => !x.name.startsWith('$'));
-      nav([
+
+      // Parse search filters from URL if present
+      const parsedSearch = urlSearch
+        ? parseFiltersFromQueryString(urlSearch)
+        : [];
+
+      // Parse sort parameters
+      const sortAttr = (router.query.sort as string) || 'serverCreatedAt';
+      const sortAsc = router.query.sortDir !== 'desc'; // Default to ascending
+
+      // Use _setNavStack directly to avoid triggering a router.push during initialization
+      _setNavStack([
         {
           namespace: selectedNamespaceId || userNamespaces?.[0]?.id,
           where: urlWhere,
+          filters: parsedSearch,
+          sortAttr,
+          sortAsc,
         },
       ]);
+
+      // Also update the search filters state
+      setSearchFilters(parsedSearch);
     }
   }, [namespaces === null]);
 
