@@ -2285,8 +2285,7 @@
      (query-pretty
       {:users {:$ {:where {:or [{:handle "joe"}
                                 {:handle "stopa"}]}}}})
-     '({:topics ([:av _ #{:users/handle} #{"stopa"}]
-                 [:av _ #{:users/handle} #{"joe"}]
+     '({:topics ([:av _ #{:users/handle} #{"stopa" "joe"}]
                  --
                  [:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
                                                      :users/createdAt
@@ -2322,9 +2321,7 @@
       {:users {:$ {:where {:or [{:handle "somebody"}
                                 {:handle "joe"}
                                 {:handle "nobody"}]}}}})
-     '({:topics ([:av _ #{:users/handle} #{"somebody"}]
-                 [:av _ #{:users/handle} #{"joe"}]
-                 [:av _ #{:users/handle} #{"nobody"}]
+     '({:topics ([:av _ #{:users/handle} #{"joe" "nobody" "somebody"}]
                  --
                  [:ea #{"eid-joe-averbukh"} #{:users/bookshelves
                                               :users/createdAt
@@ -2489,16 +2486,14 @@
                                                      :users/fullName
                                                      :users/handle} _]
                  [:av _ #{:users/handle} #{"stopa"}]
-                 [:av _ #{:users/handle} #{"somebody"}]
+                 [:av _ #{:users/handle} #{"stopa" "somebody" "joe" "nobody"}]
                  --
-                 [:av _ #{:users/handle} #{"joe"}]
                  [:ea #{"eid-joe-averbukh"} #{:users/bookshelves
                                               :users/createdAt
                                               :users/email
                                               :users/id
                                               :users/fullName
-                                              :users/handle} _]
-                 [:av _ #{:users/handle} #{"nobody"}]),
+                                              :users/handle} _]),
         :triples (("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
                   ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
                   ("eid-joe-averbukh" :users/handle "joe")
@@ -3037,8 +3032,7 @@
                               :users/handle} _]
          --
          [:eav #{"eid-alex"} #{:users/bookshelves} _]
-         [:ea _ #{:bookshelves/name} #{"Nonfiction"}]
-         [:ea _ #{:bookshelves/name} #{"Fiction"}]
+         [:ea _ #{:bookshelves/name} #{"Fiction" "Nonfiction"}]
          --
          [:ea #{"eid-nonfiction"} #{:bookshelves/desc
                                     :bookshelves/name
