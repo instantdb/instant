@@ -967,7 +967,10 @@ export function Explorer({
                           <em className="rounded-sm border bg-white px-1">
                             {attr} {op} {search}
                           </em>
-                          {i < currentNav.filters.length - 1 ? ' || ' : null}
+                          {currentNav?.filters?.length &&
+                          i < currentNav.filters.length - 1
+                            ? ' || '
+                            : null}
                         </span>
                       ))}
                     </span>
