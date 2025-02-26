@@ -2671,7 +2671,12 @@
                                            [:add-triple id (:handle attr-ids) "a"]])
                                         (let [id (random-uuid)]
                                           [[:add-triple id (:id attr-ids) (str id)]
-                                           [:add-triple id (:handle attr-ids) "b"]])))]
+                                           [:add-triple id (:handle attr-ids) "b"]])
+                                        (mapcat (fn [i]
+                                                  (let [id (random-uuid)]
+                                                    [[:add-triple id (:id attr-ids) (str id)]
+                                                     [:add-triple id (:handle attr-ids) (str i)]]))
+                                                (range 5000))))]
             (sql/select (aurora/conn-pool :write) ["ANALYZE triples"])
             (clojure.pprint/print-table [:tablename :attname :null_frac :avg_width :n_distinct :correlation]
                                         (sql/select (aurora/conn-pool :read) ["select * from pg_stats where tablename like 'triples%' or tablename = 'av_index' order by tablename, attname"]))
