@@ -2675,6 +2675,10 @@
             (sql/select (aurora/conn-pool :write) ["ANALYZE triples"])
             (clojure.pprint/print-table [:attname :null_frac :avg_width :n_distinct :correlation]
                                         (sql/select (aurora/conn-pool :read) ["select * from pg_stats where tablename = 'triples'"]))
+            (clojure.pprint/print-table [:column_name :stawidth :stadistinct
+                                         :stakind1 :stakind2 :stakind3 :stakind4 :stakind5
+                                         :stanumbers1 :stanumbers2 :stanumbers3 :stanumbers4 :stanumbers5]
+                                        (sql/select (aurora/conn-pool :read) ["SELECT attr.attname AS column_name, stat.* FROM pg_statistic stat JOIN pg_class cls ON cls.oid = stat.starelid JOIN pg_namespace ns ON ns.oid = cls.relnamespace JOIN pg_attribute attr ON attr.attrelid = cls.oid AND attr.attnum = stat.staattnum WHERE ns.nspname NOT IN ('pg_catalog', 'information_schema')  AND cls.relkind = 'r' and cls.relname = 'triples' ORDER BY column_name;"]))
             (testing "query on unique attr"
               (let [{:keys [patterns]} (iq/instaql-query->patterns
                                         (make-ctx)
