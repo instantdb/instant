@@ -138,6 +138,30 @@
           []
           conds))
 
+(def sentinel (Object.))
+
+(defn- combine-or-where-conds
+  "Converts {:or [{:a 1} {:a 2}] -> {:or [{:a {:in [1 2]}}]}"
+  [conds]
+  (let [{:keys [uncombined optimized]}
+        (reduce (fn [acc cond]
+                  (if-not (and (= (count cond) 1)
+                               (where-value-valid? (second (first cond))))
+                    (update acc :uncombined conj cond)
+                    (let [[k v] (first cond)
+                          existing (get-in acc [:optimized k] sentinel)]
+                      (if (= existing sentinel)
+                        ;; XXX: Need to do something about values that we can't combine
+                        (assoc-in acc [:optimized k] {:in [v]})
+                        (update-in acc [:optimized k :in] conj v)))))
+
+                {:uncombined []
+                 :optimized {}}
+                conds)]
+    (into uncombined (map (fn [[k v]]
+                            {k v})
+                          optimized))))
+
 (defn grow-paths
   "Given a path, creates a list of paths leading up to that path,
    including the path itself.
@@ -151,10 +175,11 @@
   "Splits keys into segments."
   [state [k v :as c]]
   (cond (or-where-cond? c)
-        {:or (let [conds (map (fn [conds]
-                                (map (partial coerce-where-cond state)
-                                     (collapse-or-where-conds conds)))
-                              v)]
+        {:or (let [conds (->> v
+                              combine-or-where-conds
+                              (map (fn [conds]
+                                     (map (partial coerce-where-cond state)
+                                          (collapse-or-where-conds conds)))))]
                (if (seq conds)
                  conds
                  (ex/throw-validation-err!
