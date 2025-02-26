@@ -715,7 +715,7 @@ export function Explorer({
       successToast('Successfully uploaded!');
     } catch (err: any) {
       console.error('Failed to upload:', err);
-      errorToast(`('Failed to upload: ${err.body.message}`);
+      errorToast(`Failed to upload: ${err.body.message}`);
     } finally {
       setUploadingFile(false);
     }
