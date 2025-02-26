@@ -442,6 +442,7 @@ export function Explorer({
     ? JSON.parse(router.query.where as string)
     : null;
 
+  const [isNavigating, setIsNavigating] = useState(false);
   const [
     navStack,
     // don't call this directly, instead call `nav`
@@ -452,6 +453,7 @@ export function Explorer({
   const showBackButton = navStack.length > 1;
 
   function nav(s: ExplorerNav[]) {
+    setIsNavigating(true);
     _setNavStack(s);
     setCheckedIds({});
 
@@ -490,16 +492,22 @@ export function Explorer({
     // Set flag to ignore the next URL change since we're causing it
     setIgnoreUrlChanges(true);
 
-    router.push(
-      {
-        query: queryParams,
-      },
-      undefined,
-      {
-        // Don't scroll to top when navigating
-        scroll: false,
-      },
-    );
+    router
+      .push(
+        {
+          query: queryParams,
+        },
+        undefined,
+        {
+          // Don't scroll to top when navigating
+          scroll: false,
+        },
+      )
+      .then(() => {
+        setTimeout(() => {
+          setIsNavigating(false);
+        }, 50);
+      });
   }
 
   function replaceNavStackTop(_nav: Partial<ExplorerNav>) {
@@ -551,6 +559,11 @@ export function Explorer({
     if (ignoreUrlChanges) {
       // Reset the flag after the URL has changed
       setIgnoreUrlChanges(false);
+      return;
+    }
+
+    // If we're currently navigating, ignore this effect
+    if (isNavigating) {
       return;
     }
 
