@@ -519,6 +519,11 @@ export function Explorer({
   }
 
   function pushNavStack(_nav: ExplorerNav) {
+    const currentNamespace = navStack[navStack.length - 1]?.namespace;
+    if (currentNamespace !== _nav.namespace) {
+      setSearchFilters([]);
+    }
+
     nav([...navStack, _nav]);
   }
 
@@ -547,7 +552,7 @@ export function Explorer({
       replaceNavStackTop({ filters: searchFilters });
     } else if (
       searchFilters.length === 0 &&
-      currentNav?.filters?.length > 0 &&
+      currentNav?.filters?.length &&
       !ignoreUrlChanges
     ) {
       replaceNavStackTop({ filters: [] });
@@ -572,14 +577,16 @@ export function Explorer({
       // or the search params have changed, update the nav stack
       const currentNav = navStack[navStack.length - 1];
 
-      const parsedSearch = urlSearch
-        ? parseFiltersFromQueryString(urlSearch)
-        : [];
+      const changedNamespace = currentNav.namespace !== selectedNamespaceId;
+      const parsedSearch =
+        !changedNamespace && urlSearch
+          ? parseFiltersFromQueryString(urlSearch)
+          : [];
       const sortAttr = (router.query.sort as string) || 'serverCreatedAt';
-      const sortAsc = router.query.sortDir !== 'desc'; // Default to ascending
+      const sortAsc = router.query.sortDir !== 'desc';
 
       const needsUpdate =
-        currentNav.namespace !== selectedNamespaceId ||
+        changedNamespace ||
         JSON.stringify(currentNav.where || null) !==
           JSON.stringify(urlWhere || null) ||
         JSON.stringify(currentNav.filters || []) !==
