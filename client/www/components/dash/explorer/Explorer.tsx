@@ -452,7 +452,7 @@ export function Explorer({
   const currentNav: ExplorerNav | undefined = navStack[navStack.length - 1];
   const showBackButton = navStack.length > 1;
 
-  function nav(s: ExplorerNav[]) {
+  function nav(s: ExplorerNav[], options?: { replaceHistory?: boolean }) {
     setIsNavigating(true);
     _setNavStack(s);
     setCheckedIds({});
@@ -492,22 +492,22 @@ export function Explorer({
     // Set flag to ignore the next URL change since we're causing it
     setIgnoreUrlChanges(true);
 
-    router
-      .push(
-        {
-          query: queryParams,
-        },
-        undefined,
-        {
-          // Don't scroll to top when navigating
-          scroll: false,
-        },
-      )
-      .then(() => {
-        setTimeout(() => {
-          setIsNavigating(false);
-        }, 50);
-      });
+    const navMethod = options?.replaceHistory ? router.replace : router.push;
+
+    navMethod(
+      {
+        query: queryParams,
+      },
+      undefined,
+      {
+        // Don't scroll to top when navigating
+        scroll: false,
+      },
+    ).then(() => {
+      setTimeout(() => {
+        setIsNavigating(false);
+      }, 50);
+    });
   }
 
   function replaceNavStackTop(_nav: Partial<ExplorerNav>) {
@@ -515,7 +515,9 @@ export function Explorer({
 
     if (!top) return;
 
-    nav([...navStack.slice(0, -1), { ...top, ..._nav }]);
+    nav([...navStack.slice(0, -1), { ...top, ..._nav }], {
+      replaceHistory: true,
+    });
   }
 
   function pushNavStack(_nav: ExplorerNav) {
