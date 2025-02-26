@@ -604,7 +604,7 @@ export function Explorer({
         !changedNamespace && urlSearch
           ? parseFiltersFromQueryString(urlSearch)
           : [];
-      const sortAttr = (router.query.sort as string) || 'serverCreatedAt';
+      const sortAttr = router.query.sort as string;
       const sortAsc = router.query.sortDir !== 'desc';
 
       const needsUpdate =
