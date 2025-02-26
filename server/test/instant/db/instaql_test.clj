@@ -2673,8 +2673,8 @@
                                           [[:add-triple id (:id attr-ids) (str id)]
                                            [:add-triple id (:handle attr-ids) "b"]])))]
             (sql/select (aurora/conn-pool :write) ["ANALYZE triples"])
-            (clojure.pprint/print-table [:attname :null_frac :avg_width :n_distinct :correlation]
-                                        (sql/select (aurora/conn-pool :read) ["select * from pg_stats where tablename = 'triples'"]))
+            (clojure.pprint/print-table [:tablename :attname :null_frac :avg_width :n_distinct :correlation]
+                                        (sql/select (aurora/conn-pool :read) ["select * from pg_stats where tablename like 'triples%' or tablename = 'av_index' order by tablename, attname"]))
             (clojure.pprint/print-table [:column_name :stawidth :stadistinct
                                          :stakind1 :stakind2 :stakind3 :stakind4 :stakind5
                                          :stanumbers1 :stanumbers2 :stanumbers3 :stanumbers4 :stanumbers5]
