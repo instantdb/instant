@@ -667,12 +667,14 @@ export function Explorer({
 
       // Parse sort parameters
       const sortAttr = (router.query.sort as string) || 'serverCreatedAt';
-      const sortAsc = router.query.sortDir !== 'desc'; // Default to ascending
+      const sortAsc = router.query.sortDir !== 'desc';
+
+      const namespace = selectedNamespaceId || userNamespaces?.[0]?.id;
 
       // Use _setNavStack directly to avoid triggering a router.push during initialization
       _setNavStack([
         {
-          namespace: selectedNamespaceId || userNamespaces?.[0]?.id,
+          namespace,
           where: urlWhere,
           filters: parsedSearch,
           sortAttr,
@@ -682,6 +684,13 @@ export function Explorer({
 
       // Also update the search filters state
       setSearchFilters(parsedSearch);
+
+      // Add namespace to URL if not already present
+      if (!selectedNamespaceId) {
+        const queryParams = { ...router.query, ns: namespace };
+        // Replace URL without adding to history
+        router.replace({ query: queryParams }, undefined, { shallow: true });
+      }
     }
   }, [namespaces === null]);
 
