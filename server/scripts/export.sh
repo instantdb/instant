@@ -41,10 +41,24 @@ echo ''
 psql -d $database_url -v app_id="$app_id" -v creator_email="$creator_email" <<EOF
 \set ON_ERROR_STOP on
 BEGIN;
-\echo 'Copying apps'
-\copy apps FROM PROGRAM 'psql -d "$prod_database_url" -v app_id="$app_id" -f $files_dir/copy_apps.sql'
+\echo 'Copying app'
+
+create temp table temp_app (
+  id uuid,
+  title text,
+  created_at timestamp without time zone
+);
+
+\copy temp_app FROM PROGRAM 'psql -d "$prod_database_url" -v app_id="$app_id" -f $files_dir/copy_apps.sql'
+with app as (
+  select * from temp_app where id = :'app_id'
+)
+insert into apps (id, creator_id, title, created_at)
+  select id, (select id from instant_users where email = :'creator_email') creator_id, title, created_at from app
+returning *;
+
 insert into app_admin_tokens (app_id, token) values (:'app_id', gen_random_uuid());
-update apps set creator_id = (select id from instant_users where email = :'creator_email') where id = :'app_id';
+
 \echo 'Copying attrs'
 \copy attrs FROM PROGRAM 'psql -d "$prod_database_url" -v app_id="$app_id" -f $files_dir/copy_attrs.sql'
 \echo 'Copying idents'
