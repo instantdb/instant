@@ -1,0 +1,12 @@
+alter table triples alter column app_id set statistics 500;
+alter table triples alter column entity_id set statistics 500;
+alter table triples alter column attr_id set statistics 500;
+alter table triples alter column value set statistics 500;
+alter table triples alter column value_md5 set statistics 500;
+alter table triples alter column ea set statistics 500;
+alter table triples alter column eav set statistics 500;
+alter table triples alter column av set statistics 500;
+alter table triples alter column ave set statistics 500;
+alter table triples alter column vae set statistics 500;
+alter table triples alter column created_at set statistics 500;
+alter table triples alter column checked_data_type set statistics 500;
