@@ -963,15 +963,25 @@
                 ;; Include the previous cte if we're not the first
                 [prev-table])
               [(kw prefix (first join-idxes))])}
-      (when full-join-idxes
-        {:full-join (mapcat (fn [i]
-                              ;; Ensures everything is included
-                              [(kw prefix i) [:= :0 :1]])
-                            full-join-idxes)})
-      (when-not (neg? prev-idx)
+      (if-not prev-table
+        (merge {:from (kw prefix (first join-idxes))}
+               (when full-join-idxes
+                 {:full-join (mapcat (fn [i]
+                                       ;; Ensures everything is included
+                                       [(kw prefix i) [:= :0 :1]])
+                                     full-join-idxes)}))
+        {:from prev-table
+         :left-join (mapcat
+                     (fn [[cte-idx or-symbol-map]]
+                       [(kw prefix cte-idx) (join-conds-for-or-gather prefix
+                                                                      symbol-map
+                                                                      [or-symbol-map]
+                                                                      join-sym)])
+                     group-symbol-maps)})
+      (when prev-table
         (when-let [wheres (join-conds-for-or-gather prefix
                                                     symbol-map
-                                                    group-symbol-maps
+                                                    (vals group-symbol-maps)
                                                     join-sym)]
           {:where wheres})))
      :not-materialized]))
@@ -1017,7 +1027,10 @@
                                           (assoc :next-idx (:next-idx res))
                                           (update :ctes into (:ctes res))
                                           (update :or-idxes conj (dec (:next-idx res)))
-                                          (update :symbol-maps conj (:symbol-map res))
+                                          (update :symbol-maps
+                                                  assoc
+                                                  (dec (:next-idx res))
+                                                  (:symbol-map res))
                                           (update :pattern-metas conj (:pattern-metas res)))}))
                       {;; :group-acc collects information about each OR clause
                        :group-acc {:next-idx (:next-idx acc)
@@ -1028,7 +1041,7 @@
                                    ;; Collect symbol maps from each or branch so that
                                    ;; we can join the branches in to the rest of the
                                    ;; ctes
-                                   :symbol-maps []
+                                   :symbol-maps {}
                                    ;; Keep track of the last cte in each or branch
                                    ;; so that we can construct a cte to collect all
                                    ;; the results
@@ -1066,7 +1079,7 @@
                                    (:symbol-map acc)
                                    (apply merge-with (fn [& xs]
                                                        [(set xs)])
-                                          (:symbol-maps group-acc)))
+                                          (vals (:symbol-maps group-acc))))
            :pattern-metas (conj (:pattern-metas acc) {:or (:pattern-metas group-acc)})})))
 
 (defn match-query
@@ -1347,7 +1360,8 @@
         has-previous-query (cond
                              ;; We got everything before, so no prev page
                              (and (not after)
-                                  (not offset)
+                                  (or (not offset)
+                                      (zero? offset))
                                   (not last?))
                              {:select 1 :where false}
 
@@ -1385,7 +1399,7 @@
         last-table-name (kw prefix next-idx)]
     {:next-idx (inc next-idx)
      :query {:with (conj (:with (:query match-query))
-                         [(kw table :-with-next) paged-query :not-materialized]
+                         [(kw table :-with-next) paged-query :materialized]
                          [table
                           (merge {:select :*
                                   :from (kw table :-with-next)}
@@ -1510,14 +1524,20 @@
   [_ctx prefix app-id nested-named-patterns]
   (let [{:keys [ctes result-tables children]}
         (accumulate-nested-match-query prefix app-id nested-named-patterns)
+        tables (set (map :table result-tables))
         query (when (seq ctes)
-                {:with (map #(if (= (count %) 2)
+                {:with (map #(cond
                                ;; Forces postgres to only evaluate the cte once
                                ;; https://www.postgresql.org/docs/current/queries-with.html#QUERIES-WITH-CTE-MATERIALIZATION
+                               (= (count %) 2)
                                (conj % :materialized)
+
+                               ;; We're in the result table, so let's make sure we're materialized
+                               (contains? tables (first %))
+                               (assoc % 2 :materialized)
                                ;; If count != 2, then someone higher up set a materialized
                                ;; option, let's not override their wisdom.
-                               %)
+                               :else %)
                             ctes)
                  :select [[(into [:json_build_array]
                                  (mapv (fn [tables]
