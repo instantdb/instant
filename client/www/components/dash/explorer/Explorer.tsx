@@ -62,6 +62,24 @@ import { EditRowDialog } from '@/components/dash/explorer/EditRowDialog';
 import { useRouter } from 'next/router';
 import { formatBytes } from '@/lib/format';
 
+// Helper functions for handling search filters in URLs
+function filtersToQueryString(filters: SearchFilter[]): string | null {
+  if (!filters.length) return null;
+  return JSON.stringify(filters);
+}
+
+function parseFiltersFromQueryString(
+  queryString: string | null,
+): SearchFilter[] {
+  if (!queryString) return [];
+  try {
+    return JSON.parse(queryString);
+  } catch (e) {
+    console.error('Failed to parse filters from query string:', e);
+    return [];
+  }
+}
+
 const OPERATORS = [':', '>', '<'] as const;
 type ParsedQueryPart = {
   field: string;
@@ -236,13 +254,14 @@ const excludedSearchAttrs: [string, string][] = [
 function SearchInput({
   onSearchChange,
   attrs,
+  initialFilters = [],
 }: {
   onSearchChange: (filters: SearchFilter[]) => void;
   attrs?: SchemaAttr[];
+  initialFilters?: SearchFilter[];
 }) {
   const [query, setQuery] = useState('');
-
-  const lastFilters = useRef<[string, string, string][]>([]);
+  const lastFilters = useRef<SearchFilter[]>(initialFilters);
 
   const { attrsByName, stringIndexed } = useMemo(() => {
     const byName: { [key: string]: SchemaAttr } = {};
@@ -325,6 +344,14 @@ function SearchInput({
     searchDebounce(q);
   }
 
+  // Set initial search query based on filters
+  useEffect(() => {
+    if (initialFilters.length > 0 && !query) {
+      // Simple conversion - this could be improved
+      setQuery(initialFilters.map((f) => `${f[0]}:${f[2]}`).join(' '));
+    }
+  }, [initialFilters]);
+
   return (
     <Combobox
       value={query}
@@ -405,10 +432,15 @@ export function Explorer({
   const nsRef = useRef<HTMLDivElement>(null);
 
   const [searchFilters, setSearchFilters] = useState<SearchFilter[]>([]);
+  const [ignoreUrlChanges, setIgnoreUrlChanges] = useState(false);
 
   // nav
   const router = useRouter();
   const selectedNamespaceId = router.query.ns as string;
+  const urlSearch = router.query.search as string;
+  const urlWhere = router.query.where
+    ? JSON.parse(router.query.where as string)
+    : null;
 
   const [
     navStack,
@@ -418,23 +450,58 @@ export function Explorer({
   const [checkedIds, setCheckedIds] = useState<Record<string, true>>({});
   const currentNav: ExplorerNav | undefined = navStack[navStack.length - 1];
   const showBackButton = navStack.length > 1;
+
   function nav(s: ExplorerNav[]) {
     _setNavStack(s);
     setCheckedIds({});
-    setSearchFilters([]);
 
     const current = s[s.length - 1];
     const ns = current.namespace;
-    router.replace(
+
+    // Build query params including both namespace and search filters
+    const queryParams: any = {
+      ...router.query,
+      ns,
+    };
+
+    // Add where clause
+    if (current.where) {
+      queryParams.where = JSON.stringify(current.where);
+    } else {
+      delete queryParams.where;
+    }
+
+    // Add search filters
+    if (current.filters && current.filters.length > 0) {
+      queryParams.search = filtersToQueryString(current.filters);
+    } else {
+      delete queryParams.search;
+    }
+
+    // Add sort
+    if (current.sortAttr) {
+      queryParams.sort = current.sortAttr;
+      queryParams.sortDir = current.sortAsc ? 'asc' : 'desc';
+    } else {
+      delete queryParams.sort;
+      delete queryParams.sortDir;
+    }
+
+    // Set flag to ignore the next URL change since we're causing it
+    setIgnoreUrlChanges(true);
+
+    router.push(
       {
-        query: { ...router.query, ns },
+        query: queryParams,
       },
       undefined,
       {
-        shallow: true,
+        // Don't scroll to top when navigating
+        scroll: false,
       },
     );
   }
+
   function replaceNavStackTop(_nav: Partial<ExplorerNav>) {
     const top = navStack[navStack.length - 1];
 
@@ -442,11 +509,17 @@ export function Explorer({
 
     nav([...navStack.slice(0, -1), { ...top, ..._nav }]);
   }
+
   function pushNavStack(_nav: ExplorerNav) {
     nav([...navStack, _nav]);
   }
+
   function popNavStack() {
-    nav(navStack.slice(0, -1));
+    // If we're just going back to the previous state in the nav stack,
+    // use browser history instead of pushing a new state
+    if (navStack.length > 1) {
+      router.back();
+    }
   }
 
   // data
@@ -459,6 +532,81 @@ export function Explorer({
     }),
     [namespaces, currentNav?.namespace],
   );
+
+  // Handle searchFilters changes to update the URL and navigation state
+  useEffect(() => {
+    if (currentNav && searchFilters.length > 0 && !ignoreUrlChanges) {
+      replaceNavStackTop({ filters: searchFilters });
+    } else if (
+      searchFilters.length === 0 &&
+      currentNav?.filters?.length > 0 &&
+      !ignoreUrlChanges
+    ) {
+      replaceNavStackTop({ filters: [] });
+    }
+  }, [searchFilters]);
+
+  // Handle browser navigation (back/forward buttons)
+  useEffect(() => {
+    if (ignoreUrlChanges) {
+      // Reset the flag after the URL has changed
+      setIgnoreUrlChanges(false);
+      return;
+    }
+
+    if (namespaces && selectedNamespaceId && navStack.length > 0) {
+      // If the URL namespace doesn't match the current nav stack namespace
+      // or the search params have changed, update the nav stack
+      const currentNav = navStack[navStack.length - 1];
+
+      const parsedSearch = urlSearch
+        ? parseFiltersFromQueryString(urlSearch)
+        : [];
+      const sortAttr = (router.query.sort as string) || 'serverCreatedAt';
+      const sortAsc = router.query.sortDir !== 'desc'; // Default to ascending
+
+      const needsUpdate =
+        currentNav.namespace !== selectedNamespaceId ||
+        JSON.stringify(currentNav.where || null) !==
+          JSON.stringify(urlWhere || null) ||
+        JSON.stringify(currentNav.filters || []) !==
+          JSON.stringify(parsedSearch) ||
+        currentNav.sortAttr !== sortAttr ||
+        currentNav.sortAsc !== sortAsc;
+
+      if (needsUpdate) {
+        // Find the namespace in our list
+        const targetNamespace = namespaces.find(
+          (ns) => ns.id === selectedNamespaceId,
+        );
+        if (targetNamespace) {
+          // Update the nav stack without triggering another router push
+          _setNavStack([
+            {
+              namespace: selectedNamespaceId,
+              where: urlWhere,
+              filters: parsedSearch,
+              sortAttr,
+              sortAsc,
+            },
+          ]);
+
+          // Also update the search filters state
+          setSearchFilters(parsedSearch);
+
+          // Reset checked items
+          setCheckedIds({});
+        }
+      }
+    }
+  }, [
+    selectedNamespaceId,
+    urlWhere,
+    urlSearch,
+    router.query.sort,
+    router.query.sortDir,
+    namespaces,
+  ]);
 
   // auth
   const token = useContext(TokenContext);
@@ -480,7 +628,7 @@ export function Explorer({
     db,
     selectedNamespace,
     currentNav?.where,
-    searchFilters,
+    currentNav?.filters || searchFilters,
     limit,
     offset,
     sortAttr,
@@ -766,18 +914,18 @@ export function Explorer({
                       </em>
                     </>
                   ) : null}
-                  {searchFilters?.length ? (
+                  {currentNav?.filters?.length ? (
                     <span
-                      title={searchFilters
+                      title={currentNav.filters
                         .map(([attr, op, search]) => `${attr} ${op} ${search}`)
                         .join(' || ')}
                     >
-                      {searchFilters.map(([attr, op, search], i) => (
+                      {currentNav.filters.map(([attr, op, search], i) => (
                         <span key={attr}>
                           <em className="rounded-sm border bg-white px-1">
                             {attr} {op} {search}
                           </em>
-                          {i < searchFilters.length - 1 ? ' || ' : null}
+                          {i < currentNav.filters.length - 1 ? ' || ' : null}
                         </span>
                       ))}
                     </span>
@@ -798,6 +946,7 @@ export function Explorer({
                   key={selectedNamespaceId}
                   onSearchChange={(filters) => setSearchFilters(filters)}
                   attrs={selectedNamespace?.attrs}
+                  initialFilters={currentNav?.filters || []}
                 />
               </div>
             </div>
@@ -1345,6 +1494,7 @@ export interface ExplorerNav {
   where?: [string, any];
   sortAttr?: string;
   sortAsc?: boolean;
+  filters?: SearchFilter[];
 }
 
 export type PushNavStack = (nav: ExplorerNav) => void;
