@@ -413,7 +413,7 @@ async function uploadImage(file: File) {
     // Upload the file
     const { data } = await db.storage.uploadFile(path, file);
     // Link it to a profile
-    await db.transact(tx.profiles[profileId].link({ avatar: data.id }));
+    await db.transact(db.tx.profiles[profileId].link({ avatar: data.id }));
   } catch (error) {
     console.error('Error uploading image:', error);
   }
