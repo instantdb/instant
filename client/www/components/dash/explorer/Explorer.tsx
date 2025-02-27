@@ -441,6 +441,8 @@ export function Explorer({
   const urlWhere = router.query.where
     ? JSON.parse(router.query.where as string)
     : null;
+  const urlLimit = parseInt(router.query.limit as string, 10) || 50;
+  const urlPage = parseInt(router.query.page as string, 10) || 1;
 
   const [isNavigating, setIsNavigating] = useState(false);
   const [
@@ -489,6 +491,18 @@ export function Explorer({
       delete queryParams.sortDir;
     }
 
+    // Add pagination
+    if (current.limit) {
+      queryParams.limit = current.limit;
+    } else {
+      delete queryParams.limit;
+    }
+    if (current.page) {
+      queryParams.page = current.page;
+    } else {
+      delete queryParams.page;
+    }
+
     // Set flag to ignore the next URL change since we're causing it
     setIgnoreUrlChanges(true);
 
@@ -523,7 +537,13 @@ export function Explorer({
   function pushNavStack(_nav: ExplorerNav) {
     const currentNamespace = navStack[navStack.length - 1]?.namespace;
     if (currentNamespace !== _nav.namespace) {
+      // Reset search filters, offsets, and limit when changing namespaces
       setSearchFilters([]);
+      setOffsets((prev) => ({
+        ...prev,
+        [_nav.namespace || '']: 0,
+      }));
+      setLimit(50);
     }
 
     nav([...navStack, _nav]);
@@ -584,7 +604,7 @@ export function Explorer({
         !changedNamespace && urlSearch
           ? parseFiltersFromQueryString(urlSearch)
           : [];
-      const sortAttr = (router.query.sort as string) || 'serverCreatedAt';
+      const sortAttr = router.query.sort as string;
       const sortAsc = router.query.sortDir !== 'desc';
 
       const needsUpdate =
@@ -691,8 +711,13 @@ export function Explorer({
         },
       ]);
 
-      // Also update the search filters state
+      // Sync search, limits, and offsets with URL parameters
       setSearchFilters(parsedSearch);
+      setLimit(urlLimit);
+      setOffsets((prev) => ({
+        ...prev,
+        [namespace || '']: (urlPage - 1) * urlLimit,
+      }));
 
       // Add namespace to URL if not already present
       if (!selectedNamespaceId) {
@@ -1060,7 +1085,13 @@ export function Explorer({
             <div>
               <Select
                 className="text-xs"
-                onChange={(opt) => opt && setLimit(parseInt(opt.value, 10))}
+                onChange={(opt) => {
+                  if (!opt) return;
+
+                  const newLimit = parseInt(opt.value, 10);
+                  setLimit(newLimit);
+                  replaceNavStackTop({ limit: newLimit });
+                }}
                 value={`${limit}`}
                 options={[
                   { label: '25/page', value: '25' },
@@ -1080,12 +1111,15 @@ export function Explorer({
             <button
               className="flex items-center justify-center"
               disabled={currentPage <= 1}
-              onClick={() =>
+              onClick={() => {
                 setOffsets({
                   ...offsets,
                   [selectedNamespace.name]: Math.max(0, offset - limit),
-                })
-              }
+                });
+                replaceNavStackTop({
+                  page: Math.max(1, currentPage - 1),
+                });
+              }}
             >
               <ArrowLeftIcon
                 className={clsx('inline', {
@@ -1119,12 +1153,15 @@ export function Explorer({
                         ? 'bg-gray-200'
                         : 'hover:bg-gray-100',
                     )}
-                    onClick={() =>
+                    onClick={() => {
                       setOffsets({
                         ...offsets,
                         [selectedNamespace.name]: i * limit,
-                      })
-                    }
+                      });
+                      replaceNavStackTop({
+                        page,
+                      });
+                    }}
                     disabled={page === currentPage}
                   >
                     {page}
@@ -1135,12 +1172,15 @@ export function Explorer({
             <button
               className="flex items-center justify-center"
               disabled={currentPage >= numPages}
-              onClick={() =>
+              onClick={() => {
                 setOffsets({
                   ...offsets,
                   [selectedNamespace.name]: offset + limit,
-                })
-              }
+                });
+                replaceNavStackTop({
+                  page: Math.min(numPages, currentPage + 1),
+                });
+              }}
             >
               <ArrowRightIcon
                 className={clsx('inline', {
@@ -1542,6 +1582,8 @@ export interface ExplorerNav {
   sortAttr?: string;
   sortAsc?: boolean;
   filters?: SearchFilter[];
+  limit?: number;
+  page?: number;
 }
 
 export type PushNavStack = (nav: ExplorerNav) => void;
