@@ -150,15 +150,17 @@ db.transact([
 We can associate `healthId` with `workoutId` like so:
 
 ```javascript
-db.transact(tx.goals[healthId].link({ todos: workoutId }));
+db.transact(db.tx.goals[healthId].link({ todos: workoutId }));
 ```
 
 We could have done all this in one `transact` too via chaining transaction chunks.
 
 ```javascript
 db.transact([
-  tx.todos[workoutId].update({ title: 'Go on a run' }),
-  tx.goals[healthId].update({ title: 'Get fit!' }).link({ todos: workoutId }),
+  db.tx.todos[workoutId].update({ title: 'Go on a run' }),
+  db.tx.goals[healthId]
+    .update({ title: 'Get fit!' })
+    .link({ todos: workoutId }),
 ]);
 ```
 
@@ -178,7 +180,7 @@ db.transact([
 Links are bi-directional. Say we link `healthId` to `workoutId`
 
 ```javascript
-db.transact(tx.goals[healthId].link({ todos: workoutId }));
+db.transact(db.tx.goals[healthId].link({ todos: workoutId }));
 ```
 
 We can query associations in both directions
@@ -199,7 +201,7 @@ console.log('todos with nested goals', todos);
 Links can be removed via `unlink.`
 
 ```javascript
-db.transact(tx.goals[healthId].unlink({ todos: workoutId }));
+db.transact(db.tx.goals[healthId].unlink({ todos: workoutId }));
 ```
 
 This removes links in both directions. Unlinking can be done in either direction so unlinking `workoutId` from `healthId` would have the same effect.
@@ -212,8 +214,8 @@ We can `unlink` multiple ids too:
 
 ```javascript
 db.transact([
-  tx.goals[healthId].unlink({ todos: [workoutId, proteinId, sleepId] }),
-  tx.goals[workId].unlink({ todos: [standupId, reviewPRsId, focusId] }),
+  db.tx.goals[healthId].unlink({ todos: [workoutId, proteinId, sleepId] }),
+  db.tx.goals[workId].unlink({ todos: [standupId, reviewPRsId, focusId] }),
 ]);
 ```
 
@@ -243,7 +245,7 @@ When used with links, it can also be used in place of the linked entity's id.
 
 ```javascript
 db.transact(
-  tx.users[lookup('email', 'eva_lu_ator@instantdb.com')].link({
+  db.tx.users[lookup('email', 'eva_lu_ator@instantdb.com')].link({
     posts: lookup('number', 15), // using a lookup in place of the id
   }),
 );

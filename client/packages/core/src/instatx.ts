@@ -22,7 +22,7 @@ export interface TransactionChunk<
    *
    * @example
    *  const goalId = id();
-   *  tx.goals[goalId].update({title: "Get fit", difficulty: 5})
+   *  db.tx.goals[goalId].update({title: "Get fit", difficulty: 5})
    */
   update: (
     args: UpdateParams<Schema, EntityName>,
@@ -34,9 +34,9 @@ export interface TransactionChunk<
    * const goalId = id();
    * const todoId = id();
    * db.transact([
-   *   tx.goals[goalId].update({title: "Get fit"}),
-   *   tx.todos[todoId].update({title: "Go on a run"}),
-   *   tx.goals[goalId].link({todos: todoId}),
+   *   db.tx.goals[goalId].update({title: "Get fit"}),
+   *   db.tx.todos[todoId].update({title: "Go on a run"}),
+   *   db.tx.goals[goalId].link({todos: todoId}),
    * ])
    *
    * // Now, if you query:
@@ -52,7 +52,7 @@ export interface TransactionChunk<
    * Unlink two objects
    * @example
    *  // to "unlink" a todo from a goal:
-   *  tx.goals[goalId].unlink({todos: todoId})
+   *  db.tx.goals[goalId].unlink({todos: todoId})
    */
   unlink: (
     args: LinkParams<Schema, EntityName>,
@@ -61,7 +61,7 @@ export interface TransactionChunk<
    * Delete an object, alongside all of its links.
    *
    * @example
-   *   tx.goals[goalId].delete()
+   *   db.tx.goals[goalId].delete()
    */
   delete: () => TransactionChunk<Schema, EntityName>;
 
@@ -80,7 +80,7 @@ export interface TransactionChunk<
    * You can update the `progress` attribute like so:
    *
    * ```js
-   * tx.goals[goalId].merge({ metrics: { progress: 0.5 }, category: "Fitness" })
+   * db.tx.goals[goalId].merge({ metrics: { progress: 0.5 }, category: "Fitness" })
    * ```
    *
    * And the resulting object will be:
@@ -91,7 +91,7 @@ export interface TransactionChunk<
    *
    * @example
    *  const goalId = id();
-   *  tx.goals[goalId].merge({title: "Get fitter"})
+   *  db.tx.goals[goalId].merge({title: "Get fitter"})
    */
   merge: (args: {
     [attribute: string]: any;
@@ -131,7 +131,7 @@ function transactionChunk(
  * Creates a lookup to use in place of an id in a transaction
  *
  * @example
- * tx.users[lookup('email', 'lyndon@example.com')].update({name: 'Lyndon'})
+ * db.tx.users[lookup('email', 'lyndon@example.com')].update({name: 'Lyndon'})
  */
 export function lookup(attribute: string, value: any): Lookup {
   return `lookup__${attribute}__${JSON.stringify(value)}`;
@@ -179,7 +179,7 @@ export function txInit<
  * You must start with the `namespace` you want to change:
  *
  * @example
- *   tx.goals[goalId].update({title: "Get fit"})
+ *   db.tx.goals[goalId].update({title: "Get fit"})
  *   // Note: you don't need to create `goals` ahead of time.
  */
 export const tx = txInit();

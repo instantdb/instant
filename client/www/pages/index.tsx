@@ -967,7 +967,7 @@ const mutationExampleCode = /*js*/ `async function deleteTodo(id) {
   // teams and todos are _immediately_
   // updated. If there's an error,
   // instant rolls back for you
-  transact(tx.todos[id].delete());
+  transact(db.tx.todos[id].delete());
 }`;
 
 const mutationWithoutInstantExampleCode = /*js*/ `async function deleteTodo(id) {
