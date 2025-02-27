@@ -101,7 +101,6 @@
   (let [pad (apply str (repeat offset " "))]
     (->> s
          string/split-lines
-         ;; XXX: Need to skip first line?
          (map (fn [s] (str pad s)))
          (string/join "\n"))))
 
