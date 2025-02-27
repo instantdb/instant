@@ -1677,8 +1677,9 @@ export default rules;
   `.trim();
 }
 
-function inferredType(config) {
-  const inferredList = config['inferred-types'];
+function inferredType(attr) {
+  if (attr.catalog === 'system') return null;
+  const inferredList = attr['inferred-types'];
   const hasJustOne = inferredList?.length === 1;
   if (!hasJustOne) return null;
   return inferredList[0];
@@ -1820,6 +1821,7 @@ function generateSchemaTypescriptFile(
   const entitiesObjCode = `{\n${entitiesEntriesCode}\n}`;
   const etypes = Object.keys(newSchema.blobs);
   const hasOnlyUserTable = etypes.length === 1 && etypes[0] === '$users';
+
   const entitiesComment =
     inferredAttrs.length > 0
       ? `// We inferred ${inferredAttrs.length} ${easyPlural('attribute', inferredAttrs.length)}!
