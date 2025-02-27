@@ -133,7 +133,7 @@
   (reduce (fn [acc {:keys [setting value]}]
             (assoc acc (str "postgres-config." setting) value))
           {}
-          postgres-config)))
+          postgres-config))
 
 (defn- span-attrs [conn query tag additional-opts]
   (let [pool-stats (if (instance? HikariDataSource conn)
