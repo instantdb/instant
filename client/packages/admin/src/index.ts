@@ -837,19 +837,19 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
    * @example
    *   // Create a new object in the `goals` namespace
    *   const goalId = id();
-   *   db.transact(tx.goals[goalId].update({title: "Get fit"}))
+   *   db.transact(db.tx.goals[goalId].update({title: "Get fit"}))
    *
    *   // Update the title
-   *   db.transact(tx.goals[goalId].update({title: "Get super fit"}))
+   *   db.transact(db.tx.goals[goalId].update({title: "Get super fit"}))
    *
    *   // Delete it
-   *   db.transact(tx.goals[goalId].delete())
+   *   db.transact(db.tx.goals[goalId].delete())
    *
    *   // Or create an association:
    *   todoId = id();
    *   db.transact([
-   *    tx.todos[todoId].update({ title: 'Go on a run' }),
-   *    tx.goals[goalId].link({todos: todoId}),
+   *    db.tx.todos[todoId].update({ title: 'Go on a run' }),
+   *    db.tx.goals[goalId].link({todos: todoId}),
    *  ])
    */
   transact = (
@@ -924,7 +924,7 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
    * @example
    *   const goalId = id();
    *   db.asUser({ guest: true }).debugTransact(
-   *      [tx.goals[goalId].update({title: "Get fit"})],
+   *      [db.tx.goals[goalId].update({title: "Get fit"})],
    *      { rules: { goals: { allow: { update: "auth.id != null" } } }
    *   )
    */

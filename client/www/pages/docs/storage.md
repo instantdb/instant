@@ -21,7 +21,7 @@ Initialize your schema and permissions via the [cli tool](/docs/cli)
 npx instant-cli@latest init
 ```
 
-Now open `instant.shema.ts` and replace the contents with the following code.
+Now open `instant.schema.ts` and replace the contents with the following code.
 
 ```javascript {% showCopy=true %}
 import { i } from "@instantdb/react";
@@ -413,7 +413,7 @@ async function uploadImage(file: File) {
     // Upload the file
     const { data } = await db.storage.uploadFile(path, file);
     // Link it to a profile
-    await db.transact(tx.profiles[profileId].link({ avatar: data.id }));
+    await db.transact(db.tx.profiles[profileId].link({ avatar: data.id }));
   } catch (error) {
     console.error('Error uploading image:', error);
   }

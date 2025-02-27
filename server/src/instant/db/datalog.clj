@@ -30,6 +30,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.set :as set]
             [instant.db.model.triple :as triple-model]
+            [instant.flags :as flags]
             [instant.util.spec :as uspec]
             [instant.data.constants :refer [zeneca-app-id]]
             [clojure.spec.gen.alpha :as gen]
@@ -627,7 +628,7 @@
     (uuid-util/coerce s)
     (uuid-util/coerce (str s (subs all-fs-uuid (count s))))))
 
-(defn- value-function-clauses [idx [v-tag v-value]]
+(defn- value-function-clauses [app-id idx [v-tag v-value]]
   (case v-tag
     :function (let [[func val] (first v-value)]
                 (case func
@@ -642,6 +643,7 @@
                                         :t.entity-id)
                               :from [[:triples :t]]
                               :where [:and
+                                      [:= :t.app-id app-id]
                                       [:= :t.entity-id :entity-id]
                                       [:= :t.attr-id (:attr-id val)]
                                       [:not= :t.value [:cast (->json nil) :jsonb]]]}]]
@@ -665,8 +667,8 @@
                       [:<= :entity-id (prefix->uuid-end prefix)]]])))
     []))
 
-(defn- function-clauses [named-pattern]
-  (value-function-clauses (:idx named-pattern) (:v named-pattern)))
+(defn- function-clauses [app-id named-pattern]
+  (value-function-clauses app-id (:idx named-pattern) (:v named-pattern)))
 
 (defn patch-values-for-av-index
   "Make sure we wrap :value in [:json_null_to_null :value] when using :av
@@ -701,7 +703,7 @@
                 constant-components
                 (map (fn [[component-type v]]
                        (constant->where-part idx app-id component-type v))))
-           (function-clauses named-pattern)
+           (function-clauses app-id named-pattern)
            (patch-values-for-av-index (idx-key idx) additional-clauses))))
 
 (comment
@@ -849,7 +851,7 @@
    start of a new AND/OR clause.
    additional-joins is a map from symbol to path. It allows us to connect the
    cte to the parent cte if this is a child pattern in a nested query."
-  [prefix app-id additional-joins symbol-map prev-idx start-of-group? named-p]
+  [prefix app-id additional-joins symbol-map prev-idx start-of-group? named-p {:keys [page-info]}]
   (let [cur-idx (inc prev-idx)
         cur-table (kw prefix cur-idx)
         prev-table (when-not (or start-of-group? (neg? prev-idx))
@@ -876,8 +878,20 @@
                                       [prev-table]))
                     parent-froms)
       :where (where-clause app-id named-p all-joins)}
-     (if (and (= :ave (idx-key (:idx named-p)))
-              (named-constant? (:v named-p)))
+     (if (or
+          ;; only use `not materialized` when we're in the middle of an ordered
+          ;; query
+          (not page-info)
+
+          ;; skip isNull because it's unlikely to generate a good plan
+          (and (uspec/tagged-as? :function (:v named-p))
+               (:$isNull (uspec/tagged-unwrap (:v named-p))))
+
+          ;; skip indexed with constant value because it's likely
+          ;; to return a small set of elements and we'll spend forever
+          ;; looping through the sorted elements
+          (and (= :ave (idx-key (:idx named-p)))
+               (named-constant? (:v named-p))))
        :materialized
        :not-materialized)]))
 
@@ -907,7 +921,7 @@
 (defn cte-for-pattern
   "Generates cte for a pattern. Also generates the symbol map and pattern
    metadata that will be used to generate the query result from the sql data."
-  [prefix app-id additional-joins {:keys [idx symbol-map group-idx]} pattern]
+  [prefix app-id additional-joins {:keys [idx symbol-map group-idx]} pattern opts]
   (let [start-of-group? (zero? group-idx)
         cte-cols (mapv sql-name (match-table-cols (kw prefix idx)))
         symbol-fields (symbol-fields-of-pattern pattern)
@@ -918,7 +932,8 @@
                          symbol-map
                          prev-idx
                          start-of-group?
-                         pattern)
+                         pattern
+                         opts)
      :symbol-map (symbol-map-of-pattern idx pattern)
      :pattern-meta {:cte-cols cte-cols
                     :symbol-fields symbol-fields
@@ -949,15 +964,25 @@
                 ;; Include the previous cte if we're not the first
                 [prev-table])
               [(kw prefix (first join-idxes))])}
-      (when full-join-idxes
-        {:full-join (mapcat (fn [i]
-                              ;; Ensures everything is included
-                              [(kw prefix i) [:= :0 :1]])
-                            full-join-idxes)})
-      (when-not (neg? prev-idx)
+      (if-not prev-table
+        (merge {:from (kw prefix (first join-idxes))}
+               (when full-join-idxes
+                 {:full-join (mapcat (fn [i]
+                                       ;; Ensures everything is included
+                                       [(kw prefix i) [:= :0 :1]])
+                                     full-join-idxes)}))
+        {:from prev-table
+         :left-join (mapcat
+                     (fn [[cte-idx or-symbol-map]]
+                       [(kw prefix cte-idx) (join-conds-for-or-gather prefix
+                                                                      symbol-map
+                                                                      [or-symbol-map]
+                                                                      join-sym)])
+                     group-symbol-maps)})
+      (when prev-table
         (when-let [wheres (join-conds-for-or-gather prefix
                                                     symbol-map
-                                                    group-symbol-maps
+                                                    (vals group-symbol-maps)
                                                     join-sym)]
           {:where wheres})))
      :not-materialized]))
@@ -965,7 +990,7 @@
 (defn accumulate-ctes
   "Walks the patterns to generate the list of CTEs. Also generates the metadata
    that will be used to transform the sql result into the query result."
-  [prefix app-id additional-joins acc [tag pattern]]
+  [prefix app-id additional-joins acc [tag pattern] opts]
   (case tag
     :pattern (let [{:keys [ctes symbol-map pattern-meta]}
                    (cte-for-pattern prefix
@@ -974,7 +999,8 @@
                                     {:idx (:next-idx acc)
                                      :group-idx (:group-idx acc)
                                      :symbol-map (:symbol-map acc)}
-                                    pattern)]
+                                    pattern
+                                    opts)]
                (-> acc
                    (update :ctes conj ctes)
                    (update :next-idx inc)
@@ -983,14 +1009,14 @@
                    (update :pattern-metas conj pattern-meta)))
 
     :and (reduce (fn [acc pat]
-                   (accumulate-ctes prefix app-id additional-joins acc pat))
+                   (accumulate-ctes prefix app-id additional-joins acc pat opts))
                  acc
                  (:and pattern))
 
     :or (let [{:keys [patterns join-sym]} (:or pattern)
               {:keys [group-acc]}
               (reduce (fn [{:keys [acc group-acc]} pat]
-                        (let [res (accumulate-ctes prefix app-id additional-joins acc pat)]
+                        (let [res (accumulate-ctes prefix app-id additional-joins acc pat opts)]
                           {:acc {:next-idx (:next-idx res)
                                  :group-idx 0
                                  :ctes []
@@ -1002,7 +1028,10 @@
                                           (assoc :next-idx (:next-idx res))
                                           (update :ctes into (:ctes res))
                                           (update :or-idxes conj (dec (:next-idx res)))
-                                          (update :symbol-maps conj (:symbol-map res))
+                                          (update :symbol-maps
+                                                  assoc
+                                                  (dec (:next-idx res))
+                                                  (:symbol-map res))
                                           (update :pattern-metas conj (:pattern-metas res)))}))
                       {;; :group-acc collects information about each OR clause
                        :group-acc {:next-idx (:next-idx acc)
@@ -1013,7 +1042,7 @@
                                    ;; Collect symbol maps from each or branch so that
                                    ;; we can join the branches in to the rest of the
                                    ;; ctes
-                                   :symbol-maps []
+                                   :symbol-maps {}
                                    ;; Keep track of the last cte in each or branch
                                    ;; so that we can construct a cte to collect all
                                    ;; the results
@@ -1051,19 +1080,19 @@
                                    (:symbol-map acc)
                                    (apply merge-with (fn [& xs]
                                                        [(set xs)])
-                                          (:symbol-maps group-acc)))
+                                          (vals (:symbol-maps group-acc))))
            :pattern-metas (conj (:pattern-metas acc) {:or (:pattern-metas group-acc)})})))
 
 (defn match-query
   "Generates honeysql data structure to produce sql that joins named patterns,
    and the metadata that will be used to transform the sql result into the query
    result."
-  ([prefix app-id named-patterns]
-   (match-query {} prefix app-id {} named-patterns))
-  ([acc prefix app-id additional-joins named-patterns]
+  ([prefix app-id named-patterns opts]
+   (match-query {} prefix app-id {} named-patterns opts))
+  ([acc prefix app-id additional-joins named-patterns opts]
    (let [{:keys [ctes pattern-metas symbol-map next-idx]}
          (reduce (fn [acc pattern]
-                   (accumulate-ctes prefix app-id additional-joins acc pattern))
+                   (accumulate-ctes prefix app-id additional-joins acc pattern opts))
                  (merge {:next-idx 0
                          ;; Used to determine the start of an or/and clause
                          :group-idx 0
@@ -1205,7 +1234,8 @@
                                     symbol-map
                                     (dec next-idx)
                                     false
-                                    page-pattern)
+                                    page-pattern
+                                    {:page-info page-info})
         entity-id-col :entity-id
         sym-component-type (component-type-of-sym named-pattern order-sym)
         sym-triple-idx (get (set/map-invert idx->component-type)
@@ -1331,7 +1361,8 @@
         has-previous-query (cond
                              ;; We got everything before, so no prev page
                              (and (not after)
-                                  (not offset)
+                                  (or (not offset)
+                                      (zero? offset))
                                   (not last?))
                              {:select 1 :where false}
 
@@ -1369,13 +1400,13 @@
         last-table-name (kw prefix next-idx)]
     {:next-idx (inc next-idx)
      :query {:with (conj (:with (:query match-query))
-                         [(kw table :-with-next) paged-query :not-materialized]
+                         [(kw table :-with-next) paged-query :materialized]
                          [table
                           (merge {:select :*
                                   :from (kw table :-with-next)}
                                  (when limit
                                    {:limit limit}))
-                          :not-materialized]
+                          :materialized]
                          first-row-cte
                          last-row-cte
                          [(has-next-tbl table)
@@ -1421,7 +1452,8 @@
                                              prefix
                                              app-id
                                              additional-joins
-                                             (:patterns pattern-group))
+                                             (:patterns pattern-group)
+                                             {:page-info page-info})
                           page-info (add-page-info prefix
                                                    app-id
                                                    additional-joins
@@ -1493,14 +1525,20 @@
   [_ctx prefix app-id nested-named-patterns]
   (let [{:keys [ctes result-tables children]}
         (accumulate-nested-match-query prefix app-id nested-named-patterns)
+        tables (set (map :table result-tables))
         query (when (seq ctes)
-                {:with (map #(if (= (count %) 2)
+                {:with (map #(cond
                                ;; Forces postgres to only evaluate the cte once
                                ;; https://www.postgresql.org/docs/current/queries-with.html#QUERIES-WITH-CTE-MATERIALIZATION
+                               (= (count %) 2)
                                (conj % :materialized)
+
+                               ;; We're in the result table, so let's make sure we're materialized
+                               (contains? tables (first %))
+                               (assoc % 2 :materialized)
                                ;; If count != 2, then someone higher up set a materialized
                                ;; option, let's not override their wisdom.
-                               %)
+                               :else %)
                             ctes)
                  :select [[(into [:json_build_array]
                                  (mapv (fn [tables]
@@ -1925,7 +1963,7 @@
   "Sends a single query, returns the join rows."
   [_ctx conn app-id named-patterns]
   (tracer/with-span! {:name "datalog/send-query-single"}
-    (let [{:keys [query pattern-metas]} (match-query :match-0- app-id named-patterns)
+    (let [{:keys [query pattern-metas]} (match-query :match-0- app-id named-patterns {})
           sql-query (hsql/format query)
           sql-res (sql/select-string-keys ::send-query-single conn sql-query)]
       (sql-result->result sql-res
@@ -1963,8 +2001,12 @@
                                      [[:inline query-hash]]]}]))
 
           sql-query (hsql/format query)
+          postgres-config (flags/query-flags query-hash)
           sql-res (when query ;; we may not have a query if everything is missing attrs
-                    (->> (sql/select-arrays ::send-query-nested conn sql-query)
+                    (->> (sql/select-arrays ::send-query-nested
+                                            conn
+                                            sql-query
+                                            {:postgres-config postgres-config})
                          ;; remove header row
                          second
                          ;; all results are in one json blob in first result
@@ -1986,8 +2028,8 @@
   (tracer/with-span! {:name "datalog/send-query-batch"
                       :attributes {:batch-size (count args-col)}}
     (let [batch-data (map-indexed
-                      (fn [i args]
-                        (apply match-query (kw "match-" i "-") args))
+                      (fn [i [app-id named-patterns]]
+                        (match-query (kw "match-" i "-") app-id named-patterns {}))
                       args-col)
           hsql-query (batch-queries (map :query batch-data))
           sql-query (hsql/format hsql-query)

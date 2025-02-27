@@ -154,6 +154,12 @@
                          (.format ^Date x))
     :else              x))
 
+(defn get-cel-value [m k]
+  (stringify
+   (if (contains? m k)
+     (get m k)
+     (get m (keyword k)))))
+
 (deftype CelList [xs]
   java.util.List
   (get [_ i]
@@ -169,8 +175,7 @@
 (deftype CelMap [metadata m]
   java.util.Map
   (get [_ k]
-    (stringify
-     (or (get m k) (get m (keyword k)))))
+    (get-cel-value m k))
 
   ;; CEL throws if a key doesn't exist. We don't want this
   ;; behavior -- we'd rather just return null when a key is
@@ -181,7 +186,9 @@
 
   ;; for printing
   (entrySet [_]
-    (set (seq (or m {}))))
+    (->> (keys (or m {}))
+         (map (fn [k] [k (get-cel-value m k)]))
+         set))
 
   CelMapExtension
   (getMeta [_]

@@ -114,19 +114,19 @@ export default abstract class InstantReactAbstractDatabase<
    * @example
    *   // Create a new object in the `goals` namespace
    *   const goalId = id();
-   *   db.transact(tx.goals[goalId].update({title: "Get fit"}))
+   *   db.transact(db.tx.goals[goalId].update({title: "Get fit"}))
    *
    *   // Update the title
-   *   db.transact(tx.goals[goalId].update({title: "Get super fit"}))
+   *   db.transact(db.tx.goals[goalId].update({title: "Get super fit"}))
    *
    *   // Delete it
-   *   db.transact(tx.goals[goalId].delete())
+   *   db.transact(db.tx.goals[goalId].delete())
    *
    *   // Or create an association:
    *   todoId = id();
    *   db.transact([
-   *    tx.todos[todoId].update({ title: 'Go on a run' }),
-   *    tx.goals[goalId].link({todos: todoId}),
+   *    db.tx.todos[todoId].update({ title: 'Go on a run' }),
+   *    db.tx.goals[goalId].link({todos: todoId}),
    *  ])
    */
   transact = (
@@ -221,7 +221,7 @@ export default abstract class InstantReactAbstractDatabase<
    *   const user = await db.getAuth();
    *   console.log('logged in as', user.email)
    */
-  getAuth(): Promise<User> {
+  getAuth(): Promise<User | null> {
     return this._core.getAuth();
   }
 
