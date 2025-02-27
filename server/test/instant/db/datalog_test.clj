@@ -142,10 +142,6 @@
     (fn [app r]
       (let [tina-turner-eid (resolvers/->uuid r "eid-tina-turner")]
         (testing "query pads with _"
-          (def -res (d/query
-                     {:db {:conn-pool (aurora/conn-pool :read)}
-                      :app-id (:id app)}
-                     [[:ea tina-turner-eid]]))
           (is (= #{"Tina Turner"
                    "1939-11-26T00:00:00Z"
                    (str tina-turner-eid)}
