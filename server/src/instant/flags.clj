@@ -22,7 +22,8 @@
             :rate-limited-apps {}
             :welcome-email-config {}
             :e2e-logging {}
-            :threading {}})
+            :threading {}
+            :query-flags {}})
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -101,7 +102,12 @@
         welcome-email-config (-> result (get "welcome-email-config") first w/keywordize-keys)
         threading (let [flag (first (get result "threading"))]
                     {:use-vfutures? (get flag "use-vfutures" true)})
-        storage-migration (-> result (get "storage-migration") first w/keywordize-keys)]
+        storage-migration (-> result (get "storage-migration") first w/keywordize-keys)
+        query-flags (reduce (fn [acc {:strs [query-hash setting value]}]
+                              (update acc query-hash (fnil conj []) {:setting setting
+                                                                     :value value}))
+                            {}
+                            (get result "query-flags"))]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
      :storage-block-list storage-block-list
@@ -112,7 +118,8 @@
      :e2e-logging e2e-logging
      :welcome-email-config welcome-email-config
      :threading threading
-     :storage-migration storage-migration}))
+     :storage-migration storage-migration
+     :query-flags query-flags}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -196,3 +203,9 @@
   (-> (query-result)
       :threading
       (:use-vfutures? true)))
+
+(defn query-flags
+  "Takes a query hash and returns the query settings that we should apply 
+   to a query (e.g. set_nestloop = off) to work around bad query plans."
+  [query-hash]
+  (get-in (query-result) [:query-flags query-hash]))

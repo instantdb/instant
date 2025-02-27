@@ -60,6 +60,12 @@ const graph = i.graph(
       appId: i.string().unique().indexed(),
       isDisabled: i.boolean(),
     }),
+    "query-flags": i.entity({
+      'query-hash': i.number(),
+      'setting': i.string(),
+      'value': i.string(),
+      'description': i.string()
+    })
   },
   // You can define links here.
   // For example, if `posts` should have many `comments`.
