@@ -367,11 +367,15 @@ class InstantAdmin<
    */
   debugQuery = async <Q extends Query>(
     query: Exactly<Query, Q>,
-    opts?: { rules: any },
+    opts?: { rules?: any, params?: { [key: string]: any} },
   ): Promise<{
     result: QueryResponse<Q, Schema, WithCardinalityInference>;
     checkResults: DebugCheckResult[];
   }> => {
+    if (query && opts && 'params' in opts) {
+      query = {'$$params': opts['params'], ...query};
+    }
+
     const response = await jsonFetch(
       `${this.config.apiURI}/admin/query_perms_check`,
       {
@@ -891,11 +895,15 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
    */
   debugQuery = async <Q extends InstaQLParams<Schema>>(
     query: Q,
-    opts?: { rules: any },
+    opts?: { rules?: any, params?: { [key: string]: any } },
   ): Promise<{
     result: InstaQLResponse<Schema, Q>;
     checkResults: DebugCheckResult[];
   }> => {
+    if (query && opts && 'params' in opts) {
+      query = {'$$params': opts['params'], ...query};
+    }
+
     const response = await jsonFetch(
       `${this.config.apiURI}/admin/query_perms_check`,
       {

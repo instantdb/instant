@@ -131,9 +131,6 @@
 ;; ----
 ;; Cel
 
-(defprotocol CelMapExtension
-  (getMeta [this]))
-
 (declare ->cel-list ->cel-map)
 
 (defn stringify [x]
@@ -190,8 +187,8 @@
          (map (fn [k] [k (get-cel-value m k)]))
          set))
 
-  CelMapExtension
-  (getMeta [_]
+  clojure.lang.IMeta
+  (meta [_]
     metadata))
 
 (defn ->cel-map [metadata m]
@@ -215,7 +212,7 @@
                            (if (= id NullValue/NULL_VALUE)
                              []
                              (let [self ^CelMap self
-                                   {:keys [ctx etype type]} (.getMeta self)
+                                   {:keys [ctx etype type]} (meta self)
                                    path-str (if (= type :auth)
                                               (clojure-string/replace path-str
                                                                       #"^\$user\."
@@ -243,6 +240,7 @@
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
       (.addVar "data" type-obj)
       (.addVar "auth" type-obj)
+      (.addVar "params" type-obj)
       (.addVar "newData" type-obj)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-fn-decls))
       (.setStandardMacros (CelStandardMacro/STANDARD_MACROS))

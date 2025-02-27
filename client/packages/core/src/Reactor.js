@@ -646,7 +646,16 @@ export default class Reactor {
    *
    *  Returns an unsubscribe function
    */
-  subscribeQuery(q, cb) {
+  subscribeQuery(q, opts, cb) {
+    if (typeof opts === "function") {
+      cb = opts;
+      opts = undefined;
+    }
+
+    if (opts && 'params' in opts) {
+      q = {'$$params': opts['params'], ...q};
+    }
+
     const hash = weakHash(q);
 
     const prevResult = this.getPreviousResult(q);
@@ -664,7 +673,11 @@ export default class Reactor {
     };
   }
 
-  queryOnce(q) {
+  queryOnce(q, opts) {
+    if (opts && 'params' in opts) {
+      q = {'$$params': opts['params'], ...q};
+    }
+
     const dfd = new Deferred();
 
     if (!this._isOnline) {
