@@ -3,7 +3,7 @@
    [clojure.test :as test :refer [deftest is are testing]]
    [clojure.string :as string]
    [instant.data.bootstrap :as bootstrap]
-   [instant.data.constants :refer [zeneca-app-id]]
+   [instant.data.constants :as constants]
    [instant.data.resolvers :as resolvers]
    [instant.db.datalog :as d]
    [instant.db.instaql :as iq]
@@ -122,7 +122,7 @@
     (z/of-string %)
     (first %)))
 
-(defn enqueue-replace-pretty-b [operations {:keys [file line column]} pretty-a]
+(defn enqueue-replace-pretty-b [operations {:keys [line column]} pretty-a]
   (swap! operations conj {:line line
                           :column column
                           :pretty-a pretty-a}))
@@ -208,7 +208,7 @@
 
 (deftest validations
   (with-zeneca-app
-    (fn [app r]
+    (fn [app _r]
       (let [ctx (make-ctx app)]
         (testing "not maps"
           (is (= '{:expected map? :in []}
@@ -3412,7 +3412,7 @@
   (def app-id #uuid "2f23dfa2-c921-4988-9243-adf602339bab")
   (def app
     (app-model/create! {:title "test app"
-                        :creator-id instant.data.constants/test-user-id
+                        :creator-id constants/test-user-id
                         :id app-id
                         :admin-token (UUID/randomUUID)}))
   (bootstrap/add-zeneca-to-app! app-id)
