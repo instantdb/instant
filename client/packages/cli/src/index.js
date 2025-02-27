@@ -1011,6 +1011,18 @@ async function waitForIndexingJobsToFinish(appId, data) {
   }
 }
 
+function linkOptsPretty(attr) {
+  const fwdEtype = attrFwdEtype(attr);
+  const revEtype = attrRevEtype(attr);
+  if (attr['on-delete'] === 'cascade') {
+    return `:: onDelete ${revEtype} cascade ${fwdEtype}`;
+  } else if (attr['on-delete-reverse'] === 'cascade') {
+    return `:: onDelete ${fwdEtype} cascade ${revEtype}`;
+  } else {
+    return '';
+  }
+}
+
 async function pushSchema(appId, opts) {
   const res = await readLocalSchemaFileWithErrorLogging();
   if (!res) return { ok: false };
@@ -1061,7 +1073,7 @@ async function pushSchema(appId, opts) {
         }
 
         console.log(
-          `${isAdd ? chalk.green('ADD LINK') : chalk.blue('UPDATE LINK')} ${attrFwdName(attr)} <=> ${attrRevName(attr)}`,
+          `${isAdd ? chalk.green('ADD LINK') : chalk.blue('UPDATE LINK')} ${attrFwdName(attr)} <=> ${attrRevName(attr)} ${linkOptsPretty(attr)}`,
         );
         break;
       }
