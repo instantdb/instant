@@ -85,7 +85,8 @@
                               criterium/criterium           {:mvn/version "0.4.6"}
                               spec-provider/spec-provider   {:mvn/version "0.4.14"}
                               io.github.tonsky/clj-reload   {:mvn/version "0.7.1"}
-                              eftest/eftest                 {:mvn/version "0.6.0"}}
+                              eftest/eftest                 {:mvn/version "0.6.0"}
+                              zprint/zprint {:mvn/version "1.2.9"}}
                  :jvm-opts ["-XX:+UseZGC"
                             "-enableassertions"
 
@@ -123,7 +124,8 @@
                    :ns-default build}
            :run {:main-opts ["-m" "instant.core"]}
            :test {:extra-paths ["test" "dev-resources"]
-                  :extra-deps {eftest/eftest {:mvn/version "0.6.0"}}
+                  :extra-deps {eftest/eftest {:mvn/version "0.6.0"}
+                               zprint/zprint {:mvn/version "1.2.9"}}
                   :main-opts ["-m" "instant.test-core"]
                   :jvm-opts ["-XX:+UseZGC"
                              "-enableassertions"

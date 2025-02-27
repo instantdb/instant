@@ -831,10 +831,19 @@
       (LocalDateTime/parse offio-date-formatter)
       (.toInstant ZoneOffset/UTC)))
 
+(def zeneca-date-formatter (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ss.n"))
+
+(defn zeneca-date-str->instant [s]
+  (-> s
+      (LocalDateTime/parse zeneca-date-formatter)
+      (.toInstant ZoneOffset/UTC)))
+
+
 (def date-parsers [zoned-date-time-str->instant
                    local-date-time-str->instant
                    local-date-str->instant
-                   offio-date-str->instant])
+                   offio-date-str->instant
+                   zeneca-date-str->instant])
 
 (defn try-parse-date-string [parser s]
   (try
