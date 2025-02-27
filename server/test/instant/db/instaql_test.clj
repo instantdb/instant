@@ -72,7 +72,6 @@
 ;;     replace '() with the result of `(query-pretty {:users {}})
 
 (defn find-node-by-location [zloc {:keys [line column]}]
-  (tool/def-locals)
   (first
    (z/find zloc z/next (fn [x]
                          (let [{:keys [row col]} (meta (z/node x))]
@@ -133,7 +132,6 @@
     z))
 
 (defn apply-operation [zloc {:keys [line column pretty-a]}]
-  (tool/def-locals)
   (let [node (z/find-last-by-pos zloc [line column])
         macro-call-node (z/down node)
         _ (assert (= "is-pretty-eq?" (z/string macro-call-node))
