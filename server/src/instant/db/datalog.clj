@@ -30,6 +30,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.set :as set]
             [instant.db.model.triple :as triple-model]
+            [instant.flags :as flags]
             [instant.util.spec :as uspec]
             [instant.data.constants :refer [zeneca-app-id]]
             [clojure.spec.gen.alpha :as gen]
@@ -2000,8 +2001,12 @@
                                      [[:inline query-hash]]]}]))
 
           sql-query (hsql/format query)
+          postgres-config (flags/query-flags query-hash)
           sql-res (when query ;; we may not have a query if everything is missing attrs
-                    (->> (sql/select-arrays ::send-query-nested conn sql-query)
+                    (->> (sql/select-arrays ::send-query-nested
+                                            conn
+                                            sql-query
+                                            {:postgres-config postgres-config})
                          ;; remove header row
                          second
                          ;; all results are in one json blob in first result
