@@ -5,6 +5,7 @@ import {
   type Exactly,
   type LifecycleSubscriptionState,
   type InstaQLParams,
+  type InstaQLOptions,
   type InstantGraph,
   InstantCoreDatabase,
   InstaQLLifecycleState,
@@ -35,10 +36,14 @@ export function useQueryInternal<
 >(
   _core: InstantCoreDatabase<Schema>,
   _query: null | Q,
+  _opts?: InstaQLOptions
 ): {
   state: InstaQLLifecycleState<Schema, Q>;
   query: any;
 } {
+  if (_query && _opts && 'params' in _opts) {
+    _query = {'$$params': _opts['params'], ..._query};
+  }
   const query = _query ? coerceQuery(_query) : null;
   const queryHash = weakHash(query);
 

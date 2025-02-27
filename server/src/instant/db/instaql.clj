@@ -1790,7 +1790,7 @@
 
 (defn extract-refs
   "Extracts a list of refs that can be passed to cel/prefetch-data-refs.
-   Returns: [{:etype string path-str string eids #{uuid}}]"
+   Returns: [{:etype string, :path-str string, :eids #{uuid}}]"
   [user-id etype->eids+program]
   (reduce-kv (fn [acc etype {:keys [eids program]}]
                (if-let [refs (some-> program
@@ -1867,7 +1867,8 @@
                 (:data result))))))
 
 (defn get-etype+eid-check-result! [{:keys [current-user] :as ctx}
-                                   {:keys [etype->eids+program query-cache]}]
+                                   {:keys [etype->eids+program query-cache]}
+                                   params]
   (tracer/with-span! {:name "instaql/get-eid-check-result!"}
     (let [preloaded-refs (tracer/with-span! {:name "instaql/preload-refs"}
                            (let [res (preload-refs ctx etype->eids+program)]
@@ -1905,41 +1906,48 @@
                                              "data" (cel/->cel-map {:ctx ctx
                                                                     :etype etype
                                                                     :type :data}
-                                                                   em)})))})))
+                                                                    em)
+                                             "params" (cel/->cel-map {:ctx ctx :type :params} params)})))})))
                            acc
                            eids))
                  {}
                  etype->eids+program))))
 
 (defn permissioned-query [{:keys [app-id current-user admin?] :as ctx} o]
+  (println "!!! permissioned-query")
   (tracer/with-span! {:name "instaql/permissioned-query"
                       :attributes {:app-id app-id
                                    :current-user (pr-str current-user)
                                    :admin? admin?
                                    :query (pr-str o)}}
 
-    (let [res (query ctx o)]
+    (let [params (:$$params o)
+          o      (dissoc o :$$params)
+          res    (query ctx o)]
       (if admin?
         res
         (let [rules (rule-model/get-by-app-id {:app-id app-id})
-              perm-helpers
-              (extract-permission-helpers {:attrs (:attrs ctx)
-                                           :rules rules}
-                                          res)
-              etype+eid->check (get-etype+eid-check-result! ctx perm-helpers)
+              perm-helpers (extract-permission-helpers
+                            {:attrs (:attrs ctx)
+                             :rules rules}
+                            res)
+              etype+eid->check (get-etype+eid-check-result! ctx perm-helpers params)
               res' (tracer/with-span! {:name "instaql/map-permissioned-node"}
                      (mapv (partial permissioned-node ctx etype+eid->check) res))]
           res')))))
 
 (defn permissioned-query-check [{:keys [app-id] :as ctx} o rules-override]
-  (let [res (query ctx o)
-        rules (or (when rules-override {:app_id app-id :code rules-override})
-                  (rule-model/get-by-app-id {:app-id app-id}))
+  (println "!!! permissioned-query-check" o)
+  (let [params (:$$params o)
+        o      (dissoc o :$$params)
+        res    (query ctx o)
+        rules  (or (when rules-override {:app_id app-id :code rules-override})
+                   (rule-model/get-by-app-id {:app-id app-id}))
         perm-helpers
         (extract-permission-helpers {:attrs (:attrs ctx)
                                      :rules rules}
                                     res)
-        etype+eid->check (get-etype+eid-check-result! ctx perm-helpers)
+        etype+eid->check (get-etype+eid-check-result! ctx perm-helpers params)
         check-results (map
                        (fn [[[etype id] {:keys [result program]}]]
                          {:id id

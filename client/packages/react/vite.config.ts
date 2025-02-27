@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 
 export default defineConfig({
+  clearScreen: false,
   plugins: [react()],
   build: {
     outDir: 'dist/standalone',
