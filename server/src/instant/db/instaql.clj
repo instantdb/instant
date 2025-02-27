@@ -146,7 +146,8 @@
   (let [{:keys [uncombined optimized]}
         (reduce (fn [acc c]
                   (if-not (and (= (count c) 1)
-                               (where-value-valid? (second (first c))))
+                               (where-value-valid? (second (first c)))
+                               (not (string/starts-with? (name (ffirst c)) "$")))
                     (update acc :uncombined conj c)
                     (let [[k v] (first c)
                           existing (get-in acc [:optimized k] sentinel)]
