@@ -130,7 +130,7 @@
          ~@body))))
 
 (defn- postgres-config-span-attrs [postgres-config]
-  (reduce(fn [acc {:keys [setting value]}]
+  (reduce (fn [acc {:keys [setting value]}]
            (assoc acc (str "postgres-config." setting) value))
          {}
          postgres-config))
