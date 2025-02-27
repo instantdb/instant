@@ -584,7 +584,7 @@
               (update :ids-by-etype update (fwd-etype attr) (fnil conj #{}) (:id attr))
 
 
-                            (= :blob (:value-type attr))
+              (= :blob (:value-type attr))
               (update :blob-ids-by-etype update (fwd-etype attr) (fnil conj #{}) (:id attr))))
           {:by-id {}
            :by-fwd-ident {}
