@@ -413,29 +413,29 @@
                          '({:topics ([:ea _ #{:users/id} _]
                                      [:ea #{"eid-alex" "eid-nicole"} #{:users/id} _]
                                      --
-                                     [:ea #{"eid-alex"}
-                                      #{:users/bookshelves :users/createdAt :users/email :users/id
-                                        :users/fullName :users/handle} _]
-                                     --
                                      [:ea #{"eid-nicole"}
-                                      #{:users/bookshelves :users/createdAt :users/email :users/id
-                                        :users/fullName :users/handle} _])
+                                      #{:users/createdAt :users/email :users/id :users/fullName
+                                        :users/handle} _]
+                                     --
+                                     [:ea #{"eid-alex"}
+                                      #{:users/createdAt :users/email :users/id :users/fullName
+                                        :users/handle} _])
                             :triples (("eid-alex" :users/id "eid-alex")
                                       ("eid-alex" :users/id "eid-alex")
                                       ("eid-nicole" :users/id "eid-nicole")
                                       ("eid-nicole" :users/id "eid-nicole")
                                       --
-                                      ("eid-alex" :users/id "eid-alex")
-                                      ("eid-alex" :users/fullName "Alex")
-                                      ("eid-alex" :users/email "alex@instantdb.com")
-                                      ("eid-alex" :users/handle "alex")
-                                      ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689")
-                                      --
                                       ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
                                       ("eid-nicole" :users/email "nicole@instantdb.com")
                                       ("eid-nicole" :users/handle "nicolegf")
                                       ("eid-nicole" :users/id "eid-nicole")
-                                      ("eid-nicole" :users/fullName "Nicole"))})))
+                                      ("eid-nicole" :users/fullName "Nicole")
+                                      --
+                                      ("eid-alex" :users/id "eid-alex")
+                                      ("eid-alex" :users/fullName "Alex")
+                                      ("eid-alex" :users/email "alex@instantdb.com")
+                                      ("eid-alex" :users/handle "alex")
+                                      ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689"))})))
 
         (testing "limit with where"
           (is-pretty-eq? (query-pretty {:users {:$ {:where {:handle {:in ["joe" "stopa" "nicolegf"]}}
@@ -444,29 +444,30 @@
                          '({:topics ([:av _ #{:users/handle} #{"stopa" "joe" "nicolegf"}]
                                      [:ea #{"eid-joe-averbukh" "eid-nicole"} #{:users/id} _]
                                      --
-                                     [:ea #{"eid-joe-averbukh"}
-                                      #{:users/bookshelves :users/createdAt :users/email :users/id
-                                        :users/fullName :users/handle} _]
-                                     --
                                      [:ea #{"eid-nicole"}
-                                      #{:users/bookshelves :users/createdAt :users/email :users/id
-                                        :users/fullName :users/handle} _])
-                            :triples (("eid-nicole" :users/handle "nicolegf")
-                                      ("eid-nicole" :users/id "eid-nicole")
-                                      ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
-                                      ("eid-joe-averbukh" :users/handle "joe")
-                                      --
-                                      ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
-                                      ("eid-joe-averbukh" :users/email "joe@instantdb.com")
-                                      ("eid-joe-averbukh" :users/handle "joe")
-                                      ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
-                                      ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")
-                                      --
-                                      ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
-                                      ("eid-nicole" :users/email "nicole@instantdb.com")
-                                      ("eid-nicole" :users/handle "nicolegf")
-                                      ("eid-nicole" :users/id "eid-nicole")
-                                      ("eid-nicole" :users/fullName "Nicole"))})))
+                                      #{:users/createdAt :users/email :users/id :users/fullName
+                                        :users/handle} _]
+                                     --
+                                     [:ea #{"eid-joe-averbukh"}
+                                      #{:users/createdAt :users/email :users/id :users/fullName
+                                        :users/handle} _])
+                            :triples
+                            (("eid-nicole" :users/handle "nicolegf")
+                             ("eid-nicole" :users/id "eid-nicole")
+                             ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+                             ("eid-joe-averbukh" :users/handle "joe")
+                             --
+                             ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
+                             ("eid-nicole" :users/email "nicole@instantdb.com")
+                             ("eid-nicole" :users/handle "nicolegf")
+                             ("eid-nicole" :users/id "eid-nicole")
+                             ("eid-nicole" :users/fullName "Nicole")
+                             --
+                             ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+                             ("eid-joe-averbukh" :users/email "joe@instantdb.com")
+                             ("eid-joe-averbukh" :users/handle "joe")
+                             ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
+                             ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))})))
 
         (testing "makes sure we use distinct"
           (is (= (-> (iq/query ctx {:users {:$ {:where {:bookshelves {:in
@@ -494,30 +495,30 @@
                          '({:topics ([:ea _ #{:users/id} _]
                                      [:ea #{"eid-joe-averbukh" "eid-stepan-parunashvili"} #{:users/id} _]
                                      --
-                                     [:ea #{"eid-stepan-parunashvili"}
-                                      #{:users/bookshelves :users/createdAt :users/email :users/id
-                                        :users/fullName :users/handle} _]
-                                     --
                                      [:ea #{"eid-joe-averbukh"}
-                                      #{:users/bookshelves :users/createdAt :users/email :users/id
-                                        :users/fullName :users/handle} _])
+                                      #{:users/createdAt :users/email :users/id :users/fullName
+                                        :users/handle} _]
+                                     --
+                                     [:ea #{"eid-stepan-parunashvili"}
+                                      #{:users/createdAt :users/email :users/id :users/fullName
+                                        :users/handle} _])
                             :triples
                             (("eid-joe-averbukh" :users/id "eid-joe-averbukh")
                              ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
                              ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
                              ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
                              --
-                             ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-                             ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
-                             ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
-                             ("eid-stepan-parunashvili" :users/handle "stopa")
-                             ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
-                             --
                              ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
                              ("eid-joe-averbukh" :users/email "joe@instantdb.com")
                              ("eid-joe-averbukh" :users/handle "joe")
                              ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
-                             ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))})))
+                             ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")
+                             --
+                             ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+                             ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
+                             ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+                             ("eid-stepan-parunashvili" :users/handle "stopa")
+                             ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))})))
 
         (testing "cursors"
           (let [{:keys [start-cursor end-cursor]}
@@ -535,8 +536,8 @@
                                          [:ea #{"eid-alex"} #{:users/id} _]
                                          --
                                          [:ea #{"eid-alex"}
-                                          #{:users/bookshelves :users/createdAt :users/email :users/id
-                                            :users/fullName :users/handle} _])
+                                          #{:users/createdAt :users/email :users/id :users/fullName
+                                            :users/handle} _])
                                 :triples (("eid-alex" :users/id "eid-alex")
                                           ("eid-alex" :users/id "eid-alex")
                                           --
@@ -559,8 +560,8 @@
                                          [:ea #{"eid-stepan-parunashvili"} #{:users/id} _]
                                          --
                                          [:ea #{"eid-stepan-parunashvili"}
-                                          #{:users/bookshelves :users/createdAt :users/email :users/id
-                                            :users/fullName :users/handle} _])
+                                          #{:users/createdAt :users/email :users/id :users/fullName
+                                            :users/handle} _])
                                 :triples
                                 (("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
                                  ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
@@ -584,8 +585,8 @@
                                          [:ea #{"eid-alex"} #{:users/id} _]
                                          --
                                          [:ea #{"eid-alex"}
-                                          #{:users/bookshelves :users/createdAt :users/email :users/id
-                                            :users/fullName :users/handle} _])
+                                          #{:users/createdAt :users/email :users/id :users/fullName
+                                            :users/handle} _])
                                 :triples (("eid-alex" :users/id "eid-alex")
                                           ("eid-alex" :users/id "eid-alex")
                                           --
@@ -702,16 +703,22 @@
                          '({:topics ([:ea _ #{:users/id} _]
                                      [:ave #{"eid-nicole" "eid-stepan-parunashvili"} #{:users/handle} _]
                                      --
-                                     [:ea #{"eid-nicole"}
-                                      #{:users/bookshelves :users/createdAt :users/email :users/id
-                                        :users/fullName :users/handle} _]
-                                     --
                                      [:ea #{"eid-stepan-parunashvili"}
-                                      #{:users/bookshelves :users/createdAt :users/email :users/id
-                                        :users/fullName :users/handle} _])
+                                      #{:users/createdAt :users/email :users/id :users/fullName
+                                        :users/handle} _]
+                                     --
+                                     [:ea #{"eid-nicole"}
+                                      #{:users/createdAt :users/email :users/id :users/fullName
+                                        :users/handle} _])
                             :triples
                             (("eid-nicole" :users/handle "nicolegf")
                              ("eid-nicole" :users/id "eid-nicole")
+                             ("eid-stepan-parunashvili" :users/handle "stopa")
+                             ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+                             --
+                             ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+                             ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
+                             ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
                              ("eid-stepan-parunashvili" :users/handle "stopa")
                              ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
                              --
@@ -719,13 +726,7 @@
                              ("eid-nicole" :users/email "nicole@instantdb.com")
                              ("eid-nicole" :users/handle "nicolegf")
                              ("eid-nicole" :users/id "eid-nicole")
-                             ("eid-nicole" :users/fullName "Nicole")
-                             --
-                             ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-                             ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
-                             ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
-                             ("eid-stepan-parunashvili" :users/handle "stopa")
-                             ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))})))
+                             ("eid-nicole" :users/fullName "Nicole"))})))
 
         (testing "limit with where"
           (is-pretty-eq? (query-pretty ctx r {:users {:$ {:where {:handle {:in ["joe" "stopa" "alex"]}}
@@ -735,30 +736,30 @@
                                      [:ave #{"eid-joe-averbukh" "eid-stepan-parunashvili"}
                                       #{:users/handle} _]
                                      --
-                                     [:ea #{"eid-stepan-parunashvili"}
-                                      #{:users/bookshelves :users/createdAt :users/email :users/id
-                                        :users/fullName :users/handle} _]
-                                     --
                                      [:ea #{"eid-joe-averbukh"}
-                                      #{:users/bookshelves :users/createdAt :users/email :users/id
-                                        :users/fullName :users/handle} _])
+                                      #{:users/createdAt :users/email :users/id :users/fullName
+                                        :users/handle} _]
+                                     --
+                                     [:ea #{"eid-stepan-parunashvili"}
+                                      #{:users/createdAt :users/email :users/id :users/fullName
+                                        :users/handle} _])
                             :triples
                             (("eid-joe-averbukh" :users/handle "joe")
                              ("eid-joe-averbukh" :users/handle "joe")
                              ("eid-stepan-parunashvili" :users/handle "stopa")
                              ("eid-stepan-parunashvili" :users/handle "stopa")
                              --
-                             ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-                             ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
-                             ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
-                             ("eid-stepan-parunashvili" :users/handle "stopa")
-                             ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
-                             --
                              ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
                              ("eid-joe-averbukh" :users/email "joe@instantdb.com")
                              ("eid-joe-averbukh" :users/handle "joe")
                              ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
-                             ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))})))
+                             ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")
+                             --
+                             ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+                             ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
+                             ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+                             ("eid-stepan-parunashvili" :users/handle "stopa")
+                             ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))})))
 
         (testing "offset"
           (is-pretty-eq? (query-pretty ctx r {:users {:$ {:offset 2
@@ -767,12 +768,12 @@
                                      [:ave #{"eid-joe-averbukh" "eid-alex"} #{:users/handle} _]
                                      --
                                      [:ea #{"eid-joe-averbukh"}
-                                      #{:users/bookshelves :users/createdAt :users/email :users/id
-                                        :users/fullName :users/handle} _]
+                                      #{:users/createdAt :users/email :users/id :users/fullName
+                                        :users/handle} _]
                                      --
                                      [:ea #{"eid-alex"}
-                                      #{:users/bookshelves :users/createdAt :users/email :users/id
-                                        :users/fullName :users/handle} _])
+                                      #{:users/createdAt :users/email :users/id :users/fullName
+                                        :users/handle} _])
                             :triples (("eid-alex" :users/id "eid-alex")
                                       ("eid-alex" :users/handle "alex")
                                       ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
@@ -807,8 +808,8 @@
                                          [:ave #{"eid-nicole"} #{:users/handle} _]
                                          --
                                          [:ea #{"eid-nicole"}
-                                          #{:users/bookshelves :users/createdAt :users/email :users/id
-                                            :users/fullName :users/handle} _])
+                                          #{:users/createdAt :users/email :users/id :users/fullName
+                                            :users/handle} _])
                                 :triples (("eid-nicole" :users/handle "nicolegf")
                                           ("eid-nicole" :users/id "eid-nicole")
                                           --
@@ -831,8 +832,8 @@
                                          [:ave #{"eid-alex"} #{:users/handle} _]
                                          --
                                          [:ea #{"eid-alex"}
-                                          #{:users/bookshelves :users/createdAt :users/email :users/id
-                                            :users/fullName :users/handle} _])
+                                          #{:users/createdAt :users/email :users/id :users/fullName
+                                            :users/handle} _])
                                 :triples (("eid-alex" :users/id "eid-alex")
                                           ("eid-alex" :users/handle "alex")
                                           --
@@ -855,8 +856,8 @@
                                          [:ave #{"eid-nicole"} #{:users/handle} _]
                                          --
                                          [:ea #{"eid-nicole"}
-                                          #{:users/bookshelves :users/createdAt :users/email :users/id
-                                            :users/fullName :users/handle} _])
+                                          #{:users/createdAt :users/email :users/id :users/fullName
+                                            :users/handle} _])
                                 :triples (("eid-nicole" :users/handle "nicolegf")
                                           ("eid-nicole" :users/id "eid-nicole")
                                           --
@@ -1174,25 +1175,37 @@
             {:users {}})
            '({:topics ([:ea _ #{:users/id} _]
                        --
-                       [:ea #{"eid-joe-averbukh"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _]
+                       [:ea #{"eid-nicole"}
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _]
                        --
                        [:ea #{"eid-stepan-parunashvili"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _]
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _]
+                       --
+                       [:ea #{"eid-joe-averbukh"}
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _]
                        --
                        [:ea #{"eid-alex"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _]
-                       --
-                       [:ea #{"eid-nicole"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _])
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _])
               :triples
               (("eid-alex" :users/id "eid-alex")
                ("eid-nicole" :users/id "eid-nicole")
                ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+               ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+               --
+               ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
+               ("eid-nicole" :users/email "nicole@instantdb.com")
+               ("eid-nicole" :users/handle "nicolegf")
+               ("eid-nicole" :users/id "eid-nicole")
+               ("eid-nicole" :users/fullName "Nicole")
+               --
+               ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+               ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
+               ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+               ("eid-stepan-parunashvili" :users/handle "stopa")
                ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
                --
                ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
@@ -1201,23 +1214,11 @@
                ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
                ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")
                --
-               ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-               ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
-               ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
-               ("eid-stepan-parunashvili" :users/handle "stopa")
-               ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
-               --
                ("eid-alex" :users/id "eid-alex")
                ("eid-alex" :users/fullName "Alex")
                ("eid-alex" :users/email "alex@instantdb.com")
                ("eid-alex" :users/handle "alex")
-               ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689")
-               --
-               ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
-               ("eid-nicole" :users/email "nicole@instantdb.com")
-               ("eid-nicole" :users/handle "nicolegf")
-               ("eid-nicole" :users/id "eid-nicole")
-               ("eid-nicole" :users/fullName "Nicole"))})))
+               ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689"))})))
         (testing "by an attr"
           (is-pretty-eq?
            (query-pretty
@@ -1225,8 +1226,8 @@
            '({:topics ([:av _ #{:users/handle} #{"alex"}]
                        --
                        [:ea #{"eid-alex"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _])
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _])
               :triples (("eid-alex" :users/handle "alex")
                         --
                         ("eid-alex" :users/id "eid-alex")
@@ -1242,8 +1243,8 @@
            '({:topics ([:av _ #{:users/id} #{"eid-alex"}]
                        --
                        [:ea #{"eid-alex"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _])
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _])
               :triples (("eid-alex" :users/id "eid-alex")
                         --
                         ("eid-alex" :users/id "eid-alex")
@@ -1266,8 +1267,8 @@
                        [:vae _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]
                        --
                        [:ea #{"eid-stepan-parunashvili"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _])
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _])
               :triples
               (("eid-the-way-of-the-gentleman" :bookshelves/books "eid-musashi")
                ("eid-musashi" :books/title "Musashi")
@@ -1291,8 +1292,8 @@
                          [:vae _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]
                          --
                          [:ea #{"eid-stepan-parunashvili"}
-                          #{:users/bookshelves :users/createdAt :users/email :users/id
-                            :users/fullName :users/handle} _])
+                          #{:users/createdAt :users/email :users/id :users/fullName
+                            :users/handle} _])
                 :triples
                 (("eid-the-way-of-the-gentleman" :bookshelves/books "eid-musashi")
                  ("eid-stepan-parunashvili"
@@ -1314,8 +1315,8 @@
                            [:vae _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]
                            --
                            [:ea #{"eid-stepan-parunashvili"}
-                            #{:users/bookshelves :users/createdAt :users/email :users/id
-                              :users/fullName :users/handle} _])
+                            #{:users/createdAt :users/email :users/id :users/fullName
+                              :users/handle} _])
                   :triples
                   (("eid-the-way-of-the-gentleman" :bookshelves/books "eid-musashi")
                    ("eid-stepan-parunashvili"
@@ -1357,8 +1358,8 @@
                         #{"stopa@instantdb.com"}]
                        --
                        [:ea #{"eid-stepan-parunashvili"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _])
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _])
               :triples
               (("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
                ("eid-the-way-of-the-gentleman" :bookshelves/books "eid-musashi")
@@ -1383,8 +1384,8 @@
            '({:topics ([:av _ #{:users/handle} #{"alex"}]
                        --
                        [:ea #{"eid-alex"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _]
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _]
                        --
                        [:eav #{"eid-alex"} #{:users/bookshelves} _]
                        [:ea _ #{:bookshelves/name} #{"Nonfiction"}]
@@ -1392,7 +1393,7 @@
                        --
                        [:ea #{"eid-nonfiction"}
                         #{:bookshelves/desc :bookshelves/name :bookshelves/order
-                          :bookshelves/id :bookshelves/books} _])
+                          :bookshelves/id} _])
               :triples (("eid-alex" :users/handle "alex")
                         --
                         ("eid-alex" :users/id "eid-alex")
@@ -1419,9 +1420,7 @@
           (is-pretty-eq?
            (query-pretty
             {:users {:$ {:where {:handle {:in ["nobody"]}}}}})
-           '({:topics
-              ([:av _ #{:users/handle} #{"nobody"}]),
-              :triples ()})))
+           '({:topics ([:av _ #{:users/handle} #{"nobody"}]) :triples ()})))
 
         (testing "with matches"
           (is-pretty-eq?
@@ -1429,155 +1428,118 @@
             {:users {:$ {:where {:handle {:in ["joe", "stopa"]}}}}})
            '({:topics ([:av _ #{:users/handle} #{"stopa" "joe"}]
                        --
-                       [:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
-                                                           :users/createdAt
-                                                           :users/email
-                                                           :users/id
-                                                           :users/fullName
-                                                           :users/handle} _]
+                       [:ea #{"eid-stepan-parunashvili"}
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _]
                        --
-                       [:ea #{"eid-joe-averbukh"} #{:users/bookshelves
-                                                    :users/createdAt
-                                                    :users/email
-                                                    :users/id
-                                                    :users/fullName
-                                                    :users/handle} _]),
-              :triples (("eid-joe-averbukh" :users/handle "joe")
-                        ("eid-stepan-parunashvili" :users/handle "stopa")
-                        --
-                        ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
-                        ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
-                        ("eid-stepan-parunashvili" :users/handle "stopa")
-                        ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-                        ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
-                        --
-                        ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
-                        ("eid-joe-averbukh" :users/handle "joe")
-                        ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
-                        ("eid-joe-averbukh" :users/email "joe@instantdb.com")
-                        ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))})))))))
-
-  (deftest where-$like
-    (with-zeneca-checked-data-app
-      (fn [app r]
-        (let [ctx {:db {:conn-pool (aurora/conn-pool :read)}
-                   :app-id (:id app)
-                   :attrs (attr-model/get-by-app-id (:id app))}]
-          (testing "with no matches"
-            (is-pretty-eq?
-             (query-pretty ctx r
-                           {:users {:$ {:where {:handle {:$like "%moop%"}}}}})
-             '({:topics ([:ave _ #{:users/handle} {:$comparator {:op :$like, :value "%moop%", :data-type :string}}])
-                :triples ()})))
-          (testing "with equality"
-            (is-pretty-eq?
-             (query-pretty ctx r
-                           {:users {:$ {:where {:handle {:$like "joe"}}}}})
-             '({:topics
-                ([:ave _ #{:users/handle} {:$comparator {:op :$like, :value "joe", :data-type :string}}]
-                 --
-                 [:ea
-                  #{"eid-joe-averbukh"}
-                  #{:users/bookshelves
-                    :users/createdAt
-                    :users/email
-                    :users/id
-                    :users/fullName
-                    :users/handle}
-                  _]),
-                :triples
+                       [:ea #{"eid-joe-averbukh"}
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _])
+              :triples
                 (("eid-joe-averbukh" :users/handle "joe")
-                 --
-                 ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
-                 ("eid-joe-averbukh" :users/email "joe@instantdb.com")
-                 ("eid-joe-averbukh" :users/handle "joe")
-                 ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
-                 ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))})))
-          (testing "like startsWith"
-            (is-pretty-eq?
-             (query-pretty ctx r
-                           {:users {:$ {:where {:handle {:$like "al%"}}}}})
-             '({:topics
-                ([:ave _ #{:users/handle} {:$comparator {:op :$like, :value "al%", :data-type :string}}]
-                 --
-                 [:ea
-                  #{"eid-alex"}
-                  #{:users/bookshelves
-                    :users/createdAt
-                    :users/email
-                    :users/id
-                    :users/fullName
-                    :users/handle}
-                  _]),
-                :triples
-                (("eid-alex" :users/handle "alex")
-                 --
-                 ("eid-alex" :users/id "eid-alex")
-                 ("eid-alex" :users/fullName "Alex")
-                 ("eid-alex" :users/email "alex@instantdb.com")
-                 ("eid-alex" :users/handle "alex")
-                 ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689"))})))
-          (testing "like endsWith deep"
-            (is-pretty-eq?
-             (query-pretty ctx r
-                           {:users {:$ {:where {:bookshelves.books.title {:$like "%Monte Cristo"}}}}})
-             '({:topics
-                ([:ave _ #{:books/title} {:$comparator
-                                          {:op :$like, :value "%Monte Cristo", :data-type :string}}]
-                 [:vae _ #{:bookshelves/books} #{"eid-the-count-of-monte-cristo"}]
-                 [:vae
-                  _
-                  #{:users/bookshelves}
-                  #{"eid-the-way-of-the-gentleman" "eid-fiction"}]
-                 --
-                 [:ea
-                  #{"eid-stepan-parunashvili"}
-                  #{:users/bookshelves
-                    :users/createdAt
-                    :users/email
-                    :users/id
-                    :users/fullName
-                    :users/handle}
-                  _]
-                 --
-                 [:ea
-                  #{"eid-nicole"}
-                  #{:users/bookshelves
-                    :users/createdAt
-                    :users/email
-                    :users/id
-                    :users/fullName
-                    :users/handle}
-                  _]),
-                :triples
-                (("eid-the-count-of-monte-cristo"
-                  :books/title
-                  "The Count of Monte Cristo")
-                 ("eid-the-count-of-monte-cristo"
-                  :books/title
-                  "The Count of Monte Cristo")
-                 ("eid-nicole" :users/bookshelves "eid-fiction")
-                 ("eid-fiction" :bookshelves/books "eid-the-count-of-monte-cristo")
-                 ("eid-the-way-of-the-gentleman"
-                  :bookshelves/books
-                  "eid-the-count-of-monte-cristo")
-                 ("eid-stepan-parunashvili"
-                  :users/bookshelves
-                  "eid-the-way-of-the-gentleman")
-                 --
-                 ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-                 ("eid-stepan-parunashvili"
-                  :users/createdAt
-                  "2021-01-07 18:50:43.447955")
-                 ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
-                 ("eid-stepan-parunashvili" :users/handle "stopa")
-                 ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
-                 --
-                 ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
-                 ("eid-nicole" :users/email "nicole@instantdb.com")
-                 ("eid-nicole" :users/handle "nicolegf")
-                 ("eid-nicole" :users/id "eid-nicole")
-                 ("eid-nicole" :users/fullName "Nicole"))})))))))
+                  ("eid-stepan-parunashvili" :users/handle "stopa")
+                  --
+                  ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+                  ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
+                  ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+                  ("eid-stepan-parunashvili" :users/handle "stopa")
+                  ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+                  --
+                  ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+                  ("eid-joe-averbukh" :users/email "joe@instantdb.com")
+                  ("eid-joe-averbukh" :users/handle "joe")
+                  ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
+                  ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))})))))))
+
+(deftest where-$like
+  (with-zeneca-checked-data-app
+    (fn [app r]
+      (let [ctx {:db {:conn-pool (aurora/conn-pool :read)}
+                 :app-id (:id app)
+                 :attrs (attr-model/get-by-app-id (:id app))}]
+        (testing "with no matches"
+          (is-pretty-eq?
+           (query-pretty ctx r
+                         {:users {:$ {:where {:handle {:$like "%moop%"}}}}})
+           '({:topics ([:ave _ #{:users/handle}
+                        {:$comparator {:op :$like :value "%moop%" :data-type :string}}])
+              :triples ()})))
+        (testing "with equality"
+          (is-pretty-eq?
+           (query-pretty ctx r
+                         {:users {:$ {:where {:handle {:$like "joe"}}}}})
+           '({:topics ([:ave _ #{:users/handle}
+                        {:$comparator {:op :$like :value "joe" :data-type :string}}]
+                       --
+                       [:ea #{"eid-joe-averbukh"}
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _])
+              :triples
+              (("eid-joe-averbukh" :users/handle "joe")
+               --
+               ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+               ("eid-joe-averbukh" :users/email "joe@instantdb.com")
+               ("eid-joe-averbukh" :users/handle "joe")
+               ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
+               ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))})))
+        (testing "like startsWith"
+          (is-pretty-eq?
+           (query-pretty ctx r
+                         {:users {:$ {:where {:handle {:$like "al%"}}}}})
+           '({:topics ([:ave _ #{:users/handle}
+                        {:$comparator {:op :$like :value "al%" :data-type :string}}]
+                       --
+                       [:ea #{"eid-alex"}
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _])
+              :triples (("eid-alex" :users/handle "alex")
+                        --
+                        ("eid-alex" :users/id "eid-alex")
+                        ("eid-alex" :users/fullName "Alex")
+                        ("eid-alex" :users/email "alex@instantdb.com")
+                        ("eid-alex" :users/handle "alex")
+                        ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689"))})))
+        (testing "like endsWith deep"
+          (is-pretty-eq?
+           (query-pretty ctx r
+                         {:users {:$ {:where {:bookshelves.books.title {:$like "%Monte Cristo"}}}}})
+           '({:topics ([:ave _ #{:books/title}
+                        {:$comparator
+                         {:op :$like :value "%Monte Cristo" :data-type :string}}]
+                       [:vae _ #{:bookshelves/books} #{"eid-the-count-of-monte-cristo"}]
+                       [:vae _ #{:users/bookshelves}
+                        #{"eid-the-way-of-the-gentleman" "eid-fiction"}]
+                       --
+                       [:ea #{"eid-nicole"}
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _]
+                       --
+                       [:ea #{"eid-stepan-parunashvili"}
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _])
+              :triples
+              (("eid-the-count-of-monte-cristo" :books/title "The Count of Monte Cristo")
+               ("eid-the-count-of-monte-cristo" :books/title "The Count of Monte Cristo")
+               ("eid-nicole" :users/bookshelves "eid-fiction")
+               ("eid-fiction" :bookshelves/books "eid-the-count-of-monte-cristo")
+               ("eid-the-way-of-the-gentleman"
+                :bookshelves/books
+                "eid-the-count-of-monte-cristo")
+               ("eid-stepan-parunashvili"
+                :users/bookshelves
+                "eid-the-way-of-the-gentleman")
+               --
+               ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
+               ("eid-nicole" :users/email "nicole@instantdb.com")
+               ("eid-nicole" :users/handle "nicolegf")
+               ("eid-nicole" :users/id "eid-nicole")
+               ("eid-nicole" :users/fullName "Nicole")
+               --
+               ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+               ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
+               ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+               ("eid-stepan-parunashvili" :users/handle "stopa")
+               ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))})))))))
 
 (deftest where-$ilike
   (with-zeneca-checked-data-app
@@ -1589,24 +1551,19 @@
           (is-pretty-eq?
            (query-pretty ctx r
                          {:users {:$ {:where {:handle {:$ilike "%moop%"}}}}})
-           '({:topics ([:ave _ #{:users/handle} {:$comparator {:op :$ilike, :value "%moop%", :data-type :string}}])
+           '({:topics ([:ave _ #{:users/handle}
+                        {:$comparator {:op :$ilike :value "%moop%" :data-type :string}}])
               :triples ()})))
         (testing "with equality"
           (is-pretty-eq?
            (query-pretty ctx r
                          {:users {:$ {:where {:handle {:$ilike "joe"}}}}})
-           '({:topics
-              ([:ave _ #{:users/handle} {:$comparator {:op :$ilike, :value "joe", :data-type :string}}]
-               --
-               [:ea
-                #{"eid-joe-averbukh"}
-                #{:users/bookshelves
-                  :users/createdAt
-                  :users/email
-                  :users/id
-                  :users/fullName
-                  :users/handle}
-                _]),
+           '({:topics ([:ave _ #{:users/handle}
+                        {:$comparator {:op :$ilike :value "joe" :data-type :string}}]
+                       --
+                       [:ea #{"eid-joe-averbukh"}
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _])
               :triples
               (("eid-joe-averbukh" :users/handle "joe")
                --
@@ -1625,42 +1582,38 @@
          (query-pretty
           {:users {:$ {:where {:and [{:handle {:$not "alex"}}
                                      {:handle {:$not "nicolegf"}}]}}}})
-         '({:topics ([:ea #{"eid-joe-averbukh" "eid-stepan-parunashvili"} #{:users/id} _]
-                     [:ea _ #{:users/handle} _]
-                     [:av
-                      #{"eid-joe-averbukh" "eid-stepan-parunashvili"}
-                      #{:users/handle}
-                      {:$not "nicolegf"}]
-                     [:av _ #{:users/handle} {:$not "alex"}]
+         '({:topics ([:av _ #{:users/handle} {:$not "alex"}]
                      [:ea _ #{:users/id} _]
+                     [:ea _ #{:users/handle} _]
+                     [:av #{"eid-joe-averbukh" "eid-stepan-parunashvili"} #{:users/handle}
+                      {:$not "nicolegf"}]
+                     [:ea #{"eid-joe-averbukh" "eid-stepan-parunashvili"} #{:users/id} _]
+                     [:ea _ #{:users/handle} _]
                      --
-                     [:ea #{"eid-stepan-parunashvili"} #{:users/bookshelves
-                                                         :users/createdAt
-                                                         :users/email
-                                                         :users/id
-                                                         :users/fullName
-                                                         :users/handle} _]
+                     [:ea #{"eid-joe-averbukh"}
+                      #{:users/createdAt :users/email :users/id :users/fullName
+                        :users/handle} _]
                      --
-                     [:ea #{"eid-joe-averbukh"} #{:users/bookshelves
-                                                  :users/createdAt
-                                                  :users/email
-                                                  :users/id
-                                                  :users/fullName
-                                                  :users/handle} _]),
-            :triples (("eid-joe-averbukh" :users/handle "joe")
-                      ("eid-stepan-parunashvili" :users/handle "stopa")
-                      --
-                      ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
-                      ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
-                      ("eid-stepan-parunashvili" :users/handle "stopa")
-                      ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-                      ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
-                      --
-                      ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
-                      ("eid-joe-averbukh" :users/handle "joe")
-                      ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
-                      ("eid-joe-averbukh" :users/email "joe@instantdb.com")
-                      ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))}))))))
+                     [:ea #{"eid-stepan-parunashvili"}
+                      #{:users/createdAt :users/email :users/id :users/fullName
+                        :users/handle} _])
+            :triples
+            (("eid-joe-averbukh" :users/handle "joe")
+             ("eid-joe-averbukh" :users/handle "joe")
+             ("eid-stepan-parunashvili" :users/handle "stopa")
+             ("eid-stepan-parunashvili" :users/handle "stopa")
+             --
+             ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+             ("eid-joe-averbukh" :users/email "joe@instantdb.com")
+             ("eid-joe-averbukh" :users/handle "joe")
+             ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
+             ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")
+             --
+             ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+             ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
+             ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+             ("eid-stepan-parunashvili" :users/handle "stopa")
+             ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))}))))))
 
 (deftest where-$not-with-nils
   (with-empty-app
@@ -2321,12 +2274,12 @@
            '({:topics ([:av _ #{:users/handle} #{"stopa" "joe"}]
                        --
                        [:ea #{"eid-joe-averbukh"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _]
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _]
                        --
                        [:ea #{"eid-stepan-parunashvili"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _])
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _])
               :triples
               (("eid-joe-averbukh" :users/handle "joe")
                ("eid-stepan-parunashvili" :users/handle "stopa")
@@ -2352,8 +2305,8 @@
            '({:topics ([:av _ #{:users/handle} #{"somebody" "joe" "nobody"}]
                        --
                        [:ea #{"eid-joe-averbukh"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _])
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _])
               :triples
               (("eid-joe-averbukh" :users/handle "joe")
                --
@@ -2381,8 +2334,8 @@
                        [:av #{"eid-stepan-parunashvili"} #{:users/handle} #{"stopa"}]
                        --
                        [:ea #{"eid-stepan-parunashvili"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _])
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _])
               :triples
               (("eid-the-count-of-monte-cristo" :books/title "The Count of Monte Cristo")
                ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
@@ -2428,7 +2381,7 @@
                                       #{"eid-the-way-of-the-gentleman"}]
                                      --
                                      [:ea #{"eid-stepan-parunashvili"}
-                                      #{:users/bookshelves :users/createdAt :users/email :users/id
+                                      #{:users/createdAt :users/email :users/id
                                         :users/fullName :users/handle} _])
                             :triples
                             (("eid-the-count-of-monte-cristo" :books/title "The Count of Monte Cristo")
@@ -2474,11 +2427,11 @@
                        [:av _ #{:users/handle} #{"somebody" "stopa" "joe" "nobody"}]
                        --
                        [:ea #{"eid-joe-averbukh"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
+                        #{:users/createdAt :users/email :users/id
                           :users/fullName :users/handle} _]
                        --
                        [:ea #{"eid-stepan-parunashvili"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
+                        #{:users/createdAt :users/email :users/id
                           :users/fullName :users/handle} _])
               :triples
               (("eid-joe-averbukh" :users/handle "joe")
@@ -2893,18 +2846,18 @@
            '({:topics ([:av _ #{:users/handle} #{"alex"}]
                        --
                        [:ea #{"eid-alex"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _]
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _]
                        --
                        [:eav #{"eid-alex"} #{:users/bookshelves} _]
                        --
                        [:ea #{"eid-nonfiction"}
                         #{:bookshelves/desc :bookshelves/name :bookshelves/order
-                          :bookshelves/id :bookshelves/books} _]
+                          :bookshelves/id} _]
                        --
                        [:ea #{"eid-short-stories"}
                         #{:bookshelves/desc :bookshelves/name :bookshelves/order
-                          :bookshelves/id :bookshelves/books} _])
+                          :bookshelves/id} _])
               :triples (("eid-alex" :users/handle "alex")
                         --
                         ("eid-alex" :users/id "eid-alex")
@@ -2933,13 +2886,13 @@
                        --
                        [:ea #{"eid-nonfiction"}
                         #{:bookshelves/desc :bookshelves/name :bookshelves/order
-                          :bookshelves/id :bookshelves/books} _]
+                          :bookshelves/id} _]
                        --
                        [:vae _ #{:users/bookshelves} #{"eid-nonfiction"}]
                        --
                        [:ea #{"eid-alex"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _])
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _])
               :triples (("eid-nonfiction" :bookshelves/name "Nonfiction")
                         --
                         ("eid-nonfiction" :bookshelves/id "eid-nonfiction")
@@ -2963,15 +2916,15 @@
            '({:topics ([:av _ #{:users/handle} #{"alex"}]
                        --
                        [:ea #{"eid-alex"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _]
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _]
                        --
                        [:eav #{"eid-alex"} #{:users/bookshelves} _]
                        [:ea _ #{:bookshelves/name} #{"Nonfiction"}]
                        --
                        [:ea #{"eid-nonfiction"}
                         #{:bookshelves/desc :bookshelves/name :bookshelves/order
-                          :bookshelves/id :bookshelves/books} _])
+                          :bookshelves/id} _])
               :triples (("eid-alex" :users/handle "alex")
                         --
                         ("eid-alex" :users/id "eid-alex")
@@ -2998,15 +2951,15 @@
            '({:topics ([:av _ #{:users/handle} #{"alex"}]
                        --
                        [:ea #{"eid-alex"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _]
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _]
                        --
                        [:eav #{"eid-alex"} #{:users/bookshelves} _]
                        [:ea _ #{:bookshelves/name} #{"Fiction" "Nonfiction"}]
                        --
                        [:ea #{"eid-nonfiction"}
                         #{:bookshelves/desc :bookshelves/name :bookshelves/order
-                          :bookshelves/id :bookshelves/books} _])
+                          :bookshelves/id} _])
               :triples (("eid-alex" :users/handle "alex")
                         --
                         ("eid-alex" :users/id "eid-alex")
@@ -3033,8 +2986,8 @@
            '({:topics ([:av _ #{:users/handle} #{"alex"}]
                        --
                        [:ea #{"eid-alex"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _]
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _]
                        --
                        [:eav #{"eid-alex"} #{:users/bookshelves} _]
                        [:ea _ #{:bookshelves/name} #{"Nonfiction"}]
@@ -3042,7 +2995,7 @@
                        --
                        [:ea #{"eid-nonfiction"}
                         #{:bookshelves/desc :bookshelves/name :bookshelves/order
-                          :bookshelves/id :bookshelves/books} _])
+                          :bookshelves/id} _])
               :triples (("eid-alex" :users/handle "alex")
                         --
                         ("eid-alex" :users/id "eid-alex")
@@ -3081,30 +3034,30 @@
             {:users {:zippy {}}})
            '({:topics ([:ea _ #{:users/id} _]
                        --
-                       [:ea #{"eid-nicole"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _]
-                       --
-                       [:ea _ _ _]
-                       [:eav _ _ _]
-                       --
-                       [:ea #{"eid-stepan-parunashvili"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _]
+                       [:ea #{"eid-joe-averbukh"}
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _]
                        --
                        [:ea _ _ _]
                        [:eav _ _ _]
                        --
                        [:ea #{"eid-alex"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _]
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _]
                        --
                        [:ea _ _ _]
                        [:eav _ _ _]
                        --
-                       [:ea #{"eid-joe-averbukh"}
-                        #{:users/bookshelves :users/createdAt :users/email :users/id
-                          :users/fullName :users/handle} _]
+                       [:ea #{"eid-nicole"}
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _]
+                       --
+                       [:ea _ _ _]
+                       [:eav _ _ _]
+                       --
+                       [:ea #{"eid-stepan-parunashvili"}
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _]
                        --
                        [:ea _ _ _]
                        [:eav _ _ _])
@@ -3113,6 +3066,20 @@
                ("eid-nicole" :users/id "eid-nicole")
                ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
                ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+               --
+               ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+               ("eid-joe-averbukh" :users/email "joe@instantdb.com")
+               ("eid-joe-averbukh" :users/handle "joe")
+               ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
+               ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")
+               --
+               --
+               ("eid-alex" :users/id "eid-alex")
+               ("eid-alex" :users/fullName "Alex")
+               ("eid-alex" :users/email "alex@instantdb.com")
+               ("eid-alex" :users/handle "alex")
+               ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689")
+               --
                --
                ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
                ("eid-nicole" :users/email "nicole@instantdb.com")
@@ -3126,74 +3093,50 @@
                ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
                ("eid-stepan-parunashvili" :users/handle "stopa")
                ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
-               --
-               --
-               ("eid-alex" :users/id "eid-alex")
-               ("eid-alex" :users/fullName "Alex")
-               ("eid-alex" :users/email "alex@instantdb.com")
-               ("eid-alex" :users/handle "alex")
-               ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689")
-               --
-               --
-               ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
-               ("eid-joe-averbukh" :users/email "joe@instantdb.com")
-               ("eid-joe-averbukh" :users/handle "joe")
-               ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
-               ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")
                --)})))))))
 
 (deftest same-ids
-    (with-zeneca-app
-      (fn [app r]
-        (let [ctx {:db {:conn-pool (aurora/conn-pool :read)}
-                   :app-id (:id app)
-                   :attrs (attr-model/get-by-app-id (:id app))}
-              user-id-attr (resolvers/->uuid r :users/id)
-              user-handle-attr (resolvers/->uuid r :users/handle)
-              book-id-attr (resolvers/->uuid r :books/id)
-              book-title-attr (resolvers/->uuid r :books/title)
-              shared-id (random-uuid)]
-          (tx/transact! (aurora/conn-pool :write)
-                        (attr-model/get-by-app-id (:id app))
-                        (:id app)
-                        [[:add-triple shared-id user-id-attr shared-id]
-                         [:add-triple shared-id user-handle-attr "handle"]
-                         [:add-triple shared-id book-id-attr shared-id]
-                         [:add-triple shared-id book-title-attr "title"]])
-          (is-pretty-eq?
-           (query-pretty ctx r {:users {:$ {:where {:id shared-id}}}})
-           [{:topics
-             [[:av '_ #{:users/id} #{shared-id}]
-              '--
-              [:ea
-               #{shared-id}
-               #{:users/bookshelves
-                 :users/createdAt
-                 :users/email
-                 :users/id
-                 :users/fullName
-                 :users/handle}
-               '_]],
-             :triples
-             [[shared-id :users/handle "handle"]
-              [shared-id :users/id (str shared-id)]
-              '--
-              [shared-id :users/email nil]]}])
-          (is-pretty-eq?
-           (query-pretty ctx r {:books {:$ {:where {:id shared-id}}}})
-           [{:topics
-             [[:av '_ #{:books/id} #{shared-id}]
-              '--
-              [:ea #{shared-id} #{:books/pageCount
-                                  :books/isbn13
-                                  :books/description
-                                  :books/id
-                                  :books/thumbnail
-                                  :books/title} '_]],
-             :triples
-             ['--
-              [shared-id :books/title "title"]
-              [shared-id :books/id (str shared-id)]]}])))))
+  (with-zeneca-app
+    (fn [app r]
+      (let [ctx {:db {:conn-pool (aurora/conn-pool :read)}
+                 :app-id (:id app)
+                 :attrs (attr-model/get-by-app-id (:id app))}
+            user-id-attr (resolvers/->uuid r :users/id)
+            user-handle-attr (resolvers/->uuid r :users/handle)
+            book-id-attr (resolvers/->uuid r :books/id)
+            book-title-attr (resolvers/->uuid r :books/title)
+            shared-id (random-uuid)
+            _ (tx/transact! (aurora/conn-pool :write)
+                            (attr-model/get-by-app-id (:id app))
+                            (:id app)
+                            [[:add-triple shared-id user-id-attr shared-id]
+                             [:add-triple shared-id user-handle-attr "handle"]
+                             [:add-triple shared-id book-id-attr shared-id]
+                             [:add-triple shared-id book-title-attr "title"]])
+            r (resolvers/make-zeneca-resolver (:id app))]
+        (is-pretty-eq?
+         (query-pretty ctx r {:users {:$ {:where {:id shared-id}}}})
+         '({:topics ([:av _ #{:users/id} #{"eid-title"}]
+                     --
+                     [:ea #{"eid-title"}
+                      #{:users/createdAt :users/email :users/id :users/fullName
+                        :users/handle} _])
+            :triples (("eid-title" :users/id "eid-title")
+                      --
+                      ("eid-title" :users/email nil)
+                      ("eid-title" :users/handle "handle")
+                      ("eid-title" :users/id "eid-title"))}))
+        (is-pretty-eq?
+         (query-pretty ctx r {:books {:$ {:where {:id shared-id}}}})
+         '({:topics ([:av _ #{:books/id} #{"eid-title"}]
+                     --
+                     [:ea #{"eid-title"}
+                      #{:books/pageCount :books/isbn13 :books/description :books/id
+                        :books/thumbnail :books/title} _])
+            :triples (("eid-title" :books/id "eid-title")
+                      --
+                      ("eid-title" :books/title "title")
+                      ("eid-title" :books/id "eid-title"))}))))))
 
 (deftest eid-relations
   (with-zeneca-app
@@ -3203,64 +3146,43 @@
         (testing "forward works on link name"
           (is-pretty-eq?
            (query-pretty {:users {:$ {:where {:bookshelves (resolvers/->uuid r "eid-worldview")}}}})
-           '({:topics
-              ([:vae _ #{:users/bookshelves} #{"eid-worldview"}]
-               --
-               [:ea
-                #{"eid-stepan-parunashvili"}
-                #{:users/bookshelves
-                  :users/createdAt
-                  :users/email
-                  :users/id
-                  :users/fullName
-                  :users/handle}
-                _]),
+           '({:topics ([:vae _ #{:users/bookshelves} #{"eid-worldview"}]
+                       --
+                       [:ea #{"eid-stepan-parunashvili"}
+                        #{:users/createdAt :users/email :users/id :users/fullName
+                          :users/handle} _])
               :triples
               (("eid-stepan-parunashvili" :users/bookshelves "eid-worldview")
                --
                ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-               ("eid-stepan-parunashvili"
-                :users/createdAt
-                "2021-01-07 18:50:43.447955")
+               ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
                ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
                ("eid-stepan-parunashvili" :users/handle "stopa")
                ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))})))
         (testing "reverse works on link name"
           (is-pretty-eq?
            (query-pretty {:bookshelves {:$ {:where {:users (resolvers/->uuid r "eid-alex")}}}})
-           '({:topics
-              ([:eav #{"eid-alex"} #{:users/bookshelves} _]
-               --
-               [:ea
-                #{"eid-short-stories"}
-                #{:bookshelves/desc
-                  :bookshelves/name
-                  :bookshelves/order
-                  :bookshelves/id
-                  :bookshelves/books}
-                _]
-               --
-               [:ea
-                #{"eid-nonfiction"}
-                #{:bookshelves/desc
-                  :bookshelves/name
-                  :bookshelves/order
-                  :bookshelves/id
-                  :bookshelves/books}
-                _]),
-              :triples
-              (("eid-alex" :users/bookshelves "eid-short-stories")
-               ("eid-alex" :users/bookshelves "eid-nonfiction")
-               --
-               ("eid-short-stories" :bookshelves/id "eid-short-stories")
-               ("eid-short-stories" :bookshelves/desc "")
-               ("eid-short-stories" :bookshelves/name "Short Stories")
-               ("eid-short-stories" :bookshelves/order 0)
-               --
-               ("eid-nonfiction" :bookshelves/id "eid-nonfiction")
-               ("eid-nonfiction" :bookshelves/name "Nonfiction")
-               ("eid-nonfiction" :bookshelves/desc "")
-               ("eid-nonfiction" :bookshelves/order 1))})))))))
+           '({:topics ([:eav #{"eid-alex"} #{:users/bookshelves} _]
+                       --
+                       [:ea #{"eid-nonfiction"}
+                        #{:bookshelves/desc :bookshelves/name :bookshelves/order
+                          :bookshelves/id} _]
+                       --
+                       [:ea #{"eid-short-stories"}
+                        #{:bookshelves/desc :bookshelves/name :bookshelves/order
+                          :bookshelves/id} _])
+              :triples (("eid-alex" :users/bookshelves "eid-short-stories")
+                        ("eid-alex" :users/bookshelves "eid-nonfiction")
+                        --
+                        ("eid-nonfiction" :bookshelves/id "eid-nonfiction")
+                        ("eid-nonfiction" :bookshelves/name "Nonfiction")
+                        ("eid-nonfiction" :bookshelves/desc "")
+                        ("eid-nonfiction" :bookshelves/order 1)
+                        --
+                        ("eid-short-stories" :bookshelves/id "eid-short-stories")
+                        ("eid-short-stories" :bookshelves/desc "")
+                        ("eid-short-stories" :bookshelves/name "Short Stories")
+                        ("eid-short-stories" :bookshelves/order 0))})))))))
 
 (deftest indexing?
   (testing "queries ignore indexes while still indexing"
@@ -3613,8 +3535,7 @@
                  [:ave _ #{:books/title} #{"The Count of Monte Cristo"} _]
                  [:ea
                   _
-                  #{:users/bookshelves
-                    :users/createdAt
+                  #{:users/createdAt
                     :users/email
                     :users/id
                     :users/fullName
@@ -3627,8 +3548,7 @@
                   #{:bookshelves/desc
                     :bookshelves/name
                     :bookshelves/order
-                    :bookshelves/id
-                    :bookshelves/books}
+                    :bookshelves/id}
                   _
                   _]]
                (resolvers/walk-friendly
@@ -3836,51 +3756,40 @@
            (query-pretty (make-ctx)
                          r1
                          {:books {:$ {:where {"$user-creator.email" "alex@instantdb.com"}}}})
-           [{:topics
-             [[:ave '_ #{:$users/email} #{"alex@instantdb.com"}]
-              [:vae '_ #{:books/$user-creator} #{"eid-alex"}]
-              '--
-              [:ea
-               #{"eid-sum"}
-               #{:books/pageCount
-                 :books/$user-creator
-                 :books/isbn13
-                 :books/description
-                 :books/id
-                 :books/thumbnail
-                 :books/title}
-               '_]],
+           '({:topics ([:ave _ #{:$users/email} #{"alex@instantdb.com"}]
+                       [:vae _ #{:books/$user-creator} #{"eid-alex"}]
+                       --
+                       [:ea #{"eid-sum"}
+                        #{:books/pageCount :books/isbn13 :books/description :books/id
+                          :books/thumbnail :books/title} _])
              :triples
-             [["eid-sum" :books/$user-creator "eid-alex"]
-              ["eid-alex" :$users/email "alex@instantdb.com"]
-              '--
-              ["eid-sum" :books/pageCount 107]
-              ["eid-sum"
-               :books/thumbnail
-               "http://books.google.com/books/content?id=-cjWiI8DEywC&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api"]
-              ["eid-sum" :books/$user-creator "eid-alex"]
-              ["eid-sum" :books/title "Sum"]
-              ["eid-sum" :books/id "eid-sum"]
-              ["eid-sum"
-               :books/description
-               "At once funny, wistful and unsettling, Sum is a dazzling exploration of unexpected afterlives—each presented as a vignette that offers a stunning lens through which to see ourselves in the here and now. In one afterlife, you may find that God is the size of a microbe and unaware of your existence. In another version, you work as a background character in other people’s dreams. Or you may find that God is a married couple, or that the universe is running backward, or that you are forced to live out your afterlife with annoying versions of who you could have been. With a probing imagination and deep understanding of the human condition, acclaimed neuroscientist David Eagleman offers wonderfully imagined tales that shine a brilliant light on the here and now. From the Trade Paperback edition."]]}]))
+              (("eid-sum" :books/$user-creator "eid-alex")
+               ("eid-alex" :$users/email "alex@instantdb.com")
+               --
+               ("eid-sum" :books/pageCount 107)
+               ("eid-sum"
+                :books/thumbnail
+                "http://books.google.com/books/content?id=-cjWiI8DEywC&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api")
+               ("eid-sum" :books/title "Sum")
+               ("eid-sum" :books/id "eid-sum")
+               ("eid-sum"
+                :books/description
+                "At once funny, wistful and unsettling, Sum is a dazzling exploration of unexpected afterlives—each presented as a vignette that offers a stunning lens through which to see ourselves in the here and now. In one afterlife, you may find that God is the size of a microbe and unaware of your existence. In another version, you work as a background character in other people’s dreams. Or you may find that God is a married couple, or that the universe is running backward, or that you are forced to live out your afterlife with annoying versions of who you could have been. With a probing imagination and deep understanding of the human condition, acclaimed neuroscientist David Eagleman offers wonderfully imagined tales that shine a brilliant light on the here and now. From the Trade Paperback edition."))})))
 
         (testing "reverse reference"
           (is-pretty-eq?
            (query-pretty (make-ctx)
                          r1
                          {:$users {:$ {:where {"books.title" "Sum"}}}})
-           [{:topics
-             [[:ave '_ #{:books/title} #{"Sum"}]
-              [:eav #{"eid-sum"} #{:books/$user-creator} '_]
-              '--
-              [:ea #{"eid-alex"} #{:$users/email :$users/id} '_]],
-             :triples
-             [["eid-sum" :books/$user-creator "eid-alex"]
-              ["eid-sum" :books/title "Sum"]
-              '--
-              ["eid-alex" :$users/id "eid-alex"]
-              ["eid-alex" :$users/email "alex@instantdb.com"]]}]))))))
+           '({:topics ([:ave _ #{:books/title} #{"Sum"}]
+                       [:eav #{"eid-sum"} #{:books/$user-creator} _]
+                       --
+                       [:ea #{"eid-alex"} #{:$users/email :$users/id} _])
+              :triples (("eid-sum" :books/$user-creator "eid-alex")
+                        ("eid-sum" :books/title "Sum")
+                        --
+                        ("eid-alex" :$users/id "eid-alex")
+                        ("eid-alex" :$users/email "alex@instantdb.com"))})))))))
 
 (deftest users-table-perms-with-references
   (with-zeneca-app
