@@ -145,7 +145,26 @@
                            (entity-model/triples->map {:attrs attrs} group)]]
                  {:email email
                   :id (parse-uuid id)
-                  :app-id app-id})]
+                  :app-id app-id})
+         created-at-triples (filter (fn [{[_e a] :triple}]
+                                      (-> (attr-model/seek-by-id a attrs)
+                                          attr-model/fwd-label
+                                          (= "createdAt")))
+                                    triples)]
+     ;; Set the created_at field on the triples to the right one because
+     ;; the tests rely on it.
+     (doseq [{[e a v] :triple} created-at-triples
+             :let [etype (attr-model/fwd-etype
+                          (attr-model/seek-by-id a attrs))
+                   id-attr (attr-model/seek-by-fwd-ident-name [etype "id"] attrs)]]
+       (sql/execute! conn (hsql/format {:update :triples
+                                        :set {:created-at (.toEpochMilli (triple-model/parse-date-value v))}
+                                        :where [:and
+                                                [:= :entity-id e]
+                                                [:= :attr-id (:id id-attr)]
+                                                [:= :value-md5 [:md5 [:cast [:cast (->json e) :json] :text]]]
+                                                [:= :app-id app-id]]
+                                        :returning :*})))
      (doseq [user users]
        (app-user-model/create! conn user))
 
