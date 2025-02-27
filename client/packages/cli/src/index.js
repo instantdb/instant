@@ -1820,20 +1820,13 @@ function generateSchemaTypescriptFile(
 
   const entitiesObjCode = `{\n${entitiesEntriesCode}\n}`;
   const etypes = Object.keys(newSchema.blobs);
-  const hasOnlyUserTable = etypes.length === 1 && etypes[0] === '$users';
 
   const entitiesComment =
     inferredAttrs.length > 0
       ? `// We inferred ${inferredAttrs.length} ${easyPlural('attribute', inferredAttrs.length)}!
 // Take a look at this schema, and if everything looks good,
 // run \`push schema\` again to enforce the types.`
-      : hasOnlyUserTable
-        ? `
-// This section lets you define entities: think \`posts\`, \`comments\`, etc
-// Take a look at the docs to learn more:
-// https://www.instantdb.com/docs/modeling-data#2-attributes
-`.trim()
-        : '';
+      : '';
 
   // links
   const linksEntries = Object.fromEntries(
@@ -1859,27 +1852,9 @@ function generateSchemaTypescriptFile(
     }),
   );
   const linksEntriesCode = JSON.stringify(linksEntries, null, '  ').trim();
-  const hasNoLinks = Object.keys(linksEntries).length === 0;
-  const linksComment = hasNoLinks
-    ? `
-  // You can define links here.
-  // For example, if \`posts\` should have many \`comments\`.
-  // More in the docs:
-  // https://www.instantdb.com/docs/modeling-data#3-links
-  `.trim()
-    : '';
-
   // rooms
   const rooms = prevSchema?.rooms || {};
   const roomsCode = roomsCodeStr(rooms);
-  const roomsComment =
-    Object.keys(rooms).length === 0
-      ? `
-// If you use presence, you can define a room schema here
-// https://www.instantdb.com/docs/presence-and-topics#typesafety
-  `.trim()
-      : '';
-
   const kv = (k, v, comment) => {
     return comment
       ? `
@@ -1890,12 +1865,14 @@ function generateSchemaTypescriptFile(
   };
 
   return `
+// Docs: https://www.instantdb.com/docs/modeling-data
+
 import { i } from "${instantModuleName ?? '@instantdb/core'}";
 
 const _schema = i.schema({
   ${kv('entities', entitiesObjCode, entitiesComment)},
-  ${kv('links', linksEntriesCode, linksComment)},
-  ${kv('rooms', roomsCode, roomsComment)}
+  ${kv('links', linksEntriesCode)},
+  ${kv('rooms', roomsCode)}
 });
 
 // This helps Typescript display nicer intellisense
