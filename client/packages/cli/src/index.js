@@ -1846,21 +1846,25 @@ function generateSchemaTypescriptFile(
       const [, fe, flabel] = config['forward-identity'];
       const [, re, rlabel] = config['reverse-identity'];
       const [fhas, rhas] = rels[`${config.cardinality}-${config['unique?']}`];
-      return [
-        `${fe}${capitalizeFirstLetter(flabel)}`,
-        {
-          forward: {
-            on: fe,
-            has: fhas,
-            label: flabel,
-          },
-          reverse: {
-            on: re,
-            has: rhas,
-            label: rlabel,
-          },
+      const desc = {
+        forward: {
+          on: fe,
+          has: fhas,
+          label: flabel,
         },
-      ];
+        reverse: {
+          on: re,
+          has: rhas,
+          label: rlabel,
+        },
+      };
+      if (config['on-delete'] === 'cascade') {
+        desc.forward.onDelete = 'cascade';
+      } else if (config['on-delete-reverse'] === 'cascade') {
+        desc.reverse.onDelete = 'cascade';
+      }
+
+      return [`${fe}${capitalizeFirstLetter(flabel)}`, desc];
     }),
   );
   const linksEntriesCode = JSON.stringify(linksEntries, null, '  ').trim();
