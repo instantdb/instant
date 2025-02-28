@@ -1489,8 +1489,11 @@
                                                               symbol-map
                                                               {:e [:variable join-sym]})]
                                         (if-let [single-field (when (and (= 1 (count conds))
-                                                                         (= [:= :entity-id] (take 2 (first conds))))
+                                                                         (= [:= :entity-id]
+                                                                            (take 2 (first conds))))
                                                                 (last (first conds)))]
+                                          ;; If we're only joining on a single col, we can just grab
+                                          ;; that col directly from the CTE
                                           {:select [[[:distinct single-field] (kw prefix next-idx :-entity-id)]]
                                            :from (kw prefix (dec next-idx))}
                                           {:select [[[:distinct :entity-id] (kw prefix next-idx :-entity-id)]]
