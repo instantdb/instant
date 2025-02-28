@@ -991,7 +991,7 @@
           query-one-results))
 
 (defn etype-attr-ids [{:keys [attrs]} etype fields]
-  (if (seq fields)
+  (if fields
     (reduce (fn [acc field]
               (let [attr (attr-model/seek-by-fwd-ident-name
                           [etype field]
@@ -1000,7 +1000,9 @@
                   (conj acc (:id attr))
                   acc)))
             #{}
-            fields)
+            ;; Make sure we give them the id or else the client
+            ;; won't be able to find the entity
+            (conj fields "id"))
     (attr-model/ea-ids-for-etype etype attrs)))
 
 (defn- query-one
