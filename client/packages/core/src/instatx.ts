@@ -158,9 +158,9 @@ function etypeChunk(etype: EType): ETypeChunk<any, EType> {
     {
       get(_target, id: Id) {
         if (isLookup(id)) {
-          return transactionChunk(etype, parseLookup(id), {}, []);
+          return transactionChunk(etype, parseLookup(id), undefined, []);
         }
-        return transactionChunk(etype, id, {}, []);
+        return transactionChunk(etype, id, undefined, []);
       },
     },
   );
