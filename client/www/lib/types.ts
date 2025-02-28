@@ -91,9 +91,6 @@ export type DashResponse = {
     email: string;
     id: string;
   };
-  flags: {
-    storage_enabled_apps?: string[];
-  };
 };
 
 export type AppError = { body: { message: string } | undefined };
@@ -159,6 +156,7 @@ export interface DBAttr {
   catalog?: 'user' | 'system';
   'checked-data-type'?: CheckedDataType;
   'on-delete'?: 'cascade';
+  'on-delete-reverse'?: 'cascade';
 }
 
 export interface SchemaNamespace {
@@ -204,6 +202,7 @@ export interface SchemaAttr {
   checkedDataType?: CheckedDataType;
   sortable: boolean;
   onDelete?: 'cascade';
+  onDeleteReverse?: 'cascade';
 }
 
 export type InstantError = {

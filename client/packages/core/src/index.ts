@@ -21,7 +21,12 @@ import type {
   PresenceSlice,
   RoomSchemaShape,
 } from './presence';
-import type { IDatabase, IInstantDatabase } from './coreTypes';
+import type {
+  DevtoolConfig,
+  IDatabase,
+  IInstantDatabase,
+  StrictDevtoolConfig,
+} from './coreTypes';
 import type {
   Query,
   QueryResponse,
@@ -89,14 +94,14 @@ export type Config = {
   appId: string;
   websocketURI?: string;
   apiURI?: string;
-  devtool?: boolean;
+  devtool?: boolean | DevtoolConfig;
 };
 
 export type InstantConfig<S extends InstantSchemaDef<any, any, any>> = {
   appId: string;
   websocketURI?: string;
   apiURI?: string;
-  devtool?: boolean;
+  devtool?: boolean | DevtoolConfig;
   schema?: S;
 };
 
@@ -435,19 +440,19 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
    * @example
    *   // Create a new object in the `goals` namespace
    *   const goalId = id();
-   *   db.transact(tx.goals[goalId].update({title: "Get fit"}))
+   *   db.transact(db.tx.goals[goalId].update({title: "Get fit"}))
    *
    *   // Update the title
-   *   db.transact(tx.goals[goalId].update({title: "Get super fit"}))
+   *   db.transact(db.tx.goals[goalId].update({title: "Get super fit"}))
    *
    *   // Delete it
-   *   db.transact(tx.goals[goalId].delete())
+   *   db.transact(db.tx.goals[goalId].delete())
    *
    *   // Or create an association:
    *   todoId = id();
    *   db.transact([
-   *    tx.todos[todoId].update({ title: 'Go on a run' }),
-   *    tx.goals[goalId].link({todos: todoId}),
+   *    db.tx.todos[todoId].update({ title: 'Go on a run' }),
+   *    db.tx.goals[goalId].link({todos: todoId}),
    *  ])
    */
   transact(
@@ -507,6 +512,20 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
    */
   subscribeAuth(cb: (auth: AuthResult) => void): UnsubscribeFn {
     return this._reactor.subscribeAuth(cb);
+  }
+
+  /**
+   * One time query for the logged in state. This is useful
+   * for scenarios where you want to know the current auth
+   * state without subscribing to changes.
+   *
+   * @see https://instantdb.com/docs/auth
+   * @example
+   *   const user = await db.getAuth();
+   *   console.log('logged in as', user.email)
+   */
+  getAuth(): Promise<User | null> {
+    return this._reactor.getAuth();
   }
 
   /**
@@ -652,21 +671,31 @@ function init<
   const client = new InstantCoreDatabase<any>(reactor);
   globalInstantCoreStore[config.appId] = client;
 
-  if (typeof window !== 'undefined' && typeof window.location !== 'undefined') {
-    const showDevtool =
-      // show widget by default?
-      ('devtool' in config ? Boolean(config.devtool) : defaultOpenDevtool) &&
-      // only run on localhost (dev env)
-      window.location.hostname === 'localhost' &&
-      // used by dash and other internal consumers
-      !Boolean((globalThis as any)._nodevtool);
-
-    if (showDevtool) {
-      createDevtool(config.appId);
-    }
-  }
+  handleDevtool(config.appId, config.devtool);
 
   return client;
+}
+
+function handleDevtool(appId: string, devtool: boolean | DevtoolConfig) {
+  if (typeof window === 'undefined' || typeof window.location === 'undefined') {
+    return;
+  }
+
+  if (typeof devtool === 'boolean' && !devtool) {
+    return;
+  }
+
+  const config: StrictDevtoolConfig = {
+    position: 'bottom-right' as const,
+    allowedHosts: ['localhost'],
+    ...(typeof devtool === 'object' ? devtool : {}),
+  };
+
+  if (!config.allowedHosts.includes(window.location.hostname)) {
+    return;
+  }
+
+  createDevtool(appId, config);
 }
 
 type InstantRules = {

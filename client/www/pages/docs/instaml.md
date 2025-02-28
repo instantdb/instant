@@ -9,7 +9,7 @@ Instant uses a **Firebase-inspired** interface for mutations. We call our mutati
 We use the `update` action to create entities.
 
 ```typescript
-import { init } from '@instantdb/react';
+import { init, id } from '@instantdb/react';
 
 const db = init({
   appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
@@ -101,7 +101,7 @@ db.transact(db.tx.games[gameId].merge({ state: { '0-0': 'red' } }));
 db.transact(db.tx.games[gameId].merge({ state: { '0-1': 'blue' } }));
 
 // ✅ Wohoo! Both states are merged!
-// Final State: {'0-0': 'red', '0-0': 'blue' }
+// Final State: {'0-0': 'red', '0-1': 'blue' }
 ```
 
 `merge` only merges objects. Calling `merge` on **arrays, numbers, or booleans** will overwrite the values.
@@ -109,7 +109,7 @@ db.transact(db.tx.games[gameId].merge({ state: { '0-1': 'blue' } }));
 Sometimes you may want to remove keys from a nested object. You can do so by calling `merge` with a key set to `null` or `undefined`. This will remove the corresponding property from the object.
 
 ```javascript
-// State: {'0-0': 'red', '0-0': 'blue' }
+// State: {'0-0': 'red', '0-1': 'blue' }
 db.transact(db.tx.games[gameId].merge({ state: { '0-1': null } }));
 // New State! {'0-0': 'red' }
 ```
@@ -150,15 +150,17 @@ db.transact([
 We can associate `healthId` with `workoutId` like so:
 
 ```javascript
-db.transact(tx.goals[healthId].link({ todos: workoutId }));
+db.transact(db.tx.goals[healthId].link({ todos: workoutId }));
 ```
 
 We could have done all this in one `transact` too via chaining transaction chunks.
 
 ```javascript
 db.transact([
-  tx.todos[workoutId].update({ title: 'Go on a run' }),
-  tx.goals[healthId].update({ title: 'Get fit!' }).link({ todos: workoutId }),
+  db.tx.todos[workoutId].update({ title: 'Go on a run' }),
+  db.tx.goals[healthId]
+    .update({ title: 'Get fit!' })
+    .link({ todos: workoutId }),
 ]);
 ```
 
@@ -178,7 +180,7 @@ db.transact([
 Links are bi-directional. Say we link `healthId` to `workoutId`
 
 ```javascript
-db.transact(tx.goals[healthId].link({ todos: workoutId }));
+db.transact(db.tx.goals[healthId].link({ todos: workoutId }));
 ```
 
 We can query associations in both directions
@@ -199,7 +201,7 @@ console.log('todos with nested goals', todos);
 Links can be removed via `unlink.`
 
 ```javascript
-db.transact(tx.goals[healthId].unlink({ todos: workoutId }));
+db.transact(db.tx.goals[healthId].unlink({ todos: workoutId }));
 ```
 
 This removes links in both directions. Unlinking can be done in either direction so unlinking `workoutId` from `healthId` would have the same effect.
@@ -212,8 +214,8 @@ We can `unlink` multiple ids too:
 
 ```javascript
 db.transact([
-  tx.goals[healthId].unlink({ todos: [workoutId, proteinId, sleepId] }),
-  tx.goals[workId].unlink({ todos: [standupId, reviewPRsId, focusId] }),
+  db.tx.goals[healthId].unlink({ todos: [workoutId, proteinId, sleepId] }),
+  db.tx.goals[workId].unlink({ todos: [standupId, reviewPRsId, focusId] }),
 ]);
 ```
 
@@ -237,15 +239,22 @@ When it is used in a transaction, the updates will be applied to the entity that
 
 It can be used with `update`, `delete`, `merge`, `link`, and `unlink`.
 
+## Lookups in links
+
 When used with links, it can also be used in place of the linked entity's id.
 
 ```javascript
 db.transact(
-  tx.users[lookup('email', 'eva_lu_ator@instantdb.com')].link({
-    posts: lookup('number', 15),
+  db.tx.users[lookup('email', 'eva_lu_ator@instantdb.com')].link({
+    posts: lookup('number', 15), // using a lookup in place of the id
   }),
 );
 ```
+
+## Transacts are atomic
+
+When you call `db.transact`, all the transactions are committed atomically. If
+any of the transactions fail, none of them will be committed.
 
 ## Typesafety
 

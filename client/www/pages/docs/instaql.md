@@ -377,6 +377,36 @@ console.log(data)
 }
 ```
 
+## Defer queries
+
+You can also defer queries until a condition is met. This is useful when you
+need to wait for some data to be available before you can run your query. Here's
+an example of deferring a fetch for todos until a user is logged in.
+
+```javascript
+const { isLoading, user, error } = db.useAuth();
+
+const {
+  isLoading: isLoadingTodos,
+  error,
+  data,
+} = db.useQuery(
+  user
+    ? {
+        // The query will run once user is populated
+        todos: {
+          $: {
+            where: {
+              userId: user.id,
+            },
+          },
+        },
+      }
+    : // Otherwise skip the query, which sets `isLoading` to true
+      null,
+);
+```
+
 ## Pagination
 
 You can limit the number of items from a top level namespace by adding a `limit` to the option map:

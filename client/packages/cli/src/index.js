@@ -2,7 +2,7 @@
 
 import version from './version.js';
 import { mkdir, writeFile, readFile } from 'fs/promises';
-import { join } from 'path';
+import path, { join } from 'path';
 import { randomUUID } from 'crypto';
 import jsonDiff from 'json-diff';
 import dotenv from 'dotenv';
@@ -757,20 +757,21 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
     console.log('Schema is empty. Skipping.');
     return { ok: true };
   }
-  const prevSchema = await readLocalSchemaFile();
-  if (prevSchema) {
-    const ok = await promptOk(
+  const prev = await readLocalSchemaFile();
+  if (prev) {
+    const shouldContinue = await promptOk(
       'This will overwrite your local instant.schema file, OK to proceed?',
     );
 
-    if (!ok) return { ok: true };
+    if (!shouldContinue) return { ok: true };
   }
 
-  const schemaPath = join(pkgDir, 'instant.schema.ts');
+  const schemaPath = join(pkgDir, getSchemaPathToWrite(prev?.path));
+
   await writeTypescript(
     schemaPath,
     generateSchemaTypescriptFile(
-      prevSchema,
+      prev?.schema,
       pullRes.data.schema,
       instantModuleName,
     ),
@@ -792,16 +793,16 @@ async function pullPerms(appId, { pkgDir, instantModuleName }) {
   });
 
   if (!pullRes.ok) return;
-
-  if (await pathExists(join(pkgDir, 'instant.perms.ts'))) {
-    const ok = await promptOk(
+  const prev = await readLocalPermsFile();
+  if (prev) {
+    const shouldContinue = await promptOk(
       'This will overwrite your local instant.perms file, OK to proceed?',
     );
 
-    if (!ok) return;
+    if (!shouldContinue) return { ok: true };
   }
 
-  const permsPath = join(pkgDir, 'instant.perms.ts');
+  const permsPath = join(pkgDir, getPermsPathToWrite(prev?.path));
   await writeTypescript(
     permsPath,
     generatePermsTypescriptFile(pullRes.data.perms || {}, instantModuleName),
@@ -1010,10 +1011,22 @@ async function waitForIndexingJobsToFinish(appId, data) {
   }
 }
 
-async function pushSchema(appId, opts) {
-  const schema = await readLocalSchemaFileWithErrorLogging();
-  if (!schema) return { ok: false };
+function linkOptsPretty(attr) {
+  const fwdEtype = attrFwdEtype(attr);
+  const revEtype = attrRevEtype(attr);
+  if (attr['on-delete'] === 'cascade') {
+    return `:: onDelete ${revEtype} cascade ${fwdEtype}`;
+  } else if (attr['on-delete-reverse'] === 'cascade') {
+    return `:: onDelete ${fwdEtype} cascade ${revEtype}`;
+  } else {
+    return '';
+  }
+}
 
+async function pushSchema(appId, opts) {
+  const res = await readLocalSchemaFileWithErrorLogging();
+  if (!res) return { ok: false };
+  const { schema } = res;
   console.log('Planning schema...');
 
   const planRes = await fetchJson({
@@ -1060,7 +1073,7 @@ async function pushSchema(appId, opts) {
         }
 
         console.log(
-          `${isAdd ? chalk.green('ADD LINK') : chalk.blue('UPDATE LINK')} ${attrFwdName(attr)} <=> ${attrRevName(attr)}`,
+          `${isAdd ? chalk.green('ADD LINK') : chalk.blue('UPDATE LINK')} ${attrFwdName(attr)} <=> ${attrRevName(attr)} ${linkOptsPretty(attr)}`,
         );
         break;
       }
@@ -1128,8 +1141,8 @@ async function pushSchema(appId, opts) {
 }
 
 async function pushPerms(appId) {
-  const perms = await readLocalPermsFileWithErrorLogging();
-  if (!perms) {
+  const res = await readLocalPermsFileWithErrorLogging();
+  if (!res) {
     return;
   }
 
@@ -1145,7 +1158,7 @@ async function pushPerms(appId) {
 
   const diffedStr = jsonDiff.diffString(
     prodPerms.data.perms || {},
-    perms || {},
+    res.perms || {},
   );
   if (!diffedStr.length) {
     console.log('No perms changes detected. Exiting.');
@@ -1164,7 +1177,7 @@ async function pushPerms(appId) {
     debugName: 'Schema apply',
     errorMessage: 'Failed to update schema.',
     body: {
-      code: perms,
+      code: res.perms,
     },
   });
 
@@ -1333,53 +1346,116 @@ function transformImports(code) {
   );
 }
 
+function getEnvPermsPathWithLogging() {
+  const path = process.env.INSTANT_PERMS_FILE_PATH;
+  if (path) {
+    console.log(
+      `Using INSTANT_PERMS_FILE_PATH=${chalk.green(process.env.INSTANT_PERMS_FILE_PATH)}`,
+    );
+  }
+  return path;
+}
+
+function getPermsReadCandidates() {
+  const existing = getEnvPermsPathWithLogging();
+  if (existing) return [{ files: existing, transform: transformImports }];
+  return [
+    {
+      files: 'instant.perms',
+      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
+      transform: transformImports,
+    },
+    {
+      files: 'src/instant.perms',
+      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
+      transform: transformImports,
+    },
+    {
+      files: 'app/instant.perms',
+      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
+      transform: transformImports,
+    },
+  ];
+}
+
+function getPermsPathToWrite(existingPath) {
+  if (existingPath) return existingPath;
+  if (process.env.INSTANT_PERMS_FILE_PATH) {
+    return process.env.INSTANT_PERMS_FILE_PATH;
+  }
+  return 'instant.perms.ts';
+}
+
 async function readLocalPermsFile() {
-  const { config, sources } = await loadConfig({
-    sources: [
-      // load from `instant.perms.xx`
-      {
-        files: 'instant.perms',
-        extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs', 'json'],
-        transform: transformImports,
-      },
-    ],
-    // if false, the only the first matched will be loaded
-    // if true, all matched will be loaded and deep merged
+  const readCandidates = getPermsReadCandidates();
+  const res = await loadConfig({
+    sources: readCandidates,
     merge: false,
   });
-
-  return {
-    perms: config,
-    path: sources.at(0),
-  };
+  if (!res.config) return;
+  const relativePath = path.relative(process.cwd(), res.sources[0]);
+  return { path: relativePath, perms: res.config };
 }
 
 async function readLocalPermsFileWithErrorLogging() {
-  const { perms } = await readLocalPermsFile();
-  if (!perms) {
+  const res = await readLocalPermsFile();
+  if (!res) {
     error(
       `We couldn't find your ${chalk.yellow('`instant.perms.ts`')} file. Make sure it's in the root directory.`,
     );
   }
-  return perms;
+  return res;
+}
+
+function getEnvSchemaPathWithLogging() {
+  const path = process.env.INSTANT_SCHEMA_FILE_PATH;
+  if (path) {
+    console.log(
+      `Using INSTANT_SCHEMA_FILE_PATH=${chalk.green(process.env.INSTANT_SCHEMA_FILE_PATH)}`,
+    );
+  }
+  return path;
+}
+
+function getSchemaReadCandidates() {
+  const existing = getEnvSchemaPathWithLogging();
+  if (existing) return [{ files: existing, transform: transformImports }];
+  return [
+    {
+      files: 'instant.schema',
+      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
+      transform: transformImports,
+    },
+    {
+      files: 'src/instant.schema',
+      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
+      transform: transformImports,
+    },
+    {
+      files: 'app/instant.schema',
+      extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
+      transform: transformImports,
+    },
+  ];
+}
+
+function getSchemaPathToWrite(existingPath) {
+  if (existingPath) return existingPath;
+  if (process.env.INSTANT_SCHEMA_FILE_PATH) {
+    return process.env.INSTANT_SCHEMA_FILE_PATH;
+  }
+  return 'instant.schema.ts';
 }
 
 async function readLocalSchemaFile() {
-  return (
-    await loadConfig({
-      sources: [
-        // load from `instant.config.xx`
-        {
-          files: 'instant.schema',
-          extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'],
-          transform: transformImports,
-        },
-      ],
-      // if false, the only the first matched will be loaded
-      // if true, all matched will be loaded and deep merged
-      merge: false,
-    })
-  ).config;
+  const readCandidates = getSchemaReadCandidates();
+  const res = await loadConfig({
+    sources: readCandidates,
+    merge: false,
+  });
+  if (!res.config) return;
+  const relativePath = path.relative(process.cwd(), res.sources[0]);
+  return { path: relativePath, schema: res.config };
 }
 
 async function readInstantConfigFile() {
@@ -1400,16 +1476,27 @@ async function readInstantConfigFile() {
 }
 
 async function readLocalSchemaFileWithErrorLogging() {
-  const schema = await readLocalSchemaFile();
+  const res = await readLocalSchemaFile();
 
-  if (!schema) {
+  if (!res) {
     error(
       `We couldn't find your ${chalk.yellow('`instant.schema.ts`')} file. Make sure it's in the root directory.`,
     );
     return;
   }
 
-  return schema;
+  if (res.schema?.constructor?.name !== 'InstantSchemaDef') {
+    error("We couldn't find your schema export.");
+    error(
+      'In your ' +
+        chalk.green('`instant.schema.ts`') +
+        ' file, make sure you ' +
+        chalk.green('`export default schema`'),
+    );
+    return;
+  }
+
+  return res;
 }
 
 async function readConfigAuthToken() {
@@ -1602,8 +1689,9 @@ export default rules;
   `.trim();
 }
 
-function inferredType(config) {
-  const inferredList = config['inferred-types'];
+function inferredType(attr) {
+  if (attr.catalog === 'system') return null;
+  const inferredList = attr['inferred-types'];
   const hasJustOne = inferredList?.length === 1;
   if (!hasJustOne) return null;
   return inferredList[0];
@@ -1744,19 +1832,13 @@ function generateSchemaTypescriptFile(
 
   const entitiesObjCode = `{\n${entitiesEntriesCode}\n}`;
   const etypes = Object.keys(newSchema.blobs);
-  const hasOnlyUserTable = etypes.length === 1 && etypes[0] === '$users';
+
   const entitiesComment =
     inferredAttrs.length > 0
       ? `// We inferred ${inferredAttrs.length} ${easyPlural('attribute', inferredAttrs.length)}!
 // Take a look at this schema, and if everything looks good,
 // run \`push schema\` again to enforce the types.`
-      : hasOnlyUserTable
-        ? `
-// This section lets you define entities: think \`posts\`, \`comments\`, etc
-// Take a look at the docs to learn more:
-// https://www.instantdb.com/docs/modeling-data#2-attributes
-`.trim()
-        : '';
+      : '';
 
   // links
   const linksEntries = Object.fromEntries(
@@ -1782,27 +1864,9 @@ function generateSchemaTypescriptFile(
     }),
   );
   const linksEntriesCode = JSON.stringify(linksEntries, null, '  ').trim();
-  const hasNoLinks = Object.keys(linksEntries).length === 0;
-  const linksComment = hasNoLinks
-    ? `
-  // You can define links here.
-  // For example, if \`posts\` should have many \`comments\`.
-  // More in the docs:
-  // https://www.instantdb.com/docs/modeling-data#3-links
-  `.trim()
-    : '';
-
   // rooms
   const rooms = prevSchema?.rooms || {};
   const roomsCode = roomsCodeStr(rooms);
-  const roomsComment =
-    Object.keys(rooms).length === 0
-      ? `
-// If you use presence, you can define a room schema here
-// https://www.instantdb.com/docs/presence-and-topics#typesafety
-  `.trim()
-      : '';
-
   const kv = (k, v, comment) => {
     return comment
       ? `
@@ -1813,12 +1877,14 @@ function generateSchemaTypescriptFile(
   };
 
   return `
+// Docs: https://www.instantdb.com/docs/modeling-data
+
 import { i } from "${instantModuleName ?? '@instantdb/core'}";
 
 const _schema = i.schema({
   ${kv('entities', entitiesObjCode, entitiesComment)},
-  ${kv('links', linksEntriesCode, linksComment)},
-  ${kv('rooms', roomsCode, roomsComment)}
+  ${kv('links', linksEntriesCode)},
+  ${kv('rooms', roomsCode)}
 });
 
 // This helps Typescript display nicer intellisense

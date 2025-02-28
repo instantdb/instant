@@ -2,6 +2,7 @@
   (:require
    [clojure.string :as string]
    ;; load all pg-ops for hsql
+   [honey.sql :as hsql]
    [honey.sql.pg-ops]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
@@ -19,6 +20,8 @@
    (java.time Instant LocalDate LocalDateTime)
    (javax.sql DataSource)
    (org.postgresql.util PGobject PSQLException)))
+
+(set! *warn-on-reflection* true)
 
 (defn ->pg-text-array
   "Formats as text[] in pg, i.e. {item-1, item-2, item3}"
@@ -126,12 +129,19 @@
        (with-open [~conn-name (.getConnection ~conn-pool)]
          ~@body))))
 
-(defn- span-attrs [conn query tag]
+(defn- postgres-config-span-attrs [postgres-config]
+  (reduce (fn [acc {:keys [setting value]}]
+            (assoc acc (str "postgres-config." setting) value))
+          {}
+          postgres-config))
+
+(defn- span-attrs [conn query tag additional-opts]
   (let [pool-stats (if (instance? HikariDataSource conn)
                      (span-attrs-from-conn-pool conn)
                      *conn-pool-span-stats*)]
     (merge {:detailed-query (pr-str query)}
            pool-stats
+           (postgres-config-span-attrs (:postgres-config additional-opts))
            (when tag
              {:query-tag tag}))))
 
@@ -219,6 +229,34 @@
                       (format "-- trace-id=%s, span-id=%s\n%s" trace-id span-id s)))
     query))
 
+(defn apply-postgres-config [postgres-config created-connection? ^Connection c]
+  (when (seq postgres-config)
+    (cond (not created-connection?)
+          (tracer/record-exception-span!
+           (Exception. "Tried to provide postgres-config for a connection we didn't create")
+           {:name "sql/apply-postgres-config-error"
+            :attributes (postgres-config-span-attrs postgres-config)})
+
+          (.getAutoCommit c)
+          (tracer/record-exception-span!
+           (Exception. "Tried to provide postgres-config for a connection with auto-commit = on")
+           {:name "sql/apply-postgres-config-error"
+            :attributes (postgres-config-span-attrs postgres-config)})
+
+          :else
+          (try
+            (tracer/with-span! {:name "sql/apply-postgres-config"
+                                :attributes (postgres-config-span-attrs postgres-config)}
+              (next-jdbc/execute!
+               c
+               (hsql/format {:with [[[:t {:columns [:setting :value]}]
+                                     {:values (map (fn [{:keys [setting value]}]
+                                                     [setting value])
+                                                   postgres-config)}]]
+                             :select [[[:set_config :t.setting :t.value true]]]
+                             :from :t})))
+            (catch Exception _ nil)))))
+
 (defmacro defsql [name query-fn rw opts]
   (let [span-name (format "sql/%s" name)]
     `(defn ~name
@@ -228,12 +266,13 @@
         (~name nil ~'conn ~'query nil))
        ([~'tag ~'conn ~'query ~'additional-opts]
         (tracer/with-span! {:name ~span-name
-                            :attributes (span-attrs ~'conn ~'query ~'tag)}
+                            :attributes (span-attrs ~'conn ~'query ~'tag ~'additional-opts)}
           (try
             (io/tag-io
-              (let [create-connection?# (not (instance? Connection ~'conn))
+              (let [postgres-config# (:postgres-config ~'additional-opts)
+                    create-connection?# (not (instance? Connection ~'conn))
                     opts# (merge ~opts
-                                 ~'additional-opts
+                                 (dissoc ~'additional-opts :postgres-config)
                                  {:timeout *query-timeout-seconds*})
                     ^Connection c# (if create-connection?#
                                      (next-jdbc/get-connection ~'conn)
@@ -241,6 +280,7 @@
 
                     query# (annotate-query-with-debug-info ~'query)]
                 (try
+                  (apply-postgres-config postgres-config# create-connection?# c#)
                   (with-open [ps# (next-jdbc/prepare c# query# opts#)
                               _cleanup# (register-in-progress create-connection?# ~rw c# ps#)]
                     (~query-fn ps# nil opts#))

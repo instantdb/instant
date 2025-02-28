@@ -266,7 +266,7 @@ Our micro-blog example has the following relationship types:
 
 ### Cascade Delete
 
-Forward links defined with `has: "one"` can set `onDelete: "cascade"`. In this case, when the reverse entity is deleted, all forward entities will be deleted too:
+Links defined with `has: "one"` can set `onDelete: "cascade"`. In this case, when the profile entity is deleted, all post entities will be deleted too:
 
 ```typescript
 postAuthor: {
@@ -278,7 +278,16 @@ postAuthor: {
 db.tx.profiles[user_id].delete();
 ```
 
-Without `onDelete: "cascade"`, deleting a user would simply delete the links but not delete the underlying posts.
+Without `onDelete: "cascade"`, deleting a profile would simply delete the links but not delete the underlying posts.
+
+If you prefer to model links in other direction, you can do it, too:
+
+```
+postAuthor: {
+  forward: { on: "profiles", has: "many", label: "authoredPosts" },
+  reverse: { on: "posts", has: "one", label: "author", onDelete: "cascade" },
+}
+```
 
 ## Publishing your schema
 
@@ -337,7 +346,7 @@ const db = init({
 });
 ```
 
-When you do this, all [queries](/docs/instaql) and [transactions](/docs/instaql) will come with typesafety out of the box.
+When you do this, all [queries](/docs/instaql) and [transactions](/docs/instaml) will come with typesafety out of the box.
 
 {% callout %}
 

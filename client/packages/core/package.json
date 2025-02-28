@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/core",
-  "version": "v0.17.12",
+  "version": "v0.17.22",
   "description": "Instant's core local abstraction",
   "main": "dist/index.js",
   "module": "dist/module/index.js",
@@ -19,7 +19,7 @@
     "build:main": "tsc -p tsconfig.json",
     "build:module": "tsc -p tsconfig.module.json",
     "build:standalone": "vite build",
-    "publish-package": "npm publish --access public"
+    "publish-package": "pnpm publish --access public --no-git-checks"
   },
   "devDependencies": {
     "@babel/core": "^7.17.9",

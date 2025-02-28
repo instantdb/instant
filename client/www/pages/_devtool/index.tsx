@@ -1,11 +1,9 @@
-import { useRouter } from 'next/router';
 import { TokenContext } from '@/lib/contexts';
-import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { successToast } from '@/lib/toast';
 import { DashResponse, InstantApp } from '@/lib/types';
 import config from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
-import { APIResponse, useAuthToken, useTokenFetch } from '@/lib/auth';
+import { APIResponse, signOut, useAuthToken, useTokenFetch } from '@/lib/auth';
 import { Sandbox } from '@/components/dash/Sandbox';
 import { Explorer } from '@/components/dash/explorer/Explorer';
 import { init } from '@instantdb/react';
@@ -21,22 +19,133 @@ import {
   Content,
   twel,
   useDialog,
+  ScreenHeading,
+  FullscreenLoading,
 } from '@/components/ui';
 import Auth from '@/components/dash/Auth';
 import { isMinRole } from '@/pages/dash/index';
-import { TrashIcon } from '@heroicons/react/24/solid';
+import { TrashIcon, XMarkIcon } from '@heroicons/react/24/solid';
+import { CachedAPIResponse, useDashFetch } from '@/lib/hooks/useDashFetch';
+import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
 
 type InstantReactClient = ReturnType<typeof init>;
 
-export default function Devtool() {
-  const router = useRouter();
+const Devtool = asClientOnlyPage(DevtoolComp);
+
+export default Devtool;
+
+function DevtoolComp() {
+  const router = useReadyRouter();
   const authToken = useAuthToken();
-  const isHydrated = useIsHydrated();
-  const dashResponse = useTokenFetch<DashResponse>(
-    `${config.apiURI}/dash`,
-    authToken,
+  if (!authToken) {
+    return (
+      <DevtoolWindow>
+        <Auth
+          emailOnly
+          info={
+            <div className="bg-gray-100 p-4 border rounded">
+              <Help />
+            </div>
+          }
+        />
+      </DevtoolWindow>
+    );
+  }
+
+  const appId = router.query.appId as string | undefined;
+
+  if (!appId) {
+    return (
+      <DevtoolWindow>
+        <div className="h-full w-full flex justify-center items-center">
+          <div className="max-w-md mx-auto space-y-4">
+            <ScreenHeading>No app id provided</ScreenHeading>
+            <p>
+              We didn't receive an app ID. Double check that you passed an{' '}
+              <Code>appId</Code> paramater in your <Code>init</Code>. If you
+              continue experiencing issues, ping us on Discord.
+            </p>
+            <Button
+              className="w-full"
+              size="mini"
+              variant="secondary"
+              onClick={() => {
+                signOut();
+              }}
+            >
+              Sign out
+            </Button>
+          </div>
+        </div>
+      </DevtoolWindow>
+    );
+  }
+
+  return (
+    <TokenContext.Provider value={authToken}>
+      <DevtoolAuthorized appId={appId} />
+    </TokenContext.Provider>
   );
-  const appId = router.query.appId as string;
+}
+
+function DevtoolAuthorized({ appId }: { appId: string }) {
+  const dashResponse = useDashFetch();
+
+  if (dashResponse.isLoading) {
+    return <FullscreenLoading />;
+  }
+
+  if (dashResponse.error) {
+    const message = dashResponse.error.message;
+    return (
+      <DevtoolWindow>
+        <div className="h-full w-full flex justify-center items-center">
+          <div className="max-w-md mx-auto space-y-4">
+            <ScreenHeading>🤕 Failed to load your app</ScreenHeading>
+            {message ? (
+              <div className="mx-auto flex w-full max-w-2xl flex-col">
+                <div className="rounded bg-red-100 p-4 text-red-700">
+                  {message}
+                </div>
+              </div>
+            ) : null}
+            <p>
+              We had some trouble loading your app. Please ping us on{' '}
+              <a
+                className="font-bold text-blue-500"
+                href="https://discord.com/invite/VU53p7uQcE"
+                target="_blank"
+              >
+                discord
+              </a>{' '}
+              with details.
+            </p>
+            <Button
+              className="w-full"
+              size="mini"
+              variant="secondary"
+              onClick={() => {
+                signOut();
+              }}
+            >
+              Sign out
+            </Button>
+          </div>
+        </div>
+      </DevtoolWindow>
+    );
+  }
+
+  return <DevtoolWithData dashResponse={dashResponse} appId={appId} />;
+}
+
+function DevtoolWithData({
+  dashResponse,
+  appId,
+}: {
+  dashResponse: CachedAPIResponse<DashResponse>;
+  appId: string;
+}) {
   const app = dashResponse.data?.apps?.find((a) => a.id === appId);
   const [tab, setTab] = useState('explorer');
   const [connection, setConnection] = useState<
@@ -45,19 +154,13 @@ export default function Devtool() {
       }
     | {
         state: 'error';
+        errorMessage: string | undefined;
       }
     | {
         state: 'ready';
         db: InstantReactClient;
       }
   >({ state: 'pending' });
-
-  const isStorageEnabled = useMemo(() => {
-    const storageEnabledAppIds =
-      dashResponse.data?.flags?.storage_enabled_apps ?? [];
-
-    return storageEnabledAppIds.includes(appId);
-  }, [appId, dashResponse.data?.flags?.storage_enabled_apps]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -78,8 +181,10 @@ export default function Devtool() {
     return () => removeEventListener('keydown', onKeyDown);
   }, []);
 
+  const adminToken = app?.admin_token;
+
   useEffect(() => {
-    if (!app) return;
+    if (!appId || !adminToken) return;
     if (typeof window === 'undefined') return;
 
     try {
@@ -88,7 +193,7 @@ export default function Devtool() {
         apiURI: config.apiURI,
         websocketURI: config.websocketURI,
         // @ts-expect-error
-        __adminToken: app?.admin_token,
+        __adminToken: adminToken,
         devtool: false,
       });
 
@@ -98,71 +203,97 @@ export default function Devtool() {
         db._core.shutdown();
       };
     } catch (error) {
-      setConnection({ state: 'error' });
+      const message = (error as Error).message;
+      setConnection({ state: 'error', errorMessage: message });
     }
-  }, [router.isReady, app]);
+  }, [appId, adminToken]);
 
-  if (!isHydrated) {
-    return null;
-  }
-
-  if (!authToken) {
-    return (
-      <>
-        <Auth
-          emailOnly
-          info={
-            <div className="bg-gray-100 p-4 border rounded">
-              <Help />
-            </div>
-          }
-        />
-      </>
-    );
-  }
-
-  if (dashResponse.isLoading) {
-    return (
-      <div className="h-full w-full flex justify-center items-center">
-        Loading...
-      </div>
-    );
-  }
-
-  if (dashResponse.error) {
-    return (
-      <div className="h-full w-full flex flex-col justify-center items-center gap-2">
-        <div>Error loading app</div>
-        {!isEmptyObj(dashResponse.error) ? (
-          <pre className="p-1 bg-gray-100 max-w-sm w-full overflow-x-auto">
-            {JSON.stringify(dashResponse.error, null, '\t')}{' '}
-          </pre>
-        ) : null}
-      </div>
-    );
-  }
-
-  if (!appId) {
-    return (
-      <div className="h-full w-full flex justify-center items-center">
-        No app ID provided. Are you passing an app ID into <Code>init</Code>?
-      </div>
-    );
+  if (!app && dashResponse.fromCache) {
+    // We couldn't find this app. Perhaps the cache is stale. Let's
+    // wait for fresh data.
+    return <FullscreenLoading />;
   }
 
   if (!app) {
+    const user = dashResponse.data?.user;
     return (
-      <div className="h-full w-full flex justify-center items-center">
-        Cound not find app. Are you logged in to the correct account?
-      </div>
+      <DevtoolWindow>
+        <div className="h-full w-full flex justify-center items-center">
+          <div className="max-w-md mx-auto space-y-4">
+            <ScreenHeading>🔎 We couldn't find your app</ScreenHeading>
+            <p>
+              {user ? (
+                <>
+                  You're logged in as <strong>{user.email}</strong>.{' '}
+                </>
+              ) : null}
+              We tried to access your app but couldn't.
+            </p>
+            <div className="bg-gray-50 p-2">
+              <AppIdLabel appId={appId} />
+            </div>
+            <p>
+              Are you sure you have access? Contact the app owner, or sign out
+              and log into a different account:
+            </p>
+            <Button
+              className="w-full"
+              size="mini"
+              variant="secondary"
+              onClick={() => {
+                signOut();
+              }}
+            >
+              Sign out
+            </Button>
+          </div>
+        </div>
+      </DevtoolWindow>
     );
   }
 
   if (connection.state === 'error') {
+    const message = connection.errorMessage;
     return (
-      <div className="h-full w-full flex justify-center items-center">
-        Failed to connect to Instant backend.
-      </div>
+      <DevtoolWindow>
+        <div className="h-full w-full flex justify-center items-center">
+          <div className="max-w-md mx-auto space-y-4">
+            <ScreenHeading>
+              🤕 Failed connect to Instant's backend
+            </ScreenHeading>
+            {message ? (
+              <div className="mx-auto flex w-full max-w-2xl flex-col">
+                <div className="rounded bg-red-100 p-4 text-red-700">
+                  {message}
+                </div>
+              </div>
+            ) : null}
+            <AppIdLabel appId={appId} />
+            <p>
+              We had some trouble connecting to Instant's backend. Please ping
+              us on{' '}
+              <a
+                className="font-bold text-blue-500"
+                href="https://discord.com/invite/VU53p7uQcE"
+                target="_blank"
+              >
+                discord
+              </a>{' '}
+              with details.
+            </p>
+            <Button
+              className="w-full"
+              size="mini"
+              variant="secondary"
+              onClick={() => {
+                signOut();
+              }}
+            >
+              Sign out
+            </Button>
+          </div>
+        </div>
+      </DevtoolWindow>
     );
   }
 
@@ -175,76 +306,123 @@ export default function Devtool() {
   }
 
   return (
+    <DevtoolWindow app={app}>
+      <div className="flex flex-col h-full w-full">
+        <div className="bg-gray-50 border-b">
+          <AppIdLabel appId={app.id} />
+        </div>
+        <TabBar
+          className="text-sm"
+          selectedId={tab}
+          tabs={[
+            {
+              id: 'explorer',
+              label: 'Explorer',
+            },
+            {
+              id: 'sandbox',
+              label: 'Sandbox',
+            },
+            {
+              id: 'admin',
+              label: 'Admin',
+            },
+            {
+              id: 'help',
+              label: 'Help',
+            },
+          ]}
+          onSelect={(t) => {
+            setTab(t.id);
+          }}
+        />
+        <div className="flex w-full flex-1 overflow-auto">
+          {tab === 'explorer' ? (
+            <Explorer db={connection.db} appId={appId} />
+          ) : tab === 'sandbox' ? (
+            <div className="min-w-[960px] w-full">
+              <Sandbox app={app} />
+            </div>
+          ) : tab === 'admin' ? (
+            <div className="min-w-[960px] w-full p-4">
+              <Admin dashResponse={dashResponse} app={app} />
+            </div>
+          ) : tab === 'help' ? (
+            <div className="min-w-[960px] w-full p-4 space-y-4">
+              <Help />
+              <Button
+                size="mini"
+                variant="secondary"
+                onClick={() => {
+                  signOut();
+                }}
+              >
+                Sign out
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </DevtoolWindow>
+  );
+}
+
+function DevtoolWindow({
+  app,
+  children,
+}: {
+  app?: InstantApp;
+  children: React.ReactNode;
+}) {
+  const isLocalHost =
+    typeof window !== 'undefined' &&
+    window.location.hostname === 'localhost' &&
+    false;
+
+  return (
     <div className="h-full w-full">
-      <TokenContext.Provider value={authToken}>
-        <div className="flex flex-col h-full w-full">
-          <div className="px-3 py-1 text-xs font-mono bg-gray-100 border-b">
+      <div className="flex flex-col h-full w-full">
+        <div className="flex p-2 text-xs bg-gray-100 border-b">
+          <div className="flex-1 font-mono">
             Instant Devtools {app?.title ? `• ${app?.title}` : ''}
+            {isLocalHost ? ' • localhost' : ''}
           </div>
-          <div className="flex gap-2 px-3 py-1 text-xs font-mono bg-gray-50 border-b">
-            <span>App ID</span>
-            <code
-              className="bg-white rounded border px-2"
-              onClick={(e) => {
-                const node = e.currentTarget;
-                const selection = window.getSelection();
-                const range = document.createRange();
-                range.selectNodeContents(node);
-                selection?.removeAllRanges();
-                selection?.addRange(range);
-              }}
-            >
-              {app.id ?? <>&nbsp;</>}
-            </code>
-          </div>
-          <TabBar
-            className="text-sm"
-            selectedId={tab}
-            tabs={[
-              {
-                id: 'explorer',
-                label: 'Explorer',
-              },
-              {
-                id: 'sandbox',
-                label: 'Sandbox',
-              },
-              {
-                id: 'admin',
-                label: 'Admin',
-              },
-              {
-                id: 'help',
-                label: 'Help',
-              },
-            ]}
-            onSelect={(t) => {
-              setTab(t.id);
+          <XMarkIcon
+            className="cursor-pointer"
+            height="1rem"
+            onClick={() => {
+              parent.postMessage(
+                {
+                  type: 'close',
+                },
+                '*',
+              );
             }}
           />
-          <div className="flex w-full flex-1 overflow-auto">
-            {tab === 'explorer' ? (
-              <Explorer
-                db={connection.db}
-                appId={appId}
-                isStorageEnabled={isStorageEnabled}
-              />
-            ) : tab === 'sandbox' ? (
-              <div className="min-w-[960px] w-full">
-                <Sandbox app={app} />
-              </div>
-            ) : tab === 'admin' ? (
-              <div className="min-w-[960px] w-full p-4">
-                <Admin dashResponse={dashResponse} app={app} />
-              </div>
-            ) : tab === 'help' ? (
-              <div className="min-w-[960px] w-full p-4">
-                <Help />
-              </div>
-            ) : null}
-          </div>
         </div>
-      </TokenContext.Provider>
+        <div className="flex-1">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function AppIdLabel({ appId }: { appId: string }) {
+  return (
+    <div className="flex gap-2 px-2 py-1 text-xs font-mono">
+      <span>App ID</span>
+      <code
+        className="bg-white rounded border px-2"
+        onClick={(e) => {
+          const node = e.currentTarget;
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+        }}
+      >
+        {appId}
+      </code>
     </div>
   );
 }
@@ -348,24 +526,14 @@ function Help() {
       </p>
       <p>
         You can toggle this view with the keyboard shortcut
-        <Code>ctrl + shift + 0</Code>.
-      </p>
-      <p>
-        It's is only displayed in development (i.e. when the site's hostname
-        equals
-        <Code>localhost</Code>). You can disable it entirely by calling
-        Instant's
-        <Code>init</Code> function with <Code>devtool: false</Code>.
-      </p>
-      <p>
-        Feedback? Drop us a line on{' '}
+        <Code>ctrl + shift + 0</Code>. To learn more, check out the{' '}
         <a
           className="font-bold text-blue-500"
-          href="https://discord.com/invite/VU53p7uQcE"
+          href="https://instantdb.com/docs/devtool"
+          target="_blank"
         >
-          Discord
+          docs.
         </a>
-        .
       </p>
     </Stack>
   );

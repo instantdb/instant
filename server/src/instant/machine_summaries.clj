@@ -2,7 +2,9 @@
   (:require
    [instant.util.hazelcast :as hz]
    [instant.reactive.ephemeral :as eph]
-   [instant.reactive.store :as rs]))
+   [instant.reactive.store :as rs])
+  (:import
+   (com.hazelcast.core HazelcastInstance IExecutorService)))
 
 (defn app-sessions->report [app-sessions]
   (let [[{:keys [app-id app-title creator-email]}] app-sessions
@@ -14,8 +16,8 @@
      :count cnt
      :origins origins}))
 
-(defn store->session-report [db]
-  (->> (rs/report-active-sessions db)
+(defn store->session-report [store]
+  (->> (rs/report-active-sessions store)
        (filter :app-id)
        (group-by :app-id)
        (map (fn [[app-id app-sessions]]
@@ -24,11 +26,11 @@
 
 (defn session-report-task
   []
-  (store->session-report @rs/store-conn))
+  (store->session-report rs/store))
 
 (defn get-all-session-reports [hz]
-  (let [executor (.getExecutorService hz "session-report-executor")
-        futures  (.submitToAllMembers executor (hz/->Task #'session-report-task))]
+  (let [executor (HazelcastInstance/.getExecutorService hz "session-report-executor")
+        futures  (IExecutorService/.submitToAllMembers executor (hz/->Task #'session-report-task))]
     (into {} (for [[member fut] futures]
                [(str member) @fut]))))
 
@@ -37,11 +39,11 @@
 
 (defn num-sessions-task
   []
-  (rs/num-sessions @rs/store-conn))
+  (rs/num-sessions rs/store))
 
 (defn get-all-num-sessions [hz]
-  (let [executor (.getExecutorService hz "session-nums-executor")
-        futures  (.submitToAllMembers executor (hz/->Task #'num-sessions-task))]
+  (let [executor (HazelcastInstance/.getExecutorService hz "session-nums-executor")
+        futures  (IExecutorService/.submitToAllMembers executor (hz/->Task #'num-sessions-task))]
     (into {} (for [[member fut] futures]
                [(str member) @fut]))))
 

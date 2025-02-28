@@ -52,7 +52,6 @@
             [instant.lib.ring.websocket :as ws]
             [instant.jdbc.aurora :as aurora]
             [instant.stripe :as stripe]
-            [instant.storage.beta :as storage-beta]
             [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
             [instant.model.schema :as schema-model]
             [instant.intern.metrics :as metrics]
@@ -242,7 +241,7 @@
 
 (defn verify-magic-code-post [req]
   (let [email (ex/get-param! req [:body :email] email/coerce)
-        code (ex/get-param! req [:body :code] string/trim)
+        code (ex/get-param! req [:body :code] string-util/safe-trim)
         {user-id :user_id} (instant-user-magic-code-model/consume!
                             {:code code :email email})
         {refresh-token-id :id} (instant-user-refresh-token-model/create!
@@ -290,19 +289,19 @@
 
 (defn admin-overview-daily-get [req]
   (let [{:keys [email]} (req->auth-user! req)
-          _ (assert-admin-email! email)
-          conn (aurora/conn-pool :read)
-          overview (metrics/overview-metrics conn)
-          rev-subs (dash-admin/get-revenue-generating-subscriptions)
-          overview-with-b64-charts
-          (update overview :charts (partial medley/map-vals
-                                            (fn [chart] (metrics/chart->base64-png chart
-                                                                                   500 400))))
-          subscription-info {:num-subs (count rev-subs)
-                             :total-monthly-revenue (reduce + (map :monthly-revenue rev-subs))}]
+        _ (assert-admin-email! email)
+        conn (aurora/conn-pool :read)
+        overview (metrics/overview-metrics conn)
+        rev-subs (dash-admin/get-revenue-generating-subscriptions)
+        overview-with-b64-charts
+        (update overview :charts (partial medley/map-vals
+                                          (fn [chart] (metrics/chart->base64-png chart
+                                                                                 500 400))))
+        subscription-info {:num-subs (count rev-subs)
+                           :total-monthly-revenue (reduce + (map :monthly-revenue rev-subs))}]
 
-      (response/ok (assoc overview-with-b64-charts
-                          :subscription-info subscription-info))))
+    (response/ok (assoc overview-with-b64-charts
+                        :subscription-info subscription-info))))
 
 (defn admin-overview-minute-get [req]
   (let [{:keys [email]} (req->auth-user! req)
@@ -329,16 +328,11 @@
   (let [{:keys [id email]} (req->auth-user! req)
         apps (app-model/get-all-for-user {:user-id id})
         profile (instant-profile-model/get-by-user-id {:user-id id})
-        invites (instant-app-member-invites-model/get-pending-for-invitee {:email email})
-        whitelist (storage-beta/whitelist)
-        storage-enabled-app-ids (->> apps
-                                     (map :id)
-                                     (filter #(contains? whitelist (str %))))]
+        invites (instant-app-member-invites-model/get-pending-for-invitee {:email email})]
     (response/ok {:apps apps
                   :profile profile
                   :invites invites
-                  :user {:id id :email email}
-                  :flags {:storage_enabled_apps storage-enabled-app-ids}})))
+                  :user {:id id :email email}})))
 
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
@@ -355,7 +349,7 @@
     (response/ok {:profile profile})))
 
 (defn apps-post [req]
-  (let [title (ex/get-param! req [:body :title] string/trim)
+  (let [title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
         id (ex/get-param! req [:body :id] uuid-util/coerce)
         token (ex/get-param! req [:body :admin_token] uuid-util/coerce)
         {creator-id :id} (req->auth-user! req)

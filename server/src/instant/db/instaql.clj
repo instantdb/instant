@@ -5,7 +5,6 @@
    [clojure.string :as string]
    [clojure.walk :as walk]
    [honey.sql :as hsql]
-   [instant.flags :as flags]
    [instant.data.constants :refer [zeneca-app-id]]
    [instant.data.resolvers :as resolvers]
    [instant.db.cel :as cel]
@@ -141,6 +140,30 @@
           []
           conds))
 
+(def sentinel (Object.))
+
+(defn- combine-or-where-conds
+  "Converts {:or [{:a 1} {:a 2}] -> {:or [{:a {:in [1 2]}}]}"
+  [conds]
+  (let [{:keys [uncombined optimized]}
+        (reduce (fn [acc c]
+                  (if-not (and (= (count c) 1)
+                               (where-value-valid? (second (first c)))
+                               (not (string/starts-with? (name (ffirst c)) "$")))
+                    (update acc :uncombined conj c)
+                    (let [[k v] (first c)
+                          existing (get-in acc [:optimized k] sentinel)]
+                      (if (= existing sentinel)
+                        (assoc-in acc [:optimized k] {:in [v]})
+                        (update-in acc [:optimized k :in] conj v)))))
+
+                {:uncombined []
+                 :optimized {}}
+                conds)]
+    (into uncombined (map (fn [[k v]]
+                            {k v})
+                          optimized))))
+
 (defn grow-paths
   "Given a path, creates a list of paths leading up to that path,
    including the path itself.
@@ -154,10 +177,11 @@
   "Splits keys into segments."
   [state [k v :as c]]
   (cond (or-where-cond? c)
-        {:or (let [conds (map (fn [conds]
-                                (map (partial coerce-where-cond state)
-                                     (collapse-or-where-conds conds)))
-                              v)]
+        {:or (let [conds (->> v
+                              combine-or-where-conds
+                              (map (fn [conds]
+                                     (map (partial coerce-where-cond state)
+                                          (collapse-or-where-conds conds)))))]
                (if (seq conds)
                  conds
                  (ex/throw-validation-err!
@@ -493,10 +517,10 @@
 
 (defn- level-sym-gen
   "Generates a level-sym function that will namespace all but the join variable."
-  [base-level-sym etype idx]
+  [base-level-sym join-sym idx]
   (fn level-sym [x level]
     (let [base (base-level-sym x level)]
-      (if (= x etype)
+      (if (= join-sym base)
         base
         (symbol (str base "-" idx))))))
 
@@ -650,7 +674,10 @@
           (update ret :pats optimize-attr-pats)))
       :or (-> (reduce
                (fn [acc [i conds]]
-                 (let [level-sym (level-sym-gen level-sym (:etype form) i)]
+                 (let [join-sym (level-sym
+                                 (:etype form)
+                                 (:level form))
+                       level-sym (level-sym-gen level-sym join-sym i)]
                    (as-> (where-conds->patterns (assoc ctx :level-sym level-sym)
                                                 form
                                                 conds) %
@@ -667,7 +694,10 @@
 
       :and (-> (reduce
                 (fn [acc [i conds]]
-                  (let [level-sym (level-sym-gen level-sym (:etype form) i)]
+                  (let [join-sym (level-sym
+                                  (:etype form)
+                                  (:level form))
+                        level-sym (level-sym-gen level-sym join-sym i)]
                     (as-> (where-conds->patterns (assoc ctx :level-sym level-sym)
                                                  form
                                                  conds) %
@@ -797,13 +827,13 @@
                                 (format "The `%s` attribute is still in the process of indexing. It must finish before ordering by the attribute."
                                         (attr-model/fwd-friendly-name order-attr)))
                               (when (not (:index? order-attr))
-                                (format "The `%s` attribute is not indexed. Only indexed and type-checked attrs can be used to order by."
+                                (format "The `%s` attribute is not indexed. Only indexed and typed attributes can be used to order by."
                                         (attr-model/fwd-friendly-name order-attr)))
                               (when (not (:checked-data-type order-attr))
-                                (format "The `%s` attribute is not type-checked. Only type-checked and indexed attrs can be used to order by."
+                                (format "The `%s` attribute is not typed. Only typed and indexed attributes can be used to order by."
                                         (attr-model/fwd-friendly-name order-attr)))
                               (when (not= :one (:cardinality order-attr))
-                                (format "The `%s` attribute has cardinality `%s`. Only attrs with cardinality `one` can be used to order by."
+                                (format "The `%s` attribute has cardinality `%s`. Only attributes with cardinality `one` can be used to order by."
                                         (attr-model/fwd-friendly-name order-attr)
                                         (name (:cardinality order-attr))))])]
             (when (seq errors)
@@ -886,15 +916,16 @@
 
 (defn compute-$files-triples [{:keys [app-id]} join-rows]
   (when-let [[eid _ _ t] (ffirst join-rows)]
-    (when-let [path-value (some-> (find-row-by-ident-name join-rows $system-attrs "$files" "path")
-                                  first
-                                  (nth 2))]
-      (let [url-aid (attr-model/resolve-attr-id $system-attrs "$files" "url")
-            {:keys [disableLegacy?]} (flags/storage-migration)
-            url (if disableLegacy?
-                  (instant-s3/create-signed-download-url! app-id path-value)
-                  (instant-s3/create-legacy-signed-download-url! app-id path-value))]
-        [[[eid url-aid url t]]]))))
+    (let [location-id (some-> (find-row-by-ident-name
+                               join-rows
+                               $system-attrs
+                               "$files"
+                               "location-id")
+                              first
+                              (nth 2))
+          url-aid (attr-model/resolve-attr-id $system-attrs "$files" "url")
+          url (instant-s3/create-signed-download-url! app-id location-id)]
+      [[[eid url-aid url t]]])))
 
 (def compute-triples-handler
   {"$files" compute-$files-triples})
@@ -965,12 +996,12 @@
               (let [attr (attr-model/seek-by-fwd-ident-name
                           [etype attr-name]
                           attrs)]
-                (if (= :blob (:value-type attr))
+                (if (= :one (:cardinality attr))
                   (conj acc (:id attr))
                   acc)))
             #{}
             selected-attrs)
-    (attr-model/blob-ids-for-etype etype attrs)))
+    (attr-model/ea-ids-for-etype etype attrs)))
 
 (defn- query-one
   "Generates nested datalog query that combines all datalog queries into a
@@ -989,12 +1020,13 @@
         sym-placeholder (or (get-in ctx [:sym-placeholders sym])
                             (random-uuid))
         ctx (assoc-in ctx [:sym-placeholders sym] sym-placeholder)
-        child-forms (form->child-forms ctx form sym-placeholder)
         aggregate (get-in form [:option-map :aggregate])
-        attr-ids (etype-attr-ids ctx etype (:attributes (:option-map form)))
+        ;; XXX: We may need to fetch these for permission checks
+        etype-attr-ids (attr-model/ea-ids-for-etype etype (:attrs ctx))
         child-patterns (collect-query-one
                         (mapv (partial query-one ctx)
-                              child-forms))]
+                              (form->child-forms ctx form sym-placeholder)))
+        child-forms (:forms child-patterns)]
     (when (and aggregate (not (:admin? ctx)))
       (ex/throw-validation-err!
        :query
@@ -1733,7 +1765,7 @@
                   query-cache
                   etype
                   eid]
-  (let [datalog-query [[:ea eid (attr-model/attr-ids-for-etype etype attrs)]]
+  (let [datalog-query [[:ea eid (attr-model/ea-ids-for-etype etype attrs)]]
         datalog-result
         (or (get query-cache datalog-query)
             (datalog-query-fn ctx datalog-query))]

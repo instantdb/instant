@@ -948,7 +948,7 @@ export default class Reactor {
 
   shutdown() {
     this._isShutdown = true;
-    this._ws.close();
+    this._ws?.close();
   }
 
   /**
@@ -1072,7 +1072,7 @@ export default class Reactor {
         // skip all permission checks. This is an advanced feature,
         // to let users write internal tools
         // This option is not exposed in `Config`, as it's
-        // not ready for prme time
+        // not ready for prime time
         '__admin-token': this.config.__adminToken,
       });
     });
@@ -1352,6 +1352,14 @@ export default class Reactor {
       unsubbed = true;
       this.authCbs = this.authCbs.filter((x) => x !== cb);
     };
+  }
+
+  async getAuth() {
+    const { user, error } = await this.getCurrentUser();
+    if (error) {
+      throw error;
+    }
+    return user;
   }
 
   subscribeConnectionStatus(cb) {

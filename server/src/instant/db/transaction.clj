@@ -3,7 +3,6 @@
    [clojure.spec.alpha :as s]
    [clojure.spec.gen.alpha :as gen]
    [clojure.string :as string]
-   [clojure+.walk :as walk]
    [honey.sql :as hsql]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as transaction-model]
@@ -55,11 +54,6 @@
 ;; ----
 ;; coerce
 
-(defn- walk-uuids
-  "Converts string instances of UUIDs to java UUIDs"
-  [m]
-  (walk/postwalk #(or (uuid/parse-uuid %) %) m))
-
 (defn- assert-coll! [{:keys [in root]} x]
   (when-not (coll? x)
     (ex/throw-validation-err!
@@ -91,7 +85,7 @@
                           (coll/update-in-when [:value-type] keyword)
                           (coll/update-in-when [:cardinality] keyword))]
               tx-step)))
-         walk-uuids)))
+         uuid/walk-uuids)))
 
 (defn validate! [tx-steps]
   (let [valid? (s/valid? ::tx-steps tx-steps)]
@@ -136,18 +130,8 @@
      [op t]
      [{:message (format "update or merge is not allowed on $files in transact.")}])))
 
-(defn prevent-$files-deletes! [op tx-steps]
-  (doseq [t tx-steps
-          :let [[_op _eid etype] t]
-          :when (= etype "$files")]
-    (ex/throw-validation-err!
-     :tx-step
-     [op t]
-     [{:message (format "delete is not allowed on $files in transact.")}])))
-
 (defn prevent-$files-updates
-  "With the exception of linking/unlinking, we prevent most updates unless it's
-  gone through an explicitly allowed code path"
+  "Files support delete, link/unlink, but not update or merge"
   [attrs grouped-tx-steps opts]
   (when (not (:allow-$files-update? opts))
     (doseq [batch grouped-tx-steps
@@ -155,9 +139,6 @@
       (case op
         (:add-triple :deep-merge-triple :retract-triple)
         (prevent-$files-add-retract! op attrs tx-steps)
-
-        :delete-entity
-        (prevent-$files-deletes! op tx-steps)
 
         nil))))
 
@@ -243,32 +224,79 @@
                                   (and (uuid? id) (some? etype)))))]
     (if (empty? ids+etypes)
       tx-steps
-      (let [attrs+etypes (->> attrs
-                              (filter #(= :ref (:value-type %)))
-                              (filter #(= :cascade (:on-delete %)))
-                              (mapv #(vector (:id %) (-> % :forward-identity second) (-> % :reverse-identity second))))
+      (let [attrs+etypes
+            (->> attrs
+                 (filter #(= :ref (:value-type %)))
+                 (filter #(= :cascade (:on-delete %)))
+                 (mapv #(vector (:id %) (-> % :forward-identity second) (-> % :reverse-identity second))))
+
+            reverse-attrs+etypes
+            (->> attrs
+                 (filter #(= :ref (:value-type %)))
+                 (filter #(= :cascade (:on-delete-reverse %)))
+                 (mapv #(vector (:id %) (-> % :forward-identity second) (-> % :reverse-identity second))))
+
             query+args
             (hsql/format
-             {:with-recursive [[[:entids {:columns [:entity_id :etype]}]
-                                {:union [{:values ids+etypes}
-                                         {:from   :entids
-                                          :join   [:refs [:and
-                                                          ;; TODO entity_id/value_ref join instead
-                                                          [:= [:to_jsonb :entids.entity_id] :refs.value]
-                                                          [:= :entids.etype :refs.reverse_etype]]]
-                                          :select [:refs.entity_id :refs.forward_etype]}]}]
-                               [[:cascade {:columns [:id :forward_etype :reverse_etype]}]
-                                {:values attrs+etypes}]
-                               [:refs {:select [:triples.entity_id :triples.value :cascade.forward_etype :cascade.reverse_etype]
-                                       :from   :triples
-                                       :join   [:cascade [:= :triples.attr_id :cascade.id]]
-                                       :where  [:and
-                                                :triples.vae
-                                                [:= :triples.app_id app-id]]}]]
+             {:with-recursive
+              [;; endids
+               [[:entids {:columns [:entity_id :etype]}]
+                {:union [{:values ids+etypes}
+                         ;; can’t reference entids twice, but can bind it to entids_inner and then it’s okay
+                         {:select :*
+                          :from [[{:with
+                                 [[[:entids_inner]
+                                   {:select :* :from :entids}]]
+                                 :union
+                                 [;; follow forward refs → entid
+                                  {:from   :entids_inner
+                                   :join   [:refs_forward [:and
+                                                           ;; TODO entity_id/value_ref join instead
+                                                           [:= [:to_jsonb :entids_inner.entity_id] :refs_forward.value]
+                                                           [:= :entids_inner.etype :refs_forward.reverse_etype]]]
+                                   :select [:refs_forward.entity_id :refs_forward.forward_etype]}
+                                  ;; follow entid → reverse refs
+                                  {:from   :entids_inner
+                                   :join   [:refs_reverse [:and
+                                                           [:= :entids_inner.entity_id :refs_reverse.entity_id]
+                                                           [:= :entids_inner.etype :refs_reverse.forward_etype]]]
+                                   ;; TODO value -> value_ref
+                                   :select [[[:cast [:->> :refs_reverse.value :0] :uuid]] :refs_reverse.reverse_etype]}]}
+                                  ;; :alias required for postgres 13
+                                  :alias]]}]}]
+
+               ;; attrs_forward
+               [[:attrs_forward {:columns [:id :forward_etype :reverse_etype]}]
+                (if (empty? attrs+etypes)
+                  {:select [[[:cast nil :uuid]] nil nil] :where false}
+                  {:values attrs+etypes})]
+
+               ;; refs_forward
+               [:refs_forward {:select [:triples.entity_id :triples.value :attrs_forward.forward_etype :attrs_forward.reverse_etype]
+                               :from   :triples
+                               :join   [:attrs_forward [:= :triples.attr_id :attrs_forward.id]]
+                               :where  [:and
+                                        :triples.vae
+                                        [:= :triples.app_id app-id]]}]
+
+               ;; attrs_reverse
+               [[:attrs_reverse {:columns [:id :forward_etype :reverse_etype]}]
+                (if (empty? reverse-attrs+etypes)
+                  {:select [[[:cast nil :uuid]] nil nil] :where false}
+                  {:values reverse-attrs+etypes})]
+
+               ;; refs_reverse
+               [:refs_reverse {:select [:triples.entity_id :triples.value :attrs_reverse.forward_etype :attrs_reverse.reverse_etype]
+                               :from   :triples
+                               :join   [:attrs_reverse [:= :triples.attr_id :attrs_reverse.id]]
+                               :where  [:and
+                                        :triples.vae
+                                        [:= :triples.app_id app-id]]}]]
+              ;; final select
               :from   :entids
               :select :*})
-            res          (sql/execute! conn query+args)
-            ids+etypes'  (map (juxt :entity_id :etype) res)]
+            res         (sql/execute! conn query+args)
+            ids+etypes' (map (juxt :entity_id :etype) res)]
         (for [[entity_id etype] (set (concat ids+etypes ids+etypes'))]
           [:delete-entity entity_id etype])))))
 
