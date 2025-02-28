@@ -693,7 +693,7 @@
 
 (defn seek-by-id
   [id ^Attrs attrs]
-  (seekById attrs id))
+  (.seekById attrs id))
 
 (defn seek-by-fwd-ident-name [n ^Attrs attrs]
   (.seekByFwdIdentName attrs n))
