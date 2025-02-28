@@ -216,6 +216,29 @@
          (.url)
          (.toExternalForm)))))
 
+(comment
+  (def bucket-name "instantdb-test-bucket")
+  (def key "538611d1-0aec-4918-b28a-1b23da6535da/9/0fa759fd-b67b-4895-be98-f6680323fd88")
+  (def url-1
+    (generate-presigned-url-get {:method :get
+                                 :bucket-name bucket-name
+                                 :key key
+                                 :duration (Duration/ofMinutes 5)}))
+
+  (tool/copy url-1)
+
+  (def url-2
+    (instant.util.s3-plus/generate-presigned-url-with-custom-time
+     {:key key
+      :region "us-east-1"
+      :bucket bucket-name
+      :method :get
+      :duration (Duration/ofMinutes 5)
+      :access-key (config/s3-storage-access-key)
+      :secret-key (config/s3-storage-secret-key)}))
+
+  (tool/copy url-2))
+
 (defn generate-presigned-url-put
   ([{:keys [method bucket-name key ^Duration duration]}]
    (assert (= :put method)
