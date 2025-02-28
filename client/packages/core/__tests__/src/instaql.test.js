@@ -1190,3 +1190,71 @@ test('comparators', () => {
     true,
   ]);
 });
+
+test('fields', () => {
+  expect(
+    query({ store }, { users: { $: { fields: ['handle'] } } }).data,
+  ).toEqual({
+    users: [
+      { handle: 'joe', id: 'ce942051-2d74-404a-9c7d-4aa3f2d54ae4' },
+      { handle: 'alex', id: 'ad45e100-777a-4de8-8978-aa13200a4824' },
+      { handle: 'stopa', id: 'a55a5231-5c4d-4033-b859-7790c45c22d5' },
+      { handle: 'nicolegf', id: '0f3d67fc-8b37-4b03-ac47-29fec4edc4f7' },
+    ],
+  });
+
+  console.log(
+    JSON.stringify(
+      query(
+        { store },
+        {
+          users: {
+            $: { where: { handle: 'alex' }, fields: ['handle'] },
+            bookshelves: { $: { fields: ['name'] } },
+          },
+        },
+      ).data,
+      null,
+      2,
+    ),
+  );
+
+  expect(
+    query(
+      { store },
+      {
+        users: {
+          $: { where: { handle: 'alex' }, fields: ['handle'] },
+          bookshelves: { $: { fields: ['name'] } },
+        },
+      },
+    ).data,
+  ).toEqual({
+    users: [
+      {
+        handle: 'alex',
+        id: 'ad45e100-777a-4de8-8978-aa13200a4824',
+        bookshelves: [
+          {
+            name: 'Nonfiction',
+            id: '8164fb78-6fa3-4aab-8b92-80e706bae93a',
+          },
+          {
+            name: 'Short Stories',
+            id: '4ad10e00-1353-437e-9fee-2a89eb53575d',
+          },
+        ],
+      },
+    ],
+  });
+
+  // id is always included
+  expect(query({ store }, { users: { $: { fields: [] } } }).data).toEqual({
+    users: [
+      { id: 'ce942051-2d74-404a-9c7d-4aa3f2d54ae4' },
+      { id: 'ad45e100-777a-4de8-8978-aa13200a4824' },
+      { id: 'a55a5231-5c4d-4033-b859-7790c45c22d5' },
+      { id: '0f3d67fc-8b37-4b03-ac47-29fec4edc4f7' },
+    ],
+  });
+});
