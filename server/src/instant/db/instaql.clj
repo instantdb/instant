@@ -1022,7 +1022,7 @@
         ctx (assoc-in ctx [:sym-placeholders sym] sym-placeholder)
         aggregate (get-in form [:option-map :aggregate])
         ;; XXX: We may need to fetch these for permission checks
-        etype-attr-ids (attr-model/ea-ids-for-etype etype (:attrs ctx))
+        attr-ids (attr-model/ea-ids-for-etype etype (:attrs ctx))
         child-patterns (collect-query-one
                         (mapv (partial query-one ctx)
                               (form->child-forms ctx form sym-placeholder)))
