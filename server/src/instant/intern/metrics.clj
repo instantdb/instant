@@ -25,7 +25,6 @@
    [honey.sql :as hsql]
    [instant.util.date :as date])
   (:import [org.jfree.chart.renderer.category BarRenderer]
-           [org.jfree.chart.labels StandardCategoryItemLabelGenerator]
            [org.jfree.chart.axis CategoryLabelPositions]
            [org.jfree.chart.ui RectangleInsets]
            [java.io File ByteArrayOutputStream]
@@ -246,14 +245,6 @@
     (.setInsets plot (RectangleInsets. 0 0 0 20))
     (.setTickLabelInsets y-axis (RectangleInsets. 0 10 0 20))
     (.setTickLabelInsets x-axis (RectangleInsets. 10 0 20 0))
-
-    ;; Configure the renderer to display item labels
-    (.setBaseItemLabelGenerator renderer (StandardCategoryItemLabelGenerator.))
-    (.setBaseItemLabelsVisible renderer true)
-    (.setBasePositiveItemLabelPosition renderer
-                                       (org.jfree.chart.labels.ItemLabelPosition.
-                                        org.jfree.chart.labels.ItemLabelAnchor/OUTSIDE12
-                                        org.jfree.chart.ui.TextAnchor/BOTTOM_CENTER))
 
     ;; Set bar background to white and border to black
     (.setRenderer plot renderer)
