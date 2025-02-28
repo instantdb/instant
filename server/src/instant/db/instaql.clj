@@ -1003,7 +1003,7 @@
                             (random-uuid))
         ctx (assoc-in ctx [:sym-placeholders sym] sym-placeholder)
         aggregate (get-in form [:option-map :aggregate])
-        etype-attr-ids (attr-model/attr-ids-for-etype etype (:attrs ctx))
+        etype-attr-ids (attr-model/blob-ids-for-etype etype (:attrs ctx))
         child-patterns (collect-query-one
                         (mapv (partial query-one ctx)
                               (form->child-forms ctx form sym-placeholder)))

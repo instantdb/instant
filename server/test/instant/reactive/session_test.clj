@@ -328,9 +328,6 @@
                       :children
                       {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/id
                                                                     :movie/year
-                                                                    :movie/director
-                                                                    :movie/sequel
-                                                                    :movie/cast
                                                                     :movie/trivia
                                                                     :movie/title}]]}],
                        :join-sym ?movie-0}}]}}
@@ -340,9 +337,6 @@
                       :children
                       {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/id
                                                                     :movie/year
-                                                                    :movie/director
-                                                                    :movie/sequel
-                                                                    :movie/cast
                                                                     :movie/trivia
                                                                     :movie/title}]]}],
                        :join-sym ?movie-0}}]}}}
@@ -359,9 +353,6 @@
                        :children
                        {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/id
                                                                      :movie/year
-                                                                     :movie/director
-                                                                     :movie/sequel
-                                                                     :movie/cast
                                                                      :movie/trivia
                                                                      :movie/title}]]}],
                         :join-sym ?movie-0}}]}}},
@@ -372,9 +363,6 @@
                        :children
                        {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/id
                                                                      :movie/year
-                                                                     :movie/director
-                                                                     :movie/sequel
-                                                                     :movie/cast
                                                                      :movie/trivia
                                                                      :movie/title}]]}],
                         :join-sym ?movie-0}}]}}}}
@@ -443,9 +431,6 @@
                       :children
                       {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/id
                                                                     :movie/year
-                                                                    :movie/director
-                                                                    :movie/sequel
-                                                                    :movie/cast
                                                                     :movie/trivia
                                                                     :movie/title}]]}],
                        :join-sym ?movie-0}}]}}}
@@ -462,9 +447,6 @@
                        :children
                        {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/id
                                                                      :movie/year
-                                                                     :movie/director
-                                                                     :movie/sequel
-                                                                     :movie/cast
                                                                      :movie/trivia
                                                                      :movie/title}]]}],
                         :join-sym ?movie-0}}]}}}}
@@ -555,9 +537,6 @@
                           :children
                           {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
                                                                         :movie/id
-                                                                        :movie/director
-                                                                        :movie/sequel
-                                                                        :movie/cast
                                                                         :movie/trivia
                                                                         :movie/title}]]}],
                            :join-sym ?movie-0}}]}}}
@@ -589,9 +568,6 @@
                           :children
                           {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
                                                                         :movie/id
-                                                                        :movie/director
-                                                                        :movie/sequel
-                                                                        :movie/cast
                                                                         :movie/trivia
                                                                         :movie/title}]]}],
                            :join-sym ?movie-0}}]}}}
@@ -607,9 +583,6 @@
                            :children
                            {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
                                                                          :movie/id
-                                                                         :movie/director
-                                                                         :movie/sequel
-                                                                         :movie/cast
                                                                          :movie/trivia
                                                                          :movie/title}]]}],
                             :join-sym ?movie-0}}]}}}}
@@ -649,9 +622,6 @@
                           :children
                           {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
                                                                         :movie/id
-                                                                        :movie/director
-                                                                        :movie/sequel
-                                                                        :movie/cast
                                                                         :movie/trivia
                                                                         :movie/title}]]}],
                            :join-sym ?movie-0}}]}}}
@@ -667,9 +637,6 @@
                            :children
                            {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
                                                                          :movie/id
-                                                                         :movie/director
-                                                                         :movie/sequel
-                                                                         :movie/cast
                                                                          :movie/trivia
                                                                          :movie/title}]]}],
                             :join-sym ?movie-0}}]}}}}
