@@ -504,6 +504,6 @@ export type LinkParams<
     : never;
 };
 
-export type PermissionsParams = {
+export type RuleParams = {
   [key: string]: any
 };
