@@ -248,9 +248,9 @@
     (.setTickLabelInsets x-axis (RectangleInsets. 10 0 20 0))
 
     ;; Configure the renderer to display item labels
-    (.setBaseItemLabelGenerator renderer (StandardCategoryItemLabelGenerator.))
-    (.setBaseItemLabelsVisible renderer true)
-    (.setBasePositiveItemLabelPosition renderer
+    (.setDefaultItemLabelGenerator renderer (StandardCategoryItemLabelGenerator.))
+    (.setDefaultItemLabelsVisible renderer true)
+    (.setDefaultPositiveItemLabelPosition renderer
                                        (org.jfree.chart.labels.ItemLabelPosition.
                                         org.jfree.chart.labels.ItemLabelAnchor/OUTSIDE12
                                         org.jfree.chart.ui.TextAnchor/BOTTOM_CENTER))
