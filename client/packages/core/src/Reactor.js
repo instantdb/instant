@@ -646,12 +646,7 @@ export default class Reactor {
    *
    *  Returns an unsubscribe function
    */
-  subscribeQuery(q, opts, cb) {
-    if (typeof opts === "function") {
-      cb = opts;
-      opts = undefined;
-    }
-
+  subscribeQuery(q, cb, opts) {
     if (opts && 'ruleParams' in opts) {
       q = {'$$ruleParams': opts['ruleParams'], ...q};
     }
