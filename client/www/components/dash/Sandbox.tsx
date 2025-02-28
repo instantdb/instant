@@ -612,7 +612,7 @@ if (itemId) {
 const tsTypes = /* ts */ `
 type InstantDB = {
   transact: (steps) => Promise<number>;
-  query: (iql, opts?: {params?: {[key: string]: any}}) => Promise<any>;
+  query: (iql, opts?: {ruleParams?: Record<string, any>}) => Promise<any>;
 };
 
 type InstantTx = {
@@ -623,6 +623,7 @@ type InstantTx = {
       delete: () => any;
       link: (v: Record<string, string>) => any;
       unlink: (v: Record<string, string>) => any;
+      ruleParams: (v: Record<string, any>) => any;
     };
   };
 };

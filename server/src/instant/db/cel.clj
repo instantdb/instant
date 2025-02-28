@@ -1,3 +1,4 @@
+
 (ns instant.db.cel
   (:require
    [clojure.set :as clojure-set]
@@ -240,7 +241,7 @@
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
       (.addVar "data" type-obj)
       (.addVar "auth" type-obj)
-      (.addVar "params" type-obj)
+      (.addVar "ruleParams" type-obj)
       (.addVar "newData" type-obj)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-fn-decls))
       (.setStandardMacros (CelStandardMacro/STANDARD_MACROS))

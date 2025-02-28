@@ -652,8 +652,8 @@ export default class Reactor {
       opts = undefined;
     }
 
-    if (opts && 'params' in opts) {
-      q = {'$$params': opts['params'], ...q};
+    if (opts && 'ruleParams' in opts) {
+      q = {'$$ruleParams': opts['ruleParams'], ...q};
     }
 
     const hash = weakHash(q);
@@ -674,8 +674,8 @@ export default class Reactor {
   }
 
   queryOnce(q, opts) {
-    if (opts && 'params' in opts) {
-      q = {'$$params': opts['params'], ...q};
+    if (opts && 'ruleParams' in opts) {
+      q = {'$$ruleParams': opts['ruleParams'], ...q};
     }
 
     const dfd = new Deferred();
@@ -947,9 +947,9 @@ export default class Reactor {
   pushOps = (txSteps, error) => {
     const eventId = uuid();
     const mutation = {
-      op: 'transact',
+      'op':       'transact',
       'tx-steps': txSteps,
-      error,
+      'error':    error,
     };
     this.pendingMutations.set((prev) => {
       prev.set(eventId, mutation);

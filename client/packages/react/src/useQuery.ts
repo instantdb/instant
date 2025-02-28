@@ -41,8 +41,8 @@ export function useQueryInternal<
   state: InstaQLLifecycleState<Schema, Q>;
   query: any;
 } {
-  if (_query && _opts && 'params' in _opts) {
-    _query = {'$$params': _opts['params'], ..._query};
+  if (_query && _opts && 'ruleParams' in _opts) {
+    _query = {'$$ruleParams': _opts['ruleParams'], ..._query};
   }
   const query = _query ? coerceQuery(_query) : null;
   const queryHash = weakHash(query);
