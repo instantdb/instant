@@ -1746,7 +1746,7 @@
                   query-cache
                   etype
                   eid]
-  (let [datalog-query [[:ea eid (attr-model/attr-ids-for-etype etype attrs)]]
+  (let [datalog-query [[:ea eid (attr-model/blob-ids-for-etype etype attrs)]]
         datalog-result
         (or (get query-cache datalog-query)
             (datalog-query-fn ctx datalog-query))]
