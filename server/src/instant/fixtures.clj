@@ -1,5 +1,6 @@
 (ns instant.fixtures
   (:require [clojure.core.async :as a]
+            [clojure.test :refer [report]]
             [instant.config :as config]
             [instant.data.bootstrap :as bootstrap]
             [instant.data.constants :refer [test-user-id]]
@@ -16,9 +17,13 @@
             [instant.db.pg-introspect :as pg-introspect]
             [instant.jdbc.sql :as sql]
             [instant.jdbc.aurora :as aurora]
+            [instant.util.coll :as ucoll]
+            [instant.util.io :as io-util]
             [lambdaisland.uri :as uri]
             [next.jdbc.connection :as connection])
-  (:import (java.util UUID)))
+  (:import
+   (java.io File)
+   (java.util UUID)))
 
 (defn mock-app-req
   ([a] (mock-app-req a (instant-user-model/get-by-id {:id (:creator_id a)})))
@@ -39,78 +44,107 @@
          (when (= :timeout (deref process# 1000 :timeout))
            (throw (Exception. "Timeout in with-queue")))))))
 
-(defn with-empty-app [f]
-  (let [app-id (UUID/randomUUID)
-        app (app-model/create! {:title "test app"
-                                :creator-id test-user-id
-                                :id app-id
-                                :admin-token (UUID/randomUUID)})]
+(defn report-warn-io [file e]
+  (let [target-file-name (some-> file
+                                 (File.)
+                                 (.getName))
+        stack-line (some-> (ucoll/seek (fn [frame]
+                                         (= target-file-name (.getFileName frame)))
+                                       (.getStackTrace (Thread/currentThread)))
+                           (.getLineNumber))]
+    (report {:type :fail
+             :message "something is doing IO when it shouldn't"
+             :expected nil
+             :actual {:io-call-source e}
+             :file target-file-name
+             :line stack-line})))
+
+(defmacro with-fail-on-warn-io [& body]
+  (let [file *file*]
+    `(binding [io-util/*tap-io* (partial report-warn-io ~file)]
+       ~@body)))
+
+(defmacro ignore-warn-io [& body]
+  `(binding [io-util/*tap-io* nil]
+     ~@body))
+
+(defmacro with-empty-app [f]
+  `(let [app-id# (UUID/randomUUID)
+         app# (app-model/create! {:title "test app"
+                                  :creator-id ~test-user-id
+                                  :id app-id#
+                                  :admin-token (UUID/randomUUID)})]
+     (try
+       (with-fail-on-warn-io
+         (~f app#))
+       (finally
+         (app-model/delete-by-id! {:id app-id#})))))
+
+(defmacro with-movies-app [f]
+  `(with-empty-app
+     (fn [app#]
+       (bootstrap/add-movies-to-app! (:id app#))
+       (let [r# (resolvers/make-movies-resolver (:id app#))]
+         (~f app# r#)))))
+
+(defmacro with-zeneca-app [f]
+  `(with-empty-app
+     (fn [app#]
+       (bootstrap/add-zeneca-to-app! (:id app#))
+       (let [r# (resolvers/make-zeneca-resolver (:id app#))]
+         (~f app# r#)))))
+
+(defmacro with-zeneca-app-no-indexing [f]
+  `(with-empty-app
+     (fn [app#]
+       (bootstrap/add-zeneca-to-app! {:checked-data? false
+                                      :indexed-data? false}
+                                     (:id app#))
+       (let [r# (resolvers/make-zeneca-resolver (:id app#))]
+         (~f app# r#)))))
+
+(defmacro with-zeneca-checked-data-app [f]
+  `(with-empty-app
+     (fn [app#]
+       (bootstrap/add-zeneca-to-app! {:checked-data? true
+                                      :indexed-data? true}
+                                     (:id app#))
+       (let [r# (resolvers/make-zeneca-resolver (:id app#))]
+         (~f app# r#)))))
+
+(defn run-zeneca-byop [app f]
+  (let [id (:id app)
+        schema (str id)
+        connection-string (-> (config/get-aurora-config)
+                              (connection/jdbc-url)
+                              (uri/assoc-query* {:currentSchema schema})
+                              str)]
     (try
-      (f app)
+      (sql/execute! (aurora/conn-pool :write) [(format "create schema \"%s\"" schema)])
+      (app-model/set-connection-string!
+       {:app-id id
+        :connection-string connection-string})
+      (with-open [conn (sql/start-pool {:jdbcUrl connection-string
+                                        :currentSchema schema
+                                        :maximumPoolSize 1})]
+
+        (bootstrap/add-zeneca-to-byop-app! conn)
+        (let [r (resolvers/make-zeneca-byop-resolver conn schema)
+              {:keys [attrs table-info]} (pg-introspect/introspect conn schema)]
+
+          (f {:db {:conn-pool conn}
+              :app-id id
+              :attrs attrs
+              :table-info table-info}
+             app
+             r)))
       (finally
-        (app-model/delete-by-id! {:id app-id})))))
+        (sql/execute! (aurora/conn-pool :write) [(format "drop schema \"%s\" cascade" schema)])))))
 
-(defn with-movies-app [f]
-  (with-empty-app
-    (fn [{:keys [id] :as app}]
-      (let [_ (bootstrap/add-movies-to-app! id)
-            r (resolvers/make-movies-resolver id)]
-        (f app r)))))
-
-(defn with-zeneca-app [f]
-  (with-empty-app
-    (fn [{:keys [id] :as app}]
-      (let [_ (bootstrap/add-zeneca-to-app! id)
-            r (resolvers/make-zeneca-resolver id)]
-        (f app r)))))
-
-(defn with-zeneca-app-no-indexing [f]
-  (with-empty-app
-    (fn [{:keys [id] :as app}]
-      (let [_ (bootstrap/add-zeneca-to-app! {:checked-data? false
-                                             :indexed-data? false}
-                                            id)
-            r (resolvers/make-zeneca-resolver id)]
-        (f app r)))))
-
-(defn with-zeneca-checked-data-app [f]
-  (with-empty-app
-    (fn [{:keys [id] :as app}]
-      (let [_ (bootstrap/add-zeneca-to-app! {:checked-data? true
-                                             :indexed-data? true}
-                                            id)
-            r (resolvers/make-zeneca-resolver id)]
-        (f app r)))))
-
-(defn with-zeneca-byop [f]
-  (with-empty-app
-    (fn [{:keys [id] :as app}]
-      (let [schema (str id)
-            connection-string (-> (config/get-aurora-config)
-                                  (connection/jdbc-url)
-                                  (uri/assoc-query* {:currentSchema schema})
-                                  str)]
-        (try
-          (sql/execute! (aurora/conn-pool :write) [(format "create schema \"%s\"" schema)])
-          (app-model/set-connection-string!
-           {:app-id id
-            :connection-string connection-string})
-          (with-open [conn (sql/start-pool {:jdbcUrl connection-string
-                                            :currentSchema schema
-                                            :maximumPoolSize 1})]
-
-            (bootstrap/add-zeneca-to-byop-app! conn)
-            (let [r (resolvers/make-zeneca-byop-resolver conn schema)
-                  {:keys [attrs table-info]} (pg-introspect/introspect conn schema)]
-
-              (f {:db {:conn-pool conn}
-                  :app-id id
-                  :attrs attrs
-                  :table-info table-info}
-                 app
-                 r)))
-          (finally
-            (sql/execute! (aurora/conn-pool :write) [(format "drop schema \"%s\" cascade" schema)])))))))
+(defmacro with-zeneca-byop [f]
+  `(with-empty-app
+     (fn [app#]
+       (run-zeneca-byop app# ~f))))
 
 (defn with-pro-app [owner f]
   (let [app-id (UUID/randomUUID)

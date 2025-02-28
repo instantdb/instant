@@ -2,6 +2,7 @@
   (:require [instant.util.tracer :as tracer]))
 
 (def ^:dynamic *tracking-io* nil)
+(def ^:dynamic *tap-io* nil)
 
 (defmacro warn-io
   "Wrap a body with `warn-io` when you want to get a honeycomb trace if any
@@ -17,12 +18,17 @@
   [& body]
   (let [file *file*
         {:keys [line column]} (meta &form)]
-  `(do
-     (when *tracking-io*
-       (tracer/record-info! {:name "warn-io"
-                             :attributes {:context *tracking-io*
-                                          :body '~body
-                                          :file ~file
-                                          :line ~line
-                                          :column ~column}}))
-     ~@body)))
+    `(do
+       (when *tracking-io*
+         (when *tap-io*
+           (*tap-io* {:context *tracking-io*
+                      :file ~file
+                      :line ~line
+                      :column ~column}))
+         (tracer/record-info! {:name "warn-io"
+                               :attributes {:context *tracking-io*
+                                            :body '~body
+                                            :file ~file
+                                            :line ~line
+                                            :column ~column}}))
+       ~@body)))

@@ -10,7 +10,8 @@
    [instant.db.model.attr :as attr-model]
    [instant.db.model.triple :as triple-model]
    [instant.db.transaction :as tx]
-   [instant.fixtures :refer [with-empty-app
+   [instant.fixtures :refer [ignore-warn-io
+                             with-empty-app
                              with-zeneca-app
                              with-zeneca-checked-data-app
                              with-zeneca-byop]]
@@ -33,7 +34,6 @@
   {:db {:conn-pool (aurora/conn-pool :read)}
    :app-id (:id app)
    :attrs (attr-model/get-by-app-id (:id app))})
-
 
 (defn- ->pretty-node
   "Given a query node, flatten it into one ordered map of triples and topics.
@@ -3338,8 +3338,10 @@
   (app-model/delete-by-id! {:id app-id}))
 
 (deftest default-perms
-  (doseq [[app-fn description] [[with-zeneca-app "without checked attrs"]
-                                [with-zeneca-checked-data-app "with checked attrs"]]]
+  (doseq [[app-fn description] [[(fn [f]
+                                   (with-zeneca-app f)) "without checked attrs"]
+                                [(fn [f]
+                                   (with-zeneca-checked-data-app f)) "with checked attrs"]]]
     (testing description
       (app-fn
        (fn [{app-id :id :as _app} _r]
@@ -3376,8 +3378,10 @@
 
 
 (deftest read-perms
-  (doseq [[app-fn description] [[with-zeneca-app "without checked attrs"]
-                                [with-zeneca-checked-data-app "with checked attrs"]]]
+  (doseq [[app-fn description] [[(fn [f]
+                                   (with-zeneca-app f)) "without checked attrs"]
+                                [(fn [f]
+                                   (with-zeneca-checked-data-app f)) "with checked attrs"]]]
     (testing description
       (app-fn
        (fn [{app-id :id :as _app} _r]
@@ -3818,19 +3822,22 @@
                               (str (resolvers/->uuid r0 "eid-alex"))]])
             r1 (resolvers/make-zeneca-resolver (:id app))]
 
-        (testing "forward reference"
-          (is (= (-> (pretty-perm-q (assoc (make-ctx)
-                                           :current-user {:id (resolvers/->uuid r1 "eid-mark")})
-                                    {:books {:$ {:where {"$user-creator.email" "alex@instantdb.com"}}}})
-                     :books)
-                 []))
+        ;; We do an entity-map fetch for the $user-creator
+        ;; Right now there's no way for us to preload that data
+        (ignore-warn-io
+          (testing "forward reference"
+            (is (= (-> (pretty-perm-q (assoc (make-ctx)
+                                             :current-user {:id (resolvers/->uuid r1 "eid-mark")})
+                                      {:books {:$ {:where {"$user-creator.email" "alex@instantdb.com"}}}})
+                       :books)
+                   []))
 
-          (is (= (-> (pretty-perm-q (assoc (make-ctx)
-                                           :current-user {:id (resolvers/->uuid r1 "eid-alex")})
-                                    {:books {:$ {:where {"$user-creator.email" "alex@instantdb.com"}}}})
-                     :books
-                     (#(map :title %)))
-                 ["Sum"])))
+            (is (= (-> (pretty-perm-q (assoc (make-ctx)
+                                             :current-user {:id (resolvers/->uuid r1 "eid-alex")})
+                                      {:books {:$ {:where {"$user-creator.email" "alex@instantdb.com"}}}})
+                       :books
+                       (#(map :title %)))
+                   ["Sum"]))))
 
         (testing "reverse reference"
           (is (= (-> (pretty-perm-q (assoc (make-ctx)
@@ -3876,12 +3883,15 @@
          (aurora/conn-pool :write)
          {:app-id (:id app) :code {:books {:allow {:view "'Sum' in auth.ref('$user.books.title')"}}}})
 
-        (is (= (-> (pretty-perm-q (assoc (make-ctx)
-                                         :current-user {:id (resolvers/->uuid r1 "eid-alex")})
-                                  {:books {:$ {:where {"$user-creator.email" "alex@instantdb.com"}}}})
-                   :books
-                   (#(map :title %)))
-               ["Sum"]))
+        ;; We fetch an entity-map for the $user-creator
+        ;; We'd have to modify how we fetch references to already have that data cached
+        (ignore-warn-io
+          (is (= (-> (pretty-perm-q (assoc (make-ctx)
+                                           :current-user {:id (resolvers/->uuid r1 "eid-alex")})
+                                    {:books {:$ {:where {"$user-creator.email" "alex@instantdb.com"}}}})
+                     :books
+                     (#(map :title %)))
+                 ["Sum"])))
 
         (is (= (-> (pretty-perm-q (assoc (make-ctx)
                                          :current-user {:id (resolvers/->uuid r1 "eid-mark")})
