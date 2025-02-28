@@ -648,10 +648,6 @@
     (-> @cache
         :ids-by-etype
         (get etype #{})))
-  (blobIdsForEtype [_this etype]
-    (-> @cache
-        :blob-ids-by-etype
-        (get etype #{})))
   (unwrap [_this]
     elements)
   (eaIdsForEtype [_this etype]
@@ -700,16 +696,13 @@
   (seekById attrs id))
 
 (defn seek-by-fwd-ident-name [n ^Attrs attrs]
-  (seekByFwdIdentName attrs n))
+  (.seekByFwdIdentName attrs n))
 
 (defn seek-by-rev-ident-name [n ^Attrs attrs]
-  (seekByRevIdentName attrs n))
+  (.seekByRevIdentName attrs n))
 
 (defn attr-ids-for-etype [etype ^Attrs attrs]
-  (attrIdsForEtype attrs etype))
-
-(defn blob-ids-for-etype [etype ^Attrs attrs]
-  (blobIdsForEtype attrs etype))
+  (.attrIdsForEtype attrs etype))
 
 (defn ea-ids-for-etype [etype ^Attrs attrs]
   (.eaIdsForEtype attrs etype))
