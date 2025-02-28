@@ -105,7 +105,7 @@
 (s/def ::before ::cursor)
 (s/def ::after ::cursor)
 (s/def ::aggregate #{:count})
-(s/def ::attributes (s/coll-of string?))
+(s/def ::fields (s/coll-of string?))
 
 (s/def ::option-map (s/keys :opt-un [::where-conds
                                      ::order
@@ -116,7 +116,7 @@
                                      ::before
                                      ::after
                                      ::aggregate
-                                     ::attributes]))
+                                     ::fields]))
 
 (s/def ::forms (s/coll-of ::form))
 (s/def ::child-forms ::forms)
@@ -376,9 +376,9 @@
         aggregate (when-let [aggregate (:aggregate x)]
                     (coerce-aggregate! state aggregate))
 
-        attributes (:attributes x)
+        fields (:fields x)
 
-        x (dissoc x :where :order :limit :first :last :offset :before :after :aggregate :attributes)]
+        x (dissoc x :where :order :limit :first :last :offset :before :after :aggregate :fields)]
 
     (when (seq x)
       (ex/throw-validation-err!
@@ -418,7 +418,7 @@
       after (assoc :after after)
       before (assoc :before before)
       aggregate (assoc :aggregate aggregate)
-      attributes (assoc :attributes attributes))))
+      fields (assoc :fields fields))))
 
 (defn- coerce-forms!
   "Converts our InstaQL object into a list of forms."
@@ -990,17 +990,17 @@
            :referenced-etypes #{}}
           query-one-results))
 
-(defn etype-attr-ids [{:keys [attrs]} etype selected-attrs]
-  (if selected-attrs
-    (reduce (fn [acc attr-name]
+(defn etype-attr-ids [{:keys [attrs]} etype fields]
+  (if (seq fields)
+    (reduce (fn [acc field]
               (let [attr (attr-model/seek-by-fwd-ident-name
-                          [etype attr-name]
+                          [etype field]
                           attrs)]
                 (if (= :one (:cardinality attr))
                   (conj acc (:id attr))
                   acc)))
             #{}
-            selected-attrs)
+            fields)
     (attr-model/ea-ids-for-etype etype attrs)))
 
 (defn- query-one
@@ -1022,7 +1022,8 @@
         ctx (assoc-in ctx [:sym-placeholders sym] sym-placeholder)
         aggregate (get-in form [:option-map :aggregate])
         ;; XXX: We may need to fetch these for permission checks
-        attr-ids (attr-model/ea-ids-for-etype etype (:attrs ctx))
+        fields (get-in form [:option-map :fields])
+        attr-ids (etype-attr-ids ctx etype fields)
         child-patterns (collect-query-one
                         (mapv (partial query-one ctx)
                               (form->child-forms ctx form sym-placeholder)))
