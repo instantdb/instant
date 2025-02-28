@@ -584,13 +584,13 @@
               (update :ids-by-etype update (fwd-etype attr) (fnil conj #{}) (:id attr))
 
 
-              (= :blob (:value-type attr))
-              (update :blob-ids-by-etype update (fwd-etype attr) (fnil conj #{}) (:id attr))))
+              (= :one (:cardinality attr))
+              (update :ea-ids-by-etype update (fwd-etype attr) (fnil conj #{}) (:id attr))))
           {:by-id {}
            :by-fwd-ident {}
            :by-rev-ident {}
            :ids-by-etype {}
-           :blob-ids-by-etype {}}
+           :ea-ids-by-etype {}}
           attrs))
 
 (defprotocol AttrsExtension
@@ -598,7 +598,7 @@
   (seekByFwdIdentName [this fwd-ident])
   (seekByRevIdentName [this revIdent])
   (attrIdsForEtype [this etype])
-  (blobIdsForEtype [this etype])
+  (eaIdsForEtype [this etype])
   (unwrap [this]))
 
 ;; Creates a wrapper over attrs. Makes them act like a regular list, but
@@ -650,9 +650,9 @@
         (get etype #{})))
   (unwrap [_this]
     elements)
-  (blobIdsForEtype [_this etype]
+  (eaIdsForEtype [_this etype]
     (-> @cache
-        :blob-ids-by-etype
+        :ea-ids-by-etype
         (get etype #{}))))
 
 (defn wrap-attrs [attrs]
@@ -704,8 +704,8 @@
 (defn attr-ids-for-etype [etype ^Attrs attrs]
   (.attrIdsForEtype attrs etype))
 
-(defn blob-ids-for-etype [etype ^Attrs attrs]
-  (.blobIdsForEtype attrs etype))
+(defn ea-ids-for-etype [etype ^Attrs attrs]
+  (.eaIdsForEtype attrs etype))
 
 (defn remove-hidden
   "Removes the system attrs that might be confusing for the users."
