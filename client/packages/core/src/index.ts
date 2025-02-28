@@ -38,6 +38,7 @@ import type {
   InstaQLQueryParams,
   InstaQLEntity,
   InstaQLResult,
+  InstaQLFields,
 } from './queryTypes';
 import type {
   AuthState,
@@ -783,6 +784,7 @@ export {
   type InstantSchema,
   type InstantEntity,
   type InstantSchemaDatabase,
+  type InstaQLFields,
 
   // schema types
   type AttrsDefs,
