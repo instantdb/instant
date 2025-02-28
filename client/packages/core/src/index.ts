@@ -491,11 +491,8 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
    *    console.log(resp.data.goals)
    *  });
    */
-  subscribeQuery<Q extends InstaQLParams<Schema>>(query: Q, cb: (resp: InstaQLSubscriptionState<Schema, Q>) => void);
-  subscribeQuery<Q extends InstaQLParams<Schema>>(query: Q, opts: InstaQLOptions, cb: (resp: InstaQLSubscriptionState<Schema, Q>) => void);
-
-  subscribeQuery(query, optsOrCb, cb?) {
-    return this._reactor.subscribeQuery(query, optsOrCb, cb);
+  subscribeQuery<Q extends InstaQLParams<Schema>>(query: Q, cb: (resp: InstaQLSubscriptionState<Schema, Q>) => void, opts?: InstaQLOptions) {
+    return this._reactor.subscribeQuery(query, cb, opts);
   }
 
   /**
