@@ -3760,9 +3760,9 @@
                        [:vae _ #{:books/$user-creator} #{"eid-alex"}]
                        --
                        [:ea #{"eid-sum"}
-                        #{:books/pageCount :books/isbn13 :books/description :books/id
-                          :books/thumbnail :books/title} _])
-             :triples
+                        #{:books/pageCount :books/$user-creator :books/isbn13
+                          :books/description :books/id :books/thumbnail :books/title} _])
+              :triples
               (("eid-sum" :books/$user-creator "eid-alex")
                ("eid-alex" :$users/email "alex@instantdb.com")
                --
@@ -3770,6 +3770,7 @@
                ("eid-sum"
                 :books/thumbnail
                 "http://books.google.com/books/content?id=-cjWiI8DEywC&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api")
+               ("eid-sum" :books/$user-creator "eid-alex")
                ("eid-sum" :books/title "Sum")
                ("eid-sum" :books/id "eid-sum")
                ("eid-sum"

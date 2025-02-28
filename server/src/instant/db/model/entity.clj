@@ -11,7 +11,7 @@
   [{:keys [datalog-query-fn attrs] :as ctx} eid+etypes]
   (let [patterns (map (fn [{:keys [eid etype]}]
                         {:patterns (if etype
-                                     [[:ea eid (attr-model/attr-ids-for-etype etype attrs)]]
+                                     [[:ea eid (attr-model/ea-ids-for-etype etype attrs)]]
                                      [[:ea eid]])})
                       eid+etypes)
         query {:children {:pattern-groups patterns}}
@@ -34,7 +34,7 @@
    If etype is nil, returns all triples across all namespaces for the eid."
   [{:keys [datalog-query-fn attrs] :as ctx} etype eid]
   (let [query (if etype
-                [[:ea eid (attr-model/attr-ids-for-etype etype attrs)]]
+                [[:ea eid (attr-model/ea-ids-for-etype etype attrs)]]
                 [[:ea eid]])
 
         datalog-result (datalog-query-fn ctx query)

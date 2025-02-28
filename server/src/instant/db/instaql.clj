@@ -1003,7 +1003,7 @@
                             (random-uuid))
         ctx (assoc-in ctx [:sym-placeholders sym] sym-placeholder)
         aggregate (get-in form [:option-map :aggregate])
-        etype-attr-ids (attr-model/blob-ids-for-etype etype (:attrs ctx))
+        etype-attr-ids (attr-model/ea-ids-for-etype etype (:attrs ctx))
         child-patterns (collect-query-one
                         (mapv (partial query-one ctx)
                               (form->child-forms ctx form sym-placeholder)))
@@ -1746,7 +1746,7 @@
                   query-cache
                   etype
                   eid]
-  (let [datalog-query [[:ea eid (attr-model/attr-ids-for-etype etype attrs)]]
+  (let [datalog-query [[:ea eid (attr-model/ea-ids-for-etype etype attrs)]]
         datalog-result
         (or (get query-cache datalog-query)
             (datalog-query-fn ctx datalog-query))]

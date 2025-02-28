@@ -54,8 +54,7 @@ with app as (
   select * from temp_app where id = :'app_id'
 )
 insert into apps (id, creator_id, title, created_at)
-  select id, (select id from instant_users where email = :'creator_email') creator_id, title, created_at from app
-returning *;
+  select id, (select id from instant_users where email = :'creator_email') creator_id, title, created_at from app;
 
 insert into app_admin_tokens (app_id, token) values (:'app_id', gen_random_uuid());
 
