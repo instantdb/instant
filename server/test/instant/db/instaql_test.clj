@@ -4051,41 +4051,47 @@
   (with-zeneca-app
     (fn [app r]
       (testing "rules work even when you filter fields"
-        (is-pretty-eq? (query-pretty (make-ctx app) r {:users {:$ {:fields ["fullName"]
-                                                                   :where {:handle "alex"}}
-                                                               :bookshelves {:$ {:fields ["order"]
-                                                                                 :where {:name "Nonfiction"}}
-                                                                             :books {:$ {:fields ["title"]
-                                                                                         :where {:title "Catch and Kill"}}}}}})
-                       '({:topics ([:av _ #{:users/handle} #{"alex"}]
-                                   --
-                                   [:ea #{"eid-alex"} #{:users/id :users/fullName} _]
-                                   --
-                                   [:eav #{"eid-alex"} #{:users/bookshelves} _]
-                                   [:ea _ #{:bookshelves/name} #{"Nonfiction"}]
-                                   --
-                                   [:ea #{"eid-nonfiction"} #{:bookshelves/order :bookshelves/id} _]
-                                   --
-                                   [:eav #{"eid-nonfiction"} #{:bookshelves/books} _]
-                                   [:ave _ #{:books/title} #{"Catch and Kill"}]
-                                   --
-                                   [:ea #{"eid-catch-and-kill"} #{:books/id :books/title} _])
-                          :triples (("eid-alex" :users/handle "alex")
-                                    --
-                                    ("eid-alex" :users/id "eid-alex")
-                                    ("eid-alex" :users/fullName "Alex")
-                                    --
-                                    ("eid-alex" :users/bookshelves "eid-nonfiction")
-                                    ("eid-nonfiction" :bookshelves/name "Nonfiction")
-                                    --
-                                    ("eid-nonfiction" :bookshelves/id "eid-nonfiction")
-                                    ("eid-nonfiction" :bookshelves/order 1)
-                                    --
-                                    ("eid-catch-and-kill" :books/title "Catch and Kill")
-                                    ("eid-nonfiction" :bookshelves/books "eid-catch-and-kill")
-                                    --
-                                    ("eid-catch-and-kill" :books/id "eid-catch-and-kill")
-                                    ("eid-catch-and-kill" :books/title "Catch and Kill"))}))))))
+        (is-pretty-eq?
+         (query-pretty
+          (make-ctx app)
+          r
+          {:users {:$ {:fields ["fullName"]
+                       :where {:handle "alex"}}
+                   :bookshelves {:$ {:fields ["order"]
+                                     :where {:name "Nonfiction"}}
+                                 :books {:$ {:fields ["title"]
+                                             :where {:title "Catch and Kill"}}}}}})
+         '({:topics
+            ([:av _ #{:users/handle} #{"alex"}]
+             --
+             [:ea #{"eid-alex"} #{:users/id :users/fullName} _]
+             --
+             [:eav #{"eid-alex"} #{:users/bookshelves} _]
+             [:ea _ #{:bookshelves/name} #{"Nonfiction"}]
+             --
+             [:ea #{"eid-nonfiction"} #{:bookshelves/order :bookshelves/id} _]
+             --
+             [:eav #{"eid-nonfiction"} #{:bookshelves/books} _]
+             [:ave _ #{:books/title} #{"Catch and Kill"}]
+             --
+             [:ea #{"eid-catch-and-kill"} #{:books/id :books/title} _])
+            :triples
+            (("eid-alex" :users/handle "alex")
+             --
+             ("eid-alex" :users/id "eid-alex")
+             ("eid-alex" :users/fullName "Alex")
+             --
+             ("eid-alex" :users/bookshelves "eid-nonfiction")
+             ("eid-nonfiction" :bookshelves/name "Nonfiction")
+             --
+             ("eid-nonfiction" :bookshelves/id "eid-nonfiction")
+             ("eid-nonfiction" :bookshelves/order 1)
+             --
+             ("eid-catch-and-kill" :books/title "Catch and Kill")
+             ("eid-nonfiction" :bookshelves/books "eid-catch-and-kill")
+             --
+             ("eid-catch-and-kill" :books/id "eid-catch-and-kill")
+             ("eid-catch-and-kill" :books/title "Catch and Kill"))}))))))
 
 (deftest fields-with-rules
   (with-zeneca-app

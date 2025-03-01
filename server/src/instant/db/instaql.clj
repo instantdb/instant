@@ -1023,7 +1023,6 @@
                             (random-uuid))
         ctx (assoc-in ctx [:sym-placeholders sym] sym-placeholder)
         aggregate (get-in form [:option-map :aggregate])
-        ;; XXX: We may need to fetch these for permission checks
         fields (get-in form [:option-map :fields])
         attr-ids (etype-attr-ids ctx etype fields)
         child-patterns (collect-query-one
