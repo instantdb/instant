@@ -1810,13 +1810,62 @@
       (cel/prefetch-data-refs ctx refs)
       {})))
 
+(defn preload-entity-maps
+  "Returns a query cache for entities that are missing from the existing
+  query cache, but that we'll need to fetch for a rule.
+  If the user uses `:fields` in their query to limit what they fetch, we'll
+  still need to fetch the full object to perform permission checks. We do it
+  in a batch to reduce latency."
+  [{:keys [datalog-query-fn attrs] :as ctx} query-cache etype->eids+program]
+  (let [patterns (keep (fn [[etype {:keys [eids program]}]]
+                         (when program
+                           (let [attr-ids (attr-model/ea-ids-for-etype etype attrs)
+                                 missing-eids (reduce (fn [acc eid]
+                                                        (if (contains? query-cache [[:ea eid attr-ids]])
+                                                          acc
+                                                          (conj acc eid)))
+                                                      #{}
+                                                      eids)]
+                             (when (seq missing-eids)
+                               {:patterns [[:ea missing-eids attr-ids]]}))))
+                       etype->eids+program)]
+    (when (seq patterns)
+      (let [query {:children {:pattern-groups patterns}}
+            result (datalog-query-fn ctx query)]
+        (reduce (fn [cache {:keys [result datalog-query]}]
+                  (let [eid->join-rows (reduce (fn [acc join-row]
+                                                 (update acc
+                                                         (ffirst join-row)
+                                                         (fnil conj #{})
+                                                         join-row))
+                                               {}
+                                               (:join-rows result))
+                        attr-ids (-> datalog-query
+                                     first
+                                     last)]
+                    (reduce-kv (fn [cache eid join-rows]
+                                 (assoc cache [[:ea eid attr-ids]] {:join-rows join-rows
+                                                                    :symbol-values {}
+                                                                    :topics [[:ea #{eid} attr-ids '_]]}))
+                               cache
+                               eid->join-rows)))
+                {}
+                (:data result))))))
+
 (defn get-etype+eid-check-result! [{:keys [current-user] :as ctx}
                                    {:keys [etype->eids+program query-cache]}]
   (tracer/with-span! {:name "instaql/get-eid-check-result!"}
     (let [preloaded-refs (tracer/with-span! {:name "instaql/preload-refs"}
                            (let [res (preload-refs ctx etype->eids+program)]
                              (tracer/add-data! {:attributes {:ref-count (count res)}})
-                             res))]
+                             res))
+          preloaded-entity-maps (tracer/with-span! {:name "instaql/preload-entity-maps"}
+                                  (let [res (preload-entity-maps ctx
+                                                                 query-cache
+                                                                 etype->eids+program)]
+                                    (tracer/add-data! {:attributes {:entity-count (count res)}})
+                                    res))
+          query-cache (merge query-cache preloaded-entity-maps)]
       (reduce-kv (fn [acc etype {:keys [eids program]}]
                    (reduce (fn [acc eid]
                              (assoc acc
@@ -1826,23 +1875,23 @@
                                       {:program program
                                        :result
                                        (let [em (io/warn-io :instaql/entity-map
-                                                            (entity-map ctx
-                                                                        query-cache
-                                                                        etype
-                                                                        eid))
+                                                  (entity-map ctx
+                                                              query-cache
+                                                              etype
+                                                              eid))
                                              ctx (assoc ctx
                                                         :preloaded-refs preloaded-refs)]
                                          (io/warn-io :instaql/eval-program
-                                                     (cel/eval-program!
-                                                      program
-                                                      {"auth" (cel/->cel-map {:ctx ctx
-                                                                              :type :auth
-                                                                              :etype "$users"}
-                                                                             current-user)
-                                                       "data" (cel/->cel-map {:ctx ctx
-                                                                              :etype etype
-                                                                              :type :data}
-                                                                             em)})))})))
+                                           (cel/eval-program!
+                                            program
+                                            {"auth" (cel/->cel-map {:ctx ctx
+                                                                    :type :auth
+                                                                    :etype "$users"}
+                                                                   current-user)
+                                             "data" (cel/->cel-map {:ctx ctx
+                                                                    :etype etype
+                                                                    :type :data}
+                                                                   em)})))})))
                            acc
                            eids))
                  {}
