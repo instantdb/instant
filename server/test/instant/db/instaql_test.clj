@@ -4047,5 +4047,82 @@
                      (get "conversations")
                      count))))))))
 
+(deftest fields
+  (with-zeneca-app
+    (fn [app r]
+      (testing "rules work even when you filter fields"
+        (is-pretty-eq? (query-pretty (make-ctx app) r {:users {:$ {:fields ["fullName"]
+                                                                   :where {:handle "alex"}}
+                                                               :bookshelves {:$ {:fields ["order"]
+                                                                                 :where {:name "Nonfiction"}}
+                                                                             :books {:$ {:fields ["title"]
+                                                                                         :where {:title "Catch and Kill"}}}}}})
+                       '({:topics ([:av _ #{:users/handle} #{"alex"}]
+                                   --
+                                   [:ea #{"eid-alex"} #{:users/id :users/fullName} _]
+                                   --
+                                   [:eav #{"eid-alex"} #{:users/bookshelves} _]
+                                   [:ea _ #{:bookshelves/name} #{"Nonfiction"}]
+                                   --
+                                   [:ea #{"eid-nonfiction"} #{:bookshelves/order :bookshelves/id} _]
+                                   --
+                                   [:eav #{"eid-nonfiction"} #{:bookshelves/books} _]
+                                   [:ave _ #{:books/title} #{"Catch and Kill"}]
+                                   --
+                                   [:ea #{"eid-catch-and-kill"} #{:books/id :books/title} _])
+                          :triples (("eid-alex" :users/handle "alex")
+                                    --
+                                    ("eid-alex" :users/id "eid-alex")
+                                    ("eid-alex" :users/fullName "Alex")
+                                    --
+                                    ("eid-alex" :users/bookshelves "eid-nonfiction")
+                                    ("eid-nonfiction" :bookshelves/name "Nonfiction")
+                                    --
+                                    ("eid-nonfiction" :bookshelves/id "eid-nonfiction")
+                                    ("eid-nonfiction" :bookshelves/order 1)
+                                    --
+                                    ("eid-catch-and-kill" :books/title "Catch and Kill")
+                                    ("eid-nonfiction" :bookshelves/books "eid-catch-and-kill")
+                                    --
+                                    ("eid-catch-and-kill" :books/id "eid-catch-and-kill")
+                                    ("eid-catch-and-kill" :books/title "Catch and Kill"))}))))))
+
+(deftest fields-with-rules
+  (with-zeneca-app
+    (fn [app r]
+      (let [make-ctx (fn []
+                       (let [attrs (attr-model/get-by-app-id (:id app))]
+                         {:db {:conn-pool (aurora/conn-pool :read)}
+                          :app-id (:id app)
+                          :attrs attrs}))
+            query-count (atom 0)
+            query-tracker {:add (fn [_ _]
+                                  (swap! query-count inc))
+                           :remove (fn [_ _]
+                                     nil)
+                           :stmts (atom #{})}]
+        (rule-model/put! (aurora/conn-pool :write)
+                         {:app-id (:id app)
+                          :code {:users {:allow {:view "data.handle == 'alex'"}}
+                                 :bookshelves {:allow {:view "data.name == 'Nonfiction'"}}
+                                 :books {:allow {:view "data.isbn13 == '9780316486668'"}}}})
+
+        (testing "rules work even when you filter fields"
+          (is (= {:users [{:id (str (resolvers/->uuid r "eid-alex"))
+                           :fullName "Alex"
+                           :bookshelves [{:id (str (resolvers/->uuid r "eid-nonfiction"))
+                                          :order 1
+                                          :books [{:id (str (resolvers/->uuid r "eid-catch-and-kill"))
+                                                   :title "Catch and Kill"}]}]}]}
+                 (binding [sql/*in-progress-stmts* query-tracker]
+                   (pretty-perm-q (make-ctx) {:users {:$ {:fields ["fullName"]}
+                                                      :bookshelves {:$ {:fields ["order"]}
+                                                                    :books {:$ {:fields ["title"]}}}}}))))
+
+          ;; 1 to fetch the query result
+          ;; 1 to fetch rules
+          ;; 1 to preload entity maps
+          (is (= 3 @query-count)))))))
+
 (comment
   (test/run-tests *ns*))
