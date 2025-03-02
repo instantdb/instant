@@ -474,6 +474,32 @@ const _schema = i.schema({
 [Check out this repo](https://github.com/jsventures/instant-storage-avatar-example)
 for a more detailed example showing how you may leverage links to implement an avatar upload feature
 
+## React Native
+
+The SDK expects a `File` object. In React Native the built-in `fetch` function can be used to construct a `File`, then you can pass that to the `uploadFile` metod. 
+
+Example:
+
+```typescript
+import * as FileSystem from 'expo-file-system';
+
+const localFilePath = 'file:///var/mobile/Containers/Data/my_file.m4a'
+
+const fileInfo = await FileSystem.getInfoAsync(localFilePath);
+
+if (!fileInfo.exists) {
+  throw new Error(`File does not exist at path: ${localFilePath}`);
+}
+
+// Given a local file on disk , this is how to get a File object out of
+// it. Fetch from disk, then upload to cloud.
+const res = await fetch(fileInfo.uri);
+const blob = await res.blob();
+const file = new File([blob], payload.recordingId, { type: "audio/m4a" });
+
+await db.storage.uploadFile('my_file.m4a', file);
+```
+
 ## Storage admin SDK
 
 The Admin SDK offers a similar API for managing storage on the server. Permission
