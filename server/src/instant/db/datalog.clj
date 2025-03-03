@@ -537,17 +537,6 @@
     1 [:= k (first v-set)]
     [:in k v-set]))
 
-(defn- in-or-eq-with-or
-  "If the set has only one element,
-   return an = clause. Otherwise, return a set of OR clauses."
-  [k v-set]
-  (case (count v-set)
-    0 [:= 0 1]
-    1 [:= k (first v-set)]
-    (list* :or (map (fn [v]
-                      [:= k v])
-                    v-set))))
-
 (defn- value->jsonb [x]
   [:cast (->json x) :jsonb])
 
@@ -597,7 +586,10 @@
 (defn- constant->where-part [idx app-id component-type [_ v]]
   (condp = component-type
     :e (if (every? uuid? v)
-         [:= :entity-id [:any (with-meta v {:pgtype "uuid[]"})]]
+         (case (count v)
+           0 [:= 0 1]
+           1 [:= :entity-id (first v)]
+           [:= :entity-id [:any (with-meta v {:pgtype "uuid[]"})]])
          (list* :or
                 (for [lookup v]
                   (if (uuid? lookup)
@@ -615,7 +607,10 @@
                                [:cast (->json (second lookup)) :jsonb]]
                               [:= :attr-id [:cast (first lookup) :uuid]]
                               :av]}]))))
-    :a (in-or-eq-with-or :attr-id v)
+    :a (case (count v)
+         0 [:= 0 1]
+         1 [:= :attr-id (first v)]
+         [:= :attr-id [:any (with-meta v {:pgtype "uuid[]"})]])
     :v (in-or-eq-value idx v)))
 
 (def all-zeroes-uuid "00000000-0000-0000-0000-000000000000")
