@@ -219,7 +219,7 @@
 (defn- url->pretty [url]
   (let [[base query-params] (str/split url #"\?")
         query (str/split query-params #"&")]
-    (into [base] (sort query))))
+    (into [base] query)))
 
 (deftest s3-presign-urls
   (let [get-req (aws-sig/presign-s3-url
