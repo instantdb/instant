@@ -16,7 +16,8 @@
    [clj-async-profiler.core :as prof])
   (:import
    (clojure.lang Compiler TaggedLiteral)
-   (com.github.vertical_blank.sqlformatter SqlFormatter)))
+   (com.github.vertical_blank.sqlformatter SqlFormatter)
+   (java.util UUID)))
 
 (defmacro def-locals*
   [prefix]
@@ -93,6 +94,32 @@
            [:bar {:select :* :from :bar}]]
     :select :* :from :bar}))
 
+
+;; Copied from sql.clj
+(defn ->pg-text-array
+  "Formats as text[] in pg, i.e. {item-1, item-2, item3}"
+  [col]
+  (format
+   "{%s}"
+   (str/join
+    ","
+    (map (fn [s] (format "\"%s\""
+                         ;; Escape quotes (but don't double esc)
+                         (str/replace s #"(?<!\\)\"" "\\\"")))
+         col))))
+
+;; Copied from sql.clj
+(defn ->pg-uuid-array
+  "Formats as uuid[] in pg, i.e. {item-1, item-2, item3}"
+  [uuids]
+  (let [s (StringBuilder. "{")]
+    (doseq [^UUID uuid uuids]
+      (when (not= 1 (.length s))
+        (.append s \,))
+      (.append s (.toString uuid)))
+    (.append s "}")
+    (.toString s)))
+
 (defn unsafe-sql-format-query
   "Use with caution: this inlines parameters in the query, so it could
    be used with sql injection.
@@ -108,6 +135,17 @@
                                                  (int? v) (format "%s" v)
                                                  (string? v) (format "'%s'" (-> v
                                                                                 (.replace "'" "''")))
+                                                 (= "uuid[]"
+                                                    (-> v
+                                                        meta
+                                                        :pgtype)) (format "'%s'"
+                                                                          (->pg-uuid-array v))
+
+                                                 (= "text[]"
+                                                    (-> v
+                                                        meta
+                                                        :pgtype)) (format "'%s'"
+                                                                          (->pg-text-array v))
                                                  :else (format "'%s'" v))
                                                (if (uuid? v)
                                                  "::uuid"
