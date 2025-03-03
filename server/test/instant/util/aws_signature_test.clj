@@ -1,4 +1,7 @@
 (ns instant.util.aws-signature-test
+  "We test against the examples from AWS docs: 
+
+  https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html#example-signature-calculations"
   (:require [instant.util.aws-signature :as aws-sig]
             [clojure.test :as test :refer [deftest is testing]]
             [clojure.string :as str]
