@@ -42,39 +42,6 @@
       (.replace "*" "%2A")
       (.replace "%7E" "~")))
 
-(defn- change-directory
-  [segments]
-  (let [change-amount (get (frequencies segments) ".." 0)]
-    (if (> change-amount 0)
-      (change-directory (drop-last (rest segments)))
-      segments)))
-
-(defn- resolve-path
-  [path]
-  (->> (str/split path #"/")
-       (remove
-        (fn [s]
-          (or (str/blank? s)
-              (= "." s))))
-       (change-directory)
-       (str/join "/")
-       (str "/")))
-
-(defn- encode-path
-  [path]
-  (->> (str/split path #"/")
-       (map url-encode)
-       (str/join "/")
-       (#(if (str/blank? %) "/" %))))
-
-(defn- append-slash
-  [path raw]
-  (str path (and (re-matches #".*/$" raw) "/")))
-
-(defn- replace-double-slash
-  [path]
-  (str/replace path #"//" "/"))
-
 (defn- ->canonical-path-str
   "The `CanonicalURI` part of a CanonicalRequest string. 
    
@@ -88,12 +55,10 @@
     if you have query string parameters. 
     
     If the absolute path is empty, use a forward slash character (/)."
-  [path]
-  (-> path
-      (resolve-path)
-      (encode-path)
-      (append-slash path)
-      (replace-double-slash)))
+  [^String path]
+  (->> (.split path "/" -1)
+       (map url-encode)
+       (str/join "/")))
 
 (defn- kv-sort [[k1 v1] [k2 v2]]
   (if (not= k1 k2)
