@@ -136,7 +136,6 @@
                                 "x-amz-date" (aws-sig/instant->amz-date
                                               example-signing-instant)
                                 "x-amz-content-sha256" aws-sig/empty-sha256}})]
-    (tool/def-locals!)
     (testing "canonical-request-str"
       (is (= ["GET"
               "/"
