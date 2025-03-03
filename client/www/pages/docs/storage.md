@@ -481,7 +481,13 @@ The SDK expects a `File` object. In React Native the built-in `fetch` function c
 Example:
 
 ```typescript
+import { init, InstaQLEntity } from '@instantdb/react-native';
+import schema, { AppSchema } from '../instant.schema';
 import * as FileSystem from 'expo-file-system';
+
+const APP_ID = process.env.EXPO_PUBLIC_INSTANT_APP_ID;
+
+const db = init({ appId: APP_ID, schema });
 
 const localFilePath = 'file:///var/mobile/Containers/Data/my_file.m4a'
 
