@@ -121,15 +121,22 @@ function RefItemTooltip({
   item: Record<string, any>;
 }) {
   const [open, setOpen] = useState(false);
+  const [loadObject, setLoadObject] = useState(false);
 
   const { data, isLoading } = db.useQuery(
-    open ? { [namespace.name]: { $: { where: { id: item.id } } } } : null,
+    open || loadObject
+      ? { [namespace.name]: { $: { where: { id: item.id } } } }
+      : null,
   );
 
   return (
     <Tooltip.Provider>
       <Tooltip.Root delayDuration={0} open={open}>
-        <Tooltip.Trigger asChild={true}>
+        <Tooltip.Trigger
+          asChild={true}
+          onMouseEnter={() => setLoadObject(true)}
+          onTouchStart={() => setLoadObject(true)}
+        >
           <span>
             <Button
               size="mini"
