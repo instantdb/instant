@@ -1,5 +1,6 @@
 (ns instant.db.datalog-test
   (:require [clojure.test :as test :refer [deftest is testing]]
+            [honey.sql :as hsql]
             [instant.jdbc.aurora :as aurora]
             [instant.config :as config]
             [instant.db.datalog :as d]
@@ -415,6 +416,25 @@
                       :join-rows
                       (map (comp last drop-last last))
                       set))))))))
+
+(deftest generates-a-single-param-for-entity-ids-if-possible
+  (with-zeneca-app
+    (fn [app r]
+      (let [ids (set [(random-uuid)
+                      (random-uuid)])
+            {:keys [query]}
+            (d/nested-match-query {:db {:conn-pool (aurora/conn-pool :read)}
+                                   :app-id (:id app)}
+                                  :match-0-
+                                  (:id app)
+                                  (d/nested->named-patterns
+                                   {:children {:pattern-groups
+                                               [{:patterns [[:ea ids]]}]}}))
+            [_q app-id-param e-param] (hsql/format query)]
+        ;; Check that the params are what we expect
+        (is (= app-id-param (:id app)))
+        ;; Check that we got a single param for the set of e
+        (is (= e-param ids))))))
 
 (comment
   (test/run-tests *ns*))

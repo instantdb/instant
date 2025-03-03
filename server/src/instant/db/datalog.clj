@@ -597,7 +597,9 @@
 (defn- constant->where-part [idx app-id component-type [_ v]]
   (condp = component-type
     :e (if (every? uuid? v)
-         (in-or-eq :entity-id v)
+         [:= :entity-id [:any [:cast
+                               (with-meta v {:pgtype "uuid[]"})
+                               [:raw "uuid[]"]]]]
          (list* :or
                 (for [lookup v]
                   (if (uuid? lookup)
