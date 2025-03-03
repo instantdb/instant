@@ -534,6 +534,32 @@ function getOrderAttr(store, etype, cursor, order) {
   }
 }
 
+function objectAttrs(store, etype, dq) {
+  if (!Array.isArray(dq.fields)) {
+    return s.getBlobAttrs(store, etype);
+  }
+
+  const attrs = new Map();
+
+  for (const field of dq.fields) {
+    const attr = s.getAttrByFwdIdentName(store, etype, field);
+    const label = attr?.['forward-identity']?.[2];
+    if (label && s.isBlob(attr)) {
+      attrs.set(label, attr);
+    }
+  }
+  // Ensure we add the id field to avoid empty objects
+  if (!attrs.has('id')) {
+    const attr = s.getAttrByFwdIdentName(store, etype, 'id');
+    const label = attr?.['forward-identity']?.[2];
+    if (label) {
+      attrs.set(label, attr);
+    }
+  }
+
+  return attrs;
+}
+
 function runDataloadAndReturnObjects(
   store,
   etype,
@@ -572,6 +598,7 @@ function runDataloadAndReturnObjects(
   );
 
   let objects = {};
+  const attrs = objectAttrs(store, etype, dq);
 
   for (const idVec of idVecs) {
     const [id] = idVec;
@@ -586,7 +613,7 @@ function runDataloadAndReturnObjects(
       continue;
     }
 
-    const obj = s.getAsObject(store, etype, id);
+    const obj = s.getAsObject(store, attrs, id);
     if (obj) {
       objects[id] = obj;
     }
@@ -622,6 +649,7 @@ function resolveObjects(store, { etype, level, form, join, pageInfo }) {
   const before = form.$?.before;
   const after = form.$?.after;
   const order = form.$?.order;
+  const fields = form.$?.fields;
 
   // Wait for server to tell us where we start if we don't start from the beginning
   if ((offset || before || after) && (!pageInfo || !pageInfo['start-cursor'])) {
@@ -637,7 +665,7 @@ function resolveObjects(store, { etype, level, form, join, pageInfo }) {
     determineOrder(form),
     pageInfo,
     order,
-    { where, find },
+    { where, find, fields },
   );
 
   if (limit != null) {

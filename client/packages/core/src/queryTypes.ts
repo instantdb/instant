@@ -67,7 +67,7 @@ type Direction = 'asc' | 'desc';
 
 type Order = { [key: string]: Direction };
 
-type $Option = {
+type $Option<Fields extends string[]> = {
   $?: {
     where?: WhereClause;
     order?: Order;
@@ -77,12 +77,13 @@ type $Option = {
     offset?: number;
     after?: Cursor;
     before?: Cursor;
+    fields?: Fields;
   };
 };
 
 type Subquery = { [namespace: string]: NamespaceVal };
 
-type NamespaceVal = $Option | ($Option & Subquery);
+type NamespaceVal = $Option<string[]> | ($Option<string[]> & Subquery);
 
 interface Query {
   [namespace: string]: NamespaceVal;
@@ -277,13 +278,18 @@ type InstaQLEntitySubquery<
   >;
 };
 
+type InstaQLFields<
+  S extends IContainEntitiesAndLinks<any, any>,
+  K extends keyof S['entities'],
+> = (Extract<keyof S['entities'][K]['attrs'], string> | 'id')[];
+
 type InstaQLQuerySubqueryParams<
   S extends IContainEntitiesAndLinks<any, any>,
   E extends keyof S['entities'],
 > = {
   [K in keyof S['entities'][E]['links']]?:
-    | $Option
-    | ($Option &
+    | $Option<InstaQLFields<S, K>>
+    | ($Option<InstaQLFields<S, K>> &
         InstaQLQuerySubqueryParams<
           S,
           S['entities'][E]['links'][K]['entityName']
@@ -292,8 +298,8 @@ type InstaQLQuerySubqueryParams<
 
 type InstaQLParams<S extends IContainEntitiesAndLinks<any, any>> = {
   [K in keyof S['entities']]?:
-    | $Option
-    | ($Option & InstaQLQuerySubqueryParams<S, K>);
+    | $Option<InstaQLFields<S, K>>
+    | ($Option<InstaQLFields<S, K>> & InstaQLQuerySubqueryParams<S, K>);
 };
 
 /**
@@ -322,6 +328,7 @@ export {
   InstaQLQueryEntityResult,
   InstaQLEntity,
   InstaQLResult,
+  InstaQLFields,
   Cursor,
   InstaQLQueryParams,
 };

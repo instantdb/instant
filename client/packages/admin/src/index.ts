@@ -18,6 +18,7 @@ import {
   type QueryResponse,
   type InstaQLResponse,
   type InstaQLParams,
+  type InstaQLFields,
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,
@@ -978,6 +979,7 @@ export {
   type InstantObject,
   type InstantEntity,
   type BackwardsCompatibleSchema,
+  type InstaQLFields,
 
   // schema types
   type AttrsDefs,

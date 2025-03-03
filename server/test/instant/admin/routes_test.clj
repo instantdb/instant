@@ -2,6 +2,7 @@
   (:require [clojure.test :as test :refer [deftest is testing]]
             [instant.fixtures :refer [with-empty-app with-zeneca-app with-movies-app]]
             [instant.data.constants :as constants]
+            [instant.data.resolvers :as resolvers]
             [instant.admin.routes :as admin-routes]
             [instant.model.app :as app-model]
             [instant.db.model.attr :as attr-model]
@@ -37,7 +38,7 @@
   (with-movies-app
     (fn [{movies-app-id :id} _r]
       (with-zeneca-app
-        (fn [{app-id :id admin-token :admin-token :as _app} _r]
+        (fn [{app-id :id admin-token :admin-token :as _app} r]
           (testing "no app-id fails"
             (let [ret (query-post
                        {:body {:query {:users {}}}
@@ -88,7 +89,22 @@
                         :headers {"app-id" (str app-id)
                                   "authorization" (str "Bearer " admin-token)}})]
               (is (= 400 (:status ret)))
-              (is (= :validation-failed (-> ret :body :type))))))))))
+              (is (= :validation-failed (-> ret :body :type)))))
+          (testing "fields"
+            (let [ret (query-post
+                       {:body {:query {:users {:$ {:fields ["handle"]}}}}
+                        :headers {"app-id" (str app-id)
+                                  "authorization" (str "Bearer " admin-token)}})]
+              (is (= 200 (:status ret)))
+              (is (= {"users" [{"id" (str (resolvers/->uuid r "eid-stepan-parunashvili"))
+                                "handle" "stopa"}
+                               {"id" (str (resolvers/->uuid r "eid-joe-averbukh"))
+                                "handle" "joe"}
+                               {"id" (str (resolvers/->uuid r "eid-alex"))
+                                "handle" "alex"}
+                               {"id" (str (resolvers/->uuid r "eid-nicole"))
+                                "handle" "nicolegf"}]}
+                     (:body ret))))))))))
 
 (comment
   (def app-id #uuid "2f23dfa2-c921-4988-9243-adf602339bab")

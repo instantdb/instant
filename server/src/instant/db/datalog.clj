@@ -596,23 +596,25 @@
 
 (defn- constant->where-part [idx app-id component-type [_ v]]
   (condp = component-type
-    :e (list* :or
-              (for [lookup v]
-                (if (uuid? lookup)
-                  [:= :entity-id lookup]
-                  [:=
-                   :entity-id
-                   {:select :entity-id
-                    :from :triples
-                    :where [:and
-                            [:= :app-id app-id]
+    :e (if (every? uuid? v)
+         [:= :entity-id [:any (with-meta v {:pgtype "uuid[]"})]]
+         (list* :or
+                (for [lookup v]
+                  (if (uuid? lookup)
+                    [:= :entity-id lookup]
+                    [:=
+                     :entity-id
+                     {:select :entity-id
+                      :from :triples
+                      :where [:and
+                              [:= :app-id app-id]
 
-                            [:=
-                             ;; Make sure it uses the av_index
-                             [:json_null_to_null :value]
-                             [:cast (->json (second lookup)) :jsonb]]
-                            [:= :attr-id [:cast (first lookup) :uuid]]
-                            :av]}])))
+                              [:=
+                               ;; Make sure it uses the av_index
+                               [:json_null_to_null :value]
+                               [:cast (->json (second lookup)) :jsonb]]
+                              [:= :attr-id [:cast (first lookup) :uuid]]
+                              :av]}]))))
     :a (in-or-eq-with-or :attr-id v)
     :v (in-or-eq-value idx v)))
 

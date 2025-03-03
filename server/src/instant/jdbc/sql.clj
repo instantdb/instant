@@ -14,10 +14,11 @@
    [next.jdbc.result-set :as rs]
    [next.jdbc.sql :as sql])
   (:import
-   (clojure.lang IPersistentList IPersistentMap IPersistentVector)
+   (clojure.lang IPersistentList IPersistentMap IPersistentSet IPersistentVector)
    (com.zaxxer.hikari HikariDataSource)
    (java.sql Array Connection PreparedStatement ResultSet ResultSetMetaData)
    (java.time Instant LocalDate LocalDateTime)
+   (java.util UUID)
    (javax.sql DataSource)
    (org.postgresql.util PGobject PSQLException)))
 
@@ -35,6 +36,17 @@
                          (string/replace s #"(?<!\\)\"" "\\\"")))
          col))))
 
+(defn ->pg-uuid-array
+  "Formats as uuid[] in pg, i.e. {item-1, item-2, item3}"
+  [uuids]
+  (let [s (StringBuilder. "{")]
+    (doseq [^UUID uuid uuids]
+      (when (not= 1 (.length s))
+        (.append s \,))
+      (.append s (.toString uuid)))
+    (.append s "}")
+    (.toString s)))
+
 (defn ->pgobject
   "Transforms Clojure data to a PGobject that contains the data as
   JSON. PGObject type defaults to `jsonb` but can be changed via
@@ -43,6 +55,7 @@
   (let [pgtype (or (:pgtype (meta x)) "jsonb")
         value (case pgtype
                 "text[]" (->pg-text-array x)
+                "uuid[]" (->pg-uuid-array x)
                 (->json x))]
     (doto (PGobject.)
       (.setType pgtype)
@@ -90,6 +103,10 @@
     (.setObject s i (->pgobject l)))
 
   IPersistentVector
+  (set-parameter [v ^PreparedStatement s i]
+    (.setObject s i (->pgobject v)))
+
+  IPersistentSet
   (set-parameter [v ^PreparedStatement s i]
     (.setObject s i (->pgobject v))))
 

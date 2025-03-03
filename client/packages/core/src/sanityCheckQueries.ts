@@ -119,6 +119,13 @@ const sanityCheckQueries = () => {
     users: { $: { where: { val: { $not: 'a' } } } },
   });
 
+  const t14 = dummyQuery({
+    users: {
+      $: { fields: ['name', 'age', 'dob'] },
+      posts: { $: { fields: ['title'] } },
+    },
+  });
+
   // ------------------
   // Bad $ clauses fail
   // @ts-expect-error
@@ -161,6 +168,11 @@ const sanityCheckQueries = () => {
   // Bad nested queries fail
   // @ts-expect-error
   const r14 = dummyQuery({ users: { foo: 1 } });
+
+  const r15 = dummyQuery({
+    // @ts-expect-error
+    users: { $: { fields: 'name' } },
+  });
 };
 const sanityCheckSchemalessResponses = () => {
   // Simple Response
