@@ -78,9 +78,9 @@
 (defn- ->canonical-path-str
   "The `CanonicalURI` part of a CanonicalRequest string. 
    
-   Note the input `uri` is in fact the absolute path component of a URI. 
-   We keep the name `uri`, as this is how AWS refers to it.
-    
+   Note, the amazon calls this a `CanonnicalURI`, it is in fact _just_ 
+   the path component of a URI. 
+
    Rules: 
     The URI-encoded version of the absolute path component URI, 
     starting with the / that follows the domain name and up to 
@@ -88,11 +88,11 @@
     if you have query string parameters. 
     
     If the absolute path is empty, use a forward slash character (/)."
-  [uri]
-  (-> uri
+  [path]
+  (-> path
       (resolve-path)
       (encode-path)
-      (append-slash uri)
+      (append-slash path)
       (replace-double-slash)))
 
 (defn- kv-sort [[k1 v1] [k2 v2]]
@@ -137,8 +137,7 @@
          see `create-sig-request`. 
    
    Rules: 
-    alphabetically sorted, 
-    semicolon-separated list of lowercase request header names."
+    <headername>;<headername>;..."
   [canonical-headers]
   (str/join ";" (keys canonical-headers)))
 
@@ -151,21 +150,23 @@
     For Amazon S3, include the literal string UNSIGNED-PAYLOAD 
     when constructing a canonical request, and set the same value as the x-amz-content-sha256 
     header value when sending the request."
-  [payload]
-  (cond
-    (= payload unsigned-payload) unsigned-payload
-    (nil? payload) empty-sha256
-    :else (-> payload
-              str
-              (.getBytes "utf-8")
-              crypt-util/bytes->sha256
-              crypt-util/bytes->hex-string)))
+  [{:keys [payload headers] :as _sig-request}]
+  (let [content-sha-header (get headers "x-amz-content-sha256")]
+    (cond
+      content-sha-header content-sha-header
+      (nil? payload) empty-sha256
+      (= payload unsigned-payload) unsigned-payload
+      :else (-> payload
+                str
+                (.getBytes "utf-8")
+                crypt-util/bytes->sha256
+                crypt-util/bytes->hex-string))))
 
 (defn- ->canonical-method-str
   "Generates the `HTTPMethod` part of a CanonicalRequest string. 
   
    Rules: 
-    Uppercase string"
+    GET | PUT ..."
   [method]
   (.toUpperCase (name method)))
 
@@ -189,15 +190,13 @@
   [{:keys [method
            path
            query
-           headers
-           payload] :as _sig-request}]
+           headers] :as sig-request}]
   (str (->canonical-method-str method) \newline
        (->canonical-path-str path) \newline
        (->canonical-query-str query) \newline
        (->canonical-headers-str headers)   \newline
        (->signed-headers-str headers) \newline
-       (or (get headers "x-amz-content-sha256")
-           (->hashed-payload-str payload))))
+       (->hashed-payload-str sig-request)))
 
 ;; ------------- 
 ;; StringToSign 
@@ -251,7 +250,7 @@
   "Generates a `SigningKey`. 
    
    We do this by performing a succession of keyed hash operations 
-   on the request date, Region, and service"
+   on the request date, region, and service"
   [{:keys [secret-key signing-instant region service] :as _sig-request}]
   (let [start-key (crypt-util/str->utf-8-bytes (str "AWS4" secret-key))
         date-key (crypt-util/hmac-256 start-key
@@ -350,5 +349,4 @@
         signature (->signature sig-request)
         all-query-params (assoc query "X-Amz-Signature" signature)]
     (str "https://" host path-with-slash "?" (->canonical-query-str all-query-params))))
-
 
