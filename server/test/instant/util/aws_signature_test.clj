@@ -240,13 +240,12 @@
                   :signing-instant example-signing-instant
                   :expires-duration (Duration/ofSeconds 400)
                   :path (storage-s3/->object-key example-app-id example-location-id)})]
-
     (is (= ["https://examplebucket.s3.amazonaws.com/998acba8-1d01-44f2-bea3-d683ccc493c9/1/590548c1-c4ec-4bf9-9df3-2ef603b190d2"
             "X-Amz-Algorithm=AWS4-HMAC-SHA256"
             "X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Fus-east-1%2Fs3%2Faws4_request"
             "X-Amz-Date=20130524T000000Z"
             "X-Amz-Expires=400"
-            "X-Amz-Signature=00dfd86a8be51db046df2b4dd566a2a41983adeb7dc2aae2ceba6aca8facce64"
+            "X-Amz-Signature=3cc677e69965c690abb6c317055b8e3db209470d501515fa9ead69d4cd077757"
             "X-Amz-SignedHeaders=host"]
            (url->pretty get-req)))
     (is (= ["https://examplebucket.s3.amazonaws.com/998acba8-1d01-44f2-bea3-d683ccc493c9/1/590548c1-c4ec-4bf9-9df3-2ef603b190d2"
@@ -254,7 +253,7 @@
             "X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Fus-east-1%2Fs3%2Faws4_request"
             "X-Amz-Date=20130524T000000Z"
             "X-Amz-Expires=400"
-            "X-Amz-Signature=608503ea317632628ce80138c2d622d9eb6d6c84b04eb30824a5f1ba86de9d69"
+            "X-Amz-Signature=c7c9312ca2ee0e59ed3c1a16f24af8e74cf8ef36d70a45dffc6efc8698ecaaaa"
             "X-Amz-SignedHeaders=host"]
            (url->pretty put-req)))))
 

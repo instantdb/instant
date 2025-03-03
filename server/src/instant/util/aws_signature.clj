@@ -320,7 +320,8 @@
                               method
                               region
                               bucket
-                              path]}]
+                              path]
+                       :or {signing-instant (Instant/now)}}]
 
   (let [host (s3-host region bucket)
         path-with-slash (if  (.startsWith path "/")
@@ -345,7 +346,8 @@
 
                                          :signing-instant signing-instant
                                          :query query
-                                         :headers {"host" host}})
+                                         :headers {"host" host}
+                                         :payload unsigned-payload})
         signature (->signature sig-request)
         all-query-params (assoc query "X-Amz-Signature" signature)]
     (str "https://" host path-with-slash "?" (->canonical-query-str all-query-params))))
