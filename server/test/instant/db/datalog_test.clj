@@ -436,5 +436,17 @@
         ;; Check that we got a single param for the set of e
         (is (= e-param ids))))))
 
+(deftest can-handle-many-entity-ids
+  (with-zeneca-app
+    (fn [app r]
+      (let [ids (conj (set (repeatedly 100000 random-uuid))
+                      (resolvers/->uuid r "eid-alex"))
+            res (d/query {:db {:conn-pool (aurora/conn-pool :read)}
+                          :app-id (:id app)}
+                         [[:ea ids #{(resolvers/->uuid r :users/id)}]])]
+        (is (= #{[["eid-alex" :users/id "eid-alex" 1610218387000]]}
+               (resolvers/walk-friendly r
+                                        (:join-rows res))))))))
+
 (comment
   (test/run-tests *ns*))
