@@ -6,7 +6,6 @@
   (:import
    (java.time Duration)
    (software.amazon.awssdk.auth.credentials DefaultCredentialsProvider)
-   (software.amazon.awssdk.regions.providers DefaultAwsRegionProviderChain)
    (software.amazon.awssdk.core.async AsyncRequestBody
                                       BlockingInputStreamAsyncRequestBody)
    (software.amazon.awssdk.services.s3 S3AsyncClient
