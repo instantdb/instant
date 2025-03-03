@@ -1037,6 +1037,79 @@ console.log(data)
 }
 ```
 
+## Limiting fields
+
+An InstaQL query will fetch all fields for each object.
+
+If you prefer to select the specific fields that you want your query to return, use the `fields` param:
+
+```javascript
+const query = {
+  goals: {
+    $: {
+      fields: ['status'],
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data)
+{
+  "goals": [
+    {
+      "id": standupId,
+      "status": "in-progress"
+    },
+    {
+      "id": standId,
+      "status": "completed"
+    }
+  ]
+}
+```
+
+{% callout %}
+The `id` field is always included in the result set.
+{% /callout %}
+
+`fields` also works with nested relations:
+
+```javascript
+const query = {
+  goals: {
+    $: {
+      fields: ['title'],
+    },
+    todos: {
+      $: {
+        fields: ['id'],
+      },
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data)
+{
+  "goals": [
+    {
+      "id": standupId,
+      "title": "Perform standup!",
+      "todos": [{"id": writeJokesId}, {"id": goToOpenMicId}]
+    },
+    {
+      "id": standId,
+      "title": "Stand up a food truck.",
+      "todos": [{"id": learnToCookId}, {"id": buyATruckId}]
+    }
+  ]
+}
+```
+
 ## Typesafety
 
 By default, `db.useQuery` is permissive. You don't have to tell us your schema upfront, and you can write any kind of query:
