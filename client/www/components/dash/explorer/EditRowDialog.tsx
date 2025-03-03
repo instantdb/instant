@@ -4,7 +4,7 @@ import {
   InstaQLParams,
   tx,
 } from '@instantdb/react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import {
   ActionButton,
@@ -26,6 +26,7 @@ import {
 import {
   ArrowUturnLeftIcon,
   ArrowPathIcon,
+  Cog8ToothIcon,
   TrashIcon,
   InformationCircleIcon,
 } from '@heroicons/react/24/solid';
@@ -110,8 +111,20 @@ function uuidValidate(uuid: string): string | null {
   return validate(uuid) ? null : 'Invalid UUID.';
 }
 
-function RefItemTooltip({ item }: { item: Record<string, any> }) {
+function RefItemTooltip({
+  db,
+  namespace,
+  item,
+}: {
+  db: InstantReactWebDatabase<any>;
+  namespace: SchemaNamespaceMap;
+  item: Record<string, any>;
+}) {
   const [open, setOpen] = useState(false);
+
+  const { data, isLoading } = db.useQuery(
+    open ? { [namespace.name]: { $: { where: { id: item.id } } } } : null,
+  );
 
   return (
     <Tooltip.Provider>
@@ -128,13 +141,20 @@ function RefItemTooltip({ item }: { item: Record<string, any> }) {
           </span>
         </Tooltip.Trigger>
         <Tooltip.Content collisionPadding={10} side="bottom">
-          <div
-            className="max-w-md overflow-auto whitespace-pre border bg-white bg-opacity-90 p-2 font-mono text-xs shadow-md backdrop-blur-sm"
-            style={{
-              maxHeight: `var(--radix-popper-available-height)`,
-            }}
-          >
-            {JSON.stringify(item, null, 2)}
+          <div className="relative">
+            <div
+              className="max-w-md overflow-auto whitespace-pre border bg-white bg-opacity-90 p-2 font-mono text-xs shadow-md backdrop-blur-sm"
+              style={{
+                maxHeight: `var(--radix-popper-available-height)`,
+              }}
+            >
+              {JSON.stringify(data?.[namespace.name]?.[0] || item, null, 2)}
+            </div>
+            {isLoading ? (
+              <div className="animate-spin absolute top-0 right-0 p-2 opacity-50">
+                <Cog8ToothIcon width={12} />
+              </div>
+            ) : null}
           </div>
         </Tooltip.Content>
       </Tooltip.Root>
@@ -232,6 +252,8 @@ function LinkCombobox({
 }) {
   const [q, setq] = useState('');
 
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
   const { uniqueAttrs, filterableAttrs } = useMemo(() => {
     const uniqueAttrs: SchemaAttr[] = [];
     const filterableAttrs: SchemaAttr[] = [];
@@ -306,6 +328,7 @@ function LinkCombobox({
         immediate={true}
       >
         <ComboboxInput
+          ref={inputRef}
           autoFocus={true}
           size={32}
           className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
@@ -321,6 +344,7 @@ function LinkCombobox({
           unmount={false}
           static={true}
           className="fixed max-h-[25vh] mt-1 w-[var(--input-width)] overflow-scroll rounded-md bg-white shadow-lg border border-gray-300 divide-y empty:invisible"
+          style={{ top: inputRef.current?.getBoundingClientRect().bottom }}
         >
           {(options || []).map((o) => (
             <LinkComboboxItem
@@ -380,13 +404,10 @@ function RefItem({
         const markedForUnlink = refUpdates?.[x.id]?.action === 'unlink';
         return (
           <div key={x.id}>
-            <code
-              title={JSON.stringify(x, null, 2)}
-              className={markedForUnlink ? 'line-through' : ''}
-            >
+            <code className={markedForUnlink ? 'line-through' : ''}>
               {x.id}
             </code>
-            <RefItemTooltip item={x} />
+            <RefItemTooltip db={db} namespace={namespace} item={x} />
             <Button
               title={markedForUnlink ? 'Undo' : 'Unlink'}
               type="link"
@@ -416,7 +437,7 @@ function RefItem({
         return (
           <div key={id}>
             <code>{id}</code>
-            <RefItemTooltip item={item} />
+            <RefItemTooltip db={db} namespace={namespace} item={item} />
             <Button
               title={'Remove'}
               type="link"
