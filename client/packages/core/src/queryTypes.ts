@@ -287,7 +287,7 @@ type InstaQLQuerySubqueryParams<
   S extends IContainEntitiesAndLinks<any, any>,
   E extends keyof S['entities'],
 > = {
-  [K in keyof S['entities'][E]['links']]?:  // XXX
+  [K in keyof S['entities'][E]['links']]?:
     | $Option<InstaQLFields<S, K>>
     | ($Option<InstaQLFields<S, K>> &
         InstaQLQuerySubqueryParams<
