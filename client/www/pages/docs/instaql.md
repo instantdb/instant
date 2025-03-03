@@ -1037,7 +1037,7 @@ console.log(data)
 }
 ```
 
-## Limiting fields
+## Select fields
 
 An InstaQL query will fetch all fields for each object.
 

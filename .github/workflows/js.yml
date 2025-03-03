@@ -205,7 +205,7 @@ jobs:
           safeBranch=$(echo $BRANCH_NAME | sed 's/[^a-zA-Z0-9-]/-/g')
           aliasUrl="instant-www-js-$safeBranch-jsv.vercel.app"
           echo "ALIAS_URL=$aliasUrl" >> $GITHUB_ENV
-          echo "aiasing $deploymentUrl to https://$aliasUrl"
+          echo "aliasing $deploymentUrl to https://$aliasUrl"
           vercel alias $deploymentUrl $aliasUrl --token=${{ secrets.VERCEL_TOKEN }} --scope jsv
         else
             echo "There was an error"
