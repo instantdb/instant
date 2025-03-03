@@ -25,12 +25,17 @@ attribute by adding this to your app's [permissions](/dash?t=perms)
 
 This will prevent any new attributes from being created.
 
-## Specify attributes you want to query.
+## Attribute level permissions
 
 When you query a namespace, it will return all the attributes for an entity.
-We don't currently support specifying which attributes you want to query.
+You can use the [`fields`](/docs/instaql#select-fields) clause to restrict which attributes
+are returned from the server but this will not prevent a client from doing
+another query to get the full entity.
 
-This means if you have private data in an entity, or some larger data you want to fetch sometimes, you'll want to split the entity into multiple namespaces. [Here's an example](https://github.com/instantdb/instant/blob/main/client/sandbox/react-nextjs/pages/patterns/split-attributes.tsx)
+At the moment InstantDB does not support attribute level permissions. This is
+something we are actively thinking about though! In the meantime you can work
+around this by splitting your entities into multiple namespaces. This way you
+can set separate permissions for private data. [Here's an example](https://github.com/instantdb/instant/blob/main/client/sandbox/react-nextjs/pages/patterns/split-attributes.tsx)
 
 ## Find entities with no links.
 

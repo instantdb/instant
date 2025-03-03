@@ -1110,6 +1110,11 @@ console.log(data)
 }
 ```
 
+Although using `fields` reduces the payload size it doesn't restrict a client
+from doing a full query. If you have sensitive data on your entities that you
+don't want to expose you'll want to use [permissions](/docs/permissions) and/or [split your
+namespace](docs/patterns#attribute-level-permissions) to restrict access.
+
 ## Typesafety
 
 By default, `db.useQuery` is permissive. You don't have to tell us your schema upfront, and you can write any kind of query:
