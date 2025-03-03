@@ -419,7 +419,7 @@
 
 (deftest generates-a-single-param-for-entity-ids-if-possible
   (with-zeneca-app
-    (fn [app r]
+    (fn [app _r]
       (let [ids (set [(random-uuid)
                       (random-uuid)])
             {:keys [query]}
