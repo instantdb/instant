@@ -1,11 +1,14 @@
 (ns instant.storage.s3
   (:require [clojure.string :as string]
-            [instant.util.s3 :as s3-util])
+            [instant.util.s3 :as s3-util]
+            [instant.util.date :as date-util])
   (:import
-   [java.time Duration]))
+   [java.time ZonedDateTime Duration DayOfWeek]
+   [java.time.temporal TemporalAdjusters ChronoUnit]))
 
 ;; S3 path manipulation
 ;; ----------------------
+
 (defn location-id->bin
   "We add a bin to the location id to scale S3 performance
    See: https://docs.aws.amazon.com/AmazonS3/latest/userguide/optimizing-performance.html"
@@ -75,14 +78,53 @@
                        location-ids)]
     (s3-util/delete-objects-paginated location-keys)))
 
+(defn bucketed-zdate
+  "AWS URLs depend on the signing-instant.  
+  
+  We want to keep URLs stable: repeated calls to the same object should return 
+  the same URL, so that browsers can cache the object. 
+
+  To do this, we bucket input dates like so: 
+  
+  start-of-week: Mon midnight 
+  mid-week: Thu 12PM. 
+
+  Given an input date `z-date`, we stick it to the closest previous bucket. 
+
+  So: 
+   - Mon 9AM -> Mon midnight 
+   - Tue 3PM -> Mon midnight 
+   - Thu 4PM -> Thu 12PM
+   - Sat 11PM -> Thu 12PM  
+   - Sun midnight -> Thu 12PM 
+
+  We set a 7 day expiration for our URLs. This means that in the worst cases 
+  (if a user calls us at 11:59PM on a Sunday), we will have a real expiration date of 
+  
+  3.5 days"
+  [^ZonedDateTime z-date]
+  (let [start-of-week (-> z-date
+                          (.with (TemporalAdjusters/previousOrSame DayOfWeek/MONDAY))
+                          (.truncatedTo ChronoUnit/DAYS))
+        mid-week (-> start-of-week
+                     (.plus (Duration/ofDays 3))
+                     (.plus (Duration/ofHours 12)))
+
+        choice (if (.isBefore z-date mid-week)
+                 start-of-week
+                 mid-week)]
+    choice))
+
 (defn location-id-url [app-id location-id]
-  (let [duration (Duration/ofDays 7)
+  (let [signing-instant (.toInstant (bucketed-zdate (date-util/pst-now)))
+        duration (Duration/ofDays 7)
         object-key (->object-key app-id location-id)]
     (str (s3-util/generate-presigned-url
           {:method :get
            :bucket-name s3-util/default-bucket
            :key object-key
-           :duration duration}))))
+           :duration duration
+           :signing-instant signing-instant}))))
 
 (defn create-signed-download-url! [app-id location-id]
   (when location-id
