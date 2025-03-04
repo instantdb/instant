@@ -1229,16 +1229,6 @@ You can specify links relative to your entity:
 type TodoWithGoals = InstaQLEntity<AppSchema, 'todos', { goals: {} }>;
 ```
 
-You can specify fields to select from your entity:
-
-```typescript
-import { InstaQLFields } from '@instantdb/react';
-import { AppSchema } from '../instant.schema.ts';
-
-const fields: InstaQLFields<AppSchema, 'todos'> = ['id', 'title'];
-const { data } = db.useQuery({ todos: { $: { fields } } });
-```
-
 To learn more about writing schemas, check out the [Modeling Data](/docs/modeling-data) section.
 
 ## Query once
