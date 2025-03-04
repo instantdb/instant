@@ -29,7 +29,9 @@ const schema = i.schema({
     }),
     categories: i.entity({
       name: i.string(),
+      otherField: i.string().optional(),
     }),
+    other: i.entity({ f: i.string() }),
   },
   links: {
     habitCheckins: {
@@ -72,6 +74,41 @@ const db = init({
 });
 
 type DB = typeof db;
+
+// Test type returned by `fields` with asType
+function TestFields() {
+  const { data } = db.useQuery({
+    discriminatedUnionExample: {
+      $: { fields: ['id', 'x', 'y'] },
+    },
+    checkins: {
+      $: {
+        fields: ['date'],
+      },
+      habit: {
+        category: { $: { fields: ['name'] } },
+        $: { fields: ['enum'] },
+      },
+    },
+  });
+
+  const du = data?.discriminatedUnionExample.at(0);
+
+  if (du?.x === 'foo') {
+    // y should be constrained to 1
+    du.y;
+  }
+
+  const _date: string | undefined = data?.checkins?.[0].date;
+
+  // @ts-expect-error: did not request meta
+  const _meta = data?.checkins?.[0].meta;
+
+  const _enum = data?.checkins?.[0]?.habit?.enum;
+
+  // @ts-expect-error: did not request name
+  const _name = data?.checkins?.[0]?.habit?.name;
+}
 
 export default function Main() {
   db.room('demo', 'demo').useSyncPresence({
