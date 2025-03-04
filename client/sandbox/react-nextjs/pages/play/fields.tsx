@@ -56,6 +56,21 @@ function Example({ appId }: { appId: string }) {
     },
   });
 
+  // Testing types
+  const { data: fieldsData } = db.useQuery({
+    characters: {
+      $: {
+        fields: ['name'],
+        where: { rating: { $gt: 7 } },
+      },
+    },
+  });
+
+  const _name = fieldsData?.characters?.[0].name;
+  const _id = fieldsData?.characters?.[0].id;
+  // @ts-expect-error: description wasn't requested
+  const _description = fieldsData?.characters?.[0].description;
+
   return (
     <div>
       <div>
