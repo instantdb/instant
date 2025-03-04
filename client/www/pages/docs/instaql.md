@@ -1059,7 +1059,7 @@ console.log(data)
 {
   "goals": [
     {
-      "id": standupId,
+      "id": standupId, // id will always be returned even if not specified
       "status": "in-progress"
     },
     {
@@ -1069,10 +1069,6 @@ console.log(data)
   ]
 }
 ```
-
-{% callout %}
-The `id` field is always included in the result set.
-{% /callout %}
 
 `fields` also works with nested relations:
 
@@ -1110,10 +1106,18 @@ console.log(data)
 }
 ```
 
-Although using `fields` reduces the payload size it doesn't restrict a client
-from doing a full query. If you have sensitive data on your entities that you
-don't want to expose you'll want to use [permissions](/docs/permissions) and/or [split your
+Using `fields` can be useful for performance optimization. It reduces the
+amount of data that needs to be transferred from the server and minimizes the
+number of re-renders in your React application if there are no changes to your
+selected fields.
+
+{% callout type="warning" %}
+
+Using `fields` doesn't restrict a client from doing a full query. If you have sensitive data on your entities that you
+don't want to expose you'll want to use [permissions](/docs/permissions) and potentially [split your
 namespace](docs/patterns#attribute-level-permissions) to restrict access.
+
+{% /callout %}
 
 ## Typesafety
 
@@ -1219,7 +1223,7 @@ import { AppSchema } from '../instant.schema.ts';
 type Todo = InstaQLEntity<AppSchema, 'todos'>;
 ```
 
-You can specify links relative to your entity too:
+You can specify links relative to your entity:
 
 ```typescript
 type TodoWithGoals = InstaQLEntity<AppSchema, 'todos', { goals: {} }>;
