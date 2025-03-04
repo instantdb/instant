@@ -220,12 +220,23 @@ type InstaQLQueryEntityLinksResult<
     : never;
 };
 
+type MaybePickKeys<T, K extends keyof T | undefined> = [K] extends [undefined]
+  ? T
+  : Pick<T, K>;
+
 type InstaQLEntity<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   EntityName extends keyof Schema['entities'],
   Subquery extends InstaQLEntitySubquery<Schema, EntityName> = {},
+  Fields extends (
+    | Extract<keyof Schema['entities'][EntityName]['attrs'], string>
+    | 'id'
+  )[] = undefined,
 > = Expand<
-  { id: string } & ResolveEntityAttrs<Schema['entities'][EntityName]> &
+  { id: string } & MaybePickKeys<
+    ResolveEntityAttrs<Schema['entities'][EntityName]>,
+    Fields extends undefined ? undefined : Exclude<Fields[number], 'id'>
+  > &
     InstaQLEntitySubqueryResult<Schema, EntityName, Subquery>
 >;
 
@@ -264,7 +275,12 @@ type InstaQLResult<
   Query extends InstaQLParams<Schema>,
 > = Expand<{
   [QueryPropName in keyof Query]: QueryPropName extends keyof Schema['entities']
-    ? InstaQLEntity<Schema, QueryPropName, Remove$<Query[QueryPropName]>>[]
+    ? InstaQLEntity<
+        Schema,
+        QueryPropName,
+        Remove$<Query[QueryPropName]>,
+        Query[QueryPropName]['$']['fields']
+      >[]
     : never;
 }>;
 
@@ -281,7 +297,7 @@ type InstaQLEntitySubquery<
 type InstaQLFields<
   S extends IContainEntitiesAndLinks<any, any>,
   K extends keyof S['entities'],
-> = (Extract<keyof S['entities'][K]['attrs'], string> | 'id')[];
+> = (Extract<keyof ResolveAttrs<S['entities'], K>, string> | 'id')[];
 
 type InstaQLQuerySubqueryParams<
   S extends IContainEntitiesAndLinks<any, any>,
