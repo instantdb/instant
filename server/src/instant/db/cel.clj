@@ -260,6 +260,7 @@
 
 (def ^:dynamic *where-clauses* nil)
 
+;; XXX: These should be in a separate cel-compiler + cel-runtime
 (def data-compare-fn
   {:decl (CelFunctionDecl/newFunctionDeclaration
           "_instant_data_compare"
@@ -270,6 +271,7 @@
             (ImmutableList/of SimpleType/DYN SimpleType/DYN))))
    :runtime (let [impl (reify CelFunctionOverload$Binary
                          (apply [_ x y]
+                           (println "EXECUTING COMPARE")
                            (tool/def-locals)
                            ;; Probably should log here
                            (cond (nil? *where-clauses*)
@@ -301,7 +303,73 @@
                Object
                impl))})
 
-(def custom-fns [ref-fn data-compare-fn])
+(def data-or-fn
+  {:decl (CelFunctionDecl/newFunctionDeclaration
+          "_instant_or"
+          (ImmutableList/of
+           (CelOverloadDecl/newGlobalOverload
+            "_instant_or"
+            SimpleType/BOOL
+            (ImmutableList/of SimpleType/DYN SimpleType/DYN))))
+   :runtime (let [impl (reify CelFunctionOverload$Binary
+                         (apply [this x y]
+                           (tool/def-locals)
+                           (swap! *where-clauses* (fn [c]
+                                                    (when c
+                                                      [{:or c}])
+                                                    #_(when c
+                                                        [:or {:or [c]}])))
+
+                           (or x y)))]
+              (CelRuntime$CelFunctionBinding/from
+               "_instant_or"
+               Object
+               Object
+               impl))})
+
+(def data-and-fn
+  {:decl (CelFunctionDecl/newFunctionDeclaration
+          "_instant_and"
+          (ImmutableList/of
+           (CelOverloadDecl/newGlobalOverload
+            "_instant_and"
+            SimpleType/BOOL
+            (ImmutableList/of SimpleType/DYN SimpleType/DYN))))
+   :runtime (let [impl (reify CelFunctionOverload$Binary
+                         (apply [this x y]
+                           (tool/def-locals)
+                           (swap! *where-clauses* (fn [c]
+                                                    (when c
+                                                      [{:and c}])
+                                                    #_(when c
+                                                        [:and {:and [c]}])))
+
+                           (or x y)))]
+              (CelRuntime$CelFunctionBinding/from
+               "_instant_and"
+               Object
+               Object
+               impl))})
+
+(def dww-test-fn
+  {:decl (CelFunctionDecl/newFunctionDeclaration
+          "_dww_test"
+          (ImmutableList/of
+           (CelOverloadDecl/newGlobalOverload
+            "_dww_test"
+            SimpleType/BOOL
+            (ImmutableList/of SimpleType/DYN SimpleType/DYN))))
+   :runtime (let [impl (fn [args]
+                         (tool/def-locals)
+                         true
+                         )]
+              (CelRuntime$CelFunctionBinding/from
+               "_dww_test"
+               (ImmutableList/of Object
+                                 Object)
+               impl))})
+
+(def custom-fns [ref-fn data-compare-fn data-or-fn data-and-fn dww-test-fn])
 (def custom-fn-decls (mapv :decl custom-fns))
 (def custom-fn-bindings (mapv :runtime custom-fns))
 
@@ -330,6 +398,13 @@
 (def operators
   {:= (.getFunction Operator/EQUALS)})
 
+(def operator-replacements
+  {(.getFunction Operator/EQUALS) "_instant_data_compare"
+   (.getFunction Operator/LOGICAL_OR) "_instant_or"
+   (.getFunction Operator/LOGICAL_AND) "_instant_and"})
+
+(def can-replace-operator? (set (keys operator-replacements)))
+
 (defn get-expr [^CelNavigableExpr node]
   ;; Not sure why this is necessary, but can't call
   ;; .expr on the node without manually making it
@@ -346,7 +421,7 @@
   (tool/def-locals)
   (boolean
    (and (= CelExpr$ExprKind$Kind/CALL (.getKind node))
-        (= (:= operators) (.function (.call (get-expr node)))))))
+        (can-replace-operator? (.function (.call (get-expr node)))))))
 
 (deftype MyOptimizer []
   CelAstOptimizer
@@ -369,7 +444,9 @@
            (.toParsedAst (.renumberIdsConsecutively ast-mutator
                                                     mutable-ast)))
           (let [expr (get-expr node)
-                _ (.setFunction (.call expr) "_instant_data_compare")]
+                func (.function (.call expr))
+                _ (println "OPTIMIZING" func)
+                _ (.setFunction (.call expr) (get operator-replacements func))]
             (recur (.replaceSubtree ast-mutator
                                     mutable-ast
                                     expr
