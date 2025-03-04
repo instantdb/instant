@@ -169,11 +169,7 @@ type Exactly<Parent, Child> = Parent & {
 type InstaQLEntitySubqueryResult<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   EntityName extends keyof Schema['entities'],
-  Query extends InstaQLEntitySubquery<
-    Schema,
-    EntityName,
-    InstaQLFields<Schema, EntityName>
-  > = {},
+  Query extends InstaQLEntitySubquery<Schema, EntityName> = {},
 > = {
   [QueryPropName in keyof Query]: Schema['entities'][EntityName]['links'][QueryPropName] extends LinkAttrDef<
     infer Cardinality,
@@ -251,11 +247,7 @@ type InstaQLFields<
 type InstaQLEntity<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   EntityName extends keyof Schema['entities'],
-  Subquery extends InstaQLEntitySubquery<
-    Schema,
-    EntityName,
-    InstaQLFields<Schema, EntityName>
-  > = {},
+  Subquery extends InstaQLEntitySubquery<Schema, EntityName> = {},
   Fields extends InstaQLFields<Schema, EntityName> | undefined = undefined,
 > = Expand<
   { id: string } & (Extract<Fields[number], string> extends undefined
@@ -314,15 +306,13 @@ type InstaQLResult<
 type InstaQLEntitySubquery<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   EntityName extends keyof Schema['entities'],
-  Fields extends InstaQLFields<Schema, EntityName>,
 > = {
   [QueryPropName in keyof Schema['entities'][EntityName]['links']]?:
     | $Option<InstaQLFields<Schema, EntityName>>
     | ($Option<InstaQLFields<Schema, EntityName>> &
         InstaQLEntitySubquery<
           Schema,
-          Schema['entities'][EntityName]['links'][QueryPropName]['entityName'],
-          Fields
+          Schema['entities'][EntityName]['links'][QueryPropName]['entityName']
         >);
 };
 
