@@ -3,8 +3,8 @@
             [instant.util.s3 :as s3-util]
             [instant.util.date :as date-util])
   (:import
-   [java.time ZonedDateTime Duration DayOfWeek]
-   [java.time.temporal TemporalAdjusters ChronoUnit]))
+   [java.time Duration]
+   [java.time.temporal ChronoUnit]))
 
 ;; S3 path manipulation
 ;; ----------------------
