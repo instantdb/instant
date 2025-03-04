@@ -212,6 +212,10 @@
 
 (def oauth-redirect-url (str config/server-origin "/runtime/oauth/callback"))
 
+;; For now just supporting `hd` from Google
+;; https://developers.google.com/identity/openid-connect/openid-connect#authenticationuriparameters
+(def oauth-optional-params [:hd])
+
 ;; -------------
 ;; OAuth cookies
 
@@ -245,6 +249,11 @@
         redirect-uri (ex/get-param! req
                                     [:params :redirect_uri]
                                     string-util/coerce-non-blank-str)
+
+        extra-params (into {} (for [param oauth-optional-params
+                                    :let [value (get-in req [:params param])]
+                                    :when value]
+                                [param value]))
         authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
                             {:app-id (:app_id client)})
         matched-origin (app-authorized-redirect-origin-model/find-match
@@ -268,7 +277,11 @@
         state (random-uuid)
         state-with-app-id (format "%s%s" app-id state)
 
-        redirect-url (oauth/create-authorization-url oauth-client state-with-app-id oauth-redirect-url)]
+        redirect-url (oauth/create-authorization-url
+                       oauth-client
+                       state-with-app-id
+                       oauth-redirect-url
+                       extra-params)]
     (app-oauth-redirect-model/create! {:app-id app-id
                                        :state state
                                        :cookie cookie-uuid
