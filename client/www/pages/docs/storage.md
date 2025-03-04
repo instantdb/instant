@@ -474,7 +474,7 @@ const _schema = i.schema({
 [Check out this repo](https://github.com/jsventures/instant-storage-avatar-example)
 for a more detailed example showing how you may leverage links to implement an avatar upload feature
 
-## React Native
+## Using Storage with React Native
 
 The SDK expects a `File` object. In React Native the built-in `fetch` function can be used to construct a `File`, then you can pass that to the `uploadFile` metod. 
 
