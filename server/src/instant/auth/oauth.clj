@@ -16,7 +16,7 @@
    (java.time Duration Instant)))
 
 (defprotocol OAuthClient
-  (create-authorization-url [this state redirect-url])
+  (create-authorization-url [this state redirect-url extra-params])
   (get-user-info [this code redirect-url])
   ;; Gets user-info from user-provided id_token after verifying the token
   (get-user-info-from-id-token [this nonce jwt opts]))
@@ -32,13 +32,14 @@
                                ^PersistentHashSet id-token-signing-alg-values-supported
                                meta]
   OAuthClient
-  (create-authorization-url [_ state redirect-url]
-    (let [params {:scope "email"
-                  :response_type "code"
-                  :response_mode "form_post"
-                  :state state
-                  :redirect_uri redirect-url
-                  :client_id client-id}]
+  (create-authorization-url [_ state redirect-url extra-params]
+    (let [base-params {:scope "email"
+                       :response_type "code"
+                       :response_mode "form_post"
+                       :state state
+                       :redirect_uri redirect-url
+                       :client_id client-id}
+          params (merge base-params (or extra-params {}))]
       (url/add-query-params authorization-endpoint params)))
 
   (get-user-info [_ code redirect-url]
@@ -87,7 +88,7 @@
                   {:type :error :message "Missing user info."}))))))))
 
   (get-user-info-from-id-token [_ nonce jwt {:keys [allow-unverified-email?
-                                                       ignore-audience?]}]
+                                                    ignore-audience?]}]
     (if (or (string/blank? jwks-uri)
             (string/blank? issuer)
             (empty? id-token-signing-alg-values-supported))
@@ -218,7 +219,6 @@
 (defn restart []
   (stop)
   (start))
-
 
 (comment
   (fetch-discovery "https://accounts.google.com/.well-known/openid-configuration")
