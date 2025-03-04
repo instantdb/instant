@@ -163,7 +163,7 @@
                      "false"))
       [["$files"
         action
-        (format "The %s namespace does not allow `update` prmissions. Set `%s.allow.%s` to `\"false\"`."
+        (format "The %s namespace does not allow `update` permissions. Set `%s.allow.%s` to `\"false\"`."
                 "$files" "$files" action)]])
 
     ("view" "create" "delete") nil))

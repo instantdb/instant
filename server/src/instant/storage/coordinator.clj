@@ -42,16 +42,22 @@
     (assert-storage-permission! "create" {:app-id app-id
                                           :path path
                                           :current-user current-user}))
-  (instant-s3/upload-file-to-s3 ctx file)
-  (let [metadata (instant-s3/get-object-metadata app-id path)]
-    (app-file-model/create! {:app-id app-id :path path :metadata metadata})))
+  (let [location-id (str (random-uuid))]
+    (instant-s3/upload-file-to-s3 (assoc ctx :location-id location-id) file)
+    (app-file-model/create!
+     {:app-id app-id
+      :path path
+      :location-id location-id
+      :metadata (instant-s3/get-object-metadata app-id location-id)})))
 
 (defn delete-files!
   "Deletes multiple files from both Instant and S3."
   [{:keys [app-id paths]}]
   (storage-beta/assert-storage-enabled! app-id)
-  (let [ids (app-file-model/delete-by-paths! {:app-id app-id :paths paths})
-        _ (instant-s3/bulk-delete-files! app-id paths)]
+  (let [deleted (app-file-model/delete-by-paths! {:app-id app-id :paths paths})
+        locations (mapv :location-id deleted)
+        ids (mapv :id deleted)
+        _ (instant-s3/bulk-delete-files! app-id locations)]
     {:ids ids}))
 
 (defn delete-file!
@@ -61,8 +67,8 @@
     (assert-storage-permission! "delete" {:app-id app-id
                                           :path path
                                           :current-user current-user}))
-  (let [id (app-file-model/delete-by-path! {:app-id app-id :path path})
-        _ (instant-s3/delete-file! app-id path)]
+  (let [{:keys [id location-id]} (app-file-model/delete-by-path! {:app-id app-id :path path})
+        _ (instant-s3/delete-file! app-id location-id)]
     {:id id}))
 
 ;; Logic for legacy S3 upload/download URLs
@@ -84,7 +90,6 @@
   [{:keys [upload-id content-type]} file]
   (let [{app-id :app_id path :path expired-at :expired_at}
         (app-upload-url-model/consume! {:upload-id upload-id})]
-
     (when (or (not expired-at)
               (.isBefore (.toInstant expired-at) (java.time.Instant/now)))
       (throw (ex/throw-validation-err!
@@ -105,4 +110,5 @@
     (assert-storage-permission! "view" {:app-id app-id
                                         :path path
                                         :current-user current-user}))
-  (instant-s3/create-signed-download-url! app-id path))
+  (let [{:keys [location-id]} (app-file-model/get-by-path {:app-id app-id :path path})]
+    (instant-s3/create-signed-download-url! app-id location-id)))

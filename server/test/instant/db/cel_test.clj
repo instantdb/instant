@@ -29,5 +29,13 @@
     (let [program (cel/->program (cel/->ast "[1, 2, 3, 4].filter(x, x % 2 == 0)"))]
       (is (= [2 4] (cel/eval-program! {:cel-program program} {}))))))
 
+(deftest parse-false-correctly
+  (let [program (cel/->program (cel/->ast "data.isFavorite"))
+        bindings {"data" (cel/->cel-map {} {"isFavorite" false})}]
+    (is (false? (cel/eval-program! {:cel-program program} bindings))))
+  (let [program (cel/->program (cel/->ast "!data.isFavorite"))
+        bindings {"data" (cel/->cel-map {} {"isFavorite" false})}]
+    (is (true? (cel/eval-program! {:cel-program program} bindings)))))
+
 (comment
   (test/run-tests *ns*))

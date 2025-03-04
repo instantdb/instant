@@ -12,6 +12,7 @@
    [instant.dash.ephemeral-app :as ephemeral-app]
    [instant.dash.routes :as dash-routes]
    [instant.db.indexing-jobs :as indexing-jobs]
+   [instant.storage.sweeper :as storage-sweeper]
    [instant.flags :as flags]
    [instant.flags-impl :as flags-impl]
    [instant.gauges :as gauges]
@@ -49,6 +50,18 @@
    (io.undertow Undertow UndertowOptions Undertow$Builder Undertow$ListenerInfo)
    (java.text SimpleDateFormat)
    (java.util Locale TimeZone)))
+
+;; --------
+;; Middleware
+
+(defn wrap-json-body-except [handler method-paths]
+  (fn [request]
+    (if (some (fn [[method pattern]]
+                (and (= method (:request-method request))
+                     (re-matches pattern (:uri request))))
+              method-paths)
+      (handler request)
+      ((wrap-json-body handler {:keywords? true}) request))))
 
 ;; --------
 ;; Wrappers
@@ -97,7 +110,9 @@
               wrap-keyword-params
               wrap-params
               wrap-multipart-params
-              (wrap-json-body {:keywords? true})
+              (wrap-json-body-except #{[:put #"/dash/apps/.*/storage/upload"]
+                                       [:put #"/storage/upload"]
+                                       [:put #"/admin/storage/upload"]})
 
               http-util/wrap-errors
 
@@ -220,6 +235,8 @@
       (session-counter/start))
     (with-log-init :indexing-jobs
       (indexing-jobs/start))
+    (with-log-init :storage-sweeper
+      (storage-sweeper/start))
     (when (= (config/get-env) :prod)
       (with-log-init :analytics
         (analytics/start)))

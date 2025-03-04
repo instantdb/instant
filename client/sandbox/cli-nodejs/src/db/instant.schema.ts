@@ -9,6 +9,7 @@ const schema = i.schema({
     posts: i.entity({
       title: i.string(),
       body: i.string(),
+      slug: i.string().unique(),
       createdAt: i.date().indexed(),
     }),
     tags: i.entity({

@@ -4,7 +4,7 @@ import zenecaAttrs from './data/zeneca/attrs.json';
 import zenecaTriples from './data/zeneca/triples.json';
 import { createStore, transact } from '../../src/store';
 import query from '../../src/instaql';
-import { tx } from '../../src/instatx';
+import { tx, lookup } from '../../src/instatx';
 import { i } from '../../src/index';
 import * as instaml from '../../src/instaml';
 import { randomUUID } from 'crypto';
@@ -212,6 +212,47 @@ test('like case sensitivity', () => {
   expect(runQuery({ $ilike: '%O%' })).toEqual(['Joe Averbukh', 'Nicole']);
   expect(runQuery({ $like: '%j%' })).toEqual([]);
   expect(runQuery({ $ilike: '%j%' })).toEqual(['Joe Averbukh']);
+});
+
+test('like special regex characters', () => {
+  // Special characters that need escaping in regex
+  const specialChars = [
+    ['(', 'Stopa (The Hacker)'],
+    [')', 'The Hacker (Stopa)'],
+    ['[', 'Stopa [Hacker]'],
+    [']', '[Hacker] Stopa'],
+    ['{', 'Stopa {Hacker}'],
+    ['}', '{Hacker} Stopa'],
+    ['*', 'Stopa * Hacker'],
+    ['+', 'Stopa + Hacker'],
+    ['?', 'Stopa? Yes!'],
+    ['^', 'Stopa ^ Hacker'],
+    ['$', 'Stopa $ Hacker'],
+    ['|', 'Stopa | Hacker'],
+    ['\\', 'Stopa \\ Hacker'],
+    ['.', 'Mr. Stopa'],
+  ];
+
+  function renameStopa(store, newName) {
+    const chunk = tx.users[lookup('handle', 'stopa')].update({
+      fullName: newName,
+    });
+    const txSteps = instaml.transform({ attrs: store.attrs }, chunk);
+    return transact(store, txSteps);
+  }
+
+  for (const [char, newName] of specialChars) {
+    const newStore = renameStopa(store, newName);
+    const res = query(
+      { store: newStore },
+      {
+        users: {
+          $: { where: { fullName: { $like: `%${char}%` } } },
+        },
+      },
+    ).data.users;
+    expect(res[0]?.fullName).toBe(newName);
+  }
 });
 
 test('Where and', () => {
@@ -1148,4 +1189,72 @@ test('comparators', () => {
     false,
     true,
   ]);
+});
+
+test('fields', () => {
+  expect(
+    query({ store }, { users: { $: { fields: ['handle'] } } }).data,
+  ).toEqual({
+    users: [
+      { handle: 'joe', id: 'ce942051-2d74-404a-9c7d-4aa3f2d54ae4' },
+      { handle: 'alex', id: 'ad45e100-777a-4de8-8978-aa13200a4824' },
+      { handle: 'stopa', id: 'a55a5231-5c4d-4033-b859-7790c45c22d5' },
+      { handle: 'nicolegf', id: '0f3d67fc-8b37-4b03-ac47-29fec4edc4f7' },
+    ],
+  });
+
+  console.log(
+    JSON.stringify(
+      query(
+        { store },
+        {
+          users: {
+            $: { where: { handle: 'alex' }, fields: ['handle'] },
+            bookshelves: { $: { fields: ['name'] } },
+          },
+        },
+      ).data,
+      null,
+      2,
+    ),
+  );
+
+  expect(
+    query(
+      { store },
+      {
+        users: {
+          $: { where: { handle: 'alex' }, fields: ['handle'] },
+          bookshelves: { $: { fields: ['name'] } },
+        },
+      },
+    ).data,
+  ).toEqual({
+    users: [
+      {
+        handle: 'alex',
+        id: 'ad45e100-777a-4de8-8978-aa13200a4824',
+        bookshelves: [
+          {
+            name: 'Nonfiction',
+            id: '8164fb78-6fa3-4aab-8b92-80e706bae93a',
+          },
+          {
+            name: 'Short Stories',
+            id: '4ad10e00-1353-437e-9fee-2a89eb53575d',
+          },
+        ],
+      },
+    ],
+  });
+
+  // id is always included
+  expect(query({ store }, { users: { $: { fields: [] } } }).data).toEqual({
+    users: [
+      { id: 'ce942051-2d74-404a-9c7d-4aa3f2d54ae4' },
+      { id: 'ad45e100-777a-4de8-8978-aa13200a4824' },
+      { id: 'a55a5231-5c4d-4033-b859-7790c45c22d5' },
+      { id: '0f3d67fc-8b37-4b03-ac47-29fec4edc4f7' },
+    ],
+  });
 });

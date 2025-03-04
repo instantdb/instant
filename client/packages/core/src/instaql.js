@@ -94,11 +94,15 @@ function makeLikeMatcher(caseSensitive, pattern) {
       return false;
     };
   }
-  const regexPattern = pattern.replace(/%/g, '.*').replace(/_/g, '.');
+
+  const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regexPattern = escapedPattern.replace(/%/g, '.*').replace(/_/g, '.');
+
   const regex = new RegExp(
     `^${regexPattern}$`,
     caseSensitive ? undefined : 'i',
   );
+
   return function likeMatcher(value) {
     if (typeof value !== 'string') {
       return false;
@@ -284,12 +288,13 @@ function isAndClauses([k, v]) {
 
 // Creates a makeVar that will namespace symbols for or clauses
 // to prevent conflicts, except for the base etype
-function genMakeVar(baseMakeVar, etype, orIdx) {
+function genMakeVar(baseMakeVar, joinSym, orIdx) {
   return (x, lvl) => {
-    if (x == etype) {
-      return baseMakeVar(x, lvl);
+    const base = baseMakeVar(x, lvl);
+    if (joinSym == base) {
+      return base;
     }
-    return `${baseMakeVar(x, lvl)}-${orIdx}`;
+    return `${base}-${orIdx}`;
   };
 }
 
@@ -301,11 +306,11 @@ function parseWhereClauses(
   level,
   whereValue,
 ) {
+  const joinSym = makeVar(etype, level);
   const patterns = whereValue.map((w, i) => {
-    const makeNamespacedVar = genMakeVar(makeVar, etype, i);
+    const makeNamespacedVar = genMakeVar(makeVar, joinSym, i);
     return parseWhere(makeNamespacedVar, store, etype, level, w);
   });
-  const joinSym = makeVar(etype, level);
   return { [clauseType]: { patterns, joinSym } };
 }
 
@@ -334,6 +339,11 @@ function parseWhere(makeVar, store, etype, level, where) {
     }
     if (isAndClauses([k, v])) {
       return parseWhereClauses(makeVar, 'and', store, etype, level, v);
+    }
+
+    // Temporary hack until we have support for a uuid index on `id`
+    if (k === '$entityIdStartsWith') {
+      return [];
     }
 
     const path = k.split('.');
@@ -524,6 +534,32 @@ function getOrderAttr(store, etype, cursor, order) {
   }
 }
 
+function objectAttrs(store, etype, dq) {
+  if (!Array.isArray(dq.fields)) {
+    return s.getBlobAttrs(store, etype);
+  }
+
+  const attrs = new Map();
+
+  for (const field of dq.fields) {
+    const attr = s.getAttrByFwdIdentName(store, etype, field);
+    const label = attr?.['forward-identity']?.[2];
+    if (label && s.isBlob(attr)) {
+      attrs.set(label, attr);
+    }
+  }
+  // Ensure we add the id field to avoid empty objects
+  if (!attrs.has('id')) {
+    const attr = s.getAttrByFwdIdentName(store, etype, 'id');
+    const label = attr?.['forward-identity']?.[2];
+    if (label) {
+      attrs.set(label, attr);
+    }
+  }
+
+  return attrs;
+}
+
 function runDataloadAndReturnObjects(
   store,
   etype,
@@ -562,6 +598,7 @@ function runDataloadAndReturnObjects(
   );
 
   let objects = {};
+  const attrs = objectAttrs(store, etype, dq);
 
   for (const idVec of idVecs) {
     const [id] = idVec;
@@ -576,7 +613,7 @@ function runDataloadAndReturnObjects(
       continue;
     }
 
-    const obj = s.getAsObject(store, etype, id);
+    const obj = s.getAsObject(store, attrs, id);
     if (obj) {
       objects[id] = obj;
     }
@@ -612,6 +649,7 @@ function resolveObjects(store, { etype, level, form, join, pageInfo }) {
   const before = form.$?.before;
   const after = form.$?.after;
   const order = form.$?.order;
+  const fields = form.$?.fields;
 
   // Wait for server to tell us where we start if we don't start from the beginning
   if ((offset || before || after) && (!pageInfo || !pageInfo['start-cursor'])) {
@@ -627,7 +665,7 @@ function resolveObjects(store, { etype, level, form, join, pageInfo }) {
     determineOrder(form),
     pageInfo,
     order,
-    { where, find },
+    { where, find, fields },
   );
 
   if (limit != null) {

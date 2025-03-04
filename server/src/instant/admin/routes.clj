@@ -24,6 +24,7 @@
    [instant.model.schema :as schema-model]
    [clojure.string :as string]
    [instant.storage.coordinator :as storage-coordinator]
+   [instant.storage.s3 :as instant-s3]
    [clojure.walk :as w])
   (:import
    (java.util UUID)))
@@ -372,10 +373,12 @@
         params (:headers req)
         path (ex/get-param! params ["path"] string-util/coerce-non-blank-str)
         file (ex/get-param! req [:body] identity)
-        content-type (ex/get-optional-param! params [:content-type] string-util/coerce-non-blank-str)
+        content-type (ex/get-optional-param! params ["content-type"] string-util/coerce-non-blank-str)
+        content-disposition (ex/get-optional-param! params ["content-disposition"] string-util/coerce-non-blank-str)
         data (storage-coordinator/upload-file! {:app-id app-id
                                                 :path path
                                                 :content-type content-type
+                                                :content-disposition content-disposition
                                                 :content-length (:content-length req)
                                                 :skip-perms-check? true}
                                                file)]
@@ -453,19 +456,20 @@
 
 ;; Legacy StorageFile format that was only used by the list() endpoint
 (defn legacy-storage-file-format
-  [app-id object-metadata]
-  {:key (str app-id "/" (:path object-metadata))
-   :name (:path object-metadata)
-   :size (:content-length object-metadata)
-   :etag (:etag object-metadata)
-   :last_modified (:last-modified object-metadata)})
+  [app-id file]
+  (let [object-key (instant-s3/->object-key app-id (:location-id file))]
+    {:key object-key
+     :name (:path file)
+     :size (:size file)
+     :etag nil
+     :last_modified nil}))
 
 (defn files-get [req]
   (let [{app-id :app_id} (req->admin-token! req)
         res (query-post (assoc-in req [:body :query] {:$files {}}))
         files (get-in res [:body "$files"])
         data (map (fn [item]
-                    (->> (get item "metadata")
+                    (->> item
                          w/keywordize-keys
                          (legacy-storage-file-format app-id)))
                   files)]

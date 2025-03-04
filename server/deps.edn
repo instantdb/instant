@@ -27,12 +27,17 @@
         software.amazon.awssdk.crt/aws-crt {:mvn/version "0.33.11"}
 
         juji/editscript {:mvn/version "0.6.4"}
-        io.github.tonsky/clojure-plus {:mvn/version "1.0.0"}
+        io.github.tonsky/clojure-plus {:mvn/version "1.0.1"}
 
         org.bouncycastle/bcprov-jdk15on {:mvn/version "1.70"}
-        incanter/incanter {:mvn/version "1.9.3"
-                           :exclusions [bouncycastle/bctsp-jdk14
-                                        postgresql/postgresql]}
+
+        ;; https://github.com/incanter/incanter/pull/429
+        ;; https://github.com/mikera/vectorz-clj/pull/75
+        io.github.tonsky/incanter-charts {:mvn/version "1.9.4"}
+        io.github.tonsky/vectorz-clj {:mvn/version "0.48.1"}
+        net.mikera/vectorz {:mvn/version "0.67.0"}
+        net.mikera/core.matrix {:mvn/version "0.63.0"}
+
         com.taoensso/nippy {:mvn/version "3.4.2"}
 
         nrepl/nrepl {:mvn/version "0.9.0"}
@@ -42,7 +47,7 @@
         circleci/circleci.test {:mvn/version "0.5.0"}
         org.clojure/test.check {:mvn/version "1.1.1"}
         com.github.vertical-blank/sql-formatter {:mvn/version "2.0.3"}
-        com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.5.1"}
+        com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.6.1"}
         org.clj-commons/claypoole {:mvn/version "1.2.2"}
 
         ;; opentelemetry
@@ -80,7 +85,8 @@
                               criterium/criterium           {:mvn/version "0.4.6"}
                               spec-provider/spec-provider   {:mvn/version "0.4.14"}
                               io.github.tonsky/clj-reload   {:mvn/version "0.7.1"}
-                              eftest/eftest                 {:mvn/version "0.6.0"}}
+                              eftest/eftest                 {:mvn/version "0.6.0"}
+                              zprint/zprint {:mvn/version "1.2.9"}}
                  :jvm-opts ["-XX:+UseZGC"
                             "-enableassertions"
 
@@ -118,7 +124,8 @@
                    :ns-default build}
            :run {:main-opts ["-m" "instant.core"]}
            :test {:extra-paths ["test" "dev-resources"]
-                  :extra-deps {eftest/eftest {:mvn/version "0.6.0"}}
+                  :extra-deps {eftest/eftest {:mvn/version "0.6.0"}
+                               zprint/zprint {:mvn/version "1.2.9"}}
                   :main-opts ["-m" "instant.test-core"]
                   :jvm-opts ["-XX:+UseZGC"
                              "-enableassertions"
@@ -143,5 +150,5 @@
                            :exec-fn tasks/bootstrap-for-oss
                            :jvm-opts ["-Dclojure.main.report=stderr"]}
            :lint {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2025.01.16"}}
-                  :main-opts ["-m" "clj-kondo.main" "--lint" "src"]}}
+           :main-opts ["-m" "clj-kondo.main" "--lint" "src" "test"]}}
  :main-opts ["-m" "instant.core"]}

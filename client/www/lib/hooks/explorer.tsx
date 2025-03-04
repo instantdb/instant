@@ -48,7 +48,7 @@ export function useNamespacesQuery(
           ...Object.fromEntries(
             selectedNs.attrs
               .filter((a) => a.type === 'ref')
-              .map((a) => [a.name, {}]),
+              .map((a) => [a.name, { $: { fields: ['id'] } }]),
           ),
           $: {
             ...(where ? { where: where } : {}),

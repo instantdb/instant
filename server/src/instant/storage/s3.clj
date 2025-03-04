@@ -1,36 +1,24 @@
 (ns instant.storage.s3
   (:require [clojure.string :as string]
-            [clojure.java.io :as io]
             [instant.util.s3 :as s3-util]
-            [instant.flags :as flags])
-  (:import [java.time Duration]))
-
-;; Legacy S3 migration helpers
-;; ------------------
-(defn ->legacy-object-key [app-id filename]
-  (str app-id "/" filename))
-
-(defn legacy-object-key->path
-  "Extract path from our S3 object keys"
-  [object-key]
-  (let [[_app-id & path] (string/split object-key #"/")]
-    (string/join "/" path)))
+            [instant.util.date :as date-util])
+  (:import
+   [java.time Duration]
+   [java.time.temporal ChronoUnit]))
 
 ;; S3 path manipulation
 ;; ----------------------
-(defn filename->bin
-  ^long [^String filename]
-  (mod (Math/abs (.hashCode filename)) 10))
+
+(defn location-id->bin
+  "We add a bin to the location id to scale S3 performance
+   See: https://docs.aws.amazon.com/AmazonS3/latest/userguide/optimizing-performance.html"
+  ^long [^String location-id]
+  (mod (Math/abs (.hashCode location-id)) 10))
 
 (defn ->object-key
-  "We prefix objects with an app id and bin. Combined with a filename
-  this gives us our key for each object."
-  [app-id filename]
-  (let [bin (filename->bin filename)
-        fname (if (string/starts-with? filename "/")
-                (subs filename 1)
-                filename)]
-    (str app-id "/" bin "/" fname)))
+  "Object keys have the shape of app-id/bin/location-id"
+  [app-id ^String location-id]
+  (str app-id "/" (location-id->bin location-id) "/" location-id))
 
 (defn object-key->app-id
   "Extract app-id from our S3 object keys"
@@ -42,67 +30,81 @@
   [object-key]
   (second (string/split object-key #"/")))
 
-(defn object-key->path
-  "Extract path from our S3 object keys"
+(defn object-key->location-id
+  "Extract location-id from our S3 object keys"
   [object-key]
-  (let [[_app-id _bin & path] (string/split object-key #"/")]
-    (string/join "/" path)))
+  (last (string/split object-key #"/")))
 
 ;; Instant <> S3 integration
 ;; ----------------------
-(defn upload-file-to-s3 [{:keys [app-id path] :as ctx} file]
+(defn upload-file-to-s3 [{:keys [app-id location-id] :as ctx} file]
   (when (not (instance? java.io.InputStream file))
     (throw (Exception. "Unsupported file format")))
-  (let [migration? (-> (flags/storage-migration) :disableLegacy? not)]
-    (if migration?
-      (let [baos (java.io.ByteArrayOutputStream.)
-            _ (io/copy file baos)
-            bytes (.toByteArray baos)
-            ctx* (assoc ctx :object-key (->object-key app-id path))
-            ctx-legacy* (assoc ctx :object-key (->legacy-object-key app-id path))]
-        (s3-util/upload-stream-to-s3 ctx-legacy* (io/input-stream bytes))
-        (s3-util/upload-stream-to-s3 ctx* (io/input-stream bytes)))
-      (let [ctx* (assoc ctx :object-key (->object-key app-id path))]
-        (s3-util/upload-stream-to-s3 ctx* file)))))
+  (let [ctx* (assoc ctx :object-key (->object-key app-id location-id))]
+    (s3-util/upload-stream-to-s3 ctx* file)))
 
-(defn format-object [{:keys [key object-metadata]}]
+(defn format-object [{:keys [object-metadata]}]
   (-> object-metadata
       (select-keys [:content-disposition :content-type :content-length :etag])
       (assoc :size (:content-length object-metadata)
-             :last-modified (-> object-metadata :last-modified .toEpochMilli)
-             :path (object-key->path key))))
+             :last-modified (-> object-metadata :last-modified .toEpochMilli))))
 
 (defn get-object-metadata
-  ([app-id path] (get-object-metadata s3-util/default-bucket app-id path))
-  ([bucket-name app-id path]
-   (let [object-key (->object-key app-id path)]
+  ([app-id location-id] (get-object-metadata s3-util/default-bucket app-id location-id))
+  ([bucket-name app-id location-id]
+   (let [object-key (->object-key app-id location-id)]
      (format-object (s3-util/head-object bucket-name object-key)))))
 
-(defn delete-file! [app-id filename]
-  (let [object-key (->object-key app-id filename)]
-    (s3-util/delete-object object-key)))
+(defn update-object-metadata!
+  ([app-id location-id params]
+   (update-object-metadata! s3-util/default-bucket app-id location-id params))
+  ([bucket-name app-id location-id {:keys [content-type content-disposition]}]
+   (let [object-key (->object-key app-id location-id)]
+     (s3-util/update-object-metadata
+      {:source-bucket-name bucket-name
+       :destination-bucket-name bucket-name
+       :source-key object-key
+       :destination-key object-key
+       :content-type content-type
+       :content-disposition content-disposition}))))
 
-(defn bulk-delete-files! [app-id filenames]
-  (let [keys (mapv (fn [filename] (->object-key app-id filename)) filenames)]
-    (s3-util/delete-objects-paginated keys)))
+(defn delete-file! [app-id location-id]
+  (when location-id
+    (s3-util/delete-object (->object-key app-id location-id))))
 
-(defn create-legacy-signed-download-url! [app-id filename]
-  (let [duration (Duration/ofDays 7)
-        object-key (->legacy-object-key app-id filename)]
+(defn bulk-delete-files! [app-id location-ids]
+  (let [location-keys (mapv
+                       (fn [location-id] (->object-key app-id location-id))
+                       location-ids)]
+    (s3-util/delete-objects-paginated location-keys)))
+
+(defn bucketed-signing-instant
+  "AWS URLs depend on the signing-instant.  
+  
+  We want to keep URLs stable: repeated calls to the same object should return 
+  the same URL, so that browsers can cache the object. 
+
+  To do this, we bucket dates to the start of the day. 
+  
+  This gives about 24 hours where URLs are stable."
+  []
+  (let [now (date-util/utc-now)]
+    (.toInstant (.truncatedTo now ChronoUnit/DAYS))))
+
+(defn location-id-url [app-id location-id]
+  (let [signing-instant (bucketed-signing-instant)
+        duration (Duration/ofDays 7)
+        object-key (->object-key app-id location-id)]
     (str (s3-util/generate-presigned-url
           {:method :get
            :bucket-name s3-util/default-bucket
            :key object-key
-           :duration duration}))))
+           :duration duration
+           :signing-instant signing-instant}))))
 
-(defn create-signed-download-url! [app-id filename]
-  (let [duration (Duration/ofDays 7)
-        object-key (->object-key app-id filename)]
-    (str (s3-util/generate-presigned-url
-          {:method :get
-           :bucket-name s3-util/default-bucket
-           :key object-key
-           :duration duration}))))
+(defn create-signed-download-url! [app-id location-id]
+  (when location-id
+    (location-id-url app-id location-id)))
 
 ;; S3 Usage Metrics
 ;; These functions calculate usage by talking to S3 directly. We can use these

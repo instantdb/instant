@@ -11,5 +11,5 @@
     /* Linting */
     "strict": true
   },
-  "include": ["instant.schema.ts", "instant.perms.ts"]
+  "include": ["src/db/instant.schema.ts", "src/db/instant.perms.ts"]
 }

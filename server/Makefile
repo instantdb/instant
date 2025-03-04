@@ -15,6 +15,10 @@ dev-oss:
 	@echo "Starting server..."
 	clojure -M:dev:run
 
+install-hooks:
+	@echo "Installing .git/hooks/pre-commit..."
+	ln -f -s ../../server/dev-resources/hooks/pre-commit ../.git/hooks/pre-commit
+
 docker-compose:
 	$(DC) -f ./docker-compose-dev.yml build && $(DC) -f ./docker-compose-dev.yml up
 
@@ -68,8 +72,6 @@ prod-connect:
 
 prod-version:
 	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
-	echo "Checking prod db version... [y/N]" && \
-		read ans && [ $$ans = y ] && \
 	migrate -database "$${DATABASE_URL}" -path resources/migrations version
 
 prod-up:

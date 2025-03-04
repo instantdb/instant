@@ -12,24 +12,101 @@
 
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
-  ([conn {:keys [app-id path metadata]}]
+  ([conn {:keys [app-id path location-id metadata]}]
    (update-op
     conn
     {:app-id app-id
      :etype etype}
-    (fn [{:keys [transact! get-entity-where resolve-id]}]
-      (let [{id :id} (or (get-entity-where {:path path})
-                         {:id (random-uuid)})
-            {:keys [size content-type content-disposition]} metadata]
+    (fn [{:keys [transact! resolve-id]}]
+      (let [lookup [(resolve-id :path) path]
+            {:keys [size content-type content-disposition]} metadata
+
+            res
+            (transact!
+             [[:add-triple lookup (resolve-id :id) lookup]
+              [:add-triple lookup (resolve-id :size) size]
+              [:add-triple lookup (resolve-id :content-type) content-type]
+              [:add-triple lookup (resolve-id :content-disposition) content-disposition]
+              [:add-triple lookup (resolve-id :location-id) location-id]
+              [:add-triple lookup (resolve-id :key-version) 1]]
+             {:allow-$files-update? true})]
+        {:id (->> (get-in res [:results :add-triple])
+                  (map :entity_id)
+                  first)})))))
+
+(comment
+  (create! {:app-id #uuid "2d960014-0690-4dc5-b13f-a3c202663241"
+            :path "circle_red.jpg"
+            :location-id "circle_red.jpg"
+            :metadata {:size 123
+                       :content-type "image/jpeg"
+                       :content-disposition "inline"}})
+  (create! {:app-id #uuid "2d960014-0690-4dc5-b13f-a3c202663241"
+            :path "circle_blue.jpg"
+            :location-id "circle_blue.jpg"
+            :metadata {:size 123
+                       :content-type "image/jpeg"
+                       :content-disposition "inline"}}))
+
+(defn bulk-add-locations!
+  ([params] (bulk-add-locations! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id locations-map]}]
+   (update-op
+    conn
+    {:app-id app-id
+     :etype etype}
+    (fn [{:keys [transact! resolve-id]}]
+      (let [location-attr-id (resolve-id :location-id)]
         (transact!
-         [[:add-triple id (resolve-id :id) id]
-          [:add-triple id (resolve-id :path) path]
-          [:add-triple id (resolve-id :size) size]
-          [:add-triple id (resolve-id :content-type) content-type]
-          [:add-triple id (resolve-id :content-disposition) content-disposition]
-          [:add-triple id (resolve-id :key-version) 1]]
-         {:allow-$files-update? true})
-        {:id id})))))
+         (map (fn [{:keys [id location-id]}]
+                [:add-triple id location-attr-id location-id])
+              locations-map)
+         {:allow-$files-update? true}))))))
+
+(comment
+  (bulk-add-locations!
+   {:app-id #uuid "831355ee-6a59-4990-8ef3-9c9fe7c26031"
+    :locations-map [{:id #uuid "0036438b-e510-47bf-b62f-835a1cefb392"
+                     :location-id "circle_red.jpg"}
+                    {:id #uuid "007b2d37-3687-4641-a89f-ffd03876b34f"
+                     :location-id "circle_blue.jpg"}]}))
+
+(defn add-location!
+  ([params] (add-location! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id id location-id]}]
+   (update-op
+    conn
+    {:app-id app-id
+     :etype etype}
+    (fn [{:keys [transact! resolve-id]}]
+      (transact!
+       [[:add-triple id (resolve-id :location-id) location-id]]
+       {:allow-$files-update? true})))))
+
+(comment
+  (add-location! {:app-id #uuid "831355ee-6a59-4990-8ef3-9c9fe7c26031"
+                  :id #uuid "0036438b-e510-47bf-b62f-835a1cefb392"
+                  :location-id "circle_red.jpg"}))
+
+(defn bulk-update-metadata!
+  ([params] (bulk-update-metadata! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id metadatas-map]}]
+   (update-op
+    conn
+    {:app-id app-id
+     :etype etype}
+    (fn [{:keys [transact! resolve-id]}]
+      (let [content-type-attr-id (resolve-id :content-type)
+            content-disposition-attr-id (resolve-id :content-disposition)
+            triples (mapcat (fn [{:keys [id content-type content-disposition]}]
+                              (cond-> []
+                                content-type
+                                (conj [:add-triple id content-type-attr-id content-type])
+
+                                content-disposition
+                                (conj [:add-triple id content-disposition-attr-id content-disposition])))
+                            metadatas-map)]
+        (transact! triples {:allow-$files-update? true}))))))
 
 (defn bulk-create!
   ([params] (bulk-create! (aurora/conn-pool :write) params))
@@ -39,31 +116,44 @@
     {:app-id app-id
      :etype etype}
     (fn [{:keys [transact! resolve-id]}]
-      ;; Insert in chunks to avoid exceeding max prepared statement size
-      (doseq [chunk (partition-all 1000 data)]
-        (let [triples
-              (mapcat (fn [{:keys [file-id path metadata]}]
-                        (let [{:keys [size content-type content-disposition]}
-                              metadata]
-                          [[:add-triple file-id (resolve-id :id) file-id]
-                           [:add-triple file-id (resolve-id :path) path]
-                           [:add-triple file-id (resolve-id :size) size]
-                           [:add-triple file-id (resolve-id :content-type) content-type]
-                           [:add-triple file-id (resolve-id :content-disposition) content-disposition]
-                           [:add-triple file-id (resolve-id :key-version) 1]]))
-                      chunk)]
-          (transact! triples {:allow-$files-update? true})))
-      {:ids (map :file-id data)}))))
+      (let [triples
+            (mapcat (fn [{:keys [file-id path location-id metadata]}]
+                      (let [{:keys [size content-type content-disposition]}
+                            metadata]
+                        [[:add-triple file-id (resolve-id :id) file-id]
+                         [:add-triple file-id (resolve-id :path) path]
+                         [:add-triple file-id (resolve-id :size) size]
+                         [:add-triple file-id (resolve-id :content-type) content-type]
+                         [:add-triple file-id (resolve-id :content-disposition) content-disposition]
+                         [:add-triple file-id (resolve-id :location-id) location-id]
+                         [:add-triple file-id (resolve-id :key-version) 1]]))
+                    data)
+            res (transact! triples {:allow-$files-update? true})]
+        (->> (get-in res [:results :add-triple])
+             (map :entity_id)
+             set))))))
 
-(defn get-all-ids
-  ([params] (get-all-ids (aurora/conn-pool :read) params))
-  ([conn {:keys [app-id]}]
+(defn get-where
+  ([params] (get-where (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id where]}]
    (query-op conn
              {:app-id app-id
               :etype etype}
              (fn [{:keys [get-entities-where]}]
-               (let [ents (get-entities-where {})]
-                 {:ids (mapv :id ents)})))))
+               (get-entities-where (or where {}))))))
+
+(comment
+  (get-where {:app-id #uuid "831355ee-6a59-4990-8ef3-9c9fe7c26031"
+              :where {:location-id {:$isNull true}}}))
+
+(defn get-by-id
+  ([params] (get-by-id (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id id]}]
+   (query-op conn
+             {:app-id app-id
+              :etype etype}
+             (fn [{:keys [get-entity]}]
+               (get-entity id)))))
 
 (defn get-by-path
   ([params] (get-by-path (aurora/conn-pool :read) params))
@@ -71,8 +161,12 @@
    (query-op conn
              {:app-id app-id
               :etype etype}
-             (fn [{:keys [get-entity-where]}]
-               (get-entity-where {:path path})))))
+             (fn [{:keys [get-entity resolve-id]}]
+               (get-entity [(resolve-id :path) path])))))
+
+(comment
+  (get-by-path {:app-id #uuid "2d960014-0690-4dc5-b13f-a3c202663241"
+                :path "circle_blue.jpg"}))
 
 (defn get-by-paths
   ([params] (get-by-paths (aurora/conn-pool :read) params))
@@ -81,16 +175,11 @@
              {:app-id app-id
               :etype etype}
              (fn [{:keys [get-entities-where]}]
-               (->> (partition-all 1000 paths)
-                    (mapcat #(get-entities-where {:path {:$in (vec %)}})))))))
+               (get-entities-where {:path {:$in (vec paths)}})))))
 
-(defn delete-by-ids!* [transact! etype ids]
-  (let [res (transact! (mapv (fn [id]
-                               [:delete-entity id etype])
-                             ids)
-                       {:allow-$files-update? true})]
-    (->> (get-in res [:results :delete-entity])
-         (map :triples/entity_id))))
+(comment
+  (get-by-paths {:app-id #uuid "2d960014-0690-4dc5-b13f-a3c202663241"
+                 :paths ["circle_blue.jpg" "circle_red.jpg"]}))
 
 (defn delete-by-ids!
   ([params] (delete-by-ids! (aurora/conn-pool :write) params))
@@ -99,16 +188,8 @@
     conn
     {:app-id app-id
      :etype etype}
-    (fn [{:keys [transact!]}]
-      (let [deleted-ids (mapcat #(delete-by-ids!* transact! etype %)
-                                (partition-all 1000 ids))]
-        {:ids deleted-ids})))))
-
-(defn delete-by-paths!
-  ([params] (delete-by-paths! (aurora/conn-pool :write) params))
-  ([conn {:keys [app-id paths]}]
-   (let [ents (get-by-paths conn {:app-id app-id :paths paths})]
-     (delete-by-ids! conn {:app-id app-id :ids (map :id ents)}))))
+    (fn [{:keys [delete-entities!]}]
+      (delete-entities! ids {:allow-$files-update? true})))))
 
 (defn delete-by-path!
   ([params] (delete-by-path! (aurora/conn-pool :write) params))
@@ -117,14 +198,31 @@
     conn
     {:app-id app-id
      :etype etype}
-    (fn [{:keys [transact! get-entity-where]}]
-      (let [ent (get-entity-where {:path path})]
-        (when (seq ent)
-          (-> (transact! [[:delete-entity (:id ent) etype]]
-                         {:allow-$files-update? true})
-              (get-in [:results :delete-entity])
-              first
-              :triples/entity_id)))))))
+    (fn [{:keys [resolve-id delete-entity!]}]
+      (delete-entity! [(resolve-id :path) path]
+                      {:allow-$files-update? true})))))
+
+(comment
+  (delete-by-path!
+   {:app-id #uuid "2d960014-0690-4dc5-b13f-a3c202663241"
+    :path "circle_red.jpg"}))
+
+(defn delete-by-paths!
+  ([params] (delete-by-paths! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id paths]}]
+   (update-op
+    conn
+    {:app-id app-id
+     :etype etype}
+    (fn [{:keys [delete-entities! resolve-id]}]
+      (let [path-attr-id (resolve-id :path)
+            lookups (map #(vector path-attr-id %) paths)]
+        (delete-entities! lookups {:allow-$files-update? true}))))))
+
+(comment
+  (delete-by-paths!
+   {:app-id #uuid "2d960014-0690-4dc5-b13f-a3c202663241"
+    :paths ["circle_blue.jpg" "circle_red.jpg"]}))
 
 (defn get-all-apps-usage
   ([] (get-all-apps-usage (aurora/conn-pool :read)))

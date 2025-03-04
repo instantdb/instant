@@ -54,7 +54,18 @@ const graph = i.graph(
     }),
     "storage-migration": i.entity({
       "disableLegacy?": i.boolean(),
+      "useLocationId?": i.boolean(),
     }),
+    "storage-block-list": i.entity({
+      appId: i.string().unique().indexed(),
+      isDisabled: i.boolean(),
+    }),
+    "query-flags": i.entity({
+      'query-hash': i.number(),
+      'setting': i.string(),
+      'value': i.string(),
+      'description': i.string()
+    })
   },
   // You can define links here.
   // For example, if `posts` should have many `comments`.

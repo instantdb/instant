@@ -9,7 +9,7 @@ function isRef(attr) {
   return attr['value-type'] === 'ref';
 }
 
-function isBlob(attr) {
+export function isBlob(attr) {
   return attr['value-type'] === 'blob';
 }
 
@@ -323,6 +323,14 @@ function deleteEntity(store, args) {
   if (eMap) {
     for (const a of eMap.keys()) {
       const attr = store.attrs[a];
+
+      // delete cascade refs
+      if (attr && attr['on-delete-reverse'] === 'cascade') {
+        allMapValues(eMap.get(a), 1).forEach(([e, a, v]) =>
+          deleteEntity(store, [v, attr['reverse-identity']?.[1]]),
+        );
+      }
+
       if (
         // Fall back to deleting everything if we've rehydrated tx-steps from
         // the store that didn't set `etype` in deleteEntity
@@ -580,11 +588,10 @@ export function getTriples(store, [e, a, v]) {
   }
 }
 
-export function getAsObject(store, etype, e) {
-  const blobAttrs = store.attrIndexes.blobAttrs.get(etype);
+export function getAsObject(store, attrs, e) {
   const obj = {};
 
-  for (const [label, attr] of blobAttrs.entries()) {
+  for (const [label, attr] of attrs.entries()) {
     const aMap = store.eav.get(e)?.get(attr.id);
     const triples = allMapValues(aMap, 1);
     for (const triple of triples) {
@@ -601,6 +608,10 @@ export function getAttrByFwdIdentName(store, inputEtype, inputLabel) {
 
 export function getAttrByReverseIdentName(store, inputEtype, inputLabel) {
   return store.attrIndexes.revIdents.get(inputEtype)?.get(inputLabel);
+}
+
+export function getBlobAttrs(store, etype) {
+  return store.attrIndexes.blobAttrs.get(etype);
 }
 
 export function getPrimaryKeyAttr(store, etype) {

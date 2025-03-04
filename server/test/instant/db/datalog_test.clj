@@ -1,15 +1,20 @@
 (ns instant.db.datalog-test
   (:require [clojure.test :as test :refer [deftest is testing]]
+            [honey.sql :as hsql]
             [instant.jdbc.aurora :as aurora]
             [instant.config :as config]
             [instant.db.datalog :as d]
+            [instant.db.model.attr :as attr-model]
             [instant.data.constants :refer [movies-app-id]]
             [instant.data.resolvers :as resolvers]
             [instant.jdbc.sql :as sql]
-            [instant.fixtures :refer [with-zeneca-app]]
-            [instant.db.model.attr :as attr-model]))
+            [instant.fixtures :refer [with-movies-app with-zeneca-app]]))
 
-(def ^:private r (delay (resolvers/make-movies-resolver)))
+
+(defn make-ctx [app]
+  {:db {:conn-pool (aurora/conn-pool :read)}
+   :app-id (:id app)
+   :attrs (attr-model/get-by-app-id (:id app))})
 
 (defn- drop-join-rows-created-at [datalog-result]
   (update datalog-result :join-rows
@@ -20,14 +25,10 @@
                      %))))
 (defn- query-pretty
   "Unwraps single element sets and prints friendly names for uuids"
-  [q]
+  [ctx r q]
   (let [res (resolvers/walk-friendly
-             @r
-             (d/query
-              {:db {:conn-pool (aurora/conn-pool :read)}
-               :app-id movies-app-id
-               :datalog-loader (d/make-loader)}
-              q))]
+             r
+             (d/query ctx q))]
     (drop-join-rows-created-at res)))
 
 (deftest patterns
@@ -138,81 +139,92 @@
          [:ea ?d ?e ?f]])))))
 
 (deftest coercions
-  (let [tina-turner-eid (resolvers/->uuid @r "eid-tina-turner")]
-    (testing "query pads with _"
-      (is (= #{"Tina Turner" "1939-11-26T00:00:00Z"}
-             (->> (d/query
-                   {:db {:conn-pool (aurora/conn-pool :read)}
-                    :app-id  movies-app-id}
-                   [[:ea tina-turner-eid]])
-                  :join-rows
-                  (map (comp last drop-last last))
-                  set))))
-    (testing "ref values come back as uuids"
-      (let [vs (->> (d/query
-                     {:db {:conn-pool (aurora/conn-pool :read)}
-                      :app-id movies-app-id}
-                     [[:eav '?e '?a tina-turner-eid]])
-                    :join-rows
-                    (map (comp last drop-last last)))]
-        (is (seq vs))
-        (is (every? uuid? vs))))))
+  (with-movies-app
+    (fn [app r]
+      (let [tina-turner-eid (resolvers/->uuid r "eid-tina-turner")]
+        (testing "query pads with _"
+          (is (= #{"Tina Turner"
+                   "1939-11-26T00:00:00Z"
+                   (str tina-turner-eid)}
+                 (->> (d/query
+                       {:db {:conn-pool (aurora/conn-pool :read)}
+                        :app-id (:id app)}
+                       [[:ea tina-turner-eid]])
+                      :join-rows
+                      (map (comp last drop-last last))
+                      set))))
+        (testing "ref values come back as uuids"
+          (let [vs (->> (d/query
+                         {:db {:conn-pool (aurora/conn-pool :read)}
+                          :app-id (:id app)}
+                         [[:eav '?e '?a tina-turner-eid]])
+                        :join-rows
+                        (map (comp last drop-last last)))]
+            (is (seq vs))
+            (is (every? uuid? vs))))))))
 
 (deftest batching-queries
-  (let [app-id movies-app-id
-        ctx {:db {:conn-pool (aurora/conn-pool :read)}
-             :app-id app-id}
-        movie-title-aid (resolvers/->uuid @r :movie/title)
-        movie-director-aid (resolvers/->uuid @r :movie/director)
-        person-name-aid (resolvers/->uuid @r :person/name)
-        patterns-1 [[:ea '?e movie-title-aid "Predator"]
-                    [:eav '?e movie-director-aid '?director]
-                    [:ea '?director person-name-aid '?name]]
+  (with-movies-app
+    (fn [app r]
+      (let [app-id (:id app)
+            ctx {:db {:conn-pool (aurora/conn-pool :read)}
+                 :app-id app-id}
+            movie-title-aid (resolvers/->uuid r :movie/title)
+            movie-director-aid (resolvers/->uuid r :movie/director)
+            person-name-aid (resolvers/->uuid r :person/name)
+            patterns-1 [[:ea '?e movie-title-aid "Predator"]
+                        [:eav '?e movie-director-aid '?director]
+                        [:ea '?director person-name-aid '?name]]
 
-        patterns-2 [[:ea '?director person-name-aid "John McTiernan"]
-                    [:vae '?movie movie-director-aid '?director]
-                    [:ea '?movie movie-title-aid '?title]]
+            patterns-2 [[:ea '?director person-name-aid "John McTiernan"]
+                        [:vae '?movie movie-director-aid '?director]
+                        [:ea '?movie movie-title-aid '?title]]
 
-        named-ps-1 (d/->named-patterns patterns-1)
+            named-ps-1 (d/->named-patterns patterns-1)
 
-        named-ps-2 (d/->named-patterns patterns-2)]
+            named-ps-2 (d/->named-patterns patterns-2)]
 
-    (testing "send-query-single"
-      (is (= #{[["eid-predator" :movie/title "Predator" 1708623782646]
-                ["eid-predator" :movie/director "eid-john-mctiernan" 1708623782646]
-                ["eid-john-mctiernan"
-                 :person/name
-                 "John McTiernan"
-                 1708623782646]]}
-             (resolvers/walk-friendly
-              @r
-              (:join-rows (d/send-query-single ctx (aurora/conn-pool :read) app-id named-ps-1)))))
-      (is (= #{[["eid-john-mctiernan" :person/name "John McTiernan" 1708623782646]
-                ["eid-die-hard" :movie/director "eid-john-mctiernan" 1708623782646]
-                ["eid-die-hard" :movie/title "Die Hard" 1708623782646]]
-               [["eid-john-mctiernan" :person/name "John McTiernan" 1708623782646]
-                ["eid-predator" :movie/director "eid-john-mctiernan" 1708623782646]
-                ["eid-predator" :movie/title "Predator" 1708623782646]]}
-             (resolvers/walk-friendly
-              @r
-              (:join-rows (d/send-query-single ctx (aurora/conn-pool :read) app-id named-ps-2))))))
-    (testing "send-query-batched"
-      (is (= [#{[["eid-predator" :movie/title "Predator" 1708623782646]
-                 ["eid-predator" :movie/director "eid-john-mctiernan" 1708623782646]
-                 ["eid-john-mctiernan"
-                  :person/name
-                  "John McTiernan"
-                  1708623782646]]}
-              #{[["eid-john-mctiernan" :person/name "John McTiernan" 1708623782646]
-                 ["eid-die-hard" :movie/director "eid-john-mctiernan" 1708623782646]
-                 ["eid-die-hard" :movie/title "Die Hard" 1708623782646]]
-                [["eid-john-mctiernan" :person/name "John McTiernan" 1708623782646]
-                 ["eid-predator" :movie/director "eid-john-mctiernan" 1708623782646]
-                 ["eid-predator" :movie/title "Predator" 1708623782646]]}]
-             (resolvers/walk-friendly
-              @r
-              (map :join-rows (d/send-query-batch ctx (aurora/conn-pool :read) [[app-id named-ps-1]
-                                                                          [app-id named-ps-2]]))))))))
+        (testing "send-query-single"
+          (is (= #{[["eid-predator" :movie/title "Predator"]
+                    ["eid-predator" :movie/director "eid-john-mctiernan"]
+                    ["eid-john-mctiernan"
+                     :person/name
+                     "John McTiernan"]]}
+                 (-> (resolvers/walk-friendly
+                      r
+                      (:join-rows (drop-join-rows-created-at
+                                   (d/send-query-single ctx
+                                                        (aurora/conn-pool :read)
+                                                        app-id
+                                                        named-ps-1)))))))
+          (is (= #{[["eid-john-mctiernan" :person/name "John McTiernan"]
+                    ["eid-die-hard" :movie/director "eid-john-mctiernan"]
+                    ["eid-die-hard" :movie/title "Die Hard"]]
+                   [["eid-john-mctiernan" :person/name "John McTiernan"]
+                    ["eid-predator" :movie/director "eid-john-mctiernan"]
+                    ["eid-predator" :movie/title "Predator"]]}
+                 (resolvers/walk-friendly
+                  r
+                  (:join-rows (drop-join-rows-created-at
+                               (d/send-query-single ctx (aurora/conn-pool :read) app-id named-ps-2)))))))
+        (testing "send-query-batched"
+          (is (= [#{[["eid-predator" :movie/title "Predator"]
+                     ["eid-predator" :movie/director "eid-john-mctiernan"]
+                     ["eid-john-mctiernan"
+                      :person/name
+                      "John McTiernan"]]}
+                  #{[["eid-john-mctiernan" :person/name "John McTiernan"]
+                     ["eid-die-hard" :movie/director "eid-john-mctiernan"]
+                     ["eid-die-hard" :movie/title "Die Hard"]]
+                    [["eid-john-mctiernan" :person/name "John McTiernan"]
+                     ["eid-predator" :movie/director "eid-john-mctiernan"]
+                     ["eid-predator" :movie/title "Predator"]]}]
+                 (resolvers/walk-friendly
+                  r
+                  (map :join-rows
+                       (map drop-join-rows-created-at
+                            (d/send-query-batch ctx (aurora/conn-pool :read) [[app-id named-ps-1]
+                                                                              [app-id named-ps-2]])))))))))))
 
 (def ^:dynamic *count-atom* nil)
 
@@ -231,159 +243,164 @@
          ~@body))))
 
 (deftest queries
-  (testing "simple query"
-    (let [tina-turner-eid (resolvers/->uuid @r "eid-tina-turner")]
-      (is (= '{:topics [[:ea #{"eid-tina-turner"} _ _]]
+  (with-movies-app
+    (fn [app r]
+      (let [ctx (make-ctx app)
+            query-pretty (partial query-pretty ctx r)]
+        (testing "simple query"
+          (let [tina-turner-eid (resolvers/->uuid r "eid-tina-turner")]
+            (is (= '{:topics [[:ea #{"eid-tina-turner"} _ _]]
 
-               :symbol-values {?a #{:person/name :person/born}},
+                     :symbol-values {?a #{:person/name :person/born :person/id}},
 
-               :join-rows #{[["eid-tina-turner" :person/name "Tina Turner"]]
-                            [["eid-tina-turner" :person/born "1939-11-26T00:00:00Z"]]}}
+                     :join-rows #{[("eid-tina-turner" :person/id "eid-tina-turner")]
+                                  [["eid-tina-turner" :person/name "Tina Turner"]]
+                                  [["eid-tina-turner" :person/born "1939-11-26T00:00:00Z"]]}}
 
-             (query-pretty
-              [[:ea tina-turner-eid '?a]])))))
+                   (query-pretty
+                    [[:ea tina-turner-eid '?a]])))))
 
-  (testing "attr-jump"
-    (let [movie-title-aid (resolvers/->uuid @r :movie/title)
-          movie-year-aid (resolvers/->uuid @r :movie/year)]
-      (is (= '{:topics [[:ea _ #{:movie/year} #{1987}]
-                        [:ea #{"eid-lethal-weapon" "eid-robocop" "eid-predator"} #{:movie/title} _]],
+        (testing "attr-jump"
+          (let [movie-title-aid (resolvers/->uuid r :movie/title)
+                movie-year-aid (resolvers/->uuid r :movie/year)]
+            (is (= '{:topics [[:ea _ #{:movie/year} #{1987}]
+                              [:ea #{"eid-lethal-weapon" "eid-robocop" "eid-predator"} #{:movie/title} _]],
 
-               :symbol-values {?e #{"eid-lethal-weapon" "eid-robocop" "eid-predator"},
-                               ?title #{"Predator" "RoboCop" "Lethal Weapon"}},
+                     :symbol-values {?e #{"eid-lethal-weapon" "eid-robocop" "eid-predator"},
+                                     ?title #{"Predator" "RoboCop" "Lethal Weapon"}},
 
-               :join-rows #{[["eid-robocop" :movie/year 1987]
-                             ["eid-robocop" :movie/title "RoboCop"]]
-                            [["eid-lethal-weapon" :movie/year 1987]
-                             ["eid-lethal-weapon" :movie/title "Lethal Weapon"]]
-                            [["eid-predator" :movie/year 1987]
-                             ["eid-predator" :movie/title "Predator"]]}}
-             (query-pretty
-              [[:ea '?e movie-year-aid 1987]
-               [:ea '?e movie-title-aid '?title]])))))
-  (testing "refs jump eav"
-    (let [movie-title-aid (resolvers/->uuid @r :movie/title)
-          movie-director-aid (resolvers/->uuid @r :movie/director)
-          person-name-aid (resolvers/->uuid @r :person/name)]
-      (is (= '{:topics [[:ea _ #{:movie/title} #{"Predator"}]
-                        [:eav #{"eid-predator"} #{:movie/director} _]
-                        [:ea _ #{:person/name} _]]
+                     :join-rows #{[["eid-robocop" :movie/year 1987]
+                                   ["eid-robocop" :movie/title "RoboCop"]]
+                                  [["eid-lethal-weapon" :movie/year 1987]
+                                   ["eid-lethal-weapon" :movie/title "Lethal Weapon"]]
+                                  [["eid-predator" :movie/year 1987]
+                                   ["eid-predator" :movie/title "Predator"]]}}
+                   (query-pretty
+                    [[:ea '?e movie-year-aid 1987]
+                     [:ea '?e movie-title-aid '?title]])))))
+        (testing "refs jump eav"
+          (let [movie-title-aid (resolvers/->uuid r :movie/title)
+                movie-director-aid (resolvers/->uuid r :movie/director)
+                person-name-aid (resolvers/->uuid r :person/name)]
+            (is (= '{:topics [[:ea _ #{:movie/title} #{"Predator"}]
+                              [:eav #{"eid-predator"} #{:movie/director} _]
+                              [:ea _ #{:person/name} _]]
 
-               :symbol-values {?e #{"eid-predator"},
-                               ?director #{"eid-john-mctiernan"},
-                               ?name #{"John McTiernan"}},
+                     :symbol-values {?e #{"eid-predator"},
+                                     ?director #{"eid-john-mctiernan"},
+                                     ?name #{"John McTiernan"}},
 
-               :join-rows #{[["eid-predator" :movie/title "Predator"]
-                             ["eid-predator" :movie/director "eid-john-mctiernan"]
-                             ["eid-john-mctiernan" :person/name "John McTiernan"]]}}
+                     :join-rows #{[["eid-predator" :movie/title "Predator"]
+                                   ["eid-predator" :movie/director "eid-john-mctiernan"]
+                                   ["eid-john-mctiernan" :person/name "John McTiernan"]]}}
 
-             (query-pretty
-              [[:ea '?e movie-title-aid "Predator"]
-               [:eav '?e movie-director-aid '?director]
-               [:ea '?director person-name-aid '?name]])))))
+                   (query-pretty
+                    [[:ea '?e movie-title-aid "Predator"]
+                     [:eav '?e movie-director-aid '?director]
+                     [:ea '?director person-name-aid '?name]])))))
 
-  (testing "refs jump vae"
-    (let [movie-title-aid (resolvers/->uuid @r :movie/title)
-          movie-director-aid (resolvers/->uuid @r :movie/director)
-          person-name-aid (resolvers/->uuid @r :person/name)]
-      (is (= '{:topics [[:ea _ #{:person/name} #{"John McTiernan"}]
-                        [:vae _ #{:movie/director} #{"eid-john-mctiernan"}]
-                        [:ea #{"eid-predator" "eid-die-hard"} #{:movie/title} _]],
+        (testing "refs jump vae"
+          (let [movie-title-aid (resolvers/->uuid r :movie/title)
+                movie-director-aid (resolvers/->uuid r :movie/director)
+                person-name-aid (resolvers/->uuid r :person/name)]
+            (is (= '{:topics [[:ea _ #{:person/name} #{"John McTiernan"}]
+                              [:vae _ #{:movie/director} #{"eid-john-mctiernan"}]
+                              [:ea #{"eid-predator" "eid-die-hard"} #{:movie/title} _]],
 
-               :symbol-values {?director #{"eid-john-mctiernan"},
-                               ?movie #{"eid-predator" "eid-die-hard"},
-                               ?title #{"Predator" "Die Hard"}},,
+                     :symbol-values {?director #{"eid-john-mctiernan"},
+                                     ?movie #{"eid-predator" "eid-die-hard"},
+                                     ?title #{"Predator" "Die Hard"}},,
 
-               :join-rows #{[["eid-john-mctiernan" :person/name "John McTiernan"]
-                             ["eid-die-hard" :movie/director "eid-john-mctiernan"]
-                             ["eid-die-hard" :movie/title "Die Hard"]]
-                            [["eid-john-mctiernan" :person/name "John McTiernan"]
-                             ["eid-predator" :movie/director "eid-john-mctiernan"]
-                             ["eid-predator" :movie/title "Predator"]]}}
+                     :join-rows #{[["eid-john-mctiernan" :person/name "John McTiernan"]
+                                   ["eid-die-hard" :movie/director "eid-john-mctiernan"]
+                                   ["eid-die-hard" :movie/title "Die Hard"]]
+                                  [["eid-john-mctiernan" :person/name "John McTiernan"]
+                                   ["eid-predator" :movie/director "eid-john-mctiernan"]
+                                   ["eid-predator" :movie/title "Predator"]]}}
 
-             (query-pretty
-              [[:ea '?director person-name-aid "John McTiernan"]
-               [:vae '?movie movie-director-aid '?director]
-               [:ea '?movie movie-title-aid '?title]])))))
+                   (query-pretty
+                    [[:ea '?director person-name-aid "John McTiernan"]
+                     [:vae '?movie movie-director-aid '?director]
+                     [:ea '?movie movie-title-aid '?title]])))))
 
-  (testing "batching"
-    (with-open [conn-pool (sql/start-pool
-                           (assoc (config/get-aurora-config)
-                                  :maximumPoolSize 1))]
-      ;; Take the only available connection
-      (let [hold-conn (.getConnection conn-pool)
-            loader (d/make-loader)
-            ctx {:db {:conn-pool conn-pool}
-                 :app-id movies-app-id
-                 :datalog-loader loader}
-            movie-title-aid (resolvers/->uuid @r :movie/title)
-            movie-director-aid (resolvers/->uuid @r :movie/director)
-            person-name-aid (resolvers/->uuid @r :person/name)
-            counts (atom 0)]
+        (testing "batching"
+          (with-open [conn-pool (sql/start-pool
+                                 (assoc (config/get-aurora-config)
+                                        :maximumPoolSize 1))]
+            ;; Take the only available connection
+            (let [hold-conn (.getConnection conn-pool)
+                  loader (d/make-loader)
+                  ctx {:db {:conn-pool conn-pool}
+                       :app-id (:id app)
+                       :datalog-loader loader}
+                  movie-title-aid (resolvers/->uuid r :movie/title)
+                  movie-director-aid (resolvers/->uuid r :movie/director)
+                  person-name-aid (resolvers/->uuid r :person/name)
+                  counts (atom 0)]
 
-        (with-count-sql-select-arrays counts
-          (let [q1 (future (as-> (d/query
-                                  ctx
-                                  [[:ea '?director person-name-aid "John McTiernan"]
-                                   [:vae '?movie movie-director-aid '?director]
-                                   [:ea '?movie movie-title-aid '?title]])
-                                 %
-                             (resolvers/walk-friendly @r %)
-                             (drop-join-rows-created-at %)))
-                q2 (future (as-> (d/query
-                                  ctx [[:ea '?e movie-title-aid "Predator"]
-                                       [:eav '?e movie-director-aid '?director]
-                                       [:ea '?director person-name-aid '?name]])
-                                 %
-                             (resolvers/walk-friendly @r %)
-                             (drop-join-rows-created-at %)))]
+              (with-count-sql-select-arrays counts
+                (let [q1 (future (as-> (d/query
+                                        ctx
+                                        [[:ea '?director person-name-aid "John McTiernan"]
+                                         [:vae '?movie movie-director-aid '?director]
+                                         [:ea '?movie movie-title-aid '?title]])
+                                     %
+                                     (resolvers/walk-friendly r %)
+                                     (drop-join-rows-created-at %)))
+                      q2 (future (as-> (d/query
+                                        ctx [[:ea '?e movie-title-aid "Predator"]
+                                             [:eav '?e movie-director-aid '?director]
+                                             [:ea '?director person-name-aid '?name]])
+                                     %
+                                     (resolvers/walk-friendly r %)
+                                     (drop-join-rows-created-at %)))]
 
-            ;; Wait for queries to batch
-            (loop [i 0]
-              (when (not= 2 (count (get-in @loader [conn-pool :items])))
-                (when (> i 10)
-                  (throw
-                   (Exception.
-                    "Queries took too long to batch. Something must be broken.")))
-                (println "waiting")
-                (Thread/sleep i)
-                (recur (inc i))))
+                  ;; Wait for queries to batch
+                  (loop [i 0]
+                    (when (not= 2 (count (get-in @loader [conn-pool :items])))
+                      (when (> i 10)
+                        (throw
+                         (Exception.
+                          "Queries took too long to batch. Something must be broken.")))
+                      (println "waiting")
+                      (Thread/sleep i)
+                      (recur (inc i))))
 
-            ;; Return the connection so that queries can complete
-            (.close hold-conn)
+                  ;; Return the connection so that queries can complete
+                  (.close hold-conn)
 
-            (is (=
-                 '{:topics [[:ea _ #{:person/name} #{"John McTiernan"}]
-                            [:vae _ #{:movie/director} #{"eid-john-mctiernan"}]
-                            [:ea #{"eid-predator" "eid-die-hard"} #{:movie/title} _]],
+                  (is (=
+                       '{:topics [[:ea _ #{:person/name} #{"John McTiernan"}]
+                                  [:vae _ #{:movie/director} #{"eid-john-mctiernan"}]
+                                  [:ea #{"eid-predator" "eid-die-hard"} #{:movie/title} _]],
 
-                   :symbol-values {?director #{"eid-john-mctiernan"},
-                                   ?movie #{"eid-predator" "eid-die-hard"},
-                                   ?title #{"Predator" "Die Hard"}},
+                         :symbol-values {?director #{"eid-john-mctiernan"},
+                                         ?movie #{"eid-predator" "eid-die-hard"},
+                                         ?title #{"Predator" "Die Hard"}},
 
-                   :join-rows #{[["eid-john-mctiernan" :person/name "John McTiernan"]
-                                 ["eid-die-hard" :movie/director "eid-john-mctiernan"]
-                                 ["eid-die-hard" :movie/title "Die Hard"]]
-                                [["eid-john-mctiernan" :person/name "John McTiernan"]
-                                 ["eid-predator" :movie/director "eid-john-mctiernan"]
-                                 ["eid-predator" :movie/title "Predator"]]}}
-                 @q1))
-            (is (=
-                 '{:topics [[:ea _ #{:movie/title} #{"Predator"}]
-                            [:eav #{"eid-predator"} #{:movie/director} _]
-                            [:ea _ #{:person/name} _]]
+                         :join-rows #{[["eid-john-mctiernan" :person/name "John McTiernan"]
+                                       ["eid-die-hard" :movie/director "eid-john-mctiernan"]
+                                       ["eid-die-hard" :movie/title "Die Hard"]]
+                                      [["eid-john-mctiernan" :person/name "John McTiernan"]
+                                       ["eid-predator" :movie/director "eid-john-mctiernan"]
+                                       ["eid-predator" :movie/title "Predator"]]}}
+                       @q1))
+                  (is (=
+                       '{:topics [[:ea _ #{:movie/title} #{"Predator"}]
+                                  [:eav #{"eid-predator"} #{:movie/director} _]
+                                  [:ea _ #{:person/name} _]]
 
-                   :symbol-values {?e #{"eid-predator"},
-                                   ?director #{"eid-john-mctiernan"},
-                                   ?name #{"John McTiernan"}}
+                         :symbol-values {?e #{"eid-predator"},
+                                         ?director #{"eid-john-mctiernan"},
+                                         ?name #{"John McTiernan"}}
 
-                   :join-rows #{[["eid-predator" :movie/title "Predator"]
-                                 ["eid-predator" :movie/director "eid-john-mctiernan"]
-                                 ["eid-john-mctiernan" :person/name "John McTiernan"]]}}
-                 @q2))
+                         :join-rows #{[["eid-predator" :movie/title "Predator"]
+                                       ["eid-predator" :movie/director "eid-john-mctiernan"]
+                                       ["eid-john-mctiernan" :person/name "John McTiernan"]]}}
+                       @q2))
 
-            (testing "we only make a single sql query for both d/query calls"
-              (is (= @counts 1)))))))))
+                  (testing "we only make a single sql query for both d/query calls"
+                    (is (= @counts 1))))))))))))
 
 (deftest lookup-refs
   (with-zeneca-app
@@ -399,6 +416,37 @@
                       :join-rows
                       (map (comp last drop-last last))
                       set))))))))
+
+(deftest generates-a-single-param-for-entity-ids-if-possible
+  (with-zeneca-app
+    (fn [app _r]
+      (let [ids (set [(random-uuid)
+                      (random-uuid)])
+            {:keys [query]}
+            (d/nested-match-query {:db {:conn-pool (aurora/conn-pool :read)}
+                                   :app-id (:id app)}
+                                  :match-0-
+                                  (:id app)
+                                  (d/nested->named-patterns
+                                   {:children {:pattern-groups
+                                               [{:patterns [[:ea ids]]}]}}))
+            [_q app-id-param e-param] (hsql/format query)]
+        ;; Check that the params are what we expect
+        (is (= app-id-param (:id app)))
+        ;; Check that we got a single param for the set of e
+        (is (= e-param ids))))))
+
+(deftest can-handle-many-entity-ids
+  (with-zeneca-app
+    (fn [app r]
+      (let [ids (conj (set (repeatedly 100000 random-uuid))
+                      (resolvers/->uuid r "eid-alex"))
+            res (d/query {:db {:conn-pool (aurora/conn-pool :read)}
+                          :app-id (:id app)}
+                         [[:ea ids #{(resolvers/->uuid r :users/id)}]])]
+        (is (= #{[["eid-alex" :users/id "eid-alex" 1610218387000]]}
+               (resolvers/walk-friendly r
+                                        (:join-rows res))))))))
 
 (comment
   (test/run-tests *ns*))

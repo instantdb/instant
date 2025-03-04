@@ -6,6 +6,10 @@
 
 (def ^ZoneRegion pst-zone (ZoneId/of "America/Los_Angeles"))
 (def ^ZoneRegion est-zone (ZoneId/of "America/New_York"))
+(def ^ZoneRegion utc-zone (ZoneId/of "UTC"))
+
+(defn utc-now ^ZonedDateTime []
+  (ZonedDateTime/now utc-zone))
 
 (defn pst-now ^ZonedDateTime []
   (ZonedDateTime/now pst-zone))

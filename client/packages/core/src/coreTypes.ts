@@ -21,3 +21,28 @@ export interface IInstantDatabase<
 > {
   tx: TxChunk<Schema>;
 }
+
+export type DevtoolPosition =
+  | 'bottom-left'
+  | 'bottom-right'
+  | 'top-right'
+  | 'top-left';
+
+export type DevtoolConfig = {
+  /**
+   * Position of the devtool panel on the screen
+   * @default 'bottom-right'
+   */
+  position?: DevtoolPosition;
+
+  /**
+   * Hosts where the devtool should be shown
+   * @default ['localhost']
+   */
+  allowedHosts?: string[];
+};
+
+export type StrictDevtoolConfig = {
+  position: DevtoolPosition;
+  allowedHosts: string[];
+};

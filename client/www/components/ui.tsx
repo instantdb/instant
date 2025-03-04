@@ -31,12 +31,12 @@ require('prismjs/components/prism-clojure');
 
 import {
   CheckCircleIcon,
-  ClipboardCopyIcon,
-  XIcon,
+  ClipboardDocumentIcon,
+  XMarkIcon,
   EyeIcon,
-  EyeOffIcon,
-} from '@heroicons/react/solid';
-import { InformationCircleIcon } from '@heroicons/react/outline';
+  EyeSlashIcon,
+} from '@heroicons/react/24/solid';
+import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import { errorToast, successToast } from '@/lib/toast';
 import CopyToClipboard from 'react-copy-to-clipboard';
 import copy from 'copy-to-clipboard';
@@ -604,7 +604,7 @@ export function Dialog({
       <div className="fixed inset-0 z-50 bg-black/50" aria-hidden="true" />
       <div className="fixed inset-4 z-50 flex flex-col items-center justify-center">
         <HeadlessDialog.Panel className="relative w-full max-w-xl overflow-y-auto rounded bg-white p-3 text-sm shadow">
-          <XIcon
+          <XMarkIcon
             className="absolute right-3 top-[18px] h-4 w-4 cursor-pointer"
             onClick={onClose}
           />
@@ -765,7 +765,7 @@ export function Copyable({
             )}
           >
             {hideValue ? (
-              <EyeOffIcon className="h-4 w-4" aria-hidden="true" />
+              <EyeSlashIcon className="h-4 w-4" aria-hidden="true" />
             ) : (
               <EyeIcon className="h-4 w-4" aria-hidden="true" />
             )}
@@ -784,7 +784,10 @@ export function Copyable({
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
-            <ClipboardCopyIcon className="-ml-0.5 h-4 w-4" aria-hidden="true" />
+            <ClipboardDocumentIcon
+              className="-ml-0.5 h-4 w-4"
+              aria-hidden="true"
+            />
             {copyLabel}
           </button>
         </CopyToClipboard>
@@ -825,7 +828,10 @@ export function Copytext({ value }: { value: string }) {
         {showCopied ? (
           <CheckCircleIcon className="pl-1" height={'1em'} />
         ) : (
-          <ClipboardCopyIcon className="cursor-pointer pl-1" height={'1em'} />
+          <ClipboardDocumentIcon
+            className="cursor-pointer pl-1"
+            height={'1em'}
+          />
         )}
       </CopyToClipboard>
     </span>
@@ -860,6 +866,7 @@ export function CodeEditor(props: {
       }}
       onMount={props.onMount}
       beforeMount={(monaco) => {}}
+      loading={<FullscreenLoading />}
     />
   );
 }
@@ -877,12 +884,12 @@ export function JSONEditor(props: {
   }, [props.value]);
 
   return (
-    <div className="flex flex-col gap-2 h-full">
+    <div className="flex flex-col gap-2 h-full min-h-0">
       <div className="flex items-center gap-4 border-b px-4 py-2">
         <div className="font-mono">{props.label}</div>
         <Button onClick={() => props.onSave(draft)}>Save</Button>
       </div>
-      <div className="flex-grow">
+      <div className="flex-grow min-h-0">
         <CodeEditor
           language="json"
           value={props.value}
@@ -964,7 +971,7 @@ export function Fence({
                 }}
                 className="flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 text-xs"
               >
-                <ClipboardCopyIcon
+                <ClipboardDocumentIcon
                   className="-ml-0.5 h-4 w-4"
                   aria-hidden="true"
                 />

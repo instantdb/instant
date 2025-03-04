@@ -42,7 +42,7 @@ jobs:
 
     services:
       postgres:
-        image: public.ecr.aws/z9j8u5b3/instant-public:postgres-16
+        image: public.ecr.aws/z9j8u5b3/instant-public:postgresql-16
         ports:
           - 5432:5432
         env:
@@ -76,8 +76,10 @@ jobs:
            up
         ./server/dev-resources/import_test_data.sh
 
+        psql -d $DATABASE_URL -c "select version()"
+
     - name: Install clojure tools
-      uses: DeLaGuardo/setup-clojure@10.2
+      uses: DeLaGuardo/setup-clojure@13.1
       with:
         cli: 1.11.3.1463
 
@@ -124,7 +126,7 @@ jobs:
         java-version: '22'
 
     - name: Install clojure tools
-      uses: DeLaGuardo/setup-clojure@10.2
+      uses: DeLaGuardo/setup-clojure@13.1
       with:
         cli: 1.11.3.1463
 
@@ -162,7 +164,7 @@ jobs:
         java-version: '22'
 
     - name: Install clojure tools
-      uses: DeLaGuardo/setup-clojure@10.2
+      uses: DeLaGuardo/setup-clojure@13.1
       with:
         cli: 1.11.3.1463
 

@@ -65,11 +65,12 @@
 
 (defn delete-entity!
   "Deletes and returns the deleted entity (if it was deleted)."
-  [tx-conn attrs app-id etype lookup]
+  [tx-conn attrs app-id etype lookup opts]
   (some->> (tx/transact-without-tx-conn! tx-conn
                                          attrs
                                          app-id
-                                         [[:delete-entity lookup etype]])
+                                         [[:delete-entity lookup etype]]
+                                         opts)
            :results
            :delete-entity
            seq
@@ -78,6 +79,27 @@
                       :triples/value
                       :triples/created_at))
            (triples->db-format app-id attrs etype)))
+
+(defn delete-entities!
+  "Deletes and returns entities that were deleted."
+  [tx-conn attrs app-id etype lookups opts]
+  (some->> (tx/transact-without-tx-conn! tx-conn
+                                         attrs
+                                         app-id
+                                         (mapv (fn [lookup]
+                                                 [:delete-entity lookup etype])
+                                               lookups)
+                                         opts)
+           :results
+           :delete-entity
+           seq
+           (map (juxt :triples/entity_id
+                      :triples/attr_id
+                      :triples/value
+                      :triples/created_at))
+           (group-by first)
+           vals
+           (map #(triples->db-format app-id attrs etype %))))
 
 (defn collect-iql-result
   ([iql-res]
@@ -160,13 +182,23 @@
         :transact!
         (fn
           ([tx-steps]
-           (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps))
+           (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps {}))
           ([tx-steps opts]
            (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps opts)))
 
         :delete-entity!
-        (fn [lookup]
-          (delete-entity! tx-conn attrs app-id etype lookup))
+        (fn
+          ([lookup]
+           (delete-entity! tx-conn attrs app-id etype lookup {}))
+          ([lookup opts]
+           (delete-entity! tx-conn attrs app-id etype lookup opts)))
+
+        :delete-entities!
+        (fn
+          ([lookups]
+           (delete-entities! tx-conn attrs app-id etype lookups {}))
+          ([lookups opts]
+           (delete-entities! tx-conn attrs app-id etype lookups opts)))
 
         :get-entity
         (fn [eid] (get-entity tx-conn app-id attrs etype eid))

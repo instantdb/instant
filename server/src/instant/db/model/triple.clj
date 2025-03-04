@@ -4,9 +4,11 @@
    [honey.sql :as hsql]
    [instant.data.constants :refer [empty-app-id]]
    [instant.db.model.attr :as attr-model]
+   [instant.db.model.triple-cols :as triple-cols-ns]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.system-catalog :refer [system-catalog-app-id]]
+   [instant.util.crypt :refer [json-null-md5]]
    [instant.util.exception :as ex]
    [instant.util.json :refer [->json <-json]]
    [instant.util.spec :as uspec]
@@ -58,7 +60,7 @@
                              (list* :or
                                     (map
                                      (fn [[a v]]
-                                       [:and [:= :attr-id a] [:= :value [:cast (->json v) :jsonb]]])
+                                       [:and [:= :attr-id a] [:= [:json_null_to_null :value] [:cast (->json v) :jsonb]]])
                                      lookups-set))]}))
 
           lookups->eid (->> triples
@@ -69,8 +71,7 @@
 ;; ---
 ;; insert-multi!
 
-(def triple-cols
-  [:app-id :entity-id :attr-id :value :value-md5 :ea :eav :av :ave :vae :checked-data-type])
+(def triple-cols triple-cols-ns/triple-cols)
 
 (defn eid-lookup-ref?
   "Takes the eid part of a triple and returns true if it is a lookup ref ([a v])."
@@ -201,7 +202,7 @@
                       {:insert-into [[:triples triple-cols]
                                      {:select triple-cols
                                       :from :enhanced-lookup-refs}]
-                       :on-conflict [:app-id :attr-id :value {:where :av}]
+                       :on-conflict [:app-id :attr-id [:json_null_to_null :value] {:where :av}]
                        :do-nothing true
                        :returning :*}]
 
@@ -216,7 +217,7 @@
                                                          [:and
                                                           :av
                                                           [:= :attr-id a]
-                                                          [:= :value [:cast (->json v) :jsonb]]]))]}]}]])
+                                                          [:= [:json_null_to_null :value] [:cast (->json v) :jsonb]]]))]}]}]])
                   [[[:input-triples
                      {:columns [:idx :app-id :entity-id :attr-id :value]}]
                     {:values input-triples-values}
@@ -331,7 +332,7 @@
                           {:insert-into [[:triples triple-cols]
                                          {:select triple-cols
                                           :from :enhanced-lookup-refs}]
-                           :on-conflict [:app-id :attr-id :value {:where :av}]
+                           :on-conflict [:app-id :attr-id [:json_null_to_null :value] {:where :av}]
                            :do-nothing true
                            :returning :*}]
 
@@ -351,7 +352,10 @@
                                                              [:and
                                                               :av
                                                               [:= :attr-id a]
-                                                              [:= :value [:cast (->json v) :jsonb]]]))]}]}]])
+                                                              [:=
+                                                               ;; Make sure it can lookup just from the av_index
+                                                               [:json_null_to_null :value]
+                                                               [:cast (->json v) :jsonb]]]))]}]}]])
                       [[[:input-triples
                          {:columns [:idx :app-id :entity-id :attr-id :value]}]
                         {:values (map-indexed
@@ -386,7 +390,10 @@
                                                                            :av
                                                                            [:= :app-id app-id]
                                                                            [:= :attr-id (first v)]
-                                                                           [:= :value [:cast (->json (second v)) :jsonb]]]}]}
+                                                                           [:=
+                                                                            ;; Make sure it can lookup just from the av_index
+                                                                            [:json_null_to_null :value]
+                                                                            [:cast (->json (second v)) :jsonb]]]}]}
                                                      :lookups]]
                                                    [[{:select :entity-id
                                                       :from :triples
@@ -394,7 +401,10 @@
                                                               :av
                                                               [:= :app-id app-id]
                                                               [:= :attr-id (first v)]
-                                                              [:= :value [:cast (->json (second v)) :jsonb]]]}
+                                                              [:=
+                                                               ;; Make sure it can lookup just from the av_index
+                                                               [:json_null_to_null :value]
+                                                               [:cast (->json (second v)) :jsonb]]]}
                                                      :lookups]])
                                            :limit 1}
                                           :else (->json v)]]])])
@@ -436,37 +446,120 @@
                          :on-conflict [:app-id :entity-id :attr-id {:where [:= :ea true]}]
                          :do-update-set {:value :excluded.value
                                          :value-md5 :excluded.value-md5}
-                         :returning :entity-id}]
+                         :returning :*}]
                        [:remaining-inserts
                         {:insert-into [[:triples triple-cols]
                                        {:select triple-cols
                                         :from :remaining-triples}]
                          :on-conflict [:app-id :entity-id :attr-id :value-md5]
                          :do-nothing true
+                         :returning :*}]
+                       [:indexed-null-triples
+                        {:select [[:needs-null-attr.app-id :app-id]
+                                  [:new-entities.entity-id :entity-id]
+                                  [:needs-null-attr.id :attr-id]
+                                  [[:cast "null" :jsonb] :value]
+                                  [[:inline json-null-md5] :value-md5]
+                                  [[:= :needs-null-attr.cardinality [:inline "one"]] :ea]
+                                  [[:= :needs-null-attr.value_type [:inline "ref"]] :eav]
+                                  [:needs-null-attr.is_unique :av]
+                                  [:needs-null-attr.is_indexed :ave]
+                                  [[:= :needs-null-attr.value_type [:inline "ref"]] :vae]
+                                  [:needs-null-attr.checked-data-type :checked-data-type]]
+                         :from [[{:union (into [{:select [:entity-id :attr_id]
+                                                 :from :ea-index-inserts}
+                                                {:select [:entity-id :attr_id]
+                                                 :from :remaining-inserts}]
+                                               (when (seq lookup-refs)
+                                                 [{:select [:entity-id :attr_id]
+                                                   :from :lookup-ref-inserts}]))}
+                                 :new-entities]]
+                         :join [[:attrs :updated-attr]
+                                [:= :updated-attr.id :new-entities.attr-id]
+
+                                ;; We want to run this when we create new entities.
+                                ;; If a new entity is created, then an id is
+                                ;; created, so we can filter to just the id attrs
+                                [:idents :id-ident]
+                                [:and
+                                 [:= :id-ident.id :updated-attr.forward-ident]
+                                 [:= :id-ident.label "id"]]
+
+                                [:attrs :needs-null-attr]
+                                [:and
+                                 :needs-null-attr.is_indexed
+                                 [:= :needs-null-attr.value_type [:inline "blob"]]
+                                 [:= :needs-null-attr.app_id app-id]
+                                 [:= :id-ident.etype {:select :etype
+                                                      :from :idents
+                                                      :where [:= :idents.id :needs-null-attr.forward-ident]}]
+                                 ;; No existing triple for this attr
+                                 [:not [:exists {:select :1
+                                                 :from :triples
+                                                 :where [:and
+                                                         :triples.ave
+                                                         [:= :triples.app-id app-id]
+                                                         [:= :triples.attr-id :needs-null-attr.id]
+                                                         [:= :triples.entity-id :new-entities.entity-id]]}]]]]
+                         ;; Make sure we didn't insert a null value
+                         ;; for the attr if this transaction is
+                         ;; inserting a value for the attr
+                         :where (list*
+                                 :and
+                                 [:not
+                                  [:exists
+                                   {:select :*
+                                    :from :ea-index-inserts
+                                    :where [:and
+                                            [:= :ea-index-inserts.entity-id :new-entities.entity-id]
+                                            [:= :ea-index-inserts.attr-id :needs-null-attr.id]]}]]
+                                 [:not
+                                  [:exists
+                                   {:select :*
+                                    :from :remaining-inserts
+                                    :where [:and
+                                            [:= :remaining-inserts.entity-id :new-entities.entity-id]
+                                            [:= :remaining-inserts.attr-id :needs-null-attr.id]]}]]
+                                 (when (seq lookup-refs)
+                                   [[:not
+                                     [:exists
+                                      {:select :*
+                                       :from :lookup-ref-inserts
+                                       :where [:and
+                                               [:= :lookup-ref-inserts.entity-id :new-entities.entity-id]
+                                               [:= :lookup-ref-inserts.attr-id :needs-null-attr.id]]}]]]))}]
+                       [:indexed-null-inserts
+                        {:insert-into [[:triples triple-cols]
+                                       {:select triple-cols
+                                        :from :indexed-null-triples}]
+                         :on-conflict [:app-id :entity-id :attr-id :value-md5]
+                         :do-nothing true
                          :returning :entity-id}]]
                       (when-let [attr-inferred-types (insert-attr-inferred-types-cte app-id triples)]
                         [attr-inferred-types]))
                :union-all [{:select :entity-id :from :ea-index-inserts}
-                           {:select :entity-id :from :remaining-inserts}]}]
-    (try (sql/do-execute! conn (hsql/format query))
-         (catch Exception e
-           (let [pg-server-message (-> e
-                                       ex-data
-                                       ::ex/pg-error-data
-                                       :server-message)]
-             (if (and (seq lookup-refs)
-                      (= pg-server-message "ON CONFLICT DO UPDATE command cannot affect row a second time"))
-               ;; We may be able to avoid this with `merge`, but we'd need
-               ;; to upgrade postgres to version 16
-               ;; https://www.postgresql.org/docs/current/sql-merge.html
-               (ex/throw-validation-err!
-                :lookup
-                lookup-refs
-                [{:message (multiline->single-line
-                            "Updates with lookups can only update
+                           {:select :entity-id :from :remaining-inserts}
+                           {:select :entity-id :from :indexed-null-inserts}]}]
+    (try
+      (sql/do-execute! conn (hsql/format query))
+      (catch Exception e
+        (let [pg-server-message (-> e
+                                    ex-data
+                                    ::ex/pg-error-data
+                                    :server-message)]
+          (if (and (seq lookup-refs)
+                   (= pg-server-message "ON CONFLICT DO UPDATE command cannot affect row a second time"))
+            ;; We may be able to avoid this with `merge`, but we'd need
+            ;; to upgrade postgres to version 17
+            ;; https://www.postgresql.org/docs/current/sql-merge.html
+            (ex/throw-validation-err!
+             :lookup
+             lookup-refs
+             [{:message (multiline->single-line
+                         "Updates with lookups can only update
                              the lookup attribute if an entity with
                              the unique attribute value already exists.")}])
-               (throw e)))))))
+            (throw e)))))))
 
 (defn delete-entity-multi!
   "Deleting an entity does two things:
@@ -516,6 +609,9 @@
                 :system-catalog-app-id system-catalog-app-id}]
     (sql/do-execute! conn (hsql/format query {:params params}))))
 
+;; n.b. if we ever use `:retract-triple` for blob attrs (it's currently
+;;      just links), we'll need to add code in `delete-multi!` to
+;;      insert nulls for indexed blob attrs
 (defn delete-multi!
   "Deletes triples from postgres.
 
@@ -735,10 +831,19 @@
       (LocalDateTime/parse offio-date-formatter)
       (.toInstant ZoneOffset/UTC)))
 
+(def zeneca-date-formatter (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ss.n"))
+
+(defn zeneca-date-str->instant [s]
+  (-> s
+      (LocalDateTime/parse zeneca-date-formatter)
+      (.toInstant ZoneOffset/UTC)))
+
+
 (def date-parsers [zoned-date-time-str->instant
                    local-date-time-str->instant
                    local-date-str->instant
-                   offio-date-str->instant])
+                   offio-date-str->instant
+                   zeneca-date-str->instant])
 
 (defn try-parse-date-string [parser s]
   (try

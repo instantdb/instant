@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/admin",
-  "version": "v0.17.12",
+  "version": "v0.17.25",
   "description": "Admin SDK for Instant DB",
   "main": "dist/index.js",
   "module": "dist/module/index.js",
@@ -14,7 +14,7 @@
     "dev": "run-p dev:main dev:module",
     "build:main": "tsc -p tsconfig.json",
     "build:module": "tsc -p tsconfig.module.json",
-    "publish-package": "npm publish --access public"
+    "publish-package": "pnpm publish --access public --no-git-checks"
   },
   "devDependencies": {
     "@babel/core": "^7.17.9",

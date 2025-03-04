@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: public.ecr.aws/z9j8u5b3/instant-public:postgres-16
+    image: public.ecr.aws/z9j8u5b3/instant-public:postgresql-16
     ports:
       - '8890:5432'
     environment:

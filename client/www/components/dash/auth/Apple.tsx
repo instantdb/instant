@@ -17,7 +17,7 @@ import {
   PlusIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-} from '@heroicons/react/solid';
+} from '@heroicons/react/24/solid';
 import logo from '../../../public/img/apple_logo_black.svg';
 import Image from 'next/image';
 import { messageFromInstantError } from '@/lib/errors';

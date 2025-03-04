@@ -5,7 +5,6 @@
    [clojure.string :as string]
    [clojure.walk :as walk]
    [honey.sql :as hsql]
-   [instant.flags :as flags]
    [instant.data.constants :refer [zeneca-app-id]]
    [instant.data.resolvers :as resolvers]
    [instant.db.cel :as cel]
@@ -54,17 +53,21 @@
 (s/def ::$lte ::comparator)
 (s/def ::$like ::comparator)
 (s/def ::$ilike ::comparator)
+;; Temporary hack used by the dashboard until we have support for uuid index on id
+(s/def ::$entityIdStartsWith string?)
 
 (defn where-value-valid-keys? [m]
   (every? #{:in :$in
             :$not :$isNull
             :$gt :$gte :$lt :$lte
-            :$like :$ilike}
+            :$like :$ilike
+            :$entityId}
           (keys m)))
 
 (s/def ::where-args-map (s/and
                          (s/keys :opt-un [::in ::$in ::$not ::$isNull
-                                          ::$gt ::$gte ::$lt ::$lte ::$like ::$ilike])
+                                          ::$gt ::$gte ::$lt ::$lte ::$like ::$ilike
+                                          ::$entityIdStartsWith])
                          where-value-valid-keys?))
 
 (s/def ::where-v
@@ -102,6 +105,7 @@
 (s/def ::before ::cursor)
 (s/def ::after ::cursor)
 (s/def ::aggregate #{:count})
+(s/def ::fields (s/coll-of string?))
 
 (s/def ::option-map (s/keys :opt-un [::where-conds
                                      ::order
@@ -111,7 +115,8 @@
                                      ::offset
                                      ::before
                                      ::after
-                                     ::aggregate]))
+                                     ::aggregate
+                                     ::fields]))
 
 (s/def ::forms (s/coll-of ::form))
 (s/def ::child-forms ::forms)
@@ -135,6 +140,30 @@
           []
           conds))
 
+(def sentinel (Object.))
+
+(defn- combine-or-where-conds
+  "Converts {:or [{:a 1} {:a 2}] -> {:or [{:a {:in [1 2]}}]}"
+  [conds]
+  (let [{:keys [uncombined optimized]}
+        (reduce (fn [acc c]
+                  (if-not (and (= (count c) 1)
+                               (where-value-valid? (second (first c)))
+                               (not (string/starts-with? (name (ffirst c)) "$")))
+                    (update acc :uncombined conj c)
+                    (let [[k v] (first c)
+                          existing (get-in acc [:optimized k] sentinel)]
+                      (if (= existing sentinel)
+                        (assoc-in acc [:optimized k] {:in [v]})
+                        (update-in acc [:optimized k :in] conj v)))))
+
+                {:uncombined []
+                 :optimized {}}
+                conds)]
+    (into uncombined (map (fn [[k v]]
+                            {k v})
+                          optimized))))
+
 (defn grow-paths
   "Given a path, creates a list of paths leading up to that path,
    including the path itself.
@@ -148,10 +177,11 @@
   "Splits keys into segments."
   [state [k v :as c]]
   (cond (or-where-cond? c)
-        {:or (let [conds (map (fn [conds]
-                                (map (partial coerce-where-cond state)
-                                     (collapse-or-where-conds conds)))
-                              v)]
+        {:or (let [conds (->> v
+                              combine-or-where-conds
+                              (map (fn [conds]
+                                     (map (partial coerce-where-cond state)
+                                          (collapse-or-where-conds conds)))))]
                (if (seq conds)
                  conds
                  (ex/throw-validation-err!
@@ -346,7 +376,9 @@
         aggregate (when-let [aggregate (:aggregate x)]
                     (coerce-aggregate! state aggregate))
 
-        x (dissoc x :where :order :limit :first :last :offset :before :after :aggregate)]
+        fields (:fields x)
+
+        x (dissoc x :where :order :limit :first :last :offset :before :after :aggregate :fields)]
 
     (when (seq x)
       (ex/throw-validation-err!
@@ -385,7 +417,8 @@
       offset (assoc :offset offset)
       after (assoc :after after)
       before (assoc :before before)
-      aggregate (assoc :aggregate aggregate))))
+      aggregate (assoc :aggregate aggregate)
+      fields (assoc :fields fields))))
 
 (defn- coerce-forms!
   "Converts our InstaQL object into a list of forms."
@@ -484,10 +517,10 @@
 
 (defn- level-sym-gen
   "Generates a level-sym function that will namespace all but the join variable."
-  [base-level-sym etype idx]
+  [base-level-sym join-sym idx]
   (fn level-sym [x level]
     (let [base (base-level-sym x level)]
-      (if (= x etype)
+      (if (= join-sym base)
         base
         (symbol (str base "-" idx))))))
 
@@ -518,29 +551,37 @@
         [last-etype last-level ref-attr-pats referenced-etypes]
         (attr-pat/->ref-attr-pats ctx level-sym etype level refs-path)
 
-        value-attr-pats (if (and (map? v) (contains? v :$isNull))
-                          (let [id-attr (attr-model/seek-by-fwd-ident-name [last-etype "id"] attrs)
-                                fwd-attr (attr-model/seek-by-fwd-ident-name [last-etype value-label] attrs)
-                                rev-attr (attr-model/seek-by-rev-ident-name [last-etype value-label] attrs)
-                                value-attr (or fwd-attr
-                                               rev-attr)]
-                            (ex/assert-record!
-                             id-attr :attr {:args [last-etype "id"]})
-                            (ex/assert-record!
-                             value-attr :attr {:args [last-etype value-label]})
+        value-attr-pats
+        (cond (and (map? v) (contains? v :$isNull))
+              (let [id-attr (attr-model/seek-by-fwd-ident-name [last-etype "id"] attrs)
+                    fwd-attr (attr-model/seek-by-fwd-ident-name [last-etype value-label] attrs)
+                    rev-attr (attr-model/seek-by-rev-ident-name [last-etype value-label] attrs)
+                    value-attr (or fwd-attr
+                                   rev-attr)]
+                (ex/assert-record!
+                 id-attr :attr {:args [last-etype "id"]})
+                (ex/assert-record!
+                 value-attr :attr {:args [last-etype value-label]})
 
-                            [[(level-sym last-etype last-level)
-                              (:id id-attr)
-                              {:$isNull {:attr-id (:id value-attr)
-                                         :nil? (:$isNull v)
-                                         :ref? (= :ref (:value-type value-attr))
-                                         :reverse? (= value-attr rev-attr)}}]])
-                          [(attr-pat/->value-attr-pat ctx
-                                                      level-sym
-                                                      last-etype
-                                                      last-level
-                                                      value-label
-                                                      v)])]
+                [[(level-sym last-etype last-level)
+                  (:id id-attr)
+                  {:$isNull {:attr-id (:id value-attr)
+                             :nil? (:$isNull v)
+                             :ref? (= :ref (:value-type value-attr))
+                             :reverse? (= value-attr rev-attr)}}]])
+
+              (= value-label "$entityIdStartsWith")
+              (let [id-attr (attr-model/seek-by-fwd-ident-name [last-etype "id"] attrs)]
+                [[(level-sym last-etype last-level) (:id id-attr) {:$entityIdStartsWith v}]])
+
+              :else
+              [(attr-pat/->value-attr-pat ctx
+                                          level-sym
+                                          last-etype
+                                          last-level
+                                          value-label
+                                          v)])]
+
     {:pats (concat ref-attr-pats value-attr-pats)
      :referenced-etypes (conj referenced-etypes
                               etype)}))
@@ -633,7 +674,10 @@
           (update ret :pats optimize-attr-pats)))
       :or (-> (reduce
                (fn [acc [i conds]]
-                 (let [level-sym (level-sym-gen level-sym (:etype form) i)]
+                 (let [join-sym (level-sym
+                                 (:etype form)
+                                 (:level form))
+                       level-sym (level-sym-gen level-sym join-sym i)]
                    (as-> (where-conds->patterns (assoc ctx :level-sym level-sym)
                                                 form
                                                 conds) %
@@ -650,7 +694,10 @@
 
       :and (-> (reduce
                 (fn [acc [i conds]]
-                  (let [level-sym (level-sym-gen level-sym (:etype form) i)]
+                  (let [join-sym (level-sym
+                                  (:etype form)
+                                  (:level form))
+                        level-sym (level-sym-gen level-sym join-sym i)]
                     (as-> (where-conds->patterns (assoc ctx :level-sym level-sym)
                                                  form
                                                  conds) %
@@ -780,13 +827,13 @@
                                 (format "The `%s` attribute is still in the process of indexing. It must finish before ordering by the attribute."
                                         (attr-model/fwd-friendly-name order-attr)))
                               (when (not (:index? order-attr))
-                                (format "The `%s` attribute is not indexed. Only indexed and type-checked attrs can be used to order by."
+                                (format "The `%s` attribute is not indexed. Only indexed and typed attributes can be used to order by."
                                         (attr-model/fwd-friendly-name order-attr)))
                               (when (not (:checked-data-type order-attr))
-                                (format "The `%s` attribute is not type-checked. Only type-checked and indexed attrs can be used to order by."
+                                (format "The `%s` attribute is not typed. Only typed and indexed attributes can be used to order by."
                                         (attr-model/fwd-friendly-name order-attr)))
                               (when (not= :one (:cardinality order-attr))
-                                (format "The `%s` attribute has cardinality `%s`. Only attrs with cardinality `one` can be used to order by."
+                                (format "The `%s` attribute has cardinality `%s`. Only attributes with cardinality `one` can be used to order by."
                                         (attr-model/fwd-friendly-name order-attr)
                                         (name (:cardinality order-attr))))])]
             (when (seq errors)
@@ -869,15 +916,16 @@
 
 (defn compute-$files-triples [{:keys [app-id]} join-rows]
   (when-let [[eid _ _ t] (ffirst join-rows)]
-    (when-let [path-value (some-> (find-row-by-ident-name join-rows $system-attrs "$files" "path")
-                                  first
-                                  (nth 2))]
-      (let [url-aid (attr-model/resolve-attr-id $system-attrs "$files" "url")
-            {:keys [disableLegacy?]} (flags/storage-migration)
-            url (if disableLegacy?
-                  (instant-s3/create-signed-download-url! app-id path-value)
-                  (instant-s3/create-legacy-signed-download-url! app-id path-value))]
-        [[[eid url-aid url t]]]))))
+    (let [location-id (some-> (find-row-by-ident-name
+                               join-rows
+                               $system-attrs
+                               "$files"
+                               "location-id")
+                              first
+                              (nth 2))
+          url-aid (attr-model/resolve-attr-id $system-attrs "$files" "url")
+          url (instant-s3/create-signed-download-url! app-id location-id)]
+      [[[eid url-aid url t]]])))
 
 (def compute-triples-handler
   {"$files" compute-$files-triples})
@@ -942,6 +990,21 @@
            :referenced-etypes #{}}
           query-one-results))
 
+(defn etype-attr-ids [{:keys [attrs]} etype fields]
+  (if fields
+    (reduce (fn [acc field]
+              (let [attr (attr-model/seek-by-fwd-ident-name
+                          [etype field]
+                          attrs)]
+                (if (= :one (:cardinality attr))
+                  (conj acc (:id attr))
+                  acc)))
+            #{}
+            ;; Make sure we give them the id or else the client
+            ;; won't be able to find the entity
+            (conj fields "id"))
+    (attr-model/ea-ids-for-etype etype attrs)))
+
 (defn- query-one
   "Generates nested datalog query that combines all datalog queries into a
    single sql query."
@@ -959,12 +1022,13 @@
         sym-placeholder (or (get-in ctx [:sym-placeholders sym])
                             (random-uuid))
         ctx (assoc-in ctx [:sym-placeholders sym] sym-placeholder)
-        child-forms (form->child-forms ctx form sym-placeholder)
         aggregate (get-in form [:option-map :aggregate])
-        etype-attr-ids (attr-model/attr-ids-for-etype etype (:attrs ctx))
+        fields (get-in form [:option-map :fields])
+        attr-ids (etype-attr-ids ctx etype fields)
         child-patterns (collect-query-one
                         (mapv (partial query-one ctx)
-                              child-forms))]
+                              (form->child-forms ctx form sym-placeholder)))
+        child-forms (:forms child-patterns)]
     (when (and aggregate (not (:admin? ctx)))
       (ex/throw-validation-err!
        :query
@@ -990,7 +1054,7 @@
       {:patterns (replace-sym-placeholders (map-invert (:sym-placeholders ctx))
                                            patterns)
        :children {:pattern-groups
-                  [(merge {:patterns [[:ea sym etype-attr-ids]]}
+                  [(merge {:patterns [[:ea sym attr-ids]]}
                           (when (seq child-forms)
                             {:children {:pattern-groups (:pattern-groups child-patterns)
                                         :join-sym sym}}))]
@@ -1713,7 +1777,7 @@
                   query-cache
                   etype
                   eid]
-  (let [datalog-query [[:ea eid (attr-model/attr-ids-for-etype etype attrs)]]
+  (let [datalog-query [[:ea eid (attr-model/ea-ids-for-etype etype attrs)]]
         datalog-result
         (or (get query-cache datalog-query)
             (datalog-query-fn ctx datalog-query))]
@@ -1755,13 +1819,62 @@
       (cel/prefetch-data-refs ctx refs)
       {})))
 
+(defn preload-entity-maps
+  "Returns a query cache for entities that are missing from the existing
+  query cache, but that we'll need to fetch for a rule.
+  If the user uses `:fields` in their query to limit what they fetch, we'll
+  still need to fetch the full object to perform permission checks. We do it
+  in a batch to reduce latency."
+  [{:keys [datalog-query-fn attrs] :as ctx} query-cache etype->eids+program]
+  (let [patterns (keep (fn [[etype {:keys [eids program]}]]
+                         (when program
+                           (let [attr-ids (attr-model/ea-ids-for-etype etype attrs)
+                                 missing-eids (reduce (fn [acc eid]
+                                                        (if (contains? query-cache [[:ea eid attr-ids]])
+                                                          acc
+                                                          (conj acc eid)))
+                                                      #{}
+                                                      eids)]
+                             (when (seq missing-eids)
+                               {:patterns [[:ea missing-eids attr-ids]]}))))
+                       etype->eids+program)]
+    (when (seq patterns)
+      (let [query {:children {:pattern-groups patterns}}
+            result (datalog-query-fn ctx query)]
+        (reduce (fn [cache {:keys [result datalog-query]}]
+                  (let [eid->join-rows (reduce (fn [acc join-row]
+                                                 (update acc
+                                                         (ffirst join-row)
+                                                         (fnil conj #{})
+                                                         join-row))
+                                               {}
+                                               (:join-rows result))
+                        attr-ids (-> datalog-query
+                                     first
+                                     last)]
+                    (reduce-kv (fn [cache eid join-rows]
+                                 (assoc cache [[:ea eid attr-ids]] {:join-rows join-rows
+                                                                    :symbol-values {}
+                                                                    :topics [[:ea #{eid} attr-ids '_]]}))
+                               cache
+                               eid->join-rows)))
+                {}
+                (:data result))))))
+
 (defn get-etype+eid-check-result! [{:keys [current-user] :as ctx}
                                    {:keys [etype->eids+program query-cache]}]
   (tracer/with-span! {:name "instaql/get-eid-check-result!"}
     (let [preloaded-refs (tracer/with-span! {:name "instaql/preload-refs"}
                            (let [res (preload-refs ctx etype->eids+program)]
                              (tracer/add-data! {:attributes {:ref-count (count res)}})
-                             res))]
+                             res))
+          preloaded-entity-maps (tracer/with-span! {:name "instaql/preload-entity-maps"}
+                                  (let [res (preload-entity-maps ctx
+                                                                 query-cache
+                                                                 etype->eids+program)]
+                                    (tracer/add-data! {:attributes {:entity-count (count res)}})
+                                    res))
+          query-cache (merge query-cache preloaded-entity-maps)]
       (reduce-kv (fn [acc etype {:keys [eids program]}]
                    (reduce (fn [acc eid]
                              (assoc acc
@@ -1771,10 +1884,10 @@
                                       {:program program
                                        :result
                                        (let [em (io/warn-io :instaql/entity-map
-                                                            (entity-map ctx
-                                                                        query-cache
-                                                                        etype
-                                                                        eid))
+                                                  (entity-map ctx
+                                                              query-cache
+                                                              etype
+                                                              eid))
                                              ctx (assoc ctx
                                                         :preloaded-refs preloaded-refs)]
                                          (io/warn-io :instaql/eval-program

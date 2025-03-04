@@ -77,8 +77,8 @@
 (defn extract-unique-triple-data [pg-data]
   (when (and (= "triples" (:table pg-data))
              (= "av_index" (:constraint pg-data))
-             (string/starts-with? (:detail pg-data) "Key (app_id, attr_id, value)="))
-    (let [prefix "Key (app_id, attr_id, value)=(00000000-0000-0000-0000-000000000000, "
+             (string/starts-with? (:detail pg-data) "Key (app_id, attr_id, json_null_to_null(value))="))
+    (let [prefix "Key (app_id, attr_id, json_null_to_null(value))=(00000000-0000-0000-0000-000000000000, "
           attr-id (-> (subs (:detail pg-data)
                             (count prefix)
                             (+ (count prefix) 36))

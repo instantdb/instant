@@ -1,7 +1,7 @@
 import { id } from '@instantdb/core';
 import { InstantReactWebDatabase } from '@instantdb/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/solid';
+import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/solid';
 import { errorToast, successToast } from '@/lib/toast';
 import {
   ActionButton,
@@ -233,6 +233,7 @@ function AddAttrForm({
   const [isIndex, setIsIndex] = useState(false);
   const [isUniq, setIsUniq] = useState(false);
   const [isCascade, setIsCascade] = useState(false);
+  const [isCascadeReverse, setIsCascadeReverse] = useState(false);
   const [checkedDataType, setCheckedDataType] =
     useState<CheckedDataType | null>(null);
   const [attrType, setAttrType] = useState<'blob' | 'ref'>('blob');
@@ -241,6 +242,9 @@ function AddAttrForm({
 
   const isCascadeAllowed =
     relationship === 'one-one' || relationship === 'one-many';
+
+  const isCascadeReverseAllowed =
+    relationship === 'one-one' || relationship === 'many-one';
 
   const [reverseNamespace, setReverseNamespace] = useState<
     SchemaNamespace | undefined
@@ -296,6 +300,8 @@ function AddAttrForm({
         'value-type': 'ref',
         'index?': false,
         'on-delete': isCascadeAllowed && isCascade ? 'cascade' : undefined,
+        'on-delete-reverse':
+          isCascadeReverseAllowed && isCascadeReverse ? 'cascade' : undefined,
       };
 
       const ops = [['add-attr', attr]];
@@ -439,10 +445,32 @@ function AddAttrForm({
               label={
                 <span>
                   <div>
-                    <strong>Cascade Delete</strong>
+                    <strong>
+                      Cascade Delete {reverseNamespace?.name} → {namespace.name}
+                    </strong>
                   </div>
                   When a <strong>{reverseNamespace?.name}</strong> entity is
                   deleted, all linked <strong>{namespace.name}</strong> will be
+                  deleted automatically
+                </span>
+              }
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <Checkbox
+              checked={isCascadeReverseAllowed && isCascadeReverse}
+              disabled={!isCascadeReverseAllowed}
+              onChange={setIsCascadeReverse}
+              label={
+                <span>
+                  <div>
+                    <strong>
+                      Cascade Delete {namespace.name} → {reverseNamespace?.name}
+                    </strong>
+                  </div>
+                  When a <strong>{namespace.name}</strong> entity is deleted,
+                  all linked <strong>{reverseNamespace?.name}</strong> will be
                   deleted automatically
                 </span>
               }
@@ -1094,6 +1122,12 @@ function EditAttrForm({
   const isCascadeAllowed =
     relationship === 'one-one' || relationship === 'one-many';
 
+  const [isCascadeReverse, setIsCascadeReverse] = useState(
+    () => attr.onDeleteReverse === 'cascade',
+  );
+  const isCascadeReverseAllowed =
+    relationship === 'one-one' || relationship === 'many-one';
+
   const linkValidation = validateLink({
     attrName,
     reverseAttrName,
@@ -1123,6 +1157,7 @@ function EditAttrForm({
             reverseAttrName,
           ],
           'on-delete': isCascade ? 'cascade' : null,
+          'on-delete-reverse': isCascadeReverse ? 'cascade' : null,
         },
       ],
     ];
@@ -1269,11 +1304,36 @@ function EditAttrForm({
               label={
                 <span>
                   <div>
-                    <strong>Cascade Delete</strong>
+                    <strong>
+                      Cascade Delete {attr.linkConfig.reverse!.namespace} →{' '}
+                      {attr.linkConfig.forward.namespace}
+                    </strong>
                   </div>
                   When a <strong>{attr.linkConfig.reverse!.namespace}</strong>{' '}
                   entity is deleted, all linked{' '}
                   <strong>{attr.linkConfig.forward.namespace}</strong> will be
+                  deleted automatically
+                </span>
+              }
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <Checkbox
+              checked={isCascadeReverseAllowed && isCascadeReverse}
+              disabled={!isCascadeReverseAllowed}
+              onChange={setIsCascadeReverse}
+              label={
+                <span>
+                  <div>
+                    <strong>
+                      Cascade Delete {attr.linkConfig.forward.namespace} →{' '}
+                      {attr.linkConfig.reverse!.namespace}
+                    </strong>
+                  </div>
+                  When a <strong>{attr.linkConfig.forward.namespace}</strong>{' '}
+                  entity is deleted, all linked{' '}
+                  <strong>{attr.linkConfig.reverse!.namespace}</strong> will be
                   deleted automatically
                 </span>
               }

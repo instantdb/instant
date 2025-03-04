@@ -1,4 +1,4 @@
-import React, { use, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { useAuthToken } from '@/lib/auth';
 import { jsonFetch } from '@/lib/fetch';
@@ -7,7 +7,7 @@ import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 
 import { FullscreenLoading, LogoIcon } from '@/components/ui';
 import Head from 'next/head';
-import { format, parse, subDays } from 'date-fns';
+import { format, parse } from 'date-fns';
 import useCurrentDate from '@/lib/hooks/useCurrentDate';
 
 async function fetchDailyOverview(token: string) {
@@ -86,32 +86,91 @@ function useMinuteOverview(token: string) {
   return { ...state, sentAt };
 }
 
+function mergeOrigins(originsA: any, originsB: any) {
+  const ret = { ...originsA };
+  for (const origin in originsB) {
+    if (origin in ret) {
+      ret[origin] += originsB[origin];
+    } else {
+      ret[origin] = originsB[origin];
+    }
+  }
+  return ret;
+}
+
+function mergeSessions(sessA: any, sessB: any) {
+  const ret = { ...sessA };
+  ret.count += sessB.count;
+  ret.origins = mergeOrigins(sessA.origins, sessB.origins);
+
+  return ret;
+}
+
 function flattenedSessionReports(machineToReport: any) {
-  const merged: any = {};
+  const res: any = {};
   for (const memberId in machineToReport) {
     const memberReports = machineToReport[memberId];
     for (const sessionId in memberReports) {
-      const session = memberReports[sessionId];
-      if (merged[sessionId]) {
-        merged[sessionId].count = merged[sessionId].count + session.count;
-      } else {
-        merged[sessionId] = { ...session };
-      }
+      const curr = memberReports[sessionId];
+      const prev = res[sessionId];
+      res[sessionId] = prev ? mergeSessions(prev, curr) : curr;
     }
   }
-  const items = Object.values(merged);
+  const items = Object.values(res);
   return items;
 }
+
+const OriginColumn = ({ origins }: { origins: any }) => {
+  if (!origins || Object.keys(origins).length === 0) return '-';
+
+  const originEntries = Object.entries(origins).toSorted(
+    (a: any, b: any) => b[1] - a[1],
+  );
+
+  const [mostFrequentOrigin, ...extraOrigins] = originEntries.map((x) => x[0]);
+
+  const extraCount = extraOrigins.length;
+
+  // Cap the tooltip list to a maximum of 5 origins
+  const maxDisplay = 5;
+  const displayedExtraOrigins = extraOrigins.slice(0, maxDisplay);
+  const extraOriginsTitle =
+    displayedExtraOrigins.join(', ') + (extraCount > maxDisplay ? ', ...' : '');
+
+  const isLocalhost = mostFrequentOrigin.includes('localhost');
+
+  return (
+    <span>
+      {isLocalhost ? (
+        mostFrequentOrigin
+      ) : (
+        <a href={mostFrequentOrigin} target="_blank" rel="noreferrer">
+          {mostFrequentOrigin}
+        </a>
+      )}
+      {extraCount > 0 && (
+        <span
+          className="text-sm text-gray-500"
+          title={extraOriginsTitle} // Tooltip shows extra origins on hover
+        >
+          {' '}
+          (+{extraCount} other{extraCount > 1 ? 's' : ''})
+        </span>
+      )}
+    </span>
+  );
+};
 
 export function Main() {
   const token = useAuthToken();
   const daily = useDailyOverview(token!);
   const minute = useMinuteOverview(token!);
   if (daily.isLoading || minute.isLoading) return <FullscreenLoading />;
-  if (daily.error || minute.error) {
+  const error = daily.error || minute.error;
+  if (error) {
     return (
       <div>
-        Error: <pre>{JSON.stringify(daily.error.body, null, 2)}</pre>
+        Error: <pre>{JSON.stringify(error.body, null, 2)}</pre>
       </div>
     );
   }
@@ -127,6 +186,7 @@ export function Main() {
   );
   const dateAnalyzed = parse(daily.data.date, 'yyyy-MM-dd', new Date());
   const totalApps = Object.keys(sessions).length;
+  const subInfo = daily.data?.['subscription-info'];
   return (
     <div className="flex flex-col font-mono min-h-0">
       <div className="p-4 space-x-4 flex items-center border-b">
@@ -154,17 +214,28 @@ export function Main() {
               </div>
             </div>
           </div>
-          <div className="flex space-x-4">
+          <div className="flex space-x-8">
             <div>
               <h3 className="font-bold" style={{ fontSize: 30 }}>
                 {latestRolling['distinct_users']}
               </h3>
               <div>Monthly Active Devs</div>
             </div>
+            <div>
+              <h3 className="font-bold" style={{ fontSize: 30 }}>
+                {subInfo?.['num-subs']}
+              </h3>
+              <div>Pro Subscriptions</div>
+            </div>
+            <div>
+              <h3 className="font-bold" style={{ fontSize: 30 }}>
+                ${Math.round(subInfo?.['total-monthly-revenue'] / 100)}
+              </h3>
+              <div>Monthly Revenue</div>
+            </div>
           </div>
         </div>
-        {/* I want this part to scroll */}
-        <div className="flex-1 p-4 space-y-2 flex flex-col min-h-0">
+        <div className="flex-1 p-4 space-y-2 flex flex-col min-h-0 w-1/2">
           <h3 className="text-lg">{format(minute.sentAt, 'hh:mma')}</h3>
           <div className="flex justify-between items-baseline">
             <div className="inline-flex items-baseline space-x-4 justify-between">
@@ -188,6 +259,9 @@ export function Main() {
                     <td className="px-4 py-2">{session['app-title']}</td>
                     <td className="px-4 py-2">
                       {session['creator-email'] || '-'}
+                    </td>
+                    <td className="px-4 py-2">
+                      <OriginColumn origins={session['origins']} />
                     </td>
                     <td className="px-4 py-2 text-right">{session.count}</td>
                   </tr>

@@ -6,7 +6,7 @@ import Head from 'next/head';
 import NextLink from 'next/link';
 import { useRouter } from 'next/router';
 import { capitalize } from 'lodash';
-import { PlusIcon, TrashIcon } from '@heroicons/react/solid';
+import { PlusIcon, TrashIcon } from '@heroicons/react/24/solid';
 
 import { StyledToastContainer, errorToast, successToast } from '@/lib/toast';
 import config, { cliOauthParamName, getLocal, setLocal } from '@/lib/config';
@@ -15,7 +15,6 @@ import {
   APIResponse,
   signOut,
   useAuthToken,
-  useAuthedFetch,
   claimTicket,
   voidTicket,
 } from '@/lib/auth';
@@ -53,11 +52,12 @@ import Billing from '@/components/dash/Billing';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { QueryInspector } from '@/components/dash/explorer/QueryInspector';
 import { Sandbox } from '@/components/dash/Sandbox';
-import { StorageTab } from '@/components/dash/Storage';
 import PersonalAccessTokensScreen from '@/components/dash/PersonalAccessTokensScreen';
 import { useForm } from '@/lib/hooks/useForm';
-import { useSchemaQuery } from '@/lib/hooks/explorer';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
+import { useDashFetch } from '@/lib/hooks/useDashFetch';
+import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
+import { createdAtComparator } from '@/lib/app';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -79,7 +79,6 @@ type TabId =
   | 'team'
   | 'admin'
   | 'billing'
-  | 'storage'
   | 'docs';
 
 interface Tab {
@@ -94,7 +93,6 @@ const tabs: Tab[] = [
   { id: 'explorer', title: 'Explorer' },
   { id: 'perms', title: 'Permissions' },
   { id: 'auth', title: 'Auth' },
-  { id: 'storage', title: 'Storage' },
   { id: 'repl', title: 'Query Inspector' },
   { id: 'sandbox', title: 'Sandbox' },
   { id: 'admin', title: 'Admin', minRole: 'admin' },
@@ -110,15 +108,20 @@ export function isMinRole(minRole: Role, role: Role) {
 
 // COMPONENTS
 
-export default function DashV2() {
+const Dash = asClientOnlyPage(DashV2);
+
+export default Dash;
+
+function DashV2() {
   const token = useAuthToken();
-  const isHydrated = useIsHydrated();
-  const router = useRouter();
+  const readyRouter = useRouter();
   const cliAuthCompleteDialog = useDialog();
   const [loginTicket, setLoginTicket] = useState<string | undefined>();
 
-  const cliNormalTicket = router.query.ticket as string | undefined;
-  const cliOauthTicket = router.query[cliOauthParamName] as string | undefined;
+  const cliNormalTicket = readyRouter.query.ticket as string | undefined;
+  const cliOauthTicket = readyRouter.query[cliOauthParamName] as
+    | string
+    | undefined;
   const cliTicket = cliNormalTicket || cliOauthTicket;
   useEffect(() => {
     if (cliTicket) setLoginTicket(cliTicket);
@@ -137,10 +140,6 @@ export default function DashV2() {
     } catch (error) {
       errorToast('Error completing CLI login.');
     }
-  }
-
-  if (!isHydrated) {
-    return null;
   }
 
   if (!token) {
@@ -239,7 +238,7 @@ function isTabAvailable(tab: Tab, role?: Role) {
 
 function Dashboard() {
   const token = useContext(TokenContext);
-  const router = useRouter();
+  const router = useReadyRouter();
   const appId = router.query.app as string;
   const screen = (router.query.s as string) || 'main';
   const _tab = router.query.t as TabId;
@@ -252,7 +251,7 @@ function Dashboard() {
     db: InstantReactClient;
   } | null>(null);
 
-  const dashResponse = useAuthedFetch<DashResponse>(`${config.apiURI}/dash`);
+  const dashResponse = useDashFetch();
 
   useEffect(() => {
     if (!token) return;
@@ -272,18 +271,9 @@ function Dashboard() {
     });
   }, [token]);
 
-  const apps = useMemo(() => {
-    const apps = [...(dashResponse.data?.apps ?? [])];
-    apps.sort(caComp);
-    return apps;
-  }, [dashResponse.data?.apps]);
-  const app = apps?.find((a) => a.id === appId);
-  const isStorageEnabled = useMemo(() => {
-    const storageEnabledAppIds =
-      dashResponse.data?.flags?.storage_enabled_apps ?? [];
+  const apps = (dashResponse.data?.apps ?? []).toSorted(createdAtComparator);
 
-    return storageEnabledAppIds.includes(appId);
-  }, [appId, dashResponse.data?.flags?.storage_enabled_apps]);
+  const app = apps?.find((a) => a.id === appId);
 
   // ui
   const availableTabs: TabBarTab[] = tabs
@@ -298,15 +288,13 @@ function Dashboard() {
       }
       return { id: t.id, label: t.title };
     });
-  const showAppOnboarding =
-    !dashResponse.data?.apps?.length && !dashResponse.data?.invites?.length;
+  const showAppOnboarding = !apps.length && !dashResponse.data?.invites?.length;
   const showNav = !showAppOnboarding;
   const showApp = app && connection && screen === 'main';
   const hasInvites = Boolean(dashResponse.data?.invites?.length);
-  const showInvitesOnboarding = hasInvites && !dashResponse.data?.apps?.length;
+  const showInvitesOnboarding = hasInvites && !apps?.length;
 
   useEffect(() => {
-    if (!router.isReady) return;
     if (screen && screen !== 'main') return;
     if (hasInvites) {
       nav({
@@ -338,14 +326,14 @@ function Dashboard() {
     });
 
     setLocal('dash_app_id', defaultAppId);
-  }, [router.isReady, dashResponse.data]);
+  }, [dashResponse.data]);
 
   useEffect(() => {
     if (!app) return;
     if (typeof window === 'undefined') return;
 
     const db = init({
-      appId,
+      appId: app.id,
       apiURI: config.apiURI,
       websocketURI: config.websocketURI,
       // @ts-expect-error
@@ -356,7 +344,7 @@ function Dashboard() {
     return () => {
       db._core.shutdown();
     };
-  }, [router.isReady, app?.id, app?.admin_token]);
+  }, [app?.id, app?.admin_token]);
 
   function nav(q: { s: string; app?: string; t?: string }) {
     if (q.app) setLocal('dash_app_id', q.app);
@@ -486,11 +474,7 @@ function Dashboard() {
                 {tab === 'home' ? (
                   <Home />
                 ) : tab === 'explorer' ? (
-                  <ExplorerTab
-                    appId={appId}
-                    db={connection.db}
-                    isStorageEnabled={isStorageEnabled}
-                  />
+                  <ExplorerTab appId={appId} db={connection.db} />
                 ) : tab === 'repl' ? (
                   <QueryInspector
                     className="flex-1 w-full"
@@ -507,12 +491,6 @@ function Dashboard() {
                     key={app.id}
                     dashResponse={dashResponse}
                     nav={nav}
-                  />
-                ) : tab === 'storage' ? (
-                  <StorageTab
-                    key={app.id}
-                    app={app}
-                    isEnabled={isStorageEnabled}
                   />
                 ) : tab == 'admin' && isMinRole('admin', app.user_app_role) ? (
                   <Admin
@@ -849,24 +827,11 @@ function Home() {
   );
 }
 
-function ExplorerTab({
-  db,
-  appId,
-  isStorageEnabled,
-}: {
-  db: InstantReactClient;
-  appId: string;
-  isStorageEnabled: boolean;
-}) {
+function ExplorerTab({ db, appId }: { db: InstantReactClient; appId: string }) {
   return (
     <div className="flex-1 overflow-hidden flex flex-col">
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Explorer
-          db={db}
-          appId={appId}
-          isStorageEnabled={isStorageEnabled}
-          key={db._core._reactor.config.appId}
-        />
+        <Explorer db={db} appId={appId} key={db._core._reactor.config.appId} />
       </div>
     </div>
   );
@@ -1505,17 +1470,6 @@ function regenerateAdminToken(
     },
     body: JSON.stringify({ 'admin-token': adminToken }),
   });
-}
-
-function caComp(a: { created_at: string }, b: { created_at: string }) {
-  if (a.created_at < b.created_at) {
-    return 1;
-  }
-
-  if (a.created_at > b.created_at) {
-    return -1;
-  }
-  return 0;
 }
 
 /**

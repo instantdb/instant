@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/react",
-  "version": "v0.17.12",
+  "version": "v0.17.25",
   "description": "Instant DB for React",
   "main": "dist/index.js",
   "module": "dist/module/index.js",
@@ -15,7 +15,7 @@
     "build:main": "tsc -p tsconfig.json",
     "build:module": "tsc -p tsconfig.module.json",
     "build:standalone": "vite build",
-    "publish-package": "npm publish --access public"
+    "publish-package": "pnpm publish --access public --no-git-checks"
   },
   "devDependencies": {
     "@babel/core": "^7.17.9",

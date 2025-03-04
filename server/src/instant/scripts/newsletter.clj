@@ -132,7 +132,7 @@
 
 (comment
   ;; 1. Set your params
-  (def params {:title "Instant News - Oct 2024" :slug "UPDATE ME"})
+  (def params {:title "Instant News - MMM YYYY" :slug "mmmYYYY"})
 
   ;; 2. Send test email to yourself, verify looks good
   (let [htmlBody (read-file base-path (html-path (:slug params)))

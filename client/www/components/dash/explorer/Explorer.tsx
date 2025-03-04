@@ -26,11 +26,11 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   ChevronLeftIcon,
-  MenuIcon,
+  Bars3Icon,
   PlusIcon,
-  XIcon,
-} from '@heroicons/react/solid';
-import { PencilAltIcon } from '@heroicons/react/outline';
+  XMarkIcon,
+} from '@heroicons/react/24/solid';
+import { PencilSquareIcon } from '@heroicons/react/24/outline';
 
 import { successToast, errorToast } from '@/lib/toast';
 import {
@@ -61,6 +61,24 @@ import { EditNamespaceDialog } from '@/components/dash/explorer/EditNamespaceDia
 import { EditRowDialog } from '@/components/dash/explorer/EditRowDialog';
 import { useRouter } from 'next/router';
 import { formatBytes } from '@/lib/format';
+
+// Helper functions for handling search filters in URLs
+function filtersToQueryString(filters: SearchFilter[]): string | null {
+  if (!filters.length) return null;
+  return JSON.stringify(filters);
+}
+
+function parseFiltersFromQueryString(
+  queryString: string | null,
+): SearchFilter[] {
+  if (!queryString) return [];
+  try {
+    return JSON.parse(queryString);
+  } catch (e) {
+    console.error('Failed to parse filters from query string:', e);
+    return [];
+  }
+}
 
 const OPERATORS = [':', '>', '<'] as const;
 type ParsedQueryPart = {
@@ -236,13 +254,14 @@ const excludedSearchAttrs: [string, string][] = [
 function SearchInput({
   onSearchChange,
   attrs,
+  initialFilters = [],
 }: {
   onSearchChange: (filters: SearchFilter[]) => void;
   attrs?: SchemaAttr[];
+  initialFilters?: SearchFilter[];
 }) {
   const [query, setQuery] = useState('');
-
-  const lastFilters = useRef<[string, string, string][]>([]);
+  const lastFilters = useRef<SearchFilter[]>(initialFilters);
 
   const { attrsByName, stringIndexed } = useMemo(() => {
     const byName: { [key: string]: SchemaAttr } = {};
@@ -325,6 +344,14 @@ function SearchInput({
     searchDebounce(q);
   }
 
+  // Set initial search query based on filters
+  useEffect(() => {
+    if (initialFilters.length > 0 && !query) {
+      // Simple conversion - this could be improved
+      setQuery(initialFilters.map((f) => `${f[0]}:${f[2]}`).join(' '));
+    }
+  }, [initialFilters]);
+
   return (
     <Combobox
       value={query}
@@ -387,11 +414,9 @@ function SearchInput({
 export function Explorer({
   db,
   appId,
-  isStorageEnabled,
 }: {
   db: InstantReactWebDatabase<any>;
   appId: string;
-  isStorageEnabled: boolean;
 }) {
   // DEV
   _dev(db);
@@ -407,11 +432,19 @@ export function Explorer({
   const nsRef = useRef<HTMLDivElement>(null);
 
   const [searchFilters, setSearchFilters] = useState<SearchFilter[]>([]);
+  const [ignoreUrlChanges, setIgnoreUrlChanges] = useState(false);
 
   // nav
   const router = useRouter();
   const selectedNamespaceId = router.query.ns as string;
+  const urlSearch = router.query.search as string;
+  const urlWhere = router.query.where
+    ? JSON.parse(router.query.where as string)
+    : null;
+  const urlLimit = parseInt(router.query.limit as string, 10) || 50;
+  const urlPage = parseInt(router.query.page as string, 10) || 1;
 
+  const [isNavigating, setIsNavigating] = useState(false);
   const [
     navStack,
     // don't call this directly, instead call `nav`
@@ -420,43 +453,112 @@ export function Explorer({
   const [checkedIds, setCheckedIds] = useState<Record<string, true>>({});
   const currentNav: ExplorerNav | undefined = navStack[navStack.length - 1];
   const showBackButton = navStack.length > 1;
-  function nav(s: ExplorerNav[]) {
+
+  function nav(s: ExplorerNav[], options?: { replaceHistory?: boolean }) {
+    setIsNavigating(true);
     _setNavStack(s);
     setCheckedIds({});
-    setSearchFilters([]);
 
     const current = s[s.length - 1];
     const ns = current.namespace;
-    router.replace(
+
+    // Build query params including both namespace and search filters
+    const queryParams: any = {
+      ...router.query,
+      ns,
+    };
+
+    // Add where clause
+    if (current.where) {
+      queryParams.where = JSON.stringify(current.where);
+    } else {
+      delete queryParams.where;
+    }
+
+    // Add search filters
+    if (current.filters && current.filters.length > 0) {
+      queryParams.search = filtersToQueryString(current.filters);
+    } else {
+      delete queryParams.search;
+    }
+
+    // Add sort
+    if (current.sortAttr) {
+      queryParams.sort = current.sortAttr;
+      queryParams.sortDir = current.sortAsc ? 'asc' : 'desc';
+    } else {
+      delete queryParams.sort;
+      delete queryParams.sortDir;
+    }
+
+    // Add pagination
+    if (current.limit) {
+      queryParams.limit = current.limit;
+    } else {
+      delete queryParams.limit;
+    }
+    if (current.page) {
+      queryParams.page = current.page;
+    } else {
+      delete queryParams.page;
+    }
+
+    // Set flag to ignore the next URL change since we're causing it
+    setIgnoreUrlChanges(true);
+
+    const navMethod = options?.replaceHistory ? router.replace : router.push;
+
+    navMethod(
       {
-        query: { ...router.query, ns },
+        query: queryParams,
       },
       undefined,
       {
-        shallow: true,
+        // Don't scroll to top when navigating
+        scroll: false,
       },
-    );
+    ).then(() => {
+      setTimeout(() => {
+        setIsNavigating(false);
+      }, 50);
+    });
   }
+
   function replaceNavStackTop(_nav: Partial<ExplorerNav>) {
     const top = navStack[navStack.length - 1];
 
     if (!top) return;
 
-    nav([...navStack.slice(0, -1), { ...top, ..._nav }]);
+    nav([...navStack.slice(0, -1), { ...top, ..._nav }], {
+      replaceHistory: true,
+    });
   }
+
   function pushNavStack(_nav: ExplorerNav) {
+    const currentNamespace = navStack[navStack.length - 1]?.namespace;
+    if (currentNamespace !== _nav.namespace) {
+      // Reset search filters, offsets, and limit when changing namespaces
+      setSearchFilters([]);
+      setOffsets((prev) => ({
+        ...prev,
+        [_nav.namespace || '']: 0,
+      }));
+      setLimit(50);
+    }
+
     nav([...navStack, _nav]);
   }
+
   function popNavStack() {
-    nav(navStack.slice(0, -1));
+    // If we're just going back to the previous state in the nav stack,
+    // use browser history instead of pushing a new state
+    if (navStack.length > 1) {
+      router.back();
+    }
   }
 
   // data
-  const { namespaces: _namespaces } = useSchemaQuery(db);
-  // (TODO): When fully launching storage we can remove this check
-  const namespaces = isStorageEnabled
-    ? _namespaces
-    : _namespaces && _namespaces.filter((ns) => ns.name !== '$files');
+  const { namespaces } = useSchemaQuery(db);
   const { selectedNamespace } = useMemo(
     () => ({
       selectedNamespace: namespaces?.find(
@@ -465,6 +567,88 @@ export function Explorer({
     }),
     [namespaces, currentNav?.namespace],
   );
+
+  // Handle searchFilters changes to update the URL and navigation state
+  useEffect(() => {
+    if (currentNav && searchFilters.length > 0 && !ignoreUrlChanges) {
+      replaceNavStackTop({ filters: searchFilters });
+    } else if (
+      searchFilters.length === 0 &&
+      currentNav?.filters?.length &&
+      !ignoreUrlChanges
+    ) {
+      replaceNavStackTop({ filters: [] });
+    }
+  }, [searchFilters]);
+
+  // Handle browser navigation (back/forward buttons)
+  useEffect(() => {
+    if (ignoreUrlChanges) {
+      // Reset the flag after the URL has changed
+      setIgnoreUrlChanges(false);
+      return;
+    }
+
+    // If we're currently navigating, ignore this effect
+    if (isNavigating) {
+      return;
+    }
+
+    if (namespaces && selectedNamespaceId && navStack.length > 0) {
+      // If the URL namespace doesn't match the current nav stack namespace
+      // or the search params have changed, update the nav stack
+      const currentNav = navStack[navStack.length - 1];
+
+      const changedNamespace = currentNav.namespace !== selectedNamespaceId;
+      const parsedSearch =
+        !changedNamespace && urlSearch
+          ? parseFiltersFromQueryString(urlSearch)
+          : [];
+      const sortAttr = router.query.sort as string;
+      const sortAsc = router.query.sortDir !== 'desc';
+
+      const needsUpdate =
+        changedNamespace ||
+        JSON.stringify(currentNav.where || null) !==
+          JSON.stringify(urlWhere || null) ||
+        JSON.stringify(currentNav.filters || []) !==
+          JSON.stringify(parsedSearch) ||
+        currentNav.sortAttr !== sortAttr ||
+        currentNav.sortAsc !== sortAsc;
+
+      if (needsUpdate) {
+        // Find the namespace in our list
+        const targetNamespace = namespaces.find(
+          (ns) => ns.id === selectedNamespaceId,
+        );
+        if (targetNamespace) {
+          // Update the nav stack without triggering another router push
+          _setNavStack([
+            {
+              namespace: selectedNamespaceId,
+              where: urlWhere,
+              filters: parsedSearch,
+              sortAttr,
+              sortAsc,
+            },
+          ]);
+
+          // Also update the search filters state
+          setSearchFilters(parsedSearch);
+
+          // Reset checked items
+          setCheckedIds({});
+        }
+      }
+    }
+  }, [
+    selectedNamespaceId,
+    urlWhere,
+    urlSearch,
+    router.query.sort,
+    router.query.sortDir,
+    namespaces,
+  ]);
 
   // auth
   const token = useContext(TokenContext);
@@ -486,7 +670,7 @@ export function Explorer({
     db,
     selectedNamespace,
     currentNav?.where,
-    searchFilters,
+    currentNav?.filters || searchFilters,
     limit,
     offset,
     sortAttr,
@@ -500,20 +684,47 @@ export function Explorer({
 
   const userNamespaces = namespaces?.filter((x) => !x.name.startsWith('$'));
 
+  // Handle initial load
   useEffect(() => {
-    const isFirstLoad = namespaces?.length && !navStack.length;
-    const urlWhere = router.query.where
-      ? JSON.parse(router.query.where as string)
-      : null;
-
-    if (isFirstLoad) {
+    if (namespaces?.length && !navStack.length) {
       const userNamespaces = namespaces?.filter((x) => !x.name.startsWith('$'));
-      nav([
+
+      // Parse search filters from URL if present
+      const parsedSearch = urlSearch
+        ? parseFiltersFromQueryString(urlSearch)
+        : [];
+
+      // Parse sort parameters
+      const sortAttr = (router.query.sort as string) || 'serverCreatedAt';
+      const sortAsc = router.query.sortDir !== 'desc';
+
+      const namespace = selectedNamespaceId || userNamespaces?.[0]?.id;
+
+      // Use _setNavStack directly to avoid triggering a router.push during initialization
+      _setNavStack([
         {
-          namespace: selectedNamespaceId || userNamespaces?.[0]?.id,
+          namespace,
           where: urlWhere,
+          filters: parsedSearch,
+          sortAttr,
+          sortAsc,
         },
       ]);
+
+      // Sync search, limits, and offsets with URL parameters
+      setSearchFilters(parsedSearch);
+      setLimit(urlLimit);
+      setOffsets((prev) => ({
+        ...prev,
+        [namespace || '']: (urlPage - 1) * urlLimit,
+      }));
+
+      // Add namespace to URL if not already present
+      if (!selectedNamespaceId) {
+        const queryParams = { ...router.query, ns: namespace };
+        // Replace URL without adding to history
+        router.replace({ query: queryParams }, undefined, { shallow: true });
+      }
     }
   }, [namespaces === null]);
 
@@ -560,7 +771,7 @@ export function Explorer({
       successToast('Successfully uploaded!');
     } catch (err: any) {
       console.error('Failed to upload:', err);
-      errorToast(`('Failed to upload: ${err.body.message}`);
+      errorToast(`Failed to upload: ${err.body.message}`);
     } finally {
       setUploadingFile(false);
     }
@@ -735,7 +946,7 @@ export function Explorer({
             setIsNsOpen(true);
           }}
         >
-          <MenuIcon height="1rem" />
+          <Bars3Icon height="1rem" />
         </button>
       </div>
       {selectedNamespace && currentNav && allItems ? (
@@ -751,7 +962,7 @@ export function Explorer({
                   />
                 ) : null}
                 {currentNav?.where ? (
-                  <XIcon
+                  <XMarkIcon
                     className="mr-4 inline cursor-pointer"
                     height="1rem"
                     onClick={() => {
@@ -772,18 +983,21 @@ export function Explorer({
                       </em>
                     </>
                   ) : null}
-                  {searchFilters?.length ? (
+                  {currentNav?.filters?.length ? (
                     <span
-                      title={searchFilters
+                      title={currentNav.filters
                         .map(([attr, op, search]) => `${attr} ${op} ${search}`)
                         .join(' || ')}
                     >
-                      {searchFilters.map(([attr, op, search], i) => (
+                      {currentNav.filters.map(([attr, op, search], i) => (
                         <span key={attr}>
                           <em className="rounded-sm border bg-white px-1">
                             {attr} {op} {search}
                           </em>
-                          {i < searchFilters.length - 1 ? ' || ' : null}
+                          {currentNav?.filters?.length &&
+                          i < currentNav.filters.length - 1
+                            ? ' || '
+                            : null}
                         </span>
                       ))}
                     </span>
@@ -804,6 +1018,7 @@ export function Explorer({
                   key={selectedNamespaceId}
                   onSearchChange={(filters) => setSearchFilters(filters)}
                   attrs={selectedNamespace?.attrs}
+                  initialFilters={currentNav?.filters || []}
                 />
               </div>
             </div>
@@ -870,7 +1085,13 @@ export function Explorer({
             <div>
               <Select
                 className="text-xs"
-                onChange={(opt) => opt && setLimit(parseInt(opt.value, 10))}
+                onChange={(opt) => {
+                  if (!opt) return;
+
+                  const newLimit = parseInt(opt.value, 10);
+                  setLimit(newLimit);
+                  replaceNavStackTop({ limit: newLimit });
+                }}
                 value={`${limit}`}
                 options={[
                   { label: '25/page', value: '25' },
@@ -890,12 +1111,15 @@ export function Explorer({
             <button
               className="flex items-center justify-center"
               disabled={currentPage <= 1}
-              onClick={() =>
+              onClick={() => {
                 setOffsets({
                   ...offsets,
                   [selectedNamespace.name]: Math.max(0, offset - limit),
-                })
-              }
+                });
+                replaceNavStackTop({
+                  page: Math.max(1, currentPage - 1),
+                });
+              }}
             >
               <ArrowLeftIcon
                 className={clsx('inline', {
@@ -929,12 +1153,15 @@ export function Explorer({
                         ? 'bg-gray-200'
                         : 'hover:bg-gray-100',
                     )}
-                    onClick={() =>
+                    onClick={() => {
                       setOffsets({
                         ...offsets,
                         [selectedNamespace.name]: i * limit,
-                      })
-                    }
+                      });
+                      replaceNavStackTop({
+                        page,
+                      });
+                    }}
                     disabled={page === currentPage}
                   >
                     {page}
@@ -945,12 +1172,15 @@ export function Explorer({
             <button
               className="flex items-center justify-center"
               disabled={currentPage >= numPages}
-              onClick={() =>
+              onClick={() => {
                 setOffsets({
                   ...offsets,
                   [selectedNamespace.name]: offset + limit,
-                })
-              }
+                });
+                replaceNavStackTop({
+                  page: Math.min(numPages, currentPage + 1),
+                });
+              }}
             >
               <ArrowRightIcon
                 className={clsx('inline', {
@@ -961,33 +1191,33 @@ export function Explorer({
             </button>
           </div>
           <div className="relative flex flex-1 overflow-x-auto overflow-y-scroll">
-            <div
-              className={clsx(
-                'absolute top-0 right-0 left-[48px] z-30 flex items-center gap-1.5 overflow-hidden bg-white px-4 py-1.5',
-                {
-                  hidden: !Object.keys(checkedIds).length,
-                },
-              )}
-            >
-              <Button
-                disabled={readOnlyNs}
-                title={
-                  readOnlyNs
-                    ? `The ${selectedNamespace?.name} namespace is read-only.`
-                    : undefined
-                }
-                variant="destructive"
-                size="mini"
-                className="flex px-2 py-0 text-xs"
-                onClick={() => {
-                  setDeleteDataConfirmationOpen(true);
-                }}
-              >
-                Delete {rowText}
-              </Button>
-            </div>
             <table className="z-0 w-full flex-1 text-left font-mono text-xs text-gray-500">
               <thead className="sticky top-0 z-20 bg-white text-gray-700 shadow">
+                <div
+                  className={clsx(
+                    'absolute top-0 right-0 left-[48px] z-30 flex items-center gap-1.5 overflow-hidden bg-white px-4 py-2',
+                    {
+                      hidden: !Object.keys(checkedIds).length,
+                    },
+                  )}
+                >
+                  <Button
+                    disabled={readOnlyNs}
+                    title={
+                      readOnlyNs
+                        ? `The ${selectedNamespace?.name} namespace is read-only.`
+                        : undefined
+                    }
+                    variant="destructive"
+                    size="mini"
+                    className="flex px-2 py-0 text-xs"
+                    onClick={() => {
+                      setDeleteDataConfirmationOpen(true);
+                    }}
+                  >
+                    Delete {rowText}
+                  </Button>
+                </div>
                 <tr>
                   <th className="px-2 py-2" style={{ width: '48px' }}>
                     <Checkbox
@@ -1100,7 +1330,7 @@ export function Explorer({
                           className="opacity-0 group-hover:opacity-100 transition-opacity"
                           onClick={() => setEditableRowId(item.id)}
                         >
-                          <PencilAltIcon className="h-4 w-4 text-gray-500" />
+                          <PencilSquareIcon className="h-4 w-4 text-gray-500" />
                         </button>
                       )}
                     </td>
@@ -1351,6 +1581,9 @@ export interface ExplorerNav {
   where?: [string, any];
   sortAttr?: string;
   sortAsc?: boolean;
+  filters?: SearchFilter[];
+  limit?: number;
+  page?: number;
 }
 
 export type PushNavStack = (nav: ExplorerNav) => void;

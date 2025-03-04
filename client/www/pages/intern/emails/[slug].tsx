@@ -231,6 +231,15 @@ const Email = ({
             .button:hover {
               background-color: #e55a2b;
             }
+            /* Ensure bullet points render properly */
+            ul {
+              padding-left: 20px; /* Add left padding for indentation */
+              list-style-type: disc; /* Ensure bullets are shown */
+            }
+            ol {
+              padding-left: 20px; /* Add left padding for ordered lists */
+              list-style-type: decimal; /* Ensure numbers are shown */
+            }
           `}</style>
         </div>
       )}

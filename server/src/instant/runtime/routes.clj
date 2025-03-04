@@ -40,7 +40,7 @@
 ;; ws
 
 (defn session-get [_req]
-  (session/undertow-config rs/store-conn
+  (session/undertow-config rs/store
                            receive-queue/receive-q
                            {:id (squuid)}))
 
@@ -163,7 +163,8 @@
 
 (defn verify-magic-code-post [req]
   (let [email (ex/get-param! req [:body :email] email/coerce)
-        code (ex/get-param! req [:body :code] string/trim)
+        code (ex/get-param! req [:body :code] string-util/safe-trim)
+
         app-id (ex/get-param! req [:body :app-id] uuid-util/coerce)
         m (app-user-magic-code-model/consume!
            {:app-id app-id
@@ -211,6 +212,10 @@
 
 (def oauth-redirect-url (str config/server-origin "/runtime/oauth/callback"))
 
+;; For now just supporting `hd` from Google
+;; https://developers.google.com/identity/openid-connect/openid-connect#authenticationuriparameters
+(def oauth-optional-params [:hd])
+
 ;; -------------
 ;; OAuth cookies
 
@@ -244,6 +249,11 @@
         redirect-uri (ex/get-param! req
                                     [:params :redirect_uri]
                                     string-util/coerce-non-blank-str)
+
+        extra-params (into {} (for [param oauth-optional-params
+                                    :let [value (get-in req [:params param])]
+                                    :when value]
+                                [param value]))
         authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
                             {:app-id (:app_id client)})
         matched-origin (app-authorized-redirect-origin-model/find-match
@@ -267,7 +277,11 @@
         state (random-uuid)
         state-with-app-id (format "%s%s" app-id state)
 
-        redirect-url (oauth/create-authorization-url oauth-client state-with-app-id oauth-redirect-url)]
+        redirect-url (oauth/create-authorization-url
+                       oauth-client
+                       state-with-app-id
+                       oauth-redirect-url
+                       extra-params)]
     (app-oauth-redirect-model/create! {:app-id app-id
                                        :state state
                                        :cookie cookie-uuid
@@ -354,16 +368,16 @@
   {:status 200
    :headers {"content-type" "text/html"}
    :body (str (h/html (h/raw "<!DOCTYPE html>")
-                [:html {:lang "en"}
-                 [:head
-                  [:meta {:charset "UTF-8"}]
-                  [:meta {:name "viewport"
-                          :content "width=device-width, initial-scale=1.0"}]
-                  [:meta {:http-equiv "refresh"
-                          :content (format "0; url=%s" redirect-url)}]
+                      [:html {:lang "en"}
+                       [:head
+                        [:meta {:charset "UTF-8"}]
+                        [:meta {:name "viewport"
+                                :content "width=device-width, initial-scale=1.0"}]
+                        [:meta {:http-equiv "refresh"
+                                :content (format "0; url=%s" redirect-url)}]
 
-                  [:title "Finish Sign In"]
-                  [:style "
+                        [:title "Finish Sign In"]
+                        [:style "
                            body {
                              margin: 0;
                              height: 100vh;
@@ -404,17 +418,17 @@
                                background-color: black;
                              }
                            }"]]
-                 [:body
-                  [:p "Logged in as " email]
-                  [:p
-                   [:a {:class "button"
-                        :href redirect-url}
-                    "Open app"]]
-                  [:p [:a {:onclick "(function() { window.close();})()"} "Close"]]
-                  [:script {:type "text/javascript"
-                            :id "redirect-script"
-                            :data-redirect-uri redirect-url}
-                   (h/raw "window.open(document.getElementById('redirect-script').getAttribute('data-redirect-uri'), '_self')")]]]))})
+                       [:body
+                        [:p "Logged in as " email]
+                        [:p
+                         [:a {:class "button"
+                              :href redirect-url}
+                          "Open app"]]
+                        [:p [:a {:onclick "(function() { window.close();})()"} "Close"]]
+                        [:script {:type "text/javascript"
+                                  :id "redirect-script"
+                                  :data-redirect-uri redirect-url}
+                         (h/raw "window.open(document.getElementById('redirect-script').getAttribute('data-redirect-uri'), '_self')")]]]))})
 
 (defn oauth-callback [{:keys [params] :as req}]
   (try

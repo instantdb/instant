@@ -1,7 +1,1 @@
-*
-!.gitignore
-!config.edn
-!ci-config.edn
-!hooks/defsql.clj
-!hooks/with_prod_conn.clj
-!hooks
+.cache

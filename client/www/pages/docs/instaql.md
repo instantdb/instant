@@ -377,6 +377,36 @@ console.log(data)
 }
 ```
 
+## Defer queries
+
+You can also defer queries until a condition is met. This is useful when you
+need to wait for some data to be available before you can run your query. Here's
+an example of deferring a fetch for todos until a user is logged in.
+
+```javascript
+const { isLoading, user, error } = db.useAuth();
+
+const {
+  isLoading: isLoadingTodos,
+  error,
+  data,
+} = db.useQuery(
+  user
+    ? {
+        // The query will run once user is populated
+        todos: {
+          $: {
+            where: {
+              userId: user.id,
+            },
+          },
+        },
+      }
+    : // Otherwise skip the query, which sets `isLoading` to true
+      null,
+);
+```
+
 ## Pagination
 
 You can limit the number of items from a top level namespace by adding a `limit` to the option map:
@@ -1007,6 +1037,88 @@ console.log(data)
 }
 ```
 
+## Select fields
+
+An InstaQL query will fetch all fields for each object.
+
+If you prefer to select the specific fields that you want your query to return, use the `fields` param:
+
+```javascript
+const query = {
+  goals: {
+    $: {
+      fields: ['status'],
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data)
+{
+  "goals": [
+    {
+      "id": standupId, // id will always be returned even if not specified
+      "status": "in-progress"
+    },
+    {
+      "id": standId,
+      "status": "completed"
+    }
+  ]
+}
+```
+
+`fields` also works with nested relations:
+
+```javascript
+const query = {
+  goals: {
+    $: {
+      fields: ['title'],
+    },
+    todos: {
+      $: {
+        fields: ['id'],
+      },
+    },
+  },
+};
+const { isLoading, error, data } = db.useQuery(query);
+```
+
+```javascript
+console.log(data)
+{
+  "goals": [
+    {
+      "id": standupId,
+      "title": "Perform standup!",
+      "todos": [{"id": writeJokesId}, {"id": goToOpenMicId}]
+    },
+    {
+      "id": standId,
+      "title": "Stand up a food truck.",
+      "todos": [{"id": learnToCookId}, {"id": buyATruckId}]
+    }
+  ]
+}
+```
+
+Using `fields` can be useful for performance optimization. It reduces the
+amount of data that needs to be transferred from the server and minimizes the
+number of re-renders in your React application if there are no changes to your
+selected fields.
+
+{% callout type="warning" %}
+
+Using `fields` doesn't restrict a client from doing a full query. If you have sensitive data on your entities that you
+don't want to expose you'll want to use [permissions](/docs/permissions) and potentially [split your
+namespace](docs/patterns#attribute-level-permissions) to restrict access.
+
+{% /callout %}
+
 ## Typesafety
 
 By default, `db.useQuery` is permissive. You don't have to tell us your schema upfront, and you can write any kind of query:
@@ -1111,7 +1223,7 @@ import { AppSchema } from '../instant.schema.ts';
 type Todo = InstaQLEntity<AppSchema, 'todos'>;
 ```
 
-You can specify links relative to your entity too:
+You can specify links relative to your entity:
 
 ```typescript
 type TodoWithGoals = InstaQLEntity<AppSchema, 'todos', { goals: {} }>;

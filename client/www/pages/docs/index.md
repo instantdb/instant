@@ -15,7 +15,7 @@ And if you're ready, follow the quick start below to **build a live app in less 
 To use Instant in a brand new project, fire up your terminal and run the following:
 
 ```shell {% showCopy=true %}
-npx create-next-app -e hello-world instant-demo
+npx create-next-app instant-demo --tailwind --yes
 cd instant-demo
 npm i @instantdb/react
 npm run dev
@@ -53,16 +53,18 @@ function App() {
     return;
   }
   if (error) {
-    return <div>Error querying data: {error.message}</div>;
+    return <div className="text-red-500 p-4">Error: {error.message}</div>;
   }
   const { todos } = data;
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>todos</div>
-      <TodoForm todos={todos} />
-      <TodoList todos={todos} />
-      <ActionBar todos={todos} />
-      <div style={styles.footer}>
+    <div className="font-mono min-h-screen flex justify-center items-center flex-col space-y-4">
+      <h2 className="tracking-wide text-5xl text-gray-300">todos</h2>
+      <div className="border border-gray-300 max-w-xs w-full">
+        <TodoForm todos={todos} />
+        <TodoList todos={todos} />
+        <ActionBar todos={todos} />
+      </div>
+      <div className="text-xs text-center">
         Open another tab to see todos update in realtime!
       </div>
     </div>
@@ -97,29 +99,53 @@ function deleteCompleted(todos: Todo[]) {
 
 function toggleAll(todos: Todo[]) {
   const newVal = !todos.every((todo) => todo.done);
-  db.transact(todos.map((todo) => db.tx.todos[todo.id].update({ done: newVal })));
+  db.transact(
+    todos.map((todo) => db.tx.todos[todo.id].update({ done: newVal }))
+  );
 }
+
 
 // Components
 // ----------
+function ChevronDownIcon() {
+  return (
+    <svg viewBox="0 0 20 20">
+      <path
+        d="M5 8 L10 13 L15 8"
+        stroke="currentColor"
+        fill="none"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
 function TodoForm({ todos }: { todos: Todo[] }) {
   return (
-    <div style={styles.form}>
-      <div style={styles.toggleAll} onClick={() => toggleAll(todos)}>
-        ⌄
-      </div>
+    <div className="flex items-center h-10 border-b border-gray-300">
+      <button
+        className="h-full px-2 border-r border-gray-300 flex items-center justify-center"
+        onClick={() => toggleAll(todos)}
+      >
+        <div className="w-5 h-5">
+          <ChevronDownIcon />
+        </div>
+      </button>
       <form
+        className="flex-1 h-full"
         onSubmit={(e) => {
           e.preventDefault();
-          addTodo(e.target[0].value);
-          e.target[0].value = "";
+          const input = e.currentTarget.input as HTMLInputElement;
+          addTodo(input.value);
+          input.value = "";
         }}
       >
         <input
-          style={styles.input}
+          className="w-full h-full px-2 outline-none bg-transparent"
           autoFocus
           placeholder="What needs to be done?"
           type="text"
+          name="input"
         />
       </form>
     </div>
@@ -128,28 +154,32 @@ function TodoForm({ todos }: { todos: Todo[] }) {
 
 function TodoList({ todos }: { todos: Todo[] }) {
   return (
-    <div style={styles.todoList}>
+    <div className="divide-y divide-gray-300">
       {todos.map((todo) => (
-        <div key={todo.id} style={styles.todo}>
-          <input
-            type="checkbox"
-            key={todo.id}
-            style={styles.checkbox}
-            checked={todo.done}
-            onChange={() => toggleDone(todo)}
-          />
-          <div style={styles.todoText}>
+        <div key={todo.id} className="flex items-center h-10">
+          <div className="h-full px-2 flex items-center justify-center">
+            <div className="w-5 h-5 flex items-center justify-center">
+              <input
+                type="checkbox"
+                className="cursor-pointer"
+                checked={todo.done}
+                onChange={() => toggleDone(todo)}
+              />
+            </div>
+          </div>
+          <div className="flex-1 px-2 overflow-hidden flex items-center">
             {todo.done ? (
-              <span style={{ textDecoration: "line-through" }}>
-                {todo.text}
-              </span>
+              <span className="line-through">{todo.text}</span>
             ) : (
               <span>{todo.text}</span>
             )}
           </div>
-          <span onClick={() => deleteTodo(todo)} style={styles.delete}>
-            𝘟
-          </span>
+          <button
+            className="h-full px-2 flex items-center justify-center text-gray-300 hover:text-gray-500"
+            onClick={() => deleteTodo(todo)}
+          >
+            X
+          </button>
         </div>
       ))}
     </div>
@@ -158,98 +188,19 @@ function TodoList({ todos }: { todos: Todo[] }) {
 
 function ActionBar({ todos }: { todos: Todo[] }) {
   return (
-    <div style={styles.actionBar}>
+    <div className="flex justify-between items-center h-10 px-2 text-xs border-t border-gray-300">
       <div>Remaining todos: {todos.filter((todo) => !todo.done).length}</div>
-      <div style={{ cursor: "pointer" }} onClick={() => deleteCompleted(todos)}>
+      <button
+        className=" text-gray-300 hover:text-gray-500"
+        onClick={() => deleteCompleted(todos)}
+      >
         Delete Completed
-      </div>
+      </button>
     </div>
   );
 }
 
-// Styles
-// ----------
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    boxSizing: "border-box",
-    fontFamily: "code, monospace",
-    height: "100vh",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    flexDirection: "column",
-  },
-  header: {
-    letterSpacing: "2px",
-    fontSize: "50px",
-    color: "lightgray",
-    marginBottom: "10px",
-  },
-  form: {
-    boxSizing: "inherit",
-    display: "flex",
-    border: "1px solid lightgray",
-    borderBottomWidth: "0px",
-    width: "350px",
-  },
-  toggleAll: {
-    fontSize: "30px",
-    cursor: "pointer",
-    marginLeft: "11px",
-    marginTop: "-6px",
-    width: "15px",
-    marginRight: "12px",
-  },
-  input: {
-    backgroundColor: "transparent",
-    fontFamily: "code, monospace",
-    width: "287px",
-    padding: "10px",
-    fontStyle: "italic",
-  },
-  todoList: {
-    boxSizing: "inherit",
-    width: "350px",
-  },
-  checkbox: {
-    fontSize: "30px",
-    marginLeft: "5px",
-    marginRight: "20px",
-    cursor: "pointer",
-  },
-  todo: {
-    display: "flex",
-    alignItems: "center",
-    padding: "10px",
-    border: "1px solid lightgray",
-    borderBottomWidth: "0px",
-  },
-  todoText: {
-    flexGrow: "1",
-    overflow: "hidden",
-  },
-  delete: {
-    width: "25px",
-    cursor: "pointer",
-    color: "lightgray",
-  },
-  actionBar: {
-    display: "flex",
-    justifyContent: "space-between",
-    width: "328px",
-    padding: "10px",
-    border: "1px solid lightgray",
-    fontSize: "10px",
-  },
-  footer: {
-    marginTop: "20px",
-    fontSize: "10px",
-  },
-};
-
 export default App;
 ```
 
-Go to `localhost:3000` and follow the final instruction to load the app!
-
-Huzzah 🎉 You've got your first Instant web app running! Check out the [Working with data](/docs/init) section to learn more about how to use Instant :)
+Go to `localhost:3000`, aand huzzah 🎉 You've got your first Instant web app running! Check out the [Working with data](/docs/init) section to learn more about how to use Instant :)

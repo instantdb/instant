@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# A pre-commit hook to run clj-kondo against changed files
+
+if git rev-parse --verify HEAD >/dev/null 2>&1
+then
+    against=HEAD
+else
+    # Initial commit: diff against an empty tree object
+    against=$(git hash-object -t tree /dev/null)
+fi
+
+CHANGED=$(git diff --cached --name-only --diff-filter=AM $against | grep -E '^server/(src|test)/.*\.clj[cs]?$' | sed 's/^server\///')
+cd server
+
+if !(clj-kondo --lint $CHANGED)
+then
+    echo
+    echo "Error: new clj-kondo errors found. Please fix them, make sure 'make lint' runs without warnings and then commit."
+    exit 1
+fi
+
+exec git diff-index --check --cached $against --

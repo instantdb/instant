@@ -91,9 +91,6 @@ export type DashResponse = {
     email: string;
     id: string;
   };
-  flags: {
-    storage_enabled_apps?: string[];
-  };
 };
 
 export type AppError = { body: { message: string } | undefined };
@@ -159,12 +156,19 @@ export interface DBAttr {
   catalog?: 'user' | 'system';
   'checked-data-type'?: CheckedDataType;
   'on-delete'?: 'cascade';
+  'on-delete-reverse'?: 'cascade';
 }
 
 export interface SchemaNamespace {
   id: string;
   name: string;
   attrs: SchemaAttr[];
+}
+
+export interface SchemaNamespaceMap {
+  id: string;
+  name: string;
+  attrs: Record<string, SchemaAttr>;
 }
 
 export interface SchemaAttr {
@@ -178,14 +182,27 @@ export interface SchemaAttr {
   isPrimary?: boolean | undefined;
   cardinality: 'one' | 'many';
   linkConfig: {
-    forward: { id: string; namespace: string; attr: string };
-    reverse: { id: string; namespace: string; attr: string } | undefined;
+    forward: {
+      id: string;
+      namespace: string;
+      attr: string;
+      nsMap: SchemaNamespaceMap;
+    };
+    reverse:
+      | {
+          id: string;
+          namespace: string;
+          attr: string;
+          nsMap: SchemaNamespaceMap;
+        }
+      | undefined;
   };
   inferredTypes?: Array<'string' | 'number' | 'boolean' | 'json'>;
   catalog?: 'user' | 'system';
   checkedDataType?: CheckedDataType;
   sortable: boolean;
   onDelete?: 'cascade';
+  onDeleteReverse?: 'cascade';
 }
 
 export type InstantError = {

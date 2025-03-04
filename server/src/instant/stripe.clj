@@ -9,7 +9,8 @@
    [ring.util.request :refer [body-string]]
    [instant.model.instant-user :as instant-user-model]
    [instant.util.tracer :as tracer]
-   [instant.util.exception :as ex])
+   [instant.util.exception :as ex]
+   [instant.model.app :as app-model])
   (:import (com.stripe Stripe StripeClient)
            (com.stripe.model Event)
            (com.stripe.net RequestOptions Webhook)
@@ -94,7 +95,8 @@
 
           "customer.subscription.deleted"
           (let [opts (assoc shared :subscription-type-id FREE_SUBSCRIPTION_TYPE)]
-            (instant-subscription-model/create! opts)
+            (when (app-model/get-by-id {:id app-id})
+              (instant-subscription-model/create! opts))
             (when (= :prod (config/get-env))
               (ping-js-on-churned-customer user-id))
             (tracer/add-data! {:attributes opts}))
