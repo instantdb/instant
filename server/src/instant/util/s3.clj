@@ -1,11 +1,11 @@
 (ns instant.util.s3
   (:require
    [instant.config :as config]
-   [instant.util.async :refer [default-virtual-thread-executor]])
+   [instant.util.async :refer [default-virtual-thread-executor]]
+   [instant.util.aws-signature :as aws-sig])
   (:import
    (java.time Duration)
-   (software.amazon.awssdk.auth.credentials AwsBasicCredentials
-                                            StaticCredentialsProvider)
+   (software.amazon.awssdk.auth.credentials DefaultCredentialsProvider)
    (software.amazon.awssdk.core.async AsyncRequestBody
                                       BlockingInputStreamAsyncRequestBody)
    (software.amazon.awssdk.services.s3 S3AsyncClient
@@ -15,17 +15,13 @@
                                              Delete
                                              DeleteObjectRequest
                                              DeleteObjectsRequest
-                                             GetObjectRequest
                                              HeadObjectRequest
                                              HeadObjectResponse
                                              ListObjectsV2Request
                                              ListObjectsV2Response
                                              ObjectIdentifier
                                              PutObjectRequest
-                                             S3Object)
-   (software.amazon.awssdk.services.s3.presigner S3Presigner)
-   (software.amazon.awssdk.services.s3.presigner.model GetObjectPresignRequest
-                                                       PutObjectPresignRequest)))
+                                             S3Object)))
 
 (set! *warn-on-reflection* true)
 
@@ -34,6 +30,7 @@
 (def default-content-disposition "inline")
 
 (def default-s3-client* (delay (.build (S3Client/builder))))
+
 (defn default-s3-client ^S3Client []
   @default-s3-client*)
 
@@ -43,26 +40,6 @@
 
 (defn default-s3-async-client ^S3AsyncClient []
   @default-s3-async-client*)
-
-(def signer-s3-client*
-  (delay
-    (let [access-key (config/s3-storage-access-key)
-          secret-key (config/s3-storage-secret-key)]
-      (if (and access-key secret-key)
-        (-> (S3Client/builder)
-            (.credentialsProvider (StaticCredentialsProvider/create
-                                   (AwsBasicCredentials/create access-key secret-key)))
-            (.build))
-        ;; For OSS developers, use the default credentials provider chain
-        ;; so they don't need to set up separate storage credentials
-        (default-s3-client)))))
-
-(def presigner* (delay (-> (S3Presigner/builder)
-                           (.s3Client @signer-s3-client*)
-                           (.build))))
-
-(defn presigner ^S3Presigner []
-  @presigner*)
 
 (defn list-objects
   ([opts] (list-objects default-bucket opts))
@@ -199,39 +176,47 @@
      (->> chunks
           (mapcat #(delete-objects bucket-name (vec %)))))))
 
+(def signer-creds*
+  (delay
+    (let [access-key (config/s3-storage-access-key)
+          secret-key (config/s3-storage-secret-key)
+          region (.toString (.region (.serviceClientConfiguration @default-s3-client*)))]
+      (if (and access-key secret-key)
+        {:access-key access-key
+         :secret-key secret-key
+         :region region}
+        (let [creds (.resolveCredentials (DefaultCredentialsProvider/create))]
+          {:access-key (.accessKeyId creds)
+           :secret-key (.secretAccessKey creds)
+           :region region})))))
+
+(defn signer-creds [] @signer-creds*)
+
 (defn generate-presigned-url-get
   ([{:keys [method bucket-name key ^Duration duration]}]
    (assert (= :get method)
            "get presigned urls are only implemented for :get requests")
-   (let [^GetObjectRequest obj-request (-> (GetObjectRequest/builder)
-                                           (.bucket bucket-name)
-                                           (.key key)
-                                           (.build))
-         ^GetObjectPresignRequest signer-request (-> (GetObjectPresignRequest/builder)
-                                                     (.signatureDuration duration)
-                                                     (.getObjectRequest obj-request)
-                                                     (.build))]
-     (-> (presigner)
-         (.presignGetObject signer-request)
-         (.url)
-         (.toExternalForm)))))
+   (aws-sig/presign-s3-url
+    {:access-key (:access-key (signer-creds))
+     :secret-key (:secret-key (signer-creds))
+     :region (:region (signer-creds))
+     :method method
+     :bucket bucket-name
+     :expires-duration duration
+     :path key})))
 
 (defn generate-presigned-url-put
   ([{:keys [method bucket-name key ^Duration duration]}]
    (assert (= :put method)
            "put presigned urls are only implemented for :put requests")
-   (let [^PutObjectRequest obj-request (-> (PutObjectRequest/builder)
-                                           (.bucket bucket-name)
-                                           (.key key)
-                                           (.build))
-         ^PutObjectPresignRequest signer-request (-> (PutObjectPresignRequest/builder)
-                                                     (.signatureDuration duration)
-                                                     (.putObjectRequest obj-request)
-                                                     (.build))]
-     (-> (presigner)
-         (.presignPutObject signer-request)
-         (.url)
-         (.toExternalForm)))))
+   (aws-sig/presign-s3-url
+    {:access-key (:access-key (signer-creds))
+     :secret-key (:secret-key (signer-creds))
+     :region (:region (signer-creds))
+     :method method
+     :bucket bucket-name
+     :expires-duration duration
+     :path key})))
 
 (defn generate-presigned-url
   ([{:keys [method] :as opts}]
