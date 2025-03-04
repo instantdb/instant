@@ -78,45 +78,21 @@
                        location-ids)]
     (s3-util/delete-objects-paginated location-keys)))
 
-(defn bucketed-zdate
+(defn bucketed-signing-instant
   "AWS URLs depend on the signing-instant.  
   
   We want to keep URLs stable: repeated calls to the same object should return 
   the same URL, so that browsers can cache the object. 
 
-  To do this, we bucket input dates like so: 
+  To do this, we bucket dates to the start of the day. 
   
-  start-of-week: Mon midnight 
-  mid-week: Thu 12PM. 
-
-  Given an input date `z-date`, we stick it to the closest previous bucket. 
-
-  So: 
-   - Mon 9AM -> Mon midnight 
-   - Tue 3PM -> Mon midnight 
-   - Thu 4PM -> Thu 12PM
-   - Sat 11PM -> Thu 12PM  
-   - Sun midnight -> Thu 12PM 
-
-  We set a 7 day expiration for our URLs. This means that in the worst cases 
-  (if a user calls us at 11:59PM on a Sunday), we will have a real expiration date of 
-  
-  3.5 days"
-  [^ZonedDateTime z-date]
-  (let [start-of-week (-> z-date
-                          (.with (TemporalAdjusters/previousOrSame DayOfWeek/MONDAY))
-                          (.truncatedTo ChronoUnit/DAYS))
-        mid-week (-> start-of-week
-                     (.plus (Duration/ofDays 3))
-                     (.plus (Duration/ofHours 12)))
-
-        choice (if (.isBefore z-date mid-week)
-                 start-of-week
-                 mid-week)]
-    choice))
+  This gives about 24 hours where URLs are stable."
+  []
+  (let [now (date-util/utc-now)]
+    (.toInstant (.truncatedTo now ChronoUnit/DAYS))))
 
 (defn location-id-url [app-id location-id]
-  (let [signing-instant (.toInstant (bucketed-zdate (date-util/pst-now)))
+  (let [signing-instant (bucketed-signing-instant)
         duration (Duration/ofDays 7)
         object-key (->object-key app-id location-id)]
     (str (s3-util/generate-presigned-url
