@@ -1107,8 +1107,9 @@ console.log(data)
 ```
 
 Using `fields` can be useful for performance optimization. It reduces the
-amount of data that needs to be transferred from the server and minimize the
-number of re-renders in your React application.
+amount of data that needs to be transferred from the server and minimizes the
+number of re-renders in your React application if there are no changes to your
+selected fields.
 
 {% callout type="warning" %}
 
