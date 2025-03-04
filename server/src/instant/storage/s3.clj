@@ -1,11 +1,14 @@
 (ns instant.storage.s3
   (:require [clojure.string :as string]
-            [instant.util.s3 :as s3-util])
+            [instant.util.s3 :as s3-util]
+            [instant.util.date :as date-util])
   (:import
-   [java.time Duration]))
+   [java.time Duration]
+   [java.time.temporal ChronoUnit]))
 
 ;; S3 path manipulation
 ;; ----------------------
+
 (defn location-id->bin
   "We add a bin to the location id to scale S3 performance
    See: https://docs.aws.amazon.com/AmazonS3/latest/userguide/optimizing-performance.html"
@@ -75,14 +78,29 @@
                        location-ids)]
     (s3-util/delete-objects-paginated location-keys)))
 
+(defn bucketed-signing-instant
+  "AWS URLs depend on the signing-instant.  
+  
+  We want to keep URLs stable: repeated calls to the same object should return 
+  the same URL, so that browsers can cache the object. 
+
+  To do this, we bucket dates to the start of the day. 
+  
+  This gives about 24 hours where URLs are stable."
+  []
+  (let [now (date-util/utc-now)]
+    (.toInstant (.truncatedTo now ChronoUnit/DAYS))))
+
 (defn location-id-url [app-id location-id]
-  (let [duration (Duration/ofDays 7)
+  (let [signing-instant (bucketed-signing-instant)
+        duration (Duration/ofDays 7)
         object-key (->object-key app-id location-id)]
     (str (s3-util/generate-presigned-url
           {:method :get
            :bucket-name s3-util/default-bucket
            :key object-key
-           :duration duration}))))
+           :duration duration
+           :signing-instant signing-instant}))))
 
 (defn create-signed-download-url! [app-id location-id]
   (when location-id

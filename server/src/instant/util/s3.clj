@@ -4,7 +4,7 @@
    [instant.util.async :refer [default-virtual-thread-executor]]
    [instant.util.aws-signature :as aws-sig])
   (:import
-   (java.time Duration)
+   (java.time Instant Duration)
    (software.amazon.awssdk.auth.credentials DefaultCredentialsProvider)
    (software.amazon.awssdk.core.async AsyncRequestBody
                                       BlockingInputStreamAsyncRequestBody)
@@ -193,7 +193,10 @@
 (defn signer-creds [] @signer-creds*)
 
 (defn generate-presigned-url-get
-  ([{:keys [method bucket-name key ^Duration duration]}]
+  ([{:keys [method bucket-name
+            key
+            ^Instant signing-instant
+            ^Duration duration]}]
    (assert (= :get method)
            "get presigned urls are only implemented for :get requests")
    (aws-sig/presign-s3-url
@@ -202,11 +205,12 @@
      :region (:region (signer-creds))
      :method method
      :bucket bucket-name
+     :signing-instant signing-instant
      :expires-duration duration
      :path key})))
 
 (defn generate-presigned-url-put
-  ([{:keys [method bucket-name key ^Duration duration]}]
+  ([{:keys [method bucket-name key ^Instant signing-instant ^Duration duration]}]
    (assert (= :put method)
            "put presigned urls are only implemented for :put requests")
    (aws-sig/presign-s3-url
@@ -215,6 +219,7 @@
      :region (:region (signer-creds))
      :method method
      :bucket bucket-name
+     :signing-instant signing-instant
      :expires-duration duration
      :path key})))
 

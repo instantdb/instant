@@ -285,11 +285,11 @@
                               method
                               region
                               bucket
-                              path]
-                       :or {signing-instant (Instant/now)}}]
+                              ^String path]}]
 
-  (let [host (s3-host region bucket)
-        path-with-slash (if  (.startsWith path "/")
+  (let [signing-instant (or signing-instant (Instant/now))
+        host (s3-host region bucket)
+        path-with-slash (if (.startsWith path "/")
                           path
                           (str "/" path))
         amz-expires (str (.getSeconds expires-duration))
