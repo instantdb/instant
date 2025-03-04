@@ -5,9 +5,9 @@
   (:import [java.time ZonedDateTime]))
 
 (deftest bucketed-zdate
-  (let [mon-9am (ZonedDateTime/parse "2025-03-04T21:19:48.467889Z[UTC]")
+  (let [tue-9-30-pm (ZonedDateTime/parse "2025-03-04T21:30:48.467889Z[UTC]")
         start-of-day-instant (.toInstant (ZonedDateTime/parse "2025-03-04T00:00:00.000000Z[UTC]"))]
-    (with-redefs [date-util/utc-now (fn [] mon-9am)]
+    (with-redefs [date-util/utc-now (fn [] tue-9-30-pm)]
       (is (= start-of-day-instant (storage-s3/bucketed-signing-instant))))))
 
 (comment
