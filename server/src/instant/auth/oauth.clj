@@ -15,6 +15,8 @@
    (instant.util.crypt Secret)
    (java.time Duration Instant)))
 
+(def allowed-extra-params [:hd])
+
 (defprotocol OAuthClient
   (create-authorization-url [this state redirect-url extra-params])
   (get-user-info [this code redirect-url])
@@ -39,7 +41,9 @@
                        :state state
                        :redirect_uri redirect-url
                        :client_id client-id}
-          params (merge base-params (or extra-params {}))]
+          params (merge base-params
+                        (or (select-keys extra-params allowed-extra-params)
+                            {}))]
       (url/add-query-params authorization-endpoint params)))
 
   (get-user-info [_ code redirect-url]
