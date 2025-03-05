@@ -1,20 +1,9 @@
-import { i, init, tx } from '@instantdb/react';
+import { init } from '@instantdb/react';
 import React, { useCallback, useEffect, useRef, useState, FC } from 'react';
 import config from '../../config';
 
-// ---------------------------------------------------------------------
-// Schema & DB initialization
-// ---------------------------------------------------------------------
-const schema = i.schema({
-  entities: {
-    colors: i.entity({ color: i.string() }),
-  },
-});
-const db = init({ ...config, schema });
+const db = init({ ...config });
 
-// ---------------------------------------------------------------------
-// Types & Utility Functions
-// ---------------------------------------------------------------------
 type Point = { x: number; y: number };
 type Dimension = Point & { width: number; height: number };
 
@@ -49,9 +38,6 @@ const stringToHslColor = (
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 };
 
-// ---------------------------------------------------------------------
-// SelectionArea Component
-// ---------------------------------------------------------------------
 const SelectionArea: FC<{ area: Dimension | null; color?: string }> = ({
   area,
   color = '#2972f6',
@@ -72,9 +58,6 @@ const SelectionArea: FC<{ area: Dimension | null; color?: string }> = ({
   );
 };
 
-// ---------------------------------------------------------------------
-// useSelectionArea Hook (replacing jotai atoms)
-// ---------------------------------------------------------------------
 const useSelectionArea = (
   canvasRef: React.RefObject<HTMLDivElement>,
 ): Dimension | null => {
@@ -130,9 +113,6 @@ const useSelectionArea = (
   return selectionArea;
 };
 
-// ---------------------------------------------------------------------
-// Canvas Component (with presence and sticker selection)
-// ---------------------------------------------------------------------
 const stickers: (Dimension & { id: string })[] = Array(36)
   .fill(0)
   .map((_, index) => ({
@@ -184,11 +164,11 @@ const Canvas: FC = () => {
   useEffect(() => {
     if (!isLoading) {
       publishPresence({
-        // selectionArea: selectionArea || undefined,
+        selectionArea: selectionArea || undefined,
         selectedIds: Array.from(selectedStickerIds),
       });
     }
-  }, [isLoading, publishPresence, selectedStickerIds]);
+  }, [isLoading, publishPresence, selectionArea, selectedStickerIds]);
 
   // Merge remote selected sticker ids from peers
   useEffect(() => {
