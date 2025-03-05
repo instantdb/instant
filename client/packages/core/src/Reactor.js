@@ -1717,10 +1717,10 @@ export default class Reactor {
       draft[this._sessionId] = { data: this._presence[roomId]?.result?.user };
       for (let [path, op, value] of edits) {
         if (op === '+' || op === 'r') {
-          draft = assocInMutative(draft, path, value);
+          assocInMutative(draft, path, value);
         }
         if (op === '-') {
-          draft = dissocInMutative(draft, path);
+          dissocInMutative(draft, path);
         }
       }
     });

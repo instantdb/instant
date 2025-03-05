@@ -1203,22 +1203,6 @@ test('fields', () => {
     ],
   });
 
-  console.log(
-    JSON.stringify(
-      query(
-        { store },
-        {
-          users: {
-            $: { where: { handle: 'alex' }, fields: ['handle'] },
-            bookshelves: { $: { fields: ['name'] } },
-          },
-        },
-      ).data,
-      null,
-      2,
-    ),
-  );
-
   expect(
     query(
       { store },
