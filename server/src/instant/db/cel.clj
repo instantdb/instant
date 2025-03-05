@@ -20,10 +20,13 @@
                    CelMutableAst
                    CelOptions
                    CelOverloadDecl)
-   (dev.cel.common.ast CelExpr
+   (dev.cel.common.ast CelConstant
+                       CelConstant$Kind
+                       CelExpr
                        CelExpr$CelCall
                        CelExpr$CelComprehension
                        CelExpr$ExprKind$Kind
+                       CelMutableExpr
                        Expression$Map$Entry)
    (dev.cel.common.navigation CelNavigableExpr
                               CelNavigableMutableAst
@@ -45,6 +48,7 @@
                    CelUnparserFactory
                    Operator)
    (dev.cel.runtime CelEvaluationException
+                    CelFunctionOverload
                     CelFunctionOverload$Binary
                     CelRuntime
                     CelRuntime$CelFunctionBinding
@@ -287,40 +291,55 @@
            (CelOverloadDecl/newGlobalOverload
             "_instant_data_compare"
             SimpleType/BOOL
-            (ImmutableList/of SimpleType/DYN SimpleType/DYN))))
-   :runtime (let [impl (reify CelFunctionOverload$Binary
-                         (apply [_ x y]
-                           (println "EXECUTING COMPARE")
-                           (tool/def-locals)
-                           ;; Probably should log here
-                           (cond (nil? *where-clauses*)
-                                 (throw (Exception. "Called data-compare without *where-clauses*"))
+            (ImmutableList/of SimpleType/DYN SimpleType/DYN SimpleType/DYN))))
+   :runtime (CelRuntime$CelFunctionBinding/from
+             "_instant_data_compare"
+             (ImmutableList/of Object Object Object)
+             ;; Object
+             ;; Object
+             ;;impl
+             (fn [[x y parent-id]]
+               (println "parent_id" parent-id)
+               ;; Probably should log here
+               (cond (nil? *where-clauses*)
+                     (throw (Exception. "Called data-compare without *where-clauses*"))
 
-                                 (and (instance? DataKey x)
-                                      ;; Can't have someone doing data.a == data.b
-                                      (not (instance? DataKey y)))
+                     (and (instance? DataKey x)
+                          ;; Can't have someone doing data.a == data.b
+                          (not (instance? DataKey y)))
 
-                                 (do (swap! *where-clauses* conj [:cond {:path [(:key x)]
-                                                                         :v [:value y]}])
-                                     true)
+                     (do
+                       (swap! *where-clauses*
+                              update-in
+                              (if (= NullValue/NULL_VALUE parent-id)
+                                [:top-level]
+                                [:by-parent parent-id])
+                              (fnil conj [])
+                              [[:cond {:path [(:key x)]
+                                       :v [:value y]}]])
+                       true)
 
-                                 (and (instance? DataKey y)
-                                      (not (instance? DataKey x)))
-                                 (do (swap! *where-clauses* conj [:cond {:path [(:key y)]
-                                                                         :v [:value x]}])
-                                     true)
+                     (and (instance? DataKey y)
+                          (not (instance? DataKey x)))
+                     (do
+                       (swap! *where-clauses*
+                              update-in
+                              (if (= NullValue/NULL_VALUE parent-id)
+                                [:top-level]
+                                [:by-parent parent-id])
+                              (fnil conj [])
+                              [[:cond {:path [(:key y)]
+                                       :v [:value x]}]])
+                       true)
 
-                                 (and (instance? DataKey y)
-                                      (instance? DataKey x))
-                                 (throw (Exception. "Can't represent data.key1 == data.key2"))
+                     (and (instance? DataKey y)
+                          (instance? DataKey x))
+                     (throw (Exception. "Can't represent data.key1 == data.key2"))
 
-                                 :else
-                                 (= x y))))]
-              (CelRuntime$CelFunctionBinding/from
-               "_instant_data_compare"
-               Object
-               Object
-               impl))})
+                     :else
+                     (= x y))))})
+
+
 
 (def data-or-fn
   {:decl (CelFunctionDecl/newFunctionDeclaration
@@ -329,22 +348,25 @@
            (CelOverloadDecl/newGlobalOverload
             "_instant_or"
             SimpleType/BOOL
-            (ImmutableList/of SimpleType/DYN SimpleType/DYN))))
-   :runtime (let [impl (reify CelFunctionOverload$Binary
-                         (apply [this x y]
-                           (tool/def-locals)
-                           (swap! *where-clauses* (fn [c]
-                                                    (when c
-                                                      [{:or c}])
-                                                    #_(when c
-                                                        [:or {:or [c]}])))
-
-                           (or x y)))]
-              (CelRuntime$CelFunctionBinding/from
-               "_instant_or"
-               Object
-               Object
-               impl))})
+            (ImmutableList/of SimpleType/DYN SimpleType/DYN SimpleType/DYN SimpleType/DYN))))
+   :runtime (CelRuntime$CelFunctionBinding/from
+             "_instant_or"
+             (ImmutableList/of Object Object Object Object)
+             (fn [[x y self-id parent-id]]
+               ;; XXX: Maybe we should stick something in byParent to indicate that it's
+               ;;      already consumed and throw if we try to put something there?
+               (when-let [clauses (seq (get-in @*where-clauses* [:by-parent self-id]))]
+                 (swap! *where-clauses*
+                        update-in
+                        (if (= NullValue/NULL_VALUE parent-id)
+                          [:top-level]
+                          [:by-parent parent-id])
+                        (fnil conj [])
+                        [[:or {:or clauses}]]))
+               (println "EXECUTING OR")
+               (println "self-id" self-id)
+               (println "parent-id" parent-id)
+               (or x y)))})
 
 (def data-and-fn
   {:decl (CelFunctionDecl/newFunctionDeclaration
@@ -353,42 +375,25 @@
            (CelOverloadDecl/newGlobalOverload
             "_instant_and"
             SimpleType/BOOL
-            (ImmutableList/of SimpleType/DYN SimpleType/DYN))))
-   :runtime (let [impl (reify CelFunctionOverload$Binary
-                         (apply [this x y]
-                           (tool/def-locals)
-                           (swap! *where-clauses* (fn [c]
-                                                    (when c
-                                                      [{:and c}])
-                                                    #_(when c
-                                                        [:and {:and [c]}])))
+            (ImmutableList/of SimpleType/DYN SimpleType/DYN SimpleType/DYN SimpleType/DYN))))
+   :runtime (CelRuntime$CelFunctionBinding/from
+             "_instant_and"
+             (ImmutableList/of Object Object Object Object)
+             (fn [[x y self-id parent-id]]
+               (println "EXECUTING AND")
+               (println "self-id" self-id)
+               (println "parent-id" parent-id)
+               (when-let [clauses (seq (get-in @*where-clauses* [:by-parent self-id]))]
+                 (swap! *where-clauses*
+                        update-in
+                        (if (= NullValue/NULL_VALUE parent-id)
+                          [:top-level]
+                          [:by-parent parent-id])
+                        (fnil conj [])
+                        [[:and {:and clauses}]]))
+               (and x y)))})
 
-                           (or x y)))]
-              (CelRuntime$CelFunctionBinding/from
-               "_instant_and"
-               Object
-               Object
-               impl))})
-
-(def dww-test-fn
-  {:decl (CelFunctionDecl/newFunctionDeclaration
-          "_dww_test"
-          (ImmutableList/of
-           (CelOverloadDecl/newGlobalOverload
-            "_dww_test"
-            SimpleType/BOOL
-            (ImmutableList/of SimpleType/DYN SimpleType/DYN))))
-   :runtime (let [impl (fn [args]
-                         (tool/def-locals)
-                         true
-                         )]
-              (CelRuntime$CelFunctionBinding/from
-               "_dww_test"
-               (ImmutableList/of Object
-                                 Object)
-               impl))})
-
-(def custom-fns [ref-fn data-compare-fn data-or-fn data-and-fn dww-test-fn])
+(def custom-fns [ref-fn data-compare-fn data-or-fn data-and-fn])
 (def custom-fn-decls (mapv :decl custom-fns))
 (def custom-fn-bindings (mapv :runtime custom-fns))
 
@@ -417,12 +422,18 @@
 (def operators
   {:= (.getFunction Operator/EQUALS)})
 
+;; other operations: in
 (def operator-replacements
   {(.getFunction Operator/EQUALS) "_instant_data_compare"
    (.getFunction Operator/LOGICAL_OR) "_instant_or"
    (.getFunction Operator/LOGICAL_AND) "_instant_and"})
 
+(def has-children-operators (set [(.getFunction Operator/LOGICAL_OR)
+                                  (.getFunction Operator/LOGICAL_AND)]))
+
 (def can-replace-operator? (set (keys operator-replacements)))
+
+(def can-set-parent? (set (vals operator-replacements)))
 
 (defn get-expr [^CelNavigableExpr node]
   ;; Not sure why this is necessary, but can't call
@@ -436,16 +447,54 @@
         ^CelExpr expr (.invoke method node (object-array 0))]
     expr))
 
+(defn get-depth [^CelNavigableExpr node]
+  ;; Not sure why this is necessary, but can't call
+  ;; .expr on the node without manually making it
+  ;; accessible. It's what they do in the example,
+  ;; so not sure why it's a problem here
+  ;; https://tinyurl.com/46zbw98p
+  (let [clazz (.getClass node)
+        method (.getDeclaredMethod clazz "depth" (into-array Class []))
+        _ (.setAccessible method true)
+        ^CelExpr expr (.invoke method node (object-array 0))]
+    expr))
+
+(defn get-height [^CelNavigableExpr node]
+  ;; Not sure why this is necessary, but can't call
+  ;; .expr on the node without manually making it
+  ;; accessible. It's what they do in the example,
+  ;; so not sure why it's a problem here
+  ;; https://tinyurl.com/46zbw98p
+  (let [clazz (.getClass node)
+        method (.getDeclaredMethod clazz "height" (into-array Class []))
+        _ (.setAccessible method true)
+        ^CelExpr expr (.invoke method node (object-array 0))]
+    expr))
+
 (defn can-optimize-node? [^CelNavigableMutableExpr node]
-  (tool/def-locals)
+  (println (.getKind node) (get-depth node) (get-height node))
   (boolean
    (and (= CelExpr$ExprKind$Kind/CALL (.getKind node))
         (can-replace-operator? (.function (.call (get-expr node)))))))
 
+(defn should-set-parent-id? [^CelNavigableMutableExpr node]
+  (boolean
+   (and (= CelExpr$ExprKind$Kind/CALL (.getKind node))
+        (let [c (.call (get-expr node))]
+          (and
+           (can-set-parent? (.function c))
+           (let [last-arg (last (.args c))]
+             (and last-arg
+                  (= CelExpr$ExprKind$Kind/CONSTANT (.getKind last-arg))
+                  (= CelConstant$Kind/NULL_VALUE (.getKind (.constant last-arg))))))))))
+
 (deftype MyOptimizer []
   CelAstOptimizer
   (optimize [_this ast _cel]
-    (let [mutable-ast (CelMutableAst/fromCelAst ast)
+    (let [id-gen (volatile! 9)
+          next-id (fn []
+                    (Integer/toString (vswap! id-gen inc) 36))
+          mutable-ast (CelMutableAst/fromCelAst ast)
           ast-mutator (AstMutator/newInstance 1000
                                               ;; XXX: What should be the iteration limit?
                                               )
@@ -455,7 +504,6 @@
                     ;; Would be nice to have a predicate helper?
                     (.filter can-optimize-node?)
                     (.collect (ImmutableList/toImmutableList)))]
-      (tool/def-locals)
       (loop [mutable-ast mutable-ast
              [node & rest-nodes] nodes]
         (if-not node
@@ -463,9 +511,32 @@
            (.toParsedAst (.renumberIdsConsecutively ast-mutator
                                                     mutable-ast)))
           (let [expr (get-expr node)
-                func (.function (.call expr))
-                _ (println "OPTIMIZING" func)
-                _ (.setFunction (.call expr) (get operator-replacements func))]
+                func (.function (.call expr))]
+            (println "OPTIMIZING" func (contains? has-children-operators func))
+            (.setFunction (.call expr) (get operator-replacements func))
+
+            (when (contains? has-children-operators func)
+              (let [self-id (next-id)
+                    set-parent-nodes (-> (CelNavigableMutableExpr/fromExpr expr)
+                                         (.descendants)
+                                         (.filter should-set-parent-id?)
+                                         (.collect (ImmutableList/toImmutableList)))]
+                (doseq [set-parent-node set-parent-nodes]
+                  (let [e (get-expr set-parent-node)
+                        c (.call e)
+                        arg (last (.args c))]
+                    (.setConstant arg (CelConstant/ofObjectValue self-id))))
+                (println "ADDING SELF ID" self-id)
+                (.addArgs (.call expr)
+                          (ImmutableList/of
+                           (CelMutableExpr/ofConstant (CelConstant/ofObjectValue self-id))))))
+
+            ;; Start with nil as the parent,
+            ;; then the or/and will set the parent when they're processed
+            (.addArgs (.call expr)
+                      (ImmutableList/of
+                       (CelMutableExpr/ofConstant (CelConstant/ofObjectValue NullValue/NULL_VALUE))))
+
             (recur (.replaceSubtree ast-mutator
                                     mutable-ast
                                     expr
@@ -477,6 +548,7 @@
   (-> (CelOptimizerFactory/standardCelOptimizerBuilder cel-compiler cel-runtime)
       (.addAstOptimizers (ImmutableList/of (MyOptimizer.)))
       (.build)))
+
 
 (defn ->ast [expr-str] (.getAst (.compile cel-compiler expr-str)))
 (defn ->program [ast] (.createProgram cel-runtime ast))
@@ -491,6 +563,24 @@
     (catch CelEvaluationException e
       (ex/throw-permission-evaluation-failed!
        etype action e))))
+
+;; XXX: Let's fix how instaql represents where-conds, because they're weird
+;;      or we could return them as instaql maps, which might be better for
+;;      displaying to the user??
+(defn get-where-clauses [ast auth]
+  (let [where-clauses (atom {:top-level []
+                             :by-parent {}})]
+    (binding [*where-clauses* where-clauses]
+      (let [program (->> ast
+                         (.optimize cel-optimizer)
+                         (->program))
+            evaluation-result (eval-program! {:cel-program program}
+                                             {"auth" auth
+                                              "data" (->CelHelperMap)})]
+        {:evaluation-result evaluation-result
+         :where-clauses (when-let [clauses (seq (:top-level @where-clauses))]
+                          [[:and {:and clauses}]])}))))
+
 
 ;; Static analysis
 ;; ---------------

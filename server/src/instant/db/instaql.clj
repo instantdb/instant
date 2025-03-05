@@ -1910,26 +1910,19 @@
   ;; XXX: The rules could introduce additional etypes if they use data.ref
   (let [{:keys [referenced-etypes]} (instaql-query->patterns ctx o)
         programs (reduce (fn [acc etype]
-                           (tool/def-locals)
                            (if-let [program (rule-model/get-program! rules etype "view")]
-                             (let [clauses (atom [])]
-                               (binding [cel/*where-clauses* clauses]
-                                 (try
-                                   (let [xformed-program (cel/->program (.optimize cel/cel-optimizer (:cel-ast program)))
-                                         _ (tool/def-locals)
-                                         evaluation-result (cel/eval-program! {:cel-program xformed-program}
-                                                                              {"auth" (cel/->cel-map {:ctx ctx
-                                                                                                      :type :auth
-                                                                                                      :etype "$users"}
-                                                                                                     (:current-user ctx))
-                                                                               "data" (cel/->CelHelperMap)})
-                                         wheres @clauses]
-                                     (tool/def-locals)
-                                     (assoc acc etype {:evaluation-result evaluation-result
-                                                       :wheres wheres}))
-                                   (catch Exception e
-                                     (clojure.tools.logging/info "ERROR" e)
-                                     acc))))
+                             (try
+                               (let [{:keys [evaluation-result where-clauses]}
+                                     (cel/get-where-clauses (:cel-ast program) (cel/->cel-map {:ctx ctx
+                                                                                               :type :auth
+                                                                                               :etype "$users"}
+                                                                                              (:current-user ctx)))]
+                                 (tool/def-locals)
+                                 (assoc acc etype {:evaluation-result evaluation-result
+                                                   :wheres where-clauses}))
+                               (catch Exception e
+                                 (clojure.tools.logging/info "ERROR" e)
+                                 acc))
                              acc))
                          {}
                          referenced-etypes)]
@@ -1958,7 +1951,6 @@
             etype+eid->check (get-etype+eid-check-result! ctx perm-helpers)
             res' (tracer/with-span! {:name "instaql/map-permissioned-node"}
                    (mapv (partial permissioned-node ctx etype+eid->check) res))]
-        (tool/def-locals)
         res'))))
 
 (defn permissioned-query-check [{:keys [app-id] :as ctx} o rules-override]
@@ -1989,7 +1981,6 @@
                           :check result})
                        etype+eid->check)
         nodes (mapv (partial permissioned-node ctx etype+eid->check) res)]
-    (tool/def-locals)
     {:nodes nodes :check-results check-results}))
 
 ;; ----
