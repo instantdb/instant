@@ -782,16 +782,6 @@ export function Explorer({
     const allItemIds = allItems.map((i) => i.id as string);
     const currentIndex = allItemIds.indexOf(currentId);
     const lastSelectedIndex = allItemIds.indexOf(lastSelectedIdRef.current!);
-
-    // No-op if no previous selection or no current selection
-    if (
-      currentIndex === -1 ||
-      lastSelectedIndex === -1 ||
-      currentIndex === lastSelectedIndex
-    ) {
-      return;
-    }
-
     const [start, end] = [
       Math.min(currentIndex, lastSelectedIndex),
       Math.max(currentIndex, lastSelectedIndex),
