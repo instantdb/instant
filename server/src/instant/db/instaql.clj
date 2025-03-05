@@ -1913,10 +1913,10 @@
                            (if-let [program (rule-model/get-program! rules etype "view")]
                              (try
                                (let [{:keys [evaluation-result where-clauses]}
-                                     (cel/get-where-clauses (:cel-ast program) (cel/->cel-map {:ctx ctx
-                                                                                               :type :auth
-                                                                                               :etype "$users"}
-                                                                                              (:current-user ctx)))]
+                                     (cel/get-where-clauses (:code program) (cel/->cel-map {:ctx ctx
+                                                                                            :type :auth
+                                                                                            :etype "$users"}
+                                                                                           (:current-user ctx)))]
                                  (tool/def-locals)
                                  (assoc acc etype {:evaluation-result evaluation-result
                                                    :wheres where-clauses}))

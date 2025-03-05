@@ -57,7 +57,7 @@
    (dev.cel.validator CelAstValidator
                       CelValidatorFactory)
    (java.text SimpleDateFormat)
-   (java.util Date Map Optional SimpleTimeZone)))
+   (java.util ArrayList Date Map Optional SimpleTimeZone)))
 
 ;;(set! *warn-on-reflection* true)
 
@@ -281,23 +281,67 @@
                String
                impl))})
 
+(def custom-fns [ref-fn])
+(def custom-fn-decls (mapv :decl custom-fns))
+(def custom-fn-bindings (mapv :runtime custom-fns))
+
+(def cel-options (-> (CelOptions/current)
+                     (.populateMacroCalls true)
+                     (.build)))
+
+(def ^:private ^CelCompiler cel-compiler
+  (-> (CelCompilerFactory/standardCelCompilerBuilder)
+      (.addVar "data" type-obj)
+      (.addVar "auth" type-obj)
+      (.addVar "newData" type-obj)
+      (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-fn-decls))
+      (.setOptions cel-options)
+      (.setStandardMacros (CelStandardMacro/STANDARD_MACROS))
+      (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings) (CelExtensions/strings)]))
+      (.build)))
+
+(def ^:private ^CelRuntime cel-runtime
+  (-> (CelRuntimeFactory/standardCelRuntimeBuilder)
+      (.addLibraries [(CelExtensions/strings)])
+      (.addFunctionBindings (ucoll/array-of CelRuntime$CelFunctionBinding custom-fn-bindings))
+      (.setOptions cel-options)
+      (.build)))
+
 (def ^:dynamic *where-clauses* nil)
 
-;; XXX: These should be in a separate cel-compiler + cel-runtime
-(def data-compare-fn
+(def ^ListType iql-ref-return (ListType/create SimpleType/DYN))
+
+(def iql-ref-fn
   {:decl (CelFunctionDecl/newFunctionDeclaration
-          "_instant_data_compare"
+          "ref"
+          (ucoll/array-of
+           CelOverloadDecl
+           [(CelOverloadDecl/newMemberOverload
+             "data_ref"
+             iql-ref-return
+             (ucoll/array-of CelType [type-obj SimpleType/STRING]))]))
+   :runtime (let [impl (reify CelFunctionOverload$Binary
+                         (apply [_ _cel-map path-str]
+                           (with-meta [path-str]
+                             {:path-str path-str})))]
+              (CelRuntime$CelFunctionBinding/from
+               "data_ref"
+               Map
+               String
+               impl))})
+
+;; XXX: These should be in a separate cel-compiler + cel-runtime
+(def iql-eq-fn
+  {:decl (CelFunctionDecl/newFunctionDeclaration
+          "_iql_eq"
           (ImmutableList/of
            (CelOverloadDecl/newGlobalOverload
-            "_instant_data_compare"
+            "_iql_eq"
             SimpleType/BOOL
             (ImmutableList/of SimpleType/DYN SimpleType/DYN SimpleType/DYN))))
    :runtime (CelRuntime$CelFunctionBinding/from
-             "_instant_data_compare"
+             "_iql_eq"
              (ImmutableList/of Object Object Object)
-             ;; Object
-             ;; Object
-             ;;impl
              (fn [[x y parent-id]]
                (println "parent_id" parent-id)
                ;; Probably should log here
@@ -339,18 +383,66 @@
                      :else
                      (= x y))))})
 
-
-
-(def data-or-fn
+;; XXX guard against unbound *where-clauses*
+(def iql-in-fn
   {:decl (CelFunctionDecl/newFunctionDeclaration
-          "_instant_or"
+          "_iql_in"
           (ImmutableList/of
            (CelOverloadDecl/newGlobalOverload
-            "_instant_or"
+            "_iql_in"
+            SimpleType/BOOL
+            (ImmutableList/of SimpleType/DYN SimpleType/DYN SimpleType/DYN))))
+   :runtime (CelRuntime$CelFunctionBinding/from
+             "_iql_in"
+             (ImmutableList/of Object Object Object)
+             (fn [[x y parent-id]]
+               (tool/def-locals)
+               (cond
+                 (and (instance? DataKey x)
+                      (instance? ArrayList y))
+
+                 (do
+                   (swap! *where-clauses*
+                          update-in
+                          (if (= NullValue/NULL_VALUE parent-id)
+                            [:top-level]
+                            [:by-parent parent-id])
+                          (fnil conj [])
+                          [[:cond {:path [(:key x)]
+                                   :v [:args-map {:$in (set y)}]}]])
+                   true)
+
+                 ;; XXX: Not sure what we need the type of `x` to be here...
+                 (and (string? x)
+                      (:path-str (meta y)))
+                 (do
+                   (tool/def-locals)
+                   (println "HERE")
+                   (swap! *where-clauses*
+                          update-in
+                          (if (= NullValue/NULL_VALUE parent-id)
+                            [:top-level]
+                            [:by-parent parent-id])
+                          (fnil conj [])
+                          [[:cond {:path (clojure-string/split (:path-str (meta y)) #"\.")
+                                   :v [:value x]}]])
+                   true)
+
+                 :else
+                 (ucoll/exists? (fn [candidate]
+                                  (= candidate x))
+                                y))))})
+
+(def iql-or-fn
+  {:decl (CelFunctionDecl/newFunctionDeclaration
+          "_iql_or"
+          (ImmutableList/of
+           (CelOverloadDecl/newGlobalOverload
+            "_iql_or"
             SimpleType/BOOL
             (ImmutableList/of SimpleType/DYN SimpleType/DYN SimpleType/DYN SimpleType/DYN))))
    :runtime (CelRuntime$CelFunctionBinding/from
-             "_instant_or"
+             "_iql_or"
              (ImmutableList/of Object Object Object Object)
              (fn [[x y self-id parent-id]]
                ;; XXX: Maybe we should stick something in byParent to indicate that it's
@@ -368,16 +460,16 @@
                (println "parent-id" parent-id)
                (or x y)))})
 
-(def data-and-fn
+(def iql-and-fn
   {:decl (CelFunctionDecl/newFunctionDeclaration
-          "_instant_and"
+          "_iql_and"
           (ImmutableList/of
            (CelOverloadDecl/newGlobalOverload
-            "_instant_and"
+            "_iql_and"
             SimpleType/BOOL
             (ImmutableList/of SimpleType/DYN SimpleType/DYN SimpleType/DYN SimpleType/DYN))))
    :runtime (CelRuntime$CelFunctionBinding/from
-             "_instant_and"
+             "_iql_and"
              (ImmutableList/of Object Object Object Object)
              (fn [[x y self-id parent-id]]
                (println "EXECUTING AND")
@@ -393,29 +485,25 @@
                         [[:and {:and clauses}]]))
                (and x y)))})
 
-(def custom-fns [ref-fn data-compare-fn data-or-fn data-and-fn])
-(def custom-fn-decls (mapv :decl custom-fns))
-(def custom-fn-bindings (mapv :runtime custom-fns))
+(def custom-iql-fns [iql-ref-fn iql-in-fn iql-eq-fn iql-or-fn iql-and-fn])
+(def custom-iql-fn-decls (mapv :decl custom-iql-fns))
+(def custom-iql-fn-bindings (mapv :runtime custom-iql-fns))
 
-(def cel-options (-> (CelOptions/current)
-                     (.populateMacroCalls true)
-                     (.build)))
-
-(def ^:private ^CelCompiler cel-compiler
+(def ^:private ^CelCompiler cel-iql-compiler
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
       (.addVar "data" type-obj)
       (.addVar "auth" type-obj)
       (.addVar "newData" type-obj)
-      (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-fn-decls))
+      (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-iql-fn-decls))
       (.setOptions cel-options)
       (.setStandardMacros (CelStandardMacro/STANDARD_MACROS))
       (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings) (CelExtensions/strings)]))
       (.build)))
 
-(def ^:private ^CelRuntime cel-runtime
+(def ^:private ^CelRuntime cel-iql-runtime
   (-> (CelRuntimeFactory/standardCelRuntimeBuilder)
       (.addLibraries [(CelExtensions/strings)])
-      (.addFunctionBindings (ucoll/array-of CelRuntime$CelFunctionBinding custom-fn-bindings))
+      (.addFunctionBindings (ucoll/array-of CelRuntime$CelFunctionBinding custom-iql-fn-bindings))
       (.setOptions cel-options)
       (.build)))
 
@@ -424,9 +512,10 @@
 
 ;; other operations: in
 (def operator-replacements
-  {(.getFunction Operator/EQUALS) "_instant_data_compare"
-   (.getFunction Operator/LOGICAL_OR) "_instant_or"
-   (.getFunction Operator/LOGICAL_AND) "_instant_and"})
+  {(.getFunction Operator/EQUALS) "_iql_eq"
+   (.getFunction Operator/IN) "_iql_in"
+   (.getFunction Operator/LOGICAL_OR) "_iql_or"
+   (.getFunction Operator/LOGICAL_AND) "_iql_and"})
 
 (def has-children-operators (set [(.getFunction Operator/LOGICAL_OR)
                                   (.getFunction Operator/LOGICAL_AND)]))
@@ -544,8 +633,8 @@
                    rest-nodes)))))))
 
 ;; TODO: Do the optimize compile, validate, and optimize steps at save time and store the ast
-(def ^CelOptimizer cel-optimizer
-  (-> (CelOptimizerFactory/standardCelOptimizerBuilder cel-compiler cel-runtime)
+(def ^CelOptimizer cel-iql-optimizer
+  (-> (CelOptimizerFactory/standardCelOptimizerBuilder cel-iql-compiler cel-iql-runtime)
       (.addAstOptimizers (ImmutableList/of (MyOptimizer.)))
       (.build)))
 
@@ -567,13 +656,14 @@
 ;; XXX: Let's fix how instaql represents where-conds, because they're weird
 ;;      or we could return them as instaql maps, which might be better for
 ;;      displaying to the user??
-(defn get-where-clauses [ast auth]
+(defn get-where-clauses [code auth]
   (let [where-clauses (atom {:top-level []
                              :by-parent {}})]
     (binding [*where-clauses* where-clauses]
-      (let [program (->> ast
-                         (.optimize cel-optimizer)
-                         (->program))
+      (let [ast (.getAst (.compile cel-iql-compiler code))
+            program (->> ast
+                         (.optimize cel-iql-optimizer)
+                         (.createProgram cel-iql-runtime))
             evaluation-result (eval-program! {:cel-program program}
                                              {"auth" auth
                                               "data" (->CelHelperMap)})]
