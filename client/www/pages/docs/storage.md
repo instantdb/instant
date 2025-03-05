@@ -497,8 +497,7 @@ if (!fileInfo.exists) {
   throw new Error(`File does not exist at path: ${localFilePath}`);
 }
 
-// Given a local file on disk , this is how to get a File object out of
-// it. Fetch from disk, then upload to cloud.
+// Convert the local file to a File object
 const res = await fetch(fileInfo.uri);
 const blob = await res.blob();
 const file = new File([blob], payload.recordingId, { type: 'audio/x-m4a' });
