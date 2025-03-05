@@ -476,7 +476,7 @@ for a more detailed example showing how you may leverage links to implement an a
 
 ## Using Storage with React Native
 
-The SDK expects a `File` object. In React Native the built-in `fetch` function can be used to construct a `File`, then you can pass that to the `uploadFile` metod. 
+The SDK expects a `File` object. In React Native the built-in `fetch` function can be used to construct a `File`, then you can pass that to the `uploadFile` metod.
 
 Example:
 
@@ -489,7 +489,7 @@ const APP_ID = process.env.EXPO_PUBLIC_INSTANT_APP_ID;
 
 const db = init({ appId: APP_ID, schema });
 
-const localFilePath = 'file:///var/mobile/Containers/Data/my_file.m4a'
+const localFilePath = 'file:///var/mobile/Containers/Data/my_file.m4a';
 
 const fileInfo = await FileSystem.getInfoAsync(localFilePath);
 
