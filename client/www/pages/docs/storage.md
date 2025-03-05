@@ -501,7 +501,7 @@ if (!fileInfo.exists) {
 // it. Fetch from disk, then upload to cloud.
 const res = await fetch(fileInfo.uri);
 const blob = await res.blob();
-const file = new File([blob], payload.recordingId, { type: "audio/m4a" });
+const file = new File([blob], payload.recordingId, { type: 'audio/x-m4a' });
 
 await db.storage.uploadFile('my_file.m4a', file);
 ```
