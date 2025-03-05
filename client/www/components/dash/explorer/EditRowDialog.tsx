@@ -643,13 +643,6 @@ export function EditRowDialog({
     setUpdatedBlobValues((prev) => {
       const current = prev[field] || {};
 
-      if (value.trim() === 'null') {
-        return {
-          ...prev,
-          [field]: { type: 'json', value: null, error: null },
-        };
-      }
-
       return {
         ...prev,
         [field]: isValidJson(value)
