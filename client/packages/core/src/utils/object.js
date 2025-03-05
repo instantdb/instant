@@ -82,6 +82,36 @@ export function isObject(val) {
   return typeof val === 'object' && val !== null && !Array.isArray(val);
 }
 
+/**
+ * Like `assocInMutative`, but
+ *
+ * - for arrays: inserts the value at the specified index, instead of replacing it
+ */
+export function insertInMutative(obj, path, value) {
+  if (!obj) {
+    return;
+  }
+  if (path.length === 0) {
+    return;
+  }
+
+  let current = obj || {};
+  for (let i = 0; i < path.length - 1; i++) {
+    const key = path[i];
+    if (!(key in current) || typeof current[key] !== 'object') {
+      current[key] = typeof path[i + 1] === 'number' ? [] : {};
+    }
+    current = current[key];
+  }
+
+  const key = path[path.length - 1];
+  if (Array.isArray(current) && typeof key === 'number') {
+    current.splice(key, 0, value);
+  } else {
+    current[key] = value;
+  }
+}
+
 export function assocInMutative(obj, path, value) {
   if (!obj) {
     return;
@@ -100,7 +130,6 @@ export function assocInMutative(obj, path, value) {
   }
 
   current[path[path.length - 1]] = value;
-  return;
 }
 
 export function dissocInMutative(obj, path) {
@@ -118,7 +147,11 @@ export function dissocInMutative(obj, path) {
   }
 
   if (restPath.length === 0) {
-    delete obj[key];
+    if (Array.isArray(obj)) {
+      obj.splice(key, 1);
+    } else {
+      delete obj[key];
+    }
     return;
   }
 
@@ -126,8 +159,6 @@ export function dissocInMutative(obj, path) {
   if (isEmpty(obj[key])) {
     delete obj[key];
   }
-
-  return;
 }
 
 function isEmpty(obj) {
