@@ -430,6 +430,7 @@ export function Explorer({
   const [editableRowId, setEditableRowId] = useState<string | null>(null);
   const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
   const nsRef = useRef<HTMLDivElement>(null);
+  const lastSelectedIdRef = useRef<string | null>(null);
 
   const [searchFilters, setSearchFilters] = useState<SearchFilter[]>([]);
   const [ignoreUrlChanges, setIgnoreUrlChanges] = useState(false);
@@ -775,6 +776,39 @@ export function Explorer({
     } finally {
       setUploadingFile(false);
     }
+  };
+
+  const handleRangeSelection = (currentId: string, checked: boolean) => {
+    const allItemIds = allItems.map((i) => i.id as string);
+    const currentIndex = allItemIds.indexOf(currentId);
+    const lastSelectedIndex = allItemIds.indexOf(lastSelectedIdRef.current!);
+
+    // No-op if no previous selection or no current selection
+    if (
+      currentIndex === -1 ||
+      lastSelectedIndex === -1 ||
+      currentIndex === lastSelectedIndex
+    ) {
+      return;
+    }
+
+    const [start, end] = [
+      Math.min(currentIndex, lastSelectedIndex),
+      Math.max(currentIndex, lastSelectedIndex),
+    ];
+
+    setCheckedIds((prev) => {
+      const newCheckedIds = { ...prev };
+      for (let i = start; i <= end; i++) {
+        const id = allItemIds[i];
+        if (checked) {
+          newCheckedIds[id] = true;
+        } else {
+          delete newCheckedIds[id];
+        }
+      }
+      return newCheckedIds;
+    });
   };
 
   return (
@@ -1232,8 +1266,14 @@ export function Explorer({
                               allItems.map((i) => [i.id, true]),
                             ),
                           );
+                          // Use the first item as the last selected ID
+                          if (allItems.length > 0) {
+                            lastSelectedIdRef.current = allItems[0]
+                              .id as string;
+                          }
                         } else {
                           setCheckedIds({});
+                          lastSelectedIdRef.current = null;
                         }
                       }}
                     />
@@ -1313,16 +1353,29 @@ export function Explorer({
                     >
                       <Checkbox
                         checked={checkedIds[item.id as string] ?? false}
-                        onChange={(checked) => {
-                          setCheckedIds(
-                            produce(checkedIds, (draft) => {
+                        onChange={(checked, e) => {
+                          const isShiftPressed = e?.nativeEvent
+                            ? (e.nativeEvent as MouseEvent).shiftKey
+                            : false;
+
+                          if (isShiftPressed && lastSelectedIdRef.current) {
+                            handleRangeSelection(item.id as string, checked);
+                          } else {
+                            // Regular single click selection
+                            setCheckedIds((prev) => {
+                              const newCheckedIds = { ...prev };
                               if (checked) {
-                                draft[item.id as string] = true;
+                                newCheckedIds[item.id as string] = true;
                               } else {
-                                delete draft[item.id as string];
+                                delete newCheckedIds[item.id as string];
                               }
-                            }),
-                          );
+                              return newCheckedIds;
+                            });
+                          }
+
+                          // Updated last selected for proper range selection
+                          // in future operations
+                          lastSelectedIdRef.current = item.id as string;
                         }}
                       />
                       {readOnlyNs || sanitizedNsName === '$files' ? null : (
