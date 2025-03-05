@@ -855,6 +855,7 @@ export function Explorer({
         {!!selectedNamespace && !!selectedEditableItem ? (
           <EditRowDialog
             db={db}
+            appId={appId}
             namespace={selectedNamespace}
             item={selectedEditableItem}
             onClose={() => setEditableRowId(null)}
@@ -868,6 +869,7 @@ export function Explorer({
         {selectedNamespace ? (
           <EditRowDialog
             db={db}
+            appId={appId}
             item={{}}
             namespace={selectedNamespace}
             onClose={() => setAddItemDialogOpen(false)}
