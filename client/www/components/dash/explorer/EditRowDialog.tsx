@@ -877,7 +877,9 @@ export function EditRowDialog({
                         handleNullToggle(attr.name, checked)
                       }
                       label={
-                        <span className="text-xs text-gray-600">null</span>
+                        <span className="text-[10px] text-gray-600 uppercase">
+                          null
+                        </span>
                       }
                     />
                   </div>
