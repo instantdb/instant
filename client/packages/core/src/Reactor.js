@@ -17,6 +17,7 @@ import {
   areObjectsDeepEqual,
   assocInMutative,
   dissocInMutative,
+  insertInMutative,
 } from './utils/object';
 import { createLinkIndex } from './utils/linkIndex';
 import version from './version';
@@ -1713,16 +1714,23 @@ export default class Reactor {
     let sessions = Object.fromEntries(
       Object.entries(peers).map(([k, v]) => [k, { data: v }]),
     );
+    const myPresence = this._presence[roomId]?.result;
     const newSessions = create(sessions, (draft) => {
-      draft[this._sessionId] = { data: this._presence[roomId]?.result?.user };
       for (let [path, op, value] of edits) {
-        if (op === '+' || op === 'r') {
-          assocInMutative(draft, path, value);
-        }
-        if (op === '-') {
-          dissocInMutative(draft, path);
+        switch (op) {
+          case '+':
+            insertInMutative(draft, path, value);
+            break;
+          case 'r':
+            assocInMutative(draft, path, value);
+            break;
+          case '-':
+            dissocInMutative(draft, path);
+            break;
         }
       }
+      // Ignore our own edits
+      delete draft[this._sessionId];
     });
 
     this._setPresencePeers(roomId, newSessions);
