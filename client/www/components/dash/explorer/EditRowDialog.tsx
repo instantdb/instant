@@ -60,41 +60,6 @@ function validFieldTypeOptions(checkedDataType?: string): FieldTypeOption[] {
   return fieldTypeOptions.filter((opt) => opt.value === checkedDataType);
 }
 
-// Utility for field type preferences in localStorage
-const fieldTypePrefsUtil = {
-  getKey(appId: string, attrId: string): string {
-    return `instantdb_fieldTypePrefs_${appId}_${attrId}`;
-  },
-
-  saveFieldTypePreference(
-    appId: string,
-    attrId: string,
-    type: FieldType,
-  ): void {
-    try {
-      localStorage.setItem(this.getKey(appId, attrId), type);
-    } catch (error) {
-      console.warn(
-        'Failed to save field type preference to localStorage:',
-        error,
-      );
-    }
-  },
-
-  getFieldTypePreference(appId: string, attrId: string): FieldType | null {
-    try {
-      const value = localStorage.getItem(this.getKey(appId, attrId));
-      return value as FieldType | null;
-    } catch (error) {
-      console.warn(
-        'Failed to get field type preference from localStorage:',
-        error,
-      );
-      return null;
-    }
-  },
-};
-
 // returns true if value is an object or array (but not null)
 const isJsonObject = (value: any) => !!value && typeof value === 'object';
 
@@ -115,32 +80,36 @@ function tryJsonParse(value: any) {
   }
 }
 
-function getAppropriateFieldType(
-  appId: string,
-  namespace: SchemaNamespace,
-  attr: SchemaAttr,
-): FieldType {
-  const savedType = fieldTypePrefsUtil.getFieldTypePreference(appId, attr.id);
-  // If the attr is type checked use that
+function getAppropriateFieldType(attr: SchemaAttr, value: any): FieldType {
+  // Use the checkedDatatype if it's set
   if (attr.checkedDataType) {
-    // Dates can be strings or numbers so try to show what user last selected
     if (attr.checkedDataType === 'date') {
-      return savedType || 'string';
+      return 'string';
     }
     return attr.checkedDataType;
   }
 
-  // Otherwise there is a saved preference, use that
-  if (savedType) {
-    return savedType;
+  if (value != null) {
+    // if object or array, label as "json" for now
+    const t = isJsonObject(value) ? 'json' : typeof value;
+    // defaults to 'string' type (fieldTypeOptions[0])
+    const option = fieldTypeOptions.find((opt) => opt.value === t);
+
+    if (option) {
+      return option.value;
+    }
   }
 
-  // Finally fallback to the first option for new fields
+  // For nulls we guess the based on what we could infer from previous values
+  // for this attribute
+  if (attr.inferredTypes?.length) {
+    return attr.inferredTypes[0];
+  }
+
+  // Fallback to the first option
   return fieldTypeOptions[0].value;
 }
 
-// For now, since all values are stored as type "blob", we try
-// to parse the field value based on the provided field type
 function parseFieldValue(value: any, type: FieldType) {
   // Preserve null regardless of type
   if (value === null) {
@@ -532,13 +501,11 @@ function RefItem({
 }
 export function EditRowDialog({
   db,
-  appId,
   namespace,
   item,
   onClose,
 }: {
   db: InstantReactWebDatabase<any>;
-  appId: string;
   namespace: SchemaNamespace;
   item: Record<string, any>;
   onClose: () => void;
@@ -564,7 +531,7 @@ export function EditRowDialog({
   const currentBlobs = editableBlobAttrs.reduce(
     (acc, attr) => {
       const val = item[attr.name];
-      const t = getAppropriateFieldType(appId, namespace, attr);
+      const t = getAppropriateFieldType(attr, val);
 
       const defaultValue = op === 'add' ? defaultValueByType[t] : val;
 
@@ -574,7 +541,6 @@ export function EditRowDialog({
           type: t,
           value: defaultValue,
           error: null,
-          attrId: attr.id,
         },
       };
     },
@@ -646,7 +612,7 @@ export function EditRowDialog({
 
       return {
         ...prev,
-        [field]: { ...prev[field], type, value: parseFieldValue(value, type) },
+        [field]: { type, value: parseFieldValue(value, type) },
       };
     });
   };
@@ -663,7 +629,6 @@ export function EditRowDialog({
       return {
         ...prev,
         [field]: {
-          ...prev[field],
           type,
           value: parseFieldValue(value, type),
           error,
@@ -702,7 +667,6 @@ export function EditRowDialog({
       setUpdatedBlobValues((prev) => ({
         ...prev,
         [field]: {
-          ...prev[field],
           type: currentType,
           value: null, // set field to null
           error: null,
@@ -716,7 +680,6 @@ export function EditRowDialog({
       setUpdatedBlobValues((prev) => ({
         ...prev,
         [field]: {
-          ...prev[field],
           type: currentType,
           value: defaultValueByType[currentType as FieldType], // set to default
           error: null,
@@ -829,14 +792,6 @@ export function EditRowDialog({
       }
 
       await db.transact(chunks);
-
-      // Save field type preferences on successful save
-      Object.entries(blobUpdates).forEach(([fieldName, { type, attrId }]) => {
-        if (fieldName !== 'id') {
-          console.log('Saving field type preference', appId, attrId, type);
-          fieldTypePrefsUtil.saveFieldTypePreference(appId, attrId, type);
-        }
-      });
 
       onClose();
       successToast('Successfully updated row!');
