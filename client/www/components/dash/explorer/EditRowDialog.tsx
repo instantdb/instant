@@ -1,9 +1,4 @@
-import {
-  id,
-  InstantReactWebDatabase,
-  InstaQLParams,
-  tx,
-} from '@instantdb/react';
+import { id, InstantReactWebDatabase, tx } from '@instantdb/react';
 import { useMemo, useRef, useState } from 'react';
 
 import {
@@ -13,6 +8,7 @@ import {
   CodeEditor,
   Label,
   Select,
+  Checkbox,
 } from '@/components/ui';
 import { SchemaAttr, SchemaNamespace, SchemaNamespaceMap } from '@/lib/types';
 import { errorToast, successToast } from '@/lib/toast';
@@ -43,6 +39,27 @@ const fieldTypeOptions: FieldTypeOption[] = [
   { value: 'json', label: 'json' },
 ];
 
+const defaultValueByType: Record<FieldType, any> = {
+  string: '',
+  number: 0,
+  boolean: false,
+  json: {},
+};
+
+function validFieldTypeOptions(checkedDataType?: string): FieldTypeOption[] {
+  if (!checkedDataType) {
+    return fieldTypeOptions;
+  }
+
+  if (checkedDataType === 'date') {
+    return fieldTypeOptions.filter(
+      (opt) => opt.value === 'string' || opt.value === 'number',
+    );
+  }
+
+  return fieldTypeOptions.filter((opt) => opt.value === checkedDataType);
+}
+
 // returns true if value is an object or array (but not null)
 const isJsonObject = (value: any) => !!value && typeof value === 'object';
 
@@ -64,6 +81,14 @@ function tryJsonParse(value: any) {
 }
 
 function getAppropriateFieldType(attr: SchemaAttr, value: any): FieldType {
+  // Use the checkedDatatype if it's set
+  if (attr.checkedDataType) {
+    if (attr.checkedDataType === 'date') {
+      return 'string';
+    }
+    return attr.checkedDataType;
+  }
+
   if (value != null) {
     // if object or array, label as "json" for now
     const t = isJsonObject(value) ? 'json' : typeof value;
@@ -74,12 +99,9 @@ function getAppropriateFieldType(attr: SchemaAttr, value: any): FieldType {
       return option.value;
     }
   }
-  if (attr.checkedDataType) {
-    if (attr.checkedDataType === 'date') {
-      return 'string';
-    }
-    return attr.checkedDataType;
-  }
+
+  // For nulls we guess the based on what we could infer from previous values
+  // for this attribute
   if (attr.inferredTypes?.length) {
     return attr.inferredTypes[0];
   }
@@ -88,9 +110,12 @@ function getAppropriateFieldType(attr: SchemaAttr, value: any): FieldType {
   return fieldTypeOptions[0].value;
 }
 
-// For now, since all values are stored as type "blob", we try
-// to parse the field value based on the provided field type
 function parseFieldValue(value: any, type: FieldType) {
+  // Preserve null regardless of type
+  if (value === null) {
+    return null;
+  }
+
   if (type === 'number') {
     const cleaned = String(value).replace(/[^\d.-]/g, '');
     if (cleaned === '-' || cleaned === '.' || cleaned === '-.') return cleaned;
@@ -474,7 +499,6 @@ function RefItem({
     </>
   );
 }
-
 export function EditRowDialog({
   db,
   namespace,
@@ -509,7 +533,16 @@ export function EditRowDialog({
       const val = item[attr.name];
       const t = getAppropriateFieldType(attr, val);
 
-      return { ...acc, [attr.name]: { type: t, value: val, error: null } };
+      const defaultValue = op === 'add' ? defaultValueByType[t] : val;
+
+      return {
+        ...acc,
+        [attr.name]: {
+          type: t,
+          value: defaultValue,
+          error: null,
+        },
+      };
     },
     {} as Record<string, { type: FieldType; value: any; error: string | null }>,
   );
@@ -525,13 +558,52 @@ export function EditRowDialog({
   >({});
 
   const [jsonUpdates, setJsonUpdates] = useState<Record<string, any>>({});
+  const [nullFields, setNullFields] = useState<Record<string, boolean>>(
+    editableBlobAttrs.reduce((acc, attr) => {
+      // Don't set nullFields for new rows
+      return {
+        ...acc,
+        [attr.name]: op === 'edit' ? item[attr.name] === null : false,
+      };
+    }, {}),
+  );
 
   const hasFormErrors = Object.values(blobUpdates).some((u) => !!u.error);
   const [shouldDisplayErrors, setShouldDisplayErrors] = useState(false);
 
   const handleResetForm = () => {
     setRefUpdates({});
+
+    // Reset the blobUpdates to the original values
     setUpdatedBlobValues({ ...currentBlobs });
+
+    // Reset the nullFields state based on the original item
+    setNullFields(
+      editableBlobAttrs.reduce((acc, attr) => {
+        return {
+          ...acc,
+          [attr.name]: op === 'edit' ? item[attr.name] === null : false,
+        };
+      }, {}),
+    );
+
+    // Also reset any JSON updates to match the original values
+    const resetJsonUpdates: Record<string, any> = {};
+    editableBlobAttrs.forEach((attr) => {
+      if (
+        currentBlobs[attr.name]?.type === 'json' &&
+        item[attr.name] !== undefined
+      ) {
+        resetJsonUpdates[attr.name] =
+          item[attr.name] === null
+            ? 'null'
+            : JSON.stringify(item[attr.name], null, 2);
+      }
+    });
+    setJsonUpdates(resetJsonUpdates);
+
+    // Reset shouldDisplayErrors to clean state
+    setShouldDisplayErrors(false);
   };
 
   const handleChangeFieldType = (field: string, type: FieldType) => {
@@ -556,7 +628,11 @@ export function EditRowDialog({
 
       return {
         ...prev,
-        [field]: { type, value: parseFieldValue(value, type), error },
+        [field]: {
+          type,
+          value: parseFieldValue(value, type),
+          error,
+        },
       };
     });
   };
@@ -574,6 +650,39 @@ export function EditRowDialog({
           : { ...current, type: 'json', error: 'Invalid JSON' },
       };
     });
+  };
+
+  const handleNullToggle = (field: string, checked: boolean) => {
+    setNullFields((prev) => ({ ...prev, [field]: checked }));
+    const currentType = blobUpdates[field]?.type || 'string';
+
+    if (checked) {
+      setUpdatedBlobValues((prev) => ({
+        ...prev,
+        [field]: {
+          type: currentType,
+          value: null, // set field to null
+          error: null,
+        },
+      }));
+
+      if (currentType === 'json') {
+        setJsonUpdates((prev) => ({ ...prev, [field]: 'null' }));
+      }
+    } else {
+      setUpdatedBlobValues((prev) => ({
+        ...prev,
+        [field]: {
+          type: currentType,
+          value: defaultValueByType[currentType as FieldType], // set to default
+          error: null,
+        },
+      }));
+
+      if (currentType === 'json') {
+        setJsonUpdates((prev) => ({ ...prev, [field]: '{}' }));
+      }
+    }
   };
 
   const handleUnlinkRef = (attr: SchemaAttr, id: string) => {
@@ -665,6 +774,7 @@ export function EditRowDialog({
           }
         }
       }
+
       // Do unlinks first
       for (const unlink of unlinks) {
         chunks = chunks.unlink(unlink);
@@ -673,7 +783,9 @@ export function EditRowDialog({
       for (const link of links) {
         chunks = chunks.link(link);
       }
+
       await db.transact(chunks);
+
       onClose();
       successToast('Successfully updated row!');
     } catch (e: any) {
@@ -734,69 +846,98 @@ export function EditRowDialog({
             )}
           </div>
         ) : null}
+
         {editableBlobAttrs.map((attr, i) => {
           const tabIndex = i + 1;
           const { type, value, error } = blobUpdates[attr.name] || {
             type: 'string',
-            value: '',
+            value: defaultValueByType['string'],
           };
-          const json = jsonUpdates[attr.name] || JSON.stringify(value, null, 2);
+          const json =
+            jsonUpdates[attr.name] ||
+            (value !== null ? JSON.stringify(value, null, 2) : 'null');
+          const isNullField = nullFields[attr.name];
 
           return (
             <div key={attr.name} className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
                 <Label className="font-mono">{attr.name}</Label>
-                <Select
-                  className="w-24 rounded text-sm py-0.5 px-2"
-                  value={type}
-                  options={fieldTypeOptions}
-                  onChange={(option) =>
-                    handleChangeFieldType(attr.name, option!.value as FieldType)
-                  }
-                />
-              </div>
-              <div className="flex gap-1 flex-col">
-                {type === 'json' ? (
-                  <div className="h-32 border rounded w-full">
-                    <CodeEditor
-                      tabIndex={tabIndex}
-                      language="json"
-                      value={json}
-                      onChange={(code) => handleUpdateJson(attr.name, code)}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center">
+                    <Checkbox
+                      checked={isNullField}
+                      onChange={(checked) =>
+                        handleNullToggle(attr.name, checked)
+                      }
+                      label={
+                        <span className="text-[10px] text-gray-600 uppercase">
+                          null
+                        </span>
+                      }
                     />
                   </div>
-                ) : type === 'boolean' ? (
                   <Select
-                    tabIndex={tabIndex}
-                    value={value}
-                    options={[
-                      { value: '', label: '-' },
-                      { value: 'false', label: 'false' },
-                      { value: 'true', label: 'true' },
-                    ]}
+                    className="w-24 rounded text-sm py-0.5 px-2"
+                    value={type}
+                    options={validFieldTypeOptions(attr.checkedDataType)}
                     onChange={(option) =>
-                      handleUpdateFieldValue(attr.name, option!.value)
+                      handleChangeFieldType(
+                        attr.name,
+                        option!.value as FieldType,
+                      )
                     }
                   />
-                ) : type === 'number' ? (
-                  <input
-                    tabIndex={tabIndex}
-                    type="number"
-                    className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
-                    value={value ?? ''}
-                    onChange={(num) =>
-                      handleUpdateFieldValue(attr.name, num.target.value)
-                    }
-                  />
+                </div>
+              </div>
+              <div className="flex gap-1 flex-col">
+                {!isNullField ? (
+                  <>
+                    {type === 'json' ? (
+                      <div className="h-32 border rounded w-full">
+                        <CodeEditor
+                          tabIndex={tabIndex}
+                          language="json"
+                          value={json}
+                          onChange={(code) => handleUpdateJson(attr.name, code)}
+                        />
+                      </div>
+                    ) : type === 'boolean' ? (
+                      <Select
+                        tabIndex={tabIndex}
+                        value={value}
+                        options={[
+                          { value: 'false', label: 'false' },
+                          { value: 'true', label: 'true' },
+                        ]}
+                        onChange={(option) =>
+                          handleUpdateFieldValue(attr.name, option!.value)
+                        }
+                      />
+                    ) : type === 'number' ? (
+                      <input
+                        tabIndex={tabIndex}
+                        type="number"
+                        className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
+                        value={value ?? ''}
+                        onChange={(num) =>
+                          handleUpdateFieldValue(attr.name, num.target.value)
+                        }
+                      />
+                    ) : (
+                      <input
+                        tabIndex={tabIndex}
+                        className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
+                        value={value ?? ''}
+                        onChange={(e) =>
+                          handleUpdateFieldValue(attr.name, e.target.value)
+                        }
+                      />
+                    )}
+                  </>
                 ) : (
-                  <input
-                    tabIndex={tabIndex}
-                    className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
-                    value={value ?? ''}
-                    onChange={(e) =>
-                      handleUpdateFieldValue(attr.name, e.target.value)
-                    }
-                  />
+                  <div className="flex-1 rounded-sm border border-gray-200 bg-gray-50 px-3 py-1 text-gray-500 italic">
+                    null
+                  </div>
                 )}
                 {error && shouldDisplayErrors && (
                   <span className="text-sm text-red-500 font-medium">
@@ -807,6 +948,7 @@ export function EditRowDialog({
             </div>
           );
         })}
+
         {editableRefAttrs.map((attr, i) => {
           const namespace = attr.isForward
             ? attr.linkConfig.reverse!.nsMap
