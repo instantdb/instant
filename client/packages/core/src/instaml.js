@@ -175,7 +175,7 @@ function expandUnlink(attrs, [etype, eidA, obj]) {
 function expandUpdate(attrs, [etype, eid, obj]) {
   const lookup = extractLookup(attrs, etype, eid);
   // id first so that we don't clobber updates on the lookup field
-  const attrTuples = [['id', extractLookup(attrs, etype, eid)]]
+  const attrTuples = [['id', lookup]]
     .concat(Object.entries(obj))
     .map(([identName, value]) => {
       const attr = getAttrByFwdIdentName(attrs, etype, identName);
@@ -207,6 +207,12 @@ function expandDeepMerge(attrs, [etype, eid, obj]) {
   // id first so that we don't clobber updates on the lookup field
   return [idTuple].concat(attrTuples);
 }
+
+function expandRuleParams(attrs, [etype, eid, ruleParams]) {
+  const lookup = extractLookup(attrs, etype, eid);
+  return [['rule-params', lookup, etype, ruleParams]];
+}
+
 function removeIdFromArgs(step) {
   const [op, etype, eid, obj] = step;
   if (!obj) {
@@ -230,6 +236,8 @@ function toTxSteps(attrs, step) {
       return expandUnlink(attrs, args);
     case 'delete':
       return expandDelete(attrs, args);
+    case 'ruleParams':
+      return expandRuleParams(attrs, args);
     default:
       throw new Error(`unsupported action ${action}`);
   }
@@ -341,6 +349,7 @@ const SUPPORTS_LOOKUP_ACTIONS = new Set([
   'update',
   'merge',
   'delete',
+  'ruleParams'
 ]);
 
 const lookupProps = { 'unique?': true, 'index?': true };
@@ -481,21 +490,8 @@ function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
 
 export function transform(ctx, inputChunks) {
   const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
-
   const ops = chunks.flatMap((tx) => getOps(tx));
   const [newAttrs, addAttrTxSteps] = createMissingAttrs(ctx, ops);
-
-  const txSteps = [];
-  for (const chunk of chunks) {
-    const ops = chunk.__ops;
-    const ruleParams = chunk.__ruleParams;
-    for (const op of ops) {
-      for (const txStep of toTxSteps(newAttrs, op)) {
-        const [op, a, b, c] = txStep;
-        txSteps.push(ruleParams ? [op, a, b, c, ruleParams] : txStep);
-      }
-    }
-  }
-
+  const txSteps = ops.flatMap((op) => toTxSteps(newAttrs, op));
   return [...addAttrTxSteps, ...txSteps];
 }

@@ -224,6 +224,11 @@ function init<
  */
 const init_experimental = init;
 
+function steps(inputChunks) {
+  const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
+  return chunks.flatMap(getOps);
+}
+
 /**
  *
  * The first step: init your application!
@@ -340,7 +345,7 @@ class InstantAdmin<
     return jsonFetch(`${this.config.apiURI}/admin/transact`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
-      body: JSON.stringify({ steps: steps }),
+      body: JSON.stringify({ steps: steps(inputChunks) }),
     });
   };
 
@@ -419,7 +424,7 @@ class InstantAdmin<
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({
-        steps: steps,
+        steps: steps(inputChunks),
         'rules-override': opts?.rules,
         // @ts-expect-error because we're using a private API (for now)
         'dangerously-commit-tx': opts?.__dangerouslyCommit,
@@ -866,7 +871,7 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({
-        steps: steps,
+        steps: steps(inputChunks),
         'throw-on-missing-attrs?': !!this.config.schema,
       }),
     });
@@ -947,7 +952,7 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({
-        steps: steps,
+        steps: steps(inputChunks),
         'rules-override': opts?.rules,
         // @ts-expect-error because we're using a private API (for now)
         'dangerously-commit-tx': opts?.__dangerouslyCommit,

@@ -18,7 +18,6 @@ export interface TransactionChunk<
   EntityName extends keyof Schema['entities'],
 > {
   __ops: Op[];
-  __ruleParams: RuleParams;
   /**
    * Create and update objects:
    *
@@ -116,18 +115,13 @@ export type TxChunk<Schema extends IContainEntitiesAndLinks<any, any>> = {
 function transactionChunk(
   etype: EType,
   id: Id | LookupRef,
-  ruleParams: RuleParams,
   prevOps: Op[],
 ): TransactionChunk<any, any> {
   return new Proxy({} as TransactionChunk<any, any>, {
     get: (_target, cmd: keyof TransactionChunk<any, any>) => {
       if (cmd === '__ops') return prevOps;
-      if (cmd === '__ruleParams') return ruleParams;
-      if (cmd === 'ruleParams') {
-        return (args: Args) => transactionChunk(etype, id, {...ruleParams, ...args}, prevOps);
-      }
       return (args: Args) => {
-        return transactionChunk(etype, id, ruleParams, [...prevOps, [cmd, etype, id, args]]);
+        return transactionChunk(etype, id, [...prevOps, [cmd, etype, id, args]]);
       };
     },
   });
@@ -158,9 +152,9 @@ function etypeChunk(etype: EType): ETypeChunk<any, EType> {
     {
       get(_target, id: Id) {
         if (isLookup(id)) {
-          return transactionChunk(etype, parseLookup(id), undefined, []);
+          return transactionChunk(etype, parseLookup(id), []);
         }
-        return transactionChunk(etype, id, undefined, []);
+        return transactionChunk(etype, id, []);
       },
     },
   );
@@ -192,8 +186,4 @@ export const tx = txInit();
 
 export function getOps(x: TransactionChunk<any, any>): Op[] {
   return x.__ops;
-}
-
-export function getRuleParams(x: TransactionChunk<any, any>): RuleParams {
-  return x.__ruleParams;
 }
