@@ -82,9 +82,12 @@ export function isObject(val) {
   return typeof val === 'object' && val !== null && !Array.isArray(val);
 }
 
-export function assocIn(obj, path, value) {
+export function assocInMutative(obj, path, value) {
+  if (!obj) {
+    return;
+  }
   if (path.length === 0) {
-    return value;
+    return;
   }
 
   let current = obj || {};
@@ -97,33 +100,34 @@ export function assocIn(obj, path, value) {
   }
 
   current[path[path.length - 1]] = value;
-  return obj;
+  return;
 }
 
-export function dissocIn(obj, path) {
+export function dissocInMutative(obj, path) {
+  if (!obj) {
+    return;
+  }
   if (path.length === 0) {
-    return undefined;
+    return;
   }
 
   const [key, ...restPath] = path;
 
   if (!(key in obj)) {
-    return obj;
+    return;
   }
 
   if (restPath.length === 0) {
     delete obj[key];
-    return isEmpty(obj) ? undefined : obj;
+    return;
   }
 
-  const child = dissocIn(obj[key], restPath);
-
-  if (child === undefined) {
+  dissocInMutative(obj[key], restPath);
+  if (isEmpty(obj[key])) {
     delete obj[key];
-    return isEmpty(obj) ? undefined : obj;
   }
 
-  return obj;
+  return;
 }
 
 function isEmpty(obj) {
