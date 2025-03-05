@@ -1344,7 +1344,7 @@ export function Explorer({
                       <Checkbox
                         checked={checkedIds[item.id as string] ?? false}
                         onChange={(checked, e) => {
-                          const isShiftPressed = e?.nativeEvent
+                          const isShiftPressed = e.nativeEvent
                             ? (e.nativeEvent as MouseEvent).shiftKey
                             : false;
 

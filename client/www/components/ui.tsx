@@ -323,7 +323,7 @@ export function Checkbox({
   labelClassName?: string;
   onChange: (
     checked: boolean,
-    event?: React.ChangeEvent<HTMLInputElement>,
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => void;
   required?: boolean;
   disabled?: boolean | undefined;
