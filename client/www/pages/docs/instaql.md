@@ -586,13 +586,9 @@ const query = {
 
 ## Advanced filtering
 
-### And
+### Multiple `where` conditions
 
 The `where` clause supports multiple keys which will filter entities that match all of the conditions.
-
-You can also provide a list of queries under the `where` key.
-
-**Multiple keys in a single where**:
 
 ```javascript
 const query = {
@@ -621,11 +617,11 @@ console.log(data)
 }
 ```
 
-**`and` key:**
+### And
 
-The `and` key is useful when you want an entity to match multiple conditions.
-In this case we want to find goals that have both `Drink protein` and `Go on a
-run` todos.:
+The `and` key is useful when you want filter entities that match multiple associated values.
+In this case we want to find goals that have todos with the titles `Drink protein` and `Go on a
+run`
 
 ```javascript
 const query = {
