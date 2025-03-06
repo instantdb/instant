@@ -13,10 +13,12 @@
    [instant.util.exception :as ex]
    [instant.util.tracer :as tracer])
   (:import
+   (com.google.common.base Preconditions)
    (com.google.common.collect ImmutableList)
    (com.google.protobuf NullValue)
    (dev.cel.common CelAbstractSyntaxTree
                    CelFunctionDecl
+                   CelIssue
                    CelMutableAst
                    CelOptions
                    CelOverloadDecl)
@@ -44,7 +46,9 @@
                       CelAstOptimizer$OptimizationResult
                       CelOptimizer
                       CelOptimizerFactory)
-   (dev.cel.parser CelStandardMacro
+   (dev.cel.parser CelMacro
+                   CelMacroExprFactory
+                   CelStandardMacro
                    CelUnparserFactory
                    Operator)
    (dev.cel.runtime CelEvaluationException
@@ -330,51 +334,31 @@
                String
                impl))})
 
-;; XXX: These should be in a separate cel-compiler + cel-runtime
 (def iql-eq-fn
   {:decl (CelFunctionDecl/newFunctionDeclaration
           "_iql_eq"
           (ImmutableList/of
            (CelOverloadDecl/newGlobalOverload
             "_iql_eq"
-            SimpleType/BOOL
-            (ImmutableList/of SimpleType/DYN SimpleType/DYN SimpleType/DYN))))
+            SimpleType/DYN
+            (ImmutableList/of SimpleType/DYN SimpleType/DYN))))
    :runtime (CelRuntime$CelFunctionBinding/from
              "_iql_eq"
-             (ImmutableList/of Object Object Object)
-             (fn [[x y parent-id]]
-               (println "parent_id" parent-id)
-               ;; Probably should log here
-               (cond (nil? *where-clauses*)
-                     (throw (Exception. "Called data-compare without *where-clauses*"))
-
-                     (and (instance? DataKey x)
+             (ImmutableList/of Object Object)
+             (fn [[x y]]
+               (println "EXECUTING ==" x y)
+               (cond (and (instance? DataKey x)
                           ;; Can't have someone doing data.a == data.b
                           (not (instance? DataKey y)))
-
-                     (do
-                       (swap! *where-clauses*
-                              update-in
-                              (if (= NullValue/NULL_VALUE parent-id)
-                                [:top-level]
-                                [:by-parent parent-id])
-                              (fnil conj [])
-                              [[:cond {:path [(:key x)]
-                                       :v [:value y]}]])
-                       true)
+                     (with-meta
+                       {(:key x) y}
+                       {:where-clause? true})
 
                      (and (instance? DataKey y)
                           (not (instance? DataKey x)))
-                     (do
-                       (swap! *where-clauses*
-                              update-in
-                              (if (= NullValue/NULL_VALUE parent-id)
-                                [:top-level]
-                                [:by-parent parent-id])
-                              (fnil conj [])
-                              [[:cond {:path [(:key y)]
-                                       :v [:value x]}]])
-                       true)
+                     (with-meta
+                       {(:key y) x}
+                       {:where-clause? true})
 
                      (and (instance? DataKey y)
                           (instance? DataKey x))
@@ -390,43 +374,26 @@
           (ImmutableList/of
            (CelOverloadDecl/newGlobalOverload
             "_iql_in"
-            SimpleType/BOOL
-            (ImmutableList/of SimpleType/DYN SimpleType/DYN SimpleType/DYN))))
+            SimpleType/DYN
+            (ImmutableList/of SimpleType/DYN SimpleType/DYN))))
    :runtime (CelRuntime$CelFunctionBinding/from
              "_iql_in"
-             (ImmutableList/of Object Object Object)
-             (fn [[x y parent-id]]
-               (tool/def-locals)
+             (ImmutableList/of Object Object)
+             (fn [[x y]]
+               (println "EXECUTING IN" x y)
                (cond
                  (and (instance? DataKey x)
                       (instance? ArrayList y))
-
-                 (do
-                   (swap! *where-clauses*
-                          update-in
-                          (if (= NullValue/NULL_VALUE parent-id)
-                            [:top-level]
-                            [:by-parent parent-id])
-                          (fnil conj [])
-                          [[:cond {:path [(:key x)]
-                                   :v [:args-map {:$in (set y)}]}]])
-                   true)
+                 (with-meta
+                   {(:key x) {:$in (set y)}}
+                   {:where-clause? true})
 
                  ;; XXX: Not sure what we need the type of `x` to be here...
                  (and (string? x)
                       (:path-str (meta y)))
-                 (do
-                   (tool/def-locals)
-                   (println "HERE")
-                   (swap! *where-clauses*
-                          update-in
-                          (if (= NullValue/NULL_VALUE parent-id)
-                            [:top-level]
-                            [:by-parent parent-id])
-                          (fnil conj [])
-                          [[:cond {:path (clojure-string/split (:path-str (meta y)) #"\.")
-                                   :v [:value x]}]])
-                   true)
+                 (with-meta
+                   {(:path-str (meta y)) x}
+                   {:where-clause? true})
 
                  :else
                  (ucoll/exists? (fn [candidate]
@@ -439,26 +406,26 @@
           (ImmutableList/of
            (CelOverloadDecl/newGlobalOverload
             "_iql_or"
-            SimpleType/BOOL
-            (ImmutableList/of SimpleType/DYN SimpleType/DYN SimpleType/DYN SimpleType/DYN))))
+            SimpleType/DYN
+            (ImmutableList/of SimpleType/DYN SimpleType/DYN))))
    :runtime (CelRuntime$CelFunctionBinding/from
              "_iql_or"
-             (ImmutableList/of Object Object Object Object)
-             (fn [[x y self-id parent-id]]
-               ;; XXX: Maybe we should stick something in byParent to indicate that it's
-               ;;      already consumed and throw if we try to put something there?
-               (when-let [clauses (seq (get-in @*where-clauses* [:by-parent self-id]))]
-                 (swap! *where-clauses*
-                        update-in
-                        (if (= NullValue/NULL_VALUE parent-id)
-                          [:top-level]
-                          [:by-parent parent-id])
-                        (fnil conj [])
-                        [[:or {:or clauses}]]))
-               (println "EXECUTING OR")
-               (println "self-id" self-id)
-               (println "parent-id" parent-id)
-               (or x y)))})
+             (ImmutableList/of Object Object)
+             (fn [[x y]]
+               (println "EXECUTING OR" x y)
+               (cond (and (:where-clause? (meta x))
+                          (:where-clause? (meta y)))
+                     (with-meta
+                       {:or [x y]}
+                       {:where-clause? true})
+
+                     (:where-clause? (meta x))
+                     x
+
+                     (:where-clause? (meta y))
+                     y
+
+                     :else (or x y))))})
 
 (def iql-and-fn
   {:decl (CelFunctionDecl/newFunctionDeclaration
@@ -466,24 +433,31 @@
           (ImmutableList/of
            (CelOverloadDecl/newGlobalOverload
             "_iql_and"
-            SimpleType/BOOL
-            (ImmutableList/of SimpleType/DYN SimpleType/DYN SimpleType/DYN SimpleType/DYN))))
+            SimpleType/DYN
+            (ImmutableList/of SimpleType/DYN SimpleType/DYN))))
    :runtime (CelRuntime$CelFunctionBinding/from
              "_iql_and"
-             (ImmutableList/of Object Object Object Object)
+             (ImmutableList/of Object Object)
              (fn [[x y self-id parent-id]]
-               (println "EXECUTING AND")
-               (println "self-id" self-id)
-               (println "parent-id" parent-id)
-               (when-let [clauses (seq (get-in @*where-clauses* [:by-parent self-id]))]
-                 (swap! *where-clauses*
-                        update-in
-                        (if (= NullValue/NULL_VALUE parent-id)
-                          [:top-level]
-                          [:by-parent parent-id])
-                        (fnil conj [])
-                        [[:and {:and clauses}]]))
-               (and x y)))})
+               (println "EXECUTING AND" x y self-id parent-id)
+               (cond (and (:where-clause? (meta x))
+                          (:where-clause? (meta y)))
+                     ;; XXX: Make a return-where-clause thing
+                     (with-meta
+                       {:and [x y]}
+                       {:where-clause? true})
+
+                     (:where-clause? (meta x))
+                     (if y
+                       x
+                       y)
+
+                     (:where-clause? (meta y))
+                     (if x
+                       y
+                       x)
+
+                     :else (and x y))))})
 
 (def custom-iql-fns [iql-ref-fn iql-in-fn iql-eq-fn iql-or-fn iql-and-fn])
 (def custom-iql-fn-decls (mapv :decl custom-iql-fns))
@@ -521,8 +495,6 @@
                                   (.getFunction Operator/LOGICAL_AND)]))
 
 (def can-replace-operator? (set (keys operator-replacements)))
-
-(def can-set-parent? (set (vals operator-replacements)))
 
 (defn get-expr [^CelNavigableExpr node]
   ;; Not sure why this is necessary, but can't call
@@ -566,17 +538,6 @@
    (and (= CelExpr$ExprKind$Kind/CALL (.getKind node))
         (can-replace-operator? (.function (.call (get-expr node)))))))
 
-(defn should-set-parent-id? [^CelNavigableMutableExpr node]
-  (boolean
-   (and (= CelExpr$ExprKind$Kind/CALL (.getKind node))
-        (let [c (.call (get-expr node))]
-          (and
-           (can-set-parent? (.function c))
-           (let [last-arg (last (.args c))]
-             (and last-arg
-                  (= CelExpr$ExprKind$Kind/CONSTANT (.getKind last-arg))
-                  (= CelConstant$Kind/NULL_VALUE (.getKind (.constant last-arg))))))))))
-
 (deftype MyOptimizer []
   CelAstOptimizer
   (optimize [_this ast _cel]
@@ -603,28 +564,6 @@
                 func (.function (.call expr))]
             (println "OPTIMIZING" func (contains? has-children-operators func))
             (.setFunction (.call expr) (get operator-replacements func))
-
-            (when (contains? has-children-operators func)
-              (let [self-id (next-id)
-                    set-parent-nodes (-> (CelNavigableMutableExpr/fromExpr expr)
-                                         (.descendants)
-                                         (.filter should-set-parent-id?)
-                                         (.collect (ImmutableList/toImmutableList)))]
-                (doseq [set-parent-node set-parent-nodes]
-                  (let [e (get-expr set-parent-node)
-                        c (.call e)
-                        arg (last (.args c))]
-                    (.setConstant arg (CelConstant/ofObjectValue self-id))))
-                (println "ADDING SELF ID" self-id)
-                (.addArgs (.call expr)
-                          (ImmutableList/of
-                           (CelMutableExpr/ofConstant (CelConstant/ofObjectValue self-id))))))
-
-            ;; Start with nil as the parent,
-            ;; then the or/and will set the parent when they're processed
-            (.addArgs (.call expr)
-                      (ImmutableList/of
-                       (CelMutableExpr/ofConstant (CelConstant/ofObjectValue NullValue/NULL_VALUE))))
 
             (recur (.replaceSubtree ast-mutator
                                     mutable-ast
@@ -667,9 +606,16 @@
             evaluation-result (eval-program! {:cel-program program}
                                              {"auth" auth
                                               "data" (->CelHelperMap)})]
-        {:evaluation-result evaluation-result
-         :where-clauses (when-let [clauses (seq (:top-level @where-clauses))]
-                          [[:and {:and clauses}]])}))))
+        {:short-circuit? (= false evaluation-result)
+         :where-clauses (when (:where-clause? (meta evaluation-result))
+                          evaluation-result)}))))
+
+(defn debug-transform [code]
+  (let [ast (.getAst (.compile cel-iql-compiler code))]
+    (->> ast
+         (.optimize cel-iql-optimizer)
+         unparse
+         )))
 
 
 ;; Static analysis

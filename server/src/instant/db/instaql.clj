@@ -1067,19 +1067,30 @@
         {:aggregate aggregate
          :children nil}))}))
 
+(defn rule-wheres->conds [ctx etype]
+  (when-let [wheres (some-> ctx
+                            :rule-wheres
+                            (get etype)
+                            :wheres)]
+    (let [forms {etype {:$ {:where wheres}}}]
+      (-> forms
+          ->forms!
+          first
+          :option-map
+          :where-conds))))
+
 (defn instaql-query->patterns [ctx o]
   (let [forms* (->> (->forms! o)
-                   ;; at the top-level, `k` _must_ be the etype
-                   (mapv (fn [{:keys [k] :as form}]
-                           (let [extra-conds (some-> ctx
-                                                     :rule-wheres
-                                                     (get k)
-                                                     :wheres)]
-                             (cond-> form
-                               true (assoc :etype k :level 0)
-                               (seq extra-conds) (update-in [:option-map :where-conds]
-                                                            (fnil concat ())
-                                                            extra-conds))))))
+                    ;; at the top-level, `k` _must_ be the etype
+                    (mapv (fn [{:keys [k] :as form}]
+                            (let [extra-conds (rule-wheres->conds ctx k)]
+                              (cond-> form
+                                true (assoc :etype k :level 0)
+                                (seq extra-conds) (update-in [:option-map :where-conds]
+                                                             (fn [existing]
+                                                               (if (seq existing)
+                                                                 [[:and {:and [existing
+                                                                               extra-conds]}]]))))))))
         _ (tool/def-locals)
 
         {:keys [pattern-groups
@@ -1912,13 +1923,13 @@
         programs (reduce (fn [acc etype]
                            (if-let [program (rule-model/get-program! rules etype "view")]
                              (try
-                               (let [{:keys [evaluation-result where-clauses]}
+                               (let [{:keys [short-circuit? where-clauses]}
                                      (cel/get-where-clauses (:code program) (cel/->cel-map {:ctx ctx
                                                                                             :type :auth
                                                                                             :etype "$users"}
                                                                                            (:current-user ctx)))]
                                  (tool/def-locals)
-                                 (assoc acc etype {:evaluation-result evaluation-result
+                                 (assoc acc etype {:short-circuit? short-circuit?
                                                    :wheres where-clauses}))
                                (catch Exception e
                                  (clojure.tools.logging/info "ERROR" e)
