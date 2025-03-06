@@ -376,6 +376,16 @@ test.each([
     },
     ['joe', 'stopa'],
   ],
+  [
+    'with ands in ors in ands',
+    {
+      and: [
+        { or: [{ and: [{ handle: 'stopa' }] }] },
+        { or: [{ and: [{ or: [{ handle: 'stopa' }] }] }] },
+      ],
+    },
+    ['stopa'],
+  ],
 ])('Where OR %s', (_, whereQuery, expected) => {
   expect(
     query(

@@ -809,31 +809,49 @@
                      origin-col)]
     [:= (kw prefix origin-idx "-" origin-col) dest-col]))
 
-(defn- or-join-cond-for-or-gather
-  [prefix dest-paths origin-path]
-  (mapv (fn [dest-path]
-          (cond (set? dest-path)
-                (list* :or (or-join-cond-for-or-gather prefix dest-path origin-path))
+(defn single-path? [path]
+  (and (= 2 (count path))
+       (every? int? path)))
 
-                (and (= 2 (count dest-path))
-                     (every? int? dest-path))
-                (join-cond-for-or-gather prefix origin-path dest-path)
+(defn- or-join-conds-for-or-gather
+  "Generates join conditions for origin-paths and dest-paths.
+   origin-paths and dest-paths have the same shape. They can either be:
+     1. A single path [cte-idx col-idx]
+     2. A list of paths [path-1, path-2], where we need to join them with AND
+     3. A set of paths #{path-1, path-2}, where we need to join them with OR
+   Something like type path = (int, int) | Array<path> | Set<path>"
+  [prefix origin-paths dest-paths]
+  (cond (and (single-path? origin-paths)
+             (single-path? dest-paths))
+        [(join-cond-for-or-gather prefix origin-paths dest-paths)]
 
-                :else
-                (list* :and (or-join-cond-for-or-gather prefix dest-path origin-path))))
-        dest-paths))
+        (set? origin-paths)
+        [(list* :or (mapcat (fn [o]
+                              (or-join-conds-for-or-gather prefix o dest-paths))
+                            origin-paths))]
+
+        (set? dest-paths)
+        [(list* :or (mapcat (fn [d]
+                              (or-join-conds-for-or-gather prefix origin-paths d))
+                            dest-paths))]
+
+        (single-path? origin-paths)
+        [(list* :and (mapcat (fn [d]
+                               (or-join-conds-for-or-gather prefix origin-paths d))
+                             dest-paths))]
+
+        :else
+        [(list* :and (mapcat (fn [o]
+                               (or-join-conds-for-or-gather prefix o dest-paths))
+                             origin-paths))]))
 
 (defn join-conds-for-or-gather
   "Generates the join conditions for connecting the or cte into the previous ctes."
   [prefix symbol-map or-symbol-maps join-sym]
   (let [ors (for [or-symbol-map or-symbol-maps
-                  :let [ands (for [dest-paths (get symbol-map join-sym)
-                                   origin-path (get or-symbol-map join-sym)]
-                               (if (set? dest-paths)
-                                 (list* :or (map (fn [paths]
-                                                   (or-join-cond-for-or-gather prefix paths origin-path))
-                                                 dest-paths))
-                                 (join-cond-for-or-gather prefix dest-paths origin-path)))]
+                  :let [dest-paths (get symbol-map join-sym)
+                        origin-paths (get or-symbol-map join-sym)
+                        ands (or-join-conds-for-or-gather prefix origin-paths dest-paths)]
                   :when (seq ands)]
               (list* :and ands))]
     (when (seq ors)

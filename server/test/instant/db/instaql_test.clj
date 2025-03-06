@@ -2448,6 +2448,55 @@
                ("eid-stepan-parunashvili" :users/handle "stopa")
                ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))})))))))
 
+(deftest or-stress-test
+  (with-zeneca-app
+    (fn [app r]
+      (let [ctx (make-ctx app)
+            query-pretty (partial query-pretty ctx r)]
+        (is-pretty-eq?
+         (query-pretty
+          {:users {:$ {:where {:and [{:or [{:and [{:handle "stopa"}]}]}
+                                     {:or [{:and [{:or [{:handle "stopa"}]}]}]}]}}}})
+         '({:topics ([:av _ #{:users/handle} #{"stopa"}]
+                     [:av #{"eid-stepan-parunashvili"} #{:users/handle} #{"stopa"}]
+                     --
+                     [:ea #{"eid-stepan-parunashvili"}
+                      #{:users/createdAt :users/email :users/id :users/fullName
+                        :users/handle} _])
+            :triples
+            (("eid-stepan-parunashvili" :users/handle "stopa")
+             ("eid-stepan-parunashvili" :users/handle "stopa")
+             --
+             ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+             ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
+             ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+             ("eid-stepan-parunashvili" :users/handle "stopa")
+             ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))}))
+
+        (is-pretty-eq?
+         (query-pretty
+          {:users {:$ {:where {:and [{:or [{:or [{:handle "stopa"}
+                                                 {:or [{:handle "stopa"} {:handle "stopa"}]}]}
+                                           {:handle "stopa"}]}
+                                     {:or [{:or [{:handle "stopa"}
+                                                 {:or [{:handle "stopa"} {:handle "stopa"}]}]}
+                                           {:handle "stopa"}]}]}}}})
+         '({:topics ([:av _ #{:users/handle} #{"stopa"}]
+                     [:av #{"eid-stepan-parunashvili"} #{:users/handle} #{"stopa"}]
+                     --
+                    [:ea #{"eid-stepan-parunashvili"}
+                      #{:users/createdAt :users/email :users/id :users/fullName
+                        :users/handle} _])
+            :triples
+            (("eid-stepan-parunashvili" :users/handle "stopa")
+             ("eid-stepan-parunashvili" :users/handle "stopa")
+             --
+             ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+             ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
+             ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+             ("eid-stepan-parunashvili" :users/handle "stopa")
+             ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))}))))))
+
 (deftest comparators
   (with-zeneca-checked-data-app
     ;; We don't use the zeneca app here, but we need its triples
