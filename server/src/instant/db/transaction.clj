@@ -315,8 +315,14 @@
              (fn [acc op tx-steps]
                (when (#{:add-attr :update-attr} op)
                  (prevent-system-catalog-attrs-updates! op tx-steps))
-               (if (empty? tx-steps)
+               (cond
+                 (empty? tx-steps)
                  acc
+
+                 (= :rule-params op)
+                 acc
+
+                 :else
                  (assoc acc op
                         (case op
                           :add-attr

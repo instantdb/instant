@@ -340,8 +340,6 @@ class InstantAdmin<
   transact = (
     inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
   ) => {
-    const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
-    const steps = chunks.flatMap((tx) => getOps(tx));
     return jsonFetch(`${this.config.apiURI}/admin/transact`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
@@ -418,8 +416,6 @@ class InstantAdmin<
     inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
     opts?: { rules?: any },
   ) => {
-    const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
-    const steps = chunks.flatMap((tx) => getOps(tx));
     return jsonFetch(`${this.config.apiURI}/admin/transact_perms_check`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
@@ -865,8 +861,6 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
   transact = (
     inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
   ) => {
-    const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
-    const steps = chunks.flatMap((tx) => getOps(tx));
     return jsonFetch(`${this.config.apiURI}/admin/transact`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
@@ -946,8 +940,6 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
     inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
     opts?: { rules?: any },
   ) => {
-    const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
-    const steps = chunks.flatMap((tx) => getOps(tx));
     return jsonFetch(`${this.config.apiURI}/admin/transact_perms_check`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
