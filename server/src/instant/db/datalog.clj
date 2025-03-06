@@ -813,7 +813,14 @@
   (and (= 2 (count path))
        (every? int? path)))
 
-(defn- or-join-conds-for-or-gather [prefix origin-paths dest-paths]
+(defn- or-join-conds-for-or-gather
+  "Generates join conditions for origin-paths and dest-paths.
+   origin-paths and dest-paths have the same shape. They can either be:
+     1. A single path [cte-idx col-idx]
+     2. A list of paths [path-1, path-2], where we need to join them with AND
+     3. A set of paths #{path-1, path-2}, where we need to join them with OR
+   Something like type path = (int, int) | Array<path> | Set<path>"
+  [prefix origin-paths dest-paths]
   (cond (and (single-path? origin-paths)
              (single-path? dest-paths))
         [(join-cond-for-or-gather prefix origin-paths dest-paths)]
@@ -841,12 +848,12 @@
 (defn join-conds-for-or-gather
   "Generates the join conditions for connecting the or cte into the previous ctes."
   [prefix symbol-map or-symbol-maps join-sym]
-  (let [ors (doall (for [or-symbol-map or-symbol-maps
-                         :let [dest-paths (get symbol-map join-sym)
-                               origin-paths (get or-symbol-map join-sym)
-                               ands (or-join-conds-for-or-gather prefix origin-paths dest-paths)]
-                         :when (seq ands)]
-                     (list* :and ands)))]
+  (let [ors (for [or-symbol-map or-symbol-maps
+                  :let [dest-paths (get symbol-map join-sym)
+                        origin-paths (get or-symbol-map join-sym)
+                        ands (or-join-conds-for-or-gather prefix origin-paths dest-paths)]
+                  :when (seq ands)]
+              (list* :and ands))]
     (when (seq ors)
       (list* :or ors))))
 
