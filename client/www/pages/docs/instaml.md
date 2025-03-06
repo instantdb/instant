@@ -393,6 +393,7 @@ db.tx.NAMESPACE_LABEL[ENTITY_IDENTIFIER].ACTION(ACTION_SPECIFIC_DATA)
 - `ENTITY_IDENTIFIER` is the id to look up in the namespace. This id must be a uuid and unique to the namespace. You can use the `id()` function to generate a uuid for convenience.
 - `ACTION` is one of `update`, `merge`, `delete`, `link`, `unlink`
 - `ACTION_SPECIFIC_DATA` depends on the action
-  - `update` and `merge` takes in an object of information to commit
+  - `update` takes in an object of information to commit
+  - `merge` takes in an object to deep merge with the existing data
   - `delete` is the only action that doesn't take in any data,
   - `link` and `unlink` takes an object of label-entity pairs to create/delete associations
