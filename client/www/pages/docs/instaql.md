@@ -619,9 +619,9 @@ console.log(data)
 
 ### And
 
-The `and` key is useful when you want filter entities that match multiple associated values.
-In this case we want to find goals that have todos with the titles `Drink protein` and `Go on a
-run`
+The `where` clause supports `and` queries which are useful when you want to filter entities that match multiple associated values.
+
+In this example we want to find goals that have todos with the titles `Drink protein` and `Go on a run`
 
 ```javascript
 const query = {
