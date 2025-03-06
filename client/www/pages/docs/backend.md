@@ -130,7 +130,7 @@ const deletedUser = await db.auth.deleteUser({
 });
 ```
 
-Note that this _only_ deletes the user record. It does not delete all user data. If you want to delete all of a user's data, you'll need to do it manually:
+Note, this _only_ deletes the user record and any associated data with cascade on delete. If there's additional data you need to clean up you'll need to do it manually:
 
 ```javascript
 const { goals, todos } = await db.query({
