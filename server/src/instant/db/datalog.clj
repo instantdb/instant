@@ -820,22 +820,22 @@
 
         (set? origin-paths)
         [(list* :or (mapcat (fn [o]
-                              (new-or-join-conds prefix o dest-paths))
+                              (or-join-conds-for-or-gather prefix o dest-paths))
                             origin-paths))]
 
         (set? dest-paths)
         [(list* :or (mapcat (fn [d]
-                              (new-or-join-conds prefix origin-paths d))
+                              (or-join-conds-for-or-gather prefix origin-paths d))
                             dest-paths))]
 
         (single-path? origin-paths)
         [(list* :and (mapcat (fn [d]
-                               (new-or-join-conds prefix origin-paths d))
+                               (or-join-conds-for-or-gather prefix origin-paths d))
                              dest-paths))]
 
         :else
         [(list* :and (mapcat (fn [o]
-                               (new-or-join-conds prefix o dest-paths))
+                               (or-join-conds-for-or-gather prefix o dest-paths))
                              origin-paths))]))
 
 (defn join-conds-for-or-gather
@@ -844,7 +844,7 @@
   (let [ors (doall (for [or-symbol-map or-symbol-maps
                          :let [dest-paths (get symbol-map join-sym)
                                origin-paths (get or-symbol-map join-sym)
-                               ands (new-or-join-conds prefix origin-paths dest-paths)]
+                               ands (or-join-conds-for-or-gather prefix origin-paths dest-paths)]
                          :when (seq ands)]
                      (list* :and ands)))]
     (when (seq ors)
