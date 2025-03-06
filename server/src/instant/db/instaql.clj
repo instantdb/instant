@@ -134,7 +134,6 @@
   "Converts {:or [{:or [{:handle \"Jack\"}]}]} -> {:or [{:handle \"Jack\"}]}"
   [conds]
   (reduce (fn [acc [_k v :as c]]
-            (println (or-where-cond? c) c)
             (if (or-where-cond? c)
               (apply conj acc (mapcat collapse-or-where-conds v))
               (conj acc c)))
