@@ -13,9 +13,15 @@ import { buildPresenceSlice, hasPresenceResponseChanged } from './presence';
 import { Deferred } from './utils/Deferred';
 import { PersistedObject } from './utils/PersistedObject';
 import { extractTriples } from './model/instaqlResult';
-import { areObjectsDeepEqual, assocIn, dissocIn } from './utils/object';
+import {
+  areObjectsDeepEqual,
+  assocInMutative,
+  dissocInMutative,
+  insertInMutative,
+} from './utils/object';
 import { createLinkIndex } from './utils/linkIndex';
 import version from './version';
+import { create } from 'mutative';
 
 const STATUS = {
   CONNECTING: 'connecting',
@@ -1708,17 +1714,26 @@ export default class Reactor {
     let sessions = Object.fromEntries(
       Object.entries(peers).map(([k, v]) => [k, { data: v }]),
     );
-    sessions[this._sessionId] = { data: this._presence[roomId]?.result?.user };
-    for (let [path, op, value] of edits) {
-      if (op === '+' || op === 'r') {
-        sessions = assocIn(sessions, path, value);
+    const myPresence = this._presence[roomId]?.result;
+    const newSessions = create(sessions, (draft) => {
+      for (let [path, op, value] of edits) {
+        switch (op) {
+          case '+':
+            insertInMutative(draft, path, value);
+            break;
+          case 'r':
+            assocInMutative(draft, path, value);
+            break;
+          case '-':
+            dissocInMutative(draft, path);
+            break;
+        }
       }
-      if (op === '-') {
-        sessions = dissocIn(sessions, path);
-      }
-    }
+      // Ignore our own edits
+      delete draft[this._sessionId];
+    });
 
-    this._setPresencePeers(roomId, sessions);
+    this._setPresencePeers(roomId, newSessions);
   }
 
   _setPresencePeers(roomId, data) {
@@ -1729,11 +1744,9 @@ export default class Reactor {
       Object.entries(sessions).map(([k, v]) => [k, v.data]),
     );
 
-    this._presence = assocIn(
-      this._presence,
-      [roomId, 'result', 'peers'],
-      peers,
-    );
+    this._presence = create(this._presence, (draft) => {
+      assocInMutative(draft, [roomId, 'result', 'peers'], peers);
+    });
   }
 
   // --------

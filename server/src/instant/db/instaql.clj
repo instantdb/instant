@@ -140,6 +140,16 @@
           []
           conds))
 
+(defn- collapse-and-where-conds
+  "Converts {:and [{:and [{:handle \"Jack\"}]}]} -> {:and [{:handle \"Jack\"}]}"
+  [conds]
+  (reduce (fn [acc [_k v :as c]]
+            (if (and-where-cond? c)
+              (apply conj acc (mapcat collapse-and-where-conds v))
+              (conj acc c)))
+          []
+          conds))
+
 (def sentinel (Object.))
 
 (defn- combine-or-where-conds
@@ -177,32 +187,37 @@
   "Splits keys into segments."
   [state [k v :as c]]
   (cond (or-where-cond? c)
-        {:or (let [conds (->> v
-                              combine-or-where-conds
-                              (map (fn [conds]
-                                     (map (partial coerce-where-cond state)
-                                          (collapse-or-where-conds conds)))))]
-               (if (seq conds)
-                 conds
-                 (ex/throw-validation-err!
-                  :query
-                  (:root state)
-                  [{:expected 'non-empty-list?
-                    :in (conj (:in state) :or)
-                    :message "The list of `or` conditions can't be empty."}])))}
+        (let [conds (->> v
+                         combine-or-where-conds
+                         (mapcat (fn [conds]
+                                   (mapv (partial coerce-where-cond state)
+                                         (collapse-or-where-conds conds)))))]
+          (case (count conds)
+            0 (ex/throw-validation-err!
+               :query
+               (:root state)
+               [{:expected 'non-empty-list?
+                 :in (conj (:in state) :or)
+                 :message "The list of `or` conditions can't be empty."}])
+            1 (first conds)
+            {:or (map (fn [x] [x])
+                      conds)}))
+
         (and-where-cond? c)
-        {:and (let [conds (map (fn [conds]
-                                 (map (partial coerce-where-cond state)
-                                      conds))
-                               v)]
-                (if (seq conds)
-                  conds
-                  (ex/throw-validation-err!
-                   :query
-                   (:root state)
-                   [{:expected 'non-empty-list?
-                     :in (conj (:in state) :and)
-                     :message "The list of `and` conditions can't be empty."}])))}
+        (let [conds (mapcat (fn [conds]
+                              (mapv (partial coerce-where-cond state)
+                                    (collapse-and-where-conds conds)))
+                            v)]
+          (case (count conds)
+            0 (ex/throw-validation-err!
+               :query
+               (:root state)
+               [{:expected 'non-empty-list?
+                 :in (conj (:in state) :and)
+                 :message "The list of `and` conditions can't be empty."}])
+            1 (first conds)
+            {:and (map (fn [x] [x])
+                       conds)}))
 
         (and (map? v) (contains? v :$not))
         ;; If the where cond has `not`, then the check will only include

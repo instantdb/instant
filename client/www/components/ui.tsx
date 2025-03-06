@@ -321,7 +321,10 @@ export function Checkbox({
   checked: boolean;
   className?: string;
   labelClassName?: string;
-  onChange: (checked: boolean) => void;
+  onChange: (
+    checked: boolean,
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => void;
   required?: boolean;
   disabled?: boolean | undefined;
   title?: string | undefined;
@@ -345,13 +348,14 @@ export function Checkbox({
         )}
         type="checkbox"
         checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
+        onChange={(e) => onChange(e.target.checked, e)}
       />{' '}
       {label}
       {error ? <div className="text-sm text-red-600">{error}</div> : null}
     </label>
   );
 }
+
 export function Select({
   value,
   options,

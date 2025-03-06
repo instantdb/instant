@@ -376,6 +376,16 @@ test.each([
     },
     ['joe', 'stopa'],
   ],
+  [
+    'with ands in ors in ands',
+    {
+      and: [
+        { or: [{ and: [{ handle: 'stopa' }] }] },
+        { or: [{ and: [{ or: [{ handle: 'stopa' }] }] }] },
+      ],
+    },
+    ['stopa'],
+  ],
 ])('Where OR %s', (_, whereQuery, expected) => {
   expect(
     query(
@@ -1202,22 +1212,6 @@ test('fields', () => {
       { handle: 'nicolegf', id: '0f3d67fc-8b37-4b03-ac47-29fec4edc4f7' },
     ],
   });
-
-  console.log(
-    JSON.stringify(
-      query(
-        { store },
-        {
-          users: {
-            $: { where: { handle: 'alex' }, fields: ['handle'] },
-            bookshelves: { $: { fields: ['name'] } },
-          },
-        },
-      ).data,
-      null,
-      2,
-    ),
-  );
 
   expect(
     query(

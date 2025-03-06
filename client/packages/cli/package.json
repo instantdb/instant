@@ -1,7 +1,7 @@
 {
   "name": "instant-cli",
   "type": "module",
-  "version": "v0.17.25",
+  "version": "v0.17.27",
   "description": "Instant's CLI",
   "bin": {
     "instant-cli": "bin/index.js"
