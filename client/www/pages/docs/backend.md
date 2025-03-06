@@ -46,10 +46,10 @@ const data = await db.query({ goals: {}, todos: {} });
 const { goals, todos } = data;
 ```
 
-In react we export `useQuery` to enable "live queries", queries that will
+In react we use `db.useQuery` to enable "live queries", queries that will
 automatically update when data changes.
 
-In the admin SDK we instead export an async `query` function that simply fires a
+In the admin SDK we instead use an async `db.query` function that simply fires a
 query once and returns a result.
 
 ### transact
@@ -59,7 +59,7 @@ const res = await db.transact([db.tx.todos[id()].update({ title: 'Get fit' })]);
 console.log('New todo entry made for with tx-id', res['tx-id']);
 ```
 
-`transact` is an async function that behaves nearly identical to `transact`
+`db.transact` is an async function that behaves nearly identical to `db.transact`
 from `@instantdb/react`. It returns a `tx-id` on success.
 
 ## Schema
