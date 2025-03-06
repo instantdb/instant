@@ -590,7 +590,7 @@ const query = {
 
 The `where` clause supports multiple keys which will filter entities that match all of the conditions.
 
-You can also provide a list of queries under the `and` key.
+You can also provide a list of queries under the `where` key.
 
 **Multiple keys in a single where**:
 
