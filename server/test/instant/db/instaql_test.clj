@@ -112,8 +112,7 @@
          %)
     (zprint/zprint-str % {:map {:comma? false
                                 :sort? false}
-                          :set {:sort? false
-                                }})
+                          :set {:sort? false}})
     (str "'" %)
     (pad-block offset %)
     (z/of-string %)
@@ -1328,7 +1327,6 @@
                    ("eid-stepan-parunashvili" :users/handle "stopa")
                    ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))})))))))))
 
-
 (deftest multiple-where
   (with-zeneca-app
     (fn [app r]
@@ -1435,20 +1433,20 @@
                         #{:users/createdAt :users/email :users/id :users/fullName
                           :users/handle} _])
               :triples
-                (("eid-joe-averbukh" :users/handle "joe")
-                  ("eid-stepan-parunashvili" :users/handle "stopa")
-                  --
-                  ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-                  ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
-                  ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
-                  ("eid-stepan-parunashvili" :users/handle "stopa")
-                  ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
-                  --
-                  ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
-                  ("eid-joe-averbukh" :users/email "joe@instantdb.com")
-                  ("eid-joe-averbukh" :users/handle "joe")
-                  ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
-                  ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))})))))))
+              (("eid-joe-averbukh" :users/handle "joe")
+               ("eid-stepan-parunashvili" :users/handle "stopa")
+               --
+               ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+               ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
+               ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+               ("eid-stepan-parunashvili" :users/handle "stopa")
+               ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+               --
+               ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+               ("eid-joe-averbukh" :users/email "joe@instantdb.com")
+               ("eid-joe-averbukh" :users/handle "joe")
+               ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
+               ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))})))))))
 
 (deftest where-$like
   (with-zeneca-checked-data-app
@@ -2797,40 +2795,40 @@
                    (get "bookshelves")
                    (#(map (fn [x] (get x "order")) %)))))))))
 
-  (deftest order-by-with-ors-and-ands
-    (with-zeneca-checked-data-app
-      (fn [app _r]
-        (let [ctx {:db {:conn-pool (aurora/conn-pool :read)}
-                   :app-id (:id app)
-                   :attrs (attr-model/get-by-app-id (:id app))}]
-          (is (= [[0 1 2 3 4 5 6 7 8 9 10] [0 1]]
-                 (-> (instaql-nodes->object-tree
-                      ctx
-                      (iq/query ctx
-                                {:users
-                                 {:$ {:where {:or [{:handle "alex"}
-                                                   {:handle "nicolegf"}]}
-                                      :order {:handle "desc"}}
-                                  :bookshelves {:$ {:order {:order "asc"}}}}}))
+(deftest order-by-with-ors-and-ands
+  (with-zeneca-checked-data-app
+    (fn [app _r]
+      (let [ctx {:db {:conn-pool (aurora/conn-pool :read)}
+                 :app-id (:id app)
+                 :attrs (attr-model/get-by-app-id (:id app))}]
+        (is (= [[0 1 2 3 4 5 6 7 8 9 10] [0 1]]
+               (-> (instaql-nodes->object-tree
+                    ctx
+                    (iq/query ctx
+                              {:users
+                               {:$ {:where {:or [{:handle "alex"}
+                                                 {:handle "nicolegf"}]}
+                                    :order {:handle "desc"}}
+                                :bookshelves {:$ {:order {:order "asc"}}}}}))
 
-                     (get "users")
-                     (#(map (fn [u] (map (fn [b] (get b "order"))
-                                         (get u "bookshelves")))
-                            %)))))
-          (is (= [15 14 13 12 11 10 9 8 7 6 5 4 3 2 1 0]
-                 (-> (instaql-nodes->object-tree
-                      ctx
-                      (iq/query ctx
-                                {:users
-                                 {:$ {:where {:and [{:handle "stopa"}
-                                                    {:bookshelves.order 0}
-                                                    {:email "stopa@instantdb.com"}]}}
-                                  :bookshelves {:$ {:order {:order "desc"}}}}}))
+                   (get "users")
+                   (#(map (fn [u] (map (fn [b] (get b "order"))
+                                       (get u "bookshelves")))
+                          %)))))
+        (is (= [15 14 13 12 11 10 9 8 7 6 5 4 3 2 1 0]
+               (-> (instaql-nodes->object-tree
+                    ctx
+                    (iq/query ctx
+                              {:users
+                               {:$ {:where {:and [{:handle "stopa"}
+                                                  {:bookshelves.order 0}
+                                                  {:email "stopa@instantdb.com"}]}}
+                                :bookshelves {:$ {:order {:order "desc"}}}}}))
 
-                     (get "users")
-                     first
-                     (get "bookshelves")
-                     (#(map (fn [x] (get x "order")) %)))))))))
+                   (get "users")
+                   first
+                   (get "bookshelves")
+                   (#(map (fn [x] (get x "order")) %)))))))))
 
 (deftest child-forms
   (with-zeneca-app
@@ -3334,7 +3332,7 @@
                         :id app-id
                         :admin-token (UUID/randomUUID)}))
   (bootstrap/add-zeneca-to-app! app-id)
-  (app-model/delete-by-id! {:id app-id}))
+  (app-model/delete-immediately-by-id! {:id app-id}))
 
 (deftest default-perms
   (doseq [[app-fn description] [[(fn [f]
@@ -3374,7 +3372,6 @@
 
            {:$default {:allow {:$default "false" :view "true"}}}
            #{"alex" "joe" "stopa" "nicolegf"}))))))
-
 
 (deftest read-perms
   (doseq [[app-fn description] [[(fn [f]
@@ -3518,9 +3515,9 @@
            (is
             (= ::ex/permission-evaluation-failed
                (::ex/type (instant-ex-data
-                            (pretty-perm-q
-                             {:app-id app-id :current-user {:handle "stopa"}}
-                             {:users {}})))))))))))
+                           (pretty-perm-q
+                            {:app-id app-id :current-user {:handle "stopa"}}
+                            {:users {}})))))))))))
 
 (deftest coarse-topics
   (with-zeneca-app
@@ -3557,7 +3554,6 @@
                (resolvers/walk-friendly
                 r
                 (d/pats->coarse-topics patterns))))))))
-
 
 (deftest aggregates
   (with-zeneca-app

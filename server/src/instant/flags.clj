@@ -1,9 +1,9 @@
 ;; The flags are populated and kept up to date by instant.flag-impl
 ;; We separate the namespaces so that this namespace has no dependencies
 ;; and can be required from anywhere.
-(ns instant.flags 
+(ns instant.flags
   (:require
-    [clojure.walk :as w]))
+   [clojure.walk :as w]))
 
 ;; Map of query to {:result {result-tree}
 ;;                  :tx-id int}
@@ -23,7 +23,8 @@
             :welcome-email-config {}
             :e2e-logging {}
             :threading {}
-            :query-flags {}})
+            :query-flags {}
+            :app-deletion-sweeper {}})
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -94,6 +95,10 @@
                                     (conj acc (parse-uuid appId)))
                                   #{}
                                   (get result "rate-limited-apps"))
+
+        app-deletion-sweeper (when-let [flag (->  (get result "app-deletion-sweeper")
+                                                  first)]
+                               {:disabled? (get flag "disabled" false)})
         e2e-logging (when-let [flag (-> (get result "e2e-logging")
                                         first)]
                       {:invalidator-every-n (try (/ 1 (get flag "invalidator-rate"))
@@ -119,7 +124,8 @@
      :welcome-email-config welcome-email-config
      :threading threading
      :storage-migration storage-migration
-     :query-flags query-flags}))
+     :query-flags query-flags
+     :app-deletion-sweeper app-deletion-sweeper}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -198,6 +204,11 @@
        (zero? (mod tx-id (or (get-in (query-result)
                                      [:e2e-logging :invalidator-every-n])
                              10000)))))
+
+(defn app-deletion-sweeper-disabled? []
+  (-> (query-result)
+      :app-deletion-sweeper
+      :disabled?))
 
 (defn use-vfutures? []
   (-> (query-result)
