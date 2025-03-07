@@ -225,25 +225,6 @@
   (getMeta [_]
     metadata))
 
-(defrecord DataKey [key])
-
-;; XXX How do we handle `data.title.test`?
-;;     It's not something you can do right now
-;;     we'd have to return a cel-map if it's json
-
-;; XXX: Should take attrs and reject anything with an invalid attr?
-(deftype CelHelperMap []
-  java.util.Map
-  (get [_ k]
-    ;; Needs to look up attrs here and check that the ns has the attr
-    (DataKey. k))
-
-  (containsKey [_ _k]
-    true)
-
-  (entrySet [_]
-    (set (seq {}))))
-
 (defn ->cel-map [metadata m]
   (CelMap. metadata m))
 
@@ -311,9 +292,51 @@
       (.setOptions cel-options)
       (.build)))
 
-(def ^:dynamic *where-clauses* nil)
 
-(def ^ListType iql-ref-return (ListType/create SimpleType/DYN))
+;; cel -> instaql where clauses
+;; ----------------------------
+
+;; Helpers to convert cel rules to instaql where clauses
+;; (data.name == 'Daniel' || data.handle == 'dww')
+;;   => {:or [{"name" "Daniel"}, {"handle" "dww"}]}
+
+
+;; Important to use a deftype so that cel can't call
+;; e.g. `size` on our thing
+(deftype RefPath [path-str])
+
+(deftype WhereClauses [where-clauses])
+
+;; XXX: Put this stuff in the iql cel area
+;; Important to use a deftype so that cel can't call
+;; e.g. `size` on our thing
+(deftype DataKey [data-key])
+
+;; XXX: Need to use deftype for the where clauses also
+
+;; XXX How do we handle `data.title.test`?
+;;     It's not something you can do right now
+;;     we'd have to return a cel-map if it's json
+
+;; XXX: Should this be a deftype also??
+;; XXX: Should take attrs and reject anything with an invalid attr?
+(deftype CelHelperMap []
+  java.util.Map
+  (get [_ k]
+    ;; Needs to look up attrs here and check that the ns has the attr
+    (DataKey. k))
+
+  (containsKey [_ _k]
+    true)
+
+  (entrySet [_]
+    (set (seq {})))
+
+  CelMapExtension
+  (getMeta [_]
+    {}))
+
+(def ^:dynamic *testing* true)
 
 (def iql-ref-fn
   {:decl (CelFunctionDecl/newFunctionDeclaration
@@ -322,18 +345,48 @@
            CelOverloadDecl
            [(CelOverloadDecl/newMemberOverload
              "data_ref"
-             iql-ref-return
+             SimpleType/DYN
              (ucoll/array-of CelType [type-obj SimpleType/STRING]))]))
    :runtime (let [impl (reify CelFunctionOverload$Binary
-                         (apply [_ _cel-map path-str]
-                           (with-meta [path-str]
-                             {:path-str path-str})))]
+                         (apply [_ cel-map path-str]
+                           (if (instance? CelHelperMap cel-map)
+                             (RefPath. path-str)
+
+                             ;; Just for testing
+                             (if *testing*
+                               [(random-uuid)]
+                               (let [self ^CelMap cel-map
+                                     {:keys [ctx etype type]} (.getMeta self)
+                                     path-str (if (= type :auth)
+                                                (clojure-string/replace path-str
+                                                                        #"^\$user\."
+                                                                        "")
+                                                path-str)
+                                     ref-data {:eid (parse-uuid (:id cel-map))
+                                               :etype etype
+                                               :path-str path-str}]
+                                 (if-let [preloaded-ref (-> ctx
+                                                            :preloaded-refs
+                                                            (get ref-data))]
+                                   (vec preloaded-ref)
+                                   (vec (get-ref ctx ref-data))))))))]
               (CelRuntime$CelFunctionBinding/from
                "data_ref"
                Map
                String
                impl))})
 
+(defn where-value-valid? [x]
+  (or (string? x) (uuid? x) (number? x) (boolean? x)))
+
+(defn where-eq-value [x]
+  (if (= x NullValue/NULL_VALUE)
+    {:$isNull true}
+    (if (where-value-valid? x)
+      x
+      (throw (ex-info "Can't handle where value" {:value x})))))
+
+;; XXX: Also check for RefPath
 (def iql-eq-fn
   {:decl (CelFunctionDecl/newFunctionDeclaration
           "_iql_eq"
@@ -346,28 +399,66 @@
              "_iql_eq"
              (ImmutableList/of Object Object)
              (fn [[x y]]
-               (println "EXECUTING ==" x y)
+               ;;(println "EXECUTING ==" x y)
                (cond (and (instance? DataKey x)
                           ;; Can't have someone doing data.a == data.b
                           (not (instance? DataKey y)))
-                     (with-meta
-                       {(:key x) y}
-                       {:where-clause? true})
+                     (WhereClauses. {(.data_key x) (where-eq-value y)})
 
+                     ;; XXX: Do we need to check for other things besides DataKey??
                      (and (instance? DataKey y)
                           (not (instance? DataKey x)))
-                     (with-meta
-                       {(:key y) x}
-                       {:where-clause? true})
+                     (WhereClauses. {(.data_key y) (where-eq-value x)})
 
                      (and (instance? DataKey y)
                           (instance? DataKey x))
                      (throw (Exception. "Can't represent data.key1 == data.key2"))
 
+                     ;; XXX: Check that x and y aren't any of our deftypes
+
                      :else
                      (= x y))))})
 
-;; XXX guard against unbound *where-clauses*
+(defn where-neq-value [x]
+  (if (= x NullValue/NULL_VALUE)
+    {:$isNull false}
+    (if (where-value-valid? x)
+      {:$not x}
+      (throw (ex-info "Can't handle where value" {:value x})))))
+
+;; XXX: Need better handling for `nulls` in eq
+(def iql-neq-fn
+  {:decl (CelFunctionDecl/newFunctionDeclaration
+          "_iql_neq"
+          (ImmutableList/of
+           (CelOverloadDecl/newGlobalOverload
+            "_iql_neq"
+            SimpleType/DYN
+            (ImmutableList/of SimpleType/DYN SimpleType/DYN))))
+   :runtime (CelRuntime$CelFunctionBinding/from
+             "_iql_neq"
+             (ImmutableList/of Object Object)
+             (fn [[x y]]
+               ;;(println "EXECUTING !=" x y)
+               (cond (and (instance? DataKey x)
+                          ;; Can't have someone doing data.a != data.b
+                          (not (instance? DataKey y)))
+                     (WhereClauses. {(.data_key x) (where-neq-value y)})
+
+                     (and (instance? DataKey y)
+                          (not (instance? DataKey x)))
+                     (WhereClauses. {(.data_key y) (where-neq-value x)})
+
+                     (and (instance? DataKey y)
+                          (instance? DataKey x))
+                     ;; XXX: Special error that indicates we can't possible execute this one
+                     (throw (Exception. "Can't represent data.key1 != data.key2"))
+
+                     ;; XXX: Check that x and y aren't any of our deftypes
+
+                     :else
+                     (not= x y))))})
+
 (def iql-in-fn
   {:decl (CelFunctionDecl/newFunctionDeclaration
           "_iql_in"
@@ -380,25 +471,53 @@
              "_iql_in"
              (ImmutableList/of Object Object)
              (fn [[x y]]
-               (println "EXECUTING IN" x y)
+               ;;(println "EXECUTING IN" x y)
                (cond
-                 (and (instance? DataKey x)
-                      (instance? ArrayList y))
-                 (with-meta
-                   {(:key x) {:$in (set y)}}
-                   {:where-clause? true})
+                 (instance? DataKey x)
+                 (cond (or (instance? ArrayList y)
+                           (vector? y))
+                       (WhereClauses.
+                        ;; XXX: Check for nulls in the set
+                        {(.data_key x) {:$in (set y)}})
 
-                 ;; XXX: Not sure what we need the type of `x` to be here...
-                 (and (string? x)
-                      (:path-str (meta y)))
-                 (with-meta
-                   {(:path-str (meta y)) x}
-                   {:where-clause? true})
+                       :else (throw (ex-info "can't figure out in for inputs" {:x x :y y})))
+
+                 (instance? RefPath y)
+                 (cond (where-value-valid? x)
+                       (WhereClauses. {(.path_str y) x})
+
+                       (= NullValue/NULL_VALUE x)
+                       (WhereClauses. {(.path_str y) {:$isNull true}})
+                       ;; XXX: Throw a special "Can't execute" if input is a whereclause
+
+                       :else (throw (ex-info "can't figure out in for inputs" {:x x :y y})))
+
+                 ;; XXX: This should check for our deftypes more generally
+                 (or (instance? WhereClauses x)
+                     (ucoll/exists? (fn [item]
+                                      (instance? WhereClauses item))
+                                    ;; XXX: This might not be an array?
+                                    y))
+                 (throw (ex-info "can't figure out in for inputs" {:x x :y y}))
 
                  :else
+                 ;; XXX: Look at the implementation of in -- theirs works with maps
                  (ucoll/exists? (fn [candidate]
                                   (= candidate x))
                                 y))))})
+
+(defn extract-where-clause [x]
+  (cond (instance? WhereClauses x)
+        x
+
+        (instance? DataKey x)
+        (WhereClauses. {(.data_key x) true})
+
+        :else
+        nil))
+
+(defn combine-where-clauses [op ^WhereClauses x ^WhereClauses y]
+  (WhereClauses. {op [(.where_clauses x) (.where_clauses y)]}))
 
 (def iql-or-fn
   {:decl (CelFunctionDecl/newFunctionDeclaration
@@ -412,20 +531,27 @@
              "_iql_or"
              (ImmutableList/of Object Object)
              (fn [[x y]]
-               (println "EXECUTING OR" x y)
-               (cond (and (:where-clause? (meta x))
-                          (:where-clause? (meta y)))
-                     (with-meta
-                       {:or [x y]}
-                       {:where-clause? true})
+               ;;(println "EXECUTING OR" x y)
+               (let [x-clause (extract-where-clause x)
+                     y-clause (extract-where-clause y)]
+                 (cond (and x-clause y-clause)
+                       (combine-where-clauses :or x-clause y-clause)
 
-                     (:where-clause? (meta x))
-                     x
+                       (and x-clause (boolean? y))
+                       (if y
+                         y ;; We got true, no need to execute a where
+                         x-clause)
 
-                     (:where-clause? (meta y))
-                     y
+                       (and y-clause (boolean? x))
+                       (if x
+                         x ;; We got true, no need to execute a where
+                         y-clause)
 
-                     :else (or x y))))})
+                       (and (boolean? x) (boolean? y))
+                       (or x y)
+
+                       :else
+                       (throw (ex-info "Can't execute or on inputs" {:x x :y y}))))))})
 
 (def iql-and-fn
   {:decl (CelFunctionDecl/newFunctionDeclaration
@@ -438,28 +564,87 @@
    :runtime (CelRuntime$CelFunctionBinding/from
              "_iql_and"
              (ImmutableList/of Object Object)
-             (fn [[x y self-id parent-id]]
-               (println "EXECUTING AND" x y self-id parent-id)
-               (cond (and (:where-clause? (meta x))
-                          (:where-clause? (meta y)))
-                     ;; XXX: Make a return-where-clause thing
-                     (with-meta
-                       {:and [x y]}
-                       {:where-clause? true})
+             (fn [[x y]]
+               ;;(println "EXECUTING AND" x y)
+               (let [x-clause (extract-where-clause x)
+                     y-clause (extract-where-clause y)]
+                 (cond (and x-clause y-clause)
+                       (combine-where-clauses :and x-clause y-clause)
 
-                     (:where-clause? (meta x))
-                     (if y
-                       x
-                       y)
+                       (and x-clause (boolean? y))
+                       ;; XXX: double check this
+                       (if y
+                         x-clause
+                         y) ;; We got false, no need to continue
 
-                     (:where-clause? (meta y))
-                     (if x
-                       y
-                       x)
 
-                     :else (and x y))))})
+                       (and y-clause (boolean? x))
+                       (if x
+                         y-clause
+                         x) ;; We got false, no need to continue
 
-(def custom-iql-fns [iql-ref-fn iql-in-fn iql-eq-fn iql-or-fn iql-and-fn])
+
+                       (and (boolean? x) (boolean? y))
+                       (or x y)
+
+                       :else
+                       (throw (ex-info "Can't execute and on inputs" {:x x :y y}))))))})
+
+(defn negate-where-clauses
+  "Uses De Morgan's laws to negate the where clauses:
+   not (A or B) = (not A) and (not B)
+   not (A and B) = (not A) or (not B)"
+  [c]
+  (cond (and (:or c) (vector? (:or c)))
+        {:and (mapv negate-where-clauses (:or c))}
+
+        (and (:and c) (vector? (:and c)))
+        {:or (mapv negate-where-clauses (:and c))}
+
+        :else
+        (reduce-kv (fn [acc k v]
+                     (assoc acc k (cond (map? v)
+                                        (cond (contains? v :$not)
+                                              (:$not v)
+
+                                              (contains? v :$isNull)
+                                              {:$isNull (not (:$isNull v))})
+
+                                        (boolean? v)
+                                        (not v)
+
+                                        :else
+                                        {:$not v})))
+                   {}
+                   c)))
+
+(def iql-not-fn
+  {:decl (CelFunctionDecl/newFunctionDeclaration
+          "_iql_not"
+          (ImmutableList/of
+           (CelOverloadDecl/newGlobalOverload
+            "_iql_not"
+            SimpleType/DYN
+            (ImmutableList/of SimpleType/DYN))))
+   :runtime (CelRuntime$CelFunctionBinding/from
+             "_iql_not"
+             (ImmutableList/of Object)
+             (fn [[x]]
+               (println "EXECUTING NOT" x)
+               (cond (boolean? x)
+                     (not x)
+
+                     (instance? WhereClauses x)
+                     (WhereClauses. (negate-where-clauses (.where_clauses x)))
+
+                     ;; e.g. !data.isPublished
+                     (instance? DataKey x)
+                     (WhereClauses. {(.data_key x) false})
+
+                     :else
+                     (throw (ex-info "Can't execute ! on input" {:x x})))))})
+
+(def custom-iql-fns [iql-ref-fn iql-in-fn iql-eq-fn iql-neq-fn iql-or-fn iql-and-fn iql-not-fn])
 (def custom-iql-fn-decls (mapv :decl custom-iql-fns))
 (def custom-iql-fn-bindings (mapv :runtime custom-iql-fns))
 
@@ -487,9 +672,11 @@
 ;; other operations: in
 (def operator-replacements
   {(.getFunction Operator/EQUALS) "_iql_eq"
+   (.getFunction Operator/NOT_EQUALS) "_iql_neq"
    (.getFunction Operator/IN) "_iql_in"
    (.getFunction Operator/LOGICAL_OR) "_iql_or"
-   (.getFunction Operator/LOGICAL_AND) "_iql_and"})
+   (.getFunction Operator/LOGICAL_AND) "_iql_and"
+   (.getFunction Operator/LOGICAL_NOT) "_iql_not"})
 
 (def has-children-operators (set [(.getFunction Operator/LOGICAL_OR)
                                   (.getFunction Operator/LOGICAL_AND)]))
@@ -533,7 +720,7 @@
     expr))
 
 (defn can-optimize-node? [^CelNavigableMutableExpr node]
-  (println (.getKind node) (get-depth node) (get-height node))
+  ;;(println (.getKind node) (get-depth node) (get-height node))
   (boolean
    (and (= CelExpr$ExprKind$Kind/CALL (.getKind node))
         (can-replace-operator? (.function (.call (get-expr node)))))))
@@ -562,7 +749,7 @@
                                                     mutable-ast)))
           (let [expr (get-expr node)
                 func (.function (.call expr))]
-            (println "OPTIMIZING" func (contains? has-children-operators func))
+            ;;(println "OPTIMIZING" func (contains? has-children-operators func))
             (.setFunction (.call expr) (get operator-replacements func))
 
             (recur (.replaceSubtree ast-mutator
@@ -592,23 +779,19 @@
       (ex/throw-permission-evaluation-failed!
        etype action e))))
 
-;; XXX: Let's fix how instaql represents where-conds, because they're weird
-;;      or we could return them as instaql maps, which might be better for
-;;      displaying to the user??
 (defn get-where-clauses [code auth]
   (let [where-clauses (atom {:top-level []
                              :by-parent {}})]
-    (binding [*where-clauses* where-clauses]
-      (let [ast (.getAst (.compile cel-iql-compiler code))
-            program (->> ast
-                         (.optimize cel-iql-optimizer)
-                         (.createProgram cel-iql-runtime))
-            evaluation-result (eval-program! {:cel-program program}
-                                             {"auth" auth
-                                              "data" (->CelHelperMap)})]
-        {:short-circuit? (= false evaluation-result)
-         :where-clauses (when (:where-clause? (meta evaluation-result))
-                          evaluation-result)}))))
+    (let [ast (.getAst (.compile cel-iql-compiler code))
+          program (->> ast
+                       (.optimize cel-iql-optimizer)
+                       (.createProgram cel-iql-runtime))
+          evaluation-result (.eval ^CelRuntime$Program program
+                                   ^java.util.Map {"auth" auth
+                                                   "data" (->CelHelperMap)})]
+      {:short-circuit? (= false evaluation-result)
+       :where-clauses (when (instance? WhereClauses evaluation-result)
+                        (.where_clauses evaluation-result))})))
 
 (defn debug-transform [code]
   (let [ast (.getAst (.compile cel-iql-compiler code))]
