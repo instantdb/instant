@@ -59,7 +59,7 @@
 
 (defn app-delete [req]
   (let [{{app-id :id} :app} (req->superadmin-user-and-app! req)
-        app (app-model/delete-immediately-by-id! {:id app-id})]
+        app (app-model/mark-for-deletion! {:id app-id})]
     (response/ok {:app app})))
 
 ;; ---------
