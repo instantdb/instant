@@ -1,6 +1,7 @@
 (ns instant.db.permissioned-transaction
   (:require
    [clojure.string :as string]
+   [clojure+.core :as clojure+]
    [instant.db.cel :as cel]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
@@ -81,9 +82,10 @@
    original
    tx-steps))
 
-(defn object-upsert-check-fn [{:keys [action program data rule-params etype] :as _check}
-                              {:keys [current-user] :as ctx}]
-  (let [{:keys [original updated]} data]
+(defn object-upsert-check-fn [{:keys [action program etype eid data] :as _check}
+                              {:keys [current-user rule-params] :as ctx}]
+  (let [{:keys [original updated]} data
+        rule-params (get rule-params {:eid eid :etype etype})]
     (cond
       (not program)
       true
@@ -105,9 +107,10 @@
         "ruleParams" (cel/->cel-map {} rule-params)}))))
 
 (defn object-delete-check-fn
-  [{:keys [program etype data rule-params] :as _check}
-   {:keys [current-user] :as ctx}]
-  (let [{:keys [original]} data]
+  [{:keys [program etype eid data] :as _check}
+   {:keys [current-user rule-params] :as ctx}]
+  (let [{:keys [original]} data
+        rule-params #p (get rule-params {:eid eid :etype etype})]
     (if-not program
       true
       (cel/eval-program!
@@ -116,9 +119,10 @@
         "data"       (cel/->cel-map {:ctx ctx, :type :data, :etype etype} original)
         "ruleParams" (cel/->cel-map {} rule-params)}))))
 
-(defn object-view-check-fn [{:keys [etype program data rule-params] :as _check}
-                            {:keys [current-user] :as ctx}]
-  (let [{:keys [original]} data]
+(defn object-view-check-fn [{:keys [program etype eid data] :as _check}
+                            {:keys [current-user rule-params] :as ctx}]
+  (let [{:keys [original]} data
+        rule-params (get rule-params {:eid eid :etype etype})]
     (if-not program
       true
       (cel/eval-program!
@@ -152,7 +156,7 @@
    }
 
    With this, we can generate a grouped `check` command for each `eid+etype`."
-  [{:keys [attrs rules] :as ctx} preloaded-triples rule-params]
+  [{:keys [attrs rules] :as ctx} preloaded-triples]
   (->>
    (for [[k v] preloaded-triples
          :let [{:keys [eid etype action]} k
@@ -163,35 +167,33 @@
        :update
        (let [program  (rule-model/get-program! rules etype (if (seq original) "update" "create"))
              new-data (apply-tx-steps attrs original tx-steps)]
-         {:scope       :object
-          :etype       etype
-          :action      (if (seq original) :update :create)
-          :eid         eid
-          :program     program
-          :data        {:original original
-                        :updated new-data}
-          :rule-params (rule-params {:eid eid, :etype etype})})
+         {:scope   :object
+          :etype   etype
+          :action  (if (seq original) :update :create)
+          :eid     eid
+          :program program
+          :data    {:original original
+                    :updated new-data}})
 
        :delete
-       {:scope       :object
-        :etype       etype
-        :action      :delete
-        :eid         eid
-        :program     (when etype
-                       (rule-model/get-program! rules etype "delete"))
-        :data        {:original original}
-        :rule-params (when etype
-                       (rule-params {:eid eid, :etype etype}))}
+       {:scope   :object
+        :etype   etype
+        :action  :delete
+        :eid     eid
+        :program (when etype
+                   (rule-model/get-program! rules etype "delete"))
+        :data    {:original original}}
 
        :view
        (when (seq original)
-         {:scope       :object
-          :etype       etype
-          :action      :view
-          :eid         eid
-          :program     (rule-model/get-program! rules etype "view")
-          :data        {:original original}
-          :rule-params (rule-params {:eid eid, :etype etype})})))
+         {:scope   :object
+          :etype   etype
+          :action  :view
+          :eid     eid
+          :program (rule-model/get-program! rules etype "view")
+          :data    {:original original}})
+
+       nil))
    (filterv some?)))
 
 (defn throw-mismatched-lookup-ns! [tx-step]
@@ -282,7 +284,8 @@
                               :etype etype
                               :action (case (first tx-step)
                                         (:add-triple :deep-merge-triple :retract-triple) :update
-                                        :delete-entity :delete)}
+                                        :delete-entity :delete
+                                        :rule-params   :rule-params)}
                              (fnil conj [])
                              patched-step)
                 rev-etype (update {:eid rev-eid
@@ -507,29 +510,31 @@
    {}
    preloaded-triples))
 
-(defn resolve-lookup [lookups->eid {:keys [eid] :as check}]
-  (if-not (sequential? eid)
-    check
-    (let [found-eid (lookups->eid eid)]
-      (when-not found-eid
-        (ex/throw-validation-err!
-         :lookup
-         eid
-         [{:message "Could not find the entity for this lookup"}]))
-      (-> check
-          (assoc :eid found-eid)
-          (ucoll/assoc-in-when [:data :updated "id"] found-eid)))))
+(defn resolve-lookup [lookups->eid eid]
+  (clojure+/cond+
+   (not (sequential? eid))
+   eid
 
-(defn resolve-lookups-for-update-delete-checks [checks preloaded-triples]
-  (let [lookups->eid (lookup->eid-from-preloaded-triples preloaded-triples)]
-    (mapv (partial resolve-lookup lookups->eid) checks)))
+   :let [found (lookups->eid eid)]
+
+   (nil? found)
+   (ex/throw-validation-err! :lookup eid [{:message "Could not find the entity for this lookup"}])
+
+   :else
+   found))
+
+(defn resolve-check-lookup [lookups->eid {:keys [eid] :as check}]
+  (let [resolved-eid (resolve-lookup lookups->eid eid)]
+    (-> check
+        (assoc :eid resolved-eid)
+        (ucoll/assoc-in-when [:data :updated "id"] resolved-eid))))
 
 (defn resolve-lookups-for-create-checks [tx-conn app-id checks]
   (let [lookups (->> checks
                      (map :eid)
                      (filter sequential?))
         lookups->eid (triple-model/fetch-lookups->eid tx-conn app-id lookups)]
-    (mapv (partial resolve-lookup lookups->eid) checks)))
+    (mapv #(resolve-check-lookup lookups->eid %) checks)))
 
 (defn transact!
   "Runs transactions alongside permission checks. The overall flow looks like this:
@@ -550,7 +555,6 @@
    object. For example, if we created a new `post`, we may want a check that says:
    `auth.id in data.ref('creator.id')`"
   [{:keys [db app-id admin? admin-check? admin-dry-run? attrs] :as ctx} tx-steps]
-  (println "permissioned-transaction/transact!")
   (tracer/with-span! {:name "permissioned-transaction/transact!"
                       :attributes {:app-id app-id}}
     (validate-reserved-names! admin? attrs tx-steps)
@@ -571,12 +575,6 @@
                                   (:retract-triple grouped-tx-steps)
                                   (:delete-entity grouped-tx-steps))
 
-                rule-params      (reduce
-                                  (fn [acc [_ eid etype params]]
-                                    (update acc {:eid eid, :etype etype} merge params))
-                                  {}
-                                  (:rule-params grouped-tx-steps))
-
                 optimistic-attrs (into attrs (map second) (:add-attr grouped-tx-steps))
 
                 ;; Use the db connection we have so that we don't cause a deadlock
@@ -587,7 +585,7 @@
 
                 ;; If we were really smart, we would fetch the triples and the
                 ;; update-delete data-ref dependencies in one go.
-                preloaded-triples (preload-triples ctx object-changes)
+                preloaded-triples (preload-triples ctx (concat object-changes (:rule-params grouped-tx-steps)))
 
                 check-commands
                 (io/warn-io :check-commands
@@ -596,7 +594,7 @@
                              ;; Use preloaded-triples instead of object-changes.
                              ;; It has all the same data, but the preload will also
                              ;; resolve etypes for older version of delete-entity
-                             (object-checks ctx preloaded-triples rule-params)))
+                             (object-checks ctx preloaded-triples)))
 
                 {create-checks :create
                  view-checks :view
@@ -604,15 +602,23 @@
                  delete-checks :delete}
                 (group-by :action check-commands)
 
+                lookups->eid (lookup->eid-from-preloaded-triples preloaded-triples)
+
+                rule-params (reduce
+                             (fn [acc [_ eid etype params]]
+                               (let [eid (resolve-lookup lookups->eid eid)
+                                     key {:eid eid, :etype etype}]
+                                 (update acc key merge params)))
+                             {}
+                             (:rule-params grouped-tx-steps))
+
+                ctx (assoc ctx :rule-params rule-params)
+
                 update-delete-checks-resolved
-                (resolve-lookups-for-update-delete-checks
-                 (concat update-checks delete-checks)
-                 preloaded-triples)
+                (mapv #(resolve-check-lookup lookups->eid %) (concat update-checks delete-checks))
 
                 view-checks-resolved
-                (resolve-lookups-for-update-delete-checks
-                 view-checks
-                 preloaded-triples)
+                (mapv #(resolve-check-lookup lookups->eid %) view-checks)
 
                 preloaded-update-delete-refs
                 (preload-refs ctx (concat update-delete-checks-resolved
@@ -620,15 +626,13 @@
 
                 update-delete-checks-results
                 (io/warn-io :run-check-commands!
-                            (run-check-commands! (assoc ctx
-                                                        :preloaded-refs preloaded-update-delete-refs)
+                            (run-check-commands! (assoc ctx :preloaded-refs preloaded-update-delete-refs)
                                                  update-delete-checks-resolved))
 
                 view-check-results
                 (io/warn-io :run-check-commands!
                             (run-check-commands!
-                             (merge ctx
-                                    {:preloaded-refs preloaded-update-delete-refs})
+                             (assoc ctx :preloaded-refs preloaded-update-delete-refs)
                              view-checks-resolved))
 
                 tx-data
