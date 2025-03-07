@@ -1881,40 +1881,27 @@
                                     (tracer/add-data! {:attributes {:entity-count (count res)}})
                                     res))
           query-cache (merge query-cache preloaded-entity-maps)]
-      (reduce-kv (fn [acc etype {:keys [eids program]}]
-                   (reduce (fn [acc eid]
-                             (assoc acc
-                                    [etype eid]
-                                    (if-not program
-                                      {:result true}
-                                      {:program program
-                                       :result
-                                       (let [em (io/warn-io :instaql/entity-map
-                                                  (entity-map ctx
-                                                              query-cache
-                                                              etype
-                                                              eid))
-                                             ctx (assoc ctx
-                                                        :preloaded-refs preloaded-refs)]
-                                         (io/warn-io :instaql/eval-program
-                                           (cel/eval-program!
-                                            program
-                                            {"auth" (cel/->cel-map {:ctx ctx
-                                                                    :type :auth
-                                                                    :etype "$users"}
-                                                                   current-user)
-                                             "data" (cel/->cel-map {:ctx ctx
-                                                                    :etype etype
-                                                                    :type :data}
-                                                                    em)
-                                             "ruleParams" (cel/->cel-map {:ctx ctx :type :rule-params} rule-params)})))})))
-                           acc
-                           eids))
-                 {}
-                 etype->eids+program))))
+      (into {}
+            (for [[etype {:keys [eids program]}] etype->eids+program
+                  eid eids]
+              [[etype eid]
+               (if-not program
+                 {:result true}
+                 {:program program
+                  :result
+                  (let [em (io/warn-io
+                            :instaql/entity-map
+                            (entity-map ctx query-cache etype eid))
+                        ctx (assoc ctx :preloaded-refs preloaded-refs)]
+                    (io/warn-io
+                     :instaql/eval-program
+                     (cel/eval-program!
+                      program
+                      {"auth" (cel/->cel-map {:ctx ctx, :type :auth, :etype "$users"} current-user)
+                       "data" (cel/->cel-map {:ctx ctx, :type :data, :etype etype} em)
+                       "ruleParams" (cel/->cel-map {} rule-params)})))})])))))
 
 (defn permissioned-query [{:keys [app-id current-user admin?] :as ctx} o]
-  (println "!!! permissioned-query")
   (tracer/with-span! {:name "instaql/permissioned-query"
                       :attributes {:app-id app-id
                                    :current-user (pr-str current-user)
