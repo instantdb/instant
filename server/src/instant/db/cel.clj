@@ -138,7 +138,7 @@
 
 (defn stringify [x]
   (cond
-    (nil? x)           NullValue/NULL_VALUE
+    (nil? x)           false
     ;; For some reason, cel-java only supports longs when determining
     ;; type. We convert ints to longs to prevent type(data.param) from
     ;; throwing a NPE
@@ -255,7 +255,24 @@
       (.addFunctionBindings (ucoll/array-of CelRuntime$CelFunctionBinding custom-fn-bindings))
       (.build)))
 
-(defn ->ast [expr-str] (.getAst (.compile cel-compiler expr-str)))
+(defn transform-not-expr [expr-str]
+  (clojure-string/replace expr-str #"(?<!\!)!(?:\(([^)]+)\)|([a-zA-Z0-9_.]+))"
+                          (fn [[_ paren-expr prop-expr]]
+                            (if paren-expr
+                              (str "safeNot(" paren-expr ")")
+                              (str "safeNot(" prop-expr ")")))))
+
+(defn transform-null-expr [expr-str]
+  (-> expr-str
+      ;; Replace "prop == null" with "prop == false"
+      (clojure-string/replace #"([a-zA-Z0-9_.]+)\s*==\s*null" "$1 == false")
+      ;; Replace "null == prop" with "false == prop"
+      (clojure-string/replace #"null\s*==\s*([a-zA-Z0-9_.]+)" "false == $1")))
+
+(defn ->ast [expr-str]
+  (let [clean-expr-str (-> expr-str transform-null-expr)]
+    (.getAst (.compile cel-compiler clean-expr-str))))
+
 (defn ->program [ast] (.createProgram cel-runtime ast))
 
 (defn eval-program!
@@ -263,7 +280,7 @@
   (try
     (let [result (.eval ^CelRuntime$Program cel-program ^java.util.Map bindings)]
       (if (= result NullValue/NULL_VALUE)
-        nil
+        false
         result))
     (catch CelEvaluationException e
       (ex/throw-permission-evaluation-failed!
