@@ -3430,14 +3430,14 @@
       (rule-model/put!
        (aurora/conn-pool :write)
        {:app-id app-id
-        :code {:users {:allow {:view "data.handle == params.handle"}}}})
+        :code {:users {:allow {:view "data.handle == ruleParams.handle"}}}})
       (is
        (=
         #{"stopa"}
         (->>  (pretty-perm-q
                {:app-id app-id :current-user nil}
                {:users {}
-                :$$params {:handle "stopa"}})
+                :$$ruleParams {:handle "stopa"}})
               :users
               (map :handle)
               set))))))
