@@ -3424,23 +3424,21 @@
            {:$default {:allow {:$default "false" :view "true"}}}
            #{"alex" "joe" "stopa" "nicolegf"}))))))
 
-(deftest read-params
+(deftest read-rule-params
   (with-zeneca-app
     (fn [{app-id :id :as _app} _r]
       (rule-model/put!
        (aurora/conn-pool :write)
        {:app-id app-id
         :code {:users {:allow {:view "data.handle == ruleParams.handle"}}}})
-      (is
-       (=
-        #{"stopa"}
-        (->>  (pretty-perm-q
-               {:app-id app-id :current-user nil}
-               {:users {}
-                :$$ruleParams {:handle "stopa"}})
-              :users
-              (map :handle)
-              set))))))
+      (is (= #{"stopa"}
+             (->>  (pretty-perm-q
+                    {:app-id app-id :current-user nil}
+                    {:users {}
+                     :$$ruleParams {:handle "stopa"}})
+                   :users
+                   (map :handle)
+                   set))))))
 
 (deftest read-perms
   (doseq [[app-fn description] [[(fn [f]
