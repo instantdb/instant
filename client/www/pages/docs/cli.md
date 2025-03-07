@@ -35,10 +35,10 @@ This will evaluate your schema, compare it with production, and migrate your dat
 
 {% /callout %}
 
-Similarily, when you change `instant.perms.ts`, you can run:
+Similarly, when you change `instant.perms.ts`, you can run:
 
 ```shell {% showCopy=true %}
-npx instant-cli push perms
+npx instant-cli@latest push perms
 ```
 
 ## Pull
@@ -94,7 +94,7 @@ INSTANT_PERMS_FILE_PATH=./src/db/instant.perms.ts
 
 ## Authenticating in CI
 
-In CI or similer environments, you may want to handle authentication without having to go through a web-based validation step each time.
+In CI or similar environments, you may want to handle authentication without having to go through a web-based validation step each time.
 
 In these cases, you can provide a `INSTANT_CLI_AUTH_TOKEN` environment variable.
 
