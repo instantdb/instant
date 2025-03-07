@@ -255,13 +255,6 @@
       (.addFunctionBindings (ucoll/array-of CelRuntime$CelFunctionBinding custom-fn-bindings))
       (.build)))
 
-(defn transform-not-expr [expr-str]
-  (clojure-string/replace expr-str #"(?<!\!)!(?:\(([^)]+)\)|([a-zA-Z0-9_.]+))"
-                          (fn [[_ paren-expr prop-expr]]
-                            (if paren-expr
-                              (str "safeNot(" paren-expr ")")
-                              (str "safeNot(" prop-expr ")")))))
-
 (defn transform-null-expr [expr-str]
   (-> expr-str
       ;; Replace "prop == null" with "prop == false"
