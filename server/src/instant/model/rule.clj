@@ -121,10 +121,12 @@
    (when-let [expr (get-expr (:code rules) etype action)]
      (try
        (let [code (with-binds (:code rules) etype expr)
-             ast (cel/->ast code)]
+             ;; Don't bork if the perm check is a simple boolean
+             code-str (if (boolean? code) (str code) code)
+             ast (cel/->ast code-str)]
          {:etype etype
           :action action
-          :code code
+          :code code-str
           :display-code expr
           :cel-ast ast
           :cel-program (cel/->program ast)})
