@@ -67,6 +67,12 @@
   (tracer/record-info! {:name "app-deletion-sweeper/stop"})
   (.close schedule))
 
+(defn before-ns-unload []
+  (stop))
+
+(defn after-ns-reload []
+  (start))
+
 (defn restart []
   (stop)
   (start))
