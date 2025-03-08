@@ -45,7 +45,9 @@ const exampleInit = (appId: string): string => {
 
 import { init } from '@instantdb/react'; 
 
-const db = init({appId: "${appId}"}); // 🎉
+const db = init({
+  appId: "${appId}" // 🎉
+}); 
   `.trim();
 };
 
@@ -162,7 +164,7 @@ function AppStage({
           This works just like a normal app. You can use it inside instant sdks:
         </p>
         <div className="border">
-          <Fence code={exampleInit(app.id)} language="json" />
+          <Fence code={exampleInit(app.id)} language="javascript" />
         </div>
       </div>
       <div>
@@ -262,14 +264,6 @@ function AppStage({
         >
           Try it!
         </Button>
-        {permsResult ? (
-          <div className="border">
-            <Fence
-              code={JSON.stringify(permsResult, null, 2)}
-              language="json"
-            />
-          </div>
-        ) : null}
       </div>
       <div>
         <h2>6. (Coming soon) Connect to Instant</h2>
