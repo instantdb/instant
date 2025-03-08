@@ -1,5 +1,6 @@
 (ns instant.db.cel
   (:require
+   [clojure+.walk :as walk]
    [clojure.set :as clojure-set]
    [clojure.string :as clojure-string]
    [instant.data.constants :refer [zeneca-app-id]]
@@ -12,32 +13,62 @@
    [instant.util.exception :as ex]
    [instant.util.tracer :as tracer])
   (:import
+   (com.google.common.base Preconditions)
+   (com.google.common.collect ImmutableList)
    (com.google.protobuf NullValue)
-   (dev.cel.common CelAbstractSyntaxTree CelFunctionDecl CelOverloadDecl)
-   (dev.cel.common.ast CelExpr
+   (dev.cel.common CelAbstractSyntaxTree
+                   CelFunctionDecl
+                   CelIssue
+                   CelMutableAst
+                   CelOptions
+                   CelOverloadDecl)
+   (dev.cel.common.ast CelConstant
+                       CelConstant$Kind
+                       CelExpr
                        CelExpr$CelCall
                        CelExpr$CelComprehension
                        CelExpr$ExprKind$Kind
+                       CelMutableExpr
                        Expression$Map$Entry)
-   (dev.cel.common.navigation CelNavigableExpr)
-   (dev.cel.common.types CelType ListType MapType SimpleType)
-   (dev.cel.compiler CelCompiler CelCompilerFactory CelCompilerLibrary)
+   (dev.cel.common.navigation CelNavigableExpr
+                              CelNavigableMutableAst
+                              CelNavigableMutableExpr)
+   (dev.cel.common.types CelType
+                         ListType
+                         MapType
+                         SimpleType)
+   (dev.cel.compiler CelCompiler
+                     CelCompilerFactory
+                     CelCompilerLibrary)
    (dev.cel.extensions CelExtensions)
-   (dev.cel.parser CelStandardMacro)
+   (dev.cel.optimizer AstMutator
+                      CelAstOptimizer
+                      CelAstOptimizer$OptimizationResult
+                      CelOptimizer
+                      CelOptimizerFactory)
+   (dev.cel.parser CelMacro
+                   CelMacroExprFactory
+                   CelStandardMacro
+                   CelUnparserFactory
+                   Operator)
    (dev.cel.runtime CelEvaluationException
+                    CelFunctionOverload
                     CelFunctionOverload$Binary
                     CelRuntime
                     CelRuntime$CelFunctionBinding
                     CelRuntime$Program
                     CelRuntimeFactory)
-   (dev.cel.validator CelAstValidator CelValidatorFactory)
-   (java.util Date Map Optional SimpleTimeZone)
-   (java.text SimpleDateFormat)))
+   (dev.cel.validator CelAstValidator
+                      CelValidatorFactory)
+   (java.text SimpleDateFormat)
+   (java.util ArrayList Date Map Optional SimpleTimeZone)))
+
+;;(set! *warn-on-reflection* true)
 
 ;; ----
 ;; get-ref
 
-;; this is used inside `build-query` and `find-val-path`, 
+;; this is used inside `build-query` and `find-val-path`,
 ;; so we can extract the values that `data.ref` needs.
 
 (def ^:private value-sym (attr-pat/default-level-sym "_value" 0))
@@ -239,12 +270,17 @@
 (def custom-fn-decls (mapv :decl custom-fns))
 (def custom-fn-bindings (mapv :runtime custom-fns))
 
+(def cel-options (-> (CelOptions/current)
+                     (.populateMacroCalls true)
+                     (.build)))
+
 (def ^:private ^CelCompiler cel-compiler
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
       (.addVar "data" type-obj)
       (.addVar "auth" type-obj)
       (.addVar "newData" type-obj)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-fn-decls))
+      (.setOptions cel-options)
       (.setStandardMacros (CelStandardMacro/STANDARD_MACROS))
       (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings) (CelExtensions/strings)]))
       (.build)))
@@ -253,7 +289,481 @@
   (-> (CelRuntimeFactory/standardCelRuntimeBuilder)
       (.addLibraries [(CelExtensions/strings)])
       (.addFunctionBindings (ucoll/array-of CelRuntime$CelFunctionBinding custom-fn-bindings))
+      (.setOptions cel-options)
       (.build)))
+
+
+;; cel -> instaql where clauses
+;; ----------------------------
+
+;; Helpers to convert cel rules to instaql where clauses
+;; (data.name == 'Daniel' || data.handle == 'dww')
+;;   => {:or [{"name" "Daniel"}, {"handle" "dww"}]}
+
+
+;; Important to use a deftype so that cel can't call
+;; e.g. `size` on our thing
+(deftype RefPath [path-str])
+
+(deftype WhereClauses [where-clauses])
+
+;; XXX: Put this stuff in the iql cel area
+;; Important to use a deftype so that cel can't call
+;; e.g. `size` on our thing
+(deftype DataKey [data-key])
+
+;; XXX: Need to use deftype for the where clauses also
+
+;; XXX How do we handle `data.title.test`?
+;;     It's not something you can do right now
+;;     we'd have to return a cel-map if it's json
+
+;; XXX: Should this be a deftype also??
+;; XXX: Should take attrs and reject anything with an invalid attr?
+(deftype CelHelperMap []
+  java.util.Map
+  (get [_ k]
+    ;; Needs to look up attrs here and check that the ns has the attr
+    (DataKey. k))
+
+  (containsKey [_ _k]
+    true)
+
+  (entrySet [_]
+    (set (seq {})))
+
+  CelMapExtension
+  (getMeta [_]
+    {}))
+
+(def ^:dynamic *testing* true)
+
+(def iql-ref-fn
+  {:decl (CelFunctionDecl/newFunctionDeclaration
+          "ref"
+          (ucoll/array-of
+           CelOverloadDecl
+           [(CelOverloadDecl/newMemberOverload
+             "data_ref"
+             SimpleType/DYN
+             (ucoll/array-of CelType [type-obj SimpleType/STRING]))]))
+   :runtime (let [impl (reify CelFunctionOverload$Binary
+                         (apply [_ cel-map path-str]
+                           (if (instance? CelHelperMap cel-map)
+                             (RefPath. path-str)
+
+                             ;; Just for testing
+                             (if *testing*
+                               [(random-uuid)]
+                               (let [self ^CelMap cel-map
+                                     {:keys [ctx etype type]} (.getMeta self)
+                                     path-str (if (= type :auth)
+                                                (clojure-string/replace path-str
+                                                                        #"^\$user\."
+                                                                        "")
+                                                path-str)
+                                     ref-data {:eid (parse-uuid (:id cel-map))
+                                               :etype etype
+                                               :path-str path-str}]
+                                 (if-let [preloaded-ref (-> ctx
+                                                            :preloaded-refs
+                                                            (get ref-data))]
+                                   (vec preloaded-ref)
+                                   (vec (get-ref ctx ref-data))))))))]
+              (CelRuntime$CelFunctionBinding/from
+               "data_ref"
+               Map
+               String
+               impl))})
+
+(defn where-value-valid? [x]
+  (or (string? x) (uuid? x) (number? x) (boolean? x)))
+
+(defn where-eq-value [x]
+  (if (= x NullValue/NULL_VALUE)
+    {:$isNull true}
+    (if (where-value-valid? x)
+      x
+      (throw (ex-info "Can't handle where value" {:value x})))))
+
+;; XXX: Also check for RefPath
+(def iql-eq-fn
+  {:decl (CelFunctionDecl/newFunctionDeclaration
+          "_iql_eq"
+          (ImmutableList/of
+           (CelOverloadDecl/newGlobalOverload
+            "_iql_eq"
+            SimpleType/DYN
+            (ImmutableList/of SimpleType/DYN SimpleType/DYN))))
+   :runtime (CelRuntime$CelFunctionBinding/from
+             "_iql_eq"
+             (ImmutableList/of Object Object)
+             (fn [[x y]]
+               ;;(println "EXECUTING ==" x y)
+               (cond (and (instance? DataKey x)
+                          ;; Can't have someone doing data.a == data.b
+                          (not (instance? DataKey y)))
+                     (WhereClauses. {(.data_key x) (where-eq-value y)})
+
+                     ;; XXX: Do we need to check for other things besides DataKey??
+                     (and (instance? DataKey y)
+                          (not (instance? DataKey x)))
+                     (WhereClauses. {(.data_key y) (where-eq-value x)})
+
+                     (and (instance? DataKey y)
+                          (instance? DataKey x))
+                     (throw (Exception. "Can't represent data.key1 == data.key2"))
+
+                     ;; XXX: Check that x and y aren't any of our deftypes
+
+                     :else
+                     (= x y))))})
+
+(defn where-neq-value [x]
+  (if (= x NullValue/NULL_VALUE)
+    {:$isNull false}
+    (if (where-value-valid? x)
+      {:$not x}
+      (throw (ex-info "Can't handle where value" {:value x})))))
+
+;; XXX: Need better handling for `nulls` in eq
+(def iql-neq-fn
+  {:decl (CelFunctionDecl/newFunctionDeclaration
+          "_iql_neq"
+          (ImmutableList/of
+           (CelOverloadDecl/newGlobalOverload
+            "_iql_neq"
+            SimpleType/DYN
+            (ImmutableList/of SimpleType/DYN SimpleType/DYN))))
+   :runtime (CelRuntime$CelFunctionBinding/from
+             "_iql_neq"
+             (ImmutableList/of Object Object)
+             (fn [[x y]]
+               ;;(println "EXECUTING !=" x y)
+               (cond (and (instance? DataKey x)
+                          ;; Can't have someone doing data.a != data.b
+                          (not (instance? DataKey y)))
+                     (WhereClauses. {(.data_key x) (where-neq-value y)})
+
+                     (and (instance? DataKey y)
+                          (not (instance? DataKey x)))
+                     (WhereClauses. {(.data_key y) (where-neq-value x)})
+
+                     (and (instance? DataKey y)
+                          (instance? DataKey x))
+                     ;; XXX: Special error that indicates we can't possible execute this one
+                     (throw (Exception. "Can't represent data.key1 != data.key2"))
+
+                     ;; XXX: Check that x and y aren't any of our deftypes
+
+                     :else
+                     (not= x y))))})
+
+(def iql-in-fn
+  {:decl (CelFunctionDecl/newFunctionDeclaration
+          "_iql_in"
+          (ImmutableList/of
+           (CelOverloadDecl/newGlobalOverload
+            "_iql_in"
+            SimpleType/DYN
+            (ImmutableList/of SimpleType/DYN SimpleType/DYN))))
+   :runtime (CelRuntime$CelFunctionBinding/from
+             "_iql_in"
+             (ImmutableList/of Object Object)
+             (fn [[x y]]
+               ;;(println "EXECUTING IN" x y)
+               (cond
+                 (instance? DataKey x)
+                 (cond (or (instance? ArrayList y)
+                           (vector? y))
+                       (WhereClauses.
+                        ;; XXX: Check for nulls in the set
+                        {(.data_key x) {:$in (set y)}})
+
+                       :else (throw (ex-info "can't figure out in for inputs" {:x x :y y})))
+
+                 (instance? RefPath y)
+                 (cond (where-value-valid? x)
+                       (WhereClauses. {(.path_str y) x})
+
+                       (= NullValue/NULL_VALUE x)
+                       (WhereClauses. {(.path_str y) {:$isNull true}})
+                       ;; XXX: Throw a special "Can't execute" if input is a whereclause
+
+                       :else (throw (ex-info "can't figure out in for inputs" {:x x :y y})))
+
+                 ;; XXX: This should check for our deftypes more generally
+                 (or (instance? WhereClauses x)
+                     (ucoll/exists? (fn [item]
+                                      (instance? WhereClauses item))
+                                    ;; XXX: This might not be an array?
+                                    y))
+                 (throw (ex-info "can't figure out in for inputs" {:x x :y y}))
+
+                 :else
+                 ;; XXX: Look at the implementation of in -- theirs works with maps
+                 (ucoll/exists? (fn [candidate]
+                                  (= candidate x))
+                                y))))})
+
+(defn extract-where-clause [x]
+  (cond (instance? WhereClauses x)
+        x
+
+        (instance? DataKey x)
+        (WhereClauses. {(.data_key x) true})
+
+        :else
+        nil))
+
+(defn combine-where-clauses [op ^WhereClauses x ^WhereClauses y]
+  (WhereClauses. {op [(.where_clauses x) (.where_clauses y)]}))
+
+(def iql-or-fn
+  {:decl (CelFunctionDecl/newFunctionDeclaration
+          "_iql_or"
+          (ImmutableList/of
+           (CelOverloadDecl/newGlobalOverload
+            "_iql_or"
+            SimpleType/DYN
+            (ImmutableList/of SimpleType/DYN SimpleType/DYN))))
+   :runtime (CelRuntime$CelFunctionBinding/from
+             "_iql_or"
+             (ImmutableList/of Object Object)
+             (fn [[x y]]
+               ;;(println "EXECUTING OR" x y)
+               (let [x-clause (extract-where-clause x)
+                     y-clause (extract-where-clause y)]
+                 (cond (and x-clause y-clause)
+                       (combine-where-clauses :or x-clause y-clause)
+
+                       (and x-clause (boolean? y))
+                       (if y
+                         y ;; We got true, no need to execute a where
+                         x-clause)
+
+                       (and y-clause (boolean? x))
+                       (if x
+                         x ;; We got true, no need to execute a where
+                         y-clause)
+
+                       (and (boolean? x) (boolean? y))
+                       (or x y)
+
+                       :else
+                       (throw (ex-info "Can't execute or on inputs" {:x x :y y}))))))})
+
+(def iql-and-fn
+  {:decl (CelFunctionDecl/newFunctionDeclaration
+          "_iql_and"
+          (ImmutableList/of
+           (CelOverloadDecl/newGlobalOverload
+            "_iql_and"
+            SimpleType/DYN
+            (ImmutableList/of SimpleType/DYN SimpleType/DYN))))
+   :runtime (CelRuntime$CelFunctionBinding/from
+             "_iql_and"
+             (ImmutableList/of Object Object)
+             (fn [[x y]]
+               ;;(println "EXECUTING AND" x y)
+               (let [x-clause (extract-where-clause x)
+                     y-clause (extract-where-clause y)]
+                 (cond (and x-clause y-clause)
+                       (combine-where-clauses :and x-clause y-clause)
+
+                       (and x-clause (boolean? y))
+                       ;; XXX: double check this
+                       (if y
+                         x-clause
+                         y) ;; We got false, no need to continue
+
+
+                       (and y-clause (boolean? x))
+                       (if x
+                         y-clause
+                         x) ;; We got false, no need to continue
+
+
+                       (and (boolean? x) (boolean? y))
+                       (or x y)
+
+                       :else
+                       (throw (ex-info "Can't execute and on inputs" {:x x :y y}))))))})
+
+(defn negate-where-clauses
+  "Uses De Morgan's laws to negate the where clauses:
+   not (A or B) = (not A) and (not B)
+   not (A and B) = (not A) or (not B)"
+  [c]
+  (cond (and (:or c) (vector? (:or c)))
+        {:and (mapv negate-where-clauses (:or c))}
+
+        (and (:and c) (vector? (:and c)))
+        {:or (mapv negate-where-clauses (:and c))}
+
+        :else
+        (reduce-kv (fn [acc k v]
+                     (assoc acc k (cond (map? v)
+                                        (cond (contains? v :$not)
+                                              (:$not v)
+
+                                              (contains? v :$isNull)
+                                              {:$isNull (not (:$isNull v))})
+
+                                        (boolean? v)
+                                        (not v)
+
+                                        :else
+                                        {:$not v})))
+                   {}
+                   c)))
+
+(def iql-not-fn
+  {:decl (CelFunctionDecl/newFunctionDeclaration
+          "_iql_not"
+          (ImmutableList/of
+           (CelOverloadDecl/newGlobalOverload
+            "_iql_not"
+            SimpleType/DYN
+            (ImmutableList/of SimpleType/DYN))))
+   :runtime (CelRuntime$CelFunctionBinding/from
+             "_iql_not"
+             (ImmutableList/of Object)
+             (fn [[x]]
+               (println "EXECUTING NOT" x)
+               (cond (boolean? x)
+                     (not x)
+
+                     (instance? WhereClauses x)
+                     (WhereClauses. (negate-where-clauses (.where_clauses x)))
+
+                     ;; e.g. !data.isPublished
+                     (instance? DataKey x)
+                     (WhereClauses. {(.data_key x) false})
+
+                     :else
+                     (throw (ex-info "Can't execute ! on input" {:x x})))))})
+
+(def custom-iql-fns [iql-ref-fn iql-in-fn iql-eq-fn iql-neq-fn iql-or-fn iql-and-fn iql-not-fn])
+(def custom-iql-fn-decls (mapv :decl custom-iql-fns))
+(def custom-iql-fn-bindings (mapv :runtime custom-iql-fns))
+
+(def ^:private ^CelCompiler cel-iql-compiler
+  (-> (CelCompilerFactory/standardCelCompilerBuilder)
+      (.addVar "data" type-obj)
+      (.addVar "auth" type-obj)
+      (.addVar "newData" type-obj)
+      (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-iql-fn-decls))
+      (.setOptions cel-options)
+      (.setStandardMacros (CelStandardMacro/STANDARD_MACROS))
+      (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings) (CelExtensions/strings)]))
+      (.build)))
+
+(def ^:private ^CelRuntime cel-iql-runtime
+  (-> (CelRuntimeFactory/standardCelRuntimeBuilder)
+      (.addLibraries [(CelExtensions/strings)])
+      (.addFunctionBindings (ucoll/array-of CelRuntime$CelFunctionBinding custom-iql-fn-bindings))
+      (.setOptions cel-options)
+      (.build)))
+
+(def operators
+  {:= (.getFunction Operator/EQUALS)})
+
+;; other operations: in
+(def operator-replacements
+  {(.getFunction Operator/EQUALS) "_iql_eq"
+   (.getFunction Operator/NOT_EQUALS) "_iql_neq"
+   (.getFunction Operator/IN) "_iql_in"
+   (.getFunction Operator/LOGICAL_OR) "_iql_or"
+   (.getFunction Operator/LOGICAL_AND) "_iql_and"
+   (.getFunction Operator/LOGICAL_NOT) "_iql_not"})
+
+(def has-children-operators (set [(.getFunction Operator/LOGICAL_OR)
+                                  (.getFunction Operator/LOGICAL_AND)]))
+
+(def can-replace-operator? (set (keys operator-replacements)))
+
+(defn get-expr [^CelNavigableExpr node]
+  ;; Not sure why this is necessary, but can't call
+  ;; .expr on the node without manually making it
+  ;; accessible. It's what they do in the example,
+  ;; so not sure why it's a problem here
+  ;; https://tinyurl.com/46zbw98p
+  (let [clazz (.getClass node)
+        method (.getDeclaredMethod clazz "expr" (into-array Class []))
+        _ (.setAccessible method true)
+        ^CelExpr expr (.invoke method node (object-array 0))]
+    expr))
+
+(defn get-depth [^CelNavigableExpr node]
+  ;; Not sure why this is necessary, but can't call
+  ;; .expr on the node without manually making it
+  ;; accessible. It's what they do in the example,
+  ;; so not sure why it's a problem here
+  ;; https://tinyurl.com/46zbw98p
+  (let [clazz (.getClass node)
+        method (.getDeclaredMethod clazz "depth" (into-array Class []))
+        _ (.setAccessible method true)
+        ^CelExpr expr (.invoke method node (object-array 0))]
+    expr))
+
+(defn get-height [^CelNavigableExpr node]
+  ;; Not sure why this is necessary, but can't call
+  ;; .expr on the node without manually making it
+  ;; accessible. It's what they do in the example,
+  ;; so not sure why it's a problem here
+  ;; https://tinyurl.com/46zbw98p
+  (let [clazz (.getClass node)
+        method (.getDeclaredMethod clazz "height" (into-array Class []))
+        _ (.setAccessible method true)
+        ^CelExpr expr (.invoke method node (object-array 0))]
+    expr))
+
+(defn can-optimize-node? [^CelNavigableMutableExpr node]
+  ;;(println (.getKind node) (get-depth node) (get-height node))
+  (boolean
+   (and (= CelExpr$ExprKind$Kind/CALL (.getKind node))
+        (can-replace-operator? (.function (.call (get-expr node)))))))
+
+(deftype MyOptimizer []
+  CelAstOptimizer
+  (optimize [_this ast _cel]
+    (let [id-gen (volatile! 9)
+          next-id (fn []
+                    (Integer/toString (vswap! id-gen inc) 36))
+          mutable-ast (CelMutableAst/fromCelAst ast)
+          ast-mutator (AstMutator/newInstance 1000
+                                              ;; XXX: What should be the iteration limit?
+                                              )
+          nodes (-> (CelNavigableMutableAst/fromAst mutable-ast)
+                    (.getRoot)
+                    (.allNodes)
+                    ;; Would be nice to have a predicate helper?
+                    (.filter can-optimize-node?)
+                    (.collect (ImmutableList/toImmutableList)))]
+      (loop [mutable-ast mutable-ast
+             [node & rest-nodes] nodes]
+        (if-not node
+          (CelAstOptimizer$OptimizationResult/create
+           (.toParsedAst (.renumberIdsConsecutively ast-mutator
+                                                    mutable-ast)))
+          (let [expr (get-expr node)
+                func (.function (.call expr))]
+            ;;(println "OPTIMIZING" func (contains? has-children-operators func))
+            (.setFunction (.call expr) (get operator-replacements func))
+
+            (recur (.replaceSubtree ast-mutator
+                                    mutable-ast
+                                    expr
+                                    (.id (get-expr node)))
+                   rest-nodes)))))))
+
+;; TODO: Do the optimize compile, validate, and optimize steps at save time and store the ast
+(def ^CelOptimizer cel-iql-optimizer
+  (-> (CelOptimizerFactory/standardCelOptimizerBuilder cel-iql-compiler cel-iql-runtime)
+      (.addAstOptimizers (ImmutableList/of (MyOptimizer.)))
+      (.build)))
+
 
 (defn ->ast [expr-str] (.getAst (.compile cel-compiler expr-str)))
 (defn ->program [ast] (.createProgram cel-runtime ast))
@@ -268,6 +778,28 @@
     (catch CelEvaluationException e
       (ex/throw-permission-evaluation-failed!
        etype action e))))
+
+(defn get-where-clauses [code auth]
+  (let [where-clauses (atom {:top-level []
+                             :by-parent {}})]
+    (let [ast (.getAst (.compile cel-iql-compiler code))
+          program (->> ast
+                       (.optimize cel-iql-optimizer)
+                       (.createProgram cel-iql-runtime))
+          evaluation-result (.eval ^CelRuntime$Program program
+                                   ^java.util.Map {"auth" auth
+                                                   "data" (->CelHelperMap)})]
+      {:short-circuit? (= false evaluation-result)
+       :where-clauses (when (instance? WhereClauses evaluation-result)
+                        (.where_clauses evaluation-result))})))
+
+(defn debug-transform [code]
+  (let [ast (.getAst (.compile cel-iql-compiler code))]
+    (->> ast
+         (.optimize cel-iql-optimizer)
+         unparse
+         )))
+
 
 ;; Static analysis
 ;; ---------------
@@ -420,6 +952,12 @@
                  refs
                  patterns
                  results))))
+
+(def unparser (CelUnparserFactory/newUnparser))
+
+;; XXX: do a warn-on-reflection pass
+(defn unparse [ast]
+  (.unparse unparser ast))
 
 (def auth-ref-validator ^CelAstValidator
   (reify CelAstValidator

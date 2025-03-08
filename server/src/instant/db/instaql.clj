@@ -1082,11 +1082,32 @@
         {:aggregate aggregate
          :children nil}))}))
 
+(defn rule-wheres->conds [ctx etype]
+  (when-let [wheres (some-> ctx
+                            :rule-wheres
+                            (get etype)
+                            :wheres)]
+    (let [forms {etype {:$ {:where wheres}}}]
+      (-> forms
+          ->forms!
+          first
+          :option-map
+          :where-conds))))
+
 (defn instaql-query->patterns [ctx o]
   (let [forms* (->> (->forms! o)
-                   ;; at the top-level, `k` _must_ be the etype
+                    ;; at the top-level, `k` _must_ be the etype
                     (mapv (fn [{:keys [k] :as form}]
-                            (assoc form :etype k :level 0))))
+                            (let [extra-conds (rule-wheres->conds ctx k)]
+                              (cond-> form
+                                true (assoc :etype k :level 0)
+                                (seq extra-conds) (update-in [:option-map :where-conds]
+                                                             (fn [existing]
+                                                               (if (seq existing)
+                                                                 [[:and {:and [existing
+                                                                               extra-conds]}]]))))))))
+        _ (tool/def-locals)
+
         {:keys [pattern-groups
                 referenced-etypes
                 forms]}
@@ -1911,6 +1932,28 @@
                  {}
                  etype->eids+program))))
 
+(defn prepare-rules [ctx rules o]
+  ;; XXX: The rules could introduce additional etypes if they use data.ref
+  (let [{:keys [referenced-etypes]} (instaql-query->patterns ctx o)
+        programs (reduce (fn [acc etype]
+                           (if-let [program (rule-model/get-program! rules etype "view")]
+                             (try
+                               (let [{:keys [short-circuit? where-clauses]}
+                                     (cel/get-where-clauses (:code program) (cel/->cel-map {:ctx ctx
+                                                                                            :type :auth
+                                                                                            :etype "$users"}
+                                                                                           (:current-user ctx)))]
+                                 (tool/def-locals)
+                                 (assoc acc etype {:short-circuit? short-circuit?
+                                                   :wheres where-clauses}))
+                               (catch Exception e
+                                 (clojure.tools.logging/info "ERROR" e)
+                                 acc))
+                             acc))
+                         {}
+                         referenced-etypes)]
+    programs))
+
 (defn permissioned-query [{:keys [app-id current-user admin?] :as ctx} o]
   (tracer/with-span! {:name "instaql/permissioned-query"
                       :attributes {:app-id app-id
@@ -1918,23 +1961,32 @@
                                    :admin? admin?
                                    :query (pr-str o)}}
 
-    (let [res (query ctx o)]
-      (if admin?
-        res
-        (let [rules (rule-model/get-by-app-id {:app-id app-id})
-              perm-helpers
-              (extract-permission-helpers {:attrs (:attrs ctx)
-                                           :rules rules}
-                                          res)
-              etype+eid->check (get-etype+eid-check-result! ctx perm-helpers)
-              res' (tracer/with-span! {:name "instaql/map-permissioned-node"}
-                     (mapv (partial permissioned-node ctx etype+eid->check) res))]
-          res')))))
+    (if admin?
+      (query ctx o)
+      (let [rules (rule-model/get-by-app-id {:app-id app-id})
+
+            prepped (prepare-rules ctx rules o)
+            res (query (assoc ctx
+                              :rule-wheres prepped)
+                       o)
+
+            perm-helpers
+            (extract-permission-helpers {:attrs (:attrs ctx)
+                                         :rules rules}
+                                        res)
+            etype+eid->check (get-etype+eid-check-result! ctx perm-helpers)
+            res' (tracer/with-span! {:name "instaql/map-permissioned-node"}
+                   (mapv (partial permissioned-node ctx etype+eid->check) res))]
+        res'))))
 
 (defn permissioned-query-check [{:keys [app-id] :as ctx} o rules-override]
-  (let [res (query ctx o)
-        rules (or (when rules-override {:app_id app-id :code rules-override})
+  (let [rules (or (when rules-override {:app_id app-id :code rules-override})
                   (rule-model/get-by-app-id {:app-id app-id}))
+
+        prepped (prepare-rules ctx rules o)
+        res (query (assoc ctx
+                          :rule-wheres prepped)
+                   o)
         perm-helpers
         (extract-permission-helpers {:attrs (:attrs ctx)
                                      :rules rules}
