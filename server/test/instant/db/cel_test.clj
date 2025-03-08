@@ -41,6 +41,11 @@
           bindings {"data" (cel/->cel-map {} {})}]
       (is (true? (cel/eval-program! {:cel-program program} bindings))))
 
+    ;; You can check not null
+    (let [program (cel/->program (cel/->ast "data.isVerified != null"))
+          bindings {"data" (cel/->cel-map {} {})}]
+      (is (false? (cel/eval-program! {:cel-program program} bindings))))
+
     ;; Direct comparison with null works
     (let [program (cel/->program (cel/->ast "data.isVerified == null"))
           bindings {"data" (cel/->cel-map {} {"isVerified" nil})}]

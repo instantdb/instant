@@ -257,10 +257,12 @@
 
 (defn transform-null-expr [expr-str]
   (-> expr-str
-      ;; Replace "prop == null" with "prop == false"
+      ;; Replace equality checks
       (clojure-string/replace #"([a-zA-Z0-9_.]+)\s*==\s*null" "$1 == false")
-      ;; Replace "null == prop" with "false == prop"
-      (clojure-string/replace #"null\s*==\s*([a-zA-Z0-9_.]+)" "false == $1")))
+      (clojure-string/replace #"null\s*==\s*([a-zA-Z0-9_.]+)" "false == $1")
+      ;; Replace inequality checks
+      (clojure-string/replace #"([a-zA-Z0-9_.]+)\s*!=\s*null" "$1 != false")
+      (clojure-string/replace #"null\s*!=\s*([a-zA-Z0-9_.]+)" "false != $1")))
 
 (defn ->ast [expr-str]
   (let [clean-expr-str (-> expr-str transform-null-expr)]
