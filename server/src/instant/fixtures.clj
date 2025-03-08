@@ -78,7 +78,7 @@
        (with-fail-on-warn-io
          (~f app#))
        (finally
-         (app-model/delete-by-id! {:id app-id#})))))
+         (app-model/delete-immediately-by-id! {:id app-id#})))))
 
 (defmacro with-movies-app [f]
   `(with-empty-app
@@ -167,7 +167,7 @@
           :owner owner
           :owner-req owner-req})
       (finally
-        (app-model/delete-by-id! {:id app-id})))))
+        (app-model/delete-immediately-by-id! {:id app-id})))))
 
 (defn with-team-app [owner invitee role f]
   (let [app-id (UUID/randomUUID)
@@ -205,6 +205,6 @@
           :owner-req owner-req
           :invitee-req invitee-req})
       (finally
-        (app-model/delete-by-id! {:id app-id})
+        (app-model/delete-immediately-by-id! {:id app-id})
         (instant-app-members/delete-by-id! {:id (:id member)})
         (instant-app-member-invites/delete-by-id! {:id (:id invite)})))))

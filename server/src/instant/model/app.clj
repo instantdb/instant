@@ -39,7 +39,6 @@
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [id title creator-id admin-token]}]
-
    (next-jdbc/with-transaction [tx-conn conn]
      (let [app (sql/execute-one!
                 ::create!
@@ -55,7 +54,7 @@
 (defn get-by-id* [conn id]
   (sql/select-one ::get-by-id*
                   conn
-                  ["SELECT * FROM apps WHERE apps.id = ?::uuid" id]))
+                  ["SELECT * FROM apps WHERE apps.id = ?::uuid AND apps.deletion_marked_at IS NULL" id]))
 
 (defn get-by-id
   ([{:keys [id]}]
@@ -79,7 +78,7 @@
                conn
                ["SELECT a.*
                  FROM apps a
-                 WHERE a.creator_id = ?::uuid"
+                 WHERE a.creator_id = ?::uuid AND a.deletion_marked_at IS NULL"
                 user-id])))
 
 (comment
@@ -95,7 +94,8 @@
                       FROM apps a
                       WHERE
                       a.id = ?::uuid AND
-                      a.creator_id = ?::uuid"
+                      a.creator_id = ?::uuid AND 
+                      a.deletion_marked_at IS NULL"
                     app-id user-id])))
 
 (defn get-by-id-and-creator! [params]
@@ -117,7 +117,8 @@
                 FROM apps a
                 WHERE
                   a.creator_id = ?::uuid AND
-                  a.created_at < ?"
+                  a.created_at < ? AND 
+                  a.deletion_marked_at IS NULL"
               creator-id created-before]))))
 
 (defn get-with-creator-by-ids
@@ -127,7 +128,8 @@
                conn ["SELECT a.*, u.email AS creator_email
                       FROM apps a
                       JOIN instant_users u ON a.creator_id = u.id
-                      WHERE a.id in (select unnest(?::uuid[]))"
+                      WHERE a.id in (select unnest(?::uuid[])) AND 
+                            a.deletion_marked_at IS NULL"
                      (-> app-ids
                          vec
                          (with-meta {:pgtype "uuid[]"})
@@ -232,19 +234,16 @@
                         LEFT JOIN s ON a.id = s.app_id
 
                       WHERE
-                        a.creator_id = ?::uuid
-                        OR (
-                          m.user_id = ?::uuid
-                          AND s.subscription_type_id = 2
-                        )
-
+                        ( 
+                          a.creator_id = ?::uuid
+                          OR (m.user_id = ?::uuid AND s.subscription_type_id = 2)
+                        ) AND a.deletion_marked_at IS NULL
                       GROUP BY
                         a.id,
                         admin_token,
                         rules,
                         m.member_role,
-                        s.subscription_type_id
-                      "
+                        s.subscription_type_id"
                      user-id user-id user-id user-id])))
 
 (defn get-dash-auth-data
@@ -273,7 +272,7 @@
                       )
                     ) AS data
                     FROM apps a
-                    WHERE a.id = ?::uuid"
+                    WHERE a.id = ?::uuid AND a.deletion_marked_at IS NULL"
                   app-id])
                 (get-in [:data "authorized_redirect_origins"]))
 
@@ -301,8 +300,24 @@
                 "oauth_clients" clients
                 "authorized_redirect_origins" redirect-origins}})))))
 
-(defn delete-by-id!
-  ([params] (delete-by-id! (aurora/conn-pool :write) params))
+(defn mark-for-deletion!
+  ([params] (mark-for-deletion! (aurora/conn-pool :write) params))
+  ([conn {:keys [id]}]
+   (with-cache-invalidation id
+     (sql/execute-one! ::delete-by-id!
+                       conn ["UPDATE apps SET deletion_marked_at = NOW() WHERE id = ?::uuid" id]))))
+
+(defn get-apps-to-delete
+  ([params] (get-apps-to-delete (aurora/conn-pool :read) params))
+  ([conn {:keys [maximum-deletion-marked-at]}]
+   (sql/select ::get-apps-to-delete
+               conn
+               ["SELECT a.* 
+                 FROM apps a WHERE a.deletion_marked_at IS NOT NULL AND a.deletion_marked_at <= ?"
+                maximum-deletion-marked-at])))
+
+(defn delete-immediately-by-id!
+  ([params] (delete-immediately-by-id! (aurora/conn-pool :write) params))
   ([conn {:keys [id]}]
    (with-cache-invalidation id
      (sql/execute-one! ::delete-by-id!
@@ -354,7 +369,7 @@
   (def a (create! {:title "TestingRepl!" :id (UUID/randomUUID) :creator-id (:id u)}))
   (get-all-for-user {:user-id (:id u)})
   (get-dash-auth-data {:app-id "3cc5c5c8-07df-42b2-afdc-6a04cbf0c40a"})
-  (delete-by-id! (select-keys a [:id])))
+  (delete-immediately-by-id! (select-keys a [:id])))
 
 (defn app-usage
   "Estimates amount of bytes used for an app's triples. This is intended to be

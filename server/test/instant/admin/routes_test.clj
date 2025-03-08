@@ -114,7 +114,7 @@
                         :creator-id constants/test-user-id
                         :id app-id
                         :admin-token admin-token}))
-  (app-model/delete-by-id! {:id app-id}))
+  (app-model/delete-immediately-by-id! {:id app-id}))
 
 (deftest transact-test
   (with-movies-app

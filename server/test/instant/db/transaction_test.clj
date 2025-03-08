@@ -976,7 +976,7 @@
                         :admin-token (UUID/randomUUID)}))
   (bootstrap/add-zeneca-to-app! app-id)
   (def r (resolvers/make-zeneca-resolver app-id))
-  (app-model/delete-by-id! {:id app-id}))
+  (app-model/delete-immediately-by-id! {:id app-id}))
 
 (defmacro perm-err? [& body]
   `(is (= ::ex/permission-denied (::ex/type (test-util/instant-ex-data ~@body)))))
@@ -1598,31 +1598,31 @@
           (testing "create"
             (let [id (random-uuid)]
               (is (perm-err?
-                    (permissioned-tx/transact! (make-ctx)
-                                               [[:add-triple id id-attr-id (str id)]
-                                                [:add-triple id handle-attr-id "a"]])))))
+                   (permissioned-tx/transact! (make-ctx)
+                                              [[:add-triple id id-attr-id (str id)]
+                                               [:add-triple id handle-attr-id "a"]])))))
 
           (testing "update"
             (is (perm-err?
-                  (permissioned-tx/transact! (make-ctx)
-                                             [[:add-triple existing-id handle-attr-id "b"]])))))
+                 (permissioned-tx/transact! (make-ctx)
+                                            [[:add-triple existing-id handle-attr-id "b"]])))))
 
         (testing "lookup fail"
           (testing "create"
             (is (perm-err?
-                  (permissioned-tx/transact! (make-ctx)
-                                             [[:add-triple [handle-attr-id "a"] id-attr-id [handle-attr-id "a"]]])))
+                 (permissioned-tx/transact! (make-ctx)
+                                            [[:add-triple [handle-attr-id "a"] id-attr-id [handle-attr-id "a"]]])))
 
             ;; n.b. if this validation-err? is fixed, make sure that this is still a permisison error
             ;;      right now you can't edit a lookup attr in the same transaction you create the lookup attr
             (is (validation-err?
-                  (permissioned-tx/transact! (make-ctx)
-                                             [[:add-triple [handle-attr-id "a"] id-attr-id [handle-attr-id "a"]]
-                                              [:add-triple [handle-attr-id "a"] handle-attr-id "c"]]))))
+                 (permissioned-tx/transact! (make-ctx)
+                                            [[:add-triple [handle-attr-id "a"] id-attr-id [handle-attr-id "a"]]
+                                             [:add-triple [handle-attr-id "a"] handle-attr-id "c"]]))))
           (testing "update"
             (is (perm-err?
-                  (permissioned-tx/transact! (make-ctx)
-                                             [[:add-triple [handle-attr-id "c"] handle-attr-id "b"]])))))))))
+                 (permissioned-tx/transact! (make-ctx)
+                                            [[:add-triple [handle-attr-id "c"] handle-attr-id "b"]])))))))))
 
 (deftest rejects-bad-lookups
   (with-zeneca-app
@@ -2137,17 +2137,17 @@
           (is
            (string/includes?
             (::ex/message (test-util/instant-ex-data (tx/transact!
-                                            (aurora/conn-pool :write)
-                                            (attr-model/get-by-app-id app-id)
-                                            app-id
-                                            [[:add-attr
-                                              {:id info-attr-id
-                                               :forward-identity [buds-fwd-ident "users" "buds"]
-                                               :value-type :ref
-                                               :cardinality :one
-                                               :unique? false
-                                               :index? false}]
-                                             [:deep-merge-triple target-eid info-attr-id {:name "Patchy"}]])))
+                                                      (aurora/conn-pool :write)
+                                                      (attr-model/get-by-app-id app-id)
+                                                      app-id
+                                                      [[:add-attr
+                                                        {:id info-attr-id
+                                                         :forward-identity [buds-fwd-ident "users" "buds"]
+                                                         :value-type :ref
+                                                         :cardinality :one
+                                                         :unique? false
+                                                         :index? false}]
+                                                       [:deep-merge-triple target-eid info-attr-id {:name "Patchy"}]])))
 
             "merge operation is not supported for links")))))))
 
@@ -2349,8 +2349,8 @@
                       [:add-triple book-id book-id-attr-id book-id]
                       [:add-triple book-id book-creator-attr-id user-id]]]
         (app-user-model/create! (aurora/conn-pool :write) {:app-id app-id
-                                                    :id user-id
-                                                    :email "test@example.com"})
+                                                           :id user-id
+                                                           :email "test@example.com"})
         (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps))
         (is (permissioned-tx/transact! (assoc (make-ctx)
                                               :current-user {:id user-id}) tx-steps))))))
@@ -2396,8 +2396,8 @@
                 [:add-triple book-id book-id-attr-id book-id]
                 [:add-triple book-id book-isbn-attr-id "1234"]])
             _ (app-user-model/create! (aurora/conn-pool :write) {:app-id app-id
-                                                          :id user-id
-                                                          :email "test@example.com"})
+                                                                 :id user-id
+                                                                 :email "test@example.com"})
             tx-steps [[:add-triple
                        [book-isbn-attr-id "1234"]
                        book-creator-attr-id
@@ -2470,8 +2470,8 @@
                              :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
                              :current-user nil})
             user (app-user-model/create! (aurora/conn-pool :write) {:app-id app-id
-                                                             :id user-id
-                                                             :email "test@example.com"})
+                                                                    :id user-id
+                                                                    :email "test@example.com"})
             _ (tx/transact!
                (aurora/conn-pool :write)
                (attr-model/get-by-app-id app-id)
