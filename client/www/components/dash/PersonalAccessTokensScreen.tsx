@@ -229,10 +229,8 @@ export default function PersonalAccessTokensTab({
             <p>
               Welcome to the Platform Beta! You can create{' '}
               <code>Personal Access Tokens</code> here. <br />
-              <a href="https://paper.dropbox.com/doc/Guide-Platform-Beta--CWdyjOhRfXmwljLmnSVTLTSBAg-YuqzAKxTHU7CMq5gJyD6S">
-                Take a look at this guide
-              </a>{' '}
-              to see how to use the platform API, and create apps on demand!
+              <a href="/labs/platform_demo">Take a look at this guide</a> to see
+              how to use the platform API, and create apps on demand!
             </p>
           </div>
         </div>
