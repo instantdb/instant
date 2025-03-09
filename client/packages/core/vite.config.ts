@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
 export default defineConfig({
+  clearScreen: false,
   build: {
     outDir: 'dist/standalone',
     lib: {

@@ -114,11 +114,9 @@ export function Sandbox({ app }: { app: InstantApp }) {
           throw error;
         }
       },
-      query: async (q: any) => {
+      query: async (q: any, opts?: any) => {
         try {
-          const response = await adminDb.debugQuery(q, {
-            rules,
-          });
+          const response = await adminDb.debugQuery(q, { rules, ...opts });
 
           out('query', { response, rules });
 
@@ -614,7 +612,7 @@ if (itemId) {
 const tsTypes = /* ts */ `
 type InstantDB = {
   transact: (steps) => Promise<number>;
-  query: (iql) => Promise<any>;
+  query: (iql, opts?: {ruleParams?: Record<string, any>}) => Promise<any>;
 };
 
 type InstantTx = {
@@ -625,6 +623,7 @@ type InstantTx = {
       delete: () => any;
       link: (v: Record<string, string>) => any;
       unlink: (v: Record<string, string>) => any;
+      ruleParams: (v: Record<string, any>) => any;
     };
   };
 };
