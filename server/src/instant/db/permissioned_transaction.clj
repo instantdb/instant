@@ -110,7 +110,7 @@
   [{:keys [program etype eid data] :as _check}
    {:keys [current-user rule-params] :as ctx}]
   (let [{:keys [original]} data
-        rule-params #p (get rule-params {:eid eid :etype etype})]
+        rule-params (get rule-params {:eid eid :etype etype})]
     (if-not program
       true
       (cel/eval-program!
