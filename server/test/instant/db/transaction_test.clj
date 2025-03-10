@@ -1353,8 +1353,56 @@
                     (permissioned-tx/transact! (make-ctx)
                                                [[:delete-entity delete-id]]))))))))))))
 
-(deftest write-perms-rule-params
-  (doseq [[title get-lookup] [#_["with eid" (fn [r] (resolvers/->uuid r "eid-stepan-parunashvili"))]
+(deftest update-perms-rule-params
+  (doseq [[title get-lookup] [["with eid" (fn [r] (resolvers/->uuid r "eid-stepan-parunashvili"))]
+                              ["with lookup ref" (fn [r] [(resolvers/->uuid r :users/email) "stopa@instantdb.com"])]]
+          op [:add-triple :deep-merge-triple]]
+    (with-zeneca-app
+      (fn [{app-id :id :as _app} r]
+        (let [make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
+                               :app-id app-id
+                               :attrs (attr-model/get-by-app-id app-id)
+                               :datalog-query-fn d/query
+                               :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                               :current-user nil})
+              lookup (get-lookup r)
+              full-name-attr-id (resolvers/->uuid r :users/fullName)]
+          (testing title
+            (testing op
+              (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id :code {:users {:allow {:update "data.handle == ruleParams.handle"}}}})
+              (is (perm-err? (permissioned-tx/transact! (make-ctx) [[op lookup full-name-attr-id "Stepashka"]])))
+              (is (perm-err? (permissioned-tx/transact! (make-ctx) [[:rule-params lookup "users" {"handle" "not stopa"}]
+                                                                    [op lookup full-name-attr-id "Stepashka"]])))
+              (is (not (perm-err? (permissioned-tx/transact! (make-ctx) [[:rule-params lookup "users" {"handle" "stopa"}]
+                                                                         [op lookup full-name-attr-id "Stepashka"]])))))))))))
+
+(deftest delete-without-etype-perms-rule-params
+  (doseq [[title get-lookup] [["with eid" (fn [r] (resolvers/->uuid r "eid-stepan-parunashvili"))]
+                              ["with lookup ref" (fn [r] [(resolvers/->uuid r :users/email) "stopa@instantdb.com"])]]]
+    (with-zeneca-app
+      (fn [{app-id :id :as _app} r]
+        (let [make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
+                               :app-id app-id
+                               :attrs (attr-model/get-by-app-id app-id)
+                               :datalog-query-fn d/query
+                               :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                               :current-user nil})
+              lookup (get-lookup r)]
+          (testing title
+            (rule-model/put!
+             (aurora/conn-pool :write)
+             {:app-id app-id :code {:users {:allow {:delete "data.handle == ruleParams.handle"}}
+                                    :$users {:allow {:delete "true"}}}})
+            (is (perm-err? (permissioned-tx/transact! (make-ctx) [[:delete-entity lookup]])))
+            (is (perm-err? (permissioned-tx/transact! (make-ctx) [[:rule-params lookup "users" {"handle" "not stopa"}]
+                                                                  [:delete-entity lookup]])))
+            (is (not (perm-err? (permissioned-tx/transact! (make-ctx) [[:rule-params lookup "users" {"handle" "stopa"}]
+                                                                       [:delete-entity lookup]]))))))))))
+
+(deftest delete-perms-rule-params
+  (doseq [[title get-lookup] [["with eid" (fn [r] (resolvers/->uuid r "eid-stepan-parunashvili"))]
                               ["with lookup ref" (fn [r] [(resolvers/->uuid r :users/email) "stopa@instantdb.com"])]]]
     (with-zeneca-app
       (fn [{app-id :id :as _app} r]
@@ -1369,13 +1417,6 @@
             (rule-model/put!
              (aurora/conn-pool :write)
              {:app-id app-id :code {:users {:allow {:delete "data.handle == ruleParams.handle"}}}})
-            (is (perm-err? (permissioned-tx/transact! (make-ctx) [[:delete-entity lookup]])))
-            (is (perm-err? (permissioned-tx/transact! (make-ctx) [[:rule-params lookup "users" {"handle" "not stopa"}]
-                                                                  [:delete-entity lookup]])))
-            ;; FIXME
-            #_(is (not (perm-err? (permissioned-tx/transact! (make-ctx) [[:rule-params lookup "users" {"handle" "stopa"}]
-                                                                         [:delete-entity lookup]]))))
-
             (is (perm-err? (permissioned-tx/transact! (make-ctx) [[:delete-entity lookup "users"]])))
             (is (perm-err? (permissioned-tx/transact! (make-ctx) [[:rule-params lookup "users" {"handle" "not stopa"}]
                                                                   [:delete-entity lookup "users"]])))
