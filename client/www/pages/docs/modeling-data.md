@@ -30,7 +30,7 @@ Open `instant.schema.ts`, and paste the following:
 ```typescript {% showCopy=true %}
 // instant.schema.ts
 
-import { i } from '@instantdb/core';
+import { i } from '@instantdb/react';
 
 const _schema = i.schema({
   entities: {
