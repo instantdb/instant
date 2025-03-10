@@ -370,13 +370,13 @@ class InstantAdmin<
    */
   debugQuery = async <Q extends Query>(
     query: Exactly<Query, Q>,
-    opts?: { rules?: any, ruleParams?: { [key: string]: any} },
+    opts?: { rules?: any; ruleParams?: { [key: string]: any } },
   ): Promise<{
     result: QueryResponse<Q, Schema, WithCardinalityInference>;
     checkResults: DebugCheckResult[];
   }> => {
     if (query && opts && 'ruleParams' in opts) {
-      query = {'$$ruleParams': opts['ruleParams'], ...query};
+      query = { $$ruleParams: opts['ruleParams'], ...query };
     }
 
     const response = await jsonFetch(
@@ -894,13 +894,13 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
    */
   debugQuery = async <Q extends InstaQLParams<Schema>>(
     query: Q,
-    opts?: { rules?: any, ruleParams?: { [key: string]: any } },
+    opts?: { rules?: any; ruleParams?: { [key: string]: any } },
   ): Promise<{
     result: InstaQLResponse<Schema, Q>;
     checkResults: DebugCheckResult[];
   }> => {
     if (query && opts && 'ruleParams' in opts) {
-      query = {'$$ruleParams': opts['ruleParams'], ...query};
+      query = { $$ruleParams: opts['ruleParams'], ...query };
     }
 
     const response = await jsonFetch(

@@ -36,13 +36,13 @@ export function useQueryInternal<
 >(
   _core: InstantCoreDatabase<Schema>,
   _query: null | Q,
-  _opts?: InstaQLOptions
+  _opts?: InstaQLOptions,
 ): {
   state: InstaQLLifecycleState<Schema, Q>;
   query: any;
 } {
   if (_query && _opts && 'ruleParams' in _opts) {
-    _query = {'$$ruleParams': _opts['ruleParams'], ..._query};
+    _query = { $$ruleParams: _opts['ruleParams'], ..._query };
   }
   const query = _query ? coerceQuery(_query) : null;
   const queryHash = weakHash(query);

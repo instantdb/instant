@@ -505,5 +505,5 @@ export type LinkParams<
 };
 
 export type RuleParams = {
-  [key: string]: any
+  [key: string]: any;
 };

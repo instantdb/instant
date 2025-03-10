@@ -349,7 +349,7 @@ const SUPPORTS_LOOKUP_ACTIONS = new Set([
   'update',
   'merge',
   'delete',
-  'ruleParams'
+  'ruleParams',
 ]);
 
 const lookupProps = { 'unique?': true, 'index?': true };

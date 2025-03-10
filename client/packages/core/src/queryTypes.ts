@@ -350,7 +350,7 @@ type InstaQLQueryParams<S extends IContainEntitiesAndLinks<any, any>> =
   InstaQLParams<S>;
 
 type InstaQLOptions = {
-  'ruleParams': RuleParams
+  ruleParams: RuleParams;
 };
 
 export {

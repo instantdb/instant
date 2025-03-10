@@ -1924,7 +1924,6 @@
           res')))))
 
 (defn permissioned-query-check [{:keys [app-id] :as ctx} o rules-override]
-  (println "!!! permissioned-query-check" o)
   (let [rule-params (:$$ruleParams o)
         o           (dissoc o :$$ruleParams)
         res         (query ctx o)

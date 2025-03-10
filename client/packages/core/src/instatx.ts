@@ -2,7 +2,7 @@ import type {
   IContainEntitiesAndLinks,
   LinkParams,
   UpdateParams,
-  RuleParams
+  RuleParams,
 } from './schemaTypes';
 
 type Action = 'update' | 'link' | 'unlink' | 'delete' | 'merge' | 'ruleParams';
@@ -121,7 +121,10 @@ function transactionChunk(
     get: (_target, cmd: keyof TransactionChunk<any, any>) => {
       if (cmd === '__ops') return prevOps;
       return (args: Args) => {
-        return transactionChunk(etype, id, [...prevOps, [cmd, etype, id, args]]);
+        return transactionChunk(etype, id, [
+          ...prevOps,
+          [cmd, etype, id, args],
+        ]);
       };
     },
   });
