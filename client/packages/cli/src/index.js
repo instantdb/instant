@@ -606,7 +606,7 @@ async function promptCreateApp() {
   const title = _title?.trim();
 
   if (!title) {
-    error('No name provided. Exiting.');
+    error('No name provided.');
     return { ok: false };
   }
   const app = { id, title, admin_token: token };
@@ -1161,7 +1161,7 @@ async function pushPerms(appId) {
     res.perms || {},
   );
   if (!diffedStr.length) {
-    console.log('No perms changes detected. Exiting.');
+    console.log('No perms changes detected. Skipping.');
     return;
   }
 
