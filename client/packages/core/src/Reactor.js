@@ -646,7 +646,11 @@ export default class Reactor {
    *
    *  Returns an unsubscribe function
    */
-  subscribeQuery(q, cb) {
+  subscribeQuery(q, cb, opts) {
+    if (opts && 'ruleParams' in opts) {
+      q = { $$ruleParams: opts['ruleParams'], ...q };
+    }
+
     const hash = weakHash(q);
 
     const prevResult = this.getPreviousResult(q);
@@ -664,7 +668,11 @@ export default class Reactor {
     };
   }
 
-  queryOnce(q) {
+  queryOnce(q, opts) {
+    if (opts && 'ruleParams' in opts) {
+      q = { $$ruleParams: opts['ruleParams'], ...q };
+    }
+
     const dfd = new Deferred();
 
     if (!this._isOnline) {
@@ -936,7 +944,7 @@ export default class Reactor {
     const mutation = {
       op: 'transact',
       'tx-steps': txSteps,
-      error,
+      error: error,
     };
     this.pendingMutations.set((prev) => {
       prev.set(eventId, mutation);

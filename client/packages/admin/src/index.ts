@@ -224,6 +224,11 @@ function init<
  */
 const init_experimental = init;
 
+function steps(inputChunks) {
+  const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
+  return chunks.flatMap(getOps);
+}
+
 /**
  *
  * The first step: init your application!
@@ -335,12 +340,10 @@ class InstantAdmin<
   transact = (
     inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
   ) => {
-    const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
-    const steps = chunks.flatMap((tx) => getOps(tx));
     return jsonFetch(`${this.config.apiURI}/admin/transact`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
-      body: JSON.stringify({ steps: steps }),
+      body: JSON.stringify({ steps: steps(inputChunks) }),
     });
   };
 
@@ -367,11 +370,15 @@ class InstantAdmin<
    */
   debugQuery = async <Q extends Query>(
     query: Exactly<Query, Q>,
-    opts?: { rules: any },
+    opts?: { rules?: any; ruleParams?: { [key: string]: any } },
   ): Promise<{
     result: QueryResponse<Q, Schema, WithCardinalityInference>;
     checkResults: DebugCheckResult[];
   }> => {
+    if (query && opts && 'ruleParams' in opts) {
+      query = { $$ruleParams: opts['ruleParams'], ...query };
+    }
+
     const response = await jsonFetch(
       `${this.config.apiURI}/admin/query_perms_check`,
       {
@@ -409,13 +416,11 @@ class InstantAdmin<
     inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
     opts?: { rules?: any },
   ) => {
-    const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
-    const steps = chunks.flatMap((tx) => getOps(tx));
     return jsonFetch(`${this.config.apiURI}/admin/transact_perms_check`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({
-        steps: steps,
+        steps: steps(inputChunks),
         'rules-override': opts?.rules,
         // @ts-expect-error because we're using a private API (for now)
         'dangerously-commit-tx': opts?.__dangerouslyCommit,
@@ -856,13 +861,11 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
   transact = (
     inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
   ) => {
-    const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
-    const steps = chunks.flatMap((tx) => getOps(tx));
     return jsonFetch(`${this.config.apiURI}/admin/transact`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({
-        steps: steps,
+        steps: steps(inputChunks),
         'throw-on-missing-attrs?': !!this.config.schema,
       }),
     });
@@ -891,11 +894,15 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
    */
   debugQuery = async <Q extends InstaQLParams<Schema>>(
     query: Q,
-    opts?: { rules: any },
+    opts?: { rules?: any; ruleParams?: { [key: string]: any } },
   ): Promise<{
     result: InstaQLResponse<Schema, Q>;
     checkResults: DebugCheckResult[];
   }> => {
+    if (query && opts && 'ruleParams' in opts) {
+      query = { $$ruleParams: opts['ruleParams'], ...query };
+    }
+
     const response = await jsonFetch(
       `${this.config.apiURI}/admin/query_perms_check`,
       {
@@ -933,13 +940,11 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
     inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
     opts?: { rules?: any },
   ) => {
-    const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
-    const steps = chunks.flatMap((tx) => getOps(tx));
     return jsonFetch(`${this.config.apiURI}/admin/transact_perms_check`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({
-        steps: steps,
+        steps: steps(inputChunks),
         'rules-override': opts?.rules,
         // @ts-expect-error because we're using a private API (for now)
         'dangerously-commit-tx': opts?.__dangerouslyCommit,

@@ -6,6 +6,7 @@ import type {
   IContainEntitiesAndLinks,
   InstantGraph,
   LinkAttrDef,
+  RuleParams,
   ResolveAttrs,
   ResolveEntityAttrs,
 } from './schemaTypes';
@@ -350,6 +351,10 @@ type InstaQLParams<S extends IContainEntitiesAndLinks<any, any>> = {
 type InstaQLQueryParams<S extends IContainEntitiesAndLinks<any, any>> =
   InstaQLParams<S>;
 
+type InstaQLOptions = {
+  ruleParams: RuleParams;
+};
+
 export {
   Query,
   QueryResponse,
@@ -360,6 +365,7 @@ export {
   Remove$,
   InstaQLQueryResult,
   InstaQLParams,
+  InstaQLOptions,
   InstaQLQueryEntityResult,
   InstaQLEntity,
   InstaQLResult,
