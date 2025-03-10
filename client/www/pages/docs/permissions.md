@@ -291,3 +291,85 @@ delete to only succeed on todos associated with a specific user email.
 ```
 
 See [managing users](/docs/users) to learn more about that.
+
+### ruleParams
+
+If you want to implement “only people with a link can access this” type of rules, you’ll need to use `ruleParams`.
+
+`ruleParams` is an arbitrary map that you can add to query or tx and check in rules. For example, with rules like this:
+
+```
+{
+  docs: {
+    allow: {
+      view:   "data.id == ruleParams.knownDocId",
+      update: "data.id == ruleParams.knownDocId",
+      delete: "data.id == ruleParams.knownDocId",
+    },
+  },
+}
+```
+
+user will only be able to see and edit documents if they know their id:
+
+```
+const query = {
+  docs: {}
+};
+
+const id = "...";
+
+const { data } = await db.queryOnce(query, { ruleParams: { knownDocId: id }});
+
+db.transact(db.tx.docs[id].ruleParams({ knownDocId: id }).update({ title: 'eat' }));
+```
+
+Some useful patterns:
+
+Access document and all related comments by one `knownDocId`:
+
+```
+{
+  docs: {
+    view: "data.id == ruleParams.knownDocId"
+  },
+  comment: {
+    view: "data.parent.id == ruleParams.knownDocId"
+  }
+}
+```
+
+Share multiple docs by id:
+
+```
+{
+  docs: {
+    view: "data.id in ruleParams.knownDocIds"
+  }
+}
+
+db.useQuery(..., { knownDocIds: [id1, id2, ...] })
+```
+
+Have a separate “share links” namespace (1 doc → many docLinks):
+
+```
+{
+  docs: {
+    view: "ruleParams.secret in data.ref('docLinks.secret')"
+  }
+}
+```
+
+Separate “view links” and “edit links” require 2 extra namespaces:
+
+```
+{
+  docs: {
+    view:   "ruleParams.secret in data.ref('docViewLinks.secret')
+          || ruleParams.secret in data.ref('docEditLinks.secret')"
+    update: "ruleParams.secret in data.ref('docEditLinks.secret')"
+    delete: "ruleParams.secret in data.ref('docEditLinks.secret')"
+  }
+}
+```
