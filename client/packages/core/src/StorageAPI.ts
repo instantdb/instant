@@ -105,7 +105,6 @@ export async function getSignedUploadUrl({
 }
 
 export async function upload(presignedUrl, file) {
-  console.log('presignedUrl', presignedUrl);
   const response = await fetch(presignedUrl, {
     method: 'PUT',
     body: file,
