@@ -12,7 +12,9 @@ import type {
 
 type BuiltIn = Date | Function | Error | RegExp;
 
-type Expand<T> = T extends BuiltIn
+type Primitive = string | number | boolean | symbol | null | undefined;
+
+type Expand<T> = T extends BuiltIn | Primitive
   ? T
   : T extends object
     ? T extends infer O
