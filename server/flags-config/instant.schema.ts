@@ -46,11 +46,11 @@ const graph = i.graph(
       email: i.string(),
     }),
     "welcome-email-config": i.entity({
-      'enabled?': i.boolean(),
-      limit: i.number()
+      "enabled?": i.boolean(),
+      limit: i.number(),
     }),
-    "threading": i.entity({
-      "use-vfutures": i.boolean()
+    threading: i.entity({
+      "use-vfutures": i.boolean(),
     }),
     "storage-migration": i.entity({
       "disableLegacy?": i.boolean(),
@@ -61,16 +61,15 @@ const graph = i.graph(
       isDisabled: i.boolean(),
     }),
     "query-flags": i.entity({
-      'query-hash': i.number(),
-      'setting': i.string(),
-      'value': i.string(),
-      'description': i.string()
-    })
+      "query-hash": i.number(),
+      setting: i.string(),
+      value: i.string(),
+      description: i.string(),
+    }),
+    "app-deletion-sweeper": i.entity({
+      "disabled?": i.boolean(),
+    }),
   },
-  // You can define links here.
-  // For example, if `posts` should have many `comments`.
-  // More in the docs:
-  // https://www.instantdb.com/docs/schema#defining-links
   {}
 );
 

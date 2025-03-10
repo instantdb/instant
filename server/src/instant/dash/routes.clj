@@ -369,11 +369,11 @@
 
   (app-model/get-all-for-user {:user-id (:id u)})
 
-  (app-model/delete-by-id! {:id app-id}))
+  (app-model/delete-immediately-by-id! {:id app-id}))
 
 (defn apps-delete [req]
   (let [{{app-id :id} :app} (req->app-and-user! req)]
-    (app-model/delete-by-id! {:id app-id})
+    (app-model/mark-for-deletion! {:id app-id})
     (response/ok {:ok true})))
 
 (defn apps-clear [req]
