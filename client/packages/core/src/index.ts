@@ -678,7 +678,11 @@ function init<
 }
 
 function handleDevtool(appId: string, devtool: boolean | DevtoolConfig) {
-  if (typeof window === 'undefined' || typeof window.location === 'undefined') {
+  if (
+    typeof window === 'undefined' ||
+    typeof window.location === 'undefined' ||
+    typeof document === 'undefined'
+  ) {
     return;
   }
 
