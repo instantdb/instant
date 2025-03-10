@@ -180,6 +180,12 @@
     (.waitFor p)
     x))
 
+(defn copy-quiet
+  "Stringifies the argument and copies it to the clipboard"
+  [x]
+  (copy x)
+  nil)
+
 (def ^:dynamic *time-tracker* nil)
 
 (defmacro track-time [label & body]
