@@ -6,13 +6,16 @@ import type {
   IContainEntitiesAndLinks,
   InstantGraph,
   LinkAttrDef,
+  RuleParams,
   ResolveAttrs,
   ResolveEntityAttrs,
 } from './schemaTypes';
 
 type BuiltIn = Date | Function | Error | RegExp;
 
-type Expand<T> = T extends BuiltIn
+type Primitive = string | number | boolean | symbol | null | undefined;
+
+type Expand<T> = T extends BuiltIn | Primitive
   ? T
   : T extends object
     ? T extends infer O
@@ -348,6 +351,10 @@ type InstaQLParams<S extends IContainEntitiesAndLinks<any, any>> = {
 type InstaQLQueryParams<S extends IContainEntitiesAndLinks<any, any>> =
   InstaQLParams<S>;
 
+type InstaQLOptions = {
+  ruleParams: RuleParams;
+};
+
 export {
   Query,
   QueryResponse,
@@ -358,6 +365,7 @@ export {
   Remove$,
   InstaQLQueryResult,
   InstaQLParams,
+  InstaQLOptions,
   InstaQLQueryEntityResult,
   InstaQLEntity,
   InstaQLResult,

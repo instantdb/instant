@@ -385,7 +385,9 @@ function Dashboard() {
   }
 
   async function onDeleteApp(app: InstantApp) {
-    successToast(`${app.title} was deleted!`);
+    successToast(
+      `${app.title} is marked for deletion. We will remove all data in 24 hours. Ping us on Discord if you did not mean to do this.`,
+    );
     const _apps = apps.filter((a) => a.id !== app.id);
     dashResponse.mutate((data) =>
       produce(data, (d) => {
@@ -1396,7 +1398,7 @@ function Admin({
                   onDelete();
                 }}
               >
-                {isDeletingApp ? 'Deleting...' : 'Delete'}
+                Delete
               </Button>
             </div>
           </Dialog>

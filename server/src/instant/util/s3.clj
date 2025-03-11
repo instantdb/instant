@@ -180,7 +180,7 @@
   (delay
     (let [access-key (config/s3-storage-access-key)
           secret-key (config/s3-storage-secret-key)
-          region (.toString (.region (.serviceClientConfiguration @default-s3-client*)))]
+          region (.toString (.region (.serviceClientConfiguration (default-s3-client))))]
       (if (and access-key secret-key)
         {:access-key access-key
          :secret-key secret-key

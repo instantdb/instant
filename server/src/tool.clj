@@ -268,7 +268,7 @@
                   form))
               form)]
     (locking p-lock
-      (println (str "#p " form " " position "\n=> " (pprint res))))
+      (println (str "\033[90m#p " form " " position "\n=>\033[0m " (pprint res))))
     res))
 
 (defn p

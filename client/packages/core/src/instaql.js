@@ -730,7 +730,7 @@ function formatPageInfo(pageInfo) {
 
 export default function query({ store, pageInfo, aggregate }, q) {
   const data = Object.keys(q).reduce(function reduceResult(res, k) {
-    if (aggregate?.[k]) {
+    if (aggregate?.[k] || '$$ruleParams' === k) {
       // Aggregate doesn't return any join rows and has no children,
       // so don't bother querying further
       return res;

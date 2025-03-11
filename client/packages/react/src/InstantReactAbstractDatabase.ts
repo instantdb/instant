@@ -11,6 +11,7 @@ import {
   type PresenceResponse,
   type RoomSchemaShape,
   type InstaQLParams,
+  type InstaQLOptions,
   type InstantConfig,
   type PageInfoResponse,
   InstantCoreDatabase,
@@ -155,8 +156,9 @@ export default abstract class InstantReactAbstractDatabase<
    */
   useQuery = <Q extends InstaQLParams<Schema>>(
     query: null | Q,
+    opts?: InstaQLOptions,
   ): InstaQLLifecycleState<Schema, Q> => {
-    return useQueryInternal(this._core, query).state;
+    return useQueryInternal(this._core, query, opts).state;
   };
 
   /**

@@ -40,6 +40,7 @@
    [instant.util.crypt :as crypt-util]
    [instant.util.http :as http-util]
    [instant.util.tracer :as tracer]
+   [instant.app-deletion-sweeper :as app-deletion-sweeper]
    [ring.middleware.cookies :refer [CookieDateTime]]
    [ring.middleware.cors :refer [wrap-cors]]
    [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
@@ -237,6 +238,8 @@
       (indexing-jobs/start))
     (with-log-init :storage-sweeper
       (storage-sweeper/start))
+    (with-log-init :app-deletion-sweeper
+      (app-deletion-sweeper/start))
     (when (= (config/get-env) :prod)
       (with-log-init :analytics
         (analytics/start)))

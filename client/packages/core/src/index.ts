@@ -35,6 +35,7 @@ import type {
   Exactly,
   InstantObject,
   InstaQLParams,
+  InstaQLOptions,
   InstaQLQueryParams,
   InstaQLEntity,
   InstaQLResult,
@@ -493,8 +494,9 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
   subscribeQuery<Q extends InstaQLParams<Schema>>(
     query: Q,
     cb: (resp: InstaQLSubscriptionState<Schema, Q>) => void,
+    opts?: InstaQLOptions,
   ) {
-    return this._reactor.subscribeQuery(query, cb);
+    return this._reactor.subscribeQuery(query, cb, opts);
   }
 
   /**
@@ -614,11 +616,12 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
    */
   queryOnce<Q extends InstaQLParams<Schema>>(
     query: Q,
+    opts?: InstaQLOptions,
   ): Promise<{
     data: InstaQLResponse<Schema, Q>;
     pageInfo: PageInfoResponse<Q>;
   }> {
-    return this._reactor.queryOnce(query);
+    return this._reactor.queryOnce(query, opts);
   }
 }
 
@@ -678,7 +681,11 @@ function init<
 }
 
 function handleDevtool(appId: string, devtool: boolean | DevtoolConfig) {
-  if (typeof window === 'undefined' || typeof window.location === 'undefined') {
+  if (
+    typeof window === 'undefined' ||
+    typeof window.location === 'undefined' ||
+    typeof document === 'undefined'
+  ) {
     return;
   }
 
@@ -778,6 +785,7 @@ export {
 
   // new query types
   type InstaQLParams,
+  type InstaQLOptions,
   type InstaQLQueryParams,
   type InstantQuery,
   type InstantQueryResult,

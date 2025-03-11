@@ -1,3 +1,4 @@
+
 (ns instant.db.cel
   (:require
    [clojure.set :as clojure-set]
@@ -154,9 +155,6 @@
 ;; ----
 ;; Cel
 
-(defprotocol CelMapExtension
-  (getMeta [this]))
-
 (declare ->cel-list ->cel-map)
 
 (defn stringify [x]
@@ -213,8 +211,8 @@
          (map (fn [k] [k (get-cel-value m k)]))
          set))
 
-  CelMapExtension
-  (getMeta [_]
+  clojure.lang.IMeta
+  (meta [_]
     metadata))
 
 (defn ->cel-map [metadata m]
@@ -313,6 +311,7 @@
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
       (.addVar "data" type-obj)
       (.addVar "auth" type-obj)
+      (.addVar "ruleParams" type-obj)
       (.addVar "newData" type-obj)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-fn-decls))
       (.setOptions cel-options)

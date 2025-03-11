@@ -1155,13 +1155,16 @@ const _schema = i.schema({
     }),
     todos: i.entity({
       title: i.string(),
+      text: i.string(),
+      done: i.boolean(),
+      createdAt: i.date(),
       dueDate: i.date(),
     }),
   },
   links: {
     goalsTodos: {
-      forward: { on: 'todos', has: 'many', label: 'goals' },
-      reverse: { on: 'goals', has: 'many', label: 'todos' },
+      forward: { on: 'goals', has: 'many', label: 'todos' },
+      reverse: { on: 'todos', has: 'many', label: 'goals' },
     },
   },
 });
