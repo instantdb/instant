@@ -221,13 +221,15 @@
 
         (and (map? v) (contains? v :$not))
         ;; If the where cond has `not`, then the check will only include
-        ;; entities where the entity has a triple with the attr. If the
+        ;; entities where the entity has a triple with  the attr. If the
         ;; attr is missing, then we won't find it. We add an extra
         ;; `isNull` check to ensure that we find the entity.
         (let [path (string/split (name k) #"\.")]
           {:or (concat [[[path v]]]
                        (map (fn [p]
                               [[p {:$isNull true}]])
+                            ;; XXX: We need to apply grow-paths one level up
+                            ;;      so that they get collapsed
                             (grow-paths path)))})
 
         (and (map? v) (contains? v :$isNull) (= true (:$isNull v)))
@@ -1105,9 +1107,8 @@
                                                              (fn [existing]
                                                                (if (seq existing)
                                                                  [[:and {:and [existing
-                                                                               extra-conds]}]]))))))))
-        _ (tool/def-locals)
-
+                                                                               extra-conds]}]]
+                                                                 extra-conds))))))))
         {:keys [pattern-groups
                 referenced-etypes
                 forms]}
@@ -1939,15 +1940,12 @@
                            (if-let [program (rule-model/get-program! rules etype "view")]
                              (try
                                (let [{:keys [short-circuit? where-clauses]}
-                                     (cel/get-where-clauses (:code program) (cel/->cel-map {:ctx ctx
-                                                                                            :type :auth
-                                                                                            :etype "$users"}
-                                                                                           (:current-user ctx)))]
-                                 (tool/def-locals)
+                                     (cel/get-where-clauses ctx etype (:code program))]
                                  (assoc acc etype {:short-circuit? short-circuit?
                                                    :wheres where-clauses}))
                                (catch Exception e
-                                 (clojure.tools.logging/info "ERROR" e)
+                                 ;; XXX
+                                 (tracer/record-exception-span! e {:name "cel-to-where-error"})
                                  acc))
                              acc))
                          {}
