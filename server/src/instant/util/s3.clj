@@ -5,7 +5,6 @@
    [instant.util.tracer :as tracer])
   (:import
    (java.time Instant Duration)
-   (software.amazon.awssdk.auth.credentials DefaultCredentialsProvider)
    (software.amazon.awssdk.core.async AsyncRequestBody
                                       BlockingInputStreamAsyncRequestBody)
    (software.amazon.awssdk.services.s3 S3AsyncClient

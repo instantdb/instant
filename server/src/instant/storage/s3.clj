@@ -173,7 +173,7 @@
                  {:continuation-token continuation-token}
                  {})
           {:keys [object-summaries next-continuation-token truncated?]}
-          (s3-util/list-objects opts)]
+          (s3-util/list-objects (s3-client) bucket-name opts)]
       (if truncated?
         (recur (into all-objects object-summaries) next-continuation-token)
         (into all-objects object-summaries)))))
