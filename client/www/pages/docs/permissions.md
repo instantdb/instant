@@ -294,41 +294,57 @@ See [managing users](/docs/users) to learn more about that.
 
 ### ruleParams
 
-If you want to implement “only people with a link can access this” type of rules, you’ll need to use `ruleParams`.
+Imagine you have a `documents` namespace, and want to implement a rule like:
 
-`ruleParams` is an arbitrary map that you can add to query or tx and check in rules. For example, with rules like this:
+> Only people with a link to my document can access it.
 
+You can use `ruleParams` to write that rule. `ruleParams` are extra options that you can pass into queries and transactions.
+
+For example, you can pass a `ruleParams` argument in your queries:
+
+```javascript
+const query = {
+  docs: {},
+};
+
+// You could get your doc's id from the URL for example
+const myDocId = getId(window.location);
+
+// Pass the id here
+const { data } = await db.queryOnce(query, {
+  ruleParams: { knownDocId: myDocId },
+});
 ```
+
+And your transactions:
+
+```js
+db.transact(
+  db.tx.docs[id].ruleParams({ knownDocId: id }).update({ title: 'eat' }),
+);
+```
+
+When you do, you can access the those params in your permissions:
+
+```js
 {
-  docs: {
+  documents: {
     allow: {
       view:   "data.id == ruleParams.knownDocId",
       update: "data.id == ruleParams.knownDocId",
-      delete: "data.id == ruleParams.knownDocId",
+      delete: "data.id == ruleParams.knownDocId"
     },
   },
 }
 ```
 
-user will only be able to see and edit documents if they know their id:
+That will implement the rule: “Only people who have a link to my document can see it”.
 
-```
-const query = {
-  docs: {}
-};
+**Here are some more patterns**
 
-const id = "...";
+If you want to: access a document and all related comments by one `knownDocId`:
 
-const { data } = await db.queryOnce(query, { ruleParams: { knownDocId: id }});
-
-db.transact(db.tx.docs[id].ruleParams({ knownDocId: id }).update({ title: 'eat' }));
-```
-
-Some useful patterns:
-
-Access document and all related comments by one `knownDocId`:
-
-```
+```js
 {
   docs: {
     view: "data.id == ruleParams.knownDocId"
@@ -339,36 +355,38 @@ Access document and all related comments by one `knownDocId`:
 }
 ```
 
-Share multiple docs by id:
+Or, if you want to allow multiple documents:
 
-```
-{
-  docs: {
-    view: "data.id in ruleParams.knownDocIds"
-  }
-}
-
+```js
 db.useQuery(..., { knownDocIds: [id1, id2, ...] })
 ```
 
-Have a separate “share links” namespace (1 doc → many docLinks):
-
-```
+```js
 {
   docs: {
-    view: "ruleParams.secret in data.ref('docLinks.secret')"
+    view: 'data.id in ruleParams.knownDocIds';
   }
 }
 ```
 
-Separate “view links” and “edit links” require 2 extra namespaces:
+To create a “share links” feature, where you have multiple links to the same doc, you can create a separate namespace:
 
+```js
+{
+  docs: {
+    view: "ruleParams.secret in data.ref('docLinks.secret')";
+  }
+}
 ```
+
+Or if you want to separate “view links” from “edit links”, you can use two namespaces like so:
+
+```js
 {
   docs: {
     view:   "ruleParams.secret in data.ref('docViewLinks.secret')
-          || ruleParams.secret in data.ref('docEditLinks.secret')"
-    update: "ruleParams.secret in data.ref('docEditLinks.secret')"
+          || ruleParams.secret in data.ref('docEditLinks.secret')",
+    update: "ruleParams.secret in data.ref('docEditLinks.secret')",
     delete: "ruleParams.secret in data.ref('docEditLinks.secret')"
   }
 }
