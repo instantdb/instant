@@ -102,9 +102,9 @@ export interface TransactionChunk<
 }
 
 // This is a hack to get typescript to enforce that
-// `validTransactionChunkCommands` contains all the keys of `TransactionChunk`
-type ValidTransactionChunkKeys = keyof TransactionChunk<any, any>;
-function getAllValidTransactionChunkCommands(): Set<ValidTransactionChunkKeys> {
+// `allTransactionChunkKeys` contains all the keys of `TransactionChunk`
+type TransactionChunkKey = keyof TransactionChunk<any, any>;
+function getAllTransactionChunkKeys(): Set<TransactionChunkKey> {
   const v: any = 1;
   const _dummy: TransactionChunk<any, any> = {
     __ops: v,
@@ -115,9 +115,9 @@ function getAllValidTransactionChunkCommands(): Set<ValidTransactionChunkKeys> {
     merge: v,
     ruleParams: v,
   };
-  return new Set(Object.keys(_dummy)) as Set<ValidTransactionChunkKeys>;
+  return new Set(Object.keys(_dummy)) as Set<TransactionChunkKey>;
 }
-const validTransactionChunkCommands = getAllValidTransactionChunkCommands();
+const allTransactionChunkKeys = getAllTransactionChunkKeys();
 
 export interface ETypeChunk<
   Schema extends IContainEntitiesAndLinks<any, any>,
@@ -138,7 +138,7 @@ function transactionChunk(
   return new Proxy({} as TransactionChunk<any, any>, {
     get: (_target, cmd: keyof TransactionChunk<any, any>) => {
       if (cmd === '__ops') return prevOps;
-      if (!validTransactionChunkCommands.has(cmd)) {
+      if (!allTransactionChunkKeys.has(cmd)) {
         return undefined;
       }
       return (args: Args) => {
