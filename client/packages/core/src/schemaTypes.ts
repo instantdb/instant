@@ -503,3 +503,7 @@ export type LinkParams<
       : string | string[]
     : never;
 };
+
+export type RuleParams = {
+  [key: string]: any;
+};

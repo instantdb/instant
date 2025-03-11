@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "Test script for admin SDK",
   "scripts": {
-    "dev": "node --watch -r ts-node/register ./src/index.ts"
+    "dev": "node --watch --watch-preserve-output -r ts-node/register ./src/index.ts"
   },
   "dependencies": {
     "@instantdb/admin": "workspace:*",

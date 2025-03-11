@@ -291,3 +291,103 @@ delete to only succeed on todos associated with a specific user email.
 ```
 
 See [managing users](/docs/users) to learn more about that.
+
+### ruleParams
+
+Imagine you have a `documents` namespace, and want to implement a rule like:
+
+> Only people with a link to my document can access it.
+
+You can use `ruleParams` to write that rule. `ruleParams` are extra options that you can pass into queries and transactions.
+
+For example, you can pass a `ruleParams` argument in your queries:
+
+```javascript
+const query = {
+  docs: {},
+};
+
+// You could get your doc's id from the URL for example
+const myDocId = getId(window.location);
+
+// Pass the id here
+const { data } = await db.queryOnce(query, {
+  ruleParams: { knownDocId: myDocId },
+});
+```
+
+And your transactions:
+
+```js
+db.transact(
+  db.tx.docs[id].ruleParams({ knownDocId: id }).update({ title: 'eat' }),
+);
+```
+
+When you do, you can access the those params in your permissions:
+
+```js
+{
+  documents: {
+    allow: {
+      view:   "data.id == ruleParams.knownDocId",
+      update: "data.id == ruleParams.knownDocId",
+      delete: "data.id == ruleParams.knownDocId"
+    },
+  },
+}
+```
+
+That will implement the rule: “Only people who have a link to my document can see it”.
+
+**Here are some more patterns**
+
+If you want to: access a document and all related comments by one `knownDocId`:
+
+```js
+{
+  docs: {
+    view: "data.id == ruleParams.knownDocId"
+  },
+  comment: {
+    view: "data.parent.id == ruleParams.knownDocId"
+  }
+}
+```
+
+Or, if you want to allow multiple documents:
+
+```js
+db.useQuery(..., { knownDocIds: [id1, id2, ...] })
+```
+
+```js
+{
+  docs: {
+    view: 'data.id in ruleParams.knownDocIds';
+  }
+}
+```
+
+To create a “share links” feature, where you have multiple links to the same doc, you can create a separate namespace:
+
+```js
+{
+  docs: {
+    view: "ruleParams.secret in data.ref('docLinks.secret')";
+  }
+}
+```
+
+Or if you want to separate “view links” from “edit links”, you can use two namespaces like so:
+
+```js
+{
+  docs: {
+    view:   "ruleParams.secret in data.ref('docViewLinks.secret')
+          || ruleParams.secret in data.ref('docEditLinks.secret')",
+    update: "ruleParams.secret in data.ref('docEditLinks.secret')",
+    delete: "ruleParams.secret in data.ref('docEditLinks.secret')"
+  }
+}
+```

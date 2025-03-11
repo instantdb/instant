@@ -168,6 +168,10 @@
   (let [lookup (extract-lookup attrs etype eid)]
     [[:delete-entity lookup etype]]))
 
+(defn expand-rule-params [attrs [etype eid params]]
+  (let [lookup (extract-lookup attrs etype eid)]
+    [[:rule-params lookup etype params]]))
+
 (defn expand-add-attr [_ [attr]]
   [[:add-attr (-> attr
                   w/keywordize-keys
@@ -188,6 +192,7 @@
       "link"   (expand-link attrs args)
       "unlink" (expand-unlink attrs args)
       "delete" (expand-delete attrs args)
+      "ruleParams" (expand-rule-params attrs args)
       "add-attr" (expand-add-attr attrs args)
       "delete-attr" (expand-delete-attr attrs args)
       (throw (ex-info (str "unsupported action " action) {})))))
@@ -376,6 +381,9 @@
 (s/def ::delete-op
   (s/cat :op #{"delete"} :args (s/cat :etype string? :eid ::lookup :remaining-args (s/* (constantly true)))))
 
+(s/def ::rule-params-op
+  (s/cat :op #{"ruleParams"} :args (s/cat :etype string? :eid ::lookup :args map?)))
+
 (s/def ::add-attr-op
   (s/cat :op #{"add-attr"} :attr map?))
 
@@ -394,6 +402,7 @@
              :link ::link-op
              :unlink ::unlink-op
              :delete ::delete-op
+             :rule-params ::rule-params-op
              :add-attr ::add-attr-op
              :update-attr ::update-attr-op
              :delete-attr ::delete-attr-op))
