@@ -158,11 +158,6 @@
      (->> chunks
           (mapcat #(delete-objects s3-client bucket-name (vec %)))))))
 
-(def signer-creds*
-  (delay))
-
-(defn signer-creds [] @signer-creds*)
-
 (defn generate-presigned-url-get
   [{:keys [access-key secret-key region] :as _signer-creds}
    {:keys [method bucket-name
