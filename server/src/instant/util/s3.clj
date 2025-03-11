@@ -2,7 +2,8 @@
   (:require
    [instant.config :as config]
    [instant.util.async :refer [default-virtual-thread-executor]]
-   [instant.util.aws-signature :as aws-sig])
+   [instant.util.aws-signature :as aws-sig]
+   [instant.util.tracer :as tracer])
   (:import
    (java.time Instant Duration)
    (software.amazon.awssdk.auth.credentials DefaultCredentialsProvider)
@@ -231,31 +232,38 @@
      (throw (ex-info "Unsupported method for presigned url" {:method method})))))
 
 (defn- make-s3-put-opts
-  [bucket-name {:keys [object-key content-type content-disposition]} file-opts]
+  [bucket-name {:keys [object-key content-type content-disposition content-length]} file-opts]
   (merge
    {:bucket-name bucket-name
     :key object-key
     :metadata {:content-type (or content-type default-content-type)
-               :content-disposition (or content-disposition default-content-disposition)}}
+               :content-disposition (or content-disposition default-content-disposition)
+               :content-length content-length}}
    file-opts))
 
 (defn upload-stream-to-s3
   ([ctx stream] (upload-stream-to-s3 default-bucket ctx stream))
   ([bucket-name ctx stream]
-   (let [opts (make-s3-put-opts bucket-name ctx {})
-         content-length (:content-length ctx)
-         ^PutObjectRequest req (cond-> (PutObjectRequest/builder)
-                                 true (.bucket (:bucket-name opts))
-                                 true (.key (:key opts))
-                                 true (.contentType (:content-type (:metadata opts)))
-                                 true (.contentDisposition (:content-disposition (:metadata opts)))
-                                 content-length (.contentLength content-length)
-                                 true (.build))]
-     (if content-length
-       (let [body (AsyncRequestBody/fromInputStream stream content-length default-virtual-thread-executor)]
-         (-> (.putObject (default-s3-async-client) req body)
-             deref))
-       (let [^BlockingInputStreamAsyncRequestBody body (AsyncRequestBody/forBlockingInputStream nil)
-             resp (.putObject (default-s3-async-client) req body)]
-         (.writeInputStream body stream)
-         (deref resp))))))
+   (let [{:keys [key metadata] :as _opts} (make-s3-put-opts bucket-name ctx {})
+         {:keys [content-disposition content-type content-length]} metadata]
+     (tracer/with-span! {:name "s3/upload-stream-to-s3"
+                         :attributes {:bucket-name bucket-name
+                                      :key key
+                                      :content-type content-type
+                                      :content-disposition content-disposition
+                                      :content-length content-length}}
+       (let [^PutObjectRequest req (cond-> (PutObjectRequest/builder)
+                                     true (.bucket bucket-name)
+                                     true (.key key)
+                                     true (.contentType content-type)
+                                     true (.contentDisposition content-disposition)
+                                     content-length (.contentLength content-length)
+                                     true (.build))]
+         (if content-length
+           (let [body (AsyncRequestBody/fromInputStream stream (long content-length) default-virtual-thread-executor)]
+             (-> (.putObject (default-s3-async-client) req body)
+                 deref))
+           (let [^BlockingInputStreamAsyncRequestBody body (AsyncRequestBody/forBlockingInputStream nil)
+                 resp (.putObject (default-s3-async-client) req body)]
+             (.writeInputStream body stream)
+             (deref resp))))))))

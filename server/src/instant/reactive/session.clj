@@ -160,7 +160,7 @@
   (let [{:keys [app]} (get-auth! store sess-id)]
     (rs/remove-query! store (:id app) sess-id q)
     (rs/send-event! store (:id app) sess-id {:op :remove-query-ok :q q
-                                                  :client-event-id client-event-id})))
+                                             :client-event-id client-event-id})))
 
 (defn- recompute-instaql-query!
   [{:keys [store current-user app-id sess-id attrs table-info admin?]}
@@ -224,13 +224,13 @@
                         :attributes tracer-attrs}
       (when (seq computations)
         (rs/send-event! store app-id sess-id (with-meta
-                                                    {:op :refresh-ok
-                                                     :processed-tx-id processed-tx-id
-                                                     :attrs attrs
-                                                     :computations computations}
-                                                    {:tx-id (:tx-id event)
-                                                     :tx-created-at (:tx-created-at event)
-                                                     :session-id sess-id}))))))
+                                               {:op :refresh-ok
+                                                :processed-tx-id processed-tx-id
+                                                :attrs attrs
+                                                :computations computations}
+                                               {:tx-id (:tx-id event)
+                                                :tx-created-at (:tx-created-at event)
+                                                :session-id sess-id}))))))
 
 ;; -----
 ;; transact
@@ -260,12 +260,12 @@
 ;; error
 
 (defn handle-error! [store sess-id {:keys [status
-                                                app-id
-                                                client-event-id
-                                                original-event
-                                                type
-                                                message
-                                                hint]}]
+                                           app-id
+                                           client-event-id
+                                           original-event
+                                           type
+                                           message
+                                           hint]}]
   (rs/send-event! store
                   app-id
                   sess-id
@@ -302,16 +302,16 @@
         current-user (-> auth :user)]
     (eph/join-room! app-id sess-id current-user room-id)
     (rs/send-event! store app-id sess-id {:op :join-room-ok
-                                               :room-id room-id
-                                               :client-event-id client-event-id})))
+                                          :room-id room-id
+                                          :client-event-id client-event-id})))
 
 (defn- handle-leave-room! [store sess-id {:keys [client-event-id room-id] :as _event}]
   (let [auth (get-auth! store sess-id)
         app-id (-> auth :app :id)]
     (eph/leave-room! app-id sess-id room-id)
     (rs/send-event! store app-id sess-id {:op :leave-room-ok
-                                               :room-id room-id
-                                               :client-event-id client-event-id})))
+                                          :room-id room-id
+                                          :client-event-id client-event-id})))
 
 (defn assert-in-room! [app-id room-id sess-id]
   (when-not (eph/in-room? app-id room-id sess-id)
@@ -327,8 +327,8 @@
         _ (assert-in-room! app-id room-id sess-id)]
     (eph/set-presence! app-id sess-id room-id data)
     (rs/send-event! store app-id sess-id {:op :set-presence-ok
-                                               :room-id room-id
-                                               :client-event-id client-event-id})))
+                                          :room-id room-id
+                                          :client-event-id client-event-id})))
 
 (def patch-presence-min-version (semver/parse "v0.17.5"))
 
@@ -383,15 +383,15 @@
       (eph/broadcast app-id remote-ids base-msg))
 
     (rs/send-event! store app-id sess-id (assoc base-msg
-                                                     :op :client-broadcast-ok
-                                                     :client-event-id client-event-id))))
+                                                :op :client-broadcast-ok
+                                                :client-event-id client-event-id))))
 
 (defn- handle-server-broadcast! [store sess-id {:keys [app-id room-id topic data]}]
   (when (eph/in-room? app-id room-id sess-id)
     (rs/send-event! store app-id sess-id {:op :server-broadcast
-                                               :room-id room-id
-                                               :topic topic
-                                               :data data})))
+                                          :room-id room-id
+                                          :topic topic
+                                          :data data})))
 
 (defn handle-event [store session event debug-info]
   (let [{:keys [op]} event
@@ -709,12 +709,12 @@
 
 (defn start []
   (receive-queue/start
-    (grouped-queue/start
-     {:group-key-fn #'group-key
-      :combine-fn   #'combine
-      :process-fn   #'process
-      :max-workers  num-receive-workers
-      :metrics-path "instant.reactive.session.receive-q"})))
+   (grouped-queue/start
+    {:group-key-fn #'group-key
+     :combine-fn   #'combine
+     :process-fn   #'process
+     :max-workers  num-receive-workers
+     :metrics-path "instant.reactive.session.receive-q"})))
 
 (defn stop []
   (receive-queue/stop))
