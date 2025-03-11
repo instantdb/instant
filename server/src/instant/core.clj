@@ -210,8 +210,8 @@
       (jwt/start))
     (with-log-init :aurora
       (aurora/start))
-    (with-log-init :storage-s3 
-      (storage-s3/start)
+    (with-log-init :storage
+      (storage-s3/start))
     (with-log-init :system-catalog
       (ensure-attrs-on-system-catalog-app))
     (with-log-init :reactive-store
