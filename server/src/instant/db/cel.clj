@@ -454,7 +454,8 @@
                         (into (clauses-to-add op x))
                         (into (clauses-to-add op y)))}))
 
-;; Custom OR function for generating instaql where clauses from cel
+;; Overloads for `OR`
+;; We overload the existing OR function to handle our custom types
 
 (defn or-overload-dispatch [args]
   args)
@@ -519,7 +520,8 @@
       :java-args (map type->java args)
       :impl (get-or-overload-fn args)})))
 
-;; Overloads for AND
+;; Overloads for `AND`
+;; We overload the existing AND function to handle our custom types
 
 (defn and-overload-dispatch [args]
   args)
@@ -585,7 +587,9 @@
       :impl (get-and-overload-fn args)})))
 
 
-;; Overloads for EQ
+;; Overloads for `==`, `!=`, and `in`
+;; We replace the existing functions because adding overloads
+;; for our types will result in ambiguous overloads
 
 (defn where-value-valid? [x]
   (or (string? x) (uuid? x) (number? x) (boolean? x)))
@@ -716,6 +720,8 @@
                        (associative? y))
                    (contains? y x)))}]))
 
+;; Overloads for `NOT`
+
 (defn negate-where-clauses
   "Uses De Morgan's laws to negate the where clauses:
  not (A or B) = (not A) and (not B)
@@ -760,6 +766,8 @@
      :impl (fn [[^WhereClause x]]
              (WhereClause. (negate-where-clauses (.where_clause x))))}]))
 
+;; Overloads for `startsWith`, `endsWith`, and `contains`
+
 (def starts-with-overload
   (member-overload
    "startsWith"
@@ -802,6 +810,8 @@
                  (WhereClause. {(.data_key x) {:$like (str "%" y "%s")}})
                  (throw (ex-info "Invalid attr" {:x x})))))}]))
 
+;; Overloads for `type` to prevent `type(data.key)` from succeeding
+
 (def type-overload
   (global-overload
    "type"
@@ -824,11 +834,11 @@
      :impl (fn [[^WhereClause x]]
              (throw (ex-info "Can't call type on a WhereClause" {:x x})))}]))
 
+;; Overload for data.ref
 
-;; XXX: NEXT UP: Figure out why data.ref isn't working :(
 (def where-ref-fn (member-overload "ref"
                                    ;; Include the default (for auth.ref)
-                                   [ data-ref-decl
+                                   [data-ref-decl
                                     {:name "_checked_data_ref"
                                      :cel-args [checked-data-map-cel-type SimpleType/STRING]
                                      :cel-return-type refpath-cel-type
@@ -857,11 +867,11 @@
 
 ;; Differences from cel-compiler
 ;; 1. No "newData" var
-;; 2. No "data" is checked-data-map-cel-type instead of the cel-map type
-;; 3. Different custom functions
+;; 2. "data" var is checked-data-map-cel-type instead of the cel-map type
+;; 3. Adds overrides
 ;; 4. retainRepeatedUnaryOperators == true (makes !!data.test work)
 ;; 5. Exclude the ==, !=, and `in` standard funcitons
-;; 6. Separate ref-fn
+;; 6. Additional overload for ref-fn
 
 (def ^:private ^CelCompiler where-cel-compiler
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
