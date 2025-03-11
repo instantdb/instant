@@ -1,9 +1,11 @@
 (ns instant.util.number)
 
-(defn parse-int [s default]
-  (try
-    (Integer/parseInt s)
-    (catch Exception _ default)))
+(defn parse-int
+  ([s] (parse-int s nil))
+  ([s default]
+   (try
+     (Integer/parseInt s)
+     (catch Exception _ default))))
 
 (comment
   (parse-int "123" 0)

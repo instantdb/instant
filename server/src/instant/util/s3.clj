@@ -1,15 +1,22 @@
 (ns instant.util.s3
   (:require
    [instant.config :as config]
-   [instant.util.async :refer [default-virtual-thread-executor]]
-   [instant.util.aws-signature :as aws-sig])
+   [instant.util.async :as uasync :refer [default-virtual-thread-executor]]
+   [instant.util.aws-signature :as aws-sig]
+   [clojure.java.io :as io]
+   [instant.util.tracer :as tracer])
   (:import
+   (java.util Optional)
    (java.time Instant Duration)
+   (org.reactivestreams Subscriber)
    (software.amazon.awssdk.auth.credentials DefaultCredentialsProvider)
    (software.amazon.awssdk.core.async AsyncRequestBody
                                       BlockingInputStreamAsyncRequestBody)
+   (software.amazon.awssdk.regions Region)
    (software.amazon.awssdk.services.s3 S3AsyncClient
-                                       S3Client)
+                                       S3Client
+                                       S3ServiceClientConfiguration)
+   (software.amazon.awssdk.http.nio.netty NettyNioAsyncHttpClient SdkEventLoopGroup)
    (software.amazon.awssdk.services.s3.model CopyObjectRequest
                                              CopyObjectResponse
                                              Delete
@@ -34,9 +41,28 @@
 (defn default-s3-client ^S3Client []
   @default-s3-client*)
 
-(def default-s3-async-client* (delay (-> (S3AsyncClient/crtBuilder)
-                                         (.targetThroughputInGbps 20.0)
-                                         (.build))))
+(defn default-s3-region ^Region []
+  (.region ^S3ServiceClientConfiguration (.serviceClientConfiguration (default-s3-client))))
+
+(def default-s3-async-client*
+  (delay
+    (let [default-timeout (Duration/ofSeconds 30)
+          max-concurrency 128
+          max-pending-connection-acquires 20000
+          io-threads (min 16 (.availableProcessors (Runtime/getRuntime)))
+          http-client (-> (NettyNioAsyncHttpClient/builder)
+                          (.eventLoopGroupBuilder (-> (SdkEventLoopGroup/builder)
+                                                      (.numberOfThreads (int io-threads))))
+                          (.connectionAcquisitionTimeout default-timeout)
+                          (.connectionTimeout default-timeout)
+                          (.readTimeout default-timeout)
+                          (.writeTimeout default-timeout)
+                          (.maxConcurrency (int max-concurrency))
+                          (.maxPendingConnectionAcquires (int max-pending-connection-acquires))
+                          (.build))]
+      (-> (S3AsyncClient/builder)
+          (.httpClient http-client)
+          (.build)))))
 
 (defn default-s3-async-client ^S3AsyncClient []
   @default-s3-async-client*)
@@ -180,7 +206,7 @@
   (delay
     (let [access-key (config/s3-storage-access-key)
           secret-key (config/s3-storage-secret-key)
-          region (.toString (.region (.serviceClientConfiguration @default-s3-client*)))]
+          region (.toString (default-s3-region))]
       (if (and access-key secret-key)
         {:access-key access-key
          :secret-key secret-key
@@ -239,6 +265,24 @@
                :content-disposition (or content-disposition default-content-disposition)}}
    file-opts))
 
+(defn unk-size-async-request-body [stream]
+  (reify AsyncRequestBody
+    (contentLength [_]
+      (Optional/empty))
+    (^void subscribe [_ ^Subscriber subscriber]
+      (let [delegate (AsyncRequestBody/forBlockingInputStream nil)
+            input (io/input-stream stream)]
+        (uasync/vfuture
+         (try
+           (.writeInputStream delegate input)
+           (catch Throwable e
+             (tracer/record-exception-span! e {:name "s3-util/async-request-body-unknown-size-err"
+                                               :escaping? false}))
+
+           (finally
+             (.close input))))
+        (.subscribe delegate subscriber)))))
+
 (defn upload-stream-to-s3
   ([ctx stream] (upload-stream-to-s3 default-bucket ctx stream))
   ([bucket-name ctx stream]
@@ -250,12 +294,10 @@
                                  true (.contentType (:content-type (:metadata opts)))
                                  true (.contentDisposition (:content-disposition (:metadata opts)))
                                  content-length (.contentLength content-length)
-                                 true (.build))]
-     (if content-length
-       (let [body (AsyncRequestBody/fromInputStream stream content-length default-virtual-thread-executor)]
-         (-> (.putObject (default-s3-async-client) req body)
-             deref))
-       (let [^BlockingInputStreamAsyncRequestBody body (AsyncRequestBody/forBlockingInputStream nil)
-             resp (.putObject (default-s3-async-client) req body)]
-         (.writeInputStream body stream)
-         (deref resp))))))
+                                 true (.build))
+         req-body (if content-length
+                    (AsyncRequestBody/fromInputStream stream content-length default-virtual-thread-executor)
+                    (unk-size-async-request-body stream))
+         _ (tool/def-locals)
+         res (.putObject (default-s3-async-client) req req-body)]
+     (deref res))))

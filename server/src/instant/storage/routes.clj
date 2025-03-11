@@ -5,6 +5,7 @@
             [instant.util.uuid :as uuid-util]
             [instant.util.string :as string-util]
             [instant.util.http :as http-util]
+            [instant.util.number :as number-util]
             [instant.model.app-user :as app-user-model]
             [instant.storage.coordinator :as storage-coordinator]
             [clojure.walk :as w]))
@@ -18,6 +19,8 @@
     {:app-id app-id
      :current-user current-user
      :path (ex/get-some-param! params [[:path] [:filename]] string-util/coerce-non-blank-str)
+     :content-length (ex/get-param! params [:content-length] (fn [x] (some-> (number-util/parse-int x nil)
+                                                                             long)))
      :content-type (ex/get-optional-param! params [:content-type] string-util/coerce-non-blank-str)
      :content-disposition (ex/get-optional-param! params [:content-disposition] string-util/coerce-non-blank-str)}))
 
