@@ -84,7 +84,7 @@
            keys-to-delete
            (mapv #(instant-s3/->object-key (:app_id %) (:location_id %)) files)]
        (when (seq keys-to-delete)
-         (s3-util/delete-objects keys-to-delete)
+         (s3-util/delete-objects (instant-s3/s3-client) instant-s3/bucket-name keys-to-delete)
          (delete-files! conn {:ids (mapv :id files)}))))))
 
 (defn warn-too-many-loops!
