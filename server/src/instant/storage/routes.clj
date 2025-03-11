@@ -9,16 +9,22 @@
             [instant.storage.coordinator :as storage-coordinator]
             [clojure.walk :as w]))
 
+(defn req->content-length! [{:keys [content-length] :as _req}]
+  (when content-length
+    (long content-length)))
+
 (defn req->app-file! [req params]
   (let [app-id (ex/get-param! params [:app_id] uuid-util/coerce)
         refresh-token (http-util/req->bearer-token req)
         current-user (app-user-model/get-by-refresh-token
                       {:app-id app-id
-                       :refresh-token refresh-token})]
+                       :refresh-token refresh-token})
+        content-length (req->content-length! req)]
     {:app-id app-id
      :current-user current-user
      :path (ex/get-some-param! params [[:path] [:filename]] string-util/coerce-non-blank-str)
      :content-type (ex/get-optional-param! params [:content-type] string-util/coerce-non-blank-str)
+     :content-length content-length
      :content-disposition (ex/get-optional-param! params [:content-disposition] string-util/coerce-non-blank-str)}))
 
 (defn upload-put [req]
@@ -51,8 +57,9 @@
         file (ex/get-param! req [:body] identity)
         content-type (or (ex/get-optional-param! req [:headers "content-type"] string-util/coerce-non-blank-str)
                          "application/octet-stream")
+        content-length (req->content-length! req)
         data (storage-coordinator/consume-upload-url!
-              {:upload-id upload-id :content-type content-type} file)]
+              {:upload-id upload-id :content-type content-type :content-length content-length} file)]
     (response/ok {:data data})))
 
 (defn signed-download-url-get [req]

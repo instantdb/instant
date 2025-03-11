@@ -87,7 +87,7 @@
 
 (defn consume-upload-url!
   "Consume an Instant upload url and if it's valid kicks off our upload process"
-  [{:keys [upload-id content-type]} file]
+  [{:keys [upload-id content-type content-length]} file]
   (let [{app-id :app_id path :path expired-at :expired_at}
         (app-upload-url-model/consume! {:upload-id upload-id})]
     (when (or (not expired-at)
@@ -100,6 +100,7 @@
      {:app-id app-id
       :path path
       :content-type content-type
+      :content-length content-length
       :skip-perms-check? true} file)))
 
 (defn create-download-url
