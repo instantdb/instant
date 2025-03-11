@@ -175,12 +175,20 @@ export function MainNav({ children }: PropsWithChildren) {
 }
 
 export const LandingContainer = ({ children }: PropsWithChildren) => (
-  <div className="min-h-full overflow-x-hidden bg-[#F8F9FA]">{children}</div>
+  <div className="min-h-full overflow-x-hidden">{children}</div>
 );
 
 export function LandingFooter() {
   return (
     <div className="text-xs text-gray-500">
+      <style jsx global>
+        {`
+          html,
+          body {
+            background-color: #f8f9fa;
+          }
+        `}
+      </style>
       <SectionWide>
         <hr className="h-px border-0 bg-gray-200" />
         <div className="flex flex-col gap-2 py-6">
