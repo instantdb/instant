@@ -1,6 +1,5 @@
 (ns instant.db.cel-test
   (:require [clojure.test :as test :refer [deftest is testing]]
-            [instant.data.resolvers :as resolvers]
             [instant.db.model.attr :as attr-model]
             [instant.fixtures :refer [with-zeneca-app]]
             [instant.jdbc.aurora :as aurora]
@@ -194,7 +193,7 @@
 
 (deftest where-clauses-with-auth-ref
   (with-zeneca-app
-    (fn [app r]
+    (fn [app _r]
       (let [make-ctx (fn []
                        {:db {:conn-pool (aurora/conn-pool :read)}
                         :app-id (:id app)
