@@ -52,155 +52,144 @@
                                   :checked-data-type checked-data-type})
                                specs)))
 
-;; XXX: Test with and without auth
 (deftest where-clauses
   (let [make-ctx (fn [attr-specs]
                    {:attrs (dummy-attrs attr-specs)
-                    :current-user {:id "__auth.id__" :email "__auth.email__"}})]
-    (is (= {:short-circuit? false
-            :where-clauses {"members.id" "__auth.id__"}}
-           (cel/get-where-clauses (make-ctx [])
-                                  "etype"
-                                  "cel.bind(member, auth.id in data.ref(\"members.id\"), member)")))
+                    :current-user {:id "__auth.id__" :email "__auth.email__"}})
+        get-where-clauses (fn [fields code]
+                            (let [res (cel/get-where-clauses (make-ctx (map (fn [field]
+                                                                              {:etype "etype"
+                                                                               :field field})
+                                                                            fields))
+                                                             "etype"
+                                                             code)]
+                              (testing (str "ensure no short-circuit? on " code)
+                                (is (false? (:short-circuit? res))))
+                              (:where-clauses res)))]
 
-    (is (= {:short-circuit? false
-            :where-clauses {:or [{"is_public" true}
-                                 {"owner" "__auth.id__"}]}}
-           (cel/get-where-clauses (make-ctx [{:etype "etype"
-                                              :field "owner"}
-                                             {:etype "etype"
-                                              :field "is_public"}])
-                                  "etype"
-                                  "data.is_public || data.owner == auth.id")))
 
-    (is (= {:short-circuit? false
-            :where-clauses {"conversationId" {:$isNull false}}}
-           (cel/get-where-clauses (make-ctx [{:etype "etype"
-                                              :field "conversationId"}])
+    (is (= {"members.id" "__auth.id__"}
+           (get-where-clauses [] "cel.bind(member, auth.id in data.ref(\"members.id\"), member)")))
 
-                                  "etype"
-                                  "data.conversationId != null")))
+    (is (= {:or [{"is_public" true}
+                 {"owner" "__auth.id__"}]}
+           (get-where-clauses ["owner"
+                               "is_public"]
+                              "data.is_public || data.owner == auth.id")))
 
-    (is (= {:short-circuit? false
-            :where-clauses {"conversationId" {:$not "test"}}}
-           (cel/get-where-clauses (make-ctx [{:etype "etype"
-                                              :field "conversationId"}])
-                                  "etype"
-                                  "data.conversationId != 'test'")))
+    (is (= {"conversationId" {:$isNull false}}
+           (get-where-clauses ["conversationId"]
+                              "data.conversationId != null")))
 
-    (is (= {:short-circuit? false
-            :where-clauses {"conversationId" {:$isNull true}}}
-           (cel/get-where-clauses (make-ctx [{:etype "etype"
-                                              :field "conversationId"}])
-                                  "etype"
-                                  "data.conversationId == null")))
+    (is (= {"conversationId" {:$not "test"}}
+           (get-where-clauses ["conversationId"]
+                              "data.conversationId != 'test'")))
+
+    (is (= {"conversationId" {:$isNull true}}
+           (get-where-clauses ["conversationId"]
+                              "data.conversationId == null")))
 
     (is (= {:short-circuit? true
             :where-clauses nil}
-           ;; data.ref will never return `null` in the arrays
-           ;; XXX: double check that this is right
-           (cel/get-where-clauses (make-ctx [])
-                                  "etype"
-                                  "null in data.ref('owner.id')")))
+           (select-keys (cel/get-where-clauses (make-ctx [])
+                                               "etype"
+                                               "null in data.ref('owner.id')")
+                        [:short-circuit?
+                         :where-clauses])))
 
-    ;; XXX: Need a better name than short-circuit?
-    ;;      Could either just return the result or come up with a better name
-    ;;      always-false?
-    ;;      skip-execute-query
+    (is (= nil
+           (get-where-clauses ["name"]
+                              "auth.id == '__auth.id__' || data.name == 'Daniel'")))
 
-    (is (= {:short-circuit? false
-            :where-clauses nil}
-           (cel/get-where-clauses (make-ctx [{:etype "etype"
-                                              :field "name"}])
-                                  "etype"
-                                  "auth.id == '__auth.id__' || data.name == 'Daniel'")))
+    (is (= {"name" "Daniel"}
+           (get-where-clauses ["name"]
+                              "auth.id == 'random-id' || data.name == 'Daniel'")))
 
-    (is (= {:short-circuit? false
-            :where-clauses {"name" "Daniel"}}
-           (cel/get-where-clauses (make-ctx [{:etype "etype"
-                                              :field "name"}])
-                                  "etype"
-                                  "auth.id == 'random-id' || data.name == 'Daniel'")))
+    (is (= {:and [{"deleted_at" {:$isNull false}}
+                  {:or [{"deleted_at" {:$isNull true}}
+                        {"undeleted" true}]}]}
+           (get-where-clauses ["deleted_at"
+                               "undeleted"]
+                              "cel.bind(isDeleted, data.deleted_at == null || (data.deleted_at != null && !data.undeleted), !isDeleted)")))
 
-    (is (= {:short-circuit? false,
-            :where-clauses {:and [{"deleted_at" {:$isNull false}}
-                                  {:or [{"deleted_at" {:$isNull true}}
-                                        {"undeleted" true}]}]}}
-           (cel/get-where-clauses (make-ctx [{:etype "etype"
-                                              :field "deleted_at"}
-                                             {:etype "etype"
-                                              :field "undeleted"}])
-                                  "etype"
-                                  "cel.bind(isDeleted, data.deleted_at == null || (data.deleted_at != null && !data.undeleted), !isDeleted)")))
+    (is (= {"test" true}
+           (get-where-clauses ["test"]
+                              "!!data.test")))
 
-    (is (= {:short-circuit? false
-            :where-clauses {"test" true}}
-           (cel/get-where-clauses (make-ctx [{:etype "etype"
-                                              :field "test"}])
-                                  "etype"
-                                  "!!data.test")))
-
-    (is (= {:short-circuit? false
-            :where-clauses {"path" {:$like "%.jpg"}}}
-           (cel/get-where-clauses (make-ctx [{:etype "etype"
-                                              :field "path"
-                                              :index? true
-                                              :checked-data-type :string}])
-                                  "etype"
-                                  "data.path.endsWith('.jpg')")))
+    (is (= {"path" {:$like "%.jpg"}}
+           (:where-clauses
+            (cel/get-where-clauses (make-ctx [{:etype "etype"
+                                               :field "path"
+                                               :index? true
+                                               :checked-data-type :string}])
+                                   "etype"
+                                   "data.path.endsWith('.jpg')"))))
 
     (testing "!!x == x"
-      (let [ctx (make-ctx [{:etype "etype"
-                            :field "deleted_at"}
-                           {:etype "etype"
-                            :field "undeleted"}])
-            result {:short-circuit? false,
-                    :where-clauses {:or [{"deleted_at" {:$isNull true}}
-                                         {:and [{"deleted_at" {:$isNull false}}
-                                                {"undeleted" false}]}]}}]
+      (let [fields ["deleted_at" "undeleted"]
+            result {:or [{"deleted_at" {:$isNull true}}
+                         {:and [{"deleted_at" {:$isNull false}}
+                                {"undeleted" false}]}]}]
         (is (= result
-               (cel/get-where-clauses
-                ctx
-                "etype"
+               (get-where-clauses
+                fields
                 "cel.bind(isDeleted, data.deleted_at == null || (data.deleted_at != null && !data.undeleted), !(!isDeleted))")))
 
         (is (= result
-               (cel/get-where-clauses
-                ctx
-                "etype"
+               (get-where-clauses
+                fields
                 "cel.bind(isDeleted, data.deleted_at == null || (data.deleted_at != null && !data.undeleted), isDeleted)")))))
 
-    ;; XXX: Do we want to return something else here?  Probably should
-    ;;      indicate "can't convert to where clauses" instead of
-    ;;      throwing
+    (doseq [[bad-code msg] [ ;; Can't handle size, but maybe we could do something to check empty
+                            ["size(data) == 0",
+                             #"size"]
+                            ["size(data.ref('owner.id')) == 0"
+                             #"size"]
+                            ;; Can't handle json arrays in data
+                            ["auth.id in data.adminUserIds"
+                             #"Function '_in_dynamic' failed"]
+                            ["data.adminUserIds == [1,2,3]"
+                             #"Function '_eq_dynamic' failed"]
+                            ;; Can't handle ternary yet, but we could implement it
+                            ["data.isPrivate == true ? auth.id == data.ownerId : true"
+                             #"expected boolean value"]
+                            ["!data.badfield"
+                             #"key 'badfield' is not present in map."]
+                            ["[1,2,3] == data.ref('workspace.id')"
+                             #"Function '_eq_dynamic' failed"]
 
-    ;; XXX: Be more specific about the error
-    (doseq [bad-code [ ;; Can't handle size, but maybe we could do something to check empty
-                      "size(data) == 0"
-                      "size(data.ref('owner.id')) == 0"
-                      ;; Can't handle json arrays in data
-                      "auth.id in data.adminUserIds"
-                      "data.adminUserIds == [1,2,3]"
-                      ;; Can't handle ternary yet
-                      "data.isPrivate == true ? auth.id == data.ownerId : true"
-                      "auth.ref('$user.profile.active_workspace.id') == data.ref('workspace.id')"
-
-                      "(data.ownerId) in data.ref('owner.id')"
-                      "type(data.ownerId) == string"]]
+                            ["(data.ownerId) in data.ref('owner.id')"
+                             #"Function '_in_dynamic' failed"]
+                            ["type(data.ownerId) == string"
+                             #"Function '_type_datakey_override' failed"]]]
       (testing (str "`" bad-code "` throws")
-        (is (thrown? Throwable
-                     (cel/get-where-clauses (make-ctx [{:etype "etype"
-                                                        :field "adminUserIds"}
-                                                       {:etype "etype"
-                                                        :field "ownerId"}
-                                                       {:etype "etype"
-                                                        :field "adminUserIds"}])
-                                            "etype"
-                                            bad-code)))))
+        (is (thrown-with-msg? Throwable
+                              msg
+                              (cel/get-where-clauses (make-ctx [{:etype "etype"
+                                                                 :field "adminUserIds"}
+                                                                {:etype "etype"
+                                                                 :field "ownerId"}
+                                                                {:etype "etype"
+                                                                 :field "adminUserIds"}
+                                                                {:etype "etype"
+                                                                 :field "isPrivate"}])
+                                                     "etype"
+                                                     bad-code)))))
 
-    ;; XXX: Need some standard error
-    ;; XXX: Test all of the error cases
-    ))
+    (doseq [code ["auth.email == 'random-email'"
+                  "false && data.ownerId == 'me'"
+                  "false"
+                  "null"]]
+      (testing (str "`" code "` short-circuits")
+        (is (true? (:short-circuit?
+                    (cel/get-where-clauses (make-ctx [{:etype "etype"
+                                                       :field "adminUserIds"}
+                                                      {:etype "etype"
+                                                       :field "ownerId"}
+                                                      {:etype "etype"
+                                                       :field "adminUserIds"}])
+                                           "etype"
+                                           code))))))))
 
 
 (deftest where-clauses-with-auth-ref
@@ -234,15 +223,12 @@
                                    :cardinality :many}]
                        [:add-triple profile-id id-attr-id (str profile-id)]
                        [:add-triple profile-id link-attr-id (str (:id user))]])
-        (println (:id user)
-                 (resolvers/->uuid r "eid-alex"))
-        ;; XXX: It's not perfect because we have to do a fetch outside of preload
-        (is (= {:short-circuit? false
-                :where-clauses {"id" (str profile-id)}}
-               (cel/get-where-clauses (assoc (make-ctx)
-                                             :current-user user)
-                                      "profile"
-                                      "data.id == (auth.ref('$user.profile.id'))[0]")))))))
+        (is (= {"id" (str profile-id)}
+               (:where-clauses
+                (cel/get-where-clauses (assoc (make-ctx)
+                                              :current-user user)
+                                       "profile"
+                                       "data.id == (auth.ref('$user.profile.id'))[0]"))))))))
 
 (comment
   (test/run-tests *ns*))

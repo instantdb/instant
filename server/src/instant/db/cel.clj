@@ -516,9 +516,20 @@
      {:name (str "_or_" (clojure-string/join "_"
                                              (map type->name args)))
       :cel-args (map type->cel args)
-      :cel-return-type SimpleType/DYN
-      :java-args (map type->java args)
-      :impl (get-or-overload-fn args)})))
+      :cel-return-type (case args
+                         ([:whereclause :whereclause]
+                          [:datakey :datakey]
+                          [:datakey :whereclause]
+                          [:whereclause :datakey]) whereclause-cel-type
+                         ([:whereclause :bool]
+                          [:bool :whereclause]
+                          [:datakey :bool]
+                          [:bool :datakey]) SimpleType/DYN
+                         [:bool :bool] SimpleType/BOOL
+                         SimpleType/DYN)      :java-args (map type->java args)
+      :impl (fn [[x y]]
+              (let [ret ((get-or-overload-fn args)  [x y])]
+                ret))})))
 
 ;; Overloads for `AND`
 ;; We overload the existing AND function to handle our custom types
@@ -580,9 +591,19 @@
          arg-2 [:datakey :whereclause :bool]
          :let [args [arg-1 arg-2]]]
      {:name (str "_and_" (clojure-string/join "_"
-                                             (map type->name args)))
+                                              (map type->name args)))
       :cel-args (map type->cel args)
-      :cel-return-type SimpleType/DYN
+      :cel-return-type (case args
+                         ([:whereclause :whereclause]
+                          [:datakey :datakey]
+                          [:datakey :whereclause]
+                          [:whereclause :datakey]) whereclause-cel-type
+                         ([:whereclause :bool]
+                          [:bool :whereclause]
+                          [:datakey :bool]
+                          [:bool :datakey]) SimpleType/DYN
+                         [:bool :bool] SimpleType/BOOL
+                         SimpleType/DYN)
       :java-args (map type->java args)
       :impl (get-and-overload-fn args)})))
 
@@ -668,7 +689,7 @@
                    (throw (ex-info "Can't compare on our custom types" {:x x :y y}))
 
                    :else
-                   (= x y)))}]))
+                   (not= x y)))}]))
 
 (def in-overloads
   (global-overload
@@ -740,7 +761,9 @@
                                               (:$not v)
 
                                               (contains? v :$isNull)
-                                              {:$isNull (not (:$isNull v))})
+                                              {:$isNull (not (:$isNull v))}
+
+                                              :else (throw (ex-info "Unsupported operation for negation", {:v v})))
 
                                         (boolean? v)
                                         (not v)
@@ -911,8 +934,9 @@
         evaluation-result (.eval program
                                  map-value)]
 
-    {:short-circuit? (= false evaluation-result)
-     ;;:evaluation-result evaluation-result
+    {:short-circuit? (or (= evaluation-result NullValue/NULL_VALUE)
+                         (not evaluation-result))
+     :evaluation-result evaluation-result
      :where-clauses (when (instance? WhereClause evaluation-result)
                       (.where_clause ^WhereClause evaluation-result))}))
 
