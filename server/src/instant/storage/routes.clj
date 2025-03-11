@@ -10,8 +10,7 @@
             [clojure.walk :as w]))
 
 (defn req->content-length! [{:keys [content-length] :as _req}]
-  (when content-length
-    (long content-length)))
+  content-length)
 
 (defn req->app-file! [req params]
   (let [app-id (ex/get-param! params [:app_id] uuid-util/coerce)

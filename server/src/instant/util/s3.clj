@@ -260,7 +260,7 @@
                                      content-length (.contentLength content-length)
                                      true (.build))]
          (if content-length
-           (let [body (AsyncRequestBody/fromInputStream stream content-length default-virtual-thread-executor)]
+           (let [body (AsyncRequestBody/fromInputStream stream (long content-length) default-virtual-thread-executor)]
              (-> (.putObject (default-s3-async-client) req body)
                  deref))
            (let [^BlockingInputStreamAsyncRequestBody body (AsyncRequestBody/forBlockingInputStream nil)
