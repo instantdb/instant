@@ -120,7 +120,7 @@
 
 (defn delete-file! [app-id location-id]
   (when location-id
-    (s3-util/delete-object s3-client bucket-name (->object-key app-id location-id))))
+    (s3-util/delete-object (s3-client) bucket-name (->object-key app-id location-id))))
 
 (defn bulk-delete-files! [app-id location-ids]
   (let [location-keys (mapv
