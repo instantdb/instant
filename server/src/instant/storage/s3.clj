@@ -15,16 +15,14 @@
 ;; ----------------------
 
 (def ^:private s3-client* (delay (.build (S3Client/builder))))
-
 (defn s3-client
-  "Standard blocking S3 client. We use these for copying objects, and other operations "
+  "Standard blocking S3 client. We use this for most operations."
   ^S3Client []
   @s3-client*)
 
 (def ^:private s3-async-client* (delay (-> (S3AsyncClient/crtBuilder)
                                            (.targetThroughputInGbps 20.0)
                                            (.build))))
-
 (defn s3-async-client
   "Async S3 Client. Useful when you want to asynchronously upload streams to S3"
   ^S3AsyncClient []
@@ -43,7 +41,6 @@
           {:access-key (.accessKeyId creds)
            :secret-key (.secretAccessKey creds)
            :region region})))))
-
 (defn presign-creds
   "Credentials to presign S3 URLs. We use special credentials, because 
    the default credentials provider creates URLs that expire in 2 days. 
