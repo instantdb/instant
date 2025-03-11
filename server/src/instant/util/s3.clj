@@ -49,16 +49,16 @@
      :next-continuation-token (.nextContinuationToken resp)}))
 
 (defn list-all-objects
-  ([^S3Client s3-client bucket-name opts]
-   (loop [all-objects []
-          continuation-token nil]
-     (let [page-opts (cond-> opts
-                       continuation-token (assoc :continuation-token continuation-token))
-           {:keys [object-summaries next-continuation-token truncated?]}
-           (list-objects s3-client bucket-name page-opts)]
-       (if truncated?
-         (recur (into all-objects object-summaries) next-continuation-token)
-         (into all-objects object-summaries))))))
+  [^S3Client s3-client bucket-name opts]
+  (loop [all-objects []
+         continuation-token nil]
+    (let [page-opts (cond-> opts
+                      continuation-token (assoc :continuation-token continuation-token))
+          {:keys [object-summaries next-continuation-token truncated?]}
+          (list-objects s3-client bucket-name page-opts)]
+      (if truncated?
+        (recur (into all-objects object-summaries) next-continuation-token)
+        (into all-objects object-summaries)))))
 
 (defn head-object
   [^S3Client s3-client bucket-name object-key]
@@ -152,11 +152,11 @@
     nil))
 
 (defn delete-objects-paginated
-  ([^S3Client s3-client bucket-name object-keys]
+  [^S3Client s3-client bucket-name object-keys]
    ;; Limited to 1000 keys per request
-   (let [chunks (partition-all 1000 object-keys)]
-     (->> chunks
-          (mapcat #(delete-objects s3-client bucket-name (vec %)))))))
+  (let [chunks (partition-all 1000 object-keys)]
+    (->> chunks
+         (mapcat #(delete-objects s3-client bucket-name (vec %))))))
 
 (defn generate-presigned-url-get
   [{:keys [access-key secret-key region] :as _signer-creds}
