@@ -69,6 +69,11 @@ const graph = i.graph(
     "app-deletion-sweeper": i.entity({
       "disabled?": i.boolean(),
     }),
+    "rule-wheres": i.entity({
+      "app-ids": i.json(),
+      "query-hashes": i.json(),
+      "query-hash-blacklist": i.json(),
+    }),
   },
   {}
 );

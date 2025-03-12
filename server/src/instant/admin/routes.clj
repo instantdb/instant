@@ -122,9 +122,11 @@
                     :datalog-loader (d/make-loader)
                     :inference? inference?}
                    perms)
-        {check-results :check-results nodes :nodes} (iq/permissioned-query-check ctx query rules-override)
+        {:keys [check-results nodes rule-wheres]}
+        (iq/permissioned-query-check ctx query rules-override)
+
         result (instaql-nodes->object-tree ctx nodes)]
-    (response/ok {:check-results check-results :result result})))
+    (response/ok {:check-results check-results :result result :rule-wheres rule-wheres})))
 
 (comment
   (do (def app-id  #uuid "10ed6fc7-faa4-4f95-b364-9a2a4d445abe")
