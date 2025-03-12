@@ -1,4 +1,3 @@
-
 (ns instant.db.cel
   (:require
    [clojure.set :as clojure-set]
@@ -274,7 +273,7 @@
 (defn data-ref-impl [{:strs [id] :as ^CelMap m} ^String path-str]
   (if (= id NullValue/NULL_VALUE)
     []
-    (let [{:keys [ctx etype type]} (.getMeta m)
+    (let [{:keys [ctx etype type]} (meta m)
           path-str (if (= type :auth)
                      (clojure-string/replace path-str
                                              #"^\$user\."
@@ -389,7 +388,10 @@
   (containsKey [_ k]
     (if (attr-model/seek-by-fwd-ident-name [etype k] attrs)
       true
-      false)))
+      false))
+
+  (toString [_this]
+    {:etype etype}))
 
 
 (deftype WhereClause [where-clause]
