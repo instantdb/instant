@@ -142,27 +142,44 @@
     (doseq [[bad-code msg] [ ;; Can't handle size, but maybe we could do something to check empty
                             ["size(data) == 0",
                              #"size"]
+
                             ["size(data.ref('owner.id')) == 0"
                              #"size"]
+
                             ;; Can't handle json arrays in data
                             ["auth.id in data.adminUserIds"
                              #"Function '_in_dynamic' failed"]
+
                             ["data.adminUserIds == [1,2,3]"
                              #"Function '_eq_dynamic' failed"]
-                            ;; Can't handle ternary yet, but we could implement it
+
+                            ;; Can't handle ternary yet, we could implement it but may need
+                            ;; to rewrite the ast
                             ["data.isPrivate == true ? auth.id == data.ownerId : true"
                              #"expected boolean value"]
+
                             ["!data.badfield"
                              #"key 'badfield' is not present in map."]
+
                             ["[1,2,3] == data.ref('workspace.id')"
                              #"Function '_eq_dynamic' failed"]
 
                             ["(data.ownerId) in data.ref('owner.id')"
                              #"Function '_in_dynamic' failed"]
+
                             ["type(data.ownerId) == string"
                              #"Function '_type_datakey_override' failed"]
+
                             ["data.ownerId"
-                             #"Invalid return type from the cel rule"]]]
+                             #"Invalid return type from the cel rule"]
+
+                            ;; Can't negate {:path {:$like "%.jpb"}}
+                            ["!(data.path.endsWith('.jpg'))"
+                             #"Function '_not_whereclause' failed"]
+
+                            ;; `like` only works on indexed strings
+                            ["!(data.ownerId.endsWith('.jpg'))"
+                             #"Function '_datakey_ends_with' failed"]]]
       (testing (str "`" bad-code "` throws")
         (is (thrown-with-msg? Throwable
                               msg
@@ -173,7 +190,11 @@
                                                                 {:etype "etype"
                                                                  :field "adminUserIds"}
                                                                 {:etype "etype"
-                                                                 :field "isPrivate"}])
+                                                                 :field "isPrivate"}
+                                                                {:etype "etype"
+                                                                 :field "path"
+                                                                 :index? true
+                                                                 :checked-data-type :string}])
                                                      "etype"
                                                      bad-code)))))
 

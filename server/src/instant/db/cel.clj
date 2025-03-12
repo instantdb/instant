@@ -53,8 +53,6 @@
    (java.text SimpleDateFormat)
    (java.util ArrayList Date Map Optional SimpleTimeZone)))
 
-(deftype MyType [x])
-
 (set! *warn-on-reflection* true)
 
 ;; ----
@@ -222,7 +220,7 @@
 (def ^ListType type-ref-return (ListType/create SimpleType/DYN))
 
 (defn make-overload
-  "Creates new overload functions, each name should be unique.
+  "Creates new overload functions, each :overload-id should be unique.
    global-or-member should be either :global or :member
     global is a top-level function, e.g. `size`
     member is a method on an object, e.g. `startsWith` in 's'.startsWith('s')
@@ -234,7 +232,7 @@
      cel-return-type: the CelType that the function returns
      java-args: a list of classes that the implementation takes as args, e.g. [Boolean, String]
      impl: A function that takes a single arg that will be a list of the java-args, e.g.
-       (fn [[^Boolean x ^Stringy]] ...)"
+       (fn [[^Boolean x ^String y]] ...)"
   [global-or-member ^String function-name decls]
   {:decl (CelFunctionDecl/newFunctionDeclaration
           function-name
@@ -540,9 +538,7 @@
                          [:bool :bool] SimpleType/BOOL
                          SimpleType/DYN)
       :java-args (map type->java args)
-      :impl (fn [[x y]]
-              (let [ret ((get-or-overload-fn args)  [x y])]
-                ret))})))
+      :impl (get-or-overload-fn args)})))
 
 ;; Overloads for `AND`
 ;; We overload the existing AND function to handle our custom types
@@ -905,7 +901,7 @@
 ;; 2. "data" var is checked-data-map-cel-type instead of the cel-map type
 ;; 3. Adds overrides
 ;; 4. retainRepeatedUnaryOperators == true (makes !!data.test work)
-;; 5. Exclude the ==, !=, and `in` standard funcitons
+;; 5. Exclude the ==, !=, and `in` standard functions (replaced by our overloads)
 ;; 6. Additional overload for ref-fn
 
 (def ^:private ^CelCompiler where-cel-compiler
