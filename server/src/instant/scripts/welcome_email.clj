@@ -8,7 +8,8 @@
    [instant.grab :as grab]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.flags :as flags])
+   [instant.flags :as flags]
+   [instant.util.tracer :as tracer])
   (:import
    (java.lang AutoCloseable)
    (java.time Period DayOfWeek)))
@@ -58,17 +59,25 @@ How's your experience with Instant been so far? Any feedback to share?")
       (grab/run-once!
        (str "welcome-email-" date-str)
        (fn []
-         (let [emails (map :email (find-welcome-users))
-               shuffled (cond->> (shuffle emails)
-                          limit (take limit))]
-           (run! (fn [to]
-                   (postmark/send! {:from "founders@pm.instantdb.com"
-                                    :to to
-                                    :reply-to "founders@instantdb.com"
-                                    :subject "Welcome to Instant!"
-                                    :html html-body
-                                    :text text-body}))
-                                    shuffled)))))))
+         (tracer/with-span! {:name "welcome-email/send-emails"}
+           (let [emails (map :email (find-welcome-users))
+                 shuffled (cond->> (shuffle emails)
+                            limit (take limit))]
+             (tracer/add-data! {:attributes {:emails shuffled
+                                             :limit limit
+                                             :num-emails (count shuffled)}})
+             (doseq [to shuffled]
+               (try
+                 (postmark/send! {:from "founders@pm.instantdb.com"
+                                  :to to
+                                  :reply-to "founders@instantdb.com"
+                                  :subject "Welcome to Instant!"
+                                  :html html-body
+                                  :text text-body})
+                 (catch Exception e
+                   (tracer/add-exception! e {:escaping? false})
+                   ;; send next email
+                   nil))))))))))
 
 (defn period []
   (let [now (date/pst-now)
