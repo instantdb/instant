@@ -455,3 +455,18 @@ test('JSON serialization round-trips', () => {
   const newStore = fromJSON(toJSON(store));
   expect(store).toEqual(newStore);
 });
+
+test('ruleParams no-ops', () => {
+  const id = uuid();
+  const chunk = tx.users[id]
+    .ruleParams({ guestId: 'bobby' })
+    .update({ handle: 'bobby' });
+
+  const txSteps = instaml.transform({ attrs: store.attrs }, chunk);
+  const newStore = transact(store, txSteps);
+  expect(
+    query({ store: newStore }, { users: {} }).data.users.map((x) => x.handle),
+  ).contains('bobby');
+
+  checkIndexIntegrity(newStore);
+});

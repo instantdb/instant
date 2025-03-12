@@ -436,6 +436,8 @@ function applyTxStep(store, txStep) {
     case 'update-attr':
       updateAttr(store, args);
       break;
+    case 'rule-params':
+      break;
     default:
       throw new Error(`unhandled transaction action: ${action}`);
   }
