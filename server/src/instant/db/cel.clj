@@ -542,7 +542,7 @@
 
 ;; Overloads for `AND`
 ;; We overload the existing AND function to handle our custom types
-;; cel won't let us replace the `AND` function unless we rewrite te ast
+;; cel won't let us replace the `AND` function unless we rewrite the ast
 
 (defn and-overload-dispatch [args]
   args)
@@ -728,7 +728,7 @@
                    ;; Hard to know what to do here. Since we set `containsKey` to true
                    ;; in CelMap, this will always return true for the rules.
                    ;; If we didn't do that, then it would return true unless the key
-                   ;; was misisng from the map (even null returns true). We don't have
+                   ;; was missing from the map (even null returns true). We don't have
                    ;; an instaql query for that.
                    (instance? CheckedDataMap y)
                    (throw (ex-info "can't call in on data" {:x x :y y}))
