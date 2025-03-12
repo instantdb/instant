@@ -54,23 +54,29 @@ If a rule is not set then by default it evaluates to true. The following three r
 In this example we explicitly set each action for `todos` to true
 
 ```json
-"todos": {
-  "allow": {
-    "view": "true",
-    "create": "true",
-    "update": "true",
-    "delete": "true"
-  },
+{
+  "todos": {
+    "allow": {
+      "view": "true",
+      "create": "true",
+      "update": "true",
+      "delete": "true"
+    }
+  }
+}
 ```
 
 In this example we explicitly set `view` to be true. However, all the remaining
 actions for `todo` also default to true.
 
 ```json
-"todos": {
-  "allow": {
-    "view": "true"
-  },
+{
+  "todos": {
+    "allow": {
+      "view": "true"
+    }
+  }
+}
 ```
 
 In this example we set no rules, and thus all permission checks pass.
@@ -102,9 +108,11 @@ Transactions will fail if a user does not have adequate permission.
 By default, all permissions are considered to be `"true"`. To change that, use `"$default"` key. This:
 
 ```json
-"todos": {
-  "allow": {
-    "$default": "false"
+{
+  "todos": {
+    "allow": {
+      "$default": "false"
+    }
   }
 }
 ```
@@ -112,12 +120,14 @@ By default, all permissions are considered to be `"true"`. To change that, use `
 is equivalent to this:
 
 ```json
-"todos": {
-  "allow": {
-    "view": "false",
-    "create": "false",
-    "update": "false",
-    "delete": "false",
+{
+  "todos": {
+    "allow": {
+      "view": "false",
+      "create": "false",
+      "update": "false",
+      "delete": "false"
+    }
   }
 }
 ```
@@ -125,10 +135,12 @@ is equivalent to this:
 Specific keys can override defaults:
 
 ```json
-"todos": {
-  "allow": {
-    "$default": "false",
-    "view": "true"
+{
+  "todos": {
+    "allow": {
+      "$default": "false",
+      "view": "true"
+    }
   }
 }
 ```
@@ -136,14 +148,16 @@ Specific keys can override defaults:
 You can use `$default` as the namespace:
 
 ```json
-"$default": {
-  "allow": {
-    "view": "false"
-  }
-},
-"todos": {
-  "allow": {
-    "view": "true"
+{
+  "$default": {
+    "allow": {
+      "view": "false"
+    }
+  },
+  "todos": {
+    "allow": {
+      "view": "true"
+    }
   }
 }
 ```
@@ -151,9 +165,11 @@ You can use `$default` as the namespace:
 Finally, the ultimate default:
 
 ```json
-"$default": {
-  "allow": {
-    "$default": "false"
+{
+  "$default": {
+    "allow": {
+      "$default": "false"
+    }
   }
 }
 ```
@@ -282,9 +298,9 @@ delete to only succeed on todos associated with a specific user email.
 
 ```json
 {
-  todos: {
-    allow: {
-      delete: "'admin' in auth.ref('$user.role.type')",
+  "todos": {
+    "allow": {
+      "delete": "'admin' in auth.ref('$user.role.type')"
     },
   },
 };
@@ -294,29 +310,25 @@ See [managing users](/docs/users) to learn more about that.
 
 ### ruleParams
 
-Imagine you have a `documents` namespace, and want to implement a rule like:
+Imagine you have a `documents` namespace, and want to implement a rule like _"Only people who know my document's id can access it."_
 
-> Only people with a link to my document can access it.
+You can use `ruleParams` to write that rule. `ruleParams` let you pass extra options to your queries and transactions.
 
-You can use `ruleParams` to write that rule. `ruleParams` are extra options that you can pass into queries and transactions.
-
-For example, you can pass a `ruleParams` argument in your queries:
+For example, pass a `knownDocId` param to our query:
 
 ```javascript
-const query = {
-  docs: {},
-};
-
 // You could get your doc's id from the URL for example
 const myDocId = getId(window.location);
 
-// Pass the id here
-const { data } = await db.queryOnce(query, {
-  ruleParams: { knownDocId: myDocId },
+const query = {
+  docs: {},
+};
+const { data } = db.useQuery(query, {
+  ruleParams: { knownDocId: myDocId }, // Pass the id to ruleParams!
 });
 ```
 
-And your transactions:
+Or to your transactions:
 
 ```js
 db.transact(
@@ -324,33 +336,33 @@ db.transact(
 );
 ```
 
-When you do, you can access the those params in your permissions:
+And then use it in your permission rules:
 
-```js
+```json
 {
-  documents: {
-    allow: {
-      view:   "data.id == ruleParams.knownDocId",
-      update: "data.id == ruleParams.knownDocId",
-      delete: "data.id == ruleParams.knownDocId"
-    },
-  },
+  "documents": {
+    "allow": {
+      "view": "data.id == ruleParams.knownDocId",
+      "update": "data.id == ruleParams.knownDocId",
+      "delete": "data.id == ruleParams.knownDocId"
+    }
+  }
 }
 ```
 
-That will implement the rule: “Only people who have a link to my document can see it”.
+With that, you've implemented the rule _"Only people who know my document's id can access it."_!
 
 **Here are some more patterns**
 
-If you want to: access a document and all related comments by one `knownDocId`:
+If you want to: access a document and _all related comments_ by one `knownDocId`:
 
-```js
+```json
 {
-  docs: {
-    view: "data.id == ruleParams.knownDocId"
+  "docs": {
+    "view": "data.id == ruleParams.knownDocId"
   },
-  comment: {
-    view: "data.parent.id == ruleParams.knownDocId"
+  "comment": {
+    "view": "ruleParams.knownDocId in data.ref('parent.id')"
   }
 }
 ```
@@ -361,33 +373,38 @@ Or, if you want to allow multiple documents:
 db.useQuery(..., { knownDocIds: [id1, id2, ...] })
 ```
 
-```js
+```json
 {
-  docs: {
-    view: 'data.id in ruleParams.knownDocIds';
+  "docs": {
+    "view": "data.id in ruleParams.knownDocIds"
   }
 }
 ```
 
 To create a “share links” feature, where you have multiple links to the same doc, you can create a separate namespace:
 
-```js
+```json
 {
-  docs: {
-    view: "ruleParams.secret in data.ref('docLinks.secret')";
+  "docs": {
+    "view": "ruleParams.secret in data.ref('docLinks.secret')"
   }
 }
 ```
 
-Or if you want to separate “view links” from “edit links”, you can use two namespaces like so:
+Or if you want to separate “view links” from “edit links”, you can use two namespaces like this:
 
-```js
+```json
 {
-  docs: {
-    view:   "ruleParams.secret in data.ref('docViewLinks.secret')
-          || ruleParams.secret in data.ref('docEditLinks.secret')",
-    update: "ruleParams.secret in data.ref('docEditLinks.secret')",
-    delete: "ruleParams.secret in data.ref('docEditLinks.secret')"
+  "docs": {
+    "view": "hasViewerSecret || hasEditorSecret",
+    "update": "hasEditorSecret",
+    "delete": "hasEditorSecret",
+    "bind": [
+      "hasViewerSecret",
+      "ruleParams.secret in data.ref('docViewLinks.secret')",
+      "hasEditorSecret",
+      "ruleParams.secret in data.ref('docEditLinks.secret')"
+    ]
   }
 }
 ```

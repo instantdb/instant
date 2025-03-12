@@ -46,7 +46,8 @@
    [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
    [ring.middleware.keyword-params :refer [wrap-keyword-params]]
    [ring.middleware.multipart-params :refer [wrap-multipart-params]]
-   [ring.middleware.params :refer [wrap-params]])
+   [ring.middleware.params :refer [wrap-params]]
+   [instant.storage.s3 :as storage-s3])
   (:import
    (io.undertow Undertow UndertowOptions Undertow$Builder Undertow$ListenerInfo)
    (java.text SimpleDateFormat)
@@ -209,6 +210,8 @@
       (jwt/start))
     (with-log-init :aurora
       (aurora/start))
+    (with-log-init :storage
+      (storage-s3/start))
     (with-log-init :system-catalog
       (ensure-attrs-on-system-catalog-app))
     (with-log-init :reactive-store

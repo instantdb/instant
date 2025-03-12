@@ -283,7 +283,15 @@ export function Layout({ children, title, tableOfContents }) {
 
   return (
     <SelectedAppContext.Provider value={selectedAppData}>
-      <div className="min-h-[100dvh] bg-[#F8F9FA]">
+      <style jsx global>
+        {`
+          html,
+          body {
+            background-color: #f8f9fa;
+          }
+        `}
+      </style>
+      <div className="min-h-[100dvh]">
         {/* Header */}
         <div
           className={clsx(

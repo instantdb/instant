@@ -1,10 +1,61 @@
 (ns instant.storage.s3
   (:require [clojure.string :as string]
+            [instant.config :as config]
             [instant.util.s3 :as s3-util]
             [instant.util.date :as date-util])
   (:import
-   [java.time Duration]
+   [software.amazon.awssdk.auth.credentials DefaultCredentialsProvider]
+   [software.amazon.awssdk.services.s3 S3AsyncClient S3Client]
+   [java.time Duration Instant]
    [java.time.temporal ChronoUnit]))
+
+(set! *warn-on-reflection* true)
+
+;; Configuration
+;; ----------------------
+
+(declare s3-client* s3-client s3-async-client* presign-creds*)
+
+(defn s3-client
+  "Standard blocking S3 client. We use this for most operations."
+  ^S3Client []
+  s3-client*)
+
+(defn s3-async-client
+  "Async S3 Client. Useful when you want to asynchronously upload streams to S3"
+  ^S3AsyncClient []
+  s3-async-client*)
+
+(defn presign-creds
+  "Credentials to presign S3 URLs. We use special credentials, because 
+   the default credentials provider creates URLs that expire in 2 days. 
+   
+   These are special credentials that can create URLs that expire in 7 days.
+   
+   Note: you need to make sure that both these credentials, and the default credentials, 
+   have the necessary permissions to access the same S3 bucket."
+  [] presign-creds*)
+
+(def bucket-name config/s3-bucket-name)
+
+(defn start []
+  (def ^:private s3-client* (.build (S3Client/builder)))
+
+  (def ^:private s3-async-client* (-> (S3AsyncClient/crtBuilder)
+                                      (.targetThroughputInGbps 20.0)
+                                      (.build)))
+  (def ^:private presign-creds*
+    (let [access-key (config/s3-storage-access-key)
+          secret-key (config/s3-storage-secret-key)
+          region (.toString (.region (.serviceClientConfiguration (s3-client))))]
+      (if (and access-key secret-key)
+        {:access-key access-key
+         :secret-key secret-key
+         :region region}
+        (let [creds (.resolveCredentials (DefaultCredentialsProvider/create))]
+          {:access-key (.accessKeyId creds)
+           :secret-key (.secretAccessKey creds)
+           :region region})))))
 
 ;; S3 path manipulation
 ;; ----------------------
@@ -37,30 +88,33 @@
 
 ;; Instant <> S3 integration
 ;; ----------------------
+
 (defn upload-file-to-s3 [{:keys [app-id location-id] :as ctx} file]
   (when (not (instance? java.io.InputStream file))
     (throw (Exception. "Unsupported file format")))
   (let [ctx* (assoc ctx :object-key (->object-key app-id location-id))]
-    (s3-util/upload-stream-to-s3 ctx* file)))
+    (s3-util/upload-stream-to-s3 (s3-async-client) bucket-name ctx* file)))
 
 (defn format-object [{:keys [object-metadata]}]
   (-> object-metadata
       (select-keys [:content-disposition :content-type :content-length :etag])
       (assoc :size (:content-length object-metadata)
-             :last-modified (-> object-metadata :last-modified .toEpochMilli))))
+             :last-modified
+             (.toEpochMilli ^Instant (object-metadata :last-modified)))))
 
 (defn get-object-metadata
-  ([app-id location-id] (get-object-metadata s3-util/default-bucket app-id location-id))
+  ([app-id location-id] (get-object-metadata bucket-name app-id location-id))
   ([bucket-name app-id location-id]
    (let [object-key (->object-key app-id location-id)]
-     (format-object (s3-util/head-object bucket-name object-key)))))
+     (format-object (s3-util/head-object (s3-client) bucket-name object-key)))))
 
 (defn update-object-metadata!
   ([app-id location-id params]
-   (update-object-metadata! s3-util/default-bucket app-id location-id params))
+   (update-object-metadata! bucket-name app-id location-id params))
   ([bucket-name app-id location-id {:keys [content-type content-disposition]}]
    (let [object-key (->object-key app-id location-id)]
      (s3-util/update-object-metadata
+      (s3-client)
       {:source-bucket-name bucket-name
        :destination-bucket-name bucket-name
        :source-key object-key
@@ -70,13 +124,13 @@
 
 (defn delete-file! [app-id location-id]
   (when location-id
-    (s3-util/delete-object (->object-key app-id location-id))))
+    (s3-util/delete-object (s3-client) bucket-name (->object-key app-id location-id))))
 
 (defn bulk-delete-files! [app-id location-ids]
   (let [location-keys (mapv
                        (fn [location-id] (->object-key app-id location-id))
                        location-ids)]
-    (s3-util/delete-objects-paginated location-keys)))
+    (s3-util/delete-objects-paginated (s3-client) bucket-name location-keys)))
 
 (defn bucketed-signing-instant
   "AWS URLs depend on the signing-instant.  
@@ -96,8 +150,9 @@
         duration (Duration/ofDays 7)
         object-key (->object-key app-id location-id)]
     (str (s3-util/generate-presigned-url
+          (presign-creds)
           {:method :get
-           :bucket-name s3-util/default-bucket
+           :bucket-name bucket-name
            :key object-key
            :duration duration
            :signing-instant signing-instant}))))
@@ -119,7 +174,7 @@
                  {:continuation-token continuation-token}
                  {})
           {:keys [object-summaries next-continuation-token truncated?]}
-          (s3-util/list-objects opts)]
+          (s3-util/list-objects (s3-client) bucket-name opts)]
       (if truncated?
         (recur (into all-objects object-summaries) next-continuation-token)
         (into all-objects object-summaries)))))

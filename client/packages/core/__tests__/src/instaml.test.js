@@ -1372,3 +1372,10 @@ test('Schema: populates checked-data-type', () => {
     expect(result).toContainEqual(item);
   }
 });
+
+test('instatx should not be too permissive', () => {
+  const ops = instatx.tx.books[uuid()].update({
+    title: 'New Title',
+  }).this_is_an_unknown_op;
+  expect(ops).toBeUndefined();
+});
