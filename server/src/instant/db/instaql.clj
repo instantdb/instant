@@ -131,7 +131,7 @@
        (sequential? v)))
 
 (defn- collapse-coerced-conds
-  "Converts {:or [{:or [{k: v}]}]} to its simplest form of {k: v}.
+  "Converts {:or [{:or [{:k v}]}]} to its simplest form of {:k v}.
    Will collapse both nested `and`s and `or`s."
   [conds]
   (reduce (fn [acc c]
