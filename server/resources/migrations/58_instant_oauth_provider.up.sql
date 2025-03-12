@@ -1,4 +1,4 @@
-create table instant_oauth_provider_clients (
+create table instant_oauth_app_clients (
   client_id uuid primary key,
   -- Don't let someone delete their app without deciding
   -- what happens to the OAuth clients they created
@@ -19,26 +19,26 @@ create table instant_oauth_provider_clients (
   updated_at timestamp with time zone not null default now()
 );
 
-create index on instant_oauth_provider_clients (app_id);
+create index on instant_oauth_app_clients (app_id);
 
 create trigger update_updated_at_trigger
-  before update on instant_oauth_provider_clients for each row
+  before update on instant_oauth_app_clients for each row
   execute function update_updated_at_column();
 
-create table instant_oauth_provider_codes (
+create table instant_oauth_app_codes (
   lookup_key bytea primary key,
-  client_id uuid not null references instant_oauth_provider_clients (client_id) on delete cascade,
+  client_id uuid not null references instant_oauth_app_clients (client_id) on delete cascade,
   redirect_url text not null,
   user_id uuid not null references instant_users (id) on delete cascade,
   created_at timestamp with time zone not null default now()
 );
 
-create index on instant_oauth_provider_codes (client_id);
-create index on instant_oauth_provider_codes (user_id);
+create index on instant_oauth_app_codes (client_id);
+create index on instant_oauth_app_codes (user_id);
 
-create table instant_oauth_provider_redirects (
+create table instant_oauth_app_redirects (
   lookup_key bytea primary key,
-  client_id uuid not null references instant_oauth_provider_clients (client_id) on delete cascade,
+  client_id uuid not null references instant_oauth_app_clients (client_id) on delete cascade,
   state uuid not null,
   cookie uuid not null,
   redirect_url text not null,
@@ -47,11 +47,11 @@ create table instant_oauth_provider_redirects (
   created_at timestamp with time zone not null default now()
 );
 
-create index on instant_oauth_provider_redirects (client_id);
+create index on instant_oauth_app_redirects (client_id);
 
 create table instant_user_oauth_refresh_tokens (
   lookup_key bytea primary key,
-  client_id uuid not null references instant_oauth_provider_clients (client_id) on delete cascade,
+  client_id uuid not null references instant_oauth_app_clients (client_id) on delete cascade,
   user_id uuid not null references instant_users (id) on delete cascade,
   scopes text[] not null,
   created_at timestamp with time zone not null default now()
