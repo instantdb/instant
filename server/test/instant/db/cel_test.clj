@@ -106,12 +106,12 @@
 
     (is (= {:and [{"deleted_at" {:$isNull false}}
                   {:or [{"deleted_at" {:$isNull true}}
-                        {"undeleted" true}]}]}
+                        {"undeleted" {:$not false}}]}]}
            (get-where-clauses ["deleted_at"
                                "undeleted"]
                               "cel.bind(isDeleted, data.deleted_at == null || (data.deleted_at != null && !data.undeleted), !isDeleted)")))
 
-    (is (= {"test" true}
+    (is (= {"test" {:$not false}}
            (get-where-clauses ["test"]
                               "!!data.test")))
 
