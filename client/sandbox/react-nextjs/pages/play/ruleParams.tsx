@@ -1,5 +1,4 @@
-import { i, id, init, tx } from '@instantdb/react';
-import { useEffect } from 'react';
+import { i, id, init, InstaQLEntity, lookup, tx } from '@instantdb/react';
 import config from '../../config';
 
 const schema = i.schema({
@@ -7,9 +6,12 @@ const schema = i.schema({
     playDocs: i.entity({
       title: i.string(),
       secret: i.string(),
+      key: i.string().unique(),
     }),
   },
 });
+
+type PlayDoc = InstaQLEntity<typeof schema, 'playDocs'>;
 
 const db = init({ ...config, schema });
 
@@ -20,15 +22,40 @@ function randInt(min: number, max: number) {
 }
 
 function addDoc() {
+  const key = `${randInt(10000, 99999)}`;
   return db.transact(
     tx.playDocs[id()].update({
-      title: 'doc ' + randInt(10000, 99999),
+      title: 'doc ' + key,
+      secret: secrets[randInt(0, 2)],
+      key,
+    }),
+  );
+}
+
+function addDocWithRuleParam() {
+  const key = `${randInt(10000, 99999)}`;
+  return db.transact(
+    tx.playDocs[id()].ruleParams({ test: 'foo' }).update({
+      title: 'doc ' + key,
+      secret: secrets[randInt(0, 2)],
+      key,
+    }),
+  );
+}
+
+function addDocRuleParamAndLookupRef() {
+  const key = `${randInt(10000, 99999)}`;
+  return db.transact(
+    tx.playDocs[lookup('key', key)].ruleParams({ test: 'foo' }).update({
+      title: 'doc ' + key,
       secret: secrets[randInt(0, 2)],
     }),
   );
 }
 
-function DocList({ q }: { q: any }) {
+function DocList({ secret }: { secret: string }) {
+  const q = db.useQuery({ playDocs: {} }, { ruleParams: { secret } });
+
   if (q.isLoading) {
     return <div>Loading...</div>;
   }
@@ -39,10 +66,10 @@ function DocList({ q }: { q: any }) {
 
   return (
     <ul className="pl-4 list-disk">
-      {q.data.playDocs.map((doc: any) => {
+      {q.data.playDocs.map((doc) => {
         return (
           <li className="list-disk">
-            '{doc.title}', secret: '{doc.secret}'
+            '{doc.title}', secret: '{doc.secret}', key: '{doc.key}'
           </li>
         );
       })}
@@ -51,24 +78,32 @@ function DocList({ q }: { q: any }) {
 }
 
 function Main() {
-  const queries = secrets.map((secret) => [
-    secret,
-    db.useQuery({ playDocs: {} }, { ruleParams: { secret } }),
-  ]);
-
   return (
     <div className="p-1">
-      <button
-        className="px-4 py-2 bg-slate-500 text-white rounded"
-        onClick={addDoc}
-      >
-        New doc
-      </button>
-      {queries.map(([secret, q]) => {
+      {[
+        { label: 'addDoc', fn: addDoc },
+        { label: 'addDocWithRuleParam', fn: addDocWithRuleParam },
+        {
+          label: 'addDocRuleParamAndLookupRef',
+          fn: addDocRuleParamAndLookupRef,
+        },
+      ].map(({ label, fn }) => {
+        return (
+          <button
+            key={label}
+            onClick={fn}
+            className="p-2 m-1 bg-blue-500 text-white rounded"
+          >
+            {label}
+          </button>
+        );
+      })}
+
+      {secrets.map((secret) => {
         return (
           <>
-            <div>Docs for {secret as string}:</div>
-            <DocList q={q} />
+            <div>Docs for {secret}:</div>
+            <DocList secret={secret} />
           </>
         );
       })}
