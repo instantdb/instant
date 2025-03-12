@@ -1105,12 +1105,13 @@
                                                   :where-conds)]
                               (cond-> form
                                 true (assoc :etype k :level 0)
-                                (seq extra-conds) (update-in [:option-map :where-conds]
-                                                             (fn [existing]
-                                                               (if (seq existing)
-                                                                 [[:and {:and (concat existing
-                                                                                      extra-conds)}]]
-                                                                 extra-conds))))))))
+                                (seq extra-conds)
+                                (update-in [:option-map :where-conds]
+                                           (fn [existing]
+                                             (if (seq existing)
+                                               [[:and {:and (concat existing
+                                                                    extra-conds)}]]
+                                               extra-conds))))))))
         {:keys [pattern-groups
                 referenced-etypes
                 forms]}
@@ -1890,7 +1891,7 @@
                 {}
                 (:data result))))))
 
-(defn get-etype+eid-check-result! [{:keys [current-user] :as ctx}
+(defn get-etype+eid-check-result! [{:keys [current-user rule-wheres] :as ctx}
                                    {:keys [etype->eids+program query-cache]}
                                    rule-params]
   (tracer/with-span! {:name "instaql/get-eid-check-result!"}
@@ -1913,17 +1914,31 @@
                  {:result true}
                  {:program program
                   :result
-                  (let [em (io/warn-io
-                            :instaql/entity-map
-                            (entity-map ctx query-cache etype eid))
-                        ctx (assoc ctx :preloaded-refs preloaded-refs)]
-                    (io/warn-io
-                     :instaql/eval-program
-                     (cel/eval-program!
-                      program
-                      {"auth" (cel/->cel-map {:ctx ctx, :type :auth, :etype "$users"} current-user)
-                       "data" (cel/->cel-map {:ctx ctx, :type :data, :etype etype} em)
-                       "ruleParams" (cel/->cel-map {} rule-params)})))})])))))
+                  (let [em (io/warn-io :instaql/entity-map
+                             (entity-map ctx query-cache etype eid))
+                        ctx (assoc ctx :preloaded-refs preloaded-refs)
+                        res  (io/warn-io :instaql/eval-program
+                               (cel/eval-program!
+                                program
+                                {"ruleParams" (cel/->cel-map {} rule-params)
+                                 "auth" (cel/->cel-map {:ctx ctx
+                                                        :type :auth
+                                                        :etype "$users"}
+                                                       current-user)
+                                 "data" (cel/->cel-map {:ctx ctx
+                                                        :type :data
+                                                        :etype etype}
+                                                       em)}))]
+                    (when-let [rule-where (get rule-wheres etype)]
+                      (when (and (not res)
+                                 ;; TODO(dww): remove check once we've figured
+                                 ;;            out how to implement short-circuit?
+                                 (not (:short-circuit? rule-where)))
+                        (tracer/record-info! {:name "instaql/rule-where-failure"
+                                              :attributes {:etype etype
+                                                           :eid eid
+                                                           :rule-where rule-where}})))
+                    res)})])))))
 
 (defn use-rule-wheres? [ctx o]
   (let [app-id (:app-id ctx)
@@ -1978,9 +1993,8 @@
             rules (rule-model/get-by-app-id {:app-id app-id})
 
             rule-wheres (get-rule-wheres ctx rules o)
-            res (query (assoc ctx
-                              :rule-wheres rule-wheres)
-                       o)
+            ctx (assoc ctx :rule-wheres rule-wheres)
+            res (query ctx o)
 
             perm-helpers
             (extract-permission-helpers {:attrs (:attrs ctx)
@@ -1998,9 +2012,8 @@
                   (rule-model/get-by-app-id {:app-id app-id}))
 
         rule-wheres (get-rule-wheres ctx rules o)
-        res (query (assoc ctx
-                          :rule-wheres rule-wheres)
-                   o)
+        ctx (assoc ctx :rule-wheres rule-wheres)
+        res (query ctx o)
         perm-helpers
         (extract-permission-helpers {:attrs (:attrs ctx)
                                      :rules rules}
