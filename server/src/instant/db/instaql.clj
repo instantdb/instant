@@ -83,8 +83,8 @@
 
 (s/def ::k string?)
 
-(s/def ::or (s/coll-of ::where-conds))
-(s/def ::and (s/coll-of ::where-conds))
+(s/def ::or (s/coll-of ::where-cond))
+(s/def ::and (s/coll-of ::where-cond))
 (s/def ::direction #{:asc :desc})
 
 (s/def ::order (s/keys :req-un [::k ::direction]))
@@ -130,23 +130,35 @@
   (and (= "and" (name k))
        (sequential? v)))
 
-(defn- collapse-or-where-conds
-  "Converts {:or [{:or [{:handle \"Jack\"}]}]} -> {:or [{:handle \"Jack\"}]}"
+(defn- collapse-coerced-conds
+  "Converts {:or [{:or [{:k v}]}]} to its simplest form of {:k v}.
+   Will collapse both nested `and`s and `or`s."
   [conds]
-  (reduce (fn [acc [_k v :as c]]
-            (if (or-where-cond? c)
-              (apply conj acc (mapcat collapse-or-where-conds v))
-              (conj acc c)))
-          []
-          conds))
+  (reduce (fn [acc c]
+            (cond (:or c)
+                  (let [cs (reduce (fn [acc cs]
+                                     (if-let [ors (:or cs)]
+                                       (apply conj acc ors)
+                                       (conj acc cs)))
+                                   []
+                                   (collapse-coerced-conds (:or c)))]
+                    (if (= 1 (count cs))
+                      (conj acc (first cs))
+                      (conj acc {:or cs})))
 
-(defn- collapse-and-where-conds
-  "Converts {:and [{:and [{:handle \"Jack\"}]}]} -> {:and [{:handle \"Jack\"}]}"
-  [conds]
-  (reduce (fn [acc [_k v :as c]]
-            (if (and-where-cond? c)
-              (apply conj acc (mapcat collapse-and-where-conds v))
-              (conj acc c)))
+                  (:and c)
+                  (let [cs (reduce (fn [acc cs]
+                                     (if-let [ands (:and cs)]
+                                       (apply conj acc ands)
+                                       (conj acc cs)))
+                                   []
+                                   (collapse-coerced-conds (:and c)))]
+                    (if (= 1 (count cs))
+                      (conj acc (first cs))
+                      (conj acc {:and cs})))
+
+                  :else
+                  (conj acc c)))
           []
           conds))
 
@@ -179,69 +191,69 @@
    including the path itself.
    (grow-paths [1 2 3]) => ((1) (1 2) (1 2 3))"
   [path]
-  (map (fn [i]
-         (take (inc i) path))
-       (range (count path))))
+  (mapv (fn [i]
+          (take (inc i) path))
+        (range (count path))))
 
 (defn- coerce-where-cond
   "Splits keys into segments."
   [state [k v :as c]]
-  (cond (or-where-cond? c)
-        (let [conds (->> v
-                         combine-or-where-conds
-                         (mapcat (fn [conds]
-                                   (mapv (partial coerce-where-cond state)
-                                         (collapse-or-where-conds conds)))))]
-          (case (count conds)
-            0 (ex/throw-validation-err!
-               :query
-               (:root state)
-               [{:expected 'non-empty-list?
-                 :in (conj (:in state) :or)
-                 :message "The list of `or` conditions can't be empty."}])
-            1 (first conds)
-            {:or (map (fn [x] [x])
-                      conds)}))
+  (collapse-coerced-conds
+   (cond (or-where-cond? c)
+         (let [conds (->> v
+                          combine-or-where-conds
+                          (map (fn [conds]
+                                 {:and
+                                  (mapcat (partial coerce-where-cond state)
+                                          conds)})))]
+           (if-not (zero? (count conds))
+             [{:or conds}]
 
-        (and-where-cond? c)
-        (let [conds (mapcat (fn [conds]
-                              (mapv (partial coerce-where-cond state)
-                                    (collapse-and-where-conds conds)))
-                            v)]
-          (case (count conds)
-            0 (ex/throw-validation-err!
-               :query
-               (:root state)
-               [{:expected 'non-empty-list?
-                 :in (conj (:in state) :and)
-                 :message "The list of `and` conditions can't be empty."}])
-            1 (first conds)
-            {:and (map (fn [x] [x])
-                       conds)}))
+             (ex/throw-validation-err!
+              :query
+              (:root state)
+              [{:expected 'non-empty-list?
+                :in (conj (:in state) :or)
+                :message "The list of `or` conditions can't be empty."}])))
 
-        (and (map? v) (contains? v :$not))
-        ;; If the where cond has `not`, then the check will only include
-        ;; entities where the entity has a triple with the attr. If the
-        ;; attr is missing, then we won't find it. We add an extra
-        ;; `isNull` check to ensure that we find the entity.
-        (let [path (string/split (name k) #"\.")]
-          {:or (concat [[[path v]]]
-                       (map (fn [p]
-                              [[p {:$isNull true}]])
-                            (grow-paths path)))})
+         (and-where-cond? c)
+         (let [conds (mapcat (fn [conds]
+                               (mapcat (partial coerce-where-cond state)
+                                       conds))
+                             v)]
+           (if-not (zero? (count conds))
+             [{:and conds}]
 
-        (and (map? v) (contains? v :$isNull) (= true (:$isNull v)))
-        ;; If the where cond has `$isNull=true`, then we need it to
-        ;; match if any of the intermediate paths are null
-        (let [path (string/split (name k) #"\.")
-              conds (map (fn [p]
-                           [[p {:$isNull true}]])
-                         (grow-paths path))]
-          (if (= 1 (count conds))
-            {:and conds}
-            {:or conds}))
+             (ex/throw-validation-err!
+              :query
+              (:root state)
+              [{:expected 'non-empty-list?
+                :in (conj (:in state) :and)
+                :message "The list of `and` conditions can't be empty."}])))
 
-        :else [(string/split (name k) #"\.") v]))
+         (and (map? v) (contains? v :$not))
+         ;; If the where cond has `not`, then the check will only include
+         ;; entities where the entity has a triple with the attr. If the
+         ;; attr is missing, then we won't find it. We add an extra
+         ;; `isNull` check to ensure that we find the entity.
+         (let [path (string/split (name k) #"\.")]
+           [{:or (concat [[path v]]
+                         (mapv (fn [p]
+                                 [p {:$isNull true}])
+                               (grow-paths path)))}])
+
+         (and (map? v) (contains? v :$isNull) (= true (:$isNull v)))
+         ;; If the where cond has `$isNull=true`, then we need it to
+         ;; match if any of the intermediate paths are null
+         (let [path (string/split (name k) #"\.")
+               conds (mapv (fn [p]
+                             [p {:$isNull true}])
+                           (grow-paths path))]
+           (if (= 1 (count conds))
+             [{:and conds}]
+             [{:or conds}]))
+
+         :else [[(string/split (name k) #"\.") v]])))
 
 (defn coerce-order [state order-map]
   (case (count order-map)
@@ -364,7 +376,7 @@
   [state x]
   (let [where-conds (some->> (get x :where)
                              (assert-map! (update state :in conj :where))
-                             (map (partial coerce-where-cond state)))
+                             (mapcat (partial coerce-where-cond state)))
         order (let [order-state (update state :in conj :order)]
                 (some->> (:order x)
                          (assert-map! order-state)
@@ -688,14 +700,14 @@
           ret
           (update ret :pats optimize-attr-pats)))
       :or (-> (reduce
-               (fn [acc [i conds]]
+               (fn [acc [i cond]]
                  (let [join-sym (level-sym
                                  (:etype form)
                                  (:level form))
                        level-sym (level-sym-gen level-sym join-sym i)]
-                   (as-> (where-conds->patterns (assoc ctx :level-sym level-sym)
-                                                form
-                                                conds) %
+                   (as-> (where-cond->patterns (assoc ctx :level-sym level-sym)
+                                               form
+                                               cond) %
                      (update % :pats (fn [pats] [{:and pats}]))
                      (merge-with into acc %))))
                {:pats []
@@ -708,14 +720,14 @@
                                                 (:level form))}}])))
 
       :and (-> (reduce
-                (fn [acc [i conds]]
+                (fn [acc [i cond]]
                   (let [join-sym (level-sym
                                   (:etype form)
                                   (:level form))
                         level-sym (level-sym-gen level-sym join-sym i)]
-                    (as-> (where-conds->patterns (assoc ctx :level-sym level-sym)
-                                                 form
-                                                 conds) %
+                    (as-> (where-cond->patterns (assoc ctx :level-sym level-sym)
+                                                form
+                                                cond) %
                       (update % :pats (fn [pats] [{:and pats}]))
                       (merge-with into acc %))))
                 {:pats []
