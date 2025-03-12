@@ -160,11 +160,13 @@
                             ["(data.ownerId) in data.ref('owner.id')"
                              #"Function '_in_dynamic' failed"]
                             ["type(data.ownerId) == string"
-                             #"Function '_type_datakey_override' failed"]]]
+                             #"Function '_type_datakey_override' failed"]
+                            ["data.ownerId"
+                             #"Invalid return type from the cel rule"]]]
       (testing (str "`" bad-code "` throws")
         (is (thrown-with-msg? Throwable
                               msg
-                              (cel/get-where-clauses (make-ctx [{:etype "etype"
+                              #p (cel/get-where-clauses (make-ctx [{:etype "etype"
                                                                  :field "adminUserIds"}
                                                                 {:etype "etype"
                                                                  :field "ownerId"}

@@ -221,7 +221,6 @@
 
 (def ^ListType type-ref-return (ListType/create SimpleType/DYN))
 
-;;XXX: call name overloadId
 (defn make-overload
   "Creates new overload functions, each name should be unique.
    global-or-member should be either :global or :member
@@ -230,7 +229,7 @@
    function-name is the name of the function as it appears in CEL. For global
    functions you'll want to use `(.getFunction Operators/OP_NAME)`
    decls is an array of maps with keys:
-     name: the override name of the function, e.g. _logical_not
+     overload-id: the overload id of the function, e.g. _logical_not
      cel-args: a list of CelTypes provided as args, e.g. [SimpleType/BOOL, SimpleType/STRING]
      cel-return-type: the CelType that the function returns
      java-args: a list of classes that the implementation takes as args, e.g. [Boolean, String]
@@ -244,17 +243,17 @@
                                   (let [args (ucoll/array-of CelType (:cel-args decl))]
                                     (case global-or-member
                                       :global (CelOverloadDecl/newGlobalOverload
-                                               ^String (:name decl)
+                                               ^String (:overload-id decl)
                                                ^CelType (:cel-return-type decl)
                                                args)
                                       :member (CelOverloadDecl/newMemberOverload
-                                               ^String (:name decl)
+                                               ^String (:overload-id decl)
                                                ^CelType (:cel-return-type decl)
                                                args))))
                                 decls)))
    :runtimes (mapv (fn [decl]
                      (CelRuntime$CelFunctionBinding/from
-                      ^String (:name decl)
+                      ^String (:overload-id decl)
                       ^java.lang.Iterable (:java-args decl)
                       ^CelFunctionOverload (:impl decl)))
                    decls)})
@@ -267,8 +266,6 @@
 
 ;; Normal evaluation pipeline
 ;; --------------------------
-
-(def ^:dynamic *testing* false)
 
 (defn data-ref-impl [{:strs [id] :as ^CelMap m} ^String path-str]
   (if (= id NullValue/NULL_VALUE)
@@ -288,7 +285,7 @@
         (vec preloaded-ref)
         (vec (get-ref ctx ref-data))))))
 
-(def data-ref-decl {:name "data_ref"
+(def data-ref-decl {:overload-id "data_ref"
                     :cel-args [type-obj SimpleType/STRING]
                     :cel-return-type type-ref-return
                     :java-args [CelMap String]
@@ -350,14 +347,17 @@
 
 ;; Helpers to convert cel rules to instaql where clauses
 ;; (data.name == 'Daniel' || data.handle == 'dww')
-;;   => {:or [{"name" "Daniel"}, {"handle" "dww"}]}
+;;   => {:or [{"name" "Daniel"} {"handle" "dww"}]}
 
 ;; Here are all of the cases in the wild that we can't handle (as of March 2025):
 ;; 1. size, e.g. `size(data.ref('tasks.id')) == 0`
 ;; 2. digging into json fields, e.g. `data.document.title == 'Title'`, or `'tag' in data.tags`
 ;; 3. Index into the array returned by data.ref, e.g. `data.ref('owner.id')[0] == auth.id`
 ;; 4. Comparing two fields, e.g. `data.firstName == data.lastName`
-;; 5. Ternary (this one we could implement fairly easily)
+;; 5. ['a', 'b'].exists(x => data.path.startsWith(x))
+;       cel generates a loop for this macro and it can't find the overload
+;;      for `||` with bool + where_clause on the second trip through the loop
+;; 6. Ternary
 ;;    data.privacy == "private" ? auth.id == data.ownerId : true ->
 ;;     {:or [{:and [{"privacy" "private"} {"ownerId" "__id__"}]}
 ;;           {"privacy" {:$not "private"}}]}
@@ -365,24 +365,26 @@
 ;; Cases that we could handle, but nobody has written a rule for yet:
 ;; 1. >, < on indexed numbers
 
-;; Important to use a deftype so that cel can't call
-;; e.g. `size` on our thing
-
 ;; custom java types
 
+;; Important to use deftype so that cel can't call
+;; e.g. `size` on our thing
+
+;; data.ref('a.b') returns `(RefPath. 'a.b')`
 (deftype RefPath [path-str]
   Object
   (toString [_this]
     (str path-str)))
 
-;; Important to use a deftype so that cel can't call
-;; e.g. `size` on our thing
+;; data.field returns `(DataKey. field {attr})`
+;; if the field is defined in the attrs for the etype
 (deftype DataKey [data-key instant-attr]
   Object
   (toString [_this]
     (str data-key)))
 
-
+;; Replacement for CelMap, returns `DataKey` when the key is accessed
+;; so that we can track which attrs we need in the where clause
 (deftype CheckedDataMap [^Attrs attrs etype]
   java.util.Map
   (get [_ k]
@@ -397,7 +399,8 @@
   (toString [_this]
     {:etype etype}))
 
-
+;; The ors and ands that make up the where clause. This is what the
+;; rule will return.
 (deftype WhereClause [where-clause]
   Object
   (toString [_this]
@@ -420,7 +423,7 @@
                          :java-type Double
                          :name "double"}
                 :int {:cel-type SimpleType/INT
-                      :java-type Long ;; XXX: This might be long
+                      :java-type Long
                       :name "int"}
                 :null {:cel-type SimpleType/NULL_TYPE
                        :java-type NullValue
@@ -454,13 +457,17 @@
       (get clauses op)
       [clauses])))
 
-(defn combine-where-clauses [op ^WhereClause x ^WhereClause y]
+(defn combine-where-clauses
+  "Removes a layer of nesting (if possible) when combining where clauses
+   {:or [a b]} + {:or [c d]} -> {:or [a b c d]}"
+  [op ^WhereClause x ^WhereClause y]
   (WhereClause. {op (-> []
                         (into (clauses-to-add op x))
                         (into (clauses-to-add op y)))}))
 
 ;; Overloads for `OR`
 ;; We overload the existing OR function to handle our custom types
+;; cel won't let us replace the `OR` function unless we rewrite te ast
 
 (defn or-overload-dispatch [args]
   args)
@@ -518,8 +525,8 @@
    (for [arg-1 [:datakey :whereclause :bool]
          arg-2 [:datakey :whereclause :bool]
          :let [args [arg-1 arg-2]]]
-     {:name (str "_or_" (clojure-string/join "_"
-                                             (map type->name args)))
+     {:overload-id (str "_or_" (clojure-string/join "_"
+                                                    (map type->name args)))
       :cel-args (map type->cel args)
       :cel-return-type (case args
                          ([:whereclause :whereclause]
@@ -531,13 +538,15 @@
                           [:datakey :bool]
                           [:bool :datakey]) SimpleType/DYN
                          [:bool :bool] SimpleType/BOOL
-                         SimpleType/DYN)      :java-args (map type->java args)
+                         SimpleType/DYN)
+      :java-args (map type->java args)
       :impl (fn [[x y]]
               (let [ret ((get-or-overload-fn args)  [x y])]
                 ret))})))
 
 ;; Overloads for `AND`
 ;; We overload the existing AND function to handle our custom types
+;; cel won't let us replace the `AND` function unless we rewrite te ast
 
 (defn and-overload-dispatch [args]
   args)
@@ -595,7 +604,7 @@
    (for [arg-1 [:datakey :whereclause :bool]
          arg-2 [:datakey :whereclause :bool]
          :let [args [arg-1 arg-2]]]
-     {:name (str "_and_" (clojure-string/join "_"
+     {:overload-id (str "_and_" (clojure-string/join "_"
                                               (map type->name args)))
       :cel-args (map type->cel args)
       :cel-return-type (case args
@@ -637,7 +646,7 @@
 (def eq-overloads
   (global-overload
    (.getFunction Operator/EQUALS)
-   [{:name "_eq_dynamic"
+   [{:overload-id "_eq_dynamic"
      :cel-args [SimpleType/DYN SimpleType/DYN]
      :cel-return-type SimpleType/DYN
      :java-args [Object Object]
@@ -647,7 +656,6 @@
                         (not (instance? DataKey y)))
                    (WhereClause. {(.data_key ^DataKey x) (where-eq-value y)})
 
-                   ;; XXX: Do we need to check for other things besides DataKey??
                    (and (instance? DataKey y)
                         (not (instance? DataKey x)))
                    (WhereClause. {(.data_key ^DataKey y) (where-eq-value x)})
@@ -668,7 +676,7 @@
 (def neq-overloads
   (global-overload
    (.getFunction Operator/NOT_EQUALS)
-   [{:name "_neq_dynamic"
+   [{:overload-id "_neq_dynamic"
      :cel-args [SimpleType/DYN SimpleType/DYN]
      :cel-return-type SimpleType/DYN
      :java-args [Object Object]
@@ -678,7 +686,6 @@
                         (not (instance? DataKey y)))
                    (WhereClause. {(.data_key ^DataKey x) (where-neq-value y)})
 
-                   ;; XXX: Do we need to check for other things besides DataKey??
                    (and (instance? DataKey y)
                         (not (instance? DataKey x)))
                    (WhereClause. {(.data_key ^DataKey y) (where-neq-value x)})
@@ -699,7 +706,7 @@
 (def in-overloads
   (global-overload
    (.getFunction Operator/IN)
-   [{:name "_in_dynamic"
+   [{:overload-id "_in_dynamic"
      :cel-args [SimpleType/DYN SimpleType/DYN]
      :cel-return-type SimpleType/DYN
      :java-args [Object Object]
@@ -750,8 +757,8 @@
 
 (defn negate-where-clauses
   "Uses De Morgan's laws to negate the where clauses:
- not (A or B) = (not A) and (not B)
- not (A and B) = (not A) or (not B)"
+   not (A or B) = (not A) and (not B)
+   not (A and B) = (not A) or (not B)"
   [c]
   (cond (and (:or c) (vector? (:or c)))
         {:and (mapv negate-where-clauses (:or c))}
@@ -781,13 +788,13 @@
 (def not-overloads
   (global-overload
    (.getFunction Operator/LOGICAL_NOT)
-   [{:name "_not_datakey"
+   [{:overload-id "_not_datakey"
      :cel-args [datakey-cel-type]
      :cel-return-type whereclause-cel-type
      :java-args [DataKey]
      :impl (fn [[^DataKey x]]
              (WhereClause. {(.data_key x) false}))}
-    {:name "_not_whereclause"
+    {:overload-id "_not_whereclause"
      :cel-args [whereclause-cel-type]
      :cel-return-type whereclause-cel-type
      :java-args [WhereClause]
@@ -799,7 +806,7 @@
 (def starts-with-overload
   (member-overload
    "startsWith"
-   [{:name "_datakey_starts_with"
+   [{:overload-id "_datakey_starts_with"
      :cel-args [datakey-cel-type SimpleType/STRING]
      :cel-return-type whereclause-cel-type
      :java-args [DataKey String]
@@ -813,7 +820,7 @@
 (def ends-with-overload
   (member-overload
    "endsWith"
-   [{:name "_datakey_ends_with"
+   [{:overload-id "_datakey_ends_with"
      :cel-args [datakey-cel-type SimpleType/STRING]
      :cel-return-type whereclause-cel-type
      :java-args [DataKey String]
@@ -827,7 +834,7 @@
 (def contains-overload
   (member-overload
    "contains"
-   [{:name "_datakey_contains"
+   [{:overload-id "_datakey_contains"
      :cel-args [datakey-cel-type SimpleType/STRING]
      :cel-return-type whereclause-cel-type
      :java-args [DataKey String]
@@ -843,19 +850,19 @@
 (def type-overload
   (global-overload
    "type"
-   [{:name "_type_datakey_override"
+   [{:overload-id "_type_datakey_override"
      :cel-args [datakey-cel-type]
      :cel-return-type SimpleType/DYN
      :java-args [DataKey]
      :impl (fn [[^DataKey x]]
              (throw (ex-info "Can't call type on a DataKey" {:x x})))}
-    {:name "_type_refpath_override"
+    {:overload-id "_type_refpath_override"
      :cel-args [refpath-cel-type]
      :cel-return-type SimpleType/DYN
      :java-args [RefPath]
      :impl (fn [[^RefPath x]]
              (throw (ex-info "Can't call type on a RefPath" {:x x})))}
-    {:name "_type_whereclause_override"
+    {:overload-id "_type_whereclause_override"
      :cel-args [whereclause-cel-type]
      :cel-return-type SimpleType/DYN
      :java-args [WhereClause]
@@ -867,7 +874,7 @@
 (def where-ref-fn (member-overload "ref"
                                    ;; Include the default (for auth.ref)
                                    [data-ref-decl
-                                    {:name "_checked_data_ref"
+                                    {:overload-id "_checked_data_ref"
                                      :cel-args [checked-data-map-cel-type SimpleType/STRING]
                                      :cel-return-type refpath-cel-type
                                      :java-args [CheckedDataMap String]
@@ -929,7 +936,10 @@
         (.setOptions where-cel-options)
         (.build))))
 
-(defn get-where-clauses [{:keys [attrs current-user] :as ctx} etype code]
+(defn get-where-clauses
+  "Uses our customized cel compiler to generate instaql where clauses from a cel rule.
+   Will throw if it encounters a rule it can't handle."
+  [{:keys [attrs current-user] :as ctx} etype code]
   (let [^CelAbstractSyntaxTree ast (.getAst (.compile where-cel-compiler code))
         ^CelRuntime$Program program (.createProgram where-cel-runtime ast)
         ^java.util.Map map-value {"auth" (->cel-map {:ctx ctx
@@ -939,6 +949,9 @@
                                   "data" (CheckedDataMap. attrs etype)}
         evaluation-result (.eval program
                                  map-value)]
+    (when (and (not (instance? WhereClause evaluation-result))
+               (custom-type? evaluation-result))
+      (throw (ex-info "Invalid return type from the cel rule" {:evaluation-result evaluation-result})))
 
     {:short-circuit? (or (= evaluation-result NullValue/NULL_VALUE)
                          (not evaluation-result))
@@ -960,7 +973,7 @@
 
 (defn function-name
   "Returns the qualified function name as a list,
- e.g. `[data, ref]`, `[nil, type]`, `[nil, _+_]`"
+   e.g. `[data, ref]`, `[nil, type]`, `[nil, _+_]`"
   [^CelExpr$CelCall call]
   (let [f (.function call)]
     (if-let [target ^CelExpr (get-optional-value (.target call))]
@@ -973,8 +986,8 @@
 
 (defn ref-arg
   "Returns the `path-str` if the args match what we expect for data.ref,
- otherwise nil. Logs if the arg isn't a constant string so that we can
- investigate."
+   otherwise nil. Logs if the arg isn't a constant string so that we can
+   investigate."
   [^CelExpr$CelCall call]
   (if (= 1 (count (.args call)))
     (let [arg ^CelExpr (first (.args call))]
@@ -989,7 +1002,7 @@
 
 (defn call->ref-uses
   "Walks the cel call, looking for `data.ref` calls, returning a set of
- `path-str`s."
+   `path-str`s."
   [^CelExpr$CelCall call]
   (let [[obj f] (function-name call)]
     (if (= "ref" f)
@@ -1008,7 +1021,7 @@
 
 (defn compression->ref-uses
   "Walks the cel comprehension, looking for `data.ref` calls, returning a set of
- `path-str`s."
+   `path-str`s."
   [^CelExpr$CelComprehension c]
   (clojure-set/union (expr->ref-uses (.iterRange c))
                      (expr->ref-uses (.accuInit c))
@@ -1018,7 +1031,7 @@
 
 (defn expr->ref-uses
   "Walks the cel expression, looking for `data.ref` calls, returning a set of
- `path-str`s for each object."
+   `path-str`s for each object."
   [^CelExpr expr]
   (condp = (.getKind expr)
     CelExpr$ExprKind$Kind/NOT_SET #{}
@@ -1049,19 +1062,19 @@
 ;; but this will do for now.
 (defn collect-ref-uses
   "Returns a set of `path-str` used in `data.ref` calls in the given cel ast,
- grouped by the object, e.g. #{{obj: \"data\", path: \"a.b\"}
-                               {obj: \"auth\", path: \"c.d\"}.
- Automatically strips `$user` from auth path-str"
+   grouped by the object, e.g. #{{obj: \"data\", path: \"a.b\"}
+                                 {obj: \"auth\", path: \"c.d\"}.
+   Automatically strips `$user` from auth path-str"
   [^CelAbstractSyntaxTree ast]
   (expr->ref-uses (.getExpr ast)))
 
 (defn prefetch-data-refs
   "refs should be a list of:
-   {eids: #{uuid}
-    etype: string
-    path-str: string}
- Returns a map of:
-   {{eid: uuid, etype: string, path: string}: get-ref-result}"
+     {eids: #{uuid}
+      etype: string
+      path-str: string}
+   Returns a map of:
+     {{eid: uuid, etype: string, path: string}: get-ref-result}"
   [{:keys [datalog-query-fn] :as ctx} refs]
   (let [{:keys [patterns]}
         (reduce (fn [acc ref-info]
@@ -1101,7 +1114,9 @@
 
 (def ^CelUnparser unparser (CelUnparserFactory/newUnparser))
 
-(defn unparse [^CelAbstractSyntaxTree ast]
+(defn unparse
+  "Turns an ast back into code."
+  [^CelAbstractSyntaxTree ast]
   (.unparse unparser ast))
 
 (def auth-ref-validator ^CelAstValidator
