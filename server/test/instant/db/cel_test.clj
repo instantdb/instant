@@ -166,7 +166,7 @@
       (testing (str "`" bad-code "` throws")
         (is (thrown-with-msg? Throwable
                               msg
-                              #p (cel/get-where-clauses (make-ctx [{:etype "etype"
+                              (cel/get-where-clauses (make-ctx [{:etype "etype"
                                                                  :field "adminUserIds"}
                                                                 {:etype "etype"
                                                                  :field "ownerId"}
