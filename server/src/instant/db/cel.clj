@@ -773,9 +773,6 @@
 
                                               :else (throw (ex-info "Unsupported operation for negation", {:v v})))
 
-                                        (boolean? v)
-                                        (not v)
-
                                         :else
                                         {:$not v})))
                    {}
