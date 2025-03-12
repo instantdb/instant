@@ -306,6 +306,8 @@
                      (.populateMacroCalls true)
                      (.build)))
 
+;; n.b. if you edit something here, make sure you make the
+;;      equivalent change to iql-cel-compiler below
 (def ^:private ^CelCompiler cel-compiler
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
       (.addVar "data" type-obj)
@@ -318,6 +320,8 @@
       (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings) (CelExtensions/strings)]))
       (.build)))
 
+;; n.b. if you edit something here, make sure you make the
+;;      equivalent change to iql-cel-compiler below
 (def ^:private ^CelRuntime cel-runtime
   (let [^CelRuntimeLegacyImpl$Builder builder (CelRuntimeFactory/standardCelRuntimeBuilder)
         ^java.lang.Iterable extensions [(CelExtensions/strings)]]
@@ -900,6 +904,7 @@
 (def ^:private ^CelCompiler where-cel-compiler
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
       (.addVar "data" checked-data-map-cel-type)
+      (.addVar "ruleParams" type-obj)
       (.addVar "auth" type-obj)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl where-custom-fn-decls))
       (.setOptions where-cel-options)
