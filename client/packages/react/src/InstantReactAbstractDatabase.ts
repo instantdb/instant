@@ -290,10 +290,11 @@ export default abstract class InstantReactAbstractDatabase<
    */
   queryOnce = <Q extends InstaQLParams<Schema>>(
     query: Q,
+    opts?: InstaQLOptions,
   ): Promise<{
     data: InstaQLResponse<Schema, Q>;
     pageInfo: PageInfoResponse<Q>;
   }> => {
-    return this._core.queryOnce(query);
+    return this._core.queryOnce(query, opts);
   };
 }

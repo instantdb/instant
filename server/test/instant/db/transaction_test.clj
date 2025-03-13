@@ -1362,54 +1362,31 @@
                              :datalog-query-fn d/query
                              :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
                              :current-user nil})
+            eid (random-uuid)]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id :code {:users {:allow {:create "newData.handle == ruleParams.handle"}}}})
 
-            alyssa-handle "alyssa"
-            alyssa-lookup (UUID/randomUUID)
+        (is (perm-err? (permissioned-tx/transact! (make-ctx)
+                                                       [[:add-triple eid (resolvers/->uuid r :users/id) eid]
+                                                        [:add-triple eid (resolvers/->uuid r :users/handle) "alyssa"]])))
 
-            louis-handle "louis"
-            louis-lookup [(resolvers/->uuid r :users/handle) louis-handle]]
+        (is (perm-err? (permissioned-tx/transact! (make-ctx)
+                                                       [[:rule-params eid "users" {"handle" "not alyssa"}]
+                                                   [:add-triple eid (resolvers/->uuid r :users/id) eid]
+                                                        [:add-triple eid (resolvers/->uuid r :users/handle) "alyssa"]])))
 
-        (testing "create with rule params: id"
-          (rule-model/put!
-           (aurora/conn-pool :write)
-           {:app-id app-id :code {:users {:allow {:create "handle == ruleParams.handle"}}}})
+        (is (not (perm-err? (permissioned-tx/transact! (make-ctx)
+                                                       [[:rule-params eid "users" {"handle" "alyssa"}]
+                                                        [:add-triple eid (resolvers/->uuid r :users/id) eid]
+                                                        [:add-triple eid (resolvers/->uuid r :users/handle) "alyssa"]]))))
 
-          ;; TODO: once this passes, let's add tests that no rule params fails 
-
-          (permissioned-tx/transact!
-           (make-ctx)
-           [[:rule-params alyssa-lookup "users" {"handle" alyssa-handle}]
-            [:add-triple alyssa-lookup (resolvers/->uuid r :users/id) alyssa-lookup]
-            [:add-triple alyssa-lookup (resolvers/->uuid r :users/handle) alyssa-handle]])
-
-          (is (get (->> (test-util/pretty-perm-q
-                         {:app-id app-id :current-user nil}
-                         {:users {}})
-                        :users
-                        (map :handle)
-                        set)
-                   alyssa-handle)))
-
-        (testing "create with rule params: lookup"
-          (rule-model/put!
-           (aurora/conn-pool :write)
-           {:app-id app-id :code {:users {:allow {:create "handle == ruleParams.handle"}}}})
-
-          ;; TODO: once this passes, let's add tests that no rule params fails 
-
-          (permissioned-tx/transact!
-           (make-ctx)
-           [[:rule-params louis-lookup "users" {"handle" louis-handle}]
-            [:add-triple louis-lookup (resolvers/->uuid r :users/id) louis-lookup]
-            [:add-triple louis-lookup (resolvers/->uuid r :users/handle) louis-handle]])
-
-          (is (get (->> (test-util/pretty-perm-q
-                         {:app-id app-id :current-user nil}
-                         {:users {}})
-                        :users
-                        (map :handle)
-                        set)
-                   louis-handle)))))))
+        (is (contains?
+             (->> (test-util/pretty-perm-q {:app-id app-id :current-user nil} {:users {}})
+                  :users
+                  (map :handle)
+                  set)
+             "alyssa"))))))
 
 (deftest update-perms-rule-params
   (doseq [[title get-lookup] [["with eid" (fn [r] (resolvers/->uuid r "eid-stepan-parunashvili"))]
