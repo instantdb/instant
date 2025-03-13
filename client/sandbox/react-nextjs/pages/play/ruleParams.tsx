@@ -43,6 +43,18 @@ function addDocWithRuleParam() {
   );
 }
 
+function addDocWithRuleParamAndLookup() {
+  const key = `${randInt(10000, 99999)}`;
+  return db.transact(
+    tx.playDocs[lookup('key', key)]
+      // .ruleParams({ test: 'foo' }) // <- comment me out
+      .update({
+        title: 'doc ' + key,
+        secret: secrets[randInt(0, 2)],
+      }),
+  );
+}
+
 function update(doc: any) {
   const { id, secret } = doc;
   const key = `${randInt(10000, 99999)}`;
@@ -101,6 +113,10 @@ function Main() {
       {[
         { label: 'Add Doc', fn: addDoc },
         { label: 'Add Doc with ruleParams', fn: addDocWithRuleParam },
+        {
+          label: 'Add Doc with ruleParams and lookup',
+          fn: addDocWithRuleParamAndLookup,
+        },
       ].map(({ label, fn }) => {
         return (
           <button
