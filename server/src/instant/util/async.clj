@@ -41,6 +41,15 @@
                                          :escaping?   false
                                          :thread-name (.getName thread)}))))
 
+(defn wrap-catch-unhandled-exceptions [f]
+  (fn [& args]
+    (try
+      (apply f args)
+      (catch Throwable t
+        (when-some [handler (.getUncaughtExceptionHandler (Thread/currentThread))]
+          (.uncaughtException handler (Thread/currentThread) t))
+        (throw t)))))
+
 ;; ---------------
 ;; virtual-threads
 
@@ -61,7 +70,8 @@
           timeout-val))))
 
 (defn worker-vfuture-call [^ExecutorService executor f]
-  (let [fut (.submit executor ^Callable f)]
+  (let [f   (wrap-catch-unhandled-exceptions f)
+        fut (.submit executor ^Callable f)]
     (reify
       clojure.lang.IDeref
       (deref [_] (deref-future fut))
@@ -96,6 +106,7 @@
         ;; virtual threads
         children (ConcurrentHashMap.)
         ^ConcurrentHashMap parent-vfutures *child-vfutures*
+        f (wrap-catch-unhandled-exceptions f)
         f (bound-fn* (^{:once true} fn* []
                       (if dont-track-immediate-children?
                         (f)

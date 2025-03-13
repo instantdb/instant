@@ -197,7 +197,8 @@
 (defn record-exception-span! [exception {:keys [name
                                                 escaping?
                                                 attributes]}]
-
+  (when-not logging-exporter/log-spans?
+    (println exception))
   (with-span! {:name name
                :attributes attributes}
     (add-exception! exception {:escaping? escaping?})))

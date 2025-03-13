@@ -248,10 +248,10 @@
    }"
   [ctx tx-steps]
   (reduce (fn [acc tx-step]
-            (let [[op eid aid value] tx-step
-                  aid-etype (if (= :delete-entity op)
-                              aid
-                              (extract-etype ctx aid))
+            (let [[op eid aid-or-etype value] tx-step
+                  aid-etype (case op
+                              (:delete-entity :rule-params) aid-or-etype
+                              #_else                        (extract-etype ctx aid-or-etype))
                   etype (if (sequential? eid)
                           (extract-lookup-etype! ctx eid aid-etype tx-step)
                           aid-etype)
@@ -259,14 +259,14 @@
                   ;; but the client hasn't been updated to provide it, then
                   ;; we can patch the `delete-entity` step to include it
                   patched-step (if (and (= op :delete-entity)
-                                        (not aid)
+                                        (not aid-or-etype)
                                         etype)
                                  [op eid etype]
                                  tx-step)
 
                   [rev-etype rev-eid] (if (= "delete-entity" op)
                                         nil
-                                        (when-let [rev-etype (extract-rev-etype ctx aid)]
+                                        (when-let [rev-etype (extract-rev-etype ctx aid-or-etype)]
                                           (when (sequential? value)
                                             ;; prevent mismatched etype in the lookup
                                             (extract-lookup-etype! ctx value rev-etype tx-step))

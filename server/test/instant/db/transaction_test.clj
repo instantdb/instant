@@ -989,7 +989,7 @@
            (throw e#))))))
 
 (defmacro validation-err? [& body]
-    `(try
+  `(try
      ~@body
      false
      (catch Exception e#
@@ -1352,6 +1352,41 @@
                    (perm-err?
                     (permissioned-tx/transact! (make-ctx)
                                                [[:delete-entity delete-id]]))))))))))))
+
+(deftest create-perms-rule-params
+  (with-zeneca-app
+    (fn [{app-id :id :as _app} r]
+      (let [make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
+                             :app-id app-id
+                             :attrs (attr-model/get-by-app-id app-id)
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                             :current-user nil})
+            eid (random-uuid)]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id :code {:users {:allow {:create "newData.handle == ruleParams.handle"}}}})
+
+        (is (perm-err? (permissioned-tx/transact! (make-ctx)
+                                                       [[:add-triple eid (resolvers/->uuid r :users/id) eid]
+                                                        [:add-triple eid (resolvers/->uuid r :users/handle) "alyssa"]])))
+
+        (is (perm-err? (permissioned-tx/transact! (make-ctx)
+                                                       [[:rule-params eid "users" {"handle" "not alyssa"}]
+                                                   [:add-triple eid (resolvers/->uuid r :users/id) eid]
+                                                        [:add-triple eid (resolvers/->uuid r :users/handle) "alyssa"]])))
+
+        (is (not (perm-err? (permissioned-tx/transact! (make-ctx)
+                                                       [[:rule-params eid "users" {"handle" "alyssa"}]
+                                                        [:add-triple eid (resolvers/->uuid r :users/id) eid]
+                                                        [:add-triple eid (resolvers/->uuid r :users/handle) "alyssa"]]))))
+
+        (is (contains?
+             (->> (test-util/pretty-perm-q {:app-id app-id :current-user nil} {:users {}})
+                  :users
+                  (map :handle)
+                  set)
+             "alyssa"))))))
 
 (deftest update-perms-rule-params
   (doseq [[title get-lookup] [["with eid" (fn [r] (resolvers/->uuid r "eid-stepan-parunashvili"))]
@@ -2858,3 +2893,6 @@
               res      (permissioned-tx/transact! ctx tx-steps)
               deleted-triples (count (:delete-entity (:results res)))]
           (is (= (-> @children (* 2) (+ 1)) deleted-triples)))))))
+
+(comment
+  (test/run-tests *ns*))

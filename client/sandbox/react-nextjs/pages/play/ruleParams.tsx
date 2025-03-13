@@ -43,13 +43,35 @@ function addDocWithRuleParam() {
   );
 }
 
-function addDocRuleParamAndLookupRef() {
+function addDocWithRuleParamAndLookup() {
   const key = `${randInt(10000, 99999)}`;
   return db.transact(
-    tx.playDocs[lookup('key', key)].ruleParams({ test: 'foo' }).update({
+    tx.playDocs[lookup('key', key)]
+      // .ruleParams({ test: 'foo' }) // <- comment me out
+      .update({
+        title: 'doc ' + key,
+        secret: secrets[randInt(0, 2)],
+      }),
+  );
+}
+
+function update(doc: any) {
+  const { id, secret } = doc;
+  const key = `${randInt(10000, 99999)}`;
+  return db.transact(
+    db.tx.playDocs[id].ruleParams({ secret }).update({
       title: 'doc ' + key,
-      secret: secrets[randInt(0, 2)],
+      key,
     }),
+  );
+}
+
+async function deleteAll(secret: string) {
+  const resp = await db.queryOnce({ playDocs: {} }, { ruleParams: { secret } });
+  return db.transact(
+    resp.data.playDocs.map((doc) =>
+      db.tx.playDocs[doc.id].ruleParams({ secret }).delete(),
+    ),
   );
 }
 
@@ -70,6 +92,14 @@ function DocList({ secret }: { secret: string }) {
         return (
           <li className="list-disk">
             '{doc.title}', secret: '{doc.secret}', key: '{doc.key}'
+            <button
+              onClick={() => {
+                update(doc);
+              }}
+              className="p-2 m-1 bg-blue-500 text-white rounded"
+            >
+              Update
+            </button>
           </li>
         );
       })}
@@ -81,11 +111,11 @@ function Main() {
   return (
     <div className="p-1">
       {[
-        { label: 'addDoc', fn: addDoc },
-        { label: 'addDocWithRuleParam', fn: addDocWithRuleParam },
+        { label: 'Add Doc', fn: addDoc },
+        { label: 'Add Doc with ruleParams', fn: addDocWithRuleParam },
         {
-          label: 'addDocRuleParamAndLookupRef',
-          fn: addDocRuleParamAndLookupRef,
+          label: 'Add Doc with ruleParams and lookup',
+          fn: addDocWithRuleParamAndLookup,
         },
       ].map(({ label, fn }) => {
         return (
@@ -102,7 +132,17 @@ function Main() {
       {secrets.map((secret) => {
         return (
           <>
-            <div>Docs for {secret}:</div>
+            <div>
+              Docs for {secret}:
+              <button
+                onClick={() => {
+                  deleteAll(secret);
+                }}
+                className="p-2 m-1 bg-blue-500 text-white rounded"
+              >
+                Delete All
+              </button>
+            </div>
             <DocList secret={secret} />
           </>
         );
@@ -122,6 +162,9 @@ const rules = {
   playDocs: {
     allow: {
       view: 'ruleParams.secret == data.secret',
+      create: 'ruleParams.test == "foo"',
+      update: 'ruleParams.test == "foo"',
+      delete: 'data.secret == ruleParams.secret',
     },
   },
 };
