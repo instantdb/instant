@@ -34,7 +34,7 @@
   (s/cat :op #{:delete-entity} :lookup ::triple-model/lookup :etype (s/? string?)))
 
 (s/def ::rule-params-step
-  (s/cat :op #{:rule-params} :lookup ::triple-model/lookup :etype (s/? string?) :params (s/map-of string? any?)))
+  (s/cat :op #{:rule-params} :lookup ::triple-model/lookup :etype (s/? string?) :params (s/map-of (some-fn string? keyword?) any?)))
 
 (s/def ::delete-attr-step
   (s/cat :op #{:delete-attr} :attr-id ::attr-model/id))
@@ -247,23 +247,23 @@
                          ;; can’t reference entids twice, but can bind it to entids_inner and then it’s okay
                          {:select :*
                           :from [[{:with
-                                 [[[:entids_inner]
-                                   {:select :* :from :entids}]]
-                                 :union
-                                 [;; follow forward refs → entid
-                                  {:from   :entids_inner
-                                   :join   [:refs_forward [:and
+                                   [[[:entids_inner]
+                                     {:select :* :from :entids}]]
+                                   :union
+                                   [;; follow forward refs → entid
+                                    {:from   :entids_inner
+                                     :join   [:refs_forward [:and
                                                            ;; TODO entity_id/value_ref join instead
-                                                           [:= [:to_jsonb :entids_inner.entity_id] :refs_forward.value]
-                                                           [:= :entids_inner.etype :refs_forward.reverse_etype]]]
-                                   :select [:refs_forward.entity_id :refs_forward.forward_etype]}
+                                                             [:= [:to_jsonb :entids_inner.entity_id] :refs_forward.value]
+                                                             [:= :entids_inner.etype :refs_forward.reverse_etype]]]
+                                     :select [:refs_forward.entity_id :refs_forward.forward_etype]}
                                   ;; follow entid → reverse refs
-                                  {:from   :entids_inner
-                                   :join   [:refs_reverse [:and
-                                                           [:= :entids_inner.entity_id :refs_reverse.entity_id]
-                                                           [:= :entids_inner.etype :refs_reverse.forward_etype]]]
+                                    {:from   :entids_inner
+                                     :join   [:refs_reverse [:and
+                                                             [:= :entids_inner.entity_id :refs_reverse.entity_id]
+                                                             [:= :entids_inner.etype :refs_reverse.forward_etype]]]
                                    ;; TODO value -> value_ref
-                                   :select [[[:cast [:->> :refs_reverse.value :0] :uuid]] :refs_reverse.reverse_etype]}]}
+                                     :select [[[:cast [:->> :refs_reverse.value :0] :uuid]] :refs_reverse.reverse_etype]}]}
                                   ;; :alias required for postgres 13
                                   :alias]]}]}]
 

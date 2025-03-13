@@ -24,7 +24,8 @@
             :e2e-logging {}
             :threading {}
             :query-flags {}
-            :app-deletion-sweeper {}})
+            :app-deletion-sweeper {}
+            :rule-wheres {}})
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -112,7 +113,18 @@
                               (update acc query-hash (fnil conj []) {:setting setting
                                                                      :value value}))
                             {}
-                            (get result "query-flags"))]
+                            (get result "query-flags"))
+        rule-wheres (if-let [rule-where-ent (-> result
+                                                (get "rule-wheres")
+                                                first)]
+                      {:app-ids (set (keep (fn [x]
+                                             (and (string? x)
+                                                  (parse-uuid x)))
+                                           (get rule-where-ent "app-ids")))
+                       :query-hashes (set (get rule-where-ent "query-hashes"))
+                       :query-hash-blacklist (set (get rule-where-ent "query-hash-blacklist"))}
+                      {:app-ids #{}
+                       :query-hashes #{}})]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
      :storage-block-list storage-block-list
@@ -125,7 +137,8 @@
      :threading threading
      :storage-migration storage-migration
      :query-flags query-flags
-     :app-deletion-sweeper app-deletion-sweeper}))
+     :app-deletion-sweeper app-deletion-sweeper
+     :rule-wheres rule-wheres}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -216,7 +229,18 @@
       (:use-vfutures? true)))
 
 (defn query-flags
-  "Takes a query hash and returns the query settings that we should apply 
+  "Takes a query hash and returns the query settings that we should apply
    to a query (e.g. set_nestloop = off) to work around bad query plans."
   [query-hash]
   (get-in (query-result) [:query-flags query-hash]))
+
+(defn use-rule-wheres?
+  "Returns true if either the app-id or the query hash is present in the
+   rule-wheres flag"
+  [{:keys [app-id query-hash]}]
+  (and (not (contains? (get-in (query-result) [:rule-wheres :query-hash-blacklist])
+                       query-hash))
+       (or (contains? (get-in (query-result) [:rule-wheres :app-ids])
+                      app-id)
+           (contains? (get-in (query-result) [:rule-wheres :query-hashes])
+                      query-hash))))
