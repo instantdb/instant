@@ -10,9 +10,10 @@ import { SelectedAppContext } from '@/lib/SelectedAppContext';
 import { useAuthToken, useTokenFetch } from '@/lib/auth';
 import config, { getLocal, setLocal } from '@/lib/config';
 import { Select } from '@/components/ui';
-import { MainNav, BareNav } from '@/components/marketingUi';
+import { BareNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';
 import { createdAtComparator } from '@/lib/app';
+import RatingBox from '@/lib/feedback/RatingBox';
 
 function useSelectedApp(apps = []) {
   const cacheKey = 'docs-appId';
@@ -346,7 +347,9 @@ export function Layout({ children, title, tableOfContents }) {
               >
                 {children}
               </PageContent>
-
+              <div className="mt-4">
+                <RatingBox pageId={router.pathname} />
+              </div>
               <PageNav previousPage={previousPage} nextPage={nextPage} />
             </main>
 

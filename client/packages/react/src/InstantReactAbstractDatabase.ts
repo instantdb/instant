@@ -71,8 +71,45 @@ export default abstract class InstantReactAbstractDatabase<
     this.storage = this._core.storage;
   }
 
-  getLocalId = (name: string) => {
+  /**
+   * Returns a unique ID for a given `name`. It's stored in local storage,
+   * so you will get the same ID across sessions.
+   *
+   * This is useful for generating IDs that could identify a local device or user.
+   *
+   * @example
+   *  const deviceId = await db.getLocalId('device');
+   */
+  getLocalId = (name: string): Promise<string> => {
     return this._core.getLocalId(name);
+  };
+
+  /**
+   * A hook that returns a unique ID for a given `name`. localIds are
+   * stored in local storage, so you will get the same ID across sessions.
+   *
+   * Initially returns `null`, and then loads the localId.
+   *
+   * @example
+   * const deviceId = db.useLocalId('device');
+   * if (!deviceId) return null; // loading
+   * console.log('Device ID:', deviceId)
+   */
+  useLocalId = (name: string): string | null => {
+    const [localId, setLocalId] = useState<string | null>(null);
+
+    useEffect(() => {
+      let mounted = true;
+      const f = async () => {
+        const id = await this.getLocalId(name);
+        if (!mounted) return;
+        setLocalId(id);
+      };
+      f();
+      return;
+    }, [name]);
+
+    return localId;
   };
 
   /**

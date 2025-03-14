@@ -689,6 +689,9 @@ importers:
       csv-parse:
         specifier: ^5.1.0
         version: 5.6.0
+      instant-cli:
+        specifier: workspace:*
+        version: link:../packages/cli
       jest:
         specifier: 28.1.0
         version: 28.1.0(@types/node@17.0.4)(ts-node@10.9.2(@types/node@17.0.4)(typescript@5.5.4))
