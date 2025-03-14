@@ -347,7 +347,9 @@ export function Layout({ children, title, tableOfContents }) {
               >
                 {children}
               </PageContent>
-              <RatingBox pageId={router.pathname} />
+              <div className="mt-4">
+                <RatingBox pageId={router.pathname} />
+              </div>
               <PageNav previousPage={previousPage} nextPage={nextPage} />
             </main>
 

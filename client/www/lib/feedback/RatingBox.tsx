@@ -58,7 +58,7 @@ function RatingBox({
       : 'no'
     : undefined;
   return (
-    <div className="mt-4 space-y-2">
+    <div className="space-y-2">
       <div className="inline-flex space-x-4 items-center">
         <BlockHeading>Was this page helpful?</BlockHeading>
         <div className="w-20">
