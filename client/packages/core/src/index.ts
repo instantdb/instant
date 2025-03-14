@@ -196,7 +196,15 @@ function initGlobalInstantCoreStore(): Record<string, any> {
 function reactorKey(config: InstantConfig<any>): string {
   // @ts-expect-error
   const adminToken = config.__adminToken;
-  return `${config.appId}_${adminToken || 'client'}`;
+  return (
+    config.appId +
+    '_' +
+    (config.websocketURI || 'default_ws_uri') +
+    '_' +
+    (config.apiURI || 'default_api_uri') +
+    '_' +
+    (adminToken || 'client_only')
+  );
 }
 
 const globalInstantCoreStore = initGlobalInstantCoreStore();
