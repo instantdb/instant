@@ -13,7 +13,8 @@
    [instant.grab :as grab]
    [instant.intern.metrics :as metrics])
   (:import
-   (java.time Instant Period LocalDate DayOfWeek)))
+   (java.lang AutoCloseable)
+   (java.time Instant Period LocalDate DayOfWeek ZonedDateTime)))
 
 (defn excluded-emails []
   (let [{:keys [test team friend]} (get-emails)]
@@ -95,7 +96,7 @@
 (defn daily-job!
   [^Instant date]
   (let [date-minus-one (-> date (.minus (Period/ofDays 1)))
-        date-fn (fn [x] (date/numeric-date-str (.atZone x date/pst-zone)))
+        date-fn (fn [^Instant x] (date/numeric-date-str (.atZone x date/pst-zone)))
         ;; We run this job for a particular day
         date-str (date-fn date)
         ;; But report the metrics for the previous day since we don't
@@ -132,10 +133,10 @@
                       nine-am-pst
                       (Period/ofDays 1))]
     (->> periodic-seq
-         (filter (fn [x] (.isAfter x now)))
+         (filter (fn [x] (ZonedDateTime/.isAfter x now)))
          ;; Only run on weekdays
          (filter (fn [x]
-                   (let [day-of-week (.getDayOfWeek x)]
+                   (let [day-of-week (ZonedDateTime/.getDayOfWeek x)]
                      (and
                       (not= day-of-week DayOfWeek/SATURDAY)
                       (not= day-of-week DayOfWeek/SUNDAY))))))))
@@ -146,7 +147,7 @@
 
 (defn stop []
   (when (bound? #'schedule)
-    (.close schedule)))
+    (AutoCloseable/.close schedule)))
 
 (defn restart []
   (stop)

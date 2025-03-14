@@ -24,15 +24,18 @@
    [clojure.java.shell :as shell]
    [honey.sql :as hsql]
    [instant.util.date :as date])
-  (:import [org.jfree.chart.renderer.category BarRenderer]
-           [org.jfree.chart.labels StandardCategoryItemLabelGenerator]
-           [org.jfree.chart.axis CategoryLabelPositions]
-           [org.jfree.chart.ui RectangleInsets]
-           [java.io File ByteArrayOutputStream]
-           [java.awt Color]
-           [javax.imageio ImageIO]
-           [java.util Base64]
-           [java.time LocalDate]))
+  (:import
+   [org.jfree.chart JFreeChart]
+   [org.jfree.chart.axis CategoryAxis CategoryLabelPositions NumberAxis]
+   [org.jfree.chart.labels StandardCategoryItemLabelGenerator]
+   [org.jfree.chart.plot CategoryPlot]
+   [org.jfree.chart.renderer.category BarRenderer]
+   [org.jfree.chart.ui RectangleInsets]
+   [java.io File ByteArrayOutputStream]
+   [java.awt Color]
+   [javax.imageio ImageIO]
+   [java.util Base64]
+   [java.time LocalDate]))
 
 ;; ---------- 
 ;; Queries 
@@ -41,8 +44,8 @@
   (let [{:keys [test team friend]} (get-emails)]
     (vec (concat test team friend))))
 
-(defn get-latest-daily-tx-date [conn]
-  (.toLocalDate
+(defn get-latest-daily-tx-date ^LocalDate [conn]
+  (java.sql.Date/.toLocalDate
    (:date
     (sql/select-one conn ["SELECT MAX(date) AS date FROM daily_app_transactions"]))))
 
@@ -139,7 +142,7 @@
   "Given the `end-date`
    For each `day` in the month, calculates month-to-date active metrics until end-date (inclusive)"
   [conn {:keys [end-date]}]
-  (let [start-of-month (.withDayOfMonth end-date 1)
+  (let [start-of-month (LocalDate/.withDayOfMonth end-date 1)
         query {:with [[:date_series
                        {:select [[[:cast [:generate_series
                                           [:date_trunc "day" [:cast start-of-month :date]]
@@ -202,7 +205,7 @@
 ;; Charts 
 
 (defn ensure-directory-exists [filepath]
-  (let [file (File. filepath)
+  (let [file (File. ^String filepath)
         parent-dir (.getParentFile file)]
     (when (and parent-dir (not (.exists parent-dir)))
       (.mkdirs parent-dir))))
@@ -211,13 +214,13 @@
   (ensure-directory-exists filename)
   (i/save chart filename))
 
-(defn chart->png-bytes [chart width height]
+(defn chart->png-bytes [^JFreeChart chart width height]
   (let [buf-img (.createBufferedImage chart width height)
         baos (ByteArrayOutputStream.)
         _ (ImageIO/write buf-img, "png", baos)]
     (.toByteArray baos)))
 
-(defn chart->base64-png [chart width height]
+(defn chart->base64-png [^JFreeChart chart width height]
   (let [img-bytes (chart->png-bytes chart width height)
         encoder (Base64/getEncoder)
         b64 (.encodeToString encoder img-bytes)
@@ -227,16 +230,16 @@
 (defn generate-bar-chart [metrics x-key y1-key title]
   (let [x-values (map x-key metrics)
         y-values (map y1-key metrics)
-        chart (charts/bar-chart x-values y-values
-                                :title title
-                                :x-label ""
-                                :y-label "")
-        plot (.getPlot chart)
+        ^JFreeChart chart (charts/bar-chart x-values y-values
+                                            :title title
+                                            :x-label ""
+                                            :y-label "")
+        ^CategoryPlot plot (.getPlot chart)
         renderer (proxy [BarRenderer] []
                    (getItemPaint [row col]
                      (Color. 255 255 255)))
-        x-axis (.getDomainAxis plot)
-        y-axis (.getRangeAxis plot)
+        ^CategoryAxis x-axis (.getDomainAxis plot)
+        ^NumberAxis y-axis (.getRangeAxis plot)
         chart-title (.getTitle chart)
         y-max (apply max y-values)
         y-tick-unit (Math/ceil (/ y-max 8))]
@@ -251,9 +254,9 @@
     (.setDefaultItemLabelGenerator renderer (StandardCategoryItemLabelGenerator.))
     (.setDefaultItemLabelsVisible renderer true)
     (.setDefaultPositiveItemLabelPosition renderer
-                                       (org.jfree.chart.labels.ItemLabelPosition.
-                                        org.jfree.chart.labels.ItemLabelAnchor/OUTSIDE12
-                                        org.jfree.chart.ui.TextAnchor/BOTTOM_CENTER))
+                                          (org.jfree.chart.labels.ItemLabelPosition.
+                                           org.jfree.chart.labels.ItemLabelAnchor/OUTSIDE12
+                                           org.jfree.chart.ui.TextAnchor/BOTTOM_CENTER))
 
     ;; Set bar background to white and border to black
     (.setRenderer plot renderer)
@@ -273,13 +276,12 @@
 
     chart))
 
-(defn cleanup-line-chart!
-  [chart]
-  (let [plot         (.getPlot chart)
-        renderer     (.getRenderer plot)
-        x-axis       (.getDomainAxis plot)
-        y-axis       (.getRangeAxis plot)
-        chart-title  (.getTitle chart)
+(defn cleanup-line-chart! [^JFreeChart chart]
+  (let [^CategoryPlot plot   (.getPlot chart)
+        renderer             (.getRenderer plot)
+        ^CategoryAxis x-axis (.getDomainAxis plot)
+        ^NumberAxis y-axis   (.getRangeAxis plot)
+        chart-title          (.getTitle chart)
 
         dataset      (.getDataset plot)
         x-values     (.getColumnKeys dataset)
@@ -327,11 +329,11 @@
 (defn add-goal-line!
   "Given an existing line chart for (metrics, x-key, y-key): 
    Overlays a `goal-line`, which goes linearily towards `end-goal`"
-  [chart metrics y-key end-goal target-date]
+  [chart metrics y-key end-goal ^LocalDate target-date]
   (let [start-of-month (.withDayOfMonth target-date 1)
         end-of-month (.withDayOfMonth target-date (.lengthOfMonth target-date))
-        x-values (->> (iterate #(.plusDays % 1) start-of-month)
-                      (take-while #(not (.isAfter % end-of-month)))
+        x-values (->> (iterate #(LocalDate/.plusDays % 1) start-of-month)
+                      (take-while #(not (LocalDate/.isAfter % end-of-month)))
                       (into []))
         y-values (map y-key metrics)
         n (count x-values)
@@ -347,7 +349,7 @@
 ;; Overview Metrics 
 
 (defn local-analysis-date [x]
-  (.toLocalDate (:analysis_date x)))
+  (java.sql.Date/.toLocalDate (:analysis_date x)))
 
 (defn overview-metrics [conn]
   (let [target-date (get-latest-daily-tx-date conn)
