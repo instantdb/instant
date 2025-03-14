@@ -157,7 +157,7 @@ function SavingTextArea({ savedValue, onSave, ...props }: SavingTextAreaProps) {
           size="mini"
           type="submit"
         >
-          Save
+          {value && value === savedValue ? 'Saved!' : 'Save'}
         </Button>
       </div>
     </div>
