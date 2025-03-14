@@ -26,12 +26,14 @@ function useSelectedApp(apps = []) {
 
     const cachedAppData = getLocal(cacheKey);
     const { app: queryAppId, ...remainingQueryParams } = router.query;
-    const match = apps.find((a) => a.id === queryAppId);
-    const first = apps[0];
 
-    // If query param matches valid app, use that one and cache it in localStorage.
-    // Next, if an app is already cached, use that. Otherwise, default to the first app.
-    if (match) {
+    const matchFromQueryParam =
+      queryAppId && apps.find((a) => a.id === queryAppId);
+    const matchFromCache =
+      cachedAppData && apps.find((a) => a.id === cachedAppData.id);
+    const first = apps[0];
+    if (matchFromQueryParam) {
+      // We got a match for from a query param. Let's cache it and use it
       const data = { id: match.id, title: match.title };
       setSelectedAppData(data);
       setLocal(cacheKey, data);
@@ -46,8 +48,10 @@ function useSelectedApp(apps = []) {
           shallow: true,
         },
       );
-    } else if (cachedAppData) {
-      setSelectedAppData(cachedAppData);
+    } else if (matchFromCache) {
+      // We got a match from the cache. Let's use it
+      const data = { id: matchFromCache.id, title: matchFromCache.title };
+      setSelectedAppData(data);
     } else if (first) {
       setSelectedAppData({ id: first.id, title: first.title });
     }
@@ -281,7 +285,6 @@ export function Layout({ children, title, tableOfContents }) {
   const apps = (dashResponse.data?.apps ?? []).toSorted(createdAtComparator);
   const { data: selectedAppData, update: updateSelectedAppId } =
     useSelectedApp(apps);
-
   return (
     <SelectedAppContext.Provider value={selectedAppData}>
       <style jsx global>
