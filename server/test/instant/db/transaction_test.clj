@@ -1361,32 +1361,62 @@
                              :attrs (attr-model/get-by-app-id app-id)
                              :datalog-query-fn d/query
                              :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
-                             :current-user nil})
-            eid (random-uuid)]
+                             :current-user nil})]
         (rule-model/put!
          (aurora/conn-pool :write)
          {:app-id app-id :code {:users {:allow {:create "newData.handle == ruleParams.handle"}}}})
 
-        (is (perm-err? (permissioned-tx/transact! (make-ctx)
-                                                       [[:add-triple eid (resolvers/->uuid r :users/id) eid]
-                                                        [:add-triple eid (resolvers/->uuid r :users/handle) "alyssa"]])))
+        (testing "with eid"
+          (let [eid (random-uuid)]
+            (is (perm-err? (permissioned-tx/transact!
+                            (make-ctx)
+                            [[:add-triple eid (resolvers/->uuid r :users/id) eid]
+                             [:add-triple eid (resolvers/->uuid r :users/handle) "alyssa"]])))
 
-        (is (perm-err? (permissioned-tx/transact! (make-ctx)
-                                                       [[:rule-params eid "users" {"handle" "not alyssa"}]
-                                                   [:add-triple eid (resolvers/->uuid r :users/id) eid]
-                                                        [:add-triple eid (resolvers/->uuid r :users/handle) "alyssa"]])))
+            (is (perm-err? (permissioned-tx/transact!
+                            (make-ctx)
+                            [[:rule-params eid "users" {"handle" "not alyssa"}]
+                             [:add-triple eid (resolvers/->uuid r :users/id) eid]
+                             [:add-triple eid (resolvers/->uuid r :users/handle) "alyssa"]])))
 
-        (is (not (perm-err? (permissioned-tx/transact! (make-ctx)
-                                                       [[:rule-params eid "users" {"handle" "alyssa"}]
-                                                        [:add-triple eid (resolvers/->uuid r :users/id) eid]
-                                                        [:add-triple eid (resolvers/->uuid r :users/handle) "alyssa"]]))))
+            (is (not (perm-err? (permissioned-tx/transact!
+                                 (make-ctx)
+                                 [[:rule-params eid "users" {"handle" "alyssa"}]
+                                  [:add-triple eid (resolvers/->uuid r :users/id) eid]
+                                  [:add-triple eid (resolvers/->uuid r :users/handle) "alyssa"]]))))
 
-        (is (contains?
-             (->> (test-util/pretty-perm-q {:app-id app-id :current-user nil} {:users {}})
-                  :users
-                  (map :handle)
-                  set)
-             "alyssa"))))))
+            (is (contains?
+                 (->> (test-util/pretty-perm-q {:app-id app-id :current-user nil} {:users {}})
+                      :users
+                      (map :handle)
+                      set)
+                 "alyssa"))))
+
+        (testing "with lookup ref"
+          (let [lookup [(resolvers/->uuid r :users/handle) "louis"]]
+            (is (perm-err? (permissioned-tx/transact!
+                            (make-ctx)
+                            [[:add-triple lookup (resolvers/->uuid r :users/id) lookup]
+                             [:add-triple lookup (resolvers/->uuid r :users/email) "louis@instantdb.com"]])))
+
+            (is (perm-err? (permissioned-tx/transact!
+                            (make-ctx)
+                            [[:rule-params lookup "users" {"handle" "not louis"}]
+                             [:add-triple lookup (resolvers/->uuid r :users/id) lookup]
+                             [:add-triple lookup (resolvers/->uuid r :users/email) "louis@instantdb.com"]])))
+
+            (is (not (perm-err? (permissioned-tx/transact!
+                                 (make-ctx)
+                                 [[:rule-params lookup "users" {"handle" "louis"}]
+                                  [:add-triple lookup (resolvers/->uuid r :users/id) lookup]
+                                  [:add-triple lookup (resolvers/->uuid r :users/email) "louis@instantdb.com"]]))))
+
+            (is (contains?
+                 (->> (test-util/pretty-perm-q {:app-id app-id :current-user nil} {:users {}})
+                      :users
+                      (map :handle)
+                      set)
+                 "louis"))))))))
 
 (deftest update-perms-rule-params
   (doseq [[title get-lookup] [["with eid" (fn [r] (resolvers/->uuid r "eid-stepan-parunashvili"))]

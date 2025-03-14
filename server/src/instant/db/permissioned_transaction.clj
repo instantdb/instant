@@ -606,7 +606,7 @@
 
                 rule-params (reduce
                              (fn [acc [_ eid etype params]]
-                               (let [eid (resolve-lookup lookups->eid eid)
+                               (let [eid (get lookups->eid eid eid)
                                      key {:eid eid, :etype etype}]
                                  (update acc key merge params)))
                              {}
@@ -638,7 +638,21 @@
                 tx-data
                 (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id grouped-tx-steps {})
 
-                create-checks-resolved (resolve-lookups-for-create-checks tx-conn app-id create-checks)
+                ;; udpate lookups with newly created triples
+                create-lookups->eid (some->> (concat create-checks (keys rule-params))
+                                             (map :eid)
+                                             (filter sequential?)
+                                             not-empty
+                                             set
+                                             (triple-model/fetch-lookups->eid tx-conn app-id))
+                rule-params (ucoll/map-keys
+                             (fn [{:keys [eid etype]}]
+                               {:eid   (get create-lookups->eid eid eid)
+                                :etype etype})
+                             rule-params)
+                ctx (assoc ctx :rule-params rule-params)
+
+                create-checks-resolved (mapv #(resolve-check-lookup create-lookups->eid %) create-checks)
                 preloaded-create-refs (preload-refs ctx create-checks-resolved)
                 create-checks-results (io/warn-io :run-create-check-commands!
                                                   (run-check-commands!

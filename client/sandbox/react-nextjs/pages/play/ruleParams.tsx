@@ -46,12 +46,10 @@ function addDocWithRuleParam() {
 function addDocWithRuleParamAndLookup() {
   const key = `${randInt(10000, 99999)}`;
   return db.transact(
-    tx.playDocs[lookup('key', key)]
-      // .ruleParams({ test: 'foo' }) // <- comment me out
-      .update({
-        title: 'doc ' + key,
-        secret: secrets[randInt(0, 2)],
-      }),
+    tx.playDocs[lookup('key', key)].ruleParams({ test: 'foo' }).update({
+      title: 'doc ' + key,
+      secret: secrets[randInt(0, 2)],
+    }),
   );
 }
 
