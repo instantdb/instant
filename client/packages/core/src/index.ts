@@ -193,6 +193,12 @@ function initGlobalInstantCoreStore(): Record<string, any> {
   return globalThis.__instantDbStore;
 }
 
+function reactorKey(config: InstantConfig<any>): string {
+  // @ts-expect-error
+  const adminToken = config.__adminToken;
+  return `${config.appId}_${adminToken || 'client'}`;
+}
+
 const globalInstantCoreStore = initGlobalInstantCoreStore();
 
 /**
@@ -597,7 +603,7 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
   }
 
   shutdown() {
-    delete globalInstantCoreStore[this._reactor.config.appId];
+    delete globalInstantCoreStore[reactorKey(this._reactor.config)];
     this._reactor.shutdown();
   }
 
@@ -654,7 +660,7 @@ function init<
   versions?: { [key: string]: string },
 ): InstantCoreDatabase<Schema> {
   const existingClient = globalInstantCoreStore[
-    config.appId
+    reactorKey(config)
   ] as InstantCoreDatabase<any>;
 
   if (existingClient) {
@@ -673,7 +679,7 @@ function init<
   );
 
   const client = new InstantCoreDatabase<any>(reactor);
-  globalInstantCoreStore[config.appId] = client;
+  globalInstantCoreStore[reactorKey(config)] = client;
 
   handleDevtool(config.appId, config.devtool);
 
