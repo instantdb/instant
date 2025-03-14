@@ -638,7 +638,7 @@
                 tx-data
                 (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id grouped-tx-steps {})
 
-                ;; udpate lookups with newly created triples
+                ;; update lookups with newly created triples
                 create-lookups->eid (some->> (concat create-checks (keys rule-params))
                                              (map :eid)
                                              (filter sequential?)
