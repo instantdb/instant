@@ -58,6 +58,7 @@ import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { useDashFetch } from '@/lib/hooks/useDashFetch';
 import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
 import { createdAtComparator } from '@/lib/app';
+import OAuthApps from '@/components/dash/OAuthApps';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -79,7 +80,8 @@ type TabId =
   | 'team'
   | 'admin'
   | 'billing'
-  | 'docs';
+  | 'docs'
+  | 'oauth-apps';
 
 interface Tab {
   id: TabId;
@@ -98,6 +100,7 @@ const tabs: Tab[] = [
   { id: 'admin', title: 'Admin', minRole: 'admin' },
   { id: 'billing', title: 'Billing' },
   { id: 'docs', title: 'Docs' },
+  { id: 'oauth-apps', title: 'OAuth Apps' },
 ];
 
 const tabIndex = new Map(tabs.map((t) => [t.id, t]));
@@ -494,7 +497,7 @@ function Dashboard() {
                     dashResponse={dashResponse}
                     nav={nav}
                   />
-                ) : tab == 'admin' && isMinRole('admin', app.user_app_role) ? (
+                ) : tab === 'admin' && isMinRole('admin', app.user_app_role) ? (
                   <Admin
                     dashResponse={dashResponse}
                     app={app}
@@ -502,9 +505,11 @@ function Dashboard() {
                     nav={nav}
                     db={connection.db}
                   />
-                ) : tab == 'billing' &&
+                ) : tab === 'billing' &&
                   isMinRole('collaborator', app.user_app_role) ? (
                   <Billing appId={appId} />
+                ) : tab === 'oauth-apps' ? (
+                  <OAuthApps appId={appId} />
                 ) : null}
               </div>
             </div>

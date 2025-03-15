@@ -180,6 +180,7 @@ export function TextInput({
   tabIndex,
   disabled,
   title,
+  required,
 }: {
   value: string;
   type?: 'text' | 'email' | 'sensitive' | 'password';
@@ -194,6 +195,7 @@ export function TextInput({
   tabIndex?: number;
   disabled?: boolean | undefined;
   title?: string | undefined;
+  required?: boolean | undefined;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -230,6 +232,7 @@ export function TextInput({
         }}
         onKeyDown={onKeyDown}
         tabIndex={tabIndex}
+        required={required}
       />
       {error ? <div className="text-sm text-red-600">{error}</div> : null}
     </label>
@@ -716,19 +719,22 @@ export function Copyable({
   value,
   label,
   size = 'normal',
+  defaultHidden,
   hideValue,
   onChangeHideValue,
 }: {
   value: string;
   label: string;
   size?: 'normal' | 'large';
+  defaultHidden?: boolean;
   hideValue?: boolean;
   onChangeHideValue?: () => void;
 }) {
+  const [hidden, setHidden] = useState(defaultHidden);
   const [copyLabel, setCopyLabel] = useState('Copy');
-  const sizeToStyle = {
-    normal: { main: 'text-sm', copy: 'text-xs' },
-  };
+  const handleChangeHideValue =
+    onChangeHideValue || (defaultHidden ? () => setHidden(!hidden) : null);
+
   return (
     <div
       className={cn('flex items-center rounded border bg-white font-mono', {
@@ -757,18 +763,18 @@ export function Copyable({
           selection.selectAllChildren(el);
         }}
       >
-        {hideValue ? redactedValue(value) : value}
+        {hideValue || hidden ? redactedValue(value) : value}
       </pre>
       <div className="flex gap-1 px-1">
-        {!!onChangeHideValue && (
+        {!!handleChangeHideValue && (
           <button
-            onClick={onChangeHideValue}
+            onClick={handleChangeHideValue}
             className={cn(
               'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
-            {hideValue ? (
+            {hideValue || hidden ? (
               <EyeSlashIcon className="h-4 w-4" aria-hidden="true" />
             ) : (
               <EyeIcon className="h-4 w-4" aria-hidden="true" />
