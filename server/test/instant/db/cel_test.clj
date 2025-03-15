@@ -11,7 +11,7 @@
 
 (deftest test-standard-macros
   (testing "STANDARD_MACROS set contains expected macros"
-    (let [standard-macros (set (map #(.getFunction %) (CelStandardMacro/STANDARD_MACROS)))
+    (let [standard-macros (set (map #(CelStandardMacro/.getFunction %) (CelStandardMacro/STANDARD_MACROS)))
           expected-macros #{"has" "all" "exists" "exists_one" "map" "filter"}]
       (is (every? standard-macros expected-macros)))))
 
