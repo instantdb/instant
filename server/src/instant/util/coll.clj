@@ -145,6 +145,21 @@
   ;; => {:b 1}
   )
 
+(defn split-map-by-namespace
+  "Splits a map into multiple maps by the namespace of each key.
+   Only handles a single level.
+   Example:
+     {:a/b 1 :a/c 2, :d/e 3 :d/f 4 :g 5}
+       -> {:a {:b 1 :c 2} :d {:e 3 :f 4} nil {:g 5}}"
+  [m]
+  (when m
+    (reduce-kv (fn [acc k v]
+                 (if-not (keyword? k)
+                   (assoc-in acc [nil k] v)
+                   (assoc-in acc [(keyword (namespace k)) (keyword (name k))] v)))
+               (empty {})
+               m)))
+
 (defmacro array-of
   [klass vals]
   (let [^Class resolved (resolve klass)]

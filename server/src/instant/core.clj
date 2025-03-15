@@ -23,6 +23,7 @@
    [instant.lib.ring.undertow :as undertow-adapter]
    [instant.machine-summaries]
    [instant.nrepl :as nrepl]
+   [instant.oauth-apps.routes :as oauth-app-routes]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.invalidator :as inv]
    [instant.reactive.session :as session]
@@ -106,7 +107,8 @@
                       storage-routes/routes
                       generic-webhook-routes
                       stripe-webhook-routes
-                      health/routes)
+                      health/routes
+                      oauth-app-routes/routes)
               (wrap-routes http-util/tracer-record-route)
               http-util/tracer-record-attrs
               wrap-keyword-params

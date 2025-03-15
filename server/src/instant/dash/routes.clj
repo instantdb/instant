@@ -18,6 +18,7 @@
             [instant.model.app-members :as instant-app-members]
             [instant.model.instant-oauth-code :as instant-oauth-code-model]
             [instant.model.instant-oauth-redirect :as instant-oauth-redirect-model]
+            [instant.model.oauth-app :as oauth-app-model]
             [instant.db.indexing-jobs :as indexing-jobs]
             [instant.db.model.attr :as attr-model]
             [instant.flags :refer [admin-email?] :as flags]
@@ -33,6 +34,7 @@
             [instant.util.email :as email]
             [instant.util.json :as json]
             [instant.util.tracer :as tracer]
+            [instant.util.url :as url-util]
             [instant.util.uuid :as uuid-util]
             [instant.util.string :as string-util]
             [instant.util.number :as number-util]
@@ -1190,6 +1192,72 @@
 (defn active-sessions-get [_]
   (response/ok {:total-count (get-total-count-cached)}))
 
+(defn oauth-apps-get [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)]
+    (response/ok (oauth-app-model/get-for-dash {:app-id app-id}))))
+
+(defn oauth-apps-post [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        app-name (ex/get-param! req
+                                [:body :app_name]
+                                string-util/coerce-non-blank-str)
+        support-email (ex/get-optional-param! req
+                                              [:body :support_email]
+                                              string-util/coerce-non-blank-str)
+        app-home-page (ex/get-optional-param! req
+                                              [:body :app_home_page]
+                                              url-util/coerce-web-url)
+        app-privacy-policy-link (ex/get-optional-param! req
+                                                        [:body :app_privacy_policy_link]
+                                                        url-util/coerce-web-url)
+        app-tos-link (ex/get-optional-param! req
+                                             [:body :app_tos_link]
+                                             url-util/coerce-web-url)
+
+        authorized-domains (ex/get-optional-param!
+                            req
+                            [:body :authorized_domains]
+                            (fn [domains]
+                              (when (every? (fn [url]
+                                              (and (string? url)
+                                                   (url-util/coerce-web-url url)))
+                                            domains)
+                                domains)))
+        ;; XXX: Should we prepare it for the client??
+        create-res (oauth-app-model/create-app {:app-id app-id
+                                                :app-name app-name
+                                                :authorized-domains authorized-domains
+                                                :support-email support-email
+                                                :app-home-page app-home-page
+                                                :app-privacy-policy-link app-privacy-policy-link
+                                                :app-tos-link app-tos-link})]
+
+    (response/ok {:app (oauth-app-model/format-oauth-app-for-api create-res)})))
+
+(defn oauth-app-clients-post [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        oauth_app_id_unsafe (ex/get-param! req
+                                           [:params :oauth_app_id]
+                                           uuid-util/coerce)
+        oauth-app (oauth-app-model/get-oauth-app-by-id-and-app-id!
+                   {:app-id app-id
+                    :oauth-app-id oauth_app_id_unsafe})
+        client-name (ex/get-param! req
+                                   [:body :client_name]
+                                   string-util/coerce-non-blank-str)
+        authorized-redirect-urls (ex/get-optional-param! req
+                                                         [:body :authorized_redirect_urls]
+                                                         #(when (coll? %) %))
+        {:keys [client client-secret secret-value]}
+        (oauth-app-model/create-client {:app-id app-id
+                                        :oauth-app-id (:id oauth-app)
+                                        :client-name client-name
+                                        :authorized-redirect-urls authorized-redirect-urls})]
+
+    (response/ok {:client (oauth-app-model/format-client-for-api client)
+                  :clientSecret (oauth-app-model/format-client-secret-for-api client-secret)
+                  :secretValue secret-value})))
+
 (defroutes routes
   (POST "/dash/auth/send_magic_code" [] send-magic-code-post)
   (POST "/dash/auth/verify_magic_code" [] verify-magic-code-post)
@@ -1276,4 +1344,9 @@
 
   (POST "/dash/signout" [] signout)
 
-  (GET "/dash/stats/active_sessions" [] active-sessions-get))
+  (GET "/dash/stats/active_sessions" [] active-sessions-get)
+
+  (GET "/dash/apps/:app_id/oauth-apps" [] oauth-apps-get)
+  (POST "/dash/apps/:app_id/oauth-apps" [] oauth-apps-post)
+
+  (POST "/dash/apps/:app_id/oauth-apps/:oauth_app_id/clients" [] oauth-app-clients-post))
