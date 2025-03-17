@@ -20,14 +20,24 @@ function Prose({ html }: { html: string }) {
 }
 
 const Post = ({ post }: { post: Post }) => {
-  const { title, date, mdHTML, authors } = post;
+  const { title, date, mdHTML, desc, authors } = post;
   return (
     <LandingContainer>
       <Head>
         <title>{title}</title>
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={title} />
         <meta
-          name="description"
-          content="Relational Database, on the client."
+          property="og:image"
+          content={`https://og-image.vercel.app/${encodeURIComponent(title)}.png?theme=light&md=1&fontSize=100px&images=https%3A%2F%2Fwww.instantdb.com%2Fimg%2Ficon%2Ffavicon-32x32.png`}
+        />
+        + <meta property="og:type" content="article" />
+        + <meta property="og:url" content={url} />
+        + <meta property="article:published_time" content={date} />
+        +{' '}
+        <meta
+          property="article:author"
+          content={authors.map((author) => author.name).join(', ')}
         />
       </Head>
       <MainNav />
