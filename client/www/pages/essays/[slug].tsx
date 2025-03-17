@@ -33,11 +33,6 @@ const Post = ({ post }: { post: Post }) => {
         />
         <meta key="og:type" property="og:type" content="article" />
         <meta
-          key="article:published_time"
-          property="article:published_time"
-          content={date}
-        />
-        <meta
           key="og:article:author"
           property="article:author"
           content={authors.map((author) => author.name).join(', ')}
