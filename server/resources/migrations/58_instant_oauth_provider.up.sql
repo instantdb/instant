@@ -98,13 +98,16 @@ create table instant_user_oauth_refresh_tokens (
 create index on instant_user_oauth_refresh_tokens (client_id);
 create index on instant_user_oauth_refresh_tokens (user_id);
 
-create table instant_user_oauth_tokens (
+create table instant_user_oauth_access_tokens (
   lookup_key bytea primary key,
-  refresh_token_lookup_key bytea references instant_user_oauth_refresh_tokens (lookup_key) on delete cascade,
+  refresh_token_lookup_key bytea not null references instant_user_oauth_refresh_tokens (lookup_key) on delete cascade,
+  client_id uuid not null references instant_oauth_app_clients (client_id) on delete cascade,
   user_id uuid not null references instant_users (id) on delete cascade,
   scopes text[] not null,
   expires_at timestamp with time zone not null,
   created_at timestamp with time zone not null default now()
 );
 
-create index on instant_user_oauth_tokens (refresh_token_lookup_key);
+create index on instant_user_oauth_access_tokens (refresh_token_lookup_key);
+create index on instant_user_oauth_access_tokens (client_id);
+create index on instant_user_oauth_access_tokens (user_id);

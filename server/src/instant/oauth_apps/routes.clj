@@ -79,6 +79,10 @@
                              [:params :scope]
                              string-util/coerce-non-blank-str)
 
+        ;; XXX: Validate scopes
+        ;;;     Have to do extra to validate that the scopes are
+        ;;      included in the app's granted_scopes
+
         state (ex/get-param! req
                              [:params :state]
                              string-util/coerce-non-blank-str)
@@ -109,8 +113,6 @@
          oauth-client :instant_oauth_app_clients}
         (oauth-app-model/get-client-and-app-by-client-id! {:client-id client-id})
 
-        _ (tool/def-locals)
-
         _ (ex/assert-valid! :redirect_uri
                             redirect-uri
                             (when-not (ucoll/exists?
@@ -131,7 +133,7 @@
                                                    :cookie cookie
                                                    :redirect-uri redirect-uri
                                                    ;; XXX
-                                                   :scopes ["all"]
+                                                   :scopes (string/split scope #" ")
                                                    :code-challenge-method code-challenge-method
                                                    :code-challenge code-challenge})
 
@@ -139,7 +141,6 @@
                                        {:redirect-id redirect-id})]
 
     ;; http://localhost:8888/platform/oauth/start?client_id=2637f3ee-095d-4350-a2ad-0f641cc739a7&redirect_uri=http%3A%2F%2Fexample.com&response_type=code&scope=all&state=new-state
-    (tool/def-locals)
     (-> (response/found dash-url)
         (response/set-cookie cookie-name
                              (format-cookie cookie)
@@ -160,7 +161,6 @@
         redirect (oauth-app-model/claim-redirect! {:redirect-id redirect-id
                                                    :user-id (:id user)})
 
-        _ (tool/def-locals)
         {oauth-app :instant_oauth_apps
          oauth-client :instant_oauth_app_clients}
         (oauth-app-model/get-client-and-app-by-client-id! {:client-id (:client_id redirect)})
@@ -185,7 +185,7 @@
                   :appTosLink (:app_tos_link oauth-app)
                   :appHomePage (:app_home_page oauth-app)
                   :redirectOrigin (:host (:redirect_url redirect))
-                  :scopes (:scopes redirect)
+                  :scope (:scopes redirect)
                   :grantToken (:grant_token redirect)})))
 
 ;; XXX: Check expired
@@ -206,8 +206,6 @@
 
         cookie-param (get-in req [:cookies cookie-name :value])
 
-        _ (tool/def-locals)
-
         _ (when (not cookie-param)
             (ex/throw+ {::ex/type ::ex/param-missing
                         ::ex/message "Missing cookie."}))
@@ -227,7 +225,107 @@
                                            :state (:state redirect)
                                            :scope (clojure.string/join " " (:scopes code-record))}))))
 
+(defn complete-access-token-request
+  "Exchanges a code for a new access token and refresh token."
+  [oauth-client req-params]
+  (let [redirect-uri (ex/get-param! req-params
+                                    [:redirect_uri]
+                                    url/coerce-web-url)
+        code (ex/get-param! req-params
+                            [:code]
+                            uuid-util/coerce)
+
+        code-record (oauth-app-model/claim-code! {:code code})
+
+        _ (when (not= (:client_id oauth-client) (:client_id code-record))
+            (ex/throw+ {::ex/type ::ex/param-malformed
+                        ::ex/message "Invalid client_id parameter"
+                        ::ex/hint {:input (:client_id oauth-client)}}))
+
+        _ (when-not (crypt-util/constant-bytes= (.getBytes redirect-uri)
+                                                (.getBytes (:redirect_uri code-record)))
+            (ex/throw+ {::ex/type ::ex/param-malformed
+                        ::ex/message "Invalid redirect_uri parameter"
+                        ::ex/hint {:input redirect-uri}}))
+
+
+        {:keys [access-token refresh-token]}
+        (oauth-app-model/create-tokens-for-code {:client-id (:client_id code-record)
+                                                 :user-id (:user_id code-record)
+                                                 :scopes (:scopes code-record)})]
+    (response/ok {:access_token (:token-value access-token)
+                  :expires_in (-> access-token
+                                  :record
+                                  oauth-app-model/access-token-expires-in)
+                  :token_type "Bearer"
+                  :refresh_token (:token-value refresh-token)
+                  :scopes (->> access-token
+                               :record
+                               :scopes
+                               (string/join " "))})))
+
+(defn complete-refresh-token-request
+  "Exchanges a refresh token for a new access token."
+  [oauth-client req-params]
+  (let [refresh-token (ex/get-param! req-params
+                                     [:refresh_token]
+                                     string-util/coerce-non-blank-str)
+        refresh-token-record (oauth-app-model/refresh-token-by-token-value!
+                              {:refresh-token refresh-token
+                               :client-id (:client_id oauth-client)})
+
+        access-token
+        (oauth-app-model/create-access-token
+         {:client-id (:client_id oauth-client)
+          :user-id (:user_id refresh-token-record)
+          :scopes (:scopes refresh-token-record)
+          :refresh-token-lookup-key (:lookup_key refresh-token-record)})]
+    (response/ok {:access_token (:token-value access-token)
+                  :expires_in (-> access-token
+                                  :record
+                                  oauth-app-model/access-token-expires-in)
+                  :token_type "Bearer"
+                  :scope (->> access-token
+                              :record
+                              :scopes
+                              (string/join " "))})))
+
+(defn oauth-token [req]
+  (let [content-type (get-in req [:headers "content-type"])
+        ;; Allow either url-encoded or json-encoded bodies
+        params (cond (some-> content-type
+                             (string/starts-with? "application/x-www-form-urlencoded"))
+
+                     (:params req)
+
+                     (some-> content-type
+                             (string/starts-with? "application/json"))
+                     (:body req))
+        client-id (ex/get-param! params
+                                 [:client_id]
+                                 uuid-util/coerce)
+        client-secret (ex/get-param! params
+                                     [:client_secret]
+                                     string-util/coerce-non-blank-str)
+        oauth-client (oauth-app-model/get-client-by-client-id-and-secret!
+                      {:client-id client-id
+                       :client-secret client-secret})
+        grant-type (ex/get-param! params
+                                  [:grant_type]
+                                  string-util/coerce-non-blank-str)]
+    (case grant-type
+      "authorization_code"
+      (complete-access-token-request oauth-client params)
+
+      "refresh_token"
+      (complete-refresh-token-request oauth-client params)
+
+      (ex/throw+ {::ex/type ::ex/param-malformed
+                  ::ex/message "Unrecognized `grant_type` parameter, expected either `authorization_code` or `refresh_token`"
+                  ::ex/hint {:input grant-type}}))))
+
 (defroutes routes
   (GET "/platform/oauth/start" [] (wrap-cookies oauth-start {:decoder parse-cookie}))
   (POST "/platform/oauth/claim" [] claim-oauth-redirect)
-  (POST "/platform/oauth/grant" [] (wrap-cookies oauth-grant-access {:decoder parse-cookie})))
+  (POST "/platform/oauth/grant" [] (wrap-cookies oauth-grant-access {:decoder parse-cookie}))
+  (POST "/platform/oauth/token" [] oauth-token))

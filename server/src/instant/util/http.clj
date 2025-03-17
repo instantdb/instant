@@ -1,8 +1,10 @@
 (ns instant.util.http
   (:require
    [clojure.string :as string]
+   [instant.model.oauth-app :as oauth-app-model]
    [instant.util.uuid :as uuid-util]
    [instant.util.exception :as ex]
+   [instant.util.token :as token-util]
    [instant.util.tracer :as tracer]
    [ring.util.http-response :as response]
    [ring.middleware.cors :as cors]))
@@ -12,7 +14,7 @@
           (string/split #"Bearer ")
           last
           string/trim
-          uuid-util/coerce))
+          token-util/coerce-token-from-string))
 
 (defn req->bearer-token! [req]
   (ex/get-param! req

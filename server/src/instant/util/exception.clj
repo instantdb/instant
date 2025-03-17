@@ -375,6 +375,11 @@
             ::message message}
            cause)))
 
+(defn throw-missing-scope! [required-scope]
+  (throw+ {::type ::permission-denied
+           ::message (format "You are missing the %s scope" required-scope)
+           ::hint {:required-scope required-scope}}))
+
 ;; --------
 ;; Wrappers
 

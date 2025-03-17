@@ -6,12 +6,25 @@
             [instant.util.coll :as ucoll]
             [instant.util.crypt :as crypt-util]
             [instant.util.exception :as ex]
-            [next.jdbc :as next-jdbc]))
+            [instant.util.token :refer [platform-refresh-token-prefix
+                                        platform-access-token-prefix]]
+            [next.jdbc :as next-jdbc])
+  (:import [java.sql Timestamp]))
+
+(def apps-read-scope "apps-read")
+(def apps-write-scope "apps-write")
+
+(defn satisfies-scope? [scopes scope]
+  (condp = scope
+    apps-read-scope (or (ucoll/exists? #(= % apps-read-scope) scopes)
+                        (ucoll/exists? #(= % apps-write-scope) scopes))
+    apps-write-scope (ucoll/exists? #(= % apps-write-scope) scopes)))
 
 (defn hash-client-secret ^bytes [^String client-secret]
   (crypt-util/str->sha256 client-secret))
 
 (defn gen-client-secret ^String []
+  ;; Extra two so that we can display the first 4 chars
   (crypt-util/random-hex 34))
 
 ;; XXX: TODOS:
@@ -172,6 +185,24 @@
    (ex/assert-record! (get-client-and-app-by-client-id conn {:client-id client-id})
                       :oauth-app-client
                       {:args [params]})))
+
+(defn get-client-by-client-id-and-secret!
+  ([params]
+   (get-client-by-client-id-and-secret! (aurora/conn-pool :read) params))
+  ([conn {:keys [client-id
+                 client-secret] :as params}]
+   (let [hashed-secret (hash-client-secret client-secret)
+         q {:select :client.*
+            :from [[:instant-oauth-app-clients :client]]
+            :join [[:instant-oauth-app-client-secrets :secret]
+                   [:= :secret.client-id :client.client-id]]
+            :where [:= :secret.hashed-secret hashed-secret]}
+         record (sql/select-one ::get-client-by-client-id-and-secret!
+                                conn
+                                (hsql/format q))]
+     (ex/assert-record! record
+                        :oauth-app-client
+                        {:args [{:client-id client-id}]}))))
 
 (defn create-client-secret
   "Stores the hashed secret in the instant-oauth-app-client-secrets table.
@@ -356,3 +387,153 @@
                       :scopes [:array scopes :text]}]
             :returning :*}]
      (sql/execute-one! ::create-code conn (hsql/format q)))))
+
+(defn claim-code!
+  ([params]
+   (claim-code! (aurora/conn-pool :write) params))
+  ([conn {:keys [code]}]
+   (let [hashed-code (crypt-util/uuid->sha256 code)
+         q {:delete-from :instant_oauth_app_codes
+            :where [:= :hashed-code hashed-code]
+            :returning :*}
+         record (sql/execute-one! ::claim-code! conn (hsql/format q))]
+     (ex/assert-record! record
+                        :oauth-code
+                        {:code code}))))
+
+;; XXX: Do we need some type of "grant" object?
+;;      That way we can easily delete?
+;;      Or does the refresh token indicate a grant object?
+;;      How many refresh tokens should be allowed at a time?
+;;      One refresh token per set of scopes?
+
+(def refresh-token-limit 5)
+
+;; XXX: tracer
+(defn remove-old-refresh-tokens
+  ([params]
+   (remove-old-refresh-tokens (aurora/conn-pool :write) params))
+  ([conn {:keys [client-id
+                 user-id]}]
+   (let [q {:delete-from :instant_user_oauth_refresh_tokens
+            :where [:in :lookup-key {:select :lookup-key
+                                     :from :instant_user_oauth_refresh_tokens
+                                     :where [:and
+                                             [:= :client-id client-id]
+                                             [:= :user-id user-id]]
+                                     :order-by [[:created-at :desc]]
+                                     :offset refresh-token-limit}]}])))
+
+(defn new-token [type]
+  (case type
+    :access (str platform-access-token-prefix (crypt-util/random-hex 32))
+    :refresh (str platform-refresh-token-prefix (crypt-util/random-hex 32))))
+
+(defn create-refresh-token
+  ([params]
+   (create-refresh-token (aurora/conn-pool :write) params))
+  ([conn {:keys [client-id
+                 user-id
+                 scopes]}]
+   (let [token (new-token :refresh)
+         hashed-token (crypt-util/str->sha256 token)
+         q {:insert-into :instant_user_oauth_refresh_tokens
+            :values [{:lookup-key hashed-token
+                      :client-id client-id
+                      :user-id user-id
+                      :scopes [:array scopes :text]}]
+            :returning :*}
+         record (sql/execute-one! ::create-refresh-token conn (hsql/format q))]
+     {:record record
+      :token-value token})))
+
+(defn access-token-expires-in
+  "Returns the number of seconds between now and when
+   the token expires."
+  [{:keys [^java.sql.Timestamp expires_at]}]
+  (int (/ (- (.getTime expires_at)
+             (System/currentTimeMillis))
+          1000)))
+
+(defn create-access-token
+  ([params]
+   (create-access-token (aurora/conn-pool :write) params))
+  ([conn {:keys [client-id
+                 user-id
+                 scopes
+                 refresh-token-lookup-key]}]
+   (let [token (new-token :access)
+         hashed-token (crypt-util/str->sha256 token)
+         q {:insert-into :instant_user_oauth_access_tokens
+            :values [{:lookup-key hashed-token
+                      :refresh-token-lookup-key refresh-token-lookup-key
+                      :client-id client-id
+                      :user-id user-id
+                      :scopes [:array scopes :text]
+                      :expires-at [:+ :%now [:interval "2 weeks"]]}]
+            :returning :*}
+         record (sql/execute-one! ::create-auth-token conn (hsql/format q))]
+     {:record record
+      :token-value token})))
+
+(defn create-tokens-for-code
+  ([params]
+   (create-tokens-for-code (aurora/conn-pool :write) params))
+  ([conn {:keys [client-id
+                 user-id
+                 scopes]}]
+   (let [refresh-token (create-refresh-token conn {:client-id client-id
+                                                   :user-id user-id
+                                                   :scopes scopes})
+         access-token (create-access-token conn {:client-id client-id
+                                                 :user-id user-id
+                                                 :scopes scopes
+                                                 :refresh-token-lookup-key (-> refresh-token
+                                                                               :record
+                                                                               :lookup_key)})]
+     ;; Only allow 5 refresh tokens at a time per user + client
+     (remove-old-refresh-tokens conn {:client-id client-id
+                                      :user-id user-id})
+     {:refresh-token refresh-token
+      :access-token access-token})))
+
+(defn refresh-token-by-token-value!
+  ([params]
+   (refresh-token-by-token-value! (aurora/conn-pool :read) params))
+  ([conn {:keys [client-id
+                 refresh-token]}]
+   (let [hashed-token (crypt-util/str->sha256 refresh-token)
+         q {:select :*
+            :from :instant_user_oauth_refresh_tokens
+            :where [:and
+                    [:= :lookup-key hashed-token]
+                    [:= :client-id client-id]]}
+         record (sql/select-one ::refresh-token-by-token-value!
+                                conn
+                                (hsql/format q))]
+     (ex/assert-record! record :oauth-refresh-token nil))))
+
+(defn access-token-by-token-value!
+  ([params]
+   (access-token-by-token-value! (aurora/conn-pool :read) params))
+  ([conn {:keys [access-token]}]
+   (let [hashed-token (crypt-util/str->sha256 access-token)
+         q {:select :*
+            :from :instant_user_oauth_access_tokens
+            :where [:= :lookup-key hashed-token]}
+         record (ex/assert-record! (sql/select-one ::access-token-by-token-value
+                                                   conn
+                                                   (hsql/format q))
+                                   :oauth-access-token
+                                   nil)
+         ^Timestamp expires (:expires_at record)
+         now (Timestamp. (System/currentTimeMillis))]
+     (when (.after expires now)
+       (ex/throw-expiration-err! :oauth-access-token {:expires_at expires}))
+     record)))
+
+
+
+
+;; XXX: Clean out old data (e.g. expired tokens)
+;; XXX: Do I need indexes on created-at?
