@@ -41,7 +41,7 @@ const Post = ({ post }: { post: Post }) => {
                   <span>
                     <a
                       className="font-bold uppercase text-blue-500"
-                      href={`https://x.com/${author.xHandle}`}
+                      href={author.url}
                       target="_blank"
                     >
                       {author.name}
