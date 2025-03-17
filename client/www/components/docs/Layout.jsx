@@ -27,14 +27,16 @@ function useSelectedApp(apps = []) {
     const cachedAppData = getLocal(cacheKey);
     const { app: queryAppId, ...remainingQueryParams } = router.query;
 
-    const matchFromQueryParam =
-      queryAppId && apps.find((a) => a.id === queryAppId);
-    const matchFromCache =
+    const fromParams = queryAppId && apps.find((a) => a.id === queryAppId);
+    const fromCache =
       cachedAppData && apps.find((a) => a.id === cachedAppData.id);
     const first = apps[0];
-    if (matchFromQueryParam) {
+    if (fromParams) {
       // We got a match for from a query param. Let's cache it and use it
-      const data = { id: match.id, title: match.title };
+      const data = {
+        id: fromParams.id,
+        title: fromParams.title,
+      };
       setSelectedAppData(data);
       setLocal(cacheKey, data);
       // Removes query param after caching
@@ -48,14 +50,13 @@ function useSelectedApp(apps = []) {
           shallow: true,
         },
       );
-    } else if (matchFromCache) {
+    } else if (fromCache) {
       // We got a match from the cache. Let's use it
-      const data = { id: matchFromCache.id, title: matchFromCache.title };
+      const data = { id: fromCache.id, title: fromCache.title };
       setSelectedAppData(data);
     } else if (first) {
       setSelectedAppData({ id: first.id, title: first.title });
     }
-
     setIsLoading(false);
   }, [router.isReady, apps.length]);
 
