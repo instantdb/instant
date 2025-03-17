@@ -25,9 +25,17 @@ const Post = ({ post }: { post: Post }) => {
     <LandingContainer>
       <Head>
         <title>{title}</title>
+        <meta key="og:title" property="og:title" content={title} />
         <meta
-          name="description"
-          content="Relational Database, on the client."
+          key="og:image"
+          property="og:image"
+          content={`/api/og/essay?title=${encodeURIComponent(title)}`}
+        />
+        <meta key="og:type" property="og:type" content="article" />
+        <meta
+          key="og:article:author"
+          property="article:author"
+          content={authors.map((author) => author.name).join(', ')}
         />
       </Head>
       <MainNav />

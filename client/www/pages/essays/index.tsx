@@ -21,8 +21,7 @@ export default function Page({ posts }: { posts: Post[] }) {
   return (
     <LandingContainer>
       <Head>
-        <title>Essays</title>
-        <meta name="description" content="A Graph Database on the Client" />
+        <title>Instant Essays</title>
       </Head>
       <div className="flex min-h-screen flex-col justify-between">
         <MainNav />

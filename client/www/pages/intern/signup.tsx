@@ -10,7 +10,6 @@ const AdminIndex = () => {
     <div className="h-screen w-screen">
       <Head>
         <title>Instant Dashboard</title>
-        <meta name="description" content="Welcome to Instant." />
       </Head>
       <AdminRoot />
     </div>

@@ -457,8 +457,7 @@ export default function Page() {
   return (
     <LandingContainer>
       <Head>
-        <title>Essays</title>
-        <meta name="description" content="A Graph Database on the Client" />
+        <title>Instant Privacy Policy</title>
       </Head>
       <div className="flex min-h-screen flex-col justify-between">
         <MainNav />
