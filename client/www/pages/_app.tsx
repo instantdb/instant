@@ -142,11 +142,6 @@ function AppHead() {
       <meta name="theme-color" content="#ffffff" />
       <meta key="og:type" property="og:type" content="website" />
       <meta
-        key="og:url"
-        property="og:url"
-        content="https://www.instantdb.com"
-      />
-      <meta
         key="og:image"
         property="og:image"
         content="https://www.instantdb.com/img/og_preview.png"
