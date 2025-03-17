@@ -457,7 +457,7 @@ export default function Page() {
   return (
     <LandingContainer>
       <Head>
-        <title>Essays</title>
+        <title>Instant Privacy Policy</title>
       </Head>
       <div className="flex min-h-screen flex-col justify-between">
         <MainNav />

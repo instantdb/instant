@@ -21,7 +21,7 @@ export default function Page({ posts }: { posts: Post[] }) {
   return (
     <LandingContainer>
       <Head>
-        <title>Essays</title>
+        <title>Instant Essays</title>
       </Head>
       <div className="flex min-h-screen flex-col justify-between">
         <MainNav />
