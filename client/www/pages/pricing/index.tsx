@@ -203,7 +203,6 @@ export default function Page() {
     <LandingContainer>
       <Head>
         <title>Instant Pricing</title>
-        <meta name="description" content="A Graph Database on the Client" />
       </Head>
       <div className="flex min-h-screen justify-between flex-col">
         <div>

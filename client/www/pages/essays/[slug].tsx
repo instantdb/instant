@@ -25,16 +25,20 @@ const Post = ({ post }: { post: Post }) => {
     <LandingContainer>
       <Head>
         <title>{title}</title>
-        <meta property="og:title" content={title} />
-        <meta property="og:description" content={title} />
+        <meta key="og:title" property="og:title" content={title} />
         <meta
+          key="og:image"
           property="og:image"
           content={`/api/og/essay?title=${encodeURIComponent(title)}`}
         />
-        <meta property="og:type" content="article" />
-        <meta property="og:url" content={url} />
-        <meta property="article:published_time" content={date} />+{' '}
+        <meta key="og:type" property="og:type" content="article" />
         <meta
+          key="article:published_time"
+          property="article:published_time"
+          content={date}
+        />
+        <meta
+          key="og:article:author"
           property="article:author"
           content={authors.map((author) => author.name).join(', ')}
         />

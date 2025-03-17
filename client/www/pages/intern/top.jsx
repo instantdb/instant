@@ -162,7 +162,6 @@ function Page() {
     <div>
       <Head>
         <title>Instant Top Users</title>
-        <meta name="description" content="Welcome to Instant." />
       </Head>
       <div className="flex space-x-0 space-y-4 md:space-x-8 md:space-y-0 m-4 flex-wrap md:flex-nowrap">
         <div className="flex flex-col space-y-2">

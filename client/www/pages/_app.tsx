@@ -140,14 +140,14 @@ function AppHead() {
         content="width=device-width, initial-scale=1, maximum-scale=1"
       />
       <meta name="theme-color" content="#ffffff" />
-      <meta property="og:type" content="website" />
-      <meta property="og:url" content="https://www.instantdb.com" />
-      <meta property="og:title" content="InstantDB: A Modern Firebase" />
+      <meta key="og:type" property="og:type" content="website" />
       <meta
-        property="og:description"
-        content="We make you productive by giving your frontend a real-time database."
+        key="og:url"
+        property="og:url"
+        content="https://www.instantdb.com"
       />
       <meta
+        key="og:image"
         property="og:image"
         content="https://www.instantdb.com/img/og_preview.png"
       />

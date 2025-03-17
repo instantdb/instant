@@ -157,7 +157,6 @@ export default function OAuthCallback() {
     <div className="flex h-screen w-full flex-col overflow-hidden md:flex-row">
       <Head>
         <title>Instant - Log in with Google</title>
-        <meta name="description" content="Welcome to Instant." />
       </Head>
       <CallbackScreen state={state} />
       <StyledToastContainer />
