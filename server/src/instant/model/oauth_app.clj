@@ -11,8 +11,12 @@
             [next.jdbc :as next-jdbc])
   (:import [java.sql Timestamp]))
 
+(set! *warn-on-reflection* true)
+
 (def apps-read-scope "apps-read")
 (def apps-write-scope "apps-write")
+
+(def default-expires-at [:+ :%now [:interval "10 minutes"]])
 
 (defn satisfies-scope? [scopes scope]
   (condp = scope
@@ -27,9 +31,8 @@
   ;; Extra two so that we can display the first 4 chars
   (crypt-util/random-hex 34))
 
-;; XXX: TODOS:
+;; DDD: TODOS:
 ;;  1. Way to regenerate the client-secret
-;;    a. It would be nice if we could have multiple client secrets??
 
 (defn format-client-secret-for-api [{:keys [id
                                             client_id
@@ -63,7 +66,7 @@
                                         app_home_page
                                         app_privacy_policy_link
                                         app_tos_link
-                                        ;; XXX: logo
+                                        ;; DDD: logo
                                         ;; app_logo
                                         created_at
                                         updated_at]}]
@@ -298,10 +301,18 @@
                       :code-challenge-method code-challenge-method
                       :code-challenge code-challenge
                       :status [:cast "init"
-                               :instant_oauth_app_redirect_status]}]}]
+                               :instant_oauth_app_redirect_status]
+                      :expires-at default-expires-at}]}]
      (sql/execute! ::create-redirect
                    conn
                    (hsql/format q)))))
+
+(defn assert-not-expired! [record record-type]
+  (let [^Timestamp expires (:expires_at record)
+        now (Timestamp. (System/currentTimeMillis))]
+    (if (.after expires now)
+      record
+      (ex/throw-expiration-err! record-type {:expired_at expires}))))
 
 (defn claim-redirect!
   "The client makes an http post to claim the redirect from
@@ -332,9 +343,10 @@
                                   conn
                                   (hsql/format q))]
      (tool/def-locals)
-     (ex/assert-record! record
-                        :oauth-app-redirect
-                        {:args [{:redirect-id redirect-id}]}))))
+     (-> record
+         (ex/assert-record! :oauth-app-redirect
+                            {:args [{:redirect-id redirect-id}]})
+         (assert-not-expired! :oauth-app-redirect)))))
 
 (defn grant-redirect!
   "Deletes and returns the redirect so that it can be validated
@@ -356,9 +368,10 @@
        (ex/assert-record! nil
                           :oauth-app-redirect
                           {:args [{:redirect-id :redirect-id}]})
-       (ex/assert-record! record
-                          :oauth-app-redirect
-                          {:args [{:redirect-id redirect-id}]})))))
+       (-> record
+           (ex/assert-record! :oauth-app-redirect
+                              {:args [{:redirect-id redirect-id}]})
+           (assert-not-expired! :oauth-app-redirect))))))
 
 (defn deny-redirect
   "Deletes the redirect without returning it."
@@ -384,7 +397,8 @@
                       :client-id client-id
                       :redirect-uri redirect-uri
                       :user-id user-id
-                      :scopes [:array scopes :text]}]
+                      :scopes [:array scopes :text]
+                      :expires-at default-expires-at}]
             :returning :*}]
      (sql/execute-one! ::create-code conn (hsql/format q)))))
 
@@ -397,19 +411,13 @@
             :where [:= :hashed-code hashed-code]
             :returning :*}
          record (sql/execute-one! ::claim-code! conn (hsql/format q))]
-     (ex/assert-record! record
-                        :oauth-code
-                        {:code code}))))
-
-;; XXX: Do we need some type of "grant" object?
-;;      That way we can easily delete?
-;;      Or does the refresh token indicate a grant object?
-;;      How many refresh tokens should be allowed at a time?
-;;      One refresh token per set of scopes?
+     (-> record
+         (ex/assert-record! :oauth-code {:code code})
+         (assert-not-expired! :oauth-code)))))
 
 (def refresh-token-limit 5)
 
-;; XXX: tracer
+;; DDD: tracer
 (defn remove-old-refresh-tokens
   ([params]
    (remove-old-refresh-tokens (aurora/conn-pool :write) params))
@@ -521,19 +529,15 @@
          q {:select :*
             :from :instant_user_oauth_access_tokens
             :where [:= :lookup-key hashed-token]}
-         record (ex/assert-record! (sql/select-one ::access-token-by-token-value
-                                                   conn
-                                                   (hsql/format q))
-                                   :oauth-access-token
-                                   nil)
+         record (sql/select-one ::access-token-by-token-value
+                                conn
+                                (hsql/format q))
          ^Timestamp expires (:expires_at record)
          now (Timestamp. (System/currentTimeMillis))]
-     (when (.after expires now)
-       (ex/throw-expiration-err! :oauth-access-token {:expires_at expires}))
-     record)))
+     (-> record
+         (ex/assert-record! :oauth-access-token nil)
+         (assert-not-expired! :oauth-access-token)))))
 
 
-
-
-;; XXX: Clean out old data (e.g. expired tokens)
-;; XXX: Do I need indexes on created-at?
+;; DDD: Clean out old data (e.g. expired tokens)
+;; DDD: Do I need indexes on created-at?

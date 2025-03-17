@@ -57,6 +57,7 @@ create table instant_oauth_app_codes (
   redirect_uri text not null,
   user_id uuid not null references instant_users (id) on delete cascade,
   scopes text[] not null,
+  expires_at timestamp with time zone not null,
   created_at timestamp with time zone not null default now()
 );
 
@@ -81,6 +82,7 @@ create table instant_oauth_app_redirects (
   status instant_oauth_app_redirect_status not null,
   user_id uuid references instant_users (id) on delete cascade,
   grant_token uuid,
+  expires_at timestamp with time zone not null,
   created_at timestamp with time zone not null default now()
 );
 

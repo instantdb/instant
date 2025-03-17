@@ -1223,7 +1223,6 @@
                                                    (url-util/coerce-web-url url)))
                                             domains)
                                 domains)))
-        ;; XXX: Should we prepare it for the client??
         create-res (oauth-app-model/create-app {:app-id app-id
                                                 :app-name app-name
                                                 :authorized-domains authorized-domains

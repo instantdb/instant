@@ -40,29 +40,16 @@
             [ring.middleware.cookies :refer [wrap-cookies]]
             [ring.util.http-response :as response]))
 
-;; XXX: block CORS
-;; XXX: CSRF token
-;; XXX: Security headers
+;; DDD: block CORS
+;; DDD: CSRF token
+;; DDD: Security headers
 
-;; XXX: Coerce errors into OAuth errors
-
-;; Full flow
-;; 1. External site redirects to api.instantdb.com/platform/oauth/start?client_id=x&...
-;; 2. Look up client and make sure everything is honky-dory, then redirect to
-;;    instantdb.com/platform/oauth/start
-;;    - Store all of the info and start our own OAuth flow
-;; 3. User logs in to instantdb.com
-;; 4. User confirms or denies
-;;   a. Deny
-;;     i. Redirect to api.instantdb.com with a deny?
-;;    ii. Redirect to external_site with error params
-;;   b. Approve
-;;     i. Redirect to api.instantdb.com with some params (what do we need?)
-;; 5. api.instantdb.com validates the request and generates a code
-;; 6. Redirect to external site with the code
-;; 7. External site exchanges the code for a token
+;; DDD: Coerce errors into OAuth errors
 
 (def cookie-name "__session")
+
+;; DDD: Apply some of these rules to the redirect uri
+;; https://developers.google.com/identity/protocols/oauth2/web-server#uri-validation
 
 (defn oauth-start [req]
   (let [client-id (ex/get-param! req
@@ -79,7 +66,7 @@
                              [:params :scope]
                              string-util/coerce-non-blank-str)
 
-        ;; XXX: Validate scopes
+        ;; DDD: Validate scopes
         ;;;     Have to do extra to validate that the scopes are
         ;;      included in the app's granted_scopes
 
@@ -118,7 +105,7 @@
                             (when-not (ucoll/exists?
                                        (fn [u] (= redirect-uri u))
                                        (:authorized_redirect_urls oauth-client))
-                              ;; XXX: Note about how to fix
+                              ;; DDD: Note about how to fix
                               ["Invalid redirect_uri."]))
 
         cookie (random-uuid)
@@ -132,7 +119,7 @@
                                                    :state state
                                                    :cookie cookie
                                                    :redirect-uri redirect-uri
-                                                   ;; XXX
+                                                   ;; DDD
                                                    :scopes (string/split scope #" ")
                                                    :code-challenge-method code-challenge-method
                                                    :code-challenge code-challenge})
@@ -145,14 +132,14 @@
         (response/set-cookie cookie-name
                              (format-cookie cookie)
                              {:http-only true
-                              ;; XXX: Also add not secure if the redirect-uri is localhost
+                              ;; DDD: Also add not secure if the redirect-uri is localhost
                               :secure (not= :dev (config/get-env))
                               :expires cookie-expires
                               :path "/platform/oauth"
                               ;; access cookie on redirect
                               :same-site :lax}))))
 
-;; XXX: Check for expiration (we can just look at created-at)
+;; DDD: Check for expiration (we can just look at created-at)
 (defn claim-oauth-redirect [req]
   (let [user (req->auth-user! req)
         redirect-id (ex/get-param! req
@@ -166,7 +153,7 @@
         (oauth-app-model/get-client-and-app-by-client-id! {:client-id (:client_id redirect)})
 
         _ (when (and (or (not (:is_public oauth-app))
-                         ;; XXX: Maybe we should store this in the redirect instead??
+                         ;; DDD: Maybe we should store this in the redirect instead??
                          (= "localhost" (:host (uri/parse (:redirect_url redirect)))))
                      (not (get-member-role (:app_id oauth-app)
                                            (:id user))))
@@ -188,7 +175,7 @@
                   :scope (:scopes redirect)
                   :grantToken (:grant_token redirect)})))
 
-;; XXX: Check expired
+;; DDD: Check expired
 (defn oauth-grant-access [req]
   (let [redirect-id (ex/get-param! req
                                    [:params :redirect_id]
