@@ -106,7 +106,7 @@ export default schema;
 Then the [permissions](/docs/permissions):
 
 ```typescript
-import type { InstantRules } from '@instantdb/core';
+import type { InstantRules } from '@instantdb/react';
 // instant.perms.ts
 // And now we reference the `owner` link for todos to check the number
 // of todos a user has created.
