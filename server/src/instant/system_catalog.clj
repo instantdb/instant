@@ -1,6 +1,8 @@
 (ns instant.system-catalog
   (:require [clojure.set :refer [map-invert]]
-            [clojure.string :as string]))
+            [clojure.string :as string])
+  (:import
+   [java.util UUID]))
 
 ;; ---------
 ;; Constants
@@ -111,7 +113,7 @@
                      (bitstring->char bitstring)))))
          (apply str))))
 
-(defn decode-system-uuid [uuid]
+(defn decode-system-uuid [^UUID uuid]
   (let [system-str (decode-long->string (.getMostSignificantBits uuid))
         [etype-shortcode label-shortcode] (string/split (decode-long->string (.getLeastSignificantBits uuid))
                                                         #"\/")]

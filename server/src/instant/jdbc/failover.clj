@@ -6,6 +6,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.util.crypt :refer [bytes->hex-string]]
+   [instant.util.java :as java]
    [next.jdbc :as next-jdbc]
    [next.jdbc.result-set :as rs])
   (:import
@@ -47,7 +48,7 @@
                                         {:app-id (config/instant-config-app-id)})
           quit (fn []
                  (println "Abandoning failover")
-                 (.close next-pool)
+                 (java/close next-pool)
                  (deliver next-pool-promise prev-pool)
                  (alter-var-root #'aurora/conn-pool (fn [_] conn-pool-fn-before))
                  (throw (Exception. "Abandoning failover, somehow the writes aren't in sync.")))]
@@ -80,7 +81,7 @@
     (println "Reset variables, waiting 30 seconds for any in-progress queries to complete")
     (Thread/sleep 30001)
     (println "Closing the old connection pool.")
-    (.close prev-pool)
+    (java/close prev-pool)
     (println "NEXT STEPS:")
     (println "  1. Put the old database to sleep so that it doesn't accidentally get written to.")
     (println "  2. Update the config so that old db is now new db and redeploy")))

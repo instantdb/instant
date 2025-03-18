@@ -66,7 +66,7 @@
                      :message message}]
     (swap! errors conj error-entry)))
 
-(defn handle-email-error! [e to]
+(defn handle-email-error! [^Throwable e to]
   (if (inactive-recipient? e)
     (add-error! to "INACTIVE_RECIPIENT" "This email address has been marked inactive.")
     (add-error! to "ERROR" (.getMessage e)))
