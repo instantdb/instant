@@ -31,6 +31,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.util.async :as ua]
+   [instant.util.java :as java]
    [instant.util.json :refer [<-json]]
    [instant.util.tracer :as tracer]
    [lambdaisland.uri :as uri]
@@ -478,6 +479,16 @@
                                                       [{:path "instant.jdb.wal.replication-latency-bytes"
                                                         :value @replication-latency-bytes}])))))
 
+(defn stop []
+  (java/close cleanup-slots-schedule)
+  (java/close latency-schedule)
+  (cleanup-gauge))
+
+(defn before-ns-unload []
+  (stop))
+
+(defn after-ns-reload []
+  (init))
 
 (comment
   (def shutdown? (atom false))
