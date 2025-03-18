@@ -538,6 +538,24 @@
          (ex/assert-record! :oauth-access-token nil)
          (assert-not-expired! :oauth-access-token)))))
 
+(defn revoke-refresh-token
+  ([params]
+   (revoke-refresh-token (aurora/conn-pool :write) params))
+  ([conn {:keys [token]}]
+   (sql/execute! ::revoke-refresh-token
+                 conn
+                 (hsql/format {:delete-from :instant_user_oauth_refresh_tokens
+                               :where [:= :lookup-key (crypt-util/str->sha256 token)]}))))
+
+(defn revoke-access-token
+  ([params]
+   (revoke-access-token (aurora/conn-pool :write) params))
+  ([conn {:keys [token]}]
+   (sql/execute! ::revoke-access-token
+                 conn
+                 (hsql/format {:delete-from :instant_user_oauth_access_tokens
+                               :where [:= :lookup-key (crypt-util/str->sha256 token)]}))))
+
 
 ;; DDD: Clean out old data (e.g. expired tokens)
 ;; DDD: Do I need indexes on created-at?

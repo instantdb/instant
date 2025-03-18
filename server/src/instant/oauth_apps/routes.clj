@@ -9,13 +9,13 @@
             [instant.util.crypt :as crypt-util]
             [instant.util.exception :as ex]
             [instant.util.string :as string-util]
+            [instant.util.token :as token-util]
             [instant.util.url :as url]
             [instant.util.uuid :as uuid-util]
             [lambdaisland.uri :as uri]
             [ring.middleware.cookies :refer [wrap-cookies]]
             [ring.util.http-response :as response]))
 
-;; DDD: block CORS
 ;; DDD: CSRF token
 ;; DDD: Security headers
 
@@ -107,14 +107,12 @@
         (response/set-cookie cookie-name
                              (format-cookie cookie)
                              {:http-only true
-                              ;; DDD: Also add not secure if the redirect-uri is localhost
                               :secure (not= :dev (config/get-env))
                               :expires cookie-expires
                               :path "/platform/oauth"
                               ;; access cookie on redirect
                               :same-site :lax}))))
 
-;; DDD: Check for expiration (we can just look at created-at)
 (defn claim-oauth-redirect [req]
   (let [user (req->auth-user! req)
         redirect-id (ex/get-param! req
@@ -150,7 +148,6 @@
                   :scope (:scopes redirect)
                   :grantToken (:grant_token redirect)})))
 
-;; DDD: Check expired
 (defn oauth-grant-access [req]
   (let [redirect-id (ex/get-param! req
                                    [:params :redirect_id]
@@ -286,8 +283,24 @@
                   ::ex/message "Unrecognized `grant_type` parameter, expected either `authorization_code` or `refresh_token`"
                   ::ex/hint {:input grant-type}}))))
 
+(defn revoke-oauth-token [req]
+  (let [token (ex/get-param! req
+                             [:params :token]
+                             string-util/coerce-non-blank-str)]
+    (cond (string/starts-with? token token-util/platform-refresh-token-prefix)
+          (oauth-app-model/revoke-refresh-token {:token token})
+
+          (string/starts-with? token token-util/platform-access-token-prefix)
+          (oauth-app-model/revoke-access-token {:token token})
+
+          :else
+          (ex/throw+ {::ex/type ::ex/param-malformed
+                      ::ex/message "Token is not a access token or a refresh token."}))
+    (response/ok {})))
+
 (defroutes routes
   (GET "/platform/oauth/start" [] (wrap-cookies oauth-start {:decoder parse-cookie}))
   (POST "/platform/oauth/claim" [] claim-oauth-redirect)
   (POST "/platform/oauth/grant" [] (wrap-cookies oauth-grant-access {:decoder parse-cookie}))
-  (POST "/platform/oauth/token" [] oauth-token))
+  (POST "/platform/oauth/token" [] oauth-token)
+  (POST "/platform/oauth/revoke" [] revoke-oauth-token))
