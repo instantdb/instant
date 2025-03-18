@@ -198,11 +198,10 @@
 
 (defn -main [& _args]
   (binding [*print-namespace-maps* false]
-    (log/info "Starting")
+    (log/info "Initializing...")
     (let [{:keys [aead-keyset]} (config/init)]
       (crypt-util/init aead-keyset))
 
-    (log/info "Init tracer")
     (tracer/init)
 
     (with-log-init :uncaught-exception-handler
@@ -265,7 +264,7 @@
       (start))
     (with-log-init :shutdown-hook
       (add-shutdown-hook))
-    (log/info "Finished init")))
+    (log/info "Finished initializing")))
 
 (defn before-ns-unload []
   (stop))
