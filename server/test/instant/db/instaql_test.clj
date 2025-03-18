@@ -24,7 +24,9 @@
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.test :refer [instant-ex-data pretty-perm-q]]
    [rewrite-clj.zip :as z]
-   [zprint.core :as zprint])
+   [zprint.core :as zprint]
+   [instant.util.aws-signature :as aws-sig]
+   [instant.model.app-file :as app-file])
   (:import
    (java.time Instant)
    (java.util UUID)))
@@ -2482,7 +2484,7 @@
          '({:topics ([:av _ #{:users/handle} #{"stopa"}]
                      [:av #{"eid-stepan-parunashvili"} #{:users/handle} #{"stopa"}]
                      --
-                    [:ea #{"eid-stepan-parunashvili"}
+                     [:ea #{"eid-stepan-parunashvili"}
                       #{:users/createdAt :users/email :users/id :users/fullName
                         :users/handle} _])
             :triples
@@ -4183,6 +4185,137 @@
           ;; 1 to fetch rules
           ;; 1 to preload entity maps
           (is (= 3 @query-count)))))))
+
+(defn query-object-tree [ctx q]
+  (instaql-nodes->object-tree ctx (iq/query ctx q)))
+
+(deftest files
+  (with-zeneca-app
+    (fn [app r]
+      (let [app-id (:id app)
+            user-id (resolvers/->uuid r "eid-stepan-parunashvili")
+            profile-attr-id (random-uuid)
+            _ (tx/transact! (aurora/conn-pool :write)
+                            (attr-model/get-by-app-id app-id)
+                            app-id
+                            [[:add-attr {:id profile-attr-id
+                                         :forward-identity [(random-uuid) "users" "profile"]
+                                         :reverse-identity [(random-uuid) "$files" "user"]
+                                         :unique? true
+                                         :index? false
+                                         :value-type :ref
+                                         :cardinality :one}]])
+
+            ;; Create a file
+            {file-id :id} (app-file/create!
+                           (aurora/conn-pool :write)
+                           {:app-id app-id
+                            :path "profile-pic.jpg"
+                            :location-id "profile-loc"
+                            :metadata {:size 1024
+                                       :content-type "image/jpeg"
+                                       :content-disposition "inline"}})
+
+            ;; Link the file to a user
+            _ (tx/transact! (aurora/conn-pool :write)
+                            (attr-model/get-by-app-id app-id)
+                            app-id
+                            [[:add-triple user-id profile-attr-id (str file-id)]])
+
+            ctx {:db {:conn-pool (aurora/conn-pool :read)}
+                 :app-id app-id
+                 :inference? true
+                 :attrs (attr-model/get-by-app-id app-id)}
+
+            expected-file {"url" "https://s3-redefed-url-for.aws.com/profile-loc",
+                           "content-type" "image/jpeg",
+                           "path" "profile-pic.jpg",
+                           "id" (str file-id)
+                           "key-version" 1,
+                           "location-id" "profile-loc",
+                           "content-disposition" "inline",
+                           "size" 1024}]
+
+        (with-redefs
+         [aws-sig/presign-s3-url (fn [{:keys [path]}]
+                                   (str "https://s3-redefed-url-for.aws.com/"
+                                        (last (.split path "/"))))]
+
+          (testing "full results"
+            (is (= [expected-file]
+                   (-> (query-object-tree
+                        ctx
+                        {:$files {}})
+                       (get "$files")
+                       vec)))
+            (is (= expected-file
+                   (-> (query-object-tree
+                        ctx
+                        {:users {:$ {:where {:handle "stopa"}}
+                                 :profile {}}})
+                       (get "users")
+                       first
+                       (get "profile"))))
+            (is (= expected-file
+                   (-> (query-object-tree
+                        ctx
+                        {:bookshelves {:$ {:where {:id (resolvers/->uuid r "eid-the-way-of-the-gentleman")}}
+                                       :users {:profile {}}}})
+
+                       (get "bookshelves")
+                       first
+                       (get "users")
+                       first
+                       (get "profile")))))
+
+          (testing "just url field"
+            (let [fields ["url"]
+                  expected-url-file (select-keys expected-file (conj fields "id"))]
+              (is (= [expected-url-file]
+                     (-> (query-object-tree
+                          ctx
+                          {:$files {:$ {:fields fields}}})
+                         (get "$files")
+                         vec)))
+              (is (= expected-url-file
+                     (-> (query-object-tree
+                          ctx
+                          {:users {:$ {:where {:handle "stopa"}}
+                                   :profile {:$ {:fields fields}}}})
+
+                         (get "users")
+                         first
+                         (get "profile"))))
+              (is (= expected-url-file
+                     (-> (query-object-tree
+                          ctx
+                          {:bookshelves {:$ {:where {:id (resolvers/->uuid r "eid-the-way-of-the-gentleman")}}
+                                         :users {:profile {:$ {:fields fields}}}}})
+
+                         (get "bookshelves")
+                         first
+                         (get "users")
+                         first
+                         (get "profile"))))))
+
+          (testing "explicitly asking for location-id works"
+            (let [fields ["url" "location-id"]
+                  expected-url-loc-file (select-keys expected-file (conj fields "id"))]
+              (is (= [expected-url-loc-file]
+                     (-> (query-object-tree
+                          ctx
+                          {:$files {:$ {:fields fields}}})
+                         (get "$files")
+                         vec)))))
+          (testing "skipping url works"
+            (let [fields ["path"]
+                  expected-url-loc-file (select-keys expected-file (conj fields "id"))]
+              (is (= [expected-url-loc-file]
+                     (-> (query-object-tree
+                          ctx
+                          {:$files {:$ {:fields fields}}})
+                         (get "$files")
+                         vec))))))))))
 
 (comment
   (test/run-tests *ns*))
