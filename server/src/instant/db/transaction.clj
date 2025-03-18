@@ -16,7 +16,9 @@
    [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid]
-   [next.jdbc :as next-jdbc]))
+   [next.jdbc :as next-jdbc])
+  (:import
+   (java.util Date)))
 
 (s/def ::add-triple-step
   (s/cat :op #{:add-triple} :triple ::triple-model/triple))
@@ -349,7 +351,7 @@
              grouped-tx-steps)
 
             tx (transaction-model/create! conn {:app-id app-id})]
-        (let [tx-created-at (java.util.Date/.toInstant (:created_at tx))]
+        (let [tx-created-at (Date/.toInstant (:created_at tx))]
           (e2e-tracer/start-invalidator-tracking! {:tx-id (:id tx)
                                                    :tx-created-at tx-created-at})
           (e2e-tracer/invalidator-tracking-step! {:tx-id (:id tx)

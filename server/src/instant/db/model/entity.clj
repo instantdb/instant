@@ -52,7 +52,7 @@
 
                 (and (= label "id")
                      include-server-created-at?)
-                (assoc "$serverCreatedAt" (Date. t)))))
+                (assoc "$serverCreatedAt" (Date. (long t))))))
           {}
           triples))
 

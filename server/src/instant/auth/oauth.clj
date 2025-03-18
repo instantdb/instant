@@ -7,6 +7,7 @@
    [instant.auth.jwt :as jwt]
    [instant.util.crypt]
    [instant.util.exception :as ex]
+   [instant.util.java :as java]
    [instant.util.json :as json]
    [instant.util.tracer :as tracer]
    [instant.util.url :as url])
@@ -74,9 +75,9 @@
                                  :body
                                  :id_token
                                  (string/split #"\.")
-                                 second
-                                 (#(.decode (java.util.Base64/getUrlDecoder) %))
-                                 String.
+                                 ^String (second)
+                                 ^bytes (->> (.decode (java.util.Base64/getUrlDecoder)))
+                                 (String.)
                                  (json/<-json true))
                          (catch IllegalArgumentException _e
                            (tracer/with-span! {:name "oauth/invalid-id_token"
@@ -203,25 +204,32 @@
     (catch Exception e
       (tracer/record-exception-span! e {:name "oauth/start-error"})))
   (tracer/record-info! {:name "oauth/start-refresh-worker"})
-  (def schedule (chime-core/chime-at (-> (chime-core/periodic-seq (Instant/now) (Duration/ofHours 1))
-                                         rest)
-                                     (fn [_time]
-                                       (for [endpoint (keys @discovery-endpoint-cache)]
-                                         (tracer/with-span! {:name "oauth/updating-discovery-endpoint"
-                                                             :endpoint endpoint}
-                                           (try
-                                             (let [data (fetch-discovery endpoint)]
-                                               (swap! discovery-endpoint-cache assoc endpoint data))
+  (def schedule
+    (chime-core/chime-at
+     (-> (chime-core/periodic-seq (Instant/now) (Duration/ofHours 1))
+         rest)
+     (fn [_time]
+       (for [endpoint (keys @discovery-endpoint-cache)]
+         (tracer/with-span! {:name "oauth/updating-discovery-endpoint"
+                             :endpoint endpoint}
+           (try
+             (let [data (fetch-discovery endpoint)]
+               (swap! discovery-endpoint-cache assoc endpoint data))
 
-                                             (catch Exception e
-                                               (tracer/record-exception-span! e {:name "oauth/refresh-error"})))))))))
+             (catch Exception e
+               (tracer/record-exception-span! e {:name "oauth/refresh-error"})))))))))
 
 (defn stop []
-  (when schedule
-    (.close schedule)))
+  (java/close schedule))
 
 (defn restart []
   (stop)
+  (start))
+
+(defn before-ns-unload []
+  (stop))
+
+(defn after-ns-reload []
   (start))
 
 (comment

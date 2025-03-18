@@ -11,7 +11,7 @@
    (com.auth0.jwt JWT)
    (com.auth0.jwt.algorithms Algorithm)
    (com.auth0.jwt.exceptions AlgorithmMismatchException JWTDecodeException SignatureVerificationException TokenExpiredException)
-   (com.auth0.jwt.interfaces ECDSAKeyProvider JWTVerifier RSAKeyProvider)
+   (com.auth0.jwt.interfaces DecodedJWT ECDSAKeyProvider JWTVerifier RSAKeyProvider)
    (java.security KeyFactory)
    (java.security.spec PKCS8EncodedKeySpec)
    (java.text SimpleDateFormat)
@@ -98,7 +98,7 @@
                     (ex/throw-oauth-err! (str "Unsupported signing algorithm " alg)))]
     (.build (JWT/require algorithm))))
 
-(defn verify-jwt [{:keys [jwks-uri ^String jwt]}]
+(defn verify-jwt ^DecodedJWT [{:keys [jwks-uri ^String jwt]}]
   (try
     (.verify (get-verifier {:jwks-uri jwks-uri :jwt jwt})
              jwt)

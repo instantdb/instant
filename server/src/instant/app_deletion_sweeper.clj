@@ -1,14 +1,15 @@
 (ns instant.app-deletion-sweeper
   (:require
    [chime.core :as chime-core]
-   [instant.util.tracer :as tracer]
-   [instant.model.app :as app-model]
-   [instant.jdbc.sql :as sql]
+   [instant.flags :as flags]
    [instant.grab :as grab]
+   [instant.jdbc.sql :as sql]
+   [instant.model.app :as app-model]
    [instant.util.date :as date-util]
-   [instant.flags :as flags])
+   [instant.util.java :as java]
+   [instant.util.tracer :as tracer])
   (:import
-   (java.time Duration Period)))
+   (java.time Duration Period ZonedDateTime)))
 
 ;; -------- 
 ;; Config 
@@ -25,7 +26,7 @@
                       (Period/ofDays 1))]
 
     (->> periodic-seq
-         (filter (fn [x] (.isAfter x now))))))
+         (filter (fn [x] (ZonedDateTime/.isAfter x now))))))
 
 (comment
   (first (period)))
@@ -61,11 +62,12 @@
 
 (defn start []
   (tracer/record-info! {:name "app-deletion-sweeper/schedule"})
-  (def schedule (chime-core/chime-at (period) handle-sweep)))
+  (def schedule
+    (chime-core/chime-at (period) handle-sweep)))
 
 (defn stop []
   (tracer/record-info! {:name "app-deletion-sweeper/stop"})
-  (.close schedule))
+  (java/close schedule))
 
 (defn before-ns-unload []
   (stop))

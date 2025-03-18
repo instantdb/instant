@@ -125,35 +125,37 @@
 
 (defn start []
   (tracer/record-info! {:name "server/start" :attributes {:port (config/get-server-port)}})
-  (def server ^Undertow (undertow-adapter/run-undertow
-                         (handler)
-                         (merge
-                          {:host "0.0.0.0"
-                           :port (config/get-server-port)
-                           :configurator (fn [^Undertow$Builder builder]
-                                           (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}
-                          (when (.exists (io/file "dev-resources/certs/dev.jks"))
-                            {:ssl-port 8889
-                             :keystore "dev-resources/certs/dev.jks"
-                             :key-password "changeit"}))))
-  (def stop-gauge (gauges/add-gauge-metrics-fn
-                   (fn [_]
-                     (let [^Undertow server server
-                           ^Undertow$ListenerInfo listener (some-> server
-                                                                   (.getListenerInfo)
-                                                                   first)]
-                       (when-let [stats (some-> listener
-                                                (.getConnectorStatistics))]
-                         [{:path "instant.server.active-connections"
-                           :value (.getActiveConnections stats)}
-                          {:path "instant.server.active-requests"
-                           :value (.getActiveRequests stats)}
-                          {:path "instant.server.max-active-connections"
-                           :value (.getMaxActiveConnections stats)}
-                          {:path "instant.server.max-active-requests"
-                           :value (.getMaxActiveRequests stats)}
-                          {:path "instant.server.max-processing-time"
-                           :value (.getMaxProcessingTime stats)}]))))))
+  (def ^Undertow server
+    (undertow-adapter/run-undertow
+     (handler)
+     (merge
+      {:host "0.0.0.0"
+       :port (config/get-server-port)
+       :configurator (fn [^Undertow$Builder builder]
+                       (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}
+      (when (.exists (io/file "dev-resources/certs/dev.jks"))
+        {:ssl-port 8889
+         :keystore "dev-resources/certs/dev.jks"
+         :key-password "changeit"}))))
+  (def stop-gauge
+    (gauges/add-gauge-metrics-fn
+     (fn [_]
+       (let [^Undertow server server
+             ^Undertow$ListenerInfo listener (some-> server
+                                                     (.getListenerInfo)
+                                                     first)]
+         (when-let [stats (some-> listener
+                                  (.getConnectorStatistics))]
+           [{:path "instant.server.active-connections"
+             :value (.getActiveConnections stats)}
+            {:path "instant.server.active-requests"
+             :value (.getActiveRequests stats)}
+            {:path "instant.server.max-active-connections"
+             :value (.getMaxActiveConnections stats)}
+            {:path "instant.server.max-active-requests"
+             :value (.getMaxActiveRequests stats)}
+            {:path "instant.server.max-processing-time"
+             :value (.getMaxProcessingTime stats)}]))))))
 
 (defn stop []
   (when (bound? #'server)
@@ -165,19 +167,26 @@
   (stop)
   (start))
 
+(defn shutdown-hook []
+  (println "shutdown-hook")
+  (tracer/record-info! {:name "shut-down"})
+  (tracer/with-span! {:name "stop-server"}
+    (stop))
+  (doseq [fut [(future (tracer/with-span! {:name "stop-invalidator"}
+                         (inv/stop-global)))
+               (future (tracer/with-span! {:name "stop-ephemeral"}
+                         (eph/stop)))
+               (future (tracer/with-span! {:name "stop-indexing-jobs"}
+                         (indexing-jobs/stop)))]]
+    (deref fut)))
+
 (defn add-shutdown-hook []
-  (.addShutdownHook (Runtime/getRuntime)
-                    (Thread. (fn []
-                               (tracer/record-info! {:name "shut-down"})
-                               (tracer/with-span! {:name "stop-server"}
-                                 (stop))
-                               (doseq [fut [(future (tracer/with-span! {:name "stop-invalidator"}
-                                                      (inv/stop-global)))
-                                            (future (tracer/with-span! {:name "stop-ephemeral"}
-                                                      (eph/stop)))
-                                            (future (tracer/with-span! {:name "stop-indexing-jobs"}
-                                                      (indexing-jobs/stop)))]]
-                                 (deref fut))))))
+  (.addShutdownHook
+   (Runtime/getRuntime)
+   (Thread.
+    (fn []
+      (when-some [f (resolve 'instant.core/shutdown-hook)]
+        (@f))))))
 
 (defmacro with-log-init [operation & body]
   `(do
@@ -225,7 +234,7 @@
     (with-log-init :invalidator
       (inv/start-global))
     (with-log-init :wal
-      (wal/init))
+      (wal/start))
 
     (when-let [config-app-id (config/instant-config-app-id)]
       (with-log-init :flags

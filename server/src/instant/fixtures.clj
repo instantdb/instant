@@ -44,14 +44,14 @@
          (when (= :timeout (deref process# 1000 :timeout))
            (throw (Exception. "Timeout in with-queue")))))))
 
-(defn report-warn-io [file e]
+(defn report-warn-io [^String file e]
   (let [target-file-name (some-> file
                                  (File.)
                                  (.getName))
-        stack-line (some-> (ucoll/seek (fn [frame]
+        stack-line (some-> (ucoll/seek (fn [^StackTraceElement frame]
                                          (= target-file-name (.getFileName frame)))
                                        (.getStackTrace (Thread/currentThread)))
-                           (.getLineNumber))]
+                           (StackTraceElement/.getLineNumber))]
     (report {:type :fail
              :message "something is doing IO when it shouldn't"
              :expected nil

@@ -2,18 +2,18 @@
   "Job to ping discord with daily active metrics. We also use this job to
   populate the daily_app_transactions table with new transactions."
   (:require
-   [instant.jdbc.aurora :as aurora]
-   [instant.util.date :as date]
-   [clojure.tools.logging :as log]
-   [instant.discord :as discord]
    [chime.core :as chime-core]
-   [instant.flags :refer [get-emails]]
+   [clojure.tools.logging :as log]
    [instant.config :as config]
-   [instant.jdbc.sql :as sql]
+   [instant.discord :as discord]
+   [instant.flags :refer [get-emails]]
    [instant.grab :as grab]
-   [instant.intern.metrics :as metrics])
+   [instant.intern.metrics :as metrics]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.util.date :as date]
+   [instant.util.java :as java])
   (:import
-   (java.lang AutoCloseable)
    (java.time Instant Period LocalDate DayOfWeek ZonedDateTime)))
 
 (defn excluded-emails []
@@ -143,11 +143,11 @@
 
 (defn start []
   (log/info "Starting daily metrics daemon")
-  (def schedule (chime-core/chime-at (period) daily-job!)))
+  (def schedule
+    (chime-core/chime-at (period) daily-job!)))
 
 (defn stop []
-  (when (bound? #'schedule)
-    (AutoCloseable/.close schedule)))
+  (java/close schedule))
 
 (defn restart []
   (stop)

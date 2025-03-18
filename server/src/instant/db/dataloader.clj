@@ -26,7 +26,7 @@
                   :schedule-delay (or schedule-delay
                                       (delay
                                         (ua/vfuture
-                                         (Thread/sleep delay-ms)
+                                         (Thread/sleep (long delay-ms))
                                          (run-batch! dataloader-opts k))))}))
         schedule-delay (get-in v [k :schedule-delay])]
     @schedule-delay))

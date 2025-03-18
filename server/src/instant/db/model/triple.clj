@@ -817,7 +817,9 @@
   (.toInstant (ZonedDateTime/parse s)))
 
 (defn local-date-time-str->instant [s]
-  (.toInstant (LocalDateTime/parse s)))
+  (-> (LocalDateTime/parse s)
+      (.atZone ZoneOffset/UTC)
+      (.toInstant)))
 
 (defn local-date-str->instant [s]
   (-> (LocalDate/parse s)
@@ -865,7 +867,7 @@
                    nil))]
     (date-str->instant s)))
 
-(defn parse-date-value [x]
+(defn parse-date-value ^Instant [x]
   (cond (string? x)
         (or (date-str->instant x)
             (json-str->instant x)

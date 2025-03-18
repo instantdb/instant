@@ -38,7 +38,7 @@
    [next.jdbc.connection :refer [jdbc-url]])
   (:import
    (java.nio ByteBuffer)
-   (java.sql DriverManager)
+   (java.sql Connection DriverManager)
    (java.time Duration Instant)
    (java.util Properties)
    (java.util.concurrent TimeUnit)
@@ -326,10 +326,15 @@
              (throw (Exception. "shutdown-fn already set for wal worker"))
              shutdown-fn))))
 
+(defn closed? [o]
+  (case (class o)
+    Connection (Connection/.isClosed o)
+    PGReplicationStream (PGReplicationStream/.isClosed o)))
+
 (defn close-nicely [closeable]
-  (when-not (.isClosed closeable)
-    (let [close-error (try (.close closeable) (catch Exception e e))]
-      (when-not (.isClosed closeable)
+  (when-not (closed? closeable)
+    (let [close-error (try (java/close closeable) (catch Exception e e))]
+      (when-not (closed? closeable)
         (throw (ex-info "Unable to close" {} close-error))))))
 
 (defn alert-discord [slot-name]
@@ -438,7 +443,7 @@
                                      {:name "wal-worker/shutdown-called-before-startup"
                                       :escaping? false}))))
 
-(defn init []
+(defn start []
   (def cleanup-slots-schedule
     (chime-core/chime-at
      (chime-core/periodic-seq (Instant/now) (Duration/ofHours 1))
@@ -450,16 +455,17 @@
          (let [conn-pool      (aurora/conn-pool :read)
                inactive-slots (get-inactive-replication-slots conn-pool)]
            (when (seq inactive-slots)
-             (chime-core/chime-at
-              [(.plusSeconds (Instant/now) 300)]
-              (fn [_time]
-                (tracer/with-span! {:name "wal/cleanup-inactive-slots"}
-                  (let [slot-names (map :slot_name inactive-slots)
-                        removed    (cleanup-inactive-replication-slots (aurora/conn-pool :write) slot-names)
-                        cleaned    (set (map :slot_name removed))
-                        uncleaned  (remove #(contains? cleaned %) slot-names)]
-                    (tracer/add-data! {:attributes {:cleaned-slot-names cleaned
-                                                    :active-uncleaned-slots uncleaned}})))))))
+             (def cleanup-slots-impl
+               (chime-core/chime-at
+                [(.plusSeconds (Instant/now) 300)]
+                (fn [_time]
+                  (tracer/with-span! {:name "wal/cleanup-inactive-slots"}
+                    (let [slot-names (map :slot_name inactive-slots)
+                          removed    (cleanup-inactive-replication-slots (aurora/conn-pool :write) slot-names)
+                          cleaned    (set (map :slot_name removed))
+                          uncleaned  (remove #(contains? cleaned %) slot-names)]
+                      (tracer/add-data! {:attributes {:cleaned-slot-names cleaned
+                                                      :active-uncleaned-slots uncleaned}}))))))))
          (catch Exception e
            (tracer/record-exception-span! e {:name "wal/cleanup-error"
                                              :escaping? false}))))))
@@ -475,12 +481,16 @@
            (catch Exception e
              (tracer/record-exception-span! e {:name "wal/check-latency-error"
                                                :escaping? false}))))))
-    (def cleanup-gauge (gauges/add-gauge-metrics-fn (fn [_]
-                                                      [{:path "instant.jdb.wal.replication-latency-bytes"
-                                                        :value @replication-latency-bytes}])))))
+
+    (def cleanup-gauge
+      (gauges/add-gauge-metrics-fn
+       (fn [_]
+         [{:path "instant.jdb.wal.replication-latency-bytes"
+           :value @replication-latency-bytes}])))))
 
 (defn stop []
   (java/close cleanup-slots-schedule)
+  (java/close cleanup-slots-impl)
   (java/close latency-schedule)
   (cleanup-gauge))
 
@@ -488,7 +498,7 @@
   (stop))
 
 (defn after-ns-reload []
-  (init))
+  (start))
 
 (comment
   (def shutdown? (atom false))

@@ -6,7 +6,7 @@
   (:import
    (java.time Instant)
    (java.time.temporal ChronoUnit)
-   (java.util Base64)))
+   (java.util Base64 Date)))
 
 (def etype "$oauthCodes")
 
@@ -65,7 +65,7 @@
       "S256" (try
                (let [verifier-bytes (crypt-util/str->sha256 verifier)
                      challenge-bytes (.decode (Base64/getUrlDecoder)
-                                              code_challenge)]
+                                              ^String code_challenge)]
                  (if (crypt-util/constant-bytes= verifier-bytes
                                                  challenge-bytes)
                    oauth-code
@@ -82,7 +82,7 @@
 (defn expired?
   ([oauth-redirect] (expired? (Instant/now) oauth-redirect))
   ([now {created-at :created_at}]
-   (> (.between ChronoUnit/MINUTES (.toInstant created-at) now) 5)))
+   (> (.between ChronoUnit/MINUTES (Date/.toInstant created-at) now) 5)))
 
 (defn consume!
   "Gets and deletes the oauth-code so that it can be used only once."

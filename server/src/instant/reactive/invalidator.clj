@@ -338,13 +338,14 @@
 (defn- store-snapshot [store app-id]
   (rs/->ReactiveStore
    (ds/conn-from-db @(:sessions store))
-   (ConcurrentHashMap. (if-let [conn (some-> store
-                                             :conns
-                                             (Map/.get app-id)
-                                             deref
-                                             ds/conn-from-db)]
-                         {app-id conn}
-                         {}))))
+   (^[Map] ConcurrentHashMap/new
+    (if-let [conn (some-> store
+                          :conns
+                          (Map/.get app-id)
+                          deref
+                          ds/conn-from-db)]
+      {app-id conn}
+      {}))))
 
 (defn wal-latency-ms [{:keys [tx-created-at]}]
   (when tx-created-at

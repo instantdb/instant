@@ -30,7 +30,7 @@
 
 (defn lookup? [eid]
   (and (string? eid)
-       (.startsWith eid "lookup__")))
+       (string/starts-with? eid "lookup__")))
 
 (defn parse-lookup [^String k]
   (let [[_ eid & json-parts] (.split k "__")]
@@ -65,7 +65,7 @@
 (defn ref-lookup? [attrs etype [ident-name _value]]
   ;; attr names can have `.` in them, so check for the attr with a `.` before
   ;; assuming it's a ref
-  (and (not= (.indexOf ident-name ".") -1)
+  (and (string/index-of ident-name ".")
        (not (attr-model/seek-by-fwd-ident-name [etype ident-name] attrs))))
 
 (defn extract-ref-lookup-fwd-name [lookup]

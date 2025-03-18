@@ -1,20 +1,21 @@
 (ns instant.stripe
   (:require
    [instant.config :as config]
-   [ring.util.http-response :as response]
-   [instant.model.instant-subscription :as instant-subscription-model]
-   [instant.postmark :as postmark]
    [instant.discord :as discord]
-   [instant.util.json :refer [<-json]]
-   [ring.util.request :refer [body-string]]
+   [instant.model.app :as app-model]
+   [instant.model.instant-subscription :as instant-subscription-model]
    [instant.model.instant-user :as instant-user-model]
-   [instant.util.tracer :as tracer]
+   [instant.postmark :as postmark]
    [instant.util.exception :as ex]
-   [instant.model.app :as app-model])
-  (:import (com.stripe Stripe StripeClient)
-           (com.stripe.model Event)
-           (com.stripe.net RequestOptions Webhook)
-           (com.stripe.param SubscriptionListParams)))
+   [instant.util.json :refer [<-json]]
+   [instant.util.tracer :as tracer]
+   [ring.util.http-response :as response]
+   [ring.util.request :refer [body-string]])
+  (:import
+   (com.stripe Stripe StripeClient)
+   (com.stripe.model Discount Event Subscription SubscriptionItem)
+   (com.stripe.net RequestOptions Webhook)
+   (com.stripe.param SubscriptionListParams)))
 
 (def FREE_SUBSCRIPTION_TYPE 1)
 (def PRO_SUBSCRIPTION_TYPE 2)
@@ -122,7 +123,7 @@
 
 ;; Admin Helpers
 
-(defn item-monthly-revenue [item]
+(defn item-monthly-revenue [^SubscriptionItem item]
   (let [recurring (-> item
                       (.getPrice)
                       (.getRecurring))
@@ -137,7 +138,7 @@
                   (.getUnitAmount))]
     (* multiple price)))
 
-(defn discount-amount [items-revenue discount]
+(defn discount-amount [items-revenue ^Discount discount]
   (let [amount-off (-> discount
                        (.getCoupon)
                        (.getAmountOff)
@@ -150,7 +151,7 @@
        (* percent-off (max 0
                            (- items-revenue amount-off))))))
 
-(defn format-subscription [subscription]
+(defn format-subscription [^Subscription subscription]
   (let [items (.getData (.getItems subscription))
         items-revenue (reduce + (map item-monthly-revenue items))
         discount (reduce + (map (partial discount-amount items-revenue)
@@ -164,7 +165,7 @@
   (let [params (-> (SubscriptionListParams/builder)
                    (.addExpand "data.discounts")
                    (.build))]
-    (-> (StripeClient. (config/stripe-secret))
+    (-> (StripeClient. ^String (config/stripe-secret))
         (.subscriptions)
         (.list params (RequestOptions/getDefault))
         (.autoPagingIterable)
