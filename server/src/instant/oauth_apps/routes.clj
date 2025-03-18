@@ -27,6 +27,65 @@
 ;; DDD: Apply some of these rules to the redirect uri
 ;; https://developers.google.com/identity/protocols/oauth2/web-server#uri-validation
 
+(defn oauth-error-page
+  "Used when we need to show the user an error page, e.g. the user is sent to an authorization
+   URL without a client_id."
+  [error]
+  {:status 400
+   :headers {"content-type" "text/html"}
+   :body (str (h/html (h/raw "<!DOCTYPE html>")
+                      [:html {:lang "en"}
+                       [:head
+                        [:meta {:charset "UTF-8"}]
+                        [:meta {:name "viewport"
+                                :content "width=device-width, initial-scale=1.0"}]
+
+                        [:title "OAuth error"]
+                        [:style "
+                           body {
+                             margin: 0;
+                             height: 100vh;
+                             display: flex;
+                             justify-content: center;
+                             align-items: center;
+                             background-color: white;
+                             flex-direction: column;
+                             font-family: sans-serif;
+                           }
+
+                           a.button {
+                             text-decoration: none;
+                             padding: 15px 30px;
+                             font-size: 18px;
+                             border-radius: 5px;
+                             font-family: sans-serif;
+                             text-align: center;
+                           }
+
+                           a {
+                             cursor: pointer;
+                           }
+
+                           @media (prefers-color-scheme: dark) {
+                             body {
+                               background-color: black;
+                             }
+                             a.button {
+                               color: black;
+                               background-color: white;
+                             }
+                           }
+
+                           @media (prefers-color-scheme: light) {
+                             a.button {
+                               color: white;
+                               background-color: black;
+                             }
+                           }"]]
+                       [:body
+                        [:p "There was an error with your OAuth request."]
+                        [:p error]]]))})
+
 (defn oauth-start [req]
   (tracer/add-data! {:attributes (select-keys (:params req)
                                               [:client_id
@@ -34,120 +93,124 @@
                                                :reponse_type
                                                :scope
                                                :code_challenge_method])})
-  (let [client-id (ex/get-param! req
-                                 [:params :client_id]
-                                 uuid-util/coerce)
-        redirect-uri (ex/get-param! req
-                                    [:params :redirect_uri]
-                                    url/coerce-web-url)
-        response-type (ex/get-param! req
-                                     [:params :response_type]
+  (try
+    (let [client-id (ex/get-param! req
+                                   [:params :client_id]
+                                   uuid-util/coerce)
+          redirect-uri (ex/get-param! req
+                                      [:params :redirect_uri]
+                                      string-util/coerce-non-blank-str)
+          response-type (ex/get-param! req
+                                       [:params :response_type]
+                                       string-util/coerce-non-blank-str)
+
+          scope-input (ex/get-param! req
+                                     [:params :scope]
                                      string-util/coerce-non-blank-str)
 
-        scope-input (ex/get-param! req
-                                   [:params :scope]
-                                   string-util/coerce-non-blank-str)
+          requested-scopes (let [scopes (string/split scope-input #" ")]
+                             (when-not (seq scopes)
+                               (ex/throw+ {::ex/type ::ex/param-malformed
+                                           ::ex/message "The scope param must specify at least one scope"}))
+                             (keep (fn [scope]
+                                     (if (contains? oauth-app-model/all-scopes scope)
+                                       scope
+                                       (ex/throw+ {::ex/type ::ex/param-malformed
+                                                   ::ex/message (format "Invalid scope %s" scope)
+                                                   ::ex/hint {:scope-input scope-input
+                                                              :invalid-scope scope}})))
+                                   scopes))
 
-        requested-scopes (let [scopes (string/split scope-input #" ")]
-                           (when-not (seq scopes)
-                             (ex/throw+ {::ex/type ::ex/param-malformed
-                                         ::ex/message "scope param must specify at least one scope"}))
-                           (keep (fn [scope]
-                                   (if (contains? oauth-app-model/all-scopes scope)
-                                     scope
-                                     (ex/throw+ {::ex/type ::ex/param-malformed
-                                                 ::ex/message (format "invalid scope %s" scope)
-                                                 ::ex/hint {:scope-input scope-input
-                                                            :invalid-scope scope}})))
-                                 scopes))
+          state (ex/get-param! req
+                               [:params :state]
+                               string-util/coerce-non-blank-str)
 
-        state (ex/get-param! req
-                             [:params :state]
-                             string-util/coerce-non-blank-str)
+          code-challenge (ex/get-optional-param! req
+                                                 [:params :code_challenge]
+                                                 string-util/coerce-non-blank-str)
 
-        code-challenge (ex/get-optional-param! req
-                                               [:params :code_challenge]
-                                               string-util/coerce-non-blank-str)
+          code-challenge-method (ex/get-optional-param! req
+                                                        [:params :code_challenge_method]
+                                                        (fn [s]
+                                                          (when (contains? #{"S256" "plain"} s)
+                                                            s)))
 
-        code-challenge-method (ex/get-optional-param! req
-                                                      [:params :code_challenge_method]
-                                                      (fn [s]
-                                                        (when (contains? #{"S256" "plain"} s)
-                                                          s)))
+          _ (ex/assert-valid! :code-challenge
+                              code-challenge
+                              (when (and code-challenge-method
+                                         (not code-challenge))
+                                ["The code_challenge param must be provided when code_challenge_method is provided"]))
 
-        _ (ex/assert-valid! :code-challenge
-                            code-challenge
-                            (when (and code-challenge-method
-                                       (not code-challenge))
-                              ["code_challenge must be provided when code_challenge_method is provided"]))
+          _ (ex/assert-valid! :code-challenge-method
+                              code-challenge-method
+                              (when (and code-challenge
+                                         (not code-challenge-method))
+                                ["The code_challenge_method param must be provided when code_challenge is provided"]))
 
-        _ (ex/assert-valid! :code-challenge-method
-                            code-challenge-method
-                            (when (and code-challenge
-                                       (not code-challenge-method))
-                              ["code_challenge_method must be provided when code_challenge is provided"]))
+          {oauth-app :instant_oauth_apps
+           oauth-client :instant_oauth_app_clients}
+          (oauth-app-model/get-client-and-app-by-client-id! {:client-id client-id})
 
-        {oauth-app :instant_oauth_apps
-         oauth-client :instant_oauth_app_clients}
-        (oauth-app-model/get-client-and-app-by-client-id! {:client-id client-id})
+          _ (tracer/add-data! {:attributes {:oauth-app-id (:id oauth-app)
+                                            :oauth-app-app-id (:app_id oauth-app)}})
 
-        _ (tracer/add-data! {:attributes {:oauth-app-id (:id oauth-app)
-                                          :oauth-app-app-id (:app_id oauth-app)}})
+          _ (ex/assert-valid!
+             :scope
+             scope-input
+             (when (:is_public oauth-app)
+               (let [granted-scopes (set (:granted_scopes oauth-app))
+                     invalid-scopes (filter (fn [scope]
+                                              (not (contains? granted-scopes
+                                                              scope)))
+                                            requested-scopes)]
+                 (when (seq invalid-scopes)
+                   [(format "this OAuth app has not been granted the %s scopes"
+                            (string-util/join-in-sentence invalid-scopes))]))))
 
-        _ (ex/assert-valid!
-           :scope
-           scope-input
-           (when (:is_public oauth-app)
-             (let [granted-scopes (set (:granted_scopes oauth-app))
-                   invalid-scopes (filter (fn [scope]
-                                            (not (contains? granted-scopes
-                                                            scope)))
-                                          requested-scopes)]
-               (when (seq invalid-scopes)
-                 [(format "this OAuth app has not been granted the %s scopes"
-                          (string-util/join-in-sentence invalid-scopes))]))))
+          _ (ex/assert-valid! :redirect_uri
+                              redirect-uri
+                              (when-not (ucoll/exists?
+                                         (fn [u] (= redirect-uri u))
+                                         (:authorized_redirect_urls oauth-client))
+                                ["The redirect_uri does not appear in the set of authorized redirect uri for the OAuth client."]))
 
-        _ (ex/assert-valid! :redirect_uri
-                            redirect-uri
-                            (when-not (ucoll/exists?
-                                       (fn [u] (= redirect-uri u))
-                                       (:authorized_redirect_urls oauth-client))
-                              ;; DDD: Note about how to fix
-                              ["Invalid redirect_uri."]))
+          _ (ex/assert-valid! :redirect_uri
+                              redirect-uri
+                              (url/redirect-url-validation-errors
+                               redirect-uri
+                               :allow-localhost? (not (:is_public oauth-app))))
 
-        _ (ex/assert-valid! :redirect_uri
-                            redirect-uri
-                            (url/redirect-url-validation-errors
-                             redirect-uri
-                             :allow-localhost? (not (:is_public oauth-app))))
+          cookie (random-uuid)
+          cookie-expires (java.util.Date. (+ (.getTime (java.util.Date.))
+                                             ;; 1 hour
+                                             (* 1000 60 60)))
+          redirect-id (random-uuid)
 
-        cookie (random-uuid)
-        cookie-expires (java.util.Date. (+ (.getTime (java.util.Date.))
-                                           ;; 1 hour
-                                           (* 1000 60 60)))
-        redirect-id (random-uuid)
+          dash-url (url/add-query-params (str (config/dashboard-origin) "/platform/oauth/start")
+                                         {:redirect-id redirect-id})]
 
-        dash-url (url/add-query-params (str (config/dashboard-origin) "/platform/oauth/start")
-                                       {:redirect-id redirect-id})]
+      (oauth-app-model/create-redirect {:redirect-id redirect-id
+                                        :client-id (:client_id oauth-client)
+                                        :state state
+                                        :cookie cookie
+                                        :redirect-uri redirect-uri
+                                        :scopes requested-scopes
+                                        :code-challenge-method code-challenge-method
+                                        :code-challenge code-challenge})
 
-    (oauth-app-model/create-redirect {:redirect-id redirect-id
-                                      :client-id (:client_id oauth-client)
-                                      :state state
-                                      :cookie cookie
-                                      :redirect-uri redirect-uri
-                                      :scopes requested-scopes
-                                      :code-challenge-method code-challenge-method
-                                      :code-challenge code-challenge})
-
-    (-> (response/found dash-url)
-        (response/set-cookie cookie-name
-                             (format-cookie cookie)
-                             {:http-only true
-                              :secure (not= :dev (config/get-env))
-                              :expires cookie-expires
-                              :path "/platform/oauth"
-                              ;; access cookie on redirect
-                              :same-site :lax}))))
+      (-> (response/found dash-url)
+          (response/set-cookie cookie-name
+                               (format-cookie cookie)
+                               {:http-only true
+                                :secure (not= :dev (config/get-env))
+                                :expires cookie-expires
+                                :path "/platform/oauth"
+                                ;; access cookie on redirect
+                                :same-site :lax})))
+    (catch clojure.lang.ExceptionInfo e
+      (if-let [msg (-> e ex-data ::ex/message)]
+        (oauth-error-page msg)
+        (throw e)))))
 
 (defn claim-oauth-redirect [req]
   (let [user (req->auth-user! req)
@@ -189,46 +252,60 @@
                   :grantToken (:grant_token redirect)})))
 
 (defn oauth-grant-access [req]
-  (let [redirect-id (ex/get-param! req
-                                   [:params :redirect_id]
-                                   uuid-util/coerce)
+  (try
+    (let [redirect-id (ex/get-param! req
+                                     [:params :redirect_id]
+                                     uuid-util/coerce)
 
-        grant-token (ex/get-param! req
-                                   [:params :grant_token]
-                                   uuid-util/coerce)
-        redirect (oauth-app-model/grant-redirect! {:redirect-id redirect-id
-                                                   :grant-token grant-token})
+          grant-token (ex/get-param! req
+                                     [:params :grant_token]
+                                     uuid-util/coerce)
+          redirect (oauth-app-model/grant-redirect! {:redirect-id redirect-id
+                                                     :grant-token grant-token})]
+      (try
+        (let [{oauth-app :instant_oauth_apps
+               oauth-client :instant_oauth_app_clients}
+              (oauth-app-model/get-client-and-app-by-client-id! {:client-id (:client_id redirect)})
 
-        {oauth-app :instant_oauth_apps
-         oauth-client :instant_oauth_app_clients}
-        (oauth-app-model/get-client-and-app-by-client-id! {:client-id (:client_id redirect)})
+              _ (tracer/add-data! {:attributes {:oauth-app-id (:id oauth-app)
+                                                :oauth-app-app-id (:app_id oauth-app)
+                                                :oauth-client-id (:client_id oauth-client)}})
 
-        _ (tracer/add-data! {:attributes {:oauth-app-id (:id oauth-app)
-                                          :oauth-app-app-id (:app_id oauth-app)
-                                          :oauth-client-id (:client_id oauth-client)}})
+              cookie-param (get-in req [:cookies cookie-name :value])
 
-        cookie-param (get-in req [:cookies cookie-name :value])
+              _ (when (not cookie-param)
+                  (ex/throw+ {::ex/type ::ex/param-missing
+                              ::ex/message "Missing cookie."}))
 
-        _ (when (not cookie-param)
-            (ex/throw+ {::ex/type ::ex/param-missing
-                        ::ex/message "Missing cookie."}))
+              _ (when (not (crypt-util/constant-uuid= cookie-param (:cookie redirect)))
+                  (ex/throw+ {::ex/type ::ex/param-missing
+                              ::ex/message "Invalid cookie."}))
 
-        _ (when (not (crypt-util/constant-uuid= cookie-param (:cookie redirect)))
-            (ex/throw+ {::ex/type ::ex/param-missing
-                        ::ex/message "Invalid cookie."}))
-
-        code (random-uuid)
-        code-record (oauth-app-model/create-code {:code code
-                                                  :client-id (:client_id redirect)
-                                                  :redirect-uri (:redirect_uri redirect)
-                                                  :user-id (:user_id redirect)
-                                                  :scopes (:scopes redirect)
-                                                  :code-challenge (:code_challenge redirect)
-                                                  :code-challenge-method (:code_challenge_method redirect)})]
-    (response/found (url/add-query-params (:redirect_uri code-record)
-                                          {:code code
-                                           :state (:state redirect)
-                                           :scope (clojure.string/join " " (:scopes code-record))}))))
+              code (random-uuid)
+              code-record (oauth-app-model/create-code {:code code
+                                                        :client-id (:client_id redirect)
+                                                        :redirect-uri (:redirect_uri redirect)
+                                                        :user-id (:user_id redirect)
+                                                        :scopes (:scopes redirect)
+                                                        :code-challenge (:code_challenge redirect)
+                                                        :code-challenge-method (:code_challenge_method redirect)})]
+          (response/found (url/add-query-params (:redirect_uri code-record)
+                                                {:code code
+                                                 :state (:state redirect)
+                                                 :scope (clojure.string/join " " (:scopes code-record))})))
+        (catch clojure.lang.ExceptionInfo e
+          (if-let [msg (-> e ex-data ::ex/message)]
+            (response/found (url/add-query-params (:redirect_uri redirect)
+                                                  {:error (case (-> e ex-data ::ex/type)
+                                                            (::ex/param-missing
+                                                             ::ex/param-malformed) "invalid_request"
+                                                            "server_error")
+                                                   :error_description msg}))
+            (throw e)))))
+    (catch clojure.lang.ExceptionInfo e
+      (if-let [msg (-> e ex-data ::ex/message)]
+        (oauth-error-page msg)
+        (throw e)))))
 
 (defn oauth-deny-access [req]
   (let [redirect-id (ex/get-param! req
@@ -259,7 +336,7 @@
   [client-id req-params]
   (let [redirect-uri (ex/get-param! req-params
                                     [:redirect_uri]
-                                    url/coerce-web-url)
+                                    string-util/coerce-non-blank-str)
         code-param (ex/get-param! req-params
                                   [:code]
                                   uuid-util/coerce)
@@ -307,7 +384,7 @@
   [oauth-client req-params]
   (let [redirect-uri (ex/get-param! req-params
                                     [:redirect_uri]
-                                    url/coerce-web-url)
+                                    string-util/coerce-non-blank-str)
         code (ex/get-param! req-params
                             [:code]
                             uuid-util/coerce)
