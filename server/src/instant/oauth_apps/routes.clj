@@ -37,13 +37,22 @@
                                      [:params :response_type]
                                      string-util/coerce-non-blank-str)
 
-        scope (ex/get-param! req
-                             [:params :scope]
-                             string-util/coerce-non-blank-str)
+        scope-input (ex/get-param! req
+                                   [:params :scope]
+                                   string-util/coerce-non-blank-str)
 
-        ;; DDD: Validate scopes
-        ;;;     Have to do extra to validate that the scopes are
-        ;;      included in the app's granted_scopes
+        requested-scopes (let [scopes (string/split scope-input #" ")]
+                           (when-not (seq scopes)
+                             (ex/throw+ {::ex/type ::ex/param-malformed
+                                         ::ex/message "scope param must specify at least one scope"}))
+                           (keep (fn [scope]
+                                   (if (contains? oauth-app-model/all-scopes scope)
+                                     scope
+                                     (ex/throw+ {::ex/type ::ex/param-malformed
+                                                 ::ex/message (format "invalid scope %s" scope)
+                                                 ::ex/hint {:scope-input scope-input
+                                                            :invalid-scope scope}})))
+                                 scopes))
 
         state (ex/get-param! req
                              [:params :state]
@@ -75,6 +84,19 @@
          oauth-client :instant_oauth_app_clients}
         (oauth-app-model/get-client-and-app-by-client-id! {:client-id client-id})
 
+        _ (ex/assert-valid!
+           :scope
+           scope-input
+           (when (:is_public oauth-app)
+             (let [granted-scopes (set (:granted_scopes oauth-app))
+                   invalid-scopes (filter (fn [scope]
+                                            (not (contains? granted-scopes
+                                                            scope)))
+                                          requested-scopes)]
+               (when (seq invalid-scopes)
+                 [(format "this OAuth app has not been granted the %s scopes"
+                          (string-util/join-in-sentence invalid-scopes))]))))
+
         _ (ex/assert-valid! :redirect_uri
                             redirect-uri
                             (when-not (ucoll/exists?
@@ -94,8 +116,7 @@
                                                    :state state
                                                    :cookie cookie
                                                    :redirect-uri redirect-uri
-                                                   ;; DDD
-                                                   :scopes (string/split scope #" ")
+                                                   :scopes requested-scopes
                                                    :code-challenge-method code-challenge-method
                                                    :code-challenge code-challenge})
 

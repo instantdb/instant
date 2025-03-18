@@ -16,6 +16,9 @@
 (def apps-read-scope "apps-read")
 (def apps-write-scope "apps-write")
 
+(def all-scopes (set [apps-read-scope
+                      apps-write-scope]))
+
 (def default-expires-at [:+ :%now [:interval "10 minutes"]])
 
 (defn satisfies-scope? [scopes scope]
