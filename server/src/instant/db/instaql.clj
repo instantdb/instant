@@ -23,7 +23,7 @@
    [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
-   [instant.system-catalog :refer [all-attrs] :rename {all-attrs $system-attrs}]
+   [instant.system-catalog :as system-catalog]
    [medley.core :refer [update-existing-in]]
    [instant.storage.s3 :as instant-s3])
   (:import
@@ -936,27 +936,43 @@
                     (assoc :join-attr-pat join-attr-pat))]
       form')))
 
-(defn find-row-by-ident-name [rows attrs etype label]
-  (let [aid (attr-model/resolve-attr-id attrs etype label)]
-    (->> rows
-         (filter #(= aid (second (first %))))
-         first)))
+(defn find-row-by-aid [rows aid]
+  (->> rows
+       (filter #(= aid (second (first %))))
+       first))
 
-(defn compute-$files-triples [{:keys [app-id]} join-rows]
-  (when-let [[eid _ _ t] (ffirst join-rows)]
-    (let [location-id (some-> (find-row-by-ident-name
-                               join-rows
-                               $system-attrs
-                               "$files"
-                               "location-id")
-                              first
-                              (nth 2))
-          url-aid (attr-model/resolve-attr-id $system-attrs "$files" "url")
-          url (instant-s3/create-signed-download-url! app-id location-id)]
-      [[[eid url-aid url t]]])))
+(def $file-location-id-attr-id (system-catalog/get-attr-id "$files" "location-id"))
+(def $file-url-attr-id (system-catalog/get-attr-id "$files" "url"))
 
-(def compute-triples-handler
-  {"$files" compute-$files-triples})
+(defn- add-url-to-join-rows [join-rows {:keys [app-id]}]
+  (let [[eid _ _ t] (ffirst join-rows)
+        location-id (some-> (find-row-by-aid join-rows $file-location-id-attr-id)
+                            first
+                            (nth 2))]
+    (if-not (and eid location-id)
+      join-rows
+      (conj join-rows
+            [[eid
+              (attr-model/resolve-attr-id system-catalog/all-attrs "$files" "url")
+              (instant-s3/create-signed-download-url! app-id location-id)
+              t]]))))
+
+(defn remove-location-id-from-join-rows  [join-rows]
+  (->> join-rows
+       (remove (fn [row]
+                 (let [first-triple (first row)
+                       [_ aid] first-triple]
+                   (= aid $file-location-id-attr-id))))))
+
+(defn transform-$files-result [ctx form result]
+  (let [fields (some-> form :option-map :fields set)
+        asked-for-url? (or (not fields)
+                           (contains? fields "url"))
+        did-not-ask-for-location-id? (and fields
+                                          (not (contains? fields "location-id")))]
+    (cond-> result
+      asked-for-url? (update :join-rows add-url-to-join-rows ctx)
+      did-not-ask-for-location-id? (update :join-rows remove-location-id-from-join-rows))))
 
 (defn collect-query-results
   "Takes the datalog result from a nested query and the forms to constructs the
@@ -968,14 +984,11 @@
           (let [nodes (map (fn [child]
                              (add-children
                               (make-node {:datalog-query (:datalog-query (first child))
-                                          :datalog-result (let [result (:result (first child))
-                                                                compute-fn (get compute-triples-handler (:etype form))]
-                                                            (cond-> result
-                                                              ;; Add computed triples
-                                                              compute-fn
-                                                              (update :join-rows
-                                                                      (fn [rows]
-                                                                        (reduce conj rows (compute-fn ctx rows))))))})
+                                          :datalog-result (let [result (:result (first child))]
+                                                            (if (= (:etype form) "$files")
+                                                              (transform-$files-result ctx form result)
+                                                              result))})
+
                               (collect-query-results ctx (first (:children (first child)))
                                                      (:child-forms form))))
                            (:children child))]
@@ -1020,17 +1033,22 @@
 
 (defn etype-attr-ids [{:keys [attrs]} etype fields]
   (if fields
-    (reduce (fn [acc field]
-              (let [attr (attr-model/seek-by-fwd-ident-name
-                          [etype field]
-                          attrs)]
-                (if (= :one (:cardinality attr))
-                  (conj acc (:id attr))
-                  acc)))
-            #{}
-            ;; Make sure we give them the id or else the client
-            ;; won't be able to find the entity
-            (conj fields "id"))
+    (let [attr-ids (reduce (fn [acc field]
+                             (let [attr (attr-model/seek-by-fwd-ident-name
+                                         [etype field]
+                                         attrs)]
+                               (if (= :one (:cardinality attr))
+                                 (conj acc (:id attr))
+                                 acc)))
+                           #{}
+                           ;; Make sure we give them the id or else the client
+                           ;; won't be able to find the entity
+                           (conj fields "id"))]
+      (if (contains? attr-ids $file-url-attr-id)
+        ;; If the user asked for the url, we need to make sure to 
+        ;; include `location-id` too; we use location-id to generate the url.
+        (conj attr-ids $file-location-id-attr-id)
+        attr-ids))
     (attr-model/ea-ids-for-etype etype attrs)))
 
 (defn- query-one
@@ -1915,20 +1933,20 @@
                  {:program program
                   :result
                   (let [em (io/warn-io :instaql/entity-map
-                             (entity-map ctx query-cache etype eid))
+                                       (entity-map ctx query-cache etype eid))
                         ctx (assoc ctx :preloaded-refs preloaded-refs)
                         res  (io/warn-io :instaql/eval-program
-                               (cel/eval-program!
-                                program
-                                {"ruleParams" (cel/->cel-map {} rule-params)
-                                 "auth" (cel/->cel-map {:ctx ctx
-                                                        :type :auth
-                                                        :etype "$users"}
-                                                       current-user)
-                                 "data" (cel/->cel-map {:ctx ctx
-                                                        :type :data
-                                                        :etype etype}
-                                                       em)}))]
+                                         (cel/eval-program!
+                                          program
+                                          {"ruleParams" (cel/->cel-map {} rule-params)
+                                           "auth" (cel/->cel-map {:ctx ctx
+                                                                  :type :auth
+                                                                  :etype "$users"}
+                                                                 current-user)
+                                           "data" (cel/->cel-map {:ctx ctx
+                                                                  :type :data
+                                                                  :etype etype}
+                                                                 em)}))]
                     (when-let [rule-where (get rule-wheres etype)]
                       (when (and (not res)
                                  ;; TODO(dww): remove check once we've figured
