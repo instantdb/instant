@@ -5,7 +5,7 @@
    
    Why not use the Java SDK directly to generate presigned URLs? 
      We need a way to set the signing time. 
-     A consistent signing-time gives us stable URLs, which browsers can cache. 
+     A consistent signing-time gives us stable URLs which browsers can cache. 
    
    This code was originally imported from clj-aws-sign [2]
 
@@ -45,7 +45,7 @@
 (defn- ->canonical-path-str
   "The `CanonicalURI` part of a CanonicalRequest string. 
    
-   Note, the amazon calls this a `CanonnicalURI`, it is in fact _just_ 
+   Note, though Amazon calls this a `CanonicalURI`, it is in fact _just_ 
    the path component of a URI. 
 
    Rules: 
@@ -110,7 +110,7 @@
   "Generates the `HashedPayload` part of a CanonicalRequest string.
   
    Rules: 
-    Hex(SHA256Hash(<payload>>)) 
+    Hex(SHA256Hash(<payload>)) 
    
     For Amazon S3, include the literal string UNSIGNED-PAYLOAD 
     when constructing a canonical request, and set the same value as the x-amz-content-sha256 
@@ -139,13 +139,12 @@
   "To create a signature, we first generate a CanonicalRequest string 
  
   
-   A `CanonicalRequest` is a deterministic string represenation of your 
+   A `CanonicalRequest` is a deterministic string representation of your 
    request. We format and sort it in the same way that AWS will.
   
    We use this string as an input to generate our signature. 
    
-   A CanonicalRequest looks like: 
-
+   Rules: 
     <HTTPMethod>\n
     <CanonicalURI>\n
     <CanonicalQueryString>\n
@@ -185,7 +184,7 @@
   "Generates a `CredentialScope`. 
    This restricts credentials to a specific region and service
   
-  Rules: 
+   Rules: 
     YYYYMMDD/region/service/aws4_request"
   [{:keys [signing-instant region service] :as _sig-request}]
   (str (instant->amz-short-date signing-instant) "/" region "/" service "/aws4_request"))

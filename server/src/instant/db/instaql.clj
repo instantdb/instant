@@ -953,7 +953,7 @@
       join-rows
       (conj join-rows
             [[eid
-              (attr-model/resolve-attr-id system-catalog/all-attrs "$files" "url")
+              $file-url-attr-id
               (instant-s3/create-signed-download-url! app-id location-id)
               t]]))))
 
