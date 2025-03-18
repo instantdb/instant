@@ -1031,10 +1031,6 @@
            :referenced-etypes #{}}
           query-one-results))
 
-(defn asked-for-$files-url? [etype fields]
-  (and (= etype "$files")
-       (contains? (set fields) "url")))
-
 (defn etype-attr-ids [{:keys [attrs]} etype fields]
   (if fields
     (let [attr-ids (reduce (fn [acc field]
