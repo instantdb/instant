@@ -1272,4 +1272,4 @@
                                                             :job_type "index"}))]
           (println "Updated" (+ total update-count) "for" (str "app_id=" (:app_id attr)) (str "attr_id=" (:id attr)))
           (when (pos? update-count)
-            (recur (+ total update-count))))))))
+            (recur (long (+ total update-count)))))))))

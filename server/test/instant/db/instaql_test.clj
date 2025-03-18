@@ -4239,7 +4239,7 @@
         (with-redefs
          [aws-sig/presign-s3-url (fn [{:keys [path]}]
                                    (str "https://s3-redefed-url-for.aws.com/"
-                                        (last (.split path "/"))))]
+                                        (last (String/.split path "/"))))]
 
           (testing "full results"
             (is (= [expected-file]
