@@ -226,6 +226,29 @@
                                            :state (:state redirect)
                                            :scope (clojure.string/join " " (:scopes code-record))}))))
 
+(defn oauth-deny-access [req]
+  (let [redirect-id (ex/get-param! req
+                                   [:params :redirect_id]
+                                   uuid-util/coerce)
+
+        grant-token (ex/get-param! req
+                                   [:params :grant_token]
+                                   uuid-util/coerce)
+        redirect (oauth-app-model/deny-redirect {:redirect-id redirect-id
+                                                 :grant-token grant-token})
+
+        cookie-param (get-in req [:cookies cookie-name :value])
+
+        _ (when (not cookie-param)
+            (ex/throw+ {::ex/type ::ex/param-missing
+                        ::ex/message "Missing cookie."}))
+
+        _ (when (not (crypt-util/constant-uuid= cookie-param (:cookie redirect)))
+            (ex/throw+ {::ex/type ::ex/param-missing
+                        ::ex/message "Invalid cookie."}))]
+    (response/found (url/add-query-params (:redirect_uri redirect)
+                                          {:error "access_denied"}))))
+
 (defn complete-access-token-request
   "Exchanges a code for a new access token and refresh token."
   [oauth-client req-params]
@@ -348,5 +371,6 @@
   (GET "/platform/oauth/start" [] (wrap-cookies oauth-start {:decoder parse-cookie}))
   (POST "/platform/oauth/claim" [] claim-oauth-redirect)
   (POST "/platform/oauth/grant" [] (wrap-cookies oauth-grant-access {:decoder parse-cookie}))
+  (POST "/platform/oauth/deny" [] (wrap-cookies oauth-deny-access {:decoder parse-cookie}))
   (POST "/platform/oauth/token" [] oauth-token)
   (POST "/platform/oauth/revoke" [] revoke-oauth-token))

@@ -116,7 +116,17 @@ function OAuthForm({ redirectId }: { redirectId: string }) {
           </Button>
         </form>
 
-        <Button variant="secondary">Deny</Button>
+        <form
+          className="flex flex-col"
+          action={`${config.apiURI}/platform/oauth/deny`}
+          method="POST"
+        >
+          <input type="hidden" name="redirect_id" value={redirectId} />
+          <input type="hidden" name="grant_token" value={data.grantToken} />
+          <Button variant="secondary" type="submit">
+            Deny access
+          </Button>
+        </form>
       </div>
     </div>
   );
