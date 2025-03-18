@@ -246,7 +246,6 @@
                                                    (or authorized-redirect-urls [])
                                                    :text]}]
               :returning :*}
-           _ (tool/def-locals)
            client-res (sql/execute-one! ::create-client tx-conn (hsql/format q))
            secret-res (create-client-secret tx-conn {:client-id client-id
                                                      :client-secret client-secret})]
@@ -278,7 +277,6 @@
                       :app-tos-link app-tos-link
                       :app-logo app-logo}]
             :returning :*}]
-     (tool/def-locals)
      (sql/execute-one! ::create-app conn (hsql/format q)))))
 
 (defn create-redirect
@@ -306,9 +304,9 @@
                       :status [:cast "init"
                                :instant_oauth_app_redirect_status]
                       :expires-at default-expires-at}]}]
-     (sql/execute! ::create-redirect
-                   conn
-                   (hsql/format q)))))
+     (sql/do-execute! ::create-redirect
+                      conn
+                      (hsql/format q)))))
 
 (defn assert-not-expired! [record record-type]
   (let [^Timestamp expires (:expires_at record)
@@ -345,7 +343,6 @@
          record (sql/execute-one! ::claim-redirect
                                   conn
                                   (hsql/format q))]
-     (tool/def-locals)
      (-> record
          (ex/assert-record! :oauth-app-redirect
                             {:args [{:redirect-id redirect-id}]})
@@ -383,8 +380,9 @@
   ([conn {:keys [redirect-id]}]
    (let [lookup-key (crypt-util/uuid->sha256 redirect-id)
          q {:delete-from :instant_oauth_app_redirects
-            :where [:= :lookup-key lookup-key]}]
-     (sql/execute! ::deny-redirect conn (hsql/format q)))))
+            :where [:= :lookup-key lookup-key]
+            :returning :*}]
+     (sql/execute-one! ::deny-redirect conn (hsql/format q)))))
 
 (defn create-code
   ([params]
@@ -433,7 +431,10 @@
                                              [:= :client-id client-id]
                                              [:= :user-id user-id]]
                                      :order-by [[:created-at :desc]]
-                                     :offset refresh-token-limit}]}])))
+                                     :offset refresh-token-limit}]}]
+     (sql/do-execute! ::remove-old-refresh-tokens
+                      conn
+                      (hsql/format q)))))
 
 (defn new-token [type]
   (case type
@@ -545,19 +546,19 @@
   ([params]
    (revoke-refresh-token (aurora/conn-pool :write) params))
   ([conn {:keys [token]}]
-   (sql/execute! ::revoke-refresh-token
-                 conn
-                 (hsql/format {:delete-from :instant_user_oauth_refresh_tokens
-                               :where [:= :lookup-key (crypt-util/str->sha256 token)]}))))
+   (sql/do-execute! ::revoke-refresh-token
+                    conn
+                    (hsql/format {:delete-from :instant_user_oauth_refresh_tokens
+                                  :where [:= :lookup-key (crypt-util/str->sha256 token)]}))))
 
 (defn revoke-access-token
   ([params]
    (revoke-access-token (aurora/conn-pool :write) params))
   ([conn {:keys [token]}]
-   (sql/execute! ::revoke-access-token
-                 conn
-                 (hsql/format {:delete-from :instant_user_oauth_access_tokens
-                               :where [:= :lookup-key (crypt-util/str->sha256 token)]}))))
+   (sql/do-execute! ::revoke-access-token
+                    conn
+                    (hsql/format {:delete-from :instant_user_oauth_access_tokens
+                                  :where [:= :lookup-key (crypt-util/str->sha256 token)]}))))
 
 
 ;; DDD: Clean out old data (e.g. expired tokens)

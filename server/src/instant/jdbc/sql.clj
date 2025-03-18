@@ -300,7 +300,13 @@
                   (apply-postgres-config postgres-config# create-connection?# c#)
                   (with-open [ps# (next-jdbc/prepare c# query# opts#)
                               _cleanup# (register-in-progress create-connection?# ~rw c# ps#)]
-                    (~query-fn ps# nil opts#))
+                    (let [res# (~query-fn ps# nil opts#)]
+                      (when (false? (:return-keys opts#))
+                        (tracer/add-data! {:attributes
+                                           {:update-count (-> res#
+                                                              first
+                                                              :next.jdbc/update-count)}}))
+                      res#))
                   (finally
                     ;; Don't close the connection if a java.sql.Connection was
                     ;; passed in, or we'll end transactions before they're done.

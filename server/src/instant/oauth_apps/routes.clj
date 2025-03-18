@@ -27,6 +27,12 @@
 ;; https://developers.google.com/identity/protocols/oauth2/web-server#uri-validation
 
 (defn oauth-start [req]
+  (tracer/add-data! {:attributes (select-keys (:params req)
+                                              [:client_id
+                                               :redirect_uri
+                                               :reponse_type
+                                               :scope
+                                               :code_challenge_method])})
   (let [client-id (ex/get-param! req
                                  [:params :client_id]
                                  uuid-util/coerce)
@@ -84,6 +90,9 @@
          oauth-client :instant_oauth_app_clients}
         (oauth-app-model/get-client-and-app-by-client-id! {:client-id client-id})
 
+        _ (tracer/add-data! {:attributes {:oauth-app-id (:id oauth-app)
+                                          :oauth-app-app-id (:app_id oauth-app)}})
+
         _ (ex/assert-valid!
            :scope
            scope-input
@@ -117,19 +126,17 @@
                                            (* 1000 60 60)))
         redirect-id (random-uuid)
 
-        redirect (oauth-app-model/create-redirect {:redirect-id redirect-id
-                                                   :client-id (:client_id oauth-client)
-                                                   :state state
-                                                   :cookie cookie
-                                                   :redirect-uri redirect-uri
-                                                   :scopes requested-scopes
-                                                   :code-challenge-method code-challenge-method
-                                                   :code-challenge code-challenge})
-
         dash-url (url/add-query-params (str (config/dashboard-origin) "/platform/oauth/start")
                                        {:redirect-id redirect-id})]
+    (oauth-app-model/create-redirect {:redirect-id redirect-id
+                                      :client-id (:client_id oauth-client)
+                                      :state state
+                                      :cookie cookie
+                                      :redirect-uri redirect-uri
+                                      :scopes requested-scopes
+                                      :code-challenge-method code-challenge-method
+                                      :code-challenge code-challenge})
 
-    ;; http://localhost:8888/platform/oauth/start?client_id=2637f3ee-095d-4350-a2ad-0f641cc739a7&redirect_uri=http%3A%2F%2Fexample.com&response_type=code&scope=all&state=new-state
     (-> (response/found dash-url)
         (response/set-cookie cookie-name
                              (format-cookie cookie)
@@ -142,6 +149,7 @@
 
 (defn claim-oauth-redirect [req]
   (let [user (req->auth-user! req)
+        _ (tracer/add-data! {:attributes {:user-id (:id user)}})
         redirect-id (ex/get-param! req
                                    [:body :redirect]
                                    uuid-util/coerce)
@@ -151,6 +159,9 @@
         {oauth-app :instant_oauth_apps
          oauth-client :instant_oauth_app_clients}
         (oauth-app-model/get-client-and-app-by-client-id! {:client-id (:client_id redirect)})
+
+        _ (tracer/add-data! {:attributes {:oauth-app-id (:id oauth-app)
+                                          :oauth-app-app-id (:app_id oauth-app)}})
 
         _ (when (and (or (not (:is_public oauth-app))
                          ;; DDD: Maybe we should store this in the redirect instead??
@@ -189,6 +200,10 @@
         {oauth-app :instant_oauth_apps
          oauth-client :instant_oauth_app_clients}
         (oauth-app-model/get-client-and-app-by-client-id! {:client-id (:client_id redirect)})
+
+        _ (tracer/add-data! {:attributes {:oauth-app-id (:id oauth-app)
+                                          :oauth-app-app-id (:app_id oauth-app)
+                                          :oauth-client-id (:client_id oauth-client)}})
 
         cookie-param (get-in req [:cookies cookie-name :value])
 
@@ -287,6 +302,9 @@
                      (some-> content-type
                              (string/starts-with? "application/json"))
                      (:body req))
+        _ (tracer/add-data! {:attributes (select-keys params [:grant_type
+                                                              :client_id])})
+
         client-id (ex/get-param! params
                                  [:client_id]
                                  uuid-util/coerce)
@@ -296,6 +314,7 @@
         oauth-client (oauth-app-model/get-client-by-client-id-and-secret!
                       {:client-id client-id
                        :client-secret client-secret})
+
         grant-type (ex/get-param! params
                                   [:grant_type]
                                   string-util/coerce-non-blank-str)]
