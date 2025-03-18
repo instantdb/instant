@@ -942,21 +942,42 @@
          (filter #(= aid (second (first %))))
          first)))
 
-(defn compute-$files-triples [{:keys [app-id]} join-rows]
-  (when-let [[eid _ _ t] (ffirst join-rows)]
-    (let [location-id (some-> (find-row-by-ident-name
-                               join-rows
-                               $system-attrs
-                               "$files"
-                               "location-id")
-                              first
-                              (nth 2))
-          url-aid (attr-model/resolve-attr-id $system-attrs "$files" "url")
-          url (instant-s3/create-signed-download-url! app-id location-id)]
-      [[[eid url-aid url t]]])))
+(defn- add-url-to-join-rows [join-rows {:keys [app-id]}]
+  (let [[eid _ _ t] (ffirst join-rows)
+        location-id (some-> (find-row-by-ident-name
+                             join-rows
+                             $system-attrs
+                             "$files"
+                             "location-id")
+                            first
+                            (nth 2))]
+    (if-not (and eid location-id)
+      join-rows
+      (conj join-rows
+            [[eid
+              (attr-model/resolve-attr-id $system-attrs "$files" "url")
+              (instant-s3/create-signed-download-url! app-id location-id)
+              t]]))))
 
-(def compute-triples-handler
-  {"$files" compute-$files-triples})
+(defn remove-location-id-from-join-rows  [join-rows]
+  (let [loc-aid (attr-model/resolve-attr-id $system-attrs "$files" "location-id")]
+    (if-not loc-aid
+      join-rows
+      (->> join-rows
+           (remove (fn [row]
+                     (let [first-triple (first row)
+                           [_ aid] first-triple]
+                       (= aid loc-aid))))))))
+
+(defn transform-$files-result [ctx form result]
+  (let [fields (some-> form :option-map :fields set)
+        asked-for-url? (or (not fields)
+                           (contains? fields "url"))
+        did-not-ask-for-location-id? (and fields
+                                          (not (contains? fields "location-id")))]
+    (cond-> result
+      asked-for-url? (update :join-rows add-url-to-join-rows ctx)
+      did-not-ask-for-location-id? (update :join-rows remove-location-id-from-join-rows))))
 
 (defn collect-query-results
   "Takes the datalog result from a nested query and the forms to constructs the
@@ -968,14 +989,11 @@
           (let [nodes (map (fn [child]
                              (add-children
                               (make-node {:datalog-query (:datalog-query (first child))
-                                          :datalog-result (let [result (:result (first child))
-                                                                compute-fn (get compute-triples-handler (:etype form))]
-                                                            (cond-> result
-                                                              ;; Add computed triples
-                                                              compute-fn
-                                                              (update :join-rows
-                                                                      (fn [rows]
-                                                                        (reduce conj rows (compute-fn ctx rows))))))})
+                                          :datalog-result (let [result (:result (first child))]
+                                                            (if (= (:etype form) "$files")
+                                                              (transform-$files-result ctx form result)
+                                                              result))})
+
                               (collect-query-results ctx (first (:children (first child)))
                                                      (:child-forms form))))
                            (:children child))]
@@ -1018,19 +1036,29 @@
            :referenced-etypes #{}}
           query-one-results))
 
+(defn asked-for-$files-url? [etype fields]
+  (and (= etype "$files")
+       (contains? (set fields) "url")))
+
 (defn etype-attr-ids [{:keys [attrs]} etype fields]
   (if fields
-    (reduce (fn [acc field]
-              (let [attr (attr-model/seek-by-fwd-ident-name
-                          [etype field]
-                          attrs)]
-                (if (= :one (:cardinality attr))
-                  (conj acc (:id attr))
-                  acc)))
-            #{}
-            ;; Make sure we give them the id or else the client
-            ;; won't be able to find the entity
-            (conj fields "id"))
+    (let [fields' (cond-> fields
+                    ;; Make sure we give them the id or else the client
+                    ;; won't be able to find the entity
+                    true (conj "id")
+                    ;; we need the `location-id` in order to compute the url
+                    (asked-for-$files-url? etype fields)
+                    (conj "location-id"))]
+
+      (reduce (fn [acc field]
+                (let [attr (attr-model/seek-by-fwd-ident-name
+                            [etype field]
+                            attrs)]
+                  (if (= :one (:cardinality attr))
+                    (conj acc (:id attr))
+                    acc)))
+              #{}
+              fields'))
     (attr-model/ea-ids-for-etype etype attrs)))
 
 (defn- query-one
@@ -1915,20 +1943,20 @@
                  {:program program
                   :result
                   (let [em (io/warn-io :instaql/entity-map
-                             (entity-map ctx query-cache etype eid))
+                                       (entity-map ctx query-cache etype eid))
                         ctx (assoc ctx :preloaded-refs preloaded-refs)
                         res  (io/warn-io :instaql/eval-program
-                               (cel/eval-program!
-                                program
-                                {"ruleParams" (cel/->cel-map {} rule-params)
-                                 "auth" (cel/->cel-map {:ctx ctx
-                                                        :type :auth
-                                                        :etype "$users"}
-                                                       current-user)
-                                 "data" (cel/->cel-map {:ctx ctx
-                                                        :type :data
-                                                        :etype etype}
-                                                       em)}))]
+                                         (cel/eval-program!
+                                          program
+                                          {"ruleParams" (cel/->cel-map {} rule-params)
+                                           "auth" (cel/->cel-map {:ctx ctx
+                                                                  :type :auth
+                                                                  :etype "$users"}
+                                                                 current-user)
+                                           "data" (cel/->cel-map {:ctx ctx
+                                                                  :type :data
+                                                                  :etype etype}
+                                                                 em)}))]
                     (when-let [rule-where (get rule-wheres etype)]
                       (when (and (not res)
                                  ;; TODO(dww): remove check once we've figured
